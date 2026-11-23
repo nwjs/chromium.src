@@ -71,6 +71,7 @@ source_set("publishers") {
     ]
 
     deps += [
+      "//ash/constants",
       "//ash/strings:strings_grit",
       "//chrome/app/theme:chrome_unscaled_resources_grit",
       "//chrome/browser:browser_process",
@@ -106,6 +107,7 @@ source_set("publishers") {
       "//chromeos/ash/experiences/arc/intent_helper:arc_intent_helper_constants",
       "//chromeos/ash/experiences/arc/privacy_items",
       "//chromeos/ash/experiences/arc/session",
+      "//chromeos/ash/experiences/extensions/common",
       "//components/app_constants",
     ]
 
@@ -181,9 +183,5 @@ source_set("unit_tests") {
       "//chromeos/ash/experiences/arc:notification_test_support",
       "//chromeos/ash/experiences/arc/privacy_items",
     ]
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 }

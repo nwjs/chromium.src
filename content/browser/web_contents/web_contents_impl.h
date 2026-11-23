@@ -18,6 +18,7 @@
 
 #include "base/auto_reset.h"
 #include "base/callback_list.h"
+#include "base/cancelable_callback.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/callback_helpers.h"
 #include "base/functional/function_ref.h"
@@ -1096,7 +1097,6 @@ class CONTENT_EXPORT WebContentsImpl
   void OnStartDragging(
       DropData* drop_data,
       const GlobalRenderFrameHostToken& source_rfh_token) override;
-  void OnDragSourceEnded() override;
   void DidFinishNavigation(NavigationHandle* navigation_handle) override;
   void DidCancelNavigationBeforeStart(
       NavigationHandle* navigation_handle) override;
@@ -1249,7 +1249,7 @@ class CONTENT_EXPORT WebContentsImpl
   ui::mojom::WindowShowState GetWindowShowState() override;
   DevicePostureProviderImpl* GetDevicePostureProvider() override;
   bool GetResizable() override;
-  bool GetIsAlwaysOnTop() override;
+  bool GetIsAlwaysOnTopPopup() override;
   void LostPointerLock(RenderWidgetHostImpl* render_widget_host) override;
   bool IsPointerLockSandboxedForWidget(
       RenderWidgetHostImpl* render_widget_host) override;
@@ -2952,7 +2952,7 @@ class CONTENT_EXPORT WebContentsImpl
   // The window open disposition that was originally requested
   // when this WebContents was created.
   WindowOpenDisposition original_window_open_disposition_ =
-      WindowOpenDisposition::UNKNOWN;
+      WindowOpenDisposition::kUnknown;
 
 #if BUILDFLAG(IS_ANDROID)
   bool supports_forward_transition_animation_ = true;
@@ -2963,13 +2963,6 @@ class CONTENT_EXPORT WebContentsImpl
   // preparing to swap frames. Notably, this will be true while dispatching
   // RenderFrameHostChanged() and RenderViewHostChanged() events.
   bool is_swapping_render_frame_hosts_ = false;
-
-  void SetDragSource(const DragId& drag_id,
-                     const GlobalRenderFrameHostToken& source_rfh_token);
-
-
-  std::optional<DragId> active_drag_id_;
-
   const UniqueToken web_contents_token_;
   std::optional<base::trace_event::TrackRegistration<perfetto::StateTrack>>
       tracing_track_;
@@ -2978,7 +2971,11 @@ class CONTENT_EXPORT WebContentsImpl
 
   bool opt_out_frame_eviction_ = false;
 
-  bool color_related_state_change_scheduled_ = false;
+  // Pending task posted by `ScheduleColorRelatedStateChanges()`.
+  base::CancelableOnceClosure scheduled_color_related_state_change_;
+
+  // True while `SetColorProviderSource()` is updating the observed source.
+  bool is_setting_color_provider_source_ = false;
 
   base::WeakPtrFactory<WebContentsImpl> loading_weak_factory_{this};
   base::WeakPtrFactory<WebContentsImpl> weak_factory_{this};

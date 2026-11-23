@@ -31,6 +31,7 @@
 #include "ash/accessibility/magnifier/fullscreen_magnifier_controller.h"
 #include "ash/accessibility/magnifier/partial_magnifier_controller.h"
 #include "ash/accessibility/mouse_keys/mouse_keys_controller.h"
+#include "ash/accessibility/mouse_locator/mouse_shake_to_locate_controller.h"
 #include "ash/accessibility/sticky_keys/sticky_keys_controller.h"
 #include "ash/accessibility/ui/accessibility_focus_ring_controller_impl.h"
 #include "ash/ambient/ambient_controller.h"
@@ -60,7 +61,6 @@
 #include "ash/detachable_base/detachable_base_notification_controller.h"
 #include "ash/display/cros_display_config.h"
 #include "ash/display/cursor_window_controller.h"
-#include "ash/display/display_alignment_controller.h"
 #include "ash/display/display_color_manager.h"
 #include "ash/display/display_configuration_controller.h"
 #include "ash/display/display_configuration_observer.h"
@@ -827,7 +827,6 @@ Shell::~Shell() {
   cros_display_config_.reset();
   display_configuration_observer_.reset();
   display_prefs_.reset();
-  display_alignment_controller_.reset();
 
   // Remove the focus from any window and set ShutdowFocusRules. This will
   // prevent overhead and side effects (e.g. crashes) from changing focus
@@ -875,6 +874,11 @@ Shell::~Shell() {
   // Resets the text context menu implementation factory.
   views::ViewsTextServicesContextMenuChromeos::SetImplFactory(
       base::NullCallback());
+
+  // Cancel any active or pending Alt+Tab window cycling before closing app
+  // windows and resetting `event_rewriter_controller_`, which
+  // `WindowCycleList::~WindowCycleList()` depends on.
+  window_cycle_controller_->CancelCycling();
 
   // Close and destroy all application windows here, so that the window manager
   // related objects, which app windows relies on, can be sefely deleted.
@@ -932,6 +936,8 @@ Shell::~Shell() {
   AccelerometerReader::GetInstance()->StopListenToTabletModeController();
 
   ambient_controller_.reset();
+
+  mouse_shake_to_locate_controller_.reset();
 
   // Because this function will call |TabletModeController::RemoveObserver|, do
   // it before destroying |tablet_mode_controller_|.
@@ -1686,6 +1692,11 @@ void Shell::Init(
   mouse_keys_controller_ = std::make_unique<MouseKeysController>();
   AddPreTargetHandler(mouse_keys_controller_.get());
 
+  if (::features::IsAccessibilityShakeToLocateEnabled()) {
+    mouse_shake_to_locate_controller_ =
+        std::make_unique<MouseShakeToLocateController>();
+  }
+
   color_enhancement_controller_ =
       std::make_unique<ColorEnhancementController>();
 
@@ -1825,15 +1836,8 @@ void Shell::Init(
   // is started.
   display_manager_->CreateMirrorWindowAsyncIfAny();
 
-  // TODO(1091497): Consider combining DisplayHighlightController and
-  // DisplayAlignmentController.
   display_highlight_controller_ =
       std::make_unique<DisplayHighlightController>();
-
-  if (features::IsDisplayAlignmentAssistanceEnabled()) {
-    display_alignment_controller_ =
-        std::make_unique<DisplayAlignmentController>();
-  }
 
   if (features::AreAnyGlanceablesTimeManagementViewsEnabled()) {
     glanceables_controller_ = std::make_unique<GlanceablesController>();

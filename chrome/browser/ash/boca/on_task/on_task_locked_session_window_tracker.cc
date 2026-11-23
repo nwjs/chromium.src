@@ -22,8 +22,9 @@
 #include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
 #include "chrome/browser/ash/boca/on_task/on_task_pod_controller_impl.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/chromeos/locked_state/locked_state_controller.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/common/chrome_features.h"
 #include "chromeos/ash/components/boca/boca_metrics_util.h"
 #include "chromeos/ash/components/boca/boca_role_util.h"
 #include "chromeos/ash/components/boca/boca_window_observer.h"
@@ -34,7 +35,6 @@
 #include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
-#include "chromeos/ui/base/window_properties.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
 #include "content/public/browser/browser_thread.h"
@@ -141,12 +141,20 @@ void LockedSessionWindowTracker::MaybeCloseBrowser(
     // Same instance as the one being tracked. Skip close.
     return;
   }
-  if (!browser_ &&
-      ash::boca::OnTaskLockedController::From(&browser->GetBrowser())
-          ->is_locked_for_on_task()) {
+  if (!browser_) {
     // New instance that has been prepared for OnTask but is not being tracked
     // yet. Skip close because it is a managed instance.
-    return;
+    if (::features::IsUseUnifiedLockedStateControllerEnabled()) {
+      if (chromeos::LockedStateController::From(&browser->GetBrowser())
+              ->IsLockedForOnTask()) {
+        return;
+      }
+    } else {
+      if (ash::boca::OnTaskLockedController::From(&browser->GetBrowser())
+              ->is_locked_for_on_task()) {
+        return;
+      }
+    }
   }
   if (browser->GetType() == ash::BrowserType::kAppPopup && oauth_in_progress_ &&
       browser == authorized_oauth_browser_) {
@@ -205,10 +213,7 @@ void LockedSessionWindowTracker::OnPauseModeChanged(bool paused) {
   // Immersive mode is disabled when in pause mode to ensure users cannot switch
   // tabs. We keep the window property always set to restore the window to its
   // previously intended state.
-  browser_->GetNativeWindow()->SetProperty(
-      chromeos::kUseImmersiveInTrustedPinned, !paused);
-  BrowserView::GetBrowserViewForBrowser(&browser_->GetBrowser())
-      ->FullscreenStateChanged();
+  browser_->SetImmersiveAllowedWhileTrustedPinned(!paused);
 }
 
 void LockedSessionWindowTracker::set_can_start_navigation_throttle(

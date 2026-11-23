@@ -5,6 +5,7 @@
 #include "net/quic/quic_session_pool_async_dns_job.h"
 
 #include <algorithm>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -84,6 +85,15 @@ QuicSessionPool::AsyncDnsJob::UsableEndpoint&
 QuicSessionPool::AsyncDnsJob::UsableEndpoint::operator=(UsableEndpoint&&) =
     default;
 
+bool QuicSessionPool::AsyncDnsJob::Candidate::operator==(
+    const Candidate& other) const {
+  return std::tie(ip_endpoint, quic_version, metadata.ech_config_list,
+                  metadata.trust_anchor_ids) ==
+         std::tie(other.ip_endpoint, other.quic_version,
+                  other.metadata.ech_config_list,
+                  other.metadata.trust_anchor_ids);
+}
+
 QuicSessionPool::AsyncDnsJob::AttemptParams::AttemptParams() = default;
 QuicSessionPool::AsyncDnsJob::AttemptParams::~AttemptParams() = default;
 
@@ -156,7 +166,11 @@ int QuicSessionPool::AsyncDnsJob::Run(CompletionOnceCallback callback) {
 
 void QuicSessionPool::AsyncDnsJob::SetRequestExpectations(
     QuicSessionRequest* request) {
-  if (last_attempt_failure_.has_value()) {
+  if (no_matching_alpn_signaled_) {
+    // No QUIC endpoint can become usable before DNS finishes, so let the new
+    // request's caller stop waiting on this job right away.
+    request->set_last_attempt_failure(ERR_DNS_NO_MATCHING_SUPPORTED_ALPN);
+  } else if (last_attempt_failure_.has_value()) {
     request->set_last_attempt_failure(last_attempt_failure_->rv);
   }
   if (!host_resolution_notified_) {
@@ -251,6 +265,14 @@ void QuicSessionPool::AsyncDnsJob::OnServiceEndpointsUpdated() {
 
   std::optional<int> rv = ProcessServiceEndpointResults();
   if (!rv.has_value()) {
+    if (FreshEndpointsLackRequiredAlpn()) {
+      // No QUIC endpoint can become usable before DNS finishes. Unblock the
+      // waiting non-QUIC jobs now, but keep the job and its resolver request
+      // alive until DNS finishes so that they can join the in-flight
+      // resolution instead of starting a new one.
+      SignalNoMatchingAlpn();
+      return;
+    }
     if (!host_resolution_notified_ && LastFailureResult().has_value()) {
       NotifyRequestsOfHostResolution(*LastFailureResult());
     }
@@ -438,15 +460,18 @@ QuicSessionPool::AsyncDnsJob::TakeNextCandidate(
   }
 
   // While the secondary slot is empty the primary connector may use both
-  // families, and every visible IPv6 candidate ranks above any IPv4 one.
-  // Once both slots are filled the primary takes IPv6 and the secondary
-  // takes IPv4 while DNS resolution is in flight. Once DNS resolution
-  // finishes, connectors may attempt the other family's remaining candidates
-  // if their preferred family is exhausted.
+  // families, starting with IPv6 and alternating families on each failed
+  // attempt. Once both slots are filled the primary takes IPv6 and the
+  // secondary takes IPv4 while DNS resolution is in flight. Once DNS
+  // resolution finishes, connectors may attempt the other family's remaining
+  // candidates if their preferred family is exhausted.
+  CHECK(&connector == state.primary_connector.get() ||
+        &connector == state.secondary_connector.get());
   const bool slots_are_exclusive =
       state.secondary_connector != nullptr && !resolution_finished_;
-  const bool takes_ipv6 = &connector == state.primary_connector.get();
-  CHECK(takes_ipv6 || &connector == state.secondary_connector.get());
+  const bool takes_ipv6 = state.secondary_connector
+                              ? &connector == state.primary_connector.get()
+                              : state.prefer_ipv6;
 
   const std::vector<UsableEndpoint>& usable_endpoints = GetUsableEndpoints();
   for (bool ipv6 : {takes_ipv6, !takes_ipv6}) {
@@ -473,8 +498,13 @@ QuicSessionPool::AsyncDnsJob::TakeNextCandidate(
 }
 
 void QuicSessionPool::AsyncDnsJob::OnAttemptFailed(
+    const EndpointConnector& connector,
     int rv,
     const NetErrorDetails& details) {
+  ConnectionState& state = GetState(connector);
+  CHECK(&connector == state.primary_connector.get() ||
+        &connector == state.secondary_connector.get());
+  state.prefer_ipv6 = !connector.is_attempting_ipv6();
   last_attempt_failure_ = AttemptFailure{rv, details};
 }
 
@@ -855,6 +885,35 @@ bool QuicSessionPool::AsyncDnsJob::HasAttemptInFlight() const {
           stale_state_.secondary_connector->has_attempt_in_flight());
 }
 
+bool QuicSessionPool::AsyncDnsJob::FreshEndpointsLackRequiredAlpn() const {
+  return require_dns_https_alpn_ && service_endpoint_request_ &&
+         service_endpoint_request_->EndpointsCryptoReady() &&
+         !service_endpoint_request_->IsStaleWhileRefreshing() &&
+         !service_endpoint_request_->GetEndpointResults().empty() &&
+         GetUsableEndpoints().empty();
+}
+
+void QuicSessionPool::AsyncDnsJob::SignalNoMatchingAlpn() {
+  if (no_matching_alpn_signaled_) {
+    return;
+  }
+  no_matching_alpn_signaled_ = true;
+  MaybeSetDnsResolutionEndTime();
+
+  auto weak_this = weak_factory_.GetWeakPtr();
+  if (!host_resolution_notified_) {
+    NotifyRequestsOfHostResolution(ERR_DNS_NO_MATCHING_SUPPORTED_ALPN);
+    if (!weak_this) {
+      return;
+    }
+  }
+  // Requests are promised the session creation signal only when
+  // kAsyncQuicSession is enabled. See SetRequestExpectations().
+  if (!session_creation_notified_ &&
+      base::FeatureList::IsEnabled(features::kAsyncQuicSession)) {
+    NotifyRequestsOfSessionCreation(ERR_DNS_NO_MATCHING_SUPPORTED_ALPN);
+  }
+}
 
 std::optional<int> QuicSessionPool::AsyncDnsJob::LastFailureResult() const {
   if (!last_attempt_failure_.has_value()) {

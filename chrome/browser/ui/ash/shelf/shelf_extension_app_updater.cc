@@ -6,7 +6,6 @@
 
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ash/extensions/gfx_utils.h"
-#include "chrome/browser/profiles/profile.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_util.h"
 #include "extensions/browser/unloaded_extension_reason.h"
@@ -78,7 +77,7 @@ void ShelfExtensionAppUpdater::OnExtensionUninstalled(
 
 void ShelfExtensionAppUpdater::OnShutdown(
     extensions::ExtensionRegistry* registry) {
-  DCHECK_EQ(extension_registry_, registry);
+  CHECK_EQ(extension_registry_, registry, base::NotFatalUntil::M162);
   StopObservingExtensionRegistry();
 }
 
@@ -101,7 +100,7 @@ void ShelfExtensionAppUpdater::OnPackageRemoved(const std::string& package_name,
 }
 
 void ShelfExtensionAppUpdater::StartObservingExtensionRegistry() {
-  DCHECK(!extension_registry_);
+  CHECK(!extension_registry_, base::NotFatalUntil::M162);
   extension_registry_ = extensions::ExtensionRegistry::Get(browser_context());
   extension_registry_->AddObserver(this);
 }

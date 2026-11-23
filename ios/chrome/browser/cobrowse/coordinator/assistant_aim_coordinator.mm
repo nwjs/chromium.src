@@ -4,10 +4,14 @@
 
 #import "ios/chrome/browser/cobrowse/coordinator/assistant_aim_coordinator.h"
 
+#import <memory>
 #import <vector>
 
 #import "base/apple/foundation_util.h"
 #import "base/ios/block_types.h"
+#import "components/contextual_search/contextual_search_session_handle.h"
+#import "components/prefs/pref_service.h"
+#import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/assistant/coordinator/assistant_container_commands.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_delegate.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_detent.h"
@@ -20,19 +24,25 @@
 #import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_util.h"
 #import "ios/chrome/browser/cobrowse/model/ios_contextual_tasks_service_factory.h"
+#import "ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_constants.h"
+#import "ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_recorder.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_ui_constants.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_view_controller.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_input_plate_coordinator.h"
 #import "ios/chrome/browser/composebox/coordinator/composebox_mode_holder.h"
+#import "ios/chrome/browser/composebox/debugger/composebox_debugger_coordinator.h"
+#import "ios/chrome/browser/composebox/debugger/composebox_debugger_event.h"
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/public/composebox_focus_params.h"
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/metrics/model/activity_reporter.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -40,10 +50,13 @@
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/ssl/model/captive_portal_tab_helper.h"
+#import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_filter.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_util.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
@@ -68,6 +81,9 @@
 @end
 
 namespace {
+
+// Default percentage for the Assistant AIM medium detent height.
+constexpr NSInteger kAssistantAIMMediumDetentPercentage = 60;
 
 class AssistantAIMUIStateProvider
     : public CobrowseBrowserAgent::UIStateProvider {
@@ -97,7 +113,9 @@ class AssistantAIMUIStateProvider
   AssistantAIMViewController* _viewController;
   AssistantAIMMediator* _mediator;
   ComposeboxInputPlateCoordinator* _inputPlateCoordinator;
+  ComposeboxDebuggerCoordinator* _debuggerCoordinator;
   ComposeboxModeHolder* _modeHolder;
+  AlertCoordinator* _tabSharingConsentAlertCoordinator;
   std::unique_ptr<AssistantAIMUIStateProvider> _uiStateProvider;
   AssistantContainerDetent _currentDetent;
   BOOL _isHiding;
@@ -108,6 +126,7 @@ class AssistantAIMUIStateProvider
   // Handler for container related interactions.
   __weak id<AssistantContainerCommands> _containerHandler;
   ActivityReporter* _activityReporter;
+  AssistantAIMMetricsRecorder* _metricsRecorder;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
@@ -117,6 +136,7 @@ class AssistantAIMUIStateProvider
   if (self) {
     _activityReporter =
         [[ActivityReporter alloc] initWithDomain:ActivityReportDomainAssistant];
+    _metricsRecorder = [[AssistantAIMMetricsRecorder alloc] init];
   }
   return self;
 }
@@ -139,6 +159,7 @@ class AssistantAIMUIStateProvider
 
   _viewController = [[AssistantAIMViewController alloc] init];
   _viewController.delegate = self;
+  _viewController.metricsRecorder = _metricsRecorder;
 
   _containerHandler = HandlerForProtocol(self.browser->GetCommandDispatcher(),
                                          AssistantContainerCommands);
@@ -147,9 +168,7 @@ class AssistantAIMUIStateProvider
       IOSContextualTasksServiceFactory::GetForProfile(
           self.browser->GetProfile());
 
-  web::WebState::CreateParams params(self.browser->GetProfile());
-  std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
-  AttachTabHelpers(webState.get(), TabHelperFilter::kAssistantAim);
+  std::unique_ptr<web::WebState> webState = [self createWebState];
 
   _mediator = [[AssistantAIMMediator alloc]
              initWithWebState:std::move(webState)
@@ -163,11 +182,25 @@ class AssistantAIMUIStateProvider
                                   self.browser->GetProfile())];
 
   _mediator.delegate = self;
+  _mediator.metricsRecorder = _metricsRecorder;
   _mediator.sceneHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
   _mediator.consumer = _viewController;
   _viewController.mutator = _mediator;
 
+  if (experimental_flags::IsOmniboxDebuggingEnabled()) {
+    _debuggerCoordinator = [[ComposeboxDebuggerCoordinator alloc]
+        initWithBaseViewController:_viewController
+                           browser:self.browser];
+    _debuggerCoordinator.hideOptionsButton = YES;
+    [_debuggerCoordinator start];
+    [_debuggerCoordinator
+        logEvent:[ComposeboxDebuggerEvent
+                     composeboxGeneralEvent:composebox_debugger::event::
+                                                Composebox::kOpened]];
+  }
+
+  CobrowseContext* context = agent ? agent->GetCobrowseContext() : nil;
   _modeHolder = [[ComposeboxModeHolder alloc] init];
   ComposeboxTheme* theme = [[ComposeboxTheme alloc]
       initWithInputPlatePosition:ComposeboxInputPlatePosition::kBottomSheet
@@ -175,6 +208,14 @@ class AssistantAIMUIStateProvider
                            isNTP:NO];
   ComposeboxFocusParams* focusParams = [[ComposeboxFocusParams alloc]
       initWithEntrypoint:ComposeboxEntrypoint::kCobrowse];
+  focusParams.assistantMetricsRecorder = _metricsRecorder;
+  if (context.hasContextualSearchSession) {
+    [focusParams
+        setContextualSearchSession:[context takeContextualSearchSession]];
+  }
+  if (context.attachedTabItems.count > 0) {
+    focusParams.attachedTabItems = [context takeAttachedTabItems];
+  }
   _inputPlateCoordinator = [[ComposeboxInputPlateCoordinator alloc]
       initWithBaseViewController:_viewController
                          browser:self.browser
@@ -182,6 +223,7 @@ class AssistantAIMUIStateProvider
                        URLLoader:_mediator
                            theme:theme
                       modeHolder:_modeHolder];
+  _inputPlateCoordinator.debugLogger = _debuggerCoordinator;
   [_inputPlateCoordinator start];
 
   [_viewController
@@ -189,26 +231,32 @@ class AssistantAIMUIStateProvider
 
   [self dismissSnackbars];
 
-  BOOL showInMinimizedState =
-      shouldStartInMinimized ||
-      base::FeatureList::IsEnabled(kAssistantAimMinimizedState);
-  AssistantContainerDetent targetDetent =
-      showInMinimizedState ? AssistantContainerDetent::kMinimized
-                           : AssistantContainerDetent::kMedium;
-  _currentDetent = targetDetent;
-
   // This must be called AFTER the view controller and its children (like the
   // input plate) are fully set up. This is because the initial layout and
   // percentage updates need to be applied to the fully constructed content.
   // Moving it earlier caused the minimized state to not be correctly applied to
   // the content, leading to wrong UI.
+  [_containerHandler setAssistantContainerMediumDetentPercentage:
+                         kAssistantAIMMediumDetentPercentage];
   [_containerHandler showAssistantContainerWithContent:_viewController
                                               delegate:self];
+
+  BOOL showInMinimizedState =
+      shouldStartInMinimized ||
+      base::FeatureList::IsEnabled(kAssistantAimMinimizedState);
+  AssistantContainerDetent targetDetent =
+      showInMinimizedState ? AssistantContainerDetent::kMinimized
+                           : [self defaultExpandedDetent];
+  _currentDetent = targetDetent;
 
   [_containerHandler
       animateAssistantContainerToDetent:targetDetent
                                duration:0
                                   curve:UIViewAnimationCurveEaseInOut];
+
+  AssistantAimEntrypoint entrypoint =
+      context ? context.entrypoint : AssistantAimEntrypoint::kUnknown;
+  [_metricsRecorder recordSessionStartedWithEntrypoint:entrypoint];
 }
 
 - (void)stop {
@@ -216,14 +264,29 @@ class AssistantAIMUIStateProvider
     return;
   }
   _isStopping = YES;
+  [_metricsRecorder recordSessionEnded];
+  _metricsRecorder = nil;
+
+  [self stopTabSharingConsentAlert];
+
   CobrowseBrowserAgent* agent = CobrowseBrowserAgent::FromBrowser(self.browser);
   if (agent) {
     agent->SetUIStateProvider(nullptr);
+    if (!agent->IsSessionActive()) {
+      agent->SetCobrowseContext(nil);
+    }
   }
   _uiStateProvider.reset();
 
   [_mediator disconnect];
   _mediator = nil;
+
+  [_debuggerCoordinator
+      logEvent:[ComposeboxDebuggerEvent
+                   composeboxGeneralEvent:composebox_debugger::event::
+                                              Composebox::kClosed]];
+  [_debuggerCoordinator stop];
+  _debuggerCoordinator = nil;
 
   [_inputPlateCoordinator stop];
   _inputPlateCoordinator = nil;
@@ -250,16 +313,24 @@ class AssistantAIMUIStateProvider
       [_mediator updateContext];
       if (minimized) {
         _currentDetent = AssistantContainerDetent::kMinimized;
+        [_metricsRecorder
+            recordDetentChanged:AssistantContainerDetent::kMinimized];
       }
 
       AssistantContainerDetent targetDetent = _currentDetent;
+      [_containerHandler setAssistantContainerMediumDetentPercentage:
+                             kAssistantAIMMediumDetentPercentage];
       [_containerHandler showAssistantContainerWithContent:_viewController
                                                   delegate:self];
+      if (targetDetent == AssistantContainerDetent::kMedium) {
+        targetDetent = [self defaultExpandedDetent];
+      }
       // Restore `_currentDetent` in case `showAssistantContainerWithContent:`
       // triggered intermediate layout passes that incorrectly reset it.
       _currentDetent = targetDetent;
 
       [_activityReporter reportActive];
+      [_metricsRecorder recordVisibilityChanged:YES];
 
       [_containerHandler
           animateAssistantContainerToDetent:_currentDetent
@@ -268,8 +339,10 @@ class AssistantAIMUIStateProvider
     }
   } else {
     _isHiding = YES;
+    [self stopTabSharingConsentAlert];
     [self dismissAssistantContainerAnimated:YES completion:nil];
     [_activityReporter reportInactive];
+    [_metricsRecorder recordVisibilityChanged:NO];
   }
 }
 
@@ -291,6 +364,7 @@ class AssistantAIMUIStateProvider
   // Initially the assistant is only hidden, the actual closing happens after
   // the snackbar dismisses and the undo window elapses.
   _isHiding = YES;
+  [_metricsRecorder recordVisibilityChanged:NO];
   __weak __typeof(self) weakSelf = self;
   [self dismissAssistantContainerAnimated:YES
                                completion:^{
@@ -324,6 +398,14 @@ class AssistantAIMUIStateProvider
   }
 }
 
+- (void)assistantAIMViewControllerDidShowKeyboard:
+    (AssistantAIMViewController*)viewController {
+  if (!GetFirstResponderSubview(_viewController.view)) {
+    return;
+  }
+  [self showTabSharingConsentAlertIfNeeded];
+}
+
 - (void)assistantAIMViewControllerDidHideKeyboard:
     (AssistantAIMViewController*)viewController {
 }
@@ -350,6 +432,13 @@ class AssistantAIMUIStateProvider
                                          AssistantContainerDetent::kMinimized,
                                          AssistantContainerDetent::kLarge,
     }];
+    if (_currentDetent == AssistantContainerDetent::kMedium) {
+      _currentDetent = AssistantContainerDetent::kLarge;
+      [_containerHandler
+          animateAssistantContainerToDetent:AssistantContainerDetent::kLarge
+                                   duration:0
+                                      curve:UIViewAnimationCurveEaseInOut];
+    }
     return;
   }
   [_containerHandler
@@ -361,6 +450,112 @@ class AssistantAIMUIStateProvider
 }
 
 #pragma mark - Private
+
+// Returns the default expanded detent for `_viewController`'s current trait
+// collection. `AssistantContainerDetent::kMedium` is not available in iPhone
+// landscape.
+- (AssistantContainerDetent)defaultExpandedDetent {
+  return IsIPhoneLandscapeLayout(_viewController.traitCollection)
+             ? AssistantContainerDetent::kLarge
+             : AssistantContainerDetent::kMedium;
+}
+
+// Returns whether the tab sharing consent alert should be presented.
+- (BOOL)shouldShowTabSharingConsentAlert {
+  if (_tabSharingConsentAlertCoordinator || !self.browser) {
+    return NO;
+  }
+  PrefService* prefs = self.browser->GetProfile()->GetPrefs();
+  return prefs && !prefs->GetBoolean(prefs::kCobrowseTabSharingConsentAccepted);
+}
+
+// Presents the tab sharing consent alert if the user has not yet accepted it.
+- (void)showTabSharingConsentAlertIfNeeded {
+  if (![self shouldShowTabSharingConsentAlert]) {
+    return;
+  }
+  NSString* title = l10n_util::GetNSString(
+      IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_SHORT_TITLE);
+  NSString* message = l10n_util::GetNSString(
+      IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_DESCRIPTION);
+  _tabSharingConsentAlertCoordinator =
+      [[AlertCoordinator alloc] initWithBaseViewController:_viewController
+                                                   browser:self.browser
+                                                     title:title
+                                                   message:message];
+
+  __weak __typeof(self) weakSelf = self;
+  [_tabSharingConsentAlertCoordinator
+      addItemWithTitle:
+          l10n_util::GetNSString(
+              IDS_CONTEXTUAL_TASKS_FIRST_RUN_EXPERIENCE_ACCEPT_BUTTON)
+                action:^{
+                  [weakSelf didAcceptTabSharingConsent];
+                }
+                 style:UIAlertActionStyleDefault
+             preferred:YES
+               enabled:YES];
+  [_tabSharingConsentAlertCoordinator
+      addItemWithTitle:l10n_util::GetNSString(IDS_LEARN_MORE)
+                action:^{
+                  [weakSelf didTapTabSharingConsentLearnMore];
+                }
+                 style:UIAlertActionStyleDefault];
+  [_tabSharingConsentAlertCoordinator start];
+  [_metricsRecorder recordFRENoticeAction:AssistantAimFRENoticeAction::kShown];
+}
+
+// Stops and clears `_tabSharingConsentAlertCoordinator`.
+- (void)stopTabSharingConsentAlert {
+  [_tabSharingConsentAlertCoordinator stop];
+  _tabSharingConsentAlertCoordinator = nil;
+}
+
+// Persists that the user accepted the tab sharing consent alert.
+- (void)didAcceptTabSharingConsent {
+  [_metricsRecorder
+      recordFRENoticeAction:AssistantAimFRENoticeAction::kAccepted];
+  if (self.browser) {
+    PrefService* prefs = self.browser->GetProfile()->GetPrefs();
+    if (prefs) {
+      prefs->SetBoolean(prefs::kCobrowseTabSharingConsentAccepted, true);
+    }
+  }
+  [self stopTabSharingConsentAlert];
+}
+
+// Handles the "Learn more" action from the tab sharing consent alert by
+// collapsing the container and opening the help page in a new tab.
+- (void)didTapTabSharingConsentLearnMore {
+  [_metricsRecorder
+      recordFRENoticeAction:AssistantAimFRENoticeAction::kLearnMoreTapped];
+  [self stopTabSharingConsentAlert];
+  if (!self.browser) {
+    return;
+  }
+  [_containerHandler
+      animateAssistantContainerToDetent:AssistantContainerDetent::kMinimized
+                               duration:kSheetDetentAnimationDuration
+                                  curve:UIViewAnimationCurveEaseInOut];
+  UrlLoadParams params =
+      UrlLoadParams::InNewTab(GURL(kAssistantAIMHelpCenterURL));
+  UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(params);
+}
+
+// Creates the WebState displayed in the sheet, with its tab helpers attached.
+- (std::unique_ptr<web::WebState>)createWebState {
+  web::WebState::CreateParams params(self.browser->GetProfile());
+  std::unique_ptr<web::WebState> webState = web::WebState::Create(params);
+  AttachTabHelpers(webState.get(), TabHelperFilter::kAssistantAim);
+  // The WebState is not in the WebStateList, so the TabLifecycleMediator does
+  // not install the dependencies of its tab helpers. Set the insertion agent
+  // so that the captive portal login page opens in a new tab when the user
+  // taps "Connect" on a captive portal interstitial displayed in the sheet.
+  CaptivePortalTabHelper::FromWebState(webState.get())
+      ->SetTabInsertionBrowserAgent(
+          TabInsertionBrowserAgent::FromBrowser(self.browser));
+  return webState;
+}
 
 // Minimizes the cobrowse container and opens the specified URL.
 - (void)minimizeAndOpenURL:(const GURL&)URL {
@@ -426,6 +621,23 @@ class AssistantAIMUIStateProvider
   [sceneHandler revealAssistant];
 }
 
+// Handles user tapping Undo on the close snackbar.
+- (void)didUndoCloseAssistant {
+  [_metricsRecorder recordClosedSnackbarResolvedWithUndo:YES];
+  CobrowseBrowserAgent* agent = CobrowseBrowserAgent::FromBrowser(self.browser);
+  if (agent) {
+    agent->SetSessionActive(true);
+  }
+  [self revealAssistant];
+}
+
+// Handles the close snackbar dismissing without an Undo action.
+- (void)didConfirmCloseAssistant {
+  [_metricsRecorder recordClosedSnackbarResolvedWithUndo:NO];
+  [_metricsRecorder recordSessionEnded];
+  [self closeAssistant];
+}
+
 // Shows the undo snackbar with a confirmation message.
 //
 // While the snackbar is shown the assistant is hidden. If the user presses
@@ -448,12 +660,12 @@ class AssistantAIMUIStateProvider
   // See crbug.com/525452659 for more details.
   message.action.handler = ^{
     didUndo = YES;
-    [weakSelf revealAssistant];
+    [weakSelf didUndoCloseAssistant];
   };
 
   self.undoSnackbarDismissCompletion = ^{
     if (!didUndo) {
-      [weakSelf closeAssistant];
+      [weakSelf didConfirmCloseAssistant];
     }
   };
   message.completionHandler = ^(BOOL success) {
@@ -487,6 +699,7 @@ class AssistantAIMUIStateProvider
     _isHiding = NO;
     return;
   }
+  [_mediator endSession];
   id<SceneCommands> sceneCommands =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
   [sceneCommands closeAssistant];
@@ -507,6 +720,7 @@ class AssistantAIMUIStateProvider
 - (void)assistantContainer:(AssistantContainerViewController*)container
            didChangeDetent:(AssistantContainerDetent)newDetent {
   _currentDetent = newDetent;
+  [_metricsRecorder recordDetentChanged:newDetent];
   // Attempt to dismiss the keyboard when the sheet is collapsing.
   if (newDetent == AssistantContainerDetent::kMedium ||
       newDetent == AssistantContainerDetent::kMinimized) {
@@ -582,6 +796,11 @@ class AssistantAIMUIStateProvider
   [_viewController presentViewController:navController
                                 animated:YES
                               completion:nil];
+}
+
+- (void)assistantAIMViewControllerDidRequestComposeboxLogs:
+    (AssistantAIMViewController*)viewController {
+  [_debuggerCoordinator showBreadcrumbsLogs];
 }
 
 - (void)assistantAIMViewControllerDidTapMyActivity:

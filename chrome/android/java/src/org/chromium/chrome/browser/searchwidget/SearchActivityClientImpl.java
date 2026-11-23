@@ -20,6 +20,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityExtras.IntentOrigin;
@@ -48,7 +49,7 @@ public class SearchActivityClientImpl implements SearchActivityClient {
     // offer complimentary default values.
     @VisibleForTesting
     /* package */ static final String ACTION_SEARCH_FORMAT =
-            "org.chromium.chrome.browser.ui.searchactivityutils.ACTION_SEARCH:%d:%d:%d";
+            "org.chromium.chrome.browser.ui.searchactivityutils.ACTION_SEARCH:%d:%d:%d:%d";
 
     private final Context mContext;
     private final @IntentOrigin int mOrigin;
@@ -58,14 +59,14 @@ public class SearchActivityClientImpl implements SearchActivityClient {
         private final @IntentOrigin int mOrigin;
         private @SearchType int mSearchType;
         private @AutocompleteRequestType int mRequestType;
+        private boolean mMayLaunchChildActivities;
 
         IntentBuilderImpl(Context context, int origin) {
             mOrigin = origin;
             mIntent = new Intent();
             mIntent.setComponent(new ComponentName(context, SearchActivity.class));
             mIntent.putExtra(SearchActivityExtras.EXTRA_ORIGIN, origin);
-            mIntent.addFlags(
-                    Intent.FLAG_ACTIVITY_NO_HISTORY | Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP);
+            mIntent.addFlags(Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP);
 
             // Initialize defaults.
             setSearchType(SearchType.TEXT);
@@ -127,7 +128,15 @@ public class SearchActivityClientImpl implements SearchActivityClient {
         }
 
         @Override
+        public IntentBuilder setMayLaunchChildActivities(boolean mayLaunchChildActivities) {
+            mMayLaunchChildActivities = mayLaunchChildActivities;
+            return this;
+        }
+
+        @Override
         public Intent build() {
+            boolean noHistory =
+                    !mMayLaunchChildActivities || !ChromeFeatureList.sOneStepAimAccess.isEnabled();
             // Ensure `action` is unique especially across different Widget implementations.
             // Otherwise, a QuickActionSearchWidget action may override the SearchActivity widget,
             // triggering functionality we might not want to activate.
@@ -137,10 +146,16 @@ public class SearchActivityClientImpl implements SearchActivityClient {
                             ACTION_SEARCH_FORMAT,
                             mOrigin,
                             mSearchType,
-                            mRequestType));
+                            mRequestType,
+                            noHistory ? 1 : 0));
             // Ensure a copy is made so that the builder can be reused, producing variations of an
             // intent.
             var intent = new Intent(mIntent);
+            // NO_HISTORY finishes SearchActivity as soon as a child activity covers it, dropping
+            // the child's result. Only sessions that may launch child activities opt out of it.
+            if (noHistory) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+            }
             IntentUtils.addTrustedIntentExtras(intent);
             return intent;
         }

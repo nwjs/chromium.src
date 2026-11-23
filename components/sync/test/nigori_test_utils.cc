@@ -145,10 +145,9 @@ sync_pb::NigoriSpecifics BuildTrustedVaultNigoriSpecifics(
   std::unique_ptr<syncer::CryptographerImpl> cryptographer =
       syncer::CryptographerImpl::CreateEmpty();
   for (const std::vector<uint8_t>& trusted_vault_key : trusted_vault_keys) {
-    const std::string key_name = cryptographer->EmplaceKey(
+    cryptographer->RotateDefaultKeyByDerivation(
         base::Base64Encode(trusted_vault_key),
         syncer::KeyDerivationParams::CreateForPbkdf2());
-    cryptographer->SelectDefaultEncryptionKey(key_name);
   }
 
   specifics.mutable_trusted_vault_debug_info()->set_migration_time(
@@ -191,12 +190,14 @@ sync_pb::NigoriSpecifics BuildCustomPassphraseNigoriSpecifics(
   // `passphrase_key_params` and can decrypt with the key derived from
   // `old_key_params` if given. `encryption_keybag` is a serialized version
   // of this cryptographer `key_bag` encrypted with its encryption key.
-  auto cryptographer = CryptographerImpl::FromSingleKeyForTesting(
-      passphrase_key_params.password, passphrase_key_params.derivation_params);
+  std::unique_ptr<CryptographerImpl> cryptographer =
+      CryptographerImpl::CreateEmpty();
   if (old_key_params) {
-    cryptographer->EmplaceKey(old_key_params->password,
-                              old_key_params->derivation_params);
+    cryptographer->RotateDefaultKeyByDerivation(
+        old_key_params->password, old_key_params->derivation_params);
   }
+  cryptographer->RotateDefaultKeyByDerivation(
+      passphrase_key_params.password, passphrase_key_params.derivation_params);
   *nigori.mutable_encryption_keybag() = cryptographer->ExportEncryptedKeyBag();
 
   return nigori;
@@ -246,7 +247,9 @@ std::unique_ptr<Cryptographer> InitCustomPassphraseCryptographerFromNigori(
       decrypted_keys.key(),
       [&key_bag](sync_pb::NigoriKey key) { key_bag.AddKeyFromProto(key); });
 
-  cryptographer->EmplaceKeysFrom(key_bag);
+  EXPECT_TRUE(cryptographer->TryFollowRemoteKeyRotation(
+      key_bag, nigori.encryption_keybag().key_name(),
+      /*enforce_key_continuity=*/true));
   return cryptographer;
 }
 

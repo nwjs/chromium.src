@@ -76,15 +76,17 @@ import org.chromium.chrome.browser.omnibox.OmniboxMetrics;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxState;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator.OmniboxSuggestionsVisualStateObserver;
 import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.TraversalMode;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.RoundSides;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionInSuggest;
+import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxPedal;
+import org.chromium.chrome.browser.omnibox.suggestions.action.SiteSearchAction;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preloading.PreloadingFeatureMap;
@@ -114,6 +116,7 @@ import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
+import org.chromium.components.omnibox.action.OmniboxPedalId;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.StarterPackId;
@@ -206,7 +209,7 @@ public class AutocompleteMediatorUnitTest {
     private ModelList mSuggestionModels;
     private SettableNonNullObservableSupplier<@ControlsPosition Integer> mToolbarPositionSupplier;
     private SettableNonNullObservableSupplier<@FuseboxState Integer> mFuseboxStateSupplier;
-    private SettableNonNullObservableSupplier<@FuseboxCoordinator.FuseboxLayoutMode Integer>
+    private SettableNonNullObservableSupplier<@FuseboxLayoutMode Integer>
             mFuseboxLayoutModeSupplier;
     private SettableNonNullObservableSupplier<Boolean> mUrlTextWrappingSupplier;
     private final SettableNullableObservableSupplier<SideUiStateProvider>
@@ -929,7 +932,7 @@ public class AutocompleteMediatorUnitTest {
         autocompleteInput.setRequestType(AutocompleteRequestType.AI_MODE);
         mMediator.onSuggestionsReceived(AutocompleteResult.fromCache(mSuggestionsList, null), true);
         assertEquals("inline_autocomplete2", session.getAutocompleteInput().getPreviewText());
-        verify(mAutocompleteDelegate).onSuggestionsChanged(defaultMatch, true);
+        verify(mAutocompleteDelegate).onSuggestionsChanged(defaultMatch, false);
     }
 
     @Test
@@ -1500,6 +1503,7 @@ public class AutocompleteMediatorUnitTest {
         verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
         assertEquals(mOmniboxLoadUrlParamsCaptor.getValue().url, url.getSpec());
         assertFalse(mOmniboxLoadUrlParamsCaptor.getValue().openInNewTab);
+        assertFalse(mOmniboxLoadUrlParamsCaptor.getValue().isRecentlyClosedTab);
 
         // Verify the callback.
         mOmniboxLoadUrlParamsCaptor
@@ -1536,6 +1540,20 @@ public class AutocompleteMediatorUnitTest {
         assertEquals(mOmniboxLoadUrlParamsCaptor.getValue().url, url.getSpec());
         assertFalse(mOmniboxLoadUrlParamsCaptor.getValue().openInNewTab);
         assertTrue(mOmniboxLoadUrlParamsCaptor.getValue().openInNewWindow);
+    }
+
+    @Test
+    public void onSuggestionClicked_recentlyClosedTab() {
+        mMediator.beginInput(createEmptySession());
+        GURL url = JUnitTestGURLs.BLUE_1;
+        var match =
+                new AutocompleteMatchBuilder(OmniboxSuggestionType.RECENTLY_CLOSED_TAB)
+                        .setUrl(url)
+                        .build();
+
+        mMediator.onSuggestionClicked(match, 0, url, /* modifiers= */ 0);
+        verify(mAutocompleteDelegate).loadUrl(mOmniboxLoadUrlParamsCaptor.capture());
+        assertTrue(mOmniboxLoadUrlParamsCaptor.getValue().isRecentlyClosedTab);
     }
 
     @Test
@@ -3609,5 +3627,36 @@ public class AutocompleteMediatorUnitTest {
         verify(mAutocompleteController)
                 .start(any(), mAutocompleteInputCaptor.capture(), anyInt(), anyBoolean());
         assertEquals("incognito search query", mAutocompleteInputCaptor.getValue().getUserText());
+    }
+
+    @Test
+    public void onOmniboxActionClicked_executesActionAndFinishesInteractionWhenHandled() {
+        mMediator.onSuggestionsReceived(mAutocompleteResult, /* isFinal= */ true);
+        SiteSearchAction siteSearchAction =
+                new SiteSearchAction(
+                        /* nativeInstance= */ 1,
+                        "hint",
+                        "accessibility",
+                        "keyword",
+                        StarterPackId.TABS);
+        mMediator.onOmniboxActionClicked(siteSearchAction, 0);
+        verify(mOmniboxActionDelegate)
+                .setSiteSearchData(
+                        new SiteSearchData(
+                                "keyword",
+                                "hint",
+                                /* enteredViaSpace= */ false,
+                                StarterPackId.TABS));
+        verify(mAutocompleteDelegate, never()).clearOmniboxFocus();
+
+        OmniboxPedal pedalAction =
+                new OmniboxPedal(
+                        /* nativeInstance= */ 2,
+                        "hint",
+                        "accessibility",
+                        OmniboxPedalId.LAUNCH_INCOGNITO);
+        mMediator.onOmniboxActionClicked(pedalAction, 0);
+        verify(mOmniboxActionDelegate).openIncognitoTab();
+        verify(mAutocompleteDelegate).clearOmniboxFocus();
     }
 }

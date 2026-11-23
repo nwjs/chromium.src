@@ -19,7 +19,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.graphics.Color;
-import android.view.LayoutInflater;
 import android.view.View;
 
 import androidx.test.filters.SmallTest;
@@ -41,13 +40,13 @@ import org.chromium.base.supplier.SettableNullableObservableSupplier;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.context_sharing.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.fullscreen.FullscreenManagerTestUtils;
 import org.chromium.chrome.browser.keyboard_accessory.EmptyManualFillingComponent;
 import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponent;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -80,9 +79,6 @@ import org.chromium.ui.modelutil.PropertyModel;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
 @EnableFeatures(ChromeFeatureList.TAB_BOTTOM_SHEET)
-// TODO(crbug.com/568382414): Re-enable AndroidBottomBar once the tab switcher button is no longer
-// transiently INVISIBLE while BottomControlsStacker updates the bottom sheet layer height.
-@DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
 public class TabBottomSheetManagerTest {
     @Rule
     public FreshCtaTransitTestRule mActivityTestRule =
@@ -127,17 +123,16 @@ public class TabBottomSheetManagerTest {
                     TabbedRootUiCoordinator tabbedRootUiCoordinator =
                             (TabbedRootUiCoordinator) mActivity.getRootUiCoordinatorForTesting();
                     mBottomSheetController = tabbedRootUiCoordinator.getBottomSheetController();
-                    View rootView =
-                            LayoutInflater.from(mActivity).inflate(R.layout.tab_bottom_sheet, null);
                     mCoBrowseViews =
-                            new CoBrowseViews(
-                                    rootView,
+                            CoBrowseViewFactory.buildCoBrowseViews(
+                                    mWindowAndroid,
+                                    /* webContents= */ null,
+                                    /* backgroundColor= */ Color.WHITE,
+                                    /* placeholderElemColor= */ Color.LTGRAY,
                                     TabBottomSheetClientType.UNKNOWN,
                                     CoBrowseContainerType.BOTTOM_SHEET,
-                                    null,
-                                    Color.WHITE,
-                                    new TestCoBrowseComponentProvider(),
-                                    () -> mPeekViewManager);
+                                    /* requestFocus= */ false,
+                                    new TestCoBrowseComponentProvider());
                     mManager =
                             (TabBottomSheetManagerImpl)
                                     tabbedRootUiCoordinator.getTabBottomSheetManagerForTesting();
@@ -150,6 +145,9 @@ public class TabBottomSheetManagerTest {
             ThreadUtils.runOnUiThreadBlocking(
                     () -> mManager.tryToCloseBottomSheet(/* animate= */ false));
             CriteriaHelper.pollUiThread(() -> !mManager.isSheetShowing());
+        }
+        if (mCoBrowseViews != null) {
+            ThreadUtils.runOnUiThreadBlocking(() -> mCoBrowseViews.destroy());
         }
     }
 
@@ -170,14 +168,13 @@ public class TabBottomSheetManagerTest {
                     mManager.tryToShowBottomSheet(
                             delegate, mCoBrowseViews, animate, startsExpanded);
                 });
-        CriteriaHelper.pollUiThread(() -> mManager.isSheetShowing());
-        CriteriaHelper.pollUiThread(() -> mCoBrowseViews.getView().isAttachedToWindow());
-        ThreadUtils.runOnUiThreadBlocking(() -> {});
+        blockUntilSheetFullyRestored();
     }
 
     private void blockUntilSheetFullyRestored() {
         CriteriaHelper.pollUiThread(() -> mManager.isSheetShowing());
         CriteriaHelper.pollUiThread(() -> mCoBrowseViews.getView().isAttachedToWindow());
+        FullscreenManagerTestUtils.waitForBottomControlsMinHeightOffset(mActivity);
         ThreadUtils.runOnUiThreadBlocking(() -> {});
     }
 
@@ -208,6 +205,7 @@ public class TabBottomSheetManagerTest {
                                     mActivity,
                                     mWindowAndroid,
                                     mockBottomSheetController,
+                                    /* canCoverBottomControlsSupplier= */ () -> true,
                                     mockLayoutStateProviderSupplier,
                                     mockTouchEventProvider,
                                     ObservableSuppliers.createNonNull(false));
@@ -248,6 +246,7 @@ public class TabBottomSheetManagerTest {
                                     mActivity,
                                     mWindowAndroid,
                                     mockBottomSheetController,
+                                    /* canCoverBottomControlsSupplier= */ () -> true,
                                     mockLayoutStateProviderSupplier,
                                     mockTouchEventProvider,
                                     omniboxFocusSupplier);
@@ -622,15 +621,15 @@ public class TabBottomSheetManagerTest {
         CoBrowseViews coBrowseViews2 =
                 ThreadUtils.runOnUiThreadBlocking(
                         () ->
-                                new CoBrowseViews(
-                                        LayoutInflater.from(mActivity)
-                                                .inflate(R.layout.tab_bottom_sheet, null),
+                                CoBrowseViewFactory.buildCoBrowseViews(
+                                        mWindowAndroid,
+                                        /* webContents= */ null,
+                                        /* backgroundColor= */ Color.WHITE,
+                                        /* placeholderElemColor= */ Color.LTGRAY,
                                         TabBottomSheetClientType.UNKNOWN,
                                         CoBrowseContainerType.BOTTOM_SHEET,
-                                        null,
-                                        Color.WHITE,
-                                        new TestCoBrowseComponentProvider(),
-                                        () -> mPeekViewManager));
+                                        /* requestFocus= */ false,
+                                        new TestCoBrowseComponentProvider()));
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -666,7 +665,7 @@ public class TabBottomSheetManagerTest {
         // 2. Close tab switcher (Return to tab)
         WebPageStation pageStation =
                 tabSwitcher.leaveHubToPreviousTabViaBack(WebPageStation.newBuilder());
-        CriteriaHelper.pollUiThread(() -> mManager.isSheetShowing());
+        blockUntilSheetFullyRestored();
 
         // 3. Open tab switcher again (Second suppression)
         tabSwitcher = pageStation.openRegularTabSwitcher();

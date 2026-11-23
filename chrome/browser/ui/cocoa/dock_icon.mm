@@ -4,6 +4,7 @@
 
 #import "chrome/browser/ui/cocoa/dock_icon.h"
 
+#include <AppKit/AppKit.h>
 #include <stdint.h>
 
 #include "base/apple/bundle_locations.h"
@@ -16,6 +17,9 @@
 using content::BrowserThread;
 
 namespace {
+
+NSString* const kIconAppearanceConfigurationDidChangeNotification =
+    @"NSWorkspaceIconAppearanceConfigurationDidChangeNotification";
 
 // The fraction of the size of the dock icon that the badge is.
 constexpr CGFloat kBadgeFraction = 0.375;
@@ -198,8 +202,34 @@ constexpr struct {
   return icon;
 }
 
+- (instancetype)init {
+  if (self = [super init]) {
+    // Register for the icon appearance configuration change. This is an
+    // unexported constant, unfortunately, but a string usage works just fine.
+    // See -[NSWorkspace _postIconAppearanceDidChangeNotification].
+    [NSWorkspace.sharedWorkspace.notificationCenter
+        addObserver:self
+           selector:@selector(iconAppearanceConfigurationDidChange:)
+               name:kIconAppearanceConfigurationDidChangeNotification
+             object:nil];
+  }
+  return self;
+}
+
+- (void)dealloc {
+  [NSWorkspace.sharedWorkspace.notificationCenter
+      removeObserver:self
+                name:kIconAppearanceConfigurationDidChangeNotification
+              object:nil];
+}
+
+- (void)iconAppearanceConfigurationDidChange:(NSNotification*)note {
+  _forceUpdate = YES;
+  [self updateIcon];
+}
+
 - (void)updateIcon {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
 
   constexpr base::TimeDelta kUpdateFrequencyCap = base::Hertz(5);
 
@@ -216,7 +246,7 @@ constexpr struct {
 }
 
 - (void)setDownloads:(int)downloads {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   DockTileView* dockTileView =
       base::apple::ObjCCast<DockTileView>(NSApp.dockTile.contentView);
 
@@ -227,7 +257,7 @@ constexpr struct {
 }
 
 - (void)setIndeterminate:(BOOL)indeterminate {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   DockTileView* dockTileView =
       base::apple::ObjCCast<DockTileView>(NSApp.dockTile.contentView);
 
@@ -238,7 +268,7 @@ constexpr struct {
 }
 
 - (void)setProgress:(float)progress {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   DockTileView* dockTileView =
       base::apple::ObjCCast<DockTileView>(NSApp.dockTile.contentView);
 

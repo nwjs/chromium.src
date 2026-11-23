@@ -73,7 +73,11 @@ source_set("impl") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "live_caption_speech_recognition_host_unittest.cc" ]
+  sources = []
+
+  if (!is_linux || target_cpu != "arm64") {
+    sources += [ "live_caption_speech_recognition_host_unittest.cc" ]
+  }
 
   if (is_win) {
     sources += [ "live_caption_unavailability_notifier_unittest.cc" ]

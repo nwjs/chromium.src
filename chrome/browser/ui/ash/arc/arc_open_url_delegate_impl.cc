@@ -32,14 +32,11 @@
 #include "chrome/browser/ash/arc/fileapi/arc_file_system_operation_runner.h"
 #include "chrome/browser/ash/file_manager/fileapi_util.h"
 #include "chrome/browser/ash/fileapi/external_file_url_util.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/shelf/app_service/app_service_app_window_arc_tracker.h"
 #include "chrome/browser/ui/ash/shelf/app_service/app_service_app_window_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
-#include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/browser/webshare/prepare_directory_task.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_delegate/browser_controller.h"
@@ -251,12 +248,12 @@ apps::IntentPtr ConvertLaunchIntent(
 
 ArcOpenUrlDelegateImpl::ArcOpenUrlDelegateImpl() {
   arc::ArcIntentHelperBridge::SetOpenUrlDelegate(this);
-  DCHECK(!g_instance);
+  CHECK(!g_instance, base::NotFatalUntil::M162);
   g_instance = this;
 }
 
 ArcOpenUrlDelegateImpl::~ArcOpenUrlDelegateImpl() {
-  DCHECK_EQ(g_instance, this);
+  CHECK_EQ(g_instance, this, base::NotFatalUntil::M162);
   g_instance = nullptr;
   arc::ArcIntentHelperBridge::SetOpenUrlDelegate(nullptr);
 }
@@ -270,35 +267,40 @@ void ArcOpenUrlDelegateImpl::OpenUrlFromArc(const GURL& url) {
     return;
   }
 
-  const auto* user = user_manager::UserManager::Get()->GetPrimaryUser();
-  if (!user) {
-    LOG(WARNING) << "Primary user is unavailable. "
+  const session_manager::Session* primary_session =
+      session_manager::SessionManager::Get()->GetPrimarySession();
+  if (!primary_session) {
+    LOG(WARNING) << "Primary session is unavailable. "
                  << "Content URL access will not be granted.";
     return;
   }
 
-  GURL url_to_open =
-      ConvertArcUrlToExternalFileUrlIfNeeded(user->GetAccountId(), url);
+  GURL url_to_open = ConvertArcUrlToExternalFileUrlIfNeeded(
+      primary_session->account_id(), url);
   ash::NewWindowDelegate::GetInstance()->OpenUrl(
       url_to_open, ash::NewWindowDelegate::OpenUrlFrom::kArc,
       ash::NewWindowDelegate::Disposition::kNewForegroundTab);
 }
 
 void ArcOpenUrlDelegateImpl::OpenWebAppFromArc(const GURL& url) {
-  DCHECK(url.is_valid() && url.SchemeIs(url::kHttpsScheme));
+  CHECK(url.is_valid() && url.SchemeIs(url::kHttpsScheme),
+        base::NotFatalUntil::M162);
 
   // Fetch the profile associated with ARC. This method should only be called
   // for a |url| which was installed via ARC, and so we want the web app that is
   // opened through here to be installed in the profile associated with ARC.
-  // |user| may be null if sign-in hasn't happened yet
-  const auto* user = user_manager::UserManager::Get()->GetPrimaryUser();
-  if (!user) {
+  // The primary session may be null if sign-in hasn't happened yet.
+  const session_manager::Session* primary_session =
+      session_manager::SessionManager::Get()->GetPrimarySession();
+  if (!primary_session) {
     return;
   }
 
   // `profile` may be null if sign-in has happened but the profile isn't loaded
   // yet.
-  Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(user);
+  Profile* profile = Profile::FromBrowserContext(
+      ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+          primary_session->account_id()));
   if (!profile) {
     return;
   }
@@ -312,7 +314,7 @@ void ArcOpenUrlDelegateImpl::OpenWebAppFromArc(const GURL& url) {
     return;
   }
 
-  int event_flags = apps::GetEventFlags(WindowOpenDisposition::NEW_WINDOW,
+  int event_flags = apps::GetEventFlags(WindowOpenDisposition::kNewWindow,
                                         /*prefer_container=*/false);
   apps::AppServiceProxy* proxy =
       apps::AppServiceProxyFactory::GetForProfile(profile);
@@ -321,7 +323,7 @@ void ArcOpenUrlDelegateImpl::OpenWebAppFromArc(const GURL& url) {
       *app_id, [&event_flags](const apps::AppUpdate& update) {
         if (update.WindowMode() == apps::WindowMode::kBrowser) {
           event_flags =
-              apps::GetEventFlags(WindowOpenDisposition::NEW_FOREGROUND_TAB,
+              apps::GetEventFlags(WindowOpenDisposition::kNewForegroundTab,
                                   /*prefer_container=*/false);
         }
       });
@@ -399,18 +401,22 @@ void ArcOpenUrlDelegateImpl::OpenChromePageFromArc(ChromePage page) {
 void ArcOpenUrlDelegateImpl::OpenAppWithIntent(
     const GURL& start_url,
     arc::mojom::LaunchIntentPtr arc_intent) {
-  DCHECK(start_url.is_valid());
-  DCHECK(start_url.SchemeIs(url::kHttpsScheme) || net::IsLocalhost(start_url));
+  CHECK(start_url.is_valid(), base::NotFatalUntil::M162);
+  CHECK(start_url.SchemeIs(url::kHttpsScheme) || net::IsLocalhost(start_url),
+        base::NotFatalUntil::M162);
 
   // Fetch the profile associated with ARC. This method should only be called
   // for a |url| which was installed via ARC, and so we want the web app that is
   // opened through here to be installed in the profile associated with ARC.
-  const auto* user = user_manager::UserManager::Get()->GetPrimaryUser();
-  DCHECK(user);
+  const session_manager::Session* primary_session =
+      session_manager::SessionManager::Get()->GetPrimarySession();
+  CHECK(primary_session);
 
   // |profile| may be null if sign-in has happened but the profile isn't loaded
   // yet.
-  Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(user);
+  Profile* profile = Profile::FromBrowserContext(
+      ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+          primary_session->account_id()));
   if (!profile) {
     return;
   }
@@ -434,11 +440,11 @@ void ArcOpenUrlDelegateImpl::OpenAppWithIntent(
 
   apps::IntentPtr intent = ConvertLaunchIntent(profile, arc_intent);
 
-  auto disposition = WindowOpenDisposition::NEW_WINDOW;
+  auto disposition = WindowOpenDisposition::kNewWindow;
   proxy->AppRegistryCache().ForOneApp(
       app_id, [&disposition](const apps::AppUpdate& update) {
         if (update.WindowMode() == apps::WindowMode::kBrowser) {
-          disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+          disposition = WindowOpenDisposition::kNewForegroundTab;
         }
       });
 

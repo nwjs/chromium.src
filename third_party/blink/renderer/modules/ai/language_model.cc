@@ -36,7 +36,6 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fileapi/blob.h"
 #include "third_party/blink/renderer/core/fileapi/file_reader_client.h"
-#include "third_party/blink/renderer/core/frame/deprecation/deprecation.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_default_controller.h"
 #include "third_party/blink/renderer/core/streams/readable_stream_default_controller_with_script_scope.h"
@@ -546,17 +545,6 @@ ScriptPromise<LanguageModel> LanguageModel::create(
     return promise;
   }
 
-  if (options && options->hasSamplingMode() &&
-      (options->hasTemperature() || options->hasTopK()) &&
-      RuntimeEnabledFeatures::AIPromptAPILegacyParamsEnabled(
-          execution_context)) {
-    // TODO(crbug.com/502214118): Merge this check into
-    // ResolveSamplingParamsOption.
-    exception_state.ThrowTypeError(
-        kExceptionMessageSamplingModeAndParamsConflict);
-    return EmptyPromise();
-  }
-
   std::optional<mojom::blink::AILanguageModelSamplingMode> sampling_mode;
   if (options->hasSamplingMode()) {
     sampling_mode = ConvertSamplingModeToMojo(options->samplingMode());
@@ -621,17 +609,6 @@ ScriptPromise<V8Availability> LanguageModel::availability(
 
   LogCreateOptionMetrics(*options, "availability");
 
-  if (options && options->hasSamplingMode() &&
-      (options->hasTemperature() || options->hasTopK()) &&
-      RuntimeEnabledFeatures::AIPromptAPILegacyParamsEnabled(
-          execution_context)) {
-    // TODO(crbug.com/502214118): Merge this check into
-    // ResolveSamplingParamsOption.
-    exception_state.ThrowTypeError(
-        kExceptionMessageSamplingModeAndParamsConflict);
-    return EmptyPromise();
-  }
-
   auto sampling_params_or_exception =
       ResolveSamplingParamsOption(options, execution_context);
   if (!sampling_params_or_exception.has_value()) {
@@ -693,12 +670,6 @@ ScriptPromise<IDLNullable<LanguageModelParams>> LanguageModel::params(
     ThrowInvalidContextException(exception_state);
     return EmptyPromise();
   }
-
-  // Count deprecation unconditionally (since this method is gated by
-  // [RuntimeEnabled=AIPromptAPILegacyParams] in IDL).
-  ExecutionContext* execution_context = ExecutionContext::From(script_state);
-  Deprecation::CountDeprecation(
-      execution_context, mojom::blink::WebFeature::kLanguageModel_Params);
 
   auto* resolver = MakeGarbageCollected<
       ScriptPromiseResolver<IDLNullable<LanguageModelParams>>>(script_state);
@@ -849,23 +820,17 @@ void LanguageModel::ExecutePrompt(
 }
 
 void LanguageModel::ExecuteMeasureInputUsage(
-    ScriptPromiseResolver<IDLDouble>* resolver,
-    AbortSignal* signal,
+    ResolverWithAbortSignal<IDLDouble>* resolver,
     Vector<mojom::blink::AILanguageModelPromptPtr> prompts) {
-  auto reject_fn = RejectOnDestruction(resolver, signal);
+  if (!language_model_remote_) {
+    resolver->Reject(CreateSessionDestroyedException());
+    return;
+  }
   language_model_remote_->MeasureInputUsage(
       std::move(prompts),
       BindOnce(
-          [](ScriptPromiseResolver<IDLDouble>* resolver, AbortSignal* signal,
+          [](ResolverWithAbortSignal<IDLDouble>* resolver,
              std::optional<uint32_t> usage) {
-            ExecutionContext* context = resolver->GetExecutionContext();
-            if (!context) {
-              return;
-            }
-            if (signal && signal->aborted()) {
-              resolver->Reject(signal->reason(resolver->GetScriptState()));
-              return;
-            }
             if (!usage.has_value()) {
               resolver->Reject(
                   DOMException::Create(kExceptionMessageUnableToCalculateUsage,
@@ -875,8 +840,8 @@ void LanguageModel::ExecuteMeasureInputUsage(
             }
             resolver->Resolve(static_cast<double>(usage.value()));
           },
-          WrapPersistent(resolver), WrapPersistent(signal))
-          .Then(std::move(reject_fn)));
+          WrapPersistent(resolver))
+          .Then(RejectOnDestruction(resolver)));
 }
 
 bool LanguageModel::ValidateInput(ScriptState* script_state,
@@ -1021,22 +986,22 @@ ScriptPromise<IDLDouble> LanguageModel::measureContextUsage(
     return EmptyPromise();
   }
 
-  ScriptPromiseResolver<IDLDouble>* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<IDLDouble>>(script_state);
-  auto promise = resolver->Promise();
-
   AbortSignal* signal = options->getSignalOr(nullptr);
-  if (signal && signal->aborted()) {
-    resolver->Reject(signal->reason(script_state));
-    return promise;
+  if (HandleAbortSignal(signal, script_state, exception_state)) {
+    return EmptyPromise();
   }
 
+  auto* resolver = MakeGarbageCollected<ResolverWithAbortSignal<IDLDouble>>(
+      script_state, signal);
+  auto promise = resolver->Promise();
+
   ConvertPromptInputsToMojo(
-      script_state, options->getSignalOr(nullptr), input, info_,
+      script_state, signal, input, info_,
       /*json_schema=*/"",
       BindOnce(&LanguageModel::ExecuteMeasureInputUsage, WrapPersistent(this),
-               WrapPersistent(resolver), WrapPersistent(signal)),
-      BindOnce(&RejectResolver, WrapPersistent(resolver)));
+               WrapPersistent(resolver)),
+      BindOnce(&ResolverWithAbortSignal<IDLDouble>::Reject<const ScriptValue&>,
+               WrapPersistent(resolver)));
 
   return promise;
 }

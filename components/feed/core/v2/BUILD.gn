@@ -148,7 +148,6 @@ if (use_blink) {
       "//components/feed/core/proto:proto_ios_shared_v2",
       "//components/feed/core/proto:proto_v2",
     ]
-    check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
   }
 
   source_set("test_helpers") {
@@ -237,10 +236,6 @@ if (use_blink) {
     } else {
       deps += [ ":unit_tests_bundle_data" ]
     }
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 
   source_set("feed_core_stubs") {

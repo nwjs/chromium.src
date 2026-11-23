@@ -246,6 +246,29 @@ TEST_F(SearchboxHandlerTest, GetWebUIDataSourceDictSetsUnselectMatchOnTabExit) {
   }
 }
 
+TEST_F(SearchboxHandlerTest,
+       GetWebUIDataSourceDictVoiceSearchCoherenceKeepLegacyUi) {
+  {
+    base::test::ScopedFeatureList scoped_feature_list(
+        omnibox::kVoiceSearchCoherenceSearchbox);
+    base::DictValue strings =
+        SearchboxHandler::GetWebUIDataSourceDict(profile());
+    EXPECT_TRUE(
+        *strings.FindBool("voiceSearchCoherenceAnySearchboxExperimentEnabled"));
+  }
+
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeatureWithParameters(
+        omnibox::kVoiceSearchCoherenceSearchbox,
+        {{"VoiceSearchCoherenceRealboxKeepLegacyUi", "true"}});
+    base::DictValue strings =
+        SearchboxHandler::GetWebUIDataSourceDict(profile());
+    EXPECT_FALSE(
+        *strings.FindBool("voiceSearchCoherenceAnySearchboxExperimentEnabled"));
+  }
+}
+
 TEST_F(SearchboxHandlerTest, GetWebUIDataSourceDictKeywordSpaceTriggering) {
   profile()->GetPrefs()->SetBoolean(omnibox::kKeywordSpaceTriggeringEnabled,
                                     false);
@@ -256,6 +279,26 @@ TEST_F(SearchboxHandlerTest, GetWebUIDataSourceDictKeywordSpaceTriggering) {
                                     true);
   strings = SearchboxHandler::GetWebUIDataSourceDict(profile());
   EXPECT_TRUE(*strings.FindBool("keywordSpaceTriggeringEnabled"));
+}
+
+TEST_F(SearchboxHandlerTest,
+       GetWebUIDataSourceDictHasProfileIndependentAndDependentValues) {
+  base::DictValue independent_strings =
+      SearchboxHandler::GetProfileIndependentWebUIDataSourceDict({});
+  base::DictValue dependent_strings =
+      SearchboxHandler::GetProfileDependentWebUIDataSourceDict(profile(), {});
+  EXPECT_TRUE(independent_strings.contains("searchBoxHint"));
+  EXPECT_TRUE(dependent_strings.contains("keywordSpaceTriggeringEnabled"));
+
+  // Each value is in exactly one of them.
+  base::DictValue strings = SearchboxHandler::GetWebUIDataSourceDict(profile());
+  EXPECT_EQ(strings.size(),
+            independent_strings.size() + dependent_strings.size());
+  for (const auto item : strings) {
+    EXPECT_NE(independent_strings.contains(item.first),
+              dependent_strings.contains(item.first))
+        << item.first;
+  }
 }
 
 TEST_F(SearchboxHandlerTest, KeywordSpaceTriggeringDynamicPrefChange) {
@@ -1132,6 +1175,7 @@ TEST_F(RealboxHandlerTest, ForceShowDescriptionNeverEnabledForRealbox) {
   AutocompleteMatch match(provider.get(), 1000, false,
                           omnibox::AutocompleteMatchType::kSearchSuggest);
   match.suggestion_group_id = omnibox::GroupId::GROUP_CONTEXTUAL_SEARCH;
+  match.subtypes.insert(omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH);
   match.description = u"Description 1";
 
   auto fake_autocomplete_controller =
@@ -1155,7 +1199,8 @@ TEST_F(RealboxHandlerTest, ForceShowDescriptionNeverEnabledForRealbox) {
 
   ASSERT_TRUE(received_result);
   ASSERT_EQ(1u, received_result->matches.size());
-  EXPECT_FALSE(received_result->matches[0]->show_contextual_description);
+  EXPECT_TRUE(
+      received_result->matches[0]->show_secondary_text_only_on_selection);
 }
 
 class LensSearchboxHandlerTest : public SearchboxHandlerTest {
@@ -1771,6 +1816,57 @@ TEST_F(WebuiOmniboxHandlerTest,
   }
 }
 
+TEST_F(WebuiOmniboxHandlerTest, CreateAutocompleteMatch_SecondaryTextIsUrl) {
+  bookmarks::BookmarkModel* bookmark_model =
+      BookmarkModelFactory::GetForBrowserContext(profile());
+  bookmark_model->LoadEmptyForTest();
+  auto create_mojom_match = [&](const AutocompleteMatch& match) {
+    return handler_->CreateAutocompleteMatch(
+        match, bookmark_model, omnibox::GroupConfigMap(),
+        omnibox_controller_->client()->GetTemplateURLService());
+  };
+
+  // A page title followed by its URL. The contents and description are
+  // swapped, so the URL in the contents is the secondary text.
+  {
+    AutocompleteMatch match;
+    match.destination_url = GURL("https://example.com");
+    match.contents = u"example.com";
+    match.contents_class = {{0, ACMatchClassification::URL}};
+    match.description = u"Example Title";
+    match.description_class = {{0, ACMatchClassification::NONE}};
+    match.swap_contents_and_description = true;
+    auto mojom_match = create_mojom_match(match);
+    ASSERT_TRUE(mojom_match.has_value());
+    EXPECT_TRUE(mojom_match.value()->secondary_text_is_url);
+  }
+
+  // A URL without a title is the primary text.
+  {
+    AutocompleteMatch match;
+    match.destination_url = GURL("https://example.com");
+    match.contents = u"example.com";
+    match.contents_class = {{0, ACMatchClassification::URL}};
+    auto mojom_match = create_mojom_match(match);
+    ASSERT_TRUE(mojom_match.has_value());
+    EXPECT_FALSE(mojom_match.value()->secondary_text_is_url);
+  }
+
+  // A search suggestion with a dimmed description.
+  {
+    AutocompleteMatch match(nullptr, 1000, false,
+                            omnibox::AutocompleteMatchType::kSearchSuggest);
+    match.destination_url = GURL("https://example.com");
+    match.contents = u"example";
+    match.contents_class = {{0, ACMatchClassification::NONE}};
+    match.description = u"Example description";
+    match.description_class = {{0, ACMatchClassification::DIM}};
+    auto mojom_match = create_mojom_match(match);
+    ASSERT_TRUE(mojom_match.has_value());
+    EXPECT_FALSE(mojom_match.value()->secondary_text_is_url);
+  }
+}
+
 // The WebUI a11y labels must match those announced by the classic omnibox
 // (see `OmniboxEditModel::GetPopupAccessibilityLabelForCurrentSelection()`):
 // narrate `fill_into_edit`, include "n of m", and don't duplicate the
@@ -1823,6 +1919,52 @@ TEST_F(WebuiOmniboxHandlerTest, CreateAutocompleteMatches_A11yLabels) {
           l10n_util::GetStringUTF16(IDS_ACC_REMOVE_SUGGESTION_FOCUSED_PREFIX),
           {base_label}, nullptr),
       mojom_matches[1]->remove_button_a11y_label);
+}
+
+// If the server sent accessibility text for the primary text, it's narrated
+// instead of `fill_into_edit`, as long as `contents` is still that text.
+TEST_F(WebuiOmniboxHandlerTest,
+       CreateAutocompleteMatches_A11yLabelsUseServerA11yText) {
+  omnibox::SuggestTemplateInfo suggest_template;
+  suggest_template.mutable_primary_text()->set_text("Create image");
+  suggest_template.mutable_primary_text()->set_a11y_text(
+      "Create an image with AI");
+  AutocompleteMatch match1(nullptr, 1000, false,
+                           omnibox::AutocompleteMatchType::kSearchSuggest);
+  match1.destination_url = GURL("https://www.google.com/search?q=cat");
+  match1.fill_into_edit = u"cat";
+  match1.contents = u"Create image";
+  match1.suggest_template = suggest_template;
+  AutocompleteMatch match2 = match1;
+  match2.destination_url = GURL("https://www.google.com/search?q=dog");
+  match2.fill_into_edit = u"dog";
+  match2.contents = u"dog";
+  AutocompleteResult result;
+  result.AppendMatches({match1, match2});
+
+  bookmarks::BookmarkModel* bookmark_model =
+      BookmarkModelFactory::GetForBrowserContext(profile());
+  bookmark_model->LoadEmptyForTest();
+
+  auto mojom_matches = handler_->CreateAutocompleteMatches(
+      result, bookmark_model, omnibox::GroupConfigMap(),
+      omnibox_controller_->client()->GetTemplateURLService());
+  ASSERT_EQ(2u, mojom_matches.size());
+
+  EXPECT_EQ(
+      l10n_util::GetStringFUTF16(
+          IDS_ACC_AUTOCOMPLETE_N_OF_M,
+          l10n_util::GetStringFUTF16(IDS_ACC_AUTOCOMPLETE_SUGGESTED_SEARCH,
+                                     u"Create an image with AI"),
+          u"1", u"2"),
+      mojom_matches[0]->a11y_label);
+  // `match2`'s contents differ from the server's primary text.
+  EXPECT_EQ(l10n_util::GetStringFUTF16(
+                IDS_ACC_AUTOCOMPLETE_N_OF_M,
+                l10n_util::GetStringFUTF16(
+                    IDS_ACC_AUTOCOMPLETE_SUGGESTED_SEARCH, u"dog"),
+                u"2", u"2"),
+            mojom_matches[1]->a11y_label);
 }
 
 TEST_F(WebuiOmniboxHandlerTest,
@@ -1986,7 +2128,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenAutocompleteMatch_KeyboardModifiers) {
   TestOmniboxClient* client =
       static_cast<TestOmniboxClient*>(omnibox_controller_->client());
   EXPECT_CALL(*client,
-              OnAutocompleteAccept(_, _, WindowOpenDisposition::NEW_WINDOW, _,
+              OnAutocompleteAccept(_, _, WindowOpenDisposition::kNewWindow, _,
                                    _, _, _, _, _, _, _))
       .Times(1);
 
@@ -2055,7 +2197,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenAutocompleteMatch_HistoricalSnapshot) {
       static_cast<TestOmniboxClient*>(omnibox_controller_->client());
   EXPECT_CALL(*client, OnAutocompleteAccept(
                            GURL("https://snapshot-match.com"), _,
-                           WindowOpenDisposition::CURRENT_TAB, _, _, _, _, _,
+                           WindowOpenDisposition::kCurrentTab, _, _, _, _, _,
                            std::u16string(u"snapshot input"), _, _))
       .Times(1);
 
@@ -2105,7 +2247,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenAutocompleteMatch_LiveResultMatch) {
   TestOmniboxClient* client =
       static_cast<TestOmniboxClient*>(omnibox_controller_->client());
   EXPECT_CALL(*client, OnAutocompleteAccept(GURL("https://live-match.com"), _,
-                                            WindowOpenDisposition::CURRENT_TAB,
+                                            WindowOpenDisposition::kCurrentTab,
                                             _, _, _, _, _, _, _, _))
       .Times(1);
 
@@ -2275,7 +2417,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenPopupSelection_CtrlEnterWithNoMatch) {
   TestOmniboxClient* client =
       static_cast<TestOmniboxClient*>(omnibox_controller_->client());
   EXPECT_CALL(*client, OnAutocompleteAccept(GURL("http://www.google.com/"), _,
-                                            WindowOpenDisposition::CURRENT_TAB,
+                                            WindowOpenDisposition::kCurrentTab,
                                             _, _, _, _, _, _, _, _))
       .Times(1);
 
@@ -2286,7 +2428,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenPopupSelection_CtrlEnterWithNoMatch) {
 
   handler_->OpenPopupSelection(
       omnibox_controller_->autocomplete_controller()->result().sequence_id(),
-      std::move(selection), WindowOpenDisposition::CURRENT_TAB);
+      std::move(selection), WindowOpenDisposition::kCurrentTab);
 }
 
 TEST_F(WebuiOmniboxHandlerTest, OpenPopupSelection_CtrlEnterWithMatch) {
@@ -2299,7 +2441,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenPopupSelection_CtrlEnterWithMatch) {
   TestOmniboxClient* client =
       static_cast<TestOmniboxClient*>(omnibox_controller_->client());
   EXPECT_CALL(*client, OnAutocompleteAccept(GURL("http://www.google.com/"), _,
-                                            WindowOpenDisposition::CURRENT_TAB,
+                                            WindowOpenDisposition::kCurrentTab,
                                             _, _, _, _, _, _, _, _))
       .Times(1);
 
@@ -2311,7 +2453,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenPopupSelection_CtrlEnterWithMatch) {
 
   handler_->OpenPopupSelection(
       omnibox_controller_->autocomplete_controller()->result().sequence_id(),
-      std::move(selection), WindowOpenDisposition::CURRENT_TAB);
+      std::move(selection), WindowOpenDisposition::kCurrentTab);
 }
 
 TEST_F(WebuiOmniboxHandlerTest, OpenLensSearch) {
@@ -2414,7 +2556,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenMatchResumesNavigationWhenNoDialogShown) {
                                             testing::_, testing::_, testing::_))
       .Times(1);
   handler_->OpenMatch(
-      OmniboxPopupSelection(0), match, WindowOpenDisposition::CURRENT_TAB,
+      OmniboxPopupSelection(0), match, WindowOpenDisposition::kCurrentTab,
       base::TimeTicks::Now(),
       searchbox::MakeAutocompleteSnapshot(handler_->autocomplete_controller()));
 }
@@ -2444,7 +2586,7 @@ TEST_F(WebuiOmniboxHandlerTest, OpenMatchDropsNavigationWhenDialogCancelled) {
       .Times(0);
 
   handler_->OpenMatch(
-      OmniboxPopupSelection(0), match, WindowOpenDisposition::CURRENT_TAB,
+      OmniboxPopupSelection(0), match, WindowOpenDisposition::kCurrentTab,
       base::TimeTicks::Now(),
       searchbox::MakeAutocompleteSnapshot(handler_->autocomplete_controller()));
 }
@@ -2465,11 +2607,13 @@ TEST_F(WebuiOmniboxHandlerTest,
   AutocompleteMatch match1(provider.get(), 1000, false,
                            omnibox::AutocompleteMatchType::kSearchSuggest);
   match1.suggestion_group_id = omnibox::GroupId::GROUP_CONTEXTUAL_SEARCH;
+  match1.subtypes.insert(omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH);
   match1.description = u"Description 1";
 
   AutocompleteMatch match2(provider.get(), 900, false,
                            omnibox::AutocompleteMatchType::kSearchSuggest);
   match2.suggestion_group_id = omnibox::GroupId::GROUP_CONTEXTUAL_SEARCH;
+  match2.subtypes.insert(omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH);
   match2.description = u"Description 2";
 
   auto fake_autocomplete_controller =
@@ -2494,10 +2638,10 @@ TEST_F(WebuiOmniboxHandlerTest,
 
   ASSERT_TRUE(received_result);
   ASSERT_EQ(2u, received_result->matches.size());
-  EXPECT_TRUE(received_result->matches[0]
-                  ->show_contextual_description);  // First match -> True
-  EXPECT_FALSE(received_result->matches[1]
-                   ->show_contextual_description);  // Second match -> False
+  EXPECT_FALSE(
+      received_result->matches[0]->show_secondary_text_only_on_selection);
+  EXPECT_TRUE(
+      received_result->matches[1]->show_secondary_text_only_on_selection);
 }
 
 TEST_F(WebuiOmniboxHandlerTest,
@@ -2516,6 +2660,7 @@ TEST_F(WebuiOmniboxHandlerTest,
   AutocompleteMatch match1(provider.get(), 1000, false,
                            omnibox::AutocompleteMatchType::kSearchSuggest);
   match1.suggestion_group_id = omnibox::GroupId::GROUP_CONTEXTUAL_SEARCH;
+  match1.subtypes.insert(omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH);
   match1.description = u"Description 1";
 
   auto fake_autocomplete_controller =
@@ -2546,8 +2691,8 @@ TEST_F(WebuiOmniboxHandlerTest,
 
   ASSERT_TRUE(received_result);
   ASSERT_EQ(1u, received_result->matches.size());
-  EXPECT_FALSE(received_result->matches[0]
-                   ->show_contextual_description);  // Header not empty -> False
+  EXPECT_TRUE(
+      received_result->matches[0]->show_secondary_text_only_on_selection);
 }
 
 // Verifies that `show_aim_activity_link` is set on the result only when a
@@ -2914,7 +3059,7 @@ TEST_F(SearchboxOmniboxClientNavigationTest,
   // This should NOT crash.
   client->OnAutocompleteAccept(
       match.destination_url, /*post_content=*/nullptr,
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED, match.type,
+      WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED, match.type,
       base::TimeTicks::Now(),
       /*destination_url_entered_without_scheme=*/false,
       /*destination_url_entered_with_http_scheme=*/false,
@@ -3113,7 +3258,7 @@ TEST_F(OmniboxComposeboxHandlerTest, OpenUrl_StopsAutocomplete) {
   EXPECT_CALL(mock_delegate_, GetOmniboxController())
       .WillRepeatedly(testing::Return(omnibox_controller_.get()));
 
-  OpenUrl(GURL("https://example.com"), WindowOpenDisposition::CURRENT_TAB);
+  OpenUrl(GURL("https://example.com"), WindowOpenDisposition::kCurrentTab);
 
   EXPECT_TRUE(omnibox_controller_->autocomplete_controller()->done());
 }
@@ -3229,13 +3374,7 @@ TEST_F(OmniboxComposeboxHandlerTest, LensSearchEligibility) {
 TEST_F(OmniboxComposeboxHandlerTest,
        ProcessContextAndOpenUrl_SingleActiveTabHandoffToSidePanel) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {omnibox::kContextManagementInComposebox,
-       contextual_tasks::kContextualTasks,
-       contextual_tasks::kContextualTasksSidePanel,
-       contextual_tasks::kContextualTasksForceEntryPointEligibility},
-      /*disabled_features=*/{});
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
 
   auto* mock_ui_service = static_cast<MockContextualTasksUiService*>(
       contextual_tasks::ContextualTasksUiServiceFactory::GetInstance()
@@ -3284,7 +3423,7 @@ TEST_F(OmniboxComposeboxHandlerTest,
           });
 
   OpenUrl(GURL("https://www.google.com/search?q=test"),
-          WindowOpenDisposition::CURRENT_TAB);
+          WindowOpenDisposition::kCurrentTab);
 
   ASSERT_TRUE(passed_session_handle);
   EXPECT_THAT(passed_session_handle->GetSubmittedContextTokens(),
@@ -3295,13 +3434,7 @@ TEST_F(OmniboxComposeboxHandlerTest,
 TEST_F(OmniboxComposeboxHandlerTest,
        ProcessContextAndOpenUrl_OmniboxPageActionSetsEntryPoint206) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {omnibox::kContextManagementInComposebox,
-       contextual_tasks::kContextualTasks,
-       contextual_tasks::kContextualTasksSidePanel,
-       contextual_tasks::kContextualTasksForceEntryPointEligibility},
-      /*disabled_features=*/{});
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
 
   auto* mock_ui_service = static_cast<MockContextualTasksUiService*>(
       contextual_tasks::ContextualTasksUiServiceFactory::GetInstance()
@@ -3349,7 +3482,7 @@ TEST_F(OmniboxComposeboxHandlerTest,
           });
 
   OpenUrl(GURL("https://www.google.com/search?q=test"),
-          WindowOpenDisposition::CURRENT_TAB);
+          WindowOpenDisposition::kCurrentTab);
 
   EXPECT_EQ(
       omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_TAB_SEARCH,
@@ -3359,13 +3492,7 @@ TEST_F(OmniboxComposeboxHandlerTest,
 TEST_F(OmniboxComposeboxHandlerTest,
        ProcessContextAndOpenUrl_MultiTabWithActiveTabOpensSidePanel) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {omnibox::kContextManagementInComposebox,
-       contextual_tasks::kContextualTasks,
-       contextual_tasks::kContextualTasksSidePanel,
-       contextual_tasks::kContextualTasksForceEntryPointEligibility},
-      /*disabled_features=*/{});
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
 
   auto* mock_ui_service = static_cast<MockContextualTasksUiService*>(
       contextual_tasks::ContextualTasksUiServiceFactory::GetInstance()
@@ -3424,7 +3551,7 @@ TEST_F(OmniboxComposeboxHandlerTest,
           });
 
   OpenUrl(GURL("https://www.google.com/search?q=test"),
-          WindowOpenDisposition::CURRENT_TAB);
+          WindowOpenDisposition::kCurrentTab);
 
   ASSERT_TRUE(passed_session_handle);
   EXPECT_THAT(
@@ -3437,13 +3564,7 @@ TEST_F(
     OmniboxComposeboxHandlerTest,
     ProcessContextAndOpenUrl_MultiTabWithoutActiveTabDoesNotBypassToSidePanel) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {omnibox::kContextManagementInComposebox,
-       contextual_tasks::kContextualTasks,
-       contextual_tasks::kContextualTasksSidePanel,
-       contextual_tasks::kContextualTasksForceEntryPointEligibility},
-      /*disabled_features=*/{});
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
 
   auto* mock_ui_service = static_cast<MockContextualTasksUiService*>(
       contextual_tasks::ContextualTasksUiServiceFactory::GetInstance()
@@ -3492,20 +3613,13 @@ TEST_F(
       .Times(0);
 
   OpenUrl(GURL("https://www.google.com/search?q=test"),
-          WindowOpenDisposition::CURRENT_TAB);
+          WindowOpenDisposition::kCurrentTab);
 }
 
 TEST_F(OmniboxComposeboxHandlerTest,
        StartContextualAimQueryInSidePanel_SignedOutUnificationOpensSidePanel) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeaturesAndParameters(
-      /*enabled_features=*/
-      {{omnibox::kContextManagementInComposebox, {}},
-       {contextual_tasks::kContextualTasksSidePanel, {}},
-       {lens::features::kLensSidePanelUnification,
-        {{"allow-signed-out", "true"}}}},
-      /*disabled_features=*/{
-          contextual_tasks::kContextualTasksForceEntryPointEligibility});
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
 
   testing::NiceMock<MockAimEligibilityService> mock_aim_eligibility_service(
       *profile()->GetPrefs(), nullptr, nullptr, nullptr);
@@ -3562,7 +3676,7 @@ TEST_F(OmniboxComposeboxHandlerTest,
           });
 
   OpenUrl(GURL("https://www.google.com/search?q=test"),
-          WindowOpenDisposition::CURRENT_TAB);
+          WindowOpenDisposition::kCurrentTab);
 
   ASSERT_TRUE(passed_session_handle);
   EXPECT_THAT(passed_session_handle->GetSubmittedContextTokens(),
@@ -3576,13 +3690,7 @@ TEST_F(
     OmniboxComposeboxHandlerTest,
     StartContextualAimQueryInSidePanel_ReturnsFalseForInvalidOrIneligibleInputs) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {omnibox::kContextManagementInComposebox,
-       contextual_tasks::kContextualTasks,
-       contextual_tasks::kContextualTasksSidePanel,
-       contextual_tasks::kContextualTasksForceEntryPointEligibility},
-      /*disabled_features=*/{});
+  feature_list.InitAndEnableFeature(omnibox::kContextManagementInComposebox);
 
   sessions::SessionTabHelper::CreateForWebContents(
       web_contents_.get(), base::BindRepeating([](content::WebContents*) {

@@ -4,6 +4,7 @@
     "dcheck_always_on": true,
     "enable_dangling_raw_ptr_checks": true,
     "enable_dangling_raw_ptr_feature_flag": true,
+    "enable_expensive_dchecks": false,
     "enable_resource_allowlist_generation": false,
     "enable_rust_clippy": true,
     "ffmpeg_branding": "Chrome",
@@ -14,7 +15,6 @@
     "target_cpu": "x64",
     "target_os": "win",
     "use_clang_coverage": true,
-    "use_reclient": false,
     "use_remoteexec": true,
     "use_siso": true
   }

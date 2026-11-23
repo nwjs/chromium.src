@@ -141,6 +141,12 @@ AndroidLiveTabContext::GetGroupIdForSavedGroup(const base::Uuid& saved) const {
   return std::nullopt;
 }
 
+bool AndroidLiveTabContext::IsEphemeralTabGroup(
+    const tab_groups::TabGroupId& group) const {
+  // Focus Selection is currently not supported on the Android platform.
+  return false;
+}
+
 bool AndroidLiveTabContext::IsTabPinned(int index) const {
   TabAndroid* tab_android = tab_model_->GetTabAt(index);
   return tab_android && tab_android->IsPinned();
@@ -250,7 +256,7 @@ sessions::LiveTab* AndroidLiveTabContext::ReplaceRestoredTab(
   // This is called only on replacement of the current tab.
   content::WebContents* web_contents = tab_model_->GetActiveWebContents();
   web_contents = SessionRestore::RestoreForeignSessionTab(
-      web_contents, session_tab, WindowOpenDisposition::CURRENT_TAB);
+      web_contents, session_tab, WindowOpenDisposition::kCurrentTab);
   web_contents->GetController().LoadIfNecessary();
   return sessions::ContentLiveTab::GetOrCreateForWebContents(web_contents);
 }

@@ -44,10 +44,9 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.R;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxAttachmentModelList.FuseboxAttachmentChangeListener;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxState;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.PopupState;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.AiModeActivationSource;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.FuseboxAttachmentButtonType;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.MobileFuseboxPickerOutcome;
@@ -95,6 +94,7 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.ListObservable.ListObserver;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 import org.chromium.ui.permissions.AndroidPermissionDelegate;
 
 import java.io.ByteArrayOutputStream;
@@ -106,7 +106,7 @@ import java.util.function.Supplier;
 
 /** Mediator for the Fusebox component. */
 @NullMarked
-/* package */ class FuseboxMediator implements FuseboxAttachmentChangeListener, BackPressHandler {
+class FuseboxMediator implements BackPressHandler {
 
     /* package */ static final @IconResourceIds int UNSPECIFIED_ICON_RESOURCE_ID =
             IconResourceIds.PLACE_WHITE;
@@ -342,8 +342,12 @@ import java.util.function.Supplier;
 
         if (mModelList != null) {
             mModelList.removeObserver(mListObserver);
-            mModelList.removeAttachmentChangeListener(this);
             mModelList.setAttachmentUploadFailedListener(null);
+        }
+
+        SimpleRecyclerViewAdapter oldAdapter = mModel.get(FuseboxProperties.ADAPTER);
+        if (oldAdapter != null) {
+            oldAdapter.destroy();
         }
 
         mModelList = modelList;
@@ -353,7 +357,6 @@ import java.util.function.Supplier;
             mModel.set(FuseboxProperties.ADAPTER, adapter);
             mModelList.setAttachmentUploadFailedListener(this::onAttachmentUploadFailed);
             mModelList.updateVisualsForState(mBrandedColorScheme);
-            mModelList.addAttachmentChangeListener(this);
             mModelList.addObserver(mListObserver);
             mSelectionController = new AttachmentsSelectionController(mModelList);
             onAttachmentsChanged();
@@ -762,7 +765,7 @@ import java.util.function.Supplier;
                     () -> onAddCurrentTab(currentTab));
             mModel.set(
                     FuseboxProperties.POPUP_ATTACH_CURRENT_TAB_FAVICON,
-                    OmniboxResourceProvider.getFaviconBitmapForTab(currentTab));
+                    mResourceProvider.getTabFavicon(currentTab));
         } else {
             mModel.set(FuseboxProperties.POPUP_ATTACH_CURRENT_TAB_VISIBLE, false);
         }
@@ -797,7 +800,7 @@ import java.util.function.Supplier;
         List<PopupButtonData> buttons = new ArrayList<>();
         for (int i = 0; i < eligibleTabs.size(); i++) {
             Tab tab = eligibleTabs.get(i);
-            Bitmap favicon = OmniboxResourceProvider.getFaviconBitmapForTab(tab);
+            Bitmap favicon = mResourceProvider.getTabFavicon(tab);
 
             buttons.add(
                     new PopupButtonData.Builder()
@@ -830,11 +833,7 @@ import java.util.function.Supplier;
         if (currentAttachedIds.contains(tab.getId())) return;
         var attachment =
                 FuseboxAttachment.forTab(
-                        tab,
-                        isCurrentTab(tab),
-                        mContext.getResources(),
-                        source,
-                        /* isSuggestedTab= */ false);
+                        tab, isCurrentTab(tab), source, /* isSuggestedTab= */ false);
 
         mModelList.add(attachment);
     }
@@ -971,7 +970,6 @@ import java.util.function.Supplier;
                         FuseboxAttachment.forTab(
                                 tab,
                                 isCurrentTab(tab),
-                                mContext.getResources(),
                                 FuseboxAttachmentButtonType.TAB_PICKER,
                                 /* isSuggestedTab= */ false);
                 attachment.setIsPartOfMultiTabSelection(isPartOfMultiTabSelection);
@@ -1004,7 +1002,6 @@ import java.util.function.Supplier;
                         FuseboxAttachment.forTab(
                                 tab,
                                 /* bypassTabCache= */ false,
-                                mContext.getResources(),
                                 FuseboxAttachmentButtonType.SUGGESTED_TAB,
                                 /* isSuggestedTab= */ true);
                 if (mModelList.add(attachment)) {

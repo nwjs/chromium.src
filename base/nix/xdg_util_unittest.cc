@@ -8,6 +8,8 @@
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/nix/scoped_xdg_activation_token_injector.h"
 #include "base/process/launch.h"
 #include "base/strings/cstring_view.h"
@@ -452,29 +454,45 @@ TEST(XDGUtilTest, ExtractXdgActivationTokenFromEnv) {
   EXPECT_EQ(std::nullopt, TakeXdgActivationToken());
 }
 
-TEST(XDGUtilTest, ExtractXdgActivationTokenFromCmdLineNotSet) {
-  CommandLine command_line(CommandLine::NO_PROGRAM);
-  ExtractXdgActivationTokenFromCmdLine(command_line);
-  EXPECT_EQ(std::nullopt, TakeXdgActivationToken());
-}
+TEST(XDGUtilTest, GetXdgActivationTokenFromCommandLine) {
+  absl::Cleanup clear_token = [] { TakeXdgActivationToken(); };
+  const struct {
+    const char* xdg_token;
+    const char* legacy_token;
+    std::optional<std::string> expected_token;
+  } kTestCases[] = {
+      {nullptr, nullptr, std::nullopt},
+      {nullptr, "", std::nullopt},
+      {nullptr, "legacy-token", "legacy-token"},
+      {"", nullptr, std::nullopt},
+      {"", "", std::nullopt},
+      {"", "legacy-token", "legacy-token"},
+      {kXdgActivationTokenFromCmdLine, nullptr, kXdgActivationTokenFromCmdLine},
+      {kXdgActivationTokenFromCmdLine, "", kXdgActivationTokenFromCmdLine},
+      {kXdgActivationTokenFromCmdLine, "legacy-token",
+       kXdgActivationTokenFromCmdLine},
+  };
+  for (const auto& test_case : kTestCases) {
+    CommandLine command_line(CommandLine::NO_PROGRAM);
+    if (test_case.xdg_token) {
+      command_line.AppendSwitchASCII(kXdgActivationTokenSwitch,
+                                     test_case.xdg_token);
+    }
+    if (test_case.legacy_token) {
+      command_line.AppendSwitchASCII(kDesktopStartupIdSwitch,
+                                     test_case.legacy_token);
+    }
+    const auto initial_switches = command_line.GetSwitches();
+    SCOPED_TRACE(command_line.GetCommandLineString());
+    SetActivationToken("global-token");
 
-TEST(XDGUtilTest, ExtractXdgActivationTokenFromCmdLine) {
-  CommandLine command_line(CommandLine::NO_PROGRAM);
-  MockEnvironment getter;
-  // Extract activation token initially from env.
-  EXPECT_CALL(getter, GetVar(StrEq("XDG_ACTIVATION_TOKEN")))
-      .WillOnce(Return(kXdgActivationTokenFromEnv));
-  EXPECT_CALL(getter, UnSetVar(StrEq("XDG_ACTIVATION_TOKEN")));
-  EXPECT_EQ(kXdgActivationTokenFromEnv,
-            ExtractXdgActivationTokenFromEnv(getter));
-  // Now extract token from command line.
-  command_line.AppendSwitchASCII(kXdgActivationTokenSwitch,
-                                 kXdgActivationTokenFromCmdLine);
-  ExtractXdgActivationTokenFromCmdLine(command_line);
-  // It should match the one from command line, not env.
-  EXPECT_EQ(kXdgActivationTokenFromCmdLine, TakeXdgActivationToken());
-  // Should be cleared after the token is taken once.
-  EXPECT_EQ(std::nullopt, TakeXdgActivationToken());
+    EXPECT_EQ(GetXdgActivationTokenFromCommandLine(command_line),
+              test_case.expected_token);
+    EXPECT_EQ(GetXdgActivationTokenFromCommandLine(command_line),
+              test_case.expected_token);
+    EXPECT_EQ(command_line.GetSwitches(), initial_switches);
+    EXPECT_EQ(TakeXdgActivationToken(), "global-token");
+  }
 }
 
 TEST(XDGUtilTest, ScopedXdgActivationTokenInjector) {
@@ -528,6 +546,89 @@ TEST(XDGUtilTest, LaunchOptionsWithXdgActivation) {
         received_launch_options_with_test_token = true;
       }));
   EXPECT_TRUE(received_launch_options_with_test_token);
+}
+
+class DetectAppSandboxTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+    existing_path_ = temp_dir_.GetPath().Append(".flatpak-info");
+    ASSERT_TRUE(WriteFile(existing_path_, ""));
+    missing_path_ = temp_dir_.GetPath().Append("missing");
+    ON_CALL(env_, GetVar(_)).WillByDefault(Return(std::nullopt));
+  }
+
+  void SetVar(const char* name, const char* value) {
+    ON_CALL(env_, GetVar(StrEq(name))).WillByDefault(Return(value));
+  }
+
+  testing::NiceMock<MockEnvironment> env_;
+  ScopedTempDir temp_dir_;
+  FilePath existing_path_;
+  FilePath missing_path_;
+};
+
+TEST_F(DetectAppSandboxTest, None) {
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, missing_path_), AppSandbox::kNone);
+}
+
+TEST_F(DetectAppSandboxTest, FlatpakInfoFile) {
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, existing_path_),
+            AppSandbox::kFlatpak);
+}
+
+TEST_F(DetectAppSandboxTest, FlatpakIdEnvVar) {
+  SetVar("FLATPAK_ID", "org.chromium.Chromium");
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, missing_path_),
+            AppSandbox::kFlatpak);
+}
+
+TEST_F(DetectAppSandboxTest, EmptyFlatpakIdEnvVar) {
+  SetVar("FLATPAK_ID", "");
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, missing_path_), AppSandbox::kNone);
+}
+
+TEST_F(DetectAppSandboxTest, FlatpakSandboxDirAloneIsNotFlatpak) {
+  // Only `/.flatpak-info` and $FLATPAK_ID are used to detect Flatpak.
+  SetVar("FLATPAK_SANDBOX_DIR", "/");
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, missing_path_), AppSandbox::kNone);
+}
+
+TEST_F(DetectAppSandboxTest, Snap) {
+  SetVar("SNAP", "/snap/chromium/123");
+  SetVar("SNAP_NAME", "chromium");
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, missing_path_), AppSandbox::kSnap);
+}
+
+TEST_F(DetectAppSandboxTest, SnapRequiresSnapName) {
+  SetVar("SNAP", "/snap/chromium/123");
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, missing_path_), AppSandbox::kNone);
+}
+
+TEST_F(DetectAppSandboxTest, SnapRequiresSnap) {
+  SetVar("SNAP_NAME", "chromium");
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, missing_path_), AppSandbox::kNone);
+}
+
+TEST_F(DetectAppSandboxTest, FlatpakTakesPrecedenceOverSnap) {
+  SetVar("SNAP", "/snap/chromium/123");
+  SetVar("SNAP_NAME", "chromium");
+  EXPECT_EQ(DetectAppSandboxForTesting(env_, existing_path_),
+            AppSandbox::kFlatpak);
+}
+
+TEST(GetAppSandboxTest, ScopedOverride) {
+  const AppSandbox original = GetAppSandbox();
+  {
+    ScopedAppSandboxOverrideForTesting flatpak(AppSandbox::kFlatpak);
+    EXPECT_EQ(GetAppSandbox(), AppSandbox::kFlatpak);
+    {
+      ScopedAppSandboxOverrideForTesting snap(AppSandbox::kSnap);
+      EXPECT_EQ(GetAppSandbox(), AppSandbox::kSnap);
+    }
+    EXPECT_EQ(GetAppSandbox(), AppSandbox::kFlatpak);
+  }
+  EXPECT_EQ(GetAppSandbox(), original);
 }
 
 }  // namespace base::nix

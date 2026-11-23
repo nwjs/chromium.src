@@ -13,10 +13,15 @@
 
 #include "base/check.h"
 #include "base/functional/callback.h"
+#include "base/functional/function_ref.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "components/autofill/core/browser/at_memory/at_memory_search_state.h"
+#include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
+#include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
+#include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/browser/foundations/scoped_autofill_managers_observation.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -53,14 +58,22 @@ class AutofillClient;
 // entered, or after clearing the filter) is represented by
 // `AtMemorySearchStatus::kZeroState`.
 class AtMemoryPersistedStateManager
-    : public history::HistoryServiceObserver,
+    : public AddressDataManager::Observer,
+      public PaymentsDataManager::Observer,
+      public EntityDataManager::Observer,
+      public ValuablesDataManager::Observer,
+      public history::HistoryServiceObserver,
       public personal_context::PersonalContextEligibilityService::Observer,
       public signin::IdentityManager::Observer,
       public AutofillManager::Observer {
  public:
   struct ExpiringSuggestion {
     Suggestion suggestion;
-    base::TimeTicks expiration_time;
+    base::Time insertion_time;
+
+    base::Time expiration_time() const {
+      return insertion_time + kDefaultTimeToLive;
+    }
   };
 
   static constexpr size_t kMaxPreviouslyFilledSuggestions = 20;
@@ -94,6 +107,9 @@ class AtMemoryPersistedStateManager
 
   void OnFilterChanged(std::u16string_view filter);
   void OnFilterSubmitted(const std::u16string& filter);
+  // Persists `suggestions`. While a search is in progress, they are its partial
+  // results, so the status becomes
+  // `AtMemorySearchStatus::kPartialResponseReceived`.
   void OnSuggestionsChanged(std::vector<Suggestion> suggestions);
   void OnSuggestionAccepted(const Suggestion& suggestion);
 
@@ -111,6 +127,11 @@ class AtMemoryPersistedStateManager
   // `FieldGlobalId` if there is none (e.g. after a reset).
   const FieldGlobalId& field_id() const { return field_id_; }
 
+  // Returns the status of the persisted search for `field_id()`.
+  AtMemorySearchStatus status() const { return search_state_.status; }
+
+  // Returns whether a search is in progress, i.e. whether the status is
+  // `AtMemorySearchStatus::kSearching` or `kPartialResponseReceived`.
   bool IsSearching() const;
   // Stops an ongoing search, if any. `query_completed` indicates that the
   // search stopped because its final response was received, in which case the
@@ -125,6 +146,19 @@ class AtMemoryPersistedStateManager
     return field_origin_;
   }
 
+ private:
+  // AddressDataManager::Observer:
+  void OnAddressDataChanged() override;
+
+  // PaymentsDataManager::Observer:
+  void OnPaymentsDataChanged() override;
+
+  // EntityDataManager::Observer:
+  void OnEntityInstancesChanged() override;
+
+  // ValuablesDataManager::Observer:
+  void OnValuablesDataChanged() override;
+
   // history::HistoryServiceObserver:
   void OnHistoryDeletions(history::HistoryService* history_service,
                           const history::DeletionInfo& deletion_info) override;
@@ -134,6 +168,7 @@ class AtMemoryPersistedStateManager
   // personal_context::PersonalContextEligibilityService::Observer:
   void OnEligibilityStateChanged(
       personal_context::PersonalContextEligibilityState new_state) override;
+  void OnContextSourceDisabled() override;
 
   // signin::IdentityManager::Observer:
   void OnPrimaryAccountChanged(
@@ -144,13 +179,14 @@ class AtMemoryPersistedStateManager
   // AutofillManager::Observer:
   // Clears all state when the tab's primary main frame navigates
   // cross-document, i.e. when its AutofillManager transitions to
-  // `kPendingReset` or `kPendingDeletion`.
+  // `kPendingReset` or `kPendingDeletion`, or when an inactive main frame
+  // becomes the primary main frame (prerender activation or BFCache restore),
+  // i.e. when its AutofillManager transitions from `kInactive` to `kActive`.
   void OnAutofillManagerStateChanged(
       AutofillManager& manager,
       AutofillManager::LifecycleState old_state,
       AutofillManager::LifecycleState new_state) override;
 
- private:
   // Resets the persisted state, clears `previously_filled_suggestions_`, and
   // executes `on_reset_callback_`.
   void Reset();
@@ -161,6 +197,15 @@ class AtMemoryPersistedStateManager
 
   // Removes previously filled suggestions that have exceeded their TTL.
   void RemoveExpiredPreviouslyFilledSuggestions();
+
+  // Removes suggestions from `previously_filled_suggestions_` and
+  // `search_state_` that:
+  // * have AtMemory payload
+  // * are not Personal Context sourced
+  // * `should_prune` returns true for them.
+  void PruneSuggestions(
+      base::FunctionRef<bool(const Suggestion::AtMemoryPayload&, base::Time)>
+          should_prune);
 
   void OnPrefChanged();
 
@@ -182,6 +227,14 @@ class AtMemoryPersistedStateManager
 
   PrefChangeRegistrar pref_registrar_;
 
+  base::ScopedObservation<AddressDataManager, AddressDataManager::Observer>
+      address_data_manager_observation_{this};
+  base::ScopedObservation<PaymentsDataManager, PaymentsDataManager::Observer>
+      payments_data_manager_observation_{this};
+  base::ScopedObservation<EntityDataManager, EntityDataManager::Observer>
+      entity_data_manager_observation_{this};
+  base::ScopedObservation<ValuablesDataManager, ValuablesDataManager::Observer>
+      valuables_data_manager_observation_{this};
   base::ScopedObservation<history::HistoryService,
                           history::HistoryServiceObserver>
       history_service_observation_{this};
@@ -194,7 +247,8 @@ class AtMemoryPersistedStateManager
       eligibility_service_observation_{this};
   ScopedAutofillManagersObservation autofill_managers_observation_{this};
   // Callback invoked whenever persisted state is reset (e.g. due to TTL expiry,
-  // history deletion, settings toggle being turned off, or eligibility loss).
+  // history deletion, settings toggle being turned off, a Personal Context
+  // source being disabled, or eligibility loss).
   // Used by `AtMemoryManager` to cancel in-flight queries and dismiss any
   // active suggestion popup.
   // TODO(crbug.com/535486238): Consider extracting history/pref/eligibility

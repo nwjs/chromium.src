@@ -11,6 +11,7 @@
 #include "base/i18n/rtl.h"
 #include "base/i18n/test/scoped_rtl_for_testing.h"
 #include "build/build_config.h"
+#include "chrome/browser/ui/views/tabs/common/tab_group_unfocus_button.h"
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/fake_tab_slot_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
@@ -18,8 +19,12 @@
 #include "chrome/browser/ui/views/tabs/tab_group_underline.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "ui/events/base_event_utils.h"
+#include "ui/events/event.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/focus/focus_search.h"
+#include "ui/views/test/button_test_api.h"
 #include "ui/views/widget/widget.h"
 
 class TabGroupViewsTest : public ChromeViewsTestBase {
@@ -69,7 +74,9 @@ class TabGroupViewsTest : public ChromeViewsTestBase {
     group_views_->OnGroupVisualsChanged();
   }
 
-  views::View* title_chip() { return group_views_->header()->children()[0]; }
+  views::View* title_chip() {
+    return group_views_->header()->title_chip_for_testing();
+  }
 
   views::View* title_label() { return title_chip()->children()[0]; }
 
@@ -100,13 +107,15 @@ TEST_F(TabGroupViewsTest, GroupViewsCreated) {
 
 TEST_F(TabGroupViewsTest, HeaderInitialAccessibilityProperties) {
   TabGroupHeader* header = group_views_->header();
-  ui::AXNodeData node_data;
-
-  header->GetViewAccessibility().GetAccessibleNodeData(&node_data);
-  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kEditable));
-  EXPECT_EQ(node_data.role, ax::mojom::Role::kTabList);
-  EXPECT_TRUE(node_data.HasState(ax::mojom::State::kExpanded));
-  EXPECT_FALSE(node_data.HasState(ax::mojom::State::kCollapsed));
+  for (views::View* view :
+       {static_cast<views::View*>(header), header->title_chip_for_testing()}) {
+    ui::AXNodeData node_data;
+    view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
+    EXPECT_TRUE(node_data.HasState(ax::mojom::State::kEditable));
+    EXPECT_EQ(node_data.role, ax::mojom::Role::kTabList);
+    EXPECT_TRUE(node_data.HasState(ax::mojom::State::kExpanded));
+    EXPECT_FALSE(node_data.HasState(ax::mojom::State::kCollapsed));
+  }
 }
 
 TEST_F(TabGroupViewsTest, HeaderTitleIsCentered) {
@@ -423,23 +432,194 @@ TEST_F(TabGroupViewsTest, UnderlineHiddenInFocusMode) {
   EXPECT_TRUE(group_views_->underline()->GetVisible());
 
   // Focus the group and verify underline becomes hidden.
-  tab_strip_controller_->SetFocusedGroup(id_);
+  tab_strip_controller_->EnterFocusMode(id_);
   group_views_->UpdateBounds();
   EXPECT_FALSE(group_views_->underline()->GetVisible());
 
   // Unfocus the group and verify underline becomes visible again.
-  tab_strip_controller_->SetFocusedGroup(std::nullopt);
+  tab_strip_controller_->ExitFocusMode();
   group_views_->UpdateBounds();
   EXPECT_TRUE(group_views_->underline()->GetVisible());
 
   // Focus a different group and verify this group's underline is also hidden.
   tab_groups::TabGroupId other_group = tab_groups::TabGroupId::GenerateNew();
-  tab_strip_controller_->SetFocusedGroup(other_group);
+  tab_strip_controller_->EnterFocusMode(other_group);
   group_views_->UpdateBounds();
   EXPECT_FALSE(group_views_->underline()->GetVisible());
 
   // Unfocus the group and verify underline becomes visible again.
-  tab_strip_controller_->SetFocusedGroup(std::nullopt);
+  tab_strip_controller_->ExitFocusMode();
   group_views_->UpdateBounds();
   EXPECT_TRUE(group_views_->underline()->GetVisible());
+}
+
+TEST_F(TabGroupViewsTest, FocusOrder) {
+  TabGroupHeader* header = group_views_->header();
+  TabGroupUnfocusButton* unfocus_button = header->unfocus_chip_for_testing();
+  views::View* chip = header->title_chip_for_testing();
+  ASSERT_NE(nullptr, unfocus_button);
+  ASSERT_NE(nullptr, chip);
+  EXPECT_NE(nullptr, views::FocusRing::Get(chip));
+
+  Tab* tab = tab_container_->AddChildView(
+      std::make_unique<Tab>(tabs::TabHandle(1), tab_slot_controller_.get()));
+  tab->SetGroup(id_);
+  tab->SetBounds(100, 0, 100, 50);
+
+  views::FocusSearch focus_search(tab_container_.get(), /*cycle=*/false,
+                                  /*accessibility_mode=*/true);
+  views::FocusTraversable* dummy_focus_traversable = nullptr;
+  views::View* dummy_focus_traversable_view = nullptr;
+
+  // When not in focus mode, the unfocus button is hidden so traversal goes
+  // directly from the title chip to the tab.
+  EXPECT_FALSE(unfocus_button->GetVisible());
+  views::View* first_focused = focus_search.FindNextFocusableView(
+      tab_container_.get(), views::FocusSearch::SearchDirection::kForwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(chip, first_focused);
+
+  views::View* second_focused = focus_search.FindNextFocusableView(
+      chip, views::FocusSearch::SearchDirection::kForwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(tab, second_focused);
+
+  // Reverse traversal from tab goes back to the title chip and skips the
+  // hidden unfocus button.
+  views::View* prev_from_tab = focus_search.FindNextFocusableView(
+      tab, views::FocusSearch::SearchDirection::kBackwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(chip, prev_from_tab);
+
+  views::View* prev_from_chip = focus_search.FindNextFocusableView(
+      chip, views::FocusSearch::SearchDirection::kBackwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(nullptr, prev_from_chip);
+}
+
+TEST_F(TabGroupViewsTest, FocusOrderInFocusMode) {
+  TabGroupHeader* header = group_views_->header();
+  TabGroupUnfocusButton* unfocus_button = header->unfocus_chip_for_testing();
+  views::View* chip = header->title_chip_for_testing();
+  ASSERT_NE(nullptr, unfocus_button);
+  ASSERT_NE(nullptr, chip);
+
+  // Verify child order in TabGroupHeader matches visual order for screen
+  // readers and keyboard focus traversal.
+  ASSERT_GE(header->children().size(), 2u);
+  EXPECT_EQ(unfocus_button, header->children()[0]);
+  EXPECT_EQ(chip, header->children()[1]);
+
+  Tab* tab = tab_container_->AddChildView(
+      std::make_unique<Tab>(tabs::TabHandle(1), tab_slot_controller_.get()));
+  tab->SetGroup(id_);
+  tab->SetBounds(100, 0, 100, 50);
+
+  views::FocusSearch focus_search(tab_container_.get(), /*cycle=*/false,
+                                  /*accessibility_mode=*/true);
+  views::FocusTraversable* dummy_focus_traversable = nullptr;
+  views::View* dummy_focus_traversable_view = nullptr;
+
+  // Focus the group so the unfocus button becomes visible.
+  tab_strip_controller_->EnterFocusMode(id_);
+  group_views_->OnGroupVisualsChanged();
+  group_views_->UpdateBounds();
+  EXPECT_TRUE(unfocus_button->GetVisible());
+
+  // Forward traversal: unfocus button -> title chip -> tab.
+  views::View* first_focused = focus_search.FindNextFocusableView(
+      tab_container_.get(), views::FocusSearch::SearchDirection::kForwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(unfocus_button, first_focused);
+
+  views::View* second_focused = focus_search.FindNextFocusableView(
+      unfocus_button, views::FocusSearch::SearchDirection::kForwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(chip, second_focused);
+
+  views::View* third_focused = focus_search.FindNextFocusableView(
+      chip, views::FocusSearch::SearchDirection::kForwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(tab, third_focused);
+
+  // Reverse traversal from tab: title chip -> unfocus button.
+  views::View* prev_from_tab = focus_search.FindNextFocusableView(
+      tab, views::FocusSearch::SearchDirection::kBackwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(chip, prev_from_tab);
+
+  views::View* prev_from_chip = focus_search.FindNextFocusableView(
+      chip, views::FocusSearch::SearchDirection::kBackwards,
+      views::FocusSearch::TraversalDirection::kDown,
+      views::FocusSearch::StartingViewPolicy::kSkipStartingView,
+      views::FocusSearch::AnchoredDialogPolicy::kCanGoIntoAnchoredDialog,
+      &dummy_focus_traversable, &dummy_focus_traversable_view);
+  EXPECT_EQ(unfocus_button, prev_from_chip);
+}
+
+TEST_F(TabGroupViewsTest, AnchorBoundsInFocusMode) {
+  SetGroupTitle(u"Focused Group");
+  TabGroupHeader* header = group_views_->header();
+  TabGroupUnfocusButton* unfocus_button = header->unfocus_chip_for_testing();
+  views::View* chip = header->title_chip_for_testing();
+  ASSERT_NE(nullptr, unfocus_button);
+  ASSERT_NE(nullptr, chip);
+
+  header->SetBounds(10, 0, 200, 34);
+  tab_strip_controller_->EnterFocusMode(id_);
+  group_views_->OnGroupVisualsChanged();
+  group_views_->UpdateBounds();
+  ASSERT_TRUE(unfocus_button->GetVisible());
+
+  const gfx::Rect anchor_bounds = header->GetAnchorBoundsInScreen();
+  const gfx::Rect chip_screen_bounds = chip->GetBoundsInScreen();
+  const gfx::Rect header_screen_bounds = header->GetBoundsInScreen();
+
+  EXPECT_EQ(anchor_bounds.x(), chip_screen_bounds.x());
+  EXPECT_EQ(anchor_bounds.width(), chip_screen_bounds.width());
+  EXPECT_GT(anchor_bounds.x(), unfocus_button->GetBoundsInScreen().right());
+  EXPECT_EQ(anchor_bounds.y(), header_screen_bounds.y());
+  EXPECT_EQ(anchor_bounds.height(), header_screen_bounds.height());
+}
+
+TEST_F(TabGroupViewsTest, UnfocusButtonClickExitsFocusMode) {
+  TabGroupHeader* header = group_views_->header();
+  TabGroupUnfocusButton* unfocus_button = header->unfocus_chip_for_testing();
+  ASSERT_NE(nullptr, unfocus_button);
+
+  tab_strip_controller_->EnterFocusMode(id_);
+  group_views_->OnGroupVisualsChanged();
+  group_views_->UpdateBounds();
+  ASSERT_EQ(id_, tab_strip_controller_->GetFocusedGroup());
+  ASSERT_TRUE(unfocus_button->GetVisible());
+
+  views::test::ButtonTestApi(unfocus_button)
+      .NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::Point(),
+                                  gfx::Point(), ui::EventTimeForNow(), 0, 0));
+
+  EXPECT_EQ(std::nullopt, tab_strip_controller_->GetFocusedGroup());
 }

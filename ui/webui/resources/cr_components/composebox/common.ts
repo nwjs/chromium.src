@@ -7,7 +7,7 @@ import {assertNotReachedCase} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {FuseboxAction, SuggestInventory} from '//resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import {TabAttachmentSource} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {DriveUploadError, SearchContextAttachment, SelectedFileInfo, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {DriveUploadError, SelectedFileInfo, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
@@ -350,22 +350,6 @@ export class ComposeboxInputModel {
   }
 }
 
-export function hasOnlyAutoAddedTabAttachments(
-    attachments: SearchContextAttachment[]): boolean {
-  if (attachments.length === 0) {
-    return false;
-  }
-  for (const attachment of attachments) {
-    if (!attachment.tabAttachment) {
-      return false;
-    }
-    if (!isAutoAddedOrigin(attachment.tabAttachment.source)) {
-      return false;
-    }
-  }
-  return true;
-}
-
 export enum SingleTabType {
   RECENT_TAB = 'RecentTab',
   CURRENT_TAB = 'CurrentTab',
@@ -403,6 +387,16 @@ export enum GlifAnimationState {
   FINISHED = 'finished',
 }
 
+export enum VoiceSearchAction {
+  ACTIVATE = 0,
+  QUERY_SUBMITTED = 1,
+}
+
+export enum SubmitButtonIconType {
+  FORWARD = 'forward',
+  UPWARD = 'upward',
+}
+
 // LINT.IfChange(ContextualSearchInputStateDeletionType)
 export enum ContextualSearchInputStateDeletionType {
   FILE = 0,
@@ -436,6 +430,16 @@ export function recordSingleTabMenuItemAction(
       SingleTabMenuItemAction.MAX_VALUE + 1);
 }
 
+// LINT.IfChange(RichImageSuggestBatchLoadStatus)
+export enum RichImageSuggestBatchLoadStatus {
+  CACHED = 0,
+  LOADED = 1,
+  TIMED_OUT = 2,
+  SUPERSEDED = 3,
+  MAX_VALUE = SUPERSEDED,
+}
+// LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_search/enums.xml:RichImageSuggestBatchLoadStatus)
+
 export function recordEnumerationValue(
     metricName: string, value: number, enumSize: number) {
   const metricsService = chrome.histograms || chrome.metricsPrivate;
@@ -465,6 +469,35 @@ export function recordCount(metricName: string, value: number) {
   }
 }
 
+export function recordTime(metricName: string, value: number) {
+  const metricsService = chrome.histograms || chrome.metricsPrivate;
+  if (metricsService) {
+    metricsService.recordTime(metricName, value);
+  }
+}
+
+export function recordRichImageSuggestBatchLoadStatus(
+    status: RichImageSuggestBatchLoadStatus, composeboxSource: string) {
+  recordEnumerationValue(
+      `ContextualSearch.RichImageSuggest.BatchLoadStatus.${composeboxSource}`,
+      status, RichImageSuggestBatchLoadStatus.MAX_VALUE + 1);
+}
+
+export function recordRichImageSuggestBatchLoadLatency(
+    latencyMs: number, composeboxSource: string) {
+  recordTime(
+      `ContextualSearch.RichImageSuggest.BatchLoadLatency.${composeboxSource}`,
+      Math.round(latencyMs));
+}
+
+export function recordRichImageSuggestClicked(composeboxSource: string) {
+  recordCount(
+      `ContextualSearch.RichImageSuggest.Clicked.${composeboxSource}`, 1);
+}
+
+export function recordRichImageSuggestShown(composeboxSource: string) {
+  recordCount(`ContextualSearch.RichImageSuggest.Shown.${composeboxSource}`, 1);
+}
 // TODO(crbug.com/468329884): Consider making this a new contextual entry
 // source so the realbox and composebox don't both get logged as NTP.
 export function recordContextAdditionMethod(

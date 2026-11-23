@@ -46,17 +46,18 @@
 #include "components/optimization_guide/core/hints/command_line_top_host_provider.h"
 #include "components/optimization_guide/core/hints/fake_hints_fetcher.h"
 #include "components/optimization_guide/core/hints/hints_manager.h"
+#include "components/optimization_guide/core/hints/optimization_guide_navigation_data.h"
 #include "components/optimization_guide/core/hints/top_host_provider.h"
-#include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_permissions_util.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "components/variations/hashing.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_base.h"
 #include "content/public/test/browser_test_utils.h"
@@ -344,7 +345,13 @@ class HintsFetcherDisabledBrowserTest : public InProcessBrowserTest {
         no_state_prefetch_manager->StartPrefetchingFromLinkRelPrerender(
             /*process_id=*/-1, /*route_id=*/-1, url,
             blink::mojom::PrerenderTriggerType::kLinkRelPrerender,
-            content::Referrer(), url::Origin::Create(url), gfx::Size(640, 480));
+            content::Referrer(), url::Origin::Create(url),
+            browser()
+                ->GetTabStripModel()
+                ->GetActiveWebContents()
+                ->GetPrimaryMainFrame()
+                ->GetCurrentInitiatorNavigationState(),
+            gfx::Size(640, 480));
     ASSERT_EQ(no_state_prefetch_handle->contents(), test_prerender->contents());
 
     // The final status may be either  FINAL_STATUS_NOSTATE_PREFETCH_FINISHED or
@@ -792,7 +799,7 @@ IN_PROC_BROWSER_TEST_F(
   histogram_tester->ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.RequestStatus."
       "PageNavigation",
-      optimization_guide::FetcherRequestStatus::kRequestCanceled, 1);
+      optimization_guide::HintsFetcherRequestStatus::kRequestCanceled, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(HintsFetcherBrowserTest,
@@ -984,7 +991,7 @@ IN_PROC_BROWSER_TEST_F(HintsFetcherBrowserTest,
     histogram_tester.ExpectUniqueSample(
         "OptimizationGuide.HintsFetcher.GetHintsRequest.RequestStatus."
         "Bookmarks",
-        optimization_guide::FetcherRequestStatus::kSuccess, 1);
+        optimization_guide::HintsFetcherRequestStatus::kSuccess, 1);
   }
 
   {
@@ -1016,7 +1023,7 @@ IN_PROC_BROWSER_TEST_F(HintsFetcherBrowserTest,
     histogram_tester.ExpectUniqueSample(
         "OptimizationGuide.HintsFetcher.GetHintsRequest.RequestStatus."
         "Bookmarks",
-        optimization_guide::FetcherRequestStatus::kSuccess, 1);
+        optimization_guide::HintsFetcherRequestStatus::kSuccess, 1);
   }
 }
 
@@ -1829,7 +1836,7 @@ IN_PROC_BROWSER_TEST_F(PersonalizedHintsFetcherBrowserTest, NoUserSignIn) {
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.RequestStatus."
       "PageInsightsHub",
-      optimization_guide::FetcherRequestStatus::kSuccess, 1);
+      optimization_guide::HintsFetcherRequestStatus::kSuccess, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(PersonalizedHintsFetcherBrowserTest, UserSignedIn) {
@@ -1845,7 +1852,7 @@ IN_PROC_BROWSER_TEST_F(PersonalizedHintsFetcherBrowserTest, UserSignedIn) {
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.RequestStatus."
       "PageInsightsHub",
-      optimization_guide::FetcherRequestStatus::kSuccess, 1);
+      optimization_guide::HintsFetcherRequestStatus::kSuccess, 1);
 
   // Only the enabled RequestContext will have access token enabled.
   SetExpectedBearerAccessToken(std::string());
@@ -1854,7 +1861,7 @@ IN_PROC_BROWSER_TEST_F(PersonalizedHintsFetcherBrowserTest, UserSignedIn) {
       optimization_guide::proto::CONTEXT_JOURNEYS);
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.HintsFetcher.GetHintsRequest.RequestStatus.Journeys",
-      optimization_guide::FetcherRequestStatus::kSuccess, 1);
+      optimization_guide::HintsFetcherRequestStatus::kSuccess, 1);
 }
 
 // TODO(crbug.com/425936619): Add checks for url, hint counts, context.

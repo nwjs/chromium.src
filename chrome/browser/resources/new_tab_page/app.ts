@@ -3,19 +3,14 @@
 // found in the LICENSE file.
 
 import './logo.js';
-import './ntp_composebox.js';
 import './ntp_searchbox.js';
 import './left_hand_side.js';
 import '/strings.m.js';
-import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
-import 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
-import 'chrome://resources/cr_components/search/animated_glow.js';
 
 import {SearchboxBrowserProxy} from '//resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
-import {GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
+import {GlifAnimationState, VoiceSearchAction as ComposeVoiceSearchAction} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxState} from 'chrome://resources/cr_components/composebox/common.js';
-import {VoiceSearchAction as ComposeVoiceSearchAction} from 'chrome://resources/cr_components/composebox/composebox.js';
 import type {ComposeboxVoiceSearchElement, VoicePermissionPromptState} from 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
 import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/help_bubble_mixin_lit.js';
 import type {SearchAnimatedGlowElement} from 'chrome://resources/cr_components/search/animated_glow.js';
@@ -28,7 +23,6 @@ import {hexColorToSkColor, skColorToRgba} from 'chrome://resources/js/color_util
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {FocusOutlineManager} from 'chrome://resources/js/focus_outline_manager.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {getTrustedScriptURL} from 'chrome://resources/js/static_types.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {FuseboxAction} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
@@ -38,27 +32,24 @@ import {ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/co
 import type {SkColor} from 'chrome://resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 
 import type {ActionChipClickDetail} from './action_chips/action_chips.js';
-import {ActionChipsRetrievalState} from './action_chips/action_chips.js';
+import {ActionChipsRetrievalState} from './action_chips/action_chips_proxy.js';
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 import {BackgroundManager} from './background_manager.js';
-import type {CustomizeButtonsDocumentCallbackRouter, CustomizeButtonsHandlerRemote} from './customize_buttons.mojom-webui.js';
-import {SidePanelOpenTrigger} from './customize_buttons.mojom-webui.js';
-import {CustomizeButtonsProxy} from './customize_buttons_proxy.js';
+import type {CustomizeButtonsDocumentCallbackRouter, CustomizeButtonsHandlerInterface} from './customize_buttons.mojom-webui.js';
+import {browserProxyFactory as customizeButtonsProxyFactory, SidePanelOpenTrigger} from './customize_buttons.mojom-webui.js';
 import {CustomizeChromeSection} from './customize_chrome.mojom-webui.js';
 import {CustomizeDialogPage} from './customize_dialog_types.js';
 import type {IframeElement} from './iframe.js';
 import type {LogoElement} from './logo.js';
-import {recordBoolean, recordDuration, recordEnumeration, recordLinearValue, recordLoadDuration, recordSparseValueWithPersistentHash} from './metrics_utils.js';
+import {recordBoolean, recordDuration, recordEnumeration, recordLinearValue, recordLoadDuration, recordSparseValueWithPersistentHash, recordVoiceAction, VoiceAction} from './metrics_utils.js';
 import {ParentTrustedDocumentProxy} from './modules/microsoft_auth_frame_connector.js';
-import type {PageCallbackRouter, PageHandlerRemote, Theme} from './new_tab_page.mojom-webui.js';
-import {NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
-import {NewTabPageProxy} from './new_tab_page_proxy.js';
+import type {PageCallbackRouter, PageHandlerInterface, Theme} from './new_tab_page.mojom-webui.js';
+import {browserProxyFactory as newTabPageProxyFactory, NtpBackgroundImageSource} from './new_tab_page.mojom-webui.js';
 import type {NtpComposeboxElement} from './ntp_composebox.js';
 import {ShowNtpPromosResult} from './ntp_promo.mojom-webui.js';
 import type {NtpSearchboxElement} from './ntp_searchbox.js';
 import {$$} from './utils.js';
-import {Action as VoiceAction, recordVoiceAction} from './voice_search_overlay.js';
 import {WindowProxy} from './window_proxy.js';
 
 enum ModuleLoadStatus {
@@ -159,14 +150,6 @@ function recordCustomizeChromeOpen(element: NtpCustomizeChromeEntryPoint) {
       NtpCustomizeChromeEntryPoint.MAX_VALUE + 1);
 }
 
-// Adds a <script> tag that holds the lazy loaded code.
-function ensureLazyLoaded() {
-  const script = document.createElement('script');
-  script.type = 'module';
-  script.src = getTrustedScriptURL`./lazy_load.js`;
-  document.body.appendChild(script);
-}
-
 function recordShowBrowserPromosResult(result: ShowNtpPromosResult) {
   recordEnumeration(
       'UserEducation.NtpPromos.ShowResult', result,
@@ -224,7 +207,6 @@ export class AppElement extends AppElementBase {
       // Protected properties
       // =======================================================================
 
-      composeboxState_: {type: Object},
       oneGoogleBarIframePath_: {type: String},
       oneGoogleBarLoaded_: {type: Boolean},
       theme_: {type: Object},
@@ -338,6 +320,12 @@ export class AppElement extends AppElementBase {
       maxMostVisitedTilesInExpandedState_: {type: Number},
       maxEnterpriseShortcuts_: {type: Number},
       containerFocused_: {type: Boolean},
+      composeboxFocused_: {type: Boolean},
+      pageContentHidden_: {
+        type: Boolean,
+        reflect: true,
+      },
+      composeboxOutsideClickEnabled_: {type: Boolean},
 
       /**
        * Whether the scrim is shown in Realbox Next.
@@ -354,7 +342,10 @@ export class AppElement extends AppElementBase {
       /**
        * Whether to show the AIM threads rail when composebox is open.
        */
-      enableThreadsRail_: {type: Boolean},
+      enableThreadsRail_: {
+        type: Boolean,
+        reflect: true,
+      },
 
       rhsWidth_: {type: Number},
 
@@ -382,7 +373,6 @@ export class AppElement extends AppElementBase {
   accessor composeboxEnabled: boolean =
       loadTimeData.getBoolean('searchboxShowComposebox');
 
-  protected accessor composeboxState_: ComposeboxState|null = null;
   protected accessor oneGoogleBarIframePath_: string|undefined;
   protected accessor oneGoogleBarLoaded_: boolean = false;
   protected accessor theme_: Theme|null = null;
@@ -484,6 +474,10 @@ export class AppElement extends AppElementBase {
   protected accessor maxEnterpriseShortcuts_: number =
       loadTimeData.getInteger('maxEnterpriseShortcuts');
   protected accessor containerFocused_: boolean = false;
+  protected accessor composeboxFocused_: boolean = false;
+  protected accessor pageContentHidden_: boolean = false;
+  protected accessor composeboxOutsideClickEnabled_: boolean =
+      loadTimeData.getBoolean('composeboxRealboxOutsideClick');
   protected accessor showScrim_: boolean = false;
   protected realboxContextMenuAnimationAllowed_: boolean = false;
   protected accessor contextMenuGlifAnimationState_: GlifAnimationState =
@@ -510,10 +504,10 @@ export class AppElement extends AppElementBase {
   private accessor modulesLoadedStatus_: ModuleLoadStatus =
       ModuleLoadStatus.MODULE_LOAD_IN_PROGRESS;
   private callbackRouter_: PageCallbackRouter;
-  private pageHandler_: PageHandlerRemote;
+  private pageHandler_: PageHandlerInterface;
   private customizeButtonsCallbackRouter_:
       CustomizeButtonsDocumentCallbackRouter;
-  private customizeButtonsHandler_: CustomizeButtonsHandlerRemote;
+  private customizeButtonsHandler_: CustomizeButtonsHandlerInterface;
   private backgroundManager_: BackgroundManager;
   private connectMicrosoftAuthToParentDocumentListenerId_: number|null = null;
   private setThemeListenerId_: number|null = null;
@@ -532,13 +526,14 @@ export class AppElement extends AppElementBase {
   constructor() {
     performance.mark('app-creation-start');
     super();
-    this.callbackRouter_ = NewTabPageProxy.getInstance().callbackRouter;
+    this.callbackRouter_ = newTabPageProxyFactory.getInstance().callbackRouter;
     this.searchboxCallbackRouter_ =
         SearchboxBrowserProxy.getInstance().callbackRouter;
-    this.pageHandler_ = NewTabPageProxy.getInstance().handler;
+    this.pageHandler_ = newTabPageProxyFactory.getInstance().handler;
     this.customizeButtonsCallbackRouter_ =
-        CustomizeButtonsProxy.getInstance().callbackRouter;
-    this.customizeButtonsHandler_ = CustomizeButtonsProxy.getInstance().handler;
+        customizeButtonsProxyFactory.getInstance().callbackRouter;
+    this.customizeButtonsHandler_ =
+        customizeButtonsProxyFactory.getInstance().handler;
     this.backgroundManager_ = BackgroundManager.getInstance();
     this.shouldPrintPerformance_ =
         new URLSearchParams(location.search).has('print_perf');
@@ -772,8 +767,23 @@ export class AppElement extends AppElementBase {
           this.showVoiceSearchOverlay_;
     }
 
+    if (this.composeboxOutsideClickEnabled_ &&
+        changedPrivateProperties.has('showComposebox_') &&
+        !this.showComposebox_) {
+      this.composeboxFocused_ = false;
+    }
+
+    if (changedPrivateProperties.has(
+            this.composeboxOutsideClickEnabled_ ? 'composeboxFocused_' :
+                                                  'showComposebox_')) {
+      this.pageContentHidden_ = !this.ntpRealboxNextEnabled_ &&
+          (this.composeboxOutsideClickEnabled_ ? this.composeboxFocused_ :
+                                                 this.showComposebox_);
+    }
+
     if (this.ntpRealboxNextEnabled_ && [
-          'showComposebox_',
+          this.composeboxOutsideClickEnabled_ ? 'composeboxFocused_' :
+                                                'showComposebox_',
           'showLensUploadDialog_',
           'containerFocused_',
           'showVoiceSearchScrim_',
@@ -799,17 +809,28 @@ export class AppElement extends AppElementBase {
        *   4. The scrim is kept since showComposebox_ is still true.
        *   5. The onclick handler of the scrim runs and sets showComposebox_ to
        *      false, and everything works as desired.
+       *
+       * With composeboxOutsideClickEnabled_ enabled, composeboxFocused_
+       * replaces showComposebox_ in this sequence and is cleared by the scrim
+       * click.
        */
-      this.showScrim_ = this.showComposebox_ || this.showLensUploadDialog_ ||
-          this.containerFocused_ || this.showVoiceSearchScrim_;
+      this.showScrim_ =
+          (this.composeboxOutsideClickEnabled_ ? this.composeboxFocused_ :
+                                                 this.showComposebox_) ||
+          this.showLensUploadDialog_ || this.containerFocused_ ||
+          this.showVoiceSearchScrim_;
     }
   }
 
   override firstUpdated() {
     this.pageHandler_.onAppRendered(WindowProxy.getInstance().now());
     // Let the browser breathe and then render remaining elements.
-    WindowProxy.getInstance().waitForLazyRender().then(() => {
-      ensureLazyLoaded();
+    WindowProxy.getInstance().waitForLazyRender().then(async () => {
+      // Wait for lazy_load.js to execute so that custom elements inside
+      // `this.lazyRender_` (<ntp-customize-buttons>, <ntp-action-chips>,
+      // <cr-most-visited>, <ntp-modules>, etc.) are registered and upgrade
+      // synchronously when inserted into the DOM.
+      await WindowProxy.getInstance().ensureLazyLoaded();
       this.lazyRender_ = true;
     });
     this.printPerformance_();
@@ -862,7 +883,9 @@ export class AppElement extends AppElementBase {
       this.onModulesLoadedChange_();
     }
 
-    if (changedPrivateProperties.has('showComposebox_')) {
+    if (changedPrivateProperties.has(
+            this.composeboxOutsideClickEnabled_ ? 'composeboxFocused_' :
+                                                  'showComposebox_')) {
       this.onShowComposeboxChange_();
     }
 
@@ -1027,9 +1050,7 @@ export class AppElement extends AppElementBase {
   }
 
   private async openComposeboxForActionChip_(detail: ActionChipClickDetail) {
-    this.composeboxState_ = null;
-    this.ensureComposeboxOpen_();
-    await this.updateComplete;
+    await this.ensureComposeboxOpen_();
     const composebox =
         this.shadowRoot?.querySelector<NtpComposeboxElement>('#composebox');
     if (composebox) {
@@ -1041,8 +1062,8 @@ export class AppElement extends AppElementBase {
     this.pageHandler_.onContextualSearchIPHEngaged();
   }
 
-  protected openComposebox_(state: ComposeboxState|null = null) {
-    this.composeboxState_ = state ?? {
+  protected async openComposebox_(state: ComposeboxState|null = null) {
+    const nextState: ComposeboxState = state ?? {
       text: '',
       files: [],
       mode: ToolMode.kUnspecified,
@@ -1051,12 +1072,23 @@ export class AppElement extends AppElementBase {
       smartTabSharingActive: false,
       // </if>
     };
-    this.ensureComposeboxOpen_();
+    await this.ensureComposeboxOpen_();
+    const composebox =
+        this.shadowRoot?.querySelector<NtpComposeboxElement>('#composebox');
+    if (composebox) {
+      composebox.state = nextState;
+    }
   }
 
-  private ensureComposeboxOpen_() {
+  private async ensureComposeboxOpen_() {
+    // <ntp-composebox> may be defined in lazy_load.js, which may not have been
+    // loaded yet if the composebox is opened right after the NTP loads.
+    await WindowProxy.getInstance().ensureLazyLoaded();
     if (!this.showComposebox_) {
       this.showComposebox_ = true;
+      if (this.composeboxOutsideClickEnabled_) {
+        this.composeboxFocused_ = true;
+      }
     } else {
       this.shadowRoot.querySelector<NtpComposeboxElement>('#composebox')
           ?.focusInput();
@@ -1067,6 +1099,9 @@ export class AppElement extends AppElementBase {
           WindowProxy.getInstance().now());
       this.wasComposeboxOpened_ = true;
     }
+    // Wait for `<ntp-composebox>` to render in the DOM after setting
+    // `showComposebox_ = true` before callers query `#composebox`.
+    await this.updateComplete;
   }
 
   protected closeComposebox_() {
@@ -1091,28 +1126,39 @@ export class AppElement extends AppElementBase {
   }
 
   protected onComposeboxOutsideClick_() {
-    const composebox =
-        this.shadowRoot.querySelector<NtpComposeboxElement>('#composebox');
-    assert(composebox);
-    const closeComposebox = new CustomEvent('closeComposebox', {
-      detail: {composeboxText: composebox.input},
-      bubbles: true,
-      cancelable: true,
-    });
+    if (this.composeboxOutsideClickEnabled_) {
+      this.composeboxFocused_ = false;
+    } else {
+      const composebox =
+          this.shadowRoot.querySelector<NtpComposeboxElement>('#composebox');
+      assert(composebox);
+      const closeComposebox = new CustomEvent('closeComposebox', {
+        detail: {composeboxText: composebox.input},
+        bubbles: true,
+        cancelable: true,
+      });
 
-    this.onCloseComposebox_(closeComposebox);
+      this.onCloseComposebox_(closeComposebox);
+    }
   }
 
   protected onComposeboxContextMenuOpened_() {
     this.$.searchbox.closeContextMenu();
   }
 
-  protected onCloseComposebox_(e: CustomEvent<{composeboxText?: string}>) {
+  protected onCloseComposebox_(
+      e: CustomEvent<{composeboxText?: string, afterSubmit?: boolean}>) {
     if (!this.showComposebox_) {
       return;
     }
     this.$.searchbox.closeContextMenu();
     const composeboxText = e.detail.composeboxText;
+
+    if (!e.detail.afterSubmit) {
+      // Composebox initiates the backend reset on close via ComposeboxProxy;
+      // this only updates the searchbox's local UI state.
+      this.$.searchbox.resetSmartTabSharing();
+    }
 
     if (composeboxText && composeboxText.trim()) {
       this.$.searchbox.setInputText(composeboxText);
@@ -1132,13 +1178,21 @@ export class AppElement extends AppElementBase {
   }
 
   protected onOpenVoiceSearch_() {
-    this.showVoiceSearchOverlay_ = true;
-    this.voiceSearchActivatedByKeyboard_ = false;
+    this.openVoiceSearch_(/*activatedByKeyboard=*/ false);
     // When the experiment is enabled, voice search metrics are logged directly
     // by the shared component instead of NTP to prevent duplicate emissions.
     if (!this.voiceSearchCoherenceAnySearchboxExperimentEnabled_) {
       recordVoiceAction(VoiceAction.ACTIVATE);
     }
+  }
+
+  private async openVoiceSearch_(activatedByKeyboard: boolean) {
+    // <ntp-voice-search-overlay> and <cr-composebox-voice-search> may be
+    // defined in lazy_load.js, which may not have been loaded yet if voice
+    // search is opened right after the NTP loads.
+    await WindowProxy.getInstance().ensureLazyLoaded();
+    this.voiceSearchActivatedByKeyboard_ = activatedByKeyboard;
+    this.showVoiceSearchOverlay_ = true;
   }
 
   protected onComposeVoiceSearchAction_(
@@ -1158,7 +1212,10 @@ export class AppElement extends AppElementBase {
     }
   }
 
-  protected onOpenLensSearch_() {
+  protected async onOpenLensSearch_() {
+    // <ntp-lens-upload-dialog> is defined in lazy_load.js, which may not have
+    // been loaded yet if Lens search is opened right after the NTP loads.
+    await WindowProxy.getInstance().ensureLazyLoaded();
     this.showLensUploadDialog_ = true;
   }
 
@@ -1226,6 +1283,7 @@ export class AppElement extends AppElementBase {
 
   protected onVoicePermissionChanged_(
       e: CustomEvent<VoicePermissionPromptState>) {
+    e.preventDefault();
     if (e.detail.isOpened) {
       this.voiceSearchListening_ = false;
     } else {
@@ -1336,7 +1394,9 @@ export class AppElement extends AppElementBase {
     // <if expr="is_macosx">
     ctrlKeyPressed = ctrlKeyPressed || e.metaKey;
     // </if>
-    if (e.key === 'Escape' && this.showComposebox_) {
+    if (e.key === 'Escape' &&
+        (this.composeboxOutsideClickEnabled_ ? this.composeboxFocused_ :
+                                               this.showComposebox_)) {
       const composebox =
           this.shadowRoot.querySelector<NtpComposeboxElement>('#composebox');
       if (composebox) {
@@ -1346,8 +1406,7 @@ export class AppElement extends AppElementBase {
       }
     }
     if (ctrlKeyPressed && e.code === 'Period' && e.shiftKey) {
-      this.showVoiceSearchOverlay_ = true;
-      this.voiceSearchActivatedByKeyboard_ = true;
+      this.openVoiceSearch_(/*activatedByKeyboard=*/ true);
       if (!this.voiceSearchCoherenceAnySearchboxExperimentEnabled_) {
         recordVoiceAction(VoiceAction.ACTIVATE_KEYBOARD);
       }
@@ -1725,12 +1784,14 @@ export class AppElement extends AppElementBase {
   }
 
   protected onSearchboxContainerFocusin_(e: FocusEvent) {
-    if (this.ntpRealboxNextEnabled_) {
-      const isHelpBubble = e.composedPath().some(
-          el => (el as HTMLElement)?.tagName === 'HELP-BUBBLE');
-      if (!isHelpBubble) {
-        this.containerFocused_ = true;
-      }
+    const isHelpBubble = e.composedPath().some(
+        el => (el as HTMLElement)?.tagName === 'HELP-BUBBLE');
+    if (this.ntpRealboxNextEnabled_ && !isHelpBubble) {
+      this.containerFocused_ = true;
+    }
+    if (this.composeboxOutsideClickEnabled_ && this.showComposebox_ &&
+        !isHelpBubble) {
+      this.composeboxFocused_ = true;
     }
   }
 
@@ -1880,12 +1941,16 @@ export class AppElement extends AppElementBase {
   }
 
   private onShowComposeboxChange_() {
-    const notSelector =
-        COMPOSEBOX_INERT_ALLOWLIST.map(s => `:not(${s})`).join('');
+    const notSelector = (this.composeboxOutsideClickEnabled_ ?
+                             [...COMPOSEBOX_INERT_ALLOWLIST, '#scrim'] :
+                             COMPOSEBOX_INERT_ALLOWLIST)
+                            .map(s => `:not(${s})`)
+                            .join('');
     const blockedElements = this.shadowRoot.querySelectorAll<HTMLElement>(
         `#rhsContent > ${notSelector}`);
     blockedElements.forEach(element => {
-      if (this.showComposebox_) {
+      if (this.composeboxOutsideClickEnabled_ ? this.composeboxFocused_ :
+                                                this.showComposebox_) {
         element.setAttribute('inert', '');
       } else {
         element.removeAttribute('inert');

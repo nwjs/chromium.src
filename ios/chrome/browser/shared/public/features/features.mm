@@ -40,7 +40,6 @@ BASE_FEATURE(kHideToolbar, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsHideToolbarEnabled() {
   return base::FeatureList::IsEnabled(kHideToolbar);
 }
-BASE_FEATURE(kHideFuseboxVoiceLensActions, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSharedHighlightingIOS, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -630,6 +629,20 @@ bool IsDefaultBrowserPromoPropensityModelEnabled() {
       segmentation_platform::features::kDefaultBrowserPromoPropensityModel);
 }
 
+bool IsLogDefaultBrowserPromoPropensityModelResultAndShowPromoEnabled() {
+  return base::FeatureList::IsEnabled(
+             segmentation_platform::features::
+                 kDefaultBrowserPromoPropensityModel) &&
+         segmentation_platform::features::
+             kDefaultBrowserPromoPropensityModelLogModelResultAndShowPromo
+                 .Get();
+}
+
+double GetDefaultBrowserPromoPropensityScoreCutoff() {
+  return segmentation_platform::features::
+      kDefaultBrowserPromoPropensityModelScoreThreshold.Get();
+}
+
 BASE_FEATURE(kIOSTrustedVaultNotification, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsIOSTrustedVaultNotificationEnabled() {
@@ -683,7 +696,7 @@ bool ShouldShowEditMenuItemsSynchronously() {
 }
 
 BASE_FEATURE(kIOSTipsNotificationsAlternativeStrings,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsTipsNotificationsAlternativeStringsEnabled() {
   return base::FeatureList::IsEnabled(kIOSTipsNotificationsAlternativeStrings);
 }
@@ -925,8 +938,18 @@ const base::FeatureParam<base::TimeDelta> kIOSSoftLockBackgroundThreshold{
 
 BASE_FEATURE(kAimCobrowse, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE_PARAM(bool,
+                   kAimCobrowseAddTabEntrypoint,
+                   &kAimCobrowse,
+                   kAimCobrowseAddTabEntrypointParam,
+                   true);
+
 bool IsAimCobrowseEnabled() {
   return base::FeatureList::IsEnabled(kAimCobrowse);
+}
+
+bool IsAimCobrowseAddTabEntrypointEnabled() {
+  return IsAimCobrowseEnabled() && kAimCobrowseAddTabEntrypoint.Get();
 }
 
 BASE_FEATURE(kEnableCobrowseOnAimSrpTap, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1022,13 +1045,6 @@ const base::FeatureParam<BackgroundRefreshRegressionTestArm>
 
 BackgroundRefreshRegressionTestArm GetBackgroundRefreshRegressionTestArm() {
   return kBackgroundRefreshRegressionTestArmParam.Get();
-}
-
-BASE_FEATURE(kOpenEditGroupViewByTappingTitle,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsOpenEditGroupViewByTappingTitleEnabled() {
-  return base::FeatureList::IsEnabled(kOpenEditGroupViewByTappingTitle);
 }
 
 bool IsUpdateTabGroupColorsEnabled() {
@@ -1128,7 +1144,7 @@ bool IsAiSubscriptionAvatarRingFollowupIOSEnabled() {
   return base::FeatureList::IsEnabled(kAiSubscriptionAvatarRingFollowupIOS);
 }
 
-BASE_FEATURE(kInfobarBannerRevamp, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kInfobarBannerRevamp, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsInfobarBannerRevampEnabled() {
   return base::FeatureList::IsEnabled(kInfobarBannerRevamp);
@@ -1229,6 +1245,12 @@ bool IsAppBarAssistantCustomizationEnabled() {
   return base::FeatureList::IsEnabled(kAppBarAssistantCustomization);
 }
 
+BASE_FEATURE(kGreyImageCIFilter, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsGreyImageCIFilterEnabled() {
+  return base::FeatureList::IsEnabled(kGreyImageCIFilter);
+}
+
 BASE_FEATURE(kLightAppBar, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsLightAppBarEnabled() {
@@ -1256,6 +1278,14 @@ bool IsFiveButtonAppBarLayoutEnabled() {
   return base::FeatureList::IsEnabled(kFiveButtonAppBarLayout);
 }
 
+BASE_FEATURE(kClearRootViewControllerAfterSceneDisconnect,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool IsClearRootViewControllerAfterSceneDisconnectEnabled() {
+  return base::FeatureList::IsEnabled(
+      kClearRootViewControllerAfterSceneDisconnect);
+}
+
 BASE_FEATURE(kLocationBarPerformanceImprovements,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -1273,12 +1303,4 @@ BASE_FEATURE(kAppBarDisableLongPress, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsAppBarDisableLongPressEnabled() {
   return base::FeatureList::IsEnabled(kAppBarDisableLongPress);
-}
-
-BASE_FEATURE(kClearRootViewControllerAfterSceneDisconnect,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsClearRootViewControllerAfterSceneDisconnectEnabled() {
-  return base::FeatureList::IsEnabled(
-      kClearRootViewControllerAfterSceneDisconnect);
 }

@@ -725,9 +725,8 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
 }
 
 - (void)presentToolbarSwipeGestureInProductHelp {
-  // Inapplicable on iPad.
-  if (ui::GetDeviceFormFactor() !=
-          ui::DeviceFormFactor::DEVICE_FORM_FACTOR_PHONE ||
+  // Inapplicable when the tab strip is visible.
+  if (CanShowTabStrip(self.rootViewController) ||
       UIAccessibilityIsVoiceOverRunning() ||
       (![self canPresentBubbleWithCheckTabScrolledToTop:NO])) {
     return;
@@ -765,8 +764,7 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
   NSLayoutConstraint* topConstraintForTopEdgeSwipe =
       [guide.topAnchor constraintEqualToAnchor:contentAreaGuide.topAnchor];
   NSLayoutConstraint* initialTopConstraint =
-      self.rootViewController.traitCollection.verticalSizeClass ==
-              UIUserInterfaceSizeClassRegular
+      IsSplitToolbarMode(self.rootViewController)
           ? topConstraintForBottomEdgeSwipe
           : topConstraintForTopEdgeSwipe;
   initialTopConstraint.active = YES;
@@ -789,7 +787,7 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
   toolbarSwipeGestureIPH.delegate = self;
   [self.rootViewController.view addSubview:toolbarSwipeGestureIPH];
   AddSameConstraints(toolbarSwipeGestureIPH, guide);
-  if (IsPageActionMenuEnabled()) {
+  if (IsPageActionMenuEnabled() && !IsIOSGeminiBottomSheetMigrationEnabled()) {
     [self.geminiHandler
         hideFloatyIfInvokedAnimated:NO
                          fromSource:gemini::FloatyUpdateSource::GestureIph];
@@ -1120,7 +1118,7 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
       !dismissButtonTappedEvent.empty()) {
     _engagementTracker->NotifyEvent(dismissButtonTappedEvent);
   }
-  if (IsPageActionMenuEnabled()) {
+  if (IsPageActionMenuEnabled() && !IsIOSGeminiBottomSheetMigrationEnabled()) {
     [self.geminiHandler
         updateFloatyVisibilityIfEligibleAnimated:NO
                                       fromSource:gemini::FloatyUpdateSource::
@@ -1608,9 +1606,13 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
     gestureIPHView.delegate = self;
     AddSameConstraints(gestureIPHView, contentAreaGuide);
     if (IsPageActionMenuEnabled()) {
-      [self.geminiHandler
-          hideFloatyIfInvokedAnimated:NO
-                           fromSource:gemini::FloatyUpdateSource::GestureIph];
+      if (IsIOSGeminiBottomSheetMigrationEnabled()) {
+        [self.geminiHandler minimizeGeminiIfInvoked];
+      } else {
+        [self.geminiHandler
+            hideFloatyIfInvokedAnimated:NO
+                             fromSource:gemini::FloatyUpdateSource::GestureIph];
+      }
     }
     return gestureIPHView;
   }

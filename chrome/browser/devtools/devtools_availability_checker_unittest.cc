@@ -13,6 +13,7 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
@@ -32,6 +33,7 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_profile.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
@@ -177,9 +179,12 @@ TEST_F(DevToolsAvailabilityCheckerTest, DeveloperToolsDisallowedByPolicy) {
 }
 
 TEST_F(DevToolsAvailabilityCheckerTest, IsInspectionAllowedNullWebContents) {
-  // Passing nullptr for WebContents should default to allowed.
+  // Passing nullptr for WebContents or RenderFrameHost should default to
+  // allowed.
   EXPECT_TRUE(IsInspectionAllowed(profile_.get(),
                                   static_cast<content::WebContents*>(nullptr)));
+  EXPECT_TRUE(IsInspectionAllowed(
+      profile_.get(), static_cast<content::RenderFrameHost*>(nullptr)));
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -696,14 +701,19 @@ TEST_F(DevToolsAvailabilityCheckerTest, TargetLevelSubframeBlocked) {
           ->AppendChild("subframe");
   content::RenderFrameHostTester::For(subframe)
       ->InitializeRenderFrameIfNeeded();
-  content::NavigationSimulator::NavigateAndCommitFromDocument(
+  subframe = content::NavigationSimulator::NavigateAndCommitFromDocument(
       GURL("https://blocked.com/iframe"), subframe);
 
   // The main page should still be inspectable.
   EXPECT_TRUE(IsInspectionAllowed(profile_.get(), web_contents_.get()));
+  EXPECT_TRUE(IsInspectionAllowed(profile_.get(),
+                                  web_contents_->GetPrimaryMainFrame()));
 
-  // But if we specifically check the blocked subframe's URL, it should be
+  // But if we specifically check the blocked subframe or its URL, it should be
   // blocked.
+  EXPECT_FALSE(IsInspectionAllowed(profile_.get(), subframe));
+  EXPECT_EQ(DevToolsBlockReason::kUrlAllowlistOrBlocklist,
+            GetDevToolsBlockReason(profile_.get(), subframe));
   EXPECT_FALSE(
       IsInspectionAllowed(profile_.get(), GURL("https://blocked.com/iframe")));
 }
@@ -736,10 +746,13 @@ TEST_F(DevToolsAvailabilityCheckerTargetLevelDisabledTest,
           ->AppendChild("subframe");
   content::RenderFrameHostTester::For(subframe)
       ->InitializeRenderFrameIfNeeded();
-  content::NavigationSimulator::NavigateAndCommitFromDocument(
+  subframe = content::NavigationSimulator::NavigateAndCommitFromDocument(
       GURL("https://blocked.com/iframe"), subframe);
 
   EXPECT_FALSE(IsInspectionAllowed(profile_.get(), web_contents_.get()));
+  EXPECT_FALSE(IsInspectionAllowed(profile_.get(),
+                                   web_contents_->GetPrimaryMainFrame()));
+  EXPECT_FALSE(IsInspectionAllowed(profile_.get(), subframe));
 }
 
 TEST_F(DevToolsAvailabilityCheckerTargetLevelDisabledTest,
@@ -756,11 +769,16 @@ TEST_F(DevToolsAvailabilityCheckerTargetLevelDisabledTest,
           ->AppendChild("subframe");
   content::RenderFrameHostTester::For(subframe)
       ->InitializeRenderFrameIfNeeded();
-  content::NavigationSimulator::NavigateAndCommitFromDocument(
+  subframe = content::NavigationSimulator::NavigateAndCommitFromDocument(
       GURL("https://blocked.com/iframe"), subframe);
 
   EXPECT_EQ(DevToolsBlockReason::kUrlAllowlistOrBlocklist,
             GetDevToolsBlockReason(profile_.get(), web_contents_.get()));
+  EXPECT_EQ(DevToolsBlockReason::kUrlAllowlistOrBlocklist,
+            GetDevToolsBlockReason(profile_.get(),
+                                   web_contents_->GetPrimaryMainFrame()));
+  EXPECT_EQ(DevToolsBlockReason::kUrlAllowlistOrBlocklist,
+            GetDevToolsBlockReason(profile_.get(), subframe));
 }
 
 // GetDevToolsBlockReason() names the check that blocked inspection. It is
@@ -807,10 +825,15 @@ TEST_F(DevToolsAvailabilityCheckerTest, BlockReasonForPolicyDisallowed) {
       ->NavigateAndCommit(GURL("https://example.com/page"));
   EXPECT_EQ(DevToolsBlockReason::kPolicyDisallowed,
             GetDevToolsBlockReason(profile_.get(), web_contents_.get()));
-  // The general policy also applies to contexts without WebContents.
+  // The general policy also applies to contexts without WebContents or
+  // RenderFrameHost.
   EXPECT_EQ(DevToolsBlockReason::kPolicyDisallowed,
             GetDevToolsBlockReason(
                 profile_.get(), static_cast<content::WebContents*>(nullptr)));
+  EXPECT_EQ(
+      DevToolsBlockReason::kPolicyDisallowed,
+      GetDevToolsBlockReason(profile_.get(),
+                             static_cast<content::RenderFrameHost*>(nullptr)));
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -906,5 +929,30 @@ TEST_F(DevToolsAvailabilityCheckerTest,
       "aerugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaac/sw.js");
   EXPECT_EQ(DevToolsBlockReason::kPolicyInstalledIsolatedWebApp,
             GetDevToolsBlockReason(profile_.get(), sw_url));
+}
+
+// DevTools are disallowed for TopChromeWebUIProfile, since its renderers are
+// shared by the windows of all profiles.
+TEST_F(DevToolsAvailabilityCheckerTest, TopChromeWebUIProfileDisallowed) {
+  webui::ScopedTopChromeWebUIProfileForTesting scoped_profile;
+  Profile* profile = webui::GetTopChromeWebUIProfile();
+  EXPECT_EQ(DevToolsBlockReason::kPolicyDisallowed,
+            GetDevToolsBlockReason(profile,
+                                   GURL("chrome://webui-toolbar.top-chrome/")));
+  EXPECT_EQ(DevToolsBlockReason::kPolicyDisallowed,
+            GetDevToolsBlockReason(
+                profile, static_cast<content::WebContents*>(nullptr)));
+}
+
+TEST_F(DevToolsAvailabilityCheckerTest,
+       TopChromeWebUIProfileAllowedForDebugging) {
+  // Enabled before the profile is created, since the profile reads it on
+  // creation.
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kDebugTopChromeWebUI);
+  webui::ScopedTopChromeWebUIProfileForTesting scoped_profile;
+  EXPECT_EQ(DevToolsBlockReason::kNotBlocked,
+            GetDevToolsBlockReason(webui::GetTopChromeWebUIProfile(),
+                                   GURL("chrome://webui-toolbar.top-chrome/")));
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

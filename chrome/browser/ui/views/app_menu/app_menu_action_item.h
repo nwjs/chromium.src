@@ -37,6 +37,7 @@ class AppMenuActionItem {
     kDivider,
     kFooter,
     kHeader,
+    kLabel,
     kSearch,
 
     // Exclusive boundary marker for searchable types.
@@ -54,6 +55,7 @@ class AppMenuActionItem {
   struct ActionParams {
     std::optional<DisplayType> display_type;
     std::optional<ui::ColorId> container_color;
+    std::optional<ui::ColorId> foreground_color;
     std::optional<std::u16string> text_override;
     std::optional<ui::ImageModel> icon_override;
     std::optional<std::u16string> chip_text;
@@ -65,10 +67,12 @@ class AppMenuActionItem {
     raw_ptr<const base::Feature> new_badge_feature;
     ui::ElementIdentifier element_id;
     std::optional<bool> is_alerted;
+    std::optional<bool> is_submenu;
   };
 
   static const ui::ClassProperty<DisplayType>* const kDisplayTypeKey;
   static const ui::ClassProperty<ui::ColorId>* const kContainerColorKey;
+  static const ui::ClassProperty<ui::ColorId>* const kForegroundColorKey;
   static const ui::ClassProperty<std::u16string*>* const kTextOverrideKey;
   static const ui::ClassProperty<ui::ImageModel*>* const kIconOverrideKey;
   static const ui::ClassProperty<ui::ImageModel*>* const kMinorIconKey;

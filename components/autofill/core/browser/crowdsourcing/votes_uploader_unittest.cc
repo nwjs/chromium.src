@@ -7,7 +7,6 @@
 #include <memory>
 
 #include "base/run_loop.h"
-#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -24,7 +23,7 @@
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/autofill/core/common/language_code.h"
-#include "components/one_time_tokens/core/browser/mock_one_time_token_service.h"
+#include "components/one_time_tokens/core/browser/fake_sms_otp_service.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -50,12 +49,9 @@ class AutofillVotesUploaderTest : public testing::Test,
   void SetUp() override {
     InitAutofillClient();
     AddTestProfile();
-    feature_list_.InitWithFeatures(
-        {features::kAutofillSmsOtpCrowdsourcingFetchFromGmscore}, {});
 
-    std::unique_ptr<one_time_tokens::MockOneTimeTokenService> mock_service =
-        std::make_unique<one_time_tokens::MockOneTimeTokenService>();
-    autofill_client().set_one_time_token_service(std::move(mock_service));
+    autofill_client().set_sms_otp_service(
+        std::make_unique<one_time_tokens::FakeSmsOtpService>());
   }
 
  protected:
@@ -100,9 +96,9 @@ class AutofillVotesUploaderTest : public testing::Test,
         autofill_client().GetCrowdsourcingManager());
   }
 
-  one_time_tokens::MockOneTimeTokenService& GetMockOneTimeTokenService() {
-    return *static_cast<one_time_tokens::MockOneTimeTokenService*>(
-        autofill_client().GetOneTimeTokenService());
+  one_time_tokens::FakeSmsOtpService& GetFakeSmsOtpService() {
+    return static_cast<one_time_tokens::FakeSmsOtpService&>(
+        *autofill_client().GetSmsOtpService());
   }
 
   auto QuitRunLoopAndReturnTrue(base::RunLoop& run_loop) {
@@ -138,7 +134,6 @@ class AutofillVotesUploaderTest : public testing::Test,
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   base::test::TaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  base::test::ScopedFeatureList feature_list_;
 };
 
 // Test basic vote upload process for form submission.
@@ -171,9 +166,6 @@ TEST_F(AutofillVotesUploaderTest,
 // Test that vote upload is not triggered when no local profile data is
 // available.
 TEST_F(AutofillVotesUploaderTest, NoLocalProfileReturnsFalse) {
-  EXPECT_CALL(GetMockOneTimeTokenService(), GetCachedOneTimeTokens())
-      .WillOnce(Return(std::vector<OneTimeToken>{}));
-
   autofill_client()
       .GetPersonalDataManager()
       .address_data_manager()
@@ -220,9 +212,8 @@ TEST_F(AutofillVotesUploaderTest, CreditCardFormUpload) {
 // Test vote upload for OTP forms.
 TEST_F(AutofillVotesUploaderTest, OtpFormUpload) {
   constexpr char kOtp[] = "123456";
-  EXPECT_CALL(GetMockOneTimeTokenService(), GetCachedOneTimeTokens())
-      .WillOnce(Return(std::vector<OneTimeToken>{OneTimeToken(
-          OneTimeTokenType::kSmsOtp, kOtp, base::TimeTicks::Now())}));
+  GetFakeSmsOtpService().SimulateOtpArrived(
+      OneTimeToken(OneTimeTokenType::kSmsOtp, kOtp, base::TimeTicks::Now()));
 
   base::RunLoop run_loop;
   EXPECT_CALL(GetCrowdsourcingManager(), StartUploadRequest)
@@ -235,11 +226,6 @@ TEST_F(AutofillVotesUploaderTest, OtpFormUpload) {
 
 // Test vote upload for OTP forms where the request times out.
 TEST_F(AutofillVotesUploaderTest, OtpFormUpload_RequestTimesOut) {
-  EXPECT_CALL(GetMockOneTimeTokenService(), GetCachedOneTimeTokens())
-      .WillOnce(Return(std::vector<OneTimeToken>{}));
-  EXPECT_CALL(GetMockOneTimeTokenService(), RequestOneTimeToken(_, _))
-      .WillOnce(base::test::RunOnceCallback<1>(std::nullopt));
-
   base::RunLoop run_loop;
   EXPECT_CALL(GetCrowdsourcingManager(), StartUploadRequest)
       .WillOnce(QuitRunLoopAndReturnTrue(run_loop));
@@ -247,18 +233,16 @@ TEST_F(AutofillVotesUploaderTest, OtpFormUpload_RequestTimesOut) {
   EXPECT_TRUE(
       MaybeStartVoteUploadProcess(CreateOtpFormWithFieldValue(u"123456"),
                                   /*observed_submission=*/true));
+  // As no OTP is cached, an OTP is requested from the `SmsOtpService`.
+  EXPECT_EQ(GetFakeSmsOtpService().num_pending_requests(), 1u);
 
+  // No OTP arrives, so the upload continues once the request times out.
   run_loop.Run();
+  EXPECT_EQ(GetFakeSmsOtpService().num_pending_requests(), 0u);
 }
 
 // Test vote upload for OTP forms where the request succeeds before the timeout.
 TEST_F(AutofillVotesUploaderTest, OtpFormUpload_RequestSucceedsBeforeTimeout) {
-  EXPECT_CALL(GetMockOneTimeTokenService(), GetCachedOneTimeTokens())
-      .WillOnce(Return(std::vector<OneTimeToken>{}));
-  EXPECT_CALL(GetMockOneTimeTokenService(), RequestOneTimeToken(_, _))
-      .WillOnce(base::test::RunOnceCallback<1>(OneTimeToken(
-          OneTimeTokenType::kSmsOtp, "654321", base::TimeTicks::Now())));
-
   base::RunLoop run_loop;
   EXPECT_CALL(GetCrowdsourcingManager(), StartUploadRequest)
       .WillOnce(QuitRunLoopAndReturnTrue(run_loop));
@@ -266,6 +250,12 @@ TEST_F(AutofillVotesUploaderTest, OtpFormUpload_RequestSucceedsBeforeTimeout) {
   EXPECT_TRUE(
       MaybeStartVoteUploadProcess(CreateOtpFormWithFieldValue(u"123456"),
                                   /*observed_submission=*/true));
+  // As no OTP is cached, an OTP is requested from the `SmsOtpService`.
+  EXPECT_EQ(GetFakeSmsOtpService().num_pending_requests(), 1u);
+
+  GetFakeSmsOtpService().SimulateOtpArrived(OneTimeToken(
+      OneTimeTokenType::kSmsOtp, "654321", base::TimeTicks::Now()));
+  EXPECT_EQ(GetFakeSmsOtpService().num_pending_requests(), 0u);
 
   run_loop.Run();
 }

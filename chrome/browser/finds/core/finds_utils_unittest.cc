@@ -7,8 +7,8 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/finds/core/finds_pref_names.h"
 #include "chrome/browser/finds/core/finds_service.h"
+#include "components/optimization_guide/core/feature_registry/enterprise_policy_registry.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/proto/features/finds.pb.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
@@ -66,22 +66,19 @@ TEST_F(FindsUtilsTest, MarkModelExecutionLastTimestamp) {
 }
 
 TEST_F(FindsUtilsTest, IsAllowedByEnterprisePolicy) {
-  optimization_guide::model_execution::prefs::RegisterProfilePrefs(
-      prefs()->registry());
+  optimization_guide::RegisterGenAiFeatures(prefs()->registry());
 
   EXPECT_TRUE(IsAllowedByEnterprisePolicy(prefs()));
 
   prefs()->SetInteger(
       optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
-      static_cast<int>(optimization_guide::model_execution::prefs::
-                           ModelExecutionEnterprisePolicyValue::kAllow));
+      static_cast<int>(optimization_guide::EnterprisePolicyValue::kAllow));
   EXPECT_TRUE(IsAllowedByEnterprisePolicy(prefs()));
 
   // Should return false when the enterprise policy is explicitly disabled.
   prefs()->SetInteger(
       optimization_guide::prefs::kFindsEnterprisePolicyAllowed,
-      static_cast<int>(optimization_guide::model_execution::prefs::
-                           ModelExecutionEnterprisePolicyValue::kDisable));
+      static_cast<int>(optimization_guide::EnterprisePolicyValue::kDisable));
   EXPECT_FALSE(IsAllowedByEnterprisePolicy(prefs()));
 }
 TEST_F(FindsUtilsTest, IsHistorySyncAndMsbbEnabled) {

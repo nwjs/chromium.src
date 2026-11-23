@@ -175,7 +175,6 @@ Warning: Missing class com.example.Foo
             # Create input jars
             jar1_path = os.path.join(tmpdir, 'jar1.jar')
             jar2_path = os.path.join(tmpdir, 'jar2.jar')
-            out_zip_path = os.path.join(tmpdir, 'out.zip')
 
             # Use an allowlisted service name to avoid exception
             service_name = 'META-INF/services/org.chromium.base.test.BaseJUnit4ClassRunner$ClassCleanupHook'
@@ -199,56 +198,51 @@ Warning: Missing class com.example.Foo
                 z2.writestr(service_name, b'impl.Hook2\n')
 
             # Merge with uncompress_dex = True
-            with _RealZipFile(out_zip_path, 'w') as out_z:
-                dex.MergeDexAndServices(
-                    [jar1_path, jar2_path],
-                    out_z,
-                    apk_root_dir='root/',
-                    apk_dex_dir='dex/',
-                    uncompress_dex=True,
-                )
+            zip_builder = unittest.mock.MagicMock()
+            dex.MergeDexAndServices(
+                [jar1_path, jar2_path],
+                zip_builder,
+                apk_root_dir='root/',
+                apk_dex_dir='dex/',
+                uncompress_dex=True,
+            )
 
-            # Read merged zip and verify
-            with _RealZipFile(out_zip_path, 'r') as out_z:
-                namelist = out_z.namelist()
-                self.assertIn('root/' + service_name, namelist)
-                self.assertIn('dex/classes.dex', namelist)
-                self.assertIn('dex/classes2.dex', namelist)
-                self.assertIn('dex/classes3.dex', namelist)
-
-                # Verify service content is merged
-                self.assertEqual(
-                    out_z.read('root/' + service_name),
-                    b'impl.Hook1\nimpl.Hook2\n',
-                )
-
-                # Verify dex content
-                self.assertEqual(
-                    out_z.read('dex/classes.dex'),
-                    b'dex1_data_is_long_enough_to_avoid_compression_bypass',
-                )
-                self.assertEqual(
-                    out_z.read('dex/classes2.dex'),
-                    b'dex2_data_is_long_enough_to_avoid_compression_bypass',
-                )
-                self.assertEqual(
-                    out_z.read('dex/classes3.dex'),
-                    b'dex3_data_is_long_enough_to_avoid_compression_bypass',
-                )
-
-                # Verify alignment and compression
-                for name in [
-                    'dex/classes.dex',
-                    'dex/classes2.dex',
-                    'dex/classes3.dex',
-                ]:
-                    info = out_z.getinfo(name)
-                    self.assertEqual(info.compress_type, zipfile.ZIP_STORED)
+            zip_builder.add_data.assert_called_once_with(
+                'root/' + service_name,
+                'impl.Hook1\nimpl.Hook2\n',
+                compress_level=0,
+                alignment=4,
+            )
+            self.assertEqual(
+                zip_builder.add_from_zip.call_args_list,
+                [
+                    unittest.mock.call(
+                        'dex/classes.dex',
+                        jar1_path,
+                        'classes.dex',
+                        compress_level=0,
+                        alignment=4,
+                    ),
+                    unittest.mock.call(
+                        'dex/classes2.dex',
+                        jar2_path,
+                        'classes.dex',
+                        compress_level=0,
+                        alignment=4,
+                    ),
+                    unittest.mock.call(
+                        'dex/classes3.dex',
+                        jar2_path,
+                        'classes2.dex',
+                        compress_level=0,
+                        alignment=4,
+                    ),
+                ],
+            )
 
     def testMergeDexAndServices_SingleJar(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             jar_path = os.path.join(tmpdir, 'jar.jar')
-            out_zip_path = os.path.join(tmpdir, 'out.zip')
             service_name = 'META-INF/services/org.chromium.base.test.BaseJUnit4ClassRunner$ClassCleanupHook'
 
             with _RealZipFile(jar_path, 'w') as z:
@@ -262,24 +256,158 @@ Warning: Missing class com.example.Foo
                 )
                 z.writestr(service_name, b'impl.Hook2\n')
 
-            with _RealZipFile(out_zip_path, 'w') as out_z:
-                dex.MergeDexAndServices(
-                    [jar_path],
-                    out_z,
-                    apk_root_dir='root/',
-                    apk_dex_dir='dex/',
-                    uncompress_dex=False,
-                )
+            zip_builder = unittest.mock.MagicMock()
+            dex.MergeDexAndServices(
+                [jar_path],
+                zip_builder,
+                apk_root_dir='root/',
+                apk_dex_dir='dex/',
+                uncompress_dex=False,
+            )
 
-            with _RealZipFile(out_zip_path, 'r') as out_z:
-                namelist = out_z.namelist()
-                self.assertIn('dex/classes.dex', namelist)
-                self.assertIn('dex/classes2.dex', namelist)
-                self.assertNotIn('dex/classes3.dex', namelist)
-                self.assertEqual(
-                    out_z.getinfo('dex/classes.dex').compress_type,
-                    zipfile.ZIP_DEFLATED,
-                )
+            zip_builder.add_data.assert_called_once_with(
+                'root/' + service_name,
+                'impl.Hook2\n',
+                compress_level=0,
+                alignment=4,
+            )
+            self.assertEqual(
+                zip_builder.add_from_zip.call_args_list,
+                [
+                    unittest.mock.call(
+                        'dex/classes.dex',
+                        jar_path,
+                        'classes.dex',
+                        compress_level=1,
+                        alignment=None,
+                    ),
+                    unittest.mock.call(
+                        'dex/classes2.dex',
+                        jar_path,
+                        'classes2.dex',
+                        compress_level=1,
+                        alignment=None,
+                    ),
+                ],
+            )
+
+    def testScanClassInputJars(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            jar1 = os.path.join(tmpdir, 'one.jar')
+            jar2 = os.path.join(tmpdir, 'two.jar')
+            with _RealZipFile(jar1, 'w') as z:
+                z.writestr('pkg/Foo.class', b'a' * 100)
+                z.writestr('module-info.class', b'skip')
+                z.writestr('META-INF/MANIFEST.MF', b'manifest')
+            with _RealZipFile(jar2, 'w') as z:
+                z.writestr('pkg/Bar.class', b'b' * 250)
+                z.writestr('META-INF/services/', b'')
+                z.writestr('META-INF/services/pkg.Svc', b'pkg.Bar\n')
+
+            entries, service_jars = dex._ScanClassInputJars([jar1, jar2])
+            self.assertEqual(
+                entries,
+                {
+                    jar1: [('pkg/Foo.class', 100)],
+                    jar2: [('pkg/Bar.class', 250)],
+                },
+            )
+            self.assertEqual(service_jars, [jar2])
+
+    def testPartitionClassEntriesIntoShards_KeepsNestsTogether(self):
+        jar_entries = {
+            'a.jar': [
+                ('pkg/Big.class', 900),
+                ('pkg/Big$1.class', 300),
+                ('pkg/Big$Inner.class', 300),
+                ('pkg/SmallA.class', 700),
+                ('pkg/SmallB.class', 700),
+            ],
+        }
+        shards = dex._PartitionClassEntriesIntoShards(
+            jar_entries, target_shard_size=1000
+        )
+        self.assertGreaterEqual(len(shards), 2)
+        all_seen = []
+        big_shards = []
+        for idx, shard in enumerate(shards):
+            names = shard.get('a.jar', [])
+            all_seen.extend(names)
+            if any(n.startswith('pkg/Big') for n in names):
+                big_shards.append(idx)
+        self.assertEqual(len(big_shards), 1)
+        self.assertCountEqual(
+            all_seen, [name for name, _ in jar_entries['a.jar']]
+        )
+
+    def testBuildJarInputArgs(self):
+        jar_entries = {
+            'full.jar': [('a/A.class', 10), ('a/B.class', 20)],
+            'part.jar': [('b/C.class', 10), ('b/D.class', 20)],
+        }
+        shard = {
+            'full.jar': ['a/A.class', 'a/B.class'],
+            'part.jar': ['b/D.class'],
+            'empty.jar': [],
+        }
+        args = dex._BuildJarInputArgs(shard, jar_entries)
+        self.assertEqual(
+            args,
+            [
+                '--jar-input',
+                'full.jar',
+                '--jar-input',
+                'part.jar',
+                '--jar-class',
+                'b/D.class',
+            ],
+        )
+
+    @unittest.mock.patch('dex.zipbuilder.ZipBuilder')
+    def testMergeShardJars(self, mock_zip_builder):
+        zb = mock_zip_builder.return_value.__enter__.return_value
+        services = {
+            'META-INF/services/pkg.SvcB': 'pkg.ImplB\n',
+            'META-INF/services/pkg.SvcA': 'pkg.ImplA\n',
+        }
+        dex._MergeShardJars(
+            ['s0.dex.jar', 's1.dex.jar'],
+            'merged.dex.jar',
+            services,
+            warnings_as_errors=True,
+        )
+
+        self.assertEqual(
+            zb.add_all_from_zip.call_args_list,
+            [
+                unittest.mock.call(
+                    's0.dex.jar',
+                    compress_level=dex.zipbuilder.KEEP_COMPRESSION,
+                ),
+                unittest.mock.call(
+                    's1.dex.jar',
+                    compress_level=dex.zipbuilder.KEEP_COMPRESSION,
+                ),
+            ],
+        )
+        self.assertEqual(
+            zb.add_data.call_args_list,
+            [
+                unittest.mock.call(
+                    'META-INF/services/pkg.SvcA',
+                    'pkg.ImplA\n',
+                    compress_level=0,
+                ),
+                unittest.mock.call(
+                    'META-INF/services/pkg.SvcB',
+                    'pkg.ImplB\n',
+                    compress_level=0,
+                ),
+            ],
+        )
+        zb.write.assert_called_once_with(
+            'merged.dex.jar', warnings_as_errors=True
+        )
 
 
 if __name__ == '__main__':

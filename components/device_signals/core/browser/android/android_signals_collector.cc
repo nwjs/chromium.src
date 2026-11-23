@@ -4,6 +4,7 @@
 
 #include "components/device_signals/core/browser/android/android_signals_collector.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -16,7 +17,9 @@
 #include "base/system/sys_info.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "components/device_signals/core/browser/android/os_security_info_provider.h"
 #include "components/device_signals/core/browser/browser_utils.h"
+#include "components/device_signals/core/browser/metrics_utils.h"
 #include "components/device_signals/core/browser/signals_types.h"
 #include "components/device_signals/core/browser/user_permission_service.h"
 #include "components/device_signals/core/common/common_types.h"
@@ -58,7 +61,8 @@ void LogSafetyNetMetrics(HasHarmfulAppsResultStatus result,
 }  // namespace
 
 AndroidSignalsCollector::AndroidSignalsCollector(
-    policy::CloudPolicyManager* device_cloud_policy_manager)
+    policy::CloudPolicyManager* device_cloud_policy_manager,
+    std::unique_ptr<OsSecurityInfoProvider> os_security_info_provider)
     : BaseSignalsCollector({
           {SignalName::kOsSignals,
            base::BindRepeating(&AndroidSignalsCollector::GetOsSignals,
@@ -67,7 +71,10 @@ AndroidSignalsCollector::AndroidSignalsCollector(
            base::BindRepeating(&AndroidSignalsCollector::GetVerifyApps,
                                base::Unretained(this))},
       }),
-      device_cloud_policy_manager_(device_cloud_policy_manager) {}
+      device_cloud_policy_manager_(device_cloud_policy_manager),
+      os_security_info_provider_(std::move(os_security_info_provider)) {
+  CHECK(os_security_info_provider_);
+}
 
 AndroidSignalsCollector::~AndroidSignalsCollector() = default;
 
@@ -83,6 +90,7 @@ void AndroidSignalsCollector::GetOsSignals(
     return;
   }
 
+  const base::TimeTicks start_time = base::TimeTicks::Now();
   OsSignalsResponse signal_response;
 
   if (permission == UserPermission::kGranted) {
@@ -100,8 +108,17 @@ void AndroidSignalsCollector::GetOsSignals(
       device_signals::TryGetEnrollmentDomain(device_cloud_policy_manager_);
   signal_response.security_patch_ms =
       device_signals::GetSecurityPatchLevelEpoch();
+  signal_response.screen_lock_secured =
+      os_security_info_provider_->IsDeviceSecure() ? SettingValue::ENABLED
+                                                   : SettingValue::DISABLED;
 
   response.os_signals_response = std::move(signal_response);
+
+  // OS signals collection has no failure path once the permission check has
+  // passed, so the outcome is always recorded as a success.
+  LogSignalCollectionSucceeded(SignalName::kOsSignals, start_time,
+                               /*signal_collection_size=*/std::nullopt);
+
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, std::move(done_closure));
 }
@@ -163,6 +180,13 @@ void AndroidSignalsCollector::OnHasPotentiallyHarmfulApps(
   LogSafetyNetMetrics(result, num_of_apps, start_time);
 
   response.verify_apps_signals_response = std::move(verify_apps_response);
+
+  // A SafetyNet failure is captured by the HarmfulApps.Result histogram above
+  // and still yields a (partial) response, so it is not considered a signal
+  // collection failure.
+  LogSignalCollectionSucceeded(SignalName::kVerifyApps, start_time,
+                               /*signal_collection_size=*/std::nullopt);
+
   std::move(done_closure).Run();
 }
 

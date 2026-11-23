@@ -112,6 +112,7 @@ suite('OpenTabsDelegateTest', () => {
     title: 'Music',
     url: 'https://music.youtube.com',
     lastActiveTimeTicks: {internalValue: 50n},
+    lastActiveElapsedText: '15m ago',
     alertStates: [TabAlertState.kAudioPlaying],
   });
 
@@ -120,6 +121,7 @@ suite('OpenTabsDelegateTest', () => {
     title: 'Muted video',
     url: 'https://www.netflix.com',
     lastActiveTimeTicks: {internalValue: 75n},
+    lastActiveElapsedText: '12m ago',
     alertStates: [TabAlertState.kAudioMuting],
   });
 
@@ -156,10 +158,11 @@ suite('OpenTabsDelegateTest', () => {
 
   setup(() => {
     loadTimeData.resetForTesting({
-      openTabs: 'Open Tabs',
+      recentlyVisited: 'Recently visited',
       closeTab: 'Close tab',
+      currentlyPlaying: 'Currently playing',
       oneTab: '1 tab',
-      splitView: 'Split View',
+      splitView: 'Split view',
       tabCount: '$1 tabs',
     });
     mockPageHandler = TestMock.fromClass(PageHandlerRemote);
@@ -176,7 +179,7 @@ suite('OpenTabsDelegateTest', () => {
 
   test('returns id and header', () => {
     assertEquals('open-tabs', delegate.getId());
-    assertEquals('Open Tabs', delegate.getHeader());
+    assertEquals('Recently visited', delegate.getHeader());
   });
 
   test('returns tabs sorted by MRU across windows', async () => {
@@ -187,7 +190,9 @@ suite('OpenTabsDelegateTest', () => {
     assertDeepEquals([youtubeTab.title], items[0]!.title);
     assertEquals(1, items[0]!.description?.length);
     assertDeepEquals(
-        {text: youtubeTab.lastActiveElapsedText}, items[0]!.description?.[0]);
+        {text: youtubeTab.lastActiveElapsedText, matchable: false},
+        items[0]!.description?.[0]);
+    assertDeepEquals(['www.youtube.com'], items[0]!.extraSearchTerms);
     assertEquals(youtubeTab.url, items[0]!.prefixIcon?.url);
     assertEquals('cr:close', items[0]!.hoveredActionButton?.icon);
     assertEquals('Close tab', items[0]!.hoveredActionButton?.ariaLabel);
@@ -198,7 +203,9 @@ suite('OpenTabsDelegateTest', () => {
     assertDeepEquals([chromiumTab.title], items[1]!.title);
     assertEquals(1, items[1]!.description?.length);
     assertDeepEquals(
-        {text: chromiumTab.lastActiveElapsedText}, items[1]!.description?.[0]);
+        {text: chromiumTab.lastActiveElapsedText, matchable: false},
+        items[1]!.description?.[0]);
+    assertDeepEquals(['www.chromium.org'], items[1]!.extraSearchTerms);
     assertEquals(chromiumTab.url, items[1]!.prefixIcon?.url);
     assertDeepEquals(
         {type: OpenTabsItemType.TAB, tab: chromiumTab}, items[1]!.data);
@@ -207,7 +214,9 @@ suite('OpenTabsDelegateTest', () => {
     assertDeepEquals([googleTab.title], items[2]!.title);
     assertEquals(1, items[2]!.description?.length);
     assertDeepEquals(
-        {text: googleTab.lastActiveElapsedText}, items[2]!.description?.[0]);
+        {text: googleTab.lastActiveElapsedText, matchable: false},
+        items[2]!.description?.[0]);
+    assertDeepEquals(['www.google.com'], items[2]!.extraSearchTerms);
     assertEquals(googleTab.url, items[2]!.prefixIcon?.url);
     assertDeepEquals(
         {type: OpenTabsItemType.TAB, tab: googleTab}, items[2]!.data);
@@ -225,14 +234,22 @@ suite('OpenTabsDelegateTest', () => {
     // Audio tabs come first, ordered by MRU within the audio group.
     assertDeepEquals([mutedTab.title], items[0]!.title);
     assertEquals(AUDIO_ICON, items[0]!.trailingIcon);
+    assertTrue(!!items[0]!.alwaysShow);
+    assertDeepEquals(
+        [{text: 'Currently playing', matchable: false}], items[0]!.description);
     assertDeepEquals([musicTab.title], items[1]!.title);
     assertEquals(AUDIO_ICON, items[1]!.trailingIcon);
+    assertTrue(!!items[1]!.alwaysShow);
+    assertDeepEquals(
+        [{text: 'Currently playing', matchable: false}], items[1]!.description);
 
     // Remaining tabs keep their MRU order and have no trailing icon.
     assertDeepEquals([youtubeTab.title], items[2]!.title);
     assertEquals(undefined, items[2]!.trailingIcon);
+    assertFalse(!!items[2]!.alwaysShow);
     assertDeepEquals([googleTab.title], items[3]!.title);
     assertEquals(undefined, items[3]!.trailingIcon);
+    assertFalse(!!items[3]!.alwaysShow);
   });
 
   test('shows the audio icon when one split view tab plays audio', async () => {
@@ -243,6 +260,7 @@ suite('OpenTabsDelegateTest', () => {
       split: true,
       splitId: SPLIT_TOKEN,
       lastActiveTimeTicks: {internalValue: 10n},
+      lastActiveElapsedText: '7m ago',
     });
     const splitTab2 = createTab({
       tabId: SPLIT_TAB_2_ID,
@@ -251,6 +269,7 @@ suite('OpenTabsDelegateTest', () => {
       split: true,
       splitId: SPLIT_TOKEN,
       lastActiveTimeTicks: {internalValue: 20n},
+      lastActiveElapsedText: '3m ago',
       alertStates: [TabAlertState.kAudioPlaying],
     });
 
@@ -263,6 +282,13 @@ suite('OpenTabsDelegateTest', () => {
 
     assertTrue(isSplitTab(items[0]!.data!));
     assertEquals(AUDIO_ICON, items[0]!.trailingIcon);
+    assertDeepEquals(
+        [
+          {text: 'Currently playing', matchable: false},
+          {text: SPLIT_TAB_1_TITLE},
+          {text: SPLIT_TAB_2_TITLE},
+        ],
+        items[0]!.description);
     assertDeepEquals([googleTab.title], items[1]!.title);
     assertEquals(undefined, items[1]!.trailingIcon);
   });
@@ -323,8 +349,7 @@ suite('OpenTabsDelegateTest', () => {
   });
 
   test(
-      'sorts active tab to the end even when it has an audio alert',
-      async () => {
+      'sorts active tab with audio alert to the top of the list', async () => {
         const activeAudioTab = createTab({
           tabId: 8,
           title: 'Active Audio Tab',
@@ -342,18 +367,60 @@ suite('OpenTabsDelegateTest', () => {
         const items = await delegate.getItems();
         assertEquals(4, items.length);
 
-        // Non-active audio tab comes first.
-        assertDeepEquals([musicTab.title], items[0]!.title);
+        // Audio tabs come first, ordered by MRU. Active audio tab is the most
+        // recent so it comes first.
+        assertDeepEquals([activeAudioTab.title], items[0]!.title);
         assertEquals(AUDIO_ICON, items[0]!.trailingIcon);
+        assertTrue(isActive(items[0]!.data!));
+
+        assertDeepEquals([musicTab.title], items[1]!.title);
+        assertEquals(AUDIO_ICON, items[1]!.trailingIcon);
+
+        // Remaining non-active tabs in MRU order.
+        assertDeepEquals([youtubeTab.title], items[2]!.title);
+        assertDeepEquals([googleTab.title], items[3]!.title);
+      });
+
+  test(
+      'sorts active split view tab with audio alert to the top of the list',
+      async () => {
+        const splitTab1 = createTab({
+          tabId: SPLIT_TAB_1_ID,
+          title: SPLIT_TAB_1_TITLE,
+          url: SPLIT_TAB_1_URL,
+          split: true,
+          splitId: SPLIT_TOKEN,
+          lastActiveTimeTicks: {internalValue: 500n},
+          active: true,
+          alertStates: [TabAlertState.kAudioPlaying],
+        });
+        const splitTab2 = createTab({
+          tabId: SPLIT_TAB_2_ID,
+          title: SPLIT_TAB_2_TITLE,
+          url: SPLIT_TAB_2_URL,
+          split: true,
+          splitId: SPLIT_TOKEN,
+          lastActiveTimeTicks: {internalValue: 450n},
+        });
+
+        mockPageHandler.setResultFor('getProfileData', Promise.resolve({
+          profileData:
+              createProfileData([googleTab, youtubeTab, splitTab1, splitTab2]),
+        }));
+
+        const items = await delegate.getItems();
+        assertEquals(3, items.length);
+
+        // Active split view tab with audio comes first.
+        assertDeepEquals(
+            [loadTimeData.getString('splitView')], items[0]!.title);
+        assertEquals(AUDIO_ICON, items[0]!.trailingIcon);
+        assertTrue(isSplitTab(items[0]!.data!));
+        assertTrue(isActive(items[0]!.data));
 
         // Remaining non-active tabs in MRU order.
         assertDeepEquals([youtubeTab.title], items[1]!.title);
         assertDeepEquals([googleTab.title], items[2]!.title);
-
-        // Active tab is at the end even with audio.
-        assertDeepEquals([activeAudioTab.title], items[3]!.title);
-        assertEquals(AUDIO_ICON, items[3]!.trailingIcon);
-        assertTrue(isActive(items[3]!.data!));
       });
 
   test('notifies client when tabs are changed', async () => {
@@ -411,7 +478,7 @@ suite('OpenTabsDelegateTest', () => {
     assertEquals(3, client.items.length);
     assertDeepEquals([updatedTab.title], client.items[2]!.title);
     assertDeepEquals(
-        {text: updatedTab.lastActiveElapsedText},
+        {text: updatedTab.lastActiveElapsedText, matchable: false},
         client.items[2]!.description?.[0]);
   });
 
@@ -499,9 +566,13 @@ suite('OpenTabsDelegateTest', () => {
         const item = items[0]!;
         assertDeepEquals([loadTimeData.getString('splitView')], item.title);
         assertEquals(3, item.description?.length);
-        assertDeepEquals({text: splitTab1ElapsedText}, item.description?.[0]);
+        assertDeepEquals(
+            {text: splitTab1ElapsedText, matchable: false},
+            item.description?.[0]);
         assertDeepEquals({text: SPLIT_TAB_1_TITLE}, item.description?.[1]);
         assertDeepEquals({text: SPLIT_TAB_2_TITLE}, item.description?.[2]);
+        assertDeepEquals(
+            ['docs.google.com', 'sheets.google.com'], item.extraSearchTerms);
         assertEquals(2, item.prefixIcon?.stackedFavicons?.urls?.length);
         assertEquals(
             SPLIT_TAB_1_URL, item.prefixIcon?.stackedFavicons?.urls?.[0]);
@@ -646,7 +717,7 @@ suite('OpenTabsDelegateTest', () => {
 
         const description = items[0]!.description;
         assertEquals(2, description?.length);
-        assertDeepEquals({text: '2m ago'}, description?.[0]);
+        assertDeepEquals({text: '2m ago', matchable: false}, description?.[0]);
         assertEquals('Work Group', description?.[1]!.text);
 
         const container = document.createElement('div');
@@ -700,7 +771,7 @@ suite('OpenTabsDelegateTest', () => {
 
         const description = items[0]!.description;
         assertEquals(4, description?.length);
-        assertDeepEquals({text: '3m ago'}, description?.[0]);
+        assertDeepEquals({text: '3m ago', matchable: false}, description?.[0]);
         assertEquals('Split Group', description?.[1]!.text);
         assertDeepEquals({text: SPLIT_TAB_1_TITLE}, description?.[2]);
         assertDeepEquals({text: SPLIT_TAB_2_TITLE}, description?.[3]);

@@ -84,6 +84,7 @@
 #include "third_party/blink/renderer/core/html/html_install_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_bar_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_item_element.h"
+#include "third_party/blink/renderer/core/html/html_menu_item_element_base.h"
 #include "third_party/blink/renderer/core/html/html_menu_list_element.h"
 #include "third_party/blink/renderer/core/html/html_slot_element.h"
 #include "third_party/blink/renderer/core/html/media/html_audio_element.h"
@@ -138,9 +139,11 @@ static bool MatchesHasDatalistPseudoClass(const Element& element) {
 static bool MatchesHasOpenMenuitemPseudoClass(const Element& element) {
   DCHECK(RuntimeEnabledFeatures::MenuElementsEnabled());
   if (auto* menu_owner_element = DynamicTo<HTMLMenuOwnerElement>(element)) {
-    for (HTMLMenuItemElement& menu_item : menu_owner_element->ItemList()) {
-      if (menu_item.IsSubmenuOpen()) {
-        return true;
+    for (HTMLMenuItemElementBase& menu_item : menu_owner_element->ItemList()) {
+      if (auto* item = DynamicTo<HTMLMenuItemElement>(menu_item)) {
+        if (item->IsSubmenuOpen()) {
+          return true;
+        }
       }
     }
   }
@@ -2643,8 +2646,9 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         return slot->HasFlattenedAssignedNodesNoRecalc();
       }
       return false;
-    case CSSSelector::kPseudoHover:
-      if (mode_ == kResolvingStyle) {
+    case CSSSelector::kPseudoHover: {
+      if (mode_ == kResolvingStyle &&
+          !result.HasFlag(MatchFlag::kPrecomputedHoverMatch)) {
         if (context.is_inside_has_pseudo_class) [[unlikely]] {
           element.SetAncestorsOrSiblingsAffectedByHoverInHas();
         } else if (ImpactsNonSubject(context)) {
@@ -2653,6 +2657,8 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       }
       if (ImpactsSubject(context)) {
         result.SetFlag(MatchFlag::kAffectedByHover);
+      } else {
+        result.SetFlag(MatchFlag::kAffectedByNonSubjectHoverSelector);
       }
       if (!ShouldMatchHoverOrActive(context)) {
         return false;
@@ -2662,7 +2668,23 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (force_pseudo_state) {
         return true;
       }
-      return element.IsHovered() && !element.GetDocument().Printing();
+      if (element.GetDocument().Printing()) {
+        return false;
+      }
+      bool is_hovered = element.IsHovered();
+      if (!is_hovered && RuntimeEnabledFeatures::CompositeHoverStyleEnabled()) {
+        // TODO(crbug.com/571157138): Also need to handle pre-computation of
+        // non-hovered style when is_hovered is true.
+        if (mode_ == kResolvingStyle && !context.in_nested_complex_selector &&
+            !context.is_inside_has_pseudo_class &&
+            !ImpactsNonSubject(context)) {
+          result.SetFlag(MatchFlag::kPrecomputedHoverMatch);
+          return true;
+        }
+        result.SetFlag(MatchFlag::kCancelPrecomputedHoverMatch);
+      }
+      return is_hovered;
+    }
     case CSSSelector::kPseudoActive:
       if (mode_ == kResolvingStyle) {
         if (context.is_inside_has_pseudo_class) [[unlikely]] {
@@ -2845,7 +2867,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
           return true;
         }
       } else if (auto* menu_item_element =
-                     DynamicTo<HTMLMenuItemElement>(element)) {
+                     DynamicTo<HTMLMenuItemCheckableElementBase>(element)) {
         return menu_item_element->ShouldAppearChecked();
       }
       break;
@@ -3061,11 +3083,21 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     }
     case CSSSelector::kPseudoBuffering: {
       DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      probe::ForcePseudoState(&element, CSSSelector::kPseudoBuffering,
+                              &force_pseudo_state);
+      if (force_pseudo_state) {
+        return true;
+      }
       auto* media_element = DynamicTo<HTMLMediaElement>(element);
       return media_element && media_element->MatchesBufferingPseudo();
     }
     case CSSSelector::kPseudoStalled: {
       DCHECK(RuntimeEnabledFeatures::CSSMediaElementPseudosEnabled());
+      probe::ForcePseudoState(&element, CSSSelector::kPseudoStalled,
+                              &force_pseudo_state);
+      if (force_pseudo_state) {
+        return true;
+      }
       auto* media_element = DynamicTo<HTMLMediaElement>(element);
       return media_element && media_element->MatchesStalledPseudo();
     }

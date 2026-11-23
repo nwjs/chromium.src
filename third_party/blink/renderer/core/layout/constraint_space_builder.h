@@ -404,17 +404,11 @@ class CORE_EXPORT ConstraintSpaceBuilder final {
     space_.bitfields_.contains_annotations = b;
   }
   void SetBlockStartAnnotationSpace(LayoutUnit space) {
-    if (space)
-      EnsureRareData()->SetBlockStartAnnotationSpace(space);
-  }
-
-  void SetPreviousSiblingBlockEndAnnotationSpace(LayoutUnit space) {
     if (space) {
-      EnsureRareData()->SetPreviousSiblingBlockEndAnnotationSpace(space);
+      EnsureRareData()->SetBlockStartAnnotationSpace(space);
     } else {
-      // We assume SetPreviousSiblingBlockEndAnnotationSpace() is called only
-      // once.
-      DCHECK_EQ(space, space_.PreviousSiblingBlockEndAnnotationSpace());
+      // We assume SetBlockStartAnnotationSpace() is called only once.
+      DCHECK_EQ(space, space_.BlockStartAnnotationSpace());
     }
   }
 
@@ -769,6 +763,10 @@ class CORE_EXPORT MinMaxConstraintSpaceBuilder final {
 
   void SetPercentageResolutionBlockSize(LayoutUnit block_size) {
     delegate_.SetPercentageResolutionSize({kIndefiniteSize, block_size});
+  }
+
+  void SetPercentageResolutionSize(LogicalSize size) {
+    delegate_.SetPercentageResolutionSize(size);
   }
 
   void SetReplacedChildPercentageResolutionBlockSize(LayoutUnit block_size) {

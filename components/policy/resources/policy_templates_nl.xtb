@@ -1512,6 +1512,23 @@ Als je dit beleid niet instelt, staat de functie 'Klik om te bellen' standaard a
       Dit beleid blokkeert JavaScript als de oorsprong van het document op het hoogste niveau (meestal de pagina-URL die ook in de adresbalk wordt getoond) overeenkomt met een van de patronen. Dit beleid is daarom niet geschikt om aanvallen op de webtoeleveringsketen te beperken. Als je bijvoorbeeld het patroon 'https://[*.]foo.com/' invoert, voorkom je niet dat een pagina die wordt gehost op https://voorbeeld.com een script uitvoert dat is geladen vanaf https://www.foo.com/voorbeeld.js. Als je het patroon 'https://voorbeeld.com/' invoert, voorkom je daarnaast niet dat een document van https://voorbeeld.com scripts uitvoert als het niet het document op het hoogste niveau is, maar is ingebed als subframe in een pagina die wordt gehost op een andere oorsprong, bijvoorbeeld https://www.bar.com.</translation>
 <translation id="1942015922182679826">Verwijdering van niet-ontsleutelbare wachtwoorden aanzetten</translation>
 <translation id="1942626390957213764">Hub voor delen van bureaublad uitzetten</translation>
+<translation id="1943243146727870858">Zet Single sign-on uit met <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> voor de vermelde identiteitsproviders.
+
+Als je de waarde <ph name="POLICY_VALUE_ALL" /> toevoegt, worden alle ondersteunde identiteitsproviders voor SSO uitgezet.
+
+Als je de waarde <ph name="POLICY_VALUE_MICROSOFT" /> toevoegt, wordt ondersteuning voor Single sign-on voor de Microsoft®-cloudidentiteitsprovider in Chrome uitgezet.
+
+Als je dit beleid niet instelt, worden alle identiteitsproviders die worden ondersteund door <ph name="PRODUCT_NAME" /> aangezet.
+
+Voor identiteitsproviders die zijn aangezet in <ph name="PRODUCT_NAME" /> en op het apparaat zijn ingesteld door de beheerder, kunnen gebruikers die inloggen op hun account met die identiteitsprovider in een app die <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> ondersteunt, automatisch inloggen bij webproperty's met die identiteitsprovider. Informatie over de verificatiegegevens van de gebruiker wordt voor elke verificatiegebeurtenis overgedragen naar de cloudidentiteitsprovider van de gebruiker.
+
+Opmerkingen:
+
+<ph name="PRODUCT_NAME" /> ondersteunt Single sign-on met <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> niet in de incognito- of gastmodus.
+
+<ph name="PRODUCT_NAME" /> ondersteunt Single sign-on met <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> alleen voor de volgende identiteitsproviders: Microsoft, Okta, Ping.
+
+Deze functie is beschikbaar vanaf <ph name="MAC_OS_NAME" /> 10.15.</translation>
 <translation id="1943628907052340534"><ph name="PRODUCT_NAME" /> niet openen als de gebruiker inlogt bij <ph name="MS_WIN_NAME" /></translation>
 <translation id="194407941132272412">Site-isolatie uitzetten voor alle websites, maar de gebruiker toestaan dit aan te zetten</translation>
 <translation id="1945994447126139909">Dit bedrijfsbeleid is voor tijdelijke aanpassing en wordt verwijderd in <ph name="PRODUCT_NAME" /> versie 88.
@@ -3494,6 +3511,8 @@ Als je dit beleid niet instelt, geldt de standaardwaarde 'niet toegestaan' voor 
 <translation id="3146711617256415776">Stemmen voor verbeterde tekst-naar-spraak via netwerk niet toestaan bij gebruik van Selecteer om voor te lezen</translation>
 <translation id="315013437951136266">Zet de functie <ph name="IP_PROTECTION_NAME" /> aan.</translation>
 <translation id="3150351525324499342">Het icoon voor <ph name="PRODUCT_NAME" /> niet standaard tonen in de werkbalk, maar gebruikers laten kiezen</translation>
+<translation id="3151501327418961907">Als je dit beleid instelt op 0 of niet instelt, wordt het beleid <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> en <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" /> alleen toegepast op gebruikersniveau voor aangesloten gebruikers in een beheerde browser.
+Als je dit beleid instelt op 1, wordt het beleid <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> en <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" /> toegepast op gebruikersniveau, ook als die gebruiker niet is aangesloten.</translation>
 <translation id="3152135410085709340">Lokale bestandstoegang tot file://-URL's op deze sites toestaan in de pdf-viewer</translation>
 <translation id="3152425128389603870">Maak Samengestelde desktop beschikbaar en zet deze standaard aan</translation>
 <translation id="3159375329008977062">Gebruiker kan Crostini-containers exporteren/importeren via de gebruikersinterface</translation>
@@ -3714,8 +3733,6 @@ Als <ph name="NTPCARDSVISIBLE" /> niet wordt toegepast, wordt de kaart Outlook n
       Als je het beleid niet toepast, rapporteren ingeschreven apparaten geen informatie over kiosksessies.</translation>
 <translation id="3303770131697159224">Standaardinstelling voor het recht voor vensterbeheer</translation>
 <translation id="3303911765031636277">Configuratiebeleid voor de Chrome Enterprise-connector OnFileAttached</translation>
-<translation id="3305586786770047829">Als je dit beleid instelt op 0 of niet instelt, wordt het beleid <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> alleen toegepast op gebruikersniveau voor aangesloten gebruikers.
-Als je dit beleid instelt op 1, wordt het beleid <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> toegepast op gebruikersniveau, ook als die gebruiker niet is aangesloten.</translation>
 <translation id="3307744348419745296">Niet toestaan dat wifi-netwerkconfiguraties worden gesynchroniseerd tussen <ph name="PRODUCT_OS_NAME" />-apparaten en een gekoppelde Android-telefoon</translation>
 <translation id="3308724602356134956">Als je het beleid instelt, downloadt en gebruikt <ph name="PRODUCT_OS_NAME" /> de door jou ingestelde achtergrondafbeelding voor de achtergrond van het bureaublad van de gebruiker en het inlogscherm. Gebruikers kunnen de afbeelding niet wijzigen. Specificeer de URL (die toegankelijk moet zijn zonder verificatie) waar <ph name="PRODUCT_OS_NAME" /> de achtergrondafbeelding kan downloaden, evenals een cryptografische hash (in jpeg-indeling met een bestandsgrootte van maximaal 16 MB) om de integriteit daarvan te verifiëren.
 
@@ -4302,6 +4319,21 @@ Gegevensoverdracht met Takeout moet ook aanstaan voor een goede werking van de a
 <translation id="370314752761795411"><ph name="PRODUCT_NAME" /> starten met <ph name="MS_WIN_NAME" /></translation>
 <translation id="3711895659073496551">Onderbreken</translation>
 <translation id="3712861436661566358">Profielscheiding afdwingen</translation>
+<translation id="3715589988915487768">Hiermee wordt een lijst met inrichtingsdomeinen (PvD's) ingesteld die <ph name="PRODUCT_NAME" /> gebruikt om proxyconfiguraties dynamisch op te halen.
+
+Met dit beleid kun je een lijst met domeinnamen of resource-URI's instellen die inrichtingsdomeinen vertegenwoordigen, zoals gedefinieerd in RFC 8801 ('Discovering Provisioning Domain Names and Data'). Voor elke PvD lost de browser de bijbehorende json-configuratie op door een HTTPS-verzoek te doen naar het bekende eindpuntpad: https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd.
+
+Elk item in de lijst geeft het volgende aan:
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />: De ID van het inrichtingsdomein (een domeinnaam).
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" />: De optionele verificatieconfiguratie. Als je dit beleid niet instelt of instelt op none, wordt er geen verificatie uitgevoerd. Als het is ingesteld op profile_bearer_token, haalt de browser een OAuth2-toegangstoken op met het ingevoerde bereik voor het ingelogde primaire account en voegt deze toe aan de kop Autorisatie als een Bearer-token.
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" />: Een optionele lijst met aangepaste HTTP-headers die moeten worden opgenomen bij het uitvoeren van query's voor het PvD-eindpunt. Er kunnen dynamische waarden worden ingevoegd, zoals profile_id (een stabiele, unieke ID van het browserprofiel op het apparaat, waarmee targeting per profiel mogelijk is) of accept_language (de voorkeurstalen van de browser).
+
+De opgehaalde configuraties worden geparseerd volgens het RFC 8801-schema. Alleen routeringsregels en proxy's die zijn gerelateerd aan de proxyconfiguratie uit de JSON-payload van de PvD worden toegepast. Als je dit beleid niet instelt, worden er geen inrichtingsdomeinen opgevraagd of gebruikt om proxyconfiguraties op te halen.
+
+Dit beleid kan alleen op gebruikersniveau worden ingesteld als de gebruiker is aangesloten bij de browser, als de browser niet wordt beheerd of als het beleid <ph name="ENABLE_PROXY_OVERRIDE_RULES_FOR_ALL_USERS_POLICY_NAME" /> is ingesteld op 1.</translation>
 <translation id="3719826155360621982">Homepage</translation>
 <translation id="3724039569609354541">Standaardgedrag gebruiken om te bepalen of websites verzoeken naar netwerkeindpunten kunnen sturen</translation>
 <translation id="3726715125055227414">Met dit beleid stel je <ph name="PRODUCT_OS_NAME" /> in om de voorkeursalgoritmen voor sleutelovereenkomst (ondersteunde groepen) in TLS 1.3 te ordenen op basis van een voorkeur voor algoritmen die zijn goedgekeurd door een specifiek nalevingsregime, als je netwerkverzoeken doet vanaf het inlogscherm.
@@ -5537,6 +5569,27 @@ Als je deze waarde tot boven de standaardwaarde (128) verhoogt, doe je dat op ei
 De afgedwongen limieten worden beïnvloed door <ph name="ALLOW_SOCKET_POOL_SIZE_RANDOMIZATION_FOR_PROXIES_POLICY_NAME" />.</translation>
 <translation id="4528981768990874684">Zet de functie <ph name="IP_PROTECTION_NAME" /> uit.</translation>
 <translation id="453031441196755904">Dit beleid is beëindigd.</translation>
+<translation id="4531088355818260318">Met dit beleid kun je een lijst met regels definiëren om aangepaste HTTP-headers in te voegen in webverzoeken die overeenkomen met specifieke URL-patronen. Headers die zijn ingesteld door dit beleid, hebben voorrang op headers die oorspronkelijk aanwezig waren in het verzoek en op wijzigingen die gebruikers of extensies proberen aan te brengen.
+
+Een veelgebruikte use case voor dit beleid is om toegangsbeheer voor tenants af te dwingen door aangepaste headers te injecteren (bijvoorbeeld <ph name="EXAMPLE_HEADER_NAME" />).
+
+Het beleid accepteert een lijst met regels. Elke regel bevat het volgende:
+
+* <ph name="PATTERNS_KEY" />: Een lijst met URL-patronen die moeten overeenkomen. Bekijk hoe je een URL-patroon opmaakt (https://support.google.com/chrome/a?p=url_blocklist_filter_format).
+
+* <ph name="HEADERS_KEY" />: Een lijst met objecten die headers vertegenwoordigen die moeten worden geïnjecteerd. Elk object bevat het volgende:
+
+  * <ph name="HEADER_NAME_KEY" />: De naam van de header die moet worden geïnjecteerd.
+
+  * <ph name="HEADER_VALUE_KEY" />: De waarde van de header die moet worden geïnjecteerd.
+
+Als meerdere regels overeenkomen met een verzoek, worden de headers van alle overeenkomende regels toegepast. Als er meerdere headers met dezelfde naam zijn, wordt de header met het meest specifieke URL-patroon toegepast. Als patronen even specifiek zijn, wordt het patroon toegepast dat als laatste in de lijst staat.
+
+Headernamen moeten voldoen aan RFC 2616 (https://www.rfc-editor.org/rfc/rfc2616). Headerwaarden mogen geen NUL-, CR- of LF-symbolen bevatten. Afzonderlijke headers mogen niet groter zijn dan 8 KB. Ongeldige headers en URL-patronen worden genegeerd.
+
+Dit beleid is beperkt tot in totaal 500 URL-patronen voor alle regels. Elke regel kan maximaal 20 headers bevatten. Patronen en headers die deze drempelwaarden overschrijden, worden genegeerd.
+
+Opmerking: Als een URL-patroon overeenkomt met niet-versleutelde schema's (http://, ws:// of als het schema is weggelaten), kunnen de ingestelde headers in platte tekst worden verstuurd via een niet-versleuteld kanaal en kunnen ze zichtbaar worden gemaakt voor netwerkwaarnemers. Beperk URL-patronen tot versleutelde schema's (https:// of wss://) om gevoelige of identificerende headerwaarden te beschermen.</translation>
 <translation id="4531706050939927436">De installatie van Android-apps kan via de Google Admin Console worden afgedwongen door gebruik te maken van Google Play. Deze apps gebruiken dit beleid niet.</translation>
 <translation id="4534500438517478692">Naam Android-beperking:</translation>
 <translation id="4541530620466526913">Lokale accounts op apparaat</translation>
@@ -6477,6 +6530,17 @@ Als je dit beleid niet instelt, staat Help me met schrijven aan op niet-beheerde
 <translation id="5081204761483900654">Beperkte beheerde gastsessies</translation>
 <translation id="5082296146261894974">Staat toe dat gebruikers op een Telefoonhub-melding klikken om de Eche-app te starten.</translation>
 <translation id="5082572440690475059">Alleen leestoegang via de File System API toestaan op deze sites</translation>
+<translation id="5084849119584030624">Hiermee worden de verbindingsinstellingen voor <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> in <ph name="PRODUCT_NAME" /> geconfigureerd.
+
+Dit beleid wordt niet meer ondersteund en wordt genegeerd. Gebruik in plaats daarvan het beleid <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />.
+
+Het beleid stelt de URL van de web-app <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> in via <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />. Dit moet een geldige URL zijn die het https-schema gebruikt, naar een <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />-domein verwijst en geen gebruikersnaam of wachtwoord bevat. Als de URL niet aan deze vereisten voldoet, wordt het beleid genegeerd en wordt <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> niet ingesteld.
+
+Als je dit beleid instelt, wordt <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> ingesteld voor gebruikers die zijn ingelogd met een beheerd account of een beheerde browser.
+
+Als je dit beleid niet instelt, wordt <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> niet ingesteld.
+
+Dit beleid beheert niet de algemene integratie van <ph name="GOOGLE_GEMINI_PRODUCT_NAME" />. Die kan worden beheerd door het beleid <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="5085647276663819155">Afdrukvoorbeeld uitzetten</translation>
 <translation id="5087922428454325090">Gebruikers kunnen geen web-apps installeren via de browser.</translation>
 <translation id="5087932158260897375">Als je dit beleid instelt op False, wordt rapportage van diagnostische gegevens over domeinbetrouwbaarheid uitgezet en worden er geen gegevens naar Google gestuurd.
@@ -6544,19 +6608,6 @@ Als je dit beleid niet instelt, wordt het virtuele toetsenbord getoond op basis 
 <translation id="5120168808610189805">Import van homepage bij eerste uitvoering aanzetten</translation>
 <translation id="5124321040285474825">Instellingen voor generatieve AI-functies in Automatisch invullen</translation>
 <translation id="5124368997194894978">Opstarten bij netstroom (wisselstroom) aanzetten</translation>
-<translation id="5124652340668722849">Hiermee wordt een lijst met Provisioning Domains (PvD's) ingesteld die <ph name="PRODUCT_NAME" /> gebruikt om proxyconfiguraties dynamisch op te halen.
-
-Met dit beleid kun je een lijst met domeinnamen of resource-URI's instellen die inrichtingsdomeinen vertegenwoordigen, zoals gedefinieerd in RFC 8801 ('Discovering Provisioning Domain Names and Data'). Voor elke PvD lost de browser de bijbehorende json-configuratie op door een HTTPS-verzoek te doen naar het bekende eindpuntpad: https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd.
-
-Elk item in de lijst geeft het volgende aan:
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />: De ID van het inrichtingsdomein (een domeinnaam).
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" />: De optionele verificatieconfiguratie. Als je dit beleid niet instelt of instelt op none, wordt er geen verificatie uitgevoerd. Als het is ingesteld op profile_bearer_token, haalt de browser een OAuth2-toegangstoken op met het ingevoerde bereik voor het ingelogde primaire account en voegt deze toe aan de kop Autorisatie als een Bearer-token.
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" />: Een optionele lijst met aangepaste HTTP-headers die moeten worden opgenomen bij het uitvoeren van query's voor het PvD-eindpunt. Er kunnen dynamische waarden worden ingevoegd, zoals profile_id (een stabiele, unieke ID van het browserprofiel op het apparaat, waarmee targeting per profiel mogelijk is) of accept_language (de voorkeurstalen van de browser).
-
-De opgehaalde configuraties worden geparseerd volgens het RFC 8801-schema. Alleen routeringsregels en proxy's die zijn gerelateerd aan de proxyconfiguratie uit de JSON-payload van de PvD worden toegepast. Als je dit beleid niet instelt, worden er geen inrichtingsdomeinen opgevraagd of gebruikt om proxyconfiguraties op te halen.</translation>
 <translation id="5130213897914754028">Voorkomen dat sites SharedArrayBuffers gebruiken</translation>
 <translation id="5130935469849337738">Altijd een vertaling aanbieden</translation>
 <translation id="513314432051760916">Beleid om te bepalen of de <ph name="PRIVACY_SANDBOX_NAME" />-instelling voor advertentiemeting kan worden uitgezet voor je gebruikers.
@@ -7055,6 +7106,7 @@ Er zijn meerdere beleidsregels met oorsprongen die van invloed zijn op verzoeken
 
       Als het beleid is ingesteld op False of niet is ingesteld, worden de gegevens niet gerapporteerd.
       Als het beleid is ingesteld op True, worden de apps en het gebruik van het apparaat gerapporteerd.</translation>
+<translation id="5418723809273651607">Ping®-cloudidentiteitsprovider</translation>
 <translation id="5420245232720940848">Hiermee zet je PCIe-tunneling voor Thunderbolt/USB4-randapparaten uit, waardoor de apparaatmogelijkheden worden beperkt</translation>
 <translation id="5420673997623782432">Toegang tot geolocatie van systeem blokkeren voor alle clients</translation>
 <translation id="5420774177427557782">Bepaalt of VM's die deze configuratie gebruiken, kunnen worden geïnstalleerd en uitgevoerd (<ph name="INSTALL_ALLOWED" />), kunnen worden uitgevoerd maar niet geïnstalleerd (<ph name="RUN_ALLOWED" />) of niet kunnen worden uitgevoerd (<ph name="BLOCKED" />). Houd er rekening mee dat voor het installeren van een VM ook de sleutel installer_image_x86_64 moet worden ingesteld. Als je een configuratie verwijdert, wordt deze impliciet ingesteld op <ph name="BLOCKED" /> om te voorkomen dat VM's zonder beleid kunnen worden uitgevoerd.</translation>
@@ -8308,25 +8360,6 @@ Als je dit beleid instelt op een lege lijst of niet instelt, zijn er geen URL's 
 <translation id="6244061205361004687">De gebruiker toestaan een VPN handmatig te ontkoppelen of aan te passen</translation>
 <translation id="6244210204546589761">URL's die worden geopend bij starten</translation>
 <translation id="6244263962918757383">Instellingen voor Chrome-suggesties</translation>
-<translation id="6245828368576563662">Met dit beleid kun je een lijst met regels definiëren om aangepaste HTTP-headers in te voegen in webverzoeken die overeenkomen met specifieke URL-patronen. Headers die zijn ingesteld door dit beleid, hebben voorrang op headers die oorspronkelijk aanwezig waren in het verzoek en op wijzigingen die gebruikers of extensies proberen aan te brengen.
-
-Een veelgebruikte use case voor dit beleid is om toegangsbeheer voor tenants af te dwingen door aangepaste headers te injecteren (bijvoorbeeld <ph name="EXAMPLE_HEADER_NAME" />).
-
-Het beleid accepteert een lijst met regels. Elke regel bevat het volgende:
-
-* <ph name="PATTERNS_KEY" />: Een lijst met URL-patronen die moeten overeenkomen. Bekijk hoe je een URL-patroon opmaakt (https://support.google.com/chrome/a?p=url_blocklist_filter_format).
-
-* <ph name="HEADERS_KEY" />: Een lijst met objecten die headers vertegenwoordigen die moeten worden geïnjecteerd. Elk object bevat het volgende:
-
-  * <ph name="HEADER_NAME_KEY" />: De naam van de header die moet worden geïnjecteerd.
-
-  * <ph name="HEADER_VALUE_KEY" />: De waarde van de header die moet worden geïnjecteerd.
-
-Als meerdere regels overeenkomen met een verzoek, worden de headers van alle overeenkomende regels toegepast. Als er meerdere headers met dezelfde naam zijn, wordt de header met het meest specifieke URL-patroon toegepast. Als patronen even specifiek zijn, wordt het patroon toegepast dat als laatste in de lijst staat.
-
-Headernamen moeten voldoen aan RFC 2616 (https://www.rfc-editor.org/rfc/rfc2616). Headerwaarden mogen geen NUL-, CR- of LF-symbolen bevatten. Afzonderlijke headers mogen niet groter zijn dan 8 KB. Ongeldige headers en URL-patronen worden genegeerd.
-
-Dit beleid is beperkt tot in totaal 500 URL-patronen voor alle regels. Elke regel kan maximaal 20 headers bevatten. Patronen en headers die deze drempelwaarden overschrijden, worden genegeerd.</translation>
 <translation id="624595269193747921">Of het zoeken naar de overeenkomende printer moet worden beperkt tot een specifieke reeks printers.</translation>
 <translation id="6246290059248303618">Mediabediening tonen voor <ph name="PRODUCT_NAME" />-sessies die worden gestart door andere apparaten in het lokale netwerk</translation>
 <translation id="6247316685259031374">Met dit beleid wordt het sandboxproces voor audio beheerd.
@@ -8578,17 +8611,6 @@ Opmerking: Dit beleid geldt alleen voor platforms die extensies ondersteunen.</t
       Als je het beleid instelt op False, worden Signed HTTP Exchanges niet geladen.</translation>
 <translation id="6368011194414932347">De homepage-URL configureren</translation>
 <translation id="6368403635025849609">JavaScript toestaan op deze sites</translation>
-<translation id="6368652917086795891">Hiermee worden de verbindingsinstellingen voor <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> in <ph name="PRODUCT_NAME" /> geconfigureerd.
-
-Dit beleid wordt vervangen door het beleid <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />. Als beide zijn ingesteld, heeft <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" /> voorrang.
-
-Het beleid stelt de URL van de web-app <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> in via <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />. Dit moet een geldige URL zijn die het https-schema gebruikt, naar een <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />-domein verwijst en geen gebruikersnaam of wachtwoord bevat. Als het niet aan deze vereisten voldoet, wordt het beleid genegeerd en wordt <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> niet ingesteld.
-
-Als je dit beleid instelt, wordt <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> ingesteld voor gebruikers die zijn ingelogd met een beheerd account of een beheerde browser.
-
-Als je dit beleid niet instelt, wordt <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> niet ingesteld.
-
-Dit beleid beheert niet de algemene integratie van <ph name="GOOGLE_GEMINI_PRODUCT_NAME" />. Die kan worden beheerd door het beleid <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="6368671810229507360">WebRTC</translation>
 <translation id="6370742079247037704">Het gebruik van de ingebouwde AI-API's niet toestaan</translation>
 <translation id="6371005337713685988">Instellingen voor Gerelateerde websitesets</translation>
@@ -9385,15 +9407,6 @@ OPMERKING: Wijzigingen in dit beleid worden alleen weergegeven in onlangs gestar
 <translation id="6833988859168635883">Startpagina, homepage en pagina 'Nieuw tabblad'</translation>
 <translation id="6835254082476223414">Back-up en herstel van virtuele Linux-machines aanzetten</translation>
 <translation id="6835883744948188639">Toon de gebruiker een terugkerende prompt om aan te geven dat opnieuw opstarten wordt aanbevolen</translation>
-<translation id="683688607121170501">Deze instelling biedt gebruikers de mogelijkheid om in het contentgedeelte van hun browservenster tussen Google-accounts te schakelen nadat ze zijn ingelogd bij hun <ph name="PRODUCT_OS_NAME" />-apparaat.
-
-      Als dit beleid is ingesteld op 'False', is het niet mogelijk om vanuit het contentgedeelte van een niet-incognito browservenster en vanuit Android-apps in te loggen op een ander Google-account.
-
-      Als dit beleid niet is ingesteld of is ingesteld op 'True', wordt het standaardgedrag gebruikt. Het is dan wel toegestaan om vanuit het contentgedeelte van de browser en vanuit Android-apps in te loggen op een ander Google-account, met uitzondering van onderliggende accounts. Hiervoor geldt dat er niet vanuit het contentgedeelte van een niet-incognito browservenster kan worden ingelogd op een ander account.
-
-      Als je niet wilt dat er in de incognitomodus kan worden ingelogd op een ander account, kun je deze modus eventueel blokkeren met het beleid IncognitoModeAvailability.
-
-      Gebruikers met een niet-bevoegde status kunnen toegang krijgen tot Google-services door cookies te blokkeren.</translation>
 <translation id="6841254611279513739">Als je dit beleid instelt, kun je bepalen of je alleen in kleur, alleen in monochroom of zonder kleurbeperking wilt afdrukken. Als je het beleid niet instelt, wordt er geen beperking ingesteld.</translation>
 <translation id="6843008643303282259">Gewenste uploadsnelheid in kbits/s.</translation>
 <translation id="6843296367238757293">Dit beleid is beëindigd. Het gebruik ervan wordt afgeraden. Ga naar https://support.google.com/chrome/a/answer/7643500 voor meer informatie</translation>
@@ -9857,23 +9870,6 @@ Dit beleid is niet van invloed op wachtwoordmanagers van derden die API's voor t
 
       Opmerking: De scanfunctie is op dit moment standaard uitgezet via een functievlag. Als de gebruiker deze functie aanzet via de functievlag, kan de functie nog steeds worden uitgezet door dit beleid.</translation>
 <translation id="7115684775550072082">Alleen witruimte behouden voor MIME-typen voor tekst en XML</translation>
-<translation id="7116098886490965998">Zet Single sign-on uit met <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> voor de vermelde identiteitsproviders.
-
-Als je de waarde <ph name="POLICY_VALUE_ALL" /> toevoegt, worden alle ondersteunde identiteitsproviders voor SSO uitgezet.
-
-Als je de waarde <ph name="POLICY_VALUE_MICROSOFT" /> toevoegt, wordt ondersteuning voor Single sign-on voor de Microsoft®-cloudidentiteitsprovider in Chrome uitgezet.
-
-Als je dit beleid niet instelt, worden alle identiteitsproviders die worden ondersteund door <ph name="PRODUCT_NAME" /> aangezet.
-
-Voor identiteitsproviders die zijn aangezet in <ph name="PRODUCT_NAME" /> en op het apparaat zijn ingesteld door de beheerder, kunnen gebruikers die inloggen op hun account met die identiteitsprovider in een app die <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> ondersteunt, automatisch inloggen bij webproperty's met die identiteitsprovider. Informatie over de verificatiegegevens van de gebruiker wordt voor elke verificatiegebeurtenis overgedragen naar de cloudidentiteitsprovider van de gebruiker.
-
-Opmerkingen:
-
-<ph name="PRODUCT_NAME" /> ondersteunt Single sign-on met <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> niet in de incognito- of gastmodus.
-
-<ph name="PRODUCT_NAME" /> ondersteunt Single sign-on met <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> alleen voor de volgende identiteitsproviders: Microsoft, Okta.
-
-Deze functie is beschikbaar vanaf <ph name="MAC_OS_NAME" /> 10.15.</translation>
 <translation id="7119538491527883595">Lokale opslag van gebruikersgegevens</translation>
 <translation id="7121046543122812054">Dit beleid is beëindigd. Overweeg in plaats daarvan <ph name="BROWSER_SIGNIN_POLICY_NAME" /> te gebruiken.
 
@@ -10495,7 +10491,6 @@ Dit beleid beheert niet de algemene integratie van <ph name="GOOGLE_GEMINI_PRODU
 <translation id="7491720878670299691">Snelheid waarmee netwerkgegevens worden opgevraagd en gecheckt op gebeurtenissen. Het toegestane minimum is 1 minuut.
 
       Als je dit beleid niet instelt, is de standaardsnelheid van 1 minuut van toepassing.</translation>
-<translation id="7496284563199466390">Hiermee wordt bepaald welke beheerde gebruikers het beleid <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> kunnen instellen.</translation>
 <translation id="7498595166686106721">
       Het rechtenbeleid voor schermopname geeft toegang tot getDisplayMedia(), volgens deze specificatie: https://www.w3.org/TR/screen-capture/#feature-policy-integration. Maar als dit beleid niet wordt toegepast, wordt deze vereiste niet afgedwongen en wordt getDisplayMedia() toegestaan vanuit contexten die anders verboden zouden zijn. Dit zakelijke beleid is tijdelijk. Het is de bedoeling het te verwijderen na <ph name="PRODUCT_NAME" /> versie 100. Het is bedoeld om de blokkering van zakelijke gebruikers op te heffen wiens app niet aan de specificaties voldoet, maar tijd nodig heeft om te worden hersteld.
 
@@ -11667,6 +11662,7 @@ Deze functie is alleen beschikbaar op het Canary-kanaal.
 
 Als je dit beleid toepast of niet instelt, is de pagina toegankelijk.
 Als je het beleid niet toepast, wordt de pagina geblokkeerd.</translation>
+<translation id="8266506455952754231">Hiermee wordt bepaald welke beheerde gebruikers de beleidsregels <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> en <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" /> kunnen instellen.</translation>
 <translation id="8266778278542911985">Als je het beleid instelt op 3, kunnen websites toegang vragen tot seriële poorten. Als je het beleid instelt op 2, wordt de toegang tot seriële poorten geblokkeerd.
 
       Als je het beleid niet instelt, vragen websites om toegang maar kunnen gebruikers deze instelling wijzigen.</translation>
@@ -12231,6 +12227,17 @@ Dit beleid is altijd van kracht voor <ph name="PRODUCT_OS_NAME" />.</translation
 <translation id="8621146428060651659">Herschikking in willekeurige volgorde van socketgroep voor proxy's toestaan</translation>
 <translation id="862621549134406761">Controle van RSA-sleutelgebruik aanzetten</translation>
 <translation id="8626826495474944836">Site-isolatie verplichten voor elke site</translation>
+<translation id="8628954914373039931">Met deze instelling kunnen gebruikers wisselen tussen Google-accounts in het contentgedeelte van hun browservenster en in Android-apps, nadat ze zijn ingelogd op hun <ph name="PRODUCT_OS_NAME" />-apparaat.
+
+      Als je dit beleid instelt op Onwaar, is inloggen op een ander Google-account vanuit een niet-incognito browsercontentgedeelte en Android-apps niet toegestaan.
+
+      Als je dit beleid niet instelt of instelt op Waar, wordt het standaardgedrag gebruikt: inloggen op een ander Google-account vanuit het contentgedeelte van de browser en in Android-apps is toegestaan, behalve voor kinderaccounts, waarvoor dit wordt geblokkeerd voor het niet-incognito contentgedeelte.
+
+      Op Android bepaalt deze instelling of gebruikers extra Google-accounts kunnen toevoegen vanuit het contentgedeelte van Google-websites terwijl ze zijn ingelogd bij <ph name="PRODUCT_NAME" />. Als je dit beleid instelt op Onwaar, bieden Google-websites niet de optie om nog een Google-account toe te voegen (bijvoorbeeld de knop Nog een account toevoegen in het accountmenu). Als je dit beleid niet instelt of instelt op Waar, is het toegestaan om een ander Google-account toe te voegen via Google-websites. Dit beleid voorkomt niet dat Google-accounts aan het Android-apparaat zelf worden toegevoegd.
+
+      Als je inloggen op een ander account niet wilt toestaan via de incognitomodus, kun je die modus blokkeren met het beleid IncognitoModeAvailability.
+
+      Gebruikers kunnen wel toegang krijgen tot Google-services in een niet-geverifieerde status door hun cookies te blokkeren.</translation>
 <translation id="8630797597241896082">VC-achtergrond met generatieve AI toestaan en AI-modellen verbeteren</translation>
 <translation id="8631314130868563649">Stroombeheer voor piekuren uitzetten</translation>
 <translation id="8631434304112909927">tot versie <ph name="UNTIL_VERSION" /></translation>

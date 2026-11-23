@@ -64,7 +64,8 @@ class TabUnderlineController
   void OnIndicatorStatusChanged(bool enabled);
 
   // Called when the glic set of pinned tabs changes.
-  void OnPinnedTabsChanged(const std::vector<tabs::TabInterface*>& pinned_tabs);
+  void OnPinnedTabsChanged(
+      const std::vector<raw_ptr<tabs::TabInterface>>& pinned_tabs);
 
   void PanelStateChanged(const glic::mojom::PanelState& panel_state);
 
@@ -166,11 +167,11 @@ class TabUnderlineController
 
   std::string UpdateReasonsToString() const;
 
+  BrowserWindowInterface* GetBrowserWindowInterface();
+
   // Back pointer to the owner. Guaranteed to outlive `this`.
   raw_ptr<UiDelegate> ui_delegate_;
   tabs::TabHandle tab_handle_;
-
-  BrowserWindowInterface* GetBrowserWindowInterface();
 
   // The Glic keyed service. This is only assigned if
   // ShouldUseSignalsForGlicUnderlines() returns true. Otherwise, it will stay

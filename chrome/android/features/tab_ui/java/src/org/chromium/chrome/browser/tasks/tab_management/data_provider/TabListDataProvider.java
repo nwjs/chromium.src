@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.tasks.tab_management.data_provider;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
+import org.chromium.base.Token;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -126,6 +127,17 @@ public abstract class TabListDataProvider {
     protected abstract void rebuildItems();
 
     /**
+     * Returns whether {@code tab} is in scope for this data provider surface (either directly as a
+     * {@link TabItem} or inside a composite group item). Subclasses with a filter predicate
+     * override this to restrict surface scope.
+     *
+     * @param tab The {@link Tab} to evaluate.
+     */
+    protected boolean isTabInScope(Tab tab) {
+        return true;
+    }
+
+    /**
      * Returns whether {@code tab} should have a visible {@link TabItem} in {@link #mItems}.
      *
      * @param tab The {@link Tab} to evaluate.
@@ -163,16 +175,7 @@ public abstract class TabListDataProvider {
         TabModel model = getTabModelIfTabStateInitialized();
         if (model == null) return;
 
-        int index = getInsertionIndex(model, tabId);
-        if (index == TabList.INVALID_TAB_INDEX) return;
-
-        TabItem item = createTabItem(TabModelUtils.getCurrentTab(model), tab);
-
-        // Pass the preceding item as an anchor (or null for the start of the tab region) so UI
-        // consumers can insert relative to it without index offset math around non-tab items.
-        TabListItem previousItem = getPreviousItem(index);
-        mItems.add(index, item);
-        notifyObservers(obs -> obs.onItemsInserted(List.of(item), previousItem));
+        insertItem(model, createTabItem(TabModelUtils.getCurrentTab(model), tab));
     }
 
     /**
@@ -185,27 +188,31 @@ public abstract class TabListDataProvider {
         int index = indexOfTabId(tabId);
         if (index == TabList.INVALID_TAB_INDEX) return;
 
-        TabListItem removedItem = mItems.remove(index);
-        notifyObservers(obs -> obs.onItemsRemoved(List.of(removedItem)));
+        removeItemAt(index);
     }
 
     /**
-     * Moves the {@link TabItem} for {@code tabId} to its updated {@link TabModel} position and
-     * notifies observers via {@link TabListDataObserver#onItemsMoved}.
+     * Moves the {@link TabItem} for {@code tab} to its updated {@link TabModel} position and
+     * notifies observers via {@link TabListDataObserver#onItemsMoved}. No-ops if the tab should not
+     * have a visible {@link TabItem} or is not present in {@link #mItems}.
      *
-     * @param tabId The ID of the tab to move.
+     * @param tab The {@link Tab} to move.
      */
-    protected void moveTabItem(@TabId int tabId) {
+    protected void moveTabItem(Tab tab) {
+        // Ignore tabs moving out of scope; dedicated lifecycle events handle removal.
+        if (!shouldShowTab(tab)) return;
+
         TabModel model = getTabModelIfTabStateInitialized();
         if (model == null) return;
 
+        @TabId int tabId = tab.getId();
         int fromIndex = indexOfTabId(tabId);
         if (fromIndex == TabList.INVALID_TAB_INDEX) return;
 
         // Temporarily remove the moving item before finding the new insertion index so downward
         // moves evaluate insertion position accurately.
         TabListItem movedItem = mItems.remove(fromIndex);
-        int toIndex = getInsertionIndex(model, tabId);
+        int toIndex = getInsertionIndex(model, movedItem);
         int insertIndex = toIndex != TabList.INVALID_TAB_INDEX ? toIndex : fromIndex;
         mItems.add(insertIndex, movedItem);
 
@@ -218,17 +225,40 @@ public abstract class TabListDataProvider {
 
     /**
      * Synchronizes {@code tab}'s {@link TabItem} in {@link #mItems} against {@link
-     * #shouldShowTab(Tab)}. Inserts the tab if it became visible, or removes it if it is no longer
-     * visible.
+     * #shouldShowTab(Tab)}. Removes the item if hidden, inserts it if newly visible, or repositions
+     * and returns the existing {@link TabItem} if already present.
      *
      * @param tab The {@link Tab} to synchronize.
+     * @return The existing {@link TabItem} if it was already in {@link #mItems} and remains
+     *     visible, or null if the item was inserted, removed, or remained hidden.
      */
-    protected void syncTabItem(Tab tab) {
-        if (shouldShowTab(tab)) {
-            addTabItem(tab);
-        } else {
+    protected @Nullable TabItem syncTabItem(Tab tab) {
+        if (!shouldShowTab(tab)) {
             removeTabItem(tab.getId());
+            return null;
         }
+
+        int fromIndex = indexOfTabId(tab.getId());
+        if (fromIndex == TabList.INVALID_TAB_INDEX) {
+            addTabItem(tab);
+            return null;
+        }
+
+        TabItem existingItem = (TabItem) mItems.get(fromIndex);
+        moveTabItem(tab);
+        return existingItem;
+    }
+
+    /**
+     * Notifies observers via {@link TabListDataObserver#onItemUpdated} that {@code item} changed if
+     * non-null.
+     *
+     * @param item The {@link TabItem} to update, or null to no-op.
+     * @param payload The {@link PayloadType} indicating which property changed.
+     */
+    protected void updateTabItem(@Nullable TabItem item, @PayloadType int payload) {
+        if (item == null) return;
+        notifyObservers(obs -> obs.onItemUpdated(item, payload));
     }
 
     /**
@@ -285,58 +315,117 @@ public abstract class TabListDataProvider {
         if (mItems.get(index) instanceof TabItem tabItem) {
             boolean isPinned = tab.getIsPinned();
             if (tabItem.isPinned() != isPinned) {
-                TabItem updatedItem = tabItem.withPinned(isPinned);
-                mItems.set(index, updatedItem);
-                notifyObservers(obs -> obs.onItemUpdated(updatedItem, PayloadType.PIN_STATE));
+                updateItemAt(index, tabItem.withPinned(isPinned), PayloadType.PIN_STATE);
             }
         }
     }
 
     /**
-     * Notifies observers that a tab closure was undone if shown by this provider.
+     * Notifies observers that a tab closure was undone if the tab is in scope.
      *
      * @param tab The {@link Tab} whose closure was undone.
      */
     protected void notifyTabClosureUndone(Tab tab) {
-        if (!shouldShowTab(tab)) return;
+        if (!isTabInScope(tab)) return;
         notifyObservers(obs -> obs.onTabClosureUndone(tab.getId()));
     }
 
     /**
-     * Notifies observers that a tab closure was committed if shown by this provider.
+     * Notifies observers that a tab closure was committed if the tab is in scope.
      *
      * @param tab The {@link Tab} whose closure was committed.
      */
     protected void notifyTabClosureCommitted(Tab tab) {
-        if (!shouldShowTab(tab)) return;
+        if (!isTabInScope(tab)) return;
         notifyObservers(obs -> obs.onTabClosureCommitted(tab.getId()));
+    }
+
+    /**
+     * Inserts a {@link TabListItem} into {@link #mItems} at its {@link TabModel} position and
+     * notifies observers via {@link TabListDataObserver#onItemsInserted}.
+     *
+     * @param model The active {@link TabModel}.
+     * @param item The {@link TabListItem} to insert.
+     */
+    protected void insertItem(TabModel model, TabListItem item) {
+        int index = getInsertionIndex(model, item);
+        if (index == TabList.INVALID_TAB_INDEX) return;
+
+        // Pass the preceding item as an anchor (or null for the start of the tab region) so UI
+        // consumers can insert relative to it without index offset math around non-tab items.
+        TabListItem previousItem = getPreviousItem(index);
+        mItems.add(index, item);
+        notifyObservers(obs -> obs.onItemsInserted(List.of(item), previousItem));
+    }
+
+    /**
+     * Replaces the {@link TabListItem} at {@code index} in {@link #mItems} with {@code updatedItem}
+     * and notifies observers via {@link TabListDataObserver#onItemUpdated}.
+     *
+     * @param index The index in {@link #mItems} to update.
+     * @param updatedItem The updated {@link TabListItem} to store at {@code index}.
+     * @param payload The {@link PayloadType} indicating which property changed.
+     */
+    protected void updateItemAt(int index, TabListItem updatedItem, @PayloadType int payload) {
+        mItems.set(index, updatedItem);
+        notifyObservers(obs -> obs.onItemUpdated(updatedItem, payload));
+    }
+
+    /**
+     * Removes the {@link TabListItem} at {@code index} from {@link #mItems} and notifies observers
+     * via {@link TabListDataObserver#onItemsRemoved}.
+     *
+     * @param index The index in {@link #mItems} to remove.
+     * @return The removed {@link TabListItem}.
+     */
+    protected TabListItem removeItemAt(int index) {
+        TabListItem removedItem = mItems.remove(index);
+        notifyObservers(obs -> obs.onItemsRemoved(List.of(removedItem)));
+        return removedItem;
+    }
+
+    /**
+     * Returns whether {@code item} is a {@link TabGroupItem} matching {@code tabGroupId}.
+     *
+     * @param item The {@link TabListItem} to check.
+     * @param tabGroupId The tab group {@link Token} to match against, or null.
+     */
+    protected static boolean matchesTabGroupId(TabListItem item, @Nullable Token tabGroupId) {
+        return tabGroupId != null
+                && item instanceof TabGroupItem groupItem
+                && groupItem.getTabGroupId().equals(tabGroupId);
     }
 
     private void updateSelection(int index, boolean isSelected) {
         TabListItem currentItem = mItems.get(index);
         if (currentItem.isSelected() == isSelected) return;
 
-        TabListItem updatedItem = currentItem.withSelected(isSelected);
-        mItems.set(index, updatedItem);
-        notifyObservers(obs -> obs.onItemUpdated(updatedItem, PayloadType.SELECTION));
+        updateItemAt(index, currentItem.withSelected(isSelected), PayloadType.SELECTION);
     }
 
     private int indexOfTabId(@TabId int tabId) {
         if (tabId == Tab.INVALID_TAB_ID) return TabList.INVALID_TAB_INDEX;
         for (int i = 0; i < mItems.size(); i++) {
-            if (isTabItem(mItems.get(i), tabId)) return i;
+            if (matchesTabId(mItems.get(i), tabId)) return i;
         }
         return TabList.INVALID_TAB_INDEX;
     }
 
-    private int getInsertionIndex(TabModel model, @TabId int targetTabId) {
+    private int getInsertionIndex(TabModel model, TabListItem targetItem) {
         int itemIndex = 0;
         for (Tab tab : model) {
             int tabId = tab.getId();
-            if (tabId == targetTabId) return itemIndex;
+            Token tabGroupId = tab.getTabGroupId();
+            // A TabGroupItem is placed at the position of its first member tab in TabModel.
+            if (matchesTabGroupId(targetItem, tabGroupId)) return itemIndex;
+            // Advance past an existing group header so its child tabs land after the header.
+            if (itemIndex < mItems.size() && matchesTabGroupId(mItems.get(itemIndex), tabGroupId)) {
+                itemIndex++;
+            }
+            if (matchesTabId(targetItem, tabId)) return itemIndex;
             // Advance past tabs that are already projected in mItems; filtered-out tabs are
             // skipped without incrementing itemIndex.
-            if (itemIndex < mItems.size() && isTabItem(mItems.get(itemIndex), tabId)) {
+            if (itemIndex < mItems.size() && matchesTabId(mItems.get(itemIndex), tabId)) {
                 itemIndex++;
             }
         }
@@ -350,7 +439,7 @@ public abstract class TabListDataProvider {
         return index > 0 && index <= mItems.size() ? mItems.get(index - 1) : null;
     }
 
-    private static boolean isTabItem(TabListItem item, @TabId int tabId) {
+    private static boolean matchesTabId(TabListItem item, @TabId int tabId) {
         return item instanceof TabItem tabItem && tabItem.getTabId() == tabId;
     }
 

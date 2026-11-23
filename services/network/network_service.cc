@@ -134,11 +134,22 @@
 #include "components/vrp_flags/vrp_flags_impl.h"  // nogncheck
 #endif                                            // BUILDFLAG(ENABLE_VRP_FLAGS)
 
+#if BUILDFLAG(IS_WIN)
+#include "base/native_library.h"
+#endif  // BUILDFLAG(IS_WIN)
+
 namespace network {
 
 namespace {
 
 NetworkService* g_network_service = nullptr;
+
+#if BUILDFLAG(IS_WIN)
+void PrewarmCryptbaseLibrary() {
+  TRACE_EVENT("loading", "PrewarmCryptbaseLibrary");
+  base::PinSystemLibrary(FILE_PATH_LITERAL("cryptbase.dll"));
+}
+#endif  // BUILDFLAG(IS_WIN)
 
 std::unique_ptr<net::NetworkChangeNotifier> CreateNetworkChangeNotifierIfNeeded(
     net::NetworkChangeNotifier::ConnectionType initial_connection_type,
@@ -399,6 +410,16 @@ NetworkService::NetworkService(
     net::NetTaskScheduler::MaybeCreate();
   }
 
+#if BUILDFLAG(IS_WIN)
+  if (base::FeatureList::IsEnabled(features::kPrewarmCryptbase)) {
+    base::ThreadPool::PostTask(
+        FROM_HERE,
+        {base::MayBlock(), base::ThreadPolicy::MUST_USE_FOREGROUND,
+         base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
+        base::BindOnce(&PrewarmCryptbaseLibrary));
+  }
+#endif  // BUILDFLAG(IS_WIN)
+
   ContentDecodingInterceptor::SetIsNetworkServiceRunningInTheCurrentProcess(
       true, {});
 
@@ -486,8 +507,10 @@ void NetworkService::Initialize(mojom::NetworkServiceParamsPtr params,
 
   dns_config_change_manager_ = std::make_unique<DnsConfigChangeManager>();
 
+  net::HostResolver::ManagerOptions host_resolver_options;
+  host_resolver_options.insecure_dns_mode = params->initial_insecure_dns_mode;
   host_resolver_manager_ = std::make_unique<net::HostResolverManager>(
-      net::HostResolver::ManagerOptions(),
+      std::move(host_resolver_options),
       net::NetworkChangeNotifier::GetSystemDnsConfigNotifier(), net_log_);
   host_resolver_factory_ = std::make_unique<net::HostResolver::Factory>();
 
@@ -1014,7 +1037,8 @@ void NetworkService::SetCtEnforcementEnabled(
 
 #if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
 void NetworkService::UpdateKeyPinsList(mojom::PinListPtr pin_list,
-                                       base::Time update_time) {
+                                       base::Time update_time,
+                                       UpdateKeyPinsListCallback callback) {
   pins_list_updated_ = true;
   pinsets_.clear();
   host_pins_.clear();
@@ -1034,6 +1058,8 @@ void NetworkService::UpdateKeyPinsList(mojom::PinListPtr pin_list,
       state->UpdatePinList(pinsets_, host_pins_, pins_list_update_time_);
     }
   }
+
+  std::move(callback).Run();
 }
 #endif  // BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
 

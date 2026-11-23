@@ -8,8 +8,10 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
+#include "base/containers/circular_deque.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -17,7 +19,7 @@
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/streaming_client/streaming_websocket_client.h"
 #include "services/network/public/cpp/network_context_getter.h"
@@ -29,6 +31,36 @@ class IdentityManager;
 }  // namespace signin
 
 namespace optimization_guide {
+
+// The status of establishing a streaming WebSocket connection. Only used for
+// UMA logging. Entries should not be renumbered and numeric values should never
+// be reused.
+// LINT.IfChange(StreamingConnectionStatus)
+enum class StreamingConnectionStatusUma {
+  kConnected = 0,
+  kAccessTokenFailure = 1,
+  kHandshakeFailed = 2,
+  kClientErrorDuringConnect = 3,
+  kMojoPipeDisconnectedDuringConnect = 4,
+  kCancelledByDestruction = 5,
+  kMaxValue = kCancelledByDestruction,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/optimization/enums.xml:OptimizationGuideStreamingConnectionStatus)
+
+// The reason an active streaming WebSocket connection disconnected. Only used
+// for UMA logging. Entries should not be renumbered and numeric values should
+// never be reused.
+// LINT.IfChange(StreamingDisconnectReason)
+enum class StreamingDisconnectReasonUma {
+  kSessionDestroyed = 0,
+  kIdleTimeout = 1,
+  kServerDropClean = 2,
+  kServerDropUnclean = 3,
+  kClientError = 4,
+  kMojoPipeDisconnected = 5,
+  kMaxValue = kMojoPipeDisconnected,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/optimization/enums.xml:OptimizationGuideStreamingDisconnectReason)
 
 // RemoteModelExecutionSession implementation that communicates with MES
 // via WebSocket using StreamingWebSocketClient.
@@ -84,7 +116,9 @@ class RemoteModelExecutionSessionImpl
  private:
   void NotifyObservers();
   void HandleDisconnection(
-      std::optional<OptimizationGuideModelExecutionError> error);
+      std::optional<OptimizationGuideModelExecutionError> error,
+      std::variant<StreamingConnectionStatusUma, StreamingDisconnectReasonUma>
+          disconnect_metric);
   void ResetIdleTimer();
   void OnIdleTimeout();
   void StartConnection();
@@ -98,7 +132,6 @@ class RemoteModelExecutionSessionImpl
   OptimizationGuideModelExecutionStreamingCallback callback_;
   const raw_ptr<signin::IdentityManager> identity_manager_;
 
-  // TODO(crbug.com/553134125): Add debug logging with the logger.
   const raw_ptr<OptimizationGuideLogger> optimization_guide_logger_;
 
   ConnectionState connection_state_ = ConnectionState::kDisconnected;
@@ -107,7 +140,7 @@ class RemoteModelExecutionSessionImpl
   base::RetainingOneShotTimer idle_timer_;
   std::string access_token_;
 
-  std::vector<std::vector<uint8_t>> pending_requests_;
+  base::circular_deque<std::vector<uint8_t>> pending_requests_;
 
   std::unique_ptr<streaming_client::StreamingWebSocketClient> client_;
 

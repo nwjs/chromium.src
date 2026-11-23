@@ -11,6 +11,7 @@
 #include <variant>
 #include <vector>
 
+#include "base/android/device_info.h"
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/to_vector.h"
@@ -28,7 +29,6 @@
 #include "chrome/browser/android/preferences/autofill/settings_navigation_helper.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
-#include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/at_memory_suggestion_controller.h"
@@ -801,8 +801,10 @@ void AutofillKeyboardAccessoryControllerImpl::Show(
     // method before the ManualFillingController updates visibility. This
     // ensures the bar's screen position is updated before the controller makes
     // it visible.
-    bool should_show_before_mf = base::FeatureList::IsEnabled(
-        features::kAutofillAndroidKeyboardAccessoryDynamicPositioning);
+    bool should_show_before_mf =
+        base::android::device_info::is_desktop() &&
+        base::FeatureList::IsEnabled(
+            features::kAutofillAndroidKeyboardAccessoryDynamicPositioning);
 
     if (should_show_before_mf) {
       view_->Show();
@@ -995,11 +997,6 @@ void AutofillKeyboardAccessoryControllerImpl::OpenSettingsForEntityType(
   if (!web_contents_) {
     return;
   }
-  if (!base::FeatureList::IsEnabled(
-          chrome::android::kYourSavedInfoSettingsPageAndroid)) {
-    ShowAutofillProfileSettings(web_contents_.get());
-    return;
-  }
   std::optional<EntityTypeName> safe_type = ToSafeEntityTypeName(entity_type);
   if (!safe_type) {
     return;
@@ -1124,11 +1121,7 @@ void AutofillKeyboardAccessoryControllerImpl::
     std::rotate(suggestions_.begin(), it, it + 1);
   }
 
-  labels_.clear();
-  labels_.reserve(suggestions_.size());
-  for (const Suggestion& suggestion : suggestions_) {
-    labels_.push_back(CreateLabel(suggestion));
-  }
+  labels_ = base::ToVector(suggestions_, &CreateLabel);
 }
 
 bool AutofillKeyboardAccessoryControllerImpl::HandleKeyPressEvent(

@@ -243,7 +243,10 @@
 //media/test/data/bear-vp9.ivf
 //media/test/data/bear-vp9.ivf.context
 //media/test/data/bear-vp9.webm
+//media/test/data/bear-vp9a-420-10bit.webm
+//media/test/data/bear-vp9a-422-10bit.webm
 //media/test/data/bear-vp9a-422.webm
+//media/test/data/bear-vp9a-444-10bit.webm
 //media/test/data/bear-vp9a-444.webm
 //media/test/data/bear-vp9a-odd-dimensions.webm
 //media/test/data/bear-vp9a.webm
@@ -501,6 +504,7 @@
 //media/test/data/sfx_s32le.wav
 //media/test/data/sfx_u8.wav
 //media/test/data/silent-section.mp3
+//media/test/data/sine-s32-stereo.flac
 //media/test/data/solid_green_2015x2015.webp
 //media/test/data/speech_16b_stereo_48kHz.raw
 //media/test/data/speex_audio_vorbis_video.ogv
@@ -533,6 +537,7 @@
 //media/test/data/tos-h264-opus.mp4
 //media/test/data/track-disabled.mp4
 //media/test/data/trailing-garbage.mp3
+//media/test/data/trun_overflow.mp4
 //media/test/data/tulip2.webm
 //media/test/data/vorbis-extradata
 //media/test/data/vorbis-packet-0

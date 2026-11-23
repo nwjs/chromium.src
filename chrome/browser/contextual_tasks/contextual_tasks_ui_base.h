@@ -5,12 +5,14 @@
 #ifndef CHROME_BROWSER_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_UI_BASE_H_
 #define CHROME_BROWSER_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_UI_BASE_H_
 
+#include <memory>
 #include <optional>
 #include <string>
 
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_internals.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_toolbar.mojom.h"
 #include "components/user_education/webui/help_bubble_handler.h"  // nogncheck
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -20,11 +22,13 @@
 #include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"  // nogncheck
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "base/callback_list.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #endif
 
 class BrowserWindowInterface;
+class ContextualTasksInternalsPageHandler;
 class GURL;
 
 namespace content {
@@ -64,6 +68,8 @@ class ContextualTasksUIBase
       public contextual_tasks_toolbar::mojom::PageHandlerFactory,
       public contextual_tasks_toolbar::mojom::PageHandler,
       public contextual_tasks_toolbar::mojom::ContextualTasksToolbarUIService,
+      public contextual_tasks_internals::mojom::
+          ContextualTasksInternalsPageHandlerFactory,
       public help_bubble::mojom::HelpBubbleHandlerFactory
 #if !BUILDFLAG(IS_ANDROID)
     ,
@@ -78,7 +84,7 @@ class ContextualTasksUIBase
 
   Profile* GetProfile();
   content::WebContents* GetWebUIWebContents();
-  BrowserWindowInterface* GetBrowser();
+  virtual BrowserWindowInterface* GetBrowser();
   virtual contextual_tasks::ContextualTasksPanelController*
   GetPanelController();
   contextual_tasks::ContextualTasksUiService* GetUiService();
@@ -97,6 +103,8 @@ class ContextualTasksUIBase
   void UnpinSidePanel() override;
   void OpenMyActivityUi() override;
   void OpenOverflowMenuHelpUi() override;
+  void OpenManageAccountUi() override;
+  void OpenLogOutFlow() override;
   void OpenFeedbackUi() override;
   void MoveTaskUiToNewTab() override;
   void ShowThreadHistory() override;
@@ -129,6 +137,23 @@ class ContextualTasksUIBase
       mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
           pending_receiver);
 
+  // Instantiates the implementor of the
+  // `contextual_tasks_internals::mojom::ContextualTasksInternalsPageHandlerFactory`
+  // mojo interface passing the pending receiver that will be internally bound.
+  void BindInterface(
+      mojo::PendingReceiver<contextual_tasks_internals::mojom::
+                                ContextualTasksInternalsPageHandlerFactory>
+          pending_receiver);
+
+  // contextual_tasks_internals::mojom::
+  // ContextualTasksInternalsPageHandlerFactory:
+  void CreatePageHandler(
+      mojo::PendingRemote<
+          contextual_tasks_internals::mojom::ContextualTasksInternalsPage> page,
+      mojo::PendingReceiver<contextual_tasks_internals::mojom::
+                                ContextualTasksInternalsPageHandler> receiver)
+      override;
+
   // help_bubble::mojom::HelpBubbleHandlerFactory:
   void CreateHelpBubbleHandler(
       mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
@@ -140,7 +165,8 @@ class ContextualTasksUIBase
   void OnChipMousePressed(
       toolbar_ui_api::mojom::LhsChipIdentifier identifier) override;
   void OnChipClicked(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
-                     bool is_mouse_interaction) override;
+                     bool is_mouse_interaction,
+                     uint32_t state_token) override;
   void OnChipPointerEntered(
       toolbar_ui_api::mojom::LhsChipIdentifier identifier) override;
   void OnChipPointerExited(
@@ -191,6 +217,12 @@ class ContextualTasksUIBase
   bool IsAiPage() const { return is_ai_page_; }
   virtual void SetIsAiPage(bool is_ai_page);
 
+  bool IsContextualTasksEligibleOnInit() const {
+    return is_contextual_tasks_eligible_on_init_;
+  }
+  virtual bool CanExpandToFullTab() const;
+  virtual void UpdateExpandButtonEnabled(bool enabled);
+
   // The title of the active conversation thread, or nullopt if no thread is
   // active (e.g. on AI zero-state landing pages or non-AI URLs).
   //
@@ -209,10 +241,41 @@ class ContextualTasksUIBase
   void NotifySidePanelStateChanged();
 
  protected:
+  // Returns whether the pinning promo can be triggered for `url` and
+  // `panel_controller` (returns false if null). The pinning IPH should only be
+  // triggered when:
+  // 1. Results have fully loaded (finished streaming) for a contextual query
+  //    about a webpage/tab or PDF (excluding initial visual-selection-only
+  //    Lens Overlay queries, unless the user manually adds a webpage or PDF
+  //    later in the session).
+  // 2. The side panel is open & the ephemeral button is showing.
+  // 3. The user hasn't yet pinned the side panel.
+  static bool CanTriggerPinningPromoForAiPage(
+      const GURL& url,
+      ContextualTasksPanelController* panel_controller);
+
   // Helper to dynamically resolve the active tab's permission controller.
   virtual ContextualTasksPermissionController* GetActiveController();
 
  private:
+  // Opens `url` in a new foreground tab from the panel's own UI, so the new tab
+  // doesn't inherit the side panel's task.
+  void OpenUrlInNewTabFromPanelUi(const GURL& url);
+
+  // Refreshes the profile indicator when the Google accounts in the cookie
+  // jar change, such as when the fresh list replaces the one cached from a
+  // previous session. This is a separate class because `ContextualTasksUI`
+  // already inherits `signin::IdentityManager::Observer`.
+  class CookieJarObserver;
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Re-evaluates whether the user may pin or unpin the side panel (e.g. after
+  // the Contextual Tasks or AIM eligibility changes while the side panel is
+  // open) and pushes the result to the toolbar WebUI so the pin/unpin menu item
+  // can be shown or hidden.
+  void OnCanPinOrUnpinMaybeChanged();
+#endif
+
   mojo::Receiver<contextual_tasks_toolbar::mojom::PageHandlerFactory>
       toolbar_page_factory_receiver_{this};
   mojo::Receiver<contextual_tasks_toolbar::mojom::PageHandler>
@@ -227,17 +290,34 @@ class ContextualTasksUIBase
   toolbar_ui_api::mojom::PermissionDashboardStatePtr
       last_pushed_permission_dashboard_state_;
   bool is_ai_page_ = false;
+  bool is_contextual_tasks_eligible_on_init_ = false;
   std::optional<std::string> thread_title_;
 
 #if !BUILDFLAG(IS_ANDROID)
   base::ScopedObservation<PinnedToolbarActionsModel,
                           PinnedToolbarActionsModel::Observer>
       pinned_toolbar_actions_model_observation_{this};
+
+  // Last pin/unpin eligibility pushed to the WebUI, so we only notify on
+  // change.
+  bool can_pin_or_unpin_ = false;
+  // Subscriptions to the two signals that feed
+  // `EntryPointEligibilityManager::CanPinOrUnpin()`.
+  base::CallbackListSubscription eligibility_subscription_;
+  base::CallbackListSubscription aim_eligibility_subscription_;
 #endif
+
+  std::unique_ptr<CookieJarObserver> cookie_jar_observer_;
 
   std::unique_ptr<user_education::HelpBubbleHandler> help_bubble_handler_;
   mojo::Receiver<help_bubble::mojom::HelpBubbleHandlerFactory>
       help_bubble_factory_receiver_{this};
+
+  mojo::Receiver<contextual_tasks_internals::mojom::
+                     ContextualTasksInternalsPageHandlerFactory>
+      contextual_tasks_internals_page_handler_receiver_{this};
+  std::unique_ptr<ContextualTasksInternalsPageHandler>
+      contextual_tasks_internals_page_handler_;
 };
 
 }  // namespace contextual_tasks

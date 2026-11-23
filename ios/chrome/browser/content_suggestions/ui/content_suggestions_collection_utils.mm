@@ -8,7 +8,6 @@
 
 #import "base/check.h"
 #import "base/i18n/rtl.h"
-#import "components/ntp_tiles/features.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/public/most_visited_tiles_constants.h"
 #import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
@@ -35,8 +34,6 @@
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
-
-using ntp_tiles::AimButtonRefactorArm;
 
 // Width of search field.
 const CGFloat kSearchFieldLarge = 432;
@@ -223,7 +220,7 @@ CGFloat DoodleHeight(SearchEngineLogoState logo_state,
                : 0;
   }
   if ((logo_state == SearchEngineLogoState::kDoodle) ||
-      (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET)) {
+      IsRegularXRegularSizeClass(trait_collection)) {
     return kGoogleSearchDoodleShrunkHeight;
   }
   if (IsAimEnabledInNtp()) {
@@ -244,8 +241,7 @@ CGFloat DoodleTopMargin(SearchEngineLogoState logo_state,
     top_inset = kGoogleSearchLogoHeight - kLargeFakeboxGoogleSearchLogoHeight;
   }
 
-  if (IsConsistentLogoDoodleHeightEnabled() &&
-      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
+  if (IsConsistentLogoDoodleHeightEnabled()) {
     if (logo_state == SearchEngineLogoState::kDoodle) {
       top_inset -= kDoodleTopMarginAdjustment;
     } else if (logo_state == SearchEngineLogoState::kLogo) {
@@ -267,11 +263,12 @@ CGFloat HeaderSeparatorHeight() {
   return AlignValueToUpperPixel(kToolbarSeparatorHeight);
 }
 
-CGFloat SearchFieldTopMargin(SearchEngineLogoState logo_state) {
+CGFloat SearchFieldTopMargin(SearchEngineLogoState logo_state,
+                             UITraitCollection* trait_collection) {
   CGFloat margin =
       IsAimEnabledInNtp() ? kMIASearchFieldTopMargin : kSearchFieldTopMargin;
   if (IsConsistentLogoDoodleHeightEnabled() &&
-      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
+      !IsRegularXRegularSizeClass(trait_collection)) {
     if (logo_state == SearchEngineLogoState::kDoodle) {
       margin -= kDoodleBottomMarginAdjustment;
     }
@@ -336,14 +333,13 @@ CGFloat FakeToolbarHeight() {
 }
 
 CGFloat HeightForLogoHeader(SearchEngineLogoState logo_state,
-                            UITraitCollection* trait_collection,
-                            bool aim_allowed) {
-  CGFloat header_height =
-      LogoTopPadding(logo_state, trait_collection, aim_allowed) +
-      DoodleHeight(logo_state, trait_collection) +
-      LogoToFakeboxPadding(logo_state, trait_collection) + FakeOmniboxHeight() +
-      ntp_header::kScrolledToTopOmniboxBottomMargin +
-      ceil(HeaderSeparatorHeight());
+                            UITraitCollection* trait_collection) {
+  CGFloat header_height = LogoTopPadding(logo_state, trait_collection) +
+                          DoodleHeight(logo_state, trait_collection) +
+                          LogoToFakeboxPadding(logo_state, trait_collection) +
+                          FakeOmniboxHeight() +
+                          ntp_header::kScrolledToTopOmniboxBottomMargin +
+                          ceil(HeaderSeparatorHeight());
   if (!IsRegularXRegularSizeClass(trait_collection)) {
     return header_height;
   }
@@ -400,8 +396,7 @@ CGFloat BaseLogoTopPadding(SearchEngineLogoState logo_state,
     case NTPUICleanupVariation::kDisabled:
       NOTREACHED();
   }
-  if (IsConsistentLogoDoodleHeightEnabled() &&
-      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET && is_doodle) {
+  if (IsConsistentLogoDoodleHeightEnabled() && is_doodle) {
     padding -= kCleanupDoodleTopMarginAdjustment;
   }
   return padding;
@@ -446,8 +441,7 @@ CGFloat BaseQuickActionsTopPadding(UITraitCollection* trait_collection) {
 // feed vertical peeking. `SearchEngineLogoState::kLogo` is used as a consistent
 // baseline so the spacing below the fakebox is identical on doodle days.
 CGFloat RedistributableHeaderSpace(UITraitCollection* trait_collection) {
-  CHECK(content_suggestions::ShouldRedistributeHeaderSpace(
-      /*aim_allowed=*/true));
+  CHECK(content_suggestions::ShouldRedistributeHeaderSpace());
 
   CGFloat redistributable_space =
       BaseLogoTopPadding(SearchEngineLogoState::kLogo, trait_collection) +
@@ -461,24 +455,26 @@ CGFloat RedistributableHeaderSpace(UITraitCollection* trait_collection) {
 
 }  // namespace
 
-// Returns true when AIM is allowed and the active AIM arm eliminates the Quick
-// Actions row or rearranges tiles such that header vertical space needs to be
-// redistributed.
-bool ShouldRedistributeHeaderSpace(bool aim_allowed) {
-  if (!aim_allowed || !IsAimEnabledInNtp()) {
-    return false;
+// Returns true when the active AIM arm eliminates the Quick Actions row or
+// rearranges tiles such that header vertical space needs to be redistributed.
+bool ShouldRedistributeHeaderSpace() {
+  switch (GetAimButtonRefactorArm()) {
+    case AimButtonRefactorArm::kFocusComposeboxAimQuickAction:
+    case AimButtonRefactorArm::kImageGenerationQuickAction:
+    case AimButtonRefactorArm::kAttachImageQuickAction:
+    case AimButtonRefactorArm::kDisabled:
+      return false;
+    case AimButtonRefactorArm::kAimAsModule:
+    case AimButtonRefactorArm::kAimAsMvt:
+    case AimButtonRefactorArm::kNoChips:
+      return true;
   }
-  const AimButtonRefactorArm arm = ntp_tiles::GetAimButtonRefactorArm();
-  return arm == AimButtonRefactorArm::kAimAsModule ||
-         arm == AimButtonRefactorArm::kAimAsMvt ||
-         arm == AimButtonRefactorArm::kNoChips;
 }
 
 CGFloat LogoTopPadding(SearchEngineLogoState logo_state,
-                       UITraitCollection* trait_collection,
-                       bool aim_allowed) {
+                       UITraitCollection* trait_collection) {
   if (logo_state != SearchEngineLogoState::kNone &&
-      ShouldRedistributeHeaderSpace(aim_allowed)) {
+      ShouldRedistributeHeaderSpace()) {
     // Absorb the Doodle-vs-Logo delta in the top padding so the fakebox Y
     // position remains constant across doodle and logo states.
     const CGFloat doodle_offset =
@@ -499,7 +495,7 @@ CGFloat LogoTopPadding(SearchEngineLogoState logo_state,
 CGFloat LogoToFakeboxPadding(SearchEngineLogoState logo_state,
                              UITraitCollection* trait_collection) {
   if (!IsNewTabPageUICleanupEnabled()) {
-    return SearchFieldTopMargin(logo_state);
+    return SearchFieldTopMargin(logo_state, trait_collection);
   }
 
   const bool is_doodle = (logo_state == SearchEngineLogoState::kDoodle);
@@ -526,8 +522,7 @@ CGFloat LogoToFakeboxPadding(SearchEngineLogoState logo_state,
     case NTPUICleanupVariation::kDisabled:
       NOTREACHED();
   }
-  if (IsConsistentLogoDoodleHeightEnabled() &&
-      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET && is_doodle) {
+  if (IsConsistentLogoDoodleHeightEnabled() && is_doodle) {
     padding -= kCleanupDoodleBottomMarginAdjustment;
   }
   return padding;
@@ -542,7 +537,7 @@ CGFloat QuickActionsTopPadding(UITraitCollection* trait_collection) {
 }
 
 CGFloat RedistributedHeaderBottomSpacing(UITraitCollection* trait_collection) {
-  CHECK(ShouldRedistributeHeaderSpace(/*aim_allowed=*/true));
+  CHECK(ShouldRedistributeHeaderSpace());
 
   const CGFloat padding = RedistributableHeaderSpace(trait_collection) *
                           kFakeboxBottomRemainingSpaceRatio;

@@ -1676,6 +1676,7 @@
     // scroll-snap-stop
     // normal
     // always
+    // before
 
     // containment
     // paint
@@ -2037,6 +2038,9 @@
     "per-line",
     "per-line-all",
     "consistent",
+
+    // progress()
+    "no-clamp",
 
     // media-progress()
     "media-progress",

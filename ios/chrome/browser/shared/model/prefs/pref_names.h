@@ -49,6 +49,11 @@ inline constexpr char kBwgSessionMap[] = "ios.bwg.session_map";
 inline constexpr char kCobrowseSessionActiveMap[] =
     "ios.cobrowse.session_active_map";
 
+// Boolean indicating whether the user has accepted the tab sharing consent
+// alert in the AI Mode Cobrowse assistant.
+inline constexpr char kCobrowseTabSharingConsentAccepted[] =
+    "ios.cobrowse.tab_sharing_consent_accepted";
+
 // Number of times the "BWG" settings "new" IPH badge has been shown.
 // This is set to INT_MAX when the user visites the "BWG" settings page.
 inline constexpr char kBWGSettingsNewBadgeShownCount[] =
@@ -247,6 +252,11 @@ inline constexpr char kIosDefaultBrowserPromoLastAction[] =
 inline constexpr char kIosDefaultBrowserPromoLastActionSurface[] =
     "ios.default_browser_promo.last_action_surface";
 
+// Integer indicating the experiment cohort ID for which the first-time default
+// browser promo opportunity telemetry was logged.
+inline constexpr char kIosDefaultBrowserPromoOpportunityFirstTimeCohort[] =
+    "ios.default_browser_promo.opportunity_first_time_cohort";
+
 // The time when the DiscoverFeed was last refreshed while the feed was visible
 // to the user.
 inline constexpr char kIosDiscoverFeedLastRefreshTime[] =
@@ -265,6 +275,12 @@ inline constexpr char kIosDockingPromoEligibilityMet[] =
 
 // A list of the latest fetched Most Visited Sites.
 inline constexpr char kIosLatestMostVisitedSites[] = "ios.most_visited_sites";
+
+// Integer storing the position of the AI Mode tile in Most Visited Tiles.
+// A non-negative value indicates the position (default 0), and -1 indicates
+// that the tile was unpinned/removed by the user.
+inline constexpr char kIosMostVisitedAiModeTileIndex[] =
+    "ios.most_visited_tiles.ai_mode_tile_index";
 
 // The last saved index of an NTP WebState. Only updated on app background, so
 // it does not always reflect the current WebStateList.
@@ -902,6 +918,24 @@ inline constexpr char kSigninStartupPromoLastShownTimeWithRandomOffset[] =
 // An integer determining the enabled status of Gemini by policy.
 // 0 means Gemini is enabled (default), and 1 means it's disabled.
 inline constexpr char kGeminiEnabledByPolicy[] = "ios.gemini_enabled_by_policy";
+
+// An integer pref that holds the policy value for whether Gemini can act on
+// web pages (0 = Enabled, 1 = Disabled).
+inline constexpr char kGeminiActOnWebSettings[] = "ios.actuation_on_web";
+
+// List prefs that hold URL patterns where Gemini is explicitly allowed or
+// blocked from acting on web pages.
+inline constexpr char kGeminiActOnWebAllowedForURLs[] =
+    "ios.actuation_on_web_allowed_for_urls";
+inline constexpr char kGeminiActOnWebBlockedForURLs[] =
+    "ios.actuation_on_web_blocked_for_urls";
+
+// An integer pref that holds the policy value for whether Gemini Spark is
+// allowed to connect to Chrome and use auto browse (0 = Enabled,
+// 1 = Disabled). Defaults to 1 (Disabled). Only meaningful for managed
+// profiles; consumers should ignore it when the profile is unmanaged (see
+// GlicEnabling on desktop).
+inline constexpr char kGeminiSparkSettings[] = "ios.gemini_spark_settings";
 
 // An integer determining the enabled status of Gen Ai by policy.
 // 0 or 1 means all covered generative AI features are enabled, while 2 means

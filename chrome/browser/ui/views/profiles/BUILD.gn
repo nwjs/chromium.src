@@ -406,7 +406,6 @@ if (is_win || is_mac || is_linux) {
       "//ui/views",
     ]
     deps = [
-      ":avatar_badge_view",
       "//build:branding_buildflags",
       "//chrome/app:branded_strings",
       "//chrome/app:command_ids",
@@ -445,6 +444,7 @@ if (is_win || is_mac || is_linux) {
       "//components/prefs",
       "//components/signin/public/identity_manager",
       "//components/subscription_eligibility",
+      "//components/subscription_eligibility:tier_names",
       "//components/sync/base:features",
       "//components/user_education/common",
       "//components/vector_icons",
@@ -666,6 +666,23 @@ if (toolkit_views) {
       "//ui/gfx:test_support",
     ]
   }
+
+  source_set("device_signals_disclaimer_test_utils") {
+    testonly = true
+
+    sources = [
+      "device_signals_disclaimer_test_utils.cc",
+      "device_signals_disclaimer_test_utils.h",
+    ]
+
+    public_deps = [ "//testing/gtest" ]
+
+    deps = [
+      "//base",
+      "//content/public/browser",
+      "//content/test:test_support",
+    ]
+  }
 }
 
 if (enable_dice_support) {
@@ -770,9 +787,8 @@ source_set("profile_picker_feature_promo_controller") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "avatar_badge_view_unittest.cc" ]
+  sources = []
   deps = [
-    ":avatar_badge_view",
     "//chrome/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
@@ -807,11 +823,13 @@ if (is_win || is_mac || is_linux) {
     ]
     deps = [
       ":avatar_toolbar_button",
+      ":device_signals_disclaimer_test_utils",
       ":dice_web_signin_interception_bubble_view",
       ":first_run_flow_controller",
       ":profile_management_flow_controller",
       ":profile_menu_view",
       ":profile_menu_view_base",
+      ":profile_picker_test_base",
       ":profile_picker_toolbar",
       ":profile_picker_view",
       ":profile_picker_view_test_utils",
@@ -1092,31 +1110,6 @@ if (enable_dice_support) {
     ]
   }
 
-  source_set("profile_picker_turn_sync_on_delegate") {
-    public = [ "profile_picker_turn_sync_on_delegate.h" ]
-    sources = [ "profile_picker_turn_sync_on_delegate.cc" ]
-    public_deps = [
-      "//base",
-      "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui/webui/signin",
-    ]
-    deps = [
-      ":profile_management_types",
-      "//chrome/browser/enterprise",
-      "//chrome/browser/regional_capabilities",
-      "//chrome/browser/signin",
-      "//chrome/browser/ui:chrome_pages",
-      "//chrome/browser/ui/browser_window",
-      "//chrome/browser/ui/profiles",
-      "//chrome/browser/ui/webui/signin",
-      "//chrome/browser/ui/webui/signin:signin_ui_error",
-      "//chrome/common:constants",
-      "//components/regional_capabilities",
-      "//components/signin/public/base",
-      "//components/sync/base:features",
-    ]
-  }
-
   source_set("profile_picker_post_sign_in_adapter") {
     public = [ "profile_picker_post_sign_in_adapter.h" ]
     sources = [ "profile_picker_post_sign_in_adapter.cc" ]
@@ -1130,22 +1123,17 @@ if (enable_dice_support) {
       "//components/signin/public/identity_manager",
       "//content/public/browser",
       "//skia",
+      "//url",
     ]
     deps = [
-      ":profile_picker_turn_sync_on_delegate",
-      "//chrome/browser/regional_capabilities",
       "//chrome/browser/signin",
       "//chrome/browser/themes",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/profiles",
       "//chrome/browser/ui/webui/intro",
       "//chrome/common:constants",
-      "//components/regional_capabilities",
-      "//components/sync/base:features",
-      "//net",
       "//ui/base:types",
     ]
-    allow_circular_includes_from = [ ":profile_picker_turn_sync_on_delegate" ]
   }
 
   source_set("profile_management_flow_controller_impl") {
@@ -1285,6 +1273,31 @@ if (enable_dice_support) {
       deps += [ "//chrome/browser/win" ]
     }
   }
+
+  source_set("profile_picker_test_base") {
+    testonly = true
+    public = [ "profile_picker_test_base.h" ]
+    sources = [ "profile_picker_test_base.cc" ]
+    public_deps = [ "//chrome/test/base:in_process_browser_test" ]
+    deps = [
+      ":profile_picker_sign_in_provider",
+      ":profile_picker_view",
+      ":profile_picker_view_test_utils",
+      "//base",
+      "//chrome/browser/signin",
+      "//chrome/browser/ui/profiles",
+      "//chrome/browser/ui/profiles:test_support",
+      "//chrome/test/base:ui_test_utils",
+      "//content/public/browser",
+      "//content/test:test_support",
+      "//google_apis",
+      "//net",
+      "//testing/gtest",
+      "//ui/views",
+      "//ui/views/controls/webview",
+      "//url",
+    ]
+  }
 }
 
 source_set("browser_tests") {
@@ -1315,6 +1328,7 @@ source_set("browser_tests") {
       "//chrome/browser/ui/webui/signin/signout_confirmation",
       "//chrome/browser/ui/webui/signin/signout_confirmation:test_support",
       "//components/signin/core/browser:test_support",
+      "//components/subscription_eligibility:tier_names",
       "//components/sync_bookmarks",
       "//components/sync_device_info:test_support",
     ]
@@ -1330,7 +1344,9 @@ source_set("browser_tests") {
     ]
     deps += [
       ":avatar_toolbar_button",
+      ":device_signals_disclaimer_test_utils",
       ":profile_menu_view",
+      ":profile_picker_test_base",
       ":profile_picker_utils",
       ":profile_picker_view",
       ":profile_picker_view_test_utils",

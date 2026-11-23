@@ -185,7 +185,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Audio.Apm.{InputVolumeType}.OnChange" units="volume"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>silen@chromium.org</owner>
   <owner>peah@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -200,7 +200,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Audio.Apm.{InputVolumeType}.{Metric}Average"
-    units="volume" expires_after="2027-02-07">
+    units="volume" expires_after="2027-04-11">
   <owner>silen@chromium.org</owner>
   <owner>peah@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -281,7 +281,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Audio.ApmCaptureOutputLevelPeakRms"
-    units="dBFS (negated)" expires_after="2027-01-17">
+    units="dBFS (negated)" expires_after="2027-04-18">
   <owner>peah@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
   <summary>
@@ -380,7 +380,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Audio.EchoCanceller.CaptureSaturation" enum="Boolean"
-    expires_after="2026-12-27">
+    expires_after="2027-04-13">
   <owner>peah@chromium.org</owner>
   <owner>saza@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -775,7 +775,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.AudioInputSampleRate" enum="AudioSampleRate"
-    expires_after="2027-01-03">
+    expires_after="2027-04-13">
   <owner>saza@chromium.org</owner>
   <owner>olka@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -788,7 +788,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.AudioInputSampleRateUnexpected" units="Hz"
-    expires_after="2026-11-22">
+    expires_after="2027-04-13">
   <owner>saza@chromium.org</owner>
   <owner>olka@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -813,7 +813,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.AudioOutputSampleRateUnexpected" units="Hz"
-    expires_after="2026-11-22">
+    expires_after="2027-04-13">
   <owner>saza@chromium.org</owner>
   <owner>olka@chromium.org</owner>
   <owner>webrtc-audio-uma@google.com</owner>
@@ -847,7 +847,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.BWE.InitialVsConvergedDiff" units="kbps"
-    expires_after="2026-12-20">
+    expires_after="2027-04-18">
   <owner>holmer@chromium.org</owner>
   <summary>
     The difference between the bandwidth estimate at 2 seconds and 20 seconds
@@ -991,7 +991,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Call.EstimatedSendBitrateInKbps" units="kbps"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>holmer@chromium.org</owner>
   <summary>
     Average estimated send bitrate during a call, counted from first packet sent
@@ -1162,7 +1162,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.DesktopCapture.Win.DesktopCapturerImpl"
-    enum="WebRtcDesktopCapturerImpl" expires_after="2027-02-07">
+    enum="WebRtcDesktopCapturerImpl" expires_after="2027-04-11">
   <owner>alcooper@chromium.org</owner>
   <owner>henrika@chromium.org</owner>
   <owner>ilnik@chromium.org</owner>
@@ -1243,6 +1243,20 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="WebRTC.DesktopCapture.Win.WgcWindowFallbackSelectSource"
+    enum="WebRtcFallbackSelectSourceResult" expires_after="2027-10-16">
+  <owner>agpalak@chromium.org</owner>
+  <owner>rtc-meet-in-chrome@google.com</owner>
+  <summary>
+    Records the combined SelectSource() results of the primary WGC window
+    capturer and the secondary fallback window capturer, on every SelectSource()
+    call of a WGC window capturer with fallback enabled. The primary counts as
+    failed if it failed in this call or permanently failed earlier, in which
+    case it is not called again. Only recorded on Windows when the
+    WebRtcWgcWindowCroppingFallback feature is enabled.
+  </summary>
+</histogram>
+
 <histogram name="WebRTC.DesktopCapture.Win.{Capturer}CapturerFrameTime"
     units="ms" expires_after="2027-02-01">
   <owner>alcooper@chromium.org</owner>
@@ -1260,7 +1274,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.DesktopCaptureCounters" enum="DesktopCaptureCounters"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>toprice@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>
@@ -1355,7 +1369,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.CandidateAddressType"
-    enum="IpAddressType" expires_after="2027-02-07">
+    enum="IpAddressType" expires_after="2027-04-11">
   <owner>danilchap@chromium.org</owner>
   <owner>ortuno@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
@@ -1410,7 +1424,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.DtlsHandshakeError"
-    enum="DtlsHandshakeError" expires_after="2027-02-14">
+    enum="DtlsHandshakeError" expires_after="2027-04-18">
   <owner>danilchap@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>
@@ -1485,7 +1499,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.Duration.Worker" units="microseconds"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>handellm@google.com</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>
@@ -1557,7 +1571,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.Latency.Worker" units="microseconds"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>handellm@google.com</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>
@@ -1573,7 +1587,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.LocalNetworkAccess.RequestType"
-    enum="LocalNetworkAccessRequestType" expires_after="2027-02-07">
+    enum="LocalNetworkAccessRequestType" expires_after="2027-04-11">
   <owner>danilchap@chromium.org</owner>
   <owner>ortuno@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
@@ -1595,7 +1609,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.NegotiatedFeedbackType"
-    enum="PeerConnectionRtcpFeedbackType" expires_after="2027-02-14">
+    enum="PeerConnectionRtcpFeedbackType" expires_after="2027-04-18">
   <owner>danilchap@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>
@@ -1669,7 +1683,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.PeerConnection.RtpTransportCount" units="counts"
-    expires_after="2026-10-25">
+    expires_after="2027-04-25">
   <owner>danilchap@chromium.org</owner>
   <owner>webrtc-dev@chromium.org</owner>
   <summary>
@@ -1921,7 +1935,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Screenshare.DesktopCapturerFullscreenDetector"
-    enum="Boolean" expires_after="2027-02-07">
+    enum="Boolean" expires_after="2027-04-11">
   <owner>kron@chromium.org</owner>
   <owner>agpalak@chromium.org</owner>
   <owner>rtc-meet-in-chrome@google.com</owner>
@@ -1963,7 +1977,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Screenshare.FullScreenFindEditorResult"
-    enum="FullScreenFindEditorResult" expires_after="2027-02-14">
+    enum="FullScreenFindEditorResult" expires_after="2027-04-18">
   <owner>agpalak@chromium.org</owner>
   <owner>tovep@chromium.org</owner>
   <owner>rtc-meet-in-chrome@google.com</owner>
@@ -3480,7 +3494,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRTC.Video.Screenshare.HarmonicFrameRate" units="fps"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>ssilkin@chromium.org</owner>
   <owner>webrtc-video@google.com</owner>
   <summary>
@@ -4242,10 +4256,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRtcTextLogging.ApplyForStartLoggingSuccess" enum="Boolean"
-    expires_after="2026-11-06">
+    expires_after="2027-10-15">
   <owner>toprice@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
-  <owner>video-cmi-apis@google.com</owner>
+  <owner>rtc-meet-in-chrome@google.com</owner>
   <summary>
     Success or failure of a call to ApplyForStartLogging(). Failures indicate
     too many logs are already running.
@@ -4253,10 +4267,10 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebRtcTextLogging.ConcurrentLogCount" units="counts"
-    expires_after="2026-11-06">
+    expires_after="2027-10-15">
   <owner>toprice@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
-  <owner>video-cmi-apis@google.com</owner>
+  <owner>rtc-meet-in-chrome@google.com</owner>
   <summary>
     Count of the number of concurrent webrtc loggers running, recorded at the
     start of a new log.
@@ -4267,7 +4281,7 @@ chromium-metrics-reviews@google.com.
     expires_after="2027-02-28">
   <owner>toprice@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
-  <owner>video-cmi-apis@google.com</owner>
+  <owner>rtc-meet-in-chrome@google.com</owner>
   <summary>
     Calls to WebRtcTextLogHandler::StartLogging, as a denominator for
     WebRtcTextLogging.StartError and WebRtcTextLogging.Started. Logged
@@ -4279,7 +4293,7 @@ chromium-metrics-reviews@google.com.
     expires_after="2027-02-28">
   <owner>toprice@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
-  <owner>video-cmi-apis@google.com</owner>
+  <owner>rtc-meet-in-chrome@google.com</owner>
   <summary>
     Rate of webrtc text log start attemps which successfully reach the STARTED
     state, on returning a successful response to the JS call.
@@ -4290,7 +4304,7 @@ chromium-metrics-reviews@google.com.
     enum="WebRtcTextLoggingStartError" expires_after="2027-02-28">
   <owner>toprice@chromium.org</owner>
   <owner>guidou@chromium.org</owner>
-  <owner>video-cmi-apis@google.com</owner>
+  <owner>rtc-meet-in-chrome@google.com</owner>
   <summary>
     Breakdown of errors encountered starting webrtc text logging which prevent
     us from successfully reaching the STARTED state, recorded when failing the

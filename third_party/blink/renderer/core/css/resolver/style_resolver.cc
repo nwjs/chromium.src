@@ -617,6 +617,7 @@ static CSSPropertyValueSet* LeftToRightDeclaration() {
   DEFINE_STATIC_LOCAL(
       Persistent<MutableCSSPropertyValueSet>, left_to_right_decl,
       (MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLQuirksMode)));
+  CHECK(IsMainThread());
   if (left_to_right_decl->IsEmpty()) {
     left_to_right_decl->SetLonghandProperty(CSSPropertyID::kDirection,
                                             CSSValueID::kLtr);
@@ -628,6 +629,7 @@ static CSSPropertyValueSet* RightToLeftDeclaration() {
   DEFINE_STATIC_LOCAL(
       Persistent<MutableCSSPropertyValueSet>, right_to_left_decl,
       (MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLQuirksMode)));
+  CHECK(IsMainThread());
   if (right_to_left_decl->IsEmpty()) {
     right_to_left_decl->SetLonghandProperty(CSSPropertyID::kDirection,
                                             CSSValueID::kRtl);
@@ -639,6 +641,7 @@ static CSSPropertyValueSet* DocumentElementUserAgentDeclarations() {
   DEFINE_STATIC_LOCAL(
       Persistent<MutableCSSPropertyValueSet>, document_element_ua_decl,
       (MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLStandardMode)));
+  CHECK(IsMainThread());
   if (document_element_ua_decl->IsEmpty()) {
     document_element_ua_decl->SetProperty(CSSPropertyID::kColor,
                                           *CSSInitialColorValue::Create());
@@ -653,6 +656,7 @@ static CSSPropertyValueSet* ForcedColorsUserAgentDeclarations() {
   DEFINE_STATIC_LOCAL(
       Persistent<MutableCSSPropertyValueSet>, decl,
       (MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLStandardMode)));
+  CHECK(IsMainThread());
   if (decl->IsEmpty()) {
     decl->SetProperty(CSSPropertyID::kColor, *CSSInheritedValue::Create());
   }
@@ -664,6 +668,7 @@ static CSSPropertyValueSet* UniversalOverlayUserAgentDeclaration() {
   DEFINE_STATIC_LOCAL(
       Persistent<MutableCSSPropertyValueSet>, decl,
       (MakeGarbageCollected<MutableCSSPropertyValueSet>(kHTMLStandardMode)));
+  CHECK(IsMainThread());
 
   if (decl->IsEmpty()) {
     decl->SetProperty(CSSPropertyID::kOverlay,
@@ -1514,6 +1519,55 @@ const ComputedStyle* StyleResolver::ResolveStyle(
     SetAnimationUpdateIfNeeded(style_recalc_context, state, *animating_element);
   }
 
+  state.LoadPendingResources();
+
+  PropagateStyleBuilderFlags(state);
+
+  if (state.HasAffectedByHoverAncestor() ||
+      !cascade.GetMatchResult().MayPrecomputeHover()) {
+    return state.TakeStyle();
+  }
+
+  CHECK(RuntimeEnabledFeatures::CompositeHoverStyleEnabled());
+
+  const ComputedStyle* style = state.CloneStyle();
+  cascade.ApplyPrecomputedHover();
+  if (ValidPrecomputedHoverDiff(state.StyleBuilder(), *style)) {
+    PropagateStyleBuilderFlags(state);
+    style->AddCachedPseudoElementStyle(state.TakeStyle(),
+                                       kPseudoIdPrecomputedHover, g_null_atom);
+  }
+  return style;
+}
+
+bool StyleResolver::ValidPrecomputedHoverDiff(
+    const ComputedStyleBuilder& builder,
+    const ComputedStyle& style) {
+  // The assumption below is that we are only able to change color or visibility
+  // on/off for text-decorations on the compositor.
+  TextDecorationLine hover_line = builder.GetTextDecorationLine();
+  TextDecorationLine line = style.GetTextDecorationLine();
+  if (hover_line == TextDecorationLine::kNone ||
+      line == TextDecorationLine::kNone) {
+    return true;
+  }
+  const StyleColor& hover_color = builder.TextDecorationColor();
+  const StyleColor& color = style.TextDecorationColor();
+  if ((hover_color.IsAbsoluteColor() &&
+       hover_color.GetColor().IsFullyTransparent()) ||
+      (color.IsAbsoluteColor() && color.GetColor().IsFullyTransparent())) {
+    return true;
+  }
+  // At this point, we know the text-decoration will render both when hovered
+  // and not.
+  return hover_line == line &&
+         builder.TextDecorationStyle() == style.TextDecorationStyle() &&
+         builder.GetTextDecorationThickness() ==
+             style.GetTextDecorationThickness();
+}
+
+void StyleResolver::PropagateStyleBuilderFlags(
+    const StyleResolverState& state) {
   GetDocument().AddViewportUnitFlags(state.StyleBuilder().ViewportUnitFlags());
 
   if (state.StyleBuilder().HasRootRelativeUnits()) {
@@ -1539,11 +1593,6 @@ const ComputedStyle* StyleResolver::ResolveStyle(
       GetDocument().GetStyleEngine().SetUsesTreeCountingFunctions();
     }
   }
-
-  state.LoadPendingResources();
-
-  // Now return the style.
-  return state.TakeStyle();
 }
 
 const ComputedStyle& StyleResolver::ResolveBaseStyle(
@@ -2040,6 +2089,9 @@ void StyleResolver::ApplyBaseStyleNoCache(
   }
   if (match_result.HasFlag(MatchFlag::kAffectedByHover)) {
     builder.SetAffectedByHover();
+  }
+  if (match_result.HasFlag(MatchFlag::kAffectedByNonSubjectHoverSelector)) {
+    builder.SetAffectedByNonSubjectHoverSelector();
   }
   if (match_result.HasFlag(MatchFlag::kAffectedByActive)) {
     builder.SetAffectedByActive();

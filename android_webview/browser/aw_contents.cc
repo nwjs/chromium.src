@@ -39,6 +39,7 @@
 #include "android_webview/browser/permission/permission_request_handler.h"
 #include "android_webview/browser/permission/simple_permission_request.h"
 #include "android_webview/browser/prefetch/aw_preloading_utils.h"
+#include "android_webview/browser/signin/aw_google_accounts_delegate.h"
 #include "android_webview/browser/state_serializer.h"
 #include "android_webview/common/aw_features.h"
 #include "android_webview/common/aw_switches.h"
@@ -91,6 +92,7 @@
 #include "components/safe_browsing/core/common/features.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/sensitive_content/android/android_sensitive_content_client.h"
+#include "components/signin/core/browser/signin_header_helper.h"
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "content/public/browser/android/child_process_importance.h"
 #include "content/public/browser/android/message_payload.h"
@@ -473,6 +475,33 @@ AwContents::~AwContents() {
                   perfetto::NamedTrack::FromPointer("WebView Instance", this));
 }
 
+void AwContents::SetGoogleAccountMirroringEnabled(bool enabled,
+                                                  const std::string& gaia_id) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  google_account_mirroring_enabled_ = enabled;
+  gaia_id_ = gaia_id;
+}
+
+void AwContents::OnGoogleAccountsRequest(
+    const signin::ManageAccountsParams& params,
+    bool is_outermost_main_frame,
+    bool is_navigation_request) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  JNIEnv* env = base::android::AttachCurrentThread();
+  base::android::ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (!obj) {
+    return;
+  }
+
+  Java_AwContents_onGoogleAccountsRequest(
+      env, obj, static_cast<int>(params.service_type), params.continue_url,
+      is_outermost_main_frame, is_navigation_request);
+}
+
+std::string AwContents::GetGaiaId() {
+  return gaia_id_;
+}
+
 base::android::ScopedJavaLocalRef<jobject> AwContents::GetWebContents(
     JNIEnv* env) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -491,6 +520,11 @@ base::android::ScopedJavaLocalRef<jobject> AwContents::GetBrowserContext(
   }
   return AwBrowserContext::FromWebContents(web_contents_.get())
       ->GetJavaBrowserContext();
+}
+
+jni_zero::JniRawPtr<AwHeaderInterceptorStore>
+AwContents::GetHeaderInterceptorStoreFromJava(JNIEnv* env) {
+  return jni_zero::MakeRaw(&header_interceptor_store_);
 }
 
 void AwContents::SetCompositorFrameConsumer(JNIEnv* env,

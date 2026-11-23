@@ -175,7 +175,6 @@ component("aura") {
     public += [ "screen_ozone.h" ]
     sources += [ "screen_ozone.cc" ]
   }
-  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 static_library("test_support") {
@@ -265,10 +264,6 @@ static_library("test_support") {
   if (is_linux || is_chromeos) {
     deps += [ "//ui/platform_window/common" ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 executable("aura_demo") {
@@ -308,6 +303,7 @@ test("aura_unittests") {
     "../decoration/decoration_util_unittest.cc",
     "../decoration/highlight_border_unittest.cc",
     "../decoration/shadow_unittest.cc",
+    "../decoration/shadow_with_highlight_border_unittest.cc",
     "client/screen_position_client_unittest.cc",
     "gestures/gesture_recognizer_unittest.cc",
     "test/aura_test_suite.h",

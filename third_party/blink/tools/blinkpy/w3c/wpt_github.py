@@ -5,6 +5,7 @@
 import base64
 import dataclasses
 import datetime
+import enum
 import json
 import logging
 import re
@@ -17,19 +18,40 @@ from requests.exceptions import InvalidURL
 
 from blinkpy.common.memoized import memoized
 from blinkpy.w3c.common import (
+    CHANGE_ID_KEY,
+    EXPORT_PR_LABEL,
+    LEGACY_MAIN_BRANCH_NAME,
+    LINK_KEY,
+    PROVISIONAL_PR_LABEL,
     WPT_GH_ORG,
     WPT_GH_REPO_NAME,
-    EXPORT_PR_LABEL,
-    PROVISIONAL_PR_LABEL,
-    LEGACY_MAIN_BRANCH_NAME,
-    CHANGE_ID_FOOTER,
-    LINK_FOOTER,
+    parse_footers,
 )
 
 _log = logging.getLogger(__name__)
 API_BASE = 'https://api.github.com'
 MAX_PER_PAGE = 100
 MAX_PR_HISTORY_WINDOW = 1000
+
+
+class PullRequestState(enum.StrEnum):
+    OPEN = 'open'
+    CLOSED = 'closed'
+
+
+@dataclasses.dataclass(frozen=True)
+class PullRequest:
+    """Represents a GitHub pull request."""
+
+    title: str
+    number: int
+    body: str
+    state: PullRequestState | str
+    node_id: str
+    labels: List[str]
+    requested_teams: List[Dict[str, Any]] = dataclasses.field(
+        default_factory=list
+    )
 
 
 class GitHubRepo(object):
@@ -279,7 +301,7 @@ class GitHubRepo(object):
             title=item['title'],
             number=item['number'],
             body=item['body'],
-            state=item['state'],
+            state=PullRequestState(item['state']),
             node_id=item['node_id'],
             labels=labels,
             requested_teams=item.get('requested_teams', []),
@@ -585,44 +607,30 @@ class GitHubRepo(object):
             return self.pr_with_link(link)
         return None
 
-    def pr_with_change_id(self, target_change_id):
-        if not target_change_id:
-            return None
-        all_prs = self.all_pull_requests()
-        for pull_request in all_prs:
-            # Note: Search all 'Change-Id's so that we can manually put multiple
-            # CLs in one PR. (The exporter always creates one PR for each CL.)
-            change_ids = self.extract_metadata(
-                CHANGE_ID_FOOTER, pull_request.body, all_matches=True
-            )
-            if change_ids and target_change_id in change_ids:
-                return pull_request
-        return None
+    def pr_with_change_id(self, target_change_id: str) -> PullRequest | None:
+        return self._pr_with_footer(CHANGE_ID_KEY, target_change_id)
 
-    def pr_with_link(self, target_link):
-        if not target_link:
-            return None
-        all_prs = self.all_pull_requests()
-        for pull_request in all_prs:
-            links = self.extract_metadata(
-                LINK_FOOTER, pull_request.body, all_matches=True
-            )
-            if links and target_link in links:
-                return pull_request
-        return None
+    def pr_with_link(self, target_link: str) -> PullRequest | None:
+        return self._pr_with_footer(LINK_KEY, target_link)
 
-    @staticmethod
-    def extract_metadata(tag, commit_body, all_matches=False):
-        values = []
-        for line in commit_body.splitlines():
-            if not line.startswith(tag):
-                continue
-            value = line[len(tag) :]
-            if all_matches:
-                values.append(value)
-            else:
-                return value
-        return values if all_matches else None
+    def _pr_with_footer(
+        self, footer_key: str, target_value: str
+    ) -> PullRequest | None:
+        if not target_value:
+            return None
+        closed_pr = None
+        for pull_request in self.all_pull_requests():
+            if parse_footers(pull_request.body).get(footer_key) == target_value:
+                if pull_request.state != PullRequestState.CLOSED:
+                    return pull_request
+                # Because PRs are sorted by descending update time, a closed PR
+                # may appear before an open one (e.g. if it was closed recently
+                # when an in-flight CL stopped touching WPT). Continue scanning
+                # to prioritize any open PR before falling back to the newest
+                # closed PR.
+                if not closed_pr:
+                    closed_pr = pull_request
+        return closed_pr
 
 
 class WPTGitHub(GitHubRepo):
@@ -700,18 +708,3 @@ class MergeError(GitHubError):
 
     def __init__(self, pr_number):
         super(MergeError, self).__init__(200, 405, 'merge PR %d' % pr_number)
-
-
-@dataclasses.dataclass(frozen=True)
-class PullRequest:
-    """Represents a GitHub pull request."""
-
-    title: str
-    number: int
-    body: str
-    state: str
-    node_id: str
-    labels: List[str]
-    requested_teams: List[Dict[str, Any]] = dataclasses.field(
-        default_factory=list
-    )

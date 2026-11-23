@@ -371,55 +371,6 @@ void TraceShouldSwapBrowsingInstanceResult(FrameTreeNodeId frame_tree_node_id,
       });
 }
 
-// This method tries to find a process for |new_instance| to reuse by starting
-// from |rfh|'s outermost main frame, and then iterating through all the
-// embedded fenced frame FrameTrees and trying to reuse their BrowsingInstance's
-// default process (if one is set). By setting a process for |new_instance|, it
-// is also setting its BrowsingInstance's default process, and as a result, it
-// gets these groups of BrowsingInstances to share the same default process.
-//
-// Note that it is possible for a fenced frame BrowsingInstance to get assigned
-// a default process first, before its embedder (for example: if the embedder
-// only had a frame at an isolated site, which embeds a fenced frame at a
-// non-isolated site). If we were to assign the embedder BrowsingInstance a
-// default process later (from the previous example, if the embedder added a
-// non-isolated iframe), we would iterate through the entire set of FrameTrees
-// and find and reuse the fenced frame BrowsingInstance's default process.
-//
-// TODO(crbug.com/40232875): There are certain scenarios where this won't work,
-// see bug for an example scenario/proposed fix.
-void ReuseDefaultProcessFromDifferentBrowsingInstanceIfPossible(
-    scoped_refptr<SiteInstanceImpl> new_instance,
-    RenderFrameHostImpl* rfh) {
-  CHECK(!new_instance->RequiresDedicatedProcess());
-  CHECK(!new_instance->HasProcess());
-  RenderFrameHostImpl* root = rfh->GetOutermostMainFrame();
-  root->ForEachRenderFrameHostImplWithAction(
-      [site_instance = std::move(new_instance),
-       root](RenderFrameHostImpl* rfhi) {
-        if (rfhi->GetParent())
-          return RenderFrameHost::FrameIterationAction::kContinue;
-
-        // Avoid traversing through any embedded pages that aren't fenced
-        // frames. Note that we use rfhi->GetParentOrOuterDocumentOrEmbedder()
-        // instead of rfhi->GetParentOrOuterDocument() to avoid traversing
-        // through guests.
-        if (rfhi != root && rfhi->GetParentOrOuterDocumentOrEmbedder() &&
-            !rfhi->IsNestedWithinFencedFrame())
-          return RenderFrameHost::FrameIterationAction::kSkipChildren;
-
-        if (RenderProcessHost* default_process =
-                rfhi->GetSiteInstance()
-                    ->GetDefaultProcessForBrowsingInstance()) {
-          site_instance->ReuseExistingProcessIfPossible(default_process);
-          if (site_instance->HasProcess())
-            return RenderFrameHost::FrameIterationAction::kStop;
-        }
-
-        return RenderFrameHost::FrameIterationAction::kContinue;
-      });
-}
-
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 //
@@ -2725,31 +2676,15 @@ RenderFrameHostManager::SiteInstanceDescriptor::SiteInstanceDescriptor(
 }
 
 void RenderFrameHostManager::CleanupSpeculativeRfhForRenderProcessGone() {
-  // The speculative RFH will be always cleaned up. If the feature
-  // ResumeNavigationWithSpeculativeRFHProcessGone is enabled, we will
-  // resume the navigation if it has not received the network response
-  // yet. A new RFH will be created when the navigation calls
-  // GetFrameHostForNavigation in
-  // NavigationRequest::SelectFrameHostForOnResponseStarted.
-  // See crbug.com/453878130 for the experiment progress of the feature.
+  // TODO(crbug.com/41268960): This should just clean up the speculative
+  // RFH without canceling the request.
   if (frame_tree_node_->navigation_request()) {
-    bool may_resume = frame_tree_node_->navigation_request()->state() <
-                      NavigationRequest::NavigationState::WILL_PROCESS_RESPONSE;
-    base::UmaHistogramBoolean("Navigation.SpeculativeRFHProcessGone.MayResume",
-                              may_resume);
-    if (!may_resume ||
-        !base::FeatureList::IsEnabled(
-            features::kResumeNavigationWithSpeculativeRFHProcessGone)) {
-      // TODO(crbug.com/41268960): This might cancel an unrelated
-      // NavigationRequest. Maybe check if the navigation request uses the
-      // speculative RFH first?
-      frame_tree_node_->navigation_request()->set_net_error(net::ERR_ABORTED);
-      frame_tree_node_->ResetNavigationRequest(
-          NavigationDiscardReason::kRenderProcessGone);
-    } else {
-      frame_tree_node_->navigation_request()->SetAssociatedRFHType(
-          NavigationRequest::AssociatedRenderFrameHostType::NONE);
-    }
+    // TODO(crbug.com/41268960): This might cancel an unrelated
+    // NavigationRequest. Maybe check if the navigation request uses the
+    // speculative RFH first?
+    frame_tree_node_->navigation_request()->set_net_error(net::ERR_ABORTED);
+    frame_tree_node_->ResetNavigationRequest(
+        NavigationDiscardReason::kRenderProcessGone);
   }
   // It's possible that we are far enough into the navigation that
   // TransferNavigationRequestOwnership has already been called then the
@@ -2827,6 +2762,14 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   if (is_same_document) {
     return BrowsingContextGroupSwap::CreateNoSwap(
         ShouldSwapBrowsingInstance::kNo_SameDocumentNavigation);
+  }
+
+  // If this is an error page that must stay in the current process (see
+  // DetermineSiteInstanceForURL), do not swap BrowsingInstances, as the error
+  // page must reuse `current_instance`.
+  if (error_page_process == ErrorPageProcess::kCurrentProcess) {
+    return BrowsingContextGroupSwap::CreateNoSwap(
+        ShouldSwapBrowsingInstance::kNo_AlreadyHasMatchingBrowsingInstance);
   }
 
   // Check for reasons to swap processes even if we are in a process model that
@@ -3206,8 +3149,9 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
   // process-per-tab model, such as WebUI pages.
 
   // First determine the effective URL of the current RenderFrameHost. This is
-  // the last URL it successfully committed. If it has yet to commit a URL, this
-  // falls back to the Site URL of its SiteInstance.
+  // the last URL it successfully committed. If it has yet to commit a URL, or
+  // if it has committed about:blank, this falls back to the Site URL of its
+  // SiteInstance.
   // Note: the effective URL of the current RenderFrameHost may differ from the
   // URL of the last committed NavigationEntry, which cannot be used to decide
   // whether to use a new SiteInstance. This happens when navigating a subframe,
@@ -3215,10 +3159,11 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
   // navigation to replace a crashed RenderFrameHost.
   BrowserContext* browser_context =
       GetNavigationController().GetBrowserContext();
+  const GURL& last_successful_url = render_frame_host_->last_successful_url();
   const GURL& current_effective_url =
-      !render_frame_host_->last_successful_url().is_empty()
-          ? SiteInstanceImpl::GetEffectiveURL(
-                browser_context, render_frame_host_->last_successful_url())
+      (!last_successful_url.is_empty() && !last_successful_url.IsAboutBlank())
+          ? SiteInstanceImpl::GetEffectiveURL(browser_context,
+                                              last_successful_url)
           : render_frame_host_->GetSiteInstance()->GetSiteInfo().site_url();
 
   // Determine if the current RenderFrameHost is in view source mode.
@@ -3473,20 +3418,6 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
       // new_instance tries to create a renderer process.
       new_instance->SetCOOPReuseProcessFailed();
     }
-  }
-
-  // We want fenced frame BrowsingInstances to share the same default
-  // process with their embedding BrowsingInstance. The code below forces
-  // SiteInstances in the embedder and fenced frame BrowsingInstances to
-  // share the same default process when they don't need a dedicated process.
-  // With sites that do require a dedicated process, we reuse processes via the
-  // subframe reuse policy (we set the reuse policy to
-  // kReusePendingOrCommittedSiteSubframe).
-  if (!current_frame_host()->IsOutermostMainFrame() &&
-      !new_instance->HasProcess() &&
-      !new_instance->RequiresDedicatedProcess()) {
-    ReuseDefaultProcessFromDifferentBrowsingInstanceIfPossible(
-        new_instance, current_frame_host());
   }
 
   return new_instance;

@@ -110,7 +110,7 @@ class WaylandWindow : public PlatformWindow,
   const WidgetSubsurfaceSet& wayland_subsurfaces() const {
     return wayland_subsurfaces_;
   }
-  base::LinkedList<WaylandSubsurface>* subsurface_stack_committed() {
+  base::UnsafeLinkedList<WaylandSubsurface>* subsurface_stack_committed() {
     return &subsurface_stack_committed_;
   }
 
@@ -160,6 +160,14 @@ class WaylandWindow : public PlatformWindow,
   // shell_popups as long as they must be destroyed in the back order.
   void set_child_popup(WaylandPopup* window) { child_popup_ = window; }
   WaylandPopup* child_popup() const { return child_popup_; }
+
+  // Hides all visible popups whose xdg parent is this window. This must be
+  // called before this window's xdg role object is destroyed, as compositors
+  // (e.g. Mutter) raise a protocol error if a parent is unmapped while a child
+  // popup is still mapped. `child_popup_` alone is insufficient because a
+  // window may have several popup children (e.g. a menu and a tooltip), and
+  // popups parented to bubbles are tracked by the bubble.
+  void HideChildPopups();
 
   // Called only by `WaylandBubble`s that are managed in this instance's
   // `child_bubbles_` list.
@@ -619,7 +627,7 @@ class WaylandWindow : public PlatformWindow,
 
   // The stack of sub-surfaces currently committed. This list is altered when
   // the subsurface arrangement are played back by WaylandFrameManager.
-  base::LinkedList<WaylandSubsurface> subsurface_stack_committed_;
+  base::UnsafeLinkedList<WaylandSubsurface> subsurface_stack_committed_;
 
   // The current asynchronously loaded cursor (Linux specific).
   scoped_refptr<WaylandAsyncCursor> async_cursor_;

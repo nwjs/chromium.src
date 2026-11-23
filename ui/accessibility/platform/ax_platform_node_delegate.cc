@@ -7,11 +7,13 @@
 #include <algorithm>
 
 #include "base/containers/fixed_flat_set.h"
+#include "base/containers/span.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_selection.h"
 #include "ui/accessibility/platform/ax_platform.h"
 #include "ui/accessibility/platform/ax_platform_node.h"
@@ -569,7 +571,7 @@ std::vector<AXPlatformNode*> AXPlatformNodeDelegate::GetTargetNodesForRelation(
   // interest to ATs. The number of ids should be small.
 
   std::vector<AXPlatformNode*> nodes;
-  const std::vector<int32_t>& target_ids = GetIntListAttribute(attr);
+  base::span<const int32_t> target_ids = GetIntListAttribute(attr);
 
   for (int32_t target_id : target_ids) {
     AXPlatformNode* target = GetFromNodeID(target_id);
@@ -823,10 +825,11 @@ bool AXPlatformNodeDelegate::HasIntListAttribute(
   return GetData().HasIntListAttribute(attribute);
 }
 
-const std::vector<int32_t>& AXPlatformNodeDelegate::GetIntListAttribute(
+base::span<const int32_t> AXPlatformNodeDelegate::GetIntListAttribute(
     ax::mojom::IntListAttribute attribute) const {
-  if (node_)
+  if (node_) {
     return node_->GetIntListAttribute(attribute);
+  }
   return GetData().GetIntListAttribute(attribute);
 }
 
@@ -835,7 +838,8 @@ bool AXPlatformNodeDelegate::GetIntListAttribute(
     std::vector<int32_t>* value) const {
   bool found = HasIntListAttribute(attribute);
   if (found) {
-    *value = GetIntListAttribute(attribute);
+    base::span<const int32_t> int_list = GetIntListAttribute(attribute);
+    value->assign(int_list.begin(), int_list.end());
   }
   return found;
 }
@@ -847,7 +851,7 @@ bool AXPlatformNodeDelegate::HasStringListAttribute(
   return GetData().HasStringListAttribute(attribute);
 }
 
-const std::vector<std::string>& AXPlatformNodeDelegate::GetStringListAttribute(
+base::span<const std::string> AXPlatformNodeDelegate::GetStringListAttribute(
     ax::mojom::StringListAttribute attribute) const {
   if (node_)
     return node_->GetStringListAttribute(attribute);
@@ -859,7 +863,9 @@ bool AXPlatformNodeDelegate::GetStringListAttribute(
     std::vector<std::string>* value) const {
   bool found = HasStringListAttribute(attribute);
   if (found) {
-    *value = GetStringListAttribute(attribute);
+    base::span<const std::string> string_list =
+        GetStringListAttribute(attribute);
+    value->assign(string_list.begin(), string_list.end());
   }
   return found;
 }
@@ -1344,9 +1350,14 @@ std::string AXPlatformNodeDelegate::GetRootURL() const {
   return std::string();
 }
 
-std::string AXPlatformNodeDelegate::SubtreeToStringHelper(size_t level) {
+std::string AXPlatformNodeDelegate::SubtreeToStringHelper(
+    size_t level,
+    bool stop_at_document) {
   std::string result(level * 2, '+');
   result += ToString();
+  if (stop_at_document && ui::IsPlatformDocument(GetRole())) {
+    return result + " [document contents omitted]\n";
+  }
   result += '\n';
 
   // We can't use ChildrenBegin() and ChildrenEnd() here, because they both
@@ -1358,7 +1369,7 @@ std::string AXPlatformNodeDelegate::SubtreeToStringHelper(size_t level) {
   auto iter_end = ChildIteratorBase(this, GetChildCount());
   for (auto iter = iter_start; iter != iter_end; ++iter) {
     AXPlatformNodeDelegate& child = static_cast<AXPlatformNodeDelegate&>(*iter);
-    result += child.SubtreeToStringHelper(level + 1);
+    result += child.SubtreeToStringHelper(level + 1, stop_at_document);
   }
 
   return result;

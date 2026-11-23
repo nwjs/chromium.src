@@ -66,7 +66,10 @@ class RuntimeApplicationServiceImpl : public cast_receiver::EmbedderApplication,
             StatusCallback callback);
 
   // Returns current application ID.
-  const std::string& app_id() const { return runtime_application_->GetAppId(); }
+  const std::string& app_id() const {
+    return runtime_application_ ? runtime_application_->GetAppId()
+                                : config_.app_id();
+  }
 
   // Returns RuntimeApplicationService gRPC server endpoint.
   const std::string& endpoint() const {
@@ -79,6 +82,8 @@ class RuntimeApplicationServiceImpl : public cast_receiver::EmbedderApplication,
   void NotifyApplicationStopped(ApplicationStopReason stop_reason,
                                 int32_t net_error_code) override;
   void NotifyMediaPlaybackChanged(bool playing) override;
+  void NotifyApplicationVisibilityChanged(
+      cast::common::Visibility::Type visibility);
   void GetAllBindings(GetAllBindingsCallback callback) override;
   cast_receiver::MessagePortService* GetMessagePortService() override;
   content::WebContents* GetWebContents() override;
@@ -156,6 +161,9 @@ class RuntimeApplicationServiceImpl : public cast_receiver::EmbedderApplication,
   // Returns if touch input is allowed.
   bool IsTouchInputAllowed() const;
 
+  // Returns if screen rotation is supported.
+  bool IsRotationSupported() const;
+
   // Returns renderer features.
   base::DictValue GetRendererFeatures() const;
 
@@ -166,6 +174,8 @@ class RuntimeApplicationServiceImpl : public cast_receiver::EmbedderApplication,
   void InnerContentsCreated(CastWebContents* inner_contents,
                             CastWebContents* outer_contents) override;
 
+  SEQUENCE_CHECKER(sequence_checker_);
+
   const cast::common::ApplicationConfig config_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
 
@@ -173,9 +183,26 @@ class RuntimeApplicationServiceImpl : public cast_receiver::EmbedderApplication,
 
   shell::ApplicationMediaCapabilities app_media_capabilities_;
 
+  std::optional<cast::utils::GrpcServer> grpc_server_;
+  std::optional<cast::v2::CoreApplicationServiceStub> core_app_stub_;
+  std::optional<cast::v2::CoreMessagePortApplicationServiceStub>
+      core_message_port_app_stub_;
+
+  // Shared MessagePortService implementation for this application instance to
+  // use. Must be declared after |core_message_port_app_stub_| and before
+  // |streaming_config_manager_| and |runtime_application_|.
+  std::unique_ptr<MessagePortServiceGrpc> message_port_service_;
+  std::optional<std::string> cast_media_service_grpc_endpoint_;
+
   // The WebView associated with the window in which the Cast application is
   // displayed.
   CastWebView::Scoped cast_web_view_;
+
+  // Manages access and retrieval of the StreamingConfig for a streaming session
+  // initiated by the owning application. Must be declared after
+  // |message_port_service_|.
+  std::unique_ptr<cast_receiver::StreamingConfigManager>
+      streaming_config_manager_;
 
   std::unique_ptr<cast_receiver::RuntimeApplication> const runtime_application_;
 
@@ -183,23 +210,6 @@ class RuntimeApplicationServiceImpl : public cast_receiver::EmbedderApplication,
   // NOTE: Must be declared after |cast_web_view_| and |runtime_application_|.
   std::unique_ptr<cast_receiver::ContentWindowControls>
       content_window_controls_;
-
-  // Manages access and retrieval of the StreamingConfig for a streaming session
-  // initiated by the owning application.
-  std::unique_ptr<cast_receiver::StreamingConfigManager>
-      streaming_config_manager_;
-
-  // Shared MessagePortService implementation for this application instance to
-  // use.
-  std::unique_ptr<MessagePortServiceGrpc> message_port_service_;
-
-  std::optional<cast::utils::GrpcServer> grpc_server_;
-  std::optional<cast::v2::CoreApplicationServiceStub> core_app_stub_;
-  std::optional<cast::v2::CoreMessagePortApplicationServiceStub>
-      core_message_port_app_stub_;
-  std::optional<std::string> cast_media_service_grpc_endpoint_;
-
-  SEQUENCE_CHECKER(sequence_checker_);
 
   base::WeakPtrFactory<RuntimeApplicationServiceImpl> weak_factory_{this};
 };

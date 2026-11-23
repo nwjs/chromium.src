@@ -19,8 +19,8 @@
 #include "base/trace_event/trace_event.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_solution_factory.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_validation.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
+#include "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "components/prefs/pref_service.h"
@@ -110,6 +110,10 @@ void ManifestBrokerState::BindModelBrokerDebug(
     base::PassKey<on_device_internals::PageHandler> key,
     mojo::PendingReceiver<mojom::ModelBrokerDebug> receiver) {
   receivers_.Add(this, std::move(receiver));
+}
+
+OnDeviceModelControl* ManifestBrokerState::GetModelControl() {
+  return this;
 }
 
 std::unique_ptr<OnDeviceSession> ManifestBrokerState::StartSession(
@@ -341,14 +345,33 @@ void ManifestBrokerState::SetUseCaseRequested(const std::string& use_case,
   usage_tracker_.SetPriority(use_case,
                              requested ? UsageTracker::Priority::kUserBlocking
                                        : UsageTracker::Priority::kEvictable);
+  if (!requested && asset_manager_) {
+    asset_manager_->RecomputeAssetPriorities();
+  }
 }
 
 void ManifestBrokerState::UninstallModels() {
   usage_tracker_.ClearAllUseCaseUsages();
-  if (asset_manager_) {
-    asset_manager_->EnableEviction();
-    asset_manager_->RecomputeAssetPriorities();
-  }
+  EnsureInitialization(base::BindOnce(
+      [](base::WeakPtr<ManifestBrokerState> self,
+         const on_device_model::Capabilities&) {
+        if (self && self->asset_manager_) {
+          self->asset_manager_->UninstallAllAssets();
+        }
+      },
+      weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ManifestBrokerState::UninstallCapability(
+    const std::string& model_asset_id) {
+  EnsureInitialization(base::BindOnce(
+      [](base::WeakPtr<ManifestBrokerState> self, std::string model_asset_id,
+         const on_device_model::Capabilities&) {
+        if (self && self->asset_manager_) {
+          self->asset_manager_->UninstallCapability(model_asset_id);
+        }
+      },
+      weak_ptr_factory_.GetWeakPtr(), model_asset_id));
 }
 
 void ManifestBrokerState::ResetModelCrashCount() {

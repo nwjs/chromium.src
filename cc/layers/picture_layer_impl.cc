@@ -563,9 +563,11 @@ void PictureLayerImpl::UpdateRasterSourceInternal(
               *new_display_item_list);
       needs_full_invalidation |=
           layer_tree_impl()->GetTargetColorParams(
-              current_display_item_list->content_color_usage()) !=
+              current_display_item_list->content_color_volume()
+                  .GetContentColorUsage()) !=
           layer_tree_impl()->GetTargetColorParams(
-              new_display_item_list->content_color_usage());
+              new_display_item_list->content_color_volume()
+                  .GetContentColorUsage());
       if (needs_full_invalidation) {
         new_invalidation.Union(gfx::Rect(raster_source->size()));
       }
@@ -2058,17 +2060,6 @@ PictureLayerImpl::TileUpdateSet PictureLayerImpl::TakeAllTiles() {
   // them.
   should_batch_updated_tiles_ = false;
   return updates;
-}
-
-gfx::ContentColorUsage PictureLayerImpl::GetContentColorUsage() const {
-  if (!raster_source_) {
-    return gfx::ContentColorUsage::kSRGB;
-  }
-  auto display_item_list = raster_source_->GetDisplayItemList();
-  if (!display_item_list)
-    return gfx::ContentColorUsage::kSRGB;
-
-  return display_item_list->content_color_usage();
 }
 
 DamageReasonSet PictureLayerImpl::GetDamageReasons() const {

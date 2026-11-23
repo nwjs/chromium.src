@@ -57,7 +57,6 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
@@ -3041,6 +3040,18 @@ TEST_F(PopupViewViewsTest, VirtualCardSuggestion_ElementId) {
             TestPopupViewViews::kAutofillCreditCardSuggestionEntryElementId);
 }
 
+TEST_F(PopupViewViewsTest, AmbientAutofillSpiiDisclaimerSuggestion_ElementId) {
+  Suggestion suggestion(u"dummy_main_text", SuggestionType::kFillAutofillAi);
+  suggestion.iph_metadata = Suggestion::IPHMetadata(
+      &feature_engagement::kIPH_AutofillAmbientAutofillSpiiDisclaimer);
+  controller().set_suggestions({suggestion});
+  CreateAndShowView();
+
+  EXPECT_EQ(
+      GetPopupRowViewAt(0).GetProperty(views::kElementIdentifierKey),
+      TestPopupViewViews::kAutofillAmbientAutofillSpiiDisclaimerElementId);
+}
+
 // Tests that (only) clickable items trigger an AcceptSuggestion event.
 TEST_P(PopupViewViewsTestWithAnySuggestionType, ShowClickTest) {
   CreateAndShowView({type()});
@@ -3847,6 +3858,62 @@ TEST_F(PopupViewViewsTest, SubPopupMaxWidth) {
       OpenSubView(view(), {suggestion}, FillingProduct::kAutofillAi);
   EXPECT_LE(sub_view->GetWidget()->GetWindowBoundsInScreen().width(),
             PopupViewViews::kAutofillAiSubPopupMaxWidth);
+}
+
+TEST_F(PopupViewViewsTest, SourceAttributionSubPopupKeyboardNavigation) {
+  Suggestion attribution_suggestion(
+      u"From Gemini and connected apps · Gmail\u00A0[1]\u00A0[2]",
+      SuggestionType::kAutofillAiSourceAttribution);
+  attribution_suggestion.icon = Suggestion::Icon::kSpark;
+  attribution_suggestion.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
+  attribution_suggestion.payload = Suggestion::AutofillAiPayload(
+      EntityInstance::EntityId("test-guid"),
+      {Suggestion::PersonalContextSourceCitation(
+           GURL("https://mail.google.com/1"), gfx::Range(39, 42)),
+       Suggestion::PersonalContextSourceCitation(
+           GURL("https://mail.google.com/2"), gfx::Range(43, 46))});
+
+  Suggestion remove_suggestion(u"Remove info",
+                               SuggestionType::kRemoveAutofillAi);
+  remove_suggestion.icon = Suggestion::Icon::kClose;
+
+  std::vector<Suggestion> sub_suggestions = {
+      attribution_suggestion, Suggestion(SuggestionType::kSeparator),
+      remove_suggestion};
+
+  controller().set_suggestions(
+      {Suggestion(u"Main", SuggestionType::kAddressEntry)});
+  CreateAndShowView();
+
+  auto [sub_controller, sub_view] =
+      OpenSubView(view(), sub_suggestions, FillingProduct::kAutofillAi);
+
+  // VKEY_RIGHT captures keyboard focus in the sub-popup and selects the first
+  // selectable suggestion: row 0 (kAutofillAiSourceAttribution).
+  EXPECT_TRUE(SimulateKeyPress(ui::VKEY_RIGHT, *sub_view));
+  EXPECT_EQ(sub_view->GetSelectedCell(),
+            (CellIndex{0u, PopupRowView::CellType::kContent}));
+
+  // VKEY_DOWN skips the separator and moves to row 2 (kRemoveAutofillAi).
+  EXPECT_TRUE(SimulateKeyPress(ui::VKEY_DOWN, *sub_view));
+  EXPECT_EQ(sub_view->GetSelectedCell(),
+            (CellIndex{2u, PopupRowView::CellType::kContent}));
+
+  // VKEY_UP moves back to row 0 (kAutofillAiSourceAttribution).
+  EXPECT_TRUE(SimulateKeyPress(ui::VKEY_UP, *sub_view));
+  EXPECT_EQ(sub_view->GetSelectedCell(),
+            (CellIndex{0u, PopupRowView::CellType::kContent}));
+
+  // VKEY_RIGHT focuses citation links inside row 0.
+  EXPECT_TRUE(SimulateKeyPress(ui::VKEY_RIGHT, *sub_view));
+  EXPECT_EQ(sub_view->GetSelectedCell(),
+            (CellIndex{0u, PopupRowView::CellType::kContent}));
+
+  // VKEY_LEFT steps back to row 0.
+  EXPECT_TRUE(SimulateKeyPress(ui::VKEY_LEFT, *sub_view));
+  EXPECT_EQ(sub_view->GetSelectedCell(),
+            (CellIndex{0u, PopupRowView::CellType::kContent}));
 }
 
 }  // namespace

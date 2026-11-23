@@ -8,17 +8,20 @@ import '//resources/cr_elements/cr_slider/cr_slider.js';
 import '//resources/cr_elements/cr_tab_box/cr_tab_box.js';
 import '//resources/cr_elements/cr_textarea/cr_textarea.js';
 import '/strings.m.js';
+import './session_state_tab.js';
 
 import type {CrSliderElement} from '//resources/cr_elements/cr_slider/cr_slider.js';
+import {isMac} from '//resources/js/platform.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {Time} from '//resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
 
-import type {EligibilityState, Tab} from '../contextual_tasks_internals.mojom-webui.js';
+import {browserProxyFactory} from '../contextual_tasks_internals.mojom-webui.js';
+import type {BrowserProxy, EligibilityState, Tab} from '../contextual_tasks_internals.mojom-webui.js';
 import {TabSelectionMode} from '../contextual_tasks_types.mojom-webui.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
-import {BrowserProxy} from './browser_proxy.js';
+import type {ContextualTasksSessionStateTabElement} from './session_state_tab.js';
 
 /**
  * Converts a mojo time to a JS time.
@@ -81,6 +84,7 @@ export interface ContextualTasksInternalsAppElement {
   $: {
     tabSelectionModeSelect: HTMLSelectElement,
     minModelScoreSlider: CrSliderElement,
+    sessionStateTab: ContextualTasksSessionStateTabElement,
   };
 }
 
@@ -121,23 +125,62 @@ export class ContextualTasksInternalsAppElement extends CrLitElement {
   protected accessor currentHost_: string = '';
   protected accessor eligibilityState_: EligibilityState|null = null;
 
-  private proxy_: BrowserProxy = BrowserProxy.getInstance();
+  private proxy_: BrowserProxy = browserProxyFactory.getInstance();
+  private keydownListener_:
+      (e: KeyboardEvent) => void = this.onKeydown_.bind(this);
 
   override connectedCallback() {
     super.connectedCallback();
     this.proxy_.callbackRouter.onLogMessageAdded.addListener(
         this.onLogMessageAdded_.bind(this));
+    document.addEventListener('keydown', this.keydownListener_);
     this.refreshCurrentHost_();
     this.refreshEligibility_();
     this.syncTabsWithUrlHash_();
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('keydown', this.keydownListener_);
+  }
+
+  private refreshAll_() {
+    this.refreshCurrentHost_();
+    this.refreshEligibility_();
+    this.$.sessionStateTab.refresh();
+  }
+
+  // Refreshes the page state in place on Cmd+R (Mac) or Ctrl+R (other
+  // platforms) instead of reloading the page, which would reset the event log.
+  private onKeydown_(e: KeyboardEvent) {
+    const hasPrimaryModifier =
+        isMac ? (e.metaKey && !e.ctrlKey) : (e.ctrlKey && !e.metaKey);
+    if (e.key.toLowerCase() !== 'r' || !hasPrimaryModifier || e.shiftKey ||
+        e.altKey) {
+      return;
+    }
+    e.preventDefault();
+    if (e.repeat) {
+      return;
+    }
+    this.refreshAll_();
+  }
+
   private syncTabsWithUrlHash_() {
-    const tabUrlHashes = ['#model-selection', '#debugging', '#eligibility'];
+    const tabUrlHashes = [
+      '#model-selection',
+      '#debugging',
+      '#eligibility',
+      '#session-state',
+    ];
     const tabBox = this.shadowRoot.querySelector('cr-tab-box')!;
 
     tabBox.addEventListener('selected-index-change', e => {
-      window.location.hash = tabUrlHashes[e.detail] || '';
+      const selectedHash = tabUrlHashes[e.detail] || '';
+      window.location.hash = selectedHash;
+      if (selectedHash === '#session-state') {
+        this.$.sessionStateTab.refresh();
+      }
     });
 
     if (window.location.hash.startsWith('#')) {

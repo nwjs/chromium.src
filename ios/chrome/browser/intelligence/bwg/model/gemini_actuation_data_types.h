@@ -35,12 +35,13 @@ enum class GeminiYieldReason {
 @property(nonatomic, readonly, assign) GeminiYieldReason reason;
 
 // Optional prompt or explanatory message to display to the user.
-@property(nonatomic, readonly, copy) NSString* messageToUser;
+@property(nonatomic, copy) NSString* messageToUser;
 
-// Initializes with the yield reason and optional message to display to the
-// user.
+// Optional suggested responses to display to the user during an intervention.
+@property(nonatomic, copy) NSArray<NSString*>* suggestedResponses;
+
+// Initializes with the yield reason.
 - (instancetype)initWithReason:(GeminiYieldReason)reason
-                 messageToUser:(NSString*)messageToUser
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

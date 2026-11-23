@@ -31,7 +31,6 @@
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
@@ -129,7 +128,7 @@ void AudioWorkletHandler::Process(uint32_t frames_to_process) {
 
   // The associated processor is not ready, finished, or might be in an error
   // state. If so, silence the connected outputs and return.
-  if (!processor_ || processor_->hasErrorOccurred()) {
+  if (!processor_ || processor_->error_details()) {
     for (unsigned i = 0; i < NumberOfOutputs(); ++i) {
       if (Output(i).IsConnectedDuringRendering()) {
         Output(i).Bus()->Zero();
@@ -167,19 +166,13 @@ void AudioWorkletHandler::Process(uint32_t frames_to_process) {
   }
 
   if (allocation_failed) {
-    AudioWorkletProcessorErrorDetails error_details(
-        AudioWorkletProcessorErrorState::kProcessError,
-        StrCat({name_,
-                " process(): Memory allocation failed for unconnected output "
-                "buffer."}),
-        /*source_url=*/"",
-        /*line_number=*/0,
-        /*column_number=*/0,
-        /*char_position=*/0);
     PostCrossThreadTask(
         *main_thread_task_runner_, FROM_HERE,
-        CrossThreadBindOnce(&AudioWorkletHandler::NotifyProcessorError,
-                            weak_this_, error_details));
+        CrossThreadBindOnce(
+            &AudioWorkletHandler::NotifyProcessorError, weak_this_,
+            AudioWorkletProcessorErrorDetails::Create(
+                AudioWorkletProcessorErrorState::kProcessError, name_,
+                "Memory allocation failed for unconnected output buffer.")));
     FinishProcessorOnRenderThread();
     return;
   }
@@ -204,21 +197,19 @@ void AudioWorkletHandler::Process(uint32_t frames_to_process) {
   is_active_source_ = processor_->Process(inputs_, outputs_, param_value_map_);
 
   if ((!is_active_source_ && !has_connected_inputs) ||
-      processor_->hasErrorOccurred()) {
-    if (processor_->hasErrorOccurred()) {
+      processor_->error_details()) {
+    if (const auto& error_details = processor_->error_details()) {
       // If the user-supplied code is not runnable (i.e. threw an exception)
       // anymore after the process() call above. Invoke error on the main
       // thread.
-      AudioWorkletProcessorErrorDetails error_details =
-          processor_->GetErrorDetails();
-      AudioWorkletProcessorErrorState error_state = error_details.error_state;
+      AudioWorkletProcessorErrorState error_state = error_details->error_state;
       if (error_state == AudioWorkletProcessorErrorState::kProcessError ||
           error_state ==
               AudioWorkletProcessorErrorState::kProcessMethodUndefinedError) {
         PostCrossThreadTask(
             *main_thread_task_runner_, FROM_HERE,
             CrossThreadBindOnce(&AudioWorkletHandler::NotifyProcessorError,
-                                weak_this_, error_details));
+                                weak_this_, *error_details));
       }
     }
 
@@ -275,28 +266,22 @@ double AudioWorkletHandler::TailTime() const {
 }
 
 void AudioWorkletHandler::SetProcessorOnRenderThread(
-    AudioWorkletProcessor* processor) {
+    base::expected<AudioWorkletProcessor*, AudioWorkletProcessorErrorDetails>
+        result) {
   // TODO(crbug.com/1071917): unify the thread ID check. The thread ID for this
   // call may be different from `Context()->IsAudiothread()`.
   DCHECK(!IsMainThread());
 
-  // `processor` can be `nullptr` when the invocation of user-supplied
-  // constructor fails. That failure fires at the node's `.onprocessorerror`
-  // event handler.
-  if (processor) {
-    processor_ = processor;
+  if (result.has_value()) {
+    processor_ = result.value();
   } else {
-    AudioWorkletProcessorErrorDetails error_details(
-        AudioWorkletProcessorErrorState::kConstructionError,
-        StrCat({name_, " invoking user-supplied constructor failed"}),
-        /*source_url=*/"",
-        /*line_number=*/0,
-        /*column_number=*/0,
-        /*char_position=*/0);
+    // The invocation of the user-supplied constructor failed; see
+    // `AudioWorkletGlobalScope::CreateProcessor()` for the failure modes. That
+    // failure fires at the node's `.onprocessorerror` event handler.
     PostCrossThreadTask(
         *main_thread_task_runner_, FROM_HERE,
         CrossThreadBindOnce(&AudioWorkletHandler::NotifyProcessorError,
-                            weak_this_, error_details));
+                            weak_this_, result.error()));
   }
 }
 

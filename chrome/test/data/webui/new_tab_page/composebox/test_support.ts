@@ -21,9 +21,7 @@ import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
 import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {createFuseboxAction, installMock} from '../test_support.js';
-
-export {createFuseboxAction, MockInputState};
+import {installMock} from '../test_support.js';
 
 export const FAKE_TOKEN_STRING = '00000000000000001234567890ABCDEF';
 export const FAKE_TOKEN_STRING_2 = '00000000000000001234567890ABCDEE';
@@ -98,6 +96,12 @@ setupComposeboxTest<T extends ComposeboxUnionElement = ComposeboxElement>():
       'contextManagementInComposeboxEnabled': false,
       'searchboxComposePlaceholder': 'Placeholder',
       'lensSendRawFileMediaTypesEnabled': false,
+      // Read when the element is constructed; override before creating it.
+      'composeboxPersistentAimButton': false,
+      'composeboxPersistentAimButtonWithX': false,
+      'searchboxComposeButtonText': 'AI Mode',
+      'composeboxAimButtonExitTitle': 'Exit AI Mode',
+      'composeboxAimButtonSendTitle': 'Send',
     });
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
 
@@ -308,8 +312,7 @@ getSubmitContainer<T extends ComposeboxUnionElement = ComposeboxElement>(
   const button = testProxy.element.shadowRoot.querySelector(
       'cr-composebox-submit');
   assertTrue(!!button);
-  const container = button.shadowRoot.querySelector<HTMLElement>('#submitContainer');
-  assertTrue(!!container);
+  const container = button.$.submitContainer;
   return container;
 }
 
@@ -319,7 +322,6 @@ getSubmitIcon<T extends ComposeboxUnionElement = ComposeboxElement>(
   const button = testProxy.element.shadowRoot.querySelector(
       'cr-composebox-submit');
   assertTrue(!!button);
-  const submitIcon = button.shadowRoot.querySelector<HTMLElement>('#submitIcon');
-  assertTrue(!!submitIcon);
+  const submitIcon = button.$.submitIcon;
   return submitIcon;
 }

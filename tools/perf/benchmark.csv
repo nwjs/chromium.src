@@ -6,7 +6,6 @@ UNSCHEDULED_blink_perf.base64,csharrison@chromium.org,Blink>Internals>WTF,https:
 UNSCHEDULED_blink_perf.display_locking,"vmpstr@chromium.org, pdr@chromium.org",Blink>Paint,https://bit.ly/blink-perf-benchmarks,all
 UNSCHEDULED_blink_perf.loading,"pmeenan@chromium.org, kouhei@chromium.org",Blink>Loader,https://bit.ly/blink-perf-benchmarks,all
 UNSCHEDULED_blink_perf.performance_apis,sullivan@chromium.org,Blink>PerformanceAPIs,https://bit.ly/blink-perf-benchmarks,all
-UNSCHEDULED_blink_perf.service_worker,"yyanagisawa@chromium.org, chrome-worker@google.com",Blink>ServiceWorker,https://bit.ly/blink-perf-benchmarks,
 UNSCHEDULED_blink_perf.view_transitions,"bokan@chromium.org, khushalsagar@chromium.org, vmpstr@chromium.org",Blink>ViewTransitions,https://bit.ly/blink-perf-benchmarks,all
 UNSCHEDULED_dummy_wpr_benchmark.loading_using_wpr,maxqli@google.com,Test>Telemetry,,
 UNSCHEDULED_jetstream20,"vahl@chromium.org, cbruni@chromium.org",Blink>JavaScript,https://browserbench.org/JetStream2.0/in-depth.html,all
@@ -26,6 +25,7 @@ blink_perf.layout,"ikilpatrick@chromium.org, kojii@chromium.org",Blink>Layout,ht
 blink_perf.owp_storage,"fergal@chromium.org, stevebe@microsoft.com",Blink>Storage,https://bit.ly/blink-perf-benchmarks,all
 blink_perf.paint,"pdr@chromium.org, wangxianzhu@chromium.org",Blink>Paint,https://bit.ly/blink-perf-benchmarks,all
 blink_perf.parser,masonf@chromium.org,Blink>HTML>Parser,https://bit.ly/blink-perf-benchmarks,all
+blink_perf.service_worker,"yyanagisawa@chromium.org, chrome-worker@google.com",Blink>ServiceWorker,https://bit.ly/blink-perf-benchmarks,all
 blink_perf.shadow_dom,masonf@chromium.org,Blink>DOM>ShadowDOM,https://bit.ly/blink-perf-benchmarks,all
 blink_perf.svg,"fs@opera.com, pdr@chromium.org",Blink>SVG,https://bit.ly/blink-perf-benchmarks,all
 blink_perf.webaudio,"hongchan@chromium.org, mjwilson@chromium.org",Blink>WebAudio,https://bit.ly/blink-perf-benchmarks,all
@@ -47,6 +47,7 @@ media.mobile,dalecurtis@chromium.org,Internals>Media,https://chromium.googlesour
 memory.desktop,lizeb@chromium.org,,,
 octane,"vahl@chromium.org, mlippautz@chromium.org",Blink>JavaScript,,all
 omnibox.aim.perf,"kylixrd@chromium.org, mahmadi@chromium.org, avivkiss@chromium.org",UI>Browser>Omnibox,https://chromium.googlesource.com/chromium/src/+/main/docs/speed/benchmark/harnesses/desktop_ui.md,
+partition_alloc_perftests,memory-dev@chromium.org,Blink>MemoryAllocator>PartitionAlloc,https://chromium.googlesource.com/chromium/src/+/HEAD/base/allocator/partition_allocator/README.md,all
 power.desktop,olivierli@google.com,,https://bit.ly/power-benchmarks,
 rasterize_and_record_micro.top_25,"pdr@chromium.org, wangxianzhu@chromium.org",Internals>Compositing>Rasterization,https://bit.ly/rasterize-and-record-benchmark,
 rendering.desktop,"jonross@chromium.org, chrome-gpu-metrics@google.com",Internals>GPU>Metrics,https://bit.ly/rendering-benchmarks,"backdrop_filter,gpu_rasterization,image_decoding,key_desktop_move,maps,motionmark,motionmark_fixed_2_seconds,motionmark_ramp,repaint_desktop,representative_mac_desktop,representative_mobile,representative_win_desktop,required_webgl,simple_canvas,throughput_test,top_real_world_desktop,tough_animation,tough_canvas,tough_compositor,tough_filters,tough_path_rendering,tough_pinch_zoom,tough_scheduling,tough_scrollbar_scrolling,tough_scrolling,tough_texture_upload,tough_webgl,use_fake_camera_device"
@@ -84,4 +85,4 @@ v8.browsing_mobile-future,"cbruni@chromium.org, leszeks@chromium.org",Blink>Java
 v8.runtime_stats.top_25,"cbruni@chromium.org, leszeks@chromium.org, vahl@chromium.org",Blink>JavaScript,,"cold,hot,warm"
 views_perftests,tapted@chromium.org,Internals>Views,,
 wasmpspdfkit,"ahaas@chromium.org, vahl@chromium.org",Blink>JavaScript>WebAssembly,,all
-webrtc,"video-cmi-apis@google.com, herre@google.com",Blink>WebRTC,http://bit.ly/webrtc-benchmark,"all,datachannel,getusermedia,insertableStreams,pauseplay,sdp,smoothness,stress,videoConstraints"
+webrtc,"rtc-meet-in-chrome@google.com, herre@google.com",Blink>WebRTC,http://bit.ly/webrtc-benchmark,"all,datachannel,getusermedia,insertableStreams,pauseplay,sdp,smoothness,stress,videoConstraints"

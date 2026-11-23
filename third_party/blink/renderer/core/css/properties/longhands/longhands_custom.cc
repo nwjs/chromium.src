@@ -94,11 +94,15 @@
 #include "third_party/blink/renderer/platform/geometry/length.h"
 #include "third_party/blink/renderer/platform/graphics/color.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "third_party/blink/renderer/platform/text/quotes_data.h"
+#include "third_party/blink/renderer/platform/wtf/leak_annotations.h"
+#include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+#include "third_party/blink/renderer/platform/wtf/thread_specific.h"
 
 // Implementations of methods in Longhand subclasses that aren't generated.
 
@@ -307,11 +311,26 @@ const CSSValue* PositionVisibility::ParseSingleValue(
       if (id == CSSValueID::kAnchorVisible) {
         context.Count(WebFeature::kCSSValuePositionVisibilityAnchorVisible);
       } else {
-        context.Count(WebFeature::kCSSValuePositionVisibilityAnchorsVisible);
         if (singular_enabled) {
+          if (const Document* document = context.GetDocument();
+              document && context.IsUseCounterRecordingEnabled() &&
+              !document->IsUseCounted(
+                  WebFeature::kCSSValuePositionVisibilityAnchorsVisible)) {
+            document->AddConsoleMessage(
+                MakeGarbageCollected<ConsoleMessage>(
+                    mojom::blink::ConsoleMessageSource::kDeprecation,
+                    mojom::blink::ConsoleMessageLevel::kWarning,
+                    "The `position-visibility: anchors-visible` value has been "
+                    "deprecated. Please use the singular `anchor-visible` "
+                    "instead. See "
+                    "https://chromestatus.com/feature/5136123851571200 for "
+                    "more information."),
+                /*discard_duplicates=*/true);
+          }
           anchor_visible =
               CSSIdentifierValue::Create(CSSValueID::kAnchorVisible);
         }
+        context.Count(WebFeature::kCSSValuePositionVisibilityAnchorsVisible);
       }
     } else if (!no_overflow && id == CSSValueID::kNoOverflow) {
       no_overflow =
@@ -460,9 +479,14 @@ const CSSValue* AnimationDelay::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* AnimationDelay::InitialValue() const {
-  DEFINE_STATIC_LOCAL(const Persistent<CSSValue>, value,
-                      (ComputedStyleUtils::ValueForAnimationDelay(
-                          CSSTimingData::InitialDelayStart())));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<Persistent<const CSSValue>>,
+                                  thread_specific_value, ());
+  Persistent<const CSSValue>& value = *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = ComputedStyleUtils::ValueForAnimationDelay(
+        CSSTimingData::InitialDelayStart());
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 
@@ -556,10 +580,15 @@ const CSSValue* AnimationIterationCount::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* AnimationIterationCount::InitialValue() const {
-  DEFINE_STATIC_LOCAL(
-      const Persistent<CSSValue>, value,
-      (CSSNumericLiteralValue::Create(CSSAnimationData::InitialIterationCount(),
-                                      CSSPrimitiveValue::UnitType::kNumber)));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<Persistent<const CSSValue>>,
+                                  thread_specific_value, ());
+  Persistent<const CSSValue>& value = *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = CSSNumericLiteralValue::Create(
+        CSSAnimationData::InitialIterationCount(),
+        CSSPrimitiveValue::UnitType::kNumber);
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 
@@ -1525,11 +1554,17 @@ const CSSValue* BorderImageOutset::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* BorderImageOutset::InitialValue() const {
-  DEFINE_STATIC_LOCAL(const Persistent<CSSQuadValue>, value,
-                      (MakeGarbageCollected<CSSQuadValue>(
-                          CSSNumericLiteralValue::Create(
-                              0, CSSPrimitiveValue::UnitType::kInteger),
-                          CSSQuadValue::kSerializeAsQuad)));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(
+      ThreadSpecific<Persistent<const CSSQuadValue>>, thread_specific_value,
+      ());
+  Persistent<const CSSQuadValue>& value = *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = MakeGarbageCollected<CSSQuadValue>(
+        CSSNumericLiteralValue::Create(0,
+                                       CSSPrimitiveValue::UnitType::kInteger),
+        CSSQuadValue::kSerializeAsQuad);
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 
@@ -1549,11 +1584,17 @@ const CSSValue* BorderImageRepeat::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* BorderImageRepeat::InitialValue() const {
-  DEFINE_STATIC_LOCAL(const Persistent<CSSValuePair>, value,
-                      (MakeGarbageCollected<CSSValuePair>(
-                          CSSIdentifierValue::Create(CSSValueID::kStretch),
-                          CSSIdentifierValue::Create(CSSValueID::kStretch),
-                          CSSValuePair::kDropIdenticalValues)));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(
+      ThreadSpecific<Persistent<const CSSValuePair>>, thread_specific_value,
+      ());
+  Persistent<const CSSValuePair>& value = *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = MakeGarbageCollected<CSSValuePair>(
+        CSSIdentifierValue::Create(CSSValueID::kStretch),
+        CSSIdentifierValue::Create(CSSValueID::kStretch),
+        CSSValuePair::kDropIdenticalValues);
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 
@@ -1575,14 +1616,20 @@ const CSSValue* BorderImageSlice::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* BorderImageSlice::InitialValue() const {
-  DEFINE_STATIC_LOCAL(
-      const Persistent<cssvalue::CSSBorderImageSliceValue>, value,
-      (MakeGarbageCollected<cssvalue::CSSBorderImageSliceValue>(
-          MakeGarbageCollected<CSSQuadValue>(
-              CSSNumericLiteralValue::Create(
-                  100, CSSPrimitiveValue::UnitType::kPercentage),
-              CSSQuadValue::kSerializeAsQuad),
-          /* fill */ false)));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(
+      ThreadSpecific<Persistent<const cssvalue::CSSBorderImageSliceValue>>,
+      thread_specific_value, ());
+  Persistent<const cssvalue::CSSBorderImageSliceValue>& value =
+      *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = MakeGarbageCollected<cssvalue::CSSBorderImageSliceValue>(
+        MakeGarbageCollected<CSSQuadValue>(
+            CSSNumericLiteralValue::Create(
+                100, CSSPrimitiveValue::UnitType::kPercentage),
+            CSSQuadValue::kSerializeAsQuad),
+        /* fill */ false);
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 
@@ -1625,11 +1672,17 @@ const CSSValue* BorderImageWidth::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* BorderImageWidth::InitialValue() const {
-  DEFINE_STATIC_LOCAL(const Persistent<CSSQuadValue>, value,
-                      (MakeGarbageCollected<CSSQuadValue>(
-                          CSSNumericLiteralValue::Create(
-                              1, CSSPrimitiveValue::UnitType::kInteger),
-                          CSSQuadValue::kSerializeAsQuad)));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(
+      ThreadSpecific<Persistent<const CSSQuadValue>>, thread_specific_value,
+      ());
+  Persistent<const CSSQuadValue>& value = *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = MakeGarbageCollected<CSSQuadValue>(
+        CSSNumericLiteralValue::Create(1,
+                                       CSSPrimitiveValue::UnitType::kInteger),
+        CSSQuadValue::kSerializeAsQuad);
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 
@@ -7047,7 +7100,7 @@ const CSSValue* MarginTrim::ParseSingleValue(CSSParserTokenStream& stream,
   } else {
     // [ block-start || block-end ]
     while (!stream.AtEnd()) {
-      id = stream.ConsumeIncludingWhitespace().Id();
+      id = stream.Peek().Id();
       if (id == CSSValueID::kBlockStart) {
         if (!add_flags(kMarginTrimBlockStart)) {
           return nullptr;
@@ -7059,6 +7112,7 @@ const CSSValue* MarginTrim::ParseSingleValue(CSSParserTokenStream& stream,
       } else {
         return nullptr;
       }
+      stream.ConsumeIncludingWhitespace();
     }
   }
   DCHECK(margin_trim & kMarginTrimBlock);
@@ -7182,13 +7236,13 @@ const CSSValue* MaskType::CSSValueFromComputedStyleInternal(
   return CSSIdentifierValue::Create(style.MaskType());
 }
 
-const CSSValue* FlowTolerance::CSSValueFromComputedStyleInternal(
+const CSSValue* FitTolerance::CSSValueFromComputedStyleInternal(
     const ComputedStyle& style,
     const LayoutObject*,
     bool allow_visited_style,
     CSSValuePhase value_phase) const {
-  return ComputedStyleUtils::ValueForFlowTolerance(style.GetFlowTolerance(),
-                                                   style);
+  return ComputedStyleUtils::ValueForFitTolerance(style.GetFitTolerance(),
+                                                  style);
 }
 
 const CSSValue* MathShift::CSSValueFromComputedStyleInternal(
@@ -10714,9 +10768,14 @@ const CSSValue* TransitionDelay::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* TransitionDelay::InitialValue() const {
-  DEFINE_STATIC_LOCAL(const Persistent<CSSValue>, value,
-                      (ComputedStyleUtils::ValueForAnimationDelay(
-                          CSSTimingData::InitialDelayStart())));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<Persistent<const CSSValue>>,
+                                  thread_specific_value, ());
+  Persistent<const CSSValue>& value = *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = ComputedStyleUtils::ValueForAnimationDelay(
+        CSSTimingData::InitialDelayStart());
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 
@@ -10743,10 +10802,15 @@ const CSSValue* TransitionDuration::CSSValueFromComputedStyleInternal(
 }
 
 const CSSValue* TransitionDuration::InitialValue() const {
-  DEFINE_STATIC_LOCAL(const Persistent<CSSValue>, value,
-                      (CSSNumericLiteralValue::Create(
-                          CSSTransitionData::InitialDuration().value(),
-                          CSSPrimitiveValue::UnitType::kSeconds)));
+  DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<Persistent<const CSSValue>>,
+                                  thread_specific_value, ());
+  Persistent<const CSSValue>& value = *thread_specific_value;
+  if (!value) [[unlikely]] {
+    value = CSSNumericLiteralValue::Create(
+        CSSTransitionData::InitialDuration().value(),
+        CSSPrimitiveValue::UnitType::kSeconds);
+    LEAK_SANITIZER_IGNORE_OBJECT(&value);
+  }
   return value;
 }
 

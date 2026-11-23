@@ -12,8 +12,8 @@
 #include "base/threading/thread.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "third_party/khronos/EGL/egl.h"
-#include "third_party/khronos/EGL/eglext.h"
+#include "third_party/angle/include/EGL/egl.h"
+#include "third_party/angle/include/EGL/eglext.h"
 #include "ui/gl/egl_util.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_display.h"
@@ -177,8 +177,7 @@ bool GLContextEGL::InitializeImpl(GLSurface* compatible_surface,
 
   if (attribs.webgl_compatibility_context && is_swangle &&
       IsARMSwiftShaderPlatform() &&
-      !features::IsSwiftShaderAllowedByCommandLine(
-          base::CommandLine::ForCurrentProcess())) {
+      !features::IsSwiftShaderAllowed(base::CommandLine::ForCurrentProcess())) {
     // crbug.com/1378476: LLVM 10 is used as the JIT compiler for SwiftShader,
     // which doesn't fully support ARM. Disable Swiftshader on ARM CPUs for
     // WebGL until LLVM is upgraded.
@@ -307,9 +306,7 @@ bool GLContextEGL::InitializeImpl(GLSurface* compatible_surface,
   }
 
   if (gl_display_->ext->b_EGL_ANGLE_power_preference) {
-    GpuPreference pref = attribs.gpu_preference;
-    pref = GLSurface::AdjustGpuPreference(pref);
-    switch (pref) {
+    switch (attribs.gpu_preference) {
       case GpuPreference::kDefault:
         // Don't request any GPU, let ANGLE and the native driver decide.
         break;

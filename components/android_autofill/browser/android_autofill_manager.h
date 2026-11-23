@@ -15,8 +15,14 @@
 #include "base/memory/weak_ptr.h"
 #include "base/notreached.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
+#include "components/autofill/core/browser/form_types.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/autofill/core/common/dense_set.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+
+namespace password_manager {
+struct PasswordForm;
+}  // namespace password_manager
 
 namespace autofill {
 
@@ -73,9 +79,10 @@ class AndroidAutofillManager : public AutofillManager,
     return forms_with_server_predictions_.contains(form);
   }
 
-  FieldTypeGroup ComputeFieldTypeGroupForField(const FormGlobalId& form_id,
-                                               const FieldGlobalId& field_id);
-
+  // Records that autofill suggestions were displayed for `field_id` in
+  // `form_id`.
+  void OnDidShowSuggestions(const FormGlobalId& form_id,
+                            const FieldGlobalId& field_id);
   // Send the |form| to the renderer for the specified |action|.
   //
   // |triggered_origin| is the origin of the field from which the autofill is
@@ -83,7 +90,6 @@ class AndroidAutofillManager : public AutofillManager,
   // AutofillDriver::FillOrPreviewForm() for further details.
   void FillOrPreviewForm(mojom::ActionPersistence action_persistence,
                          FormData form,
-                         const FieldTypeGroup field_type_group,
                          const url::Origin& triggered_origin);
 
  protected:
@@ -153,22 +159,37 @@ class AndroidAutofillManager : public AutofillManager,
 
   AutofillProvider* GetAutofillProvider();
 
-  // Records metrics for loggers and creates new logging session.
+  // Records metrics for the current loggers and starts a new logging session.
+  // No loggers are created if Android Autofill is disabled.
   void StartNewLoggingSession();
 
-  // Returns logger associated with the passed-in `form_id` and `field_id`.
-  AndroidFormEventLogger* GetEventFormLogger(const FormGlobalId& form_id,
-                                             const FieldGlobalId& field_id);
+  // Returns the loggers for the form types of `form_structure`.
+  std::vector<AndroidFormEventLogger*> GetEventFormLoggers(
+      const FormStructure& form_structure);
 
-  // Returns logger associated with the passed-in `field_type_group`.
-  AndroidFormEventLogger* GetEventFormLogger(FieldTypeGroup field_type_group);
+  // Returns the loggers for the form type of the field `field_id` in the form
+  // `form_id`.
+  std::vector<AndroidFormEventLogger*> GetEventFormLoggers(
+      const FormGlobalId& form_id,
+      const FieldGlobalId& field_id);
 
-  // Returns logger associated with the passed-in `form_type`.
-  AndroidFormEventLogger* GetEventFormLogger(FormType form_type);
+  // Returns the logger for `form_type`, or nullptr if there is none.
+  AndroidFormEventLogger* GetEventFormLogger(FormTypeNameForLogging form_type);
+
+  const password_manager::PasswordForm* FindCachedPasswordForm(
+      const FormStructure& form_structure);
 
   // The forms that have received server predictions.
   base::flat_set<FormGlobalId> forms_with_server_predictions_;
+
+  // Cached `PasswordForm`s, parsed on demand by `FindCachedPasswordForm()`. An
+  // entry is dropped whenever its form's field types are determined.
+  absl::flat_hash_map<FormGlobalId,
+                      std::unique_ptr<password_manager::PasswordForm>>
+      password_forms_;
   std::unique_ptr<AndroidFormEventLogger> address_logger_;
+  std::unique_ptr<AndroidFormEventLogger> postal_address_logger_;
+  std::unique_ptr<AndroidFormEventLogger> email_only_logger_;
   std::unique_ptr<AndroidFormEventLogger> loyalty_card_logger_;
   std::unique_ptr<AndroidFormEventLogger> payments_logger_;
   std::unique_ptr<AndroidFormEventLogger> password_logger_;

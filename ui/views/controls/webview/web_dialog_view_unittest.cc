@@ -12,6 +12,7 @@
 #include "base/run_loop.h"
 #include "base/test/test_future.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_client.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/browser_test_utils.h"
@@ -24,6 +25,7 @@
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/controls/webview/web_contents_delegate_views.h"
 #include "ui/views/test/view_metadata_test_utils.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/window/dialog_delegate.h"
@@ -50,9 +52,18 @@ class TestWebDialogViewWebDialogDelegate
   ui::mojom::ModalType GetDialogModalType() const override {
     return ui::mojom::ModalType::kWindow;
   }
+  void OnDialogClosed(const std::string& json_retval) override {
+    closed_json_retval_ = json_retval;
+    ui::test::TestWebDialogDelegate::OnDialogClosed(json_retval);
+  }
+
+  const std::optional<std::string>& closed_json_retval() const {
+    return closed_json_retval_;
+  }
 
  private:
   bool close_on_escape_ = true;
+  std::optional<std::string> closed_json_retval_;
 };
 
 // Provides functionality to test a WebDialogView.
@@ -101,11 +112,19 @@ class WebDialogViewUnitTest : public views::test::WidgetTest {
 
   void TearDown() override {
     web_dialog_view_ = nullptr;
-    widget_.ExtractAsDangling()->CloseNow();
+    if (widget_) {
+      widget_.ExtractAsDangling()->CloseNow();
+    }
     views::test::WidgetTest::TearDown();
   }
 
   bool widget_is_closed() { return widget_->IsClosed(); }
+
+  void WaitForWidgetDestroyed() {
+    web_dialog_view_ = nullptr;
+    views::test::WidgetDestroyedWaiter waiter(widget_.ExtractAsDangling());
+    waiter.Wait();
+  }
 
   WebDialogView* web_dialog_view() { return web_dialog_view_; }
 
@@ -249,7 +268,7 @@ TEST_F(WebDialogViewUnitTest, CanDownload) {
   // If the delegate is destroyed/missing (e.g. after the dialog is closed),
   // CanDownload should fall back to true to match the WebContentsDelegate
   // default.
-  web_dialog_view()->OnDialogClosed("");
+  web_dialog_view()->CloseContents(nullptr);
   content::WebContentsDelegate* null_delegate = web_dialog_view();
   base::test::TestFuture<bool> allowed_null_delegate;
   null_delegate->CanDownload(GURL(), "GET",
@@ -257,17 +276,52 @@ TEST_F(WebDialogViewUnitTest, CanDownload) {
   EXPECT_TRUE(allowed_null_delegate.Get());
 }
 
-TEST_F(WebDialogViewUnitTest, AllowAccelerators) {
+TEST_F(WebDialogViewUnitTest, PreHandleAcceleratorsByDefault) {
   // By default, allow_accelerators should be true.
-  EXPECT_TRUE(web_view()->allow_accelerators());
-
-  // Test with allow_aceelerators set to false.
   auto delegate = std::make_unique<TestWebDialogViewWebDialogDelegate>();
-  delegate->set_allow_accelerators(false);
-  auto web_dialog_view = std::make_unique<WebDialogView>(
-      browser_context(), delegate.get(),
-      std::make_unique<ui::test::TestWebContentsHandler>());
-  EXPECT_FALSE(GetWebViewFor(web_dialog_view.get())->allow_accelerators());
+  auto* const web_dialog_view =
+      new WebDialogView(browser_context(), delegate.get(),
+                        std::make_unique<ui::test::TestWebContentsHandler>());
+
+  web_dialog_view->disable_url_load_for_test_ = true;
+  auto* const widget = views::DialogDelegate::CreateDialogWidget(
+      web_dialog_view, GetContext(), gfx::NativeView());
+  widget->Show();
+
+  auto* const contents = web_dialog_view->web_contents();
+  CHECK(contents);
+  EXPECT_EQ(WebContentsAcceleratorHandling::kProcessBeforeRenderer,
+            WebDialogView::GetAcceleratorHandlingFor(*contents));
+
+  widget->CloseNow();
+}
+
+TEST_F(WebDialogViewUnitTest, DisablePreHandleAccelerators) {
+  // Test with allow_accelerators set to false.
+  auto delegate = std::make_unique<TestWebDialogViewWebDialogDelegate>();
+  delegate->set_allow_accelerators_deprecated(false);
+  auto* const web_dialog_view =
+      new WebDialogView(browser_context(), delegate.get(),
+                        std::make_unique<ui::test::TestWebContentsHandler>());
+
+  web_dialog_view->disable_url_load_for_test_ = true;
+  auto* const widget = views::DialogDelegate::CreateDialogWidget(
+      web_dialog_view, GetContext(), gfx::NativeView());
+  widget->Show();
+
+  auto* const contents = web_dialog_view->web_contents();
+  CHECK(contents);
+  EXPECT_EQ(WebContentsAcceleratorHandling::kEnabled,
+            WebDialogView::GetAcceleratorHandlingFor(*contents));
+
+  widget->CloseNow();
+}
+
+TEST_F(WebDialogViewUnitTest, WebDialogViewClosedFromWebUI) {
+  web_dialog_delegate()->OnDialogCloseFromWebUI("{\"closed\":true}");
+  WaitForWidgetDestroyed();
+
+  EXPECT_EQ("{\"closed\":true}", web_dialog_delegate()->closed_json_retval());
 }
 
 }  // namespace views

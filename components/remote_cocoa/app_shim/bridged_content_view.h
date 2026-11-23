@@ -57,6 +57,8 @@ REMOTE_COCOA_APP_SHIM_EXPORT
 @property(assign, nonatomic) BOOL drawMenuBackgroundForBlur;
 @property(strong, nonatomic) NSEvent* keyDownEventForTesting;
 
+@property(assign, nonatomic) BOOL deferInputContextActivation;
+
 // Used by g_force_cpu_draw
 @property(weak, nonatomic) CALayer* forceCPUDrawLayer;
 

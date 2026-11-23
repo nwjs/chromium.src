@@ -22,20 +22,18 @@
 #include "components/permissions/permission_request.h"
 #include "components/permissions/request_type.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
-#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/text_constants.h"
-#include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/border.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/image_button.h"
@@ -56,19 +54,27 @@
 
 namespace {
 
+// The size of vector icons.
 constexpr int kIconSize = 20;
 constexpr int kViewportBottomMargin = 48;
 
-const gfx::VectorIcon& GetCredentialIcon(ambient_signin::CredentialType type) {
-  switch (type) {
-    case ambient_signin::CredentialType::kPasskey:
-      return features::IsRoundedIconsEnabled() ? vector_icons::kPasskeyIcon
-                                               : vector_icons::kPasskeyOldIcon;
-    case ambient_signin::CredentialType::kPassword:
-      return features::IsRoundedIconsEnabled()
-                 ? vector_icons::kPasswordManagerIcon
-                 : vector_icons::kPasswordManagerOldIcon;
-  }
+// The padding on the left and right of the title and the credentials.
+constexpr int kHorizontalPadding = 20;
+// The padding above and below each credential.
+constexpr int kCredentialVerticalPadding = 10;
+// The padding below the credentials, in addition to their own padding.
+constexpr int kBottomPadding = 4;
+
+// The IdP name of a federated credential is a domain, e.g. "idp.example".
+// Domains are elided at the start, since their end is the most significant
+// part.
+constexpr gfx::ElideBehavior kIdpNameElideBehavior = gfx::ELIDE_HEAD;
+
+// Returns the spacing between the icon and the text of a credential, in both
+// the collapsed and the expanded bubble.
+int GetIconTextSpacing() {
+  return views::LayoutProvider::Get()->GetDistanceMetric(
+      views::DISTANCE_RELATED_LABEL_HORIZONTAL);
 }
 
 // Returns the icon shown when there is no more specific icon, e.g. for a
@@ -83,13 +89,88 @@ ui::ImageModel GetDefaultCredentialIcon() {
 ui::ImageModel GetFederatedCredentialIcon(
     const ambient_signin::FederatedCredential& credential) {
   if (!credential.icon.IsEmpty()) {
-    // The caller crops the picture so that it is square and isn't stretched
-    // when scaled to the icon size.
-    DCHECK_EQ(credential.icon.Size().width(), credential.icon.Size().height());
+    // The picture is square (see FederatedCredential::icon), so it isn't
+    // stretched when shown at `ambient_signin::kAccountPictureSize`.
+    CHECK_EQ(credential.icon.Size().width(), credential.icon.Size().height(),
+             base::NotFatalUntil::M162);
     return credential.icon;
   }
   return GetDefaultCredentialIcon();
 }
+
+// Returns a view that shows `icon`. Account pictures are shown at
+// `ambient_signin::kAccountPictureSize`, whereas vector icons already have
+// their size.
+std::unique_ptr<views::ImageView> CreateIconView(const ui::ImageModel& icon) {
+  auto icon_view = std::make_unique<views::ImageView>(icon);
+  if (icon.IsImage()) {
+    icon_view->SetImageSize(gfx::Size(ambient_signin::kAccountPictureSize,
+                                      ambient_signin::kAccountPictureSize));
+  }
+  return icon_view;
+}
+
+// A row for a credential in the expanded bubble. It has the same padding and
+// text styles as the credential in the collapsed bubble.
+class CredentialRow : public HoverButton {
+  METADATA_HEADER(CredentialRow, HoverButton)
+
+ public:
+  CredentialRow(PressedCallback callback, Params params)
+      : HoverButton(std::move(callback),
+                    WithIconTextSpacing(std::move(params))) {
+    // HoverButton adds half of DISTANCE_CONTROL_LIST_VERTICAL above and below
+    // the icon and the labels, so the border only adds the rest.
+    const int vertical_border = kCredentialVerticalPadding -
+                                views::LayoutProvider::Get()->GetDistanceMetric(
+                                    views::DISTANCE_CONTROL_LIST_VERTICAL) /
+                                    2;
+    SetBorder(views::CreateEmptyBorder(
+        gfx::Insets::VH(vertical_border, kHorizontalPadding)));
+    title()->SetTextStyle(views::style::STYLE_BODY_3_MEDIUM);
+    SetSubtitleTextStyle(views::style::CONTEXT_LABEL,
+                         views::style::STYLE_BODY_4);
+    SetFooterTextStyle(views::style::CONTEXT_LABEL, views::style::STYLE_BODY_4);
+    for (views::Label* label : {subtitle(), footer()}) {
+      if (label) {
+        label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
+      }
+    }
+  }
+
+ private:
+  // Returns `params` with the same spacing between the icon and the text as
+  // in the collapsed bubble, so that the text stays aligned when the bubble is
+  // expanded.
+  static Params WithIconTextSpacing(Params params) {
+    params.icon_label_spacing = GetIconTextSpacing();
+    return params;
+  }
+};
+
+BEGIN_METADATA(CredentialRow)
+END_METADATA
+
+// A row for a federated credential in the expanded bubble.
+class FederatedCredentialRow : public CredentialRow {
+  METADATA_HEADER(FederatedCredentialRow, CredentialRow)
+
+ public:
+  // `idp_name_in_footer` is whether the IdP name is `params.footer` rather
+  // than `params.subtitle`.
+  FederatedCredentialRow(PressedCallback callback,
+                         Params params,
+                         bool idp_name_in_footer)
+      : CredentialRow(std::move(callback), std::move(params)) {
+    // There is no label for the IdP name if it is empty.
+    if (views::Label* idp_label = idp_name_in_footer ? footer() : subtitle()) {
+      idp_label->SetElideBehavior(kIdpNameElideBehavior);
+    }
+  }
+};
+
+BEGIN_METADATA(FederatedCredentialRow)
+END_METADATA
 
 }  // namespace
 
@@ -99,13 +180,14 @@ AmbientLoginPermissionBubbleView::AmbientLoginPermissionBubbleView(
     PermissionPromptStyle prompt_style)
     : PermissionPromptBubbleBaseView(web_contents, delegate, prompt_style) {
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
-  set_title_margins(gfx::Insets::TLBR(10, 16, 8, 16));
-  set_margins(gfx::Insets::VH(8, 12));
+  set_title_margins(
+      gfx::Insets::TLBR(12, kHorizontalPadding, 8, kHorizontalPadding));
 
   SetTitle(l10n_util::GetStringUTF16(IDS_AMBIENT_LOGIN_TITLE));
 
   std::u16string username;
   std::u16string provider;
+  gfx::ElideBehavior provider_elide_behavior = gfx::ELIDE_TAIL;
   ui::ImageModel credential_icon = GetDefaultCredentialIcon();
   CHECK_EQ(delegate->Requests().size(), 1u);
   ambient_signin::AmbientLoginPermissionRequest* ambient_request =
@@ -117,13 +199,16 @@ AmbientLoginPermissionBubbleView::AmbientLoginPermissionBubbleView(
     username = cred.username;
     provider = cred.provider_name;
     credential_icon = ui::ImageModel::FromVectorIcon(
-        GetCredentialIcon(cred.type), ui::kColorIcon, kIconSize);
+        ambient_signin::AmbientLoginPermissionRequest::GetCredentialIcon(
+            cred.type),
+        ui::kColorIcon, kIconSize);
   } else if (!ambient_request->federated_credentials().empty()) {
     const ambient_signin::FederatedCredential& fed_cred =
         ambient_request->federated_credentials().front();
     username =
         !fed_cred.account_name.empty() ? fed_cred.account_name : fed_cred.email;
     provider = fed_cred.idp_name;
+    provider_elide_behavior = kIdpNameElideBehavior;
     credential_icon = GetFederatedCredentialIcon(fed_cred);
   }
 
@@ -135,18 +220,17 @@ AmbientLoginPermissionBubbleView::AmbientLoginPermissionBubbleView(
       views::BoxLayout::Orientation::kHorizontal));
   layout->set_cross_axis_alignment(views::LayoutAlignment::kCenter);
 
-  auto icon_view = std::make_unique<views::ImageView>(credential_icon);
-  icon_view->SetImageSize(gfx::Size(kIconSize, kIconSize));
-  AddChildView(std::move(icon_view));
+  AddChildView(CreateIconView(credential_icon));
 
   auto text_container = std::make_unique<views::View>();
   text_container->SetProperty(
       views::kMarginsKey,
-      gfx::Insets::VH(0, views::LayoutProvider::Get()->GetDistanceMetric(
-                             views::DISTANCE_RELATED_CONTROL_HORIZONTAL)));
+      gfx::Insets::TLBR(0, GetIconTextSpacing(), 0,
+                        views::LayoutProvider::Get()->GetDistanceMetric(
+                            views::DISTANCE_RELATED_CONTROL_HORIZONTAL)));
   auto* text_layout =
       text_container->SetLayoutManager(std::make_unique<views::BoxLayout>(
-          views::BoxLayout::Orientation::kVertical, gfx::Insets(), 2));
+          views::BoxLayout::Orientation::kVertical));
   text_layout->set_cross_axis_alignment(views::LayoutAlignment::kStart);
 
   auto username_label = std::make_unique<views::Label>(
@@ -160,7 +244,7 @@ AmbientLoginPermissionBubbleView::AmbientLoginPermissionBubbleView(
         provider, views::style::CONTEXT_LABEL, views::style::STYLE_BODY_4);
     provider_label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
     provider_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    provider_label->SetElideBehavior(gfx::ELIDE_TAIL);
+    provider_label->SetElideBehavior(provider_elide_behavior);
     text_container->AddChildView(std::move(provider_label));
   }
 
@@ -195,6 +279,12 @@ AmbientLoginPermissionBubbleView::AmbientLoginPermissionBubbleView(
   expand_button->SetTooltipText(
       l10n_util::GetStringUTF16(IDS_ANCHORED_MESSAGE_EXPAND_BUTTON_TOOLTIP));
   views::InstallCircleHighlightPathGenerator(expand_button.get());
+  // The expand button's icon, rather than the button, is aligned with the
+  // padding on the right.
+  set_margins(gfx::Insets::TLBR(
+      kCredentialVerticalPadding, kHorizontalPadding,
+      kCredentialVerticalPadding + kBottomPadding,
+      kHorizontalPadding - expand_button->GetInsets().right()));
   AddChildView(std::move(expand_button));
 }
 
@@ -267,7 +357,7 @@ void AmbientLoginPermissionBubbleView::OnExpandButtonClicked(
   // ui::views::ButtonController::OnMousePressed()).
   sign_in_button_ = nullptr;
   RemoveAllChildViews();
-  set_margins(gfx::Insets::VH(8, 0));
+  set_margins(gfx::Insets::TLBR(0, 0, kBottomPadding, 0));
 
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
@@ -369,9 +459,10 @@ AmbientLoginPermissionBubbleView::CreateCredentialRow(
           : credential.username;
 
   HoverButton::Params params;
-  params.icon_view =
-      std::make_unique<views::ImageView>(ui::ImageModel::FromVectorIcon(
-          GetCredentialIcon(credential.type), ui::kColorIcon, kIconSize));
+  params.icon_view = CreateIconView(ui::ImageModel::FromVectorIcon(
+      ambient_signin::AmbientLoginPermissionRequest::GetCredentialIcon(
+          credential.type),
+      ui::kColorIcon, kIconSize));
   if (credential.type == ambient_signin::CredentialType::kPasskey &&
       !credential.display_name.empty() && credential.display_name != username) {
     params.title = credential.display_name;
@@ -382,17 +473,11 @@ AmbientLoginPermissionBubbleView::CreateCredentialRow(
     params.subtitle = credential.provider_name;
   }
 
-  auto row = std::make_unique<HoverButton>(
+  return std::make_unique<CredentialRow>(
       base::BindRepeating(
           &AmbientLoginPermissionBubbleView::OnCredentialClicked,
           base::Unretained(this), index),
       std::move(params));
-  row->title()->SetTextStyle(views::style::STYLE_BODY_3_MEDIUM);
-  row->SetSubtitleTextStyle(views::style::CONTEXT_LABEL,
-                            views::style::STYLE_BODY_4);
-  row->SetFooterTextStyle(views::style::CONTEXT_LABEL,
-                          views::style::STYLE_BODY_4);
-  return row;
 }
 
 std::unique_ptr<HoverButton>
@@ -400,11 +485,10 @@ AmbientLoginPermissionBubbleView::CreateFederatedCredentialRow(
     const ambient_signin::FederatedCredential& credential,
     size_t index) {
   HoverButton::Params params;
-  auto icon_view = std::make_unique<views::ImageView>(
-      GetFederatedCredentialIcon(credential));
-  icon_view->SetImageSize(gfx::Size(kIconSize, kIconSize));
-  params.icon_view = std::move(icon_view);
-  if (!credential.account_name.empty() && !credential.email.empty()) {
+  params.icon_view = CreateIconView(GetFederatedCredentialIcon(credential));
+  const bool has_name_and_email =
+      !credential.account_name.empty() && !credential.email.empty();
+  if (has_name_and_email) {
     params.title = credential.account_name;
     params.subtitle = credential.email;
     params.footer = credential.idp_name;
@@ -419,17 +503,11 @@ AmbientLoginPermissionBubbleView::CreateFederatedCredentialRow(
     params.subtitle = credential.idp_name;
   }
 
-  auto row = std::make_unique<HoverButton>(
+  return std::make_unique<FederatedCredentialRow>(
       base::BindRepeating(
           &AmbientLoginPermissionBubbleView::OnFederatedCredentialClicked,
           base::Unretained(this), index),
-      std::move(params));
-  row->title()->SetTextStyle(views::style::STYLE_BODY_3_MEDIUM);
-  row->SetSubtitleTextStyle(views::style::CONTEXT_LABEL,
-                            views::style::STYLE_BODY_4);
-  row->SetFooterTextStyle(views::style::CONTEXT_LABEL,
-                          views::style::STYLE_BODY_4);
-  return row;
+      std::move(params), /*idp_name_in_footer=*/has_name_and_email);
 }
 
 BEGIN_METADATA(AmbientLoginPermissionBubbleView)

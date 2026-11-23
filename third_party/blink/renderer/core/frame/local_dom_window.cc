@@ -166,7 +166,6 @@
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -574,7 +573,9 @@ String LocalDOMWindow::CheckAndGetJavascriptUrl(
   return script_source;
 }
 
-void LocalDOMWindow::ExceptionThrown(ErrorEvent* event) {
+void LocalDOMWindow::ExceptionThrown(
+    ErrorEvent* event,
+    SanitizeScriptErrors sanitize_script_errors) {
   MainThreadDebugger::Instance(GetIsolate())->ExceptionThrown(this, event);
 }
 
@@ -1684,11 +1685,11 @@ bool LocalDOMWindow::offscreenBuffering() const {
   return true;
 }
 
-bool LocalDOMWindow::alwaysOnTop() const {
+bool LocalDOMWindow::alwaysOnTopPopup() const {
   if (!GetFrame() || !GetFrame()->GetPage()) {
     return false;
   }
-  return GetFrame()->GetPage()->AlwaysOnTop();
+  return GetFrame()->GetPage()->AlwaysOnTopPopup();
 }
 
 int LocalDOMWindow::outerHeight() const {

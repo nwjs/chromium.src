@@ -17,7 +17,7 @@
 #include "chrome/browser/ui/webui/ash/system_web_dialog/system_web_dialog_delegate.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/account_manager_core/account_addition_options.h"
-#include "components/account_manager_core/pref_names.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
@@ -78,7 +78,7 @@ GURL GetInlineLoginUrl(const std::string& email) {
     return GetUrlWithEmailParam(chrome::kChromeUIChromeSigninURL, email);
   }
   if (!ProfileManager::GetActiveUserProfile()->GetPrefs()->GetBoolean(
-          ::account_manager::prefs::kSecondaryGoogleAccountSigninAllowed)) {
+          policy::policy_prefs::kSecondaryGoogleAccountSigninAllowed)) {
     // Addition of secondary Google Accounts is not allowed.
     return GURL(ash::kChromeUIAccountManagerErrorURL);
   }
@@ -178,11 +178,11 @@ void InlineLoginDialog::OnWidgetDestroying(views::Widget* widget) {
 }
 
 void InlineLoginDialog::AttachWidgetObserver() {
-  DCHECK(!widget_observation_.IsObserving());
+  CHECK(!widget_observation_.IsObserving(), base::NotFatalUntil::M162);
   gfx::NativeWindow window = dialog_window();
-  DCHECK(window);
+  CHECK(window, base::NotFatalUntil::M162);
   views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
-  DCHECK(widget);
+  CHECK(widget, base::NotFatalUntil::M162);
   widget_observation_.Observe(widget);
 }
 
@@ -201,7 +201,7 @@ InlineLoginDialog::InlineLoginDialog(
       url_(url),
       add_account_options_(options),
       close_dialog_closure_(std::move(close_dialog_closure)) {
-  DCHECK(!dialog);
+  CHECK(!dialog, base::NotFatalUntil::M162);
   dialog = this;
 }
 
@@ -214,7 +214,7 @@ InlineLoginDialog::~InlineLoginDialog() {
     std::move(close_dialog_closure_).Run();
   }
 
-  DCHECK_EQ(this, dialog);
+  CHECK_EQ(this, dialog, base::NotFatalUntil::M162);
   dialog = nullptr;
 }
 

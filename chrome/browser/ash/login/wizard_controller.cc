@@ -62,7 +62,6 @@
 #include "chrome/browser/ash/login/quickstart_controller.h"
 // Make sure to include new screen to all relevant metric enums.
 // LINT.IfChange(UsageMetrics)
-#include "chrome/browser/ash/login/screens/account_selection_screen.h"
 #include "chrome/browser/ash/login/screens/add_child_screen.h"
 #include "chrome/browser/ash/login/screens/ai_intro_screen.h"
 #include "chrome/browser/ash/login/screens/app_downloading_screen.h"
@@ -165,7 +164,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/ash/system/system_tray_client_impl.h"
-#include "chrome/browser/ui/webui/ash/login/account_selection_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/add_child_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/ai_intro_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/app_downloading_screen_handler.h"
@@ -271,6 +269,7 @@
 #include "chromeos/ash/services/cros_healthd/private/cpp/dlc_utils.h"
 #include "chromeos/ash/services/rollback_network_config/public/mojom/rollback_network_config.mojom.h"
 #include "components/application_locale_storage/application_locale_storage.h"
+#include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/session_manager/core/session_manager.h"
@@ -1099,13 +1098,6 @@ WizardController::CreateScreens() {
       base::BindRepeating(&WizardController::OnFactorSetupSuccessScreenExit,
                           weak_factory_.GetWeakPtr())));
 
-  if (features::IsOobeAddUserDuringEnrollmentEnabled()) {
-    append(std::make_unique<AccountSelectionScreen>(
-        oobe_ui->GetView<AccountSelectionScreenHandler>()->AsWeakPtr(),
-        base::BindRepeating(&WizardController::OnAccountSelectionScreenExit,
-                            weak_factory_.GetWeakPtr())));
-  }
-
   append(std::make_unique<AppLaunchSplashScreen>(
       oobe_ui->GetView<AppLaunchSplashScreenHandler>()->AsWeakPtr(),
       oobe_ui->GetErrorScreen(),
@@ -1508,10 +1500,6 @@ void WizardController::ShowCryptohomeRecoveryScreen(
   SetCurrentScreen(GetScreen(CryptohomeRecoveryScreenView::kScreenId));
 }
 
-void WizardController::ShowAccountSelectionScreen() {
-  SetCurrentScreen(GetScreen(AccountSelectionScreenView::kScreenId));
-}
-
 void WizardController::ShowAppLaunchSplashScreen() {
   SetCurrentScreen(GetScreen(AppLaunchSplashScreenView::kScreenId));
   MaybeNotifyFjordOobeStateManager(
@@ -1564,12 +1552,7 @@ void WizardController::OnUserCreationScreenExit(
       }
       break;
     case UserCreationScreen::Result::SKIPPED:
-      if (features::IsOobeAddUserDuringEnrollmentEnabled() &&
-          wizard_context_->timebound_user_context_holder) {
-        ShowAccountSelectionScreen();
-      } else {
-        AdvanceToScreen(GaiaView::kScreenId);
-      }
+      AdvanceToScreen(GaiaView::kScreenId);
       break;
     case UserCreationScreen::Result::ADD_CHILD:
       MaybeAbortQuickStartFlow(
@@ -2189,17 +2172,6 @@ void WizardController::OnDisplaySizeScreenExit(
   }
 }
 
-void WizardController::OnAccountSelectionScreenExit(
-    AccountSelectionScreen::Result result) {
-  OnScreenExit(AccountSelectionScreenView::kScreenId,
-               AccountSelectionScreen::GetResultString(result));
-  switch (result) {
-    case AccountSelectionScreen::Result::kNotApplicable:
-    case AccountSelectionScreen::Result::kGaiaFallback:
-      AdvanceToScreen(GaiaView::kScreenId);
-  }
-}
-
 void WizardController::SkipToLoginForTesting() {
   VLOG(1) << "WizardController::SkipToLoginForTesting()";
 
@@ -2404,7 +2376,14 @@ void WizardController::OnUpdateScreenExit(UpdateScreen::Result result) {
 
 void WizardController::OnUpdateCompleted() {
   // Install language packs based on the user selected language.
-  const std::string locale(application_locale_storage_->GetTag().tag_string());
+  // Prefer `kApplicationLocale` from `Local State` so regional locales whose
+  // UI resource bundle falls back to a base or sibling locale (such as `en-AU`
+  // -> `en-GB` or `fr-CA` -> `fr`) install the regional TTS DLC during OOBE.
+  std::string locale =
+      GetLocalState()->GetString(language::prefs::kApplicationLocale);
+  if (locale.empty()) {
+    locale = std::string(application_locale_storage_->GetTag().tag_string());
+  }
   language_packs::LanguagePackManager::UpdatePacksForOobe(locale,
                                                           base::DoNothing());
 
@@ -3261,7 +3240,7 @@ void WizardController::OnFjordImageDownloadCompleted(
   }
 }
 
-bool WizardController::ExitFjordTouchControllerScreen() {
+bool WizardController::OnFjordTouchControllerSetupFinished() {
   // Return true if Station setup screen or FW update screen is showing because
   // this means the TC setup screen was shown before this. This ensures that if
   // the TC goes offline and online again, it can know if the TC setup screen
@@ -3273,7 +3252,8 @@ bool WizardController::ExitFjordTouchControllerScreen() {
     return true;
   }
 
-  return GetScreen<FjordTouchControllerScreen>()->ExitScreen();
+  return GetScreen<FjordTouchControllerScreen>()
+      ->OnTouchControllerSetupFinished();
 }
 
 bool WizardController::ShowNextFjordOobeScreen(

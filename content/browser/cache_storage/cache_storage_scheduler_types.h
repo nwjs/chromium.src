@@ -32,7 +32,6 @@ enum class CacheStorageSchedulerMode {
 // It is ok to renumber the enumeration since it is converted to a string and
 // not directly recorded in the histogram.
 enum class CacheStorageSchedulerOp {
-  kClose,
   kDelete,
   kGetAllMatched,
   kHas,
@@ -43,7 +42,6 @@ enum class CacheStorageSchedulerOp {
   kOpen,
   kPut,
   kSize,
-  kSizeThenClose,
   kTest,
   kWriteIndex,
   kWriteSideData,

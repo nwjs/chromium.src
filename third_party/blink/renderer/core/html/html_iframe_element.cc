@@ -390,7 +390,7 @@ void HTMLIFrameElement::ParseAttribute(
       }
       if (!params.new_value.IsNull()) {
         UseCounter::Count(GetDocument(),
-                          WebFeature::kSharedStorageAPI_Iframe_Attribute);
+                          WebFeature::kIframeAdAuctionHeadersAttribute);
       }
     }
   } else if (name == html_names::kCredentiallessAttr &&
@@ -627,10 +627,9 @@ HTMLIFrameElement::ConstructTrustTokenParams() const {
     GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::blink::ConsoleMessageSource::kOther,
         mojom::blink::ConsoleMessageLevel::kError,
-        StrCat({"iframe trusttoken attribute was invalid JSON: ",
-                parse_error.message, " (line ",
-                String::Number(parse_error.line), ", col ",
-                String::Number(parse_error.column), ")"})));
+        Format("iframe trusttoken attribute was invalid JSON: {} (line {}, col "
+               "{})",
+               parse_error.message, parse_error.line, parse_error.column)));
     return nullptr;
   }
 
@@ -676,7 +675,7 @@ void HTMLIFrameElement::DidChangeAttributes() {
   // the subframe hasn't been created yet; or if we are in the middle of
   // swapping one frame for another, in which case the final state
   // will be propagated at the end of the swapping operation.
-  if (is_swapping_frames() || !ContentFrame()) {
+  if (IsSwappingFrames() || !ContentFrame()) {
     return;
   }
 

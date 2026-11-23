@@ -6,7 +6,9 @@
 
 use incremental_font_transfer::font_patch::PatchingError;
 use incremental_font_transfer::patch_group::{PatchGroup, UrlStatus};
-use incremental_font_transfer::patchmap::{DesignSpace, PatchUrl, SubsetDefinition};
+use incremental_font_transfer::patchmap::{
+    DesignSpace, FeatureSet, PatchMap, PatchUrl, SubsetDefinition,
+};
 use log::warn;
 use read_fonts::types::{Fixed, Tag};
 use read_fonts::{FontRef, TableProvider};
@@ -59,19 +61,45 @@ impl IftSubsetDefinition {
     pub fn union(&mut self, other: &IftSubsetDefinition) {
         self.0.union(&other.0);
     }
+
+    pub fn clear(&mut self) {
+        self.0.codepoints.clear();
+        match &mut self.0.feature_tags {
+            FeatureSet::Set(set) => set.clear(),
+            FeatureSet::All => self.0.feature_tags = FeatureSet::default(),
+        }
+        match &mut self.0.design_space {
+            DesignSpace::Ranges(ranges) => ranges.clear(),
+            DesignSpace::All => self.0.design_space = DesignSpace::default(),
+        }
+    }
 }
 
 #[derive(Default)]
 pub struct IftPatcher {
     font_data: Vec<u8>,
+    /// The patch map of the font data as of the last `mark_rendered()` call, or
+    /// of the initial font data if it was never called.
+    rendered_patch_map: PatchMap,
+    /// Whether `font_data` was modified since the last `mark_rendered()` call.
+    has_unrendered_changes: bool,
     patch_data: HashMap<PatchUrl, UrlStatus>,
     requested: HashSet<PatchUrl>,
+}
+
+fn create_patch_map(font_data: &[u8]) -> PatchMap {
+    let Ok(font) = FontRef::new(font_data).inspect_err(|err| warn!("Invalid font: {err}")) else {
+        return PatchMap::default();
+    };
+    PatchMap::new(&font).inspect_err(|err| warn!("Invalid IFT font: {err}")).unwrap_or_default()
 }
 
 impl From<&[u8]> for IftPatcher {
     fn from(font_data: &[u8]) -> IftPatcher {
         IftPatcher {
             font_data: font_data.to_vec(),
+            rendered_patch_map: create_patch_map(font_data),
+            has_unrendered_changes: false,
             patch_data: HashMap::default(),
             requested: HashSet::default(),
         }
@@ -88,6 +116,21 @@ impl IftPatcher {
 
     pub fn font_data(&self) -> &[u8] {
         &self.font_data
+    }
+
+    pub fn rendered_font_requires_patches(&self, subset: &IftSubsetDefinition) -> bool {
+        self.rendered_patch_map.has_intersecting_patches(&subset.0)
+    }
+
+    pub fn has_unrendered_changes(&self) -> bool {
+        self.has_unrendered_changes
+    }
+
+    pub fn mark_rendered(&mut self) {
+        if self.has_unrendered_changes {
+            self.rendered_patch_map = create_patch_map(&self.font_data);
+            self.has_unrendered_changes = false;
+        }
     }
 
     pub fn request_patches(&mut self, subset: &IftSubsetDefinition) -> Vec<String> {
@@ -132,7 +175,10 @@ impl IftPatcher {
             };
             let result = patch_group.apply_next_patches(&mut self.patch_data);
             match result {
-                Ok(data) => self.font_data = data,
+                Ok(data) => {
+                    self.font_data = data;
+                    self.has_unrendered_changes = true;
+                }
                 Err(PatchingError::EmptyPatchList) => return IftApplyStatus::Success,
                 Err(PatchingError::MissingPatches) => return IftApplyStatus::MissingPatches,
                 Err(err) => {

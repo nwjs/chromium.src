@@ -188,6 +188,7 @@ class NetInternalsMessageHandler : public content::WebUIMessageHandler {
 
   void OnReloadProxySettings(const base::ListValue& list);
   void OnClearBadProxies(const base::ListValue& list);
+  void OnGetProxySettings(const base::ListValue& list);
   void OnResolveHost(const base::ListValue& list);
   void OnClearHostResolverCache(const base::ListValue& list);
   void OnDomainSecurityPolicyDelete(const base::ListValue& list);
@@ -227,7 +228,7 @@ NetInternalsMessageHandler::NetInternalsMessageHandler(content::WebUI* web_ui)
     : web_ui_(web_ui) {}
 
 void NetInternalsMessageHandler::RegisterMessages() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
 
   web_ui()->RegisterMessageCallback(
       "reloadProxySettings",
@@ -236,6 +237,10 @@ void NetInternalsMessageHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "clearBadProxies",
       base::BindRepeating(&NetInternalsMessageHandler::OnClearBadProxies,
+                          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "getProxySettings",
+      base::BindRepeating(&NetInternalsMessageHandler::OnGetProxySettings,
                           base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "resolveHost",
@@ -305,11 +310,22 @@ void NetInternalsMessageHandler::OnClearBadProxies(
   GetNetworkContext()->ClearBadProxiesCache(base::NullCallback());
 }
 
+void NetInternalsMessageHandler::OnGetProxySettings(
+    const base::ListValue& list) {
+  const std::string* callback_id = list[0].GetIfString();
+  DCHECK(callback_id);
+
+  AllowJavascript();
+  GetNetworkContext()->GetProxySettings(
+      base::BindOnce(&NetInternalsMessageHandler::ResolveCallbackWithResult,
+                     weak_factory_.GetWeakPtr(), *callback_id));
+}
+
 void NetInternalsMessageHandler::OnResolveHost(const base::ListValue& list) {
   const std::string* callback_id = list[0].GetIfString();
   const std::string* hostname = list[1].GetIfString();
-  DCHECK(callback_id);
-  DCHECK(hostname);
+  CHECK(callback_id, base::NotFatalUntil::M162);
+  CHECK(hostname, base::NotFatalUntil::M162);
 
   // Intentionally using https scheme to trigger a HTTPS DNS resource record
   // query.
@@ -340,7 +356,7 @@ void NetInternalsMessageHandler::OnClearHostResolverCache(
 void NetInternalsMessageHandler::OnClearSharedDictionary(
     const base::ListValue& list) {
   const std::string* callback_id = list[0].GetIfString();
-  DCHECK(callback_id);
+  CHECK(callback_id, base::NotFatalUntil::M162);
 
   GetNetworkContext()->ClearSharedDictionaryCache(
       base::Time::Min(), base::Time::Max(), /*filter=*/nullptr,
@@ -353,9 +369,9 @@ void NetInternalsMessageHandler::OnClearSharedDictionaryCacheForIsolationKey(
   const std::string* callback_id = list[0].GetIfString();
   const std::string* frame_origin = list[1].GetIfString();
   const std::string* top_frame_site = list[2].GetIfString();
-  DCHECK(callback_id);
-  DCHECK(frame_origin);
-  DCHECK(top_frame_site);
+  CHECK(callback_id, base::NotFatalUntil::M162);
+  CHECK(frame_origin, base::NotFatalUntil::M162);
+  CHECK(top_frame_site, base::NotFatalUntil::M162);
 
   GetNetworkContext()->ClearSharedDictionaryCacheForIsolationKey(
       net::SharedDictionaryIsolationKey(
@@ -369,7 +385,7 @@ void NetInternalsMessageHandler::OnClearSharedDictionaryCacheForIsolationKey(
 void NetInternalsMessageHandler::OnGetSharedDictionaryUsageInfo(
     const base::ListValue& list) {
   const std::string* callback_id = list[0].GetIfString();
-  DCHECK(callback_id);
+  CHECK(callback_id, base::NotFatalUntil::M162);
   GetNetworkContext()->GetSharedDictionaryUsageInfo(base::BindOnce(
       &NetInternalsMessageHandler::OnGetSharedDictionaryUsageInfoDone,
       weak_factory_.GetWeakPtr(), *callback_id));
@@ -380,9 +396,9 @@ void NetInternalsMessageHandler::OnGetSharedDictionaryInfo(
   const std::string* callback_id = list[0].GetIfString();
   const std::string* frame_origin = list[1].GetIfString();
   const std::string* top_frame_site = list[2].GetIfString();
-  DCHECK(callback_id);
-  DCHECK(frame_origin);
-  DCHECK(top_frame_site);
+  CHECK(callback_id, base::NotFatalUntil::M162);
+  CHECK(frame_origin, base::NotFatalUntil::M162);
+  CHECK(top_frame_site, base::NotFatalUntil::M162);
   GetNetworkContext()->GetSharedDictionaryInfo(
       net::SharedDictionaryIsolationKey(
           url::Origin::Create(GURL(*frame_origin)),
@@ -395,7 +411,7 @@ void NetInternalsMessageHandler::OnDomainSecurityPolicyDelete(
     const base::ListValue& list) {
   // |list| should be: [<domain to query>].
   const std::string* domain = list[0].GetIfString();
-  DCHECK(domain);
+  CHECK(domain, base::NotFatalUntil::M162);
   if (!base::IsStringASCII(*domain)) {
     // There cannot be a unicode entry in the HSTS set.
     return;
@@ -407,7 +423,7 @@ void NetInternalsMessageHandler::OnDomainSecurityPolicyDelete(
 void NetInternalsMessageHandler::OnHSTSQuery(const base::ListValue& list) {
   const std::string* callback_id = list[0].GetIfString();
   const std::string* domain = list[1].GetIfString();
-  DCHECK(callback_id && domain);
+  CHECK(callback_id && domain, base::NotFatalUntil::M162);
 
   AllowJavascript();
   GetNetworkContext()->GetHSTSState(
@@ -423,11 +439,11 @@ void NetInternalsMessageHandler::ResolveCallbackWithResult(
 }
 
 void NetInternalsMessageHandler::OnHSTSAdd(const base::ListValue& list) {
-  DCHECK_GE(2u, list.size());
+  CHECK_GE(2u, list.size(), base::NotFatalUntil::M162);
 
   // |list| should be: [<domain to query>, <STS include subdomains>]
   const std::string* domain = list[0].GetIfString();
-  DCHECK(domain);
+  CHECK(domain, base::NotFatalUntil::M162);
   if (!base::IsStringASCII(*domain)) {
     // Silently fail. The user will get a helpful error if they query for the
     // name.
@@ -456,7 +472,8 @@ void NetInternalsMessageHandler::OnResolveHostDone(
     const net::AddressList& resolved_addresses,
     const net::HostResolverEndpointResults& alternative_endpoints,
     NetInternalsResolveHostClient* dns_lookup_client) {
-  DCHECK_EQ(dns_lookup_clients_.count(dns_lookup_client), 1u);
+  CHECK_EQ(dns_lookup_clients_.count(dns_lookup_client), 1u,
+           base::NotFatalUntil::M162);
   auto it = dns_lookup_clients_.find(dns_lookup_client);
   dns_lookup_clients_.erase(it);
 

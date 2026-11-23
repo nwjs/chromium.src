@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/device_sharing/model/device_sharing_manager_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/device_sharing/model/device_sharing_manager.h"
 #import "ios/chrome/browser/device_sharing/model/device_sharing_manager_impl.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -15,27 +17,16 @@ std::unique_ptr<KeyedService> BuildDeviceSharingManager(ProfileIOS* profile) {
 }  // namespace
 
 // static
-DeviceSharingManager* DeviceSharingManagerFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<DeviceSharingManager>(
-      profile, /*create=*/true);
-}
-
-// static
-DeviceSharingManagerFactory* DeviceSharingManagerFactory::GetInstance() {
-  static base::NoDestructor<DeviceSharingManagerFactory> instance;
-  return instance.get();
-}
-
-// static
 DeviceSharingManagerFactory::TestingFactory
 DeviceSharingManagerFactory::GetDefaultFactory() {
-  return base::BindRepeating(&BuildDeviceSharingManager);
+  return base::BindOnce(&BuildDeviceSharingManager);
 }
 
-DeviceSharingManagerFactory::DeviceSharingManagerFactory()
-    : ProfileKeyedServiceFactoryIOS("DeviceSharingManager",
-                                    ProfileSelection::kRedirectedInIncognito) {}
+DeviceSharingManagerFactory::DeviceSharingManagerFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "DeviceSharingManager",
+          ProfileSelection::kRedirectedInIncognito) {}
 
 std::unique_ptr<KeyedService>
 DeviceSharingManagerFactory::BuildServiceInstanceFor(

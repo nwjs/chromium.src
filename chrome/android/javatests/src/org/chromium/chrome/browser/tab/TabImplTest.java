@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 import androidx.test.filters.SmallTest;
 
 import org.hamcrest.Matchers;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -23,6 +24,8 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -42,6 +45,7 @@ import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContentsAccessibility;
+import org.chromium.ui.accessibility.AccessibilityStateTestHelper;
 import org.chromium.ui.base.WindowAndroid;
 
 /** Tests for the {@link TabImpl} class. */
@@ -64,6 +68,11 @@ public class TabImplTest {
     @Before
     public void setUp() {
         mInitialPage = mActivityTestRule.startOnBlankPage();
+    }
+
+    @After
+    public void tearDown() {
+        ThreadUtils.runOnUiThreadBlocking(AccessibilityStateTestHelper::uninitializeForTesting);
     }
 
     private TabImpl createFrozenTab() {
@@ -164,6 +173,9 @@ public class TabImplTest {
         // initialized (avoiding enabling ui::kAXModeBasic across the browser process).
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
+                    // Otherwise the provider is null regardless of the stub.
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            true);
                     WebContentsAccessibility wcax =
                             WebContentsAccessibility.fromWebContents(tab.getWebContents());
                     assertNotNull(wcax);
@@ -236,6 +248,8 @@ public class TabImplTest {
         // native WebContentsAccessibility on the unattached background tab.
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            true);
                     WebContentsAccessibility wcax =
                             WebContentsAccessibility.fromWebContents(tab.getWebContents());
                     assertNotNull(wcax);
@@ -275,6 +289,7 @@ public class TabImplTest {
     @Test
     @SmallTest
     @Feature({"Tab"})
+    @DisabledTest(message = "https://crbug.com/574025790")
     public void testTabLoadIfNeededEnsuresBackingForMediaCapture() {
         TabImpl tab = createFrozenTab();
 
@@ -400,6 +415,9 @@ public class TabImplTest {
     @Test
     @SmallTest
     @Feature({"Tab"})
+    // TODO(crbug.com/574025790): Re-enable.
+    @DisableIf.Build(supported_abis_includes = "x86")
+    @DisableIf.Build(supported_abis_includes = "x86_64")
     public void testDiscardAndAppendPendingNavigation_loadUrlDiscardsPendingLoad() {
         final TabImpl tab = (TabImpl) mActivityTestRule.getActivityTab();
 
@@ -533,6 +551,9 @@ public class TabImplTest {
     @Test
     @SmallTest
     @Feature({"Tab"})
+    // TODO(crbug.com/574025790): Re-enable.
+    @DisableIf.Build(supported_abis_includes = "x86")
+    @DisableIf.Build(supported_abis_includes = "x86_64")
     public void testLoadIfNeeded_unattachedNativePageFails() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {

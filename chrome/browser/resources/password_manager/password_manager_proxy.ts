@@ -11,24 +11,8 @@
 import {assertNotReached} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
-import {ExportPasswordsResult, ExportProgressStatus, ImportEntryStatus, ImportResultsStatus, PageCallbackRouter, PageHandlerFactory, PageHandlerRemote, PasswordAutomaticChangeState, PasswordManagerActionableError, PasswordStoreSet as MojoPasswordStoreSet} from './password_manager.mojom-webui.js';
-import type {ActorLoginPermission, ImportEntry, ImportResults} from './password_manager.mojom-webui.js';
-
-export {
-  ExportPasswordsResult,
-  ExportProgressStatus,
-  ImportEntryStatus,
-  ImportResultsStatus,
-  PageCallbackRouter,
-  PageHandlerFactory,
-  PageHandlerRemote,
-  PasswordAutomaticChangeState,
-  PasswordManagerActionableError,
-};
-export type {
-  ImportEntry,
-  ImportResults,
-};
+import {ImportEntryStatus, ImportResultsStatus, PageCallbackRouter, PageHandlerFactory, PageHandlerRemote, PasswordManagerActionableError, PasswordStoreSet as MojoPasswordStoreSet} from './password_manager.mojom-webui.js';
+import type {ActorLoginPermission, ExportPasswordsResult, ExportProgressStatus, ImportResults} from './password_manager.mojom-webui.js';
 
 export type BlockedSite = chrome.passwordsPrivate.ExceptionEntry;
 
@@ -722,7 +706,11 @@ export class PasswordManagerImpl implements PasswordManagerProxy {
 
   removeCredential(
       id: number, fromStores: chrome.passwordsPrivate.PasswordStoreSet) {
-    chrome.passwordsPrivate.removeCredential(id, fromStores);
+    if (!loadTimeData.getBoolean('enablePasswordManagerMojoApiPhase2')) {
+      chrome.passwordsPrivate.removeCredential(id, fromStores);
+      return;
+    }
+    this.handler.removeCredential(id, toMojoPasswordStoreSet(fromStores));
   }
 
   removeBackupPassword(id: number) {

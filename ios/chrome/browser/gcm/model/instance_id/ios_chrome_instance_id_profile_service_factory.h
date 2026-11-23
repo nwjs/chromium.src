@@ -7,31 +7,22 @@
 
 #include <memory>
 
-#include "base/no_destructor.h"
-#include "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-namespace instance_id {
-class InstanceIDProfileService;
-}
+#include "components/gcm_driver/instance_id/instance_id_profile_service.h"
+#include "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all InstanceIDProfileService and associates them with
 // ProfileIOS.
-class IOSChromeInstanceIDProfileServiceFactory
-    : public ProfileKeyedServiceFactoryIOS {
+class IOSChromeInstanceIDProfileServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          IOSChromeInstanceIDProfileServiceFactory,
+          instance_id::InstanceIDProfileService> {
  public:
-  static instance_id::InstanceIDProfileService* GetForProfile(
-      ProfileIOS* profile);
-  static IOSChromeInstanceIDProfileServiceFactory* GetInstance();
+  explicit IOSChromeInstanceIDProfileServiceFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<IOSChromeInstanceIDProfileServiceFactory>;
-
-  IOSChromeInstanceIDProfileServiceFactory();
-  ~IOSChromeInstanceIDProfileServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_GCM_MODEL_INSTANCE_ID_IOS_CHROME_INSTANCE_ID_PROFILE_SERVICE_FACTORY_H_

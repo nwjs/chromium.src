@@ -8,19 +8,17 @@
 #import <memory>
 #import <string>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-namespace gcm {
-class GCMProfileService;
-}
+#import "components/gcm_driver/gcm_profile_service.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all GCMProfileService and associates them with
 // profiles.
-class IOSChromeGCMProfileServiceFactory : public ProfileKeyedServiceFactoryIOS {
+class IOSChromeGCMProfileServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          IOSChromeGCMProfileServiceFactory,
+          gcm::GCMProfileService> {
  public:
-  static gcm::GCMProfileService* GetForProfile(ProfileIOS* profile);
-  static IOSChromeGCMProfileServiceFactory* GetInstance();
+  explicit IOSChromeGCMProfileServiceFactory(PassKey key);
 
   // Returns a string like "com.chrome.ios" that should be used as the GCM
   // category when an app_id is sent as a subtype instead of as a category. This
@@ -30,14 +28,9 @@ class IOSChromeGCMProfileServiceFactory : public ProfileKeyedServiceFactoryIOS {
   static std::string GetProductCategoryForSubtypes();
 
  private:
-  friend class base::NoDestructor<IOSChromeGCMProfileServiceFactory>;
-
-  IOSChromeGCMProfileServiceFactory();
-  ~IOSChromeGCMProfileServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_GCM_MODEL_IOS_CHROME_GCM_PROFILE_SERVICE_FACTORY_H_

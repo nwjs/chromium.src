@@ -303,57 +303,39 @@ void CalendarModel::FetchEvents(base::Time start_of_month) {
     events_have_fetched_.insert_or_assign(start_of_month, false);
   }
 
-  if (calendar_utils::IsMultiCalendarEnabled()) {
-    ash::CalendarList calendar_list = Shell::Get()
-                                          ->system_tray_model()
-                                          ->calendar_list_model()
-                                          ->GetCachedCalendarList();
+  ash::CalendarList calendar_list = Shell::Get()
+                                        ->system_tray_model()
+                                        ->calendar_list_model()
+                                        ->GetCachedCalendarList();
 
-    if (!calendar_list.empty()) {
-      fetches_start_time_ = base::TimeTicks::Now();
+  if (!calendar_list.empty()) {
+    fetches_start_time_ = base::TimeTicks::Now();
 
-      // Create event fetch requests for up to `kMultipleCalendarsLimit`
-      // calendars. Expects a calendar list trimmed to be within the calendar
-      // limit.
-      for (const auto& calendar : calendar_list) {
-        // Create event fetch request for the calendar and transfer ownership to
-        // `pending_fetches_`.
-        pending_fetches_[start_of_month][calendar.id()] =
-            std::make_unique<CalendarEventFetch>(
-                start_of_month,
-                /*complete_callback =*/
-                base::BindRepeating(&CalendarModel::OnEventsFetched,
-                                    base::Unretained(this)),
-                /*internal_error_callback_ =*/
-                base::BindRepeating(
-                    &CalendarModel::OnEventFetchFailedInternalError,
-                    base::Unretained(this)),
-                /*tick_clock =*/nullptr, calendar.id(), calendar.color_id());
-      }
-    } else {
-      // The user has no selected calendars, so notify observers to remove the
-      // loading bar.
-      for (auto& observer : observers_) {
-        observer.OnEventsFetched(kNever, start_of_month);
-      }
+    // Create event fetch requests for up to `kMultipleCalendarsLimit`
+    // calendars. Expects a calendar list trimmed to be within the calendar
+    // limit.
+    for (const auto& calendar : calendar_list) {
+      // Create event fetch request for the calendar and transfer ownership to
+      // `pending_fetches_`.
+      pending_fetches_[start_of_month][calendar.id()] =
+          std::make_unique<CalendarEventFetch>(
+              start_of_month,
+              /*complete_callback =*/
+              base::BindRepeating(&CalendarModel::OnEventsFetched,
+                                  base::Unretained(this)),
+              /*internal_error_callback_ =*/
+              base::BindRepeating(
+                  &CalendarModel::OnEventFetchFailedInternalError,
+                  base::Unretained(this)),
+              /*tick_clock =*/nullptr, calendar.id(), calendar.color_id());
     }
   } else {
-    FetchPrimaryCalendarEvents(start_of_month);
+    // The user has no selected calendars, so notify observers to remove the
+    // loading bar.
+    for (auto& observer : observers_) {
+      observer.OnEventsFetched(kNever, start_of_month);
+    }
   }
-}
-
-void CalendarModel::FetchPrimaryCalendarEvents(
-    const base::Time start_of_month) {
-  pending_fetches_[start_of_month][google_apis::calendar::kPrimaryCalendarId] =
-      std::make_unique<CalendarEventFetch>(
-          start_of_month,
-          /*complete_callback=*/
-          base::BindRepeating(&CalendarModel::OnEventsFetched,
-                              base::Unretained(this)),
-          /*internal_error_callback_=*/
-          base::BindRepeating(&CalendarModel::OnEventFetchFailedInternalError,
-                              base::Unretained(this)),
-          /*tick_clock=*/nullptr);
 }
 
 void CalendarModel::CancelFetch(const base::Time& start_of_month) {
@@ -415,8 +397,7 @@ void CalendarModel::OnEventsFetched(
 
   fetch_error_codes_[start_of_month].emplace(error);
 
-  if (calendar_utils::IsMultiCalendarEnabled() &&
-      pending_fetches_[start_of_month].empty()) {
+  if (pending_fetches_[start_of_month].empty()) {
     // On the completion of the final calendar event fetch, record the time
     // elapsed from the start of the first fetch.
     calendar_metrics::RecordEventListFetchesTotalDuration(
@@ -582,17 +563,8 @@ void CalendarModel::InsertEventInMonth(
   // Month is now the most-recently-used.
   PromoteMonth(start_of_month);
 
-  auto it = event_months_.find(start_of_month);
-  if (it == event_months_.end()) {
-    // No events for this month, so add a map for it and insert.
-    SingleMonthEventMap month;
-    InsertEventInMonthEventList(month, event, start_time_midnight);
-    event_months_.emplace(start_of_month, month);
-  } else {
-    // Insert in a pre-existing month.
-    SingleMonthEventMap& month = it->second;
-    InsertEventInMonthEventList(month, event, start_time_midnight);
-  }
+  InsertEventInMonthEventList(event_months_[start_of_month], event,
+                              start_time_midnight);
 }
 
 void CalendarModel::InsertEventInMonthEventList(
@@ -604,18 +576,7 @@ void CalendarModel::InsertEventInMonthEventList(
     return;
   }
 
-  auto it = month.find(start_time_midnight);
-  if (it == month.end()) {
-    // No events stored for this day, so create a new list, add the event to
-    // it, and insert the list in the map.
-    SingleDayEventList list;
-    list.push_back(*event);
-    month.emplace(start_time_midnight, list);
-  } else {
-    // Already have some events for this day.
-    SingleDayEventList& list = it->second;
-    list.push_back(*event);
-  }
+  month[start_time_midnight].push_back(*event);
 }
 
 SingleDayEventList CalendarModel::FindEvents(base::Time day) const {

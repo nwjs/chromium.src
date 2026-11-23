@@ -141,7 +141,7 @@ DialogText GetPromptDialogTextFromStatus(
 
 void ShowSignInAndSyncUi(Profile* profile,
                          signin_metrics::AccessPoint access_point) {
-  signin_ui_util::EnableSyncFromSingleAccountPromo(
+  signin_ui_util::EnableHistorySyncFromSingleAccountPromo(
       profile, GetAccountInfoFromProfile(profile).GetCoreAccountInfo(),
       access_point);
 }
@@ -649,9 +649,10 @@ void CollaborationControllerDelegateDesktop::OnErrorDialogOk() {
 
 void CollaborationControllerDelegateDesktop::OnErrorDialogOkForUpdate() {
   if (browser_) {
-    NavigateParams params(browser_, GURL("chrome://settings/help"),
+    NavigateParams params(browser_,
+                          chrome::GetSettingsUrl(chrome::kHelpSubPage),
                           ui::PAGE_TRANSITION_LINK);
-    params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    params.disposition = WindowOpenDisposition::kNewForegroundTab;
     Navigate(&params);
   }
 

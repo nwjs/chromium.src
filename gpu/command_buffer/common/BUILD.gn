@@ -11,7 +11,6 @@ import("//ui/gl/features.gni")
 
 config("implementation") {
   defines = [ "GPU_COMMAND_BUFFER_COMMON_IMPLEMENTATION" ]
-  configs = [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 component("common") {
@@ -227,5 +226,5 @@ component("gles2_utils") {
     "//ui/gl:gl_enums",
   ]
 
-  all_dependent_configs = [ "//third_party/khronos:khronos_headers" ]
+  all_dependent_configs = [ "//gpu:gl_headers" ]
 }

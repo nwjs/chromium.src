@@ -15,6 +15,10 @@
 #include "ui/base/models/image_model.h"
 #include "url/gurl.h"
 
+namespace gfx {
+struct VectorIcon;
+}  // namespace gfx
+
 namespace ambient_signin {
 
 enum class CredentialType {
@@ -30,8 +34,15 @@ struct PasskeyOrPasswordCredential {
   std::u16string display_name;
 };
 
+// The size of account pictures in the prompt, in DIPs. Callers should crop
+// pictures to this size so that they aren't scaled.
+inline constexpr int kAccountPictureSize = 40;
+
 // Represents a federated sign-in credential option (e.g. from FedCM).
 struct FederatedCredential {
+  // The identity provider's domain formatted for display, e.g. "idp.example".
+  // The prompt elides it at the start, so that the end of the domain stays
+  // visible.
   std::u16string idp_name;
   std::u16string account_name;
   std::u16string email;
@@ -42,9 +53,14 @@ struct FederatedCredential {
   // browser (as FedCM does with the picture URL from the IdP's accounts
   // endpoint), never from the requesting site.
   //
-  // The caller crops the picture so that it is square, e.g. FedCM crops it
-  // into a circle like in its own UI. The prompt scales it to its icon size.
+  // The caller crops the picture so that it is square and
+  // `kAccountPictureSize` wide, e.g. FedCM crops it into a circle like in its
+  // own UI.
   ui::ImageModel icon;
+  // Whether choosing this credential signs the user in without further UI,
+  // e.g. without a dialog to review what is shared with the site. If so, the
+  // chip shows that the user is signing in.
+  bool signs_in_directly = false;
 };
 
 // A permission request for displaying ambient login options (e.g. WebAuthn
@@ -57,7 +73,9 @@ class AmbientLoginPermissionRequest : public permissions::PermissionRequest {
       base::OnceCallback<void(size_t index)>;
 
   // Constructor supporting both WebAuthn/password credentials and FedCM
-  // federated credentials.
+  // federated credentials. `bubble_starts_open` is whether the bubble opens
+  // automatically along with the chip. Otherwise, only the chip is shown, and
+  // the bubble opens when the user clicks it.
   AmbientLoginPermissionRequest(
       const GURL& requesting_origin,
       const GURL& embedding_origin,
@@ -65,8 +83,8 @@ class AmbientLoginPermissionRequest : public permissions::PermissionRequest {
       PasskeyOrPasswordSelectedCallback credential_selected_callback,
       std::vector<FederatedCredential> federated_credentials,
       FederatedCredentialSelectedCallback federated_selected_callback,
-      PermissionDecidedCallback permission_decided_callback =
-          base::DoNothing());
+      PermissionDecidedCallback permission_decided_callback = base::DoNothing(),
+      bool bubble_starts_open = true);
 
   // Convenience constructor for passkey/password-only requests.
   AmbientLoginPermissionRequest(
@@ -94,8 +112,18 @@ class AmbientLoginPermissionRequest : public permissions::PermissionRequest {
   // `federated_selected_callback_` when the permission request is accepted.
   void SelectFederatedCredential(size_t index);
 
+  // Returns the vector icon representing a credential of the given `type`.
+  // Used both for credential rows in the bubble and for the omnibox chip.
+  static const gfx::VectorIcon& GetCredentialIcon(CredentialType type);
+
   // permissions::PermissionRequest:
+  permissions::IconId GetIconForChip() const override;
+  permissions::IconId GetBlockedIconForChip() const override;
+  bool ShouldKeepChipOnBubbleClose() const override;
+  std::optional<std::u16string> GetRequestChipText(
+      ChipTextType type) const override;
   std::u16string GetMessageTextFragment() const override;
+  bool ShouldBubbleStartOpen() const override;
 
  private:
   void OnPermissionDecided(
@@ -109,6 +137,7 @@ class AmbientLoginPermissionRequest : public permissions::PermissionRequest {
   PermissionDecidedCallback caller_permission_decided_callback_;
   std::optional<size_t> selected_credential_index_;
   std::optional<size_t> selected_federated_index_;
+  const bool bubble_starts_open_;
 };
 
 }  // namespace ambient_signin

@@ -12,6 +12,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_ui.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
@@ -118,15 +119,23 @@ void ActorOverlayWebView::TriggerClickAnimation(base::OnceClosure callback) {
   }
 }
 
+void ActorOverlayWebView::SetCursorChip(const std::string& text) {
+  if (actor::ui::ActorOverlayUI* web_ui = GetWebUi()) {
+    web_ui->SetCursorChip(text);
+  }
+}
+
 actor::ui::ActorOverlayUI* ActorOverlayWebView::GetWebUi() {
   if (!web_contents()) {
     return nullptr;
   }
 
-  return web_contents()
-      ->GetWebUI()
-      ->GetController()
-      ->GetAs<actor::ui::ActorOverlayUI>();
+  // Null when the current page has no WebUI, e.g. after a failed navigation.
+  content::WebUI* web_ui = web_contents()->GetWebUI();
+  if (!web_ui) {
+    return nullptr;
+  }
+  return web_ui->GetController()->GetAs<actor::ui::ActorOverlayUI>();
 }
 
 void ActorOverlayWebView::PrimaryPageChanged(content::Page& page) {

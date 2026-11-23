@@ -30,6 +30,7 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/public/cpp/shelf_prefs.h"
 #include "chrome/browser/ash/guest_os/guest_os_pref_names.h"
+#include "chrome/browser/ash/login/users/avatar/user_image_prefs.h"
 #include "chromeos/ash/components/tether/pref_names.h"
 #include "components/drive/drive_pref_names.h"  // nogncheck crbug.com/40147906
 #include "components/metrics/demographics/user_demographics.h"
@@ -43,7 +44,6 @@
 #include "extensions/browser/pref_names.h"  // nogncheck
 #endif
 
-namespace browser_sync {
 namespace {
 // Not an enum class to ease cast to int.
 namespace syncable_prefs_ids {
@@ -74,7 +74,7 @@ enum {
   kHatsSurveyMetadata = 100013,
   kHomePage = 100014,
   kHomePageIsNewTabPage = 100015,
-  kNtpCustomBackgroundDict = 100016,
+  // kNtpCustomBackgroundDict = 100016,  // deprecated
   kLiveCaptionBubbleExpanded = 100017,
   // kLiveCaptionBubblePinned = 100018,  // deprecated
   kLiveCaptionEnabled = 100019,
@@ -255,7 +255,7 @@ enum {
   kProfileDefaultContentSettingValuesMouselock = 100192,
   kProfileDefaultContentSettingValuesPopups = 100193,
   kProfileDefaultContentSettingValuesWindowPlacement = 100194,
-  kWebauthnCablev2Pairings = 100195,
+  // kWebauthnCablev2Pairings = 100195, // deprecated
   kDynamicColorColorScheme = 100196,
   kDynamicColorSeedColor = 100197,
   kLongPressDiacritics = 100198,
@@ -279,10 +279,10 @@ enum {
   kSixPackKeyInsertNotificationsRemaining = 100216,
   kLiveCaptionMaskOffensiveWords = 100217,
   kTimeOfLastSessionActivation = 100218,
-  kBrowserColorScheme = 100219,
-  kBrowserColorVariant = 100220,
-  kGrayscaleThemeEnabled = 100221,
-  kUserColor = 100222,
+  // kBrowserColorScheme = 100219,  // deprecated
+  // kBrowserColorVariant = 100220,  // deprecated
+  // kGrayscaleThemeEnabled = 100221,  // deprecated
+  // kUserColor = 100222,  // deprecated
   // kBlockAll3pcToggleEnabled = 100223, (deprecated)
   // kTrackingProtectionLevel = 100224, (deprecated)
   kUserSpeakOnMuteDetectionEnabled = 100225,
@@ -619,11 +619,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::WriteBehavior::kWriteToBoth}},
     {prefs::kHomePageIsNewTabPage,
      {syncable_prefs_ids::kHomePageIsNewTabPage, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone,
-      sync_preferences::WriteBehavior::kWriteToBoth}},
-    {prefs::kDeprecatedNtpCustomBackgroundDictDoNotUse,
-     {syncable_prefs_ids::kNtpCustomBackgroundDict, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone,
       sync_preferences::WriteBehavior::kWriteToBoth}},
@@ -1556,9 +1551,7 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone,
       sync_preferences::WriteBehavior::kWriteToBoth}},
-    // This is not exposed in a header.
-    // TODO(crbug.com/40896017): Declare this in the corresponding header.
-    {"user_image_info",
+    {ash::user_image::prefs::kUserImageInfo,
      {syncable_prefs_ids::kUserImageInfo, syncer::OS_PRIORITY_PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone,
@@ -1799,16 +1792,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone,
       sync_preferences::WriteBehavior::kWriteToBoth}},
-    {prefs::kDeprecatedBrowserColorSchemeDoNotUse,
-     {syncable_prefs_ids::kBrowserColorScheme, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone,
-      sync_preferences::WriteBehavior::kWriteToBoth}},
-    {prefs::kDeprecatedBrowserColorVariantDoNotUse,
-     {syncable_prefs_ids::kBrowserColorVariant, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone,
-      sync_preferences::WriteBehavior::kWriteToBoth}},
     {prefs::kDefaultCharset,
      {syncable_prefs_ids::kDefaultCharset, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
@@ -1841,11 +1824,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::WriteBehavior::kWriteToBoth}},
     {prefs::kExtensionsUIDeveloperMode,
      {syncable_prefs_ids::kExtensionsUIDeveloperMode, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone,
-      sync_preferences::WriteBehavior::kWriteToBoth}},
-    {prefs::kDeprecatedGrayscaleThemeEnabledDoNotUse,
-     {syncable_prefs_ids::kGrayscaleThemeEnabled, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kNone,
       sync_preferences::MergeBehavior::kNone,
       sync_preferences::WriteBehavior::kWriteToBoth}},
@@ -1922,11 +1900,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
      {syncable_prefs_ids::kURLsToRestoreOnStartup, syncer::PREFERENCES,
       sync_preferences::PrefSensitivity::kSensitiveRequiresHistory,
       sync_preferences::MergeBehavior::kMergeableListWithRewriteOnUpdate,
-      sync_preferences::WriteBehavior::kWriteToBoth}},
-    {prefs::kDeprecatedUserColorDoNotUse,
-     {syncable_prefs_ids::kUserColor, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone,
       sync_preferences::WriteBehavior::kWriteToBoth}},
     {spellcheck::prefs::kSpellCheckEnable,
      {syncable_prefs_ids::kSpellCheckEnable, syncer::PREFERENCES,
@@ -2136,13 +2109,6 @@ constexpr auto kChromeSyncablePrefsAllowlist = base::MakeFixedFlatMap<
       sync_preferences::MergeBehavior::kNone,
       sync_preferences::WriteBehavior::kWriteToBoth}},
 #endif
-    // This is not exposed in a header.
-    // TODO(crbug.com/40896017): Declare this in the corresponding header.
-    {"webauthn.cablev2_pairings",
-     {syncable_prefs_ids::kWebauthnCablev2Pairings, syncer::PREFERENCES,
-      sync_preferences::PrefSensitivity::kNone,
-      sync_preferences::MergeBehavior::kNone,
-      sync_preferences::WriteBehavior::kWriteToBoth}},
     {promos_prefs::kDesktopToiOSPasswordPromoLastImpressionTimestamp,
      {syncable_prefs_ids::kDesktopToiOSPasswordPromoLastImpressionTimestamp,
       syncer::PREFERENCES, sync_preferences::PrefSensitivity::kNone,
@@ -2302,4 +2268,3 @@ ChromeSyncablePrefsDatabase::GetAllSyncablePrefsForTest() const {
       std::inserter(syncable_prefs, syncable_prefs.end()));
   return syncable_prefs;
 }
-}  // namespace browser_sync

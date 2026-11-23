@@ -73,6 +73,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.transit.ViewPresence;
 import org.chromium.base.test.util.Batch;
@@ -569,13 +570,10 @@ public class KeyboardAccessoryViewTest {
         onActivityViewWaiting(withText("Card Info Retrieval")).perform(click());
 
         CriteriaHelper.pollUiThread(() -> Criteria.checkThat(tracker.wasDismissed(), is(true)));
+        String expectedEvent =
+                EventConstants.KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_AUTOFILLED;
         CriteriaHelper.pollUiThread(
-                () ->
-                        Criteria.checkThat(
-                                tracker.getLastEmittedEvent(),
-                                is(
-                                        EventConstants
-                                                .KEYBOARD_ACCESSORY_PAYMENT_CARD_INFO_RETRIEVAL_AUTOFILLED)));
+                () -> Criteria.checkThat(tracker.getLastEmittedEvent(), is(expectedEvent)));
         onActivityViewWaiting(withChild(withText("Card Info Retrieval")))
                 .check(matches(not(isSelected())));
     }
@@ -618,13 +616,9 @@ public class KeyboardAccessoryViewTest {
         onActivityViewWaiting(withText("Johnathan")).perform(click());
 
         CriteriaHelper.pollUiThread(() -> Criteria.checkThat(tracker.wasDismissed(), is(true)));
+        String expectedEvent = EventConstants.KEYBOARD_ACCESSORY_HOME_AND_WORK_ADDRESS_AUTOFILLED;
         CriteriaHelper.pollUiThread(
-                () ->
-                        Criteria.checkThat(
-                                tracker.getLastEmittedEvent(),
-                                is(
-                                        EventConstants
-                                                .KEYBOARD_ACCESSORY_HOME_AND_WORK_ADDRESS_AUTOFILLED)));
+                () -> Criteria.checkThat(tracker.getLastEmittedEvent(), is(expectedEvent)));
     }
 
     @Test
@@ -673,6 +667,7 @@ public class KeyboardAccessoryViewTest {
 
     @Test
     @MediumTest
+    @DisableIf.Device(DeviceFormFactor.TABLET_OR_DESKTOP) // TODO(crbug.com/572882852): Re-enable.
     public void testScrollingNotResetOnItemUpdate() throws InterruptedException {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -944,6 +939,49 @@ public class KeyboardAccessoryViewTest {
 
     @Test
     @MediumTest
+    public void testDismissesSpiiDisclaimerEducationBubbleOnFilling() throws InterruptedException {
+        AutofillBarItem itemWithIph =
+                new AutofillBarItem(
+                        new AutofillSuggestion.Builder()
+                                .setLabel("Passport")
+                                .setSubLabel("Passport #")
+                                .setSuggestionType(SuggestionType.FILL_AUTOFILL_AI)
+                                .setFeatureForIph("")
+                                .setApplyDeactivatedStyle(false)
+                                .build(),
+                        new Action(AUTOFILL_SUGGESTION, wasObscured -> {}),
+                        mProfile);
+        itemWithIph.setFeatureForIph(
+                FeatureConstants.KEYBOARD_ACCESSORY_AUTOFILL_AI_SPII_DISCLAIMER_FEATURE);
+
+        TestTracker tracker =
+                new TestTracker(
+                        FeatureConstants.KEYBOARD_ACCESSORY_AUTOFILL_AI_SPII_DISCLAIMER_FEATURE);
+        TrackerFactory.setTrackerForTests(tracker);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mModel.set(VISIBLE, true);
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        itemWithIph, createSheetOpener(/* atMemoryEnabled= */ false)
+                                    });
+                });
+
+        onActivityViewWaiting(withText("Passport"));
+        waitForHelpBubble(withText(R.string.iph_keyboard_accessory_autofill_ai_spii_disclaimer));
+        assertThat(mKeyboardAccessoryView.take().areClicksAllowedWhenObscured(), is(true));
+        onActivityViewWaiting(withText("Passport")).perform(click());
+
+        CriteriaHelper.pollUiThread(() -> Criteria.checkThat(tracker.wasDismissed(), is(true)));
+        String expectedEvent = EventConstants.KEYBOARD_ACCESSORY_AUTOFILL_AI_SPII_DISCLAIMER_USED;
+        CriteriaHelper.pollUiThread(
+                () -> Criteria.checkThat(tracker.getLastEmittedEvent(), is(expectedEvent)));
+    }
+
+    @Test
+    @MediumTest
     public void testAtMemoryButtonNotAddedWhenDisabled() throws InterruptedException {
         KeyboardAccessoryButtonGroupView buttonGroupView =
                 setupButtonsAndGetGroup(/* atMemoryEnabled= */ false);
@@ -1006,6 +1044,7 @@ public class KeyboardAccessoryViewTest {
     @MediumTest
     @EnableFeatures(ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)
     public void testUndockedStyleWithDynamicPositioning_BottomNotch() throws InterruptedException {
+        DeviceInfo.setIsDesktopForTesting(true);
         ThreadUtils.runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
 
@@ -1040,6 +1079,7 @@ public class KeyboardAccessoryViewTest {
     @MediumTest
     @EnableFeatures(ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)
     public void testUndockedStyleWithDynamicPositioning_TopNotch() throws InterruptedException {
+        DeviceInfo.setIsDesktopForTesting(true);
         ThreadUtils.runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
 
@@ -1074,6 +1114,7 @@ public class KeyboardAccessoryViewTest {
     @EnableFeatures(ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)
     public void testUndockedStyleWithDynamicPositioning_ClampedToMargin()
             throws InterruptedException {
+        DeviceInfo.setIsDesktopForTesting(true);
         ThreadUtils.runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
 

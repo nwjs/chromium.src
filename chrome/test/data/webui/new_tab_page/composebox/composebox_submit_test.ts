@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {SubmitButtonIconType} from 'chrome://new-tab-page/lazy_load.js';
+import {AimButtonMode, SubmitButtonIconType} from 'chrome://new-tab-page/lazy_load.js';
 import {SingleTabMenuItemAction, SingleTabType} from 'chrome://resources/cr_components/composebox/common.js';
+import type {ComposeboxAimButtonElement} from 'chrome://resources/cr_components/composebox/composebox_aim_button.js';
 import {ContextUploadStatus} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ComposeboxSubmitElement} from 'chrome://resources/cr_components/composebox/composebox_submit.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
@@ -35,13 +36,11 @@ suite('ComposeboxSubmitTest', () => {
     assertFalse(submitButton.disabled);
     assertEquals(SubmitButtonIconType.UPWARD, submitButton.iconType);
 
-    const icon =
-        submitButton.shadowRoot.querySelector<HTMLElement>('#submitIcon');
+    const icon = submitButton.$.submitIcon;
     const overlay =
         submitButton.shadowRoot.querySelector<HTMLElement>('#submitOverlay');
 
     // Assert icon properties.
-    assertTrue(!!icon);
     assertTrue(icon.classList.contains('icon-arrow-upward'));
     assertFalse(icon.hasAttribute('disabled'));
     // Assert overlay properties.
@@ -55,13 +54,11 @@ suite('ComposeboxSubmitTest', () => {
     submitButton.submitButtonTitle = 'Custom Title';
     await microtasksFinished();
 
-    const icon =
-        submitButton.shadowRoot.querySelector<HTMLElement>('#submitIcon');
+    const icon = submitButton.$.submitIcon;
     const overlay =
         submitButton.shadowRoot.querySelector<HTMLElement>('#submitOverlay');
 
     // Assert icon properties.
-    assertTrue(!!icon);
     assertTrue(icon.classList.contains('icon-arrow-forward'));
     assertTrue(icon.hasAttribute('disabled'));
     // Assert overlay properties.
@@ -72,10 +69,15 @@ suite('ComposeboxSubmitTest', () => {
   test('dims energy layer when disabled and energy effect is on', async () => {
     // The energy layer holds the background color only when the energy
     // effect is enabled, so the dimming rule is gated on the same attribute.
-    document.body.toggleAttribute('energy-effect-animation-enabled_', true);
     const energy =
         submitButton.shadowRoot.querySelector<HTMLElement>('#submitEnergy');
     assertTrue(!!energy);
+    assertEquals('none', window.getComputedStyle(energy, '::after').content);
+
+    document.body.toggleAttribute('energy-effect-animation-enabled_', true);
+    assertEquals('""', window.getComputedStyle(energy, '::after').content);
+    assertEquals(
+        'blur(7px)', window.getComputedStyle(energy, '::after').filter);
     assertEquals('1', window.getComputedStyle(energy).opacity);
 
     submitButton.disabled = true;
@@ -89,9 +91,7 @@ suite('ComposeboxSubmitTest', () => {
     submitButton.addEventListener('submit-click', () => {
       eventCount++;
     });
-    const container =
-        submitButton.shadowRoot.querySelector<HTMLElement>('#submitContainer');
-    assertTrue(!!container);
+    const container = submitButton.$.submitContainer;
 
     container.click();
     await microtasksFinished();
@@ -106,9 +106,7 @@ suite('ComposeboxSubmitTest', () => {
     });
     submitButton.disabled = true;
     await microtasksFinished();
-    const container =
-        submitButton.shadowRoot.querySelector<HTMLElement>('#submitContainer');
-    assertTrue(!!container);
+    const container = submitButton.$.submitContainer;
 
     container.click();
     await microtasksFinished();
@@ -118,9 +116,7 @@ suite('ComposeboxSubmitTest', () => {
 
   test('dispatches submit-focusin event', async () => {
     const focusinPromise = eventToPromise('submit-focusin', submitButton);
-    const container =
-        submitButton.shadowRoot.querySelector<HTMLElement>('#submitContainer');
-    assertTrue(!!container);
+    const container = submitButton.$.submitContainer;
 
     container.dispatchEvent(new FocusEvent('focusin'));
     const event = await focusinPromise;
@@ -254,9 +250,7 @@ suite('ComposeboxSmartComposeSubmitTest', () => {
     const submitBtn =
         testProxy.element.shadowRoot.querySelector('cr-composebox-submit');
     assertTrue(!!submitBtn);
-    const submitContainer =
-        submitBtn.shadowRoot.querySelector<HTMLElement>('#submitContainer');
-    assertTrue(!!submitContainer);
+    const submitContainer = submitBtn.$.submitContainer;
     submitContainer.click();
     await microtasksFinished();
 
@@ -382,6 +376,22 @@ suite('ComposeboxDelayedTabSubmitTest', () => {
     await markSnapshotReady(FAKE_TOKEN_STRING);
     testProxy.element.submitQuery();
     assertEquals(1, testProxy.searchboxHandler.getCallCount('submitQuery'));
+  });
+
+  test('AIM button is held until the snapshot is ready', async () => {
+    // Read when attachPendingDelayedTab() constructs the element.
+    loadTimeData.overrideValues({'composeboxPersistentAimButton': true});
+    const token = await attachPendingDelayedTab();
+    const aimButton =
+        testProxy.element.shadowRoot.querySelector<ComposeboxAimButtonElement>(
+            'cr-composebox-aim-button');
+    assertTrue(!!aimButton);
+    assertEquals(AimButtonMode.SEND, aimButton.mode);
+    assertTrue(aimButton.disabled);
+
+    await markSnapshotReady(token);
+    assertEquals(AimButtonMode.SEND, aimButton.mode);
+    assertFalse(aimButton.disabled);
   });
 });
 

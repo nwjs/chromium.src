@@ -140,8 +140,7 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -238,7 +237,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 70
+          "shards": 35
         },
         "test": "browser_tests",
         "test_id_prefix": "ninja://chrome/test:browser_tests/"
@@ -766,7 +765,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 21
+          "shards": 18
         },
         "test": "interactive_ui_tests",
         "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
@@ -1270,7 +1269,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 6
+          "shards": 3
         },
         "test": "sync_integration_tests",
         "test_id_prefix": "ninja://chrome/test:sync_integration_tests/"
@@ -1279,8 +1278,7 @@
         "args": [
           "--enable-features=TreesInViz",
           "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -1603,7 +1601,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 9
+          "shards": 4
         },
         "test": "blink_web_tests",
         "test_id_prefix": "ninja://:blink_web_tests/"
@@ -1991,7 +1989,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 25
+          "shards": 11
         },
         "test": "headless_shell_wpt",
         "test_id_prefix": "ninja://:headless_shell_wpt/"
@@ -2207,7 +2205,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 15
+          "shards": 7
         },
         "test": "headless_shell_wpt",
         "test_id_prefix": "ninja://:headless_shell_wpt/"

@@ -15,14 +15,19 @@ import android.view.KeyEvent;
 import android.view.KeyboardShortcutGroup;
 import android.view.KeyboardShortcutInfo;
 
+import androidx.annotation.IdRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 
 import org.jni_zero.CalledByNative;
+import org.jni_zero.JniType;
+import org.jni_zero.NativeMethods;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.ui.KeyboardUtils;
+import org.chromium.blink_public.common.BlinkFeatures;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
 import org.chromium.chrome.browser.devtools.DevToolsWindowAndroid;
@@ -35,6 +40,7 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.task_manager.TaskManager;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
+import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.device.gamepad.GamepadList;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.util.KeyEventUtils;
@@ -866,6 +872,9 @@ public class KeyboardShortcuts {
                 // the default app search UI, which locks up Chrome.
                 return true;
             case KeyEvent.KEYCODE_MENU:
+                if (ContentFeatureMap.isEnabled(BlinkFeatures.ANDROID_KEYBOARD_CONTEXT_MENU)) {
+                    break;
+                }
                 if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
                     menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.show_menu, false);
                 }
@@ -1089,6 +1098,20 @@ public class KeyboardShortcuts {
             MenuOrKeyboardActionController menuOrKeyboardActionController) {
         int keyCode = event.getKeyCode();
         if (event.getRepeatCount() != 0 || KeyEvent.isModifierKey(keyCode)) {
+            return false;
+        }
+        if (keyCode == KeyEvent.KEYCODE_MENU) {
+            if (KeyboardUtils.getMetaState(event) == NO_MODIFIER
+                    && ContentFeatureMap.isEnabled(BlinkFeatures.ANDROID_KEYBOARD_CONTEXT_MENU)) {
+                if (isCurrentTabVisible
+                        && menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                                R.id.open_tab_strip_context_menu, /* fromMenu= */ false)) {
+                    return true;
+                }
+                menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                        R.id.show_menu, /* fromMenu= */ false);
+                return true;
+            }
             return false;
         }
         if (KeyEvent.isGamepadButton(keyCode)) {
@@ -1340,8 +1363,99 @@ public class KeyboardShortcuts {
         return false;
     }
 
+    /**
+     * Returns the localized keyboard shortcut text (e.g., "Ctrl+T") for the given menu item ID, or
+     * {@code null} if keyboard shortcut hints are disabled or the menu item has no associated
+     * keyboard shortcut.
+     *
+     * @param menuItemId The {@code R.id.*} resource ID of the menu item.
+     * @return The formatted shortcut text, or {@code null}.
+     */
+    public static @Nullable String getShortcutText(@IdRes int menuItemId) {
+        if (!ChromeFeatureList.sAndroidKeyboardShortcutHints.isEnabled()) {
+            return null;
+        }
+
+        int commandId;
+        if (menuItemId == R.id.contextmenu_back) {
+            commandId = ChromeCommandIds.BACK;
+        } else if (menuItemId == R.id.contextmenu_forward) {
+            commandId = ChromeCommandIds.FORWARD;
+        } else if (menuItemId == R.id.contextmenu_reload) {
+            commandId = ChromeCommandIds.RELOAD;
+        } else if (menuItemId == R.id.new_window_menu_id) {
+            commandId = ChromeCommandIds.NEW_WINDOW;
+        } else if (menuItemId == R.id.new_incognito_window_menu_id) {
+            commandId = ChromeCommandIds.NEW_INCOGNITO_WINDOW;
+        } else if (menuItemId == R.id.new_incognito_tab_menu_id) {
+            commandId =
+                    IncognitoUtils.shouldOpenIncognitoAsWindow()
+                            ? ChromeCommandIds.NEW_TAB
+                            : ChromeCommandIds.NEW_INCOGNITO_WINDOW;
+        } else if (menuItemId == R.id.new_tab_menu_id) {
+            commandId = ChromeCommandIds.NEW_TAB;
+        } else if (menuItemId == R.id.close_tab) {
+            commandId = ChromeCommandIds.CLOSE_TAB;
+        } else if (menuItemId == R.id.reopen_closed_entry) {
+            commandId = ChromeCommandIds.RESTORE_TAB;
+        } else if (menuItemId == R.id.bookmark_this_page_id
+                || menuItemId == R.id.bookmark_this_page_menu_id) {
+            commandId = ChromeCommandIds.BOOKMARK_THIS_TAB;
+        } else if (menuItemId == R.id.bookmark_all_tabs) {
+            commandId = ChromeCommandIds.BOOKMARK_ALL_TABS;
+        } else if (menuItemId == R.id.contextmenu_view_page_source) {
+            commandId = ChromeCommandIds.VIEW_SOURCE;
+        } else if (menuItemId == R.id.print_id || menuItemId == R.id.contextmenu_print_page) {
+            commandId = ChromeCommandIds.PRINT;
+        } else if (menuItemId == R.id.offline_page_id
+                || menuItemId == R.id.download_page_id
+                || menuItemId == R.id.contextmenu_save_page) {
+            commandId = ChromeCommandIds.SAVE_PAGE;
+        } else if (menuItemId == R.id.select_action_menu_cut) {
+            commandId = ChromeCommandIds.CUT;
+        } else if (menuItemId == R.id.select_action_menu_copy) {
+            commandId = ChromeCommandIds.COPY;
+        } else if (menuItemId == android.R.id.paste) {
+            commandId = ChromeCommandIds.PASTE;
+        } else if (menuItemId == R.id.find_in_page_id) {
+            commandId = ChromeCommandIds.FIND;
+        } else if (menuItemId == R.id.dev_tools) {
+            commandId = ChromeCommandIds.DEV_TOOLS;
+        } else if (menuItemId == R.id.toggle_bookmark_bar
+                || menuItemId == R.id.toggle_bookmarks_bar_menu_id) {
+            commandId = ChromeCommandIds.SHOW_BOOKMARK_BAR;
+        } else if (menuItemId == R.id.open_history_menu_id) {
+            commandId = ChromeCommandIds.SHOW_HISTORY;
+        } else if (menuItemId == R.id.all_bookmarks_menu_id) {
+            commandId = ChromeCommandIds.SHOW_BOOKMARK_MANAGER;
+        } else if (menuItemId == R.id.downloads_menu_id) {
+            commandId = ChromeCommandIds.SHOW_DOWNLOADS;
+        } else if (menuItemId == R.id.quick_delete_menu_id) {
+            commandId = ChromeCommandIds.CLEAR_BROWSING_DATA;
+        } else if (menuItemId == R.id.help_id) {
+            commandId = ChromeCommandIds.HELP_PAGE_VIA_KEYBOARD;
+        } else if (menuItemId == R.id.task_manager) {
+            commandId = ChromeCommandIds.TASK_MANAGER_SHORTCUT;
+        } else if (menuItemId == R.id.select_action_menu_select_all) {
+            commandId = ChromeCommandIds.CONTENT_CONTEXT_SELECTALL;
+        } else if (menuItemId == android.R.id.pasteAsPlainText) {
+            commandId = ChromeCommandIds.CONTENT_CONTEXT_PASTE_AND_MATCH_STYLE;
+        } else {
+            return null;
+        }
+
+        String shortcutText = KeyboardShortcutsJni.get().getShortcutTextForCommandId(commandId);
+        return shortcutText.isEmpty() ? null : shortcutText;
+    }
+
     @CalledByNative
     private static boolean isChromeAccelerator(KeyEvent event) {
         return getKeyboardSemanticMeaning(event) != KeyboardShortcutsSemanticMeaning.UNKNOWN;
+    }
+
+    @NativeMethods
+    public interface Natives {
+        @JniType("std::u16string")
+        String getShortcutTextForCommandId(int commandId);
     }
 }

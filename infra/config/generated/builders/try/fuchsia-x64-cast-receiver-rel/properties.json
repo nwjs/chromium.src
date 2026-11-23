@@ -14,7 +14,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "fuchsia-x64-cast-receiver-rel",
-              "project": "chromium-m157"
+              "project": "chromium-m158"
             },
             "builder_spec": {
               "builder_group": "chromium.fuchsia",
@@ -42,7 +42,7 @@
         {
           "bucket": "ci",
           "builder": "fuchsia-x64-cast-receiver-rel",
-          "project": "chromium-m157"
+          "project": "chromium-m158"
         }
       ],
       "retry_without_patch": false,
@@ -57,8 +57,7 @@
     "use_clang_coverage": true
   },
   "$build/flakiness": {
-    "check_for_flakiness": true,
-    "check_for_flakiness_with_resultdb": true
+    "check_for_flakiness": true
   },
   "$build/siso": {
     "configs": [

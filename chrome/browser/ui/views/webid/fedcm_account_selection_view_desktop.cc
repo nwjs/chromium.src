@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_desktop.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <tuple>
@@ -13,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
@@ -65,9 +67,6 @@
 #include "url/origin.h"
 
 namespace {
-
-// Size of the account picture shown in the ambient bubble.
-constexpr int kAmbientBubbleAvatarSize = 20;
 
 // We could have a situation where the WebContents with an actor task opens a
 // popup which then triggers the dialog, so we need to check the opener.
@@ -326,14 +325,6 @@ bool FedCmAccountSelectionView::Show(
     }
   }
 
-  bool has_filtered_out_accounts = false;
-  for (const auto& account : accounts) {
-    if (account->is_filtered_out) {
-      has_filtered_out_accounts = true;
-      break;
-    }
-  }
-
   std::optional<std::u16string> idp_title =
       idp_list_.size() == 1u
           ? std::make_optional<std::u16string>(
@@ -373,6 +364,16 @@ bool FedCmAccountSelectionView::Show(
           !new_accounts_[0]->fields.empty();
 
       if (should_show_verifying_sheet) {
+        // The verifying sheet is shown over the account chooser, not the IDP
+        // picker: choosing an IDP is not the same as verifying a chosen
+        // account. After logging in from the IDP picker, `accounts_` includes
+        // the returning account, so show the account chooser first. The
+        // verifying sheet then shows its spinner on the "use other account"
+        // button, as it does after logging in from that button with one IDP.
+        if (state_ == State::IDP_PICKER) {
+          ShowMultiAccountPicker(accounts_, idp_list_, rp_data_->rp_icon,
+                                 /*show_back_button=*/false);
+        }
         state_ = State::VERIFYING;
         if (!NotifyDelegate([&]() {
               delegate_->OnAccountSelected(
@@ -426,8 +427,17 @@ bool FedCmAccountSelectionView::Show(
         state_ = State::NEWLY_LOGGED_IN_ACCOUNT_PICKER;
       }
     }
+  } else if (dialog_type_ == DialogType::MODAL && idp_list_.size() > 1u &&
+             std::ranges::all_of(accounts, &Account::is_filtered_out)) {
+    // With multiple IDPs and no account to choose from, the account chooser
+    // would be empty, so open the IDP picker directly. There is no account
+    // chooser to go back to.
+    state_ = State::IDP_PICKER;
+    account_selection_view_->ShowIdpPicker(idp_list_, rp_data_->rp_icon,
+                                           /*show_back_button=*/false);
   } else if (idp_list_.size() == 1u && accounts_or_mismatches_size == 1u) {
-    if (dialog_type_ == DialogType::BUBBLE && has_filtered_out_accounts) {
+    if (dialog_type_ == DialogType::BUBBLE &&
+        std::ranges::any_of(accounts, &Account::is_filtered_out)) {
       // The logic to support add account is in ShowMultiAccountPicker for the
       // bubble dialog.
       ShowMultiAccountPicker(accounts_, idp_list_, rp_data_->rp_icon,
@@ -661,7 +671,7 @@ void FedCmAccountSelectionView::ShowUrl(LinkType link_type, const GURL& url) {
           delegate_->GetWebContents());
   TabStripModel* tab_strip_model = browser->GetTabStripModel();
 
-  DCHECK(tab_strip_model);
+  CHECK(tab_strip_model, base::NotFatalUntil::M162);
   // Add a tab for the URL at the end of the tab strip, in the foreground.
   tab_strip_model->delegate()->AddTabAt(url, -1, true);
 
@@ -741,8 +751,8 @@ void FedCmAccountSelectionView::OnAccountsDisplayed() {
 bool FedCmAccountSelectionView::OnAccountSelected(
     const IdentityRequestAccountPtr& account,
     const ui::Event& event) {
-  DCHECK(state_ != State::IDP_SIGNIN_STATUS_MISMATCH);
-  DCHECK(state_ != State::AUTO_REAUTHN);
+  CHECK(state_ != State::IDP_SIGNIN_STATUS_MISMATCH, base::NotFatalUntil::M162);
+  CHECK(state_ != State::AUTO_REAUTHN, base::NotFatalUntil::M162);
 
   if (input_protector_->IsPossiblyUnintendedInteraction(
           event, /*allow_key_events=*/false) ||
@@ -869,6 +879,27 @@ void FedCmAccountSelectionView::OnCloseButtonClicked(const ui::Event& event) {
     modal_loading_dialog_state_ = webid::LoadingDialogResult::kCancel;
   }
 
+  views::Widget* widget = GetDialogWidget();
+  if (!widget) {
+    OnUserClosedDialog(views::Widget::ClosedReason::kCloseButtonClicked);
+    return;
+  }
+
+  // Close the dialog in a separate task. The button can be pressed while a
+  // dialog view is still running, and closing synchronously would destroy
+  // that view while it runs.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&FedCmAccountSelectionView::CloseDialogForCloseButton,
+                     weak_ptr_factory_.GetWeakPtr(), widget->GetWeakPtr()));
+}
+
+void FedCmAccountSelectionView::CloseDialogForCloseButton(
+    base::WeakPtr<views::Widget> closing_widget) {
+  // Do nothing if the dialog was closed or replaced since the click.
+  if (!closing_widget || closing_widget.get() != GetDialogWidget()) {
+    return;
+  }
   OnUserClosedDialog(views::Widget::ClosedReason::kCloseButtonClicked);
 }
 
@@ -899,6 +930,44 @@ void FedCmAccountSelectionView::OnLoginToIdP(const GURL& idp_config_url,
           [&]() { delegate_->OnLoginToIdP(idp_config_url, idp_login_url); })) {
     return;
   }
+}
+
+void FedCmAccountSelectionView::OnIdpPickerRowClicked(
+    const GURL& idp_config_url,
+    const GURL& idp_login_url,
+    const ui::Event& event) {
+  // The modal stays clickable while a pop-up is open. If the user clicks
+  // another IDP row, starting a second login would point the request at the
+  // new IDP while the pop-up still shows the first IDP's login page. Bringing
+  // that pop-up back would not be safe either: the user could enter the
+  // credentials of the IDP they just clicked on the other IDP's login page.
+  // So ignore the click.
+  // TODO(crbug.com/575549004): Decide on the UX for this case, e.g. closing
+  // the open pop-up or disabling the modal while a pop-up is open.
+  if (popup_window_) {
+    return;
+  }
+
+  OnLoginToIdP(idp_config_url, idp_login_url, event);
+}
+
+void FedCmAccountSelectionView::OnShowIdpPickerClicked(const ui::Event& event) {
+  if (input_protector_->IsPossiblyUnintendedInteraction(
+          event, /*allow_key_events=*/false) ||
+      is_occluded_by_pip_) {
+    return;
+  }
+
+  // The user left the account chooser to use a different account.
+  if (modal_account_chooser_state_) {
+    modal_account_chooser_state_ =
+        webid::AccountChooserResult::kUseOtherAccountButton;
+  }
+
+  state_ = State::IDP_PICKER;
+  account_selection_view_->ShowIdpPicker(idp_list_, rp_data_->rp_icon,
+                                         /*show_back_button=*/true);
+  UpdateDialogPosition();
 }
 
 void FedCmAccountSelectionView::OnGotIt(const ui::Event& event) {
@@ -1147,6 +1216,9 @@ SheetType FedCmAccountSelectionView::GetSheetType() {
     case State::MULTI_ACCOUNT_PICKER:
     case State::REQUEST_PERMISSION:
     case State::NEWLY_LOGGED_IN_ACCOUNT_PICKER:
+    // The IDP picker is part of account selection: closing the IDP login
+    // pop-up opened from it must not cancel the flow.
+    case State::IDP_PICKER:
       return webid::SheetType::kAccountSelection;
 
     case State::VERIFYING:
@@ -1324,13 +1396,14 @@ AccountSelectionViewBase* FedCmAccountSelectionView::CreateDialogView(
 bool FedCmAccountSelectionView::IsIdpSigninPopupOpen() {
   // The IDP sign-in pop-up can be triggered either from the user triggering a
   // active flow with no accounts while the loading dialog is shown, the
-  // "Continue" button on the mismatch dialog or the "Add Account" button from
-  // an account picker.
+  // "Continue" button on the mismatch dialog, the "Add Account" button from
+  // an account picker or an IDP row on the IDP picker.
   return popup_window_ && (state_ == State::LOADING ||
                            state_ == State::IDP_SIGNIN_STATUS_MISMATCH ||
                            state_ == State::SINGLE_ACCOUNT_PICKER ||
                            state_ == State::MULTI_ACCOUNT_PICKER ||
-                           state_ == State::NEWLY_LOGGED_IN_ACCOUNT_PICKER);
+                           state_ == State::NEWLY_LOGGED_IN_ACCOUNT_PICKER ||
+                           state_ == State::IDP_PICKER);
 }
 
 void FedCmAccountSelectionView::PrimaryMainFrameWasResized(bool width_changed) {
@@ -1667,13 +1740,16 @@ bool FedCmAccountSelectionView::ShowAmbientBubble(
     const std::vector<IdentityProviderDataPtr>& idp_list,
     const std::vector<IdentityRequestAccountPtr>& accounts,
     const std::vector<IdentityRequestAccountPtr>& new_accounts) {
-  // Only a single account is supported for now. If the account requires
-  // disclosure text (e.g. a new account), the user reviews it in the modal
-  // dialog after accepting the bubble. See HandleAmbientBubbleDecision().
-  // TODO(crbug.com/567563304): Support multiple accounts, multiple IdPs, IdP
-  // login status mismatch and the "use other account" flow.
-  if (idp_list.size() != 1u || accounts.size() != 1u || !new_accounts.empty() ||
-      idp_list[0]->has_login_status_mismatch || accounts[0]->is_filtered_out) {
+  // Only accounts from a single IdP are supported for now. If the selected
+  // account requires disclosure text (e.g. a new account), the user reviews it
+  // in the modal dialog after accepting the bubble. See
+  // HandleAmbientBubbleDecision().
+  // TODO(crbug.com/567563304): Support multiple IdPs, IdP login status mismatch
+  // and the "use other account" flow, which the regular UI offers when accounts
+  // are filtered out.
+  if (idp_list.size() != 1u || accounts.empty() || !new_accounts.empty() ||
+      idp_list[0]->has_login_status_mismatch ||
+      std::ranges::any_of(accounts, &Account::is_filtered_out)) {
     return false;
   }
 
@@ -1706,39 +1782,59 @@ bool FedCmAccountSelectionView::ShowAmbientBubble(
     return false;
   }
 
-  const IdentityRequestAccountPtr& account = accounts[0];
-  ambient_signin::FederatedCredential federated_credential;
-  federated_credential.idp_name =
-      base::UTF8ToUTF16(account->identity_provider->idp_for_display);
-  // The bubble shows the account name (e.g. "John Doe") in the first row and
-  // falls back to the identifier, which may be an email address.
-  federated_credential.account_name = base::UTF8ToUTF16(account->display_name);
-  federated_credential.email = base::UTF8ToUTF16(account->display_identifier);
-  federated_credential.idp_origin =
-      url::Origin::Create(account->identity_provider->idp_metadata.config_url)
-          .GetURL();
-  federated_credential.icon =
-      ui::ImageModel::FromImageSkia(webid::ComputeAccountCircleCroppedPicture(
-          *account, kAmbientBubbleAvatarSize, /*idp_image=*/std::nullopt,
-          /*device_scale_factor=*/1.0f));
+  // The credentials are in the same order as the accounts, so the index of the
+  // selected credential is also the index of the account in `accounts_`.
   std::vector<ambient_signin::FederatedCredential> federated_credentials;
-  federated_credentials.push_back(std::move(federated_credential));
+  federated_credentials.reserve(accounts.size());
+  for (const IdentityRequestAccountPtr& account : accounts) {
+    ambient_signin::FederatedCredential& federated_credential =
+        federated_credentials.emplace_back();
+    federated_credential.idp_name =
+        base::UTF8ToUTF16(account->identity_provider->idp_for_display);
+    // The bubble shows the account name (e.g. "John Doe") in the first row and
+    // falls back to the identifier, which may be an email address.
+    federated_credential.account_name =
+        base::UTF8ToUTF16(account->display_name);
+    federated_credential.email = base::UTF8ToUTF16(account->display_identifier);
+    federated_credential.idp_origin =
+        url::Origin::Create(account->identity_provider->idp_metadata.config_url)
+            .GetURL();
+    federated_credential.icon =
+        ui::ImageModel::FromImageSkia(webid::ComputeAccountCircleCroppedPicture(
+            *account, ambient_signin::kAccountPictureSize,
+            /*idp_image=*/std::nullopt,
+            /*device_scale_factor=*/1.0f));
+    // Accounts with fields to share show the disclosure text in the modal
+    // dialog after the bubble. Other accounts are signed in right away, which
+    // the chip shows. These include all sign-in accounts, whose fields content
+    // always clears. See HandleAmbientBubbleDecision().
+    federated_credential.signs_in_directly = account->fields.empty();
+  }
 
   // TODO(crbug.com/567563304): Use the RP's frame as the requesting frame when
   // FedCM is invoked from an iframe.
   const GURL origin = main_frame->GetLastCommittedOrigin().GetURL();
-  // There is only one account, so the selected index is not needed; the
-  // decision is handled in OnAmbientBubbleDecided().
+  // If all accounts would sign up rather than sign in, only the chip is shown,
+  // and the bubble opens when the user clicks it.
+  const bool bubble_starts_open = std::ranges::any_of(
+      accounts, [](const IdentityRequestAccountPtr& account) {
+        return account->idp_claimed_login_state.value_or(
+                   account->browser_trusted_login_state) ==
+               Account::LoginState::kSignIn;
+      });
   auto request =
       std::make_unique<ambient_signin::AmbientLoginPermissionRequest>(
           origin, origin,
           std::vector<ambient_signin::PasskeyOrPasswordCredential>(),
           /*credential_selected_callback=*/base::NullCallback(),
           std::move(federated_credentials),
-          /*federated_selected_callback=*/base::NullCallback(),
+          base::BindOnce(
+              &FedCmAccountSelectionView::OnAmbientBubbleAccountSelected,
+              ambient_bubble_weak_ptr_factory_.GetWeakPtr()),
           base::BindRepeating(
               &FedCmAccountSelectionView::OnAmbientBubbleDecided,
-              ambient_bubble_weak_ptr_factory_.GetWeakPtr()));
+              ambient_bubble_weak_ptr_factory_.GetWeakPtr()),
+          bubble_starts_open);
 
   // Set before adding the request, since the decided callback runs
   // synchronously if the request is rejected right away.
@@ -1753,7 +1849,8 @@ bool FedCmAccountSelectionView::ShowAmbientBubble(
     return false;
   }
   dialog_type_ = DialogType::AMBIENT_BUBBLE;
-  state_ = State::SINGLE_ACCOUNT_PICKER;
+  state_ = accounts.size() == 1u ? State::SINGLE_ACCOUNT_PICKER
+                                 : State::MULTI_ACCOUNT_PICKER;
 
   // TODO(crbug.com/567563304): Notify the delegate when the bubble is actually
   // shown, since PermissionRequestManager may defer showing it.
@@ -1762,6 +1859,12 @@ bool FedCmAccountSelectionView::ShowAmbientBubble(
     std::move(accounts_widget_shown_callback_).Run();
   }
   return true;
+}
+
+void FedCmAccountSelectionView::OnAmbientBubbleAccountSelected(size_t index) {
+  // The decision is handled in OnAmbientBubbleDecided(), which runs right after
+  // this.
+  ambient_bubble_selected_account_index_ = index;
 }
 
 void FedCmAccountSelectionView::OnAmbientBubbleDecided(
@@ -1773,6 +1876,11 @@ void FedCmAccountSelectionView::OnAmbientBubbleDecided(
   }
   ambient_bubble_request_pending_ = false;
   ambient_login_permission_controller_.reset();
+
+  // Set right before this if the user accepted the bubble. See
+  // OnAmbientBubbleAccountSelected().
+  std::optional<size_t> selected_account_index =
+      std::exchange(ambient_bubble_selected_account_index_, std::nullopt);
 
   bool accepted = false;
   switch (decision.overall_decision) {
@@ -1794,30 +1902,35 @@ void FedCmAccountSelectionView::OnAmbientBubbleDecided(
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE,
       base::BindOnce(&FedCmAccountSelectionView::HandleAmbientBubbleDecision,
-                     ambient_bubble_weak_ptr_factory_.GetWeakPtr(), accepted));
+                     ambient_bubble_weak_ptr_factory_.GetWeakPtr(),
+                     accepted ? selected_account_index : std::nullopt));
 }
 
-void FedCmAccountSelectionView::HandleAmbientBubbleDecision(bool accepted) {
+void FedCmAccountSelectionView::HandleAmbientBubbleDecision(
+    std::optional<size_t> selected_account_index) {
   // Bail out if the request was closed or replaced in the meantime.
   if (!delegate_ || dialog_type_ != DialogType::AMBIENT_BUBBLE ||
-      state_ != State::SINGLE_ACCOUNT_PICKER ||
-      ambient_bubble_request_pending_ || accounts_.size() != 1u) {
+      (state_ != State::SINGLE_ACCOUNT_PICKER &&
+       state_ != State::MULTI_ACCOUNT_PICKER) ||
+      ambient_bubble_request_pending_) {
     return;
   }
 
-  if (!accepted) {
-    // The bubble was dismissed, e.g. by the user closing it or by the tab
-    // navigating away.
-    // TODO(crbug.com/567563304): Distinguish between the user explicitly
-    // closing the bubble and other dismissals so that the appropriate
-    // DismissReason (and cooldown) can be used.
+  if (!selected_account_index) {
+    // The request was dismissed or ignored, e.g. because the chip expired or
+    // the tab navigated away. Closing the bubble keeps the chip, and the
+    // request pending.
+    // TODO(crbug.com/567563304): Tell apart requests whose bubble the user
+    // closed so that the appropriate DismissReason (and cooldown) can be used.
     // `this` may be deleted after this call.
     std::ignore =
         NotifyDelegate([&]() { delegate_->OnDismiss(DismissReason::kOther); });
     return;
   }
 
-  IdentityRequestAccountPtr account = accounts_[0];
+  // Showing other UI would have cancelled the bubble, so `accounts_` still has
+  // the accounts that the bubble showed.
+  IdentityRequestAccountPtr account = accounts_[*selected_account_index];
   if (!account->fields.empty()) {
     // The ambient bubble does not show the disclosure text, so let the user
     // review it in the modal dialog before continuing.

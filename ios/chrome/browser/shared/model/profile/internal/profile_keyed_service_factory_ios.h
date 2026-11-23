@@ -1,0 +1,155 @@
+// Copyright 2024 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef IOS_CHROME_BROWSER_SHARED_MODEL_PROFILE_INTERNAL_PROFILE_KEYED_SERVICE_FACTORY_IOS_H_
+#define IOS_CHROME_BROWSER_SHARED_MODEL_PROFILE_INTERNAL_PROFILE_KEYED_SERVICE_FACTORY_IOS_H_
+
+#include <concepts>
+#include <memory>
+
+#include "base/functional/callback.h"
+#include "base/traits_bag.h"
+#include "base/types/pass_key.h"
+#include "components/keyed_service/core/keyed_service_factory.h"
+#include "ios/chrome/browser/shared/model/profile/profile_keyed_service_traits.h"
+#include "ios/chrome/browser/shared/model/profile/test/testing_factories.h"
+
+class ProfileIOS;
+class RefcountedProfileKeyedServiceFactoryIOS;
+class TestProfileIOS;
+
+// LINT.IfChange(ProfileKeyedServiceFactoryIOS)
+//
+// ProfileKeyedServiceFactoryIOS provides a ProfileIOS-specific interface for
+// KeyedServiceFactory under //ios/chrome/browser.
+//
+// It automates the registration with the DependencyManager, simplifies the
+// selection of the correct ProfileIOS to use when passed an off-the-record
+// ProfileIOS, simplifies the declaration that the service instance should
+// not be created during testing or that the service should be created with
+// the ProfileIOS.
+//
+// - Example of a factory that use the regular ProfileIOS in incognito:
+//
+// class ExampleKeyedServiceFactory : public ProfileKeyedServiceFactoryIOS {
+//  private:
+//   ExampleKeyedServiceFactory()
+//       : ProfileKeyedServiceFactoryIOS(
+//             "ExampleKeyedService",
+//             ProfileSelection::kRedirectedInIncognito) {}
+// };
+//
+// - Example of a factory creating the service with profile unless during tests.
+//
+// class ExampleKeyedServiceFactory : public ProfileKeyedServiceFactoryIOS {
+//  private:
+//   ExampleKeyedServiceFactory()
+//       : ProfileKeyedServiceFactoryIOS(
+//             "ExampleKeyedService",
+//             ServiceCreation::kCreateWithProfile,
+//             TestingCreation::kNoServiceForTests) {}
+// };
+//
+// Prefer inheriting from TypedProfileKeyedServiceFactoryIOS instead
+// of directly inheriting from ProfileKeyedServiceFactoryIOS.
+class ProfileKeyedServiceFactoryIOS : public KeyedServiceFactory {
+ public:
+  // List of traits that are valid for the constructor.
+  using ValidTraits =
+      base::ParameterPack<ProfileSelection, ServiceCreation, TestingCreation>;
+
+  // For SetTestingFactory(...).
+  using PassKey = base::PassKey<TestProfileIOS>;
+
+  // A callback that returns the instance of a KeyedService for a given
+  // ProfileIOS instance. This is used for testing where the test wants
+  // to create a specific test double for a service.
+  using TestingFactory = KeyedServiceTestingFactoryIOS;
+  using TestingFactoryByPtr = KeyedServiceTestingFactoryIOSByPtr;
+  using TestingFactoryByRef = KeyedServiceTestingFactoryIOSByRef;
+
+  // Constructor accepts zero or more traits.
+  template <typename... Traits>
+    requires base::trait_helpers::AreValidTraits<ValidTraits, Traits...>
+  NOINLINE ProfileKeyedServiceFactoryIOS(const char* name, Traits... traits)
+      : ProfileKeyedServiceFactoryIOS(
+            name,
+            base::trait_helpers::GetEnum<ProfileSelection,
+                                         ProfileSelection::kDefault>(traits...),
+            base::trait_helpers::GetEnum<ServiceCreation,
+                                         ServiceCreation::kDefault>(traits...),
+            base::trait_helpers::GetEnum<TestingCreation,
+                                         TestingCreation::kDefault>(traits...),
+            base::trait_helpers::NotATraitTag()) {}
+
+  // Associates `testing_factory` with `profile` so that `testing_factory` is
+  // used to create the KeyedService when requested.  `testing_factory` can be
+  // empty to signal that KeyedService should be null. Multiple calls to
+  // SetTestingFactory() are allowed; previous services will be shut down.
+  void SetTestingFactory(PassKey pass_key,
+                         ProfileIOS& profile,
+                         TestingFactoryByPtr testing_factory);
+
+  void SetTestingFactory(PassKey pass_key,
+                         ProfileIOS& profile,
+                         TestingFactoryByRef testing_factory);
+
+ protected:
+  // Helper that casts the value returned by GetKeyedServiceForProfile() to the
+  // sub-class T of KeyedService.
+  template <typename T>
+    requires std::convertible_to<T*, KeyedService*>
+  T* GetServiceForProfileAs(ProfileIOS& profile, bool create) {
+    return static_cast<T*>(GetServiceForProfile(profile, create));
+  }
+
+  // Registers any user preferences on this service. This should be overridden
+  // by any service that wants to register profile-specific preferences.
+  virtual void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
+
+  // Creates a new instance of the service for `profile`.
+  // TODO(crbug.com/576182342): Remove overloads and make pure virtual
+  // once all sub-classes have been converted to override the overload
+  // accepting a ProfileIOS& instead of a ProfileIOS*.
+  virtual std::unique_ptr<KeyedService> BuildServiceInstanceFor(
+      ProfileIOS& profile) const;
+  virtual std::unique_ptr<KeyedService> BuildServiceInstanceFor(
+      ProfileIOS* profile) const;
+
+  // The main public interface for declaring dependencies between services
+  // created by factories.
+  void DependsOn(ProfileKeyedServiceFactoryIOS* other);
+  void DependsOn(RefcountedProfileKeyedServiceFactoryIOS* other);
+
+ private:
+  // KeyedServiceFactory implementation:
+  void* GetContextToUse(void* context) const final;
+  bool ServiceIsCreatedWithContext() const final;
+  bool ServiceIsNULLWhileTesting() const final;
+  void RegisterPrefs(user_prefs::PrefRegistrySyncable* registry) final;
+  std::unique_ptr<KeyedService> BuildServiceInstanceFor(
+      void* context) const final;
+
+  // Common implementation that maps `profile` to some service object. Deals
+  // with incognito and testing profiles according to constructor traits. If
+  // `create` is true, the service will be create using
+  // BuildServiceInstanceFor() if it doesn't already exists.
+  KeyedService* GetServiceForProfile(ProfileIOS& profile, bool create);
+
+  // The template constructor has to be in the header but it delegates to this
+  // constructor to initialize all other members out-of-line
+  ProfileKeyedServiceFactoryIOS(const char* name,
+                                ProfileSelection profile_selection,
+                                ServiceCreation service_creation,
+                                TestingCreation testing_creation,
+                                base::trait_helpers::NotATraitTag);
+
+  // Policies for this factory.
+  const ProfileSelection profile_selection_;
+  const ServiceCreation service_creation_;
+  const TestingCreation testing_creation_;
+};
+// LINT.ThenChange(//ios/chrome/browser/shared/model/profile/internal/refcounted_profile_keyed_service_factory_ios.h:RefcountedProfileKeyedServiceFactoryIOS)
+
+#endif  // IOS_CHROME_BROWSER_SHARED_MODEL_PROFILE_INTERNAL_PROFILE_KEYED_SERVICE_FACTORY_IOS_H_

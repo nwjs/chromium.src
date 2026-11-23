@@ -4,23 +4,33 @@
 
 #include "chrome/browser/dictation/dictation_keyed_service.h"
 
+#include <vector>
+
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/dictation/dictation_keyed_service_factory.h"
 #include "chrome/browser/dictation/metrics.h"
 #include "chrome/browser/dictation/reviewing_page_status_ui_controller.h"
+#include "chrome/browser/dictation/scoped_global_hotkey.h"
 #include "chrome/browser/dictation/target.h"
 #include "chrome/browser/dictation/test_util.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/mock_tab_interface.h"
+#include "content/public/browser/global_dom_node_id.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
+#include "ui/base/accelerators/accelerator.h"
 #include "url/gurl.h"
 
 namespace dictation {
@@ -42,11 +52,57 @@ class DictationKeyedServiceTest : public testing::Test,
         .WillByDefault(testing::Return(web_contents_.get()));
     profile_.GetPrefs()->SetBoolean(prefs::kPrefDictationOnboardingCompleted,
                                     true);
-    service_ = std::make_unique<MockDictationKeyedService>(&profile_);
+    // Go through the factory so that DictationKeyedService::Get() (used by
+    // HotkeyManager) returns `service_`.
+    DictationKeyedServiceFactory::GetInstance()->SetTestingFactory(
+        &profile_, base::BindRepeating([](content::BrowserContext* context)
+                                           -> std::unique_ptr<KeyedService> {
+          return std::make_unique<MockDictationKeyedService>(
+              Profile::FromBrowserContext(context));
+        }));
+    service_ = static_cast<MockDictationKeyedService*>(
+        DictationKeyedService::Get(&profile_));
+    CHECK(service_);
   }
-  ~DictationKeyedServiceTest() override = default;
+  ~DictationKeyedServiceTest() override {
+    // `service_` is owned by `profile_`, which outlives `tab_` and
+    // `web_contents_`, so end any session that may refer to them.
+    if (SessionController* const controller = service_->session_controller()) {
+      controller->EndSessionSynchronously();
+    }
+  }
 
  protected:
+  ui::Accelerator hotkey() { return GetDictationHotkeyFromPrefs(&profile_); }
+  FakeGlobalAcceleratorListener& global_listener() {
+    return service_->fake_global_listener();
+  }
+  // Null unless Dictation is listening and hotkeys are enabled.
+  ScopedGlobalHotkey* global_hotkey() {
+    HotkeyManager* manager = service_->hotkey_manager_for_testing();
+    return manager ? manager->global_hotkey_for_testing() : nullptr;
+  }
+  void StartContextMenuSession() {
+    service_->StartSessionForTesting(tab_, EmptyTarget(),
+                                     DictationSessionEntryPoint::kContextMenu);
+  }
+
+  // Returns the ID of a node in the test page.
+  content::GlobalDOMNodeId TargetInPage(int dom_node_id) {
+    return content::GlobalDOMNodeId{
+        web_contents_->GetPrimaryMainFrame()->GetWeakDocumentPtr(),
+        blink::DOMNodeIdType(dom_node_id)};
+  }
+
+  // Ends the session as its close button does, and waits for it to end.
+  void EndSessionFromUi() {
+    SessionController* const controller = service_->session_controller();
+    ASSERT_NE(controller, nullptr);
+    controller->UiRequestEndSession();
+    ASSERT_TRUE(base::test::RunUntil(
+        [&]() { return !service_->session_controller(); }));
+  }
+
   bool StartSessionAndGetReviewingPageStatus(tabs::TabInterface& tab) {
     service_->StartSessionForTesting(tab, EmptyTarget(),
                                      DictationSessionEntryPoint::kContextMenu);
@@ -55,7 +111,7 @@ class DictationKeyedServiceTest : public testing::Test,
     auto* mock_ui = static_cast<MockSessionUi*>(controller->ui_for_testing());
     CHECK(mock_ui);
     const bool shown = mock_ui->show_reviewing_page_status();
-    service_->EndSession();
+    service_->session_controller()->EndSessionSynchronously();
     return shown;
   }
 
@@ -67,16 +123,10 @@ class DictationKeyedServiceTest : public testing::Test,
   std::unique_ptr<content::WebContents> web_contents_;
   tabs::MockTabInterface tab_;
   base::WeakPtrFactory<tabs::TabInterface> tab_weak_factory_;
-  std::unique_ptr<MockDictationKeyedService> service_;
+  raw_ptr<MockDictationKeyedService> service_;
 };
 
 INSTANTIATE_TEST_SUITE_P(All, DictationKeyedServiceTest, testing::Bool());
-
-// Ending a non-existent session should not crash.
-TEST_P(DictationKeyedServiceTest, EndSessionDoesNotCrash) {
-  ASSERT_EQ(service_->session_controller(), nullptr);
-  service_->EndSession();
-}
 
 TEST_P(DictationKeyedServiceTest, StartSessionWithNullTarget) {
   ASSERT_EQ(service_->session_controller(), nullptr);
@@ -89,7 +139,7 @@ TEST_P(DictationKeyedServiceTest, EndSessionRemovesController) {
   service_->StartSessionForTesting(tab_, EmptyTarget(),
                                    DictationSessionEntryPoint::kContextMenu);
   ASSERT_NE(service_->session_controller(), nullptr);
-  service_->EndSession();
+  service_->session_controller()->EndSessionSynchronously();
   EXPECT_EQ(service_->session_controller(), nullptr);
 }
 
@@ -168,13 +218,70 @@ TEST_P(DictationKeyedServiceTest, HotkeyIgnoredIfNoActiveBrowser) {
 }
 
 TEST_P(DictationKeyedServiceTest, HotkeyManagerLifecycle) {
-  EXPECT_NE(service_->local_hotkey_manager_for_testing(), nullptr);
+  EXPECT_NE(service_->hotkey_manager_for_testing(), nullptr);
 
   profile_.GetPrefs()->SetInteger(prefs::kVoiceTypingSettings, 2);
-  EXPECT_EQ(service_->local_hotkey_manager_for_testing(), nullptr);
+  EXPECT_EQ(service_->hotkey_manager_for_testing(), nullptr);
 
   profile_.GetPrefs()->SetInteger(prefs::kVoiceTypingSettings, 0);
-  EXPECT_NE(service_->local_hotkey_manager_for_testing(), nullptr);
+  EXPECT_NE(service_->hotkey_manager_for_testing(), nullptr);
+}
+
+TEST_P(DictationKeyedServiceTest, GlobalHotkeyRegisteredOnlyWhileListening) {
+  EXPECT_EQ(global_hotkey(), nullptr);
+  EXPECT_FALSE(global_listener().IsListeningFor(hotkey()));
+
+  StartContextMenuSession();
+  SessionController* controller = service_->session_controller();
+  ASSERT_NE(controller, nullptr);
+  ASSERT_EQ(controller->GetState(), SessionState::kStreamInitializing);
+  ASSERT_NE(global_hotkey(), nullptr);
+  EXPECT_TRUE(global_hotkey()->is_registered());
+  EXPECT_TRUE(global_listener().IsListeningFor(hotkey()));
+
+  controller->UiRequestEndActiveStream();
+  EXPECT_EQ(controller->GetState(), SessionState::kFinalizing);
+  EXPECT_EQ(global_hotkey(), nullptr);
+  EXPECT_FALSE(global_listener().IsListeningFor(hotkey()));
+}
+
+TEST_P(DictationKeyedServiceTest,
+       GlobalHotkeyUnregisteredWhenSessionEndsWhileListening) {
+  StartContextMenuSession();
+  ASSERT_TRUE(global_listener().IsListeningFor(hotkey()));
+
+  service_->session_controller()->HostTabDidClose();
+  ASSERT_EQ(service_->session_controller(), nullptr);
+  EXPECT_EQ(global_hotkey(), nullptr);
+  EXPECT_FALSE(global_listener().IsListeningFor(hotkey()));
+}
+
+TEST_P(DictationKeyedServiceTest, GlobalHotkeyUnregisteredOnPolicyDisable) {
+  StartContextMenuSession();
+  ASSERT_TRUE(global_listener().IsListeningFor(hotkey()));
+
+  profile_.GetPrefs()->SetInteger(prefs::kVoiceTypingSettings, 2);
+  EXPECT_EQ(global_hotkey(), nullptr);
+  EXPECT_FALSE(global_listener().IsListeningFor(hotkey()));
+}
+
+TEST_P(DictationKeyedServiceTest, GlobalHotkeyPressEndsStream) {
+  StartContextMenuSession();
+  SessionController* controller = service_->session_controller();
+  ASSERT_NE(controller, nullptr);
+  ASSERT_NE(controller->attached_stream_provider(), nullptr);
+
+  // No browser window is active in this test, so the press must only stop
+  // the stream (and never start a new one).
+  EXPECT_CALL(*service_, ToggleHotkeyHandler()).Times(0);
+  global_listener().Press(hotkey());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return !controller->attached_stream_provider(); }));
+
+  EXPECT_EQ(controller->attached_stream_provider(), nullptr);
+  EXPECT_EQ(controller->GetState(), SessionState::kFinalizing);
+  EXPECT_EQ(global_hotkey(), nullptr);
+  EXPECT_FALSE(global_listener().IsListeningFor(hotkey()));
 }
 
 TEST_P(DictationKeyedServiceTest, TabChangedCallbackNotified) {
@@ -191,9 +298,76 @@ TEST_P(DictationKeyedServiceTest, TabChangedCallbackNotified) {
   EXPECT_EQ(callback_count, 2);
   EXPECT_EQ(service_->GetActiveDictationTab(), &tab_);
 
-  service_->EndSession();
+  service_->session_controller()->EndSessionSynchronously();
   EXPECT_EQ(callback_count, 3);
   EXPECT_EQ(service_->GetActiveDictationTab(), nullptr);
+}
+
+TEST_P(DictationKeyedServiceTest, SessionEndedCallbackNotifiedWithTarget) {
+  std::vector<blink::DOMNodeIdType> targets;
+  base::CallbackListSubscription subscription =
+      service_->AddSessionEndedCallback(base::BindLambdaForTesting(
+          [&targets](const content::GlobalDOMNodeId& target) {
+            targets.push_back(target.target_element_dom_id);
+          }));
+
+  service_->StartSessionForTesting(tab_, TargetDetails(TargetInPage(1)),
+                                   DictationSessionEntryPoint::kContextMenu);
+  // Stopping dictation isn't enough; the session must end.
+  service_->session_controller()->EndDictationStream(
+      DictationStreamEndTrigger::kTest);
+  EXPECT_TRUE(targets.empty());
+
+  // Reported when the session ends, with the field it was invoked on.
+  EndSessionFromUi();
+  EXPECT_THAT(targets, testing::ElementsAre(blink::DOMNodeIdType(1)));
+
+  // Every session counts, whether or not it inserted text.
+  service_->StartSessionForTesting(tab_, TargetDetails(TargetInPage(2)),
+                                   DictationSessionEntryPoint::kContextMenu);
+  EndSessionFromUi();
+  EXPECT_THAT(targets, testing::ElementsAre(blink::DOMNodeIdType(1),
+                                            blink::DOMNodeIdType(2)));
+}
+
+TEST_P(DictationKeyedServiceTest,
+       SessionEndedCallbackNotifiedWhenServiceEndsSession) {
+  int callback_count = 0;
+  base::CallbackListSubscription subscription =
+      service_->AddSessionEndedCallback(base::BindLambdaForTesting(
+          [&callback_count](const content::GlobalDOMNodeId&) {
+            ++callback_count;
+          }));
+
+  // Disabling Dictation by policy makes the service end the session, which
+  // goes through the controller like any other session end.
+  service_->StartSessionForTesting(tab_, TargetDetails(TargetInPage(1)),
+                                   DictationSessionEntryPoint::kContextMenu);
+  profile_.GetPrefs()->SetInteger(prefs::kVoiceTypingSettings, 2);
+  EXPECT_EQ(service_->session_controller(), nullptr);
+  EXPECT_EQ(callback_count, 1);
+}
+
+TEST_P(DictationKeyedServiceTest, SessionEndedCallbackNotifiedWithoutDocument) {
+  int callback_count = 0;
+  base::CallbackListSubscription subscription =
+      service_->AddSessionEndedCallback(base::BindLambdaForTesting(
+          [&callback_count](const content::GlobalDOMNodeId&) {
+            ++callback_count;
+          }));
+
+  service_->StartSessionForTesting(tab_, TargetDetails(TargetInPage(1)),
+                                   DictationSessionEntryPoint::kContextMenu);
+  // Navigating away destroys the target's document, as long as it isn't kept
+  // in the back/forward cache, and ends the session. Listeners are still told,
+  // and decide what to do with a target whose page is gone.
+  content::DisableBackForwardCacheForTesting(
+      web_contents_.get(), content::BackForwardCache::TEST_REQUIRES_NO_CACHING);
+  content::WebContentsTester::For(web_contents_.get())
+      ->NavigateAndCommit(GURL("https://other.example/"));
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return !service_->session_controller(); }));
+  EXPECT_EQ(callback_count, 1);
 }
 
 TEST_P(DictationKeyedServiceTest,

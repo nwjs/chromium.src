@@ -19,6 +19,7 @@
 #include "chrome/common/chrome_paths_internal.h"
 #include "extensions/buildflags/buildflags.h"
 #include "media/media_buildflags.h"
+#include "ui/webui/buildflags.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/path_utils.h"
@@ -69,9 +70,6 @@ const base::FilePath::CharType kComponentUpdatedWidevineCdmHint[] =
 #endif  // BUILDFLAG(ENABLE_WIDEVINE)
 
 #if BUILDFLAG(IS_CHROMEOS)
-const base::FilePath::CharType kDeviceRefreshTokenFilePath[] =
-    FILE_PATH_LITERAL("/home/chronos/device_refresh_token");
-
 bool GetChromeOsCrdDataDirInternal(base::FilePath* result,
                                    bool* should_be_created) {
 #if BUILDFLAG(IS_CHROMEOS_DEVICE)
@@ -357,6 +355,14 @@ bool PathProvider(int key, base::FilePath* result) {
 #endif
       break;
 
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_WEBUI_GENERATE_CODE_CACHE)
+    case chrome::FILE_WEBUI_CODE_CACHE_PACK:
+      cur = base::apple::FrameworkBundlePath()
+                .Append(FILE_PATH_LITERAL("Resources"))
+                .Append(BUILDFLAG(WEBUI_CODE_CACHE_PAK_FILENAME));
+      break;
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS)
     case chrome::DIR_CHROMEOS_CRD_DATA:
       if (!GetChromeOsCrdDataDirInternal(&cur,
@@ -492,12 +498,6 @@ bool PathProvider(int key, base::FilePath* result) {
       cur = cur.Append(kGCMStoreDirname);
       break;
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_CHROMEOS)
-    case chrome::FILE_CHROME_OS_DEVICE_REFRESH_TOKEN:
-      cur = base::FilePath(kDeviceRefreshTokenFilePath);
-      break;
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
     case chrome::DIR_OPTIMIZATION_GUIDE_PREDICTION_MODELS:
       if (!base::PathService::Get(chrome::DIR_USER_DATA, &cur)) {

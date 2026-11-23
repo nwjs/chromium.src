@@ -67,6 +67,12 @@
 #   to the static LICENSE_KIND_TO_LICENSE_FILES object in
 #   //tools/crates/gnrt/lib/readme.rs instead.
 #
+# replace_with: A custom GN target label to use in place of this crate (e.g.
+#   `replace_with = "//third_party/rust/icu4x_data:lib"`). Crates that depend on
+#   this crate will have their dependency replaced with the specified GN target
+#   (and aliased via `aliased_deps`), while this crate will not be vendored or
+#   have a `BUILD.gn` file generated.
+#
 # security_critical: A boolean that overrides if the crate is marked security-
 #   critical in the README.chromium. It defaults to true if the crate is not in
 #   the 'test' group/.
@@ -88,8 +94,9 @@
 #     configs_to_remove / configs_to_add: A list of GN config labels.
 #
 #     cpp_api_from_rust: Either a boolean (e.g. `cpp_api_from_rust = true`) or
-#       a sub-table (e.g. `cpp_api_from_rust = { deps = ["png/v0_18"] }`) that
-#       asks for Crubit-based C++ bindings to be generated for the given crate.
+#       a sub-table (e.g.
+#       `cpp_api_from_rust = { bindings_deps = ["png/v0_18"] }`) that asks for
+#       Crubit-based C++ bindings to be generated for the given crate.
 #       See `//docs/rust/crubit/cpp_api_from_rust.md` for more details
 #       (and `//docs/rust/crubit/README.md` for general Crubit information).
 #
@@ -298,7 +305,7 @@ allow_unsafe = false
 allow_unsafe = false
 
 # TODO: Remove multiple versions of the `diplomat` crate:
-# diplomat@0.15.0, diplomat@0.16.0
+# diplomat@0.16.1, diplomat@0.17.0
 [crate.diplomat]
 group = 'safe'
 allow_first_party_usage = true
@@ -313,7 +320,7 @@ allow_first_party_usage = true
 extra_kv = { allow_unsafe = true }
 
 # TODO: Remove multiple versions of the `diplomat_core` crate:
-# diplomat_core@0.15.0, diplomat_core@0.16.0
+# diplomat_core@0.16.1, diplomat_core@0.17.0
 [crate.diplomat_core]
 group = 'safe'
 allow_first_party_usage = true
@@ -513,6 +520,14 @@ group = 'safe'
 allow_unsafe = true
 
 [crate.icu_locale_data]
+extra_input_roots = ['../data']
+extra_kv = { allow_unsafe = false }
+
+[crate.icu_locale_fallback]
+group = 'safe'
+extra_kv = { allow_unsafe = true }
+
+[crate.icu_locale_fallback_data]
 extra_input_roots = ['../data']
 extra_kv = { allow_unsafe = false }
 

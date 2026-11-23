@@ -8,11 +8,18 @@
 #include <memory>
 #include <numeric>
 
+#include "base/auto_reset.h"
+#include "base/containers/adapters.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
+#include "base/types/pass_key.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/infobars/infobar_view.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/infobars/core/infobar_delegate.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -74,6 +81,16 @@ void ContentShadow::OnThemeChanged() {
 BEGIN_METADATA(ContentShadow)
 END_METADATA
 
+bool CanHostQueuedCountPill(const infobars::InfoBar* infobar) {
+  if (!infobar->delegate()) {
+    return true;
+  }
+  // No pending indicator for critical security or non-closeable infobars.
+  return infobar->delegate()->GetPriority() !=
+             infobars::InfoBarDelegate::InfobarPriority::kCriticalSecurity &&
+         infobar->delegate()->IsCloseable();
+}
+
 }  // namespace
 
 constexpr int kSeparatorHeightDip = 1;
@@ -118,7 +135,7 @@ void InfoBarContainerView::Layout(PassKey) {
     child->SetBounds(0, top + add_separator_height, width(), height);
     return child->bounds().bottom();
   };
-  DCHECK_EQ(content_shadow_, children().back());
+  CHECK_EQ(content_shadow_, children().back(), base::NotFatalUntil::M162);
   const int top = std::accumulate(children().begin(),
                                   std::prev(children().end()), 0, set_bounds);
 
@@ -149,7 +166,7 @@ gfx::Size InfoBarContainerView::CalculatePreferredSize(
   // desirable.  On the other hand, it also means the browser doesn't know the
   // shadow is there and could lay out something atop it or size the window too
   // small for it; but these are unlikely.
-  DCHECK_EQ(content_shadow_, children().back());
+  CHECK_EQ(content_shadow_, children().back(), base::NotFatalUntil::M162);
   return std::accumulate(children().cbegin(), std::prev(children().cend()),
                          gfx::Size(), enlarge_size);
 }
@@ -159,11 +176,23 @@ void InfoBarContainerView::PlatformSpecificAddInfoBar(
     size_t position) {
   AddChildViewAt(static_cast<InfoBarView*>(infobar),
                  static_cast<int>(position));
+  if (!replacing_infobar_) {
+    UpdateQueuedCountPill();
+  }
 }
 
 void InfoBarContainerView::PlatformSpecificRemoveInfoBar(
     infobars::InfoBar* infobar) {
-  RemoveChildView(static_cast<InfoBarView*>(infobar));
+  auto* infobar_view = static_cast<InfoBarView*>(infobar);
+  if (queued_pill_host_ == infobar) {
+    queued_pill_host_ = nullptr;
+  }
+
+  infobar_view->SetQueuedInfoBarCount(0, base::PassKey<InfoBarContainerView>());
+  RemoveChildView(infobar_view);
+  if (!replacing_infobar_) {
+    UpdateQueuedCountPill(infobar);
+  }
 }
 
 void InfoBarContainerView::PlatformSpecificWillRemoveInfoBar(
@@ -224,6 +253,87 @@ void InfoBarContainerView::PlatformSpecificInfoBarShown(
     GetFocusManager()->SetStoredFocusView(view_to_focus);
   } else {
     view_to_focus->RequestFocus();
+  }
+}
+
+void InfoBarContainerView::PlatformSpecificPendingInfoBarCountChanged(
+    size_t count) {
+  if (!replacing_infobar_) {
+    UpdateQueuedCountPill();
+  }
+}
+
+void InfoBarContainerView::OnInfoBarRemoved(infobars::InfoBar* infobar,
+                                            bool animate) {
+  if (infobar == queued_pill_host_) {
+    base::UmaHistogramLongTimes(
+        "InfoBar.PendingIndicator.HostResolveTime",
+        base::TimeTicks::Now() - pill_shown_on_host_at_);
+  }
+
+  InfoBarContainerWithPriority::OnInfoBarRemoved(infobar, animate);
+  UpdateQueuedCountPill(infobar);
+}
+
+void InfoBarContainerView::OnInfoBarReplaced(infobars::InfoBar* old_infobar,
+                                             infobars::InfoBar* new_infobar) {
+  const bool was_pill_host = (old_infobar == queued_pill_host_);
+  const base::TimeTicks pill_shown_at = pill_shown_on_host_at_;
+  {
+    base::AutoReset<bool> replacing(&replacing_infobar_, true);
+    InfoBarContainerWithPriority::OnInfoBarReplaced(old_infobar, new_infobar);
+  }
+  UpdateQueuedCountPill(/*infobar=*/nullptr,
+                        /*preserve_pill_host=*/was_pill_host);
+  if (was_pill_host && !queued_pill_host_) {
+    base::UmaHistogramLongTimes("InfoBar.PendingIndicator.HostResolveTime",
+                                base::TimeTicks::Now() - pill_shown_at);
+  }
+}
+
+void InfoBarContainerView::UpdateQueuedCountPill(infobars::InfoBar* removing,
+                                                 bool preserve_pill_host) {
+  if (!base::FeatureList::IsEnabled(features::kInfoBarQueuedCountPill)) {
+    return;
+  }
+
+  const size_t count = PendingInfoBarCount();
+  InfoBarView* host = nullptr;
+  if (count > 0) {
+    for (infobars::InfoBar* infobar : base::Reversed(infobars())) {
+      if (infobar == removing || !infobar->owner()) {
+        continue;
+      }
+
+      if (CanHostQueuedCountPill(infobar)) {
+        host = static_cast<InfoBarView*>(infobar);
+      }
+
+      break;
+    }
+  }
+
+  if (queued_pill_host_ && queued_pill_host_ != host) {
+    queued_pill_host_->SetQueuedInfoBarCount(
+        0, base::PassKey<InfoBarContainerView>());
+  }
+
+  const bool newly_shown =
+      host && host != queued_pill_host_ && !preserve_pill_host;
+  queued_pill_host_ = host;
+  if (!host) {
+    return;
+  }
+
+  host->SetQueuedInfoBarCount(count, base::PassKey<InfoBarContainerView>());
+  if (newly_shown) {
+    pill_shown_on_host_at_ = base::TimeTicks::Now();
+    if (host->delegate()) {
+      base::UmaHistogramSparse("InfoBar.PendingIndicator.Shown",
+                               host->delegate()->GetIdentifier());
+    }
+    base::UmaHistogramExactLinear("InfoBar.PendingIndicator.CountAtShow",
+                                  static_cast<int>(count), 10);
   }
 }
 

@@ -123,6 +123,8 @@ class ContextualTasksUiService : public KeyedService {
   void AddObserver(Observer* observer);
   void RemoveObserver(Observer* observer);
 
+  Profile* profile() const { return profile_; }
+
   // Registers a tracked window with its ID, associated task ID, and URL.
   void RegisterWindow(ContextualTaskId task_id,
                       const GURL& url,
@@ -212,6 +214,9 @@ class ContextualTasksUiService : public KeyedService {
   // Returns the URL that a task was created for. Once this is retrieved, the
   // entry is removed from the cache.
   virtual std::optional<GURL> GetInitialUrlForTask(const base::Uuid& uuid);
+
+  // Sets the URL that the UI for a task loads initially.
+  virtual void SetInitialUrlForTask(const base::Uuid& task_id, const GURL& url);
 
   // Returns the URL that a task should be created for. This function does
   // not clear the entry from the cache.
@@ -353,6 +358,12 @@ class ContextualTasksUiService : public KeyedService {
   // the embedded page in the WebUI) search results page that contains the
   // correct params and isn't a shopping query.
   bool IsValidSearchResultsPage(const GURL& url);
+
+  // Returns whether a recreated side panel can load the provided URL again,
+  // e.g. for a reopened tab: a Google AI URL, or a valid Google Search results
+  // page like a Lens search. Excludes pages that the side panel only shows
+  // temporarily, like Google CAPTCHA and sign-in pages.
+  virtual bool IsRestorableSidePanelUrl(const GURL& url);
 
   // Returns whether the provided URL is a Google CAPTCHA ("sorry") page.
   virtual bool IsGoogleCaptchaUrl(const GURL& url);

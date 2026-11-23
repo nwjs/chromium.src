@@ -96,6 +96,7 @@
 #include "ui/events/event_constants.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/events/test/test_event_handler.h"
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
@@ -4702,6 +4703,175 @@ TEST_F(ShelfViewWindowPreviewTest, WindowDestroyedClosesPreview) {
 
   window2_.reset();
   EXPECT_FALSE(menu_adapter()->preview_bubble());
+}
+
+TEST_F(ShelfViewWindowPreviewTest, StaysOpenWhileMouseOverPreview) {
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ShelfWindowPreviewBubble* initial_bubble = menu_adapter()->preview_bubble();
+  ASSERT_TRUE(initial_bubble);
+
+  // Moving the mouse onto the preview bubble unselects the item, but the
+  // bubble stays open while the mouse is over it.
+  const gfx::Rect preview_bounds =
+      initial_bubble->GetWidget()->GetWindowBoundsInScreen();
+  GetEventGenerator()->MoveMouseTo(preview_bounds.CenterPoint());
+  EXPECT_FALSE(item0_->IsSelected());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kClosePreviewDelay *
+                                    2);
+  EXPECT_EQ(initial_bubble, menu_adapter()->preview_bubble());
+
+  // Moving the mouse back to the menu item keeps the same bubble.
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  EXPECT_TRUE(item0_->IsSelected());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kClosePreviewDelay *
+                                    2);
+  EXPECT_EQ(initial_bubble, menu_adapter()->preview_bubble());
+
+  // Moving the mouse out of the preview bubble, away from the menu, closes it
+  // after kClosePreviewDelay.
+  GetEventGenerator()->MoveMouseTo(preview_bounds.CenterPoint());
+  GetEventGenerator()->MoveMouseTo(preview_bounds.top_center() -
+                                   gfx::Vector2d(0, 50));
+  EXPECT_EQ(initial_bubble, menu_adapter()->preview_bubble());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kClosePreviewDelay);
+  EXPECT_FALSE(menu_adapter()->preview_bubble());
+  EXPECT_TRUE(menu_adapter()->IsShowingMenu());
+}
+
+TEST_F(ShelfViewWindowPreviewTest, ClickOnPreviewActivatesWindow) {
+  // `window2_` was created last and is the active window.
+  ASSERT_FALSE(wm::IsActiveWindow(window1_.get()));
+
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ASSERT_TRUE(menu_adapter()->preview_bubble());
+  EXPECT_EQ(window1_.get(), menu_adapter()->preview_bubble()->window());
+
+  // Clicking the preview bubble closes the menu and activates the window.
+  const gfx::Point preview_center = menu_adapter()
+                                        ->preview_bubble()
+                                        ->GetWidget()
+                                        ->GetWindowBoundsInScreen()
+                                        .CenterPoint();
+  title_item_ = nullptr;
+  item0_ = nullptr;
+  item1_ = nullptr;
+  GetEventGenerator()->MoveMouseTo(preview_center);
+  GetEventGenerator()->ClickLeftButton();
+  EXPECT_FALSE(menu_adapter());
+  EXPECT_TRUE(wm::IsActiveWindow(window1_.get()));
+}
+
+TEST_F(ShelfViewWindowPreviewTest, RightClickOnPreviewDoesNotActivateWindow) {
+  ASSERT_FALSE(wm::IsActiveWindow(window1_.get()));
+
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ASSERT_TRUE(menu_adapter()->preview_bubble());
+
+  const gfx::Point preview_center = menu_adapter()
+                                        ->preview_bubble()
+                                        ->GetWidget()
+                                        ->GetWindowBoundsInScreen()
+                                        .CenterPoint();
+  title_item_ = nullptr;
+  item0_ = nullptr;
+  item1_ = nullptr;
+  GetEventGenerator()->MoveMouseTo(preview_center);
+  GetEventGenerator()->ClickRightButton();
+  EXPECT_FALSE(wm::IsActiveWindow(window1_.get()));
+}
+
+TEST_F(ShelfViewWindowPreviewTest, TapOnPreviewActivatesWindow) {
+  ASSERT_FALSE(wm::IsActiveWindow(window1_.get()));
+
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ASSERT_TRUE(menu_adapter()->preview_bubble());
+
+  ui::test::TestEventHandler menu_handler;
+  aura::Window* menu_window = item0_->GetWidget()->GetNativeWindow();
+  menu_window->AddPreTargetHandler(&menu_handler);
+
+  const gfx::Point preview_center = menu_adapter()
+                                        ->preview_bubble()
+                                        ->GetWidget()
+                                        ->GetWindowBoundsInScreen()
+                                        .CenterPoint();
+
+  // Touch-dragging off the preview does not activate the window or leak touch
+  // or gesture events to the menu.
+  GetEventGenerator()->PressTouch(preview_center);
+  EXPECT_FALSE(wm::IsActiveWindow(window1_.get()));
+  ASSERT_TRUE(menu_adapter());
+  EXPECT_TRUE(menu_adapter()->preview_bubble());
+  GetEventGenerator()->MoveTouch({10, 10});
+  GetEventGenerator()->ReleaseTouch();
+  EXPECT_FALSE(wm::IsActiveWindow(window1_.get()));
+  ASSERT_TRUE(menu_adapter());
+  EXPECT_TRUE(menu_adapter()->preview_bubble());
+  EXPECT_EQ(0, menu_handler.num_touch_events());
+  EXPECT_EQ(0, menu_handler.num_gesture_events());
+
+  // Long-pressing on the preview does not activate the window, close the menu,
+  // or leak long-press/long-tap gestures to the menu.
+  GetEventGenerator()->PressTouch(preview_center);
+  task_environment()->FastForwardBy(base::Seconds(5));
+  GetEventGenerator()->ReleaseTouch();
+  EXPECT_FALSE(wm::IsActiveWindow(window1_.get()));
+  ASSERT_TRUE(menu_adapter());
+  EXPECT_TRUE(menu_adapter()->preview_bubble());
+  EXPECT_EQ(0, menu_handler.num_touch_events());
+  EXPECT_EQ(0, menu_handler.num_gesture_events());
+
+  menu_window->RemovePreTargetHandler(&menu_handler);
+
+  // Tapping the preview activates the window and closes the menu on release.
+  title_item_ = nullptr;
+  item0_ = nullptr;
+  item1_ = nullptr;
+  GetEventGenerator()->PressTouch(preview_center);
+  EXPECT_FALSE(wm::IsActiveWindow(window1_.get()));
+  ASSERT_TRUE(menu_adapter());
+  GetEventGenerator()->ReleaseTouch();
+  EXPECT_FALSE(menu_adapter());
+  EXPECT_TRUE(wm::IsActiveWindow(window1_.get()));
+}
+
+TEST_F(ShelfViewWindowPreviewTest,
+       PressingEscapeClosesPreviewAndKeepsMenuOpen) {
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ASSERT_TRUE(menu_adapter()->preview_bubble());
+
+  // Pressing 'Esc' closes the preview bubble, but keeps the menu open.
+  GetEventGenerator()->PressAndReleaseKey(ui::VKEY_ESCAPE);
+  EXPECT_FALSE(menu_adapter()->preview_bubble());
+  ASSERT_TRUE(menu_adapter());
+  EXPECT_TRUE(menu_adapter()->IsShowingMenu());
+
+  // Pressing 'Esc' again closes the menu.
+  title_item_ = nullptr;
+  item0_ = nullptr;
+  item1_ = nullptr;
+  GetEventGenerator()->PressAndReleaseKey(ui::VKEY_ESCAPE);
+  EXPECT_FALSE(menu_adapter());
+}
+
+TEST_F(ShelfViewWindowPreviewTest, ShiftEscapeCancelsMenuWithPreviewOpen) {
+  GetEventGenerator()->MoveMouseTo(item0_->GetBoundsInScreen().CenterPoint());
+  task_environment()->FastForwardBy(ShelfMenuModelAdapter::kShowPreviewDelay);
+  ASSERT_TRUE(menu_adapter()->preview_bubble());
+
+  // Modified 'Esc' (Shift+Esc) is not swallowed by the preview bubble, so the
+  // menu's pre-target handler cancels the menu on key press.
+  title_item_ = nullptr;
+  item0_ = nullptr;
+  item1_ = nullptr;
+  GetEventGenerator()->PressKey(ui::VKEY_ESCAPE, ui::EF_SHIFT_DOWN);
+  EXPECT_FALSE(menu_adapter());
+  GetEventGenerator()->ReleaseKey(ui::VKEY_ESCAPE, ui::EF_SHIFT_DOWN);
 }
 
 TEST_F(ShelfViewWindowPreviewTest, TooltipBubbleAfterDelay) {

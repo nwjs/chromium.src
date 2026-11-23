@@ -2927,7 +2927,9 @@ TEST_F(SunfishTest, NudgeDoesNotShowForAllUserTypes) {
   for (const auto& test_case : kUserTypeTestCases) {
     SCOPED_TRACE(test_case.trace);
     ClearLogin();
-    SimulateUserLogin({"example@gmail.com", test_case.user_type});
+    SimulateUserLogin(
+        {.account_id = AccountId::FromUserEmail("example@gmail.com"),
+         .user_type = test_case.user_type});
 
     auto* controller = StartCaptureSession(CaptureModeSource::kRegion,
                                            CaptureModeType::kImage);

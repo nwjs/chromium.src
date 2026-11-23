@@ -19,6 +19,10 @@ IN_PROC_BROWSER_TEST_F(SettingsFocusTest, ContactInfoPageFocus) {
   RunTest("settings/contact_info_page_focus_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(SettingsFocusTest, CrFocusRowMixin) {
+  RunTest("settings/cr_focus_row_mixin_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(SettingsFocusTest, PaymentsPageInteractive) {
   RunTest("settings/payments_page_interactive_test.js", "mocha.run()");
 }
@@ -77,6 +81,10 @@ IN_PROC_BROWSER_TEST_F(SettingsFocusTest, MAYBE_SettingsUISearch) {
 
 IN_PROC_BROWSER_TEST_F(SettingsFocusTest, Menu) {
   RunTest("settings/settings_menu_interactive_ui_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(SettingsFocusTest, ZoomLevels) {
+  RunTest("settings/zoom_levels_test.js", "runMochaSuite('ZoomLevelsFocus')");
 }
 
 class SettingsGlicSubpageFocusTest : public SettingsFocusTest {

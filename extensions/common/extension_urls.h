@@ -25,6 +25,15 @@ namespace extensions {
 // or internal (e.g., "event_bindings" or "schemaUtils").
 bool IsSourceFromAnExtension(const std::u16string& source);
 
+// Returns true if `url` targets the generated favicon endpoint, i.e. its path
+// is "/_favicon" or "/_favicon/". Only the path is checked; callers are
+// expected to pass an extension URL.
+bool IsGeneratedFaviconURL(const GURL& url);
+
+// Returns true if `url` targets the generated background page. Only the path
+// is checked; callers are expected to pass an extension URL.
+bool IsGeneratedBackgroundPageURL(const GURL& url);
+
 }  // namespace extensions
 
 namespace extension_urls {
@@ -35,7 +44,6 @@ namespace extension_urls {
 extern const char kChromeWebstoreBaseURL[];
 extern const char kChromeWebstoreUpdateURL[];
 extern const char kNewChromeWebstoreBaseURL[];
-extern const char kModernWebGuidanceURL[];
 
 // Various utm attribution sources for web store URLs.
 // From the sub-menu item in the extension menu inside the 3-dot menu.
@@ -74,10 +82,6 @@ extern const char kReviewContextMenuUtmSource[];
 // slash. Do not use this as a prefix/extent for the store.
 GURL GetWebstoreLaunchURL();
 GURL GetNewWebstoreLaunchURL();
-
-// Returns the URL to the Chrome Web Store's "Modern Web Guidance" page for
-// extensions.
-GURL GetModernWebGuidanceURL();
 
 // Returns a url with a utm_source query param value of `utm_source_value`
 // appended.

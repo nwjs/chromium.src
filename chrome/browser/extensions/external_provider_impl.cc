@@ -44,7 +44,6 @@
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "components/crx_file/id_util.h"
 #include "components/policy/core/common/policy_logger.h"
@@ -71,15 +70,16 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_extension_constants.h"
 #include "ash/constants/ash_paths.h"
 #include "ash/constants/ash_switches.h"
 #include "base/path_service.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_external_loader.h"
 #include "chrome/browser/ash/customization/customization_document.h"
 #include "chrome/browser/ash/extensions/authentication_screen_extensions_external_loader.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/core/device_local_account_policy_service.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/chromeos/app_mode/kiosk_app_external_loader.h"
 #include "chrome/browser/chromeos/extensions/external_loader/device_local_account_external_policy_loader.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"

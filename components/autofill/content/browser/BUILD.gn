@@ -26,6 +26,8 @@ static_library("browser") {
     "integrators/actor/autofill_annotations_provider_impl.h",
     "integrators/email_verifier/email_verifier_delegate.cc",
     "integrators/email_verifier/email_verifier_delegate.h",
+    "renderer_data_validation.cc",
+    "renderer_data_validation.h",
     "renderer_forms_from_browser_form.cc",
     "renderer_forms_from_browser_form.h",
     "risk/fingerprint.cc",
@@ -76,7 +78,6 @@ static_library("browser") {
     "//ui/gfx/geometry",
     "//url",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   if (!is_android) {
     deps += [ "//components/webauthn/content/browser" ]
@@ -157,15 +158,14 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("browser_tests") {
   testonly = true
-  sources = [ "risk/fingerprint_browsertest.cc" ]
+  sources = [
+    "renderer_data_validation_browsertest.cc",
+    "risk/fingerprint_browsertest.cc",
+  ]
 
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
@@ -175,11 +175,13 @@ source_set("browser_tests") {
     "//content/public/browser",
     "//content/test:browsertest_support",
     "//content/test:test_support",
+    "//net:test_support",
     "//services/device/public/cpp:test_support",
     "//services/device/public/cpp/geolocation",
     "//services/device/public/mojom",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/display",
     "//ui/gfx/geometry",
   ]
 }

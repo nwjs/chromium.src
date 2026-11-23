@@ -42,10 +42,12 @@
 #include "chrome/common/chrome_features.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/browser_delegate/browser_type.h"
+#include "chromeos/ui/base/window_properties.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_info.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
+#include "ui/aura/window.h"
 #include "ui/base/base_window.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -246,8 +248,8 @@ content::WebContents* BrowserDelegateImpl::AddTab(
       url.is_empty() ? chrome::GetNewTabURL(&browser_.get()) : url;
   NavigateParams params(&browser_.get(), resolved_url, transition);
   params.disposition = disposition == TabDisposition::kForeground
-                           ? WindowOpenDisposition::NEW_FOREGROUND_TAB
-                           : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+                           ? WindowOpenDisposition::kNewForegroundTab
+                           : WindowOpenDisposition::kNewBackgroundTab;
   if (index.has_value()) {
     params.tabstrip_index = static_cast<int>(*index);
   }
@@ -269,23 +271,26 @@ void BrowserDelegateImpl::ForceCloseWebContentsAt(size_t index) {
   browser_->tab_strip_model()->DetachAndDeleteWebContentsAt(index);
 }
 
-content::WebContents* BrowserDelegateImpl::NavigateWebApp(
+content::WebContents* BrowserDelegateImpl::LoadUrl(
     const GURL& url,
-    TabPinning pin_tab,
-    std::optional<webapps::LaunchParams> launch_params) {
-  CHECK(GetType() == BrowserType::kApp || GetType() == BrowserType::kAppPopup)
-      << "Unexpected browser type " << static_cast<int>(GetType()) << "("
-      << browser_->GetType() << ")";
+    ui::PageTransition transition,
+    LoadUrlParams params) {
+  const bool is_app_browser =
+      GetType() == BrowserType::kApp || GetType() == BrowserType::kAppPopup;
 
-  NavigateParams nav_params(&browser_.get(), url,
-                            ui::PAGE_TRANSITION_AUTO_BOOKMARK);
-  if (pin_tab == TabPinning::kYes) {
+  NavigateParams nav_params(&browser_.get(), url, transition);
+  if (params.show_window) {
+    nav_params.window_action = NavigateParams::WindowAction::kShowWindow;
+  }
+  if (params.pin_tab) {
+    CHECK(is_app_browser);
     nav_params.tabstrip_add_types |= AddTabTypes::ADD_PINNED;
   }
-  if (launch_params) {
+  if (params.launch_params) {
+    CHECK(is_app_browser);
     nav_params.web_app_navigation_data.emplace();
     nav_params.web_app_navigation_data->SetLaunchParams(
-        *std::move(launch_params));
+        *std::move(params.launch_params));
   }
 
   Navigate(&nav_params);
@@ -415,7 +420,11 @@ bool BrowserDelegateImpl::IsOnTaskState(OnTaskState state) const {
       case OnTaskState::kPrepared:
         return controller->GetState() == chromeos::LockedState::kOnTaskPrepared;
       case OnTaskState::kLocked:
-        return controller->GetState() == chromeos::LockedState::kOnTaskLocked;
+        // Paused is a locked (pinned) state with additional restrictions, so
+        // it also counts as locked. This matches the legacy implementation.
+        return controller->GetState() == chromeos::LockedState::kOnTaskLocked ||
+               controller->GetState() ==
+                   chromeos::LockedState::kOnTaskLockedPaused;
       case OnTaskState::kPaused:
         return controller->GetState() ==
                chromeos::LockedState::kOnTaskLockedPaused;
@@ -439,6 +448,13 @@ bool BrowserDelegateImpl::IsOnTaskState(OnTaskState state) const {
                  ->is_locked_for_on_task() &&
              IsLockedFullscreen();
   }
+}
+
+void BrowserDelegateImpl::SetImmersiveAllowedWhileTrustedPinned(bool allowed) {
+  GetNativeWindow()->SetProperty(chromeos::kUseImmersiveInTrustedPinned,
+                                 allowed);
+  BrowserView::GetBrowserViewForBrowser(&browser_.get())
+      ->FullscreenStateChanged();
 }
 
 void BrowserDelegateImpl::EnterLockedFullscreen() {

@@ -36,6 +36,7 @@
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/l10n/time_format.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/range/range.h"
@@ -49,14 +50,14 @@ struct SortableTabGroup {
   base::Time last_used_time;
 };
 
-base::Time GetLastUsedTime(const tab_groups::SavedTabGroup& group) {
-  if (!group.last_user_interaction_time().is_null()) {
-    return group.last_user_interaction_time();
+std::string GetLastActiveElapsedText(const base::Time& last_active_time) {
+  if (last_active_time.is_null()) {
+    return std::string();
   }
-  if (!group.update_time().is_null()) {
-    return group.update_time();
-  }
-  return group.creation_time();
+  const base::TimeDelta elapsed =
+      std::max(base::TimeDelta(), base::Time::Now() - last_active_time);
+  return base::UTF16ToUTF8(ui::TimeFormat::Simple(
+      ui::TimeFormat::FORMAT_ELAPSED, ui::TimeFormat::LENGTH_SHORT, elapsed));
 }
 
 base::Time GetLastUsedTime(TabStripModel* tab_strip_model,
@@ -73,6 +74,44 @@ base::Time GetLastUsedTime(TabStripModel* tab_strip_model,
   return last_used_time;
 }
 
+base::Time GetLastUsedTime(const tab_groups::TabGroupId& group_id) {
+  BrowserWindowInterface* browser =
+      tab_groups::SavedTabGroupUtils::GetBrowserWithTabGroupId(group_id);
+  if (!browser || !browser->GetTabStripModel()) {
+    return base::Time();
+  }
+  TabStripModel* tab_strip_model = browser->GetTabStripModel();
+  if (!tab_strip_model->SupportsTabGroups() ||
+      !tab_strip_model->group_model()->ContainsTabGroup(group_id)) {
+    return base::Time();
+  }
+  return GetLastUsedTime(tab_strip_model,
+                         tab_strip_model->group_model()->GetTabGroup(group_id));
+}
+
+base::Time GetLastUsedTime(const TabGroup* tab_group) {
+  return GetLastUsedTime(tab_group->id());
+}
+
+base::Time GetLastUsedTime(const tab_groups::SavedTabGroup& group) {
+  base::Time last_used_time = group.last_user_interaction_time();
+
+  for (const tab_groups::SavedTabGroupTab& tab : group.saved_tabs()) {
+    last_used_time = std::max({
+        last_used_time,
+        tab.update_time(),
+        tab.navigation_time(),
+    });
+  }
+
+  if (group.local_group_id().has_value()) {
+    last_used_time =
+        std::max(last_used_time, GetLastUsedTime(*group.local_group_id()));
+  }
+
+  return last_used_time.is_null() ? group.creation_time() : last_used_time;
+}
+
 organizer_panel::mojom::TabGroupPtr CreateMojoTabGroup(
     const tab_groups::SavedTabGroup& group) {
   auto tab_group = organizer_panel::mojom::TabGroup::New();
@@ -81,14 +120,26 @@ organizer_panel::mojom::TabGroupPtr CreateMojoTabGroup(
       tab_groups::TabGroupMenuUtils::GetMenuTextForGroup(group));
   tab_group->color = group.color();
   tab_group->is_open = group.local_group_id().has_value();
+  const base::Time time = GetLastUsedTime(group);
+  if (!time.is_null()) {
+    tab_group->last_active_elapsed_text = GetLastActiveElapsedText(time);
+  }
   return tab_group;
 }
 
 organizer_panel::mojom::TabGroupPtr CreateMojoTabGroup(const TabGroup* group) {
-  auto tab_group = CreateMojoTabGroup(
-      tab_groups::SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(
-          group->id()));
+  auto tab_group = organizer_panel::mojom::TabGroup::New();
   tab_group->id = tab_groups::LocalTabGroupIDToString(group->id());
+  tab_group->title =
+      base::UTF16ToUTF8(tab_groups::TabGroupMenuUtils::GetMenuTextForGroup(
+          tab_groups::SavedTabGroupUtils::CreateSavedTabGroupFromLocalId(
+              group->id())));
+  tab_group->color = group->visual_data()->color();
+  tab_group->is_open = true;
+  const base::Time time = GetLastUsedTime(group);
+  if (!time.is_null()) {
+    tab_group->last_active_elapsed_text = GetLastActiveElapsedText(time);
+  }
   return tab_group;
 }
 
@@ -136,8 +187,8 @@ void TabGroupsOrganizerPageHandler::GetTabGroups(
       if (group.saved_tabs().empty()) {
         continue;
       }
-      sortable_groups.push_back(
-          {CreateMojoTabGroup(group), GetLastUsedTime(group)});
+      base::Time last_used_time = GetLastUsedTime(group);
+      sortable_groups.push_back({CreateMojoTabGroup(group), last_used_time});
     }
   }
 
@@ -150,9 +201,10 @@ void TabGroupsOrganizerPageHandler::GetTabGroups(
             for (const tab_groups::TabGroupId& group_id :
                  tab_strip_model->group_model()->ListTabGroups()) {
               if (const TabGroup* tab_group = GetUnsavedTabGroup(group_id)) {
+                base::Time last_used_time =
+                    GetLastUsedTime(tab_strip_model, tab_group);
                 sortable_groups.push_back(
-                    {CreateMojoTabGroup(tab_group),
-                     GetLastUsedTime(tab_strip_model, tab_group)});
+                    {CreateMojoTabGroup(tab_group), last_used_time});
               }
             }
           }

@@ -27,6 +27,7 @@
 
 #include "base/functional/callback.h"
 #include "base/unguessable_token.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
@@ -177,14 +178,13 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
                                const TextEncoding& encoding);
 
   void InvalidateListedElementsForAutofill();
-  void InvalidateListedElements();
   void UseCountPropertyAccess(v8::Local<v8::Name>&,
                               const v8::PropertyCallbackInfo<v8::Value>&);
 
   bool IsActiveToolSubmitButton(const HTMLFormControlElement* element) const;
   bool MatchesToolFormActivePseudoClass() const;
 
-  std::optional<base::UnguessableToken> GetActiveWebMCPToolInvocationId() const;
+  std::optional<ToolInvocationToken> GetActiveWebMCPToolInvocationId() const;
 
  private:
   friend class HTMLFormMcpToolTest;
@@ -245,6 +245,9 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
   void RemoveFromPastNamesMap(HTMLElement&);
   bool PastNamesEmpty() const;
 
+  // Whether `this`'s document can have declarative WebMCP tools at all,
+  // independent of `this`'s attributes.
+  bool CanDocumentHaveDeclarativeWebMCPTools() const;
   void ScheduleDeclarativeWebMCPToolRegistration();
   void RegisterDeclarativeWebMCPTool();
   void ReportInvalidMCPFormIssueIfNeeded(const String& name,
@@ -295,7 +298,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
     String ComputeInputSchema() override;
     Element* FormElement() const override { return form_; }
     void ExecuteTool(
-        const base::UnguessableToken& invocation_id,
+        const ToolInvocationToken& invocation_id,
         String input_arguments,
         base::OnceCallback<void(McpToolCallbackResult)> done_callback) override;
     void CancelTool() override;
@@ -313,7 +316,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
     void SetLastComputedSchema(String schema) {
       last_computed_schema_ = schema;
     }
-    std::optional<base::UnguessableToken> InvocationId() const {
+    std::optional<ToolInvocationToken> InvocationId() const {
       return invocation_id_;
     }
     bool CurrentlyRunning() const { return is_currently_running_; }
@@ -353,7 +356,7 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
     Member<HTMLFormElement> form_;
     Member<HTMLFormControlElement> active_submit_button_;
     base::OnceCallback<void(McpToolCallbackResult)> done_callback_;
-    std::optional<base::UnguessableToken> invocation_id_;
+    std::optional<ToolInvocationToken> invocation_id_;
   };
 
   void HandleWebMcpToolResponse(HTMLFormMcpTool* tool,
@@ -361,7 +364,8 @@ class CORE_EXPORT HTMLFormElement final : public HTMLElement {
                                 ScriptState* script_state,
                                 ScriptValue value);
 
-  // Used only for (experimental) declarative WebMCP.
+  // Used only for (experimental) declarative WebMCP. Non-null iff this tool is
+  // registered with the `ModelContext` of `GetDocument()`.
   Member<HTMLFormMcpTool> active_webmcp_tool_;
 
   bool is_submitting_ = false;

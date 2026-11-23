@@ -58,7 +58,6 @@ Novih zaznamkov ni mogoče shraniti v račun, dokler nekaterih ne izbrišete. Č
 <translation id="2027881372245801507">Če izklopite predloge, to ne vpliva na Chromiumovo obdelavo naslovov strani in URL-jev za druge funkcije. Dostop do teh podatkov lahko upravljate v <ph name="BEGIN_LINK" />nastavitvah sinhronizacije<ph name="END_LINK" />.</translation>
 <translation id="2036929290919363111">Prijavite se na tem spletnem mestu in v Chromiumu, če želite dostopati do gesel in drugega v vseh napravah</translation>
 <translation id="2042889939382983733">Ogled zgodovine v Chromiumu</translation>
-<translation id="2052320862053429062">Chromium občasno preveri vaša gesla, tako da jih primerja s seznami gesel, objavljenimi v spletu. Pri tem so vaša gesla in uporabniška imena šifrirana, da jih ne more prebrati nihče, vključno z Googlom.</translation>
 <translation id="2059365270911640413">Dokončajte nastavitev Chromiuma</translation>
 <translation id="2168108852149185974">Nekateri dodatki povzročajo zrušitve Chromiuma. Odstranite jih:</translation>
 <translation id="2168593389981132306">Izboljšajte Chromium</translation>
@@ -69,7 +68,6 @@ Novih zaznamkov ni mogoče shraniti v račun, dokler nekaterih ne izbrišete. Č
 <translation id="2236584955986023187">To pomeni, da bo Chromium vsakič zahteval spletno mesto za namizne naprave.</translation>
 <translation id="2245694534483711162">Gemini lahko uporablja vašo natančno lokacijo, in sicer odvisno od dovoljenja, ki ste ga že dali Chromiumu</translation>
 <translation id="2270466829363945454">Trgovina</translation>
-<translation id="2313870531055795960">Preveri URL-je, tako da jih primerja s seznamom spletnih mest, ki niso varna, shranjenim v Chromiumu. Če vam spletno mesto poskusi ukrasti geslo ali če prenašate škodljivo datoteko, lahko Chromium prav tako pošlje URL-je, vključno z delčki vsebine strani, Varnemu brskanju.</translation>
 <translation id="2314220608288760290">Chromium samodejno odpre povezave v anonimnem načinu v YouTubu v anonimnem načinu.</translation>
 <translation id="231828342043114302">Če želite prejemati osebno prilagojeno vsebino glede na zanimanja, se prijavite v Chromium.</translation>
 <translation id="2334943301233020675">Upravitelj gesel ni mogel uvoziti naslednjih ključev za dostop, ker se ne ujemajo z zahtevami.</translation>
@@ -289,7 +287,6 @@ Kaj je treba upoštevati:
 <translation id="6831043979455480757">Prevedi</translation>
 <translation id="6852419005633611413">Hitrejši dostop do Chromiuma iz vrstice Dock na začetnem zaslonu</translation>
 <translation id="6852799557929001644">Dostopajte do gesel v Chromiumu in drugega v drugih aplikacijah v tej napravi.</translation>
-<translation id="6887138405044152640">Če želite ta zavihek poslati v drugo napravo, se v njej prijavite v Chromium.</translation>
 <translation id="6911341667534646387">Še naprej uporabljajte podatke v Chromiumu v računu Google</translation>
 <translation id="6992760259282302305">Uporabi Chromium kot privzeto možnost</translation>
 <translation id="7018284295775193585">Chromiuma ni mogoče posodobiti</translation>

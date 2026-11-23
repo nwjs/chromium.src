@@ -5,6 +5,7 @@
 #include "chrome/browser/actor/ui/actor_overlay_web_view.h"
 
 #include <memory>
+#include <string>
 
 #include "base/functional/callback_helpers.h"
 #include "base/test/scoped_feature_list.h"
@@ -16,8 +17,10 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "content/public/test/browser_task_environment.h"
+#include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_web_ui.h"
+#include "net/base/net_errors.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -39,6 +42,7 @@ class MockActorOverlayUI : public ActorOverlayUI {
               (const gfx::Point&, base::OnceClosure),
               (override));
   MOCK_METHOD(void, TriggerClickAnimation, (base::OnceClosure), (override));
+  MOCK_METHOD(void, SetCursorChip, (const std::string&), (override));
 };
 
 class TestActorOverlayWebView : public ActorOverlayWebView {
@@ -122,6 +126,31 @@ TEST_F(ActorOverlayWebViewTestBase, SetBorderGlowVisibilityHandlesNullWebUi) {
   // Verifies that the null check prevents a crash.
   web_view_->SetBorderGlowVisibility(true);
   web_view_->SetBorderGlowVisibility(false);
+}
+
+TEST_F(ActorOverlayWebViewTestBase, SetCursorChipForwardsToWebUI) {
+  web_view_->set_web_ui(mock_web_ui_.get());
+  EXPECT_CALL(*mock_web_ui_, SetCursorChip("Searching"));
+  web_view_->SetCursorChip("Searching");
+}
+
+TEST_F(ActorOverlayWebViewTestBase, SetCursorChipHandlesNullWebUi) {
+  web_view_->set_web_ui(nullptr);
+  // Verifies that the null check prevents a crash.
+  web_view_->SetCursorChip("Searching");
+}
+
+TEST_F(ActorOverlayWebViewTestBase, DropsCallsWhenOverlayNavigationFails) {
+  // Uses the real GetWebUi(), unlike TestActorOverlayWebView.
+  ActorOverlayWebView web_view(&mock_browser_window_);
+  content::NavigationSimulator::NavigateAndFailFromBrowser(
+      web_view.GetWebContents(), GURL(chrome::kChromeUIActorOverlayURL),
+      net::ERR_FAILED);
+  ASSERT_FALSE(web_view.web_contents()->GetWebUI());
+
+  web_view.SetOverlayBackground(true);
+  web_view.SetBorderGlowVisibility(true);
+  web_view.SetCursorChip("Searching");
 }
 
 class ActorOverlayWebViewMagicCursorEnabledTest

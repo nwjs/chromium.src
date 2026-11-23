@@ -681,6 +681,7 @@ source_set("browser_sources") {
     "//services/device/public/mojom",
     "//services/metrics/public/cpp:metrics_cpp",
     "//services/metrics/public/cpp:ukm_builders",
+    "//services/network/public/cpp",
     "//services/network/public/mojom",
     "//services/preferences/public/cpp",
     "//services/service_manager/public/cpp",
@@ -1043,10 +1044,6 @@ source_set("test_support") {
       "//components/safe_browsing/core/browser/db:test_database_manager",
     ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 # The set of sources that are needed for both browser and unit tests.

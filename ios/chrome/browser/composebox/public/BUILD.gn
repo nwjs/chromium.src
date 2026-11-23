@@ -15,7 +15,6 @@ group("public") {
     ":input_item_source",
     ":input_plate_controls",
     ":input_plate_position",
-    ":model_options",
     ":theme",
   ]
 }
@@ -66,11 +65,6 @@ source_set("input_plate_controls") {
   deps = [ "//base" ]
 }
 
-source_set("model_options") {
-  sources = [ "composebox_model_option.h" ]
-  deps = [ "//base" ]
-}
-
 source_set("attachment_options") {
   sources = [ "composebox_attachment_option.h" ]
   deps = [ "//base" ]
@@ -91,10 +85,7 @@ source_set("attachment_selection") {
     "composebox_attachment_selection.h",
     "composebox_attachment_selection.mm",
   ]
-  public_deps = [
-    "//ios/chrome/browser/composebox/shared/coordinator",
-    "//ios/web/public",
-  ]
+  public_deps = [ "//ios/web/public" ]
   deps = [ "//base" ]
 }
 
@@ -112,10 +103,13 @@ source_set("focus_params") {
     ":attachment_selection",
     ":composebox_mode",
     ":entrypoint",
-    ":model_options",
     "//ios/chrome/browser/composebox/shared/coordinator",
     "//ios/chrome/browser/composebox/shared/metrics",
     "//ios/web/public",
+    "//third_party/omnibox_proto",
   ]
-  deps = [ "//base" ]
+  deps = [
+    "//base",
+    "//components/contextual_search:public",
+  ]
 }

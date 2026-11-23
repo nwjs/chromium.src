@@ -1,0 +1,107 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef COMPONENTS_ONE_TIME_TOKENS_CORE_BROWSER_SMS_OTP_SERVICE_IMPL_H_
+#define COMPONENTS_ONE_TIME_TOKENS_CORE_BROWSER_SMS_OTP_SERVICE_IMPL_H_
+#include <optional>
+#include <string_view>
+
+#include "base/callback_list.h"
+#include "base/functional/callback.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/types/expected.h"
+#include "components/one_time_tokens/core/browser/one_time_token.h"
+#include "components/one_time_tokens/core/browser/one_time_token_log_sink.h"
+#include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
+#include "components/one_time_tokens/core/browser/sms_otp_backend.h"
+#include "components/one_time_tokens/core/browser/sms_otp_service.h"
+#include "components/one_time_tokens/core/browser/util/expiring_cache.h"
+#include "components/one_time_tokens/core/browser/util/expiring_subscription_manager.h"
+
+namespace one_time_tokens {
+
+// The GMSCore API returns SMS that were received up to one minute ago. This
+// means that the first call to fetch SMS may return a stale SMS OTPs and we
+// need to keep polling to learn about more recent OTPs. This interval specifies
+// how often a request is submitted even if the API returned a SMS.
+inline constexpr base::TimeDelta kSmsRefetchInterval = base::Seconds(5);
+
+// Service to subscribe to one time tokens. One instance per profile.
+class SmsOtpServiceImpl : public SmsOtpService {
+ public:
+  // If `sms_otp_backend` is null, this class does not do any SMS-based
+  // subscriptions. If `log_handler` is provided, it is registered with
+  // `log_sink_` for the lifetime of this service.
+  explicit SmsOtpServiceImpl(SmsOtpBackend* sms_otp_backend,
+                             OneTimeTokenLogSink::LogHandler log_handler = {});
+  SmsOtpServiceImpl(const SmsOtpServiceImpl&) = delete;
+  SmsOtpServiceImpl& operator=(const SmsOtpServiceImpl&) = delete;
+  ~SmsOtpServiceImpl() override;
+
+  // SmsOtpService:
+  OneTimeTokenLogSink* log_sink() override;
+  void GetRecentOneTimeTokens(Callback callback) override;
+  [[nodiscard]] ExpiringSubscription Subscribe(
+      base::Time expiration,
+      Callback callback,
+      base::OnceClosure expiration_callback) override;
+  std::vector<OneTimeToken> GetCachedOneTimeTokens() const override;
+  void RequestOneTimeToken(
+      base::TimeDelta timeout,
+      base::OnceCallback<void(std::optional<OneTimeToken>)> callback) override;
+
+ private:
+  // Retrieves SMS OTPs from `sms_.backend` if any subscriber is interested.
+  // Results are posted to `OnResponseFromSmsOtpBackend`.
+  void RetrieveSmsOtpIfNeeded();
+  void OnResponseFromSmsOtpBackend(
+      base::expected<OneTimeToken, OneTimeTokenRetrievalError> reply);
+
+  // Handles subscriptions to the `SmsOtpService`.
+  ExpiringSubscriptionManager<CallbackSignature> sms_subscription_manager_;
+
+  // Handles requests of the `SmsOtpService` to the `SmsOtpBackend`.
+  struct {
+    bool has_pending_request = false;
+    raw_ptr<SmsOtpBackend> backend;
+  } sms_;
+
+  // Keys used by `cache_` to identify and deduplicate tokens. Unlike a direct
+  // comparison of `OneTimeToken` objects (which was removed because different
+  // callers have different equality requirements), this key explicitly captures
+  // the identity of a token for caching purposes: `type`, `value`, and
+  // `sender_address`, while intentionally ignoring arrival time.
+  struct CacheKey {
+    OneTimeTokenType type;
+    std::string_view value;
+    std::optional<std::string_view> sender_address;
+    bool operator==(const CacheKey&) const = default;
+  };
+
+  // Projection functor used by `ExpiringCache` to project a `OneTimeToken` to
+  // its `CacheKey`. This allows the cache to detect duplicates without
+  // requiring `OneTimeToken` to define a global `operator==`.
+  struct CacheProjection {
+    CacheKey operator()(const OneTimeToken& token) const {
+      return {token.type(), token.value(), token.sender_address()};
+    }
+  };
+
+  // Internal cache of SMS OTPs received from `sms_.backend`.
+  ExpiringCache<OneTimeToken,
+                decltype(&OneTimeToken::on_device_arrival_time),
+                CacheProjection>
+      cache_;
+
+  OneTimeTokenLogSink log_sink_;
+  base::CallbackListSubscription log_subscription_;
+
+  // Weak pointer factory (must be last member in class).
+  base::WeakPtrFactory<SmsOtpServiceImpl> weakptr_factory_{this};
+};
+
+}  // namespace one_time_tokens
+
+#endif  // COMPONENTS_ONE_TIME_TOKENS_CORE_BROWSER_SMS_OTP_SERVICE_IMPL_H_

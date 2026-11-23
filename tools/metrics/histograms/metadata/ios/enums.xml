@@ -336,6 +336,22 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Fetching Time Out Error"/>
 </enum>
 
+<!-- LINT.IfChange(IOSBackgroundContinuedProcessingTaskRequestResult) -->
+
+<enum name="IOSBackgroundContinuedProcessingTaskRequestResult">
+  <int value="0" label="Rejected: unknown error"/>
+  <int value="1" label="Submitted to BGTaskScheduler"/>
+  <int value="2" label="Failed to register with BGTaskScheduler"/>
+  <int value="3" label="Rejected: BGTaskSchedulerErrorCodeUnavailable"/>
+  <int value="4"
+      label="Rejected: BGTaskSchedulerErrorCodeTooManyPendingTaskRequests"/>
+  <int value="5" label="Rejected: BGTaskSchedulerErrorCodeNotPermitted"/>
+  <int value="6"
+      label="Rejected: BGTaskSchedulerErrorCodeImmediateRunIneligible"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/app/background_task/background_continued_processing_metrics.h:BackgroundContinuedProcessingTaskRequestResult) -->
+
 <!-- LINT.IfChange(IOSBackgroundSelectionOutcome) -->
 
 <enum name="IOSBackgroundSelectionOutcome">
@@ -605,6 +621,18 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Tertiary Action Button"/>
 </enum>
 
+<!-- LINT.IfChange(IOSDefaultBrowserVideoPromoOpportunity) -->
+
+<enum name="IOSDefaultBrowserVideoPromoOpportunity">
+  <int value="0" label="[0.0, 0.1) - Score &lt; 0.1"/>
+  <int value="1" label="[0.1, 0.2) - 0.1 &lt;= Score &lt; 0.2"/>
+  <int value="2" label="[0.2, 0.4) - 0.2 &lt;= Score &lt; 0.4"/>
+  <int value="3" label="[0.4, 0.6) - 0.4 &lt;= Score &lt; 0.6"/>
+  <int value="4" label="[0.6, 1.0] - Score &gt;= 0.6 or fail-open"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/default_browser/model/utils.h:IOSDefaultBrowserVideoPromoOpportunity) -->
+
 <!-- LINT.IfChange(IOSDefaultStatusAPIOutcomeType) -->
 
 <enum name="IOSDefaultStatusAPIOutcomeType">
@@ -657,6 +685,18 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="No Recent Icon Launches"/>
   <int value="3" label="Low Engagement User with No Recent Icon Launches"/>
 </enum>
+
+<!-- LINT.IfChange(IOSDownloadWebViewResult) -->
+
+<enum name="IOSDownloadWebViewResult">
+  <int value="0" label="Completed">WKDownload completed successfully.</int>
+  <int value="1" label="Canceled">
+    WKDownload was canceled by the user or client.
+  </int>
+  <int value="2" label="Error">WKDownload failed with an error.</int>
+</enum>
+
+<!-- LINT.ThenChange(/ios/web/download/crw_web_view_download.h:IOSDownloadWebViewResult) -->
 
 <enum name="IOSEditMenuActions">
   <int value="0" label="Invalid"/>
@@ -1257,6 +1297,8 @@ chromium-metrics-reviews@google.com.
   <int value="18" label="Plus Button"/>
   <int value="19" label="Standalone AIM Module"/>
   <int value="20" label="AIM in Most Visited"/>
+  <int value="21" label="AIM Image Generation Quick Action"/>
+  <int value="22" label="AIM Attach Image Quick Action"/>
 </enum>
 
 <!-- LINT.IfChange(IOSHomeCustomizationBackgroundStyle) -->
@@ -1339,7 +1381,7 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="PermissionsCamera"/>
   <int value="9" label="PermissionsMicrophone"/>
   <int value="10" label="ContextualPanelEntryPointSample"/>
-  <int value="11" label="PriceInsights"/>
+  <int value="11" label="(Obsolete) PriceInsights"/>
   <int value="12" label="ReaderMode"/>
   <int value="13" label="GeminiContextualCueChip"/>
 </enum>
@@ -1386,6 +1428,7 @@ chromium-metrics-reviews@google.com.
   <int value="22" label="App Bundle Promo"/>
   <int value="23" label="Default Browser"/>
   <int value="24" label="Level Up"/>
+  <int value="25" label="NTP Theme Actionable Tip"/>
 </enum>
 
 <enum name="IOSMiniMapConsentOutcome">
@@ -1643,7 +1686,7 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="PopupBlocker"/>
   <int value="2" label="CameraPermission"/>
   <int value="3" label="MicrophonePermission"/>
-  <int value="4" label="PriceTracking"/>
+  <int value="4" label="(Obsolete) PriceTracking"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/intelligence/page_action_menu/utils/ai_hub_metrics.h:IOSPageActionMenuFeatureType) -->
@@ -2067,6 +2110,54 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="Incognito text search item"/>
 </enum>
 
+<!-- LINT.IfChange(IOSSicBottomSheetEntrypoint) -->
+
+<enum name="IOSSicBottomSheetEntrypoint">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Ask about current page"/>
+  <int value="2" label="Web selection Search With"/>
+  <int value="3" label="AIM SRP link tap"/>
+  <int value="4" label="Location bar or toolbar action"/>
+  <int value="5" label="Session restore"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_constants.h:AssistantAimEntrypoint) -->
+
+<!-- LINT.IfChange(IOSSicBottomSheetFRENoticeAction) -->
+
+<enum name="IOSSicBottomSheetFRENoticeAction">
+  <int value="0" label="Shown"/>
+  <int value="1" label="Accepted"/>
+  <int value="2" label="Learn more tapped"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_constants.h:AssistantAimFRENoticeAction) -->
+
+<!-- LINT.IfChange(IOSSicBottomSheetHeaderAction) -->
+
+<enum name="IOSSicBottomSheetHeaderAction">
+  <int value="0" label="Close button tapped"/>
+  <int value="1" label="New thread tapped"/>
+  <int value="2" label="Thread history tapped"/>
+  <int value="3" label="My Activity tapped"/>
+  <int value="4" label="Help tapped"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_constants.h:AssistantAimHeaderAction) -->
+
+<!-- LINT.IfChange(IOSSicBottomSheetStateTransition) -->
+
+<enum name="IOSSicBottomSheetStateTransition">
+  <int value="0" label="Minimized sheet"/>
+  <int value="1" label="Medium sheet"/>
+  <int value="2" label="Large sheet"/>
+  <int value="3" label="Dismissed via close button"/>
+  <int value="4" label="Restored with undo"/>
+  <int value="5" label="Dismissed via other"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_constants.h:AssistantAimStateTransition) -->
+
 <!-- LINT.IfChange(IOSSigninFullscreenPromoEvents) -->
 
 <enum name="IOSSigninFullscreenPromoEvents">
@@ -2269,6 +2360,16 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(/ios/chrome/browser/tips_notifications/model/utils.h:TipsNotificationUserType) -->
 
+<!-- LINT.IfChange(IOSTipsNTPCustomizationPromoAction) -->
+
+<enum name="IOSTipsNTPCustomizationPromoAction">
+  <int value="0" label="Accepted"/>
+  <int value="1" label="Cancelled"/>
+  <int value="2" label="Undone"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/content_suggestions/tips/model/tips_metrics.h:IOSTipsNTPCustomizationPromoAction) -->
+
 <!-- LINT.IfChange(TrustedVaultNotificationEvents) -->
 
 <enum name="IOSTipsTrustedVaultNotificationEvents">
@@ -2382,6 +2483,26 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="CLD3 (TFLite model disabled)"/>
   <int value="3" label="CLD3 (TFLite model run but is ignored) (deprecated)"/>
 </enum>
+
+<!-- LINT.IfChange(LevelUpTaskType) -->
+
+<enum name="LevelUpTaskType">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="TabGroups"/>
+  <int value="2" label="Autofill"/>
+  <int value="3" label="PinTabs"/>
+  <int value="4" label="Gemini"/>
+  <int value="5" label="PaymentMethods"/>
+  <int value="6" label="ClearBrowsingData"/>
+  <int value="7" label="SafeBrowsing"/>
+  <int value="8" label="Incognito"/>
+  <int value="9" label="PasswordCheckup"/>
+  <int value="10" label="LensWebsiteSearch"/>
+  <int value="11" label="AISearch"/>
+  <int value="12" label="LensCameraSearch"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/level_up/model/task_types.h:LevelUpTaskType) -->
 
 <enum name="LinkToTextShouldOfferResult">
   <int value="0" label="Success"/>

@@ -35,8 +35,8 @@
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/page_transition_types.h"
-#include "ui/base/window_open_disposition.h"
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -86,7 +86,7 @@ namespace {
 
 void OpenUrlWithDisposition(Profile* profile,
                             const GURL& url,
-                            WindowOpenDisposition disposition,
+                            ui::mojom::WindowOpenDisposition disposition,
                             BrowserWindowInterface* browser) {
   NavigateParams params(profile, url, ui::PAGE_TRANSITION_LINK);
   params.disposition = disposition;
@@ -294,6 +294,27 @@ void ContextualTasksPageHandler::GetThreadUrl(GetThreadUrlCallback callback) {
   std::move(callback).Run(ui_service_->GetDefaultAiPageUrl());
 }
 
+void ContextualTasksPageHandler::MoveActiveTabToNewThreadIfShared(
+    MoveActiveTabToNewThreadIfSharedCallback callback) {
+  if (!contextual_tasks::ShouldScopeSidePanelStateToTab() ||
+      web_ui_controller_->IsShownInTab() || !panel_controller_) {
+    std::move(callback).Run(false);
+    return;
+  }
+  // If this side panel `WebContents` is no longer the active panel (e.g. the
+  // user switched tabs while the click was in flight), return true so the
+  // caller doesn't navigate its shared thread in place or mutate the newly
+  // active tab.
+  if (!panel_controller_->IsPanelOpenForContextualTask() ||
+      web_ui_controller_->GetWebUIWebContents() !=
+          panel_controller_->GetActiveWebContents()) {
+    std::move(callback).Run(true);
+    return;
+  }
+  std::move(callback).Run(
+      panel_controller_->MoveActiveTabToNewThreadIfShared());
+}
+
 void ContextualTasksPageHandler::GetUrlForTask(const base::Uuid& uuid,
                                                GetUrlForTaskCallback callback) {
   // Wrap the callback to ensure previous_query is set on the session handle
@@ -396,7 +417,7 @@ void ContextualTasksPageHandler::OpenOnboardingHelpUi() {
   OpenUrlWithDisposition(
       web_ui_controller_->GetProfile(),
       GURL(contextual_tasks::GetContextualTasksOnboardingTooltipHelpUrl()),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
+      ui::mojom::WindowOpenDisposition::kNewForegroundTab, browser);
 }
 
 void ContextualTasksPageHandler::OpenAskGHelpUi() {
@@ -406,7 +427,8 @@ void ContextualTasksPageHandler::OpenAskGHelpUi() {
   }
   OpenUrlWithDisposition(web_ui_controller_->GetProfile(),
                          GURL(contextual_tasks::GetContextualTasksTabHelpUrl()),
-                         WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
+                         ui::mojom::WindowOpenDisposition::kNewForegroundTab,
+                         browser);
 }
 
 void ContextualTasksPageHandler::OnWebviewMessage(
@@ -494,8 +516,10 @@ void ContextualTasksPageHandler::GetCommonSearchParams(
     is_side_panel = true;
   }
 
-  std::string country_code =
-      g_browser_process->GetFeatures()->application_locale_storage()->Get();
+  std::string country_code(g_browser_process->GetFeatures()
+                               ->application_locale_storage()
+                               ->GetTag()
+                               .tag_string());
 
   if (contextual_tasks::ShouldForceCountryCodeUS()) {
     country_code = "US";
@@ -658,47 +682,72 @@ void ContextualTasksPageHandler::OnReceivedUpdatedThreadContextLibrary(
   contextual_tasks_service_->SetUrlResourcesFromServer(*task_id,
                                                        committed_context);
 
-  // Populate restored tabs in the composebox.
+  // Populate restored tabs in the session handle and composebox. Without tab
+  // state unification, restored tabs are only fetched once on initial history
+  // load (`is_history_loading`) and sent to the composebox via
+  // `OnRestoredTabsFetched()`. With tab state unification enabled, the WebUI
+  // `<webview>` path routes `AimToClientMessage::UpdateThreadContextLibrary`
+  // here (rather than `ContextualTasksWebContentsUserData`), so fetch the
+  // decorated task context on every update to keep the session handle's
+  // `TabContextState::restored` in sync.
   if (contextual_tasks_service_ &&
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) &&
-      is_history_loading) {
+      (is_history_loading ||
+       omnibox::IsTabStateUnificationInComposeboxEnabled())) {
     contextual_tasks_service_->GetContextForTask(
         *task_id, {},
         std::make_unique<contextual_tasks::ContextDecorationParams>(),
-        base::BindOnce(
-            [](base::WeakPtr<ContextualTasksPageHandler> self,
-               std::unique_ptr<contextual_tasks::ContextualTaskContext>
-                   context) {
-              if (self && self->web_ui_controller_) {
-                std::vector<contextual_tasks_toolbar::mojom::ContextInfoPtr>
-                    context_items = PopulateContextualResources(context.get());
-
-                std::vector<searchbox::mojom::TabInfoPtr> tabs;
-                for (const auto& item : context_items) {
-                  if (item->is_tab() && item->get_tab()->has_chrome_tab_data) {
-                    auto tab_info = searchbox::mojom::TabInfo::New();
-                    tab_info->url = item->get_tab()->url;
-                    tab_info->title = item->get_tab()->title;
-                    int32_t handle =
-                        tabs::SessionMappedTabHandleFactory::GetInstance()
-                            .GetHandleForSessionId(item->get_tab()->tab_id);
-                    if (handle != tabs::TabHandle::NullValue) {
-                      tab_info->tab_id = handle;
-                    } else if (SessionID::IsValidValue(
-                                   item->get_tab()->tab_id)) {
-                      tab_info->tab_id = item->get_tab()->tab_id;
-                    } else {
-                      tab_info->tab_id = tabs::TabHandle::NullValue;
-                    }
-                    tabs.push_back(std::move(tab_info));
-                  }
-                }
-                self->web_ui_controller_->OnRestoredTabsFetched(
-                    std::move(tabs));
-              }
-            },
-            weak_ptr_factory_.GetWeakPtr()));
+        base::BindOnce(&ContextualTasksPageHandler::OnContextFetchedForTabs,
+                       weak_ptr_factory_.GetWeakPtr(), is_history_loading));
   }
+}
+
+void ContextualTasksPageHandler::OnContextFetchedForTabs(
+    bool is_history_loading,
+    std::unique_ptr<contextual_tasks::ContextualTaskContext> context) {
+  if (!web_ui_controller_ || !context) {
+    return;
+  }
+
+  std::vector<contextual_search::TabInfo> restored_tabs =
+      contextual_tasks::ToRestoredTabInfos(context.get());
+
+  // Push the task's tab list to the session handle on every
+  // context library update so its `TabContextState::restored` stays in sync
+  // across turns and notifies subscribed handlers. When tab state unification
+  // is disabled, the composebox manages restored tabs on the frontend via
+  // `OnRestoredTabsFetched()` below instead of subscribing to the session
+  // handle.
+  if (omnibox::IsTabStateUnificationInComposeboxEnabled()) {
+    if (auto* handle =
+            web_ui_controller_->GetOrCreateContextualSessionHandle()) {
+      handle->SetRestoredTabs(restored_tabs);
+    }
+  }
+
+  if (!is_history_loading) {
+    return;
+  }
+
+  std::vector<searchbox::mojom::TabInfoPtr> tabs;
+  for (const auto& tab : restored_tabs) {
+    auto tab_info = searchbox::mojom::TabInfo::New();
+    tab_info->url = tab.url;
+    tab_info->title = tab.title;
+    const int32_t session_id =
+        tab.tab_id.value_or(SessionID::InvalidValue().id());
+    const int32_t handle = tabs::SessionMappedTabHandleFactory::GetInstance()
+                               .GetHandleForSessionId(session_id);
+    if (handle != tabs::TabHandle::NullValue) {
+      tab_info->tab_id = handle;
+    } else if (SessionID::IsValidValue(session_id)) {
+      tab_info->tab_id = session_id;
+    } else {
+      tab_info->tab_id = tabs::TabHandle::NullValue;
+    }
+    tabs.push_back(std::move(tab_info));
+  }
+  web_ui_controller_->OnRestoredTabsFetched(std::move(tabs));
 }
 
 void ContextualTasksPageHandler::OnReceivedInjectInput(

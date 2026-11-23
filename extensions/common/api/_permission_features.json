@@ -564,14 +564,6 @@
       "4E09F1C1EEC4D27F1F7DF18BA3643307107A7C41"   // http://crbug.com/1483151
     ]
   },
-  "odfsConfigPrivate": {
-    "channel": "stable",
-    "extension_types": ["extension"],
-    "platforms": ["chromeos"],
-    "allowlist": [
-      "1B1388598AC9A5608F43DE38316D6FB5FAD3574A"  // ODFS extension
-    ]
-  },
   "offscreen": [{
     "channel": "stable",
     "extension_types": ["extension"],
@@ -847,11 +839,6 @@
       "81986D4F846CEDDDB962643FA501D1780DD441BB",  // Dev internal hotrod app
       "A9A9FC0228ADF541F0334F22BEFB8F9C245B21D7"   // http://crbug.com/839189
     ]
-  },
-  "vpnProvider": {
-    "channel": "stable",
-    "extension_types": ["extension", "platform_app"],
-    "platforms": ["chromeos"]
   },
   "webview": {
     "channel": "stable",

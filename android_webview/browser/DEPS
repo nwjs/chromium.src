@@ -36,6 +36,7 @@ include_rules = [
   "+components/page_load_metrics/browser",
   "+components/page_load_metrics/google/browser",
   "+components/payments/content/android/payment_feature_map.h",
+  "+components/payments/core/features.h",
   "+components/performance_manager/embedder",
   "+components/performance_manager/public",
   "+components/permissions",
@@ -55,6 +56,9 @@ include_rules = [
   "+components/security_state/content",
   "+components/security_state/core",
   "+components/sensitive_content",
+  "+components/signin/core/browser",
+  "+components/signin/public/base",
+  "+components/signin/public/identity_manager",
   "+components/spellcheck/browser",
   "+components/spellcheck/common",
   "+components/strings",
@@ -141,6 +145,7 @@ include_rules = [
   "+third_party/crashpad/crashpad/util",
   "+third_party/zlib/google/compression_utils.h",
 
+  "+ui/accessibility/accessibility_features.h",
   "+ui/display",
   "+ui/gfx",
   "+ui/gl",
@@ -180,4 +185,5 @@ include_rules = [
   # For Chrome's API keys in WebView.
   "+google_apis/common/api_key_request_util.h",
   "+google_apis/google_api_keys.h",
+  "+google_apis/gaia",
 ]

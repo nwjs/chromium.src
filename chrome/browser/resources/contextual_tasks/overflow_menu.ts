@@ -79,8 +79,11 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
   accessor contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow:
       boolean = loadTimeData.getBoolean(
           'contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow');
-  accessor isAimEligible: boolean = false;
-  accessor isCobrowseEligible: boolean = false;
+  accessor isAimEligible: boolean = loadTimeData.valueExists('isAimEligible') &&
+      loadTimeData.getBoolean('isAimEligible');
+  accessor isCobrowseEligible: boolean =
+      loadTimeData.valueExists('isCobrowseEligible') &&
+      loadTimeData.getBoolean('isCobrowseEligible');
 
   protected accessor webuiRoundedIconsEnabled_: boolean =
       loadTimeData.getBoolean('webuiRoundedIconsEnabled');
@@ -163,9 +166,17 @@ export class OverflowMenuElement extends OverflowMenuElementBase {
     this.isPinned = !this.isPinned;
     if (this.isPinned) {
       recordAction('ContextualTasks.WebUI.UserAction.PinSidePanel');
+      recordAction(
+          this.isAiPage ?
+              'ContextualTasks.WebUI.UserAction.PinSidePanel.AiPage' :
+              'ContextualTasks.WebUI.UserAction.PinSidePanel.Srp');
       this.toolbarBrowserProxy_.handler.pinSidePanel();
     } else {
       recordAction('ContextualTasks.WebUI.UserAction.UnpinSidePanel');
+      recordAction(
+          this.isAiPage ?
+              'ContextualTasks.WebUI.UserAction.UnpinSidePanel.AiPage' :
+              'ContextualTasks.WebUI.UserAction.UnpinSidePanel.Srp');
       this.toolbarBrowserProxy_.handler.unpinSidePanel();
     }
     this.dispatchEvent(new CustomEvent('pin-click'));

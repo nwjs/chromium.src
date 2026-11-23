@@ -29,8 +29,8 @@
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
 namespace blink {
@@ -98,11 +98,11 @@ AudioWorkletNode* AudioWorkletNode::Create(
     if (options->numberOfOutputs() != options->outputChannelCount().size()) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kIndexSizeError,
-          StrCat({"AudioWorkletNode cannot be created: Length of specified "
-                  "'outputChannelCount' (",
-                  String::Number(options->outputChannelCount().size()),
-                  ") does not match the given number of outputs (",
-                  String::Number(options->numberOfOutputs()), ")."}));
+          Format("AudioWorkletNode cannot be created: Length of specified "
+                 "'outputChannelCount' ({}) does not match the given number of "
+                 "outputs ({}).",
+                 options->outputChannelCount().size(),
+                 options->numberOfOutputs()));
       return nullptr;
     }
 
@@ -220,12 +220,6 @@ MessagePort* AudioWorkletNode::port() const {
 void AudioWorkletNode::FireProcessorError(
     const AudioWorkletProcessorErrorDetails& error_details) {
   DCHECK(IsMainThread());
-  DCHECK(error_details.error_state ==
-             AudioWorkletProcessorErrorState::kConstructionError ||
-         error_details.error_state ==
-             AudioWorkletProcessorErrorState::kProcessError ||
-         error_details.error_state ==
-             AudioWorkletProcessorErrorState::kProcessMethodUndefinedError);
   DCHECK(!error_details.error_message.empty());
 
   ErrorEvent* event = ErrorEvent::Create(

@@ -4,10 +4,9 @@
 
 import 'chrome://settings/lazy_load.js';
 
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {SettingsCollapseRadioButtonElement} from 'chrome://settings/lazy_load.js';
 import {PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
-import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {isChildVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
@@ -20,64 +19,64 @@ suite('CrCollapseRadioButton', function() {
     collapseRadioButton =
         document.createElement('settings-collapse-radio-button');
     document.body.appendChild(collapseRadioButton);
-    flush();
+    return microtasksFinished();
   });
 
-  test('openOnSelection', function() {
+  test('openOnSelection', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = false;
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
     collapseRadioButton.checked = true;
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
   });
 
-  test('closeOnDeselect', function() {
+  test('closeOnDeselect', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = true;
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
     collapseRadioButton.checked = false;
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
   });
 
   // Button should remain closed when noAutomaticCollapse flag is set.
-  test('closedWhenInitiallyClosedAndNoAutomaticCollapse', function() {
+  test('closedWhenInitiallyClosedAndNoAutomaticCollapse', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = false;
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
 
     collapseRadioButton.noAutomaticCollapse = true;
     collapseRadioButton.checked = true;
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
 
     collapseRadioButton.updateCollapsed();
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
   });
 
   // Button should remain opened when noAutomaticCollapse flag is set.
-  test('openedWhenInitiallyOpenedAndNoAutomaticCollapse', function() {
+  test('openedWhenInitiallyOpenedAndNoAutomaticCollapse', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = true;
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
 
     collapseRadioButton.noAutomaticCollapse = true;
     collapseRadioButton.checked = false;
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
 
     collapseRadioButton.updateCollapsed();
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
   });
 
@@ -85,12 +84,12 @@ suite('CrCollapseRadioButton', function() {
   // open the iron collapse.
   test('openOnExpandHit', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = false;
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
     collapseRadioButton.$.expandButton.click();
-    await collapseRadioButton.$.expandButton.updateComplete;
+    await microtasksFinished();
     assertTrue(collapse.opened);
   });
 
@@ -98,12 +97,12 @@ suite('CrCollapseRadioButton', function() {
   // the iron collapse.
   test('closeOnExpandHitWhenSelected', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = true;
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
     collapseRadioButton.$.expandButton.click();
-    await collapseRadioButton.$.expandButton.updateComplete;
+    await microtasksFinished();
     assertFalse(collapse.opened);
   });
 
@@ -111,17 +110,17 @@ suite('CrCollapseRadioButton', function() {
   // the radio button immediately.
   test('openOnExpandHitWhenNoAutomaticCollapse', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = false;
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
 
     collapseRadioButton.noAutomaticCollapse = true;
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
 
     collapseRadioButton.$.expandButton.click();
-    await collapseRadioButton.$.expandButton.updateComplete;
+    await microtasksFinished();
     assertTrue(collapse.opened);
   });
 
@@ -129,26 +128,26 @@ suite('CrCollapseRadioButton', function() {
   // the radio button immediately.
   test('closeOnExpandHitWhenSelectedWhenNoAutomaticCollapse', async function() {
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
     collapseRadioButton.checked = true;
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
 
     collapseRadioButton.noAutomaticCollapse = true;
-    flush();
+    await microtasksFinished();
     assertTrue(collapse.opened);
 
     collapseRadioButton.$.expandButton.click();
-    await collapseRadioButton.$.expandButton.updateComplete;
+    await microtasksFinished();
     assertFalse(collapse.opened);
   });
 
-  test('expansionHiddenWhenNoCollapseSet', function() {
+  test('expansionHiddenWhenNoCollapseSet', async function() {
     assertTrue(isChildVisible(collapseRadioButton, 'cr-expand-button'));
     assertTrue(isChildVisible(collapseRadioButton, '.separator'));
 
     collapseRadioButton.noCollapse = true;
-    flush();
+    await microtasksFinished();
     assertFalse(isChildVisible(collapseRadioButton, 'cr-expand-button'));
     assertFalse(isChildVisible(collapseRadioButton, '.separator'));
   });
@@ -157,58 +156,21 @@ suite('CrCollapseRadioButton', function() {
     collapseRadioButton.checked = false;
     collapseRadioButton.disabled = true;
     const collapse =
-        collapseRadioButton.shadowRoot!.querySelector('cr-collapse')!;
+        collapseRadioButton.shadowRoot.querySelector('cr-collapse')!;
 
-    flush();
+    await microtasksFinished();
     assertFalse(collapse.opened);
     collapseRadioButton.$.expandButton.click();
 
-    await collapseRadioButton.$.expandButton.updateComplete;
+    await microtasksFinished();
     assertTrue(collapse.opened);
   });
 
-  test('respectPreferenceState', function() {
-    const togglePrefValue = 'pref_value';
-    collapseRadioButton.name = togglePrefValue;
-    collapseRadioButton.pref = {
-      type: chrome.settingsPrivate.PrefType.NUMBER,
-      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
-      controlledBy: chrome.settingsPrivate.ControlledBy.DEVICE_POLICY,
-      key: 'test',
-      value: 0,
-    };
-    flush();
-    assertTrue(isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
-    assertTrue(collapseRadioButton.disabled);
-
-    collapseRadioButton.set('pref.userSelectableValues', ['unrelated-value']);
-    flush();
-    assertTrue(isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
-    assertTrue(collapseRadioButton.disabled);
-
-    collapseRadioButton.set('pref.userSelectableValues', [togglePrefValue]);
-    flush();
-    assertFalse(
-        isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
-    assertFalse(collapseRadioButton.disabled);
-
-    collapseRadioButton.set(
-        'pref.enforcement', chrome.settingsPrivate.Enforcement.RECOMMENDED);
-    collapseRadioButton.set('pref.recommendedValue', 'unrelated-value');
-    flush();
-    assertFalse(
-        isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
-    assertFalse(collapseRadioButton.disabled);
-
-    collapseRadioButton.set('pref.recommendedValue', togglePrefValue);
-    assertTrue(isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
-    assertFalse(collapseRadioButton.disabled);
-  });
-
-  test('iconVisibleWhenSet', function() {
+  test('iconVisibleWhenSet', async function() {
     assertFalse(isChildVisible(collapseRadioButton, '#buttonIcon'));
 
-    collapseRadioButton.set('icon', 'cr:location-on-filled');
+    collapseRadioButton.icon = 'cr:location-on-filled';
+    await microtasksFinished();
     assertTrue(isChildVisible(collapseRadioButton, '#buttonIcon'));
   });
 });
@@ -222,6 +184,11 @@ suite('CollapseRadioButtonPrefKey', () => {
       key: 'test_boolean',
       type: chrome.settingsPrivate.PrefType.BOOLEAN,
       value: true,
+    },
+    {
+      key: 'test_number',
+      type: chrome.settingsPrivate.PrefType.NUMBER,
+      value: 0,
     },
   ];
 
@@ -239,17 +206,6 @@ suite('CollapseRadioButtonPrefKey', () => {
     document.body.appendChild(collapseRadioButton);
   });
 
-  test('prefKey works', async () => {
-    assertTrue(!!collapseRadioButton.pref);
-    assertEquals('test_boolean', collapseRadioButton.pref.key);
-    assertTrue(collapseRadioButton.pref.value as boolean);
-
-    // Update pref via PrefService and verify element updates
-    PrefService.getInstance().setPrefValue('test_boolean', false);
-    await microtasksFinished();
-    assertFalse(collapseRadioButton.pref.value as boolean);
-  });
-
   test('disablesWhenPrefIsManaged', async () => {
     assertFalse(collapseRadioButton.disabled);
 
@@ -264,5 +220,81 @@ suite('CollapseRadioButtonPrefKey', () => {
 
     assertTrue(collapseRadioButton.disabled);
     assertTrue(isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
+  });
+
+  test('respectPreferenceState', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    collapseRadioButton =
+        document.createElement('settings-collapse-radio-button');
+    const togglePrefValue = 'pref_value';
+    collapseRadioButton.name = togglePrefValue;
+    collapseRadioButton.prefKey = 'test_number';
+    document.body.appendChild(collapseRadioButton);
+
+    // Case 1: Enforced by policy with no userSelectableValues; button is
+    // disabled and policy indicator is visible.
+    prefsBrowserProxy.fakeApi.sendPrefChanges([{
+      key: 'test_number',
+      value: 0,
+      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+      controlledBy: chrome.settingsPrivate.ControlledBy.DEVICE_POLICY,
+    }]);
+    await microtasksFinished();
+    assertTrue(isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
+    assertTrue(collapseRadioButton.disabled);
+
+    // Case 2: Enforced by policy with userSelectableValues excluding this
+    // button's name; button is disabled and policy indicator is visible.
+    prefsBrowserProxy.fakeApi.sendPrefChanges([{
+      key: 'test_number',
+      value: 0,
+      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+      controlledBy: chrome.settingsPrivate.ControlledBy.DEVICE_POLICY,
+      userSelectableValues: ['unrelated-value'],
+    }]);
+    await microtasksFinished();
+    assertTrue(isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
+    assertTrue(collapseRadioButton.disabled);
+
+    // Case 3: Enforced by policy with userSelectableValues including this
+    // button's name; button is enabled and policy indicator is hidden.
+    prefsBrowserProxy.fakeApi.sendPrefChanges([{
+      key: 'test_number',
+      value: 0,
+      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+      controlledBy: chrome.settingsPrivate.ControlledBy.DEVICE_POLICY,
+      userSelectableValues: [togglePrefValue],
+    }]);
+    await microtasksFinished();
+    assertFalse(
+        isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
+    assertFalse(collapseRadioButton.disabled);
+
+    // Case 4: Recommended by policy with recommendedValue not matching this
+    // button's name; button is enabled and policy indicator is hidden.
+    prefsBrowserProxy.fakeApi.sendPrefChanges([{
+      key: 'test_number',
+      value: 0,
+      enforcement: chrome.settingsPrivate.Enforcement.RECOMMENDED,
+      controlledBy: chrome.settingsPrivate.ControlledBy.DEVICE_POLICY,
+      recommendedValue: 'unrelated-value',
+    }]);
+    await microtasksFinished();
+    assertFalse(
+        isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
+    assertFalse(collapseRadioButton.disabled);
+
+    // Case 5: Recommended by policy with recommendedValue matching this
+    // button's name; button is enabled and policy indicator is visible.
+    prefsBrowserProxy.fakeApi.sendPrefChanges([{
+      key: 'test_number',
+      value: 0,
+      enforcement: chrome.settingsPrivate.Enforcement.RECOMMENDED,
+      controlledBy: chrome.settingsPrivate.ControlledBy.DEVICE_POLICY,
+      recommendedValue: togglePrefValue,
+    }]);
+    await microtasksFinished();
+    assertTrue(isChildVisible(collapseRadioButton, 'cr-policy-pref-indicator'));
+    assertFalse(collapseRadioButton.disabled);
   });
 });

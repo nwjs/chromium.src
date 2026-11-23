@@ -74,8 +74,9 @@ class GPU_IPC_SERVICE_EXPORT GpuInit2 : public GpuInit {
   VulkanImplementation* vulkan_implementation() override;
 
  private:
-  // State shared by the steps of InitializeAndStartSandbox(). It only lives
-  // for the duration of that call. Defined in gpu_init_2.cc.
+  // State shared by the steps of InitializeAndStartSandbox() and
+  // InitializeInProcess(). It only lives for the duration of those calls.
+  // Defined in gpu_init_2.cc.
   struct InitState;
 
   // Runs GpuSandboxHelper::PreSandboxStartup(). Must run exactly once, before
@@ -83,6 +84,9 @@ class GPU_IPC_SERVICE_EXPORT GpuInit2 : public GpuInit {
   void RunPreSandboxStartup(InitState& state);
   // Starts the sandbox and records the result in `gpu_info_`.
   void StartSandbox(InitState& state);
+  // Saves the hardware GPU info, then shuts down GL and initializes it again
+  // with SwiftShader. Returns false if GL initialization fails.
+  bool ReinitializeGLWithSwiftShader(InitState& state);
 
   bool InitializeDawn();
   bool InitializeVulkan();
@@ -94,13 +98,18 @@ class GPU_IPC_SERVICE_EXPORT GpuInit2 : public GpuInit {
   // InitializeAndStartSandbox steps helper functions.
   void RecordStartupCrashKeys(InitState& state);
   bool CollectBasicInfoAndComputeFeatures(InitState& state);
-  void ConfigureGpuSelection(InitState& state);
+  void ConfigureGpuSelection();
   void MaybeFallbackToSwiftShaderEarly(InitState& state);
   void StartWatchdogAndMaybeSandboxEarly(InitState& state);
   bool InitializeGLBindingsAndDisplay(InitState& state);
   void SelectCommandDecoder(InitState& state);
   bool FinalizeFeaturesWithContextInfo(InitState& state);
   bool ResolveGrContextType(InitState& state);
+  bool InitializeVulkanIfNeeded();
+  bool FinalizeGLInitialization(InitState& state);
+  void ApplyFeatureStatusToPreferences();
+  void FinalizeWatchdog(InitState& state);
+  bool InitializeSkiaBackend();
 
   raw_ptr<GpuSandboxHelper> sandbox_helper_ = nullptr;
   bool gl_use_swiftshader_ = false;

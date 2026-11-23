@@ -105,6 +105,7 @@
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
+#include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
@@ -1179,7 +1180,11 @@ WritableStream* Node::streamBeforeHTMLUnsafe(
   if (!resolved_options) {
     return nullptr;
   }
-  return HTMLStream::Create(script_state, parentNode(), this,
+  ContainerNode* parent = parentNode();
+  if (parent && !parent->CheckValidParentForPartialInsertion(exception_state)) {
+    return nullptr;
+  }
+  return HTMLStream::Create(script_state, parent, this,
                             Sanitizer::Mode::kUnsafe, *resolved_options,
                             exception_state);
 }
@@ -1187,8 +1192,11 @@ WritableStream* Node::streamBeforeHTMLUnsafe(
 WritableStream* Node::streamBeforeHTML(ScriptState* script_state,
                                        SetHTMLOptions* options,
                                        ExceptionState& exception_state) {
-  return HTMLStream::Create(script_state, parentNode(), this,
-                            Sanitizer::Mode::kSafe,
+  ContainerNode* parent = parentNode();
+  if (parent && !parent->CheckValidParentForPartialInsertion(exception_state)) {
+    return nullptr;
+  }
+  return HTMLStream::Create(script_state, parent, this, Sanitizer::Mode::kSafe,
                             FragmentParserOptions(options), exception_state);
 }
 
@@ -1204,7 +1212,11 @@ WritableStream* Node::streamAfterHTMLUnsafe(
   if (!resolved_options) {
     return nullptr;
   }
-  return HTMLStream::Create(script_state, parentNode(), nextSibling(),
+  ContainerNode* parent = parentNode();
+  if (parent && !parent->CheckValidParentForPartialInsertion(exception_state)) {
+    return nullptr;
+  }
+  return HTMLStream::Create(script_state, parent, nextSibling(),
                             Sanitizer::Mode::kUnsafe, *resolved_options,
                             exception_state);
 }
@@ -1212,7 +1224,11 @@ WritableStream* Node::streamAfterHTMLUnsafe(
 WritableStream* Node::streamAfterHTML(ScriptState* script_state,
                                       SetHTMLOptions* options,
                                       ExceptionState& exception_state) {
-  return HTMLStream::Create(script_state, parentNode(), nextSibling(),
+  ContainerNode* parent = parentNode();
+  if (parent && !parent->CheckValidParentForPartialInsertion(exception_state)) {
+    return nullptr;
+  }
+  return HTMLStream::Create(script_state, parent, nextSibling(),
                             Sanitizer::Mode::kSafe,
                             FragmentParserOptions(options), exception_state);
 }
@@ -1229,7 +1245,11 @@ WritableStream* Node::streamReplaceWithHTMLUnsafe(
   if (!resolved_options) {
     return nullptr;
   }
-  return HTMLStream::Create(script_state, parentNode(), nextSibling(),
+  ContainerNode* parent = parentNode();
+  if (parent && !parent->CheckValidParentForPartialInsertion(exception_state)) {
+    return nullptr;
+  }
+  return HTMLStream::Create(script_state, parent, nextSibling(),
                             Sanitizer::Mode::kUnsafe, *resolved_options,
 
                             exception_state, [&]() { remove(); });
@@ -1238,8 +1258,12 @@ WritableStream* Node::streamReplaceWithHTMLUnsafe(
 WritableStream* Node::streamReplaceWithHTML(ScriptState* script_state,
                                             SetHTMLOptions* options,
                                             ExceptionState& exception_state) {
+  ContainerNode* parent = parentNode();
+  if (parent && !parent->CheckValidParentForPartialInsertion(exception_state)) {
+    return nullptr;
+  }
   return HTMLStream::Create(
-      script_state, parentNode(), nextSibling(), Sanitizer::Mode::kSafe,
+      script_state, parent, nextSibling(), Sanitizer::Mode::kSafe,
       FragmentParserOptions(options), exception_state, [&]() { remove(); });
 }
 
@@ -1379,26 +1403,6 @@ Node& Node::ShadowIncludingRoot() const {
     root = ancestor;
   DCHECK(!root->OwnerShadowHost());
   return *root;
-}
-
-bool Node::IsClosedShadowHiddenFrom(const Node& other) const {
-  if (!IsInShadowTree() || GetTreeScope() == other.GetTreeScope())
-    return false;
-
-  const TreeScope* scope = &GetTreeScope();
-  for (; scope->ParentTreeScope(); scope = scope->ParentTreeScope()) {
-    const ContainerNode& root = scope->RootNode();
-    auto* shadow_root = DynamicTo<ShadowRoot>(root);
-    if (shadow_root && !shadow_root->IsOpen())
-      break;
-  }
-
-  for (TreeScope* other_scope = &other.GetTreeScope(); other_scope;
-       other_scope = other_scope->ParentTreeScope()) {
-    if (other_scope == scope)
-      return false;
-  }
-  return true;
 }
 
 void Node::SetIsLink(bool is_link) {
@@ -2995,6 +2999,14 @@ ExecutionContext* Node::GetExecutionContext() const {
 void Node::WillMoveToNewDocument(Document& new_document) {
   Document& old_document = GetDocument();
   DCHECK_NE(&old_document, &new_document);
+
+  // A disconnected <input> can have an open popup via showPicker() that is not
+  // closed by RemovedFrom() or DetachLayoutTree(). Close it here rather than in
+  // HTMLInputElement::DidMoveToNewDocument() so popup teardown (such as
+  // AXObjectCache cleanup) runs while GetDocument() is still `old_document`.
+  if (auto* input = DynamicTo<HTMLInputElement>(this)) {
+    input->ClosePopupView();
+  }
 
   // In rare situations, this node may be the focused element of the old
   // document. In this case, we need to clear the focused element of the old

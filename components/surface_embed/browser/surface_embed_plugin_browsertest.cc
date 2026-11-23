@@ -1156,6 +1156,91 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
   EXPECT_EQ(content::Visibility::VISIBLE, parent_contents->GetVisibility());
 }
 
+// Occluding the Grandparent (G) WebContents should make the Parent (P) and the
+// Child (C) OCCLUDED rather than HIDDEN, in a G -> P -> C embedding.
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest, MultilevelOcclusionPropagates) {
+  NavigateToAttachHarness();
+
+  // Setup Parent (P) WebContents.
+  auto parent_contents = CreateChildWebContents();
+  NavigateChildToUrl(parent_contents.get(), kAttachHarnessUrl);
+  AttachChildToEmbedWithId(parent_contents.get(), "parent_embed");
+
+  // Setup Child (C) WebContents.
+  auto child_contents = CreateChildWebContents();
+  NavigateChildToUrl(child_contents.get(), kRedBoxUrl);
+
+  // Attach C to P.
+  SurfaceEmbedHandle* child_embedded_handle =
+      SurfaceEmbedHandle::CreateForWebContents(child_contents.get());
+  ASSERT_NE(child_embedded_handle, nullptr);
+
+  std::string attach_child_script = "createEmbed('" +
+                                    child_embedded_handle->id().ToString() +
+                                    "', 'child_embed');";
+  size_t expected_attachments = GetAttachedHostCount() + 1;
+  ASSERT_TRUE(content::ExecJs(parent_contents.get(), attach_child_script));
+  ASSERT_TRUE(WaitForHostAttachment(expected_attachments));
+  EXPECT_NE(child_contents->GetSurfaceEmbedConnector(), nullptr);
+
+  EXPECT_EQ(content::Visibility::VISIBLE, parent_contents->GetVisibility());
+  EXPECT_EQ(content::Visibility::VISIBLE, child_contents->GetVisibility());
+
+  // Occlude G. P and C should become OCCLUDED, not HIDDEN.
+  web_contents()->WasOccluded();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return parent_contents->GetVisibility() == content::Visibility::OCCLUDED;
+  }));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return child_contents->GetVisibility() == content::Visibility::OCCLUDED;
+  }));
+
+  // Show G again. P and C should become VISIBLE.
+  web_contents()->WasShown();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return parent_contents->GetVisibility() == content::Visibility::VISIBLE;
+  }));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return child_contents->GetVisibility() == content::Visibility::VISIBLE;
+  }));
+
+  // Hide G. P and C should become HIDDEN.
+  web_contents()->WasHidden();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return parent_contents->GetVisibility() == content::Visibility::HIDDEN;
+  }));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return child_contents->GetVisibility() == content::Visibility::HIDDEN;
+  }));
+
+  web_contents()->WasShown();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return child_contents->GetVisibility() == content::Visibility::VISIBLE;
+  }));
+
+  // Hide the Child embed in P while everything is visible; renderers do not
+  // process style changes while their page is hidden or occluded.
+  ASSERT_TRUE(content::ExecJs(
+      parent_contents.get(),
+      "document.getElementById('child_embed').style.visibility = 'hidden';"));
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return child_contents->GetVisibility() == content::Visibility::HIDDEN;
+  }));
+
+  // Occluding G now occludes P, but a not-rendered C must stay HIDDEN.
+  web_contents()->WasOccluded();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return parent_contents->GetVisibility() == content::Visibility::OCCLUDED;
+  }));
+  EXPECT_EQ(content::Visibility::HIDDEN, child_contents->GetVisibility());
+
+  web_contents()->WasShown();
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return parent_contents->GetVisibility() == content::Visibility::VISIBLE;
+  }));
+  EXPECT_EQ(content::Visibility::HIDDEN, child_contents->GetVisibility());
+}
+
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
                        EmbedMultipleTagsCreatesMultiplePlugins) {
   constexpr size_t kMultipleEmbedCount = 2;
@@ -1537,9 +1622,32 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
       SetupHarnessAndChildWithContent("/surface_embed/inner_page.html");
   AttachChildToEmbed(child_contents.get());
 
-  // Replace child page contents with a select element.
-  EXPECT_TRUE(content::ExecJs(child_contents.get(), R"(
+  // Wait for the embedder's initial visual properties and visibility to
+  // propagate to the child WebContents so that a delayed update does not reset
+  // visibility or resize the child widget while the popup is opening.
+  auto* connector = child_contents->GetSurfaceEmbedConnector();
+  ASSERT_NE(nullptr, connector);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    auto* child_view = child_contents->GetRenderWidgetHostView();
+    return child_contents->GetVisibility() == content::Visibility::VISIBLE &&
+           child_view &&
+           child_view->GetViewBounds().size() == gfx::Size(100, 100) &&
+           !connector->GetLocalFrameSizeInPixelsForTesting().IsEmpty();
+  }));
+
+  // Replace child page contents with a select element and wait for layout and
+  // viewport intersection in the child renderer before calling showPicker().
+  ASSERT_TRUE(content::ExecJs(child_contents.get(), R"(
     document.body.innerHTML = "<select><option>option1</option></select>";
+    new Promise(resolve => {
+      const observer = new IntersectionObserver(entries => {
+        if (entries[0].intersectionRatio > 0 && window.innerWidth > 0) {
+          observer.disconnect();
+          resolve();
+        }
+      });
+      observer.observe(document.querySelector('select'));
+    });
   )"));
 
   // Ensure visibility and activation of the child WebContents.
@@ -1711,14 +1819,27 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedBrowserTest,
                          embedded_handle->id().ToString())));
 
   // 5. Verify that the child WebContents has page focus after attaching to the
-  // already focused <embed>.
-  EXPECT_TRUE(base::test::RunUntil([&]() {
+  // already focused <embed>. First wait for browser-side attachment and focus
+  // updates, and flush the RenderWidgetHosts so that the transient
+  // SetPageFocus(false) followed by SetPageFocus(true) on the embedder have
+  // both been queued on the renderer before polling document.hasFocus().
+  ASSERT_TRUE(base::test::RunUntil([&]() {
     return child_contents->GetSurfaceEmbedConnector() != nullptr &&
            content::GetFocusedWebContents(web_contents()) ==
                child_contents.get() &&
            web_contents()->GetFocusedFrame() ==
-               child_contents->GetPrimaryMainFrame() &&
-           content::EvalJs(web_contents(), "document.activeElement.id") ==
+               child_contents->GetPrimaryMainFrame();
+  }));
+  web_contents()
+      ->GetPrimaryMainFrame()
+      ->GetRenderWidgetHost()
+      ->FlushForTesting();
+  child_contents->GetPrimaryMainFrame()
+      ->GetRenderWidgetHost()
+      ->FlushForTesting();
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return content::EvalJs(web_contents(), "document.activeElement.id") ==
                "my_embed" &&
            content::EvalJs(web_contents(), "document.hasFocus()")
                .ExtractBool() &&

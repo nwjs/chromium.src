@@ -2,20 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-toolbar.top-chrome/app.js';
+import 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import {assertEquals, assertFalse, assertGT, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {BrowserProxyImpl, ContentSettingImageType, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {ContentSettingIconElement} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {BrowserProxyImpl, ContentSettingImageType, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+import type {ContentSettingIconElement} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import {TestToolbarUiHandler} from './test_toolbar_browser_proxy.js';
 
 const COLLAPSE_HOLD_DURATION_MS = 1800;
 const AUTO_COLLAPSE_DELAY_MS = 2400;
 const REDUCED_MOTION_AUTO_COLLAPSE_DELAY_MS = 3000;
+
+// Computed 2D matrix for scaleX(-1).
+const FLIPPED_X_MATRIX = 'matrix(-1, 0, 0, 1, 0, 0)';
 
 suite('ContentSettingIcon', function() {
   let icon: ContentSettingIconElement;
@@ -589,5 +592,20 @@ suite('ContentSettingIcon', function() {
     icon.remove();
     assertEquals(1, stopTrackingCalls.length);
     assertEquals(icon, stopTrackingCalls[0]!);
+  });
+
+  test('Flips icon in RTL', () => {
+    const iconElement = icon.shadowRoot.querySelector<CrIconElement>('#icon');
+    assertTrue(!!iconElement);
+    assertEquals('none', window.getComputedStyle(iconElement).transform);
+
+    try {
+      document.documentElement.dir = 'rtl';
+      assertEquals(
+          FLIPPED_X_MATRIX, window.getComputedStyle(iconElement).transform);
+      assertEquals('none', window.getComputedStyle(icon.$.label).transform);
+    } finally {
+      document.documentElement.dir = 'ltr';
+    }
   });
 });

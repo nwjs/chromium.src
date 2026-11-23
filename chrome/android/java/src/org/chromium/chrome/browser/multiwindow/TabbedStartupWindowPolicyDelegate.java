@@ -200,8 +200,19 @@ import java.util.Set;
         return sInstance;
     }
 
+    /* package */ @SessionStartupPref
+    int getSessionStartupType() {
+        int cachedPref = ChromeMultiInstancePersistentStore.readRestoreOnStartupPrefValue();
+        return cachedPref == PREF_UNSET ? SessionStartupPref.LAST : cachedPref;
+    }
+
+    /* package */ void setSessionStartupType(Profile profile, @SessionStartupPref int startupType) {
+        updateCachedRestoreOnStartupPref(startupType);
+        UserPrefs.get(profile).setInteger(Pref.RESTORE_ON_STARTUP, startupType);
+    }
+
     /* package */ void onNativeInitialized(Profile profile) {
-        if (!MultiWindowUtils.isRestoreOnStartupPrefSyncEnabled()) return;
+        if (!MultiWindowUtils.isRestoreOnStartupPrefSupported()) return;
         // Early return if already initialized to ensure idempotency across multiple activities.
         if (mPrefChangeRegistrar != null) return;
         PrefService prefService = UserPrefs.get(profile);
@@ -244,7 +255,7 @@ import java.util.Set;
 
     /* package */ List<String> resolveStartupUrls(boolean incognito) {
         if (!MultiWindowUtils.isMultiInstanceApi31Enabled()
-                || !MultiWindowUtils.isRestoreOnStartupPrefSyncEnabled()
+                || !MultiWindowUtils.isRestoreOnStartupPrefSupported()
                 || mHasEvaluatedStartupUrls) {
             return Collections.emptyList();
         }
@@ -290,8 +301,8 @@ import java.util.Set;
         assert MultiWindowUtils.isMultiInstanceApi31Enabled();
 
         boolean isStartupPolicyEnabled = MultiWindowUtils.isNewStartupWindowPolicyEnabled();
-        boolean isPrefSyncEnabled = MultiWindowUtils.isRestoreOnStartupPrefSyncEnabled();
-        if (!isStartupPolicyEnabled && !isPrefSyncEnabled) {
+        boolean isPrefSupported = MultiWindowUtils.isRestoreOnStartupPrefSupported();
+        if (!isStartupPolicyEnabled && !isPrefSupported) {
             return false;
         }
 
@@ -309,7 +320,11 @@ import java.util.Set;
             return true;
         }
 
-        return isPrefSyncEnabled
+        // Note: When startup URLs become empty in SetSessionStartupUrls(), native sets
+        // SessionStartupPref::DEFAULT, which SessionStartupPref::SetStartupPref() persists to
+        // PrefService as kPrefValueNewTab (SessionStartupPref.NEW_TAB), so startupPref is
+        // evaluated here as SessionStartupPref.NEW_TAB.
+        return isPrefSupported
                 && (startupPref == SessionStartupPref.NEW_TAB
                         || startupPref == SessionStartupPref.URLS);
     }
@@ -339,8 +354,8 @@ import java.util.Set;
         assert MultiWindowUtils.isMultiInstanceApi31Enabled();
 
         boolean isStartupPolicyEnabled = MultiWindowUtils.isNewStartupWindowPolicyEnabled();
-        boolean isPrefSyncEnabled = MultiWindowUtils.isRestoreOnStartupPrefSyncEnabled();
-        if (!isStartupPolicyEnabled && !isPrefSyncEnabled) {
+        boolean isPrefSupported = MultiWindowUtils.isRestoreOnStartupPrefSupported();
+        if (!isStartupPolicyEnabled && !isPrefSupported) {
             return;
         }
 
@@ -429,24 +444,38 @@ import java.util.Set;
         }
     }
 
+    /* package */ List<String> getSessionStartupUrls(PrefService prefService) {
+        return TabbedStartupWindowPolicyDelegateJni.get().getSessionStartupUrls(prefService);
+    }
+
+    /* package */ void setSessionStartupUrls(PrefService prefService, List<String> urls) {
+        TabbedStartupWindowPolicyDelegateJni.get().setSessionStartupUrls(prefService, urls);
+    }
+
     private void updateCachedRestoreOnStartupPref() {
-        if (!isHistorySyncActive()) {
+        updateCachedRestoreOnStartupPref(
+                assertNonNull(mPrefService).getInteger(Pref.RESTORE_ON_STARTUP));
+    }
+
+    private void updateCachedRestoreOnStartupPref(@SessionStartupPref int startupType) {
+        if (!shouldCacheRestoreOnStartupPref()) {
             ChromeMultiInstancePersistentStore.writeRestoreOnStartupPrefValue(PREF_UNSET);
             return;
         }
-        int type = assertNonNull(mPrefService).getInteger(Pref.RESTORE_ON_STARTUP);
-        ChromeMultiInstancePersistentStore.writeRestoreOnStartupPrefValue(type);
+        ChromeMultiInstancePersistentStore.writeRestoreOnStartupPrefValue(startupType);
     }
 
     private void updateCachedRestoreOnStartupUrlsPref() {
-        if (!isHistorySyncActive()) {
+        if (!shouldCacheRestoreOnStartupPref()) {
             ChromeMultiInstancePersistentStore.writeRestoreOnStartupUrls(Collections.emptyList());
             return;
         }
-        assertNonNull(mPrefService);
-        List<String> urls =
-                TabbedStartupWindowPolicyDelegateJni.get().getSessionStartupUrls(mPrefService);
+        List<String> urls = getSessionStartupUrls(assertNonNull(mPrefService));
         ChromeMultiInstancePersistentStore.writeRestoreOnStartupUrls(urls);
+    }
+
+    private boolean shouldCacheRestoreOnStartupPref() {
+        return isHistorySyncActive() || MultiWindowUtils.isOnStartupSettingsUiEnabled();
     }
 
     private boolean isHistorySyncActive() {
@@ -481,7 +510,7 @@ import java.util.Set;
         @JniType("std::vector<std::string>")
         List<String> getSessionStartupUrls(@JniType("PrefService*") PrefService prefService);
 
-        void setSessionStartupUrlsForTesting(
+        void setSessionStartupUrls(
                 @JniType("PrefService*") PrefService prefService,
                 @JniType("std::vector<std::string>") List<String> urls);
     }

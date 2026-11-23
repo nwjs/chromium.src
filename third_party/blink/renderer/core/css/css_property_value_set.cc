@@ -44,7 +44,8 @@ namespace blink {
 
 static AdditionalBytes
 AdditionalBytesForImmutableCSSPropertyValueSetWithPropertyCount(size_t count) {
-  return AdditionalBytes(sizeof(CSSPropertyValue) * count);
+  return AdditionalBytes(
+      base::checked_cast<uint32_t>(sizeof(CSSPropertyValue) * count));
 }
 
 ImmutableCSSPropertyValueSet* ImmutableCSSPropertyValueSet::Create(
@@ -87,6 +88,22 @@ uint32_t CSSPropertyValueSet::ComputeHash() const {
   hash = EnsureValidHash(hash);
 
   return hash;
+}
+
+bool CSSPropertyValueSet::ContainsPrecomputableHoverStyleOnly() const {
+  for (const CSSPropertyValue& property : Properties()) {
+    switch (property.PropertyID()) {
+      case CSSPropertyID::kColor:
+      case CSSPropertyID::kTextDecorationColor:
+      case CSSPropertyID::kTextDecorationLine:
+      case CSSPropertyID::kTextDecorationStyle:
+      case CSSPropertyID::kTextDecorationThickness:
+        continue;
+      default:
+        return false;
+    }
+  }
+  return true;
 }
 
 MutableCSSPropertyValueSet::MutableCSSPropertyValueSet(
@@ -222,7 +239,7 @@ MutableCSSPropertyValueSet::MutableCSSPropertyValueSet(
     bool may_have_logical_properties =
         bits_.get<MayHaveLogicalPropertiesField>();
     for (const CSSPropertyValue& property : other.Properties()) {
-      property_vector_.UncheckedAppend(CSSPropertyValue(property));
+      property_vector_.UncheckedAppend(property);
       may_have_logical_properties |=
           kLogicalGroupProperties.Has(property.PropertyID());
     }
@@ -786,13 +803,6 @@ bool MutableCSSPropertyValueSet::RemovePropertiesAffectedByAll() {
     return true;
   }
   return false;
-}
-
-CSSPropertyValue* MutableCSSPropertyValueSet::FindCSSPropertyWithName(
-    const CSSPropertyName& name) {
-  return const_cast<CSSPropertyValue*>(
-      name.IsCustomProperty() ? FindPropertyPointer(name.ToAtomicString())
-                              : FindPropertyPointer(name.Id()));
 }
 
 bool CSSPropertyValueSet::PropertyMatches(

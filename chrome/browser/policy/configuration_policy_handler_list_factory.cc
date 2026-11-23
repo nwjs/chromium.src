@@ -37,7 +37,6 @@
 #include "chrome/browser/policy/developer_tools_policy_handler.h"
 #include "chrome/browser/policy/drive_file_sync_available_policy_handler.h"
 #include "chrome/browser/policy/file_selection_dialogs_policy_handler.h"
-#include "chrome/browser/policy/gemini_enterprise_settings_policy_handler.h"
 #include "chrome/browser/policy/gemini_enterprise_url_policy_handler.h"
 #include "chrome/browser/policy/homepage_location_policy_handler.h"
 #include "chrome/browser/policy/isolate_origins_policy_handler.h"
@@ -96,7 +95,6 @@
 #include "components/enterprise/data_controls/core/browser/prefs.h"
 #include "components/enterprise/device_trust/prefs.h"
 #include "components/enterprise/isolated_mode/prefs.h"
-#include "components/enterprise/net/core/prefs.h"
 #include "components/enterprise/network_header_injection/core/http_header_injection_policy_handler.h"
 #include "components/feed/core/shared_prefs/pref_names.h"
 #include "components/history/core/common/pref_names.h"
@@ -110,8 +108,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/on_device_translation/buildflags/buildflags.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
+#include "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
@@ -130,6 +127,7 @@
 #include "components/policy/core/common/schema.h"
 #include "components/policy/policy_constants.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
+#include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/proxy_config/proxy_override_rules_policy_handler.h"
 #include "components/proxy_config/proxy_policy_handler.h"
 #include "components/safe_browsing/buildflags.h"
@@ -238,7 +236,6 @@
 #include "chromeos/constants/pref_names.h"
 #include "chromeos/dbus/power/power_policy_controller.h"
 #include "chromeos/ui/wm/fullscreen/pref_names.h"
-#include "components/account_manager_core/pref_names.h"
 #include "components/drive/drive_pref_names.h"  // nogncheck crbug.com/40147906
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
@@ -283,8 +280,11 @@
 #include "chrome/browser/enterprise/signin/enterprise_signin_prefs.h"
 #include "chrome/browser/external_protocol/auto_launch_protocols_policy_handler.h"
 #include "components/device_signals/core/browser/pref_names.h"  // nogncheck due to crbug.com/40147906
-#include "components/proxy_config/proxy_config_pref_names.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(ENTERPRISE_PROXY)
+#include "components/enterprise/net/core/proxy_provisioning_domains_policy_handler.h"
+#endif  // BUILDFLAG(ENTERPRISE_PROXY)
 
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
 #include "components/enterprise/watermarking/watermark_style_policy_handler.h"  // nogncheck crbug.com/40147906
@@ -313,6 +313,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kAdsSettingForIntrusiveAdsSites,
     prefs::kManagedDefaultAdsSetting,
     base::Value::Type::INTEGER },
+  { key::kAudioCaptureAllowed,
+    prefs::kAudioCaptureAllowed,
+    base::Value::Type::BOOLEAN },
   { key::kAutoplayAllowed,
     prefs::kAutoplayAllowed,
     base::Value::Type::BOOLEAN },
@@ -602,9 +605,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kAmbientAuthenticationInPrivateModesEnabled,
     prefs::kAmbientAuthenticationInPrivateModesEnabled,
     base::Value::Type::INTEGER },
-  { key::kAudioCaptureAllowed,
-    prefs::kAudioCaptureAllowed,
-    base::Value::Type::BOOLEAN },
   { key::kAudioCaptureAllowedUrls,
     prefs::kAudioCaptureAllowedUrls,
     base::Value::Type::LIST },
@@ -2541,11 +2541,13 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kThirdPartyAiChatSettings,
     omnibox::kThirdPartyAiChatSettings,
     base::Value::Type::INTEGER },
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_ANDROID)
   { key::kEnableProxyOverrideRulesForAllUsers,
     proxy_config::prefs::kEnableProxyOverrideRulesForAllUsers,
     base::Value::Type::INTEGER },
-#endif // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) ||
+        // BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(IS_ANDROID)
   { key::kAppStoreRatingEnabled,
     prefs::kAppRatingPolicyEnabled,
@@ -2739,10 +2741,8 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 
 #if BUILDFLAG(ENTERPRISE_PROXY)
   handlers->AddHandler(
-      std::make_unique<
-          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
-          key::kProxyProvisioningDomains,
-          enterprise_net::kProxyProvisioningDomains, chrome_schema));
+      std::make_unique<enterprise_net::ProxyProvisioningDomainsPolicyHandler>(
+          chrome_schema));
 #endif
 
   handlers->AddHandler(std::make_unique<IsolateOriginsPolicyHandler>());
@@ -3383,9 +3383,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   handlers->AddHandler(std::make_unique<DefaultGeolocationPolicyHandler>());
   handlers->AddHandler(
       std::make_unique<DeviceLoginScreenGeolocationAccessLevelPolicyHandler>());
-  handlers->AddHandler(std::make_unique<BooleanDisablingPolicyHandler>(
-      key::kSecondaryGoogleAccountSigninAllowed,
-      ::account_manager::prefs::kSecondaryGoogleAccountSigninAllowed));
   handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
       key::kUsageTimeLimit, ash::prefs::kUsageTimeLimit, chrome_schema,
       SCHEMA_ALLOW_UNKNOWN,
@@ -3477,6 +3474,12 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
       SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
       SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  handlers->AddHandler(std::make_unique<BooleanDisablingPolicyHandler>(
+      key::kSecondaryGoogleAccountSigninAllowed,
+      policy::policy_prefs::kSecondaryGoogleAccountSigninAllowed));
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_MAC)
   handlers->AddHandler(
@@ -3752,8 +3755,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-  handlers->AddHandler(
-      std::make_unique<GeminiEnterpriseSettingsPolicyHandler>(chrome_schema));
   handlers->AddHandler(std::make_unique<GeminiEnterpriseUrlPolicyHandler>());
 #endif
 

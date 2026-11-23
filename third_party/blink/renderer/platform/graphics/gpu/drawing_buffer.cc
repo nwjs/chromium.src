@@ -856,10 +856,31 @@ DrawingBuffer::ExportLowLatencyCanvasResource() {
     back_color_buffer_->BeginAccess(gpu::SyncToken(), /*readonly=*/false);
   }
 
-  return ExternalCanvasResource::Create(
+  return base::MakeRefCounted<ExternalCanvasResource>(
       back_color_buffer_->shared_image, sync_token,
       viz::TransferableResource::ResourceSource::kDrawingBuffer, hdr_metadata_,
       viz::ReleaseCallback(), context_provider_->GetWeakPtr());
+}
+
+scoped_refptr<StaticBitmapImage> DrawingBuffer::ExportLowLatencyBitmap() {
+  gpu::SyncToken sync_token;
+  if (contents_changed_) {
+    ScopedStateRestorer scoped_state_restorer(this);
+    ResolveIfNeeded(kDiscardAllowed);
+
+    // Restart SharedImage access on the back buffer to ensure a write fence is
+    // generated on it to guarantee display reads this frame completely.
+    // Display may still read parts of subsequent frames, which is okay.
+    sync_token = back_color_buffer_->EndAccess();
+    back_color_buffer_->BeginAccess(gpu::SyncToken(), /*readonly=*/false);
+  }
+
+  return base::MakeRefCounted<ExternalCanvasResource>(
+             back_color_buffer_->shared_image, sync_token,
+             viz::TransferableResource::ResourceSource::kDrawingBuffer,
+             hdr_metadata_, viz::ReleaseCallback(),
+             context_provider_->GetWeakPtr())
+      ->Bitmap();
 }
 
 scoped_refptr<CanvasResource> DrawingBuffer::ExportCanvasResource() {
@@ -880,7 +901,7 @@ scoped_refptr<CanvasResource> DrawingBuffer::ExportCanvasResource() {
     return nullptr;
   }
 
-  return ExternalCanvasResource::Create(
+  return base::MakeRefCounted<ExternalCanvasResource>(
       client_si, sync_token,
       viz::TransferableResource::ResourceSource::kDrawingBuffer, hdr_metadata_,
       std::move(out_release_callback), context_provider_->GetWeakPtr());

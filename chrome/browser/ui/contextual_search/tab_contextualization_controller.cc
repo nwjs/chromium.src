@@ -16,6 +16,7 @@
 #include "base/task/bind_post_task.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "base/time/time.h"
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/lens/lens_features.h"
@@ -25,7 +26,9 @@
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -47,6 +50,19 @@
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace lens {
+
+namespace {
+
+// Timeout for `CopyFromSurfaceSecure()` when capturing a tab screenshot. If a
+// background tab's current `LocalSurfaceId` has no activated `viz::Surface`
+// (for example, when the tab was hidden or resized before its renderer
+// submitted a compositor frame for the new surface ID),
+// `PendingCopyOutputRequest` in Viz will time out instead of stalling
+// `GetPageContext()` indefinitely, allowing page context extraction to complete
+// with the annotated page content.
+constexpr base::TimeDelta kCaptureScreenshotTimeout = base::Seconds(1);
+
+}  // namespace
 
 DEFINE_USER_DATA(TabContextualizationController);
 
@@ -173,6 +189,10 @@ TabContextualizationController::GetPageContextAvailability() const {
   if (web_contents->HasUncommittedNavigationInPrimaryMainFrame()) {
     return PageContextAvailability::kLoading;
   }
+  if (!web_contents->GetPrimaryMainFrame()->IsRenderFrameLive() ||
+      web_contents->IsCrashed()) {
+    return PageContextAvailability::kUnavailable;
+  }
   if (web_contents->IsDocumentOnLoadCompletedInPrimaryMainFrame()) {
     return PageContextAvailability::kReadyToExtract;
   }
@@ -217,6 +237,29 @@ TabContextualizationController::GetPageContextAvailability() const {
 #endif  // BUILDFLAG(IS_ANDROID)
   return web_contents->IsLoading() ? PageContextAvailability::kLoading
                                    : PageContextAvailability::kUnavailable;
+}
+
+bool TabContextualizationController::ReloadTabIfPossible() {
+  content::WebContents* web_contents = tab_->GetContents();
+  if (!web_contents) {
+    return false;
+  }
+  content::NavigationEntry* last_committed_entry =
+      web_contents->GetController().GetLastCommittedEntry();
+  if (!last_committed_entry || last_committed_entry->GetHasPostData() ||
+      web_contents->GetLastCommittedURL().is_empty()) {
+    return false;
+  }
+  const bool needs_reload =
+      !web_contents->GetPrimaryMainFrame()->IsRenderFrameLive() ||
+      web_contents->IsCrashed() || web_contents->WasDiscarded() ||
+      web_contents->GetController().NeedsReload();
+  if (!needs_reload) {
+    return false;
+  }
+  web_contents->GetController().Reload(content::ReloadType::NORMAL,
+                                       /*check_for_repost=*/false);
+  return GetPageContextAvailability() == PageContextAvailability::kLoading;
 }
 
 void TabContextualizationController::
@@ -445,7 +488,13 @@ void TabContextualizationController::GetPageContext(
 
   Observe(web_contents);
 
-  switch (GetPageContextAvailability()) {
+  PageContextAvailability availability = GetPageContextAvailability();
+  if (availability == PageContextAvailability::kUnavailable &&
+      ReloadTabIfPossible()) {
+    availability = PageContextAvailability::kLoading;
+  }
+
+  switch (availability) {
     case PageContextAvailability::kReadyToExtract:
       FetchPageContextInternal(std::move(callback));
       return;
@@ -674,7 +723,8 @@ void TabContextualizationController::CaptureScreenshot(
   // Use CopyFromSurfaceSecure() because Lens / Contextual Search is a trusted
   // internal browser feature.
   view->CopyFromSurfaceSecure(
-      /*src_rect=*/gfx::Rect(), /*output_size=*/gfx::Size(), base::TimeDelta(),
+      /*src_rect=*/gfx::Rect(), /*output_size=*/gfx::Size(),
+      kCaptureScreenshotTimeout,
       base::BindPostTask(base::SequencedTaskRunner::GetCurrentDefault(),
                          std::move(callback_wrapper)));
 }

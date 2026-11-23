@@ -64,6 +64,7 @@
 #import "ios/chrome/browser/autofill/model/autofill_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/features.h"
+#import "ios/chrome/browser/autofill/model/ios_autofill_entity_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_entity_suppression_manager_factory.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/util/autofill_credit_card_util.h"
@@ -135,6 +136,8 @@ const base::Feature* FetchIPHFeatureFromEnum(
       return &feature_engagement::kIPHAutofillHomeWorkProfileSuggestionFeature;
     case SuggestionFeatureForIPH::kAccountNameEmailSuggestion:
       return &feature_engagement::kIPHAutofillAccountNameEmailSuggestionFeature;
+    case SuggestionFeatureForIPH::kAutofillAmbientAutofillSpiiDisclaimer:
+      return &feature_engagement::kIPH_AutofillAmbientAutofillSpiiDisclaimer;
     case SuggestionFeatureForIPH::kUnknown:
       NOTREACHED();
   }
@@ -440,7 +443,7 @@ void UndoInSessionSuppressedEntity(
       expandedManualFillCoordinator;
   [expandedManualFillCoordinator start];
 
-  if ([ManualFillUtil shouldUsePopover]) {
+  if ([ManualFillUtil shouldUsePopover:_formInputAccessoryViewController]) {
     [expandedManualFillCoordinator presentFromButton:button];
   } else {
     self.formInputViewController = expandedManualFillCoordinator.viewController;
@@ -457,7 +460,7 @@ void UndoInSessionSuppressedEntity(
 }
 
 - (void)dismissPopover {
-  if ([ManualFillUtil shouldUsePopover]) {
+  if ([ManualFillUtil shouldUsePopover:_formInputAccessoryViewController]) {
     // Close the popover view.
     [self stopChildren];
   }
@@ -482,6 +485,9 @@ void UndoInSessionSuppressedEntity(
       case SuggestionFeatureForIPH::kAccountNameEmailSuggestion:
         tracker->NotifyEvent(
             "account_name_email_create_suggestion_feature_used");
+        break;
+      case SuggestionFeatureForIPH::kAutofillAmbientAutofillSpiiDisclaimer:
+        tracker->NotifyEvent("autofill_ai_spii_disclaimer_used");
         break;
       case SuggestionFeatureForIPH::kUnknown:
         NOTREACHED();
@@ -573,7 +579,7 @@ void UndoInSessionSuppressedEntity(
   BOOL invokedOnObfuscatedField =
       [_formInputAccessoryMediator lastFocusedFieldWasObfuscated];
 
-  if (![ManualFillUtil shouldUsePopover]) {
+  if (![ManualFillUtil shouldUsePopover:formInputAccessoryViewController]) {
     [self stopChildren];
   }
 
@@ -592,6 +598,20 @@ void UndoInSessionSuppressedEntity(
 - (void)formInputAccessoryViewControllerReset:
     (FormInputAccessoryViewController*)formInputAccessoryViewController {
   CHECK_EQ(_formInputAccessoryViewController, formInputAccessoryViewController);
+  // If an expanded manual fill view is open when the size class transitions
+  // between compact (`_formInputViewController != nil`) and popover
+  // (`_formInputViewController == nil`) presentation modes, stop the manual
+  // fill coordinator and reload the first responder's input views. Otherwise
+  // (e.g., during `viewDidDisappear:`), only reset the input views.
+  BOOL isManualFillOpen =
+      _formInputAccessoryMediator.formInputInteractionDelegate != nil;
+  BOOL isPopoverMode =
+      [ManualFillUtil shouldUsePopover:formInputAccessoryViewController];
+  if (isManualFillOpen &&
+      ((_formInputViewController == nil) != isPopoverMode)) {
+    [self reset];
+    return;
+  }
   [self resetInputViews];
 }
 
@@ -677,11 +697,10 @@ void UndoInSessionSuppressedEntity(
   UISheetPresentationController* sheetPresentationController =
       _sourcesNavigationController.sheetPresentationController;
   if (sheetPresentationController) {
-    sheetPresentationController.detents = @[
-      [UISheetPresentationControllerDetent mediumDetent],
-      [UISheetPresentationControllerDetent largeDetent],
-    ];
-    sheetPresentationController.prefersGrabberVisible = NO;
+    sheetPresentationController.detents =
+        @[ [sourcesViewController preferredHeightDetent] ];
+    sheetPresentationController.prefersGrabberVisible = YES;
+    sheetPresentationController.prefersEdgeAttachedInCompactHeight = YES;
   }
 
   UIViewController* presenter = self.baseViewController;
@@ -938,7 +957,6 @@ void UndoInSessionSuppressedEntity(
   _atMemoryCoordinator = [[AtMemoryCoordinator alloc]
       initWithBaseViewController:self.baseViewController
                          browser:self.browser
-                 contentInjector:self.injectionHandler
                          fieldId:fieldId];
 
   [self.childCoordinators addObject:_atMemoryCoordinator];
@@ -997,8 +1015,9 @@ void UndoInSessionSuppressedEntity(
 #pragma mark - CRWResponderInputView
 
 - (UIView*)inputView {
-  return [ManualFillUtil shouldUsePopover] ? nil
-                                           : self.formInputViewController.view;
+  return [ManualFillUtil shouldUsePopover:_formInputAccessoryViewController]
+             ? nil
+             : self.formInputViewController.view;
 }
 
 - (UIView*)inputAccessoryView {
@@ -1123,6 +1142,9 @@ void UndoInSessionSuppressedEntity(
   // Only offer an undo if this call suppressed the entity, like on the other
   // platforms.
   if (suppressed) {
+    autofill::LogEntitySuppressedWithSavedEntityPresent(
+        entityCopy.type(),
+        IOSAutofillEntityDataManagerFactory::GetForProfile(self.profile));
     [self showUndoSnackbarForEntity:entityCopy];
   }
 }
@@ -1242,6 +1264,12 @@ void UndoInSessionSuppressedEntity(
       voiceOverText = l10n_util::GetNSString(
           IDS_AUTOFILL_IPH_ACCOUNT_NAME_EMAIL_SUGGESTION_SCREENREADER);
       break;
+    case SuggestionFeatureForIPH::kAutofillAmbientAutofillSpiiDisclaimer:
+      text = l10n_util::GetNSString(
+          IDS_AUTOFILL_IPH_AMBIENT_AUTOFILL_SPII_DISCLAIMER);
+      voiceOverText = l10n_util::GetNSString(
+          IDS_AUTOFILL_IPH_AMBIENT_AUTOFILL_SPII_DISCLAIMER_SCREENREADER);
+      break;
     case SuggestionFeatureForIPH::kUnknown:
       NOTREACHED();
   }
@@ -1360,7 +1388,7 @@ void UndoInSessionSuppressedEntity(
 - (void)cardCoordinatorDidCompleteManualFill:(CardCoordinator*)cardCoordinator {
   // This is re-triggered automatically only when it is an input view (as
   // opposed to a popover anchored to a button).
-  if ([ManualFillUtil shouldUsePopover]) {
+  if ([ManualFillUtil shouldUsePopover:_formInputAccessoryViewController]) {
     return;
   }
 

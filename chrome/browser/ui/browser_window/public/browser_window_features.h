@@ -102,6 +102,7 @@ class SidePanelRegistry;
 class SigninViewController;
 class SplitViewIphController;
 class TabDragServiceFeature;
+class TabGroupFocusIphController;
 class TabListBridge;
 
 namespace send_tab_to_self {
@@ -110,6 +111,7 @@ class SendTabToSelfIphController;
 class TabMenuModelDelegate;
 class TabStripModel;
 class TabStripServiceFeature;
+class TabsFromOtherDevicesSidePanelCoordinator;
 class ToastService;
 class TranslateBubbleController;
 class UIControllerFactory;
@@ -215,14 +217,6 @@ namespace pdf::infobar {
 class PdfInfoBarController;
 }  // namespace pdf::infobar
 #endif
-
-namespace qrcode_generator {
-class QRCodeWindowController;
-}  // namespace qrcode_generator
-
-namespace send_tab_to_self {
-class SendTabToSelfToolbarBubbleController;
-}  // namespace send_tab_to_self
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 namespace session_restore_infobar {
@@ -427,15 +421,11 @@ class BrowserWindowFeatures {
       most_recent_shared_tab_update_store_;
   std::unique_ptr<ProfileMenuCoordinator> profile_menu_coordinator_;
   std::unique_ptr<OrganizerPanelController> organizer_panel_controller_;
-  std::unique_ptr<qrcode_generator::QRCodeWindowController>
-      qrcode_window_controller_;
   std::unique_ptr<ReadingListSidePanelCoordinator>
       reading_list_side_panel_coordinator_;
   std::unique_ptr<RecentActivityBubbleCoordinator>
       recent_activity_bubble_coordinator_;
   std::unique_ptr<SearchboxContextData> searchbox_context_data_;
-  std::unique_ptr<send_tab_to_self::SendTabToSelfToolbarBubbleController>
-      send_tab_to_self_toolbar_bubble_controller_;
   std::unique_ptr<SessionServiceBrowserHelper> session_service_browser_helper_;
   std::unique_ptr<tab_groups::SessionServiceTabGroupSyncObserver>
       session_service_tab_group_sync_observer_;
@@ -457,6 +447,8 @@ class BrowserWindowFeatures {
   // Controller for managing TabStrip UI decoupled TabStrip platform.
   std::unique_ptr<tabs_api::TabStripUIControllerImpl> tab_strip_ui_controller_;
 
+  std::unique_ptr<TabsFromOtherDevicesSidePanelCoordinator>
+      tabs_from_other_devices_side_panel_coordinator_;
   std::unique_ptr<ToastService> toast_service_;
   std::unique_ptr<TranslateBubbleController> translate_bubble_controller_;
   std::unique_ptr<ttc::EntrypointController> ttc_entrypoint_controller_;
@@ -465,6 +457,7 @@ class BrowserWindowFeatures {
   std::unique_ptr<BrowserUserEducationInterface> user_education_;
   std::unique_ptr<send_tab_to_self::SendTabToSelfIphController>
       send_tab_to_self_iph_controller_;
+  std::unique_ptr<TabGroupFocusIphController> tab_group_focus_iph_controller_;
   std::unique_ptr<VerticalTabIphController> vertical_tab_iph_controller_;
   std::unique_ptr<tabs::VerticalTabStripStateController>
       vertical_tab_strip_state_controller_;

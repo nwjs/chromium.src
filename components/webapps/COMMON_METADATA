@@ -5,3 +5,17 @@ team_email: "pwa-dev@chromium.org"
 buganizer_public: {
   component_id: 1457043
 }
+
+# Opt in to agentic code review.
+agentic_review {
+  # Web apps Mojo security and origin validation in non-test files.
+  capability_groups {
+    path_expression: "components/webapps/.*\\.(cc|h|mm)"
+    path_expression_exclusion: [
+      ".*/test(s|_support)?/.*",
+      ".*/(test|fake|mock)_[^/]*",
+      ".*_(unittest|browsertest|interactive_uitest|perftest|ui_test|fuzzer|test)(_[a-z0-9_]+)?\\.(cc|h|mm)"
+    ]
+    review_capability_skills: ["components/webapps/_agents/skills/webapps-layering-and-security-review/SKILL.md"]
+  }
+}

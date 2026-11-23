@@ -341,6 +341,7 @@ TEST_F(NetworkChangeNotifierConnectionCostTest, AddObserver) {
   // RunUntilIdle because the secondary work resulting from adding an observer
   // may be posted to a task queue.
   base::RunLoop().RunUntilIdle();
+  NetworkChangeNotifier::RemoveConnectionCostObserver(&observer);
 }
 
 class TestLowLatencyObserver

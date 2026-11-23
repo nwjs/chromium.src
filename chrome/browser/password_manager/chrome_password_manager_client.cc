@@ -68,6 +68,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/content/browser/renderer_data_validation.h"
 #include "components/autofill/content/browser/renderer_forms_from_browser_form.h"
 #include "components/autofill/core/browser/autofill_server_prediction.h"
 #include "components/autofill/core/browser/foundations/scoped_autofill_managers_observation.h"
@@ -79,6 +80,7 @@
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
 #include "components/critical_actions/core/browser/critical_action_service.h"
+#include "components/critical_actions/core/browser/critical_action_types.h"
 #include "components/critical_actions/core/browser/features.h"
 #include "components/device_reauth/device_auth_availability_checker.h"
 #include "components/device_reauth/device_authenticator.h"
@@ -113,6 +115,7 @@
 #include "components/password_manager/core/browser/password_store/password_store_backend_error.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/password_store/password_store_util.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -138,9 +141,9 @@
 #include "content/public/browser/page.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/buildflags/buildflags.h"
@@ -151,7 +154,6 @@
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/gfx/geometry/quad_f.h"
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "chrome/browser/safe_browsing/advanced_protection_status_manager.h"
@@ -214,6 +216,7 @@ using password_manager::CredentialCache;
 using password_manager::PasswordCredentialFillerImpl;
 #endif
 
+using autofill::TransformToRootCoordinates;
 using autofill::mojom::FocusedFieldType;
 using autofill::password_generation::PasswordGenerationType;
 using password_manager::BadMessageReason;
@@ -239,30 +242,6 @@ namespace {
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 constexpr char kPasswordBreachEntryTrigger[] = "PASSWORD_ENTRY";
 #endif
-
-// Transforms `rect` from the `rfh`'s local root's coordinate system to the
-// main frame's coordinate system.
-gfx::RectF TransformToRootCoordinates(content::RenderFrameHost& rfh,
-                                      gfx::RectF rect) {
-  content::RenderWidgetHostView* view = rfh.GetView();
-  if (!view) {
-    return rect;
-  }
-
-  // Intersect the coordinates with the view's bounds. This is to make it hard
-  // for a malicious frame to position an Password Manager popup over a field
-  // from different frame (provided the attacker's and the victim's frames do
-  // not share the same local root).
-  rect.InclusiveIntersect(gfx::RectF(view->GetViewBounds().size()));
-
-  // Transform all corners to handle CSS `transform: scale(...)` correctly
-  // (crbug.com/562177779).
-  return gfx::QuadF(view->TransformPointToRootCoordSpaceF(rect.origin()),
-                    view->TransformPointToRootCoordSpaceF(rect.top_right()),
-                    view->TransformPointToRootCoordSpaceF(rect.bottom_right()),
-                    view->TransformPointToRootCoordSpaceF(rect.bottom_left()))
-      .BoundingBox();
-}
 
 }  // namespace
 
@@ -993,6 +972,10 @@ void ChromePasswordManagerClient::AutofillHttpAuth(
 void ChromePasswordManagerClient::NotifyUserCredentialsWereLeaked(
     password_manager::LeakedPasswordDetails details) {
 #if BUILDFLAG(IS_ANDROID)
+  // Do not show the window-scoped modal dialog for a hidden or occluded tab.
+  if (web_contents()->GetVisibility() != content::Visibility::VISIBLE) {
+    return;
+  }
   auto metrics_recorder = std::make_unique<
       password_manager::metrics_util::LeakDialogMetricsRecorder>(
       web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId(),
@@ -1015,7 +998,7 @@ void ChromePasswordManagerClient::NotifyUserCredentialsWereLeaked(
        details.credentials.username_value, GetProfile(),
        web_contents()->GetTopLevelNativeWindow(),
        std::make_unique<PasswordCheckupLauncherHelperImpl>(),
-       std::move(metrics_recorder), account))
+       std::move(metrics_recorder), std::move(account)))
       ->ShowDialog();
 #else   // !BUILDFLAG(IS_ANDROID)
   PasswordsClientUIDelegate* manage_passwords_ui_controller =
@@ -1407,7 +1390,8 @@ void ChromePasswordManagerClient::NavigateToManagePasswordsPage(
 void ChromePasswordManagerClient::OnPasswordFilled(
     password_manager::PasswordManagerDriver* driver) {
   if (critical_action_logger_) {
-    critical_action_logger_->MaybeLogCriticalAction(driver);
+    critical_action_logger_->MaybeLogCriticalAction(
+        critical_actions::ActionType::kGooglePasswordManager, driver);
   }
 }
 
@@ -1671,7 +1655,10 @@ void ChromePasswordManagerClient::PresaveGeneratedPassword(
 
 #if !BUILDFLAG(IS_ANDROID)
   if (popup_controller_ && popup_controller_->driver().get() == driver) {
-    popup_controller_->UpdateGeneratedPassword(password_value);
+    // Mojo boundary: `password_value` arrived as plaintext from the renderer.
+    // Protect the popup's copy before retaining it.
+    popup_controller_->UpdateGeneratedPassword(
+        password_manager::PasswordString(std::u16string(password_value)));
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -1754,7 +1741,10 @@ void ChromePasswordManagerClient::ShowPasswordEditingPopup(
       popup_controller_, element_bounds_in_screen_space, ui_data,
       driver->AsWeakPtr(), observer_, web_contents(), &rfh);
   CHECK(!password_value.empty());
-  popup_controller_->UpdateGeneratedPassword(password_value);
+  // Mojo boundary: `password_value` arrived as plaintext from the renderer.
+  // Protect the popup's copy before retaining it.
+  popup_controller_->UpdateGeneratedPassword(
+      password_manager::PasswordString(std::u16string(password_value)));
   popup_controller_->Show(
       PasswordGenerationPopupController::kEditGeneratedPassword);
 }
@@ -1889,9 +1879,8 @@ bool ChromePasswordManagerClient::IsActorTaskActive() {
     return false;
   }
 
-  const tabs::TabInterface* tab_interface =
-      tabs::TabInterface::MaybeGetFromContents(web_contents());
-  return tab_interface && actor_service->IsActiveOnTab(*tab_interface);
+  return actor_service->GetActingActorTaskForWebContents(web_contents()) !=
+         nullptr;
 }
 
 ChromePasswordManagerClient::ChromePasswordManagerClient(
@@ -2072,12 +2061,24 @@ void ChromePasswordManagerClient::OnNonPasswordLoginDetected() {
       opener_web_contents
           ? ChromePasswordManagerClient::FromWebContents(opener_web_contents)
           : nullptr;
-  if (opener_client) {
-    opener_client->password_manager_.OnNonPasswordLoginDetected();
-    return;
-  }
+  ChromePasswordManagerClient* target_client =
+      opener_client ? opener_client : this;
 
-  password_manager_.OnNonPasswordLoginDetected();
+  target_client->password_manager_.OnNonPasswordLoginDetected();
+
+  // Log on `this` only if it has an active Actor task and a live, active
+  // primary main frame, otherwise delegate to the opener (e.g. a closing login
+  // popup), as the action would be dropped without a navigation ID.
+  const bool can_log_on_self =
+      IsActorTaskActive() && !web_contents()->IsBeingDestroyed() &&
+      web_contents()->GetPrimaryMainFrame()->IsActive();
+
+  ChromePasswordManagerClient* logger_client =
+      (!can_log_on_self && opener_client) ? opener_client : this;
+  if (logger_client->critical_action_logger_) {
+    logger_client->critical_action_logger_->MaybeLogCriticalAction(
+        critical_actions::ActionType::kFederatedLogin);
+  }
 }
 
 void ChromePasswordManagerClient::OnFieldTypesDetermined(

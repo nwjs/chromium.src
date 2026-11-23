@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-toolbar.top-chrome/app.js';
+import 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {IconTable, IconType} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {IconFromTableElement} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {IconTable, IconType} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+import type {IconFromTableElement} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 suite('IconFromTableTest', function() {
   let iconFromTable: IconFromTableElement;
@@ -23,6 +23,7 @@ suite('IconFromTableTest', function() {
   });
 
   teardown(() => {
+    document.documentElement.dir = 'ltr';
     iconTable.reset();
   });
 
@@ -147,5 +148,58 @@ suite('IconFromTableTest', function() {
       const style = renderer.computedStyleMap();
       assertEquals('rgba(255, 0, 0, 0.5)', style.get('color')?.toString());
     }
+  });
+
+  test('RTL flipping', async function() {
+    iconTable.applyUpdates([
+      {
+        handleId: 1n,
+        iconUrlOrName: 'cr:schedule',
+        iconType: IconType.kIconSet,
+        color: null,
+      },
+      {
+        handleId: 2n,
+        iconUrlOrName: 'puppy.svg',
+        iconType: IconType.kMaskUrl,
+        color: null,
+      },
+      {
+        handleId: 3n,
+        iconUrlOrName: 'parrot.png',
+        iconType: IconType.kFullColorUrl,
+        color: null,
+      },
+    ]);
+
+    const FLIPPED_X_MATRIX = 'matrix(-1, 0, 0, 1, 0, 0)';
+
+    document.documentElement.dir = 'rtl';
+
+    // Without flip-in-rtl, no icon flips.
+    for (const handleId of [1n, 2n, 3n]) {
+      iconFromTable.iconHandle = {handleId};
+      await microtasksFinished();
+      assertEquals('none', window.getComputedStyle(iconFromTable).transform);
+    }
+
+    // With flip-in-rtl, vector icons and mask icons flip in RTL.
+    iconFromTable.flipInRtl = true;
+
+    iconFromTable.iconHandle = {handleId: 1n};
+    await microtasksFinished();
+    assertEquals(
+        FLIPPED_X_MATRIX, window.getComputedStyle(iconFromTable).transform);
+
+    iconFromTable.iconHandle = {handleId: 2n};
+    await microtasksFinished();
+    assertEquals(
+        FLIPPED_X_MATRIX, window.getComputedStyle(iconFromTable).transform);
+
+    // Full-color icons do not flip in RTL even when flip-in-rtl is set.
+    iconFromTable.iconHandle = {handleId: 3n};
+    await microtasksFinished();
+    assertTrue(iconFromTable.hasAttribute('is-full-color'));
+    assertEquals('none', window.getComputedStyle(iconFromTable).transform);
   });
 });

@@ -31,6 +31,7 @@
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/signin/cross_device_signin_promo_manager.h"
+#include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/signin/web_signin_interceptor.h"
 #include "chrome/browser/ui/webui/signin/signin_email_confirmation_dialog.h"
 #endif
@@ -49,7 +50,6 @@ struct CoreAccountInfo;
 namespace content {
 class WebContents;
 }
-
 
 namespace signin_metrics {
 enum class AccessPoint;
@@ -108,12 +108,13 @@ class SigninViewController {
   // Returns true if Chrome new tab page/blank is displayed in `contents`.
   static bool IsNTPTab(content::WebContents* contents);
 
-  // Shows a Chrome Sync signin tab. |email_hint| may be empty.
-  // Note: If the user has already set a primary account, then this is
-  // considered a reauth of the primary account, and |email_hint| is ignored.
-  void ShowDiceEnableSyncTab(signin_metrics::AccessPoint access_point,
-                             signin_metrics::PromoAction promo_action,
-                             const std::string& email_hint);
+  // Shows a Chrome signin tab that offers history sync after signin when
+  // appropriate for `access_point`. `email_hint` may be empty.
+  // Note: If the user has already set a syncing primary account, then this is
+  // considered a reauth of the primary account, and `email_hint` is ignored.
+  void ShowEnableHistorySyncTab(signin_metrics::AccessPoint access_point,
+                                signin_metrics::PromoAction promo_action,
+                                const std::string& email_hint);
 
   // Shows the Dice "add account" tab, which adds an account to the browser but
   // does not turn sync on. |email_hint| may be empty.
@@ -275,7 +276,8 @@ class SigninViewController {
                          signin_metrics::AccessPoint access_point,
                          signin_metrics::PromoAction promo_action,
                          const std::string& email_hint,
-                         const GURL& redirect_url);
+                         const GURL& redirect_url,
+                         signin::Flow signin_flow = signin::Flow::NONE);
 
   // Called by `SignoutOrReauthWithPrompt()` once the unsynced datatypes are
   // fetched.

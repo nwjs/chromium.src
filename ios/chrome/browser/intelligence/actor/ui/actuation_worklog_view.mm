@@ -23,10 +23,21 @@ const NSTimeInterval kAnimationDuration = 0.25;
 const NSTimeInterval kSpringAnimationDuration = 0.4;
 const CGFloat kSpringDamping = 1.0;
 
-}  // namespace
+// Returns the connector visibility matching the `top` and `bottom` segments.
+ActuationWorklogConnectorVisibility ConnectorVisibility(BOOL top, BOOL bottom) {
+  if (top && bottom) {
+    return ActuationWorklogConnectorVisibility::kBoth;
+  }
+  if (top) {
+    return ActuationWorklogConnectorVisibility::kTop;
+  }
+  if (bottom) {
+    return ActuationWorklogConnectorVisibility::kBottom;
+  }
+  return ActuationWorklogConnectorVisibility::kNone;
+}
 
-@interface ActuationWorklogView () <ActuationWorklogItemViewDelegate>
-@end
+}  // namespace
 
 @implementation ActuationWorklogView {
   UIStackView* _mainStackView;
@@ -34,6 +45,7 @@ const CGFloat kSpringDamping = 1.0;
   ActorToolChipView* _toolChipView;
   UIStackView* _chipContainer;
   NSMutableArray<ActuationWorklogItemView*>* _itemViews;
+  BOOL _collapsed;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -72,29 +84,6 @@ const CGFloat kSpringDamping = 1.0;
 
 #pragma mark - Public
 
-- (void)setCollapsed:(BOOL)collapsed {
-  [self setCollapsed:collapsed animated:NO];
-}
-
-- (void)setCollapsed:(BOOL)collapsed animated:(BOOL)animated {
-  if (_collapsed == collapsed) {
-    return;
-  }
-  _collapsed = collapsed;
-
-  if (animated) {
-    [UIView transitionWithView:self
-                      duration:kAnimationDuration
-                       options:UIViewAnimationOptionTransitionCrossDissolve
-                    animations:^{
-                      [self updateVisibilityAndConnectors];
-                    }
-                    completion:nil];
-  } else {
-    [self updateVisibilityAndConnectors];
-  }
-}
-
 - (void)setItems:(NSArray<ActuationWorklogItem*>*)items {
   CHECK(items);
 
@@ -109,7 +98,7 @@ const CGFloat kSpringDamping = 1.0;
   for (NSInteger i = 0; i < count; ++i) {
     ActuationWorklogItemView* itemView =
         [[ActuationWorklogItemView alloc] init];
-    itemView.delegate = self;
+    itemView.delegate = self.itemDelegate;
     [itemView configureWithItem:items[i]];
     [_itemViews addObject:itemView];
     [_itemsStackView addArrangedSubview:itemView];
@@ -122,7 +111,7 @@ const CGFloat kSpringDamping = 1.0;
   CHECK(item);
 
   ActuationWorklogItemView* itemView = [[ActuationWorklogItemView alloc] init];
-  itemView.delegate = self;
+  itemView.delegate = self.itemDelegate;
   [itemView configureWithItem:item];
 
   [_itemViews addObject:itemView];
@@ -214,21 +203,40 @@ const CGFloat kSpringDamping = 1.0;
   _chipContainer.alpha = 0.0;
 }
 
-#pragma mark - ActuationWorklogItemViewDelegate
-
-- (void)worklogItemViewDidTapItem:(ActuationWorklogItemView*)itemView {
+- (void)handleTapOnView:(ActuationWorklogItemView*)itemView {
   if (_itemViews.count > 0 && itemView == _itemViews[0]) {
     [self setCollapsed:!_collapsed animated:YES];
-    [self.delegate worklogView:self didChangeCollapsed:_collapsed];
   }
 }
 
-- (void)worklogItemView:(ActuationWorklogItemView*)itemView
-    didTapAccessoryItem:(ActuationWorklogAccessoryItem*)accessoryItem {
-  [self.delegate worklogView:self didTapAccessoryItem:accessoryItem];
+#pragma mark - Private
+
+// Sets the collapsed state without animation.
+- (void)setCollapsed:(BOOL)collapsed {
+  [self setCollapsed:collapsed animated:NO];
 }
 
-#pragma mark - Private
+// Sets the collapsed state. If `animated` is set, the view will collapse or
+// expand with optional cross-dissolve animation.
+- (void)setCollapsed:(BOOL)collapsed animated:(BOOL)animated {
+  if (_collapsed == collapsed) {
+    return;
+  }
+  _collapsed = collapsed;
+
+  if (animated) {
+    __weak __typeof(self) weakSelf = self;
+    [UIView transitionWithView:self
+                      duration:kAnimationDuration
+                       options:UIViewAnimationOptionTransitionCrossDissolve
+                    animations:^{
+                      [weakSelf updateVisibilityAndConnectors];
+                    }
+                    completion:nil];
+  } else {
+    [self updateVisibilityAndConnectors];
+  }
+}
 
 // Synchronizes subview visibility and timeline connector styles with the
 // current `_collapsed` state. In collapsed mode, only the header item and
@@ -336,20 +344,12 @@ const CGFloat kSpringDamping = 1.0;
 - (ActuationWorklogConnectorVisibility)connectorsAtIndex:(NSInteger)index {
   NSInteger count = (NSInteger)_itemViews.count;
   BOOL hasChip = !_chipContainer.hidden;
-  BOOL isFirst = (index == 0);
   BOOL isLast = (index == count - 1);
-  if (isFirst && isLast) {
-    return hasChip ? ActuationWorklogConnectorVisibility::kBottom
-                   : ActuationWorklogConnectorVisibility::kNone;
-  }
-  if (isFirst) {
-    return ActuationWorklogConnectorVisibility::kBottom;
-  }
-  if (isLast) {
-    return hasChip ? ActuationWorklogConnectorVisibility::kBoth
-                   : ActuationWorklogConnectorVisibility::kTop;
-  }
-  return ActuationWorklogConnectorVisibility::kBoth;
+  // Freeform items break the timeline, so segments only link adjacent timeline
+  // items to avoid dangling dashes next to a freeform item.
+  BOOL hasTop = [self isTimelineItemAtIndex:index - 1];
+  BOOL hasBottom = isLast ? hasChip : [self isTimelineItemAtIndex:index + 1];
+  return ConnectorVisibility(hasTop, hasBottom);
 }
 
 // Returns the connector line segments for an item at `index` when the worklog
@@ -359,18 +359,28 @@ const CGFloat kSpringDamping = 1.0;
     collapsedConnectorsAtIndex:(NSInteger)index
                       showLast:(BOOL)showLast {
   NSInteger count = (NSInteger)_itemViews.count;
+  NSInteger lastIndex = count - 1;
   BOOL hasChip = !_chipContainer.hidden;
-  BOOL isFirst = (index == 0);
-  BOOL isLast = (index == count - 1);
-  if (isFirst) {
-    return (showLast || hasChip) ? ActuationWorklogConnectorVisibility::kBottom
-                                 : ActuationWorklogConnectorVisibility::kNone;
+  // When collapsed, only the first and (optionally) last items are visible, so
+  // they are linked directly to each other.
+  if (index == 0) {
+    BOOL hasBottom =
+        showLast ? [self isTimelineItemAtIndex:lastIndex] : hasChip;
+    return ConnectorVisibility(NO, hasBottom);
   }
-  if (showLast && isLast) {
-    return hasChip ? ActuationWorklogConnectorVisibility::kBoth
-                   : ActuationWorklogConnectorVisibility::kTop;
+  if (showLast && index == lastIndex) {
+    return ConnectorVisibility([self isTimelineItemAtIndex:0], hasChip);
   }
   return ActuationWorklogConnectorVisibility::kNone;
+}
+
+// Returns whether `index` is in bounds and refers to an item that is part of
+// the timeline (i.e. not a freeform item).
+- (BOOL)isTimelineItemAtIndex:(NSInteger)index {
+  if (index < 0 || index >= (NSInteger)_itemViews.count) {
+    return NO;
+  }
+  return _itemViews[index].item.style != ActuationWorklogItemStyle::kFreeform;
 }
 
 @end

@@ -7,22 +7,24 @@
 
 PRESUBMIT_VERSION = '2.0.0'
 
-import glob
-import os
-import re
-import sys
-from xml.dom import minidom
-from xml.parsers import expat
+import glob  # noqa: E402
+import os  # noqa: E402
+import re  # noqa: E402
+import sys  # noqa: E402
+from xml.dom import minidom  # noqa: E402
+from xml.parsers import expat  # noqa: E402
 
 sys.path.append(os.path.abspath('./resources'))
-from policy_templates import (
+from policy_templates import (  # noqa: E402
     GetPolicyTemplates,
     SENSITIVE_POLICY_NOTICES,
     SENSITIVE_POLICIES_WITH_MANUAL_NOTICE_PATTERN,
 )
 
 sys.path.append(os.path.join('..', '..', 'third_party'))
-import pyyaml
+sys.path.append(os.path.join('..', '..', 'third_party', 'pyjson5', 'src'))
+import json5  # noqa: E402
+import pyyaml  # noqa: E402
 
 
 _CACHED_FILES = {}
@@ -32,6 +34,9 @@ _CACHED_POLICY_DEFINITION_MAP = {}
 _COMPONENTS_POLICY_PATH = os.path.join('components', 'policy')
 _TEST_CASES_DEPOT_PATH = os.path.join(
     _COMPONENTS_POLICY_PATH, 'test', 'data', 'pref_mapping'
+)
+_IOS_TEST_CASES_DEPOT_PATH = os.path.join(
+    'ios', 'chrome', 'test', 'data', 'policy', 'pref_mapping'
 )
 _PRESUBMIT_PATH = os.path.join(_COMPONENTS_POLICY_PATH, 'PRESUBMIT.py')
 _TOOLS_PATH = os.path.join(_COMPONENTS_POLICY_PATH, 'tools')
@@ -137,7 +142,7 @@ def _GetCurrentVersion(input_api):
         version_path = input_api.os_path.join(root, 'chrome', 'VERSION')
         with open(version_path, "rb") as f:
             _CACHED_FILES['version'] = int(f.readline().split(b"=")[1])
-    except:
+    except:  # noqa: E722
         pass
     return _CACHED_FILES['version']
 
@@ -270,11 +275,11 @@ def _GetPolicyChangeList(input_api):
         if policy_name in policy_changes_map:
             # We previously found the policy at the new location, update old_policy
             # with the value from the old location.
-            if policy_changes_map[policy_name]['old_policy'] == None:
+            if policy_changes_map[policy_name]['old_policy'] == None:  # noqa: E711
                 policy_changes_map[policy_name]['old_policy'] = old_policy
             # We previously found the policy at the old location, update new_policy
             # with the value from the new location.
-            if policy_changes_map[policy_name]['new_policy'] == None:
+            if policy_changes_map[policy_name]['new_policy'] == None:  # noqa: E711
                 policy_changes_map[policy_name]['new_policy'] = new_policy
         else:
             policy_changes_map[policy_name] = {
@@ -383,6 +388,106 @@ def CheckPolicyTestCases(input_api, output_api):
             ),
         )
     )
+
+    return results
+
+
+# Maps `supported_on` and `future_on` platforms to the `os` values of pref
+# mapping test cases, like PLATFORM_STRINGS in generate_policy_source.py.
+# Fuchsia is intentionally left out because pref mapping tests don't run there.
+_TEST_CASE_OSES_BY_PLATFORM = {
+    'chrome.*': ('win', 'mac', 'linux'),
+    'chrome.win': ('win',),
+    'chrome.win7': ('win',),
+    'chrome.mac': ('mac',),
+    'chrome.linux': ('linux',),
+    'chrome_os': ('chromeos',),
+    'android': ('android',),
+    'webview_android': ('android',),
+    'ios': ('ios',),
+}
+
+
+def _GetCoveredOses(path):
+    '''Returns the `os` values covered by the pref mapping test cases in
+    `path`, by either tests or a `reason_for_missing_test`.'''
+    if not os.path.exists(path):
+        return set()
+    with open(path, encoding='utf-8') as f:
+        test_cases = json5.load(f)
+    covered_oses = set()
+    for test_case in test_cases:
+        if test_case.get('os'):
+            covered_oses.update(test_case['os'])
+        elif 'reason_for_missing_test' in test_case:
+            # A reason without an `os` list applies to all platforms.
+            covered_oses.update(*_TEST_CASE_OSES_BY_PLATFORM.values())
+    if 'desktop_android' in covered_oses:
+        # Desktop Android test cases also cover Android.
+        covered_oses.add('android')
+    return covered_oses
+
+
+def CheckPolicyTestCasePlatforms(input_api, output_api):
+    '''Verifies that the pref mapping test cases of the policies modified in
+    this change cover all the platforms in their `supported_on` and
+    `future_on` lists.'''
+    test_cases_dirs = [_TEST_CASES_DEPOT_PATH, _IOS_TEST_CASES_DEPOT_PATH]
+    if _SkipPresubmitChecks(
+        input_api, [_POLICIES_DEFINITIONS_PATH] + test_cases_dirs
+    ):
+        return []
+
+    # Check the policies whose definition or pref mapping test cases changed.
+    policy_names = {
+        change['policy'] for change in _GetPolicyChangeList(input_api)
+    }
+    for affected_file in input_api.change.AffectedFiles():
+        path = affected_file.LocalPath()
+        if os.path.dirname(path) in test_cases_dirs:
+            policy_names.add(os.path.splitext(os.path.basename(path))[0])
+
+    root = input_api.change.RepositoryRoot()
+    current_version = _GetCurrentVersion(input_api)
+    results = []
+    for policy_name in sorted(policy_names):
+        policy = _GetPolicyDefinitionMap(input_api).get(policy_name, {})
+        platforms = [
+            platform
+            for platform, versions in _GetPlatformSupportMap(policy).items()
+            if not versions['to'] or versions['to'] >= current_version
+        ] + policy.get('future_on', [])
+        required_oses = {
+            test_case_os
+            for platform in platforms
+            for test_case_os in _TEST_CASE_OSES_BY_PLATFORM.get(platform, ())
+        }
+        # iOS only uses the test cases in _IOS_TEST_CASES_DEPOT_PATH.
+        for test_cases_dir, expected_oses in (
+            (_TEST_CASES_DEPOT_PATH, required_oses - {'ios'}),
+            (_IOS_TEST_CASES_DEPOT_PATH, required_oses & {'ios'}),
+        ):
+            if not expected_oses:
+                continue
+            path = os.path.join(test_cases_dir, f'{policy_name}.json')
+            try:
+                covered_oses = _GetCoveredOses(os.path.join(root, path))
+            except ValueError as e:
+                results.append(
+                    output_api.PresubmitError(f'Failed to parse {path}: {e}')
+                )
+                continue
+            missing_oses = expected_oses - covered_oses
+            if missing_oses:
+                results.append(
+                    output_api.PresubmitError(
+                        f'{path} has no pref mapping test case or '
+                        'reason_for_missing_test for '
+                        f"{', '.join(sorted(missing_oses))}, which policy "
+                        f"'{policy_name}' lists in supported_on or future_on. "
+                        'See docs/enterprise/policy_pref_mapping_test.md.'
+                    )
+                )
 
     return results
 
@@ -525,7 +630,7 @@ def CheckMissingPlaceholders(input_api, output_api):
         for key in ['desc', 'text']:
             if item is None:
                 continue
-            if not key in item:
+            if key not in item:
                 continue
             try:
                 node = minidom.parseString(
@@ -800,7 +905,7 @@ def CheckPoliciesYamlOrdering(input_api, output_api):
             if not error_msg_template:
                 results.append(
                     output_api.PresubmitError(
-                        f'Invalid syntax, missing either policies, or atomic_groups key.'
+                        'Invalid syntax, missing either policies, or atomic_groups key.'
                     )
                 )
                 continue
@@ -951,7 +1056,7 @@ def CheckDevicePolicies(input_api, output_api):
         policy_change['new_policy'].get('device_only', False)
         or policy_change['new_policy']['type'] == 'external'
         for policy_change in policy_changelist
-        if policy_change['new_policy'] != None
+        if policy_change['new_policy'] != None  # noqa: E711
     ):
         return results
 

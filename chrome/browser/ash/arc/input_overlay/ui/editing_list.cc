@@ -14,12 +14,11 @@
 #include "ash/style/icon_button.h"
 #include "ash/style/pill_button.h"
 #include "ash/style/style_util.h"
-#include "ash/style/system_shadow.h"
+#include "ash/style/system_decoration.h"
 #include "ash/style/typography.h"
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "base/check_op.h"
 #include "base/notreached.h"
-#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ash/arc/input_overlay/actions/action.h"
 #include "chrome/browser/ash/arc/input_overlay/arc_input_overlay_metrics.h"
 #include "chrome/browser/ash/arc/input_overlay/constants.h"
@@ -293,8 +292,8 @@ void EditingList::Init() {
 
   SizeToPreferredSize();
 
-  shadow_ = ash::SystemShadow::CreateShadowOnNinePatchLayerForView(
-      this, ash::SystemShadow::Type::kElevation12);
+  shadow_ = ash::SystemDecoration::CreateForView(
+      this, ash::SystemDecoration::ShadowType::kElevation12);
   shadow_->SetRoundedCorners(gfx::RoundedCornersF(kMainContainerCornerRadius));
 }
 

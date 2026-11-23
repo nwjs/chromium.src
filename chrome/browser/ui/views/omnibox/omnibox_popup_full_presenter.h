@@ -9,8 +9,10 @@
 
 #include "base/cancelable_callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/views/frame/app_menu_button_observer.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
 #include "ui/events/event_observer.h"
@@ -18,6 +20,7 @@
 #include "ui/gfx/geometry/point.h"
 #include "ui/views/event_monitor.h"
 #include "ui/views/focus/focus_manager.h"
+#include "ui/views/view_observer.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
 
@@ -33,7 +36,8 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
                                   public views::WidgetObserver,
                                   public views::FocusChangeListener,
                                   public ui::EventObserver,
-                                  public AppMenuButtonObserver {
+                                  public AppMenuButtonObserver,
+                                  public views::ViewObserver {
  public:
   OmniboxPopupFullPresenter(LocationBar* location_bar,
                             OmniboxPopupPresenterDelegate& presenter_delegate,
@@ -104,7 +108,15 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
   // stored focus view while the popup is active) and the popup widget's own
   // activation (Escape handling, macOS key window restoration). The browser or
   // popup widget deactivating schedules `BlurIfBrowserOrPopupInactive()`.
+  // Either activating while `refocus_on_activation_` is set schedules
+  // `RefocusAfterActivation()`.
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
+  // Keeps the popup over the location bar when the browser widget moves or
+  // resizes. The popup is its own top-level window, which doesn't always move
+  // with the browser window, e.g. a macOS child window stays put when its
+  // parent is resized from the top edge.
+  void OnWidgetBoundsChanged(views::Widget* widget,
+                             const gfx::Rect& new_bounds) override;
   void StopForwardingEvents();
 
   // views::FocusChangeListener:
@@ -118,6 +130,13 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
 
   // AppMenuButtonObserver:
   void AppMenuClosed() override;
+
+  // views::ViewObserver:
+  void OnViewVisibilityChanged(views::View* observed_view,
+                               views::View* starting_view,
+                               bool visible) override;
+  void OnViewBoundsChanged(views::View* observed_view) override;
+  void OnViewIsDeleting(views::View* observed_view) override;
 
   // ui::EventObserver:
   // Handles click and touch events and determines if the popup should be
@@ -138,6 +157,19 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
   // window, such as a bubble, took activation, and sets what the browser window
   // restores focus to when it's reactivated.
   void BlurForWindowDeactivation();
+  // Hands focus to the popup if the omnibox is still focused with the popup
+  // open. Runs after the browser window or popup is activated while
+  // `refocus_on_activation_` is set.
+  void RefocusAfterActivation();
+
+  // Returns whether the popup shows only its input row, with nothing painted
+  // below the location bar.
+  bool IsPopupCollapsed() const;
+
+  // Clips the part of the collapsed popup that the expanded vertical tab strip
+  // or the organizer tray covers, which also sends events there to the view
+  // beneath.
+  void UpdatePopupOcclusion();
 
   // Returns the browser window's widget. In macOS immersive fullscreen this is
   // not the location bar's widget, which is then a non-activatable overlay.
@@ -146,9 +178,8 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
   // Returns whether the browser widget or this popup's widget is active. This
   // is true while the omnibox is focused, since the popup then holds
   // activation, and false once another window, such as a bubble anchored to
-  // the browser window, takes activation. On Linux and Windows, the popup only
-  // counts while the browser's platform window is also active. Returns false
-  // if there is no browser widget.
+  // the browser window, takes activation. Returns false if there is no browser
+  // widget.
   bool IsBrowserOrPopupActive();
 
   // Returns whether a focus request may activate the popup. This is
@@ -158,6 +189,12 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
 
   // Returns the browser window's focus manager, or null if there is none.
   views::FocusManager* GetBrowserFocusManager();
+
+  // Activation moves between the browser window and the popup in two steps,
+  // deactivating one before activating the other. Keeps the browser window
+  // painting as active in between, until a posted task.
+  void KeepBrowserPaintingAsActiveAcrossHandoff();
+  void ReleaseBrowserPaintAsActiveLockIfPopupInactive();
 
   // Flag set when an ESC key event is intercepted before widget deactivation.
   bool is_handling_escape_key_ = false;
@@ -172,6 +209,16 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
       browser_focus_manager_observation_{this};
   base::ScopedObservation<AppMenuControl, AppMenuButtonObserver>
       app_menu_control_observation_{this};
+  // Observes the vertical tab strip and the organizer tray while the popup is
+  // shown. See `UpdatePopupOcclusion()`.
+  base::ScopedMultiSourceObservation<views::View, views::ViewObserver>
+      occluding_view_observations_{this};
+#if BUILDFLAG(IS_CHROMEOS)
+  // Observed while shown: the immersive reveal moves the top container
+  // without resizing the location bar.
+  base::ScopedObservation<views::View, views::ViewObserver>
+      top_container_observation_{this};
+#endif
 
   // Used to determine where a click event happened to decide if the popup
   // should be deactivated.
@@ -182,6 +229,18 @@ class OmniboxPopupFullPresenter : public OmniboxPopupPresenterBase,
 
   // Pending asynchronous focus and activation task.
   base::CancelableOnceClosure pending_focus_task_;
+
+  // Set when `RequestFocus()` couldn't activate the popup because another
+  // window held activation, leaving the omnibox focused with the popup open
+  // but inactive. Cleared once the browser window or popup is activated again,
+  // which refocuses the popup, or when the omnibox is blurred or the popup is
+  // hidden.
+  bool refocus_on_activation_ = false;
+
+  // Keeps the browser window painting as active while the popup is active, and
+  // until a posted task after the browser window or popup deactivates.
+  std::unique_ptr<views::Widget::PaintAsActiveLock>
+      browser_paint_as_active_lock_;
 
   // Whether the "first shown" metrics have been logged at least once.
   bool logged_first_shown_metric_ = false;

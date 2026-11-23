@@ -133,7 +133,6 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   void SetShouldAntialias(bool);
 
   void setFontForTesting(const String& new_font) override;
-  void fillTextForTesting(const String& text, double x, double y) override;
 
   void drawFocusIfNeeded(Element*);
   void drawFocusIfNeeded(Path2D*, Element*);
@@ -183,9 +182,6 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   // CanvasRenderingContext implementation
   bool IsComposited() const override;
   bool Is2DCanvasAccelerated() const override;
-  scoped_refptr<CanvasResource> PaintRenderingResultsToResource(
-      SourceDrawingBuffer source_buffer,
-      FlushReason reason) override;
   const std::optional<cc::PaintRecord>& GetLastRecording() override;
 
   int Width() const final;
@@ -236,12 +232,7 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   void SendContextLostEventIfNeeded() override;
 
   bool InitializeBacking() override;
-  void SetCanvas2DResourceProviderForTesting(
-      std::unique_ptr<Canvas2DResourceProvider> provider,
-      const gfx::Size& size);
   void CreateSoftwareSurfaceForTesting();
-  void SetCanvas2DResourceProviderForTesting(std::nullptr_t,
-                                             const gfx::Size& size);
 
   // TODO(crbug.com/352263194): Migrate canvas_rendering_context_2d_test.cc
   // callsites and make this method private.
@@ -253,7 +244,6 @@ class MODULES_EXPORT CanvasRenderingContext2D final
  protected:
   HTMLCanvasElement* HostAsHTMLCanvasElement() const final;
   UniqueFontSelector* GetFontSelector() const final;
-  void SizeChanged() final;
 
   bool WritePixels(const SkImageInfo& orig_info,
                    const void* pixels,
@@ -272,6 +262,7 @@ class MODULES_EXPORT CanvasRenderingContext2D final
                            PrepareMailboxWhenContextIsLostWithFailedRestore);
 
   void ResetInternal() override;
+  void Reshape(gfx::Size old_size, gfx::Size new_size) override;
 
   void Dispose() override;
 

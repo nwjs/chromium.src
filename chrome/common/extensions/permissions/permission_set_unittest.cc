@@ -826,11 +826,11 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kWebRequestAuthProvider);
   skip.insert(APIPermissionID::kDeclarativeNetRequestWithHostAccess);
 
+#if BUILDFLAG(IS_CHROMEOS)
   // This permission requires explicit user action (context menu handler)
   // so we won't prompt for it for now.
   skip.insert(APIPermissionID::kFileBrowserHandler);
 
-#if BUILDFLAG(IS_CHROMEOS)
   // These permissions require explicit user action (configuration dialog)
   // so we don't prompt for them at install time.
   skip.insert(APIPermissionID::kMediaGalleries);
@@ -869,7 +869,9 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kContextualTasksPrivate);
   skip.insert(APIPermissionID::kCrashReportPrivate);
   skip.insert(APIPermissionID::kDeveloperPrivate);
+#if BUILDFLAG(IS_CHROMEOS)
   skip.insert(APIPermissionID::kEchoPrivate);
+#endif
   skip.insert(APIPermissionID::kEnterprisePlatformKeysPrivate);
   skip.insert(APIPermissionID::kFeedbackPrivate);
 #if BUILDFLAG(IS_CHROMEOS)
@@ -894,7 +896,9 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kImageWriterPrivate);
   skip.insert(APIPermissionID::kResourcesPrivate);
   skip.insert(APIPermissionID::kSafeBrowsingPrivate);
+#if BUILDFLAG(IS_CHROMEOS)
   skip.insert(APIPermissionID::kSmartCardProviderPrivate);
+#endif
   skip.insert(APIPermissionID::kSystemPrivate);
   skip.insert(APIPermissionID::kTabCaptureForTab);
   skip.insert(APIPermissionID::kTerminalPrivate);
@@ -902,9 +906,11 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kWebrtcDesktopCapturePrivate);
   skip.insert(APIPermissionID::kWebrtcLoggingPrivate);
   skip.insert(APIPermissionID::kWebrtcLoggingPrivateAudioDebug);
+#if BUILDFLAG(IS_CHROMEOS)
   skip.insert(APIPermissionID::kWmDesksPrivate);
   skip.insert(APIPermissionID::kSystemLog);
   skip.insert(APIPermissionID::kOdfsConfigPrivate);
+#endif
   skip.insert(APIPermissionID::kIndigoPrivate);
   skip.insert(APIPermissionID::kDictationPrivate);
 
@@ -1944,6 +1950,7 @@ TEST(PermissionsTest, SettingMembers) {
     EXPECT_TRUE(set.ShouldWarnAllHosts());
   }
 
+#if BUILDFLAG(IS_CHROMEOS)
   {
     // Setting API permissions adds implicit permissions.
     PermissionSet set;
@@ -1952,6 +1959,7 @@ TEST(PermissionsTest, SettingMembers) {
     set.SetAPIPermissions(std::move(new_apis));
     EXPECT_TRUE(set.HasAPIPermission(APIPermissionID::kFileBrowserHandler));
   }
+#endif
 }
 
 }  // namespace extensions

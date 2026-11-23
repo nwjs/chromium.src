@@ -4,29 +4,19 @@
 
 #import "ios/chrome/browser/dom_distiller/model/distiller_service_factory.h"
 
+#import <utility>
+
 #import "components/dom_distiller/core/distiller.h"
 #import "components/dom_distiller/core/distiller_options.h"
 #import "ios/chrome/browser/dom_distiller/model/constants.h"
 #import "ios/chrome/browser/dom_distiller/model/distiller_service.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
-// static
-DistillerService* DistillerServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<DistillerService>(
-      profile, /*create=*/true);
-}
-
-// static
-DistillerServiceFactory* DistillerServiceFactory::GetInstance() {
-  static base::NoDestructor<DistillerServiceFactory> instance;
-  return instance.get();
-}
-
-DistillerServiceFactory::DistillerServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("DistillerService",
-                                    ProfileSelection::kRedirectedInIncognito) {}
-
-DistillerServiceFactory::~DistillerServiceFactory() {}
+DistillerServiceFactory::DistillerServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "DistillerService",
+          ProfileSelection::kRedirectedInIncognito) {}
 
 std::unique_ptr<KeyedService> DistillerServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

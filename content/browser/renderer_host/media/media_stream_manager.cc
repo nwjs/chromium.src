@@ -11,6 +11,7 @@
 #include <list>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "base/command_line.h"
@@ -126,7 +127,14 @@ using ::blink::mojom::StreamSelectionInfoPtr;
 // If enabled, the device name is also used when comparing devices in
 // FindExistingRequestedDevice.
 BASE_FEATURE(kEnumerateDevicesUseNameInDeviceComparison,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             // Disabled on ChromeOS as CRAS default streams automatically track
+             // the active input node (https://crbug.com/531681896).
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 namespace {
 enum class StopAudioEvent {
@@ -2007,10 +2015,15 @@ bool MediaStreamManager::KeepDeviceAliveForTransfer(
 }
 
 base::UnguessableToken MediaStreamManager::VideoDeviceIdToSessionId(
-    const std::string& device_id) const {
+    const std::string& device_id,
+    GlobalRenderFrameHostId render_frame_host_id) const {
   CHECK_CURRENTLY_ON(BrowserThread::IO, base::NotFatalUntil::M158);
 
   for (const LabeledDeviceRequest& device_request : requests_) {
+    if (device_request.second->requesting_render_frame_host_id !=
+        render_frame_host_id) {
+      continue;
+    }
     for (const blink::mojom::StreamDevicesPtr& stream_devices_ptr :
          device_request.second->stream_devices_set.stream_devices) {
       const blink::mojom::StreamDevices& devices = *stream_devices_ptr;
@@ -2116,10 +2129,9 @@ void MediaStreamManager::CloseDevice(MediaStreamType type,
         // Notify observers that this device is being closed.
         // Note that only one device per type can be opened.
         request->SetState(type, MEDIA_REQUEST_STATE_CLOSING);
-        // AudioInputDeviceManager does not have a mechanism to stop the audio
-        // stream when the session is closed, while VideoCaptureManager does.
-        // To ensure consistent behavior when sessions are closed, use the
-        // stop callback to stop audio streams.
+        // AudioInputDeviceManager::Close() above has already torn down the
+        // browser-side audio streams of this session. Notify the renderer so
+        // that it ends the corresponding tracks.
         if (blink::IsAudioInputMediaType(device.type) &&
             request->device_stopped_callback) {
           request->device_stopped_callback.Run(labeled_request.first, device);

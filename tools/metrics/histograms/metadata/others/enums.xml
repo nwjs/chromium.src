@@ -31,6 +31,34 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Available Immediately"/>
 </enum>
 
+<!-- LINT.IfChange(CrxDownloaderType) -->
+
+<enum name="CrxDownloaderType">
+  <int value="0" label="None (every downloader in the chain failed)"/>
+  <int value="1" label="URL fetcher"/>
+  <int value="2" label="BITS (Windows)"/>
+  <int value="3" label="NSURLSession background (Mac)"/>
+  <int value="4" label="Delivery Optimization (Windows)"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/update_client/crx_downloader.h:CrxDownloaderType) -->
+
+<!-- LINT.IfChange(DeliveryOptimizationFinalDownloadState) -->
+
+<enum name="DeliveryOptimizationFinalDownloadState">
+  <int value="0"
+      label="No download (DO unavailable, queue full, or create/start failed)"/>
+  <int value="1" label="Created"/>
+  <int value="2" label="Transferring"/>
+  <int value="3" label="Transferred"/>
+  <int value="4" label="Finalized"/>
+  <int value="5" label="Aborted"/>
+  <int value="6" label="Paused"/>
+  <int value="7" label="Unknown"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/update_client/delivery_optimization_downloader_win.cc:DeliveryOptimizationFinalDownloadState) -->
+
 <!-- LINT.IfChange(DetachKernelDriverOutcome) -->
 
 <enum name="DetachKernelDriverOutcome">
@@ -44,6 +72,18 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//services/device/usb/usb_device_handle_usbfs.cc:DetachKernelDriverOutcome) -->
+
+<!-- LINT.IfChange(FindInPageSessionOutcome) -->
+
+<enum name="FindInPageSessionOutcome">
+  <int value="0" label="Matched without seeing zero-match"/>
+  <int value="1" label="Matched after seeing zero-match"/>
+  <int value="2" label="Ended with zero matches"/>
+  <int value="3" label="Ended with empty query without seeing zero-match"/>
+  <int value="4" label="Ended with empty query after seeing zero-match"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/find_in_page/find_types.h:FindInPageSessionOutcome) -->
 
 <!-- LINT.IfChange(FindsResult) -->
 
@@ -286,6 +326,32 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//mojo/public/cpp/bindings/direct_receiver.cc:MojoMergePortalsResult)
 -->
+
+<!-- LINT.IfChange(ProductComponentInstallResult) -->
+
+<enum name="ProductComponentInstallResult">
+  <summary>
+    The result of installing a product component (e.g., a dynamic patch) into
+    the Chrome installation directory.
+  </summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="Same or newer version already installed"/>
+  <int value="2" label="Launch or execution failed"/>
+  <int value="3" label="Signature verification failed"/>
+  <int value="4" label="Invalid input (e.g., manifest or arguments)"/>
+  <int value="5" label="Incompatible base version"/>
+  <int value="6" label="Other error"/>
+  <int value="7" label="App Command or setup.exe not found"/>
+  <int value="8" label="Chrome is not installed"/>
+  <int value="9" label="Internal installer error (I/O or filesystem)"/>
+  <int value="10" label="COM access denied (E_ACCESSDENIED)"/>
+  <int value="11" label="COM/RPC server died or disconnected"/>
+  <int value="12" label="COM invalid argument (E_INVALIDARG)"/>
+  <int value="13" label="COM unexpected error (E_UNEXPECTED)"/>
+  <int value="14" label="Other COM/RPC error"/>
+</enum>
+
+<!-- LINT.ThenChange(/chrome/browser/component_updater/install_product_component.h:ProductComponentInstallResult) -->
 
 <enum name="RedactionToolCaller">
   <summary>The caller of the redaction tool.</summary>

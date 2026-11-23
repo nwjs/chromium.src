@@ -76,6 +76,8 @@ BASE_FEATURE(kHideSuggestionGroupHeaders,
 
 // Enables local history zero-prefix suggestions in every context in which the
 // remote zero-prefix suggestions are enabled.
+// On SRPs and web pages, the corresponding zero-suggest prefetching feature
+// must also be enabled.
 BASE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP, DISABLED);
 
 // Enables showing tabs from other devices in zero-prefix suggest.
@@ -187,10 +189,6 @@ BASE_FEATURE(kDynamicAimSubmit, DISABLED);
 const base::FeatureParam<bool> kShowRhsAimHint{&kDynamicAimSubmit,
                                                "Omnibox_ShowRhsAimHint", false};
 
-// Hides the AIM entrypoint in the Omnibox when the default suggestion is a URL.
-// Only used on desktop platforms.
-BASE_FEATURE(kHideAimEntrypointForUrlSuggestions, ENABLED);
-
 // When enabled, the multimodal input button is shown in the Omnibox.
 BASE_FEATURE(kOmniboxMultimodalInput, ENABLED);
 
@@ -216,9 +214,8 @@ BASE_FEATURE(kOmniboxFuseboxUserEdGuidedTour, DISABLED);
 // attached.
 BASE_FEATURE(kOmniboxDisableTabsForCanvas, ENABLED);
 
-// Enables the AIM entrypoint for third party search engines. Held dark on
-// Android until the Android entrypoint UI is implemented.
-BASE_FEATURE(kAim3pEntrypoint, enable_if(!IS_ANDROID));
+// Enables the AIM entrypoint for third party search engines.
+BASE_FEATURE(kAim3pEntrypoint, ENABLED);
 const base::FeatureParam<bool> kAim3pEntrypointDebug{
     &kAim3pEntrypoint, "Aim3pEntrypointDebug", false};
 
@@ -238,7 +235,7 @@ BASE_FEATURE(kOmniboxAimDeferShowUntilVisualStateReadyWithFullWebUI, DISABLED);
 // its WebContents and renderer) while the browser window is built. It creates
 // it after the browser window's first presentation, or earlier if the popup is
 // shown or another caller needs the AIM WebContents. See
-// `OmniboxPopupAimPresenter`.
+// `OmniboxPopupAimPresenter` and `kOmniboxAimPopupCreateOnFirstPresentation`.
 BASE_FEATURE(kOmniboxAimPopupDeferCreation, DISABLED);
 // When enabled, the WebUI omnibox popup that shows suggestions does not create
 // its WebUI content (and so its WebContents and renderer) while the browser
@@ -431,6 +428,15 @@ BASE_FEATURE(kOmniboxPrefetchSelectedSuggestionsOmtAndroid, DISABLED);
 // Enables simultaneous prefetch and navigation on Enter KeyDown in Omnibox.
 BASE_FEATURE(kOmniboxSearchPrefetchOnEnterKeyDown, DISABLED);
 
+// If enabled, surfaces recent tabs, including tabs from other devices, as
+// suggestions in the Android Tab Search overlay.
+BASE_FEATURE(kAndroidTabSearchRecentTabs, DISABLED);
+
+// If enabled, shows a close button on open tab suggestions in the Android Tab
+// Search overlay, allowing users to close tabs directly from the suggestions
+// list.
+BASE_FEATURE(kAndroidTabSearchCloseTabButton, DISABLED);
+
 // Enables keyword-based site search functionality on Android devices.
 BASE_FEATURE(kOmniboxSiteSearch, DISABLED);
 
@@ -466,7 +472,7 @@ BASE_FEATURE(kOmniboxFuseboxAsyncInflation, DISABLED);
 
 // When enabled, AIM image attachments will be downscaled on load before
 // reaching the C++ side.
-BASE_FEATURE(kOmniboxAimImageDownscaling, DISABLED);
+BASE_FEATURE(kOmniboxAimImageDownscaling, ENABLED);
 
 // Updates various NTP/Omnibox assets and descriptions for visual alignment on
 // iOS.
@@ -476,8 +482,10 @@ BASE_FEATURE(kOmniboxMobileParityUpdate, ENABLED);
 // Android and iOS, V2.
 BASE_FEATURE(kOmniboxMobileParityUpdateV2, ENABLED);
 
-// If enabled, the X-Geo header will include permission granularity.
-BASE_FEATURE(kOmniboxXGeoPermissionGranularity, ENABLED);
+// Kill switch. If enabled, the Android X-Geo header is dropped when the device
+// hands back a precise fix for a site that only holds approximate location
+// permission, rather than sending the precise coordinates tagged as coarse.
+BASE_FEATURE(kOmniboxXGeoFailClosedOnPreciseLeak, ENABLED);
 
 // When the first suggestion is a url, the favicon is shown in the status view.
 BASE_FEATURE(kExactMatchFavicons, ENABLED);
@@ -633,11 +641,14 @@ const base::FeatureParam<bool> kVoiceSearchCoherenceRealboxHelperText{
     &kVoiceSearchCoherenceSearchbox, "VoiceSearchCoherenceRealboxHelperText",
     false};
 
-#if BUILDFLAG(IS_ANDROID)
-// Accelerates time from cold start to focused Omnibox on low-end devices,
-// prioritizing Omnibox focus and background initialization.
-BASE_FEATURE(kJumpStartOmnibox, DISABLED);
+// Keeps the legacy NTP Realbox voice search UI, the one users get with
+// kVoiceSearchCoherenceSearchbox disabled. Voice search requests still carry
+// the NTP routing params, so only the speech service's recognizer changes.
+const base::FeatureParam<bool> kVoiceSearchCoherenceRealboxKeepLegacyUi{
+    &kVoiceSearchCoherenceSearchbox, "VoiceSearchCoherenceRealboxKeepLegacyUi",
+    false};
 
+#if BUILDFLAG(IS_ANDROID)
 // Prevents intermediate AutocompleteResult updates from being sent to Java on
 // low-end devices. This aims at eliminating time spent on constructing,
 // measuring, and laying out views that are about to be discarded, and reducing
@@ -672,6 +683,10 @@ BASE_FEATURE(kOmniboxSessionlessVoiceSearch, ENABLED);
 // Kill switch for suppressing status icon during HTTP/HTTPS navigation.
 BASE_FEATURE(kSuppressStatusIconDuringHttpNavigation, ENABLED);
 
+// Enables computing and probing alternative navigation matches for intranet
+// redirects on Android.
+BASE_FEATURE(kOmniboxAndroidIntranetRedirect, DISABLED);
+
 namespace android {
 static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
   static const base::Feature* const kFeaturesExposedToJava[] = {
@@ -682,10 +697,9 @@ static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kOmniboxFuseboxAsyncInflation,
       &kRichAutocompletion,
       &kUrlBarWithoutLigatures,
-      &kJumpStartOmnibox,
       &kPostDelayedTaskFocusTab,
       &kOmniboxMobileParityUpdateV2,
-      &kOmniboxXGeoPermissionGranularity,
+      &kOmniboxXGeoFailClosedOnPreciseLeak,
       &kPlatformAgnosticXGeo,
       &kInlineLocationSignaling,
       &kOmniboxSiteSearch,
@@ -708,7 +722,8 @@ static int64_t JNI_OmniboxFeatureMap_GetNativeMap(JNIEnv* env) {
       &kOmniboxDisableTabsForCanvas,
       &kOmniboxSessionlessVoiceSearch,
       &kSuppressStatusIconDuringHttpNavigation,
-      &kZeroSuggestPrefetchOnPageLoadAndTabSwitch};
+      &kZeroSuggestPrefetchOnPageLoadAndTabSwitch,
+      &kAndroidTabSearchCloseTabButton};
   static base::NoDestructor<base::android::FeatureMap> kFeatureMap(
       kFeaturesExposedToJava);
   return reinterpret_cast<int64_t>(kFeatureMap.get());
@@ -776,9 +791,6 @@ const base::FeatureParam<bool> kAskGShowFirstDescription{
     &kWebUIOmniboxAskGAboutThisPage, "Omnibox_AskGShowFirstDescription", false};
 const base::FeatureParam<bool> kAskGComposeboxLensChip{
     &kWebUIOmniboxAskGAboutThisPage, "Omnibox_AskGComposeboxLensChip", false};
-const base::FeatureParam<bool> kAskGBlockAutoTabZeroStateSuggestions{
-    &kWebUIOmniboxAskGAboutThisPage,
-    "Omnibox_AskGBlockAutoTabZeroStateSuggestions", false};
 const base::FeatureParam<bool> kAskGComposeboxPlaceholder{
     &kWebUIOmniboxAskGAboutThisPage, "Omnibox_AskGComposeboxPlaceholder", false};
 const base::FeatureParam<bool> kAskGBypassPrivacyNotice{
@@ -788,6 +800,8 @@ const base::FeatureParam<bool> kAskGShowChip{
 const base::FeatureParam<bool> kAskGSuggestionSidePanelDescription{
     &kWebUIOmniboxAskGAboutThisPage,
     "Omnibox_AskGSuggestionSidePanelDescription", false};
+const base::FeatureParam<bool> kAskGLensIconIph{
+    &kWebUIOmniboxAskGAboutThisPage, "Omnibox_AskGLensIconIph", false};
 
 // Note: no new flags beyond this point.
 

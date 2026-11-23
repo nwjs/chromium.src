@@ -35,11 +35,9 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.InMemorySharedPreferencesContext;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.ScalableTimeout;
-import org.chromium.base.test.util.TestAnimations;
 import org.chromium.testing.TestListInstrumentationRunListener;
 
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -238,7 +236,10 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
             Request listJUnit4TestRequest = createListTestRequest(junit4Arguments);
             results.putAll(executorBuilder.build().execute(listJUnit4TestRequest));
             finish(Activity.RESULT_OK, results);
-        } catch (IOException | RuntimeException e) {
+            // Catch Exception instead of RuntimeException because Cronet's gn2bp build in
+            // Android compiles against an older prebuilt version of androidx.test.runner where
+            // TestExecutor#execute still declares `throws UnsupportedEncodingException`.
+        } catch (Exception e) {
             String msg = "Fatal exception when running tests";
             Log.e(TAG, msg, e);
             results.putString(
@@ -294,20 +295,6 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
                 throw new ClassNotFoundException(name, e);
             }
         }
-    }
-
-    @Override
-    public void finish(int resultCode, Bundle results) {
-        if (sTestListMode) {
-            super.finish(resultCode, results);
-            return;
-        }
-
-        // Leave animations in the default state.
-        TestAnimations.setEnabled(true);
-
-        // This will end up force stopping the package, so code after this line will not run.
-        super.finish(resultCode, results);
     }
 
     // This method clears the data directory for the test apk, but device_utils.py clears the data

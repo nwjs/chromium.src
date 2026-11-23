@@ -6,24 +6,10 @@ import '//resources/js/cr.js';
 
 import {BrowserControlsService} from '/shared/browser_controls_api.mojom-webui.js';
 import type {BrowserControlsServiceInterface} from '/shared/browser_controls_api.mojom-webui.js';
-import {EventDispositionFlag} from '/shared/browser_controls_api_data_model.mojom-webui.js';
 import type {IconUpdate} from '/shared/icon_handle.mojom-webui.js';
 import {ToolbarUIObserverCallbackRouter, ToolbarUIService} from '/shared/toolbar_ui_api.mojom-webui.js';
 import type {ToolbarUIServiceInterface, ToolbarUIServiceRemote} from '/shared/toolbar_ui_api.mojom-webui.js';
-import {ContextMenuType} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
-import type {BackForwardButtonState, FocusRequestTarget, OmniboxViewState, ReloadControlState, ToolbarState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
-
-export {
-  ContextMenuType,
-  EventDispositionFlag,
-};
-export type {
-  BackForwardButtonState,
-  IconUpdate,
-  OmniboxViewState,
-  ReloadControlState,
-  ToolbarState,
-};
+import type {FocusRequestTarget, ToolbarState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 export type ToolbarStateListener = (icons: IconUpdate[], state: ToolbarState) =>
     void;
@@ -61,9 +47,102 @@ export const INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE:
 import type {PermissionChipDelegate} from '/shared/permission_chip_delegate.js';
 import type {LhsChipIdentifier} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
+/**
+ * Keys corresponding to initial toolbar state values provided by the browser.
+ */
+export enum ToolbarStateKey {
+  IS_NAVIGATION_LOADING = 'isNavigationLoading',
+  RELOAD_CAN_SHOW_MENU = 'reloadCanShowMenu',
+  BACK_BUTTON_ENABLED = 'backButtonEnabled',
+  FORWARD_BUTTON_ENABLED = 'forwardButtonEnabled',
+  HOME_BUTTON_SHOULD_BE_SHOWN = 'homeButtonShouldBeShown',
+  BATTERY_SAVER_BUTTON_VISIBLE = 'batterySaverButtonVisible',
+  LAYOUT_CONSTANTS_VERSION = 'layoutConstantsVersion',
+  TOUCH_UI = 'touchUi',
+  INITIAL_WEBUI_SURFACE_SYNC_ENABLED = 'initialWebUISurfaceSyncEnabled',
+  IS_FALLBACK_PREWARMING = 'isFallbackPrewarming',
+  IS_PROFILE_ELIGIBLE_FOR_GLIC = 'isProfileEligibleForGlic',
+  CAN_SHOW_AVATAR_FOR_PROFILE = 'canShowAvatarForProfile',
+}
+
+/**
+ * Schema mapping `ToolbarStateKey` entries to their respective value types in
+ * the initial state dictionary.
+ */
+export interface ToolbarFlatStateSchema {
+  [ToolbarStateKey.IS_NAVIGATION_LOADING]: boolean;
+  [ToolbarStateKey.RELOAD_CAN_SHOW_MENU]: boolean;
+  [ToolbarStateKey.BACK_BUTTON_ENABLED]: boolean;
+  [ToolbarStateKey.FORWARD_BUTTON_ENABLED]: boolean;
+  [ToolbarStateKey.HOME_BUTTON_SHOULD_BE_SHOWN]: boolean;
+  [ToolbarStateKey.BATTERY_SAVER_BUTTON_VISIBLE]: boolean;
+  [ToolbarStateKey.LAYOUT_CONSTANTS_VERSION]: number;
+  [ToolbarStateKey.TOUCH_UI]: boolean;
+  [ToolbarStateKey.INITIAL_WEBUI_SURFACE_SYNC_ENABLED]: boolean;
+  [ToolbarStateKey.IS_FALLBACK_PREWARMING]: boolean;
+  [ToolbarStateKey.IS_PROFILE_ELIGIBLE_FOR_GLIC]: boolean;
+  [ToolbarStateKey.CAN_SHOW_AVATAR_FOR_PROFILE]: boolean;
+}
+
+/**
+ * Wraps the parsed initial toolbar state dictionary and provides typed getters.
+ */
+export class InitialStateReader {
+  private state_: Record<string, unknown>;
+
+  constructor(state: Record<string, unknown> = {}) {
+    this.state_ = state;
+  }
+
+  static fromJson(jsonString: string): InitialStateReader {
+    if (jsonString) {
+      try {
+        const parsed = JSON.parse(jsonString);
+        if (parsed && typeof parsed === 'object') {
+          return new InitialStateReader(parsed as Record<string, unknown>);
+        }
+      } catch {
+        // Fall through to empty state.
+      }
+    }
+    return new InitialStateReader();
+  }
+
+  /**
+   * Determines whether the specified `key` is present in the initial toolbar
+   * state dictionary.
+   */
+  hasKey(key: ToolbarStateKey): boolean {
+    return key in this.state_;
+  }
+
+  /**
+   * Reads a boolean property for the given `key` from the initial state
+   * dictionary. Returns `false` if the property is missing or not a boolean.
+   */
+  getBoolean<K extends keyof ToolbarFlatStateSchema>(key: K): boolean {
+    const val = this.state_[key];
+    return typeof val === 'boolean' ? val : false;
+  }
+
+  /**
+   * Reads a numeric property for the given `key` from the initial state
+   * dictionary. Returns `0` if the property is missing or not a number.
+   */
+  getInteger<K extends keyof ToolbarFlatStateSchema>(key: K): number {
+    const val = this.state_[key];
+    return typeof val === 'number' ? val : 0;
+  }
+}
+
 export interface BrowserProxy extends PermissionChipDelegate {
   browserControlsHandler: BrowserControlsServiceInterface;
   toolbarUIHandler: ToolbarUIServiceInterface;
+
+  /**
+   * Returns the parsed and cached initial toolbar state reader.
+   */
+  getInitialState(): InitialStateReader;
 
   /**
    * Records a value in a histogram.
@@ -97,6 +176,7 @@ export interface BrowserProxy extends PermissionChipDelegate {
 export class BrowserProxyImpl implements BrowserProxy {
   private callbackRouter: ToolbarUIObserverCallbackRouter;
   private toolbarUIRemote: ToolbarUIServiceRemote;
+  private initialState_: InitialStateReader|null = null;
   browserControlsHandler: BrowserControlsServiceInterface;
   toolbarUIHandler: ToolbarUIServiceInterface;
 
@@ -129,6 +209,14 @@ export class BrowserProxyImpl implements BrowserProxy {
 
   onChipCollapseAnimationEnded(id: LhsChipIdentifier) {
     this.toolbarUIHandler.onLhsChipCollapseAnimationEnded(id);
+  }
+
+  getInitialState(): InitialStateReader {
+    if (!this.initialState_) {
+      this.initialState_ =
+          InitialStateReader.fromJson(chrome.getVariableValue('initialState'));
+    }
+    return this.initialState_;
   }
 
   /**

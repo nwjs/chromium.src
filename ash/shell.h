@@ -140,7 +140,6 @@ class DarkLightModeControllerImpl;
 class DesksController;
 class DetachableBaseHandler;
 class DetachableBaseNotificationController;
-class DisplayAlignmentController;
 class DisplayColorManager;
 class NativeCursorManagerAsh;
 class DisplayConfigurationController;
@@ -198,6 +197,7 @@ class MessageCenterAshImpl;
 class MessageCenterController;
 class MouseCursorEventFilter;
 class MouseKeysController;
+class MouseShakeToLocateController;
 class MruWindowTracker;
 class MultiDeviceNotificationPresenter;
 class MultiDisplayMetricsController;
@@ -518,10 +518,6 @@ class ASH_EXPORT Shell : public SessionObserver,
     return display_configuration_controller_.get();
   }
 
-  DisplayAlignmentController* display_alignment_controller() {
-    return display_alignment_controller_.get();
-  }
-
   display::DisplayConfigurator* display_configurator();
 
   RefreshRateController* refresh_rate_controller() {
@@ -664,6 +660,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   }
   MouseKeysController* mouse_keys_controller() {
     return mouse_keys_controller_.get();
+  }
+  MouseShakeToLocateController* mouse_shake_to_locate_controller() {
+    return mouse_shake_to_locate_controller_.get();
   }
   MruWindowTracker* mru_window_tracker() { return mru_window_tracker_.get(); }
   MultiDeviceNotificationPresenter* multidevice_notification_presenter() {
@@ -1198,6 +1197,8 @@ class ASH_EXPORT Shell : public SessionObserver,
       fullscreen_magnifier_controller_;
   std::unique_ptr<AutoclickController> autoclick_controller_;
   std::unique_ptr<MouseKeysController> mouse_keys_controller_;
+  std::unique_ptr<MouseShakeToLocateController>
+      mouse_shake_to_locate_controller_;
   std::unique_ptr<::wm::FocusController> focus_controller_;
 
   std::unique_ptr<MouseCursorEventFilter> mouse_cursor_filter_;
@@ -1246,7 +1247,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<BluetoothDeviceStatusUiHandler>
       bluetooth_device_status_ui_handler_;
   std::unique_ptr<KeyboardControllerImpl> keyboard_controller_;
-  std::unique_ptr<DisplayAlignmentController> display_alignment_controller_;
   std::unique_ptr<ui::KeyboardCapability> keyboard_capability_;
   std::unique_ptr<DisplayColorManager> display_color_manager_;
   std::unique_ptr<DisplayErrorObserver> display_error_observer_;

@@ -8,17 +8,20 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/identifiers/profile_id_service_factory.h"
 #include "chrome/browser/policy/chrome_policy_blocklist_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
 #include "components/device_signals/core/browser/browser_utils.h"
+#include "components/device_signals/core/browser/metrics_utils.h"
 #include "components/device_signals/core/browser/signals_types.h"
 #include "components/device_signals/core/browser/user_permission_service.h"
 #include "components/device_signals/core/common/platform_utils.h"
 #include "components/enterprise/browser/identifiers/profile_id_service.h"
 #include "components/enterprise/buildflags/buildflags.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/policy/core/browser/url_list/policy_blocklist_service.h"
 #include "components/policy/core/common/cloud/cloud_policy_manager.h"
 #include "components/prefs/pref_service.h"
@@ -45,6 +48,9 @@ ProfileSignalsCollector::ProfileSignalsCollector(Profile* profile)
            base::BindRepeating(&ProfileSignalsCollector::GetProfileSignals,
                                base::Unretained(this))},
       }),
+      is_isolated_mode_(
+          enterprise_isolated_mode::IsCaaEnabledInIsolatedMode() &&
+          profile->IsEnterpriseIsolatedModeProfile()),
       policy_blocklist_service_(
           ChromePolicyBlocklistServiceFactory::GetForProfile(profile)),
       profile_prefs_(profile->GetPrefs()),
@@ -72,6 +78,7 @@ void ProfileSignalsCollector::GetProfileSignals(
     const SignalsAggregationRequest& request,
     SignalsAggregationResponse& response,
     base::OnceClosure done_closure) {
+  const base::TimeTicks start_time = base::TimeTicks::Now();
   ProfileSignalsResponse signal_response;
   signal_response.built_in_dns_client_enabled =
       GetBuiltInDnsClientEnabled(g_browser_process->local_state());
@@ -87,6 +94,7 @@ void ProfileSignalsCollector::GetProfileSignals(
   signal_response.site_isolation_enabled =
       device_signals::GetSiteIsolationEnabled();
   signal_response.profile_id = profile_id_service_->GetProfileId();
+  signal_response.is_isolated_mode = is_isolated_mode_;
 
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
   signal_response.realtime_url_check_mode =
@@ -111,6 +119,11 @@ void ProfileSignalsCollector::GetProfileSignals(
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 
   response.profile_signals_response = std::move(signal_response);
+
+  // Profile signals collection has no failure path once the permission check
+  // has passed, so the outcome is always recorded as a success.
+  LogSignalCollectionSucceeded(SignalName::kBrowserContextSignals, start_time,
+                               /*signal_collection_size=*/std::nullopt);
 
   // All signals are fetched synchronously for now, so we can run the closure
   // immediately. Once async signals are added, `done_closure` should be moved

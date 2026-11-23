@@ -461,27 +461,40 @@ There are two paths that enable drawing into the cutout area:
     synthesized for `display: fullscreen` webapps uses sticky immersive and
     `LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES`, so fullscreen webapps draw into
     the cutout immediately at activity creation, without waiting for the page's
-    `viewport-fit` value.
+    `viewport-fit` value. For TWAs in `ImmersiveMode` (gated behind the
+    default-off `enable_twa` parameter), a client-supplied
+    `LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER` is honored: `WebappInsetsConsumer`
+    withholds display cutout insets only while the window's cutout mode allows
+    drawing into the cutout (`WindowInsetsUtils#shouldPadDisplayCutout`), so the
+    edge-to-edge layout keeps padding the cutout.
+    `LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT` expresses no preference, so
+    `DisplayCutoutController` still upgrades it to `SHORT_EDGES` once the page
+    declares `viewport-fit=cover`.
 
 - **Non-immersive edge-to-edge, deferred to `DisplayCutoutController`** (behind
   the `WebAppShortEdgesCutoutMode` feature and its default-off
-  `enable_standalone` parameter):
+  `enable_standalone` and `enable_twa` parameters):
 
-  - With the feature and parameter enabled, `display: standalone` webapps no
-    longer draw edge-to-edge unconditionally at activity creation:
-    `WebappActivity#shouldDrawEdgeToEdgeOnCreate` returns false, so the activity
-    starts with the default (non-edge-to-edge) window layout.
-  - Instead, `DisplayCutoutController` takes over once the page's `viewport-fit`
-    value is known. Only pages declaring `viewport-fit=cover` get
-    `LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES` together with the matching
-    edge-to-edge window state; all other pages keep the default layout, and web
-    content stays below the status bar.
+  - The activity window keeps drawing edge-to-edge from startup, as everywhere
+    else in Chrome; what changes is whether the content is padded away from the
+    system bars. `BaseCustomTabActivity` installs a `WebappInsetsConsumer` for
+    installed webapps and eligible TWAs (the latter additionally require
+    `enable_twa`, so they can be rolled out independently of WebAPKs), and the
+    `EdgeToEdgeBaseLayout` below it pads the content and paints the system bar
+    and cutout regions until a token is held on that consumer. Ordinary Custom
+    Tabs get no consumer and keep their existing inset behavior.
+  - `DisplayCutoutController` takes a consumer token once the page's
+    `viewport-fit` value is known. Only pages declaring `viewport-fit=cover` get
+    `LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES` together with the withheld
+    insets; all other pages keep the padded layout, and web content stays below
+    the status bar. Immersive mode holds a token for as long as it is active.
   - The controller also reacts to dynamic changes: if a page updates its
-    `viewport-fit` meta tag via JavaScript after load, the window layout is
-    updated accordingly.
-  - With the feature disabled or `enable_standalone` false, standalone webapps
-    keep the legacy behavior of drawing edge-to-edge on creation regardless of
-    `viewport-fit` when edge-to-edge everywhere is enabled.
+    `viewport-fit` meta tag via JavaScript after load, the token is acquired or
+    released accordingly, and navigation-bar coloring follows the consumer state
+    and the page theme color.
+  - With the feature disabled, or `enable_standalone` / `enable_twa` false,
+    standalone webapps and TWAs keep their legacy activity-level edge-to-edge
+    behavior when edge-to-edge everywhere is enabled.
 
 ### TWA Launch Parameters
 

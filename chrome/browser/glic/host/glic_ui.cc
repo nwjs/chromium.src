@@ -106,6 +106,9 @@ class GlicPreloadHandler : public glic::mojom::GlicPreloadHandler,
     preload_page_->OnGuestNavigated(url, is_api_allowed, page_type,
                                     is_initial_commit);
   }
+  void OnGuestMainPageLoaded() override {
+    preload_page_->OnGuestMainPageLoaded();
+  }
   void OnGuestProcessGone(base::TerminationStatus status) override {
     preload_page_->OnGuestProcessGone();
   }
@@ -348,7 +351,8 @@ GlicUI::GlicUI(content::WebUI* web_ui)
 
   source->AddBoolean(
       "noLoader", base::FeatureList::IsEnabled(features::kGlicNoWebUiLoader) ||
-                      base::FeatureList::IsEnabled(features::kGlicSsr));
+                      (base::FeatureList::IsEnabled(features::kGlicSsr) &&
+                       !features::kGlicShowLoaderUntilMainPageOnload.Get()));
 
   source->AddBoolean("enableWebClientUnresponsiveMetrics",
                      base::FeatureList::IsEnabled(
@@ -365,8 +369,6 @@ GlicUI::GlicUI(content::WebUI* web_ui)
   source->AddString("adminBlockedRedirectPatterns",
                     admin_blocked_redirect_patterns);
 
-  source->AddInteger("reloadMaxLoadingTimeMs",
-                     features::kGlicReloadMaxLoadingTimeMs.Get());
   source->AddBoolean("caaGuestError", base::FeatureList::IsEnabled(
                                           features::kGlicCaaGuestError));
   source->AddBoolean(
@@ -375,6 +377,9 @@ GlicUI::GlicUI(content::WebUI* web_ui)
   source->AddBoolean(
       "enableStructuredYieldMetadata",
       base::FeatureList::IsEnabled(features::kGlicStructuredYieldMetadata));
+  source->AddBoolean(
+      "glicInvokeErrorRecoveryFixes",
+      base::FeatureList::IsEnabled(features::kGlicInvokeErrorRecoveryFixes));
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(GlicUI)
@@ -421,7 +426,8 @@ void GlicUI::BindInterface(
 void GlicUI::AttachToHost(Host* host) {
   // GlicUI should not be attached to Host in NoWebview mode, where
   // GlicNoWebviewContentsManager owns and manages the web client.
-  CHECK(!features::IsGlicNoWebviewEnabled());
+  CHECK(!GlicKeyedService::Get(Profile::FromWebUI(web_ui()))
+             ->IsNoWebviewEnabled());
   if (host_) {
     // This might be called multiple times, but it's not allowed to change the
     // attached host.

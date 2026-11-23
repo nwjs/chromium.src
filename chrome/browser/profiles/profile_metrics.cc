@@ -54,7 +54,7 @@ profile_metrics::Counts CountProfileInformation(
       if (entry->IsSupervised()) {
         counts.supervised++;
       }
-      if (entry->IsAuthenticated()) {
+      if (entry->GetSigninState() != SigninState::kNotSignedIn) {
         counts.signedin++;
       }
     }
@@ -311,7 +311,7 @@ void ProfileMetrics::LogProfileAvatarSelection(size_t icon_index) {
 }
 
 void ProfileMetrics::LogProfileDeleteUser(ProfileDelete metric) {
-  DCHECK(metric < NUM_DELETE_PROFILE_METRICS);
+  CHECK(metric < NUM_DELETE_PROFILE_METRICS, base::NotFatalUntil::M162);
   base::UmaHistogramEnumeration("Profile.DeleteProfileAction", metric,
                                 NUM_DELETE_PROFILE_METRICS);
   if (metric != DELETE_PROFILE_USER_MANAGER_SHOW_WARNING &&

@@ -4,6 +4,7 @@
 
 #include "extensions/test/extension_test_message_listener.h"
 
+#include "base/location.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -14,16 +15,16 @@
 ExtensionTestMessageListener::ExtensionTestMessageListener(
     const std::string& expected_message,
     ReplyBehavior reply_behavior)
-  : expected_message_(expected_message), reply_behavior_(reply_behavior),
-    run_loop_(new base::RunLoop())
-{
+    : expected_message_(expected_message),
+      reply_behavior_(reply_behavior),
+      run_loop_(new base::RunLoop()) {
   test_api_observation_.Observe(
       extensions::TestApiObserverRegistry::GetInstance());
 }
 
 ExtensionTestMessageListener::ExtensionTestMessageListener(
     ReplyBehavior reply_behavior)
-  : reply_behavior_(reply_behavior), run_loop_(new base::RunLoop()) {
+    : reply_behavior_(reply_behavior), run_loop_(new base::RunLoop()) {
   test_api_observation_.Observe(
       extensions::TestApiObserverRegistry::GetInstance());
 }
@@ -32,23 +33,34 @@ ExtensionTestMessageListener::~ExtensionTestMessageListener() {
   DCHECK(!function_) << "MessageListener did not reply, but signaled it would.";
 }
 
-bool ExtensionTestMessageListener::WaitUntilSatisfied() {
-  if (satisfied_)
+bool ExtensionTestMessageListener::WaitUntilSatisfied(
+    const base::Location& location) {
+  if (satisfied_) {
     return !failed_;
+  }
+  // Use the member `run_loop_` (exposed via GetRunLoop()) so that callers can
+  // quit the wait from elsewhere, e.g. from another thread.
   quit_wait_closure_ = run_loop_->QuitWhenIdleClosure();
-  run_loop_->Run();
+  run_loop_->Run(location);
+  quit_wait_closure_.Reset();
   run_loop_.reset(new base::RunLoop());
-  return !failed_;
+  return satisfied_ && !failed_;
 }
 
 bool ExtensionTestMessageListener::WaitUntilSatisfied(
-    base::RunLoop::Type message_waiter_type) {
-  if (satisfied_)
+    base::RunLoop::Type message_waiter_type,
+    const base::Location& location) {
+  if (message_waiter_type == base::RunLoop::Type::kDefault) {
+    return WaitUntilSatisfied(location);
+  }
+  if (satisfied_) {
     return !failed_;
+  }
   base::RunLoop message_waiter(message_waiter_type);
   quit_wait_closure_ = message_waiter.QuitWhenIdleClosure();
-  message_waiter.Run();
-  return !failed_;
+  message_waiter.Run(location);
+  quit_wait_closure_.Reset();
+  return satisfied_ && !failed_;
 }
 
 void ExtensionTestMessageListener::Reply(const std::string& message) {

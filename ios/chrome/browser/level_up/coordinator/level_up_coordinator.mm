@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/level_up/coordinator/level_up_coordinator.h"
 
+#import <utility>
+
 #import "base/metrics/histogram_functions.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/feature_constants.h"
@@ -14,6 +16,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/level_up/coordinator/level_up_mediator.h"
+#import "ios/chrome/browser/level_up/model/level_up_metrics.h"
 #import "ios/chrome/browser/level_up/model/level_up_service.h"
 #import "ios/chrome/browser/level_up/model/level_up_service_factory.h"
 #import "ios/chrome/browser/level_up/model/task_info.h"
@@ -99,18 +102,17 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 
 - (void)start {
   [super start];
+  ProfileIOS* profile = self.browser->GetProfile()->GetOriginalProfile();
   // Updates the kIOSLevelUpPromoUsed event to prevent PromosManager
   // from triggering Level Up promo before it is deregistered.
   feature_engagement::Tracker* tracker =
-      feature_engagement::TrackerFactory::GetForProfile(
-          self.browser->GetProfile());
+      feature_engagement::TrackerFactory::GetForProfile(profile);
   CHECK(tracker);
   tracker->NotifyEvent(feature_engagement::events::kIOSLevelUpPromoUsed);
-  PromosManagerFactory::GetForProfile(self.browser->GetProfile())
-      ->DeregisterPromo(promos_manager::Promo::LevelUp);
-  _authService =
-      AuthenticationServiceFactory::GetForProfile(self.browser->GetProfile());
-  _prefService = self.browser->GetProfile()->GetPrefs();
+  PromosManagerFactory::GetForProfile(profile)->DeregisterPromo(
+      promos_manager::Promo::LevelUp);
+  _authService = AuthenticationServiceFactory::GetForProfile(profile);
+  _prefService = profile->GetPrefs();
 
   if (!_prefService->GetBoolean(prefs::kLevelUpOptIn)) {
     [self showLevelUpPromo];
@@ -305,6 +307,7 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
   // `handleSignInResult:` instead.
   if (_authService->HasPrimaryIdentity()) {
     _prefService->SetBoolean(prefs::kLevelUpOptIn, true);
+    RecordLevelUpOptInStateChanged(true);
   }
   __weak __typeof(self) weakSelf = self;
   [self stopLevelUpNavigationController:^{
@@ -329,6 +332,8 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 // Handles a task tap by closing the level up screen and preparing to navigate
 // to the beginning of the tapped task.
 - (void)didTapTask:(LevelUpTask*)task {
+  RecordLevelUpTaskStarted(task.taskInfo->GetTaskType());
+
   // Save the task so it can be executed once the level up view is closed.
   _pendingNavigationAction = task.taskInfo->GetNavigationAction();
 
@@ -363,10 +368,11 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
       HandlerForProtocol(self.browser->GetCommandDispatcher(), LevelUpCommands);
   viewController.delegate = self;
 
+  ProfileIOS* profile = self.browser->GetProfile()->GetOriginalProfile();
   signin::IdentityManager* identityManager =
-      IdentityManagerFactory::GetForProfile(self.browser->GetProfile());
+      IdentityManagerFactory::GetForProfile(profile);
   LevelUpService* levelUpService =
-      LevelUpServiceFactory::GetForProfile(self.browser->GetProfile());
+      LevelUpServiceFactory::GetForProfile(profile);
 
   self.mediator =
       [[LevelUpMediator alloc] initWithAuthenticationService:_authService
@@ -413,7 +419,7 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinator* coordinator,
                           SigninCoordinatorResultOrIdentity result) {
-               [weakSelf handleSignInResult:result];
+               [weakSelf handleSignInResult:std::move(result)];
              }];
   id<SceneSignInCommands> sceneSignInHandler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), SceneSignInCommands);
@@ -425,6 +431,7 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 - (void)handleSignInResult:(SigninCoordinatorResultOrIdentity)result {
   if (result.has_value()) {
     _prefService->SetBoolean(prefs::kLevelUpOptIn, true);
+    RecordLevelUpOptInStateChanged(true);
     [self showLevelUp];
   } else {
     [self didTapDismissButton];

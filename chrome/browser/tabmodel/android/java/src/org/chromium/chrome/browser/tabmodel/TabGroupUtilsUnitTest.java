@@ -201,6 +201,27 @@ public class TabGroupUtilsUnitTest {
     }
 
     @Test
+    public void testOpenUrlInGroup_LoadUrlParams() {
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID1)).thenReturn(List.of(mTab1, mTab2));
+        when(mTabModel.getTabCreator()).thenReturn(mTabCreator);
+
+        @TabLaunchType int launchType = TabLaunchType.FROM_TAB_GROUP_UI;
+        LoadUrlParams loadUrlParams = new LoadUrlParams(JUnitTestGURLs.URL_1.getSpec());
+
+        // Null group should do nothing.
+        TabGroupUtils.openUrlInGroup(mTabModel, loadUrlParams, /* tabGroupId= */ null, launchType);
+        verify(mTabCreator, never()).createNewTab(any(), anyInt(), any());
+
+        // Empty group should do nothing.
+        when(mTabModel.getTabsInGroup(TAB_GROUP_ID2)).thenReturn(List.of());
+        TabGroupUtils.openUrlInGroup(mTabModel, loadUrlParams, TAB_GROUP_ID2, launchType);
+        verify(mTabCreator, never()).createNewTab(any(), anyInt(), any());
+
+        TabGroupUtils.openUrlInGroup(mTabModel, loadUrlParams, TAB_GROUP_ID1, launchType);
+        verify(mTabCreator).createNewTab(loadUrlParams, launchType, mTab2);
+    }
+
+    @Test
     public void testAreAnyTabsPartOfSharedGroup_oneSharedGroup() {
         mSavedTabGroup1.collaborationId = "collaborationId";
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID1);
@@ -365,5 +386,38 @@ public class TabGroupUtilsUnitTest {
 
         List<Tab> groupedTabs = TabGroupUtils.getGroupedTabs(List.of(mTab1, mTab2, mTab3));
         assertEquals(List.of(mTab1, mTab3), groupedTabs);
+    }
+
+    @Test
+    public void testMergeTabsToDest_success() {
+        doReturn(mTab1).when(mTabModel).getTabById(TAB1_ID);
+        List<Tab> tabs = List.of(mTab2, mTab3);
+
+        TabGroupUtils.mergeTabsToDest(tabs, TAB1_ID, mTabModel, /* tabMovedCallback= */ null);
+
+        verify(mTabModel)
+                .mergeListOfTabsToGroup(
+                        tabs, mTab1, TabGroupMergeNotificationType.NOTIFY_IF_NOT_NEW_GROUP);
+    }
+
+    @Test
+    public void testMergeTabsToDest_nullDestTab_noOps() {
+        doReturn(null).when(mTabModel).getTabById(TAB1_ID);
+        List<Tab> tabs = List.of(mTab2, mTab3);
+
+        TabGroupUtils.mergeTabsToDest(tabs, TAB1_ID, mTabModel, /* tabMovedCallback= */ null);
+
+        verify(mTabModel, never()).mergeListOfTabsToGroup(any(), any(), anyInt());
+    }
+
+    @Test
+    public void testMergeTabsToDest_withCallback_callsOnTabMoved() {
+        doReturn(mTab1).when(mTabModel).getTabById(TAB1_ID);
+        TabGroupUtils.TabMovedCallback callback = mock(TabGroupUtils.TabMovedCallback.class);
+        List<Tab> tabs = List.of(mTab2);
+
+        TabGroupUtils.mergeTabsToDest(tabs, TAB1_ID, mTabModel, callback);
+
+        verify(callback).onTabMoved();
     }
 }

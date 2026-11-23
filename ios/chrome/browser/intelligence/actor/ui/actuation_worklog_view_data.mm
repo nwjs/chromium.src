@@ -5,6 +5,18 @@
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_view_data.h"
 
 #import "base/check.h"
+#import "base/check_op.h"
+
+namespace {
+
+// Maximum number of actions displayed by an `ActuationInterventionType::kRow`.
+constexpr NSUInteger kMaxRowActionCount = 2;
+
+// Maximum number of actions displayed by an
+// `ActuationInterventionType::kColumn`.
+constexpr NSUInteger kMaxColumnActionCount = 3;
+
+}  // namespace
 
 @implementation ActuationWorklogAccessoryItem
 
@@ -115,6 +127,16 @@
       accessoryItem:accessoryItem];
 }
 
++ (instancetype)freeformItemWithText:(NSString*)text {
+  return [[ActuationWorklogItem alloc]
+      initWithTitle:text
+           subtitle:nil
+               icon:nil
+              style:ActuationWorklogItemStyle::kFreeform
+             active:NO
+      accessoryItem:nil];
+}
+
 - (instancetype)withActive:(BOOL)active {
   return [[ActuationWorklogItem alloc] initWithTitle:self.title
                                             subtitle:self.subtitle
@@ -141,14 +163,29 @@
 
 @end
 
+@implementation ActuationInterventionAction
+
+- (instancetype)initWithIdentifier:(NSInteger)identifier
+                             title:(NSString*)title {
+  CHECK(title);
+
+  self = [super init];
+  if (self) {
+    _identifier = identifier;
+    _title = [title copy];
+  }
+  return self;
+}
+
+@end
+
 @interface ActuationInterventionData ()
 
 // Designated initializer.
 - (instancetype)initWithType:(ActuationInterventionType)type
                        title:(NSString*)title
                     subtitle:(NSString*)subtitle
-           primaryButtonText:(NSString*)primaryButtonText
-         secondaryButtonText:(NSString*)secondaryButtonText
+                     actions:(NSArray<ActuationInterventionAction*>*)actions
     NS_DESIGNATED_INITIALIZER;
 
 @end
@@ -158,17 +195,18 @@
 - (instancetype)initWithType:(ActuationInterventionType)type
                        title:(NSString*)title
                     subtitle:(NSString*)subtitle
-           primaryButtonText:(NSString*)primaryButtonText
-         secondaryButtonText:(NSString*)secondaryButtonText {
-  CHECK(primaryButtonText);
+                     actions:(NSArray<ActuationInterventionAction*>*)actions {
+  CHECK_GT(actions.count, 0u);
   switch (type) {
     case ActuationInterventionType::kCard:
       CHECK(title);
+      CHECK_EQ(actions.count, 1u);
       break;
-    case ActuationInterventionType::kSingleButton:
+    case ActuationInterventionType::kRow:
+      CHECK_LE(actions.count, kMaxRowActionCount);
       break;
-    case ActuationInterventionType::kDualButton:
-      CHECK(secondaryButtonText);
+    case ActuationInterventionType::kColumn:
+      CHECK_LE(actions.count, kMaxColumnActionCount);
       break;
   }
 
@@ -177,8 +215,7 @@
     _type = type;
     _title = [title copy];
     _subtitle = [subtitle copy];
-    _primaryButtonText = [primaryButtonText copy];
-    _secondaryButtonText = [secondaryButtonText copy];
+    _actions = [actions copy];
   }
   return self;
 }
@@ -187,34 +224,76 @@
 
 + (instancetype)cardItemWithTitle:(NSString*)title
                          subtitle:(NSString*)subtitle
-                primaryButtonText:(NSString*)primaryButtonText {
+                           action:(ActuationInterventionAction*)action {
+  CHECK(action);
   return [[ActuationInterventionData alloc]
-             initWithType:ActuationInterventionType::kCard
-                    title:title
-                 subtitle:subtitle
-        primaryButtonText:primaryButtonText
-      secondaryButtonText:nil];
+      initWithType:ActuationInterventionType::kCard
+             title:title
+          subtitle:subtitle
+           actions:@[ action ]];
 }
 
-+ (instancetype)singleButtonItemWithPrimaryButtonText:
-    (NSString*)primaryButtonText {
++ (instancetype)rowItemWithActions:
+    (NSArray<ActuationInterventionAction*>*)actions {
   return [[ActuationInterventionData alloc]
-             initWithType:ActuationInterventionType::kSingleButton
-                    title:nil
-                 subtitle:nil
-        primaryButtonText:primaryButtonText
-      secondaryButtonText:nil];
+      initWithType:ActuationInterventionType::kRow
+             title:nil
+          subtitle:nil
+           actions:actions];
 }
 
-+ (instancetype)dualButtonItemWithPrimaryButtonText:(NSString*)primaryButtonText
-                                secondaryButtonText:
-                                    (NSString*)secondaryButtonText {
++ (instancetype)columnItemWithActions:
+    (NSArray<ActuationInterventionAction*>*)actions {
   return [[ActuationInterventionData alloc]
-             initWithType:ActuationInterventionType::kDualButton
-                    title:nil
-                 subtitle:nil
-        primaryButtonText:primaryButtonText
-      secondaryButtonText:secondaryButtonText];
+      initWithType:ActuationInterventionType::kColumn
+             title:nil
+          subtitle:nil
+           actions:actions];
+}
+
+@end
+
+@implementation ActuationHeaderContent
+
+- (instancetype)initWithTitle:(NSString*)title subtitle:(NSString*)subtitle {
+  self = [super init];
+  if (self) {
+    _title = [title copy];
+    _subtitle = [subtitle copy];
+  }
+  return self;
+}
+
+@end
+
+@implementation ActuationHeaderContentVariants {
+  ActuationHeaderContent* _minimizedContent;
+  ActuationHeaderContent* _compactContent;
+  ActuationHeaderContent* _expandedContent;
+}
+
+- (instancetype)initWithMinimizedContent:(ActuationHeaderContent*)minimized
+                          compactContent:(ActuationHeaderContent*)compact
+                         expandedContent:(ActuationHeaderContent*)expanded {
+  self = [super init];
+  if (self) {
+    _minimizedContent = minimized;
+    _compactContent = compact;
+    _expandedContent = expanded;
+  }
+  return self;
+}
+
+- (ActuationHeaderContent*)contentForDisplayMode:
+    (ActuationWorklogDisplayMode)mode {
+  switch (mode) {
+    case ActuationWorklogDisplayModeMinimized:
+      return _minimizedContent;
+    case ActuationWorklogDisplayModeCompact:
+      return _compactContent;
+    case ActuationWorklogDisplayModeExpanded:
+      return _expandedContent;
+  }
 }
 
 @end

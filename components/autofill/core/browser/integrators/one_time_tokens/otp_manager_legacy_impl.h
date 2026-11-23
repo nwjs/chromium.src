@@ -5,9 +5,6 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_ONE_TIME_TOKENS_OTP_MANAGER_LEGACY_IMPL_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_INTEGRATORS_ONE_TIME_TOKENS_OTP_MANAGER_LEGACY_IMPL_H_
 
-#include <string>
-#include <vector>
-
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
@@ -20,7 +17,7 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
 #include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
-#include "components/one_time_tokens/core/browser/one_time_token_service.h"
+#include "components/one_time_tokens/core/browser/sms_otp_service.h"
 #include "components/one_time_tokens/core/browser/util/expiring_subscription.h"
 
 namespace autofill {
@@ -29,7 +26,7 @@ class BrowserAutofillManager;
 class FormFieldData;
 class FormStructure;
 
-// This class triggers the fetching of OTPs from the `OneTimeTokenService` as
+// This class triggers the fetching of OTPs from the `SmsOtpService` as
 // soon as `OnFieldTypesDetermined()` is notified about the classification of
 // OTP fields. OTPs are fetched only once per instantiation. This is ok
 // if the `OtpManagerLegacyImpl` is recreated on each frame navigation.
@@ -38,9 +35,8 @@ class FormStructure;
 class OtpManagerLegacyImpl : public OtpManager,
                              public AutofillManager::Observer {
  public:
-  OtpManagerLegacyImpl(
-      BrowserAutofillManager& owner,
-      one_time_tokens::OneTimeTokenService* one_time_token_service);
+  OtpManagerLegacyImpl(BrowserAutofillManager& owner,
+                       one_time_tokens::SmsOtpService* sms_otp_service);
   OtpManagerLegacyImpl(const OtpManagerLegacyImpl&) = delete;
   OtpManagerLegacyImpl& operator=(const OtpManagerLegacyImpl&) = delete;
   ~OtpManagerLegacyImpl() override;
@@ -78,7 +74,6 @@ class OtpManagerLegacyImpl : public OtpManager,
   // TODO(crbug.com/415273270): Update UI (dropdown or keyboard accessory) when
   // a new token is received.
   void OnOneTimeTokenReceived(
-      one_time_tokens::OneTimeTokenSource,
       base::expected<one_time_tokens::OneTimeToken,
                      one_time_tokens::OneTimeTokenRetrievalError>
           token_or_error);
@@ -86,6 +81,7 @@ class OtpManagerLegacyImpl : public OtpManager,
   // Evaluates the PhishGuard `verdict` (or `kUnknown` if no check was
   // performed) and delivers OTP suggestions for SMS.
   void MaybeShowOtpSuggestionsForSms(one_time_tokens::OneTimeToken token,
+                                     LocalFrameToken frame_token,
                                      OneTimeTokensPhishGuardVerdict verdict);
 
   // Returns true if an OTP must not be delivered to the caller in an autofill
@@ -96,10 +92,9 @@ class OtpManagerLegacyImpl : public OtpManager,
   raw_ref<BrowserAutofillManager> owner_;
 
   // May be nullptr on platforms that don't support SMS OTP fetching.
-  raw_ptr<one_time_tokens::OneTimeTokenService> one_time_token_service_ =
-      nullptr;
+  raw_ptr<one_time_tokens::SmsOtpService> sms_otp_service_ = nullptr;
 
-  // Subscription to `OneTimeTokenService` for SMS OTPs.
+  // Subscription to `SmsOtpService` for SMS OTPs.
   one_time_tokens::ExpiringSubscription sms_otp_subscription_;
 
   // Only the last call from the UI to generate suggestions is retained as such

@@ -81,6 +81,8 @@ source_set("test_support") {
     "//ui/display",
   ]
 
+  frameworks = [ "ScreenTime.framework" ]
+
   sources = [
     "test_web_thread.cc",
     "url_test_util.mm",
@@ -108,6 +110,22 @@ source_set("js_test_util_internal") {
   sources = [
     "js_test_util_internal.h",
     "js_test_util_internal.mm",
+  ]
+}
+
+source_set("cert_test_util") {
+  testonly = true
+
+  public_deps = [ "//base" ]
+
+  sources = [
+    "cert_test_util.h",
+    "cert_test_util.mm",
+  ]
+
+  frameworks = [
+    "Foundation.framework",
+    "Security.framework",
   ]
 }
 

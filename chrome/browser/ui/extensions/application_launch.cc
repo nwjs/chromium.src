@@ -122,7 +122,8 @@ class EnableViaDialogFlow : public ExtensionEnableFlowDelegate {
   ~EnableViaDialogFlow() override = default;
 
   void Run() {
-    DCHECK(!registrar_->IsExtensionEnabled(extension_id_));
+    CHECK(!registrar_->IsExtensionEnabled(extension_id_),
+          base::NotFatalUntil::M162);
     flow_ =
         std::make_unique<ExtensionEnableFlow>(profile_, extension_id_, this);
     flow_->Start();
@@ -186,7 +187,8 @@ GURL UrlForExtension(const extensions::Extension* extension,
 
   GURL url;
   if (!params.override_url.is_empty()) {
-    DCHECK(IsAllowedToOverrideURL(extension, params.override_url));
+    CHECK(IsAllowedToOverrideURL(extension, params.override_url),
+          base::NotFatalUntil::M162);
     url = params.override_url;
   } else {
     url = extensions::AppLaunchInfo::GetFullLaunchURL(extension);
@@ -275,7 +277,7 @@ WebContents* OpenApplicationTab(Profile* profile,
         BrowserWindowInterface::TYPE_NORMAL, profile, true));
     browser->GetWindow()->Show();
     // There's no current tab in this browser window, so add a new one.
-    disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    disposition = WindowOpenDisposition::kNewForegroundTab;
   }
 
   extensions::LaunchType launch_type =
@@ -297,7 +299,7 @@ WebContents* OpenApplicationTab(Profile* profile,
         std::move(*nav_launch_params));
   }
 
-  if (disposition == WindowOpenDisposition::CURRENT_TAB) {
+  if (disposition == WindowOpenDisposition::kCurrentTab) {
     WebContents* existing_tab =
         browser->GetTabStripModel()->GetActiveWebContents();
     TabStripModel* model = browser->GetTabStripModel();
@@ -333,7 +335,8 @@ WebContents* OpenApplicationTab(Profile* profile,
 #if BUILDFLAG(IS_CHROMEOS)
   // In ChromeOS, extensions::LaunchType::kFullscreen launches in the
   // OpenApplicationWindow function i.e. it should not reach here.
-  DCHECK(launch_type != extensions::LaunchType::kFullscreen);
+  CHECK(launch_type != extensions::LaunchType::kFullscreen,
+        base::NotFatalUntil::M162);
 #else
   // TODO(skerner):  If we are already in full screen mode, and the user set the
   // app to open as a regular or pinned tab, what should happen? Today we open
@@ -511,7 +514,7 @@ BrowserWindowInterface* CreateApplicationWindow(
   // TODO(erg): AppLaunchParams should pass through the user_gesture from the
   // extension system here.
   BrowserWindowCreateParams browser_params(
-      params.disposition == WindowOpenDisposition::NEW_POPUP
+      params.disposition == WindowOpenDisposition::kNewPopup
           ? BrowserWindowCreateParams::CreateForAppPopup(
                 app_name,
                 /*trusted_source=*/true, initial_bounds, profile,
@@ -572,7 +575,7 @@ WebContents* OpenApplicationWindow(Profile* profile,
   BrowserWindowInterface* browser =
       CreateApplicationWindow(profile, params, url);
   WebContents* web_contents = NavigateApplicationWindow(
-      browser, params, url, WindowOpenDisposition::NEW_FOREGROUND_TAB);
+      browser, params, url, WindowOpenDisposition::kNewForegroundTab);
 
   browser->GetWindow()->Show();
   return web_contents;
@@ -605,7 +608,7 @@ WebContents* OpenAppShortcutWindow(Profile* profile, const GURL& url) {
   apps::AppLaunchParams launch_params(
       std::string(),  // this is a URL app. No app id.
       apps::LaunchContainer::kLaunchContainerWindow,
-      WindowOpenDisposition::NEW_WINDOW, apps::LaunchSource::kFromCommandLine);
+      WindowOpenDisposition::kNewWindow, apps::LaunchSource::kFromCommandLine);
   launch_params.override_url = url;
 
   return OpenApplicationWindow(profile, launch_params, url);

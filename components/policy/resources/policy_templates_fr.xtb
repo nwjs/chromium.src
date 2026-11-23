@@ -1508,6 +1508,23 @@ Si cette règle n'est pas configurée, la fonctionnalité Appel direct est activ
       Notez que cette règle bloque JavaScript selon que l'origine du document de premier niveau (généralement l'URL de la page qui s'affiche également dans la barre d'adresse) correspond ou non à l'un des formats. Par conséquent, cette règle n'est pas adaptée pour limiter les attaques de la chaîne d'approvisionnement Web. Par exemple, si vous indiquez le format "https://[*.]foo.com/", cela n'empêchera pas une page hébergée sur https://example.com d'exécuter un script chargé à partir de https://www.foo.com/example.js. De plus, si vous indiquez le format "https://example.com/", cela n'empêchera pas un document provenant de https://example.com d'exécuter des scripts, même s'il ne s'agit pas du document de premier niveau, mais d'un sous-cadre intégré dans une page hébergée sur une autre origine, par exemple https://www.bar.com.</translation>
 <translation id="1942015922182679826">Activer la suppression des mots de passe indéchiffrables</translation>
 <translation id="1942626390957213764">Désactiver le hub de partage du bureau</translation>
+<translation id="1943243146727870858">Désactivez l'authentification unique utilisant <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> pour les fournisseurs d'identité listés.
+
+Si vous ajoutez la valeur <ph name="POLICY_VALUE_ALL" />, tous les fournisseurs d'identité pris en charge pour l'authentification unique sont désactivés.
+
+Si vous ajoutez la valeur <ph name="POLICY_VALUE_MICROSOFT" />, la prise en charge de l'authentification unique pour le fournisseur d'identité cloud Microsoft® dans Chrome sera désactivée.
+
+Si vous ne configurez pas cette règle, tous les fournisseurs d'identité pris en charge par <ph name="PRODUCT_NAME" /> seront activés.
+
+Pour les fournisseurs d'identité activés dans <ph name="PRODUCT_NAME" /> et configurés sur l'appareil par l'administrateur, les utilisateurs qui se connectent une fois via ce fournisseur d'identité, sur n'importe quelle appli compatible avec <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" />, peuvent être connectés automatiquement aux propriétés Web utilisant ce fournisseur d'identité. Les informations concernant l'authentification de l'utilisateur sont transmises au fournisseur d'identité cloud de l'utilisateur pour chaque événement d'authentification.
+
+Remarques :
+
+<ph name="PRODUCT_NAME" /> ne prend pas en charge l'authentification unique utilisant <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> en mode navigation privée ou Invité.
+
+<ph name="PRODUCT_NAME" /> ne prend en charge l'authentification unique utilisant <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> que pour les fournisseurs d'identité suivants : Microsoft, Okta, Ping.
+
+Cette fonctionnalité est disponible à partir de <ph name="MAC_OS_NAME" /> 10.15.</translation>
 <translation id="1943628907052340534">Ne pas ouvrir <ph name="PRODUCT_NAME" /> lorsque l'utilisateur se connecte à <ph name="MS_WIN_NAME" /></translation>
 <translation id="194407941132272412">Désactiver l'isolation pour tous les sites Web, mais autoriser l'utilisateur à l'activer</translation>
 <translation id="1945994447126139909">Cette règle permet d'assurer la transition à court terme vers <ph name="PRODUCT_NAME" /> 88, après quoi elle sera supprimée.
@@ -3494,6 +3511,8 @@ Si elle est désactivée ou n'est pas définie, le menu d'accessibilité flottan
 <translation id="3146711617256415776">Ne pas autoriser la synthèse vocale améliorée via le réseau pour Sélectionner pour écouter</translation>
 <translation id="315013437951136266">Activer la fonctionnalité <ph name="IP_PROTECTION_NAME" />.</translation>
 <translation id="3150351525324499342">Ne pas afficher par défaut l'icône <ph name="PRODUCT_NAME" /> dans la barre d'outils, mais laisser les utilisateurs choisir</translation>
+<translation id="3151501327418961907">Si cette règle est définie sur 0 ou n'est pas configurée, les règles <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> et <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" /> ne s'appliquent qu'au niveau de l'utilisateur à condition que celui-ci soit affilié et qu'il utilise un navigateur géré.
+Si cette règle est définie sur 1, les règles <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> et <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" /> s'appliquent au niveau de l'utilisateur, même si celui-ci n'est pas affilié.</translation>
 <translation id="3152135410085709340">Autoriser l'accès aux fichiers locaux aux URL file:// sur ces sites dans le lecteur PDF</translation>
 <translation id="3152425128389603870">Rendre le mode bureau unifié disponible et l'activer par défaut</translation>
 <translation id="3159375329008977062">L'utilisateur est autorisé à exporter/importer des conteneurs Crostini via l'UI</translation>
@@ -3714,8 +3733,6 @@ Si <ph name="NTPCARDSVISIBLE" /> est désactivé, la carte Outlook ne s'affiche 
       Si cette règle est désactivée, les appareils enregistrés ne communiquent pas ces informations.</translation>
 <translation id="3303770131697159224">Paramètre d'autorisation par défaut de la gestion des fenêtres</translation>
 <translation id="3303911765031636277">Règle de configuration du connecteur Chrome Enterprise OnFileAttached</translation>
-<translation id="3305586786770047829">Si cette règle est définie sur 0 ou n'est pas configurée, la règle <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> ne s'applique qu'au niveau de l'utilisateur à condition qu'il soit affilié.
-Si cette règle est définie sur 1, la règle <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> s'applique au niveau de l'utilisateur, même si celui-ci n'est pas affilié.</translation>
 <translation id="3307744348419745296">Ne pas autoriser la synchronisation des configurations de réseau Wi-Fi entre les appareils <ph name="PRODUCT_OS_NAME" /> et un téléphone Android connecté</translation>
 <translation id="3308724602356134956">Si vous configurez cette règle, <ph name="PRODUCT_OS_NAME" /> télécharge et utilise l'image de fond d'écran que vous avez définie pour l'arrière-plan de l'écran de connexion et le bureau des utilisateurs (lesquels ne peuvent pas modifier la configuration). Spécifiez l'URL (accessible sans authentification) à laquelle <ph name="PRODUCT_OS_NAME" /> peut télécharger l'image de fond d'écran (16 Mo maximum et au format JPEG), ainsi qu'un hachage cryptographique pour vérifier l'intégrité de l'image.
 
@@ -4302,6 +4319,21 @@ Le transfert de données avec Takeout doit aussi être activé pour que l'appli 
 <translation id="370314752761795411">Démarrer <ph name="PRODUCT_NAME" /> avec <ph name="MS_WIN_NAME" /></translation>
 <translation id="3711895659073496551">Arrêter</translation>
 <translation id="3712861436661566358">Activer la séparation des profils</translation>
+<translation id="3715589988915487768">Configure une liste de domaines de provisionnement (PvD) que <ph name="PRODUCT_NAME" /> utilisera pour récupérer dynamiquement les configurations de proxy.
+
+Cette règle permet de spécifier une liste de noms de domaine ou d'URI de ressources représentant des domaines de provisionnement, comme défini dans le document RFC 8801 ("Discovering Provisioning Domain Names and Data"). Pour chaque PvD, le navigateur résout la configuration JSON correspondante en envoyant une requête HTTPS au chemin d'accès du point de terminaison connu : "https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd".
+
+Chaque entrée de la liste spécifie :
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" /> : l'identifiant du domaine de provisionnement (un nom de domaine).
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" /> : la configuration d'authentification facultative. Si elle n'est pas configurée ou est définie sur "none", aucune authentification n'est effectuée. Lorsque cette valeur est définie sur "profile_bearer_token", le navigateur récupère un jeton d'accès OAuth2 avec le niveau d'accès fourni pour le compte principal connecté et l'ajoute à l'en-tête "Authorization" en tant que jeton "Bearer".
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" /> : une liste facultative d'en-têtes HTTP personnalisés à inclure lors de l'interrogation du point de terminaison PvD. Des valeurs dynamiques peuvent être injectées, comme "profile_id" (qui représente un identifiant unique et stable du profil du navigateur sur l'appareil, permettant un ciblage par configuration de profil) ou "accept_language" (qui représente les langues préférées du navigateur).
+
+Les configurations récupérées sont analysées conformément au schéma du document RFC 8801. Seuls les règles de routage liées à la configuration du proxy et les proxys issus de la charge utile JSON du PvD sont appliqués. Si cette règle n'est pas configurée, aucun domaine de provisionnement ne sera interrogé ni utilisé pour récupérer les configurations de proxy.
+
+Cette règle ne peut être définie au niveau de l'utilisateur que si celui-ci est affilié au navigateur, si le navigateur n'est pas géré ou si la règle <ph name="ENABLE_PROXY_OVERRIDE_RULES_FOR_ALL_USERS_POLICY_NAME" /> est définie sur 1.</translation>
 <translation id="3719826155360621982">Page d'accueil</translation>
 <translation id="3724039569609354541">Utiliser le comportement par défaut pour déterminer si des sites Web peuvent envoyer des requêtes aux points de terminaison du réseau</translation>
 <translation id="3726715125055227414">Cette règle configure <ph name="PRODUCT_OS_NAME" /> afin que, lors de l'envoi de requêtes réseau depuis l'écran de connexion, ses algorithmes d'accord de clé préférés (groupes compatibles) soient ordonnés dans TLS 1.3 selon une préférence pour ceux qui ont été approuvés par un régime de conformité spécifique.
@@ -5540,6 +5572,27 @@ Toute augmentation de la valeur par défaut (128) est effectuée à vos propres 
 Veuillez noter que les limites appliquées sont affectées par <ph name="ALLOW_SOCKET_POOL_SIZE_RANDOMIZATION_FOR_PROXIES_POLICY_NAME" />.</translation>
 <translation id="4528981768990874684">Désactiver la fonctionnalité <ph name="IP_PROTECTION_NAME" />.</translation>
 <translation id="453031441196755904">Cette règle est obsolète.</translation>
+<translation id="4531088355818260318">Cette règle permet de définir une liste de règles pour l'injection d'en-têtes HTTP personnalisés dans les requêtes Web correspondant à des formats d'URL spécifiques. Les en-têtes définis par cette règle prévalent sur ceux qui étaient initialement présents dans la requête, ainsi que sur les modifications tentées par les utilisateurs ou les extensions.
+
+Un cas d'utilisation courant de cette règle consiste à appliquer des contrôles d'accès aux locataires en injectant des en-têtes personnalisés (par exemple, <ph name="EXAMPLE_HEADER_NAME" />).
+
+Cette règle accepte une liste de règles. Chaque règle contient :
+
+* <ph name="PATTERNS_KEY" /> : une liste de formats d'URL à mettre en correspondance. Découvrez les formats d'URL à respecter (https://support.google.com/chrome/a?p=url_blocklist_filter_format).
+
+* <ph name="HEADERS_KEY" /> : liste d'objets représentant les en-têtes à injecter, chacun contenant :
+
+  * <ph name="HEADER_NAME_KEY" /> : nom de l'en-tête à injecter.
+
+  * <ph name="HEADER_VALUE_KEY" /> : valeur de l'en-tête à injecter.
+
+Si une requête est concernée par plusieurs règles, les en-têtes de toutes les règles correspondantes seront appliqués. Si plusieurs en-têtes portent le même nom, celui dont le format d'URL est le plus spécifique sera appliqué. Si aucun format n'est plus spécifique qu'un autre, celui qui apparaît en dernier dans la liste sera appliqué.
+
+Les noms d'en-tête doivent être conformes à la norme RFC 2616 (https://www.rfc-editor.org/rfc/rfc2616). Les valeurs d'en-tête ne doivent pas contenir les symboles NUL, CR ni LF. La taille des en-têtes individuels ne doit pas dépasser 8 ko. Les en-têtes et les formats d'URL non valides seront ignorés.
+
+Cette règle est limitée à un total de 500 formats d'URL pour l'ensemble des règles. Chaque règle peut contenir au maximum 20 en-têtes. Les formats et les en-têtes au-delà de ces seuils seront ignorés.
+
+Remarque : Si un format d'URL correspond à des schémas non chiffrés (http://, ws:// ou lorsque le schéma est omis), les en-têtes configurés pourraient être transmis en texte brut sur un canal non chiffré et être exposés aux observateurs sur le réseau. Pour protéger les valeurs d'en-tête sensibles ou permettant une identification, limitez les formats d'URL aux schémas chiffrés (https:// ou wss://).</translation>
 <translation id="4531706050939927436">L'installation des applications Android peut être forcée depuis la Console d'administration Google via Google Play. Elles n'utilisent pas cette règle.</translation>
 <translation id="4534500438517478692">Nom de la restriction Android :</translation>
 <translation id="4541530620466526913">Comptes locaux de l'appareil</translation>
@@ -6504,6 +6557,17 @@ Si cette règle n'est pas configurée, "Aide-moi à écrire" sera activé sur le
 <translation id="5081204761483900654">Sessions Invité gérées restreintes</translation>
 <translation id="5082296146261894974">Permet aux utilisateurs de cliquer sur une notification Phone Hub pour lancer l'application Eche.</translation>
 <translation id="5082572440690475059">Autoriser l'accès en lecture via l'API File System pour ces sites</translation>
+<translation id="5084849119584030624">Configure les paramètres de connexion pour <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> dans <ph name="PRODUCT_NAME" />.
+
+Cette règle n'est plus prise en charge et est ignorée. Utilisez plutôt la règle <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />.
+
+La règle configure l'URL de l'application Web <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> via <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />, qui doit être une URL valide utilisant le schéma https, redirigeant vers un domaine <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> et n'incluant pas de nom d'utilisateur ni de mot de passe. Si elle ne respecte pas ces exigences, la règle est ignorée et <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> n'est pas configuré.
+
+Si cette règle est définie, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sera configuré pour les utilisateurs connectés avec un compte géré ou un navigateur géré.
+
+Si cette règle n'est pas définie, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> ne sera pas configuré.
+
+Notez que cette règle ne gère pas l'intégration globale de <ph name="GOOGLE_GEMINI_PRODUCT_NAME" />, laquelle peut être contrôlée à l'aide de la règle <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="5085647276663819155">Désactiver l'aperçu avant impression</translation>
 <translation id="5087922428454325090">Les utilisateurs ne peuvent pas installer d'applications Web via le navigateur.</translation>
 <translation id="5087932158260897375">Si cette règle est définie sur "False", les rapports sur les données de diagnostic de fiabilité du domaine sont désactivés et aucune donnée n'est envoyée à Google.
@@ -6571,19 +6635,6 @@ Cette règle est proposée pour une durée limitée afin de laisser le temps de 
 <translation id="5120168808610189805">Activer l'importation de la page d'accueil à la première exécution</translation>
 <translation id="5124321040285474825">Paramètres des fonctionnalités d'IA générative dans la Saisie automatique</translation>
 <translation id="5124368997194894978">Activer le démarrage au branchement de l'alimentation CA (courant alternatif)</translation>
-<translation id="5124652340668722849">Configure une liste de domaines de provisionnement (PvD) que <ph name="PRODUCT_NAME" /> utilisera pour récupérer dynamiquement les configurations de proxy.
-
-Cette règle permet de spécifier une liste de noms de domaine ou d'URI de ressources représentant des domaines de provisionnement, comme défini dans le document RFC 8801 ("Discovering Provisioning Domain Names and Data"). Pour chaque PvD, le navigateur résout la configuration JSON correspondante en envoyant une requête HTTPS au chemin d'accès du point de terminaison connu : "https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd".
-
-Chaque entrée de la liste spécifie :
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" /> : l'identifiant du domaine de provisionnement (un nom de domaine).
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" /> : la configuration d'authentification facultative. Si elle n'est pas configurée ou est définie sur "none", aucune authentification n'est effectuée. Lorsque cette valeur est définie sur "profile_bearer_token", le navigateur récupère un jeton d'accès OAuth2 avec le niveau d'accès fourni pour le compte principal connecté et l'ajoute à l'en-tête "Authorization" en tant que jeton "Bearer".
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" /> : une liste facultative d'en-têtes HTTP personnalisés à inclure lors de l'interrogation du point de terminaison PvD. Des valeurs dynamiques peuvent être injectées, comme "profile_id" (qui représente un identifiant unique et stable du profil du navigateur sur l'appareil, permettant un ciblage par configuration de profil) ou "accept_language" (qui représente les langues préférées du navigateur).
-
-Les configurations récupérées sont analysées conformément au schéma du document RFC 8801. Seuls les règles de routage liées à la configuration du proxy et les proxys issus de la charge utile JSON du PvD sont appliqués. Si cette règle n'est pas configurée, aucun domaine de provisionnement ne sera interrogé ni utilisé pour récupérer les configurations de proxy.</translation>
 <translation id="5130213897914754028">Empêcher les sites d'utiliser SharedArrayBuffers</translation>
 <translation id="5130935469849337738">Toujours proposer une traduction</translation>
 <translation id="513314432051760916">Règle permettant de décider si le paramètre de mesure des annonces de <ph name="PRIVACY_SANDBOX_NAME" /> peut être désactivé pour vos utilisateurs.
@@ -7083,6 +7134,7 @@ Plusieurs règles listent des origines qui ont un impact sur les requêtes adres
 
       Si la règle est définie sur "False" ou n'est pas configurée, ces informations ne sont pas transmises.
       Si elle est définie sur "True", les informations concernant les applications et l'utilisation de l'appareil sont transmises.</translation>
+<translation id="5418723809273651607">Fournisseur d'identité cloud Ping®</translation>
 <translation id="5420245232720940848">Désactive la tunnellisation PCIe pour les périphériques Thunderbolt/USB4, ce qui limitera leur capacité</translation>
 <translation id="5420673997623782432">Bloquer l'accès à la géolocalisation du système pour tous les clients</translation>
 <translation id="5420774177427557782">Détermine si les VM utilisant cette configuration peuvent être installées et exécutées (<ph name="INSTALL_ALLOWED" />), exécutées mais pas installées (<ph name="RUN_ALLOWED" />) ou ne peuvent pas être exécutées (<ph name="BLOCKED" />). Notez que pour installer une VM, la clé installer_image_x86_64 doit également être définie. Si vous supprimez complètement une configuration, elle est implicitement définie sur <ph name="BLOCKED" />, ce qui empêche les VM de s'exécuter sans règle.</translation>
@@ -8344,25 +8396,6 @@ Le salage doit être une chaîne comprenant entre 8 et 32 caractères.
 <translation id="6244061205361004687">Autoriser l'utilisateur à déconnecter ou modifier manuellement un VPN</translation>
 <translation id="6244210204546589761">URL à ouvrir au démarrage</translation>
 <translation id="6244263962918757383">Paramètres pour ChromeSuggestions</translation>
-<translation id="6245828368576563662">Cette règle permet de définir une liste de règles pour l'injection d'en-têtes HTTP personnalisés dans les requêtes Web correspondant à des formats d'URL spécifiques. Les en-têtes définis par cette règle prévalent sur ceux qui étaient initialement présents dans la requête, ainsi que sur les modifications tentées par les utilisateurs ou les extensions.
-
-Un cas d'utilisation courant de cette règle consiste à appliquer des contrôles d'accès aux locataires en injectant des en-têtes personnalisés (par exemple, <ph name="EXAMPLE_HEADER_NAME" />).
-
-Cette règle accepte une liste de règles. Chaque règle contient :
-
-* <ph name="PATTERNS_KEY" /> : une liste de formats d'URL à mettre en correspondance. Découvrez les formats d'URL à respecter (https://support.google.com/chrome/a?p=url_blocklist_filter_format).
-
-* <ph name="HEADERS_KEY" /> : liste d'objets représentant les en-têtes à injecter, chacun contenant :
-
-  * <ph name="HEADER_NAME_KEY" /> : nom de l'en-tête à injecter.
-
-  * <ph name="HEADER_VALUE_KEY" /> : valeur de l'en-tête à injecter.
-
-Si une requête est concernée par plusieurs règles, les en-têtes de toutes les règles correspondantes seront appliqués. Si plusieurs en-têtes portent le même nom, celui dont le format d'URL est le plus spécifique sera appliqué. Si aucun format n'est plus spécifique qu'un autre, celui qui apparaît en dernier dans la liste sera appliqué.
-
-Les noms d'en-tête doivent être conformes à la norme RFC 2616 (https://www.rfc-editor.org/rfc/rfc2616). Les valeurs d'en-tête ne doivent pas contenir les symboles NUL, CR ni LF. La taille des en-têtes individuels ne doit pas dépasser 8 ko. Les en-têtes et les formats d'URL non valides seront ignorés.
-
-Cette règle est limitée à un total de 500 formats d'URL pour l'ensemble des règles. Chaque règle peut contenir au maximum 20 en-têtes. Les formats et les en-têtes au-delà de ces seuils seront ignorés.</translation>
 <translation id="624595269193747921">Limiter ou non la recherche d'une imprimante correspondant aux critères spécifiés à un groupe d'imprimantes spécifique.</translation>
 <translation id="6246290059248303618">Afficher les commandes multimédias pour les sessions <ph name="PRODUCT_NAME" /> lancées par d'autres appareils sur le réseau local</translation>
 <translation id="6247316685259031374">Cette règle permet de contrôler l'exécution en bac à sable du processus audio.
@@ -8614,17 +8647,6 @@ Remarque : Cette règle ne s'applique qu'aux plates-formes compatibles avec les
       Si cette règle est définie sur "False", les Signed HTTP Exchanges ne peuvent pas être chargés.</translation>
 <translation id="6368011194414932347">Configurer l'URL de la page d'accueil</translation>
 <translation id="6368403635025849609">Autoriser JavaScript sur ces sites</translation>
-<translation id="6368652917086795891">Configure les paramètres de connexion pour <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> dans <ph name="PRODUCT_NAME" />.
-
-Cette règle est remplacée par la règle <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />. Si les deux sont définies, la règle <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" /> prévaut.
-
-La règle configure l'URL de l'application Web <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> via <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />, qui doit être une URL valide utilisant le schéma https, redirige vers un domaine <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> et n'inclut pas de nom d'utilisateur ni de mot de passe. Si elle ne respecte pas ces exigences, la règle est ignorée et <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> n'est pas configuré.
-
-Si cette règle est définie, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> sera configuré pour les utilisateurs connectés avec un compte ou navigateur géré.
-
-Si cette règle n'est pas définie, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> ne sera pas configuré.
-
-Notez que cette règle ne gère pas l'intégration globale de <ph name="GOOGLE_GEMINI_PRODUCT_NAME" />, laquelle peut être contrôlée à l'aide de la règle <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="6368671810229507360">WebRTC</translation>
 <translation id="6370742079247037704">Interdire l'utilisation des API d'IA intégrées.</translation>
 <translation id="6371005337713685988">Paramètres de la fonctionnalité d'ensembles de sites Web associés</translation>
@@ -9423,15 +9445,6 @@ REMARQUE : Seuls les nouveaux processus du moteur de rendu refléteront les mod
 <translation id="6833988859168635883">Démarrage, page d'accueil et page Nouvel onglet</translation>
 <translation id="6835254082476223414">Activer la sauvegarde et la restauration des machines virtuelles Linux</translation>
 <translation id="6835883744948188639">Afficher une invite récurrente indiquant qu'un redémarrage est recommandé</translation>
-<translation id="683688607121170501">Ce paramètre permet aux utilisateurs de basculer d'un compte Google à l'autre dans la zone de contenu de la fenêtre de leur navigateur et dans les applications Android une fois qu'ils sont connectés sur leur appareil <ph name="PRODUCT_OS_NAME" />.
-
-      Si cette règle est définie sur "False", ils ne sont pas autorisés à se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu d'un navigateur n'étant pas en mode navigation privée.
-
-      Si elle est définie sur "True" ou si elle n'est pas configurée, le comportement par défaut est utilisé : ils peuvent se connecter à un autre compte Google depuis une application Android ou depuis la zone de contenu du navigateur, sauf pour les comptes enfants où cela sera bloqué pour la zone de contenu hors navigation privée.
-
-      Dans le cas où la connexion à un autre compte ne devrait pas être autorisée via le mode navigation privée, pensez à bloquer ce mode à l'aide de la règle IncognitoModeAvailability.
-
-      Notez que les utilisateurs peuvent accéder aux services Google dans un état non authentifié en bloquant leurs cookies.</translation>
 <translation id="6841254611279513739">Cette règle permet de définir l'impression sur couleur seulement, monochrome seulement ou absence de restriction de couleur. Si la règle n'est pas définie, on considère qu'il n'y a aucune restriction.</translation>
 <translation id="6843008643303282259">Débit d'importation souhaité en kbit/s.</translation>
 <translation id="6843296367238757293">Cette règle est obsolète. Nous vous déconseillons de l'utiliser. Pour en savoir plus, rendez-vous sur https://support.google.com/chrome/a/answer/7643500.</translation>
@@ -9898,23 +9911,6 @@ Cette règle ne concerne pas les gestionnaires de mots de passe tiers qui utilis
 
       Remarque : la fonctionnalité de numérisation est actuellement désactivée par défaut via un flag de fonctionnalité. Si l'utilisateur active la fonctionnalité avec ce flag, il reste possible de la désactiver à l'aide de cette règle.</translation>
 <translation id="7115684775550072082">Ne conserver les espaces blancs que pour les types MIME texte et XML</translation>
-<translation id="7116098886490965998">Désactivez l'authentification unique utilisant <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> pour les fournisseurs d'identité listés.
-
-Si vous ajoutez la valeur <ph name="POLICY_VALUE_ALL" />, tous les fournisseurs d'identité pris en charge pour l'authentification unique sont désactivés.
-
-Si vous ajoutez la valeur <ph name="POLICY_VALUE_MICROSOFT" />, la prise en charge de l'authentification unique pour le fournisseur d'identité cloud Microsoft® dans Chrome sera désactivée.
-
-Si vous ne configurez pas cette règle, tous les fournisseurs d'identité pris en charge par <ph name="PRODUCT_NAME" /> seront activés.
-
-Pour les fournisseurs d'identité activés dans <ph name="PRODUCT_NAME" /> et configurés sur l'appareil par l'administrateur, les utilisateurs qui se connectent une fois via ce fournisseur d'identité, sur n'importe quelle appli compatible avec <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" />, peuvent être connectés automatiquement aux propriétés Web utilisant ce fournisseur d'identité. Les informations concernant l'authentification de l'utilisateur sont transmises au fournisseur d'identité cloud de l'utilisateur pour chaque événement d'authentification.
-
-Remarques :
-
-<ph name="PRODUCT_NAME" /> ne prend pas en charge l'authentification unique utilisant <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> en mode navigation privée ou Invité.
-
-<ph name="PRODUCT_NAME" /> ne prend en charge l'authentification unique utilisant <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> que pour les fournisseurs d'identité suivants : Microsoft, Okta.
-
-Cette fonctionnalité est disponible à partir de <ph name="MAC_OS_NAME" /> 10.15.</translation>
 <translation id="7119538491527883595">Stockage des données utilisateur locales</translation>
 <translation id="7121046543122812054">Cette règle étant obsolète, vous pouvez utiliser <ph name="BROWSER_SIGNIN_POLICY_NAME" /> à la place.
 
@@ -10535,7 +10531,6 @@ Notez que cette règle ne gère pas l'intégration globale de <ph name="GOOGLE_G
 <translation id="7491720878670299691">Fréquence à laquelle les données du réseau sont interrogées pour vérifier la présence d'événements. La valeur minimale autorisée est de 1 minute.
 
       Si cette règle n'est pas configurée, la fréquence par défaut (1 minute) est appliquée.</translation>
-<translation id="7496284563199466390">Contrôle les utilisateurs gérés autorisés à définir la règle <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />.</translation>
 <translation id="7498595166686106721">
       La règle display-capture permissions-policy restreint l'accès à getDisplayMedia(), conformément à cette spécification : https://www.w3.org/TR/screen-capture/#feature-policy-integration. Mais, si cette règle est désactivée, cette exigence n'est pas appliquée, et getDisplayMedia() est autorisé depuis des contextes qui seraient autrement interdits. Cette règle d'entreprise est temporaire et sera normalement supprimée après la version 100 de <ph name="PRODUCT_NAME" />. Elle permet de débloquer les utilisateurs de la version Enterprise dont l'application ne respecte pas les spécifications, mais qui a besoin de temps pour être résolue.
 
@@ -11709,6 +11704,7 @@ Cette fonctionnalité n'est disponible que dans la version Canary.
 
 Si elle est activée ou si elle n'est pas configurée, la page est accessible.
 Si elle est désactivée, la page est bloquée.</translation>
+<translation id="8266506455952754231">Contrôle les utilisateurs gérés autorisés à définir les règles <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> et <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" />.</translation>
 <translation id="8266778278542911985">Si cette règle est définie sur "3", les sites Web peuvent demander à accéder aux ports série. Si elle est définie sur "2", l'accès aux ports série est refusé.
 
       Si cette règle n'est pas configurée, les sites Web peuvent demander l'accès. Toutefois, les utilisateurs peuvent modifier ce paramètre.</translation>
@@ -12273,6 +12269,17 @@ Elle est toujours appliquée pour <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="8621146428060651659">Autoriser la randomisation du pool de sockets pour les proxys</translation>
 <translation id="862621549134406761">Activer la vérification de l'utilisation des clés RSA</translation>
 <translation id="8626826495474944836">Exiger l'isolation de chaque site</translation>
+<translation id="8628954914373039931">Ce paramètre permet aux utilisateurs de changer de compte Google depuis la zone de contenu de leur fenêtre de navigateur et dans les applications Android une fois connectés à leur appareil <ph name="PRODUCT_OS_NAME" />.
+
+      Si cette règle est définie sur "False", il ne sera pas possible de se connecter à un autre compte Google depuis une zone de contenu en dehors du mode navigation privée, ni depuis les applications Android.
+
+      Si cette règle n'est pas configurée ou si elle est définie sur "True", le comportement par défaut est appliqué : la connexion à un autre compte Google depuis la zone de contenu du navigateur et les applications Android est autorisée, sauf pour les comptes enfant, pour lesquels elle est bloquée pour la zone de contenu en mode navigation privée.
+
+      Sur Android, ce paramètre détermine si les utilisateurs peuvent ajouter d'autres comptes Google depuis la zone de contenu des sites Web Google lorsqu'ils sont connectés à <ph name="PRODUCT_NAME" />. Si cette règle est définie sur "False", les sites Web Google ne proposeront pas l'option permettant d'ajouter un autre compte Google (par exemple, le bouton "Ajouter un compte" dans le menu du compte). Si cette règle n'est pas configurée ou si elle est définie sur "True", l'ajout d'un autre compte Google depuis des sites Web Google sera autorisé. Cette règle n'empêche pas d'ajouter des comptes Google à l'appareil Android lui-même.
+
+      Si la connexion à un autre compte ne doit pas être autorisée en mode navigation privée, envisagez de bloquer ce mode avec la règle IncognitoModeAvailability.
+
+      Notez que les utilisateurs pourront accéder aux services Google sans s'authentifier en bloquant leurs cookies.</translation>
 <translation id="8630797597241896082">Autoriser l'arrière-plan de visioconférence par IA générative et améliorer les modèles d'IA</translation>
 <translation id="8631314130868563649">Désactiver l'alimentation alternée en heures pleines</translation>
 <translation id="8631434304112909927">jusqu'à la version <ph name="UNTIL_VERSION" /></translation>

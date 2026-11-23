@@ -189,6 +189,8 @@ class PeerSessionImpl : public PeerSession,
   void BindSecurityKeyForwarder(
       mojo::PendingReceiver<mojom::SecurityKeyForwarder> receiver) override;
 #endif
+  void SetAgentStatus(const protocol::TerminalControl::AgentInfo& agent_status,
+                      SetAgentStatusCallback callback) override;
 
   protocol::Transport* transport() override;
 
@@ -221,6 +223,9 @@ class PeerSessionImpl : public PeerSession,
 
   void OnDesktopEnvironmentCreated(
       std::unique_ptr<DesktopEnvironment> desktop_environment);
+  void OnAgentIntegrationSupportDetermined(
+      std::unique_ptr<DesktopEnvironment> desktop_environment,
+      bool is_agent_integration_supported);
 
   void CreateAudioInjectorAndBuffer();
 
@@ -248,6 +253,10 @@ class PeerSessionImpl : public PeerSession,
       std::unique_ptr<protocol::MessagePipe> pipe);
 
   void CreateUrlForwarderControlMessageHandler(
+      const std::string& channel_name,
+      std::unique_ptr<protocol::MessagePipe> pipe);
+
+  void CreateAgentIntegrationControlMessageHandler(
       const std::string& channel_name,
       std::unique_ptr<protocol::MessagePipe> pipe);
 

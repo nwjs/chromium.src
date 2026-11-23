@@ -8,7 +8,9 @@
 
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
+#include "components/page_content_annotations/content/renderer/page_stability_monitor.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
+#include "components/page_content_annotations/core/page_stability_monitor_delegate.h"
 #include "content/public/test/render_view_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
@@ -20,10 +22,13 @@ namespace page_content_annotations {
 class PaintStabilityMonitorTest : public content::RenderViewTest {
  public:
   PaintStabilityMonitorTest() {
-    feature_list_.InitAndEnableFeatureWithParameters(
-        features::kPageSettledMonitor,
-        {{features::kPaintStabilityInitialPaintTimeout.name, "1000ms"},
-         {features::kPaintStabilitySubsequentPaintTimeout.name, "500ms"}});
+    feature_list_.InitWithFeaturesAndParameters(
+        {{features::kPageSettledMonitor,
+          {{features::kPaintStabilityInitialPaintTimeout.name, "1000ms"},
+           {features::kPaintStabilitySubsequentPaintTimeout.name, "500ms"}}},
+         {features::kPaintStabilityDeferInitialPaintTimeout, {}},
+         {features::kPageStabilityExitStartDelayOnFirstPaint, {}}},
+        /*disabled_features=*/{});
   }
 
  protected:
@@ -365,6 +370,224 @@ TEST_F(PaintStabilityMonitorTest, DelayedStabilityCallback_ResetTimer) {
     EXPECT_FALSE(did_reach_paint_stability);
     task_environment_.FastForwardBy(base::Milliseconds(1));
     EXPECT_TRUE(did_reach_paint_stability);
+  }
+}
+
+TEST_F(PaintStabilityMonitorTest, DelayedStabilityCallback_NoContentfulPaint) {
+  // The button doesn't trigger a contentful paint. When `WaitForStable` is
+  // delayed (e.g., due to `monitoring_start_delay_`), the initial paint timeout
+  // should not start until `WaitForStable` is called.
+  LoadHTML(R"HTML(
+      <button id="target" onclick="handleClick()">Press Me</button>
+      <div id="content"></div>
+      <script>
+        var clickCount = 0;
+        function handleClick() { ++clickCount; }
+      </script>
+    )HTML");
+
+  bool did_reach_paint_stability = false;
+  {
+    std::unique_ptr<PaintStabilityMonitor> monitor =
+        PaintStabilityMonitor::Create(*GetMainRenderFrame(),
+                                      /*delegate=*/nullptr);
+
+    bool result = SimulateElementClick("target");
+    ASSERT_TRUE(result);
+
+    int value;
+    EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(u"clickCount", &value));
+    EXPECT_EQ(value, 1);
+
+    // Start the monitor, but delay calling `WaitForStable` beyond
+    // `GetInitialPaintTimeout()`.
+    monitor->Start();
+    Render();
+
+    task_environment_.FastForwardBy(GetInitialPaintTimeout() * 2);
+
+    monitor->WaitForStable(base::BindLambdaForTesting(
+        [&]() { did_reach_paint_stability = true; }));
+    task_environment_.FastForwardBy(base::TimeDelta());
+    EXPECT_FALSE(did_reach_paint_stability);
+
+    task_environment_.FastForwardBy(GetInitialPaintTimeout() -
+                                    base::Milliseconds(1));
+    EXPECT_FALSE(did_reach_paint_stability);
+    task_environment_.FastForwardBy(base::Milliseconds(1));
+    EXPECT_TRUE(did_reach_paint_stability);
+  }
+}
+
+TEST_F(PaintStabilityMonitorTest,
+       DelayedStabilityCallback_DelayedInitialPaint) {
+  // The button updates the UI asynchronously after the
+  // `monitoring_start_delay_` window. The monitor should not time out during
+  // the delay before `WaitForStable()`, and should wait for the initial paint
+  // after `WaitForStable()` followed by the subsequent paint timeout.
+  LoadHTML(R"HTML(
+      <button id="target" onclick="handleClick()">Press Me</button>
+      <div id="content"></div>
+      <script>
+        var clickCount = 0;
+        var timerCount = 0;
+        function handleClick() {
+          ++clickCount;
+          setTimeout(() => {
+            ++timerCount;
+            content.innerHTML = '<div>This is some content</div>';
+          }, 2500);
+        }
+      </script>
+    )HTML");
+
+  bool did_reach_paint_stability = false;
+  {
+    std::unique_ptr<PaintStabilityMonitor> monitor =
+        PaintStabilityMonitor::Create(*GetMainRenderFrame(),
+                                      /*delegate=*/nullptr);
+
+    bool result = SimulateElementClick("target");
+    ASSERT_TRUE(result);
+
+    int value;
+    EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(u"clickCount", &value));
+    EXPECT_EQ(value, 1);
+
+    monitor->Start();
+    Render();
+
+    // Simulate a 2s start delay before calling `WaitForStable()`.
+    task_environment_.FastForwardBy(base::Seconds(2));
+    EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(u"timerCount", &value));
+    EXPECT_EQ(value, 0);
+
+    monitor->WaitForStable(base::BindLambdaForTesting(
+        [&]() { did_reach_paint_stability = true; }));
+    task_environment_.FastForwardBy(base::TimeDelta());
+    EXPECT_FALSE(did_reach_paint_stability);
+
+    // Advance 500ms (< `GetInitialPaintTimeout()`) so the async DOM update runs
+    // and paints.
+    task_environment_.FastForwardBy(base::Milliseconds(500));
+    EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(u"timerCount", &value));
+    EXPECT_EQ(value, 1);
+    Render();
+    EXPECT_FALSE(did_reach_paint_stability);
+
+    // Stability should now be reached after `GetSubsequentPaintTimeout()`.
+    task_environment_.FastForwardBy(GetSubsequentPaintTimeout() -
+                                    base::Milliseconds(1));
+    EXPECT_FALSE(did_reach_paint_stability);
+    task_environment_.FastForwardBy(base::Milliseconds(1));
+    EXPECT_TRUE(did_reach_paint_stability);
+  }
+}
+
+TEST_F(PaintStabilityMonitorTest, FirstContentfulPaintCallback) {
+  LoadHTML(R"HTML(
+      <button id="target" onclick="handleClick()">Press Me</button>
+      <div id="content"></div>
+      <script>
+        var clickCount = 0;
+        function handleClick() {
+          ++clickCount;
+          content.innerHTML = '<div>This is some content</div>';
+        }
+      </script>
+    )HTML");
+
+  bool did_invoke_contentful_paint_callback = false;
+  bool did_reach_paint_stability = false;
+  {
+    std::unique_ptr<PaintStabilityMonitor> monitor =
+        PaintStabilityMonitor::Create(*GetMainRenderFrame(),
+                                      /*delegate=*/nullptr);
+
+    bool result = SimulateElementClick("target");
+    ASSERT_TRUE(result);
+
+    int value;
+    EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(u"clickCount", &value));
+    EXPECT_EQ(value, 1);
+
+    monitor->Start(base::BindLambdaForTesting([&]() {
+      did_invoke_contentful_paint_callback = true;
+      monitor->WaitForStable(base::BindLambdaForTesting(
+          [&]() { did_reach_paint_stability = true; }));
+    }));
+    EXPECT_FALSE(did_invoke_contentful_paint_callback);
+
+    Render();
+    EXPECT_TRUE(did_invoke_contentful_paint_callback);
+    EXPECT_FALSE(did_reach_paint_stability);
+
+    // Since `WaitForStable()` was called inside the contentful paint callback,
+    // stability should be reached after `GetSubsequentPaintTimeout()`.
+    task_environment_.FastForwardBy(GetSubsequentPaintTimeout() -
+                                    base::Milliseconds(1));
+    EXPECT_FALSE(did_reach_paint_stability);
+    task_environment_.FastForwardBy(base::Milliseconds(1));
+    EXPECT_TRUE(did_reach_paint_stability);
+  }
+}
+
+TEST_F(PaintStabilityMonitorTest,
+       PageStabilityMonitor_EarlyExitStartDelayOnFirstPaint) {
+  // When a contentful paint occurs during `observation_delay`
+  // (`State::kMonitorStartDelay`), `PageStabilityMonitor` should cancel the
+  // remaining start delay and transition immediately to monitoring.
+  LoadHTML(R"HTML(
+      <button id="target" onclick="handleClick()">Press Me</button>
+      <div id="content"></div>
+      <script>
+        var clickCount = 0;
+        var timerCount = 0;
+        function handleClick() {
+          ++clickCount;
+          setTimeout(() => {
+            ++timerCount;
+            content.innerHTML = '<div>This is some content</div>';
+          }, 500);
+        }
+      </script>
+    )HTML");
+
+  bool did_reach_stability = false;
+  {
+    PageStabilityMonitor monitor(
+        *GetMainRenderFrame(), /*supports_paint_stability=*/true,
+        std::make_unique<PageStabilityMonitorDelegate>());
+
+    bool result = SimulateElementClick("target");
+    ASSERT_TRUE(result);
+
+    int value;
+    EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(u"clickCount", &value));
+    EXPECT_EQ(value, 1);
+
+    // Use a 3s observation delay.
+    monitor.NotifyWhenStable(
+        /*observation_delay=*/base::Seconds(3),
+        base::BindLambdaForTesting([&]() { did_reach_stability = true; }));
+
+    // Advance 500ms (still well within the 3s observation delay) so the DOM
+    // updates and triggers the first contentful paint.
+    task_environment_.FastForwardBy(base::Milliseconds(500));
+    EXPECT_TRUE(ExecuteJavaScriptAndReturnIntValue(u"timerCount", &value));
+    EXPECT_EQ(value, 1);
+    Render();
+    EXPECT_FALSE(did_reach_stability);
+
+    // Because the first contentful paint exited the start delay early at
+    // t = 500ms, stability should complete after the 1s min wait (at t = 1.5s
+    // total) rather than waiting for the remaining 2.5s of the 3s observation
+    // delay.
+    task_environment_.FastForwardBy(features::kPageStabilityMinWait.Get() -
+                                    base::Milliseconds(1));
+    EXPECT_FALSE(did_reach_stability);
+    task_environment_.FastForwardBy(base::Milliseconds(1));
+    EXPECT_TRUE(did_reach_stability);
   }
 }
 

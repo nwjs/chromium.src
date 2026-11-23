@@ -181,9 +181,7 @@
 <translation id="2710883118091822664">Connectez-vous pour continuer facilement sur tous vos appareils</translation>
 <translation id="2713106313042589954">Désactiver la caméra</translation>
 <translation id="2717722538473713889">Adresses e-mail</translation>
-<translation id="2726059656860238749">Lancer Chrome avec l'omnibox sélectionné pour réduire le temps de démarrage sur les appareils bas de gamme.</translation>
 <translation id="2750481671343847896">Autoriser les sites à afficher des invites de connexion de services d'identité</translation>
-<translation id="2787357173144933081">Démarrer l'omnibox directement</translation>
 <translation id="2789132527330338807">Les sites peuvent demander à créer un plan 3D de votre environnement ou à suivre la position de la caméra</translation>
 <translation id="2790501146643349491">Lorsque cette option est activée, les sites fermés récemment peuvent terminer l'envoi et la réception de données. Lorsqu'elle est désactivée, les sites fermés récemment ne peuvent pas terminer l'envoi ni la réception de données.</translation>
 <translation id="2795716239552913152">Les sites utilisent généralement votre position pour vous proposer des fonctionnalités ou des informations pertinentes, comme les actualités locales ou les magasins à proximité</translation>
@@ -293,7 +291,6 @@
 <translation id="3870711497942672548">Personnalisez Chrome avec des couleurs et des images personnalisées pour votre page d'accueil</translation>
 <translation id="389521680295183045">Les sites peuvent demander à savoir quand vous utilisez activement votre appareil</translation>
 <translation id="3895926599014793903">Forcer l'activation du zoom</translation>
-<translation id="3905475044299942653">Arrêter les nombreuses notifications</translation>
 <translation id="3922092564198021702">Sur votre téléphone, ouvrez Paramètres.</translation>
 <translation id="3924858949939391676">Afficher les liens une fois le mode Lecture activé</translation>
 <translation id="3933121352599513978">Réduire les demandes indésirables (recommandé)</translation>
@@ -387,7 +384,6 @@
 <translation id="4936863036653376783">Vos groupes s'afficheront dans la section "Groupes d'onglets" sur tous vos appareils</translation>
 <translation id="4945443401464700059"><ph name="SITE" /> ne peut pas utiliser vos informations sur</translation>
 <translation id="4953688446973710931">Lorsque cette option est activée, les sites peuvent demander à télécharger automatiquement plusieurs fichiers. Lorsqu'elle est désactivée, les sites ne peuvent pas télécharger automatiquement plusieurs fichiers.</translation>
-<translation id="4962975101802056554">Révoquer toutes les autorisations de l'appareil</translation>
 <translation id="4972737347717125191">Les sites peuvent demander à utiliser des données et des appareils de réalité virtuelle</translation>
 <translation id="4973805849704516244">Bottom sheet des couleurs Chrome</translation>
 <translation id="497421865427891073">Avancer</translation>
@@ -529,6 +525,7 @@
 <translation id="6439114592976064011">Empêcher les sites d'utiliser vos données et votre appareil de réalité virtuelle</translation>
 <translation id="6447842834002726250">Cookies</translation>
 <translation id="6452138246455930388">Baisse de prix dans votre onglet ouvert, de <ph name="OLD_PRICE" /> à <ph name="NEW_PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN_NAME" /></translation>
+<translation id="6495608040096939405">Révoquer l'autorisation d'accès à l'appareil pour <ph name="NAME" /></translation>
 <translation id="6500423977866688905">Si la fenêtre est étroite, demander l'affichage sur mobile</translation>
 <translation id="6527303717912515753">Partager</translation>
 <translation id="6530703012083415527">Lorsque cette option est activée, les sites peuvent utiliser des pop-ups et des redirections. Lorsqu'elle est désactivée, les sites ne peuvent pas utiliser de pop-ups ni de redirections.</translation>
@@ -594,6 +591,7 @@
 <translation id="7188508872042490670">Données des sites sur l'appareil</translation>
 <translation id="7201549776650881587">L'ensemble des données et cookies stockés par tous les sites dépendant de <ph name="ORIGIN" /> ou par l'appli associée sur votre écran d'accueil seront supprimés</translation>
 <translation id="7219254577985949841">Supprimer les données du site ?</translation>
+<translation id="7225256190577194089">Révoquer toutes les autorisations pour l'appareil <ph name="DEVICE_NAME" /></translation>
 <translation id="723171743924126238">Sélectionner des images</translation>
 <translation id="7243246278722455312">Bottom sheet de personnalisation de la page Nouvel onglet</translation>
 <translation id="7243308994586599757">Options disponibles au bas de l'écran</translation>
@@ -706,7 +704,6 @@ La Protection Avancée contrôle les paramètres Chrome suivants :</translatio
 <translation id="8428213095426709021">Paramètres</translation>
 <translation id="8441146129660941386">Retour rapide</translation>
 <translation id="8444433999583714703">Pour autoriser <ph name="APP_NAME" /> à accéder à votre position, activez également la localisation dans les <ph name="BEGIN_LINK" />paramètres Android<ph name="END_LINK" />.</translation>
-<translation id="8447861592752582886">Révoquer l'autorisation d'accès à l'appareil</translation>
 <translation id="8463843545738141778">Ce paramètre est désactivé, car vous avez activé la Protection Avancée dans les paramètres Android.</translation>
 <translation id="8467359479529706065">Bottom sheet de l'apparence de la page Nouvel onglet ouverte à mi-hauteur</translation>
 <translation id="8471525937465764768">Les sites se connectent généralement aux appareils USB pour proposer des fonctionnalités comme l'impression de documents ou l'enregistrement sur un périphérique de stockage</translation>

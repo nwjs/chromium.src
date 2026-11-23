@@ -76,13 +76,13 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/consent_auditor/fake_consent_auditor.h"
+#include "components/device_reauth/mock_device_auth_availability_checker.h"
 #include "components/device_reauth/mock_device_authenticator.h"
 #include "components/metrics/profile_metrics_service.h"
 #include "components/one_time_tokens/core/browser/gmail_otp_backend.h"
-#include "components/one_time_tokens/core/browser/one_time_token_service_impl.h"
-#include "components/one_time_tokens/core/browser/sms_otp_backend.h"
+#include "components/one_time_tokens/core/browser/sms_otp_service.h"
+#include "components/optimization_guide/core/feature_registry/enterprise_policy_registry.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/personal_context/first_run/personal_context_first_run_service.h"
 #include "components/personal_context/first_run/test_personal_context_first_run_service.h"
@@ -290,9 +290,7 @@ class TestAutofillClientTemplate : public T {
     return compose_delegate_.get();
   }
 
-  test::AutofillTestingPrefService* GetPrefs() override {
-    return prefs_.get();
-  }
+  test::AutofillTestingPrefService* GetPrefs() override { return prefs_.get(); }
 
   const test::AutofillTestingPrefService* GetPrefs() const override {
     return const_cast<TestAutofillClientTemplate*>(this)->GetPrefs();
@@ -306,7 +304,7 @@ class TestAutofillClientTemplate : public T {
   }
 
   const signin::IdentityManager* GetIdentityManager() const override {
-    return identity_test_env_.identity_manager();
+    return identity_test_environment().identity_manager();
   }
 
   metrics::ProfileMetricsService* GetProfileMetricsService() override {
@@ -553,6 +551,10 @@ class TestAutofillClientTemplate : public T {
 
   LogManager* GetCurrentLogManager() override { return log_manager_.get(); }
 
+  // Returns the LogRouter that receives the logs of `GetCurrentLogManager()`.
+  // Register a LogReceiver on it to inspect chrome://autofill-internals logs.
+  LogRouter& log_router() { return log_router_; }
+
   autofill_metrics::FormInteractionsUkmLogger& GetFormInteractionsUkmLogger()
       override {
     return form_interactions_ukm_logger_;
@@ -568,16 +570,22 @@ class TestAutofillClientTemplate : public T {
     return format_for_large_keyboard_accessory_;
   }
 
-  bool SupportsDeviceReauth() const override { return supports_device_reauth_; }
-
   std::unique_ptr<device_reauth::DeviceAuthenticator> GetDeviceAuthenticator(
       std::string histogram) const override {
-    if (device_authenticator_) {
-      return std::move(device_authenticator_);
-    }
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
     BUILDFLAG(IS_CHROMEOS)
     return std::make_unique<device_reauth::MockDeviceAuthenticator>();
+#else
+    return nullptr;
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
+        // BUILDFLAG(IS_CHROMEOS)
+  }
+
+  std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker>
+  GetDeviceAuthAvailabilityChecker() const override {
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
+    BUILDFLAG(IS_CHROMEOS)
+    return std::make_unique<device_reauth::MockDeviceAuthAvailabilityChecker>();
 #else
     return nullptr;
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) ||
@@ -680,8 +688,7 @@ class TestAutofillClientTemplate : public T {
     GetPrefs()->registry()->RegisterIntegerPref(
         optimization_guide::prefs::
             kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-        std::to_underlying(optimization_guide::model_execution::prefs::
-                               ModelExecutionEnterprisePolicyValue::kAllow),
+        std::to_underlying(optimization_guide::EnterprisePolicyValue::kAllow),
         PrefRegistry::LOSSY_PREF);
     GetPrefs()->registry()->RegisterIntegerPref(
         optimization_guide::prefs::kGeminiSettings,
@@ -807,15 +814,6 @@ class TestAutofillClientTemplate : public T {
     is_credit_card_upload_enabled_ = is_credit_card_upload_enabled;
   }
 
-  void set_supports_device_reauth(bool supports_device_reauth) {
-    supports_device_reauth_ = supports_device_reauth;
-  }
-
-  void set_device_authenticator(
-      std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator) {
-    device_authenticator_ = std::move(authenticator);
-  }
-
   void set_crowdsourcing_manager(
       std::unique_ptr<AutofillCrowdsourcingManager> crowdsourcing_manager) {
     crowdsourcing_manager_ = std::move(crowdsourcing_manager);
@@ -863,32 +861,25 @@ class TestAutofillClientTemplate : public T {
   }
 
   signin::IdentityTestEnvironment& identity_test_environment() {
-    return identity_test_env_;
+    return const_cast<signin::IdentityTestEnvironment&>(
+        std::as_const(*this).identity_test_environment());
   }
 
-  // Allows to return an injected SMS OTP backend which can be set using the
-  // `set_sms_otp_backend`. If no backend is injected, it'll return null.
-  one_time_tokens::SmsOtpBackend* GetSmsOtpBackend() const {
-    return injected_sms_otp_backend_ ? injected_sms_otp_backend_.get()
-                                     : nullptr;
+  const signin::IdentityTestEnvironment& identity_test_environment() const {
+    if (!identity_test_env_) {
+      identity_test_env_.emplace();
+    }
+    return *identity_test_env_;
   }
 
-  void set_sms_otp_backend(
-      std::unique_ptr<one_time_tokens::SmsOtpBackend> sms_otp_backend) {
-    injected_sms_otp_backend_ = std::move(sms_otp_backend);
+  one_time_tokens::SmsOtpService* GetSmsOtpService() const override {
+    return injected_sms_otp_service_ ? injected_sms_otp_service_.get()
+                                     : T::GetSmsOtpService();
   }
 
-  one_time_tokens::OneTimeTokenService* GetOneTimeTokenService()
-      const override {
-    return injected_one_time_token_service_
-               ? injected_one_time_token_service_.get()
-               : T::GetOneTimeTokenService();
-  }
-
-  void set_one_time_token_service(
-      std::unique_ptr<one_time_tokens::OneTimeTokenService>
-          one_time_token_service) {
-    injected_one_time_token_service_ = std::move(one_time_token_service);
+  void set_sms_otp_service(
+      std::unique_ptr<one_time_tokens::SmsOtpService> sms_otp_service) {
+    injected_sms_otp_service_ = std::move(sms_otp_service);
   }
 
   one_time_tokens::GmailOtpBackend* GetGmailOtpBackend() const override {
@@ -930,7 +921,13 @@ class TestAutofillClientTemplate : public T {
 
  private:
   ukm::TestAutoSetUkmRecorder test_ukm_recorder_;
-  signin::IdentityTestEnvironment identity_test_env_;
+  // Lazily initialized: `IdentityTestEnvironment` has platform-specific test
+  // dependencies (`TestNetworkConnectionTracker` on ChromeOS and
+  // `signin_java_test_support` on Android) that `content::ContentBrowserTest`
+  // does not set up by default. Lazy initialization allows
+  // `content::ContentBrowserTest` to use `TestAutofillClientTemplate` without
+  // those dependencies as long as `IdentityManager` is not used.
+  mutable std::optional<signin::IdentityTestEnvironment> identity_test_env_;
   metrics::ProfileMetricsService test_profile_metrics_service_{
       metrics::ProfileMetricsContext(1)};
   raw_ptr<syncer::SyncService> test_sync_service_ = nullptr;
@@ -964,9 +961,7 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<AutocompleteHistoryManager> autocomplete_history_manager_;
   ::testing::NiceMock<MockAutocompleteHistoryManager>
       mock_autocomplete_history_manager_;
-  std::unique_ptr<one_time_tokens::SmsOtpBackend> injected_sms_otp_backend_;
-  std::unique_ptr<one_time_tokens::OneTimeTokenService>
-      injected_one_time_token_service_;
+  std::unique_ptr<one_time_tokens::SmsOtpService> injected_sms_otp_service_;
   std::unique_ptr<one_time_tokens::GmailOtpBackend> injected_gmail_otp_backend_;
 
   std::unique_ptr<FieldClassificationModelHandler>
@@ -1020,11 +1015,6 @@ class TestAutofillClientTemplate : public T {
   bool is_cvc_saving_supported_ = true;
 
   bool is_credit_card_upload_enabled_ = true;
-
-  bool supports_device_reauth_ = true;
-
-  mutable std::unique_ptr<device_reauth::DeviceAuthenticator>
-      device_authenticator_;
 
   bool is_tab_in_actor_mode_ = false;
 

@@ -146,6 +146,12 @@ struct NetworkServiceParams {
   // A SystemDnsResolver to provide out-of-process system DNS resolution, in
   // case the system DNS resolver cannot always run sandboxed.
   pending_remote<SystemDnsResolver>? system_dns_resolver;
+
+  // Initial mode of operation of the insecure portion of the built-in DNS
+  // resolver. Can be updated later via `ConfigureStubHostResolver()`. Platform
+  // modes (`ENABLED_PLATFORM` and `ENABLED_PLATFORM_NO_SYSTEM`) may only be
+  // used if `net::features::IsDnsPlatformSupported()` is true.
+  InsecureDnsMode initial_insecure_dns_mode = InsecureDnsMode.DISABLED;
 };
 
 // Configuration settings for SCT Auditing.
@@ -385,7 +391,7 @@ interface NetworkService {
   // timestamp that the pins list was considered fresh/current, in order to
   // ensure that key pinning is not enforced if the list is too out of date.
   [EnableIf=chrome_key_pinning_supported]
-  UpdateKeyPinsList(PinList pin_list, mojo_base.mojom.Time update_time);
+  UpdateKeyPinsList(PinList pin_list, mojo_base.mojom.Time update_time) => ();
 
   // Calls base::debug::DumpWithoutCrashing for the network process.
   // TODO(http://crbug.com/934317): Remove this once done debugging renderer

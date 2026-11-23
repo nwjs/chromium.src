@@ -63,12 +63,15 @@ import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.SessionHolder;
 import org.chromium.chrome.browser.customtabs.CustomTabsIntentTestUtils.OnFinishedForTest;
 import org.chromium.chrome.browser.customtabs.features.toolbar.CustomTabToolbar;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
+import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.flags.CustomTabProfileType;
 import org.chromium.chrome.browser.incognito.IncognitoDataTestUtils;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthController;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
@@ -602,5 +605,39 @@ public class CustomTabActivityIncognitoTest {
                 });
 
         IncognitoReauthManager.setIsIncognitoReauthFeatureAvailableForTesting(false);
+    }
+
+    @Test
+    @MediumTest
+    public void testActivityRecreation() throws Exception {
+        Intent intent = createTestCustomTabIntent();
+        CustomTabActivity activity = launchIncognitoCustomTab(intent);
+        int initialTabId = activity.getActivityTab().getId();
+        Profile initialProfile =
+                ThreadUtils.runOnUiThreadBlocking(() -> activity.getActivityTab().getProfile());
+
+        mCustomTabActivityTestRule.recreateActivity();
+        mCustomTabActivityTestRule.waitForActivityCompletelyLoaded();
+
+        CustomTabActivity recreatedActivity = mCustomTabActivityTestRule.getActivity();
+        BrowserServicesIntentDataProvider dataProvider = recreatedActivity.getIntentDataProvider();
+        assertNotNull(dataProvider);
+        assertEquals(ActivityType.CUSTOM_TAB, dataProvider.getActivityType());
+        assertEquals(CustomTabProfileType.INCOGNITO, dataProvider.getCustomTabMode());
+        assertTrue(dataProvider.isOffTheRecord());
+        assertFalse(dataProvider.shouldShowDownloadButton());
+
+        assertEquals(initialTabId, recreatedActivity.getActivityTab().getId());
+        assertEquals(
+                mTestPage,
+                ChromeTabUtils.getUrlStringOnUiThread(recreatedActivity.getActivityTab()));
+        assertTrue(recreatedActivity.getActivityTab().isIncognito());
+        assertProfileUsedIsNonPrimary();
+        Profile recreatedProfile =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () -> recreatedActivity.getActivityTab().getProfile());
+        assertEquals(initialProfile, recreatedProfile);
+        assertEquals(getIncognitoThemeColor(recreatedActivity), getToolbarColor(recreatedActivity));
+        onView(withId(R.id.incognito_cct_logo_image_view)).check(matches(isDisplayed()));
     }
 }

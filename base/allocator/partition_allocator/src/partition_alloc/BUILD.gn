@@ -22,6 +22,10 @@ _dcheck_is_configurable =
 _enable_expensive_dchecks =
     defined(enable_expensive_dchecks) && enable_expensive_dchecks
 
+# In non-debug DCHECK builds, partition cookies are gated on expensive DCHECKs.
+_use_partition_cookie = use_partition_cookie &&
+                        (partition_alloc_is_debug || _enable_expensive_dchecks)
+
 record_alloc_info = false
 
 # GWP-ASan is tied to BRP's enablement.
@@ -212,7 +216,7 @@ pa_buildflag_header("buildflags") {
     "USE_LARGE_EMPTY_SLOT_SPAN_RING=$use_large_empty_slot_span_ring",
     "USE_PARTITION_ALLOC=$use_partition_alloc",
     "USE_PARTITION_ALLOC_AS_MALLOC=$use_partition_alloc_as_malloc",
-    "USE_PARTITION_COOKIE=$use_partition_cookie",
+    "USE_PARTITION_COOKIE=$_use_partition_cookie",
     "USE_RAW_PTR_ASAN_UNOWNED_IMPL=$use_raw_ptr_asan_unowned_impl",
     "USE_RAW_PTR_BACKUP_REF_IMPL=$use_raw_ptr_backup_ref_impl",
     "USE_RAW_PTR_HOOKABLE_IMPL=$use_raw_ptr_hookable_impl",
@@ -290,7 +294,6 @@ component("raw_ptr") {
   configs -= partition_alloc_remove_configs
   configs += partition_alloc_add_configs
   configs += [ ":dependants_extra_warnings" ]
-  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 if (is_clang_or_gcc) {
@@ -679,7 +682,6 @@ if (is_clang_or_gcc) {
     }
 
     sources = [
-      "partition_alloc_base/atomic_ref_count.h",
       "partition_alloc_base/bit_cast.h",
       "partition_alloc_base/bits.h",
       "partition_alloc_base/check.cc",
@@ -707,10 +709,7 @@ if (is_clang_or_gcc) {
       "partition_alloc_base/logging.cc",
       "partition_alloc_base/logging.h",
       "partition_alloc_base/memory/page_size.h",
-      "partition_alloc_base/memory/ref_counted.cc",
-      "partition_alloc_base/memory/ref_counted.h",
       "partition_alloc_base/memory/scoped_policy.h",
-      "partition_alloc_base/memory/scoped_refptr.h",
       "partition_alloc_base/memory/stack_allocated.h",
       "partition_alloc_base/no_destructor.h",
       "partition_alloc_base/notreached.h",
@@ -898,24 +897,6 @@ if (is_clang_or_gcc) {
     deps = []
     all_dependent_configs = []
     public_configs = [ ":public_includes" ]
-    if (shim_supports_alloc_token) {
-      if (is_component_build) {
-        # Currently, partition_alloc_everywhere is disabled on component builds
-        # except for Linux. Therefore, we support alloc token on component build
-        # only for Linux.
-        # TODO(crbug.com/477186304): Support alloc token on all platforms in
-        # component build if partition_alloc_everywhere is enabled.
-        if (is_linux) {
-          # We are using public_configs instead of all_dependent_configs here
-          # because the linker does not resolve symbols in indirect dependencies
-          # of dynamic libraries within a component build.
-          # TODO(crbug.com/477186304): Consider using all_dependent_configs.
-          public_configs += [ "//build/config/sanitizers:alloc_token" ]
-        }
-      } else {
-        all_dependent_configs += [ "//build/config/sanitizers:alloc_token" ]
-      }
-    }
     configs += [
       ":allocator_shim_implementation",
       ":wexit_time_destructors",
@@ -1126,6 +1107,10 @@ if (build_with_chromium) {
       }
     }
 
+    if (memory_tool_replaces_allocator) {
+      sources += [ "memory_tool_replaces_unittest.cc" ]
+    }
+
     if (is_fuchsia) {
       sources +=
           [ "partition_alloc_base/fuchsia/fuchsia_logging_pa_unittest.cc" ]
@@ -1258,6 +1243,7 @@ if (build_with_chromium) {
     sources = [
       "partition_alloc_perftest.cc",
       "partition_lock_perftest.cc",
+      "scheduler_loop_quarantine_perftest.cc",
     ]
 
     deps = [

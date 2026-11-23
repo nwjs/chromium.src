@@ -376,7 +376,8 @@ void AppWindow::Init(const GURL& url,
 
   OnNativeWindowChanged();
 
-  ExtensionRegistry::Get(browser_context_)->AddObserver(this);
+  extension_registry_observation_.Observe(
+      ExtensionRegistry::Get(browser_context_));
 
   // Close when the browser process is exiting.
   app_delegate_->SetTerminatingCallback(base::BindOnce(
@@ -385,9 +386,7 @@ void AppWindow::Init(const GURL& url,
   app_window_contents_->LoadContents(new_params.creator_process_id);
 }
 
-AppWindow::~AppWindow() {
-  ExtensionRegistry::Get(browser_context_)->RemoveObserver(this);
-}
+AppWindow::~AppWindow() = default;
 
 void AppWindow::RequestMediaAccessPermission(
     content::WebContents* web_contents,
@@ -781,6 +780,7 @@ void AppWindow::Show(ShowType show_type) {
   bool was_hidden = is_hidden_ || !has_been_shown_;
   is_hidden_ = false;
 
+  base::WeakPtr<AppWindow> weak_this = weak_ptr_factory_.GetWeakPtr();
   switch (show_type) {
     case SHOW_ACTIVE:
       GetBaseWindow()->Show();
@@ -789,13 +789,20 @@ void AppWindow::Show(ShowType show_type) {
       GetBaseWindow()->ShowInactive();
       break;
   }
+  if (!weak_this) {
+    return;
+  }
   AppWindowRegistry::Get(browser_context_)->AppWindowShown(this, was_hidden);
   has_been_shown_ = true;
 }
 
 void AppWindow::Hide() {
   is_hidden_ = true;
+  base::WeakPtr<AppWindow> weak_this = weak_ptr_factory_.GetWeakPtr();
   GetBaseWindow()->Hide();
+  if (!weak_this) {
+    return;
+  }
   AppWindowRegistry::Get(browser_context_)->AppWindowHidden(this);
   app_delegate_->OnHide();
 }

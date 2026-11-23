@@ -31,6 +31,7 @@ class FakeLocalFrameHost : public mojom::blink::LocalFrameHost {
   FakeLocalFrameHost() = default;
 
   void Init(blink::AssociatedInterfaceProvider* provider);
+  void FlushForTesting() { receiver_.FlushForTesting(); }
   void EnterFullscreen(mojom::blink::FullscreenOptionsPtr options,
                        EnterFullscreenCallback callback) override;
   void ExitFullscreen() override;
@@ -170,6 +171,7 @@ class FakeLocalFrameHost : public mojom::blink::LocalFrameHost {
                               const String& source_id,
                               const String& untrusted_stack_trace) override;
   void FrameSizeChanged(const gfx::Size& frame_size) override;
+  void FrameBoundsInLocalRootChanged(const gfx::Rect& bounds) override;
   void DidInferColorScheme(
       blink::mojom::PreferredColorScheme preferred_color_scheme) override;
   void DidChangeSrcDoc(const blink::FrameToken& child_frame_token,

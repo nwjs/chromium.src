@@ -51,35 +51,6 @@ static_assert(IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_DEVICE_LAST -
               "kMaxDevices must match the number of command IDs reserved for "
               "target devices in chrome_command_ids.h");
 
-void OnSendTabToDeviceComplete(base::WeakPtr<content::WebContents> web_contents,
-                               std::string_view device_name,
-                               syncer::DeviceInfo::FormFactor form_factor,
-                               SendTabToSelfResult result) {
-  if (!web_contents ||
-      !base::FeatureList::IsEnabled(kSendTabToSelfPostSendToast)) {
-    return;
-  }
-
-  switch (result) {
-    case SendTabToSelfResult::kSuccess:
-      ShowTabSentSuccessToast(web_contents.get(), device_name, form_factor);
-      break;
-    case SendTabToSelfResult::kSuccessThrottled:
-      ShowTabSentThrottledToast(web_contents.get(), device_name, form_factor);
-      break;
-    case SendTabToSelfResult::kFailureInvalidUrl:
-    case SendTabToSelfResult::kFailureNotTrackingMetadata:
-    case SendTabToSelfResult::kFailureCommitAttemptFailed:
-    case SendTabToSelfResult::kFailureCommitAttemptError:
-    case SendTabToSelfResult::kFailureSyncDisabled:
-    case SendTabToSelfResult::kFailureEntryRemoved:
-    case SendTabToSelfResult::kFailureCommitTimeout:
-    case SendTabToSelfResult::kFailureNoInternetConnection:
-      ShowTabSentFailure(web_contents.get(), result, GURL());
-      break;
-  }
-}
-
 // Returns `target_url` if valid; otherwise falls back to the last committed URL
 // of `web_contents`.
 GURL ResolveTargetUrl(const GURL& target_url,
@@ -142,10 +113,8 @@ std::vector<syncer::RemoteDeviceInfo> GetDevicesForDisplay(
 bool IsSubmenuEnabledForEntryPoint(ShareEntryPoint entry_point) {
   switch (entry_point) {
     case ShareEntryPoint::kTabMenu:
-      return base::FeatureList::IsEnabled(kSendTabToSelfEnhancedDesktopUI);
     case ShareEntryPoint::kContentMenu:
-      return base::FeatureList::IsEnabled(kSendTabToSelfEnhancedDesktopUI) ||
-             base::FeatureList::IsEnabled(kSendTabToSelfEnhancedDesktopUIv2);
+      return true;
     case ShareEntryPoint::kLinkMenu:
     case ShareEntryPoint::kShareMenu:
       return base::FeatureList::IsEnabled(kSendTabToSelfEnhancedDesktopUIv2);
@@ -334,7 +303,7 @@ void SendTabToSelfSubMenuModel::ExecuteCommand(int command_id,
     OpenManageDevicesPage(
         Profile::FromBrowserContext(primary_web_contents_->GetBrowserContext()),
         ui::DispositionFromEventFlags(
-            event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB));
+            event_flags, WindowOpenDisposition::kNewForegroundTab));
     return;
   }
 
@@ -349,15 +318,9 @@ void SendTabToSelfSubMenuModel::ExecuteCommand(int command_id,
       return;
     }
 
-    const base::Feature& stts_feature =
-        (entry_point_ == ShareEntryPoint::kLinkMenu ||
-         base::FeatureList::IsEnabled(
-             send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2))
-            ? send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2
-            : send_tab_to_self::kSendTabToSelfEnhancedDesktopUI;
-
     UserEducationService::MaybeNotifyNewBadgeFeatureUsed(
-        primary_web_contents_->GetBrowserContext(), stts_feature);
+        primary_web_contents_->GetBrowserContext(),
+        send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2);
 
     RecordEntryPointInvoked(entry_point_);
 

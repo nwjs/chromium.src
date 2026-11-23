@@ -59,6 +59,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/content_uri_utils.h"
+#include "components/enterprise/connectors/core/features.h"
 #else
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/picture_in_picture/scoped_disallow_picture_in_picture.h"
@@ -133,7 +134,7 @@ void DeleteFiles(std::vector<base::FilePath> paths) {
 }
 
 bool IsValidProfile(Profile* profile) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (!profile) {
     return false;
   }
@@ -153,6 +154,21 @@ std::u16string GetDisplayName(const base::FilePath& content_uri) {
   return display_name;
 }
 #endif
+
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
+// Returns whether files picked by the user can be scanned by enterprise
+// content analysis.
+bool IsFileAttachedScanningEnabled() {
+#if BUILDFLAG(IS_ANDROID)
+  // On Android, scanning stays behind a flag until the content analysis UI is
+  // implemented there.
+  return base::FeatureList::IsEnabled(
+      enterprise_connectors::kEnableFileAttachedEnterpriseScanOnClank);
+#else
+  return true;
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -412,9 +428,10 @@ void FileSelectHelper::PerformContentAnalysisIfNeeded(
   if (AbortIfWebContentsDestroyed())
     return;
 
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
   enterprise_connectors::ContentAnalysisDelegate::Data data;
-  if (enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
+  if (IsFileAttachedScanningEnabled() &&
+      enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
           profile_, web_contents_->GetLastCommittedURL(), &data,
           enterprise_connectors::AnalysisConnector::FILE_ATTACHED)) {
     if (render_frame_host_) {
@@ -455,10 +472,10 @@ void FileSelectHelper::PerformContentAnalysisIfNeeded(
   }
 #else
   NotifyListenerAndEnd(std::move(list));
-#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 }
 
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 void FileSelectHelper::ContentAnalysisCompletionCallback(
     std::vector<blink::mojom::FileChooserFileInfoPtr> list,
     const enterprise_connectors::ContentAnalysisDelegate::Data& data,
@@ -466,10 +483,11 @@ void FileSelectHelper::ContentAnalysisCompletionCallback(
   if (AbortIfWebContentsDestroyed())
     return;
 
-  DCHECK_EQ(data.text.size(), 0u);
-  DCHECK_EQ(result.text_results.size(), 0u);
-  DCHECK_EQ(data.paths.size(), result.paths_results.size());
-  DCHECK_GE(list.size(), result.paths_results.size());
+  CHECK_EQ(data.text.size(), 0u, base::NotFatalUntil::M162);
+  CHECK_EQ(result.text_results.size(), 0u, base::NotFatalUntil::M162);
+  CHECK_EQ(data.paths.size(), result.paths_results.size(),
+           base::NotFatalUntil::M162);
+  CHECK_GE(list.size(), result.paths_results.size(), base::NotFatalUntil::M162);
 
   // If the user chooses to upload a folder and the folder contains sensitive
   // files, block the entire folder and update `result` to reflect the block
@@ -515,7 +533,7 @@ void FileSelectHelper::ContentAnalysisCompletionCallback(
 
   NotifyListenerAndEnd(std::move(list));
 }
-#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
+#endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 
 void FileSelectHelper::NotifyListenerAndEnd(
     std::vector<blink::mojom::FileChooserFileInfoPtr> list) {
@@ -556,8 +574,8 @@ bool FileSelectHelper::AbortIfWebContentsDestroyed() {
 
 void FileSelectHelper::SetFileSelectListenerForTesting(
     scoped_refptr<content::FileSelectListener> listener) {
-  DCHECK(listener);
-  DCHECK(!listener_);
+  CHECK(listener, base::NotFatalUntil::M162);
+  CHECK(!listener_, base::NotFatalUntil::M162);
   listener_ = std::move(listener);
 }
 
@@ -666,10 +684,10 @@ void FileSelectHelper::RunFileChooser(
     content::RenderFrameHost* render_frame_host,
     scoped_refptr<content::FileSelectListener> listener,
     FileChooserParamsPtr params) {
-  DCHECK(!render_frame_host_);
-  DCHECK(!web_contents_);
-  DCHECK(listener);
-  DCHECK(!listener_);
+  CHECK(!render_frame_host_, base::NotFatalUntil::M162);
+  CHECK(!web_contents_, base::NotFatalUntil::M162);
+  CHECK(listener, base::NotFatalUntil::M162);
+  CHECK(!listener_, base::NotFatalUntil::M162);
 #if 0
   DCHECK(params->default_file_name.empty() ||
          params->mode == FileChooserParams::Mode::kSave)
@@ -738,8 +756,8 @@ void FileSelectHelper::GetSanitizedFilenameOnUIThread(
 void FileSelectHelper::RunFileChooserOnUIThread(
     const base::FilePath& default_file_path,
     FileChooserParamsPtr params) {
-  DCHECK(params);
-  DCHECK(!select_file_dialog_);
+  CHECK(params, base::NotFatalUntil::M162);
+  CHECK(!select_file_dialog_, base::NotFatalUntil::M162);
   if (AbortIfWebContentsDestroyed())
     return;
 
@@ -882,8 +900,8 @@ void FileSelectHelper::EnumerateDirectoryImpl(
     content::WebContents* tab,
     scoped_refptr<content::FileSelectListener> listener,
     const base::FilePath& path) {
-  DCHECK(listener);
-  DCHECK(!listener_);
+  CHECK(listener, base::NotFatalUntil::M162);
+  CHECK(!listener_, base::NotFatalUntil::M162);
   dialog_type_ = ui::SelectFileDialog::SELECT_NONE;
   web_contents_ = tab;
   listener_ = std::move(listener);
@@ -972,7 +990,7 @@ void FileSelectHelper::OnVisibilityChanged(content::Visibility visibility) {
 
 void FileSelectHelper::InitLifecycleObserver(
     content::WebContents* web_contents) {
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M162);
   content::WebContentsObserver::Observe(web_contents);
 
   tabs::TabInterface* tab_interface =

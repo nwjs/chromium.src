@@ -148,8 +148,7 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -248,7 +247,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 126
+          "shards": 77
         },
         "test": "browser_tests",
         "test_id_prefix": "ninja://chrome/test:browser_tests/"
@@ -938,7 +937,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 34
+          "shards": 22
         },
         "test": "interactive_ui_tests",
         "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
@@ -1247,8 +1246,7 @@
           "--enable-pixel-output-in-tests",
           "--test-launcher-filter-file=../../testing/buildbot/filters/pixel_tests.filter",
           "--test-launcher-jobs=1",
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -1268,7 +1266,7 @@
             "os": "Windows-10-19045"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 16
+          "shards": 10
         },
         "test": "browser_tests",
         "test_id_prefix": "ninja://chrome/test:browser_tests/"
@@ -1278,8 +1276,7 @@
           "--browser-ui-tests-verify-pixels",
           "--enable-pixel-output-in-tests",
           "--test-launcher-filter-file=../../testing/buildbot/filters/pixel_tests.filter",
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -1299,7 +1296,7 @@
             "os": "Windows-10-19045"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 3
+          "shards": 2
         },
         "test": "interactive_ui_tests",
         "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
@@ -1592,7 +1589,7 @@
             "os": "Windows-10-19045"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 5
+          "shards": 3
         },
         "test": "sync_integration_tests",
         "test_id_prefix": "ninja://chrome/test:sync_integration_tests/"
@@ -1624,8 +1621,7 @@
         "args": [
           "--enable-features=TreesInViz",
           "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -1803,8 +1799,7 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {

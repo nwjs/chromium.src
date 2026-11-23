@@ -46,7 +46,6 @@ source_set("default_browser_prompt") {
   ]
 
   deps = [ "//chrome/browser/default_browser" ]
-  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 source_set("impl") {
@@ -185,6 +184,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/ui/startup",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/views/infobars",
+    "//chrome/browser/ui/views/toolbar:test_support",
     "//chrome/browser/ui/webui/default_browser:default_browser_modal",
     "//chrome/common",
     "//chrome/common:constants",

@@ -15,6 +15,7 @@ include_rules = [
   # depending on chrome.
   "+chrome/browser/ash/child_accounts",
   "+chrome/browser/ash/crostini",
+  "+chrome/browser/content_settings/host_content_settings_map_factory.h",
   "+chrome/browser/ash/drive",
   "+chrome/browser/enterprise/util/affiliation.h",
   "+chrome/browser/ash/file_system_provider",
@@ -39,7 +40,6 @@ include_rules = [
   "+chrome/browser/ash/wallpaper_handlers",
   "+chrome/browser/feedback/public/feedback_source.h",
   "+chrome/browser/feedback/show_feedback_page.h",
-  "+chrome/browser/manta/manta_service_factory.h",
   "+chrome/browser/pdf",
   # TODO(b/338516458): Allow ash to use ScreenAI without depending on //chrome.
   "+chrome/browser/screen_ai/public",

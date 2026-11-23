@@ -142,6 +142,7 @@ source_set("unit_tests") {
     "//ios/chrome/test:test_support",
     "//ios/chrome/test/app:test_support",
     "//ios/web/public/test",
+    "//testing/gmock",
     "//testing/gtest",
   ]
   frameworks = [ "CoreGraphics.framework" ]
@@ -156,7 +157,6 @@ source_set("eg2_tests") {
     "//base",
     "//components/feature_engagement/public",
     "//components/omnibox/browser:pref_names",
-    "//components/send_tab_to_self:features",
     "//components/strings",
     "//ios/chrome/browser/authentication/test:eg_test_support+eg2",
     "//ios/chrome/browser/bubble/ui_bundled/gesture_iph:test_utils",

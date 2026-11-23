@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/file_system_access/file_system_access_restore_permission_bubble_view.h"
 
+#include "chrome/browser/picture_in_picture/picture_in_picture_input_protector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -22,6 +23,7 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/window/dialog_client_view.h"
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
     FileSystemAccessRestorePermissionBubbleView,
@@ -132,8 +134,9 @@ FileSystemAccessRestorePermissionBubbleView::CreateAndShow(
     const FileSystemAccessPermissionRequestManager::RequestData& request,
     base::OnceCallback<void(permissions::PermissionAction)> callback,
     content::WebContents* web_contents) {
-  DCHECK(request.request_type == FileSystemAccessPermissionRequestManager::
-                                     RequestType::kRestorePermissions);
+  CHECK(request.request_type == FileSystemAccessPermissionRequestManager::
+                                    RequestType::kRestorePermissions,
+        base::NotFatalUntil::M162);
 
   auto* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
@@ -168,6 +171,10 @@ void FileSystemAccessRestorePermissionBubbleView::CloseBubble() {
 
 void FileSystemAccessRestorePermissionBubbleView::AddedToWidget() {
   GetBubbleFrameView()->SetTitleView(CreateTitleOriginLabel(GetWindowTitle()));
+  // TODO(crbug.com/467460499): Replace this with the new Input Protection
+  // System once that is enabled by default.
+  picture_in_picture_input_protector_ =
+      std::make_unique<PictureInPictureInputProtector>(this);
 }
 
 bool FileSystemAccessRestorePermissionBubbleView::ShouldShowCloseButton()
@@ -195,8 +202,17 @@ void FileSystemAccessRestorePermissionBubbleView::UpdateAnchor(
 }
 
 void FileSystemAccessRestorePermissionBubbleView::OnButtonPressed(
-    RestorePermissionButton button) {
+    RestorePermissionButton button,
+    const ui::Event& event) {
   if (!callback_) {
+    return;
+  }
+  // Extra-view buttons bypass DialogClientView::ButtonPressed, so check for
+  // unintended input and PiP occlusion before handling the choice.
+  CHECK(picture_in_picture_input_protector_);
+  if (GetDialogClientView()->IsPossiblyUnintendedInteraction(
+          event, /*allow_key_events=*/false) ||
+      picture_in_picture_input_protector_->OccludedByPictureInPicture()) {
     return;
   }
 

@@ -45,8 +45,9 @@
 #include "chrome/browser/ui/startup/google_api_keys_infobar_delegate.h"
 #include "chrome/browser/ui/startup/obsolete_system_infobar_delegate.h"
 #include "chrome/browser/ui/startup/oscryptasync_availability_infobar_delegate.h"
+#include "chrome/browser/ui/tab_sharing/tab_sharing_infobar_delegate.h"
+#include "chrome/browser/ui/tab_sharing/tab_sharing_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/js_optimization/js_optimizations_infobar_delegate.h"
 #include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog_controller.h"
 #include "chrome/browser/ui/views/web_apps/web_app_blocked_migration_infobar_delegate.h"
@@ -61,7 +62,10 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/desktop_media_id.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents_media_capture_id.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
@@ -100,6 +104,7 @@
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/apps/link_capturing/enable_link_capturing_infobar_delegate.h"
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_prefs.h"
 #include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_manager.h"
@@ -155,6 +160,7 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
     case InfoBarType::kObsoleteSystem:
     case InfoBarType::kOSCryptAsyncAvailability:
     case InfoBarType::kPageInfo:
+    case InfoBarType::kTabSharing:
     case InfoBarType::kWebAppBlockedMigration:
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
     case InfoBarType::kPdf:
@@ -164,6 +170,10 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
     case InfoBarType::kSigninQRCode:
 #endif
       return {.web_contents = true};
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+    case InfoBarType::kEnableLinkCapturing:
+      return {.profile = true, .web_contents = true};
+#endif
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     case InfoBarType::kIncognitoConnectability:
     case InfoBarType::kInstallationError:
@@ -173,7 +183,6 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
     case InfoBarType::kExtensionDevTools:
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     case InfoBarType::kDefaultBrowser:
-    case InfoBarType::kEnableLinkCapturing:
     case InfoBarType::kSessionRestore:
 #endif
 #if BUILDFLAG(IS_MAC)
@@ -268,11 +277,9 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
                        const std::string& label = "Trigger") {
     add_entry_with_actions(type, name, description, {{action, label}});
   };
-  if (base::FeatureList::IsEnabled(features::kInfoBarInlineLinks)) {
-    add_entry(InfoBarType::kAlternateNav, "Alternate Nav",
-              "The Alternate Nav infobar is shown when a user searches for a "
-              "term they may have meant to navigate to.");
-  }
+  add_entry(InfoBarType::kAlternateNav, "Alternate Nav",
+            "The Alternate Nav infobar is shown when a user searches for a "
+            "term they may have meant to navigate to.");
   add_entry_with_actions(
       InfoBarType::kAutomation, "Automation",
       "The Automation infobar warns users when Chrome is controlled by "
@@ -428,6 +435,11 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "triggered on Windows, and only when LaunchOnStartup feature flag "
             "is enabled.");
 #endif
+
+  add_entry(InfoBarType::kTabSharing, "Tab Sharing",
+            "The Tab Sharing infobar is shown when a tab is being shared via "
+            "screen capture or casting, allowing the user to stop sharing or "
+            "switch the shared tab. This trigger shows the infobar.");
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   add_entry(InfoBarType::kThemeInstalled, "Theme Installed",
@@ -587,6 +599,17 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
       return true;
     }
     case InfoBarType::kDevToolsSharedProcess: {
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        RegisterProcessSharingInfoBarSpec(*browser_infobar_manager);
+        return browser_infobar_manager->Show(
+                   active_tab,
+                   infobars::InfoBarDelegate::
+                       DEV_TOOLS_SHARED_PROCESS_DELEGATE) != nullptr;
+      }
       auto* infobar_manager =
           infobars::ContentInfoBarManager::FromWebContents(web_contents);
       if (!infobar_manager) {
@@ -598,31 +621,44 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
     }
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     case InfoBarType::kEnableLinkCapturing: {
-      if (!infobars::IsInfoBarMigrated(
-              infobars::InfoBarDelegate::
-                  ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE) ||
-          !browser_infobar_manager) {
-        return false;
-      }
+      std::string app_id = "example_app_id";
       std::u16string app_name = u"Example App";
-      if (auto* provider = web_app::WebAppProvider::GetForWebApps(profile)) {
+      auto* provider = web_app::WebAppProvider::GetForWebApps(profile);
+      if (provider) {
         const auto& app_ids = provider->registrar_unsafe().GetAppIds();
         if (!app_ids.empty()) {
+          app_id = app_ids[0];
           app_name = base::UTF8ToUTF16(
-              provider->registrar_unsafe().GetAppShortName(app_ids[0]));
+              provider->registrar_unsafe().GetAppShortName(app_id));
         }
       }
 
-      infobars::InfoBarShowParams params;
-      params.message_text = l10n_util::GetStringFUTF16(
-          IDR_INTENT_PICKER_SUPPORTED_LINKS_INFOBAR_MESSAGE, app_name);
-      params.ok_button_callback = base::DoNothing();
-      params.cancel_button_callback = base::DoNothing();
-      return browser_infobar_manager->Show(
-                 active_tab,
-                 infobars::InfoBarDelegate::
-                     ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE,
-                 std::move(params)) != nullptr;
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        infobars::InfoBarShowParams params;
+        params.message_text = l10n_util::GetStringFUTF16(
+            IDR_INTENT_PICKER_SUPPORTED_LINKS_INFOBAR_MESSAGE, app_name);
+        params.ok_button_callback = base::DoNothing();
+        params.cancel_button_callback = base::DoNothing();
+        return browser_infobar_manager->Show(
+                   active_tab,
+                   infobars::InfoBarDelegate::
+                       ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE,
+                   std::move(params)) != nullptr;
+      }
+
+      auto* infobar_manager =
+          infobars::ContentInfoBarManager::FromWebContents(web_contents);
+      if (!infobar_manager || !provider) {
+        return false;
+      }
+      return infobar_manager->AddInfoBar(CreateConfirmInfoBar(
+                 std::make_unique<apps::EnableLinkCapturingInfoBarDelegate>(
+                     *profile, app_id))) != nullptr;
     }
 #endif
     case InfoBarType::kExtensionDevTools: {
@@ -706,18 +742,35 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
       }
 
       // Fallback: If not in incognito or no extension, show a visually
-      // accurate infobar using the delegate.
-      infobars::ContentInfoBarManager* infobar_manager =
-          infobars::ContentInfoBarManager::FromWebContents(web_contents);
+      // accurate infobar.
       std::u16string extension_name =
           extension ? base::UTF8ToUTF16(extension->name()) : u"Dummy Extension";
       std::u16string message = l10n_util::GetStringFUTF16(
           IDS_EXTENSION_PROMPT_EXTENSION_CONNECT_FROM_INCOGNITO,
           u"Infobar Internals", extension_name);
 
-      extensions::IncognitoConnectabilityInfoBarDelegate::Create(
-          infobar_manager, message, base::DoNothing());
-      return true;
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  INCOGNITO_CONNECTABILITY_INFOBAR_DELEGATE)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        infobars::InfoBarShowParams params;
+        params.message_text = std::move(message);
+        return browser_infobar_manager->Show(
+                   active_tab,
+                   infobars::InfoBarDelegate::
+                       INCOGNITO_CONNECTABILITY_INFOBAR_DELEGATE,
+                   std::move(params)) != nullptr;
+      }
+
+      infobars::ContentInfoBarManager* infobar_manager =
+          infobars::ContentInfoBarManager::FromWebContents(web_contents);
+      if (!infobar_manager) {
+        return false;
+      }
+      return extensions::IncognitoConnectabilityInfoBarDelegate::Create(
+                 infobar_manager, message, base::DoNothing()) != nullptr;
 #else
       return false;
 #endif
@@ -1010,6 +1063,31 @@ bool InfoBarInternalsHandler::PerformInfoBarActionInternal(
       return false;
     }
 #endif
+    case InfoBarType::kTabSharing: {
+      content::RenderFrameHost* const main_frame =
+          web_contents->GetPrimaryMainFrame();
+      if (!main_frame) {
+        return false;
+      }
+      const content::GlobalRenderFrameHostId frame_id =
+          main_frame->GetGlobalId();
+      const content::DesktopMediaID media_id(
+          content::DesktopMediaID::TYPE_WEB_CONTENTS,
+          content::DesktopMediaID::kNullId,
+          content::WebContentsMediaCaptureId(frame_id.child_id.GetUnsafeValue(),
+                                             frame_id.frame_routing_id));
+      tab_sharing_ui_.reset();
+      tab_sharing_ui_ =
+          TabSharingUI::Create(frame_id, media_id, u"Infobar Internals",
+                               /*app_preferred_current_tab=*/false,
+                               TabSharingInfoBarDelegate::TabShareType::CAPTURE,
+                               /*captured_surface_control_active=*/false);
+      tab_sharing_ui_->OnStarted(
+          /*stop_callback=*/base::DoNothing(),
+          /*source_callback=*/base::DoNothing(),
+          /*media_ids=*/{});
+      return true;
+    }
 #if BUILDFLAG(ENABLE_EXTENSIONS)
     case InfoBarType::kThemeInstalled: {
       ThemeService* theme_service = ThemeServiceFactory::GetForProfile(profile);

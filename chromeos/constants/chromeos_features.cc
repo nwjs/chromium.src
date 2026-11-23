@@ -93,17 +93,6 @@ BASE_FEATURE(kPlatformKeysChangesWave1, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kQuickAnswersV2SettingsSubToggle,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls whether to enable Quick Answers Rich card.
-BASE_FEATURE(kQuickAnswersRichCard, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables CloudFileSystem for FileSystemProvider extensions.
-BASE_FEATURE(kFileSystemProviderCloudFileSystem,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables a content cache in CloudFileSystem for FileSystemProvider extensions.
-BASE_FEATURE(kFileSystemProviderContentCache,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 bool IsBluetoothWifiQSPodRefreshEnabled() {
   return base::FeatureList::IsEnabled(kBluetoothWifiQSPodRefresh);
 }
@@ -128,20 +117,6 @@ bool IsDataControlsFileAccessDefaultDenyEnabled() {
   return base::FeatureList::IsEnabled(kDataControlsFileAccessDefaultDeny);
 }
 
-bool IsFileSystemProviderCloudFileSystemEnabled() {
-  return base::FeatureList::IsEnabled(kFileSystemProviderCloudFileSystem);
-}
-
-bool IsFileSystemProviderContentCacheEnabled() {
-  // The `ContentCache` will be owned by the `CloudFileSystem`. Thus, the
-  // `FileSystemProviderCloudFileSystem` flag has to be enabled too.
-  if (!IsFileSystemProviderCloudFileSystemEnabled()) {
-    return false;
-  }
-  return base::FeatureList::IsEnabled(kFileSystemProviderContentCache);
-}
-
-
 bool IsGeminiAppPreinstallFeatureManagementEnabled() {
   return base::FeatureList::IsEnabled(kFeatureManagementGeminiAppPreinstall);
 }
@@ -162,10 +137,6 @@ bool IsOrcaEnabled() {
 bool ShouldDisableChromeComposeOnChromeOS() {
   return base::FeatureList::IsEnabled(kFeatureManagementDisableChromeCompose) ||
          IsOrcaEnabled();
-}
-
-bool IsQuickAnswersRichCardEnabled() {
-  return base::FeatureList::IsEnabled(kQuickAnswersRichCard);
 }
 
 bool IsQuickAnswersV2SettingsSubToggleEnabled() {

@@ -370,11 +370,17 @@ BASE_FEATURE(kAudioFocusDuckFlash,
 #endif
 );
 
-// Immediately pauses AudioRendererMixer's underlying output sink when all
-// inputs are removed on explicit player pauses instead of waiting for the
-// 10-second mixer pause delay.
+// Pauses AudioRendererMixer's underlying output sink shortly after all inputs
+// are removed on explicit player pauses instead of waiting for the 10-second
+// mixer pause delay.
 BASE_FEATURE(kAudioRendererMixerImmediatePause,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// How long to wait before that pause. Resuming within it keeps the stream
+// running. Zero pauses synchronously.
+const base::FeatureParam<base::TimeDelta>
+    kAudioRendererMixerImmediatePauseDelay{&kAudioRendererMixerImmediatePause,
+                                           "delay", base::TimeDelta()};
 
 // Allows the AutoPictureInPictureTabHelper to automatically enter
 // picture-in-picture when a webpage is occluded by another window.
@@ -443,6 +449,8 @@ const base::FeatureParam<double>
 
 BASE_FEATURE(kCastStreamingHardwareHevc, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls the maximum video bitrate for Cast Streaming mirroring sessions.
+// Configurable via chrome://flags/#cast-streaming-max-video-bitrate.
 BASE_FEATURE(kCastStreamingMaxVideoBitrate, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kCastStreamingMaxVideoBitrateMbps{
     &kCastStreamingMaxVideoBitrate, "max_bitrate_mbps", 5};
@@ -523,6 +531,12 @@ BASE_FEATURE(kDeferAudioFocusUntilAudible,
 // Controls whether the OpusAudioDecoder is used for Opus audio decoding
 // (instead of the FFmpegAudioDecoder).
 BASE_FEATURE(kDirectOpusAudioDecoding, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Killswitch for disallowing mixing opaque and non-opaque responses in
+// ResourceMultiBufferDataProvider (crbug.com/572363265).
+// TODO(crbug.com/572363265): Remove after M158 reaches stable.
+BASE_FEATURE(kDisallowMixedOpaqueMediaResponses,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Adds an animation to document picture-in-picture resizes.
 BASE_FEATURE(kDocumentPictureInPictureAnimateResize,
@@ -787,6 +801,11 @@ BASE_FEATURE(kMatchSourceAudioChannelLayout, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kMediaCapabilitiesQueryGpuFactories,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, MediaCapabilities enforces strict W3C specification checks
+// for single-codec and application/* MIME types in IsValidMimeType().
+BASE_FEATURE(kMediaCapabilitiesStrictMimeTypeValidation,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable Media Capabilities with finch-parameters.
 BASE_FEATURE(kMediaCapabilitiesWithParameters,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -957,6 +976,10 @@ BASE_FEATURE(kResumeBackgroundVideo,
 // for starting attachment to HTMLME.
 BASE_FEATURE(kRevokeMediaSourceObjectURLOnAttach,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Asks the Speech On-Device API (SODA) to run its TFLite models through the
+// XNNPACK delegate. Older SODA binaries ignore the request.
+BASE_FEATURE(kSodaXnnpackDelegate, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable the Speaker Change Detection feature, which inserts a line break when
 // the Speech On-Device API (SODA) detects a speaker change.
@@ -1296,8 +1319,13 @@ BASE_FEATURE(kFullscreenVideoPictureInPicture,
 
 // Enables block model on supported devices.
 // Block model is only supported on Android 17 26Q4+ where the feature is
-// properly supported by the framework.
+// properly supported by the framework. Decoders that use a MediaCrypto also
+// need kMediaCodecBlockModelEncrypted.
 BASE_FEATURE(kMediaCodecBlockModel, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables block model for decoders that use a MediaCrypto (encrypted
+// playback). Has no effect unless kMediaCodecBlockModel is enabled.
+BASE_FEATURE(kMediaCodecBlockModelEncrypted, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables output-side block model (OutputFrame) on supported devices.
 BASE_FEATURE(kMediaCodecBlockModelOutput, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1588,7 +1616,7 @@ BASE_FEATURE(kCastStreamingWinHardwareH264, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enable VP9 kSVC decoding with HW decoder for webrtc use case on Windows.
 BASE_FEATURE(kD3D11Vp9kSVCHWDecoding, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kD3D12SharedImageEncode, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kD3D12SharedImageEncode, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether to use D3D12 video decoder instead of D3D11 when supported.
 BASE_FEATURE(kD3D12VideoDecoder, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1596,7 +1624,7 @@ BASE_FEATURE(kD3D12VideoDecoder, base::FEATURE_DISABLED_BY_DEFAULT);
 // Controls whether to enable D3D12 video encode accelerator.
 // Owner: zhibo1.wang@intel.com
 // Expiry: When enabled by default.
-BASE_FEATURE(kD3D12VideoEncodeAccelerator, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kD3D12VideoEncodeAccelerator, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kD3D12VideoEncodeAcceleratorL1T3,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1624,6 +1652,13 @@ BASE_FEATURE(kMediaFoundationBatchRead, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kBatchReadCount{&kMediaFoundationBatchRead,
                                               "batch_read_count", 1};
 
+// Enables setting MF_MEDIA_ENGINE_COMPATIBILITY_MODE_CHROMIUM to the Chromium
+// compatibility mode attribute on the Media Engine, and the associated
+// OnMFSeekRequested handling. TODO(crbug.com/573570907): Remove when the
+// Chromium compatibility mode rollout is complete.
+BASE_FEATURE(kMediaFoundationChromiumCompatibilityMode,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables the use of MediaFoundationRenderer for clear content on supported
 // systems. This is for testing purposes, and is not intended to be enabled
 // more broadly.
@@ -1637,6 +1672,11 @@ BASE_FEATURE(kMediaFoundationD3D11VideoCapture,
 
 // Enable zero-copy based on MediaFoundation video capture with D3D11.
 BASE_FEATURE(kMediaFoundationD3D11VideoCaptureZeroCopy,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, the MediaFoundation D3D11 video capture path backs its capture
+// buffer pool with shared image instead of GMB.
+BASE_FEATURE(kMediaFoundationD3D11VideoCaptureUseSharedImage,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMediaFoundationD3DVideoProcessing,

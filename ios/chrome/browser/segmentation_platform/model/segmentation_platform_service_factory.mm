@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
 
+#import <utility>
+
 #import "base/feature_list.h"
 #import "base/hash/hash.h"
 #import "base/scoped_observation.h"
@@ -13,7 +15,6 @@
 #import "base/task/task_traits.h"
 #import "base/task/thread_pool.h"
 #import "base/time/default_clock.h"
-#import "components/keyed_service/core/service_access_type.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/segmentation_platform/embedder/default_model/device_switcher_result_dispatcher.h"
 #import "components/segmentation_platform/embedder/home_modules/home_modules_card_registry.h"
@@ -121,8 +122,7 @@ std::unique_ptr<KeyedService> BuildSegmentationPlatformService(
 
   auto params = std::make_unique<SegmentationPlatformServiceImpl::InitParams>();
   params->profile_id = profile->GetProfileName();
-  params->history_service = ios::HistoryServiceFactory::GetForProfile(
-      profile, ServiceAccessType::IMPLICIT_ACCESS);
+  params->history_service = ios::HistoryServiceFactory::GetForProfile(profile);
   params->task_runner = base::ThreadPool::CreateSequencedTaskRunner(
       {base::MayBlock(), base::TaskPriority::USER_VISIBLE});
   params->storage_dir =
@@ -201,35 +201,17 @@ std::unique_ptr<KeyedService> BuildSegmentationPlatformService(
 
 }  // namespace
 
-// static
-SegmentationPlatformService* SegmentationPlatformServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  if (!base::FeatureList::IsEnabled(features::kSegmentationPlatformFeature)) {
-    return nullptr;
-  }
-  return GetInstance()->GetServiceForProfileAs<SegmentationPlatformService>(
-      profile, /*create=*/true);
-}
-
-// static
-SegmentationPlatformServiceFactory*
-SegmentationPlatformServiceFactory::GetInstance() {
-  static base::NoDestructor<SegmentationPlatformServiceFactory> instance;
-  return instance.get();
-}
-
-SegmentationPlatformServiceFactory::SegmentationPlatformServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("SegmentationPlatformService",
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {
+SegmentationPlatformServiceFactory::SegmentationPlatformServiceFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "SegmentationPlatformService",
+                                         ServiceCreation::kCreateWithProfile,
+                                         TestingCreation::kNoServiceForTests) {
   DependsOn(OptimizationGuideServiceFactory::GetInstance());
   DependsOn(ios::HistoryServiceFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(SessionSyncServiceFactory::GetInstance());
 }
-
-SegmentationPlatformServiceFactory::~SegmentationPlatformServiceFactory() =
-    default;
 
 // static
 DeviceSwitcherResultDispatcher*

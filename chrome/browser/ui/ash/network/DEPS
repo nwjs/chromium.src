@@ -11,14 +11,10 @@ include_rules = [
   # refactor ash codes in //chrome to break these dependencies; see b/332804822.
   # Whenever possible, avoid adding new //chrome dependencies to this list.
   "+chrome/browser/ash/login/lock",
-  "+chrome/browser/ash/login/users",
   "+chrome/browser/ash/profiles",
-  "+chrome/browser/chromeos/network",
   "+chrome/browser/profiles",
   "+chrome/browser/ui/ash/system",
-  "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
   "+chrome/browser/ui/dialogs/browser_dialogs.h",
-  "+chrome/browser/ui/scoped_tabbed_browser_displayer.h",
   "+chrome/browser/ui/webui/ash/cellular_setup",
   "+chrome/browser/ui/webui/ash/floating_workspace",
   "+chrome/grit",
@@ -30,11 +26,17 @@ specific_include_rules = {
   # Reads the incognito availability preference.
   "network_portal_signin_controller(_unittest)?\\.cc": [
     "+chrome/browser/prefs/incognito_mode_prefs.h",
-    "+chrome/browser/ui/navigator/browser_navigator.h",
-    "+chrome/browser/ui/navigator/browser_navigator_params.h",
   ],
   "network_portal_signin_controller_browsertest\\.cc": [
     "+chrome/browser/ash/login/test/oobe_base_test.h",
   ],
-  "tether_notification_presenter_unittest\\.cc": ["+chrome/common"],
+  "network_portal_signin_window_ash_browsertest\\.cc": [
+    "+chrome/browser/ash/login/test/guest_session_mixin.h",
+    "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
+    "+chrome/browser/ui/navigator/browser_navigator.h",
+    "+chrome/browser/ui/navigator/browser_navigator_params.h",
+  ],
+  ".*_unittest\\.cc": [
+    "+chrome/browser/ash/login/users",
+  ],
 }

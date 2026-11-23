@@ -9,9 +9,13 @@
 
 #include <map>
 #include <memory>
+#include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
+#include "base/byte_size.h"
+#include "base/containers/unique_ptr_adapters.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
@@ -60,9 +64,7 @@ FORWARD_DECLARE_TEST(CacheStorageManagerTest, TestErrorInitializingCache);
 // on the IO thread. The asynchronous methods are executed serially.
 class CONTENT_EXPORT CacheStorage : public CacheStorageCacheObserver {
  public:
-  constexpr static int64_t kSizeUnknown = -1;
-
-  using SizeCallback = base::OnceCallback<void(int64_t)>;
+  using SizeCallback = base::OnceCallback<void(std::optional<base::ByteSize>)>;
 
   using BoolAndErrorCallback =
       base::OnceCallback<void(bool, blink::mojom::CacheStorageError)>;
@@ -156,20 +158,14 @@ class CONTENT_EXPORT CacheStorage : public CacheStorageCacheObserver {
                       int64_t trace_id,
                       CacheStorageCache::ResponseCallback callback);
 
-  // Puts the request/response pair in the cache.
-  void WriteToCache(const std::u16string& cache_name,
-                    blink::mojom::FetchAPIRequestPtr request,
-                    blink::mojom::FetchAPIResponsePtr response,
-                    int64_t trace_id,
-                    ErrorCallback callback);
-
-  // Sums the sizes of each cache and closes them. Runs |callback| with the
-  // size. The sizes include any doomed caches and will also force close all
-  // caches even if there are existing handles to them.
-  void GetSizeThenCloseAllCaches(SizeCallback callback);
+  // Immediately initiates shutdown without using the scheduler. It is an error
+  // to call any other method after this.
+  void ForceClose(base::OnceClosure callback,
+                  std::unique_ptr<CacheStorage> owned_this);
 
   // The size of all of the storage key's contents. This value should be used as
   // an estimate only since the cache may be modified at any time.
+  // Returns std::nullopt if the operation is cancelled.
   void Size(SizeCallback callback);
 
   // The functions below are for tests to verify that the operations run
@@ -198,7 +194,8 @@ class CONTENT_EXPORT CacheStorage : public CacheStorageCacheObserver {
 
  protected:
   // Virtual for testing
-  virtual void CacheUnreferenced(CacheStorageCache* cache);
+  virtual void CacheUnreferenced(CacheStorageCache* cache,
+                                 std::optional<base::ByteSize> size);
 
  private:
   friend class CacheStorageCache;
@@ -219,12 +216,13 @@ class CONTENT_EXPORT CacheStorage : public CacheStorageCacheObserver {
 
   typedef std::map<std::u16string, std::unique_ptr<CacheStorageCache>> CacheMap;
 
-  // Generate a new padding key. For testing only and *not thread safe*.
-  static void GenerateNewKeyForTesting();
-
   // Returns a CacheStorageCacheHandle for the given name if the name is known.
   // If the CacheStorageCache has been deleted, creates a new one.
   CacheStorageCacheHandle GetLoadedCache(const std::u16string& cache_name);
+
+  void CloseCache(std::unique_ptr<CacheStorageCache> cache,
+                  bool also_delete_cache_dir);
+  void OnCacheClosed(CacheStorageCache* cache, bool also_delete_cache_dir);
 
   // Initializer and its callback are below.
   void LazyInit();
@@ -258,10 +256,6 @@ class CONTENT_EXPORT CacheStorage : public CacheStorageCacheObserver {
                                 ErrorCallback callback,
                                 int64_t trace_id,
                                 bool success);
-  void DeleteCacheFinalize(CacheStorageCache* doomed_cache);
-  void DeleteCacheDidGetSize(CacheStorageCache* doomed_cache,
-                             int64_t cache_size);
-  void DeleteCacheDidCleanUp(bool success);
 
   // The EnumerateCache callbacks are below.
   void EnumerateCachesImpl(int64_t trace_id, EnumerateCachesCallback callback);
@@ -296,20 +290,9 @@ class CONTENT_EXPORT CacheStorage : public CacheStorageCacheObserver {
       int64_t trace_id,
       CacheStorageCache::ResponseCallback callback);
 
-  // WriteToCache callbacks.
-  void WriteToCacheImpl(const std::u16string& cache_name,
-                        blink::mojom::FetchAPIRequestPtr request,
-                        blink::mojom::FetchAPIResponsePtr response,
-                        int64_t trace_id,
-                        ErrorCallback callback);
-
-  void GetSizeThenCloseAllCachesImpl(SizeCallback callback);
-
   void SizeImpl(SizeCallback callback);
-  void SizeRetrievedFromCache(CacheStorageCacheHandle cache_handle,
-                              base::OnceClosure closure,
-                              int64_t* accumulator,
-                              int64_t size);
+
+  void SizeRetrievedFromCache(CacheStorageCacheHandle cache_handle);
 
   void NotifyCacheContentChanged(const std::u16string& cache_name);
 
@@ -348,6 +331,11 @@ class CONTENT_EXPORT CacheStorage : public CacheStorageCacheObserver {
   // have been released.
   std::map<CacheStorageCache*, std::unique_ptr<CacheStorageCache>>
       doomed_caches_;
+
+  // Caches that are no longer referenced and are waiting for their backends to
+  // finish closing.
+  std::set<std::unique_ptr<CacheStorageCache>, base::UniquePtrComparator>
+      closing_caches_;
 
   // The cache index data.
   std::unique_ptr<CacheStorageIndex> cache_index_;

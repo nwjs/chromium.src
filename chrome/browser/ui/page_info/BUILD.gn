@@ -36,6 +36,23 @@ source_set("page_info") {
   ]
 }
 
+if (!is_android) {
+  # Toolkit agnostic icon set for About This Site.
+  source_set("about_this_site_icon") {
+    sources = [
+      "about_this_site_icon.cc",
+      "about_this_site_icon.h",
+    ]
+    deps = [
+      "//build:branding_buildflags",
+      "//components/vector_icons",
+      "//ui/base:features",
+      "//ui/gfx",
+      "//ui/views",
+    ]
+  }
+}
+
 source_set("impl") {
   sources = [
     "chrome_page_info_delegate.cc",
@@ -58,6 +75,7 @@ source_set("impl") {
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/ui/browser_web_contents_delegate",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/site_data",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/web_applications",
     ]
@@ -94,7 +112,6 @@ source_set("impl") {
     "//chrome/browser/ssl",
     "//chrome/browser/subresource_filter",
     "//chrome/browser/ui:bubble_anchor_util",
-    "//chrome/browser/ui:tab_dialogs",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui:url_identity",
     "//chrome/browser/ui/browser_window",

@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.tabmodel;
 
-import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -18,10 +17,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import static org.chromium.base.test.transit.ViewFinder.waitForView;
 import static org.chromium.chrome.browser.tabmodel.TabModelOrderControllerImpl.willOpenInForeground;
 import static org.chromium.chrome.test.util.ChromeTabUtils.getIndexOnUiThread;
 import static org.chromium.chrome.test.util.ChromeTabUtils.getTabCountOnUiThread;
-import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -41,6 +40,7 @@ import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -166,6 +166,8 @@ public class TabModelImplTest {
     @SmallTest
     // TODO(crbug.com/457847264): Change to @Restriction(DeviceFormFactor.PHONE) after launch
     @DisableFeatures(ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW)
+    // TODO(crbug.com/572884732): Re-enable.
+    @DisableIf.Device(DeviceFormFactor.PHONE_OR_TABLET)
     public void validIndexAfterRestored_FromPreviousActivity_WithIncognitoTabs() {
         mPage = Journeys.createIncognitoTabsWithWebPages(mPage, List.of(mTestUrl));
 
@@ -243,7 +245,9 @@ public class TabModelImplTest {
                     assertEquals(1, mTabModelJni.getCount());
 
                     GURL url = new GURL("https://www.chromium.org");
-                    Tab tab = mTabModelJni.openTabProgrammatically(url, 0, true);
+                    Tab tab =
+                            mTabModelJni.openTabProgrammatically(
+                                    url, 0, TabLaunchType.FROM_TAB_LIST_INTERFACE);
                     assertNotNull(tab);
                     assertEquals(url, tab.getUrl());
                     assertEquals(2, mTabModelJni.getCount());
@@ -272,7 +276,9 @@ public class TabModelImplTest {
                     assertEquals(1, mTabModelJni.getCount());
 
                     GURL url = new GURL("https://www.chromium.org");
-                    Tab tab = mTabModelJni.openTabProgrammatically(url, 0, false);
+                    Tab tab =
+                            mTabModelJni.openTabProgrammatically(
+                                    url, 0, TabLaunchType.FROM_TAB_LIST_INTERFACE_BACKGROUND);
                     assertNotNull(tab);
                     assertEquals(url, tab.getUrl());
                     assertEquals(2, mTabModelJni.getCount());
@@ -300,7 +306,9 @@ public class TabModelImplTest {
                 () -> {
                     assertEquals(1, mTabModelJni.getCount());
 
-                    Tab tab = mTabModelJni.openTabProgrammatically(GURL.emptyGURL(), 0, true);
+                    Tab tab =
+                            mTabModelJni.openTabProgrammatically(
+                                    GURL.emptyGURL(), 0, TabLaunchType.FROM_TAB_LIST_INTERFACE);
                     assertNotNull(tab);
                     GURL expectedUrl =
                             UrlConstantResolverFactory.getForProfile(mTabModelJni.getProfile())
@@ -1802,7 +1810,7 @@ public class TabModelImplTest {
 
                     mTabModelJni.pinTab(tab1.getId(), /* showUngroupDialog= */ true);
                 });
-        onViewWaiting(withText(R.string.delete_tab_group_action)).perform(click());
+        waitForView(withText(R.string.delete_tab_group_action)).click();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -1833,7 +1841,7 @@ public class TabModelImplTest {
 
                     mTabModelJni.pinTab(tab1.getId(), /* showUngroupDialog= */ true);
                 });
-        onViewWaiting(withText(R.string.cancel)).perform(click());
+        waitForView(withText(R.string.cancel)).click();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {

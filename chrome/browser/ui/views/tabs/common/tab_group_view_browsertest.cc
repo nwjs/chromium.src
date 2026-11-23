@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/views/tabs/common/tab_group_header_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_group_line_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_group_style.h"
+#include "chrome/browser/ui/views/tabs/common/tab_strip_utils.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
 #include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view.h"
@@ -38,9 +39,11 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
+#include "ui/events/test/event_generator.h"
 #include "ui/gfx/animation/animation_test_api.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/view_utils.h"
+#include "ui/views/widget/widget_utils.h"
 
 #if BUILDFLAG(IS_OZONE)
 #include "ui/ozone/public/ozone_platform.h"
@@ -564,6 +567,49 @@ IN_PROC_BROWSER_TEST_F(TabGroupViewTest, HeaderVisibilityInNonGroupFocusMode) {
   EXPECT_TRUE(group_header->editor_bubble_button()->GetVisible());
 }
 
+IN_PROC_BROWSER_TEST_F(TabGroupViewTest,
+                       EditorBubbleButtonNotVisibleOnHoverWhenCollapsed) {
+  auto animation_mode_reset = gfx::AnimationTestApi::SetRichAnimationRenderMode(
+      gfx::Animation::RichAnimationRenderMode::FORCE_DISABLED);
+
+  tab_groups::TabGroupId group_id = CreateInactiveTabGroup();
+
+  TabCollectionNode* group_node =
+      unpinned_collection_node()->GetChildNodeOfType(
+          TabCollectionNode::Type::GROUP);
+  ASSERT_TRUE(group_node);
+  TabGroupView* group_view =
+      views::AsViewClass<TabGroupView>(group_node->view());
+  ASSERT_TRUE(group_view);
+  TabGroupHeaderView* group_header = group_view->group_header();
+  ASSERT_TRUE(group_header);
+
+  // Collapse vertical tabs.
+  vertical_tab_strip_state_controller()->RequestCollapse(true);
+  RunScheduledLayouts();
+  ASSERT_TRUE(vertical_tab_strip_state_controller()->IsCollapsed());
+
+  // Enter focus mode.
+  browser()->GetTabStripModel()->EnterFocusMode(group_id);
+  RunScheduledLayouts();
+  EXPECT_TRUE(group_header->editor_bubble_button()->GetVisible());
+
+  // Exit focus mode.
+  browser()->GetTabStripModel()->ExitFocusMode();
+  RunScheduledLayouts();
+
+  // Hover over the tab group header and verify the 3-dot button is not visible.
+  ui::test::EventGenerator event_generator(
+      views::GetRootWindow(group_header->GetWidget()),
+      browser()->GetWindow()->GetNativeWindow());
+  event_generator.MoveMouseTo(group_header->GetBoundsInScreen().CenterPoint());
+  ui::MouseEvent mouse_enter_event(ui::EventType::kMouseEntered, gfx::Point(),
+                                   gfx::Point(), ui::EventTimeForNow(), 0, 0);
+  group_header->OnMouseEntered(mouse_enter_event);
+
+  EXPECT_FALSE(group_header->editor_bubble_button()->GetVisible());
+}
+
 class HorizontalTabGroupViewBrowserTest : public InProcessBrowserTest {
  public:
   HorizontalTabGroupViewBrowserTest()
@@ -621,14 +667,15 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabGroupViewBrowserTest,
   // Perform a standard layout pass so bounded available space is established.
   tab_strip_view->GetWidget()->LayoutRootViewIfNecessary();
 
-  EXPECT_TRUE(unpinned_container->available_space().is_bounded());
-  const int original_unpinned_available =
-      unpinned_container->available_space().value();
-  EXPECT_GT(original_unpinned_available, 0);
+  const views::SizeBounds original_available_size =
+      tab_strip_view->GetAvailableSize(
+          tab_strip_view->unpinned_tabs_scroll_view());
+  ASSERT_TRUE(original_available_size.width().is_bounded());
+  EXPECT_GT(original_available_size.width().value(), 0);
 
-  EXPECT_TRUE(group_view->available_space().is_bounded());
-  const int original_group_available = group_view->available_space().value();
-  EXPECT_GT(original_group_available, 0);
+  const int original_group_target_width =
+      GetTabStripViewTargetBounds(group_view).width();
+  EXPECT_GT(original_group_target_width, 0);
 
   // Perform unconstrained layout measurement queries on TabStripView and
   // UnpinnedTabContainerView.
@@ -636,13 +683,13 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabGroupViewBrowserTest,
   unpinned_container->GetPreferredSize(views::SizeBounds());
 
   // Verify that unbounded size queries did not clear or overwrite the bounded
-  // available space on either container.
-  EXPECT_TRUE(unpinned_container->available_space().is_bounded());
-  EXPECT_EQ(unpinned_container->available_space().value(),
-            original_unpinned_available);
+  // available space or group target width.
+  const views::SizeBounds available_size = tab_strip_view->GetAvailableSize(
+      tab_strip_view->unpinned_tabs_scroll_view());
+  EXPECT_EQ(available_size.width(), original_available_size.width());
 
-  EXPECT_TRUE(group_view->available_space().is_bounded());
-  EXPECT_EQ(group_view->available_space().value(), original_group_available);
+  EXPECT_EQ(GetTabStripViewTargetBounds(group_view).width(),
+            original_group_target_width);
 }
 
 IN_PROC_BROWSER_TEST_F(HorizontalTabGroupViewBrowserTest,
@@ -663,11 +710,14 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabGroupViewBrowserTest,
   auto* group_view = views::AsViewClass<TabGroupView>(group_node->view());
 
   tab_strip_view->GetWidget()->LayoutRootViewIfNecessary();
-  const int original_unpinned_available =
-      unpinned_container->available_space().value();
-  const int original_group_available = group_view->available_space().value();
-  ASSERT_GT(original_unpinned_available, 0);
-  ASSERT_GT(original_group_available, 0);
+  const views::SizeBounds original_available_size =
+      tab_strip_view->GetAvailableSize(
+          tab_strip_view->unpinned_tabs_scroll_view());
+  ASSERT_TRUE(original_available_size.width().is_bounded());
+  const int original_group_target_width =
+      GetTabStripViewTargetBounds(group_view).width();
+  ASSERT_GT(original_available_size.width().value(), 0);
+  ASSERT_GT(original_group_target_width, 0);
 
   // Perform zero-sized layout measurement queries on TabStripView and
   // UnpinnedTabContainerView (e.g. minimum size calculations).
@@ -676,9 +726,11 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabGroupViewBrowserTest,
   unpinned_container->GetMinimumSize();
   unpinned_container->GetPreferredSize(views::SizeBounds(0, 0));
 
-  EXPECT_EQ(unpinned_container->available_space().value(),
-            original_unpinned_available);
-  EXPECT_EQ(group_view->available_space().value(), original_group_available);
+  const views::SizeBounds available_size = tab_strip_view->GetAvailableSize(
+      tab_strip_view->unpinned_tabs_scroll_view());
+  EXPECT_EQ(available_size.width(), original_available_size.width());
+  EXPECT_EQ(GetTabStripViewTargetBounds(group_view).width(),
+            original_group_target_width);
 }
 
 IN_PROC_BROWSER_TEST_F(HorizontalTabGroupViewBrowserTest,

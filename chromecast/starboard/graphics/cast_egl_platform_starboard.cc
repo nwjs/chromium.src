@@ -16,6 +16,7 @@
 #include <starboard/window.h>
 
 #include "chromecast/starboard/chromecast/starboard_adapter/public/cast_starboard_api_adapter.h"
+#include "chromecast/starboard/starboard_adapter_loader.h"
 #endif
 
 namespace chromecast {
@@ -34,25 +35,45 @@ class CastEglPlatformStarboard : public CastEglPlatform {
     return desired;
   }
 
-  ~CastEglPlatformStarboard() override = default;
+  ~CastEglPlatformStarboard() override {
+#if !BUILDFLAG(REMOVE_STARBOARD_HEADERS)
+    if (graphics_lib_) {
+      dlclose(graphics_lib_);
+    }
+#endif
+  }
 
   bool InitializeHardware() override {
 #if BUILDFLAG(REMOVE_STARBOARD_HEADERS)
-    return false;
+    LOG(FATAL) << "Cannot initialize hardware for Starboard as "
+                  "REMOVE_STARBOARD_HEADERS is set.";
 #else
-    graphics_lib_ =
-        dlopen(kGraphicsLibraryName, RTLD_NOW | RTLD_LOCAL | RTLD_DEEPBIND);
-    if (!graphics_lib_) {
-      LOG(ERROR) << "Failed to dlopen " << kGraphicsLibraryName;
+    // Ensure the Starboard partner library (libcast_starboard_api.so*) is
+    // loaded with RTLD_GLOBAL before dlopening libGL_starboard.so so that
+    // SbGetEglInterface and SbGetGlesInterface resolve to the partner's
+    // implementation rather than the weak link-time stubs.
+    if (!StarboardAdapterLoader::GetInstance()->GetAdapter()) {
+      LOG(ERROR) << "Failed to load Starboard adapter before initializing "
+                    "graphics hardware.";
       return false;
     }
+
+    graphics_lib_ = dlopen(kGraphicsLibraryName, RTLD_LAZY | RTLD_LOCAL);
+    if (!graphics_lib_) {
+      const char* err = dlerror();
+      LOG(ERROR) << "Failed to dlopen graphics library " << kGraphicsLibraryName
+                 << (err ? ": " : "!") << (err ? err : "");
+      return false;
+    }
+    LOG(INFO) << "Successfully dlopened " << kGraphicsLibraryName;
 
     get_proc_address_ = reinterpret_cast<GLGetProcAddressProc>(
         dlsym(graphics_lib_, "Sb_eglGetProcAddress"));
 
     if (!get_proc_address_) {
-      LOG(ERROR) << "Failed to dlsym Sb_eglGetProcAddress from "
-                 << kGraphicsLibraryName;
+      LOG(ERROR) << "Failed to dlsym Sb_eglGetProcAddress: " << dlerror();
+      dlclose(graphics_lib_);
+      graphics_lib_ = nullptr;
       return false;
     }
     return true;
@@ -75,8 +96,8 @@ class CastEglPlatformStarboard : public CastEglPlatform {
     // is an implementation detail. Luckily for us, created windows are not
     // visible and GlOzoneEglCast always couples the call to CreateDisplayType
     // and CreateWindow, so there is no downside to creating |window_| early.
-    if (!SbWindowIsValid(window_)) {
-      auto* sb_adapter = CastStarboardApiAdapter::GetInstance();
+    auto* sb_adapter = CastStarboardApiAdapter::GetInstance();
+    if (!sb_adapter->SbWindowIsValid(window_)) {
       LOG(INFO) << "Subscribing to CastStarboardApiAdapter. this=" << this;
       sb_adapter->Subscribe(this, nullptr);
       SbWindowOptions options{};
@@ -99,9 +120,24 @@ class CastEglPlatformStarboard : public CastEglPlatform {
 #if BUILDFLAG(REMOVE_STARBOARD_HEADERS)
     return nullptr;
 #else
-    CHECK(SbWindowIsValid(window_));
-    auto* result =
-        static_cast<NativeWindowType>(SbWindowGetPlatformHandle(window_));
+    auto* sb_adapter = CastStarboardApiAdapter::GetInstance();
+    if (!sb_adapter->SbWindowIsValid(window_)) {
+      LOG(INFO) << "CreateWindow: subscribing to CastStarboardApiAdapter. this="
+                << this;
+      sb_adapter->Subscribe(this, nullptr);
+      SbWindowOptions options{};
+      options.name = "cast";
+      options.size.width = size.width;
+      options.size.height = size.height;
+      window_ = sb_adapter->GetWindow(&options);
+      LOG(INFO)
+          << "CreateWindow: unsubscribing from CastStarboardApiAdapter. this="
+          << this;
+      sb_adapter->Unsubscribe(this);
+    }
+    CHECK(sb_adapter->SbWindowIsValid(window_));
+    auto* result = static_cast<NativeWindowType>(
+        sb_adapter->SbWindowGetPlatformHandle(window_));
 
     return result;
 #endif

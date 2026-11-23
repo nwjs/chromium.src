@@ -63,7 +63,6 @@
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/color_provider_browser_helper.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
-#include "chrome/browser/ui/views/profiles/avatar_badge_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
 #include "chrome/browser/user_education/user_education_service.h"
@@ -85,6 +84,7 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_mutator.h"
+#include "components/subscription_eligibility/ai_subscription_tier_names.h"
 #include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/sync/service/sync_service.h"
 #include "components/user_education/common/new_badge/new_badge_controller.h"
@@ -99,12 +99,6 @@
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/widget/widget.h"
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "chrome/browser/internal/profiles/profile_view_avatar_decoration_specs_branded.h"
-#else
-#include "chrome/browser/ui/profiles/profile_view_avatar_decoration_specs.h"
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/signin/cross_device_signin_promo_manager.h"
@@ -253,7 +247,8 @@ void ProfileMenuView::OnManageGoogleAccountButtonClicked() {
 
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(&profile());
-  DCHECK(identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+  CHECK(identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin),
+        base::NotFatalUntil::M162);
   NavigateToGoogleAccountPage(
       &profile(),
       identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
@@ -265,7 +260,7 @@ void ProfileMenuView::OnGuestProfileButtonClicked() {
   if (!perform_menu_actions()) {
     return;
   }
-  DCHECK(profiles::IsGuestModeEnabled(profile()));
+  CHECK(profiles::IsGuestModeEnabled(profile()), base::NotFatalUntil::M162);
   profiles::SwitchToGuestProfile();
 }
 
@@ -336,7 +331,7 @@ void ProfileMenuView::OnSyncErrorButtonClicked(
           signin_metrics::ProfileSignout::kUserClickedSignoutSettings);
       GetWidget()->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
       // Re-enable sync with the same primary account.
-      signin_ui_util::EnableSyncFromSingleAccountPromo(
+      signin_ui_util::EnableHistorySyncFromSingleAccountPromo(
           &profile(),
           identity_manager->GetPrimaryAccountInfo(
               signin::ConsentLevel::kSignin),
@@ -349,7 +344,7 @@ void ProfileMenuView::OnSyncErrorButtonClicked(
           &profile(), signin_metrics::AccessPoint::kProfileMenuPrimaryButton);
       break;
     case syncer::SyncService::UserActionableError::kNeedsClientUpgrade:
-      chrome::OpenUpdateChromeDialog(&browser());
+      chrome::MaybeUpdateChrome(&browser());
       break;
     case syncer::SyncService::UserActionableError::
         kNeedsTrustedVaultKeyForEverything:
@@ -404,8 +399,8 @@ void ProfileMenuView::OnSigninButtonClicked(
                                          access_point);
     return;
   }
-  signin_ui_util::EnableSyncFromSingleAccountPromo(&profile(), account,
-                                                   access_point);
+  signin_ui_util::EnableHistorySyncFromSingleAccountPromo(&profile(), account,
+                                                          access_point);
 }
 
 void ProfileMenuView::OnSignoutButtonClicked() {
@@ -598,32 +593,20 @@ void ProfileMenuView::SetMenuTitleForAccessibility() {
   }
 
   if (ShouldShowAvatarGradientRing(&profile())) {
-    ProfileAttributesEntry* entry =
-        g_browser_process->profile_manager()
-            ->GetProfileAttributesStorage()
-            .GetProfileAttributesWithPath(profile().GetPath());
-    if (entry) {
-      switch (entry->GetAiSubscriptionTier()) {
-        case 1:
-          menu_title_ = l10n_util::GetStringFUTF16(
-              IDS_PROFILE_MENU_PROFILE_IDENTIFIER_WITH_TIER, menu_title_,
-              std::u16string(kAvatarFullMembershipTier1));
-          break;
-        case 2:
-          menu_title_ = l10n_util::GetStringFUTF16(
-              IDS_PROFILE_MENU_PROFILE_IDENTIFIER_WITH_TIER, menu_title_,
-              std::u16string(kAvatarFullMembershipTier2));
-          break;
-        case 3:
-          menu_title_ = l10n_util::GetStringFUTF16(
-              IDS_PROFILE_MENU_PROFILE_IDENTIFIER_WITH_TIER, menu_title_,
-              std::u16string(kAvatarFullMembershipTier3));
-          break;
-        default:
-          menu_title_ = l10n_util::GetStringFUTF16(
-              IDS_PROFILE_AVATAR_NAME_WITH_AI_MEMBERSHIP, menu_title_);
-          break;
-      }
+    subscription_eligibility::SubscriptionEligibilityService*
+        subscription_service = subscription_eligibility::
+            SubscriptionEligibilityServiceFactory::GetForProfile(&profile());
+    if (subscription_service) {
+      const std::u16string tier_name =
+          subscription_eligibility::GetAiSubscriptionTierFullName(
+              subscription_service->GetAiSubscriptionTier());
+      menu_title_ =
+          tier_name.empty()
+              ? l10n_util::GetStringFUTF16(
+                    IDS_PROFILE_AVATAR_NAME_WITH_AI_MEMBERSHIP, menu_title_)
+              : l10n_util::GetStringFUTF16(
+                    IDS_PROFILE_MENU_PROFILE_IDENTIFIER_WITH_TIER, menu_title_,
+                    tier_name);
     }
   }
 
@@ -789,10 +772,9 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       account_info_for_signin_action =
           account_info_for_promos.GetCoreAccountInfo();
       if (account_preview_data_service) {
-        if (std::optional<
-                signin::AccountPreviewDataService::AccountPreviewPreference>
-                preferred_account =
-                    account_preview_data_service->GetPreferredAccountForPromo();
+        if (std::optional<signin::AccountPreviewDataService::
+                              AccountPreviewPreference> preferred_account =
+                account_preview_data_service->GetPreferredAccountForSignin();
             preferred_account.has_value() &&
             preferred_account->gaia_id == account_info_for_promos.GetGaiaId()) {
           if (std::optional<std::string> custom_subtitle =
@@ -939,8 +921,9 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
       subscription_service = subscription_eligibility::
           SubscriptionEligibilityServiceFactory::GetForProfile(&profile());
   if (subscription_service) {
-    params.badge_label = AvatarBadgeView::GetAvatarBadgeLabel(
-        subscription_service->GetAiSubscriptionTier());
+    params.badge_label =
+        subscription_eligibility::GetAiSubscriptionTierShortName(
+            subscription_service->GetAiSubscriptionTier());
   }
 
   return params;
@@ -1233,7 +1216,7 @@ void ProfileMenuView::BuildFeatureButtons() {
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 void ProfileMenuView::MaybeBuildCrossDeviceSigninButton() {
-  if (ShouldShowCrossDeviceSigninPromo(
+  if (ShouldStartShowingCrossDeviceSigninPromo(
           CrossDeviceSigninPromoEntryPoint::kProfileMenu, &profile())) {
     user_education::DisplayNewBadge display_new_badge;
     if (switches::kCrossDeviceSigninFromDesktopNewBadge.Get()) {

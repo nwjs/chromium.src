@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_RELATIVE_UTILS_H_
 
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/layout/geometry/box_strut.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
@@ -17,13 +18,13 @@ class ConstraintSpace;
 
 // Implements relative positioning:
 // https://www.w3.org/TR/css-position-3/#rel-pos
-// Returns the relative position offset as defined by |child_style|.
-CORE_EXPORT LogicalOffset
-ComputeRelativeOffset(const ComputedStyle& child_style,
+// Returns the relative position insets as defined by `child_style`.
+CORE_EXPORT PhysicalBoxStrut
+ComputeRelativeInsets(const ComputedStyle& child_style,
                       WritingDirectionMode container_writing_direction,
                       const LogicalSize& available_size);
 
-CORE_EXPORT LogicalOffset ComputeRelativeOffsetForBoxFragment(
+CORE_EXPORT PhysicalBoxStrut ComputeRelativeInsetsForBoxFragment(
     const PhysicalBoxFragment& fragment,
     WritingDirectionMode container_writing_direction,
     const LogicalSize& available_size);

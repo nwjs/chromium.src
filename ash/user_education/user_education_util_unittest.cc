@@ -258,7 +258,7 @@ TEST_F(UserEducationUtilAshTest, GetMatchingViewInRootWindow) {
 
 // Verifies that `GetUserType()` is working as intended.
 TEST_F(UserEducationUtilAshTest, GetUserType) {
-  AccountId regular_account_id = AccountId::FromUserEmail(kDefaultUserEmail);
+  AccountId regular_account_id = AccountId::FromUserEmail("user0@tray");
   AccountId guest_account_id = user_manager::GuestAccountId();
 
   // Case: no user sessions added.
@@ -289,7 +289,8 @@ TEST_F(UserEducationUtilAshTest, IsPrimaryAccountActive) {
 
   // Case: primary user session added and activate it.
   auto* session_controller_client = GetSessionControllerClient();
-  SimulateUserLogin({.activate_session = false}, primary_account_id);
+  SimulateUserLogin({.account_id = primary_account_id},
+                    /*activate_session=*/false);
 
   // Case: primary user session activated.
   session_controller_client->SetSessionState(SessionState::ACTIVE);
@@ -302,7 +303,8 @@ TEST_F(UserEducationUtilAshTest, IsPrimaryAccountActive) {
   EXPECT_TRUE(IsPrimaryAccountActive());
 
   // Case: secondary user session added and activate it.
-  SimulateUserLogin({.activate_session = false}, secondary_account_id);
+  SimulateUserLogin({.account_id = secondary_account_id},
+                    /*activate_session=*/false);
   session_controller_client->SwitchActiveUser(secondary_account_id);
   EXPECT_FALSE(IsPrimaryAccountActive());
   session_controller_client->SwitchActiveUser(primary_account_id);

@@ -37,6 +37,24 @@ VP9 video with alpha channel and yuv 444 subsampling.
 ffmpeg -c:v libvpx-vp9 -i bear-vp9a.webm -pix_fmt yuva444p -strict experimental bear-vp9a-444.webm
 ```
 
+#### bear-vp9a-420-10bit.webm
+VP9 10-bit video with alpha channel and yuv 420 subsampling.
+```
+ffmpeg -c:v libvpx-vp9 -i bear-vp9a.webm -pix_fmt yuva420p10le -strict experimental bear-vp9a-420-10bit.webm
+```
+
+#### bear-vp9a-422-10bit.webm
+VP9 10-bit video with alpha channel and yuv 422 subsampling.
+```
+ffmpeg -c:v libvpx-vp9 -i bear-vp9a.webm -pix_fmt yuva422p10le -strict experimental bear-vp9a-422-10bit.webm
+```
+
+#### bear-vp9a-444-10bit.webm
+VP9 10-bit video with alpha channel and yuv 444 subsampling.
+```
+ffmpeg -c:v libvpx-vp9 -i bear-vp9a.webm -pix_fmt yuva444p10le -strict experimental bear-vp9a-444-10bit.webm
+```
+
 #### bear-vp9-opus.webm
 VP9 Video with Opus Audio.
 
@@ -142,6 +160,13 @@ ffmpeg -i sfx.flac -map 0:0 -acodec copy -strict -2 -movflags frag_keyframe+empt
 
 #### with_mask.flac
 A 4-channel FLAC file with a `WAVEFORMATEXTENSIBLE_CHANNEL_MASK` tag. Used to verify that `AudioFileReader` can handle files where FFmpeg refines the channel layout during decoding without failing due to "unsupported midstream configuration change".
+
+#### sine-s32-stereo.flac
+0.3 second, 44.1kHz, 32-bit stereo FLAC file containing near full-scale sine waves of different frequencies in each channel. The encoder selects Right/Side and Mid/Side stereo decorrelation for most frames, which require a 33-bit Side channel. Used to verify that 32-bit FLAC stereo decorrelation decodes correctly (https://crbug.com/572363272). Created using:
+```
+sox -n -b 32 -e signed -r 44100 -c 2 s32src.wav synth 0.3 sine 440 sine 557 gain -0.05
+flac -8 --lax --no-padding -o sine-s32-stereo.flac s32src.wav
+```
 
 ### MP3
 
@@ -2063,3 +2088,6 @@ Spherical video in fragmented MP4, generated with bento4 by the following comman
 ```
 mp4fragment spherical.mp4 spherical_frag.mp4
 ```
+
+#### trun_overflow.mp4
+Fragmented MP4 whose trun sample count exceeds index entries, from https://crbug.com/573128234.

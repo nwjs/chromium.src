@@ -82,7 +82,7 @@ ChromeKeyboardControllerClient::ChromeKeyboardControllerClient() {
 
 void ChromeKeyboardControllerClient::Init(
     ash::KeyboardController* keyboard_controller) {
-  DCHECK(!keyboard_controller_);
+  CHECK(!keyboard_controller_, base::NotFatalUntil::M162);
   keyboard_controller_ = keyboard_controller;
 
   // Add this as a KeyboardController observer.
@@ -303,8 +303,7 @@ void ChromeKeyboardControllerClient::OnKeyboardEnabledChanged(bool enabled) {
 
   auto event = std::make_unique<extensions::Event>(
       extensions::events::VIRTUAL_KEYBOARD_PRIVATE_ON_KEYBOARD_CLOSED,
-      virtual_keyboard_private::OnKeyboardClosed::kEventName, base::ListValue(),
-      profile);
+      virtual_keyboard_private::OnKeyboardClosed::kEventName, nullptr, profile);
   router->BroadcastEvent(std::move(event));
 }
 
@@ -354,13 +353,13 @@ void ChromeKeyboardControllerClient::OnKeyboardVisibleBoundsChanged(
 
   // Convert screen bounds to the frame of reference of the keyboard window.
   gfx::Rect bounds = BoundsFromScreen(screen_bounds);
-  base::ListValue event_args;
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>();
   base::DictValue new_bounds;
   new_bounds.Set("left", bounds.x());
   new_bounds.Set("top", bounds.y());
   new_bounds.Set("width", bounds.width());
   new_bounds.Set("height", bounds.height());
-  event_args.Append(std::move(new_bounds));
+  event_args->data.Append(std::move(new_bounds));
 
   auto event = std::make_unique<extensions::Event>(
       extensions::events::VIRTUAL_KEYBOARD_PRIVATE_ON_BOUNDS_CHANGED,
@@ -471,7 +470,7 @@ Profile* ChromeKeyboardControllerClient::GetProfile() {
 gfx::Rect ChromeKeyboardControllerClient::BoundsFromScreen(
     const gfx::Rect& screen_bounds) {
   aura::Window* keyboard_window = GetKeyboardWindow();
-  DCHECK(keyboard_window);
+  CHECK(keyboard_window, base::NotFatalUntil::M162);
   gfx::Rect bounds(screen_bounds);
   ::wm::ConvertRectFromScreen(keyboard_window, &bounds);
   return bounds;

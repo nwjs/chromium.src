@@ -53,11 +53,19 @@ if (is_android) {
 }
 
 rust_static_library("browser_id_types") {
-  crate_name = "content_browser_id_types"
   crate_root = "browsing_instance_id.rs"
   sources = [ crate_root ]
   allow_unsafe = true
   deps = [ "//third_party/rust/cxx/v1:lib" ]
+}
+
+# Exposes `#[cfg(IS_CHROMEOS)]` to Rust and CXX bridge code in CPSP, since
+# ChromeOS and Linux share the same Rust target triple in Chromium builds.
+# TODO(https://crbug.com/576881289): Figure out a better way to do this.
+buildflag_header("is_chromeos_buildflags") {
+  header = "is_chromeos_buildflags.h"
+  flags = [ "IS_CHROMEOS=$is_chromeos" ]
+  visibility = [ ":*" ]
 }
 
 rust_static_library("child_process_security_policy_impl") {
@@ -78,7 +86,10 @@ rust_static_library("child_process_security_policy_impl") {
     "security/cpsp/process_state.rs",
   ]
   visibility = [ ":browser" ]
-  configs += [ "//content:content_implementation" ]
+  configs += [
+    ":is_chromeos_buildflags_rust_cfg",
+    "//content:content_implementation",
+  ]
   deps = [
     ":browser_id_types",
     "//base:feature",
@@ -109,7 +120,6 @@ source_set("browser") {
     "//content/public/browser:browser_sources",
     "//content/test/fuzzer:browser_accessibility_fuzzer",
     "//content/test/fuzzer:clipboard_host_mojolpm_fuzzer",
-    "//content/test/fuzzer:first_party_set_parser_fuzzer_support",
     "//content/test/fuzzer:indexed_db_fuzzer_support",
     "//content/test/fuzzer:media_stream_dispatcher_host_mojolpm_fuzzer",
   ]
@@ -140,6 +150,7 @@ source_set("browser") {
     "//build:android_buildflags",
     "//build:branding_buildflags",
     "//build:chromecast_buildflags",
+    "//build:is_android_web_view",
     "//build:nwjs_buildflags",
     "//build/config/compiler:compiler_buildflags",
     "//build/util:chromium_git_revision",
@@ -770,6 +781,12 @@ source_set("browser") {
     "cookie_store/cookie_store_manager.h",
     "cpu_performance/cpu_performance.cc",
     "cpu_performance/cpu_performance.h",
+    "cross_origin_storage/cross_origin_storage_registry.cc",
+    "cross_origin_storage/cross_origin_storage_registry.h",
+    "cross_origin_storage/cross_origin_storage_staging_writer.cc",
+    "cross_origin_storage/cross_origin_storage_staging_writer.h",
+    "cross_origin_storage/cross_origin_storage_types.cc",
+    "cross_origin_storage/cross_origin_storage_types.h",
     "data_url_loader_factory.cc",
     "data_url_loader_factory.h",
     "declarative_performance_observer/declarative_performance_observer.cc",
@@ -1046,15 +1063,6 @@ source_set("browser") {
     "find_in_page_client.h",
     "find_request_manager.cc",
     "find_request_manager.h",
-    "first_party_sets/first_party_set_parser.cc",
-    "first_party_sets/first_party_set_parser.h",
-    "first_party_sets/first_party_sets_handler_impl.h",
-    "first_party_sets/first_party_sets_handler_impl_instance.cc",
-    "first_party_sets/first_party_sets_handler_impl_instance.h",
-    "first_party_sets/first_party_sets_loader.cc",
-    "first_party_sets/first_party_sets_loader.h",
-    "first_party_sets/first_party_sets_overrides_policy.cc",
-    "first_party_sets/first_party_sets_overrides_policy.h",
     "font_access/font_access_manager.cc",
     "font_access/font_access_manager.h",
     "font_access/font_enumeration_cache.cc",
@@ -1337,6 +1345,8 @@ source_set("browser") {
     "network/cookie_store_factory.cc",
     "network/cross_origin_embedder_policy_reporter.cc",
     "network/cross_origin_embedder_policy_reporter.h",
+    "network/cross_thread_network_context.cc",
+    "network/cross_thread_network_context.h",
     "network/http_cache_backend_file_operations_factory.cc",
     "network/http_cache_backend_file_operations_factory.h",
     "network/network_errors_listing_ui.cc",
@@ -1907,8 +1917,12 @@ source_set("browser") {
     "renderer_host/transient_allow_popup.h",
     "renderer_host/transient_focus_source_user_activation.cc",
     "renderer_host/transient_focus_source_user_activation.h",
+    "renderer_host/unbounded_surface_host_impl.cc",
+    "renderer_host/unbounded_surface_host_impl.h",
     "renderer_host/unbounded_surface_window.cc",
     "renderer_host/unbounded_surface_window.h",
+    "renderer_host/untrusted_web_ui_navigation_throttle.cc",
+    "renderer_host/untrusted_web_ui_navigation_throttle.h",
     "renderer_host/view_transition_commit_deferring_condition.cc",
     "renderer_host/view_transition_commit_deferring_condition.h",
     "renderer_host/view_transition_opt_in_state.cc",
@@ -2015,6 +2029,8 @@ source_set("browser") {
     "service_worker/service_worker_device_delegate_observer.h",
     "service_worker/service_worker_fetch_dispatcher.cc",
     "service_worker/service_worker_fetch_dispatcher.h",
+    "service_worker/service_worker_hid_delegate_observer.cc",
+    "service_worker/service_worker_hid_delegate_observer.h",
     "service_worker/service_worker_host.cc",
     "service_worker/service_worker_host.h",
     "service_worker/service_worker_info.cc",
@@ -2093,6 +2109,8 @@ source_set("browser") {
     "site_instance_group.h",
     "site_instance_impl.cc",
     "site_instance_impl.h",
+    "site_shard.cc",
+    "site_shard.h",
     "sms/sms_fetcher_impl.cc",
     "sms/sms_fetcher_impl.h",
     "sms/sms_metrics.cc",
@@ -2175,12 +2193,6 @@ source_set("browser") {
     "wake_lock/wake_lock_service_impl.h",
     "web_contents/aura/gesture_nav_simple.cc",
     "web_contents/aura/gesture_nav_simple.h",
-    "web_contents/aura/types.cc",
-    "web_contents/aura/types.h",
-    "web_contents/drag_source_document_tracker.cc",
-    "web_contents/drag_source_document_tracker.h",
-    "web_contents/drag_source_map.cc",
-    "web_contents/drag_source_map.h",
     "web_contents/file_chooser_impl.cc",
     "web_contents/file_chooser_impl.h",
     "web_contents/java_script_dialog_commit_deferring_condition.cc",
@@ -2271,8 +2283,6 @@ source_set("browser") {
     "webid/document_metadata.h",
     "webid/fake_identity_request_dialog_controller.cc",
     "webid/fake_identity_request_dialog_controller.h",
-    "webid/fedcm_request_spec.cc",
-    "webid/fedcm_request_spec.h",
     "webid/federated_embedder_login_request.cc",
     "webid/flags.cc",
     "webid/flags.h",
@@ -2299,6 +2309,8 @@ source_set("browser") {
     "webid/navigation_interceptor.h",
     "webid/network_request_manager.cc",
     "webid/network_request_manager.h",
+    "webid/request.cc",
+    "webid/request.h",
     "webid/request_handler.cc",
     "webid/request_handler.h",
     "webid/request_page_data.cc",
@@ -2544,7 +2556,6 @@ source_set("browser") {
 
   if (enable_smart_card) {
     # TODO(crbug.com/470349523): Migrate more smart card files to use this flag.
-    defines += [ "ENABLE_SMART_CARD" ]
     sources += [
       "$target_gen_dir/devtools/protocol/smart_card_emulation.cc",
       "$target_gen_dir/devtools/protocol/smart_card_emulation.h",
@@ -2667,6 +2678,8 @@ source_set("browser") {
 
   if (enable_cdm_provision_fetcher) {
     sources += [
+      "media/provision_fetcher_impl.cc",
+      "media/provision_fetcher_impl.h",
       "media/url_provision_fetcher.cc",
       "media/url_provision_fetcher.h",
     ]
@@ -2781,6 +2794,7 @@ source_set("browser") {
       ":mac_helpers",
       "//components/device_event_log",
       "//components/remote_cocoa/app_shim",
+      "//components/remote_cocoa/app_shim:features",
       "//components/remote_cocoa/browser",
       "//components/remote_cocoa/common:mojo",
       "//media",
@@ -3157,8 +3171,8 @@ source_set("browser") {
       "accessibility/captioning_controller.h",
       "accessibility/text_formatting_metrics_android.cc",
       "accessibility/text_formatting_metrics_android.h",
-      "accessibility/web_contents_accessibility_android.cc",
-      "accessibility/web_contents_accessibility_android.h",
+      "accessibility/web_contents_accessibility_base.cc",
+      "accessibility/web_contents_accessibility_base.h",
       "android/additional_navigation_params.cc",
       "android/additional_navigation_params.h",
       "android/android_overlay_provider_impl.cc",
@@ -3353,7 +3367,6 @@ source_set("browser") {
       "//gpu/command_buffer/service:gles2",
       "//media",
       "//third_party/blink/public/common:font_unique_name_table_proto",
-      "//third_party/blink/public/mojom:mojom_platform_blink",
       "//third_party/icu",
       "//third_party/jni_zero",
       "//ui/accessibility:ax_assistant",
@@ -3395,10 +3408,6 @@ source_set("browser") {
       # Not available on Android.
       "network_sandbox.cc",
       "network_sandbox.h",
-
-      # WebHID is not supported in service workers on Android
-      "service_worker/service_worker_hid_delegate_observer.cc",
-      "service_worker/service_worker_hid_delegate_observer.h",
 
       # Most speech code is non-Android.
       "speech/network_speech_recognition_engine_impl.cc",

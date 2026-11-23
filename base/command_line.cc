@@ -12,6 +12,7 @@
 
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
+#include "base/containers/map_util.h"
 #include "base/containers/span.h"
 #include "base/debug/debugging_buildflags.h"
 #include "base/files/file_path.h"
@@ -67,7 +68,7 @@ constexpr auto kSwitchPrefixes = std::to_array<CommandLine::StringViewType>({
 size_t switch_prefix_count = std::size(kSwitchPrefixes);
 
 bool IsSwitchNameValid(std::string_view switch_name) {
-  return ToLowerASCII(switch_name) == switch_name;
+  return std::ranges::none_of(switch_name, &IsAsciiUpper<char>);
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -621,7 +622,7 @@ void CommandLine::AppendSwitchNative(std::string_view switch_string,
     g_duplicate_switch_handler->ResolveDuplicate(key, value,
                                                  switches_[std::string(key)]);
   } else {
-    switches_[std::string(key)] = StringType(value);
+    InsertOrAssign(switches_, key, StringType(value));
   }
 
   // Preserve existing switch prefixes in |argv_|; only append one if necessary.

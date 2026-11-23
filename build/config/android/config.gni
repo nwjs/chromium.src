@@ -121,7 +121,10 @@ if (is_android) {
   }
 
   # Our build system no longer supports legacy multidex.
+  # LINT.IfChange(min_supported_sdk_version)
   min_supported_sdk_version = 23
+
+  # LINT.ThenChange(//third_party/r8/3pp/3pp.py:min_supported_sdk_version)
 
   # ASAN requires O MR1.
   # https://github.com/google/sanitizers/wiki/AddressSanitizerOnAndroid/01f8df1ac1a447a8475cdfcb03e8b13140042dbd#running-with-wrapsh-recommended
@@ -296,6 +299,9 @@ if (is_android) {
     # names).
     optimize_android_resources = !is_java_debug
 
+    # Converts PNG resources (except 9-patch files) to lossless WebP.
+    png_to_webp = !is_java_debug && build_with_chromium && !is_cronet_build
+
     # Controls whether specifying |art_profile_path| automatically adds a binary
     # baseline profile to the APK/AAB.
     # Currently disabled while bundletool does not support baseline profiles in
@@ -464,41 +470,6 @@ if (is_android) {
   android_objcopy = "${android_tool_prefix}objcopy"
 
   android_sdk_tools_bundle_aapt2 = "${android_sdk_tools_bundle_aapt2_dir}/aapt2"
-
-  _common_inputs_for_jre_jdk = [
-    "//third_party/jdk/current/conf/logging.properties",
-    "//third_party/jdk/current/conf/security/java.security",
-    "//third_party/jdk/current/lib/ct.sym",
-    "//third_party/jdk/current/lib/jrt-fs.jar",
-    "//third_party/jdk/current/lib/jvm.cfg",
-    "//third_party/jdk/current/lib/libawt.so",
-    "//third_party/jdk/current/lib/libawt_headless.so",
-    "//third_party/jdk/current/lib/libawt_xawt.so",
-    "//third_party/jdk/current/lib/libjava.so",
-    "//third_party/jdk/current/lib/libjimage.so",
-    "//third_party/jdk/current/lib/libjli.so",
-    "//third_party/jdk/current/lib/libjsvml.so",
-    "//third_party/jdk/current/lib/libmanagement.so",
-    "//third_party/jdk/current/lib/libmanagement_ext.so",
-    "//third_party/jdk/current/lib/libnet.so",
-    "//third_party/jdk/current/lib/libnio.so",
-    "//third_party/jdk/current/lib/libverify.so",
-    "//third_party/jdk/current/lib/libzip.so",
-    "//third_party/jdk/current/lib/modules",
-    "//third_party/jdk/current/lib/server/classes.jsa",
-    "//third_party/jdk/current/lib/server/libjvm.so",
-    "//third_party/jdk/current/lib/tzdb.dat",
-  ]
-
-  # Actions that use java should add this as inputs so that they are rebuilt
-  # when the JDK changes.
-  java_paths_for_inputs = [
-                            "//third_party/jdk/current/bin/java",
-                            "//third_party/jdk/current/bin/java.chromium",
-                          ] + _common_inputs_for_jre_jdk
-
-  javac_paths_for_inputs =
-      [ "//third_party/jdk/current/bin/javac" ] + _common_inputs_for_jre_jdk
 
   kotlinc_paths_for_inputs = [
     "//third_party/kotlinc",

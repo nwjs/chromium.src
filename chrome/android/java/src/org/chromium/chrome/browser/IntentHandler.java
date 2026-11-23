@@ -41,8 +41,8 @@ import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.actor.ActorBackgroundActuationManager;
-import org.chromium.chrome.browser.actor.ActorForegroundServiceController;
-import org.chromium.chrome.browser.actor.ActorNotificationFactory;
+import org.chromium.chrome.browser.actor.foreground_service.ActorForegroundServiceController;
+import org.chromium.chrome.browser.actor.notifications.ActorNotificationFactory;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.browserservices.SessionDataHolder;
@@ -1460,7 +1460,8 @@ public class IntentHandler {
 
     /** Return true if the type is one of the Mime types used for MHTML */
     static boolean isMhtmlMimeType(String type) {
-        return type.equals("multipart/related") || type.equals("message/rfc822");
+        return type.equalsIgnoreCase("multipart/related")
+                || type.equalsIgnoreCase("message/rfc822");
     }
 
     /**
@@ -1638,11 +1639,11 @@ public class IntentHandler {
      *
      * @param intent The Intent to be set.
      */
-    public static void setDestTabId(Intent intent, int destTabId) {
+    public static void setDestTabId(Intent intent, @TabId int destTabId) {
         intent.putExtra(EXTRA_DEST_TAB_ID, destTabId);
     }
 
-    public static int getDestTabId(Intent intent) {
+    public static @TabId int getDestTabId(Intent intent) {
         return IntentUtils.safeGetIntExtra(intent, EXTRA_DEST_TAB_ID, Tab.INVALID_TAB_ID);
     }
 
@@ -1998,9 +1999,7 @@ public class IntentHandler {
         int transitionType = PageTransition.LINK | PageTransition.FROM_API;
         loadUrlParams.setTransitionType(getTransitionTypeFromIntent(intent, transitionType));
 
-        if (IntentUtils.isTrustedIntentFromSelf(intent)
-                && ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.SEND_TAB_TO_SELF_PROPAGATE_SCROLL_POSITION)) {
+        if (IntentUtils.isTrustedIntentFromSelf(intent)) {
             @Nullable String scrollToTextFragment =
                     IntentUtils.safeGetStringExtra(intent, EXTRA_SCROLL_TO_TEXT_FRAGMENT);
             if (!TextUtils.isEmpty(scrollToTextFragment)) {

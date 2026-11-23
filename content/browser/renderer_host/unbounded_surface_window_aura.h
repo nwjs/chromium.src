@@ -23,6 +23,7 @@
 #include "ui/base/cursor/cursor.h"
 #include "ui/base/hit_test.h"
 #include "ui/events/gestures/motion_event_aura.h"
+#include "ui/wm/public/activation_change_observer.h"
 
 namespace ui {
 class Layer;
@@ -36,13 +37,11 @@ class RenderWidgetHostViewBase;
 class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
                                    public aura::WindowDelegate,
                                    public aura::WindowObserver,
+                                   public wm::ActivationChangeObserver,
                                    public viz::HostFrameSinkClient {
  public:
   static std::unique_ptr<UnboundedSurfaceWindowAura> Create(
       RenderWidgetHostViewAura* parent_view,
-      mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-      mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
-          client,
       const gfx::Rect& bounds_in_screen,
       base::WeakPtr<RenderWidgetHostViewBase> subframe_view);
 
@@ -68,9 +67,6 @@ class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
       base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
       override;
   void EnsureSurfaceSynchronizedForWebTest() override;
-
-  // blink::mojom::UnboundedSurfaceHost overrides:
-  void UpdateBounds(const gfx::Rect& bounds) override;
 
   // aura::WindowDelegate overrides:
   gfx::Size GetMinimumSize() const override;
@@ -98,6 +94,12 @@ class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
   void OnMouseEvent(ui::MouseEvent* event) override;
   void OnScrollEvent(ui::ScrollEvent* event) override;
   void OnTouchEvent(ui::TouchEvent* event) override;
+  void OnCancelMode(ui::CancelModeEvent* event) override;
+
+  // wm::ActivationChangeObserver overrides:
+  void OnWindowActivated(wm::ActivationChangeObserver::ActivationReason reason,
+                         aura::Window* gained_active,
+                         aura::Window* lost_active) override;
 
   // viz::HostFrameSinkClient overrides:
   void OnFirstSurfaceActivation(const viz::SurfaceInfo& surface_info) override {
@@ -113,17 +115,19 @@ class UnboundedSurfaceWindowAura : public UnboundedSurfaceWindow,
 
   UnboundedSurfaceWindowAura(
       RenderWidgetHostViewAura* parent_view,
-      mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-      mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
-          client,
       base::WeakPtr<RenderWidgetHostViewBase> subframe_view);
   bool InitWindow(const gfx::Rect& bounds_in_screen);
-  void OnConnectionError();
+  // Removes `this` as an observer of `root_window_` and its activation client.
+  void StopObservingRootWindow();
+  // Returns true if `window` is `window_`, the owner view's native view, a
+  // descendant of either, or a transient child of either (e.g. child popups
+  // such as an HTML date picker attached via
+  // RenderWidgetHostViewAura::InitAsPopup).
+  bool IsInOwnerView(aura::Window* window) const;
 
   viz::FrameSinkId frame_sink_id_;
   viz::FrameSinkId parent_frame_sink_id_;
   viz::ParentLocalSurfaceIdAllocator local_surface_id_allocator_;
-  mojo::AssociatedReceiver<blink::mojom::UnboundedSurfaceHost> receiver_{this};
   std::unique_ptr<aura::Window> window_;
   raw_ptr<aura::Window> root_window_ = nullptr;
   ui::MotionEventAura pointer_state_;

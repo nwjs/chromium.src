@@ -1,0 +1,297 @@
+// Copyright 2024 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef COMPONENTS_OPTIMIZATION_GUIDE_CORE_FEATURE_REGISTRY_FEATURE_KEYS_H_
+#define COMPONENTS_OPTIMIZATION_GUIDE_CORE_FEATURE_REGISTRY_FEATURE_KEYS_H_
+
+#include <array>
+#include <optional>
+#include <ostream>
+#include <string>
+
+#include "base/component_export.h"
+#include "base/notreached.h"
+#include "components/optimization_guide/proto/model_execution.pb.h"
+#include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
+
+class PrefRegistrySimple;
+
+namespace optimization_guide {
+
+// Capabilities that are implemented by model execution.
+enum class ModelBasedCapabilityKey {
+  kCompose = proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_COMPOSE,
+  kWallpaperSearch =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH,
+  kTest = proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TEST,
+  kHistorySearch =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_HISTORY_SEARCH,
+  kFormsClassifications = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_FORMS_CLASSIFICATIONS,
+  kBlingPrototyping =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_BLING_PROTOTYPING,
+  kPasswordChangeSubmission = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_PASSWORD_CHANGE_SUBMISSION,
+  kEnhancedCalendar =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_ENHANCED_CALENDAR,
+  kZeroStateSuggestions = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_ZERO_STATE_SUGGESTIONS,
+  kWalletablePassExtraction = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_WALLETABLE_PASS_EXTRACTION,
+  kAmountExtraction =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_AMOUNT_EXTRACTION,
+  kIosSmartTabGrouping = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_IOS_SMART_TAB_GROUPING,
+  kScamDetection =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_SCAM_DETECTION,
+  kSkills = proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_SKILLS,
+  kGeminiAntiscamProtection = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_GEMINI_ANTISCAM_PROTECTION,
+  kContentAnnotation =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_CONTENT_ANNOTATION,
+  kFinds = proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_FINDS,
+  kAnnotationReducerOnePResolver = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_ANNOTATION_REDUCER_ONE_P_RESOLVER,
+  kAnnotationReducerQueryClassifier = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_ANNOTATION_REDUCER_QUERY_CLASSIFIER,
+  kContextualCueing =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_CONTEXTUAL_CUEING,
+  kUpdaterChat =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_UPDATER_CHAT,
+  kCardRecommendations = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_CARD_RECOMMENDATIONS,
+  kContextHub =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_CONTEXT_HUB,
+  kReadAloudGenerateText = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_READ_ALOUD_GENERATE_TEXT,
+  kReadAloudSynthesize = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_READ_ALOUD_SYNTHESIZE,
+  kSmartSelectionSuggestions = proto::ModelExecutionFeature::
+      MODEL_EXECUTION_FEATURE_SMART_SELECTION_SUGGESTIONS,
+  kTtc = proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TTC,
+  kQuickAnswers =
+      proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_QUICK_ANSWERS,
+};
+
+inline std::ostream& operator<<(std::ostream& out,
+                                const ModelBasedCapabilityKey& val) {
+  switch (val) {
+    case ModelBasedCapabilityKey::kCompose:
+      return out << "Compose";
+    case ModelBasedCapabilityKey::kWallpaperSearch:
+      return out << "WallpaperSearch";
+    case ModelBasedCapabilityKey::kTest:
+      return out << "Test";
+    case ModelBasedCapabilityKey::kHistorySearch:
+      return out << "HistorySearch";
+    case ModelBasedCapabilityKey::kFormsClassifications:
+      return out << "FormsClassifications";
+    case ModelBasedCapabilityKey::kBlingPrototyping:
+      return out << "BlingPrototyping";
+    case ModelBasedCapabilityKey::kPasswordChangeSubmission:
+      return out << "PasswordChangeSubmission";
+    case ModelBasedCapabilityKey::kEnhancedCalendar:
+      return out << "EnhancedCalendar";
+    case ModelBasedCapabilityKey::kZeroStateSuggestions:
+      return out << "ZeroStateSuggestions";
+    case ModelBasedCapabilityKey::kWalletablePassExtraction:
+      return out << "WalletablePassExtraction";
+    case ModelBasedCapabilityKey::kAmountExtraction:
+      return out << "AmountExtraction";
+    case ModelBasedCapabilityKey::kIosSmartTabGrouping:
+      return out << "IosSmartTabGrouping";
+    case ModelBasedCapabilityKey::kScamDetection:
+      return out << "ScamDetection";
+    case ModelBasedCapabilityKey::kSkills:
+      return out << "Skills";
+    case ModelBasedCapabilityKey::kGeminiAntiscamProtection:
+      return out << "GeminiAntiscamProtection";
+    case ModelBasedCapabilityKey::kContentAnnotation:
+      return out << "ContentAnnotation";
+    case ModelBasedCapabilityKey::kFinds:
+      return out << "Finds";
+    case ModelBasedCapabilityKey::kAnnotationReducerOnePResolver:
+      return out << "AnnotationReducerOnePResolver";
+    case ModelBasedCapabilityKey::kAnnotationReducerQueryClassifier:
+      return out << "AnnotationReducerQueryClassifier";
+    case ModelBasedCapabilityKey::kContextualCueing:
+      return out << "ContextualCueing";
+    case ModelBasedCapabilityKey::kUpdaterChat:
+      return out << "UpdaterChat";
+    case ModelBasedCapabilityKey::kCardRecommendations:
+      return out << "CardRecommendations";
+    case ModelBasedCapabilityKey::kContextHub:
+      return out << "ContextHub";
+    case ModelBasedCapabilityKey::kReadAloudGenerateText:
+      return out << "ReadAloudGenerateText";
+    case ModelBasedCapabilityKey::kReadAloudSynthesize:
+      return out << "ReadAloudSynthesize";
+    case ModelBasedCapabilityKey::kSmartSelectionSuggestions:
+      return out << "SmartSelectionSuggestions";
+    case ModelBasedCapabilityKey::kTtc:
+      return out << "Ttc";
+    case ModelBasedCapabilityKey::kQuickAnswers:
+      return out << "QuickAnswers";
+  }
+  return out;
+}
+
+// A "real" feature implemented by a model-based capability.
+// These will have their own prefs / settings / policies etc.
+enum class UserVisibleFeatureKey {
+  kCompose = static_cast<int>(ModelBasedCapabilityKey::kCompose),
+  kWallpaperSearch =
+      static_cast<int>(ModelBasedCapabilityKey::kWallpaperSearch),
+  kHistorySearch = static_cast<int>(ModelBasedCapabilityKey::kHistorySearch),
+  kPasswordChangeSubmission =
+      static_cast<int>(ModelBasedCapabilityKey::kPasswordChangeSubmission),
+  kFinds = static_cast<int>(ModelBasedCapabilityKey::kFinds),
+  kContextualCueing =
+      static_cast<int>(ModelBasedCapabilityKey::kContextualCueing),
+};
+
+inline constexpr auto kAllUserVisibleFeatureKeys =
+    std::to_array<UserVisibleFeatureKey>({
+        UserVisibleFeatureKey::kCompose,
+        UserVisibleFeatureKey::kWallpaperSearch,
+        UserVisibleFeatureKey::kHistorySearch,
+        UserVisibleFeatureKey::kPasswordChangeSubmission,
+        UserVisibleFeatureKey::kFinds,
+        UserVisibleFeatureKey::kContextualCueing,
+    });
+
+inline ModelBasedCapabilityKey ToModelBasedCapabilityKey(
+    UserVisibleFeatureKey key) {
+  switch (key) {
+    case UserVisibleFeatureKey::kCompose:
+      return ModelBasedCapabilityKey::kCompose;
+    case UserVisibleFeatureKey::kWallpaperSearch:
+      return ModelBasedCapabilityKey::kWallpaperSearch;
+    case UserVisibleFeatureKey::kHistorySearch:
+      return ModelBasedCapabilityKey::kHistorySearch;
+    case UserVisibleFeatureKey::kPasswordChangeSubmission:
+      return ModelBasedCapabilityKey::kPasswordChangeSubmission;
+    case UserVisibleFeatureKey::kFinds:
+      return ModelBasedCapabilityKey::kFinds;
+    case UserVisibleFeatureKey::kContextualCueing:
+      return ModelBasedCapabilityKey::kContextualCueing;
+  }
+}
+
+inline proto::ModelExecutionFeature ToModelExecutionFeatureProto(
+    ModelBasedCapabilityKey key) {
+  switch (key) {
+    case ModelBasedCapabilityKey::kCompose:
+      return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_COMPOSE;
+    case ModelBasedCapabilityKey::kWallpaperSearch:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH;
+    case ModelBasedCapabilityKey::kTest:
+      return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TEST;
+    case ModelBasedCapabilityKey::kHistorySearch:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_HISTORY_SEARCH;
+    case ModelBasedCapabilityKey::kFormsClassifications:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_FORMS_CLASSIFICATIONS;
+    case ModelBasedCapabilityKey::kBlingPrototyping:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_BLING_PROTOTYPING;
+    case ModelBasedCapabilityKey::kPasswordChangeSubmission:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_PASSWORD_CHANGE_SUBMISSION;
+    case ModelBasedCapabilityKey::kEnhancedCalendar:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_ENHANCED_CALENDAR;
+    case ModelBasedCapabilityKey::kZeroStateSuggestions:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_ZERO_STATE_SUGGESTIONS;
+    case ModelBasedCapabilityKey::kWalletablePassExtraction:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_WALLETABLE_PASS_EXTRACTION;
+    case ModelBasedCapabilityKey::kAmountExtraction:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_AMOUNT_EXTRACTION;
+    case ModelBasedCapabilityKey::kIosSmartTabGrouping:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_IOS_SMART_TAB_GROUPING;
+    case ModelBasedCapabilityKey::kScamDetection:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_SCAM_DETECTION;
+    case ModelBasedCapabilityKey::kSkills:
+      return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_SKILLS;
+    case ModelBasedCapabilityKey::kGeminiAntiscamProtection:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_GEMINI_ANTISCAM_PROTECTION;
+    case ModelBasedCapabilityKey::kContentAnnotation:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_CONTENT_ANNOTATION;
+    case ModelBasedCapabilityKey::kFinds:
+      return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_FINDS;
+    case ModelBasedCapabilityKey::kAnnotationReducerOnePResolver:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_ANNOTATION_REDUCER_ONE_P_RESOLVER;
+    case ModelBasedCapabilityKey::kAnnotationReducerQueryClassifier:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_ANNOTATION_REDUCER_QUERY_CLASSIFIER;
+    case ModelBasedCapabilityKey::kContextualCueing:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_CONTEXTUAL_CUEING;
+    case ModelBasedCapabilityKey::kUpdaterChat:
+      return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_UPDATER_CHAT;
+    case ModelBasedCapabilityKey::kCardRecommendations:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_CARD_RECOMMENDATIONS;
+    case ModelBasedCapabilityKey::kContextHub:
+      return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_CONTEXT_HUB;
+    case ModelBasedCapabilityKey::kReadAloudGenerateText:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_READ_ALOUD_GENERATE_TEXT;
+    case ModelBasedCapabilityKey::kReadAloudSynthesize:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_READ_ALOUD_SYNTHESIZE;
+    case ModelBasedCapabilityKey::kSmartSelectionSuggestions:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_SMART_SELECTION_SUGGESTIONS;
+    case ModelBasedCapabilityKey::kTtc:
+      return proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_TTC;
+    case ModelBasedCapabilityKey::kQuickAnswers:
+      return proto::ModelExecutionFeature::
+          MODEL_EXECUTION_FEATURE_QUICK_ANSWERS;
+  }
+}
+
+inline proto::ModelExecutionFeature ToModelExecutionFeatureProto(
+    UserVisibleFeatureKey key) {
+  return ToModelExecutionFeatureProto(ToModelBasedCapabilityKey(key));
+}
+
+namespace prefs {
+
+// Value stored in the pref.
+enum class FeatureOptInState {
+  // User has never changed the opt-in state.
+  kNotInitialized = 0,
+
+  // User has explicitly opted-in to the feature.
+  kEnabled = 1,
+
+  // User has explicitly opted-out of the feature.
+  kDisabled = 2
+};
+
+// Returns the name of the pref that stores the user's setting opt-in state for
+// the given `feature`.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+std::string GetSettingEnabledPrefName(UserVisibleFeatureKey feature);
+
+// Registers the setting opt-in state prefs.
+COMPONENT_EXPORT(OPTIMIZATION_GUIDE_FEATURES)
+void RegisterSettingsUiPrefs(PrefRegistrySimple* registry);
+
+}  // namespace prefs
+
+}  // namespace optimization_guide
+
+#endif  // COMPONENTS_OPTIMIZATION_GUIDE_CORE_FEATURE_REGISTRY_FEATURE_KEYS_H_

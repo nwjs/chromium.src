@@ -49,6 +49,7 @@
 #include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/svg/layout_svg_resource_container.h"
+#include "third_party/blink/renderer/core/layout/svg/svg_resources.h"
 #include "third_party/blink/renderer/core/layout/svg/transform_helper.h"
 #include "third_party/blink/renderer/core/svg/animation/element_smil_animations.h"
 #include "third_party/blink/renderer/core/svg/properties/svg_animated_property.h"
@@ -316,6 +317,14 @@ void SVGElement::ChildrenChanged(const ChildrenChange& change) {
   InvalidateInstances();
 }
 
+void SVGElement::DidChangeIsInCanvasSubtree(
+    CanvasSubtreePropagation propagation_behavior) {
+  Element::DidChangeIsInCanvasSubtree(propagation_behavior);
+  if (SVGElementResourceClient* client = GetSVGResourceClient()) {
+    client->InvalidateFilterData();
+  }
+}
+
 CSSPropertyID SVGElement::CssPropertyIdForSVGAttributeName(
     const ExecutionContext* execution_context,
     const QualifiedName& attr_name) {
@@ -379,6 +388,7 @@ CSSPropertyID SVGElement::CssPropertyIdForSVGAttributeName(
         &svg_names::kStrokeWidthAttr,
         &svg_names::kTextAnchorAttr,
         &svg_names::kTextDecorationAttr,
+        &svg_names::kTextOverflowAttr,
         &svg_names::kTextRenderingAttr,
         &svg_names::kTransformOriginAttr,
         &svg_names::kUnicodeBidiAttr,

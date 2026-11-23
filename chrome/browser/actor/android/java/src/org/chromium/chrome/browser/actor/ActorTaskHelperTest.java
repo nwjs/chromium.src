@@ -38,6 +38,9 @@ import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.actor.background_tabs.OffscreenRenderingManager;
+import org.chromium.chrome.browser.actor.foreground_service.ActorForegroundServiceController;
+import org.chromium.chrome.browser.actor.foreground_service.ActorForegroundServiceManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.notifications.channels.ChromeChannelDefinitions;
@@ -482,6 +485,29 @@ public class ActorTaskHelperTest {
         helper.onDestroy();
 
         verify(mActorService).stopTask(101, StoppedReason.SHUTDOWN);
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.GLIC_BACKGROUND_ACTUATION)
+    public void testIsBackgroundActuationFeatureEnabled_Disabled() {
+        assertFalse(ActorUtils.isBackgroundActuationFeatureEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.GLIC_BACKGROUND_ACTUATION)
+    public void testIsBackgroundActuationFeatureEnabled_Enabled() {
+        assertTrue(ActorUtils.isBackgroundActuationFeatureEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.GLIC_BACKGROUND_ACTUATION)
+    public void testIsBackgroundActuationFeatureEnabled_Desktop() {
+        try {
+            DeviceInfo.setIsDesktopForTesting(true);
+            assertFalse(ActorUtils.isBackgroundActuationFeatureEnabled());
+        } finally {
+            DeviceInfo.resetIsDesktopForTesting();
+        }
     }
 
     @Test

@@ -14,6 +14,7 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
@@ -106,6 +107,10 @@ class TestContextualTasksUI : public ContextualTasksUI {
   MOCK_METHOD(GURL, GetWebUiUrl, (), (override));
   MOCK_METHOD(content::WebContents*, GetInnerWebContents, (), (const, override));
   MOCK_METHOD(BrowserWindowInterface*, GetBrowser, (), (override));
+  MOCK_METHOD(void,
+              OnRestoredTabsFetched,
+              (std::vector<searchbox::mojom::TabInfoPtr> tabs),
+              (override));
 };
 
 class MockContextualTasksUiServiceForThreadLink
@@ -611,6 +616,51 @@ TEST_F(ContextualTasksPageHandlerTest, IsShownInTab) {
   run_loop.Run();
 }
 
+TEST_F(ContextualTasksPageHandlerTest,
+       MoveActiveTabToNewThreadIfShared_ScopedToTab_MovesActiveTab) {
+  base::test::ScopedFeatureList feature_list(kContextualTasksSidePanelTabState);
+  EXPECT_CALL(*mock_panel_controller_, IsPanelOpenForContextualTask())
+      .WillOnce(Return(true));
+  EXPECT_CALL(*mock_panel_controller_, GetActiveWebContents())
+      .WillOnce(Return(web_contents()));
+  EXPECT_CALL(*mock_panel_controller_, MoveActiveTabToNewThreadIfShared())
+      .WillOnce(Return(true));
+
+  base::test::TestFuture<bool> moved;
+  page_handler_->MoveActiveTabToNewThreadIfShared(moved.GetCallback());
+  EXPECT_TRUE(moved.Get());
+}
+
+TEST_F(
+    ContextualTasksPageHandlerTest,
+    MoveActiveTabToNewThreadIfShared_ScopedToTab_InactivePanel_CancelsWithoutMoving) {
+  base::test::ScopedFeatureList feature_list(kContextualTasksSidePanelTabState);
+  EXPECT_CALL(*mock_panel_controller_, IsPanelOpenForContextualTask())
+      .WillOnce(Return(true));
+  EXPECT_CALL(*mock_panel_controller_, GetActiveWebContents())
+      .WillOnce(Return(nullptr));
+  EXPECT_CALL(*mock_panel_controller_, MoveActiveTabToNewThreadIfShared())
+      .Times(0);
+
+  // Returning true stops the inactive cached panel from navigating its shared
+  // thread in place.
+  base::test::TestFuture<bool> moved;
+  page_handler_->MoveActiveTabToNewThreadIfShared(moved.GetCallback());
+  EXPECT_TRUE(moved.Get());
+}
+
+TEST_F(ContextualTasksPageHandlerTest,
+       MoveActiveTabToNewThreadIfShared_TabStateDisabled_DoesNotMove) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kContextualTasksSidePanelTabState);
+  EXPECT_CALL(*mock_panel_controller_, MoveActiveTabToNewThreadIfShared())
+      .Times(0);
+
+  base::test::TestFuture<bool> moved;
+  page_handler_->MoveActiveTabToNewThreadIfShared(moved.GetCallback());
+  EXPECT_FALSE(moved.Get());
+}
+
 TEST_F(ContextualTasksPageHandlerTest, OnWebviewMessage_HandshakeResponse) {
   lens::AimToClientMessage message;
   message.mutable_handshake_response();
@@ -1112,22 +1162,44 @@ TEST_F(ContextualTasksPageHandlerTest,
   std::vector<uint8_t> serialized(size);
   message.SerializeToArray(serialized.data(), size);
 
+  NiceMock<contextual_search::MockContextualSearchSessionHandle>
+      mock_session_handle;
   EXPECT_CALL(*contextual_tasks_ui_, GetOrCreateContextualSessionHandle())
-      .WillOnce(Return(nullptr));
+      .WillRepeatedly(Return(&mock_session_handle));
   EXPECT_CALL(*mock_contextual_tasks_service_,
               SetUrlResourcesFromServer(task_id, _))
       .Times(1);
 
-  // Since is_history_thread_loading() is true, we expect GetContextForTask to
-  // be called.
+  ContextualTask task(task_id);
+  UrlResource tab_resource(GURL(kExampleUrl), ResourceType::kWebpage);
+  tab_resource.title = "History Tab";
+  tab_resource.tab_id = SessionID::NewUnique();
+  tab_resource.has_chrome_tab_data = true;
+  task.AddUrlResource(tab_resource);
+
   EXPECT_CALL(*mock_contextual_tasks_service_,
               GetContextForTask(task_id, _, _, _))
-      .Times(1);
+      .WillOnce(
+          [&](const base::Uuid&, const std::set<ContextualTaskContextSource>&,
+              std::unique_ptr<ContextDecorationParams>,
+              base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
+                  callback) {
+            std::move(callback).Run(
+                std::make_unique<ContextualTaskContext>(task));
+          });
+  EXPECT_CALL(*contextual_tasks_ui_, OnRestoredTabsFetched(_)).Times(1);
 
   page_handler_->OnWebviewMessage(serialized);
 
-  // Verify that the flag is reset to false after handling.
+  // Verify that the flag is reset to false after handling and the session
+  // handle's restored tabs are populated.
   EXPECT_FALSE(contextual_tasks_ui_->is_history_thread_loading());
+  const auto& restored = mock_session_handle.GetTabContextState().restored;
+  ASSERT_EQ(restored.size(), 1u);
+  EXPECT_EQ(restored[0].url, GURL(kExampleUrl));
+  EXPECT_EQ(restored[0].title, "History Tab");
+  EXPECT_EQ(restored[0].tab_id, tab_resource.tab_id->id());
+  EXPECT_TRUE(restored[0].submitted);
 }
 
 TEST_F(ContextualTasksPageHandlerTest,
@@ -1152,22 +1224,46 @@ TEST_F(ContextualTasksPageHandlerTest,
   std::vector<uint8_t> serialized(size);
   message.SerializeToArray(serialized.data(), size);
 
+  NiceMock<contextual_search::MockContextualSearchSessionHandle>
+      mock_session_handle;
   EXPECT_CALL(*contextual_tasks_ui_, GetOrCreateContextualSessionHandle())
-      .WillOnce(Return(nullptr));
+      .WillRepeatedly(Return(&mock_session_handle));
   EXPECT_CALL(*mock_contextual_tasks_service_,
               SetUrlResourcesFromServer(task_id, _))
       .Times(1);
 
-  // Since is_history_thread_loading() is false, GetContextForTask should NOT be
-  // called.
+  ContextualTask task(task_id);
+  UrlResource tab_resource(GURL(kExampleUrl), ResourceType::kWebpage);
+  tab_resource.title = "Active Turn Tab";
+  tab_resource.tab_id = SessionID::NewUnique();
+  tab_resource.has_chrome_tab_data = true;
+  task.AddUrlResource(tab_resource);
+
+  // On an active turn, GetContextForTask updates the session handle's restored
+  // tabs without invoking OnRestoredTabsFetched on the WebUI controller.
   EXPECT_CALL(*mock_contextual_tasks_service_,
               GetContextForTask(task_id, _, _, _))
-      .Times(0);
+      .WillOnce(
+          [&](const base::Uuid&, const std::set<ContextualTaskContextSource>&,
+              std::unique_ptr<ContextDecorationParams>,
+              base::OnceCallback<void(std::unique_ptr<ContextualTaskContext>)>
+                  callback) {
+            std::move(callback).Run(
+                std::make_unique<ContextualTaskContext>(task));
+          });
+  EXPECT_CALL(*contextual_tasks_ui_, OnRestoredTabsFetched(_)).Times(0);
 
   page_handler_->OnWebviewMessage(serialized);
 
-  // Verify that the flag remains false.
+  // Verify that the flag remains false and the session handle's restored tabs
+  // are updated.
   EXPECT_FALSE(contextual_tasks_ui_->is_history_thread_loading());
+  const auto& restored = mock_session_handle.GetTabContextState().restored;
+  ASSERT_EQ(restored.size(), 1u);
+  EXPECT_EQ(restored[0].url, GURL(kExampleUrl));
+  EXPECT_EQ(restored[0].title, "Active Turn Tab");
+  EXPECT_EQ(restored[0].tab_id, tab_resource.tab_id->id());
+  EXPECT_TRUE(restored[0].submitted);
 }
 
 }  // namespace contextual_tasks

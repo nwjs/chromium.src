@@ -41,6 +41,7 @@
 #include "components/autofill/core/browser/data_model/payments/payments_metadata.h"
 #include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/data_model/valuables/valuable_types.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/payments/payments_customer_data.h"
 #include "components/autofill/core/browser/webdata/addresses/address_autofill_table.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
@@ -367,13 +368,13 @@ void AutofillWebDataBackendImpl::NotifyOnServerCvcChanged(
 
 void AutofillWebDataBackendImpl::NotifyOnEntityInstanceChanged(
     const EntityInstanceChange& change,
-    std::optional<std::string_view> context_token) {
+    std::optional<std::string_view> legal_message_token) {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
 
   // DB sequence notification.
   for (AutofillWebDataServiceObserverOnDBSequence& db_observer :
        db_observer_list_) {
-    db_observer.EntityInstanceChanged(change, context_token);
+    db_observer.EntityInstanceChanged(change, legal_message_token);
   }
 
   // Notify about potential server metadata changes.
@@ -677,7 +678,7 @@ std::unique_ptr<WDTypedResult> AutofillWebDataBackendImpl::GetAutofillProfiles(
 
 WebDatabase::State AutofillWebDataBackendImpl::AddOrUpdateEntityInstance(
     EntityInstance entity,
-    std::optional<std::string> context_token,
+    std::optional<std::string> legal_message_token,
     base::OnceCallback<void(EntityInstanceChange)> on_success,
     WebDatabase* db) {
   DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
@@ -687,13 +688,13 @@ WebDatabase::State AutofillWebDataBackendImpl::AddOrUpdateEntityInstance(
                                                ? EntityInstanceChange::UPDATE
                                                : EntityInstanceChange::ADD;
 
-  if (!table->AddOrUpdateEntityInstance(entity)) {
+  if (!table->AddOrUpdateEntityInstance(entity, legal_message_token)) {
     ReportResult(Result::kAddOrUpdateEntityInstance_Failure);
     return WebDatabase::COMMIT_NOT_NEEDED;
   }
 
   EntityInstanceChange change(change_type, std::move(guid), std::move(entity));
-  NotifyOnEntityInstanceChanged(change, context_token);
+  NotifyOnEntityInstanceChanged(change, legal_message_token);
 
   ui_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(std::move(on_success), std::move(change)));
@@ -734,7 +735,7 @@ WebDatabase::State AutofillWebDataBackendImpl::RemoveEntityInstance(
   // Notify observers.
   EntityInstanceChange change(EntityInstanceChange::REMOVE, std::move(guid),
                               std::move(entity));
-  NotifyOnEntityInstanceChanged(change, /*context_token=*/std::nullopt);
+  NotifyOnEntityInstanceChanged(change, /*legal_message_token=*/std::nullopt);
   ui_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(std::move(on_success), std::move(change)));
   ReportResult(Result::kRemoveEntityInstance_Success);
@@ -815,6 +816,20 @@ AutofillWebDataBackendImpl::GetCountOfValuesContainedBetween(base::Time begin,
                               ->GetCountOfValuesContainedBetween(begin, end);
     return std::make_unique<WDResult<int64_t>>(INT64_RESULT, value);
   }
+}
+
+std::unique_ptr<WDTypedResult>
+AutofillWebDataBackendImpl::GetAutocompleteTableStats(WebDatabase* db) {
+  DCHECK(owning_task_runner()->RunsTasksInCurrentSequence());
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillLabelSensitiveAutocomplete)) {
+    return std::make_unique<WDResult<AutocompleteTableStats>>(
+        AUTOCOMPLETE_TABLE_STATS,
+        AutocompleteTableLabelSensitive::FromWebDatabase(db)->GetTableStats());
+  }
+  return std::make_unique<WDResult<AutocompleteTableStats>>(
+      AUTOCOMPLETE_TABLE_STATS,
+      AutocompleteTable::FromWebDatabase(db)->GetTableStats());
 }
 
 WebDatabase::State AutofillWebDataBackendImpl::UpdateAutocompleteEntries(

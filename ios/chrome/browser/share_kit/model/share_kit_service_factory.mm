@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/share_kit/model/share_kit_service_factory.h"
 
+#import <utility>
+
 #import "base/check.h"
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
@@ -18,21 +20,8 @@
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/public/provider/chrome/browser/share_kit/share_kit_api.h"
 
-// static
-ShareKitService* ShareKitServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return static_cast<ShareKitService*>(
-      GetInstance()->GetServiceForProfileAs<ShareKitService>(profile,
-                                                             /*create=*/true));
-}
-
-// static
-ShareKitServiceFactory* ShareKitServiceFactory::GetInstance() {
-  static base::NoDestructor<ShareKitServiceFactory> instance;
-  return instance.get();
-}
-
-ShareKitServiceFactory::ShareKitServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("ShareKitService") {
+ShareKitServiceFactory::ShareKitServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key), "ShareKitService") {
   DependsOn(AuthenticationServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
@@ -40,8 +29,6 @@ ShareKitServiceFactory::ShareKitServiceFactory()
   DependsOn(tab_groups::TabGroupSyncServiceFactory::GetInstance());
   DependsOn(TabGroupServiceFactory::GetInstance());
 }
-
-ShareKitServiceFactory::~ShareKitServiceFactory() = default;
 
 std::unique_ptr<KeyedService> ShareKitServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

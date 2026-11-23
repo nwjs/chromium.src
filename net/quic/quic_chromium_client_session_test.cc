@@ -36,7 +36,6 @@
 #include "net/dns/public/host_resolver_results.h"
 #include "net/dns/public/secure_dns_policy.h"
 #include "net/http/transport_security_state.h"
-#include "net/http/transport_security_state_test_util.h"
 #include "net/log/net_log.h"
 #include "net/log/net_log_source.h"
 #include "net/net_buildflags.h"
@@ -102,6 +101,10 @@
 #if BUILDFLAG(ENABLE_WEBSOCKETS)
 #include "net/websockets/websocket_quic_spdy_stream.h"
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
+
+#if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
+#include "net/cert/key_pinning_state_chrome_test_util.h"
+#endif
 
 using testing::_;
 
@@ -1908,13 +1911,21 @@ TEST_P(QuicChromiumClientSessionTest, CanPoolWithNetworkAnonymizationKey) {
                      handles::kInvalidNetworkHandle)));
 }
 
+// The PKP tests depend on ScopedKeyPinningStateChromeDefaults and
+// KeyPinningStateChrome which are only available when the builtin pin list is
+// compiled in. We could also make a separate version of these tests that use
+// the dynamic PKP path for testing on cronet, but it's not really worth the
+// effort, especially since this is only a temporary state. Once PKP refactor
+// is complete and pinning is only done in cert verification, then these tests
+// can just configure the mock cert verifier to test the desired pkp results.
+#if BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
 TEST_P(QuicChromiumClientSessionTest, ConnectionNotPooledWithDifferentPin) {
   base::test::ScopedFeatureList scoped_feature_list_;
   scoped_feature_list_.InitAndEnableFeature(
       net::features::kStaticKeyPinningEnforcement);
   // Configure the TransportSecurityStateSource so that kPreloadedPKPHost will
   // have static PKP pins set.
-  ScopedTransportSecurityStateSource scoped_security_state_source;
+  ScopedKeyPinningStateChromeDefaults scoped_key_pinning_enable;
 
   // |net::test_default::kHSTSSource| defines pins for kPreloadedPKPHost.
   // (This hostname must be in the spdy_pooling.pem SAN.)
@@ -1931,8 +1942,7 @@ TEST_P(QuicChromiumClientSessionTest, ConnectionNotPooledWithDifferentPin) {
   quic_data.AddSocketDataToFactory(&socket_factory_);
   Initialize();
 
-  transport_security_state_->EnableStaticPinsForTesting();
-  transport_security_state_->SetPinningListAlwaysTimelyForTesting(true);
+  transport_security_state_->ReinitializePinningForTesting();
 
   ProofVerifyDetailsChromium details;
   details.cert_verify_result.verified_cert =
@@ -1959,7 +1969,7 @@ TEST_P(QuicChromiumClientSessionTest, ConnectionNotPooledWithDifferentPin) {
 }
 
 TEST_P(QuicChromiumClientSessionTest, ConnectionPooledWithMatchingPin) {
-  ScopedTransportSecurityStateSource scoped_security_state_source;
+  ScopedKeyPinningStateChromeDefaults scoped_key_pinning_enable;
 
   MockQuicData quic_data(version_);
   quic_data.AddWrite(SYNCHRONOUS, client_maker_.MakeInitialSettingsPacket(1));
@@ -1968,7 +1978,7 @@ TEST_P(QuicChromiumClientSessionTest, ConnectionPooledWithMatchingPin) {
   quic_data.AddSocketDataToFactory(&socket_factory_);
   Initialize();
 
-  transport_security_state_->EnableStaticPinsForTesting();
+  transport_security_state_->ReinitializePinningForTesting();
 
   ProofVerifyDetailsChromium details;
   details.cert_verify_result.verified_cert =
@@ -1995,6 +2005,7 @@ TEST_P(QuicChromiumClientSessionTest, ConnectionPooledWithMatchingPin) {
                      /*disable_cert_verification_network_fetches=*/false,
                      handles::kInvalidNetworkHandle)));
 }
+#endif  // BUILDFLAG(CHROME_KEY_PINNING_SUPPORTED)
 
 TEST_P(QuicChromiumClientSessionTest, MigrateToSocket) {
   quic::QuicConnectionId cid_on_new_path =
@@ -2432,8 +2443,6 @@ TEST_P(QuicChromiumClientSessionTest,
       "Net.Quic.Migration.Attempt.SpuriousOutcome", 0);
   histogram_tester.ExpectTotalCount(
       "Net.Quic.Migration.Attempt.UnclassifiedOutcome", 0);
-  histogram_tester.ExpectUniqueSample("Net.QuicSession.ConnectionMigration",
-                                      MIGRATION_STATUS_INTERNAL_ERROR, 1);
 }
 
 // A probe that cannot even be started because the connection has no unused
@@ -2494,8 +2503,6 @@ TEST_P(QuicChromiumClientSessionTest, ProbingFailsWithNoUnusedConnectionId) {
       "Net.Quic.Migration.Attempt.SpuriousOutcome", 0);
   histogram_tester.ExpectTotalCount(
       "Net.Quic.Migration.Attempt.UnclassifiedOutcome", 0);
-  histogram_tester.ExpectUniqueSample("Net.QuicSession.ConnectionMigration",
-                                      MIGRATION_STATUS_INTERNAL_ERROR, 1);
 }
 
 TEST_P(QuicChromiumClientSessionTest,
@@ -2565,8 +2572,6 @@ TEST_P(QuicChromiumClientSessionTest,
       "Net.Quic.Migration.Attempt.SpuriousOutcome", 0);
   histogram_tester.ExpectTotalCount(
       "Net.Quic.Migration.Attempt.UnclassifiedOutcome", 0);
-  histogram_tester.ExpectUniqueSample("Net.QuicSession.ConnectionMigration",
-                                      MIGRATION_STATUS_DISCONNECTING, 1);
 }
 
 TEST_P(QuicChromiumClientSessionTest,
@@ -2633,9 +2638,6 @@ TEST_P(QuicChromiumClientSessionTest,
       "Net.Quic.Migration.Attempt.SpuriousOutcome", 0);
   histogram_tester.ExpectTotalCount(
       "Net.Quic.Migration.Attempt.UnclassifiedOutcome", 0);
-  histogram_tester.ExpectUniqueSample(
-      "Net.QuicSession.ConnectionMigration",
-      MIGRATION_STATUS_CANCELED_BY_NEWER_VALIDATION, 1);
 }
 
 TEST_P(QuicChromiumClientSessionTest,
@@ -2646,8 +2648,7 @@ TEST_P(QuicChromiumClientSessionTest,
   quic::test::QuicFlagSaver flags;
   SetQuicReloadableFlag(quic_active_connection_id_limit, true);
   config_.SetActiveConnectionIdLimitToSend(3);
-  quic::QuicConnectionId cid_for_probe =
-      quic::test::TestConnectionId(12345678);
+  quic::QuicConnectionId cid_for_probe = quic::test::TestConnectionId(12345678);
   quic::QuicConnectionId cid_for_commit =
       quic::test::TestConnectionId(87654321);
   MockQuicData quic_data(version_);
@@ -2734,8 +2735,7 @@ TEST_P(QuicChromiumClientSessionTest,
   quic::test::QuicFlagSaver flags;
   SetQuicReloadableFlag(quic_active_connection_id_limit, true);
   config_.SetActiveConnectionIdLimitToSend(3);
-  quic::QuicConnectionId cid_for_probe =
-      quic::test::TestConnectionId(12345678);
+  quic::QuicConnectionId cid_for_probe = quic::test::TestConnectionId(12345678);
   quic::QuicConnectionId cid_for_commit =
       quic::test::TestConnectionId(87654321);
   MockQuicData quic_data(version_);
@@ -2793,7 +2793,8 @@ TEST_P(QuicChromiumClientSessionTest,
   EXPECT_CALL(*session_, UnregisterQuicConnectionClosePayload());
   EXPECT_CALL(*session_, RegisterQuicConnectionClosePayload());
   EXPECT_TRUE(session_->CommitMigration(std::move(commit_context)));
-  // When the feature is disabled, CommitMigration does not cancel the in-flight probe.
+  // When the feature is disabled, CommitMigration does not cancel the in-flight
+  // probe.
   EXPECT_TRUE(session_->connection()->HasPendingPathValidation());
 
   histogram_tester.ExpectTotalCount("Net.Quic.Migration.Attempt.Superseded", 0);
@@ -2875,8 +2876,6 @@ TEST_P(QuicChromiumClientSessionTest, PathValidationFailure_RetryTimeout) {
       "Net.Quic.Migration.Attempt.SpuriousOutcome", 0);
   histogram_tester.ExpectTotalCount(
       "Net.Quic.Migration.Attempt.UnclassifiedOutcome", 0);
-  histogram_tester.ExpectUniqueSample("Net.QuicSession.ConnectionMigration",
-                                      MIGRATION_STATUS_TIMEOUT, 1);
 }
 
 TEST_P(QuicChromiumClientSessionTest, RetransmittableOnWireTimeout) {
@@ -3576,11 +3575,8 @@ TEST_P(QuicChromiumClientSessionTest,
   // Simulate redundant OnNetworkMadeDefault with the SAME network.
   session_->OnNetworkMadeDefault(kDefaultNetworkForTests);
 
-  // Verify that ALREADY_MIGRATED IS logged because feature is disabled by
-  // default.
-  histogram_tester.ExpectBucketCount(
-      "Net.QuicSession.ConnectionMigration.OnNetworkMadeDefault",
-      MIGRATION_STATUS_ALREADY_MIGRATED, 1);
+  // Verify that kAlreadyOnTargetNetwork IS logged because feature is disabled
+  // by default.
   histogram_tester.ExpectBucketCount(
       "Net.Quic.Migration.Attempt.Ineligible",
       QuicMigrationAttemptIneligibleReason::kAlreadyOnTargetNetwork, 1);
@@ -3611,10 +3607,8 @@ TEST_P(QuicChromiumClientSessionTest,
   // Simulate redundant OnNetworkMadeDefault with the SAME network.
   session_->OnNetworkMadeDefault(kDefaultNetworkForTests);
 
-  // Verify that ALREADY_MIGRATED is NOT logged because feature is enabled.
-  histogram_tester.ExpectBucketCount(
-      "Net.QuicSession.ConnectionMigration.OnNetworkMadeDefault",
-      MIGRATION_STATUS_ALREADY_MIGRATED, 0);
+  // Verify that kAlreadyOnTargetNetwork is NOT logged because feature is
+  // enabled.
   histogram_tester.ExpectBucketCount(
       "Net.Quic.Migration.Attempt.Ineligible",
       QuicMigrationAttemptIneligibleReason::kAlreadyOnTargetNetwork, 0);
@@ -3631,13 +3625,10 @@ TEST_P(QuicChromiumClientSessionTest,
   // Call OnNetworkMadeDefault with WiFi again.
   // Since default_network_ is now invalid, it should NOT return early.
   // Since GetCurrentNetwork() is WiFi, and new_network is WiFi,
-  // it should detect we are already on WiFi and log ALREADY_MIGRATED.
+  // it should detect we are already on WiFi and log kAlreadyOnTargetNetwork.
   session_->OnNetworkMadeDefault(kDefaultNetworkForTests);
 
-  // Verify that ALREADY_MIGRATED IS logged now.
-  histogram_tester.ExpectBucketCount(
-      "Net.QuicSession.ConnectionMigration.OnNetworkMadeDefault",
-      MIGRATION_STATUS_ALREADY_MIGRATED, 1);
+  // Verify that kAlreadyOnTargetNetwork IS logged now.
   histogram_tester.ExpectBucketCount(
       "Net.Quic.Migration.Attempt.Ineligible",
       QuicMigrationAttemptIneligibleReason::kAlreadyOnTargetNetwork, 1);

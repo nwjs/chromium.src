@@ -162,6 +162,28 @@ TEST_F(TopicsFeedbackExporterTest, Preview_Empty) {
   EXPECT_THAT(preview->domains, IsEmpty());
 }
 
+TEST_F(TopicsFeedbackExporterTest,
+       Preview_IncludesTopicVisitsMissingFromHistory) {
+  TopicsFeedbackExportData data;
+  data.window_start = kTime1;
+  data.journeys.push_back(
+      Journey("topic", {history::journeys::JourneyVisit(
+                            GURL("https://example.com/login"), u"Sign in",
+                            kTime2, /*is_foreign=*/false),
+                        JourneyVisit("https://example.com/old", kTime0)}));
+
+  mojom::TopicsFeedbackExportPreviewPtr preview =
+      BuildTopicsFeedbackExportPreview(data);
+
+  EXPECT_EQ(1u, preview->stats->visits);
+  EXPECT_EQ(0u, preview->stats->unclustered_visits);
+  ASSERT_EQ(1u, preview->domains.size());
+  ASSERT_EQ(1u, preview->domains[0]->urls.size());
+  EXPECT_EQ(GURL("https://example.com/login"),
+            preview->domains[0]->urls[0]->url);
+  EXPECT_EQ("Sign in", preview->domains[0]->urls[0]->title);
+}
+
 TEST_F(TopicsFeedbackExporterTest, Bundle_LinksVisitsByTimeAndMinimizedUrl) {
   TopicsFeedbackExportData data;
   data.journeys.push_back(
@@ -172,6 +194,7 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_LinksVisitsByTimeAndMinimizedUrl) {
       Journey("topic-2", {JourneyVisit("https://example.com/b", kTime2),
                           JourneyVisit("https://example.com/c", kTime3)}));
   data.visits = {
+      Visit("https://example.com/c", u"", kTime3),
       // Same URL as a topic visit, but a different time.
       Visit("https://example.com/c", u"", kTime2),
       Visit("https://example.com/b", u"", kTime2),
@@ -183,15 +206,60 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_LinksVisitsByTimeAndMinimizedUrl) {
 
   base::ListValue visits = BuildVisits(data, *DefaultOptions());
 
-  ASSERT_EQ(4u, visits.size());
-  EXPECT_EQ(nullptr, visits[0].GetDict().FindString("topic_id"));
-  EXPECT_EQ("topic-1", *visits[1].GetDict().FindString("topic_id"));
-  EXPECT_EQ(nullptr, visits[2].GetDict().FindString("topic_id"));
-  EXPECT_EQ("topic-1", *visits[3].GetDict().FindString("topic_id"));
+  ASSERT_EQ(5u, visits.size());
+  EXPECT_EQ("topic-2", *visits[0].GetDict().FindString("topic_id"));
+  EXPECT_EQ(nullptr, visits[1].GetDict().FindString("topic_id"));
+  EXPECT_EQ("topic-1", *visits[2].GetDict().FindString("topic_id"));
+  EXPECT_EQ(nullptr, visits[3].GetDict().FindString("topic_id"));
+  EXPECT_EQ("topic-1", *visits[4].GetDict().FindString("topic_id"));
 
   mojom::TopicsFeedbackExportPreviewPtr preview =
       BuildTopicsFeedbackExportPreview(data);
   EXPECT_EQ(2u, preview->stats->unclustered_visits);
+}
+
+TEST_F(TopicsFeedbackExporterTest, Bundle_AddsTopicVisitsMissingFromHistory) {
+  TopicsFeedbackExportData data;
+  data.window_start = kTime1;
+  data.journeys.push_back(Journey(
+      "topic",
+      {JourneyVisit("https://example.com/home", kTime3),
+       history::journeys::JourneyVisit(GURL("https://example.com/login#f"),
+                                       u"Sign in", kTime2, /*is_foreign=*/true),
+       // Before the window.
+       JourneyVisit("https://example.com/old", kTime0)}));
+  // History doesn't return the kTime2 and kTime0 topic visits.
+  data.visits = {
+      Visit("https://example.com/home", u"Home", kTime3),
+      Visit("https://example.com/b", u"B", kTime1),
+  };
+
+  EXPECT_THAT(BuildVisits(data, *DefaultOptions()), IsJson(R"([
+    {
+      "t": "2026-09-23T09:00:00.000000Z",
+      "url": "https://example.com/home",
+      "title": "Home",
+      "topic_id": "topic",
+      "device": "local",
+      "redacted": false
+    },
+    {
+      "t": "2026-09-22T10:05:00.000000Z",
+      "url": "https://example.com/login",
+      "title": "Sign in",
+      "topic_id": "topic",
+      "device": "synced",
+      "redacted": false
+    },
+    {
+      "t": "2026-09-22T10:01:02.123456Z",
+      "url": "https://example.com/b",
+      "title": "B",
+      "topic_id": null,
+      "device": "local",
+      "redacted": false
+    }
+  ])"));
 }
 
 TEST_F(TopicsFeedbackExporterTest, Bundle_DropsNonWebVisitsAndMinimizesUrls) {
@@ -328,6 +396,22 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_ExcludedUrlsAreRedactedStubs) {
   ])"));
 }
 
+TEST_F(TopicsFeedbackExporterTest,
+       Bundle_RedactsTopicVisitsMissingFromHistory) {
+  TopicsFeedbackExportData data;
+  data.journeys.push_back(
+      Journey("topic", {JourneyVisit("https://example.com/login", kTime2)}));
+  auto options = DefaultOptions();
+  options->excluded_urls = {GURL("https://example.com/login")};
+
+  EXPECT_THAT(BuildVisits(data, *options), IsJson(R"([{
+    "t": "2026-09-22T10:05:00.000000Z",
+    "topic_id": "topic",
+    "device": "local",
+    "redacted": true
+  }])"));
+}
+
 TEST_F(TopicsFeedbackExporterTest, Bundle_KeepsTitlesOfUnredactedVisits) {
   TopicsFeedbackExportData data;
   data.visits = {
@@ -377,7 +461,8 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_FeedbackDuplicateOf) {
       "id": "topic-2",
       "title": "Topic 2",
       "visit_times": ["2026-09-22T10:05:00.000000Z"]
-    }
+    },
+    "collection_feedbacks": []
   }])"));
 }
 
@@ -388,7 +473,12 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_MatchesSchema) {
       {JourneyVisit("https://example.com/a#frag", kTime1),
        JourneyVisit("https://other.com/x", kTime0, /*is_foreign=*/true)},
       {history::journeys::JourneyContinuationQuery("Query title",
-                                                   "Query prompt")}));
+                                                   "Query prompt")},
+      {history::journeys::JourneyVisitCollection(
+          "Pages you compared",
+          {JourneyVisit("https://example.com/a#frag", kTime1),
+           JourneyVisit("https://other.com/x", kTime0,
+                        /*is_foreign=*/true)})}));
   data.visits = {
       Visit("https://docs.google.com/doc", u"Doc", kTime3),
       Visit("https://news.com/?token=abc&q=1", u"News", kTime2,
@@ -397,6 +487,8 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_MatchesSchema) {
       Visit("https://example.com/a", u"Page A", kTime1),
   };
   data.unresolvable_topics = 2;
+  // After kTime0, so the other.com topic visit isn't added to "visits".
+  data.window_start = UtcTime(2026, 9, 19, 21, 0, 0);
 
   auto feedback = mojom::TopicFeedback::New();
   feedback->id = "topic-1";
@@ -411,6 +503,9 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_MatchesSchema) {
   feedback->query_feedbacks.push_back(
       mojom::TopicQueryFeedback::New(0, "Query title", true));
   feedback->rejected_visits = {kTime0};
+  feedback->collection_feedbacks.push_back(mojom::TopicCollectionFeedback::New(
+      "Pages you compared", mojom::TopicRating::kDisliked,
+      std::vector{kTime0}));
   data.feedbacks.push_back(std::move(feedback));
 
   TopicsFeedbackExportContext context;
@@ -429,7 +524,7 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_MatchesSchema) {
   options->missing_topics = "A topic about my garden.";
 
   EXPECT_THAT(BuildTopicsFeedbackBundle(data, context, *options), IsJson(R"({
-    "schema_version": 1,
+    "schema_version": 2,
     "exported_at": "2026-09-24T21:00:00.000000Z",
     "chrome": {"version": "155.0.8043.0", "channel": "canary"},
     "feature_params": {"Topics": {"fishfood_feedback": "true"}},
@@ -459,7 +554,14 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_MatchesSchema) {
       ],
       "continuation_queries": [
         {"title": "Query title", "prompt": "Query prompt"}
-      ]
+      ],
+      "collections": [{
+        "title": "Pages you compared",
+        "visit_times": [
+          "2026-09-22T10:01:02.123456Z",
+          "2026-09-10T08:00:00.000000Z"
+        ]
+      }]
     }],
     "visits": [
       {
@@ -505,7 +607,12 @@ TEST_F(TopicsFeedbackExporterTest, Bundle_MatchesSchema) {
           {"index": 0, "query_text": "Query title", "liked": true}
         ],
         "rejected_visits": ["2026-09-10T08:00:00.000000Z"],
-        "duplicate_of": null
+        "duplicate_of": null,
+        "collection_feedbacks": [{
+          "title": "Pages you compared",
+          "rating": "disliked",
+          "rejected_item_visits": ["2026-09-10T08:00:00.000000Z"]
+        }]
       }],
       "missing_topics": "A topic about my garden."
     }

@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/barrier_callback.h"
@@ -30,7 +31,6 @@
 #include "chrome/common/search/instant_types.h"
 #include "chrome/common/url_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
@@ -49,7 +49,8 @@
 
 namespace {
 
-constexpr char kSidePanelSnapshotImageOptions[] = "=w320-h180-p-k-no-nd-mv";
+constexpr std::string_view kSidePanelSnapshotImageOptions =
+    "=w320-h180-p-k-no-nd-mv";
 
 // Copies the image at `from_path` into the profile directory and returns its
 // bytes, or std::nullopt on failure. Writes via temp file + rename so a
@@ -98,13 +99,6 @@ SkColor GetBitmapMainColor(const SkBitmap& bitmap) {
 // static
 void NtpCustomBackgroundService::RegisterProfilePrefs(
     PrefRegistrySimple* registry) {
-#if !BUILDFLAG(IS_ANDROID)
-  registry->RegisterDictionaryPref(
-      prefs::kDeprecatedNtpCustomBackgroundDictDoNotUse,
-      NtpCustomBackgroundDefaults(),
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-#endif
-
   registry->RegisterDictionaryPref(prefs::kNtpCustomBackgroundDict,
                                    NtpCustomBackgroundDefaults());
   registry->RegisterBooleanPref(prefs::kNtpCustomBackgroundLocalToDevice,
@@ -189,7 +183,7 @@ void NtpCustomBackgroundService::SetCustomBackgroundInfo(
     const std::string& attribution_line_2,
     const GURL& action_url,
     const std::string& collection_id) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (IsCustomBackgroundDisabledByPolicy()) {
     return;
   }
@@ -264,7 +258,7 @@ void NtpCustomBackgroundService::SelectLocalBackgroundImage(
 }
 
 void NtpCustomBackgroundService::RefreshBackgroundIfNeeded() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   // Do not refresh background & color if extension theme is in use.
   if (theme_delegate_ && theme_delegate_->UsingExtensionTheme()) {
     return;
@@ -289,20 +283,19 @@ void NtpCustomBackgroundService::RefreshBackgroundIfNeeded() {
 
 std::optional<CustomBackground>
 NtpCustomBackgroundService::GetCustomBackground() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
 
   if (pref_service_->GetBoolean(prefs::kNtpCustomBackgroundLocalToDevice)) {
     auto custom_background = std::make_optional<CustomBackground>();
     // Add a timestamp to the url to prevent the browser from using a cached
     // version when "Upload an image" is used multiple times.
     std::string time_string = base::NumberToString(base::Time::Now().ToTimeT());
-    std::string local_background_id =
+    const std::string& local_background_id =
         pref_service_->GetString(prefs::kNtpCustomBackgroundLocalToDeviceId);
-    std::string local_string(
-        chrome::kChromeUIUntrustedNewTabPageUrl + local_background_id +
-        chrome::kChromeUIUntrustedNewTabPageBackgroundFilename);
-    GURL timestamped_url(local_string + "?ts=" + time_string);
-    custom_background->custom_background_url = timestamped_url;
+    custom_background->custom_background_url = GURL(base::StrCat(
+        {chrome::kChromeUIUntrustedNewTabPageUrl, local_background_id,
+         chrome::kChromeUIUntrustedNewTabPageBackgroundFilename,
+         "?ts=", time_string}));
     custom_background->is_uploaded_image = true;
     custom_background->local_background_id =
         base::Token::FromString(local_background_id);
@@ -320,16 +313,16 @@ NtpCustomBackgroundService::GetCustomBackground() {
   auto custom_background =
       NtpCustomBackgroundServiceBase::GetCustomBackground();
   if (custom_background) {
-    std::string custom_background_url_spec =
+    std::string_view custom_background_url_spec =
         custom_background->custom_background_url.spec();
     size_t image_options_index = custom_background_url_spec.find("=");
     if (image_options_index != std::string::npos) {
-      custom_background->custom_background_snapshot_url =
-          GURL(custom_background_url_spec.substr(0, image_options_index) +
-               kSidePanelSnapshotImageOptions);
+      custom_background->custom_background_snapshot_url = GURL(base::StrCat(
+          {custom_background_url_spec.substr(0, image_options_index),
+           kSidePanelSnapshotImageOptions}));
     } else {
-      custom_background->custom_background_snapshot_url =
-          GURL(custom_background_url_spec + kSidePanelSnapshotImageOptions);
+      custom_background->custom_background_snapshot_url = GURL(base::StrCat(
+          {custom_background_url_spec, kSidePanelSnapshotImageOptions}));
     }
   }
   return custom_background;
@@ -350,7 +343,8 @@ bool NtpCustomBackgroundService::IsCustomBackgroundDisabledByPolicy() {
   bool managed =
       pref_service_->IsManagedPreference(prefs::kNtpCustomBackgroundDict);
   if (managed) {
-    DCHECK(pref_service_->GetDict(prefs::kNtpCustomBackgroundDict).empty());
+    CHECK(pref_service_->GetDict(prefs::kNtpCustomBackgroundDict).empty(),
+          base::NotFatalUntil::M162);
   }
   return managed;
 }
@@ -391,7 +385,8 @@ void NtpCustomBackgroundService::UpdateCustomBackgroundColorAsync(
 void NtpCustomBackgroundService::VerifyCustomBackgroundImageURL() {
   auto custom_background = GetCustomBackground();
   if (custom_background && !custom_background->is_uploaded_image) {
-    GURL custom_background_url = custom_background->custom_background_url;
+    const GURL& custom_background_url =
+        custom_background->custom_background_url;
     background_service_->VerifyImageURL(
         custom_background_url,
         base::BindOnce(
@@ -442,13 +437,13 @@ void NtpCustomBackgroundService::SetBackgroundToLocalResourceWithId(
 }
 
 void NtpCustomBackgroundService::ForceRefreshBackground() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
 
   const base::DictValue& background_info =
       pref_service_->GetDict(prefs::kNtpCustomBackgroundDict);
-  std::string collection_id =
+  const std::string& collection_id =
       background_info.Find(kNtpCustomBackgroundCollectionId)->GetString();
-  std::string resume_token =
+  const std::string& resume_token =
       background_info.Find(kNtpCustomBackgroundResumeToken)->GetString();
   background_service_->FetchNextCollectionImage(collection_id, resume_token);
 }

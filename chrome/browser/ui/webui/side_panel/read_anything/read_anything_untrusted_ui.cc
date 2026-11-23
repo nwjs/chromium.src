@@ -136,6 +136,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"nextSentenceLabel", IDS_READING_MODE_NAVIGATE_NEXT_SENTENCE},
       {"settingsLabel", IDS_READING_MODE_SETTINGS},
       {"translateLabel", IDS_READING_MODE_TRANSLATE},
+      {"sendFeedbackLabel", IDS_READING_MODE_SEND_FEEDBACK_LABEL},
       {"voiceSpeedLabel", IDS_READING_MODE_VOICE_SPEED},
       {"voiceHighlightLabel", IDS_READING_MODE_VOICE_HIGHLIGHT},
       {"voiceSpeedWithRateLabel", IDS_READING_MODE_VOICE_SPEED_WITH_RATE},
@@ -335,7 +336,7 @@ void ReadAnythingUntrustedUI::CreateUntrustedPageHandler(
     mojo::PendingRemote<read_anything::mojom::UntrustedPage> page,
     mojo::PendingReceiver<read_anything::mojom::UntrustedPageHandler>
         receiver) {
-  DCHECK(page);
+  CHECK(page, base::NotFatalUntil::M162);
   read_anything_untrusted_page_handler_ =
       std::make_unique<ReadAnythingUntrustedPageHandler>(
           std::move(page), std::move(receiver), web_ui(),

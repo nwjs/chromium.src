@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "ash/strings/grit/ash_strings.h"
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "services/accessibility/android/accessibility_window_info_data_wrapper.h"
 #include "services/accessibility/android/android_accessibility_util.h"
@@ -879,6 +880,30 @@ TEST_F(AccessibilityNodeInfoDataWrapperTest, EditTextRole) {
   EXPECT_EQ(ax::mojom::Role::kGenericContainer, data.role);
 }
 
+TEST_F(AccessibilityNodeInfoDataWrapperTest, CheckedTextViewRole) {
+  AXNodeInfoData node;
+  node.id = 1;
+  AccessibilityNodeInfoDataWrapper wrapper(tree_source(), &node);
+
+  // CheckedTextView maps to staticText by class name, even without text.
+  SetProperty(node, AXStringProperty::CLASS_NAME,
+              "android.widget.CheckedTextView");
+
+  ui::AXNodeData data = CallSerialize(wrapper);
+  EXPECT_EQ(ax::mojom::Role::kStaticText, data.role);
+
+  // It stays staticText when it has children.
+  SetProperty(node, AXIntListProperty::CHILD_NODE_IDS, std::vector<int>({2}));
+  AXNodeInfoData child;
+  child.id = 2;
+  AccessibilityNodeInfoDataWrapper child_wrapper(tree_source(), &child);
+  SetIdToWrapper(&child_wrapper);
+  SetParentId(child.id, node.id);
+
+  data = CallSerialize(wrapper);
+  EXPECT_EQ(ax::mojom::Role::kStaticText, data.role);
+}
+
 TEST_F(AccessibilityNodeInfoDataWrapperTest, StateDescription) {
   AXNodeInfoData node;
   AccessibilityNodeInfoDataWrapper wrapper(tree_source(), &node);
@@ -1115,12 +1140,12 @@ TEST_F(AccessibilityNodeInfoDataWrapperTest, CustomActions) {
   EXPECT_TRUE(data.HasAction(ax::mojom::Action::kCustomAction));
   EXPECT_TRUE(
       data.HasIntListAttribute(ax::mojom::IntListAttribute::kCustomActionIds));
-  const std::vector<int>& result_ids =
+  base::span<const int32_t> result_ids =
       data.GetIntListAttribute(ax::mojom::IntListAttribute::kCustomActionIds);
-  EXPECT_EQ(std::vector<int>({300}), result_ids);
+  EXPECT_EQ(std::vector<int32_t>({300}), result_ids);
   EXPECT_TRUE(data.HasStringListAttribute(
       ax::mojom::StringListAttribute::kCustomActionDescriptions));
-  const std::vector<std::string>& result_labels = data.GetStringListAttribute(
+  base::span<const std::string> result_labels = data.GetStringListAttribute(
       ax::mojom::StringListAttribute::kCustomActionDescriptions);
   EXPECT_EQ(std::vector<std::string>({"This is label"}), result_labels);
 }

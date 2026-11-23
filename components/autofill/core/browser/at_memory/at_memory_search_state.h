@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "base/time/time.h"
 #include "base/types/strong_alias.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 
@@ -26,8 +27,12 @@ enum class AtMemorySearchStatus {
   // The user entered or modified the filter but has not submitted it, or the
   // search for the submitted filter was cancelled.
   kQueryModified,
-  // The filter was submitted and the search is in progress.
+  // The filter was submitted and the search is in progress, but none of its
+  // results were received yet.
   kSearching,
+  // The filter was submitted and partial results of the search were received,
+  // but the search is still in progress.
+  kPartialResponseReceived,
   // The filter was submitted and the final response of the search (with
   // results or an error) was received.
   kResponseReceived,
@@ -35,9 +40,12 @@ enum class AtMemorySearchStatus {
 
 // Stores search state for AtMemory that persists across popup lifecycles.
 struct AtMemorySearchState {
+  // Suggestions resulting from a search query (e.g. search results or an error
+  // suggestion). Does not include section titles or footer notices.
   std::vector<Suggestion> suggestions;
   std::u16string filter;
   AtMemorySearchStatus status = AtMemorySearchStatus::kZeroState;
+  base::Time insertion_time;
 };
 
 }  // namespace autofill

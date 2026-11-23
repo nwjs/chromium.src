@@ -12,8 +12,6 @@ static_library("signin") {
     "auth_error_observer_factory.h",
     "authentication_flow_auto_reload_manager.cc",
     "authentication_flow_auto_reload_manager.h",
-    "legacy_token_handle_fetcher.cc",
-    "legacy_token_handle_fetcher.h",
     "merge_session_navigation_throttle.cc",
     "merge_session_navigation_throttle.h",
     "merge_session_throttling_utils.cc",
@@ -42,12 +40,10 @@ static_library("signin") {
     "token_handle_service.h",
     "token_handle_service_factory.cc",
     "token_handle_service_factory.h",
+    "token_handle_store.cc",
+    "token_handle_store.h",
     "token_handle_store_factory.cc",
     "token_handle_store_factory.h",
-    "token_handle_store_impl.cc",
-    "token_handle_store_impl.h",
-    "token_handle_util.cc",
-    "token_handle_util.h",
   ]
 
   public_deps = [
@@ -174,6 +170,7 @@ source_set("unit_tests") {
     "signin_error_notifier_unittest.cc",
     "token_handle_checker_unittest.cc",
     "token_handle_fetcher_unittest.cc",
+    "token_handle_service_unittest.cc",
     "token_handle_store_factory_unittest.cc",
     "token_handle_store_unittest.cc",
   ]

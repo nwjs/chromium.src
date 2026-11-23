@@ -29,12 +29,14 @@ import type {ContextualTasksOnboardingTooltipElement} from './onboarding_tooltip
 // clang-format on
 
 
+
 import '//resources/cr_elements/cr_button/cr_button.js';
 import './error_dialog.js';
 import './error_page.js';
 import './ghost_loader.js';
 import './top_toolbar.js';
 
+import type {LoadAbortEvent, LoadEvent, NewWindowEvent, PermissionRequestEvent} from '/shared/guest_view/slim_webview.js';
 import type {ChromeEvent} from '/tools/typescript/definitions/chrome_event.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
@@ -56,7 +58,7 @@ import type {Rect} from './post_message_handler.js';
 import {recordAction} from './utils.js';
 import {getNonOccludedClipPath} from './utils/clip_path.js';
 import {isFullWebView} from './web_view_type.js';
-import type {LoadAbortEvent, LoadEvent, NewWindowEvent, PermissionRequestEvent, WebViewType} from './web_view_type.js';
+import type {WebViewType} from './web_view_type.js';
 import {WindowManager} from './window_manager.js';
 
 
@@ -876,39 +878,41 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     if (!wrapper) {
       return null;
     }
-    const innerComposebox =
-        wrapper.shadowRoot?.querySelector<HTMLElement>('#composebox');
-    if (!innerComposebox) {
-      return null;
-    }
+    const innerComposebox = wrapper.$.composebox;
     const entrypoint = innerComposebox.shadowRoot
                            ?.querySelector<ContextualEntrypointAndMenuElement>(
                                '#contextEntrypoint');
     if (!entrypoint) {
       return null;
     }
-    return entrypoint.shadowRoot?.querySelector<ContextualActionMenuElement>(
-               '#menu') ||
-        null;
+    return entrypoint.$.menu || null;
   }
   // </if>
 
+  // LINT.IfChange(ContextualTasksTooltipLogic)
   private get isAskGEntryPointEligible_(): boolean {
+    const isOmniboxAskGEnabled =
+        loadTimeData.valueExists('webUIOmniboxAskGAboutThisPageEnabled') &&
+        loadTimeData.getBoolean('webUIOmniboxAskGAboutThisPageEnabled');
     if (this.isShownInTab_) {
-      return this.entryPoint_ === 'omnibox_tab_search';
+      return isOmniboxAskGEnabled && this.entryPoint_ === 'omnibox_tab_search';
     }
-    return this.entryPoint_ === 'omnibox_tab_search' ||
-        this.entryPoint_ === 'omnibox_action' ||
-        this.entryPoint_ === 'omnibox_contextual_suggestion' ||
-        this.entryPoint_ === 'omnibox_popup_button';
-  }
+    const isOmniboxEntryPoint = isOmniboxAskGEnabled &&
+        (this.entryPoint_ === 'omnibox_tab_search' ||
+         this.entryPoint_ === 'omnibox_action' ||
+         this.entryPoint_ === 'omnibox_contextual_suggestion' ||
+         this.entryPoint_ === 'omnibox_popup_button');
 
-  // <if expr="not is_android">
-  private get isAskGEligible_(): boolean {
-    return loadTimeData.getBoolean('webUIOmniboxAskGAboutThisPageEnabled') &&
-        this.isAskGEntryPointEligible_;
+    const isUpdatedEntryPointsEnabled =
+        loadTimeData.valueExists('contextualTasksUpdatedEntryPointsEnabled') &&
+        loadTimeData.getBoolean('contextualTasksUpdatedEntryPointsEnabled');
+    const isUpdatedEntryPoint = isUpdatedEntryPointsEnabled &&
+        (this.entryPoint_ === 'page_context_menu' ||
+         this.entryPoint_ === 'app_menu' ||
+         this.entryPoint_ === 'homework_action_chip');
+
+    return isOmniboxEntryPoint || isUpdatedEntryPoint;
   }
-  // </if>
 
   private updateTooltipVisibility_() {
     const onboardingTooltip =
@@ -947,15 +951,13 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
     // Calculate AskG tooltip
     this.askGTooltipTarget_ = this.updateInfoTooltip_(
-        this.askGTooltipState_, this.isAskGEligible_, activeTabChipTarget,
-        askGTooltip);
+        this.askGTooltipState_, this.isAskGEntryPointEligible_,
+        activeTabChipTarget, askGTooltip);
     // </if>
 
     // 3. Calculate Onboarding tooltip (Suppressed if AskG is eligible)
     if (onboardingTooltip) {
-      const suppressOnboarding =
-          loadTimeData.getBoolean('webUIOmniboxAskGAboutThisPageEnabled') &&
-          this.isAskGEntryPointEligible_;
+      const suppressOnboarding = this.isAskGEntryPointEligible_;
       const hasToken = crComposebox.getHasAutomaticActiveTabChipToken() &&
           !suppressOnboarding;
       onboardingTooltip.updateTooltipVisibility(
@@ -963,6 +965,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       this.onboardingTooltipShowing_ = onboardingTooltip.shouldShow;
     }
   }
+  // LINT.ThenChange(//chrome/browser/contextual_tasks/contextual_tasks_onboarding_tooltip_controller.cc:ContextualTasksTooltipLogic)
 
   protected onOnboardingTooltipDismissed_() {
     this.onboardingTooltipShowing_ = false;
@@ -1550,6 +1553,13 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
   protected async onNewThreadClick_() {
     recordAction('ContextualTasks.WebUI.UserAction.OpenNewThread');
+    // The browser may start the new thread in a new side panel for the active
+    // tab, so that other tabs sharing this thread keep it.
+    const {moved} =
+        await this.browserProxy_.handler.moveActiveTabToNewThreadIfShared();
+    if (moved) {
+      return;
+    }
     const {url} = await this.browserProxy_.handler.getThreadUrl();
     const newThreadUrl = new URL(url);
     const currentUrlString = this.$.threadFrame.src || this.pendingUrl_;

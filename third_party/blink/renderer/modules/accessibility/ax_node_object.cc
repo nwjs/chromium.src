@@ -78,6 +78,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/highlight/highlight.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_accessibility_manager.h"
 #include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/canvas/image_data.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
@@ -116,7 +117,10 @@
 #include "third_party/blink/renderer/core/html/html_map_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_bar_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_element.h"
+#include "third_party/blink/renderer/core/html/html_menu_item_checkbox_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_item_element.h"
+#include "third_party/blink/renderer/core/html/html_menu_item_element_base.h"
+#include "third_party/blink/renderer/core/html/html_menu_item_radio_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_list_element.h"
 #include "third_party/blink/renderer/core/html/html_meter_element.h"
 #include "third_party/blink/renderer/core/html/html_olist_element.h"
@@ -1266,9 +1270,9 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
   // Anything with non empty CSS alt should be included.
   // https://drafts.csswg.org/css-content/#alt
   // Descendants are pruned: IsRelevantPseudoElementDescendant() returns false.
-  std::optional<String> alt_text = GetCSSAltText(GetElement());
-  if (alt_text) {
-    if (alt_text->empty()) {
+  String alt_text = GetCSSAltText(GetElement());
+  if (!alt_text.IsNull()) {
+    if (alt_text.empty()) {
       return kIgnoreObject;
     } else {
       return kIncludeObject;
@@ -1303,12 +1307,6 @@ AXObjectInclusion AXNodeObject::ShouldIncludeBasedOnSemantics(
       ignored_reasons->push_back(IgnoredReason(kAXPresentational));
     }
     return kIgnoreObject;
-  }
-
-  if (IsCanvas()) {
-    if (!CanvasAnnotation().empty()) {
-      return kIncludeObject;
-    }
   }
 
   return kDefaultBehavior;
@@ -1485,6 +1483,26 @@ bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
         }
         return true;
       }
+
+      // When canvas accessibility is enabled, rendered canvases that meet the
+      // minimum size threshold (matching
+      // HTMLCanvasAccessibilityManager::kMinPixelSizeForTextVisibility) are
+      // included in the accessibility tree so automatic text capture and OCR
+      // annotations can run. Smaller unlabeled canvases will not be annotated
+      // and remain ignored.
+      if (base::FeatureList::IsEnabled(::features::kAccessibilityCanvas)) {
+        if (size.width < HTMLCanvasAccessibilityManager::
+                             kMinPixelSizeForTextVisibility ||
+            size.height < HTMLCanvasAccessibilityManager::
+                              kMinPixelSizeForTextVisibility) {
+          if (ignored_reasons) {
+            ignored_reasons->push_back(
+                IgnoredReason(kAXProbablyPresentational));
+          }
+          return true;
+        }
+        return false;
+      }
     }
 
     // Otherwise fall through; use presence of help text, title, or description
@@ -1579,7 +1597,7 @@ bool AXNodeObject::ComputeIsIgnored(IgnoredReasons* ignored_reasons) const {
 }
 
 // static
-std::optional<String> AXNodeObject::GetCSSAltText(const Element* element) {
+String AXNodeObject::GetCSSAltText(const Element* element) {
   // CSS alt text rules allow text to be assigned to ::before/::after content.
   // For example, the following CSS assigns "bullet" text to bullet.png:
   // .something::before {
@@ -1587,11 +1605,11 @@ std::optional<String> AXNodeObject::GetCSSAltText(const Element* element) {
   // }
 
   if (!element) {
-    return std::nullopt;
+    return String();
   }
   const ComputedStyle* style = element->GetComputedStyle();
   if (!style || style->ContentBehavesAsNormal()) {
-    return std::nullopt;
+    return String();
   }
 
   if (auto* pseudo_element = DynamicTo<PseudoElement>(element)) {
@@ -1601,7 +1619,7 @@ std::optional<String> AXNodeObject::GetCSSAltText(const Element* element) {
         return ContentData::ConcatenateAltText(*content_data);
       }
     }
-    return std::nullopt;
+    return String();
   }
 
   // If the content property is used on a non-pseudo-element, match the
@@ -1613,12 +1631,12 @@ std::optional<String> AXNodeObject::GetCSSAltText(const Element* element) {
     return ContentData::ConcatenateAltText(*content_data->Next());
   }
 
-  return std::nullopt;
+  return String();
 }
 
-std::optional<String> AXNodeObject::GetCSSContentText(const Element* element) {
+String AXNodeObject::GetCSSContentText(const Element* element) {
   if (!element || !element->IsPseudoElement() || !element->GetLayoutObject()) {
-    return std::nullopt;
+    return String();
   }
 
   StringBuilder builder;
@@ -2439,7 +2457,7 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
       }
     }
 
-    if (GetCSSAltText(GetElement())) {
+    if (!GetCSSAltText(GetElement()).IsNull()) {
       const ContentData* content_data = nullptr;
       if (auto* pseudo = DynamicTo<PseudoElement>(GetElement())) {
         content_data = pseudo->GetContentData();
@@ -2596,23 +2614,27 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
     }
   }
 
-  if (auto* menu_item = DynamicTo<HTMLMenuItemElement>(*GetNode())) {
+  if (auto* menu_item = DynamicTo<HTMLMenuItemElementBase>(*GetNode())) {
     // When the content model is violated, the whole menu tree drops its menu
     // semantics. Checkable items become plain checkboxes and radios rather
     // than list items, because a list item cannot carry a checked state and
     // the item's checkability would otherwise be lost entirely.
     const HTMLMenuOwnerElement* owner = menu_item->OwningMenuElement();
     const bool is_in_violation_mode = owner && owner->IsInViolationMode();
-    switch (menu_item->CheckableState()) {
-      case HTMLFieldSetElement::Checkable::Single:
-        return is_in_violation_mode ? ax::mojom::blink::Role::kRadioButton
-                                    : ax::mojom::blink::Role::kMenuItemRadio;
-      case HTMLFieldSetElement::Checkable::Multiple:
-        return is_in_violation_mode ? ax::mojom::blink::Role::kCheckBox
-                                    : ax::mojom::blink::Role::kMenuItemCheckBox;
-      case HTMLFieldSetElement::Checkable::None:
-        return is_in_violation_mode ? ax::mojom::blink::Role::kListItem
-                                    : ax::mojom::blink::Role::kMenuItem;
+
+    if (IsA<HTMLMenuItemRadioElement>(*menu_item)) {
+      return is_in_violation_mode ? ax::mojom::blink::Role::kRadioButton
+                                  : ax::mojom::blink::Role::kMenuItemRadio;
+    }
+
+    if (IsA<HTMLMenuItemCheckboxElement>(*menu_item)) {
+      return is_in_violation_mode ? ax::mojom::blink::Role::kCheckBox
+                                  : ax::mojom::blink::Role::kMenuItemCheckBox;
+    }
+
+    if (IsA<HTMLMenuItemElement>(*menu_item)) {
+      return is_in_violation_mode ? ax::mojom::blink::Role::kListItem
+                                  : ax::mojom::blink::Role::kMenuItem;
     }
     NOTREACHED();
   }
@@ -5301,10 +5323,10 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
   const Element* element = GetElement();
   if (element && element->IsScrollButtonPseudoElement()) {
     // Prioritize alt text if available.
-    std::optional<String> alt_text = GetCSSAltText(element);
-    if (alt_text && !alt_text->empty()) {
+    String alt_text = GetCSSAltText(element);
+    if (!alt_text.empty()) {
       name_from = ax::mojom::blink::NameFrom::kCssAltText;
-      return *alt_text;
+      return alt_text;
     }
 
     if (!name.empty()) {
@@ -5351,16 +5373,16 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
   //    non-empty.
   //  - Use scroll target's accessibility name is it has one.
   if (element && element->IsScrollMarkerPseudoElement()) {
-    std::optional<String> alt_text = GetCSSAltText(element);
-    if (alt_text && !alt_text->empty()) {
+    String alt_text = GetCSSAltText(element);
+    if (!alt_text.empty()) {
       name_from = ax::mojom::blink::NameFrom::kCssAltText;
-      return *alt_text;
+      return alt_text;
     }
 
-    std::optional<String> content = GetCSSContentText(element);
-    if (content && !content->empty()) {
+    String content = GetCSSContentText(element);
+    if (!content.empty()) {
       name_from = ax::mojom::blink::NameFrom::kContents;
-      return *content;
+      return content;
     }
 
     const AXObject* scroll_target =
@@ -5400,15 +5422,15 @@ String AXNodeObject::TextAlternative(
   }
 
   if (GetLayoutObject()) {
-    std::optional<String> text_alternative = GetCSSAltText(GetElement());
-    if (text_alternative) {
+    String text_alternative = GetCSSAltText(GetElement());
+    if (!text_alternative.IsNull()) {
       name_from = ax::mojom::blink::NameFrom::kCssAltText;
       if (name_sources) {
         name_sources->push_back(NameSource(false));
         name_sources->back().type = name_from;
-        name_sources->back().text = text_alternative.value();
+        name_sources->back().text = text_alternative;
       }
-      return text_alternative.value();
+      return text_alternative;
     }
     if (GetLayoutObject()->IsBR()) {
       text_alternative = String("\n");
@@ -5447,13 +5469,13 @@ String AXNodeObject::TextAlternative(
       if (name_sources) {
         name_sources->push_back(NameSource(false));
         name_sources->back().type = name_from;
-        name_sources->back().text = text_alternative.value();
+        name_sources->back().text = text_alternative;
       }
       // Ensure that text nodes count toward
       // kMaxDescendantsForTextAlternativeComputation when calculating the name
       // for their direct parent (see AXNodeObject::TextFromDescendants).
       visited.insert(this);
-      return text_alternative.value();
+      return text_alternative;
     }
   }
 
@@ -6643,7 +6665,17 @@ void AXNodeObject::InsertChild(AXObject* child,
   // Set the parent:
   // - For a new object it will have already been set.
   // - For a reused, older object, it may need to be changed to a new parent.
-  child->SetParent(this);
+  if (child->ParentObjectIfPresent() != this) {
+    child->SetParent(this);
+  } else if (AXObject* ax_included_parent =
+                 CachedIsIncludedInTree() ? this
+                                          : ParentObjectIncludedInTree()) {
+    if (AXObjectCache().IsUpdatingTree()) {
+      ax_included_parent->SetHasDirtyDescendants(true);
+    } else if (!ax_included_parent->HasDirtyDescendants()) {
+      child->SetAncestorsHaveDirtyDescendants();
+    }
+  }
 
   if (ChildrenNeedToUpdateCachedValues()) {
     child->InvalidateCachedValues(TreeUpdateReason::kChildInserted);
@@ -6717,11 +6749,11 @@ bool AXNodeObject::CanHaveChildren() const {
       break;
     case ax::mojom::blink::Role::kCheckBox:
     case ax::mojom::blink::Role::kRadioButton:
-      // A checkable <menuitem> maps to checkbox/radio when its menu violates
+      // A checkable menu item maps to checkbox/radio when its menu violates
       // its content model. Unlike <input type=checkbox>, it holds its label in
       // DOM children, which must stay exposed so that the name can be computed
       // from contents.
-      if (IsA<HTMLMenuItemElement>(GetElement())) {
+      if (IsA<HTMLMenuItemCheckableElementBase>(GetElement())) {
         break;
       }
       [[fallthrough]];
@@ -7128,9 +7160,8 @@ String AXNodeObject::TextAlternativeFromTooltip(
     return String();
   }
   name_from = ax::mojom::blink::NameFrom::kTitle;
-  const AtomicString& title = GetElement()->FastGetAttribute(kTitleAttr);
-  String title_text = TextAlternativeFromTitleAttribute(
-      title, name_from, name_sources, found_text_alternative);
+  String title_text = TextAlternativeFromTitleAttribute(name_from, name_sources,
+                                                        found_text_alternative);
   // Do not use if empty or if redundant with inner text.
   if (!title_text.empty()) {
     *text_alternative = title_text;
@@ -7205,7 +7236,6 @@ String AXNodeObject::TextAlternativeFromTooltip(
 }
 
 String AXNodeObject::TextAlternativeFromTitleAttribute(
-    AtomicString title,
     ax::mojom::blink::NameFrom& name_from,
     NameSources* name_sources,
     bool* found_text_alternative) const {
@@ -7216,13 +7246,14 @@ String AXNodeObject::TextAlternativeFromTitleAttribute(
     name_sources->back().type = name_from;
   }
   name_from = ax::mojom::blink::NameFrom::kTitle;
+  // Copy title as computing inner text can modify the attribute storage.
+  const AtomicString title = GetElement()->FastGetAttribute(kTitleAttr);
   if (!title.IsNull() &&
       String(title).StripWhiteSpace() !=
           GetElement()->GetInnerTextWithoutUpdate().StripWhiteSpace()) {
     text_alternative = title;
     if (name_sources) {
       NameSource& source = name_sources->back();
-      source.attribute_value = title;
       source.attribute_value = title;
       source.text = text_alternative;
       *found_text_alternative = true;

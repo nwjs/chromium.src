@@ -7,32 +7,22 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
 #import "components/autofill/core/browser/ml_model/autofill_ai/autofill_ai_model_cache.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class ProfileIOS;
-
-namespace autofill {
-class AutofillAiModelCache;
-}
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all AutofillAiModelCaches and associates them with
 // ProfileIOS.
-class IOSAutofillAiModelCacheFactory : public ProfileKeyedServiceFactoryIOS {
+class IOSAutofillAiModelCacheFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          IOSAutofillAiModelCacheFactory,
+          autofill::AutofillAiModelCache> {
  public:
-  static IOSAutofillAiModelCacheFactory* GetInstance();
-  static autofill::AutofillAiModelCache* GetForProfile(ProfileIOS* profile);
+  explicit IOSAutofillAiModelCacheFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<IOSAutofillAiModelCacheFactory>;
-
-  IOSAutofillAiModelCacheFactory();
-  ~IOSAutofillAiModelCacheFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_AUTOFILL_MODEL_IOS_AUTOFILL_AI_MODEL_CACHE_FACTORY_H_

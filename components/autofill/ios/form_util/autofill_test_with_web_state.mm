@@ -57,16 +57,15 @@ namespace autofill::test {
 NSString* GetAutofillTestPlaceholders(const AutofillPlaceholderConfig& config) {
   return [NSString
       stringWithFormat:
-          @"var gCrWebPlaceholderAutofillAcrossIframesThrottling = %s;"
-           "var gCrWebPlaceholderAutofillDisallowMoreHyphenLikeLabels = %s;"
+          @"var gCrWebPlaceholderAutofillDisallowMoreHyphenLikeLabels = %s;"
            "var gCrWebPlaceholderAutofillSupportDateInput = %s;"
            "var gCrWebPlaceholderAutofillAllowDefaultPreventedSubmission = %s;"
            "var gCrWebPlaceholderAutofillDedupeFormSubmission = %s;"
            "var gCrWebPlaceholderAutofillEmailVerification = %s;"
            "var gCrWebPlaceholderAutofillReportFormSubmissionErrors = %s;"
            "var gCrWebPlaceholderAutofillCountFormSubmissionInRenderer = %s;"
+           "var gCrWebPlaceholderAutofillTrackPasswordFieldsIos = %s;"
            "var gCrWebPlaceholderAutofillIgnoreTabIndexForFocusability = %s;",
-          config.autofill_across_iframes_throttling ? "true" : "false",
           config.autofill_disallow_more_hyphen_like_labels ? "true" : "false",
           config.autofill_support_date_input ? "true" : "false",
           config.autofill_allow_default_prevented_submission ? "true" : "false",
@@ -74,6 +73,7 @@ NSString* GetAutofillTestPlaceholders(const AutofillPlaceholderConfig& config) {
           config.autofill_email_verification ? "true" : "false",
           config.autofill_report_form_submission_errors ? "true" : "false",
           config.autofill_count_form_submission_in_renderer ? "true" : "false",
+          config.autofill_track_password_fields_ios ? "true" : "false",
           config.autofill_ignore_tab_index_for_focusability ? "true" : "false"];
 }
 

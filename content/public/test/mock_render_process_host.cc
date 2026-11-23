@@ -13,7 +13,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/lazy_instance.h"
 #include "base/location.h"
-#include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/process/process_handle.h"
 #include "base/task/single_thread_task_runner.h"
@@ -85,7 +84,7 @@ MockRenderProcessHost::MockRenderProcessHost(
       foreground_service_worker_count_(0) {
   // Child process security operations can't be unit tested unless we add
   // ourselves as an existing child process.
-  ChildProcessSecurityPolicyImpl::GetInstance()->Add(GetID(), browser_context);
+  ChildProcessSecurityPolicyImpl::GetInstance()->Add(GetID());
 
   RenderProcessHostImpl::RegisterHost(GetID(), this);
 }
@@ -291,8 +290,13 @@ bool MockRenderProcessHost::FastShutdownIfPossible(
     bool ignore_keep_alive,
     bool ignore_pending_reuse,
     bool use_outermost_main_frame_check) {
-  if (GetActiveViewCount() != page_count)
+  if ((page_count || use_outermost_main_frame_check) &&
+      GetActiveViewCount() != page_count) {
     return false;
+  }
+  if (worker_ref_count_ > 0 && !ignore_workers) {
+    return false;
+  }
   // We aren't actually going to do anything, but set |fast_shutdown_started_|
   // to true so that tests know we've been called.
   fast_shutdown_started_ = true;
@@ -304,15 +308,9 @@ bool MockRenderProcessHost::FastShutdownStarted() {
 }
 
 const base::Process& MockRenderProcessHost::GetProcess() {
-  if (process_still_launching_) {
-    // Matches RenderProcessHostImpl::GetProcess() while the launcher is still
-    // starting: a sentinel for "no process".
-    static const base::NoDestructor<base::Process> null_process;
-    return *null_process;
-  }
-
-  static const base::Process current_process(base::Process::Current());
-  return current_process;
+  // While launching, match RenderProcessHostImpl::GetProcess(): a sentinel
+  // for "no process".
+  return process_still_launching_ ? null_process_ : current_process_;
 }
 
 bool MockRenderProcessHost::IsReady() {

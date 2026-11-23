@@ -12,9 +12,11 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/timer/timer.h"
 #include "base/values.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
-#include "components/optimization_guide/proto/features/ttc.pb.h"
+#include "components/optimization_guide/proto/features/streaming/ttc.pb.h"
+#include "components/ttc/app/public/session_journal.h"
 #include "components/ttc/app/public/tool_types.h"
 #include "components/ttc/app/ttc_backend.h"
 #include "url/gurl.h"
@@ -30,8 +32,8 @@ class TtcMesClient
  public:
   using Observer = TtcBackend::Observer;
 
-  explicit TtcMesClient(
-      optimization_guide::RemoteModelExecutor* model_executor);
+  explicit TtcMesClient(optimization_guide::RemoteModelExecutor* model_executor,
+                        SessionJournal* journal = nullptr);
   ~TtcMesClient() override;
 
   TtcMesClient(const TtcMesClient&) = delete;
@@ -71,13 +73,20 @@ class TtcMesClient
  private:
   void OnStreamingResult(
       optimization_guide::OptimizationGuideModelStreamingResult result);
+  void OnSetupTimeout();
   void HandleToolCall(const optimization_guide::proto::ToolCall& tool_call);
   void OnToolExecutionComplete(const std::string& call_id,
                                const std::string& tool_name,
                                ToolResponse response);
   void SendFrame(const optimization_guide::proto::TtcClientFrame& frame);
+  void LogClientFrame(const optimization_guide::proto::TtcClientFrame& frame);
+  void LogServerFrame(const optimization_guide::proto::TtcServerFrame& frame);
+  void Log(std::string_view event_name,
+           std::vector<actor::mojom::JournalDetailsPtr> details,
+           SessionJournal::Track track);
 
   raw_ptr<optimization_guide::RemoteModelExecutor> model_executor_ = nullptr;
+  raw_ptr<SessionJournal> journal_ = nullptr;
   // Set by Connect(); null until then.
   raw_ptr<Observer> observer_ = nullptr;
 
@@ -85,6 +94,8 @@ class TtcMesClient
   bool is_transport_connected_ = false;
 
   std::string session_id_;
+
+  base::OneShotTimer setup_timer_;
 
   base::WeakPtrFactory<TtcMesClient> weak_factory_{this};
 };

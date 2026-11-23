@@ -47,6 +47,8 @@
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/frame_console.h"
+#include "third_party/blink/renderer/core/frame/frame_owner.h"
+#include "third_party/blink/renderer/core/frame/frame_swap_scope.h"
 #include "third_party/blink/renderer/core/frame/intervention.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
@@ -59,6 +61,7 @@
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_embed_element.h"
+#include "third_party/blink/renderer/core/html/html_frame_owner_element.h"
 #include "third_party/blink/renderer/core/html/html_link_element.h"
 #include "third_party/blink/renderer/core/html/html_meta_element.h"
 #include "third_party/blink/renderer/core/html/html_object_element.h"
@@ -403,6 +406,12 @@ void LocalFrameMojoHandler::ClosePageForTesting() {
   ClosePage(base::DoNothing());
 }
 
+void LocalFrameMojoHandler::FlushLocalFrameHostForTesting() {
+  if (local_frame_host_remote_.is_bound()) {
+    local_frame_host_remote_.FlushForTesting();
+  }
+}
+
 mojom::blink::BackForwardCacheControllerHost&
 LocalFrameMojoHandler::BackForwardCacheControllerHostRemote() {
   return *back_forward_cache_controller_host_remote_.get();
@@ -620,7 +629,13 @@ void LocalFrameMojoHandler::AddMessageToConsole(
 }
 
 void LocalFrameMojoHandler::SwapInImmediately() {
-  frame_->SwapIn();
+  {
+    FrameSwapScope frame_swap_scope(frame_->Owner());
+    if (!frame_->SwapIn()) {
+      return;
+    }
+    frame_->AttachViewToOwner();
+  }
   // Normally, this happens as part of committing a cross-Document navigation.
   // However, there is no navigation being committed here. Instead, the browser
   // navigation code is optimistically early-swapping in this frame to replace a
@@ -1004,19 +1019,24 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequestInIsolatedWorld(
 }
 
 void LocalFrameMojoHandler::InvokeScriptToolForInspector(
-    const base::UnguessableToken& invocation_id,
+    const ToolInvocationToken& invocation_id,
     const String& tool_name,
     const String& input_arguments,
     InvokeScriptToolForInspectorCallback callback) {
   if (auto* model_context =
           ModelContextSupplement::GetIfExists(*GetDocument())) {
-    if (model_context->GetScriptToolDeclaration(tool_name)) {
+    // DevTools refers to tools by name, but `ExecuteTool()` keys on the tool's
+    // (non-web-exposed) id, so resolve the name here. If the tool is
+    // unregistered before the posted task runs, `ExecuteTool()` simply won't
+    // find the id and will fail, rather than running whatever tool happens to
+    // hold the name by then.
+    if (ToolData* tool_data = model_context->FindToolDataByName(tool_name)) {
       frame_->GetTaskRunner(TaskType::kInternalInspector)
-          ->PostTask(
-              FROM_HERE,
-              blink::BindOnce(base::IgnoreResult(&ModelContext::ExecuteTool),
-                              WrapPersistent(model_context), invocation_id,
-                              tool_name, input_arguments, base::DoNothing()));
+          ->PostTask(FROM_HERE,
+                     blink::BindOnce(
+                         base::IgnoreResult(&ModelContext::ExecuteTool),
+                         WrapPersistent(model_context), invocation_id,
+                         tool_data->Id(), input_arguments, base::DoNothing()));
       std::move(callback).Run(true);
       return;
     }
@@ -1025,7 +1045,7 @@ void LocalFrameMojoHandler::InvokeScriptToolForInspector(
 }
 
 void LocalFrameMojoHandler::NotifyInspectorOfCrossDocumentScriptToolResult(
-    const base::UnguessableToken& invocation_id) {
+    const ToolInvocationToken& invocation_id) {
   auto* model_context = ModelContextSupplement::modelContext(*GetDocument());
   model_context->GetCrossDocumentScriptToolResult(invocation_id,
                                                   base::DoNothing());

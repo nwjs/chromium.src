@@ -38,6 +38,7 @@
 #include "chrome/browser/infobars/browser_infobar_manager.h"
 #include "chrome/browser/infobars/confirm_infobar_creator.h"
 #include "chrome/browser/infobars/infobar_features.h"
+#include "chrome/browser/infobars/infobar_spec.h"
 #include "chrome/browser/policy/chrome_policy_blocklist_service_factory.h"
 #include "chrome/browser/policy/developer_tools_policy_checker.h"
 #include "chrome/browser/policy/developer_tools_policy_checker_factory.h"
@@ -91,9 +92,9 @@
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/security_principal.h"
+#include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
@@ -110,6 +111,7 @@
 #include "ui/events/keycodes/dom/keycode_converter.h"
 #include "ui/events/keycodes/keyboard_code_conversion.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "url/origin.h"
 
 #include "base/win/windows_h_disallowed.h"
 
@@ -122,10 +124,11 @@
 #else
 #include "chrome/browser/devtools/devtools_policy_dialog.h"
 #include "chrome/browser/devtools/devtools_ui_controller.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"  // nogncheck crbug.com/40147906
+#include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_modal/browser_window_modal_dialog_delegate.h"  // nogncheck crbug.com/40147906
 #include "components/keep_alive_registry/keep_alive_types.h"
@@ -1916,13 +1919,12 @@ int DevToolsWindow::GetClosedByForLogging() {
 void DevToolsWindow::OpenInNewTab(const GURL& url) {
   GURL fixed_url = url;
   WebContents* inspected_web_contents = GetInspectedWebContents();
+  content::RenderFrameHost* inspected_frame =
+      inspected_web_contents ? inspected_web_contents->GetPrimaryMainFrame()
+                             : nullptr;
   int child_id = content::ChildProcessHost::kInvalidUniqueID;
-  if (inspected_web_contents) {
-    content::RenderViewHost* render_view_host =
-        inspected_web_contents->GetPrimaryMainFrame()->GetRenderViewHost();
-    if (render_view_host) {
-      child_id = render_view_host->GetProcess()->GetDeprecatedID();
-    }
+  if (inspected_frame) {
+    child_id = inspected_frame->GetProcess()->GetDeprecatedID();
   }
   // Use about:blank instead of an empty GURL. The browser treats an empty GURL
   // as navigating to the home page, which may be privileged (chrome://newtab/).
@@ -1932,17 +1934,46 @@ void DevToolsWindow::OpenInNewTab(const GURL& url) {
   }
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
-          fixed_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          fixed_url, WindowOpenDisposition::kNewForegroundTab,
           ui::PAGE_TRANSITION_LINK);
+  // The URL typically originates from content that is controlled by the
+  // inspected target (e.g. a linkified URL in the Console, or a request in the
+  // Network panel), so attribute the navigation to it, like the context menu
+  // does for "Open link in new tab" (see
+  // RenderViewContextMenuBase::GetOpenURLParamsWithExtraHeaders()). Without an
+  // initiator, the navigation would be indistinguishable from one typed into
+  // the omnibox: the request would carry SameSite=Strict cookies and
+  // `Sec-Fetch-Site: none`, which would allow the inspected target to bypass
+  // the CSRF defenses of the destination.
+  if (inspected_frame) {
+    params.initiator_origin = inspected_frame->GetLastCommittedOrigin();
+    params.initiator_frame_token = inspected_frame->GetFrameToken();
+    params.initiator_process_id = child_id;
+    params.source_site_instance = inspected_frame->GetSiteInstance();
+  } else {
+    // There is no inspected frame to attribute the navigation to (e.g. when
+    // inspecting a worker). An opaque origin is never same-site with the
+    // destination, so the navigation is treated as cross-site.
+    params.initiator_origin = url::Origin();
+  }
   if (!inspected_web_contents ||
       !inspected_web_contents->OpenURL(params,
                                        /*navigation_handle_callback=*/{})) {
 #if BUILDFLAG(IS_ANDROID)
     NOTIMPLEMENTED();
 #else
+    // Either there is no inspected WebContents, or its delegate did not handle
+    // the request. Navigate through NavigateParams, which carries the
+    // attribution from `params`, rather than through AddSelectedTabWithURL(),
+    // which only takes a URL.
     chrome::ScopedTabbedBrowserDisplayer displayer(profile_);
-    chrome::AddSelectedTabWithURL(displayer.browser_window_interface(),
-                                  fixed_url, ui::PAGE_TRANSITION_LINK);
+    NavigateParams nav_params(displayer.browser_window_interface(), fixed_url,
+                              ui::PAGE_TRANSITION_LINK);
+    nav_params.FillNavigateParamsFromOpenURLParams(params);
+    // Like AddSelectedTabWithURL(), don't let web apps capture the new tab.
+    nav_params.web_app_navigation_data.emplace();
+    nav_params.web_app_navigation_data->SetNavigationCapturingForceOff(true);
+    Navigate(&nav_params);
 #endif
   }
 }
@@ -2056,7 +2087,8 @@ void DevToolsWindow::ShowCertificateViewer(const std::string& cert_chain) {
     return;
   }
   gfx::NativeWindow parent = browser->GetWindow()->GetNativeWindow();
-  ::ShowCertificateViewer(inspected_contents, parent, cert.get());
+  ::ShowCertificateViewer(inspected_contents, parent, cert.get(),
+                          CertificateViewerEntrypoint::kDevTools);
 #endif
 }
 
@@ -2302,16 +2334,29 @@ void DevToolsWindow::MaybeShowSharedProcessInfobar() {
           is_docked_ ? inspected_web_contents : main_web_contents_.get());
     }
 
-    if (tab) {
+    is_sharing_infobar_migrated_ = !!tab;
+    if (is_sharing_infobar_migrated_) {
       RegisterProcessSharingInfoBarSpec(*browser_infobar_manager);
+      infobars::InfoBarShowParams params;
+      params.ok_button_callback = base::BindRepeating(
+          [](base::WeakPtr<content::WebContents> inspected_web_contents,
+             content::WebContents*) {
+            if (inspected_web_contents) {
+              ShowProcessSharingRestartDialog(inspected_web_contents.get());
+            }
+          },
+          inspected_web_contents->GetWeakPtr());
       sharing_infobar_ = browser_infobar_manager->Show(
-          tab, infobars::InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE);
-    } else {
-      sharing_infobar_ = GetInfoBarManager()->AddInfoBar(
+          tab, infobars::InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE,
+          std::move(params));
+    } else if (auto* infobar_manager = GetInfoBarManager()) {
+      sharing_infobar_ = infobar_manager->AddInfoBar(
           CreateConfirmInfoBar(std::make_unique<ProcessSharingInfobarDelegate>(
               inspected_web_contents)));
     }
-    GetInfoBarManager()->AddObserver(this);
+    if (sharing_infobar_) {
+      sharing_infobar_->owner()->AddObserver(this);
+    }
 #else
     NOTIMPLEMENTED();
 #endif
@@ -2324,11 +2369,13 @@ void DevToolsWindow::RemoveSharingInfoBar() {
     return;
   }
 
-  auto* browser_infobar_manager =
-      infobars::BrowserInfoBarManager::From(g_browser_process);
-  if (browser_infobar_manager &&
-      infobars::IsInfoBarMigrated(
-          infobars::InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE)) {
+  // Dispatch on how the infobar was created, not on the feature state: a
+  // migrated prompt for a tabless WebContents falls back to the legacy
+  // delegate, which Hide() must not be handed.
+  if (is_sharing_infobar_migrated_) {
+    auto* browser_infobar_manager =
+        infobars::BrowserInfoBarManager::From(g_browser_process);
+    CHECK(browser_infobar_manager);
     browser_infobar_manager->Hide(sharing_infobar_.get());
   } else {
     sharing_infobar_->RemoveSelf();
@@ -2355,6 +2402,7 @@ void DevToolsWindow::OnInfoBarRemoved(infobars::InfoBar* infobar,
   if (sharing_infobar_ == infobar) {
     infobar->owner()->RemoveObserver(this);
     sharing_infobar_ = nullptr;
+    is_sharing_infobar_migrated_ = false;
   }
 }
 

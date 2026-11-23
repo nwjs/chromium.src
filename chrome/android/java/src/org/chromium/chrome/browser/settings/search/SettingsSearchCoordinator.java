@@ -61,7 +61,6 @@ import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.ui.KeyboardUtils;
-import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -165,7 +164,6 @@ public class SettingsSearchCoordinator
 
     // Set to {@code true} after queries are entered. Used to conditionally clear up the screen.
     private boolean mQueryEntered;
-    private SettingsIndexData mIndexData;
 
     // True while local search (language, site settings) UI is enabled, so that settings search
     // should remain hidden across configuration changes.
@@ -533,8 +531,9 @@ public class SettingsSearchCoordinator
         if (fm == null || fm.isStateSaved()) return;
 
         if (!oldAccessibilityState.equals(newAccessibilityState)) {
-            if (mIndexData != null) {
-                mIndexData.setNeedsIndexing();
+            SettingsIndexData indexData = SettingsIndexData.getInstance();
+            if (indexData != null) {
+                indexData.setNeedsIndexing();
                 initIndex();
 
                 EditText queryEdit = findViewById(R.id.search_query);
@@ -563,7 +562,7 @@ public class SettingsSearchCoordinator
         }
         queryEdit.setText("");
         updateClearTextButton(queryEdit.getText());
-        if (RecentSearchQueue.getInstance().isEmpty()) {
+        if (getRecentSearchesInIndex().isEmpty()) {
             clearFragment(
                     R.drawable.settings_zero_state, /* addToBackStack= */ false, emptyRunnable());
         } else {
@@ -942,10 +941,8 @@ public class SettingsSearchCoordinator
      * Initializes the in-memory search index for all settings. It uses the providers found in
      * {@link SearchIndexProviderRegistry.ALL_PROVIDERS}.
      */
-    @Initializer
-    @EnsuresNonNull("mIndexData")
     private void initIndex() {
-        mIndexData = ensureIndexBuilt(mActivity, mProfile);
+        ensureIndexBuilt(mActivity, mProfile);
     }
 
     /**
@@ -1240,9 +1237,11 @@ public class SettingsSearchCoordinator
         queryEdit.requestFocus();
         // Search again to reflect the changes to the index that might have been made
         // while browsing results.
-        if (mIndexData != null && mIndexData.shouldRefreshResult()) {
+        SettingsIndexData indexData = SettingsIndexData.getInstance();
+        if (indexData != null && indexData.shouldRefreshResult()) {
+            if (indexData.needsIndexing()) initIndex();
             onQueryUpdated(queryEdit.getText().toString());
-            mIndexData.setRefreshResult(false);
+            indexData.setRefreshResult(false);
         }
         showBackArrowInSingleColumnMode(false);
     }
@@ -1263,7 +1262,7 @@ public class SettingsSearchCoordinator
     private void clearFragmentWithCallback(
             int imageId, boolean addToBackStack, Runnable openHelpCenter, Runnable callback) {
         Fragment fragment;
-        if (RecentSearchQueue.getInstance().isEmpty()) {
+        if (getRecentSearchesInIndex().isEmpty()) {
             fragment = clearFragment(imageId, addToBackStack, openHelpCenter);
         } else {
             fragment = displayRecentSearches(/* addToBackStack= */ true);
@@ -1318,9 +1317,27 @@ public class SettingsSearchCoordinator
                 .show(mActivity, mActivity.getString(R.string.help_context_settings), null);
     }
 
+    /**
+     * Returns the recent searches whose settings still exist in the index. A setting can go away
+     * after it was searched for, e.g. "Sign out" after signing out, and offering it would open a
+     * page that closes itself. The entry stays in the queue, so it comes back if the setting does.
+     */
+    @VisibleForTesting(otherwise = PRIVATE)
+    ArrayList<SettingsIndexData.Entry> getRecentSearchesInIndex() {
+        ArrayList<SettingsIndexData.Entry> entries = new ArrayList<>();
+        var recentSearches = RecentSearchQueue.getInstance().values();
+        if (recentSearches.isEmpty()) return entries;
+
+        SettingsIndexData indexData = ensureIndexBuilt(mActivity, mProfile);
+        for (SettingsIndexData.Entry entry : recentSearches) {
+            if (indexData.getEntry(entry.id) != null) entries.add(entry);
+        }
+        return entries;
+    }
+
     private Fragment displayRecentSearches(boolean addToBackStack) {
         var fragment = new RecentSearchesFragment();
-        fragment.setPreferenceData(new ArrayList<>(RecentSearchQueue.getInstance().values()));
+        fragment.setPreferenceData(getRecentSearchesInIndex());
         fragment.setDeleteCallback(this::deleteRecentSearches);
         fragment.setSelectedCallback(this::onResultSelected);
 
@@ -1805,6 +1822,27 @@ public class SettingsSearchCoordinator
                         }
                     }
                 });
+        // When settings is shown in a tab, switching away from the tab detaches the page's views
+        // and switching back re-attaches them. CompositorViewHolder then calls requestFocus() on
+        // the page, which gives focus to its first focusable descendant. While browsing search
+        // results in two-column mode that is this query field, and the focus listener above would
+        // treat it as a tap and pop the result the user was viewing. Keep the query field from
+        // taking focus until the re-attach has finished. See crbug.com/573289137.
+        queryEdit.addOnAttachStateChangeListener(
+                new View.OnAttachStateChangeListener() {
+                    @Override
+                    public void onViewAttachedToWindow(View v) {
+                        if (mFragmentState != FS_RESULTS) return;
+
+                        // setFocusable(false) also clears focusableInTouchMode, and
+                        // setFocusableInTouchMode(true) restores both.
+                        v.setFocusable(false);
+                        mHandler.post(() -> v.setFocusableInTouchMode(true));
+                    }
+
+                    @Override
+                    public void onViewDetachedFromWindow(View v) {}
+                });
         queryEdit.setAccessibilityDelegate(
                 new View.AccessibilityDelegate() {
                     @Override
@@ -1844,7 +1882,10 @@ public class SettingsSearchCoordinator
         }
         if (!query.isEmpty()) {
             mQueryEntered = true;
-            mSearchRunnable = () -> callback.onSearchResults(mIndexData.search(query));
+            mSearchRunnable =
+                    () ->
+                            callback.onSearchResults(
+                                    ensureIndexBuilt(mActivity, mProfile).search(query));
             mHandler.postDelayed(mSearchRunnable, 200);
         } else if (mQueryEntered) {
             // Do this only after a query has been entered at least once.
@@ -1999,9 +2040,7 @@ public class SettingsSearchCoordinator
         }
         // Title supplier should be nulled out as we step out of Settings for cleanup.
         SearchResultsPreferenceFragment.reset();
-        if (mIndexData != null) {
-            SettingsIndexData.reset();
-        }
+        SettingsIndexData.reset();
         mHandler.removeCallbacksAndMessages(null);
         mContainmentHelper.destroy();
 

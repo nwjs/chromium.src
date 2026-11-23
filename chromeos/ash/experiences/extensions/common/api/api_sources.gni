@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//extensions/buildflags/buildflags.gni")
+import("//printing/buildflags/buildflags.gni")
 
 assert(is_chromeos)
 assert(enable_extensions_core)
@@ -11,6 +12,7 @@ chromeos_schema_sources_ = [
   "accessibility_private.json",
   "certificate_provider.webidl",
   "certificate_provider_internal.webidl",
+  "echo_private.json",
   "file_manager_private.idl",
   "file_manager_private_internal.webidl",
   "file_system_provider.webidl",
@@ -18,9 +20,22 @@ chromeos_schema_sources_ = [
   "image_loader_private.webidl",
   "input_method_private.json",
   "login_screen_ui.webidl",
+  "odfs_config_private.idl",
+  "smart_card_provider_private.idl",
   "speech_recognition_private.idl",
+  "system_log.idl",
   "users_private.idl",
+  "vpn_provider.idl",
+  "wallpaper.json",
+  "wm_desks_private.idl",
 ]
+
+if (use_cups) {
+  chromeos_schema_sources_ += [
+    "printing.idl",
+    "printing_metrics.idl",
+  ]
+}
 
 chromeos_extensions_api_schema_sources =
     get_path_info(chromeos_schema_sources_, "abspath")

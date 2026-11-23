@@ -4,30 +4,18 @@
 
 #import "ios/chrome/browser/enterprise/data_controls/model/ios_rules_service_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/enterprise/data_controls/model/ios_rules_service.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
 
 namespace data_controls {
 
-// static
-IOSRulesServiceFactory* IOSRulesServiceFactory::GetInstance() {
-  static base::NoDestructor<IOSRulesServiceFactory> instance;
-  return instance.get();
-}
-
-// static
-IOSRulesService* IOSRulesServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<IOSRulesService>(
-      profile, /*create=*/true);
-}
-
-IOSRulesServiceFactory::IOSRulesServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("IOSRulesService",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
-}
-
-IOSRulesServiceFactory::~IOSRulesServiceFactory() = default;
+IOSRulesServiceFactory::IOSRulesServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "IOSRulesService",
+          ProfileSelection::kOwnInstanceInIncognito) {}
 
 std::unique_ptr<KeyedService> IOSRulesServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

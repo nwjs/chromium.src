@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
@@ -99,6 +100,10 @@ class WebUIPinnedToolbarActions::WebUIDownloadButton : public DownloadButton {
         ToMojoProgressRingStatus(ring_status_), progress_percentage);
   }
 
+  // Returns the number to show in the badge sent to the renderer, or nullopt if
+  // no badge should be drawn.
+  std::optional<int32_t> GetBadgeNumber() const { return badge_number_; }
+
   // Clears the progress ring without notifying the renderer. Called when the
   // downloads button stops being displayed so that a stale ring isn't drawn if
   // it's displayed again, matching the Views toolbar, where a re-created
@@ -107,6 +112,12 @@ class WebUIPinnedToolbarActions::WebUIDownloadButton : public DownloadButton {
     ring_status_ = ActionItemProgressRingStatus::kIdle;
     progress_percentage_ = 0;
   }
+
+  // Clears the badge without notifying the renderer. Called when the downloads
+  // button stops being displayed so that a stale badge isn't drawn if it's
+  // displayed again, matching the Views toolbar, where a re-created button
+  // starts without a badge.
+  void ResetBadge() { badge_number_ = std::nullopt; }
 
   // DownloadButton:
   bool IsShowing() const override { return owner_->IsDownloadButtonShowing(); }
@@ -138,8 +149,17 @@ class WebUIPinnedToolbarActions::WebUIDownloadButton : public DownloadButton {
                    int progress_download_count,
                    SkColor text_color,
                    SkColor background_color) override {
-    // TODO(https://crbug.com/474063115): Implement the badge for the WebUI
-    // toolbar.
+    // Only display the badge if there are multiple in-progress downloads and
+    // the button is active, matching DownloadsImageBadge::UpdateImage().
+    std::optional<int32_t> badge_number;
+    if (is_active && progress_download_count >= 2) {
+      badge_number = progress_download_count;
+    }
+    if (badge_number == badge_number_) {
+      return;
+    }
+    badge_number_ = badge_number;
+    owner_->OnActionsChanged();
   }
 
   gfx::Rect GetBoundsInScreen() const override {
@@ -166,6 +186,7 @@ class WebUIPinnedToolbarActions::WebUIDownloadButton : public DownloadButton {
   ActionItemProgressRingStatus ring_status_ =
       ActionItemProgressRingStatus::kIdle;
   int progress_percentage_ = 0;
+  std::optional<int32_t> badge_number_;
 };
 
 WebUIPinnedToolbarActions::WebUIPinnedToolbarActions(
@@ -184,6 +205,10 @@ void WebUIPinnedToolbarActions::Init() {
 }
 
 void WebUIPinnedToolbarActions::OnThemeChanged() {
+  OnActionsChanged();
+}
+
+void WebUIPinnedToolbarActions::OnControlsAppearInactiveChanged() {
   OnActionsChanged();
 }
 
@@ -221,6 +246,9 @@ void WebUIPinnedToolbarActions::OnActionsChanged() {
         IsActionHighlighted(id) || (menu_runner_ && menu_runner_->IsRunning() &&
                                     active_context_menu_action_ == id);
     state->enabled = item->GetEnabled();
+    // TODO(crbug.com/578143713): Also plumb
+    // `kActionItemEngagedIndicatorStyleKey` through `PinnedToolbarActionState`
+    // to support `kCircleHighlight` in WebUI.
     state->activated = item->GetProperty(kActionItemUnderlineIndicatorKey);
     state->tooltip = item->GetTooltipText();
     state->accessibility_text = item->GetAccessibleName();
@@ -229,6 +257,7 @@ void WebUIPinnedToolbarActions::OnActionsChanged() {
     }
     if (id == kActionShowDownloads) {
       state->progress_ring = download_button_->GetProgressRingState();
+      state->badge_number = download_button_->GetBadgeNumber();
     }
 
     ui::ImageModel image_model;
@@ -237,6 +266,18 @@ void WebUIPinnedToolbarActions::OnActionsChanged() {
                         ->GetStatefulImage();
     } else {
       image_model = item->GetImage();
+    }
+    // Like native PinnedActionToolbarButton, color vector icons with the
+    // toolbar button icon color rather than the action's own color, including
+    // the inactive color while the window is inactive on Mac.
+    if (image_model.IsVectorIcon()) {
+      const ui::VectorIconModel vector_icon = image_model.GetVectorIcon();
+      image_model = ui::ImageModel::FromVectorIcon(
+          *vector_icon.vector_icon(),
+          delegate_->GetState().controls_appear_inactive
+              ? kColorToolbarButtonIconInactive
+              : kColorToolbarButtonIcon,
+          vector_icon.icon_size(), vector_icon.badge_icon());
     }
     toolbar_ui_api::IconHandle previous_icon;
     // Opportunistically try to reuse the icon handle at the same index as
@@ -271,6 +312,7 @@ void WebUIPinnedToolbarActions::OnActionsChanged() {
 
   if (!processed_actions.contains(kActionShowDownloads)) {
     download_button_->ResetProgressRing();
+    download_button_->ResetBadge();
   }
 
   int old_width = GetWidth();
@@ -439,7 +481,7 @@ views::BubbleAnchor WebUIPinnedToolbarActions::GetBubbleAnchor(
     ui::TrackedElement* element =
         BrowserElements::From(delegate_->GetBrowser())
             ->GetElement(webui_toolbar::ActionIdToElementIdentifier(action_id));
-    DCHECK(element);
+    CHECK(element, base::NotFatalUntil::M162);
     return views::BubbleAnchor(element);
   }
   return views::BubbleAnchor();
@@ -555,7 +597,7 @@ void WebUIPinnedToolbarActions::MovePinnedAction(actions::ActionId action_id,
 
 void WebUIPinnedToolbarActions::MovePinnedActionBy(actions::ActionId action_id,
                                                    int delta) {
-  DCHECK(IsActionPinned(action_id));
+  CHECK(IsActionPinned(action_id), base::NotFatalUntil::M162);
   const auto& pinned_actions = GetVisiblePinnedActionIds();
   auto iter = std::ranges::find(pinned_actions, action_id);
   if (iter == pinned_actions.end()) {
@@ -690,6 +732,23 @@ void WebUIPinnedToolbarActions::HandleContextMenu(
     case toolbar_ui_api::mojom::ContextMenuType::
         kPinnedActionSidePanelShowComments:
       action_id = kActionSidePanelShowComments;
+      break;
+    case toolbar_ui_api::mojom::ContextMenuType::
+        kPinnedActionShowAiOverlayDialog:
+      action_id = kActionShowAiOverlayDialog;
+      break;
+    case toolbar_ui_api::mojom::ContextMenuType::kPinnedActionTtcToolbar:
+      action_id = kActionTtcToolbar;
+      break;
+    case toolbar_ui_api::mojom::ContextMenuType::
+        kPinnedActionSidePanelShowHistory:
+      action_id = kActionSidePanelShowHistory;
+      break;
+    case toolbar_ui_api::mojom::ContextMenuType::kPinnedActionShowChromeLabs:
+      action_id = kActionShowChromeLabs;
+      break;
+    case toolbar_ui_api::mojom::ContextMenuType::kPinnedActionSidePanelShowGlic:
+      action_id = kActionSidePanelShowGlic;
       break;
     default:
       NOTREACHED();

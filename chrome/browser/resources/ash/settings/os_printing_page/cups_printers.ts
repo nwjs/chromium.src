@@ -52,7 +52,7 @@ import type {RouteObserverMixinInterface} from '../common/route_observer_mixin.j
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
 import type {Constructor} from '../common/types.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
 import {routes} from '../router.js';
 
 import type {PrinterListEntry} from './cups_printer_types.js';
@@ -222,6 +222,11 @@ export class SettingsCupsPrintersElement extends
         computed: 'computeNearbyPrintersEmpty_(nearbyPrinterCount_)',
         reflectToAttribute: true,
       },
+
+      addPrintServerResultText_: {
+        type: String,
+        value: '',
+      },
     };
   }
 
@@ -237,7 +242,7 @@ export class SettingsCupsPrintersElement extends
     Setting.kPrintJobs,
   ]);
 
-  private addPrintServerResultText_: string;
+  declare private addPrintServerResultText_: string;
   declare private addPrinterResultText_: string;
   declare private attemptedLoadingPrinters_: boolean;
   private browserProxy_: CupsPrintersBrowserProxy;
@@ -266,8 +271,6 @@ export class SettingsCupsPrintersElement extends
 
 
     this.entryManager_ = CupsPrintersEntryManager.getInstance();
-
-    this.addPrintServerResultText_ = '';
 
     this.browserProxy_ = CupsPrintersBrowserProxyImpl.getInstance();
 

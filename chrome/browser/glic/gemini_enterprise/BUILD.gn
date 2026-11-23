@@ -5,9 +5,9 @@
 # GEiC Finch and command-line configuration helpers.
 #
 # This is a GLiC-internal helper, not a general purpose enablement check; see
-# geic_enabling.h. Including geic_enabling.h is restricted to allowlists in
-# chrome/browser/glic/DEPS and chrome/browser/glic/host/DEPS so that feature
-# code goes through GLiC's enablement utilities instead.
+# geic_enabling.h. Including geic_enabling.h is restricted to an allowlist in
+# chrome/browser/glic/DEPS so that feature code goes through GLiC's enablement
+# utilities instead.
 source_set("geic_enabling") {
   sources = [
     "geic_enabling.cc",
@@ -19,8 +19,11 @@ source_set("geic_enabling") {
     "//base",
     "//chrome/browser/glic",
     "//chrome/browser/glic/public:features",
+    "//chrome/browser/metrics",
     "//chrome/browser/profiles:profile",
+    "//chrome/common:constants",
     "//components/prefs",
+    "//components/variations/service",
     "//content/public/browser",
     "//net",
     "//url",
@@ -28,14 +31,52 @@ source_set("geic_enabling") {
 }
 
 # Gemini Enterprise host allowlist, shared by GEiC guest URL resolution and the
-# GeminiEnterpriseSettings policy handler.
+# GeminiEnterpriseUrl and GeminiEnterpriseSettings policy handlers.
 source_set("url_allowlist") {
   sources = [
     "geic_url_allowlist.cc",
     "geic_url_allowlist.h",
   ]
 
-  deps = [ "//url" ]
+  deps = [
+    "//base",
+    "//chrome/browser/glic/public:features",
+    "//url",
+  ]
+}
+
+# GEiC pref names and registration. Registered from
+# chrome/browser/prefs/browser_prefs.cc.
+source_set("geic_pref_names") {
+  sources = [
+    "geic_pref_names.cc",
+    "geic_pref_names.h",
+  ]
+
+  deps = [ "//components/pref_registry" ]
+}
+
+# GEiC first-run experience (FRE) status. Like geic_enabling, including these
+# headers is restricted to allowlists in chrome/browser/glic/DEPS and
+# chrome/browser/glic/host/DEPS.
+source_set("geic_fre") {
+  sources = [
+    "geic_fre.cc",
+    "geic_fre.h",
+  ]
+
+  public_deps = [ ":geic_pref_names" ]
+
+  deps = [
+    ":geic_enabling",
+    "//base",
+    "//chrome/browser/glic/public:features",
+    "//chrome/browser/glic/public:provider",
+    "//chrome/browser/profiles:profile",
+    "//chrome/common:constants",
+    "//components/prefs",
+    "//url",
+  ]
 }
 
 source_set("gemini_enterprise") {
@@ -47,7 +88,6 @@ source_set("gemini_enterprise") {
   ]
 
   deps = [
-    ":geic_enabling",
     "//base",
     "//chrome/browser/glic",
     "//chrome/browser/glic:mojo_bindings",
@@ -70,20 +110,26 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "geic_enabling_unittest.cc",
+    "geic_fre_unittest.cc",
     "glic_gemini_enterprise_manager_unittest.cc",
   ]
 
   deps = [
     ":geic_enabling",
+    ":geic_fre",
+    ":geic_pref_names",
     ":gemini_enterprise",
     "//base",
     "//base/test:test_support",
     "//chrome/browser/glic",
     "//chrome/browser/glic:mojo_bindings",
     "//chrome/browser/glic/public:features",
+    "//chrome/browser/metrics",
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//components/prefs",
+    "//components/variations",
+    "//components/variations/service",
     "//content/test:test_support",
     "//mojo/public/cpp/bindings",
     "//testing/gtest",
@@ -101,16 +147,21 @@ source_set("browser_tests") {
 
   deps = [
     ":geic_enabling",
+    ":geic_fre",
+    ":geic_pref_names",
     ":gemini_enterprise",
     "//base",
     "//base/test:test_support",
+    "//chrome/browser/glic",
     "//chrome/browser/glic:mojo_bindings",
     "//chrome/browser/glic/public:features",
     "//chrome/browser/glic/test_support",
+    "//chrome/browser/profiles:profile",
     "//chrome/browser/tab_list",
     "//chrome/browser/ui/browser_window",
     "//chrome/common:constants",
     "//chrome/test:test_support",
+    "//components/prefs",
     "//components/tabs:public",
     "//content/public/browser",
     "//content/test:test_support",

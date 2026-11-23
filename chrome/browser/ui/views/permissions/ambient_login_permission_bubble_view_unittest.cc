@@ -7,13 +7,17 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/ui/permission_bubble/permission_bubble_test_util.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_prompt_chip_model.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_style.h"
 #include "chrome/browser/ui/webauthn/ambient/ambient_login_permission_request.h"
 #include "chrome/grit/generated_resources.h"
@@ -21,6 +25,7 @@
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/permissions/permission_prompt.h"
 #include "components/permissions/permission_request.h"
+#include "components/permissions/permission_uma_constants.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_renderer_host.h"
@@ -29,10 +34,14 @@
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
+#include "ui/color/color_id.h"
+#include "ui/color/color_variant.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image_unittest_util.h"
+#include "ui/gfx/text_elider.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/image_button.h"
@@ -72,6 +81,30 @@ views::ImageView* FindImageViewWithImage(views::View* view) {
 int GetBubbleWidth() {
   return views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_BUBBLE_PREFERRED_WIDTH);
+}
+
+// Returns the bounds of `view` without its insets, e.g. the bounds of the icon
+// of a vector image button, in screen coordinates.
+gfx::Rect GetContentBoundsInScreen(const views::View& view) {
+  gfx::Rect bounds = view.GetBoundsInScreen();
+  bounds.Inset(view.GetInsets());
+  return bounds;
+}
+
+// Returns whether `label` is elided at the start, i.e. shows an ellipsis
+// followed by the end of its text.
+testing::AssertionResult IsElidedAtStart(const views::Label& label) {
+  if (!label.IsDisplayTextTruncated()) {
+    return testing::AssertionFailure() << "The text is not elided";
+  }
+  std::u16string_view display_text = label.GetDisplayTextForTesting();
+  if (!display_text.starts_with(gfx::kEllipsisUTF16) ||
+      !label.GetText().ends_with(display_text.substr(1))) {
+    return testing::AssertionFailure()
+           << "The text is not elided at the start: "
+           << base::UTF16ToUTF8(display_text);
+  }
+  return testing::AssertionSuccess();
 }
 
 class MockAmbientDelegate : public TestPermissionBubbleViewDelegate {
@@ -615,8 +648,12 @@ TEST_F(AmbientLoginPermissionBubbleViewTest,
 
 TEST_F(AmbientLoginPermissionBubbleViewTest,
        FederatedCredentialShowsAccountPicture) {
-  const ui::ImageModel picture =
-      ui::ImageModel::FromImage(gfx::test::CreateImage(/*size=*/40));
+  const gfx::Size picture_size(ambient_signin::kAccountPictureSize,
+                               ambient_signin::kAccountPictureSize);
+  // The picture is larger than shown, so that the test checks that it is
+  // scaled.
+  const ui::ImageModel picture = ui::ImageModel::FromImage(
+      gfx::test::CreateImage(/*size=*/2 * ambient_signin::kAccountPictureSize));
   std::vector<ambient_signin::FederatedCredential> fed_creds = {
       {u"idp.example.com", u"Carol", u"carol@example.com",
        GURL("https://idp.example.com"), picture}};
@@ -633,12 +670,12 @@ TEST_F(AmbientLoginPermissionBubbleViewTest,
   delegate.set_requests(std::move(requests));
   AmbientLoginPermissionBubbleView* bubble = CreateBubble(&delegate);
 
-  // The collapsed view shows the account picture, scaled to the icon size.
+  // The collapsed view shows the account picture at its size in the prompt.
   ASSERT_EQ(bubble->children().size(), 4u);
   auto* icon_view = views::AsViewClass<views::ImageView>(bubble->children()[0]);
   ASSERT_NE(icon_view, nullptr);
   EXPECT_EQ(icon_view->GetImageModel(), picture);
-  EXPECT_EQ(icon_view->GetPreferredSize(), gfx::Size(20, 20));
+  EXPECT_EQ(icon_view->GetPreferredSize(), picture_size);
   // Screen readers skip the picture, since the account name is read out
   // anyway.
   EXPECT_TRUE(icon_view->GetViewAccessibility().GetIsIgnored());
@@ -652,7 +689,8 @@ TEST_F(AmbientLoginPermissionBubbleViewTest,
                              ui::EF_LEFT_MOUSE_BUTTON);
   views::test::ButtonTestApi(expand_button).NotifyClick(click_event);
 
-  // The expanded row shows the account picture too, and screen readers skip it.
+  // The expanded row shows the account picture at the same size, and screen
+  // readers skip it.
   ASSERT_EQ(bubble->children().size(), 1u);
   views::ScrollView* scroll_view =
       views::AsViewClass<views::ScrollView>(bubble->children()[0]);
@@ -664,7 +702,7 @@ TEST_F(AmbientLoginPermissionBubbleViewTest,
   views::ImageView* row_icon_view = FindImageViewWithImage(row);
   ASSERT_NE(row_icon_view, nullptr);
   EXPECT_EQ(row_icon_view->GetImageModel(), picture);
-  EXPECT_EQ(row_icon_view->GetPreferredSize(), gfx::Size(20, 20));
+  EXPECT_EQ(row_icon_view->GetPreferredSize(), picture_size);
   EXPECT_TRUE(row_icon_view->GetViewAccessibility().GetIsIgnored());
 }
 
@@ -690,6 +728,8 @@ TEST_F(AmbientLoginPermissionBubbleViewTest,
   auto* icon_view = views::AsViewClass<views::ImageView>(bubble->children()[0]);
   ASSERT_NE(icon_view, nullptr);
   EXPECT_TRUE(icon_view->GetImageModel().IsVectorIcon());
+  // Unlike an account picture, the icon isn't scaled up.
+  EXPECT_EQ(icon_view->GetPreferredSize(), gfx::Size(20, 20));
 
   views::ImageButton* expand_button =
       views::AsViewClass<views::ImageButton>(bubble->children()[3]);
@@ -711,6 +751,151 @@ TEST_F(AmbientLoginPermissionBubbleViewTest,
   views::ImageView* row_icon_view = FindImageViewWithImage(row);
   ASSERT_NE(row_icon_view, nullptr);
   EXPECT_TRUE(row_icon_view->GetImageModel().IsVectorIcon());
+  EXPECT_EQ(row_icon_view->GetPreferredSize(), gfx::Size(20, 20));
+}
+
+TEST_F(AmbientLoginPermissionBubbleViewTest, ContentIsAlignedWithTitle) {
+  MockAmbientDelegate delegate(GURL("https://example.com"),
+                               u"alice@example.com", u"Provider");
+  AmbientLoginPermissionBubbleView* bubble = CreateBubble(&delegate);
+  views::test::RunScheduledLayout(bubble->GetWidget());
+
+  views::BubbleFrameView* frame_view = bubble->GetBubbleFrameView();
+  ASSERT_NE(frame_view->title(), nullptr);
+  const int title_x = frame_view->title()->GetBoundsInScreen().x();
+  gfx::Rect frame_bounds = frame_view->GetContentsBounds();
+  views::View::ConvertRectToScreen(frame_view, &frame_bounds);
+
+  // The credential's icon is aligned with the title. The expand button's icon,
+  // rather than the button, has the same padding on the right.
+  ASSERT_EQ(bubble->children().size(), 4u);
+  const int icon_x = bubble->children()[0]->GetBoundsInScreen().x();
+  EXPECT_EQ(icon_x, title_x);
+  views::View* text_container = bubble->children()[1];
+  ASSERT_FALSE(text_container->children().empty());
+  const int username_x = text_container->children()[0]->GetBoundsInScreen().x();
+  views::ImageButton* expand_button =
+      views::AsViewClass<views::ImageButton>(bubble->children()[3]);
+  ASSERT_NE(expand_button, nullptr);
+  EXPECT_EQ(
+      frame_bounds.right() - GetContentBoundsInScreen(*expand_button).right(),
+      icon_x - frame_bounds.x());
+
+  ui::MouseEvent click_event(ui::EventType::kMousePressed, gfx::Point(),
+                             gfx::Point(), ui::EventTimeForNow(),
+                             ui::EF_LEFT_MOUSE_BUTTON,
+                             ui::EF_LEFT_MOUSE_BUTTON);
+  views::test::ButtonTestApi(expand_button).NotifyClick(click_event);
+  views::test::RunScheduledLayout(bubble->GetWidget());
+
+  // In the expanded bubble, the credential's icon is aligned with the title
+  // too, and its text doesn't move horizontally.
+  ASSERT_EQ(bubble->children().size(), 1u);
+  views::ScrollView* scroll_view =
+      views::AsViewClass<views::ScrollView>(bubble->children()[0]);
+  ASSERT_NE(scroll_view, nullptr);
+  ASSERT_EQ(scroll_view->contents()->children().size(), 1u);
+  HoverButton* row =
+      views::AsViewClass<HoverButton>(scroll_view->contents()->children()[0]);
+  ASSERT_NE(row, nullptr);
+  views::ImageView* row_icon_view = FindImageViewWithImage(row);
+  ASSERT_NE(row_icon_view, nullptr);
+  EXPECT_EQ(row_icon_view->GetBoundsInScreen().x(), title_x);
+  EXPECT_EQ(row->title()->GetBoundsInScreen().x(), username_x);
+}
+
+TEST_F(AmbientLoginPermissionBubbleViewTest,
+       ExpandedRowsHaveSameSpacingAsCollapsedCredential) {
+  const ui::ImageModel picture = ui::ImageModel::FromImage(
+      gfx::test::CreateImage(/*size=*/ambient_signin::kAccountPictureSize));
+  std::vector<ambient_signin::FederatedCredential> fed_creds = {
+      // The text is taller than the picture.
+      {u"idp.example", u"Carol", u"carol@example.com",
+       GURL("https://idp.example"), picture},
+      // The text is shorter than the picture.
+      {u"idp.example", /*account_name=*/u"", u"dave@example.com",
+       GURL("https://idp.example"), picture}};
+  std::vector<std::unique_ptr<permissions::PermissionRequest>> requests;
+  requests.push_back(
+      std::make_unique<ambient_signin::AmbientLoginPermissionRequest>(
+          GURL("https://example.com"), GURL("https://example.com"),
+          /*credentials=*/
+          std::vector<ambient_signin::PasskeyOrPasswordCredential>{},
+          /*credential_selected_callback=*/base::NullCallback(),
+          std::move(fed_creds), base::DoNothing(), base::DoNothing()));
+
+  MockAmbientDelegate delegate(GURL("https://example.com"));
+  delegate.set_requests(std::move(requests));
+  AmbientLoginPermissionBubbleView* bubble = CreateBubble(&delegate);
+  views::test::RunScheduledLayout(bubble->GetWidget());
+
+  views::BubbleFrameView* frame_view = bubble->GetBubbleFrameView();
+  auto get_frame_bounds = [frame_view]() {
+    gfx::Rect bounds = frame_view->GetContentsBounds();
+    views::View::ConvertRectToScreen(frame_view, &bounds);
+    return bounds;
+  };
+  gfx::Rect frame_bounds = get_frame_bounds();
+  // The bounds of the picture and the text of the collapsed credential.
+  ASSERT_EQ(bubble->children().size(), 4u);
+  gfx::Rect collapsed_bounds = bubble->children()[0]->GetBoundsInScreen();
+  collapsed_bounds.Union(bubble->children()[1]->GetBoundsInScreen());
+  const int collapsed_top = collapsed_bounds.y() - frame_bounds.y();
+  const int collapsed_bottom =
+      frame_bounds.bottom() - collapsed_bounds.bottom();
+
+  views::ImageButton* expand_button =
+      views::AsViewClass<views::ImageButton>(bubble->children()[3]);
+  ASSERT_NE(expand_button, nullptr);
+  ui::MouseEvent click_event(ui::EventType::kMousePressed, gfx::Point(),
+                             gfx::Point(), ui::EventTimeForNow(),
+                             ui::EF_LEFT_MOUSE_BUTTON,
+                             ui::EF_LEFT_MOUSE_BUTTON);
+  views::test::ButtonTestApi(expand_button).NotifyClick(click_event);
+  views::test::RunScheduledLayout(bubble->GetWidget());
+  frame_bounds = get_frame_bounds();
+
+  ASSERT_EQ(bubble->children().size(), 1u);
+  views::ScrollView* scroll_view =
+      views::AsViewClass<views::ScrollView>(bubble->children()[0]);
+  ASSERT_NE(scroll_view, nullptr);
+  views::View* list_view = scroll_view->contents();
+  ASSERT_EQ(list_view->children().size(), 2u);
+  std::vector<gfx::Rect> content_bounds;
+  for (views::View* child : list_view->children()) {
+    HoverButton* row = views::AsViewClass<HoverButton>(child);
+    ASSERT_NE(row, nullptr);
+    views::ImageView* icon_view = FindImageViewWithImage(row);
+    ASSERT_NE(icon_view, nullptr);
+    views::View* labels = row->title()->parent();
+    gfx::Rect bounds = icon_view->GetBoundsInScreen();
+    bounds.Union(labels->GetBoundsInScreen());
+    content_bounds.push_back(bounds);
+
+    // The picture and the text have 10 DIPs of padding above and below them.
+    const gfx::Rect row_bounds = row->GetBoundsInScreen();
+    EXPECT_EQ(bounds.y() - row_bounds.y(), 10);
+    EXPECT_EQ(row_bounds.bottom() - bounds.bottom(), 10);
+
+    // The text below the title, e.g. the IdP name, is secondary.
+    for (views::View* label_view : labels->children()) {
+      if (label_view == row->title()) {
+        continue;
+      }
+      auto* label = views::AsViewClass<views::Label>(label_view);
+      ASSERT_NE(label, nullptr);
+      EXPECT_EQ(label->GetRequestedEnabledColor(),
+                ui::ColorVariant(ui::kColorLabelForegroundSecondary));
+    }
+  }
+
+  // The picture and the text of the first row start at the same distance from
+  // the top of the bubble as in the collapsed bubble, and those of the last row
+  // end at the same distance from the bottom. Within a row, the picture is
+  // vertically centered, so it moves down if the row has more lines of text.
+  EXPECT_EQ(content_bounds.front().y() - frame_bounds.y(), collapsed_top);
+  EXPECT_EQ(frame_bounds.bottom() - content_bounds.back().bottom(),
+            collapsed_bottom);
 }
 
 TEST_F(AmbientLoginPermissionBubbleViewTest, ShortTextIsNotElided) {
@@ -752,6 +937,10 @@ TEST_F(AmbientLoginPermissionBubbleViewTest, LongTextIsElided) {
     ASSERT_NE(label, nullptr);
     EXPECT_TRUE(label->IsDisplayTextTruncated());
   }
+  // Unlike an IdP domain, the provider name is elided at the end.
+  EXPECT_EQ(views::AsViewClass<views::Label>(text_container->children()[1])
+                ->GetElideBehavior(),
+            gfx::ELIDE_TAIL);
 
   // The buttons are neither shrunk nor pushed out of the bubble.
   views::View* sign_in_button = bubble->children()[2].get();
@@ -814,6 +1003,207 @@ TEST_F(AmbientLoginPermissionBubbleViewTest, LongTextIsElidedInExpandedList) {
     ASSERT_NE(label, nullptr);
     EXPECT_TRUE(label->IsDisplayTextTruncated());
   }
+}
+
+TEST_F(AmbientLoginPermissionBubbleViewTest, OnlyIdpNameIsElidedAtStart) {
+  // The IdP name is a domain, so the end stays visible. Other text is still
+  // elided at the end.
+  const std::u16string long_idp_name =
+      std::u16string(200, u'a') + u"-idp.example";
+  std::vector<ambient_signin::FederatedCredential> fed_creds = {
+      // The IdP name is shown below the account name and the email.
+      {long_idp_name, u"Carol", u"carol@example.com",
+       GURL("https://idp.example")},
+      // The IdP name is shown below the email.
+      {long_idp_name, /*account_name=*/u"", u"dave@example.com",
+       GURL("https://idp.example")},
+      // There is no IdP name to show below the account name and the email.
+      {/*idp_name=*/u"", u"Erin", u"erin@example.com",
+       GURL("https://idp.example")}};
+  std::vector<std::unique_ptr<permissions::PermissionRequest>> requests;
+  requests.push_back(
+      std::make_unique<ambient_signin::AmbientLoginPermissionRequest>(
+          GURL("https://example.com"), GURL("https://example.com"),
+          /*credentials=*/
+          std::vector<ambient_signin::PasskeyOrPasswordCredential>{},
+          /*credential_selected_callback=*/base::NullCallback(),
+          std::move(fed_creds), base::DoNothing(), base::DoNothing()));
+
+  MockAmbientDelegate delegate(GURL("https://example.com"));
+  delegate.set_requests(std::move(requests));
+  AmbientLoginPermissionBubbleView* bubble = CreateBubble(&delegate);
+  views::test::RunScheduledLayout(bubble->GetWidget());
+
+  // The collapsed bubble shows the IdP name below the account name.
+  ASSERT_EQ(bubble->children().size(), 4u);
+  views::View* text_container = bubble->children()[1].get();
+  ASSERT_EQ(text_container->children().size(), 2u);
+  auto* idp_label =
+      views::AsViewClass<views::Label>(text_container->children()[1]);
+  ASSERT_NE(idp_label, nullptr);
+  EXPECT_TRUE(IsElidedAtStart(*idp_label));
+
+  views::ImageButton* expand_button =
+      views::AsViewClass<views::ImageButton>(bubble->children()[3]);
+  ASSERT_NE(expand_button, nullptr);
+  ui::MouseEvent click_event(ui::EventType::kMousePressed, gfx::Point(),
+                             gfx::Point(), ui::EventTimeForNow(),
+                             ui::EF_LEFT_MOUSE_BUTTON,
+                             ui::EF_LEFT_MOUSE_BUTTON);
+  views::test::ButtonTestApi(expand_button).NotifyClick(click_event);
+  views::test::RunScheduledLayout(bubble->GetWidget());
+
+  ASSERT_EQ(bubble->children().size(), 1u);
+  views::ScrollView* scroll_view =
+      views::AsViewClass<views::ScrollView>(bubble->children()[0]);
+  ASSERT_NE(scroll_view, nullptr);
+  views::View* list_view = scroll_view->contents();
+  ASSERT_NE(list_view, nullptr);
+  ASSERT_EQ(list_view->children().size(), 3u);
+
+  HoverButton* row0 = views::AsViewClass<HoverButton>(list_view->children()[0]);
+  ASSERT_NE(row0, nullptr);
+  views::View* row0_labels = row0->title()->parent();
+  ASSERT_EQ(row0_labels->children().size(), 3u);
+  auto* row0_email_label =
+      views::AsViewClass<views::Label>(row0_labels->children()[1]);
+  ASSERT_NE(row0_email_label, nullptr);
+  EXPECT_EQ(row0_email_label->GetElideBehavior(), gfx::ELIDE_TAIL);
+  auto* row0_idp_label =
+      views::AsViewClass<views::Label>(row0_labels->children()[2]);
+  ASSERT_NE(row0_idp_label, nullptr);
+  EXPECT_TRUE(IsElidedAtStart(*row0_idp_label));
+
+  HoverButton* row1 = views::AsViewClass<HoverButton>(list_view->children()[1]);
+  ASSERT_NE(row1, nullptr);
+  views::View* row1_labels = row1->title()->parent();
+  ASSERT_EQ(row1_labels->children().size(), 2u);
+  auto* row1_idp_label =
+      views::AsViewClass<views::Label>(row1_labels->children()[1]);
+  ASSERT_NE(row1_idp_label, nullptr);
+  EXPECT_TRUE(IsElidedAtStart(*row1_idp_label));
+
+  HoverButton* row2 = views::AsViewClass<HoverButton>(list_view->children()[2]);
+  ASSERT_NE(row2, nullptr);
+  views::View* row2_labels = row2->title()->parent();
+  ASSERT_EQ(row2_labels->children().size(), 2u);
+  auto* row2_email_label =
+      views::AsViewClass<views::Label>(row2_labels->children()[1]);
+  ASSERT_NE(row2_email_label, nullptr);
+  EXPECT_EQ(row2_email_label->GetElideBehavior(), gfx::ELIDE_TAIL);
+}
+
+TEST_F(AmbientLoginPermissionBubbleViewTest,
+       ChipModelUsesTopCredentialIconAndSignInText) {
+  const GURL origin("https://example.com");
+  const std::u16string expected_chip_text =
+      l10n_util::GetStringUTF16(IDS_AMBIENT_LOGIN_PERMISSION_CHIP);
+
+  // Top credential is a passkey.
+  {
+    MockAmbientDelegate delegate(origin, u"alice@example.com",
+                                 u"Google Password Manager");
+    PermissionPromptChipModel chip_model(delegate.GetWeakPtr());
+    EXPECT_EQ(chip_model.GetChipText(), expected_chip_text);
+    EXPECT_EQ(&chip_model.GetIcon(),
+              &ambient_signin::AmbientLoginPermissionRequest::GetCredentialIcon(
+                  ambient_signin::CredentialType::kPasskey));
+
+    // A collapsed chip shows the "blocked" icon, which for ambient sign-in is
+    // still the credential icon.
+    chip_model.UpdateAutoCollapsePromptChipState(/*is_collapsed=*/true);
+    EXPECT_EQ(&chip_model.GetIcon(),
+              &ambient_signin::AmbientLoginPermissionRequest::GetCredentialIcon(
+                  ambient_signin::CredentialType::kPasskey));
+  }
+
+  // Top credential is a password.
+  {
+    std::vector<ambient_signin::PasskeyOrPasswordCredential> creds = {
+        {u"bob@example.com", u"Google Password Manager",
+         ambient_signin::CredentialType::kPassword},
+        {u"alice@example.com", u"Google Password Manager",
+         ambient_signin::CredentialType::kPasskey}};
+    std::vector<std::unique_ptr<permissions::PermissionRequest>> requests;
+    requests.push_back(
+        std::make_unique<ambient_signin::AmbientLoginPermissionRequest>(
+            origin, origin, std::move(creds), base::DoNothing(),
+            base::DoNothing()));
+    MockAmbientDelegate delegate(origin);
+    delegate.set_requests(std::move(requests));
+
+    PermissionPromptChipModel chip_model(delegate.GetWeakPtr());
+    EXPECT_EQ(chip_model.GetChipText(), expected_chip_text);
+    EXPECT_EQ(&chip_model.GetIcon(),
+              &ambient_signin::AmbientLoginPermissionRequest::GetCredentialIcon(
+                  ambient_signin::CredentialType::kPassword));
+  }
+
+  // Top credential is a federated credential.
+  {
+    std::vector<ambient_signin::FederatedCredential> fed_creds = {
+        {u"idp.example.com", u"Carol", u"carol@example.com",
+         GURL("https://idp.example.com")}};
+    std::vector<std::unique_ptr<permissions::PermissionRequest>> requests;
+    requests.push_back(
+        std::make_unique<ambient_signin::AmbientLoginPermissionRequest>(
+            origin, origin,
+            std::vector<ambient_signin::PasskeyOrPasswordCredential>(),
+            base::NullCallback(), std::move(fed_creds), base::DoNothing(),
+            base::DoNothing()));
+    MockAmbientDelegate delegate(origin);
+    delegate.set_requests(std::move(requests));
+
+    PermissionPromptChipModel chip_model(delegate.GetWeakPtr());
+    EXPECT_EQ(chip_model.GetChipText(), expected_chip_text);
+    EXPECT_EQ(&chip_model.GetIcon(), &GooglePasswordManagerVectorIcon());
+  }
+}
+
+TEST_F(AmbientLoginPermissionBubbleViewTest,
+       ChipShowsSigningInAfterChoosingCredentialThatSignsInDirectly) {
+  const GURL origin("https://example.com");
+  std::vector<ambient_signin::FederatedCredential> fed_creds(2);
+  fed_creds[0].account_name = u"Carol";
+  fed_creds[1].account_name = u"Dave";
+  fed_creds[1].signs_in_directly = true;
+  std::vector<std::unique_ptr<permissions::PermissionRequest>> requests;
+  requests.push_back(
+      std::make_unique<ambient_signin::AmbientLoginPermissionRequest>(
+          origin, origin,
+          std::vector<ambient_signin::PasskeyOrPasswordCredential>(),
+          base::NullCallback(), std::move(fed_creds), base::DoNothing(),
+          base::DoNothing()));
+  auto* request = static_cast<ambient_signin::AmbientLoginPermissionRequest*>(
+      requests[0].get());
+  MockAmbientDelegate delegate(origin);
+  delegate.set_requests(std::move(requests));
+  PermissionPromptChipModel chip_model(delegate.GetWeakPtr());
+
+  // More UI follows the credential, so the chip goes away.
+  request->SelectFederatedCredential(0);
+  chip_model.UpdateWithUserDecision(permissions::PermissionAction::GRANTED);
+  EXPECT_FALSE(chip_model.CanDisplayConfirmation());
+
+  // The credential signs the user in directly, so the chip shows that.
+  const std::u16string signing_in_text =
+      l10n_util::GetStringUTF16(IDS_FEDERATION_SIGNING_IN_TITLE);
+  request->SelectFederatedCredential(1);
+  chip_model.UpdateWithUserDecision(permissions::PermissionAction::GRANTED);
+  EXPECT_TRUE(chip_model.CanDisplayConfirmation());
+  EXPECT_EQ(chip_model.GetChipText(), signing_in_text);
+  EXPECT_EQ(chip_model.GetAccessibilityChipText(), signing_in_text);
+
+  // Passkeys and passwords are unaffected.
+  MockAmbientDelegate passkey_delegate(origin, u"alice@example.com",
+                                       u"Google Password Manager");
+  static_cast<ambient_signin::AmbientLoginPermissionRequest*>(
+      passkey_delegate.Requests()[0].get())
+      ->SelectCredential(0);
+  PermissionPromptChipModel passkey_chip_model(passkey_delegate.GetWeakPtr());
+  passkey_chip_model.UpdateWithUserDecision(
+      permissions::PermissionAction::GRANTED);
+  EXPECT_FALSE(passkey_chip_model.CanDisplayConfirmation());
 }
 
 }  // namespace

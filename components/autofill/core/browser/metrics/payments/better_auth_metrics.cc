@@ -60,6 +60,12 @@ void LogPreflightCallResponseReceivedOnCardSelection(
   base::UmaHistogramEnumeration(histogram_name, event);
 }
 
+void LogServerControlledReauthCardVerificationStatus(
+    CardVerificationStatus status) {
+  base::UmaHistogramEnumeration(
+      "Autofill.ServerControlledReauth.CardVerificationStatus", status);
+}
+
 void LogUserPerceivedLatencyOnCardSelection(PreflightCallEvent event,
                                             bool fido_auth_enabled) {
   std::string histogram_name =
@@ -76,10 +82,19 @@ void LogUserPerceivedLatencyOnCardSelectionDuration(
       duration);
 }
 
-void LogUserPerceivedLatencyOnCardSelectionTimedOut(bool did_time_out) {
+void LogUserPerceivedLatencyOnCardSelectionTimedOutCvcFallback(
+    bool did_time_out) {
   base::UmaHistogramBoolean(
       "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.OptedIn."
       "TimedOutCvcFallback",
+      did_time_out);
+}
+
+void LogUserPerceivedLatencyOnCardSelectionRiskBasedTimedOut(
+    bool did_time_out) {
+  base::UmaHistogramBoolean(
+      "Autofill.BetterAuth.UserPerceivedLatencyOnCardSelection.RiskBased."
+      "TimedOut",
       did_time_out);
 }
 

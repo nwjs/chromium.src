@@ -660,6 +660,7 @@ WebViewImpl::WebViewImpl(
 
 WebViewImpl::~WebViewImpl() {
   DCHECK(!page_);
+  DCHECK(!page_popup_);
 }
 
 void WebViewImpl::SetTabKeyCyclesThroughElements(bool value) {
@@ -1152,8 +1153,11 @@ void WebViewImpl::ClosePagePopup(PagePopup* popup) {
 }
 
 void WebViewImpl::CleanupPagePopup() {
-  page_popup_ = nullptr;
-  DisablePopupMouseWheelEventListener();
+  if (page_popup_) {
+    page_popup_->ClearOpenerWebView();
+    page_popup_ = nullptr;
+    DisablePopupMouseWheelEventListener();
+  }
 }
 
 void WebViewImpl::UpdatePagePopup() {
@@ -1184,13 +1188,13 @@ void WebViewImpl::DisablePopupMouseWheelEventListener() {
   // TODO(kenrb): Concerns the same as in enablePopupMouseWheelEventListener.
   // See https://crbug.com/566130
   DCHECK(popup_mouse_wheel_event_listener_);
+  EventListener* listener = popup_mouse_wheel_event_listener_.Release();
   Document* document =
       local_root_with_empty_mouse_wheel_listener_->GetDocument();
   if (document) {
     // Document may have already removed the event listener, for instance, due
     // to a navigation, but remove it anyway.
-    document->removeEventListener(event_type_names::kMousewheel,
-                                  popup_mouse_wheel_event_listener_.Release(),
+    document->removeEventListener(event_type_names::kMousewheel, listener,
                                   false);
   }
   local_root_with_empty_mouse_wheel_listener_ = nullptr;
@@ -1959,9 +1963,14 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
       // trigger the expensive SkFontMgr initialization (parsing fonts.xml).
       // Pre-warming additional families is redundant.
 #if !BUILDFLAG(IS_ANDROID)
-      prewarmer->PrewarmFamily(font_settings.Serif());
+      if (const AtomicString& serif = font_settings.Serif(); !serif.empty()) {
+        prewarmer->PrewarmFamily(serif);
+      }
 #endif
-      prewarmer->PrewarmFamily(font_settings.SansSerif());
+      if (const AtomicString& sans_serif = font_settings.SansSerif();
+          !sans_serif.empty()) {
+        prewarmer->PrewarmFamily(sans_serif);
+      }
     }
   }
 #endif
@@ -3449,17 +3458,6 @@ float WebViewImpl::DefaultMaximumPageScaleFactor() const {
 }
 
 float WebViewImpl::MinimumPageScaleFactor() const {
-#if BUILDFLAG(IS_ANDROID)
-  // We have to force this on Android because WebViewImpl::ApplyWebPreferences()
-  // sets SetIgnoreViewportTagScaleLimits(prefs.force_enable_zoom) on Android,
-  // which sometimes overrides the minimum scale that we set in
-  // WebViewImpl::ConfigureAutoResizeMode().
-  if (base::FeatureList::IsEnabled(
-          features::kAutoResizeMinimumPageScaleFactor) &&
-      should_auto_resize_) {
-    return 1.0f;
-  }
-#endif
   return GetPageScaleConstraintsSet().FinalConstraints().minimum_scale;
 }
 
@@ -3531,7 +3529,7 @@ void WebViewImpl::ConfigureAutoResizeMode() {
   }
 
   PageScaleConstraints constraints =
-      GetPageScaleConstraintsSet().UserAgentConstraints();
+      GetPageScaleConstraintsSet().AutoResizeConstraints();
   if (should_auto_resize_) {
     MainFrameImpl()->GetFrame()->View()->EnableAutoSizeMode(min_auto_size_,
                                                             max_auto_size_);
@@ -3541,7 +3539,7 @@ void WebViewImpl::ConfigureAutoResizeMode() {
     constraints.minimum_scale = -1.0f;
   }
   GetPageScaleConstraintsSet().SetNeedsReset(true);
-  GetPage()->SetUserAgentPageScaleConstraints(constraints);
+  GetPageScaleConstraintsSet().SetAutoResizeConstraints(constraints);
 }
 
 void WebViewImpl::SetCompositorDeviceScaleFactorOverride(
@@ -4094,9 +4092,11 @@ void WebViewImpl::MainFrameLayoutUpdated() {
     return;
   }
 
-  for (auto& observer : observers_) {
-    observer.DidUpdateMainFrameLayout();
-  }
+  // Allow reentrancy because `OnPageVisibilityChanged` observers (e.g.
+  // `media::RendererWebMediaPlayerDelegate`) can synchronously run script that
+  // forces a main-frame layout update while `SetVisibilityState()` is iterating
+  // `observers_`.
+  observers_.NotifyAllowReentrancy(&WebViewObserver::DidUpdateMainFrameLayout);
   needs_preferred_size_update_ = true;
 }
 

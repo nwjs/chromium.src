@@ -318,6 +318,17 @@ IN_PROC_BROWSER_TEST_F(GlicNoWebviewOverlayBrowserTest,
                                    StructuredErrorReason::GUEST_PROCESS_GONE));
 
   manager->OnGuestNavigated(GURL("https://example.com/"),
+                            /*is_api_allowed=*/false,
+                            mojom::GuestPageType::kSecurityInterstitial,
+                            /*is_initial_commit=*/true);
+  // A security interstitial page is shown to the user directly rather than as
+  // an error, so it is not reported.
+  EXPECT_THAT(GetRecordedClientLoadErrors(recorder),
+              testing::ElementsAre(StructuredErrorReason::GUEST_LOAD_FAILED,
+                                   StructuredErrorReason::CLIENT_ERROR,
+                                   StructuredErrorReason::GUEST_PROCESS_GONE));
+
+  manager->OnGuestNavigated(GURL("https://example.com/"),
                             /*is_api_allowed=*/true,
                             mojom::GuestPageType::kDisabledByAdmin,
                             /*is_initial_commit=*/true);
@@ -866,14 +877,14 @@ IN_PROC_BROWSER_TEST_F(GlicNoWebviewContentsManagerBrowserTest,
   // Input 1: Active error state takes precedence over loading/guest readiness.
   auto error_state = OverlayContentsManager::DetermineOverlayState(
       mojom::ErrorPanelType::kSignIn, GuestState::kLoading,
-      mojom::PanelStateKind::kDetached);
+      mojom::PanelStateKind::kDetached, /*guest_main_page_loaded=*/false);
   ASSERT_TRUE(error_state && error_state->is_error());
   EXPECT_EQ(error_state->get_error(), mojom::ErrorPanelType::kSignIn);
 
   // Error also takes precedence even if guest is ready.
   auto error_ready_state = OverlayContentsManager::DetermineOverlayState(
       mojom::ErrorPanelType::kDisabledByAdmin, GuestState::kReady,
-      mojom::PanelStateKind::kAttached);
+      mojom::PanelStateKind::kAttached, /*guest_main_page_loaded=*/false);
   ASSERT_TRUE(error_ready_state && error_ready_state->is_error());
   EXPECT_EQ(error_ready_state->get_error(),
             mojom::ErrorPanelType::kDisabledByAdmin);
@@ -882,18 +893,21 @@ IN_PROC_BROWSER_TEST_F(GlicNoWebviewContentsManagerBrowserTest,
   // returns null (no overlay needed).
   EXPECT_FALSE(OverlayContentsManager::DetermineOverlayState(
       /*error_type=*/std::nullopt, GuestState::kReady,
-      mojom::PanelStateKind::kAttached));
+      mojom::PanelStateKind::kAttached, /*guest_main_page_loaded=*/false));
   EXPECT_FALSE(OverlayContentsManager::DetermineOverlayState(
       /*error_type=*/std::nullopt, GuestState::kLogin,
-      mojom::PanelStateKind::kAttached));
+      mojom::PanelStateKind::kAttached, /*guest_main_page_loaded=*/false));
+  EXPECT_FALSE(OverlayContentsManager::DetermineOverlayState(
+      /*error_type=*/std::nullopt, GuestState::kSecurityInterstitial,
+      mojom::PanelStateKind::kAttached, /*guest_main_page_loaded=*/false));
   EXPECT_FALSE(OverlayContentsManager::DetermineOverlayState(
       /*error_type=*/std::nullopt, GuestState::kGuestError,
-      mojom::PanelStateKind::kAttached));
+      mojom::PanelStateKind::kAttached, /*guest_main_page_loaded=*/false));
 
   // Input 3: Panel state. When loading and detached, returns kFloating style.
   auto floating_state = OverlayContentsManager::DetermineOverlayState(
       /*error_type=*/std::nullopt, GuestState::kLoading,
-      mojom::PanelStateKind::kDetached);
+      mojom::PanelStateKind::kDetached, /*guest_main_page_loaded=*/false);
   ASSERT_TRUE(floating_state && floating_state->is_loading());
   EXPECT_EQ(floating_state->get_loading(), mojom::LoadingStyle::kFloating);
 
@@ -901,13 +915,13 @@ IN_PROC_BROWSER_TEST_F(GlicNoWebviewContentsManagerBrowserTest,
   // style.
   auto attached_state = OverlayContentsManager::DetermineOverlayState(
       /*error_type=*/std::nullopt, GuestState::kLoading,
-      mojom::PanelStateKind::kAttached);
+      mojom::PanelStateKind::kAttached, /*guest_main_page_loaded=*/false);
   ASSERT_TRUE(attached_state && attached_state->is_loading());
   EXPECT_EQ(attached_state->get_loading(), mojom::LoadingStyle::kSidePanel);
 
   auto unattached_state = OverlayContentsManager::DetermineOverlayState(
       /*error_type=*/std::nullopt, GuestState::kLoading,
-      /*panel_state_kind=*/std::nullopt);
+      /*panel_state_kind=*/std::nullopt, /*guest_main_page_loaded=*/false);
   ASSERT_TRUE(unattached_state && unattached_state->is_loading());
   EXPECT_EQ(unattached_state->get_loading(), mojom::LoadingStyle::kSidePanel);
 }
@@ -1325,7 +1339,6 @@ IN_PROC_BROWSER_TEST_F(GlicNoWebviewContentsManagerBrowserTest,
                                  ClientLoadErrorReason::kGuestProcessGone);
   }));
 }
-
 IN_PROC_BROWSER_TEST_F(GlicNoWebviewContentsManagerBrowserTest,
                        RecordsNavigationCommitAndLoadCompleteMetricsOnce) {
   base::HistogramTester histogram_tester;
@@ -1385,12 +1398,113 @@ IN_PROC_BROWSER_TEST_F(GlicNoWebviewSsrOverlayBrowserTest,
   EXPECT_EQ(manager->active_web_contents(), manager->overlay_contents());
 }
 
+class GlicNoWebviewShowLoaderUntilMainPageOnloadBrowserTest
+    : public GlicNoWebviewOverlayBrowserTest {
+ public:
+  GlicNoWebviewShowLoaderUntilMainPageOnloadBrowserTest() {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        features::kGlicSsr,
+        {{features::kGlicShowLoaderUntilMainPageOnload.name, "true"}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(GlicNoWebviewShowLoaderUntilMainPageOnloadBrowserTest,
+                       ShowsLoadingOverlayUntilMainPageOnloadThenShowsGuest) {
+  // Before the guest main page completes its onload event, the loading overlay
+  // must be shown even though kGlicSsr is enabled.
+  GlicNoWebviewContentsManager direct_manager(
+      GetProfile(), &service()->enabling(), /*initially_hidden=*/false);
+  direct_manager.SetVisibility(content::Visibility::VISIBLE);
+  direct_manager.OnGuestNavigationStarted();
+  EXPECT_EQ(direct_manager.state(),
+            GlicNoWebviewContentsManager::DisplayState::kShowingOverlay);
+  auto initial_overlay_state = direct_manager.GetOverlayStateForTesting();
+  ASSERT_TRUE(initial_overlay_state && initial_overlay_state->is_loading());
+
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
+  auto* manager = GetNoWebviewContentsManager(instance);
+  ASSERT_TRUE(manager);
+
+  // Wait for the static /title1.html guest page to finish loading and fire
+  // DocumentOnLoadCompletedInPrimaryMainFrame.
+  ASSERT_TRUE(content::WaitForLoadStop(manager->guest_contents()));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return manager->state() ==
+           GlicNoWebviewContentsManager::DisplayState::kShowingGuest;
+  }));
+
+  // Once the regular guest page onload event completes, the loading overlay is
+  // dismissed and the guest WebContents is shown, while guest_state remains
+  // kLoading and the loading timeout timer stays active until client ready.
+  EXPECT_EQ(manager->guest_state().get(),
+            GlicNoWebviewContentsManager::GuestState::kLoading);
+  EXPECT_EQ(manager->state(),
+            GlicNoWebviewContentsManager::DisplayState::kShowingGuest);
+  EXPECT_EQ(manager->active_web_contents(), manager->guest_contents());
+  EXPECT_FALSE(manager->GetOverlayStateForTesting());
+  EXPECT_TRUE(manager->loading_timer_for_testing().IsRunning());
+
+  // Starting a new navigation resets the main page loaded state and restores
+  // the loading overlay until the new navigation completes its onload event.
+  manager->OnGuestNavigationStarted();
+  EXPECT_EQ(manager->state(),
+            GlicNoWebviewContentsManager::DisplayState::kShowingOverlay);
+  auto overlay_state = manager->GetOverlayStateForTesting();
+  ASSERT_TRUE(overlay_state && overlay_state->is_loading());
+
+  manager->OnGuestMainPageLoaded();
+  EXPECT_EQ(manager->state(),
+            GlicNoWebviewContentsManager::DisplayState::kShowingGuest);
+  EXPECT_EQ(manager->active_web_contents(), manager->guest_contents());
+  EXPECT_FALSE(manager->GetOverlayStateForTesting());
+}
+
 class GlicNoWebviewGuestInitialSizeBrowserTest
     : public GlicNoWebviewContentsManagerBrowserTest {
  public:
   GlicNoWebviewGuestInitialSizeBrowserTest() {
     initial_size_feature_list_.InitAndEnableFeature(
         features::kGlicGuestInitialSize);
+    embedded_https_test_server().RegisterRequestHandler(base::BindRepeating(
+        [](const net::test_server::HttpRequest& request)
+            -> std::unique_ptr<net::test_server::HttpResponse> {
+          if (!request.relative_url.starts_with(
+                  "/glic/browser_tests/viewport_tracking_client.html")) {
+            return nullptr;
+          }
+          auto response =
+              std::make_unique<net::test_server::BasicHttpResponse>();
+          response->set_code(net::HTTP_OK);
+          response->set_content_type("text/html");
+          // Serve with `Cross-Origin-Opener-Policy: same-origin` (matching
+          // production gemini.google.com/glic) so `OnResponseStarted` forces a
+          // cross-BrowsingInstance speculative `RenderFrameHost` swap.
+          response->AddCustomHeader("Cross-Origin-Opener-Policy",
+                                    "same-origin");
+          response->set_content(R"html(<!DOCTYPE html>
+<html>
+<head>
+  <script>
+    window.__glicViewportHistory = [];
+    const recordViewport = (phase) => {
+      window.__glicViewportHistory.push(
+          `${phase}:${window.innerWidth}x${window.innerHeight}`);
+    };
+    recordViewport('script-start');
+    window.addEventListener('resize', () => recordViewport('resize'));
+    new ResizeObserver(() => recordViewport('resize-observer'))
+        .observe(document.documentElement);
+  </script>
+  <script type="module" src="./minimal_client.js"></script>
+</head>
+<body></body>
+</html>)html");
+          return response;
+        }));
+    SetGlicPagePath("/glic/browser_tests/viewport_tracking_client.html");
   }
 
  private:
@@ -1412,6 +1526,114 @@ IN_PROC_BROWSER_TEST_F(GlicNoWebviewGuestInitialSizeBrowserTest,
   // that's specified.
   EXPECT_GT(actual_size.width(), 0);
   EXPECT_GT(actual_size.height(), 0);
+
+  EXPECT_EQ(true, content::EvalJs(warmed_contents->guest_contents.get(),
+                                  "window.innerWidth > 0 && "
+                                  "window.innerHeight > 0"));
 }
 
+IN_PROC_BROWSER_TEST_F(GlicNoWebviewGuestInitialSizeBrowserTest,
+                       PreservesNonEmptySizeWhenOpeningSidePanel) {
+  auto& warming_pool = coordinator().GetWebContentsWarmingPoolForTesting();
+  warming_pool.MaybeStartWarming(GlicWarmingTrigger::kStartup);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    auto* container = warming_pool.GetWarmedContainerForTesting();
+    return container && container->web_client_manager()
+                            .has_pending_web_client_receiver_for_testing();
+  }));
+  auto warmed_contents = warming_pool.GetWarmedWebContents();
+  ASSERT_TRUE(warmed_contents.has_value());
+  ASSERT_TRUE(warmed_contents->guest_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(warmed_contents->guest_contents.get()));
+
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
+  ASSERT_OK(WaitForGlicClient(instance));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !instance->GetPanelSize().IsEmpty(); }));
+
+  auto* manager = GetNoWebviewContentsManager(instance);
+  ASSERT_TRUE(manager);
+  ASSERT_TRUE(manager->guest_contents());
+  ASSERT_TRUE(manager->guest_contents()->GetRenderWidgetHostView());
+  auto actual_size = manager->guest_contents()
+                         ->GetRenderWidgetHostView()
+                         ->GetVisibleViewportSize();
+  EXPECT_GT(actual_size.width(), 0);
+  EXPECT_GT(actual_size.height(), 0);
+
+  // Confirm that the guest renderer never observed a 0x0 viewport at any point
+  // during warmup, client initialization, resize events, or panel open.
+  std::string viewport_history =
+      content::EvalJs(
+          manager->guest_contents(),
+          "(window.__glicViewportHistory || []).concat(["
+          "  'post-open:' + window.innerWidth + 'x' + window.innerHeight"
+          "]).join(', ')")
+          .ExtractString();
+  EXPECT_THAT(viewport_history, testing::Not(testing::HasSubstr(":0x")))
+      << "Guest observed zero width in viewport history: " << viewport_history;
+  EXPECT_THAT(viewport_history, testing::Not(testing::HasSubstr("x0")))
+      << "Guest observed zero height in viewport history: " << viewport_history;
+}
+
+IN_PROC_BROWSER_TEST_F(GlicNoWebviewOverlayBrowserTest,
+                       UnconnectedHiddenManagerHibernatesAfterTimeout) {
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
+  auto* manager = GetNoWebviewContentsManager(instance);
+  ASSERT_TRUE(manager);
+
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  PreventDeletionOnClose(instance, "test_conversation");
+  ASSERT_OK(CloseGlicForTabAndWait(tab));
+  EXPECT_FALSE(instance->IsHibernated());
+  EXPECT_FALSE(instance->host().IsWebClientConnected());
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return manager->unconnected_hibernation_timer_for_testing().IsRunning();
+  }));
+
+  manager->unconnected_hibernation_timer_for_testing().FireNow();
+  EXPECT_TRUE(instance->IsHibernated());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicNoWebviewContentsManagerBrowserTest,
+                       ConnectedHiddenManagerDoesNotHibernate) {
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
+  ASSERT_OK(WaitForGlicClient(instance));
+  EXPECT_TRUE(instance->host().IsWebClientConnected());
+
+  auto* manager = GetNoWebviewContentsManager(instance);
+  ASSERT_TRUE(manager);
+
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  PreventDeletionOnClose(instance, "test_conversation");
+  ASSERT_OK(CloseGlicForTabAndWait(tab));
+  EXPECT_FALSE(instance->IsHibernated());
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return manager->unconnected_hibernation_timer_for_testing().IsRunning();
+  }));
+
+  manager->unconnected_hibernation_timer_for_testing().FireNow();
+  EXPECT_FALSE(instance->IsHibernated());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicNoWebviewOverlayBrowserTest,
+                       ReshownManagerDoesNotHibernateOnTimerExpiry) {
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
+  auto* manager = GetNoWebviewContentsManager(instance);
+  ASSERT_TRUE(manager);
+
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  PreventDeletionOnClose(instance, "test_conversation");
+  ASSERT_OK(CloseGlicForTabAndWait(tab));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return manager->unconnected_hibernation_timer_for_testing().IsRunning();
+  }));
+
+  ASSERT_OK(OpenGlicForActiveTab());
+  EXPECT_FALSE(
+      manager->unconnected_hibernation_timer_for_testing().IsRunning());
+  EXPECT_FALSE(instance->IsHibernated());
+}
 }  // namespace glic

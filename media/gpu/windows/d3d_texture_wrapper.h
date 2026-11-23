@@ -1,0 +1,183 @@
+// Copyright 2019 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef MEDIA_GPU_WINDOWS_D3D_TEXTURE_WRAPPER_H_
+#define MEDIA_GPU_WINDOWS_D3D_TEXTURE_WRAPPER_H_
+
+#include <memory>
+#include <optional>
+#include <vector>
+
+#include "base/memory/weak_ptr.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/threading/sequence_bound.h"
+#include "components/viz/common/resources/shared_image_format.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
+#include "gpu/command_buffer/service/texture_manager.h"
+#include "gpu/config/gpu_driver_bug_workarounds.h"
+#include "media/base/video_frame.h"
+#include "media/gpu/command_buffer_helper.h"
+#include "media/gpu/media_gpu_export.h"
+#include "media/gpu/windows/d3d_com_defs.h"
+#include "media/gpu/windows/d3d_status.h"
+#include "ui/gfx/color_space.h"
+#include "ui/gfx/win/d3d_shared_fence.h"
+#include "ui/gl/gl_bindings.h"
+#include "ui/gl/gl_context.h"
+#include "ui/gl/gl_surface_egl.h"
+#include "ui/gl/scoped_binders.h"
+
+namespace media {
+
+class D3DPictureBuffer;
+
+using CommandBufferHelperPtr = scoped_refptr<CommandBufferHelper>;
+using GetCommandBufferHelperCB =
+    base::RepeatingCallback<CommandBufferHelperPtr()>;
+
+// Support different strategies for processing pictures - some may need copying,
+// for example.  Each wrapper owns the resources for a single texture, so it's
+// up to you not to re-use a wrapper for a second image before a previously
+// processed image is no longer needed.
+class MEDIA_GPU_EXPORT D3DTextureWrapper {
+ public:
+  using PictureBufferGPUResourceInitDoneCB =
+      base::OnceCallback<void(scoped_refptr<media::D3DPictureBuffer>)>;
+
+  D3DTextureWrapper();
+  virtual ~D3DTextureWrapper();
+
+  // Initialize the wrapper.
+  virtual D3DStatus Init(
+      scoped_refptr<base::SingleThreadTaskRunner> gpu_task_runner,
+      GetCommandBufferHelperCB get_helper_cb,
+      ComD3D11Texture2D texture,
+      size_t array_size,
+      scoped_refptr<media::D3DPictureBuffer> picture_buffer,
+      PictureBufferGPUResourceInitDoneCB
+          picture_buffer_gpu_resource_init_done_cb) = 0;
+
+  // "If the |texture| is shared and needs synchronization, it is important for
+  // shared image to call begin access before any usage. This API is required to
+  // be called:
+  // - Before reading or writing to the texture via views on the texture or
+  // other means.
+  // - Before calling ProcessTexture.
+  // And need reset the scoped access object to end access.
+  virtual D3DStatus BeginSharedImageAccess() = 0;
+
+  // Import |texture|, |array_slice| and return the shared image that can be
+  // used to refer to it. |decode_fence|, when non-null, signals completion of
+  // writes to |texture|.
+  virtual D3DStatus ProcessTexture(
+      scoped_refptr<gpu::ClientSharedImage>& shared_image_dest_out,
+      scoped_refptr<gfx::D3DSharedFence> decode_fence) = 0;
+
+  virtual const gfx::Size& GetSize() const = 0;
+};
+
+// The default texture wrapper that uses GPUResources to talk to hardware
+// on behalf of a Texture2D.  Each DefaultD3DTextureWrapper owns GL textures
+// that it uses to bind the provided input texture.  Thus, one needs one wrapper
+// instance for each concurrently outstanding texture.
+class MEDIA_GPU_EXPORT DefaultD3DTextureWrapper : public D3DTextureWrapper {
+ public:
+  // Error callback for GpuResource to notify us of errors.
+  using OnErrorCB = base::OnceCallback<void(D3DStatus)>;
+
+  // Callback for setting shared image representation and resume picture buffer
+  // after gpu resource initialization.
+  using GPUResourceInitCB =
+      base::OnceCallback<void(scoped_refptr<media::D3DPictureBuffer>,
+                              std::unique_ptr<gpu::VideoImageRepresentation>,
+                              scoped_refptr<gpu::ClientSharedImage>)>;
+
+  // While the specific texture instance can change on every call to
+  // ProcessTexture, the dxgi format must be the same for all of them.
+  DefaultD3DTextureWrapper(const gfx::Size& size,
+                           const gfx::ColorSpace& output_color_space,
+                           viz::SharedImageFormat output_si_format,
+                           ComD3D11Device device,
+                           gpu::GpuDriverBugWorkarounds workarounds);
+  ~DefaultD3DTextureWrapper() override;
+
+  D3DStatus Init(scoped_refptr<base::SingleThreadTaskRunner> gpu_task_runner,
+                 GetCommandBufferHelperCB get_helper_cb,
+                 ComD3D11Texture2D in_texture,
+                 size_t array_slice,
+                 scoped_refptr<media::D3DPictureBuffer> picture_buffer,
+                 D3DTextureWrapper::PictureBufferGPUResourceInitDoneCB
+                     picture_buffer_gpu_resource_init_done_cb) override;
+
+  D3DStatus BeginSharedImageAccess() override;
+
+  D3DStatus ProcessTexture(
+      scoped_refptr<gpu::ClientSharedImage>& shared_image_dest,
+      scoped_refptr<gfx::D3DSharedFence> decode_fence) override;
+
+  const gfx::Size& GetSize() const override;
+
+  void OnGPUResourceInitDone(
+      scoped_refptr<media::D3DPictureBuffer> picture_buffer,
+      std::unique_ptr<gpu::VideoImageRepresentation> shared_image_rep,
+      scoped_refptr<gpu::ClientSharedImage> client_shared_image);
+
+  ComD3D11Device GetVideoDevice() { return video_device_; }
+
+ private:
+  // Things that are to be accessed / freed only on the main thread.  In
+  // addition to setting up the textures to render from a D3D11 texture,
+  // these also hold the chrome GL Texture objects so that the client
+  // can use the mailbox.
+  class GpuResources {
+   public:
+    GpuResources(OnErrorCB on_error_cb,
+                 GetCommandBufferHelperCB get_helper_cb,
+                 const gfx::Size& size,
+                 const gfx::ColorSpace& color_space,
+                 viz::SharedImageFormat output_si_format,
+                 ComD3D11Device video_device,
+                 ComD3D11Texture2D texture,
+                 size_t array_slice,
+                 scoped_refptr<media::D3DPictureBuffer> picture_buffer,
+                 GPUResourceInitCB gpu_resource_init_cb,
+                 const gpu::GpuDriverBugWorkarounds& workarounds);
+    GpuResources(const GpuResources&) = delete;
+    GpuResources& operator=(const GpuResources&) = delete;
+    ~GpuResources();
+
+   private:
+    scoped_refptr<CommandBufferHelper> helper_;
+    std::unique_ptr<gpu::SharedImageRepresentationFactoryRef> shared_image_;
+    base::WeakPtrFactory<GpuResources> weak_factory_{this};
+  };
+
+  // Receive an error from |gpu_resources_| and store it in |received_error_|.
+  void OnError(D3DStatus status);
+
+  // The first error status that we've received from |gpu_resources_|, if any.
+  std::optional<D3DStatus> received_error_;
+
+  const gfx::Size size_;
+  const gfx::ColorSpace output_color_space_;
+  base::SequenceBound<GpuResources> gpu_resources_;
+  scoped_refptr<gpu::ClientSharedImage> shared_image_;
+  viz::SharedImageFormat output_si_format_;
+
+  std::unique_ptr<gpu::VideoImageRepresentation> shared_image_rep_;
+  std::unique_ptr<gpu::VideoImageRepresentation::ScopedWriteAccess>
+      shared_image_access_;
+
+  ComD3D11Device video_device_;
+  const gpu::GpuDriverBugWorkarounds workarounds_;
+
+  D3DTextureWrapper::PictureBufferGPUResourceInitDoneCB
+      picture_buffer_gpu_resource_init_done_cb_;
+
+  base::WeakPtrFactory<DefaultD3DTextureWrapper> weak_factory_{this};
+};
+
+}  // namespace media
+
+#endif  // MEDIA_GPU_WINDOWS_D3D_TEXTURE_WRAPPER_H_

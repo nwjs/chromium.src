@@ -124,14 +124,14 @@ inline constexpr char
         "performance-battery-saver-opt-out";
 inline constexpr char kHatsSurveyTriggerPrivacyGuide[] = "privacy-guide";
 inline constexpr char kHatsSurveyTriggerRedWarning[] = "red-warning";
+inline constexpr char kHatsSurveyTriggerScheduledRestart[] =
+    "scheduled-restart";
 inline constexpr char kHatsSurveyTriggerSettings[] = "settings";
 inline constexpr char kHatsSurveyTriggerSEHijacking[] =
     "search-engine-hijacking";
 inline constexpr char kHatsSurveyTriggerSettingsPrivacy[] = "settings-privacy";
 inline constexpr char kHatsSurveyTriggerSettingsSecurity[] =
     "settings-security";
-inline constexpr char kHatsSurveyTriggerSettingsSecurityV2[] =
-    "settings-security-v2";
 inline constexpr char kHatsSurveyTriggerTrustSafetyPrivacySettings[] =
     "ts-privacy-settings";
 inline constexpr char kHatsSurveyTriggerTrustSafetyTrustedSurface[] =
@@ -185,10 +185,10 @@ inline constexpr char kHatsSurveyTriggerSigninNtpAccountAvatarTap[] =
 inline constexpr char kHatsSurveyTriggerSigninNtpPromo[] = "signin-ntp-promo";
 inline constexpr char kHatsSurveyTriggerSigninBookmarkPromo[] =
     "signin-bookmark-promo";
-inline constexpr char kHatsSurveyTriggerSuspiciousSiteWarning[] =
-    "suspicious-site-warning";
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 
+inline constexpr char kHatsSurveyTriggerSuspiciousSiteWarning[] =
+    "suspicious-site-warning";
 inline constexpr char
     kHatsSurveyTriggerAutofillPersonalizationAndTrustAddressFilled[] =
         "autofill-personalization-and-trust-address-filled";
@@ -204,6 +204,9 @@ inline constexpr char
 inline constexpr char
     kHatsSurveyTriggerAutofillPersonalizationAndTrustOneTimePasswordFilled[] =
         "autofill-personalization-and-trust-one-time-password-filled";
+inline constexpr char
+    kHatsSurveyTriggerAutofillPersonalizationAndTrustOneTimePasswordDismissed
+        [] = "autofill-personalization-and-trust-one-time-password-dismissed";
 inline constexpr char
     kHatsSurveyTriggerAutofillPersonalizationAndTrustPasswordFilled[] =
         "autofill-personalization-and-trust-password-filled";
@@ -349,6 +352,9 @@ using SurveyConfigs = base::flat_map<std::string, SurveyConfig>;
 // Get the list of active ongoing surveys and store into
 // |survey_configs_by_triggers_|.
 void GetActiveSurveyConfigs(SurveyConfigs& survey_configs_by_triggers_);
+
+// Returns all survey configs, including those whose feature is disabled.
+std::vector<SurveyConfig> GetAllSurveyConfigsForTesting();
 
 }  // namespace hats
 

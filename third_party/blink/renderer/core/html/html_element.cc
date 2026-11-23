@@ -1575,8 +1575,15 @@ bool HTMLElement::IsPopoverReady(PopoverTriggerAction action,
 }
 
 namespace {
-// We have to mark *all* invokers for the given popover dirty in the
-// ax tree, since they all should now have an updated expanded state.
+// Marks all invokers for `popover` dirty in the AX tree when `popover` opens,
+// closes, or is removed from the DOM, since the invokers' expanded/collapsed
+// state (`AXNodeObject::IsExpanded`) and details relation
+// (`AXObject::GetPopoverTargetForInvoker` /
+// `GetCommandForElementForDetailsRelation`) depend on whether `popover` is a
+// connected popover and whether it is open.
+// Note: When a target element is inserted into the DOM, or has its `popover`
+// or `id` attribute modified, `AXObjectCacheImpl` marks any referencing
+// invokers dirty via `AXRelationCache`.
 void MarkPopoverInvokersDirty(const HTMLElement& popover) {
   CHECK(popover.IsPopover());
   auto& document = popover.GetDocument();
@@ -1615,6 +1622,14 @@ ScriptPromise<IDLUndefined> HTMLElement::showUnboundedElement(
       MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
   auto promise = resolver->Promise();
 
+  if (IsUnboundedElementActive() ||
+      (GetUnboundedEventData() && GetUnboundedEventData()->isTransitioning())) {
+    resolver->Reject(MakeGarbageCollected<DOMException>(
+        DOMExceptionCode::kInvalidStateError,
+        "The element is already an active unbounded element."));
+    return promise;
+  }
+
   if (!FastHasAttribute(html_names::kUnboundedAttr)) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kInvalidStateError,
@@ -1644,6 +1659,8 @@ ScriptPromise<IDLUndefined> HTMLElement::showUnboundedElement(
 
   if (auth !=
           ContextFeatureSettings::UnboundedElementAuth::kAllowedPrivileged &&
+      auth != ContextFeatureSettings::UnboundedElementAuth::
+                  kAllowedByPrivilegedMainFrame &&
       !LocalFrame::HasTransientUserActivation(frame)) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kNotAllowedError,
@@ -1696,6 +1713,18 @@ ScriptPromise<IDLUndefined> HTMLElement::showUnboundedElement(
   }
 #endif
 
+  // Dismiss any currently active unbounded element on the widget before
+  // activating this element, so that multiple elements are never active at
+  // once and any third elements opened inside closing beforetoggle listeners
+  // are cleanly dismissed.
+  while (HTMLElement* active = widget->GetActiveUnboundedElement()) {
+    if (active == this) {
+      break;
+    }
+    widget->DismissUnboundedSurfaceState(
+        WebFrameWidgetImpl::UnboundedDismissReason::kProgrammatic);
+  }
+
   SetUnboundedElementActive(true, UnboundedEvents::kFireNonCancelable);
 
   mojo::PendingAssociatedRemote<mojom::blink::UnboundedSurfaceHost> host_remote;
@@ -1719,7 +1748,8 @@ ScriptPromise<IDLUndefined> HTMLElement::hideUnboundedElement(
       MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
   auto promise = resolver->Promise();
 
-  if (!IsUnboundedElementActive()) {
+  if (!IsUnboundedElementActive() ||
+      (GetUnboundedEventData() && GetUnboundedEventData()->isTransitioning())) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kInvalidStateError,
         "The element is not an active unbounded element."));
@@ -1757,6 +1787,32 @@ bool HTMLElement::SetUnboundedElementActive(bool active,
   }
 
   if (fire_events != UnboundedEvents::kSuppress) {
+    class ScopedTransitioning {
+      STACK_ALLOCATED();
+
+     public:
+      explicit ScopedTransitioning(UnboundedEventData& data)
+          : data_(data), was_transitioning_(data.isTransitioning()) {
+        data_.setIsTransitioning(true);
+      }
+      ~ScopedTransitioning() {
+        if (!was_transitioning_) {
+          DCHECK(data_.isTransitioning());
+          data_.setIsTransitioning(false);
+        }
+      }
+
+      bool WasTransitioning() const { return was_transitioning_; }
+
+     private:
+      UnboundedEventData& data_;
+      bool was_transitioning_;
+    };
+    ScopedTransitioning scoped_transitioning(EnsureUnboundedEventData());
+    if (scoped_transitioning.WasTransitioning()) {
+      return true;
+    }
+
     String old_state = active ? keywords::kClosed : keywords::kOpen;
     String new_state = active ? keywords::kOpen : keywords::kClosed;
     Event::Cancelable cancelable =
@@ -4004,6 +4060,9 @@ void HTMLElement::RemovedFrom(ContainerNode& insertion_point) {
     // If a popover is removed from the document, make sure it gets
     // removed from the popover element stack and the top layer.
     if (was_in_document) {
+      if (!popoverOpen()) {
+        MarkPopoverInvokersDirty(*this);
+      }
       // We can't run focus event handlers while removing elements.
       HidePopoverInternal(
           /*invoker=*/nullptr, HidePopoverFocusBehavior::kNone,

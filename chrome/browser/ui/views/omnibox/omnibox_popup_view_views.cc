@@ -49,13 +49,6 @@
 
 namespace {
 
-#if BUILDFLAG(IS_WIN)
-// Removes forced software compositing for `AutocompletePopupWidget` below.
-// TODO(thestig): Remove this kill switch after a safe rollout, in M145.
-BASE_FEATURE(kOmniboxRemovePopupWidgetSoftwareCompositing,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 // Returns the bounds for the popup widget's content frame (before shadow
 // insets) when in debug mode. The bounds are calculated such that:
 //  1. The widget takes up half the width of the content area.
@@ -116,13 +109,6 @@ class OmniboxPopupViewViews::PopupWidget final : public ThemeCopyingWidget {
     views::Widget::InitParams params(
         views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET,
         views::Widget::InitParams::TYPE_POPUP);
-#if BUILDFLAG(IS_WIN)
-    // On Windows use the software compositor to ensure that we don't block
-    // the UI thread during command buffer creation. We can revert this change
-    // once http://crbug.com/40198772 is fixed.
-    params.force_software_compositing = !base::FeatureList::IsEnabled(
-        kOmniboxRemovePopupWidgetSoftwareCompositing);
-#endif
     params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
     params.parent = parent_widget->GetNativeView();
     params.context = parent_widget->GetNativeWindow();
@@ -304,7 +290,7 @@ gfx::Image OmniboxPopupViewViews::GetMatchIcon(
 }
 
 void OmniboxPopupViewViews::SetSelectedIndex(size_t index) {
-  DCHECK(HasMatchAt(index));
+  CHECK(HasMatchAt(index), base::NotFatalUntil::M162);
   if (index != controller()->edit_model()->GetPopupSelection().line) {
     OmniboxPopupSelection::LineState line_state =
         OmniboxPopupSelection::LineState::kNormal;
@@ -489,7 +475,7 @@ void OmniboxPopupViewViews::UpdatePopupAppearance() {
 }
 
 void OmniboxPopupViewViews::ProvideButtonFocusHint(size_t line) {
-  DCHECK(GetSelection().IsButtonFocused());
+  CHECK(GetSelection().IsButtonFocused(), base::NotFatalUntil::M162);
 
   views::View* active_button =
       row_views_[line]->GetActiveAuxiliaryButtonForAccessibility();
@@ -559,7 +545,7 @@ void OmniboxPopupViewViews::OnGestureEvent(ui::GestureEvent* event) {
       break;
     case ui::EventType::kGestureTap:
     case ui::EventType::kGestureScrollEnd: {
-      DCHECK(HasMatchAt(index));
+      CHECK(HasMatchAt(index), base::NotFatalUntil::M162);
       controller()->edit_model()->OpenSelection(OmniboxPopupSelection(index),
                                                 event->time_stamp());
       break;

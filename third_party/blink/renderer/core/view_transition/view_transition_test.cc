@@ -5,13 +5,16 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/check_op.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "cc/view_transition/view_transition_request.h"
+#include "third_party/blink/public/common/frame/view_transition_state.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_tester.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_testing.h"
@@ -34,12 +37,15 @@
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/html_head_element.h"
 #include "third_party/blink/renderer/core/inspector/inspector_style_resolver.h"
+#include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_shift_tracker.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_api.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_history_entry.h"
 #include "third_party/blink/renderer/core/page/page.h"
+#include "third_party/blink/renderer/core/paint/fragment_data.h"
+#include "third_party/blink/renderer/core/paint/object_paint_properties.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
@@ -54,10 +60,15 @@
 #include "third_party/blink/renderer/core/view_transition/view_transition_transition_element.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.h"
+#include "third_party/blink/renderer/platform/graphics/paint/display_item.h"
+#include "third_party/blink/renderer/platform/graphics/paint/effect_paint_property_node.h"
+#include "third_party/blink/renderer/platform/graphics/paint/paint_artifact.h"
 #include "third_party/blink/renderer/platform/testing/find_cc_layer.h"
 #include "third_party/blink/renderer/platform/testing/paint_test_configurations.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
@@ -145,22 +156,31 @@ class ViewTransitionTest : public testing::Test,
     return transition->GetViewTransitionForTest()->state_;
   }
 
-  // Captures the document for a cross-document navigation, as is done for the
-  // outgoing document, and returns whether the capture finished.
-  bool SnapshotDocumentForNavigation() {
-    bool callback_ran = false;
+  // Starts capturing the document for a cross-document navigation, as is done
+  // for the outgoing document. `navigation_snapshot_state_` is set once the
+  // capture finishes.
+  void StartSnapshotDocumentForNavigation() {
+    navigation_snapshot_state_.reset();
     auto page_swap_params = mojom::blink::PageSwapEventParams::New();
     page_swap_params->url = KURL("http://test.com");
     page_swap_params->navigation_type =
         mojom::blink::NavigationTypeForNavigationApi::kPush;
+    // The fixture outlives the document, which runs the callback if the
+    // transition is skipped during teardown.
     ViewTransitionSupplement::SnapshotDocumentForNavigation(
         GetDocument(), blink::ViewTransitionToken(),
         std::move(page_swap_params),
-        base::BindOnce([](bool* callback_ran,
-                          const ViewTransitionState&) { *callback_ran = true; },
-                       &callback_ran));
+        base::BindLambdaForTesting([this](const ViewTransitionState& state) {
+          navigation_snapshot_state_ = state;
+        }));
+  }
+
+  // Captures the document for a cross-document navigation, as is done for the
+  // outgoing document, and returns whether the capture finished.
+  bool SnapshotDocumentForNavigation() {
+    StartSnapshotDocumentForNavigation();
     UpdateAllLifecyclePhasesAndFinishDirectives();
-    return callback_ran;
+    return navigation_snapshot_state_.has_value();
   }
 
   void FinishTransition() {
@@ -230,9 +250,36 @@ class ViewTransitionTest : public testing::Test,
     }
   }
 
+  // Returns whether the view transition content painted by `client` in the
+  // last paint is under an effect with an SVG reference filter, or nullopt if
+  // `client` didn't paint view transition content.
+  std::optional<bool> ViewTransitionContentHasReferenceFilter(
+      const DisplayItemClient& client) {
+    const PaintArtifact& artifact = GetLocalFrameView()->GetPaintArtifact();
+    for (const PaintChunk& chunk : artifact.GetPaintChunks()) {
+      for (const DisplayItem& item : artifact.GetDisplayItemList().ItemsInRange(
+               chunk.begin_index, chunk.end_index)) {
+        if (item.GetType() != DisplayItem::kForeignLayerViewTransitionContent ||
+            item.ClientId() != client.Id()) {
+          continue;
+        }
+        for (const EffectPaintPropertyNode* effect =
+                 &chunk.properties.Effect().Unalias();
+             effect; effect = effect->UnaliasedParent()) {
+          if (effect->HasReferenceFilter()) {
+            return true;
+          }
+        }
+        return false;
+      }
+    }
+    return std::nullopt;
+  }
+
  protected:
   test::TaskEnvironment task_environment;
 
+  std::optional<ViewTransitionState> navigation_snapshot_state_;
   std::unique_ptr<frame_test_helpers::WebViewHelper> web_view_helper_;
 };
 
@@ -2044,6 +2091,142 @@ TEST_P(ViewTransitionTest, NavigationCaptureDoesNotSnapZeroHeightControls) {
   EXPECT_EQ(browser_controls.BottomShownRatio(), 0);
 }
 
+// The outgoing document of a cross-document navigation only captures its
+// participants since the animation runs on the new document. So it shouldn't
+// generate the pseudo-element tree, which costs extra style and layout passes
+// in the capture frame.
+TEST_P(ViewTransitionTest, NavigationCaptureDoesNotGeneratePseudoElementTree) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      html { view-transition-name: root; }
+      div { width: 100px; height: 100px; contain: paint; background: green; }
+      #first { view-transition-name: first; }
+      #second { view-transition-name: second; }
+    </style>
+    <div id=first></div>
+    <div id=second></div>
+  )HTML");
+
+  StartSnapshotDocumentForNavigation();
+  ASSERT_TRUE(ViewTransitionUtils::GetTransition(GetDocument()));
+
+  // Nothing else in the page changed, so the capture frame doesn't need any
+  // layout.
+  const unsigned layout_count = GetLocalFrameView()->LayoutCountForTesting();
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(GetLocalFrameView()->LayoutCountForTesting(), layout_count);
+
+  Element* root = GetDocument().documentElement();
+  EXPECT_FALSE(root->GetPseudoElement(kPseudoIdViewTransition));
+  EXPECT_FALSE(GetDocument().GetLayoutView()->GetViewTransitionRoot());
+
+  // The participants are still captured.
+  EXPECT_TRUE(ShouldCompositeForViewTransition(
+      GetDocument().getElementById(AtomicString("first"))));
+  EXPECT_TRUE(ShouldCompositeForViewTransition(
+      GetDocument().getElementById(AtomicString("second"))));
+  EXPECT_TRUE(ElementIsComposited("first"));
+  EXPECT_TRUE(ElementIsComposited("second"));
+
+  ViewTransitionTestUtils::ProcessPendingDirectives(GetDocument(),
+                                                    LayerTreeHost());
+  ASSERT_TRUE(navigation_snapshot_state_.has_value());
+  EXPECT_TRUE(navigation_snapshot_state_->IsValid());
+  EXPECT_FALSE(root->GetPseudoElement(kPseudoIdViewTransition));
+}
+
+// A participant that is too large to be captured fully is clipped. The clip
+// depends on geometry that's only known after the participants are discovered,
+// so it must be in place by the time the capture frame is painted.
+TEST_P(ViewTransitionTest, NavigationCaptureClipsLargeParticipant) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      html { view-transition-name: root; }
+      #large {
+        width: 100px;
+        height: 1000px;
+        contain: paint;
+        background: green;
+        view-transition-name: large;
+      }
+    </style>
+    <div id=large></div>
+  )HTML");
+
+  StartSnapshotDocumentForNavigation();
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* transition = ViewTransitionUtils::GetTransition(GetDocument());
+  ASSERT_TRUE(transition);
+  const LayoutObject& large =
+      *GetDocument().getElementById(AtomicString("large"))->GetLayoutObject();
+  ASSERT_TRUE(transition->NeedsViewTransitionClipNode(large));
+  EXPECT_EQ(&large.FirstFragment().LocalBorderBoxProperties().Clip(),
+            transition->GetCaptureClip(large));
+
+  ViewTransitionTestUtils::ProcessPendingDirectives(GetDocument(),
+                                                    LayerTreeHost());
+  ASSERT_TRUE(navigation_snapshot_state_.has_value());
+  EXPECT_TRUE(navigation_snapshot_state_->IsValid());
+}
+
+// The root's snapshot ID is only known after the participants are discovered,
+// so the capture frame must update the LayoutView's paint properties after
+// that, even if the root is the only participant.
+TEST_P(ViewTransitionTest, NavigationCaptureWithOnlyRootParticipant) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      html { view-transition-name: root; }
+      div { width: 100px; height: 100px; background: green; }
+    </style>
+    <div></div>
+  )HTML");
+
+  StartSnapshotDocumentForNavigation();
+  UpdateAllLifecyclePhasesForTest();
+
+  const auto* properties =
+      GetDocument().GetLayoutView()->FirstFragment().PaintProperties();
+  ASSERT_TRUE(properties);
+  ASSERT_TRUE(properties->ViewTransitionEffect());
+  EXPECT_TRUE(properties->ViewTransitionEffect()
+                  ->ViewTransitionElementResourceId()
+                  .IsValid());
+
+  ViewTransitionTestUtils::ProcessPendingDirectives(GetDocument(),
+                                                    LayerTreeHost());
+  ASSERT_TRUE(navigation_snapshot_state_.has_value());
+  EXPECT_TRUE(navigation_snapshot_state_->IsValid());
+}
+
+// The kill switch restores generating the pseudo-element tree on the outgoing
+// document.
+TEST_P(ViewTransitionTest,
+       NavigationCaptureGeneratesPseudoElementTreeIfSkipDisabled) {
+  ScopedViewTransitionSkipPseudoTreeForNavigationCaptureForTest
+      skip_pseudo_tree(false);
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      html { view-transition-name: root; }
+      div { width: 100px; height: 100px; contain: paint; background: green; }
+      #first { view-transition-name: first; }
+    </style>
+    <div id=first></div>
+  )HTML");
+
+  StartSnapshotDocumentForNavigation();
+  UpdateAllLifecyclePhasesForTest();
+
+  Element* root = GetDocument().documentElement();
+  EXPECT_TRUE(root->GetPseudoElement(kPseudoIdViewTransition));
+  EXPECT_TRUE(GetDocument().GetLayoutView()->GetViewTransitionRoot());
+
+  ViewTransitionTestUtils::ProcessPendingDirectives(GetDocument(),
+                                                    LayerTreeHost());
+  ASSERT_TRUE(navigation_snapshot_state_.has_value());
+  EXPECT_TRUE(navigation_snapshot_state_->IsValid());
+}
+
 TEST_P(ViewTransitionTest, AutoResizeMismatchedSizes) {
   SetHtmlInnerHTML(R"HTML(
     <style>
@@ -2143,6 +2326,160 @@ TEST_P(ViewTransitionTest, StyleBuilderKeyframesPrecision) {
   String css = builder.Build();
   EXPECT_NE(css.find("width: 100.094px;"), kNotFound) << css;
   EXPECT_NE(css.find("height: 200.094px;"), kNotFound) << css;
+}
+
+// View transition content may contain cross-origin frames, so SVG reference
+// filters must not apply to it. The ::view-transition-old/new() case is covered
+// by external/wpt/css/css-view-transitions/iframe-cross-origin-svg-filter
+// .tentative.sub.https.html. This tests the snapshot that the embedder paints
+// for a subframe with a view transition, under a filter on the <iframe>.
+TEST_P(ViewTransitionTest, SubframeSnapshotLayerWithoutSvgFilter) {
+  SetHtmlInnerHTML(R"HTML(
+    <svg width=0 height=0>
+      <filter id=blur><feGaussianBlur stdDeviation=5></feGaussianBlur></filter>
+    </svg>
+    <iframe id=frame style="filter: url(#blur)" srcdoc="<html></html>">
+    </iframe>
+  )HTML");
+  test::RunPendingTasks();
+  UpdateAllLifecyclePhasesForTest();
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+  auto& child_document =
+      *To<LocalFrame>(GetDocument().GetFrame()->Tree().FirstChild())
+           ->GetDocument();
+  ViewTransitionSupplement::startViewTransition(script_state, child_document,
+                                                ASSERT_NO_EXCEPTION);
+  auto* transition = ViewTransitionUtils::GetTransition(child_document);
+  ASSERT_TRUE(transition);
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_TRUE(transition->GetScopeSnapshotLayer());
+
+  Element* iframe = GetDocument().getElementById(AtomicString("frame"));
+  EXPECT_EQ(ViewTransitionContentHasReferenceFilter(*iframe->GetLayoutObject()),
+            false);
+}
+
+// Same as above, but for the snapshot of a scoped view transition, under a
+// filter on an ancestor of the scope. This also checks that the removal is
+// reported with its own use counter, rather than kPreventSvgFilterPaint.
+TEST_P(ViewTransitionTest, ScopeSnapshotLayerWithoutSvgFilter) {
+  SetHtmlInnerHTML(R"HTML(
+    <svg width=0 height=0>
+      <filter id=blur><feGaussianBlur stdDeviation=5></feGaussianBlur></filter>
+    </svg>
+    <div style="filter: url(#blur)">
+      <div id=scope style="width: 100px; height: 100px; contain: strict;
+                           position: relative; z-index: 0"></div>
+    </div>
+  )HTML");
+  EXPECT_FALSE(GetDocument().IsUseCounted(
+      WebFeature::kViewTransitionPreventSvgFilterPaint));
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+  Element* scope_element = GetDocument().getElementById(AtomicString("scope"));
+  ScopedViewTransition::startViewTransition(script_state, *scope_element,
+                                            ASSERT_NO_EXCEPTION);
+  auto* transition = ViewTransitionUtils::GetTransition(*scope_element);
+  ASSERT_TRUE(transition);
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_TRUE(transition->GetScopeSnapshotLayer());
+
+  EXPECT_EQ(
+      ViewTransitionContentHasReferenceFilter(
+          *To<LayoutBoxModelObject>(scope_element->GetLayoutObject())->Layer()),
+      false);
+  EXPECT_TRUE(GetDocument().IsUseCounted(
+      WebFeature::kViewTransitionPreventSvgFilterPaint));
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kPreventSvgFilterPaint));
+}
+
+TEST_P(ViewTransitionTest, ScopeSnapshotLayerWithoutSvgFilter_FeatureDisabled) {
+  ScopedViewTransitionPreventSvgFilterPaintForTest feature_disabled(false);
+  SetHtmlInnerHTML(R"HTML(
+    <svg width=0 height=0>
+      <filter id=blur><feGaussianBlur stdDeviation=5></feGaussianBlur></filter>
+    </svg>
+    <div style="filter: url(#blur)">
+      <div id=scope style="width: 100px; height: 100px; contain: strict;
+                           position: relative; z-index: 0"></div>
+    </div>
+  )HTML");
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+  Element* scope_element = GetDocument().getElementById(AtomicString("scope"));
+  ScopedViewTransition::startViewTransition(script_state, *scope_element,
+                                            ASSERT_NO_EXCEPTION);
+  auto* transition = ViewTransitionUtils::GetTransition(*scope_element);
+  ASSERT_TRUE(transition);
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_TRUE(transition->GetScopeSnapshotLayer());
+
+  EXPECT_EQ(
+      ViewTransitionContentHasReferenceFilter(
+          *To<LayoutBoxModelObject>(scope_element->GetLayoutObject())->Layer()),
+      true);
+  EXPECT_FALSE(GetDocument().IsUseCounted(
+      WebFeature::kViewTransitionPreventSvgFilterPaint));
+}
+
+TEST_P(ViewTransitionTest, ScopedViewTransitionRemoveChildDuringCallback) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      #scope {
+        width: 100px;
+        height: 100px;
+      }
+      #child {
+        width: 50px;
+        height: 50px;
+        view-transition-name: child-item;
+      }
+    </style>
+    <div id="scope">
+      <div id="child"></div>
+    </div>
+  )HTML");
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+
+  Element* scope_element = GetDocument().getElementById(AtomicString("scope"));
+  Element* child_element = GetDocument().getElementById(AtomicString("child"));
+
+  auto start_setup_lambda =
+      [](const v8::FunctionCallbackInfo<v8::Value>& info) {};
+  auto start_setup_callback =
+      v8::Function::New(script_state->GetContext(), start_setup_lambda, {})
+          .ToLocalChecked();
+
+  auto* transition = ScopedViewTransition::startViewTransition(
+      script_state, *scope_element,
+      V8ViewTransitionCallback::Create(start_setup_callback),
+      ASSERT_NO_EXCEPTION);
+  auto* vt = transition->GetViewTransitionForTest();
+
+  // Run the capture frame and commit it (without finishing Viz capture rects
+  // yet) so the DOM callback runs while waiting for capture rects.
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_EQ(GetState(transition), State::kCapturing);
+  vt->WillCommitCompositorFrame();
+  test::RunPendingTasks();
+  EXPECT_EQ(GetState(transition), State::kWaitingForCaptureRects);
+
+  // Remove the named child and run a main-frame lifecycle update before capture
+  // rects arrive from the compositor.
+  child_element->remove();
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(GetState(transition), State::kWaitingForCaptureRects);
+
+  // Now finish the capture directive and verify the transition animates.
+  UpdateAllLifecyclePhasesAndFinishDirectives();
+  test::RunPendingTasks();
+  EXPECT_EQ(GetState(transition), State::kAnimating);
 }
 
 TEST_P(ViewTransitionTest, ClearPseudoElementsWithNestedStyleUpdate) {
@@ -2278,6 +2615,83 @@ TEST_P(ViewTransitionTest, ContentVisibilityHiddenOnNewlyCreatedGroup) {
       kPseudoIdViewTransitionNew, AtomicString("b"));
   ASSERT_TRUE(new_b);
   EXPECT_TRUE(new_b->GetLayoutObject());
+}
+
+// When a transition is skipped during the rendering lifecycle, other captured
+// transitions waiting on it must not run their update callbacks from inside
+// the lifecycle, since script could then dirty the DOM after style and layout
+// are clean.
+TEST_P(ViewTransitionTest,
+       UpdateCallbackDoesNotRunDuringLifecycleWhenOtherTransitionSkipped) {
+  SetHtmlInnerHTML(R"HTML(
+    <style>
+      .scope { width: 100px; height: 50px; contain: layout; }
+      .scope div { width: 10px; height: 10px; }
+    </style>
+    <div id="a" class="scope">
+      <div style="view-transition-name: a1"></div>
+    </div>
+    <div id="b" class="scope">
+      <div style="view-transition-name: b1"></div>
+    </div>
+  )HTML");
+
+  ScriptState* script_state = GetScriptState();
+  ScriptState::Scope scope(script_state);
+
+  struct CallbackData {
+    bool ran = false;
+    bool ran_during_lifecycle = false;
+  };
+  CallbackData data;
+
+  auto record_lambda = [](const v8::FunctionCallbackInfo<v8::Value>& info) {
+    auto* data =
+        static_cast<CallbackData*>(info.DataV2().As<v8::External>()->Value(
+            gin::kViewTransitionTestDataTag));
+    data->ran = true;
+    data->ran_during_lifecycle = ScriptForbiddenScope::WillBeScriptForbidden();
+  };
+  auto record_callback =
+      v8::Function::New(script_state->GetContext(), record_lambda,
+                        v8::External::New(script_state->GetIsolate(), &data,
+                                          gin::kViewTransitionTestDataTag))
+          .ToLocalChecked();
+  auto noop_callback =
+      v8::Function::New(script_state->GetContext(),
+                        [](const v8::FunctionCallbackInfo<v8::Value>&) {})
+          .ToLocalChecked();
+
+  Element* a = GetDocument().getElementById(AtomicString("a"));
+  Element* b = GetDocument().getElementById(AtomicString("b"));
+
+  auto* transition_b = ScopedViewTransition::startViewTransition(
+      script_state, *b, V8ViewTransitionCallback::Create(record_callback),
+      ASSERT_NO_EXCEPTION);
+  auto* transition_a = ScopedViewTransition::startViewTransition(
+      script_state, *a, V8ViewTransitionCallback::Create(noop_callback),
+      ASSERT_NO_EXCEPTION);
+
+  UpdateAllLifecyclePhasesForTest();
+  ASSERT_EQ(GetState(transition_a), State::kCapturing);
+  ASSERT_EQ(GetState(transition_b), State::kCapturing);
+
+  // Commit only `b`'s capture. `b` is now ready to run its callback, but waits
+  // for `a`, which is still capturing.
+  transition_b->GetViewTransitionForTest()->WillCommitCompositorFrame();
+  test::RunPendingTasks();
+  EXPECT_EQ(GetState(transition_b), State::kCapturing);
+  EXPECT_FALSE(data.ran);
+
+  // Make `a` skip during the next lifecycle update, since its scope no longer
+  // has a layout box.
+  a->SetInlineStyleProperty(CSSPropertyID::kDisplay, "none");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(GetState(transition_a), State::kAborted);
+
+  test::RunPendingTasks();
+  EXPECT_TRUE(data.ran);
+  EXPECT_FALSE(data.ran_during_lifecycle);
 }
 
 }  // namespace blink

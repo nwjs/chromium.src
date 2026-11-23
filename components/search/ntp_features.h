@@ -45,6 +45,8 @@ BASE_DECLARE_FEATURE(kNtpAnimatedCaret);
 BASE_DECLARE_FEATURE(kNtpBackgroundImageErrorDetection);
 BASE_DECLARE_FEATURE(kNtpCalendarModule);
 BASE_DECLARE_FEATURE(kNtpChromeCartModule);
+BASE_DECLARE_FEATURE(kNtpComponentExtension);
+extern const base::FeatureParam<bool> kNtpComponentExtensionUseComponentUpdater;
 BASE_DECLARE_FEATURE(kNtpCustomizeChromeAutoOpen);
 BASE_DECLARE_FEATURE(kNtpCustomizeWebUiAndroid);
 BASE_DECLARE_FEATURE(kNtpDisableBrowserInitiatedLinks);
@@ -61,7 +63,6 @@ BASE_DECLARE_FEATURE(kNtpLogo);
 BASE_DECLARE_FEATURE(kNtpMiddleSlotPromo);
 BASE_DECLARE_FEATURE(kNtpModulesLoadTimeoutMilliseconds);
 BASE_DECLARE_FEATURE(kNtpModulesOrder);
-BASE_DECLARE_FEATURE(kNtpModulesLoad);
 BASE_DECLARE_FEATURE(kNtpModuleSignInRequirement);
 BASE_DECLARE_FEATURE(kNtpOutlookCalendarModule);
 BASE_DECLARE_FEATURE(kNtpOneGoogleBar);
@@ -106,6 +107,7 @@ BASE_DECLARE_FEATURE(kBookmarkBarUpdatesForTesting);
 BASE_DECLARE_FEATURE(kNtpThreadsRail);
 BASE_DECLARE_FEATURE(kNtpEnableInstantApiAndroid);
 BASE_DECLARE_FEATURE(kNtpShortcutsReorder);
+BASE_DECLARE_FEATURE(kNtpLazyLoadComposebox);
 
 // Parameter for controlling the luminosity difference for NTP elements on light
 // backgrounds.

@@ -562,11 +562,39 @@ export class UserEducationInternalsElement extends
       } else {
         this.handler_.getWhatsNewModules().then(({whatsNewModules}) => {
           this.whatsNewModules_ = whatsNewModules;
-          this.requestUpdate();
         });
         this.handler_.getWhatsNewEditions().then(({whatsNewEditions}) => {
           this.whatsNewEditions_ = whatsNewEditions;
-          this.requestUpdate();
+        });
+      }
+    });
+  }
+
+  protected onModuleClearWhatsNewData_(e: CustomEvent<string>) {
+    this.featurePromoErrorMessage_ = '';
+
+    this.handler_.clearWhatsNewModuleData(e.detail).then(({errorMessage}) => {
+      this.featurePromoErrorMessage_ = errorMessage;
+      if (errorMessage !== '') {
+        this.$.errorMessageToast.show();
+      } else {
+        this.handler_.getWhatsNewModules().then(({whatsNewModules}) => {
+          this.whatsNewModules_ = whatsNewModules;
+        });
+      }
+    });
+  }
+
+  protected onEditionClearWhatsNewData_(e: CustomEvent<string>) {
+    this.featurePromoErrorMessage_ = '';
+
+    this.handler_.clearWhatsNewEditionData(e.detail).then(({errorMessage}) => {
+      this.featurePromoErrorMessage_ = errorMessage;
+      if (errorMessage !== '') {
+        this.$.errorMessageToast.show();
+      } else {
+        this.handler_.getWhatsNewEditions().then(({whatsNewEditions}) => {
+          this.whatsNewEditions_ = whatsNewEditions;
         });
       }
     });
@@ -611,8 +639,8 @@ export class UserEducationInternalsElement extends
   }
 
   protected onSelectorIronActivate_(event: CustomEvent<{selected: string}>) {
+    this.$.menu.selected = event.detail.selected;
     const index = Number(event.detail.selected);
-    this.$.menu.selected = index;
     if (index >= 0) {
       this.$.selector.removeAttribute('show-all');
       this.selectedTabIndex = index;
@@ -635,6 +663,16 @@ export class UserEducationInternalsElement extends
   }
 
   // <if expr="not is_chromeos">
+  protected onClearWhatsNewDataClick_() {
+    if (!confirm(
+            'Clear all What\'s New data?\n' +
+            'This affects module order, edition use, and version history' +
+            ' data.')) {
+      return;
+    }
+    this.onClearWhatsNewData_();
+  }
+
   protected onLaunchWhatsNewStagingClick_() {
     this.handler_.launchWhatsNewStaging();
   }

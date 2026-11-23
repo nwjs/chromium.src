@@ -10,6 +10,7 @@
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
+#include "base/dcheck_is_on.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -35,6 +36,7 @@
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_webui_creation.h"
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/actor/ui/actor_task_unload_handler.h"
 #endif
@@ -80,6 +82,7 @@
 #include "chrome/test/base/chrome_test_path_utils.h"
 #include "chrome/test/base/chrome_test_suite.h"
 #include "chrome/test/base/test_launcher_utils.h"
+#include "chrome/test/base/test_switches.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/captive_portal/core/buildflags.h"
 #include "components/feature_engagement/public/feature_list.h"
@@ -91,11 +94,13 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/browser/devtools_agent_host.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_paths.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_launcher.h"
 #include "content/public/test/test_navigation_observer.h"
+#include "content/public/test/test_utils.h"
 #include "extensions/buildflags/buildflags.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "services/device/public/cpp/device_features.h"
@@ -147,10 +152,15 @@
 #include "base/system/sys_info.h"
 #include "chrome/browser/ash/app_restore/full_restore_app_launch_handler.h"
 #include "chrome/browser/ash/input_method/input_method_configuration.h"
+#include "chrome/browser/ash/ownership/owner_settings_service_ash_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/services/device_sync/device_sync_impl.h"
 #include "chromeos/ash/services/device_sync/fake_device_sync.h"
+#include "chromeos/dbus/constants/dbus_paths.h"
+#include "components/ownership/mock_owner_key_util.h"
+#include "components/ownership/owner_key_util.h"
+#include "components/ownership/owner_key_util_impl.h"
 #include "components/user_manager/user_names.h"
 #include "ui/display/display_switches.h"
 #include "ui/events/test/event_generator.h"
@@ -202,6 +212,53 @@ FakeDeviceSyncImplFactory* GetFakeDeviceSyncImplFactory() {
   static base::NoDestructor<FakeDeviceSyncImplFactory> factory;
   return factory.get();
 }
+
+// OwnerKeyUtil implementation for browser tests that delegates file and slot
+// lookups to OwnerKeyUtilImpl while importing a pre-generated RSA key in
+// GenerateKeyPair() to avoid expensive runtime prime generation.
+class TestOwnerKeyUtil : public ownership::OwnerKeyUtil {
+ public:
+  TestOwnerKeyUtil() = default;
+  TestOwnerKeyUtil(const TestOwnerKeyUtil&) = delete;
+  TestOwnerKeyUtil& operator=(const TestOwnerKeyUtil&) = delete;
+
+  // ownership::OwnerKeyUtil:
+  scoped_refptr<ownership::PublicKey> ImportPublicKey() override {
+    scoped_refptr<ownership::OwnerKeyUtil> impl = GetImpl();
+    return impl ? impl->ImportPublicKey() : nullptr;
+  }
+
+  crypto::ScopedSECKEYPrivateKey GenerateKeyPair(PK11SlotInfo* slot) override {
+    return mock_->GenerateKeyPair(slot);
+  }
+
+  crypto::ScopedSECKEYPrivateKey FindPrivateKeyInSlot(
+      const std::vector<uint8_t>& key,
+      PK11SlotInfo* slot) override {
+    scoped_refptr<ownership::OwnerKeyUtil> impl = GetImpl();
+    return impl ? impl->FindPrivateKeyInSlot(key, slot) : nullptr;
+  }
+
+  bool IsPublicKeyPresent() override {
+    scoped_refptr<ownership::OwnerKeyUtil> impl = GetImpl();
+    return impl && impl->IsPublicKeyPresent();
+  }
+
+ private:
+  ~TestOwnerKeyUtil() override = default;
+
+  scoped_refptr<ownership::OwnerKeyUtil> GetImpl() const {
+    base::FilePath public_key_path;
+    if (!base::PathService::Get(chromeos::dbus_paths::FILE_OWNER_KEY,
+                                &public_key_path)) {
+      return nullptr;
+    }
+    return base::MakeRefCounted<ownership::OwnerKeyUtilImpl>(public_key_path);
+  }
+
+  scoped_refptr<ownership::MockOwnerKeyUtil> mock_ =
+      base::MakeRefCounted<ownership::MockOwnerKeyUtil>();
+};
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -369,6 +426,18 @@ void InProcessBrowserTest::Initialize() {
   // Force all buttons not overflow to prevent test flakiness.
   ToolbarControllerUtil::SetPreventOverflowForTesting(true);
 
+  // The classic and AI Mode omnibox popups, which are built with each browser
+  // window, would otherwise add hidden WebContents and a renderer to every
+  // test, though most tests never show them. Create their content only when it
+  // is needed. Tests that depend on when it is created, or that need it to
+  // exist before the popup is shown, turn this off.
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableOmniboxPopupOnDemandCreation)) {
+    create_popup_webui_on_demand_.emplace(
+        omnibox::SetCreatePopupWebUIOnDemandForTesting(true));
+  }
+
+  std::vector<base::test::FeatureRef> enabled_features;
   std::vector<base::test::FeatureRef> disabled_features;
 
   // Preconnecting can cause non-deterministic test behavior especially with
@@ -391,19 +460,25 @@ void InProcessBrowserTest::Initialize() {
   // Disable session restore infobar the experiment as it causes test failures.
   disabled_features.push_back(features::kSessionRestoreInfobar);
 #endif
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
   // Prewarming the default search engine background page spawns an extra
   // prerender renderer process and warms up a compositor during browser
-  // startup, causing significant overhead and shard timeouts in browser_tests
-  // on win-asan (crbug.com/563340729). Dedicated prewarm tests explicitly
-  // enable it via ScopedPrewarmFeatureList.
+  // startup, causing unnecessary overhead in browser_tests
+  // (crbug.com/563340729). Dedicated prewarm tests explicitly enable it via
+  // ScopedPrewarmFeatureList.
   disabled_features.push_back(features::kPrewarm);
+#if !EXPENSIVE_TEST_LOGIC_IS_ON() && !BUILDFLAG(IS_ANDROID) && \
+    !BUILDFLAG(IS_MAC)
+  // Running VideoCaptureService in the browser process avoids spawning a
+  // dedicated utility process on every test startup (e.g. via Ash Privacy Hub
+  // CameraPresenceNotifier or MediaDevicesManager). Excluded on macOS where
+  // the service requires a CFRunLoop (https://crbug.com/40572495).
+  enabled_features.push_back(features::kRunVideoCaptureServiceInBrowserProcess);
 #endif
   // In-product help can conflict with tests' expected window activation and
   // focus. Individual tests can re-enable IPH.
   block_all_iph_feature_list_.InitWithNoFeaturesAllowed();
 
-  scoped_feature_list_.InitWithFeatures({}, disabled_features);
+  scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
 
   create_services_subscription_ =
       BrowserContextDependencyManager::GetInstance()
@@ -556,6 +631,9 @@ void InProcessBrowserTest::SetUp() {
   // On CrOS, we need to use ash::Shell to get all root windows.
   views::test::WidgetTest::SetRootWindowProvider(
       base::BindRepeating(&ash::Shell::GetAllRootWindows));
+
+  ash::OwnerSettingsServiceAshFactory::GetInstance()->SetOwnerKeyUtilForTesting(
+      base::MakeRefCounted<TestOwnerKeyUtil>());
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   // Redirect the default download directory to a temporary directory.
@@ -583,6 +661,14 @@ void InProcessBrowserTest::SetUp() {
 #endif
 
   EnsureBrowserContextKeyedServiceFactoriesForTestingBuilt();
+
+#if !EXPENSIVE_TEST_LOGIC_IS_ON() && !BUILDFLAG(IS_ANDROID)
+  // Run the StorageService in-process on the IO thread instead of spawning a
+  // separate utility process per test in fast test builds.
+  if (force_in_process_storage_service_) {
+    content::ForceInProcessStorageServiceForTesting();
+  }
+#endif
 
   BrowserTestBase::SetUp();
 }
@@ -625,6 +711,8 @@ void InProcessBrowserTest::TearDown() {
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
+  ash::OwnerSettingsServiceAshFactory::GetInstance()->SetOwnerKeyUtilForTesting(
+      nullptr);
   ash::device_sync::DeviceSyncImpl::Factory::SetCustomFactory(nullptr);
   launch_browser_for_testing_ = nullptr;
   views::test::WidgetTest::SetRootWindowProvider(base::NullCallback());
@@ -749,7 +837,7 @@ bool InProcessBrowserTest::AddTabAtIndexToBrowser(
     ui::PageTransition transition) {
   NavigateParams params(browser, url, transition);
   params.tabstrip_index = index;
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   params.web_app_navigation_data.emplace();
   params.web_app_navigation_data->SetNavigationCapturingForceOff(true);
   Navigate(&params);

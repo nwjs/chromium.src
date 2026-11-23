@@ -23,8 +23,9 @@
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/optimization_guide/core/feature_registry/enterprise_policy_registry.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/personal_context/core/personal_context_features.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -46,8 +47,7 @@ using ::testing::Values;
 using enum EntityTypeName;
 
 constexpr auto kAutofillPredictionSettingsDisable =
-    std::to_underlying(optimization_guide::model_execution::prefs::
-                           ModelExecutionEnterprisePolicyValue::kDisable);
+    std::to_underlying(optimization_guide::EnterprisePolicyValue::kDisable);
 
 std::string GetTestSuffix(
     ::testing::TestParamInfo<AutofillAiAction> param_info) {
@@ -116,8 +116,10 @@ class AutofillAiPermissionUtilsTest : public ::testing::Test {
          {features::kAutofillAiWalletFlightReservation, {}},
          {features::kAutofillAmbientAutofill,
           {{"ambient_autofill_supported_entity_types",
-            "Passport,Driver's license,Vehicle,National Id Card,Flight "
-            "Reservation,Order,Shipment"}}},
+            "Vehicle,National Id Card,Flight Reservation,Order,Shipment"}}},
+         {personal_context::features::kAutofillAmbientAutofillDriversLicense,
+          {}},
+         {personal_context::features::kAutofillAmbientAutofillPassport, {}},
          {features::kAutofillAiServerModel,
           {{"autofill_ai_model_use_cache_results", "true"}}}},
         // TODO(crbug.com/477163013): Once this feature launches, kLogToMqls can
@@ -608,13 +610,16 @@ TEST_F(AutofillAiPermissionUtilsTest,
   client().set_personal_context_eligibility_state(
       personal_context::PersonalContextEligibilityState::kEligible);
 
-  // Overriding supported types using string names.
+  // Overriding supported types using string names and dedicated feature flags.
   {
     base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeatureWithParameters(
-        features::kAutofillAmbientAutofill,
-        {{"ambient_autofill_supported_entity_types",
-          "Passport,Driver's license,Flight Reservation"}});
+    feature_list.InitWithFeaturesAndParameters(
+        {{features::kAutofillAmbientAutofill,
+          {{"ambient_autofill_supported_entity_types", "Flight Reservation"}}},
+         {personal_context::features::kAutofillAmbientAutofillPassport, {}},
+         {personal_context::features::kAutofillAmbientAutofillDriversLicense,
+          {}}},
+        {});
 
     EXPECT_TRUE(MayPerformAutofillAiAction(
         client(), AutofillAiAction::kTypeSupportsAmbientAutofillData,
@@ -657,12 +662,14 @@ TEST_F(AutofillAiPermissionUtilsTest,
                             EntityType(kFlightReservation), EntityType(kOrder),
                             EntityType(kShipment)}));
 
-  // Empty configuration returns an empty set.
+  // Empty configuration with dedicated flags disabled returns an empty set.
   {
     base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeatureWithParameters(
-        features::kAutofillAmbientAutofill,
-        {{features::kAutofillAmbientAutofillSupportedEntityTypes.name, ""}});
+    feature_list.InitWithFeaturesAndParameters(
+        {{features::kAutofillAmbientAutofill,
+          {{features::kAutofillAmbientAutofillSupportedEntityTypes.name, ""}}}},
+        {personal_context::features::kAutofillAmbientAutofillPassport,
+         personal_context::features::kAutofillAmbientAutofillDriversLicense});
     EXPECT_TRUE(GetAutofillAmbientAutofillSupportedEntityTypes().empty());
   }
 
@@ -670,14 +677,40 @@ TEST_F(AutofillAiPermissionUtilsTest,
   // tokens.
   {
     base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeatureWithParameters(
-        features::kAutofillAmbientAutofill,
-        {{features::kAutofillAmbientAutofillSupportedEntityTypes.name,
-          " Passport , UnknownType,  Driver's license ,, Vehicle "}});
+    feature_list.InitWithFeaturesAndParameters(
+        {{features::kAutofillAmbientAutofill,
+          {{features::kAutofillAmbientAutofillSupportedEntityTypes.name,
+            " Passport , UnknownType,  Driver's license ,, Vehicle "}}}},
+        {personal_context::features::kAutofillAmbientAutofillPassport,
+         personal_context::features::kAutofillAmbientAutofillDriversLicense});
     EXPECT_EQ(GetAutofillAmbientAutofillSupportedEntityTypes(),
               (DenseSet<EntityType>{EntityType(kPassport),
                                     EntityType(kDriversLicense),
                                     EntityType(kVehicle)}));
+  }
+
+  // Dedicated flags separately control support for Passport and Driver's
+  // license.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeaturesAndParameters(
+        {{features::kAutofillAmbientAutofill,
+          {{features::kAutofillAmbientAutofillSupportedEntityTypes.name, ""}}},
+         {personal_context::features::kAutofillAmbientAutofillPassport, {}}},
+        {personal_context::features::kAutofillAmbientAutofillDriversLicense});
+    EXPECT_EQ(GetAutofillAmbientAutofillSupportedEntityTypes(),
+              DenseSet<EntityType>{EntityType(kPassport)});
+  }
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeaturesAndParameters(
+        {{features::kAutofillAmbientAutofill,
+          {{features::kAutofillAmbientAutofillSupportedEntityTypes.name, ""}}},
+         {personal_context::features::kAutofillAmbientAutofillDriversLicense,
+          {}}},
+        {personal_context::features::kAutofillAmbientAutofillPassport});
+    EXPECT_EQ(GetAutofillAmbientAutofillSupportedEntityTypes(),
+              DenseSet<EntityType>{EntityType(kDriversLicense)});
   }
 }
 
@@ -869,56 +902,52 @@ TEST_F(AutofillAiPermissionUtilsTest, OptInStatusMetrics) {
 }
 
 TEST_F(AutofillAiPermissionUtilsTest, IsAutofillAiDisabledByEnterprisePolicy) {
-  using optimization_guide::model_execution::prefs::
-      ModelExecutionEnterprisePolicyValue;
+  using optimization_guide::EnterprisePolicyValue;
 
   // Enabled (kAllow = 0).
   client().GetPrefs()->SetInteger(
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-      static_cast<int>(ModelExecutionEnterprisePolicyValue::kAllow));
+      static_cast<int>(EnterprisePolicyValue::kAllow));
   EXPECT_FALSE(IsAutofillAiDisabledByEnterprisePolicy(client().GetPrefs()));
 
   // Enabled without logging (kAllowWithoutLogging = 1).
   client().GetPrefs()->SetInteger(
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-      static_cast<int>(
-          ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging));
+      static_cast<int>(EnterprisePolicyValue::kAllowWithoutLogging));
   EXPECT_FALSE(IsAutofillAiDisabledByEnterprisePolicy(client().GetPrefs()));
 
   // Disabled (kDisable = 2).
   client().GetPrefs()->SetInteger(
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-      static_cast<int>(ModelExecutionEnterprisePolicyValue::kDisable));
+      static_cast<int>(EnterprisePolicyValue::kDisable));
   EXPECT_TRUE(IsAutofillAiDisabledByEnterprisePolicy(client().GetPrefs()));
 }
 
 TEST_F(AutofillAiPermissionUtilsTest, IsAutofillAiAllowedByEnterprisePolicy) {
-  using optimization_guide::model_execution::prefs::
-      ModelExecutionEnterprisePolicyValue;
+  using optimization_guide::EnterprisePolicyValue;
 
   // Enabled (kAllow = 0).
   client().GetPrefs()->SetInteger(
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-      static_cast<int>(ModelExecutionEnterprisePolicyValue::kAllow));
+      static_cast<int>(EnterprisePolicyValue::kAllow));
   EXPECT_TRUE(IsAutofillAiAllowedByEnterprisePolicy(client().GetPrefs()));
 
   // Enabled without logging (kAllowWithoutLogging = 1).
   client().GetPrefs()->SetInteger(
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-      static_cast<int>(
-          ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging));
+      static_cast<int>(EnterprisePolicyValue::kAllowWithoutLogging));
   EXPECT_FALSE(IsAutofillAiAllowedByEnterprisePolicy(client().GetPrefs()));
 
   // Disabled (kDisable = 2).
   client().GetPrefs()->SetInteger(
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed,
-      static_cast<int>(ModelExecutionEnterprisePolicyValue::kDisable));
+      static_cast<int>(EnterprisePolicyValue::kDisable));
   EXPECT_FALSE(IsAutofillAiAllowedByEnterprisePolicy(client().GetPrefs()));
 }
 

@@ -13,6 +13,8 @@ import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBa
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
 import org.chromium.chrome.browser.ntp_customization.theme.tip.NtpThemeTipCoordinator.ThemeTipButtonType;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.UploadImagePreviewCoordinator;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.NtpThemeSyncHistoryCoordinator;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.PlatformType;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 
@@ -95,6 +97,26 @@ public class NtpCustomizationMetricsUtils {
     @VisibleForTesting
     static final String HISTOGRAM_THEME_TIP_BOTTOM_SHEET_CLICK =
             HISTOGRAM_NTP_CUSTOMIZATION_PREFIX + ".ThemeTip.BottomSheet.Click";
+
+    @VisibleForTesting
+    static final String HISTOGRAM_THEME_HISTORY_MORE_OPTION_BUTTON_CLICK =
+            HISTOGRAM_NTP_CUSTOMIZATION_PREFIX + ".ThemeHistory.MoreOptionButton.Click";
+
+    @VisibleForTesting
+    static final String HISTOGRAM_THEME_HISTORY_CLICK =
+            HISTOGRAM_NTP_CUSTOMIZATION_PREFIX + ".ThemeHistory.Click";
+
+    @VisibleForTesting
+    static final String HISTOGRAM_THEME_HISTORY_CLICK_INDEX =
+            HISTOGRAM_THEME_HISTORY_CLICK + ".Index";
+
+    /**
+     * The exclusive max of {@link #HISTOGRAM_THEME_HISTORY_CLICK_INDEX}. Besides the
+     * MAXIMUM_HISTORY_ITEM items, one theme collection from each other platform (excluding UNKNOWN
+     * and ANDROID) may be appended to the list after its image is fetched.
+     */
+    private static final int MAX_THEME_HISTORY_CLICK_INDEX =
+            NtpThemeSyncHistoryCoordinator.MAXIMUM_HISTORY_ITEM + PlatformType.MAX_COUNT - 2;
 
     /**
      * Records the type of theme selected for the New Tab Page background. This is logged once on
@@ -276,4 +298,49 @@ public class NtpCustomizationMetricsUtils {
         RecordHistogram.recordEnumeratedHistogram(
                 HISTOGRAM_THEME_TIP_BOTTOM_SHEET_CLICK, buttonType, ThemeTipButtonType.NUM_ENTRIES);
     }
+
+    /** Records a click on the "More options" button in the theme history section. */
+    public static void recordThemeHistoryMoreOptionButtonClick() {
+        RecordHistogram.recordBooleanHistogram(
+                HISTOGRAM_THEME_HISTORY_MORE_OPTION_BUTTON_CLICK, true);
+    }
+
+    /**
+     * Records a click on an item in the theme history section, split by the platform where the
+     * theme was originally set.
+     *
+     * @param backgroundType The background type of the clicked item.
+     * @param platformType The platform type of the clicked item.
+     */
+    public static void recordThemeHistoryClick(
+            @NtpBackgroundType int backgroundType, @PlatformType int platformType) {
+        RecordHistogram.recordEnumeratedHistogram(
+                HISTOGRAM_THEME_HISTORY_CLICK + getPlatformSuffix(platformType),
+                backgroundType,
+                NtpBackgroundType.NUM_ENTRIES);
+    }
+
+    /**
+     * Records the index of the clicked item in the theme history section.
+     *
+     * @param index The position of the clicked item in the theme history list.
+     */
+    public static void recordThemeHistoryClickIndex(int index) {
+        RecordHistogram.recordExactLinearHistogram(
+                HISTOGRAM_THEME_HISTORY_CLICK_INDEX, index, MAX_THEME_HISTORY_CLICK_INDEX);
+    }
+
+    /** Returns the histogram suffix for the given {@link PlatformType}. */
+    // LINT.IfChange(getPlatformSuffix)
+    private static String getPlatformSuffix(@PlatformType int platformType) {
+        return switch (platformType) {
+            case PlatformType.ANDROID -> ".Android";
+            case PlatformType.IOS -> ".IOS";
+            case PlatformType.DESKTOP -> ".Desktop";
+            default -> ".Unknown";
+        };
+    }
+
+    // LINT.ThenChange(//chrome/browser/sync/cross_device_theme_tracker_android.h:PlatformType,
+    // //tools/metrics/histograms/metadata/new_tab_page/histograms.xml:PlatformType)
 }

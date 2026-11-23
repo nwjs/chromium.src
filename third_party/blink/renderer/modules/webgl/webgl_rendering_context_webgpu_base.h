@@ -18,6 +18,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_swap_buffer_provider.h"
+#include "third_party/blink/renderer/platform/graphics/graphics_types_3d.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
 #define BINDINGS_GL_PROTOTYPES 0
@@ -54,6 +55,14 @@ class WebGLTexture;
 class WebGLTransformFeedback;
 class WebGLUniformLocation;
 class WebGLVertexArrayObject;
+
+struct WebGLWebGPUDriver {
+  gl::DriverEGL driver_egl;
+  gl::DriverGL driver_gl;
+
+  EGLDisplay display = EGL_NO_DISPLAY;
+  EGLContext context = EGL_NO_CONTEXT;
+};
 
 class MODULES_EXPORT WebGLRenderingContextWebGPUBase
     : public WebGLContextObjectSupport,
@@ -1291,10 +1300,10 @@ class MODULES_EXPORT WebGLRenderingContextWebGPUBase
       VideoFrameCopyCompletedCallback) override;
 
   cc::Layer* CcLayer() const override;
-  void Reshape(int width, int height) override;
+  void Reshape(gfx::Size old_size, gfx::Size new_size) override;
   void Stop() override;
   void FinalizeFrame(FlushReason) override;
-  scoped_refptr<CanvasResource> GetResourceForPushFrame(
+  scoped_refptr<ExportedCanvasResource> GetResourceForPushFrame(
       bool& should_call_push_frame) override;
 
   // **************************************************************************
@@ -1369,8 +1378,9 @@ class MODULES_EXPORT WebGLRenderingContextWebGPUBase
   // deletion.
   bool ValidateObject(const char* function_name, const WebGLObject* object);
 
-  // Similar to ValidateObject but returns GL_INVALID_VALUE instead of
-  // GL_OPERATION_ERROR when a deleted object is used.
+  // Similar to ValidateObject, but deleted programs and shaders are accepted
+  // until the GL object is really deleted, and GL_INVALID_VALUE is returned
+  // instead of GL_INVALID_OPERATION once it is.
   bool ValidateProgramOrShader(const char* function_name,
                                const WebGLObject* object);
 
@@ -1398,17 +1408,27 @@ class MODULES_EXPORT WebGLRenderingContextWebGPUBase
 
   WebGLFramebuffer* GetBoundFramebuffer(GLenum target) const;
 
+  String GetGLString(GLenum name) const;
+  // Helpers for getParameter.
+  ScriptValue GetBooleanParameter(ScriptState*, GLenum pname);
+  ScriptValue GetFloatParameter(ScriptState*, GLenum pname);
+  ScriptValue GetIntParameter(ScriptState*, GLenum pname);
+  ScriptValue GetInt64Parameter(ScriptState*, GLenum pname);
+  ScriptValue GetUnsignedIntParameter(ScriptState*, GLenum pname);
+  template <GLsizei N>
+  ScriptValue GetBooleanArrayParameter(ScriptState*, GLenum pname);
+  template <GLsizei N>
+  ScriptValue GetFloatArrayParameter(ScriptState*, GLenum pname);
+  template <GLsizei N>
+  ScriptValue GetIntArrayParameter(ScriptState*, GLenum pname);
+
   scoped_refptr<DawnControlClientHolder> dawn_control_client_;
   std::unique_ptr<ProxyDawnInstanceForANGLE> proxy_instance_;
   wgpu::Instance instance_;
   wgpu::Device device_;
   std::unique_ptr<gpu::gles2::GLES2Interface> gles2_for_objects_;
 
-  gl::DriverEGL driver_egl_;
-  gl::DriverGL driver_gl_;
-
-  EGLDisplay display_ = EGL_NO_DISPLAY;
-  EGLContext context_ = EGL_NO_CONTEXT;
+  WebGLWebGPUDriver driver_;
 
   scoped_refptr<WebGPUSwapBufferProvider> swap_buffers_;
   wgpu::Texture current_swap_buffer_;
@@ -1462,6 +1482,12 @@ class MODULES_EXPORT WebGLRenderingContextWebGPUBase
   Member<WebGLBuffer> element_array_buffer_binding_;
 
   Member<WebGLProgram> program_binding_;
+
+  // WebGL-specific pixel store parameters, set with pixelStorei. The standard
+  // pixel store parameters are kept by ANGLE.
+  bool unpack_flip_y_ = false;
+  bool unpack_premultiply_alpha_ = false;
+  GLenum unpack_colorspace_conversion_ = GC3D_BROWSER_DEFAULT_WEBGL;
 };
 
 }  // namespace blink

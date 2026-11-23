@@ -20,9 +20,10 @@ import org.chromium.google_apis.gaia.CoreAccountId;
 import java.util.Objects;
 
 /**
- * Used by the web sign-in flow to detect when the flow is completed or failed. Every instance of
- * this class will be destroyed once the callback is run correctly to release native resources but
- * the case where the callback was not invoked {@link #destroy()} must still be explicitly called.
+ * Used by the web sign-in flow to detect when the flow is completed or failed. The sign-in isn't
+ * tracked until {@link #start()} is called. Every instance of this class will be destroyed once the
+ * callback is run correctly to release native resources but the case where the callback was not
+ * invoked {@link #destroy()} must still be explicitly called.
  */
 @MainThread
 @NullMarked
@@ -30,7 +31,8 @@ public class WebSigninTrackerBridge {
     /** Factory to create WebSigninTrackerBridge object. */
     public static class Factory {
         /**
-         * Creates a WebSigninTrackerBridge object.
+         * Creates a WebSigninTrackerBridge object. {@link WebSigninTrackerBridge#start()} must be
+         * called to start tracking the sign-in.
          *
          * @param profile The profile to use for the sign-in.
          * @param accountId The primary account used for the sign-in process.
@@ -44,7 +46,8 @@ public class WebSigninTrackerBridge {
         }
 
         /**
-         * Creates a WebSigninTrackerBridge object.
+         * Creates a WebSigninTrackerBridge object. {@link WebSigninTrackerBridge#start()} must be
+         * called to start tracking the sign-in.
          *
          * @param profile The profile to use for the sign-in.
          * @param email The primary account email used for the sign-in process.
@@ -112,6 +115,16 @@ public class WebSigninTrackerBridge {
         };
     }
 
+    /**
+     * Starts tracking the sign-in. Must be called at most once. If the result is already known
+     * (e.g. the account is already in cookies), the callback is invoked synchronously from this
+     * method, so callers should store this object before calling it.
+     */
+    public void start() {
+        assert mNativeWebSigninTrackerBridge != 0 : "WebSigninTrackerBridge is already destroyed!";
+        WebSigninTrackerBridgeJni.get().start(mNativeWebSigninTrackerBridge);
+    }
+
     /** Releases native resources used by this class. */
     public void destroy() {
         if (mNativeWebSigninTrackerBridge == 0) return;
@@ -140,6 +153,8 @@ public class WebSigninTrackerBridge {
                 @JniType("Profile*") Profile profile,
                 @JniType("std::string") String email,
                 Callback<@WebSigninTrackerResult Integer> callback);
+
+        void start(long webSigninTrackerBridgePtr);
 
         void destroy(long webSigninTrackerBridgePtr);
     }

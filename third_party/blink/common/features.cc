@@ -40,6 +40,10 @@ BASE_FEATURE(kNWESM,
 // `RuntimeEnabledFeatures)`, they should still be ordered in this section based
 // on the identifier name of the generated feature.
 
+// Controls whether the ad highlight is annotated with a label describing the
+// type of ad such as popup, sticky, or video.
+BASE_FEATURE(kAdHighlightLabel, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether to include information about the page's open popup in
 // AIPageContent.
 BASE_FEATURE(kAIPageContentIncludePopupWindows,
@@ -50,13 +54,6 @@ BASE_FEATURE(kAIPageContentIncludePopupWindows,
 // happens. When true, the subframe is simply skipped but the rest of APC
 // generation is unaffected.
 BASE_FEATURE(kAIPageContentMissingSubframesFailSilently,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-
-// Controls whether JavaScript execution inside AudioWorkletProcessor::Process()
-// runs under strict IEEE-754 floating-point semantics (disabling FTZ/DAZ).
-// Enabled by default as a remote kill-switch.
-BASE_FEATURE(kAudioWorkletJSDenormalEnabler,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
@@ -81,11 +78,19 @@ BASE_FEATURE(kAndroidDesktopUASpoofAsChromeOS,
 // desktop will report the actual device CPU architecture instead of "x86".
 BASE_FEATURE(kAndroidDesktopUACPUArch, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, the Sec-CH-UA-Model client hint for Android desktop will report
+// the device model instead of an empty string. See https://crbug.com/572021036.
+BASE_FEATURE(kAndroidDesktopUAModel, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Gated prewarming of system fonts on Android to background threads.
 BASE_FEATURE(kAndroidSystemFontPrewarming, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Opens PDFs in iframe in standalone tabs on Android.
 BASE_FEATURE(kAndroidHandlePdfInIframe, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables keyboard-triggered web context menus (Shift+F10 and Context Menu key)
+// on Android.
+BASE_FEATURE(kAndroidKeyboardContextMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 // Avoids copying ResourceRequest::TrustedParams when possible.
@@ -170,11 +175,6 @@ BASE_FEATURE(kAudioWorkletThreadPool, base::FEATURE_ENABLED_BY_DEFAULT);
 // WebAutofillClient may default-handle any of these events.
 BASE_FEATURE(kAutofillKeydownEditableElement,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kAutoResizeMinimumPageScaleFactor,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // https://crbug.com/1472970
 BASE_FEATURE(kAutoSpeculationRules, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -721,6 +721,23 @@ BASE_FEATURE(kFetchDestinationJsonCssModules,
              "kFetchDestinationJsonCssModules",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls whether category-keyed UKM (FetchRequest.WithCategory) is logged
+// when a fetch() request reaches a terminal state.
+BASE_FEATURE(kFetchErrorCategoryLogging, base::FEATURE_ENABLED_BY_DEFAULT);
+// The URL query parameter name inspected for the fetch category identifier.
+BASE_FEATURE_PARAM(std::string,
+                   kFetchErrorCategoryLoggingParamName,
+                   &kFetchErrorCategoryLogging,
+                   "category_param_name",
+                   "category");
+// The required prefix of the query parameter value (e.g. "test-" in
+// "?category=test-42"). An empty prefix disables logging by default.
+BASE_FEATURE_PARAM(std::string,
+                   kFetchErrorCategoryLoggingPrefix,
+                   &kFetchErrorCategoryLogging,
+                   "category_prefix",
+                   "");
+
 BASE_FEATURE(kFileSystemUrlNavigation, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFilteringScrollPrediction,
@@ -751,6 +768,9 @@ BASE_FEATURE(kForceHighPerformanceGPUForWebGL,
 
 BASE_FEATURE(kOffscreenCanvasPropagateVisibility,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOffscreenCanvasSyncAnimationState,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGLDiscardBackBuffer, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -2031,18 +2051,6 @@ BASE_FEATURE(kSetIntervalWithoutClamp, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kSetSelectionForAccessibilityHandlingInputEvent,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSharedStorageWorkletSharedBackingThreadImplementation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSharedStorageCreateWorkletCustomDataOrigin,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSharedStorageSelectURLSavedQueries,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kSharedStorageAPIEnableWALForDatabase,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 const char kSkipTouchEventFilterTypeParamName[] = "type";
 const char kSkipTouchEventFilterTypeParamValueDiscrete[] = "discrete";
 const char kSkipTouchEventFilterTypeParamValueAll[] = "all";
@@ -2301,6 +2309,9 @@ BASE_FEATURE(kUnframedIwa, base::FEATURE_ENABLED_BY_DEFAULT);
 // BFCache. The purpose is to capture their source location.
 BASE_FEATURE(kUnloadBlocklisted, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kUpdateCompositorMemoryPolicyOnScreenChange,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When BeginMainFrame() is throttled, whether input-related BeginMainFrame()s
 // are marked urgent, and thus unthtrottled.
 //
@@ -2430,6 +2441,12 @@ BASE_FEATURE(kWebFontsCacheAwareTimeoutAdaption,
              base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 );
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kWebMCPContinuationTimeout,
+                   &kWebMCPContinuations,
+                   "continuation_timeout",
+                   base::Seconds(30));
 
 // Causes WebRTC to replace host ICE candidate IP addresses with generated
 // names ending in ".local" and resolve them using mDNS.

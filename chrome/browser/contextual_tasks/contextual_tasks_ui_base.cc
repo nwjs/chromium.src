@@ -4,15 +4,33 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_base.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
+#include "base/base64.h"
+#include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/weak_ptr.h"
+#include "base/numerics/safe_conversions.h"
+#include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
+#include "base/uuid.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_context_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_internals_page_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_permission_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
@@ -22,6 +40,8 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
+#include "chrome/browser/contextual_tasks/list_accounts_response.pb.h"
+#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -32,11 +52,13 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/contextual_tasks_resources.h"
 #include "chrome/grit/contextual_tasks_resources_map.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/contextual_tasks/public/account_utils.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/features.h"
@@ -44,25 +66,40 @@
 #include "components/omnibox/common/composebox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/identity_manager/account_info.h"
+#include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_controller.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "extensions/buildflags/buildflags.h"
+#include "google_apis/gaia/gaia_auth_consumer.h"
+#include "google_apis/gaia/gaia_auth_fetcher.h"
+#include "google_apis/gaia/gaia_auth_util.h"
+#include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_id.h"
+#include "google_apis/gaia/gaia_urls.h"
 #include "mojo/public/mojom/base/error.mojom.h"
+#include "net/base/url_util.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_change_dispatcher.h"
+#include "net/cookies/cookie_options.h"
+#include "net/cookies/cookie_partition_key_collection.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
+#include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "third_party/lens_server_proto/search_communication.pb.h"
 #include "ui/base/device_form_factor.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/webui/resource_path.h"
 #include "ui/base/webui/web_ui_util.h"
-#include "ui/base/window_open_disposition.h"
 #include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 #include "ui/webui/webui_util.h"
 #include "url/gurl.h"
@@ -78,10 +115,15 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
+#include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
+#include "chrome/browser/ui/webui/theme_source.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_layout_css_helper.h"
 #include "chrome/grit/webui_toolbar_shared_resources.h"
 #include "chrome/grit/webui_toolbar_shared_resources_map.h"
+#include "components/contextual_tasks/public/prefs.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #endif
 
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -96,9 +138,26 @@ constexpr char kMyActivityUrl[] = "https://myactivity.google.com/myactivity";
 constexpr std::string_view kProfileAvatarPathPrefix =
     "profile-avatar.png?gaia_id=";
 
+std::u16string GetSmartTabSharingMegaplusString() {
+  switch (contextual_tasks::kSmartTabSharingMegaplusStringOption.Get()) {
+    case contextual_tasks::SmartTabSharingMegaplusStringOption::kMegaplusV1:
+      return l10n_util::GetStringUTF16(
+          IDS_STS_MEGAPLUS_SHARE_RELEVANT_OPEN_TABS);
+    case contextual_tasks::SmartTabSharingMegaplusStringOption::kMegaplusV2:
+      return l10n_util::GetStringUTF16(
+          IDS_STS_MEGAPLUS_SHARE_RELEVANT_OPEN_TABS_V2);
+    case contextual_tasks::SmartTabSharingMegaplusStringOption::kMegaplusV3:
+      return l10n_util::GetStringUTF16(
+          IDS_STS_MEGAPLUS_SHARE_RELEVANT_OPEN_TABS_V3);
+    default:
+      return l10n_util::GetStringUTF16(
+          IDS_STS_MEGAPLUS_SHARE_RELEVANT_OPEN_TABS);
+  }
+}
+
 void OpenUrlWithDisposition(Profile* profile,
                             const GURL& url,
-                            WindowOpenDisposition disposition,
+                            ui::mojom::WindowOpenDisposition disposition,
                             BrowserWindowInterface* browser) {
   NavigateParams params(profile, url, ui::PAGE_TRANSITION_LINK);
   params.disposition = disposition;
@@ -106,22 +165,171 @@ void OpenUrlWithDisposition(Profile* profile,
   Navigate(&params);
 }
 
-GURL GetProfileAvatarUrl(Profile* profile, const GURL& url) {
-  if (auto* identity_manager = IdentityManagerFactory::GetForProfile(profile)) {
-    std::optional<gaia::ListedAccount> account =
-        contextual_tasks::GetAccountFromCookieJar(identity_manager, url);
-    if (account.has_value() && !account->signed_out && account->valid) {
-      AccountInfo extended_info =
-          identity_manager->FindExtendedAccountInfoByGaiaId(account->gaia_id);
-      if (!extended_info.IsEmpty() &&
-          extended_info.GetAvatarImage().has_value()) {
-        return GURL(base::StrCat({chrome::kChromeUIContextualTasksURL,
-                                  kProfileAvatarPathPrefix,
-                                  account->gaia_id.ToString()}));
-      }
-    }
+struct ProfileIndicatorInfo {
+  GURL avatar_url;
+  std::string full_name;
+  std::string email;
+  uint32_t signed_in_account_count = 0;
+};
+
+struct ListedAccountExtraInfo {
+  std::string display_name;
+  std::string photo_url;
+};
+
+// TODO(crbug.com/578566401): Converge with `gaia::ParseBinaryListAccountsData`
+// and the standard `google_apis/gaia/list_accounts_response.proto` once
+// `display_name` and `photo_url` are unreserved there.
+bool ParseOffTheRecordListAccountsData(
+    std::string_view base64_data,
+    std::vector<gaia::ListedAccount>& accounts,
+    base::flat_map<GaiaId, ListedAccountExtraInfo>& extra_info_map) {
+  accounts.clear();
+  extra_info_map.clear();
+
+  std::string decoded;
+  if (!base::Base64Decode(base64_data, &decoded,
+                          base::Base64DecodePolicy::kForgiving)) {
+    return false;
   }
-  return GURL(profiles::GetPlaceholderAvatarIconUrl());
+
+  contextual_tasks::ListAccountsResponse parsed_result;
+  if (!parsed_result.ParseFromString(decoded)) {
+    return false;
+  }
+
+  for (const auto& account : parsed_result.account()) {
+    if (account.display_email().empty() || account.obfuscated_id().empty()) {
+      continue;
+    }
+
+    gaia::ListedAccount listed_account;
+    listed_account.email = gaia::CanonicalizeEmail(account.display_email());
+    listed_account.gaia_id = GaiaId(account.obfuscated_id());
+    listed_account.valid =
+        !account.has_valid_session() || account.valid_session();
+    listed_account.signed_out =
+        account.has_signed_out() && account.signed_out();
+    listed_account.verified =
+        !account.has_is_verified() || account.is_verified();
+    listed_account.raw_email = account.display_email();
+
+    extra_info_map.insert_or_assign(listed_account.gaia_id,
+                                    ListedAccountExtraInfo{
+                                        .display_name = account.display_name(),
+                                        .photo_url = account.photo_url(),
+                                    });
+    accounts.push_back(std::move(listed_account));
+  }
+  return true;
+}
+
+ProfileIndicatorInfo GetProfileIndicatorInfoFromAccounts(
+    const std::vector<gaia::ListedAccount>& accounts,
+    signin::IdentityManager* identity_manager,
+    const GURL& url,
+    const base::flat_map<GaiaId, ListedAccountExtraInfo>& extra_info_map = {}) {
+  size_t user_index = contextual_tasks::GetUserIndex(url).value_or(0);
+  if (user_index >= accounts.size()) {
+    return {};
+  }
+  const gaia::ListedAccount& account = accounts[user_index];
+  if (account.signed_out || !account.valid) {
+    return {};
+  }
+
+  AccountInfo extended_info =
+      identity_manager
+          ? identity_manager->FindExtendedAccountInfoByGaiaId(account.gaia_id)
+          : AccountInfo();
+  auto extra_it = extra_info_map.find(account.gaia_id);
+  GURL avatar_url;
+  if (!extended_info.IsEmpty() && extended_info.GetAvatarImage().has_value()) {
+    avatar_url = GURL(
+        base::StrCat({chrome::kChromeUIContextualTasksURL,
+                      kProfileAvatarPathPrefix, account.gaia_id.ToString()}));
+  } else if (extra_it != extra_info_map.end() &&
+             GURL(extra_it->second.photo_url).SchemeIs(url::kHttpsScheme)) {
+    avatar_url = GURL(base::StrCat(
+        {chrome::kChromeUIImageURL, "?", extra_it->second.photo_url}));
+  } else {
+    avatar_url = GURL(profiles::GetPlaceholderAvatarIconUrl());
+  }
+
+  std::string full_name(extended_info.GetFullName().value_or(""));
+  if (full_name.empty() && extra_it != extra_info_map.end()) {
+    full_name = extra_it->second.display_name;
+  }
+
+  uint32_t signed_in_account_count = base::checked_cast<uint32_t>(
+      std::ranges::count_if(accounts, [](const gaia::ListedAccount& a) {
+        return !a.signed_out;
+      }));
+  return {
+      .avatar_url = std::move(avatar_url),
+      .full_name = std::move(full_name),
+      .email = account.email,
+      .signed_in_account_count = signed_in_account_count,
+  };
+}
+
+// Resolves the Google account information to show in the toolbar, if any. This
+// is only populated when the user is signed in to Google on the web but not
+// signed in to Chrome, as the account is otherwise duplicative with the one in
+// top Chrome.
+ProfileIndicatorInfo GetProfileIndicatorInfo(Profile* profile,
+                                             const GURL& url) {
+  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
+  if (!identity_manager ||
+      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
+    return {};
+  }
+  // A stale cookie jar is the list cached from a previous session, which can
+  // still show an account whose cookies have since expired. Wait for the
+  // fresh list; `CookieJarObserver` refreshes the toolbar when it arrives.
+  signin::AccountsInCookieJarInfo cookie_jar =
+      identity_manager->GetAccountsInCookieJar();
+  if (!cookie_jar.AreAccountsFresh()) {
+    return {};
+  }
+  return GetProfileIndicatorInfoFromAccounts(cookie_jar.GetAllAccounts(),
+                                             identity_manager, url);
+}
+
+GURL GetProfileAvatarUrl(Profile* profile, const GURL& url) {
+  return GetProfileIndicatorInfo(profile, url).avatar_url;
+}
+
+bool IsLegacyOnlyContextualTasksResource(std::string_view path) {
+  static constexpr std::string_view kLegacyOnlyPaths[] = {
+      "app.css.js",
+      "app.html.js",
+      "app.js",
+      "banner_promo.css.js",
+      "banner_promo.html.js",
+      "banner_promo.js",
+      "composebox.css.js",
+      "composebox.html.js",
+      "composebox.js",
+      "composebox.mojom-webui.js",
+      "contextual_tasks.html",
+      "contextual_tasks_inner_composebox.css.js",
+      "contextual_tasks_inner_composebox.html.js",
+      "contextual_tasks_inner_composebox.js",
+      "contextual_tasks_inner_composebox_context_menu.html.js",
+      "error_dialog.css.js",
+      "error_dialog.html.js",
+      "error_dialog.js",
+      "info_tooltip.css.js",
+      "info_tooltip.html.js",
+      "info_tooltip.js",
+      "onboarding_tooltip.css.js",
+      "onboarding_tooltip.html.js",
+      "onboarding_tooltip.js",
+      "web_view_type.js",
+      "window_manager.js",
+  };
+  return std::ranges::contains(kLegacyOnlyPaths, path);
 }
 
 // `WebUIDataSource::SetRequestFilter` only supports a single filter callback
@@ -163,18 +371,207 @@ void HandleContextualTasksRequest(
   std::move(callback).Run(std::move(png_bytes));
 }
 
+// Returns true if the AI page at `url` has finished streaming a response.
+// Initial AI query navigations commit with `q` and a client `mtid` before the
+// response streams in. The turn token (`mstk`, or `smstk` on shared threads)
+// is appended via a same-document navigation once streaming completes, so its
+// presence is used as the signal that there are active results on the page.
+// TODO(crbug.com/578072477): Replace this query param check with an explicit
+// post message from AIM once one is available to signal streaming completion.
+bool HasActiveAimResults(const GURL& url) {
+  return net::GetValueForKeyInQuery(url, "mstk", nullptr) ||
+         net::GetValueForKeyInQuery(url, "smstk", nullptr);
+}
+
 }  // namespace
+
+class ContextualTasksUIBase::CookieJarObserver
+    : public signin::IdentityManager::Observer,
+      public network::mojom::CookieChangeListener,
+      public GaiaAuthConsumer {
+ public:
+  CookieJarObserver(ContextualTasksUIBase& owner, Profile* profile)
+      : owner_(owner), profile_(profile) {
+    if (auto* identity_manager =
+            IdentityManagerFactory::GetForProfile(profile_)) {
+      observation_.Observe(identity_manager);
+    } else if (profile_ && profile_->IsOffTheRecord() &&
+               contextual_tasks::
+                   IsContextualTasksSidePanelRearchitectureEnabled()) {
+      if (content::StoragePartition* partition =
+              profile_->GetDefaultStoragePartition()) {
+        partition->GetCookieManagerForBrowserProcess()->AddCookieChangeListener(
+            GaiaUrls::GetInstance()->secure_google_url(), std::nullopt,
+            cookie_listener_receiver_.BindNewPipeAndPassRemote());
+      }
+      FetchOffTheRecordAccounts();
+    }
+  }
+  CookieJarObserver(const CookieJarObserver&) = delete;
+  CookieJarObserver& operator=(const CookieJarObserver&) = delete;
+  ~CookieJarObserver() override = default;
+
+  std::optional<ProfileIndicatorInfo> GetOffTheRecordProfileIndicatorInfo(
+      const GURL& url) const {
+    if (!profile_ || !profile_->IsOffTheRecord() ||
+        IdentityManagerFactory::GetForProfile(profile_)) {
+      return std::nullopt;
+    }
+    if (!otr_accounts_fresh_) {
+      return ProfileIndicatorInfo{};
+    }
+    return GetProfileIndicatorInfoFromAccounts(otr_accounts_,
+                                               /*identity_manager=*/nullptr,
+                                               url, otr_extra_account_info_);
+  }
+
+  // signin::IdentityManager::Observer:
+  void OnAccountsInCookieUpdated(
+      const signin::AccountsInCookieJarInfo& accounts_in_cookie_jar_info,
+      const GoogleServiceAuthError& error) override {
+    owner_->UpdateProfileIndicator();
+  }
+  void OnIdentityManagerShutdown(
+      signin::IdentityManager* identity_manager) override {
+    observation_.Reset();
+  }
+
+  // network::mojom::CookieChangeListener:
+  void OnCookieChange(const net::CookieChangeInfo& change) override {
+    if (GaiaConstants::kGaiaSigninCookieName != change.cookie.Name() &&
+        change.cause != net::CookieChangeCause::EXPLICIT) {
+      return;
+    }
+    otr_accounts_fresh_ = false;
+    FetchOffTheRecordAccounts();
+  }
+
+  // GaiaAuthConsumer:
+  void OnListAccountsSuccess(const std::string& data) override {
+    gaia_auth_fetcher_.reset();
+    if (!ParseOffTheRecordListAccountsData(data, otr_accounts_,
+                                           otr_extra_account_info_)) {
+      otr_accounts_fresh_ = false;
+      owner_->UpdateProfileIndicator();
+      return;
+    }
+    otr_accounts_fresh_ = true;
+    owner_->UpdateProfileIndicator();
+  }
+
+  void OnListAccountsFailure(const GoogleServiceAuthError& error) override {
+    gaia_auth_fetcher_.reset();
+    otr_accounts_fresh_ = false;
+    owner_->UpdateProfileIndicator();
+  }
+
+ private:
+  void FetchOffTheRecordAccounts() {
+    gaia_auth_fetcher_.reset();
+    weak_ptr_factory_.InvalidateWeakPtrs();
+    if (!profile_ || !profile_->GetDefaultStoragePartition()) {
+      return;
+    }
+    network::mojom::CookieManager* cookie_manager =
+        profile_->GetDefaultStoragePartition()
+            ->GetCookieManagerForBrowserProcess();
+    if (!cookie_manager) {
+      return;
+    }
+    cookie_manager->GetCookieList(
+        GaiaUrls::GetInstance()->secure_google_url(),
+        net::CookieOptions::MakeAllInclusive(),
+        net::CookiePartitionKeyCollection(),
+        base::BindOnce(&CookieJarObserver::OnOffTheRecordCookiesForListAccounts,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  void OnOffTheRecordCookiesForListAccounts(
+      const net::CookieAccessResultList& cookies,
+      const net::CookieAccessResultList& /*excluded_cookies*/) {
+    const bool has_gaia_signin_cookie = std::ranges::any_of(
+        cookies, [](const net::CookieWithAccessResult& cookie_with_result) {
+          return cookie_with_result.cookie.Name() ==
+                 GaiaConstants::kGaiaSigninCookieName;
+        });
+    if (!has_gaia_signin_cookie) {
+      otr_accounts_.clear();
+      otr_extra_account_info_.clear();
+      otr_accounts_fresh_ = true;
+      owner_->UpdateProfileIndicator();
+      return;
+    }
+    if (!profile_) {
+      return;
+    }
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory =
+        profile_->GetURLLoaderFactory();
+    if (!url_loader_factory && profile_->GetDefaultStoragePartition()) {
+      url_loader_factory = profile_->GetDefaultStoragePartition()
+                               ->GetURLLoaderFactoryForBrowserProcess();
+    }
+    if (!url_loader_factory) {
+      return;
+    }
+    // TODO(crbug.com/582864907): Audit the `gaia_auth_list_accounts` traffic
+    // annotation and `BrowserSignin: 0` policy description for web-cookie-only
+    // and Off-The-Record callers.
+    gaia_auth_fetcher_ = std::make_unique<GaiaAuthFetcher>(
+        this, gaia::GaiaSource(gaia::GaiaSource::kChrome, "&mo=1"),
+        std::move(url_loader_factory));
+    gaia_auth_fetcher_->StartListAccounts();
+  }
+
+  const raw_ref<ContextualTasksUIBase> owner_;
+  const raw_ptr<Profile> profile_;
+  base::ScopedObservation<signin::IdentityManager,
+                          signin::IdentityManager::Observer>
+      observation_{this};
+  mojo::Receiver<network::mojom::CookieChangeListener>
+      cookie_listener_receiver_{this};
+  std::unique_ptr<GaiaAuthFetcher> gaia_auth_fetcher_;
+  std::vector<gaia::ListedAccount> otr_accounts_;
+  base::flat_map<GaiaId, ListedAccountExtraInfo> otr_extra_account_info_;
+  bool otr_accounts_fresh_ = false;
+  base::WeakPtrFactory<CookieJarObserver> weak_ptr_factory_{this};
+};
 
 ContextualTasksUIBase::ContextualTasksUIBase(content::WebUI* web_ui)
     : ui::MojoWebUIController(web_ui,
                               /*enable_chrome_send=*/true,
                               /*enable_chrome_histograms=*/true) {
+  Profile* profile = GetProfile();
+  if (profile) {
+    cookie_jar_observer_ = std::make_unique<CookieJarObserver>(*this, profile);
+  }
+  is_contextual_tasks_eligible_on_init_ =
+      contextual_tasks::EntryPointEligibilityManager::IsEligible(profile);
 #if !BUILDFLAG(IS_ANDROID)
-  if (contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
-    Profile* profile = GetProfile();
+  can_pin_or_unpin_ =
+      contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile);
+  if (can_pin_or_unpin_) {
     if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
       pinned_toolbar_actions_model_observation_.Observe(model);
     }
+  }
+  // Pin/unpin eligibility depends on both Contextual Tasks eligibility and AIM
+  // (Fusebox) eligibility. Either can change while the side panel is open, so
+  // listen to both and push updates to the WebUI.
+  if (auto* eligibility_manager =
+          contextual_tasks::ContextualTasksEligibilityManager::GetForProfile(
+              profile)) {
+    eligibility_subscription_ =
+        eligibility_manager->RegisterEligibilityChangedCallback(
+            base::IgnoreArgs<bool>(base::BindRepeating(
+                &ContextualTasksUIBase::OnCanPinOrUnpinMaybeChanged,
+                base::Unretained(this))));
+  }
+  if (auto* aim_service =
+          AimEligibilityServiceFactory::GetForProfile(profile)) {
+    aim_eligibility_subscription_ =
+        aim_service->RegisterEligibilityChangedCallback(base::BindRepeating(
+            &ContextualTasksUIBase::OnCanPinOrUnpinMaybeChanged,
+            base::Unretained(this)));
   }
 #endif
 
@@ -184,7 +581,11 @@ ContextualTasksUIBase::ContextualTasksUIBase(content::WebUI* web_ui)
       kContextualTasksWebUIToolbarElementId,
       kContextualTasksWebUIOverflowMenuElementId,
       kContextualTasksWebUIOverflowMenuPinButtonElementId,
-      kContextualTasksSuperGButtonElementId};
+      kContextualTasksSuperGButtonElementId,
+      // `<contextual-tasks-context-library>` also mounts directly inside
+      // `chrome://contextual-tasks` (pre-rearchitecture `app.ts` and WebUI
+      // Mocha tests), not only in the component extension subframe.
+      kContextualTasksFaviconsElementId};
 #if !BUILDFLAG(IS_ANDROID)
   tracked_element_ids.push_back(
       PermissionChipView::kPermissionRequestChipElementId);
@@ -249,8 +650,21 @@ content::WebUIDataSource* ContextualTasksUIBase::RegisterWebUIDataSource(
     Profile* profile) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile, chrome::kChromeUIContextualTasksHost);
-  webui::SetupWebUIDataSource(source, kContextualTasksResources,
-                              IDR_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_HTML);
+  if (contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled()) {
+    webui::SetJSModuleDefaults(source);
+    webui::EnableTrustedTypesCSP(source);
+    std::vector<webui::ResourcePath> resources;
+    resources.reserve(std::size(kContextualTasksResources));
+    for (const auto& resource : kContextualTasksResources) {
+      if (!IsLegacyOnlyContextualTasksResource(resource.path)) {
+        resources.push_back(resource);
+      }
+    }
+    source->AddResourcePaths(resources);
+  } else {
+    webui::SetupWebUIDataSource(source, kContextualTasksResources,
+                                IDR_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_HTML);
+  }
 
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ChildSrc,
@@ -272,6 +686,9 @@ content::WebUIDataSource* ContextualTasksUIBase::RegisterWebUIDataSource(
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+  content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
+  content::URLDataSource::Add(profile,
+                              std::make_unique<SanitizedImageSource>(profile));
   source->AddResourcePaths(kWebuiToolbarSharedResources);
 #endif
   source->SetRequestFilter(
@@ -296,11 +713,25 @@ base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
   base::DictValue dict;
 
   static constexpr webui::LocalizedString kLocalizedStrings[] = {
+      // TODO(b/578986274): Replace with a dedicated string in M159.
+      {"accountMenuButtonAccessibleName", IDS_MANAGE_PASSWORDS_LINK},
+      // TODO(b/578986274): Replace with a dedicated string in M159.
+      {"accountMenuManageAccount",
+       IDS_OMNIBOX_PEDAL_MANAGE_GOOGLE_ACCOUNT_HINT},
+      // TODO(b/578986274): Replace with a dedicated string in M159.
+      {"accountMenuNameAndEmail",
+       IDS_ACCESSIBLE_WINDOW_TITLE_WITH_PROFILE_FORMAT},
+      // TODO(b/578986274): Replace with a dedicated string in M159.
+      {"accountMenuSignOut", IDS_SYNC_ERROR_USER_MENU_SIGNOUT_BUTTON},
       {"close", IDS_CLOSE},
       {"closeTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_CLOSE_TOOL_TIP},
       {"contextTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_CONTEXT_TOOL_TIP},
       {"continueThread", IDS_CONTEXTUAL_TASKS_CONTINUE_THREAD_MESSAGE},
       {"feedback", IDS_LENS_SEND_FEEDBACK},
+      // TODO(crbug.com/578985445): Replace with a dedicated Contextual Tasks
+      // string. Reuses the translated password manager "Google Account" string
+      // to avoid adding a new string after the M158 string cutoff.
+      {"googleAccount", IDS_MANAGE_PASSWORDS_LINK},
       {"help", IDS_CONTEXTUAL_TASKS_MENU_HELP},
       {"learnMore", IDS_LEARN_MORE},
       {"moreOptionsTooltip",
@@ -309,8 +740,16 @@ base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
       {"newThreadTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_NEW_THREAD_TOOL_TIP},
       {"openInNewTab", IDS_CONTEXTUAL_TASKS_MENU_OPEN_IN_NEW_TAB},
       {"pinTooltip", IDS_SIDE_PANEL_HEADER_PIN_BUTTON_TOOLTIP},
+      {"protectedErrorPageBottomLine",
+       IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE},
+      {"protectedErrorPageTopLine",
+       IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE},
       {"reopenTab", IDS_CONTEXTUAL_TASKS_REOPEN_TABS_BUTTON_TEXT},
       {"sourcesMenuTitle", IDS_CONTEXTUAL_TASKS_SOURCES_MENU_TITLE},
+      {"stsMegaplusAutomaticallyAddTabsHeader",
+       IDS_STS_MEGAPLUS_AUTOMATICALLY_ADD_TABS_HEADER},
+      {"stsMegaplusManuallyAddTabsHeader",
+       IDS_STS_MEGAPLUS_MANUALLY_ADD_TABS_HEADER},
       {"threadHistoryTooltip",
        IDS_CONTEXTUAL_TASKS_SIDE_PANEL_HISTORY_TOOL_TIP},
       {"title", IDS_CONTEXTUAL_TASKS_AI_MODE_TITLE},
@@ -320,6 +759,8 @@ base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
   for (const auto& str : kLocalizedStrings) {
     dict.Set(str.name, l10n_util::GetStringUTF16(str.id));
   }
+  dict.Set("stsMegaplusShareRelevantOpenTabs",
+           GetSmartTabSharingMegaplusString());
 
   dict.Set("webuiRoundedIconsAttribute",
            features::IsWebUIRoundedIconsEnabled() ? "webui-rounded-icons" : "");
@@ -327,16 +768,17 @@ base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
   bool is_eligible =
       contextual_tasks::EntryPointEligibilityManager::IsEligible(profile);
   dict.Set("isCobrowseEligible", is_eligible);
-  const bool is_pinning_eligible =
-      contextual_tasks::EntryPointEligibilityManager::IsPinningEligible(
-          profile);
-  dict.Set("enablePinButton", is_pinning_eligible);
+  const bool can_pin_or_unpin =
+      contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile);
+  dict.Set("enablePinButton", can_pin_or_unpin);
+  // Intentionally not gated on pinning eligibility: eligibility can change
+  // while the page is open and is pushed separately via
+  // `OnPinButtonEligibilityChanged()`, which the WebUI already combines with
+  // this flag.
   dict.Set("enablePinButtonOnSrp",
-           is_pinning_eligible &&
-               contextual_tasks::IsContextualTasksPinButtonOnSrpEnabled());
-  dict.Set(
-      "isSidePanelPinned",
-      is_pinning_eligible && contextual_tasks::GetEffectivePinState(profile));
+           contextual_tasks::IsContextualTasksPinButtonOnSrpEnabled());
+  dict.Set("isSidePanelPinned",
+           contextual_tasks::GetEffectivePinState(profile));
   dict.Set("contextualTasksSidePanelRearchitectureEnabled",
            contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled());
   dict.Set("hideMenuOnAiPageEnabled",
@@ -365,8 +807,20 @@ base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
 
   dict.Set("darkMode", contextual_tasks::ShouldUseDarkMode(profile));
   dict.Set("isAiPage", false);
-  dict.Set("isSignedIn", false);
-  dict.Set("expandButtonEnabled", false);
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  std::optional<gaia::ListedAccount> cookie_account =
+      contextual_tasks::GetAccountFromCookieJar(identity_manager, GURL());
+  dict.Set("isSignedIn", cookie_account.has_value() &&
+                             !cookie_account->signed_out &&
+                             cookie_account->valid);
+  dict.Set(
+      "expandButtonEnabled",
+      contextual_tasks::
+              IsContextualTasksSidePanelRearchitectureExpandToFullTabEnabled() &&
+          is_eligible &&
+          contextual_tasks::GetExpandButtonOption() ==
+              contextual_tasks::ExpandButtonOption::kSidePanelExpandButton);
   dict.Set("profileAvatarUrl", GetProfileAvatarUrl(profile, GURL()).spec());
 
   dict.Set("isSmallDeviceFormFactor",
@@ -392,8 +846,13 @@ void ContextualTasksUIBase::CreatePageHandler(
   toolbar_page_.Bind(std::move(page));
   toolbar_page_handler_receiver_.Bind(std::move(page_handler));
 #if !BUILDFLAG(IS_ANDROID)
-  if (contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
-    Profile* profile = GetProfile();
+  Profile* profile = GetProfile();
+  can_pin_or_unpin_ =
+      contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile);
+  if (auto* toolbar_page = GetToolbarPageRemote()) {
+    toolbar_page->OnPinButtonEligibilityChanged(can_pin_or_unpin_);
+  }
+  if (can_pin_or_unpin_) {
     if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
       if (!pinned_toolbar_actions_model_observation_.IsObserving()) {
         pinned_toolbar_actions_model_observation_.Observe(model);
@@ -408,6 +867,12 @@ void ContextualTasksUIBase::CreatePageHandler(
   if (IsAiPage()) {
     NotifyAiPageStatusChanged(true);
   }
+  if (contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled()) {
+    if (ContextualTasksPanelController* panel_controller =
+            GetPanelController()) {
+      panel_controller->NotifyExpandToFullTabStateChanged();
+    }
+  }
   if (GetThreadTitle().has_value() && toolbar_page_) {
     toolbar_page_->SetThreadTitle(*GetThreadTitle());
   }
@@ -416,11 +881,11 @@ void ContextualTasksUIBase::CreatePageHandler(
 }
 
 void ContextualTasksUIBase::PinSidePanel() {
-  if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
-    return;
-  }
 #if !BUILDFLAG(IS_ANDROID)
   Profile* profile = GetProfile();
+  if (!contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile)) {
+    return;
+  }
   if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
     model->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
   }
@@ -428,11 +893,11 @@ void ContextualTasksUIBase::PinSidePanel() {
 }
 
 void ContextualTasksUIBase::UnpinSidePanel() {
-  if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
-    return;
-  }
 #if !BUILDFLAG(IS_ANDROID)
   Profile* profile = GetProfile();
+  if (!contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile)) {
+    return;
+  }
   if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
     model->UpdatePinnedState(kActionSidePanelShowContextualTasks, false);
   }
@@ -445,7 +910,8 @@ void ContextualTasksUIBase::OpenMyActivityUi() {
     return;
   }
   OpenUrlWithDisposition(GetProfile(), GURL(kMyActivityUrl),
-                         WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
+                         ui::mojom::WindowOpenDisposition::kNewForegroundTab,
+                         browser);
 }
 
 void ContextualTasksUIBase::OpenOverflowMenuHelpUi() {
@@ -456,7 +922,26 @@ void ContextualTasksUIBase::OpenOverflowMenuHelpUi() {
   OpenUrlWithDisposition(
       GetProfile(),
       GURL(contextual_tasks::GetContextualTasksOverflowMenuHelpUrl()),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
+      ui::mojom::WindowOpenDisposition::kNewForegroundTab, browser);
+}
+
+void ContextualTasksUIBase::OpenManageAccountUi() {
+  OpenUrlInNewTabFromPanelUi(GURL(chrome::kGoogleAccountURL));
+}
+
+void ContextualTasksUIBase::OpenUrlInNewTabFromPanelUi(const GURL& url) {
+  if (ContextualTasksPanelController* panel_controller = GetPanelController()) {
+    panel_controller->OpenUrlInNewTab(url);
+    return;
+  }
+  if (BrowserWindowInterface* browser = GetBrowser()) {
+    OpenUrlWithDisposition(GetProfile(), url,
+                           WindowOpenDisposition::kNewForegroundTab, browser);
+  }
+}
+
+void ContextualTasksUIBase::OpenLogOutFlow() {
+  OpenUrlInNewTabFromPanelUi(GaiaUrls::GetInstance()->service_logout_url());
 }
 
 void ContextualTasksUIBase::OpenFeedbackUi() {
@@ -481,7 +966,33 @@ void ContextualTasksUIBase::OpenFeedbackUi() {
 }
 
 void ContextualTasksUIBase::MoveTaskUiToNewTab() {
-  // Base implementation is a no-op; overridden by ContextualTasksUI.
+  ContextualTasksPanelController* panel_controller = GetPanelController();
+  if (!panel_controller) {
+    return;
+  }
+  content::WebContents* active_contents =
+      panel_controller->GetActiveWebContents();
+  if (!active_contents) {
+    return;
+  }
+  std::optional<base::Uuid> task_id;
+  if (std::optional<ContextualTask> current_task =
+          panel_controller->GetCurrentTask()) {
+    task_id = current_task->GetTaskId();
+  } else if (ContextualSearchWebContentsHelper* helper =
+                 ContextualSearchWebContentsHelper::FromWebContents(
+                     active_contents)) {
+    task_id = helper->task_id();
+  }
+  if (!task_id.has_value()) {
+    return;
+  }
+  ContextualTasksUiService* ui_service = GetUiService();
+  if (!ui_service) {
+    return;
+  }
+  ui_service->MoveTaskUiToNewTab(task_id.value(), GetBrowser(),
+                                 active_contents->GetLastCommittedURL());
 }
 
 void ContextualTasksUIBase::ShowThreadHistory() {
@@ -503,10 +1014,39 @@ void ContextualTasksUIBase::ShowThreadHistory() {
 #if !BUILDFLAG(IS_ANDROID)
 void ContextualTasksUIBase::OnActionsChanged() {
   if (auto* toolbar_page = GetToolbarPageRemote()) {
-    bool effective_pin_state =
-        contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() &&
-        contextual_tasks::GetEffectivePinState(GetProfile());
-    toolbar_page->OnSidePanelPinStateChanged(effective_pin_state);
+    toolbar_page->OnSidePanelPinStateChanged(
+        contextual_tasks::GetEffectivePinState(GetProfile()));
+  }
+}
+
+void ContextualTasksUIBase::OnCanPinOrUnpinMaybeChanged() {
+  Profile* profile = GetProfile();
+  const bool can_pin_or_unpin =
+      contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile);
+  if (can_pin_or_unpin == can_pin_or_unpin_) {
+    return;
+  }
+  can_pin_or_unpin_ = can_pin_or_unpin;
+
+  if (can_pin_or_unpin_) {
+    // The user just became eligible: start tracking the pinned state so the
+    // pin/unpin label stays accurate.
+    if (auto* model = PinnedToolbarActionsModel::Get(profile)) {
+      if (!pinned_toolbar_actions_model_observation_.IsObserving()) {
+        pinned_toolbar_actions_model_observation_.Observe(model);
+      }
+    }
+  } else {
+    // No longer eligible: the pin item is hidden, so stop tracking the model.
+    pinned_toolbar_actions_model_observation_.Reset();
+  }
+
+  if (auto* toolbar_page = GetToolbarPageRemote()) {
+    toolbar_page->OnPinButtonEligibilityChanged(can_pin_or_unpin_);
+    // Keep the pin state in sync too, since the model wasn't observed while
+    // the user was ineligible.
+    toolbar_page->OnSidePanelPinStateChanged(
+        contextual_tasks::GetEffectivePinState(profile));
   }
 }
 #endif
@@ -562,10 +1102,23 @@ void ContextualTasksUIBase::CreateNewThread() {
   if (!panel_controller) {
     return;
   }
+  panel_controller->SetErrorPageVisible(false);
   content::WebContents* target_contents =
       panel_controller->GetActiveWebContents();
   if (!target_contents) {
     return;
+  }
+
+  // When scoped to the tab, start the new thread in a new task for the active
+  // tab only, so that other tabs sharing the task keep their thread.
+  if (contextual_tasks::ShouldScopeSidePanelStateToTab()) {
+    if (GetWebUIWebContents() != panel_controller->GetToolbarWebContents()) {
+      return;
+    }
+    if (panel_controller->MoveActiveTabToNewThreadIfShared()) {
+      SetThreadTitle(std::nullopt);
+      return;
+    }
   }
 
   std::optional<base::Uuid> task_id;
@@ -593,11 +1146,107 @@ void ContextualTasksUIBase::CreateNewThread() {
   SetThreadTitle(std::nullopt);
 }
 
+// Pinning IPH trigger criteria: The pinning IPH should try to trigger when:
+// 1. Results have fully loaded for a contextual query about a tab or PDF
+// 2. The side panel is open & the ephemeral button is showing
+// 3. The user hasn't yet pinned the side panel
+bool ContextualTasksUIBase::CanTriggerPinningPromoForAiPage(
+    const GURL& url,
+    ContextualTasksPanelController* panel_controller) {
+  // 1a. Results have fully loaded (finished streaming).
+  if (!HasActiveAimResults(url) || !panel_controller) {
+    return false;
+  }
+
+  // 1b. Query has tab or PDF context.
+  // Server-committed resources on the task.
+  std::optional<ContextualTask> current_task =
+      panel_controller->GetCurrentTask();
+  if (current_task &&
+      std::ranges::any_of(
+          current_task->GetUrlResources(), [](const UrlResource& r) {
+            return r.resource_type == ResourceType::kPdf ||
+                   r.resource_type == ResourceType::kWebpage ||
+                   r.tab_id.has_value() || r.has_chrome_tab_data;
+          })) {
+    return true;
+  }
+
+  // Fallback: client-side composebox tab/PDF context (before `ContextualTask`
+  // updates, or when manually added in a session).
+  contextual_search::ContextualSearchSessionHandle* session_handle =
+      panel_controller->GetContextualSearchSessionHandleForPanel();
+  if (!session_handle) {
+    return false;
+  }
+
+  const contextual_search::TabContextState& tab_context =
+      session_handle->GetTabContextState();
+  if (!tab_context.restored.empty() ||
+      std::ranges::any_of(
+          tab_context.attached,
+          [](const contextual_search::TabInfo& tab) {
+            return tab.uploaded || tab.pending_delayed_upload;
+          })) {
+    return true;
+  }
+
+  return session_handle->HasPdfContext();
+}
+
 void ContextualTasksUIBase::MaybeTriggerPinningPromo() {
-  // TODO(b/560292506): The AI-Mode precondition uses
-  // ui_service_->IsAiUrl(web_ui_controller_->GetInnerFrameUrl()).
-  // GetInnerFrameUrl() is webview-specific and has no panel-controller
-  // equivalent, so the precondition cannot be evaluated post-rearchitecture.
+#if !BUILDFLAG(IS_ANDROID)
+  // Side panel is open & pinning/ephemeral button eligibility is active.
+  auto* panel_controller = GetPanelController();
+  if (!panel_controller || !panel_controller->IsPanelOpenForContextualTask() ||
+      panel_controller->IsOnboardingTooltipVisible()) {
+    return;
+  }
+
+  Profile* profile = GetProfile();
+  if (!profile) {
+    return;
+  }
+
+  if (!contextual_tasks::IsContextualTasksPinningV2Enabled() ||
+      !contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile)) {
+    return;
+  }
+
+  // Results have fully loaded for a contextual query about a tab or PDF.
+  if (!IsAiPage()) {
+    return;
+  }
+
+  auto* active_contents = panel_controller->GetActiveWebContents();
+  if (!active_contents ||
+      !CanTriggerPinningPromoForAiPage(active_contents->GetLastCommittedURL(),
+                                       panel_controller)) {
+    return;
+  }
+
+  // User hasn't yet pinned the side panel.
+  if (contextual_tasks::GetEffectivePinState(profile)) {
+    return;
+  }
+
+  int post_onboarding_sessions = profile->GetPrefs()->GetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding);
+  if (post_onboarding_sessions <
+      contextual_tasks::GetContextualTasksNumSessionsBeforeRequestPinPromo()) {
+    return;
+  }
+
+  // Anchored to `kContextualTasksEphemeralToolbarButtonElementId`,
+  // so it only shows if the ephemeral button is visible.
+  BrowserWindowInterface* browser_window = GetBrowser();
+  if (!browser_window) {
+    return;
+  }
+  BrowserUserEducationInterface::From(browser_window)
+      ->MaybeShowFeaturePromo(
+          feature_engagement::kIPHSidePanelContextualTasksPinnableFeature);
+#endif
 }
 
 void ContextualTasksUIBase::BindInterface(
@@ -620,6 +1269,34 @@ void ContextualTasksUIBase::BindInterface(
         pending_receiver) {
   help_bubble_factory_receiver_.reset();
   help_bubble_factory_receiver_.Bind(std::move(pending_receiver));
+}
+
+void ContextualTasksUIBase::BindInterface(
+    mojo::PendingReceiver<contextual_tasks_internals::mojom::
+                              ContextualTasksInternalsPageHandlerFactory>
+        pending_receiver) {
+  contextual_tasks_internals_page_handler_receiver_.reset();
+  contextual_tasks_internals_page_handler_receiver_.Bind(
+      std::move(pending_receiver));
+}
+
+void ContextualTasksUIBase::CreatePageHandler(
+    mojo::PendingRemote<
+        contextual_tasks_internals::mojom::ContextualTasksInternalsPage> page,
+    mojo::PendingReceiver<
+        contextual_tasks_internals::mojom::ContextualTasksInternalsPageHandler>
+        receiver) {
+  Profile* profile = GetProfile();
+  auto* context_service =
+      profile ? ContextualTasksContextServiceFactory::GetForProfile(profile)
+              : nullptr;
+  auto* optimization_guide_keyed_service =
+      profile ? OptimizationGuideKeyedServiceFactory::GetForProfile(profile)
+              : nullptr;
+  contextual_tasks_internals_page_handler_ =
+      std::make_unique<ContextualTasksInternalsPageHandler>(
+          profile, context_service, optimization_guide_keyed_service,
+          std::move(receiver), std::move(page));
 }
 
 void ContextualTasksUIBase::CreateHelpBubbleHandler(
@@ -668,9 +1345,9 @@ ContextualTasksUIBase* ContextualTasksUIBase::FromWebContents(
 
 void ContextualTasksUIBase::NotifyPermissionDashboardStateChanged(
     ContextualTasksPermissionController* controller) {
-  // Only the active task's chips are on screen. Background tasks keep their
-  // own dashboard state and will be picked up by `GetState()` if and when they
-  // become active.
+  // All tasks in a window share one controller and dashboard, which shows
+  // the active task. Each task's permission data stays on its WebContents and
+  // is re-read on a task switch. Drop updates from any other controller.
   if (!controller || controller != GetActiveController()) {
     return;
   }
@@ -691,6 +1368,27 @@ void ContextualTasksUIBase::NotifyPermissionDashboardStateChanged(
 void ContextualTasksUIBase::SetIsAiPage(bool is_ai_page) {
   is_ai_page_ = is_ai_page;
   NotifyAiPageStatusChanged(is_ai_page);
+  if (contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled()) {
+    if (ContextualTasksPanelController* panel_controller =
+            GetPanelController()) {
+      panel_controller->NotifyExpandToFullTabStateChanged();
+    }
+  }
+}
+
+bool ContextualTasksUIBase::CanExpandToFullTab() const {
+  return contextual_tasks::
+             IsContextualTasksSidePanelRearchitectureExpandToFullTabEnabled() &&
+         is_ai_page_ && is_contextual_tasks_eligible_on_init_;
+}
+
+void ContextualTasksUIBase::UpdateExpandButtonEnabled(bool enabled) {
+#if !BUILDFLAG(IS_ANDROID)
+  if (contextual_tasks_toolbar::mojom::Page* toolbar_page =
+          GetToolbarPageRemote()) {
+    toolbar_page->SetExpandButtonEnabled(enabled);
+  }
+#endif
 }
 
 const std::optional<std::string>& ContextualTasksUIBase::GetThreadTitle() {
@@ -733,15 +1431,12 @@ void ContextualTasksUIBase::GetInitialState(GetInitialStateCallback callback) {
   std::move(callback).Run(std::move(initial_state));
 }
 
-// TODO(crbug.com/558848727): Fix race condition where active task changes while
-// IPC is in flight. The WebUI should pass the target task ID (or generation
-// token), and the click should be dropped if the targeted task is no longer
-// active.
 void ContextualTasksUIBase::OnChipClicked(
     toolbar_ui_api::mojom::LhsChipIdentifier identifier,
-    bool is_mouse_interaction) {
+    bool is_mouse_interaction,
+    uint32_t state_token) {
   if (auto* controller = GetActiveController()) {
-    controller->OnChipClicked(identifier, is_mouse_interaction);
+    controller->OnChipClicked(identifier, is_mouse_interaction, state_token);
   }
 }
 
@@ -763,10 +1458,18 @@ void ContextualTasksUIBase::OnChipMousePressed(
     toolbar_ui_api::mojom::LhsChipIdentifier identifier) {}
 
 void ContextualTasksUIBase::OnChipPointerEntered(
-    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {}
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {
+  if (ContextualTasksPermissionController* controller = GetActiveController()) {
+    controller->OnChipPointerEntered(identifier);
+  }
+}
 
 void ContextualTasksUIBase::OnChipPointerExited(
-    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {}
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {
+  if (ContextualTasksPermissionController* controller = GetActiveController()) {
+    controller->OnChipPointerExited(identifier);
+  }
+}
 
 void ContextualTasksUIBase::NotifyAiPageStatusChanged(bool is_ai_page) {
   if (auto* toolbar_page = GetToolbarPageRemote()) {
@@ -786,7 +1489,19 @@ void ContextualTasksUIBase::UpdateProfileIndicator() {
 
 void ContextualTasksUIBase::UpdateProfileIndicator(const GURL& url) {
   if (auto* toolbar_page = GetToolbarPageRemote()) {
-    toolbar_page->SetProfileAvatarUrl(GetProfileAvatarUrl(GetProfile(), url));
+    ProfileIndicatorInfo info;
+    if (cookie_jar_observer_) {
+      if (std::optional<ProfileIndicatorInfo> otr_info =
+              cookie_jar_observer_->GetOffTheRecordProfileIndicatorInfo(url)) {
+        info = std::move(*otr_info);
+      } else {
+        info = GetProfileIndicatorInfo(GetProfile(), url);
+      }
+    } else {
+      info = GetProfileIndicatorInfo(GetProfile(), url);
+    }
+    toolbar_page->SetProfileAvatarUrl(info.avatar_url);
+    toolbar_page->SetAccountInfo(info.full_name, info.email);
   }
 }
 

@@ -24,11 +24,52 @@
   gap: 8px;
 }
 
+.filter-chips {
+  --filter-chip-icon-size: 16px;
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.filter-chips cr-icon {
+  --iron-icon-fill-color: var(--color-chip-icon-selected,
+      var(--cr-fallback-color-on-tonal-container));
+  --iron-icon-height: var(--filter-chip-icon-size);
+  --iron-icon-width: var(--filter-chip-icon-size);
+  display: none;
+  inset-inline-start: 8px;
+  pointer-events: none;
+  position: absolute;
+}
+
+.filter-chips:has(option:not(:first-child):checked) cr-icon {
+  display: inline-flex;
+}
+
 .md-select {
   --md-select-side-padding: 8px;
   --md-select-width: auto;
   border-radius: var(--cr-chip-border-radius, 8px);
+  field-sizing: content;
   font-size: var(--cr-chip-font-size, 12px);
   font-weight: 500;
   height: var(--cr-chip-height, 28px);
+  padding-inline: calc(var(--md-select-side-padding) +
+      var(--filter-chip-icon-size) + 4px);
+}
+
+.md-select:has(option:not(:first-child):checked) {
+  background-color: var(--color-chip-background-selected,
+      var(--cr-fallback-color-tonal-container));
+  border-color: var(--color-chip-background-selected,
+      var(--cr-fallback-color-tonal-container));
+  color: var(--color-chip-foreground-selected,
+      var(--cr-fallback-color-on-tonal-container));
+}
+
+#clearAllButton {
+  --cr-button-border: none;
+  --cr-button-height: var(--cr-chip-height, 28px);
+  font-size: var(--cr-chip-font-size, 12px);
+  min-width: auto;
 }

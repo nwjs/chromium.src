@@ -13,6 +13,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/not_fatal_until.h"
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
@@ -22,7 +23,9 @@
 #include "components/autofill/core/browser/network/autofill_ai/autofill_ai_personal_context_access_manager.h"
 #include "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
 #include "components/autofill/core/common/autofill_prefs.h"
+#include "components/device_reauth/device_auth_availability_checker.h"
 #include "components/device_reauth/device_authenticator.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "url/origin.h"
 
 namespace autofill {
@@ -91,22 +94,33 @@ void AutofillAiAccessManager::MaybeAuthenticate(
     const url::Origin& origin,
     OnAuthenticationCompleteCallback on_auth_complete_callback,
     OnUnmaskCallback on_unmask_callback) {
-  if (!should_reauth) {
-    std::move(on_auth_complete_callback)
-        .Run(/*reauth_attempted=*/false, should_fetch_from_server);
-    std::move(on_unmask_callback)
-        .Run(std::move(entity), /*reauth_attempted=*/false);
-    return;
-  }
+  const auto can_authenticate = [&] {
+    if (!base::FeatureList::IsEnabled(
+            password_manager::features::kDeviceReauthRefactor)) {
+      if (!authenticator_) {
+        authenticator_ = manager_->client().GetDeviceAuthenticator(
+            "Autofill.Ai.ReauthToFill");
+      }
+      return authenticator_ &&
+             authenticator_->CanAuthenticateWithBiometricOrScreenLock();
+    }
+    std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker> checker =
+        manager_->client().GetDeviceAuthAvailabilityChecker();
+    if (!checker || !checker->CanAuthenticateWithBiometricOrScreenLock()) {
+      return false;
+    }
+    if (!authenticator_) {
+      authenticator_ =
+          manager_->client().GetDeviceAuthenticator("Autofill.Ai.ReauthToFill");
+    }
+    CHECK(authenticator_, base::NotFatalUntil::M162);
+    return authenticator_ != nullptr;
+  };
 
-  if (!authenticator_) {
-    authenticator_ =
-        manager_->client().GetDeviceAuthenticator("Autofill.Ai.ReauthToFill");
-  }
-  if (!authenticator_ ||
-      !authenticator_->CanAuthenticateWithBiometricOrScreenLock()) {
-    // If the device is not capable of reauth or not set up, we assume success
-    // to avoid blocking the user. Reauth is a best-effort security measure.
+  if (!should_reauth || !can_authenticate()) {
+    // If reauth is not required or the device is not capable of or set up for
+    // reauth, we assume success to avoid blocking the user. Reauth is a
+    // best-effort security measure.
     std::move(on_auth_complete_callback)
         .Run(/*reauth_attempted=*/false, should_fetch_from_server);
     std::move(on_unmask_callback)

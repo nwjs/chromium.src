@@ -34,7 +34,6 @@
 #include "components/trusted_vault/trusted_vault_service.h"
 #include "content/public/browser/browser_thread.h"
 
-namespace browser_sync {
 namespace {
 
 using content::BrowserThread;
@@ -105,8 +104,20 @@ network_time::NetworkTimeTracker* ChromeSyncClient::GetNetworkTimeTracker() {
 }
 
 base::FilePath ChromeSyncClient::GetLocalSyncBackendFolder() {
-  base::FilePath local_sync_backend_folder =
-      GetPrefService()->GetFilePath(syncer::prefs::kLocalSyncBackendDir);
+  base::FilePath local_sync_backend_folder;
+  const PrefService::Preference* local_sync_backend_dir_pref =
+      GetPrefService()->FindPreference(syncer::prefs::kLocalSyncBackendDir);
+  // Only honor `kLocalSyncBackendDir` when configured via mandatory policy or
+  // command-line switch, ignoring user-modifiable, extension, or custodian
+  // preference stores.
+  if (local_sync_backend_dir_pref &&
+      (local_sync_backend_dir_pref->IsManaged() ||
+       (!local_sync_backend_dir_pref->IsUserModifiable() &&
+        !local_sync_backend_dir_pref->IsExtensionControlled() &&
+        !local_sync_backend_dir_pref->IsManagedByCustodian()))) {
+    local_sync_backend_folder =
+        GetPrefService()->GetFilePath(syncer::prefs::kLocalSyncBackendDir);
+  }
 
 #if BUILDFLAG(IS_WIN)
   if (local_sync_backend_folder.empty()) {
@@ -199,5 +210,3 @@ void ChromeSyncClient::RegisterTrustedVaultAutoUpgradeSyntheticFieldTrial(
 bool ChromeSyncClient::IsMetricsAndCrashReportingEnabled() {
   return ChromeMetricsServiceAccessor::IsMetricsAndCrashReportingEnabled();
 }
-
-}  // namespace browser_sync

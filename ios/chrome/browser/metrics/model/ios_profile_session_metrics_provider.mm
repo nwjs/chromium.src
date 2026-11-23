@@ -6,6 +6,7 @@
 
 #import <algorithm>
 
+#import "base/check_deref.h"
 #import "base/metrics/histogram_functions.h"
 #import "components/activity_reporter/activity_reporter.h"
 #import "ios/chrome/browser/metrics/model/ios_profile_session_durations_service.h"
@@ -16,13 +17,25 @@
 
 namespace {
 
+// Returns whether there is any session active for `profiles`.
+bool IsSessionActive(const std::vector<ProfileIOS*>& profiles) {
+  for (ProfileIOS* profile : profiles) {
+    IOSProfileSessionDurationsService* service =
+        IOSProfileSessionDurationsServiceFactory::GetForProfileIfExists(
+            CHECK_DEREF(profile));
+    if (service && service->IsSessionActive()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 class IOSProfileSessionMetricsProvider : public metrics::MetricsProvider {
  public:
   void ProvideCurrentSessionData(
       metrics::ChromeUserMetricsExtension* /*uma_proto*/) override {
-    const bool session_is_active = std::ranges::any_of(
-        GetLoadedProfiles(), &IOSProfileSessionMetricsProvider::IsSessionActive,
-        &IOSProfileSessionDurationsServiceFactory::GetForProfile);
+    const bool session_is_active = IsSessionActive(GetLoadedProfiles());
     // TODO(crbug.com/560014755): Stop reporting Session.IsActive.
     base::UmaHistogramBoolean("Session.IsActive", session_is_active);
     base::UmaHistogramBoolean("Session.IsActive2", session_is_active);
@@ -34,10 +47,6 @@ class IOSProfileSessionMetricsProvider : public metrics::MetricsProvider {
  private:
   static std::vector<ProfileIOS*> GetLoadedProfiles() {
     return GetApplicationContext()->GetProfileManager()->GetLoadedProfiles();
-  }
-
-  static bool IsSessionActive(IOSProfileSessionDurationsService* service) {
-    return service->IsSessionActive();
   }
 };
 

@@ -1,0 +1,99 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/ui/autofill/payments/offer_notification_handler.h"
+
+#include <string>
+
+#include "base/check.h"
+#include "base/feature_list.h"
+#include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/payments/autofill_offer_manager.h"
+#include "components/autofill/core/browser/payments/offer_notification_options.h"
+#include "components/autofill/core/browser/payments/payments_autofill_client.h"
+#include "components/autofill/core/common/autofill_payments_features.h"
+#include "url/gurl.h"
+
+namespace autofill {
+
+namespace {
+
+bool IsOfferValid(const AutofillOfferData* offer) {
+  if (!offer) {
+    return false;
+  }
+
+  if (offer->GetMerchantOrigins().empty()) {
+    return false;
+  }
+
+  if (offer->GetOfferType() == AutofillOfferData::OfferType::UNKNOWN) {
+    return false;
+  }
+
+  if (!offer->GetOfferDetailsUrl().is_valid() ||
+      offer->GetOfferRewardAmount().empty()) {
+    return false;
+  }
+
+  return true;
+}
+
+}  // namespace
+
+OfferNotificationHandler::OfferNotificationHandler(
+    AutofillOfferManager* offer_manager)
+    : offer_manager_(*offer_manager) {}
+
+OfferNotificationHandler::~OfferNotificationHandler() = default;
+
+void OfferNotificationHandler::UpdateOfferNotificationVisibility(
+    AutofillClient& client) {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillEnableWalletDirectOffers) ||
+      !base::FeatureList::IsEnabled(
+          features::kAutofillEnableWalletDirectOffersNotificationBubble)) {
+    return;
+  }
+
+  // Hidden tabs are skipped so that they cannot consume the once-per-offer
+  // automatic show on behalf of the tab the user is actually looking at. This
+  // is re-evaluated when the tab becomes visible again.
+  if (!client.GetPaymentsAutofillClient()->IsTabVisibleForOfferNotification()) {
+    return;
+  }
+
+  const GURL url = client.GetLastCommittedPrimaryMainFrameURL();
+
+  if (ValidOfferExistsForUrl(url)) {
+    // TODO(crbug.com/40179715): GetOfferForUrl needs to know whether to give
+    //   precedence to card-linked offers or promo code offers. Eventually,
+    //   promo code offers should take precedence if a bubble is shown.
+    //   Currently, if a url has both types of offers and the promo code offer
+    //   is selected, no bubble will end up being shown (due to not yet being
+    //   implemented).
+    const AutofillOfferData* const offer = offer_manager_->GetOfferForUrl(url);
+    CHECK(IsOfferValid(offer));
+    const std::string& offer_id = offer->GetOfferId();
+    bool offer_id_has_shown_before =
+        offer_manager_->HasShownNotification(offer_id);
+    client.GetPaymentsAutofillClient()->UpdateOfferNotification(
+        *offer,
+        {
+            .notification_has_been_shown = offer_id_has_shown_before,
+            .show_notification_automatically = !offer_id_has_shown_before,
+        });
+    offer_manager_->MarkNotificationShown(offer_id);
+  } else {
+    client.GetPaymentsAutofillClient()->DismissOfferNotification();
+  }
+}
+
+bool OfferNotificationHandler::ValidOfferExistsForUrl(const GURL& url) {
+  return offer_manager_->IsUrlEligible(url) &&
+         IsOfferValid(offer_manager_->GetOfferForUrl(url));
+}
+
+}  // namespace autofill

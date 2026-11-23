@@ -117,7 +117,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AdaptiveToolbarButton.Shown"
-    enum="AdaptiveToolbarButtonVariant" expires_after="2027-02-07">
+    enum="AdaptiveToolbarButtonVariant" expires_after="2027-04-11">
   <owner>jinsukkiim@google.com</owner>
   <owner>clank-app-team@google.com</owner>
   <summary>
@@ -172,23 +172,6 @@ chromium-metrics-reviews@google.com.
 
     0b00001: client_id, 0b00010: redirect_uri, 0b00100: response_type, 0b01000:
     scope, 0b10000: state
-  </summary>
-</histogram>
-
-<histogram name="CustomTabs.Branding.AppIdType"
-    enum="CustomTabsBrandingAppIdType" expires_after="2025-07-06">
-  <owner>jinsukkim@chromium.org</owner>
-  <owner>chrome-connective-tissue@google.com</owner>
-  <summary>
-    For every CCT launch, Chrome will start an async task in the background
-    checking the last time branding is shown for the client app. Each client app
-    is identified with a unique string. It was initially (and preferably) its
-    package name but is extended to be of any text string from the intent's
-    referrer if the package name is unavailable. An empty string is regarded as
-    invalid id.
-
-    Record the type of the id for a given CCT when the async task is finished.
-    Record for Android CCT only.
   </summary>
 </histogram>
 
@@ -296,18 +279,6 @@ chromium-metrics-reviews@google.com.
     single large list of features and their percentage usage (one or more times
     per session) right in the UMA timeline. Recorded during a CCT Session.
     Android only.
-  </summary>
-</histogram>
-
-<histogram name="CustomTabs.GoogleBottomBar.Button.Clicked"
-    enum="GoogleBottomBarButtonEvent" expires_after="2025-05-16">
-  <owner>tivi@google.com</owner>
-  <owner>chrome-connective-tissue@google.com</owner>
-  <summary>
-    Recorded only on Android. Records clicks on GoogleBottomBar buttons in the
-    GoogleBottomBar. Logged when a button is clicked in the GoogleBottomBar
-    (when the GoogleBottomBar feature is enabled and visible at the bottom of
-    the CCT).
   </summary>
 </histogram>
 
@@ -538,7 +509,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.PageContent.Eligibility"
-    enum="CustomTabsPageContentEligibility" expires_after="2027-02-14">
+    enum="CustomTabsPageContentEligibility" expires_after="2027-04-18">
   <owner>jinsukkim@google.com</owner>
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
@@ -550,7 +521,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.PageContent.Outcome"
-    enum="CustomTabsPageContentExtractionResult" expires_after="2027-02-14">
+    enum="CustomTabsPageContentExtractionResult" expires_after="2027-04-18">
   <owner>jinsukkim@google.com</owner>
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
@@ -562,7 +533,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.PageContent.RequestedTypes"
-    enum="CustomTabsPageContentRequestedType" expires_after="2027-02-14">
+    enum="CustomTabsPageContentRequestedType" expires_after="2027-04-18">
   <owner>jinsukkim@google.com</owner>
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
@@ -570,18 +541,6 @@ chromium-metrics-reviews@google.com.
     Records each content type (APC, Screenshot, or File) requested inside the
     custom bottom bar view click map from Embedder. Android only. Logged once
     per button click.
-  </summary>
-</histogram>
-
-<histogram name="CustomTabs.PageInsights.Event" enum="PageInsightsEvent"
-    expires_after="2024-12-08">
-  <owner>jinsukkim@chromium.org</owner>
-  <owner>chrome-connective-tissue@google.com</owner>
-  <summary>
-    Recorded only on Android. Holds the interaction that the user has with Page
-    Insights BottomSheet, such as invoking PIH manually or by being auto
-    triggered, the bottom sheet's states and when it is dismissed, and
-    interactions with xSurface views.
   </summary>
 </histogram>
 
@@ -732,7 +691,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.SpareRenderer" enum="Boolean"
-    expires_after="2026-11-15">
+    expires_after="2027-11-15">
   <owner>adelm@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -803,7 +762,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Startup.TimeToLargestContentfulPaint2.{suffix}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>mthiesse@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>

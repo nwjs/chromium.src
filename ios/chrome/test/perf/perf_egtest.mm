@@ -5,9 +5,13 @@
 #import <UIKit/UIKit.h>
 
 #import <string>
+#import <vector>
 
+#import "base/apple/foundation_util.h"
+#import "base/containers/span.h"
 #import "base/strings/string_number_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "base/test/tracing/test_trace_processor_impl.h"
 #import "base/time/time.h"
 #import "base/values.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -18,6 +22,8 @@
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
+#import "net/test/embedded_test_server/http_request.h"
+#import "net/test/embedded_test_server/http_response.h"
 #import "url/gurl.h"
 
 @interface PerfTestCase : ChromeTestCase
@@ -40,16 +46,20 @@
 
 #pragma mark - Tests
 
-// Measures cold startup latency across cold process relaunches using unbucketed
-// millisecond timings from StartupInformation.
+// Measures cold startup latency and startup memory footprint across cold
+// process relaunches using unbucketed values from StartupInformation.
 - (void)testStartup {
   static constexpr int kColdLaunchIterations = 5;
   static constexpr base::TimeDelta kStartupMetricsTimeout = base::Seconds(10);
+  // Deferred initialization blocks wait 3 seconds after first scene activation
+  // and run sequentially with a 200ms inter-block delay.
+  static constexpr base::TimeDelta kStartupMemoryTimeout = base::Seconds(15);
   NSMutableArray<NSNumber*>* preMainSamples = [[NSMutableArray alloc] init];
   NSMutableArray<NSNumber*>* fromMainSamples = [[NSMutableArray alloc] init];
   NSMutableArray<NSNumber*>* sceneConnectSamples =
       [[NSMutableArray alloc] init];
   NSMutableArray<NSNumber*>* pageInsSamples = [[NSMutableArray alloc] init];
+  NSMutableArray<NSNumber*>* footprintSamples = [[NSMutableArray alloc] init];
 
   for (int i = 0; i < kColdLaunchIterations; ++i) {
     AppLaunchConfiguration config = [self appConfigurationForTestCase];
@@ -86,6 +96,24 @@
     if (pageIns >= 0.0) {
       [pageInsSamples addObject:@(pageIns)];
     }
+
+    // Avoid eDO polling during the 3-second quiet window before deferred
+    // blocks begin executing.
+    base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(3));
+
+    __block double footprintBytes = -1.0;
+    GREYCondition* waitForMemoryFootprint = [GREYCondition
+        conditionWithName:@"Wait for Startup.MemoryFootprint metric"
+                    block:^BOOL {
+                      footprintBytes =
+                          [PerfAppInterface startupMemoryFootprintBytes];
+                      return footprintBytes > 0.0;
+                    }];
+    GREYAssertTrue(
+        [waitForMemoryFootprint
+            waitWithTimeout:kStartupMemoryTimeout.InSecondsF()],
+        @"Timed out waiting for Startup.MemoryFootprint on iteration %d.", i);
+    [footprintSamples addObject:@(footprintBytes)];
   }
 
   GREYAssertEqual(fromMainSamples.count,
@@ -100,6 +128,9 @@
   GREYAssertEqual(pageInsSamples.count,
                   static_cast<NSUInteger>(kColdLaunchIterations),
                   @"Expected ColdStartPageIns samples from all iterations.");
+  GREYAssertEqual(footprintSamples.count,
+                  static_cast<NSUInteger>(kColdLaunchIterations),
+                  @"Expected MemoryFootprint samples from all iterations.");
   chrome_test_util::GREYAssertErrorNil([PerfAppInterface
       recordPerfSamples:fromMainSamples
               forMetric:@"Startup.ColdStartFromMain"
@@ -119,6 +150,11 @@
       recordPerfSamples:pageInsSamples
               forMetric:@"Startup.ColdStartPageIns"
                    unit:@"count_smallerIsBetter"
+              benchmark:@"bling.startup"]);
+  chrome_test_util::GREYAssertErrorNil([PerfAppInterface
+      recordPerfSamples:footprintSamples
+              forMetric:@"Startup.MemoryFootprint"
+                   unit:@"sizeInBytes_smallerIsBetter"
               benchmark:@"bling.startup"]);
 }
 
@@ -215,6 +251,137 @@
               forMetric:@"Speedometer3.TotalScore"
                    unit:@"unitless_biggerIsBetter"
               benchmark:@"bling.speedometer"]);
+}
+
+// Measures scroll frame timing and dropped frames across vertical swipe
+// gestures using manual Perfetto tracing and in-test SQL extraction.
+- (void)testScrollJank {
+  self.testServer->RegisterRequestHandler(base::BindRepeating(
+      [](const net::test_server::HttpRequest& request)
+          -> std::unique_ptr<net::test_server::HttpResponse> {
+        if (request.relative_url != "/scroll_jank.html") {
+          return nullptr;
+        }
+        auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+        response->set_code(net::HTTP_OK);
+        response->set_content_type("text/html");
+        response->set_content(
+            "<!doctype html>\n"
+            "<meta name='viewport' content='width=device-width'>\n"
+            "<style>\n"
+            "  body { margin: 0; font-family: sans-serif; }\n"
+            "  .row { height: 120px; border-bottom: 1px solid #ccc; "
+            "padding: 16px; }\n"
+            "</style>\n"
+            "<div id='root'></div>\n"
+            "<script>\n"
+            "  const root = document.getElementById('root');\n"
+            "  for (let i = 0; i < 200; i++) {\n"
+            "    const newDiv = document.createElement('div');\n"
+            "    newDiv.className = 'row';\n"
+            "    newDiv.textContent = 'Item ' + i;\n"
+            "    root.appendChild(newDiv);\n"
+            "  }\n"
+            "  var ready = false;\n"
+            "  var frameCount = 0;\n"
+            "  function checkReady() {\n"
+            "    if (frameCount == 5) {\n"
+            "      ready = true;\n"
+            "    } else {\n"
+            "      frameCount++;\n"
+            "      requestAnimationFrame(checkReady);\n"
+            "    }\n"
+            "  }\n"
+            "  requestAnimationFrame(checkReady);\n"
+            "</script>");
+        return response;
+      }));
+  GREYAssertTrue(self.testServer->Start(),
+                 @"EmbeddedTestServer failed to start.");
+
+  const GURL scrollURL = self.testServer->GetURL("/scroll_jank.html");
+  [ChromeEarlGrey loadURL:scrollURL];
+  [ChromeEarlGrey waitForJavaScriptCondition:@"ready === true"];
+
+  GREYAssertTrue([ChromeEarlGrey startManualTracingWithCategoryFilter:@"ui"],
+                 @"Failed to start manual tracing.");
+
+  static constexpr int kScrollCycles = 4;
+  for (int i = 0; i < kScrollCycles; ++i) {
+    [[EarlGrey
+        selectElementWithMatcher:chrome_test_util::WebStateScrollViewMatcher()]
+        performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+    [[EarlGrey
+        selectElementWithMatcher:chrome_test_util::WebStateScrollViewMatcher()]
+        performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+  }
+
+  NSString* traceFilePathString = [ChromeEarlGrey stopManualTracing];
+  GREYAssertTrue(traceFilePathString.length > 0, @"Trace file path is empty.");
+
+  NSData* traceData = [ChromeEarlGrey traceDataForPath:traceFilePathString];
+  GREYAssertTrue(traceData && traceData.length > 0,
+                 @"Failed to read trace file contents.");
+  GREYAssertTrue([ChromeEarlGrey removeTraceFileAtPath:traceFilePathString],
+                 @"Failed to remove manual trace file.");
+
+  auto traceSpan = base::as_chars(base::apple::NSDataToSpan(traceData));
+  std::vector<char> rawData(traceSpan.begin(), traceSpan.end());
+
+  base::test::TestTraceProcessorImpl ttp;
+  auto status = ttp.ParseTrace(rawData);
+  GREYAssertTrue(status.ok(), @"Failed to parse Perfetto trace: %s",
+                 std::string(status.message()).c_str());
+
+  static constexpr char kScrollJankSqlQuery[] =
+      "SELECT "
+      "COALESCE(EXTRACT_ARG(arg_set_id, 'debug.dropped_frames'), 0) "
+      "AS dropped_frames, "
+      "(ts - LAG(ts) OVER (ORDER BY ts)) / 1e6 "
+      "AS frame_interval_ms "
+      "FROM slice "
+      "WHERE category = 'ui' AND name = 'Display';";
+  auto queryResult = ttp.ExecuteQuery(kScrollJankSqlQuery);
+  GREYAssertTrue(queryResult.ok(), @"Failed to query Display frame slices: %s",
+                 queryResult.error().c_str());
+  GREYAssertTrue(queryResult.result().size() >= 3,
+                 @"Expected at least 2 Display slices, got %zu rows.",
+                 queryResult.result().size());
+
+  // Match `UIViewControllerWithDisplayTracing`'s `kMaxSupportedFramePeriod`
+  // (100 ms) so inter-swipe idle pauses are excluded while genuine dropped
+  // frame intervals (`(dropped + 1) * 100 ms`) are retained.
+  static constexpr double kMaxSupportedFramePeriodMs = 100.0;
+  NSMutableArray<NSNumber*>* droppedSamples = [[NSMutableArray alloc] init];
+  NSMutableArray<NSNumber*>* intervalSamples = [[NSMutableArray alloc] init];
+  for (size_t row = 1; row < queryResult.result().size(); ++row) {
+    const auto& cols = queryResult.result()[row];
+    if (cols.size() < 2) {
+      continue;
+    }
+    double dropped = 0.0;
+    if (base::StringToDouble(cols[0], &dropped)) {
+      [droppedSamples addObject:@(dropped)];
+    }
+    double intervalMs = 0.0;
+    if (base::StringToDouble(cols[1], &intervalMs) && intervalMs > 0.0 &&
+        intervalMs <= (dropped + 1.0) * kMaxSupportedFramePeriodMs) {
+      [intervalSamples addObject:@(intervalMs)];
+    }
+  }
+
+  GREYAssertTrue(droppedSamples.count > 0 && intervalSamples.count > 0,
+                 @"Expected Display frame timing samples during scroll.");
+  chrome_test_util::GREYAssertErrorNil([PerfAppInterface
+      recordPerfSamples:droppedSamples
+              forMetric:@"ScrollJank.DroppedFrames"
+                   unit:@"count_smallerIsBetter"
+              benchmark:@"bling.scroll"]);
+  chrome_test_util::GREYAssertErrorNil([PerfAppInterface
+      recordPerfSamples:intervalSamples
+              forMetric:@"ScrollJank.FrameInterval"
+                   unit:@"ms_smallerIsBetter"
+              benchmark:@"bling.scroll"]);
 }
 
 @end

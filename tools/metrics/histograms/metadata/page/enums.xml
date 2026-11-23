@@ -292,6 +292,7 @@ chromium-metrics-reviews@google.com.
   <int value="47" label="Payments Churned Users"/>
   <int value="48" label="Fake Page Action For Debug"/>
   <int value="49" label="Wallet Reminder Notice"/>
+  <int value="50" label="Gmail OTP Opt-In"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/page_action/page_action_icon_type.h:PageActionIconType) -->
@@ -361,6 +362,18 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/page_load_metrics/browser/observers/paid_content_page_load_metrics_observer.cc:PaidContentState) -->
 
+<!-- LINT.IfChange(SearchPrewarmOutcome) -->
+
+<enum name="SearchPrewarmOutcome">
+  <int value="0" label="Process reused by primary search navigation"/>
+  <int value="1" label="Unused (completed but not reused)"/>
+  <int value="2" label="Cancelled by new prewarm"/>
+  <int value="3" label="Failed before ready"/>
+  <int value="4" label="Cancelled before ready"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/page_load_metrics/google/browser/search_prewarm_outcome.h:SearchPrewarmOutcome) -->
+
 <!-- LINT.IfChange(SearchPrewarmPrerenderCoverageStatus) -->
 
 <enum name="SearchPrewarmPrerenderCoverageStatus">
@@ -375,6 +388,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Cold process allocated"/>
   <int value="6"
       label="Blank process reused (empty process of about:blank, NTP, etc.)"/>
+  <int value="7" label="Spare process used"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/page_load_metrics/google/browser/search_prewarm_coverage_status.h:SearchPrewarmPrerenderCoverageStatus) -->

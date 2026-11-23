@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-toolbar.top-chrome/app.js';
+import 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {AnimationTracker, BrowserProxyImpl, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {PinnedToolbarActionsElement} from 'chrome://webui-toolbar.top-chrome/app.js';
-import {PinnedToolbarAction} from 'chrome://webui-toolbar.top-chrome/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import {AnimationTracker, BrowserProxyImpl, PinnedToolbarAction, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+import type {PinnedToolbarActionsElement} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 suite('PinnedToolbarActions', function() {
   let container: PinnedToolbarActionsElement;
@@ -96,6 +95,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-1',
         icon: {handleId: 1n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: 2,  // kShowPasswordsBubbleOrPage
@@ -107,6 +107,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-2',
         icon: {handleId: 2n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -118,6 +119,7 @@ suite('PinnedToolbarActions', function() {
         elementId: '',
         icon: {handleId: 0n},
         progressRing: null,
+        badgeNumber: null,
       },
     ];
     await microtasksFinished();
@@ -135,6 +137,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-1',
         icon: {handleId: 1n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -146,6 +149,7 @@ suite('PinnedToolbarActions', function() {
         elementId: '',
         icon: {handleId: 0n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: 3,
@@ -157,6 +161,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-3',
         icon: {handleId: 3n},
         progressRing: null,
+        badgeNumber: null,
       },
     ];
     await microtasksFinished();
@@ -234,6 +239,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-1',
         icon: {handleId: 1n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: 2,
@@ -245,6 +251,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-2',
         icon: {handleId: 2n},
         progressRing: null,
+        badgeNumber: null,
       },
     ];
     await microtasksFinished();
@@ -302,6 +309,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-1',
         icon: {handleId: 1n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -313,6 +321,7 @@ suite('PinnedToolbarActions', function() {
         elementId: '',
         icon: {handleId: 0n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: 3,
@@ -324,6 +333,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-3',
         icon: {handleId: 3n},
         progressRing: null,
+        badgeNumber: null,
       },
     ];
     await microtasksFinished();
@@ -408,6 +418,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-2',
         icon: {handleId: 2n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: 1,
@@ -419,6 +430,7 @@ suite('PinnedToolbarActions', function() {
         elementId: 'action-1',
         icon: {handleId: 1n},
         progressRing: null,
+        badgeNumber: null,
       },
       {
         action: PinnedToolbarAction.kDivider,
@@ -430,6 +442,7 @@ suite('PinnedToolbarActions', function() {
         elementId: '',
         icon: {handleId: 0n},
         progressRing: null,
+        badgeNumber: null,
       },
     ];
     await microtasksFinished();

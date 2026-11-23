@@ -7,9 +7,7 @@ include_rules = [
   # directory to #include its own files.
   "+chrome/browser/ui/webui/ash/login",
 
-  # Existing dependencies within //chrome. There is an active effort to
-  # refactor //chrome/browser/ui/ash to break these dependencies; see b/332804822.
-  # Whenever possible, avoid adding new //chrome dependencies to this list.
+  # Other ash directories in //chrome.
   "+chrome/browser/ash/accessibility",
   "+chrome/browser/ash/app_mode",
   "+chrome/browser/ash/attestation",
@@ -26,17 +24,19 @@ include_rules = [
   "+chrome/browser/ash/settings",
   "+chrome/browser/ash/system",
   "+chrome/browser/ash/tpm",
-  "+chrome/browser/browser_process.h",
+  "+chrome/browser/ui/ash/login",
+  "+chrome/browser/ui/webui/ash/cellular_setup",
+  "+chrome/browser/ui/webui/ash/internet",
+  "+chrome/browser/ui/webui/ash/multidevice_setup",
+
+  # Existing dependencies within //chrome. There is an active effort to
+  # refactor //chrome/browser/ui/ash to break these dependencies; see b/332804822.
+  # Whenever possible, avoid adding new //chrome dependencies to this list.
   "+chrome/browser/extensions/tab_helper.h",
   "+chrome/browser/net",
   "+chrome/browser/policy/networking",
   "+chrome/browser/profiles",
-  "+chrome/browser/signin",
-  "+chrome/browser/ui/ash/login",
   "+chrome/browser/ui/webui/about",
-  "+chrome/browser/ui/webui/ash/cellular_setup",
-  "+chrome/browser/ui/webui/ash/internet",
-  "+chrome/browser/ui/webui/ash/multidevice_setup",
   "+chrome/browser/ui/webui/metrics_handler.h",
   "+chrome/browser/ui/webui/signin",
   "+chrome/browser/ui/webui/theme_source.h",
@@ -57,8 +57,12 @@ specific_include_rules = {
   ],
 
   # Tests.
+  "l10n_util_unittest\\.cc": [
+    "+chrome/browser/global_features.h",
+  ],
   "network_state_informer_browsertest\\.cc": [
     "+ash/shell.h",
+    "+chrome/browser/browser_process.h",
     "+components/proxy_config",
   ],
   "oobe_display_chooser_browsertest\\.cc": [

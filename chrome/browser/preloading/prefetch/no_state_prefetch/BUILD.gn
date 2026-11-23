@@ -46,7 +46,6 @@ source_set("impl") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/sync:factories",
     "//chrome/browser/task_manager",
-    "//chrome/browser/ui:tab_helpers",
     "//chrome/common",
     "//components/content_settings/core/browser:cookie_settings",
     "//components/no_state_prefetch/browser",
@@ -146,10 +145,7 @@ if (!is_android) {
       "//components/privacy_sandbox:features",
       "//components/security_state/content",
       "//components/ukm:test_support",
+      "//services/network/public/cpp:ip_address_space_overrides_test_utils",
     ]
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 }

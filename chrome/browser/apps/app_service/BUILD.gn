@@ -126,6 +126,7 @@ source_set("app_service") {
     ]
 
     deps += [
+      "//ash/constants",
       "//ash/webui/mall:app_id",
       "//ash/webui/projector_app/public/cpp",
       "//chrome/app/theme:chrome_unscaled_resources_grit",
@@ -163,6 +164,7 @@ source_set("app_service") {
       "//chromeos/ash/components/file_manager:constants",
       "//chromeos/ash/experiences/arc:arc_app_constants",
       "//chromeos/ash/experiences/arc:arc_features",
+      "//chromeos/ash/experiences/extensions/common",
       "//chromeos/components/kiosk",
       "//chromeos/components/mgs",
       "//components/image_fetcher/core",
@@ -177,6 +179,7 @@ source_set("app_service") {
       "//chrome/browser/ash/app_list",
       "//chrome/browser/ash/app_list/app_service",
       "//chrome/browser/ash/app_list/search",
+      "//chrome/browser/ash/app_mode",
       "//chrome/browser/ash/app_mode/web_app",
       "//chrome/browser/ash/arc",
       "//chrome/browser/ash/arc/app_shortcuts",
@@ -207,15 +210,13 @@ source_set("app_service") {
 
     public_deps += [ "chrome_app_deprecation/proto" ]
 
-    # Needed only to allow circular includes.
-    deps += [ "//chrome/browser/chromeos/app_mode" ]
-
     # TODO(crbug.com/40251079): Remove circular dependencies.
     allow_circular_includes_from += [
       "//chrome/browser/ash/app_list",
       "//chrome/browser/ash/app_list/app_service",
       "//chrome/browser/ash/app_list/arc",
       "//chrome/browser/ash/app_list/search",
+      "//chrome/browser/ash/app_mode",
       "//chrome/browser/ash/app_mode/web_app",
       "//chrome/browser/ash/app_restore",
       "//chrome/browser/ash/apps",
@@ -243,7 +244,6 @@ source_set("app_service") {
       "//chrome/browser/ash/system_web_apps/apps",
       "//chrome/browser/ash/system_web_apps/apps/camera_app",
       "//chrome/browser/ash/system_web_apps/apps/media_app",
-      "//chrome/browser/chromeos/app_mode",
       "//chrome/browser/chromeos/arc",
       "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
       "//chrome/browser/ui/ash/shelf",

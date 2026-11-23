@@ -80,7 +80,7 @@ CheckClientDownloadRequestBase::CheckClientDownloadRequestBase(
       database_manager_(std::move(database_manager)),
       pingback_enabled_(service_->enabled()),
       download_request_maker_(std::move(download_request_maker)) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
 
   if (browser_context) {
     Profile* profile = Profile::FromBrowserContext(browser_context);
@@ -105,7 +105,7 @@ CheckClientDownloadRequestBase::~CheckClientDownloadRequestBase() = default;
 
 void CheckClientDownloadRequestBase::Start() {
   DVLOG(2) << "Starting SafeBrowsing download check for: " << source_url_;
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
 
   content::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(&CheckClientDownloadRequestBase::StartTimeout,
@@ -134,7 +134,7 @@ void CheckClientDownloadRequestBase::Start() {
 void CheckClientDownloadRequestBase::FinishRequest(
     DownloadCheckResult result,
     DownloadCheckResultReason reason) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
 
   auto settings = ShouldUploadBinary(reason);
   if (settings.has_value()) {
@@ -189,7 +189,7 @@ bool CheckClientDownloadRequestBase::IsDownloadManuallyBlocklisted(
 
 void CheckClientDownloadRequestBase::OnUrlAllowlistCheckDone(
     bool is_allowlisted) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
 
   // If the download URL is allowlisted on the allowlist, file feature
   // extraction and download ping are skipped.
@@ -410,7 +410,7 @@ void CheckClientDownloadRequestBase::ApplyModificationsAndSendRequest(
 // Start a timeout to cancel the request if it takes too long.
 // This should only be called after we have finished accessing the file.
 void CheckClientDownloadRequestBase::StartTimeout() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   timeout_start_time_ = base::TimeTicks::Now();
   timeout_closure_.Reset(base::BindOnce(
       &CheckClientDownloadRequestBase::FinishRequest, GetWeakPtr(),
@@ -430,7 +430,7 @@ void CheckClientDownloadRequestBase::OnGotAccessToken(
 #endif
 
 void CheckClientDownloadRequestBase::SendRequest() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   if (IsCancelled()) {
     FinishRequest(DownloadCheckResult::UNKNOWN, REASON_DOWNLOAD_DESTROYED);
     return;
@@ -545,7 +545,7 @@ void CheckClientDownloadRequestBase::SendRequest() {
 
 void CheckClientDownloadRequestBase::OnURLLoaderComplete(
     std::optional<std::string> response_body) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   bool success = loader_->NetError() == net::OK;
   int response_code = 0;
   if (loader_->ResponseInfo() && loader_->ResponseInfo()->headers) {
@@ -559,6 +559,7 @@ void CheckClientDownloadRequestBase::OnURLLoaderComplete(
   DownloadCheckResultReason reason = REASON_SERVER_PING_FAILED;
   DownloadCheckResult result = DownloadCheckResult::UNKNOWN;
   std::string token;
+  bool is_registered_app_store = false;
   if (success && net::HTTP_OK == response_code) {
     ClientDownloadResponse response;
     if (!response.ParseFromString(*response_body)) {
@@ -580,6 +581,7 @@ void CheckClientDownloadRequestBase::OnURLLoaderComplete(
         case ClientDownloadResponse::SAFE:
           reason = REASON_DOWNLOAD_SAFE;
           result = DownloadCheckResult::SAFE;
+          is_registered_app_store = response.is_registered_app_store();
           break;
         case ClientDownloadResponse::DANGEROUS:
           reason = REASON_DOWNLOAD_DANGEROUS;
@@ -627,17 +629,17 @@ void CheckClientDownloadRequestBase::OnURLLoaderComplete(
 
     GetAdditionalPromptResult(response, &result, &reason, &token);
 
-    if (!token.empty()) {
+    if (!token.empty() || is_registered_app_store) {
       SetDownloadProtectionData(
           token, response.verdict(),
 #if !BUILDFLAG(IS_ANDROID)
           WebUIContentInfoSingleton::GetInstance()
               ->tailored_verdict_override()
-              .override_value.value_or(response.tailored_verdict())
+              .override_value.value_or(response.tailored_verdict()),
 #else
-          response.tailored_verdict()
+          response.tailored_verdict(),
 #endif
-      );
+          is_registered_app_store);
     }
 
 #if !BUILDFLAG(IS_ANDROID)

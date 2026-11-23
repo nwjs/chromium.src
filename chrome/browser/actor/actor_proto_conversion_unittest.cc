@@ -12,21 +12,27 @@
 #include "base/test/gmock_expected_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/unguessable_token.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
 #include "chrome/browser/actor/tools/file_upload_tool_request.h"
 #include "chrome/browser/actor/tools/history_tool_request.h"
+#include "chrome/browser/actor/tools/password_manager/change_password/change_password_tool_request.h"
 #include "chrome/browser/actor/tools/script_tool_request.h"
+#include "chrome/browser/actor/tools/tab_management_tool_request.h"
 #include "chrome/browser/actor/tools/type_tool_request.h"
 #include "chrome/browser/actor/tools/wait_tool_request.h"
 #include "components/actor/core/actor_features.h"
+#include "components/actor/core/shared_types.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/optimization_guide/proto/features/common_quality_data_fuzzable.pb.h"
 #include "components/origin_gating/core/task_policy_config.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/fuzztest/src/fuzztest/fuzztest.h"
+#include "ui/gfx/geometry/point.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -122,6 +128,13 @@ optimization_guide::proto::Actions CreateActionsWithClickToUpload(
   target->mutable_document_identifier()->set_serialized_token(
       base::UnguessableToken::Create().ToString());
   return actions;
+}
+
+void SetDomNodeTarget(optimization_guide::proto::ActionTarget* target,
+                      int node_id,
+                      const std::string& doc_token) {
+  target->set_content_node_id(node_id);
+  target->mutable_document_identifier()->set_serialized_token(doc_token);
 }
 
 }  // namespace
@@ -506,11 +519,41 @@ TEST_F(
 
   const ScriptToolRequest& script_request =
       static_cast<const ScriptToolRequest&>(created_request);
-  EXPECT_EQ(100, script_request.GetTabHandle().raw_value());
+  EXPECT_EQ(100, script_request.GetActorSurfaceHandle().raw_value());
   EXPECT_EQ(token, script_request.GetTargetDocumentIdForTesting());
   EXPECT_EQ("echo", script_request.GetNameForTesting());
   EXPECT_EQ(R"({"text":"sample_input"})",
             script_request.GetInputArgumentsForTesting());
+}
+
+TEST_F(ActorProtoConversionTest, BuildToolRequest_Wait_ObserveIdIsSurfaceId) {
+  // `observe_tab_id` holds a surface ID, which need not resolve to a surface.
+  const ActorSurfaceHandle observe_actor_surface_handle =
+      ActorSurfaceHandle::CreateForTesting();
+  optimization_guide::proto::Actions actions;
+  actions.add_actions()->mutable_wait()->set_observe_tab_id(
+      observe_actor_surface_handle.raw_value());
+
+  BuildToolRequestResult requests = BuildToolRequest(actions);
+  ASSERT_TRUE(requests.has_value());
+  ASSERT_EQ(requests.value().size(), 1u);
+  const ToolRequest& request = *requests.value().front();
+  EXPECT_EQ(WaitToolRequest::kName, request.Name());
+  EXPECT_EQ(request.GetActorSurfaceForValidation(),
+            observe_actor_surface_handle);
+  EXPECT_TRUE(request.RequiresUrlCheckInCurrentTab());
+}
+
+TEST_F(ActorProtoConversionTest, BuildToolRequest_Wait_NoObserveId) {
+  optimization_guide::proto::Actions actions;
+  actions.add_actions()->mutable_wait();
+
+  BuildToolRequestResult requests = BuildToolRequest(actions);
+  ASSERT_TRUE(requests.has_value());
+  ASSERT_EQ(requests.value().size(), 1u);
+  const ToolRequest& request = *requests.value().front();
+  EXPECT_TRUE(request.GetActorSurfaceForValidation().is_null());
+  EXPECT_FALSE(request.RequiresUrlCheckInCurrentTab());
 }
 
 TEST_F(ActorProtoConversionTest,
@@ -565,7 +608,7 @@ TEST_F(ActorProtoConversionTest,
 
   const FileUploadToolRequest& upload_request =
       static_cast<const FileUploadToolRequest&>(created_request);
-  EXPECT_EQ(100, upload_request.GetTabHandle().raw_value());
+  EXPECT_EQ(100, upload_request.GetActorSurfaceHandle().raw_value());
   ASSERT_EQ(1u, upload_request.files().size());
   const FileUploadSource& source = upload_request.files().front();
   EXPECT_EQ(FileUploadSource::Type::kUrl, source.type);
@@ -682,31 +725,241 @@ TEST_F(ActorProtoConversionTest, ConvertRuleWithDuplicateCapabilities) {
 }
 
 TEST_F(ActorProtoConversionTest, GetClientToolForRequest) {
-  ClickToolRequest click_req(tabs::TabHandle(1), PageTarget(gfx::Point(0, 0)),
-                             mojom::ClickType::kLeft,
-                             mojom::ClickCount::kSingle);
+  ClickToolRequest click_req(
+      ActorSurfaceHandle::CreateForTesting(), PageTarget(gfx::Point(0, 0)),
+      mojom::ClickType::kLeft, mojom::ClickCount::kSingle);
   EXPECT_EQ(GetClientToolForRequest(click_req),
             ClientTool(RuleMetadata::CAPABILITY_CLICK));
 
-  WaitToolRequest wait_req(base::Seconds(1), tabs::TabHandle(1));
+  WaitToolRequest wait_req(base::Seconds(1),
+                           ActorSurfaceHandle::CreateForTesting());
   EXPECT_EQ(GetClientToolForRequest(wait_req),
             ClientTool(RuleMetadata::CAPABILITY_WAIT));
 
-  HistoryBackToolRequest back_req(tabs::TabHandle(1));
+  HistoryBackToolRequest back_req(ActorSurfaceHandle::CreateForTesting());
   EXPECT_EQ(GetClientToolForRequest(back_req),
             ClientTool(RuleMetadata::CAPABILITY_BACK));
 
-  HistoryForwardToolRequest forward_req(tabs::TabHandle(1));
+  HistoryForwardToolRequest forward_req(ActorSurfaceHandle::CreateForTesting());
   EXPECT_EQ(GetClientToolForRequest(forward_req),
             ClientTool(RuleMetadata::CAPABILITY_FORWARD));
+
+  CreateTabToolRequest create_tab_req(
+      /*window_id=*/1, WindowOpenDisposition::kNewForegroundTab);
+  EXPECT_EQ(GetClientToolForRequest(create_tab_req),
+            ClientTool(RuleMetadata::CAPABILITY_CREATE_TAB));
+
+  ActivateTabToolRequest activate_tab_req(ActorSurfaceHandle::FromRawValue(1));
+  EXPECT_EQ(GetClientToolForRequest(activate_tab_req),
+            ClientTool(RuleMetadata::CAPABILITY_ACTIVATE_TAB));
+
+  CloseTabToolRequest close_tab_req(ActorSurfaceHandle::FromRawValue(1));
+  EXPECT_EQ(GetClientToolForRequest(close_tab_req),
+            ClientTool(RuleMetadata::CAPABILITY_CLOSE_TAB));
 }
 
 TEST_F(ActorProtoConversionTest, GetClientToolForRequest_NoCapability) {
-  ReloadPageToolRequest reload_req(tabs::TabHandle(1));
+  ReloadPageToolRequest reload_req(ActorSurfaceHandle::CreateForTesting());
   EXPECT_EQ(GetClientToolForRequest(reload_req),
             ClientTool(RuleMetadata::CAPABILITY_UNKNOWN));
   EXPECT_FALSE(std::ranges::contains(
       GetAllActorTools(), ClientTool(RuleMetadata::CAPABILITY_UNKNOWN)));
+}
+
+TEST_F(
+    ActorProtoConversionTest,
+    BuildToolRequest_ChangePassword_ValidProto_CreatesRequestWithCorrectParameters) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  SetDomNodeTarget(change_password_action->mutable_current_password_field(), 10,
+                   "doc_token_1");
+  SetDomNodeTarget(change_password_action->mutable_new_password_field(), 20,
+                   "doc_token_1");
+  SetDomNodeTarget(change_password_action->mutable_confirm_new_password_field(),
+                   30, "doc_token_1");
+
+  ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<ToolRequest>> requests,
+                       BuildToolRequest(actions));
+  ASSERT_EQ(requests.size(), 1u);
+
+  ToolRequest& created_request = *requests.front();
+  EXPECT_EQ(ChangePasswordToolRequest::kName, created_request.Name());
+
+  const ChangePasswordToolRequest& change_password_request =
+      static_cast<const ChangePasswordToolRequest&>(created_request);
+  EXPECT_EQ(100, change_password_request.GetActorSurfaceHandle().raw_value());
+  EXPECT_EQ(
+      change_password_request.GetCurrentPasswordFieldForTesting(),
+      PageTarget(DomNode{.node_id = 10, .document_identifier = "doc_token_1"}));
+  EXPECT_EQ(
+      change_password_request.GetNewPasswordFieldForTesting(),
+      PageTarget(DomNode{.node_id = 20, .document_identifier = "doc_token_1"}));
+  EXPECT_EQ(
+      change_password_request.GetConfirmNewPasswordFieldForTesting(),
+      PageTarget(DomNode{.node_id = 30, .document_identifier = "doc_token_1"}));
+}
+
+TEST_F(ActorProtoConversionTest,
+       BuildToolRequest_ChangePassword_PartialPasswordFields_Succeeds) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  SetDomNodeTarget(change_password_action->mutable_new_password_field(), 20,
+                   "doc_token_1");
+
+  ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<ToolRequest>> requests,
+                       BuildToolRequest(actions));
+  ASSERT_EQ(requests.size(), 1u);
+
+  const ChangePasswordToolRequest& change_password_request =
+      static_cast<const ChangePasswordToolRequest&>(*requests.front());
+  EXPECT_EQ(change_password_request.GetCurrentPasswordFieldForTesting(),
+            std::nullopt);
+  EXPECT_EQ(
+      change_password_request.GetNewPasswordFieldForTesting(),
+      PageTarget(DomNode{.node_id = 20, .document_identifier = "doc_token_1"}));
+  EXPECT_EQ(change_password_request.GetConfirmNewPasswordFieldForTesting(),
+            std::nullopt);
+  EXPECT_EQ(change_password_request.GetConfirmButtonForTesting(), std::nullopt);
+}
+
+TEST_F(ActorProtoConversionTest,
+       BuildToolRequest_ChangePassword_FlagDisabled_ReturnsError) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndDisableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  SetDomNodeTarget(change_password_action->mutable_new_password_field(), 20,
+                   "doc_token_1");
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(ActorProtoConversionTest,
+       BuildToolRequest_ChangePassword_MissingTabId_ReturnsError) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  SetDomNodeTarget(change_password_action->mutable_new_password_field(), 20,
+                   "doc_token_1");
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(ActorProtoConversionTest,
+       BuildToolRequest_ChangePassword_MissingAllPasswordFields_ReturnsError) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  SetDomNodeTarget(change_password_action->mutable_confirm_button(), 40,
+                   "doc_token_1");
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(
+    ActorProtoConversionTest,
+    BuildToolRequest_ChangePassword_InvalidCurrentPasswordFieldTarget_ReturnsError) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  // Empty ActionTarget without content_node_id or coordinate is invalid.
+  change_password_action->mutable_current_password_field();
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(
+    ActorProtoConversionTest,
+    BuildToolRequest_ChangePassword_InvalidNewPasswordFieldTarget_ReturnsError) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  change_password_action->mutable_new_password_field();
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(
+    ActorProtoConversionTest,
+    BuildToolRequest_ChangePassword_InvalidConfirmNewPasswordFieldTarget_ReturnsError) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  change_password_action->mutable_confirm_new_password_field();
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
+}
+
+TEST_F(
+    ActorProtoConversionTest,
+    BuildToolRequest_ChangePassword_InvalidConfirmButtonTarget_ReturnsError) {
+  base::test::ScopedFeatureList change_password_feature;
+  change_password_feature.InitAndEnableFeature(
+      password_manager::features::kChangePasswordTool);
+
+  optimization_guide::proto::Actions actions;
+  optimization_guide::proto::ChangePasswordAction* change_password_action =
+      actions.add_actions()->mutable_change_password();
+  change_password_action->set_tab_id(100);
+  SetDomNodeTarget(change_password_action->mutable_new_password_field(), 20,
+                   "doc_token_1");
+  change_password_action->mutable_confirm_button();
+
+  EXPECT_THAT(BuildToolRequest(actions),
+              base::test::ErrorIs(testing::Pair(
+                  0u, mojom::ActionResultCode::kArgumentsInvalid)));
 }
 
 void CanConvertAnyProto(

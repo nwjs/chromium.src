@@ -9,13 +9,12 @@
 #include "ash/shell.h"
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "chrome/browser/ash/app_mode/kiosk_browser_window_handler.h"
 #include "chrome/browser/ash/app_mode/kiosk_controller.h"
 #include "chrome/browser/ash/app_mode/kiosk_system_session.h"
 #include "chrome/browser/ash/app_mode/test/kiosk_mixin.h"
 #include "chrome/browser/ash/app_mode/test/kiosk_test_utils.h"
-#include "chrome/browser/chromeos/app_mode/kiosk_browser_window_handler.h"
 #include "chrome/browser/devtools/devtools_window_testing.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -302,7 +301,7 @@ IN_PROC_BROWSER_TEST_F(KioskTroubleshootingToolsTest, NewWindowAddTab) {
 
   ui_test_utils::NavigateToURLWithDisposition(
       newly_opened_browser, GURL("https://www.google.com/"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   EXPECT_EQ(tab_strip_model->count(), initial_number_of_tabs + 1);
 }

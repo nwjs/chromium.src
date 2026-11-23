@@ -9,7 +9,6 @@
 #include "base/check.h"
 #include "base/values.h"
 #include "chrome/browser/ash/login/saml/in_session_password_change_manager.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/login/auth/public/saml_password_attributes.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/user_manager.h"
@@ -69,7 +68,8 @@ void ConfirmPasswordChangeHandler::HandleChangePassword(
       FirstNonEmpty(params[0].GetString(), scraped_old_password_);
   const std::string new_password =
       FirstNonEmpty(params[1].GetString(), scraped_new_password_);
-  DCHECK(!old_password.empty() && !new_password.empty());
+  CHECK(!old_password.empty() && !new_password.empty(),
+        base::NotFatalUntil::M162);
 
   InSessionPasswordChangeManager::Get()->ChangePassword(
       old_password, new_password, kPasswordSource);

@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement, css} from '//resources/lit/v3_0/lit.rollup.js';
+import type {CSSResultGroup} from '//resources/lit/v3_0/lit.rollup.js';
 
 // Test file for @webui-eslint/lit-element-structure
 
@@ -141,6 +142,16 @@ declare global {
 
 customElements.define(TestError7ElementFoo.is, TestError7ElementFoo);
 
+type Constructor<T> = new (...args: any[]) => T;
+const FooMixin = <T extends Constructor<CrLitElement>>(superClass: T): T => {
+  class FooMixin extends superClass {}
+  return FooMixin;
+};
+const FooMixinLit = <T extends Constructor<CrLitElement>>(superClass: T): T => {
+  class FooMixinLit extends superClass {}
+  return FooMixinLit;
+};
+
 // Case1.8: Class with incorrect class name, using "extends
 // FooMixin(CrLitElement)".
 export class TestError8ElementFoo extends FooMixin
@@ -234,6 +245,41 @@ declare global {
 
 customElements.define(TestError12Element.is, TestError12Element);
 
+// Case1.13: Mixin class with missing superclass calls and incorrect method
+// definition order.
+export const TestError13Mixin =
+    <T extends Constructor<CrLitElement>>(superClass: T): T => {
+      class TestError13Mixin extends superClass {
+        override disconnectedCallback() {}
+        override connectedCallback() {}
+      }
+      return TestError13Mixin;
+    };
+
+// Case1.14: Class extending an intermediate CrLitElement subclass (rather than
+// CrLitElement directly).
+export abstract class TestBaseLitElement extends CrLitElement {}
+export class TestError14ElementFoo extends TestBaseLitElement {
+  static get is() {
+    return 'test-error14';
+  }
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'test-error14': TestError14ElementFoo;
+  }
+}
+
+customElements.define(TestError14ElementFoo.is, TestError14ElementFoo);
+
+// Case1.15: Re-exporting (directly or indirectly) from a file containing
+// CrLitElement subclass definitions.
+export {nothing} from '//resources/lit/v3_0/lit.rollup.js';
+export type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
+export {css};
+export type {CSSResultGroup};
+
 
 /* Cases with no violations below. */
 
@@ -321,3 +367,9 @@ declare global {
 }
 
 customElements.define(TestNoError4ElementFoo.is, TestNoError4ElementFoo);
+
+// Case2.5: Exporting local declarations via 'export {...}' is allowed.
+const localConst = 1;
+interface LocalInterface {}
+export {localConst};
+export type {LocalInterface};

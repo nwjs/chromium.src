@@ -55,7 +55,7 @@
 #include "components/viz/common/surfaces/frame_sink_id_allocator.h"
 #include "components/viz/common/surfaces/parent_local_surface_id_allocator.h"
 #include "content/browser/accessibility/browser_accessibility_manager_android.h"
-#include "content/browser/accessibility/web_contents_accessibility_android.h"
+#include "content/browser/accessibility/web_contents_accessibility_base.h"
 #include "content/browser/android/gesture_listener_manager.h"
 #include "content/browser/android/ime_adapter_android.h"
 #include "content/browser/android/overscroll_controller_android.h"
@@ -511,15 +511,16 @@ bool RenderWidgetHostViewAndroid::ScreenStateChangeHandler::
         } else {
           // A standalone non-rotation resize has occurred. For WebView, we sync
           // immediately. For the browser, schedule a vsync-aligned update to
-          // process it smoothly.
-          sync_needed = true;
-          if (rwhva_->using_browser_compositor_ &&
-              features::IsFluidResizeEnabled()) {
-            sync_needed = false;
-            if (!rwhva_->visual_properties_update_pending_) {
-              rwhva_->visual_properties_update_pending_ = true;
-              rwhva_->SetNeedsAnimate();
-            }
+          // process it smoothly. In fullscreen, sync now: the new size is
+          // embedded on a black fallback, and a deferred update waits for any
+          // pending visual properties ack.
+          const bool defer_to_animate = rwhva_->using_browser_compositor_ &&
+                                        features::IsFluidResizeEnabled() &&
+                                        !pending_screen_state_.is_fullscreen;
+          sync_needed = !defer_to_animate;
+          if (defer_to_animate && !rwhva_->visual_properties_update_pending_) {
+            rwhva_->visual_properties_update_pending_ = true;
+            rwhva_->SetNeedsAnimate();
           }
         }
       }
@@ -607,6 +608,8 @@ bool RenderWidgetHostViewAndroid::ScreenStateChangeHandler::
     if (pending_screen_state_.is_fullscreen) {
       pending_screen_state_.any_non_rotation_size_changed = true;
     }
+    // This sync supersedes any update deferred to Animate().
+    rwhva_->visual_properties_update_pending_ = false;
     rwhva_->SynchronizeVisualProperties(
         deadline_policy, std::nullopt,
         /*reuse_current_local_surface_id=*/false,
@@ -652,6 +655,16 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
     RenderWidgetHostImpl* widget_host,
     gfx::NativeView parent_native_view,
     cc::slim::Layer* parent_layer)
+    : RenderWidgetHostViewAndroid(widget_host,
+                                  parent_native_view,
+                                  parent_layer,
+                                  CompositorImpl::IsInitialized()) {}
+
+RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
+    RenderWidgetHostImpl* widget_host,
+    gfx::NativeView parent_native_view,
+    cc::slim::Layer* parent_layer,
+    bool using_browser_compositor)
     : RenderWidgetHostViewBase(widget_host),
       is_window_visible_(true),
       is_window_activity_started_(true),
@@ -669,7 +682,7 @@ RenderWidgetHostViewAndroid::RenderWidgetHostViewAndroid(
               GetUIThreadTaskRunner({BrowserTaskType::kUserInput})),
           this)),
       stylus_text_selector_(this),
-      using_browser_compositor_(CompositorImpl::IsInitialized()),
+      using_browser_compositor_(using_browser_compositor),
       synchronous_compositor_client_(nullptr),
       observing_root_window_(false),
       prev_top_shown_pix_(0.f),
@@ -1025,7 +1038,7 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedBeforeActivation(
       top_shown_pix, controls_changed);
   // This needs to be called after GestureListenerManager::UpdateScrollInfo, as
   // it depends on frame info being updated during the UpdateScrollInfo call.
-  auto* wcax = GetWebContentsAccessibilityAndroid();
+  auto* wcax = GetWebContentsAccessibilityBase();
   if (wcax)
     wcax->UpdateFrameInfo(metadata.page_scale_factor);
 
@@ -1150,6 +1163,13 @@ void RenderWidgetHostViewAndroid::OnRenderFrameMetadataChangedAfterActivation(
     // We have received content, ensure that any subsequent navigation allocates
     // a new surface.
     pre_navigation_content_ = true;
+
+    if (delegated_frame_host_) {
+      // Let the frame host know which surface activated, so it can time
+      // fullscreen resizes.
+      delegated_frame_host_->OnRendererSurfaceActivated(
+          activated_local_surface_id, activation_time);
+    }
 
     while (!rotation_metrics_.empty()) {
       auto rotation_target = rotation_metrics_.front();
@@ -1890,15 +1910,10 @@ void RenderWidgetHostViewAndroid::DestroyImpl() {
 }
 
 void RenderWidgetHostViewAndroid::CreateUnboundedSurface(
-    mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-    mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client,
-    const gfx::Rect& bounds_in_dips,
+    const gfx::Rect& bounds_in_screen,
     base::WeakPtr<RenderWidgetHostViewBase> subframe_view) {
-  gfx::Rect bounds_in_screen =
-      ConvertSubframeBoundsToScreen(bounds_in_dips, subframe_view.get());
   unbounded_surface_window_ = UnboundedSurfaceWindowAndroid::Create(
-      this, std::move(host), std::move(client), bounds_in_screen,
-      std::move(subframe_view));
+      this, bounds_in_screen, std::move(subframe_view));
 }
 
 void RenderWidgetHostViewAndroid::OnDestroyOrDefer() {
@@ -2368,8 +2383,8 @@ void RenderWidgetHostViewAndroid::SynchronousCopyContents(
   std::move(callback).Run(viz::CopyOutputBitmapWithMetadata(bitmap));
 }
 
-WebContentsAccessibilityAndroid*
-RenderWidgetHostViewAndroid::GetWebContentsAccessibilityAndroid() const {
+WebContentsAccessibilityBase*
+RenderWidgetHostViewAndroid::GetWebContentsAccessibilityBase() const {
   return web_contents_accessibility_;
 }
 
@@ -2588,6 +2603,9 @@ void RenderWidgetHostViewAndroid::HideInternal() {
   if (hide_frontbuffer) {
     view_.GetLayer()->SetHideLayerAndSubtree(true);
     delegated_frame_host_->WasHidden();
+  } else if (delegated_frame_host_) {
+    // The frontbuffer stays visible, but the renderer is hidden.
+    delegated_frame_host_->OnRendererHidden();
   }
 
   if (stop_observing_root_window) {
@@ -3941,7 +3959,7 @@ void RenderWidgetHostViewAndroid::OnUpdateScopedSelectionHandles() {
 }
 
 void RenderWidgetHostViewAndroid::SetWebContentsAccessibility(
-    WebContentsAccessibilityAndroid* web_contents_accessibility) {
+    WebContentsAccessibilityBase* web_contents_accessibility) {
   web_contents_accessibility_ = web_contents_accessibility;
   UpdateRootScrollOffsetUpdateFrequency();
 }

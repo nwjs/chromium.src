@@ -282,6 +282,12 @@ public final class ChromePreferenceKeys {
     public static final String NTP_CUSTOMIZATION_BACKGROUND_INFO_FOR_DAILY_REFRESH =
             "Chrome.NtpCustomization.BackgroundInfoForDailyRefresh";
 
+    /**
+     * The position index of the NTP AI Mode tile. Holds 0 for slot 0 by default, N (> 0) after user
+     * reorder among custom shortcuts, or -1 when removed.
+     */
+    public static final String NTP_MVT_AI_MODE_TILE_INDEX = "Chrome.NtpAurora.AiModeTileIndex";
+
     public static final String CRASH_UPLOAD_FAILURE_BROWSER = "browser_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_GPU = "gpu_crash_failure_upload";
     public static final String CRASH_UPLOAD_FAILURE_OTHER = "other_crash_failure_upload";
@@ -515,9 +521,6 @@ public final class ChromePreferenceKeys {
     /** Whether Google is set as Chrome's default search engine. Default value is false. */
     public static final String IS_CHROME_DEFAULT_SEARCH_ENGINE_GOOGLE =
             "Chrome.GoogleBottomBar.IsDefaultSearchEngineGoogle";
-
-    /** Whether the device is from an EEA country. */
-    public static final String IS_EEA_CHOICE_COUNTRY = "Chrome.SearchEngine.IsEeaChoiceCountry";
 
     /** Whether the default search engine is Google. */
     public static final String IS_DSE_GOOGLE = "Chrome.SearchEngine.IsDSEGoogle";
@@ -1218,6 +1221,7 @@ public final class ChromePreferenceKeys {
                 NTP_BACKGROUND_IMAGE_PORTRAIT_INFO_FOR_DAILY_REFRESH,
                 NTP_BACKGROUND_IMAGE_LANDSCAPE_INFO_FOR_DAILY_REFRESH,
                 NTP_CUSTOMIZATION_BACKGROUND_INFO_FOR_DAILY_REFRESH,
+                NTP_MVT_AI_MODE_TILE_INDEX,
                 CUSTOM_TABS_ALWAYS_OPEN_IN_BROWSER,
                 CUSTOM_TABS_LAST_CLIENT_PACKAGE,
                 CUSTOM_TABS_LAST_CLOSE_TAB_INTERACTION,
@@ -1270,7 +1274,6 @@ public final class ChromePreferenceKeys {
                 IN_APP_UPDATE_FAILURE_BACKOFF_TIMESTAMP,
                 IN_APP_UPDATE_RESTART_BACKOFF_TIMESTAMP,
                 IS_CHROME_DEFAULT_SEARCH_ENGINE_GOOGLE,
-                IS_EEA_CHOICE_COUNTRY,
                 IS_LAST_VISITED_TAB_SRP,
                 IS_DSE_GOOGLE,
                 IS_MVT_VISIBLE,

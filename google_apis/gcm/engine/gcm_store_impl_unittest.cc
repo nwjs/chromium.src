@@ -18,14 +18,17 @@
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
-#include "google_apis/gaia/gaia_id.h"
 #include "google_apis/gcm/base/fake_encryptor.h"
 #include "google_apis/gcm/base/gcm_constants.h"
+#include "google_apis/gcm/base/gcm_features.h"
 #include "google_apis/gcm/base/mcs_message.h"
 #include "google_apis/gcm/base/mcs_util.h"
 #include "google_apis/gcm/protocol/mcs.pb.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/leveldatabase/env_chromium.h"
+#include "third_party/leveldatabase/src/include/leveldb/db.h"
 
 namespace gcm {
 
@@ -554,82 +557,6 @@ TEST_F(GCMStoreImplTest, PerAppMessageLimits) {
   }
 }
 
-TEST_F(GCMStoreImplTest, AccountMapping) {
-  std::unique_ptr<GCMStoreImpl> gcm_store(BuildGCMStore());
-  std::unique_ptr<GCMStore::LoadResult> load_result;
-  LoadGCMStore(gcm_store.get(), &load_result);
-
-  // Add account mappings.
-  AccountMapping account_mapping1;
-  account_mapping1.account_id =
-      CoreAccountId::FromGaiaId(GaiaId("account_id_1"));
-  account_mapping1.email = "account_id_1@gmail.com";
-  account_mapping1.access_token = "account_token1";
-  account_mapping1.status = AccountMapping::ADDING;
-  account_mapping1.status_change_timestamp = base::Time();
-  account_mapping1.last_message_id = "message_1";
-
-  AccountMapping account_mapping2;
-  account_mapping2.account_id =
-      CoreAccountId::FromGaiaId(GaiaId("account_id_2"));
-  account_mapping2.email = "account_id_2@gmail.com";
-  account_mapping2.access_token = "account_token1";
-  account_mapping2.status = AccountMapping::REMOVING;
-  account_mapping2.status_change_timestamp =
-      base::Time::FromInternalValue(1305734521259935LL);
-  account_mapping2.last_message_id = "message_2";
-
-  gcm_store->AddAccountMapping(account_mapping1,
-                               base::BindOnce(&GCMStoreImplTest::UpdateCallback,
-                                              base::Unretained(this)));
-  PumpLoop();
-  gcm_store->AddAccountMapping(account_mapping2,
-                               base::BindOnce(&GCMStoreImplTest::UpdateCallback,
-                                              base::Unretained(this)));
-  PumpLoop();
-
-  gcm_store = BuildGCMStore();
-  LoadGCMStore(gcm_store.get(), &load_result);
-
-  EXPECT_EQ(2UL, load_result->account_mappings.size());
-  GCMStore::AccountMappings::iterator iter =
-      load_result->account_mappings.begin();
-  EXPECT_EQ(account_mapping1.account_id, iter->account_id);
-  EXPECT_EQ(account_mapping1.email, iter->email);
-  EXPECT_TRUE(iter->access_token.empty());
-  EXPECT_EQ(AccountMapping::ADDING, iter->status);
-  EXPECT_EQ(account_mapping1.status_change_timestamp,
-            iter->status_change_timestamp);
-  EXPECT_EQ(account_mapping1.last_message_id, iter->last_message_id);
-  ++iter;
-  EXPECT_EQ(account_mapping2.account_id, iter->account_id);
-  EXPECT_EQ(account_mapping2.email, iter->email);
-  EXPECT_TRUE(iter->access_token.empty());
-  EXPECT_EQ(AccountMapping::REMOVING, iter->status);
-  EXPECT_EQ(account_mapping2.status_change_timestamp,
-            iter->status_change_timestamp);
-  EXPECT_EQ(account_mapping2.last_message_id, iter->last_message_id);
-
-  gcm_store->RemoveAccountMapping(
-      account_mapping1.account_id,
-      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
-                     base::Unretained(this)));
-  PumpLoop();
-
-  gcm_store = BuildGCMStore();
-  LoadGCMStore(gcm_store.get(), &load_result);
-
-  EXPECT_EQ(1UL, load_result->account_mappings.size());
-  iter = load_result->account_mappings.begin();
-  EXPECT_EQ(account_mapping2.account_id, iter->account_id);
-  EXPECT_EQ(account_mapping2.email, iter->email);
-  EXPECT_TRUE(iter->access_token.empty());
-  EXPECT_EQ(AccountMapping::REMOVING, iter->status);
-  EXPECT_EQ(account_mapping2.status_change_timestamp,
-            iter->status_change_timestamp);
-  EXPECT_EQ(account_mapping2.last_message_id, iter->last_message_id);
-}
-
 TEST_F(GCMStoreImplTest, HeartbeatInterval) {
   std::unique_ptr<GCMStoreImpl> gcm_store(BuildGCMStore());
   std::unique_ptr<GCMStore::LoadResult> load_result;
@@ -709,34 +636,6 @@ TEST_F(GCMStoreImplTest, ReloadAfterClose) {
   LoadGCMStore(gcm_store.get(), &load_result);
 }
 
-TEST_F(GCMStoreImplTest, LastTokenFetchTime) {
-  std::unique_ptr<GCMStoreImpl> gcm_store(BuildGCMStore());
-  std::unique_ptr<GCMStore::LoadResult> load_result;
-  LoadGCMStore(gcm_store.get(), &load_result);
-  EXPECT_EQ(base::Time(), load_result->last_token_fetch_time);
-
-  base::Time last_token_fetch_time = base::Time::Now();
-  gcm_store->SetLastTokenFetchTime(
-      last_token_fetch_time, base::BindOnce(&GCMStoreImplTest::UpdateCallback,
-                                            base::Unretained(this)));
-  PumpLoop();
-
-  gcm_store = BuildGCMStore();
-  LoadGCMStore(gcm_store.get(), &load_result);
-  EXPECT_EQ(last_token_fetch_time, load_result->last_token_fetch_time);
-
-  // Negative cases, where the value read is gibberish.
-  gcm_store->SetValueForTesting(
-      "last_token_fetch_time", "gibberish",
-      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
-                     base::Unretained(this)));
-  PumpLoop();
-
-  gcm_store = BuildGCMStore();
-  LoadGCMStore(gcm_store.get(), &load_result);
-  EXPECT_EQ(base::Time(), load_result->last_token_fetch_time);
-}
-
 TEST_F(GCMStoreImplTest, InstanceIDData) {
   std::unique_ptr<GCMStoreImpl> gcm_store(BuildGCMStore());
   std::unique_ptr<GCMStore::LoadResult> load_result;
@@ -774,6 +673,94 @@ TEST_F(GCMStoreImplTest, InstanceIDData) {
   ASSERT_EQ(1u, load_result->instance_id_data.size());
   EXPECT_TRUE(load_result->instance_id_data.contains(kAppName2));
   EXPECT_EQ(instance_id_data2, load_result->instance_id_data[kAppName2]);
+}
+
+TEST_F(GCMStoreImplTest, RemoveDeprecatedDataOnLoad) {
+  base::test::ScopedFeatureList feature_list(
+      features::kGCMRemoveDeprecatedStoreData);
+
+  std::unique_ptr<GCMStoreImpl> gcm_store(BuildGCMStore());
+  std::unique_ptr<GCMStore::LoadResult> load_result;
+  LoadGCMStore(gcm_store.get(), &load_result);
+
+  // Inject deprecated keys into the database.
+  gcm_store->SetValueForTesting(
+      "account1-accId", "email@gmail.com&1&12345",
+      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
+                     base::Unretained(this)));
+  gcm_store->SetValueForTesting(
+      "last_token_fetch_time", "12345",
+      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
+                     base::Unretained(this)));
+  gcm_store->SetValueForTesting(
+      "last_checkin_accounts_count", "email@gmail.com",
+      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
+                     base::Unretained(this)));
+  PumpLoop();
+
+  // Reload the store, which should clean up the deprecated keys.
+  gcm_store = BuildGCMStore();
+  LoadGCMStore(gcm_store.get(), &load_result);
+  gcm_store->Close();
+  PumpLoop();
+
+  // Open the underlying LevelDB directly to verify the keys were deleted.
+  std::unique_ptr<leveldb::DB> db;
+  leveldb_env::Options options;
+  options.create_if_missing = false;
+  ASSERT_TRUE(
+      leveldb_env::OpenDB(options, store_path_.AsUTF8Unsafe(), &db).ok());
+
+  std::string value;
+  leveldb::ReadOptions read_options;
+  EXPECT_TRUE(db->Get(read_options, "account1-accId", &value).IsNotFound());
+  EXPECT_TRUE(
+      db->Get(read_options, "last_token_fetch_time", &value).IsNotFound());
+  EXPECT_TRUE(db->Get(read_options, "last_checkin_accounts_count", &value)
+                  .IsNotFound());
+}
+
+TEST_F(GCMStoreImplTest, RetainDeprecatedDataOnLoadWhenFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kGCMRemoveDeprecatedStoreData);
+
+  std::unique_ptr<GCMStoreImpl> gcm_store(BuildGCMStore());
+  std::unique_ptr<GCMStore::LoadResult> load_result;
+  LoadGCMStore(gcm_store.get(), &load_result);
+
+  // Inject deprecated keys into the database.
+  gcm_store->SetValueForTesting(
+      "account1-accId", "email@gmail.com&1&12345",
+      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
+                     base::Unretained(this)));
+  gcm_store->SetValueForTesting(
+      "last_token_fetch_time", "12345",
+      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
+                     base::Unretained(this)));
+  gcm_store->SetValueForTesting(
+      "last_checkin_accounts_count", "email@gmail.com",
+      base::BindOnce(&GCMStoreImplTest::UpdateCallback,
+                     base::Unretained(this)));
+  PumpLoop();
+
+  // Reload the store; deprecated keys should be retained when disabled.
+  gcm_store = BuildGCMStore();
+  LoadGCMStore(gcm_store.get(), &load_result);
+  gcm_store->Close();
+  PumpLoop();
+
+  std::unique_ptr<leveldb::DB> db;
+  leveldb_env::Options options;
+  options.create_if_missing = false;
+  ASSERT_TRUE(
+      leveldb_env::OpenDB(options, store_path_.AsUTF8Unsafe(), &db).ok());
+
+  std::string value;
+  leveldb::ReadOptions read_options;
+  EXPECT_TRUE(db->Get(read_options, "account1-accId", &value).ok());
+  EXPECT_TRUE(db->Get(read_options, "last_token_fetch_time", &value).ok());
+  EXPECT_TRUE(
+      db->Get(read_options, "last_checkin_accounts_count", &value).ok());
 }
 
 }  // namespace

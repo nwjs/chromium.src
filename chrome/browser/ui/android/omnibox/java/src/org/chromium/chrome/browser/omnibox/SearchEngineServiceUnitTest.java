@@ -26,6 +26,8 @@ import static org.robolectric.Shadows.shadowOf;
 import android.content.Context;
 import android.graphics.Bitmap;
 
+import androidx.annotation.DrawableRes;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -48,14 +50,13 @@ import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineIconO
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineNameObserver;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager;
-import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager.JumpStartContext;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.SearchEngineType;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelper;
-import org.chromium.chrome.browser.url_constants.UrlConstantResolver;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
+import org.chromium.components.omnibox.AutocompleteResult;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxFeatures;
@@ -205,22 +206,24 @@ public class SearchEngineServiceUnitTest {
     }
 
     private void saveSearchEngineSpecificDataToCache() {
-        CachedZeroSuggestionsManager.saveJumpStartContext(
-                new JumpStartContext(new GURL("https://some.url"), 12345));
+        CachedZeroSuggestionsManager.saveToCache(
+                PageClassification.ANDROID_SEARCH_WIDGET, AutocompleteResult.fromCache(null, null));
     }
 
     private void verifyNoSearchEngineSpecificDataInCache() {
-        var jumpStartContext = CachedZeroSuggestionsManager.readJumpStartContext();
-        assertEquals(UrlConstantResolver.getOriginalNativeNtpUrl(), jumpStartContext.url.getSpec());
-        assertEquals(
-                PageClassification.INSTANT_NTP_WITH_OMNIBOX_AS_STARTING_FOCUS,
-                jumpStartContext.pageClass);
+        assertFalse(
+                ContextUtils.getAppSharedPreferences()
+                        .contains(
+                                "omnibox:cached_suggestions:"
+                                        + PageClassification.ANDROID_SEARCH_WIDGET));
     }
 
     private void verifySearchEngineSpecificDataRetainedInCache() {
-        var jumpStartContext = CachedZeroSuggestionsManager.readJumpStartContext();
-        assertEquals(new GURL("https://some.url"), jumpStartContext.url);
-        assertEquals(12345, jumpStartContext.pageClass);
+        assertTrue(
+                ContextUtils.getAppSharedPreferences()
+                        .contains(
+                                "omnibox:cached_suggestions:"
+                                        + PageClassification.ANDROID_SEARCH_WIDGET));
     }
 
     @Test
@@ -557,39 +560,47 @@ public class SearchEngineServiceUnitTest {
     }
 
     @Test
-    public void testGetOmniboxHintString_Default() {
+    public void testGetOmniboxHintStringRes_Default() {
         OmniboxCapabilities.setIsDesktopPlatformForTesting(false);
         configureSearchEngine("google", "Google");
         OmniboxFeatures.sUseAskHintForNtp.setForTesting(false);
         var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
-        assertEquals("Search Google or type URL", searchEngineService.getOmniboxHintString());
+        assertEquals(
+                R.string.omnibox_empty_hint_with_dse_name,
+                searchEngineService.getOmniboxHintStringRes());
     }
 
     @Test
-    public void testGetOmniboxHintString_AskHint() {
+    public void testGetOmniboxHintStringRes_AskHint() {
         OmniboxCapabilities.setIsDesktopPlatformForTesting(false);
         configureSearchEngine("google", "Google");
         doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
         OmniboxFeatures.sUseAskHintForNtp.setForTesting(true);
         var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
-        assertEquals("Ask Google or type URL", searchEngineService.getOmniboxHintString());
+        assertEquals(
+                R.string.omnibox_empty_ask_hint_with_dse_name,
+                searchEngineService.getOmniboxHintStringRes());
     }
 
     @Test
-    public void testGetOmniboxHintString_onDesktop() {
+    public void testGetOmniboxHintStringRes_onDesktop() {
         OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
         configureSearchEngine("google", "Google");
         doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
         var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
-        assertEquals("Ask Google or type URL", searchEngineService.getOmniboxHintString());
+        assertEquals(
+                R.string.omnibox_empty_ask_hint_with_dse_name,
+                searchEngineService.getOmniboxHintStringRes());
     }
 
     @Test
-    public void testGetOmniboxHintString_NonGoogle() {
+    public void testGetOmniboxHintStringRes_NonGoogle() {
         configureSearchEngine("yahoo", "Yahoo");
         OmniboxFeatures.sUseAskHintForNtp.setForTesting(true);
         var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
-        assertEquals("Search Yahoo or type URL", searchEngineService.getOmniboxHintString());
+        assertEquals(
+                R.string.omnibox_empty_hint_with_dse_name,
+                searchEngineService.getOmniboxHintStringRes());
     }
 
     private static AiModeButtonUiConfig createTestAiModeButtonUiConfig(GURL faviconUrl) {
@@ -620,6 +631,7 @@ public class SearchEngineServiceUnitTest {
         var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
         assertNull(searchEngineService.getAiModeButtonUiConfigSupplier().get());
 
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
         var config = createTestAiModeButtonUiConfig(GURL.emptyGURL());
         searchEngineService.onAiModeButtonUiConfigChanged(config);
         assertSame(config, searchEngineService.getAiModeButtonUiConfigSupplier().get());
@@ -638,9 +650,10 @@ public class SearchEngineServiceUnitTest {
         var faviconUrl = new GURL(LOGO_URL);
         var config = createTestAiModeButtonUiConfig(faviconUrl);
 
+        // A third party engine shows the loupe until its icon is fetched.
         searchEngineService.onAiModeButtonUiConfigChanged(config);
         assertEquals(
-                new StatusIconResource(R.drawable.ic_search_spark_24dp, 0),
+                new StatusIconResource(R.drawable.ic_search_24dp, 0),
                 searchEngineService.getAiModeButtonIconSupplier().get());
 
         int iconSizePx =
@@ -666,7 +679,7 @@ public class SearchEngineServiceUnitTest {
     }
 
     @Test
-    public void onAiModeButtonUiConfigChanged_resetsToLoupeWhenReplacedAndIgnoresNullBitmap() {
+    public void onAiModeButtonUiConfigChanged_keepsLoupeOnNullBitmapAndResetsWhenReplaced() {
         var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
         searchEngineService.onAiModeButtonUiConfigChanged(
                 createTestAiModeButtonUiConfig(new GURL(LOGO_URL)));
@@ -675,20 +688,34 @@ public class SearchEngineServiceUnitTest {
         // Null bitmap from ImageFetcher must leave the fallback loupe icon intact.
         mImageFetcherCallbackCaptor.getValue().onResult(null);
         assertEquals(
-                new StatusIconResource(R.drawable.ic_search_spark_24dp, 0),
+                new StatusIconResource(R.drawable.ic_search_24dp, 0),
                 searchEngineService.getAiModeButtonIconSupplier().get());
 
-        // Valid bitmap updates the supplier, and replacing the config resets back to the loupe.
+        // Valid bitmap updates the supplier, and replacing the config with Google's resets it
+        // back to the spark icon.
         mImageFetcherCallbackCaptor.getValue().onResult(mBitmap);
         assertEquals(
                 new StatusIconResource(LOGO_URL, mBitmap, 0),
                 searchEngineService.getAiModeButtonIconSupplier().get());
 
+        doReturn(true).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
         searchEngineService.onAiModeButtonUiConfigChanged(
                 createTestAiModeButtonUiConfig(GURL.emptyGURL()));
         assertEquals(
                 new StatusIconResource(R.drawable.ic_search_spark_24dp, 0),
                 searchEngineService.getAiModeButtonIconSupplier().get());
+    }
+
+    @Test
+    public void onAiModeButtonUiConfigChanged_ignoresIconOfReplacedConfig_ThirdParty() {
+        testIgnoresIconOfReplacedConfigImpl(
+                /* isReplacementGoogle= */ false, R.drawable.ic_search_24dp);
+    }
+
+    @Test
+    public void onAiModeButtonUiConfigChanged_ignoresIconOfReplacedConfig_Google() {
+        testIgnoresIconOfReplacedConfigImpl(
+                /* isReplacementGoogle= */ true, R.drawable.ic_search_spark_24dp);
     }
 
     @Test
@@ -698,5 +725,33 @@ public class SearchEngineServiceUnitTest {
 
         verify(mSearchEngineServiceNatives).destroy(1L);
         verify(mImageFetcher).destroy();
+    }
+
+    /**
+     * Verifies that a late icon of a replaced third party config doesn't replace the icon of the
+     * new config.
+     *
+     * @param isReplacementGoogle Whether the new config is Google's.
+     * @param expectedIconRes The icon expected for the new config.
+     */
+    private void testIgnoresIconOfReplacedConfigImpl(
+            boolean isReplacementGoogle, @DrawableRes int expectedIconRes) {
+        var searchEngineService = new SearchEngineService(mProfile, mFaviconHelper, mImageFetcher);
+        searchEngineService.onAiModeButtonUiConfigChanged(
+                createTestAiModeButtonUiConfig(new GURL(LOGO_URL)));
+        verify(mImageFetcher).fetchImage(any(), mImageFetcherCallbackCaptor.capture());
+        Callback<Bitmap> replacedConfigCallback = mImageFetcherCallbackCaptor.getValue();
+
+        doReturn(isReplacementGoogle).when(mTemplateUrlService).isDefaultSearchEngineGoogle();
+        searchEngineService.onAiModeButtonUiConfigChanged(
+                createTestAiModeButtonUiConfig(
+                        isReplacementGoogle
+                                ? GURL.emptyGURL()
+                                : new GURL("https://www.other.com/")));
+        replacedConfigCallback.onResult(mBitmap);
+
+        assertEquals(
+                new StatusIconResource(expectedIconRes, 0),
+                searchEngineService.getAiModeButtonIconSupplier().get());
     }
 }

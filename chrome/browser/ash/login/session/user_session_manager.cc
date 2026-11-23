@@ -21,7 +21,6 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/constants/chrome_switches.h"
 #include "ash/metrics/login_unlock_throughput_recorder.h"
-#include "ash/public/cpp/token_handle_store.h"
 #include "ash/shell.h"
 #include "ash/wm/window_util.h"
 #include "base/base_paths.h"
@@ -35,6 +34,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/language_tag.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -42,7 +42,6 @@
 #include "base/memory/singleton.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/path_service.h"
-#include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/syslog_logging.h"
@@ -88,12 +87,12 @@
 #include "chrome/browser/ash/login/session/user_session_initializer.h"
 #include "chrome/browser/ash/login/signin/auth_error_observer.h"
 #include "chrome/browser/ash/login/signin/auth_error_observer_factory.h"
-#include "chrome/browser/ash/login/signin/legacy_token_handle_fetcher.h"
 #include "chrome/browser/ash/login/signin/oauth2_login_manager_factory.h"
 #include "chrome/browser/ash/login/signin/offline_signin_limiter.h"
 #include "chrome/browser/ash/login/signin/offline_signin_limiter_factory.h"
 #include "chrome/browser/ash/login/signin/token_handle_service.h"
 #include "chrome/browser/ash/login/signin/token_handle_service_factory.h"
+#include "chrome/browser/ash/login/signin/token_handle_store.h"
 #include "chrome/browser/ash/login/signin/token_handle_store_factory.h"
 #include "chrome/browser/ash/login/startup_utils.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
@@ -118,7 +117,6 @@
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service_factory.h"
 #include "chrome/browser/ui/ash/login/input_events_blocker.h"
@@ -128,6 +126,7 @@
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/logging_chrome.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
+#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_flusher.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_delegate/browser_controller.h"
@@ -145,6 +144,7 @@
 #include "chromeos/ash/components/password_manager/password_reuse_manager_provider.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
+#include "chromeos/ash/components/signin/identity_manager_provider.h"
 #include "chromeos/ash/components/tpm/prepare_tpm.h"
 #include "chromeos/ash/components/trusted_vault/trusted_vault_service_provider.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
@@ -170,6 +170,7 @@
 #include "components/session_manager/core/session_manager.h"
 #include "components/session_manager/session_manager_types.h"
 #include "components/signin/public/base/consent_level.h"
+#include "components/signin/public/base/device_id_helper.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/accounts_mutator.h"
@@ -361,11 +362,11 @@ void InitLocaleAndInputMethodsForNewUser(
   // hardware keyboard layout xkb:us::eng is used for logging in, but the
   // UI language is set to French. In this case, we should set "fr,en"
   // to the preferred languages preference.
-  std::vector<std::string> candidates;
-  manager->GetInputMethodUtil()->GetLanguageCodesFromInputMethodIds(
-      input_method_ids, &candidates);
-  for (size_t i = 0; i < candidates.size(); ++i) {
-    const std::string& candidate = candidates[i];
+  const std::vector<base::i18n::LanguageTag> candidates =
+      manager->GetInputMethodUtil()->GetLanguageCodesFromInputMethodIds(
+          input_method_ids);
+  for (const base::i18n::LanguageTag& candidate_tag : candidates) {
+    const std::string candidate(candidate_tag.tag_string());
     // Add a candidate if it's not yet in language_codes and is allowed.
     if (!std::ranges::contains(language_codes, candidate) &&
         locale_util::IsAllowedLanguage(candidate, prefs)) {
@@ -731,54 +732,6 @@ UserSessionManager::~UserSessionManager() {
   g_instance = nullptr;
 }
 
-// Observes the Device Account's LST and informs UserSessionManager about it.
-// Used by UserSessionManager to keep the user's token handle up to date.
-class UserSessionManager::DeviceAccountGaiaTokenObserver
-    : public account_manager::AccountManager::Observer {
- public:
-  DeviceAccountGaiaTokenObserver(
-      account_manager::AccountManager* account_manager,
-      const AccountId& account_id,
-      base::RepeatingCallback<void(const AccountId& account_id)> callback)
-      : account_id_(account_id), callback_(callback) {
-    account_manager_observation_.Observe(account_manager);
-  }
-
-  DeviceAccountGaiaTokenObserver(const DeviceAccountGaiaTokenObserver&) =
-      delete;
-  DeviceAccountGaiaTokenObserver& operator=(
-      const DeviceAccountGaiaTokenObserver&) = delete;
-
-  ~DeviceAccountGaiaTokenObserver() override = default;
-
-  // account_manager::AccountManager::Observer overrides:
-  void OnTokenUpserted(const account_manager::Account& account) override {
-    if (account.key.account_type() != account_manager::AccountType::kGaia) {
-      return;
-    }
-    if (GaiaId(account.key.id()) != account_id_.GetGaiaId()) {
-      return;
-    }
-
-    callback_.Run(account_id_);
-  }
-
-  void OnAccountRemoved(const account_manager::Account& account) override {
-    // Device Account cannot be removed within session. We could have received
-    // this notification for a secondary account however, so consider this as a
-    // no-op.
-  }
-
- private:
-  // The account being tracked by `this` instance.
-  const AccountId account_id_;
-  // `callback_` is called when `account_id`'s LST changes.
-  base::RepeatingCallback<void(const AccountId& account_id)> callback_;
-  base::ScopedObservation<account_manager::AccountManager,
-                          account_manager::AccountManager::Observer>
-      account_manager_observation_{this};
-};
-
 void UserSessionManager::SetNetworkConnectionTracker(
     network::NetworkConnectionTracker* network_connection_tracker) {
   CHECK(network_connection_tracker, base::NotFatalUntil::M161);
@@ -789,9 +742,6 @@ void UserSessionManager::SetNetworkConnectionTracker(
 void UserSessionManager::SetShouldObtainHandleInTests(
     bool should_obtain_handles) {
   should_obtain_handles_ = should_obtain_handles;
-  if (!should_obtain_handles_) {
-    token_handle_fetcher_.reset();
-  }
 }
 
 void UserSessionManager::SetAttemptRestartClosureInTests(
@@ -910,27 +860,29 @@ void UserSessionManager::RestoreAuthenticationSession(Profile* user_profile) {
     return;
   }
 
-  const user_manager::User* user =
-      ProfileHelper::Get()->GetUserByProfile(user_profile);
-
-  auto* identity_manager = IdentityManagerFactory::GetForProfile(user_profile);
-  const bool account_id_valid =
-      identity_manager &&
-      !identity_manager->GetPrimaryAccountId(ConsentLevel::kSignin).empty();
-  if (!account_id_valid)
+  // The early return above leaves only a logged-in GAIA user's profile, which
+  // ProfileUserManagerController annotates in OnProfileCreationStarted(), so
+  // the AccountId is always present and usable here.
+  const AccountId* const account_id =
+      ash::AnnotatedAccountId::Get(user_profile);
+  CHECK(account_id && account_id->is_valid());
+  signin::IdentityManager* const identity_manager =
+      ash::IdentityManagerProvider::Get().Find(*account_id);
+  CHECK(identity_manager, base::NotFatalUntil::M161);
+  if (identity_manager->GetPrimaryAccountId(ConsentLevel::kSignin).empty()) {
     LOG(ERROR) << "No account is associated with sign-in manager on restore.";
+  }
 
-  CHECK(user, base::NotFatalUntil::M161);
   if (network_connection_tracker_ &&
       !network_connection_tracker_->IsOffline()) {
-    pending_signin_restore_sessions_.erase(user->GetAccountId());
+    pending_signin_restore_sessions_.erase(*account_id);
     RestoreAuthSessionImpl(user_profile, false /* has_auth_cookies */);
   } else {
     // Even if we're online we should wait till initial
     // OnConnectionTypeChanged() call. Otherwise starting fetchers too early may
     // end up canceling all request when initial network connection type is
     // processed. See http://crbug.com/40184809.
-    pending_signin_restore_sessions_.insert(user->GetAccountId());
+    pending_signin_restore_sessions_.insert(*account_id);
   }
 }
 
@@ -1165,19 +1117,23 @@ void UserSessionManager::OnSessionRestoreStateChanged(
       OAuth2LoginManagerFactory::GetInstance()->GetForProfile(user_profile);
 
   bool connection_error = false;
+  // Reached only for a user profile whose session restore is under way, which
+  // ProfileUserManagerController annotates in OnProfileCreationStarted(), so
+  // the AccountId is always present and usable here.
+  const AccountId* const account_id =
+      ash::AnnotatedAccountId::Get(user_profile);
+  CHECK(account_id && account_id->is_valid());
   signin::IdentityManager* const identity_manager =
-      IdentityManagerFactory::GetForProfile(user_profile);
+      ash::IdentityManagerProvider::Get().Find(*account_id);
+  CHECK(identity_manager, base::NotFatalUntil::M161);
   switch (state) {
     case OAuth2LoginManager::SESSION_RESTORE_DONE:
-      if (identity_manager) {
-        // SESSION_RESTORE_DONE state means that primary account has a valid
-        // token.
-        CHECK(
-            !identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
+      // SESSION_RESTORE_DONE state means that primary account has a valid
+      // token.
+      CHECK(!identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
                 identity_manager->GetPrimaryAccountInfo(ConsentLevel::kSignin)
                     .account_id),
             base::NotFatalUntil::M161);
-      }
       user_status = user_manager::User::OAUTH2_TOKEN_STATUS_VALID;
       break;
     case OAuth2LoginManager::SESSION_RESTORE_FAILED:
@@ -1540,6 +1496,13 @@ void UserSessionManager::InitProfilePreferences(
     // unlocking a previously opened profile, or when creating a supervised
     // user. However, in these cases the gaia_id should be already available in
     // `IdentityManager`.
+    // Note: this deliberately uses `profile` directly rather than going
+    // through ash::IdentityManagerProvider::Get().Find(), since the latter
+    // resolves the AccountId back to a BrowserContext via
+    // BrowserContextHelper, whose mapping for this account isn't
+    // guaranteed to be established yet this early in profile creation
+    // (InitProfilePreferences() runs as one of ProfileManager's
+    // OnProfileCreationFinished() callbacks).
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(profile);
     GaiaId gaia_id = user_context.GetGaiaID();
@@ -1673,25 +1636,6 @@ void UserSessionManager::InitProfilePreferences(
     VLOG(1) << "Seed IdentityManager with the authenticated account info, "
             << "success=" << !account_id.empty();
 
-    // At this point, the Device Account has been loaded. Start observing its
-    // refresh token for changes, so that token handle can be kept in sync.
-    if (TokenHandlesEnabled()) {
-      auto device_account_token_observer =
-          std::make_unique<DeviceAccountGaiaTokenObserver>(
-              account_manager, user->GetAccountId(),
-              base::BindRepeating(&UserSessionManager::UpdateTokenHandle,
-                                  GetUserSessionManagerAsWeakPtr(), profile));
-      auto it = token_observers_.find(profile);
-      if (it == token_observers_.end()) {
-        token_observers_.emplace(profile,
-                                 std::move(device_account_token_observer));
-      } else {
-        NOTREACHED()
-            << "Found an existing Gaia token observer for this Profile. "
-               "Profile is being erroneously initialized twice?";
-      }
-    }
-
     user = user_manager->FindUser(user_context.GetAccountId());
     bool is_child = user->GetType() == user_manager::UserType::kChild;
     CHECK(is_child ==
@@ -1747,7 +1691,8 @@ void UserSessionManager::InitializeDeviceId(
 
   // We do not have any device id - neither stored on disk, nor cached in
   // memory. Generate and persist a new one.
-  const std::string device_id = GenerateSigninScopedDeviceId(is_ephemeral_user);
+  const std::string device_id =
+      signin::GenerateSigninScopedDeviceId(is_ephemeral_user);
   user_context.SetDeviceId(device_id);
   known_user.SetDeviceId(account_id, device_id);
 }
@@ -2137,8 +2082,12 @@ void UserSessionManager::MaybeMigrateConsentLevelToSync(Profile* profile) {
 
   CHECK(!profile->IsOffTheRecord());
 
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
+  // Only reached from OnUserProfileLoaded(), by which point the profile is
+  // annotated and reported to UserManager, so resolving the AccountId back to
+  // it always succeeds.
+  signin::IdentityManager* const identity_manager =
+      ash::IdentityManagerProvider::Get().Find(user->GetAccountId());
+  CHECK(identity_manager, base::NotFatalUntil::M161);
   // Only enforce consent level if the user is already signed in.
   if (!identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     return;
@@ -2193,36 +2142,7 @@ void UserSessionManager::OnUserProfileLoaded(Profile* profile,
 
   CreateTokenHandleStoreIfMissing();
 
-  if (!ash::features::IsUseTokenHandleStoreEnabled()) {
-    FetchTokenHandleLegacy(profile, user);
-  } else {
-    FetchTokenHandle(profile, user);
-  }
-}
-
-void UserSessionManager::FetchTokenHandleLegacy(
-    Profile* profile,
-    const user_manager::User* user) {
-  if (IsOnlineSignin(user_context_)) {
-    // If the user has gone through an online Gaia flow, then their LST is
-    // guaranteed to have changed/created. We need to update the token handle,
-    // regardless of the state of the previous token handle, if any.
-    if (!token_handle_store_->HasToken(user_context_.GetAccountId())) {
-      // New user.
-      token_handle_fetcher_ = std::make_unique<LegacyTokenHandleFetcher>(
-          profile, token_handle_store_.get(), user_context_.GetAccountId());
-      token_handle_fetcher_->FillForNewUser(
-          user_context_.GetAccessToken(),
-          login::Sha1AsHexForRefreshToken(user_context_.GetRefreshToken()),
-          base::BindOnce(&UserSessionManager::OnTokenHandleObtained,
-                         GetUserSessionManagerAsWeakPtr()));
-    } else {
-      // Existing user.
-      UpdateTokenHandle(profile, user->GetAccountId());
-    }
-  } else {
-    UpdateTokenHandleIfRequired(profile, user->GetAccountId());
-  }
+  FetchTokenHandle(profile, user);
 }
 
 void UserSessionManager::FetchTokenHandle(Profile* profile,
@@ -2686,13 +2606,6 @@ void UserSessionManager::InjectAuthenticatorBuilderForTesting(
   authenticator_.reset();
 }
 
-void UserSessionManager::OnTokenHandleObtained(const AccountId& account_id,
-                                               bool success) {
-  if (!success)
-    LOG(ERROR) << "OAuth2 token handle fetch failed.";
-  token_handle_fetcher_.reset();
-}
-
 bool UserSessionManager::TokenHandlesEnabled() {
   if (!should_obtain_handles_)
     return false;
@@ -2704,8 +2617,6 @@ bool UserSessionManager::TokenHandlesEnabled() {
 }
 
 void UserSessionManager::Shutdown() {
-  token_handle_fetcher_.reset();
-  token_observers_.clear();
   always_on_vpn_manager_.reset();
   child_policy_observer_.reset();
   help_app_notification_controller_.reset();
@@ -2784,28 +2695,6 @@ void UserSessionManager::CreateTokenHandleStoreIfMissing() {
   if (!token_handle_store_) {
     token_handle_store_ = TokenHandleStoreFactory::Get()->GetTokenHandleStore();
   }
-}
-
-void UserSessionManager::UpdateTokenHandleIfRequired(
-    Profile* const profile,
-    const AccountId& account_id) {
-  if (!token_handle_store_->ShouldObtainHandle(account_id)) {
-    return;
-  }
-  if (token_handle_fetcher_.get())
-    return;
-
-  UpdateTokenHandle(profile, account_id);
-}
-
-void UserSessionManager::UpdateTokenHandle(Profile* const profile,
-                                           const AccountId& account_id) {
-  token_handle_fetcher_ = std::make_unique<LegacyTokenHandleFetcher>(
-      profile, token_handle_store_.get(), account_id);
-  token_handle_fetcher_->BackfillToken(
-      base::BindOnce(&UserSessionManager::OnTokenHandleObtained,
-                     GetUserSessionManagerAsWeakPtr()));
-  token_handle_backfill_tried_for_testing_ = true;
 }
 
 bool UserSessionManager::IsFullRestoreEnabled(Profile* profile) {

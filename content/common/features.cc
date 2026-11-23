@@ -580,6 +580,21 @@ BASE_FEATURE(kPermissionsPolicyVerificationInContent,
 // pen/touch pointer type is not clobbered.
 BASE_FEATURE(kMouseEventPreservePointerType, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Captures the cursor's screen position before emulated Aura pointer lock and
+// restores it on unlock, even if the cursor was outside the view or the window
+// moved while locked. See https://crbug.com/525729332.
+// TODO(crbug.com/525729332): ChromeOS could have issues restoring the pointer
+// to the same location it was in if the cursor was in a second display with
+// different DPI. Validate that the current solution works for ChromeOS, and add
+// a fix if it doesn't before enabling by default.
+BASE_FEATURE(kPointerLockRestoreScreenPosition,
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
+
 // If enabled, responses with an operative Cookie-Indices will not be used
 // if the relevant cookie values have changed.
 BASE_FEATURE(kPrefetchCookieIndices, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -678,12 +693,6 @@ BASE_FEATURE(kReloadHiddenTabsWithCrashedSubframes,
 BASE_FEATURE(kRendererCancellationThrottleImprovements,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When enabled, allows a navigation to resume even if the renderer process for
-// its speculative RFH is killed. This only works for navigations that have not
-// yet received the response and picked the final RFH to commit in.
-BASE_FEATURE(kResumeNavigationWithSpeculativeRFHProcessGone,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // When enabled, the browser will try to swap to a new SiteInstance if there is
 // an existing warm (pending, committed, or delayed shutdown) renderer process
 // locked to the destination site and when the current process is an empty
@@ -720,6 +729,13 @@ BASE_FEATURE(kSandboxedProcessServiceLimitOnAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kScrollAfterOSKViewportShrinkFix,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Keeps re-scrolling the focused editable node into view when the on-screen
+// keyboard shrinks the viewport again after the initial show (e.g. Gboard
+// Translate bar, re-docking a floating keyboard). Kill switch for
+// crbug.com/565609019.
+BASE_FEATURE(kScrollFocusedNodeOnOSKViewportReshrink,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 

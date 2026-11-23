@@ -45,13 +45,15 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link ComposeplateViewBinder}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class ComposeplateViewBinderUnitTest {
-    private static final String OPTIONAL_BUTTON_LABEL = "Create image";
+    private static final String OPTIONAL_BUTTON_LABEL = "Create";
+    private static final String OPTIONAL_BUTTON_CONTENT_DESCRIPTION = "Create image";
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private OnClickListener mOnClickListener;
@@ -208,34 +210,71 @@ public class ComposeplateViewBinderUnitTest {
         View optionalButton = mView.findViewById(R.id.optional_button);
         TextView optionalButtonText = mView.findViewById(R.id.optional_button_text);
 
+        CharSequence defaultContentDescription = optionalButton.getContentDescription();
+
         mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_TEXT, OPTIONAL_BUTTON_LABEL);
         assertEquals(OPTIONAL_BUTTON_LABEL, optionalButtonText.getText().toString());
-        assertEquals(OPTIONAL_BUTTON_LABEL, optionalButton.getContentDescription());
+        // The text doesn't affect the content description.
+        assertEquals(defaultContentDescription, optionalButton.getContentDescription());
 
         mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_TEXT, null);
         assertEquals("", optionalButtonText.getText().toString());
+        assertEquals(defaultContentDescription, optionalButton.getContentDescription());
+    }
+
+    @Test
+    public void testSetOptionalButtonContentDescription() {
+        View optionalButton = mView.findViewById(R.id.optional_button);
+        TextView optionalButtonText = mView.findViewById(R.id.optional_button_text);
+        String defaultText = optionalButtonText.getText().toString();
+
+        mPropertyModel.set(
+                ComposeplateProperties.OPTIONAL_BUTTON_CONTENT_DESCRIPTION,
+                OPTIONAL_BUTTON_CONTENT_DESCRIPTION);
+        assertEquals(OPTIONAL_BUTTON_CONTENT_DESCRIPTION, optionalButton.getContentDescription());
+        assertEquals(OPTIONAL_BUTTON_CONTENT_DESCRIPTION, optionalButton.getTooltipText());
+        // The content description doesn't affect the text.
+        assertEquals(defaultText, optionalButtonText.getText().toString());
+
+        mPropertyModel.set(ComposeplateProperties.OPTIONAL_BUTTON_CONTENT_DESCRIPTION, null);
         assertNull(optionalButton.getContentDescription());
+        assertNull(optionalButton.getTooltipText());
+        assertEquals(defaultText, optionalButtonText.getText().toString());
     }
 
     @Test
-    public void testSetOptionalButtonVisibility_phone() {
-        testSetOptionalButtonVisibilityImpl(/* isLff= */ false);
+    public void testSetOptionalButtonVisibility() {
+        testSetViewVisibilityImpl(
+                ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE,
+                mView.findViewById(R.id.optional_button));
     }
 
     @Test
-    public void testSetOptionalButtonVisibility_lff() {
-        testSetOptionalButtonVisibilityImpl(/* isLff= */ true);
+    public void testSetOptionalButtonTextVisibility() {
+        testSetViewVisibilityImpl(
+                ComposeplateProperties.IS_OPTIONAL_BUTTON_TEXT_VISIBLE,
+                mView.findViewById(R.id.optional_button_text));
     }
 
     @Test
     public void testSetIncognitoButtonTextVisibility() {
-        View incognitoButtonText = mView.findViewById(R.id.incognito_button_text);
+        testSetViewVisibilityImpl(
+                ComposeplateProperties.IS_INCOGNITO_BUTTON_TEXT_VISIBLE,
+                mView.findViewById(R.id.incognito_button_text));
+    }
 
-        mPropertyModel.set(ComposeplateProperties.IS_INCOGNITO_BUTTON_TEXT_VISIBLE, false);
-        assertEquals(View.GONE, incognitoButtonText.getVisibility());
+    @Test
+    public void testSetOptionalButtonWrapContent() {
+        testSetButtonWrapContentImpl(
+                ComposeplateProperties.IS_OPTIONAL_BUTTON_WRAP_CONTENT,
+                mView.findViewById(R.id.optional_button));
+    }
 
-        mPropertyModel.set(ComposeplateProperties.IS_INCOGNITO_BUTTON_TEXT_VISIBLE, true);
-        assertEquals(View.VISIBLE, incognitoButtonText.getVisibility());
+    @Test
+    public void testSetIncognitoButtonWrapContent() {
+        testSetButtonWrapContentImpl(
+                ComposeplateProperties.IS_INCOGNITO_BUTTON_WRAP_CONTENT,
+                mView.findViewById(R.id.incognito_button));
     }
 
     @Test
@@ -308,31 +347,21 @@ public class ComposeplateViewBinderUnitTest {
         return drawable;
     }
 
-    private void testSetOptionalButtonVisibilityImpl(boolean isLff) {
-        mPropertyModel =
-                new PropertyModel.Builder(ComposeplateProperties.ALL_KEYS)
-                        .with(ComposeplateProperties.IS_LFF, isLff)
-                        .build();
-        PropertyModelChangeProcessor.create(mPropertyModel, mView, ComposeplateViewBinder::bind);
-        View optionalButton = mView.findViewById(R.id.optional_button);
-        View optionalButtonText = mView.findViewById(R.id.optional_button_text);
-        View incognitoButton = mView.findViewById(R.id.incognito_button);
-        View composeplateButton = mView.findViewById(R.id.composeplate_button);
+    private void testSetViewVisibilityImpl(WritableBooleanPropertyKey key, View view) {
+        mPropertyModel.set(key, /* value= */ true);
+        assertEquals(View.VISIBLE, view.getVisibility());
 
-        // On phones, the optional and incognito buttons wrap their content. On LFF, all buttons
-        // show their text and share the width equally.
-        mPropertyModel.set(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE, true);
-        assertEquals(View.VISIBLE, optionalButton.getVisibility());
-        assertEquals(isLff ? View.VISIBLE : View.GONE, optionalButtonText.getVisibility());
-        verifyButtonWidth(composeplateButton, /* isWeighted= */ true);
-        verifyButtonWidth(optionalButton, /* isWeighted= */ isLff);
-        verifyButtonWidth(incognitoButton, /* isWeighted= */ isLff);
+        mPropertyModel.set(key, /* value= */ false);
+        assertEquals(View.GONE, view.getVisibility());
+    }
 
-        // Hiding the optional button restores the default layout.
-        mPropertyModel.set(ComposeplateProperties.IS_OPTIONAL_BUTTON_VISIBLE, false);
-        assertEquals(View.GONE, optionalButton.getVisibility());
-        verifyButtonWidth(composeplateButton, /* isWeighted= */ true);
-        verifyButtonWidth(incognitoButton, /* isWeighted= */ true);
+    private void testSetButtonWrapContentImpl(WritableBooleanPropertyKey key, View button) {
+        // If the button wraps its content, it doesn't share the width with the other buttons.
+        mPropertyModel.set(key, /* value= */ true);
+        verifyButtonWidth(button, /* isWeighted= */ false);
+
+        mPropertyModel.set(key, /* value= */ false);
+        verifyButtonWidth(button, /* isWeighted= */ true);
     }
 
     private void verifyButtonWidth(View button, boolean isWeighted) {

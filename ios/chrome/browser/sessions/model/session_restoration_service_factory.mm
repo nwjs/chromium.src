@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/sessions/model/session_restoration_service_factory.h"
 
+#import <utility>
+
 #import "base/task/single_thread_task_runner.h"
 #import "base/task/task_traits.h"
 #import "base/task/thread_pool.h"
@@ -18,26 +20,11 @@ constexpr base::TimeDelta kSaveDelay = base::Seconds(2.5);
 
 }  // namespace
 
-// static
-SessionRestorationService* SessionRestorationServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<SessionRestorationService>(
-      profile, /*create=*/true);
-}
-
-// static
-SessionRestorationServiceFactory*
-SessionRestorationServiceFactory::GetInstance() {
-  static base::NoDestructor<SessionRestorationServiceFactory> instance;
-  return instance.get();
-}
-
-SessionRestorationServiceFactory::SessionRestorationServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("SessionRestorationService",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
-}
-
-SessionRestorationServiceFactory::~SessionRestorationServiceFactory() = default;
+SessionRestorationServiceFactory::SessionRestorationServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "SessionRestorationService",
+          ProfileSelection::kOwnInstanceInIncognito) {}
 
 std::unique_ptr<KeyedService>
 SessionRestorationServiceFactory::BuildServiceInstanceFor(

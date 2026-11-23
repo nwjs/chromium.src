@@ -6,7 +6,7 @@
 <translation id="1005023885865154304">打开“自动填充密码”设置</translation>
 <translation id="1005230401424685968">YYYY</translation>
 <translation id="1013852467930342108">Live 是 Chrome 中的 Gemini 的一项新功能</translation>
-<translation id="1013952917065545813">您只需回到这里，便可重新打开最近关闭的标签页</translation>
+<translation id="1013952917065545813">您可以在这里重新打开最近关闭的标签页</translation>
 <translation id="1016495303386450659">书签已更新</translation>
 <translation id="1018804590490383958">扫描并自动填充</translation>
 <translation id="1019990162050689579">Gemini 应用活动记录</translation>
@@ -195,10 +195,10 @@
 <translation id="154312949627292154">在锁屏状态下打开从其他设备接收的标签页。</translation>
 <translation id="1544653821167545205">总结页面内容</translation>
 <translation id="1545749641540134597">扫描二维码</translation>
-<translation id="1545757265410828525">既往价格</translation>
 <translation id="1547610699249301703">分享密码</translation>
 <translation id="1554043146674176775">关闭 AI 模式</translation>
 <translation id="1554477036522844996">打开新的窗口</translation>
+<translation id="1557806604681757705">您的电脑</translation>
 <translation id="1558391695376153246">关闭无痕式标签页</translation>
 <translation id="1560153516220021659">已收起辅助工具栏按钮</translation>
 <translation id="1562601408588733317">管理 Gemini 如何查找和填充信息</translation>
@@ -325,6 +325,7 @@
 <translation id="1925706052394657380">在 iOS 中打开<ph name="BEGIN_BOLD" />默认 App<ph name="END_BOLD" /> 设置</translation>
 <translation id="1938871630297275912">{count,plural, =1{已收到链接}other{已收到 {count} 个链接}}</translation>
 <translation id="1941314575388338491">点按两次即可复制。</translation>
+<translation id="1942483019269000450">Gemini 可以请求 Google 钱包填写信用卡信息，帮你继续处理任务</translation>
 <translation id="1943478190258551035">菜单 → 设置</translation>
 <translation id="1944477975050820119">获取实时建议，探索 AI 助力的浏览新方式。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="1952728750904661634">登录受管理的账号</translation>
@@ -358,12 +359,14 @@
 <translation id="2012723204723845092">欢迎回来！</translation>
 <translation id="2015722694326466240">要想查看密码，您必须先在设备上设置密码。</translation>
 <translation id="201759455285471444">展开标签页分组。</translation>
+<translation id="2022431790688770637">管理 Gemini 建议</translation>
 <translation id="2031515492007104071">进阶</translation>
 <translation id="2044394949148788042">打开标签页网格</translation>
 <translation id="2044681667265133332">账号 <ph name="USER_EMAIL" /> 由 <ph name="HOSTED_DOMAIN" /> 管理，后者或许可以查看某些信息。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">新项</translation>
 <translation id="2049727122989709386">有 <ph name="COUNT" /> 个账号在使用同一密码</translation>
 <translation id="205013082884273671">屏幕内容，一搜即得</translation>
+<translation id="2053311407685904414">选择地址</translation>
 <translation id="2054044186557130763">以<ph name="NAME" /> (<ph name="EMAIL" />) 的身份登录，该账号由组织管理。</translation>
 <translation id="2059166748188874810">自治市</translation>
 <translation id="2060638295449304809">此地址仅保存在本设备上。如需在其他设备上使用，请将其保存到您的 Google 账号：<ph name="USER_EMAIL" /></translation>
@@ -464,6 +467,7 @@
 <translation id="2359043044084662842">翻译</translation>
 <translation id="2359808026110333948">继续</translation>
 <translation id="2360196772093551345">请求切换到移动版网站</translation>
+<translation id="2360272811987888433">手动登录</translation>
 <translation id="2362083820973145409">您已使用<ph name="USER_NAME" />的身份登录。<ph name="USER_EMAIL" />。打开设置。</translation>
 <translation id="2367025302166767427">填写信息时遇到问题</translation>
 <translation id="2371084566192454134">标签页和标签页分组</translation>
@@ -486,7 +490,6 @@
 <translation id="2434405374328098816">您已经在 <ph name="WEBSITE" /> 上保存了“<ph name="USERNAME" />”的密码</translation>
 <translation id="2434918313224755415">向左滚动即可在无痕模式下浏览内容。</translation>
 <translation id="2435457462613246316">显示密码</translation>
-<translation id="2451607499823206582">正在跟踪</translation>
 <translation id="2458827363789845126">{count,plural, =1{{count} 项历史记录}other{{count} 项历史记录}}</translation>
 <translation id="2461070143328828326">密码设置</translation>
 <translation id="2462736546165239215">您可在此处找到您的所有浏览记录。</translation>
@@ -515,7 +518,6 @@
 <translation id="2524699375503213836">导入 Safari 中的数据</translation>
 <translation id="2526166285241366046">保存密码</translation>
 <translation id="2529021024822217800">全部打开</translation>
-<translation id="2530932541542751783">此设置出了点问题。请更新并重启 Chrome 和 iPadOS，然后重试。如果此错误持续出现，说明您的 iPad 可能不支持该设置。</translation>
 <translation id="2536991091671391962">您可在任何设备上使用保存的密码。系统会将密码保存到 <ph name="EMAIL" /> 的 Google 密码管理工具中。</translation>
 <translation id="2538103551183528357">目前为隐藏状态的密码</translation>
 <translation id="2538705697765638552">保存信息可以提升操作效率，例如在不同 Google 产品中快速填写表单。您可以在 <ph name="USER_EMAIL" /> 的 Google 钱包中管理自己的信息。</translation>
@@ -567,7 +569,6 @@
 <translation id="2673508731173059946">访问复制的链接</translation>
 <translation id="2679659833697380">您的信息会保存到您的设备上</translation>
 <translation id="2681572445246787428">文档签名</translation>
-<translation id="2685514716378236873">不允许</translation>
 <translation id="2688535388040882469">横幅</translation>
 <translation id="2690858294534178585">相机正在使用中</translation>
 <translation id="2691653761409724435">无法离线查看</translation>
@@ -593,12 +594,11 @@
 <translation id="2761898608071930085">使用其他账号</translation>
 <translation id="2762000892062317888">刚刚</translation>
 <translation id="2766178952536179189">{COUNT,plural, =1{最多可添加 1 张图片}other{最多可添加 {COUNT} 张图片}}</translation>
-<translation id="2772667768515195373">保存的地址可在各 Google 产品中通用。此地址将保存至您的 Google 账号：<ph name="USER_EMAIL" />。</translation>
+<translation id="2772667768515195373">您可在各 Google 产品中使用已保存的地址。此地址会保存至您的 Google 账号：<ph name="USER_EMAIL" />。</translation>
 <translation id="2773344962924806829">邮件通知</translation>
 <translation id="2781331604911854368">已开启</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2783161812871838616">请求切换到桌面版网站</translation>
-<translation id="2789486458103222910">确定</translation>
 <translation id="2789552044937754463">{COUNT,plural, =1{密码已保存到您的 Google 账号 {EMAIL}}other{密码已保存到您的 Google 账号 {EMAIL}}}</translation>
 <translation id="2791174088547598693">添加密码…</translation>
 <translation id="2793703503584038325">选择一个密码，然后点按“分享”图标</translation>
@@ -626,6 +626,7 @@
 <translation id="2865392654629180917">随心提问，获得 AI 生成的回答</translation>
 <translation id="2870560284913253234">网站</translation>
 <translation id="2876369937070532032">当您面临安全风险时，将您所访问的部分网页的网址发送给 Google</translation>
+<translation id="2880119244122776372">构建和编码</translation>
 <translation id="2883151425485251736">查看和修改您已在账号中设为隐藏的主题</translation>
 <translation id="2884437560239137197">需要注意</translation>
 <translation id="288655811176831528">关闭标签页</translation>
@@ -701,6 +702,7 @@
 <translation id="3140825265190223781">已保存的密码和通行密钥</translation>
 <translation id="3143515551205905069">取消同步</translation>
 <translation id="3144126448740580210">完成</translation>
+<translation id="3147048678293362228">管理联系信息…</translation>
 <translation id="3147521114983561406">通行密钥会保存到密码管理工具中。您可以在无痕式标签页和常规标签页中使用它们。</translation>
 <translation id="3148052723910099040">常规标签页网格</translation>
 <translation id="3148237711805373460">立即前往</translation>
@@ -718,6 +720,7 @@
 <translation id="3186796054637504691">清除历史记录和网站数据</translation>
 <translation id="3190558889382726167">密码已保存</translation>
 <translation id="3190736958609431397">取消跟踪</translation>
+<translation id="3192820089569442694">处理您的数据选择拒绝请求时出了点问题</translation>
 <translation id="3208260410153224535">您的组织关闭了登录功能。新的书签、密码等信息将会仅保存到此设备上。</translation>
 <translation id="3211969308836412674">取消固定网站</translation>
 <translation id="3213807041830307252">打开相机和图库，轻松购物、实时翻译、拍照识物。</translation>
@@ -758,7 +761,7 @@
 <translation id="334004756946755423">请解释：</translation>
 <translation id="3344233834747405775">无效持卡人姓名</translation>
 <translation id="3344485292736684439">{count,plural, =1{已将书签保存到账号 {email} 中的“{title}”}other{已将书签保存到账号 {email} 中的“{title}”}}</translation>
-<translation id="334690320928261823">最近打开的标签页</translation>
+<translation id="334690320928261823">最近访问的标签页</translation>
 <translation id="3349031117032695619">阻止弹出式窗口</translation>
 <translation id="3350976670663926380">修改已保存</translation>
 <translation id="3353037916374303415"><ph name="EMAIL" />。此账号处于受管理状态。</translation>
@@ -772,32 +775,32 @@
 <translation id="3404232721752787413">保存到 Google 相册</translation>
 <translation id="3406506285180498376">分享页面…</translation>
 <translation id="340669334496430859">上次修改时间</translation>
+<translation id="3407832712016477396">Gemini 可以使用 Google 密码管理工具为您登录账号</translation>
 <translation id="3409785640040772790">地图</translation>
 <translation id="3416023309465857378">2023 年 10 月 25 日</translation>
 <translation id="3419787211763835342">帮助改进增强型自动填充功能</translation>
 <translation id="3422958112451181446">按住即可将常用工具固定在此处</translation>
 <translation id="3430407169377889553">请谨慎使用 Gemini，在必要时进行接管。您需要为 Gemini 在执行任务期间的操作负责。</translation>
+<translation id="3432601291244612633">关闭页面</translation>
 <translation id="3435738964857648380">安全</translation>
 <translation id="3441673211568148613">让浏览记录不留痕迹</translation>
-<translation id="3443810440409579745">收到标签页。</translation>
 <translation id="3445288400492335833"><ph name="MINUTES" />分钟</translation>
 <translation id="344589138074534176">详细了解 Google 智能镜头</translation>
-<translation id="3447332786336558089">您退出账号后，标签页将被关闭，未保存的账号数据将从此设备中删除。这些数据可能包括密码、历史记录等。</translation>
 <translation id="3449029510150690417">为新标签页分组命名并选择颜色，即可创建该标签页分组</translation>
 <translation id="345348365500626747">找到地址</translation>
+<translation id="3453878468834191501">开始新对话时，系统会与 Gemini 分享当前标签页。<ph name="BEGIN_LINK" />详细了解 AI 和隐私权<ph name="END_LINK" /></translation>
 <translation id="3459644598174926977">开启 Gemini Live，就网页内容提问、随心畅谈灵感，展开实时互动对话。</translation>
 <translation id="3462768334899086950">这意味着您将丢失未保存的文件和当前标签页</translation>
 <translation id="3464194322481586217">无法跟踪价格。</translation>
 <translation id="3469117812148449995">密码保存选项</translation>
 <translation id="3472469028191701821">在新标签页中打开</translation>
 <translation id="3474048842645761983">{COUNT,plural, =1{涉及 {COUNT} 个网站或应用}other{涉及 {COUNT} 个网站和应用}}</translation>
-<translation id="3474624961160222204">以“<ph name="NAME" />”的身份继续</translation>
+<translation id="3474624961160222204">继续用“<ph name="NAME" />”的账号登录</translation>
 <translation id="3476450923187944815">在不同应用中使用保存的密码。</translation>
 <translation id="3479552764303398839">以后再说</translation>
 <translation id="3481315707647070701">直观呈现，随心修改</translation>
 <translation id="3485558910355485767">打开新的无痕式窗口</translation>
 <translation id="3488501490964659223">标签页已关闭，而且浏览数据已被删除。您已退出账号</translation>
-<translation id="3490396108106323715">分享当前标签页</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />详细了解<ph name="END_LINK" />推荐内容</translation>
 <translation id="349446645805573740">选择保存“<ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" />”的位置</translation>
 <translation id="3504377992102007712">设置</translation>
@@ -825,7 +828,6 @@
 <translation id="3565012355885596568">无法加载图片</translation>
 <translation id="3565930036634619844">标签页。第 <ph name="NUMBER_OF_TABS" /> 个，共 <ph name="TAB_INDEX" /> 个。</translation>
 <translation id="3567168891086460374">换一种方式保存</translation>
-<translation id="3572503683475187385">开始新对话时，系统会与 Gemini 分享当前标签页。如果与 Gemini 分享标签页，系统就会将其内容和网址发送给 Google。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="3572607909481582402">在您的 Google 账号中</translation>
 <translation id="3575234738189584619">使用智能镜头搜索</translation>
 <translation id="3575426792457739946">此列表包含所有已加载的个人资料。</translation>
@@ -853,6 +855,7 @@
 <translation id="3659297405161482746">未找到任何支付方式</translation>
 <translation id="3662966164093827811">{count,plural, =1{已选择 1 个}other{已选择 # 个}}</translation>
 <translation id="3668035568083954765">保护隐私，确保安全</translation>
+<translation id="3668703890943804691">任务已停止</translation>
 <translation id="3668816008081204991">已隐藏阅读清单</translation>
 <translation id="3670030362669914947">号码</translation>
 <translation id="3672283986707092811">全选</translation>
@@ -983,7 +986,6 @@
 <translation id="4092655288299341041">显示帮助</translation>
 <translation id="4095483462103784441">创建新标签页分组</translation>
 <translation id="4099756562043439968">设置提醒</translation>
-<translation id="4108998448622696017">检测危险事件并在此类事件发生时向您发出警告。</translation>
 <translation id="4111985840824673503">全部标为已读</translation>
 <translation id="411254640334432676">下载失败。</translation>
 <translation id="4112644173421521737">搜索</translation>
@@ -1049,6 +1051,8 @@
 <translation id="4290920330097335010">一律不允许</translation>
 <translation id="4293154608148215505">您的手机</translation>
 <translation id="4294506173142861371">要以 <ph name="FIRST_NAME" /> 的身份登录吗？</translation>
+<translation id="4297031046690565608">手动输入</translation>
+<translation id="4297418774230471285">选择个人信息</translation>
 <translation id="4302061870579014542">设置位置</translation>
 <translation id="4304713468139749426">密码管理工具</translation>
 <translation id="4309403553630140242">点按两次可了解详情</translation>
@@ -1130,7 +1134,6 @@
 <translation id="456502772933839252">正在分享“<ph name="PAGE_TITLE" />”</translation>
 <translation id="4565377596337484307">隐藏密码</translation>
 <translation id="4568230126482344545">隐藏“最近打开的标签页”</translation>
-<translation id="4571490460651837010">管理地址和其他信息…</translation>
 <translation id="4578835633387306383">开启…</translation>
 <translation id="4580621046861724270">部分书签未保存</translation>
 <translation id="4580716718466706433">前往“密码管理工具”</translation>
@@ -1164,6 +1167,7 @@
 <translation id="4658335131052370646">保存</translation>
 <translation id="465947902531722727">切换个人资料</translation>
 <translation id="466307903888586355">您的组织已禁止保存文件</translation>
+<translation id="4665303625242639572">关闭“<ph name="PAGE_TITLE" />”</translation>
 <translation id="4668929960204016307">、</translation>
 <translation id="4669618761237477717">您的组织要求您进行私密浏览。在无痕模式下，系统不会同步标签页分组。
 <ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
@@ -1281,6 +1285,7 @@
 <translation id="4991383000638469704"><ph name="USER_NAME" />，<ph name="EMAIL" />。<ph name="AI_TIER" />。</translation>
 <translation id="4992255726304765516">标签页分组颜色为<ph name="COLOR" /></translation>
 <translation id="5005498671520578047">复制密码</translation>
+<translation id="5007392906805964215">查看</translation>
 <translation id="5009127379503001909">继续浏览</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5016420433031926653">发送至 <ph name="USER_EMAIL" /></translation>
@@ -1388,6 +1393,7 @@
 <translation id="5315029634103634221">Gemini 是一款 AI 工具，可能会出错。<ph name="BEGIN_LINK" />详细了解发送给 Google 的相关数据<ph name="END_LINK" /></translation>
 <translation id="5315870524563628285">没有可导入的对象</translation>
 <translation id="5316356981864168850"><ph name="INDEX" />/<ph name="NUM_SUGGESTIONS" /></translation>
+<translation id="5316823130598991834">登录“<ph name="SITE_DOMAIN" />”</translation>
 <translation id="5317780077021120954">保存</translation>
 <translation id="5318298563956633672">您已在跟踪此产品。</translation>
 <translation id="5327248766486351172">名称</translation>
@@ -1405,7 +1411,6 @@
 <translation id="5371112366564891538">放大文字</translation>
 <translation id="5376135254804080693">取消全选</translation>
 <translation id="537853552771686272">管理您感兴趣的主题和网站</translation>
-<translation id="5385892579392932755">您的笔记本电脑</translation>
 <translation id="5390458669633674385">{count,plural, =1{{count} 个已关闭}other{{count} 个已关闭}}</translation>
 <translation id="5394975111793637642">隐藏“为您推荐的商品评价”卡片</translation>
 <translation id="5414763847370083940">当相应商品在所跟踪的任何网站上降价时，您都会收到提醒。</translation>
@@ -1470,6 +1475,7 @@
 <translation id="559567008082979829">设置为在一个月后自动删除下载内容。</translation>
 <translation id="5596627076506792578">更多选项</translation>
 <translation id="560322036295180549">已被贵组织关闭</translation>
+<translation id="5604254791550001355">修改提示</translation>
 <translation id="5611398002774823980">保存到账号</translation>
 <translation id="5612225021788368236">关闭默认浏览器宣传内容</translation>
 <translation id="561269594905823128">点按<ph name="BEGIN_BOLD" />选择文件<ph name="END_BOLD" /></translation>
@@ -1510,7 +1516,7 @@
 <translation id="57094364128775171">建议安全系数高的密码…</translation>
 <translation id="5718049162805123412">您应立即更改密码</translation>
 <translation id="5721040778297053709">将信用卡放到此框内</translation>
-<translation id="572328651809341494">最近打开的标签页</translation>
+<translation id="572328651809341494">最近访问的标签页</translation>
 <translation id="5724941645893276623">若要私密地浏览网页，请添加新标签页</translation>
 <translation id="5728072125198221967">关联的 Google 服务</translation>
 <translation id="5728700505257787410">很抱歉，登录您的账号时出现问题。</translation>
@@ -1535,7 +1541,6 @@
 <translation id="5768870767339201169">无缝衔接之前的进度</translation>
 <translation id="5779117921996157216">{count,plural, =1{您有 {count} 个已泄露的密码，这可能会给您带来安全风险。请立即修改以确保安全。}other{您有 {count} 个已泄露的密码，这可能会给您带来安全风险。请立即修改以确保安全。}}</translation>
 <translation id="5791632441210678828">用于对所关注 Feed 进行排序的按钮。</translation>
-<translation id="5799263916847593256">打开即可查看价格历史记录</translation>
 <translation id="5801568494490449797">偏好设置</translation>
 <translation id="5803566855766646066">确定要舍弃这张新信用卡吗？</translation>
 <translation id="5804241973901381774">权限</translation>
@@ -1623,6 +1628,7 @@
 <translation id="6078236141387574983">重新调整动作条的高度</translation>
 <translation id="6084848228346514841">选择标签页</translation>
 <translation id="6089212833343035912">Google 密码管理工具 PIN 码</translation>
+<translation id="6090690847556987004">此设置出了点问题。请更新 Chrome 和 iOS，然后重启设备并重试。如果此问题仍然存在，说明您的 iPhone 可能不支持该设置。</translation>
 <translation id="6090760257419195752">已忽略的警告</translation>
 <translation id="6094325891006032858">开启增强型安全浏览功能</translation>
 <translation id="6096965253650248286">找到 <ph name="COUNT" /> 个</translation>
@@ -1673,6 +1679,7 @@
 <translation id="6227958838185907047">以<ph name="NAME" /> (<ph name="EMAIL" />) 的身份登录</translation>
 <translation id="6231782223312638214">建议</translation>
 <translation id="6232329973559504466">无痕搜索</translation>
+<translation id="6233463157595806945">需要输入内容</translation>
 <translation id="6234310016144827337">请检查网络连接，然后重试</translation>
 <translation id="6236952928980352967">恢复警告</translation>
 <translation id="623755660902014047">朗读模式</translation>
@@ -1699,10 +1706,11 @@
 <translation id="6301104306974789820">接收价格跟踪通知</translation>
 <translation id="6301767200000930965">Aa</translation>
 <translation id="630308129961693966">选择地址栏的位置</translation>
-<translation id="6307241780749477694">请验证您的身份，以便在此设备上获取您的所有密码</translation>
+<translation id="6305257382500066042">立即试用</translation>
 <translation id="6307792728709337290">将卡片保存至 Google 账号，以便在本次及日后使用 Chrome 购物时自动填充信息。</translation>
 <translation id="6316141353357700666">从显示的列表中选择要使用的密码。</translation>
 <translation id="6321526113093607004">添加到书签</translation>
+<translation id="6322064144568952786">任务失败</translation>
 <translation id="6324054713176642683">选择主题、颜色，或上传自己的照片。</translation>
 <translation id="6327249202318869726">您的账号已停用 Gemini。如需了解详情，请与管理员联系。</translation>
 <translation id="6331836477476466332">更安全、更强大的浏览器</translation>
@@ -1851,13 +1859,12 @@
 <translation id="6708501134077648845">密码选项</translation>
 <translation id="6709964700841491574">锁定模式</translation>
 <translation id="6710079714193676716">由贵组织管理。未必能使用所有功能。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
-<translation id="6712003214447962889">更智能、更快速的回答</translation>
 <translation id="6713676799463473249">上次修改日期：<ph name="LAST_MODIFICATION_DATE" /></translation>
 <translation id="6722623263381062480">已收到标签页</translation>
 <translation id="6722638373100589752">如需自动填充您的信息，请在 Google 钱包设置中开启“在各项 Google 产品和服务中使用卡券”</translation>
 <translation id="6723740634201835758">在您的 Google 账号中</translation>
 <translation id="6724024423419410528">颜色</translation>
-<translation id="672735642903863329">在所有设备上获取保存的书签、密码等信息。</translation>
+<translation id="672735642903863329">在您的所有设备上同步书签、密码等信息。</translation>
 <translation id="6729493062119577923">共享标签页分组活动记录</translation>
 <translation id="6732087373923685049">摄像头</translation>
 <translation id="6736243959894955139">地址</translation>
@@ -1874,6 +1881,7 @@
 <translation id="6770452996697898492">[已预订]</translation>
 <translation id="6775952316617222141">与 Chrome 中的 Gemini 进行 Live 对话</translation>
 <translation id="6779455296366983087">您的浏览数据将被删除</translation>
+<translation id="6782311720357312958">问问 Google</translation>
 <translation id="6782531425936234573">导出数据</translation>
 <translation id="6789665473250283877">移除“<ph name="TOOL_NAME" />”</translation>
 <translation id="6791425686608802741">点按“添加到新标签页组”</translation>
@@ -1885,7 +1893,6 @@
 <translation id="6815692190508268848">已应用外观偏好设置</translation>
 <translation id="681631578600400068">保存驾照信息</translation>
 <translation id="6825078212112407882">{count,plural, =1{书签已保存到您的 Google 账号 {email}}other{{count} 个书签已保存到您的 Google 账号 {email}}}</translation>
-<translation id="6826004672264649705">正在跟踪此商品。打开即可查看价格历史记录</translation>
 <translation id="6830728435402077660">不安全</translation>
 <translation id="6831043979455480757">翻译</translation>
 <translation id="6842136130964845393">若要确保您能随时访问自己的已保存密码，请验证是您本人在操作</translation>
@@ -1932,8 +1939,8 @@
 <translation id="6938212956536472404">无法分享此标签页</translation>
 <translation id="6945221475159498467">选择</translation>
 <translation id="6946722113367118030">做思考状</translation>
-<translation id="6947751977892029882">此设置出了点问题。请更新并重启 Chrome 和 iOS，然后重试。如果此错误持续出现，说明您的 iPhone 可能不支持该设置。</translation>
 <translation id="6950522403736391608">已隐藏</translation>
+<translation id="6957084631403333422">试试专注模式新标签页</translation>
 <translation id="695965663642079255">保存并管理支付信息，结账更快捷</translation>
 <translation id="6962809930976936328">利用 Gemini 获取数据洞见</translation>
 <translation id="6964300328304469089">目前选择的是：<ph name="NAME" />，<ph name="EMAIL" />。请选择一个账号。</translation>
@@ -2020,6 +2027,7 @@
 <translation id="7241135764990439166">无痕模式不可用</translation>
 <translation id="7245288034498365666">保持井井有条，省时省力</translation>
 <translation id="7253951228444156601">正在检查密码…</translation>
+<translation id="725583671816239562">任务处理完成</translation>
 <translation id="7261217796641151584">共享分组</translation>
 <translation id="7266578100016339897">这有助于您保持井井有条。您随时可以在“设置”中更改此设置。</translation>
 <translation id="7270491814777319521">须遵守<ph name="BEGIN_LINK" />《Google 条款》<ph name="END_LINK" />和<ph name="BEGIN_LINK" />《Gemini 应用隐私权声明》<ph name="END_LINK" />。Gemini 是一款 AI 工具，可能会出现错误（包括与人相关的信息）。</translation>
@@ -2062,7 +2070,6 @@
 <translation id="7411034503745719324"><ph name="EMAIL" />。<ph name="MANAGED_STATUS" />。</translation>
 <translation id="7412027924265291969">继续</translation>
 <translation id="741204030948306876">立即开启</translation>
-<translation id="7417055777338419059">编写代码、撰写内容或制作幻灯片</translation>
 <translation id="7419565702166471774">一律使用安全连接</translation>
 <translation id="7423098979219808738">先询问</translation>
 <translation id="7425053386765766120">添加支付方式…</translation>
@@ -2112,11 +2119,13 @@
 <translation id="7525067979554623046">创建</translation>
 <translation id="75362970626182391">新标签页分组</translation>
 <translation id="7537586195939242955">抱歉，目前无法将您的票证添加到 Passbook。</translation>
+<translation id="7540924742308928499">头脑风暴和总结</translation>
 <translation id="754655535278952384">上次检查时间：<ph name="TIME" /></translation>
 <translation id="7554645225856321710">全部关闭</translation>
 <translation id="7557508262441527045">已退出账号</translation>
 <translation id="7561196759112975576">永远</translation>
 <translation id="7561982940498449837">关闭菜单</translation>
+<translation id="7562347727679121642">将图片添加到搜索会话</translation>
 <translation id="7566349809380613217">打开“<ph name="GROUP_TITLE" />”，共享分组包含 <ph name="NUMBER_OF_TABS" />，<ph name="CREATION_TEXT" /></translation>
 <translation id="7567579665882069209">已隐藏书签</translation>
 <translation id="7575664680938145959">一键打开</translation>
@@ -2161,15 +2170,15 @@
 <translation id="7700527812567437847">使用 Google 智能镜头搜索屏幕内容</translation>
 <translation id="7701040980221191251">无</translation>
 <translation id="7702428539671224160">在 <ph name="URL" /> 上自动填充支付信息</translation>
-<translation id="7708994397325774423">获取您的所有密码</translation>
 <translation id="7710096647785049958">打开每个链接都更省时</translation>
 <translation id="7711440461521638739">您未重复使用任何密码</translation>
 <translation id="7712361583414030698">正在查看离线版本</translation>
 <translation id="7719038820139380048">登录即可获取系统根据您的兴趣推荐的内容。</translation>
 <translation id="7720901330179380635">使用<ph name="SEARCH_ENGINE" />进行搜索</translation>
 <translation id="7724085059277147439">{count,plural, =1{这项内容已保存到您的 Google 账号 {email}}other{这些内容已保存到您的 Google 账号 {email}}}</translation>
-<translation id="7729458878441927652">如需查看您在其他设备中打开的标签页，请同步您的标签页和历史记录。</translation>
+<translation id="7729458878441927652">如要查看在其他设备上访问的标签页，请同步标签页和历史记录。</translation>
 <translation id="7730020510075123961">不，合并数据</translation>
+<translation id="7730937523779541003">已应用专注模式新标签页</translation>
 <translation id="7733646263819020771"><ph name="BOOKMRK_NAME" />。仅在该设备上。</translation>
 <translation id="7737550920399185748">照片库中的首页照片不会在您的设备之间同步。</translation>
 <translation id="7738120385185846461">报告问题…</translation>
@@ -2181,7 +2190,6 @@
 <translation id="7758789811447313947">紫罗兰色主题</translation>
 <translation id="7759809451544302770">选填</translation>
 <translation id="7765158879357617694">移动</translation>
-<translation id="7767651976342854115">数据使用设置遇到错误。</translation>
 <translation id="7768507955883790804">网站会在您访问时自动采用此设置</translation>
 <translation id="7772032839648071052">确认密码</translation>
 <translation id="7772948288262733182">欢迎回来</translation>
@@ -2205,12 +2213,13 @@
 <translation id="7839994177130598711">现在，您的家庭成员可在使用 Google 密码管理工具登录 <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" /> 时使用您的用户名和密码。</translation>
 <translation id="7841180087127694526">搜索复制的文字</translation>
 <translation id="7841418003178675048">选择要在新标签页上显示的卡片。</translation>
+<translation id="7842369010458597654">填写付款信息</translation>
 <translation id="7845466610722898">显示阅读清单</translation>
 <translation id="7846161022626028328">出错了，请重试。</translation>
 <translation id="784623644169604270">近期无活动</translation>
 <translation id="7846296061357476882">Google 服务</translation>
 <translation id="784934925303690534">时间范围</translation>
-<translation id="7851858861565204677">来自其他设备的同步</translation>
+<translation id="7851858861565204677">其他设备的同步内容</translation>
 <translation id="7853202427316060426">活动</translation>
 <translation id="7854006015462979438">打开“通用”</translation>
 <translation id="7855678267851972597">音频</translation>
@@ -2283,7 +2292,7 @@
 <translation id="8037713009824540257">添加网站</translation>
 <translation id="8038078082340255234">市场报告</translation>
 <translation id="8040407350301524547">如果您想查看路线选项，请点按“查询路线”。</translation>
-<translation id="804427445359061970">您在其他设备上打开的标签页会显示在此处</translation>
+<translation id="804427445359061970">您在其他设备上访问的标签页会显示在此处</translation>
 <translation id="8051193500142930381">所有需要使用摄像头的功能都将无法正常运行</translation>
 <translation id="8058655154417507695">到期年份</translation>
 <translation id="8059312861912872211">{count,plural, =1{{count} 个书签}other{{count} 个书签}}</translation>
@@ -2328,7 +2337,6 @@
 <translation id="8187200657863701733">当前 Chrome 等级</translation>
 <translation id="8189484403434216074">创建标签页分组</translation>
 <translation id="8189615296021678665">点按“保存”即可在下次登录时轻松访问此密码。</translation>
-<translation id="8193953846147532858"><ph name="BEGIN_LINK" />您的设备<ph name="END_LINK" /> · <ph name="EMAIL" /></translation>
 <translation id="8195191503358432289">添加密码</translation>
 <translation id="8195936400946057039">有效防范在线威胁</translation>
 <translation id="8205564605687841303">取消</translation>
@@ -2482,7 +2490,6 @@
 <translation id="8642417828095157370">系统会共享标签页以提供更相关的回答</translation>
 <translation id="8643403533759285912">删除标签页组</translation>
 <translation id="8646357898207744479">智能镜头</translation>
-<translation id="8647280737650867362">无法取消跟踪价格。</translation>
 <translation id="8654802032646794042">取消</translation>
 <translation id="8655861111558401309">选择“删除浏览数据”</translation>
 <translation id="8659875081143553823">请稍候</translation>
@@ -2495,7 +2502,6 @@
 <translation id="8674716540979958118">您有已泄露的密码。</translation>
 <translation id="8679900250380464358">添加到阅读清单</translation>
 <translation id="8680643216091361291">您的<ph name="BEGIN_LINK" />保留活动记录<ph name="END_LINK" />设置会默认处于关闭状态。此设置处于关闭状态时，Google 会将您的对话内容保存 3 天。Google 会使用这些数据来确保 Gemini 应用正常运行、保障应用安全，并根据您的反馈解决问题。您可以开启“保留活动记录”设置，以帮助我们改进 Google AI，让所有用户都受益。</translation>
-<translation id="8680786875305615692">帮助我们为所有人改善网络安全环境</translation>
 <translation id="8680787084697685621">账号登录详细信息已过期。</translation>
 <translation id="868648444055742370">“<ph name="SITE_DOMAIN" />”无法使用您的麦克风</translation>
 <translation id="8690752723634292147">确认删除</translation>
@@ -2561,7 +2567,6 @@
 <translation id="8849001918648564819">已隐藏</translation>
 <translation id="8855242995793521265">不会显著减慢浏览器或设备的运行速度。</translation>
 <translation id="8856643812068084733">归档文件</translation>
-<translation id="8863067612494559785">正在发送到<ph name="DEVICE_NAME" />…</translation>
 <translation id="8863431381414769983">通过 Google 地图获取路线和本地信息</translation>
 <translation id="8871974300055371298">内容设置</translation>
 <translation id="8876661425082386199">请检查您的网络连接状况</translation>
@@ -2572,7 +2577,6 @@
 <translation id="8888595487174963247">移除提醒</translation>
 <translation id="8890516388109605451">来源</translation>
 <translation id="8893208530912252670">视频</translation>
-<translation id="8898822736010347272">向 Google 发送您访问过的部分网页的网址、有限的系统信息以及部分网页内容，以便帮助我们发现新威胁并保护网络上的所有用户。</translation>
 <translation id="890009681345348416">已自动填充 40 多个密码</translation>
 <translation id="8900845556227858314">浏览器应用</translation>
 <translation id="890565330728586731">返回</translation>
@@ -2603,6 +2607,7 @@
 <translation id="8976414606286374109">系统会将信用卡信息保存到您的 Google 账号中。</translation>
 <translation id="8981454092730389528">Google 活动控件</translation>
 <translation id="8988107725234939347"><ph name="WEBSITE_TITLE" />，已固定的网站</translation>
+<translation id="8989779557457435460">默认分享当前标签页</translation>
 <translation id="8990960056509724223">根据您所在组织的政策，无法保存文件</translation>
 <translation id="8998289560386111590">在您的设备上不可用</translation>
 <translation id="9003677638446136377">再次检查</translation>
@@ -2615,6 +2620,7 @@
 <translation id="9032405509996909363">确认删除浏览数据</translation>
 <translation id="9038526468059454274">轻松总结，尽在</translation>
 <translation id="9039373489628511875">带宽</translation>
+<translation id="9042363670218758847">切换到专为快速搜索而设计的布局</translation>
 <translation id="9042893549633094279">隐私与安全</translation>
 <translation id="9044703854323320868">Gmail 邮件 <ph name="INDEX" /></translation>
 <translation id="9055291197094969722">创建标签页分组，可以整理打开的标签页，畅享清爽高效的浏览体验</translation>
@@ -2654,7 +2660,6 @@
 <translation id="9149866541089851383">编辑...</translation>
 <translation id="9152637745605628097">选择主题、颜色，或上传图片</translation>
 <translation id="9153159728062222866">无需复制和粘贴</translation>
-<translation id="9159628751968616911">发送网页</translation>
 <translation id="9162412286847966593">我们不会使用组织的数据和录音来改进生成式 AI 模型。<ph name="BEGIN_LINK" />您的隐私权与 Gemini<ph name="END_LINK" /></translation>
 <translation id="9162432979321511934">开启“自动填充密码”</translation>
 <translation id="9165320910061267720">若要接收降价提醒通知，您需在 iOS 设置中开启通知功能。</translation>
@@ -2668,6 +2673,7 @@
 <translation id="9203951165704618409">您可以将地址栏从顶部移至底部，获享个性化的浏览体验。</translation>
 <translation id="9205189991633470489">无痕式标签页锁定</translation>
 <translation id="9206887540681440657">速度</translation>
+<translation id="9218088788182688902">此设置出了点问题。请更新 Chrome 和 iPadOS，然后重启设备并重试。如果此问题仍然存在，说明您的 iPad 可能不支持该设置。</translation>
 <translation id="9218430445555521422">设为默认</translation>
 <translation id="9219103736887031265">图片</translation>
 <translation id="9219154867334666734">搜索标签页…</translation>

@@ -43,13 +43,12 @@ class ResourceCache {
         mContext = context;
     }
 
-    /** Resolves a string resource, replaces $ placeholder arguments, and caches the result. */
+    /** Resolves a string resource, converts grit placeholders, and caches the result. */
     String getString(@StringRes int resId) {
         ThreadUtils.assertOnUiThread();
         String string = mStrings.get(resId);
         if (string == null) {
-            string = mContext.getString(resId);
-            string = string.replaceAll("\\$(\\d+)", "%$1\\$s");
+            string = OmniboxResourceProvider.convertGritPlaceholders(mContext.getString(resId));
             mStrings.put(resId, string);
         }
         return string;
@@ -101,7 +100,7 @@ class ResourceCache {
         ThreadUtils.assertOnUiThread();
         ColorStateList list = mColorStateLists.get(resId);
         if (list == null) {
-            list = AppCompatResources.getColorStateList(mContext, resId);
+            list = mContext.getColorStateList(resId);
             mColorStateLists.put(resId, list);
         }
         return list;

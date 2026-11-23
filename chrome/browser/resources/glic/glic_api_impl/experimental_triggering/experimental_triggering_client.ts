@@ -21,9 +21,8 @@ import type {                                                   //
              Subscriber,                                        //
 } from '../../glic_api/glic_api.js';
 import {Subject} from '../../observable.js';
+import {optionalFromClient, screenshotToClient} from '../conversions.js';
 import {getGuestLoadTimeData} from '../guest_load_time_data.js';
-import {optionalFromClient, screenshotToClient} from '../host/conversions.js';
-import {ResponseExtras} from '../transport/messaging.js';
 
 // How long to wait for the web client to report whether a confirmation
 // response was applied. Applying a response is a local operation, so the
@@ -199,8 +198,7 @@ export class GlicBrowserHostExperimentalTriggering implements
 
   async uploadEncryptedScreenshot(screenshot: ScreenshotMojo):
       Promise<{fileToken: string | null}> {
-    const extras = new ResponseExtras();
-    const clientScreenshot = screenshotToClient(screenshot, extras);
+    const clientScreenshot = screenshotToClient(screenshot);
     if (!clientScreenshot) {
       return {fileToken: null};
     }

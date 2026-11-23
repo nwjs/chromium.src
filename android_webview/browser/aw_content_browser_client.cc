@@ -45,6 +45,7 @@
 #include "android_webview/browser/safe_browsing/aw_advanced_protection_status_manager_bridge.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_navigation_throttle.h"
 #include "android_webview/browser/safe_browsing/aw_url_checker_delegate_impl.h"
+#include "android_webview/browser/signin/signin_url_loader_throttle.h"
 #include "android_webview/browser/supervised_user/aw_supervised_user_throttle.h"
 #include "android_webview/browser/supervised_user/aw_supervised_user_url_classifier.h"
 #include "android_webview/browser/tracing/aw_tracing_delegate.h"
@@ -53,7 +54,6 @@
 #include "android_webview/common/aw_features.h"
 #include "android_webview/common/aw_paths.h"
 #include "android_webview/common/aw_switches.h"
-#include "android_webview/common/url_constants.h"
 #include "base/android/yield_to_looper_checker.h"
 #include "base/base_paths_android.h"
 #include "base/base_switches.h"
@@ -134,6 +134,7 @@
 #include "net/base/url_util.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/site_for_cookies.h"
+#include "net/dns/public/insecure_dns_mode.h"
 #include "net/http/http_util.h"
 #include "net/net_buildflags.h"
 #include "net/ssl/ssl_cert_request_info.h"
@@ -295,26 +296,24 @@ void AwContentBrowserClient::OnNetworkServiceCreated(
   network_service->SetUpHttpAuth(network::mojom::HttpAuthStaticParams::New());
   network_service->ConfigureHttpAuthPrefs(
       AwBrowserProcess::GetInstance()->CreateHttpAuthDynamicParams());
+}
 
+net::InsecureDnsMode AwContentBrowserClient::GetInitialInsecureDnsMode() {
   if (net::features::IsDnsPlatformSupported() &&
       base::FeatureList::IsEnabled(features::kWebViewEnableDnsPlatform)) {
     // Using the platform DNS APIs requires:
     // 1. Enabling the built-in DNS in platform mode
-    // (net::InsecureDnsMode::kEnabledPlatform or
-    // net::InsecureDnsMode::kEnabledPlatformNoSystem)
+    //    (net::InsecureDnsMode::kEnabledPlatform or
+    //    net::InsecureDnsMode::kEnabledPlatformNoSystem)
     // 2. Disabling DoH queries, these do not yet use the platform DNS APIs
     //    (net::SecureDnsMode::kOff)
-    net::InsecureDnsMode insecure_dns_mode =
-        features::kWebViewEnableDnsPlatformNoSystem.Get()
-            ? net::InsecureDnsMode::kEnabledPlatformNoSystem
-            : net::InsecureDnsMode::kEnabledPlatform;
-    network_service->ConfigureStubHostResolver(
-        insecure_dns_mode,
-        /*happy_eyeballs_v3_enabled=*/false, net::SecureDnsMode::kOff,
-        net::DnsOverHttpsConfig(),
-        /*additional_dns_types_enabled=*/true,
-        /*fallback_doh_nameservers=*/std::vector<net::IPEndPoint>());
+    // For #2, WebView relies on the default net::DnsConfig having
+    // SecureDnsMode::kOff.
+    return features::kWebViewEnableDnsPlatformNoSystem.Get()
+               ? net::InsecureDnsMode::kEnabledPlatformNoSystem
+               : net::InsecureDnsMode::kEnabledPlatform;
   }
+  return net::InsecureDnsMode::kDisabled;
 }
 
 void AwContentBrowserClient::ConfigureNetworkContextParams(
@@ -450,19 +449,23 @@ bool AwContentBrowserClient::IsHandledURL(const GURL& url) {
       url::kWsScheme,           url::kWssScheme,
 #endif  // BUILDFLAG(ENABLE_WEBSOCKETS)
       url::kDataScheme,         url::kBlobScheme,    url::kFileSystemScheme,
-      content::kChromeUIScheme, url::kContentScheme,
+      content::kChromeUIScheme, url::kContentScheme, url::kFileScheme,
   };
-  if (scheme == url::kFileScheme) {
-    // Return false for the "special" file URLs, so they can be loaded
-    // even if access to file: scheme is not granted to the child process.
-    return !IsAndroidSpecialFileUrl(url);
-  }
   for (const char* supported_protocol : kProtocolList) {
     if (scheme == supported_protocol) {
       return true;
     }
   }
   return false;
+}
+
+bool AwContentBrowserClient::IsContentSchemeURLNavigationAllowed(
+    const GURL& url) {
+  // WebView allows content:// navigations unconditionally for compatibility.
+  // The embedding app decides whether to allow content:// access via
+  // WebSettings#setAllowContentAccess, and which URIs to load via
+  // WebViewClient#shouldOverrideUrlLoading.
+  return true;
 }
 
 bool AwContentBrowserClient::ForceSniffingFileUrlsForHtml() {
@@ -598,7 +601,7 @@ bool AwContentBrowserClient::IsSecurityLevelAcceptableForWebAuthn(
 
 base::OnceClosure AwContentBrowserClient::SelectClientCertificate(
     content::BrowserContext* browser_context,
-    int process_id,
+    content::ChildProcessId process_id,
     content::WebContents* web_contents,
     net::SSLCertRequestInfo* cert_request_info,
     net::ClientCertIdentityList client_certs,
@@ -860,6 +863,11 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
     }
   }
 
+  if (auto signin_throttle =
+          SigninUrlLoaderThrottle::Create(browser_context, wc_getter)) {
+    result.push_back(std::move(signin_throttle));
+  }
+
   return result;
 }
 
@@ -1085,6 +1093,8 @@ bool AwContentBrowserClient::HandleExternalProtocol(
                 /* intercept_only=*/true,
                 /* security_options=*/std::nullopt,
                 /* origin_matched_headers=*/{},
+                /* profile_header_interceptors=*/{},
+                /* web_contents_header_interceptors=*/{},
                 std::move(browser_context_handle),
                 /* navigation_id=*/std::nullopt);
           },
@@ -1239,6 +1249,13 @@ void AwContentBrowserClient::WillCreateURLLoaderFactory(
   AwCookieAccessPolicy* cookie_access_policy =
       aw_browser_context->GetCookieManager()->cookie_access_policy();
 
+  // Copy the profile header interceptors from the UI thread so that the
+  // underlying collection does not have to deal with thread safety,
+  // so that the header interceptors are locked for the lifetime of the frame.
+  using InterceptorEntryPtr = AwHeaderInterceptorStore::InterceptorEntryPtr;
+  std::vector<InterceptorEntryPtr> profile_header_interceptors =
+      aw_browser_context->GetHeaderInterceptorStore().GetInterceptors();
+
   if (frame) {
     auto security_options =
         std::make_optional<AwProxyingURLLoaderFactory::SecurityOptions>();
@@ -1268,6 +1285,15 @@ void AwContentBrowserClient::WillCreateURLLoaderFactory(
     std::optional<WebContentsKey> web_contents_key;
     web_contents_key = GetWebContentsKey(*web_contents);
 
+    AwContents* aw_contents = AwContents::FromWebContents(web_contents);
+    std::vector<InterceptorEntryPtr> web_contents_header_interceptors;
+    if (aw_contents) {
+      // See comment above about making a copy of the Profile Header
+      // Interceptors.
+      web_contents_header_interceptors =
+          aw_contents->GetHeaderInterceptorStore().GetInterceptors();
+    }
+
     content::GetIOThreadTaskRunner({})->PostTask(
         FROM_HERE,
         base::BindOnce(&AwProxyingURLLoaderFactory::CreateProxy,
@@ -1276,6 +1302,8 @@ void AwContentBrowserClient::WillCreateURLLoaderFactory(
                        frame->GetFrameTreeNodeId(), std::move(proxied_receiver),
                        std::move(target_factory_remote), security_options,
                        aw_browser_context->GetOriginMatchedHeaders(),
+                       std::move(profile_header_interceptors),
+                       std::move(web_contents_header_interceptors),
                        std::move(browser_context_handle), navigation_id));
   } else {
     // A service worker and worker subresources set nullptr to |frame|, and
@@ -1290,6 +1318,9 @@ void AwContentBrowserClient::WillCreateURLLoaderFactory(
             std::move(proxied_receiver), std::move(target_factory_remote),
             std::nullopt /* security_options */,
             aw_browser_context->GetOriginMatchedHeaders(),
+            std::move(profile_header_interceptors),
+            /*web_contents_header_interceptors=*/
+            std::vector<InterceptorEntryPtr>(),
             std::move(browser_context_handle), navigation_id));
   }
 }
@@ -1422,7 +1453,6 @@ bool AwContentBrowserClient::ShouldPreconnectNavigation(
   // This didn't make a performance improvement in WebView.
   return false;
 }
-
 
 blink::mojom::OriginTrialsSettingsPtr
 AwContentBrowserClient::GetOriginTrialsSettings() {

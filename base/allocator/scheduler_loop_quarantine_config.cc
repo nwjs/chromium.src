@@ -1,4 +1,3 @@
-#include "base/check.h"
 // Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -6,11 +5,13 @@
 #include "base/allocator/scheduler_loop_quarantine_config.h"
 
 #include <algorithm>
+#include <limits>
 #include <string_view>
 #include <vector>
 
 #include "base/allocator/partition_alloc_features.h"
 #include "base/base_switches.h"
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/json/json_reader.h"
@@ -67,8 +68,10 @@ constexpr char kKeyLeakOnDestruction[] = "leak-on-destruction";
 constexpr char kKeyEnableTaskControlledPurge[] = "enable-task-controlled-purge";
 constexpr char kKeyPauseInBetweenTasks[] = "pause-in-between-tasks";
 constexpr char kKeyExcludeNonIpcTasks[] = "exclude-non-ipc-tasks";
+constexpr char kKeyCapacityUnlimited[] = "capacity-unlimited";
 constexpr char kKeyBranchCapacityInBytes[] = "branch-capacity-in-bytes";
 constexpr char kKeyMaxQuarantineSize[] = "max-quarantine-size";
+constexpr char kKeyPurgeHeadroomPercent[] = "purge-headroom-percent";
 
 struct Match {
   const DictValue* dict;
@@ -217,11 +220,25 @@ GetSchedulerLoopQuarantineConfiguration(
   config.branch_capacity_in_bytes =
       static_cast<size_t>(config_entry->FindInt(kKeyBranchCapacityInBytes)
                               .value_or(config.branch_capacity_in_bytes));
+  // TODO(crbug.com/582527150): Remove INT_MAX fallback once Finch configs
+  // migrate to "capacity-unlimited".
+  config.capacity_unlimited =
+      config_entry->FindBool(kKeyCapacityUnlimited)
+          .value_or(config.branch_capacity_in_bytes ==
+                    static_cast<size_t>(std::numeric_limits<int>::max()));
 
   int max_quarantine_size =
       config_entry->FindInt(kKeyMaxQuarantineSize).value_or(-1);
   if (0 < max_quarantine_size) {
     config.max_quarantine_size = static_cast<size_t>(max_quarantine_size);
+  }
+
+  int purge_headroom_percent =
+      config_entry->FindInt(kKeyPurgeHeadroomPercent).value_or(0);
+  if (0 < purge_headroom_percent) {
+    config.purge_headroom_percent =
+        std::min(static_cast<size_t>(purge_headroom_percent),
+                 ::partition_alloc::internal::kMaxPurgeHeadroomPercent);
   }
 #endif  // PA_BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 

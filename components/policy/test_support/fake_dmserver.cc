@@ -4,17 +4,23 @@
 
 #include "components/policy/test_support/fake_dmserver.h"
 
+#include <unistd.h>
+
+#include <iostream>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "base/base64.h"
+#include "base/base_paths.h"
 #include "base/files/file_util.h"
 #include "base/json/json_file_value_serializer.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/logging/logging_settings.h"
 #include "base/notreached.h"
+#include "base/path_service.h"
+#include "base/process/launch.h"
 #include "base/scoped_observation.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -30,12 +36,8 @@
 #include "components/policy/test_support/policy_storage.h"
 #include "components/policy/test_support/request_handler_for_policy.h"
 #include "components/policy/test_support/test_server_helpers.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/re2/src/re2/re2.h"
-
-#define RETURN_IF_FALSE(expr) \
-  if (!expr) {                \
-    return false;             \
-  }
 
 namespace fakedms {
 
@@ -81,6 +83,8 @@ constexpr int kDefaultMinLogLevel = logging::LOGGING_INFO;
 constexpr bool kDefaultLogToConsole = false;
 constexpr int kDefaultPort = 6112;
 
+constexpr char kHelpSwitch[] = "help";
+constexpr char kHelpSwitchShort[] = "h";
 constexpr char kPolicyBlobPathSwitch[] = "policy-blob-path";
 constexpr char kPolicyPathSwitch[] = "policy-path";
 constexpr char kClientStatePathSwitch[] = "client-state-path";
@@ -126,6 +130,87 @@ BuildWaitRemoteCommandResultResponse(const em::RemoteCommandResult& result) {
   remote_command_result->set_timestamp(result.timestamp());
   remote_command_result->set_payload(result.payload());
   return resp;
+}
+
+// Tries to write the report to
+// {profile,desktop}_report_YYYYMMDDHHMMSS.textproto in the data dir.
+//
+// Since we only have MessageLite protos in this binary, we can't easily
+// serialize to .textproto. As a workaround, use `protoc --decode=...` to write
+// the file.
+static void WriteReportRequestTextproto(const base::FilePath& data_dir,
+                                        std::string_view request_type,
+                                        const std::string& request_body) {
+  std::string_view report_prefix;
+  if (request_type == policy::dm_protocol::kValueRequestChromeDesktopReport) {
+    report_prefix = "desktop_report_";
+  } else if (request_type ==
+             policy::dm_protocol::kValueRequestChromeProfileReport) {
+    report_prefix = "profile_report_";
+  } else {
+    return;
+  }
+
+  base::Time::Exploded exploded;
+  base::Time::Now().LocalExplode(&exploded);
+  std::string filename =
+      absl::StrFormat("%s%04d%02d%02d%02d%02d%02d.textproto", report_prefix,
+                      exploded.year, exploded.month, exploded.day_of_month,
+                      exploded.hour, exploded.minute, exploded.second);
+  base::FilePath output_path = data_dir.AppendASCII(filename);
+  base::File output_file(
+      output_path, base::File::FLAG_CREATE_ALWAYS | base::File::FLAG_WRITE);
+  CHECK(output_file.IsValid())
+      << "Failed to create textproto file: " << output_path;
+
+  base::ScopedFD read_fd;
+  base::ScopedFD write_fd;
+  CHECK(base::CreatePipe(&read_fd, &write_fd));
+
+  base::FilePath exe_dir;
+  CHECK(base::PathService::Get(base::DIR_EXE, &exe_dir));
+  base::FilePath protoc_path = exe_dir.AppendASCII("protoc");
+
+  base::FilePath src_dir;
+  if (!base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &src_dir) ||
+      !base::PathExists(src_dir.AppendASCII("components/policy/proto"))) {
+    src_dir = exe_dir.AppendASCII("../../");
+  }
+
+  base::CommandLine cmd(protoc_path);
+  cmd.AppendArg("-I" + src_dir.AppendASCII("components/policy/proto").value());
+  cmd.AppendArg(
+      "-I" + src_dir.AppendASCII("third_party/private_membership/src").value());
+  cmd.AppendArg(
+      "-I" + src_dir.AppendASCII("third_party/shell-encryption/src").value());
+  cmd.AppendArg("--decode=enterprise_management.DeviceManagementRequest");
+  cmd.AppendArgPath(src_dir.AppendASCII(
+      "components/policy/proto/device_management_backend.proto"));
+
+  base::LaunchOptions options;
+  options.fds_to_remap.emplace_back(read_fd.get(), STDIN_FILENO);
+  options.fds_to_remap.emplace_back(output_file.GetPlatformFile(),
+                                    STDOUT_FILENO);
+
+  base::Process process = base::LaunchProcess(cmd, options);
+  if (!process.IsValid()) {
+    LOG(ERROR) << "Failed to launch protoc";
+    base::DeleteFile(output_path);
+    return;
+  }
+
+  read_fd.reset();
+  if (!request_body.empty() &&
+      !base::WriteFileDescriptor(write_fd.get(), request_body)) {
+    LOG(ERROR) << "Failed to write request body to protoc stdin";
+  }
+  write_fd.reset();
+
+  int exit_code = -1;
+  if (!process.WaitForExit(&exit_code) || exit_code != 0) {
+    LOG(ERROR) << "protoc failed with exit code " << exit_code;
+    base::DeleteFile(output_path);
+  }
 }
 
 void ParsePolicyUser(const base::DictValue* dict,
@@ -390,7 +475,7 @@ bool ValidateAndSetPolicyValue(std::string_view policy_name,
       case policy::test::StringPolicyType::JSON: {
         // JSON values are converted to JSON, then encoded the same as
         // strings.
-        if (!value.is_dict()) {
+        if (!value.is_dict() && !value.is_list()) {
           LOG(WARNING) << "Failed to set policy " << policy_name
                        << " with type " << value.type();
           return false;
@@ -399,6 +484,7 @@ bool ValidateAndSetPolicyValue(std::string_view policy_name,
         CHECK(base::JSONWriter::Write(value, &json));
         auto* proto = access.get_proto_mutable(policy_settings);
         CHECK(proto);
+        proto->mutable_policy_options()->set_mode(em::PolicyOptions::MANDATORY);
         proto->set_value(json);
         return true;
       }
@@ -532,10 +618,30 @@ void InitLogging(const std::optional<std::string>& log_path,
   logging::SetMinLogLevel(min_log_level);
   logging::InitLogging(settings);
   logging::SetLogItems(/*enable_process_id=*/true, /*enable_thread_id=*/true,
-                       /*enable_timestamp=*/true, /*enable_timestamp=*/false);
+                       /*enable_timestamp=*/true, /*enable_tickcount=*/false);
 }
 
-void ParseFlags(const base::CommandLine& command_line,
+void PrintHelp() {
+  std::cout << R"(Usage: fake_dmserver --policy-path=<path> [options]
+
+Starts a fake version of the Device Management, for testing enterprise features.
+See components/policy/tools/fake_dmserver/README.md for detailed instructions.
+
+Options:
+  --help, -h                   Show this help message.
+  --policy-path=<path>         Path to policy JSON file.
+  --client-state-path=<path>   Path to client state JSON file (default: same dir
+                               as --policy-path).
+  --grpc-unix-socket-uri=<uri> Unix domain socket for gRPC.
+  --log-path=<path>            File path to write logs to.
+  --startup-pipe=<fd>          Pipe to write server URL to.
+  --min-log-level=<level>      Minimum log level (int).
+  --log-to-console             Enable logging to console.
+  --port=<port>                Port to listen on (default: 6112).
+)";
+}
+
+bool ParseFlags(const base::CommandLine& command_line,
                 std::string& policy_blob_path,
                 std::string& client_state_path,
                 std::string& grpc_unix_socket_uri,
@@ -544,6 +650,11 @@ void ParseFlags(const base::CommandLine& command_line,
                 bool& log_to_console,
                 int& min_log_level,
                 int& port) {
+  if (command_line.HasSwitch(kHelpSwitch) ||
+      command_line.HasSwitch(kHelpSwitchShort)) {
+    return false;
+  }
+
   policy_blob_path = kDefaultPolicyBlobFilename;
   client_state_path = kDefaultClientStateFilename;
   log_to_console = kDefaultLogToConsole;
@@ -604,6 +715,8 @@ void ParseFlags(const base::CommandLine& command_line,
     CHECK(base::StringToInt(port_str, &port))
         << "Expected an int value for --port switch, but got: " << port_str;
   }
+
+  return true;
 }
 
 enum class RemoteCommandsWaitType { kAcknowledged, kResultAvailable };
@@ -945,6 +1058,10 @@ std::unique_ptr<net::test_server::HttpResponse> FakeDMServer::HandleRequest(
                                       "Failed to read client state file.");
   }
   auto resp = policy::EmbeddedPolicyTestServer::HandleRequest(request);
+  std::string request_type =
+      policy::KeyValueFromUrl(url, policy::dm_protocol::kParamRequest);
+  WriteReportRequestTextproto(client_state_path_.DirName(), request_type,
+                              request.content);
   if (!WriteClientStateFile()) {
     return policy::CreateHttpResponse(net::HTTP_INTERNAL_SERVER_ERROR,
                                       "Failed to write client state file.");
@@ -1132,17 +1249,31 @@ bool FakeDMServer::ReadPolicyBlobFile() {
   ParseUserAffiliationIds(dict, policy_storage());
   ParseDirectoryApiId(dict, policy_storage());
   ParseRobotApiAuthCode(dict, policy_storage());
-  RETURN_IF_FALSE(ParseAllowSetDeviceAttributes(dict, policy_storage()));
-  RETURN_IF_FALSE(ParseUseUniversalSigningKeys(dict, policy_storage()));
-  RETURN_IF_FALSE(ParseRequestErrors(dict, this));
-  RETURN_IF_FALSE(ParseInitialEnrollmentState(dict, policy_storage()));
-  RETURN_IF_FALSE(ParseCurrentKeyIndex(dict, policy_storage()));
+  if (!ParseAllowSetDeviceAttributes(dict, policy_storage())) {
+    return false;
+  }
+  if (!ParseUseUniversalSigningKeys(dict, policy_storage())) {
+    return false;
+  }
+  if (!ParseRequestErrors(dict, this)) {
+    return false;
+  }
+  if (!ParseInitialEnrollmentState(dict, policy_storage())) {
+    return false;
+  }
+  if (!ParseCurrentKeyIndex(dict, policy_storage())) {
+    return false;
+  }
   if (dict->contains(kPoliciesKey) || dict->contains(kExternalPoliciesKey)) {
     LOG(INFO) << "Parsing policies from base64 blobs.";
-    RETURN_IF_FALSE(ParsePolicyBlobs(dict));
+    if (!ParsePolicyBlobs(dict)) {
+      return false;
+    }
   } else {
     LOG(INFO) << "Parsing policies from JSON.";
-    RETURN_IF_FALSE(ParsePoliciesJson(dict));
+    if (!ParsePoliciesJson(dict)) {
+      return false;
+    }
   }
   return true;
 }

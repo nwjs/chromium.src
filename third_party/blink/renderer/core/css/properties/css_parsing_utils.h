@@ -7,6 +7,7 @@
 
 #include <array>
 #include <optional>
+#include <utility>
 
 #include "base/compiler_specific.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -497,7 +498,6 @@ bool ConsumeTimelineTriggerShorthand(
 
 CSSValue* GetImpliedRangeEnd(const CSSValue* start_range);
 
-void AddBackgroundValue(CSSValue*& list, const CSSValue*);
 CSSValue* ConsumeBackgroundAttachment(CSSParserTokenStream&);
 CSSValue* ConsumeBackgroundBlendMode(CSSParserTokenStream&);
 CSSValue* ConsumeBackgroundBox(CSSParserTokenStream&);
@@ -666,7 +666,6 @@ CSSValue* ConsumeFontFeatureSettings(CSSParserTokenStream&,
 CSSValue* ConsumeFontVariationSettings(CSSParserTokenStream&,
                                        const CSSParserContext&,
                                        CSSParserLocalContext&);
-CSSValue* ConsumeFontLanguageOverrideString(CSSParserTokenStream&);
 CSSValue* ConsumeFontLanguageOverride(CSSParserTokenStream&,
                                       const CSSParserContext&);
 CSSIdentifierValue* ConsumeFontVariantCSS21(CSSParserTokenStream&);
@@ -721,9 +720,9 @@ CSSValue* ParseGridLanesTemplateAreasValue(
     bool is_for_columns);
 CSSValue* ParseGridLanesDirection(CSSParserTokenStream&);
 
-CSSValue* ConsumeFlowTolerance(CSSParserTokenStream&,
-                               const CSSParserContext&,
-                               CSSParserLocalContext&);
+CSSValue* ConsumeFitTolerance(CSSParserTokenStream&,
+                              const CSSParserContext&,
+                              CSSParserLocalContext&);
 
 bool ConsumeGapDecorationsRuleInsetCapJunctionShorthand(
     bool important,
@@ -814,6 +813,11 @@ bool ConsumeRadii(std::array<CSSValue*, 4>& horizontal_radii,
                   CSSParserTokenStream& stream,
                   const CSSParserContext& context,
                   CSSParserLocalContext& local_context);
+// Returns the pair (first radius, second radius) on success.
+std::optional<std::pair<CSSValue*, CSSValue*>>
+ConsumeBorderRadiusCornerShorthand(CSSParserTokenStream& stream,
+                                   const CSSParserContext& context,
+                                   CSSParserLocalContext& local_context);
 
 CSSValue* ConsumeTextDecorationLine(CSSParserTokenStream&);
 CSSValue* ConsumeTextDecorationSkipSpaces(CSSParserTokenStream&);

@@ -52,7 +52,6 @@ include_rules = [
   "+chrome/browser/first_run",
   "+chrome/browser/google",
   "+chrome/browser/lifetime",
-  "+chrome/browser/manta/manta_service_factory.h",
   "+chrome/browser/net",
   "+chrome/browser/policy",
   "+chrome/browser/profiles",
@@ -68,8 +67,12 @@ include_rules = [
 ]
 
 specific_include_rules = {
-  # Only tests need //chrome/browser/prefs here.
+  # Only tests need //chrome/browser/prefs here. The test also installs the
+  # production IdentityManagerProvider and the BrowserContextHelper delegate it
+  # resolves through, mirroring what ChromeBrowserMainPartsAsh and ProfileHelper
+  # set up in production.
   "user_session_manager_unittest\\.cc": [
+    "+chrome/browser/ash/browser_delegate/keyed_service_provider/identity_manager_provider_impl.h",
     "+chrome/browser/prefs/browser_prefs.h",
   ],
   "user_session_manager\\.cc": [

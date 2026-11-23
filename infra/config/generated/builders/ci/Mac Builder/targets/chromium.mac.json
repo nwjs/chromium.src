@@ -158,8 +158,7 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -1874,6 +1873,24 @@
         "test_id_prefix": "ninja://testing:test_env_py_unittests/"
       },
       {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "module_name": "//chrome/views_examples/mac/signing:views_examples_mac_signing_tests",
+        "module_scheme": "pyunit",
+        "name": "views_examples_mac_signing_tests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-13"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "views_examples_mac_signing_tests",
+        "test_id_prefix": "ninja://chrome/views_examples/mac/signing:views_examples_mac_signing_tests/"
+      },
+      {
         "args": [
           "--gtest-benchmark-name=views_perftests"
         ],
@@ -2069,8 +2086,7 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -3159,8 +3175,7 @@
         "args": [
           "--enable-features=TreesInViz",
           "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -3828,6 +3843,24 @@
         "test_id_prefix": "ninja://chrome/test:telemetry_unittests/"
       },
       {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "module_name": "//chrome/views_examples/mac/signing:views_examples_mac_signing_tests",
+        "module_scheme": "pyunit",
+        "name": "views_examples_mac_signing_tests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-14"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "views_examples_mac_signing_tests",
+        "test_id_prefix": "ninja://chrome/views_examples/mac/signing:views_examples_mac_signing_tests/"
+      },
+      {
         "args": [
           "--gtest-benchmark-name=views_perftests"
         ],
@@ -3984,8 +4017,7 @@
       },
       {
         "args": [
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -5075,8 +5107,7 @@
         "args": [
           "--enable-features=TreesInViz",
           "--test-launcher-filter-file=../../testing/buildbot/filters/trees_in_viz.blink_platform_unittests.filter",
-          "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality"
+          "--git-revision=${got_revision}"
         ],
         "isolate_profile_data": true,
         "merge": {
@@ -5742,6 +5773,24 @@
         },
         "test": "telemetry_unittests",
         "test_id_prefix": "ninja://chrome/test:telemetry_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "module_name": "//chrome/views_examples/mac/signing:views_examples_mac_signing_tests",
+        "module_scheme": "pyunit",
+        "name": "views_examples_mac_signing_tests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Mac-15"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "views_examples_mac_signing_tests",
+        "test_id_prefix": "ninja://chrome/views_examples/mac/signing:views_examples_mac_signing_tests/"
       },
       {
         "args": [

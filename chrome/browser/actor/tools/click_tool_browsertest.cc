@@ -13,6 +13,9 @@
 #include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
 #include "base/values.h"
+#include "chrome/browser/actor/actor_metrics.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
+#include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
 #include "chrome/browser/actor/tools/tool_request.h"
@@ -27,6 +30,7 @@
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -139,6 +143,19 @@ class ActorClickToolBrowserTest : public ActorToolsTest {
     ActorToolsTest::SetUpOnMainThread();
     ASSERT_TRUE(embedded_test_server()->Start());
     ASSERT_TRUE(embedded_https_test_server().Start());
+  }
+
+  void CacheDefaultModePageApc() {
+    auto options = optimization_guide::DefaultAIPageContentOptions(
+        /*on_critical_path=*/true);
+    TestFuture<optimization_guide::AIPageContentResultOrError> future;
+    optimization_guide::GetAIPageContent(web_contents(), std::move(options),
+                                         future.GetCallback());
+    optimization_guide::AIPageContentResultOrError result = future.Take();
+    ASSERT_TRUE(result.has_value());
+    auto* tab_data = ActorTabData::From(active_tab());
+    ASSERT_NE(tab_data, nullptr);
+    tab_data->DidObserveContent(result->proto, ApcSource::kGlic);
   }
 
  private:
@@ -677,6 +694,28 @@ IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest, ClickTool_SentToCoordinate) {
     // Ensure the button's event handler was invoked.
     EXPECT_EQ(true, EvalJs(web_contents(), "button_clicked"));
   }
+}
+
+// Regression test for b/554167296: when a default-mode APC (which lacks
+// actionable geometry needed for coordinate hit-testing) is cached in
+// ActorTabData, coordinate-targeted clicks should still succeed when
+// kGlicActorToctouValidation is disabled.
+IN_PROC_BROWSER_TEST_F(ActorClickToolBrowserTest,
+                       ClickTool_SentToCoordinateWithDefaultModeApc) {
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_NO_FATAL_FAILURE(CacheDefaultModePageApc());
+
+  gfx::Point click_point = gfx::ToFlooredPoint(
+      GetCenterCoordinatesOfElementWithId(web_contents(), "clickable"));
+  std::unique_ptr<ToolRequest> action =
+      MakeClickRequest(*active_tab(), click_point);
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+  ExpectOkResult(result);
+  EXPECT_EQ(true, EvalJs(web_contents(), "button_clicked"));
 }
 
 // Sending a click to a coordinate not in the viewport should fail without
@@ -1309,7 +1348,7 @@ IN_PROC_BROWSER_TEST_F(
   for (const PageTarget& target : invalid_targets) {
     SCOPED_TRACE(target.index());
     std::unique_ptr<ToolRequest> action = std::make_unique<ClickToolRequest>(
-        active_tab()->GetHandle(), target,
+        ActorSurfaceHandle::From(active_tab()->GetHandle()), target,
         mojom::ClickType::kLeftOnOccludedTarget, mojom::ClickCount::kSingle);
     ActResultFuture result;
     actor_task().Act(ToRequestList(action), result.GetCallback());
@@ -1497,8 +1536,8 @@ IN_PROC_BROWSER_TEST_F(ActorClickToolValidationBrowserTest,
   // the last snapshot.
   GetPageApc();
 
-  std::optional<int> button_id =
-      GetDOMNodeIdFromSubframe(*main_frame(), "#iframe", "button#clickable");
+  std::optional<int> button_id = GetDOMNodeIdFromLocalSubframe(
+      *main_frame(), "#iframe", "button#clickable");
   ASSERT_TRUE(button_id);
 
   std::unique_ptr<ToolRequest> action =
@@ -1547,6 +1586,46 @@ IN_PROC_BROWSER_TEST_F(ActorClickToolValidationBrowserTest,
   EXPECT_EQ(true, EvalJs(subframe, "button_clicked"));
 }
 
+IN_PROC_BROWSER_TEST_F(
+    ActorClickToolValidationBrowserTest,
+    ClickTool_SentToCoordinateWithoutPriorObservation_FailsValidation) {
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  gfx::Point click_point = gfx::ToFlooredPoint(
+      GetCenterCoordinatesOfElementWithId(web_contents(), "clickable"));
+  std::unique_ptr<ToolRequest> action =
+      MakeClickRequest(*active_tab(), click_point);
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+
+  ExpectErrorResult(
+      result, mojom::ActionResultCode::kFrameLocationChangedSinceObservation);
+  EXPECT_EQ(false, EvalJs(web_contents(), "button_clicked"));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ActorClickToolValidationBrowserTest,
+    ClickTool_SentToCoordinateWithDefaultModeApc_FailsValidation) {
+  const GURL url = embedded_https_test_server().GetURL(
+      "example.com", "/actor/page_with_clickable_element.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_NO_FATAL_FAILURE(CacheDefaultModePageApc());
+
+  gfx::Point click_point = gfx::ToFlooredPoint(
+      GetCenterCoordinatesOfElementWithId(web_contents(), "clickable"));
+  std::unique_ptr<ToolRequest> action =
+      MakeClickRequest(*active_tab(), click_point);
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(action), result.GetCallback());
+
+  ExpectErrorResult(
+      result, mojom::ActionResultCode::kFrameLocationChangedSinceObservation);
+  EXPECT_EQ(false, EvalJs(web_contents(), "button_clicked"));
+}
+
 IN_PROC_BROWSER_TEST_F(ActorClickToolValidationBrowserTest,
                        ClickTool_DirectActivation_RejectsSameProcessSubframe) {
   // Direct activation bypasses normal hit testing, so it only supports targets
@@ -1565,7 +1644,7 @@ IN_PROC_BROWSER_TEST_F(ActorClickToolValidationBrowserTest,
   ASSERT_FALSE(subframe->IsCrossProcessSubframe());
 
   std::optional<int> target_id =
-      GetDOMNodeIdFromSubframe(*main_frame(), "#iframe", "#target");
+      GetDOMNodeIdFromLocalSubframe(*main_frame(), "#iframe", "#target");
   ASSERT_TRUE(target_id);
 
   // Subframe rejection runs before APC lookup, so no snapshot is needed.

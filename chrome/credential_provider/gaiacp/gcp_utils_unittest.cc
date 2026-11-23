@@ -667,17 +667,49 @@ TEST_F(GcpUtilsSecureCreateDirectoryTest, NewDirectory) {
   EXPECT_TRUE(base::DirectoryExists(new_dir));
   EXPECT_THAT(base::GetFileDacl(new_dir),
               AllOf(StartsWith(L"D:P"), HasSubstr(L";;;BA)"),
-                    HasSubstr(L";;;SY)"), Not(HasSubstr(L";;;WD)"))));
+                    HasSubstr(L";;;SY)"), Not(HasSubstr(L";;;AU)")),
+                    Not(HasSubstr(L";;;AC)")), Not(HasSubstr(L";;;WD)"))));
+  auto sd = base::win::SecurityDescriptor::FromFile(new_dir,
+                                                    OWNER_SECURITY_INFORMATION);
+  ASSERT_TRUE(sd.has_value());
+  EXPECT_EQ(sd->owner(),
+            base::win::Sid(base::win::WellKnownSid::kBuiltinAdministrators));
+}
+
+TEST_F(GcpUtilsSecureCreateDirectoryTest, GrantReadOnChildren) {
+  base::FilePath new_dir = temp_dir_.GetPath().Append(L"ReadableChildrenDir");
+  EXPECT_FALSE(base::DirectoryExists(new_dir));
+  EXPECT_TRUE(SecureCreateDirectory(new_dir, /*grant_read_on_children=*/true));
+  EXPECT_TRUE(base::DirectoryExists(new_dir));
+  EXPECT_THAT(
+      base::GetFileDacl(new_dir),
+      AllOf(StartsWith(L"D:P"), HasSubstr(L";;;BA)"), HasSubstr(L";;;SY)"),
+            HasSubstr(L"(A;OICIIO;RCGR;;;AU)"),
+            HasSubstr(L"(A;OICIIO;RCGR;;;AC)"), Not(HasSubstr(L";;;WD)"))));
 }
 
 TEST_F(GcpUtilsSecureCreateDirectoryTest, ExistingDirectory) {
   base::FilePath existing_dir = temp_dir_.GetPath().Append(L"ExistingDir");
   EXPECT_TRUE(base::CreateDirectory(existing_dir));
   EXPECT_TRUE(base::DirectoryExists(existing_dir));
+
+  // Set the initial owner to the current user SID to simulate a pre-created
+  // directory owned by a user rather than Administrators.
+  if (auto token = base::win::AccessToken::FromCurrentProcess(); token) {
+    base::win::SecurityDescriptor user_sd;
+    user_sd.set_owner(token->User());
+    EXPECT_TRUE(user_sd.WriteToFile(existing_dir, OWNER_SECURITY_INFORMATION));
+  }
+
   EXPECT_TRUE(SecureCreateDirectory(existing_dir));
   EXPECT_THAT(base::GetFileDacl(existing_dir),
               AllOf(StartsWith(L"D:P"), HasSubstr(L";;;BA)"),
                     HasSubstr(L";;;SY)"), Not(HasSubstr(L";;;WD)"))));
+  auto sd = base::win::SecurityDescriptor::FromFile(existing_dir,
+                                                    OWNER_SECURITY_INFORMATION);
+  ASSERT_TRUE(sd.has_value());
+  EXPECT_EQ(sd->owner(),
+            base::win::Sid(base::win::WellKnownSid::kBuiltinAdministrators));
 }
 
 TEST_F(GcpUtilsSecureCreateDirectoryTest,
@@ -716,6 +748,27 @@ TEST_F(GcpUtilsSecureCreateDirectoryTest, FailOnReparsePoint) {
     // reject it.
     EXPECT_FALSE(SecureCreateDirectory(link_dir));
   }
+}
+
+TEST_F(GcpUtilsSecureCreateDirectoryTest, SecureCreateFile) {
+  base::FilePath file_path = temp_dir_.GetPath().Append(L"test_file.txt");
+  EXPECT_TRUE(SecureCreateFile(file_path, "initial long content"));
+  std::string content;
+  EXPECT_TRUE(base::ReadFileToString(file_path, &content));
+  EXPECT_EQ("initial long content", content);
+
+  // Overwriting with shorter data must truncate the file.
+  EXPECT_TRUE(SecureCreateFile(file_path, "short"));
+  EXPECT_TRUE(base::ReadFileToString(file_path, &content));
+  EXPECT_EQ("short", content);
+
+  // Hardlink must be rejected without modifying the original file.
+  base::FilePath hardlink_path = temp_dir_.GetPath().Append(L"hardlink.txt");
+  ASSERT_TRUE(::CreateHardLinkW(hardlink_path.value().c_str(),
+                                file_path.value().c_str(), nullptr));
+  EXPECT_FALSE(SecureCreateFile(hardlink_path, "overwritten"));
+  EXPECT_TRUE(base::ReadFileToString(file_path, &content));
+  EXPECT_EQ("short", content);
 }
 
 class GcpRegUtilsTest : public ::testing::Test {

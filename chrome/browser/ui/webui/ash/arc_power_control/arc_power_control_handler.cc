@@ -16,11 +16,10 @@
 #include "chrome/browser/ash/arc/tracing/arc_tracing_model.h"
 #include "chrome/browser/ash/arc/tracing/arc_value_event_trimmer.h"
 #include "chrome/browser/ash/arc/tracing/present_frames_tracer.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/ash/experiences/arc/mojom/power.mojom.h"
 #include "chromeos/ash/experiences/arc/session/arc_bridge_service.h"
 #include "chromeos/ash/experiences/arc/session/arc_service_manager.h"
+#include "content/public/browser/browser_context.h"
 
 namespace ash {
 
@@ -67,7 +66,7 @@ base::Value BuildTracingModel(
     std::unique_ptr<arc::ArcSystemStatCollector> system_stat_collector,
     ArcPowerControlHandler::WakefulnessModeEvents wakefulness_mode_events,
     ArcPowerControlHandler::ThrottlingEvents throttling_events) {
-  DCHECK(system_stat_collector);
+  CHECK(system_stat_collector, base::NotFatalUntil::M162);
 
   arc::ArcTracingModel common_model;
   const base::TimeTicks time_min_clamped =
@@ -110,13 +109,13 @@ base::Value BuildTracingModel(
 
 }  // namespace
 
-ArcPowerControlHandler::ArcPowerControlHandler()
-    : power_bridge_(arc::ArcPowerBridge::GetForBrowserContext(
-          ProfileManager::GetActiveUserProfile())),
-      instance_throttle_(arc::ArcInstanceThrottle::GetForBrowserContext(
-          ProfileManager::GetActiveUserProfile())) {
-  DCHECK(power_bridge_);
-  DCHECK(instance_throttle_);
+ArcPowerControlHandler::ArcPowerControlHandler(
+    content::BrowserContext* browser_context)
+    : power_bridge_(arc::ArcPowerBridge::GetForBrowserContext(browser_context)),
+      instance_throttle_(
+          arc::ArcInstanceThrottle::GetForBrowserContext(browser_context)) {
+  CHECK(power_bridge_, base::NotFatalUntil::M162);
+  CHECK(instance_throttle_, base::NotFatalUntil::M162);
   power_bridge_->AddObserver(this);
   instance_throttle_->AddServiceObserver(this);
 }
@@ -201,7 +200,7 @@ void ArcPowerControlHandler::HandleReady(const base::ListValue& args) {
 
 void ArcPowerControlHandler::HandleSetWakefulnessMode(
     const base::ListValue& args) {
-  DCHECK_EQ(1U, args.size());
+  CHECK_EQ(1U, args.size(), base::NotFatalUntil::M162);
 
   if (!power_control_enabled_) {
     LOG(ERROR) << "Power control is not enabled";
@@ -215,7 +214,7 @@ void ArcPowerControlHandler::HandleSetWakefulnessMode(
 
   auto* const power =
       arc::ArcServiceManager::Get()->arc_bridge_service()->power();
-  DCHECK(power);
+  CHECK(power, base::NotFatalUntil::M162);
 
   const std::string mode = args[0].GetString();
   if (mode == kWakenessfullWakeUp) {
@@ -256,7 +255,7 @@ void ArcPowerControlHandler::HandleSetWakefulnessMode(
 }
 
 void ArcPowerControlHandler::HandleSetThrottling(const base::ListValue& args) {
-  DCHECK_EQ(1U, args.size());
+  CHECK_EQ(1U, args.size(), base::NotFatalUntil::M162);
 
   if (!power_control_enabled_) {
     LOG(ERROR) << "Power control is not enabled";
@@ -293,12 +292,12 @@ void ArcPowerControlHandler::HandleSetThrottling(const base::ListValue& args) {
 }
 
 void ArcPowerControlHandler::HandleStartTracing(const base::ListValue& args) {
-  DCHECK(!args.size());
+  CHECK(!args.size(), base::NotFatalUntil::M162);
   StartTracing();
 }
 
 void ArcPowerControlHandler::HandleStopTracing(const base::ListValue& args) {
-  DCHECK(!args.size());
+  CHECK(!args.size(), base::NotFatalUntil::M162);
   StopTracing();
 }
 

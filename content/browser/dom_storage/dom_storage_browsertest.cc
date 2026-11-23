@@ -52,6 +52,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/schemeful_site.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/dom_storage/storage_area.mojom.h"
 #include "url/origin.h"
@@ -192,8 +193,7 @@ class DOMStorageBrowserTest : public base::test::WithFeatureOverride,
   }
 
   std::string CreateSessionStorageNamespace() {
-    std::string namespace_id =
-        base::Uuid::GenerateRandomV4().AsLowercaseString();
+    std::string namespace_id = blink::AllocateSessionStorageNamespaceId();
     context_wrapper()->GetSessionStorageControl()->CreateNamespace(
         namespace_id);
     return namespace_id;
@@ -507,8 +507,14 @@ IN_PROC_BROWSER_TEST_P(DOMStorageBrowserTest, SessionStorageOnDiskSize) {
 IN_PROC_BROWSER_TEST_P(DOMStorageBrowserTest, MAYBE_DeletePhysicalStorageKey) {
   EXPECT_EQ(0U, GetUsage().size());
   SimpleTest(GetTestUrl("dom_storage", "store_data.html"), kNotIncognito);
-  std::vector<StorageUsageInfo> usage = GetUsage();
-  ASSERT_EQ(1U, usage.size());
+  // The page's writes reach the storage service asynchronously. An area that
+  // is still loading can appear in the usage list with zero bytes, so wait for
+  // nonzero usage before deleting it.
+  std::vector<StorageUsageInfo> usage;
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    usage = GetUsage();
+    return usage.size() == 1U && usage[0].total_size_bytes > 0;
+  }));
   DeletePhysicalStorageKey(usage[0].storage_key);
   EXPECT_EQ(0U, GetUsage().size());
 }

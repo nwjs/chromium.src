@@ -172,18 +172,6 @@ void ReloadButton::ShowDropDownMenu(ui::mojom::MenuSourceType source_type) {
   ChangeMode(intended_mode_, true);
 }
 
-bool ReloadButton::IsCommandIdChecked(int command_id) const {
-  return false;
-}
-
-bool ReloadButton::IsCommandIdEnabled(int command_id) const {
-  return true;
-}
-
-bool ReloadButton::IsCommandIdVisible(int command_id) const {
-  return true;
-}
-
 bool ReloadButton::GetAcceleratorForCommandId(
     int command_id,
     ui::Accelerator* accelerator) const {
@@ -330,7 +318,7 @@ void ReloadButton::ButtonPressed(const ui::Event& event) {
   if (visible_mode_ == Mode::kStop) {
     if (command_updater_) {
       command_updater_->ExecuteCommandWithDisposition(
-          IDC_STOP, WindowOpenDisposition::CURRENT_TAB);
+          IDC_STOP, WindowOpenDisposition::kCurrentTab);
     }
     // The user has clicked, so we can feel free to update the button, even if
     // the mouse is still hovering.

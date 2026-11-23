@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/animation/browser_animation_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
@@ -28,6 +29,7 @@
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state.h"
 #include "chrome/browser/ui/views/animations/tab_strip_animations.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/tabs/common/root_tab_collection_node.h"
@@ -36,6 +38,7 @@
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view_horizontal_layout.h"
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_bubble_view.h"
+#include "chrome/browser/ui/views/tabs/tab/glow_hover_controller.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_title.h"
@@ -55,10 +58,14 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/compositor/layer.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/test/event_generator.h"
+#include "ui/gfx/animation/animation_test_api.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/button/button_controller.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/test/mock_activation_controller.h"
 #include "ui/views/widget/widget_utils.h"
 
@@ -138,6 +145,18 @@ class TabViewTest : public VerticalTabsBrowserTestMixin<InProcessBrowserTest> {
     VerticalTabsBrowserTestMixin<InProcessBrowserTest>::SetUp();
   }
 
+  void SetUpOnMainThread() override {
+    VerticalTabsBrowserTestMixin<InProcessBrowserTest>::SetUpOnMainThread();
+#if BUILDFLAG(IS_MAC)
+    // MockActivationController bypasses NativeWidgetMacNSWindowHost, preventing
+    // InProcessBrowserTest's ScopedFakeFullKeyboardAccess from propagating to
+    // FocusManager.
+    BrowserView::GetBrowserViewForBrowser(browser())
+        ->GetFocusManager()
+        ->SetKeyboardAccessible(true);
+#endif
+  }
+
   void TearDownOnMainThread() override {
 #if defined(USE_MOCK_ACTIVATION_CONTROLLER)
     activation_controller_.reset();
@@ -161,6 +180,28 @@ class TabViewTest : public VerticalTabsBrowserTestMixin<InProcessBrowserTest> {
     }
     return views::AsViewClass<TabView>(
         region_view->GetTabAnchorView(tab->GetHandle()));
+  }
+
+  void ResetTabHoverStates() {
+    for (int i = 0; i < tab_strip_model()->count(); ++i) {
+      if (TabView* tab_view = GetTabView(i)) {
+        tab_view->UpdateHovered(false);
+        if (GlowHoverController* hover_controller =
+                tab_view->GetHoverControllerForTesting()) {
+          hover_controller->Hide(TabStyle::HideHoverStyle::kImmediate);
+        }
+      }
+    }
+  }
+
+  void AppendTab() {
+    VerticalTabsBrowserTestMixin<InProcessBrowserTest>::AppendTab();
+    ResetTabHoverStates();
+  }
+
+  void AppendPinnedTab() {
+    VerticalTabsBrowserTestMixin<InProcessBrowserTest>::AppendPinnedTab();
+    ResetTabHoverStates();
   }
 
  private:
@@ -192,7 +233,7 @@ IN_PROC_BROWSER_TEST_F(TabViewTest, IconDataChanged) {
   browser()->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
           embedded_test_server()->GetURL("/title1.html"),
-          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK),
+          WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_LINK),
       base::DoNothing());
   run_loop.Run();
   EXPECT_TRUE(icon->GetShowingLoadingAnimation());
@@ -1143,6 +1184,73 @@ IN_PROC_BROWSER_TEST_F(TabViewTest,
   EXPECT_TRUE(tab_view_2->HasFocus());
 }
 
+IN_PROC_BROWSER_TEST_F(TabViewTest,
+                       KeyboardExtendTabSelection_PreservesPaneFocus) {
+  AppendTab();
+  tab_strip_model()->ActivateTabAt(0);
+
+  TabStripRegionView* region_view =
+      BrowserView::GetBrowserViewForBrowser(browser())->tab_strip_view();
+  views::View* tab_view_0 = GetTabView(0);
+  views::View* tab_view_1 = GetTabView(1);
+  ASSERT_TRUE(tab_view_0);
+  ASSERT_TRUE(tab_view_1);
+
+  region_view->RequestFocus();
+  ASSERT_TRUE(tab_view_0->HasFocus());
+  ASSERT_TRUE(region_view->pane_has_focus());
+
+  ui::KeyEvent shift_down(ui::EventType::kKeyPressed, ui::VKEY_DOWN,
+                          ui::EF_SHIFT_DOWN);
+  EXPECT_TRUE(tab_view_0->OnKeyPressed(shift_down));
+  EXPECT_TRUE(tab_strip_model()->IsTabSelected(0));
+  EXPECT_TRUE(tab_strip_model()->IsTabSelected(1));
+  EXPECT_TRUE(tab_view_1->HasFocus());
+  EXPECT_TRUE(region_view->pane_has_focus());
+}
+
+IN_PROC_BROWSER_TEST_F(TabViewTest,
+                       PinnedSplitTabUnsplitUpdatesLayerRoundedCorners) {
+  const gfx::AnimationTestApi::RenderModeResetter enable_rich_animations =
+      gfx::AnimationTestApi::SetRichAnimationRenderMode(
+          gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED);
+
+  AppendPinnedTab();
+  AppendPinnedTab();
+  tab_strip_model()->ActivateTabAt(0);
+  tab_strip_model()->AddToNewSplit(
+      {1}, {}, split_tabs::SplitTabCreatedSource::kTabContextMenu);
+
+  auto* layout_manager = static_cast<TabCollectionAnimatingLayoutManager*>(
+      pinned_collection_node()->view()->GetLayoutManager());
+  RunScheduledLayouts();
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return !layout_manager->is_animating(); }));
+
+  TabView* remaining_tab = GetTabView(0);
+  ASSERT_TRUE(remaining_tab);
+  EXPECT_TRUE(remaining_tab->pinned());
+  EXPECT_TRUE(remaining_tab->split());
+  EXPECT_FALSE(remaining_tab->GetBoundsInScreen().IsEmpty());
+
+  // Closing one tab in the pinned split reparents the remaining tab back to the
+  // pinned container with a layer for the animation. Its layer corner radius
+  // and clip path should reflect the non-split pinned vertical tab corner
+  // radius.
+  tab_strip_model()->CloseWebContentsAt(1, TabCloseTypes::CLOSE_USER_GESTURE);
+  EXPECT_FALSE(remaining_tab->split());
+  EXPECT_EQ(remaining_tab->clip_path(), remaining_tab->GetPath());
+  ASSERT_NE(remaining_tab->layer(), nullptr);
+  EXPECT_EQ(remaining_tab->layer()->rounded_corner_radii(),
+            gfx::RoundedCornersF(
+                GetLayoutConstant(LayoutConstant::kVerticalTabCornerRadius)));
+
+  RunScheduledLayouts();
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return !layout_manager->is_animating(); }));
+  EXPECT_EQ(remaining_tab->layer(), nullptr);
+}
+
 class HorizontalTabViewTest : public TabViewTest {
  public:
   const std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures()
@@ -1154,8 +1262,9 @@ class HorizontalTabViewTest : public TabViewTest {
   }
 
   void SetUpOnMainThread() override {
-    VerticalTabsBrowserTestMixin<InProcessBrowserTest>::SetUpOnMainThread();
+    TabViewTest::SetUpOnMainThread();
     ExitVerticalTabsMode();
+    ResetTabHoverStates();
   }
 };
 
@@ -1204,12 +1313,7 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabViewTest, TitleAnimation) {
   }));
 }
 
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_HorizontalSeparators DISABLED_HorizontalSeparators
-#else
-#define MAYBE_HorizontalSeparators HorizontalSeparators
-#endif
-IN_PROC_BROWSER_TEST_F(HorizontalTabViewTest, MAYBE_HorizontalSeparators) {
+IN_PROC_BROWSER_TEST_F(HorizontalTabViewTest, HorizontalSeparators) {
   AppendTab();
   AppendTab();
   AppendTab();
@@ -1385,6 +1489,41 @@ IN_PROC_BROWSER_TEST_F(HorizontalTabViewTest, KeyboardExtendTabSelection_RTL) {
   EXPECT_TRUE(tab_1->HasFocus());
   EXPECT_EQ(
       2, user_action_tester.GetActionCount("TabMultiSelect_ExtendSelectionTo"));
+}
+
+IN_PROC_BROWSER_TEST_F(HorizontalTabViewTest,
+                       UnsplitTabAnimationDoesNotSetLayerRoundedCorners) {
+  const gfx::AnimationTestApi::RenderModeResetter enable_rich_animations =
+      gfx::AnimationTestApi::SetRichAnimationRenderMode(
+          gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED);
+
+  AppendSplitTab();
+
+  auto* layout_manager = static_cast<TabCollectionAnimatingLayoutManager*>(
+      unpinned_collection_node()->view()->GetLayoutManager());
+  RunScheduledLayouts();
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return !layout_manager->is_animating(); }));
+
+  TabView* remaining_tab = GetTabView(1);
+  ASSERT_TRUE(remaining_tab);
+  EXPECT_TRUE(remaining_tab->split());
+  EXPECT_FALSE(remaining_tab->GetBoundsInScreen().IsEmpty());
+  EXPECT_EQ(remaining_tab->layer(), nullptr);
+
+  // Closing the right tab in the split reparents the remaining tab back to the
+  // unpinned container with a layer for the animation. Horizontal tabs must not
+  // apply vertical tab rounded corners to their layer, as doing so clips the
+  // outward-flaring bottom corners of the horizontal tab shape.
+  tab_strip_model()->CloseWebContentsAt(2, TabCloseTypes::CLOSE_USER_GESTURE);
+  EXPECT_FALSE(remaining_tab->split());
+  ASSERT_NE(remaining_tab->layer(), nullptr);
+  EXPECT_TRUE(remaining_tab->layer()->rounded_corner_radii().IsEmpty());
+
+  RunScheduledLayouts();
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return !layout_manager->is_animating(); }));
+  EXPECT_EQ(remaining_tab->layer(), nullptr);
 }
 
 class HorizontalTabViewPinnedStylingEnabledTest : public HorizontalTabViewTest {

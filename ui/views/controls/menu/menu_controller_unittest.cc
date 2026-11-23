@@ -80,7 +80,9 @@
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/window.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
+#include "ui/events/gesture_detection/gesture_configuration.h"
 #include "ui/views/controls/menu/menu_pre_target_handler.h"
+#include "ui/views/rect_based_targeting_utils.h"
 #endif
 
 
@@ -376,11 +378,14 @@ class MenuControllerTest : public ViewsTestBase,
                             bool control_or_command,
                             bool caps_lock);
 
-  gfx::Rect CalculateMenuBounds(const MenuBoundsOptions& options);
+  gfx::Rect CalculateMenuBounds(const MenuBoundsOptions& options,
+                                MenuItemView* menu_item = nullptr,
+                                ui::OwnedWindowAnchor* anchor_out = nullptr);
 
   gfx::Rect CalculateBubbleMenuBoundsWithoutInsets(
       const MenuBoundsOptions& options,
-      MenuItemView* menu_item = nullptr);
+      MenuItemView* menu_item = nullptr,
+      ui::OwnedWindowAnchor* anchor_out = nullptr);
 
   MenuItemView::MenuPosition menu_item_actual_position() const {
     return menu_item_->actual_menu_position();
@@ -700,18 +705,28 @@ void MenuControllerTest::DispatchKeyWithFlags(ui::KeyboardCode key_code,
 }
 
 gfx::Rect MenuControllerTest::CalculateMenuBounds(
-    const MenuBoundsOptions& options) {
-  SetUpMenuControllerForCalculateBounds(options, menu_item_.get());
+    const MenuBoundsOptions& options,
+    MenuItemView* menu_item,
+    ui::OwnedWindowAnchor* anchor_out) {
+  if (!menu_item) {
+    menu_item = menu_item_.get();
+  }
+  SetUpMenuControllerForCalculateBounds(options, menu_item);
   MenuController::MenuOpenDirection resulting_direction;
   ui::OwnedWindowAnchor anchor;
-  return menu_controller_->CalculateMenuBounds(
-      menu_item_.get(), MenuController::MenuOpenDirection::kLeading,
+  const gfx::Rect bounds = menu_controller_->CalculateMenuBounds(
+      menu_item, MenuController::MenuOpenDirection::kLeading,
       &resulting_direction, &anchor);
+  if (anchor_out) {
+    *anchor_out = anchor;
+  }
+  return bounds;
 }
 
 gfx::Rect MenuControllerTest::CalculateBubbleMenuBoundsWithoutInsets(
     const MenuBoundsOptions& options,
-    MenuItemView* menu_item) {
+    MenuItemView* menu_item,
+    ui::OwnedWindowAnchor* anchor_out) {
   if (!menu_item) {
     menu_item = menu_item_.get();
   }
@@ -724,6 +739,9 @@ gfx::Rect MenuControllerTest::CalculateBubbleMenuBoundsWithoutInsets(
   bounds.Inset(menu_item->GetSubmenu()
                    ->GetScrollViewContainer()
                    ->outside_border_insets());
+  if (anchor_out) {
+    *anchor_out = anchor;
+  }
   return bounds;
 }
 
@@ -733,6 +751,7 @@ gfx::Rect MenuControllerTest::CalculateExpectedMenuAnchorRect(
     return menu_controller_->state_.initial_bounds;
   }
   gfx::Rect bounds = menu_item->GetBoundsInScreen();
+  bounds.Inset(menu_item->GetHighlightInsets());
   bounds.set_height(1);
   return bounds;
 }
@@ -1231,6 +1250,89 @@ TEST_F(MenuControllerTest, InitialSelectedItem) {
   check_has_command(FindInitialSelectableMenuItemDown(menu_item()), 2);
   // The last selectable item should be item "Two".
   check_has_command(FindInitialSelectableMenuItemUp(menu_item()), 2);
+}
+
+// Tests that disabled titles (section headers) are only traversable by
+// keyboard when a screen reader is active, whereas other disabled items are
+// traversable whenever native accessibility APIs are in use.
+TEST_F(MenuControllerTest, DisabledTitleTraversableOnlyWithScreenReader) {
+  CreateMenu();
+  // The title is appended after item "Four".
+  MenuItemView* const title = menu_item()->AppendTitle(u"Title");
+  title->SetEnabled(false);
+  MenuItemView* const disabled_item =
+      menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  disabled_item->SetEnabled(false);
+
+  // Without assistive technology, neither is traversable.
+  EXPECT_FALSE(title->IsTraversableByKeyboard());
+  EXPECT_FALSE(disabled_item->IsTraversableByKeyboard());
+  EXPECT_EQ(4, FindInitialSelectableMenuItemUp(menu_item())->GetCommand());
+
+  {
+    // With native accessibility APIs but no screen reader (common on Windows),
+    // the disabled item is traversable but the title is not.
+    const ui::ScopedAXModeSetter ax_mode_setter(ui::AXMode::kNativeAPIs);
+    EXPECT_FALSE(title->IsTraversableByKeyboard());
+    EXPECT_TRUE(disabled_item->IsTraversableByKeyboard());
+    EXPECT_EQ(4, FindInitialSelectableMenuItemUp(menu_item())->GetCommand());
+  }
+
+  {
+    // With a screen reader, both are traversable.
+    const ui::ScopedAXModeSetter ax_mode_setter(
+        ui::AXMode(ui::AXMode::kNativeAPIs | ui::AXMode::kScreenReader));
+    EXPECT_TRUE(title->IsTraversableByKeyboard());
+    EXPECT_TRUE(disabled_item->IsTraversableByKeyboard());
+    EXPECT_EQ(title, FindInitialSelectableMenuItemUp(menu_item()));
+  }
+
+  {
+    // ChromeOS can set kScreenReader without kNativeAPIs. The title is
+    // traversable, while other disabled items still depend on kNativeAPIs.
+    const ui::ScopedAXModeSetter ax_mode_setter(ui::AXMode::kScreenReader);
+    EXPECT_TRUE(title->IsTraversableByKeyboard());
+    EXPECT_FALSE(disabled_item->IsTraversableByKeyboard());
+  }
+}
+
+// Tests that accessibility indices of a disabled title match its keyboard
+// traversability, i.e. it is only counted when a screen reader is active.
+TEST_F(MenuControllerTest, AccessibilityDisabledTitleIndices) {
+  CreateMenu();
+  MenuItemView* const title = menu_item()->AppendTitle(u"Title");
+  title->SetEnabled(false);
+  const MenuItemView* const first_item =
+      menu_item()->GetSubmenu()->GetMenuItemAt(0);
+  ui::AXNodeData data;
+
+  {
+    const ui::ScopedAXModeSetter ax_mode_setter(ui::AXMode::kNativeAPIs);
+    OpenMenu(menu_item());
+
+    title->GetViewAccessibility().GetAccessibleNodeData(&data);
+    EXPECT_FALSE(data.HasIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+    data = ui::AXNodeData();
+    first_item->GetViewAccessibility().GetAccessibleNodeData(&data);
+    EXPECT_EQ(1, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+    EXPECT_EQ(4, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+  }
+
+  {
+    const ui::ScopedAXModeSetter ax_mode_setter(
+        ui::AXMode(ui::AXMode::kNativeAPIs | ui::AXMode::kScreenReader));
+    // Recompute the indices under the new mode.
+    MenuChildrenChanged(menu_item());
+
+    data = ui::AXNodeData();
+    title->GetViewAccessibility().GetAccessibleNodeData(&data);
+    EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+    EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+    data = ui::AXNodeData();
+    first_item->GetViewAccessibility().GetAccessibleNodeData(&data);
+    EXPECT_EQ(1, data.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
+    EXPECT_EQ(5, data.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
+  }
 }
 
 // Verifies that the scroll arrow is shown when the menu content
@@ -2609,6 +2711,76 @@ TEST_P(MenuControllerTest, TestSubmenuFitsOnScreen) {
   }
 }
 
+// Test that submenus are anchored to the parent item's highlight (rather than
+// its full bounds) so the hover states of the parent item and the submenu abut.
+TEST_P(MenuControllerTest, SubmenuAnchoredToParentItemHighlight) {
+  CreateMenu();
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  const std::vector<MenuItemView*> menu_items = submenu->GetMenuItems();
+  std::ranges::for_each(base::span(menu_items).subspan<1>(),
+                        [&](auto* item) { menu_item()->RemoveMenuItem(item); });
+  MenuItemView* const sub_item = submenu->GetMenuItemAt(0);
+  sub_item->AppendMenuItem(11, u"Subitem.One");
+
+  // Put the parent menu onscreen, far from the monitor edges so the submenu
+  // never flips sides, so that `sub_item` has valid screen bounds.
+  const gfx::Rect parent_bounds(900, 100, 200, 40);
+  ShowSubmenu(submenu, [&](auto& params) {
+    params.bounds = parent_bounds;
+    params.bounds.Inset(-submenu->GetScrollViewContainer()->GetInsets());
+  });
+
+  const MenuBoundsOptions options = {
+      .monitor_bounds = gfx::Rect(0, 0, 2000, 2000),
+      .menu_size = GetPreferredSizeForSubmenu(*sub_item->GetSubmenu())};
+
+  ui::OwnedWindowAnchor anchor;
+  const gfx::Rect bubble_bounds_without_background =
+      CalculateBubbleMenuBoundsWithoutInsets(options, sub_item);
+  const gfx::Rect bounds_without_background =
+      CalculateMenuBounds(options, sub_item);
+
+  constexpr int kHorizontalMargin = 12;
+  constexpr int kTopPadding = 4;
+  MenuItemView::MenuItemBackground background(
+      ui::kColorMenuBackground, /*top_radius=*/0, /*bottom_radius=*/0,
+      kHorizontalMargin);
+  background.top_padding = kTopPadding;
+  sub_item->SetMenuItemBackground(background);
+  EXPECT_EQ(
+      sub_item->GetHighlightInsets(),
+      gfx::Insets::TLBR(kTopPadding, kHorizontalMargin, 0, kHorizontalMargin));
+
+  // The submenu opens towards the trailing side: right in LTR, left in RTL. In
+  // either case, it moves towards the parent by the highlight's horizontal
+  // inset, and down by the highlight's top inset.
+  const int expected_dx =
+      base::i18n::IsRTL() ? kHorizontalMargin : -kHorizontalMargin;
+
+  const gfx::Rect bubble_bounds_with_background =
+      CalculateBubbleMenuBoundsWithoutInsets(options, sub_item, &anchor);
+  EXPECT_EQ(bubble_bounds_with_background.x(),
+            bubble_bounds_without_background.x() + expected_dx);
+  EXPECT_EQ(bubble_bounds_with_background.y(),
+            bubble_bounds_without_background.y() + kTopPadding);
+  EXPECT_EQ(anchor.anchor_rect, CalculateExpectedMenuAnchorRect(sub_item));
+  const gfx::Rect item_bounds = sub_item->GetBoundsInScreen();
+  EXPECT_EQ(anchor.anchor_rect,
+            gfx::Rect(item_bounds.x() + kHorizontalMargin,
+                      item_bounds.y() + kTopPadding,
+                      item_bounds.width() - 2 * kHorizontalMargin, 1));
+
+  const gfx::Rect bounds_with_background =
+      CalculateMenuBounds(options, sub_item, &anchor);
+  EXPECT_EQ(bounds_with_background.x(),
+            bounds_without_background.x() + expected_dx);
+  EXPECT_EQ(bounds_with_background.y(),
+            bounds_without_background.y() + kTopPadding);
+  EXPECT_EQ(anchor.anchor_rect, CalculateExpectedMenuAnchorRect(sub_item));
+
+  submenu->Close();
+}
+
 // Test that a menu that was originally drawn below the anchor does not get
 // squished or move above the anchor when it grows vertically and horizontally
 // beyond the monitor bounds.
@@ -3217,6 +3389,176 @@ TEST_F(MenuControllerTest, RegisterClickWithChildViews) {
   DestroyMenuControllerDelegate();
 }
 
+// Gesture twin of RegisterClickWithChildViews: a tap on an item with child
+// views activates it only when the item opts in, exactly like a click.
+TEST_F(MenuControllerTest, RegisterGestureTapWithChildViews) {
+  CreateMenu();
+  DestroyMenuControllerOnMenuClosed(menu_controller_delegate());
+  ShowSubmenu();
+  SubmenuView* submenu = menu_item()->GetSubmenu();
+  MenuItemView* first_menu_item = submenu->GetMenuItemAt(0);
+  first_menu_item->AddChildView(std::make_unique<View>());
+  const gfx::Point location = first_menu_item->bounds().CenterPoint();
+
+  ProcessGestureEvent(
+      submenu,
+      ui::GestureEvent(location.x(), location.y(), 0, ui::EventTimeForNow(),
+                       ui::GestureEventDetails(ui::EventType::kGestureTap)));
+  EXPECT_EQ(menu_controller_delegate()->on_menu_closed_called(), 0);
+
+  first_menu_item->SetTriggerActionWithNonIconChildViews(true);
+  ProcessGestureEvent(
+      submenu,
+      ui::GestureEvent(location.x(), location.y(), 0, ui::EventTimeForNow(),
+                       ui::GestureEventDetails(ui::EventType::kGestureTap)));
+  EXPECT_EQ(menu_controller_delegate()->on_menu_closed_called(), 1);
+  DestroyMenuControllerDelegate();
+}
+
+namespace {
+
+// A small row decoration, such as an icon: targetable, but ignores gestures.
+class GestureCountingView : public View {
+  METADATA_HEADER(GestureCountingView, View)
+
+ public:
+  int gesture_count() const { return gesture_count_; }
+
+  // View:
+  void OnGestureEvent(ui::GestureEvent* event) override { ++gesture_count_; }
+
+ private:
+  int gesture_count_ = 0;
+};
+
+BEGIN_METADATA(GestureCountingView)
+END_METADATA
+
+struct DecorationAboveButton {
+  raw_ptr<GestureCountingView> decoration;
+  raw_ptr<LabelButton> button;
+};
+
+// Puts a 16x16 decoration at the bottom edge of `upper` and a button that fills
+// `lower`, the item right below it. Each press of the button increments
+// `clicks`.
+DecorationAboveButton AddDecorationAboveButton(MenuItemView* upper,
+                                               MenuItemView* lower,
+                                               int* clicks) {
+  upper->SetTitle(std::u16string());
+  View* upper_row = upper->AddChildView(std::make_unique<View>());
+  upper_row->SetPreferredSize(gfx::Size(200, 30));
+  auto* decoration =
+      upper_row->AddChildView(std::make_unique<GestureCountingView>());
+  decoration->SetBounds(10, 14, 16, 16);
+
+  lower->SetTitle(std::u16string());
+  View* lower_row = lower->AddChildView(std::make_unique<View>());
+  lower_row->SetPreferredSize(gfx::Size(200, 30));
+  auto* button = lower_row->AddChildView(std::make_unique<LabelButton>(
+      base::BindRepeating([](int* clicks) { ++*clicks; }, clicks), u"Button"));
+  button->SetBounds(0, 0, 200, 30);
+  return {decoration, button};
+}
+
+// A point inside `button`, just below its top edge, under `decoration`'s
+// column.
+gfx::Point PointNearTopOfButton(const DecorationAboveButton& views) {
+  return gfx::Point(views.decoration->bounds().CenterPoint().x(), 2);
+}
+
+// A 50x50 finger box centered on `point` in root view coordinates, the size
+// Aura gives a touch without a radius.
+gfx::Rect FingerBoxAt(const gfx::Point& point) {
+  gfx::Rect box(point, gfx::Size());
+  box.Outset(25);
+  return box;
+}
+
+}  // namespace
+
+// A finger tap goes to the view under the tap point, like a mouse click, even
+// when the finger box covers a small view in the row above. Otherwise that
+// view, which ignores the tap, steals it, and the controller only sees the
+// container row of the button.
+TEST_F(MenuControllerTest, GestureTapWithFingerBoxTargetsViewUnderPoint) {
+  CreateMenu();
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  int clicks = 0;
+  const DecorationAboveButton views = AddDecorationAboveButton(
+      submenu->GetMenuItemAt(0), submenu->GetMenuItemAt(1), &clicks);
+  ShowSubmenu();
+  Widget* const widget = submenu->GetWidget();
+  widget->LayoutRootViewIfNecessary();
+
+  const gfx::Point point = View::ConvertPointToTarget(
+      views.button, widget->GetRootView(), PointNearTopOfButton(views));
+  const gfx::Rect finger_box = FingerBoxAt(point);
+  // The decoration is mostly inside the finger box, which makes it a
+  // candidate for rect-based targeting.
+  ASSERT_GE(PercentCoveredBy(views.decoration->ConvertRectToWidget(
+                                 views.decoration->GetLocalBounds()),
+                             finger_box),
+            0.6f);
+
+  for (const ui::EventType type :
+       {ui::EventType::kGestureTapDown, ui::EventType::kGestureTap}) {
+    ui::GestureEventDetails details(type);
+    details.set_bounding_box(gfx::RectF(finger_box));
+    ui::GestureEvent event(point.x(), point.y(), ui::EF_NONE,
+                           ui::EventTimeForNow(), details);
+    widget->OnGestureEvent(&event);
+  }
+
+  EXPECT_EQ(clicks, 1);
+  EXPECT_EQ(views.decoration->gesture_count(), 0);
+}
+
+// Same as GestureTapWithFingerBoxTargetsViewUnderPoint, but with real touch
+// events and a touch radius, through the gesture recognizer.
+TEST_F(MenuControllerTest, TouchTapWithRadiusTargetsViewUnderPoint) {
+  CreateMenu();
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  int clicks = 0;
+  const DecorationAboveButton views = AddDecorationAboveButton(
+      submenu->GetMenuItemAt(0), submenu->GetMenuItemAt(1), &clicks);
+  ShowSubmenu();
+  submenu->GetWidget()->LayoutRootViewIfNecessary();
+  ui::GestureConfiguration* const gesture_config =
+      ui::GestureConfiguration::GetInstance();
+  const float old_default_radius = gesture_config->default_radius();
+  gesture_config->set_default_radius(25);
+
+  gfx::Point point = PointNearTopOfButton(views);
+  View::ConvertPointToScreen(views.button, &point);
+  event_generator()->SetTouchRadius(25, 25);
+  event_generator()->PressTouch(point);
+  event_generator()->ReleaseTouch();
+  gesture_config->set_default_radius(old_default_radius);
+
+  EXPECT_EQ(clicks, 1);
+  EXPECT_EQ(views.decoration->gesture_count(), 0);
+}
+
+// Mouse twin of the tests above. Mouse targeting is point-based, so this
+// passes with or without rect-based gesture targeting.
+TEST_F(MenuControllerTest, ClickNearTopOfButtonUnderDecorationPressesButton) {
+  CreateMenu();
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  int clicks = 0;
+  const DecorationAboveButton views = AddDecorationAboveButton(
+      submenu->GetMenuItemAt(0), submenu->GetMenuItemAt(1), &clicks);
+  ShowSubmenu();
+  submenu->GetWidget()->LayoutRootViewIfNecessary();
+
+  gfx::Point point = PointNearTopOfButton(views);
+  View::ConvertPointToScreen(views.button, &point);
+  event_generator()->MoveMouseTo(point);
+  event_generator()->ClickLeftButton();
+
+  EXPECT_EQ(clicks, 1);
+}
+
 #endif  // defined(USE_AURA)
 
 // Tests that having the MenuController deleted during OnMousePressed does not
@@ -3428,6 +3770,79 @@ TEST_F(MenuControllerTest,
   // first SetSelection() clears the hot-tracked button and destroys the
   // controller mid-selection.
   DispatchKey(ui::VKEY_RIGHT);
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+TEST_F(MenuControllerTest, IncrementSelectionUseAfterFreeViaActiveDescendant) {
+  CreateMenu();
+  MenuItemView* const item_with_buttons = AddButtonMenuItems(false);
+  SetPendingStateItem(item_with_buttons);
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  IncrementSelection();
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+TEST_F(MenuControllerTest,
+       SetHotTrackedButtonWithControllerDeletedDuringActiveDescendant) {
+  CreateMenu();
+  MenuItemView* const item_with_buttons = AddButtonMenuItems(true);
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+  SetPendingStateItem(item_with_buttons);
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  SetHotTrackedButton(button);
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+TEST_F(MenuControllerTest, CloseSubmenuWithControllerDeletedDuringSelection) {
+  CreateMenu();
+  MenuItemView* const submenu_item = menu_item()->AppendSubMenu(10, u"Submenu");
+  MenuItemView* const child_item = submenu_item->AppendMenuItem(11, u"Child");
+  MenuItemView* const item_with_buttons = AddButtonMenuItems(true);
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+  ShowSubmenu(submenu_item->GetSubmenu());
+
+  SetState(submenu_item);
+  SetPendingStateItem(child_item);
+  SetHotTrackedButton(button);
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  ui::AXActionData action_data;
+  action_data.action = ax::mojom::Action::kCollapse;
+  submenu_item->HandleAccessibleAction(action_data);
+
+  EXPECT_TRUE(observer.fired());
+  EXPECT_EQ(nullptr, menu_controller());
+}
+
+TEST_F(MenuControllerTest, SelectByCharWithControllerDeletedDuringSelection) {
+  CreateMenu();
+  MenuItemView* const item_with_buttons = AddButtonMenuItems(true);
+  GET_CHILD_BUTTON(button, item_with_buttons, 0);
+  SetPendingStateItem(item_with_buttons);
+  SetHotTrackedButton(button);
+
+  CallbackOnAXEventObserver observer(
+      ax::mojom::Event::kActiveDescendantChanged,
+      base::BindLambdaForTesting([this]() { DestroyMenuController(); }));
+
+  SelectByChar('t');
 
   EXPECT_TRUE(observer.fired());
   EXPECT_EQ(nullptr, menu_controller());
@@ -4522,6 +4937,182 @@ TEST_F(MenuControllerTest, SelectChildButtonViewWithSubmenuByMnemonic) {
   EXPECT_EQ(buttons_item, buttons_item);
 
   anchored_submenu->SetAnchorView(nullptr);
+}
+
+TEST_F(MenuControllerTest, DragBetweenButtonsAndMenuItems) {
+  MenuController::TurnOffMenuSelectionHoldForTest();
+  CreateMenu();
+  menu_delegate()->set_should_execute_command_without_closing_menu(true);
+  menu_delegate()->set_should_drag_activate_child_buttons(true);
+  AddButtonMenuItems(/*single_child=*/false);
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  const View* const buttons_view = submenu->children()[4];
+  ASSERT_NE(nullptr, buttons_view);
+  GET_CHILD_BUTTON(button1, buttons_view, 0);
+  GET_CHILD_BUTTON(button2, buttons_view, 1);
+  MenuItemView* const item1 = submenu->GetMenuItemAt(0);
+
+  int button1_clicks = 0;
+  int button2_clicks = 0;
+  button1->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button1_clicks)));
+  button2->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button2_clicks)));
+
+  const gfx::Point loc1 = View::ConvertPointToTarget(
+      button1, submenu, button1->GetLocalBounds().CenterPoint());
+  const gfx::Point loc2 = View::ConvertPointToTarget(
+      button2, submenu, button2->GetLocalBounds().CenterPoint());
+  const gfx::Point loc_item1 = item1->bounds().CenterPoint();
+
+  // 1. Drag from button1 to button2 and release: activates button2.
+  ProcessMousePressed(
+      submenu, ui::MouseEvent(ui::EventType::kMousePressed, loc1, loc1,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(button1, hot_button());
+
+  ProcessMouseDragged(
+      submenu, ui::MouseEvent(ui::EventType::kMouseDragged, loc2, loc2,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(button2, hot_button());
+
+  ProcessMouseReleased(
+      submenu, ui::MouseEvent(ui::EventType::kMouseReleased, loc2, loc2,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(0, button1_clicks);
+  EXPECT_EQ(1, button2_clicks);
+
+  // 2. Drag from item1 to button1 and release: activates button1.
+  ProcessMousePressed(
+      submenu,
+      ui::MouseEvent(ui::EventType::kMousePressed, loc_item1, loc_item1,
+                     ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                     ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(item1, pending_state_item());
+
+  ProcessMouseDragged(
+      submenu, ui::MouseEvent(ui::EventType::kMouseDragged, loc1, loc1,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(button1, hot_button());
+
+  ProcessMouseReleased(
+      submenu, ui::MouseEvent(ui::EventType::kMouseReleased, loc1, loc1,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(1, button1_clicks);
+
+  // 3. Drag from button1 to item1 and release: activates item1.
+  ProcessMousePressed(
+      submenu, ui::MouseEvent(ui::EventType::kMousePressed, loc1, loc1,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(button1, hot_button());
+
+  ProcessMouseDragged(
+      submenu,
+      ui::MouseEvent(ui::EventType::kMouseDragged, loc_item1, loc_item1,
+                     ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                     ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(nullptr, hot_button());
+  EXPECT_EQ(item1, pending_state_item());
+
+  ProcessMouseReleased(
+      submenu,
+      ui::MouseEvent(ui::EventType::kMouseReleased, loc_item1, loc_item1,
+                     ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                     ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(1, menu_delegate()->execute_command_id());
+}
+
+TEST_F(MenuControllerTest, DragBetweenButtonsDefaultDoesNotActivate) {
+  MenuController::TurnOffMenuSelectionHoldForTest();
+  CreateMenu();
+  menu_delegate()->set_should_execute_command_without_closing_menu(true);
+  // Default is ShouldDragActivateChildButtons() == false.
+  ASSERT_FALSE(menu_delegate()->ShouldDragActivateChildButtons());
+  AddButtonMenuItems(/*single_child=*/false);
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  const View* const buttons_view = submenu->children()[4];
+  ASSERT_NE(nullptr, buttons_view);
+  GET_CHILD_BUTTON(button1, buttons_view, 0);
+  GET_CHILD_BUTTON(button2, buttons_view, 1);
+
+  int button1_clicks = 0;
+  int button2_clicks = 0;
+  button1->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button1_clicks)));
+  button2->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button2_clicks)));
+
+  const gfx::Point loc1 = View::ConvertPointToTarget(
+      button1, submenu, button1->GetLocalBounds().CenterPoint());
+  const gfx::Point loc2 = View::ConvertPointToTarget(
+      button2, submenu, button2->GetLocalBounds().CenterPoint());
+
+  // Drag from button1 to button2 and release: button2 is NOT activated because
+  // the drag click was cancelled on button1, preserving default button
+  // behavior.
+  ProcessMousePressed(
+      submenu, ui::MouseEvent(ui::EventType::kMousePressed, loc1, loc1,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  ProcessMouseDragged(
+      submenu, ui::MouseEvent(ui::EventType::kMouseDragged, loc2, loc2,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  ProcessMouseReleased(
+      submenu, ui::MouseEvent(ui::EventType::kMouseReleased, loc2, loc2,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(0, button1_clicks);
+  EXPECT_EQ(0, button2_clicks);
+}
+
+TEST_F(MenuControllerTest, DragFromMenuItemToButtonDefaultDoesNotActivate) {
+  MenuController::TurnOffMenuSelectionHoldForTest();
+  CreateMenu();
+  menu_delegate()->set_should_execute_command_without_closing_menu(true);
+  // Default is ShouldDragActivateChildButtons() == false.
+  ASSERT_FALSE(menu_delegate()->ShouldDragActivateChildButtons());
+  AddButtonMenuItems(/*single_child=*/false);
+  SubmenuView* const submenu = menu_item()->GetSubmenu();
+  const View* const buttons_view = submenu->children()[4];
+  ASSERT_NE(nullptr, buttons_view);
+  GET_CHILD_BUTTON(button1, buttons_view, 0);
+  MenuItemView* const item1 = submenu->GetMenuItemAt(0);
+
+  int button1_clicks = 0;
+  button1->SetCallback(base::BindRepeating([](int* count) { ++(*count); },
+                                           base::Unretained(&button1_clicks)));
+
+  const gfx::Point loc_item1 = item1->bounds().CenterPoint();
+  const gfx::Point loc1 = View::ConvertPointToTarget(
+      button1, submenu, button1->GetLocalBounds().CenterPoint());
+
+  // Drag from item1 to button1 and release: button1 is NOT activated when
+  // ShouldDragActivateChildButtons is false, and this must not crash.
+  ProcessMousePressed(
+      submenu,
+      ui::MouseEvent(ui::EventType::kMousePressed, loc_item1, loc_item1,
+                     ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                     ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(item1, pending_state_item());
+
+  ProcessMouseDragged(
+      submenu, ui::MouseEvent(ui::EventType::kMouseDragged, loc1, loc1,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(nullptr, hot_button());
+
+  ProcessMouseReleased(
+      submenu, ui::MouseEvent(ui::EventType::kMouseReleased, loc1, loc1,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_LEFT_MOUSE_BUTTON));
+  EXPECT_EQ(0, button1_clicks);
 }
 
 }  // namespace views

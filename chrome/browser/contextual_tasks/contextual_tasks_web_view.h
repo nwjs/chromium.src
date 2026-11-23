@@ -10,14 +10,14 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "components/web_modal/web_contents_modal_dialog_manager_delegate.h"
 #include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
-#include "ui/views/controls/webview/webview.h"
+#include "ui/views/controls/webview/web_contents_delegate_views.h"
 #include "ui/views/view.h"
 
 namespace blink::mojom {
@@ -35,9 +35,9 @@ struct OpenURLParams;
 class BrowserWindowInterface;
 class Profile;
 
-namespace input {
-struct NativeWebKeyboardEvent;
-}  // namespace input
+namespace views {
+class WebView;
+}
 
 namespace web_modal {
 class WebContentsModalDialogHost;
@@ -51,7 +51,7 @@ class ContextualTasksUIBase;
 class ContextualTasksWebView
     : public views::View,
       public web_modal::WebContentsModalDialogManagerDelegate,
-      public content::WebContentsDelegate,
+      public views::WebContentsDelegateViews<ContextualTasksWebView>,
       public content::WebContentsObserver {
   METADATA_HEADER(ContextualTasksWebView, views::View)
 
@@ -87,13 +87,22 @@ class ContextualTasksWebView
   // Returns whether the ghost loader overlay is currently visible.
   bool IsGhostLoaderVisible() const;
 
+  // Toggles the visibility of the protected page error scrim overlay.
+  void SetErrorPageVisible(bool visible);
+
+  // Returns whether the protected page error scrim overlay is currently
+  // visible.
+  bool IsErrorPageVisible() const;
+
+  // views::View:
+  void AddedToWidget() override;
+  void OnThemeChanged() override;
+
   // content::WebContentsDelegate:
   void RequestMediaAccessPermission(
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
       content::MediaResponseCallback callback) override;
-  bool HandleKeyboardEvent(content::WebContents* source,
-                           const input::NativeWebKeyboardEvent& event) override;
   content::WebContents* OpenURLFromTab(
       content::WebContents* source,
       const content::OpenURLParams& params,
@@ -151,12 +160,26 @@ class ContextualTasksWebView
   void UpdateToolbarStateFromWebContents(content::WebContents* wc,
                                          bool use_last_committed_url = false);
 
+  // Synchronizes `ghost_loader_view_` mode and visibility with
+  // `is_ghost_loader_visible_` and `is_error_page_visible_`.
+  void UpdateScrimVisibility();
+
+  // Consumes and returns whether `source_rfh` has a valid transient user
+  // activation or a recent unconsumed browser-verified user interaction (when
+  // Blink already consumed the transient activation before sending `OpenURL()`,
+  // e.g. for Cmd+Click).
+  bool ConsumeUserActivation(content::RenderFrameHost* source_rfh);
+
   // The browser window interface associated with this view.
   raw_ptr<BrowserWindowInterface> browser_window_ = nullptr;
 
   // The WebView used for the toolbar/header (only active when the
   // rearchitecture feature is enabled).
   raw_ptr<views::WebView> toolbar_web_view_ = nullptr;
+
+  // Container view hosting `content_web_view_` and `ghost_loader_view_` under
+  // the side panel rearchitecture.
+  raw_ptr<views::View> content_container_ = nullptr;
 
   // The WebView used for the main content.
   raw_ptr<views::WebView> content_web_view_ = nullptr;
@@ -172,9 +195,14 @@ class ContextualTasksWebView
   // about:blank navigation that should not dismiss the ghost loader.
   bool ignore_next_stop_loading_for_about_blank_ = false;
 
-  // A handler to handle unhandled keyboard messages coming back from the
-  // renderer process.
-  views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
+  // Desired visibility states for the ghost loader and protected page error
+  // scrims hosted in `ghost_loader_view_`.
+  bool is_ghost_loader_visible_ = false;
+  bool is_error_page_visible_ = false;
+
+  // Timestamp of the last browser-verified user interaction consumed by
+  // `ConsumeUserActivation()` to prevent replay.
+  base::TimeTicks last_consumed_interaction_time_;
 
   base::WeakPtrFactory<ContextualTasksWebView> weak_ptr_factory_{this};
 };

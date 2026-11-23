@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -314,6 +315,17 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool, kFallbackInLowPowerMode);
 // Enables Connection Keep-Alive feature for Http2
 NET_EXPORT BASE_DECLARE_FEATURE(kConnectionKeepAliveForHttp2);
 
+// Configures the client-side initial RTT for QUIC preconnect sessions when no
+// cached or 2G/3G RTT estimate is available, reducing the initial handshake
+// Probe Timeout (PTO) delay (`3 * initial_rtt`).
+NET_EXPORT BASE_DECLARE_FEATURE(kQuicPreconnectInitialRtt);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                                      kQuicPreconnectInitialRttParam);
+// Returns `kQuicPreconnectInitialRttParam` when `kQuicPreconnectInitialRtt` is
+// enabled and the configured duration is positive and finite; otherwise returns
+// `std::nullopt`.
+NET_EXPORT std::optional<base::TimeDelta> GetQuicPreconnectInitialRtt();
+
 // When enabled, the time threshold for Lax-allow-unsafe cookies will be lowered
 // from 2 minutes to 10 seconds. This time threshold refers to the age cutoff
 // for which cookies that default into SameSite=Lax, which are newer than the
@@ -413,9 +425,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTcpPortRandomizationMac);
 // the same peer. Defaults to 120 to match common NAT timeout values.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kTcpPortRandomizationReuseDelaySec);
 // If enabled, port randomization applies even where the remote address is
-// the loopback address. See https://crbug.com/546919930 for context.
+// a private route. See https://crbug.com/575343797 for context.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
-                                      kTcpPortRandomizationMacForLoopback);
+                                      kTcpPortRandomizationMacForPrivateRoutes);
 #endif
 
 // Avoid creating cache entries for transactions that are most likely no-store.
@@ -541,6 +553,13 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
     bool,
     kDeviceBoundSessionsFederatedRegistrationCheckWellKnown);
 
+// Kill switch for blocking all redirects on federated registration requests
+// before they are followed. When disabled, federated registration requests
+// follow redirects like other registration requests.
+// TODO(crbug.com/518806368): Remove once this has shipped to stable.
+NET_EXPORT BASE_DECLARE_FEATURE(
+    kDeviceBoundSessionsFederatedRegistrationBlockRedirects);
+
 // This feature controls whether DBSC is allowed to register sessions on
 // a certain list of sites, as specified in
 // `device_bound_sessions_restricted_sites` in the
@@ -563,6 +582,14 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsPersistExpiryOnRefresh);
 // Controls whether DBSC includes the 'aud' (audience) claim in registration
 // and refresh JWT payloads.
 NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsIncludeAudienceClaim);
+
+// Kill switch for draining a session's deferred requests queue when every
+// request in it is destroyed while the session's binding key is being restored.
+// Without this, the abandoned queue entry looks like an in-flight refresh, so
+// later requests and pre-warms for the session wait on it until the session is
+// deleted, and proactive refreshes do not start.
+// TODO(crbug.com/509885112): Remove once this has shipped to stable.
+NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsDrainDeferredOnAllCanceled);
 
 // Enables more checks when creating a SpdySession for proxy. These checks are
 // already applied to non-proxy SpdySession creations.
@@ -599,10 +626,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys);
 // Enables enforcement of One-RFC6962 policy for Certificate Transparency. When
 // disabled, Chrome does not distinguish between SCTs based on log type.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnforceOneRfc6962CtPolicy);
-
-// If enabled, Signed Certificate Timestamps (SCTs) delivered via OCSP
-// responses are ignored.
-NET_EXPORT BASE_DECLARE_FEATURE(kCertificateTransparencyIgnoreOcspScts);
 
 // Finch experiment to select a disk cache backend.
 enum class DiskCacheBackend {
@@ -939,6 +962,11 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableBootstrapIPRandomizationForDoh);
 // If enabled, the GURL conversion for NSURLs will use the data representation
 // of the URL if it differs from the absolute string.
 NET_EXPORT BASE_DECLARE_FEATURE(kUseNSURLDataForGURLConversion);
+
+// Enables asynchronous PAC resolution and request cancellation in
+// ProxyResolverApple on a shared CFRunLoop thread instead of per-resolver
+// worker threads.
+NET_EXPORT BASE_DECLARE_FEATURE(kAsyncProxyResolverApple);
 #endif  // BUILDFLAG(IS_APPLE)
 
 // Enables logical HTTP cache clearing, which adds a filter to the cache
@@ -1028,13 +1056,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kCacheCertVerification);
 // already be expired.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kCacheCertVerificationTtlSecs);
 
-// If enabled, configures SSLClientSocketImpl to enable GREASE for
-// signature_algorithms. This is a killswitch for behavior that is enabled by
-// default.
-// TODO(crbug.com/526597789): Clean up this killswitch after successfully
-// deployed.
-NET_EXPORT BASE_DECLARE_FEATURE(kTlsGreaseSigalgs);
-
 // Enables the BackendCleanupTracker for HTTP cache backends (net::DISK_CACHE)
 // to prevent conflicts when multiple backends are created for the same path.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableBackendCleanupTrackerOnHttpCache);
@@ -1074,6 +1095,23 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableWindowsTcpLoopbackFastFail);
 // If the feature is disabled, the default behavior (20 packets) is used.
 NET_EXPORT BASE_DECLARE_FEATURE(kQuicSocketSendBufferSize);
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kQuicSocketSendBufferSizeParam);
+
+// Controls the disk cache backend experiment for the GPU shader cache
+// (`net::SHADER_CACHE`). When enabled, each shader cache directory is wiped
+// once on first open (tracked in the cache index header) and recreated using
+// the backend specified by `kShaderDiskCacheBackendType`.
+NET_EXPORT BASE_DECLARE_FEATURE(kShaderDiskCacheBackendExperiment);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(DiskCacheBackend,
+                                      kShaderDiskCacheBackendType);
+
+// Enables per-key (eTLD+1) task queueing for single-domain cookie deletions
+// (`DeleteCanonicalCookieAsync` and single-domain `DeleteAllMatchingInfoAsync`)
+// so they do not set `seen_global_task_` and block concurrent navigations on
+// the full SQLite cookie store load.
+NET_EXPORT BASE_DECLARE_FEATURE(kCookieMonsterPerKeyDelete);
+
+// Enables the Rust implementation of the HTTP chunked decoder, called via FFI.
+NET_EXPORT BASE_DECLARE_FEATURE(kHttpChunkedDecoderInRust);
 
 }  // namespace net::features
 

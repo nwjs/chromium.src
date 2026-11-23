@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/origin_gating/model/origin_gating_service_factory.h"
@@ -12,32 +14,14 @@
 
 namespace actor {
 
-// static
-ActorService* ActorServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<ActorService>(profile,
-                                                             /*create=*/true);
-}
-
-// static
-ActorService* ActorServiceFactory::GetForProfileIfExists(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<ActorService>(profile,
-                                                             /*create=*/false);
-}
-
-// static
-ActorServiceFactory* ActorServiceFactory::GetInstance() {
-  static base::NoDestructor<ActorServiceFactory> instance;
-  return instance.get();
-}
-
-ActorServiceFactory::ActorServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("ActorService",
-                                    ProfileSelection::kNoInstanceInIncognito) {
+ActorServiceFactory::ActorServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "ActorService",
+          ProfileSelection::kNoInstanceInIncognito) {
   DependsOn(BrowserListFactory::GetInstance());
   DependsOn(origin_gating::OriginGatingServiceFactory::GetInstance());
 }
-
-ActorServiceFactory::~ActorServiceFactory() {}
 
 std::unique_ptr<KeyedService> ActorServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

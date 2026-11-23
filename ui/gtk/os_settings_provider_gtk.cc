@@ -40,9 +40,8 @@ OsSettingsProviderGtk::PreferredColorScheme() const {
   // have a light variant and aren't affected by the setting.  Because of this,
   // experimentally check if the theme is dark by checking if the window
   // background color is dark.
-  return color_utils::IsDark(GetBgColor({}))
-             ? ui::NativeTheme::PreferredColorScheme::kDark
-             : ui::NativeTheme::PreferredColorScheme::kLight;
+  return IsGtkThemeDark() ? ui::NativeTheme::PreferredColorScheme::kDark
+                          : ui::NativeTheme::PreferredColorScheme::kLight;
 }
 
 ui::NativeTheme::PreferredContrast OsSettingsProviderGtk::PreferredContrast()
@@ -84,7 +83,14 @@ base::TimeDelta OsSettingsProviderGtk::CaretBlinkInterval() const {
 }
 
 std::optional<SkColor> OsSettingsProviderGtk::AccentColor() const {
-  return accent_color_;
+  // Prefer the desktop accent color (from the xdg-desktop-portal). Otherwise,
+  // use the GTK theme's own accent, so that the Material palettes generated
+  // from the accent color (focus rings, tab hover, ...) match the theme's
+  // highlights.
+  if (accent_color_) {
+    return accent_color_;
+  }
+  return SkColorSetA(GetThemeAccentColor(), SK_AlphaOPAQUE);
 }
 
 void OsSettingsProviderGtk::SetAccentColor(
@@ -101,6 +107,10 @@ void OsSettingsProviderGtk::SetColorScheme(std::optional<bool> prefer_dark) {
     return;
   }
   prefer_dark_ = prefer_dark;
+  NotifyOnSettingsChanged();
+}
+
+void OsSettingsProviderGtk::OnThemeChanged() {
   NotifyOnSettingsChanged();
 }
 

@@ -96,9 +96,9 @@ static_library("main_parts") {
     "//chrome/browser/ash/system",
     "//chrome/browser/ash/usb",
     "//chrome/browser/ash/video_conference",
-    "//chrome/browser/chromeos/video_conference",
     "//chrome/browser/component_updater",
     "//chrome/browser/device_identity",
+    "//chrome/browser/device_reauth",
     "//chrome/browser/first_run",
     "//chrome/browser/lifetime",
     "//chrome/browser/lifetime:termination_notification",
@@ -167,6 +167,7 @@ static_library("main_parts") {
     "//components/language/core/browser",
     "//components/metrics",
     "//components/ownership",
+    "//components/password_manager/core/browser/features:password_features",
     "//components/policy/core/common",
     "//components/policy/core/common:common_constants",
     "//components/prefs",
@@ -188,6 +189,10 @@ static_library("main_parts") {
     "//ui/base/ime/ash",
     "//ui/events",
     "//ui/events/ash",
+
+    # TODO(crbug.com/556482973): Use //chrome/browser instead after fixing
+    # cyclic dependency.
+    "//chrome/browser:buildflags",
   ]
 
   if (is_cfm) {

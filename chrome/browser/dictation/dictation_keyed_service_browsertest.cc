@@ -4,6 +4,9 @@
 
 #include "chrome/browser/dictation/dictation_keyed_service.h"
 
+#include <optional>
+#include <string_view>
+
 #include "base/memory/weak_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
@@ -17,8 +20,10 @@
 #include "chrome/browser/dictation/stream_provider.h"
 #include "chrome/browser/dictation/target.h"
 #include "chrome/browser/dictation/test_util.h"
+#include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/glic/browser_ui/tab_underline_view.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/selection/selection_overlay_controller.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
@@ -29,14 +34,18 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
+#include "chrome/browser/user_education/user_education_configuration_provider.h"
 #include "chrome/common/extensions/api/dictation_private.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/platform_browser_test.h"
+#include "components/feature_engagement/public/event_constants.h"
+#include "components/feature_engagement/public/feature_constants.h"
+#include "components/feature_engagement/public/tracker.h"
+#include "components/feature_engagement/test/scoped_iph_feature_list.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/global_dom_node_id.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/common/switches.h"
@@ -62,26 +71,6 @@ using ExtensionStreamState = extensions::api::dictation_private::StreamState;
 using ExtensionTranscriptionType =
     extensions::api::dictation_private::TranscriptionType;
 
-class FocusLossObserver : public content::WebContentsObserver {
- public:
-  explicit FocusLossObserver(content::WebContents* web_contents)
-      : content::WebContentsObserver(web_contents) {}
-  FocusLossObserver(const FocusLossObserver&) = delete;
-  FocusLossObserver& operator=(const FocusLossObserver&) = delete;
-  ~FocusLossObserver() override = default;
-
-  // content::WebContentsObserver:
-  void OnWebContentsLostFocus(
-      content::RenderWidgetHost* render_widget_host) override {
-    lost_focus_called_ = true;
-  }
-
-  bool lost_focus_called() const { return lost_focus_called_; }
-
- private:
-  bool lost_focus_called_ = false;
-};
-
 class DictationKeyedServiceBrowserTest
     : public DictationBrowserTestBase,
       public testing::WithParamInterface<bool> {
@@ -99,23 +88,10 @@ class DictationKeyedServiceBrowserTest
                                   type, text);
   }
 
-  // There's no great way to wait on the dictation target to have fully
-  // committed text (i.e. visible to the page) so this method will poll until
-  // the editable shows the expected text. Return the string for ergonomics so
-  // that a failure can show up as a failing EXPECT_EQ.
   std::string GetEditableExpectedText(std::string_view selector,
                                       std::string_view expected) {
-    std::string last_seen_string;
-    EXPECT_TRUE(base::test::RunUntil([&]() {
-      last_seen_string =
-          content::EvalJs(
-              web_contents(),
-              content::JsReplace("document.querySelector($1).value;", selector))
-              .ExtractString();
-      return last_seen_string == expected;
-    }));
-
-    return last_seen_string;
+    return dictation::GetEditableExpectedText(
+        web_contents()->GetPrimaryMainFrame(), selector, expected);
   }
 };
 
@@ -160,7 +136,7 @@ IN_PROC_BROWSER_TEST_P(DictationKeyedServiceBrowserTest,
 
   EXPECT_TRUE(dictation_service().ShouldShowContextMenuItem());
 
-  dictation_service().EndSession();
+  dictation_service().session_controller()->EndSessionSynchronously();
 
   EXPECT_TRUE(dictation_service().ShouldShowContextMenuItem());
 }
@@ -317,6 +293,226 @@ IN_PROC_BROWSER_TEST_P(DictationKeyedServiceBrowserTest,
   EXPECT_EQ(provider->GetTarget()->global_dom_node_id().target_element_dom_id,
             blink::DOMNodeIdType(123));
   EXPECT_TRUE(provider->GetTarget()->richly_editable());
+}
+
+// Not parameterized: password-field handling does not depend on
+// `kSessionEndsOnStreamEnd`.
+class DictationPasswordLikeFieldBrowserTest
+    : public DictationKeyedServiceBrowserTest {
+ public:
+  DictationPasswordLikeFieldBrowserTest()
+      : DictationKeyedServiceBrowserTest(
+            kSessionEndsOnStreamEnd.default_value) {}
+
+ protected:
+  void SetUpOnMainThread() override {
+    DictationKeyedServiceBrowserTest::SetUpOnMainThread();
+    ASSERT_TRUE(content::NavigateToURL(
+        web_contents(),
+        embedded_test_server()->GetURL("/textinput/all_input_node.html")));
+    // Turn the contenteditable into a CSS-masked custom password field.
+    ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+        const editable = document.getElementById('contenteditable_id');
+        editable.style.webkitTextSecurity = 'disc';
+        editable.textContent = 'secret';
+    )"));
+  }
+
+  content::RenderFrameHost* main_frame() {
+    return web_contents()->GetPrimaryMainFrame();
+  }
+
+  blink::DOMNodeIdType NodeId(std::string_view selector) {
+    return blink::DOMNodeIdType(
+        content::GetDOMNodeId(*main_frame(), selector).value());
+  }
+
+  // Focuses `selector` and waits until the browser knows it is focused. If
+  // `password_like`, also waits for the text input state identifying it as a
+  // password-like field.
+  void FocusAndWait(std::string_view selector, bool password_like) {
+    ASSERT_TRUE(content::ExecJs(
+        web_contents(),
+        content::JsReplace("document.querySelector($1).focus();", selector)));
+    blink::DOMNodeIdType expected = NodeId(selector);
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return main_frame()->GetFocusedDOMNodeId() == expected &&
+             (!password_like || main_frame()->IsFocusedElementPasswordLike());
+    })) << selector;
+  }
+
+  bool IsContextMenuItemPresent(std::string_view selector) {
+    content::ContextMenuParams params;
+    params.is_editable = true;
+    params.form_field_dom_node_id = content::GlobalDOMNodeId(
+        main_frame()->GetWeakDocumentPtr(), NodeId(selector));
+    TestRenderViewContextMenu menu(*main_frame(), params);
+    menu.Init();
+    return menu.IsItemPresent(IDC_CONTENT_CONTEXT_DICTATION);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(DictationPasswordLikeFieldBrowserTest,
+                       ContextMenuHiddenForPasswordLikeFields) {
+  FocusAndWait("#password_id", /*password_like=*/true);
+  EXPECT_FALSE(IsContextMenuItemPresent("#password_id"));
+
+  FocusAndWait("#contenteditable_id", /*password_like=*/true);
+  EXPECT_FALSE(IsContextMenuItemPresent("#contenteditable_id"));
+
+  FocusAndWait("#text_id", /*password_like=*/false);
+  EXPECT_TRUE(IsContextMenuItemPresent("#text_id"));
+}
+
+IN_PROC_BROWSER_TEST_F(DictationPasswordLikeFieldBrowserTest,
+                       HotkeyIgnoredInPasswordLikeField) {
+  FocusAndWait("#password_id", /*password_like=*/true);
+  dictation_service().ToggleHotkeyHandler();
+  EXPECT_EQ(session_controller(), nullptr);
+
+  FocusAndWait("#text_id", /*password_like=*/false);
+  dictation_service().ToggleHotkeyHandler();
+  ASSERT_NE(session_controller(), nullptr);
+  EXPECT_NE(session_controller()->attached_stream_provider(), nullptr);
+  dictation_service().session_controller()->EndSessionSynchronously();
+}
+
+// Checks the Feature Engagement events that the dictation hotkey IPH is based
+// on. Not parameterized: these don't depend on `kSessionEndsOnStreamEnd`.
+class DictationHotkeyIphEventsBrowserTest
+    : public DictationKeyedServiceBrowserTest {
+ public:
+  DictationHotkeyIphEventsBrowserTest()
+      : DictationKeyedServiceBrowserTest(
+            kSessionEndsOnStreamEnd.default_value) {
+    // Browser tests block all IPH, and Feature Engagement only reports event
+    // counts for IPH it has a configuration for.
+    iph_feature_list_.InitAndEnableFeatures(
+        {feature_engagement::kIPHDictationHotkeyFeature});
+  }
+
+ protected:
+  void SetUpOnMainThread() override {
+    DictationKeyedServiceBrowserTest::SetUpOnMainThread();
+    ASSERT_TRUE(content::NavigateToURL(
+        web_contents(),
+        embedded_test_server()->GetURL("/textinput/all_input_node.html")));
+    ASSERT_TRUE(
+        base::test::RunUntil([this]() { return tracker()->IsInitialized(); }));
+  }
+
+  feature_engagement::Tracker* tracker() {
+    return feature_engagement::TrackerFactory::GetForBrowserContext(profile());
+  }
+
+  // Returns how many times `event_name` was recorded, or nullopt if it isn't
+  // one of the hotkey IPH's events.
+  std::optional<int> GetEventCount(std::string_view event_name) {
+    for (const auto& [config, count] : tracker()->ListEvents(
+             feature_engagement::kIPHDictationHotkeyFeature)) {
+      if (config.name == event_name) {
+        return count;
+      }
+    }
+    return std::nullopt;
+  }
+
+  std::optional<int> GetInvokedCount() {
+    return GetEventCount(feature_engagement::events::kDictationInvoked);
+  }
+
+  std::optional<int> GetHotkeyUsedCount() {
+    return GetEventCount(UserEducationConfigurationProvider::GetDefaultUsedName(
+        feature_engagement::kIPHDictationHotkeyFeature));
+  }
+
+  // Focuses the textarea and waits until the browser knows it is focused.
+  void FocusTextarea() {
+    content::RenderFrameHost* const main_frame =
+        web_contents()->GetPrimaryMainFrame();
+    ASSERT_TRUE(content::ExecJs(main_frame,
+                                "document.getElementById('textarea_id')."
+                                "focus();"));
+    const blink::DOMNodeIdType node_id(
+        content::GetDOMNodeId(*main_frame, "#textarea_id").value());
+    ASSERT_TRUE(base::test::RunUntil(
+        [&]() { return main_frame->GetFocusedDOMNodeId() == node_id; }));
+  }
+
+  // Runs a session in the textarea in which the user dictates `text`, ends the
+  // stream, and waits for the session to end.
+  void DictateIntoTextarea(std::string_view text) {
+    FocusTextarea();
+    StartSession();
+    ASSERT_NE(session_controller(), nullptr);
+    ASSERT_NE(attached_stream(), nullptr);
+    const DictationMultiplexer::StreamId stream_id =
+        attached_stream()->stream_id_for_testing();
+    ExtensionWaitForStreamStart(profile(), stream_id);
+    ExtensionSendStreamStateUpdate(profile(), stream_id,
+                                   ExtensionStreamState::kTranscribing);
+    if (!text.empty()) {
+      ExtensionSendTranscriptUpdate(profile(), stream_id,
+                                    ExtensionTranscriptionType::kFinal, text);
+    }
+    session_controller()->UiRequestEndActiveStream();
+    ExtensionSendStreamStateUpdate(profile(), stream_id,
+                                   ExtensionStreamState::kComplete);
+    ASSERT_TRUE(
+        base::test::RunUntil([this]() { return !session_controller(); }));
+  }
+
+ private:
+  feature_engagement::test::ScopedIphFeatureList iph_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(DictationHotkeyIphEventsBrowserTest,
+                       SessionStartRecordsInvoked) {
+  ASSERT_EQ(GetInvokedCount(), 0);
+
+  // Recorded as soon as the session starts, before any text is dictated.
+  FocusTextarea();
+  StartSession();
+  ASSERT_NE(session_controller(), nullptr);
+  EXPECT_EQ(GetInvokedCount(), 1);
+}
+
+IN_PROC_BROWSER_TEST_F(DictationHotkeyIphEventsBrowserTest,
+                       EachSessionRecordsInvoked) {
+  DictateIntoTextarea("Hello");
+  EXPECT_EQ(GetInvokedCount(), 1);
+  DictateIntoTextarea("World");
+  EXPECT_EQ(GetInvokedCount(), 2);
+}
+
+IN_PROC_BROWSER_TEST_F(DictationHotkeyIphEventsBrowserTest,
+                       SessionWithoutTextRecordsInvoked) {
+  DictateIntoTextarea("");
+  EXPECT_EQ(GetInvokedCount(), 1);
+}
+
+IN_PROC_BROWSER_TEST_F(DictationHotkeyIphEventsBrowserTest,
+                       HotkeyRecordsUsedEvent) {
+  ASSERT_EQ(GetHotkeyUsedCount(), 0);
+
+  // Starting dictation with the hotkey counts as using it.
+  FocusTextarea();
+  dictation_service().ToggleHotkeyHandler();
+  ASSERT_NE(session_controller(), nullptr);
+  EXPECT_EQ(GetHotkeyUsedCount(), 1);
+
+  // Stopping it doesn't.
+  dictation_service().ToggleHotkeyHandler();
+  EXPECT_EQ(GetHotkeyUsedCount(), 1);
+}
+
+IN_PROC_BROWSER_TEST_F(DictationHotkeyIphEventsBrowserTest,
+                       HotkeyThatDoesNothingIsNotUsed) {
+  // Nothing editable is focused and dictation isn't running, so the hotkey
+  // does nothing.
+  dictation_service().ToggleHotkeyHandler();
+  ASSERT_EQ(session_controller(), nullptr);
+  EXPECT_EQ(GetHotkeyUsedCount(), 0);
 }
 
 // TODO(crbug.com/502587072): Add tests which have the test extension simulate
@@ -519,16 +715,8 @@ IN_PROC_BROWSER_TEST_P(DictationKeyedServiceBrowserTest,
       web_contents()->GetPrimaryMainFrame()->GetRenderWidgetHost());
   frame_observer.Wait();
 
-  FocusLossObserver focus_loss_observer(web_contents());
-
   // Focus the textarea so that dictation targets it.
   content::SimulateMouseClickOrTapElementWithId(web_contents(), "text_id");
-
-  if (!content::IsRenderWidgetHostFocused(
-          web_contents()->GetPrimaryMainFrame()->GetRenderWidgetHost())) {
-    GTEST_SKIP() << "Test is sensitive to focus loss from test environment "
-                    "until crbug.com/525856380 is fixed.";
-  }
 
   std::optional<int> dom_node_id =
       content::GetDOMNodeId(*web_contents()->GetPrimaryMainFrame(), "#text_id");
@@ -558,11 +746,6 @@ IN_PROC_BROWSER_TEST_P(DictationKeyedServiceBrowserTest,
   ExtensionSendStreamStateUpdate(profile(), provider->stream_id_for_testing(),
                                  ExtensionStreamState::kComplete);
 
-  if (focus_loss_observer.lost_focus_called()) {
-    GTEST_SKIP() << "Test is sensitive to focus loss from test environment "
-                    "until crbug.com/525856380 is fixed.";
-  }
-
   // Verify the transcription reached the document.
   EXPECT_EDITABLE_TEXT_EQ("#text_id", "Hello World");
 }
@@ -582,16 +765,8 @@ IN_PROC_BROWSER_TEST_P(DictationKeyedServiceBrowserTest,
       web_contents()->GetPrimaryMainFrame()->GetRenderWidgetHost());
   frame_observer.Wait();
 
-  FocusLossObserver focus_loss_observer(web_contents());
-
   // Focus the textarea so that dictation targets it.
   content::SimulateMouseClickOrTapElementWithId(web_contents(), "text_id");
-
-  if (!content::IsRenderWidgetHostFocused(
-          web_contents()->GetPrimaryMainFrame()->GetRenderWidgetHost())) {
-    GTEST_SKIP() << "Test is sensitive to focus loss from test environment "
-                    "until crbug.com/525856380 is fixed.";
-  }
 
   std::optional<int> dom_node_id =
       content::GetDOMNodeId(*web_contents()->GetPrimaryMainFrame(), "#text_id");
@@ -641,11 +816,6 @@ IN_PROC_BROWSER_TEST_P(DictationKeyedServiceBrowserTest,
     session_controller()->UiRequestEndActiveStream();
     ExtensionSendStreamStateUpdate(profile(), stream_id,
                                    ExtensionStreamState::kComplete);
-  }
-
-  if (focus_loss_observer.lost_focus_called()) {
-    GTEST_SKIP() << "Test is sensitive to focus loss from test environment "
-                    "until crbug.com/525856380 is fixed.";
   }
 
   EXPECT_EDITABLE_TEXT_EQ("#text_id", "Hello World");
@@ -719,15 +889,14 @@ INSTANTIATE_TEST_SUITE_P(All,
 
 // TODO(b/533465625): Ideally we could also make this a child of
 // DictationBrowserTestBase so we get all the helpers.
-class DictationGlicBrowserTest : public glic::GlicBrowserTest {
+class DictationGlicBrowserTest : public glic::GlicBrowserTest,
+                                 public testing::WithParamInterface<bool> {
  public:
   DictationGlicBrowserTest()
       : scoped_feature_list_(CreateEnablingFeatureList()) {
-    // The fieldtrial testing config enables kGlicNoWebview, which changes what
-    // the Glic panel's WebView holds. Pin these tests to the <webview> mode
-    // that currently ships.
-    glic_webview_feature_list_.InitAndDisableFeature(
-        ::features::kGlicNoWebview);
+    glic_feature_list_.InitWithFeatureStates(
+        {{::features::kGlicNoWebview, GetParam()},
+         {::features::kGlicCaptureRegion, true}});
   }
   ~DictationGlicBrowserTest() override = default;
 
@@ -762,14 +931,49 @@ class DictationGlicBrowserTest : public glic::GlicBrowserTest {
     return views::AsViewClass<glic::TabUnderlineView>(view);
   }
 
+  // Creates and focuses an input element in `rfh`, triggers the dictation
+  // hotkey, and verifies the resulting stream targets that input element.
+  void FocusInputAndVerifyHotkeyTargets(content::RenderFrameHost* rfh) {
+    auto* contents = content::WebContents::FromRenderFrameHost(rfh);
+    ASSERT_TRUE(contents);
+    contents->Focus();
+    content::FocusWebContentsOnFrame(contents, rfh);
+    ASSERT_TRUE(content::ExecJs(rfh, R"(
+      const input = document.createElement('input');
+      input.id = 'test_input';
+      document.body.appendChild(input);
+      input.focus();
+    )"));
+    ASSERT_TRUE(base::test::RunUntil(
+        [&]() { return !rfh->GetFocusedDOMNodeId().is_null(); }));
+
+    std::optional<int> expected_node_id =
+        content::GetDOMNodeId(*rfh, "#test_input");
+    ASSERT_TRUE(expected_node_id.has_value());
+
+    dictation_service().ToggleHotkeyHandler();
+
+    SessionController* controller = dictation_service().session_controller();
+    ASSERT_NE(controller, nullptr);
+    StreamProvider* provider = controller->attached_stream_provider();
+    ASSERT_NE(provider, nullptr);
+    ASSERT_NE(provider->GetTarget(), nullptr);
+    EXPECT_EQ(provider->GetTarget()
+                  ->global_dom_node_id()
+                  .document.AsRenderFrameHostIfValid(),
+              rfh);
+    EXPECT_EQ(provider->GetTarget()->global_dom_node_id().target_element_dom_id,
+              blink::DOMNodeIdType(*expected_node_id));
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
-  base::test::ScopedFeatureList glic_webview_feature_list_;
+  base::test::ScopedFeatureList glic_feature_list_;
 };
 
 // Ensure basic stream setup, state changes, and end work correctly for streams
 // started for a Glic guest.
-IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest, BasicStreamFunctions) {
+IN_PROC_BROWSER_TEST_P(DictationGlicBrowserTest, BasicStreamFunctions) {
   ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
   ASSERT_OK(WaitForGlicClient(instance));
 
@@ -814,10 +1018,13 @@ IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest, BasicStreamFunctions) {
                SessionState::kInactive;
   }));
 
-  dictation_service().EndSession();
+  if (SessionController* const active_controller =
+          dictation_service().session_controller()) {
+    active_controller->EndSessionSynchronously();
+  }
 }
 
-IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest, TabUnderlineVisibility) {
+IN_PROC_BROWSER_TEST_P(DictationGlicBrowserTest, TabUnderlineVisibility) {
   tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
   ASSERT_TRUE(tab);
 
@@ -837,12 +1044,12 @@ IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest, TabUnderlineVisibility) {
   EXPECT_TRUE(underline->IsShowing());
 
   // End session.
-  dictation_service().EndSession();
+  dictation_service().session_controller()->EndSessionSynchronously();
 
   EXPECT_FALSE(underline->IsShowing());
 }
 
-IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest,
+IN_PROC_BROWSER_TEST_P(DictationGlicBrowserTest,
                        TabUnderlineHiddenOnNavigation) {
   tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
   ASSERT_TRUE(tab);
@@ -871,7 +1078,7 @@ IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest,
 
 // Ensure session URL category metric is recorded as Glic for sessions started
 // in Glic guest.
-IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest,
+IN_PROC_BROWSER_TEST_P(DictationGlicBrowserTest,
                        RecordsSessionUrlCategoryGlic) {
   base::HistogramTester histogram_tester;
 
@@ -893,10 +1100,10 @@ IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest,
   histogram_tester.ExpectUniqueSample(kSessionUrlCategoryHistogramName,
                                       DictationUrlCategory::kGlic, 1);
 
-  dictation_service().EndSession();
+  dictation_service().session_controller()->EndSessionSynchronously();
 }
 
-IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest,
+IN_PROC_BROWSER_TEST_P(DictationGlicBrowserTest,
                        ToggleHotkeyTargetsFocusedGlicSidePanel) {
   tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
   ASSERT_TRUE(tab);
@@ -922,45 +1129,74 @@ IN_PROC_BROWSER_TEST_F(DictationGlicBrowserTest,
   content::RenderFrameHost* glic_rfh = instance->host().GetGuestMainFrame();
   ASSERT_TRUE(glic_rfh);
 
-  auto* glic_contents = content::WebContents::FromRenderFrameHost(glic_rfh);
-  ASSERT_TRUE(glic_contents);
-  glic_contents->Focus();
-  content::FocusWebContentsOnFrame(glic_contents, glic_rfh);
-  ASSERT_TRUE(content::ExecJs(glic_rfh, R"(
-    const input = document.createElement('input');
-    input.id = 'glic_input';
-    document.body.appendChild(input);
-    input.focus();
-  )"));
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return !glic_rfh->GetFocusedDOMNodeId().is_null(); }));
-
-  std::optional<int> expected_glic_node_id =
-      content::GetDOMNodeId(*glic_rfh, "#glic_input");
-  ASSERT_TRUE(expected_glic_node_id.has_value());
-
   // Triggering the dictation hotkey should target the focused Glic side panel
   // input box rather than the main tab's input box.
-  dictation_service().ToggleHotkeyHandler();
-
-  SessionController* controller = dictation_service().session_controller();
-  ASSERT_NE(controller, nullptr);
-  StreamProvider* provider = controller->attached_stream_provider();
-  ASSERT_NE(provider, nullptr);
-  ASSERT_NE(provider->GetTarget(), nullptr);
-  EXPECT_EQ(provider->GetTarget()
-                ->global_dom_node_id()
-                .document.AsRenderFrameHostIfValid(),
-            glic_rfh);
-  EXPECT_EQ(provider->GetTarget()->global_dom_node_id().target_element_dom_id,
-            blink::DOMNodeIdType(*expected_glic_node_id));
+  FocusInputAndVerifyHotkeyTargets(glic_rfh);
 
   // Pressing the hotkey again should stop the active stream in Glic.
   dictation_service().ToggleHotkeyHandler();
-  EXPECT_EQ(controller->attached_stream_provider(), nullptr);
+  ASSERT_NE(dictation_service().session_controller(), nullptr);
+  EXPECT_EQ(
+      dictation_service().session_controller()->attached_stream_provider(),
+      nullptr);
 
-  dictation_service().EndSession();
+  dictation_service().session_controller()->EndSessionSynchronously();
 }
+
+class DictationGlicSelectionOverlayBrowserTest
+    : public DictationGlicBrowserTest {};
+
+IN_PROC_BROWSER_TEST_P(DictationGlicSelectionOverlayBrowserTest,
+                       SelectionOverlaySupport) {
+  base::HistogramTester histogram_tester;
+
+  tabs::TabInterface* tab = CreateAndActivateTab(GetSimpleTestUrl());
+  ASSERT_TRUE(tab);
+  content::WebContents* tab_contents = tab->GetContents();
+  ASSERT_TRUE(tab_contents);
+
+  auto* overlay_controller =
+      glic::SelectionOverlayController::FromTabWebContents(tab_contents);
+  ASSERT_TRUE(overlay_controller);
+  overlay_controller->Show(/*options=*/nullptr);
+
+  ASSERT_OK(glic::RunUntilEqual(
+      [&]() { return overlay_controller->state(); },
+      glic::SelectionOverlayController::State::kOverlay,
+      "Timeout waiting for SelectionOverlayController state to be kOverlay"));
+
+  content::RenderFrameHost* overlay_rfh =
+      overlay_controller->GetOverlayMainFrame();
+  ASSERT_TRUE(overlay_rfh);
+
+  // Triggering via context menu on the selection overlay should resolve the
+  // host tab and record the WebUI URL category.
+  content::GlobalDOMNodeId context_menu_target(
+      overlay_rfh->GetWeakDocumentPtr(), blink::DOMNodeIdType(123));
+  dictation_service().ContextMenuHandler(TargetDetails(context_menu_target));
+
+  SessionController* controller = dictation_service().session_controller();
+  ASSERT_NE(controller, nullptr);
+  EXPECT_EQ(dictation_service().GetActiveDictationTab(), tab);
+  histogram_tester.ExpectUniqueSample(kSessionUrlCategoryHistogramName,
+                                      DictationUrlCategory::kWebUI, 1);
+  dictation_service().session_controller()->EndSessionSynchronously();
+
+  // Focus an input inside the selection overlay and verify the hotkey targets
+  // it.
+  FocusInputAndVerifyHotkeyTargets(overlay_rfh);
+
+  // Closing the selection overlay destroys its WebContents and should end the
+  // active dictation session.
+  overlay_controller->Close();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return dictation_service().session_controller() == nullptr; }));
+}
+
+INSTANTIATE_TEST_SUITE_P(All, DictationGlicBrowserTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         DictationGlicSelectionOverlayBrowserTest,
+                         testing::Bool());
 
 }  // namespace
 

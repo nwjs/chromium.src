@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/content_notification/model/content_notification_service_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/content_notification/model/content_notification_configuration.h"
 #import "ios/chrome/browser/content_notification/model/content_notification_service.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -12,28 +14,13 @@
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/public/provider/chrome/browser/content_notification/content_notification_api.h"
 
-// static
-ContentNotificationService* ContentNotificationServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<ContentNotificationService>(
-      profile, /*create=*/true);
-}
-
-// static
-ContentNotificationServiceFactory*
-ContentNotificationServiceFactory::GetInstance() {
-  static base::NoDestructor<ContentNotificationServiceFactory> instance;
-  return instance.get();
-}
-
-ContentNotificationServiceFactory::ContentNotificationServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("ContentNotificationService") {
+ContentNotificationServiceFactory::ContentNotificationServiceFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "ContentNotificationService") {
   DependsOn(ChromeAccountManagerServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
 }
-
-ContentNotificationServiceFactory::~ContentNotificationServiceFactory() =
-    default;
 
 std::unique_ptr<KeyedService>
 ContentNotificationServiceFactory::BuildServiceInstanceFor(

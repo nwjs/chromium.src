@@ -162,7 +162,7 @@ class TabStyleViewDelegateImpl : public TabStyleViewDelegate {
            TabStyle::TabSelectionState::kSelected;
   }
 
-  bool IsHovering() const override { return tab_view_->IsMouseHovered(); }
+  bool IsHovering() const override { return tab_view_->IsHovering(); }
 
   bool IsClosing() const override { return tab_view_->IsClosing(); }
   bool IsDragging() const override { return tab_view_->IsDragging(); }
@@ -540,7 +540,7 @@ void TabView::Layout(PassKey) {
   alert_indicator_->UpdateAlertIndicatorAnimation();
   if (orientation_ == TabStripOrientation::kHorizontal) {
     icon_->ResizeDiscardIndicatorRadiusForWidth(
-        width() - 2 * tab_styling()->tab_style()->GetBottomCornerRadius());
+        width() - 2 * tab_styling()->tab_style()->GetBottomExtensionWidth());
   }
 }
 
@@ -554,28 +554,15 @@ bool TabView::OnKeyPressed(const ui::KeyEvent& event) {
   if (std::optional<event_utils::ExtendSelectionDirection> direction =
           event_utils::GetExtendSelectionCommandForKeyboardEvent(
               event, layout_orientation)) {
-    const bool leading =
-        *direction == event_utils::ExtendSelectionDirection::kPrevious;
-    const TabCollectionNode* adjacent_node =
-        collection_node_->GetController()->GetAdjacentTab(GetTabInterface(),
-                                                          leading);
-    if (adjacent_node) {
-      if (TabView* adjacent_tab_view =
-              views::AsViewClass<TabView>(adjacent_node->view())) {
-        if (!selected_) {
-          collection_node_->GetController()->SelectTab(GetTabInterface(),
-                                                       GetGestureDetail(event));
-        }
-        collection_node_->GetController()->ExtendSelectionTo(
-            adjacent_tab_view->GetTabInterface());
-        base::RecordAction(
-            base::UserMetricsAction("TabMultiSelect_ExtendSelectionTo"));
-        if (views::FocusManager* focus_manager = GetFocusManager()) {
-          focus_manager->SetFocusedViewWithReason(
-              adjacent_tab_view,
-              views::FocusManager::FocusChangeReason::kFocusTraversal);
-        }
-      }
+    switch (*direction) {
+      case event_utils::ExtendSelectionDirection::kPrevious:
+        collection_node_->GetController()->ExtendSelectionPrevious(
+            GetTabInterface(), GetGestureDetail(event));
+        break;
+      case event_utils::ExtendSelectionDirection::kNext:
+        collection_node_->GetController()->ExtendSelectionNext(
+            GetTabInterface(), GetGestureDetail(event));
+        break;
     }
     return true;
   }
@@ -640,6 +627,13 @@ bool TabView::OnMousePressed(const ui::MouseEvent& event) {
 
   if (event.IsOnlyLeftMouseButton() ||
       (event.IsOnlyRightMouseButton() && event.flags() & ui::EF_FROM_TOUCH)) {
+    // Changing the selection may cause our bounds to change. If that happens
+    // the location of the event may no longer be valid. Create a copy of the
+    // event in the root view's coordinate system, which won't change, and
+    // recreate an event after changing so the coordinates are correct.
+    views::View* root_view = GetWidget()->GetRootView();
+    ui::MouseEvent event_in_root(event, views::AsViewClass<View>(this),
+                                 root_view);
     if (event.IsShiftDown() && IsSelectionModifierDown(event)) {
       controller->AddSelectionFromAnchorTo(GetTabInterface());
       base::RecordAction(
@@ -659,11 +653,13 @@ bool TabView::OnMousePressed(const ui::MouseEvent& event) {
       controller->SelectTab(GetTabInterface(), GetGestureDetail(event));
       base::RecordAction(base::UserMetricsAction("SwitchTab_Click"));
     }
+    ui::MouseEvent cloned_event(event_in_root, root_view,
+                                views::AsViewClass<View>(this));
     // Potentially start the drag for the mouse press.
     // Follow-up mouse-movement events will update the drag controller and
     // eventually kick off the drag-loop.
     controller->GetDragHandler().InitializeDrag(
-        *collection_node_, original_selection_model, event);
+        *collection_node_, original_selection_model, cloned_event);
   }
   return true;
 }
@@ -852,6 +848,7 @@ void TabView::AddedToWidget() {
           &TabView::OnFrameActiveStateChanged, base::Unretained(this)));
 
   OnTabStateChanged();
+  UpdateClipPathAndRoundedCorners();
 
   // Recompute accessible name when the structure changes.
   UpdateAccessibleName();
@@ -926,7 +923,7 @@ void TabView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
 
 void TabView::UpdateParentLayer() {
   views::View::UpdateParentLayer();
-  if (layer()) {
+  if (orientation_ == TabStripOrientation::kVertical && layer()) {
     UpdateLayerRoundedCorners();
   }
 }
@@ -940,6 +937,15 @@ void TabView::OnViewFocused(views::View* observed_view) {
 void TabView::OnViewBlurred(views::View* observed_view) {
   if (observed_view == close_button_) {
     InvalidateLayout();
+  }
+}
+
+void TabView::UpdateClipPathAndRoundedCorners() {
+  if (orientation_ == TabStripOrientation::kVertical) {
+    SetClipPath(GetPath());
+    if (layer()) {
+      UpdateLayerRoundedCorners();
+    }
   }
 }
 
@@ -1080,8 +1086,8 @@ void TabView::ResetCollectionNode() {
 void TabView::UpdateAccessibleName() {
   CHECK(collection_node_);
 
-  std::u16string name =
-      tabs::GetAccessibleTabLabel(GetTabInterface(), /*is_for_tab=*/true);
+  std::u16string name = tabs::GetAccessibleTabLabel(
+      GetTabInterface(), /*is_for_tab=*/true, &data());
   if (!name.empty()) {
     GetViewAccessibility().SetName(name);
   } else {
@@ -1103,7 +1109,12 @@ void TabView::OnAXNameChanged(ax::mojom::StringAttribute attribute,
 
 void TabView::OnCollapseStateChanged(
     tabs::VerticalTabStripCollapseState state) {
-  collapsed_ = state == tabs::VerticalTabStripCollapseState::kCollapsed;
+  const bool collapsed =
+      state == tabs::VerticalTabStripCollapseState::kCollapsed;
+  if (collapsed_ != collapsed) {
+    collapsed_ = collapsed;
+    InvalidateLayout();
+  }
 }
 
 void TabView::OnTabStateChanged() {

@@ -121,15 +121,21 @@ void ProxyConfigMonitor::AddToNetworkContextParams(
 }
 
 std::optional<bool> ProxyConfigMonitor::IsProxyConfigured() const {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI) ||
-         !BrowserThread::IsThreadInitialized(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI) ||
+            !BrowserThread::IsThreadInitialized(BrowserThread::UI),
+        base::NotFatalUntil::M162);
   net::ProxyConfigWithAnnotation proxy_config;
   net::ProxyConfigService::ConfigAvailability availability =
       proxy_config_service_->GetLatestProxyConfig(&proxy_config);
   switch (availability) {
     case net::ProxyConfigService::CONFIG_VALID: {
       const net::ProxyConfig& config = proxy_config.value();
-      return !config.proxy_rules().empty() || config.HasAutomaticSettings() ||
+      // Intentionally check `config.has_pac_url()` rather than
+      // `config.HasAutomaticSettings()`. On Windows, WPAD auto-detection
+      // (`config.auto_detect()`) is enabled by default in OS settings even when
+      // no proxy exists on the network, which would otherwise cause almost all
+      // Windows connections to report a proxy as configured.
+      return !config.proxy_rules().empty() || config.has_pac_url() ||
              !config.proxy_override_rules().empty() ||
              !config.dynamic_routing_config().routing_rules.empty();
     }

@@ -8,10 +8,13 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/timer/elapsed_timer.h"
+#include "build/build_config.h"
 #include "crypto/keypair.h"
 #include "crypto/sign.h"
 #include "crypto/unexportable_key.h"
@@ -20,27 +23,17 @@ namespace crypto {
 
 namespace {
 
-enum class KeyType {
-  kHardwareKey,
-  kVirtualizedKey,
-};
+#if BUILDFLAG(IS_APPLE)
+// Appended to the keychain access group to form the application tag of the
+// benchmark keys. Keys under this tag belong to no feature, so the benchmark
+// may delete any it finds.
+constexpr std::string_view kTpmMetricsApplicationTagSuffix = ".tpm-metrics";
+#endif  // BUILDFLAG(IS_APPLE)
 
 const sign::SignatureKind kAllAlgorithms[] = {
     sign::ECDSA_SHA256,
     sign::RSA_PKCS1_SHA256,
 };
-
-constexpr char kTestKeyName[] = "ChromeMetricsTestKey";
-
-// Leaving HW empty will keep the existing metric as is today.
-std::string GetHistogramPrefixForKeyType(KeyType type) {
-  switch (type) {
-    case KeyType::kHardwareKey:
-      return "";
-    case KeyType::kVirtualizedKey:
-      return "Virtual.";
-  }
-}
 
 std::string GetHistogramSuffixForAlgo(internal::TPMSupport algo) {
   switch (algo) {
@@ -54,55 +47,33 @@ std::string GetHistogramSuffixForAlgo(internal::TPMSupport algo) {
   return "";
 }
 
-internal::TPMType GetSupportedTpm(internal::TPMSupport hw,
-                                  internal::TPMSupport virt) {
-  if (hw != internal::TPMSupport::kNone &&
-      virt != internal::TPMSupport::kNone) {
-    return internal::TPMType::kBoth;
-  }
-
-  if (hw != internal::TPMSupport::kNone) {
-    return internal::TPMType::kHW;
-  }
-
-  // This is not expected
-  if (virt != internal::TPMSupport::kNone) {
-    return internal::TPMType::kVirtual;
-  }
-
-  return internal::TPMType::kNone;
-}
-
 void ReportUmaLatency(TPMOperation operation,
                       internal::TPMSupport algo,
-                      base::TimeDelta latency,
-                      KeyType type = KeyType::kHardwareKey) {
-  std::string histogram_name =
-      "Crypto.TPMDuration." + GetHistogramPrefixForKeyType(type) +
-      OperationToString(operation) + GetHistogramSuffixForAlgo(algo);
+                      base::TimeDelta latency) {
+  std::string histogram_name = "Crypto.TPMDuration." +
+                               OperationToString(operation) +
+                               GetHistogramSuffixForAlgo(algo);
   base::UmaHistogramMediumTimes(histogram_name, latency);
 }
 
 void ReportUmaOperationSuccess(TPMOperation operation,
                                internal::TPMSupport algo,
-                               bool status,
-                               KeyType type = KeyType::kHardwareKey) {
-  std::string histogram_name =
-      "Crypto.TPMOperation." + GetHistogramPrefixForKeyType(type) +
-      OperationToString(operation) + GetHistogramSuffixForAlgo(algo);
+                               bool status) {
+  std::string histogram_name = "Crypto.TPMOperation." +
+                               OperationToString(operation) +
+                               GetHistogramSuffixForAlgo(algo);
   base::UmaHistogramBoolean(histogram_name, status);
 }
 
 void ReportUmaTpmOperation(TPMOperation operation,
                            internal::TPMSupport algo,
                            base::TimeDelta latency,
-                           bool status,
-                           KeyType type = KeyType::kHardwareKey) {
-  ReportUmaOperationSuccess(operation, algo, status, type);
+                           bool status) {
+  ReportUmaOperationSuccess(operation, algo, status);
   if (status && operation != TPMOperation::kMessageVerify) {
     // Only report latency for successful operations
     // No latency reported for verification that is done outside of TPM
-    ReportUmaLatency(operation, algo, latency, type);
+    ReportUmaLatency(operation, algo, latency);
   }
 }
 
@@ -116,94 +87,18 @@ bool VerifySignature(sign::SignatureKind alg,
          sign::Verify(alg, *public_key, data, signature);
 }
 
-internal::TPMSupport MeasureVirtualTpmOperations() {
-  internal::TPMSupport supported_virtual_algo = internal::TPMSupport::kNone;
-  std::unique_ptr<VirtualUnexportableKeyProvider> virtual_provider =
-      GetVirtualUnexportableKeyProvider_DO_NOT_USE_METRICS_ONLY();
-
-  if (!virtual_provider) {
-    return supported_virtual_algo;
-  }
-
-  auto algo = virtual_provider->SelectAlgorithm(kAllAlgorithms);
-  if (algo) {
-    switch (*algo) {
-      case sign::ECDSA_SHA256:
-        supported_virtual_algo = internal::TPMSupport::kECDSA;
-        break;
-      case sign::RSA_PKCS1_SHA256:
-        supported_virtual_algo = internal::TPMSupport::kRSA;
-        break;
-      case sign::RSA_PKCS1_SHA1:
-      case sign::RSA_PKCS1_SHA384:
-      case sign::RSA_PKCS1_SHA512:
-      case sign::RSA_PSS_SHA256:
-      case sign::RSA_PSS_SHA384:
-      case sign::RSA_PSS_SHA512:
-      case sign::ECDSA_SHA1:
-      case sign::ECDSA_SHA384:
-      case sign::ECDSA_SHA512:
-      case sign::ED25519:
-      case sign::MLDSA_44:
-      case sign::MLDSA_65:
-      case sign::MLDSA_87:
-        // Not supported for this metric.
-        break;
-    }
-  }
-
-  // Report if virtual TPM is supported and best algo
-  base::UmaHistogramEnumeration("Crypto.VirtualKeySupport",
-                                supported_virtual_algo);
-
-  base::ElapsedTimer key_creation_timer;
-  std::unique_ptr<VirtualUnexportableSigningKey> current_key =
-      virtual_provider->GenerateSigningKey(kAllAlgorithms, kTestKeyName);
-  ReportUmaTpmOperation(TPMOperation::kNewKeyCreation, supported_virtual_algo,
-                        key_creation_timer.Elapsed(), current_key != nullptr,
-                        KeyType::kVirtualizedKey);
-  if (!current_key) {
-    // Report no support if keys cannot be created, Windows appears to always
-    // mark the keys as available in SelectAlgorithm.
-    return internal::TPMSupport::kNone;
-  }
-
-  base::ElapsedTimer open_key_timer;
-  std::string key_name = current_key->GetKeyName();
-  std::unique_ptr<VirtualUnexportableSigningKey> opened_key =
-      virtual_provider->FromKeyName(key_name);
-  // Re-using TPMOperation::kWrappedKeyCreation for restoring keys even though
-  // there are no wrapped keys involved.
-  ReportUmaTpmOperation(TPMOperation::kWrappedKeyCreation,
-                        supported_virtual_algo, open_key_timer.Elapsed(),
-                        opened_key != nullptr, KeyType::kVirtualizedKey);
-
-  const uint8_t msg[] = {1, 2, 3, 4};
-  base::ElapsedTimer message_signing_timer;
-  std::optional<std::vector<uint8_t>> signed_bytes = current_key->Sign(msg);
-  ReportUmaTpmOperation(TPMOperation::kMessageSigning, supported_virtual_algo,
-                        message_signing_timer.Elapsed(),
-                        signed_bytes.has_value(), KeyType::kVirtualizedKey);
-
-  if (signed_bytes.has_value()) {
-    ReportUmaOperationSuccess(
-        TPMOperation::kMessageVerify, supported_virtual_algo,
-        VerifySignature(current_key->Algorithm(),
-                        current_key->GetSubjectPublicKeyInfo(), msg,
-                        *signed_bytes),
-        KeyType::kVirtualizedKey);
-  }
-
-  current_key.get()->DeleteKey();
-  return supported_virtual_algo;
-}
-
 void MeasureTpmOperationsInternal(UnexportableKeyProvider::Config config) {
+#if BUILDFLAG(IS_APPLE)
+  // Keys on Apple platforms persist in the keychain. Give the benchmark keys
+  // their own tag so that they can be told apart from keys of real features.
+  config.application_tag = base::StrCat(
+      {config.keychain_access_group, kTpmMetricsApplicationTagSuffix});
+#endif  // BUILDFLAG(IS_APPLE)
+
   internal::TPMSupport supported_algo = internal::TPMSupport::kNone;
   std::unique_ptr<UnexportableKeyProvider> provider =
       GetUnexportableKeyProvider(std::move(config));
   if (!provider) {
-    base::UmaHistogramEnumeration("Crypto.TPMSupportType", supported_algo);
     return;
   }
 
@@ -234,16 +129,21 @@ void MeasureTpmOperationsInternal(UnexportableKeyProvider::Config config) {
     }
   }
 
-  internal::TPMSupport supported_virtual_algo = MeasureVirtualTpmOperations();
-  base::UmaHistogramEnumeration(
-      "Crypto.TPMSupportType",
-      GetSupportedTpm(supported_algo, supported_virtual_algo));
-
   // Report if TPM is supported and best algo
   base::UmaHistogramEnumeration("Crypto.TPMSupport2", supported_algo);
   if (supported_algo == internal::TPMSupport::kNone) {
     return;
   }
+
+#if BUILDFLAG(IS_APPLE)
+  // The keys below are deleted when they go out of scope, but a browser that
+  // exits mid-measurement leaves them in the keychain. Delete such leftovers
+  // from earlier runs, so that they don't accumulate (crbug.com/566267325).
+  if (StatefulUnexportableKeyProvider* stateful_provider =
+          provider->AsStatefulUnexportableKeyProvider()) {
+    stateful_provider->DeleteAllKeysSlowly();
+  }
+#endif  // BUILDFLAG(IS_APPLE)
 
   auto delete_key = [&provider](UnexportableSigningKey* key) {
     if (StatefulUnexportableKeyProvider* stateful_provider =

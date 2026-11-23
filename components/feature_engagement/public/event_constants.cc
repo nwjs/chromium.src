@@ -48,6 +48,8 @@ const char kExtensionsRequestAccessButtonClicked[] =
 
 const char kGlicOnboardingCompleted[] = "glic_onboarding_completed";
 
+const char kDictationInvoked[] = "dictation_invoked";
+
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
 
@@ -238,6 +240,12 @@ const char kDefaultBrowserPromoContextualGeminiUsed[] =
     "default_browser_promo_contextual_gemini_used";
 const char kGeminiSessionTerminated[] = "gemini_session_terminated";
 const char kIOSBottomOmniboxUsed[] = "ios_bottom_omnibox_used";
+const char kIOSAccountSwitchingPromoIgnored[] =
+    "ios_account_switching_promo_ignored";
+const char kIOSAccountSwitchingPromoExplicitlyDismissed[] =
+    "ios_account_switching_promo_explicitly_dismissed";
+const char kIOSAccountSwitchingPrimaryAccountChanged[] =
+    "ios_account_switching_primary_account_changed";
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -245,8 +253,6 @@ const char kPwaInstallMenuSelected[] = "pwa_install_menu_clicked";
 #endif  // BUILDFLAG(IS_ANDROID)
 
 const char kSendTabToSelfOmniboxUsed[] = "send_tab_to_self_omnibox_used";
-
-const char kTabSearchComboButtonUsed[] = "tab_search_combo_button_used";
 
 }  // namespace events
 

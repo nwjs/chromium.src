@@ -12,6 +12,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -42,6 +43,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/pointer/touch_ui_controller.h"
+#include "ui/views/focus/focus_manager.h"
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/view.h"
 
@@ -151,6 +153,7 @@ class WebUIToolbarControlDelegate {
 // incorrect display order of buttons on the toolbar.
 class WebUIToolbarWebView
     : public views::View,
+      public views::FocusChangeListener,
       public content::WebContentsObserver,
       public toolbar_ui_api::ToolbarUIService::ToolbarUIServiceDelegate,
       public ToolbarController::WebUIToolbarControllerDelegate,
@@ -242,8 +245,6 @@ class WebUIToolbarWebView
           callback) override;
   void OnContentSettingImagePointerDown(
       ::toolbar_ui_api::mojom::ContentSettingImageType type) override;
-  void OnPageActionPointerDown(
-      ::toolbar_ui_api::mojom::PageActionId action_id) override;
   void OnPageActionClick(
       ::toolbar_ui_api::mojom::PageActionId action_id,
       ::toolbar_ui_api::mojom::PageActionTrigger trigger,
@@ -312,6 +313,7 @@ class WebUIToolbarWebView
 
   // views::View:
   void AddedToWidget() override;
+  void RemovedFromWidget() override;
   void OnThemeChanged() override;
   gfx::Size GetMinimumSize() const override;
   gfx::Size CalculatePreferredSize(
@@ -319,6 +321,10 @@ class WebUIToolbarWebView
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void PreferredSizeChanged() override;
   void OnBlur() override;
+
+  // views::FocusChangeListener:
+  void OnWillChangeFocus(views::View* focused_before,
+                         views::View* focused_now) override;
 
   // content::WebContentsObserver:
   void DidStartNavigation(
@@ -387,6 +393,13 @@ class WebUIToolbarWebView
                                 ui::mojom::MenuSourceType source_type,
                                 content::ContextMenuParams params);
 
+  void EnsureWidgetActive();
+
+  // Called by the internal WebView when it gains views focus. Delivers a focus
+  // request that was waiting for views focus, if any, or notifies
+  // `location_bar_`.
+  void OnInternalWebViewFocused();
+
   void SetDidFirstNonEmptyPaintCallbackForTesting(base::OnceClosure callback);
   void SetTickClockForTesting(const base::TickClock* clock);
   views::WebView* GetWebViewForTesting();
@@ -396,6 +409,12 @@ class WebUIToolbarWebView
   }
   bool IsPendingForTesting() const {
     return initialization_state_ == InitializationState::kPending;
+  }
+
+  // Returns whether a focus request from `OnFocusRequested()` has not yet been
+  // handed to the WebUI, see `MaybeFlushPendingFocusRequest()`.
+  bool HasPendingFocusRequestForTesting() const {
+    return pending_focus_request_.has_value();
   }
 
   // Returns the current width of the WebUI location bar. Does this by computing
@@ -537,6 +556,9 @@ class WebUIToolbarWebView
   WebUIToolbarUI* GetWebUIToolbarUI() const override;
 
   void OnTouchUiChanged();
+  // Updates `controls_appear_inactive` in the toolbar state when the widget's
+  // paint-as-active state changes.
+  void OnPaintAsActiveChanged();
   void PostPushToolbarState();
   void MaybeInitializePageDependentControls();
   void PushToolbarState();
@@ -615,6 +637,12 @@ class WebUIToolbarWebView
   gfx::Rect ConvertBoundsFromCssPixelsToScreenCoords(
       const gfx::RectF& bounds_in_css_pixels) const;
 
+  // Hands `pending_focus_request_` to the WebUI if the page is initialized and
+  // the WebView holds views focus. If the page is initialized but focus is
+  // elsewhere and not set to come back to the WebView on its own, the request
+  // is stale and dropped. Otherwise it is left pending.
+  void MaybeFlushPendingFocusRequest();
+
   // Whether all controls are being managed by WebUI.
   const bool is_webui_toolbar_fully_enabled_ =
       features::IsWebUIToolbarFullyEnabled();
@@ -676,6 +704,7 @@ class WebUIToolbarWebView
   base::TimeTicks last_crash_time_;
 
   base::CallbackListSubscription touch_ui_subscription_;
+  base::CallbackListSubscription paint_as_active_subscription_;
 
   // True if the window is maximized or fullscreen.
   bool window_is_maximized_or_fullscreen_ = false;
@@ -703,10 +732,20 @@ class WebUIToolbarWebView
   // See GetFlexSpecification() for more information.
   bool location_bar_takes_priority_ = false;
 
-  // Pending focus request when focus is requested before WebUI page is
-  // initialized.
+  // Focus request not yet delivered to the WebUI, because the page is not
+  // initialized yet and/or the WebView does not hold views focus yet (e.g. the
+  // widget is inactive and focus is only stored until activation). See
+  // `MaybeFlushPendingFocusRequest()` and `OnWillChangeFocus()`.
   std::optional<toolbar_ui_api::mojom::FocusRequestTarget>
       pending_focus_request_;
+  bool in_focus_request_ = false;
+
+  // True while `EnsureWidgetActive()` is activating the browser widget prior to
+  // opening a menu.
+  bool activating_for_menu_ = false;
+
+  base::ScopedObservation<views::FocusManager, views::FocusChangeListener>
+      focus_manager_observation_{this};
 
   base::WeakPtrFactory<DependencyProvider> weak_factory_{this};
 

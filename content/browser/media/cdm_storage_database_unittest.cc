@@ -12,7 +12,6 @@
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
 #include "media/cdm/cdm_type.h"
 #include "sql/database.h"
@@ -56,8 +55,6 @@ class CdmStorageDatabaseTest : public testing::Test {
   }
 
   base::ScopedTempDir profile_path_;
-
-  base::HistogramTester histogram_tester_;
 };
 
 // This class is to test for when db_.Open() fails.
@@ -215,34 +212,25 @@ TEST_F(CdmStorageDatabaseV1Test, V1UpgradeWorks) {
   // Although it should be 6, when upgrading from v1->v2, we ALTER to add the
   // file_size column, and set the default as one. When the CDM rewrites to the
   // same file, the file_size will be updated to the proper value.
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            2u);
+  const CdmStorageKeyUsageSize initial_expected = {{kTestStorageKey, 1u},
+                                                   {kTestStorageKeyTwo, 1u}};
+  EXPECT_EQ(cdm_storage_database_->GetUsagePerAllStorageKeys(),
+            initial_expected);
 
   EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
                                                kFileName, kPopulatedFileValue));
-  // Now that we have written the same value to one of the files, we see that
-  // the size is now equivalent to 3 (the size of kPopulatedFileValue) + 1,
-  // which is 4.
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            4u);
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKeyTwo, base::Time::Min(), base::Time::Max()),
-            1u);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKeyTwo, kCdmType,
-                                                  kFileNameTwo),
-            1u);
+  const CdmStorageKeyUsageSize updated_expected = {
+      {kTestStorageKey, kPopulatedFileValue.size()}, {kTestStorageKeyTwo, 1u}};
+  EXPECT_EQ(cdm_storage_database_->GetUsagePerAllStorageKeys(),
+            updated_expected);
 
   cdm_storage_database_->CloseDatabaseForTesting();
 
   EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
                                                kFileName, kPopulatedFileValue));
 
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKey, kCdmType,
-                                                  kFileName),
-            kPopulatedFileValue.size());
+  EXPECT_EQ(cdm_storage_database_->GetUsagePerAllStorageKeys(),
+            updated_expected);
 }
 
 TEST_F(CdmStorageDatabaseV2Test, V2Works) {
@@ -252,16 +240,12 @@ TEST_F(CdmStorageDatabaseV2Test, V2Works) {
   EXPECT_EQ(cdm_storage_database_->ReadFile(kTestStorageKeyTwo, kCdmType,
                                             kFileNameTwo),
             kPopulatedFileValueTwo);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            kPopulatedFileValue.size() + kPopulatedFileValueTwo.size());
 
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKeyTwo, base::Time::Min(), base::Time::Max()),
-            kPopulatedFileValueTwo.size());
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKeyTwo, kCdmType,
-                                                  kFileNameTwo),
-            kPopulatedFileValueTwo.size());
+  const CdmStorageKeyUsageSize expected_storage_keys = {
+      {kTestStorageKey, kPopulatedFileValue.size()},
+      {kTestStorageKeyTwo, kPopulatedFileValueTwo.size()}};
+  EXPECT_EQ(cdm_storage_database_->GetUsagePerAllStorageKeys(),
+            expected_storage_keys);
 }
 
 TEST_F(CdmStorageDatabaseInvalidOpenTest, EnsureOpenFails) {
@@ -382,11 +366,6 @@ TEST_F(CdmStorageDatabaseInMemoryTest,
   EXPECT_TRUE(cdm_storage_database_->WriteFile(
       kTestStorageKeyTwo, kCdmType, kFileNameTwo, kPopulatedFileValueThree));
 
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      kPopulatedFileValue.size() + kPopulatedFileValueTwo.size() +
-          kPopulatedFileValueThree.size());
-
   EXPECT_TRUE(cdm_storage_database_->DeleteData(
       base::NullCallback(), blink::StorageKey(), time_now, base::Time::Max()));
 
@@ -402,162 +381,15 @@ TEST_F(CdmStorageDatabaseInMemoryTest,
                   ->ReadFile(kTestStorageKeyTwo, kCdmType, kFileNameTwo)
                   ->empty());
 
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      0u);
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            0u);
+  EXPECT_TRUE(cdm_storage_database_->GetUsagePerAllStorageKeys().empty());
 }
 
 TEST_F(CdmStorageDatabaseInMemoryTest, DeleteForTimeFrameWithNoData) {
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            0u);
-
   // Even if there is no data for the storage key, the SQL statement should
   // still run properly.
   EXPECT_TRUE(cdm_storage_database_->DeleteData(
       base::NullCallback(), blink::StorageKey(), base::Time::Min(),
       base::Time::Max()));
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, WriteFileForBigData) {
-  std::vector<uint8_t> big_data;
-  big_data.resize(1000000);
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, big_data));
-
-  histogram_tester_.ExpectTotalCount(
-      "Media.EME.CdmStorageDatabase.WriteFileForBigData", 1);
-
-  EXPECT_EQ(
-      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
-      big_data);
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, GetUsageForFile) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKey, kCdmType,
-                                                  kFileName),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, GetUsageForNonExistentFile) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKeyTwo, kCdmType,
-                                                  kFileName),
-            0u);
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, GetUsageForStorageKey) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(
-      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
-      kPopulatedFileValue);
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, base::Time::Min(), time_now),
-            0u);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, time_now, base::Time::Max()),
-            kPopulatedFileValue.size());
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, base::Time::Min(), base::Time::Max()),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, GetUsageForNonExistentStorageKey) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(
-      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
-      kPopulatedFileValue);
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKeyTwo, base::Time::Min(), base::Time::Max()),
-            0u);
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, GetUsageForMultipleFilesInStorageKey) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(
-      kTestStorageKey, kCdmType, kFileNameTwo, kPopulatedFileValueTwo));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, time_now, base::Time::Max()),
-            kPopulatedFileValue.size() + kPopulatedFileValueTwo.size());
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, base::Time::Min(), base::Time::Max()),
-            kPopulatedFileValue.size() + kPopulatedFileValueTwo.size());
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, GetUsageForTimeFrame) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      kPopulatedFileValue.size());
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest, GetUsageForNonExistentTimeFrame) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Now(),
-                                                       base::Time::Max()),
-            0u);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseInMemoryTest,
-       GetUsageForMultipleFilesAndStorageKeysTimeFrame) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(
-      kTestStorageKey, kCdmType, kFileNameTwo, kPopulatedFileValueTwo));
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(
-      kTestStorageKeyTwo, kCdmType, kFileNameTwo, kPopulatedFileValueThree));
-
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(), time_now),
-      0u);
-
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      kPopulatedFileValue.size() + kPopulatedFileValueTwo.size() +
-          kPopulatedFileValueThree.size());
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            kPopulatedFileValue.size() + kPopulatedFileValueTwo.size() +
-                kPopulatedFileValueThree.size());
 }
 
 TEST_F(CdmStorageDatabaseInMemoryTest, GetUsagePerAllStorageKeys) {
@@ -652,9 +484,9 @@ TEST_F(CdmStorageDatabaseInMemoryTest, DeleteDataForFilter) {
       filter_builder_delete->BuildStorageKeyFilter(), blink::StorageKey(), now,
       base::Time::Max());
 
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(kTestStorageKey, now,
-                                                        base::Time::Max()),
-            0u);
+  EXPECT_TRUE(
+      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName)
+          ->empty());
 }
 
 TEST_F(CdmStorageDatabaseInMemoryTest, PreserveDataForFilter) {
@@ -712,9 +544,9 @@ TEST_F(CdmStorageDatabaseInMemoryTest, PreserveDataForFilter) {
   EXPECT_EQ(
       cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
       kPopulatedFileValue);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKeyTwo, kCdmType,
-                                                  kFileNameTwo),
-            0);
+  EXPECT_TRUE(cdm_storage_database_
+                  ->ReadFile(kTestStorageKeyTwo, kCdmType, kFileNameTwo)
+                  ->empty());
 }
 
 TEST_F(CdmStorageDatabaseValidPathTest, EnsureOpenWithoutErrors) {
@@ -826,11 +658,6 @@ TEST_F(CdmStorageDatabaseValidPathTest,
   EXPECT_TRUE(cdm_storage_database_->WriteFile(
       kTestStorageKeyTwo, kCdmType, kFileNameTwo, kPopulatedFileValueThree));
 
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      kPopulatedFileValue.size() + kPopulatedFileValueTwo.size() +
-          kPopulatedFileValueThree.size());
-
   EXPECT_TRUE(cdm_storage_database_->DeleteData(
       base::NullCallback(), blink::StorageKey(), time_now, base::Time::Max()));
 
@@ -846,163 +673,15 @@ TEST_F(CdmStorageDatabaseValidPathTest,
                   ->ReadFile(kTestStorageKeyTwo, kCdmType, kFileNameTwo)
                   ->empty());
 
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      0u);
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            0u);
+  EXPECT_TRUE(cdm_storage_database_->GetUsagePerAllStorageKeys().empty());
 }
 
 TEST_F(CdmStorageDatabaseValidPathTest, DeleteForTimeFrameWithNoData) {
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            0u);
-
   // Even if there is no data for the storage key, the SQL statement should
   // still run properly.
   EXPECT_TRUE(cdm_storage_database_->DeleteData(
       base::NullCallback(), blink::StorageKey(), base::Time::Min(),
       base::Time::Max()));
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, WriteFileForBigData) {
-  std::vector<uint8_t> big_data;
-  big_data.resize(1000000);
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, big_data));
-
-  const char uma_name[] = "Media.EME.CdmStorageDatabase.WriteFileForBigData";
-  histogram_tester_.ExpectTotalCount(uma_name, 1);
-  histogram_tester_.ExpectBucketCount(uma_name, true, 1);
-
-  EXPECT_EQ(
-      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
-      big_data);
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, GetUsageForFile) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKey, kCdmType,
-                                                  kFileName),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, GetUsageForNonExistentFile) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKeyTwo, kCdmType,
-                                                  kFileName),
-            0u);
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, GetUsageForStorageKey) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(
-      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
-      kPopulatedFileValue);
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, base::Time::Min(), time_now),
-            0u);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, time_now, base::Time::Max()),
-            kPopulatedFileValue.size());
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, base::Time::Min(), base::Time::Max()),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, GetUsageForNonExistentStorageKey) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(
-      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
-      kPopulatedFileValue);
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKeyTwo, base::Time::Min(), base::Time::Max()),
-            0u);
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, GetUsageForMultipleFilesInStorageKey) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(
-      kTestStorageKey, kCdmType, kFileNameTwo, kPopulatedFileValueTwo));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, time_now, base::Time::Max()),
-            kPopulatedFileValue.size() + kPopulatedFileValueTwo.size());
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(
-                kTestStorageKey, base::Time::Min(), base::Time::Max()),
-            kPopulatedFileValue.size() + kPopulatedFileValueTwo.size());
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, GetUsageForTimeFrame) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      kPopulatedFileValue.size());
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest, GetUsageForNonExistentTimeFrame) {
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Now(),
-                                                       base::Time::Max()),
-            0u);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            kPopulatedFileValue.size());
-}
-
-TEST_F(CdmStorageDatabaseValidPathTest,
-       GetUsageForMultipleFilesAndStorageKeysTimeFrame) {
-  auto time_now = base::Time::Now();
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(kTestStorageKey, kCdmType,
-                                               kFileName, kPopulatedFileValue));
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(
-      kTestStorageKey, kCdmType, kFileNameTwo, kPopulatedFileValueTwo));
-
-  EXPECT_TRUE(cdm_storage_database_->WriteFile(
-      kTestStorageKeyTwo, kCdmType, kFileNameTwo, kPopulatedFileValueThree));
-
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(), time_now),
-      0u);
-
-  EXPECT_EQ(
-      cdm_storage_database_->GetSizeForTimeFrame(time_now, base::Time::Max()),
-      kPopulatedFileValue.size() + kPopulatedFileValueTwo.size() +
-          kPopulatedFileValueThree.size());
-
-  EXPECT_EQ(cdm_storage_database_->GetSizeForTimeFrame(base::Time::Min(),
-                                                       base::Time::Max()),
-            kPopulatedFileValue.size() + kPopulatedFileValueTwo.size() +
-                kPopulatedFileValueThree.size());
 }
 
 TEST_F(CdmStorageDatabaseValidPathTest, GetUsagePerAllStorageKeys) {
@@ -1097,9 +776,9 @@ TEST_F(CdmStorageDatabaseValidPathTest, DeleteDataForFilter) {
       filter_builder_delete->BuildStorageKeyFilter(), blink::StorageKey(), now,
       base::Time::Max());
 
-  EXPECT_EQ(cdm_storage_database_->GetSizeForStorageKey(kTestStorageKey, now,
-                                                        base::Time::Max()),
-            0u);
+  EXPECT_TRUE(
+      cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName)
+          ->empty());
 }
 
 TEST_F(CdmStorageDatabaseValidPathTest, PreserveDataForFilter) {
@@ -1157,9 +836,9 @@ TEST_F(CdmStorageDatabaseValidPathTest, PreserveDataForFilter) {
   EXPECT_EQ(
       cdm_storage_database_->ReadFile(kTestStorageKey, kCdmType, kFileName),
       kPopulatedFileValue);
-  EXPECT_EQ(cdm_storage_database_->GetSizeForFile(kTestStorageKeyTwo, kCdmType,
-                                                  kFileNameTwo),
-            0);
+  EXPECT_TRUE(cdm_storage_database_
+                  ->ReadFile(kTestStorageKeyTwo, kCdmType, kFileNameTwo)
+                  ->empty());
 }
 
 }  // namespace content

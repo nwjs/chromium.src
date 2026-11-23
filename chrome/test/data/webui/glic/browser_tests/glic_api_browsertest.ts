@@ -76,6 +76,36 @@ class ApiTests extends ApiTestFixtureBase {
 
   async testDoNothing() {}
 
+  async testGetSendTabToSelfDevicesFeatureDisabled() {
+    assertDefined(this.host.getHostCapabilities);
+    const capabilities: Set<HostCapability> =
+        await this.host.getHostCapabilities();
+    assertFalse(capabilities.has(HostCapability.SEND_TAB_TO_SELF));
+    assertUndefined(this.host.getSendTabToSelfDevices);
+  }
+
+  async testGetSendTabToSelfDevicesFeatureEnabled() {
+    assertDefined(this.host.getHostCapabilities);
+    const capabilities: Set<HostCapability> =
+        await this.host.getHostCapabilities();
+    assertTrue(capabilities.has(HostCapability.SEND_TAB_TO_SELF));
+    assertDefined(this.host.getSendTabToSelfDevices);
+    const devices = await this.host.getSendTabToSelfDevices();
+    assertDefined(devices);
+    assertEquals(devices.length, 1);
+    assertEquals(devices[0]!.deviceGuid, 'device_guid_1');
+    assertEquals(devices[0]!.deviceName, 'My Phone');
+    assertEquals(devices[0]!.formFactor, FormFactor.PHONE);
+    assertEquals(devices[0]!.lastUpdatedTime?.getTime(), 1700000000000);
+  }
+
+  async testGetSendTabToSelfDevicesModelNotReady() {
+    assertDefined(this.host.getSendTabToSelfDevices);
+    const devices = await this.host.getSendTabToSelfDevices();
+    assertDefined(devices);
+    assertEquals(devices.length, 0);
+  }
+
   async testRecordUseCounter() {
     assertDefined(this.host.getMetrics);
     const metrics = this.host.getMetrics();
@@ -423,7 +453,7 @@ class ApiTests extends ApiTestFixtureBase {
     const tabId: string = this.getFocusedTabId();
     await this.host.unpinTabs([tabId]);  // Unpin required for multi-instance.
     await assertRejects(this.host.getContextFromTab(tabId, {}), {
-      withErrorMessage: 'tabContext failed: permission denied:' +
+      withErrorMessage: 'getContextFromTab failed: permission denied:' +
           ' context permission not enabled',
     });
 
@@ -447,13 +477,13 @@ class ApiTests extends ApiTestFixtureBase {
 
     await this.host.setTabContextPermissionState(false);
     await assertRejects(this.host.getContextFromTab(tabId, {}), {
-      withErrorMessage: 'tabContext failed: permission denied:' +
+      withErrorMessage: 'getContextFromTab failed: permission denied:' +
           ' context permission not enabled',
     });
 
     await this.host.setTabContextPermissionState(true);
     await assertRejects(this.host.getContextFromTab(tabId, {}), {
-      withErrorMessage: 'tabContext failed: permission denied',
+      withErrorMessage: 'getContextFromTab failed: permission denied',
     });
   }
 
@@ -482,7 +512,7 @@ class ApiTests extends ApiTestFixtureBase {
     await this.host.unpinTabs([tabId]);
     await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 1);
     await assertRejects(this.host.getContextFromTab(tabId, {}), {
-      withErrorMessage: 'tabContext failed: permission denied:' +
+      withErrorMessage: 'getContextFromTab failed: permission denied:' +
           ' context permission not enabled',
     });
   }
@@ -495,7 +525,7 @@ class ApiTests extends ApiTestFixtureBase {
 
     await assertRejects(
         this.host.getContextFromTab('not-exist', {}),
-        {withErrorMessage: 'tabContext failed: tab not found'},
+        {withErrorMessage: 'getContextFromTab failed: tab not found'},
     );
   }
 
@@ -674,7 +704,7 @@ class ApiTests extends ApiTestFixtureBase {
     // Focused tab extraction should fail for an un-focusable page.
     await this.host.setTabContextPermissionState(true);
     await assertRejects(this.host.getContextFromFocusedTab({}), {
-      withErrorMessage: 'tabContext failed: permission denied',
+      withErrorMessage: 'getContextFromFocusedTab failed: permission denied',
     });
   }
 
@@ -904,7 +934,7 @@ class ApiTests extends ApiTestFixtureBase {
 
     assertDefined(this.host.getContextFromFocusedTab);
     await assertRejects(this.host.getContextFromFocusedTab({}), {
-      withErrorMessage: 'tabContext failed: permission denied:' +
+      withErrorMessage: 'getContextFromFocusedTab failed: permission denied:' +
           ' context permission not enabled',
     });
   }
@@ -1204,8 +1234,8 @@ class ApiTests extends ApiTestFixtureBase {
       // Calling getModelQualityClientId triggers a mojo pipe error because the
       // runtime feature is disabled.
       (this.host as GlicBrowserHostImpl)
-          .clientRemote
-          .requestWithResponse('getModelQualityClientId', undefined)
+          .getHandler()
+          .getModelQualityClientId()
           .catch(() => {});
     }
   }
@@ -1250,10 +1280,9 @@ class ApiTests extends ApiTestFixtureBase {
     request.onDialogClosed({response: {permissionGranted: false}});
 
     // TODO(b/477060111): This test fails without this. Because onDialogClosed
-    // resolves a promise, it doesn't actually postMessage the response until a
-    // yield to the event loop. It should probably return a promise which can be
-    // awaited. This await yields allowing the queued task that does the
-    // postMessage to schedule so that the response message is sent before
+    // resolves a promise, the Mojo response isn't sent until the promise's
+    // microtask runs. It should probably return a promise which can be
+    // awaited. This await yields so that the response message is sent before
     // uninterruptActorTask.
     await new Promise((resolve) => void setTimeout(resolve, 0));
 
@@ -2173,13 +2202,15 @@ class ApiTests extends ApiTestFixtureBase {
     // Test failures.
     // 1. Invalid DOM node ID.
     await assertRejects(
-        this.host.getImageBytesFromTab(tabId, documentId, 9999),
-        {withErrorMessage: 'getImageBytes failed: failed to get image bytes'});
+        this.host.getImageBytesFromTab(tabId, documentId, 9999), {
+          withErrorMessage:
+              'getImageBytesFromTab failed: failed to get image bytes',
+        });
 
     // 2. Invalid tab ID.
     await assertRejects(
         this.host.getImageBytesFromTab('99999', documentId, domNodeId),
-        {withErrorMessage: 'getImageBytes failed: tab not found'});
+        {withErrorMessage: 'getImageBytesFromTab failed: tab not found'});
   }
 
   // Test getPinCandidates() in some different scenarios where there is a single

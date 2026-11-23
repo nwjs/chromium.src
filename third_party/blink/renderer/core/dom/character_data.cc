@@ -36,19 +36,20 @@
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/parkable_string_manager.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
 namespace blink {
 
 void CharacterData::MakeParkable() {
-  if (is_parkable_) {
+  if (IsParkableCharacterData()) {
     return;
   }
 
   auto released = data_.ReleaseImpl();
   data_.~String();
   new (&parkable_data_) ParkableString(std::move(released));
-  is_parkable_ = true;
+  SetParkableCharacterData(true);
 }
 
 void CharacterData::setData(const String& data) {
@@ -65,9 +66,8 @@ String CharacterData::substringData(unsigned offset,
   if (offset > length()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"The offset ", String::Number(offset),
-                " is greater than the node's length (",
-                String::Number(length()), ")."}));
+        Format("The offset {} is greater than the node's length ({}).", offset,
+               length()));
     return String();
   }
 
@@ -98,9 +98,8 @@ void CharacterData::insertData(unsigned offset,
   if (offset > length()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"The offset ", String::Number(offset),
-                " is greater than the node's length (",
-                String::Number(length()), ")."}));
+        Format("The offset {} is greater than the node's length ({}).", offset,
+               length()));
     return;
   }
 
@@ -122,9 +121,8 @@ static bool ValidateOffsetCount(unsigned offset,
   if (offset > length) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"The offset ", String::Number(offset),
-                " is greater than the node's length (", String::Number(length),
-                ")."}));
+        Format("The offset {} is greater than the node's length ({}).", offset,
+               length));
     return false;
   }
 

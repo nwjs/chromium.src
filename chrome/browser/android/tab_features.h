@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/common/buildflags.h"
 #include "components/safe_browsing/buildflags.h"
+#include "components/site_engagement/content/site_engagement_service.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/webui/buildflags.h"
@@ -35,6 +36,7 @@ class ActorUiTabControllerInterface;
 }  // namespace actor::ui
 
 namespace blocked_content {
+class PopupBlockerTabHelper;
 class PopupOpenerTabHelper;
 }  // namespace blocked_content
 
@@ -86,6 +88,7 @@ class ContextualCueingHelper;
 class GlicInstanceHelper;
 class GlicMarketingPageTabHelper;
 class GlicSidePanelCoordinator;
+class GlicWebDragObserver;
 }  // namespace glic
 
 namespace history {
@@ -111,6 +114,7 @@ class MetricsServicesWebContentsObserver;
 }  // namespace metrics
 
 namespace page_content_annotations {
+class AnnotatedPageContentRequest;
 class PageContentAnnotationsWebContentsObserver;
 }  // namespace page_content_annotations
 
@@ -163,6 +167,7 @@ class ChromeFacilitatedPaymentsClient;
 class ConnectionHelpTabHelper;
 class CoreTabHelper;
 class ExternalProtocolObserver;
+class FileSystemAccessPermissionRequestManager;
 class FileSystemAccessTabHelper;
 class FromGWSNavigationAndKeepAliveRequestObserver;
 class HistoryEmbeddingsTabHelper;
@@ -212,6 +217,12 @@ class TabFeatures {
     return data_protection_tab_controller_.get();
   }
 
+  tasks::TaskTabHelper* task_tab_helper() { return task_tab_helper_.get(); }
+
+  SupervisedUserNavigationObserver* supervised_user_navigation_observer() {
+    return supervised_user_navigation_observer_.get();
+  }
+
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
   customize_chrome::SidePanelController*
   customize_chrome_side_panel_controller() {
@@ -245,8 +256,6 @@ class TabFeatures {
   std::unique_ptr<actor::ActorTabData> actor_tab_data_;
   std::unique_ptr<actor::ActorSurfaceTabHelper> actor_surface_tab_helper_;
 
-  std::unique_ptr<sync_sessions::SyncSessionsRouterTabHelper>
-      sync_sessions_router_;
   std::unique_ptr<ConnectionHelpTabHelper> connection_help_tab_helper_;
   std::unique_ptr<HttpAuthCacheStatus> http_auth_cache_status_;
   std::unique_ptr<SecurityStateEventObserver> security_state_event_observer_;
@@ -278,6 +287,7 @@ class TabFeatures {
   std::unique_ptr<glic::GlicMarketingPageTabHelper>
       glic_marketing_page_tab_helper_;
   std::unique_ptr<glic::GlicSidePanelCoordinator> glic_side_panel_coordinator_;
+  std::unique_ptr<glic::GlicWebDragObserver> glic_web_drag_observer_;
   std::unique_ptr<actor::ui::ActorUiTabControllerInterface>
       actor_ui_tab_controller_;
 
@@ -330,6 +340,8 @@ class TabFeatures {
   std::unique_ptr<chrome_browser_net::NetErrorTabHelper> net_error_tab_helper_;
   std::unique_ptr<SupervisedUserNavigationObserver>
       supervised_user_navigation_observer_;
+  std::unique_ptr<sync_sessions::SyncSessionsRouterTabHelper>
+      sync_sessions_router_;
   std::unique_ptr<offline_pages::OfflinePageTabHelper> offline_page_tab_helper_;
   std::unique_ptr<offline_pages::RecentTabHelper> recent_tab_helper_;
   std::unique_ptr<AutoPictureInPictureTabHelper>
@@ -342,6 +354,8 @@ class TabFeatures {
   std::unique_ptr<commerce::CommerceTabHelper> commerce_tab_helper_;
   std::unique_ptr<metrics::MetricsServicesWebContentsObserver>
       metrics_services_web_contents_observer_;
+  std::unique_ptr<blocked_content::PopupBlockerTabHelper>
+      popup_blocker_tab_helper_;
   std::unique_ptr<blocked_content::PopupOpenerTabHelper>
       popup_opener_tab_helper_;
   std::unique_ptr<
@@ -356,6 +370,12 @@ class TabFeatures {
   std::unique_ptr<predictors::LoadingPredictorTabHelper>
       loading_predictor_tab_helper_;
   std::unique_ptr<BreadcrumbManagerTabHelper> breadcrumb_manager_tab_helper_;
+  std::unique_ptr<site_engagement::SiteEngagementService::Helper>
+      site_engagement_helper_;
+  std::unique_ptr<page_content_annotations::AnnotatedPageContentRequest>
+      annotated_page_content_request_;
+  std::unique_ptr<FileSystemAccessPermissionRequestManager>
+      file_system_access_permission_request_manager_;
 
   // Holds the WebUI embedding context subscription.
   base::CallbackListSubscription tab_subscription_;

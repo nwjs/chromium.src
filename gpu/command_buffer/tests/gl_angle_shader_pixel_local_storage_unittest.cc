@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <GLES2/gl2.h>
+#include <GLES2/gl2chromium.h>
 #include <GLES2/gl2ext.h>
 #include <GLES2/gl2extchromium.h>
 #include <GLES3/gl3.h>
@@ -13,6 +13,7 @@
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/tests/gl_manager.h"
 #include "gpu/command_buffer/tests/gl_test_utils.h"
+#include "gpu/config/gpu_test_config.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gl/gl_implementation.h"
 
@@ -23,14 +24,6 @@ class ANGLEShaderPixelLocalStorageTest : public testing::Test {
 
  protected:
   void SetUp() override {
-#if BUILDFLAG(IS_ANDROID)
-    auto* command_line = base::CommandLine::ForCurrentProcess();
-    if (gles2::UsePassthroughCommandDecoder(command_line)) {
-      // TODO(crbug.com/40278644): fix the test for passthrough.
-      GTEST_SKIP();
-    }
-#endif
-
     GLManager::Options options;
     options.context_type = CONTEXT_TYPE_OPENGLES3;
     gl_.Initialize(options);
@@ -53,6 +46,11 @@ static GLint gl_get_integer(GLenum pname) {
 TEST_F(ANGLEShaderPixelLocalStorageTest, GetIntegerv) {
   if (!gl_.IsInitialized() ||
       !GLTestHelper::HasExtension("GL_ANGLE_shader_pixel_local_storage")) {
+    GTEST_SKIP();
+  }
+
+  // TODO(crbug.com/576783756): Fails on Samsung A13 (Mali-G52).
+  if (GPUTestBotConfig::CurrentConfigMatches("Android ARM 0x74021000")) {
     GTEST_SKIP();
   }
 
@@ -118,7 +116,7 @@ TEST_F(ANGLEShaderPixelLocalStorageTest,
        GetFramebufferPixelLocalStorageParameter) {
   if (!gl_.IsInitialized() ||
       !GLTestHelper::HasExtension("GL_ANGLE_shader_pixel_local_storage")) {
-    return;
+    GTEST_SKIP();
   }
 
   GLuint fbo;
@@ -177,7 +175,7 @@ TEST_F(ANGLEShaderPixelLocalStorageTest,
 TEST_F(ANGLEShaderPixelLocalStorageTest, LoadStoreTokens) {
   if (!gl_.IsInitialized() ||
       !GLTestHelper::HasExtension("GL_ANGLE_shader_pixel_local_storage")) {
-    return;
+    GTEST_SKIP();
   }
 
 // Test skipped on Intel-based Macs when running Metal. crbug.com/326278125
@@ -226,7 +224,12 @@ TEST_F(ANGLEShaderPixelLocalStorageTest, LoadStoreTokens) {
 TEST_F(ANGLEShaderPixelLocalStorageTest, DrawAPI) {
   if (!gl_.IsInitialized() ||
       !GLTestHelper::HasExtension("GL_ANGLE_shader_pixel_local_storage")) {
-    return;
+    GTEST_SKIP();
+  }
+
+  // TODO(crbug.com/576783756): Fails on Samsung A13 (Mali-G52).
+  if (GPUTestBotConfig::CurrentConfigMatches("Android ARM 0x74021000")) {
+    GTEST_SKIP();
   }
 
 // Test skipped on Intel-based Macs when running Metal. crbug.com/326278125
@@ -306,7 +309,7 @@ void main() {
 TEST_F(ANGLEShaderPixelLocalStorageTest, BlockEmulatedDefaultFramebuffer) {
   if (!gl_.IsInitialized() ||
       !GLTestHelper::HasExtension("GL_ANGLE_shader_pixel_local_storage")) {
-    return;
+    GTEST_SKIP();
   }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

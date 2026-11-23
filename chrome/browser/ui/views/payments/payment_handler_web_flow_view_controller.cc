@@ -299,9 +299,11 @@ void PaymentHandlerWebFlowViewController::FillContentView(
   PaymentHandlerWebFlowViewControllerWebContentsWrapper::CreateForWebContents(
       web_contents(), weak_ptr_factory_.GetWeakPtr());
   web_contents()->SetDelegate(this);
+  SetReferenceView(web_view);
+  SetAcceleratorHandling(views::WebContentsAcceleratorHandling::kEnabled);
   content::WebContents* parent_tab_web_contents = state()->GetWebContents();
 
-  DCHECK_NE(parent_tab_web_contents, web_contents());
+  CHECK_NE(parent_tab_web_contents, web_contents(), base::NotFatalUntil::M162);
   content::PaymentAppProvider::GetOrCreateForWebContents(
       /*payment_request_web_contents=*/parent_tab_web_contents)
       ->SetOpenedWindow(
@@ -365,14 +367,6 @@ void PaymentHandlerWebFlowViewController::FillContentView(
     DevToolsWindow::OpenDevToolsWindow(
         web_contents(), DevToolsOpenedByAction::kAutomaticForNewTarget);
   }
-
-  // The webview must get an explicitly set height otherwise the layout doesn't
-  // make it fill its container. This is likely because it has no content at the
-  // time of first layout (nothing has loaded yet). Because of this, set it to
-  // total_dialog_height - header_height. On the other hand, the width will be
-  // properly set so it can be 0 here.
-  web_view->SetPreferredSize(gfx::Size(
-      0, dialog()->GetActualPaymentHandlerDialogHeight() - GetHeaderHeight()));
 }
 
 bool PaymentHandlerWebFlowViewController::ShouldShowPrimaryButton() {
@@ -448,6 +442,11 @@ bool PaymentHandlerWebFlowViewController::CanContentViewBeScrollable() {
   return false;
 }
 
+bool PaymentHandlerWebFlowViewController::ShouldContentViewFillPane() {
+  // The webview fills the dialog below Chrome's header.
+  return true;
+}
+
 void PaymentHandlerWebFlowViewController::Stop() {
   video_recording_tab_alert_.RunAndReset();
   chip_model_.reset();
@@ -468,7 +467,7 @@ PaymentHandlerWebFlowViewController::GetWeakPtr() {
 
 void PaymentHandlerWebFlowViewController::VisibleSecurityStateChanged(
     content::WebContents* source) {
-  DCHECK_EQ(source, web_contents());
+  CHECK_EQ(source, web_contents(), base::NotFatalUntil::M162);
   if (!SslValidityChecker::IsValidPageInPaymentHandlerWindow(source)) {
     AbortPayment();
   } else {
@@ -486,7 +485,7 @@ content::WebContents* PaymentHandlerWebFlowViewController::OpenURLFromTab(
   // Reject CURRENT_TAB to maintain existing behavior for internal navigations.
   // OpenURLFromTab is implemented so that external links (e.g. PageInfo "Learn
   // more") are routed to the parent tab.
-  if (params.disposition == WindowOpenDisposition::CURRENT_TAB) {
+  if (params.disposition == WindowOpenDisposition::kCurrentTab) {
     return nullptr;
   }
   if (!state() || !state()->GetWebContents()) {
@@ -508,20 +507,12 @@ content::WebContents* PaymentHandlerWebFlowViewController::AddNewContents(
   BrowserWindowInterface* const browser =
       ProfileBrowserCollection::GetForProfile(profile_)->GetLastActiveBrowser();
   if (browser && user_gesture &&
-      (disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-       disposition == WindowOpenDisposition::NEW_POPUP)) {
+      (disposition == WindowOpenDisposition::kNewForegroundTab ||
+       disposition == WindowOpenDisposition::kNewPopup)) {
     chrome::AddWebContents(browser, source, std::move(new_contents), target_url,
                            disposition, window_features);
   }
   return nullptr;
-}
-
-bool PaymentHandlerWebFlowViewController::HandleKeyboardEvent(
-    content::WebContents* source,
-    const input::NativeWebKeyboardEvent& event) {
-  return content_view() && content_view()->GetFocusManager() &&
-         unhandled_keyboard_event_handler_.HandleKeyboardEvent(
-             event, content_view()->GetFocusManager());
 }
 
 // We explicitly ignore close requests from the WebContents (e.g., via
@@ -531,6 +522,37 @@ bool PaymentHandlerWebFlowViewController::HandleKeyboardEvent(
 void PaymentHandlerWebFlowViewController::CloseContents(
     content::WebContents* source) {
   // Do nothing.
+}
+
+// Handles window.resizeTo() from the payment handler's top-level page. Unlike
+// other consumers of resizeTo(), which apply `bounds` to their outer window,
+// this treats `bounds.size()` as the inner size, i.e. the size of the payment
+// handler WebContents.
+// This is experimental: window.resizeBy(), moveTo() and moveBy() also reach
+// here, but behave unexpectedly, because content builds `bounds` from the
+// outer window that hosts the payment handler.
+// TODO(crbug.com/573971229): Handle resizeBy(), moveTo() and moveBy() properly.
+void PaymentHandlerWebFlowViewController::SetContentsBounds(
+    content::WebContents* source,
+    const gfx::Rect& bounds) {
+  CHECK_EQ(source, web_contents());
+  if (!base::FeatureList::IsEnabled(
+          features::kPaymentHandlerDynamicCustomSize)) {
+    return;
+  }
+
+  // The payment handler page stays alive while it is covered, e.g. by the
+  // processing spinner after it responds. Only resize the dialog while the
+  // payment handler window is the visible sheet that the user can interact
+  // with.
+  if (!dialog() || !dialog()->IsShowingInteractivePaymentHandlerWindow()) {
+    return;
+  }
+
+  // No too-small-window check is needed for resizeTo(). Growing the dialog is
+  // capped by the browser size, and shrinking can only make it fit better, so
+  // a dialog that fits keeps fitting.
+  dialog()->ResizeToFitPaymentHandlerWebContents(bounds.size());
 }
 
 void PaymentHandlerWebFlowViewController::RequestMediaAccessPermission(

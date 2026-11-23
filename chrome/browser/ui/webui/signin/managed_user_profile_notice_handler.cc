@@ -40,7 +40,6 @@
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/signin_constants.h"
-#include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -48,7 +47,6 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image.h"
 #include "ui/native_theme/native_theme.h"
-#include "ui/strings/grit/ui_strings.h"
 #include "ui/webui/webui_util.h"
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -67,7 +65,7 @@ constexpr base::TimeDelta kLongProcessingThreshold = base::Seconds(5);
 
 std::string GetManagedAccountTitle(ProfileAttributesEntry* entry,
                                    const std::string& account_domain_name) {
-  DCHECK(entry);
+  CHECK(entry, base::NotFatalUntil::M162);
   std::optional<std::string> hosted_domain = entry->GetHostedDomain();
   if (hosted_domain == std::string()) {
     return std::string();
@@ -425,7 +423,7 @@ void ManagedUserProfileNoticeHandler::OnLongProcessingTime() {
 
 void ManagedUserProfileNoticeHandler::UpdateProfileInfo(
     const base::FilePath& profile_path) {
-  DCHECK(IsJavascriptAllowed());
+  CHECK(IsJavascriptAllowed(), base::NotFatalUntil::M162);
   if (profile_path != profile_path_) {
     return;
   }
@@ -451,9 +449,9 @@ std::string ManagedUserProfileNoticeHandler::GetManagedAccountTitleWithEmail(
     ProfileAttributesEntry* entry,
     const std::string& account_domain_name,
     const std::u16string& email) {
-  DCHECK(profile);
-  DCHECK(entry);
-  DCHECK(!email.empty());
+  CHECK(profile, base::NotFatalUntil::M162);
+  CHECK(entry, base::NotFatalUntil::M162);
+  CHECK(!email.empty(), base::NotFatalUntil::M162);
 
 #if !BUILDFLAG(IS_CHROMEOS)
   std::optional<std::string> account_manager =
@@ -517,18 +515,14 @@ base::DictValue ManagedUserProfileNoticeHandler::GetProfileInfoValue() {
     case ManagedUserProfileNoticeUI::ScreenType::kEntepriseAccountSyncEnabled:
       dict.Set("showEnterpriseBadge", true);
       subtitle = GetManagedAccountTitle(entry, domain_name_);
-      dict.Set("proceedLabel", l10n_util::GetStringUTF8(
-                                   IDS_PROFILE_PICKER_IPH_NEXT_BUTTON_LABEL));
       break;
     case ManagedUserProfileNoticeUI::ScreenType::kEntepriseAccountSyncDisabled:
       dict.Set("showEnterpriseBadge", true);
       subtitle = GetManagedAccountTitle(entry, domain_name_);
-      dict.Set("proceedLabel", l10n_util::GetStringUTF8(IDS_DONE));
       break;
     case ManagedUserProfileNoticeUI::ScreenType::kConsumerAccountSyncDisabled:
       dict.Set("showEnterpriseBadge", false);
       subtitle = GetManagedDeviceTitle();
-      dict.Set("proceedLabel", l10n_util::GetStringUTF8(IDS_DONE));
       break;
     case ManagedUserProfileNoticeUI::ScreenType::kEnterpriseOIDC:
       title =
@@ -536,11 +530,6 @@ base::DictValue ManagedUserProfileNoticeHandler::GetProfileInfoValue() {
       dict.Set("showEnterpriseBadge", true);
       subtitle = l10n_util::GetStringUTF8(
           IDS_ENTERPRISE_PROFILE_WELCOME_PROFILE_SEPARATION_ACCOUNT_MANAGED);
-      dict.Set("proceedLabel",
-               l10n_util::GetStringUTF8(
-                   profile_creation_required_by_policy_
-                       ? IDS_ENTERPRISE_PROFILE_WELCOME_CREATE_PROFILE_BUTTON
-                       : IDS_APP_CONTINUE));
       break;
     case ManagedUserProfileNoticeUI::ScreenType::kDeviceSignalsDisclaimer:
       dict.Set("showEnterpriseBadge", true);
@@ -557,11 +546,6 @@ base::DictValue ManagedUserProfileNoticeHandler::GetProfileInfoValue() {
                !enterprise_util::IsKnownConsumerDomain(domain_name_));
       subtitle = GetManagedAccountTitleWithEmail(Profile::FromWebUI(web_ui()),
                                                  entry, domain_name_, email_);
-      dict.Set("proceedLabel",
-               l10n_util::GetStringUTF8(
-                   profile_creation_required_by_policy_
-                       ? IDS_ENTERPRISE_PROFILE_WELCOME_CREATE_PROFILE_BUTTON
-                       : IDS_APP_CONTINUE));
 
       AccountInfo account_info =
           IdentityManagerFactory::GetForProfile(Profile::FromWebUI(web_ui()))
@@ -607,7 +591,7 @@ ProfileAttributesEntry* ManagedUserProfileNoticeHandler::GetProfileEntry()
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()
           .GetProfileAttributesWithPath(profile_path_);
-  DCHECK(entry);
+  CHECK(entry, base::NotFatalUntil::M162);
   return entry;
 }
 
@@ -618,6 +602,8 @@ std::string ManagedUserProfileNoticeHandler::GetPictureUrl() {
     AccountInfo account_info =
         IdentityManagerFactory::GetForProfile(Profile::FromWebUI(web_ui()))
             ->FindExtendedAccountInfoByAccountId(account_id_);
+    // TODO(crbug.com/575097335): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK(!account_info.IsEmpty());
     icon = account_info.GetAvatarImage().value_or(
         ui::ResourceBundle::GetSharedInstance().GetImageNamed(

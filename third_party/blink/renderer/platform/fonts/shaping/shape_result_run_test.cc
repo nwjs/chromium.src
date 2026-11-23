@@ -6,38 +6,135 @@
 
 #include <hb.h>
 
+#include <array>
 #include <cmath>
 #include <limits>
+#include <memory>
+#include <string>
+#include <utility>
 
+#include "base/notreached.h"
+#include "base/test/gtest_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/platform/fonts/font_platform_data.h"
+#include "third_party/blink/renderer/platform/fonts/simple_font_data.h"
+#include "third_party/skia/include/core/SkStream.h"
+#include "third_party/skia/include/core/SkString.h"
+#include "third_party/skia/include/core/SkTypeface.h"
 
 namespace blink {
 
 namespace {
 
-ShapeResultRun* CreateTestShapeResultRun(wtf_size_t num_glyphs,
-                                         wtf_size_t num_characters,
-                                         const SimpleFontData* font = nullptr) {
+// Avoids platform font-backend classification.
+class TestTypeface final : public SkTypeface {
+ public:
+  explicit TestTypeface(bool is_fixed_pitch)
+      : SkTypeface(SkFontStyle(), is_fixed_pitch) {}
+
+ private:
+  class EmptyLocalizedStrings final : public LocalizedStrings {
+   public:
+    bool next(LocalizedString*) override { return false; }
+  };
+
+  sk_sp<SkTypeface> onMakeClone(const SkFontArguments&) const override {
+    return sk_ref_sp(this);
+  }
+  std::unique_ptr<SkScalerContext> onCreateScalerContext(
+      const SkScalerContextEffects&,
+      const SkDescriptor*) const override {
+    NOTREACHED();
+  }
+  void onFilterRec(SkScalerContextRec*) const override {}
+  std::unique_ptr<SkAdvancedTypefaceMetrics> onGetAdvancedMetrics()
+      const override {
+    NOTREACHED();
+  }
+  void getPostScriptGlyphNames(SkString*) const override {}
+  void getGlyphToUnicodeMap(SkSpan<SkUnichar>) const override {}
+  std::unique_ptr<SkStreamAsset> onOpenStream(int*) const override {
+    return nullptr;
+  }
+  bool onGlyphMaskNeedsCurrentColor() const override { return false; }
+  int onGetVariationDesignPosition(
+      SkSpan<SkFontArguments::VariationPosition::Coordinate>) const override {
+    return 0;
+  }
+  int onGetVariationDesignParameters(
+      SkSpan<SkFontParameters::Variation::Axis>) const override {
+    return 0;
+  }
+  void onGetFontDescriptor(SkFontDescriptor*, bool*) const override {}
+  void onCharsToGlyphs(SkSpan<const SkUnichar>,
+                       SkSpan<SkGlyphID> glyphs) const override {
+    for (SkGlyphID& glyph : glyphs) {
+      glyph = 0;
+    }
+  }
+  int onCountGlyphs() const override { return 0; }
+  int onGetUPEM() const override { return 0; }
+  void onGetFamilyName(SkString* family_name) const override {
+    family_name->reset();
+  }
+  bool onGetPostScriptName(SkString*) const override { return false; }
+  LocalizedStrings* onCreateFamilyNameIterator() const override {
+    return new EmptyLocalizedStrings;
+  }
+  int onGetTableTags(SkSpan<SkFontTableTag>) const override { return 0; }
+  size_t onGetTableData(SkFontTableTag, size_t, size_t, void*) const override {
+    return 0;
+  }
+};
+
+SimpleFontData* CreateTestFontData(bool is_fixed_pitch) {
+  sk_sp<SkTypeface> typeface = sk_make_sp<TestTypeface>(is_fixed_pitch);
+  auto* platform_data = MakeGarbageCollected<FontPlatformData>(
+      std::move(typeface), std::string(), 0, false, false,
+      TextRenderingMode::kAutoTextRendering, ResolvedFontFeatures());
+  return MakeGarbageCollected<SimpleFontData>(platform_data);
+}
+
+ShapeResultRun* CreateTestShapeResultRun(
+    wtf_size_t num_glyphs,
+    wtf_size_t num_characters,
+    const SimpleFontData* font = nullptr,
+    hb_direction_t direction = HB_DIRECTION_LTR) {
   return MakeGarbageCollected<ShapeResultRun>(
-      font, hb_direction_t::HB_DIRECTION_LTR,
-      CanvasRotationInVertical::kRegular, hb_script_t::HB_SCRIPT_LATIN,
-      /*start_index*/ 0, num_glyphs, num_characters);
+      font, direction, CanvasRotationInVertical::kRegular,
+      hb_script_t::HB_SCRIPT_LATIN, /*start_index*/ 0, num_glyphs,
+      num_characters);
 }
 
 }  // namespace
 
 class ShapeResultRunTest : public testing::Test {
  protected:
+  ShapeResultRun* CreateClusteredRun(hb_direction_t direction) {
+    constexpr std::array<unsigned, 8> kClusters = {0, 0, 3, 3, 3, 6, 9, 9};
+    ShapeResultRun* run =
+        CreateTestShapeResultRun(kClusters.size(), 12, nullptr, direction);
+    for (wtf_size_t i = 0; i < kClusters.size(); ++i) {
+      HarfBuzzRunGlyphData& glyph = run->glyph_data_.MutableGlyphAt(i);
+      glyph = HarfBuzzRunGlyphData(
+          i, kClusters[run->IsRtl() ? kClusters.size() - i - 1 : i],
+          SafeToBreak::kSafe, TextRunLayoutUnit(1));
+    }
+    return run;
+  }
+
   ShapeResultRun* CreateConstantAdvanceRun(
       wtf_size_t num_glyphs,
       wtf_size_t num_characters,
-      const SimpleFontData* font = nullptr) {
+      const SimpleFontData* font = nullptr,
+      hb_direction_t direction = HB_DIRECTION_LTR) {
     ShapeResultRun* run =
-        CreateTestShapeResultRun(num_glyphs, num_characters, font);
+        CreateTestShapeResultRun(num_glyphs, num_characters, font, direction);
     for (wtf_size_t i = 0; i < num_glyphs; ++i) {
       HarfBuzzRunGlyphData& glyph = run->glyph_data_.MutableGlyphAt(i);
       glyph.glyph = 42 + i;
-      glyph.character_index = i;
+      glyph.character_index =
+          HB_DIRECTION_IS_BACKWARD(direction) ? num_glyphs - i - 1 : i;
       glyph.SetSafeToBreakBefore(SafeToBreak::kSafe);
       glyph.SetAdvance(10.0f);
     }
@@ -45,93 +142,170 @@ class ShapeResultRunTest : public testing::Test {
     return run;
   }
 
-  ShapeResultRun* CreateCompactRun(wtf_size_t num_glyphs,
-                                   wtf_size_t num_characters) {
-    ShapeResultRun* run = CreateConstantAdvanceRun(num_glyphs, num_characters);
-    EXPECT_TRUE(run->glyph_data_.TryMakeCompact());
+  ShapeResultRun* CreateRepeatedGlyphRun(const SimpleFontData* font,
+                                         unsigned num_glyphs) {
+    ShapeResultRun* run =
+        CreateConstantAdvanceRun(num_glyphs, num_glyphs, font);
+    for (unsigned i = 0; i < num_glyphs; ++i) {
+      run->glyph_data_.MutableGlyphAt(i).glyph = 42;
+    }
+    return run;
+  }
+
+  bool GlyphDataWouldCompact(const ShapeResultRun& run) {
+    ShapeResultRun* copy = MakeGarbageCollected<ShapeResultRun>(run);
+    return copy->glyph_data_.TryMakeCompact(run.IsRtl());
+  }
+
+  bool CanCompact(const ShapeResultRun& run) {
+    return run.CanUseMonospaceGlyphCompaction(run.glyph_data_.size());
+  }
+
+  bool TryMakeCompactIfEligible(ShapeResultRun* run) {
+    return CanCompact(*run) && run->glyph_data_.TryMakeCompact(run->IsRtl());
+  }
+
+  ShapeResultRun* CreateCompactRun(
+      wtf_size_t num_glyphs,
+      wtf_size_t num_characters,
+      hb_direction_t direction = HB_DIRECTION_LTR) {
+    ShapeResultRun* run = CreateConstantAdvanceRun(num_glyphs, num_characters,
+                                                   nullptr, direction);
+    EXPECT_TRUE(run->glyph_data_.TryMakeCompact(run->IsRtl()));
     return run;
   }
 };
 
-TEST_F(ShapeResultRunTest, CompactHitTestingUsesFixedPointPositions) {
-  constexpr unsigned kNumGlyphs = 32768;
-  for (int advance_raw : {655360, 629146, 6124123, 4402067}) {
-    SCOPED_TRACE(advance_raw);
-    ShapeResultRun* run = CreateConstantAdvanceRun(kNumGlyphs, kNumGlyphs);
-    const TextRunLayoutUnit advance =
-        TextRunLayoutUnit::FromRawValue(advance_raw);
-    for (HarfBuzzRunGlyphData& glyph : run->glyph_data_.MutableGlyphs()) {
-      glyph.advance = advance;
-    }
-    const auto Position = [advance_raw](unsigned index) {
-      return InlineLayoutUnit::FromRawValue(int64_t{advance_raw} * index)
-          .ToFloat();
-    };
-    run->width_ = Position(kNumGlyphs);
-    ASSERT_TRUE(run->glyph_data_.TryMakeCompact());
-
-    for (unsigned boundary_index : {0u, 3u, 5u, 269u, 30000u, kNumGlyphs - 1}) {
-      SCOPED_TRACE(boundary_index);
-      const float boundary = Position(boundary_index);
-      for (float target_x :
-           {std::nextafter(boundary, 0.0f), boundary,
-            std::nextafter(boundary, std::numeric_limits<float>::infinity())}) {
-        SCOPED_TRACE(target_x);
-        const unsigned glyph_index =
-            target_x < boundary ? boundary_index - 1 : boundary_index;
-        for (bool break_glyphs : {false, true}) {
-          GlyphIndexResult result;
-          run->CharacterIndexForXPosition(
-              target_x, BreakGlyphsOption(break_glyphs), &result);
-          EXPECT_EQ(glyph_index, result.left_character_index);
-          EXPECT_EQ(glyph_index + 1, result.right_character_index);
-          EXPECT_EQ(Position(glyph_index), result.origin_x);
-          EXPECT_EQ(advance.ToFloat(), result.advance);
+TEST_F(ShapeResultRunTest, NonCompactNestedGlyphRanges) {
+  for (hb_direction_t direction : {HB_DIRECTION_LTR, HB_DIRECTION_RTL}) {
+    SCOPED_TRACE(direction);
+    ShapeResultRun* run = CreateClusteredRun(direction);
+    for (const auto& [outer_start, outer_end] :
+         {std::pair(0u, 12u), std::pair(1u, 10u), std::pair(2u, 3u),
+          std::pair(4u, 5u), std::pair(10u, 12u), std::pair(12u, 12u)}) {
+      SCOPED_TRACE(testing::Message() << outer_start << ", " << outer_end);
+      const GlyphDataRange outer =
+          run->FindGlyphDataRange(outer_start, outer_end);
+      const auto glyphs = outer.NonCompactGlyphs();
+      for (wtf_size_t start = 0; start <= 14; ++start) {
+        for (wtf_size_t end = 0; end <= 14; ++end) {
+          SCOPED_TRACE(testing::Message() << start << ", " << end);
+          const auto CharacterIndex = [&](wtf_size_t i) {
+            return glyphs[run->IsRtl() ? glyphs.size() - i - 1 : i]
+                .character_index;
+          };
+          wtf_size_t first = 0;
+          while (first < glyphs.size() && CharacterIndex(first) < start) {
+            ++first;
+          }
+          wtf_size_t last = first;
+          while (last < glyphs.size() && CharacterIndex(last) < end) {
+            ++last;
+          }
+          const auto expected = glyphs.subspan(
+              run->IsRtl() ? glyphs.size() - last : first, last - first);
+          const GlyphDataRange actual =
+              outer.FindGlyphDataRange(run->IsRtl(), start, end);
+          EXPECT_EQ(run, actual.GetRun());
+          EXPECT_EQ(expected.size(), actual.size());
+          EXPECT_EQ(expected.data(), actual.NonCompactGlyphs().data());
+          EXPECT_EQ(expected, actual.NonCompactGlyphs());
         }
       }
     }
-    EXPECT_TRUE(run->glyph_data_.IsCompact());
+  }
+}
+
+TEST_F(ShapeResultRunTest, CompactHitTestingUsesFixedPointPositions) {
+  constexpr unsigned kNumGlyphs = 32768;
+  for (hb_direction_t direction : {HB_DIRECTION_LTR, HB_DIRECTION_RTL}) {
+    SCOPED_TRACE(direction);
+    for (int advance_raw : {655360, 629146, 6124123, 4402067}) {
+      SCOPED_TRACE(advance_raw);
+      ShapeResultRun* run =
+          CreateConstantAdvanceRun(kNumGlyphs, kNumGlyphs, nullptr, direction);
+      const TextRunLayoutUnit advance =
+          TextRunLayoutUnit::FromRawValue(advance_raw);
+      for (HarfBuzzRunGlyphData& glyph : run->glyph_data_.MutableGlyphs()) {
+        glyph.advance = advance;
+      }
+      const auto Position = [advance](unsigned index) {
+        return (advance.To<InlineLayoutUnit>() * index).ToFloat();
+      };
+      run->width_ = Position(kNumGlyphs);
+      ASSERT_TRUE(run->glyph_data_.TryMakeCompact(run->IsRtl()));
+
+      for (unsigned boundary_index :
+           {0u, 3u, 5u, 269u, 30000u, kNumGlyphs - 1}) {
+        SCOPED_TRACE(boundary_index);
+        const float boundary = Position(boundary_index);
+        for (float target_x :
+             {std::nextafter(boundary, 0.0f), boundary,
+              std::nextafter(boundary,
+                             std::numeric_limits<float>::infinity())}) {
+          SCOPED_TRACE(target_x);
+          const unsigned glyph_index =
+              target_x < boundary ? boundary_index - 1 : boundary_index;
+          for (bool break_glyphs : {false, true}) {
+            GlyphIndexResult result;
+            run->CharacterIndexForXPosition(
+                target_x, BreakGlyphsOption(break_glyphs), &result);
+            EXPECT_EQ(run->IsRtl() ? kNumGlyphs - glyph_index : glyph_index,
+                      result.left_character_index);
+            EXPECT_EQ(
+                run->IsRtl() ? kNumGlyphs - glyph_index - 1 : glyph_index + 1,
+                result.right_character_index);
+            EXPECT_EQ(Position(glyph_index), result.origin_x);
+            EXPECT_EQ(advance.ToFloat(), result.advance);
+          }
+        }
+      }
+      EXPECT_TRUE(run->glyph_data_.IsCompact());
+    }
   }
 }
 
 TEST_F(ShapeResultRunTest, CompactHitTestingAfterMaterialization) {
   constexpr unsigned kNumGlyphs = 32768;
   constexpr int kAdvanceRaw = 629146;
-  ShapeResultRun* run = CreateConstantAdvanceRun(kNumGlyphs, kNumGlyphs);
-  const TextRunLayoutUnit advance =
-      TextRunLayoutUnit::FromRawValue(kAdvanceRaw);
-  for (HarfBuzzRunGlyphData& glyph : run->glyph_data_.MutableGlyphs()) {
-    glyph.advance = advance;
+  for (hb_direction_t direction : {HB_DIRECTION_LTR, HB_DIRECTION_RTL}) {
+    SCOPED_TRACE(direction);
+    ShapeResultRun* run =
+        CreateConstantAdvanceRun(kNumGlyphs, kNumGlyphs, nullptr, direction);
+    const TextRunLayoutUnit advance =
+        TextRunLayoutUnit::FromRawValue(kAdvanceRaw);
+    for (HarfBuzzRunGlyphData& glyph : run->glyph_data_.MutableGlyphs()) {
+      glyph.advance = advance;
+    }
+    run->width_ = (advance.To<InlineLayoutUnit>() * kNumGlyphs).ToFloat();
+    const float target_x = (advance.To<InlineLayoutUnit>() * 30000).ToFloat();
+    GlyphIndexResult full_result;
+    run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
+                                    &full_result);
+    EXPECT_EQ(run->IsRtl() ? kNumGlyphs - 30009 : 30009,
+              full_result.left_character_index);
+
+    ASSERT_TRUE(run->glyph_data_.TryMakeCompact(run->IsRtl()));
+    GlyphIndexResult compact_result;
+    run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
+                                    &compact_result);
+    EXPECT_EQ(run->IsRtl() ? kNumGlyphs - 30000 : 30000,
+              compact_result.left_character_index);
+    EXPECT_EQ(target_x, compact_result.origin_x);
+    EXPECT_TRUE(run->glyph_data_.IsCompact());
+
+    run->glyph_data_.MutableGlyphs();
+    GlyphIndexResult materialized_result;
+    run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
+                                    &materialized_result);
+    EXPECT_EQ(full_result.left_character_index,
+              materialized_result.left_character_index);
+    EXPECT_EQ(full_result.right_character_index,
+              materialized_result.right_character_index);
+    EXPECT_EQ(full_result.origin_x, materialized_result.origin_x);
+    EXPECT_EQ(full_result.advance, materialized_result.advance);
+    EXPECT_FALSE(run->glyph_data_.IsCompact());
   }
-  run->width_ =
-      InlineLayoutUnit::FromRawValue(int64_t{kAdvanceRaw} * kNumGlyphs)
-          .ToFloat();
-  const float target_x =
-      InlineLayoutUnit::FromRawValue(int64_t{kAdvanceRaw} * 30000).ToFloat();
-  GlyphIndexResult full_result;
-  run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
-                                  &full_result);
-  EXPECT_EQ(30009u, full_result.left_character_index);
-
-  ASSERT_TRUE(run->glyph_data_.TryMakeCompact());
-  GlyphIndexResult compact_result;
-  run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
-                                  &compact_result);
-  EXPECT_EQ(30000u, compact_result.left_character_index);
-  EXPECT_EQ(target_x, compact_result.origin_x);
-  EXPECT_TRUE(run->glyph_data_.IsCompact());
-
-  run->glyph_data_.MutableGlyphs();
-  GlyphIndexResult materialized_result;
-  run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
-                                  &materialized_result);
-  EXPECT_EQ(full_result.left_character_index,
-            materialized_result.left_character_index);
-  EXPECT_EQ(full_result.right_character_index,
-            materialized_result.right_character_index);
-  EXPECT_EQ(full_result.origin_x, materialized_result.origin_x);
-  EXPECT_EQ(full_result.advance, materialized_result.advance);
-  EXPECT_FALSE(run->glyph_data_.IsCompact());
 }
 
 TEST_F(ShapeResultRunTest, GlyphDataCopyConstructor) {
@@ -163,18 +337,92 @@ TEST_F(ShapeResultRunTest, LargeNumCharacters) {
   EXPECT_EQ(kNumCharacters, run->NumCharacters());
 }
 
+TEST_F(ShapeResultRunTest, NonFixedPitchRepeatedGlyphsDoNotCompact) {
+  const SimpleFontData* const font_data =
+      CreateTestFontData(/*is_fixed_pitch=*/false);
+  ASSERT_FALSE(font_data->IsFixedPitch());
+
+  ShapeResultRun* run = CreateRepeatedGlyphRun(font_data, 16);
+  ASSERT_TRUE(GlyphDataWouldCompact(*run));
+  EXPECT_FALSE(CanCompact(*run));
+  EXPECT_FALSE(TryMakeCompactIfEligible(run));
+  EXPECT_FALSE(run->GetGlyphDataRange().IsCompactSource());
+
+  ShapeResultRun* sub_run = run->CreateSubRun(2, 14);
+  ASSERT_TRUE(sub_run);
+  ASSERT_TRUE(GlyphDataWouldCompact(*sub_run));
+  EXPECT_FALSE(CanCompact(*sub_run));
+  EXPECT_FALSE(TryMakeCompactIfEligible(sub_run));
+  EXPECT_FALSE(sub_run->GetGlyphDataRange().IsCompactSource());
+}
+
+TEST_F(ShapeResultRunTest, FixedPitchDoesNotGuaranteeConstantAdvances) {
+  const SimpleFontData* const font_data =
+      CreateTestFontData(/*is_fixed_pitch=*/true);
+  ASSERT_TRUE(font_data->IsFixedPitch());
+  constexpr unsigned kNumGlyphs = 16;
+  for (hb_direction_t direction : {HB_DIRECTION_LTR, HB_DIRECTION_RTL}) {
+    SCOPED_TRACE(direction);
+    ShapeResultRun* uniform_run =
+        CreateConstantAdvanceRun(kNumGlyphs, kNumGlyphs, font_data, direction);
+    ASSERT_TRUE(TryMakeCompactIfEligible(uniform_run));
+    EXPECT_TRUE(uniform_run->GetGlyphDataRange().IsCompactSource());
+
+    for (unsigned variable_index : {0u, kNumGlyphs / 2, kNumGlyphs - 1}) {
+      SCOPED_TRACE(variable_index);
+      ShapeResultRun* run = CreateConstantAdvanceRun(kNumGlyphs, kNumGlyphs,
+                                                     font_data, direction);
+      run->glyph_data_.MutableGlyphAt(variable_index).SetAdvance(20.0f);
+      run->width_ += 10.0f;
+      ASSERT_TRUE(CanCompact(*run));
+      EXPECT_FALSE(TryMakeCompactIfEligible(run));
+      EXPECT_FALSE(run->GetGlyphDataRange().IsCompactSource());
+      EXPECT_EQ(TextRunLayoutUnit(20),
+                run->glyph_data_.GlyphAt(variable_index).advance);
+    }
+  }
+}
+
+TEST_F(ShapeResultRunTest, CompactGlyphPositionsCheckStartCluster) {
+  constexpr unsigned kStart = 13;
+  constexpr unsigned kNumGlyphs = 8;
+  ShapeResultRun* run = MakeGarbageCollected<ShapeResultRun>(
+      CreateTestFontData(/*is_fixed_pitch=*/true), HB_DIRECTION_LTR,
+      CanvasRotationInVertical::kRegular, HB_SCRIPT_LATIN, kStart, kNumGlyphs,
+      kNumGlyphs);
+  std::array<hb_glyph_info_t, kNumGlyphs> glyph_infos = {};
+  std::array<hb_glyph_position_t, kNumGlyphs> glyph_positions = {};
+  for (unsigned i = 0; i < kNumGlyphs; ++i) {
+    glyph_infos[i].codepoint = 42 + i;
+    glyph_infos[i].cluster = kStart + i;
+    glyph_positions[i].x_advance = 10 << 16;
+  }
+
+  ASSERT_TRUE(
+      run->TryComputeCompactGlyphPositions(glyph_infos, glyph_positions));
+  EXPECT_TRUE(run->GetGlyphDataRange().IsCompactSource());
+  EXPECT_EQ(80, run->Width());
+  for (unsigned i = 0; i < kNumGlyphs; ++i) {
+    EXPECT_EQ(kStart + i, run->GlyphToCharacterIndex(i));
+  }
+
+  glyph_infos[0].cluster = kStart - 1;
+  EXPECT_CHECK_DEATH(
+      run->TryComputeCompactGlyphPositions(glyph_infos, glyph_positions));
+}
+
 TEST_F(ShapeResultRunTest, GlyphDataCopyFromRange) {
   ShapeResultRun* run = CreateTestShapeResultRun(2, 2);
 
   ShapeResultRun* run2 = CreateTestShapeResultRun(2, 2);
-  run2->glyph_data_.CopyFromRange(GlyphDataRange{*run});
+  run2->glyph_data_.CopyFromRange(GlyphDataRange{*run}, 0, 2);
   EXPECT_FALSE(run2->glyph_data_.HasNonZeroOffsets());
 
   run->glyph_data_.SetOffsetAt(0, GlyphOffset(1, 1));
   ASSERT_TRUE(run->glyph_data_.HasNonZeroOffsets());
 
   ShapeResultRun* run3 = CreateTestShapeResultRun(2, 2);
-  run3->glyph_data_.CopyFromRange(GlyphDataRange{*run});
+  run3->glyph_data_.CopyFromRange(GlyphDataRange{*run}, 0, 2);
   ASSERT_TRUE(run3->glyph_data_.HasNonZeroOffsets());
   EXPECT_EQ(GlyphOffset(1, 1), run3->glyph_data_.Offsets()[0]);
 }
@@ -333,12 +581,47 @@ TEST_F(ShapeResultRunTest, CompactEmptyGlyphRangeKeepsRun) {
   EXPECT_TRUE(run->glyph_data_.IsCompact());
 }
 
+TEST_F(ShapeResultRunTest, CompactRangesCheckSourceBounds) {
+  for (hb_direction_t direction : {HB_DIRECTION_LTR, HB_DIRECTION_RTL}) {
+    SCOPED_TRACE(direction);
+    ShapeResultRun* run = CreateCompactRun(16, 16, direction);
+    const unsigned tail_start = run->IsRtl() ? 0 : 12;
+    const GlyphDataRange ranges[] = {
+        GlyphDataRange(*run),
+        run->FindGlyphDataRange(tail_start, tail_start + 4)};
+
+    // These ranges no longer fit after replacing the run's storage.
+    ShapeResultRun* shorter_run = CreateCompactRun(8, 8, direction);
+    run->glyph_data_.CopyFromRange(shorter_run->GetGlyphDataRange(), 0, 8);
+    ASSERT_TRUE(run->GetGlyphDataRange().IsCompactSource());
+    for (const GlyphDataRange& range : ranges) {
+      SCOPED_TRACE(range.size());
+      EXPECT_CHECK_DEATH(range.CompactStartCharacterIndex());
+      EXPECT_CHECK_DEATH(range.FindGlyphDataRange(run->IsRtl(), 0, 16));
+    }
+  }
+}
+
+TEST_F(ShapeResultRunTest, CompactReaderChecksIndices) {
+  for (hb_direction_t direction : {HB_DIRECTION_LTR, HB_DIRECTION_RTL}) {
+    SCOPED_TRACE(direction);
+    ShapeResultRun* run = CreateCompactRun(8, 8, direction);
+    const GlyphDataRange range = run->FindGlyphDataRange(2, 6);
+    const GlyphDataRange::Reader reader(range);
+    ASSERT_EQ(4u, reader.size());
+    EXPECT_EQ(run->IsRtl() ? 5u : 2u, reader[0].character_index);
+    EXPECT_EQ(run->IsRtl() ? 2u : 5u, reader[3].character_index);
+    EXPECT_CHECK_DEATH(reader[reader.size()]);
+    EXPECT_CHECK_DEATH(reader[std::numeric_limits<wtf_size_t>::max()]);
+  }
+}
+
 TEST_F(ShapeResultRunTest, CompactRejectsOversizedInputBeforeReading) {
   ShapeResultRun* run = CreateTestShapeResultRun(0, 0);
   bool read_glyph = false;
 
   EXPECT_FALSE(run->glyph_data_.TryMakeCompactFrom(
-      HarfBuzzRunGlyphData::kMaxGlyphs + 1, [&](unsigned) {
+      HarfBuzzRunGlyphData::kMaxGlyphs + 1, false, [&](unsigned) {
         read_glyph = true;
         return ShapeResultRun::GlyphDataCollection::CompactableGlyph{};
       }));
@@ -346,10 +629,120 @@ TEST_F(ShapeResultRunTest, CompactRejectsOversizedInputBeforeReading) {
   EXPECT_FALSE(run->glyph_data_.IsCompact());
 }
 
+TEST_F(ShapeResultRunTest, CompactRejectsNonIdentityRtlClusters) {
+  ShapeResultRun* run =
+      CreateConstantAdvanceRun(8, 8, nullptr, HB_DIRECTION_RTL);
+  run->glyph_data_.MutableGlyphAt(4).character_index =
+      run->glyph_data_.GlyphAt(3).character_index;
+
+  EXPECT_FALSE(run->glyph_data_.TryMakeCompact(run->IsRtl()));
+  EXPECT_FALSE(run->glyph_data_.IsCompact());
+}
+
+TEST_F(ShapeResultRunTest, RtlCompactPositionsCheckCharacterCount) {
+  for (unsigned num_characters : {7u, 9u}) {
+    SCOPED_TRACE(num_characters);
+    ShapeResultRun* run = CreateCompactRun(8, num_characters, HB_DIRECTION_RTL);
+    ASSERT_TRUE(run->GetGlyphDataRange().IsCompactSource());
+    EXPECT_CHECK_DEATH_WITH(
+        run->XPositionForOffset(0, AdjustMidCluster::kToStart),
+        "num_glyphs == num_characters_");
+  }
+}
+
+TEST_F(ShapeResultRunTest, RtlCompactStorageMatchesFullStorage) {
+  constexpr unsigned kNumGlyphs = 12;
+  ShapeResultRun* full_run = CreateConstantAdvanceRun(
+      kNumGlyphs, kNumGlyphs, nullptr, HB_DIRECTION_RTL);
+  full_run->start_index_ = 5;
+  ShapeResultRun* compact_run = MakeGarbageCollected<ShapeResultRun>(*full_run);
+  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact(compact_run->IsRtl()));
+  ASSERT_TRUE(compact_run->glyph_data_.IsCompactRtl());
+
+  const GlyphDataRange::Reader reader(*compact_run);
+  for (unsigned i = 0; i < kNumGlyphs; ++i) {
+    EXPECT_EQ(full_run->glyph_data_.GlyphAt(i),
+              compact_run->glyph_data_.GlyphAt(i));
+    EXPECT_EQ(full_run->glyph_data_.GlyphAt(i), reader[i]);
+    EXPECT_EQ(full_run->GlyphToCharacterIndex(i),
+              compact_run->GlyphToCharacterIndex(i));
+  }
+
+  for (unsigned offset = 0; offset <= kNumGlyphs; ++offset) {
+    EXPECT_EQ(full_run->NextSafeToBreakOffset(offset),
+              compact_run->NextSafeToBreakOffset(offset));
+    EXPECT_EQ(full_run->PreviousSafeToBreakOffset(offset),
+              compact_run->PreviousSafeToBreakOffset(offset));
+    for (AdjustMidCluster adjust :
+         {AdjustMidCluster::kToStart, AdjustMidCluster::kToEnd}) {
+      EXPECT_EQ(full_run->XPositionForOffset(offset, adjust),
+                compact_run->XPositionForOffset(offset, adjust));
+    }
+  }
+
+  constexpr float kTargetPositions[] = {0.0f,  1.0f,  9.0f,   10.0f,
+                                        11.0f, 59.0f, 119.0f, 120.0f};
+  for (float target_x : kTargetPositions) {
+    GlyphIndexResult expected;
+    GlyphIndexResult actual;
+    full_run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
+                                         &expected);
+    compact_run->CharacterIndexForXPosition(target_x, BreakGlyphsOption(false),
+                                            &actual);
+    EXPECT_EQ(expected.left_character_index, actual.left_character_index);
+    EXPECT_EQ(expected.right_character_index, actual.right_character_index);
+    EXPECT_FLOAT_EQ(expected.origin_x, actual.origin_x);
+    EXPECT_FLOAT_EQ(expected.advance, actual.advance);
+  }
+  EXPECT_TRUE(compact_run->glyph_data_.IsCompact());
+
+  compact_run->glyph_data_.MutableGlyphs();
+  EXPECT_FALSE(compact_run->glyph_data_.IsCompact());
+  EXPECT_EQ(full_run->glyph_data_.NonCompactGlyphs(),
+            compact_run->glyph_data_.NonCompactGlyphs());
+}
+
+TEST_F(ShapeResultRunTest, RtlNestedCompactRangesMatchFullStorage) {
+  constexpr unsigned kNumGlyphs = 12;
+  ShapeResultRun* full_run = CreateConstantAdvanceRun(
+      kNumGlyphs, kNumGlyphs, nullptr, HB_DIRECTION_RTL);
+  ShapeResultRun* compact_run = MakeGarbageCollected<ShapeResultRun>(*full_run);
+  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact(compact_run->IsRtl()));
+
+  for (unsigned outer_start = 0; outer_start <= kNumGlyphs; ++outer_start) {
+    for (unsigned outer_end = outer_start; outer_end <= kNumGlyphs;
+         ++outer_end) {
+      const GlyphDataRange full_outer =
+          full_run->FindGlyphDataRange(outer_start, outer_end);
+      const GlyphDataRange compact_outer =
+          compact_run->FindGlyphDataRange(outer_start, outer_end);
+      ASSERT_EQ(full_outer.size(), compact_outer.size());
+      EXPECT_EQ(outer_start, compact_outer.CompactStartCharacterIndex());
+
+      for (unsigned inner_start = outer_start; inner_start <= outer_end;
+           ++inner_start) {
+        for (unsigned inner_end = inner_start; inner_end <= outer_end;
+             ++inner_end) {
+          const GlyphDataRange full_inner =
+              full_outer.FindGlyphDataRange(true, inner_start, inner_end);
+          const GlyphDataRange compact_inner =
+              compact_outer.FindGlyphDataRange(true, inner_start, inner_end);
+          ASSERT_EQ(full_inner.size(), compact_inner.size());
+          EXPECT_EQ(inner_start, compact_inner.CompactStartCharacterIndex());
+          for (unsigned i = 0; i < full_inner.size(); ++i) {
+            EXPECT_EQ(full_inner.GlyphAtForTest(i),
+                      compact_inner.GlyphAtForTest(i));
+          }
+        }
+      }
+    }
+  }
+}
+
 TEST_F(ShapeResultRunTest, CompactTrailingCharactersMatchFullStorage) {
   ShapeResultRun* full_run = CreateConstantAdvanceRun(8, 10);
   ShapeResultRun* compact_run = MakeGarbageCollected<ShapeResultRun>(*full_run);
-  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact());
+  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact(compact_run->IsRtl()));
 
   for (int offset : {-13, 0, 13}) {
     for (int from = 0; from <= 10; ++from) {
@@ -382,10 +775,28 @@ TEST_F(ShapeResultRunTest, CompactTrailingCharactersMatchFullStorage) {
   EXPECT_TRUE(compact_run->glyph_data_.IsCompact());
 }
 
+TEST_F(ShapeResultRunTest, RtlCompactTrailingCharactersMaterializeOnCopy) {
+  ShapeResultRun* full_run =
+      CreateConstantAdvanceRun(8, 10, nullptr, HB_DIRECTION_RTL);
+  ShapeResultRun* compact_run = MakeGarbageCollected<ShapeResultRun>(*full_run);
+  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact(true));
+
+  ShapeResultRun* copied_run = compact_run->CreateSubRun(0, 10);
+  ASSERT_TRUE(copied_run);
+  EXPECT_FALSE(copied_run->glyph_data_.IsCompact());
+  for (unsigned offset = 0; offset <= 10; ++offset) {
+    for (AdjustMidCluster adjust :
+         {AdjustMidCluster::kToStart, AdjustMidCluster::kToEnd}) {
+      EXPECT_EQ(full_run->XPositionForOffset(offset, adjust),
+                copied_run->XPositionForOffset(offset, adjust));
+    }
+  }
+}
+
 TEST_F(ShapeResultRunTest, CompactReaderMatchesGlyphAtForSubRange) {
   ShapeResultRun* full_run = CreateConstantAdvanceRun(8, 8);
   ShapeResultRun* compact_run = MakeGarbageCollected<ShapeResultRun>(*full_run);
-  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact());
+  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact(compact_run->IsRtl()));
 
   for (ShapeResultRun* run : {full_run, compact_run}) {
     const GlyphDataRange range = run->FindGlyphDataRange(3, 7);
@@ -419,13 +830,13 @@ TEST_F(ShapeResultRunTest, RangeSurvivesRepresentationChanges) {
   };
 
   ExpectRange();
-  ASSERT_TRUE(run->glyph_data_.TryMakeCompact());
+  ASSERT_TRUE(run->glyph_data_.TryMakeCompact(run->IsRtl()));
   ExpectRange();
 
   run->glyph_data_.MutableGlyphs();
   ExpectRange();
 
-  ASSERT_TRUE(run->glyph_data_.TryMakeCompact());
+  ASSERT_TRUE(run->glyph_data_.TryMakeCompact(run->IsRtl()));
   run->glyph_data_.SetOffsetAt(4, GlyphOffset(1, 2));
   ASSERT_TRUE(range.HasOffsets());
   EXPECT_EQ(GlyphOffset(1, 2), range.Offsets()[2]);
@@ -441,7 +852,7 @@ TEST_F(ShapeResultRunTest, NestedCompactRangesMatchFullStorage) {
   constexpr unsigned kNumGlyphs = 12;
   ShapeResultRun* full_run = CreateConstantAdvanceRun(kNumGlyphs, kNumGlyphs);
   ShapeResultRun* compact_run = MakeGarbageCollected<ShapeResultRun>(*full_run);
-  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact());
+  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact(compact_run->IsRtl()));
 
   for (unsigned outer_start = 0; outer_start <= kNumGlyphs; ++outer_start) {
     for (unsigned outer_end = outer_start; outer_end <= kNumGlyphs;
@@ -476,7 +887,7 @@ TEST_F(ShapeResultRunTest, CompactReadShortcutsDoNotMaterialize) {
   full_run->start_index_ = 5;
 
   ShapeResultRun* compact_run = MakeGarbageCollected<ShapeResultRun>(*full_run);
-  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact());
+  ASSERT_TRUE(compact_run->glyph_data_.TryMakeCompact(compact_run->IsRtl()));
 
   for (unsigned i = 0; i < 8; ++i) {
     EXPECT_EQ(5u + i, compact_run->GlyphToCharacterIndex(i));
@@ -505,7 +916,8 @@ TEST_F(ShapeResultRunTest, CompactReadShortcutsDoNotMaterialize) {
   full_run->width_ = 0;
   ShapeResultRun* compact_zero_advance_run =
       MakeGarbageCollected<ShapeResultRun>(*full_run);
-  ASSERT_TRUE(compact_zero_advance_run->glyph_data_.TryMakeCompact());
+  ASSERT_TRUE(compact_zero_advance_run->glyph_data_.TryMakeCompact(
+      compact_zero_advance_run->IsRtl()));
   GlyphIndexResult expected_zero_advance;
   GlyphIndexResult actual_zero_advance;
   full_run->CharacterIndexForXPosition(0, BreakGlyphsOption(true),
@@ -549,15 +961,11 @@ TEST_F(ShapeResultRunTest, CompactCharacterIndexCorrectsFloatRounding) {
     for (unsigned i = 0; i < kNumGlyphs; ++i) {
       run->glyph_data_.MutableGlyphAt(i).SetAdvance(advance);
     }
-    run->width_ =
-        InlineLayoutUnit::FromRawValue(int64_t{advance.RawValue()} * kNumGlyphs)
-            .ToFloat();
-    ASSERT_TRUE(run->glyph_data_.TryMakeCompact());
+    run->width_ = (advance.To<InlineLayoutUnit>() * kNumGlyphs).ToFloat();
+    ASSERT_TRUE(run->glyph_data_.TryMakeCompact(run->IsRtl()));
 
     const float boundary =
-        InlineLayoutUnit::FromRawValue(int64_t{advance.RawValue()} *
-                                       test_case.boundary_index)
-            .ToFloat();
+        (advance.To<InlineLayoutUnit>() * test_case.boundary_index).ToFloat();
     const float target_x = test_case.target_precedes_boundary
                                ? std::nextafter(boundary, 0.0f)
                                : boundary;
@@ -574,41 +982,44 @@ TEST_F(ShapeResultRunTest, CompactCharacterIndexCorrectsFloatRounding) {
 }
 
 TEST_F(ShapeResultRunTest, CompactCopyMaterializesIndependently) {
-  ShapeResultRun* run = CreateCompactRun(8, 8);
-  run->glyph_data_.SetOffsetAt(3, GlyphOffset(1, 2));
-  auto* graphemes = MakeGarbageCollected<GCedHeapVector<unsigned>>(8);
-  run->glyph_data_.SetGraphemes(graphemes);
-  ASSERT_TRUE(run->glyph_data_.IsCompact());
+  for (hb_direction_t direction : {HB_DIRECTION_LTR, HB_DIRECTION_RTL}) {
+    SCOPED_TRACE(direction);
+    ShapeResultRun* run = CreateCompactRun(8, 8, direction);
+    run->glyph_data_.SetOffsetAt(3, GlyphOffset(1, 2));
+    auto* graphemes = MakeGarbageCollected<GCedHeapVector<unsigned>>(8);
+    run->glyph_data_.SetGraphemes(graphemes);
+    ASSERT_TRUE(run->glyph_data_.IsCompact());
 
-  ShapeResultRun* copy = MakeGarbageCollected<ShapeResultRun>(*run);
-  ASSERT_TRUE(copy->glyph_data_.IsCompact());
-  EXPECT_EQ(run->glyph_data_.CompactData(), copy->glyph_data_.CompactData());
-  EXPECT_EQ(graphemes, copy->glyph_data_.Graphemes());
-  ASSERT_TRUE(copy->glyph_data_.HasNonZeroOffsets());
-  EXPECT_NE(run->glyph_data_.Offsets().data(),
-            copy->glyph_data_.Offsets().data());
-  EXPECT_EQ(GlyphOffset(1, 2), copy->glyph_data_.Offsets()[3]);
+    ShapeResultRun* copy = MakeGarbageCollected<ShapeResultRun>(*run);
+    ASSERT_TRUE(copy->glyph_data_.IsCompact());
+    EXPECT_EQ(run->glyph_data_.CompactData(), copy->glyph_data_.CompactData());
+    EXPECT_EQ(graphemes, copy->glyph_data_.Graphemes());
+    ASSERT_TRUE(copy->glyph_data_.HasNonZeroOffsets());
+    EXPECT_NE(run->glyph_data_.Offsets().data(),
+              copy->glyph_data_.Offsets().data());
+    EXPECT_EQ(GlyphOffset(1, 2), copy->glyph_data_.Offsets()[3]);
 
-  HarfBuzzRunGlyphData& copied_glyph = copy->glyph_data_.MutableGlyphAt(3);
-  EXPECT_EQ(copied_glyph.glyph, 45u);
-  EXPECT_EQ(copied_glyph.character_index, 3u);
-  EXPECT_EQ(copied_glyph.advance, TextRunLayoutUnit::FromFloatRound(10.0f));
-  EXPECT_FALSE(copy->glyph_data_.IsCompact());
-  EXPECT_TRUE(run->glyph_data_.IsCompact());
+    HarfBuzzRunGlyphData& copied_glyph = copy->glyph_data_.MutableGlyphAt(3);
+    EXPECT_EQ(copied_glyph.glyph, 45u);
+    EXPECT_EQ(copied_glyph.character_index, run->IsRtl() ? 4u : 3u);
+    EXPECT_EQ(copied_glyph.advance, TextRunLayoutUnit::FromFloatRound(10.0f));
+    EXPECT_FALSE(copy->glyph_data_.IsCompact());
+    EXPECT_TRUE(run->glyph_data_.IsCompact());
 
-  copied_glyph.glyph = 99;
-  copied_glyph.SetAdvance(12.0f);
-  copy->glyph_data_.SetOffsetAt(3, GlyphOffset(3, 4));
-  EXPECT_EQ(99u, copy->glyph_data_.GlyphAt(3).glyph);
-  EXPECT_EQ(TextRunLayoutUnit::FromFloatRound(12.0f),
-            copy->glyph_data_.GlyphAt(3).advance);
-  EXPECT_EQ(GlyphOffset(3, 4), copy->glyph_data_.Offsets()[3]);
-  EXPECT_EQ(45u, run->glyph_data_.GlyphAt(3).glyph);
-  EXPECT_EQ(TextRunLayoutUnit::FromFloatRound(10.0f),
-            run->glyph_data_.GlyphAt(3).advance);
-  EXPECT_EQ(GlyphOffset(1, 2), run->glyph_data_.Offsets()[3]);
-  EXPECT_EQ(graphemes, run->glyph_data_.Graphemes());
-  EXPECT_TRUE(run->glyph_data_.IsCompact());
+    copied_glyph.glyph = 99;
+    copied_glyph.SetAdvance(12.0f);
+    copy->glyph_data_.SetOffsetAt(3, GlyphOffset(3, 4));
+    EXPECT_EQ(99u, copy->glyph_data_.GlyphAt(3).glyph);
+    EXPECT_EQ(TextRunLayoutUnit::FromFloatRound(12.0f),
+              copy->glyph_data_.GlyphAt(3).advance);
+    EXPECT_EQ(GlyphOffset(3, 4), copy->glyph_data_.Offsets()[3]);
+    EXPECT_EQ(45u, run->glyph_data_.GlyphAt(3).glyph);
+    EXPECT_EQ(TextRunLayoutUnit::FromFloatRound(10.0f),
+              run->glyph_data_.GlyphAt(3).advance);
+    EXPECT_EQ(GlyphOffset(1, 2), run->glyph_data_.Offsets()[3]);
+    EXPECT_EQ(graphemes, run->glyph_data_.Graphemes());
+    EXPECT_TRUE(run->glyph_data_.IsCompact());
+  }
 }
 
 TEST_F(ShapeResultRunTest, CompactZeroOffsetDoesNotMaterialize) {
@@ -618,6 +1029,99 @@ TEST_F(ShapeResultRunTest, CompactZeroOffsetDoesNotMaterialize) {
 
   EXPECT_TRUE(run->glyph_data_.IsCompact());
   EXPECT_FALSE(run->glyph_data_.HasNonZeroOffsets());
+}
+
+TEST_F(ShapeResultRunTest, CompactSubRunStaysCompact) {
+  ShapeResultRun* run = CreateCompactRun(12, 12);
+
+  ShapeResultRun* sub_run = run->CreateSubRun(2, 10);
+  ASSERT_TRUE(sub_run);
+  EXPECT_TRUE(sub_run->glyph_data_.IsCompact());
+  EXPECT_TRUE(run->glyph_data_.IsCompact());
+  EXPECT_EQ(sub_run->NumGlyphs(), 8u);
+  EXPECT_EQ(sub_run->NumCharacters(), 8u);
+  EXPECT_EQ(sub_run->StartIndex(), 2u);
+  EXPECT_EQ(sub_run->Width(), 80.0f);
+  GlyphDataRange glyphs(*sub_run);
+  for (unsigned i = 0; i < glyphs.size(); ++i) {
+    const HarfBuzzRunGlyphData glyph = glyphs.GlyphAtForTest(i);
+    EXPECT_EQ(glyph.glyph, 44u + i);
+    EXPECT_EQ(glyph.character_index, i);
+    EXPECT_EQ(glyph.advance, TextRunLayoutUnit::FromFloatRound(10.0f));
+  }
+}
+
+TEST_F(ShapeResultRunTest, CompactSmallSubRunUsesFullStorage) {
+  ShapeResultRun* run = CreateCompactRun(12, 12);
+
+  ShapeResultRun* sub_run = run->CreateSubRun(2, 6);
+  ASSERT_TRUE(sub_run);
+  EXPECT_FALSE(sub_run->glyph_data_.IsCompact());
+  EXPECT_TRUE(run->glyph_data_.IsCompact());
+  EXPECT_EQ(sub_run->NumGlyphs(), 4u);
+  EXPECT_EQ(sub_run->NumCharacters(), 4u);
+  EXPECT_EQ(sub_run->StartIndex(), 2u);
+  EXPECT_EQ(sub_run->Width(), 40.0f);
+  for (unsigned i = 0; i < sub_run->NumGlyphs(); ++i) {
+    const HarfBuzzRunGlyphData& glyph = sub_run->glyph_data_[i];
+    EXPECT_EQ(glyph.glyph, 44u + i);
+    EXPECT_EQ(glyph.character_index, i);
+    EXPECT_EQ(glyph.advance, TextRunLayoutUnit::FromFloatRound(10.0f));
+  }
+}
+
+TEST_F(ShapeResultRunTest, CompactRunsMergeWithoutMaterializing) {
+  ShapeResultRun* first = CreateCompactRun(8, 8);
+  ShapeResultRun* second = CreateCompactRun(8, 8);
+  second->start_index_ = 8;
+
+  ShapeResultRun* merged = first->MergeIfPossible(*second);
+  ASSERT_TRUE(merged);
+  EXPECT_TRUE(first->glyph_data_.IsCompact());
+  EXPECT_TRUE(second->glyph_data_.IsCompact());
+  EXPECT_TRUE(merged->glyph_data_.IsCompact());
+  EXPECT_EQ(16u, merged->NumGlyphs());
+  EXPECT_EQ(16u, merged->NumCharacters());
+  EXPECT_EQ(160.0f, merged->Width());
+  for (unsigned i = 0; i < merged->NumGlyphs(); ++i) {
+    const HarfBuzzRunGlyphData glyph = merged->glyph_data_.GlyphAt(i);
+    EXPECT_EQ(42u + i % 8, glyph.glyph);
+    EXPECT_EQ(i, glyph.character_index);
+  }
+}
+
+TEST_F(ShapeResultRunTest, RtlCompactSubRunAndMergeStayCompact) {
+  ShapeResultRun* source = CreateCompactRun(12, 12, HB_DIRECTION_RTL);
+  ShapeResultRun* sub_run = source->CreateSubRun(2, 10);
+  ASSERT_TRUE(sub_run);
+  ASSERT_TRUE(sub_run->glyph_data_.IsCompact());
+  EXPECT_TRUE(sub_run->glyph_data_.IsCompactRtl());
+  EXPECT_EQ(8u, sub_run->NumGlyphs());
+  for (unsigned i = 0; i < sub_run->NumGlyphs(); ++i) {
+    const HarfBuzzRunGlyphData glyph = sub_run->glyph_data_.GlyphAt(i);
+    EXPECT_EQ(44u + i, glyph.glyph);
+    EXPECT_EQ(7u - i, glyph.character_index);
+  }
+
+  ShapeResultRun* first = CreateCompactRun(8, 8, HB_DIRECTION_RTL);
+  ShapeResultRun* second =
+      CreateConstantAdvanceRun(8, 8, nullptr, HB_DIRECTION_RTL);
+  for (unsigned i = 0; i < second->NumGlyphs(); ++i) {
+    second->glyph_data_.MutableGlyphAt(i).glyph += 100;
+  }
+  ASSERT_TRUE(second->glyph_data_.TryMakeCompact(second->IsRtl()));
+  second->start_index_ = 8;
+
+  ShapeResultRun* merged = first->MergeIfPossible(*second);
+  ASSERT_TRUE(merged);
+  ASSERT_TRUE(merged->glyph_data_.IsCompact());
+  EXPECT_TRUE(merged->glyph_data_.IsCompactRtl());
+  EXPECT_EQ(16u, merged->NumGlyphs());
+  for (unsigned i = 0; i < merged->NumGlyphs(); ++i) {
+    const HarfBuzzRunGlyphData glyph = merged->glyph_data_.GlyphAt(i);
+    EXPECT_EQ((i < 8 ? 142u : 34u) + i, glyph.glyph);
+    EXPECT_EQ(15u - i, glyph.character_index);
+  }
 }
 
 }  // namespace blink

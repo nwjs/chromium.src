@@ -9,6 +9,7 @@
 #import "ios/chrome/browser/intelligence/actor/ui/actor_overlay_glow_view.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actor_overlay_glow_view_data.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actor_overlay_scrim_view.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/ui/util/layout_constants.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
@@ -54,6 +55,12 @@
   NSLayoutConstraint* _glowBottomConstraint;
   NSLayoutConstraint* _glowLeadingConstraint;
   NSLayoutConstraint* _glowTrailingConstraint;
+  // Mutually exclusive top constraints for pinning below the primary toolbar vs
+  // the full container top.
+  NSLayoutConstraint* _scrimToolbarTopConstraint;
+  NSLayoutConstraint* _scrimFullScreenTopConstraint;
+  NSLayoutConstraint* _glowToolbarTopConstraint;
+  NSLayoutConstraint* _glowFullScreenTopConstraint;
 }
 
 - (instancetype)initWithBrowserLayoutGuideCenter:
@@ -103,6 +110,16 @@
 
   // Set initial constraints and corner radii based on current App Bar position.
   [self updateGlowConstraintsAndCornerRadii];
+
+  [self
+      registerForTraitChanges:
+          @[ UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class ]
+                   withAction:@selector(updateGlowConstraintsAndCornerRadii)];
+}
+
+- (void)viewIsAppearing:(BOOL)animated {
+  [super viewIsAppearing:animated];
+  [self updateGlowConstraintsAndCornerRadii];
 }
 
 - (void)didMoveToParentViewController:(UIViewController*)parent {
@@ -122,7 +139,13 @@
 
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
-  [self.view.window endEditing:YES];
+  // TODO(crbug.com/556733164): Remove once the
+  // `kActorToolsDisableInputDuringActuationParam` killswitch is no longer
+  // needed. `endEditing:YES` resigns first responder and prevents the keyboard
+  // from reappearing when actuation ends.
+  if (!ActorDisablesInputDuringActuation()) {
+    [self.view.window endEditing:YES];
+  }
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size
@@ -146,6 +169,23 @@
 
 #pragma mark - Private
 
+// Returns YES if the scrim and glow views should be pinned below the primary
+// toolbar.
+- (BOOL)shouldPinBelowPrimaryToolbar {
+  return (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET ||
+          CanShowTabStrip(self)) &&
+         _primaryToolbarGuide != nil;
+}
+
+// Updates the active top constraints for the scrim and glow views.
+- (void)updateTopConstraints {
+  BOOL pinBelowToolbar = [self shouldPinBelowPrimaryToolbar];
+  _scrimFullScreenTopConstraint.active = !pinBelowToolbar;
+  _glowFullScreenTopConstraint.active = !pinBelowToolbar;
+  _scrimToolbarTopConstraint.active = pinBelowToolbar;
+  _glowToolbarTopConstraint.active = pinBelowToolbar;
+}
+
 // Sets up the static and dynamic layout constraints for the subviews.
 - (void)setupScrimAndGlowConstraints {
   UIView* contentView = self.view;
@@ -155,15 +195,22 @@
   NSLayoutXAxisAnchor* leadingAnchor = contentView.leadingAnchor;
   NSLayoutXAxisAnchor* trailingAnchor = contentView.trailingAnchor;
 
-  // Set up layout guide and adjust top anchor on iPad.
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
-    _primaryToolbarGuide =
-        [_browserLayoutGuideCenter makeLayoutGuideNamed:kPrimaryToolbarGuide];
-    if (_primaryToolbarGuide) {
-      [contentView addLayoutGuide:_primaryToolbarGuide];
-      topAnchor = _primaryToolbarGuide.bottomAnchor;
-    }
+  // Create both the toolbar-pinned and full-screen top constraints upfront so
+  // `-updateTopConstraints` can dynamically switch between them when the size
+  // class changes.
+  _primaryToolbarGuide =
+      [_browserLayoutGuideCenter makeLayoutGuideNamed:kPrimaryToolbarGuide];
+  if (_primaryToolbarGuide) {
+    [contentView addLayoutGuide:_primaryToolbarGuide];
+    _scrimToolbarTopConstraint = [_scrimView.topAnchor
+        constraintEqualToAnchor:_primaryToolbarGuide.bottomAnchor];
+    _glowToolbarTopConstraint = [_glowView.topAnchor
+        constraintEqualToAnchor:_primaryToolbarGuide.bottomAnchor];
   }
+  _scrimFullScreenTopConstraint =
+      [_scrimView.topAnchor constraintEqualToAnchor:topAnchor];
+  _glowFullScreenTopConstraint =
+      [_glowView.topAnchor constraintEqualToAnchor:topAnchor];
 
   // Initialize dynamic glow constraints.
   _glowBottomConstraint =
@@ -173,31 +220,32 @@
   _glowTrailingConstraint =
       [_glowView.trailingAnchor constraintEqualToAnchor:trailingAnchor];
 
+  [self updateTopConstraints];
+
   [NSLayoutConstraint activateConstraints:@[
     // Activate static scrim constraints.
-    [_scrimView.topAnchor constraintEqualToAnchor:topAnchor],
     [_scrimView.bottomAnchor constraintEqualToAnchor:bottomAnchor],
     [_scrimView.leadingAnchor constraintEqualToAnchor:leadingAnchor],
     [_scrimView.trailingAnchor constraintEqualToAnchor:trailingAnchor],
-    // Activate static and dynamic parts of glow constraints.
-    [_glowView.topAnchor constraintEqualToAnchor:topAnchor],
+    // Activate dynamic parts of glow constraints.
     _glowBottomConstraint,
     _glowLeadingConstraint,
     _glowTrailingConstraint,
   ]];
 }
 
-// Updates the dynamic glow constraints and corner radii based on the current
-// App Bar position.
+// Updates the active top constraints, dynamic glow constraints, and corner
+// radii based on the current size class and App Bar position.
 - (void)updateGlowConstraintsAndCornerRadii {
   if (!self.isViewLoaded) {
     return;
   }
 
+  [self updateTopConstraints];
+
   CornerRadii radii(DeviceCornerRadius());
 
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET &&
-      _primaryToolbarGuide) {
+  if ([self shouldPinBelowPrimaryToolbar]) {
     radii.topLeft = 0.0;
     radii.topRight = 0.0;
   }

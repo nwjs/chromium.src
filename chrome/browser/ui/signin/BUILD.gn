@@ -67,8 +67,6 @@ source_set("impl") {
     "signin_view_controller_delegate.cc",
   ]
 
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
-
   deps = [
     "//base",
     "//chrome/app:branded_strings",
@@ -141,7 +139,6 @@ source_set("impl") {
       "//chrome/browser/ui/web_applications",
       "//components/infobars/content",
       "//components/pref_registry",
-      "//components/send_tab_to_self:features",
       "//components/user_education/common",
       "//device/bluetooth",
       "//ui/views",
@@ -187,7 +184,6 @@ if (!is_android) {
         "//chrome/browser/ui/views/extensions:extension_post_install_dialog_view_utils",
         "//chrome/browser/ui/views/passwords",
         "//chrome/browser/ui/views/passwords:password_bubble_view_base",
-        "//chrome/browser/ui/webui/signin:test_support_ui",
         "//chrome/test:test_support",
         "//chrome/test:test_support_ui",
         "//components/autofill/content/browser",
@@ -240,7 +236,6 @@ if (!is_android) {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/frame:toolbar_button_provider",
-      "//chrome/browser/ui/webui/signin:test_support_ui",
       "//chrome/test:test_support_ui",
       "//components/signin/public/base",
       "//components/signin/public/base:signin_switches",

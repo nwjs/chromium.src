@@ -34,6 +34,7 @@
 #include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_app.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_level_logs_manager_wrapper.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_manager_base.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_types.h"
 #include "chrome/browser/ash/app_mode/kiosk_chrome_app_manager.h"
@@ -45,7 +46,6 @@
 #include "chrome/browser/ash/login/screens/app_launch_splash_screen.h"
 #include "chrome/browser/ash/login/wizard_controller.h"
 #include "chrome/browser/ash/policy/core/device_local_account.h"
-#include "chrome/browser/chromeos/app_mode/kiosk_app_level_logs_manager_wrapper.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "components/account_id/account_id.h"
@@ -127,20 +127,22 @@ KioskApp EmptyKioskApp(const KioskAppId& app_id) {
 
 KioskControllerImpl::KioskControllerImpl(
     PrefService* local_state,
-    const policy::PolicyService* policy_service,
     scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
+    policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash,
     user_manager::UserManager* user_manager)
     : local_state_(CHECK_DEREF(local_state)),
-      policy_service_(CHECK_DEREF(policy_service)),
+      shared_url_loader_factory_(std::move(shared_url_loader_factory)),
+      browser_policy_connector_ash_(CHECK_DEREF(browser_policy_connector_ash)),
       cryptohome_remover_(local_state),
       iwa_manager_(CHECK_DEREF(local_state), &cryptohome_remover_),
       web_app_manager_(local_state,
-                       shared_url_loader_factory,
+                       shared_url_loader_factory_,
                        &cryptohome_remover_),
       chrome_app_manager_(local_state,
-                          shared_url_loader_factory,
+                          shared_url_loader_factory_,
                           &cryptohome_remover_),
       arcvm_app_manager_(local_state, &cryptohome_remover_) {
+  CHECK(shared_url_loader_factory_);
   user_manager_observation_.Observe(user_manager);
 }
 
@@ -242,7 +244,8 @@ void KioskControllerImpl::StartSession(const KioskAppId& app_id,
       std::make_unique<chromeos::KioskAppLevelLogsManagerWrapper>(app_id);
 
   launch_controller_ = std::make_unique<KioskLaunchController>(
-      &local_state_.get(), &policy_service_.get(), host,
+      &local_state_.get(), shared_url_loader_factory_,
+      &browser_policy_connector_ash_.get(), host,
       /*app_launched_callback=*/
       base::BindOnce(&KioskControllerImpl::OnAppLaunched,
                      base::Unretained(this)),

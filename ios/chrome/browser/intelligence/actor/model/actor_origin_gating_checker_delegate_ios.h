@@ -5,8 +5,11 @@
 #ifndef IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_ORIGIN_GATING_CHECKER_DELEGATE_IOS_H_
 #define IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_ORIGIN_GATING_CHECKER_DELEGATE_IOS_H_
 
+#import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
+#import "components/origin_gating/core/client_tool.h"
 #import "components/origin_gating/core/origin_gating_checker.h"
+#import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
 
 namespace actor {
 
@@ -15,11 +18,14 @@ enum class ActorCustomPredicate {
   kSafetyList,
 };
 
+class ActorEnterprisePolicyCheckerIOS;
+
 // iOS implementation of OriginGatingChecker::Delegate
 class ActorOriginGatingCheckerDelegateIOS
     : public origin_gating::OriginGatingChecker::Delegate {
  public:
-  ActorOriginGatingCheckerDelegateIOS();
+  explicit ActorOriginGatingCheckerDelegateIOS(
+      const ActorEnterprisePolicyCheckerIOS* policy_checker = nullptr);
   ~ActorOriginGatingCheckerDelegateIOS() override;
 
   ActorOriginGatingCheckerDelegateIOS(
@@ -43,6 +49,9 @@ class ActorOriginGatingCheckerDelegateIOS
                    base::OnceCallback<void(NoVerdictResult)> callback) override;
 
  private:
+  // Pointer to the policy checker that holds enterprise policy state for Actor.
+  raw_ptr<const ActorEnterprisePolicyCheckerIOS> policy_checker_ = nullptr;
+
   base::WeakPtrFactory<ActorOriginGatingCheckerDelegateIOS> weak_ptr_factory_{
       this};
 };
@@ -51,5 +60,9 @@ class ActorOriginGatingCheckerDelegateIOS
 template <>
 inline const origin_gating::CustomPredicateDomain origin_gating::
     CustomPredicateDomain::kInstance<actor::ActorCustomPredicate> = {};
+
+template <>
+inline const origin_gating::ToolDomain
+    origin_gating::ToolDomain::kInstance<actor::ToolType> = {};
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_ACTOR_MODEL_ACTOR_ORIGIN_GATING_CHECKER_DELEGATE_IOS_H_

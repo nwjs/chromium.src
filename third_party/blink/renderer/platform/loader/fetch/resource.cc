@@ -67,6 +67,7 @@
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
@@ -194,8 +195,8 @@ const base::Clock* g_clock_for_testing = nullptr;
 constexpr base::MemoryConsumerTraits kResourceTraits(
     // Encoded and decoded data size varies widely, can reach tens of MBs.
     base::MemoryConsumerTraits::EstimatedMemoryUsage::kMedium,
-    // Pruning destroys decoded data without traversing complex structures.
-    base::MemoryConsumerTraits::ReleaseMemoryCost::kFreesPagesWithoutTraversal,
+    // Pruning frees the decoded data buffers without reading them.
+    base::MemoryConsumerTraits::ReleaseMemoryDataAccess::kNone,
     // Data can be re-decoded from the encoded payload.
     base::MemoryConsumerTraits::InformationRetention::kLossless,
     // Pruning runs synchronously on the renderer thread.
@@ -1097,9 +1098,9 @@ void Resource::OnMemoryDump(WebMemoryDumpLevelOfDetail level_of_detail,
 }
 
 String Resource::GetMemoryDumpName() const {
-  return StrCat({"web_cache/",
-                 ResourceTypeToString(GetType(), Options().initiator_info.name),
-                 "_resources/", String::Number(InspectorId())});
+  return Format("web_cache/{}_resources/{}",
+                ResourceTypeToString(GetType(), Options().initiator_info.name),
+                InspectorId());
 }
 
 void Resource::SetCachePolicyBypassingCache() {
@@ -1304,6 +1305,9 @@ static const char* InitiatorTypeNameToString(
   if (initiator_type_name == fetch_initiator_type_names::kFetch) {
     return "Fetch";
   }
+  if (initiator_type_name == fetch_initiator_type_names::kFont) {
+    return "Font";
+  }
   if (initiator_type_name == fetch_initiator_type_names::kLink) {
     return "Link element resource";
   }
@@ -1337,7 +1341,7 @@ static const char* InitiatorTypeNameToString(
   }
 
   static_assert(
-      fetch_initiator_type_names::kNamesCount == 19,
+      fetch_initiator_type_names::kNamesCount == 20,
       "New FetchInitiatorTypeNames should be handled correctly here.");
 
   return "Resource";

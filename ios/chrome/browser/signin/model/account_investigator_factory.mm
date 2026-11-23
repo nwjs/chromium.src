@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/signin/model/account_investigator_factory.h"
 
+#import <utility>
+
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service_factory.h"
 #import "components/signin/core/browser/account_investigator.h"
@@ -13,27 +15,13 @@
 
 namespace ios {
 
-// static
-AccountInvestigatorFactory* AccountInvestigatorFactory::GetInstance() {
-  static base::NoDestructor<AccountInvestigatorFactory> instance;
-  return instance.get();
-}
-
-// static
-AccountInvestigator* AccountInvestigatorFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<AccountInvestigator>(
-      profile, /*create=*/true);
-}
-
-AccountInvestigatorFactory::AccountInvestigatorFactory()
-    : ProfileKeyedServiceFactoryIOS("AccountInvestigator",
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {
+AccountInvestigatorFactory::AccountInvestigatorFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "AccountInvestigator",
+                                         ServiceCreation::kCreateWithProfile,
+                                         TestingCreation::kNoServiceForTests) {
   DependsOn(IdentityManagerFactory::GetInstance());
 }
-
-AccountInvestigatorFactory::~AccountInvestigatorFactory() = default;
 
 std::unique_ptr<KeyedService>
 AccountInvestigatorFactory::BuildServiceInstanceFor(ProfileIOS* profile) const {

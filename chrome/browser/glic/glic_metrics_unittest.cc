@@ -4,7 +4,6 @@
 
 #include "chrome/browser/glic/glic_metrics.h"
 
-#include <optional>
 #include <utility>
 
 #include "base/memory/raw_ptr.h"
@@ -42,12 +41,9 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
-#include "components/tabs/public/mock_tab_interface.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_renderer_host.h"
-#include "content/public/test/web_contents_tester.h"
-#include "glic_metrics.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -61,47 +57,6 @@
 
 namespace glic {
 namespace {
-using ::base::Bucket;
-using ::base::BucketsAre;
-using ::testing::_;
-using ::testing::IsEmpty;
-using ::testing::Pair;
-using ::testing::Return;
-using ::testing::UnorderedElementsAre;
-
-class MockDelegate : public GlicMetrics::Delegate {
- public:
-  MockDelegate() = default;
-  ~MockDelegate() override = default;
-
-  // GlicMetrics::Delegate implementation
-  bool IsWindowShowing() const override { return showing; }
-  bool IsWindowAttached() const override { return attached; }
-  gfx::Size GetWindowSize() const override { return gfx::Size(); }
-  content::WebContents* GetFocusedWebContents() override {
-    return contents_.get();
-  }
-  int32_t GetNumPinnedTabs() const override { return num_pinned_tabs; }
-  std::vector<raw_ptr<content::WebContents>> GetPinnedAndSharedWebContents()
-      override {
-    return pinned_shared_tabs;
-  }
-
-  void SetFocusedWebContents(content::WebContents* contents) {
-    contents_ = contents;
-  }
-  void AddToPinnedSharedTabs(content::WebContents* contents) {
-    pinned_shared_tabs.push_back(contents);
-  }
-
-  bool showing = false;
-  bool attached = false;
-  int32_t num_pinned_tabs = 0;
-  std::vector<raw_ptr<content::WebContents>> pinned_shared_tabs;
-
- private:
-  raw_ptr<content::WebContents> contents_;
-};
 
 class MockStatusIcon : public StatusIcon {
  public:
@@ -225,56 +180,27 @@ class GlicMetricsTestBase : public testing::Test {
 class GlicMetricsTest : public GlicMetricsTestBase {
  public:
   void SetUp() override {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kGlicCaptureRegion},
-        /*disabled_features=*/{features::kGlicFixTimeToFirstQueryKillSwitch});
+    scoped_feature_list_.InitAndEnableFeature(features::kGlicCaptureRegion);
     GlicMetricsTestBase::SetUp();
 
     enabling_ = GlicEnabling::CreateForTesting(
         profile(), &profile_manager()->GetProfileAttributesStorage());
     metrics_ = std::make_unique<GlicMetrics>(profile(), enabling_.get());
-    auto delegate = std::make_unique<MockDelegate>();
-    delegate_ = delegate.get();
-    metrics_->SetDelegateForTesting(std::move(delegate));
   }
 
   void TearDown() override {
-    delegate_ = nullptr;
     metrics_.reset();
     enabling_.reset();
-    test_web_contents_.reset();
     GlicMetricsTestBase::TearDown();
   }
 
-  void InitializeTestWebContents() {
-    // Create a SiteInstance, which is required to build a WebContents.
-    scoped_refptr<content::SiteInstance> site_instance =
-        content::SiteInstance::Create(profile());
-
-    // Use WebContentsTester::CreateTestWebContents(...) to create a real
-    // WebContents suitable for unit testing.
-    test_web_contents_ = content::WebContentsTester::CreateTestWebContents(
-        profile(), site_instance.get());
-    auto* tester = content::WebContentsTester::For(test_web_contents_.get());
-
-    GURL url("https://www.google.com");
-    tester->NavigateAndCommit(url);
-  }
-
-  content::WebContents* test_web_contents() { return test_web_contents_.get(); }
   GlicMetrics* metrics() { return metrics_.get(); }
-  MockDelegate* delegate() { return delegate_.get(); }
   GlicEnabling* enabling() { return enabling_.get(); }
 
  protected:
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<GlicEnabling> enabling_;
   std::unique_ptr<GlicMetrics> metrics_;
-  // Owned by `metrics_`.
-  raw_ptr<MockDelegate> delegate_ = nullptr;
-
- private:
-  std::unique_ptr<content::WebContents> test_web_contents_;
 };
 
 TEST_F(GlicMetricsTest, RecordGlicProfilePreferences) {
@@ -413,254 +339,35 @@ TEST_F(GlicMetricsTest, RecordGlicProfilePreferences) {
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
-TEST_F(GlicMetricsTest, Basic) {
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnResponseStarted();
-  metrics()->OnResponseStopped(mojom::ResponseStopCause::kUnknown);
-  metrics()->OnResponseRated(/*positive=*/true);
-  metrics()->OnSessionTerminated();
-
-  histogram_tester().ExpectUniqueSample(
-      "Glic.Session.InputSubmit.BrowserActiveState", 5 /*kBrowserHidden*/, 1);
-  histogram_tester().ExpectUniqueSample(
-      "Glic.Session.ResponseStart.BrowserActiveState", 5 /*kBrowserHidden*/, 1);
-  EXPECT_THAT(
-      histogram_tester().GetAllSamplesForPrefix("Glic.Response.StartTime"),
-      IsEmpty());
-
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseInputSubmit"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStart"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStop"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStopUnknownCause"),
-            1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponse"), 0);
-}
-
-TEST_F(GlicMetricsTest, BasicVisible) {
-  delegate()->showing = true;
-  delegate()->attached = true;
-
-  metrics()->OnGlicWindowStartedOpening(/*attached=*/true,
-                                        mojom::InvocationSource::kOsButton);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnResponseStarted();
-  metrics()->OnResponseStopped(mojom::ResponseStopCause::kUnknown);
-  metrics()->OnResponseRated(/*positive=*/true);
-  metrics()->OnSessionTerminated();
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-
-  EXPECT_THAT(
-      histogram_tester().GetAllSamplesForPrefix("Glic.Response.StartTime"),
-      UnorderedElementsAre(
-          Pair("Glic.Response.StartTime",
-               BucketsAre(Bucket(/*time bucket*/ 0, 1))),
-          Pair("Glic.Response.StartTime.InputMode.Text",
-               BucketsAre(Bucket(/*time bucket*/ 0, 1))),
-          Pair("Glic.Response.StartTime.TabContext.LikelyWithout",
-               BucketsAre(Bucket(/*time bucket*/ 0, 1)))));
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicSessionBegin"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseInputSubmit"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStart"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStop"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponse"), 1);
-}
-
 TEST_F(GlicMetricsTest, FreUserInputEntrypointRecorded) {
   metrics()->OnGlicWindowStartedOpening(/*attached=*/true,
                                         mojom::InvocationSource::kOsButton);
   metrics()->OnFreAccepted();
 
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
+  metrics()->OnUserInputSubmitted();
   // Reset time and submit another input to make sure it's only recorded once.
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
+  metrics()->OnUserInputSubmitted();
 
   histogram_tester().ExpectBucketCount("Glic.Fre.UserInput.InvocationSource",
                                        mojom::InvocationSource::kOsButton, 1);
   histogram_tester().ExpectTotalCount("Glic.Fre.UserInput.InvocationSource", 1);
 }
 
-TEST_F(GlicMetricsTest, ResponseStartTime_WithFocusedTab) {
-  delegate()->showing = true;
-  delegate()->attached = true;
-  InitializeTestWebContents();
-  delegate()->SetFocusedWebContents(test_web_contents());
-
-  tabs::MockTabInterface mock_tab;
-  EXPECT_CALL(mock_tab, GetContents())
-      .WillRepeatedly(Return(test_web_contents()));
-  metrics()->DidRequestContextFromTab(mock_tab);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnResponseStarted();
-
-  EXPECT_THAT(
-      histogram_tester().GetAllSamplesForPrefix("Glic.Response.StartTime"),
-      UnorderedElementsAre(Pair("Glic.Response.StartTime",
-                                BucketsAre(Bucket(/*time bucket*/ 0, 1))),
-                           Pair("Glic.Response.StartTime.InputMode.Text",
-                                BucketsAre(Bucket(/*time bucket*/ 0, 1))),
-                           Pair("Glic.Response.StartTime.TabContext.LikelyWith",
-                                BucketsAre(Bucket(/*time bucket*/ 0, 1)))));
-}
-
-TEST_F(GlicMetricsTest, ResponseStartTime_WithPinnedAndSharedTab) {
-  delegate()->showing = true;
-  delegate()->attached = true;
-  InitializeTestWebContents();
-  delegate()->AddToPinnedSharedTabs(test_web_contents());
-
-  tabs::MockTabInterface mock_tab;
-  EXPECT_CALL(mock_tab, GetContents())
-      .WillRepeatedly(Return(test_web_contents()));
-  metrics()->DidRequestContextFromTab(mock_tab);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kAudio,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnResponseStarted();
-
-  EXPECT_THAT(
-      histogram_tester().GetAllSamplesForPrefix("Glic.Response.StartTime"),
-      UnorderedElementsAre(Pair("Glic.Response.StartTime",
-                                BucketsAre(Bucket(/*time bucket*/ 0, 1))),
-                           Pair("Glic.Response.StartTime.InputMode.Audio",
-                                BucketsAre(Bucket(/*time bucket*/ 0, 1))),
-                           Pair("Glic.Response.StartTime.TabContext.LikelyWith",
-                                BucketsAre(Bucket(/*time bucket*/ 0, 1)))));
-}
-
-TEST_F(GlicMetricsTest, BasicUkm) {
-  delegate()->showing = true;
+TEST_F(GlicMetricsTest, WindowOpenUkm) {
   metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
                                         mojom::InvocationSource::kFre);
-  for (int i = 0; i < 2; ++i) {
-    metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                    mojom::PromptType::kUnspecified);
-    metrics()->OnResponseStarted();
-    metrics()->OnResponseStopped(mojom::ResponseStopCause::kUnknown);
-  }
 
-  {
-    auto entries = ukm_tester().GetEntriesByName("Glic.WindowOpen");
-    ASSERT_EQ(entries.size(), 1u);
-    auto entry = entries[0];
-    ukm_tester().ExpectEntryMetric(entry, "Attached", false);
-    ukm_tester().ExpectEntryMetric(
-        entry, "InvocationSource",
-        static_cast<int64_t>(mojom::InvocationSource::kFre));
-    auto* source = ukm_tester().GetSourceForSourceId(entry->source_id);
-    EXPECT_FALSE(source);
-  }
-
-  {
-    auto entries = ukm_tester().GetEntriesByName("Glic.Response");
-    ASSERT_EQ(entries.size(), 2u);
-    for (int i = 0; i < 2; ++i) {
-      auto entry = entries[i];
-      ukm_tester().ExpectEntryMetric(entry, "Attached", false);
-      ukm_tester().ExpectEntryMetric(
-          entry, "WebClientMode",
-          static_cast<int64_t>(mojom::WebClientMode::kText));
-      ukm_tester().ExpectEntryMetric(
-          entry, "InvocationSource",
-          static_cast<int64_t>(mojom::InvocationSource::kFre));
-      auto* source = ukm_tester().GetSourceForSourceId(entry->source_id);
-      EXPECT_FALSE(source);
-    }
-  }
-}
-
-TEST_F(GlicMetricsTest, BasicUkmWithTarget) {
-  InitializeTestWebContents();
-  delegate()->SetFocusedWebContents(test_web_contents());
-  delegate()->showing = true;
-
-  metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
-                                        mojom::InvocationSource::kFre);
-  tabs::MockTabInterface mock_tab;
-  EXPECT_CALL(mock_tab, GetContents())
-      .WillRepeatedly(Return(test_web_contents()));
-  metrics()->DidRequestContextFromTab(mock_tab);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnResponseStarted();
-  metrics()->OnResponseStopped(mojom::ResponseStopCause::kUnknown);
-
-  ukm::SourceId ukm_id =
-      test_web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId();
-
-  {
-    auto entries = ukm_tester().GetEntriesByName("Glic.WindowOpen");
-    ASSERT_EQ(entries.size(), 1u);
-    auto entry = entries[0];
-    // TODO(b/452120577): Source ID should match `ukm_id`.
-    EXPECT_EQ(entry->source_id, ukm::NoURLSourceId());
-  }
-
-  {
-    auto entries = ukm_tester().GetEntriesByName("Glic.Response");
-    ASSERT_EQ(entries.size(), 1u);
-    auto entry = entries[0];
-    EXPECT_EQ(entry->source_id, ukm_id);
-  }
-}
-
-TEST_F(GlicMetricsTest, BasicStopReasonOther) {
-  delegate()->showing = true;
-  delegate()->attached = true;
-
-  metrics()->OnGlicWindowStartedOpening(/*attached=*/true,
-                                        mojom::InvocationSource::kOsButton);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnResponseStarted();
-  metrics()->OnResponseStopped(mojom::ResponseStopCause::kOther);
-  metrics()->OnSessionTerminated();
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStopOther"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStop"), 1);
-}
-TEST_F(GlicMetricsTest, BasicStopReasonByUser) {
-  delegate()->showing = true;
-  delegate()->attached = true;
-
-  metrics()->OnGlicWindowStartedOpening(/*attached=*/true,
-                                        mojom::InvocationSource::kOsButton);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnResponseStarted();
-  metrics()->OnResponseStopped(mojom::ResponseStopCause::kUser);
-  metrics()->OnSessionTerminated();
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponseStopByUser"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("GlicResponse"), 1);
-}
-
-TEST_F(GlicMetricsTest, SessionDuration_LogsDuration) {
-  metrics()->OnGlicWindowStartedOpening(/*attached=*/true,
-                                        mojom::InvocationSource::kOsButton);
-  int minutes = 10;
-  task_environment().FastForwardBy(base::Minutes(minutes));
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-
-  histogram_tester().ExpectTotalCount("Glic.Session.Duration", 1);
-  histogram_tester().ExpectTimeBucketCount(
-      "Glic.Session.Duration", base::Minutes(minutes), /*expected_count=*/1);
-}
-
-TEST_F(GlicMetricsTest, SessionDuration_LogsError) {
-  // Trigger a call to |OnGlicWindowClose()| without opening the window first.
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-
-  histogram_tester().ExpectTotalCount("Glic.Session.Duration", 0);
-  histogram_tester().ExpectTotalCount("Glic.Metrics.Error", 1);
-  histogram_tester().ExpectBucketCount("Glic.Metrics.Error",
-                                       Error::kWindowCloseWithoutWindowOpen,
-                                       /*expected_count=*/1);
+  auto entries = ukm_tester().GetEntriesByName("Glic.WindowOpen");
+  ASSERT_EQ(entries.size(), 1u);
+  auto entry = entries[0];
+  ukm_tester().ExpectEntryMetric(entry, "Attached", false);
+  ukm_tester().ExpectEntryMetric(
+      entry, "InvocationSource",
+      static_cast<int64_t>(mojom::InvocationSource::kFre));
+  // TODO(b/452120577): No page source ID is attached yet.
+  EXPECT_EQ(entry->source_id, ukm::NoURLSourceId());
+  auto* source = ukm_tester().GetSourceForSourceId(entry->source_id);
+  EXPECT_FALSE(source);
 }
 
 TEST_F(GlicMetricsTest, ClosedCaptionsResponse_PrefLogsFalse) {
@@ -753,8 +460,7 @@ TEST_F(GlicMetricsTest, LogGetContextFromFocusedTabError_ChangingModes) {
   metrics()->SetWebClientMode(mojom::WebClientMode::kText);
   metrics()->LogGetContextFromFocusedTabError(
       GlicGetContextFromTabError::kWebContentsChanged);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kAudio,
-                                  mojom::PromptType::kUnspecified);
+  metrics()->SetWebClientMode(mojom::WebClientMode::kAudio);
   metrics()->LogGetContextFromFocusedTabError(
       GlicGetContextFromTabError::kPermissionDenied);
 
@@ -898,38 +604,30 @@ TEST_F(GlicMetricsFeaturesEnabledTest, ImpressionAfterFreNotPermittedByPolicy) {
 
 TEST_F(GlicMetricsFeaturesEnabledTest, EnablingChanged) {
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Disabled"), 0);
-  // Glic starts enabled and during profile creation GlicMetrics records a user
-  // action.
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Enabled"), 1);
 
   glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
       prefs::FreStatus::kNotStarted);
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Disabled"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Enabled"), 1);
 
   glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
       prefs::FreStatus::kCompleted);
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Disabled"), 1);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Enabled"), 2);
 
   profile()->GetPrefs()->SetInteger(
       optimization_guide::prefs::kGeminiSettings,
       std::to_underlying(
           optimization_guide::prefs::GeminiSettingsPolicyState::kDisabled));
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Disabled"), 2);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Enabled"), 2);
 
   profile()->GetPrefs()->SetInteger(
       optimization_guide::prefs::kGeminiSettings,
       std::to_underlying(
           optimization_guide::prefs::GeminiSettingsPolicyState::kEnabled));
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Disabled"), 2);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Enabled"), 3);
 
   glic::GlicKeyedService::Get(profile())->enabling().SetCompletedFre(
       prefs::FreStatus::kIncomplete);
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Disabled"), 3);
-  EXPECT_EQ(user_action_tester().GetActionCount("Glic.Enabled"), 3);
 }
 
 TEST_F(GlicMetricsFeaturesEnabledTest, PinnedChanged) {
@@ -962,57 +660,11 @@ TEST_F(GlicMetricsFeaturesEnabledTest, ShortcutStatus) {
       /*expected_count=*/1);
 }
 
-TEST_F(GlicMetricsTest, InputModesUsed) {
-  // TODO(b/452378389): Unconventional order of metrics calls may be a problem.
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-  histogram_tester().ExpectTotalCount("Glic.Session.InputModesUsed", 1);
-  histogram_tester().ExpectBucketCount("Glic.Session.InputModesUsed",
-                                       InputModesUsed::kOnlyText, 1);
-
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-  histogram_tester().ExpectTotalCount("Glic.Session.InputModesUsed", 2);
-  histogram_tester().ExpectBucketCount("Glic.Session.InputModesUsed",
-                                       InputModesUsed::kNone, 1);
-
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kAudio,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-  histogram_tester().ExpectTotalCount("Glic.Session.InputModesUsed", 3);
-  histogram_tester().ExpectBucketCount("Glic.Session.InputModesUsed",
-                                       InputModesUsed::kTextAndAudio, 1);
-
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kAudio,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-  histogram_tester().ExpectTotalCount("Glic.Session.InputModesUsed", 4);
-  histogram_tester().ExpectBucketCount("Glic.Session.InputModesUsed",
-                                       InputModesUsed::kOnlyAudio, 1);
-
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kUnknown,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kAudio,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-  histogram_tester().ExpectTotalCount("Glic.Session.InputModesUsed", 5);
-  histogram_tester().ExpectBucketCount("Glic.Session.InputModesUsed",
-                                       InputModesUsed::kOnlyAudio, 2);
-
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kUnknown,
-                                  mojom::PromptType::kUnspecified);
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
-  histogram_tester().ExpectTotalCount("Glic.Session.InputModesUsed", 6);
-  histogram_tester().ExpectBucketCount("Glic.Session.InputModesUsed",
-                                       InputModesUsed::kNone, 2);
-}
-
 TEST_F(GlicMetricsTest, TimeElapsedBetweenSessions) {
   base::TimeDelta elapsed_time = base::Hours(2);
 
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
+  metrics()->OnGlicWindowStartedOpening(/*attached=*/false,
+                                        mojom::InvocationSource::kOsButton);
   task_environment().FastForwardBy(elapsed_time);
 
   metrics()->OnGlicWindowStartedOpening(/*attached=*/true,
@@ -1025,56 +677,10 @@ TEST_F(GlicMetricsTest, TimeElapsedBetweenSessions) {
       1);
 }
 
-TEST_F(GlicMetricsTest, PositionOnOpenAndClose) {
-  // TODO(b/452378389): Unconventional order of metrics calls may be a problem.
-  display::Display display;
-  display.set_bounds(gfx::Rect(300, 350));
-  display.set_work_area(gfx::Rect(0, 50, 300, 300));
-  metrics()->OnGlicWindowShown(nullptr, display, gfx::Rect(50, 50, 0, 0));
-  metrics()->OnGlicWindowClose(nullptr, display, gfx::Rect(50, 150, 0, 0));
-  metrics()->OnGlicWindowShown(nullptr, display, gfx::Rect(50, 250, 0, 0));
-  metrics()->OnGlicWindowClose(nullptr, display, gfx::Rect(150, 50, 0, 0));
-  metrics()->OnGlicWindowShown(nullptr, display, gfx::Rect(150, 150, 0, 0));
-  metrics()->OnGlicWindowClose(nullptr, display, gfx::Rect(150, 250, 0, 0));
-  metrics()->OnGlicWindowShown(nullptr, display, gfx::Rect(250, 50, 0, 0));
-  metrics()->OnGlicWindowClose(nullptr, display, gfx::Rect(250, 150, 0, 0));
-  metrics()->OnGlicWindowShown(nullptr, display, gfx::Rect(250, 250, 0, 0));
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnOpen",
-                                       DisplayPosition::kTopLeft, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnClose",
-                                       DisplayPosition::kCenterLeft, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnOpen",
-                                       DisplayPosition::kBottomLeft, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnClose",
-                                       DisplayPosition::kTopCenter, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnOpen",
-                                       DisplayPosition::kCenterCenter, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnClose",
-                                       DisplayPosition::kBottomCenter, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnOpen",
-                                       DisplayPosition::kTopRight, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnClose",
-                                       DisplayPosition::kCenterRight, 1);
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnOpen",
-                                       DisplayPosition::kBottomRight, 1);
-  // point is not within the work area bounds
-  metrics()->OnGlicWindowShown(nullptr, display, gfx::Rect(-50, 50, 0, 0));
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnOpen",
-                                       DisplayPosition::kUnknown, 1);
-  metrics()->OnGlicWindowClose(nullptr, display, gfx::Rect(50, -50, 0, 0));
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnClose",
-                                       DisplayPosition::kUnknown, 1);
-  // no display
-  metrics()->OnGlicWindowShown(nullptr, std::nullopt, gfx::Rect(50, 50, 0, 0));
-  histogram_tester().ExpectBucketCount("Glic.PositionOnDisplay.OnOpen",
-                                       DisplayPosition::kUnknown, 2);
-}
-
 TEST_F(GlicMetricsTest, FreToFirstQueryElapsedTimeReportedOnce) {
   metrics()->OnFreAccepted();
   task_environment().FastForwardBy(base::Milliseconds(100));
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
+  metrics()->OnUserInputSubmitted();
   histogram_tester().ExpectTotalCount("Glic.FreToFirstQueryTime", 1);
   histogram_tester().ExpectUniqueSample("Glic.FreToFirstQueryTime", 100, 1);
   histogram_tester().ExpectUniqueSample("Glic.FreToFirstQueryTimeMax24H", 100,
@@ -1084,11 +690,9 @@ TEST_F(GlicMetricsTest, FreToFirstQueryElapsedTimeReportedOnce) {
 TEST_F(GlicMetricsTest, FreToFirstQueryElapsedTimeReportedOnlyOnce) {
   metrics()->OnFreAccepted();
   task_environment().FastForwardBy(base::Milliseconds(100));
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
+  metrics()->OnUserInputSubmitted();
   // Second time should be ignored.
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
+  metrics()->OnUserInputSubmitted();
   histogram_tester().ExpectTotalCount("Glic.FreToFirstQueryTime", 1);
   histogram_tester().ExpectUniqueSample("Glic.FreToFirstQueryTime", 100, 1);
   histogram_tester().ExpectUniqueSample("Glic.FreToFirstQueryTimeMax24H", 100,
@@ -1098,17 +702,11 @@ TEST_F(GlicMetricsTest, FreToFirstQueryElapsedTimeReportedOnlyOnce) {
 class GlicMetricsTrustFirstOnboardingTest : public GlicMetricsTest {
  public:
   void SetUp() override {
-    scoped_feature_list_.Reset();
-    scoped_feature_list_.InitWithFeatures(
-        {}, {features::kGlicFixTimeToFirstQueryKillSwitch});
     GlicMetricsTestBase::SetUp();
 
     enabling_ = GlicEnabling::CreateForTesting(
         profile(), &profile_manager()->GetProfileAttributesStorage());
     metrics_ = std::make_unique<GlicMetrics>(profile(), enabling_.get());
-    auto delegate = std::make_unique<MockDelegate>();
-    delegate_ = delegate.get();
-    metrics_->SetDelegateForTesting(std::move(delegate));
 
     // Revert FRE status to NotStarted to simulate new user for this experiment.
     enabling_->SetCompletedFre(prefs::FreStatus::kNotStarted);
@@ -1149,7 +747,7 @@ TEST_F(GlicMetricsTrustFirstOnboardingTest, ShownAndAccepted) {
                                       1);
 
   // Closing after accept should NOT trigger "Dismissed".
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
+  metrics()->OnInstanceClosed();
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Dismissed"), 0);
   histogram_tester().ExpectUniqueSample("Glic.Fre.Shown.InvocationSource",
                                         mojom::InvocationSource::kOsButton, 1);
@@ -1168,7 +766,7 @@ TEST_F(GlicMetricsTrustFirstOnboardingTest, NotShownIfConsented) {
                                         mojom::InvocationSource::kOsButton);
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.Shown"), 0);
 
-  metrics()->OnGlicWindowClose(nullptr, std::nullopt, gfx::Rect());
+  metrics()->OnInstanceClosed();
   EXPECT_EQ(
       user_action_tester().GetActionCount("Glic.Fre.Onboarding.Dismissed"), 0);
 }
@@ -1179,24 +777,10 @@ TEST_F(GlicMetricsTrustFirstOnboardingTest, FreToFirstQueryTimeRecorded) {
   metrics()->OnTrustFirstOnboardingAccept();
 
   task_environment().FastForwardBy(base::Seconds(1));
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
+  metrics()->OnUserInputSubmitted();
 
   histogram_tester().ExpectUniqueSample("Glic.FreToFirstQueryTime", 1000, 1);
   EXPECT_EQ(user_action_tester().GetActionCount("Glic.Fre.InputSubmitted"), 1);
-}
-
-TEST_F(GlicMetricsTest, FreToFirstQueryElapsedTimeReportedInMultiInstance) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {features::kGlicFixTimeToFirstQueryKillSwitch}, {});
-
-  metrics()->OnFreAccepted();
-  task_environment().FastForwardBy(base::Milliseconds(100));
-  metrics()->OnUserInputSubmitted(mojom::WebClientMode::kText,
-                                  mojom::PromptType::kUnspecified);
-  histogram_tester().ExpectTotalCount("Glic.FreToFirstQueryTime", 1);
-  histogram_tester().ExpectUniqueSample("Glic.FreToFirstQueryTime", 100, 1);
 }
 
 }  // namespace

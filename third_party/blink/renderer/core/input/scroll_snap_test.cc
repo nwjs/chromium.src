@@ -4,8 +4,13 @@
 
 #include "cc/base/features.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/dom/element_traversal.h"
+#include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html/html_slot_element.h"
+#include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/input/scroll_manager.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
@@ -144,7 +149,7 @@ void ScrollSnapTest::ScrollEnd(double x, double y, bool is_in_inertial_phase) {
 }
 
 void ScrollSnapTest::SetInitialScrollOffset(double x, double y) {
-  Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
+  Element* scroller = GetElementById("scroller");
   scroller->GetLayoutBoxForScrolling()
       ->GetScrollableArea()
       ->ScrollToAbsolutePositionForTest(gfx::PointF(x, y));
@@ -159,7 +164,7 @@ TEST_F(ScrollSnapTest, ScrollSnapOnX) {
 
   GestureScroll(100, 100, -50, 0);
 
-  Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
+  Element* scroller = GetElementById("scroller");
   // Snaps to align the area at start.
   ASSERT_EQ(scroller->scrollLeft(), 200);
   // An x-locked scroll ignores snap points on y.
@@ -173,7 +178,7 @@ TEST_F(ScrollSnapTest, ScrollSnapOnY) {
 
   GestureScroll(100, 100, 0, -50);
 
-  Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
+  Element* scroller = GetElementById("scroller");
   // A y-locked scroll ignores snap points on x.
   ASSERT_EQ(scroller->scrollLeft(), 150);
   // Snaps to align the area at start.
@@ -187,7 +192,7 @@ TEST_F(ScrollSnapTest, ScrollSnapOnBoth) {
 
   GestureScroll(100, 100, -50, -50);
 
-  Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
+  Element* scroller = GetElementById("scroller");
   // A scroll gesture that has move in both x and y would snap on both axes.
   ASSERT_EQ(scroller->scrollLeft(), 200);
   ASSERT_EQ(scroller->scrollTop(), 200);
@@ -199,7 +204,7 @@ TEST_F(ScrollSnapTest, AnimateFlingToArriveAtSnapPoint) {
   SetInitialScrollOffset(0, 200);
   Compositor().BeginFrame();
 
-  Element* scroller = GetDocument().getElementById(AtomicString("scroller"));
+  Element* scroller = GetElementById("scroller");
   ASSERT_EQ(scroller->scrollLeft(), 0);
   ASSERT_EQ(scroller->scrollTop(), 200);
 
@@ -561,9 +566,8 @@ TEST_F(ScrollSnapTest, SnapAreaResizeDuringScrollAnimation) {
   </script>)HTML");
   Compositor().BeginFrame();
 
-  Element* box5 = GetDocument().getElementById(AtomicString("snapbox5"));
-  Element* scroller =
-      GetDocument().getElementById(AtomicString("snapscroller"));
+  Element* box5 = GetElementById("snapbox5");
+  Element* scroller = GetElementById("snapscroller");
 
   Compositor().BeginFrame();
   double last_offset = scroller->scrollLeft();
@@ -593,6 +597,95 @@ TEST_F(ScrollSnapTest, SnapAreaResizeDuringScrollAnimation) {
   // Finish the scroll.
   Compositor().BeginFrame(1.0);
   EXPECT_EQ(scroller->scrollLeft(), box5->OffsetLeft());
+}
+
+TEST_F(ScrollSnapTest, ExecutePendingSnapUpdatesDetachingScrollers) {
+  v8::HandleScope HandleScope(
+      WebView().GetPage()->GetAgentGroupScheduler().Isolate());
+  WebView().MainFrameViewWidget()->Resize(gfx::Size(400, 400));
+  SimRequest request("https://example.com/test.html", "text/html");
+  LoadURL("https://example.com/test.html");
+  request.Complete(R"HTML(
+    <!DOCTYPE html>
+    <style>
+      .scroller {
+        width: 50px;
+        height: 50px;
+        overflow: scroll;
+        scroll-snap-type: y mandatory;
+      }
+      .area {
+        height: 100px;
+        scroll-snap-align: start;
+      }
+    </style>
+    <div id="outer" class="scroller">
+      <canvas content="drawable">
+        <div id="host"></div>
+      </canvas>
+    </div>
+    <script>
+      const host = document.getElementById('host');
+      const root = host.attachShadow({mode: 'open', slotAssignment: 'manual'});
+      const visibleSlot = document.createElement('slot');
+      visibleSlot.id = 'visible';
+      const lock = document.createElement('div');
+      lock.style.contentVisibility = 'hidden';
+      const lockedSlot = document.createElement('slot');
+      lockedSlot.id = 'locked';
+      lock.appendChild(lockedSlot);
+      root.append(visibleSlot, lock);
+
+      const assigned = [];
+      const trigger = document.createElement('div');
+      trigger.className = 'area';
+      trigger.setAttribute('drawable', '');
+      host.appendChild(trigger);
+      assigned.push(trigger);
+      for (let i = 0; i < 16; ++i) {
+        const scroller = document.createElement('div');
+        scroller.className = 'scroller';
+        const area = document.createElement('div');
+        area.className = 'area';
+        scroller.appendChild(area);
+        host.appendChild(scroller);
+        assigned.push(scroller);
+      }
+      visibleSlot.assign(...assigned);
+    </script>
+  )HTML");
+  Compositor().BeginFrame();
+
+  Element* outer = GetElementById("outer");
+  Element* host = GetElementById("host");
+  ASSERT_TRUE(outer);
+  ASSERT_TRUE(host);
+  LocalFrameView* frame_view = GetDocument().View();
+  ASSERT_TRUE(frame_view);
+  frame_view->AddPendingSnapUpdate(
+      outer->GetLayoutBoxForScrolling()->GetScrollableArea());
+
+  HeapVector<Member<Node>> scrollers;
+  for (Element& child : ElementTraversal::ChildrenOf(*host)) {
+    if (child.FastHasAttribute(html_names::kDrawableAttr)) {
+      continue;
+    }
+    scrollers.push_back(&child);
+    frame_view->AddPendingSnapUpdate(
+        child.GetLayoutBoxForScrolling()->GetScrollableArea());
+  }
+  ASSERT_EQ(scrollers.size(), 16u);
+
+  auto* locked_slot = To<HTMLSlotElement>(
+      host->GetShadowRoot()->getElementById(AtomicString("locked")));
+  ASSERT_TRUE(locked_slot);
+  locked_slot->Assign(scrollers);
+
+  // Updating `#outer` maps its drawable snap area, which walks the flat tree
+  // via Element::CanvasForDrawing(), recalculating the dirty slot assignment
+  // into the display-locked slot and detaching all 16 inner scroll containers
+  // while iterating `pending_snap_updates_`.
+  frame_view->ExecutePendingSnapUpdates();
 }
 
 }  // namespace blink

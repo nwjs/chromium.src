@@ -9,6 +9,8 @@
 #include "base/files/file_path.h"
 #include "chrome/browser/ntp_customization/ntp_android_custom_background_service.h"
 #include "chrome/browser/ntp_customization/ntp_android_custom_background_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
+#include "third_party/jni_zero/jni_zero.h"
 #include "url/android/gurl_android.h"
 #include "url/gurl.h"
 
@@ -18,32 +20,22 @@
 using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 
-static int64_t JNI_NtpSyncedThemeBridge_Init(
-    JNIEnv* env,
-    const JavaRef<jobject>& j_profile,
-    const JavaRef<jobject>& j_java_obj) {
+static jni_zero::JniUniquePtr<NtpSyncedThemeBridge>
+JNI_NtpSyncedThemeBridge_Init(JNIEnv* env,
+                              const JavaRef<jobject>& j_profile,
+                              const JavaRef<jobject>& j_java_obj) {
   Profile* profile = Profile::FromJavaObject(j_profile);
-  NtpSyncedThemeBridge* ntp_customization_theme_bridge =
-      new NtpSyncedThemeBridge(env, profile, j_java_obj);
-  return reinterpret_cast<intptr_t>(ntp_customization_theme_bridge);
+  return jni_zero::MakeUnique<NtpSyncedThemeBridge>(env, profile, j_java_obj);
 }
 
 NtpSyncedThemeBridge::NtpSyncedThemeBridge(JNIEnv* env,
                                            Profile* profile,
                                            const JavaRef<jobject>& j_java_obj)
-    : profile_(profile),
-      ntp_custom_background_service_(
+    : ntp_custom_background_service_(
           NtpAndroidCustomBackgroundServiceFactory::GetForProfile(profile)),
       j_java_obj_(env, j_java_obj) {
   CHECK(ntp_custom_background_service_);
   ntp_custom_background_service_->SetSyncedThemeBridge(this);
-}
-
-void NtpSyncedThemeBridge::Destroy(JNIEnv* env) {
-  if (ntp_custom_background_service_) {
-    ntp_custom_background_service_->SetSyncedThemeBridge(nullptr);
-  }
-  delete this;
 }
 
 void NtpSyncedThemeBridge::DisconnectCustomBackgroundService() {
@@ -51,7 +43,15 @@ void NtpSyncedThemeBridge::DisconnectCustomBackgroundService() {
 }
 
 NtpSyncedThemeBridge::NtpSyncedThemeBridge() = default;
-NtpSyncedThemeBridge::~NtpSyncedThemeBridge() = default;
+
+NtpSyncedThemeBridge::~NtpSyncedThemeBridge() {
+  // Detaches from the service however this bridge is deleted. The service
+  // nulls `ntp_custom_background_service_` first if it is destroyed before
+  // the bridge, see DisconnectCustomBackgroundService().
+  if (ntp_custom_background_service_) {
+    ntp_custom_background_service_->SetSyncedThemeBridge(nullptr);
+  }
+}
 
 void NtpSyncedThemeBridge::FetchNextThemeCollectionImage(JNIEnv* env) {
   if (!ntp_custom_background_service_) {
@@ -79,13 +79,6 @@ ScopedJavaLocalRef<jobject> NtpSyncedThemeBridge::GetCustomBackgroundInfo(
       background->custom_background_attribution_action_url,
       static_cast<int32_t>(
           background->custom_background_main_color.value_or(0)));
-}
-
-bool NtpSyncedThemeBridge::IsProcessingSyncUpdate(JNIEnv* env) {
-  if (!ntp_custom_background_service_) {
-    return false;
-  }
-  return ntp_custom_background_service_->IsProcessingSyncUpdate();
 }
 
 void NtpSyncedThemeBridge::SetChromeColor(JNIEnv* env, int color_id) {
@@ -137,9 +130,9 @@ void NtpSyncedThemeBridge::OnDefaultThemeSynced() {
   Java_NtpSyncedThemeBridge_onDefaultThemeSynced(env, j_java_obj_);
 }
 
-void NtpSyncedThemeBridge::OnCustomBackgroundImageUpdated() {
+void NtpSyncedThemeBridge::OnThemeCollectionUpdated(bool is_sync) {
   JNIEnv* env = jni_zero::AttachCurrentThread();
-  Java_NtpSyncedThemeBridge_onCustomBackgroundImageUpdated(env, j_java_obj_);
+  Java_NtpSyncedThemeBridge_onThemeCollectionUpdated(env, j_java_obj_, is_sync);
 }
 
 DEFINE_JNI(NtpSyncedThemeBridge)

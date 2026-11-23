@@ -14,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "base/containers/extend.h"
@@ -55,6 +56,7 @@
 #include "components/prefs/pref_service.h"
 #include "net/base/network_change_notifier.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "url/gurl.h"
 
@@ -260,8 +262,8 @@ bool PreferFirstResult(const MemorySearchResult& first,
     return first_metadata > second_metadata;
   }
 
-  bool first_is_autofill = IsAutofillSourced(first);
-  bool second_is_autofill = IsAutofillSourced(second);
+  const bool first_is_autofill = IsAutofillSourced(first);
+  const bool second_is_autofill = IsAutofillSourced(second);
   if (first_is_autofill != second_is_autofill) {
     return first_is_autofill;
   }
@@ -380,31 +382,31 @@ MemorySearchStatus MapContextMemoryError(
   }
 }
 
-// Ranks `local_results` and `remote_results` search results.
-// Autofill-sourced results take priority over remote results, and within each
-// group results are sorted by confidence score descending.
-std::vector<MemorySearchResult> RankResults(
-    std::vector<MemorySearchResult> local_results,
-    std::vector<MemorySearchResult> remote_results) {
-  auto compare_confidence = [](const MemorySearchResult& a,
-                               const MemorySearchResult& b) {
-    return a.confidence_score > b.confidence_score;
-  };
-  std::ranges::stable_sort(local_results, compare_confidence);
-  std::ranges::stable_sort(remote_results, compare_confidence);
-  base::Extend(local_results, std::move(remote_results));
-  return local_results;
+// Ranks search results in `results`. Autofill-sourced results take priority
+// over remote results, and within each group results are sorted by confidence
+// score descending.
+void RankResults(std::vector<MemorySearchResult>& results) {
+  std::ranges::stable_sort(
+      results, [](const MemorySearchResult& a, const MemorySearchResult& b) {
+        const bool is_a_autofill = IsAutofillSourced(a);
+        const bool is_b_autofill = IsAutofillSourced(b);
+        if (is_a_autofill != is_b_autofill) {
+          return is_a_autofill;
+        }
+        return a.confidence_score > b.confidence_score;
+      });
 }
 
-// Combines local and remote results, deduplicates them, and reorders secondary
-// metadata attributes by uniqueness.
+// Combines `local_results` and `remote_results`, deduplicates them, ranks them,
+// and reorders secondary metadata attributes by uniqueness.
 std::vector<MemorySearchResult> CombineAndProcessResults(
     std::vector<MemorySearchResult> local_results,
     std::vector<MemorySearchResult> remote_results,
     LogManager& log_manager) {
-  std::vector<MemorySearchResult> combined_results =
-      RankResults(std::move(local_results), std::move(remote_results));
+  std::vector<MemorySearchResult> combined_results = std::move(local_results);
+  base::Extend(combined_results, std::move(remote_results));
   DeduplicateResults(combined_results, log_manager);
+  RankResults(combined_results);
   ReorderMetadataByUniqueness(combined_results, log_manager);
   LOG_AF(log_manager) << LoggingScope::kAtMemory << LogMessage::kAtMemory
                       << "Combined results:" << Br{} << combined_results;
@@ -459,8 +461,8 @@ bool MatchesStringFilter(
     case AutofillFetchSpecification::StringFilter::
         STRING_FILTER_MODE_UNSPECIFIED:
     default:
-      return FuzzyMatchesOrderedTokens(normalized_target_tokens,
-                                       normalized_filter_tokens);
+      return TokenizeAndFuzzyMatchOrderedTokens(normalized_target_tokens,
+                                                normalized_filter_tokens);
   }
 }
 
@@ -832,6 +834,17 @@ void AtMemoryQueryService::OnLocalDataRetrieved(
       !fetch_specifications.empty()
           ? FilterResults(std::move(local_results), fetch_specifications)
           : std::move(local_results);
+
+  // Keep only the first entry of each record, identified by
+  // `MemorySearchResult::identifier`. `AutofillDataProvider` yields an entry
+  // per requested type a record has a value for, but a record should be shown
+  // once.
+  absl::flat_hash_set<decltype(MemorySearchResult::identifier)>
+      seen_identifiers;
+  std::erase_if(filtered_local_results, [&](const MemorySearchResult& entry) {
+    return !std::holds_alternative<std::monostate>(entry.identifier) &&
+           !seen_identifiers.insert(entry.identifier).second;
+  });
 
   LOG_AF(*log_manager_) << LoggingScope::kAtMemory << LogMessage::kAtMemory
                         << "Filtered local data results:" << Br{}

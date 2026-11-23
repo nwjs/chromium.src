@@ -22,6 +22,10 @@
 class PrefService;
 class Profile;
 
+namespace signin {
+class IdentityManager;
+}
+
 namespace user_manager {
 class User;
 }
@@ -101,7 +105,8 @@ class InSessionPasswordChangeManager
   // `local_state` must be non-null and must outlive the returned object.
   static std::unique_ptr<InSessionPasswordChangeManager> CreateIfEnabled(
       PrefService* local_state,
-      Profile* primary_profile);
+      Profile* primary_profile,
+      signin::IdentityManager* identity_manager);
 
   // Returns true if the InSessionPasswordChangeManager is both enabled and
   // ready, so Get() can safely be called.
@@ -111,9 +116,11 @@ class InSessionPasswordChangeManager
   // then returns it.
   static InSessionPasswordChangeManager* Get();
 
-  // `local_state` must be non-null and must outlive `this`.
+  // `local_state` and `identity_manager` must be non-null and must outlive
+  // `this`.
   InSessionPasswordChangeManager(PrefService* local_state,
-                                 Profile* primary_profile);
+                                 Profile* primary_profile,
+                                 signin::IdentityManager* identity_manager);
 
   InSessionPasswordChangeManager(const InSessionPasswordChangeManager&) =
       delete;
@@ -121,10 +128,6 @@ class InSessionPasswordChangeManager
       const InSessionPasswordChangeManager&) = delete;
 
   ~InSessionPasswordChangeManager() override;
-
-  // Sets the given instance as the singleton for testing.
-  static void SetForTesting(InSessionPasswordChangeManager* instance);
-  static void ResetForTesting();
 
   // Checks if the primary user's password has expired or will soon expire, and
   // shows a notification if needed. If the password will expire in the distant
@@ -188,7 +191,6 @@ class InSessionPasswordChangeManager
 
  private:
   void CreateTokenAsync();
-  static InSessionPasswordChangeManager* GetNullable();
 
   void NotifyObservers(Event event);
 
@@ -201,6 +203,7 @@ class InSessionPasswordChangeManager
   const raw_ref<PrefService> local_state_;
   raw_ptr<Profile, DanglingUntriaged> primary_profile_;
   raw_ptr<const user_manager::User, DanglingUntriaged> primary_user_;
+  const raw_ref<signin::IdentityManager> identity_manager_;
   base::ObserverList<Observer> observer_list_;
   RecheckPasswordExpiryTask recheck_task_;
   PasswordUpdateFlow password_update_flow_;

@@ -205,6 +205,7 @@ void ApplyHeaderElementShadow(UIView* targetView) {
   _titleLabel.font =
       PreferredFontForTextStyle(UIFontTextStyleHeadline, UIFontWeightSemibold);
   _titleLabel.isAccessibilityElement = YES;
+  _titleLabel.accessibilityTraits |= UIAccessibilityTraitButton;
   _titleLabel.accessibilityIdentifier =
       kAssistantAIMTitleLabelAccessibilityIdentifier;
   [self updateTitleAlpha];
@@ -439,6 +440,15 @@ void ApplyHeaderElementShadow(UIView* targetView) {
                             [weakSelf didTapShowURLButton];
                           }];
     [actions addObject:showURLAction];
+
+    UIAction* showComposeboxLogsAction = [UIAction
+        actionWithTitle:@"Composebox Logs"
+                  image:SymbolWithPointSize(SymbolBinocularsCircle, 16)
+             identifier:nil
+                handler:^(UIAction* action) {
+                  [weakSelf didTapShowComposeboxLogsButton];
+                }];
+    [actions addObject:showComposeboxLogsAction];
   }
 
   button.menu = [UIMenu menuWithTitle:@"" children:actions];
@@ -546,6 +556,10 @@ void ApplyHeaderElementShadow(UIView* targetView) {
 
 - (void)didTapShowURLButton {
   [self.delegate assistantAIMHeaderViewDidRequestLoadedURL:self];
+}
+
+- (void)didTapShowComposeboxLogsButton {
+  [self.delegate assistantAIMHeaderViewDidRequestComposeboxLogs:self];
 }
 
 - (void)didTapBackButton {

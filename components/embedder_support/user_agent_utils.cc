@@ -10,12 +10,12 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 #include "content/nw/src/common/nw_content_common_hooks.h"
 
 #include "base/android/device_info.h"
 #include "base/command_line.h"
-#include "base/compiler_specific.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
@@ -343,7 +343,7 @@ std::string BuildCpuInfo() {
   uname(&unixinfo);
 
   // special case for biarch systems
-  if (UNSAFE_TODO(strcmp(unixinfo.machine, "x86_64")) == 0 &&
+  if (std::string_view(unixinfo.machine) == "x86_64" &&
       sizeof(void*) == sizeof(int32_t)) {
     cpuinfo.assign("i686 (x86_64)");
   } else {
@@ -825,8 +825,10 @@ std::string BuildUnifiedPlatformUserAgentFromProduct(
 
 std::string BuildModelInfo() {
 #if BUILDFLAG(IS_ANDROID)
-  // Model information is not exposed on Android desktop.
-  if (base::android::device_info::is_desktop()) {
+  // Model information is not exposed on Android desktop unless
+  // kAndroidDesktopUAModel is enabled.
+  if (!base::FeatureList::IsEnabled(blink::features::kAndroidDesktopUAModel) &&
+      base::android::device_info::is_desktop()) {
     return std::string();
   }
 

@@ -2,16 +2,43 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import {html, nothing} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {TabPickerAppElement} from './tab_picker_app.js';
 
 export function getHtml(this: TabPickerAppElement) {
   return html`<!--_html_template_start_-->
+    ${this.shouldShowSingleTabItem_() ? html`
+      <button id="singleTabItem" class="dropdown-item"
+          ?disabled="${this.isTabDisabled_(this.singleTab_!)}"
+          role="menuitemcheckbox"
+          aria-checked="${this.isTabSelected_(this.singleTab_!)}"
+          title="${this.singleTab_!.title}"
+          data-index="${this.singleTabIndex_}"
+          aria-label="${this.singleTab_!.title}"
+          @pointerenter="${this.onSingleTabRowPointerenter_}"
+          @pointermove="${this.onSingleTabRowPointermove_}"
+          @pointerdown="${this.onSingleTabRowPointerdown_}"
+          @pointerleave="${this.onSingleTabRowPointerleave_}"
+          @focus="${this.onSingleTabRowFocus_}"
+          @keydown="${this.onSingleTabRowKeydown_}"
+          @click="${this.onTabClick_}">
+        <cr-composebox-tab-favicon .url="${this.singleTab_!.url}"
+            .tabId="${this.singleTab_!.tabId}"
+            .isSubmitted="${this.isTabSelected_(this.singleTab_!)}">
+        </cr-composebox-tab-favicon>
+        <span class="tab-title">${this.singleTab_!.title}</span>
+        ${this.isTabSelected_(this.singleTab_!) ? html`
+          <cr-icon class="share-tabs-check" icon="cr:check">
+          </cr-icon>
+        ` : ''}
+      </button>
+    ` : ''}
     <button id="shareTabsTrigger" class="dropdown-item"
-        role="menuitem"
-        aria-haspopup="menu"
-        aria-expanded="${this.tabMenuOpen}"
+        role="${this.isStsActiveRow_() ? 'menuitemcheckbox' : 'menuitem'}"
+        aria-checked="${this.isStsActiveRow_() ? 'true' : nothing}"
+        aria-haspopup="${this.isStsActiveRow_() ? nothing : 'menu'}"
+        aria-expanded="${this.isStsActiveRow_() ? nothing : this.tabMenuOpen}"
         @pointerenter="${this.onShareTabsRowPointerenter_}"
         @pointermove="${this.onShareTabsRowPointermove_}"
         @pointerdown="${this.onShareTabsRowPointerdown_}"
@@ -19,27 +46,62 @@ export function getHtml(this: TabPickerAppElement) {
         @focus="${this.onShareTabsRowFocus_}"
         @click="${this.onShareTabsRowClick_}"
         @keydown="${this.onShareTabsRowKeydown_}">
-      <cr-icon icon="composebox:tab"></cr-icon>
+      <cr-icon icon="${this.isStsActiveRow_() ?
+          'composebox:screensaverAuto' : 'composebox:tab'}"></cr-icon>
       <span class="tab-title">
-        ${this.sharingTabsText_}
+        ${this.isStsActiveRow_() ?
+            this.getShareOpenTabsText_() : this.sharingTabsText_}
       </span>
-      <composebox-favicon-group .tabs="${this.selectedTabs}">
-      </composebox-favicon-group>
-      <cr-icon class="share-tabs-arrow" icon="cr:chevron-right">
-      </cr-icon>
+      ${this.isStsActiveRow_() ? html`
+        <cr-icon id="smartTabSharingActiveCheck"
+            class="share-tabs-check" icon="cr:check">
+        </cr-icon>
+      ` : html`
+        <composebox-favicon-group .tabs="${this.selectedTabs}">
+        </composebox-favicon-group>
+        <cr-icon class="share-tabs-arrow" icon="cr:chevron-right">
+        </cr-icon>
+      `}
     </button>
 
     <cr-action-menu id="tabMenu"
         role-description="menu"
         non-modal
         @close="${this.onMenuClose_}"
+        @unbounded-shown="${this.onMenuUnboundedShown_}"
+        @unbounded-show-error="${this.onMenuUnboundedShowError_}"
         @pointerenter="${this.onMenuPointerenter_}"
         @pointermove="${this.onMenuPointermove_}"
         @pointerleave="${this.onMenuPointerleave_}"
         @keydown="${this.onMenuKeydown_}">
+      ${this.smartTabSharingVisible ? html`
+        <h4 id="automaticallyAddTabsHeader" aria-hidden="true">
+          ${this.getAutomaticallyAddTabsHeader_()}
+        </h4>
+        <button id="smartTabSharingItemFlyout" class="dropdown-item"
+            role="menuitemcheckbox"
+            aria-checked="${this.smartTabSharingActive}"
+            @click="${this.onSmartTabSharingItemClick_}">
+          <cr-icon icon="composebox:screensaverAuto"></cr-icon>
+          <span class="tab-title">
+            ${this.getShareOpenTabsText_()}
+          </span>
+          ${this.smartTabSharingActive ? html`
+            <cr-icon class="share-tabs-check" icon="cr:check">
+            </cr-icon>
+          ` : ''}
+        </button>
+        ${this.tabSuggestions.length > 0 ? html`
+          <hr aria-hidden="true"/>
+          <h4 id="manuallyAddTabsHeader" aria-hidden="true">
+            ${this.getManuallyAddTabsHeader_()}
+          </h4>
+        ` : ''}
+      ` : ''}
       ${this.tabSuggestions.map((tab, index) => html`
         <div class="suggestion-container" role="presentation">
           <button class="dropdown-item"
+              ?disabled="${this.isTabDisabled_(tab)}"
               role="menuitem"
               title="${tab.title}" data-index="${index}"
               aria-label="${tab.title}"

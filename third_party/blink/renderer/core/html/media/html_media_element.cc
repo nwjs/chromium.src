@@ -99,8 +99,8 @@
 #include "third_party/blink/renderer/core/html/track/video_track_list.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/inspector/console_message.h"
-#include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer.h"
+#include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/core/layout/layout_media.h"
 #include "third_party/blink/renderer/core/loader/lazy_media_helper.h"
 #include "third_party/blink/renderer/core/loader/mixed_content_checker.h"
@@ -126,6 +126,7 @@
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -2954,8 +2955,9 @@ void HTMLMediaElement::setPlaybackRate(double rate,
     // DOMException and don't update the value.
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        StrCat({"The provided playback rate (", String::Number(rate),
-                ") is not in the supported playback range."}));
+        Format("The provided playback rate ({:g}) is not in the supported "
+               "playback range.",
+               rate));
 
     // Do not update |playback_rate_|.
     return;
@@ -5129,9 +5131,11 @@ void HTMLMediaElement::AudioSourceProviderImpl::ProvideInput(
     return;
   }
 
-  // Wrap the AudioBus channel data using span.
+  // Wrap the AudioBus channel data using span. Inline up to 8 channels (e.g.
+  // 7.1 surround) on the stack to avoid heap allocations for common layouts.
+  constexpr wtf_size_t kInlineChannelCapacity = 8;
   unsigned n = bus->NumberOfChannels();
-  std::vector<base::span<float>> web_audio_data(n);
+  Vector<base::span<float>, kInlineChannelCapacity> web_audio_data(n);
   for (unsigned i = 0; i < n; ++i) {
     web_audio_data[i] = bus->Channel(i)->MutableSpan().first(
         base::checked_cast<size_t>(frames_to_process));

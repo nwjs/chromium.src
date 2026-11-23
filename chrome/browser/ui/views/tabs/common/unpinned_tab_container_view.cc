@@ -6,6 +6,7 @@
 
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/tabs/common/dragged_tabs_container.h"
 #include "chrome/browser/ui/views/tabs/common/split_tab_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_collection_animating_layout_manager.h"
@@ -14,7 +15,8 @@
 #include "chrome/browser/ui/views/tabs/common/tab_group_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
-#include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view_layout.h"
+#include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view_horizontal_layout.h"
+#include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view_vertical_layout.h"
 #include "components/tabs/public/tab_group.h"
 #include "content/public/browser/navigation_controller.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -69,6 +71,14 @@ class UnpinnedTabContainerViewTargeter : public views::ViewTargeterDelegate {
   raw_ptr<views::View> view_;
 };
 
+std::unique_ptr<UnpinnedTabContainerView::LayoutManager>
+CreateUnpinnedTabContainerViewLayout(TabStripOrientation orientation) {
+  if (orientation == TabStripOrientation::kVertical) {
+    return std::make_unique<UnpinnedTabContainerViewVerticalLayout>();
+  }
+  return std::make_unique<UnpinnedTabContainerViewHorizontalLayout>();
+}
+
 }  // namespace
 
 UnpinnedTabContainerView::UnpinnedTabContainerView(
@@ -88,7 +98,7 @@ UnpinnedTabContainerView::UnpinnedTabContainerView(
       collection_node_(collection_node),
       layout_manager_(*SetLayoutManager(std::make_unique<
                                         TabCollectionAnimatingLayoutManager>(
-          std::make_unique<UnpinnedTabContainerViewLayout>(orientation_),
+          CreateUnpinnedTabContainerViewLayout(orientation_),
           /*delegate=*/*this,
           collection_node->GetController()->animation_coordinator(),
           /*animation_axis=*/
@@ -109,10 +119,71 @@ UnpinnedTabContainerView::UnpinnedTabContainerView(
   node_destroyed_subscription_ = collection_node_->RegisterWillDestroyCallback(
       base::BindOnce(&UnpinnedTabContainerView::ResetCollectionNode,
                      base::Unretained(this)));
+
+  if (orientation_ == TabStripOrientation::kVertical) {
+    auto* state_controller =
+        collection_node_->GetController()->GetStateController();
+    CHECK(state_controller);
+    collapsed_state_changed_subscription_ =
+        state_controller->RegisterOnCollapseChanged(base::BindRepeating(
+            &UnpinnedTabContainerView::OnCollapseStateChanged,
+            base::Unretained(this)));
+  }
 }
 
 UnpinnedTabContainerView::~UnpinnedTabContainerView() = default;
 
+int UnpinnedTabContainerView::LayoutManager::GetUnconstrainedPreferredWidth()
+    const {
+  return 0;
+}
+
+void UnpinnedTabContainerView::LayoutManager::OnInstalled(views::View* host) {
+  CHECK(IsViewClass<class UnpinnedTabContainerView>(host));
+}
+
+const UnpinnedTabContainerView&
+UnpinnedTabContainerView::LayoutManager::UnpinnedTabContainerView() const {
+  return static_cast<const class UnpinnedTabContainerView&>(*host_view());
+}
+
+bool UnpinnedTabContainerView::LayoutManager::IsChildVisibleInContainer(
+    std::optional<tab_groups::TabGroupId> focused_group_id,
+    const views::View* child) const {
+  if (!CanBeVisible(child)) {
+    return false;
+  }
+  auto drag_data =
+      UnpinnedTabContainerView().GetVisualDataForDraggedView(*child);
+  if (drag_data && drag_data->should_hide) {
+    return false;
+  }
+  if (focused_group_id.has_value() &&
+      GetGroupIdForChild(child) != focused_group_id.value()) {
+    return false;
+  }
+  return true;
+}
+
+std::optional<tab_groups::TabGroupId>
+UnpinnedTabContainerView::LayoutManager::GetFocusedGroupId() const {
+  if (!UnpinnedTabContainerView().collection_node_ ||
+      !UnpinnedTabContainerView().collection_node_->GetController()) {
+    return std::nullopt;
+  }
+  return UnpinnedTabContainerView()
+      .collection_node_->GetController()
+      ->GetFocusedGroup();
+}
+
+std::optional<tab_groups::TabGroupId>
+UnpinnedTabContainerView::LayoutManager::GetGroupIdForChild(
+    const views::View* child) const {
+  if (auto* group_view = views::AsViewClass<TabGroupView>(child)) {
+    return group_view->GetTabGroup().id();
+  }
+  return std::nullopt;
+}
 
 std::optional<BrowserRootView::DropIndex>
 UnpinnedTabContainerView::GetLinkDropIndex(const gfx::Point& loc_in_container) {
@@ -215,33 +286,11 @@ bool UnpinnedTabContainerView::ShouldSnapToTarget(
   return views::IsViewClass<SplitTabView>(&child_view);
 }
 
-std::optional<views::SizeBound>
-UnpinnedTabContainerView::GetAvailableMainAxisSpaceOverride() const {
-  if (orientation_ != TabStripOrientation::kHorizontal) {
-    return std::nullopt;
+bool UnpinnedTabContainerView::ShouldAnimateLayout() {
+  if (!collection_node_) {
+    return false;
   }
-  const auto* scroll_view = GetScrollViewForContainer();
-  if (scroll_view && scroll_view->IsHorizontalContentOverflowing()) {
-    // When overflowing and scrollable, the available space for tab layout
-    // is strictly the visible viewport width so tabs do not expand to the
-    // total scrollable content width.
-    const int viewport_width = scroll_view->GetVisibleRect().width();
-    if (viewport_width > 0) {
-      return views::SizeBound(viewport_width);
-    }
-    if (scroll_view->width() > 0) {
-      return views::SizeBound(scroll_view->width());
-    }
-  }
-  // When not overflowing, return the total available unpinned capacity
-  // allocated by TabStripViewLayout so tabs have room to expand.
-  if (available_space_.is_bounded()) {
-    return available_space_;
-  }
-  if (scroll_view && scroll_view->width() > 0) {
-    return views::SizeBound(scroll_view->width());
-  }
-  return std::nullopt;
+  return collection_node_->GetController()->ShouldAnimateLayout();
 }
 
 gfx::Size UnpinnedTabContainerView::GetTargetPreferredSize() const {
@@ -249,16 +298,25 @@ gfx::Size UnpinnedTabContainerView::GetTargetPreferredSize() const {
 }
 
 int UnpinnedTabContainerView::GetUnconstrainedPreferredWidth() const {
-  return static_cast<UnpinnedTabContainerViewLayout*>(
+  return static_cast<const UnpinnedTabContainerView::LayoutManager*>(
              layout_manager_->target_layout_manager())
-      ->GetUnconstrainedPreferredWidth(this);
+      ->GetUnconstrainedPreferredWidth();
 }
 
 void UnpinnedTabContainerView::ResetCollectionNode() {
+  collapsed_state_changed_subscription_ = {};
   collection_node_ = nullptr;
 }
 
+void UnpinnedTabContainerView::OnCollapseStateChanged(
+    tabs::VerticalTabStripCollapseState state) {
+  InvalidateLayout();
+}
+
 views::ScrollView* UnpinnedTabContainerView::GetScrollViewForContainer() const {
+  if (!collection_node_) {
+    return nullptr;
+  }
   return views::ScrollView::GetScrollViewForContents(
       const_cast<UnpinnedTabContainerView*>(this));
 }

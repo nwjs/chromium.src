@@ -27,7 +27,9 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarMetrics.IphEvent;
 import org.chromium.chrome.browser.user_education.IphCommand;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.feature_engagement.FeatureConstants;
@@ -38,6 +40,7 @@ public class ToolbarIphControllerUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private UserEducationHelper mUserEducationHelper;
+    @Mock private Runnable mOnShownCallback;
     @Captor private ArgumentCaptor<IphCommand> mIphCommandCaptor;
 
     private Context mContext;
@@ -75,5 +78,38 @@ public class ToolbarIphControllerUnitTest {
         assertNotNull(cmd);
         assertEquals(FeatureConstants.BOTTOM_TOOLBAR_FEATURE, cmd.featureName);
         assertEquals(mAnchorView, cmd.anchorView);
+    }
+
+    @Test
+    public void testShowBottomBarAddressBarIph() {
+        mController.showBottomBarAddressBarIph(mAnchorView, mOnShownCallback);
+
+        verify(mUserEducationHelper).requestShowIph(mIphCommandCaptor.capture());
+        IphCommand cmd = mIphCommandCaptor.getValue();
+        assertNotNull(cmd);
+        assertEquals(FeatureConstants.ANDROID_BOTTOM_BAR_ADDRESS_BAR, cmd.featureName);
+        assertEquals(mAnchorView, cmd.anchorView);
+        assertEquals(R.string.bottom_bar_education_tooltip_address_bar, cmd.stringId);
+        assertEquals(R.string.bottom_bar_education_tooltip_address_bar, cmd.accessibilityStringId);
+    }
+
+    @Test
+    public void testShowBottomBarAddressBarIph_CallbacksRecordMetrics() {
+        mController.showBottomBarAddressBarIph(mAnchorView, mOnShownCallback);
+        verify(mUserEducationHelper).requestShowIph(mIphCommandCaptor.capture());
+        IphCommand cmd = mIphCommandCaptor.getValue();
+
+        HistogramWatcher shownWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.BottomBar.IPH.AddressBar.Event", IphEvent.SHOWN);
+        cmd.onShowCallback.run();
+        shownWatcher.assertExpected();
+        verify(mOnShownCallback).run();
+
+        HistogramWatcher dismissedWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.BottomBar.IPH.AddressBar.Event", IphEvent.DISMISSED);
+        cmd.onDismissCallback.run();
+        dismissedWatcher.assertExpected();
     }
 }

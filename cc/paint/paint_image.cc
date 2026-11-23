@@ -19,7 +19,6 @@
 #include "cc/paint/paint_record.h"
 #include "cc/paint/skia_paint_image_generator.h"
 #include "cc/paint/texture_backing.h"
-#include "cc/paint/tone_map_util.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkImage.h"
@@ -34,6 +33,7 @@
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/hdr_metadata.h"
+#include "ui/gfx/tone_map_util.h"
 
 namespace cc {
 namespace {
@@ -372,29 +372,24 @@ gfx::Size PaintImage::GetSize(AuxImage aux_image) const {
   return gfx::SkISizeToSize(GetSkISize(aux_image));
 }
 
-gfx::ContentColorUsage PaintImage::GetContentColorUsage() const {
+void PaintImage::UnionColorVolumeInto(
+    gfx::ContentColorVolume& color_volume) const {
   // Right now, JS paint worklets can only be in sRGB
   if (IsPaintWorklet()) {
-    return gfx::ContentColorUsage::kSRGB;
+    return;
   }
 
-  // Gainmap images are always HDR.
-  if (HasGainmapInfo()) {
-    return gfx::ContentColorUsage::kHDR;
-  }
+  const auto* cs = color_space();
+  color_volume.UnionWith(gfx::ContentColorVolume{
+      .is_wide_color_gamut = cs && !cs->isSRGB(),
+      .hdr_headroom = GetMaximumRenderedHdrHeadroom(),
+  });
+}
 
-  const auto* color_space = GetSkImageInfo().colorSpace();
-  if (ToneMapUtil::IsHDR(color_space, hdr_metadata_)) {
-    return gfx::ContentColorUsage::kHDR;
-  }
-
-  // Assume the image will be sRGB if we don't know yet.
-  if (!color_space || color_space->isSRGB()) {
-    return gfx::ContentColorUsage::kSRGB;
-  }
-
-  // If it's not HDR and not SRGB, report it as WCG.
-  return gfx::ContentColorUsage::kWideColorGamut;
+gfx::ContentColorUsage PaintImage::GetContentColorUsage() const {
+  gfx::ContentColorVolume color_volume;
+  UnionColorVolumeInto(color_volume);
+  return color_volume.GetContentColorUsage();
 }
 
 const ImageHeaderMetadata* PaintImage::GetImageHeaderMetadata() const {
@@ -512,7 +507,24 @@ float PaintImage::GetMaximumRenderedHdrHeadroom() const {
     return std::log2(
         std::max(gainmap_info.fDisplayRatioSdr, gainmap_info.fDisplayRatioHdr));
   }
-  return ToneMapUtil::GetMaxHdrHeadroom(color_space(), hdr_metadata_);
+  return gfx::ToneMapUtil::GetMaxHdrHeadroom(color_space(), hdr_metadata_);
+}
+
+bool PaintImage::DecodeCacheColorConversionIsDestructive() const {
+  if (HasGainmapInfo()) {
+    return true;
+  }
+  // An image may need tone mapping or white-level adjustment at draw time,
+  // even if its HDR headroom is 0.
+  if (gfx::ToneMapUtil::UseGlobalToneMapFilter(color_space(), hdr_metadata_)) {
+    return true;
+  }
+  // Extended-range images with a single headroom do not need tone mapping, but
+  // converting them to the target color space would clamp values above white.
+  if (gfx::ToneMapUtil::IsHDR(color_space(), hdr_metadata_)) {
+    return true;
+  }
+  return false;
 }
 
 }  // namespace cc

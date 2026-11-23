@@ -305,7 +305,6 @@ source_set("impl") {
     "//chrome/browser/ui:recently_audible_helper",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/upgrade_detector",
-    "//components/activity_reporter",
     "//components/crash/core/app",
     "//components/metrics:component_metrics",
     "//components/metrics/demographics",
@@ -319,6 +318,7 @@ source_set("impl") {
     "//components/safe_browsing/core/common:features",
     "//components/services/paint_preview_compositor/public/mojom",
     "//components/signin/core/browser",
+    "//components/site_token_provider",
     "//components/startup_metric_utils",
     "//components/supervised_user/core/browser",
     "//components/ukm",
@@ -328,6 +328,11 @@ source_set("impl") {
 
   if (enable_pdf) {
     deps += [ "//components/pdf/browser" ]
+  }
+
+  # Activity reporting must never be built into ChromeOS.
+  if (!is_chromeos) {
+    deps += [ "//components/activity_reporter" ]
   }
 
   if (is_android) {
@@ -507,6 +512,10 @@ source_set("impl") {
     deps += [ "//chrome/browser/updates:update_metrics" ]
   }
 
+  if (is_win) {
+    deps += [ "//chrome/browser/default_browser:startup_metrics" ]
+  }
+
   if (is_win || is_android || is_linux) {
     sources += [ "chrome_metrics_service_crash_reporter.cc" ]
   }
@@ -579,6 +588,7 @@ source_set("unit_tests") {
     "//components/performance_manager/test_support",
     "//components/prefs:test_support",
     "//components/services/paint_preview_compositor/public/mojom",
+    "//components/site_token_provider",
     "//components/sync_preferences:test_support",
     "//components/ukm",
     "//components/ukm:test_support",

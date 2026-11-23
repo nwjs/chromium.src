@@ -25,8 +25,8 @@
 #include "third_party/blink/renderer/modules/webaudio/script_processor_node.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
 namespace blink {
@@ -70,6 +70,7 @@ ScriptProcessorHandler::ScriptProcessorHandler(
   }
 
   Initialize();
+  weak_this_ = weak_ptr_factory_.GetWeakPtr();
 
   LocalDOMWindow* window = To<LocalDOMWindow>(Context()->GetExecutionContext());
   if (window) {
@@ -200,8 +201,7 @@ void ScriptProcessorHandler::Process(uint32_t frames_to_process) {
       PostCrossThreadTask(
           *task_runner_, FROM_HERE,
           CrossThreadBindOnce(&ScriptProcessorHandler::FireProcessEvent,
-                              weak_ptr_factory_.GetWeakPtr(),
-                              double_buffer_index_));
+                              weak_this_, double_buffer_index_));
     } else {
       // For an offline context, wait until the script execution is finished.
       std::unique_ptr<base::WaitableEvent> waitable_event =
@@ -210,7 +210,7 @@ void ScriptProcessorHandler::Process(uint32_t frames_to_process) {
           *task_runner_, FROM_HERE,
           CrossThreadBindOnce(
               &ScriptProcessorHandler::FireProcessEventForOfflineAudioContext,
-              weak_ptr_factory_.GetWeakPtr(), double_buffer_index_,
+              weak_this_, double_buffer_index_,
               CrossThreadUnretained(waitable_event.get())));
       waitable_event->Wait();
     }
@@ -293,9 +293,8 @@ void ScriptProcessorHandler::SetChannelCount(uint32_t channel_count,
   if (channel_count != channel_count_) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        StrCat({"channelCount cannot be changed from ",
-                String::Number(channel_count_), " to ",
-                String::Number(channel_count)}));
+        Format("channelCount cannot be changed from {} to {}", channel_count_,
+               channel_count));
   }
 }
 

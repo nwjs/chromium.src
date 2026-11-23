@@ -19,7 +19,6 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "ui/views/widget/widget_observer.h"
-#include "url/gurl.h"
 
 class BrowserWindowInterface;
 class Profile;
@@ -48,7 +47,6 @@ struct RemoteDeviceInfo;
 
 namespace send_tab_to_self {
 
-enum class SendTabToSelfResult;
 class SendTabToSelfBubbleView;
 
 class SendTabToSelfModel;
@@ -119,11 +117,6 @@ class SendTabToSelfBubbleController
   void ShowBubbleWithAnchor(EntryPointDisplayReason reason,
                             base::WeakPtr<BrowserWindowInterface> browser,
                             BubbleAnchorResult anchor);
-
-  void HandleSendTabToDeviceResult(const GURL& url,
-                                   std::string_view device_name,
-                                   syncer::DeviceInfo::FormFactor form_factor,
-                                   SendTabToSelfResult result);
 
   // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;

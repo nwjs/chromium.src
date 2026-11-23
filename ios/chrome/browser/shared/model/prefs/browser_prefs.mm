@@ -54,7 +54,7 @@
 #import "components/optimization_guide/core/delivery/prefs.h"
 #import "components/optimization_guide/core/feature_registry/feature_registration.h"
 #import "components/optimization_guide/core/hints/prefs.h"
-#import "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#import "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #import "components/optimization_guide/core/model_quality/model_quality_prefs.h"
 #import "components/password_manager/core/browser/password_manager.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
@@ -124,6 +124,7 @@
 #import "ios/chrome/browser/enterprise/data_protection/public/pref_names.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/level_up/model/level_up_service.h"
 #import "ios/chrome/browser/memory/model/memory_debugger_manager.h"
 #import "ios/chrome/browser/metrics/model/constants.h"
@@ -229,6 +230,22 @@ inline constexpr char kFingerprintingProtectionEnabled[] =
 // Deprecated 09/2026.
 inline constexpr char kSigninHasAcceptedManagementDialog[] =
     "ios.signin.has_accepted_management_dialog";
+
+// Deprecated 10/2026.
+inline constexpr char kSyncEncryptionBootstrapToken[] =
+    "sync.encryption_bootstrap_token";
+inline constexpr char kSyncEncryptionBootstrapTokenPerAccountMigrationDone[] =
+    "sync.encryption_bootstrap_token_per_account_migration_done";
+inline constexpr char kCustomLinksAiModeTileIndex[] =
+    "custom_links.ai_mode_tile_index";
+
+// Deprecated 10/2026.
+inline constexpr char kTailoredSecuritySyncFlowLastRunTime[] =
+    "safebrowsing.aesb_sync_flow_start_timestamp";
+inline constexpr char kTailoredSecuritySyncFlowLastUserInteractionState[] =
+    "safebrowsing.aesb_sync_flow_last_user_interaction_state";
+inline constexpr char kTailoredSecuritySyncFlowObservedOutcomeUnsetTimestamp[] =
+    "safebrowsing.aesb_sync_flow_observed_outcome_unset_timestamp";
 
 // Renames a boolean pref within a PrefService.
 void RenameBooleanPref(std::string_view target_pref_name,
@@ -373,6 +390,9 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(prefs::kIosDefaultBrowserPromoLastActionSurface,
                                 0);
 
+  registry->RegisterIntegerPref(
+      prefs::kIosDefaultBrowserPromoOpportunityFirstTimeCohort, 0);
+
   // Preferences related to the new Safety Check Manager.
   registry->RegisterStringPref(
       prefs::kIosSafetyCheckManagerUpdateCheckResult,
@@ -501,6 +521,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   contextual_search::ContextualSearchService::RegisterProfilePrefs(registry);
   AimEligibilityService::RegisterProfilePrefs(registry);
   registry->RegisterDictionaryPref(prefs::kCobrowseSessionActiveMap);
+  registry->RegisterBooleanPref(prefs::kCobrowseTabSharingConsentAccepted,
+                                false);
   cross_device::RegisterProfilePrefs(registry);
   CrossPlatformPromosService::RegisterProfilePrefs(registry);
   data_controls::RegisterProfilePrefs(registry);
@@ -513,6 +535,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   ios_feed::RegisterProfilePrefs(registry);
   FirstRun::RegisterProfilePrefs(registry);
   FontSizeTabHelper::RegisterProfilePrefs(registry);
+  gemini::RegisterProfilePrefs(registry);
   HostContentSettingsMap::RegisterProfilePrefs(registry);
   image_fetcher::ImageCache::RegisterProfilePrefs(registry);
   language::LanguagePrefs::RegisterProfilePrefs(registry);
@@ -523,7 +546,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   ntp_tiles::MostVisitedSites::RegisterProfilePrefs(registry);
   ntp_tiles::PopularSitesImpl::RegisterProfilePrefs(registry);
   optimization_guide::prefs::RegisterProfilePrefs(registry);
-  optimization_guide::model_execution::prefs::RegisterProfilePrefs(registry);
+  optimization_guide::RegisterGenAiFeatures(registry);
   password_manager::PasswordManager::RegisterProfilePrefs(registry);
   payments::RegisterProfilePrefs(registry);
   personal_context::prefs::RegisterProfilePrefs(registry);
@@ -749,6 +772,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterListPref(prefs::kIosLatestMostVisitedSites,
                              PrefRegistry::LOSSY_PREF);
 
+  registry->RegisterIntegerPref(prefs::kIosMostVisitedAiModeTileIndex, 0);
+
   registry->RegisterBooleanPref(prefs::kUserAgentWasChanged, false);
 
   registry->RegisterTimePref(prefs::kLastApplicationStorageMetricsLogTime,
@@ -843,41 +868,8 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kProvisionalNotificationsAllowedByPolicy,
                                 true);
 
-  // BWG prefs.
-  registry->RegisterDictionaryPref(prefs::kBwgSessionMap);
-  registry->RegisterBooleanPref(
-      prefs::kIOSBwgConsent, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-  registry->RegisterBooleanPref(
-      prefs::kIOSGeminiLiveConsent, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-  registry->RegisterBooleanPref(
-      prefs::kIOSGeminiLiveIntroPlayed, false,
-      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
-  registry->RegisterBooleanPref(prefs::kIOSBWGPreciseLocationSetting, false);
-  registry->RegisterBooleanPref(prefs::kIOSBWGPageContentSetting, true);
-  registry->RegisterIntegerPref(prefs::kIOSBWGPromoImpressionCount, 0);
-  registry->RegisterBooleanPref(prefs::kIOSGeminiCameraSetting, false);
-  registry->RegisterBooleanPref(prefs::kIOSGeminiSuggestionsSetting, true);
-  registry->RegisterDictionaryPref(prefs::kIOSContextualCueingVerticalUiState);
-  registry->RegisterBooleanPref(prefs::kIOSGeminiLiveClosedCaptioningSetting,
-                                false);
-  registry->RegisterBooleanPref(prefs::kIOSGeminiLiveMicrophoneSetting, true);
-  registry->RegisterTimePref(prefs::kLastGeminiInteractionTimestamp,
-                             base::Time());
-  registry->RegisterTimePref(prefs::kLastGeminiContextualChipDisplayedTimestamp,
-                             base::Time());
-  registry->RegisterStringPref(prefs::kLastGeminiInteractionURL, std::string());
-  registry->RegisterStringPref(prefs::kGeminiConversationId, std::string());
-
-  registry->RegisterBooleanPref(prefs::kAppStoreGeminiPromoTriggered, false);
-
   registry->RegisterTimePref(prefs::kIosSyncInfobarErrorLastDismissedTimestamp,
                              base::Time());
-
-  registry->RegisterIntegerPref(prefs::kGeminiEnabledByPolicy, 0);
-  registry->RegisterIntegerPref(prefs::kGenAiEnabledByPolicy, 0);
-  registry->RegisterBooleanPref(prefs::kAIHubEligibilityTriggered, false);
 
   registry->RegisterListPref(policy::policy_prefs::kIncognitoModeUrlBlocklist);
   registry->RegisterListPref(policy::policy_prefs::kIncognitoModeUrlAllowlist);
@@ -899,9 +891,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       prefs::kHomeCustomizationMagicStackSafetyCheckEnabled, true);
 
   registry->RegisterBooleanPref(prefs::kUniversalOptOutErrorToastShown, false);
-
-  // Deprecated 11/2025.
-  registry->RegisterListPref(kReaderModeRecentlyUsedTimestampsPref);
 
   // Deprecated 12/2025.
   registry->RegisterStringPref(kAutofillStatesDataDir, std::string());
@@ -944,6 +933,22 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // Deprecated 09/2026.
   registry->RegisterDictionaryPref(kSigninHasAcceptedManagementDialog);
   registry->RegisterBooleanPref(kFingerprintingProtectionEnabled, false);
+
+  // Deprecated 10/2026.
+  registry->RegisterStringPref(kSyncEncryptionBootstrapToken, std::string());
+  registry->RegisterBooleanPref(
+      kSyncEncryptionBootstrapTokenPerAccountMigrationDone, false);
+
+  // Deprecated 10/2026.
+  registry->RegisterTimePref(kTailoredSecuritySyncFlowLastRunTime,
+                             base::Time());
+  registry->RegisterIntegerPref(
+      kTailoredSecuritySyncFlowLastUserInteractionState, 0);
+  registry->RegisterTimePref(
+      kTailoredSecuritySyncFlowObservedOutcomeUnsetTimestamp, base::Time());
+
+  // Deprecated 10/2026.
+  registry->RegisterIntegerPref(kCustomLinksAiModeTileIndex, 0);
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -990,9 +995,6 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
                     prefs::kHomeCustomizationMagicStackSafetyCheckEnabled,
                     prefs);
 
-  // Added 11/2025.
-  prefs->ClearPref(kReaderModeRecentlyUsedTimestampsPref);
-
   // Added 12/2025.
   prefs->ClearPref(kAutofillStatesDataDir);
 
@@ -1022,27 +1024,34 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
   prefs->ClearPref(kInvalidationPerSenderRegisteredForInvalidation);
   prefs->ClearPref(kInvalidationPerSenderActiveRegistrationTokens);
 
-  // Deprecated 09/2026.
+  // Added 09/2026.
   prefs->ClearPref(kMigratedToQuickDeletePrefValues);
   prefs->ClearPref(kHomeCustomizationMagicStackSetUpListEnabled);
   prefs->ClearPref(kNTPFollowingFeedSortType);
-  // Deprecated 09/2026.
+  // Added 09/2026.
   prefs->ClearPref(kSigninHasAcceptedManagementDialog);
   prefs->ClearPref(kFingerprintingProtectionEnabled);
+
+  // Added 10/2026.
+  prefs->ClearPref(kSyncEncryptionBootstrapToken);
+  prefs->ClearPref(kSyncEncryptionBootstrapTokenPerAccountMigrationDone);
+
+  // Added 10/2026.
+  prefs->ClearPref(kTailoredSecuritySyncFlowLastRunTime);
+  prefs->ClearPref(kTailoredSecuritySyncFlowLastUserInteractionState);
+  prefs->ClearPref(kTailoredSecuritySyncFlowObservedOutcomeUnsetTimestamp);
+
+  if (prefs->FindPreference(prefs::kIosMostVisitedAiModeTileIndex)
+          ->IsDefaultValue() &&
+      !prefs->FindPreference(kCustomLinksAiModeTileIndex)->IsDefaultValue()) {
+    prefs->SetInteger(prefs::kIosMostVisitedAiModeTileIndex,
+                      prefs->GetInteger(kCustomLinksAiModeTileIndex));
+  }
+  prefs->ClearPref(kCustomLinksAiModeTileIndex);
 }
 
 void MigrateObsoleteUserDefault() {
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-
-  // Added 10/2025.
-  [defaults removeObjectForKey:@"TimestampTriggerCriteriaExperimentStarted"];
-  [defaults removeObjectForKey:@"AllTimestampsAppLaunchColdStart"];
-  [defaults removeObjectForKey:@"AllTimestampsAppLaunchWarmStart"];
-  [defaults removeObjectForKey:@"AllTimestampsAppLaunchIndirectStart"];
-  [defaults removeObjectForKey:@"AutofillUseCount"];
-  [defaults removeObjectForKey:@"SpecialTabUseCount"];
-  [defaults removeObjectForKey:@"OmniboxUseCount"];
-  [defaults removeObjectForKey:@"BookmarkUseCount"];
 
   // Added 03/2026
   [defaults removeObjectForKey:@"fre_timestamp_migration_done"];

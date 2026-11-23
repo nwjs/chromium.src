@@ -91,12 +91,11 @@ import java.util.Map;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @DoNotBatch(reason = "Manages sign-in state, which is global.")
-@DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP})
 public class PrivacyGuideFragmentTest {
     private static final String SETTINGS_STATES_HISTOGRAM = "Settings.PrivacyGuide.SettingsStates";
     private static final String NEXT_NAVIGATION_HISTOGRAM = "Settings.PrivacyGuide.NextNavigation";
     private static final String ENTRY_EXIT_HISTOGRAM = "Settings.PrivacyGuide.EntryExit";
-    private static final int RENDER_TEST_REVISION = 4;
+    private static final int RENDER_TEST_REVISION = 5;
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Rule public SigninTestRule mSigninTestRule = new SigninTestRule();
@@ -114,7 +113,7 @@ public class PrivacyGuideFragmentTest {
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(ChromeRenderTestRule.Component.UI_SETTINGS_PRIVACY)
                     .setRevision(RENDER_TEST_REVISION)
-                    .setDescription("Ligatures and contextual alternates disabled in UI text")
+                    .setDescription("Vectorize expand_more and expand_less icons")
                     .build();
 
     @Mock private PrivacyGuideMetricsDelegate mPrivacyGuideMetricsDelegateMock;
@@ -1194,6 +1193,9 @@ public class PrivacyGuideFragmentTest {
     @Test
     @LargeTest
     @Feature({"PrivacyGuide"})
+    // TODO(crbug.com/574950567): Remove once the bottom sheet opens after recreation when
+    // settings is shown in a tab.
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP})
     public void testBottomSheetControllerOnRecreate() {
         launchPrivacyGuide();
         goToCard(FragmentType.SAFE_BROWSING);

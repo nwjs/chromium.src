@@ -86,6 +86,7 @@ import org.chromium.components.policy.test.annotations.Policies.Item;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.metrics.SigninFunnelEvent;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync.DataType;
 import org.chromium.components.sync.SyncService;
@@ -111,7 +112,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
     @Rule
     public final RenderTestRule mRenderTestRule =
             RenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(1)
+                    .setRevision(2)
                     .setBugComponent(RenderTestRule.Component.SERVICES_SIGN_IN)
                     .build();
 
@@ -145,7 +146,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         FullscreenSigninMediator.disableAnimationsForTesting();
         // TODO(crbug.com/553426053): Use real implementation of AccountPreviewDataService instead.
         lenient()
-                .when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo())
+                .when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin())
                 .thenReturn(null);
         // Simulate the real HistorySyncHelper's interaction with SyncService to ensure
         // UserSelectableType.HISTORY and UserSelectableType.TABS are correctly set.
@@ -209,6 +210,51 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         ApplicationTestUtils.waitForActivityState(mActivity, Stage.DESTROYED);
         assertNull(mSigninTestRule.getPrimaryAccount());
         assertFalse(SyncTestUtil.isHistorySyncEnabled());
+    }
+
+    @Test
+    @MediumTest
+    public void testSigninFunnelHistogram_promoShownWithAccount() {
+        HistogramWatcher signinFunnelWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Signin.SigninFunnel.FullscreenSigninPromo",
+                        SigninFunnelEvent.PROMO_SHOWN_WITH_ACCOUNT);
+
+        launchActivity();
+
+        // Verify that the fullscreen sign-in promo is shown.
+        onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
+        signinFunnelWatcher.assertExpected();
+    }
+
+    @Test
+    @MediumTest
+    @DisableFeatures(SigninFeatures.SUPPORT_FORCED_SIGNIN_POLICY)
+    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288677
+    public void testSigninFunnelHistogram_promoShownRecordedAgainOnBackFromHistorySync() {
+        when(mHistorySyncHelperMock.shouldDisplayHistorySync()).thenReturn(true);
+        HistogramWatcher signinFunnelWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecordTimes(
+                                "Signin.SigninFunnel.FullscreenSigninPromo",
+                                SigninFunnelEvent.PROMO_SHOWN_WITH_ACCOUNT,
+                                /* times= */ 2)
+                        .build();
+
+        launchActivity();
+
+        // Sign in from the fullscreen sign-in promo.
+        onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
+        onView(withId(R.id.signin_fre_continue_button)).perform(scrollTo(), click());
+        SigninTestUtil.completeDeviceLockIfOnAutomotive(mDeviceLockActivityLauncher);
+        mSigninTestRule.waitForSignin(TestAccounts.AADC_ADULT_ACCOUNT);
+
+        // Go back from the history sync screen to the fullscreen sign-in promo.
+        onView(withId(R.id.history_sync)).check(matches(isDisplayed()));
+        Espresso.pressBack();
+        onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
+
+        signinFunnelWatcher.assertExpected();
     }
 
     @Test
@@ -379,7 +425,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
     public void testHistorySyncSuppressed_historySyncRequired() {
         when(mHistorySyncHelperMock.shouldDisplayHistorySync()).thenReturn(false);
         mHistoryOptInMode = HistorySyncConfig.OptInMode.REQUIRED;
-        mSigninAccessPoint = SigninAccessPoint.RECENT_TABS;
+        mSigninAccessPoint = SigninAccessPoint.DEEP_LINK_DEFAULT;
 
         launchActivity();
 
@@ -852,7 +898,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
                         TestAccounts.ACCOUNT2.getGaiaId(),
                         new int[] {},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_UNSPECIFIED);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);
 
@@ -878,7 +924,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
         onView(withId(R.id.signin_fre_selected_account)).check(matches(not(isDisplayed())));
         onView(withText(R.string.signin_add_account_to_device)).check(matches(isDisplayed()));
-        verify(mAccountPreviewDataServiceMock, never()).getPreferredAccountForPromo();
+        verify(mAccountPreviewDataServiceMock, never()).getPreferredAccountForSignin();
     }
 
     @Test
@@ -891,7 +937,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
                         TestAccounts.ACCOUNT2.getGaiaId(),
                         new int[] {DataType.BOOKMARKS},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);
 
@@ -920,7 +966,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
                         TestAccounts.ACCOUNT2.getGaiaId(),
                         new int[] {DataType.PASSWORDS},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_DESKTOP);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);
 
@@ -928,7 +974,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
 
         String deviceName =
                 ApplicationProvider.getApplicationContext()
-                        .getString(R.string.signin_device_type_laptop);
+                        .getString(R.string.signin_device_type_computer);
         String expectedSubtitle =
                 ApplicationProvider.getApplicationContext()
                         .getString(
@@ -949,7 +995,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
                         TestAccounts.ACCOUNT2.getGaiaId(),
                         new int[] {DataType.AUTOFILL},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_UNSPECIFIED);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);
 
@@ -976,7 +1022,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
                         new int[] {DataType.BOOKMARKS},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
         lenient()
-                .when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo())
+                .when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin())
                 .thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);
@@ -990,7 +1036,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         // AADC_ADULT_ACCOUNT is preselected, so the default subtitle should be shown.
         onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
         onViewWaiting(withText(config.signinConfig.subtitle)).check(matches(isDisplayed()));
-        verify(mAccountPreviewDataServiceMock, never()).getPreferredAccountForPromo();
+        verify(mAccountPreviewDataServiceMock, never()).getPreferredAccountForSignin();
     }
 
     @Test
@@ -1003,7 +1049,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
                         TestAccounts.ACCOUNT2.getGaiaId(),
                         new int[] {DataType.UNSPECIFIED},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);
 
@@ -1019,14 +1065,14 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
     @MediumTest
     @EnableFeatures(SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT)
     public void testFullscreenSigninWithPreferredAccount_otherAccessPoint_defaultSubtitle() {
-        mSigninAccessPoint = SigninAccessPoint.POST_DEVICE_RESTORE_SIGNIN_PROMO;
+        mSigninAccessPoint = SigninAccessPoint.COLLABORATION_JOIN_TAB_GROUP;
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT2);
         AccountPreviewPreference preference =
                 new AccountPreviewPreference(
                         TestAccounts.ACCOUNT2.getGaiaId(),
                         new int[] {DataType.BOOKMARKS},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);
 
@@ -1052,7 +1098,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
         onView(withId(R.id.fullscreen_signin)).check(matches(isDisplayed()));
         onViewWaiting(withText(TestAccounts.AADC_ADULT_ACCOUNT.getFullName()))
                 .check(matches(isDisplayed()));
-        verify(mAccountPreviewDataServiceMock, never()).getPreferredAccountForPromo();
+        verify(mAccountPreviewDataServiceMock, never()).getPreferredAccountForSignin();
     }
 
     @Test
@@ -1066,7 +1112,7 @@ public class FullscreenSigninAndHistorySyncIntegrationTest {
                         new int[] {},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_UNSPECIFIED);
         lenient()
-                .when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo())
+                .when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin())
                 .thenReturn(preference);
         IdentityServicesProvider.setAccountPreviewDataServiceForTesting(
                 mAccountPreviewDataServiceMock);

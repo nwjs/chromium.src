@@ -18,7 +18,10 @@ export function getHtml(this: TopicFeedbackExportDialogElement) {
     <div id="title">Send fishfood feedback</div>
     <div id="subtitle">
       Download your ratings and recent browsing as a file, then upload it to
-      the feedback form.
+      the ${this.getFormUrl_() ? html`<a id="formLink"
+          href="${this.getFormUrl_()}" target="_blank"
+          @click="${this.onFormLinkClick_}">feedback form</a>` :
+          html`feedback form`}.
     </div>
   </div>
   <div slot="body">
@@ -50,6 +53,58 @@ export function getHtml(this: TopicFeedbackExportDialogElement) {
         </select>
       </div>
     </section>
+
+    <section id="redactionSection">
+      <h2>Sites</h2>
+      <div class="secondary">
+        Uncheck a site to leave it out of the file. Internal and Workspace
+        sites are left out by default. Expand a site to leave out single pages.
+      </div>
+      ${this.previewState_ === 'loaded' && this.getDomains_().length === 0 ?
+          html`
+        <div id="noDomains" class="secondary">No browsing in this window.</div>
+      ` : ''}
+    </section>
+    <ul id="domainList">
+      ${this.getDomains_().map((domain, index) => html`
+        <li class="domain" ?excluded="${this.isDomainExcluded_(domain)}">
+          <div class="domain-row">
+            <cr-expand-button class="domain-expand" data-index="${index}"
+                ?expanded="${this.isDomainExpanded_(domain)}"
+                @expanded-changed="${this.onDomainExpandedChanged_}">
+              <span class="domain-name">${domain.domain}</span>
+              <span class="domain-count">
+                ${this.getDomainCountText_(domain)}
+              </span>
+            </cr-expand-button>
+            <cr-checkbox class="domain-checkbox" data-index="${index}"
+                ?checked="${!this.isDomainExcluded_(domain)}"
+                .ariaLabelOverride="Share ${domain.domain}"
+                @checked-changed="${this.onDomainCheckedChanged_}">
+            </cr-checkbox>
+          </div>
+          <cr-collapse ?opened="${this.isDomainExpanded_(domain)}">
+            ${this.isDomainExpanded_(domain) ? html`
+              <ul class="url-list">
+                ${domain.urls.map(url => html`
+                  <li>
+                    <cr-checkbox class="url-checkbox" data-url="${url.url}"
+                        ?checked="${this.isUrlIncluded_(domain, url)}"
+                        ?disabled="${this.isDomainExcluded_(domain)}"
+                        @checked-changed="${this.onUrlCheckedChanged_}">
+                      <div class="url-text">
+                        <span class="url-title">${url.title || url.url}</span>
+                        <span class="url">${url.url}</span>
+                      </div>
+                    </cr-checkbox>
+                  </li>
+                `)}
+              </ul>
+            ` : ''}
+          </cr-collapse>
+        </li>
+      `)}
+    </ul>
 
     <section id="coverageSection">
       <h2>Your ratings</h2>
@@ -87,66 +142,14 @@ export function getHtml(this: TopicFeedbackExportDialogElement) {
       </cr-textarea>
     </section>
 
-    <section id="redactionSection">
-      <h2>Sites</h2>
-      <div class="secondary">
-        Uncheck a site to leave it out of the file. Internal and Workspace
-        sites are left out by default. Expand a site to leave out single pages.
-      </div>
-      ${this.previewState_ === 'loaded' && this.getDomains_().length === 0 ?
-          html`
-        <div id="noDomains" class="secondary">No browsing in this window.</div>
-      ` : ''}
-      <ul id="domainList">
-        ${this.getDomains_().map((domain, index) => html`
-          <li class="domain" ?excluded="${this.isDomainExcluded_(domain)}">
-            <div class="domain-row">
-              <cr-expand-button class="domain-expand" data-index="${index}"
-                  ?expanded="${this.isDomainExpanded_(domain)}"
-                  @expanded-changed="${this.onDomainExpandedChanged_}">
-                <span class="domain-name">${domain.domain}</span>
-                <span class="domain-count">
-                  ${this.getDomainCountText_(domain)}
-                </span>
-              </cr-expand-button>
-              <cr-checkbox class="domain-checkbox" data-index="${index}"
-                  ?checked="${!this.isDomainExcluded_(domain)}"
-                  .ariaLabelOverride="Share ${domain.domain}"
-                  @checked-changed="${this.onDomainCheckedChanged_}">
-              </cr-checkbox>
-            </div>
-            <cr-collapse ?opened="${this.isDomainExpanded_(domain)}">
-              ${this.isDomainExpanded_(domain) ? html`
-                <ul class="url-list">
-                  ${domain.urls.map(url => html`
-                    <li>
-                      <cr-checkbox class="url-checkbox" data-url="${url.url}"
-                          ?checked="${this.isUrlIncluded_(domain, url)}"
-                          ?disabled="${this.isDomainExcluded_(domain)}"
-                          @checked-changed="${this.onUrlCheckedChanged_}">
-                        <div class="url-text">
-                          <span class="url-title">${url.title || url.url}</span>
-                          <span class="url">${url.url}</span>
-                        </div>
-                      </cr-checkbox>
-                    </li>
-                  `)}
-                </ul>
-              ` : ''}
-            </cr-collapse>
-          </li>
-        `)}
-      </ul>
-    </section>
-
     <section id="privacySection">
       <h2>Privacy</h2>
       <p id="disclosure" class="secondary">
         The file contains your topics, your ratings and comments, and the URLs,
         titles and times of the pages you visited in this window, except what
         you exclude above, plus your Chrome version and experiment state. Only
-        the Topics team can access it. It's deleted after 90 days; to have it
-        deleted sooner, contact the Topics team.
+        the Topics team can access it. It's deleted 18 months after upload; to
+        have it deleted sooner, contact the Topics team.
       </p>
       <cr-checkbox id="acknowledge" ?checked="${this.acknowledged_}"
           @checked-changed="${this.onAcknowledgeCheckedChanged_}">
@@ -157,11 +160,6 @@ export function getHtml(this: TopicFeedbackExportDialogElement) {
     ${this.exportState_ === 'done' ? html`
       <div id="exportDone" class="banner" role="status">
         <span>Downloaded. Upload the file to the feedback form.</span>
-        ${this.getFormUrl_() ? html`
-          <cr-button id="openForm" @click="${this.onOpenFormClick_}">
-            Open feedback form
-          </cr-button>
-        ` : ''}
       </div>
     ` : ''}
     ${this.exportState_ === 'error' ? html`
@@ -189,11 +187,18 @@ export function getHtml(this: TopicFeedbackExportDialogElement) {
     <cr-button id="close" class="cancel-button" @click="${this.onCloseClick_}">
       Close
     </cr-button>
-    <cr-button id="download" class="action-button"
+    <cr-button id="download"
+        class="${this.isFormNextStep_() ? 'cancel-button' : 'action-button'}"
         ?disabled="${!this.canDownload_()}"
         @click="${this.onDownloadClick_}">
-      Download JSON
+      ${this.isFormNextStep_() ? 'Download again' : 'Download JSON'}
     </cr-button>
+    ${this.isFormNextStep_() ? html`
+      <cr-button id="openForm" class="action-button"
+          @click="${this.onOpenFormClick_}">
+        Open feedback form
+      </cr-button>
+    ` : ''}
   </div>
 </cr-dialog>
 <!--_html_template_end_-->`;

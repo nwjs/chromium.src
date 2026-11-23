@@ -274,7 +274,10 @@ MediaCodecVideoDecoder::MediaCodecVideoDecoder(
       use_block_model_(
           device_info_->SdkVersionFull() >=
               base::android::android_info::SDK_VERSION_FULL_CINNAMON_BUN_2 &&
-          base::FeatureList::IsEnabled(kMediaCodecBlockModel)) {
+          base::FeatureList::IsEnabled(kMediaCodecBlockModel)),
+      use_block_model_for_encrypted_(
+          use_block_model_ &&
+          base::FeatureList::IsEnabled(kMediaCodecBlockModelEncrypted)) {
   DVLOG(2) << __func__;
   surface_chooser_helper_.chooser()->SetClientCallbacks(
       base::BindRepeating(&MediaCodecVideoDecoder::OnSurfaceChosen,
@@ -332,6 +335,14 @@ void MediaCodecVideoDecoder::DestroyAsync(
     self->event_cb_registration_.reset();
     self->media_crypto_context_->SetMediaCryptoReadyCB(base::NullCallback());
     self->media_crypto_context_ = nullptr;
+
+    // Release `codec_` immediately and drop the decoder's own references to
+    // `media_crypto_` and `cdm_context_ref_` so that any in-flight
+    // CodecAllocator creation or release task owns the remaining reference
+    // until MediaCodec.release() finishes on the background runner.
+    self->ReleaseCodec();
+    self->media_crypto_.Reset();
+    self->cdm_context_ref_.reset();
   }
 
   // Mojo callbacks require that they're run before destruction.
@@ -467,6 +478,8 @@ void MediaCodecVideoDecoder::SetCdm(CdmContext* cdm_context, InitCB init_cb) {
   DCHECK(cdm_context->GetMediaCryptoContext());
 
   media_crypto_context_ = cdm_context->GetMediaCryptoContext();
+  cdm_context_ref_ = base::MakeRefCounted<CdmContextRefHolder>(
+      media_crypto_context_->GetCdmContextRef());
 
   // CdmContext will always post the registered callback back to this thread.
   event_cb_registration_ = cdm_context->RegisterEventCB(base::BindRepeating(
@@ -494,6 +507,7 @@ void MediaCodecVideoDecoder::OnMediaCryptoReady(
   if (!media_crypto) {
     media_crypto_context_->SetMediaCryptoReadyCB(base::NullCallback());
     media_crypto_context_ = nullptr;
+    cdm_context_ref_.reset();
 
     if (decoder_config_.is_encrypted()) {
       LOG(ERROR) << "MediaCrypto is not available";
@@ -712,7 +726,7 @@ void MediaCodecVideoDecoder::CreateCodec() {
         MediaFormatColorSpace(decoder_config_.color_space_info());
     config->hdr_metadata = decoder_config_.hdr_metadata();
   }
-  config->use_block_model = use_block_model_;
+  config->use_block_model = ShouldUseBlockModel();
   config->profile = decoder_config_.profile();
 
   bool found_codec = false;
@@ -744,7 +758,8 @@ void MediaCodecVideoDecoder::CreateCodec() {
   codec_allocator_->CreateMediaCodecAsync(
       base::BindOnce(&MediaCodecVideoDecoder::OnCodecConfiguredInternal,
                      codec_allocator_weak_factory_.GetWeakPtr(),
-                     codec_allocator_, target_surface_bundle_),
+                     codec_allocator_, target_surface_bundle_, media_crypto_,
+                     cdm_context_ref_),
       std::move(config));
 }
 
@@ -753,15 +768,24 @@ void MediaCodecVideoDecoder::OnCodecConfiguredInternal(
     base::WeakPtr<MediaCodecVideoDecoder> weak_this,
     CodecAllocator* codec_allocator,
     scoped_refptr<CodecSurfaceBundle> surface_bundle,
+    base::android::ScopedJavaGlobalRef<jobject> media_crypto,
+    scoped_refptr<CdmContextRefHolder> cdm_context_ref,
     std::unique_ptr<MediaCodecBridge> codec) {
   if (!weak_this) {
     if (codec) {
       codec_allocator->ReleaseMediaCodec(
           std::move(codec),
           base::BindOnce(
-              &base::SequencedTaskRunner::ReleaseSoon<CodecSurfaceBundle>,
-              base::SequencedTaskRunner::GetCurrentDefault(), FROM_HERE,
-              std::move(surface_bundle)));
+              [](scoped_refptr<base::SequencedTaskRunner> task_runner,
+                 scoped_refptr<CodecSurfaceBundle> surface_bundle,
+                 base::android::ScopedJavaGlobalRef<jobject> media_crypto,
+                 scoped_refptr<CdmContextRefHolder> cdm_context_ref) {
+                task_runner->ReleaseSoon(FROM_HERE, std::move(surface_bundle));
+                task_runner->ReleaseSoon(FROM_HERE, std::move(cdm_context_ref));
+              },
+              base::SequencedTaskRunner::GetCurrentDefault(),
+              std::move(surface_bundle), std::move(media_crypto),
+              std::move(cdm_context_ref)));
     }
     return;
   }
@@ -801,7 +825,7 @@ void MediaCodecVideoDecoder::OnCodecConfigured(
   MEDIA_LOG(INFO, media_log_)
       << "Created MediaCodec " << codec_name_
       << ", is_software_codec=" << codec->IsSoftwareCodec()
-      << ", use_block_model_=" << use_block_model_ << ", low_delay_="
+      << ", use_block_model_=" << ShouldUseBlockModel() << ", low_delay_="
       << (base::FeatureList::IsEnabled(kMediaCodecLowDelayMode) && low_delay_);
 
   // Since we can't get the coded size w/o rendering the frame, we try to guess
@@ -949,7 +973,7 @@ bool MediaCodecVideoDecoder::QueueInput() {
   // buffer.
   auto pending_buffer = pending_decodes_.front().buffer;
 
-  if (!use_block_model_ && !pending_buffer->end_of_stream() &&
+  if (!ShouldUseBlockModel() && !pending_buffer->end_of_stream() &&
       pending_buffer->size() > max_input_size_) {
     video_input_exceeds_max_capacity_ = true;
     if (pending_buffer->is_key_frame()) {
@@ -1422,9 +1446,15 @@ void MediaCodecVideoDecoder::ReleaseCodec() {
   codec_allocator_->ReleaseMediaCodec(
       std::move(pair.first),
       base::BindOnce(
-          &base::SequencedTaskRunner::ReleaseSoon<CodecSurfaceBundle>,
-          base::SequencedTaskRunner::GetCurrentDefault(), FROM_HERE,
-          std::move(pair.second)));
+          [](scoped_refptr<base::SequencedTaskRunner> task_runner,
+             scoped_refptr<CodecSurfaceBundle> surface_bundle,
+             base::android::ScopedJavaGlobalRef<jobject> media_crypto,
+             scoped_refptr<CdmContextRefHolder> cdm_context_ref) {
+            task_runner->ReleaseSoon(FROM_HERE, std::move(surface_bundle));
+            task_runner->ReleaseSoon(FROM_HERE, std::move(cdm_context_ref));
+          },
+          base::SequencedTaskRunner::GetCurrentDefault(),
+          std::move(pair.second), media_crypto_, cdm_context_ref_));
 }
 
 AndroidOverlayFactoryCB MediaCodecVideoDecoder::CreateOverlayFactoryCb() {
@@ -1503,6 +1533,13 @@ void MediaCodecVideoDecoder::NotifyPromotionHint(
                                                               IsUsingOverlay());
 }
 
+bool MediaCodecVideoDecoder::ShouldUseBlockModel() const {
+  // Key this on MediaCrypto, not the config: the codec gets the MediaCrypto
+  // even for a clear config and is kept if the stream turns encrypted.
+  return media_crypto_.is_null() ? use_block_model_
+                                 : use_block_model_for_encrypted_;
+}
+
 bool MediaCodecVideoDecoder::CodecNeedsReallocation(const gfx::Size& new_size) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
@@ -1526,7 +1563,7 @@ bool MediaCodecVideoDecoder::CodecNeedsReallocation(const gfx::Size& new_size) {
   // the codec's existing returned `max_input_size_` is sufficient for the new
   // frames.
 
-  bool hit_threshold = !use_block_model_ &&
+  bool hit_threshold = !ShouldUseBlockModel() &&
                        new_size.width() > last_width_ * kReallocateThreshold;
 
   if (!hit_threshold) {

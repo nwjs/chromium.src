@@ -62,7 +62,6 @@
 //third_party/compiler-rt
 //third_party/cpu_features
 //third_party/jni_zero
-//third_party/kotlin_stdlib
 //third_party/llvm-libc
 //third_party/metrics_proto
 //third_party/modp_b64
@@ -95,6 +94,8 @@
 //third_party/rust/icu_locale
 //third_party/rust/icu_locale_core
 //third_party/rust/icu_locale_data
+//third_party/rust/icu_locale_fallback
+//third_party/rust/icu_locale_fallback_data
 //third_party/rust/icu_normalizer
 //third_party/rust/icu_normalizer_data
 //third_party/rust/icu_pattern

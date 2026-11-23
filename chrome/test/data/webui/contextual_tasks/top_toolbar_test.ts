@@ -8,12 +8,15 @@ import 'chrome://contextual-tasks/sources_menu.js';
 import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
 import {ToolbarBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_toolbar_browser_proxy.js';
 import type {ContextualTasksFaviconGroupElement} from 'chrome://contextual-tasks/favicon_group.js';
+import type {ProfileTooltipElement} from 'chrome://contextual-tasks/profile_tooltip.js';
 import type {TopToolbarElement} from 'chrome://contextual-tasks/top_toolbar.js';
 import type {UnboundedDialog} from 'chrome://contextual-tasks/utils.js';
 import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
+import {MockTimer} from 'chrome://webui-test/mock_timer.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {assertHTMLElement} from './contextual_tasks_test_utils.js';
@@ -42,6 +45,7 @@ suite('TopToolbarTest', () => {
     loadTimeData.overrideValues({
       contextManagementInComposeboxEnabled: false,
       contextualTasksEnableSpatialModelToolbarLayout: false,
+      contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow: false,
       contextualTasksUnboundedMenuEnabled: false,
       contextualTasksSidePanelRearchitectureEnabled: false,
     });
@@ -573,6 +577,7 @@ suite('TopToolbarTest', () => {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
       loadTimeData.overrideValues({
         enablePinButton: true,
+        enablePinButtonOnSrp: false,
         isAiPage: true,
         isAimEligible: true,
         pinTooltip: 'Pin side panel',
@@ -979,6 +984,37 @@ suite('TopToolbarTest', () => {
     assertTrue(newThreadButton.hidden);
   });
 
+  test(
+      'fires a single new-thread-click from the overflow menu new thread item',
+      async () => {
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        loadTimeData.overrideValues({
+          contextualTasksEnableSpatialModelToolbarLayout: true,
+          contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow:
+              true,
+          isAimEligible: true,
+        });
+
+        topToolbar = document.createElement('top-toolbar');
+        document.body.appendChild(topToolbar);
+        await microtasksFinished();
+
+        let newThreadClickCount = 0;
+        topToolbar.addEventListener('new-thread-click', () => {
+          newThreadClickCount++;
+        });
+
+        const menu = topToolbar.$.overflowMenu.get();
+        await microtasksFinished();
+        const newThreadButton =
+            menu.shadowRoot.querySelector<HTMLElement>('#newThreadButton');
+        assertTrue(!!newThreadButton);
+        newThreadButton.click();
+        await microtasksFinished();
+
+        assertEquals(1, newThreadClickCount);
+      });
+
   test('highlights overflow menu button when menu is open', async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     topToolbar = document.createElement('top-toolbar');
@@ -1205,9 +1241,9 @@ suite('TopToolbarTest', () => {
       assertTrue(!!dashboard.delegate);
 
       dashboard.delegate.onChipClicked(
-          LhsChipIdentifier.kPermissionRequest, true);
+          LhsChipIdentifier.kPermissionRequest, true, 7);
       assertDeepEquals(
-          [LhsChipIdentifier.kPermissionRequest, true],
+          [LhsChipIdentifier.kPermissionRequest, true, 7],
           await toolbarUiService.whenCalled('onChipClicked'));
 
       dashboard.delegate.onChipPointerEntered(
@@ -1265,6 +1301,13 @@ suite('TopToolbarTest', () => {
       await microtasksFinished();
     });
 
+    test('hides profile indicator when avatar url is empty', () => {
+      assertEquals('', topToolbar.profileAvatarUrl);
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector('#profileIndicator');
+      assertEquals(null, profileIndicator);
+    });
+
     test(
         'hides profile indicator when rearchitecture is disabled', async () => {
           loadTimeData.overrideValues({
@@ -1299,7 +1342,7 @@ suite('TopToolbarTest', () => {
         });
 
     test(
-        'renders signed-out profile indicator with chrome placeholder avatar',
+        'renders profile indicator with chrome placeholder avatar',
         async () => {
           topToolbar.profileAvatarUrl =
               'chrome://theme/IDR_PROFILE_AVATAR_PLACEHOLDER_LARGE';
@@ -1334,6 +1377,250 @@ suite('TopToolbarTest', () => {
           '.profile-avatar-img');
       assertTrue(!!avatarImg);
       assertEquals('data:image/png;base64,pushedAvatar', avatarImg.src);
+
+      toolbarProxy.callbackRouterRemote.setProfileAvatarUrl('');
+      await microtasksFinished();
+      assertEquals(
+          null, topToolbar.shadowRoot.querySelector('#profileIndicator'));
+    });
+
+    test('opens account menu when profile indicator is clicked', async () => {
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      await microtasksFinished();
+      assertEquals(null, topToolbar.$.accountMenu.getIfExists());
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      assertEquals('menu', profileIndicator.getAttribute('aria-haspopup'));
+      profileIndicator.click();
+      await microtasksFinished();
+
+      const accountMenu = topToolbar.$.accountMenu.getIfExists();
+      assertTrue(!!accountMenu);
+      assertTrue(accountMenu.$.menu.open);
+    });
+
+    test('closes account menu when the window loses focus', async () => {
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      profileIndicator.click();
+      await microtasksFinished();
+      const accountMenu = topToolbar.$.accountMenu.get();
+      assertTrue(accountMenu.$.menu.open);
+
+      window.dispatchEvent(new Event('blur'));
+      await microtasksFinished();
+      assertFalse(accountMenu.$.menu.open);
+    });
+
+    test('shows account name and email in account menu', async () => {
+      loadTimeData.overrideValues({accountMenuNameAndEmail: '$1 - $2'});
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      toolbarProxy.callbackRouterRemote.setAccountInfo(
+          'Jane Doe', 'janedoe@gmail.com');
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      profileIndicator.click();
+      await microtasksFinished();
+
+      const accountMenu = topToolbar.$.accountMenu.get();
+      const accountInfo =
+          accountMenu.shadowRoot.querySelector<HTMLElement>('#accountInfo');
+      assertTrue(!!accountInfo);
+      assertEquals('Jane Doe - janedoe@gmail.com', accountInfo.textContent);
+
+      toolbarProxy.callbackRouterRemote.setAccountInfo('', 'other@gmail.com');
+      await microtasksFinished();
+      assertEquals('other@gmail.com', accountInfo.textContent);
+    });
+
+    test('opens manage account page from account menu', async () => {
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      profileIndicator.click();
+      await microtasksFinished();
+
+      const accountMenu = topToolbar.$.accountMenu.get();
+      const manageAccountButton =
+          accountMenu.shadowRoot.querySelector<HTMLElement>(
+              '#manageAccountButton');
+      assertTrue(!!manageAccountButton);
+      manageAccountButton.click();
+      await toolbarProxy.handler.whenCalled('openManageAccountUi');
+      assertFalse(accountMenu.$.menu.open);
+    });
+
+    test('signs out from account menu', async () => {
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      profileIndicator.click();
+      await microtasksFinished();
+
+      const accountMenu = topToolbar.$.accountMenu.get();
+      const signOutButton =
+          accountMenu.shadowRoot.querySelector<HTMLElement>('#signOutButton');
+      assertTrue(!!signOutButton);
+      signOutButton.click();
+      await toolbarProxy.handler.whenCalled('openLogOutFlow');
+      assertFalse(accountMenu.$.menu.open);
+    });
+
+    test('opens profile tooltip on hover', async () => {
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      topToolbar.accountFullName = 'Jane Doe';
+      topToolbar.accountEmail = 'janedoe@gmail.com';
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+
+      const tooltip =
+          topToolbar.shadowRoot.querySelector<ProfileTooltipElement>(
+              '#profileTooltip');
+      assertTrue(!!tooltip);
+      assertEquals('Jane Doe', tooltip.fullName);
+      assertEquals('janedoe@gmail.com', tooltip.email);
+      assertFalse(tooltip.isOpen);
+
+      const mockTimer = new MockTimer();
+      mockTimer.install();
+      profileIndicator.dispatchEvent(new PointerEvent('pointerenter'));
+      mockTimer.tick(500);
+      assertTrue(tooltip.isOpen);
+
+      profileIndicator.dispatchEvent(new PointerEvent('pointerleave'));
+      mockTimer.tick(100);
+      mockTimer.uninstall();
+      await microtasksFinished();
+      assertFalse(tooltip.isOpen);
+    });
+
+    test('closes profile tooltip when the side panel loses focus', async () => {
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      topToolbar.accountFullName = 'Jane Doe';
+      topToolbar.accountEmail = 'janedoe@gmail.com';
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      const tooltip =
+          topToolbar.shadowRoot.querySelector<ProfileTooltipElement>(
+              '#profileTooltip');
+      assertTrue(!!tooltip);
+
+      const mockTimer = new MockTimer();
+      mockTimer.install();
+      profileIndicator.dispatchEvent(new PointerEvent('pointerenter'));
+      mockTimer.tick(500);
+      mockTimer.uninstall();
+      await microtasksFinished();
+      assertTrue(tooltip.isOpen);
+
+      window.dispatchEvent(new Event('blur'));
+      await microtasksFinished();
+      assertFalse(tooltip.isOpen);
+    });
+
+    test('clicking the profile indicator hides the tooltip', async () => {
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      await microtasksFinished();
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      const tooltip =
+          topToolbar.shadowRoot.querySelector<ProfileTooltipElement>(
+              '#profileTooltip');
+      assertTrue(!!tooltip);
+      await tooltip.show(profileIndicator);
+      assertTrue(tooltip.isOpen);
+
+      profileIndicator.click();
+      await microtasksFinished();
+      assertFalse(tooltip.isOpen);
+    });
+
+    test('records account menu metrics', async () => {
+      const metrics = fakeMetricsPrivate();
+      assertEquals(
+          0,
+          metrics.count('ContextualTasks.WebUI.AccountMenuButton.Shown', true));
+
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      await microtasksFinished();
+      assertEquals(
+          1,
+          metrics.count('ContextualTasks.WebUI.AccountMenuButton.Shown', true));
+      assertEquals(
+          0, metrics.count('ContextualTasks.WebUI.AccountMenuButton.Shown', 0));
+
+      // Updating the avatar URL while already visible should not re-record.
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,updatedImageData';
+      await microtasksFinished();
+      assertEquals(
+          1,
+          metrics.count('ContextualTasks.WebUI.AccountMenuButton.Shown', true));
+
+      const profileIndicator =
+          topToolbar.shadowRoot.querySelector<HTMLElement>('#profileIndicator');
+      assertTrue(!!profileIndicator);
+      profileIndicator.dispatchEvent(new PointerEvent('pointerenter'));
+      assertEquals(
+          1,
+          metrics.count(
+              'ContextualTasks.WebUI.UserAction.HoverAccountMenuButton', true));
+
+      profileIndicator.click();
+      await microtasksFinished();
+      assertEquals(
+          1,
+          metrics.count(
+              'ContextualTasks.WebUI.UserAction.OpenAccountMenu', true));
+
+      const accountMenu = topToolbar.$.accountMenu.get();
+      accountMenu.shadowRoot.querySelector<HTMLElement>(
+                                '#manageAccountButton')!.click();
+      assertEquals(
+          1,
+          metrics.count(
+              'ContextualTasks.WebUI.UserAction.ManageAccountFromAccountMenu',
+              true));
+
+      profileIndicator.click();
+      await microtasksFinished();
+      accountMenu.shadowRoot.querySelector<HTMLElement>(
+                                '#signOutButton')!.click();
+      assertEquals(
+          1,
+          metrics.count(
+              'ContextualTasks.WebUI.UserAction.SignOutFromAccountMenu', true));
+
+      // Hiding and showing the button again records another impression.
+      topToolbar.profileAvatarUrl = '';
+      await microtasksFinished();
+      topToolbar.profileAvatarUrl = 'data:image/png;base64,fakeImageData';
+      await microtasksFinished();
+      assertEquals(
+          2,
+          metrics.count('ContextualTasks.WebUI.AccountMenuButton.Shown', true));
     });
   });
 });

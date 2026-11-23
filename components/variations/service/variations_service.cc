@@ -120,6 +120,12 @@ const uint32_t kServerTimeResolutionInSeconds = 1;
 // Timeout for fetching the variations seed.
 const base::TimeDelta kVariationsSeedFetchTimeout = base::Seconds(60);
 
+// Delay before retrying runtime mutable seed processing when it is too early to
+// close the UMA log, and the maximum number of retries per session before
+// applying the seed anyway.
+constexpr base::TimeDelta kRetryRuntimeMutableSeedDelay = base::Seconds(30);
+constexpr int kMaxRuntimeMutableSeedRetries = 4;
+
 // Whether the VariationsService should fetch the seed for testing.
 bool g_should_fetch_for_testing = false;
 
@@ -302,7 +308,7 @@ bool IsFetchingEnabled() {
 std::unique_ptr<SeedResponse> MaybeImportFirstRunSeed(
     VariationsServiceClient* client,
     PrefService* local_state) {
-  if (!local_state->HasPrefPath(prefs::kVariationsSeedSignature)) {
+  if (!local_state->HasPrefPath(prefs::kVariationsSeedDate)) {
     DVLOG(1) << "Importing first run seed from native preferences.";
     return client->TakeSeedFromNativeVariationsSeedStore();
   }
@@ -857,9 +863,19 @@ void VariationsService::StoreSeed(std::string seed_data,
                                   bool is_gzip_compressed) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  base::OnceCallback<void(bool, VariationsSeed)> done_callback =
-      base::BindOnce(&VariationsService::OnSeedStoreResult,
-                     weak_ptr_factory_.GetWeakPtr(), is_delta_compressed);
+  const UpdateSeedDateResult date_result =
+      field_trial_creator_.seed_store()->GetSeedDateUpdateResult(seed_date);
+  const bool day_changed = date_result == UpdateSeedDateResult::kNewDay ||
+                           date_result == UpdateSeedDateResult::kNoOldDate;
+  const bool geo_changed =
+      !country_code.empty() &&
+      (country_code != field_trial_creator_.seed_store()->GetLatestCountry() ||
+       geo_level1 != field_trial_creator_.seed_store()->GetLatestGeoLevel1());
+  const bool geo_or_day_changed = geo_changed || day_changed;
+
+  base::OnceCallback<void(bool, VariationsSeed)> done_callback = base::BindOnce(
+      &VariationsService::OnSeedStoreResult, weak_ptr_factory_.GetWeakPtr(),
+      is_delta_compressed, geo_or_day_changed);
   field_trial_creator_.seed_store()->StoreSeedData(
       std::move(done_callback), std::move(seed_data), std::move(seed_signature),
       std::move(country_code), std::move(geo_level1), seed_date,
@@ -868,6 +884,7 @@ void VariationsService::StoreSeed(std::string seed_data,
 }
 
 void VariationsService::OnSeedStoreResult(bool is_delta_compressed,
+                                          bool geo_or_day_changed,
                                           bool store_success,
                                           VariationsSeed seed) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -895,16 +912,57 @@ void VariationsService::OnSeedStoreResult(bool is_delta_compressed,
     // between this and `PerformSimulationWithVersion()` above (which is used
     // for badging killswitches).
     if (base::FeatureList::IsEnabled(kVariationsRuntimeMutability)) {
-      SimulateAndApplyRuntimeMutableChanges(seed);
+      SimulateAndApplyRuntimeMutableChanges(std::move(seed));
     }
 
     NotifySeedFetched();
+    if (geo_or_day_changed) {
+      NotifyCountryOrAdminAreaChanged();
+    }
   }
 }
 
 void VariationsService::SimulateAndApplyRuntimeMutableChanges(
-    const VariationsSeed& seed) {
+    VariationsSeed seed) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // A newly arrived seed supersedes any previously delayed seed. Stop the retry
+  // timer before checking `seed.study().empty()` so that a new seed with no
+  // runtime-mutable studies still cancels an older unapplied seed.
+  runtime_mutable_seed_retry_timer_.Stop();
+
+  // Strip studies that are not runtime-mutable before potentially delaying so
+  // that we do not retain the full `VariationsSeed` in memory.
+  google::protobuf::erase_if(*seed.mutable_study(), [](const Study& study) {
+    return !study.runtime_mutable();
+  });
+  if (seed.study().empty()) {
+    return;
+  }
+
+  // When `kVariationsRuntimeMutabilityRotateUmaLog` is enabled, applying
+  // runtime mutable changes rotates the current UMA log so that pre-mutation
+  // and post-mutation metrics are not mixed in the same log. However, if a seed
+  // arrives early in the session before `MetricsService` has started sending
+  // logs (`ShouldDelayRuntimeMutability()` is true), log rotation would fail
+  // with `RotateUmaLogResult::kTooEarly`. Delay processing the seed and retry
+  // after `kRetryRuntimeMutableSeedDelay`, up to
+  // `kMaxRuntimeMutableSeedRetries` times (after which the seed is applied
+  // anyway so that an idle client does not delay mutations indefinitely).
+  // `base::Unretained(this)` is safe because `this` owns
+  // `runtime_mutable_seed_retry_timer_`.
+  if (kVariationsRuntimeMutabilityRotateUmaLog.Get() &&
+      client_->ShouldDelayRuntimeMutability(
+          base::PassKey<VariationsService>()) &&
+      runtime_mutable_seed_retry_count_ < kMaxRuntimeMutableSeedRetries) {
+    ++runtime_mutable_seed_retry_count_;
+    runtime_mutable_seed_retry_timer_.Start(
+        FROM_HERE, kRetryRuntimeMutableSeedDelay,
+        base::BindOnce(
+            &VariationsService::SimulateAndApplyRuntimeMutableChanges,
+            base::Unretained(this), std::move(seed)));
+    return;
+  }
 
   base::ScopedUmaHistogramTimer scoped_timer(
       "Variations.SimulateAndApplyRuntimeMutableChanges.Time");
@@ -1017,6 +1075,9 @@ void VariationsService::SimulateAndApplyRuntimeMutableChanges(
     // desynchronize `FeatureList` and `RuntimeFieldTrialOverrides`. Crashing is
     // preferable to running the rest of the session in a corrupted state, and
     // gradual seed rollout will catch any seed-triggered crash.
+    if (changes.activation_type == Study::ACTIVATE_ON_STARTUP) {
+      changes.override_info->Activate();
+    }
     CHECK(runtime_field_trial_overrides->ApplyRuntimeOverride(
         base::PassKey<VariationsService>(), std::move(changes.override_info),
         changes.previous_override_to_replace));
@@ -1130,6 +1191,14 @@ void VariationsService::NotifySeedFetched() {
   }
 }
 
+void VariationsService::NotifyCountryOrAdminAreaChanged() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  for (auto& observer : observer_list_) {
+    observer.OnCountryOrAdminAreaChanged();
+  }
+}
+
 void VariationsService::OnSimpleLoaderComplete(
     std::optional<std::string> response_body) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -1140,7 +1209,7 @@ void VariationsService::OnSimpleLoaderComplete(
 
   const base::TimeTicks now = base::TimeTicks::Now();
   if (is_first_request &&
-      !local_state_->HasPrefPath(prefs::kVariationsSeedSignature)) {
+      !local_state_->HasPrefPath(prefs::kVariationsSeedDate)) {
     base::UmaHistogramTimes("Variations.SeedFetchTimeOnFirstRun",
                             now - last_request_started_time_);
   }
@@ -1224,9 +1293,22 @@ void VariationsService::OnSimpleLoaderComplete(
         latency, now);
   }
 
+  std::string_view country_code;
+  std::string_view geo_level1;
+  // Only trust the header contents when the response was received over HTTPS.
+  // This does not apply to the seed signature as that can't be easily forged.
+  // Note: In the case of an insecure fetch, the empty `country_code` and
+  // `geo_level1` strings will be ignored downstream and the existing location
+  // values in Local State will be preserved.
+  if (!last_request_was_http_retry_) {
+    country_code = GetHeaderValue(headers.get(), "X-Country");
+    geo_level1 = GetHeaderValue(headers.get(), "X-Geo-Level-1");
+  }
+
   if (response_code == net::HTTP_NOT_MODIFIED) {
     // TODO(crbug.com/420652919): Reject responses without a date.
-    RecordSuccessfulFetchSeedNotModified(response_date);
+    RecordSuccessfulFetchSeedNotModified(response_date, country_code,
+                                         geo_level1);
     return;
   }
 
@@ -1245,17 +1327,6 @@ void VariationsService::OnSimpleLoaderComplete(
 
   std::string_view signature =
       GetHeaderValue(headers.get(), "X-Seed-Signature");
-  std::string_view country_code;
-  std::string_view geo_level1;
-  // Only trust the header contents when the seed was fetched over HTTPS. This
-  // does not apply to the seed signature as that can't be easily forged.
-  // Note: In the case of an insecure fetch, the empty `country_code` and
-  // `geo_level1` strings will be ignored downstream and the existing location
-  // values in Local State will be preserved.
-  if (!last_request_was_http_retry_) {
-    country_code = GetHeaderValue(headers.get(), "X-Country");
-    geo_level1 = GetHeaderValue(headers.get(), "X-Geo-Level-1");
-  }
   StoreSeed(std::move(*response_body), std::string(signature),
             std::string(country_code), std::string(geo_level1),
             response_date.value_or(base::Time()), is_delta_compressed,
@@ -1377,15 +1448,23 @@ VariationsService::PrepareRuntimeMutableChanges(
   const Study& study = *processed_study.study();
   const Study::Experiment& experiment = study.experiment(experiment_index);
 
-  // For now, only allow ACTIVATE_ON_STARTUP studies.
-  if (study.activation_type() != Study::ACTIVATE_ON_STARTUP) {
-    return base::unexpected(kNotStartsActive);
+  // For now, only allow ACTIVATE_ON_STARTUP and ACTIVATE_ON_QUERY studies.
+  if (study.activation_type() != Study::ACTIVATE_ON_STARTUP &&
+      study.activation_type() != Study::ACTIVATE_ON_QUERY) {
+    return base::unexpected(kInvalidActivationType);
   }
 
   // Only allow permanent consistency. Otherwise, the user may get constantly
   // bounced between different groups every time a new seed is fetched.
   if (study.consistency() != Study::PERMANENT) {
     return base::unexpected(kNotPermanentConsistency);
+  }
+
+  // TODO(crbug.com/536852160): Support low anonymity studies. For now,
+  // disallow them as runtime overrides are not excluded from metrics and crash
+  // reporting.
+  if (StudyIsLowAnonymity(study)) {
+    return base::unexpected(kLowAnonymityStudy);
   }
 
   // TODO(crbug.com/482450020): Support runtime mutability for Google web
@@ -1418,6 +1497,22 @@ VariationsService::PrepareRuntimeMutableChanges(
   if (feature_names.size() !=
       disable_features.size() + enable_features.size()) {
     return base::unexpected(kFeatureBothEnabledAndDisabled);
+  }
+
+  // If `experiment` does not specify any feature associations (e.g. a "Default"
+  // group), associate it with all features referenced by the other groups in
+  // `study` using `OVERRIDE_USE_DEFAULT` (similar to
+  // `AssociateDefaultFeatures()` for normal field trials). This ensures that:
+  // 1. For `ACTIVATE_ON_QUERY` studies, querying any of the study's features
+  //    will activate this runtime override.
+  // 2. `FeatureList` tracks that those features are controlled by this study.
+  base::flat_set<std::string_view> default_features;
+  if (!experiment.has_feature_association()) {
+    // `feature_names` is the union of `disable_features` and `enable_features`
+    // above, both of which are read from `experiment.feature_association()`.
+    CHECK(feature_names.empty());
+    default_features = GetStudyFeatureNames(study);
+    feature_names = default_features;
   }
 
   for (std::string_view feature_name : feature_names) {
@@ -1574,16 +1669,15 @@ VariationsService::PrepareRuntimeMutableChanges(
   changes.trial_to_override = trial_to_override;
   changes.previous_override_to_replace = previous_override_to_replace;
   changes.feature_names.assign(feature_names.begin(), feature_names.end());
+  changes.activation_type = study.activation_type();
   changes.override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
       study.name(), group_name, std::move(params), trial_to_override);
 
   auto prepare_feature_updates = [&](const auto& features,
-                                     base::FeatureList::OverrideState state) {
+                                     base::FeatureList::OverrideState state,
+                                     std::string_view action) {
     for (std::string_view feature_name : features) {
-      DVLOG(1) << "VariationsService: Preparing runtime override to "
-               << (state == base::FeatureList::OVERRIDE_ENABLE_FEATURE
-                       ? "enable"
-                       : "disable")
+      DVLOG(1) << "VariationsService: Preparing runtime override to " << action
                << " feature: " << feature_name;
       auto update = feature_list->PrepareRuntimeMutableFeatureStateUpdate(
           base::PassKey<VariationsService>(), changes.override_info.get(),
@@ -1593,10 +1687,13 @@ VariationsService::PrepareRuntimeMutableChanges(
     }
   };
 
-  prepare_feature_updates(disable_features,
-                          base::FeatureList::OVERRIDE_DISABLE_FEATURE);
+  prepare_feature_updates(
+      disable_features, base::FeatureList::OVERRIDE_DISABLE_FEATURE, "disable");
   prepare_feature_updates(enable_features,
-                          base::FeatureList::OVERRIDE_ENABLE_FEATURE);
+                          base::FeatureList::OVERRIDE_ENABLE_FEATURE, "enable");
+  prepare_feature_updates(default_features,
+                          base::FeatureList::OVERRIDE_USE_DEFAULT,
+                          "use default for");
 
   return base::ok(std::move(changes));
 }
@@ -1610,7 +1707,9 @@ void VariationsService::RecordSuccessfulFetchNewSeed() {
 }
 
 void VariationsService::RecordSuccessfulFetchSeedNotModified(
-    std::optional<base::Time> response_date) {
+    std::optional<base::Time> response_date,
+    std::string_view country_code,
+    std::string_view geo_level1) {
   // Update the client-side fetch time to the current time.
   field_trial_creator_.seed_store()->RecordLastFetchTime(base::Time::Now());
   safe_seed_manager_.RecordSuccessfulFetch(field_trial_creator_.seed_store());
@@ -1618,8 +1717,16 @@ void VariationsService::RecordSuccessfulFetchSeedNotModified(
   // Callers set `response_date` to std::nullopt for insecure HTTP retries
   // because unauthenticated Date headers cannot be trusted. A null date logs
   // kNoNewDate and keeps the stored seed date.
-  field_trial_creator_.seed_store()->UpdateSeedDateAndLogDayChange(
-      response_date.value_or(base::Time()));
+  const UpdateSeedDateResult date_result =
+      field_trial_creator_.seed_store()->UpdateSeedDateAndLogDayChange(
+          response_date.value_or(base::Time()));
+  const bool geo_changed =
+      field_trial_creator_.seed_store()->UpdateSessionCountryAndGeoLevel1(
+          country_code, geo_level1);
+  if (geo_changed || date_result == UpdateSeedDateResult::kNewDay ||
+      date_result == UpdateSeedDateResult::kNoOldDate) {
+    NotifyCountryOrAdminAreaChanged();
+  }
 }
 
 VariationsSeedStore* VariationsService::GetSeedStoreForTesting() {

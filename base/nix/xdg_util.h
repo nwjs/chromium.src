@@ -87,6 +87,10 @@ inline constexpr char kDesktopStartupIdEnvVar[] = "DESKTOP_STARTUP_ID";
 // process and an existing browser process.
 inline constexpr char kXdgActivationTokenSwitch[] = "xdg-activation-token";
 
+// Legacy switch through which X11 launchers can pass a startup ID. Chromium no
+// longer sets it itself but still accepts it.
+inline constexpr char kDesktopStartupIdSwitch[] = "desktop-startup-id";
+
 // Utility function for getting XDG directories.
 // |env_name| is the name of an environment variable that we want to use to get
 // a directory path. |fallback_dir| is the directory relative to $HOME that we
@@ -135,13 +139,12 @@ BASE_EXPORT SessionType GetSessionType(Environment& env);
 BASE_EXPORT std::optional<std::string> ExtractXdgActivationTokenFromEnv(
     Environment& env);
 
-// Sets the global activation token from the command line if it exists and
-// removes it from the command line.
-BASE_EXPORT void ExtractXdgActivationTokenFromCmdLine(
-    base::CommandLine& cmd_line);
+// Reads kXdgActivationTokenSwitch, falling back to kDesktopStartupIdSwitch.
+// Returns nullopt if neither supplies a nonempty token.
+[[nodiscard]] BASE_EXPORT std::optional<std::string>
+GetXdgActivationTokenFromCommandLine(const CommandLine& command_line);
 
-// Sets the global activation token not received from the command line or as
-// an environment variable, e.g. from notification D-BUS API.
+// Sets the global activation token, e.g. from a notification D-Bus event.
 BASE_EXPORT void SetActivationToken(std::string token);
 
 // Transfers ownership of the currently set global activation token if set.
@@ -173,6 +176,46 @@ std::string XdgDesktopPortalRequestPath(const std::string& sender,
 BASE_EXPORT
 std::string XdgDesktopPortalSessionPath(const std::string& sender,
                                         const std::string& token);
+
+// Application sandboxes (packaging formats) that the browser may be running
+// inside of. This is unrelated to Chromium's own process sandbox.
+enum class AppSandbox {
+  kNone,
+  kFlatpak,
+  kSnap,
+};
+
+// Returns the application sandbox that the current process is running in.
+// The result is computed on the first call and cached, since it can't change
+// during the lifetime of the process. Safe to call from any thread.
+//
+// Flatpak is detected by the existence of `/.flatpak-info`, which Flatpak
+// creates in every sandbox, falling back to $FLATPAK_ID. Environment variables
+// alone aren't relied on for Flatpak, since they may be inherited by host
+// processes launched from a sandboxed app (e.g. via `flatpak-spawn --host`).
+// Snap is detected by $SNAP and $SNAP_NAME, which snapd sets for all confined
+// apps.
+BASE_EXPORT AppSandbox GetAppSandbox();
+
+// Uncached version of GetAppSandbox() that reads from `env` and checks
+// `flatpak_info_path` instead of `/.flatpak-info`.
+BASE_EXPORT AppSandbox
+DetectAppSandboxForTesting(Environment& env, const FilePath& flatpak_info_path);
+
+// Makes GetAppSandbox() return `sandbox` while in scope. Must not be used
+// while other threads may be calling GetAppSandbox().
+class BASE_EXPORT ScopedAppSandboxOverrideForTesting {
+ public:
+  explicit ScopedAppSandboxOverrideForTesting(AppSandbox sandbox);
+  ScopedAppSandboxOverrideForTesting(
+      const ScopedAppSandboxOverrideForTesting&) = delete;
+  ScopedAppSandboxOverrideForTesting& operator=(
+      const ScopedAppSandboxOverrideForTesting&) = delete;
+  ~ScopedAppSandboxOverrideForTesting();
+
+ private:
+  const std::optional<AppSandbox> previous_;
+};
 
 }  // namespace nix
 }  // namespace base

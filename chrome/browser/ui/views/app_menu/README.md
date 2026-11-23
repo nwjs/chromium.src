@@ -37,6 +37,7 @@ BrowserAppMenuButton
   * **Non-Searchable Display Types (`>= DisplayType::kMaxSearchable`)**:
     * **`kSearch`**: Top-level search input row (`AppMenuSearchBarView`) that filters searchable menu items in real time.
     * **`kHeader`**: Non-interactive section title heading (`AddHeader()`).
+    * **`kLabel`**: Read-only text inside a `kCustom` row that stays bound to its `ActionItem` for state updates but is not actionable, so it is excluded from search results (e.g., the zoom percentage in `AppMenuZoomView`).
     * **`kDivider`**: Visual line or spacing separator (`AddDivider()`).
     * **`kFooter`**: Bottom container (`AppMenuFooterView`) that renders child actions as horizontal pill buttons alongside optional status rows (e.g., enterprise management banner).
 
@@ -44,7 +45,7 @@ BrowserAppMenuButton
 * **`ActionAppMenu` (`action_app_menu.h`)**: Owns the `views::MenuRunner` and serves as the `views::MenuDelegate` and `AppMenuDragAndDropDelegate::Host`.
   * Recursively traverses the `BaseAction` hierarchy (`PopulateMenu()`) and translates each node into `views::MenuItemView` rows or embedded custom `views::View`s based on `AppMenuActionItem::DisplayType`.
   * Binds `MenuItemView` instances to their underlying `ActionItem` via `views::ActionViewController` so state updates (enabled, visible, checked, text, icon) sync reactively.
-  * Automatically computes rounded container backgrounds (`ShouldRoundTopCorners`, `ShouldRoundBottomCorners`) and vertical section padding for grouped rows sharing a `kContainerColorKey`.
+  * Automatically computes rounded container backgrounds (`GetCornerRadius`) and vertical section padding for grouped rows sharing a `kContainerColorKey`.
   * Defers populating dynamic submenus in the view tree until `WillShowMenu()` is triggered, while still allowing their action children to be indexed for search.
 
 ### 3. Dynamic Submenus (`*_dynamic_menu.h`)
@@ -57,7 +58,7 @@ Dynamic submenus are used for user data (such as bookmarks, history, tab groups,
 
 ### 4. Search (`AppMenuSearchController` & `AppMenuSearchItem`)
 * **`AppMenuSearchController` (`app_menu_search_controller.h`)**: Traverses the `kActionAppMenuRoot` hierarchy via `InitializeSearchIndex()`, extracting visible and enabled leaf actions with `DisplayType < DisplayType::kMaxSearchable` into a flat list of `AppMenuSearchItem`s.
-* Queries `FuzzyFinder` (`Search()`) and partitions matches into capped sections (**Actions**, **Bookmarks**, **Tab Groups**, **Recent Tabs**), returning an ephemeral `ActionItem` results tree wrapped in `IndirectActionItem`s with secondary breadcrumb labels.
+* Queries `FuzzyFinder` (`Search()`) and partitions matches into capped sections (**Actions**, **Bookmarks**, **Tab Groups**, **Recent Tabs**), returning an ephemeral `ActionItem` results tree wrapped in `IndirectActionItem`s with secondary breadcrumb labels. Each result row reapplies the presentation captured from the indexed menu row on its `AppMenuSearchItem` (title, `kIconOverrideKey`, `kIsCheckableKey`), so a row-specific property that should also show in search results must be carried through `AppMenuSearchItem` and `BuildSearchResultsTree()`.
 
 ### 5. Custom Views
 * **`AppMenuBlockView` / `AppMenuBlockButton`**: Horizontal row of equal-width rectangular buttons at the top of the menu.
@@ -132,7 +133,7 @@ To support dragging and dropping items within a dynamic submenu while keeping th
   1. Set `.display_type = DisplayType::kCustom` on the parent action item and add its child actions as children in the `ActionItem` hierarchy.
   2. Handle the parent's `ActionId` in `ActionAppMenu::PopulateCustomRow()` (`action_app_menu.cc`).
   3. Bind child controls to their `ActionItem`s via `views::ActionViewController` and record metrics via `ActionAppMenuMetrics`.
-* **Searchability rule**: Note in `AppMenuActionItem::DisplayType` that enum values `< DisplayType::kMaxSearchable` (`kBlock`, `kCustom`, `kNotification`, `kRow`, `kSection`) are traversed during search indexing, while values `>= DisplayType::kMaxSearchable` (`kDivider`, `kFooter`, `kHeader`, `kSearch`) are skipped.
+* **Searchability rule**: Note in `AppMenuActionItem::DisplayType` that enum values `< DisplayType::kMaxSearchable` (`kBlock`, `kCustom`, `kNotification`, `kRow`, `kSection`) are traversed during search indexing, while values `>= DisplayType::kMaxSearchable` (`kDivider`, `kFooter`, `kHeader`, `kLabel`, `kSearch`) are skipped. Give read-only child controls of a `kCustom` row (such as a status label) `DisplayType::kLabel` so they are not indexed as actionable search results.
 
 ---
 

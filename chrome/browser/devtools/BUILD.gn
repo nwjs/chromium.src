@@ -177,6 +177,8 @@ static_library("devtools") {
     "//components/autofill/content/browser",
     "//components/autofill/core/browser",
     "//components/enterprise/buildflags",
+    "//components/optimization_guide/content/browser",
+    "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/paint_preview/buildflags",
     "//components/variations/service",
     "//components/vector_icons",
@@ -283,6 +285,9 @@ static_library("devtools") {
       "devtools_window_android.cc",
       "protocol/browser_handler_android.cc",
       "protocol/browser_handler_android.h",
+      "protocol/page_handler.cc",
+      "protocol/page_handler.h",
+      "protocol/page_handler_android.cc",
       "protocol/target_handler_android.cc",
       "protocol/target_handler_android.h",
     ]
@@ -292,14 +297,10 @@ static_library("devtools") {
       "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/browser_window:create_browser_window",
+      "//printing/buildflags",
       "//ui/base",
     ]
     if (enable_printing) {
-      sources += [
-        "protocol/page_handler.cc",
-        "protocol/page_handler.h",
-        "protocol/page_handler_android.cc",
-      ]
       deps += [
         "//chrome/browser/printing",
         "//components/printing/browser/headless",
@@ -643,6 +644,7 @@ source_set("unit_tests") {
     deps += [
       "//chrome/browser/media/router",
       "//chrome/browser/origin_gating",
+      "//chrome/browser/ui/webui/top_chrome",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//components/media_router/browser",
       "//components/media_router/browser:test_support",
@@ -661,6 +663,7 @@ source_set("unit_tests") {
 
     deps += [
       "//chrome/browser/android:tabs_public",
+      "//chrome/browser/flags:flags_android",
       "//chrome/browser/ui/android/tab_model:test_support",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/browser_window/test:native_unit_test_support_jni",

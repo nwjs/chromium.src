@@ -681,7 +681,12 @@ bool PrerenderHost::StartPrerendering() {
 
 void PrerenderHost::DidStartNavigation(NavigationHandle* navigation_handle) {
   auto* navigation_request = NavigationRequest::From(navigation_handle);
-  CHECK(navigation_request->IsInPrerenderedMainFrame());
+  if (!navigation_request->IsInPrerenderedMainFrame()) {
+    UpdateDevtoolsAttemptForSubFrame(navigation_request->GetFrameTreeNodeId(),
+                                     navigation_handle->GetURL(),
+                                     PreloadingTriggeringOutcome::kRunning);
+    return;
+  }
 
   // Do nothing for the initial navigation.
   if (IsInitialNavigation(*navigation_request)) {
@@ -736,9 +741,10 @@ void PrerenderHost::ReadyToCommitNavigation(
           blink::mojom::WebFeature::kPrerender2CrossOriginIframes);
     }
 
-    if (IsPrerenderActivationBeaconEnabled(
+    if (GetPrerenderActivationBeaconFeatureState(
             navigation_request->GetURL(),
-            navigation_request->GetResponseHeaders())) {
+            navigation_request->GetResponseHeaders()) ==
+        PreloadActivationBeaconFeatureState::kEnabled) {
       activation_beacon_url_ = FindActivationBeaconURL(*navigation_request);
     }
   }
@@ -811,12 +817,18 @@ void PrerenderHost::DidFinishNavigation(NavigationHandle* navigation_handle) {
   // The prerendered contents are considered ready for activation when the
   // main frame navigation reaches DidFinishNavigation and the prerender host
   // has not been canceled yet.
-  if (is_prerender_main_frame && !final_status_) {
-    CHECK(!is_ready_for_activation_);
-    is_ready_for_activation_ = true;
+  if (!final_status_) {
+    if (is_prerender_main_frame) {
+      CHECK(!is_ready_for_activation_);
+      is_ready_for_activation_ = true;
 
-    // Prerender is ready to activate. Set the status to kReady.
-    SetTriggeringOutcome(PreloadingTriggeringOutcome::kReady);
+      // Prerender is ready to activate. Set the status to kReady.
+      SetTriggeringOutcome(PreloadingTriggeringOutcome::kReady);
+    } else if (navigation_request->HasCommitted()) {
+      UpdateDevtoolsAttemptForSubFrame(navigation_request->GetFrameTreeNodeId(),
+                                       navigation_handle->GetURL(),
+                                       PreloadingTriggeringOutcome::kReady);
+    }
   }
 }
 
@@ -833,7 +845,8 @@ std::unique_ptr<StoredPage> PrerenderHost::Activate(
         PreloadActivationReportManager::GetOrCreateForBrowserContext(
             web_contents_->GetBrowserContext());
     manager->ReportActivation(activation_beacon_url_,
-                              GetFrameTree()->root()->current_frame_host());
+                              GetFrameTree()->root()->current_frame_host(),
+                              PreloadActivationReportType::kPrerender);
     GetContentClient()->browser()->LogWebFeatureForCurrentPage(
         GetFrameTree()->root()->current_frame_host(),
         blink::mojom::WebFeature::kPrefetchAndPrerenderActivationBeacon);
@@ -1538,8 +1551,23 @@ void PrerenderHost::SetTriggeringOutcome(PreloadingTriggeringOutcome outcome) {
   }
 }
 
-void PrerenderHost::SetFailureReason(
-    const PrerenderCancellationReason& reason) {
+void PrerenderHost::UpdateDevtoolsAttemptForSubFrame(
+    FrameTreeNodeId ftn_id,
+    const GURL& url,
+    PreloadingTriggeringOutcome outcome) {
+  if (!AllowCrossOriginSubframeNavigation() || url.IsAboutBlank()) {
+    return;
+  }
+  if (devtools_attempt_) {
+    PrerenderAttributes attributes = attributes_;
+    attributes.prerendering_url = url;
+    devtools_attempt_->SetTriggeringOutcome(attributes, outcome, ftn_id);
+  }
+}
+
+void PrerenderHost::SetFailureReason(const PrerenderCancellationReason& reason,
+                                     std::optional<GURL> subframe_url,
+                                     FrameTreeNodeId subframe_ftn_id) {
   switch (reason.final_status()) {
     // When adding a new failure reason, consider whether it should be
     // propagated to `attempt_`. Most values should be propagated, but we
@@ -1639,6 +1667,14 @@ void PrerenderHost::SetFailureReason(
         devtools_attempt_.reset();
       }
 
+      return;
+    case PrerenderFinalStatus::kPrefetchFailedCrossOriginSubframe:
+      if (devtools_attempt_ && subframe_url.has_value()) {
+        PrerenderAttributes attributes = attributes_;
+        attributes.prerendering_url = *subframe_url;
+        devtools_attempt_->SetFailureReason(attributes, reason,
+                                            subframe_ftn_id);
+      }
       return;
     case PrerenderFinalStatus::kActivated:
       // The activation path does not call this method, so it should never reach

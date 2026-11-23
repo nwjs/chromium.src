@@ -11,12 +11,14 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/metrics/profile_metrics_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "components/metrics/profile_metrics_service.h"
 
 namespace {
 
@@ -54,7 +56,7 @@ int GetMetricsBucketIndex(const Profile* profile) {
   return entry->GetMetricsBucketIndex();
 }
 
-void RecordProfileSessionDuration(const Profile* profile,
+void RecordProfileSessionDuration(Profile* profile,
                                   base::TimeDelta session_length) {
   if (!profile || session_length.InMinutes() <= 0) {
     return;
@@ -68,16 +70,23 @@ void RecordProfileSessionDuration(const Profile* profile,
                                 base::HistogramBase::kUmaTargetedHistogramFlag)
         ->AddCount(profile_bucket, session_length.InMinutes());
   }
+
+  ProfileMetricsServiceFactory::GetForProfile(profile)->UmaHistogramCustomTimes(
+      "Profile.SessionDuration", session_length, base::Milliseconds(1),
+      base::Hours(24), 50);
 }
 
-void RecordBrowserActivation(const Profile* profile) {
-  DCHECK(profile);
+void RecordBrowserActivation(Profile* profile) {
+  CHECK(profile, base::NotFatalUntil::M162);
   int profile_bucket = GetMetricsBucketIndex(profile);
 
   if (0 <= profile_bucket && profile_bucket <= kMaxProfileBucket) {
     UMA_HISTOGRAM_EXACT_LINEAR("Profile.BrowserActive.PerProfile",
                                profile_bucket, kMaxProfileBucket);
   }
+
+  ProfileMetricsServiceFactory::GetForProfile(profile)->UmaHistogramBoolean(
+      "Profile.BrowserActive", true);
 }
 
 void RecordProfileSwitch() {
@@ -87,7 +96,7 @@ void RecordProfileSwitch() {
                            profiles_count);
 }
 
-void RecordUserAction(const Profile* profile) {
+void RecordUserAction(Profile* profile) {
   if (!profile) {
     return;
   }
@@ -98,6 +107,9 @@ void RecordUserAction(const Profile* profile) {
     UMA_HISTOGRAM_EXACT_LINEAR("Profile.UserAction.PerProfile", profile_bucket,
                                kMaxProfileBucket);
   }
+
+  ProfileMetricsServiceFactory::GetForProfile(profile)->UmaHistogramBoolean(
+      "Profile.UserAction", true);
 }
 
 void RecordProfilesState() {
@@ -110,13 +122,13 @@ void RecordProfilesState() {
 
 // static
 void ProfileActivityMetricsRecorder::Initialize() {
-  DCHECK(!g_profile_activity_metrics_recorder);
+  CHECK(!g_profile_activity_metrics_recorder, base::NotFatalUntil::M162);
   g_profile_activity_metrics_recorder = new ProfileActivityMetricsRecorder();
 }
 
 // static
 void ProfileActivityMetricsRecorder::CleanupForTesting() {
-  DCHECK(g_profile_activity_metrics_recorder);
+  CHECK(g_profile_activity_metrics_recorder, base::NotFatalUntil::M162);
   delete g_profile_activity_metrics_recorder;
   g_profile_activity_metrics_recorder = nullptr;
 }
@@ -175,8 +187,8 @@ void ProfileActivityMetricsRecorder::OnSessionEnded(
   // profiles.
   RecordProfileSessionDuration(running_session_profile_,
                                session_end - running_session_start_);
-  DCHECK(
-      profile_observation_.IsObservingSource(running_session_profile_.get()));
+  CHECK(profile_observation_.IsObservingSource(running_session_profile_.get()),
+        base::NotFatalUntil::M162);
   profile_observation_.Reset();
   running_session_profile_ = nullptr;
   last_session_end_ = base::TimeTicks::Now();
@@ -184,7 +196,7 @@ void ProfileActivityMetricsRecorder::OnSessionEnded(
 
 void ProfileActivityMetricsRecorder::OnProfileWillBeDestroyed(
     Profile* profile) {
-  DCHECK_EQ(profile, running_session_profile_);
+  CHECK_EQ(profile, running_session_profile_, base::NotFatalUntil::M162);
 
   // The profile may be deleted without an OnSessionEnded call if, for
   // example, the browser shuts down.
@@ -192,8 +204,8 @@ void ProfileActivityMetricsRecorder::OnProfileWillBeDestroyed(
   // TODO(crbug.com/40700582): explore having
   // DesktopSessionDurationTracker call OnSessionEnded() when the
   // profile is destroyed. Remove this workaround if this is done.
-  DCHECK(
-      profile_observation_.IsObservingSource(running_session_profile_.get()));
+  CHECK(profile_observation_.IsObservingSource(running_session_profile_.get()),
+        base::NotFatalUntil::M162);
   profile_observation_.Reset();
   running_session_profile_ = nullptr;
   last_active_profile_ = nullptr;

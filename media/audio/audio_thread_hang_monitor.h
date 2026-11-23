@@ -114,6 +114,11 @@ class MEDIA_EXPORT AudioThreadHangMonitor final {
   // its value to a histogram.
   void CheckIfAudioThreadIsAlive();
 
+  // Updates |last_check_time_| and, if |alive_flag_| was set, clears it and
+  // posts a task to the audio thread that sets |alive_flag_| again. The next
+  // CheckIfAudioThreadIsAlive() call checks whether that task has run.
+  void PingAudioThread();
+
   // LogHistogramThreadStatus logs |thread_status_| to a histogram.
   void LogHistogramThreadStatus();
 
@@ -141,6 +146,12 @@ class MEDIA_EXPORT AudioThreadHangMonitor final {
 
   // At which interval to ping and see if the thread is running.
   const base::TimeDelta ping_interval_;
+
+  // Whether CheckIfAudioThreadIsAlive() keeps checking after a late check and
+  // PingAudioThread() keeps at most one ping in flight. Read once from
+  // kAudioThreadHangMonitorRearmAfterLateCheck.
+  // TODO(crbug.com/572682743): Remove with the feature.
+  const bool rearm_after_late_check_;
 
   // For testing. See DumpWithoutCrashing() and TerminateCurrentProcess().
   base::RepeatingClosure dump_callback_;

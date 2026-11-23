@@ -169,6 +169,8 @@ void SavedTabGroupUtils::RemoveGroupFromTabstrip(
   BrowserWindowInterface* const browser_with_local_group_id =
       browser ? browser
               : SavedTabGroupUtils::GetBrowserWithTabGroupId(local_group);
+  // TODO(crbug.com/577226586): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(browser_with_local_group_id);
   if (!browser_with_local_group_id) {
     return;
@@ -431,7 +433,7 @@ void SavedTabGroupUtils::OpenUrlInNewUngroupedTab(
     BrowserWindowInterface* browser,
     const GURL& url) {
   NavigateParams params(browser, url, ui::PAGE_TRANSITION_AUTO_BOOKMARK);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   params.started_from_context_menu = true;
   Navigate(&params);
 }
@@ -855,6 +857,11 @@ void SavedTabGroupUtils::PerformTabGroupMenuAction(
     BrowserWindowInterface* browser,
     TabGroupSyncService* tab_group_service) {
   auto type = action.type;
+  if (type != TabGroupMenuAction::Type::DEFAULT) {
+    saved_tab_groups::metrics::RecordTabGroupContextMenuAction(
+        GetSavedTabGroupSubmenuOpenedMetric(context), type);
+  }
+
   if (type == TabGroupMenuAction::Type::OPEN_URL) {
     SavedTabGroupUtils::OpenUrlInNewUngroupedTab(
         browser, std::get<GURL>(action.element));
@@ -886,6 +893,27 @@ void SavedTabGroupUtils::PerformTabGroupMenuAction(
       if (will_open_shared_group) {
         RecordOpenSharedGroupMetrics(context);
       }
+      break;
+    }
+    case TabGroupMenuAction::Type::CLOSE_GROUP: {
+      std::optional<tab_groups::SavedTabGroup> saved_group =
+          tab_group_service->GetGroup(uuid);
+      if (!saved_group.has_value() ||
+          !saved_group->local_group_id().has_value()) {
+        break;
+      }
+
+      base::RecordAction(base::UserMetricsAction(
+          "TabGroups_SavedTabGroups_TabGroupSubmenu_Closed"));
+
+      if (saved_group->is_shared_tab_group()) {
+        saved_tab_groups::metrics::RecordSharedTabGroupRecallType(
+            saved_tab_groups::metrics::SharedTabGroupRecallTypeDesktop::
+                kClosed);
+      }
+
+      SavedTabGroupUtils::RemoveGroupFromTabstrip(
+          /*browser=*/nullptr, saved_group->local_group_id().value());
       break;
     }
     case TabGroupMenuAction::Type::OPEN_OR_MOVE_TO_NEW_WINDOW:

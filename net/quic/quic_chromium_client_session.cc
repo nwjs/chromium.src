@@ -181,10 +181,6 @@ void RecordConnectionCloseErrorCodeImpl(const std::string& histogram,
   }
 }
 
-void LogMigrateToSocketStatus(bool success) {
-  UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.MigrateToSocketSuccess", success);
-}
-
 void RecordConnectionCloseErrorCode(const quic::QuicConnectionCloseFrame& frame,
                                     quic::ConnectionCloseSource source,
                                     std::string_view hostname,
@@ -406,52 +402,6 @@ base::DictValue NetLogQuicClientSessionParams(
   }
   net_log.source().AddToEventParameters(dict);
   return dict;
-}
-
-// This is necessary to maintain backward compatibility with the pre-existing
-// connection migration histogram names.
-// TODO(crbug.com/557126867): Remove this when we drop the old connection
-// migration histograms.
-std::string_view MigrationCauseToString(QuicMigrationAttemptCause cause) {
-  switch (cause) {
-    // This differs between the old and new histogram names.
-    case QuicMigrationAttemptCause::kChangeNetworkOnPathDegrading:
-      return "OnPathDegrading";
-    // This new enum value is not handled in the old histogram names, so
-    // piggyback on the old enum value.
-    case QuicMigrationAttemptCause::kWaitForNewNetworkPostNetworkDisconnected:
-      return "OnNetworkDisconnected";
-    // This new enum value is not handled in the old histogram names, so
-    // piggyback on the old enum value.
-    case QuicMigrationAttemptCause::kWaitForNewNetworkPostWriteError:
-      return "OnWriteError";
-    // For everything else, rely on the non-deprecated
-    // QuicMigrationAttemptCauseToString.
-    case QuicMigrationAttemptCause::kUnknown:
-    case QuicMigrationAttemptCause::kOnNetworkDisconnected:
-    case QuicMigrationAttemptCause::kOnWriteError:
-    case QuicMigrationAttemptCause::kOnNetworkMadeDefault:
-    case QuicMigrationAttemptCause::kOnMigrateBackToDefaultNetwork:
-    case QuicMigrationAttemptCause::kChangePortOnPathDegrading:
-    case QuicMigrationAttemptCause::kNewNetworkConnectedPostPathDegrading:
-    case QuicMigrationAttemptCause::kOnServerPreferredAddressAvailable:
-    case QuicMigrationAttemptCause::kMultiPortPath:
-      return QuicMigrationAttemptCauseToString(cause);
-  }
-}
-
-// TODO(fayang): Remove this when necessary data is collected.
-void LogProbeResultToHistogram(QuicMigrationAttemptCause cause, bool success) {
-  UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.PathValidationSuccess", success);
-  const auto histogram_name =
-      base::StrCat({"Net.QuicSession.PathValidationSuccess.",
-                    MigrationCauseToString(cause)});
-  STATIC_HISTOGRAM_POINTER_GROUP(
-      histogram_name, static_cast<int>(cause),
-      static_cast<int>(QuicMigrationAttemptCause::kMaxValue) + 1,
-      AddBoolean(success),
-      base::BooleanHistogram::FactoryGet(
-          histogram_name, base::HistogramBase::kUmaTargetedHistogramFlag));
 }
 
 void LogSessionMetricsToHistogram(
@@ -1206,6 +1156,7 @@ QuicChromiumClientSession::QuicChromiumClientSession(
   connection->set_debug_visitor(logger_.get());
   connection->set_creator_debug_delegate(logger_.get());
   migrate_back_to_default_timer_.SetTaskRunner(task_runner_.get());
+  wait_for_new_network_timer_.SetTaskRunner(task_runner_.get());
   net_log_.BeginEvent(NetLogEventType::QUIC_SESSION, [&] {
     return NetLogQuicClientSessionParams(
         net_log, &session_key_, connection_id(),
@@ -2389,7 +2340,6 @@ int QuicChromiumClientSession::HandleWriteError(
     int error_code,
     scoped_refptr<QuicChromiumPacketWriter::ReusableIOBuffer> packet) {
   current_migration_cause_ = QuicMigrationAttemptCause::kOnWriteError;
-  LogHandshakeStatusOnMigrationSignal();
 
   base::UmaHistogramSparse("Net.QuicSession.WriteError", -error_code);
   if (OneRttKeysAvailable()) {
@@ -2498,9 +2448,7 @@ void QuicChromiumClientSession::MigrateSessionOnWriteError(
     QuicMigrationAttemptContext::RecordIneligible(
         QuicMigrationAttemptCause::kOnWriteError,
         QuicMigrationAttemptIneligibleReason::kDisabledByServer);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_DISABLED_BY_CONFIG,
-                                    connection_id(),
-                                    "Migration disabled by config");
+    LogMigrationFailure(connection_id(), "Migration disabled by config");
     // Close the connection since migration was disabled. Do not cause a
     // connection close packet to be sent since socket may be borked.
     connection()->CloseConnection(quic::QUIC_PACKET_WRITE_ERROR,
@@ -2516,9 +2464,7 @@ void QuicChromiumClientSession::MigrateSessionOnWriteError(
     QuicMigrationAttemptContext::RecordIneligible(
         QuicMigrationAttemptCause::kOnWriteError,
         QuicMigrationAttemptIneligibleReason::kNoAlternateNetwork);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_NO_ALTERNATE_NETWORK,
-                                    connection_id(),
-                                    "No alternate network found");
+    LogMigrationFailure(connection_id(), "No alternate network found");
     OnNoNewNetwork(QuicMigrationAttemptCause::kWaitForNewNetworkPostWriteError);
     return;
   }
@@ -2529,9 +2475,8 @@ void QuicChromiumClientSession::MigrateSessionOnWriteError(
     QuicMigrationAttemptContext::RecordIneligible(
         QuicMigrationAttemptCause::kOnWriteError,
         QuicMigrationAttemptIneligibleReason::kTooManyMigrations);
-    HistogramAndLogMigrationFailure(
-        MIGRATION_STATUS_ON_WRITE_ERROR_DISABLED, connection_id(),
-        "Exceeds maximum number of migrations on write error");
+    LogMigrationFailure(connection_id(),
+                        "Exceeds maximum number of migrations on write error");
     connection()->CloseConnection(
         quic::QUIC_PACKET_WRITE_ERROR,
         "Too many migrations for write error for the same network",
@@ -2578,13 +2523,6 @@ void QuicChromiumClientSession::FinishMigrateSessionOnWriteError(
 void QuicChromiumClientSession::OnNoNewNetwork(
     QuicMigrationAttemptCause migration_cause) {
   DCHECK(OneRttKeysAvailable());
-  wait_for_new_network_cause_ = migration_cause;
-  // If a previous migration attempt is already waiting for a new network, keep
-  // its start time to measure the true total wait time. The cause is updated to
-  // the most recent signal, matching historical behavior.
-  if (wait_for_new_network_start_time_.is_null()) {
-    wait_for_new_network_start_time_ = tick_clock_->NowTicks();
-  }
   net_log_.AddEvent(
       NetLogEventType::QUIC_CONNECTION_MIGRATION_WAITING_FOR_NEW_NETWORK);
 
@@ -2594,15 +2532,34 @@ void QuicChromiumClientSession::OnNoNewNetwork(
   static_cast<QuicChromiumPacketWriter*>(connection()->writer())
       ->set_force_write_blocked(true);
 
-  base::TimeDelta timeout = features::kQuicWaitForNewNetworkTimeoutParam.Get();
+  // If a previous migration attempt is already waiting for a new network, the
+  // cause is updated to the most recent signal (matching historical behavior),
+  // while keeping its start time and timer to measure the true total wait time.
+  wait_for_new_network_cause_ = migration_cause;
+  if (!wait_for_new_network_timer_.IsRunning()) {
+    CHECK(wait_for_new_network_start_time_.is_null());
+    wait_for_new_network_start_time_ = tick_clock_->NowTicks();
+    base::TimeDelta timeout =
+        features::kQuicWaitForNewNetworkTimeoutParam.Get();
 
-  // Post a task to maybe close the session if the alarm fires.
-  task_runner_->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&QuicChromiumClientSession::OnMigrationTimeout,
-                     weak_factory_.GetWeakPtr(), packet_readers_.size(),
-                     migration_cause),
-      timeout);
+    // Start a timer to maybe close the session if the alarm fires.
+    wait_for_new_network_timer_.Start(
+        FROM_HERE, timeout,
+        base::BindOnce(&QuicChromiumClientSession::OnMigrationTimeout,
+                       weak_factory_.GetWeakPtr()));
+  }
+}
+
+void QuicChromiumClientSession::ResetWaitForNewNetworkState(
+    std::optional<QuicMigrationAttemptCause> superseded_by_cause) {
+  wait_for_new_network_timer_.Stop();
+  if (wait_for_new_network_cause_.has_value() &&
+      superseded_by_cause.has_value()) {
+    QuicMigrationAttemptContext::RecordSuperseded(*wait_for_new_network_cause_,
+                                                  *superseded_by_cause);
+  }
+  wait_for_new_network_cause_.reset();
+  wait_for_new_network_start_time_ = base::TimeTicks();
 }
 
 void QuicChromiumClientSession::WriteToNewSocket() {
@@ -2617,21 +2574,15 @@ void QuicChromiumClientSession::WriteToNewSocket() {
       ->set_force_write_blocked(false);
 }
 
-void QuicChromiumClientSession::OnMigrationTimeout(
-    size_t num_sockets,
-    QuicMigrationAttemptCause migration_cause) {
-  // If number of sockets has changed, this migration task is stale.
-  // TODO(crbug.com/570465677): Stop approximating whether a migration has
-  // happened via `num_sockets`. Instead, control whether OnMigrationTimeout has
-  // become stale by checking `wait_for_new_network_cause_`. This requires
-  // clearing `wait_for_new_network_cause_` whenever we decide to abandon the
-  // "waiting for new network" state.
-  if (num_sockets != packet_readers_.size()) {
-    return;
-  }
+void QuicChromiumClientSession::OnMigrationTimeout() {
+  // `wait_for_new_network_timer_` is only started in `OnNoNewNetwork()` (which
+  // sets `wait_for_new_network_cause_`) and is always stopped in
+  // `ResetWaitForNewNetworkState()` whenever `wait_for_new_network_cause_` is
+  // cleared.
+  CHECK(wait_for_new_network_cause_.has_value());
 
-  wait_for_new_network_cause_.reset();
-  wait_for_new_network_start_time_ = base::TimeTicks();
+  QuicMigrationAttemptCause migration_cause = *wait_for_new_network_cause_;
+  ResetWaitForNewNetworkState(/*superseded_by_cause=*/std::nullopt);
 
   net_log_.AddEvent(
       NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE_WAITING_FOR_NETWORK);
@@ -2646,8 +2597,7 @@ void QuicChromiumClientSession::OnMigrationTimeout(
                       ? ERR_INTERNET_DISCONNECTED
                       : ERR_NETWORK_CHANGED;
 
-  // |current_migration_cause_| will be reset after logging.
-  LogMigrationResultToHistogram(MIGRATION_STATUS_TIMEOUT);
+  current_migration_cause_ = QuicMigrationAttemptCause::kUnknown;
 
   CloseSessionOnError(net_error, quic::QUIC_CONNECTION_MIGRATION_NO_NEW_NETWORK,
                       quic::ConnectionCloseBehavior::SILENT_CLOSE);
@@ -2664,8 +2614,6 @@ void QuicChromiumClientSession::OnPortMigrationProbeSucceeded(
                           &migration_context->target_peer_address(),
                           /*is_success=*/true);
                     });
-
-  LogProbeResultToHistogram(current_migration_cause_, true);
 
   // Remove |this| as the old packet writer's delegate. Write error on old
   // writers will be ignored.
@@ -2699,16 +2647,13 @@ void QuicChromiumClientSession::OnPortMigrationProbeSucceeded(
   }
 
   if (!CommitMigration(std::move(migration_context))) {
-    LogMigrateToSocketStatus(false);
     net_log_.AddEvent(
         NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE_AFTER_PROBING);
     return;
   }
 
-  LogMigrateToSocketStatus(true);
-
   num_migrations_++;
-  HistogramAndLogMigrationSuccess(connection_id());
+  LogMigrationSuccess(connection_id());
 }
 
 void QuicChromiumClientSession::OnConnectionMigrationProbeSucceeded(
@@ -2726,8 +2671,6 @@ void QuicChromiumClientSession::OnConnectionMigrationProbeSucceeded(
   if (network == handles::kInvalidNetworkHandle) {
     return;
   }
-
-  LogProbeResultToHistogram(current_migration_cause_, true);
 
   // Remove |this| as the old packet writer's delegate. Write error on old
   // writers will be ignored.
@@ -2767,19 +2710,16 @@ void QuicChromiumClientSession::OnConnectionMigrationProbeSucceeded(
   }
 
   if (!CommitMigration(std::move(migration_context))) {
-    LogMigrateToSocketStatus(false);
     net_log_.AddEvent(
         NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE_AFTER_PROBING);
     return;
   }
 
-  LogMigrateToSocketStatus(true);
-
   net_log_.AddEventWithInt64Params(
       NetLogEventType::QUIC_CONNECTION_MIGRATION_SUCCESS_AFTER_PROBING,
       "migrate_to_network", network);
   num_migrations_++;
-  HistogramAndLogMigrationSuccess(connection_id());
+  LogMigrationSuccess(connection_id());
   if (network == default_network_) {
     DVLOG(1) << "Client successfully migrated to default network: "
              << default_network_;
@@ -2813,7 +2753,6 @@ void QuicChromiumClientSession::OnServerPreferredAddressProbeSucceeded(
                           /*is_success=*/true);
                     });
 
-  LogProbeResultToHistogram(current_migration_cause_, true);
   connection()->mutable_stats().server_preferred_address_validated = true;
 
   // Remove |this| as the old packet writer's delegate. Write error on old
@@ -2825,16 +2764,13 @@ void QuicChromiumClientSession::OnServerPreferredAddressProbeSucceeded(
   migration_context->writer()->set_delegate(this);
 
   if (!CommitMigration(std::move(migration_context))) {
-    LogMigrateToSocketStatus(false);
     net_log_.AddEvent(
         NetLogEventType::QUIC_CONNECTION_MIGRATION_FAILURE_AFTER_PROBING);
     return;
   }
 
-  LogMigrateToSocketStatus(true);
-
   num_migrations_++;
-  HistogramAndLogMigrationSuccess(connection_id());
+  LogMigrationSuccess(connection_id());
 }
 
 void QuicChromiumClientSession::LogProbeFailure(
@@ -2845,8 +2781,6 @@ void QuicChromiumClientSession::LogProbeFailure(
                       return NetLogProbingResultParams(network, &peer_address,
                                                        /*is_success=*/false);
                     });
-
-  LogProbeResultToHistogram(current_migration_cause_, false);
 
   if (network != handles::kInvalidNetworkHandle) {
     // Probing failure can be ignored.
@@ -2941,12 +2875,33 @@ void QuicChromiumClientSession::OnNetworkConnected(
         "connected_network", network);
   }
   if (wait_for_new_network_cause_.has_value()) {
+    if (network == GetCurrentNetwork()) {
+      // In theory, `OnNetworkConnected` should only be called for a newly
+      // connected network, which should never have a network_handle that
+      // matches a previously connected network. Having said that, in practice,
+      // histograms data (`kAlreadyOnTargetNetwork` in
+      // `Net.Quic.Migration.Attempt.Ineligible.ByTrigger.*`) show that this can
+      // happen, especially when waiting after a write error (where
+      // `GetCurrentNetwork()` never disconnected and a queued or duplicate
+      // `OnNetworkConnected` notification arrives for it).
+      //
+      // Proceeding here would call `ResetWaitForNewNetworkState()` (stopping
+      // the wait timer) and fail to migrate in `MigrateNetworkImmediately()`.
+      // To err on the safe side, and preserve pre-existing behavior, ignore
+      // notifications for the current network and keep waiting for an alternate
+      // one until the wait timer expires.
+      //
+      // Note: We should take a closer look into why this is really happening.
+      return;
+    }
     QuicMigrationAttemptCause migration_cause = *wait_for_new_network_cause_;
-    wait_for_new_network_cause_.reset();
     CHECK(!wait_for_new_network_start_time_.is_null());
     base::TimeDelta duration =
         tick_clock_->NowTicks() - wait_for_new_network_start_time_;
-    wait_for_new_network_start_time_ = base::TimeTicks();
+    // An alternate network connected while waiting; exit the waiting state
+    // (stopping the timeout timer) without recording it as superseded, as the
+    // waiting attempt itself is now proceeding via `MigrateNetworkImmediately`.
+    ResetWaitForNewNetworkState(/*superseded_by_cause=*/std::nullopt);
     QuicMigrationAttemptContext::RecordWaitForNewNetworkDuration(
         migration_cause, duration);
     net_log_.AddEventWithInt64Params(
@@ -3010,7 +2965,6 @@ void QuicChromiumClientSession::OnNetworkDisconnectedV2(
   }
 
   current_migration_cause_ = QuicMigrationAttemptCause::kOnNetworkDisconnected;
-  LogHandshakeStatusOnMigrationSignal();
   if (!OneRttKeysAvailable()) {
     QuicMigrationAttemptContext::RecordIneligible(
         QuicMigrationAttemptCause::kOnNetworkDisconnected,
@@ -3082,13 +3036,9 @@ void QuicChromiumClientSession::OnNetworkMadeDefault(
     QuicMigrationAttemptContext::RecordIneligible(
         QuicMigrationAttemptCause::kOnNetworkMadeDefault,
         QuicMigrationAttemptIneligibleReason::kAlreadyOnTargetNetwork);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_ALREADY_MIGRATED,
-                                    connection_id(),
-                                    "Already migrated on the new network");
+    LogMigrationFailure(connection_id(), "Already migrated on the new network");
     return;
   }
-
-  LogHandshakeStatusOnMigrationSignal();
 
   // Stay on the current network. Try to migrate back to default network
   // without any delay, which will start probing the new default network and
@@ -3108,11 +3058,17 @@ void QuicChromiumClientSession::MigrateNetworkImmediately(
 
   DCHECK(migrate_session_on_network_change_v2_);
 
+  // If `MigrateNetworkImmediately` is triggered while already waiting for a new
+  // network (e.g. `OnNetworkDisconnectedV2` found an alternate network while
+  // waiting after a write error), the waiting attempt is superseded by
+  // `migration_cause`. (If called from `OnNetworkConnected`, the waiting state
+  // was already cleared above, making this a no-op.)
+  ResetWaitForNewNetworkState(migration_cause);
+
   if (!migrate_idle_session_ && !HasActiveRequestStreams()) {
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause, QuicMigrationAttemptIneligibleReason::kIdleSession);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_NO_MIGRATABLE_STREAMS,
-                                    connection_id(), "No active streams");
+    LogMigrationFailure(connection_id(), "No active streams");
     CloseSessionOnErrorLater(
         ERR_NETWORK_CHANGED,
         quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
@@ -3132,22 +3088,22 @@ void QuicChromiumClientSession::MigrateNetworkImmediately(
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause,
         QuicMigrationAttemptIneligibleReason::kDisabledByServer);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_DISABLED_BY_CONFIG,
-                                    connection_id(),
-                                    "Migration disabled by config");
+    LogMigrationFailure(connection_id(), "Migration disabled by config");
     CloseSessionOnErrorLater(ERR_NETWORK_CHANGED,
                              quic::QUIC_CONNECTION_MIGRATION_DISABLED_BY_CONFIG,
                              quic::ConnectionCloseBehavior::SILENT_CLOSE);
     return;
   }
 
+  // TODO(crbug.com/569907989): Both callers (`OnNetworkConnected` and
+  // `OnNetworkDisconnectedV2`) now guarantee `network != GetCurrentNetwork()`.
+  // Replace this branch with `CHECK_NE(network, GetCurrentNetwork())` once
+  // histograms confirm `kAlreadyOnTargetNetwork` is no longer recorded here.
   if (network == GetCurrentNetwork()) {
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause,
         QuicMigrationAttemptIneligibleReason::kAlreadyOnTargetNetwork);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_ALREADY_MIGRATED,
-                                    connection_id(),
-                                    "Already bound to new network");
+    LogMigrationFailure(connection_id(), "Already bound to new network");
     return;
   }
 
@@ -3346,6 +3302,8 @@ void QuicChromiumClientSession::CloseSessionOnError(
     int net_error,
     quic::QuicErrorCode quic_error,
     quic::ConnectionCloseBehavior behavior) {
+  // The session is closing; cancel any pending wait-for-new-network timer.
+  ResetWaitForNewNetworkState(/*superseded_by_cause=*/std::nullopt);
   base::UmaHistogramSparse("Net.QuicSession.CloseSessionOnError", -net_error);
 
   if (!callback_.is_null()) {
@@ -3370,6 +3328,11 @@ void QuicChromiumClientSession::CloseSessionOnErrorLater(
     int net_error,
     quic::QuicErrorCode quic_error,
     quic::ConnectionCloseBehavior behavior) {
+  // The session is being closed; clear any wait-for-new-network state and stop
+  // the timer immediately so we don't rely on downstream teardown side effects
+  // (`CloseConnection()` or `NotifyFactoryOfSessionClosedLater()`) to cancel
+  // pending migration.
+  ResetWaitForNewNetworkState(/*superseded_by_cause=*/std::nullopt);
   base::UmaHistogramSparse("Net.QuicSession.CloseSessionOnError", -net_error);
 
   if (!callback_.is_null()) {
@@ -3439,9 +3402,8 @@ void QuicChromiumClientSession::MaybeMigrateToDifferentPortOnPathDegrading() {
     QuicMigrationAttemptContext::RecordIneligible(
         QuicMigrationAttemptCause::kChangePortOnPathDegrading,
         QuicMigrationAttemptIneligibleReason::kHandshakeNotConfirmed);
-    HistogramAndLogMigrationFailure(
-        MIGRATION_STATUS_PATH_DEGRADING_BEFORE_HANDSHAKE_CONFIRMED,
-        connection_id(), "Path degrading before handshake confirmed");
+    LogMigrationFailure(connection_id(),
+                        "Path degrading before handshake confirmed");
     return;
   }
 
@@ -3449,9 +3411,7 @@ void QuicChromiumClientSession::MaybeMigrateToDifferentPortOnPathDegrading() {
     QuicMigrationAttemptContext::RecordIneligible(
         QuicMigrationAttemptCause::kChangePortOnPathDegrading,
         QuicMigrationAttemptIneligibleReason::kDisabledByServer);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_DISABLED_BY_CONFIG,
-                                    connection_id(),
-                                    "Migration disabled by config");
+    LogMigrationFailure(connection_id(), "Migration disabled by config");
     return;
   }
 
@@ -3482,9 +3442,8 @@ void QuicChromiumClientSession::MaybeMigrateToAlternateNetworkOnPathDegrading(
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause,
         QuicMigrationAttemptIneligibleReason::kDisabledByClient);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_PATH_DEGRADING_NOT_ENABLED,
-                                    connection_id(),
-                                    "Migration on path degrading not enabled");
+    LogMigrationFailure(connection_id(),
+                        "Migration on path degrading not enabled");
     return;
   }
 
@@ -3494,8 +3453,8 @@ void QuicChromiumClientSession::MaybeMigrateToAlternateNetworkOnPathDegrading(
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause,
         QuicMigrationAttemptIneligibleReason::kTooManyMigrations);
-    HistogramAndLogMigrationFailure(
-        MIGRATION_STATUS_ON_PATH_DEGRADING_DISABLED, connection_id(),
+    LogMigrationFailure(
+        connection_id(),
         "Exceeds maximum number of migrations on path degrading");
     return;
   }
@@ -3506,21 +3465,17 @@ void QuicChromiumClientSession::MaybeMigrateToAlternateNetworkOnPathDegrading(
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause,
         QuicMigrationAttemptIneligibleReason::kNoAlternateNetwork);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_NO_ALTERNATE_NETWORK,
-                                    connection_id(),
-                                    "No alternative network on path degrading");
+    LogMigrationFailure(connection_id(),
+                        "No alternative network on path degrading");
     return;
   }
-
-  LogHandshakeStatusOnMigrationSignal();
 
   if (!connection()->IsHandshakeConfirmed()) {
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause,
         QuicMigrationAttemptIneligibleReason::kHandshakeNotConfirmed);
-    HistogramAndLogMigrationFailure(
-        MIGRATION_STATUS_PATH_DEGRADING_BEFORE_HANDSHAKE_CONFIRMED,
-        connection_id(), "Path degrading before handshake confirmed");
+    LogMigrationFailure(connection_id(),
+                        "Path degrading before handshake confirmed");
     return;
   }
 
@@ -3568,8 +3523,7 @@ void QuicChromiumClientSession::MaybeStartProbing(
   if (!migrate_idle_session_ && !HasActiveRequestStreams()) {
     QuicMigrationAttemptContext::RecordIneligible(
         migration_cause, QuicMigrationAttemptIneligibleReason::kIdleSession);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_NO_MIGRATABLE_STREAMS,
-                                    connection_id(), "No active streams");
+    LogMigrationFailure(connection_id(), "No active streams");
     CloseSessionOnErrorLater(
         ERR_NETWORK_CHANGED,
         quic::QUIC_CONNECTION_MIGRATION_NO_MIGRATABLE_STREAMS,
@@ -3596,9 +3550,7 @@ void QuicChromiumClientSession::MaybeStartProbing(
         QuicMigrationAttemptIneligibleReason::kDisabledByServer);
     DVLOG(1) << "Client disables probing network with connection migration "
              << "disabled by config";
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_DISABLED_BY_CONFIG,
-                                    connection_id(),
-                                    "Migration disabled by config");
+    LogMigrationFailure(connection_id(), "Migration disabled by config");
     task_runner_->PostTask(FROM_HERE,
                            base::BindOnce(std::move(probing_callback),
                                           ProbingResult::DISABLED_BY_CONFIG));
@@ -3698,10 +3650,8 @@ void QuicChromiumClientSession::MigrateToMultiPortPath(
   migration_context->writer()->set_delegate(this);
 
   if (!CommitMigration(std::move(migration_context))) {
-    LogMigrateToSocketStatus(false);
     return;
   }
-  LogMigrateToSocketStatus(true);
   num_migrations_++;
 }
 
@@ -3766,9 +3716,7 @@ void QuicChromiumClientSession::FinishStartProbing(
   if (rv != OK) {
     CHECK(error_step.has_value());
     context->SetSocketConfigFailure(*error_step, rv);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_INTERNAL_ERROR,
-                                    connection_id(),
-                                    "Socket configuration failed");
+    LogMigrationFailure(connection_id(), "Socket configuration failed");
     task_runner_->PostTask(FROM_HERE,
                            base::BindOnce(std::move(probing_callback),
                                           ProbingResult::INTERNAL_ERROR));
@@ -3921,9 +3869,7 @@ bool QuicChromiumClientSession::CheckIdleTimeExceedsIdleMigrationPeriod() {
     return false;
   }
 
-  HistogramAndLogMigrationFailure(MIGRATION_STATUS_IDLE_MIGRATION_TIMEOUT,
-                                  connection_id(),
-                                  "Idle migration period exceeded");
+  LogMigrationFailure(connection_id(), "Idle migration period exceeded");
   CloseSessionOnErrorLater(ERR_NETWORK_CHANGED, quic::QUIC_NETWORK_IDLE_TIMEOUT,
                            quic::ConnectionCloseBehavior::SILENT_CLOSE);
   return true;
@@ -3991,69 +3937,7 @@ void QuicChromiumClientSession::LogMetricsOnNetworkMadeDefault() {
   }
 }
 
-void QuicChromiumClientSession::LogMigrationResultToHistogram(
-    QuicConnectionMigrationStatus status) {
-  if (current_migration_cause_ ==
-      QuicMigrationAttemptCause::kChangePortOnPathDegrading) {
-    UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.PortMigration", status,
-                              MIGRATION_STATUS_MAX);
-    current_migration_cause_ = QuicMigrationAttemptCause::kUnknown;
-    return;
-  }
-
-  if (current_migration_cause_ ==
-      QuicMigrationAttemptCause::kOnServerPreferredAddressAvailable) {
-    UMA_HISTOGRAM_ENUMERATION(
-        "Net.QuicSession.OnServerPreferredAddressAvailable", status,
-        MIGRATION_STATUS_MAX);
-    current_migration_cause_ = QuicMigrationAttemptCause::kUnknown;
-    return;
-  }
-
-  UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.ConnectionMigration", status,
-                            MIGRATION_STATUS_MAX);
-
-  // Log the connection migration on result to different histograms based on the
-  // cause of the connection migration.
-  const auto histogram_name =
-      base::StrCat({"Net.QuicSession.ConnectionMigration.",
-                    MigrationCauseToString(current_migration_cause_)});
-  base::UmaHistogramEnumeration(histogram_name, status, MIGRATION_STATUS_MAX);
-  current_migration_cause_ = QuicMigrationAttemptCause::kUnknown;
-}
-
-void QuicChromiumClientSession::LogHandshakeStatusOnMigrationSignal() const {
-  if (current_migration_cause_ ==
-      QuicMigrationAttemptCause::kChangePortOnPathDegrading) {
-    UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HandshakeStatusOnPortMigration",
-                          OneRttKeysAvailable());
-    return;
-  }
-
-  if (current_migration_cause_ ==
-      QuicMigrationAttemptCause::kOnServerPreferredAddressAvailable) {
-    UMA_HISTOGRAM_BOOLEAN(
-        "Net.QuicSession.HandshakeStatusOnMigratingToServerPreferredAddress",
-        OneRttKeysAvailable());
-    return;
-  }
-
-  UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HandshakeStatusOnConnectionMigration",
-                        OneRttKeysAvailable());
-
-  const auto histogram_name =
-      base::StrCat({"Net.QuicSession.HandshakeStatusOnConnectionMigration.",
-                    MigrationCauseToString(current_migration_cause_)});
-  STATIC_HISTOGRAM_POINTER_GROUP(
-      histogram_name, static_cast<int>(current_migration_cause_),
-      static_cast<int>(QuicMigrationAttemptCause::kMaxValue) + 1,
-      AddBoolean(OneRttKeysAvailable()),
-      base::BooleanHistogram::FactoryGet(
-          histogram_name, base::HistogramBase::kUmaTargetedHistogramFlag));
-}
-
-void QuicChromiumClientSession::HistogramAndLogMigrationFailure(
-    QuicConnectionMigrationStatus status,
+void QuicChromiumClientSession::LogMigrationFailure(
     quic::QuicConnectionId connection_id,
     const char* reason) {
   NetLogEventType event_type =
@@ -4071,11 +3955,10 @@ void QuicChromiumClientSession::HistogramAndLogMigrationFailure(
     return NetLogQuicMigrationFailureParams(connection_id, reason);
   });
 
-  // |current_migration_cause_| will be reset afterwards.
-  LogMigrationResultToHistogram(status);
+  current_migration_cause_ = QuicMigrationAttemptCause::kUnknown;
 }
 
-void QuicChromiumClientSession::HistogramAndLogMigrationSuccess(
+void QuicChromiumClientSession::LogMigrationSuccess(
     quic::QuicConnectionId connection_id) {
   NetLogEventType event_type =
       NetLogEventType::QUIC_CONNECTION_MIGRATION_SUCCESS;
@@ -4092,8 +3975,7 @@ void QuicChromiumClientSession::HistogramAndLogMigrationSuccess(
     return NetLogQuicMigrationSuccessParams(connection_id);
   });
 
-  // |current_migration_cause_| will be reset afterwards.
-  LogMigrationResultToHistogram(MIGRATION_STATUS_SUCCESS);
+  current_migration_cause_ = QuicMigrationAttemptCause::kUnknown;
 }
 
 void QuicChromiumClientSession::LogPathValidationFailure(
@@ -4102,7 +3984,6 @@ void QuicChromiumClientSession::LogPathValidationFailure(
       /*is_multi_port=*/false, *context);
   // Note that socket, packet writer, and packet reader in |context| will be
   // discarded.
-  QuicConnectionMigrationStatus status = MIGRATION_STATUS_INTERNAL_ERROR;
   const char* reason = "Unknown";
   using enum quic::PathValidationFailure::Reason;
 
@@ -4115,31 +3996,21 @@ void QuicChromiumClientSession::LogPathValidationFailure(
       // This should never happen. We should CHECK-fail, but we're not 100%
       // certain yet that it won't happen in production. Consider CHECK-failing
       // once confirmed via metrics.
-      status = MIGRATION_STATUS_INTERNAL_ERROR;
       reason = "Unknown";
       migration_context->SetFailure(
           QuicMigrationAttemptFailureReason::kProbeUnknownFailure);
       break;
     case kNoAvailableConnectionId:
-      // `status` is only used by the old migration UMAs, which will soon be
-      // removed. Keep reporting `MIGRATION_STATUS_INTERNAL_ERROR` as was done
-      // previously.
-      status = MIGRATION_STATUS_INTERNAL_ERROR;
       reason = "No unused server connection ID";
       migration_context->SetFailure(
           QuicMigrationAttemptFailureReason::kNoUnusedConnectionId);
       break;
     case kWriterError:
-      // `status` is only used by the old migration UMAs, which will soon be
-      // removed. Keep reporting `MIGRATION_STATUS_INTERNAL_ERROR` as was done
-      // previously.
-      status = MIGRATION_STATUS_INTERNAL_ERROR;
       reason = "Probing socket write error";
       migration_context->SetFailure(
           QuicMigrationAttemptFailureReason::kProbeWriteError);
       break;
     case kStatelessReset:
-      status = MIGRATION_STATUS_STATELESS_RESET;
       reason = "Received Stateless Reset";
       migration_context->SetFailure(
           QuicMigrationAttemptFailureReason::kStatelessReset);
@@ -4155,19 +4026,16 @@ void QuicChromiumClientSession::LogPathValidationFailure(
     case kNewerValidationOnServerPreferredAddressAvailable:
     case kNewerValidationOnMultiPortPath:
     case kNewerValidation:
-      status = MIGRATION_STATUS_CANCELED_BY_NEWER_VALIDATION;
       reason = "New migration, canceling old validation";
       migration_context->SetSuperseded(
           QuicheFailureReasonToChromiumMigrationCause(failure_reason));
       break;
     case kRetryTimeout:
-      status = MIGRATION_STATUS_TIMEOUT;
       reason = "Retry Timeout";
       migration_context->SetFailure(
           QuicMigrationAttemptFailureReason::kProbeTimeout);
       break;
     case kNotConnected:
-      status = MIGRATION_STATUS_DISCONNECTING;
       reason = "Disconnecting, abandoning validation";
       migration_context->SetIneligible(
           QuicMigrationAttemptIneligibleReason::kDisconnectedDuringProbing);
@@ -4180,7 +4048,7 @@ void QuicChromiumClientSession::LogPathValidationFailure(
   // or add a member to QuicConnection to return the alternate path connection
   // ID.
   LogProbeFailure(context->network(), context->peer_address());
-  HistogramAndLogMigrationFailure(status, connection_id(), reason);
+  LogMigrationFailure(connection_id(), reason);
 }
 
 base::DictValue QuicChromiumClientSession::GetInfoAsValue(
@@ -4296,6 +4164,11 @@ void QuicChromiumClientSession::NotifyFactoryOfSessionGoingAway() {
 }
 
 void QuicChromiumClientSession::NotifyFactoryOfSessionClosedLater() {
+  // The underlying connection is already closed; clear any wait-for-new-network
+  // state and stop the timer so neither `OnMigrationTimeout` nor
+  // `OnNetworkConnected` can act on a closed connection before the posted
+  // `NotifyFactoryOfSessionClosed` task destroys the session.
+  ResetWaitForNewNetworkState(/*superseded_by_cause=*/std::nullopt);
   going_away_ = true;
   DCHECK_EQ(0u, GetNumActiveStreams());
   DCHECK(!connection()->connected());
@@ -4505,9 +4378,7 @@ void QuicChromiumClientSession::FinishMigrateWithoutProbing(
   if (rv != OK) {
     CHECK(error_step.has_value());
     migration_context->SetSocketConfigFailure(*error_step, rv);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_INTERNAL_ERROR,
-                                    connection_id(),
-                                    "Socket configuration failed");
+    LogMigrationFailure(connection_id(), "Socket configuration failed");
     static_cast<QuicChromiumPacketWriter*>(connection()->writer())
         ->set_force_write_blocked(false);
     task_runner_->PostTask(
@@ -4543,7 +4414,7 @@ void QuicChromiumClientSession::FinishMigrateWithoutProbing(
     return;
   }
   quic_connection_migration_successful_ = true;
-  HistogramAndLogMigrationSuccess(connection_id());
+  LogMigrationSuccess(connection_id());
   task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&QuicChromiumClientSession::DoMigrationCallback,
                                 weak_factory_.GetWeakPtr(), std::move(callback),
@@ -4577,8 +4448,7 @@ bool QuicChromiumClientSession::CommitMigration(
       packet_readers_.size() >= kMaxReadersPerQuicSession) {
     migration_context->SetIneligible(
         QuicMigrationAttemptIneligibleReason::kTooManyPacketReaders);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_TOO_MANY_CHANGES,
-                                    connection_id(), "Too many changes");
+    LogMigrationFailure(connection_id(), "Too many changes");
     return false;
   }
 
@@ -4614,9 +4484,7 @@ bool QuicChromiumClientSession::CommitMigration(
   if (!rv) {
     migration_context->SetFailure(
         QuicMigrationAttemptFailureReason::kNoUnusedConnectionId);
-    HistogramAndLogMigrationFailure(MIGRATION_STATUS_NO_UNUSED_CONNECTION_ID,
-                                    connection_id(),
-                                    "No unused server connection ID");
+    LogMigrationFailure(connection_id(), "No unused server connection ID");
     DVLOG(1) << "MigratePath fails as there is no CID available";
     return false;
   }
@@ -4626,6 +4494,10 @@ bool QuicChromiumClientSession::CommitMigration(
   task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&QuicChromiumClientSession::WriteToNewSocket,
                                 weak_factory_.GetWeakPtr()));
+  // If another migration (e.g. an in-flight probe or a write-error migration)
+  // commits while the session was waiting for a new network, the waiting
+  // attempt is superseded by `migration_context->cause()`.
+  ResetWaitForNewNetworkState(migration_context->cause());
   migration_context->SetSuccess();
   return true;
 }

@@ -9,6 +9,7 @@ import type {SettingsIdentityDocsPageElement} from './identity_docs_page.js';
 export function getHtml(this: SettingsIdentityDocsPageElement) {
   return html`<!--_html_template_start_-->
 <settings-subpage page-title="$i18n{identityDocsCardTitle}"
+    route-path="${this.routePath}"
     class="multi-card">
 
   <div class="card">
@@ -16,7 +17,8 @@ export function getHtml(this: SettingsIdentityDocsPageElement) {
         ?disabled="${this.optInToggleDisabled_()}"
         @settings-boolean-control-change="${
             this.onOptInToggleSettingsBooleanControlChange_}"
-        .pref="${this.identityDocsOptedIn_}"
+        pref-key="synthetic.settings.autofill.identity_docs_opted_in"
+        no-set-pref
         no-extension-indicator
         label="$i18n{identityDocsOptInToggleLabel}"
         sub-label="$i18n{identityDocsOptInToggleSubLabel}">
@@ -48,7 +50,7 @@ export function getHtml(this: SettingsIdentityDocsPageElement) {
         page-name="IdentityDocs"
         .allowedEntityTypes="${this.allowedEntityTypes_}"
         .metricEntityTypes="${this.metricEntityTypes_}"
-        .allowNewEntitiesAdditionPref="${this.identityDocsOptedIn_}">
+        .allowNewEntitiesAdditionPref="${this.identityDocsOptedInPref_}">
     </settings-autofill-ai-entries-list>
   </div>
 

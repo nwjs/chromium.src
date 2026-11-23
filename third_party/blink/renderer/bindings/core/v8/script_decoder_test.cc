@@ -16,8 +16,6 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/worker_pool.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
@@ -51,6 +49,11 @@ class DummyResponseBodyLoaderClient
   void DidFinishLoadingBody() override { NOTREACHED(); }
   void DidFailLoadingBody() override { NOTREACHED(); }
   void DidCancelLoadingBody() override { NOTREACHED(); }
+  void WillCreateBlobFromDrainedDataPipe() override { NOTREACHED(); }
+  void DidCreateBlobFromDrainedDataPipe(
+      const scoped_refptr<BlobDataHandle>&) override {
+    NOTREACHED();
+  }
 
   const Deque<Vector<char>>& raw_data() const {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);

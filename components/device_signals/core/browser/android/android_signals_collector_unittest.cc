@@ -4,8 +4,10 @@
 
 #include "components/device_signals/core/browser/android/android_signals_collector.h"
 
+#include <algorithm>
 #include <array>
 #include <utility>
+#include <vector>
 
 #include "base/android/android_info.h"
 #include "base/android/device_info.h"
@@ -14,6 +16,7 @@
 #include "base/system/sys_info.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/values.h"
+#include "components/device_signals/core/browser/android/mock_os_security_info_provider.h"
 #include "components/device_signals/core/browser/browser_utils.h"
 #include "components/device_signals/core/browser/os_signals_collector_test_base.h"
 #include "components/device_signals/core/browser/signals_types.h"
@@ -32,6 +35,7 @@
 
 using testing::_;
 using testing::ContainerEq;
+using testing::NiceMock;
 using testing::Return;
 using testing::StrictMock;
 
@@ -46,6 +50,14 @@ constexpr char kHarmfulAppsCountHistogramName[] =
     "Enterprise.DeviceSignals.HarmfulApps.Count";
 constexpr char kSafetyNetLatencyHistogramName[] =
     "Enterprise.DeviceSignals.SafetyNet.Latency";
+constexpr char kCollectionSuccessHistogramName[] =
+    "Enterprise.DeviceSignals.Collection.Success";
+constexpr char kCollectionFailureHistogramName[] =
+    "Enterprise.DeviceSignals.Collection.Failure";
+constexpr char kOsSignalsSuccessLatencyHistogramName[] =
+    "Enterprise.DeviceSignals.Collection.Success.OsSignals.Latency";
+constexpr char kVerifyAppsSuccessLatencyHistogramName[] =
+    "Enterprise.DeviceSignals.Collection.Success.VerifyApps.Latency";
 
 constexpr int kSampleHarmfulAppsErrorCode = 123;
 
@@ -58,9 +70,14 @@ class AndroidSignalsCollectorTest : public GenericOsSignalsCollectorTestBase {
   void SetUp() override {
     task_environment_ = std::make_unique<content::BrowserTaskEnvironment>();
     GenericOsSignalsCollectorTestBase::SetUp();
+    auto mock_os_security_info_provider =
+        std::make_unique<NiceMock<MockOsSecurityInfoProvider>>();
+    mock_os_security_info_provider_ = mock_os_security_info_provider.get();
     signal_collector_ = std::make_unique<AndroidSignalsCollector>(
-        mock_browser_cloud_policy_manager_.get());
+        mock_browser_cloud_policy_manager_.get(),
+        std::move(mock_os_security_info_provider));
 
+    SetDeviceSecure(true);
     SetVerifyAppsResult(VerifyAppsEnabledResult::SUCCESS_NOT_ENABLED);
     SetHarmfulAppsResult(HasHarmfulAppsResultStatus::SUCCESS, 2);
   }
@@ -78,6 +95,14 @@ class AndroidSignalsCollectorTest : public GenericOsSignalsCollectorTestBase {
               base::android::android_info::manufacturer());
     EXPECT_EQ(response.security_patch_ms,
               device_signals::GetSecurityPatchLevelEpoch());
+    EXPECT_EQ(response.screen_lock_secured, expected_screen_lock_secured_);
+  }
+
+  void SetDeviceSecure(bool is_device_secure) {
+    ON_CALL(*mock_os_security_info_provider_, IsDeviceSecure())
+        .WillByDefault(Return(is_device_secure));
+    expected_screen_lock_secured_ =
+        is_device_secure ? SettingValue::ENABLED : SettingValue::DISABLED;
   }
 
   void CheckVerifyAppsSignalsCollected(VerifyAppsSignalsResponse& response) {
@@ -128,7 +153,32 @@ class AndroidSignalsCollectorTest : public GenericOsSignalsCollectorTestBase {
             expected_harmful_app_count_ != 0);
   }
 
+  // Verifies that exactly one successful collection outcome was recorded for
+  // each signal in `signal_names`, and that no failure was recorded.
+  void ExpectCollectionSuccessLogged(
+      const std::vector<SignalName>& signal_names) {
+    histogram_tester_.ExpectTotalCount(kCollectionSuccessHistogramName,
+                                       signal_names.size());
+    for (SignalName signal_name : signal_names) {
+      histogram_tester_.ExpectBucketCount(kCollectionSuccessHistogramName,
+                                          signal_name, 1);
+    }
+    histogram_tester_.ExpectTotalCount(
+        kOsSignalsSuccessLatencyHistogramName,
+        std::ranges::contains(signal_names, SignalName::kOsSignals) ? 1 : 0);
+    histogram_tester_.ExpectTotalCount(
+        kVerifyAppsSuccessLatencyHistogramName,
+        std::ranges::contains(signal_names, SignalName::kVerifyApps) ? 1 : 0);
+    histogram_tester_.ExpectTotalCount(kCollectionFailureHistogramName, 0);
+  }
+
+  // Verifies that no collection outcome was recorded at all.
+  void ExpectNoCollectionOutcomeLogged() { ExpectCollectionSuccessLogged({}); }
+
   std::unique_ptr<AndroidSignalsCollector> signal_collector_;
+  // Owned by `signal_collector_`.
+  raw_ptr<NiceMock<MockOsSecurityInfoProvider>> mock_os_security_info_provider_;
+  SettingValue expected_screen_lock_secured_ = SettingValue::UNKNOWN;
   bool expected_verify_app_result_;
   HasHarmfulAppsResultStatus expected_harmful_app_result_;
   int expected_harmful_app_count_;
@@ -164,6 +214,27 @@ TEST_F(AndroidSignalsCollectorTest, GetOsSignals_Success) {
   ASSERT_TRUE(response.os_signals_response);
   CheckOsSignalsCollected(response.os_signals_response.value(),
                           /*can_collect_pii=*/true);
+  ExpectCollectionSuccessLogged({SignalName::kOsSignals});
+}
+
+// Tests that `screen_lock_secured` is DISABLED when the device is not secured.
+// The ENABLED case is covered by the default setup in the other OS signals
+// tests.
+TEST_F(AndroidSignalsCollectorTest, GetOsSignals_ScreenLockNotSecured) {
+  SetDeviceSecure(false);
+
+  SignalsAggregationRequest empty_request;
+  SignalsAggregationResponse response;
+  base::RunLoop run_loop;
+  signal_collector_->GetSignal(SignalName::kOsSignals, UserPermission::kGranted,
+                               empty_request, response, run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_FALSE(response.top_level_error.has_value());
+  ASSERT_TRUE(response.os_signals_response);
+  EXPECT_EQ(response.os_signals_response->screen_lock_secured,
+            SettingValue::DISABLED);
+  ExpectCollectionSuccessLogged({SignalName::kOsSignals});
 }
 
 // Happy path test case for VerifyApps signals collection with full permission.
@@ -186,6 +257,9 @@ TEST_F(AndroidSignalsCollectorTest, GetVerifyApps_Success) {
   ASSERT_TRUE(response.verify_apps_signals_response);
   CheckVerifyAppsSignalsCollected(
       response.verify_apps_signals_response.value());
+  // A SafetyNet failure still yields a response, so the collection itself is
+  // recorded as successful.
+  ExpectCollectionSuccessLogged({SignalName::kVerifyApps});
 }
 
 // Happy path test case for collecting both OS signals and VerifyApps signals.
@@ -220,6 +294,8 @@ TEST_F(AndroidSignalsCollectorTest, GetAllSignals_Success) {
   ASSERT_TRUE(response.verify_apps_signals_response);
   CheckVerifyAppsSignalsCollected(
       response.verify_apps_signals_response.value());
+  ExpectCollectionSuccessLogged(
+      {SignalName::kOsSignals, SignalName::kVerifyApps});
 }
 
 // Tests that an unsupported signal is marked as unsupported.
@@ -236,6 +312,7 @@ TEST_F(AndroidSignalsCollectorTest, GetOsSignal_Unsupported) {
   ASSERT_TRUE(response.top_level_error.has_value());
   EXPECT_EQ(response.top_level_error.value(),
             SignalCollectionError::kUnsupported);
+  ExpectNoCollectionOutcomeLogged();
 }
 
 // Tests that signal collection is still complete even when consent is missing.
@@ -254,6 +331,7 @@ TEST_F(AndroidSignalsCollectorTest, GetOsSignals_MissingConsent) {
   ASSERT_TRUE(response.os_signals_response);
   CheckOsSignalsCollected(response.os_signals_response.value(),
                           /*can_collect_pii=*/false);
+  ExpectCollectionSuccessLogged({SignalName::kOsSignals});
 }
 
 // Tests that signal collection is still complete even when consent is missing.
@@ -272,6 +350,7 @@ TEST_F(AndroidSignalsCollectorTest, GetVerifyApps_MissingConsent) {
   ASSERT_TRUE(response.verify_apps_signals_response);
   CheckVerifyAppsSignalsCollected(
       response.verify_apps_signals_response.value());
+  ExpectCollectionSuccessLogged({SignalName::kVerifyApps});
 }
 
 // Tests that signal collection is halted if permission is not sufficient.
@@ -286,6 +365,7 @@ TEST_F(AndroidSignalsCollectorTest, GetOsSignals_MissingUser) {
 
   ASSERT_FALSE(response.top_level_error.has_value());
   ASSERT_FALSE(response.os_signals_response);
+  ExpectNoCollectionOutcomeLogged();
 }
 
 // Tests that signal collection is halted if permission is not sufficient.
@@ -300,6 +380,7 @@ TEST_F(AndroidSignalsCollectorTest, GetVerifyApps_MissingUser) {
 
   ASSERT_FALSE(response.top_level_error.has_value());
   ASSERT_FALSE(response.verify_apps_signals_response);
+  ExpectNoCollectionOutcomeLogged();
 }
 
 }  // namespace device_signals

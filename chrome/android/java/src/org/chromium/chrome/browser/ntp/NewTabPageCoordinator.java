@@ -18,6 +18,7 @@ import android.view.View.OnLayoutChangeListener;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ApplicationStatus;
@@ -74,6 +75,7 @@ import org.chromium.chrome.browser.omnibox.SearchEngineService;
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineIconObserver;
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineNameObserver;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxIconUtils;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.setup_list.SetupListManager;
@@ -89,10 +91,12 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarEducationCoordinator;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.TouchEnabledDelegate;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest.UpdateReason;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
@@ -104,11 +108,17 @@ import org.chromium.chrome.browser.util.BrowserUiUtils.ModuleTypeOnStartAndNtp;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.widget.displaystyle.DisplayStyleObserver;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
+import org.chromium.components.contextual_search.InputState;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.omnibox.IconProto.Icon;
+import org.chromium.components.omnibox.InputSourceProto.InputSource;
+import org.chromium.components.omnibox.InputTypeConfigProto.InputTypeConfig;
+import org.chromium.components.omnibox.InputTypeProto.InputType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxFocusReason;
+import org.chromium.components.omnibox.ToolConfigProto.ToolConfig;
 import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.components.search_engines.TemplateUrlService;
@@ -239,6 +249,8 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     private boolean mIsComposeplatePolicyEnabled;
     private boolean mIsComposeplateViewInitialized;
     private @Nullable ComposeplateCoordinator mComposeplateCoordinator;
+    // The Composebox InputState for mProfile.
+    private @Nullable InputState mComposeboxInputState;
     // Previous visibility states for metrics.
     private @TriState int mPreviousVoiceSearchButtonVisible;
     private @TriState int mPreviousLensButtonVisible;
@@ -359,12 +371,20 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
         // TODO(crbug.com/517393491): Refactor to a reusable component to apply to other UiConfigs.
         mSideUiObserver =
-                (sideUiSpecs, request) -> {
-                    // During a live resize drag, the NTP view is only translated and keeps its
-                    // width (see CompositorViewHolder), so keep the inset until the resize is
-                    // committed. Updating it would relayout the NTP on every drag frame.
-                    if (request.mUpdateReason == UpdateReason.RESIZE_LIVE) return;
-                    updateUiConfigInsetForSideUi(sideUiSpecs);
+                new SideUiObserver() {
+                    @Override
+                    public void onSideUiSpecsChangeStarted(
+                            SideUiSpecs sideUiSpecs, UiUpdateRequest request) {
+                        // During a live resize drag, the NTP view is only translated and keeps its
+                        // width (see CompositorViewHolder), so keep the inset until the resize is
+                        // committed. Updating it would relayout the NTP on every drag frame.
+                        if (request.mUpdateReason == UpdateReason.RESIZE_LIVE) return;
+                        updateUiConfigInsetForSideUi(sideUiSpecs);
+                    }
+
+                    @Override
+                    public void onSideUiSpecsChangeCompleted(
+                            SideUiSpecs sideUiSpecs, UiUpdateRequest request) {}
                 };
         sideUiStateProviderSupplier.onAvailable(
                 mCallbackController.makeCancelable(
@@ -601,12 +621,15 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
     /** Returns whether the AI Mode button can be shown on NTPs. */
     private boolean canShowAiModeButtonOnNtp() {
+        // Returning false here disables the entire composeplate row, hiding both the AI Mode
+        // and Incognito buttons.
+        if (NewTabPageUtils.isComposeplateRemovedInAuroraV2()) return false;
+
         // In the default layout (when not placed beside the MVT), the AI Mode button
         // shares a row with the Incognito button. Consequently, it is hidden when
         // Incognito mode is disabled. However, in the layout where the AI Mode section is
         // positioned beside the MVT, the AI Mode button must remain visible even if Incognito mode
         // is disabled.
-
         if (!mIsBesideMvtModuleEnabled && !mIsIncognitoModeEnabled) {
             return false;
         }
@@ -635,22 +658,34 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
                     mNewTabPageLayout.findViewById(R.id.composeplate_view_stub);
             composeplateView = (ViewGroup) composeplateViewStub.inflate();
         }
-        mComposeplateCoordinator = new ComposeplateCoordinator(composeplateView, mIsLff);
+        mComposeplateCoordinator =
+                new ComposeplateCoordinator(
+                        composeplateView, mIsLff, assertNonNull(mUiConfig).getHorizontalInset());
         mComposeplateCoordinator.setIncognitoClickListener(this::onIncognitoButtonClicked);
         // Don't log click metrics in this listener, since the mComposeplateCoordinator will
         // log.
         mComposeplateCoordinator.setComposeplateButtonClickListener(
                 this::onComposeplateButtonClicked);
-        @ActionChips int chipType = getOptionalButtonChipType();
+        @ActionChips int merchandisingChipType = NewTabPageUtils.getMerchandisingChipsType();
+        if (merchandisingChipType == ActionChips.CREATE_IMAGE
+                || merchandisingChipType == ActionChips.GALLERY) {
+            mComposeboxInputState = fetchComposeboxInputState();
+        }
+        @ActionChips int chipType = getOptionalButtonChipType(mComposeboxInputState);
         if (chipType == NewTabPageUtils.ActionChips.CREATE_IMAGE) {
             mComposeplateCoordinator.setOptionalButtonClickListener(
                     this::onCreateButtonClicked, chipType);
-            mComposeplateCoordinator.setOptionalButtonIcon(R.drawable.image_create_24dp);
+            mComposeplateCoordinator.setOptionalButtonIcon(
+                    getCreateImageChipIconRes(mComposeboxInputState));
             mComposeplateCoordinator.setOptionalButtonText(
                     mActivity.getString(R.string.ntp_action_chip_create_image));
+            mComposeplateCoordinator.setOptionalButtonContentDescription(
+                    mActivity.getString(R.string.ntp_action_chip_create_image_accessibility));
         } else if (chipType == NewTabPageUtils.ActionChips.GALLERY) {
             mComposeplateCoordinator.setOptionalButtonClickListener(
                     this::onGalleryButtonClicked, chipType);
+            mComposeplateCoordinator.setOptionalButtonIcon(
+                    getGalleryChipIconRes(mComposeboxInputState));
         }
 
         updateComposeplateBackground();
@@ -688,7 +723,10 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     }
 
     private void onComposeplateButtonClicked(View view) {
-        if (((mIsAiModeButtonRedirectEnabled
+        // Devices that don't support the fusebox (e.g. automotive) can't host the AI Mode omnibox,
+        // so they always navigate to the AI Mode SRP instead.
+        if (OmniboxCapabilities.isFuseboxSupportedDeviceType()
+                && ((mIsAiModeButtonRedirectEnabled
                                 && mSearchProviderInfoDelegate.getSearchProviderIsGoogle())
                         || (OmniboxFeatures.isMultimodalInputEnabled(mActivity)
                                 && OmniboxFeatures.sRedirectComposeplateButton.getValue()
@@ -1282,11 +1320,21 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         if (!mHasShownView) {
             mHasShownView = true;
             onInitializationProgressChanged();
-            if (NtpCustomizationPromoManager.canTriggerCustomizationBottomSheet(
-                    mWindowAndroid, mIsLff, sCount)) {
-                triggerCustomizationBottomSheet();
-            }
+            maybeTriggerCustomizationBottomSheet();
             TraceEvent.instant("NewTabPageSearchAvailable");
+        }
+    }
+
+    /**
+     * Shows the NTP theme tip bottom sheet when it can trigger, unless bottom bar education has
+     * shown this session. The tip is only marked as shown when it actually shows, so education
+     * defers it instead of dropping it.
+     */
+    void maybeTriggerCustomizationBottomSheet() {
+        if (!BottomBarEducationCoordinator.hasEducationShownThisSession()
+                && NtpCustomizationPromoManager.canTriggerCustomizationBottomSheet(
+                        mWindowAndroid, mIsLff, sCount)) {
+            triggerCustomizationBottomSheet();
         }
     }
 
@@ -1323,7 +1371,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     private void updateComposeplateOptionalButtonVisibility() {
         if (mComposeplateCoordinator == null) return;
 
-        @ActionChips int chipType = NewTabPageUtils.getMerchandisingChipsType();
+        @ActionChips int chipType = getOptionalButtonChipType(mComposeboxInputState);
         boolean isOptionalButtonVisible =
                 mSearchProviderInfoDelegate.getSearchProviderIsGoogle()
                         && (chipType == NewTabPageUtils.ActionChips.CREATE_IMAGE
@@ -1333,21 +1381,105 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
     /**
      * Returns the {@link NewTabPageUtils.ActionChips} type to show on the composeplate's optional
-     * button. The create image chip falls back to the canvas chip when image generation isn't an
-     * allowed tool for the current profile.
+     * button. The create image and gallery chips fall back to the default chip on devices that
+     * don't support the fusebox, since both rely on it. The create image chip falls back to the
+     * gallery chip when image generation isn't an allowed tool for the current profile.
      */
-    private @ActionChips int getOptionalButtonChipType() {
+    private static @ActionChips int getOptionalButtonChipType(@Nullable InputState inputState) {
         @ActionChips int chipType = NewTabPageUtils.getMerchandisingChipsType();
-        if (chipType == ActionChips.CREATE_IMAGE && !isImageGenToolAllowed()) {
+        if ((chipType == ActionChips.CREATE_IMAGE || chipType == ActionChips.GALLERY)
+                && !OmniboxCapabilities.isFuseboxSupportedDeviceType()) {
+            return ActionChips.DEFAULT;
+        }
+        if (chipType == ActionChips.CREATE_IMAGE && !isImageGenToolAllowed(inputState)) {
             return ActionChips.GALLERY;
         }
         return chipType;
     }
 
-    /** Returns whether either image generation tool is allowed for the current profile. */
-    private boolean isImageGenToolAllowed() {
-        return ComposeboxQueryControllerBridge.isToolAllowedForProfile(
-                mProfile, ToolMode.TOOL_MODE_IMAGE_GEN);
+    /** Returns whether the image generation tool is allowed in {@code inputState}. */
+    private static boolean isImageGenToolAllowed(@Nullable InputState inputState) {
+        return inputState != null && inputState.allowedTools.contains(ToolMode.TOOL_MODE_IMAGE_GEN);
+    }
+
+    /**
+     * Returns the {@link InputState} for the current profile, or null if no Composebox
+     * session can be created. This starts a short-lived Composebox session to read its initial
+     * {@link InputState}, then immediately closes it.
+     */
+    private @Nullable InputState fetchComposeboxInputState() {
+        ComposeboxQueryControllerBridge bridge =
+                ComposeboxQueryControllerBridge.create(mProfile, /* webContents= */ null);
+        // No session can be created if, e.g., AIM is ineligible or disabled by policy; no tools
+        // are available in that case.
+        if (bridge == null) return null;
+        try {
+            // The initial input state is delivered synchronously while the session is created.
+            return bridge.getInputStateSupplier().get();
+        } finally {
+            bridge.destroy();
+        }
+    }
+
+    /**
+     * Returns the icon for the create image chip, derived from the icon of the {@link
+     * ToolMode#TOOL_MODE_IMAGE_GEN} {@link ToolConfig}. Falls back to a default icon if the config
+     * has no icon with a matching client drawable.
+     */
+    @VisibleForTesting
+    static @DrawableRes int getCreateImageChipIconRes(@Nullable InputState inputState) {
+        if (inputState != null) {
+            for (ToolConfig toolConfig : inputState.getToolConfigs()) {
+                if (toolConfig.getToolValue() == ToolMode.TOOL_MODE_IMAGE_GEN) {
+                    return getIconResOrDefault(
+                            toolConfig.hasIcon() ? toolConfig.getIcon() : null,
+                            R.drawable.image_create_24dp);
+                }
+            }
+        }
+        return R.drawable.image_create_24dp;
+    }
+
+    /**
+     * Returns the icon for the gallery chip, derived from the icon of the {@link
+     * InputType#INPUT_TYPE_LENS_IMAGE} {@link InputTypeConfig}. Since that input type is shared by
+     * multiple sources (e.g. camera), the config with {@link InputSource#INPUT_SOURCE_GALLERY} is
+     * preferred, followed by one without a specified source. Falls back to a default icon if no
+     * such config has an icon with a matching client drawable.
+     */
+    @VisibleForTesting
+    static @DrawableRes int getGalleryChipIconRes(@Nullable InputState inputState) {
+        @Nullable InputTypeConfig galleryConfig = null;
+        if (inputState != null) {
+            for (InputTypeConfig inputTypeConfig : inputState.getInputTypeConfigs()) {
+                if (inputTypeConfig.getInputTypeValue() != InputType.INPUT_TYPE_LENS_IMAGE_VALUE) {
+                    continue;
+                }
+                int source = inputTypeConfig.getInputSourceValue();
+                if (source == InputSource.INPUT_SOURCE_GALLERY_VALUE) {
+                    galleryConfig = inputTypeConfig;
+                    break;
+                }
+                if (source == InputSource.INPUT_SOURCE_UNSPECIFIED_VALUE && galleryConfig == null) {
+                    galleryConfig = inputTypeConfig;
+                }
+            }
+        }
+        return getIconResOrDefault(
+                galleryConfig != null && galleryConfig.hasIcon() ? galleryConfig.getIcon() : null,
+                R.drawable.add_photo_alternate_24dp);
+    }
+
+    /**
+     * Returns the client drawable mapped from {@code icon}'s id, or {@code defaultRes} if the icon
+     * is absent or has no matching client drawable.
+     */
+    private static @DrawableRes int getIconResOrDefault(
+            @Nullable Icon icon, @DrawableRes int defaultRes) {
+        if (icon == null || !icon.hasIconId()) return defaultRes;
+
+        @DrawableRes int iconRes = FuseboxIconUtils.getResIdForIconId(icon.getIconIdValue());
+        return iconRes != Resources.ID_NULL ? iconRes : defaultRes;
     }
 
     /**
@@ -1802,7 +1934,15 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         }
 
         updateDoodleOnTablet();
+        // The search box margins and the composeplate layout change at window widths that don't
+        // match any display style. They are still updated here, since UiConfig notifies its
+        // observers on every configuration change, size change and horizontal inset change, even
+        // if the display style stays the same.
         updateSearchBoxTwoSideMargin();
+        if (mComposeplateCoordinator != null) {
+            mComposeplateCoordinator.updateIsInNarrowWindow(
+                    assertNonNull(mUiConfig).getHorizontalInset());
+        }
         // Request a layout pass to trigger onMeasure(), which acts as the single source of
         // truth to calculate and uniformly apply the bounded widths to all NTP elements.
         ViewUtils.requestLayout(mNewTabPageLayout, "NewTabPageCoordinator.onDisplayStyleChanged");

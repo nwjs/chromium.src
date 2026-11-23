@@ -19,12 +19,10 @@
 #include "components/affiliations/core/browser/affiliation_utils.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/logging/log_router.h"
+#include "components/optimization_guide/core/feature_registry/enterprise_policy_registry.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/password_manager/core/browser/browser_save_password_progress_logger.h"
-#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_feature_manager.h"
 #include "components/password_manager/core/browser/password_manager_settings_service.h"
 #include "components/password_manager/core/browser/password_store/stored_credential.h"
@@ -334,12 +332,7 @@ PasswordChangeAvailability ChromePasswordChangeService::GetGeneralAvailability()
   }
 
   // User is not eligible.
-  const bool skip_check = base::FeatureList::IsEnabled(
-      password_change::features::
-          kSkipModelExecutionAllowedCheckForPasswordChange);
-  if (!optimization_keyed_service_ ||
-      (!skip_check &&
-       !optimization_keyed_service_->ShouldModelExecutionBeAllowedForUser())) {
+  if (!optimization_keyed_service_) {
     if (logger) {
       logger->LogMessage(
           Logger::STRING_PASSWORD_CHANGE_MODEL_EXECUTION_NOT_ALLOWED);
@@ -360,8 +353,7 @@ PasswordChangeAvailability ChromePasswordChangeService::GetGeneralAvailability()
 
   // The feature is disabled by enterprise policy.
   constexpr int kPolicyDisabled =
-      std::to_underlying(optimization_guide::model_execution::prefs::
-                             ModelExecutionEnterprisePolicyValue::kDisable);
+      std::to_underlying(optimization_guide::EnterprisePolicyValue::kDisable);
   if (pref_service_->GetInteger(
           optimization_guide::prefs::
               kAutomatedPasswordChangeEnterprisePolicyAllowed) ==
@@ -411,11 +403,7 @@ PasswordChangeAvailability ChromePasswordChangeService::GetPerSiteAvailability(
     return general_availability;
   }
 
-  if (form.IsLikelySignupForm() ||
-      (form.new_password_element_renderer_id &&
-       base::FeatureList::IsEnabled(
-           password_manager::features::
-               kDisablePasswordChangeFromNewPasswordFields))) {
+  if (form.IsLikelySignupForm() || form.new_password_element_renderer_id) {
     if (logger) {
       logger->LogMessage(Logger::STRING_PASSWORD_CHANGE_SIGNUP_FORM);
     }
@@ -450,10 +438,7 @@ PasswordChangeAvailability ChromePasswordChangeService::GetPerSiteAvailability(
     return PasswordChangeAvailability::kNonPasswordLogin;
   }
 
-  if (base::FeatureList::IsEnabled(
-          password_change::features::
-              kCheckPasswordFieldFocusableBeforeOffering) &&
-      !IsPasswordFieldVisible(form)) {
+  if (!IsPasswordFieldVisible(form)) {
     return PasswordChangeAvailability::kInvisiblePasswordField;
   }
 

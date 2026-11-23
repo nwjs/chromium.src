@@ -29,10 +29,10 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertHighlighted;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertNoSearchResultsFound;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertPreferenceScreenMatchesIndex;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.clickSearchResult;
-import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.highlighted;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.typeSearchQuery;
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
@@ -91,6 +91,7 @@ import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.device_reauth.BiometricStatus;
+import org.chromium.chrome.browser.device_reauth.DeviceAuthAvailabilityCheckerBridge;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -103,6 +104,7 @@ import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.regional_capabilities.RegionalCapabilitiesServiceFactory;
 import org.chromium.chrome.browser.settings.MainSettings;
 import org.chromium.chrome.browser.settings.SettingsActivityInterface;
+import org.chromium.chrome.browser.settings.SettingsInTab;
 import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.signin.services.UnifiedConsentServiceBridge;
 import org.chromium.chrome.browser.signin.services.UnifiedConsentServiceBridgeJni;
@@ -160,7 +162,6 @@ import java.util.Set;
 // Avoids UserActionableError.NEEDS_UPM_BACKEND_UPGRADE for most tests. Specific tests can still
 // trigger the error by overriding getUserActionableError()
 @Restriction(GmsCoreVersionRestriction.RESTRICTION_TYPE_VERSION_GE_24W15)
-@DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP})
 public class ManageSyncSettingsTest {
     private static final int RENDER_TEST_REVISION = 13;
 
@@ -255,7 +256,7 @@ public class ManageSyncSettingsTest {
                 GoogleActivityController.class, mGoogleActivityController);
 
         RegionalCapabilitiesServiceFactory.setInstanceForTesting(mRegionalCapabilities);
-        when(mRegionalCapabilities.isInEeaCountry()).thenReturn(false);
+        when(mRegionalCapabilities.mayShowLinkedGoogleServicesSetting()).thenReturn(false);
 
         HistorySyncHelper.setInstanceForTesting(mHistorySyncHelperMock);
 
@@ -482,7 +483,7 @@ public class ManageSyncSettingsTest {
         // Signing out indirectly closes the settings activity (when ManageSyncSettings detects the
         // primary account change). Wait for this to complete before signing in again and
         // re-starting the settings activity.
-        ApplicationTestUtils.waitForActivityState(mSettingsTestRule.getActivity(), Stage.DESTROYED);
+        waitForManageSyncSettingsClosed();
 
         // Add a different account, and open the sync settings to check that history opt-in did not
         // carry over from one user to another.
@@ -511,7 +512,7 @@ public class ManageSyncSettingsTest {
                 .getSigninTestRule()
                 .removeAccount(mSyncTestRule.getSigninTestRule().getPrimaryAccount().getId());
 
-        ApplicationTestUtils.waitForActivityState(mSettingsTestRule.getActivity(), Stage.DESTROYED);
+        waitForManageSyncSettingsClosed();
     }
 
     @Test
@@ -537,7 +538,7 @@ public class ManageSyncSettingsTest {
         // Signing out indirectly closes the settings activity (when ManageSyncSettings detects the
         // primary account change). Wait for this to complete before signing in again and
         // re-starting the settings activity.
-        ApplicationTestUtils.waitForActivityState(mSettingsTestRule.getActivity(), Stage.DESTROYED);
+        waitForManageSyncSettingsClosed();
 
         signinTestRule.removeAccount(TestAccounts.ACCOUNT1.getId());
 
@@ -572,7 +573,7 @@ public class ManageSyncSettingsTest {
         mSyncTestRule.signOut();
         // Signing out indirectly closes the settings activity. (when
         // ManageSyncSettings detects the primary account change).
-        ApplicationTestUtils.waitForActivityState(mSettingsTestRule.getActivity(), Stage.DESTROYED);
+        waitForManageSyncSettingsClosed();
 
         // Sign-in again with the same account, and open the sync settings to check that history
         // opt-in did carry over through sign-out & sign-in.
@@ -1245,7 +1246,7 @@ public class ManageSyncSettingsTest {
     @Feature({"PersonalizedGoogleServices", "RenderTest"})
     @DisabledTest(message = "Flaky - crbug.com/466094740")
     public void testLinkedServicesSettingEea() throws Exception {
-        when(mRegionalCapabilities.isInEeaCountry()).thenReturn(true);
+        when(mRegionalCapabilities.mayShowLinkedGoogleServicesSetting()).thenReturn(true);
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();
         ThreadUtils.runOnUiThreadBlocking(
@@ -1272,7 +1273,7 @@ public class ManageSyncSettingsTest {
     @LargeTest
     @Feature({"PersonalizedGoogleServices"})
     public void testClickPersonalizeGoogleServicesEEA() {
-        when(mRegionalCapabilities.isInEeaCountry()).thenReturn(true);
+        when(mRegionalCapabilities.mayShowLinkedGoogleServicesSetting()).thenReturn(true);
         mSyncTestRule.setUpAccountAndSignInForTesting();
         startManageSyncPreferences();
         // Scroll to and click the Personalize Google services pref.
@@ -1510,6 +1511,8 @@ public class ManageSyncSettingsTest {
         ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
         when(mReauthenticatorMock.getBiometricAvailabilityStatus())
                 .thenReturn(biometricAvailabilityStatus);
+        DeviceAuthAvailabilityCheckerBridge.setBiometricAvailabilityStatusForTesting(
+                biometricAvailabilityStatus);
         SyncServiceFactory.setInstanceForTesting(mSyncService);
         when(mSyncService.getTransportState()).thenReturn(transportState);
         when(mSyncService.getAuthError())
@@ -1518,6 +1521,22 @@ public class ManageSyncSettingsTest {
 
     private void setupMockSyncService() {
         setupMockSyncService(BiometricStatus.BIOMETRICS_AVAILABLE, TransportState.ACTIVE);
+    }
+
+    /**
+     * Waits for ManageSyncSettings to close itself, e.g. after the primary account changed.
+     * SettingsActivity finishes, while settings in a tab shows the main settings page instead.
+     */
+    private void waitForManageSyncSettingsClosed() {
+        if (SettingsInTab.shouldOpenSettingsInTab()) {
+            SettingsActivityInterface host =
+                    (SettingsActivityInterface) mSettingsTestRule.getActivity();
+            CriteriaHelper.pollUiThread(
+                    () -> !(host.getMainFragment() instanceof ManageSyncSettings));
+        } else {
+            ApplicationTestUtils.waitForActivityState(
+                    mSettingsTestRule.getActivity(), Stage.DESTROYED);
+        }
     }
 
     private ManageSyncSettings startManageSyncPreferences() {
@@ -1735,7 +1754,7 @@ public class ManageSyncSettingsTest {
         typeSearchQuery("history and tabs");
         clickSearchResult(R.string.account_section_history_toggle);
 
-        onView(highlighted(R.string.account_section_history_toggle)).check(matches(isDisplayed()));
+        assertHighlighted(R.string.account_section_history_toggle);
     }
 
     @Test
@@ -1748,10 +1767,31 @@ public class ManageSyncSettingsTest {
         assertNoSearchResultsFound();
     }
 
+    /**
+     * Regression test for crbug.com/574207996: the search index built while Settings was open on a
+     * sub-page must not outlive that Settings session.
+     */
+    @Test
+    @SmallTest
+    public void testSearchHistoryAndTabs_signedOutAfterSignedInSettingsSession() {
+        // Open Settings directly on Manage Sync while signed in, without searching. This builds
+        // the search index for the initial breadcrumbs.
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        startManageSyncPreferences();
+        ApplicationTestUtils.finishActivity(mSettingsTestRule.getActivity());
+
+        mSyncTestRule.signOut();
+
+        mSettingsSearchTestRule.startSettingsActivity();
+        typeSearchQuery("history and tabs");
+
+        assertNoSearchResultsFound();
+    }
+
     @Test
     @SmallTest
     public void testPreferenceScreenMatchesSearchIndex_signedIn_nonEea() {
-        when(mRegionalCapabilities.isInEeaCountry()).thenReturn(false);
+        when(mRegionalCapabilities.mayShowLinkedGoogleServicesSetting()).thenReturn(false);
         mSyncTestRule.setUpAccountAndSignInForTesting();
         ManageSyncSettings fragment = startManageSyncPreferences();
 
@@ -1761,7 +1801,7 @@ public class ManageSyncSettingsTest {
     @Test
     @SmallTest
     public void testPreferenceScreenMatchesSearchIndex_signedIn_eea() {
-        when(mRegionalCapabilities.isInEeaCountry()).thenReturn(true);
+        when(mRegionalCapabilities.mayShowLinkedGoogleServicesSetting()).thenReturn(true);
         mSyncTestRule.setUpAccountAndSignInForTesting();
         ManageSyncSettings fragment = startManageSyncPreferences();
 

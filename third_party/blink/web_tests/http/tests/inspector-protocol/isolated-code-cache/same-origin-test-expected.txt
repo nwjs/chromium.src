@@ -1,0 +1,109 @@
+Tests V8 code cache for javascript resources
+
+--- Trace events related to code caches ------
+Load [A] 1st time. Produce timestamp. -->
+v8.compile Properties:
+{
+    data : {
+        columnNumber : 1
+        lineNumber : 1
+        streamed : <boolean>
+        url : http://127.0.0.1:8000/devtools/resources/v8-cache-script.cgi
+    }
+    endTime : <number>
+    startTime : <number>
+    type : v8.compile
+}
+Load [A] 2nd time. Produce code cache. -->
+v8.compile Properties:
+{
+    data : {
+        columnNumber : 1
+        lineNumber : 1
+        notStreamedReason : Backgound streaming will be used
+        streamed : <boolean>
+        url : http://127.0.0.1:8000/devtools/resources/v8-cache-script.cgi
+    }
+    endTime : <number>
+    startTime : <number>
+    type : v8.compile
+}
+v8.produceCache Properties:
+{
+    data : {
+        columnNumber : 1
+        lineNumber : 1
+        producedCacheSize : <number>
+        url : http://127.0.0.1:8000/devtools/resources/v8-cache-script.cgi
+    }
+    endTime : <number>
+    startTime : <number>
+    type : v8.produceCache
+}
+Load [A] 3rd time. Consume code cache. -->
+v8.compile Properties:
+{
+    data : {
+        cacheKind : normal
+        cacheRejected : false
+        columnNumber : 1
+        consumedCacheSize : <number>
+        lineNumber : 1
+        notStreamedReason : Backgound streaming will be used
+        streamed : <boolean>
+        url : http://127.0.0.1:8000/devtools/resources/v8-cache-script.cgi
+    }
+    endTime : <number>
+    startTime : <number>
+    type : v8.compile
+}
+Load [B]. Should not use the cached code. -->
+v8.compile Properties:
+{
+    data : {
+        columnNumber : 1
+        lineNumber : 1
+        streamed : <boolean>
+        url : http://localhost:8000/devtools/resources/v8-cache-script.cgi
+    }
+    endTime : <number>
+    startTime : <number>
+    type : v8.compile
+}
+Load [A] again from MemoryCache. Should use the cached code. -->
+v8.compile Properties:
+{
+    data : {
+        cacheKind : normal
+        cacheRejected : false
+        columnNumber : 1
+        consumedCacheSize : <number>
+        lineNumber : 1
+        notStreamedReason : Backgound streaming will be used
+        streamed : <boolean>
+        url : http://127.0.0.1:8000/devtools/resources/v8-cache-script.cgi
+    }
+    endTime : <number>
+    startTime : <number>
+    type : v8.compile
+}
+Clear [A] from MemoryCache. -->
+Load [A] from Disk Cache. -->
+v8.compile Properties:
+{
+    data : {
+        cacheKind : normal
+        cacheRejected : false
+        columnNumber : 1
+        consumedCacheSize : <number>
+        lineNumber : 1
+        notStreamedReason : script has code-cache available (background)
+        streamed : <boolean>
+        url : http://127.0.0.1:8000/devtools/resources/v8-cache-script.cgi
+    }
+    endTime : <number>
+    startTime : <number>
+    type : v8.compile
+}
+-----------------------------------------------
+

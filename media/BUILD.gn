@@ -114,10 +114,7 @@ config("subcomponent_config") {
     visibility += [ "//media/base/mac" ]
   }
   defines = [ "IS_MEDIA_IMPL" ]
-  configs = [
-    ":media_config",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs = [ ":media_config" ]
 }
 
 component("media") {
@@ -281,6 +278,7 @@ test("media_perftests") {
     "//media/base:perftests",
     "//media/filters:perftests",
     "//media/test:pipeline_integration_perftests",
+    "//media/webrtc:perftests",
     "//testing/gmock",
     "//testing/gtest",
     "//testing/perf",
@@ -354,6 +352,7 @@ fuzzer_test("media_webm_muxer_fuzzer") {
   deps = [
     ":media",
     "//base",
+    "//testing/libfuzzer:libfuzzer_base_wrappers",
     "//third_party/libwebm",
   ]
 }

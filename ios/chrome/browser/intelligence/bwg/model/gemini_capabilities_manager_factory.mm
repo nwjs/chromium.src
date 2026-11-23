@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_capabilities_manager_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_capabilities_manager_impl.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -24,28 +26,14 @@ std::unique_ptr<KeyedService> BuildGeminiCapabilitiesManager(
 
 }  // namespace
 
-// static
-GeminiCapabilitiesManager* GeminiCapabilitiesManagerFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<GeminiCapabilitiesManager>(
-      profile, /*create=*/true);
-}
-
-// static
-GeminiCapabilitiesManagerFactory*
-GeminiCapabilitiesManagerFactory::GetInstance() {
-  static base::NoDestructor<GeminiCapabilitiesManagerFactory> instance;
-  return instance.get();
-}
-
-GeminiCapabilitiesManagerFactory::GeminiCapabilitiesManagerFactory()
-    : ProfileKeyedServiceFactoryIOS("GeminiCapabilitiesManager",
-                                    ProfileSelection::kNoInstanceInIncognito) {
+GeminiCapabilitiesManagerFactory::GeminiCapabilitiesManagerFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "GeminiCapabilitiesManager",
+          ProfileSelection::kNoInstanceInIncognito) {
   DependsOn(AuthenticationServiceFactory::GetInstance());
   DependsOn(GeminiServiceFactory::GetInstance());
 }
-
-GeminiCapabilitiesManagerFactory::~GeminiCapabilitiesManagerFactory() = default;
 
 // static
 GeminiCapabilitiesManagerFactory::TestingFactory

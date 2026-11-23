@@ -9,11 +9,10 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "build/build_config.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/prefs/pref_service.h"
 #include "google_apis/common/api_key_request_util.h"
@@ -67,6 +66,7 @@ std::string_view GetStringNameForModelExecutionFeature(
 
 std::string_view GetStringNameForModelExecutionFeature(
     proto::ModelExecutionFeature feature) {
+  // LINT.IfChange(ModelExecutionFeature)
   switch (feature) {
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_WALLPAPER_SEARCH:
       return "WallpaperSearch";
@@ -165,10 +165,8 @@ std::string_view GetStringNameForModelExecutionFeature(
       return "QuickAnswers";
     case proto::ModelExecutionFeature::MODEL_EXECUTION_FEATURE_UNSPECIFIED:
       return "Unknown";
-      // Must be in sync with the ModelExecutionFeature variant in
-      // optimization/histograms.xml for metric recording. The output may also
-      // be used for storing other persistent data (e.g., prefs).
   }
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/optimization/histograms.xml:ModelExecutionFeature)
 }
 
 bool IsHostValidToFetchFromRemoteOptimizationGuide(const std::string& host) {

@@ -6,6 +6,7 @@
 
 #include "base/no_destructor.h"
 #include "base/test/bind.h"
+#include "base/test/protobuf_matchers.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
 #include "chrome/browser/enterprise/connectors/test/mock_realtime_reporting_client.h"
@@ -927,7 +928,8 @@ TEST_P(ReportingEventRouterFileEventTest, TestOnUnscannedFileEvent_Allowed) {
       "exampleDestination", "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
       "application/zip", DataTransferEventTrigger::FILE_UPLOAD, "123",
       "FILE_PASSWORD_PROTECTED", "CONTENT_TRANSFER_METHOD_DRAG_AND_DROP", 12345,
-      referrer_chain, EventResult::ALLOWED);
+      referrer_chain, EventResult::ALLOWED,
+      /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -976,7 +978,7 @@ TEST_P(ReportingEventRouterFileEventTest, TestOnUnscannedFileEvent_Cancelled) {
       "exampleDestination", "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
       "application/zip", DataTransferEventTrigger::FILE_DOWNLOAD, "123",
       "FILE_PASSWORD_PROTECTED", "", 12345, referrer_chain,
-      EventResult::CANCELLED);
+      EventResult::CANCELLED, /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -1027,7 +1029,7 @@ TEST_P(ReportingEventRouterFileEventTest, TestOnUnscannedFileEvent_Blocked) {
       "exampleDestination", "encrypted.zip", GetHashCallbackVariant("DEADBEEF"),
       "application/zip", DataTransferEventTrigger::FILE_DOWNLOAD, "123",
       "FILE_PASSWORD_PROTECTED", "", 12345, referrer_chain,
-      EventResult::BLOCKED);
+      EventResult::BLOCKED, /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -1086,7 +1088,8 @@ TEST_P(ReportingEventRouterFileEventTest, TestOnSensitiveDataEvent_Allowed) {
       "application/zip", DataTransferEventTrigger::FILE_UPLOAD, "123",
       "CONTENT_TRANSFER_METHOD_DRAG_AND_DROP", "test@gmail.com",
       "gaia@gmail.com", /*user_justification=*/std::nullopt, *result, 200,
-      referrer_chain, CreateFakeFrameUrlChainProto(), EventResult::ALLOWED);
+      referrer_chain, CreateFakeFrameUrlChainProto(), EventResult::ALLOWED,
+      /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -1157,7 +1160,7 @@ TEST_P(ReportingEventRouterFileEventTest, TestOnSensitiveDataEvent_Blocked) {
       "application/zip", DataTransferEventTrigger::FILE_DOWNLOAD, "123", "",
       "test@gmail.com", "gaia@gmail.com", /*user_justification=*/std::nullopt,
       *result, 200, referrer_chain, CreateFakeFrameUrlChainProto(),
-      EventResult::BLOCKED);
+      EventResult::BLOCKED, /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -1210,7 +1213,8 @@ TEST_P(ReportingEventRouterFileEventTest, TestOnDangerousDownloadEvent_Warned) {
       GetHashCallbackVariant("DEADBEEF"), "POTENTIALLY_UNWANTED",
       "application/zip", DataTransferEventTrigger::FILE_DOWNLOAD, "123",
       /*content_transfer_method=*/"", 12345, std::move(referrer_chain),
-      CreateFakeFrameUrlChainProto(), EventResult::WARNED);
+      CreateFakeFrameUrlChainProto(), EventResult::WARNED,
+      /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -1264,7 +1268,8 @@ TEST_P(ReportingEventRouterFileEventTest,
       GetHashCallbackVariant("DEADBEEF"), "DANGEROUS", "application/zip",
       DataTransferEventTrigger::FILE_DOWNLOAD, "123",
       /*content_transfer_method=*/"", 12345, std::move(referrer_chain),
-      CreateFakeFrameUrlChainProto(), EventResult::BLOCKED);
+      CreateFakeFrameUrlChainProto(), EventResult::BLOCKED,
+      /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -1318,7 +1323,7 @@ TEST_P(ReportingEventRouterFileEventTest,
       download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT, "application/zip",
       DataTransferEventTrigger::FILE_DOWNLOAD, "123", 12345,
       std::move(referrer_chain), CreateFakeFrameUrlChainProto(),
-      EventResult::BYPASSED);
+      EventResult::BYPASSED, /*extension_initiator=*/std::nullopt);
   RunUntilHashObtained();
   run_loop.Run();
 }
@@ -1371,7 +1376,174 @@ TEST_P(ReportingEventRouterFileEventTest,
       download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT, "application/zip",
       DataTransferEventTrigger::FILE_DOWNLOAD, "", 12345,
       std::move(referrer_chain), CreateFakeFrameUrlChainProto(),
-      EventResult::WARNED);
+      EventResult::WARNED, /*extension_initiator=*/std::nullopt);
+  RunUntilHashObtained();
+  run_loop.Run();
+}
+
+class ReportingEventRouterInitiatorTest
+    : public ReportingEventRouterFileEventTest {
+ public:
+  using ExtensionInfo =
+      ::safe_browsing::ExtensionTelemetryReportRequest::ExtensionInfo;
+
+  ReportingEventRouterInitiatorTest() {
+    initiator_feature_list_.InitAndEnableFeature(
+        kEnterpriseExtensionActorAttribution);
+  }
+
+  static ExtensionInfo MakeExtensionInfo() {
+    ExtensionInfo info;
+    info.set_id("abcdefghijklmnopabcdefghijklmnop");
+    info.set_name("Test Extension");
+    info.set_version("1.0");
+    return info;
+  }
+
+  // Expects exactly one uploaded event whose `initiator` matches
+  // `expected_initiator`, or has no initiator if `expected_initiator` is
+  // `std::nullopt`.
+  void ExpectInitiator(std::optional<ExtensionInfo> expected_initiator,
+                       base::OnceClosure done) {
+    EXPECT_CALL(*client_, UploadSecurityEvent)
+        .WillOnce([expected_initiator, done = std::move(done)](
+                      bool include_device_info,
+                      ::chrome::cros::reporting::proto::UploadEventsRequest
+                          request,
+                      policy::CloudPolicyClient::ResultCallback
+                          callback) mutable {
+          ASSERT_EQ(1, request.events_size());
+          const auto& event = request.events(0);
+          if (expected_initiator) {
+            ASSERT_TRUE(event.has_initiator());
+            EXPECT_THAT(event.initiator().chrome_extension(),
+                        base::test::EqualsProto(*expected_initiator));
+          } else {
+            EXPECT_FALSE(event.has_initiator());
+          }
+          std::move(done).Run();
+        });
+  }
+
+  static ContentAnalysisResponse::Result MakeDlpResult() {
+    ContentAnalysisResponse::Result result;
+    result.set_tag(kDlpTag);
+    result.set_status(ContentAnalysisResponse::Result::SUCCESS);
+    auto* rule = result.add_triggered_rules();
+    rule->set_action(TriggeredRule::BLOCK);
+    rule->set_rule_name("fake rule");
+    rule->set_rule_id("12345");
+    return result;
+  }
+
+ protected:
+  base::test::ScopedFeatureList initiator_feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(,
+                         ReportingEventRouterInitiatorTest,
+                         ::testing::Bool());
+
+TEST_P(ReportingEventRouterInitiatorTest,
+       DangerousDownloadEvent_FeatureDisabled) {
+  base::test::ScopedFeatureList disabled;
+  disabled.InitAndDisableFeature(kEnterpriseExtensionActorAttribution);
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeyDangerousDownloadEvent},
+      /*enabled_opt_in_events=*/{});
+  base::RunLoop run_loop;
+  ExpectInitiator(std::nullopt, run_loop.QuitClosure());
+
+  reporting_event_router_->OnDangerousDownloadEvent(
+      GURL("https://example.com/download.exe"), GURL("https://example.com/"),
+      "download.exe", GetHashCallbackVariant("DEADBEEF"),
+      download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT, "application/exe",
+      DataTransferEventTrigger::FILE_DOWNLOAD, /*scan_id=*/"", 12345,
+      ReferrerChain(), CreateFakeFrameUrlChainProto(), EventResult::WARNED,
+      MakeExtensionInfo());
+  RunUntilHashObtained();
+  run_loop.Run();
+}
+
+TEST_P(ReportingEventRouterInitiatorTest, DangerousDownloadEvent_NoInitiator) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeyDangerousDownloadEvent},
+      /*enabled_opt_in_events=*/{});
+  base::RunLoop run_loop;
+  ExpectInitiator(std::nullopt, run_loop.QuitClosure());
+
+  reporting_event_router_->OnDangerousDownloadEvent(
+      GURL("https://example.com/download.exe"), GURL("https://example.com/"),
+      "download.exe", GetHashCallbackVariant("DEADBEEF"),
+      download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT, "application/exe",
+      DataTransferEventTrigger::FILE_DOWNLOAD, /*scan_id=*/"", 12345,
+      ReferrerChain(), CreateFakeFrameUrlChainProto(), EventResult::WARNED,
+      /*extension_initiator=*/std::nullopt);
+  RunUntilHashObtained();
+  run_loop.Run();
+}
+
+TEST_P(ReportingEventRouterInitiatorTest,
+       DangerousDownloadEvent_WithInitiator) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeyDangerousDownloadEvent},
+      /*enabled_opt_in_events=*/{});
+  base::RunLoop run_loop;
+  ExpectInitiator(MakeExtensionInfo(), run_loop.QuitClosure());
+
+  reporting_event_router_->OnDangerousDownloadEvent(
+      GURL("https://example.com/download.exe"), GURL("https://example.com/"),
+      "download.exe", GetHashCallbackVariant("DEADBEEF"),
+      download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT, "application/exe",
+      DataTransferEventTrigger::FILE_DOWNLOAD, /*scan_id=*/"", 12345,
+      ReferrerChain(), CreateFakeFrameUrlChainProto(), EventResult::WARNED,
+      MakeExtensionInfo());
+  RunUntilHashObtained();
+  run_loop.Run();
+}
+
+TEST_P(ReportingEventRouterInitiatorTest, SensitiveDataEvent_WithInitiator) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeySensitiveDataEvent},
+      /*enabled_opt_in_events=*/{});
+  base::RunLoop run_loop;
+  ExpectInitiator(MakeExtensionInfo(), run_loop.QuitClosure());
+
+  reporting_event_router_->OnSensitiveDataEvent(
+      GURL("https://example.com/file.txt"), GURL("https://example.com/"),
+      /*source=*/"", /*destination=*/"", "file.txt",
+      GetHashCallbackVariant("DEADBEEF"), "text/plain",
+      DataTransferEventTrigger::FILE_DOWNLOAD, "123",
+      /*content_transfer_method=*/"", /*source_email=*/"",
+      /*content_area_account_email=*/"", /*user_justification=*/std::nullopt,
+      MakeDlpResult(), 200, ReferrerChain(), CreateFakeFrameUrlChainProto(),
+      EventResult::BYPASSED, MakeExtensionInfo());
+  RunUntilHashObtained();
+  run_loop.Run();
+}
+
+TEST_P(ReportingEventRouterInitiatorTest,
+       AnalysisConnectorResult_Dlp_WithInitiator) {
+  test::SetOnSecurityEventReporting(
+      profile_->GetPrefs(), /*enabled=*/true,
+      /*enabled_event_names=*/{kKeySensitiveDataEvent},
+      /*enabled_opt_in_events=*/{});
+  base::RunLoop run_loop;
+  ExpectInitiator(MakeExtensionInfo(), run_loop.QuitClosure());
+
+  reporting_event_router_->OnAnalysisConnectorResult(
+      GURL("https://example.com/file.txt"), GURL("https://example.com/"),
+      /*source=*/"", /*destination=*/"", "file.txt",
+      GetHashCallbackVariant("DEADBEEF"), "text/plain",
+      DataTransferEventTrigger::FILE_DOWNLOAD, "123",
+      /*content_transfer_method=*/"", /*source_email=*/"",
+      /*content_area_account_email=*/"", MakeDlpResult(), 200, ReferrerChain(),
+      CreateFakeFrameUrlChainProto(), EventResult::BLOCKED,
+      MakeExtensionInfo());
   RunUntilHashObtained();
   run_loop.Run();
 }

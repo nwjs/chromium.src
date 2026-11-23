@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/search_engine_choice/model/search_engine_choice_triggering_service_factory.h"
 
+#import <utility>
+
 #import "base/check_deref.h"
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/prefs/pref_service.h"
@@ -18,33 +20,15 @@
 
 namespace ios {
 
-// static
-SearchEngineChoiceTriggeringServiceFactory*
-SearchEngineChoiceTriggeringServiceFactory::GetInstance() {
-  static base::NoDestructor<SearchEngineChoiceTriggeringServiceFactory>
-      instance;
-  return instance.get();
-}
-
-// static
-SearchEngineChoiceTriggeringService*
-SearchEngineChoiceTriggeringServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<SearchEngineChoiceTriggeringService>(
-          profile,
-          /*create=*/true);
-}
-
 SearchEngineChoiceTriggeringServiceFactory::
-    SearchEngineChoiceTriggeringServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("SearchEngineChoiceTriggeringService",
-                                    ProfileSelection::kRedirectedInIncognito) {
+    SearchEngineChoiceTriggeringServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "SearchEngineChoiceTriggeringService",
+          ProfileSelection::kRedirectedInIncognito) {
   DependsOn(ios::SearchEngineChoiceServiceFactory::GetInstance());
   DependsOn(ios::TemplateURLServiceFactory::GetInstance());
 }
-
-SearchEngineChoiceTriggeringServiceFactory::
-    ~SearchEngineChoiceTriggeringServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 SearchEngineChoiceTriggeringServiceFactory::BuildServiceInstanceFor(

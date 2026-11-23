@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Status of a WebRTC capture session. getCaptureStatus cannot fail, so the
-// promise always resolves with this result and never carries an error.
+// Status of a WebRTC capture session. $(ref:getCaptureStatus) cannot fail,
+// so the promise always resolves with this result and never carries an
+// error.
 dictionary CaptureStatus {
   required boolean active;
 };
 
-// A getUserMedia request observed by WebRTC-internals.
+// A <code>getUserMedia</code> request observed by WebRTC-internals.
 dictionary GetUserMediaRequest {
   required long rid;
   required long pid;
@@ -42,8 +43,8 @@ dictionary StatusResult {
   required boolean active;
 };
 
-// Restricts what a capture session observes. An omitted or empty `origins`
-// list matches every origin in the profile.
+// Restricts what a capture session observes. An omitted or empty
+// <code>origins</code> list matches every origin in the profile.
 dictionary CaptureFilter {
   sequence<DOMString> origins;
 };
@@ -62,6 +63,15 @@ dictionary PeerConnectionRecord {
   required boolean isOpen;
   required boolean connected;
   required double timestamp;
+};
+
+// Counts of entries dropped due to ring-buffer truncation, cumulative since
+// WebRTC-internals began tracking state for this profile. They can include
+// drops that happened before this extension's own capture session started.
+dictionary TruncationInfo {
+  required long droppedLogEntries;
+  required long droppedStatsEntries;
+  required long droppedMediaEntries;
 };
 
 callback OnCaptureStoppedListener = undefined ();
@@ -94,10 +104,22 @@ interface OnPeerConnectionRemovedEvent : ExtensionEvent {
   static boolean hasListener(OnPeerConnectionRemovedListener listener);
 };
 
+// |truncationInfo|: Counts of entries dropped since WebRTC-internals began
+// tracking this profile, not since this session started.
+callback OnSnapshotTruncatedListener =
+    undefined (TruncationInfo truncationInfo);
+
+interface OnSnapshotTruncatedEvent : ExtensionEvent {
+  static undefined addListener(OnSnapshotTruncatedListener listener);
+  static undefined removeListener(OnSnapshotTruncatedListener listener);
+  static boolean hasListener(OnSnapshotTruncatedListener listener);
+};
+
 // Programmatic access to WebRTC diagnostic information equivalent to
-// chrome://webrtc-internals. Extensions using this API in incognito mode MUST
-// declare "incognito": "split" in their manifest. Spanning-mode extensions
-// will not observe peer connections from the profile they are not running in.
+// chrome://webrtc-internals. Extensions using this API in incognito mode
+// MUST declare <code>"incognito": "split"</code> in their manifest.
+// Spanning-mode extensions will not observe peer connections from the
+// incognito profile.
 [implemented_in="chrome/browser/extensions/api/enterprise_webrtc/enterprise_webrtc_api.h"]
 interface Webrtc {
   // Starts a capture session recording WebRTC diagnostic events (the
@@ -139,6 +161,16 @@ interface Webrtc {
   // session never saw $(ref:onPeerConnectionAdded) for, if the connection
   // already existed when the session started.
   static attribute OnPeerConnectionRemovedEvent onPeerConnectionRemoved;
+
+  // Fired when WebRTC-internals data is dropped because a buffer filled.
+  // Rate limited to one event every five seconds per profile; counts are the
+  // totals at the time the event fires, and a drop within five seconds of a
+  // previous event is only reported if another drop happens afterward. This
+  // is the only way to learn about dropped entries: $(ref:getSnapshot) does
+  // not expose the drop counts. Fires for every extension capturing in this
+  // profile, regardless of its origin filter, even when the drop happened
+  // outside that filter.
+  static attribute OnSnapshotTruncatedEvent onSnapshotTruncated;
 };
 
 partial interface Enterprise {

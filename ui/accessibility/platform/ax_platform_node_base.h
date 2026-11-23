@@ -12,6 +12,7 @@
 
 #include "base/component_export.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_split.h"
@@ -188,13 +189,13 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeBase : public AXPlatformNode {
 
   const AXIntListAttributes& GetIntListAttributes() const;
   bool HasIntListAttribute(ax::mojom::IntListAttribute attribute) const;
-  const std::vector<int32_t>& GetIntListAttribute(
+  base::span<const int32_t> GetIntListAttribute(
       ax::mojom::IntListAttribute attribute) const;
   bool GetIntListAttribute(ax::mojom::IntListAttribute attribute,
                            std::vector<int32_t>* value) const;
 
   bool HasStringListAttribute(ax::mojom::StringListAttribute attribute) const;
-  const std::vector<std::string>& GetStringListAttribute(
+  base::span<const std::string> GetStringListAttribute(
       ax::mojom::StringListAttribute attribute) const;
   bool GetStringListAttribute(ax::mojom::StringListAttribute attribute,
                               std::vector<std::string>* value) const;

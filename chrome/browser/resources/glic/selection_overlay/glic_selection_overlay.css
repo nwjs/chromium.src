@@ -4,6 +4,7 @@
 
 /* #css_wrapper_metadata_start
  * #type=style-lit
+ * #import=//resources/cr_elements/cr_shared_vars.css.js
  * #scheme=relative
  * #css_wrapper_metadata_end */
 
@@ -116,6 +117,12 @@
   opacity: 10%;
 }
 
+/* Use visibility instead of display so that the glow's fade-out animation
+ * still runs while hidden and does not replay when the glow is shown again. */
+:host([skip-intro-animation]) #overlayBorderGlow {
+  visibility: hidden;
+}
+
 #selectionElements > * {
   inset: 0;
   position: absolute;
@@ -168,21 +175,6 @@
 
 :host([disable-multi-select]) #cursor {
   visibility: hidden;
-}
-
-/* Set styles for high contrast mode in Windows. */
-@media (forced-colors: active) {
-  #cursor {
-    /* Set the icon color to hcm (high contrast mode) value. */
-    background: ButtonFace;
-    /* Add a border since the shadow is not visible in hcm. */
-    border: 1px solid ButtonBorder;
-  }
-
-  #cursorImg {
-    /* Set the icon color to hcm (high contrast mode) value. */
-    background-color: ButtonText;
-  }
 }
 
 @keyframes initial-inset-animation {
@@ -248,7 +240,7 @@
 }
 
 #floatingPromptContainer {
-  align-items: center;
+  align-items: flex-start;
   animation: promptFadeIn 200ms cubic-bezier(0, 0, 0.2, 1);
   box-sizing: border-box;
   display: flex;
@@ -257,6 +249,7 @@
   max-width: calc(100vw - 32px);
   pointer-events: auto;
   position: fixed;
+  width: max-content;
   z-index: 100;
 }
 
@@ -284,7 +277,9 @@
   display: flex;
   height: 48px;
   max-width: 100%;
-  padding: 0 16px;
+  padding: 0;
+  padding-inline-end: 6px;
+  padding-inline-start: 16px;
   transition: box-shadow 200ms ease;
   width: 360px;
 }
@@ -317,78 +312,102 @@
   color: #747775;
 }
 
+#submitPromptButton {
+  --cr-icon-button-fill-color: #0B57D0;
+  --cr-icon-button-hover-background-color: #A8C7FA;
+  --cr-icon-button-icon-size: 20px;
+  --cr-icon-button-margin-end: 0;
+  --cr-icon-button-margin-start: 8px;
+  --cr-icon-button-size: 36px;
+  --cr-icon-image: url('/arrow_upward.svg');
+  background-color: #C2E7FF;
+}
+
+#submitPromptButton[hidden] {
+  display: none;
+}
+
 .action-chips-row {
   box-sizing: border-box;
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   justify-content: center;
   max-width: 100%;
+}
+
+.searchbox-pill + .action-chips-row {
+  align-items: flex-start;
+  flex-direction: column;
 }
 
 .action-chip,
-.close-region-button {
-  align-items: center;
-  background-color: #FFF;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  border-radius: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  box-sizing: border-box;
-  color: #3C4043;
-  cursor: pointer;
-  display: inline-flex;
-  flex-shrink: 0;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  gap: 6px;
-  height: 32px;
+.settings-button {
+  --cr-button-background-color: var(--cr-fallback-color-surface);
+  --cr-button-border: none;
+  --cr-button-height: 30px;
+  --cr-button-text-color: var(--cr-primary-text-color);
+  box-shadow: var(--cr-elevation-1);
+  gap: 4px;
   max-width: calc(100vw - 48px);
-  outline: none;
-  padding: 0 14px;
-  transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
-  user-select: none;
+  min-width: 0;
+  padding-block: 5px;
+  padding-inline: 10px;
   white-space: nowrap;
 }
 
-.close-region-button {
-  border-radius: 50%;
-  justify-content: center;
-  padding: 0;
-  width: 32px;
+.action-chip:has(.chip-icon) {
+  padding-inline-start: 5px;
 }
 
-.action-chip:hover,
-.close-region-button:hover {
-  background-color: #F8F9FA;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+.settings-button {
+  padding: 5px;
+  width: 30px;
 }
 
-.action-chip:active,
-.close-region-button:active {
-  background-color: #F1F3F4;
-  transform: scale(0.98);
+/* The hover background is a capsule inset from the edge of the button. */
+.action-chip::part(hoverBackground),
+.settings-button::part(hoverBackground) {
+  background: var(--cr-hover-on-subtle-background-color);
+  border-radius: inherit;
+  inset: 2px;
 }
 
-.chip-icon {
-  align-items: center;
-  display: flex;
+.chip-icon,
+.settings-icon {
+  background-color: var(--cr-fallback-color-on-surface-subtle);
   flex-shrink: 0;
-  justify-content: center;
+  height: var(--cr-icon-size);
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: 16px;
+  width: var(--cr-icon-size);
+}
+
+.chip-icon.explain {
+  mask-image: url('/explain.svg');
+}
+
+.chip-icon.spark {
+  mask-image: url('/spark_mono.svg');
+}
+
+.settings-icon {
+  mask-image: url('/settings.svg');
 }
 
 #inlineFulfillmentHost {
-  background-color: #FFF;
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--cr-fallback-color-surface);
+  border-radius: 12px;
+  box-shadow: var(--cr-card-shadow);
   box-sizing: border-box;
-  color: #1F1F1F;
+  color: var(--cr-primary-text-color);
   font-size: 14px;
   line-height: 20px;
   max-width: 100%;
-  padding: 12px 16px;
-  width: 360px;
+  padding: 20px 20px 16px 20px;
+  width: 380px;
 }
 
 /* Hidden until it holds a card, so it doesn't add a flex gap. */
@@ -401,8 +420,16 @@
   display: none;
 }
 
-#inlineFulfillmentHost .ask-gemini {
-  margin-top: 12px;
+#inlineFulfillmentHost glic-explain-fulfillment {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+#inlineFulfillmentHost .content {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) 20px;
 }
 
 #inlineFulfillmentHost .explanation > * {
@@ -418,5 +445,70 @@
 }
 
 #inlineFulfillmentHost .explanation a {
-  color: #0B57D0;
+  color: var(--cr-link-color);
+}
+
+#inlineFulfillmentHost .close-button {
+  --cr-icon-button-fill-color: var(--cr-fallback-color-on-surface-subtle);
+  --cr-icon-button-size: 24px;
+  --cr-icon-image: url('/lens/icon_clear.svg');
+  /* Keep the 20px slot in the layout while the click target is 24px. */
+  margin: -2px;
+}
+
+#inlineFulfillmentHost .disclaimer {
+  color: var(--cr-fallback-color-on-surface-subtle);
+  font-size: 11px;
+  grid-column: 1 / -1;
+  line-height: 16px;
+}
+
+#inlineFulfillmentHost .ask-gemini {
+  --cr-button-border: none;
+  --cr-button-height: 28px;
+  font-size: 13px;
+  margin-inline-start: -8px;
+  padding: 4px 8px;
+  width: fit-content;
+}
+
+#inlineFulfillmentHost .ask-gemini-icon {
+  background-color: currentColor;
+  flex-shrink: 0;
+  height: var(--cr-icon-size);
+  mask-image: url('/prompt_suggestion.svg');
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: var(--cr-icon-size);
+  width: var(--cr-icon-size);
+}
+
+:host-context([dir=rtl]) #inlineFulfillmentHost .ask-gemini-icon {
+  transform: scaleX(-1);
+}
+
+/* Set styles for high contrast mode in Windows. This must stay at the end of
+ * the file so that it overrides the rules above. */
+@media (forced-colors: active) {
+  #cursor {
+    /* Set the icon color to hcm (high contrast mode) value. */
+    background: ButtonFace;
+    /* Add a border since the shadow is not visible in hcm. */
+    border: 1px solid ButtonBorder;
+  }
+
+  #cursorImg,
+  #inlineFulfillmentHost .ask-gemini-icon,
+  .chip-icon,
+  .settings-icon {
+    /* Set the icon color to hcm (high contrast mode) value. */
+    background-color: ButtonText;
+  }
+
+  /* Add a border since the shadow is not visible in hcm. */
+  #inlineFulfillmentHost,
+  .action-chip,
+  .settings-button {
+    border: 1px solid ButtonBorder;
+  }
 }

@@ -27,6 +27,7 @@
 #include "chrome/browser/context_hub/auto_todos/auto_todo_entry.h"
 #include "chrome/browser/context_hub/auto_todos/auto_todos_store.h"
 #include "chrome/browser/context_hub/memory_bank/memory_bank.h"
+#include "chrome/browser/context_hub/memory_bank/memory_bank_chat_types.h"
 #include "chrome/browser/context_hub/tab_group_store/tab_group_entry.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub.mojom.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -36,7 +37,6 @@
 #include "components/personal_context/proto/features/smart_search.pb.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_tab_strip_tracker_delegate.h"
@@ -98,12 +98,6 @@ class ContextHubService : public KeyedService,
 #endif
 {
  public:
-  // Represents a cited memory bank entry in a chat response.
-  struct MemoryBankChatCitation {
-    std::string title;
-    GURL url;
-  };
-
   class Observer : public base::CheckedObserver {
    public:
     virtual void OnAutoTodosChanged(base::span<const AutoTodoEntry> entries) {}
@@ -268,19 +262,23 @@ class ContextHubService : public KeyedService,
   // Clears all tab group chat history turns from the LRU cache.
   void ClearTabGroupChatHistory();
 
-  // Adds a memory bank chat history turn to the cache.
+  // Adds a memory bank chat history turn to the cache, along with any
+  // citations associated with the turn.
   void AddMemoryBankChatHistoryTurn(
       optimization_guide::proto::ChatHistoryTurn::Role role,
-      std::string_view message_content);
+      std::string_view message_content,
+      const std::vector<MemoryBankChatCitation>& citations = {});
   // Returns all memory bank chat history turns stored in the LRU cache in
   // chronological order (oldest to newest).
-  std::vector<optimization_guide::proto::ChatHistoryTurn>
-  GetMemoryBankChatHistory() const;
+  std::vector<MemoryBankChatHistoryTurn> GetMemoryBankChatHistory() const;
   // Clears all memory bank chat history turns from the LRU cache.
   void ClearMemoryBankChatHistory();
 
-  // Sets the pending memory bank entry waiting to be saved by the user.
-  void SetPendingMemoryBankEntry(MemoryBankEntry entry);
+  // Sets the pending memory bank entry waiting to be saved by the user, along
+  // with an optional weak pointer to the source WebContents for tab entries.
+  void SetPendingMemoryBankEntry(
+      MemoryBankEntry entry,
+      base::WeakPtr<content::WebContents> web_contents = nullptr);
 
   // Retrieves the current pending memory bank entry, if present.
   std::optional<MemoryBankEntry> GetPendingMemoryBankEntry() const;
@@ -294,11 +292,13 @@ class ContextHubService : public KeyedService,
 
   // Memory bank wrappers that forward operations to the underlying storage
   // backend.
-  // Saves an entry in the memory bank. If TabContextSync is enabled and the
-  // entry is a tab, page content (APC) is extracted and saved instead of the
-  // provided selected_text.
-  void SaveMemoryBankEntry(MemoryBankEntry entry,
-                           MemoryBank::OperationCompleteCallback callback);
+  // Saves an entry in the memory bank. If the entry is a tab and `web_contents`
+  // matches the entry's URL, page content (APC) is extracted from
+  // `web_contents` and saved in `selected_text`.
+  void SaveMemoryBankEntry(
+      MemoryBankEntry entry,
+      MemoryBank::OperationCompleteCallback callback,
+      base::WeakPtr<content::WebContents> web_contents = nullptr);
   // Updates an entry in the memory bank with new tags, note, and collection.
   void UpdateMemoryBankEntryAnnotations(
       int64_t id,
@@ -394,16 +394,9 @@ class ContextHubService : public KeyedService,
   std::vector<base::Uuid> AddTabGroupsToSyncService(
       base::span<const TabGroupEntry> entries);
 
-  // Searches open browser tabs for a WebContents matching `url`.
-  // Note: Looking up a WebContents solely by URL is brittle and not
-  // production-safe since there could be multiple open tabs sharing the same
-  // URL or tabs that have navigated away.
-  content::WebContents* FindWebContentsForUrl(const GURL& url) const;
-
   // Handles the async response when APC is extracted for SaveMemoryBankEntry.
   void OnPageContentExtractedForSaveMemoryBankEntry(
       MemoryBankEntry entry,
-      base::WeakPtr<content::WebContents> web_contents,
       base::WeakPtr<content::Page> page,
       MemoryBank::OperationCompleteCallback callback,
       std::optional<page_content_annotations::ExtractedPageContentResult>
@@ -555,8 +548,7 @@ class ContextHubService : public KeyedService,
       base::IdType64<class MemoryBankChatHistoryTurnIdTag>;
   MemoryBankChatHistoryTurnId::Generator
       memory_bank_chat_history_turn_id_generator_;
-  base::LRUCache<MemoryBankChatHistoryTurnId,
-                 optimization_guide::proto::ChatHistoryTurn>
+  base::LRUCache<MemoryBankChatHistoryTurnId, MemoryBankChatHistoryTurn>
       memory_bank_chat_history_cache_;
 
   // In-memory storage for feedback on Auto Todo items. The key is the ID of the
@@ -567,6 +559,7 @@ class ContextHubService : public KeyedService,
   // Single pending memory bank entry waiting to be saved by the active WebUI
   // dialog.
   std::optional<MemoryBankEntry> pending_memory_bank_entry_;
+  base::WeakPtr<content::WebContents> pending_memory_bank_web_contents_;
 
   // Backend storage engine for SQLite operations. May be null if DB storage is
   // disabled.

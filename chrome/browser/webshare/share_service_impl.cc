@@ -49,9 +49,11 @@
 
 ShareServiceImpl::ShareServiceImpl(
     content::RenderFrameHost& render_frame_host,
-    mojo::PendingReceiver<blink::mojom::ShareService> receiver)
+    mojo::PendingReceiver<blink::mojom::ShareService> receiver,
+    base::SelfDeletingPassKey key)
     : content::DocumentService<blink::mojom::ShareService>(render_frame_host,
-                                                           std::move(receiver))
+                                                           std::move(receiver),
+                                                           key)
 #if BUILDFLAG(IS_CHROMEOS)
       ,
       sharesheet_client_(
@@ -79,7 +81,8 @@ void ShareServiceImpl::Create(
     return;
   }
 
-  new ShareServiceImpl(*render_frame_host, std::move(receiver));
+  base::MakeSelfDeleting<ShareServiceImpl>(*render_frame_host,
+                                           std::move(receiver));
 }
 
 // static
@@ -224,8 +227,8 @@ void ShareServiceImpl::Share(const std::string& title,
   // NavigatorShare::share(), so the browser enforces user activation itself.
   // Consume rather than test, so that a single gesture cannot be replayed into
   // repeated share sheets. NavigatorShare::share() consumes its own copy with
-  // UserActivationUpdateSource::kBrowser, which leaves the browser-side state
-  // intact for this check.
+  // UserActivationUpdateScope::kCurrentRenderer, which leaves the browser-side
+  // state intact for this check.
   if (!render_frame_host().ConsumeTransientUserActivation()) {
     VLOG(1) << "Share without transient user activation";
     std::move(callback).Run(blink::mojom::ShareError::PERMISSION_DENIED);
@@ -282,7 +285,7 @@ void ShareServiceImpl::Share(const std::string& title,
   }
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  DCHECK(!safe_browsing_request_);
+  CHECK(!safe_browsing_request_, base::NotFatalUntil::M162);
   if (should_check_url && g_browser_process->safe_browsing_service()) {
     auto* v5_manager =
         web_contents->GetBrowserContext()

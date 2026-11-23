@@ -32,7 +32,7 @@ import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.R;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.TraversalMode;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionListViewBinder.SuggestionListViewHolder;
@@ -197,8 +197,8 @@ public class SuggestionListViewBinderUnitTest {
         assertThat(mContainer.getBackground(), instanceOf(ColorDrawable.class));
         ColorDrawable background = (ColorDrawable) mContainer.getBackground();
         assertEquals(
-                OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
-                        mActivity, BrandedColorScheme.INCOGNITO),
+                mResourceProvider.getSuggestionBackgroundColor(
+                        FuseboxLayoutMode.SUGGESTIONS_POPOVER, /* isDropdownContainer= */ true),
                 background.getColor());
     }
 

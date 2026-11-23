@@ -540,6 +540,9 @@ enum ActionResultCode {
   // The trigger field for OTP filling was not found.
   kOtpFieldNotFound = 1416,
 
+  // The user declined the Gmail OTP filling confirmation dialog.
+  kOtpUserDeclinedFillingConfirmation = 1417,
+
   ///////////////////////////////////////////////////////////////////////
   // Codes 1500-1599: Errors for translate page.
 
@@ -578,6 +581,14 @@ enum ActionResultCode {
   // Search could not be performed because default search provider was not set.
   kDefaultSearchProviderNotSet = 1901,
 
+  // Site-based search could not be performed because the page has neither an
+  // OpenSearch template nor a discoverable search input.
+  kSiteBasedSearchNotAvailable = 1902,
+
+  // The default search provider does not support search term replacement or
+  // failed to generate a valid search URL.
+  kSearchUrlGenerationFailed = 1903,
+
   ///////////////////////////////////////////////////////////////////////
   // Codes 2000-2099: Errors for page search (switch tab, open known page).
 
@@ -591,6 +602,34 @@ enum ActionResultCode {
   // The query only matched the currently active tab, so no tab switch was
   // performed.
   kPageSearchAlreadyOnMatchingTab = 2002,
+
+  ///////////////////////////////////////////////////////////////////////
+  // Codes 2100-2199: Errors for get screenshot.
+
+  // The screenshot capture failed.
+  kScreenshotCaptureFailed = 2100,
+
+  // Another screenshot capture is already in progress on this tab.
+  kScreenshotCaptureThrottled = 2101,
+
+  // The page for which the screenshot was requested changed during capture.
+  kScreenshotCapturePageChanged = 2102,
+
+  // The page for which the screenshot was requested was not eligible for
+  // capture.
+  kScreenshotCapturePageNotEligible = 2103,
+
+  ///////////////////////////////////////////////////////////////////////
+  // Codes 2200-2299: Errors for Gemini panel tool.
+
+  // The Glic service was not available for the profile.
+  kGeminiPanelServiceUnavailable = 2200,
+
+  // Invoking the Gemini panel failed.
+  kGeminiPanelInvokeFailed = 2201,
+
+  // The target surface is not in a tab.
+  kGeminiPanelNotInTab = 2202,
 
   // Please see the comment above about adding new values.
 };

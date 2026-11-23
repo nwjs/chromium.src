@@ -10,10 +10,12 @@
 #include <string_view>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/readaloud/read_aloud_audio_broker.h"
+#include "chrome/browser/readaloud/read_aloud_voice_catalog.h"
 #include "chrome/common/readaloud/read_aloud.mojom.h"
 #include "components/dom_distiller/core/task_tracker.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -78,10 +80,17 @@ class ReadAloudService
     kNegative = 2,
   };
 
-  struct Voice {
-    std::string id;
-    std::string display_name;
+  // Outcome of overview generation and processing in ReadAloudService.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  // LINT.IfChange(OverviewOutcome)
+  enum class OverviewOutcome {
+    kSuccess = 0,
+    kGenerationFailed = 1,
+    kContentParsingFailed = 2,
+    kMaxValue = kContentParsingFailed,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/readaloud/enums.xml:ReadAloudOverviewOutcome)
 
   // Interface for dispatching events from the native service to the UI.
   // State changes are sent to the UI via this delegate.
@@ -101,9 +110,8 @@ class ReadAloudService
     virtual void OnPlaybackStateChanged(
         read_aloud::mojom::PlaybackState playback_state) = 0;
 
-    // Called when the available voices list and currently selected voice are updated.
-    virtual void OnVoicesAvailable(const std::vector<Voice>& voices,
-                                   std::string_view selected_voice_id) = 0;
+    // Called when the available voices catalog is provided to the UI.
+    virtual void OnVoicesAvailable(base::span<const VoiceInfo> voices) = 0;
 
     // Called when a new word is reached, providing offsets for UI highlighting.
     virtual void OnWordHighlightUpdated(int absolute_start_index,
@@ -184,7 +192,8 @@ class ReadAloudService
   void SetLanguageCode(std::string_view language_code);
 
   // Plays or resumes a short audio sample of the specified voice.
-  void PreviewVoice(std::string_view voice_id);
+  void PreviewVoice(std::string_view voice_id,
+                    std::u16string_view preview_text);
 
   // Pauses the active voice preview playback.
   void PauseVoicePreview();
@@ -204,6 +213,9 @@ class ReadAloudService
 
   // Initiates an asynchronous check to determine if the URL is readable.
   void CheckReadability(const GURL& url);
+
+  // Initializes and pushes the available synthesis voices to the delegate.
+  void InitVoices();
 
   // Methods called by ReadAloudPlaybackSession:
   void OnSessionSuspended();
@@ -230,9 +242,8 @@ class ReadAloudService
   void OnPlaybackStateChanged(read_aloud::mojom::PlaybackState state) override;
   void OnPlaybackProgressChanged(base::TimeDelta elapsed,
                                  base::TimeDelta duration) override;
-  void OnWordBoundaryReached(uint32_t segment_index,
-                             uint32_t character_offset,
-                             base::TimeDelta audio_timestamp) override;
+  void OnWordBoundaryReached(uint32_t start_character_offset,
+                             uint32_t end_character_offset) override;
   void OnTextChunked(const std::vector<std::u16string>& chunks) override;
   void RequestSpeechSynthesis(
       const std::u16string& text_chunk,
@@ -290,8 +301,13 @@ class ReadAloudService
   std::unique_ptr<dom_distiller::ViewerHandle> viewer_handle_;
   std::unique_ptr<Delegate> delegate_;
   base::TimeTicks distillation_start_time_;
+  base::TimeTicks overview_generation_start_time_;
   std::string article_title_;
   std::string current_publisher_;
+  // Length of the highlighter coordinate space for the current document: the
+  // sum of (chunk.size() + 1) over the chunks forwarded by `OnTextChunked()`.
+  // Used to bounds-check the word offsets reported by the utility process.
+  size_t highlight_text_length_ = 0;
 
   // Connection to the Utility process Factory.
   mojo::Remote<read_aloud::mojom::ReadAloudPlaybackControllerFactory>

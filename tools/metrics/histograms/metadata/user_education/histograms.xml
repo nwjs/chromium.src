@@ -46,6 +46,8 @@ chromium-metrics-reviews@google.com.
       summary="Promotion for Glic in the context menu."/>
   <variant name="GlicKeyboardShortcutNewBadge"
       summary="Glic keyboard shortcut input on settings page."/>
+  <variant name="IndigoContextMenu"
+      summary="Shown on the Try it on context menu item."/>
   <variant name="LensOverlay"
       summary="Lens Overlay entry points in app and web context menus."/>
   <variant name="NewBadgeTestFeature"
@@ -55,9 +57,6 @@ chromium-metrics-reviews@google.com.
   <variant name="ReadAnythingLineFocus"
       summary="Shown on the Line Focus menu item in Reading Mode settings
                menu."/>
-  <variant name="SendTabToSelfEnhancedDesktopUI"
-      summary="Promotion for Send to your device in the tab and webpage
-               context menus."/>
   <variant name="SendTabToSelfEnhancedDesktopUIv2"
       summary="Promotion for Send to your device in the tab and webpage
                context menus."/>
@@ -68,6 +67,8 @@ chromium-metrics-reviews@google.com.
                right clicking a link."/>
   <variant name="SkillsAndExtensionsAppMenu"
       summary="Shown on the Extensions and Skills item in the app menu."/>
+  <variant name="TabGroupsFocusing"
+      summary="Promotion for focusing on a tab group in the tab context menu."/>
   <variant name="TabstripDeclutter"
       summary="Promotion for Close Unused Tabs in the app menu."/>
   <variant name="VerticalTabsNewBadge"
@@ -131,6 +132,8 @@ chromium-metrics-reviews@google.com.
   <variant name="GenerativeThemes" summary="the module for Generative Themes"/>
   <variant name="GenerativeTheming"
       summary="the module for Generative Theming"/>
+  <variant name="GlicWhatsNewLuminous"
+      summary="the module for Gemini in Chrome: Luminous"/>
   <variant name="GlitterAIFeaturesVideo"
       summary="the module for Glitter AI Features Video"/>
   <variant name="GlitterAIMode" summary="the module for Glitter AI Mode"/>
@@ -260,7 +263,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="UserEducation.DesktopToIOSPromo.{PromoType}.BubbleView.Created"
-    enum="DesktopToIOSPromoBubbleType" expires_after="2027-02-07">
+    enum="DesktopToIOSPromoBubbleType" expires_after="2027-04-11">
   <owner>hiramahmood@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
   <summary>
@@ -280,7 +283,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="UserEducation.DesktopToIOSPromo.{PromoType}.{BubbleType}.Action"
-    enum="DesktopToIOSPromoActionType" expires_after="2027-02-07">
+    enum="DesktopToIOSPromoActionType" expires_after="2027-04-11">
   <owner>hiramahmood@google.com</owner>
   <owner>bling-pandamonium@google.com</owner>
   <summary>
@@ -356,7 +359,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.MessageShown.TimeInQueue" units="ms"
-    expires_after="2027-01-24">
+    expires_after="2027-04-11">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -421,7 +424,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="UserEducation.NtpPromos.Promos.{NtpPromoIdentifier}.{NtpPromoAction}"
-    units="int" expires_after="2027-02-07">
+    units="int" expires_after="2027-04-11">
   <owner>cjgrant@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>
@@ -708,7 +711,10 @@ chromium-metrics-reviews@google.com.
   <owner>frizzle-team@google.com</owner>
   <summary>
     Records when the user expands or collapses the QR code section of the What's
-    New page.
+    New page. Not recorded when Chrome tells the page to use its native QR code
+    bubble instead (use-native-mobile-qr); see
+    Signin.CrossDeviceSigninPromo.OpenedQrCodeBubble with the What's New page
+    entry point.
   </summary>
 </histogram>
 

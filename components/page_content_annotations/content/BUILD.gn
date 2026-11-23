@@ -33,6 +33,7 @@ source_set("content") {
   ]
 
   public_deps = [
+    ":metrics",
     "//base",
     "//components/content_extraction/content/browser",
     "//components/feature_engagement/public",
@@ -53,7 +54,6 @@ source_set("content") {
   ]
 
   deps = [
-    ":metrics",
     "//components/continuous_search/browser",
     "//components/optimization_guide/content/browser:page_context_eligibility",
     "//components/optimization_guide/core:page_content",
@@ -147,6 +147,7 @@ source_set("unit_tests") {
     "//components/passage_embeddings/core:passage_embeddings_types",
     "//components/passage_embeddings/core:test_support",
     "//components/pdf/common:constants",
+    "//components/tabs:test_support",
     "//components/ukm:test_support",
     "//content/test:test_support",
     "//pdf:buildflags",

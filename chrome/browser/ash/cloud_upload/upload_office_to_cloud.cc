@@ -1,0 +1,113 @@
+// Copyright 2023 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/ash/cloud_upload/upload_office_to_cloud.h"
+
+#include <algorithm>
+#include <string_view>
+
+#include "ash/constants/ash_pref_names.h"
+#include "chrome/browser/chromeos/enterprise/cloud_storage/policy_utils.h"
+#include "chrome/browser/policy/profile_policy_connector.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chromeos/ash/experiences/extensions/common/api/odfs_config_private.h"
+#include "components/prefs/pref_registry_simple.h"
+#include "components/prefs/pref_service.h"
+
+using extensions::api::odfs_config_private::Mount;
+
+namespace ash {
+
+namespace {
+
+bool IsPrefValueSetToAllowed(std::string_view pref_value) {
+  return pref_value == cloud_upload::kCloudUploadPolicyAllowed ||
+         pref_value == cloud_upload::kCloudUploadPolicyAutomated;
+}
+
+bool IsPrefValueSetToAutomated(std::string_view pref_value) {
+  return pref_value == cloud_upload::kCloudUploadPolicyAutomated;
+}
+
+}  // namespace
+
+bool IsEligibleAndEnabledUploadOfficeToCloud(const Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+  // Drive and OneDrive are disabled in Guest mode.
+  if (profile->IsGuestSession()) {
+    return false;
+  }
+  // They are also disabled in profiles that have no policy connector, since it
+  // can't be checked whether policies allow them.
+  if (!profile->GetProfilePolicyConnector()) {
+    return false;
+  }
+  return !profile->IsChild();
+}
+
+namespace cloud_upload {
+
+void RegisterProfilePrefs(PrefRegistrySimple* registry) {
+  registry->RegisterStringPref(ash::prefs::kMicrosoftOfficeCloudUpload,
+                               kCloudUploadPolicyAllowed);
+  registry->RegisterStringPref(ash::prefs::kGoogleWorkspaceCloudUpload,
+                               kCloudUploadPolicyAllowed);
+}
+
+bool IsMicrosoftOfficeOneDriveIntegrationAllowed(const Profile* profile) {
+  if (!IsEligibleAndEnabledUploadOfficeToCloud(profile)) {
+    return false;
+  }
+
+  if (profile->GetProfilePolicyConnector()->IsManaged()) {
+    return std::ranges::contains(
+        std::vector<Mount>{Mount::kAllowed, Mount::kAutomated},
+        chromeos::cloud_storage::GetMicrosoftOneDriveMount(profile));
+  }
+  return true;
+}
+
+bool IsMicrosoftOfficeOneDriveIntegrationAutomated(const Profile* profile) {
+  if (!IsEligibleAndEnabledUploadOfficeToCloud(profile)) {
+    return false;
+  }
+
+  if (profile->GetProfilePolicyConnector()->IsManaged()) {
+    return chromeos::cloud_storage::GetMicrosoftOneDriveMount(profile) ==
+           Mount::kAutomated;
+  }
+  return true;
+}
+
+bool IsMicrosoftOfficeCloudUploadAllowed(Profile* profile) {
+  return IsEligibleAndEnabledUploadOfficeToCloud(profile) &&
+         IsMicrosoftOfficeOneDriveIntegrationAllowed(profile) &&
+         IsPrefValueSetToAllowed(profile->GetPrefs()->GetString(
+             ash::prefs::kMicrosoftOfficeCloudUpload));
+}
+
+bool IsMicrosoftOfficeCloudUploadAutomated(Profile* profile) {
+  return IsEligibleAndEnabledUploadOfficeToCloud(profile) &&
+         IsMicrosoftOfficeOneDriveIntegrationAllowed(profile) &&
+         IsPrefValueSetToAutomated(profile->GetPrefs()->GetString(
+             ash::prefs::kMicrosoftOfficeCloudUpload));
+}
+
+bool IsGoogleWorkspaceCloudUploadAllowed(Profile* profile) {
+  return IsEligibleAndEnabledUploadOfficeToCloud(profile) &&
+         IsPrefValueSetToAllowed(profile->GetPrefs()->GetString(
+             ash::prefs::kGoogleWorkspaceCloudUpload));
+}
+
+bool IsGoogleWorkspaceCloudUploadAutomated(Profile* profile) {
+  return IsEligibleAndEnabledUploadOfficeToCloud(profile) &&
+         IsPrefValueSetToAutomated(profile->GetPrefs()->GetString(
+             ash::prefs::kGoogleWorkspaceCloudUpload));
+}
+
+}  // namespace cloud_upload
+
+}  // namespace ash

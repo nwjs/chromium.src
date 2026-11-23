@@ -39,12 +39,15 @@ id<LottieAnimation> CreateAnimation(NSString* animationAssetName) {
     _config = config;
 
     _wrapper = CreateAnimation(config.animationName);
+    _wrapper.animationView.accessibilityIdentifier = config.accessibilityID;
     [_wrapper setDictionaryTextProvider:config.animationTextProvider];
     [self configureAndLayoutAnimationViewForWrapper:_wrapper];
 
     if (config.useLegacyDarkMode) {
       CHECK(config.darkAnimationName);
       _darkWrapper = CreateAnimation(config.darkAnimationName);
+      _darkWrapper.animationView.accessibilityIdentifier =
+          config.darkAccessibilityID;
       [_darkWrapper setDictionaryTextProvider:config.animationTextProvider];
       [self configureAndLayoutAnimationViewForWrapper:_darkWrapper];
     }
@@ -117,12 +120,8 @@ id<LottieAnimation> CreateAnimation(NSString* animationAssetName) {
     [self updateUIForSizeClass];
     return;
   }
-
-  for (NSString* key in _config.lightModeColorProvider.allKeys) {
-    UIColor* lightColor = _config.lightModeColorProvider[key];
-    UIColor* darkColor = _config.darkModeColorProvider[key];
-    ConfigureAnimationCustomColor(_wrapper, key, lightColor, darkColor);
-  }
+  ConfigureAnimationCustomColors(_wrapper, _config.lightModeColorProvider,
+                                 _config.darkModeColorProvider);
 }
 
 // Helper method to configure the animation view and its constraints for the

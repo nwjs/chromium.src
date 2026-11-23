@@ -4,12 +4,16 @@
 
 #include "chrome/browser/ui/views/app_menu/action_app_menu_manager.h"
 
+#include <algorithm>
+
 #include "base/test/scoped_feature_list.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/ui/actions/actions_util.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -41,6 +45,7 @@
 #include "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/skills/features.h"
+#include "components/sync/base/features.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_device_info/remote_device_info.h"
@@ -391,9 +396,10 @@ TEST_F(ActionAppMenuManagerTest, BlockActionsIncognitoNewTabTextOverride) {
   std::u16string* text_override =
       new_tab_action->GetProperty(AppMenuActionItem::kTextOverrideKey);
   ASSERT_NE(text_override, nullptr);
-  EXPECT_EQ(*text_override,
-            BrowserActions::GetMnemonicTitleText(
-                l10n_util::GetStringUTF16(IDS_NEW_INCOGNITO_TAB)));
+  EXPECT_EQ(
+      *text_override,
+      chrome::GetCleanText(l10n_util::GetStringUTF16(IDS_NEW_INCOGNITO_TAB),
+                           chrome::CleanTextOptions::kEllipses));
 
   ASSERT_GE(block_section->GetChildren().children().size(), 3u);
   actions::BaseAction* incognito_window_action =
@@ -405,9 +411,10 @@ TEST_F(ActionAppMenuManagerTest, BlockActionsIncognitoNewTabTextOverride) {
   std::u16string* incognito_window_text_override =
       incognito_window_action->GetProperty(AppMenuActionItem::kTextOverrideKey);
   ASSERT_NE(incognito_window_text_override, nullptr);
-  EXPECT_EQ(*incognito_window_text_override,
-            BrowserActions::GetMnemonicTitleText(
-                l10n_util::GetStringUTF16(IDS_NEW_INCOGNITO_WINDOW)));
+  EXPECT_EQ(
+      *incognito_window_text_override,
+      chrome::GetCleanText(l10n_util::GetStringUTF16(IDS_NEW_INCOGNITO_WINDOW),
+                           chrome::CleanTextOptions::kEllipses));
 }
 
 TEST_F(ActionAppMenuManagerTest,
@@ -446,9 +453,9 @@ TEST_F(ActionAppMenuManagerTest,
   std::u16string* text_override =
       new_tab_action->GetProperty(AppMenuActionItem::kTextOverrideKey);
   ASSERT_NE(text_override, nullptr);
-  EXPECT_EQ(*text_override,
-            BrowserActions::GetMnemonicTitleText(
-                l10n_util::GetStringUTF16(IDS_NEW_ISOLATED_TAB)));
+  EXPECT_EQ(*text_override, chrome::GetCleanText(
+                                l10n_util::GetStringUTF16(IDS_NEW_ISOLATED_TAB),
+                                chrome::CleanTextOptions::kEllipses));
 
   ASSERT_GE(block_section->GetChildren().children().size(), 3u);
   actions::BaseAction* isolated_window_action =
@@ -460,9 +467,10 @@ TEST_F(ActionAppMenuManagerTest,
   std::u16string* isolated_window_text_override =
       isolated_window_action->GetProperty(AppMenuActionItem::kTextOverrideKey);
   ASSERT_NE(isolated_window_text_override, nullptr);
-  EXPECT_EQ(*isolated_window_text_override,
-            BrowserActions::GetMnemonicTitleText(
-                l10n_util::GetStringUTF16(IDS_NEW_ISOLATED_WINDOW)));
+  EXPECT_EQ(
+      *isolated_window_text_override,
+      chrome::GetCleanText(l10n_util::GetStringUTF16(IDS_NEW_ISOLATED_WINDOW),
+                           chrome::CleanTextOptions::kEllipses));
 }
 
 TEST_F(ActionAppMenuManagerTest, BookmarkBarSubmenuCheckItems) {
@@ -585,13 +593,89 @@ TEST_F(ActionAppMenuManagerTest, NotificationHeaderUpgradeNotification) {
 }
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+TEST_F(ActionAppMenuManagerTest,
+       NotificationHeaderUpgradeAndScheduledRestartNotifications) {
+  if (!browser_defaults::kShowUpgradeMenuItem) {
+    GTEST_SKIP() << "Upgrade menu item is not supported on this platform.";
+  }
+
+  actions::ActionItem* upgrade_action =
+      actions::ActionManager::Get().FindAction(kActionUpgradeDialog, nullptr);
+  ASSERT_NE(upgrade_action, nullptr);
+  upgrade_action->SetVisible(true);
+
+  actions::ActionItem* scheduled_restart_action =
+      actions::ActionManager::Get().FindAction(kActionScheduledRestartDialog,
+                                               nullptr);
+  ASSERT_NE(scheduled_restart_action, nullptr);
+  scheduled_restart_action->SetVisible(true);
+
+  ActionAppMenuManager menu_manager(&mock_window_interface_,
+                                    &mock_drag_and_drop_host_);
+  menu_manager.CreateMenuHierarchy();
+
+  actions::ActionItem* root = menu_manager.GetAppMenuRoot();
+  ASSERT_NE(root, nullptr);
+
+  const auto& children = root->GetChildren().children();
+  ASSERT_GE(children.size(), 2u);
+
+  actions::ActionItem* notification_section = children[0]->GetActionItem();
+  ASSERT_NE(notification_section, nullptr);
+  const auto& section_children = notification_section->GetChildren().children();
+  ASSERT_EQ(section_children.size(), 2u);
+
+  EXPECT_EQ(section_children[0]->GetActionItem()->GetActionId(),
+            kActionUpgradeDialog);
+  EXPECT_EQ(
+      section_children[0]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
+      AppMenuActionItem::DisplayType::kNotification);
+  EXPECT_EQ(section_children[0]->GetProperty(AppMenuActionItem::kItemHeightKey),
+            AppMenuActionItem::ItemHeight::kMedium);
+  EXPECT_EQ(
+      section_children[0]->GetProperty(AppMenuActionItem::kContainerColorKey),
+      ui::kColorAppMenuUpgradeRowBackground);
+
+  EXPECT_EQ(section_children[1]->GetActionItem()->GetActionId(),
+            kActionScheduledRestartDialog);
+  EXPECT_EQ(
+      section_children[1]->GetProperty(AppMenuActionItem::kDisplayTypeKey),
+      AppMenuActionItem::DisplayType::kNotification);
+  EXPECT_EQ(section_children[1]->GetProperty(AppMenuActionItem::kItemHeightKey),
+            AppMenuActionItem::ItemHeight::kMedium);
+  EXPECT_EQ(
+      section_children[1]->GetProperty(AppMenuActionItem::kContainerColorKey),
+      ui::kColorAppMenuUpgradeRowBackground);
+  EXPECT_EQ(section_children[1]->GetProperty(views::kElementIdentifierKey),
+            AppMenuModel::kScheduledRestartMenuItem);
+}
+
+TEST_F(ActionAppMenuManagerTest,
+       NotificationHeaderScheduledRestartHiddenWithoutUpgrade) {
+  actions::ActionItem* scheduled_restart_action =
+      actions::ActionManager::Get().FindAction(kActionScheduledRestartDialog,
+                                               nullptr);
+  ASSERT_NE(scheduled_restart_action, nullptr);
+  scheduled_restart_action->SetVisible(true);
+
+  ActionAppMenuManager menu_manager(&mock_window_interface_,
+                                    &mock_drag_and_drop_host_);
+  menu_manager.CreateMenuHierarchy();
+
+  actions::ActionItem* root = menu_manager.GetAppMenuRoot();
+  ASSERT_NE(root, nullptr);
+  EXPECT_EQ(FindBaseAction(root, kActionScheduledRestartDialog), nullptr);
+}
+#endif
+
 TEST_F(ActionAppMenuManagerTest, NotificationHeaderSafetyHubNotification) {
   SafetyHubMenuNotificationServiceFactory::GetInstance()->SetTestingFactory(
       profile_.get(), base::BindRepeating([](content::BrowserContext* context)
                                               -> std::unique_ptr<KeyedService> {
         Profile* profile = Profile::FromBrowserContext(context);
         auto service = std::make_unique<SafetyHubMenuNotificationService>(
-            profile->GetPrefs(), nullptr, nullptr,
+            profile->GetPrefs(), nullptr,
 #if !BUILDFLAG(IS_ANDROID)
             nullptr,
 #endif
@@ -822,6 +906,7 @@ TEST_F(ActionAppMenuManagerTest,
             ExtensionsMenuModel::kVisitChromeWebStoreMenuItem);
 }
 
+#if !BUILDFLAG(CHROME_FOR_TESTING)
 TEST_F(ActionAppMenuManagerTest, AlertedElementPropagatesToSubmenu) {
   UserEducationServiceFactory::GetInstance()->SetTestingFactory(
       profile_.get(), base::BindRepeating([](content::BrowserContext* context)
@@ -882,6 +967,7 @@ TEST_F(ActionAppMenuManagerTest, AlertedElementPropagatesToSubmenu) {
   ASSERT_NE(show_downloads, nullptr);
   EXPECT_FALSE(show_downloads->GetProperty(AppMenuActionItem::kIsAlertedKey));
 }
+#endif  // !BUILDFLAG(CHROME_FOR_TESTING)
 
 TEST_F(ActionAppMenuManagerTest,
        SendTabToSelfEnhancedDesktopUIv2SubmenuAndPromos) {
@@ -954,7 +1040,8 @@ TEST_F(ActionAppMenuManagerTest,
   sync_service->GetFakeSendTabToSelfModel()->SetTargetDeviceInfoSortedList(
       {syncer::RemoteDeviceInfo(
           "My Phone", "guid1", syncer::DeviceInfo::FormFactor::kPhone,
-          syncer::DeviceInfo::OsType::kAndroid, base::Time::Now())});
+          syncer::DeviceInfo::OsType::kAndroid, base::Time::Now(),
+          /*has_high_precision_timestamp=*/false)});
   root->ResetActionList();
   menu_manager.CreateMenuHierarchy();
   stts_action = find_send_tab_to_self();
@@ -1000,6 +1087,123 @@ TEST_F(ActionAppMenuManagerTest,
       stts_action->GetChildren().children()[1]->GetActionItem()->GetText(),
       l10n_util::GetStringUTF16(IDS_SEND_TAB_TO_SELF_SIGN_IN_ON_PHONE));
 #endif
+}
+
+TEST_F(ActionAppMenuManagerTest, OtherDeviceTabsSubmenuPlacement) {
+  base::test::ScopedFeatureList feature_list(syncer::kCrossDeviceTabsInAppMenu);
+
+  ActionAppMenuManager menu_manager(&mock_window_interface_,
+                                    &mock_drag_and_drop_host_);
+  menu_manager.CreateMenuHierarchy();
+
+  actions::ActionItem* root = menu_manager.GetAppMenuRoot();
+  ASSERT_NE(root, nullptr);
+  actions::ActionItem* your_chrome_section = GetYourChromeSection(root);
+  ASSERT_NE(your_chrome_section, nullptr);
+
+  const auto& children = your_chrome_section->GetChildren().children();
+  auto recent_tabs_it =
+      std::find_if(children.begin(), children.end(), [](const auto& child) {
+        return child->GetActionItem()->GetActionId() ==
+               kActionRecentTabsSubmenu;
+      });
+  ASSERT_NE(recent_tabs_it, children.end());
+
+  auto other_device_tabs_it =
+      std::find_if(children.begin(), children.end(), [](const auto& child) {
+        return child->GetActionItem()->GetActionId() ==
+               kActionOtherDeviceTabsSubmenu;
+      });
+  ASSERT_NE(other_device_tabs_it, children.end());
+
+  auto downloads_it =
+      std::find_if(children.begin(), children.end(), [](const auto& child) {
+        return child->GetActionItem()->GetActionId() ==
+               kActionShowDownloadsPage;
+      });
+  ASSERT_NE(downloads_it, children.end());
+
+  // "Other device tabs" sits directly below "History" and before "Downloads".
+  EXPECT_EQ(recent_tabs_it + 1, other_device_tabs_it);
+  EXPECT_EQ(other_device_tabs_it + 1, downloads_it);
+
+  actions::BaseAction* other_device_tabs_action = other_device_tabs_it->get();
+  EXPECT_TRUE(other_device_tabs_action->GetActionItem()->GetEnabled());
+  EXPECT_TRUE(other_device_tabs_action->GetActionItem()->GetVisible());
+  EXPECT_EQ(other_device_tabs_action->GetProperty(views::kElementIdentifierKey),
+            AppMenuModel::kOtherDeviceTabsMenuItem);
+  EXPECT_TRUE(
+      other_device_tabs_action->GetProperty(AppMenuActionItem::kIsSubmenuKey));
+}
+
+TEST_F(ActionAppMenuManagerTest, OtherDeviceTabsSubmenuFlagOff) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(syncer::kCrossDeviceTabsInAppMenu);
+
+  actions::ActionItem* other_device_tabs_action =
+      actions::ActionManager::Get().FindAction(kActionOtherDeviceTabsSubmenu,
+                                               nullptr);
+  ASSERT_NE(other_device_tabs_action, nullptr);
+  other_device_tabs_action->SetVisible(false);
+
+  ActionAppMenuManager menu_manager(&mock_window_interface_,
+                                    &mock_drag_and_drop_host_);
+  menu_manager.CreateMenuHierarchy();
+
+  actions::ActionItem* root = menu_manager.GetAppMenuRoot();
+  ASSERT_NE(root, nullptr);
+  actions::ActionItem* your_chrome_section = GetYourChromeSection(root);
+  ASSERT_NE(your_chrome_section, nullptr);
+
+  actions::BaseAction* other_device_tabs =
+      FindBaseAction(your_chrome_section, kActionOtherDeviceTabsSubmenu);
+  ASSERT_NE(other_device_tabs, nullptr);
+  EXPECT_FALSE(other_device_tabs->GetActionItem()->GetVisible());
+
+  const auto& children = your_chrome_section->GetChildren().children();
+  auto recent_tabs_it =
+      std::find_if(children.begin(), children.end(), [](const auto& child) {
+        return child->GetActionItem()->GetActionId() ==
+               kActionRecentTabsSubmenu;
+      });
+  ASSERT_NE(recent_tabs_it, children.end());
+  auto other_device_tabs_it =
+      std::find_if(children.begin(), children.end(), [](const auto& child) {
+        return child->GetActionItem()->GetActionId() ==
+               kActionOtherDeviceTabsSubmenu;
+      });
+  ASSERT_NE(other_device_tabs_it, children.end());
+  auto downloads_it =
+      std::find_if(children.begin(), children.end(), [](const auto& child) {
+        return child->GetActionItem()->GetActionId() ==
+               kActionShowDownloadsPage;
+      });
+  ASSERT_NE(downloads_it, children.end());
+  EXPECT_EQ(recent_tabs_it + 1, other_device_tabs_it);
+  EXPECT_EQ(other_device_tabs_it + 1, downloads_it);
+}
+
+TEST_F(ActionAppMenuManagerTest, OtherDeviceTabsSubmenuIncognito) {
+  base::test::ScopedFeatureList feature_list(syncer::kCrossDeviceTabsInAppMenu);
+
+  Profile* otr_profile =
+      profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  ON_CALL(mock_window_interface_, GetProfile())
+      .WillByDefault(testing::Return(otr_profile));
+
+  ActionAppMenuManager menu_manager(&mock_window_interface_,
+                                    &mock_drag_and_drop_host_);
+  menu_manager.CreateMenuHierarchy();
+
+  actions::ActionItem* root = menu_manager.GetAppMenuRoot();
+  ASSERT_NE(root, nullptr);
+  actions::ActionItem* your_chrome_section = GetYourChromeSection(root);
+  ASSERT_NE(your_chrome_section, nullptr);
+
+  EXPECT_EQ(FindBaseAction(your_chrome_section, kActionOtherDeviceTabsSubmenu),
+            nullptr);
+  EXPECT_EQ(FindBaseAction(your_chrome_section, kActionRecentTabsSubmenu),
+            nullptr);
 }
 
 }  // namespace

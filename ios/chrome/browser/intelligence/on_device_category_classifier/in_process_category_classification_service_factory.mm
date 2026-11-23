@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/in_process_category_classification_service_factory.h"
 
+#import <utility>
+
 #import "base/functional/bind.h"
 #import "ios/chrome/browser/intelligence/contextual_cueing/features.h"
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/in_process_category_classification_service.h"
@@ -34,39 +36,21 @@ std::unique_ptr<KeyedService> BuildInProcessCategoryClassificationService(
 }  // namespace
 
 // static
-InProcessCategoryClassificationService*
-InProcessCategoryClassificationServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<InProcessCategoryClassificationService>(
-          profile, /*create=*/true);
-}
-
-// static
-InProcessCategoryClassificationServiceFactory*
-InProcessCategoryClassificationServiceFactory::GetInstance() {
-  static base::NoDestructor<InProcessCategoryClassificationServiceFactory>
-      instance;
-  return instance.get();
-}
-
-// static
-ProfileKeyedServiceFactoryIOS::TestingFactory
+InProcessCategoryClassificationServiceFactory::TestingFactory
 InProcessCategoryClassificationServiceFactory::GetDefaultFactory() {
-  return base::BindRepeating(&BuildInProcessCategoryClassificationService);
+  return base::BindOnce(&BuildInProcessCategoryClassificationService);
 }
 
 InProcessCategoryClassificationServiceFactory::
-    InProcessCategoryClassificationServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("InProcessCategoryClassificationService",
-                                    ProfileSelection::kOwnInstanceInIncognito,
-                                    ServiceCreation::kCreateLazily,
-                                    TestingCreation::kNoServiceForTests) {
+    InProcessCategoryClassificationServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "InProcessCategoryClassificationService",
+          ProfileSelection::kOwnInstanceInIncognito,
+          ServiceCreation::kCreateLazily,
+          TestingCreation::kNoServiceForTests) {
   DependsOn(OptimizationGuideServiceFactory::GetInstance());
 }
-
-InProcessCategoryClassificationServiceFactory::
-    ~InProcessCategoryClassificationServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 InProcessCategoryClassificationServiceFactory::BuildServiceInstanceFor(

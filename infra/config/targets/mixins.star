@@ -473,6 +473,7 @@ targets.mixin(
     name = "emulator-4-cores",
     swarming = targets.swarming(
         dimensions = {
+            "cpu": "x86-64",
             "device_os": None,
             "device_type": None,
             "pool": "chromium.tests.avd",
@@ -485,6 +486,7 @@ targets.mixin(
     name = "emulator-8-cores",
     swarming = targets.swarming(
         dimensions = {
+            "cpu": "x86-64-n4|x86-64",
             "device_os": None,
             "device_type": None,
             "pool": "chromium.tests.avd",
@@ -1164,6 +1166,13 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "ios_smoke_tests",
+    args = [
+        "--run-eg-smoke-tests-only",
+    ],
+)
+
+targets.mixin(
     name = "tvos_runtime_cache_26_0",
     swarming = targets.swarming(
         named_caches = [
@@ -1279,14 +1288,32 @@ targets.mixin(
     ),
 )
 
-# Restricts Windows GPU Gemma 4 AI WPT tasks to NVIDIA discrete GPUs
-# to prevent D3D12 vision compilation crashes on AMD integrated graphics
-# (see https://crbug.com/547946848).
+# Expands Windows GPU AI WPT tasks across both Windows 10 and Windows 11 x86-64
+# discrete GPUs (NVIDIA, Intel Arc/UHD, and discrete AMD Radeon RX 5500 XT /
+# 7600 / 7900 XTX / 9070 XT) while excluding integrated AMD APUs (1002:1638 and
+# 1002:164e) that have < 4 GB dedicated VRAM and fail on-device GPU model
+# preconditions.
+targets.mixin(
+    name = "win_gpu_ai_wpt_dimensions",
+    swarming = targets.swarming(
+        dimensions = {
+            "cpu": "x86-64",
+            "gpu": "10de|8086|1002:7340|1002:744c|1002:7480|1002:7550",
+            "os": "Windows",
+        },
+    ),
+)
+
+# Restricts Windows GPU Gemma 4 AI WPT tasks to Windows 10 and Windows 11 x86-64
+# NVIDIA discrete GPUs to prevent D3D12 vision compilation crashes on AMD
+# integrated graphics (see https://crbug.com/547946848).
 targets.mixin(
     name = "win_gpu_gemma4_ai_wpt_dimensions",
     swarming = targets.swarming(
         dimensions = {
+            "cpu": "x86-64",
             "gpu": "10de",
+            "os": "Windows",
         },
     ),
 )
@@ -1927,9 +1954,7 @@ targets.mixin(
         # Uncommenting this argument will bypass all interactions with Skia
         # Gold in any tests that use it. This is meant as a temporary
         # emergency stop in case of a Gold outage that's affecting the bots.
-        # TODO(crbug.com/568399534): Can comment this out again if/when
-        # it's safe to do so.
-        "--bypass-skia-gold-functionality",
+        # "--bypass-skia-gold-functionality",
     ],
     precommit_args = [
         "--gerrit-issue=${patch_issue}",
@@ -2279,8 +2304,8 @@ targets.mixin(
     swarming = targets.swarming(
         dimensions = {
             "display_attached": "1",
-            "gpu": "10de:2184-31.0.15.4601",
-            "os": "Windows-10-19045",
+            "gpu": "10de:2184-31.0.15.4601|10de:2184-32.0.16.1074",
+            "os": "Windows-10-19045|Windows-11-26200",
             "pool": "chromium.tests.gpu",
         },
     ),
@@ -2401,12 +2426,12 @@ targets.mixin(
     name = "xcode_27_beta",
     args = [
         "--xcode-build-version",
-        "27b5028f",
+        "27b48",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_27b5028f",
+                name = "xcode_ios_27b48",
                 path = "Xcode.app",
             ),
         ],

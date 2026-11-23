@@ -95,7 +95,8 @@ shared_gpu.ci.linux_builder(
             "gpu_tests",
             "android_builder",
             "release_builder",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "arm64",
             "static_angle",
@@ -152,7 +153,8 @@ shared_gpu.ci.linux_builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "linux",
             "x64",
@@ -231,7 +233,8 @@ shared_gpu.ci.mac_builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "x64",
             "mac",
@@ -309,7 +312,8 @@ shared_gpu.ci.mac_builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "arm64",
             "mac",
@@ -351,7 +355,8 @@ shared_gpu.ci.windows_builder(
         configs = [
             "gpu_tests",
             "release_builder",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "resource_allowlisting",
             "win",
@@ -812,15 +817,6 @@ ci.thin_tester(
             "isolate_profile_data",
         ],
         per_test_modifications = {
-            # TODO(crbug.com/568399534): Remove once Skia Gold is
-            # re-enabled globally in the skia_gold_test mixin.
-            "gl_unittests": targets.per_test_modification(
-                replacements = targets.replacements(
-                    args = {
-                        "--bypass-skia-gold-functionality": None,
-                    },
-                ),
-            ),
             "pixel_skia_gold_passthrough_test": targets.per_test_modification(
                 mixins = targets.mixin(
                     args = [

@@ -12,6 +12,7 @@
 #include <string>
 #include <string_view>
 
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
@@ -53,6 +54,7 @@
 #include "components/browser_ui/accessibility/android/font_size_prefs_android.h"
 #include "ui/base/device_form_factor.h"
 #else  // !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_user_profile.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
 #endif
 
@@ -182,6 +184,12 @@ constexpr auto kFontDefaults = std::to_array<FontDefault>({
     {prefs::kWebKitSerifFontFamilyDevanagari, IDS_SERIF_FONT_FAMILY_DEVANAGARI},
     {prefs::kWebKitSansSerifFontFamilyDevanagari,
      IDS_SANS_SERIF_FONT_FAMILY_DEVANAGARI},
+    {prefs::kWebKitStandardFontFamilyArabicNastaliq,
+     IDS_STANDARD_FONT_FAMILY_ARABIC_NASTALIQ},
+    {prefs::kWebKitSerifFontFamilyArabicNastaliq,
+     IDS_SERIF_FONT_FAMILY_ARABIC_NASTALIQ},
+    {prefs::kWebKitSansSerifFontFamilyArabicNastaliq,
+     IDS_SANS_SERIF_FONT_FAMILY_ARABIC_NASTALIQ},
 #endif
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
     {prefs::kWebKitCursiveFontFamilySimplifiedHan,
@@ -307,16 +315,28 @@ void RegisterLocalizedFontPref(user_prefs::PrefRegistrySyncable* registry,
   int val = 0;
   bool success =
       base::StringToInt(l10n_util::GetStringUTF8(default_message_id), &val);
-  DCHECK(success);
+  CHECK(success, base::NotFatalUntil::M162);
   registry->RegisterIntegerPref(path, val);
 }
 #endif
+
+// Returns the profile whose prefs `contents` uses. For a WebContents in
+// TopChromeWebUIProfile, which has no user prefs, this is its user profile.
+Profile* GetProfileForPrefs(WebContents* contents) {
+#if BUILDFLAG(IS_ANDROID)
+  return Profile::FromBrowserContext(contents->GetBrowserContext());
+#else
+  Profile* profile = webui::GetUserProfile(contents);
+  CHECK(profile);
+  return profile;
+#endif
+}
 
 }  // namespace
 
 PrefsTabHelper::PrefsTabHelper(WebContents* contents)
     : content::WebContentsUserData<PrefsTabHelper>(*contents),
-      profile_(Profile::FromBrowserContext(contents->GetBrowserContext())) {
+      profile_(GetProfileForPrefs(contents)) {
   PrefService* prefs = profile_->GetPrefs();
   if (prefs) {
 #if !BUILDFLAG(IS_ANDROID)

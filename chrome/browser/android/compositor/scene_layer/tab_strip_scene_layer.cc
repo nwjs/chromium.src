@@ -7,7 +7,11 @@
 #include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/android/token_android.h"
+#include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
 #include "cc/slim/layer.h"
+#include "cc/slim/layer_tree.h"
 #include "cc/slim/nine_patch_layer.h"
 #include "cc/slim/solid_color_layer.h"
 #include "cc/slim/ui_resource_layer.h"
@@ -15,11 +19,17 @@
 #include "chrome/browser/android/compositor/layer/tab_handle_layer.h"
 #include "chrome/browser/android/compositor/layer_title_cache.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "components/viz/common/frame_timing_details.h"
 #include "ui/android/resources/nine_patch_resource.h"
 #include "ui/android/resources/resource_manager_impl.h"
 #include "ui/base/l10n/l10n_util_android.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/transform.h"
+#include "ui/webui/buildflags.h"
+
+#if BUILDFLAG(ENABLE_WEBUI_TABSTRIP_NTB)
+#include "chrome/browser/android/compositor/tab_strip_ntb_webui_host.h"  // nogncheck
+#endif
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
 #include "chrome/android/chrome_jni_headers/TabStripSceneLayer_jni.h"
@@ -28,9 +38,62 @@ using base::android::JavaRef;
 
 namespace android {
 
+namespace {
+
+// Root layer for TabStripSceneLayer that records the first-paint presentation
+// time of the native new tab button once both the button is visible and the
+// scene layer is attached to a cc::slim::LayerTree.
+class TabStripRootLayer : public cc::slim::Layer {
+ public:
+  TabStripRootLayer() = default;
+
+  void SetActivityCreationTime(base::TimeTicks activity_creation_time) {
+    activity_creation_time_ = activity_creation_time;
+  }
+
+  void OnNewTabButtonVisible() {
+    ntb_first_paint_ready_ = true;
+    MaybeRequestFirstPaintPresentationTime();
+  }
+
+  void SetLayerTree(cc::slim::LayerTree* layer_tree) override {
+    cc::slim::Layer::SetLayerTree(layer_tree);
+    MaybeRequestFirstPaintPresentationTime();
+  }
+
+ private:
+  ~TabStripRootLayer() override = default;
+
+  void MaybeRequestFirstPaintPresentationTime() {
+    if (recorded_ntb_first_paint_ || !ntb_first_paint_ready_ ||
+        activity_creation_time_.is_null() || !layer_tree()) {
+      return;
+    }
+    recorded_ntb_first_paint_ = true;
+    layer_tree()->RequestSuccessfulPresentationTimeForNextFrame(base::BindOnce(
+        [](base::TimeTicks activity_creation_time,
+           const viz::FrameTimingDetails& details) {
+          base::TimeTicks presentation_time =
+              details.presentation_feedback.timestamp;
+          if (presentation_time >= activity_creation_time) {
+            base::UmaHistogramMediumTimes(
+                "Android.TabStrip.NewTabButton.ActivityCreationToFirstPaint",
+                presentation_time - activity_creation_time);
+          }
+        },
+        activity_creation_time_));
+  }
+
+  base::TimeTicks activity_creation_time_;
+  bool ntb_first_paint_ready_ = false;
+  bool recorded_ntb_first_paint_ = false;
+};
+
+}  // namespace
+
 TabStripSceneLayer::TabStripSceneLayer(JNIEnv* env,
                                        const JavaRef<jobject>& jobj)
-    : SceneLayer(env, jobj),
+    : SceneLayer(env, jobj, base::MakeRefCounted<TabStripRootLayer>()),
       background_layer_(cc::slim::SolidColorLayer::Create()),
       tab_strip_layer_(cc::slim::SolidColorLayer::Create()),
       group_ui_parent_layer_(cc::slim::Layer::Create()),
@@ -42,6 +105,7 @@ TabStripSceneLayer::TabStripSceneLayer(JNIEnv* env,
       new_tab_button_(cc::slim::UIResourceLayer::Create()),
       new_tab_button_background_(cc::slim::UIResourceLayer::Create()),
       new_tab_button_keyboard_focus_ring_(cc::slim::UIResourceLayer::Create()),
+      ntb_webui_container_(cc::slim::Layer::Create()),
       left_fade_(cc::slim::SolidColorLayer::Create()),
       right_fade_(cc::slim::SolidColorLayer::Create()),
       left_padding_layer_(cc::slim::SolidColorLayer::Create()),
@@ -141,6 +205,10 @@ TabStripSceneLayer::TabStripSceneLayer(JNIEnv* env,
   tab_strip_layer_->AddChild(new_tab_button_);
   tab_strip_layer_->AddChild(new_tab_button_keyboard_focus_ring_);
 
+  ntb_webui_container_->SetMasksToBounds(true);
+  ntb_webui_container_->SetHideLayerAndSubtree(true);
+  tab_strip_layer_->AddChild(ntb_webui_container_);
+
   glic_button_container_->SetMasksToBounds(true);
   glic_button_container_->AddChild(glic_button_background_);
   glic_button_container_->AddChild(glic_button_);
@@ -179,7 +247,8 @@ void TabStripSceneLayer::SetConstants(JNIEnv* env,
                                       int32_t reorder_background_corner_radius,
                                       float tab_underline_thickness,
                                       float tab_underline_corner_radius,
-                                      float tab_underline_bottom_margin) {
+                                      float tab_underline_bottom_margin,
+                                      int64_t activity_creation_uptime_ms) {
   GroupIndicatorLayer::SetConstants(
       reorder_background_top_margin, reorder_background_bottom_margin,
       reorder_background_padding_short, reorder_background_padding_long,
@@ -188,6 +257,12 @@ void TabStripSceneLayer::SetConstants(JNIEnv* env,
   TabHandleLayer::SetConstants(tab_underline_thickness,
                                tab_underline_corner_radius,
                                tab_underline_bottom_margin);
+
+  if (activity_creation_uptime_ms > 0) {
+    static_cast<TabStripRootLayer*>(layer().get())
+        ->SetActivityCreationTime(
+            base::TimeTicks::FromUptimeMillis(activity_creation_uptime_ms));
+  }
 }
 
 void TabStripSceneLayer::SetContentTree(JNIEnv* env,
@@ -342,6 +417,46 @@ void TabStripSceneLayer::UpdateNewTabButton(
                          should_apply_hover_highlight, button_alpha,
                          new_tab_button_keyboard_focus_ring_,
                          is_keyboard_focused, keyboard_focus_ring_drawable);
+
+  if (visible) {
+    static_cast<TabStripRootLayer*>(layer().get())->OnNewTabButtonVisible();
+  }
+}
+
+void TabStripSceneLayer::UpdateNtbWebUi(JNIEnv* env,
+                                        int64_t native_host,
+                                        float x,
+                                        float y,
+                                        float width,
+                                        float height) {
+#if BUILDFLAG(ENABLE_WEBUI_TABSTRIP_NTB)
+  new_tab_button_->SetHideLayerAndSubtree(true);
+  new_tab_button_background_->SetHideLayerAndSubtree(true);
+  new_tab_button_keyboard_focus_ring_->SetIsDrawable(false);
+
+  TabStripNtbWebUiHost* host =
+      reinterpret_cast<TabStripNtbWebUiHost*>(native_host);
+  scoped_refptr<cc::slim::Layer> webui_layer =
+      host ? host->GetLayer() : nullptr;
+  if (!webui_layer) {
+    ntb_webui_container_->RemoveAllChildren();
+    ntb_webui_container_->SetHideLayerAndSubtree(true);
+    return;
+  }
+
+  if (webui_layer->parent() != ntb_webui_container_.get()) {
+    ntb_webui_container_->RemoveAllChildren();
+    ntb_webui_container_->AddChild(webui_layer);
+  }
+  webui_layer->SetPosition(gfx::PointF());
+  webui_layer->SetBounds(gfx::Size(width, height));
+  webui_layer->SetHideLayerAndSubtree(false);
+
+  ntb_webui_container_->SetPosition(gfx::PointF(x, y));
+  ntb_webui_container_->SetBounds(
+      gfx::Size(std::round(width), std::round(height)));
+  ntb_webui_container_->SetHideLayerAndSubtree(false);
+#endif
 }
 
 // The Glic button layer can be constructed with the following dynamic layout:
@@ -559,7 +674,6 @@ void TabStripSceneLayer::UpdateGlicButtonInternal(
     icon_resource = resource_manager_->GetResource(
         ui::ANDROID_RESOURCE_TYPE_STATIC, resource_id);
   }
-
 
   gfx::Size background_size(std::round(button_width),
                             std::round(button_height));

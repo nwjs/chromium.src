@@ -24,6 +24,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/run_loop.h"
+#include "base/scoped_observation.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -44,8 +45,11 @@
 #include "chrome/browser/context_hub/context_hub_service_factory.h"
 #include "chrome/browser/context_hub/features.h"
 #include "chrome/browser/context_hub/memory_bank/memory_bank.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/search_journey_tracker.h"
 #include "chrome/browser/contextual_tasks/search_journey_tracker_factory.h"
+#include "chrome/browser/download/download_stats.h"
+#include "chrome/browser/download/download_test_file_activity_observer.h"
 #include "chrome/browser/enterprise/data_controls/desktop_data_controls_dialog_test_helper.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -71,6 +75,7 @@
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_test_util.h"
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
+#include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -145,6 +150,7 @@
 #include "content/public/browser/browser_plugin_guest_manager.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/context_menu_params.h"
+#include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -156,6 +162,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/download_test_observer.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
 #include "extensions/browser/api/extensions_api_client.h"
@@ -1095,6 +1102,28 @@ class ContextMenuForSupervisedUsersBrowserTest
     return supervision_mixin_.api_mock_setup_mixin().api_mock();
   }
 
+  download::DownloadItem* SaveLinkAsAndWait(const GURL& link_url) {
+    DownloadTestFileActivityObserver file_activity(browser()->GetProfile());
+    file_activity.EnableFileChooser(true);
+
+    std::unique_ptr<TestRenderViewContextMenu> menu =
+        CreateContextMenuMediaTypeNone(link_url, link_url);
+    EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
+
+    content::DownloadManager* download_manager =
+        browser()->GetProfile()->GetDownloadManager();
+    content::DownloadTestObserverTerminal observer(
+        download_manager, /*wait_count=*/1,
+        content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_ACCEPT);
+    menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SAVELINKAS, /*event_flags=*/0);
+    observer.WaitForFinished();
+
+    std::vector<raw_ptr<download::DownloadItem, VectorExperimental>> items;
+    download_manager->GetAllDownloads(&items);
+    CHECK_EQ(1u, items.size());
+    return items[0];
+  }
+
  private:
   // Supervision mixin hooks kids management api (including ClassifyUrl) onto
   // given embedded test server. This server is run in separate process and is
@@ -1107,6 +1136,9 @@ class ContextMenuForSupervisedUsersBrowserTest
       {
           .sign_in_mode =
               supervised_user::SupervisionMixin::SignInMode::kSupervised,
+          .embedded_test_server_options =
+              {.resolver_rules_map_host_list =
+                   "allowed.test, allowed2.test, blocked.test"},
       }};
 };
 
@@ -1204,19 +1236,58 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(u"test_filename.png", menu_observer.params().suggested_filename);
 }
 
+IN_PROC_BROWSER_TEST_F(ContextMenuForSupervisedUsersBrowserTest,
+                       SaveLinkAsIsBlockedWhenRedirectedToBlockedHostForChild) {
+  supervised_user_test_util::SetManualFilterForHost(
+      browser()->GetProfile(), "allowed.test", /*allowlist=*/true);
+  supervised_user_test_util::SetManualFilterForHost(
+      browser()->GetProfile(), "blocked.test", /*allowlist=*/false);
+
+  GURL blocked_url =
+      embedded_test_server()->GetURL("blocked.test", "/cors-ok.txt");
+  GURL link_url = embedded_test_server()->GetURL(
+      "allowed.test", "/server-redirect-302?" + blocked_url.spec());
+
+  base::HistogramTester histogram_tester;
+  download::DownloadItem* item = SaveLinkAsAndWait(link_url);
+  EXPECT_EQ(blocked_url, item->GetURL());
+  EXPECT_EQ(download::DownloadItem::CANCELLED, item->GetState());
+  histogram_tester.ExpectBucketCount(
+      "Download.CancelReason", DownloadCancelReason::kSupervisedUserBlocked, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextMenuForSupervisedUsersBrowserTest,
+                       SaveLinkAsFollowsRedirectToAllowedHostForChild) {
+  supervised_user_test_util::SetManualFilterForHost(
+      browser()->GetProfile(), "allowed.test", /*allowlist=*/true);
+  supervised_user_test_util::SetManualFilterForHost(
+      browser()->GetProfile(), "allowed2.test", /*allowlist=*/true);
+
+  GURL redirect_target =
+      embedded_test_server()->GetURL("allowed2.test", "/cors-ok.txt");
+  GURL link_url = embedded_test_server()->GetURL(
+      "allowed.test", "/server-redirect-302?" + redirect_target.spec());
+
+  base::HistogramTester histogram_tester;
+  download::DownloadItem* item = SaveLinkAsAndWait(link_url);
+  EXPECT_EQ(redirect_target, item->GetURL());
+  EXPECT_EQ(download::DownloadItem::COMPLETE, item->GetState());
+  histogram_tester.ExpectBucketCount(
+      "Download.CancelReason", DownloadCancelReason::kSupervisedUserBlocked, 0);
+}
+
 #if BUILDFLAG(IS_CHROMEOS)
+// TODO(crbug.com/438540029): Rename this test suite to "TrustedPinned" to
+// disambiguate between LockedFullscreen (which is for extension API) and OnTask
+// locked (which is for class tools).
 class ContextMenuForLockedFullscreenBrowserTest
     : public ContextMenuBrowserTest,
       public testing::WithParamInterface<bool> {
  public:
   ContextMenuForLockedFullscreenBrowserTest() {
-    if (is_unified_locked_state_controller_enabled_) {
-      scoped_feature_list_.InitAndEnableFeature(
-          features::kUseUnifiedLockedStateController);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          features::kUseUnifiedLockedStateController);
-    }
+    scoped_feature_list_.InitWithFeatureState(
+        features::kUseUnifiedLockedStateController,
+        is_unified_locked_state_controller_enabled_);
   }
 
  protected:
@@ -1264,6 +1335,12 @@ class ContextMenuForLockedFullscreenBrowserTest
       auto* controller = chromeos::LockedStateController::From(browser());
       ASSERT_TRUE(controller);
       controller->Lock(chromeos::LockedState::kOnTaskLockedPaused);
+    } else {
+      // Legacy has no explicit paused state; paused is OnTask locked with tab
+      // switching disabled.
+      LockForOnTask();
+      chrome::BrowserCommandController::From(browser())
+          ->SetTabSwitchCommandsEnabled(false);
     }
   }
 
@@ -1272,17 +1349,17 @@ class ContextMenuForLockedFullscreenBrowserTest
 
     // Set up browser for testing / validating page navigation command states.
     OpenUrlWithDisposition(GURL("chrome://new-tab-page/"),
-                           WindowOpenDisposition::CURRENT_TAB);
+                           WindowOpenDisposition::kCurrentTab);
     OpenUrlWithDisposition(GURL("chrome://version/"),
-                           WindowOpenDisposition::CURRENT_TAB);
+                           WindowOpenDisposition::kCurrentTab);
     OpenUrlWithDisposition(GURL("about:blank"),
-                           WindowOpenDisposition::CURRENT_TAB);
+                           WindowOpenDisposition::kCurrentTab);
 
     // Go back by one page to ensure the forward command is also available for
     // testing purposes.
     content::TestNavigationObserver navigation_observer(
         browser()->GetTabStripModel()->GetActiveWebContents());
-    chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
+    chrome::GoBack(browser(), WindowOpenDisposition::kCurrentTab);
     navigation_observer.Wait();
     ASSERT_TRUE(chrome::CanGoBack(browser()));
     ASSERT_TRUE(chrome::CanGoForward(browser()));
@@ -1429,9 +1506,6 @@ IN_PROC_BROWSER_TEST_P(ContextMenuForLockedFullscreenBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(ContextMenuForLockedFullscreenBrowserTest,
                        CriticalItemsAreEnabledWhenLockedForOnTaskPaused) {
-  if (!is_unified_locked_state_controller_enabled_) {
-    return;
-  }
   const GURL kTestUrl("http://www.google.com/");
   const std::unique_ptr<TestRenderViewContextMenu> menu =
       CreateContextMenuMediaTypeImage(/*url=*/kTestUrl);
@@ -3369,11 +3443,15 @@ IN_PROC_BROWSER_TEST_F(LensOverlayBrowserTest,
                                              base::NullCallback());
       }));
 
+  auto* panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(panel_controller);
+
   // Wait for the side panel to load.
   ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return controller->GetSidePanelWebContentsForTesting(); }));
-  EXPECT_TRUE(content::WaitForLoadStop(
-      controller->GetSidePanelWebContentsForTesting()));
+      [&]() { return panel_controller->GetActiveWebContents() != nullptr; }));
+  EXPECT_TRUE(
+      content::WaitForLoadStop(panel_controller->GetActiveWebContents()));
   ASSERT_EQ(controller->state(), LensOverlayController::State::kOff);
 }
 
@@ -4267,10 +4345,8 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 class SendTabToSelfContextMenuBrowserTest : public ContextMenuBrowserTest {
  public:
   SendTabToSelfContextMenuBrowserTest() {
-    feature_list_.InitWithFeatures(
-        {send_tab_to_self::kSendTabToSelfEnhancedDesktopUI,
-         send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2},
-        {});
+    feature_list_.InitAndEnableFeature(
+        send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2);
   }
 
   void SetUpInProcessBrowserTestFixture() override {
@@ -4301,8 +4377,8 @@ class SendTabToSelfContextMenuBrowserTest : public ContextMenuBrowserTest {
 };
 
 // Tests that the Send Tab to Self context menu item is appended for standard
-// HTTP/HTTPS pages and links in a full browser test environment when enhanced
-// desktop UI v2 is enabled.
+// HTTP/HTTPS pages and links in a full browser test environment when
+// `kSendTabToSelfEnhancedDesktopUIv2` is enabled.
 IN_PROC_BROWSER_TEST_F(SendTabToSelfContextMenuBrowserTest,
                        SendTabToSelfPageAndLinkPresence) {
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -4323,11 +4399,8 @@ class SendTabToSelfContextMenuLinkDisabledBrowserTest
     : public ContextMenuBrowserTest {
  public:
   SendTabToSelfContextMenuLinkDisabledBrowserTest() {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{send_tab_to_self::
-                                  kSendTabToSelfEnhancedDesktopUI},
-        /*disabled_features=*/{
-            send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2});
+    feature_list_.InitAndDisableFeature(
+        send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2);
   }
 
   void SetUpInProcessBrowserTestFixture() override {
@@ -4358,8 +4431,7 @@ class SendTabToSelfContextMenuLinkDisabledBrowserTest
 };
 
 // Tests that the Send Tab to Self context menu item is NOT shown when right
-// clicking on hyperlinks if enhanced desktop UI v2 is disabled (even if v1 is
-// enabled for standard page right clicks).
+// clicking on hyperlinks if `kSendTabToSelfEnhancedDesktopUIv2` is disabled.
 IN_PROC_BROWSER_TEST_F(SendTabToSelfContextMenuLinkDisabledBrowserTest,
                        LinkMenuDisabledWhenV2Disabled) {
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -4379,10 +4451,8 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfContextMenuLinkDisabledBrowserTest,
 class SendTabToSelfNoTargetDeviceBrowserTest : public ContextMenuBrowserTest {
  public:
   SendTabToSelfNoTargetDeviceBrowserTest() {
-    feature_list_.InitWithFeatures(
-        {send_tab_to_self::kSendTabToSelfEnhancedDesktopUI,
-         send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2},
-        {});
+    feature_list_.InitAndEnableFeature(
+        send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2);
   }
 
   void SetUpInProcessBrowserTestFixture() override {
@@ -4681,6 +4751,30 @@ INSTANTIATE_TEST_SUITE_P(All,
                          ContextMenuBrowserTestMenuSimplification,
                          testing::Bool());
 
+// Waits for a memory bank entry to be added to a ContextHubService.
+class MemoryBankEntryAddedWaiter
+    : public context_hub::ContextHubService::Observer {
+ public:
+  explicit MemoryBankEntryAddedWaiter(context_hub::ContextHubService* service) {
+    observation_.Observe(service);
+  }
+
+  // Blocks until an entry is added and returns it.
+  context_hub::MemoryBankEntry Wait() { return future_.Take(); }
+
+  // context_hub::ContextHubService::Observer:
+  void OnMemoryBankEntryAdded(
+      const context_hub::MemoryBankEntry& entry) override {
+    future_.SetValue(entry);
+  }
+
+ private:
+  base::test::TestFuture<context_hub::MemoryBankEntry> future_;
+  base::ScopedObservation<context_hub::ContextHubService,
+                          context_hub::ContextHubService::Observer>
+      observation_{this};
+};
+
 class MemoryBanksContextMenuBrowserTest
     : public ContextMenuBrowserTestMenuSimplification {
  protected:
@@ -4744,7 +4838,10 @@ IN_PROC_BROWSER_TEST_P(MemoryBanksContextMenuBrowserTest,
 
 IN_PROC_BROWSER_TEST_P(MemoryBanksContextMenuBrowserTest,
                        SaveToMemoryBanksPage) {
-  GURL url("data:text/html,Hello%20World");
+  GURL url(
+      "data:text/html,<html><head><title>Memory Bank Test Title</title></head>"
+      "<body><p>Hello World this page has enough words for extraction</p>"
+      "</body></html>");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
   std::unique_ptr<TestRenderViewContextMenu> menu =
@@ -4755,30 +4852,199 @@ IN_PROC_BROWSER_TEST_P(MemoryBanksContextMenuBrowserTest,
 
   menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS, 0);
 
-  ASSERT_TRUE(base::test::RunUntil(
-      [&]() { return service->GetPendingMemoryBankEntry().has_value(); }));
-
   std::optional<context_hub::MemoryBankEntry> pending =
       service->GetPendingMemoryBankEntry();
   ASSERT_TRUE(pending.has_value());
   EXPECT_EQ(context_hub::MemoryBankType::kTab, pending->type);
   EXPECT_EQ(url, pending->url);
-  EXPECT_EQ("Hello World", pending->selected_text.value_or(""));
+  EXPECT_EQ("Memory Bank Test Title", pending->tab_title);
+  EXPECT_FALSE(pending->selected_text.has_value());
+
+  MemoryBankEntryAddedWaiter waiter(service);
   EXPECT_TRUE(
       service->SavePendingMemoryBankEntry(/*tags=*/{"page_tag", "research"}));
 
-  base::RunLoop get_entries_run_loop;
-  service->GetAllEntries(base::BindLambdaForTesting(
-      [&](std::vector<context_hub::MemoryBankEntry> entries) {
-        ASSERT_EQ(1u, entries.size());
-        EXPECT_EQ(context_hub::MemoryBankType::kTab, entries[0].type);
-        EXPECT_EQ(url, entries[0].url);
-        EXPECT_EQ("Hello World", entries[0].selected_text.value_or(""));
-        EXPECT_THAT(entries[0].tags,
-                    testing::ElementsAre("page_tag", "research"));
-        get_entries_run_loop.Quit();
-      }));
-  get_entries_run_loop.Run();
+  // The entry is saved asynchronously after page content is extracted.
+  context_hub::MemoryBankEntry saved = waiter.Wait();
+  EXPECT_EQ(context_hub::MemoryBankType::kTab, saved.type);
+  EXPECT_EQ(url, saved.url);
+  EXPECT_EQ("Memory Bank Test Title", saved.tab_title);
+  ASSERT_TRUE(saved.selected_text.has_value());
+  EXPECT_THAT(*saved.selected_text,
+              testing::HasSubstr(
+                  "Hello World this page has enough words for extraction"));
+  EXPECT_THAT(saved.tags, testing::ElementsAre("page_tag", "research"));
+
+  base::test::TestFuture<std::vector<context_hub::MemoryBankEntry>>
+      entries_future;
+  service->GetAllEntries(entries_future.GetCallback());
+  EXPECT_EQ(1u, entries_future.Get().size());
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (auto* controller = SaveToMemoryBankBubbleController::FromWebContents(
+          browser()->tab_strip_model()->GetActiveWebContents())) {
+    controller->CloseBubble();
+  }
+#endif
+}
+
+IN_PROC_BROWSER_TEST_P(MemoryBanksContextMenuBrowserTest,
+                       SaveToMemoryBanksImage) {
+  GURL page_url("data:text/html,Hello%20World");
+  GURL image_url("http://foo.com/image.png");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), page_url));
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuMediaTypeImage(image_url);
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS));
+
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(browser()->GetProfile());
+  ASSERT_TRUE(service);
+
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS, 0);
+
+  std::string expected_title = base::UTF16ToUTF8(
+      browser()->tab_strip_model()->GetActiveWebContents()->GetTitle());
+  std::optional<context_hub::MemoryBankEntry> pending =
+      service->GetPendingMemoryBankEntry();
+  ASSERT_TRUE(pending.has_value());
+  EXPECT_EQ(context_hub::MemoryBankType::kImage, pending->type);
+  EXPECT_EQ(page_url, pending->url);
+  EXPECT_EQ(expected_title, pending->tab_title);
+  EXPECT_FALSE(pending->selected_text.has_value());
+  EXPECT_EQ(image_url, pending->image_url);
+  EXPECT_TRUE(service->SavePendingMemoryBankEntry(/*tags=*/{"image_tag"}));
+
+  base::test::TestFuture<std::vector<context_hub::MemoryBankEntry>>
+      entries_future;
+  service->GetAllEntries(entries_future.GetCallback());
+  std::vector<context_hub::MemoryBankEntry> entries = entries_future.Take();
+  ASSERT_EQ(1u, entries.size());
+  EXPECT_EQ(context_hub::MemoryBankType::kImage, entries[0].type);
+  EXPECT_EQ(page_url, entries[0].url);
+  EXPECT_EQ(expected_title, entries[0].tab_title);
+  EXPECT_FALSE(entries[0].selected_text.has_value());
+  EXPECT_EQ(image_url, entries[0].image_url);
+  EXPECT_THAT(entries[0].tags, testing::ElementsAre("image_tag"));
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (auto* controller = SaveToMemoryBankBubbleController::FromWebContents(
+          browser()->tab_strip_model()->GetActiveWebContents())) {
+    controller->CloseBubble();
+  }
+#endif
+}
+
+IN_PROC_BROWSER_TEST_P(
+    MemoryBanksContextMenuBrowserTest,
+    SaveToMemoryBanksUnloadedImageWithoutSelectionHidesMenuItem) {
+  GURL page_url("data:text/html,Hello%20World");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), page_url));
+
+  content::ContextMenuParams params;
+  params.media_type = blink::mojom::ContextMenuDataMediaType::kImage;
+  params.src_url = GURL("http://foo.com/broken.png");
+  params.has_image_contents = false;
+  params.page_url = page_url;
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuFromParams(params);
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    MemoryBanksContextMenuBrowserTest,
+    SaveToMemoryBanksNonHttpImageWithoutSelectionHidesMenuItem) {
+  GURL page_url("data:text/html,Hello%20World");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), page_url));
+
+  content::ContextMenuParams params;
+  params.media_type = blink::mojom::ContextMenuDataMediaType::kImage;
+  params.src_url = GURL("data:image/png;base64,iVBORw0KGgo=");
+  params.has_image_contents = true;
+  params.page_url = page_url;
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuFromParams(params);
+  EXPECT_FALSE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS));
+}
+
+IN_PROC_BROWSER_TEST_P(
+    MemoryBanksContextMenuBrowserTest,
+    SaveToMemoryBanksUnloadedImageWithSelectionSavesSelectedText) {
+  GURL page_url("data:text/html,Hello%20World");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), page_url));
+
+  content::ContextMenuParams params;
+  params.media_type = blink::mojom::ContextMenuDataMediaType::kImage;
+  params.src_url = GURL("http://foo.com/broken.png");
+  params.has_image_contents = false;
+  params.selection_text = u"Selected text on broken image";
+  params.page_url = page_url;
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuFromParams(params);
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS));
+
+  auto* service =
+      ContextHubServiceFactory::GetForProfile(browser()->GetProfile());
+  ASSERT_TRUE(service);
+
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS, 0);
+
+  std::optional<context_hub::MemoryBankEntry> pending =
+      service->GetPendingMemoryBankEntry();
+  ASSERT_TRUE(pending.has_value());
+  EXPECT_EQ(context_hub::MemoryBankType::kTextSelection, pending->type);
+  EXPECT_EQ("Selected text on broken image", pending->selected_text);
+  EXPECT_FALSE(pending->image_url.has_value());
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (auto* controller = SaveToMemoryBankBubbleController::FromWebContents(
+          browser()->tab_strip_model()->GetActiveWebContents())) {
+    controller->CloseBubble();
+  }
+#endif
+}
+
+IN_PROC_BROWSER_TEST_P(MemoryBanksContextMenuBrowserTest,
+                       SaveToMemoryBanksImageWithSelectionDoesNotDuplicate) {
+  GURL page_url("data:text/html,Hello%20World");
+  GURL image_url("http://foo.com/image.png");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), page_url));
+
+  content::ContextMenuParams params;
+  params.media_type = blink::mojom::ContextMenuDataMediaType::kImage;
+  params.src_url = image_url;
+  params.has_image_contents = true;
+  params.selection_text = u"Selected text with image";
+  params.page_url = page_url;
+
+  std::unique_ptr<TestRenderViewContextMenu> menu =
+      CreateContextMenuFromParams(params);
+
+  int count = 0;
+  const ui::SimpleMenuModel& model = menu->menu_model();
+  for (size_t i = 0; i < model.GetItemCount(); ++i) {
+    if (model.GetCommandIdAt(i) == IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS) {
+      count++;
+    }
+  }
+  EXPECT_EQ(1, count);
+
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(browser()->GetProfile());
+  ASSERT_TRUE(service);
+
+  menu->ExecuteCommand(IDC_CONTENT_CONTEXT_SAVE_TO_MEMORY_BANKS, 0);
+
+  std::optional<context_hub::MemoryBankEntry> pending =
+      service->GetPendingMemoryBankEntry();
+  ASSERT_TRUE(pending.has_value());
+  EXPECT_EQ(context_hub::MemoryBankType::kImage, pending->type);
+  EXPECT_FALSE(pending->selected_text.has_value());
+  EXPECT_EQ(image_url, pending->image_url);
 
 #if !BUILDFLAG(IS_ANDROID)
   if (auto* controller = SaveToMemoryBankBubbleController::FromWebContents(
@@ -4796,9 +5062,7 @@ class ContextualTasksContextMenuBrowserTest : public ContextMenuBrowserTest {
  public:
   ContextualTasksContextMenuBrowserTest() {
     feature_list_.InitWithFeatures(
-        {lens::features::kLensOverlay, contextual_tasks::kContextualTasks,
-         contextual_tasks::kContextualTasksForceEntryPointEligibility,
-         lens::features::kLensSidePanelUnification},
+        {lens::features::kLensOverlay},
         {contextual_tasks::kContextualTasksUpdatedEntryPoints});
   }
 
@@ -4833,9 +5097,6 @@ class ContextualTasksContextMenuAskGoogleBrowserTest
   ContextualTasksContextMenuAskGoogleBrowserTest() {
     feature_list_.InitWithFeaturesAndParameters(
         {{lens::features::kLensOverlay, {}},
-         {contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {lens::features::kLensSidePanelUnification, {}},
          {contextual_tasks::kContextualTasksUpdatedEntryPoints,
           {{"ContextualTasksContextMenuShowAskGoogle", "true"},
            {"ContextualTasksContextMenuSubmenu", "false"},
@@ -4898,9 +5159,6 @@ class ContextualTasksContextMenuSubmenuBrowserTest
   ContextualTasksContextMenuSubmenuBrowserTest() {
     feature_list_.InitWithFeaturesAndParameters(
         {{lens::features::kLensOverlay, {}},
-         {contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {lens::features::kLensSidePanelUnification, {}},
          {contextual_tasks::kContextualTasksUpdatedEntryPoints,
           {{"ContextualTasksContextMenuShowAskGoogle", "true"},
            {"ContextualTasksContextMenuSubmenu", "true"},
@@ -5005,8 +5263,9 @@ class ABASearchJourneysContextMenuBrowserTest : public ContextMenuBrowserTest {
 // `AutocompleteInput::kInvalidChars`.
 IN_PROC_BROWSER_TEST_F(ABASearchJourneysContextMenuBrowserTest,
                        SearchWebForRecordsCopyMatchingCommittedSrpQuery) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  const GURL source_url = embedded_test_server()->GetURL("/title1.html");
+  // Only HTTPS pages can be the source tab of a journey.
+  ASSERT_TRUE(embedded_https_test_server().Start());
+  const GURL source_url = embedded_https_test_server().GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), source_url));
 
   content::WebContents* source_web_contents =
@@ -5046,7 +5305,7 @@ IN_PROC_BROWSER_TEST_F(ABASearchJourneysContextMenuBrowserTest,
 
   // Extract the search terms from the SRP URL opened by the context menu and
   // verify that its normalized hash agrees with the recorded selection and
-  // correlates the journey.
+  // labels the journey as a copy match.
   TemplateURLService* template_url_service =
       TemplateURLServiceFactory::GetForProfile(browser()->GetProfile());
   ASSERT_TRUE(template_url_service);
@@ -5067,9 +5326,14 @@ IN_PROC_BROWSER_TEST_F(ABASearchJourneysContextMenuBrowserTest,
   const auto& journeys = tracker()->GetActiveJourneysForTesting();
   auto it = journeys.find(source_tab_id);
   ASSERT_NE(it, journeys.end());
-  EXPECT_EQ(source_tab_id, it->second.copy_record.source_tab_id);
-  EXPECT_EQ(source_nav_entry_id, it->second.copy_record.source_nav_entry_id);
+  EXPECT_EQ(source_nav_entry_id, it->second.source_nav_entry_id);
   EXPECT_EQ(search_tab_id, it->second.search_tab_id);
+  EXPECT_TRUE(it->second.matched_copy);
+
+  // The selection isn't a copy, so a later omnibox search for it doesn't get
+  // the copy-match parameter.
+  const GURL search_url = search_web_contents->GetVisibleURL();
+  EXPECT_EQ(tracker()->MaybeAppendCopyMatchParam(search_url), search_url);
 }
 
 // Verifies that if Enterprise Data Controls cancels the context-menu search,

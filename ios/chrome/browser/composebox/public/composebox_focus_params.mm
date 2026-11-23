@@ -4,14 +4,20 @@
 
 #import "ios/chrome/browser/composebox/public/composebox_focus_params.h"
 
+#import <utility>
+
+#import "components/contextual_search/contextual_search_session_handle.h"
 #import "ios/chrome/browser/composebox/public/composebox_attachment_selection.h"
 
-@implementation ComposeboxFocusParams
+@implementation ComposeboxFocusParams {
+  std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
+      _contextualSearchSession;
+}
 
 - (instancetype)initWithEntrypoint:(ComposeboxEntrypoint)entrypoint
                              query:(NSString*)query
                           toolMode:(ComposeboxMode)toolMode
-                         modelMode:(ComposeboxModelOption)modelMode
+                         modelMode:(omnibox::ModelMode)modelMode
                     attachmentList:
                         (ComposeboxAttachmentSelection*)attachmentList {
   self = [super init];
@@ -23,6 +29,20 @@
     _attachmentList = attachmentList;
   }
   return self;
+}
+
+- (BOOL)hasContextualSearchSession {
+  return _contextualSearchSession != nullptr;
+}
+
+- (void)setContextualSearchSession:
+    (std::unique_ptr<contextual_search::ContextualSearchSessionHandle>)session {
+  _contextualSearchSession = std::move(session);
+}
+
+- (std::unique_ptr<contextual_search::ContextualSearchSessionHandle>)
+    takeContextualSearchSession {
+  return std::move(_contextualSearchSession);
 }
 
 - (BOOL)hasInitialTabIDs {
@@ -37,8 +57,10 @@
 - (instancetype)initWithEntrypoint:(ComposeboxEntrypoint)entrypoint {
   return [self initWithEntrypoint:entrypoint
                             query:nil
-                         toolMode:ComposeboxMode::kRegularSearch
-                        modelMode:ComposeboxModelOption::kNone
+                         toolMode:entrypoint == ComposeboxEntrypoint::kCobrowse
+                                      ? ComposeboxMode::kAIM
+                                      : ComposeboxMode::kRegularSearch
+                        modelMode:omnibox::ModelMode::MODEL_MODE_UNSPECIFIED
                    attachmentList:nil];
 }
 

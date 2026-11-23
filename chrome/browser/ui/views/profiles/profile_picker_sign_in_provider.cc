@@ -57,15 +57,17 @@ constexpr char kProfilePickerSignInProviderStepHistogram[] =
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+// LINT.IfChange(ProfilePickerSignInProviderStep)
 enum class SigninProviderStep {
   kSwitchToSignin = 0,
   kGaiaBlankPageNavigation = 1,
   kFinishFlowSaml = 2,
-  kFinishFlowSyncConfirmation = 3,
+  // DEPRECATED: kFinishFlowSyncConfirmation = 3,
   kFinishFlowHistoryOptin = 4,
 
   kMaxValue = kFinishFlowHistoryOptin
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/profile/enums.xml:ProfilePickerSignInProviderStep)
 
 bool IsTwoFactorIntersitial(const GURL& url) {
   return base::StartsWith(url.spec(), chrome::kGoogleTwoFactorIntersitialURL);
@@ -137,7 +139,7 @@ void ProfilePickerSignInProvider::SwitchToSignIn(
   if (!profile_path_.empty()) {
     bool profile_exists = profile_manager->LoadProfileByPath(
         profile_path_, /*incognito=*/false, std::move(profile_init_callback));
-    DCHECK(profile_exists);
+    CHECK(profile_exists, base::NotFatalUntil::M162);
   } else {
     // Silently create the new profile for browsing on GAIA (so that the sign-in
     // cookies are stored in the right profile).
@@ -235,8 +237,8 @@ void ProfilePickerSignInProvider::NavigationStateChanged(
     return;
   }
 
-  // Attach DiceTabHelper to `contents_` so that sync consent dialog appears
-  // after a successful sign-in.
+  // Update `DiceTabHelper` on `contents_` so that the history sync opt-in step
+  // opens in the browser after a successful SAML sign-in.
   base::UmaHistogramEnumeration(kProfilePickerSignInProviderStepHistogram,
                                 SigninProviderStep::kFinishFlowSaml);
   DiceTabHelper* tab_helper = DiceTabHelper::FromWebContents(contents_.get());
@@ -260,8 +262,8 @@ void ProfilePickerSignInProvider::OnProfileInitialized(
     std::move(switch_finished_callback.value()).Run(false);
     return;
   }
-  DCHECK(!profile_);
-  DCHECK(!contents());
+  CHECK(!profile_, base::NotFatalUntil::M162);
+  CHECK(!contents(), base::NotFatalUntil::M162);
 
   profile_ = new_profile;
   profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
@@ -318,24 +320,11 @@ bool ProfilePickerSignInProvider::IsInitialized() const {
 
 void ProfilePickerSignInProvider::FinishFlow(
     const CoreAccountInfo& account_info) {
-  DCHECK(IsInitialized());
+  CHECK(IsInitialized(), base::NotFatalUntil::M162);
   host_->SetNativeToolbarSigninButtonsVisible(false);
   ResetWebContentsDelegates();
   std::move(callback_).Run(profile_.get(), account_info, std::move(contents_),
                            StepSwitchFinishedCallback());
-}
-
-void ProfilePickerSignInProvider::FinishFlowInPickerWithSyncConfirmation(
-    Profile* profile,
-    signin_metrics::AccessPoint /*access_point*/,
-    signin_metrics::PromoAction /*promo_action*/,
-    content::WebContents* /*contents*/,
-    const CoreAccountInfo& account_info) {
-  CHECK_EQ(profile, profile_.get());
-  base::UmaHistogramEnumeration(
-      kProfilePickerSignInProviderStepHistogram,
-      SigninProviderStep::kFinishFlowSyncConfirmation);
-  FinishFlow(account_info);
 }
 
 void ProfilePickerSignInProvider::FinishFlowInPickerWithHistorySyncOptin(
@@ -404,9 +393,6 @@ void ProfilePickerSignInProvider::InitializeOrUpdateDiceTabHelper(
           /*redirect_url=*/GURL(),
           /*record_signin_started_metrics=*/true,
           base::BindRepeating(&ProfilePickerSignInProvider::
-                                  FinishFlowInPickerWithSyncConfirmation,
-                              weak_ptr_factory_.GetWeakPtr()),
-          base::BindRepeating(&ProfilePickerSignInProvider::
                                   FinishFlowInPickerWithHistorySyncOptin,
                               weak_ptr_factory_.GetWeakPtr()),
           DiceTabHelper::OnSigninHeaderReceived(),
@@ -420,8 +406,6 @@ void ProfilePickerSignInProvider::InitializeOrUpdateDiceTabHelper(
       // of Gaia).
       // Also triggered when a navigation outside of Gaia occurs (e.g. account
       // recovery in crbug.com/29524688).
-      helper.UpdateSyncCallback(
-          DiceTabHelper::GetEnableSyncCallbackForBrowser());
       helper.UpdateHistorySyncOptinCallback(
           DiceTabHelper::GetHistorySyncOptinCallbackForBrowser());
       helper.UpdateSigninErrorCallback(

@@ -108,8 +108,6 @@ static_library("test_support") {
     "../browser/file_system_access/mock_file_system_access_permission_grant.h",
     "../browser/file_system_access/spying_shared_handle_state_factory.cc",
     "../browser/file_system_access/spying_shared_handle_state_factory.h",
-    "../browser/first_party_sets/test/scoped_mock_first_party_sets_handler.cc",
-    "../browser/first_party_sets/test/scoped_mock_first_party_sets_handler.h",
     "../browser/font_access/font_access_test_utils.cc",
     "../browser/font_access/font_access_test_utils.h",
     "../browser/installedapp/test/installed_app_provider_impl_test_utils.cc",
@@ -310,8 +308,6 @@ static_library("test_support") {
     "../public/test/render_view_test.h",
     "../public/test/scoped_accessibility_mode_override.cc",
     "../public/test/scoped_accessibility_mode_override.h",
-    "../public/test/scoped_overscroll_modes.cc",
-    "../public/test/scoped_overscroll_modes.h",
     "../public/test/scoped_page_focus_override.cc",
     "../public/test/scoped_page_focus_override.h",
     "../public/test/scoped_pip_exclusion_override.cc",
@@ -743,6 +739,8 @@ static_library("test_support") {
     sources += [
       "mock_overscroll_controller_delegate_aura.cc",
       "mock_overscroll_controller_delegate_aura.h",
+      "recording_cursor_client.cc",
+      "recording_cursor_client.h",
     ]
 
     deps += [
@@ -1137,10 +1135,6 @@ static_library("browsertest_support") {
   }
 
   configs += [ "//v8:external_startup_data" ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 mojom("content_test_mojo_bindings") {
@@ -1553,7 +1547,6 @@ test("content_browsertests") {
     "../browser/file_system_access/file_system_access_sync_access_handle_browsertest.cc",
     "../browser/file_system_access/file_system_chooser_browsertest.cc",
     "../browser/find_request_manager_browsertest.cc",
-    "../browser/first_party_sets/test/first_party_sets_initialization_browsertest.cc",
     "../browser/font_access/font_access_manager_browsertest.cc",
     "../browser/font_unique_name_lookup/font_unique_name_browsertest.cc",
     "../browser/form_controls_browsertest.cc",
@@ -1739,6 +1732,7 @@ test("content_browsertests") {
     "../browser/service_worker/service_worker_version_browsertest.cc",
     "../browser/session_history_browsertest.cc",
     "../browser/shape_detection/shape_detection_browsertest.cc",
+    "../browser/shard_browsertest.cc",
     "../browser/site_instance_group_browsertest.cc",
     "../browser/site_per_process_browsertest.cc",
     "../browser/site_per_process_browsertest.h",
@@ -1985,6 +1979,7 @@ test("content_browsertests") {
     "//media:test_support",
     "//media/capture:test_support",
     "//media/midi",
+    "//media/mojo/mojom",
     "//media/webrtc",
     "//mojo/core/embedder",
     "//mojo/core/test:test_support",
@@ -2328,6 +2323,12 @@ test("content_browsertests") {
           [ "../browser/compute_pressure/pressure_service_browsertest.cc" ]
     }
 
+    if (enable_device_bound_sessions) {
+      sources +=
+          [ "../browser/network/device_bound_session_js_api_browsertest.cc" ]
+      deps += [ "//crypto:test_support" ]
+    }
+
     if (is_chromeos) {
       deps += [ "//ash/constants" ]
     }
@@ -2656,6 +2657,7 @@ test("content_unittests") {
     "../browser/content_index/content_index_service_impl_unittest.cc",
     "../browser/cookie_store/cookie_store_manager_unittest.cc",
     "../browser/cpu_performance/cpu_performance_unittest.cc",
+    "../browser/cross_origin_storage/cross_origin_storage_registry_unittest.cc",
     "../browser/declarative_performance_observer/declarative_performance_observer_store_unittest.cc",
     "../browser/declarative_performance_observer/declarative_performance_observer_unittest.cc",
     "../browser/device_posture/device_posture_provider_impl_unittest.cc",
@@ -2678,6 +2680,7 @@ test("content_unittests") {
     "../browser/digital_credentials/virtual_wallet_unittest.cc",
     "../browser/dom_storage/dom_storage_context_wrapper_unittest.cc",
     "../browser/download/download_manager_impl_unittest.cc",
+    "../browser/download/save_package_serialization_handler_unittest.cc",
     "../browser/download/save_package_unittest.cc",
     "../browser/embedder_isolation_info_unittest.cc",
     "../browser/eye_dropper_chooser_impl_unittest.cc",
@@ -2700,9 +2703,6 @@ test("content_unittests") {
     "../browser/file_system_access/file_system_access_watch_scope_unittest.cc",
     "../browser/file_system_access/file_system_access_watcher_manager_unittest.cc",
     "../browser/file_system_access/file_system_chooser_unittest.cc",
-    "../browser/first_party_sets/first_party_set_parser_unittest.cc",
-    "../browser/first_party_sets/first_party_sets_handler_impl_instance_unittest.cc",
-    "../browser/first_party_sets/first_party_sets_loader_unittest.cc",
     "../browser/font_access/font_access_manager_unittest.cc",
     "../browser/font_access/font_enumeration_data_source_unittest.cc",
     "../browser/generic_sensor/frame_sensor_provider_proxy_unittest.cc",
@@ -2756,6 +2756,7 @@ test("content_unittests") {
     "../browser/mojo_binder_policy_applier_unittest.cc",
     "../browser/mojo_binder_policy_map_impl_unittest.cc",
     "../browser/network/cross_origin_embedder_policy_reporter_unittest.cc",
+    "../browser/network/cross_thread_network_context_unittest.cc",
     "../browser/network/network_quality_observer_impl_unittest.cc",
     "../browser/network/reporting_service_proxy_unittest.cc",
     "../browser/network_context_client_base_impl_unittest.cc",
@@ -2997,7 +2998,6 @@ test("content_unittests") {
     "../browser/webid/delegation/jwt_signer_unittest.cc",
     "../browser/webid/delegation/sd_jwt_unittest.cc",
     "../browser/webid/disconnect_request_unittest.cc",
-    "../browser/webid/fedcm_request_spec_unittest.cc",
     "../browser/webid/federated_embedder_login_request_unittest.cc",
     "../browser/webid/identity_credential_source_impl_unittest.cc",
     "../browser/webid/identity_registry_unittest.cc",
@@ -3010,6 +3010,7 @@ test("content_unittests") {
     "../browser/webid/request_handler_multiple_frames_unittest.cc",
     "../browser/webid/request_handler_unittest.cc",
     "../browser/webid/request_registry_unittest.cc",
+    "../browser/webid/request_unittest.cc",
     "../browser/webid/test/delegated_idp_network_request_manager.cc",
     "../browser/webid/test/delegated_idp_network_request_manager.h",
     "../browser/webid/test/federated_request_token_callback_helper.cc",
@@ -3097,6 +3098,7 @@ test("content_unittests") {
     "../public/browser/content_browser_client_unittest.cc",
     "../public/browser/cookie_access_details_unittest.cc",
     "../public/test/browser_task_environment_unittest.cc",
+    "../public/test/file_system_chooser_test_helpers_unittest.cc",
     "../public/test/no_renderer_crashes_assertion_unittest.cc",
     "../public/test/permission_type_unittest.cc",
     "../public/test/referrer_unittest.cc",
@@ -3123,7 +3125,6 @@ test("content_unittests") {
 
   fuzztests = [
     "ActionsParserFuzzTest.ParsesJSONCorrectly",
-    "FirstPartySetFuzzer.ParsesSetsCorrectly",
     "IndexedDbLevelDbCodingFuzzTest.CompareHandlesAnyInput",
     "ClearSiteDataHandlerFuzzerTest.ParseHeader",
   ]
@@ -3746,18 +3747,20 @@ test("content_unittests") {
   }
 
   # Tests for platforms that support extensions. Linux requires udev.
-  if (enable_extensions_core && (!is_linux || use_udev)) {
-    sources += [ "../browser/service_worker/service_worker_usb_delegate_observer_unittest.cc" ]
+  is_linux_without_udev = (is_linux || is_chromeos) && !use_udev
+  if (enable_extensions_core && !is_linux_without_udev) {
+    sources += [
+      "../browser/service_worker/service_worker_hid_delegate_observer_unittest.cc",
+      "../browser/service_worker/service_worker_usb_delegate_observer_unittest.cc",
+    ]
   }
 
   # HID support is not available without udev.
-  is_linux_without_udev = (is_linux || is_chromeos) && !use_udev
   if (!is_linux_without_udev) {
     sources += [ "../browser/hid/hid_service_unittest.cc" ]
   }
   if (!is_linux_without_udev && !is_android) {
     sources += [
-      "../browser/service_worker/service_worker_hid_delegate_observer_unittest.cc",
       "../browser/webauth/authenticator_impl_cable_unittest.cc",
       "../browser/webauth/authenticator_impl_pin_unittest.cc",
       "../browser/webauth/authenticator_impl_resident_key_unittest.cc",

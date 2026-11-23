@@ -73,10 +73,10 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/win-annotator-rel",
-            "try_builder",
-            "no_symbols",
+            "release_try_builder",
         ],
     ),
+    ssd = None,
     contact_team_email = "cbe-compliance@google.com",
 )
 
@@ -92,6 +92,7 @@ try_.builder(
             "dcheck_always_on",
         ],
     ),
+    ssd = None,
     contact_team_email = "chrome-desktop-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -132,6 +133,7 @@ try_.builder(
             "dcheck_always_on",
         ],
     ),
+    ssd = None,
     contact_team_email = "chrome-desktop-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -187,6 +189,7 @@ try_.builder(
             "no_symbols",
         ],
     ),
+    ssd = None,
     contact_team_email = "chrome-counter-abuse-core@google.com",
 )
 
@@ -218,6 +221,7 @@ try_.orchestrator_builder(
     #use_orchestrator_pool = True,
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # go/nplus1shardsproposal
@@ -229,7 +233,7 @@ try_.orchestrator_builder(
         # crbug.com/40280175
         "chromium_checkout.expand_submodules": 100,
         "luci.buildbucket.run_in_turboci": 100,
-        "luci.buildbucket.run_in_turboci.grpc_client": 50,
+        "luci.buildbucket.run_in_turboci.grpc_client": 100,
     },
     main_list_view = "try",
     use_clang_coverage = True,
@@ -252,6 +256,7 @@ try_.builder(
         "ci/win-webdriver-bidi-rel",
     ],
     gn_args = "ci/win-webdriver-bidi-rel",
+    ssd = None,
     contact_team_email = "chrome-devtools@google.com",
     cq_settings = try_.cq_settings(
         includable_only = True,
@@ -270,6 +275,7 @@ try_.builder(
             "release_try_builder",
         ],
     ),
+    ssd = None,
     contact_team_email = "chrome-desktop-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
@@ -359,7 +365,7 @@ try_.builder(
     executable = "recipe:chromium_toolchain/package_clang",
     builderless = False,
     cores = 32,
-    os = os.WINDOWS_ANY,
+    os = os.WINDOWS_DEFAULT,
     execution_timeout = 6 * time.hour,
     siso_project = None,
 )
@@ -370,7 +376,7 @@ try_.builder(
     executable = "recipe:chromium_toolchain/package_rust",
     builderless = False,
     cores = 32,
-    os = os.WINDOWS_ANY,
+    os = os.WINDOWS_DEFAULT,
     execution_timeout = 6 * time.hour,
     siso_project = None,
 )
@@ -436,6 +442,7 @@ try_.builder(
     ),
     builderless = True,
     os = os.WINDOWS_10,
+    ssd = None,
     contact_team_email = "chrome-desktop-engprod@google.com",
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
@@ -514,6 +521,7 @@ try_.builder(
     mirrors = ["ci/win-fieldtrial-rel"],
     gn_args = "ci/win-fieldtrial-rel",
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
 )
 
 try_.builder(
@@ -524,10 +532,10 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/win-perfetto-rel",
-            "try_builder",
-            "no_symbols",
+            "release_try_builder",
         ],
     ),
+    ssd = None,
 )
 
 try_.builder(
@@ -543,6 +551,7 @@ try_.builder(
         "ci/win-treesinviz-disabled-rel",
     ],
     gn_args = "ci/win-treesinviz-disabled-rel",
+    ssd = None,
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
@@ -586,6 +595,10 @@ shared_gpu.try_.win_optional_builder(
     ),
     # default is 6 for GPU optional builders.
     execution_timeout = 5 * time.hour,
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 25,
+        "luci.buildbucket.run_in_turboci.grpc_client": 100,
+    },
     main_list_view = "try",
     # This is higher than the default of 7 for optional GPU builders
     # because Windows builds take longer than other platforms even
@@ -616,6 +629,10 @@ shared_gpu.try_.win_optional_builder(
     ),
     # default is 6 for GPU optional builders.
     execution_timeout = 5 * time.hour,
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 5,
+        "luci.buildbucket.run_in_turboci.grpc_client": 100,
+    },
     main_list_view = "try",
     # This is higher than the default of 7 for optional GPU builders
     # because Windows builds take longer than other platforms even
@@ -639,6 +656,7 @@ try_.builder(
             "dcheck_always_on",
         ],
     ),
+    ssd = None,
     contact_team_email = "toyoshim@chromium.org",
     cq_settings = try_.cq_settings(
         includable_only = True,

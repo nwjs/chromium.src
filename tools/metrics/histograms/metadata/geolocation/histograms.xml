@@ -117,7 +117,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Geolocation.GMSCoreLocationProvider.CoarseRequest.PreciseLocationReceived"
-    enum="GmsCoreGranularitySupportState" expires_after="2027-02-07">
+    enum="GmsCoreGranularitySupportState" expires_after="2027-04-11">
   <owner>alvinji@chromium.org</owner>
   <owner>device-dev@chromium.org</owner>
   <summary>
@@ -152,7 +152,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Geolocation.IOS.ChangedAuthorizationState"
-    enum="GeolocationIOSAuthorizationStatus" expires_after="2027-02-07">
+    enum="GeolocationIOSAuthorizationStatus" expires_after="2027-04-11">
   <owner>michaeldo@chromium.org</owner>
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
@@ -163,7 +163,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Geolocation.IOS.InitialAuthorizationState"
-    enum="GeolocationIOSAuthorizationStatus" expires_after="2027-02-07">
+    enum="GeolocationIOSAuthorizationStatus" expires_after="2027-04-11">
   <owner>michaeldo@chromium.org</owner>
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
@@ -180,7 +180,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Geolocation.LocationProviderManager.Mode"
-    enum="LocationProviderManagerMode" expires_after="2026-11-15">
+    enum="LocationProviderManagerMode" expires_after="2027-05-15">
   <owner>mattreynolds@chromium.org</owner>
   <owner>device-dev@chromium.org</owner>
   <summary>
@@ -190,7 +190,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Geolocation.LocationProviderManager.Source"
-    enum="LocationProviderManagerSource" expires_after="2026-11-15">
+    enum="LocationProviderManagerSource" expires_after="2027-05-15">
   <owner>mattreynolds@chromium.org</owner>
   <owner>device-dev@chromium.org</owner>
   <summary>
@@ -343,7 +343,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Geolocation.NetworkLocationRequest.ResponseCode"
-    enum="HttpResponseCode" expires_after="2027-02-07">
+    enum="HttpResponseCode" expires_after="2027-04-11">
   <owner>mattreynolds@chromium.org</owner>
   <owner>device-dev@chromium.org</owner>
   <summary>
@@ -480,7 +480,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Geolocation.{ProviderKind}.{AccuracyHint}.Accuracy"
-    units="meters" expires_after="2027-02-07">
+    units="meters" expires_after="2027-04-11">
   <owner>alvinji@chromium.org</owner>
   <owner>device-dev@chromium.org</owner>
   <summary>

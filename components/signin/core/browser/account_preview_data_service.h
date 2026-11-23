@@ -79,17 +79,17 @@ class AccountPreviewDataService : public KeyedService {
   // Registers the preferences used by this service.
   static void RegisterProfilePrefs(PrefRegistrySimple* registry);
 
-  // From the list of accounts with refresh tokens, get the account that has the
-  // most interesting preview data. If the preview data for accounts are not
-  // fetched yet, the first account is returned by default. Returns std::nullopt
-  // if no signed-in accounts exist.
-  virtual std::optional<AccountPreviewPreference> GetPreferredAccountForPromo()
+  // Returns the account with refresh tokens that has the most interesting
+  // preview data when offering signed-out users to sign in. If preview data
+  // for accounts is not fetched yet, the first account is returned by default.
+  // Returns `std::nullopt` if no accounts with refresh tokens exist.
+  virtual std::optional<AccountPreviewPreference> GetPreferredAccountForSignin()
       const = 0;
 
-  // From the list of secondary accounts with refresh tokens, get the account
-  // that has significantly more sync data than the primary account to promote
-  // for account switching. Returns std::nullopt if no account qualifies, if
-  // there is no primary account, or if preview data is not fetched yet.
+  // Returns the secondary account with refresh tokens that has significantly
+  // more sync data than the primary account when offering signed-in users to
+  // switch accounts. Returns `std::nullopt` if no account qualifies, if there
+  // is no primary account, or if preview data is not fetched yet.
   virtual std::optional<AccountPreviewPreference>
   GetPreferredAccountForSwitching() const = 0;
 
@@ -102,6 +102,30 @@ class AccountPreviewDataService : public KeyedService {
       const GaiaId& gaia_id,
       base::OnceCallback<void(std::optional<AccountPreviewPreference>)>
           callback) = 0;
+
+#if BUILDFLAG(IS_IOS)
+  // Asynchronous version of `GetPreferredAccountForSignin()` for the First Run
+  // Experience (FRE), which returns the stored preferred account immediately if
+  // available, or triggers a fetch and waits for the preferred account
+  // computation to complete.
+  // Note: This method is currently FRE-specific (for metrics and feature flag
+  // gating), but is ready to be easily reused for other callers if needed.
+  //
+  // `callback` is run once, with the value of `GetPreferredAccountForSignin()`
+  // at the time it runs:
+  // - immediately (synchronously), if `GetPreferredAccountForSignin()` already
+  //   has a value (or if the triggered fetch is immediately canceled, e.g. when
+  //   rate-limited or no accounts exist),
+  // - asynchronously, once the triggered preferred account fetch and
+  //   computation complete (or are canceled).
+  //
+  // `callback` is run with `std::nullopt` if
+  // `kEnableAccountPreviewPreferredAccountFRE` is disabled, if sign-in is
+  // disallowed, or when the service shuts down.
+  virtual void GetPreferredAccountForFRESignin(
+      base::OnceCallback<void(std::optional<AccountPreviewPreference>)>
+          callback) = 0;
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
   // Updates the account currently used by the external 1P app. A null/empty

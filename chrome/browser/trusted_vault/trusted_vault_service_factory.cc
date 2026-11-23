@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
@@ -19,7 +20,10 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/trusted_vault/android/trusted_vault_client_android.h"
 #else
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
+#include "chrome/browser/browser_process.h"
+#include "components/trusted_vault/features.h"
 #include "components/trusted_vault/standalone_trusted_vault_client.h"
 #include "components/trusted_vault/standalone_trusted_vault_frontend.h"
 #include "content/public/browser/storage_partition.h"
@@ -58,6 +62,10 @@ std::unique_ptr<trusted_vault::TrustedVaultService> CreateTrustedVaultService(
     Profile* profile) {
   auto frontend =
       base::MakeRefCounted<trusted_vault::StandaloneTrustedVaultFrontend>(
+          base::FeatureList::IsEnabled(
+              trusted_vault::kTrustedVaultSharedRecoveryFactorsAndEncryption)
+              ? g_browser_process->os_crypt_async()
+              : nullptr,
 #if BUILDFLAG(IS_MAC)
           kICloudKeychainAccessGroupPrefix,
 #endif
@@ -70,9 +78,14 @@ std::unique_ptr<trusted_vault::TrustedVaultService> CreateTrustedVaultService(
       std::make_unique<trusted_vault::StandaloneTrustedVaultClient>(
           trusted_vault::SecurityDomainId::kChromeSync, frontend);
 
+  auto passkeys_client =
+      base::FeatureList::IsEnabled(device::kWebAuthnLocalGpmPasskeys)
+          ? std::make_unique<trusted_vault::StandaloneTrustedVaultClient>(
+                trusted_vault::SecurityDomainId::kPasskeys, frontend)
+          : nullptr;
+
   return std::make_unique<trusted_vault::TrustedVaultService>(
-      std::move(chrome_sync_client),
-      /*passkeys_security_domain_client=*/nullptr);
+      std::move(chrome_sync_client), std::move(passkeys_client));
 }
 #endif
 

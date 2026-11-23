@@ -26,6 +26,7 @@
 #include "chrome/browser/glic/host/glic_web_contents_manager.h"
 #include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
@@ -51,6 +52,7 @@
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/common/chrome_features.h"
+#include "components/critical_actions/core/browser/features.h"
 #include "components/enterprise/browser/reporting/common_pref_names.h"
 #include "components/enterprise/browser/reporting/reporting_features.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
@@ -65,6 +67,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/memory_coordinator_browsertest_util.h"
+#include "printing/buildflags/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "ui/base/base_window.h"
@@ -81,10 +84,16 @@
 #include "content/public/browser/web_contents.h"
 #else
 #include "chrome/app/chrome_command_ids.h"
-#include "chrome/browser/printing/print_view_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "ui/views/test/widget_activation_waiter.h"
+#endif
+
+#if BUILDFLAG(ENABLE_PRINT_PREVIEW)
+#include "chrome/browser/printing/browser_printing_context_factory_for_test.h"
+#include "chrome/browser/printing/print_view_manager.h"
+#include "printing/backend/test_print_backend.h"  // nogncheck
+#include "printing/printing_context.h"
 #endif
 
 namespace glic {
@@ -353,7 +362,7 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
 #else
   NavigateParams params(PlatformBrowserTest::browser(), GURL("about:blank"),
                         ui::PAGE_TRANSITION_AUTO_BOOKMARK);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   Navigate(&params);
 #endif
 
@@ -871,13 +880,39 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
                                   GlicSidePanelCoordinator::State::kClosed));
 }
 
-#if !BUILDFLAG(IS_ANDROID)
-IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
-                       PrintAfterReloadDoesNotCrash) {
-  if (features::IsGlicNoWebviewEnabled()) {
-    GTEST_SKIP() << "WebUI printing is not applicable in NoWebview mode.";
+#if BUILDFLAG(ENABLE_PRINT_PREVIEW)
+class GlicInstanceCoordinatorPrintingTest
+    : public GlicInstanceCoordinatorBrowserTest {
+ public:
+  void SetUp() override {
+    printing::PrintBackend::SetPrintBackendForTesting(
+        test_print_backend_.get());
+    printing::PrintingContext::SetPrintingContextFactoryForTest(
+        &test_printing_context_factory_);
+    test_printing_context_factory_.SetCancelErrorOnNewDocument(true);
+    GlicInstanceCoordinatorBrowserTest::SetUp();
   }
+
+  void TearDown() override {
+    GlicInstanceCoordinatorBrowserTest::TearDown();
+    // Reset after TearDown(), since InProcessBrowserTest::TearDown() drains the
+    // message loop where in-flight PrintNow() IPC replies invoke
+    // PrintingContext.
+    printing::PrintingContext::SetPrintingContextFactoryForTest(nullptr);
+    printing::PrintBackend::SetPrintBackendForTesting(nullptr);
+  }
+
+ private:
+  scoped_refptr<printing::TestPrintBackend> test_print_backend_ =
+      base::MakeRefCounted<printing::TestPrintBackend>();
+  printing::BrowserPrintingContextFactoryForTest test_printing_context_factory_;
+};
+
+// TODO(crbug.com/577322236): Flaky crash in PrintBackendServiceManager.
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorPrintingTest,
+                       DISABLED_PrintAfterReloadDoesNotCrash) {
   ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  ASSERT_OK(WaitForGlicClient(instance));
 
   // Trigger a reload.
   auto* glic_service = GlicKeyedService::Get(GetProfile());
@@ -885,11 +920,14 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
       instance->host().webui_contents()->GetPrimaryMainFrame());
 
   // Wait for the reload to complete.
+  ASSERT_OK(WaitForGlicClient(instance));
   ASSERT_TRUE(content::WaitForLoadStop(instance->host().webui_contents()));
 
   content::WebContents* glic_contents = instance->host().webui_contents();
+  ASSERT_TRUE(glic_contents);
   auto* print_view_manager =
       printing::PrintViewManager::FromWebContents(glic_contents);
+  ASSERT_TRUE(print_view_manager);
   print_view_manager->PrintNow(glic_contents->GetPrimaryMainFrame());
 
   // If we reached here without crashing, the test passes.
@@ -1685,6 +1723,31 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
   EXPECT_FALSE(profile_manager->HasKeepAliveForTesting(
       GetProfile(), ProfileKeepAliveOrigin::kGlicView));
 }
+
+class GlicInstanceCoordinatorCriticalActionHistoryTest
+    : public GlicInstanceCoordinatorBrowserTest {
+ public:
+  GlicInstanceCoordinatorCriticalActionHistoryTest() {
+    feature_list_.InitAndEnableFeature(
+        critical_actions::features::kCriticalActionHistory);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Regression test for b/572693755: destroying a GlicInstanceImpl with an open
+// detached panel during profile teardown must not attempt IPH promos, which
+// look up KeyedServices on a destroyed profile context.
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorCriticalActionHistoryTest,
+                       DetachedPanelOpenAtProfileTeardown) {
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance,
+                       OpenGlicForActiveTabAndDetach());
+  ASSERT_TRUE(instance->IsDetached());
+  ASSERT_TRUE(instance->IsShowing());
+  // Leave the detached panel open so that it is closed by GlicInstanceImpl's
+  // destructor during profile teardown.
+}
 #endif
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
@@ -1853,5 +1916,53 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
   EXPECT_EQ(coordinator().GetActiveInstance(), floaty_instance);
 }
 #endif
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
+                       ShowDoesNotCrashIfEmbedderDeactivatedDuringShow) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  ASSERT_TRUE(tab);
+
+  bool callback_ran = false;
+  base::CallbackListSubscription subscription =
+      coordinator().AddGlobalShowHideCallback(base::BindLambdaForTesting([&]() {
+        if (!callback_ran) {
+          callback_ran = true;
+          if (auto* instance = static_cast<GlicInstanceImpl*>(
+                  coordinator().GetActiveInstance())) {
+            instance->Close(SidePanelEmbedderKey(tab), CloseOptions());
+          }
+        }
+      }));
+
+  auto* service = GlicKeyedService::Get(GetProfile());
+  service->ShowUI(tab->GetBrowserWindowInterface(),
+                  mojom::InvocationSource::kTopChromeButton);
+
+  EXPECT_TRUE(callback_ran);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
+                       ShowDoesNotCrashIfEmbedderUnboundDuringShow) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  ASSERT_TRUE(tab);
+
+  bool callback_ran = false;
+  base::CallbackListSubscription subscription =
+      coordinator().AddGlobalShowHideCallback(base::BindLambdaForTesting([&]() {
+        if (!callback_ran) {
+          callback_ran = true;
+          if (auto* instance = static_cast<GlicInstanceImpl*>(
+                  coordinator().GetActiveInstance())) {
+            instance->UnbindEmbedder(SidePanelEmbedderKey(tab));
+          }
+        }
+      }));
+
+  auto* service = GlicKeyedService::Get(GetProfile());
+  service->ShowUI(tab->GetBrowserWindowInterface(),
+                  mojom::InvocationSource::kTopChromeButton);
+
+  EXPECT_TRUE(callback_ran);
+}
 
 }  // namespace glic

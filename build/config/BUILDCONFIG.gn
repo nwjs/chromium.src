@@ -191,8 +191,6 @@ declare_args() {
   rust_clippy_conf_file = ""
 }
 
-import("//build/strict_deps_failures.gni")
-
 declare_args() {
   # Whether to enable strict deps checks. This ensures that your dependencies
   # are correctly declared (no missing deps and no accessing transitive deps).
@@ -392,6 +390,7 @@ default_compiler_configs = [
   "//build/config/compiler:thinlto_optimize_default",
   "//build/config/compiler:tot_warnings",
   "//build/config/coverage:default_coverage",
+  "//build/config/sanitizers:alloc_token",
   "//build/config/sanitizers:default_sanitizer_flags",
   "//build/config:feature_flags",
 ]
@@ -626,14 +625,6 @@ foreach(_target_type,
         strict_deps = enable_strict_deps
       }
 
-      if (!defined(check_includes_strict)) {
-        _current_label = get_label_info(":$target_name", "label_no_toolchain")
-        if (filter_include([ _current_label ],
-                           CHECK_INCLUDES_STRICT_ALLOWLIST) == []) {
-          check_includes_strict = false
-        }
-      }
-
       if (use_libcxx_modules && is_clang) {
         if (strict_deps) {
           configs += [ "//build/modules:strict_deps" ]
@@ -740,6 +731,11 @@ foreach(_target_type,
         # (This explicit list is so that grepping for these configs finds where
         # they are used.)
         deps += [ "//build/config:${_target_type}_deps" ]
+      } else {
+        # The default deps provide the __alloc_token_* fallbacks, so don't
+        # instrument the sources of binaries without them.
+        configs -=
+            filter_include(configs, [ "//build/config/sanitizers:alloc_token" ])
       }
 
       if (!defined(public_deps)) {
@@ -769,14 +765,6 @@ foreach(_target_type,
 
       if (!defined(strict_deps)) {
         strict_deps = enable_strict_deps
-      }
-
-      if (!defined(check_includes_strict)) {
-        _current_label = get_label_info(":$target_name", "label_no_toolchain")
-        if (filter_include([ _current_label ],
-                           CHECK_INCLUDES_STRICT_ALLOWLIST) == []) {
-          check_includes_strict = false
-        }
       }
 
       if (use_libcxx_modules && is_clang) {

@@ -44,7 +44,6 @@
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/corrupted_extension_reinstaller.h"
 #include "chrome/browser/extensions/cws_info_service_factory.h"
-#include "chrome/browser/extensions/extension_action_storage_manager.h"
 #include "chrome/browser/extensions/extension_allowlist_factory.h"
 #include "chrome/browser/extensions/extension_disabled_ui.h"
 #include "chrome/browser/extensions/extension_error_controller.h"
@@ -295,9 +294,6 @@ ExtensionService::ExtensionService(
 
   error_controller_->set_is_first_run(is_first_run_);
   external_install_manager_->set_is_first_run(is_first_run_);
-
-  extension_action_storage_manager_ =
-      std::make_unique<ExtensionActionStorageManager>(profile_);
 
   SetCurrentDeveloperMode(
       util::GetBrowserContextId(profile),
@@ -884,10 +880,18 @@ void ExtensionService::RenderProcessHostDestroyed(
 }
 
 void ExtensionService::OnBlocklistUpdated() {
+  ExtensionIdSet ids;
+  for (const auto& extension : registry_->GenerateInstalledExtensionsSet()) {
+    // Component extensions (built-in kComponent and allowlisted Web Store
+    // kExternalComponent) are not expected to be blocklisted. Skipping them
+    // avoids a Safe Browsing database lookup when no others are installed.
+    if (!Manifest::IsComponentLocation(extension->location())) {
+      ids.insert(extension->id());
+    }
+  }
   blocklist_->GetBlocklistedIDs(
-      registry_->GenerateInstalledExtensionsSet().GetIDs(),
-      base::BindOnce(&ExtensionService::ManageBlocklist,
-                     AsExtensionServiceWeakPtr()));
+      ids, base::BindOnce(&ExtensionService::ManageBlocklist,
+                          AsExtensionServiceWeakPtr()));
 }
 
 void ExtensionService::OnCWSInfoChanged() {

@@ -1,0 +1,23 @@
+# Copyright 2024 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(is_chromeos)
+
+static_library("cloud_upload") {
+  sources = [
+    "upload_office_to_cloud.cc",
+    "upload_office_to_cloud.h",
+  ]
+
+  deps = [
+    "//ash/constants",
+    "//base",
+    "//chrome/browser/policy",
+    "//chrome/browser/profiles:profile",
+    "//chrome/common:constants",
+    "//chromeos/ash/experiences/extensions/common/api",
+    "//chromeos/constants",
+    "//components/prefs",
+  ]
+}

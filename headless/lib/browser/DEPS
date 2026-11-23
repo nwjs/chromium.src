@@ -11,6 +11,7 @@ include_rules = [
   "+printing",
   "+services/cert_verifier/public/mojom",
   "+services/network",
+  "+services/proxy_resolver/public/mojom",
   "+storage/browser/quota",
   "+storage/common/quota",
   "+third_party/skia/include",
@@ -72,12 +73,8 @@ specific_include_rules = {
     "+third_party/blink/public/mojom/picture_in_picture/picture_in_picture.mojom.h",
   ],
   "headless_web_contents_impl.cc": [
-    "+components/optimization_guide/content/browser",
-    "+components/optimization_guide/core",
-    "+components/optimization_guide/proto",
     "+components/printing/browser/print_to_pdf",
     "+third_party/blink/public/mojom/window_features",
-    "+third_party/blink/public/mojom/content_extraction",
   ],
   "headless_platform_delegate_mac.mm": [
     "+services/device/public/cpp/geolocation",

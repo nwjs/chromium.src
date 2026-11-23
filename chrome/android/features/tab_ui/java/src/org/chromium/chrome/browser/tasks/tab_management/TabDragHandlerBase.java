@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.tasks.tab_management;
 
+import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.chrome.browser.tabwindow.TabWindowManager.INVALID_WINDOW_ID;
 
 import android.app.Activity;
@@ -547,9 +548,13 @@ public abstract class TabDragHandlerBase
         ResettersForTesting.register(() -> sDragToken = null);
     }
 
+    public void setDragSourceViewForTesting(@Nullable View dragSourceView) {
+        mDragSourceView = dragSourceView;
+    }
+
     private static @Nullable List<Tab> getDraggedTabs(ChromeDropDataAndroid dropData) {
         if (dropData instanceof ChromeTabDropDataAndroid tabDropData) {
-            return Collections.singletonList(tabDropData.tab);
+            return Collections.singletonList(assertNonNull(tabDropData.tab));
         } else if (dropData instanceof ChromeMultiTabDropDataAndroid tabsDropData) {
             return tabsDropData.tabs;
         } else if (dropData instanceof ChromeTabGroupDropDataAndroid groupDropData) {

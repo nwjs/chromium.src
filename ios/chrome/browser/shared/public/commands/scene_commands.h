@@ -21,6 +21,9 @@ namespace password_manager {
 enum class PasswordCheckReferrer;
 enum class WarningType;
 }  // namespace password_manager
+namespace remote_actor::proto {
+class RemoteActorPasswordUploadRequest;
+}  // namespace remote_actor::proto
 enum class SafariDataImportEntryPoint;
 namespace syncer {
 enum class TrustedVaultUserActionTriggerForUMA;
@@ -89,6 +92,14 @@ enum class TabGridOpeningMode {
 // Shows the Settings UI, presenting from `baseViewController` and showing
 // Level Up walkthrough IPH if specified.
 - (void)showSettingsFromViewController:(UIViewController*)baseViewController
+       shouldShowLevelUpWalkthroughIPH:(BOOL)shouldShowLevelUpWalkthroughIPH;
+
+// TODO(crbug.com/41352590): Do not pass baseViewController through dispatcher.
+// Shows the Settings UI, presenting from `baseViewController`, with blue dot
+// for default browser settings and showing Level Up walkthrough IPH if
+// specified.
+- (void)showSettingsFromViewController:(UIViewController*)baseViewController
+              hasDefaultBrowserBlueDot:(BOOL)hasDefaultBrowserBlueDot
        shouldShowLevelUpWalkthroughIPH:(BOOL)shouldShowLevelUpWalkthroughIPH;
 
 // Shows the settings UI for price tracking notifications.
@@ -205,9 +216,16 @@ enum class TabGridOpeningMode {
 // migration.
 - (void)showManagedProfileCreation;
 
-// Shows/Hides the guided tour "NTP" step.
-- (void)showGuidedTourNTPStepWithCompletion:(ProceduralBlock)completion;
-- (void)hideGuidedTourNTPStep;
+// Shows/Hides the Guided Tour promo and steps, executing `completion` when
+// finished with `guidedTourStarted` indicating whether the user started the
+// tour.
+- (void)showGuidedTourWithCompletion:
+    (void (^)(BOOL guidedTourStarted))completion;
+- (void)hideGuidedTour;
+
+// Shows the Remote Actor credential selection bottom sheet for `request`.
+- (void)showRemoteActorCredentialBottomSheetWithRequest:
+    (const remote_actor::proto::RemoteActorPasswordUploadRequest&)request;
 
 @end
 

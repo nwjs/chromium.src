@@ -28,6 +28,7 @@ from devil.android import logcat_monitor
 from devil.android.tools import system_app
 from devil.android.tools import webview_app
 from devil.android import device_utils
+from devil.utils import cmd_helper
 from devil.utils import reraiser_thread
 from lib.proto import exception_recorder
 from lib.proto import measures
@@ -45,6 +46,7 @@ from pylib.utils import code_coverage_utils
 from pylib.utils import device_dependencies
 from pylib.utils import gold_utils
 from pylib.utils import instrumentation_tracing
+from pylib.utils import test_data_sync
 from py_trace_event import trace_event
 from py_trace_event import trace_time
 from py_utils import contextlib_ext
@@ -80,6 +82,11 @@ TIMEOUT_ANNOTATIONS = [
 
 # Account for Instrumentation and process init overhead.
 FIXED_TEST_TIMEOUT_OVERHEAD = 60
+
+# In-process unit test batches (Batch.UNIT_TESTS) often launch
+# BlankUiTestActivity but have much smaller overhead than normal tests.
+_ESTIMATED_RUNTIME_PER_CLASS_UNIT_TESTS = 1.0
+_ESTIMATED_RUNTIME_PER_TEST_UNIT_TESTS = 0.05
 
 # 30 minute max timeout for an instrumentation invocation to avoid shard
 # timeouts when tests never finish. The shard timeout is currently 60 minutes,
@@ -122,6 +129,9 @@ _EXTRA_PACKAGE_UNDER_TEST = (
 
 _EXTRA_WEBVIEW_PROCESS_MODE = 'AwJUnit4ClassRunner.ProcessMode'
 
+# Tests are hermetic; don't let AndroidJUnitRunner upload usage analytics.
+_EXTRA_DISABLE_ANALYTICS = 'disableAnalytics'
+
 # IME id prefix of the CTS MockIme (CtsMockInputMethod.apk).
 _CTS_MOCK_IME_ID_PREFIX = 'com.android.cts.mockime/'
 
@@ -162,6 +172,23 @@ def _dict2list(d):
     if isinstance(d, tuple):
         return tuple(_dict2list(v) for v in d)
     return d
+
+
+def _IsSafeDownloadsDir(path):
+    """Returns whether |path| is safe to empty with "rm -rf <path>/*".
+
+    Only accepts an absolute, already-normalized path to a "Download" directory
+    at least two levels below "/" (e.g. /sdcard/Download or
+    /data/media/10/Download). Anything else, such as "", a relative path,
+    "/Download" or a path containing "..", is rejected.
+    """
+    if not path or not posixpath.isabs(path):
+        return False
+    if posixpath.normpath(path) != path:
+        return False
+    if posixpath.basename(path) != 'Download':
+        return False
+    return posixpath.dirname(path) not in ('', '/')
 
 
 def _UpdateExtrasListener(extras, new_listener):
@@ -654,6 +681,9 @@ class LocalDeviceInstrumentationTestRun(
                 logging.info('Pushing data dependencies.')
                 for h, d in resolved_host_device_tuples:
                     logging.debug('  %r -> %r', h, d)
+                test_data_sync.InvalidateMarker(
+                    dev, device_root, as_root=self._env.force_main_user
+                )
                 dev.PlaceNomediaFile(device_root)
                 dev.PushChangedFiles(
                     resolved_host_device_tuples,
@@ -670,6 +700,17 @@ class LocalDeviceInstrumentationTestRun(
                         ['mkdir', '-p', device_root],
                         check_return=True,
                         as_root=self._env.force_main_user,
+                    )
+                if self._env.force_main_user:
+                    # Pushing directly to /data/media/<user> bypasses the
+                    # /storage/emulated/<user> FUSE mount, leaving stale
+                    # dentries, inode sizes, and page-cache pages in the kernel
+                    # VFS cache when tests read via /sdcard.
+                    dev.RunShellCommand(
+                        'sync && echo 3 > /proc/sys/vm/drop_caches',
+                        shell=True,
+                        check_return=True,
+                        as_root=True,
                     )
 
             @measures.timed_func('device_setup', 'create_flag_changer')
@@ -886,6 +927,9 @@ class LocalDeviceInstrumentationTestRun(
             # Don't leave CTS MockIme as the default IME for the next task.
             self._ResetLeftoverCtsMockIme(dev)
 
+            # Don't leave files published to Downloads for the next task.
+            self._CleanDownloads(dev)
+
             # Remove package-specific configuration
             dev.RunShellCommand(['am', 'clear-debug-app'], check_return=True)
 
@@ -931,6 +975,60 @@ class LocalDeviceInstrumentationTestRun(
             dev.RunShellCommand(['ime', 'reset'], check_return=True)
         except device_errors.CommandFailedError as e:
             logging.warning('Failed to reset CTS MockIme default IME: %s', e)
+
+    def _CleanDownloads(self, dev):
+        """Removes files that tests left in the shared Downloads directory.
+
+        Tests that publish to Downloads (e.g. offline pages) leave files behind
+        on reused Swarming devices. On Android Q+ these are also tracked by
+        MediaStore, and stale entries make later publishes under the same name
+        fail with a UNIQUE constraint error on files._data. Deleting through
+        MediaStore removes both the files and their database rows; a plain rm
+        only removes the files.
+        """
+        if dev.build_version_sdk >= version_codes.Q:
+            try:
+                dev.RunShellCommand(
+                    [
+                        'content',
+                        'delete',
+                        '--uri',
+                        'content://media/external/downloads',
+                    ],
+                    check_return=True,
+                )
+            except device_errors.CommandFailedError as e:
+                logging.warning(
+                    'Failed to clean Downloads in MediaStore: %s', e
+                )
+
+        try:
+            downloads_dir = posixpath.join(
+                dev.GetExternalStoragePath(), 'Download'
+            )
+            if self._env.force_main_user:
+                downloads_dir = dev.ResolveSpecialPath(downloads_dir)
+        except device_errors.CommandFailedError as e:
+            logging.warning('Failed to resolve the Downloads directory: %s', e)
+            return
+
+        if not _IsSafeDownloadsDir(downloads_dir):
+            # Never let an empty, relative or root-level path turn this into
+            # a recursive delete of something else (e.g. "rm -rf /*").
+            logging.warning(
+                'Not cleaning unexpected Downloads path: %r', downloads_dir
+            )
+            return
+
+        try:
+            dev.RunShellCommand(
+                'rm -rf %s/*' % cmd_helper.SingleQuote(downloads_dir),
+                shell=True,
+                check_return=True,
+                as_root=self._env.force_main_user,
+            )
+        except device_errors.CommandFailedError as e:
+            logging.warning('Failed to clean the Downloads directory: %s', e)
 
     def _SetDefaultBrowserApp(self, dev):
         # Safely granting the browser role requires the
@@ -1091,17 +1189,35 @@ class LocalDeviceInstrumentationTestRun(
         if raw_tests is None:
             if use_dexdump:
                 # This path is hit by CTS tests.
-                # Dexdump is not able to find parameterized tests, so some tests might
-                # be missed.
-                # We should consider using AndroidJunitRunner's "-e annotation Foo,Bar"
-                # and "-e notAnnotation Foo,Bar" to list tests when annotation filters
-                # exist instead.
+                # The androidx test runner does not surface annotations, and
+                # dexdump does not handle parameterized tests. Combine the two
+                # to capture both parameterization and annotations.
                 logging.info(
-                    'Getting tests from dexdump (due to annotation filters)'
+                    'Getting tests from runner and annotations from dexdump'
                 )
-                raw_tests = instrumentation_test_instance.GetTestsFromDexdump(
+                dex_tests = instrumentation_test_instance.GetTestsFromDexdump(
                     ti.test_apk.path
                 )
+                dex_by_class = {
+                    c['class']: (
+                        c['annotations'],
+                        {m['method']: m['annotations'] for m in c['methods']},
+                    )
+                    for c in dex_tests
+                }
+                no_annotations = ({}, {})
+                default_method_annotations = {'MediumTest': None}
+                raw_tests = self._GetTestsFromRunner(run_disabled=run_disabled)
+                for clazz in raw_tests:
+                    class_ann, method_anns = dex_by_class.get(
+                        clazz['class'], no_annotations
+                    )
+                    clazz['annotations'] = class_ann
+                    for method in clazz['methods']:
+                        base_method = method['method'].split('[')[0]
+                        method['annotations'] = method_anns.get(
+                            base_method, default_method_annotations
+                        )
             else:
                 logging.info(
                     'Getting tests by having %s list them.',
@@ -1132,7 +1248,7 @@ class LocalDeviceInstrumentationTestRun(
         batched_tests_split = self._SplitBatchesAboveMaxSize(batched_tests)
         all_tests = batched_tests_split + other_tests
 
-        return self._SortTests(all_tests)
+        return all_tests
 
     def _GroupTestsIntoBatchesAndOthers(self, tests):
         batched_tests = dict()
@@ -1209,7 +1325,7 @@ class LocalDeviceInstrumentationTestRun(
 
     # override
     def _RunTest(self, device, test):
-        extras = {}
+        extras = {_EXTRA_DISABLE_ANALYTICS: 'true'}
 
         if self._test_instance.GetRunDisabledFlag():
             extras[_EXTRA_RUN_DISABLED_TEST] = 'true'
@@ -1373,7 +1489,7 @@ class LocalDeviceInstrumentationTestRun(
             )
 
             timeout_scale = self._test_instance.timeout_scale * (
-                self._GetTimeoutScaleFromAnnotations(test['annotations'])
+                self.GetTimeoutScaleFromAnnotations(test['annotations'])
             )
             if timeout_scale != 1:
                 extras[EXTRA_TIMEOUT_SCALE] = str(
@@ -1834,6 +1950,7 @@ class LocalDeviceInstrumentationTestRun(
                 junit4_runner_class = self._test_instance.junit4_runner_class
                 test_package = self._test_instance.test_package
                 extras = {
+                    _EXTRA_DISABLE_ANALYTICS: 'true',
                     'log': 'true',
                     # Workaround for https://github.com/mockito/mockito/issues/922
                     'notPackage': 'net.bytebuddy',
@@ -2344,15 +2461,18 @@ class LocalDeviceInstrumentationTestRun(
                         error,
                     )
 
+    @classmethod
+    def _IsUnitTestBatch(cls, test):
+        if isinstance(test, list):
+            test = test[0]
+        return test['annotations'].get('Batch', {}).get('value') == 'UnitTests'
+
     # override
     def _ShouldRetry(self, test, result):
         # We've tried to disable retries in the past with mixed results.
         # See crbug.com/619055 for historical context and crbug.com/797002
         # for ongoing efforts.
-        if (
-            'Batch' in test['annotations']
-            and test['annotations']['Batch']['value'] == 'UnitTests'
-        ):
+        if self._IsUnitTestBatch(test):
             return False
         del test, result
         return True
@@ -2367,8 +2487,38 @@ class LocalDeviceInstrumentationTestRun(
         """
         return True
 
+    # override
+    def _EstimateTestGroupRuntime(self, test):
+        tests_in_group = test if isinstance(test, (list, tuple)) else [test]
+        assert tests_in_group, 'Empty test group'
+
+        is_unit_test = self._IsUnitTestBatch(test)
+        # Unit test batches (Batch.UNIT_TESTS) have much smaller overhead
+        # (~1.0s base, ~0.05s per test, although they often launch
+        # BlankUiTestActivity).
+        # Non-unit-test batches assume each class launches an activity
+        # (~8.0s overhead) and each test method runs in ~1.0s.
+        launch_overhead = (
+            _ESTIMATED_RUNTIME_PER_CLASS_UNIT_TESTS
+            if is_unit_test
+            else local_device_test_run.ESTIMATED_RUNTIME_PER_CLASS_DEFAULT
+        )
+        per_test_overhead = (
+            _ESTIMATED_RUNTIME_PER_TEST_UNIT_TESTS
+            if is_unit_test
+            else local_device_test_run.ESTIMATED_RUNTIME_PER_TEST_DEFAULT
+        )
+
+        # TimeoutScale is reused here only as a relative multiplier for the
+        # estimate, not as a timeout setting.
+        return launch_overhead + sum(
+            per_test_overhead
+            * self.GetTimeoutScaleFromAnnotations(t['annotations'])
+            for t in tests_in_group
+        )
+
     @classmethod
-    def _GetTimeoutScaleFromAnnotations(cls, annotations):
+    def GetTimeoutScaleFromAnnotations(cls, annotations):
         try:
             return int(annotations.get('TimeoutScale', {}).get('value', 1))
         except ValueError as e:
@@ -2387,7 +2537,7 @@ class LocalDeviceInstrumentationTestRun(
             logging.warning('Using default 1 minute timeout for %s', test_name)
             timeout = 60
 
-        timeout *= cls._GetTimeoutScaleFromAnnotations(annotations)
+        timeout *= cls.GetTimeoutScaleFromAnnotations(annotations)
 
         return timeout
 

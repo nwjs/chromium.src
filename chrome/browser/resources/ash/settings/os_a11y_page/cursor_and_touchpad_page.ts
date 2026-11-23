@@ -19,7 +19,6 @@ import '../controls/settings_toggle_button.js';
 import '../settings_shared.css.js';
 import 'chrome://resources/ash/common/cr_elements/localized_link/localized_link.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import type {CrLinkRowElement} from 'chrome://resources/ash/common/cr_elements/cr_link_row/cr_link_row.js';
 import type {CrToggleElement} from 'chrome://resources/ash/common/cr_elements/cr_toggle/cr_toggle.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
@@ -31,7 +30,8 @@ import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {RouteOriginMixin} from '../common/route_origin_mixin.js';
 import {DevicePageBrowserProxyImpl} from '../device_page/device_page_browser_proxy.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {Router, routes} from '../router.js';
 
 import {getTemplate} from './cursor_and_touchpad_page.html.js';
@@ -202,6 +202,13 @@ export class SettingsCursorAndTouchpadPageElement extends
         },
       },
 
+      isAccessibilityShakeToLocateEnabled_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('isAccessibilityShakeToLocateEnabled');
+        },
+      },
+
       /**
        * Whether a setting for enabling shelf navigation buttons in tablet mode
        * should be displayed in the accessibility settings.
@@ -283,6 +290,7 @@ export class SettingsCursorAndTouchpadPageElement extends
     Setting.kLargeCursor,
     Setting.kMouseKeysEnabled,
     Setting.kOverscrollEnabled,
+    Setting.kShakeToLocateCursor,
     Setting.kTabletNavigationButtons,
   ]);
 
@@ -291,6 +299,7 @@ export class SettingsCursorAndTouchpadPageElement extends
   declare private cursorColorOptions_: Option[];
   private deviceBrowserProxy_ = DevicePageBrowserProxyImpl.getInstance();
   declare private disableTouchpadOptions_: Option[];
+  declare private readonly isAccessibilityShakeToLocateEnabled_: boolean;
   declare private readonly isKioskModeActive_: boolean;
   declare private shelfNavigationButtonsImplicitlyEnabled_: boolean;
   declare private shelfNavigationButtonsPref_:

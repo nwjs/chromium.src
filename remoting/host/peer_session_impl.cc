@@ -47,6 +47,8 @@
 #include "remoting/host/action_executor.h"
 #include "remoting/host/action_message_handler.h"
 #include "remoting/host/active_display_monitor.h"
+#include "remoting/host/agent_integration_configurator.h"
+#include "remoting/host/agent_integration_control_message_handler.h"
 #include "remoting/host/audio_capturer.h"
 #include "remoting/host/base/desktop_environment_options.h"
 #include "remoting/host/base/screen_controls.h"
@@ -454,6 +456,14 @@ void PeerSessionImpl::SetCapabilities(
             base::Unretained(this)));
   }
 
+  if (HasCapability(capabilities_, protocol::kAgentIntegrationCapability)) {
+    data_channel_manager_.RegisterCreateHandlerCallback(
+        AgentIntegrationControlMessageHandler::kDataChannelName,
+        base::BindRepeating(
+            &PeerSessionImpl::CreateAgentIntegrationControlMessageHandler,
+            base::Unretained(this)));
+  }
+
   if (HasCapability(capabilities_, protocol::kRemoteWebAuthnCapability)) {
     data_channel_manager_.RegisterCreateHandlerCallback(
         kRemoteWebAuthnDataChannelName,
@@ -674,6 +684,43 @@ void PeerSessionImpl::ControlTerminal(
   }
 }
 
+void PeerSessionImpl::SetAgentStatus(
+    const protocol::TerminalControl::AgentInfo& agent_status,
+    SetAgentStatusCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::move(callback).Run();
+  if (!channels_connected_ || !terminal_session_manager_ ||
+      !agent_status.has_terminal_id()) {
+    return;
+  }
+
+  bool has_valid_agent_state =
+      agent_status.has_agent_state() &&
+      agent_status.agent_state() !=
+          protocol::TerminalControl::AgentInfo::UNSPECIFIED;
+  if (!has_valid_agent_state && !agent_status.has_conversation_title()) {
+    return;
+  }
+
+  int32_t terminal_id = agent_status.terminal_id();
+  if (!terminal_session_manager_->GetTerminalSession(terminal_id)) {
+    LOG(WARNING) << "Dropping SetAgentStatus for unknown terminal ID: "
+                 << terminal_id;
+    return;
+  }
+
+  protocol::TerminalControl response;
+  auto* agent_info = response.mutable_agent_info();
+  agent_info->set_terminal_id(terminal_id);
+  if (has_valid_agent_state) {
+    agent_info->set_agent_state(agent_status.agent_state());
+  }
+  if (agent_status.has_conversation_title()) {
+    agent_info->set_conversation_title(agent_status.conversation_title());
+  }
+  connection_->client_stub()->DeliverTerminalControl(response);
+}
+
 void PeerSessionImpl::OnTerminalCreated(
     base::expected<int32_t, TerminalError> result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -708,6 +755,9 @@ void PeerSessionImpl::SendTerminalProcessInfo(int32_t terminal_id,
                                               bool is_active,
                                               std::string_view process_name) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!channels_connected_) {
+    return;
+  }
   protocol::TerminalControl response;
   auto* process_info = response.mutable_process_info();
   process_info->set_terminal_id(terminal_id);
@@ -1096,6 +1146,14 @@ void PeerSessionImpl::OnDesktopEnvironmentCreated(
                       "Failed to create desktop environment.", FROM_HERE);
     return;
   }
+  AgentIntegrationConfigurator::IsSupported(base::BindOnce(
+      &PeerSessionImpl::OnAgentIntegrationSupportDetermined,
+      weak_factory_.GetWeakPtr(), std::move(desktop_environment)));
+}
+
+void PeerSessionImpl::OnAgentIntegrationSupportDetermined(
+    std::unique_ptr<DesktopEnvironment> desktop_environment,
+    bool is_agent_integration_supported) {
   desktop_environment_ = std::move(desktop_environment);
 
   // Connect host stub.
@@ -1135,6 +1193,11 @@ void PeerSessionImpl::OnDesktopEnvironmentCreated(
       effective_policies_.allow_terminal_mode.value_or(true)) {
     host_capabilities_.append(" ");
     host_capabilities_.append(protocol::kTerminalModeCapability);
+  }
+
+  if (is_agent_integration_supported) {
+    host_capabilities_.append(" ");
+    host_capabilities_.append(protocol::kAgentIntegrationCapability);
   }
 
   // Create the object that controls the screen resolution.
@@ -1454,6 +1517,29 @@ void PeerSessionImpl::CreateUrlForwarderControlMessageHandler(
   new UrlForwarderControlMessageHandler(
       desktop_environment_->CreateUrlForwarderConfigurator(), channel_name,
       std::move(pipe));
+}
+
+void PeerSessionImpl::CreateAgentIntegrationControlMessageHandler(
+    const std::string& channel_name,
+    std::unique_ptr<protocol::MessagePipe> pipe) {
+  if (!desktop_environment_) {
+    desktop_environment_ready_callbacks_.push_back(base::BindOnce(
+        &PeerSessionImpl::CreateAgentIntegrationControlMessageHandler,
+        weak_factory_.GetWeakPtr(), channel_name, std::move(pipe)));
+    return;
+  }
+  auto configurator =
+      desktop_environment_->CreateAgentIntegrationConfigurator();
+  if (!configurator) {
+    LOG(WARNING)
+        << "Agent integration is not supported by the desktop environment.";
+    return;
+  }
+  // AgentIntegrationControlMessageHandler manages its own lifetime and is tied
+  // to the lifetime of |pipe|. Once |pipe| is closed, this instance will be
+  // cleaned up.
+  new AgentIntegrationControlMessageHandler(std::move(configurator),
+                                            channel_name, std::move(pipe));
 }
 
 void PeerSessionImpl::CreateRemoteWebAuthnMessageHandler(

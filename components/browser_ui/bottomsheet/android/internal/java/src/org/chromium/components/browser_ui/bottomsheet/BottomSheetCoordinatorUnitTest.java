@@ -14,7 +14,6 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -28,11 +27,13 @@ import static org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.
 import android.app.Activity;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.view.InputDevice;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.PointerIcon;
 import android.view.View;
+import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.FrameLayout;
@@ -54,6 +55,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
@@ -81,7 +83,6 @@ import java.util.List;
 
 /** Unit tests for {@link BottomSheetCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@SuppressWarnings("DoNotMock") // TODO(567604165): Remove mocking of Views / Activities
 public class BottomSheetCoordinatorUnitTest {
     private static final int APP_HEADER_HEIGHT = 42;
     private static final int SHEET_CONTAINER_HEIGHT = 200;
@@ -89,10 +90,7 @@ public class BottomSheetCoordinatorUnitTest {
     private static final int SHEET_PEEK_HEIGHT = 60;
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    private @Mock View mSheetBackground;
-    private @Mock ShadowLayerView mShadowLayerView;
     private @Mock BottomSheetContent mSheetContent;
-    private @Mock TouchRestrictingFrameLayout mToolbarHolder;
     private @Mock InsetObserver mInsetObserver;
     private @Mock KeyboardVisibilityDelegate mKeyboardDelegate;
     private @Mock BottomSheetObserver mBottomSheetObserver;
@@ -129,10 +127,7 @@ public class BottomSheetCoordinatorUnitTest {
         // Stub the mocks before they are installed, so that init() observes them fully configured.
         mKeyboardInsetSupplier = ObservableSuppliers.createNonNull(0);
         doReturn(mKeyboardInsetSupplier).when(mInsetObserver).getSupplierForKeyboardInset();
-        ViewGroup.MarginLayoutParams params = new ViewGroup.MarginLayoutParams(0, 0);
-        doReturn(params).when(mShadowLayerView).getLayoutParams();
 
-        installSharedTestViews(mBottomSheet);
         initSheet(mBottomSheet, /* isLargeFormFactor= */ false);
 
         when(mSheetContent.getMaxResizeContentHeightRatio()).thenReturn(MAX_HEIGHT_RATIO);
@@ -143,9 +138,8 @@ public class BottomSheetCoordinatorUnitTest {
      * child of {@link #mSheetContainer}.
      *
      * <p>Callers that need to resize or lay out the container before {@link
-     * BottomSheetCoordinator#init} runs should use this together with {@link
-     * #installSharedTestViews} and {@link #initSheet}; all other callers should prefer {@link
-     * #buildSheet}.
+     * BottomSheetCoordinator#init} runs should use this together with {@link #initSheet}; all other
+     * callers should prefer {@link #buildSheet}.
      *
      * @param isLargeFormFactor Whether to inflate the desktop (large form factor) layout.
      * @return The inflated, not-yet-initialized sheet.
@@ -153,34 +147,16 @@ public class BottomSheetCoordinatorUnitTest {
     private BottomSheetCoordinator inflateAndAttachSheet(boolean isLargeFormFactor) {
         int layoutId = isLargeFormFactor ? R.layout.bottom_sheet_desktop : R.layout.bottom_sheet;
         BottomSheetView view =
-                (BottomSheetView) LayoutInflater.from(mActivity).inflate(layoutId, null);
+                (BottomSheetView)
+                        LayoutInflater.from(mActivity).inflate(layoutId, /* root= */ null);
         mSheetContainer.removeAllViews();
         mSheetContainer.addView(view);
         return new BottomSheetCoordinator(view);
     }
 
     /**
-     * Installs the shared test doubles for the sheet's child views.
-     *
-     * <p>Tests that need to assert against the real inflated views must skip this and wire up the
-     * views they care about themselves.
-     */
-    private void installSharedTestViews(BottomSheetCoordinator sheet) {
-        sheet.setSheetContainerForTesting(mSheetContainer);
-        sheet.getView().setToolbarHolderForTesting(mToolbarHolder);
-        sheet.getView()
-                .setBottomSheetContentContainerForTesting(
-                        sheet.getView().findViewById(R.id.bottom_sheet_content));
-        sheet.getView().setSheetBackgroundForTesting(mSheetBackground);
-        sheet.getView().setShadowLayerForTesting(mShadowLayerView);
-    }
-
-    /**
      * Runs {@link BottomSheetCoordinator#init} with the parameters shared by every test in this
      * class.
-     *
-     * <p>This is always called after the test doubles are installed so that initialization observes
-     * the same views the test will later assert against.
      */
     private void initSheet(BottomSheetCoordinator sheet, boolean isLargeFormFactor) {
         sheet.init(
@@ -195,14 +171,12 @@ public class BottomSheetCoordinatorUnitTest {
     }
 
     /**
-     * Builds a fully initialized sheet attached to {@link #mSheetContainer}, backed by the shared
-     * test doubles.
+     * Builds a fully initialized sheet attached to {@link #mSheetContainer}.
      *
      * @param isLargeFormFactor Whether to build the desktop (large form factor) sheet.
      */
     private BottomSheetCoordinator buildSheet(boolean isLargeFormFactor) {
         BottomSheetCoordinator sheet = inflateAndAttachSheet(isLargeFormFactor);
-        installSharedTestViews(sheet);
         initSheet(sheet, isLargeFormFactor);
         return sheet;
     }
@@ -212,7 +186,6 @@ public class BottomSheetCoordinatorUnitTest {
             boolean isLargeFormFactor, int height) {
         BottomSheetCoordinator sheet = inflateAndAttachSheet(isLargeFormFactor);
         mSheetContainer.layout(0, 0, SHEET_CONTAINER_WIDTH, height);
-        installSharedTestViews(sheet);
         initSheet(sheet, isLargeFormFactor);
         return sheet;
     }
@@ -664,24 +637,28 @@ public class BottomSheetCoordinatorUnitTest {
 
         mBottomSheet.showContent(mSheetContent);
 
-        verify(mShadowLayerView).setBackgroundTintList(ColorStateList.valueOf(glowColor));
+        ShadowLayerView shadowLayer = mBottomSheet.getView().findViewById(R.id.shadow_layer);
+        assertEquals(ColorStateList.valueOf(glowColor), shadowLayer.getBackgroundTintList());
         int expectedSize =
                 mActivity
                         .getResources()
                         .getDimensionPixelSize(R.dimen.bottom_sheet_shadow_length_large);
-        verify(mShadowLayerView).setShadowLength(expectedSize);
+        assertEquals(-expectedSize, shadowLayer.getTranslationY(), MathUtils.EPSILON);
     }
 
     @Test
     public void testBackgroundGlowColor_Transparent() {
+        ShadowLayerView shadowLayer = mBottomSheet.getView().findViewById(R.id.shadow_layer);
+        shadowLayer.setBackgroundTintList(ColorStateList.valueOf(Color.RED));
+        shadowLayer.setShadowLength(999);
         doReturn(null).when(mSheetContent).getSheetBackgroundGlowSpecOverride();
 
         mBottomSheet.showContent(mSheetContent);
 
-        verify(mShadowLayerView).setBackgroundTintList(null);
+        assertNull(shadowLayer.getBackgroundTintList());
         int defaultSize =
                 mActivity.getResources().getDimensionPixelSize(R.dimen.bottom_sheet_shadow_length);
-        verify(mShadowLayerView).setShadowLength(defaultSize);
+        assertEquals(-defaultSize, shadowLayer.getTranslationY(), MathUtils.EPSILON);
     }
 
     @Test
@@ -690,22 +667,19 @@ public class BottomSheetCoordinatorUnitTest {
 
         doReturn(true).when(mSheetContent).supportsLargeFormFactor();
 
-        // Stub layout properties that would normally be inflated or measured by Android framework
-        // natively.
         final int shadowPaddingTop = 10;
         final int shadowPaddingBottom = 20;
         final int shadowTop = 10;
         final int backgroundTop = 20;
-        final int backgroundMeasuredHeight = 300;
         final float userDragTranslationY = 100f;
 
-        doReturn(shadowPaddingTop).when(mShadowLayerView).getPaddingTop();
-        doReturn(shadowPaddingBottom).when(mShadowLayerView).getPaddingBottom();
-        doReturn(shadowTop).when(mShadowLayerView).getTop();
-        doReturn(backgroundTop).when(mSheetBackground).getTop();
-        doReturn(backgroundMeasuredHeight).when(mSheetBackground).getMeasuredHeight();
-
         sheet.showContent(mSheetContent);
+
+        View sheetBackground = sheet.getView().findViewById(R.id.background);
+        View shadowLayer = sheet.getView().findViewById(R.id.shadow_layer);
+        shadowLayer.setPadding(0, shadowPaddingTop, 0, shadowPaddingBottom);
+        shadowLayer.setTop(shadowTop);
+        sheetBackground.setTop(backgroundTop);
 
         // At this point, the layout and visibility should be initialized.
         // We will call the private method indirectly by triggering a layout pass or updating
@@ -714,12 +688,12 @@ public class BottomSheetCoordinatorUnitTest {
                 userDragTranslationY, BottomSheetController.StateChangeReason.NONE);
 
         // Evaluate exactly what boundaries the method derived:
-        // visibleHeight = min(currentOffsetPx, measuredBgHeight) = min(100, 300) = 100.
+        // visibleHeight = 100.
         // backgroundBottom = backgroundTop + visibleHeight = 20 + 100 = 120.
         // shadowBottom = shadowTop + visibleHeight + shadowPaddingTop + shadowPaddingBottom
         //              = 10 + 100 + 10 + 20 = 140.
-        verify(mSheetBackground, atLeastOnce()).setBottom(120);
-        verify(mShadowLayerView, atLeastOnce()).setBottom(140);
+        assertEquals(120, sheetBackground.getBottom());
+        assertEquals(140, shadowLayer.getBottom());
     }
 
     @Test
@@ -730,22 +704,20 @@ public class BottomSheetCoordinatorUnitTest {
 
         int expectedSize =
                 mActivity.getResources().getDimensionPixelSize(R.dimen.bottom_sheet_shadow_length);
-        doReturn(expectedSize).when(mShadowLayerView).getPaddingLeft();
-        doReturn(expectedSize).when(mShadowLayerView).getPaddingTop();
-        doReturn(expectedSize).when(mShadowLayerView).getPaddingRight();
-        doReturn(expectedSize).when(mShadowLayerView).getPaddingBottom();
+        View shadowLayer = sheet.getView().findViewById(R.id.shadow_layer);
+        shadowLayer.setPadding(expectedSize, expectedSize, expectedSize, expectedSize);
 
         sheet.showContent(mSheetContent);
 
-        verify(mShadowLayerView).setBackgroundResource(R.drawable.popup_bg_shadow_16dp);
-        ArgumentCaptor<ViewGroup.LayoutParams> captor =
-                ArgumentCaptor.forClass(ViewGroup.LayoutParams.class);
-        verify(mShadowLayerView, atLeastOnce()).setLayoutParams(captor.capture());
-        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) captor.getValue();
-        assertEquals(-expectedSize, params.leftMargin);
-        assertEquals(-expectedSize, params.topMargin);
-        assertEquals(-expectedSize, params.rightMargin);
-        assertEquals(-expectedSize, params.bottomMargin);
+        assertEquals(
+                R.drawable.popup_bg_shadow_16dp,
+                Shadows.shadowOf(shadowLayer.getBackground()).getCreatedFromResId());
+        ViewGroup.MarginLayoutParams params =
+                (ViewGroup.MarginLayoutParams) shadowLayer.getLayoutParams();
+        assertEquals(-shadowLayer.getPaddingLeft(), params.leftMargin);
+        assertEquals(-shadowLayer.getPaddingTop(), params.topMargin);
+        assertEquals(-shadowLayer.getPaddingRight(), params.rightMargin);
+        assertEquals(-shadowLayer.getPaddingBottom(), params.bottomMargin);
     }
 
     @Test
@@ -1174,7 +1146,6 @@ public class BottomSheetCoordinatorUnitTest {
                 View.MeasureSpec.makeMeasureSpec(shortContainerHeight, View.MeasureSpec.EXACTLY));
         mSheetContainer.layout(0, 0, narrowContainerWidth, shortContainerHeight);
 
-        installSharedTestViews(sheet);
         initSheet(sheet, /* isLargeFormFactor= */ true);
 
         doReturn(true).when(mSheetContent).supportsLargeFormFactor();
@@ -1316,14 +1287,6 @@ public class BottomSheetCoordinatorUnitTest {
     @Test
     public void testDesktopUi_LargeFormFactorNotSupported_FallbackToMobileRendering() {
         BottomSheetCoordinator sheet = inflateAndAttachSheet(/* isLargeFormFactor= */ true);
-        sheet.setSheetContainerForTesting(mSheetContainer);
-        sheet.getView().setToolbarHolderForTesting(mToolbarHolder);
-        sheet.getView()
-                .setBottomSheetContentContainerForTesting(
-                        sheet.getView().findViewById(R.id.bottom_sheet_content));
-
-        // Use the real views found inside bottom_sheet_desktop, rather than mocks, to verify exact
-        // layout behaviors. This is why the test cannot use installSharedTestViews().
         View sheetBackground = sheet.getView().findViewById(R.id.background);
         View shadowLayer = sheet.getView().findViewById(R.id.shadow_layer);
         View fallbackShadowLayer = sheet.getView().findViewById(R.id.desktop_fallback_shadow);
@@ -1716,7 +1679,6 @@ public class BottomSheetCoordinatorUnitTest {
     public void testWrapContentHeightIncludesHandlebarHeight() {
         BottomSheetCoordinator sheet = inflateAndAttachSheet(/* isLargeFormFactor= */ true);
         mSheetContainer.layout(0, 0, 1000, 800);
-        installSharedTestViews(sheet);
         initSheet(sheet, /* isLargeFormFactor= */ true);
 
         View contentView =
@@ -1771,7 +1733,6 @@ public class BottomSheetCoordinatorUnitTest {
         int containerHeight = 800;
         BottomSheetCoordinator sheet = inflateAndAttachSheet(/* isLargeFormFactor= */ true);
         mSheetContainer.layout(0, 0, 1000, containerHeight);
-        installSharedTestViews(sheet);
         initSheet(sheet, /* isLargeFormFactor= */ true);
 
         doReturn(true).when(mSheetContent).supportsLargeFormFactor();
@@ -1793,7 +1754,6 @@ public class BottomSheetCoordinatorUnitTest {
         int containerHeight = 1000;
         BottomSheetCoordinator sheet = inflateAndAttachSheet(/* isLargeFormFactor= */ true);
         mSheetContainer.layout(0, 0, 1000, containerHeight);
-        installSharedTestViews(sheet);
         initSheet(sheet, /* isLargeFormFactor= */ true);
 
         doReturn(true).when(mSheetContent).supportsLargeFormFactor();
@@ -1814,7 +1774,6 @@ public class BottomSheetCoordinatorUnitTest {
         int containerHeight = 1000;
         BottomSheetCoordinator sheet = inflateAndAttachSheet(/* isLargeFormFactor= */ true);
         mSheetContainer.layout(0, 0, 1000, containerHeight);
-        installSharedTestViews(sheet);
         TouchRestrictingFrameLayout contentContainer =
                 sheet.getView().findViewById(R.id.bottom_sheet_content);
         initSheet(sheet, /* isLargeFormFactor= */ true);
@@ -1856,7 +1815,6 @@ public class BottomSheetCoordinatorUnitTest {
         int containerHeight = 1000;
         BottomSheetCoordinator sheet = inflateAndAttachSheet(/* isLargeFormFactor= */ false);
         mSheetContainer.layout(0, 0, 1000, containerHeight);
-        installSharedTestViews(sheet);
         TouchRestrictingFrameLayout contentContainer =
                 sheet.getView().findViewById(R.id.bottom_sheet_content);
         initSheet(sheet, /* isLargeFormFactor= */ false);
@@ -1880,14 +1838,8 @@ public class BottomSheetCoordinatorUnitTest {
     @Test
     public void testToolbarHolderTopMarginWithHandlebar() {
         BottomSheetCoordinator sheet = inflateAndAttachSheet(/* isLargeFormFactor= */ false);
-        installSharedTestViews(sheet);
-
-        // This test asserts on the toolbar holder's own top margin, so it needs the real
-        // inflated view rather than the shared mock. It must be installed before init().
         TouchRestrictingFrameLayout toolbarHolder =
                 sheet.getView().findViewById(R.id.bottom_sheet_toolbar_container);
-        sheet.getView().setToolbarHolderForTesting(toolbarHolder);
-
         initSheet(sheet, /* isLargeFormFactor= */ false);
 
         View toolbarView = new View(mActivity);
@@ -2229,9 +2181,11 @@ public class BottomSheetCoordinatorUnitTest {
         assertFalse(mBottomSheet.shouldDragSheet(null));
 
         MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 100, 50, 0);
+        View toolbarHolder =
+                mBottomSheet.getView().findViewById(R.id.bottom_sheet_toolbar_container);
 
         // When sheet content is null and toolbar height is 0, should return false.
-        when(mToolbarHolder.getHeight()).thenReturn(0);
+        toolbarHolder.layout(0, 0, SHEET_CONTAINER_WIDTH, 0);
         assertFalse(mBottomSheet.shouldDragSheet(event));
 
         doReturn(new View(mActivity)).when(mSheetContent).getContentView();
@@ -2244,12 +2198,12 @@ public class BottomSheetCoordinatorUnitTest {
 
         // When content canDragSheet returns false and toolbar height is 0, should return false.
         doReturn(false).when(mSheetContent).canDragSheet(event);
-        when(mToolbarHolder.getHeight()).thenReturn(0);
+        toolbarHolder.layout(0, 0, SHEET_CONTAINER_WIDTH, 0);
         assertFalse(mBottomSheet.shouldDragSheet(event));
 
         // When content canDragSheet returns false and toolbar has height 100 with event rawY 50,
         // should return true based on toolbar.
-        when(mToolbarHolder.getHeight()).thenReturn(100);
+        toolbarHolder.layout(0, 0, SHEET_CONTAINER_WIDTH, 100);
         assertTrue(mBottomSheet.shouldDragSheet(event));
 
         // When event rawY is 150 (below toolbar height 100), should return false.
@@ -2328,15 +2282,8 @@ public class BottomSheetCoordinatorUnitTest {
 
     @Test
     public void testPointerIcon_ShowsHandOnHandlebarInDesktopMode_ShowsArrowOnSheet() {
-        BottomSheetCoordinator coordinator = inflateAndAttachSheet(/* isLargeFormFactor= */ true);
-        coordinator.setSheetContainerForTesting(mSheetContainer);
+        BottomSheetCoordinator coordinator = buildSheet(/* isLargeFormFactor= */ true);
         BottomSheetView sheet = coordinator.getView();
-        TouchRestrictingFrameLayout toolbarHolder =
-                sheet.findViewById(R.id.bottom_sheet_toolbar_container);
-        sheet.setToolbarHolderForTesting(toolbarHolder);
-        sheet.setBottomSheetContentContainerForTesting(
-                sheet.findViewById(R.id.bottom_sheet_content));
-        initSheet(coordinator, /* isLargeFormFactor= */ true);
 
         BottomSheetContent desktopContent = mock(BottomSheetContent.class);
         when(desktopContent.supportsLargeFormFactor()).thenReturn(true);
@@ -2690,17 +2637,20 @@ public class BottomSheetCoordinatorUnitTest {
     @Test
     public void
             testContainerLayoutChange_FullStateResizeUpdatesVerticalLayoutWhenTranslationUnchanged() {
-        // 1. On standard mobile in SheetState.FULL, when WindowInsets change viewportBottomInset
-        // without changing translationY, CONTENT_BOTTOM_PADDING must still be updated.
+        // 1. On standard mobile in SheetState.FULL, when WindowInsets change bottomInset
+        // for a wrap-content sheet without changing translationY, CONTENT_BOTTOM_PADDING must
+        // still be updated.
         mActivity.getWindow().getDecorView().layout(0, 0, 1080, SHEET_CONTAINER_HEIGHT);
         WindowInsetsCompat insets = mock(WindowInsetsCompat.class);
         when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
         when(insets.getInsets(anyInt())).thenReturn(Insets.of(0, 0, 0, 0));
 
-        when(mSheetContent.getFullHeightRatio()).thenReturn((float) HeightMode.DEFAULT);
-        when(mSheetContent.getHalfHeightRatio()).thenReturn(0.5f);
+        when(mSheetContent.getFullHeightRatio()).thenReturn((float) HeightMode.WRAP_CONTENT);
+        when(mSheetContent.getHalfHeightRatio()).thenReturn((float) HeightMode.DISABLED);
         when(mSheetContent.getPeekHeight()).thenReturn(HeightMode.DISABLED);
-        when(mSheetContent.getContentView()).thenReturn(new View(mActivity));
+        View contentView = new View(mActivity);
+        contentView.setMinimumHeight(SHEET_CONTAINER_HEIGHT);
+        when(mSheetContent.getContentView()).thenReturn(contentView);
         setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
 
         mBottomSheet.showContent(mSheetContent);
@@ -2709,7 +2659,7 @@ public class BottomSheetCoordinatorUnitTest {
                 mBottomSheet.getView().findViewById(R.id.bottom_sheet_content);
         assertEquals(0, mobileContentContainer.getPaddingBottom());
 
-        when(insets.getInsets(anyInt())).thenReturn(Insets.of(0, 0, 0, 48));
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 48);
         mSheetContainer.requestLayout();
         mSheetContainer.measure(
                 View.MeasureSpec.makeMeasureSpec(SHEET_CONTAINER_WIDTH, View.MeasureSpec.EXACTLY),
@@ -2723,7 +2673,6 @@ public class BottomSheetCoordinatorUnitTest {
         BottomSheetCoordinator lffSheet =
                 buildSheetWithContainerHeight(/* isLargeFormFactor= */ true, 800);
         View bgView = lffSheet.getView().findViewById(R.id.background);
-        lffSheet.getView().setSheetBackgroundForTesting(bgView);
         View lffContentContainer = lffSheet.getView().findViewById(R.id.bottom_sheet_content);
         BottomSheetContent popupContent =
                 buildContent(/* supportsLargeFormFactor= */ true, 0.5f, 1.0f);
@@ -2850,5 +2799,551 @@ public class BottomSheetCoordinatorUnitTest {
                 "BottomSheetCoordinatorUnitTest.testContainerLayoutChange_NoRedundantRelayout");
         measureAndLayoutContainer(containerWidth + 100, containerHeight);
         assertEquals(1, containerLayoutCount[0]);
+    }
+
+    @Test
+    public void testSetSheetOffsetFromBottom_FixedRatioMobile_WithAndWithoutEdgeToEdge() {
+        int navBarInset = 48;
+        WindowInsetsCompat insets = mock(WindowInsetsCompat.class);
+        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
+        when(insets.getInsets(anyInt())).thenReturn(Insets.of(0, 0, 0, navBarInset));
+
+        mActivity.getWindow().getDecorView().layout(0, 0, 1080, SHEET_CONTAINER_HEIGHT);
+        BottomSheetContent content = buildContent(/* supportsLargeFormFactor= */ false, 0.5f, 1.0f);
+        mBottomSheet.showContent(content);
+
+        // Case A: Without Edge-to-Edge insets (non-E2E container bounds).
+        // In non-E2E mode, the container is laid out above the navigation bar.
+        int nonE2EContainerHeight = SHEET_CONTAINER_HEIGHT - navBarInset;
+        measureAndLayoutContainer(1080, nonE2EContainerHeight);
+
+        // PEEK state (e.g. offset = 60).
+        mBottomSheet.setSheetState(SheetState.PEEK, false);
+        mBottomSheet.setSheetOffsetFromBottom(60.0f, StateChangeReason.NONE);
+        assertEquals(
+                nonE2EContainerHeight - 60.0f,
+                mBottomSheet.getView().getTranslationY(),
+                MathUtils.EPSILON);
+
+        // HALF state (e.g. offset = 100).
+        mBottomSheet.setSheetState(SheetState.HALF, false);
+        mBottomSheet.setSheetOffsetFromBottom(100.0f, StateChangeReason.NONE);
+        assertEquals(
+                nonE2EContainerHeight - 100.0f,
+                mBottomSheet.getView().getTranslationY(),
+                MathUtils.EPSILON);
+
+        // FULL state (e.g. offset = 150).
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+        mBottomSheet.setSheetOffsetFromBottom(150.0f, StateChangeReason.NONE);
+        assertEquals(
+                nonE2EContainerHeight - 150.0f,
+                mBottomSheet.getView().getTranslationY(),
+                MathUtils.EPSILON);
+
+        // Case B: With Edge-to-Edge insets (e.g. 24px).
+        // In E2E mode, container spans the full decor view.
+        measureAndLayoutContainer(1080, SHEET_CONTAINER_HEIGHT);
+        SettableNonNullObservableSupplier<Integer> e2eSupplier =
+                ObservableSuppliers.createNonNull(24);
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(e2eSupplier);
+
+        // PEEK state with E2E.
+        mBottomSheet.setSheetState(SheetState.PEEK, false);
+        mBottomSheet.setSheetOffsetFromBottom(60.0f, StateChangeReason.NONE);
+        assertEquals(
+                SHEET_CONTAINER_HEIGHT - 60.0f - 24,
+                mBottomSheet.getView().getTranslationY(),
+                MathUtils.EPSILON);
+
+        // HALF state with E2E.
+        mBottomSheet.setSheetState(SheetState.HALF, false);
+        mBottomSheet.setSheetOffsetFromBottom(100.0f, StateChangeReason.NONE);
+        assertEquals(
+                SHEET_CONTAINER_HEIGHT - 100.0f - 24,
+                mBottomSheet.getView().getTranslationY(),
+                MathUtils.EPSILON);
+
+        // FULL state with E2E.
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+        mBottomSheet.setSheetOffsetFromBottom(150.0f, StateChangeReason.NONE);
+        assertEquals(
+                SHEET_CONTAINER_HEIGHT - 150.0f - 24,
+                mBottomSheet.getView().getTranslationY(),
+                MathUtils.EPSILON);
+    }
+
+    @Test
+    public void testSetSheetOffsetFromBottom_TabletOrDesktopDoesNotLiftAboveSystemBars() {
+        mActivity.getWindow().getDecorView().layout(0, 0, 1080, SHEET_CONTAINER_HEIGHT);
+        BottomSheetCoordinator sheet = buildSheet(/* isLargeFormFactor= */ true);
+        BottomSheetContent content =
+                buildContent(/* supportsLargeFormFactor= */ true, 0.5f, HeightMode.WRAP_CONTENT);
+        sheet.showContent(content);
+
+        int navBarInset = 48;
+        WindowInsetsCompat insets = mock(WindowInsetsCompat.class);
+        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
+        when(insets.getInsets(anyInt())).thenReturn(Insets.of(0, 0, 0, navBarInset));
+
+        float currentOffset = 150.0f;
+        sheet.setSheetOffsetFromBottom(currentOffset, StateChangeReason.NONE);
+        // Tablet/desktop UI does not subtract the navigation bar inset from translationY.
+        float expectedTranslationY = SHEET_CONTAINER_HEIGHT - currentOffset;
+        assertEquals(expectedTranslationY, sheet.getView().getTranslationY(), MathUtils.EPSILON);
+    }
+
+    private static int calculateEffectiveSystemBarBottom(
+            int decorHeight,
+            int containerTopInWindow,
+            int containerHeight,
+            int rawSystemBarBottom) {
+        int windowBottomGap = Math.max(0, decorHeight - (containerTopInWindow + containerHeight));
+        return Math.max(0, rawSystemBarBottom - windowBottomGap);
+    }
+
+    @Test
+    public void testWindowDecorVsSheetContainerLayoutGeometry() {
+        int rawSystemBarBottom = 48;
+
+        // 1. Non-E2E mode: The window manager sizes the container above the navigation bar,
+        // leaving a bottom gap equal to the navigation bar height.
+        int decorHeightNonE2E = 1000;
+        int containerTopNonE2E = 0;
+        int containerHeightNonE2E = 1000 - rawSystemBarBottom; // 952
+        assertEquals(
+                0,
+                calculateEffectiveSystemBarBottom(
+                        decorHeightNonE2E,
+                        containerTopNonE2E,
+                        containerHeightNonE2E,
+                        rawSystemBarBottom));
+
+        // 2. Edge-to-Edge mode: The container spans the entire window decor view, so the bottom gap
+        // is 0 and the full system bar inset applies.
+        int decorHeightE2E = 1000;
+        int containerTopE2E = 0;
+        int containerHeightE2E = 1000;
+        assertEquals(
+                rawSystemBarBottom,
+                calculateEffectiveSystemBarBottom(
+                        decorHeightE2E, containerTopE2E, containerHeightE2E, rawSystemBarBottom));
+
+        // 3. Partial occlusion: The container extends partially into the system bar region.
+        int containerHeightPartial = 980; // 20px gap remaining to decor bottom
+        assertEquals(
+                28, // 48 - 20 = 28px effective inset
+                calculateEffectiveSystemBarBottom(
+                        1000, 0, containerHeightPartial, rawSystemBarBottom));
+
+        // 4. Container bottom matches or extends beyond decor bottom.
+        assertEquals(
+                rawSystemBarBottom,
+                calculateEffectiveSystemBarBottom(1000, 0, 1050, rawSystemBarBottom));
+    }
+
+    @Test
+    public void testSetSheetOffsetFromBottom_WrapContentLiftsAboveSystemBarsWhenEdgeToEdgeZero() {
+        mActivity.getWindow().getDecorView().layout(0, 0, 1080, SHEET_CONTAINER_HEIGHT);
+        BottomSheetContent content =
+                buildContent(/* supportsLargeFormFactor= */ false, 0.5f, HeightMode.WRAP_CONTENT);
+        mBottomSheet.showContent(content);
+
+        int navBarInset = 48;
+        WindowInsetsCompat insets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(
+                                WindowInsetsCompat.Type.systemBars(),
+                                Insets.of(0, 0, 0, navBarInset))
+                        .build();
+        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
+
+        // In non-E2E mode (edge-to-edge supplier returns 0), content bottom padding is 0.
+        assertEquals(0, mBottomSheet.getContentBottomPadding());
+
+        float currentOffset = 150.0f;
+        mBottomSheet.setSheetOffsetFromBottom(currentOffset, StateChangeReason.NONE);
+        // In non-E2E mode, edge-to-edge inset is 0 so translationY does not double-subtract
+        // navBarInset.
+        float expectedTranslationY = SHEET_CONTAINER_HEIGHT - currentOffset;
+        assertEquals(
+                expectedTranslationY, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+    }
+
+    @Test
+    public void testWrapContent_CoversBottomControls_EdgeToEdgeBottomInset() {
+        BottomSheetCoordinator.setSmallScreenForTesting(false);
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 24);
+
+        View contentView =
+                new View(mActivity) {
+                    @Override
+                    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                        setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), 124);
+                    }
+                };
+        when(mSheetContent.getFullHeightRatio()).thenReturn((float) HeightMode.WRAP_CONTENT);
+        when(mSheetContent.getHalfHeightRatio()).thenReturn((float) HeightMode.DISABLED);
+        when(mSheetContent.getPeekHeight()).thenReturn(HeightMode.DISABLED);
+        when(mSheetContent.coversBottomControls()).thenReturn(true);
+        when(mSheetContent.getContentView()).thenReturn(contentView);
+        setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
+
+        mBottomSheet.showContent(mSheetContent);
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+
+        // Content view measured 124px (which includes 24px e2eBottomInset). Because the layout
+        // bottom inset is 0 in FULL state when contentCoversBottomControls() is true, desired
+        // height is 124px and translationY = 200 - 124 - 0 = 76f (leaving 124px visible on screen
+        // with 0 bottom padding, while getEdgeToEdgeBottomInset() still returns 24px for safe-area
+        // callers).
+        assertEquals(24, mBottomSheet.getEdgeToEdgeBottomInset());
+        assertEquals(124f, mBottomSheet.getCurrentOffsetPx(), MathUtils.EPSILON);
+        assertEquals(76f, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+        View mobileContentContainer =
+                mBottomSheet.getView().findViewById(R.id.bottom_sheet_content);
+        assertEquals(0, mobileContentContainer.getPaddingBottom());
+    }
+
+    @Test
+    public void
+            testUpdateViewport_CoversBottomControls_ExcludesSystemBarAndEdgeToEdgeBottomInset() {
+        verify(mInsetObserver)
+                .addWindowInsetsAnimationListener(mInsetsAnimationListenerCaptor.capture());
+        InsetObserver.WindowInsetsAnimationListener listener =
+                mInsetsAnimationListenerCaptor.getValue();
+
+        BottomSheetCoordinator.setSmallScreenForTesting(false);
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 24);
+
+        View decorView = mActivity.getWindow().getDecorView();
+        Rect defaultDisplayFrame = new Rect();
+        decorView.getWindowVisibleDisplayFrame(defaultDisplayFrame);
+        decorView.layout(0, 0, SHEET_CONTAINER_WIDTH, defaultDisplayFrame.bottom);
+        mSheetContainer.layout(0, 0, SHEET_CONTAINER_WIDTH, defaultDisplayFrame.bottom);
+        mBottomSheet.setSheetContainerForTesting(mSheetContainer);
+
+        when(mSheetContent.getFullHeightRatio()).thenReturn((float) HeightMode.RESIZE_CONTENT);
+        when(mSheetContent.getHalfHeightRatio()).thenReturn(0.5f);
+        when(mSheetContent.getPeekHeight()).thenReturn(HeightMode.DEFAULT);
+        when(mSheetContent.getContentView()).thenReturn(new View(mActivity));
+        setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
+
+        // Display-frame fallback (insets == null): e2eBottomInset is subtracted when
+        // coversBottomControls() is false, and preserved when coversBottomControls() is true.
+        doReturn(null).when(mInsetObserver).getLastRawWindowInsets();
+        when(mSheetContent.coversBottomControls()).thenReturn(false);
+        mBottomSheet.showContent(mSheetContent);
+        listener.onStart(null, null);
+        assertEquals(
+                defaultDisplayFrame.bottom - 24,
+                mBottomSheet.getVisibleViewportRectForTesting().bottom);
+
+        when(mSheetContent.coversBottomControls()).thenReturn(true);
+        listener.onStart(null, null);
+        assertEquals(
+                defaultDisplayFrame.bottom, mBottomSheet.getVisibleViewportRectForTesting().bottom);
+
+        // WindowInsets path: navigationBars bottom inset (48) and e2eBottomInset (24) are
+        // excluded from bottomInset when coversBottomControls() is true, while statusBars top
+        // inset (30) is preserved.
+        decorView.layout(0, 0, SHEET_CONTAINER_WIDTH, 800);
+        mSheetContainer.layout(0, 0, SHEET_CONTAINER_WIDTH, 800);
+        mBottomSheet.setSheetContainerForTesting(mSheetContainer);
+
+        // In PEEK state, getEffectiveEdgeToEdgeBottomInset() still returns e2eBottomInset (24) so
+        // the peek view remains lifted above the navigation bar.
+        mBottomSheet.setSheetState(SheetState.PEEK, false);
+        int peekHeight = mBottomSheet.getPeekHeightPx();
+        assertEquals(
+                800f - peekHeight - 24f,
+                mBottomSheet.getView().getTranslationY(),
+                MathUtils.EPSILON);
+
+        // During a manual drag (shouldAnimate = false, SheetState.SCROLLING) from PEEK toward HALF,
+        // getTargetOrCurrentState() resolves to FULL so getEffectiveEdgeToEdgeBottomInset() is 0.
+        mBottomSheet.setSheetOffset(300f, /* shouldAnimate= */ false);
+        assertEquals(SheetState.SCROLLING, mBottomSheet.getSheetState());
+        assertEquals(800f - 300f, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+
+        // When animating from PEEK to HALF (animate = true), target state is HALF before settle
+        // animation frames run, so getEffectiveEdgeToEdgeBottomInset() is 0.
+        mBottomSheet.setSheetState(SheetState.PEEK, false);
+        mBottomSheet.setSheetState(SheetState.HALF, true);
+        assertEquals(SheetState.HALF, mBottomSheet.getTargetSheetState());
+        mBottomSheet.setSheetOffsetFromBottom(350f, BottomSheetController.StateChangeReason.NONE);
+        assertEquals(800f - 350f, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+        mBottomSheet.endAnimations();
+
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+
+        WindowInsetsCompat windowInsets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, 30, 0, 0))
+                        .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 48))
+                        .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, 0))
+                        .build();
+        doReturn(windowInsets).when(mInsetObserver).getLastRawWindowInsets();
+        listener.onStart(null, null);
+
+        assertEquals(30, mBottomSheet.getVisibleViewportRectForTesting().top);
+        assertEquals(800, mBottomSheet.getVisibleViewportRectForTesting().bottom);
+        View contentContainer = mBottomSheet.getView().findViewById(R.id.bottom_sheet_content);
+        // At FULL (offset 800px), container height is clamped by visibleViewportRect.height()
+        // (800 - 30 status bar = 770).
+        assertEquals(770, contentContainer.getLayoutParams().height);
+
+        // At an intermediate offset (500px), layout bottom inset is 0 when coversBottomControls()
+        // is true, so translationY (300) + height (500) == 800 (bottom of the screen).
+        mBottomSheet.setSheetOffsetFromBottom(500f, BottomSheetController.StateChangeReason.NONE);
+        assertEquals(500, contentContainer.getLayoutParams().height);
+        assertEquals(
+                800f,
+                mBottomSheet.getView().getTranslationY()
+                        + contentContainer.getLayoutParams().height,
+                MathUtils.EPSILON);
+
+        // At HALF (400px), layout bottom inset is 0 so translationY (400) + height (400) == 800
+        // (bottom of the screen).
+        mBottomSheet.setSheetState(SheetState.HALF, false);
+        assertEquals(400, contentContainer.getLayoutParams().height);
+        assertEquals(
+                800f,
+                mBottomSheet.getView().getTranslationY()
+                        + contentContainer.getLayoutParams().height,
+                MathUtils.EPSILON);
+
+        // When IME is visible, IME bottom inset (300) still reduces the viewport bottom.
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+        WindowInsetsCompat imeInsets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(WindowInsetsCompat.Type.statusBars(), Insets.of(0, 30, 0, 0))
+                        .setInsets(WindowInsetsCompat.Type.navigationBars(), Insets.of(0, 0, 0, 48))
+                        .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, 300))
+                        .build();
+        doReturn(imeInsets).when(mInsetObserver).getLastRawWindowInsets();
+        listener.onStart(null, null);
+
+        assertEquals(500, mBottomSheet.getVisibleViewportRectForTesting().bottom);
+        assertEquals(470, contentContainer.getLayoutParams().height);
+    }
+
+    @Test
+    public void testWrapContentMeasure_DoesNotSubtractStatusBarFromContentHeight() {
+        mActivity.getWindow().getDecorView().layout(0, 0, 1080, 800);
+        measureAndLayoutContainer(1080, 800);
+
+        WindowInsetsCompat insets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 60, 0, 48))
+                        .build();
+        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
+
+        // Supply edge-to-edge bottom inset of 48px to test E2E bottom padding clearance.
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 48);
+
+        int[] measuredMaxContentHeight = new int[1];
+        View contentView =
+                new View(mActivity) {
+                    @Override
+                    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                        measuredMaxContentHeight[0] = MeasureSpec.getSize(heightMeasureSpec);
+                        setMeasuredDimension(
+                                MeasureSpec.getSize(widthMeasureSpec),
+                                View.resolveSize(2000, heightMeasureSpec));
+                    }
+                };
+
+        BottomSheetContent content =
+                buildContent(/* supportsLargeFormFactor= */ false, 0.5f, HeightMode.WRAP_CONTENT);
+        when(content.showHandlebar()).thenReturn(true);
+        when(content.getContentView()).thenReturn(contentView);
+
+        mBottomSheet.showContent(content);
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+
+        ImageView handlebar = mBottomSheet.getView().getHandlebarForTesting();
+        int handlebarHeight = handlebar.getMeasuredHeight();
+        int bottomPadding = mBottomSheet.getContentBottomPadding();
+        assertEquals(48, bottomPadding);
+
+        int expectedMaxContentHeight = 800 - handlebarHeight - bottomPadding;
+        assertEquals(expectedMaxContentHeight, measuredMaxContentHeight[0]);
+
+        assertEquals(
+                800 - bottomPadding,
+                mBottomSheet.getSheetHeightForState(SheetState.FULL),
+                MathUtils.EPSILON);
+        assertEquals(0.0f, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+
+        // Now verify with edge-to-edge bottom inset 0 (non-E2E mode), status bar 60px is isolated.
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 0);
+        ViewUtils.requestLayout(
+                mSheetContainer,
+                "BottomSheetCoordinatorUnitTest.testWrapContentMeasure_DoesNotSubtractStatusBarFromContentHeight");
+        measureAndLayoutContainer(1080, 800);
+
+        assertEquals(0, mBottomSheet.getContentBottomPadding());
+        int expectedNonE2EMaxContentHeight = 800 - handlebarHeight;
+        assertEquals(expectedNonE2EMaxContentHeight, measuredMaxContentHeight[0]);
+    }
+
+    @Test
+    public void testWrapContentMeasure_NaturalHeightAccommodatedWithoutClipping() {
+        final int containerHeight = 800;
+        mActivity.getWindow().getDecorView().layout(0, 0, 1080, containerHeight);
+        measureAndLayoutContainer(1080, containerHeight);
+
+        WindowInsetsCompat insets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 60, 0, 48))
+                        .build();
+        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
+
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 48);
+
+        final int naturalContentHeight = 150;
+        View contentView =
+                new View(mActivity) {
+                    @Override
+                    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                        setMeasuredDimension(
+                                MeasureSpec.getSize(widthMeasureSpec), naturalContentHeight);
+                    }
+                };
+
+        BottomSheetContent content =
+                buildContent(/* supportsLargeFormFactor= */ false, 0.5f, HeightMode.WRAP_CONTENT);
+        when(content.showHandlebar()).thenReturn(true);
+        when(content.getContentView()).thenReturn(contentView);
+
+        mBottomSheet.showContent(content);
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+
+        ImageView handlebar = mBottomSheet.getView().getHandlebarForTesting();
+        int handlebarHeight = handlebar.getMeasuredHeight();
+        int bottomPadding = mBottomSheet.getContentBottomPadding();
+        assertEquals(48, bottomPadding);
+
+        int expectedDesiredHeight = naturalContentHeight + handlebarHeight;
+        assertEquals(
+                expectedDesiredHeight,
+                mBottomSheet.getSheetHeightForState(SheetState.FULL),
+                MathUtils.EPSILON);
+
+        float expectedTranslationY =
+                containerHeight - (naturalContentHeight + handlebarHeight) - bottomPadding;
+        assertEquals(
+                expectedTranslationY, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+    }
+
+    @Test
+    public void testWrapContentMeasure_LandscapeCompactViewportDoesNotCollapseToZero() {
+        mActivity.getWindow().getDecorView().layout(0, 0, 800, 300);
+        measureAndLayoutContainer(800, 300);
+
+        WindowInsetsCompat insets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 60, 0, 48))
+                        .build();
+        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
+
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 48);
+
+        int[] measuredMaxContentHeight = new int[1];
+        View contentView =
+                new View(mActivity) {
+                    @Override
+                    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                        measuredMaxContentHeight[0] = MeasureSpec.getSize(heightMeasureSpec);
+                        setMeasuredDimension(
+                                MeasureSpec.getSize(widthMeasureSpec),
+                                View.resolveSize(100, heightMeasureSpec));
+                    }
+                };
+
+        BottomSheetContent content =
+                buildContent(/* supportsLargeFormFactor= */ false, 0.5f, HeightMode.WRAP_CONTENT);
+        when(content.showHandlebar()).thenReturn(true);
+        when(content.getContentView()).thenReturn(contentView);
+
+        mBottomSheet.showContent(content);
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+
+        int bottomPadding = mBottomSheet.getContentBottomPadding();
+        assertEquals(48, bottomPadding);
+
+        assertTrue("maxContentHeight should be greater than 0", measuredMaxContentHeight[0] > 0);
+        assertTrue(
+                "Sheet full height should be greater than 0",
+                mBottomSheet.getSheetHeightForState(SheetState.FULL) > 0);
+        assertTrue("Content height should be greater than 0", contentView.getMeasuredHeight() > 0);
+    }
+
+    @Test
+    public void testSetSheetOffsetFromBottom_EdgeToEdgeMode_BothSheetTypesLiftAboveSystemBars() {
+        mActivity.getWindow().getDecorView().layout(0, 0, 1080, SHEET_CONTAINER_HEIGHT);
+        int e2eBottomInset = 24;
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> e2eBottomInset);
+
+        float currentOffset = 150.0f;
+        float expectedTranslationY = SHEET_CONTAINER_HEIGHT - currentOffset - e2eBottomInset;
+
+        // 1. Wrap-content sheet in E2E mode lifts by edgeToEdgeBottomInset.
+        BottomSheetContent wrapContent =
+                buildContent(/* supportsLargeFormFactor= */ false, 0.5f, HeightMode.WRAP_CONTENT);
+        mBottomSheet.showContent(wrapContent);
+        mBottomSheet.setSheetOffsetFromBottom(currentOffset, StateChangeReason.NONE);
+        assertEquals(
+                expectedTranslationY, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+
+        // 2. Fixed-ratio sheet in E2E mode also lifts by edgeToEdgeBottomInset.
+        BottomSheetContent fixedRatioContent =
+                buildContent(/* supportsLargeFormFactor= */ false, 0.5f, 1.0f);
+        mBottomSheet.showContent(fixedRatioContent);
+        mBottomSheet.setSheetOffsetFromBottom(currentOffset, StateChangeReason.NONE);
+        assertEquals(
+                expectedTranslationY, mBottomSheet.getView().getTranslationY(), MathUtils.EPSILON);
+    }
+
+    @Test
+    public void testUpdateVerticalLayout_DoesNotConflateStatusBarOrKeyboardIntoBottomInset() {
+        mActivity.getWindow().getDecorView().layout(0, 0, 1080, 800);
+        measureAndLayoutContainer(1080, 800);
+
+        // Simulate a window with a 60px status bar at the top, a 48px nav bar at the bottom,
+        // and a 100px keyboard.
+        WindowInsetsCompat insets =
+                new WindowInsetsCompat.Builder()
+                        .setInsets(WindowInsetsCompat.Type.systemBars(), Insets.of(0, 60, 0, 48))
+                        .setInsets(WindowInsetsCompat.Type.ime(), Insets.of(0, 0, 0, 100))
+                        .build();
+        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(insets);
+        mKeyboardInsetSupplier.set(100);
+
+        // For fixed-ratio sheets in non-E2E mode:
+        BottomSheetContent fixedContent =
+                buildContent(/* supportsLargeFormFactor= */ false, 0.5f, 1.0f);
+        mBottomSheet.showContent(fixedContent);
+        mBottomSheet.setSheetState(SheetState.FULL, false);
+
+        TouchRestrictingFrameLayout contentContainer =
+                mBottomSheet.getView().findViewById(R.id.bottom_sheet_content);
+        // In non-E2E mode, edge-to-edge inset is 0, so content bottom padding is 0.
+        assertEquals(0, contentContainer.getPaddingBottom());
+        assertEquals(0, mBottomSheet.getContentBottomPadding());
+
+        // Now enable Edge-to-Edge with a 148px bottom inset (48px nav bar + 100px keyboard):
+        mBottomSheet.setEdgeToEdgeBottomInsetSupplierForTesting(() -> 148);
+        ViewUtils.requestLayout(
+                mSheetContainer,
+                "BottomSheetCoordinatorUnitTest.testContentPaddingBottomExcludesVirtualKeyboardAndStatusBar");
+        measureAndLayoutContainer(1080, 800);
+
+        // Effective bottom inset is exactly the 48px system bar inset (148 - 100), not inflated
+        // by status bar (60px) or keyboard (100px).
+        assertEquals(48, contentContainer.getPaddingBottom());
+        assertEquals(48, mBottomSheet.getContentBottomPadding());
+        mKeyboardInsetSupplier.set(0);
     }
 }

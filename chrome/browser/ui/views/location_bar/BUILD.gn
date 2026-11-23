@@ -83,15 +83,11 @@ source_set("impl") {
   ]
 
   if (toolkit_views) {
-    public += [
-      "location_bar_actions.h",
-      "zoom_bubble_manager_views.h",
-    ]
+    public += [ "zoom_bubble_manager_views.h" ]
     sources += [
       "content_setting_image_view.cc",
       "custom_tab_bar_view.cc",
       "lens_overlay_homework_page_action_controller.cc",
-      "location_bar_actions.cc",
       "location_bar_bubble_delegate_view.cc",
       "location_bar_layout.cc",
       "location_bar_view.cc",
@@ -122,7 +118,6 @@ source_set("impl") {
       "//chrome/browser/glic",
       "//chrome/browser/history_embeddings",
       "//chrome/browser/page_info",
-      "//chrome/browser/resources/omnibox_popup:resources_grit",
       "//chrome/browser/search_engines",
       "//chrome/browser/sharing_hub",
       "//chrome/browser/signin",
@@ -181,6 +176,7 @@ source_set("impl") {
       "//components/omnibox/browser",
       "//components/omnibox/browser:vector_icons",
       "//components/omnibox/common",
+      "//components/omnibox/common:features",
       "//components/performance_manager",
       "//components/record_replay/core/browser",
       "//components/record_replay/core/common",
@@ -295,6 +291,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_web_contents_delegate",
     "//chrome/browser/ui/find_bar",
+    "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/frame:browser_view_header",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
@@ -347,6 +344,7 @@ source_set("unit_tests") {
     ":location_bar",
     "//chrome/app:generated_resources",
     "//chrome/browser/ui/views/page_info",
+    "//chrome/browser/ui/webui/top_chrome",
     "//chrome/test:test_support",
     "//chrome/test/base:chrome_render_view_host_test_harness",
     "//components/omnibox/browser",
@@ -394,6 +392,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/ui:browser_window_header",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/lens",
+    "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/views:content_setting_bubble_contents",
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/frame:browser_view_header",

@@ -99,7 +99,8 @@ linux_memory_builder(
             "asan",
             "lsan",
             "fail_on_san_warnings",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "linux",
@@ -267,8 +268,6 @@ linux_memory_builder(
         },
     ),
     ssd = None,
-    # TODO(crbug.com/564535071): Revert once the bug is fixed.
-    gardener_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "linux|asan lsan",
         short_name = "tst",
@@ -432,7 +431,8 @@ linux_memory_builder(
             "asan",
             "lsan",
             "chromeos",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "x64",
@@ -1078,7 +1078,7 @@ linux_memory_builder(
                     "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup",
                 ],
                 swarming = targets.swarming(
-                    shards = 6,
+                    shards = 12,
                 ),
             ),
             "unit_tests": targets.mixin(

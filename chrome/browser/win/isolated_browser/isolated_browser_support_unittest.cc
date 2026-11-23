@@ -39,7 +39,9 @@
 #include "build/branding_buildflags.h"
 #include "chrome/browser/os_crypt/app_bound_encryption_provider_win.h"
 #include "chrome/browser/os_crypt/app_bound_encryption_win.h"
+#include "chrome/browser/os_crypt/test_support.h"
 #include "chrome/browser/win/isolated_browser/isolated_browser_test_support.h"
+#include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/crash_keys.h"
 #include "chrome/elevation_service/elevation_service_idl.h"
@@ -260,6 +262,26 @@ TEST_F(IsolatedBrowserSupportSystemTest, CommandLine) {
   base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
   command_line.AppendSwitch(::switches::kIsolated);
   EXPECT_FALSE(IsIsolationEnabled(&command_line));
+}
+
+TEST_F(IsolatedBrowserSupportSystemTest, NonDefaultUserDataDirPreventsWrites) {
+  install_static::ScopedInstallDetails details(/*system_level=*/true);
+
+  // Simulate a non-default user data directory.
+  chrome::SetUsingDefaultUserDataDirectoryForTesting(false);
+
+  base::test::TestFuture<base::expected<IsolationState, HRESULT>> future;
+  SetIsolationState(IsolationState::kProcessIsolation, &prefs_,
+                    future.GetCallback());
+  const auto result = future.Take();
+
+  // Non-default user data directories must be rejected with E_NOTIMPL and not
+  // modify isolation state.
+  EXPECT_THAT(result, base::test::ErrorIs(E_NOTIMPL));
+  EXPECT_FALSE(IsIsolationEnabled());
+
+  // Restore test override.
+  chrome::SetUsingDefaultUserDataDirectoryForTesting(std::nullopt);
 }
 
 TEST_F(IsolatedBrowserSupportSystemTest, SetIsolationStateTwice) {
@@ -491,6 +513,27 @@ TEST_F(IsolatedBrowserSupportLaunchTest, RunIsolatedChromeLaunchUnisolated) {
   int exit_code;
   ASSERT_TRUE(child_or_error->WaitForExit(&exit_code));
   ASSERT_EQ(exit_code, 0);
+}
+
+TEST_F(IsolatedBrowserSupportLaunchTest, LaunchFailure) {
+  // Configure `FakeInstallDetails` so that `install_static::GetElevatorClsid()`
+  // and `install_static::GetElevatorIid()` inside
+  // `IsolatedBrowserProcess::Launch()` resolve to the test elevation service
+  // registered by `IsolatedBrowserTestEnvironment`.
+  install_static::ScopedInstallDetails install_details(
+      std::make_unique<os_crypt::FakeInstallDetails>());
+
+  // Passing a non-existent executable causes `CoCreateInstance`,
+  // `CreateJobObjectW`, and `AssignProcessToJobObject` to succeed in
+  // `IsolatedBrowserProcess::Launch()`, and then causes `RunIsolatedChrome` to
+  // fail inside the elevation service IPC call. Verify that `Launch()` returns
+  // the service error and that destroying the scoped job handle on the failure
+  // return path does not terminate the calling process.
+  base::CommandLine cmd(
+      base::FilePath(FILE_PATH_LITERAL("invalid_process_name.exe")));
+  EXPECT_THAT(chrome::IsolatedBrowserProcess::Launch(cmd),
+              base::test::ErrorIs(
+                  elevation_service::Elevator::kErrorCouldNotLaunchBrowser));
 }
 
 TEST_F(IsolatedBrowserSupportLaunchTest, CheckIsolatedCommandline) {

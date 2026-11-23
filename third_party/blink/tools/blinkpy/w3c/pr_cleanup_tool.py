@@ -4,8 +4,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from blinkpy.w3c.common import CHANGE_ID_KEY, REVIEWED_ON_KEY, parse_footers
 from blinkpy.w3c.gerrit import GerritAPI, GerritError, GerritNotFoundError
-from blinkpy.w3c.wpt_github import PullRequest
+from blinkpy.w3c.wpt_github import PullRequest, PullRequestState
 
 _log = logging.getLogger(__name__)
 
@@ -21,11 +22,9 @@ class PrCleanupTool(object):
         )
         pull_requests = self.retrieve_provisioned_prs(wpt_github)
         for pull_request in pull_requests:
-            if pull_request.state != 'open':
+            if pull_request.state != PullRequestState.OPEN:
                 continue
-            change_id = wpt_github.extract_metadata(
-                'Change-Id: ', pull_request.body
-            )
+            change_id = parse_footers(pull_request.body).get(CHANGE_ID_KEY)
             maybe_cleanup_reason = self._cleanup_reason(gerrit, change_id)
 
             if maybe_cleanup_reason:
@@ -73,7 +72,7 @@ class PrCleanupTool(object):
     ):
         """Closes a PR with a comment and delete the corresponding branch."""
         wpt_github.add_comment(pull_request_number, comment)
-        wpt_github.update_pr(pull_request_number, state='closed')
+        wpt_github.update_pr(pull_request_number, state=PullRequestState.CLOSED)
         branch = wpt_github.get_pr_branch(pull_request_number)
         wpt_github.delete_remote_branch(branch)
 
@@ -84,6 +83,4 @@ class PrCleanupTool(object):
             'https://github.com/web-platform-tests/wpt/pull/%s',
             pull_request.number,
         )
-        _log.info(
-            wpt_github.extract_metadata('Reviewed-on: ', pull_request.body)
-        )
+        _log.info(parse_footers(pull_request.body).get(REVIEWED_ON_KEY))

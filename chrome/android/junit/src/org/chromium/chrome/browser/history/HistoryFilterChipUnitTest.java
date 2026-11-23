@@ -44,20 +44,20 @@ import java.util.List;
 /** Unit tests for {@link HistoryFilterChip}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class HistoryFilterChipUnitTest {
-    private static final FilterItem ITEM_1 = new FilterItem("id_1", null, "Label 1");
-    private static final FilterItem ITEM_2 = new FilterItem("id_2", null, "Label 2");
+    private static final FilterItem<String> ITEM_1 = new FilterItem<>("id_1", null, "Label 1");
+    private static final FilterItem<String> ITEM_2 = new FilterItem<>("id_2", null, "Label 2");
 
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock private Callback<FilterItem> mOnSelectionChanged;
+    @Mock private Callback<String> mOnSelectionChanged;
     @Mock private Runnable mOnSheetOpened;
     @Mock private Runnable mHideSoftKeyboard;
     @Mock private BottomSheetController mBottomSheetController;
-    @Mock private FilterSheetCoordinator mFilterSheet;
+    @Mock private FilterSheetCoordinator<String> mFilterSheet;
 
     private Activity mActivity;
     private ViewGroup mContainer;
-    private HistoryFilterChip mChip;
+    private HistoryFilterChip<String> mChip;
 
     @Before
     public void setUp() {
@@ -67,9 +67,10 @@ public class HistoryFilterChipUnitTest {
                 (ViewGroup)
                         LayoutInflater.from(mActivity).inflate(R.layout.history_filter_chips, null);
         mChip =
-                new HistoryFilterChip(
+                new HistoryFilterChip<>(
                         R.id.app_history_filter_chip,
-                        R.string.history_filter_by_app,
+                        /* chipTextResId= */ R.string.history_app_filter_chip_text,
+                        /* sheetHeaderResId= */ R.string.history_filter_by_app,
                         /* canShow= */ true,
                         mOnSelectionChanged,
                         mOnSheetOpened);
@@ -84,7 +85,7 @@ public class HistoryFilterChipUnitTest {
         assertEquals(View.GONE, chipView.getVisibility());
         assertFalse(chipView.isSelected());
         assertEquals(
-                mActivity.getString(R.string.history_filter_by_app),
+                mActivity.getString(R.string.history_app_filter_chip_text),
                 chipView.getPrimaryTextView().getText().toString());
         assertNull(mChip.getSelectedItemForTesting());
         assertTrue(mChip.getItemsForTesting().isEmpty());
@@ -116,10 +117,11 @@ public class HistoryFilterChipUnitTest {
 
     @Test
     public void testVisibility_CanShowFalse() {
-        HistoryFilterChip disabledChip =
-                new HistoryFilterChip(
+        var disabledChip =
+                new HistoryFilterChip<>(
                         R.id.host_history_filter_chip,
-                        R.string.history_filter_by_host,
+                        /* chipTextResId= */ R.string.history_host_filter_chip_text,
+                        /* sheetHeaderResId= */ R.string.history_filter_by_host,
                         /* canShow= */ false,
                         mOnSelectionChanged,
                         /* onSheetOpened= */ null);
@@ -143,25 +145,25 @@ public class HistoryFilterChipUnitTest {
         assertEquals(ITEM_1, mChip.getSelectedItemForTesting());
         assertTrue(chipView.isSelected());
         assertEquals("Label 1", chipView.getPrimaryTextView().getText().toString());
-        verify(mOnSelectionChanged, times(1)).onResult(ITEM_1);
+        verify(mOnSelectionChanged, times(1)).onResult("id_1");
 
         // Selecting the same item again is a no-op.
         mChip.onItemSelected(ITEM_1);
-        verify(mOnSelectionChanged, times(1)).onResult(ITEM_1);
+        verify(mOnSelectionChanged, times(1)).onResult("id_1");
 
         // Selecting a different item updates the label and notifies the callback.
         mChip.onItemSelected(ITEM_2);
         assertEquals(ITEM_2, mChip.getSelectedItemForTesting());
         assertTrue(chipView.isSelected());
         assertEquals("Label 2", chipView.getPrimaryTextView().getText().toString());
-        verify(mOnSelectionChanged).onResult(ITEM_2);
+        verify(mOnSelectionChanged).onResult("id_2");
 
         // Unselecting resets the chip view and notifies the callback with null.
         mChip.onItemSelected(null);
         assertNull(mChip.getSelectedItemForTesting());
         assertFalse(chipView.isSelected());
         assertEquals(
-                mActivity.getString(R.string.history_filter_by_app),
+                mActivity.getString(R.string.history_app_filter_chip_text),
                 chipView.getPrimaryTextView().getText().toString());
         verify(mOnSelectionChanged).onResult(null);
     }
@@ -178,7 +180,7 @@ public class HistoryFilterChipUnitTest {
         assertNull(mChip.getSelectedItemForTesting());
         assertFalse(chipView.isSelected());
         assertEquals(
-                mActivity.getString(R.string.history_filter_by_app),
+                mActivity.getString(R.string.history_app_filter_chip_text),
                 chipView.getPrimaryTextView().getText().toString());
         assertFalse(mChip.isVisible());
         assertEquals(View.GONE, chipView.getVisibility());
@@ -188,7 +190,7 @@ public class HistoryFilterChipUnitTest {
     @Test
     public void testSetItems_UpdatesFilterSheetWhenPresent() {
         mChip.setFilterSheetForTesting(mFilterSheet);
-        List<FilterItem> items = List.of(ITEM_1, ITEM_2);
+        var items = List.of(ITEM_1, ITEM_2);
 
         mChip.setItems(items);
         assertEquals(items, mChip.getItemsForTesting());
@@ -231,10 +233,11 @@ public class HistoryFilterChipUnitTest {
         assertTrue(chipView.isEnabled());
 
         // Calling setChipEnabled before bindView should also be applied when bound.
-        HistoryFilterChip unboundChip =
-                new HistoryFilterChip(
+        var unboundChip =
+                new HistoryFilterChip<>(
                         R.id.host_history_filter_chip,
-                        R.string.history_filter_by_host,
+                        /* chipTextResId= */ R.string.history_host_filter_chip_text,
+                        /* sheetHeaderResId= */ R.string.history_filter_by_host,
                         /* canShow= */ true,
                         mOnSelectionChanged,
                         /* onSheetOpened= */ null);
@@ -246,8 +249,8 @@ public class HistoryFilterChipUnitTest {
 
     @Test
     public void testSeparateChipTextAndSheetHeader() {
-        HistoryFilterChip actorChip =
-                new HistoryFilterChip(
+        var actorChip =
+                new HistoryFilterChip<>(
                         R.id.actor_history_filter_chip,
                         /* chipTextResId= */ R.string.history_actor_filter_chip_text,
                         /* sheetHeaderResId= */ R.string.history_actor_filter_sheet_header,

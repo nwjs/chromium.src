@@ -55,8 +55,7 @@ class ExtensionWindowControllerBridgeUnitTest : public testing::Test {
  protected:
   void InvokeJavaOnAddedToTask() const {
     Java_ExtensionWindowControllerBridgeNativeUnitTestSupport_invokeOnAddedToTask(
-        AttachCurrentThread(), java_test_support_,
-        reinterpret_cast<intptr_t>(mock_browser_.get()));
+        AttachCurrentThread(), java_test_support_, mock_browser_.get());
   }
 
   void InvokeJavaOnFeatureRemoved() const {
@@ -75,9 +74,8 @@ class ExtensionWindowControllerBridgeUnitTest : public testing::Test {
   }
 
   ExtensionWindowControllerBridge* InvokeJavaGetNativePtrForTesting() const {
-    return reinterpret_cast<ExtensionWindowControllerBridge*>(
-        Java_ExtensionWindowControllerBridgeNativeUnitTestSupport_invokeGetNativePtrForTesting(
-            AttachCurrentThread(), java_test_support_));
+    return Java_ExtensionWindowControllerBridgeNativeUnitTestSupport_invokeGetNativePtrForTesting(
+        AttachCurrentThread(), java_test_support_);
   }
 
  private:

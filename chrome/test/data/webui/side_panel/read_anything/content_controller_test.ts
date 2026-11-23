@@ -4,8 +4,8 @@
 
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
-import {ContentType, HIGHLIGHTED_LINK_CLASS, LOG_EMPTY_DELAY_MS, MIN_MS_TO_READ, previousReadHighlightClass, ReadAloudNode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import type {ContentController, ContentListener, NodeStore, SpeechController} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {ContentController, ContentType, HIGHLIGHTED_LINK_CLASS, LOG_EMPTY_DELAY_MS, MIN_MS_TO_READ, previousReadHighlightClass, ReadAloudNode} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import type {ContentListener, NodeStore, SpeechController} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertArrayEquals, assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertStringContains, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome-untrusted://webui-test/mock_timer.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
@@ -57,6 +57,94 @@ suite('ContentController', () => {
       },
     };
     contentController.addListener(listener);
+  });
+
+  suite('awaiting translation', () => {
+    function setAwaiting(awaiting: boolean) {
+      visualBrowserProxy.onAwaitingTranslationChanged.callListeners(awaiting);
+    }
+
+    test('content drawn while awaiting stays loading', () => {
+      setAwaiting(true);
+      contentController.setState(ContentType.LOADING);
+      receivedContentStateChange = false;
+
+      contentController.setState(ContentType.HAS_CONTENT);
+
+      // The state stays LOADING, but listeners are notified so the content
+      // can be drawn behind the loading screen.
+      assertEquals(ContentType.LOADING, contentController.getState().type);
+      assertTrue(contentController.isHidingContentForTranslation());
+      assertFalse(contentController.hasContent());
+      assertTrue(receivedContentStateChange);
+    });
+
+    test('shows hidden content once no longer awaiting', () => {
+      setAwaiting(true);
+      contentController.setState(ContentType.HAS_CONTENT);
+      receivedContentStateChange = false;
+
+      setAwaiting(false);
+
+      assertEquals(ContentType.HAS_CONTENT, contentController.getState().type);
+      assertFalse(contentController.isHidingContentForTranslation());
+      assertTrue(contentController.hasContent());
+      assertTrue(receivedContentStateChange);
+    });
+
+    test('hides already shown content when awaiting starts', () => {
+      contentController.setState(ContentType.HAS_CONTENT);
+      receivedContentStateChange = false;
+
+      setAwaiting(true);
+
+      assertEquals(ContentType.LOADING, contentController.getState().type);
+      assertTrue(contentController.isHidingContentForTranslation());
+      assertTrue(receivedContentStateChange);
+    });
+
+    test('empty state while awaiting drops hidden content', () => {
+      setAwaiting(true);
+      contentController.setState(ContentType.HAS_CONTENT);
+
+      contentController.setEmpty();
+      assertTrue(contentController.isEmpty());
+      assertFalse(contentController.isHidingContentForTranslation());
+
+      // Nothing to show once the translation finishes.
+      receivedContentStateChange = false;
+      setAwaiting(false);
+      assertTrue(contentController.isEmpty());
+      assertFalse(receivedContentStateChange);
+    });
+
+    test('no longer awaiting without hidden content does nothing', () => {
+      setAwaiting(true);
+      contentController.setState(ContentType.LOADING);
+      receivedContentStateChange = false;
+
+      setAwaiting(false);
+
+      assertEquals(ContentType.LOADING, contentController.getState().type);
+      assertFalse(receivedContentStateChange);
+    });
+
+    test('not awaiting shows content immediately', () => {
+      contentController.setState(ContentType.HAS_CONTENT);
+
+      assertEquals(ContentType.HAS_CONTENT, contentController.getState().type);
+      assertFalse(contentController.isHidingContentForTranslation());
+    });
+
+    test('reads initial awaiting state on construction', () => {
+      visualBrowserProxy.awaitingTranslation = true;
+      const controller = new ContentController();
+
+      controller.setState(ContentType.HAS_CONTENT);
+
+      assertEquals(ContentType.LOADING, controller.getState().type);
+      assertTrue(controller.isHidingContentForTranslation());
+    });
   });
 
   suite('setEmpty', () => {
@@ -306,6 +394,7 @@ suite('ContentController', () => {
       assertFalse(!!root);
       assertFalse(contentController.hasContent());
       assertTrue(contentController.isEmpty());
+      assertEquals(1, contentBrowserProxy.getCallCount('onNoTextContent'));
     });
 
     test('sets empty if whitespace content with tags in readability', () => {
@@ -319,7 +408,29 @@ suite('ContentController', () => {
       assertFalse(!!root);
       assertFalse(contentController.hasContent());
       assertTrue(contentController.isEmpty());
+      assertEquals(1, contentBrowserProxy.getCallCount('onNoTextContent'));
     });
+
+    test(
+        'requests redistill if readability text is removed by sanitizer',
+        () => {
+          contentBrowserProxy.activeDistillationMethod =
+              contentBrowserProxy.distillationTypeReadability;
+          contentBrowserProxy.hasValidSelectionVal = false;
+          // The <dialog> and its text are removed by the sanitizer, leaving
+          // only an image, which isn't considered content without a selection.
+          contentBrowserProxy.htmlContent =
+              '<figure><img src="foo.png" alt=""></figure>' +
+              '<dialog open><p>Every bit of me is golden</p></dialog>';
+          contentController.setState(ContentType.LOADING);
+
+          const root = contentController.updateContent();
+
+          assertFalse(!!root);
+          assertFalse(contentController.hasContent());
+          assertTrue(contentController.isEmpty());
+          assertEquals(1, contentBrowserProxy.getCallCount('onNoTextContent'));
+        });
 
     test(
         'Readability replaces single newlines but keeps consecutive newlines',
@@ -539,6 +650,117 @@ suite('ContentController', () => {
       assertEquals('P', root.nodeName);
       assertTrue(!!root.firstChild);
       assertEquals(text, root.textContent);
+    });
+
+    suite('ordered list markers', () => {
+      const listId = 10;
+      const itemId = 11;
+      const markerId = 12;
+      const textId = 13;
+
+      setup(() => {
+        contentBrowserProxy.rootId = listId;
+        contentBrowserProxy.htmlTagMap = {
+          [listId]: 'ol',
+          [itemId]: 'li',
+          [markerId]: '::marker',
+          [textId]: '',
+        };
+        contentBrowserProxy.childrenMap = {
+          [listId]: [itemId],
+          [itemId]: [markerId, textId],
+        };
+        contentBrowserProxy.textContentMap = {[textId]: 'Item'};
+      });
+
+      function buildListItem(): HTMLLIElement {
+        const root = contentController.updateContent();
+        assertTrue(!!root);
+        const item = root.firstChild;
+        assertTrue(item instanceof HTMLLIElement);
+        return item;
+      }
+
+      test('copies decimal marker onto list item', () => {
+        contentBrowserProxy.textContentMap[markerId] = '5. ';
+
+        const item = buildListItem();
+
+        assertEquals('5.', item.dataset['marker']);
+        assertEquals('"5. "', item.style.listStyleType);
+        assertEquals('Item', item.textContent);
+      });
+
+      test('copies parenthesized marker onto list item', () => {
+        contentBrowserProxy.textContentMap[markerId] = '10) ';
+
+        const item = buildListItem();
+
+        assertEquals('10)', item.dataset['marker']);
+        assertEquals('"10) "', item.style.listStyleType);
+      });
+
+      test('copies alphabetic marker onto list item', () => {
+        contentBrowserProxy.textContentMap[markerId] = 'a. ';
+
+        const item = buildListItem();
+
+        assertEquals('a.', item.dataset['marker']);
+        assertEquals('"a. "', item.style.listStyleType);
+      });
+
+      test('copies roman numeral marker onto list item', () => {
+        contentBrowserProxy.textContentMap[markerId] = 'iv. ';
+
+        const item = buildListItem();
+
+        assertEquals('iv.', item.dataset['marker']);
+        assertEquals('"iv. "', item.style.listStyleType);
+      });
+
+      test('does not copy marker when list item has none', () => {
+        contentBrowserProxy.childrenMap[itemId] = [textId];
+
+        const item = buildListItem();
+
+        assertEquals(undefined, item.dataset['marker']);
+        assertEquals('', item.style.listStyleType);
+      });
+
+      test('does not copy marker onto unordered list item', () => {
+        contentBrowserProxy.htmlTagMap[listId] = 'ul';
+        contentBrowserProxy.textContentMap[markerId] = '• ';
+
+        const item = buildListItem();
+
+        assertEquals(undefined, item.dataset['marker']);
+        assertEquals('', item.style.listStyleType);
+      });
+    });
+
+    test('builds a ::marker as a <span> tag', () => {
+      const parentId = 40;
+      const markerId = 41;
+      const textId = 42;
+      contentBrowserProxy.htmlTagMap = {
+        [parentId]: 'p',
+        [markerId]: '::marker',
+        [textId]: '',
+      };
+      contentBrowserProxy.childrenMap = {
+        [parentId]: [markerId, textId],
+      };
+      contentBrowserProxy.textContentMap = {
+        [markerId]: '• ',
+        [textId]: 'Bullet text',
+      };
+      contentBrowserProxy.rootId = parentId;
+
+      const root = contentController.updateContent();
+
+      assertTrue(!!root);
+      assertTrue(root.firstChild instanceof HTMLSpanElement);
+      assertEquals('Bullet text', root.textContent);
     });
 
     test('builds a link as an <a> tag when links are shown', () => {
@@ -1892,6 +2114,7 @@ suite('ContentController', () => {
         contentController.onImagesVisibilityChanged(container, shadowRoot);
 
         assertTrue(contentController.isEmpty());
+        assertEquals(0, contentBrowserProxy.getCallCount('onNoTextContent'));
       });
     });
   });
@@ -1900,7 +2123,7 @@ suite('ContentController', () => {
     setup(() => {
       contentBrowserProxy.activeDistillationMethod =
           contentBrowserProxy.distillationTypeReadability;
-      contentBrowserProxy.isReadabilitySelectTextEnabledFlag = true;
+      contentController.setState(ContentType.HAS_CONTENT);
     });
 
     test('extracts text blocks from container', () => {
@@ -1974,7 +2197,24 @@ suite('ContentController', () => {
       contentController.onRenderedTextBlocksAvailable(container);
 
       assertTrue(contentController.isEmpty());
+      assertEquals(1, contentBrowserProxy.getCallCount('onNoTextContent'));
     });
+
+    test(
+        'does not request redistill again if updateContent found no text',
+        () => {
+          contentBrowserProxy.htmlContent = '<div>   </div>';
+          contentController.setState(ContentType.LOADING);
+          assertFalse(!!contentController.updateContent());
+          assertEquals(1, contentBrowserProxy.getCallCount('onNoTextContent'));
+          const container = document.createElement('div');
+          document.body.appendChild(container);
+
+          contentController.onRenderedTextBlocksAvailable(container);
+
+          assertTrue(contentController.isEmpty());
+          assertEquals(1, contentBrowserProxy.getCallCount('onNoTextContent'));
+        });
   });
 
   suite('updateAnchorsForReadability', () => {
@@ -2242,10 +2482,10 @@ suite('ContentController', () => {
     setup(() => {
       contentBrowserProxy.activeDistillationMethod =
           contentBrowserProxy.distillationTypeReadability;
-      contentBrowserProxy.isReadabilitySelectTextEnabledFlag = true;
 
       container = document.createElement('div');
       document.body.appendChild(container);
+      contentController.setState(ContentType.HAS_CONTENT);
     });
 
     test('splits and maps a single node to multiple AX nodes', () => {

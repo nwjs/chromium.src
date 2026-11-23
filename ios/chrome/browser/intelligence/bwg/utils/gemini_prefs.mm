@@ -6,13 +6,50 @@
 
 #import "base/time/time.h"
 #import "components/pref_registry/pref_registry_syncable.h"
-#import "components/prefs/pref_registry_simple.h"
 #import "components/prefs/pref_service.h"
-#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 
 namespace gemini {
+
+void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
+  registry->RegisterDictionaryPref(prefs::kBwgSessionMap);
+  registry->RegisterBooleanPref(
+      prefs::kIOSBwgConsent, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      prefs::kIOSGeminiLiveConsent, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(
+      prefs::kIOSGeminiLiveIntroPlayed, false,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_PREF);
+  registry->RegisterBooleanPref(prefs::kIOSBWGPreciseLocationSetting, false);
+  registry->RegisterBooleanPref(prefs::kIOSBWGPageContentSetting, true);
+  registry->RegisterIntegerPref(prefs::kIOSBWGPromoImpressionCount, 0);
+  registry->RegisterBooleanPref(prefs::kIOSGeminiCameraSetting, false);
+  registry->RegisterBooleanPref(prefs::kIOSGeminiSuggestionsSetting, true);
+  registry->RegisterDictionaryPref(prefs::kIOSContextualCueingVerticalUiState);
+  registry->RegisterBooleanPref(prefs::kIOSGeminiLiveClosedCaptioningSetting,
+                                false);
+  registry->RegisterBooleanPref(prefs::kIOSGeminiLiveMicrophoneSetting, true);
+  registry->RegisterTimePref(prefs::kLastGeminiInteractionTimestamp,
+                             base::Time());
+  registry->RegisterTimePref(prefs::kLastGeminiContextualChipDisplayedTimestamp,
+                             base::Time());
+  registry->RegisterStringPref(prefs::kLastGeminiInteractionURL, std::string());
+  registry->RegisterStringPref(prefs::kGeminiConversationId, std::string());
+  registry->RegisterBooleanPref(prefs::kAppStoreGeminiPromoTriggered, false);
+  registry->RegisterIntegerPref(prefs::kGeminiEnabledByPolicy, 0);
+  registry->RegisterIntegerPref(prefs::kGenAiEnabledByPolicy, 0);
+  registry->RegisterIntegerPref(prefs::kGeminiActOnWebSettings, 0);
+  registry->RegisterListPref(prefs::kGeminiActOnWebAllowedForURLs);
+  registry->RegisterListPref(prefs::kGeminiActOnWebBlockedForURLs);
+  registry->RegisterIntegerPref(
+      prefs::kGeminiSparkSettings,
+      static_cast<int>(gemini::SparkSettingsPolicy::kNotAllowed));
+  registry->RegisterBooleanPref(prefs::kAIHubEligibilityTriggered, false);
+}
+
 bool GeminiAllowedByPolicy(PrefService* prefs) {
   return GenAiAllowedByEnterprise(prefs) && GeminiAllowedByEnterprise(prefs);
 }
@@ -31,12 +68,14 @@ void ResetGeminiConsent(PrefService* prefs) {
   UpdateUserConsentPrefs(false, prefs);
 }
 
-FirstRunState CurrentFirstRunState(PrefService* prefs) {
-  if (DidUserSeeGeminiPromo(prefs)) {
-    return DidUserConsentToGemini(prefs) ? FirstRunState::kCompleted
-                                         : FirstRunState::kStarted;
+FirstRunState CurrentFirstRunState(const PrefService* prefs) {
+  // Check consent first as converged FRE flows skip the separate promo step.
+  if (DidUserConsentToGemini(prefs)) {
+    return FirstRunState::kCompleted;
   }
-
+  if (DidUserSeeGeminiPromo(prefs)) {
+    return FirstRunState::kStarted;
+  }
   return FirstRunState::kPending;
 }
 
@@ -44,15 +83,15 @@ bool DidUserConsentToGemini(const PrefService* prefs) {
   return prefs->GetBoolean(::prefs::kIOSBwgConsent);
 }
 
-bool DidUserConsentToGeminiLive(PrefService* prefs) {
+bool DidUserConsentToGeminiLive(const PrefService* prefs) {
   return prefs->GetBoolean(::prefs::kIOSGeminiLiveConsent);
 }
 
-bool DidUserSeeGeminiPromo(PrefService* prefs) {
+bool DidUserSeeGeminiPromo(const PrefService* prefs) {
   return prefs->GetInteger(prefs::kIOSBWGPromoImpressionCount) > 0;
 }
 
-bool DidGeminiLiveIntroPlay(PrefService* prefs) {
+bool DidGeminiLiveIntroPlay(const PrefService* prefs) {
   return prefs->GetBoolean(::prefs::kIOSGeminiLiveIntroPlayed);
 }
 
@@ -60,12 +99,12 @@ void SetGeminiLiveIntroPlayed(PrefService* prefs) {
   prefs->SetBoolean(::prefs::kIOSGeminiLiveIntroPlayed, true);
 }
 
-void UpdateUserConsentPrefs(bool value, PrefService* prefs) {
-  prefs->SetBoolean(::prefs::kIOSBwgConsent, value);
+void UpdateUserConsentPrefs(bool consent, PrefService* prefs) {
+  prefs->SetBoolean(::prefs::kIOSBwgConsent, consent);
 }
 
-void UpdateUserConsentToLivePrefs(bool value, PrefService* prefs) {
-  prefs->SetBoolean(::prefs::kIOSGeminiLiveConsent, value);
+void UpdateUserConsentToLivePrefs(bool consent, PrefService* prefs) {
+  prefs->SetBoolean(::prefs::kIOSGeminiLiveConsent, consent);
 }
 
 void CreateOrUpdateConversationIdPrefs(const std::string& conversation_id,

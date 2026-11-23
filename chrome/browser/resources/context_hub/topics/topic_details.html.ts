@@ -77,11 +77,12 @@ ${this.loadState_ === 'loaded' && this.topic ? html`
 
   <!-- Layer 2: scrolls above the hero and under the header. One panel per
        entry in TOPIC_DETAILS_TABS, in the same order. -->
-  <cr-page-selector id="panels" .selected="${this.selectedTab_}">
+  <cr-page-selector id="panels" .selected="${this.selectedTab_.toString()}">
     <topic-summary-panel role="tabpanel" aria-label="${this.tabNames_[0]}"
         .topic="${this.topic}" .feedback="${this.feedback_}"
         @open-related-tabs="${this.onOpenRelatedTabs_}"
-        @query-feedbacks-change="${this.onQueryFeedbacksChange_}">
+        @query-feedbacks-change="${this.onQueryFeedbacksChange_}"
+        @collection-feedbacks-change="${this.onCollectionFeedbacksChange_}">
     </topic-summary-panel>
     ${this.feedbackEnabled_ ? html`
       <!-- Temporary Fishfood Feedback -->

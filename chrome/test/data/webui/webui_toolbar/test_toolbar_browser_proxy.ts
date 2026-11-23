@@ -8,8 +8,16 @@ import type {MenuSourceType} from 'chrome://resources/mojo/ui/base/mojom/menu_so
 import type {PointF, RectF} from 'chrome://resources/mojo/ui/gfx/geometry/mojom/geometry.mojom-webui.js';
 import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
-import {INVALID_FOCUS_REQUEST_HANDLE, INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE, INVALID_TOOLBAR_STATE_LISTENER_HANDLE} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {AdjustOmniboxTextForCopyResult, BrowserProxy, ContentSettingImageType, ContextMenuType, FocusRequestHandle, FocusRequestListener, InitialState, LhsChipIdentifier, OmniboxAction, PageActionId, PageActionTrigger, PinnedToolbarAction, ShowSplitTabsContextMenuHandle, ShowSplitTabsContextMenuListener, ToolbarStateListener, ToolbarStateListenerHandle, ToolbarUIServiceInterface} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {InitialStateReader, INVALID_FOCUS_REQUEST_HANDLE, INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE, INVALID_TOOLBAR_STATE_LISTENER_HANDLE} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+import type {AdjustOmniboxTextForCopyResult, BrowserProxy, ContentSettingImageType, ContextMenuType, FocusRequestHandle, FocusRequestListener, InitialState, LhsChipIdentifier, OmniboxAction, PageActionId, PageActionTrigger, PinnedToolbarAction, ShowSplitTabsContextMenuHandle, ShowSplitTabsContextMenuListener, ToolbarFlatStateSchema, ToolbarStateListener, ToolbarStateListenerHandle, ToolbarUIServiceInterface} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+
+// The values that WebUIToolbarUI sets in the initial state of each frame from
+// the user profile, so that the Glic and avatar buttons can be shown by
+// default.
+const DEFAULT_INITIAL_STATE: Partial<ToolbarFlatStateSchema> = {
+  isProfileEligibleForGlic: true,
+  canShowAvatarForProfile: true,
+};
 
 export class TestToolbarUiHandler extends TestBrowserProxy implements
     ToolbarUIServiceInterface {
@@ -42,7 +50,6 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
       'onOmniboxAction',
       'onPageActionChipShowingChanged',
       'onPageActionClick',
-      'onPageActionPointerDown',
       'onPageInitialized',
       'onPerformanceInterventionButtonClicked',
       'onToolbarDropFile',
@@ -93,10 +100,6 @@ export class TestToolbarUiHandler extends TestBrowserProxy implements
     this.methodCalled(
         'showContentSettingsBubble', [type, isPointerInteraction]);
     return Promise.resolve({result: {}});
-  }
-
-  onPageActionPointerDown(actionId: PageActionId) {
-    this.methodCalled('onPageActionPointerDown', actionId);
   }
 
   onPageActionClick(actionId: PageActionId, trigger: PageActionTrigger) {
@@ -239,18 +242,31 @@ export class TestToolbarBrowserProxy extends TestBrowserProxy implements
     BrowserProxy {
   toolbarUIHandler: TestToolbarUiHandler;
   browserControlsHandler: any = null;
+  private initialState_: InitialStateReader =
+      new InitialStateReader({...DEFAULT_INITIAL_STATE});
 
   constructor() {
     super([
       'addFocusRequestListener',
       'addToolbarStateListener',
       'addShowSplitTabsContextMenuListener',
+      'getInitialState',
       'recordInHistogram',
       'removeFocusRequestListener',
       'removeToolbarStateListener',
       'removeShowSplitTabsContextMenuListener',
     ]);
     this.toolbarUIHandler = new TestToolbarUiHandler();
+  }
+
+  getInitialState(): InitialStateReader {
+    this.methodCalled('getInitialState');
+    return this.initialState_;
+  }
+
+  setInitialState(state: Partial<ToolbarFlatStateSchema>) {
+    this.initialState_ = InitialStateReader.fromJson(
+        JSON.stringify({...DEFAULT_INITIAL_STATE, ...state}));
   }
 
   recordInHistogram(histogramName: string, value: number, maxValue: number) {

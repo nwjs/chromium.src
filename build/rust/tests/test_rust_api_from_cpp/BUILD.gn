@@ -5,7 +5,16 @@
 import("//build/rust/rust_api_from_cpp.gni")
 import("//build/rust/rust_static_library.gni")
 
-rust_static_library("test_rust_api_from_cpp") {
+group("test_rust_api_from_cpp") {
+  testonly = true
+  deps = [
+    ":rust_api_from_cpp_unittests",
+    "round_trip:cpp_unittests",
+    "round_trip:rust_unittests",
+  ]
+}
+
+rust_static_library("rust_api_from_cpp_unittests") {
   testonly = true
   is_gtest_unittests = true
   crate_root = "tests.rs"
@@ -16,6 +25,11 @@ rust_static_library("test_rust_api_from_cpp") {
     ":lifetime_bound_rs_api",
     ":self_contained_target_rs_api",
     ":target_depending_on_another_rs_api",
+    ":test_browsing_instance_id_rs_api",
+    ":test_extra_rust_source_groups_rs_api",
+    ":test_std_types_rs_api",
+    ":test_time_delta_rs_api",
+    "//build/rust/crubit:cc_std",
     "//build/rust/crubit:cref",
     "//testing/rust_gtest_interop",
   ]
@@ -54,7 +68,7 @@ rust_api_from_cpp("target_depending_on_another_rs_api") {
   #
   # TODO(crbug.com/40215214): Is there something we can do (a convention?) to
   # avoid this duplication/repetition?
-  deps = [ ":self_contained_target_rs_api" ]
+  bindings_deps = [ ":self_contained_target_rs_api" ]
 }
 
 source_set("target_depending_on_another") {
@@ -89,4 +103,65 @@ rust_api_from_cpp("explicit_lifetimes_rs_api") {
 source_set("explicit_lifetimes") {
   sources = [ "explicit_lifetimes.h" ]
   public_deps = [ "//build/rust/crubit" ]
+}
+
+rust_api_from_cpp("test_time_delta_rs_api") {
+  bindings_target = ":test_time_delta"
+  public_headers = [ "test_time_delta.h" ]
+
+  # Hand-written Rust code (e.g. trait impls) to merge into the generated
+  # bindings.
+  extra_rust_sources = [ "test_time_delta.rs" ]
+}
+
+source_set("test_time_delta") {
+  sources = [ "test_time_delta.h" ]
+}
+
+rust_api_from_cpp("test_extra_rust_source_groups_rs_api") {
+  bindings_target = ":test_extra_rust_source_groups"
+  public_headers = [ "test_extra_rust_source_groups.h" ]
+
+  # Placed at the root of the crate.
+  extra_rust_sources = [ "test_extra_rust_source_groups_root.rs" ]
+
+  # Placed into the `test_outer::test_inner` and `test_outer` modules (which
+  # correspond to the C++ namespaces with the same names).
+  extra_rust_source_groups = [
+    {
+      sources = [ "test_extra_rust_source_groups_nested.rs" ]
+      mod = "test_outer::test_inner"
+    },
+    {
+      sources = [ "test_extra_rust_source_groups_outer.rs" ]
+      mod = "test_outer"
+    },
+  ]
+}
+
+source_set("test_extra_rust_source_groups") {
+  sources = [ "test_extra_rust_source_groups.h" ]
+}
+
+rust_api_from_cpp("test_std_types_rs_api") {
+  bindings_target = ":test_std_types"
+  public_headers = [ "test_std_types.h" ]
+}
+
+source_set("test_std_types") {
+  sources = [ "test_std_types.h" ]
+}
+
+rust_api_from_cpp("test_browsing_instance_id_rs_api") {
+  bindings_target = ":test_browsing_instance_id"
+  public_headers = [ "test_browsing_instance_id.h" ]
+
+  # Crubit can only instantiate class templates (e.g. `base::IdType32<...>`)
+  # that come from headers covered by Crubit-enabled bindings.
+  bindings_deps = [ "//base:base_rs_api" ]
+}
+
+source_set("test_browsing_instance_id") {
+  sources = [ "test_browsing_instance_id.h" ]
+  public_deps = [ "//base" ]
 }

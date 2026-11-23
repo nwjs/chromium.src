@@ -474,6 +474,10 @@ inline constexpr char kAccessibilityLargeCursorEnabled[] =
 // An integer pref that specifies the size of large cursor for accessibility.
 inline constexpr char kAccessibilityLargeCursorDipSize[] =
     "settings.a11y.large_cursor_dip_size";
+// A boolean pref which determines whether the shake cursor to locate feature
+// is enabled.
+inline constexpr char kAccessibilityShakeToLocateEnabled[] =
+    "settings.a11y.shake_to_locate_enabled";
 // A boolean pref which determines whether the bounce keys feature is enabled.
 inline constexpr char kAccessibilityBounceKeysEnabled[] =
     "settings.a11y.bounce_keys_enabled";
@@ -1281,10 +1285,7 @@ inline constexpr char kMessageCenterLockScreenMode[] =
 
 // Value of each options of the lock screen notification settings. They are
 // used the pref of ash::prefs::kMessageCenterLockScreenMode.
-inline constexpr char kMessageCenterLockScreenModeShow[] = "show";
 inline constexpr char kMessageCenterLockScreenModeHide[] = "hide";
-inline constexpr char kMessageCenterLockScreenModeHideSensitive[] =
-    "hideSensitive";
 
 // A boolean pref storing the enabled status of the ambient color feature.
 inline constexpr char kAmbientColorEnabled[] = "ash.ambient_color.enabled";

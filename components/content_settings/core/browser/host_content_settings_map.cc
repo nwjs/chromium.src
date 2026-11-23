@@ -59,7 +59,6 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
-#include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
@@ -331,7 +330,7 @@ HostContentSettingsMap::HostContentSettingsMap(PrefService* prefs,
     DeleteNearlyExpiredSettingsAndMaybeScheduleNextRun(info->type());
   }
 
-  DeleteStorageAccessRwsGrantsIfFeatureDisabled();
+  DeleteStorageAccessRwsGrants();
 }
 
 // static
@@ -1393,18 +1392,14 @@ void HostContentSettingsMap::DeleteNearlyExpiredSettingsAndMaybeScheduleNextRun(
   }
 
   for (const auto& entry : expired_entries) {
-    const bool is_user_modifiable = IsUserModifiableProvider(entry.source);
-
-    if (is_user_modifiable) {
-      static_cast<content_settings::UserModifiableProvider*>(
-          content_settings_providers_.at(entry.source).get())
-          ->ExpireWebsiteSetting(entry.primary_pattern, entry.secondary_pattern,
-                                 content_setting_type);
-    } else {
-      // For non-modifiable providers there exists no expiry method and
-      // SetWebsiteSettingCustomScope cannot work.
-      NOTREACHED();
-    }
+    CHECK(IsUserModifiableProvider(entry.source));
+    static_cast<content_settings::UserModifiableProvider*>(
+        content_settings_providers_.at(entry.source).get())
+        ->ExpireWebsiteSetting(entry.primary_pattern, entry.secondary_pattern,
+                               content_setting_type);
+    content_settings_uma_util::RecordContentSettingsHistogram(
+        "ContentSettings.ActiveExpiry.RevokedSettingType",
+        content_setting_type);
   }
 
   if (!next_expiry.is_max()) {
@@ -1434,12 +1429,8 @@ void HostContentSettingsMap::EnsureSettingsUpToDate(
   }
 }
 
-void HostContentSettingsMap::DeleteStorageAccessRwsGrantsIfFeatureDisabled() {
+void HostContentSettingsMap::DeleteStorageAccessRwsGrants() {
   if (is_off_the_record_) {
-    return;
-  }
-  if (base::FeatureList::IsEnabled(
-          content_settings::features::kStorageAccessAPIRelatedWebsiteSets)) {
     return;
   }
   ClearSettingsForOneTypeWithPredicate(

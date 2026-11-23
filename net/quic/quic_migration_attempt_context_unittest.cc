@@ -218,7 +218,7 @@ TEST_F(QuicMigrationAttemptContextTest, SetIneligibleAndRecordIneligible) {
   histogram_tester.ExpectTotalCount("Net.Quic.Migration.Attempt.Superseded", 0);
 }
 
-TEST_F(QuicMigrationAttemptContextTest, SetSuperseded) {
+TEST_F(QuicMigrationAttemptContextTest, SetSupersededAndRecordSuperseded) {
   base::HistogramTester histogram_tester;
   {
     auto context = CreateAttemptContext(
@@ -226,9 +226,25 @@ TEST_F(QuicMigrationAttemptContextTest, SetSuperseded) {
     context->SetSuperseded(QuicMigrationAttemptCause::kOnNetworkDisconnected);
   }
 
-  histogram_tester.ExpectUniqueSample(
+  QuicMigrationAttemptContext::RecordSuperseded(
+      QuicMigrationAttemptCause::kWaitForNewNetworkPostWriteError,
+      QuicMigrationAttemptCause::kOnWriteError);
+
+  histogram_tester.ExpectBucketCount(
       "Net.Quic.Migration.Attempt.Superseded",
       QuicMigrationAttemptCause::kOnNetworkDisconnected, 1);
+  histogram_tester.ExpectBucketCount("Net.Quic.Migration.Attempt.Superseded",
+                                     QuicMigrationAttemptCause::kOnWriteError,
+                                     1);
+  histogram_tester.ExpectTotalCount("Net.Quic.Migration.Attempt.Superseded", 2);
+  histogram_tester.ExpectUniqueSample(
+      "Net.Quic.Migration.Attempt.Superseded.ByTrigger."
+      "ChangeNetworkOnPathDegrading",
+      QuicMigrationAttemptCause::kOnNetworkDisconnected, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Net.Quic.Migration.Attempt.Superseded.ByTrigger."
+      "WaitForNewNetworkPostWriteError",
+      QuicMigrationAttemptCause::kOnWriteError, 1);
   histogram_tester.ExpectTotalCount("Net.Quic.Migration.Attempt.Eligible", 0);
   histogram_tester.ExpectTotalCount("Net.Quic.Migration.Attempt.FailureReason",
                                     0);
@@ -545,6 +561,14 @@ TEST_F(QuicMigrationAttemptContextTest, SetFailureGoogleHost) {
   histogram_tester.ExpectBucketCount(
       "Net.Quic.Migration.Attempt.FailureReason.GoogleHost",
       QuicMigrationAttemptFailureReason::kSocketConfigFailed, 1);
+  histogram_tester.ExpectBucketCount(
+      "Net.Quic.Migration.Attempt.FailureReason.ByTrigger."
+      "OnNetworkDisconnected.GoogleHost",
+      QuicMigrationAttemptFailureReason::kNoUnusedConnectionId, 1);
+  histogram_tester.ExpectBucketCount(
+      "Net.Quic.Migration.Attempt.FailureReason.ByTrigger."
+      "OnNetworkDisconnected.GoogleHost",
+      QuicMigrationAttemptFailureReason::kSocketConfigFailed, 1);
 
   // Non-Google host should not record the GoogleHost histogram.
   {
@@ -574,6 +598,10 @@ TEST_F(QuicMigrationAttemptContextTest, SetFailureGoogleHost) {
                                     4);
   histogram_tester.ExpectTotalCount(
       "Net.Quic.Migration.Attempt.FailureReason.GoogleHost", 2);
+  histogram_tester.ExpectTotalCount(
+      "Net.Quic.Migration.Attempt.FailureReason.ByTrigger."
+      "OnNetworkDisconnected.GoogleHost",
+      2);
 }
 
 }  // namespace

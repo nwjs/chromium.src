@@ -54,6 +54,7 @@
 #include "ui/display/mac/ca_display_link_mac.h"
 #include "ui/display/mac/display_link_mac.h"
 #include "ui/display/mac/vsync_provider_mac.h"
+#include "ui/gfx/switches.h"
 #endif
 
 namespace viz {
@@ -134,10 +135,21 @@ FrameSinkManagerImpl::FrameSinkManagerImpl(const InitParams& params)
   // interfere with the standard event loop.
   if (ui::DisplayLinkMac::SupportsCADisplayLinkInGPU()) {
     base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-    if (!command_line->HasSwitch("in-process-gpu") &&
-        !command_line->HasSwitch("single-process-tests")) {
+    bool in_process_or_headless_switch =
+        command_line->HasSwitch("in-process-gpu") ||
+        command_line->HasSwitch("single-process") ||
+        command_line->HasSwitch("single-process-tests") ||
+        command_line->HasSwitch(switches::kHeadless);
+    bool in_host_process = gpu_service_ && gpu_service_->in_host_process();
+    if (!in_process_or_headless_switch && !in_host_process &&
+        !ui::WindowServerEventPumpThread::NSAppInitialized()) {
+      auto update_vsync_displays_cb =
+          base::BindRepeating(&FrameSinkManagerImpl::UpdateVSyncDisplays,
+                              weak_factory_.GetWeakPtr());
+
       window_server_event_thread_ =
-          std::make_unique<ui::WindowServerEventPumpThread>();
+          std::make_unique<ui::WindowServerEventPumpThread>(
+              std::move(update_vsync_displays_cb));
     }
   }
 #endif

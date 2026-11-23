@@ -38,8 +38,8 @@ import org.chromium.chrome.browser.commerce.PriceNotificationSettingsFragment;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchSettingsFragment;
 import org.chromium.chrome.browser.download.settings.DownloadSettings;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
-import org.chromium.chrome.browser.glic.GlicActorLoginPermissionsFragment;
-import org.chromium.chrome.browser.glic.GlicSettings;
+import org.chromium.chrome.browser.glic.actor_login.GlicActorLoginPermissionsFragment;
+import org.chromium.chrome.browser.glic.settings.GlicSettings;
 import org.chromium.chrome.browser.homepage.settings.HomepageSettings;
 import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsSettings;
 import org.chromium.chrome.browser.language.settings.LanguageSettings;
@@ -103,12 +103,28 @@ public class SettingsNavigationImpl implements SettingsNavigation {
     @Override
     public void startSettings(
             Context context, @SettingsFragment int settingsFragment, boolean addToBackStack) {
-        Bundle fragmentArgs = null;
+        startSettings(
+                context,
+                getFragmentClassFromEnum(settingsFragment),
+                getFragmentArgsFromEnum(context, settingsFragment),
+                addToBackStack);
+    }
+
+    /**
+     * Returns the arguments the page named by {@code settingsFragment} needs, or null if it needs
+     * none.
+     *
+     * <p>Every {@link SettingsNavigation} that opens a page by its {@link SettingsFragment} id must
+     * pass these along, since some pages cannot be created without them.
+     *
+     * @param context The context the page is being opened from.
+     * @param settingsFragment The page being opened.
+     */
+    static @Nullable Bundle getFragmentArgsFromEnum(
+            Context context, @SettingsFragment int settingsFragment) {
         switch (settingsFragment) {
             case SettingsFragment.CLEAR_BROWSING_DATA:
-                fragmentArgs =
-                        ClearBrowsingDataFragment.createFragmentArgs(context.getClass().getName());
-                break;
+                return ClearBrowsingDataFragment.createFragmentArgs(context.getClass().getName());
             case SettingsFragment.ABOUT_CHROME:
             case SettingsFragment.ACCESSIBILITY:
             case SettingsFragment.ADAPTIVE_TOOLBAR:
@@ -174,8 +190,7 @@ public class SettingsNavigationImpl implements SettingsNavigation {
             case SettingsFragment.TRACING_CATEGORIES:
                 break;
         }
-        startSettings(
-                context, getFragmentClassFromEnum(settingsFragment), fragmentArgs, addToBackStack);
+        return null;
     }
 
     @Override

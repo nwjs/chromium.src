@@ -28,7 +28,6 @@
 #include "components/send_tab_to_self/proto_conversions.h"
 #include "components/send_tab_to_self/send_tab_to_self_entry.h"
 #include "components/send_tab_to_self/send_tab_to_self_model.h"
-#include "components/shared_highlighting/core/common/text_fragment.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/page_transition_types.h"
@@ -147,12 +146,10 @@ AndroidNotificationHandler::AndroidNotificationHandler(
           &AndroidNotificationHandler::HandleApplicationStateChange,
           weak_factory_.GetWeakPtr()));
 
-  if (base::FeatureList::IsEnabled(kSendTabToSelfAutoOpen)) {
-    if (send_tab_to_self_model_->IsReady()) {
-      OnModelReady();
-    } else {
-      model_observation_.Observe(send_tab_to_self_model_);
-    }
+  if (send_tab_to_self_model_->IsReady()) {
+    OnModelReady();
+  } else {
+    model_observation_.Observe(send_tab_to_self_model_);
   }
 }
 
@@ -167,12 +164,11 @@ void AndroidNotificationHandler::DisplayNewEntries(
   }
 
   // Called when new entries are received from sync.
-  content::WebContents* const target_web_contents =
-      base::FeatureList::IsEnabled(kSendTabToSelfAutoOpen)
-          ? GetActiveWebContents(
-                /*require_visible=*/!base::FeatureList::IsEnabled(
-                    kSendTabToSelfSupportAutoOpenInTabGrid))
-          : nullptr;
+  content::WebContents* const target_web_contents = GetActiveWebContents(
+      /*require_visible=*/!base::FeatureList::IsEnabled(
+          kSendTabToSelfSupportAutoOpenInTabGrid));
+  RecordAutoOpenedImmediately(target_web_contents != nullptr,
+                              new_entries.size());
 
   if (target_web_contents) {
     // If there is a target tab (i.e. Chrome is active / in the foreground),
@@ -184,9 +180,6 @@ void AndroidNotificationHandler::DisplayNewEntries(
     // Chrome is *not* in the foreground, so show notifications for the entries.
     for (const SendTabToSelfEntry* entry : new_entries) {
       ShowNotification(*entry);
-      // TODO(crbug.com/488072250): Record this only if kSendTabToSelfAutoOpen
-      // is enabled.
-      RecordAutoOpenOutcome(AutoOpenOutcome::kUnopenedImmediately);
     }
   }
 }
@@ -206,8 +199,7 @@ void AndroidNotificationHandler::ShowNotification(
       GetScrollPositionAsTextFragment(&entry);
 
   std::vector<uint8_t> page_context_bytes;
-  if (base::FeatureList::IsEnabled(kSendTabToSelfPropagateFormFields) &&
-      !entry.GetPageContext().form_field_info.fields.empty()) {
+  if (!entry.GetPageContext().form_field_info.fields.empty()) {
     std::string serialized_page_context =
         PageContextToProto(entry.GetPageContext()).SerializeAsString();
     page_context_bytes.assign(serialized_page_context.begin(),
@@ -272,11 +264,6 @@ void AndroidNotificationHandler::HandleApplicationStateChange(
 }
 
 void AndroidNotificationHandler::CheckAndOpenPendingEntries() {
-  // Checks if there are any entries that have not been opened yet.
-  if (!base::FeatureList::IsEnabled(kSendTabToSelfAutoOpen)) {
-    return;
-  }
-
   // If an active browser window WebContents is available, auto-opens all unread
   // entries as new background tabs and dismisses their system notifications.
   content::WebContents* const target_web_contents =
@@ -342,7 +329,7 @@ void AndroidNotificationHandler::OpenEntryInBackground(
       Profile::FromBrowserContext(target_web_contents.GetBrowserContext()),
       entry.GetURL(), ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   nav_params->source_contents = &target_web_contents;
-  nav_params->disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
+  nav_params->disposition = WindowOpenDisposition::kNewBackgroundTab;
   nav_params->window_action = NavigateParams::WindowAction::kNoAction;
   nav_params->tabstrip_index = tabstrip_index;
   nav_params->internal_scroll_to_text_fragment =
@@ -365,12 +352,9 @@ void AndroidNotificationHandler::OnNavigationStarted(
     const PageContext& page_context,
     std::unique_ptr<NavigateParams> nav_params,
     base::WeakPtr<content::NavigationHandle> navigation_handle) {
-  CHECK(base::FeatureList::IsEnabled(kSendTabToSelfAutoOpen));
   if (content::WebContents* new_contents =
           nav_params->navigated_or_inserted_contents) {
-    if (base::FeatureList::IsEnabled(kSendTabToSelfPropagateFormFields)) {
-      FillWebContents(new_contents, url::Origin::Create(url), page_context);
-    }
+    FillWebContents(new_contents, url::Origin::Create(url), page_context);
     RecordHasScrollPositionOnOpened(!page_context.scroll_position.IsEmpty());
 
     // Attach a visual label indicating the sender device name to the newly

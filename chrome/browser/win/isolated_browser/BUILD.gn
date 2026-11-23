@@ -13,7 +13,7 @@ source_set("isolated_browser_support") {
   deps = [
     "//base",
     "//chrome/browser/os_crypt",
-    "//chrome/common:non_code_constants",
+    "//chrome/common:constants",
     "//chrome/elevation_service:public_headers",
     "//chrome/install_static:install_static_util",
     "//chrome/installer/util:isolation_support",
@@ -60,6 +60,7 @@ source_set("unit_tests") {
     "//base",
     "//base/test:test_support",
     "//chrome/browser/os_crypt",
+    "//chrome/browser/os_crypt:test_support",
     "//chrome/chrome_elf:constants",
     "//chrome/common:constants",
     "//chrome/elevation_service:public_headers",

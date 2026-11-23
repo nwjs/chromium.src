@@ -12,6 +12,7 @@ source_set("dictation") {
     "dictation_overlay_view.h",
     "onboarding_dialog_controller.h",
     "reviewing_page_status_view.h",
+    "text_field_filter.h",
     "ui_state.h",
     "waveform_view.h",
     "waveform_view_button.h",
@@ -21,6 +22,7 @@ source_set("dictation") {
     "dictation_overlay_view.cc",
     "onboarding_dialog_controller.cc",
     "reviewing_page_status_view.cc",
+    "text_field_filter.cc",
     "waveform_view.cc",
     "waveform_view_button.cc",
   ]
@@ -29,6 +31,7 @@ source_set("dictation") {
     "//base",
     "//content/public/browser",
     "//ui/base",
+    "//ui/base/ime:text_input_types",
     "//ui/gfx",
     "//ui/views",
   ]
@@ -54,21 +57,122 @@ source_set("dictation") {
   ]
 }
 
+# Identifiers and bubble placement for the dictation IPH.
+source_set("iph") {
+  public = [ "dictation_iph.h" ]
+  sources = [ "dictation_iph.cc" ]
+  public_deps = [
+    "//base",
+    "//components/user_education/common",
+    "//ui/base/interaction",
+  ]
+  deps = [
+    "//base:i18n",
+    "//ui/gfx",
+    "//ui/views",
+  ]
+}
+
+# Tab-scoped controller that shows the dictation IPH. The implementation depends
+# on //chrome/browser/ui/views/frame, so the header is a separate target that
+# //chrome/browser/ui/tabs can depend on.
+source_set("iph_controller") {
+  public = [ "dictation_iph_controller.h" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/tabs:tabs_public",
+    "//content/public/browser",
+  ]
+}
+
+source_set("iph_controller_impl") {
+  sources = [ "dictation_iph_controller.cc" ]
+  public_deps = [ ":iph_controller" ]
+  deps = [
+    ":dictation",
+    ":iph",
+    "//chrome/app:branded_strings",
+    "//chrome/browser/dictation",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/user_education",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/frame:contents_web_view",
+    "//chrome/browser/user_education",
+    "//chrome/common:constants",
+    "//components/feature_engagement/public",
+    "//components/prefs",
+    "//components/tabs:public",
+    "//components/user_education/common",
+    "//content/public/browser",
+    "//third_party/blink/public/common",
+    "//ui/base",
+    "//ui/gfx",
+    "//ui/views",
+  ]
+}
+
 source_set("unit_tests") {
   testonly = true
   sources = [
     "dictation_bubble_ui_unittest.cc",
+    "dictation_iph_unittest.cc",
     "dictation_overlay_view_unittest.cc",
+    "text_field_filter_unittest.cc",
   ]
   deps = [
     ":dictation",
+    ":iph",
     "//base",
     "//base:i18n",
     "//chrome/browser/dictation:test_support",
     "//chrome/test:test_support",
+    "//components/user_education/common",
     "//testing/gtest",
+    "//ui/base/interaction",
+    "//ui/base/interaction:test_support",
     "//ui/events:test_support",
+    "//ui/gfx",
     "//ui/views",
     "//ui/views:test_support",
+  ]
+}
+
+source_set("interactive_ui_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [
+    "dictation_hotkey_iph_interactive_uitest.cc",
+    "dictation_iph_controller_interactive_uitest.cc",
+  ]
+  deps = [
+    ":iph",
+    "//base/test:test_support",
+    "//chrome/app:generated_resources",
+    "//chrome/browser/dictation",
+    "//chrome/browser/dictation:features",
+    "//chrome/browser/dictation:impl",
+    "//chrome/browser/dictation:test_support",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui:browser_element_identifiers",
+    "//chrome/browser/user_education",
+    "//chrome/common:constants",
+    "//chrome/common/extensions/api",
+    "//chrome/test:test_support",
+    "//chrome/test:test_support_ui",
+    "//chrome/test/user_education",
+    "//components/feature_engagement/public",
+    "//components/prefs",
+    "//components/user_education/common",
+    "//components/user_education/views",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//third_party/blink/public/common",
+    "//ui/base",
+    "//ui/base/interaction",
+    "//ui/events:events_base",
+    "//ui/gfx",
+    "//ui/views",
+    "//url",
   ]
 }

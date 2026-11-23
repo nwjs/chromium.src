@@ -11,11 +11,15 @@ import android.window.InputTransferToken;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniType;
+import org.jni_zero.JniTypeToken;
+import org.jni_zero.JniUniquePtr;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 
 /**
  * Anchor for Off-Main-Thread (OMT) Suggestions Input routing JNI connection.
@@ -28,16 +32,22 @@ import org.chromium.build.annotations.NullMarked;
 @NullMarked
 @JNINamespace("omnibox")
 public class SuggestionsOmtInputAnchor {
+    @JniType("::omnibox::OmtInputReceiverState")
+    interface NativeOmtInputReceiverState extends JniTypeToken {}
 
     /**
      * Transfers active touch gesture from the overlay surface token to the main window token.
      *
+     * <p>Invoked from native code on the background input thread upon intercepting ACTION_DOWN.
+     *
      * @param fromToken Input transfer token of the source overlay surface.
      * @param toToken Input transfer token of the destination main Chrome window.
+     * @param onTouchTransferred Callback invoked when the touch gesture transfer succeeds.
      * @return Whether the touch gesture transfer request succeeded.
      */
     @CalledByNative
-    public static boolean transferTouch(InputTransferToken fromToken, InputTransferToken toToken) {
+    static boolean transferTouch(
+            InputTransferToken fromToken, InputTransferToken toToken, Runnable onTouchTransferred) {
         // Gated to Android 16+ (Baklava / API Level 36+) to avoid the AInputReceiver_release()
         // crash bug present in Android 15 (https://crbug.com/368251173).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
@@ -47,6 +57,9 @@ public class SuggestionsOmtInputAnchor {
                 boolean result = windowManager.transferTouchGesture(fromToken, toToken);
                 RecordHistogram.recordBooleanHistogram(
                         "Android.Omnibox.OMTPrefetch.TouchTransferSuccess", result);
+                if (result) {
+                    onTouchTransferred.run();
+                }
                 return result;
             }
         }
@@ -58,18 +71,18 @@ public class SuggestionsOmtInputAnchor {
         /**
          * Registers a native AInputReceiver on the background thread's ALooper.
          *
+         * <p>Must be invoked on the background HandlerThread where the ALooper is active.
+         *
          * @param surfaceControl Native surface control backing the overlay SurfaceView.
          * @param mainWindowToken Main window input transfer token to pair with the receiver.
-         * @return Memory address of the allocated native OmtInputReceiverState instance.
+         * @param onTouchTransferred Callback invoked when a touch gesture is transferred from the
+         *     overlay surface to the main window.
+         * @return Owned handle to the allocated native OmtInputReceiverState instance, or null if
+         *     registration failed. Must be destroyed on the same background HandlerThread.
          */
-        long registerInputReceiver(
-                SurfaceControl surfaceControl, InputTransferToken mainWindowToken);
-
-        /**
-         * Releases the native AInputReceiver and frees the associated receiver state.
-         *
-         * @param stateAddress Memory address of the native OmtInputReceiverState to release.
-         */
-        void unregisterInputReceiver(long stateAddress);
+        @Nullable JniUniquePtr<NativeOmtInputReceiverState> registerInputReceiver(
+                SurfaceControl surfaceControl,
+                InputTransferToken mainWindowToken,
+                Runnable onTouchTransferred);
     }
 }

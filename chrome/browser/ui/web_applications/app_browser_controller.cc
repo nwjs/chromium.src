@@ -35,6 +35,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -168,7 +169,7 @@ BrowserWindowInterface* AppBrowserController::FindForWebApp(
   BrowserWindowInterface* browser_for_web_app = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&](BrowserWindowInterface* browser) {
-        if (UnloadController::From(browser)->is_attempting_to_close_browser()) {
+        if (IsBrowserClosing(browser)) {
           return true;  // continue iterating
         }
         if (browser->GetType() != BrowserWindowInterface::TYPE_APP) {
@@ -234,7 +235,12 @@ AppBrowserController::FindTopLevelBrowsingContextForWebApp(
       browser_and_tab_index = std::nullopt;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&](BrowserWindowInterface* browser) {
-        if (UnloadController::From(browser)->is_attempting_to_close_browser()) {
+        if (IsBrowserClosing(browser)) {
+          return true;  // continue iterating
+        }
+        if (browser->GetType() != (for_app_browser
+                                       ? BrowserWindowInterface::TYPE_APP
+                                       : BrowserWindowInterface::TYPE_NORMAL)) {
           return true;  // continue iterating
         }
         if (IsWebApp(browser) != for_app_browser) {
@@ -465,7 +471,8 @@ std::vector<actions::ActionId> AppBrowserController::GetTitleBarPageActions()
 
 #if DCHECK_IS_ON()
   for (auto action_id : types_enabled) {
-    DCHECK(std::ranges::contains(page_actions::kActionIds, action_id));
+    CHECK(std::ranges::contains(page_actions::kActionIds, action_id),
+          base::NotFatalUntil::M162);
   }
 #endif
 
@@ -779,7 +786,8 @@ void AppBrowserController::OnTabStripModelChanged(
       OnTabRemoved(contents.contents);
     }
     // WebContents should be null when the last tab is closed.
-    DCHECK_EQ(web_contents() == nullptr, tab_strip_model->empty());
+    CHECK_EQ(web_contents() == nullptr, tab_strip_model->empty(),
+             base::NotFatalUntil::M162);
   }
 
   // Do not update the UI during window shutdown.
@@ -913,8 +921,7 @@ void AppBrowserController::OnReceivedInitialURL() {
 
   // Browsers of picture in picture type already take care of setting the proper
   // window bounds.
-  if (browser()->GetType() ==
-      BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE) {
+  if (browser()->GetType() == BrowserWindowInterface::Type::TYPE_FLOATING) {
     return;
   }
 
@@ -1070,7 +1077,7 @@ void AppBrowserController::UpdateThemeSupplier() {
 }
 
 void AppBrowserController::SetInitialURL(const GURL& initial_url) {
-  DCHECK(initial_url_.is_empty());
+  CHECK(initial_url_.is_empty(), base::NotFatalUntil::M162);
   initial_url_ = initial_url;
 
   OnReceivedInitialURL();

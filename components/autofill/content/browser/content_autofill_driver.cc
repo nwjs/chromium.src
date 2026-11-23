@@ -15,6 +15,7 @@
 #include "base/logging.h"
 #include "components/autofill/content/browser/bad_message.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
+#include "components/autofill/content/browser/renderer_data_validation.h"
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_driver_router.h"
@@ -26,7 +27,6 @@
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/message.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
@@ -34,7 +34,6 @@
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
-#include "ui/gfx/geometry/quad_f.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "url/origin.h"
 
@@ -81,24 +80,7 @@ T&& Lift(ContentAutofillDriver& source, T&& x) {
 }
 
 gfx::RectF Lift(ContentAutofillDriver& source, gfx::RectF r) {
-  content::RenderWidgetHostView* view = source.render_frame_host()->GetView();
-  if (!view) {
-    return r;
-  }
-
-  // Intersect the coordinates with the view's bounds. This is to make it hard
-  // for a malicious frame to position an Autofill popup over a field from
-  // different frame (provided the attacker's and the victim's frames do not
-  // share the same local root).
-  r.InclusiveIntersect(gfx::RectF(view->GetViewBounds().size()));
-
-  // We transform all corners to handle CSS `transform: scale(...)` correctly
-  // (crbug.com/562177779).
-  return gfx::QuadF(view->TransformPointToRootCoordSpaceF(r.origin()),
-                    view->TransformPointToRootCoordSpaceF(r.top_right()),
-                    view->TransformPointToRootCoordSpaceF(r.bottom_right()),
-                    view->TransformPointToRootCoordSpaceF(r.bottom_left()))
-      .BoundingBox();
+  return TransformToRootCoordinates(*source.render_frame_host(), r);
 }
 
 gfx::Rect Lift(ContentAutofillDriver& source, gfx::Rect r) {
@@ -506,7 +488,7 @@ std::optional<LocalFrameToken> ContentAutofillDriver::Resolve(
 
 ukm::SourceId ContentAutofillDriver::GetPageUkmSourceId() const {
   CHECK(!render_frame_host_->IsInLifecycleState(
-          content::RenderFrameHost::LifecycleState::kPrerendering));
+      content::RenderFrameHost::LifecycleState::kPrerendering));
   return render_frame_host_->GetPageUkmSourceId();
 }
 

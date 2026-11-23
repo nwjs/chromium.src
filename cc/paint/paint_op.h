@@ -235,22 +235,17 @@ class CC_PAINT_EXPORT PaintOp {
 
   bool HasNonAAPaint() const { return false; }
   bool HasDrawTextOps() const { return false; }
-  bool HasSaveLayerOps() const { return false; }
   bool HasSaveLayerAlphaOps() const { return false; }
   // Returns true if effects are present that would break LCD text or be broken
   // by the flags for kSaveLayerAlpha to preserving LCD text.
   bool HasEffectsPreventingLCDTextForSaveLayerAlpha() const { return false; }
 
-  // If `content_color_usage` is not null, the functions should update
-  // `*content_color_usage` to be
-  // max(*content_color_usage, max_content_color_usage_of_this_op).
-  bool HasDiscardableImages(gfx::ContentColorUsage* content_color_usage) const {
-    return false;
-  }
-  bool HasDiscardableImagesFromFlags(
-      gfx::ContentColorUsage* content_color_usage) const {
-    return false;
-  }
+  bool HasDiscardableImages() const { return false; }
+  bool HasDiscardableImagesFromFlags() const { return false; }
+
+  void UnionColorVolumeInto(gfx::ContentColorVolume& color_volume) const {}
+  void UnionColorVolumeFromFlagsInto(
+      gfx::ContentColorVolume& color_volume) const {}
 
   // Returns the number of bytes used by this op in referenced sub records
   // and display lists.  This doesn't count other objects like paths or blobs.
@@ -286,8 +281,9 @@ class CC_PAINT_EXPORT PaintOpWithFlags : public PaintOp {
   static constexpr bool kHasPaintFlags = true;
 
   int CountSlowPathsFromFlags() const { return flags.getPathEffect() ? 1 : 0; }
-  bool HasDiscardableImagesFromFlags(
-      gfx::ContentColorUsage* content_color_usage) const;
+  bool HasDiscardableImagesFromFlags() const;
+  void UnionColorVolumeFromFlagsInto(
+      gfx::ContentColorVolume& color_volume) const;
 
   void RasterWithFlags(SkCanvas* canvas,
                        const PaintFlags* flags,
@@ -321,11 +317,12 @@ class CC_PAINT_EXPORT PaintOpWithFlags : public PaintOp {
     using super::CountSlowPathsFromFlags;                      \
     using super::HasNonAAPaint;                                \
     using super::HasDrawTextOps;                               \
-    using super::HasSaveLayerOps;                              \
     using super::HasSaveLayerAlphaOps;                         \
     using super::HasEffectsPreventingLCDTextForSaveLayerAlpha; \
     using super::HasDiscardableImages;                         \
     using super::HasDiscardableImagesFromFlags;                \
+    using super::UnionColorVolumeInto;                         \
+    using super::UnionColorVolumeFromFlagsInto;                \
     using super::AdditionalBytesUsed;                          \
     using super::AdditionalOpCount;                            \
                                                                \
@@ -537,7 +534,8 @@ class CC_PAINT_EXPORT DrawImageOp final : public PaintOpWithFlagsBaseInternal {
            std::isfinite(scale_adjustment.height());
   }
   bool EqualsForTesting(const DrawImageOp& other) const;
-  bool HasDiscardableImages(gfx::ContentColorUsage* content_color_usage) const;
+  bool HasDiscardableImages() const;
+  void UnionColorVolumeInto(gfx::ContentColorVolume& color_volume) const;
   PaintFlags::FilterQuality GetImageQuality() const;
   bool HasNonAAPaint() const { return false; }
   HAS_SERIALIZATION_FUNCTIONS();
@@ -581,7 +579,8 @@ class CC_PAINT_EXPORT DrawImageRectOp final
            std::isfinite(scale_adjustment.height());
   }
   bool EqualsForTesting(const DrawImageRectOp& other) const;
-  bool HasDiscardableImages(gfx::ContentColorUsage* content_color_usage) const;
+  bool HasDiscardableImages() const;
+  void UnionColorVolumeInto(gfx::ContentColorVolume& color_volume) const;
   PaintFlags::FilterQuality GetImageQuality() const;
   HAS_SERIALIZATION_FUNCTIONS();
 
@@ -828,11 +827,11 @@ class CC_PAINT_EXPORT DrawRecordOp final : public PaintOpBaseInternal {
   bool EqualsForTesting(const DrawRecordOp& other) const;
   size_t AdditionalBytesUsed() const;
   size_t AdditionalOpCount() const;
-  bool HasDiscardableImages(gfx::ContentColorUsage* content_color_usage) const;
+  bool HasDiscardableImages() const;
+  void UnionColorVolumeInto(gfx::ContentColorVolume& color_volume) const;
   int CountSlowPaths() const;
   bool HasNonAAPaint() const;
   bool HasDrawTextOps() const;
-  bool HasSaveLayerOps() const;
   bool HasSaveLayerAlphaOps() const;
   bool HasEffectsPreventingLCDTextForSaveLayerAlpha() const;
   HAS_SERIALIZATION_FUNCTIONS();
@@ -911,11 +910,11 @@ class CC_PAINT_EXPORT DrawScrollingContentsOp final
   bool EqualsForTesting(const DrawScrollingContentsOp& other) const;
   size_t AdditionalBytesUsed() const;
   size_t AdditionalOpCount() const;
-  bool HasDiscardableImages(gfx::ContentColorUsage* content_color_usage) const;
+  bool HasDiscardableImages() const;
+  void UnionColorVolumeInto(gfx::ContentColorVolume& color_volume) const;
   int CountSlowPaths() const;
   bool HasNonAAPaint() const;
   bool HasDrawTextOps() const;
-  bool HasSaveLayerOps() const;
   bool HasSaveLayerAlphaOps() const;
   bool HasEffectsPreventingLCDTextForSaveLayerAlpha() const;
   HAS_SERIALIZATION_FUNCTIONS();
@@ -978,7 +977,8 @@ class CC_PAINT_EXPORT DrawSkottieOp final : public PaintOpBaseInternal {
            t <= 1.f;
   }
   bool EqualsForTesting(const DrawSkottieOp& other) const;
-  bool HasDiscardableImages(gfx::ContentColorUsage* content_color_usage) const;
+  bool HasDiscardableImages() const;
+  void UnionColorVolumeInto(gfx::ContentColorVolume& color_volume) const;
   HAS_SERIALIZATION_FUNCTIONS();
 
   scoped_refptr<SkottieWrapper> skottie;
@@ -1169,7 +1169,6 @@ class CC_PAINT_EXPORT SaveLayerOp final : public PaintOpWithFlagsBaseInternal {
   // transparent layer) would break LCD text or be broken by the flags for
   // kSaveLayerAlpha to preserve LCD text.
   bool HasEffectsPreventingLCDTextForSaveLayerAlpha() const { return true; }
-  bool HasSaveLayerOps() const { return true; }
   HAS_SERIALIZATION_FUNCTIONS();
 
   SkRect bounds;
@@ -1194,7 +1193,6 @@ class CC_PAINT_EXPORT SaveLayerAlphaOp final : public PaintOpBaseInternal {
                      const PlaybackParams& params);
   bool IsValid() const { return IsValidOrUnsetRect(bounds); }
   bool EqualsForTesting(const SaveLayerAlphaOp& other) const;
-  bool HasSaveLayerOps() const { return true; }
   bool HasSaveLayerAlphaOps() const { return true; }
   HAS_SERIALIZATION_FUNCTIONS();
 
@@ -1227,7 +1225,6 @@ class CC_PAINT_EXPORT SaveLayerFiltersOp final
            filters.size() <= kMaxFiltersPerLayer;
   }
   bool EqualsForTesting(const SaveLayerFiltersOp& other) const;
-  bool HasSaveLayerOps() const { return true; }
   HAS_SERIALIZATION_FUNCTIONS();
 
   SkRect bounds;

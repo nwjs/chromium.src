@@ -12,6 +12,7 @@ like dropped frames and smoothness.
 import argparse
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -25,9 +26,8 @@ from selenium.webdriver.support import expected_conditions as ec
 
 import common
 
-# pylint: disable=import-error, wrong-import-position
+# Must follow common, which puts these modules on sys.path.
 from repeating_log import RepeatingLog
-# pylint: enable=import-error, wrong-import-position
 
 CAST_BTN_XPATH = "//button[text()='Launch app']"
 CAST_URL = (
@@ -93,44 +93,22 @@ duration_ms: 45000
 def should_run_vp9_tests(args) -> bool:
     """Detects whether VP9 tests should be run on the sender."""
     if args.sender_os == 'win':
-        if args.sender in ['localhost', '127.0.0.1', None]:
-            import platform
-
+        sender = common.make_sender(args)
+        if sender.transport.is_local:
             cpu_name = platform.processor().upper()
         else:
             cpu_cmd = (
                 'powershell -Command "(Get-CimInstance Win32_Processor).Name"'
             )
             try:
-                cpu_res = common.make_sender(args).run(cpu_cmd)
+                cpu_res = sender.run(cpu_cmd)
                 cpu_name = cpu_res.stdout.upper()
-            except Exception as e:
+            except (subprocess.SubprocessError, OSError) as e:
                 logging.warning("Failed to check remote CPU: %s", e)
                 cpu_name = ''
         if 'RYZEN' in cpu_name:
             return False
     return True
-
-
-def connect_to_remote_driver(chrome_options, binary_location):
-    """Attempts to connect to the remote chromedriver via the tunnel."""
-    logging.info("Attempting connection to %s.", common.REMOTE_URL)
-
-    # Set the binary location directly on the options object.
-    if binary_location:
-        chrome_options.binary_location = binary_location
-
-    for _ in range(20):
-        try:
-            driver = webdriver.Remote(
-                command_executor=common.REMOTE_URL, options=chrome_options
-            )
-            logging.info("Successfully connected!")
-            return driver
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logging.info("Tunnel not yet up. Sleeping ... Error: %s", e)
-            time.sleep(2)
-    raise RuntimeError("Could not connect to the remote chromedriver.")
 
 
 def setup_test_environment(
@@ -207,7 +185,7 @@ def setup_test_environment(
     binary_path = sender.chrome_binary_path(remote_app_path)
     logging.info("Setting binary_location to: %s", binary_path)
     chrome_options.binary_location = binary_path
-    driver = connect_to_remote_driver(chrome_options, binary_path)
+    driver = common.connect_to_remote_driver(chrome_options)
 
     enable_tab_mirroring(driver)
 
@@ -272,7 +250,7 @@ def start_tab_mirroring(driver, args):
                 "'Cast.startTabMirroring' command sent to %s.", args.receiver
             )
             return True
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except common.WEBDRIVER_ERRORS as e:
             logging.warning(
                 "Attempt %d failed to start mirroring: %s. Retrying...",
                 attempt,
@@ -284,7 +262,6 @@ def start_tab_mirroring(driver, args):
     raise RuntimeError("Failed to start tab mirroring.")
 
 
-# pylint: disable=too-many-locals
 def run_performance_test(
     video_file: str, driver: webdriver, codec_name: str, args
 ):
@@ -372,7 +349,8 @@ def run_performance_test(
     csv_local_path = os.path.join(common.TRACES_DIR, f"glances_{video_key}.csv")
     try:
         glances_proc = common.start_glances_monitoring(args, csv_remote_path)
-        # pylint: disable=consider-using-with
+        # Returned to the caller, which stops it after recording.
+        # pylint: disable-next=consider-using-with
         rec_proc_local = subprocess.Popen(
             host_recording_cmd,
             stdout=subprocess.PIPE,
@@ -397,7 +375,6 @@ def run_performance_test(
 
         logging.info("Starting Receiver Perfetto trace via ADB...")
         try:
-            # pylint: disable=consider-using-with
             # Pre-clean the remote trace path to ensure fresh data.
             subprocess.run(
                 [
@@ -412,6 +389,8 @@ def run_performance_test(
                 check=False,
                 timeout=5,
             )
+            # Collected in the finally block below.
+            # pylint: disable-next=consider-using-with
             receiver_trace_proc = subprocess.Popen(
                 [
                     ADB_PATH,
@@ -432,7 +411,7 @@ def run_performance_test(
             )
             receiver_trace_proc.stdin.write(PERFETTO_CONFIG)
             receiver_trace_proc.stdin.close()
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logging.error("Failed to start receiver trace: %s", e)
 
         casting = start_tab_mirroring(driver, args)
@@ -532,7 +511,7 @@ def run_performance_test(
                 casting = False
                 # Wait for the sink to disconnect for stable logging.
                 time.sleep(10)
-            except Exception as e:
+            except common.WEBDRIVER_ERRORS as e:
                 logging.error("Error stopping cast: %s", e)
 
         # Collect the Receiver Trace
@@ -583,7 +562,7 @@ def run_performance_test(
                     check=False,
                     timeout=30,
                 )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logging.error("Failed to collect receiver trace: %s", e)
 
         # Collect Receiver Logcat
@@ -604,7 +583,7 @@ def run_performance_test(
                 check=False,
                 timeout=30,
             )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logging.error("Failed to collect receiver logcat: %s", e)
 
         # Collect the Sender Chrome Log
@@ -623,7 +602,7 @@ def run_performance_test(
             common.make_sender(args).copy_from(
                 log_file_path, sender_log_local_path, timeout=30
             )
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logging.error("Failed to collect sender log: %s", e)
 
         if glances_proc:
@@ -634,7 +613,7 @@ def run_performance_test(
                 common.parse_glances_csv_and_record(
                     video_key, csv_local_path, args.sender_os
                 )
-            except Exception as e:
+            except (subprocess.SubprocessError, OSError) as e:
                 logging.error(
                     "Failed to stop or parse glances monitoring: %s", e
                 )
@@ -797,7 +776,7 @@ def main():
                 "Failed to restorecon trace directory: %s",
                 res_restorecon.stderr.strip(),
             )
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError) as e:
         logging.error(
             "Failed to setup ADB receiver: %s. "
             "Receiver traces will not be collected.",
@@ -935,7 +914,7 @@ def main():
                                 "Video %s was skipped.", video['name']
                             )
                             continue
-                    except Exception:  # pylint: disable=broad-exception-caught
+                    except Exception:
                         logging.exception(
                             "Error during video %s test", video['name']
                         )
@@ -973,13 +952,14 @@ def main():
                                 sender_trace_local_path,
                                 timeout=60,
                             )
-                        except Exception as e:
+                        except (subprocess.SubprocessError, OSError) as e:
                             logging.error(
                                 "Failed to collect sender perfetto trace: %s", e
                             )
     finally:
-        common.finalize_results(actual_version)
         common.cleanup_binaries(args, actual_version)
+        # Last, since it raises if the upload fails.
+        common.finalize_results(actual_version)
 
 
 if __name__ == '__main__':

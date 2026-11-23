@@ -5,21 +5,21 @@
 #include "chrome/browser/sharing/browser_actuator/browser_actuator_message_handler.h"
 
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/check.h"
 #include "base/feature_list.h"
-#include "base/logging.h"
-#include "chrome/browser/browser_actuator/browser_actuator_service_factory.h"
+#include "chrome/browser/browser_actuator/transport/transport_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "components/browser_actuator/internal/proto/transport_messages.pb.h"
-#include "components/browser_actuator/public/browser_actuator_service.h"
-#include "components/browser_actuator/public/common.h"
 #include "components/browser_actuator/public/features.h"
-#include "components/browser_actuator/public/payload_type_mapping.h"
-#include "components/browser_actuator/public/transport_session.h"
+#include "components/browser_actuator/public/transport/common.h"
+#include "components/browser_actuator/public/transport/payload_type_mapping.h"
+#include "components/browser_actuator/public/transport/transport_service.h"
+#include "components/browser_actuator/public/transport/transport_session.h"
 #include "components/sharing_message/proto/actuator_downstream_message.pb.h"
-#include "components/sharing_message/proto/glic_experimental_triggering.pb.h"
 #include "components/sharing_message/proto/sharing_message.pb.h"
 
 BrowserActuatorMessageHandler::BrowserActuatorMessageHandler(Profile* profile)
@@ -38,69 +38,45 @@ void BrowserActuatorMessageHandler::OnMessage(
       const browser_actuator::ActuatorDownstreamMessage& bundled_message =
           message.actuator_downstream_message();
       const std::string& session_id = bundled_message.session_id();
-
-      if (!session_id.empty() && profile_) {
-        browser_actuator::BrowserActuatorService* service =
-            browser_actuator::BrowserActuatorServiceFactory::GetForProfile(
-                profile_);
-        if (service && service->IsInitialized()) {
-          // TODO(crbug.com/538161953): Handle invalid/empty session_id or null
-          // profile (e.g. via UMA metrics).
-          if (service->GetOrCreateSession(session_id)) {
-            for (const auto& typed_payload : bundled_message.typed_payloads()) {
-              // Re-resolve the session on every iteration: a previous payload
-              // (e.g. a CloseSession control command) may have synchronously
-              // destroyed it, so a pointer cached across iterations could
-              // dangle.
-              browser_actuator::TransportSession* session =
-                  service->GetSession(session_id);
-              if (!session) {
-                break;
-              }
-              std::optional<browser_actuator::PayloadType> payload_type =
-                  browser_actuator::FromDownstreamProtoPayloadType(
-                      typed_payload.payload_type());
-              if (!payload_type.has_value()) {
-                continue;
-              }
-              switch (*payload_type) {
-                case browser_actuator::PayloadType::kControl: {
-                  browser_actuator::ControlCommand command;
-                  if (command.ParseFromString(
-                          typed_payload.proto_payload().value())) {
-                    session->OnMessage(browser_actuator::PayloadType::kControl,
-                                       command);
-                  } else {
-                    DLOG(WARNING)
-                        << "Failed to parse ControlCommand payload"
-                        << " session_id: " << session_id
-                        << " payload_type: " << typed_payload.payload_type();
-                  }
-                  break;
-                }
-                case browser_actuator::PayloadType::kExperimentalTriggering: {
-                  // TODO(crbug.com/538161953): Handle experimental triggering
-                  // messages.
-                  break;
-                }
-                case browser_actuator::PayloadType::kActuation:
-                  // Handled by a separate transport handler.
-                  break;
-                case browser_actuator::PayloadType::kUnspecified:
-                  break;
-              }
-            }
-          }
-        }
+      if (session_id.empty() || !profile_) {
+        // TODO(crbug.com/538161953): Handle invalid/empty session_id or null
+        // profile (e.g. via UMA metrics).
+        break;
       }
-      break;
-    }
-    case components_sharing_message::SharingMessage::
-        kGlicExperimentalTriggering: {
-      CHECK(base::FeatureList::IsEnabled(
-          browser_actuator::
-              kEnableBrowserActuatorForGlicExperimentalTriggering));
-      HandleGlicExperimentalTriggering(message.glic_experimental_triggering());
+      browser_actuator::transport::TransportService* transport_service =
+          browser_actuator::transport::TransportServiceFactory::GetForProfile(
+              profile_);
+      if (!transport_service ||
+          !transport_service->GetOrCreateSession(session_id)) {
+        // TODO(crbug.com/538161953): Record UMA metrics when service is
+        // unavailable or session creation fails.
+        break;
+      }
+      for (const auto& typed_payload : bundled_message.typed_payloads()) {
+        // Re-resolve the session on every iteration: a previous payload (e.g. a
+        // CloseSession control command) may have synchronously destroyed it, so
+        // a pointer cached across iterations could dangle.
+        browser_actuator::transport::TransportSession* session =
+            transport_service->GetSession(session_id);
+        if (!session) {
+          break;
+        }
+        std::optional<browser_actuator::transport::PayloadType> payload_type =
+            browser_actuator::transport::FromDownstreamProtoPayloadType(
+                typed_payload.payload_type());
+        if (!payload_type.has_value()) {
+          continue;
+        }
+        if (*payload_type == browser_actuator::transport::PayloadType::
+                                 kExperimentalTriggering &&
+            !base::FeatureList::IsEnabled(
+                browser_actuator::
+                    kEnableBrowserActuatorForGlicExperimentalTriggering)) {
+          continue;
+        }
+        session->OnMessage(*payload_type,
+                           typed_payload.proto_payload().value());
+      }
       break;
     }
     default:
@@ -109,44 +85,4 @@ void BrowserActuatorMessageHandler::OnMessage(
   }
 
   std::move(done_callback).Run(nullptr);
-}
-
-void BrowserActuatorMessageHandler::HandleGlicExperimentalTriggering(
-    const components_sharing_message::GlicExperimentalTriggering& triggering) {
-  if (!triggering.has_request()) {
-    return;
-  }
-
-  const auto& request = triggering.request();
-  // For GlicExperimentalTriggering, the first message can be either an opt-in
-  // or a trigger actuation message. Ignore other types.
-  if (!request.has_device_opt_in_request() &&
-      !request.has_trigger_actuation_request()) {
-    return;
-  }
-
-  // For legacy experimental triggering proto, context_id will serve as
-  // session_id.
-  const std::string& session_id = triggering.context_id();
-  if (session_id.empty()) {
-    // Ignore messages without a session ID.
-    return;
-  }
-
-  if (!profile_) {
-    return;
-  }
-  browser_actuator::BrowserActuatorService* service =
-      browser_actuator::BrowserActuatorServiceFactory::GetForProfile(profile_);
-  if (!service || !service->IsInitialized()) {
-    return;
-  }
-  browser_actuator::TransportSession* session =
-      service->GetOrCreateSession(session_id);
-  if (!session) {
-    return;
-  }
-
-  session->OnMessage(browser_actuator::PayloadType::kExperimentalTriggering,
-                     triggering);
 }

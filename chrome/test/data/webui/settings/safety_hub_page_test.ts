@@ -32,11 +32,6 @@ suite('SafetyHubPage', function() {
   let prefsBrowserProxy: TestPrefsBrowserProxy;
   let prefService: PrefService;
 
-  const notificationPermissionMockData = [{
-    origin: 'www.example.com',
-    notificationInfoString: 'About 1 notifications a day',
-  }];
-
   const unusedSitePermissionMockData = [{
     origin: 'www.example.com',
     permissions: [
@@ -117,13 +112,9 @@ suite('SafetyHubPage', function() {
     assertEquals(
         1, safetyHubBrowserProxy.getCallCount('getSafeBrowsingCardData'));
     assertTrue(isChildVisible(testElement, '#safeBrowsing'));
-    const header =
-        testElement.$.safeBrowsing.shadowRoot.querySelector('#header');
-    assertTrue(!!header);
+    const header = testElement.$.safeBrowsing.$.header;
     assertEquals(header.textContent.trim(), newCardData.header);
-    const subheader =
-        testElement.$.safeBrowsing.shadowRoot.querySelector('#subheader');
-    assertTrue(!!subheader);
+    const subheader = testElement.$.safeBrowsing.$.subheader;
     assertEquals(subheader.textContent.trim(), newCardData.subheader);
   }
 
@@ -143,26 +134,6 @@ suite('SafetyHubPage', function() {
         // Once hidden, it remains hidden as other modules are visible.
         webUIListenerCallback(
             SafetyHubEvent.UNUSED_PERMISSIONS_MAYBE_CHANGED, []);
-        await microtasksFinished();
-        assertNoRecommendationState(false);
-      });
-
-  test(
-      'No Recommendation State Visibility With Notification Permissions Module',
-      async function() {
-        // The element is visible when there is nothing to review.
-        assertNoRecommendationState(true);
-
-        // The element becomes hidden if the is any module that needs attention.
-        webUIListenerCallback(
-            SafetyHubEvent.NOTIFICATION_PERMISSIONS_MAYBE_CHANGED,
-            notificationPermissionMockData);
-        await microtasksFinished();
-        assertNoRecommendationState(false);
-
-        // Once hidden, it remains hidden as other modules are visible.
-        webUIListenerCallback(
-            SafetyHubEvent.NOTIFICATION_PERMISSIONS_MAYBE_CHANGED, []);
         await microtasksFinished();
         assertNoRecommendationState(false);
       });
@@ -210,33 +181,6 @@ suite('SafetyHubPage', function() {
     assertTrue(isChildVisible(testElement, unusedSitePermissionsElementTag));
   });
 
-  test('Notification Permissions Module Visibility', async function() {
-    // The element is not visible when there is nothing to review.
-    const notificationPermissionsElementTag =
-        'settings-safety-hub-notification-permissions-module';
-    assertFalse(isChildVisible(testElement, notificationPermissionsElementTag));
-
-    // The element becomes visible if the list of permissions is no longer
-    // empty.
-    webUIListenerCallback(
-        SafetyHubEvent.NOTIFICATION_PERMISSIONS_MAYBE_CHANGED,
-        notificationPermissionMockData);
-    await microtasksFinished();
-    assertTrue(isChildVisible(testElement, notificationPermissionsElementTag));
-
-    // Once visible, it remains visible regardless of list length.
-    webUIListenerCallback(
-        SafetyHubEvent.NOTIFICATION_PERMISSIONS_MAYBE_CHANGED, []);
-    await microtasksFinished();
-    assertTrue(isChildVisible(testElement, notificationPermissionsElementTag));
-
-    webUIListenerCallback(
-        SafetyHubEvent.NOTIFICATION_PERMISSIONS_MAYBE_CHANGED,
-        notificationPermissionMockData);
-    await microtasksFinished();
-    assertTrue(isChildVisible(testElement, notificationPermissionsElementTag));
-  });
-
   test('Extensions Module Visibility', async function() {
     // The element is not visible when there is nothing to review.
     assertFalse(
@@ -259,12 +203,9 @@ suite('SafetyHubPage', function() {
     assertTrue(isChildVisible(testElement, '#passwords'));
 
     // Card header and subheader should be what the browser proxy provides.
-    const header = testElement.$.passwords.shadowRoot.querySelector('#header');
-    assertTrue(!!header);
+    const header = testElement.$.passwords.$.header;
     assertEquals(header.textContent.trim(), passwordCardMockData.header);
-    const subheader =
-        testElement.$.passwords.shadowRoot.querySelector('#subheader');
-    assertTrue(!!subheader);
+    const subheader = testElement.$.passwords.$.subheader;
     assertEquals(subheader.textContent.trim(), passwordCardMockData.subheader);
 
     // Check that the card aria role and description are correct.
@@ -309,12 +250,9 @@ suite('SafetyHubPage', function() {
     assertTrue(isChildVisible(testElement, '#version'));
 
     // Card header and subheader should be what the browser proxy provides.
-    const header = testElement.$.version.shadowRoot.querySelector('#header');
-    assertTrue(!!header);
+    const header = testElement.$.version.$.header;
     assertEquals(header.textContent.trim(), versionCardMockData.header);
-    const subheader =
-        testElement.$.version.shadowRoot.querySelector('#subheader');
-    assertTrue(!!subheader);
+    const subheader = testElement.$.version.$.subheader;
     assertEquals(subheader.textContent.trim(), versionCardMockData.subheader);
 
     // Check that the card aria role and description are correct.
@@ -414,13 +352,9 @@ suite('SafetyHubPage', function() {
     assertTrue(isChildVisible(testElement, '#safeBrowsing'));
 
     // Card header and subheader should be what the browser proxy provides.
-    const header =
-        testElement.$.safeBrowsing.shadowRoot.querySelector('#header');
-    assertTrue(!!header);
+    const header = testElement.$.safeBrowsing.$.header;
     assertEquals(header.textContent.trim(), safeBrowsingCardMockData.header);
-    const subheader =
-        testElement.$.safeBrowsing.shadowRoot.querySelector('#subheader');
-    assertTrue(!!subheader);
+    const subheader = testElement.$.safeBrowsing.$.subheader;
     assertEquals(
         subheader.textContent.trim(), safeBrowsingCardMockData.subheader);
 
@@ -527,7 +461,6 @@ suite('SafetyHubPage', function() {
       safetyHubBrowserProxy.setVersionCardData(safeCardData);
       safetyHubBrowserProxy.setSafeBrowsingCardData(safeCardData);
       safetyHubBrowserProxy.setUnusedSitePermissions([]);
-      safetyHubBrowserProxy.setNotificationPermissionReview([]);
       safetyHubBrowserProxy.setNumberOfExtensionsThatNeedReview(0);
       metricsBrowserProxy.reset();
     }
@@ -589,16 +522,6 @@ suite('SafetyHubPage', function() {
     result = await metricsBrowserProxy.whenCalled(
         'recordSafetyHubModuleWarningImpression');
     assertEquals(SafetyHubModuleType.PERMISSIONS, result);
-
-    // Expect recordSafetyHubModuleWarningImpression is called for notification
-    // permissions.
-    reset();
-    safetyHubBrowserProxy.setNotificationPermissionReview(
-        notificationPermissionMockData);
-    await refresh();
-    result = await metricsBrowserProxy.whenCalled(
-        'recordSafetyHubModuleWarningImpression');
-    assertEquals(SafetyHubModuleType.NOTIFICATIONS, result);
 
     // Expect recordSafetyHubModuleWarningImpression is called for extensions.
     reset();

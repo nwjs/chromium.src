@@ -90,13 +90,6 @@
       var(--color-searchbox-results-background-hovered));
 }
 
-@media (forced-colors: active) {
-  :host([is-top-chrome-searchbox_]) .container:not(.actions):hover,
-  :host([is-top-chrome-searchbox_]:is(:focus-visible, [selected])) .container:not(.actions) {
-    background-color: Highlight;
-  }
-}
-
 :host([enable-csb-motion-tweaks_][is-lens-searchbox_]) .container {
   height: 48px;
   padding-bottom: 0;
@@ -238,15 +231,15 @@
   font-size: .875em;
 }
 
-:host([is-contextual-suggestion_]:not([show-contextual-description])) #secondaryText,
-:host([is-contextual-suggestion_]:not([show-contextual-description])) #separator {
+:host([show-secondary-text-only-on-selection]) #secondaryText,
+:host([show-secondary-text-only-on-selection]) #separator {
   display: none;
 }
 
-:host([is-contextual-suggestion_]) .container:not(.actions):hover #secondaryText,
-:host([is-contextual-suggestion_]) .container:not(.actions):hover #separator,
-:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected])):host([is-contextual-suggestion_]) #secondaryText,
-:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected])):host([is-contextual-suggestion_]) #separator {
+:host([show-secondary-text-only-on-selection]) .container:not(.actions):hover #secondaryText,
+:host([show-secondary-text-only-on-selection]) .container:not(.actions):hover #separator,
+:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected])):host([show-secondary-text-only-on-selection]) #secondaryText,
+:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected])):host([show-secondary-text-only-on-selection]) #separator {
   display: inline;
 }
 
@@ -281,53 +274,72 @@
   transform: scaleX(-1);
 }
 
-.match {
+.bolded {
   font-weight: var(--cr-searchbox-match-font-weight, 600);
 }
 
-/* In the lens side panel searchbox, the typed prefix of the match should
- * have a different color than the rest of the autocomplete suggestion. */
-:host(:not([is-top-chrome-searchbox_])) #primaryText span:not(.match),
+/* Embedders can give the typed prefix of a match its own color. Make sure this
+ * only applies to the non-bolded prefix of suggest query text. */
+:host(:not([is-top-chrome-searchbox_]))
+    #primaryText .suggest-query-text:not(.bolded),
 #ellipsis {
-  color: var(--color-searchbox-results-typed-prefix, --color-searchbox-results-foreground);
+  color: var(--color-searchbox-results-typed-prefix,
+      var(--color-searchbox-results-foreground));
 }
 
-/* Used to override primary text color in zero prefix matches */
-:host-context([has-empty-input]) #primaryText span,
+/* Zero prefix matches have no typed prefix, so suggest query text keeps the
+ * foreground color. */
+:host-context([has-empty-input]) #primaryText .suggest-query-text,
 :host-context([has-empty-input]) #ellipsis {
   color: var(--color-searchbox-results-foreground);
 }
 
-/* Use dimmed color for secondary text. */
-#secondaryText,
-.dim {
+.suggest-query-text {
+  color: var(--color-searchbox-results-foreground);
+}
+
+:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected]))
+    .suggest-query-text {
+  color: var(--color-searchbox-results-foreground-selected,
+      var(--color-searchbox-results-foreground));
+}
+
+/* text-overflow draws the ellipsis of truncated secondary text in the color of
+ * #secondaryText, not of its spans, so #secondaryText takes its last span's
+ * color when that is hint text or action high. */
+#secondaryText:has(> .suggest-hint-text:last-child),
+.suggest-hint-text {
   color: var(--color-searchbox-results-foreground-dimmed);
 }
 
-/* Uses a dimmed color for secondary text for entities. */
-:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected])):host([is-entity-suggestion]) #secondaryText,
-:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected])) .dim {
+:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected]))
+    #secondaryText:has(> .suggest-hint-text:last-child),
+:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected]))
+    .suggest-hint-text {
   color: var(--color-searchbox-results-dim-selected);
 }
 
-/* URL ellipsis color to match the URL text color */
-#secondaryText:has(.url),
-.url {
+#secondaryText:has(> .suggest-action-high:last-child),
+.suggest-action-high {
   color: var(--color-searchbox-results-url);
 }
 
-:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected])) .url {
+:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected]))
+    #secondaryText:has(> .suggest-action-high:last-child),
+:host-context(cr-searchbox-match:-webkit-any(:focus-within, [selected]))
+    .suggest-action-high {
   color: var(--color-searchbox-results-url-selected);
 }
 
-/* For URL suggestions, allow customizing the text-to-URL distribution ratio via
- * custom properties (e.g. for narrow displays like small Loomnibox). */
-#suggestion:has(.url) #primaryText {
+/* For a page title followed by its URL, allow customizing the text-to-URL
+ * distribution ratio via custom properties (e.g. for narrow displays like small
+ * Loomnibox). */
+:host([secondary-text-is-url_]) #primaryText {
   flex-shrink: var(--cr-searchbox-url-primary-text-flex-shrink, 1);
   max-width: var(--cr-searchbox-url-primary-text-max-width, 100%);
 }
 
-#secondaryText:has(.url) {
+:host([secondary-text-is-url_]) #secondaryText {
   flex-shrink: var(--cr-searchbox-url-secondary-text-flex-shrink, 1);
 }
 
@@ -419,4 +431,49 @@
     #secondaryText {
   font-size: 12px;
   line-height: 16px;
+}
+
+@media (forced-colors: active) {
+  .container:not(.actions):hover,
+  :host(:is(:focus-visible, :focus-within, [selected]))
+      .container:not(.actions) {
+    background-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  #remove {
+    forced-color-adjust: auto;
+  }
+
+  .container:not(.actions):hover cr-searchbox-action,
+  :host(:is(:focus-visible, :focus-within, [selected]))
+      .container:not(.actions) cr-searchbox-action {
+    --color-searchbox-results-action-chip: HighlightText;
+    --color-searchbox-results-action-chip-icon: HighlightText;
+    --color-searchbox-results-button-hover: transparent;
+    --color-searchbox-results-button-selected-hover: transparent;
+  }
+
+  .container:not(.actions):hover
+      :is(#primaryText, #primaryText span, #secondaryText, #secondaryText span,
+          #ellipsis),
+  :host(:is(:focus-visible, :focus-within, [selected]))
+      .container:not(.actions)
+      :is(#primaryText, #primaryText span, #secondaryText, #secondaryText span,
+          #ellipsis) {
+    color: HighlightText;
+  }
+
+  .container:not(.actions):hover #icon,
+  :host(:is(:focus-visible, :focus-within, [selected]))
+      .container:not(.actions) #icon {
+    --color-searchbox-search-icon-background: HighlightText;
+  }
+
+  .container:not(.actions):hover #secondaryText[has-icon]::before,
+  :host(:is(:focus-visible, :focus-within, [selected]))
+      .container:not(.actions) #secondaryText[has-icon]::before {
+    background-color: HighlightText;
+  }
 }

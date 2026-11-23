@@ -27,7 +27,7 @@ import type {PrefsState} from '../common/types.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import type {LanguagesBrowserProxy} from '../os_languages_page/languages_browser_proxy.js';
 import {LanguagesBrowserProxyImpl} from '../os_languages_page/languages_browser_proxy.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
 import {routes} from '../router.js';
 
 import {getTemplate} from './tts_voice_subpage.html.js';
@@ -149,12 +149,17 @@ export class SettingsTtsVoiceSubpageElement extends
         type: Boolean,
         value: false,
       },
+
+      extensions: {
+        type: Array,
+        value: () => [],
+      },
     };
   }
 
   declare allVoices: TtsHandlerVoice[];
   declare defaultPreviewVoice: string;
-  extensions: TtsHandlerExtension[];
+  declare extensions: TtsHandlerExtension[];
   declare hasVoices: boolean;
   declare languagesOpened: boolean;
   declare languagesToVoices: TtsLanguage[];
@@ -187,7 +192,6 @@ export class SettingsTtsVoiceSubpageElement extends
 
     this.ttsBrowserProxy_ = TtsVoiceSubpageBrowserProxyImpl.getInstance();
     this.langBrowserProxy_ = LanguagesBrowserProxyImpl.getInstance();
-    this.extensions = [];
   }
 
   override ready(): void {

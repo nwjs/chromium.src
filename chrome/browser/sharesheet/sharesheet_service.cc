@@ -86,8 +86,8 @@ void SharesheetService::ShowBubble(
     GetNativeWindowCallback get_native_window_callback,
     DeliveredCallback delivered_callback,
     CloseCallback close_callback) {
-  DCHECK(intent);
-  DCHECK(intent->IsShareIntent());
+  CHECK(intent, base::NotFatalUntil::M162);
+  CHECK(intent->IsShareIntent(), base::NotFatalUntil::M162);
   CHECK(delivered_callback);
 
   SharesheetMetrics::RecordSharesheetLaunchSource(source);
@@ -111,8 +111,8 @@ void SharesheetService::ShowNearbyShareBubbleForArc(
     DeliveredCallback delivered_callback,
     CloseCallback close_callback,
     ActionCleanupCallback cleanup_callback) {
-  DCHECK(intent);
-  DCHECK(intent->IsShareIntent());
+  CHECK(intent, base::NotFatalUntil::M162);
+  CHECK(intent->IsShareIntent(), base::NotFatalUntil::M162);
 
   ShareAction* share_action =
       share_action_cache_->GetActionFromType(ShareActionType::kNearbyShare);
@@ -195,7 +195,7 @@ bool SharesheetService::OnAcceleratorPressed(
     const ShareActionType share_action_type) {
   ShareAction* share_action =
       share_action_cache_->GetActionFromType(share_action_type);
-  DCHECK(share_action);
+  CHECK(share_action, base::NotFatalUntil::M162);
   return share_action == nullptr
              ? false
              : share_action->OnAcceleratorPressed(accelerator);
@@ -417,7 +417,7 @@ void SharesheetService::LaunchApp(const std::u16string& target_name,
                                   apps::IntentPtr intent) {
   app_service_proxy_->LaunchAppWithIntent(
       base::UTF16ToUTF8(target_name),
-      apps::GetEventFlags(WindowOpenDisposition::NEW_WINDOW,
+      apps::GetEventFlags(WindowOpenDisposition::kNewWindow,
                           /*prefer_container=*/true),
       std::move(intent), apps::LaunchSource::kFromSharesheet,
       std::make_unique<apps::WindowInfo>(display::kDefaultDisplayId),

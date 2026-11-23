@@ -51,6 +51,7 @@ import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteStopReason;
+import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.AsyncViewProvider;
 import org.chromium.ui.AsyncViewStub;
 import org.chromium.ui.ViewProvider;
@@ -231,6 +232,11 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         mLocationBarEmbedder = locationBarEmbedder;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         mViewProvider = new SuggestionListViewHolderProvider(new ModelList());
+        mViewProvider.whenLoaded(
+                (holder) -> {
+                    mContainer = holder.container;
+                    mDropdown = holder.dropdown;
+                });
     }
 
     /** Clean up resources used by this class. */
@@ -302,6 +308,13 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
                     (OmniboxSuggestionsContainer) container;
             OmniboxSuggestionsDropdown dropdown =
                     container.findViewById(R.id.omnibox_suggestions_dropdown);
+
+            if (OmniboxFeatures.isPrefetchSelectedSuggestionsOmtAndroidEnabled()) {
+                SuggestionsOmtOverlayView overlay =
+                        new SuggestionsOmtOverlayView(container.getContext(), dropdown);
+                overlay.attachToParent(suggestionsContainer);
+                dropdown.setOmtOverlayView(overlay);
+            }
 
             dropdown.setModelList(mListItems);
             mHolder = new SuggestionListViewHolder(suggestionsContainer, dropdown);
@@ -489,7 +502,11 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
             return false;
         }
 
-        boolean isShowingList = mContainer != null && mContainer.isShown();
+        boolean isShowingList =
+                mContainer != null
+                        && mContainer.isShown()
+                        && mDropdown != null
+                        && mDropdown.isShown();
 
         // Do not attempt to interpret any navigation keys when the suggestions list is not showing.
         if (!isShowingList) {
@@ -499,9 +516,7 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         // Do not attempt to interpret non-navigaton keys.
         // There are cases where the SPACE key may gen inappropriately routed to the
         // Suggestion, simulating press/long press of the UI element.
-        if ((keyCode == KeyEvent.KEYCODE_DPAD_UP)
-                || (keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
-                || KeyNavigationUtil.isTabNavigation(event)) {
+        if (KeyNavigationUtil.isGoUpOrDown(event) || KeyNavigationUtil.isTabNavigation(event)) {
             mMediator.allowPendingItemSelection();
             return assumeNonNull(mContainer).onKeyDown(keyCode, event);
         } else if (KeyNavigationUtil.isEnter(event)) {
@@ -640,6 +655,8 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         return mMediator.isInInputSession()
                 && mContainer != null
                 && mContainer.isShown()
+                && mDropdown != null
+                && mDropdown.isShown()
                 && mMediator.getSuggestionCount() > 0;
     }
 

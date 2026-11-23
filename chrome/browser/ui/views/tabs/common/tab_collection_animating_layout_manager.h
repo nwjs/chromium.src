@@ -98,14 +98,8 @@ class TabCollectionAnimatingLayoutManager : public views::LayoutManagerBase {
     virtual bool ShouldSnapToTarget(const views::View& child_view) const;
     virtual bool ShouldAnimateOpacityForAddAndRemove(
         const views::View& child_view) const;
-    // If provided, this is used to calculate target layouts against the total
-    // available capacity rather than the host view's mid-animation bounds (e.g.
-    // for the horizontal unpinned container). If not provided (the default),
-    // target layout calculations fall back to using the host view's allocated
-    // bounds (e.g. for nested containers like tab groups).
-    virtual std::optional<views::SizeBound> GetAvailableMainAxisSpaceOverride()
-        const;
     virtual void OnAnimationEnded();
+    virtual bool ShouldAnimateLayout();
 
    protected:
     virtual ~Delegate() = default;
@@ -194,6 +188,10 @@ class TabCollectionAnimatingLayoutManager : public views::LayoutManagerBase {
   void OnAnimationProgressed();
   void OnAnimationEnded();
 
+  // Invalidates the host view to schedule a layout pass for an animation update
+  // without recalculating target layouts on ancestor animating containers.
+  void InvalidateHostForAnimation();
+
   // Sets `starting_layout_` and `target_layout_` respectively. Clients must
   // set these via the below helpers to ensure `start_view_bounds_map_` and
   // `target_view_set_` reflect the current layout state.
@@ -208,10 +206,18 @@ class TabCollectionAnimatingLayoutManager : public views::LayoutManagerBase {
   // `animation_coordinator_`.
   void UpdateCurrentLayout();
 
+  // Returns the available `SizeBounds` used to calculate `target_layout_`.
+  views::SizeBounds GetAvailableHostSize() const;
+
+  // Recalculates the target layout for this manager and any nested child
+  // animating layout managers top-down.
+  void PropagateRecalculateTarget();
+
   // Recalculates the target layout and starts/updates animation if necessary.
   // Returns true if a new target layout was computed.
-  // Note: This is called in `OnLayoutChanged()` to ensure preferred size
-  // calculations immediately reflect the new target layout state.
+  // Note: This is called via `PropagateRecalculateTarget()` in
+  // `OnLayoutChanged()` to ensure preferred size calculations immediately
+  // reflect the new target layout state.
   bool RecalculateTarget();
 
   // Interpolates between `starting_layout_` and `target_layout_` based on
@@ -283,6 +289,13 @@ class TabCollectionAnimatingLayoutManager : public views::LayoutManagerBase {
   // Whether this layout manager is currently animating toward `target_layout_`.
   bool is_animating_ = false;
 
+  // When true, `OnLayoutChanged()` skips calling `RecalculateTarget()` during
+  // host invalidations that only schedule a layout pass for animation frames.
+  bool suppress_recalculate_target_ = false;
+
+  // The `SizeBounds` used the last time `RecalculateTarget()` ran.
+  views::SizeBounds last_target_size_bounds_;
+
   // Layout states.
   views::ProposedLayout starting_layout_;  // State at start of animation.
   views::ProposedLayout target_layout_;    // Goal state.
@@ -327,5 +340,11 @@ class TabCollectionAnimatingLayoutManager : public views::LayoutManagerBase {
 };
 
 extern const ui::ClassProperty<bool>* const kHasAnimatingLayoutManagerKey;
+
+// Denotes that a view is not part of the sequential order of views in the
+// animation axis, so that it will be ignored by `CalculateAddingViewsStartX()`
+// and `CalculateClosingViewsTargetX()`.
+extern const ui::ClassProperty<bool>* const
+    kIgnoredByAnimatingBoundsCalculationsKey;
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_COMMON_TAB_COLLECTION_ANIMATING_LAYOUT_MANAGER_H_

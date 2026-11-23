@@ -91,13 +91,16 @@ class EmailVerificationBrowserTest : public InProcessBrowserTest {
     MOCK_METHOD(void,
                 ShowEmailVerificationPopup,
                 (const gfx::RectF&,
-                 const net::SchemefulSite&,
+                 const url::Origin&,
                  const std::u16string&,
                  base::OnceCallback<void(
                      AutofillClient::EmailVerificationPermissionUiStatus)>),
                 (override));
     MOCK_METHOD(void, HideEmailVerificationPopup, (), (override));
-    MOCK_METHOD(void, ShowEmailVerificationLoadingToast, (), (override));
+    MOCK_METHOD(void,
+                ShowEmailVerificationLoadingToast,
+                (base::OnceClosure),
+                (override));
     MOCK_METHOD(void, ShowEmailVerificationErrorToast, (), (override));
 
     EmailVerifierDelegate& email_verifier_delegate() {
@@ -213,7 +216,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest, FullFlowRendererStorage) {
   MockEmailVerifier* verifier_ptr = SetupMockEmailVerifier(main_frame);
   content::webid::EmailVerifier::Result result;
   result.email = "test@example.com";
-  result.issuer_site = net::SchemefulSite(GURL("https://example.com"));
+  result.issuer_origin = url::Origin::Create(GURL("https://example.com"));
   result.issuance_endpoint = GURL("https://example.com/issuance");
   result.signing_alg_values_supported.push_back("RS256");
 
@@ -249,7 +252,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest, FullFlowRendererStorage) {
 
   base::RunLoop popup_run_loop;
   EXPECT_CALL(*mock_client, ShowEmailVerificationPopup)
-      .WillOnce([&](const gfx::RectF&, const net::SchemefulSite&,
+      .WillOnce([&](const gfx::RectF&, const url::Origin&,
                     const std::u16string&,
                     base::OnceCallback<void(
                         AutofillClient::EmailVerificationPermissionUiStatus)>
@@ -312,11 +315,11 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest,
 
   EmailVerifier::Result result1;
   result1.email = "test@example.com";
-  result1.issuer_site = net::SchemefulSite(GURL("https://example.com"));
+  result1.issuer_origin = url::Origin::Create(GURL("https://example.com"));
 
   EmailVerifier::Result result2;
   result2.email = "other@example.com";
-  result2.issuer_site = net::SchemefulSite(GURL("https://example.com"));
+  result2.issuer_origin = url::Origin::Create(GURL("https://example.com"));
 
   testing::InSequence s;
 
@@ -344,7 +347,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest,
   base::RunLoop popup_run_loop1;
 
   EXPECT_CALL(*mock_client, ShowEmailVerificationPopup)
-      .WillOnce([&](const gfx::RectF&, const net::SchemefulSite&,
+      .WillOnce([&](const gfx::RectF&, const url::Origin&,
                     const std::u16string&,
                     base::OnceCallback<void(
                         AutofillClient::EmailVerificationPermissionUiStatus)>
@@ -383,7 +386,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest,
           base::Milliseconds(100)));
 
   EXPECT_CALL(*mock_client, ShowEmailVerificationPopup)
-      .WillOnce([&](const gfx::RectF&, const net::SchemefulSite&,
+      .WillOnce([&](const gfx::RectF&, const url::Origin&,
                     const std::u16string&,
                     base::OnceCallback<void(
                         AutofillClient::EmailVerificationPermissionUiStatus)>
@@ -450,7 +453,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest, FullFlowAutocomplete) {
 
   EmailVerifier::Result result;
   result.email = "test@example.com";
-  result.issuer_site = net::SchemefulSite(GURL("https://example.com"));
+  result.issuer_origin = url::Origin::Create(GURL("https://example.com"));
   result.issuance_endpoint = GURL("https://example.com/issuance");
   result.signing_alg_values_supported.push_back("RS256");
 
@@ -485,7 +488,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest, FullFlowAutocomplete) {
 
   base::RunLoop popup_run_loop;
   EXPECT_CALL(*mock_client, ShowEmailVerificationPopup)
-      .WillOnce([&](const gfx::RectF&, const net::SchemefulSite&,
+      .WillOnce([&](const gfx::RectF&, const url::Origin&,
                     const std::u16string&,
                     base::OnceCallback<void(
                         AutofillClient::EmailVerificationPermissionUiStatus)>
@@ -552,7 +555,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest,
 
   EmailVerifier::Result result;
   result.email = "test@example.com";
-  result.issuer_site = net::SchemefulSite(GURL("https://example.com"));
+  result.issuer_origin = url::Origin::Create(GURL("https://example.com"));
   result.issuance_endpoint = GURL("https://example.com/issuance");
   result.signing_alg_values_supported.push_back("RS256");
 
@@ -636,7 +639,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest,
 
   EmailVerifier::Result result;
   result.email = "test@example.com";
-  result.issuer_site = net::SchemefulSite(GURL("https://example.com"));
+  result.issuer_origin = url::Origin::Create(GURL("https://example.com"));
   result.issuance_endpoint = GURL("https://example.com/issuance");
   result.signing_alg_values_supported.push_back("RS256");
 
@@ -704,7 +707,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest,
 
   EmailVerifier::Result result;
   result.email = "test@example.com";
-  result.issuer_site = net::SchemefulSite(GURL("https://example.com"));
+  result.issuer_origin = url::Origin::Create(GURL("https://example.com"));
   result.issuance_endpoint = GURL("https://example.com/issuance");
   result.signing_alg_values_supported.push_back("RS256");
 
@@ -737,7 +740,7 @@ IN_PROC_BROWSER_TEST_F(EmailVerificationBrowserTest,
   TestEmailVerificationAutofillClient* mock_client = client();
   base::RunLoop popup_run_loop;
   EXPECT_CALL(*mock_client, ShowEmailVerificationPopup)
-      .WillOnce([&](const gfx::RectF&, const net::SchemefulSite&,
+      .WillOnce([&](const gfx::RectF&, const url::Origin&,
                     const std::u16string&,
                     base::OnceCallback<void(
                         AutofillClient::EmailVerificationPermissionUiStatus)>

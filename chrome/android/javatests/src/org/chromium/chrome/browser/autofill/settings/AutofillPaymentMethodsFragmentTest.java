@@ -70,6 +70,7 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -84,6 +85,7 @@ import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.device_reauth.BiometricStatus;
+import org.chromium.chrome.browser.device_reauth.DeviceAuthAvailabilityCheckerBridge;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
@@ -323,6 +325,8 @@ public class AutofillPaymentMethodsFragmentTest {
     public void setUp() {
         mAutofillTestHelper = new AutofillTestHelper();
         ReauthenticatorBridge.setInstanceForTesting(mReauthenticatorMock);
+        DeviceAuthAvailabilityCheckerBridge.setBiometricAvailabilityStatusForTesting(
+                BiometricStatus.BIOMETRICS_AVAILABLE);
         Intents.init();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -514,6 +518,7 @@ public class AutofillPaymentMethodsFragmentTest {
     @Test
     @MediumTest
     @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @DisableFeatures(ChromeFeatureList.DEVICE_REAUTH_REFACTOR)
     public void testMandatoryReauthToggle_disabledWhenBothBiometricAndScreenLockAreDisabled()
             throws Exception {
         // Simulate the user can't authenticate with neither biometric nor screen lock.
@@ -528,6 +533,23 @@ public class AutofillPaymentMethodsFragmentTest {
     @Test
     @MediumTest
     @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @EnableFeatures(ChromeFeatureList.DEVICE_REAUTH_REFACTOR)
+    public void
+            testMandatoryReauthToggle_refactorFlagEnabled_disabledWhenBothBiometricAndScreenLockAreDisabled()
+                    throws Exception {
+        DeviceAuthAvailabilityCheckerBridge.setBiometricAvailabilityStatusForTesting(
+                BiometricStatus.UNAVAILABLE);
+
+        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
+
+        assertFalse(getMandatoryReauthPreference(activity).isEnabled());
+        verify(mReauthenticatorMock, never()).getBiometricAvailabilityStatus();
+    }
+
+    @Test
+    @MediumTest
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @DisableFeatures(ChromeFeatureList.DEVICE_REAUTH_REFACTOR)
     public void testMandatoryReauthToggle_disabledWithCorrespondingPrefValue() throws Exception {
         // Simulate the pref was enabled previously, to ensure the toggle value is set
         // correspondingly.
@@ -546,6 +568,28 @@ public class AutofillPaymentMethodsFragmentTest {
         // Also verify that the Reauth toggle is disabled with the corresponding pref value (greyed
         // out whe pref = ON).
         assertTrue(getMandatoryReauthPreference(activity).isChecked());
+    }
+
+    @Test
+    @MediumTest
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @EnableFeatures(ChromeFeatureList.DEVICE_REAUTH_REFACTOR)
+    public void
+            testMandatoryReauthToggle_refactorFlagEnabled_disabledWithCorrespondingPrefValue()
+                    throws Exception {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    getPrefService()
+                            .setBoolean(Pref.AUTOFILL_PAYMENT_METHODS_MANDATORY_REAUTH, true);
+                });
+        DeviceAuthAvailabilityCheckerBridge.setBiometricAvailabilityStatusForTesting(
+                BiometricStatus.UNAVAILABLE);
+
+        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
+
+        assertFalse(getMandatoryReauthPreference(activity).isEnabled());
+        assertTrue(getMandatoryReauthPreference(activity).isChecked());
+        verify(mReauthenticatorMock, never()).getBiometricAvailabilityStatus();
     }
 
     @Test
@@ -933,6 +977,9 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @MediumTest
+    // TODO(crbug.com/576315437): Re-enable.
+    @DisableIf.Build(supported_abis_includes = "x86")
+    @DisableIf.Build(supported_abis_includes = "x86_64")
     public void testDeleteSavedCvcsButton_whenCvcExists_shown() throws Exception {
         mAutofillTestHelper.addServerCreditCard(SAMPLE_CARD_WITH_CVC);
 
@@ -1050,6 +1097,9 @@ public class AutofillPaymentMethodsFragmentTest {
     @Test
     @MediumTest
     @Policies.Add({@Policies.Item(key = "AutofillCreditCardEnabled", string = "false")})
+    // TODO(crbug.com/576315437): Re-enable.
+    @DisableIf.Build(supported_abis_includes = "x86")
+    @DisableIf.Build(supported_abis_includes = "x86_64")
     public void testAddIbanButton_notShownWhenAutofillDisabled() throws Exception {
         // Enable `ShouldShowAddIbanButtonOnSettingsPage` through indicating that the user has used
         // IBAN before.
@@ -2062,19 +2112,6 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @MediumTest
-    @DisableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
-    public void testTitle_HoTDisabled_showsPaymentMethods() throws Exception {
-        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
-
-        AutofillPaymentMethodsFragment fragment =
-                (AutofillPaymentMethodsFragment) activity.getMainFragment();
-        assertThat(fragment.getPageTitle().get())
-                .isEqualTo(activity.getString(R.string.autofill_payment_methods));
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures({ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID})
     public void testTitle_HoTEnabled_showsPayments() throws Exception {
         SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
 

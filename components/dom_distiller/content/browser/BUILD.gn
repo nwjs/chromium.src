@@ -48,7 +48,6 @@ static_library("browser") {
     "//ui/gfx",
     "//url",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   if (is_android) {
     sources += [ "distillable_page_utils_android.cc" ]
@@ -67,6 +66,7 @@ source_set("unit_tests") {
   deps = [
     ":browser",
     "//base/test:test_support",
+    "//components/sync_preferences:test_support",
     "//content/test:test_support",
     "//testing/gtest",
   ]

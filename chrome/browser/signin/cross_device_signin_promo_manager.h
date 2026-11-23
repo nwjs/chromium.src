@@ -18,7 +18,8 @@ enum class CrossDeviceSigninPromoEntryPoint {
   kProfileMenu = 0,
   kHistoryPage = 1,
   kSendTabToSelf = 2,
-  kMaxValue = kSendTabToSelf,
+  kWhatsNewPage = 3,
+  kMaxValue = kWhatsNewPage,
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:CrossDeviceSigninPromoEntryPoint)
 
@@ -37,8 +38,21 @@ enum class CrossDeviceSigninPromoShouldShowResult {
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:CrossDeviceSigninPromoShouldShowResult)
 
-// Returns true if the cross-device sign-in promo should be shown.
-bool ShouldShowCrossDeviceSigninPromo(
+// Returns whether the cross-device sign-in promo should start being shown at
+// `entry_point`: the user is eligible (signed in with no error, without a
+// synced mobile device and with the required data types enabled) and the
+// impression/dismissal frequency caps allow it. Records the result in the
+// `Signin.CrossDeviceSigninPromo.ShouldShowResult.*` histograms.
+bool ShouldStartShowingCrossDeviceSigninPromo(
+    CrossDeviceSigninPromoEntryPoint entry_point,
+    Profile* profile);
+
+// Returns whether an already shown cross-device sign-in promo should keep being
+// shown at `entry_point`, i.e. whether the user is still eligible (e.g. has not
+// signed in on a mobile device since). Unlike
+// `ShouldStartShowingCrossDeviceSigninPromo()`, this ignores the frequency caps
+// and records no metrics.
+bool ShouldKeepShowingCrossDeviceSigninPromo(
     CrossDeviceSigninPromoEntryPoint entry_point,
     Profile* profile);
 
@@ -56,7 +70,7 @@ void OnCrossDeviceSigninPromoDismissed(
 //
 // At most one bubble may be open per profile across all browser windows. If one
 // is already open, calls from permanent entry points (`kProfileMenu`,
-// `kSendTabToSelf`) close the existing bubble and reopen it in
+// `kSendTabToSelf`, `kWhatsNewPage`) close the existing bubble and reopen it in
 // `browser_window`, while calls from promo entry points do nothing.
 //
 // Must be called on the UI thread.

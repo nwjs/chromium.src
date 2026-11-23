@@ -111,7 +111,15 @@ void ExtensionIconVariant::MaybeAddSizeEntry(
     return;
   }
 
-  ExtensionResource icon_path = extension.GetResource(entry.second.GetString());
+  const std::string* path = entry.second.GetIfString();
+  if (!path) {
+    diagnostics_.emplace_back(diagnostics::icon_variants::GetDiagnostic(
+        diagnostics::icon_variants::Feature::kIconVariants,
+        diagnostics::icon_variants::Id::kIconVariantPathInvalid));
+    return;
+  }
+
+  ExtensionResource icon_path = extension.GetResource(*path);
   if (!ValidateIconPath(icon_path)) {
     return;
   }
@@ -132,8 +140,15 @@ std::unique_ptr<ExtensionIconVariant> ExtensionIconVariant::Parse(
   for (const auto entry : dict) {
     // `any`. Optional string.
     if (entry.first == "any") {
-      ExtensionResource icon_path =
-          extension.GetResource(entry.second.GetString());
+      const std::string* path = entry.second.GetIfString();
+      if (!path) {
+        icon_variant->diagnostics_.emplace_back(
+            diagnostics::icon_variants::GetDiagnostic(
+                diagnostics::icon_variants::Feature::kIconVariants,
+                diagnostics::icon_variants::Id::kIconVariantPathInvalid));
+        continue;
+      }
+      ExtensionResource icon_path = extension.GetResource(*path);
       if (icon_variant->ValidateIconPath(icon_path)) {
         icon_variant->any_ = std::make_optional(std::move(icon_path));
       }
@@ -158,7 +173,28 @@ std::unique_ptr<ExtensionIconVariant> ExtensionIconVariant::Parse(
 }
 
 bool ExtensionIconVariant::IsValid() const {
-  return any_.has_value() || !sizes_.empty();
+  if (!any_.has_value() && sizes_.empty()) {
+    return false;
+  }
+
+  // All types must be the same in a single icon group.
+  base::FilePath::StringType expected_extension;
+  if (any_.has_value()) {
+    expected_extension = any_->relative_path().FinalExtension();
+  } else {
+    expected_extension =
+        sizes_.begin()->second.relative_path().FinalExtension();
+  }
+
+  for (const auto& size_entry : sizes_) {
+    if (!base::FilePath::CompareEqualIgnoreCase(
+            size_entry.second.relative_path().FinalExtension(),
+            expected_extension)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 }  // namespace extensions

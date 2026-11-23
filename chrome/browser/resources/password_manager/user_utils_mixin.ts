@@ -2,13 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
+import {WebUiListenerMixin} from '/shared/settings/web_ui_listener_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {dedupingMixin} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {PasswordManagerActionableError, PasswordManagerImpl, toMojoActionableError} from './password_manager_proxy.js';
+import {PasswordManagerActionableError} from './password_manager.mojom-webui.js';
+import {PasswordManagerImpl, toMojoActionableError} from './password_manager_proxy.js';
 import type {AccountInfo, SyncInfo} from './sync_browser_proxy.js';
 import {SyncBrowserProxyImpl} from './sync_browser_proxy.js';
 

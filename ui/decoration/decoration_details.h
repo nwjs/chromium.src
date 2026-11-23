@@ -5,15 +5,19 @@
 #ifndef UI_DECORATION_DECORATION_DETAILS_H_
 #define UI_DECORATION_DECORATION_DETAILS_H_
 
+#include <algorithm>
 #include <concepts>
 #include <cstddef>
 #include <memory>
+#include <optional>
+#include <tuple>
 #include <utility>
 
 #include "base/check.h"
 #include "base/containers/flat_map.h"
 #include "base/no_destructor.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/outsets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
@@ -35,8 +39,7 @@ concept DecorationSpec = requires(const Spec& a, const Spec& b) {
 
 // Defines the requirements for a generator used by DecorationDetails.
 //
-// - `GetMargins()`: Insets from content bounds to the decoration's outer edge
-//   (negative when extending outside content bounds).
+// - `GetMargins()`: Outsets from content bounds to the decoration's outer edge.
 // - `GetNineboxApertureInsets()`: Insets from the ninebox image edges to its
 //   stretchable center tile (total space needed for the decoration and corner
 //   rounding).
@@ -49,7 +52,7 @@ concept DecorationGenerator =
              const Spec& spec,
              const gfx::RoundedCornersF& rounded_corners,
              const gfx::Rect& content_rect) {
-      { Generator::GetMargins(spec) } -> std::same_as<gfx::Insets>;
+      { Generator::GetMargins(spec) } -> std::same_as<gfx::Outsets>;
       {
         Generator::GetNineboxApertureInsets(spec, rounded_corners)
       } -> std::same_as<gfx::Insets>;
@@ -72,7 +75,7 @@ class NineboxImageSource : public gfx::CanvasImageSource {
   NineboxImageSource(const Spec& spec,
                      const gfx::RoundedCornersF& rounded_corners,
                      const gfx::Insets& aperture_insets,
-                     const gfx::Insets& margins)
+                     const gfx::Outsets& margins)
       : gfx::CanvasImageSource(CalculateSize(aperture_insets)),
         spec_(spec),
         rounded_corners_(rounded_corners),
@@ -85,11 +88,10 @@ class NineboxImageSource : public gfx::CanvasImageSource {
 
   // gfx::CanvasImageSource:
   void Draw(gfx::Canvas* canvas) override {
-    // Margins are negative when the decoration paints outside the content, so
-    // insetting by their negation walks inwards from the image edge to the
+    // Outsetting by `-margins_` walks inwards from the image edge to the
     // content edge.
     gfx::Rect content_rect(size());
-    content_rect.Inset(-margins_);
+    content_rect.Outset(-margins_);
     Generator::Draw(canvas, spec_, rounded_corners_, content_rect);
   }
 
@@ -103,7 +105,7 @@ class NineboxImageSource : public gfx::CanvasImageSource {
 
   const Spec spec_;
   const gfx::RoundedCornersF rounded_corners_;
-  const gfx::Insets margins_;
+  const gfx::Outsets margins_;
 };
 
 // Generic cache for decoration details.
@@ -127,7 +129,7 @@ class DecorationCache {
 
     const gfx::Insets aperture_insets =
         Generator::GetNineboxApertureInsets(spec, rounded_corners);
-    const gfx::Insets margins = Generator::GetMargins(spec);
+    const gfx::Outsets margins = Generator::GetMargins(spec);
 
     auto source = std::make_unique<NineboxImageSource<Spec, Generator>>(
         spec, rounded_corners, aperture_insets, margins);
@@ -176,7 +178,7 @@ struct DecorationDetails {
   DecorationDetails(const Spec& spec,
                     const gfx::ImageSkia& nine_patch_image,
                     const gfx::Insets& aperture_insets,
-                    const gfx::Insets& margins)
+                    const gfx::Outsets& margins)
       : spec(spec),
         nine_patch_image(nine_patch_image),
         aperture_insets(aperture_insets),
@@ -215,8 +217,125 @@ struct DecorationDetails {
   gfx::ImageSkia nine_patch_image;
   // Insets for the stretchable center aperture grid.
   gfx::Insets aperture_insets;
-  // Margins for positioning the decoration around content bounds.
-  gfx::Insets margins;
+  // Outset margins for positioning the decoration around content bounds.
+  gfx::Outsets margins;
+};
+
+// Visual specification for several decorations rasterized into a single
+// ninebox image. Each specification is optional so a composite can omit any
+// subset of its parts while still sharing a single cache type.
+template <DecorationSpec... Specs>
+class CompositeValue {
+ public:
+  static_assert(sizeof...(Specs) >= 2, "A composite needs at least two specs.");
+
+  CompositeValue() = default;
+
+  explicit CompositeValue(std::optional<Specs>... specs)
+      : specs_(std::move(specs)...) {}
+
+  CompositeValue(const CompositeValue&) = default;
+  CompositeValue& operator=(const CompositeValue&) = default;
+  CompositeValue(CompositeValue&&) = default;
+  CompositeValue& operator=(CompositeValue&&) = default;
+
+  ~CompositeValue() = default;
+
+  // Returns true when no part has a specification to draw.
+  bool IsEmpty() const { return (!Get<Specs>().has_value() && ...); }
+
+  // Returns the optional specification for `Spec`.
+  template <DecorationSpec Spec>
+  const std::optional<Spec>& Get() const {
+    return std::get<std::optional<Spec>>(specs_);
+  }
+
+  friend bool operator==(const CompositeValue&,
+                         const CompositeValue&) = default;
+
+  friend bool operator<(const CompositeValue& lhs, const CompositeValue& rhs) {
+    return lhs.specs_ < rhs.specs_;
+  }
+
+ private:
+  std::tuple<std::optional<Specs>...> specs_;
+};
+
+template <typename... Details>
+struct CompositeGenerator;
+
+// Measures and rasterizes several decorations into a single ninebox image
+// around a shared content rect.
+template <typename... Specs, typename... Generators>
+  requires(DecorationGenerator<Generators, Specs> && ...)
+struct CompositeGenerator<DecorationDetails<Specs, Generators>...> {
+  using Value = CompositeValue<Specs...>;
+
+  static gfx::Outsets GetMargins(const Value& value) {
+    DCHECK(!value.IsEmpty());
+    gfx::Outsets margins;
+    (AccumulateMargins<Specs, Generators>(value, margins), ...);
+    return margins;
+  }
+
+  static gfx::Insets GetNineboxApertureInsets(
+      const Value& value,
+      const gfx::RoundedCornersF& rounded_corners) {
+    DCHECK(!value.IsEmpty());
+    gfx::Insets inward_insets;
+    (AccumulateInwardAperture<Specs, Generators>(value, rounded_corners,
+                                                 inward_insets),
+     ...);
+    // `ToInsets()` negates components, so `-GetMargins(value).ToInsets()` is
+    // the positive outward reach as `gfx::Insets`.
+    return inward_insets - GetMargins(value).ToInsets();
+  }
+
+  static void Draw(gfx::Canvas* canvas,
+                   const Value& value,
+                   const gfx::RoundedCornersF& rounded_corners,
+                   const gfx::Rect& content_rect) {
+    DCHECK(!value.IsEmpty());
+    // Painter's order: parts are drawn in the order they are listed, so a part
+    // listed later sits on top of one listed earlier.
+    (DrawPart<Specs, Generators>(canvas, value, rounded_corners, content_rect),
+     ...);
+  }
+
+ private:
+  template <DecorationSpec Spec, DecorationGenerator<Spec> Generator>
+  static void AccumulateMargins(const Value& value, gfx::Outsets& margins) {
+    if (const auto& spec = value.template Get<Spec>()) {
+      margins.SetToMax(Generator::GetMargins(*spec));
+    }
+  }
+
+  template <DecorationSpec Spec, DecorationGenerator<Spec> Generator>
+  static void AccumulateInwardAperture(
+      const Value& value,
+      const gfx::RoundedCornersF& rounded_corners,
+      gfx::Insets& inward_insets) {
+    if (const auto& spec = value.template Get<Spec>()) {
+      // Each part's aperture is measured from its own outer edge
+      // (`GetMargins()` outside the content). Since `ToInsets()` negates
+      // components, adding `GetMargins().ToInsets()` subtracts the part's
+      // outward reach, leaving how far its corner patch reaches inside the
+      // shared content rect.
+      inward_insets.SetToMax(
+          Generator::GetNineboxApertureInsets(*spec, rounded_corners) +
+          Generator::GetMargins(*spec).ToInsets());
+    }
+  }
+
+  template <DecorationSpec Spec, DecorationGenerator<Spec> Generator>
+  static void DrawPart(gfx::Canvas* canvas,
+                       const Value& value,
+                       const gfx::RoundedCornersF& rounded_corners,
+                       const gfx::Rect& content_rect) {
+    if (const auto& spec = value.template Get<Spec>()) {
+      Generator::Draw(canvas, *spec, rounded_corners, content_rect);
+    }
+  }
 };
 
 }  // namespace ui::decoration

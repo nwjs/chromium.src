@@ -250,8 +250,16 @@ static const std::variant<const base::Feature*, const char*>
         &net::features::kTestRootStore,
 
         // This feature allows open web content to use the Unbounded Element
-        // API, which lets a page paint outside the bounds of its window.
+        // API, which lets a page paint outside the bounds of its frame.
         &blink::features::kUnsafeUnboundedElementOnTheOpenWeb,
+
+        // This feature allows open web content to use the Unbounded Element
+        // API, which lets a page paint outside the bounds of its window.
+        &blink::features::kUnsafeEscapingUnboundedElementOnTheOpenWeb,
+
+        // This feature is under development and currently has security
+        // concerns.
+        &blink::features::kPersistentWidgetAPI,
 };
 
 void ShowBadFlagsInfoBarHelper(content::WebContents* web_contents,

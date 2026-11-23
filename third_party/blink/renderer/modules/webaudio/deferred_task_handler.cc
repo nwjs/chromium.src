@@ -34,7 +34,6 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cancellable_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
@@ -144,9 +143,9 @@ bool DeferredTaskHandler::HasAutomaticPullNodes() {
   base::AutoTryLock try_locker(automatic_pull_handlers_lock_);
 
   // This assumes there is one or more automatic pull nodes when the mutex
-  // is held by AddAutomaticPullNode() or RemoveAutomaticPullNode() method.
+  // is held by UpdateAutomaticPullNodes() or ClearHandlersToBeDeleted().
   if (try_locker.is_acquired()) {
-    return !automatic_pull_handlers_.empty();
+    return !rendering_automatic_pull_handlers_.empty();
   }
   return true;
 }
@@ -331,7 +330,9 @@ DeferredTaskHandler::DeferredTaskHandler(
       defer_pull_status_update_(base::FeatureList::IsEnabled(
           features::kWebAudioDeferPullStatusUpdate)),
       task_runner_(std::move(task_runner)),
-      audio_thread_(base::kInvalidThreadId) {}
+      audio_thread_(base::kInvalidThreadId) {
+  weak_this_ = weak_ptr_factory_.GetWeakPtr();
+}
 
 scoped_refptr<DeferredTaskHandler> DeferredTaskHandler::Create(
     scoped_refptr<base::SingleThreadTaskRunner> task_runner,
@@ -385,7 +386,7 @@ void DeferredTaskHandler::RequestToDeleteHandlersOnMainThread() {
   PostCrossThreadTask(
       *task_runner_, FROM_HERE,
       CrossThreadBindOnce(&DeferredTaskHandler::DeleteHandlersOnMainThread,
-                          weak_ptr_factory_.GetWeakPtr()));
+                          weak_this_));
 }
 
 void DeferredTaskHandler::DeleteHandlersOnMainThread() {

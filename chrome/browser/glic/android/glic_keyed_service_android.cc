@@ -101,14 +101,13 @@ GlicKeyedServiceAndroid::GetJavaObject() {
 }
 
 void GlicKeyedServiceAndroid::ToggleUI(JNIEnv* env,
-                                       int64_t browser_window_ptr,
+                                       BrowserWindowInterface* browser_window,
                                        bool prevent_close,
                                        Profile* profile,
                                        int32_t source) {
-  auto* window = reinterpret_cast<BrowserWindowInterface*>(browser_window_ptr);
-  CHECK(window);
+  CHECK(browser_window);
 
-  service_->ToggleUI(window, prevent_close,
+  service_->ToggleUI(browser_window, prevent_close,
                      static_cast<mojom::InvocationSource>(source));
 }
 
@@ -204,10 +203,9 @@ void GlicKeyedServiceAndroid::ShareContextImage(JNIEnv* env,
 
 bool GlicKeyedServiceAndroid::IsPanelShowingForBrowser(
     JNIEnv* env,
-    int64_t browser_window_ptr) {
-  auto* window = reinterpret_cast<BrowserWindowInterface*>(browser_window_ptr);
-  CHECK(window);
-  return service_->IsPanelShowingForBrowser(*window);
+    BrowserWindowInterface* browser_window) {
+  CHECK(browser_window);
+  return service_->IsPanelShowingForBrowser(*browser_window);
 }
 
 bool GlicKeyedServiceAndroid::GetUserEnabledActuationOnWeb(JNIEnv* env) {

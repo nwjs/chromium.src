@@ -34,6 +34,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
@@ -60,6 +61,7 @@
 #include "services/network/oblivious_http_request_handler.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/network_service_buildflags.h"
+#include "services/network/public/cpp/originating_process_id.h"
 #include "services/network/public/cpp/transferable_directory.h"
 #include "services/network/public/mojom/clear_data_filter.mojom-forward.h"
 #include "services/network/public/mojom/connection_change_observer_client.mojom.h"
@@ -288,6 +290,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const net::CookieSettingOverrides& devtools_cookie_setting_overrides,
       bool prefer_bound_cookie_context,
       mojo::PendingRemote<mojom::CookieAccessObserver> observer) override;
+  void GetRestrictedDeviceBoundSessionManager(
+      mojo::PendingReceiver<mojom::RestrictedDeviceBoundSessionManager>
+          receiver,
+      const url::Origin& origin,
+      const net::IsolationInfo& isolation_info) override;
   void GetTrustTokenQueryAnswerer(
       mojo::PendingReceiver<mojom::TrustTokenQueryAnswerer> receiver,
       const url::Origin& top_frame_origin) override;
@@ -418,6 +425,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       override;
   void ForceReloadProxyConfig(ForceReloadProxyConfigCallback callback) override;
   void ClearBadProxiesCache(ClearBadProxiesCacheCallback callback) override;
+  void GetProxySettings(GetProxySettingsCallback callback) override;
   void CreateWebSocket(
       const GURL& url,
       const std::vector<std::string>& requested_protocols,
@@ -499,8 +507,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       std::vector<mojom::CorsOriginPatternPtr> allow_patterns,
       std::vector<mojom::CorsOriginPatternPtr> block_patterns,
       SetCorsOriginAccessListsForOriginCallback callback) override;
-  void EnableStaticKeyPinningForTesting(
-      EnableStaticKeyPinningForTestingCallback callback) override;
+  void ReinitializeKeyPinningForTesting(
+      ReinitializeKeyPinningForTestingCallback callback) override;
   void VerifyCertificateForTesting(
       const scoped_refptr<net::X509Certificate>& certificate,
       const std::string& hostname,
@@ -641,6 +649,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void SetVariationsHeaders(
       variations::mojom::VariationsHeadersPtr variations_headers) override;
 
+  void Clone(mojo::PendingReceiver<mojom::NetworkContext> receiver) override;
+
   void GetDeviceBoundSessionManager(
       mojo::PendingReceiver<network::mojom::DeviceBoundSessionManager>
           device_bound_session_manager) override;
@@ -677,6 +687,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void set_max_loaders_per_process_for_testing(uint32_t count) {
     max_loaders_per_process_ = count;
   }
+
+  uint32_t GetLoaderCountForTesting(
+      const OriginatingProcessId& process_id) const;
 
   size_t GetNumOutstandingResolveHostRequestsForTesting() const;
 
@@ -964,6 +977,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
       const std::string& group,
       bool enforced);
 
+  uint32_t GetLoaderCount(const OriginatingProcessId& process_id) const;
+
   const raw_ptr<NetworkService> network_service_;
 
   mojo::Remote<mojom::NetworkContextClient> client_;
@@ -1032,6 +1047,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   using DirectReceiver = mojo::DirectReceiver<mojom::NetworkContext>;
   std::variant<Receiver, DirectReceiver> receiver_;
 
+  // Holds secondary receivers bound via Clone(). Unlike `receiver_`,
+  // disconnects on these receivers do not trigger
+  // `on_connection_close_callback_`.
+  mojo::ReceiverSet<mojom::NetworkContext> cloned_receivers_;
   std::unique_ptr<CookieManager> cookie_manager_;
 
   std::unique_ptr<SocketFactory> socket_factory_;
@@ -1049,6 +1068,15 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // |trust_token_store_|.
   mojo::UniqueReceiverSet<mojom::TrustTokenQueryAnswerer>
       trust_token_query_answerers_;
+
+#if BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
+  // One manager per Document pipe. Ordering: this must be after
+  // `url_request_context_owner_`, which owns the SessionService, and after
+  // `cookie_manager_`, which owns the CookieSettings. Each manager holds
+  // non-owning pointers to both, so it must be destroyed first.
+  mojo::UniqueReceiverSet<mojom::RestrictedDeviceBoundSessionManager>
+      restricted_device_bound_session_managers_;
+#endif
 
   // Whether the user is blocking Trust Tokens, value provided by the
   // PrivacySandboxSettings service.

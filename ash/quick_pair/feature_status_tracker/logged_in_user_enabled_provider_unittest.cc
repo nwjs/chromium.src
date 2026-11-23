@@ -32,7 +32,8 @@ class LoggedInUserEnabledProviderTest : public AshTestBase {
 
  protected:
   void Login(user_manager::UserType user_type) {
-    SimulateUserLogin({kUserEmail, user_type});
+    SimulateUserLogin({.account_id = AccountId::FromUserEmail(kUserEmail),
+                       .user_type = user_type});
   }
 
   std::unique_ptr<LoggedInUserEnabledProvider> provider_;

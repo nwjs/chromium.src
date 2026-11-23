@@ -32,8 +32,8 @@ declare_args() {
   enable_mdns = is_win || is_linux || is_chromeos || is_fuchsia || is_apple ||
                 enable_desktop_android_extensions
 
-  # Reporting not used on iOS.
-  enable_reporting = !is_ios
+  # Reporting not used on iOS, except for iOS Blink.
+  enable_reporting = use_blink
 
   # Includes the transport security state preload list. This list includes
   # the HSTS mechanism to enforce trusted connections to a significant
@@ -50,15 +50,12 @@ declare_args() {
   # key pinning code and preload list to still be run in non-official builds.
   #
   # Note: this must contain all the chrome_root_store_supported builds. It also
-  # currently contains is_fuchsia and any other non-Cronet embedder build.
+  # currently contains is_fuchsia and any other non-iOS/non-Cronet embedder
+  # build.
   # TODO(crbug.com/497882860): perhaps this should be defined by inclusions
   # rather than exclusions? Including is_fuchsia is probably intentional but
   # other builds included currently might not be.
-  # TODO(crbug.com/497882860): This doesn't need to include iOS, should change
-  # to `!is_cronet_build && !is_ios`. However there are currently some
-  # transport_security_state_unittest tests that assume both buildflags are
-  # the same. Remove is_ios once the unittests are untangled.
-  chrome_key_pinning_supported = !is_cronet_build
+  chrome_key_pinning_supported = !is_cronet_build && !is_ios
 
   # Platforms for which certificate verification can be performed either using
   # the builtin cert verifier with the Chrome Root Store, or with the platform

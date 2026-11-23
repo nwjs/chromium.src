@@ -22,17 +22,18 @@ import type {SearchboxDropdownElement} from '//resources/cr_components/searchbox
 import type {SearchboxInputElement} from '//resources/cr_components/searchbox/searchbox_input.js';
 import type {SearchboxMixinInterface} from '//resources/cr_components/searchbox/searchbox_mixin.js';
 import {SearchboxMixin} from '//resources/cr_components/searchbox/searchbox_mixin.js';
-import type {AutocompleteMatch, AutocompleteResult, OmniboxPopupSelection, SelectionDirection, SelectionStep} from '//resources/cr_components/searchbox/searchbox_selection_mixin.js';
-import {SearchboxSelectionMixin, SelectionLineState} from '//resources/cr_components/searchbox/searchbox_selection_mixin.js';
+import {SearchboxSelectionMixin} from '//resources/cr_components/searchbox/searchbox_selection_mixin.js';
 import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
-import type {DriveUploadError, PageCallbackRouter, PageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SelectionLineState} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteMatch, AutocompleteResult, DriveUploadError, OmniboxPopupSelection, PageCallbackRouter, PageHandlerInterface, SelectionDirection, SelectionStep} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {ModelMode, ToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {InputState} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
+import {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
 
 import {OmniboxEverywhereBrowserProxyImpl} from './browser_proxy.js';
 import {getCss} from './omnibox.css.js';
@@ -45,6 +46,7 @@ export interface OmniboxEverywhereOmniboxElement {
     input: SearchboxInputElement,
     inputWrapper: HTMLElement,
     matches: SearchboxDropdownElement,
+    overflowMenuButton: HTMLButtonElement,
     profileIcon: OmniboxEverywhereProfileIconElement,
   };
 }
@@ -132,6 +134,7 @@ export class OmniboxEverywhereOmniboxElement extends
         attribute: 'has-user-input',
       },
       ntpRealboxDynamicAiModeButtonEnabled_: {type: Boolean},
+      ntpRealboxDynamicAiModeButtonPreventEarlyPaint_: {type: Boolean},
       inputState_: {type: Object},
       searchboxLayoutMode: {type: String},
       contextManagementInComposeboxEnabled: {type: Boolean},
@@ -150,6 +153,10 @@ export class OmniboxEverywhereOmniboxElement extends
         type: Boolean,
         reflect: true,
         attribute: 'is-context-menu-open',
+      },
+      isOverflowMenuOpen: {
+        type: Boolean,
+        reflect: true,
       },
       isActive: {
         type: Boolean,
@@ -176,6 +183,7 @@ export class OmniboxEverywhereOmniboxElement extends
   accessor isDraggingFile: boolean = false;
   accessor isScreenshotMenuOpen: boolean = false;
   accessor isContextMenuOpen: boolean = false;
+  accessor isOverflowMenuOpen: boolean = false;
   protected dragAndDropHandler: DragAndDropHandler;
   protected accessor energyEffectAnimationEnabled_: boolean =
       loadTimeData.getBoolean('energyEffectAnimationEnabled');
@@ -204,6 +212,8 @@ export class OmniboxEverywhereOmniboxElement extends
   protected accessor hasUserInput_: boolean = false;
   protected accessor ntpRealboxDynamicAiModeButtonEnabled_: boolean =
       loadTimeData.getBoolean('ntpRealboxDynamicAiModeButton');
+  protected accessor ntpRealboxDynamicAiModeButtonPreventEarlyPaint_: boolean =
+      loadTimeData.getBoolean('ntpRealboxDynamicAiModeButtonPreventEarlyPaint');
   protected accessor inputState_: InputState|null = null;
   protected accessor searchboxLayoutMode: string =
       loadTimeData.getString('searchboxLayoutMode');
@@ -290,6 +300,22 @@ export class OmniboxEverywhereOmniboxElement extends
     if (this.screenshotMenuClosedListenerId_ !== null) {
       this.callbackRouter_.removeListener(this.screenshotMenuClosedListenerId_);
       this.screenshotMenuClosedListenerId_ = null;
+    }
+    this.removeAttribute('has-expanded');
+  }
+
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+    // `has-expanded` marks that the omnibox has been expanded at least once in
+    // the current session so collapsing back to `!dropdownIsVisible &&
+    // !hasUserInput_` plays the collapse animation on `#bottomControls`
+    // (whereas initial mount does not). `willUpdate()` re-applies
+    // `has-expanded` on every subsequent expansion after it is cleared by
+    // voice search or `onBottomControlsAnimationEnd_()`.
+    if (this.inVoiceSearchMode) {
+      this.removeAttribute('has-expanded');
+    } else if (this.dropdownIsVisible || this.hasUserInput_) {
+      this.toggleAttribute('has-expanded', true);
     }
   }
 
@@ -471,6 +497,17 @@ export class OmniboxEverywhereOmniboxElement extends
     return this.i18n('searchBoxHint');
   }
 
+  protected onSearchboxInputEmptyChanged_(e: CustomEvent<{value: boolean}>) {
+    // `SearchboxMixin` clears `<cr-searchbox-input>` directly via
+    // `getInputElement().setInput({text: '', inline: ''})` on `Escape` and
+    // `focusout` without firing `searchbox-input-text-updated`. Reset
+    // `hasUserInput_` whenever the input becomes empty so the omnibox does not
+    // stay stuck in the 2-line expanded `[has-user-input]` state.
+    if (e.detail.value) {
+      this.hasUserInput_ = false;
+    }
+  }
+
   protected onSearchboxInputTextUpdated_(
       e: CustomEvent<{value: string, isComposing: boolean}>) {
     this.hasUserInput_ = !!e.detail.value.trim();
@@ -511,6 +548,7 @@ export class OmniboxEverywhereOmniboxElement extends
         'kOmniboxEverywhereLensButtonElementId');
     this.hideHelpBubble('kOmniboxEverywhereLensButtonElementId');
     this.isScreenshotMenuOpen = true;
+    this.finishAnimations_();
     const anchor = e.currentTarget as HTMLElement;
     const rect = anchor.getBoundingClientRect();
     this.pageHandler_.showScreenshotMenu({
@@ -521,6 +559,52 @@ export class OmniboxEverywhereOmniboxElement extends
     });
   }
 
+  private wasOverflowMenuOpenOnPointerDown_: boolean = false;
+  private overflowMenuPointerType_: string = '';
+
+  protected onOverflowMenuPointerdown_(e: PointerEvent) {
+    if (e.button !== 0) {
+      return;
+    }
+    e.preventDefault();
+    this.wasOverflowMenuOpenOnPointerDown_ = this.isOverflowMenuOpen;
+    this.overflowMenuPointerType_ = e.pointerType;
+  }
+
+  protected onOverflowMenuPointercancel_() {
+    this.wasOverflowMenuOpenOnPointerDown_ = false;
+  }
+
+  protected onOverflowMenuClick_(e: MouseEvent) {
+    // A click with `detail` 0 wasn't produced by a pointer: it came from the
+    // keyboard (Enter/Space) or a programmatic click(). Telling the browser
+    // lets a keyboard-opened menu select its first item.
+    const sourceType = e.detail === 0             ? MenuSourceType.kKeyboard :
+        this.overflowMenuPointerType_ === 'touch' ? MenuSourceType.kTouch :
+                                                    MenuSourceType.kMouse;
+    const wasOpen =
+        this.wasOverflowMenuOpenOnPointerDown_ || this.isOverflowMenuOpen;
+    this.wasOverflowMenuOpenOnPointerDown_ = false;
+    this.overflowMenuPointerType_ = '';
+    if (wasOpen) {
+      // The click that dismissed the native menu should not reopen it.
+      this.isOverflowMenuOpen = false;
+      return;
+    }
+    this.isOverflowMenuOpen = true;
+    this.finishAnimations_();
+    // `rect` is in WebUI viewport coordinates (CSS DIPs); the browser converts
+    // it to screen coordinates to anchor the native menu.
+    const rect = this.$.overflowMenuButton.getBoundingClientRect();
+    OmniboxEverywhereBrowserProxyImpl.getInstance().handler.showOverflowMenu(
+        {
+          x: Math.round(rect.left),
+          y: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+        },
+        sourceType);
+  }
 
   protected onFileChange_(e: CustomEvent<{files: FileList}>) {
     this.processFiles_(
@@ -535,6 +619,29 @@ export class OmniboxEverywhereOmniboxElement extends
   // Mode is available and policy allows sharing context with search.
   protected canAddFileContext_(): boolean {
     return this.fileContextEnabled_ && this.isFuseboxEnabled;
+  }
+
+  protected onInputWrapperDragover_(e: DragEvent) {
+    this.dragAndDropHandler.handleDragOver(e);
+    // Keep calling preventDefault() via `handleDragOver` so Blink treats the
+    // drag as handled by the page (instead of navigating the WebContents on
+    // drop), and set `dropEffect = 'none'` when file context cannot be added so
+    // the OS shows the no-drop cursor instead of the copy (+) cursor.
+    if (!this.canAddFileContext_() && e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'none';
+    }
+  }
+
+  // The drag-and-drop handler stays enabled when AI Mode is unavailable, so it
+  // keeps calling preventDefault() on drops and a drop can't navigate this
+  // WebContents to the file. Hide its glow in that case, since the drop does
+  // nothing.
+  protected computeGlowAnimationState_(): GlowAnimationState {
+    if (this.animationState === GlowAnimationState.DRAGGING &&
+        !this.canAddFileContext_()) {
+      return GlowAnimationState.NONE;
+    }
+    return this.animationState;
   }
 
   protected processFiles_(
@@ -601,6 +708,7 @@ export class OmniboxEverywhereOmniboxElement extends
   }>) {
     this.pageHandler().activateMetricsFunnel('PlusButton');
     this.isContextMenuOpen = true;
+    this.finishAnimations_();
     // `anchorRect` is in WebUI viewport coordinates (CSS DIPs). Forward the
     // full bounding box so C++ can translate it to screen coordinates and
     // position the native context menu.
@@ -617,12 +725,37 @@ export class OmniboxEverywhereOmniboxElement extends
     }
   }
 
+  // `#bottomControls` animates on both expand (`loomniboxBottomControlsExpand`)
+  // and collapse (`loomniboxTopControlsEnter`). Clear `has-expanded` only when
+  // the collapse animation finishes (`!dropdownIsVisible && !hasUserInput_`) so
+  // the 1-line pill is back at rest until the next expansion.
+  protected onBottomControlsAnimationEnd_(e: AnimationEvent) {
+    if (e.target === e.currentTarget &&
+        e.animationName === 'loomniboxTopControlsEnter' &&
+        !this.dropdownIsVisible && !this.hasUserInput_) {
+      this.removeAttribute('has-expanded');
+    }
+  }
+
+  // Fast-forwards active shadow root animations so native menu anchor rects are
+  // sampled at their final resting positions.
+  private finishAnimations_() {
+    this.shadowRoot?.getAnimations().forEach(a => a.finish());
+  }
+
   onContextMenuClosed() {
     this.isContextMenuOpen = false;
   }
 
+  onOverflowMenuClosed() {
+    this.isOverflowMenuOpen = false;
+  }
+
   override onInputWrapperFocusout(e: FocusEvent) {
-    if (this.isContextMenuOpen || this.$.profileIcon.isMenuOpen) {
+    // Native menus take focus from the WebContents while open; keep the
+    // searchbox state (input, matches) intact until they close.
+    if (this.isContextMenuOpen || this.isOverflowMenuOpen ||
+        this.$.profileIcon.isMenuOpen) {
       return;
     }
     super.onInputWrapperFocusout(e);

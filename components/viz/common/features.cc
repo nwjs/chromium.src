@@ -220,7 +220,7 @@ const base::FeatureParam<int> kCALayerNewLimitManyVideos{&kCALayerNewLimit,
 BASE_FEATURE(kVSyncAlignedPresentationForScrolling,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kVSyncAlignedPresentation, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kUseDisplayRefreshRateForTimer, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUseDisplayRefreshRateForTimer, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kAllowUndamagedNonrootRenderPassToSkip,
@@ -270,6 +270,14 @@ BASE_FEATURE(kEnableADPFScrollNoRendererMain,
 // ADPF(Android Dynamic Performance Framework) method on a worker thread
 // instead of Viz. The goal is to prevent Viz from blocking on a binder call.
 BASE_FEATURE(kEnableADPFAsyncSetThreads, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, Chrome includes the main thread of a main frame Renderer into
+// the ADPF(Android Dynamic Performance Framework) hint session as soon as the
+// Renderer has registered its threads, instead of only after it contributed
+// to a drawn frame. This only affects Renderers whose frame sink has not
+// activated a surface yet, i.e. the Renderer committing a page load until it
+// produces its first frame.
+BASE_FEATURE(kEnableADPFPendingRendererMain, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, we immediately send acks to clients when a viz surface
 // activates. This effectively removes back-pressure. This can result in wasted
@@ -406,16 +414,16 @@ BASE_FEATURE(kCrosContentAdjustedRefreshRate,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+// Do not create GLContext on DrDC thread (and Android WebView render thread) if
+// GL is not used by viz (eg when vulkan is used).
+BASE_FEATURE(kSkipDisabledGLContextOnDrDC, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kNoCompositorFrameAcks, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kNumberPendingFramesUntilThrottle{
     &kNoCompositorFrameAcks, "pending_frames", 1};
+BASE_FEATURE(kNoUndrawnFrameThrottleWhileEmbedderWaits,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kDisplaySchedulerAsClient, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables optimizations in `DirectRenderer` and `OcclusionCuller` that reuses
-// pre-existing loops to access filter data from `AggregatedRenderPassDrawQuad`.
-// This is a temporary flag to work as a kill switch for the optimization and
-// should be removed as soon as we confirm that the optimization is stable.
-BASE_FEATURE(kRpdqFilterLookupOptimizations, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Kill switch for constraining render pass texture sampling to logical content
 // bounds. Remove after the behavior is stable.

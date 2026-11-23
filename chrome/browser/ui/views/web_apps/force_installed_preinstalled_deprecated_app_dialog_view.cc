@@ -105,7 +105,7 @@ void ForceInstalledPreinstalledDeprecatedAppDialogView::CreateAndShowDialog(
   const extensions::Extension* extension =
       extensions::ExtensionRegistry::Get(browser_context)
           ->GetInstalledExtension(extension_id);
-  DCHECK(extension);
+  CHECK(extension, base::NotFatalUntil::M162);
   std::u16string app_name = base::UTF8ToUTF16(extension->name());
   LinkConfig link_config;
   if (GetLinkConfigForTesting()) {                    // IN-TEST
@@ -130,11 +130,10 @@ void ForceInstalledPreinstalledDeprecatedAppDialogView::CreateAndShowDialog(
          Site site) {
         base::UmaHistogramEnumeration(
             "Extensions.ForceInstalledPreInstalledDeprecatedAppOpenUrl", site);
-        web_contents->OpenURL(
-            content::OpenURLParams::CreateBrowserInitiated(
-                url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                ui::PAGE_TRANSITION_LINK),
-            /*navigation_handle_callback=*/{});
+        web_contents->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                                  url, WindowOpenDisposition::kNewForegroundTab,
+                                  ui::PAGE_TRANSITION_LINK),
+                              /*navigation_handle_callback=*/{});
       },
       web_contents->GetWeakPtr(), link_config.link, link_config.site));
   delegate->SetContentsView(
@@ -179,7 +178,7 @@ ForceInstalledPreinstalledDeprecatedAppDialogView::
   content_label->SetText(l10n_util::GetStringFUTF16(
       IDS_FORCE_INSTALLED_PREINSTALLED_DEPRECATED_APPS_CONTENT, link_string,
       app_name, &offsets));
-  DCHECK_EQ(2u, offsets.size());
+  CHECK_EQ(2u, offsets.size(), base::NotFatalUntil::M162);
   content_label->AddStyleRange(
       gfx::Range(offsets[0], offsets[0] + link_string.length()),
       views::StyledLabel::RangeStyleInfo::CreateForLink(base::BindRepeating(
@@ -193,7 +192,7 @@ ForceInstalledPreinstalledDeprecatedAppDialogView::
                     url,
                     ui::DispositionFromEventFlags(
                         event.flags(),
-                        WindowOpenDisposition::NEW_FOREGROUND_TAB),
+                        WindowOpenDisposition::kNewForegroundTab),
                     ui::PAGE_TRANSITION_LINK),
                 /*navigation_handle_callback=*/{});
           },
@@ -211,7 +210,7 @@ ForceInstalledPreinstalledDeprecatedAppDialogView::
             content::OpenURLParams::CreateBrowserInitiated(
                 GURL(chrome::kChromeAppsDeprecationLearnMoreURL),
                 ui::DispositionFromEventFlags(
-                    event.flags(), WindowOpenDisposition::NEW_FOREGROUND_TAB),
+                    event.flags(), WindowOpenDisposition::kNewForegroundTab),
                 ui::PAGE_TRANSITION_LINK),
             /*navigation_handle_callback=*/{});
       },

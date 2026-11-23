@@ -9,7 +9,7 @@
 #include <string_view>
 
 #include "base/memory/raw_ptr.h"
-#include "components/browser_actuator/internal/proto/transport_messages.pb.h"
+#include "components/browser_actuator/internal/transport/proto/transport_messages.pb.h"
 #include "components/sharing_message/proto/actuator_downstream_message.pb.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
@@ -18,7 +18,7 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "url/gurl.h"
 
-namespace browser_actuator {
+namespace browser_actuator::transport {
 
 // Simulates a server-streaming protobuf endpoint (`StreamBody` framing) backed
 // by a `network::TestURLLoaderFactory`.
@@ -89,6 +89,6 @@ class FakeProtoStreamServer {
   mojo::ScopedDataPipeProducerHandle producer_handle_;
 };
 
-}  // namespace browser_actuator
+}  // namespace browser_actuator::transport
 
 #endif  // COMPONENTS_BROWSER_ACTUATOR_INTERNAL_TRANSPORT_TEST_SUPPORT_FAKE_PROTO_STREAM_SERVER_H_

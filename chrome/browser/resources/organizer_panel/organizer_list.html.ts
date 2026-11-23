@@ -16,12 +16,13 @@ export function getHtml(this: OrganizerListElement) {
     ` : ''}
     <organizer-list-section .delegate="${delegate}"
         .searchQuery="${this.searchQuery}"
-        @hidden-changed="${this.onSectionHiddenChanged_}">
+        @hidden-changed="${this.onSectionHiddenChanged_}"
+        @expanded-changed="${this.onSectionExpandedChanged_}">
     </organizer-list-section>
   `)}
 </div>
 ${this.allSectionsHidden_ ? html`
-  <div id="noResults">$i18n{noResults}</div>
+  <organizer-zero-state>$i18n{noResults}</organizer-zero-state>
 ` : ''}
 <!--_html_template_end_-->`;
   // clang-format on

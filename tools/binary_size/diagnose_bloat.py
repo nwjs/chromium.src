@@ -287,7 +287,7 @@ class _BuildHelper:
     self.output_directory = args.output_directory
     self.target = args.target
     self.target_os = args.target_os
-    self.use_reclient = args.use_reclient
+    self.use_remoteexec = args.use_remoteexec
     self.webview = args.webview
     self.apk_name_override = args.custom_apk_name
     self.main_lib_path_override = args.custom_main_lib_path
@@ -356,16 +356,22 @@ class _BuildHelper:
     return [os.path.join('apks', self.apk_name)]
 
   @property
+  def symbols_dir(self):
+    """Directory (relative to output_directory) of unstripped libraries."""
+    # 32-bit targets are built by the android_clang_arm secondary toolchain of
+    # an arm64 build.
+    if self.SizeTargetSuffix() == '32':
+      return 'android_clang_arm/lib.unstripped'
+    return 'lib.unstripped'
+
+  @property
   def main_lib_paths(self):
     # TODO(agrieve): Could maybe extract from .apk or GN?
     if self.main_lib_path_override:
       return [self.main_lib_path_override]
     if self.IsLinux():
       return ['chrome']
-    if self.SizeTargetSuffix() == '32':
-      lib_dir = 'android_clang_arm/lib.unstripped'
-    else:
-      lib_dir = 'lib.unstripped'
+    lib_dir = self.symbols_dir
     if self.IsMultiContainer():
       return [
         f'{lib_dir}/libchrome.so',
@@ -449,13 +455,17 @@ class _BuildHelper:
     # Compiles need at least symbol_level=1 for pak allowlist to work.
     gn_args += ' symbol_level=1'
     gn_args += ' use_errorprone_java_compiler=false'
-    gn_args += ' use_remoteexec=%s' % str(self.use_reclient).lower()
+    gn_args += ' use_remoteexec=%s' % str(self.use_remoteexec).lower()
     gn_args += ' target_os="%s"' % self.target_os
     if self.IsAndroid():
       gn_args += (
         ' enable_chrome_android_internal=%s'
         % str(self.enable_chrome_android_internal).lower()
       )
+      # Size targets (including *_32_minimal_apks) require a 64-bit
+      # target_cpu, so set it explicitly rather than relying on the default.
+      if not re.search(r'(^|\s)target_cpu\s*=', self.extra_gn_args_str):
+        gn_args += ' target_cpu="arm64"'
     gn_args += self.extra_gn_args_str
     return [_GN_PATH, 'gen', self.output_directory, '--args=%s' % gn_args]
 
@@ -594,6 +604,10 @@ class _BuildArchive:
     supersize_cmd = [_SUPERSIZE_PATH, 'archive', self.archived_size_path]
     if self.build.IsAndroid():
       supersize_cmd += ['-f', self.build.supersize_input]
+      if not self.build.IsMultiContainer():
+        # Ensures other libraries (e.g. libelements.so) are matched to the
+        # unstripped libraries of the correct ABI.
+        supersize_cmd += ['--symbols-dir', self.build.symbols_dir]
       if len(self.build.abs_main_lib_paths) == 1 and os.path.exists(
         self.build.abs_main_lib_paths[0]
       ):
@@ -1181,11 +1195,14 @@ def main():
 
   build_group = parser.add_argument_group('build arguments')
   build_group.add_argument(
+    '--no-remoteexec',
     '--no-reclient',
     action='store_false',
-    dest='use_reclient',
+    dest='use_remoteexec',
     default=True,
-    help='Do not use reclient when building with ninja.',
+    help=(
+      'Do not use remote execution when building (--no-reclient is deprecated).'
+    ),
   )
   build_group.add_argument(
     '--clean', action='store_true', help='Do a clean build for each revision.'

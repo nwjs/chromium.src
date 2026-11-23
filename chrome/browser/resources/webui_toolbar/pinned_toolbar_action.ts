@@ -16,12 +16,11 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {IconTable} from '/shared/icon_table.js';
 import {getContextMenuPosition, getContextMenuSourceType} from '/shared/toolbar_button.js';
 import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
-import {DownloadProgressRingStatus, PinnedToolbarAction} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import {ContextMenuType, DownloadProgressRingStatus, PinnedToolbarAction} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {PinnedToolbarActionState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
-import {ContextMenuType} from './browser_proxy.js';
 import {OverflowableToolbarActionMixin} from './overflowable_toolbar_action_mixin.js';
 import {getCss} from './pinned_toolbar_action.css.js';
 import {getHtml} from './pinned_toolbar_action.html.js';
@@ -37,6 +36,7 @@ const initialState: PinnedToolbarActionState = {
   elementId: null,
   icon: {handleId: 0n},
   progressRing: null,
+  badgeNumber: null,
 };
 
 const PinnedToolbarActionElementBase = OverflowableToolbarActionMixin(
@@ -161,6 +161,25 @@ export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase {
     return `stroke-dasharray: ${percentage} 100;`;
   }
 
+  /**
+   * Returns the text to display in the badge, or undefined if no badge should
+   * be drawn.
+   */
+  protected getBadgeText_(): string|undefined {
+    if (!this.state.badgeNumber) {
+      return undefined;
+    }
+    if (this.state.badgeNumber > 9) {
+      return '9+';
+    }
+    return this.state.badgeNumber.toString();
+  }
+
+  protected isDormant_(): boolean {
+    return this.state.progressRing?.status ===
+        DownloadProgressRingStatus.kDormant;
+  }
+
   private getContextMenuType_(): ContextMenuType {
     switch (this.state.action) {
       case PinnedToolbarAction.kNewIncognitoWindow:
@@ -219,6 +238,16 @@ export class PinnedToolbarActionElement extends PinnedToolbarActionElementBase {
         return ContextMenuType.kPinnedActionSendSharedTabGroupFeedback;
       case PinnedToolbarAction.kSidePanelShowComments:
         return ContextMenuType.kPinnedActionSidePanelShowComments;
+      case PinnedToolbarAction.kShowAiOverlayDialog:
+        return ContextMenuType.kPinnedActionShowAiOverlayDialog;
+      case PinnedToolbarAction.kTtcToolbar:
+        return ContextMenuType.kPinnedActionTtcToolbar;
+      case PinnedToolbarAction.kSidePanelShowHistory:
+        return ContextMenuType.kPinnedActionSidePanelShowHistory;
+      case PinnedToolbarAction.kShowChromeLabs:
+        return ContextMenuType.kPinnedActionShowChromeLabs;
+      case PinnedToolbarAction.kSidePanelShowGlic:
+        return ContextMenuType.kPinnedActionSidePanelShowGlic;
       case PinnedToolbarAction.kUnspecified:
       case PinnedToolbarAction.kDivider:
         return ContextMenuType.kUnspecified;

@@ -390,10 +390,6 @@ _CONFIG = [
             'third_party/blink/public/common/web_preferences/',
         ],
         'allowed': [
-            # Used for ScriptFontFamilyMap because it is the most efficient map
-            # to copy (for this use case, we don't care so much about the cost
-            # to add elements, we care about the cost to copy).
-            'base::flat_map',
             'GURL',
         ],
     },
@@ -425,8 +421,8 @@ _CONFIG = [
             'third_party/blink/public/common/manifest/',
         ],
         'allowed': [
-            # ICU types for locale handling in manifest localization maps.
-            'icu::Locale',
+            # BCP47 language tags used as keys in manifest localization maps.
+            'base::i18n::LanguageTag',
             # Abseil containers for locale-keyed maps.
             'absl::flat_hash_map',
             # Base types for string conversions and error handling.
@@ -801,6 +797,7 @@ _CONFIG = [
             'cc::SnappedTargetData',
             'cc::SnapPositionData',
             'cc::SnapSelectionStrategy',
+            'cc::SnapStop',
             'cc::SnapStrictness',
             'cc::TargetSnapAreaElementIds',
             'ui::ScrollGranularity',
@@ -1543,6 +1540,15 @@ _CONFIG = [
             'ui::AXMode',
             'ui::AXSerializationErrorFlag',
             'ui::AXTreeUpdate',
+        ],
+    },
+    {
+        'paths': [
+            'third_party/blink/public/web/web_element.h',
+        ],
+        'allowed': [
+            # For WebElement::UserScrollByGranularity().
+            'ui::ScrollGranularity',
         ],
     },
     {
@@ -2351,7 +2357,7 @@ _CONFIG = [
         ],
         # base::RefCounted and base::RefCountedThreadSafe are prohibited in
         # platform/ as defined above, but wtf/ needs them to define their WTF
-        # subclasses and CrossThreadCopier.
+        # subclasses.
         'allowed': ['base::RefCounted', 'base::RefCountedThreadSafe'],
     },
     {
@@ -2589,6 +2595,10 @@ _CONFIG = [
             'net::IsValidTopLevelMimeType',
             'net::ParseMimeTypeWithoutParameter',
             'net::registry_controlled_domains::.+',
+            # BCP47 language tags used as keys in manifest localization maps.
+            'base::i18n::GetKnownLanguageTag',
+            'base::i18n::GetLanguageTagFromString',
+            'base::i18n::LanguageTag',
             # Needed to use the liburlpattern API.
             "absl::StatusOr",
             'liburlpattern::.+',
@@ -2941,10 +2951,13 @@ _CONFIG = [
             'dawn::.+',
             'webnn::.+',
             'wgpu::.+',
+            'gpu::ClientSharedImage',
             'gpu::SharedImageInterface',
             'gpu::SHARED_IMAGE_USAGE_WEBGPU_READ',
             'gpu::SHARED_IMAGE_USAGE_WEBGPU_SHARED_BUFFER',
             'gpu::SHARED_IMAGE_USAGE_WEBGPU_WRITE',
+            'gpu::SyncToken',
+            'gpu::WebNNScopedAccess',
             'viz::SinglePlaneFormat',
         ],
     },
@@ -3044,6 +3057,7 @@ _CONFIG = [
             'network::PermissionsPolicyFeatureDefault',
             'network::PermissionsPolicyFeatureList',
             'network::PermissionsPolicyFeatureState',
+            'network::PermissionsPolicyFeaturesBitset',
         ],
     },
     {
@@ -3071,7 +3085,6 @@ _CONFIG = [
         'allowed': [
             'net::HttpCache',
             'network::features::kBrowsingTopics',
-            'network::features::kSharedStorageAPI',
         ],
     },
     {

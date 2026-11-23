@@ -19,8 +19,13 @@
 #include "chrome/browser/glic/host/glic_web_client_handler.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/host/host.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_metrics.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/pwc/privileged_web_contents.h"
+#include "chrome/browser/pwc/pwc_component_policy.h"
+#include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -29,6 +34,10 @@
 #include "url/origin.h"
 
 namespace glic {
+
+BASE_FEATURE(kGlicShowSecurityInterstitials,
+             FEATURE_ENABLED_BY_DEFAULT_ALL_PLATFORMS);
+
 namespace {
 
 // Classifies URLs into GuestPageType.
@@ -129,7 +138,7 @@ class GlicWebClientManager::Metrics {
 
   void OnProcessGone(base::TerminationStatus status) {
     has_error_or_crash_ = true;
-    base::UmaHistogramEnumeration("Glic.Session.WebClientCrash.ExitReason",
+    base::UmaHistogramEnumeration("Glic.Contents.WebClientCrash.ExitReason",
                                   TerminationStatusToExitReason(status));
     if (status != base::TERMINATION_STATUS_NORMAL_TERMINATION) {
       base::RecordAction(base::UserMetricsAction("GlicSessionWebClientCrash"));
@@ -306,6 +315,16 @@ void GlicWebClientManager::AttachGuestContents(
   CHECK(guest_contents);
   DVLOG(1) << "Glic [WebClientManager] AttachGuestContents " << guest_contents;
   has_navigation_committed_ = false;
+  current_navigation_blocked_ = false;
+  last_committed_page_type_.reset();
+  last_committed_is_api_allowed_ = false;
+  if (base::FeatureList::IsEnabled(kGlicShowSecurityInterstitials)) {
+    // Ensure SecurityInterstitialTabHelper is registered as a
+    // WebContentsObserver before GlicWebClientManager so its
+    // DidFinishNavigation runs first to update committed interstitial state.
+    security_interstitials::SecurityInterstitialTabHelper::CreateForWebContents(
+        guest_contents);
+  }
   Observe(guest_contents);
   guest_presentation_tracker_->ObserveGuestContents(*guest_contents);
 }
@@ -316,7 +335,59 @@ void GlicWebClientManager::SetGuestMounted(bool mounted) {
 
 void GlicWebClientManager::OnGuestNavigationBlocked(
     mojom::GuestPageType page_type) {
+  if (!base::FeatureList::IsEnabled(kGlicShowSecurityInterstitials)) {
+    DVLOG(1) << "Glic [WebClientManager] OnGuestNavigationBlocked "
+             << page_type;
+    return;
+  }
+  // A single blocked navigation can be observed by both
+  // `GlicGuestNavigationThrottle` (during `WillStartRequest`) and
+  // `DidFinishNavigation` (when `PwcNavigationThrottle` cancels the request).
+  // Deduplicate so metrics and delegate notifications fire at most once per
+  // navigation.
+  if (current_navigation_blocked_) {
+    return;
+  }
+  current_navigation_blocked_ = true;
   DVLOG(1) << "Glic [WebClientManager] OnGuestNavigationBlocked " << page_type;
+  // If a web client is already connected (or warmed) on the currently committed
+  // page, a cancelled navigation (e.g. a subframe attempting to navigate the
+  // top frame to about:blank) leaves the primary main frame on its active
+  // document and should not tear down the connected client or show the error
+  // screen unless the navigation was explicitly blocked by admin policy.
+  if ((web_client_owned_ || pending_web_client_receiver_.is_valid()) &&
+      page_type != mojom::GuestPageType::kDisabledByAdmin) {
+    if (delegate_) {
+      // Restore the delegate's ready state that `DidStartNavigation()` cleared
+      // to `GuestState::kLoading` when the cancelled navigation began.
+      if (pending_web_client_receiver_.is_valid()) {
+        delegate_->OnWebClientStateChanged(mojom::WebClientState::kWarmed);
+      } else {
+        delegate_->OnWebClientCreated();
+        if (web_client_) {
+          delegate_->OnWebClientStateChanged(web_client_->web_client_state());
+        }
+      }
+    }
+    return;
+  }
+  // When no web client is active (e.g. clicking "Go back" on an initial
+  // security interstitial, or a blocked initial load) or when the navigation is
+  // blocked by admin policy (`kDisabledByAdmin`), mirror `DidFinishNavigation`
+  // for a failed navigation: reset state, record the navigation metric, notify
+  // the delegate to transition the panel to the error UI, and disconnect any
+  // active web client.
+  guest_presentation_tracker_->Reset();
+  pending_web_client_receiver_.reset();
+  metrics_->OnGuestNavigation(page_type, /*is_api_allowed=*/false);
+  if (delegate_) {
+    delegate_->OnGuestNavigated(
+        GURL(), /*is_api_allowed=*/false, page_type,
+        /*is_initial_commit=*/!has_navigation_committed_);
+  }
+  if (web_client_owned_) {
+    UnsetWebClient(GlicWebClientLifecycleEvent::kDisconnectedOnNavigation);
+  }
 }
 
 content::RenderFrameHost* GlicWebClientManager::GetGuestMainFrame() const {
@@ -399,7 +470,12 @@ void GlicWebClientManager::DidStartNavigation(
       navigation_handle->IsSameDocument()) {
     return;
   }
-  pending_web_client_receiver_.reset();
+  current_navigation_blocked_ = false;
+  last_committed_page_type_.reset();
+  last_committed_is_api_allowed_ = false;
+  if (!base::FeatureList::IsEnabled(kGlicShowSecurityInterstitials)) {
+    pending_web_client_receiver_.reset();
+  }
   if (delegate_) {
     delegate_->OnGuestNavigationStarted();
   }
@@ -408,11 +484,35 @@ void GlicWebClientManager::DidStartNavigation(
 void GlicWebClientManager::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->IsInPrimaryMainFrame() ||
-      !navigation_handle->HasCommitted() ||
       navigation_handle->IsSameDocument()) {
     return;
   }
+
+  if (!navigation_handle->HasCommitted()) {
+    if (base::FeatureList::IsEnabled(kGlicShowSecurityInterstitials)) {
+      // In NoWebview mode, PwcNavigationThrottle cancels navigations to
+      // disallowed origins (e.g. when a user clicks "Go back" on a security
+      // interstitial and it navigates to a default safe page like about:blank
+      // or chrome://newtab). Transition directly to the appropriate error
+      // state.
+      if (auto* privileged =
+              pwc::PrivilegedWebContents::FromWebContents(web_contents())) {
+        const GURL& url = navigation_handle->GetURL();
+        if (!privileged->policy().IsNavigationAllowed(
+                url::Origin::Create(url))) {
+          OnGuestNavigationBlocked(IsAdminBlockedUrl(url)
+                                       ? mojom::GuestPageType::kDisabledByAdmin
+                                       : mojom::GuestPageType::kLoadError);
+        }
+      }
+    }
+    return;
+  }
   guest_presentation_tracker_->Reset();
+  // Only drop a warmed guest's pending receiver once a new navigation commits
+  // (or fails fatally in `OnGuestNavigationBlocked`), so a navigation cancelled
+  // by a throttle while warming does not sever the warmed page's Mojo pipe.
+  pending_web_client_receiver_.reset();
   content::RenderFrameHost* guest_main_frame =
       navigation_handle->GetRenderFrameHost();
   DVLOG(1) << "Glic [WebClientManager] DidFinishNavigation, url="
@@ -420,13 +520,30 @@ void GlicWebClientManager::DidFinishNavigation(
   bool is_api_allowed =
       IsOriginAllowedGlicApi(guest_main_frame->GetLastCommittedOrigin(),
                              guest_main_frame->GetBrowserContext());
+  bool is_security_interstitial = false;
+  if (base::FeatureList::IsEnabled(kGlicShowSecurityInterstitials) &&
+      navigation_handle->IsErrorPage()) {
+    auto* interstitial_helper =
+        security_interstitials::SecurityInterstitialTabHelper::FromWebContents(
+            web_contents());
+    is_security_interstitial =
+        interstitial_helper &&
+        interstitial_helper->IsInterstitialCommittedForFrame(
+            navigation_handle->GetFrameTreeNodeId());
+  }
   bool is_error_page =
       navigation_handle->IsErrorPage() ||
       (navigation_handle->GetResponseHeaders() &&
        navigation_handle->GetResponseHeaders()->response_code() >= 400);
   mojom::GuestPageType page_type =
-      is_error_page ? mojom::GuestPageType::kLoadError
-                    : GetGuestPageType(guest_main_frame->GetLastCommittedURL());
+      GetGuestPageType(guest_main_frame->GetLastCommittedURL());
+  if (is_security_interstitial) {
+    page_type = mojom::GuestPageType::kSecurityInterstitial;
+  } else if (is_error_page) {
+    page_type = mojom::GuestPageType::kLoadError;
+  }
+  last_committed_page_type_ = page_type;
+  last_committed_is_api_allowed_ = is_api_allowed;
   metrics_->OnGuestNavigation(page_type, is_api_allowed);
   bool is_initial_commit = !has_navigation_committed_;
   has_navigation_committed_ = true;
@@ -442,8 +559,19 @@ void GlicWebClientManager::DidFinishNavigation(
   }
 }
 
+void GlicWebClientManager::DocumentOnLoadCompletedInPrimaryMainFrame() {
+  if (base::FeatureList::IsEnabled(features::kGlicSsr) &&
+      features::kGlicShowLoaderUntilMainPageOnload.Get() &&
+      last_committed_page_type_ == mojom::GuestPageType::kRegular &&
+      last_committed_is_api_allowed_ && delegate_) {
+    delegate_->OnGuestMainPageLoaded();
+  }
+}
+
 void GlicWebClientManager::PrimaryMainFrameRenderProcessGone(
     base::TerminationStatus status) {
+  last_committed_page_type_.reset();
+  last_committed_is_api_allowed_ = false;
   metrics_->OnProcessGone(status);
   DVLOG(1)
       << "Glic [WebClientManager] PrimaryMainFrameRenderProcessGone, status="
@@ -453,10 +581,13 @@ void GlicWebClientManager::PrimaryMainFrameRenderProcessGone(
   if (web_client_owned_) {
     UnsetWebClient(GlicWebClientLifecycleEvent::kDisconnectedOnProcessGone);
   }
-  if (status != base::TERMINATION_STATUS_NORMAL_TERMINATION) {
-    if (delegate_) {
-      delegate_->OnGuestProcessGone(status);
-    }
+  // On Android, termination of a background/hidden renderer process is reported
+  // as TERMINATION_STATUS_NORMAL_TERMINATION because waitpid is not used for
+  // Android service processes without a visible/strong binding. Any process
+  // exit while the guest WebContents is still alive (outside browser shutdown)
+  // leaves the guest unusable and must notify the delegate.
+  if (!browser_shutdown::HasShutdownStarted() && delegate_) {
+    delegate_->OnGuestProcessGone(status);
   }
 }
 

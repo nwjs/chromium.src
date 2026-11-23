@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/supports_user_data.h"
 #include "base/types/pass_key.h"
+#include "chrome/browser/ttc/app/public/audio_controller.h"
 #include "chrome/browser/ttc/core/states.h"
 #include "components/keyed_service/core/keyed_service.h"
 
@@ -34,9 +35,8 @@ class TtcActorUiStateManager;
 class TtcKeyedService : public KeyedService, public base::SupportsUserData {
  public:
   // Creates the Conversation used by a session.
-  using ConversationFactory =
-      base::RepeatingCallback<std::unique_ptr<Conversation>(
-          SessionController&)>;
+  using ConversationFactory = base::RepeatingCallback<std::unique_ptr<
+      Conversation>(SessionController&, std::unique_ptr<AudioController>)>;
 
   static TtcKeyedService* Get(content::BrowserContext* context);
 
@@ -56,7 +56,11 @@ class TtcKeyedService : public KeyedService, public base::SupportsUserData {
 
   ServiceState GetState() const;
 
-  void StartSession();
+  // Starts a new session. Caller must ensure IsEnabled() is true and no session
+  // is currently active. If `audio_controller` is provided, it is used instead
+  // of the default production AudioControllerImpl.
+  void StartSession(
+      std::unique_ptr<AudioController> audio_controller = nullptr);
 
   // Ends the active session. After this call, session_controller() is nullptr.
   // This is a no-op if no session is currently in progress.
@@ -72,7 +76,8 @@ class TtcKeyedService : public KeyedService, public base::SupportsUserData {
   // Creates the Conversation for a session. Never returns null.
   std::unique_ptr<Conversation> MakeConversation(
       base::PassKey<SessionControllerImpl>,
-      SessionController& session_controller);
+      SessionController& session_controller,
+      std::unique_ptr<AudioController> audio_controller = nullptr);
 
   SessionController* session_controller() { return session_controller_.get(); }
 

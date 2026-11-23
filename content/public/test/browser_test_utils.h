@@ -2713,11 +2713,11 @@ std::optional<int> GetDOMNodeId(content::RenderFrameHost& rfh,
 // Returns the DOMNodeId of the node matched by the given CSS query selector
 // inside the iframe (must be a direct child of main frame, i.e. no nested
 // iframes) identified by subframe_query_selector or std::nullopt if no node
-// matches. Note: This method makes multiple renderer IPC calls (via the
-// devtools protocol) and waits for a result (an IPC back from the renderer)
-// each time.
-std::optional<int> GetDOMNodeIdFromSubframe(
-    RenderFrameHost& rfh,
+// matches. OOPIFs should use GetDOMNodeId instead. Note: This method makes
+// multiple renderer IPC calls (via the devtools protocol) and waits for a
+// result (an IPC back from the renderer) each time.
+std::optional<int> GetDOMNodeIdFromLocalSubframe(
+    RenderFrameHost& parent_rfh,
     std::string_view subframe_query_selector,
     std::string_view query_selector);
 
@@ -2834,23 +2834,43 @@ class ShowPopupWidgetWaiter
 // discards the message. Individual test should override `RequestClosePopup()`
 // to customize the behavior.
 class RequestCloseWidgetInterceptor
-    : public blink::mojom::PopupWidgetHostInterceptorForTesting {
+    : public blink::mojom::PopupWidgetHostInterceptorForTesting,
+      public RenderWidgetHostObserver {
  public:
   explicit RequestCloseWidgetInterceptor(RenderWidgetHost* render_widget_host);
   ~RequestCloseWidgetInterceptor() override;
 
   // `blink::mojom::PopupWidgetHostInterceptorForTesting`:
+  // Must not be called once the popup widget has been destroyed.
   blink::mojom::PopupWidgetHost* GetForwardingInterface() override;
   void RequestClosePopup() override;
 
+  // `RenderWidgetHostObserver`:
+  // The browser can destroy the popup widget without the renderer ever sending
+  // `RequestClosePopup()`, e.g. when the owning RenderWidgetHostView loses
+  // focus to another views::Widget. Removes the interception then, while the
+  // receiver still exists, so this object may safely outlive the widget. Tests
+  // waiting for `RequestClosePopup()` should also watch for the widget
+  // disappearing.
+  void RenderWidgetHostDestroyed(RenderWidgetHost* widget_host) final;
+
  private:
-  mojo::test::ScopedSwapImplForTesting<blink::mojom::PopupWidgetHost>
+  // Engaged while the popup widget is alive.
+  std::optional<
+      mojo::test::ScopedSwapImplForTesting<blink::mojom::PopupWidgetHost>>
       swapped_impl_;
+  base::ScopedObservation<RenderWidgetHost, RenderWidgetHostObserver>
+      widget_observation_{this};
 };
 
 // Crash the process associated with `adapter`. Waits for the crash to be seen
 // by the browser process. Returns `false` if the test times out before that.
 [[nodiscard]] bool CrashFrameProcess(const ToRenderFrameHost& adapter);
+
+// Simulates the browser-side drag-start path for `source_rfh`, assigning
+// `drop_data->drag_id` and notifying `WebContentsObserver::DidStartDrag`.
+void SimulateDragStartForTesting(RenderFrameHost* source_rfh,
+                                 DropData* drop_data);
 
 }  // namespace content
 

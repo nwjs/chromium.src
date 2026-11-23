@@ -1,0 +1,22 @@
+upstream {
+  version: "v3.4.0"
+  artifacts {
+    git {
+      repository: "https://github.com/google/double-conversion"
+      commit: "9dd6227ee3e29807183e56877f0282aeb40b8b1e"
+    }
+  }
+}
+stages {
+  input {
+    patch { copybara {} }
+  }
+  publish { git {} }
+}
+latest {
+  semver {}
+  git {
+    repository: "https://github.com/google/double-conversion"
+    tags {}
+  }
+}

@@ -45,6 +45,7 @@
 #include "components/autofill/core/browser/payments/iban_access_manager.h"
 #include "components/autofill/core/browser/payments/mock_iban_access_manager.h"
 #include "components/autofill/core/browser/payments/test/mock_multiple_request_payments_network_interface.h"
+#include "components/autofill/core/browser/permissions/device_reauth_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_test_helpers.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -59,8 +60,9 @@
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/test_utils/autofill_form_test_util.h"
+#include "components/device_reauth/mock_device_auth_availability_checker.h"
+#include "components/device_reauth/mock_device_authenticator.h"
 #include "components/history/core/browser/history_types.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -106,8 +108,33 @@ constexpr base::TimeDelta kFetchingMessageInterval = base::Seconds(3);
 
 class MockAutofillClient : public TestAutofillClient {
  public:
-  MockAutofillClient() = default;
+  MockAutofillClient() {
+    ON_CALL(*this, GetDeviceAuthenticator).WillByDefault([] {
+      auto authenticator =
+          std::make_unique<NiceMock<device_reauth::MockDeviceAuthenticator>>();
+      ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+          .WillByDefault(Return(true));
+      return authenticator;
+    });
+    ON_CALL(*this, GetDeviceAuthAvailabilityChecker).WillByDefault([] {
+      auto checker = std::make_unique<
+          NiceMock<device_reauth::MockDeviceAuthAvailabilityChecker>>();
+      ON_CALL(*checker, CanAuthenticateWithBiometricOrScreenLock)
+          .WillByDefault(Return(true));
+      return checker;
+    });
+  }
   ~MockAutofillClient() override = default;
+
+  using AutofillClient::GetDeviceAuthenticator;
+  MOCK_METHOD(std::unique_ptr<device_reauth::DeviceAuthenticator>,
+              GetDeviceAuthenticator,
+              (std::string),
+              (const, override));
+  MOCK_METHOD(std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker>,
+              GetDeviceAuthAvailabilityChecker,
+              (),
+              (const, override));
 
   MOCK_METHOD(void,
               ShowAutofillAiFetchEntityFailureNotification,
@@ -224,6 +251,7 @@ class AtMemoryManagerTestBase : public Test,
             /*pcontext_manager=*/nullptr,
             /*strike_database=*/nullptr,
             /*variation_country_code=*/GeoIpCountryCode("US")));
+    webdata_helper_.WaitUntilIdle();
 
     CreateAutofillDriver();
   }
@@ -1205,7 +1233,13 @@ TEST_P(AtMemoryManagerTest, FiltersSpiiInInsecureContext) {
 // Tests that SPII entries and metadata are filtered out from the search
 // results when the device does not support OS reauth, even in a secure context.
 TEST_P(AtMemoryManagerTest, FiltersSpiiWhenDeviceReauthNotSupported) {
-  autofill_client().set_supports_device_reauth(false);
+  // This disables device reauth.
+  ON_CALL(autofill_client(), GetDeviceAuthenticator).WillByDefault([] {
+    return nullptr;
+  });
+  ON_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .WillByDefault([] { return nullptr; });
+  ASSERT_FALSE(SupportsDeviceReauth(autofill_client()));
 
   // The search results delivered by the server.
   std::vector<MemorySearchResult> entries;
@@ -1259,7 +1293,14 @@ TEST_P(AtMemoryManagerTest,
        KeepsSpiiWhenDeviceReauthNotSupportedWithDebugFlag) {
   base::test::ScopedFeatureList debug_features(
       features::debug::kAtMemoryNoDeviceReauthCheck);
-  autofill_client().set_supports_device_reauth(false);
+
+  // This disables device reauth.
+  ON_CALL(autofill_client(), GetDeviceAuthenticator).WillByDefault([] {
+    return nullptr;
+  });
+  ON_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .WillByDefault([] { return nullptr; });
+  ASSERT_FALSE(SupportsDeviceReauth(autofill_client()));
 
   MemorySearchResults results(
       MemorySearchStatus::kFinalResponseSuccess,
@@ -1508,7 +1549,6 @@ TEST_P(AtMemoryManagerTest, FillNonSensitiveData_Success) {
           .GetProfileByGUID(test::MakeGuid(1));
   ASSERT_TRUE(added_profile);
   uint64_t initial_use_count = added_profile->usage_history().use_count();
-
 
   std::vector<Suggestion> final_suggestions;
   {
@@ -1968,6 +2008,60 @@ TEST_P(AtMemoryManagerTest, FetchingState_TimerStopsWhenResultsReceived) {
   task_environment_.FastForwardBy(kFetchingMessageInterval * 5);
 }
 
+// Tests that when partial search results arrive, the fetching timer is stopped
+// so that the results are not overwritten by fetching suggestions, while the
+// query remains pending and the final response is still shown.
+TEST_P(AtMemoryManagerTest,
+       FetchingState_TimerStopsWhenPartialResultsReceived) {
+  SeeFormAndShowPopup();
+
+  base::RepeatingCallback<void(MemorySearchResults)> search_callback;
+  EXPECT_CALL(mock_query_service(),
+              Query(std::u16string_view(u"query"), _, _, _))
+      .WillOnce(SaveArg<3>(&search_callback));
+  EXPECT_CALL(update_callback_,
+              Run(ElementsAre(Field(&Suggestion::type,
+                                    SuggestionType::kAtMemoryFetching)),
+                  AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  manager().OnSearchSubmitted(u"query");
+
+  // Return partial search results.
+  EXPECT_CALL(update_callback_,
+              Run(ElementsAre(Field(&Suggestion::type, SuggestionType::kTitle),
+                              Field(&Suggestion::type,
+                                    SuggestionType::kAtMemorySearchResult)),
+                  AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  search_callback.Run(
+      MemorySearchResults(MemorySearchStatus::kPartialResponseSuccess,
+                          {MemorySearchResult(MemoryDataType::kAddressFull,
+                                              u"Address", u"123 Main St")}));
+  ASSERT_TRUE(manager().IsSearching());
+
+  // The partial results must not be replaced by fetching suggestions.
+  EXPECT_CALL(
+      update_callback_,
+      Run(Contains(Field(&Suggestion::type, SuggestionType::kAtMemoryFetching)),
+          _))
+      .Times(0);
+  task_environment_.FastForwardBy(kFetchingMessageInterval * 5);
+
+  // The final response is still shown.
+  EXPECT_CALL(
+      update_callback_,
+      Run(ElementsAre(
+              Field(&Suggestion::type, SuggestionType::kTitle),
+              Field(&Suggestion::type, SuggestionType::kAtMemorySearchResult),
+              Field(&Suggestion::type, SuggestionType::kAtMemorySearchResult)),
+          AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  search_callback.Run(
+      MemorySearchResults(MemorySearchStatus::kFinalResponseSuccess,
+                          {MemorySearchResult(MemoryDataType::kAddressFull,
+                                              u"Address", u"123 Main St"),
+                           MemorySearchResult(MemoryDataType::kAddressFull,
+                                              u"Address", u"456 Second St")}));
+  EXPECT_FALSE(manager().IsSearching());
+}
+
 // Tests that when popup is hidden, the fetching timer is stopped.
 TEST_P(AtMemoryManagerTest, FetchingState_TimerStopsOnPopupHidden) {
   SeeFormAndShowPopup();
@@ -2278,7 +2372,6 @@ TEST_P(AtMemoryManagerTest, OnPopupShown_PassesSignaturesToMetricsRecorder) {
   ASSERT_TRUE(form_structure);
   ASSERT_TRUE(autofill_field);
 
-
   AtMemoryMetricsRecorder* recorder =
       test_api(manager()).at_memory_metrics_recorder();
   ASSERT_NE(recorder, nullptr);
@@ -2495,7 +2588,7 @@ TEST_P(AtMemoryManagerIconTest,
       {MemoryDataType::kIban, Suggestion::Icon::kCardGenericVector,
        Suggestion::Icon::kCardGenericSpark},
       {MemoryDataType::kLoyaltyMembershipId, Suggestion::Icon::kLoyaltyPrograms,
-       Suggestion::Icon::kTextSpark},
+       Suggestion::Icon::kLoyaltyProgramsSpark},
       {MemoryDataType::kOrderId, Suggestion::Icon::kOrder,
        Suggestion::Icon::kOrderSpark},
       {MemoryDataType::kShipmentTrackingNumber, Suggestion::Icon::kShipment,
@@ -2705,9 +2798,8 @@ TEST_F(AtMemoryManagerTestBase, SearchStatefulness_PersistsAndResetsState) {
   FieldGlobalId other_field_id = test::MakeFieldGlobalId();
 
   // 1. Initial state for a new field returns default 0-state suggestions.
-  EXPECT_TRUE(manager()
-                  .GetStateForField(field_id, form_origin())
-                  .filter.empty());
+  EXPECT_TRUE(
+      manager().GetStateForField(field_id, form_origin()).filter.empty());
 
   // Opening and closing without editing still leaves 0-state suggestions.
   manager().OnPopupShown(autofill_manager(), form_id, field_id,
@@ -2715,9 +2807,8 @@ TEST_F(AtMemoryManagerTestBase, SearchStatefulness_PersistsAndResetsState) {
                          /*metadata=*/{}, update_callback_.Get(),
                          ukm::kInvalidSourceId);
   manager().OnPopupHidden(SuggestionHidingReason::kUserAborted);
-  EXPECT_TRUE(manager()
-                  .GetStateForField(field_id, form_origin())
-                  .filter.empty());
+  EXPECT_TRUE(
+      manager().GetStateForField(field_id, form_origin()).filter.empty());
 
   manager().OnPopupShown(autofill_manager(), form_id, field_id,
                          AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
@@ -2741,19 +2832,244 @@ TEST_F(AtMemoryManagerTestBase, SearchStatefulness_PersistsAndResetsState) {
   AtMemorySearchState restored_state =
       manager().GetStateForField(field_id, form_origin());
   EXPECT_EQ(restored_state.filter, u"john");
+  // `manager().GetStateForField()` sections search results with titles.
   ASSERT_EQ(restored_state.suggestions.size(), 2u);
   EXPECT_EQ(restored_state.suggestions[0].type, SuggestionType::kTitle);
   EXPECT_EQ(restored_state.suggestions[1].main_text.value, u"John Doe");
 
+  // `state_manager` only stores raw search results.
+  const AtMemorySearchState& raw_state =
+      test_api(manager()).state_manager()->GetStateForField(field_id,
+                                                            form_origin());
+  EXPECT_NE(raw_state.status, AtMemorySearchStatus::kZeroState);
+  ASSERT_EQ(raw_state.suggestions.size(), 1u);
+  EXPECT_EQ(raw_state.suggestions[0].type,
+            SuggestionType::kAtMemorySearchResult);
+  EXPECT_EQ(raw_state.suggestions[0].main_text.value, u"John Doe");
+
   // 4. Accessing a different field resets state.
-  EXPECT_TRUE(manager()
-                  .GetStateForField(other_field_id, form_origin())
-                  .filter.empty());
+  EXPECT_TRUE(
+      manager().GetStateForField(other_field_id, form_origin()).filter.empty());
 
   // 5. Going back to the original field initializes a new empty state.
-  EXPECT_TRUE(manager()
-                  .GetStateForField(field_id, form_origin())
-                  .filter.empty());
+  EXPECT_TRUE(
+      manager().GetStateForField(field_id, form_origin()).filter.empty());
+}
+
+// Tests that in `kResponseReceived` state with search results, the raw state
+// stores raw search results, and `GetStateForField()` sections them with
+// titles and adds the personal context notice upon restoration.
+TEST_F(AtMemoryManagerTestBase, SearchStatefulness_ValidResponse) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAtMemorySearchStatefulness};
+  autofill_client()
+      .GetPersonalContextFirstRunService()
+      ->set_should_show_at_memory_notice(true);
+
+  const FormGlobalId form_id = test::MakeFormGlobalId();
+  const FieldGlobalId field_id = test::MakeFieldGlobalId();
+
+  manager().GetStateForField(field_id, form_origin());
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+
+  std::vector<Suggestion> final_suggestions;
+  MemorySearchResult entry(MemoryDataType::kNameFull, u"John Doe", u"John Doe");
+  entry.sources = {MemoryEntrySource(MemoryEntrySourceType::kAutofill)};
+  manager().OnFilterChanged(u"john");
+
+  EXPECT_CALL(mock_query_service(),
+              Query(std::u16string_view(u"john"), _, _, _))
+      .WillOnce(RunOnceCallback<3>(MemorySearchResults(
+          MemorySearchStatus::kFinalResponseSuccess, {entry})));
+  EXPECT_CALL(update_callback_,
+              Run(_, AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl))
+      .WillRepeatedly(SaveArg<0>(&final_suggestions));
+
+  manager().OnSearchSubmitted(u"john");
+  ASSERT_FALSE(final_suggestions.empty());
+
+  // Raw state in `state_manager` only stores raw search results.
+  const AtMemorySearchState& raw_state =
+      test_api(manager()).state_manager()->GetStateForField(field_id,
+                                                            form_origin());
+  EXPECT_EQ(raw_state.status, AtMemorySearchStatus::kResponseReceived);
+  EXPECT_EQ(raw_state.filter, u"john");
+  ASSERT_EQ(raw_state.suggestions.size(), 1u);
+  EXPECT_EQ(raw_state.suggestions[0].type,
+            SuggestionType::kAtMemorySearchResult);
+  EXPECT_EQ(raw_state.suggestions[0].main_text.value, u"John Doe");
+
+  // Simulating popup close and restore via `GetStateForField()` sections the
+  // suggestions with titles and adds the personal context notice.
+  manager().OnPopupHidden(SuggestionHidingReason::kUserAborted);
+  AtMemorySearchState restored_state =
+      manager().GetStateForField(field_id, form_origin());
+  EXPECT_EQ(restored_state.status, AtMemorySearchStatus::kResponseReceived);
+  EXPECT_EQ(restored_state.filter, u"john");
+  ASSERT_EQ(restored_state.suggestions.size(), 4u);
+  EXPECT_EQ(restored_state.suggestions[0].type, SuggestionType::kTitle);
+  EXPECT_EQ(restored_state.suggestions[1].main_text.value, u"John Doe");
+  EXPECT_EQ(restored_state.suggestions[2].type, SuggestionType::kSeparator);
+  EXPECT_EQ(restored_state.suggestions[3].type,
+            SuggestionType::kPersonalContextNotice);
+}
+
+// Tests that in `kResponseReceived` state with an error, the raw state stores
+// raw error suggestions and `GetStateForField()` does not duplicate the
+// personal context notice or add section titles upon restoration.
+TEST_F(AtMemoryManagerTestBase, SearchStatefulness_ErrorResponse) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAtMemorySearchStatefulness};
+  autofill_client()
+      .GetPersonalContextFirstRunService()
+      ->set_should_show_at_memory_notice(true);
+
+  const FormGlobalId form_id = test::MakeFormGlobalId();
+  const FieldGlobalId field_id = test::MakeFieldGlobalId();
+
+  // Initialize state for the field.
+  manager().GetStateForField(field_id, form_origin());
+
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+
+  EXPECT_CALL(mock_query_service(),
+              Query(std::u16string_view(u"query"), _, _, _))
+      .WillOnce(RunOnceCallback<3>(
+          MemorySearchResults(MemorySearchStatus::kNoConnectionFailure,
+                              std::vector<MemorySearchResult>{})));
+
+  std::vector<Suggestion> final_suggestions;
+  EXPECT_CALL(update_callback_,
+              Run(_, AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl))
+      .WillRepeatedly(SaveArg<0>(&final_suggestions));
+
+  manager().OnSearchSubmitted(u"query");
+
+  // The popup receives the error suggestion and the personal context notice
+  // separated by a separator.
+  ASSERT_EQ(final_suggestions.size(), 3u);
+  EXPECT_EQ(final_suggestions[0].type, SuggestionType::kAtMemoryNoConnection);
+  EXPECT_EQ(final_suggestions[0].a11y_announcement,
+            l10n_util::GetStringUTF16(IDS_AUTOFILL_AT_MEMORY_NO_CONNECTION));
+  EXPECT_EQ(final_suggestions[1].type, SuggestionType::kSeparator);
+  EXPECT_EQ(final_suggestions[2].type, SuggestionType::kPersonalContextNotice);
+
+  // Raw state in `state_manager` only stores the raw error suggestion.
+  const AtMemorySearchState& raw_state =
+      test_api(manager()).state_manager()->GetStateForField(field_id,
+                                                            form_origin());
+  EXPECT_EQ(raw_state.status, AtMemorySearchStatus::kResponseReceived);
+  EXPECT_EQ(raw_state.filter, u"query");
+  ASSERT_EQ(raw_state.suggestions.size(), 1u);
+  EXPECT_EQ(raw_state.suggestions[0].type,
+            SuggestionType::kAtMemoryNoConnection);
+  EXPECT_EQ(raw_state.suggestions[0].a11y_announcement,
+            l10n_util::GetStringUTF16(IDS_AUTOFILL_AT_MEMORY_NO_CONNECTION));
+
+  // Simulating popup close and restore via `GetStateForField()` does not
+  // duplicate the personal context notice, does not add a section title,
+  // and preserves the error a11y announcement.
+  manager().OnPopupHidden(SuggestionHidingReason::kUserAborted);
+  AtMemorySearchState restored_state =
+      manager().GetStateForField(field_id, form_origin());
+  EXPECT_EQ(restored_state.status, AtMemorySearchStatus::kResponseReceived);
+  EXPECT_EQ(restored_state.filter, u"query");
+  ASSERT_EQ(restored_state.suggestions.size(), 3u);
+  EXPECT_EQ(restored_state.suggestions[0].type,
+            SuggestionType::kAtMemoryNoConnection);
+  EXPECT_EQ(restored_state.suggestions[0].a11y_announcement,
+            l10n_util::GetStringUTF16(IDS_AUTOFILL_AT_MEMORY_NO_CONNECTION));
+  EXPECT_EQ(restored_state.suggestions[1].type, SuggestionType::kSeparator);
+  EXPECT_EQ(restored_state.suggestions[2].type,
+            SuggestionType::kPersonalContextNotice);
+}
+
+// Tests that in `kQueryModified` state, the raw state stores no suggestions,
+// and `GetStateForField()` dynamically constructs query typing suggestions
+// upon restoration.
+TEST_F(AtMemoryManagerTestBase, SearchStatefulness_QueryModified) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAtMemorySearchStatefulness};
+
+  const FormGlobalId form_id = test::MakeFormGlobalId();
+  const FieldGlobalId field_id = test::MakeFieldGlobalId();
+
+  manager().GetStateForField(field_id, form_origin());
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+
+  manager().OnFilterChanged(u"test");
+
+  // Raw state in `state_manager` stores the filter, but no suggestions.
+  const AtMemorySearchState& raw_state =
+      test_api(manager()).state_manager()->GetStateForField(field_id,
+                                                            form_origin());
+  EXPECT_EQ(raw_state.status, AtMemorySearchStatus::kQueryModified);
+  EXPECT_EQ(raw_state.filter, u"test");
+  EXPECT_TRUE(raw_state.suggestions.empty());
+
+  // Simulating popup close and restore via `GetStateForField()` dynamically
+  // constructs query typing suggestions (search affordance).
+  manager().OnPopupHidden(SuggestionHidingReason::kUserAborted);
+  AtMemorySearchState restored_state =
+      manager().GetStateForField(field_id, form_origin());
+  EXPECT_EQ(restored_state.status, AtMemorySearchStatus::kQueryModified);
+  EXPECT_EQ(restored_state.filter, u"test");
+  ASSERT_FALSE(restored_state.suggestions.empty());
+  EXPECT_EQ(restored_state.suggestions[0].type,
+            SuggestionType::kAtMemorySearchAffordance);
+}
+
+// Tests that in `kSearching` state, the raw state stores no suggestions,
+// and `GetStateForField()` dynamically constructs fetching suggestions
+// upon restoration.
+TEST_F(AtMemoryManagerTestBase, SearchStatefulness_Searching) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAtMemorySearchStatefulness};
+
+  const FormGlobalId form_id = test::MakeFormGlobalId();
+  const FieldGlobalId field_id = test::MakeFieldGlobalId();
+
+  manager().GetStateForField(field_id, form_origin());
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+
+  base::RepeatingCallback<void(MemorySearchResults)> saved_query_callback;
+  EXPECT_CALL(mock_query_service(),
+              Query(std::u16string_view(u"test"), _, _, _))
+      .WillOnce(SaveArg<3>(&saved_query_callback));
+  manager().OnSearchSubmitted(u"test");
+  ASSERT_TRUE(saved_query_callback);
+
+  // Raw state in `state_manager` stores the filter and searching status, but no
+  // suggestions.
+  const AtMemorySearchState& raw_state =
+      test_api(manager()).state_manager()->GetStateForField(field_id,
+                                                            form_origin());
+  EXPECT_EQ(raw_state.status, AtMemorySearchStatus::kSearching);
+  EXPECT_EQ(raw_state.filter, u"test");
+  EXPECT_TRUE(raw_state.suggestions.empty());
+
+  // Simulating popup close and restore via `GetStateForField()` dynamically
+  // constructs fetching suggestions.
+  manager().OnPopupHidden(SuggestionHidingReason::kUserAborted);
+  AtMemorySearchState restored_state =
+      manager().GetStateForField(field_id, form_origin());
+  EXPECT_EQ(restored_state.status, AtMemorySearchStatus::kSearching);
+  EXPECT_EQ(restored_state.filter, u"test");
+  ASSERT_FALSE(restored_state.suggestions.empty());
+  EXPECT_EQ(restored_state.suggestions[0].type,
+            SuggestionType::kAtMemoryFetching);
 }
 
 // Tests that when search statefulness is enabled and a suggestion is accepted,
@@ -2765,9 +3081,8 @@ TEST_F(AtMemoryManagerTestBase,
 
   auto [form_id, field_id] = SeeForm();
 
-  EXPECT_TRUE(manager()
-                  .GetStateForField(field_id, form_origin())
-                  .filter.empty());
+  EXPECT_TRUE(
+      manager().GetStateForField(field_id, form_origin()).filter.empty());
 
   manager().OnPopupShown(autofill_manager(), form_id, field_id,
                          AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
@@ -2788,9 +3103,8 @@ TEST_F(AtMemoryManagerTestBase,
                              final_suggestions[0], /*metadata=*/std::nullopt);
 
   // After suggestion acceptance, state for field_id is reset.
-  EXPECT_TRUE(manager()
-                  .GetStateForField(field_id, form_origin())
-                  .filter.empty());
+  EXPECT_TRUE(
+      manager().GetStateForField(field_id, form_origin()).filter.empty());
 }
 
 // Tests that when search statefulness is enabled and history is deleted,
@@ -2825,8 +3139,10 @@ TEST_F(AtMemoryManagerTestBase, SearchStatefulness_HistoryDeletionResetsState) {
             u"john");
 
   // Delete history.
-  test_api(manager()).state_manager()->OnHistoryDeletions(
-      /*history_service=*/nullptr, history::DeletionInfo::ForAllHistory());
+  static_cast<history::HistoryServiceObserver*>(
+      test_api(manager()).state_manager())
+      ->OnHistoryDeletions(
+          /*history_service=*/nullptr, history::DeletionInfo::ForAllHistory());
 
   // State should now be cleared.
   EXPECT_TRUE(
@@ -2934,6 +3250,148 @@ TEST_F(AtMemoryManagerTestBase,
   EXPECT_FALSE(manager().IsSearching());
   EXPECT_TRUE(
       manager().GetStateForField(field_id, form_origin()).filter.empty());
+}
+
+// Tests that when search statefulness is enabled and the popup is reopened
+// while a search is still in progress, the fetching messages restart from the
+// first one and keep rotating.
+TEST_F(AtMemoryManagerTestBase,
+       SearchStatefulness_FetchingTimerRestartsOnPopupReopen) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAtMemorySearchStatefulness};
+
+  auto [form_id, field_id] = SeeForm();
+  manager().GetStateForField(field_id, form_origin());
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+  manager().OnFilterChanged(u"john");
+
+  base::RepeatingCallback<void(MemorySearchResults)> saved_query_callback;
+  EXPECT_CALL(mock_query_service(),
+              Query(std::u16string_view(u"john"), _, _, _))
+      .WillOnce(SaveArg<3>(&saved_query_callback));
+  {
+    InSequence seq;
+    EXPECT_CALL(
+        update_callback_,
+        Run(ElementsAre(EqualsSuggestion(
+                SuggestionType::kAtMemoryFetching,
+                l10n_util::GetStringUTF16(
+                    IDS_AUTOFILL_AT_MEMORY_FETCHING_FINDING_INFO_WITH_GEMINI))),
+            AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+    EXPECT_CALL(
+        update_callback_,
+        Run(ElementsAre(EqualsSuggestion(
+                SuggestionType::kAtMemoryFetching,
+                l10n_util::GetStringUTF16(
+                    IDS_AUTOFILL_AT_MEMORY_FETCHING_REVIEWING_CONNECTED_APPS))),
+            AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  }
+  manager().OnSearchSubmitted(u"john");
+  task_environment_.FastForwardBy(kFetchingMessageInterval);
+  ASSERT_TRUE(saved_query_callback);
+
+  // Close the popup while the search continues in the background. The
+  // fetching messages stop rotating.
+  manager().OnPopupHidden(SuggestionHidingReason::kUserAborted);
+  EXPECT_CALL(update_callback_, Run).Times(0);
+  task_environment_.FastForwardBy(kFetchingMessageInterval * 2);
+  testing::Mock::VerifyAndClearExpectations(&update_callback_);
+  ASSERT_TRUE(manager().IsSearching());
+
+  // Reopening the popup restarts from the first fetching message, which
+  // re-announces the loading state.
+  AtMemorySearchState restored_state =
+      manager().GetStateForField(field_id, form_origin());
+  EXPECT_EQ(restored_state.status, AtMemorySearchStatus::kSearching);
+  EXPECT_EQ(restored_state.filter, u"john");
+  EXPECT_THAT(
+      restored_state.suggestions,
+      ElementsAre(AllOf(
+          EqualsSuggestion(
+              SuggestionType::kAtMemoryFetching,
+              l10n_util::GetStringUTF16(
+                  IDS_AUTOFILL_AT_MEMORY_FETCHING_FINDING_INFO_WITH_GEMINI)),
+          HasA11yAnnouncement(
+              IDS_AUTOFILL_AT_MEMORY_LOADING_A11Y_ANNOUNCEMENT))));
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+
+  // The fetching messages rotate again.
+  EXPECT_CALL(
+      update_callback_,
+      Run(ElementsAre(EqualsSuggestion(
+              SuggestionType::kAtMemoryFetching,
+              l10n_util::GetStringUTF16(
+                  IDS_AUTOFILL_AT_MEMORY_FETCHING_REVIEWING_CONNECTED_APPS))),
+          AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  task_environment_.FastForwardBy(kFetchingMessageInterval);
+  testing::Mock::VerifyAndClearExpectations(&update_callback_);
+
+  // Once the final response arrives, the fetching messages stop rotating.
+  EXPECT_CALL(update_callback_,
+              Run(ElementsAre(Field(&Suggestion::type, SuggestionType::kTitle),
+                              Field(&Suggestion::type,
+                                    SuggestionType::kAtMemorySearchResult)),
+                  AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
+  saved_query_callback.Run(
+      MemorySearchResults(MemorySearchStatus::kFinalResponseSuccess,
+                          {MemorySearchResult(MemoryDataType::kAddressFull,
+                                              u"Address", u"123 Main St")}));
+  EXPECT_FALSE(manager().IsSearching());
+  task_environment_.FastForwardBy(kFetchingMessageInterval * 5);
+}
+
+// Tests that when search statefulness is enabled and the popup is reopened
+// while a search is in progress but partial results were already received,
+// the partial results are restored and not replaced by fetching messages.
+TEST_F(AtMemoryManagerTestBase,
+       SearchStatefulness_PartialResultsRestoredOnPopupReopen) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAtMemorySearchStatefulness};
+
+  auto [form_id, field_id] = SeeForm();
+  manager().GetStateForField(field_id, form_origin());
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+  manager().OnFilterChanged(u"john");
+
+  base::RepeatingCallback<void(MemorySearchResults)> saved_query_callback;
+  EXPECT_CALL(mock_query_service(),
+              Query(std::u16string_view(u"john"), _, _, _))
+      .WillOnce(SaveArg<3>(&saved_query_callback));
+  manager().OnSearchSubmitted(u"john");
+  ASSERT_TRUE(saved_query_callback);
+  saved_query_callback.Run(
+      MemorySearchResults(MemorySearchStatus::kPartialResponseSuccess,
+                          {MemorySearchResult(MemoryDataType::kAddressFull,
+                                              u"Address", u"123 Main St")}));
+  manager().OnPopupHidden(SuggestionHidingReason::kUserAborted);
+  ASSERT_TRUE(manager().IsSearching());
+
+  // The partial results are restored as is.
+  AtMemorySearchState restored_state =
+      manager().GetStateForField(field_id, form_origin());
+  EXPECT_EQ(restored_state.status,
+            AtMemorySearchStatus::kPartialResponseReceived);
+  EXPECT_THAT(restored_state.suggestions,
+              ElementsAre(Field(&Suggestion::type, SuggestionType::kTitle),
+                          Field(&Suggestion::type,
+                                SuggestionType::kAtMemorySearchResult)));
+
+  // Reopening the popup does not replace them with fetching messages.
+  manager().OnPopupShown(autofill_manager(), form_id, field_id,
+                         AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
+                         /*metadata=*/{}, update_callback_.Get(),
+                         ukm::kInvalidSourceId);
+  EXPECT_CALL(update_callback_, Run).Times(0);
+  task_environment_.FastForwardBy(kFetchingMessageInterval * 5);
 }
 
 // Tests that when the primary main frame navigates (driver resets),
@@ -3461,6 +3919,98 @@ TEST_F(
   EXPECT_EQ(empty_suggestions[0].type, SuggestionType::kTitle);
   EXPECT_EQ(empty_suggestions[1].main_text.value, u"123 Main St");
   ASSERT_EQ(empty_suggestions[1].children.size(), 1u);
+}
+
+// Tests that when an address suggestion is filled, it is preserved in
+// previously filled suggestions and not pruned by the asynchronous
+// `OnAddressDataChanged` notification triggered by recording profile use.
+TEST_F(AtMemoryManagerTestBase,
+       FillSearchResultPreservesPreviouslyFilledAfterAsyncAddressDataChanged) {
+  base::test::ScopedFeatureList feature_list{
+      {features::kAutofillAtMemoryPreviouslyFilled,
+       features::kAutofillAtMemorySearchStatefulness}};
+
+  AutofillProfile profile = test::GetFullProfile();
+  autofill_client().GetPersonalDataManager().address_data_manager().AddProfile(
+      profile);
+  webdata_helper().WaitUntilIdle();
+
+  const FormGlobalId form_id = test::MakeFormGlobalId();
+  const FieldGlobalId field_id = test::MakeFieldGlobalId();
+
+  Suggestion suggestion(u"123 Main St", SuggestionType::kAtMemorySearchResult);
+  Suggestion::AtMemoryPayload payload(u"123 Main St",
+                                      MemoryDataType::kAddressFull);
+  payload.identifier = profile.guid();
+  suggestion.payload = payload;
+
+  manager().FillSearchResult(autofill_manager(), form_id, field_id, suggestion,
+                             /*metadata=*/std::nullopt);
+
+  // Wait for the asynchronous database write from
+  // `AddressDataManager::RecordUseOf` to complete and fire
+  // `OnAddressDataChanged`.
+  webdata_helper().WaitUntilIdle();
+
+  // Verify that the filled suggestion is preserved in previously filled
+  // suggestions and not cleared by `OnAddressDataChanged`.
+  const std::vector<Suggestion> empty_suggestions =
+      manager().GetEmptyQuerySuggestions(/*on_popup_open=*/false);
+  ASSERT_EQ(empty_suggestions.size(), 2u);
+  EXPECT_EQ(empty_suggestions[0].type, SuggestionType::kTitle);
+  EXPECT_EQ(empty_suggestions[1].main_text.value, u"123 Main St");
+  EXPECT_EQ(test_api(manager())
+                .state_manager()
+                ->previously_filled_suggestions()
+                .size(),
+            1u);
+}
+
+// Tests that when a credit card suggestion is filled, it is preserved in
+// previously filled suggestions and not pruned by the asynchronous
+// `OnPaymentsDataChanged` notification triggered by recording card use.
+TEST_F(AtMemoryManagerTestBase,
+       FillSearchResultPreservesPreviouslyFilledAfterAsyncPaymentsDataChanged) {
+  base::test::ScopedFeatureList feature_list{
+      {features::kAutofillAtMemoryPreviouslyFilled,
+       features::kAutofillAtMemorySearchStatefulness}};
+
+  CreditCard card = test::GetCreditCard();
+  autofill_client()
+      .GetPersonalDataManager()
+      .payments_data_manager()
+      .AddCreditCard(card);
+  webdata_helper().WaitUntilIdle();
+
+  const FormGlobalId form_id = test::MakeFormGlobalId();
+  const FieldGlobalId field_id = test::MakeFieldGlobalId();
+
+  Suggestion suggestion(u"Jane Doe", SuggestionType::kAtMemorySearchResult);
+  Suggestion::AtMemoryPayload payload(u"Jane Doe",
+                                      MemoryDataType::kCreditCardNameOnCard);
+  payload.identifier = card.guid();
+  suggestion.payload = payload;
+
+  manager().FillSearchResult(autofill_manager(), form_id, field_id, suggestion,
+                             /*metadata=*/std::nullopt);
+
+  // Wait for the asynchronous database write from
+  // `PaymentsDataManager::RecordUseOfCard` to complete and fire
+  // `OnPaymentsDataChanged`.
+  webdata_helper().WaitUntilIdle();
+
+  // Verify that the filled suggestion is preserved in previously filled
+  // suggestions and not cleared by `OnPaymentsDataChanged`.
+  const std::vector<Suggestion> empty_suggestions =
+      manager().GetEmptyQuerySuggestions(/*on_popup_open=*/false);
+  ASSERT_EQ(empty_suggestions.size(), 2u);
+  EXPECT_EQ(empty_suggestions[0].type, SuggestionType::kTitle);
+  EXPECT_EQ(empty_suggestions[1].main_text.value, u"Jane Doe");
+  EXPECT_EQ(test_api(manager())
+                .state_manager()
+                ->previously_filled_suggestions()
+                .size(),
+            1u);
 }
 
 // Tests that `TransformResultIntoSuggestion` resolves the primary suggestion

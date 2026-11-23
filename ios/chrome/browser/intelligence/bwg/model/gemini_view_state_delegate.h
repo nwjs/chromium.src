@@ -17,10 +17,13 @@ typedef NS_ENUM(NSInteger, GeminiCancelType);
 // Called when the view state changes.
 - (void)didSwitchToViewState:(ios::provider::GeminiViewState)viewState;
 
-// Called when the processing status changes with a dormant reason.
+// Called when the processing status changes with a dormant reason and optional
+// error details.
 - (void)didUpdateProcessingStatus:(ios::provider::GeminiClientMode)processStatus
                     dormantReason:
                         (ios::provider::GeminiDormantReason)dormantReason
+                            error:(NSError*)error
+                        errorCode:(ios::provider::GeminiErrorCode)errorCode
                         sessionID:(NSString*)sessionID
                    conversationID:(NSString*)conversationID;
 
@@ -58,6 +61,27 @@ typedef NS_ENUM(NSInteger, GeminiCancelType);
 // Called when loading a previous conversation finishes.
 - (void)didFinishLoadingConversationWithID:(NSString*)conversationID
                                      error:(NSError*)error;
+
+// Called when the page context attachment state in the input plate changes.
+- (void)inputPlateDidChangePageContextAttachment:(BOOL)isAttached;
+
+// Called when the Nano Banana attachment selection in the input plate changes.
+- (void)inputPlateDidChangeNanoBananaAttachment:(BOOL)isSelected;
+
+// Called when a request to detach a tab with the given ID is made.
+- (void)didRequestToDetachTabWithID:(NSString*)tabID;
+
+// Called when a tab with the given ID has been attached by the Floaty.
+- (void)didAttachTabWithID:(NSString*)tabID;
+
+// Called when a tab with the given ID has been detached by the Floaty.
+- (void)didDetachTabWithID:(NSString*)tabID;
+
+// Returns the number of currently attached tabs.
+- (NSUInteger)attachedTabsCount;
+
+// Returns whether a multi-tab prompt is used.
+- (BOOL)isMultiTabUsed;
 
 @end
 

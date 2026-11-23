@@ -4,6 +4,9 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 
+#include <tuple>
+
+#include "base/base64.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/test/bind.h"
@@ -14,6 +17,7 @@
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_internals.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_permission_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_toolbar.mojom.h"
@@ -22,6 +26,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
+#include "chrome/browser/contextual_tasks/list_accounts_response.pb.h"
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_page.h"
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service.h"
@@ -50,32 +55,44 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "components/contextual_search/contextual_search_types.h"
+#include "components/contextual_search/mock_contextual_search_session_handle.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
 #include "components/contextual_tasks/public/prefs.h"
+#include "components/lens/lens_overlay_mime_type.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/signin/public/base/list_accounts_test_utils.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/variations/scoped_variations_ids_provider.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/mock_navigation_handle.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_web_ui.h"
 #include "content/public/test/web_contents_tester.h"
+#include "google_apis/gaia/gaia_constants.h"
+#include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
+#include "net/cookies/canonical_cookie.h"
+#include "net/cookies/cookie_options.h"
+#include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/gfx/image/image.h"
 #include "ui/webui/buildflags.h"
@@ -176,6 +193,8 @@ class MockTaskInfoDelegate : public TaskInfoDelegate {
 
   MOCK_METHOD(void, OnTaskChanged, (), (override));
 
+  void MaybeTriggerPinningPromo() override {}
+
  private:
   std::optional<base::Uuid> task_id_;
   std::optional<std::string> thread_id_;
@@ -199,6 +218,7 @@ class FakeContextualTasksEligibilityManager
   }
 
   bool IsEligibleWithoutIdentity() const override { return is_eligible_; }
+  bool IsSidePanelAvailable() const override { return is_eligible_; }
 
  protected:
   bool CalculateEligibility() const override { return is_eligible_; }
@@ -230,11 +250,45 @@ class FakeContextualTasksPermissionController
     return state;
   }
   void OnChipClicked(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
-                     bool is_mouse_interaction) override {}
+                     bool is_mouse_interaction,
+                     uint32_t state_token) override {
+    ++chip_clicked_count;
+    last_clicked_identifier = identifier;
+    last_clicked_is_mouse_interaction = is_mouse_interaction;
+    last_clicked_state_token = state_token;
+  }
+  void OnChipPointerEntered(
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier) override {
+    last_pointer_entered_ = identifier;
+  }
+  void OnChipPointerExited(
+      toolbar_ui_api::mojom::LhsChipIdentifier identifier) override {
+    last_pointer_exited_ = identifier;
+  }
   void OnChipExpandAnimationEnded(
       toolbar_ui_api::mojom::LhsChipIdentifier identifier) override {}
   void OnChipCollapseAnimationEnded(
       toolbar_ui_api::mojom::LhsChipIdentifier identifier) override {}
+
+  // Arguments of the last `OnChipClicked()` call.
+  int chip_clicked_count = 0;
+  toolbar_ui_api::mojom::LhsChipIdentifier last_clicked_identifier =
+      toolbar_ui_api::mojom::LhsChipIdentifier::kLocationIcon;
+  bool last_clicked_is_mouse_interaction = false;
+  uint32_t last_clicked_state_token = 0;
+
+  std::optional<toolbar_ui_api::mojom::LhsChipIdentifier>
+  last_pointer_entered() const {
+    return last_pointer_entered_;
+  }
+  std::optional<toolbar_ui_api::mojom::LhsChipIdentifier>
+  last_pointer_exited() const {
+    return last_pointer_exited_;
+  }
+
+ private:
+  std::optional<toolbar_ui_api::mojom::LhsChipIdentifier> last_pointer_entered_;
+  std::optional<toolbar_ui_api::mojom::LhsChipIdentifier> last_pointer_exited_;
 };
 
 class MockToolbarPage : public contextual_tasks_toolbar::mojom::Page {
@@ -243,6 +297,10 @@ class MockToolbarPage : public contextual_tasks_toolbar::mojom::Page {
   ~MockToolbarPage() override = default;
 
   MOCK_METHOD(void, OnSidePanelPinStateChanged, (bool is_pinned), (override));
+  MOCK_METHOD(void,
+              OnPinButtonEligibilityChanged,
+              (bool is_eligible),
+              (override));
   MOCK_METHOD(void, OnAiPageStatusChanged, (bool is_ai_page), (override));
   MOCK_METHOD(
       void,
@@ -253,6 +311,10 @@ class MockToolbarPage : public contextual_tasks_toolbar::mojom::Page {
   MOCK_METHOD(void, SetThreadTitle, (const std::string&), (override));
   MOCK_METHOD(void, OnSidePanelStateChanged, (), (override));
   MOCK_METHOD(void, SetProfileAvatarUrl, (const GURL& avatar_url), (override));
+  MOCK_METHOD(void,
+              SetAccountInfo,
+              (const std::string& full_name, const std::string& email),
+              (override));
 
   mojo::PendingRemote<contextual_tasks_toolbar::mojom::Page>
   BindAndGetRemote() {
@@ -334,10 +396,20 @@ class TestContextualTasksUI : public ContextualTasksUI {
     return ContextualTasksUI::GetBrowser();
   }
 
+  void set_inner_frame_url(const GURL& url) { inner_frame_url_ = url; }
+
+  const GURL& GetInnerFrameUrl() const override {
+    if (inner_frame_url_.has_value()) {
+      return *inner_frame_url_;
+    }
+    return ContextualTasksUI::GetInnerFrameUrl();
+  }
+
  private:
   raw_ptr<contextual_tasks::ContextualTasksPanelController> panel_controller_ =
       nullptr;
   raw_ptr<BrowserWindowInterface> browser_window_ = nullptr;
+  std::optional<GURL> inner_frame_url_;
 };
 
 }  // namespace
@@ -1019,10 +1091,10 @@ TEST_F(ContextualTasksUiTest, GetContextualTasksLoadTimeData) {
   base::DictValue load_time_data =
       ContextualTasksUI::GetContextualTasksLoadTimeData(profile_);
 
-  // The in-panel WebUI voice search UI is only used on large-screen Android
-  // devices (tablet or desktop form factor); it is always false elsewhere.
+  // The in-panel WebUI voice search UI is only used on Android devices with the
+  // desktop form factor; it is always false elsewhere.
   const bool expect_webui_voice_search =
-      contextual_tasks::IsAndroidLargeFormFactor();
+      contextual_tasks::IsAndroidDesktopFormFactor();
 
   // Only set when the in-panel WebUI voice search UI in desktop Android is
   // active. It drives audio wave simulation, since that UI cannot open its own
@@ -1041,12 +1113,12 @@ TEST_F(ContextualTasksUiTest, GetContextualTasksLoadTimeData) {
 }
 
 #if BUILDFLAG(IS_ANDROID)
-// Covers the path the feature actually ships: a large-screen Android device
-// with the flag on, which swaps the platform voice recognition activity for
-// the in-panel WebUI voice search UI.
+// Covers the path the feature actually ships: a desktop Android device with
+// the flag on, which swaps the platform voice recognition activity for the
+// in-panel WebUI voice search UI.
 TEST_F(ContextualTasksUiTest,
-       GetContextualTasksLoadTimeData_WebUiVoiceSearchOnLargeScreen) {
-  // `IsAndroidLargeFormFactor()` reads `ui::GetDeviceFormFactor()`, which
+       GetContextualTasksLoadTimeData_WebUiVoiceSearchOnDesktopAndroid) {
+  // `IsAndroidDesktopFormFactor()` reads `ui::GetDeviceFormFactor()`, which
   // reports the desktop form factor when `device_info::is_desktop()` is set.
   base::android::device_info::set_is_desktop_for_testing(true);
   base::ScopedClosureRunner reset_form_factor(base::BindOnce(
@@ -1686,8 +1758,8 @@ TEST_F(ContextualTasksUiTest, IsCoBrowseOmniboxAction_False_OtherEntryPoint) {
 
   base::Uuid task_id = base::Uuid::GenerateRandomV4();
   service_for_nav_->SetInitialEntryPointForTask(
-      task_id,
-      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON);
+      task_id, omnibox::ChromeAimEntryPoint::
+                   DESKTOP_CHROME_COBROWSE_PINNED_TOOLBAR_BUTTON);
   controller.SetTaskId(task_id);
 
   EXPECT_FALSE(controller.IsCoBrowseOmniboxAction());
@@ -2019,8 +2091,25 @@ TEST_F(ContextualTasksUiTest, ContextualTasksToolbarUIServiceBindTest) {
 
   remote->OnChipClicked(
       toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator,
-      /*is_mouse_interaction=*/true);
+      /*is_mouse_interaction=*/true, /*state_token=*/42);
   remote.FlushForTesting();
+
+  // The click, including its state token, is forwarded to the controller.
+  EXPECT_EQ(fake_controller.chip_clicked_count, 1);
+  EXPECT_EQ(fake_controller.last_clicked_identifier,
+            toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator);
+  EXPECT_TRUE(fake_controller.last_clicked_is_mouse_interaction);
+  EXPECT_EQ(fake_controller.last_clicked_state_token, 42u);
+
+  remote->OnChipPointerEntered(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest);
+  remote->OnChipPointerExited(
+      toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator);
+  remote.FlushForTesting();
+  EXPECT_EQ(fake_controller.last_pointer_entered(),
+            toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionRequest);
+  EXPECT_EQ(fake_controller.last_pointer_exited(),
+            toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator);
 }
 
 TEST_F(ContextualTasksUiTest, SetThreadTitle_DispatchesToToolbarPage) {
@@ -2727,6 +2816,100 @@ TEST_F(ContextualTasksUiTest,
   observer.reset();
 }
 
+// With side panel tab state, other tabs of the old task keep the old thread in
+// a new panel, so selecting a thread from history saves the URL that showed the
+// old thread for that panel, without reopening thread history.
+TEST_F(ContextualTasksUiTest, ThreadSwitch_TabState_SavesOldThreadUrl) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({omnibox::kContextManagementInComposebox,
+                                 kContextualTasksSidePanelTabState},
+                                {});
+
+  MockTaskInfoDelegate delegate;
+  base::Uuid old_task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  base::Uuid new_task_id =
+      base::Uuid::ParseCaseInsensitive("22222222-2222-2222-2222-222222222222");
+  const std::string old_title = "current thread";
+  const std::string old_thread_id = "current_thread_id";
+  const std::string history_thread_id = "history_thread_id";
+  SetupMockDelegate(&delegate, old_task_id, old_thread_id, old_title);
+
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  // The old thread is shown with thread history open.
+  GURL old_thread_url =
+      net::AppendQueryParameter(GURL(kAiPageUrl), "q", old_title);
+  old_thread_url =
+      net::AppendQueryParameter(old_thread_url, "mtid", old_thread_id);
+  std::unique_ptr<content::MockNavigationHandle> old_thread_nav_handle =
+      CreateMockNavigationHandle(
+          net::AppendQueryParameter(old_thread_url, "atvm", "1"));
+  old_thread_nav_handle->set_is_same_document(true);
+  observer->DidFinishNavigation(old_thread_nav_handle.get());
+
+  // The user selects another thread from history.
+  GURL history_thread_url =
+      net::AppendQueryParameter(GURL(kAiPageUrl), "q", "Historical Thread");
+  history_thread_url =
+      net::AppendQueryParameter(history_thread_url, "mtid", history_thread_id);
+  ON_CALL(*contextual_tasks_service_, CreateTaskFromUrl(history_thread_url))
+      .WillByDefault(Return(ContextualTask(new_task_id)));
+  GURL saved_url;
+  EXPECT_CALL(*service_for_nav_, SetInitialUrlForTask(old_task_id, _))
+      .WillOnce(testing::SaveArg<1>(&saved_url));
+  std::unique_ptr<content::MockNavigationHandle> history_nav_handle =
+      CreateMockNavigationHandle(history_thread_url);
+  history_nav_handle->set_is_same_document(true);
+  ON_CALL(*history_nav_handle, HasUserGesture()).WillByDefault(Return(true));
+  observer->DidFinishNavigation(history_nav_handle.get());
+
+  EXPECT_EQ(delegate.GetTaskId(), new_task_id);
+  EXPECT_EQ(old_thread_url, saved_url);
+
+  observer.reset();
+}
+
+TEST_F(ContextualTasksUiTest, ThreadSwitch_TabStateDisabled_DoesNotSaveUrl) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({omnibox::kContextManagementInComposebox},
+                                {kContextualTasksSidePanelTabState});
+
+  MockTaskInfoDelegate delegate;
+  base::Uuid old_task_id = base::Uuid::ParseCaseInsensitive(kUuid);
+  base::Uuid new_task_id =
+      base::Uuid::ParseCaseInsensitive("22222222-2222-2222-2222-222222222222");
+  const std::string old_thread_id = "current_thread_id";
+  SetupMockDelegate(&delegate, old_task_id, old_thread_id, "current thread");
+
+  auto observer = std::make_unique<ContextualTasksUI::FrameNavObserver>(
+      embedded_web_contents_.get(), service_for_nav_.get(),
+      contextual_tasks_service_.get(), &delegate);
+
+  GURL old_thread_url =
+      net::AppendQueryParameter(GURL(kAiPageUrl), "mtid", old_thread_id);
+  std::unique_ptr<content::MockNavigationHandle> old_thread_nav_handle =
+      CreateMockNavigationHandle(old_thread_url);
+  old_thread_nav_handle->set_is_same_document(true);
+  observer->DidFinishNavigation(old_thread_nav_handle.get());
+
+  GURL history_thread_url =
+      net::AppendQueryParameter(GURL(kAiPageUrl), "mtid", "history_thread_id");
+  ON_CALL(*contextual_tasks_service_, CreateTaskFromUrl(history_thread_url))
+      .WillByDefault(Return(ContextualTask(new_task_id)));
+  EXPECT_CALL(*service_for_nav_, SetInitialUrlForTask(_, _)).Times(0);
+  std::unique_ptr<content::MockNavigationHandle> history_nav_handle =
+      CreateMockNavigationHandle(history_thread_url);
+  history_nav_handle->set_is_same_document(true);
+  ON_CALL(*history_nav_handle, HasUserGesture()).WillByDefault(Return(true));
+  observer->DidFinishNavigation(history_nav_handle.get());
+
+  EXPECT_EQ(delegate.GetTaskId(), new_task_id);
+
+  observer.reset();
+}
+
 // Ensure that when switching between different threads (different query/title),
 // a new task is created even if kContextManagementInComposebox is enabled,
 // so context does not leak between threads.
@@ -2894,7 +3077,7 @@ TEST_F(ContextualTasksUiTest,
   GURL exact_matches_url("https://www.google.com/search?q=test&udm=48");
   content::OpenURLParams renderer_params(
       exact_matches_url, content::Referrer(),
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK,
+      ui::mojom::WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_LINK,
       /*is_renderer_initiated=*/true);
   renderer_params.initiator_origin =
       url::Origin::Create(GURL("https://www.google.com"));
@@ -2919,6 +3102,10 @@ TEST_F(ContextualTasksUiTest, PinSidePanel) {
                             contextual_tasks::
                                 kEnableContextualTasksPinButtonInToolbar},
       /*disabled_features=*/{});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
 
   auto* model = PinnedToolbarActionsModel::Get(profile_);
   ASSERT_TRUE(model);
@@ -2953,6 +3140,39 @@ TEST_F(ContextualTasksUiTest, PinSidePanel) {
   EXPECT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
 
   legacy_ui->UnpinSidePanel();
+  EXPECT_FALSE(model->Contains(kActionSidePanelShowContextualTasks));
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest, PinSidePanel_NotPinningEligible) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{kContextualTasksSidePanelRearchitecture,
+                            contextual_tasks::
+                                kEnableContextualTasksPinButtonInToolbar},
+      /*disabled_features=*/{});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  eligibility_manager.SetIsEligible(false);
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+
+  auto* model = PinnedToolbarActionsModel::Get(profile_);
+  ASSERT_TRUE(model);
+
+  ContextualTasksUIConfig config;
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  std::unique_ptr<content::WebUIController> controller =
+      config.CreateWebUIController(&web_ui, GURL("chrome://contextual-tasks"));
+  ASSERT_TRUE(controller);
+  auto* ui = controller->GetAs<ContextualTasksUIPostRearchitecture>();
+  ASSERT_NE(ui, nullptr);
+
+  EXPECT_FALSE(model->Contains(kActionSidePanelShowContextualTasks));
+  ui->PinSidePanel();
   EXPECT_FALSE(model->Contains(kActionSidePanelShowContextualTasks));
 
   actions::ActionIdMap::ResetMapsForTesting();
@@ -3002,6 +3222,10 @@ TEST_F(ContextualTasksUiTest, OnSidePanelPinStateChanged) {
                             contextual_tasks::
                                 kEnableContextualTasksPinButtonInToolbar},
       /*disabled_features=*/{});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
 
   auto* model = PinnedToolbarActionsModel::Get(profile_);
   ASSERT_TRUE(model);
@@ -3074,6 +3298,10 @@ TEST_F(ContextualTasksUiTest, OnSidePanelPinStateChanged_ModelDirectUpdate) {
                                 kEnableContextualTasksPinButtonInToolbar},
       /*disabled_features=*/{});
 
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+
   auto* model = PinnedToolbarActionsModel::Get(profile_);
   ASSERT_TRUE(model);
 
@@ -3145,6 +3373,10 @@ TEST_F(ContextualTasksUiTest,
                                 kEnableContextualTasksPinButtonInToolbar},
       /*disabled_features=*/{});
 
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+
   auto* model = PinnedToolbarActionsModel::Get(profile_);
   ASSERT_TRUE(model);
   model->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
@@ -3189,6 +3421,147 @@ TEST_F(ContextualTasksUiTest,
   actions::ActionIdMap::ResetMapsForTesting();
 }
 
+TEST_F(ContextualTasksUiTest,
+       OnPinButtonEligibilityChanged_WhenEligibilityLostWhileOpen) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{kContextualTasksSidePanelRearchitecture,
+                            contextual_tasks::
+                                kEnableContextualTasksPinButtonInToolbar},
+      /*disabled_features=*/{});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+
+  ContextualTasksUIConfig config;
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  std::unique_ptr<content::WebUIController> controller =
+      config.CreateWebUIController(&web_ui, GURL("chrome://contextual-tasks"));
+  ASSERT_TRUE(controller);
+  auto* ui = controller->GetAs<ContextualTasksUIPostRearchitecture>();
+  ASSERT_NE(ui, nullptr);
+
+  testing::NiceMock<MockToolbarPage> mock_page;
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> handler_remote;
+
+  // The user is pin-eligible when the toolbar binds.
+  base::RunLoop bind_run_loop;
+  EXPECT_CALL(mock_page, OnPinButtonEligibilityChanged(true))
+      .WillOnce(base::test::RunClosure(bind_run_loop.QuitClosure()));
+  ui->CreatePageHandler(mock_page.BindAndGetRemote(),
+                        handler_remote.BindNewPipeAndPassReceiver());
+  bind_run_loop.Run();
+
+  // Losing Contextual Tasks eligibility while the side panel is open must tell
+  // the WebUI to hide the pin/unpin item (and report it as unpinned).
+  base::RunLoop ineligible_run_loop;
+  EXPECT_CALL(mock_page, OnPinButtonEligibilityChanged(false))
+      .WillOnce(base::test::RunClosure(ineligible_run_loop.QuitClosure()));
+  EXPECT_CALL(mock_page, OnSidePanelPinStateChanged(false))
+      .Times(testing::AtLeast(1));
+  eligibility_manager.SetIsEligible(false);
+  ineligible_run_loop.Run();
+
+  // Regaining eligibility shows the item again.
+  base::RunLoop eligible_run_loop;
+  EXPECT_CALL(mock_page, OnPinButtonEligibilityChanged(true))
+      .WillOnce(base::test::RunClosure(eligible_run_loop.QuitClosure()));
+  eligibility_manager.SetIsEligible(true);
+  eligible_run_loop.Run();
+
+  controller.reset();
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest, PinSidePanel_IncognitoCannotPinOrUnpin) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {kContextualTasksRearchitecture, kContextualTasksSidePanelRearchitecture,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+       contextual_tasks::kContextualTasksForceEntryPointEligibility},
+      /*disabled_features=*/{});
+
+  Profile* otr_profile =
+      profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  ASSERT_TRUE(otr_profile);
+
+  base::DictValue otr_load_time_data =
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(otr_profile);
+  EXPECT_EQ(otr_load_time_data.FindBool("enablePinButton"), false);
+
+  std::unique_ptr<content::WebContents> otr_web_contents =
+      content::WebContentsTester::CreateTestWebContents(otr_profile, nullptr);
+  content::TestWebUI otr_web_ui;
+  otr_web_ui.set_web_contents(otr_web_contents.get());
+  ContextualTasksUIConfig config;
+  std::unique_ptr<content::WebUIController> controller =
+      config.CreateWebUIController(&otr_web_ui,
+                                   GURL("chrome://contextual-tasks"));
+  ASSERT_TRUE(controller);
+  auto* ui = controller->GetAs<ContextualTasksUIPostRearchitecture>();
+  ASSERT_NE(ui, nullptr);
+
+  auto* model = PinnedToolbarActionsModel::Get(profile_);
+  ASSERT_TRUE(model);
+  EXPECT_FALSE(model->Contains(kActionSidePanelShowContextualTasks));
+
+  // Calling PinSidePanel from an Incognito controller must not mutate the
+  // parent regular profile's pinned toolbar actions model.
+  ui->PinSidePanel();
+  EXPECT_FALSE(model->Contains(kActionSidePanelShowContextualTasks));
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest, UnpinSidePanel_IncognitoCannotPinOrUnpin) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {kContextualTasksRearchitecture, kContextualTasksSidePanelRearchitecture,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+       contextual_tasks::kContextualTasksForceEntryPointEligibility},
+      /*disabled_features=*/{});
+
+  Profile* otr_profile =
+      profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  ASSERT_TRUE(otr_profile);
+
+  base::DictValue otr_load_time_data =
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(otr_profile);
+  EXPECT_EQ(otr_load_time_data.FindBool("enablePinButton"), false);
+
+  std::unique_ptr<content::WebContents> otr_web_contents =
+      content::WebContentsTester::CreateTestWebContents(otr_profile, nullptr);
+  content::TestWebUI otr_web_ui;
+  otr_web_ui.set_web_contents(otr_web_contents.get());
+  ContextualTasksUIConfig config;
+  std::unique_ptr<content::WebUIController> controller =
+      config.CreateWebUIController(&otr_web_ui,
+                                   GURL("chrome://contextual-tasks"));
+  ASSERT_TRUE(controller);
+  auto* ui = controller->GetAs<ContextualTasksUIPostRearchitecture>();
+  ASSERT_NE(ui, nullptr);
+
+  // Start with the button pinned in the parent regular profile.
+  auto* model = PinnedToolbarActionsModel::Get(profile_);
+  ASSERT_TRUE(model);
+  model->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
+  ASSERT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
+
+  // Calling UnpinSidePanel from an Incognito controller must not unpin the
+  // button from the parent regular profile's pinned toolbar actions model.
+  ui->UnpinSidePanel();
+  EXPECT_TRUE(model->Contains(kActionSidePanelShowContextualTasks));
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
 TEST_F(ContextualTasksUiTest, OnSidePanelPinStateChanged_FeatureDisabled) {
   InitializeActionIdStringMapping();
   base::test::ScopedFeatureList scoped_feature_list;
@@ -3211,6 +3584,10 @@ TEST_F(ContextualTasksUiTest, OnSidePanelPinStateChanged_FeatureDisabled) {
 
   testing::StrictMock<MockToolbarPage> mock_page;
   EXPECT_CALL(mock_page, SetProfileAvatarUrl(_)).Times(testing::AnyNumber());
+  EXPECT_CALL(mock_page, SetAccountInfo(_, _)).Times(testing::AnyNumber());
+  // The initial (ineligible) pin button eligibility is pushed on bind.
+  EXPECT_CALL(mock_page, OnPinButtonEligibilityChanged(false))
+      .Times(testing::AnyNumber());
   mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> handler_remote;
   ui->CreatePageHandler(mock_page.BindAndGetRemote(),
                         handler_remote.BindNewPipeAndPassReceiver());
@@ -3226,6 +3603,10 @@ TEST_F(ContextualTasksUiTest, OnSidePanelPinStateChanged_FeatureDisabled) {
   auto legacy_ui = std::make_unique<ContextualTasksUI>(&legacy_web_ui);
   testing::StrictMock<MockToolbarPage> legacy_mock_page;
   EXPECT_CALL(legacy_mock_page, SetProfileAvatarUrl(_))
+      .Times(testing::AnyNumber());
+  EXPECT_CALL(legacy_mock_page, SetAccountInfo(_, _))
+      .Times(testing::AnyNumber());
+  EXPECT_CALL(legacy_mock_page, OnPinButtonEligibilityChanged(false))
       .Times(testing::AnyNumber());
   mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler>
       legacy_handler_remote;
@@ -3747,6 +4128,93 @@ TEST_F(ContextualTasksUiTest, CreateNewThread_LegacyUI_ClearsThreadTitle) {
   EXPECT_EQ(controller.GetThreadTitle(), std::nullopt);
 }
 
+TEST_F(ContextualTasksUiTest,
+       CreateNewThread_ScopedToTab_MovesActiveTabToNewThread) {
+  base::test::ScopedFeatureList feature_list(kContextualTasksSidePanelTabState);
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  controller.set_panel_controller(&mock_panel_controller);
+  std::unique_ptr<content::WebContents> active_web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  EXPECT_CALL(mock_panel_controller, GetActiveWebContents())
+      .WillRepeatedly(Return(active_web_contents.get()));
+  EXPECT_CALL(mock_panel_controller, GetToolbarWebContents())
+      .WillRepeatedly(Return(embedded_web_contents_.get()));
+
+  // The new thread starts in a new task for the active tab, so the shared
+  // panel `WebContents` is not navigated.
+  EXPECT_CALL(mock_panel_controller, MoveActiveTabToNewThreadIfShared())
+      .WillOnce(Return(true));
+  EXPECT_CALL(*service_for_nav_, GetDefaultAiPageUrlForTask(_)).Times(0);
+  EXPECT_CALL(*service_for_nav_, GetDefaultAiPageUrl()).Times(0);
+
+  controller.SetThreadTitle("Existing Thread Title");
+  controller.CreateNewThread();
+
+  EXPECT_EQ(controller.GetThreadTitle(), std::nullopt);
+  EXPECT_TRUE(active_web_contents->GetVisibleURL().is_empty());
+}
+
+TEST_F(ContextualTasksUiTest,
+       CreateNewThread_ScopedToTab_NotShared_NavigatesInPlace) {
+  base::test::ScopedFeatureList feature_list(kContextualTasksSidePanelTabState);
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  controller.set_panel_controller(&mock_panel_controller);
+  std::unique_ptr<content::WebContents> active_web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  EXPECT_CALL(mock_panel_controller, GetActiveWebContents())
+      .WillRepeatedly(Return(active_web_contents.get()));
+  EXPECT_CALL(mock_panel_controller, GetToolbarWebContents())
+      .WillRepeatedly(Return(embedded_web_contents_.get()));
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  EXPECT_CALL(mock_panel_controller, GetCurrentTask())
+      .WillRepeatedly(Return(ContextualTask(task_id)));
+
+  // No other tab shares the task, so the new thread replaces the current one in
+  // place.
+  EXPECT_CALL(mock_panel_controller, MoveActiveTabToNewThreadIfShared())
+      .WillOnce(Return(false));
+  GURL raw_url("https://www.google.com/search?udm=50");
+  EXPECT_CALL(*service_for_nav_, GetDefaultAiPageUrlForTask(task_id))
+      .WillOnce(Return(raw_url));
+
+  controller.CreateNewThread();
+
+  EXPECT_EQ(active_web_contents->GetVisibleURL(),
+            ContextualTasksUiService::AddRequiredSidePanelUrlChanges(
+                raw_url, active_web_contents.get()));
+}
+
+TEST_F(ContextualTasksUiTest,
+       CreateNewThread_ScopedToTab_NonToolbarWebUI_SafeNoOp) {
+  base::test::ScopedFeatureList feature_list(kContextualTasksSidePanelTabState);
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUI controller(&web_ui);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  controller.set_panel_controller(&mock_panel_controller);
+  std::unique_ptr<content::WebContents> active_web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  EXPECT_CALL(mock_panel_controller, GetActiveWebContents())
+      .WillRepeatedly(Return(active_web_contents.get()));
+  EXPECT_CALL(mock_panel_controller, GetToolbarWebContents())
+      .WillRepeatedly(Return(nullptr));
+  EXPECT_CALL(mock_panel_controller, MoveActiveTabToNewThreadIfShared())
+      .Times(0);
+
+  controller.CreateNewThread();
+
+  EXPECT_TRUE(active_web_contents->GetVisibleURL().is_empty());
+}
+
 TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_SafeNoOp) {
   content::TestWebUI web_ui;
   web_ui.set_web_contents(embedded_web_contents_.get());
@@ -3798,10 +4266,15 @@ TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_Success) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/
-      {contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
        feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
       /*disabled_features=*/{
           contextual_tasks::kContextualTasksHideMenuOnAiPage});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
 
   // Set the post-onboarding session count to meet the default threshold (2).
   profile_->GetPrefs()->SetInteger(
@@ -3818,15 +4291,22 @@ TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_Success) {
   MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
 
   testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  ContextualTask task_with_tab(base::Uuid::GenerateRandomV4());
+  task_with_tab.AddUrlResource(
+      UrlResource(GURL("https://example.com"), ResourceType::kWebpage));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_tab));
   content::TestWebUI web_ui;
   web_ui.set_web_contents(embedded_web_contents_.get());
   TestContextualTasksUI controller(&web_ui);
   controller.set_panel_controller(&mock_panel_controller);
   controller.set_browser_window(&mock_browser_window);
+  controller.set_inner_frame_url(
+      GURL("https://www.google.com/search?udm=50&q=test&mstk=123"));
 
   EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
       .WillOnce(Return(true));
-  EXPECT_CALL(*service_for_nav_, IsAiUrl(_)).WillOnce(Return(true));
+  EXPECT_CALL(*service_for_nav_, IsAiUrl(_)).WillRepeatedly(Return(true));
 
   // The pinning promo is expected to be tried.
   EXPECT_CALL(
@@ -3840,16 +4320,269 @@ TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_Success) {
   actions::ActionIdMap::ResetMapsForTesting();
 }
 
-TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_SrpWithFlagEnabled) {
+TEST_F(ContextualTasksUiTest,
+       MaybeTriggerPinningPromo_SuppressedWhenOnboardingTooltipVisible) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+       feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
+      /*disabled_features=*/{
+          contextual_tasks::kContextualTasksHideMenuOnAiPage});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+  profile_->GetPrefs()->SetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding, 2);
+
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
+  ui::UnownedUserDataHost window_user_data_host;
+  ON_CALL(mock_browser_window, GetUnownedUserDataHost())
+      .WillByDefault(ReturnRef(window_user_data_host));
+  ON_CALL(mock_browser_window, GetProfile()).WillByDefault(Return(profile_));
+  MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  ContextualTask task_with_tab(base::Uuid::GenerateRandomV4());
+  task_with_tab.AddUrlResource(
+      UrlResource(GURL("https://example.com"), ResourceType::kWebpage));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_tab));
+  ON_CALL(mock_panel_controller, GetActiveWebContents())
+      .WillByDefault(Return(embedded_web_contents_.get()));
+  const GURL kAiUrlWithMstk(
+      "https://www.google.com/search?udm=50&q=test&mstk=123");
+  content::WebContentsTester::For(embedded_web_contents_.get())
+      ->NavigateAndCommit(kAiUrlWithMstk);
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUI controller(&web_ui);
+  controller.set_panel_controller(&mock_panel_controller);
+  controller.set_browser_window(&mock_browser_window);
+  controller.set_inner_frame_url(kAiUrlWithMstk);
+  controller.ContextualTasksUIBase::SetIsAiPage(true);
+
+  EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*service_for_nav_, IsAiUrl(_)).WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_panel_controller, IsOnboardingTooltipVisible())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(
+      mock_user_education,
+      MaybeShowFeaturePromo(
+          testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
+      .Times(0);
+
+  controller.MaybeTriggerPinningPromo();
+  controller.ContextualTasksUIBase::MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  EXPECT_CALL(mock_panel_controller, IsOnboardingTooltipVisible())
+      .WillRepeatedly(Return(false));
+  EXPECT_CALL(
+      mock_user_education,
+      MaybeShowFeaturePromo(
+          testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
+      .Times(2)
+      .WillRepeatedly(Return(true));
+
+  controller.MaybeTriggerPinningPromo();
+  controller.ContextualTasksUIBase::MaybeTriggerPinningPromo();
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_ZeroState) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+       feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
+      /*disabled_features=*/{
+          contextual_tasks::kContextualTasksHideMenuOnAiPage});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+
+  profile_->GetPrefs()->SetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding, 2);
+
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
+  ui::UnownedUserDataHost window_user_data_host;
+  ON_CALL(mock_browser_window, GetUnownedUserDataHost())
+      .WillByDefault(ReturnRef(window_user_data_host));
+  ON_CALL(mock_browser_window, GetProfile()).WillByDefault(Return(profile_));
+
+  MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  ContextualTask task_with_tab(base::Uuid::GenerateRandomV4());
+  task_with_tab.AddUrlResource(
+      UrlResource(GURL("https://example.com"), ResourceType::kWebpage));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_tab));
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUI controller(&web_ui);
+  controller.set_panel_controller(&mock_panel_controller);
+  controller.set_browser_window(&mock_browser_window);
+  controller.set_inner_frame_url(GURL("https://www.google.com/search?udm=50"));
+
+  EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
+      .WillOnce(Return(true));
+  EXPECT_CALL(*service_for_nav_, IsAiUrl(_)).WillRepeatedly(Return(true));
+
+  // The pinning promo is NOT expected to be tried when in zero state (before
+  // the user submits at least a first-turn query) or while streaming is still
+  // in progress (no mstk/smstk param).
+  EXPECT_CALL(
+      mock_user_education,
+      MaybeShowFeaturePromo(
+          testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
+      .Times(0);
+
+  controller.MaybeTriggerPinningPromo();
+
+  controller.set_inner_frame_url(
+      GURL("https://www.google.com/search?udm=50&q=test"));
+  EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
+      .WillOnce(Return(true));
+  controller.MaybeTriggerPinningPromo();
+
+  // Once the user exits zero state and streaming finishes, the pinning promo
+  // should be attempted.
+  controller.set_inner_frame_url(
+      GURL("https://www.google.com/search?udm=50&q=test&mstk=123"));
+  EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
+      .WillOnce(Return(true));
+  EXPECT_CALL(
+      mock_user_education,
+      MaybeShowFeaturePromo(
+          testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
+      .WillOnce(Return(true));
+
+  controller.MaybeTriggerPinningPromo();
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_PinningV2Disabled) {
   InitializeActionIdStringMapping();
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/
       {contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+       feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
+      /*disabled_features=*/{contextual_tasks::kContextualTasksPinningV2});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+
+  profile_->GetPrefs()->SetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding, 2);
+
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
+  ui::UnownedUserDataHost window_user_data_host;
+  ON_CALL(mock_browser_window, GetUnownedUserDataHost())
+      .WillByDefault(ReturnRef(window_user_data_host));
+  ON_CALL(mock_browser_window, GetProfile()).WillByDefault(Return(profile_));
+
+  MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUI controller(&web_ui);
+  controller.set_panel_controller(&mock_panel_controller);
+  controller.set_browser_window(&mock_browser_window);
+
+  EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
+      .WillOnce(Return(true));
+
+  // The pinning promo is NOT expected to be tried when kContextualTasksPinningV2
+  // is disabled.
+  EXPECT_CALL(
+      mock_user_education,
+      MaybeShowFeaturePromo(
+          testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
+      .Times(0);
+
+  controller.MaybeTriggerPinningPromo();
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_NotPinningEligible) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+       feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
+      /*disabled_features=*/{});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  eligibility_manager.SetIsEligible(false);
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+
+  profile_->GetPrefs()->SetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding, 2);
+
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
+  ui::UnownedUserDataHost window_user_data_host;
+  ON_CALL(mock_browser_window, GetUnownedUserDataHost())
+      .WillByDefault(ReturnRef(window_user_data_host));
+  ON_CALL(mock_browser_window, GetProfile()).WillByDefault(Return(profile_));
+
+  MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUI controller(&web_ui);
+  controller.set_panel_controller(&mock_panel_controller);
+  controller.set_browser_window(&mock_browser_window);
+
+  EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
+      .WillOnce(Return(true));
+
+  // The pinning promo is NOT expected to be tried when CanPinOrUnpin is
+  // false.
+  EXPECT_CALL(
+      mock_user_education,
+      MaybeShowFeaturePromo(
+          testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
+      .Times(0);
+
+  controller.MaybeTriggerPinningPromo();
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest, MaybeTriggerPinningPromo_SrpWithFlagEnabled) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
        contextual_tasks::kEnableContextualTasksPinButtonOnSrp,
        feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
       /*disabled_features=*/{
           contextual_tasks::kContextualTasksHideMenuOnAiPage});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
 
   profile_->GetPrefs()->SetInteger(
       contextual_tasks::kContextualTasksSessionCountPostOnboarding, 2);
@@ -3893,10 +4626,15 @@ TEST_F(ContextualTasksUiTest,
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/
-      {contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
        feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
       /*disabled_features=*/{
           contextual_tasks::kContextualTasksHideMenuOnAiPage});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
 
   // Set the count to 1 (less than the default threshold of 2).
   profile_->GetPrefs()->SetInteger(
@@ -3911,15 +4649,22 @@ TEST_F(ContextualTasksUiTest,
   MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
 
   testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  ContextualTask task_with_tab(base::Uuid::GenerateRandomV4());
+  task_with_tab.AddUrlResource(
+      UrlResource(GURL("https://example.com"), ResourceType::kWebpage));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_tab));
   content::TestWebUI web_ui;
   web_ui.set_web_contents(embedded_web_contents_.get());
   TestContextualTasksUI controller(&web_ui);
   controller.set_panel_controller(&mock_panel_controller);
   controller.set_browser_window(&mock_browser_window);
+  controller.set_inner_frame_url(
+      GURL("https://www.google.com/search?udm=50&q=test&mstk=123"));
 
   EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
       .WillOnce(Return(true));
-  EXPECT_CALL(*service_for_nav_, IsAiUrl(_)).WillOnce(Return(true));
+  EXPECT_CALL(*service_for_nav_, IsAiUrl(_)).WillRepeatedly(Return(true));
 
   // The pinning promo is NOT expected to be tried because threshold (2) is not
   // met.
@@ -3940,10 +4685,15 @@ TEST_F(ContextualTasksUiTest,
   base::test::ScopedFeatureList test_features;
   test_features.InitWithFeatures(
       /*enabled_features=*/
-      {contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
        feature_engagement::kIPHSidePanelContextualTasksPinnableFeature,
        contextual_tasks::kContextualTasksHideMenuOnAiPage},
       /*disabled_features=*/{});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
 
   testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
   ui::UnownedUserDataHost window_user_data_host;
@@ -3954,22 +4704,197 @@ TEST_F(ContextualTasksUiTest,
   MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
 
   testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  ContextualTask task_with_tab(base::Uuid::GenerateRandomV4());
+  task_with_tab.AddUrlResource(
+      UrlResource(GURL("https://example.com"), ResourceType::kWebpage));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_tab));
   content::TestWebUI web_ui;
   web_ui.set_web_contents(embedded_web_contents_.get());
   TestContextualTasksUI controller(&web_ui);
   controller.set_panel_controller(&mock_panel_controller);
   controller.set_browser_window(&mock_browser_window);
+  controller.set_inner_frame_url(
+      GURL("https://www.google.com/search?udm=50&q=test&mstk=123"));
 
   EXPECT_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
       .WillOnce(Return(true));
+  EXPECT_CALL(*service_for_nav_, IsAiUrl(_)).WillRepeatedly(Return(true));
 
-  // The pinning promo is not expected to be tried.
+  profile_->GetPrefs()->SetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding, 2);
+
+  // The pinning promo is expected to be tried even when the WebUI menu is
+  // hidden on the AI page, since it now anchors to the ephemeral pin button.
   EXPECT_CALL(
       mock_user_education,
       MaybeShowFeaturePromo(
           testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
-      .Times(0);
+      .WillOnce(Return(true));
 
+  controller.MaybeTriggerPinningPromo();
+
+  actions::ActionIdMap::ResetMapsForTesting();
+}
+
+TEST_F(ContextualTasksUiTest,
+       MaybeTriggerPinningPromo_StreamingAndContextRequirements) {
+  InitializeActionIdStringMapping();
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/
+      {contextual_tasks::kContextualTasksPinningV2,
+       contextual_tasks::kEnableContextualTasksPinButtonInToolbar,
+       contextual_tasks::kEnableContextualTasksPinButtonOnSrp,
+       feature_engagement::kIPHSidePanelContextualTasksPinnableFeature},
+      /*disabled_features=*/{features::kGuestViewMPArch});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  ON_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillByDefault(Return(&eligibility_manager));
+  profile_->GetPrefs()->SetInteger(
+      contextual_tasks::kContextualTasksSessionCountPostOnboarding, 2);
+
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
+  ui::UnownedUserDataHost window_user_data_host;
+  ON_CALL(mock_browser_window, GetUnownedUserDataHost())
+      .WillByDefault(ReturnRef(window_user_data_host));
+  ON_CALL(mock_browser_window, GetProfile()).WillByDefault(Return(profile_));
+  MockBrowserUserEducationInterface mock_user_education(&mock_browser_window);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  ContextualTask task_with_tab(base::Uuid::GenerateRandomV4());
+  task_with_tab.AddUrlResource(
+      UrlResource(GURL("https://example.com"), ResourceType::kWebpage));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_tab));
+  ON_CALL(mock_panel_controller, IsPanelOpenForContextualTask())
+      .WillByDefault(Return(true));
+  ON_CALL(*service_for_nav_, IsAiUrl(_)).WillByDefault(Return(true));
+  ON_CALL(*contextual_tasks_service_, CreateTaskFromUrl(_))
+      .WillByDefault(Return(task_with_tab));
+
+  std::unique_ptr<content::WebContents> outer_web_contents =
+      content::WebContentsTester::CreateTestWebContents(
+          profile_, content::SiteInstance::Create(profile_));
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(outer_web_contents.get());
+  TestContextualTasksUI controller(&web_ui);
+  controller.set_panel_controller(&mock_panel_controller);
+  controller.set_browser_window(&mock_browser_window);
+  controller.SetTaskId(task_with_tab.GetTaskId());
+  TriggerOnInnerWebContentsCreated(&controller, embedded_web_contents_.get());
+
+  auto expect_promo = [&](int times) {
+    auto& expectation = EXPECT_CALL(
+        mock_user_education,
+        MaybeShowFeaturePromo(
+            testing::Matcher<user_education::FeaturePromoParams>(testing::_)))
+        .Times(times);
+    if (times > 0) {
+      expectation.WillRepeatedly(Return(true));
+    }
+  };
+
+  // 1. Navigating to a non-AI SRP or an in-progress AI query (no mstk/smstk)
+  // should NOT trigger the pinning promo.
+  expect_promo(0);
+  ON_CALL(*service_for_nav_, IsAiUrl(_)).WillByDefault(Return(false));
+  ON_CALL(*service_for_nav_, IsSearchResultsUrl(_)).WillByDefault(Return(true));
+  content::WebContentsTester::For(embedded_web_contents_.get())
+      ->NavigateAndCommit(GURL("https://www.google.com/search?q=lens+region"));
+
+  ON_CALL(*service_for_nav_, IsAiUrl(_)).WillByDefault(Return(true));
+  content::WebContentsTester::For(embedded_web_contents_.get())
+      ->NavigateAndCommit(
+          GURL("https://www.google.com/search?udm=50&q=test&mtid=client123"));
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  // 2. Navigating to a finished AI response (mstk present) with webpage context
+  // triggers the promo.
+  expect_promo(1);
+  content::WebContentsTester::For(embedded_web_contents_.get())
+      ->NavigateAndCommit(GURL(
+          "https://www.google.com/search?udm=50&q=test&mtid=server456&mstk=1"));
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  // 3. Tasks with no context or image-only context do NOT trigger, whereas PDF
+  // context triggers.
+  expect_promo(0);
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(ContextualTask(base::Uuid::GenerateRandomV4())));
+  controller.MaybeTriggerPinningPromo();
+
+  ContextualTask task_with_image(base::Uuid::GenerateRandomV4());
+  task_with_image.AddUrlResource(
+      UrlResource(GURL("https://example.com/img.png"), ResourceType::kImage));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_image));
+  controller.MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  ContextualTask task_with_pdf(base::Uuid::GenerateRandomV4());
+  task_with_pdf.AddUrlResource(
+      UrlResource(GURL("https://example.com/doc.pdf"), ResourceType::kPdf));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_pdf));
+  expect_promo(1);
+  controller.MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  // 4. `EntrySource::kLensOverlay` allows the promo when a finished AI response
+  // completes for a task with tab or PDF context, while an active Lens overlay
+  // suppresses the promo.
+  testing::NiceMock<contextual_search::MockContextualSearchSessionHandle>
+      mock_session_handle;
+  ON_CALL(mock_panel_controller, GetContextualSearchSessionHandleForPanel())
+      .WillByDefault(Return(&mock_session_handle));
+  ON_CALL(mock_panel_controller, GetActiveEntrySource())
+      .WillByDefault(
+          Return(ContextualTasksPanelController::EntrySource::kLensOverlay));
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(ContextualTask(base::Uuid::GenerateRandomV4())));
+  expect_promo(0);
+  controller.MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  expect_promo(1);
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(task_with_tab));
+  controller.MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+  ON_CALL(mock_panel_controller, GetCurrentTask())
+      .WillByDefault(Return(ContextualTask(base::Uuid::GenerateRandomV4())));
+
+  contextual_search::TabInfo restored_tab;
+  restored_tab.tab_id = 99;
+  restored_tab.url = GURL("https://example.com");
+  mock_session_handle.SetRestoredTabs({restored_tab});
+  expect_promo(1);
+  controller.MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+  mock_session_handle.SetRestoredTabs({});
+
+  contextual_search::FileInfo attached_pdf_info;
+  attached_pdf_info.mime_type = lens::MimeType::kUnknown;
+  attached_pdf_info.mime_type_string = "application/pdf";
+  ON_CALL(mock_session_handle, GetSubmittedContextFileInfos())
+      .WillByDefault(
+          Return(std::vector<contextual_search::FileInfo>{attached_pdf_info}));
+  expect_promo(1);
+  controller.MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  ON_CALL(mock_session_handle, GetSubmittedContextFileInfos())
+      .WillByDefault(Return(std::vector<contextual_search::FileInfo>{}));
+  mock_session_handle.AddPendingDelayedTab(1, GURL("https://example.com"),
+                                           "Example");
+  expect_promo(1);
+  controller.MaybeTriggerPinningPromo();
+  testing::Mock::VerifyAndClearExpectations(&mock_user_education);
+
+  expect_promo(0);
+  controller.OnLensOverlayStateChanged(/*is_showing=*/true, std::nullopt);
   controller.MaybeTriggerPinningPromo();
 
   actions::ActionIdMap::ResetMapsForTesting();
@@ -3996,7 +4921,74 @@ TEST_F(ContextualTasksUiTest, ProfileIndicator_SignedOutInitially) {
                                     page_handler.BindNewPipeAndPassReceiver());
 
   GURL avatar_url = future.Take();
+  EXPECT_EQ(avatar_url, GURL());
+}
+
+TEST_F(ContextualTasksUiTest, ProfileIndicator_WebSignedInWithoutExtendedInfo) {
+  AccountInfo account_info =
+      identity_test_env()->MakeAccountAvailable("user@example.com");
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<GURL> future;
+  EXPECT_CALL(mock_page, SetProfileAvatarUrl(_))
+      .WillOnce(
+          [&future](const GURL& avatar_url) { future.SetValue(avatar_url); });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+
+  GURL avatar_url = future.Take();
   EXPECT_EQ(avatar_url, GURL(profiles::GetPlaceholderAvatarIconUrl()));
+}
+
+TEST_F(ContextualTasksUiTest, ProfileIndicator_HiddenUntilCookieJarIsFresh) {
+  AccountInfo account_info =
+      identity_test_env()->MakeAccountAvailable("user@example.com");
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+  // Simulates the cookie jar cached from a previous session, before the
+  // cookies have been checked again.
+  identity_test_env()->SetFreshnessOfAccountsInGaiaCookie(false);
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<GURL> stale_future;
+  base::test::TestFuture<GURL> fresh_future;
+  EXPECT_CALL(mock_page, SetProfileAvatarUrl(_))
+      .WillOnce([&stale_future](const GURL& avatar_url) {
+        stale_future.SetValue(avatar_url);
+      })
+      .WillOnce([&fresh_future](const GURL& avatar_url) {
+        fresh_future.SetValue(avatar_url);
+      });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+  EXPECT_EQ(stale_future.Take(), GURL());
+
+  // The fresh cookie jar arrives and the indicator shows the account.
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+  EXPECT_EQ(fresh_future.Take(), GURL(profiles::GetPlaceholderAvatarIconUrl()));
 }
 
 TEST_F(ContextualTasksUiTest, ProfileIndicator_WebSignedInWithExtendedInfo) {
@@ -4036,6 +5028,132 @@ TEST_F(ContextualTasksUiTest, ProfileIndicator_WebSignedInWithExtendedInfo) {
                                account_info.GetGaiaId().ToString()})));
 }
 
+TEST_F(ContextualTasksUiTest, AccountInfo_WebSignedInWithFullName) {
+  AccountInfo account_info =
+      identity_test_env()->MakeAccountAvailable("user@example.com");
+  account_info =
+      AccountInfo::Builder(account_info).SetFullName("Jane Doe").Build();
+  signin::UpdateAccountInfoForAccount(identity_test_env()->identity_manager(),
+                                      account_info);
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<std::string, std::string> future;
+  EXPECT_CALL(mock_page, SetAccountInfo(_, _))
+      .WillOnce(
+          [&future](const std::string& full_name, const std::string& email) {
+            future.SetValue(full_name, email);
+          });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+
+  auto [full_name, email] = future.Take();
+  EXPECT_EQ(full_name, "Jane Doe");
+  EXPECT_EQ(email, "user@example.com");
+}
+
+TEST_F(ContextualTasksUiTest, AccountInfo_EmptyWhenSignedOut) {
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<std::string, std::string> future;
+  EXPECT_CALL(mock_page, SetAccountInfo(_, _))
+      .WillOnce(
+          [&future](const std::string& full_name, const std::string& email) {
+            future.SetValue(full_name, email);
+          });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+
+  auto [full_name, email] = future.Take();
+  EXPECT_EQ(full_name, "");
+  EXPECT_EQ(email, "");
+}
+
+TEST_F(ContextualTasksUiTest, AccountInfo_EmptyWhenSignedInToChrome) {
+  AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
+      "user@example.com", signin::ConsentLevel::kSignin);
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<std::string, std::string> future;
+  EXPECT_CALL(mock_page, SetAccountInfo(_, _))
+      .WillOnce(
+          [&future](const std::string& full_name, const std::string& email) {
+            future.SetValue(full_name, email);
+          });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+
+  auto [full_name, email] = future.Take();
+  EXPECT_EQ(full_name, "");
+  EXPECT_EQ(email, "");
+}
+
+TEST_F(ContextualTasksUiTest, ProfileIndicator_HiddenWhenSignedInToChrome) {
+  AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
+      "user@example.com", signin::ConsentLevel::kSignin);
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(16, 16);
+  bitmap.eraseColor(SK_ColorBLUE);
+  signin::SimulateAccountImageFetch(
+      identity_test_env()->identity_manager(), account_info.GetAccountId(),
+      "https://example.com/avatar.png", gfx::Image::CreateFrom1xBitmap(bitmap));
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<GURL> future;
+  EXPECT_CALL(mock_page, SetProfileAvatarUrl(_))
+      .WillOnce(
+          [&future](const GURL& avatar_url) { future.SetValue(avatar_url); });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+
+  GURL avatar_url = future.Take();
+  EXPECT_EQ(avatar_url, GURL());
+}
+
 TEST_F(ContextualTasksUiTest,
        ProfileIndicator_UpdateProfileIndicatorPushesAvatarUrl) {
   content::TestWebUI web_ui;
@@ -4058,7 +5176,7 @@ TEST_F(ContextualTasksUiTest,
                                     page_handler.BindNewPipeAndPassReceiver());
 
   GURL initial_avatar_url = future.Take();
-  EXPECT_EQ(initial_avatar_url, GURL(profiles::GetPlaceholderAvatarIconUrl()));
+  EXPECT_EQ(initial_avatar_url, GURL());
 
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("cookie_user@example.com");
@@ -4070,6 +5188,8 @@ TEST_F(ContextualTasksUiTest,
       "https://example.com/avatar.png", gfx::Image::CreateFrom1xBitmap(bitmap));
   identity_test_env()->SetCookieAccounts(
       {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+  // The cookie jar update also refreshes the indicator.
+  std::ignore = future.Take();
 
   controller.UpdateProfileIndicator(GURL("https://google.com/search"));
 
@@ -4095,11 +5215,12 @@ TEST_F(ContextualTasksUiTest,
         /*signed_out=*/true},
        {std::string(second_account.GetEmail()), second_account.GetGaiaId(),
         /*signed_out=*/false}});
+  std::ignore = future.Take();
 
-  // Account 0 is signed_out=true, so index 0 falls back to the placeholder.
+  // Account 0 is signed_out=true, so index 0 returns an empty URL.
   controller.UpdateProfileIndicator(
       GURL("https://google.com/search?authuser=0"));
-  EXPECT_EQ(future.Take(), GURL(profiles::GetPlaceholderAvatarIconUrl()));
+  EXPECT_EQ(future.Take(), GURL());
 
   // Account 1 is signed in with its own avatar bitmap.
   controller.UpdateProfileIndicator(
@@ -4119,9 +5240,12 @@ TEST_F(ContextualTasksUiTest, ProfileIndicator_LoadTimeDataPopulated) {
   const std::string* avatar_url =
       signed_out_dict.FindString("profileAvatarUrl");
   ASSERT_TRUE(avatar_url);
-  EXPECT_EQ(*avatar_url, profiles::GetPlaceholderAvatarIconUrl());
+  EXPECT_EQ(*avatar_url, "");
+  // TODO(crbug.com/578985445): Check the dedicated string once it replaces
+  // IDS_MANAGE_PASSWORDS_LINK.
+  EXPECT_TRUE(signed_out_dict.FindString("googleAccount"));
 
-  // Signed-in test.
+  // Web signed-in (Chrome signed-out) test.
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("user@example.com");
   SkBitmap bitmap;
@@ -4142,6 +5266,180 @@ TEST_F(ContextualTasksUiTest, ProfileIndicator_LoadTimeDataPopulated) {
             base::StrCat({"chrome://contextual-tasks/profile-avatar.png"
                           "?gaia_id=",
                           account_info.GetGaiaId().ToString()}));
+
+  // Chrome signed-in test (no identity mismatch).
+  identity_test_env()->SetPrimaryAccount("user@example.com",
+                                         signin::ConsentLevel::kSignin);
+  base::DictValue chrome_signed_in_dict =
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(profile_);
+  const std::string* chrome_signed_in_avatar_url =
+      chrome_signed_in_dict.FindString("profileAvatarUrl");
+  ASSERT_TRUE(chrome_signed_in_avatar_url);
+  EXPECT_EQ(*chrome_signed_in_avatar_url, "");
+}
+
+TEST_F(ContextualTasksUiTest, ProfileIndicator_IncognitoSignedOutInitially) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      kContextualTasksSidePanelRearchitecture};
+
+  // Even if the parent regular profile is signed in to Chrome and the web,
+  // an Incognito profile with no Gaia cookies should not show the indicator.
+  AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
+      "user@example.com", signin::ConsentLevel::kSignin);
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+
+  TestingProfile* otr_profile =
+      TestingProfile::Builder()
+          .SetSharedURLLoaderFactory(
+              test_url_loader_factory_.GetSafeWeakWrapper())
+          .BuildIncognito(profile_);
+  std::unique_ptr<content::WebContents> otr_web_contents =
+      content::WebContentsTester::CreateTestWebContents(otr_profile, nullptr);
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(otr_web_contents.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<GURL> avatar_future;
+  EXPECT_CALL(mock_page, SetProfileAvatarUrl(_))
+      .WillRepeatedly([&avatar_future](const GURL& avatar_url) {
+        avatar_future.SetValue(avatar_url);
+      });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+
+  EXPECT_EQ(avatar_future.Take(), GURL());
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+}
+
+TEST_F(ContextualTasksUiTest,
+       ProfileIndicator_IncognitoWebSignedInAndCookieChange) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      kContextualTasksSidePanelRearchitecture};
+
+  const std::string list_accounts_url =
+      GaiaUrls::GetInstance()
+          ->ListAccountsURLWithSource(
+              base::StrCat({GaiaConstants::kChromeSource, "&mo=1"}))
+          .spec();
+
+  TestingProfile* otr_profile =
+      TestingProfile::Builder()
+          .SetSharedURLLoaderFactory(
+              test_url_loader_factory_.GetSafeWeakWrapper())
+          .BuildIncognito(profile_);
+  std::unique_ptr<content::WebContents> otr_web_contents =
+      content::WebContentsTester::CreateTestWebContents(otr_profile, nullptr);
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(otr_web_contents.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandlerFactory>
+      factory_remote;
+  controller.BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksToolbarPage> mock_page;
+  base::test::TestFuture<GURL> avatar_future(
+      base::test::TestFutureMode::kQueue);
+  base::test::TestFuture<std::string, std::string> account_info_future(
+      base::test::TestFutureMode::kQueue);
+  EXPECT_CALL(mock_page, SetProfileAvatarUrl(_))
+      .WillRepeatedly([&avatar_future](const GURL& avatar_url) {
+        avatar_future.SetValue(avatar_url);
+      });
+  EXPECT_CALL(mock_page, SetAccountInfo(_, _))
+      .WillRepeatedly([&account_info_future](const std::string& full_name,
+                                             const std::string& email) {
+        account_info_future.SetValue(full_name, email);
+      });
+
+  mojo::Remote<contextual_tasks_toolbar::mojom::PageHandler> page_handler;
+  factory_remote->CreatePageHandler(mock_page.BindAndGetRemote(),
+                                    page_handler.BindNewPipeAndPassReceiver());
+
+  // Initially signed out in Incognito: both CreatePageHandler and the initial
+  // cookie-list check report empty values without issuing a /ListAccounts
+  // network request.
+  EXPECT_EQ(avatar_future.Take(), GURL());
+  EXPECT_EQ(account_info_future.Take(), std::make_tuple("", ""));
+  EXPECT_EQ(avatar_future.Take(), GURL());
+  EXPECT_EQ(account_info_future.Take(), std::make_tuple("", ""));
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+
+  // Simulate signing in to google.com in Incognito: build a binary
+  // ListAccountsResponse where account 1 includes `display_name` and
+  // `photo_url`, and account 2 omits them to test the placeholder fallback.
+  contextual_tasks::ListAccountsResponse list_accounts_response;
+  contextual_tasks::Account* account1 = list_accounts_response.add_account();
+  account1->set_display_name("Incognito User 1");
+  account1->set_display_email("incognito1@example.com");
+  account1->set_photo_url("https://lh3.googleusercontent.com/a/photo1.jpg");
+  account1->set_obfuscated_id("gaia_incog_1");
+  contextual_tasks::Account* account2 = list_accounts_response.add_account();
+  account2->set_display_email("incognito2@example.com");
+  account2->set_obfuscated_id("gaia_incog_2");
+  test_url_loader_factory_.AddResponse(
+      list_accounts_url,
+      base::Base64Encode(list_accounts_response.SerializeAsString()));
+
+  network::mojom::CookieManager* cookie_manager =
+      otr_profile->GetDefaultStoragePartition()
+          ->GetCookieManagerForBrowserProcess();
+  std::unique_ptr<net::CanonicalCookie> cookie =
+      net::CanonicalCookie::CreateSanitizedCookie(
+          GaiaUrls::GetInstance()->secure_google_url(),
+          GaiaConstants::kGaiaSigninCookieName, "cookie_value", ".google.com",
+          "/", base::Time::Now(), base::Time::Now() + base::Days(1),
+          base::Time::Now(), /*secure=*/true, /*http_only=*/false,
+          net::CookieSameSite::NO_RESTRICTION, net::COOKIE_PRIORITY_DEFAULT,
+          /*partition_key=*/std::nullopt, /*status=*/nullptr);
+  ASSERT_TRUE(cookie);
+
+  base::test::TestFuture<net::CookieAccessResult> set_cookie_future;
+  cookie_manager->SetCanonicalCookie(
+      *cookie, GaiaUrls::GetInstance()->secure_google_url(),
+      net::CookieOptions::MakeAllInclusive(), set_cookie_future.GetCallback());
+  ASSERT_TRUE(set_cookie_future.Take().status.IsInclude());
+
+  // The CookieChangeListener triggers a /ListAccounts fetch and updates the
+  // toolbar with the sanitized photo_url, display_name, and email of the first
+  // Incognito web account.
+  EXPECT_EQ(
+      avatar_future.Take(),
+      GURL("chrome://image/?https://lh3.googleusercontent.com/a/photo1.jpg"));
+  EXPECT_EQ(account_info_future.Take(),
+            std::make_tuple("Incognito User 1", "incognito1@example.com"));
+
+  // Switching to authuser=1 updates to the second Incognito account (which has
+  // no photo_url and falls back to the placeholder avatar).
+  controller.UpdateProfileIndicator(
+      GURL("https://www.google.com/search?authuser=1"));
+  EXPECT_EQ(avatar_future.Take(),
+            GURL(profiles::GetPlaceholderAvatarIconUrl()));
+  EXPECT_EQ(account_info_future.Take(),
+            std::make_tuple("", "incognito2@example.com"));
+
+  // Deleting cookies in Incognito clears the profile indicator without making
+  // a /ListAccounts network request.
+  test_url_loader_factory_.ClearResponses();
+  network::mojom::CookieDeletionFilterPtr filter =
+      network::mojom::CookieDeletionFilter::New();
+  base::test::TestFuture<uint32_t> delete_future;
+  cookie_manager->DeleteCookies(std::move(filter), delete_future.GetCallback());
+  EXPECT_GT(delete_future.Take(), 0u);
+
+  EXPECT_EQ(avatar_future.Take(), GURL());
+  EXPECT_EQ(account_info_future.Take(), std::make_tuple("", ""));
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -4238,6 +5536,132 @@ TEST_F(ContextualTasksUiTest,
   EXPECT_TRUE(dict.FindBool("isSmallDeviceFormFactor").has_value());
   EXPECT_TRUE(dict.FindBool("isUserFeedbackAllowed").has_value());
   EXPECT_TRUE(dict.FindBool("contextualTasksUnboundedMenuEnabled").has_value());
+  EXPECT_EQ(dict.FindBool("isSignedIn"), false);
+  ASSERT_NE(dict.FindString("protectedErrorPageTopLine"), nullptr);
+  EXPECT_FALSE(dict.FindString("protectedErrorPageTopLine")->empty());
+  ASSERT_NE(dict.FindString("protectedErrorPageBottomLine"), nullptr);
+  EXPECT_FALSE(dict.FindString("protectedErrorPageBottomLine")->empty());
+}
+
+TEST_F(ContextualTasksUiTest,
+       GetContextualTasksLoadTimeData_IsSignedInReflectsCookieAndBrowserState) {
+  EXPECT_EQ(
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(profile_).FindBool(
+          "isSignedIn"),
+      false);
+
+  // Web signed-in via cookie jar.
+  AccountInfo account_info =
+      identity_test_env()->MakeAccountAvailable("user@example.com");
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+  EXPECT_EQ(
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(profile_).FindBool(
+          "isSignedIn"),
+      true);
+
+  // Signed-out cookie entry should report isSignedIn = false.
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId(),
+        /*signed_out=*/true}});
+  EXPECT_EQ(
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(profile_).FindBool(
+          "isSignedIn"),
+      false);
+
+  // Browser signed-in with primary account in cookie jar.
+  identity_test_env()->SetPrimaryAccount("user@example.com",
+                                         signin::ConsentLevel::kSignin);
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
+  EXPECT_EQ(
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(profile_).FindBool(
+          "isSignedIn"),
+      true);
+}
+
+TEST_F(ContextualTasksUiTest,
+       MoveTaskUiToNewTab_PostRearchitecture_CallsUiService) {
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  controller.set_panel_controller(&mock_panel_controller);
+
+  std::unique_ptr<content::WebContents> active_web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  GURL active_url("https://www.google.com/search?udm=50&q=hello");
+  content::WebContentsTester::For(active_web_contents.get())
+      ->SetLastCommittedURL(active_url);
+  EXPECT_CALL(mock_panel_controller, GetActiveWebContents())
+      .WillRepeatedly(Return(active_web_contents.get()));
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  EXPECT_CALL(mock_panel_controller, GetCurrentTask())
+      .WillRepeatedly(Return(ContextualTask(task_id)));
+
+  EXPECT_CALL(*service_for_nav_, MoveTaskUiToNewTab(task_id, _, active_url))
+      .Times(1);
+
+  controller.MoveTaskUiToNewTab();
+}
+
+TEST_F(ContextualTasksUiTest,
+       CanExpandToFullTab_PostRearchitecture_NotifiesPanelController) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {contextual_tasks::kContextualTasksSidePanelRearchitecture,
+       contextual_tasks::
+           kContextualTasksSidePanelRearchitectureExpandToFullTab},
+      {});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  eligibility_manager.SetIsEligible(true);
+  EXPECT_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillRepeatedly(Return(&eligibility_manager));
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  controller.set_panel_controller(&mock_panel_controller);
+
+  EXPECT_FALSE(controller.CanExpandToFullTab());
+  EXPECT_CALL(mock_panel_controller, NotifyExpandToFullTabStateChanged())
+      .Times(1);
+  controller.SetIsAiPage(true);
+  EXPECT_TRUE(controller.CanExpandToFullTab());
+}
+
+TEST_F(ContextualTasksUiTest,
+       CanExpandToFullTab_PostRearchitecture_FalseWithoutExpandToFullTabFlag) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {contextual_tasks::kContextualTasks,
+       contextual_tasks::kContextualTasksSidePanelRearchitecture},
+      {contextual_tasks::
+           kContextualTasksSidePanelRearchitectureExpandToFullTab});
+
+  FakeContextualTasksEligibilityManager eligibility_manager;
+  eligibility_manager.SetIsEligible(true);
+  EXPECT_CALL(*service_for_nav_, GetEligibilityManager())
+      .WillRepeatedly(Return(&eligibility_manager));
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  TestContextualTasksUIBase controller(&web_ui);
+
+  testing::NiceMock<MockContextualTasksPanelController> mock_panel_controller;
+  controller.set_panel_controller(&mock_panel_controller);
+
+  controller.SetIsAiPage(true);
+  EXPECT_FALSE(controller.CanExpandToFullTab());
+  EXPECT_EQ(
+      ContextualTasksUIBase::GetContextualTasksLoadTimeData(profile_).FindBool(
+          "expandButtonEnabled"),
+      false);
 }
 
 TEST_F(ContextualTasksUiTest, TrackedElementsRegistered_PostRearchitecture) {
@@ -4251,4 +5675,81 @@ TEST_F(ContextualTasksUiTest, TrackedElementsRegistered_PostRearchitecture) {
   EXPECT_NE(handler->context(), ui::ElementContext());
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
+
+namespace {
+
+class MockContextualTasksInternalsPage
+    : public contextual_tasks_internals::mojom::ContextualTasksInternalsPage {
+ public:
+  MockContextualTasksInternalsPage() = default;
+  MockContextualTasksInternalsPage(const MockContextualTasksInternalsPage&) =
+      delete;
+  MockContextualTasksInternalsPage& operator=(
+      const MockContextualTasksInternalsPage&) = delete;
+  ~MockContextualTasksInternalsPage() override = default;
+
+  MOCK_METHOD(void,
+              OnLogMessageAdded,
+              (base::Time event_time,
+               const std::string& source_file,
+               int64_t source_line,
+               const std::string& message),
+              (override));
+
+  mojo::PendingRemote<
+      contextual_tasks_internals::mojom::ContextualTasksInternalsPage>
+  BindAndGetRemote() {
+    return receiver_.BindNewPipeAndPassRemote();
+  }
+
+ private:
+  mojo::Receiver<
+      contextual_tasks_internals::mojom::ContextualTasksInternalsPage>
+      receiver_{this};
+};
+
+}  // namespace
+
+TEST_F(ContextualTasksUiTest,
+       InternalsPageHandler_PostRearchitectureWithoutContextualTasks) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({kContextualTasksSidePanelRearchitecture},
+                                {kContextualTasks, kContextualTasksSidePanel,
+                                 kContextualTasksRearchitecture});
+
+  ContextualTasksUIConfig config;
+  EXPECT_TRUE(config.IsWebUIEnabled(profile_));
+
+  content::TestWebUI web_ui;
+  web_ui.set_web_contents(embedded_web_contents_.get());
+  std::unique_ptr<content::WebUIController> controller =
+      config.CreateWebUIController(&web_ui,
+                                   GURL("chrome://contextual-tasks/internals"));
+  ASSERT_TRUE(controller);
+  auto* post_rearch_ui =
+      controller
+          ->GetAs<contextual_tasks::ContextualTasksUIPostRearchitecture>();
+  ASSERT_NE(post_rearch_ui, nullptr);
+
+  mojo::Remote<contextual_tasks_internals::mojom::
+                   ContextualTasksInternalsPageHandlerFactory>
+      factory_remote;
+  post_rearch_ui->BindInterface(factory_remote.BindNewPipeAndPassReceiver());
+
+  testing::NiceMock<MockContextualTasksInternalsPage> mock_page;
+  mojo::Remote<
+      contextual_tasks_internals::mojom::ContextualTasksInternalsPageHandler>
+      handler_remote;
+  factory_remote->CreatePageHandler(
+      mock_page.BindAndGetRemote(),
+      handler_remote.BindNewPipeAndPassReceiver());
+
+  base::test::TestFuture<contextual_tasks_internals::mojom::EligibilityStatePtr>
+      future;
+  handler_remote->GetEligibilityState(future.GetCallback());
+  auto state = future.Take();
+  ASSERT_TRUE(state);
+  EXPECT_TRUE(state->is_contextual_tasks_enabled);
+}
+
 }  // namespace contextual_tasks

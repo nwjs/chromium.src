@@ -85,6 +85,9 @@ class CaptionButton : public TrackedButton {
   CaptionButton& operator=(const CaptionButton&) = delete;
   ~CaptionButton() override;
 
+  // Creates and subclasses the `BUTTON` control as a child of `parent`.
+  // Returns its HWND, or nullptr if it could not be created or subclassed, in
+  // which case `IsWindow()` is false. A missing tool tip is tolerated.
   HWND Create(HWND parent, const RECT& bounds, int control_id);
 
   void DrawItem(LPDRAWITEMSTRUCT draw_item_struct);
@@ -105,7 +108,10 @@ class CaptionButton : public TrackedButton {
  private:
   friend class updater::test::CaptionButtonTestApi;
 
-  virtual HRGN GetButtonRgn(int rgn_width, int rgn_height) = 0;
+  // Returns the glyph region for a `rgn_width` x `rgn_height` area, or an
+  // invalid object if the area is too small or too large to draw.
+  virtual base::win::ScopedGDIObject<HRGN> GetButtonRgn(int rgn_width,
+                                                        int rgn_height) = 0;
 
   // Refreshes the cached theme flags that the paint path reads.
   void UpdateThemeState();
@@ -154,7 +160,8 @@ class CloseButton : public CaptionButton {
   CloseButton& operator=(const CloseButton&) = delete;
 
  private:
-  HRGN GetButtonRgn(int rgn_width, int rgn_height) override;
+  base::win::ScopedGDIObject<HRGN> GetButtonRgn(int rgn_width,
+                                                int rgn_height) override;
 };
 
 class MinimizeButton : public CaptionButton {
@@ -164,7 +171,8 @@ class MinimizeButton : public CaptionButton {
   MinimizeButton& operator=(const MinimizeButton&) = delete;
 
  private:
-  HRGN GetButtonRgn(int rgn_width, int rgn_height) override;
+  base::win::ScopedGDIObject<HRGN> GetButtonRgn(int rgn_width,
+                                                int rgn_height) override;
 };
 
 // Owner-drawn custom title bar. A child of the host dialog; positions and
@@ -334,6 +342,12 @@ class CustomProgressBarCtrl : public SubclassedWindow {
                     COLORREF top_color,
                     COLORREF bottom_color);
 
+  // Draws the progress bar (track, progress fill, and the frame exposed at
+  // the rounded corners) into `rect` of `dc`. Pen widths and corner radii are
+  // multiplied by `scale`, so that the bar can be rendered into an enlarged
+  // offscreen bitmap and downsampled for anti-aliasing.
+  void DrawBar(HDC dc, const RECT& rect, int scale) const;
+
   LRESULT OnEraseBkgnd(UINT msg, WPARAM wparam, LPARAM lparam);
   LRESULT OnPaint(UINT msg, WPARAM wparam, LPARAM lparam);
   LRESULT OnTimer(UINT msg, WPARAM wparam, LPARAM lparam);
@@ -346,6 +360,7 @@ class CustomProgressBarCtrl : public SubclassedWindow {
 
   static constexpr int kMinPosition = 0;
   static constexpr int kMaxPosition = 100;
+  static_assert(kMaxPosition > kMinPosition);
   static constexpr int kMarqueeWidth = 20;
   static constexpr UINT_PTR kMarqueeTimerId = 111;
 

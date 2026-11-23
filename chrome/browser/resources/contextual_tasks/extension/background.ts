@@ -8,6 +8,53 @@ import {getArrayBufferFromBigBuffer} from 'chrome://contextual-tasks/utils.js';
 
 type ProtoWrapper = Parameters<ExtensionPageInterface['postSearchMessage']>[0];
 
+// LINT.IfChange(ContextualTasksExtensionHandshakeStatus)
+export enum HandshakeStatus {
+  SUCCESS = 0,
+  HOST_ORIGIN_REJECTED = 1,
+  FRAME_DETACHED = 2,
+  MOJO_REQUEST_FAILED = 3,
+  INVALID_DOCUMENT_ID = 4,
+}
+const HANDSHAKE_STATUS_ENUM_SIZE = 5;
+// LINT.ThenChange(
+//   //chrome/browser/contextual_tasks/contextual_tasks_utils.h:ContextualTasksExtensionHandshakeStatus,
+//   //tools/metrics/histograms/metadata/contextual_tasks/enums.xml:ContextualTasksExtensionHandshakeStatus
+// )
+
+// LINT.IfChange(ContextualTasksExtensionPostMessageError)
+export enum PostMessageError {
+  UNTRUSTED_ORIGIN = 0,
+  UNEXPECTED_DATA_TYPE = 1,
+  MESSAGE_TOO_LARGE = 2,
+  INVALID_DOCUMENT_ID = 3,
+  PROTO_PARSE_FAILED = 4,
+  MOJO_PIPE_CLOSED = 5,
+}
+const POST_MESSAGE_ERROR_ENUM_SIZE = 6;
+// LINT.ThenChange(
+//   //chrome/browser/contextual_tasks/contextual_tasks_utils.h:ContextualTasksExtensionPostMessageError,
+//   //tools/metrics/histograms/metadata/contextual_tasks/enums.xml:ContextualTasksExtensionPostMessageError
+// )
+
+function recordExtensionHandshakeStatus(status: HandshakeStatus): void {
+  const metricsService = chrome.histograms || chrome.metricsPrivate;
+  if (metricsService) {
+    metricsService.recordEnumerationValue(
+        'ContextualTasks.ExtensionHandshake.Status', status,
+        HANDSHAKE_STATUS_ENUM_SIZE);
+  }
+}
+
+function recordExtensionPostMessageError(error: PostMessageError): void {
+  const metricsService = chrome.histograms || chrome.metricsPrivate;
+  if (metricsService) {
+    metricsService.recordEnumerationValue(
+        'ContextualTasks.ExtensionPostMessage.Error', error,
+        POST_MESSAGE_ERROR_ENUM_SIZE);
+  }
+}
+
 declare global {
   namespace chrome {
     namespace runtime {
@@ -66,19 +113,31 @@ function postProtoMessageToPort(
   }
 }
 
+function resetExtensionPageHandler(): void {
+  if (extensionPageHandler) {
+    extensionPageHandler.$.close();
+    extensionPageHandler = null;
+  }
+  if (extensionPageRouter) {
+    extensionPageRouter.$.close();
+    extensionPageRouter = null;
+  }
+}
+
 function getExtensionPageHandler(): ExtensionPageHandlerRemote {
   if (!extensionPageHandler) {
     extensionPageRouter = new ExtensionPageCallbackRouter();
     extensionPageRouter.postSearchMessage.addListener(
         (message: ProtoWrapper, documentId: string|null) => {
           if (!documentId) {
+            recordExtensionPostMessageError(
+                PostMessageError.INVALID_DOCUMENT_ID);
             return;
           }
           const port = portsByDocumentId.get(documentId);
-          if (!port) {
+          if (!port || !postProtoMessageToPort(documentId, port, message)) {
             return;
           }
-          postProtoMessageToPort(documentId, port, message);
         });
     extensionPageHandler = new ExtensionPageHandlerRemote();
     const factory = ExtensionPageHandlerFactory.getRemote();
@@ -86,8 +145,7 @@ function getExtensionPageHandler(): ExtensionPageHandlerRemote {
         extensionPageRouter.$.bindNewPipeAndPassRemote(),
         extensionPageHandler.$.bindNewPipeAndPassReceiver());
     extensionPageHandler.onConnectionError.addListener(() => {
-      extensionPageHandler = null;
-      extensionPageRouter = null;
+      resetExtensionPageHandler();
     });
   }
   return extensionPageHandler;
@@ -99,12 +157,17 @@ function handleSearchPortMessage(
     return;
   }
   if (!message || typeof message !== 'object') {
+    recordExtensionPostMessageError(PostMessageError.UNEXPECTED_DATA_TYPE);
     return;
   }
   const searchMsg = message as SearchChannelMessage;
   if (searchMsg.type !== CHROME_SEARCH_CHANNEL_NAME ||
-      !Array.isArray(searchMsg.payload) || searchMsg.payload.length === 0 ||
-      searchMsg.payload.length > MAX_MESSAGE_BYTES) {
+      !Array.isArray(searchMsg.payload) || searchMsg.payload.length === 0) {
+    recordExtensionPostMessageError(PostMessageError.UNEXPECTED_DATA_TYPE);
+    return;
+  }
+  if (searchMsg.payload.length > MAX_MESSAGE_BYTES) {
+    recordExtensionPostMessageError(PostMessageError.MESSAGE_TOO_LARGE);
     return;
   }
   getExtensionPageHandler().onWebviewMessage(searchMsg.payload, documentId);
@@ -116,6 +179,9 @@ function handleSearchPortDisconnect(
     portsByDocumentId.delete(documentId);
   }
   port.disconnect();
+  if (portsByDocumentId.size === 0) {
+    resetExtensionPageHandler();
+  }
 }
 
 async function sendSearchPortHandshake(
@@ -130,24 +196,37 @@ async function sendSearchPortHandshake(
       handleSearchPortDisconnect(documentId, port);
     }
   } catch {
+    recordExtensionHandshakeStatus(HandshakeStatus.MOJO_REQUEST_FAILED);
     handleSearchPortDisconnect(documentId, port);
   }
 }
 
+// LINT.IfChange(AllowedOrigins)
 function urlMatchesAllowList(origin: string): boolean {
   try {
     const url = new URL(origin);
+    // <if expr="not is_official_build">
+    if (url.protocol === 'file:' ||
+        (url.protocol === 'http:' && url.hostname === 'localhost')) {
+      return true;
+    }
+    // </if>
     if (url.protocol !== 'https:') {
       return false;
     }
     const host = url.hostname;
-    return host === 'google.com' || host === 'www.google.com' ||
-        host.endsWith('.borg.google.com') ||
-        host.endsWith('.corp.google.com') || host.endsWith('.prod.google.com');
+    return host === 'google.com' || host.endsWith('.google.com') ||
+        host.endsWith('.corp.google.com') ||
+        host.endsWith('.prod.google.com') || host === 'googlers.com' ||
+        host.endsWith('.googlers.com');
   } catch {
     return false;
   }
 }
+// LINT.ThenChange(
+//   manifest.json:AllowedOrigins,
+//   manifest.json:WebAccessibleMatches
+// )
 
 chrome.runtime.onConnectExternal.addListener((port: chrome.runtime.Port) => {
   // Only accept connections on the dedicated search channel.
@@ -158,6 +237,8 @@ chrome.runtime.onConnectExternal.addListener((port: chrome.runtime.Port) => {
 
   // Verify the connecting frame belongs to an allowlisted Google origin.
   if (!port.sender?.origin || !urlMatchesAllowList(port.sender.origin)) {
+    recordExtensionPostMessageError(PostMessageError.UNTRUSTED_ORIGIN);
+    recordExtensionHandshakeStatus(HandshakeStatus.HOST_ORIGIN_REJECTED);
     port.disconnect();
     return;
   }
@@ -166,6 +247,7 @@ chrome.runtime.onConnectExternal.addListener((port: chrome.runtime.Port) => {
   // or side panel WebContents in the browser process.
   const documentId = port.sender.documentId;
   if (typeof documentId !== 'string' || documentId.length === 0) {
+    recordExtensionHandshakeStatus(HandshakeStatus.INVALID_DOCUMENT_ID);
     port.disconnect();
     return;
   }
@@ -173,10 +255,10 @@ chrome.runtime.onConnectExternal.addListener((port: chrome.runtime.Port) => {
   // If this document already has an open port, replace and disconnect the old
   // port so stale onDisconnect events cannot drop the new connection.
   const existingPort = portsByDocumentId.get(documentId);
-  if (existingPort && existingPort !== port) {
-    handleSearchPortDisconnect(documentId, existingPort);
-  }
   portsByDocumentId.set(documentId, port);
+  if (existingPort && existingPort !== port) {
+    existingPort.disconnect();
+  }
 
   // Forward incoming search messages and clean up on port disconnect.
   port.onMessage.addListener((message: unknown) => {

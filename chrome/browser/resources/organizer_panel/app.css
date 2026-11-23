@@ -11,29 +11,47 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  user-select: none;
+}
+
+:host([vertical-tabs-enabled]) {
+  --organizer-divider-color:
+      var(--color-organizer-panel-divider,
+          var(--color-sys-on-header-divider, var(--cr-fallback-color-divider)));
 }
 
 #searchField {
+  --color-toolbar-search-field-background-hover:
+      var(--color-sys-state-hover-on-subtle);
   --cr-toolbar-search-field-background: var(--color-toolbar);
+  --cr-toolbar-search-field-icon-color: var(--color-toolbar-button-icon);
+  --cr-toolbar-search-field-input-text-color: var(--color-toolbar-text);
+  --cr-toolbar-search-field-prompt-color: var(--color-toolbar-text);
+  --cr-toolbar-search-field-term-margin: 0 6px;
   flex-shrink: 0;
   margin: 12px;
   margin-top: 4px;
+  padding: 0 4px;
   width: auto;
 }
 
 #shortcut {
-  color: var(--cr-secondary-text-color);
-  margin-inline-end: 12px;
+  align-items: center;
+  color: var(--color-organizer-panel-foreground-subtle,
+      var(--cr-secondary-text-color));
+  display: flex;
+  height: 100%;
+  padding-right: 12px;
 }
 
 #list {
   box-sizing: border-box;
-  flex: 1;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: none;
-  padding: 0 8px;
+  padding-inline-start: 8px;
+  scrollbar-gutter: stable;
 }
 
 #list::-webkit-scrollbar {
@@ -42,8 +60,14 @@
 }
 
 #list::-webkit-scrollbar-thumb {
-  background: var(--color-side-panel-scrollbar-thumb);
+  background: var(--color-sys-state-disabled);
   background-clip: content-box;
   border: solid 1.5px transparent;
   border-radius: 100px;
+}
+
+#dragRegion {
+  app-region: drag;
+  -webkit-app-region: drag;
+  flex-grow: 1;
 }

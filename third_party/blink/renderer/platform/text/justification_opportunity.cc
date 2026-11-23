@@ -38,7 +38,7 @@ template <typename CharType>
   requires IsStringCharType<CharType>
 std::pair<bool, bool> JustificationContext::CheckOpportunity(TextJustify method,
                                                              UChar32 ch) {
-  if (Character::IsDefaultIgnorable(ch)) {
+  if (unicode::IsDefaultIgnorable(ch)) {
     return {false, false};
   }
   constexpr bool kIsLatin = sizeof(CharType) == 1u;
@@ -46,7 +46,7 @@ std::pair<bool, bool> JustificationContext::CheckOpportunity(TextJustify method,
   if constexpr (!kIsLatin) {
     if (ch == uchar::kObjectReplacementCharacter) {
       type = Type::kAtomicInline;
-    } else if (Character::IsCursiveScript(ch)) {
+    } else if (unicode::IsCursiveScript(ch)) {
       type = Type::kCursive;
     }
   }
@@ -80,7 +80,7 @@ std::pair<bool, bool> JustificationContext::CheckOpportunity(TextJustify method,
 
     // https://drafts.csswg.org/css-text-4/#valdef-text-justify-inter-word
     case TextJustify::kInterWord:
-      if (Character::TreatAsSpace(ch)) {
+      if (unicode::TreatAsSpace(ch)) {
         is_after_opportunity_ = true;
         return {false, true};
       }
@@ -92,7 +92,7 @@ std::pair<bool, bool> JustificationContext::CheckOpportunity(TextJustify method,
       // See below.
       break;
   }
-  bool treat_as_space = Character::TreatAsSpace(ch);
+  bool treat_as_space = unicode::TreatAsSpace(ch);
   if (treat_as_space && ch != uchar::kNoBreakSpace) {
     ch = uchar::kSpace;
   }

@@ -6,7 +6,9 @@
 
 #include <list>
 
+#include "base/memory/weak_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
 #include "components/autofill/core/browser/test_utils/test_event_waiter.h"
 #include "components/payments/content/payment_request.h"
@@ -41,7 +43,8 @@ class SecurePaymentConfirmationControllerTest
     // PaymentRequest deletes itself through a callback after the controller is
     // done with it so a raw pointer is used here instead of a unique_ptr.
     raw_ptr<PaymentRequest> payment_request =
-        new PaymentRequest(std::move(delegate), std::move(receiver));
+        base::MakeSelfDeleting<PaymentRequest>(std::move(delegate),
+                                               std::move(receiver));
     payment_request->set_observer_for_test(GetWeakPtr());
 
     controller_ = std::make_unique<SecurePaymentConfirmationController>(

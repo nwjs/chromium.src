@@ -53,6 +53,9 @@ enum AIPageContentAttributeType {
   // Dialogs.
   kDialogModal,
   kDialogModeless,
+
+  // MathML root (<math>) elements.
+  kMath,
 };
 
 enum AIPageContentAnnotatedRole {
@@ -190,8 +193,17 @@ enum AIPageContentClickabilityReason {
   // The node has mouse event handlers like mouseup and mousedown.
   kMouseClick,
 
-  // The node has mouse event handlers like mouseover and mouseenter.
+  // DEPRECATED: Replaced by kMouseEnter and kMouseOver. Maintained only for
+  // backward compatibility with older serialized page content.
+  // TODO(crbug.com/576774954): Remove once older serialized page content is no
+  // longer supported.
   kMouseHover,
+
+  // The node has a non-bubbling mouseenter event handler.
+  kMouseEnter,
+
+  // The node has a bubbling mouseover event handler.
+  kMouseOver,
 
   // The node has keyboard event handlers like keydown, keypress, keyup.
   kKeyEvents,
@@ -497,6 +509,17 @@ struct AIPageContentTableRowData {
   AIPageContentTableRowType row_type;
 };
 
+struct AIPageContentMathData {
+  // Stripped, sanitized MathML markup for the equation.
+  // Omitted if serialization fails (e.g. exceeds 64 KiB or 64 nesting levels).
+  string? stripped_mathml;
+
+  // Whether the equation is laid out as a block rather than inline (from
+  // computed style, so CSS `display: block math` without a `display="block"`
+  // attribute is also covered).
+  bool is_block;
+};
+
 struct AIPageContentFormData {
   string? form_name;
 
@@ -615,6 +638,9 @@ struct AIPageContentAttributes {
 
   // Only set if attribute_type is kTableRow.
   AIPageContentTableRowData? table_row_data;
+
+  // Only set if attribute_type is kMath.
+  AIPageContentMathData? math_data;
 
   array<AIPageContentAnnotatedRole> annotated_roles;
 

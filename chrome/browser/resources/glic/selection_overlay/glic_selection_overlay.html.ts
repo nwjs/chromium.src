@@ -43,6 +43,7 @@ export function getHtml(this: GlicSelectionOverlayElement) {
             .screenshotDataUri="${this.screenshotDataUri}"
             .selectionOverlayRect="${this.selectionOverlayRect}"
             .borderGlowEnabled="${this.enableBorderGlow}"
+            ?skip-scrim-transition="${this.skipIntroAnimation}"
             region-stroke-color1="#FFFFFF"
             region-stroke-color2="#FFFFFF"
             region-stroke-color3="#FFFFFF"
@@ -58,7 +59,8 @@ export function getHtml(this: GlicSelectionOverlayElement) {
       <div id="cursorImg"></div>
     </div>
 
-    ${this.enableSelectionOverlayPrompt ? html`
+    ${this.enableSelectionOverlayPrompt ||
+      this.enableSelectionOverlayPromptBox ? html`
       <div id="floatingPromptContainer"
           ?hidden="${!this.showFloatingPrompt}"
           style="${this.floatingPromptStyle}">
@@ -71,43 +73,47 @@ export function getHtml(this: GlicSelectionOverlayElement) {
                 type="text"
                 placeholder="$i18n{askGemini}"
                 aria-label="$i18n{askGemini}"
+                @input="${this.onPromptInput}"
                 @keydown="${this.onInputKeydown}"
                 @pointerdown="${this.onPromptPointerdown}"
                 autocomplete="off">
+            <cr-icon-button id="submitPromptButton"
+                ?hidden="${!this.hasPromptText}"
+                title="$i18n{submitPrompt}"
+                aria-label="$i18n{submitPrompt}"
+                @click="${this.onSubmitPromptClick}"
+                @pointerdown="${this.onPromptPointerdown}">
+            </cr-icon-button>
           </div>
         ` : ''}
 
         <div class="action-chips-row"
             @pointerdown="${this.onPromptPointerdown}">
           ${this.suggestedActions.map((action, index) => html`
-            <button class="action-chip"
+            <cr-button class="action-chip"
                 data-index="${index}"
                 @click="${this.onSuggestedActionClick}">
-              ${this.getActionIcon(action.icon) ? html`
-                <span class="chip-icon">
-                  <img src="${this.getActionIcon(action.icon)}"
-                      width="16" height="16">
-                </span>
+              ${this.getActionIconClass(action.icon) ? html`
+                <div slot="prefix-icon"
+                    class="chip-icon ${this.getActionIconClass(action.icon)}">
+                </div>
               ` : ''}
               <span class="chip-label">${action.title}</span>
-            </button>
+            </cr-button>
           `)}
           ${!this.enableSelectionOverlayPromptBox ? html`
-            <button id="closeRegionButton"
-                class="close-region-button"
-                title="$i18n{close}"
-                aria-label="$i18n{close}"
-                @click="${this.onCloseRegionClick}">
-              <svg width="16" height="16" viewBox="0 0 24 24"
-                  fill="currentColor">
-                <path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5
-                    17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
+            <cr-button id="settingsButton"
+                class="settings-button"
+                title="$i18n{settings}"
+                aria-label="$i18n{settings}"
+                @click="${this.onSettingsClick}">
+              <div class="settings-icon"></div>
+            </cr-button>
           ` : ''}
         </div>
 
         <glic-inline-fulfillment-host id="inlineFulfillmentHost"
+            @close-click="${this.onInlineFulfillmentCloseClick}"
             @pointerdown="${this.onPromptPointerdown}">
         </glic-inline-fulfillment-host>
       </div>

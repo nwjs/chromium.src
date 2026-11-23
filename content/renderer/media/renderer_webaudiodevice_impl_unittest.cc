@@ -16,6 +16,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "media/audio/audio_features.h"
@@ -510,15 +511,13 @@ TEST_F(RendererWebAudioDeviceImplBufferSizeTest,
       latency_hint, context_sample_rate, hardware_params);
   EXPECT_EQ(output_buffer_size, kMaxWebAudioBufferSize);
 }
-// TODO(crbug.com/40248990): Re-enable once
-// media::AudioLatency::GetExactBufferSize removes the internal
-// DCHECK_LE(hardware_buffer_size, max_allowed_buffer_size). When the
-// kWebAudioRemoveAudioDestinationResampler feature is enabled and the hardware
-// reports a native minimum buffer size that exceeds Web Audio's maximum limit
-// (kMaxWebAudioBufferSize), the GetOutputBufferSize method safely caps the
-// computed buffer size at kMaxWebAudioBufferSize.
+
+// When the kWebAudioRemoveAudioDestinationResampler feature is enabled and the
+// hardware reports a native minimum buffer size that exceeds Web Audio's
+// maximum limit (kMaxWebAudioBufferSize), the GetOutputBufferSize method safely
+// caps the computed buffer size at kMaxWebAudioBufferSize.
 TEST_F(RendererWebAudioDeviceImplBufferSizeTest,
-       DISABLED_ExactLatency_HighHardwareBufferSize_CapsAtMaxBufferSize) {
+       ExactLatency_HighHardwareBufferSize_CapsAtMaxBufferSize) {
   feature_list_.InitAndEnableFeature(
       features::kWebAudioRemoveAudioDestinationResampler);
   // Request a 50ms exact latency hint.
@@ -860,6 +859,67 @@ TEST_F(RendererWebAudioDeviceImplTest,
   EXPECT_EQ(params.sample_rate(), 48000);
   EXPECT_EQ(params.frames_per_buffer(), 480);
   EXPECT_TRUE(params.IsValid());
+}
+
+TEST_F(RendererWebAudioDeviceImplTest,
+       AuthorizedDeviceRecordsHardwareBufferSize) {
+  base::HistogramTester histogram_tester;
+  SetupDevice(media::ChannelLayoutConfig::Stereo());
+
+  histogram_tester.ExpectUniqueSample(
+      "WebAudio.AudioDestination.HardwareBufferSize2", kHardwareBufferSize, 1);
+}
+
+TEST_F(RendererWebAudioDeviceImplTest,
+       SinkRecreationAfterStopRecordsNoAdditionalHardwareBufferSize) {
+  base::HistogramTester histogram_tester;
+  SetupDevice(media::ChannelLayoutConfig::Stereo());
+
+  webaudio_device_->Stop();
+  EXPECT_EQ(webaudio_device_->MaybeCreateSinkAndGetStatus(),
+            media::OUTPUT_DEVICE_STATUS_OK);
+
+  histogram_tester.ExpectUniqueSample(
+      "WebAudio.AudioDestination.HardwareBufferSize2", kHardwareBufferSize, 1);
+}
+
+TEST_F(RendererWebAudioDeviceImplTest,
+       TimedOutAuthorizationRecordsNoHardwareBufferSize) {
+  base::HistogramTester histogram_tester;
+  // A timed-out authorization reports valid placeholder parameters.
+  EXPECT_CALL(*mock_audio_renderer_sink_, GetOutputDeviceInfo)
+      .WillRepeatedly(testing::Return(media::OutputDeviceInfo(
+          std::string(), media::OUTPUT_DEVICE_STATUS_ERROR_TIMED_OUT,
+          media::AudioParameters::UnavailableDeviceParams())));
+
+  SetupDevice(media::ChannelLayoutConfig::Stereo());
+
+  histogram_tester.ExpectTotalCount(
+      "WebAudio.AudioDestination.HardwareBufferSize2", 0);
+}
+
+TEST_F(RendererWebAudioDeviceImplTest,
+       InvalidHardwareParamsRecordNoHardwareBufferSize) {
+  base::HistogramTester histogram_tester;
+  EXPECT_CALL(*mock_audio_renderer_sink_, GetOutputDeviceInfo)
+      .WillRepeatedly(testing::Return(
+          media::OutputDeviceInfo(std::string(), media::OUTPUT_DEVICE_STATUS_OK,
+                                  media::AudioParameters())));
+
+  SetupDevice(media::ChannelLayoutConfig::Stereo());
+
+  histogram_tester.ExpectTotalCount(
+      "WebAudio.AudioDestination.HardwareBufferSize2", 0);
+}
+
+TEST_F(RendererWebAudioDeviceImplTest, SilentSinkRecordsNoHardwareBufferSize) {
+  base::HistogramTester histogram_tester;
+  // The `WebAudioSinkDescriptor` constructor with only a frame token constructs
+  // a silent sink.
+  SetupDevice(blink::WebAudioSinkDescriptor(kFrameToken));
+
+  histogram_tester.ExpectTotalCount(
+      "WebAudio.AudioDestination.HardwareBufferSize2", 0);
 }
 
 class RendererWebAudioDeviceImplLatencyAndSampleRateTest

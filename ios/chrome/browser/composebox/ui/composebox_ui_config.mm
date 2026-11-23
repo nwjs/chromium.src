@@ -42,9 +42,6 @@
 @implementation ComposeboxUIConfig {
   // Maps tools to their server-provided configs.
   std::unordered_map<ComposeboxMode, ComposeboxItemUIConfig*> _controlMapping;
-  // Maps models to their server-provided configs.
-  std::unordered_map<ComposeboxModelOption, ComposeboxItemUIConfig*>
-      _modelMapping;
   // The server-provided header for the models section.
   NSString* _modelSectionHeader;
   // The server-provided header for the tools section.
@@ -53,24 +50,18 @@
 
 + (instancetype)localFallbackUIConfig {
   return [[ComposeboxUIConfig alloc] initWithToolMapping:{}
-                                            modelMapping:{}
                                       modelSectionHeader:nil
                                       toolsSectionHeader:nil];
 }
 
 - (instancetype)
     initWithToolMapping:
-        (std::unordered_map<ComposeboxMode, ComposeboxItemUIConfig*>)
-            controlMapping
-           modelMapping:
-               (std::unordered_map<ComposeboxModelOption,
-                                   ComposeboxItemUIConfig*>)modelMapping
+        (std::unordered_map<ComposeboxMode, ComposeboxItemUIConfig*>)toolMapping
      modelSectionHeader:(NSString*)modelSectionHeader
      toolsSectionHeader:(NSString*)toolsSectionHeader {
   self = [super init];
   if (self) {
-    _controlMapping = controlMapping;
-    _modelMapping = modelMapping;
+    _controlMapping = toolMapping;
     _modelSectionHeader = [modelSectionHeader copy];
     _toolsSectionHeader = [toolsSectionHeader copy];
   }
@@ -140,30 +131,6 @@
   return [self localFallbackIconForTool:tool];
 }
 
-- (NSString*)menuLabelForModel:(ComposeboxModelOption)model {
-  ComposeboxItemUIConfig* config = [self configForModel:model];
-  if (config.menuLabel.length > 0) {
-    return config.menuLabel;
-  }
-  return [self localFallbackForModel:model isHint:NO];
-}
-
-- (NSString*)hintTextForModel:(ComposeboxModelOption)model {
-  ComposeboxItemUIConfig* config = [self configForModel:model];
-  if (config.hintText.length > 0) {
-    return config.hintText;
-  }
-  return [self localFallbackForModel:model isHint:YES];
-}
-
-- (UIImage*)iconForModel:(ComposeboxModelOption)model {
-  ComposeboxItemUIConfig* config = [self configForModel:model];
-  if (config.icon) {
-    return config.icon;
-  }
-  return [self localFallbackIconForModel:model];
-}
-
 - (NSString*)stringForAttachmentOption:(ComposeboxAttachmentOption)option {
   using enum ComposeboxAttachmentOption;
   switch (option) {
@@ -183,10 +150,6 @@
 }
 
 - (NSString*)modelSectionHeader {
-  // With the strings update, the models section header is not shown.
-  if (IsPlusButtonMenuStringUpdatesEnabled()) {
-    return nil;
-  }
   if (_modelSectionHeader.length > 0) {
     return _modelSectionHeader;
   }
@@ -203,11 +166,6 @@
 }
 
 - (NSString*)toolsSectionHeader {
-  // With the strings update, the tools section header is not shown.
-  if (IsPlusButtonMenuStringUpdatesEnabled()) {
-    return nil;
-  }
-
   if (_toolsSectionHeader.length > 0) {
     return _toolsSectionHeader;
   }
@@ -224,15 +182,6 @@
   }
   auto it = _controlMapping.find(tool);
   if (it != _controlMapping.end()) {
-    return it->second;
-  }
-  return nil;
-}
-
-// Returns the server config for the given model, if available.
-- (ComposeboxItemUIConfig*)configForModel:(ComposeboxModelOption)modelOption {
-  auto it = _modelMapping.find(modelOption);
-  if (it != _modelMapping.end()) {
     return it->second;
   }
   return nil;
@@ -286,52 +235,6 @@
     default:
       return SymbolWithPointSize(SymbolMagnifyingglassSpark,
                                  kSymbolActionPointSize);
-  }
-}
-
-// Returns the local fallback string for the given model.
-- (NSString*)localFallbackForModel:(ComposeboxModelOption)model
-                            isHint:(BOOL)isHint {
-  using enum ComposeboxModelOption;
-  switch (model) {
-    case kNone:
-      return nil;
-    case kRegular:
-      return l10n_util::GetNSString(
-          IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_AUTO);
-    case kAuto:
-      return l10n_util::GetNSString(
-          IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_AUTO);
-    case kThinking:
-    case kThinkingNoGenUI:
-      return l10n_util::GetNSString(
-          IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_THINKING);
-    case kFlash:
-      return l10n_util::GetNSString(
-          IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_FLASH);
-    default:
-      return @"";
-  }
-}
-
-// Returns the local fallback icon for the given model.
-- (UIImage*)localFallbackIconForModel:(ComposeboxModelOption)model {
-  using enum ComposeboxModelOption;
-  switch (model) {
-    case kNone:
-      return nil;
-    case kRegular:
-    case kFlash:
-      return SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize);
-    case kAuto:
-      return SymbolWithPointSize(SymbolArrowTrianglehead2ClockwiseRotate90,
-                                 kSymbolActionPointSize);
-    case kThinking:
-    case kThinkingNoGenUI:
-    case kProLatest:
-      return SymbolWithPointSize(SymbolClock, kSymbolActionPointSize);
-    default:
-      return SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize);
   }
 }
 

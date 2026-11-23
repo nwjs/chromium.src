@@ -4,8 +4,12 @@
 
 #include "chrome/browser/context_hub/storage/memory_bank_table.h"
 
+#include <cstdint>
+#include <utility>
 #include <vector>
 
+#include "base/containers/span.h"
+#include "base/numerics/byte_conversions.h"
 #include "base/time/time.h"
 #include "sql/database.h"
 #include "sql/statement.h"
@@ -27,6 +31,43 @@ class MemoryBankTableTest : public testing::Test {
     ASSERT_TRUE(table_.Init(&db_));
     ASSERT_TRUE(table_.MigrateFromCleanStateToVersion1());
     ASSERT_TRUE(table_.MigrateToVersion2AddNoteAndCollectionColumns());
+    ASSERT_TRUE(table_.MigrateToVersion3AddImageUrlColumn());
+    ASSERT_TRUE(table_.MigrateToVersion4AddEmbeddingsTables());
+  }
+
+  // Decodes the stored embedding vectors for `entry_id`. Returns an empty
+  // vector if there is no row or the blob is malformed.
+  std::vector<std::vector<float>> GetStoredEmbeddings(int64_t entry_id) {
+    sql::Statement statement(db_.GetUniqueStatement(
+        "SELECT embedding_blob FROM memory_bank_embeddings "
+        "WHERE entry_id = ?"));
+    statement.BindInt64(0, entry_id);
+    if (!statement.Step()) {
+      return {};
+    }
+    base::span<const uint8_t> blob = statement.ColumnBlob(0);
+    if (blob.size() < sizeof(uint32_t)) {
+      return {};
+    }
+    auto [header, payload] = blob.split_at<sizeof(uint32_t)>();
+    const size_t dimension = base::U32FromNativeEndian(header);
+    if (dimension == 0 || payload.empty() ||
+        payload.size() % sizeof(float) != 0) {
+      return {};
+    }
+    const size_t total_floats = payload.size() / sizeof(float);
+    if (total_floats % dimension != 0) {
+      return {};
+    }
+    const size_t vector_bytes = dimension * sizeof(float);
+    std::vector<std::vector<float>> result;
+    while (!payload.empty()) {
+      std::vector<float> floats(dimension);
+      base::as_writable_byte_span(base::allow_nonunique_obj, floats)
+          .copy_from(payload.take_first(vector_bytes));
+      result.push_back(std::move(floats));
+    }
+    return result;
   }
 
   sql::Database db_{sql::DatabaseOptions{}, sql::test::kTestTag};
@@ -49,6 +90,7 @@ TEST_F(MemoryBankTableTest, MigrateFromCleanStateToVersion1) {
   EXPECT_TRUE(db.DoesColumnExist("memory_bank_entries", "tags"));
   EXPECT_FALSE(db.DoesColumnExist("memory_bank_entries", "note"));
   EXPECT_FALSE(db.DoesColumnExist("memory_bank_entries", "collection"));
+  EXPECT_FALSE(db.DoesColumnExist("memory_bank_entries", "image_url"));
 }
 
 TEST_F(MemoryBankTableTest, MigrateToVersion2AddNoteAndCollectionColumns) {
@@ -69,26 +111,100 @@ TEST_F(MemoryBankTableTest, MigrateToVersion2AddNoteAndCollectionColumns) {
 
   EXPECT_TRUE(db.DoesColumnExist("memory_bank_entries", "note"));
   EXPECT_TRUE(db.DoesColumnExist("memory_bank_entries", "collection"));
+  EXPECT_FALSE(db.DoesColumnExist("memory_bank_entries", "image_url"));
 
-  // Verify the existing row can be fetched and note/collection are nullopt.
+  // Verify the existing row can be fetched and note/collection are null.
+  {
+    sql::Statement statement(db.GetUniqueStatement(
+        "SELECT tab_title, note, collection FROM memory_bank_entries "
+        "WHERE id = 1"));
+    ASSERT_TRUE(statement.Step());
+    EXPECT_EQ("Title", statement.ColumnString(0));
+    EXPECT_EQ(sql::ColumnType::kNull, statement.GetColumnType(1));
+    EXPECT_EQ(sql::ColumnType::kNull, statement.GetColumnType(2));
+  }
+
+  // Verify new row with note and collection can be added and fetched.
+  ASSERT_TRUE(
+      db.Execute("INSERT INTO memory_bank_entries (id, type, timestamp, url, "
+                 "tab_title, selected_text, tags, note, collection) VALUES "
+                 "(2, 0, 2000, 'https://example2.com', 'Title 2', NULL, "
+                 "NULL, 'Note 2', 'Collection 2')"));
+  {
+    sql::Statement statement(db.GetUniqueStatement(
+        "SELECT tab_title, note, collection FROM memory_bank_entries "
+        "WHERE id = 2"));
+    ASSERT_TRUE(statement.Step());
+    EXPECT_EQ("Title 2", statement.ColumnString(0));
+    EXPECT_EQ("Note 2", statement.ColumnString(1));
+    EXPECT_EQ("Collection 2", statement.ColumnString(2));
+  }
+}
+
+TEST_F(MemoryBankTableTest, MigrateToVersion3AddImageUrlColumn) {
+  sql::Database db(sql::DatabaseOptions{}, sql::test::kTestTag);
+  ASSERT_TRUE(db.OpenInMemory());
+  MemoryBankTable table;
+  ASSERT_TRUE(table.Init(&db));
+  ASSERT_TRUE(table.MigrateFromCleanStateToVersion1());
+  ASSERT_TRUE(table.MigrateToVersion2AddNoteAndCollectionColumns());
+
+  // Insert a row in version 2 schema.
+  ASSERT_TRUE(
+      db.Execute("INSERT INTO memory_bank_entries (id, type, timestamp, url, "
+                 "tab_title, selected_text, tags, note, collection) VALUES "
+                 "(1, 0, 1000, 'https://example.com', 'Title', 'Text', "
+                 "'[\"tag1\"]', 'Note 1', 'Collection 1')"));
+
+  // Run migration to version 3.
+  EXPECT_TRUE(table.MigrateToVersion3AddImageUrlColumn());
+  EXPECT_TRUE(db.DoesColumnExist("memory_bank_entries", "image_url"));
+
+  // Verify the existing row can be fetched and image_url is nullopt.
   auto entry = table.GetEntry(1);
   ASSERT_TRUE(entry.has_value());
   EXPECT_EQ("Title", entry->tab_title);
-  EXPECT_FALSE(entry->note.has_value());
-  EXPECT_FALSE(entry->collection.has_value());
+  EXPECT_EQ("Note 1", entry->note);
+  EXPECT_EQ("Collection 1", entry->collection);
+  EXPECT_FALSE(entry->image_url.has_value());
 
-  // Verify new row with note and collection can be added and fetched.
+  // Verify new row with image_url can be added and fetched.
   MemoryBankEntry new_entry;
-  new_entry.type = MemoryBankType::kTab;
+  new_entry.type = MemoryBankType::kImage;
   new_entry.timestamp = base::Time::FromSecondsSinceUnixEpoch(2000);
   new_entry.url = GURL("https://example2.com");
   new_entry.tab_title = "Title 2";
+  new_entry.image_url = GURL("https://example2.com/image.png");
   new_entry.note = "Note 2";
   new_entry.collection = "Collection 2";
   EXPECT_THAT(table.AddOrUpdateEntry(new_entry), testing::Optional(2));
 
   std::vector<MemoryBankEntry> all = table.GetAllEntries();
-  EXPECT_EQ(2u, all.size());
+  ASSERT_EQ(2u, all.size());
+  EXPECT_EQ(MemoryBankType::kImage, all[0].type);
+  EXPECT_EQ(GURL("https://example2.com/image.png"), all[0].image_url);
+}
+
+TEST_F(MemoryBankTableTest, MigrateToVersion4AddEmbeddingsTables) {
+  sql::Database db(sql::DatabaseOptions{}, sql::test::kTestTag);
+  ASSERT_TRUE(db.OpenInMemory());
+  MemoryBankTable table;
+  ASSERT_TRUE(table.Init(&db));
+  ASSERT_TRUE(table.MigrateFromCleanStateToVersion1());
+  ASSERT_TRUE(table.MigrateToVersion2AddNoteAndCollectionColumns());
+  ASSERT_TRUE(table.MigrateToVersion3AddImageUrlColumn());
+
+  EXPECT_FALSE(db.DoesTableExist("memory_bank_embeddings"));
+  EXPECT_FALSE(db.DoesTableExist("memory_bank_embeddings_meta"));
+
+  EXPECT_TRUE(table.MigrateToVersion4AddEmbeddingsTables());
+
+  EXPECT_TRUE(db.DoesTableExist("memory_bank_embeddings"));
+  EXPECT_TRUE(db.DoesColumnExist("memory_bank_embeddings", "entry_id"));
+  EXPECT_TRUE(db.DoesColumnExist("memory_bank_embeddings", "embedding_blob"));
+  EXPECT_TRUE(db.DoesTableExist("memory_bank_embeddings_meta"));
+  EXPECT_TRUE(db.DoesColumnExist("memory_bank_embeddings_meta", "name"));
+  EXPECT_TRUE(db.DoesColumnExist("memory_bank_embeddings_meta", "value"));
 }
 
 TEST_F(MemoryBankTableTest, AddAndGetEntry) {
@@ -118,6 +234,7 @@ TEST_F(MemoryBankTableTest, AddAndGetEntry) {
   EXPECT_EQ(entry.tab_title, entries[0].tab_title);
   ASSERT_TRUE(entries[0].selected_text.has_value());
   EXPECT_EQ("Page content", entries[0].selected_text.value());
+  EXPECT_FALSE(entries[0].image_url.has_value());
   EXPECT_EQ((std::vector<std::string>{"tag1", "tag2"}), entries[0].tags);
   ASSERT_TRUE(entries[0].note.has_value());
   EXPECT_EQ("Test Note", entries[0].note.value());
@@ -128,6 +245,7 @@ TEST_F(MemoryBankTableTest, AddAndGetEntry) {
   ASSERT_TRUE(fetched_entry.has_value());
   EXPECT_EQ(generated_id, fetched_entry->id);
   EXPECT_EQ(entry.url, fetched_entry->url);
+  EXPECT_FALSE(fetched_entry->image_url.has_value());
   EXPECT_EQ("Test Note", fetched_entry->note.value());
   EXPECT_EQ("Research", fetched_entry->collection.value());
 }
@@ -148,6 +266,7 @@ TEST_F(MemoryBankTableTest, UpdateExistingEntry) {
   MemoryBankEntry updated_entry = entries[0];
   updated_entry.tab_title = "Updated Title";
   updated_entry.selected_text = "New Selection";
+  updated_entry.image_url = GURL("https://www.google.com/logo.png");
   updated_entry.tags = {"updated"};
   updated_entry.note = "Updated Note";
   updated_entry.collection = "Updated Collection";
@@ -160,6 +279,9 @@ TEST_F(MemoryBankTableTest, UpdateExistingEntry) {
   ASSERT_TRUE(fetched_entry.has_value());
   EXPECT_EQ("Updated Title", fetched_entry->tab_title);
   EXPECT_EQ("New Selection", fetched_entry->selected_text.value());
+  ASSERT_TRUE(fetched_entry->image_url.has_value());
+  EXPECT_EQ(GURL("https://www.google.com/logo.png"),
+            fetched_entry->image_url.value());
   EXPECT_EQ((std::vector<std::string>{"updated"}), fetched_entry->tags);
   ASSERT_TRUE(fetched_entry->note.has_value());
   EXPECT_EQ("Updated Note", fetched_entry->note.value());
@@ -306,6 +428,7 @@ TEST_F(MemoryBankTableTest, NullOptionalFieldsStoredAsSqlNull) {
   entry.url = GURL("https://example.com");
   entry.tab_title = "Title";
   entry.selected_text = std::nullopt;
+  entry.image_url = std::nullopt;
   entry.tags = {};
   entry.note = std::nullopt;
   entry.collection = std::nullopt;
@@ -313,8 +436,8 @@ TEST_F(MemoryBankTableTest, NullOptionalFieldsStoredAsSqlNull) {
   EXPECT_THAT(table_.AddOrUpdateEntry(entry), testing::Optional(12345));
 
   sql::Statement statement(db_.GetUniqueStatement(
-      "SELECT selected_text, tags, note, collection FROM memory_bank_entries "
-      "WHERE id = ?"));
+      "SELECT selected_text, tags, note, collection, image_url FROM "
+      "memory_bank_entries WHERE id = ?"));
   statement.BindInt64(0, 12345);
   ASSERT_TRUE(statement.Step());
 
@@ -322,6 +445,7 @@ TEST_F(MemoryBankTableTest, NullOptionalFieldsStoredAsSqlNull) {
   EXPECT_EQ(sql::ColumnType::kNull, statement.GetColumnType(1));
   EXPECT_EQ(sql::ColumnType::kNull, statement.GetColumnType(2));
   EXPECT_EQ(sql::ColumnType::kNull, statement.GetColumnType(3));
+  EXPECT_EQ(sql::ColumnType::kNull, statement.GetColumnType(4));
 
   auto fetched = table_.GetEntry(12345);
   ASSERT_TRUE(fetched.has_value());
@@ -329,6 +453,7 @@ TEST_F(MemoryBankTableTest, NullOptionalFieldsStoredAsSqlNull) {
   EXPECT_TRUE(fetched->tags.empty());
   EXPECT_FALSE(fetched->note.has_value());
   EXPECT_FALSE(fetched->collection.has_value());
+  EXPECT_FALSE(fetched->image_url.has_value());
 }
 
 TEST_F(MemoryBankTableTest, GetEntriesByIds) {
@@ -410,6 +535,151 @@ TEST_F(MemoryBankTableTest, GetAllCollections) {
 
   std::vector<std::string> collections = table_.GetAllCollections();
   EXPECT_THAT(collections, testing::ElementsAre("Research", "Work"));
+}
+
+TEST_F(MemoryBankTableTest, AddOrUpdateEmbeddings) {
+  MemoryBankEntry entry;
+  entry.type = MemoryBankType::kTab;
+  entry.timestamp = base::Time::FromSecondsSinceUnixEpoch(1000);
+  entry.url = GURL("https://example.com");
+  entry.tab_title = "Example";
+  entry.selected_text = "Page text";
+  EXPECT_TRUE(table_.AddOrUpdateEntry(entry));
+
+  std::vector<MemoryBankEntry> entries = table_.GetAllEntries();
+  ASSERT_EQ(1u, entries.size());
+  int64_t entry_id = entries[0].id;
+
+  // No embeddings initially.
+  EXPECT_THAT(table_.GetEntryIdsWithoutEmbeddings(),
+              testing::ElementsAre(entry_id));
+
+  // Empty embeddings and invalid or non-existent IDs are rejected.
+  EXPECT_FALSE(table_.AddOrUpdateEmbeddings(entry_id, {}));
+  EXPECT_FALSE(table_.AddOrUpdateEmbeddings(
+      0, {passage_embeddings::Embedding({1.0f, 0.0f})}));
+  EXPECT_FALSE(table_.AddOrUpdateEmbeddings(
+      999, {passage_embeddings::Embedding({1.0f, 0.0f})}));
+  EXPECT_THAT(table_.GetEntryIdsWithoutEmbeddings(),
+              testing::ElementsAre(entry_id));
+
+  // Add multiple passage embeddings for the entry.
+  EXPECT_TRUE(table_.AddOrUpdateEmbeddings(
+      entry_id, {passage_embeddings::Embedding({0.6f, 0.8f}),
+                 passage_embeddings::Embedding({0.8f, 0.6f})}));
+  EXPECT_TRUE(table_.GetEntryIdsWithoutEmbeddings().empty());
+  EXPECT_THAT(GetStoredEmbeddings(entry_id),
+              testing::ElementsAre(testing::ElementsAre(0.6f, 0.8f),
+                                   testing::ElementsAre(0.8f, 0.6f)));
+
+  // Update embeddings with fewer passages; the old vectors are replaced.
+  EXPECT_TRUE(table_.AddOrUpdateEmbeddings(
+      entry_id, {passage_embeddings::Embedding({1.0f, 0.0f})}));
+  EXPECT_TRUE(table_.GetEntryIdsWithoutEmbeddings().empty());
+  EXPECT_THAT(GetStoredEmbeddings(entry_id),
+              testing::ElementsAre(testing::ElementsAre(1.0f, 0.0f)));
+
+  // Embeddings with mismatched dimensions are rejected and leave the stored
+  // embeddings intact.
+  EXPECT_FALSE(table_.AddOrUpdateEmbeddings(
+      entry_id, {passage_embeddings::Embedding({0.0f, 1.0f}),
+                 passage_embeddings::Embedding({0.0f, 0.0f, 1.0f})}));
+  EXPECT_THAT(GetStoredEmbeddings(entry_id),
+              testing::ElementsAre(testing::ElementsAre(1.0f, 0.0f)));
+}
+
+TEST_F(MemoryBankTableTest, DeleteEntriesDeletesEmbeddings) {
+  MemoryBankEntry entry;
+  entry.type = MemoryBankType::kTextSelection;
+  entry.timestamp = base::Time::FromSecondsSinceUnixEpoch(1000);
+  entry.url = GURL("https://example.com");
+  entry.tab_title = "Example";
+  EXPECT_TRUE(table_.AddOrUpdateEntry(entry));
+
+  int64_t entry_id = table_.GetAllEntries()[0].id;
+  EXPECT_TRUE(table_.AddOrUpdateEmbeddings(
+      entry_id, {passage_embeddings::Embedding({1.0f, 0.0f})}));
+  EXPECT_TRUE(table_.GetEntryIdsWithoutEmbeddings().empty());
+
+  EXPECT_TRUE(table_.DeleteEntries({entry_id}));
+  EXPECT_FALSE(table_.GetEntry(entry_id).has_value());
+
+  // The embeddings row should be gone along with its entry.
+  sql::Statement count_statement(
+      db_.GetUniqueStatement("SELECT COUNT(*) FROM memory_bank_embeddings"));
+  ASSERT_TRUE(count_statement.Step());
+  EXPECT_EQ(0, count_statement.ColumnInt(0));
+}
+
+TEST_F(MemoryBankTableTest, GetEntryIdsWithoutEmbeddings) {
+  MemoryBankEntry entry1;
+  entry1.type = MemoryBankType::kTab;
+  entry1.timestamp = base::Time::FromSecondsSinceUnixEpoch(1000);
+  entry1.url = GURL("https://example1.com");
+  entry1.tab_title = "Title 1";
+  EXPECT_TRUE(table_.AddOrUpdateEntry(entry1));
+
+  MemoryBankEntry entry2;
+  entry2.type = MemoryBankType::kTab;
+  entry2.timestamp = base::Time::FromSecondsSinceUnixEpoch(2000);
+  entry2.url = GURL("https://example2.com");
+  entry2.tab_title = "Title 2";
+  EXPECT_TRUE(table_.AddOrUpdateEntry(entry2));
+
+  std::vector<MemoryBankEntry> entries = table_.GetAllEntries();
+  ASSERT_EQ(2u, entries.size());
+  int64_t id1 = entries[0].id;
+  int64_t id2 = entries[1].id;
+
+  EXPECT_THAT(table_.GetEntryIdsWithoutEmbeddings(),
+              testing::UnorderedElementsAre(id1, id2));
+
+  EXPECT_TRUE(table_.AddOrUpdateEmbeddings(
+      id1, {passage_embeddings::Embedding({1.0f, 0.0f})}));
+  EXPECT_THAT(table_.GetEntryIdsWithoutEmbeddings(), testing::ElementsAre(id2));
+
+  EXPECT_TRUE(table_.AddOrUpdateEmbeddings(
+      id2, {passage_embeddings::Embedding({0.0f, 1.0f})}));
+  EXPECT_TRUE(table_.GetEntryIdsWithoutEmbeddings().empty());
+}
+
+TEST_F(MemoryBankTableTest, SetEmbeddingsVersion) {
+  MemoryBankEntry entry;
+  entry.type = MemoryBankType::kTab;
+  entry.timestamp = base::Time::FromSecondsSinceUnixEpoch(1000);
+  entry.url = GURL("https://example.com");
+  entry.tab_title = "Title";
+  ASSERT_TRUE(table_.AddOrUpdateEntry(entry));
+  int64_t entry_id = table_.GetAllEntries()[0].id;
+
+  // No version initially, and non-positive versions are rejected.
+  EXPECT_FALSE(table_.GetEmbeddingsVersion().has_value());
+  EXPECT_FALSE(table_.SetEmbeddingsVersion(0));
+  EXPECT_FALSE(table_.SetEmbeddingsVersion(-1));
+
+  // Setting the first version on an empty embeddings table succeeds.
+  EXPECT_TRUE(table_.SetEmbeddingsVersion(1));
+  EXPECT_EQ(1, table_.GetEmbeddingsVersion());
+
+  ASSERT_TRUE(table_.AddOrUpdateEmbeddings(
+      entry_id, {passage_embeddings::Embedding({1.0f, 0.0f})}));
+
+  // Non-positive versions do not wipe existing embeddings.
+  EXPECT_FALSE(table_.SetEmbeddingsVersion(0));
+  EXPECT_EQ(1, table_.GetEmbeddingsVersion());
+  EXPECT_TRUE(table_.GetEntryIdsWithoutEmbeddings().empty());
+
+  // Setting the same version keeps existing embeddings.
+  EXPECT_TRUE(table_.SetEmbeddingsVersion(1));
+  EXPECT_EQ(1, table_.GetEmbeddingsVersion());
+  EXPECT_TRUE(table_.GetEntryIdsWithoutEmbeddings().empty());
+
+  // Changing the version drops all embeddings but keeps entries.
+  EXPECT_TRUE(table_.SetEmbeddingsVersion(2));
+  EXPECT_EQ(2, table_.GetEmbeddingsVersion());
+  EXPECT_TRUE(table_.GetEntry(entry_id).has_value());
+  EXPECT_THAT(table_.GetEntryIdsWithoutEmbeddings(),
+              testing::ElementsAre(entry_id));
 }
 
 }  // namespace context_hub

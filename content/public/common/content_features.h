@@ -51,10 +51,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidPkAutocorrectUnderlineV2);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kAndroidRemoveSetLocalFocusWorkaroundOnBaklava);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidReplayDelKeyEvent);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kAndroidBlockMisspellingSuggestionSpanInCompositionMode);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kAndroidBlockGrammarSuggestionSpanInCompositionMode);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidWarmUpSpareRendererWithTimeout);
 CONTENT_EXPORT extern const base::FeatureParam<std::string>
     kAndroidSpareRendererCreationTiming;
@@ -94,10 +90,14 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBackForwardCacheCCNSIgnoreUnchangedCookies);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackToAdIntervention);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBatterySaverModeAlignWakeUps);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kBlockContentUriNavigationByDefault);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kBrokerFileOperationsOnDiskCacheInNetworkService);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBypassRedirectChecksPerRequest);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCacheControlNoStoreEnterBackForwardCache);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kCaseInsensitiveMhtmlMustDownload);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kChildProcessSecurityPolicyRust);
 inline constexpr const char kChildProcessSecurityPolicyRustPolicyName[] =
     "policy";
@@ -109,7 +109,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kChildProcessSecurityPolicyRustProcessState);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kClearCrossSiteCrossBrowsingContextGroupWindowName);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kCompositeBGColorAnimation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeferSessionStorageScavengingOnStartup);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeferSpeculativeRFHCreation);
 CONTENT_EXPORT extern const base::FeatureParam<bool>
@@ -120,6 +119,7 @@ CONTENT_EXPORT extern const base::FeatureParam<int>
     kCreateSpeculativeRFHDelayMs;
 // Allows full debugging of Top Chrome Webium in devtools.
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDebugTopChromeWebUI);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionJsApi);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kDeviceBoundSessionTerminationEvictBackForwardCache);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDigitalGoodsApi);
@@ -251,6 +251,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kNoStatePrefetchHoldback);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kOriginIsolationHeader);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kOverscrollHistoryNavigation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPeriodicBackgroundSync);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPopulateUnattachedAuraScreenInfo);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPreconnectManagerDirectFastPath);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchActivationBeacon);
 
@@ -311,6 +312,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kResourceBroker);
 CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                                           kResourceBrokerGraceWindow);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRestrictThreadPoolInBackground);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kRFHHiddenWhenHiddenButPainting);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSpareRendererProcessPriority);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSkipIPCChannelPausingForNonGuests);
 CONTENT_EXPORT extern const base::FeatureParam<bool>
@@ -387,6 +389,9 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyTiering);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebAssemblyTrapHandler);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebBluetooth);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebBluetoothNewPermissionsBackend);
+#if BUILDFLAG(IS_ANDROID)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebHidOnDesktopAndroidServiceWorkers);
+#endif  // BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebOtpBackendAuto);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebPayments);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWebUICodeCache);
@@ -409,7 +414,6 @@ CONTENT_EXPORT extern const base::FeatureParam<bool>
     kAccessibilityDeprecateJavaNodeCacheOptimizeScroll;
 CONTENT_EXPORT extern const base::FeatureParam<bool>
     kAccessibilityDeprecateJavaNodeCacheDisableCache;
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityExtendedSelection);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySyncFocusOnViewFocusGain);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityImeGetFormattedText);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySliderStateDescription);
@@ -424,8 +428,6 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityPageZoomV2);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityPopulateSupplementalDescriptionApi);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilitySequentialFocus);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kAccessibilitySetSelectableOnAllNodesWithText);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityManageBroadcastReceiverOnBackground);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDesktopZoomScaling);

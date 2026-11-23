@@ -806,8 +806,12 @@ TEST_F(
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/
-      {syncer::kReplaceSyncPromosWithSignInPromos,
-       syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers},
+      {
+          syncer::kReplaceSyncPromosWithSignInPromos,
+#if BUILDFLAG(IS_CHROMEOS)
+          syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
+#endif  // BUILDFLAG(IS_CHROMEOS)
+      },
       /*disabled_features=*/{});
 
   // Sign-in.
@@ -862,12 +866,8 @@ TEST_F(
 TEST_F(
     SyncServiceImplTest,
     AddressesSyncValueShouldRemainUnchangedForCustomPassphraseUsersAfterTheirInitialSignin) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {syncer::kReplaceSyncPromosWithSignInPromos,
-       syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers},
-      /*disabled_features=*/{});
+  base::test::ScopedFeatureList scoped_feature_list{
+      syncer::kReplaceSyncPromosWithSignInPromos};
 
   // Sign-in.
   SignInWithoutSyncConsent();
@@ -928,12 +928,8 @@ TEST_F(
 TEST_F(
     SyncServiceImplTest,
     AddressesSyncShouldNotBeDisabledForSignedInUsersWithNewlyCustomPassphraseSet) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {syncer::kReplaceSyncPromosWithSignInPromos,
-       syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers},
-      /*disabled_features=*/{});
+  base::test::ScopedFeatureList scoped_feature_list{
+      syncer::kReplaceSyncPromosWithSignInPromos};
 
   // Sign-in.
   SignInWithoutSyncConsent();
@@ -1598,10 +1594,6 @@ TEST_F(SyncServiceImplTest,
 // https://crbug.com/534244680.
 TEST_F(SyncServiceImplTest,
        DisableSyncOnClientCopiesSyncPreferencesToTransportMode) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      kSyncCopyPreferencesToTransportModeOnServerForcedDisable);
-
   PopulatePrefsForInitialSyncFeatureSetupComplete();
   SignInWithSyncConsent();
   std::vector<FakeControllerInitParams> params;
@@ -2070,6 +2062,29 @@ TEST_F(SyncServiceImplTest, ShouldSubscribeToStopAndKeepDataTypes) {
   EXPECT_CALL(*sync_invalidations_service(),
               SetInterestedDataTypes(AllOf(ContainsDataType(DEVICE_INFO),
                                            ContainsDataType(BOOKMARKS))));
+  base::RunLoop().RunUntilIdle();
+}
+
+// Verifies that data types with crypto errors remain subscribed to
+// invalidations, unlike data types with permanent errors.
+TEST_F(SyncServiceImplTest, ShouldSubscribeToDataTypesWithCryptoErrors) {
+  PopulatePrefsForInitialSyncFeatureSetupComplete();
+  SignInWithSyncConsent();
+  std::vector<FakeControllerInitParams> params;
+  params.emplace_back(BOOKMARKS, /*enable_transport_mode=*/false);
+  params.emplace_back(DEVICE_INFO, /*enable_transport_mode=*/true);
+  InitializeService(std::move(params));
+  EXPECT_CALL(*sync_invalidations_service(),
+              SetInterestedDataTypes(AllOf(ContainsDataType(DEVICE_INFO),
+                                           ContainsDataType(BOOKMARKS))));
+  base::RunLoop().RunUntilIdle();
+
+  EXPECT_CALL(*sync_invalidations_service(),
+              SetInterestedDataTypes(AllOf(ContainsDataType(DEVICE_INFO),
+                                           ContainsDataType(BOOKMARKS))));
+  service()->GetEncryptionObserverForTest()->OnEncryptedTypesChanged(
+      EncryptableUserTypes(), /*encrypt_everything=*/true);
+  TriggerPassphraseRequired();
   base::RunLoop().RunUntilIdle();
 }
 

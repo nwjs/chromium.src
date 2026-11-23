@@ -11,6 +11,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/notimplemented.h"
@@ -185,9 +186,9 @@ bool FullscreenController::IsFullscreenCausedByTab() const {
 
 bool FullscreenController::CanEnterFullscreenModeForTab(
     content::RenderFrameHost* requesting_frame) {
-  DCHECK(requesting_frame);
+  CHECK(requesting_frame, base::NotFatalUntil::M162);
   auto* web_contents = WebContents::FromRenderFrameHost(requesting_frame);
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M162);
 
   if (web_contents != exclusive_access_manager()
                           ->context()
@@ -201,15 +202,17 @@ bool FullscreenController::CanEnterFullscreenModeForTab(
 void FullscreenController::EnterFullscreenModeForTab(
     content::RenderFrameHost* requesting_frame,
     FullscreenTabParams fullscreen_tab_params) {
-  DCHECK(requesting_frame);
+  CHECK(requesting_frame, base::NotFatalUntil::M162);
   // This function should never fail. Any possible failures must be checked in
   // |CanEnterFullscreenModeForTab()| instead. Silently dropping the request
   // could cause requestFullscreen promises to hang. If we are in this function,
   // the renderer expects a visual property update to call
   // |blink::FullscreenController::DidEnterFullscreen| to resolve promises.
+  // CHECK-exclusion: CanEnterFullscreenModeForTab() can return false when
+  // EnterFullscreenModeForTab() is called on Android (crbug.com/576177579).
   DCHECK(CanEnterFullscreenModeForTab(requesting_frame));
   auto* web_contents = WebContents::FromRenderFrameHost(requesting_frame);
-  DCHECK(web_contents);
+  CHECK(web_contents, base::NotFatalUntil::M162);
 
   if (MaybeToggleFullscreenWithinTab(web_contents, true)) {
     // During tab capture of fullscreen-within-tab views, the browser window
@@ -249,11 +252,11 @@ void FullscreenController::EnterFullscreenModeForTab(
     // the element is in a different process, such as OOPIF, because the
     // renderer doesn't know if an element in other renderer process is in
     // fullscreen.
-    DCHECK(tab_fullscreen_);
+    CHECK(tab_fullscreen_, base::NotFatalUntil::M162);
 #if BUILDFLAG(IS_ANDROID)
     // On Android it is allowed to change the fullscreen parameters options when
     // in fullscreen.
-    DCHECK(fullscreen_parameters_.has_value());
+    CHECK(fullscreen_parameters_.has_value(), base::NotFatalUntil::M162);
     if (fullscreen_parameters_.has_value() &&
         fullscreen_tab_params != fullscreen_parameters_) {
       EnterFullscreenModeInternal(FullscreenInternalOption::kTab,
@@ -320,11 +323,18 @@ void FullscreenController::ExitFullscreenModeForTab(WebContents* web_contents) {
   // fullscreen to browser fullscreen should be handled here.
   const bool was_browser_fullscreen =
       state_prior_to_tab_fullscreen_ == STATE_BROWSER_FULLSCREEN;
+  base::WeakPtr<WebContents> weak_web_contents =
+      web_contents ? web_contents->GetWeakPtr() : nullptr;
 
   NotifyTabExclusiveAccessLost();
   if (was_browser_fullscreen) {
     exclusive_access_context->UpdateUIForTabFullscreen();
   }
+  // Neither `NotifyTabExclusiveAccessLost()` nor `UpdateUIForTabFullscreen()`
+  // transitions the OS window out of fullscreen or spins a nested message loop,
+  // so `web_contents` cannot be destroyed synchronously (e.g. via a pending
+  // `window.close()` IPC) before `GetDisplayId(*web_contents)` below.
+  CHECK(!web_contents || weak_web_contents);
 
   // For Tab Fullscreen -> Browser Fullscreen, enter browser fullscreen on the
   // display that originated the browser fullscreen prior to the tab fullscreen.
@@ -353,7 +363,7 @@ void FullscreenController::FullscreenTabOpeningPopup(
     return;
   }
 
-  DCHECK_EQ(exclusive_access_tab(), opener);
+  CHECK_EQ(exclusive_access_tab(), opener, base::NotFatalUntil::M162);
   popunder_preventer_->AddPotentialPopunder(popup);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -422,9 +432,9 @@ void FullscreenController::WindowFullscreenStateChanged() {
   }
 #if DCHECK_IS_ON()
   if (started_fullscreen_transition_ && IsTabFullscreen()) {
-    DCHECK(exclusive_access_tab());
-    DCHECK_EQ(tab_fullscreen_target_display_id_,
-              GetDisplayId(*exclusive_access_tab()));
+    CHECK(exclusive_access_tab(), base::NotFatalUntil::M162);
+    CHECK_EQ(tab_fullscreen_target_display_id_,
+             GetDisplayId(*exclusive_access_tab()), base::NotFatalUntil::M162);
   }
 #endif  // DCHECK_IS_ON()
   tab_fullscreen_target_display_id_ = display::kInvalidDisplayId;
@@ -550,6 +560,7 @@ void FullscreenController::NotifyTabExclusiveAccessLost() {
     base::AutoReset<bool> in_notify(&in_notify_tab_exclusive_access_lost_,
                                     true);
     WebContents* web_contents = exclusive_access_tab();
+    base::WeakPtr<WebContents> weak_web_contents = web_contents->GetWeakPtr();
     SetTabWithExclusiveAccess(nullptr);
     requesting_origin_ = url::Origin();
     bool will_cause_resize = IsFullscreenCausedByTab();
@@ -557,6 +568,7 @@ void FullscreenController::NotifyTabExclusiveAccessLost() {
     tab_fullscreen_ = false;
     web_contents->ExitFullscreen(will_cause_resize);
     exclusive_access_manager()->UpdateBubble(base::NullCallback());
+    CHECK(weak_web_contents);
   }
 }
 
@@ -606,7 +618,7 @@ void FullscreenController::EnterFullscreenModeInternal(
         WebContents::FromRenderFrameHost(requesting_frame);
     // Do not enter tab fullscreen if there is no web contents for the
     // requesting frame (This normally shouldn't happen).
-    DCHECK(web_contents);
+    CHECK(web_contents, base::NotFatalUntil::M162);
     if (!web_contents) {
       return;
     }
@@ -731,6 +743,8 @@ bool FullscreenController::IsFullscreenWithinTab(
       web_contents ? FullscreenWithinTabHelper::FromWebContents(web_contents)
                    : nullptr;
   if (helper && helper->is_fullscreen_within_tab()) {
+    // TODO(crbug.com/581005180): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK_NE(exclusive_access_tab(), web_contents);
     return true;
   }
@@ -738,7 +752,7 @@ bool FullscreenController::IsFullscreenWithinTab(
 }
 
 url::Origin FullscreenController::GetRequestingOrigin() const {
-  DCHECK(exclusive_access_tab());
+  CHECK(exclusive_access_tab(), base::NotFatalUntil::M162);
 
   if (!requesting_origin_.opaque()) {
     return requesting_origin_;
@@ -748,7 +762,7 @@ url::Origin FullscreenController::GetRequestingOrigin() const {
 }
 
 url::Origin FullscreenController::GetEmbeddingOrigin() const {
-  DCHECK(exclusive_access_tab());
+  CHECK(exclusive_access_tab(), base::NotFatalUntil::M162);
 
   return url::Origin::Create(exclusive_access_tab()->GetLastCommittedURL());
 }

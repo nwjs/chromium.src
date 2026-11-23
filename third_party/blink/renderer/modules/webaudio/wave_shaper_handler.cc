@@ -107,19 +107,19 @@ double WaveShaperCurveValue(float input, base::span<const float> curve) {
 
 class WaveShaperKernel final {
  public:
-  std::unique_ptr<AudioFloatArray> temp_buffer_;
-  std::unique_ptr<AudioFloatArray> temp_buffer2_;
+  AudioFloatArray temp_buffer_;
+  AudioFloatArray temp_buffer2_;
   std::unique_ptr<UpSampler> up_sampler_;
   std::unique_ptr<DownSampler> down_sampler_;
   std::unique_ptr<UpSampler> up_sampler2_;
   std::unique_ptr<DownSampler> down_sampler2_;
 
-  bool IsInitialized() const { return temp_buffer_ != nullptr; }
+  bool IsInitialized() const { return temp_buffer_.size() > 0; }
 
   void LazyInitializeOversampling(uint32_t sub_block_frames) {
     if (!IsInitialized()) {
-      temp_buffer_ = std::make_unique<AudioFloatArray>(sub_block_frames * 2);
-      temp_buffer2_ = std::make_unique<AudioFloatArray>(sub_block_frames * 4);
+      temp_buffer_.Allocate(sub_block_frames * 2);
+      temp_buffer2_.Allocate(sub_block_frames * 4);
       up_sampler_ = std::make_unique<UpSampler>(sub_block_frames);
       down_sampler_ = std::make_unique<DownSampler>(sub_block_frames * 2);
       up_sampler2_ = std::make_unique<UpSampler>(sub_block_frames * 2);
@@ -324,8 +324,7 @@ void WaveShaperHandler::Process(uint32_t frames_to_process) {
                   NOTREACHED();
                 case V8OverSampleType::Enum::k2X: {
                   base::span<float> temp_span =
-                      kernels_[i]->temp_buffer_->as_span().first(chunk_size *
-                                                                 2);
+                      kernels_[i]->temp_buffer_.as_span().first(chunk_size * 2);
                   kernels_[i]->up_sampler_->Process(source_chunk, temp_span);
 
                   // Process at 2x up-sampled rate.
@@ -337,11 +336,10 @@ void WaveShaperHandler::Process(uint32_t frames_to_process) {
 
                 case V8OverSampleType::Enum::k4X: {
                   base::span<float> temp_span =
-                      kernels_[i]->temp_buffer_->as_span().first(chunk_size *
-                                                                 2);
+                      kernels_[i]->temp_buffer_.as_span().first(chunk_size * 2);
                   base::span<float> temp_span2 =
-                      kernels_[i]->temp_buffer2_->as_span().first(chunk_size *
-                                                                  4);
+                      kernels_[i]->temp_buffer2_.as_span().first(chunk_size *
+                                                                 4);
                   kernels_[i]->up_sampler_->Process(source_chunk, temp_span);
                   kernels_[i]->up_sampler2_->Process(temp_span, temp_span2);
 
@@ -454,8 +452,11 @@ void WaveShaperHandler::WaveShaperCurveValues(
   TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("webaudio.audionode"),
                "WaveShaperHandler::WaveShaperCurveValues");
   DCHECK_LE(frames_to_process, virtual_index_.size());
+  source = source.first(frames_to_process);
+  destination = destination.first(frames_to_process);
   // Index into the array computed from the source value.
-  base::span<float> virtual_index_span = virtual_index_.as_span();
+  base::span<float> virtual_index_span =
+      virtual_index_.as_span().first(frames_to_process);
 
   const size_t curve_length = curve_data.size();
   CHECK_GE(curve_length, 1u);
@@ -466,28 +467,31 @@ void WaveShaperHandler::WaveShaperCurveValues(
   //           static_cast<float>(curve_length - 1))
 
   // Add 1 to source puttting result in virtual_index
-  vector_math::Vsadd(source, 1.0f, virtual_index_span, frames_to_process);
+  vector_math::Vsadd(source, 1.0f, virtual_index_span);
 
   // Scale virtual_index in place by (curve_length -1)/2
   vector_math::Vsmul(virtual_index_span, 0.5 * (curve_length - 1),
-                     virtual_index_span, frames_to_process);
+                     virtual_index_span);
 
   // Clip virtual_index, in place.
   vector_math::Vclip(virtual_index_span, 0, curve_length - 1,
-                     virtual_index_span, frames_to_process);
+                     virtual_index_span);
 
   // index = floor(virtual_index)
   DCHECK_LE(frames_to_process, index_.size());
-  base::span<float> index = index_.as_span();
+  base::span<float> index = index_.as_span().first(frames_to_process);
 
   // v1 and v2 hold the curve_data corresponding to the closest curve
   // values to the source sample.  To save memory, v1 will use the
   // destination array.
   DCHECK_LE(frames_to_process, v1_.size());
   DCHECK_LE(frames_to_process, v2_.size());
+  base::span<float> v1_span = v1_.as_span().first(frames_to_process);
+  base::span<float> v2_span = v2_.as_span().first(frames_to_process);
 
   // Interpolation factor: virtual_index - index.
   DCHECK_LE(frames_to_process, f_.size());
+  base::span<float> f_span = f_.as_span().first(frames_to_process);
 
   int max_index = static_cast<int>(curve_length - 1);
   unsigned k = 0;
@@ -594,7 +598,7 @@ void WaveShaperHandler::WaveShaperCurveValues(
   }
 
   // f[k] = virtual_index[k] - index[k]
-  vector_math::Vsub(virtual_index_span, index, f_.as_span(), frames_to_process);
+  vector_math::Vsub(virtual_index_span, index, f_span);
 
   // Do the linear interpolation of the curve data:
   // destination[k] = v1[k] + f[k]*(v2[k] - v1[k])
@@ -603,12 +607,9 @@ void WaveShaperHandler::WaveShaperCurveValues(
   // 2. v2[k] = f[k]*v2[k] = f[k]*(v2[k] - v1[k])
   // 3. destination[k] = destination[k] + v2[k]
   //                   = v1[k] + f[k]*(v2[k] - v1[k])
-  vector_math::Vsub(v2_.as_span(), v1_.as_span(), v2_.as_span(),
-                    frames_to_process);
-  vector_math::Vmul(f_.as_span(), v2_.as_span(), v2_.as_span(),
-                    frames_to_process);
-  vector_math::Vadd(v2_.as_span(), v1_.as_span(), destination,
-                    frames_to_process);
+  vector_math::Vsub(v2_span, v1_span, v2_span);
+  vector_math::Vmul(f_span, v2_span, v2_span);
+  vector_math::Vadd(v2_span, v1_span, destination);
 }
 
 }  // namespace blink

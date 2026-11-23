@@ -19,6 +19,7 @@
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "ui/base/ime/text_input_flags.h"
+#include "ui/base/ime/text_input_type.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/range/range.h"
 
@@ -75,11 +76,11 @@ gfx::Rect GetRootOrFallbackViewportRect(RenderWidgetHostViewBase* view) {
   }
 }
 
-// Transforms `rect` to the root view's coordinate space and clamps it to the
-// `viewport_rect`.
+// Transforms `rect` to the root view's coordinate space and clamps it to
+// `clamp_rect`.
 gfx::Rect TransformAndClampBounds(RenderWidgetHostViewBase* view,
                                   const gfx::Rect& rect,
-                                  const gfx::Rect& viewport_rect) {
+                                  const gfx::Rect& clamp_rect) {
   gfx::Point origin_transformed =
       view->TransformPointToRootCoordSpace(rect.origin());
   gfx::Point bottom_left_transformed =
@@ -87,8 +88,26 @@ gfx::Rect TransformAndClampBounds(RenderWidgetHostViewBase* view,
   gfx::Rect transformed_rect(
       origin_transformed, gfx::Size(rect.width(), bottom_left_transformed.y() -
                                                       origin_transformed.y()));
-  transformed_rect.AdjustToFit(viewport_rect);
+  transformed_rect.AdjustToFit(clamp_rect);
   return transformed_rect;
+}
+
+// Transforms `state.edit_context_selection_bounds` to the root view's
+// coordinate space and clamps it to `state.edit_context_control_bounds` (when
+// non-empty) and `viewport_rect`.
+gfx::Rect ClampEditContextSelectionBounds(
+    RenderWidgetHostViewBase* view,
+    const ui::mojom::TextInputState& state,
+    const gfx::Rect& viewport_rect) {
+  gfx::Rect clamp_rect = viewport_rect;
+  if (state.edit_context_control_bounds &&
+      !state.edit_context_control_bounds->IsEmpty() &&
+      *state.edit_context_selection_bounds != gfx::Rect()) {
+    clamp_rect = TransformAndClampBounds(
+        view, *state.edit_context_control_bounds, viewport_rect);
+  }
+  return TransformAndClampBounds(view, *state.edit_context_selection_bounds,
+                                 clamp_rect);
 }
 
 }  // namespace
@@ -106,6 +125,13 @@ TextInputManager::~TextInputManager() {
   while (!view_map_.empty()) {
     Unregister(view_map_.begin()->first);
   }
+}
+
+// static
+bool TextInputManager::IsPasswordLike(const ui::mojom::TextInputState& state) {
+  return state.type == ui::TEXT_INPUT_TYPE_PASSWORD ||
+         ((state.flags & (ui::TEXT_INPUT_FLAG_HAS_BEEN_PASSWORD |
+                          ui::TEXT_INPUT_FLAG_HAS_BEEN_CUSTOM_PASSWORD)) != 0);
 }
 
 RenderWidgetHostImpl* TextInputManager::GetActiveWidget() const {
@@ -218,12 +244,9 @@ const std::optional<gfx::Rect> TextInputManager::GetTextControlBounds() const {
   if (!active_view_ || !state || !state->edit_context_control_bounds)
     return std::nullopt;
 
-  auto control_bounds = state->edit_context_control_bounds.value();
-  auto new_top_left =
-      active_view_->TransformPointToRootCoordSpace(control_bounds.origin());
-  control_bounds.set_origin(new_top_left);
-  control_bounds.AdjustToFit(GetRootOrFallbackViewportRect(active_view_));
-  return control_bounds;
+  return TransformAndClampBounds(active_view_,
+                                 *state->edit_context_control_bounds,
+                                 GetRootOrFallbackViewportRect(active_view_));
 }
 
 const std::optional<gfx::Rect> TextInputManager::GetTextSelectionBounds()
@@ -232,12 +255,8 @@ const std::optional<gfx::Rect> TextInputManager::GetTextSelectionBounds()
   if (!active_view_ || !state || !state->edit_context_selection_bounds)
     return std::nullopt;
 
-  auto selection_bounds = state->edit_context_selection_bounds.value();
-  auto new_top_left =
-      active_view_->TransformPointToRootCoordSpace(selection_bounds.origin());
-  selection_bounds.set_origin(new_top_left);
-  selection_bounds.AdjustToFit(GetRootOrFallbackViewportRect(active_view_));
-  return selection_bounds;
+  return ClampEditContextSelectionBounds(
+      active_view_, *state, GetRootOrFallbackViewportRect(active_view_));
 }
 
 void TextInputManager::UpdateTextInputState(
@@ -293,11 +312,8 @@ void TextInputManager::UpdateTextInputState(
   std::optional<SelectionRegion> new_edit_context_region;
   if (text_input_state.edit_context_selection_bounds &&
       *text_input_state.edit_context_selection_bounds != gfx::Rect()) {
-    gfx::Rect selection_bounds =
-        *text_input_state.edit_context_selection_bounds;
-    selection_bounds.set_origin(
-        view->TransformPointToRootCoordSpace(selection_bounds.origin()));
-    selection_bounds.AdjustToFit(viewport_rect);
+    const gfx::Rect selection_bounds =
+        ClampEditContextSelectionBounds(view, text_input_state, viewport_rect);
     SelectionRegion& region = new_edit_context_region.emplace();
     region.anchor.SetEdge(gfx::PointF(selection_bounds.origin()),
                           gfx::PointF(selection_bounds.bottom_left()));

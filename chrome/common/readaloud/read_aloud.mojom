@@ -25,8 +25,7 @@ enum Speaker {
 };
 
 struct TextSegment {
-  // 0-based index of this segment in reading order. Echoed back in
-  // `OnWordBoundaryReached()` to identify the active DOM/AX node.
+  // 0-based index of this segment in reading order.
   uint32 segment_index;
   mojo_base.mojom.String16 text;
   Speaker speaker = kSpeaker1;
@@ -82,6 +81,11 @@ interface ReadAloudPlaybackController {
   Pause();
   SeekToWord(uint32 segment_index, uint32 character_offset);
   SeekToTime(mojo_base.mojom.TimeDelta position);
+  // Seeks forward (`offset > 0`) or backward (`offset < 0`) relative to the
+  // current 1.0x playback position, clamped to `[0, total_duration]`.
+  // Non-finite offsets (`TimeDelta::Min()` or `TimeDelta::Max()`) are rejected
+  // as a bad message.
+  SeekRelative(mojo_base.mojom.TimeDelta offset);
   SetVoice(string voice_id);
   // Sets the speech audio speed multiplier (`1.0` is normal speed).
   // `rate` must be positive (> 0.0); out-of-bounds rates (< 0.25 or > 4.0)
@@ -115,9 +119,14 @@ interface ReadAloudPlaybackControllerClient {
   // overflow. Violations trigger a bad message error.
   OnPlaybackProgressChanged(mojo_base.mojom.TimeDelta elapsed,
                             mojo_base.mojom.TimeDelta duration);
-  OnWordBoundaryReached(uint32 segment_index,
-                        uint32 character_offset,
-                        mojo_base.mojom.TimeDelta audio_timestamp);
+  // Called when a word becomes audible. Offsets are UTF-16 code units into
+  // the chunks sent via `OnTextChunked()`, laid out in order with one
+  // separator code unit between consecutive chunks. A word always lies within
+  // a single chunk, so `end_character_offset` never exceeds the end of the
+  // last chunk. `end_character_offset` is exclusive. The browser rejects
+  // `start_character_offset > end_character_offset` as a bad message.
+  OnWordBoundaryReached(uint32 start_character_offset,
+                        uint32 end_character_offset);
   // Emits the sentence-chunked timeline of text extracted from the webpage.
   // This is called exactly once per playback session during initialization.
   // `chunks` is a strictly ordered array of sentence segments up to a

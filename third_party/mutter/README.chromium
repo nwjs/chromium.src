@@ -1,10 +1,10 @@
 Name: mutter
 URL: https://gitlab.gnome.org/GNOME/mutter
-Version: 48.4
-Revision: 7c88672bfc702f7d47c6b3755147fbeb859391af
-Update Mechanism: Manual (https://crbug.com/503546519)
+Version: 51.1
+Revision: 9134e3a5869ce232bf95b77519005865747ba603
+Update Mechanism: Autoroll
 License: GPL-2.0
-License File: LICENSE
+License File: src/COPYING
 Shipped: no
 Security Critical: no
 
@@ -14,13 +14,29 @@ A Wayland display server and X11 window manager and compositor library.
 This is only used in tests.
 
 Local Modifications:
-- Implement chromium ui-controls protocol in forked chromium branch.
+None. src/ is a pristine upstream release.
 
-When updating to a new version, update the Revision above with the new commit hash,
-and perform the following steps:
-1. Run on_update.sh
-2. Check in the generated files along with the changes for the update.
+The Chromium ui-controls Wayland protocol (used by interactive_ui_tests) is
+implemented in chromium/meta-wayland-ui-controls.c, outside of src/. It is
+built against mutter's private headers and hooked into the compositor by
+wrapping meta_wayland_compositor_new() at link time
+(-Wl,--wrap=meta_wayland_compositor_new in BUILD.gn).
 
-When making local modifications to the third party repo, no CQ bots are run.
-So make sure to run tests locally and/or using a draft chromium CL with updated
-DEPS pointing to the new SHA before submitting changes there.
+Enum types, marshallers and D-Bus code are generated at build time with the
+in-tree glib's code generators (see //third_party/glib/codegen.gni), using the
+same arguments and inputs as upstream's meson.build files. Only the outputs
+that need the host are checked in, under include/: config.h (from meson's host
+configuration checks, as a template whose version is filled in at build time
+from src/meson.build) and meta-default-modes.h (whose generator runs the
+host's /usr/bin/cvt, from the xcvt package, to calculate VESA CVT display
+mode timings).
+
+This is updated by an autoroller that tracks upstream release tags. Point
+releases only need a DEPS update. New major versions need manual work, so the
+roll will fail; take over the roll CL and:
+1. Update BUILD.gn to match the upstream meson.build files: sources, and the
+   inputs and arguments of the glib_mkenums, glib_genmarshal and gdbus_codegen
+   targets.
+2. Run on_update.sh and check in the regenerated files under include/.
+3. Make sure chromium/meta-wayland-ui-controls.c still builds against the new
+   private headers.

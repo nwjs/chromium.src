@@ -24,10 +24,10 @@ import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.CustomTabProfileType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
-import org.chromium.chrome.browser.ntp.RecentlyClosedBridge;
-import org.chromium.chrome.browser.ntp.RecentlyClosedEntry;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.recent_tabs.RecentlyClosedBridge;
+import org.chromium.chrome.browser.recent_tabs.RecentlyClosedEntry;
 import org.chromium.chrome.browser.tab.SadTab;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabDestroyStatus;
@@ -122,11 +122,11 @@ public class TabModelSelectorImpl extends TabModelSelectorBase {
         if (isTabStateInitialized()) return;
         super.markTabStateInitialized();
 
-        TabModelJniBridge model = (TabModelJniBridge) getModel(false);
-        if (model != null) {
+        if (getModel(false) instanceof TabModelJniBridge model) {
             model.completeInitialization();
         } else {
-            assert false : "Normal tab model is null after tab state loaded.";
+            assert getModel(false) instanceof StubTabModel
+                    : "Normal tab model is null or unexpected type after tab state loaded.";
         }
     }
 

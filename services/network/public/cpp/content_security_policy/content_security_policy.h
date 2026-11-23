@@ -125,12 +125,6 @@ COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM)
 bool ShouldUpgradeInsecureRequest(
     const std::vector<mojom::ContentSecurityPolicyPtr>& policies);
 
-// Return true if the set of |policies| contains one "Treat-As-Public-Address"
-// directive.
-COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM)
-bool ShouldTreatAsPublicAddress(
-    const std::vector<mojom::ContentSecurityPolicyPtr>& policies);
-
 // Upgrade scheme of the |url| from HTTP to HTTPS and its port from 80 to 433
 // (if needed). This is a no-op on non-HTTP and on potentially trustworthy URL.
 COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM)
@@ -148,12 +142,22 @@ bool IsValidRequiredCSPAttr(
 
 // Checks whether |policy_a| subsumes the policy list |policies_b| according to
 // the algorithm https://w3c.github.io/webappsec-cspee/#subsume-policy-list.
+//
+// When network::features::kCSPEmbeddedEnforcementTrustedTypes is enabled,
+// this also checks the 'require-trusted-types-for' and 'trusted-types'
+// directives. See https://github.com/w3c/webappsec-csp/issues/628 and
+// https://github.com/w3c/webappsec-cspee/pull/36. When the feature is
+// disabled, Trusted Types directives are ignored, preserving the legacy
+// source-list-only subsumption behavior.
 COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM)
 bool Subsumes(const mojom::ContentSecurityPolicy& policy_a,
               const std::vector<mojom::ContentSecurityPolicyPtr>& policies_b);
 
 COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM)
 std::string ToString(mojom::CSPDirectiveName name);
+
+COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM)
+std::string_view ToStringView(mojom::CSPDirectiveName name);
 
 // Return true if |request_origin| is allowed by Allow-CSP-From header. Note
 // that |allow_csp_from| can be a null pointer.

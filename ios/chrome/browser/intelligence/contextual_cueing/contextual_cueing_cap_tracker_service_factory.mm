@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/intelligence/contextual_cueing/contextual_cueing_cap_tracker_service_factory.h"
 
+#import <utility>
+
 #import "base/functional/bind.h"
 #import "ios/chrome/browser/intelligence/contextual_cueing/contextual_cueing_cap_tracker_service.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -21,33 +23,17 @@ std::unique_ptr<KeyedService> BuildContextualCueingCapTrackerService(
 }  // namespace
 
 // static
-ContextualCueingCapTrackerService*
-ContextualCueingCapTrackerServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<ContextualCueingCapTrackerService>(
-          profile, /*create=*/true);
-}
-
-// static
-ContextualCueingCapTrackerServiceFactory*
-ContextualCueingCapTrackerServiceFactory::GetInstance() {
-  static base::NoDestructor<ContextualCueingCapTrackerServiceFactory> instance;
-  return instance.get();
-}
-
-// static
-ProfileKeyedServiceFactoryIOS::TestingFactory
+ContextualCueingCapTrackerServiceFactory::TestingFactory
 ContextualCueingCapTrackerServiceFactory::GetDefaultFactory() {
-  return base::BindRepeating(&BuildContextualCueingCapTrackerService);
+  return base::BindOnce(&BuildContextualCueingCapTrackerService);
 }
 
 ContextualCueingCapTrackerServiceFactory::
-    ContextualCueingCapTrackerServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("ContextualCueingCapTrackerService",
-                                    ProfileSelection::kNoInstanceInIncognito) {}
-
-ContextualCueingCapTrackerServiceFactory::
-    ~ContextualCueingCapTrackerServiceFactory() = default;
+    ContextualCueingCapTrackerServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "ContextualCueingCapTrackerService",
+          ProfileSelection::kNoInstanceInIncognito) {}
 
 std::unique_ptr<KeyedService>
 ContextualCueingCapTrackerServiceFactory::BuildServiceInstanceFor(

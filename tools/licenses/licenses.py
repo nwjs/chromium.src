@@ -211,7 +211,7 @@ SPECIAL_CASES = {
     "Name": "Chromium OS system API",
     "URL": "https://www.chromium.org/chromium-os",
     "Shipped": "yes",
-    "License": "BSD",
+    "License": "BSD-3-Clause",
     # Absolute path here is resolved as relative to the source root.
     "License File": ["//LICENSE.chromium_os"],
   },
@@ -219,21 +219,21 @@ SPECIAL_CASES = {
     "Name": "ipcz",
     "URL": ("https://chromium.googlesource.com/chromium/src/third_party/ipcz"),
     "Shipped": "yes",
-    "License": "BSD",
+    "License": "BSD-3-Clause",
     "License File": ["//third_party/ipcz/LICENSE"],
   },
   os.path.join('third_party', 'lss'): {
     "Name": "linux-syscall-support",
     "URL": "https://chromium.googlesource.com/linux-syscall-support/",
     "Shipped": "yes",
-    "License": "BSD",
+    "License": "BSD-3-Clause",
     "License File": ["//third_party/lss/LICENSE"],
   },
   os.path.join('third_party', 'openscreen', 'src', 'third_party', 'abseil'): {
     "Name": "abseil",
     "URL": "https://github.com/abseil/abseil-cpp/",
     "Shipped": "yes",
-    "License": "Apache 2.0",
+    "License": "Apache-2.0",
     "License File": ["//third_party/abseil-cpp/LICENSE"],
   },
   os.path.join(
@@ -242,7 +242,7 @@ SPECIAL_CASES = {
     "Name": "BoringSSL",
     "URL": "https://boringssl.googlesource.com/boringssl/",
     "Shipped": "yes",
-    "License": "BSDish",
+    "License": "Apache-2.0, BSD-3-Clause",
     "License File": ["//third_party/boringssl/src/LICENSE"],
   },
   os.path.join('third_party', 'openscreen', 'src', 'third_party', 'jsoncpp'): {
@@ -256,7 +256,7 @@ SPECIAL_CASES = {
     "Name": "PDFium",
     "URL": "https://pdfium.googlesource.com/pdfium/",
     "Shipped": "yes",
-    "License": "BSD",
+    "License": "Apache-2.0, BSD-3-Clause",
   },
   os.path.join('third_party', 'blink'): {
     # about:credits doesn't show "Blink" but "WebKit".
@@ -266,7 +266,7 @@ SPECIAL_CASES = {
     "Name": "WebKit",
     "URL": "https://webkit.org/",
     "Shipped": "yes",
-    "License": "BSD and LGPL v2 and LGPL v2.1",
+    "License": "BSD-2-Clause, BSD-3-Clause, LGPL-2.0, LGPL-2.1",
     # Absolute path here is resolved as relative to the source root.
     "License File": ["//third_party/blink/LICENSE_FOR_ABOUT_CREDITS"],
   },
@@ -274,13 +274,13 @@ SPECIAL_CASES = {
     "Name": "V8 JavaScript Engine",
     "URL": "https://v8.dev/",
     "Shipped": "yes",
-    "License": "BSD",
+    "License": "BSD-3-Clause",
   },
   os.path.join('v8', 'strongtalk'): {
     "Name": "Strongtalk",
     "URL": "https://www.strongtalk.org/",
     "Shipped": "yes",
-    "License": "BSD",
+    "License": "BSD-3-Clause",
     # Absolute path here is resolved as relative to the source root.
     "License File": ["//v8/LICENSE.strongtalk"],
   },
@@ -288,7 +288,7 @@ SPECIAL_CASES = {
     "Name": "fdlibm",
     "URL": "https://www.netlib.org/fdlibm/",
     "Shipped": "yes",
-    "License": "Freely Distributable",
+    "License": "SunPro",
     # Absolute path here is resolved as relative to the source root.
     "License File": ["//v8/LICENSE.fdlibm"],
     "License Android Compatible": "yes",
@@ -297,7 +297,7 @@ SPECIAL_CASES = {
     "Name": "SwiftShader",
     "URL": "https://swiftshader.googlesource.com/SwiftShader",
     "Shipped": "yes",
-    "License": "Apache 2.0 and compatible licenses",
+    "License": "Apache-2.0",
     "License Android Compatible": "yes",
     "License File": ["//third_party/swiftshader/LICENSE.txt"],
   },
@@ -305,7 +305,7 @@ SPECIAL_CASES = {
     "Name": "SPIRV-Tools",
     "URL": "https://github.com/KhronosGroup/SPIRV-Tools",
     "Shipped": "yes",
-    "License": "Apache 2.0",
+    "License": "Apache-2.0",
     "License File": [
       "//third_party/swiftshader/third_party/SPIRV-Tools/LICENSE",
     ],
@@ -314,7 +314,7 @@ SPECIAL_CASES = {
     "Name": "SPIRV-Headers",
     "URL": "https://github.com/KhronosGroup/SPIRV-Headers",
     "Shipped": "yes",
-    "License": "Apache 2.0",
+    "License": "Khronos, MIT, CC-BY-4.0",
     "License File": [
       "//third_party/swiftshader/third_party/SPIRV-Headers/LICENSE",
     ],
@@ -324,7 +324,7 @@ SPECIAL_CASES = {
     "Name": "Sample 3",
     "URL": "https://sample3",
     "Shipped": "yes",
-    "License": "Apache 2.0",
+    "License": "Apache-2.0",
     "License File": ["//third_party/sample3/the_license"],
   },
 }
@@ -412,7 +412,6 @@ KNOWN_NON_IOS_LIBRARIES = set(
     os.path.join('third_party', 'iaccessible2'),
     os.path.join('third_party', 'isimpledom'),
     os.path.join('third_party', 'jsoncpp'),
-    os.path.join('third_party', 'khronos'),
     os.path.join('third_party', 'libcxx', 'libc++'),
     os.path.join('third_party', 'libcxx', 'libc++abi'),
     os.path.join('third_party', 'libevent'),
@@ -1392,6 +1391,7 @@ def GenerateLicenseFileCsv(
         readme_dir,
         is_open_source_project=is_open_source,
         android_compatible=m.get("License Android Compatible"),
+        is_shipped=(m.get("Shipped", "yes").lower() == "yes"),
       )
     except Exception as e:
       logging.warning(

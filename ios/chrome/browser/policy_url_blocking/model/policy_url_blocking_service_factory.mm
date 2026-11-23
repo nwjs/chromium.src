@@ -4,30 +4,18 @@
 
 #import "ios/chrome/browser/policy_url_blocking/model/policy_url_blocking_service_factory.h"
 
+#import <utility>
+
 #import "components/policy/core/browser/url_list/policy_blocklist_service.h"
 #import "components/policy/core/browser/url_list/url_list_policy_pref_names.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
-// static
-PolicyBlocklistServiceFactory* PolicyBlocklistServiceFactory::GetInstance() {
-  static base::NoDestructor<PolicyBlocklistServiceFactory> instance;
-  return instance.get();
-}
-
-// static
-PolicyBlocklistService* PolicyBlocklistServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<PolicyBlocklistService>(
-      profile, /*create=*/true);
-}
-
-PolicyBlocklistServiceFactory::PolicyBlocklistServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("PolicyBlocklist",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
-}
-
-PolicyBlocklistServiceFactory::~PolicyBlocklistServiceFactory() = default;
+PolicyBlocklistServiceFactory::PolicyBlocklistServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "PolicyBlocklist",
+          ProfileSelection::kOwnInstanceInIncognito) {}
 
 std::unique_ptr<KeyedService>
 PolicyBlocklistServiceFactory::BuildServiceInstanceFor(

@@ -359,6 +359,7 @@ class CORE_EXPORT WebFrameWidgetImpl
                               int relative_cursor_pos) override;
   void ImeFinishComposingTextForPlugin(bool keep_selection) override;
   float GetCompositingScaleFactor() override;
+  float GetExternalPageScaleFactor() const override;
   const cc::LayerTreeDebugState* GetLayerTreeDebugState() override;
   void SetLayerTreeDebugState(const cc::LayerTreeDebugState& state) override;
   void SetMayThrottleIfUndrawnFrames(
@@ -1471,6 +1472,17 @@ class CORE_EXPORT WebFrameWidgetImpl
     void OnDismissed() override {
       if (widget_ && widget_->unbounded_surface_state_.Get() == this) {
         widget_->OnDismissed();
+      }
+    }
+
+    // Called when the browser destroys the native surface window or refuses
+    // `RequestUnboundedSurface()` (e.g. while hidden). Unlike `OnDismissed()`,
+    // the surface is already gone on the browser side, so dismissal must not be
+    // cancelable by `beforetoggle`.
+    void OnClientDisconnected() {
+      if (widget_ && widget_->unbounded_surface_state_.Get() == this) {
+        widget_->DismissUnboundedSurfaceState(
+            UnboundedDismissReason::kProgrammatic);
       }
     }
 

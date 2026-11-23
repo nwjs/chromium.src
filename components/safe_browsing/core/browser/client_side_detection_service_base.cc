@@ -275,8 +275,10 @@ bool ClientSideDetectionServiceBase::AtPhishingReportLimit() {
   }
 
   // prefs_ can be null in unit tests.
-  if (base::FeatureList::IsEnabled(kSafeBrowsingDailyPhishingReportsLimit) &&
-      prefs_ && IsEnhancedProtectionEnabled(*prefs_)) {
+  // Check feature flag after ESB check so that the Finch experiment
+  // groups only include eligible clients.
+  if (prefs_ && IsEnhancedProtectionEnabled(*prefs_) &&
+      base::FeatureList::IsEnabled(kSafeBrowsingDailyPhishingReportsLimit)) {
     return GetPhishingNumReports() >=
            kSafeBrowsingDailyPhishingReportsLimitESB.Get();
   }
@@ -416,6 +418,13 @@ void ClientSideDetectionServiceBase::ClassifyPhishingThroughThresholds(
 
 void ClientSideDetectionServiceBase::ClassifyThroughEmbeddings(
     ClientPhishingRequest* verdict) {
+  // This is added so that client_side_detection_host_unittest.cc can pass.
+  // Outside of the test, this should never occur because the model should have
+  // been available in order to receive the verdict in the first place.
+  if (!IsModelAvailable()) {
+    return;
+  }
+
   base::span<const TargetEmbedding> target_image_embeddings =
       client_side_phishing_model_->GetTargetImageEmbeddings();
   if (target_image_embeddings.empty() ||

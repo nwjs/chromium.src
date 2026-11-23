@@ -152,38 +152,6 @@ suite('OrganizerListSectionTest', () => {
         assertEquals(0, mockHandler.getCallCount('setSectionExpanded'));
       });
 
-  test('expand() expands collapsed section and notifies handler', async () => {
-    mockHandler.setPromiseResolveFor(
-        'getSectionState', {state: {expanded: false, showAll: false}});
-    const items: Array<OrganizerListSectionItem<unknown>> = [
-      {title: ['Tab 1'], description: [{text: 'tab1.com'}]},
-    ];
-    listSection.delegate =
-        new TestSectionDelegate('Open Tabs', items, undefined, 'open-tabs');
-    await microtasksFinished();
-
-    const header = listSection.$.header;
-    const itemsContainer =
-        listSection.shadowRoot.querySelector<CrCollapseElement>('#items')!;
-    assertFalse(header.expanded);
-    assertFalse(itemsContainer.opened);
-    assertEquals(0, mockHandler.getCallCount('setSectionExpanded'));
-
-    listSection.expand();
-    await microtasksFinished();
-
-    assertTrue(header.expanded);
-    assertTrue(itemsContainer.opened);
-    assertEquals(1, mockHandler.getCallCount('setSectionExpanded'));
-    assertDeepEquals(
-        ['open-tabs', true], mockHandler.getArgs('setSectionExpanded')[0]);
-
-    // Calling expand() again when already expanded is a no-op.
-    listSection.expand();
-    await microtasksFinished();
-    assertEquals(1, mockHandler.getCallCount('setSectionExpanded'));
-  });
-
   test(
       'updates expanded state when onSectionsStateChanged is called',
       async () => {
@@ -278,6 +246,98 @@ suite('OrganizerListSectionTest', () => {
         renderedItems = listSection.shadowRoot.querySelectorAll(
             'organizer-list-section-item');
         assertEquals(INITIAL_ITEM_COUNT, renderedItems.length);
+      });
+
+  test(
+      'bumps initial count by 1 and prioritizes alwaysShow items up to 4',
+      async () => {
+        // 2 audio tabs and 5 regular tabs -> shows 2 audio and 2 regular.
+        const items: Array<OrganizerListSectionItem<unknown>> = [
+          {title: ['Audio Tab 1'], alwaysShow: true},
+          {title: ['Audio Tab 2'], alwaysShow: true},
+          {title: ['Tab 1']},
+          {title: ['Tab 2']},
+          {title: ['Tab 3']},
+          {title: ['Tab 4']},
+          {title: ['Tab 5']},
+        ];
+        listSection.delegate =
+            new TestSectionDelegate('Open Tabs', items, undefined, 'open-tabs');
+        await microtasksFinished();
+
+        let renderedItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(4, renderedItems.length);
+        assertDeepEquals(['Audio Tab 1'], renderedItems[0]!.item.title);
+        assertDeepEquals(['Audio Tab 2'], renderedItems[1]!.item.title);
+        assertDeepEquals(['Tab 1'], renderedItems[2]!.item.title);
+        assertDeepEquals(['Tab 2'], renderedItems[3]!.item.title);
+
+        // 1 audio tab and 5 regular tabs -> shows 1 audio and 3 regular.
+        const oneAudioItems: Array<OrganizerListSectionItem<unknown>> = [
+          {title: ['Audio Tab 1'], alwaysShow: true},
+          {title: ['Tab 1']},
+          {title: ['Tab 2']},
+          {title: ['Tab 3']},
+          {title: ['Tab 4']},
+          {title: ['Tab 5']},
+        ];
+        listSection.delegate = new TestSectionDelegate(
+            'Open Tabs', oneAudioItems, undefined, 'open-tabs');
+        await microtasksFinished();
+
+        renderedItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(4, renderedItems.length);
+        assertDeepEquals(['Audio Tab 1'], renderedItems[0]!.item.title);
+        assertDeepEquals(['Tab 1'], renderedItems[1]!.item.title);
+        assertDeepEquals(['Tab 2'], renderedItems[2]!.item.title);
+        assertDeepEquals(['Tab 3'], renderedItems[3]!.item.title);
+
+        // 4 audio tabs and 5 regular tabs -> shows just the 4 audio tabs.
+        const fourAudioItems: Array<OrganizerListSectionItem<unknown>> = [
+          {title: ['Audio Tab 1'], alwaysShow: true},
+          {title: ['Audio Tab 2'], alwaysShow: true},
+          {title: ['Audio Tab 3'], alwaysShow: true},
+          {title: ['Audio Tab 4'], alwaysShow: true},
+          {title: ['Tab 1']},
+          {title: ['Tab 2']},
+          {title: ['Tab 3']},
+          {title: ['Tab 4']},
+          {title: ['Tab 5']},
+        ];
+        listSection.delegate = new TestSectionDelegate(
+            'Open Tabs', fourAudioItems, undefined, 'open-tabs');
+        await microtasksFinished();
+
+        renderedItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(4, renderedItems.length);
+        assertDeepEquals(['Audio Tab 1'], renderedItems[0]!.item.title);
+        assertDeepEquals(['Audio Tab 2'], renderedItems[1]!.item.title);
+        assertDeepEquals(['Audio Tab 3'], renderedItems[2]!.item.title);
+        assertDeepEquals(['Audio Tab 4'], renderedItems[3]!.item.title);
+
+        // 5 audio tabs and 1 regular tab -> caps at 4 audio tabs.
+        const fiveAudioItems: Array<OrganizerListSectionItem<unknown>> = [
+          {title: ['Audio Tab 1'], alwaysShow: true},
+          {title: ['Audio Tab 2'], alwaysShow: true},
+          {title: ['Audio Tab 3'], alwaysShow: true},
+          {title: ['Audio Tab 4'], alwaysShow: true},
+          {title: ['Audio Tab 5'], alwaysShow: true},
+          {title: ['Tab 1']},
+        ];
+        listSection.delegate = new TestSectionDelegate(
+            'Open Tabs', fiveAudioItems, undefined, 'open-tabs');
+        await microtasksFinished();
+
+        renderedItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(4, renderedItems.length);
+        assertDeepEquals(['Audio Tab 1'], renderedItems[0]!.item.title);
+        assertDeepEquals(['Audio Tab 2'], renderedItems[1]!.item.title);
+        assertDeepEquals(['Audio Tab 3'], renderedItems[2]!.item.title);
+        assertDeepEquals(['Audio Tab 4'], renderedItems[3]!.item.title);
       });
 
   test(
@@ -478,6 +538,83 @@ suite('OrganizerListSectionTest', () => {
     assertFalse(listSection.hidden);
   });
 
+  test('matches items based on extraSearchTerms', async () => {
+    const delegateItems: Array<OrganizerListSectionItem<unknown>> = [
+      {
+        title: ['Google'],
+        description: [{text: 'Search engine'}],
+        extraSearchTerms: ['www.google.com'],
+      },
+      {
+        title: ['Split view'],
+        description: [{text: 'Docs'}, {text: 'Sheets'}],
+        extraSearchTerms: ['docs.google.com', 'sheets.google.com'],
+      },
+    ];
+    listSection.delegate = new TestSectionDelegate('Open Tabs', delegateItems);
+    await microtasksFinished();
+
+    listSection.searchQuery = 'sheets.google.com';
+    await microtasksFinished();
+
+    let listItems =
+        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
+    assertEquals(1, listItems.length);
+    assertDeepEquals(['Split view'], listItems[0]!.item.title);
+    assertDeepEquals([[]], listItems[0]!.$.title.highlightRanges);
+    assertDeepEquals([[], []], listItems[0]!.$.description.highlightRanges);
+
+    listSection.searchQuery = 'www.google.com';
+    await microtasksFinished();
+
+    listItems =
+        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
+    assertEquals(1, listItems.length);
+    assertDeepEquals(['Google'], listItems[0]!.item.title);
+    assertDeepEquals([[]], listItems[0]!.$.title.highlightRanges);
+    assertDeepEquals([[]], listItems[0]!.$.description.highlightRanges);
+  });
+
+  test('ignores description parts with matchable set to false', async () => {
+    const delegateItems: Array<OrganizerListSectionItem<unknown>> = [
+      {
+        title: ['Google'],
+        description: [
+          {text: '10m ago', matchable: false},
+          {text: 'Work Group'},
+        ],
+      },
+      {
+        title: ['YouTube'],
+        description: [
+          {text: '5m ago', matchable: false},
+          {text: 'Media', matchable: true},
+        ],
+      },
+    ];
+    listSection.delegate = new TestSectionDelegate('Open Tabs', delegateItems);
+    await microtasksFinished();
+
+    listSection.searchQuery = 'ago';
+    await microtasksFinished();
+
+    let listItems =
+        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
+    assertEquals(0, listItems.length);
+    assertTrue(listSection.hidden);
+
+    listSection.searchQuery = 'm';
+    await microtasksFinished();
+
+    listItems =
+        listSection.shadowRoot.querySelectorAll('organizer-list-section-item');
+    assertEquals(1, listItems.length);
+    assertDeepEquals(['YouTube'], listItems[0]!.item.title);
+    assertDeepEquals(
+        [[], [{start: 0, length: 1}]],
+        listItems[0]!.$.description.highlightRanges);
+  });
+
   test(
       'ignores item updates while searching until searchQuery changes',
       async () => {
@@ -498,7 +635,6 @@ suite('OrganizerListSectionTest', () => {
         assertDeepEquals(['YouTube'], listItems[0]!.item.title);
 
         listSection.onItemsChanged([
-          {title: ['Google'], description: [{text: 'google.com'}]},
           {title: ['Updated Title'], description: [{text: 'example.com'}]},
           {
             title: ['YouTube Music'],
@@ -525,10 +661,57 @@ suite('OrganizerListSectionTest', () => {
 
         listItems = listSection.shadowRoot.querySelectorAll(
             'organizer-list-section-item');
-        assertEquals(3, listItems.length);
-        assertDeepEquals(['Google'], listItems[0]!.item.title);
-        assertDeepEquals(['Updated Title'], listItems[1]!.item.title);
-        assertDeepEquals(['YouTube Music'], listItems[2]!.item.title);
+        assertEquals(2, listItems.length);
+        assertDeepEquals(['Updated Title'], listItems[0]!.item.title);
+        assertDeepEquals(['YouTube Music'], listItems[1]!.item.title);
+      });
+
+  test(
+      'updates filtered items while searching when items are added or removed',
+      async () => {
+        const delegateItems: Array<OrganizerListSectionItem<unknown>> = [
+          {title: ['Google'], description: [{text: 'google.com'}]},
+          {title: ['YouTube'], description: [{text: 'youtube.com'}]},
+        ];
+        listSection.delegate =
+            new TestSectionDelegate('Open Tabs', delegateItems);
+        await microtasksFinished();
+
+        listSection.searchQuery = 'You';
+        await microtasksFinished();
+
+        let listItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(1, listItems.length);
+        assertDeepEquals(['YouTube'], listItems[0]!.item.title);
+        assertFalse(listSection.hidden);
+
+        listSection.onItemsChanged([
+          {title: ['Google'], description: [{text: 'google.com'}]},
+        ]);
+        await microtasksFinished();
+
+        listItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(0, listItems.length);
+        assertTrue(listSection.hidden);
+
+        listSection.onItemsChanged([
+          {title: ['Google'], description: [{text: 'google.com'}]},
+          {title: ['YouTube'], description: [{text: 'youtube.com'}]},
+          {
+            title: ['YouTube Music'],
+            description: [{text: 'music.youtube.com'}],
+          },
+        ]);
+        await microtasksFinished();
+
+        listItems = listSection.shadowRoot.querySelectorAll(
+            'organizer-list-section-item');
+        assertEquals(2, listItems.length);
+        assertDeepEquals(['YouTube'], listItems[0]!.item.title);
+        assertDeepEquals(['YouTube Music'], listItems[1]!.item.title);
+        assertFalse(listSection.hidden);
       });
 
   test('hides section only when search query has no matches', async () => {

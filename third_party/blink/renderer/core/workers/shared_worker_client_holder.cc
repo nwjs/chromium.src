@@ -93,7 +93,8 @@ void SharedWorkerClientHolder::Connect(
     const HeapMojoRemote<mojom::blink::SharedWorkerConnector>*
         connector_override,
     bool extended_lifetime,
-    bool isNodeJS) {
+    bool isNodeJS,
+    const network::PermissionsPolicyFeaturesBitset& permissions_policy) {
   DCHECK(IsMainThread());
   DCHECK(options);
 
@@ -125,7 +126,7 @@ void SharedWorkerClientHolder::Connect(
               .Clone(),
           KURL(outside_fetch_client_settings_object->GetOutgoingReferrer()),
           insecure_requests_policy),
-      same_site_cookies, extended_lifetime);
+      same_site_cookies, extended_lifetime, permissions_policy);
 
   const HeapMojoRemote<mojom::blink::SharedWorkerConnector>& connector =
       connector_override ? *connector_override : connector_;

@@ -29,8 +29,10 @@ for Gemini Enterprise features.
 - **Auth Tab Management**: `OpenAuthTab` / `CloseAuthTab` open and close a
   top-level browser tab on behalf of the web client for a fixed
   `AuthTabPurpose`:
-  - `kSignIn`: GEiC sign-in. The URL must be HTTPS on the Gaia or configured
-    guest origin.
+  - `kSignIn`: GEiC sign-in. The URL must be HTTPS on the Gaia
+    (`accounts.google.com`), Google Cloud Workforce Identity
+    (`auth.<domain>.google`, e.g. `auth.cloud.google`,
+    `auth.business.gemini.google`), or configured guest origin.
   - `kConnectorOauth`: 3P connector OAuth consent. The URL must be the GE OAuth
     redirector (`/oauth-redirect`) on the default GE redirector origin
     (`vertexaisearch.cloud.google.com`, `DEFAULT_REDIRECT_ORIGIN` in the GE web
@@ -51,6 +53,16 @@ for Gemini Enterprise features.
 - **Mojo IPC Plumbing**: Implements and binds `mojom::GeminiEnterpriseHandler`,
   which is wired to the Glic WebClient through `GlicInstanceImpl` and
   `GlicWebClientHandler`.
+- **First-Run Experience (FRE)**, behind `features::kGeicFre` (`geic_fre.h`).
+  Without the flag, GEiC profiles are always consented.
+  - Completion is stored per GE instance in the `geic.completed_fre` pref,
+    separately from the consumer `glic.completed_fre`. The GE web app reads and
+    completes it through the existing Glic onboarding API; Chrome decides
+    which FRE that API reflects based on the profile.
+  - With the flag, `GlicEnabling::HasConsentedForProfile()` reads the GEiC FRE
+    status for GEiC profiles, so consent-gated Glic features wait for the GEiC
+    FRE.
+  - Developer switches: `--geic-always-skip-fre` and `--geic-reset-fre`.
 
 ## Owners
 

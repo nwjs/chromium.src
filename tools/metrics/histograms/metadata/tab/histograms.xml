@@ -76,6 +76,10 @@ chromium-metrics-reviews@google.com.
       summary="the Add to new group from menu item command"/>
   <variant name="AddToReadLater" summary="the Add to Read Later command"/>
   <variant name="AddToSplit" summary="the Add to Split command"/>
+  <variant name="AiModeCreateNewThread"
+      summary="the Start New Thread with AI Mode command"/>
+  <variant name="AiModeShare" summary="the Share with AI Mode command"/>
+  <variant name="AiModeUnshare" summary="the Unshare with AI Mode command"/>
   <variant name="ArrangeSplit" summary="the Arrange Split command"/>
   <variant name="CloseAllTabs" summary="the Close All Tabs command"/>
   <variant name="CloseOtherTabs" summary="the Close Other Tabs command"/>
@@ -127,6 +131,20 @@ chromium-metrics-reviews@google.com.
                condition"/>
 </variants>
 
+<!-- LINT.IfChange(TabGroupContextMenuSource) -->
+
+<variants name="TabGroupContextMenuSource">
+  <variant name="AppMenu" summary="the App Menu tab groups submenu"/>
+  <variant name="BookmarksBar" summary="the Bookmarks Bar tab group button"/>
+  <variant name="EverythingMenu"
+      summary="the Saved Tab Groups Everything Menu"/>
+  <variant name="MacSystemMenu" summary="the macOS Tab Groups system menu bar"/>
+  <variant name="OrganizerPanel"
+      summary="the Tab Group Organizer (Spice Rack) panel"/>
+</variants>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_metrics.cc:TabGroupContextMenuSource) -->
+
 <!-- LINT.IfChange(TabOrchestratorType) -->
 
 <variants name="TabModelOrchestratorType">
@@ -176,7 +194,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Discarding.DailyDiscards{TabDiscardReason}" units="tabs"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>vovoy@chromium.org</owner>
   <owner>fdoray@chromium.org</owner>
   <summary>
@@ -188,7 +206,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Discarding.DailyReloads{TabDiscardReason}" units="tabs"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>vovoy@chromium.org</owner>
   <owner>fdoray@chromium.org</owner>
   <summary>
@@ -200,7 +218,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Discarding.DiscardCandidatesCount" units="tabs"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -294,7 +312,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Discarding.DiscardTabOutcome" enum="DiscardTabOutcome"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>fdoray@chromium.org</owner>
   <owner>joenotcharles@google.com</owner>
   <summary>
@@ -356,7 +374,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tab.AgeAtDeletion" units="ms" expires_after="2027-02-07">
+<histogram name="Tab.AgeAtDeletion" units="ms" expires_after="2027-04-11">
   <owner>ewannpv@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
@@ -429,6 +447,19 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Tab.CloseAllTabsDialog.AlsoClosePinnedTabs" enum="Boolean"
+    expires_after="2027-04-12">
+  <owner>hitarthkothari@google.com</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@chromium.org</owner>
+  <summary>
+    Records whether the user checked the &quot;Also close pinned tabs&quot;
+    checkbox when confirming the &quot;Close all tabs&quot; confirmation dialog.
+    Only recorded on Android when the dialog is shown with at least one pinned
+    tab and confirmed via the positive button.
+  </summary>
+</histogram>
+
 <histogram name="Tab.CloseAllTabsDialog.ClosedAllTabs.{CloseType}"
     enum="Boolean" expires_after="2027-04-12">
   <owner>ckitagawa@chromium.org</owner>
@@ -468,8 +499,22 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Tab.CloseUndoBar.UndoneExternally" enum="SnackbarIdentifier"
+    expires_after="2027-07-01">
+  <owner>hitarthkothari@google.com</owner>
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>clank-tab-dev@chromium.org</owner>
+  <summary>
+    Recorded when an undo snackbar for closed tabs is dismissed because all of
+    its tabs were undone or committed outside of the snackbar (e.g. from the tab
+    group row or Recent Tabs) and at least one of them was undone. The value is
+    the snackbar's UMA type (Snackbar.UMA_*). Complements
+    Tab.CloseUndoBar.Undone and Tab.CloseUndoBar.Dismissed.
+  </summary>
+</histogram>
+
 <histogram name="Tab.ContextMenu.{TabContextMenuCommand}.SelectedTabsCount"
-    units="tabs" expires_after="2027-02-07">
+    units="tabs" expires_after="2027-04-11">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -649,7 +694,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tab.NewTab" enum="NewTabType" expires_after="2027-02-07">
+<histogram name="Tab.NewTab" enum="NewTabType" expires_after="2027-04-11">
   <owner>bsep@chromium.org</owner>
   <summary>
     Recorded when a new tab is opened. Tracks the method in which the tab was
@@ -672,7 +717,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tab.PerceivedRestoreTime" units="ms"
-    expires_after="2027-01-05">
+    expires_after="2027-04-18">
   <owner>ckitagawa@chromium.org</owner>
   <owner>dtrainor@chromium.org</owner>
   <owner>yfriedman@chromium.org</owner>
@@ -685,7 +730,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tab.PinnedDuration" units="ms" expires_after="2027-02-07">
+<histogram name="Tab.PinnedDuration" units="ms" expires_after="2027-04-11">
   <owner>madhavpruthi@google.com</owner>
   <owner>ckitagawa@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -908,7 +953,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.CollapsedGroupCountPerLoad" units="groups"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -920,6 +965,27 @@ chromium-metrics-reviews@google.com.
     would not have affected the recorded value. It would only duplicate a
     previous recording.
   </summary>
+</histogram>
+
+<histogram name="TabGroups.ContextMenu.EditorBubble.Action"
+    enum="TabGroupEditorBubbleAction" expires_after="2027-02-04">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    [Desktop] Records the action selected by the user from the Tab Group Header
+    editor bubble menu.
+  </summary>
+</histogram>
+
+<histogram name="TabGroups.ContextMenu.{TabGroupContextMenuSource}.Action"
+    enum="TabGroupMenuAction" expires_after="2027-02-04">
+  <owner>kunaldaftari@google.com</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    [Desktop] Records the action selected by the user from a tab group context
+    menu triggered from {TabGroupContextMenuSource}.
+  </summary>
+  <token key="TabGroupContextMenuSource" variants="TabGroupContextMenuSource"/>
 </histogram>
 
 <histogram name="TabGroups.CountAtStartup" units="groups"
@@ -1104,7 +1170,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupCount" units="groups"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>dljames@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1115,7 +1181,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupLifespan" units="minutes"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>dljames@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1126,7 +1192,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupOpenCount" units="groups"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1219,7 +1285,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupTimeSinceModification" units="minutes"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>dljames@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1397,7 +1463,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.Sync.ActiveTabGroupCount.{NumberOfDays}Day"
-    units="groups" expires_after="2027-02-07">
+    units="groups" expires_after="2027-04-11">
   <owner>shaktisahu@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -1501,7 +1567,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.Sync.RemoteActiveTabGroupCount.{NumberOfDays}Day"
-    units="groups" expires_after="2027-02-14">
+    units="groups" expires_after="2027-04-18">
   <owner>shaktisahu@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -1613,7 +1679,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.Sync.TabGroup.Created.GroupCreateOrigin"
-    enum="DeviceType" expires_after="2027-02-14">
+    enum="DeviceType" expires_after="2027-04-18">
   <owner>shaktisahu@chromium.org</owner>
   <owner>chrome-multiplayer-eng@google.com</owner>
   <summary>
@@ -1634,7 +1700,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.Sync.TabGroup.Opened.Reason"
-    enum="GroupOpeningSource" expires_after="2027-02-14">
+    enum="GroupOpeningSource" expires_after="2027-04-18">
   <owner>shaktisahu@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -1728,7 +1794,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.Sync.TabGroup.UserInteracted.HasTitle"
-    enum="BooleanHasTitle" expires_after="2026-12-15">
+    enum="BooleanHasTitle" expires_after="2027-04-11">
   <owner>shaktisahu@chromium.org</owner>
   <owner>chrome-multiplayer-eng@google.com</owner>
   <summary>
@@ -1797,7 +1863,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.Sync.TotalTabGroupCount" units="groups"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>shaktisahu@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -1835,7 +1901,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.TabGroupBubble.TabCount" units="tabs"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>sophiechang@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1895,7 +1961,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.UserCustomizedGroupCountPerLoad" units="groups"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1920,7 +1986,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.UserGroupCountPerLoad" units="groups"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1935,7 +2001,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.UserPinnedTabCountPerLoad" units="tabs"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -1950,7 +2016,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.{ConsentLevel}.{GroupsOrTabs}" units="count"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>treib@chromium.org</owner>
   <owner>shaktisahu@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -1977,7 +2043,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabManager.Discarding.DiscardCount" units="Discards"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -2418,7 +2484,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.Metadata.FileSizeOnRead.{TabModelSelectorType}"
-    units="KB" expires_after="2027-02-07">
+    units="KB" expires_after="2027-04-11">
   <owner>skym@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2515,7 +2581,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.PinnedTabCount.{TabStripMode}" units="tabs"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2673,7 +2739,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tabs.Selections.Count" units="tabs" expires_after="2026-11-22">
+<histogram name="Tabs.Selections.Count" units="tabs" expires_after="2027-11-22">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2696,7 +2762,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.SplitViewMenu.{SplitViewMenuSource}"
-    enum="SplitViewMenuEntry" expires_after="2027-02-07">
+    enum="SplitViewMenuEntry" expires_after="2027-04-11">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -2707,7 +2773,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.Startup.PinnedTabCount.{TabModelSelectorType}.{TabType}"
-    units="count" expires_after="2027-02-07">
+    units="count" expires_after="2027-04-11">
   <owner>madhavpruthi@google.com</owner>
   <owner>ckitagawa@chromium.org</owner>
   <owner>clank-tab-dev@google.com</owner>
@@ -2747,7 +2813,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.Startup.TabCount.{TabType}" units="count"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>davidjm@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <summary>
@@ -2817,7 +2883,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabArchiveEligibilityCheck.AfterNDays" units="days"
-    expires_after="2026-11-22">
+    expires_after="2027-03-28">
   <owner>wylieb@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -2985,7 +3051,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabPersistentStore.ShadowStoreType"
-    enum="PersistentStoreType" expires_after="2026-10-28">
+    enum="PersistentStoreType" expires_after="2027-03-28">
   <owner>mfiaz@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -3006,7 +3072,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabRestoreMethod" enum="TabRestoreMethod"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>davidjm@chromium.org</owner>
   <owner>dtrainor@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
@@ -3070,7 +3136,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.CloseAction2" enum="TabSearchCloseAction"
-    expires_after="2027-02-06">
+    expires_after="2027-04-11">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -3116,7 +3182,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.Mojo.TabUpdated" units="ms"
-    expires_after="2026-09-09">
+    expires_after="2027-02-28">
   <owner>kerenzhu@chromium.org</owner>
   <owner>romanarora@chromium.org</owner>
   <owner>yuhengh@chromium.org</owner>
@@ -3130,7 +3196,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.Mojo.TabUpdated.IsOverlap" enum="Boolean"
-    expires_after="2026-09-09">
+    expires_after="2027-02-28">
   <owner>kerenzhu@chromium.org</owner>
   <owner>romanarora@chromium.org</owner>
   <owner>yuhengh@chromium.org</owner>
@@ -3167,7 +3233,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.NumWindowsOnOpen" units="windows"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -3262,7 +3328,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.TimeToShow.{WarmUpLevel}" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>kerenzhu@chromium.org</owner>
   <owner>dayeung@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
@@ -3304,7 +3370,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.WebUI.IndexOf{Action}In{State}List"
-    units="tabs" expires_after="2027-02-07">
+    units="tabs" expires_after="2027-04-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <owner>yuhengh@chromium.org</owner>
@@ -3392,7 +3458,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.WebUI.TabListDataReceived2" units="ms"
-    expires_after="2026-09-09">
+    expires_after="2027-02-28">
   <owner>kerenzhu@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
@@ -3716,7 +3782,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabStateStore.ShadowStoreCaughtUp" enum="Boolean"
-    expires_after="2026-10-28">
+    expires_after="2027-03-28">
   <owner>mfiaz@google.com</owner>
   <owner>clank-tab-dev@google.com</owner>
   <summary>
@@ -3934,7 +4000,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.{DuplicateType}.{MetricType}.{WindowType}" units="tabs"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>emshack@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -4043,7 +4109,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.Tab.ReloadCount" units="tabs"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -4089,7 +4155,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="TabStrip.TimeToSwitch" units="ms" expires_after="2027-02-07">
+<histogram name="TabStrip.TimeToSwitch" units="ms" expires_after="2027-04-11">
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -4104,7 +4170,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.Vertical.TimeToSwitch" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -4120,7 +4186,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.Vertical.{TabStripAnimation}.AnimationFPS"
-    units="fps" expires_after="2027-02-07">
+    units="fps" expires_after="2027-04-11">
   <owner>estalin@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>
@@ -4192,7 +4258,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.{TabStripMode}.TabDragPinnedness"
-    enum="TabDragPinnedness" expires_after="2027-02-14">
+    enum="TabDragPinnedness" expires_after="2027-04-18">
   <owner>agale@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <summary>

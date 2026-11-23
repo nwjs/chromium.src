@@ -110,6 +110,17 @@
   padding-bottom: var(--sp-card-block-padding);
 }
 
+/* While waiting for translation, keep the content laid out at full size so it
+   can be translated, but take it out of flow (so the loading screen occupies
+   its place) and hide it. Uses visibility rather than display:none so the
+   content still has layout. */
+#appFlexParent #containerParent.awaiting-translation {
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  visibility: hidden;
+}
+
 /* Provides vertical and horizontal scrolling */
 #appFlexParent #containerScroller {
   align-items: safe center;
@@ -360,6 +371,10 @@ img.distilled-inline-img {
 img.distilled-full-width-img {
   display: block;
   width: 100%;
+  /* Fill the panel, but never past the image's own intrinsic width, which for
+   * a replaced element is its max-content size. Without this, an image
+   * narrower than the panel is upscaled and looks blurry. */
+  max-width: max-content;
   height: auto;
 }
 

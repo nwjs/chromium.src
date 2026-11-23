@@ -18,7 +18,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
-#include "components/browser_actuator/internal/features.h"
+#include "components/browser_actuator/internal/transport/features.h"
 #include "components/browser_actuator/internal/transport/stream_connection_delegate.h"
 #include "components/browser_actuator/internal/transport/stream_framer.h"
 #include "components/browser_actuator/internal/transport/test_support/mock_stream_connection_delegate.h"
@@ -38,7 +38,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
-namespace browser_actuator {
+namespace browser_actuator::transport {
 namespace {
 
 using testing::ElementsAre;
@@ -820,4 +820,4 @@ TEST_F(ProtoStreamClientTest, UploadsDelegateBodyAsPost) {
 }
 
 }  // namespace
-}  // namespace browser_actuator
+}  // namespace browser_actuator::transport

@@ -85,6 +85,9 @@ FeatureState FeatureStateForContext(RequestContext request_context) {
           return FeatureState::kWarningOnly;
         }
         return FeatureState::kEnabled;
+
+      case RequestContext::kNoStatePrefetch:
+        return FeatureState::kEnabled;
     }
   } else {
     // TODO(crbug.com/394636065): clean this up once we remove the
@@ -96,6 +99,7 @@ FeatureState FeatureStateForContext(RequestContext request_context) {
       case RequestContext::kMainFrameNavigation:
       case RequestContext::kSubframeNavigation:
       case RequestContext::kFencedFrameNavigation:
+      case RequestContext::kNoStatePrefetch:
         return FeatureState::kDisabled;
     }
   }
@@ -202,6 +206,14 @@ Policy DeriveLocalNetworkAccessRequestPolicy(
   FeatureState feature_state =
       FeatureStateForContext(local_network_request_context);
 
+  // Requests made on behalf of a no-state prefetch load a document that is
+  // never displayed to the user, so there is no surface on which to show a
+  // warning or a permission prompt. Block such requests outright.
+  if (local_network_request_context == RequestContext::kNoStatePrefetch) {
+    return ApplyFeatureStateToPolicy(
+        feature_state, local_network_access_checks_enabled, Policy::kBlock);
+  }
+
   Policy policy =
       is_web_secure_context
           ? DerivePolicyForSecureContext(ip_address_space,
@@ -239,7 +251,9 @@ DeriveClientSecurityStateForRendererInitiatedNavigation(
   CHECK(local_network_request_context ==
             LocalNetworkAccessRequestContext::kMainFrameNavigation ||
         local_network_request_context ==
-            LocalNetworkAccessRequestContext::kSubframeNavigation);
+            LocalNetworkAccessRequestContext::kSubframeNavigation ||
+        local_network_request_context ==
+            LocalNetworkAccessRequestContext::kNoStatePrefetch);
   // COEP and DocumentIsolationPolicy get default values below because COEP and
   // DocumentIsolationPolicy are not checked by Fetch during navigations.  COEP
   // will be checked in NavigationRequest::EnforceCOEP.  DocumentIsolationPolicy
@@ -321,7 +335,6 @@ AddressSpace CalculateIPAddressSpace(
     params.emplace<network::CalculateClientAddressSpaceParams>({
         .client_address_space_inherited_from_service_worker =
             client_address_space,
-        .parsed_headers = &response_head->parsed_headers,
         .remote_endpoint = &response_head->remote_endpoint,
     });
   }

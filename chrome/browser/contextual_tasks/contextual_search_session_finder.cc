@@ -4,10 +4,11 @@
 
 #include "chrome/browser/contextual_tasks/contextual_search_session_finder.h"
 
-#include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/active_task_context_provider.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_web_contents_user_data.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -94,11 +95,22 @@ void UpdateContextualSearchWebContentsHelperForTask(
     existing_session = helper->session_handle();
   }
 
+  const bool task_changed =
+      helper->task_id().has_value() && helper->task_id() != task_id;
+  if (task_changed) {
+    if (auto* user_data =
+            ContextualTasksWebContentsUserData::FromWebContents(web_contents)) {
+      user_data->OnTaskChanged();
+    }
+  }
+
   std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
       session_handle;
   if (existing_session) {
     session_handle = contextual_search_service->GetSession(
         existing_session->session_id(), existing_session->invocation_source());
+  }
+  if (session_handle) {
     session_handle->set_smart_tab_sharing_active(
         existing_session->smart_tab_sharing_active());
     session_handle->set_smart_tab_sharing_toggled_since_last_turn(
@@ -108,6 +120,8 @@ void UpdateContextualSearchWebContentsHelperForTask(
     session_handle->SetSubmittedContextTokens(
         existing_session->GetSubmittedContextTokens());
     session_handle->SetPersistedTabs(existing_session->GetPersistedTabs());
+    session_handle->SetRestoredTabs(
+        existing_session->GetTabContextState().restored);
     session_handle->set_deselected_tabs_urls(
         existing_session->deselected_tabs_urls());
   } else {
@@ -124,6 +138,12 @@ void UpdateContextualSearchWebContentsHelperForTask(
         browser_window->GetProfile()->GetPrefs());
     helper->SetTaskSession(task_id, std::move(session_handle),
                            /*input_state_model=*/nullptr);
+    if (task_changed) {
+      if (auto* user_data = ContextualTasksWebContentsUserData::FromWebContents(
+              web_contents)) {
+        user_data->UpdateImplicitTabContext();
+      }
+    }
     if (auto* provider = ActiveTaskContextProvider::From(browser_window)) {
       provider->RefreshContext();
     }

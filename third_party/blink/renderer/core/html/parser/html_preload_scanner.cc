@@ -86,8 +86,6 @@
 #include "third_party/blink/renderer/platform/network/mime/content_type.h"
 #include "third_party/blink/renderer/platform/network/mime/mime_type_registry.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 
 namespace blink {
@@ -307,7 +305,7 @@ class TokenPreloadScanner::StartTagScanner {
         picture_data.source_url.empty()) {
       picture_data.source_url = srcset_image_candidate_.ToString();
       picture_data.source_size_set = source_size_set_;
-      picture_data.source_size = source_size_;
+      picture_data.source_size = source_size_.width;
       picture_data.picked = true;
     } else if (Match(tag_impl_, html_names::kImgTag) &&
                !picture_data.source_url.empty()) {
@@ -343,7 +341,7 @@ class TokenPreloadScanner::StartTagScanner {
       }
     }
 
-    float source_size = source_size_;
+    float source_size = source_size_.width;
     bool source_size_set = source_size_set_;
     if (picture_data.picked) {
       source_size_set = picture_data.source_size_set;
@@ -442,12 +440,6 @@ class TokenPreloadScanner::StartTagScanner {
     if (scanner_type_ == ScannerType::kInsertion)
       request->SetFromInsertionScanner(true);
 
-
-    if (browsing_topics_attr_set_) {
-      DCHECK(is_img);
-      request->SetBrowsingTopicsEligible(true);
-    }
-
     return request;
   }
 
@@ -524,8 +516,6 @@ class TokenPreloadScanner::StartTagScanner {
     } else if (loading_attr_value_ == LoadingAttributeValue::kAuto &&
                Match(attribute_name, html_names::kLoadingAttr)) {
       loading_attr_value_ = GetLoadingAttributeValue(attribute_value);
-    } else if (Match(attribute_name, html_names::kBrowsingtopicsAttr)) {
-      browsing_topics_attr_set_ = true;
     } else if (use_data_src_attr_match_for_image_ &&
                Match(attribute_name, html_names::kDataSrcAttr) &&
                img_src_url_.IsNull()) {
@@ -534,13 +524,23 @@ class TokenPreloadScanner::StartTagScanner {
   }
 
   void SetUrlFromImageAttributes() {
-    srcset_image_candidate_ =
-        BestFitSourceForSrcsetAttribute(media_values_->DevicePixelRatio(),
-                                        source_size_, srcset_attribute_value_);
-    SetUrlToLoad(BestFitSourceForImageAttributes(
-                     media_values_->DevicePixelRatio(), source_size_,
-                     img_src_url_, srcset_image_candidate_),
-                 kAllowURLReplacement);
+    // https://html.spec.whatwg.org/#dimension-attribute-aspect-ratio
+    // resource_width_ and resource_height_ are only set for absolute values
+    // of an img's width and height attributes.
+    std::optional<float> default_aspect_ratio;
+    if (RuntimeEnabledFeatures::SrcsetTwoDimensionalSizesEnabled() &&
+        resource_width_ && resource_height_ && *resource_width_ != 0 &&
+        *resource_height_ != 0) {
+      default_aspect_ratio = *resource_width_ / *resource_height_;
+    }
+    srcset_image_candidate_ = BestFitSourceForSrcsetAttribute(
+        media_values_->DevicePixelRatio(), source_size_, default_aspect_ratio,
+        srcset_attribute_value_);
+    SetUrlToLoad(
+        BestFitSourceForImageAttributes(media_values_->DevicePixelRatio(),
+                                        source_size_, default_aspect_ratio,
+                                        img_src_url_, srcset_image_candidate_),
+        kAllowURLReplacement);
   }
 
   void ProcessStyleAttribute(const AtomicString& attribute_name,
@@ -621,14 +621,15 @@ class TokenPreloadScanner::StartTagScanner {
         srcset_image_candidate_.IsEmpty()) {
       srcset_attribute_value_ = attribute_value;
       srcset_image_candidate_ = BestFitSourceForSrcsetAttribute(
-          media_values_->DevicePixelRatio(), source_size_, attribute_value);
+          media_values_->DevicePixelRatio(), source_size_,
+          /*default_aspect_ratio=*/std::nullopt, attribute_value);
     } else if (Match(attribute_name, html_names::kSizesAttr) &&
                !source_size_set_) {
       ParseSourceSize(attribute_value);
       if (!srcset_image_candidate_.IsEmpty()) {
         srcset_image_candidate_ = BestFitSourceForSrcsetAttribute(
             media_values_->DevicePixelRatio(), source_size_,
-            srcset_attribute_value_);
+            /*default_aspect_ratio=*/std::nullopt, srcset_attribute_value_);
       }
     } else if (Match(attribute_name, html_names::kMediaAttr)) {
       // FIXME - Don't match media multiple times.
@@ -676,12 +677,13 @@ class TokenPreloadScanner::StartTagScanner {
       ProcessLinkAttribute(attribute_name, attribute_value);
     } else if (Match(tag_impl_, html_names::kInputTag)) {
       ProcessInputAttribute(attribute_name, attribute_value);
-    } else if (Match(tag_impl_, html_names::kSourceTag))
+    } else if (Match(tag_impl_, html_names::kSourceTag)) {
       ProcessSourceAttribute(attribute_name, attribute_value);
-    else if (Match(tag_impl_, html_names::kVideoTag))
+    } else if (Match(tag_impl_, html_names::kVideoTag)) {
       ProcessVideoAttribute(attribute_name, attribute_value);
-    else if (Match(tag_impl_, html_names::kStyleTag))
+    } else if (Match(tag_impl_, html_names::kStyleTag)) {
       ProcessStyleAttribute(attribute_name, attribute_value);
+    }
   }
 
   bool IsLazyLoadImageDeferable(
@@ -890,7 +892,7 @@ class TokenPreloadScanner::StartTagScanner {
   AtomicString scopes_attribute_value_;
   AtomicString resources_attribute_value_;
   bool nomodule_attribute_value_ = false;
-  float source_size_ = 0;
+  TargetBoxSize source_size_;
   bool source_size_is_auto_ = false;
   bool source_size_set_ = false;
   FetchParameters::DeferOption defer_ = FetchParameters::kNoDefer;
@@ -911,7 +913,6 @@ class TokenPreloadScanner::StartTagScanner {
   TokenPreloadScanner::ScannerType scanner_type_;
   // For explanation, see TokenPreloadScanner's declaration.
   const HashSet<String>* disabled_image_types_;
-  bool browsing_topics_attr_set_ = false;
   std::optional<float> resource_width_;
   std::optional<float> resource_height_;
   features::LcppPreloadLazyLoadImageType preload_lazy_load_image_type_;

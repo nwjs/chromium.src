@@ -52,7 +52,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 /** Preference container implementation for SettingsActivity in multi-column mode. */
@@ -110,10 +109,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
     private @Nullable Profile mProfile;
 
     private final FragmentTracker mFragmentTracker =
-            new FragmentTracker(
-                    mObservers,
-                    () -> mProfile,
-                    key -> getMainSettings().findPreference(key) != null);
+            new FragmentTracker(mObservers, () -> mProfile);
 
     private @Nullable Context mThemedContext;
 
@@ -212,11 +208,14 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
         // Otherwise fallback to the original logic, i.e. use the first item in the main menu.
         FragmentData processed = processPendingFragmentIntent();
         if (processed != null) {
-            SlidingPaneLayout slidingPane = getSlidingPaneLayoutOrNull();
-            if (slidingPane != null
-                    && processed.fragment != null
-                    && !(processed.fragment instanceof MainSettings)) {
-                slidingPane.openPane();
+            if (processed.fragment != null && !(processed.fragment instanceof MainSettings)) {
+                mCanBeBackToMain = false;
+                SlidingPaneLayout slidingPane = getSlidingPaneLayoutOrNull();
+                if (slidingPane != null) {
+                    slidingPane.openPane();
+                }
+            } else {
+                mCanBeBackToMain = true;
             }
             return processed.fragment;
         }
@@ -245,6 +244,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
 
             var fragmentClass = resolution.fragmentClass;
             if (fragmentClass != null && !MainSettings.class.equals(fragmentClass)) {
+                mCanBeBackToMain = false;
                 Fragment initialDetailFragment =
                         Fragment.instantiate(
                                 requireContext(), fragmentClass.getName(), resolution.args);
@@ -256,6 +256,8 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                 return initialDetailFragment;
             }
         }
+
+        mCanBeBackToMain = true;
 
         // When shown in a tab in single-column mode, do not instantiate an initial detail
         // fragment if no sub-fragment intent was specified. Returning null prevents
@@ -319,6 +321,30 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
         // restore the pane as open, showing this auto-created fragment instead of root settings.
         // The user never navigated here, so undo it. https://crbug.com/563047017
         getSlidingPaneLayout().closePane();
+    }
+
+    /**
+     * Returns whether the current detail page can return to the main settings menu instead of
+     * finishing the host activity when the detail fragment back stack is empty.
+     */
+    boolean canBeBackToMain() {
+        return (mCanBeBackToMain || mMainSettings == null) && isLayoutOpen();
+    }
+
+    /**
+     * Resets the detail pane to the default initial detail fragment and closes the sliding pane if
+     * in single-column mode.
+     */
+    void showMainSettings() {
+        Fragment initialFragment = onCreateInitialDetailFragment();
+        if (initialFragment != null) {
+            showDetailFragment(initialFragment, /* addToBackStack= */ false, /* tag= */ null);
+        }
+        SlidingPaneLayout slidingPane = getSlidingPaneLayoutOrNull();
+        if (slidingPane != null) {
+            slidingPane.closePane();
+            updateHeaderPaneFocusability();
+        }
     }
 
     /**
@@ -714,7 +740,16 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
             @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState) {
         View view = super.onCreateView(inflater, container, savedInstanceState);
-        addTitleContainer(inflater, (SlidingPaneLayout) view);
+        SlidingPaneLayout slidingPaneLayout = (SlidingPaneLayout) view;
+        addTitleContainer(inflater, slidingPaneLayout);
+        // Before the initial measurement pass, SlidingPaneLayout.isSlideable() is false and its
+        // internal slideableView reference is null. If a child view requests focus before
+        // onMeasure() runs (e.g. on SDK <= 29 where View.requestFocus() succeeds before window
+        // attachment), SlidingPaneLayout.requestChildFocus() evaluates `preservedOpenState =
+        // (child == slideableView)` as `false`, clobbering the open state set by openPane() and
+        // causing the detail pane to be laid out closed on the first layout pass. Block descendant
+        // focus until the first layout pass completes.
+        slidingPaneLayout.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
 
         var resources = view.getResources();
         View headerView = view.findViewById(R.id.preferences_header);
@@ -884,6 +919,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                 int oldTop,
                 int oldRight,
                 int oldBottom) {
+            getSlidingPaneLayout().setDescendantFocusability(ViewGroup.FOCUS_AFTER_DESCENDANTS);
             updateHeaderPaneFocusability();
             boolean prevSlideable = mSlideable;
             mSlideable = getSlidingPaneLayout().isSlideable();
@@ -1074,26 +1110,15 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
 
         private final ObserverList<Observer> mObservers;
         private final Supplier<@Nullable Profile> mProfileSupplier;
-        // TODO(crbug.com/513493349): Remove this check (crrev.com/c/8490574) once the HoT cleanup
-        // removes the stale getMainMenuKey() overrides. Keep the URL nav highlight tests in
-        // SettingsPageTest; they should still pass.
-        private final Predicate<String> mIsMainMenuRowShown;
 
         FragmentTracker(ObserverList<Observer> observers) {
-            this(observers, () -> null, key -> true);
+            this(observers, () -> null);
         }
 
-        /**
-         * @param isMainMenuRowShown whether a main menu key names a row currently on the main menu.
-         *     Rows are added and removed at runtime, so this cannot be known statically.
-         */
         FragmentTracker(
-                ObserverList<Observer> observers,
-                Supplier<@Nullable Profile> profileSupplier,
-                Predicate<String> isMainMenuRowShown) {
+                ObserverList<Observer> observers, Supplier<@Nullable Profile> profileSupplier) {
             mObservers = observers;
             mProfileSupplier = profileSupplier;
-            mIsMainMenuRowShown = isMainMenuRowShown;
         }
 
         private static final String TAG = "FragmentTracker";
@@ -1303,15 +1328,10 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
 
         private @Nullable String getMainMenuKey(EmbeddableSettingsPage page) {
             String mainMenuKey = page.getMainMenuKey();
-            if (!ChromeFeatureList.sSettingsInTabUrlNav.isEnabled()) {
-                return mainMenuKey;
-            }
 
-            // A page declares its main menu row statically, but rows are added and removed at
-            // runtime (e.g., a feature can fold several rows into one). Building the index is
-            // expensive, so trust the declared key when its row is on the menu, and otherwise fall
-            // through to the breadcrumb trail, which reflects the menu as it is now.
-            if (mainMenuKey != null && mIsMainMenuRowShown.test(mainMenuKey)) {
+            // Building the index is expensive, so only consult the breadcrumb trail when the page
+            // doesn't already declare a main menu key.
+            if (!ChromeFeatureList.sSettingsInTabUrlNav.isEnabled() || mainMenuKey != null) {
                 return mainMenuKey;
             }
 

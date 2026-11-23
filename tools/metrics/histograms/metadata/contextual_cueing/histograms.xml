@@ -67,7 +67,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.GlicSuggestions.MesFetchLatency" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -79,7 +79,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualCueing.GlicSuggestions.PageContextFetchlatency.{PageContextType}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>zekunjiang@google.com</owner>
   <owner>rajendrant@google.com</owner>
   <owner>sophiechang@chromium.org</owner>
@@ -129,7 +129,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContextualCueing.GlicSuggestions.SuggestionsFetchLatency.{ResultType}{EngagementType}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -186,7 +186,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.V2.CueFormFactor.Hidden" enum="CueFormFactor"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>sophiechang@chromium.org</owner>
   <owner>iwells@chromium.org</owner>
   <summary>
@@ -221,7 +221,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.V2.CueFormFactor.Shown.{FormFactor}"
-    units="hash" expires_after="2027-02-07">
+    units="hash" expires_after="2027-04-18">
   <owner>sophiechang@chromium.org</owner>
   <owner>iwells@chromium.org</owner>
   <summary>
@@ -257,7 +257,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.V2.CueInteraction.{InteractionType}"
-    units="hash" expires_after="2027-02-07">
+    units="hash" expires_after="2027-04-11">
   <owner>sophiechang@chromium.org</owner>
   <owner>pulkitaga@google.com</owner>
   <summary>
@@ -276,7 +276,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.V2.CueShown" units="hash"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>sophiechang@chromium.org</owner>
   <owner>pulkitaga@google.com</owner>
   <summary>
@@ -317,7 +317,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualCueing.V2.MissingFaviconCount" units="count"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>sophiechang@chromium.org</owner>
   <owner>iwells@chromium.org</owner>
   <summary>

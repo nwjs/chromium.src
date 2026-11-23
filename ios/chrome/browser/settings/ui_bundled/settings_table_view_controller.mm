@@ -2015,6 +2015,10 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
                                            AutofillSettingsReferrer::
                                                kSettingsMenu];
   _autofillAndPasswordsCoordinator.delegate = self;
+  _autofillAndPasswordsCoordinator
+      .shouldShowLevelUpPaymentMethodsWalkthroughIPH =
+      self.shouldShowLevelUpPaymentMethodsWalkthroughIPH;
+  self.shouldShowLevelUpPaymentMethodsWalkthroughIPH = NO;
   [_autofillAndPasswordsCoordinator start];
 }
 
@@ -2295,7 +2299,6 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   presenter.dismissalTimerDisabled = YES;
 
   if ([presenter canPresentInView:targetView anchorPoint:anchorPoint]) {
-    self.shouldShowLevelUpPaymentMethodsWalkthroughIPH = NO;
     _bubblePresenter = presenter;
     [presenter presentInViewController:self anchorPoint:anchorPoint];
   }
@@ -2309,33 +2312,14 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
     case IPHDismissalReasonType::kTappedNext:
     case IPHDismissalReasonType::kTappedAnchorView:
     case IPHDismissalReasonType::kTappedIPH:
-      [self showAutofillAndPasswordsWithLevelUpWalkthroughIPH:YES];
+      [self showAutofillAndPasswords];
+      break;
+    case IPHDismissalReasonType::kTappedClose:
+      self.shouldShowLevelUpPaymentMethodsWalkthroughIPH = NO;
       break;
     default:
       break;
   }
-}
-
-// Shows the Autofill & Passwords settings page, optionally triggering the
-// Level Up Payment Methods walkthrough IPH.
-- (void)showAutofillAndPasswordsWithLevelUpWalkthroughIPH:(BOOL)shouldShowIPH {
-  if (_autofillAndPasswordsCoordinator &&
-      self.navigationController.topViewController != self) {
-    base::debug::DumpWithoutCrashing();
-  }
-
-  [_autofillAndPasswordsCoordinator stop];
-
-  _autofillAndPasswordsCoordinator = [[AutofillAndPasswordsCoordinator alloc]
-      initWithBaseNavigationController:self.navigationController
-                               browser:_browser
-                              referrer:autofill::autofill_metrics::
-                                           AutofillSettingsReferrer::
-                                               kSettingsMenu];
-  _autofillAndPasswordsCoordinator.delegate = self;
-  _autofillAndPasswordsCoordinator
-      .shouldShowLevelUpPaymentMethodsWalkthroughIPH = shouldShowIPH;
-  [_autofillAndPasswordsCoordinator start];
 }
 
 // Shows the Payment Methods settings page, optionally triggering the Level Up
@@ -2460,17 +2444,10 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
   }
   ExtensionService* extensionService =
       ExtensionServiceFactory::GetForProfile(_profile);
-  const bool hasError =
-      extensionService && extensionService->HasLoadError() &&
-      !universal_optout::features::IsUniversalOptOutExtensionSilentEnabled();
+  const bool hasError = extensionService && extensionService->HasGPCLoadError();
   BadgeType badgeType = hasError ? BadgeType::kWarning : BadgeType::kNone;
   if (badgeType != _privacyDetailItem.badgeType) {
     _privacyDetailItem.badgeType = badgeType;
-    if (badgeType == BadgeType::kWarning) {
-      _privacyDetailItem.badgeLayout = BadgeLayout::kTrailing;
-    } else {
-      _privacyDetailItem.badgeLayout = BadgeLayout::kInline;
-    }
     if ([self.tableViewModel hasItem:_privacyDetailItem]) {
       [self reconfigureCellsForItems:@[ _privacyDetailItem ]];
     }
@@ -3401,7 +3378,7 @@ enum class IOSDefaultBrowserSettingsPassivePromoAction {
 #pragma mark - ExtensionServiceObserving
 
 - (void)extensionService:(ExtensionService*)service
-    didChangeExtensionLoadError:(bool)hasLoadError {
+    didChangeGPCLoadError:(bool)hasGPCLoadError {
   [self updatePrivacyDetailItem];
 }
 

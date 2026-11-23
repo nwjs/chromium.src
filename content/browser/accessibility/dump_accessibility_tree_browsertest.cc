@@ -134,6 +134,10 @@ void DumpAccessibilityTreeTest::RunApgPatternThirdPartyTest(
 void DumpAccessibilityTreeTest::ChooseFeatures(
     std::vector<base::test::FeatureRef>* enabled_features,
     std::vector<base::test::FeatureRef>* disabled_features) {
+  // Enable AccessibilityCanvas to ensure dump accessibility tree tests
+  // evaluate canvas structure with the feature enabled, consistent with
+  // the field trial testing configuration.
+  enabled_features->emplace_back(features::kAccessibilityCanvas);
   // crbug.com/339418716 - temporary until enabled by default
   enabled_features->emplace_back(blink::features::kUserMediaElement);
   enabled_features->emplace_back(blink::features::kUserMediaElementLegacy);
@@ -371,6 +375,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSFontFamily) {
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityCSSFontSize) {
   RunCSSTest(FILE_PATH_LITERAL("font-size.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityCSSFontSizeZero) {
+  RunCSSTest(FILE_PATH_LITERAL("font-size-zero.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
@@ -1660,6 +1669,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityAriaModal) {
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaModalWithAriaOwns) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-modal-with-aria-owns.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaModalFocusableDialog) {
   RunAriaTest(FILE_PATH_LITERAL("aria-modal-focusable-dialog.html"));
 }
@@ -1791,6 +1805,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityAriaOwnsFromHiddenOwner) {
+  RunAriaTest(FILE_PATH_LITERAL("aria-owns-from-hidden-owner.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaOwnsIllegalMultipleOwner) {
   RunAriaTest(FILE_PATH_LITERAL("aria-owns-illegal-multiple-owner.html"));
 }
@@ -1871,6 +1890,11 @@ IN_PROC_BROWSER_TEST_P(
     AccessibilityRadiosInRadiogroupsWithInterveningNonGenerics) {
   RunAriaTest(FILE_PATH_LITERAL(
       "radios-in-radiogroups-with-intervening-non-generics.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityRadioGroupPosinsetSetsizeOverrides) {
+  RunAriaTest(FILE_PATH_LITERAL("radio-group-posinset-setsize-overrides.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,

@@ -50,6 +50,7 @@ interface OmniboxInputDelegate {
       element: ReadonlyOmniboxElement, dragText: OmniboxActionDropText): void;
   handleDropFile(
       element: ReadonlyOmniboxElement, dragFile: OmniboxActionDropFile): void;
+  handleDragStart(element: ReadonlyOmniboxElement): void;
 }
 
 // Implementation of input handling that works by forwarding the relevant
@@ -181,6 +182,12 @@ class MojoOmniboxInputDelegate implements OmniboxInputDelegate {
       dropFile,
     });
   }
+
+  handleDragStart(_: ReadonlyOmniboxElement): void {
+    this.browserProxy_.toolbarUIHandler.onOmniboxAction({
+      dragStart: {},
+    });
+  }
 }
 
 enum UnelisionGesture {
@@ -263,6 +270,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     selection: null,
     textIsUrl: false,
     userInputInProgress: false,
+    hasTemporaryText: false,
   };
 
   accessor omniboxViewState: OmniboxViewState =
@@ -400,6 +408,7 @@ export class ReadonlyOmniboxElement extends CrLitElement {
 
     this.trackedElementManager_.startTracking(
         this.$.textInput, 'kOmniboxElementId');
+    textInput.role = 'textbox';
     textInput.ariaLabel = this.getAriaLabel_();
     textInput.ariaAutoComplete = 'both';
     textInput.ariaKeyShortcuts = this.getAriaKeyShortcut_();
@@ -959,7 +968,14 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     event.stopPropagation();
   }
 
-  protected onSearchboxInputTextUpdated_(): void {
+  protected onSearchboxInputTextUpdated_(e?: CustomEvent<{event?: Event}>):
+      void {
+    // `#textInput` reports its text again once an IME composition ends, but the
+    // text is unchanged, and `updateStateFromTextInput()` would drop the inline
+    // autocompletion, which `#textInput` doesn't show while composing.
+    if (e?.detail.event instanceof CompositionEvent) {
+      return;
+    }
     if (this.updateStateFromTextInput()) {
       this.sendInputToBrowser(/*unelision=*/ false, /*paste=*/ false);
     }
@@ -1030,7 +1046,12 @@ export class ReadonlyOmniboxElement extends CrLitElement {
     const selectionEnd = input.selectionEnd!;
 
     if (selectionStart !== selectionEnd && this.adjustedCopyResult) {
-      dataTransfer.setData('text/plain', this.adjustedCopyResult.adjustedText);
+      // Like the native omnibox, a copy writes the adjusted text, while a drag
+      // writes the selected text as displayed.
+      const plainText = forClipboard ?
+          this.adjustedCopyResult.adjustedText :
+          input.value.substring(selectionStart, selectionEnd);
+      dataTransfer.setData('text/plain', plainText);
 
       if (this.adjustedCopyResult.adjustedUrl && !forClipboard) {
         dataTransfer.setData(
@@ -1044,9 +1065,18 @@ export class ReadonlyOmniboxElement extends CrLitElement {
   private onDragStart_(e: DragEvent): void {
     this.isDraggingFromSelf_ = true;
 
+    // Like the native omnibox, close the popup when text is dragged. Check the
+    // selection rather than whether the drag data below is written, since the
+    // asynchronous `adjustedCopyResult` may not be set yet, in which case the
+    // selected text is still dragged by default.
+    const input = this.$.textInput.inputElement;
+    if (input.selectionStart !== input.selectionEnd) {
+      this.inputDelegate_.handleDragStart(this);
+    }
+
     if (e.dataTransfer &&
         this.populateDataTransfer_(e.dataTransfer, /*forClipboard=*/ false)) {
-      e.dataTransfer.effectAllowed = 'copy';
+      e.dataTransfer.effectAllowed = 'copyMove';
 
       if (this.adjustedCopyResult?.adjustedUrl) {
         const template = this.$.dragTemplate;
@@ -1344,7 +1374,8 @@ export class ReadonlyOmniboxElement extends CrLitElement {
   // change the selection, to avoid messing things up for middle-click paste).
   private unelide(): boolean {
     // User changed stuff, so should not unelide.
-    if (this.omniboxViewState.userInputInProgress) {
+    if (this.omniboxViewState.userInputInProgress ||
+        this.omniboxViewState.hasTemporaryText) {
       return false;
     }
 

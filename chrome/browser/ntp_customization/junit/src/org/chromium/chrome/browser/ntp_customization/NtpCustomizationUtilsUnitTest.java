@@ -88,12 +88,12 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.policy.NtpCustomizationPolicyManager;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorFromHexInfo;
-import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorUtils;
 import org.chromium.chrome.browser.ntp_customization.theme.daily_refresh.NtpThemeDailyRefreshManager;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.CustomBackgroundInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.BackgroundImageInfo;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataColor;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataImageBase;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataThemeCollection;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataUploadImage;
@@ -128,6 +128,8 @@ public class NtpCustomizationUtilsUnitTest {
     private static final String FILE_ID_HASH_SUFFIX = "_-1";
     private static final String STREAM_ERROR_MESSAGE = "Stream error";
     private static final String COLLECTION_ID = "id";
+    private static final String DAILY_REFRESH_COLLECTION_ID = "daily_id";
+    private static final float DAILY_REFRESH_LANDSCAPE_SCALE = 2.f;
     // Material falls back to this when no candidate color survives quantization, e.g. for a fully
     // transparent or otherwise chroma-less bitmap. See the vendored
     // third_party/material_color_utilities/src/java/score/Score.java (Score#score fallback).
@@ -911,6 +913,12 @@ public class NtpCustomizationUtilsUnitTest {
                         /* isDailyRefreshEnabled= */ true);
         NtpCustomizationUtils.setCustomBackgroundInfoToSharedPreference(infoWithRefresh);
         NtpCustomizationUtils.setDailyRefreshCustomizedPrimaryColorToSharedPreference(Color.BLUE);
+        NtpCustomizationUtils.setDailyRefreshCustomBackgroundInfoToSharedPreference(
+                new CustomBackgroundInfo(
+                        JUnitTestGURLs.URL_2,
+                        /* collectionId= */ "id_daily",
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ true));
         assertEquals(
                 "With daily refresh, it should return the daily refresh color.",
                 Color.BLUE,
@@ -925,74 +933,6 @@ public class NtpCustomizationUtilsUnitTest {
                 (int)
                         NtpCustomizationUtils.getPrimaryColorFromCustomizedThemeColor(
                                 mContext, /* checkDailyRefresh= */ false));
-    }
-
-    @Test
-    @DisableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
-    public void testLoadColorInfoFromSharedPreference_flagDisabled() {
-        assertNull(NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext));
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
-    public void testLoadColorInfoFromSharedPreference_wrongImageType() {
-        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(NtpBackgroundType.DEFAULT);
-        NtpCustomizationUtils.setCustomizedPrimaryColorToSharedPreference(Color.RED);
-        assertNull(NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext));
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
-    public void testLoadColorInfoFromSharedPreference_chromeColor() {
-        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(
-                NtpBackgroundType.CHROME_COLOR);
-        SharedPreferencesManager prefsManager = ChromeSharedPreferences.getInstance();
-        prefsManager.removeKey(ChromePreferenceKeys.NTP_CUSTOMIZATION_THEME_COLOR_ID);
-
-        // Verifies that null is returned when color id isn't set.
-        assertNull(NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext));
-
-        @NtpThemeColorId int colorId = NtpThemeColorId.NTP_COLORS_BLUE;
-        NtpThemeColorInfo colorInfo = NtpThemeColorUtils.createNtpThemeColorInfo(mContext, colorId);
-        NtpCustomizationUtils.setNtpThemeColorIdToSharedPreference(colorId);
-
-        assertEquals(colorInfo, NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext));
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
-    public void testLoadColorInfoFromSharedPreference_colorFromHex() {
-        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(COLOR_FROM_HEX);
-        @ColorInt int primaryColor = Color.RED;
-        @ColorInt int backgroundColor = Color.BLUE;
-        NtpCustomizationUtils.setCustomizedPrimaryColorToSharedPreference(primaryColor);
-        NtpCustomizationUtils.setBackgroundColorToSharedPreference(backgroundColor);
-
-        // Verifies that both the primary color and background color from the loaded results match.
-        NtpThemeColorInfo info = NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext);
-        assertTrue(info instanceof NtpThemeColorFromHexInfo);
-        assertEquals(primaryColor, ((NtpThemeColorFromHexInfo) info).primaryColorLight);
-        assertEquals(backgroundColor, ((NtpThemeColorFromHexInfo) info).backgroundColorLight);
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
-    public void testLoadColorInfoFromSharedPreference_colorSetWithImage() {
-        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(IMAGE_FROM_DISK);
-        // Verifies that null is returned if no primary color is set.
-        assertNull(NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext));
-
-        @ColorInt int primaryColor = Color.RED;
-        NtpCustomizationUtils.setCustomizedPrimaryColorToSharedPreference(primaryColor);
-        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(COLOR_FROM_HEX);
-
-        // Verifies that the primary color from the loaded results matches.
-        NtpThemeColorInfo info = NtpCustomizationUtils.loadColorInfoFromSharedPreference(mContext);
-        assertTrue(info instanceof NtpThemeColorFromHexInfo);
-        assertEquals(primaryColor, ((NtpThemeColorFromHexInfo) info).primaryColorLight);
-        assertEquals(
-                NtpThemeColorUtils.getDefaultBackgroundColor(mContext),
-                ((NtpThemeColorFromHexInfo) info).backgroundColorLight);
     }
 
     @Test
@@ -1728,45 +1668,51 @@ public class NtpCustomizationUtilsUnitTest {
 
     @Test
     public void testSaveDailyRefreshBackgroundInfo() {
-        // 1. Set up data.
-        CustomBackgroundInfo customBackgroundInfo =
-                new CustomBackgroundInfo(
-                        JUnitTestGURLs.URL_1,
-                        /* collectionId= */ "daily_id",
-                        /* isUploadedImage= */ false,
-                        /* isDailyRefreshEnabled= */ true);
-        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
-        Matrix portraitMatrix = new Matrix();
-        Matrix landscapeMatrix = new Matrix();
-        landscapeMatrix.setScale(2.0f, 2.0f);
-        BackgroundImageInfo backgroundImageInfo =
-                new BackgroundImageInfo(
-                        portraitMatrix,
-                        landscapeMatrix,
-                        /* portraitWindowSize= */ null,
-                        /* landscapeWindowSize= */ null);
+        CustomBackgroundInfo customBackgroundInfo = startSavingDailyRefreshBackgroundInfo();
 
-        // 2. Call the method under test.
-        NtpCustomizationUtils.saveDailyRefreshBackgroundInfo(
-                customBackgroundInfo, bitmap, backgroundImageInfo);
+        // Nothing is saved until the image file has been written.
+        assertNoDailyRefreshDataSaved();
+
+        RobolectricUtil.runAllBackgroundAndUi(); // Wait for async file operations.
+        assertDailyRefreshDataSaved(customBackgroundInfo);
+    }
+
+    @Test
+    public void testSaveDailyRefreshBackgroundInfo_backgroundClearedBeforeImageSaved() {
+        startSavingDailyRefreshBackgroundInfo();
+
+        // E.g., the user selects a Chrome color.
+        NtpCustomizationUtils.removeAllNtpBackgroundDataFromSharedPreference();
         RobolectricUtil.runAllBackgroundAndUi(); // Wait for async file operations.
 
-        // 3. Assertions.
-        assertTrue(NtpCustomizationUtils.createDailyRefreshBackgroundImageFile().exists());
+        assertNoDailyRefreshDataSaved();
+    }
 
-        CustomBackgroundInfo restoredInfo =
-                NtpCustomizationUtils.getDailyRefreshCustomBackgroundInfoFromSharedPreference();
-        assertEquals(customBackgroundInfo.backgroundUrl, restoredInfo.backgroundUrl);
-        assertEquals(customBackgroundInfo.collectionId, restoredInfo.collectionId);
+    @Test
+    public void testSaveDailyRefreshBackgroundInfo_collectionChangedBeforeImageSaved() {
+        startSavingDailyRefreshBackgroundInfo();
 
-        assertNotNull(
-                NtpCustomizationUtils.getDailyRefreshCustomizedPrimaryColorFromSharedPreference());
+        // The user selects another theme collection with daily refresh.
+        NtpCustomizationUtils.setCustomBackgroundInfoToSharedPreference(
+                new CustomBackgroundInfo(
+                        JUnitTestGURLs.URL_2,
+                        /* collectionId= */ "other_id",
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ true));
+        RobolectricUtil.runAllBackgroundAndUi(); // Wait for async file operations.
 
-        BackgroundImageInfo restoredMatrices =
-                NtpCustomizationUtils.readDailyRefreshNtpBackgroundImageInfo();
-        assertNotNull(restoredMatrices);
-        assertEquals(portraitMatrix, restoredMatrices.getPortraitMatrix());
-        assertEquals(landscapeMatrix, restoredMatrices.getLandscapeMatrix());
+        assertNoDailyRefreshDataSaved();
+    }
+
+    @Test
+    public void testSaveDailyRefreshBackgroundInfo_writeFailed() {
+        // The image can't be written to a directory.
+        assertTrue(NtpCustomizationUtils.createDailyRefreshBackgroundImageFile().mkdir());
+
+        startSavingDailyRefreshBackgroundInfo();
+        RobolectricUtil.runAllBackgroundAndUi(); // Wait for async file operations.
+
+        assertNoDailyRefreshDataSaved();
     }
 
     @Test
@@ -2257,11 +2203,166 @@ public class NtpCustomizationUtilsUnitTest {
         assertEquals(0, containerWithoutParams.getPaddingRight());
     }
 
+    @Test
+    public void testIsSyncedBackgroundPersisted_default() {
+        assertTrue(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        /* syncedBackgroundData= */ null));
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createColorData(NtpThemeColorId.NTP_COLORS_BLUE)));
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createThemeCollectionCandidate(
+                                createCustomBackgroundInfo(), /* primaryColor= */ null)));
+    }
+
+    @Test
+    public void testIsSyncedBackgroundPersisted_chromeColor() {
+        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(
+                NtpBackgroundType.CHROME_COLOR);
+        NtpCustomizationUtils.setNtpThemeColorIdToSharedPreference(NtpThemeColorId.NTP_COLORS_BLUE);
+
+        assertTrue(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createColorData(NtpThemeColorId.NTP_COLORS_BLUE)));
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createColorData(NtpThemeColorId.NTP_COLORS_AQUA)));
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        /* syncedBackgroundData= */ null));
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createThemeCollectionCandidate(
+                                createCustomBackgroundInfo(), /* primaryColor= */ null)));
+    }
+
+    @Test
+    public void testIsSyncedBackgroundPersisted_themeCollection() {
+        CustomBackgroundInfo info = createCustomBackgroundInfo();
+        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(
+                NtpBackgroundType.THEME_COLLECTION);
+        NtpCustomizationUtils.setCustomBackgroundInfoToSharedPreference(info);
+        NtpCustomizationUtils.setCustomizedPrimaryColorToSharedPreference(Color.RED);
+
+        // Same theme and color. Built without a bitmap, image info or file ID hash, since only the
+        // theme identity and color are compared.
+        assertTrue(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createThemeCollectionCandidate(info, Color.RED)));
+        // Same theme, different color.
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createThemeCollectionCandidate(info, Color.BLUE)));
+        // Same theme, unknown color (e.g. synced from iOS).
+        assertTrue(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createThemeCollectionCandidate(info, /* primaryColor= */ null)));
+        // Different theme.
+        CustomBackgroundInfo otherInfo =
+                new CustomBackgroundInfo(
+                        JUnitTestGURLs.URL_2,
+                        /* collectionId= */ "other_id",
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ false);
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createThemeCollectionCandidate(otherInfo, Color.RED)));
+        // Different type.
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        createColorData(NtpThemeColorId.NTP_COLORS_BLUE)));
+        assertFalse(
+                NtpCustomizationUtils.isSyncedBackgroundPersisted(
+                        /* syncedBackgroundData= */ null));
+    }
+
+    private NtpBackgroundDataColor createColorData(@NtpThemeColorId int colorId) {
+        return new NtpBackgroundDataColor(
+                mContext,
+                PlatformType.ANDROID,
+                colorId,
+                /* isChromeColorDailyRefreshEnabled= */ false);
+    }
+
+    private static NtpBackgroundDataThemeCollection createThemeCollectionCandidate(
+            CustomBackgroundInfo info, @Nullable @ColorInt Integer primaryColor) {
+        return new NtpBackgroundDataThemeCollection(
+                PlatformType.ANDROID,
+                info,
+                /* backgroundImageInfo= */ null,
+                /* bitmap= */ null,
+                primaryColor,
+                /* fileIdHash= */ null);
+    }
+
     private static CustomBackgroundInfo createCustomBackgroundInfo() {
         return new CustomBackgroundInfo(
                 JUnitTestGURLs.URL_1,
                 COLLECTION_ID,
                 /* isUploadedImage= */ false,
                 /* isDailyRefreshEnabled= */ false);
+    }
+
+    /**
+     * Sets the background to a theme collection with daily refresh, and starts saving the next
+     * daily refresh image of the collection.
+     *
+     * @return The {@link CustomBackgroundInfo} being saved.
+     */
+    private static CustomBackgroundInfo startSavingDailyRefreshBackgroundInfo() {
+        NtpCustomizationUtils.setCustomBackgroundInfoToSharedPreference(
+                new CustomBackgroundInfo(
+                        JUnitTestGURLs.URL_2,
+                        DAILY_REFRESH_COLLECTION_ID,
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ true));
+        CustomBackgroundInfo customBackgroundInfo =
+                new CustomBackgroundInfo(
+                        JUnitTestGURLs.URL_1,
+                        DAILY_REFRESH_COLLECTION_ID,
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ true);
+        Matrix landscapeMatrix = new Matrix();
+        landscapeMatrix.setScale(DAILY_REFRESH_LANDSCAPE_SCALE, DAILY_REFRESH_LANDSCAPE_SCALE);
+        NtpCustomizationUtils.saveDailyRefreshBackgroundInfo(
+                customBackgroundInfo,
+                Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888),
+                new BackgroundImageInfo(
+                        new Matrix(),
+                        landscapeMatrix,
+                        /* portraitWindowSize= */ null,
+                        /* landscapeWindowSize= */ null));
+        return customBackgroundInfo;
+    }
+
+    private static void assertNoDailyRefreshDataSaved() {
+        assertNull(NtpCustomizationUtils.getDailyRefreshCustomBackgroundInfoFromSharedPreference());
+        assertNull(
+                NtpCustomizationUtils.getDailyRefreshCustomizedPrimaryColorFromSharedPreference());
+        assertNull(NtpCustomizationUtils.readDailyRefreshNtpBackgroundImageInfo());
+    }
+
+    /**
+     * Asserts that the daily refresh data and the image file saved by {@link
+     * #startSavingDailyRefreshBackgroundInfo} exist.
+     */
+    private static void assertDailyRefreshDataSaved(CustomBackgroundInfo customBackgroundInfo) {
+        assertTrue(NtpCustomizationUtils.createDailyRefreshBackgroundImageFile().exists());
+        CustomBackgroundInfo restoredInfo =
+                NtpCustomizationUtils.getDailyRefreshCustomBackgroundInfoFromSharedPreference();
+        assertNotNull(restoredInfo);
+        assertEquals(customBackgroundInfo.backgroundUrl, restoredInfo.backgroundUrl);
+        assertEquals(customBackgroundInfo.collectionId, restoredInfo.collectionId);
+        assertNotNull(
+                NtpCustomizationUtils.getDailyRefreshCustomizedPrimaryColorFromSharedPreference());
+        BackgroundImageInfo restoredMatrices =
+                NtpCustomizationUtils.readDailyRefreshNtpBackgroundImageInfo();
+        assertNotNull(restoredMatrices);
+        Matrix expectedLandscapeMatrix = new Matrix();
+        expectedLandscapeMatrix.setScale(
+                DAILY_REFRESH_LANDSCAPE_SCALE, DAILY_REFRESH_LANDSCAPE_SCALE);
+        assertEquals(expectedLandscapeMatrix, restoredMatrices.getLandscapeMatrix());
     }
 }

@@ -59,6 +59,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/global_error/global_error.h"
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
@@ -923,7 +924,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
                                           "?.disabled ? 'true' : 'false'"})));
 
   // Go back to enable forward button.
-  chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
+  chrome::GoBack(browser(), WindowOpenDisposition::kCurrentTab);
 
   content::WaitForAccessibilityTreeToContainNodeWithName(
       web_view->GetWebContents(), "Forward");
@@ -1082,7 +1083,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPixelBrowserTest,
   {
     content::TestNavigationObserver back_nav_observer(
         browser()->GetTabStripModel()->GetActiveWebContents());
-    chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
+    chrome::GoBack(browser(), WindowOpenDisposition::kCurrentTab);
     back_nav_observer.Wait();
   }
 
@@ -1531,11 +1532,8 @@ class WebUIToolbarWebViewRaceTest : public InProcessBrowserTest {
 // Regression test for crbug.com/478033216. Tests that an attempt to bind to
 // `TrackedElementHandler` while the window is being closed does not cause a
 // crash.
-// TODO(crbug.com/567216381): Flaky. The test doesn't wait for the toolbar's
-// initial navigation, so WebUIToolbarUI::Init() (which registers the
-// TrackedElementHandler config) may not have run before GetOrCreate().
 IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewRaceTest,
-                       DISABLED_BindInterfaceAfterCloseRace) {
+                       BindInterfaceAfterCloseRace) {
   // 1. Setup: Create a new browser window.
   BrowserWindowInterface* new_browser = CreateBrowser(browser()->GetProfile());
   ui_test_utils::WaitForBrowserSetLastActive(new_browser);
@@ -1545,6 +1543,11 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewRaceTest,
   content::WebContents* webui_contents =
       toolbar_view->GetWebViewForTesting()->GetWebContents();
   ASSERT_TRUE(webui_contents);
+
+  // Wait for the initial toolbar navigation to finish committing so
+  // `WebUIToolbarUI::Init()` has registered `TrackedElementHandlerConfig` on
+  // `webui_contents`.
+  ASSERT_TRUE(content::WaitForLoadStop(webui_contents));
 
   GURL toolbar_url(chrome::kChromeUIWebUIToolbarURL);
 
@@ -2768,6 +2771,20 @@ INSTANTIATE_TEST_SUITE_P(
     });
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
+IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
+                       AvatarButtonNotInitializedWhenDisabled) {
+  ASSERT_FALSE(features::IsWebUIAvatarButtonEnabled());
+
+  WebUIToolbarWebView* webui_toolbar_view = GetWebUIToolbarWebView(browser());
+  ASSERT_TRUE(webui_toolbar_view);
+
+  auto* avatar_button = static_cast<WebUIAvatarToolbarButton*>(
+      webui_toolbar_view->GetAvatarToolbarButtonInterface());
+  ASSERT_TRUE(avatar_button);
+  EXPECT_FALSE(avatar_button->is_initialized());
+  EXPECT_FALSE(avatar_button->IsReadyForIPH());
+}
+
 class WebUIAvatarButtonBrowserTest : public WebUIToolbarWebViewBrowserTest {
  public:
   WebUIAvatarButtonBrowserTest()
@@ -2819,27 +2836,20 @@ IN_PROC_BROWSER_TEST_F(WebUIAvatarButtonBrowserTest, AvatarButtonIPHPromo) {
             toolbar_ui_api::mojom::AvatarToolbarButtonState::kNormal);
   EXPECT_TRUE(delegate->GetState().avatar_control_state->text.empty());
 
-  // Trigger IPH promo.
+  // Trigger IPH promo when in `kNormal` state; the greeting should not be
+  // shown.
   avatar_button->NotifyIPHPromoChanged(true);
-
-  // Wait until the state updates to kShowIdentityName and text is populated.
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return delegate->GetState().avatar_control_state->state ==
-               toolbar_ui_api::mojom::AvatarToolbarButtonState::
-                   kShowIdentityName &&
-           !delegate->GetState().avatar_control_state->text.empty();
-  }));
+  EXPECT_TRUE(avatar_button->IsShowingIPHPromo());
+  EXPECT_EQ(delegate->GetState().avatar_control_state->state,
+            toolbar_ui_api::mojom::AvatarToolbarButtonState::kNormal);
+  EXPECT_TRUE(delegate->GetState().avatar_control_state->text.empty());
 
   // Trigger IPH promo hide.
   avatar_button->NotifyIPHPromoChanged(false);
-  avatar_button->ClearActiveStateForTesting();
-
-  // Wait until it goes back to kNormal and text is empty.
-  ASSERT_TRUE(base::test::RunUntil([&]() {
-    return delegate->GetState().avatar_control_state->state ==
-               toolbar_ui_api::mojom::AvatarToolbarButtonState::kNormal &&
-           delegate->GetState().avatar_control_state->text.empty();
-  }));
+  EXPECT_FALSE(avatar_button->IsShowingIPHPromo());
+  EXPECT_EQ(delegate->GetState().avatar_control_state->state,
+            toolbar_ui_api::mojom::AvatarToolbarButtonState::kNormal);
+  EXPECT_TRUE(delegate->GetState().avatar_control_state->text.empty());
 }
 
 struct ButtonVisibilityToggleTestParam {
@@ -3530,7 +3540,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewSplitTabsBrowserTest,
     // Ensure NOT in split view initially by opening a new tab.
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), GURL("chrome://version/"),
-        WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        WindowOpenDisposition::kNewForegroundTab,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
     EXPECT_FALSE(tab_strip_model->GetActiveTab()->IsSplit());
 
@@ -4233,6 +4243,30 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarDropBrowserTest,
 #endif
 }
 
+namespace {
+
+// JavaScript to retrieve the extensions button tooltip from the WebUI toolbar.
+constexpr char kGetExtensionsButtonTooltipScript[] = R"(
+(() => {
+  const app = document.querySelector('toolbar-app');
+  if (!app) return null;
+  const extensionsContainer = app.shadowRoot.querySelector('#extensions');
+  if (!extensionsContainer) return null;
+  // Verify that the divider separating extensions from the rest of the toolbar
+  // is present.
+  const divider =
+      extensionsContainer.shadowRoot.querySelector('toolbar-divider');
+  if (!divider) return null;
+  const extensionElements = extensionsContainer.shadowRoot
+      .querySelectorAll('webui-toolbar-extension');
+  const button = Array.from(extensionElements).find(el => el.state.id === '');
+  if (!button) return null;
+  return button.state.tooltip;
+})();
+)";
+
+}  // namespace
+
 IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, LoadExtension) {
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -4262,50 +4296,25 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, LoadExtension) {
 
   std::string extension_id = extension->id();
 
+  auto wait_for_extensions_button_tooltip =
+      [&](std::string_view expected_tooltip) {
+        return base::test::RunUntil([&]() {
+          return content::EvalJs(web_contents,
+                                 kGetExtensionsButtonTooltipScript) ==
+                 expected_tooltip;
+        });
+      };
+
   // Verify extensions button (puzzle piece) is present and has "has access"
   // tooltip. Also verify divider is present.
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return content::EvalJs(web_contents, R"(
-      (() => {
-        const app = document.querySelector('toolbar-app');
-        if (!app) return false;
-        const extensionsContainer = app.shadowRoot.querySelector('#extensions');
-        if (!extensionsContainer) return false;
-        const divider = extensionsContainer.shadowRoot
-            .querySelector('toolbar-divider');
-        if (!divider) return false;
-        const extensionElements = extensionsContainer.shadowRoot
-            .querySelectorAll('webui-toolbar-extension');
-        const button = Array.from(extensionElements)
-            .find(el => el.state.id === '');
-        if (!button) return false;
-        return button.state.tooltip === "Extensions allowed on this site";
-      })();
-    )")
-        .ExtractBool();
-  }));
+  EXPECT_TRUE(
+      wait_for_extensions_button_tooltip("Extensions allowed on this site"));
 
   // Navigate to default.com (extension has no host permissions for it).
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), default_url));
 
   // Verify extensions button tooltip changes to "Extensions" (kDefault).
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return content::EvalJs(web_contents, R"(
-      (() => {
-        const app = document.querySelector('toolbar-app');
-        if (!app) return false;
-        const extensionsContainer = app.shadowRoot.querySelector('#extensions');
-        if (!extensionsContainer) return false;
-        const extensionElements = extensionsContainer.shadowRoot
-            .querySelectorAll('webui-toolbar-extension');
-        const button = Array.from(extensionElements)
-            .find(el => el.state.id === '');
-        if (!button) return false;
-        return button.state.tooltip === "Extensions";
-      })();
-    )")
-        .ExtractBool();
-  }));
+  EXPECT_TRUE(wait_for_extensions_button_tooltip("Extensions"));
 
   // Navigate to chrome://version (restricted site).
   ASSERT_TRUE(
@@ -4313,23 +4322,33 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, LoadExtension) {
 
   // Verify extensions button tooltip changes to "Extensions not allowed on this
   // site" (kAllExtensionsBlocked).
-  EXPECT_TRUE(base::test::RunUntil([&]() {
-    return content::EvalJs(web_contents, R"(
-      (() => {
-        const app = document.querySelector('toolbar-app');
-        if (!app) return false;
-        const extensionsContainer = app.shadowRoot.querySelector('#extensions');
-        if (!extensionsContainer) return false;
-        const extensionElements = extensionsContainer.shadowRoot
-            .querySelectorAll('webui-toolbar-extension');
-        const button = Array.from(extensionElements)
-            .find(el => el.state.id === '');
-        if (!button) return false;
-        return button.state.tooltip === "Extensions not allowed on this site";
-      })();
-    )")
-        .ExtractBool();
-  }));
+  EXPECT_TRUE(wait_for_extensions_button_tooltip(
+      "Extensions not allowed on this site"));
+
+  // Navigate to chrome://newtab (NTP).
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                           GURL(chrome::kChromeUINewTabURL)));
+
+  // Verify extensions button tooltip changes to "Extensions not allowed on this
+  // site" (kAllExtensionsBlocked).
+  EXPECT_TRUE(wait_for_extensions_button_tooltip(
+      "Extensions not allowed on this site"));
+
+  // Navigate to default.com where extensions are allowed, but no extension has
+  // host permissions for it.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), default_url));
+
+  // Verify extensions button tooltip changes from "Extensions not allowed on
+  // this site" to "Extensions" (kDefault).
+  EXPECT_TRUE(wait_for_extensions_button_tooltip("Extensions"));
+
+  // Navigate back to allowed.com.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), allowed_url));
+
+  // Verify extensions button tooltip changes back to "Extensions allowed on
+  // this site" (kAnyExtensionHasAccess).
+  EXPECT_TRUE(
+      wait_for_extensions_button_tooltip("Extensions allowed on this site"));
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest, ExtensionAnchoring) {
@@ -4553,7 +4572,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
   // Showing another extension's button should not run the callback, since the
   // popped out extension's button still hasn't been shown. All extension
   // buttons share an ElementIdentifier, so this does wake up the logic waiting
-  // for all buttons to be shown, which should then resume waiting.
+  // for the popped out extension's button, which should then resume waiting.
   {
     ui::test::TestElement other_element(
         kToolbarActionViewElementId,
@@ -4587,13 +4606,48 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
       ExtensionsContainer::From(*browser()));
   ASSERT_TRUE(container);
   ASSERT_TRUE(container->GetExtensionAnchor(extension_id));
-  // PopOutAction() waits for all extension-related buttons to be shown,
-  // including the extensions menu button, so it must also be shown for the
-  // callback to be run synchronously. LoadAndPinExtension() waits for it.
+  // PopOutAction() also waits for the extensions menu button, so it must be
+  // shown for the callback to be run synchronously.
   ASSERT_TRUE(container->GetExtensionAnchor(""));
 
   base::test::TestFuture<void> future;
   container->PopOutAction(extension_id, future.GetCallback());
+  EXPECT_TRUE(future.IsReady());
+
+  container->UndoPopOut();
+}
+
+// Tests that the callback passed to PopOutAction() doesn't wait for other
+// extensions' buttons to be shown.
+IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewBrowserTest,
+                       PopOutActionDoesNotWaitForOtherActions) {
+  base::ScopedAllowBlockingForTesting allow_blocking;
+  base::ScopedTempDir temp_dir1;
+  base::ScopedTempDir temp_dir2;
+  ASSERT_TRUE(temp_dir1.CreateUniqueTempDir());
+  ASSERT_TRUE(temp_dir2.CreateUniqueTempDir());
+  scoped_refptr<const extensions::Extension> extension1 =
+      LoadAndPinExtension(temp_dir1);
+  ASSERT_TRUE(extension1);
+  scoped_refptr<const extensions::Extension> extension2 =
+      LoadExtension(temp_dir2);
+  ASSERT_TRUE(extension2);
+
+  auto* container = static_cast<WebUIToolbarExtensionsContainer*>(
+      ExtensionsContainer::From(*browser()));
+  ASSERT_TRUE(container);
+  ASSERT_TRUE(container->GetExtensionAnchor(extension1->id()));
+
+  // Pin the second extension. Its button is shown asynchronously by the
+  // renderer, so it won't have been registered yet.
+  ToolbarActionsModel::Get(browser()->GetProfile())
+      ->SetActionVisibility(extension2->id(), true);
+  ASSERT_FALSE(container->GetExtensionAnchor(extension2->id()));
+
+  // Popping out the first extension, whose button is already shown, should
+  // run the callback synchronously.
+  base::test::TestFuture<void> future;
+  container->PopOutAction(extension1->id(), future.GetCallback());
   EXPECT_TRUE(future.IsReady());
 
   container->UndoPopOut();
@@ -5131,7 +5185,7 @@ IN_PROC_BROWSER_TEST_P(WebUIToolbarButtonPressAndDragTest, PressAndDragDown) {
     ASSERT_TRUE(
         ui_test_utils::NavigateToURL(browser(), GURL("chrome://newtab")));
     if (std::string(param.test_name) == "Forward") {
-      chrome::GoBack(browser(), WindowOpenDisposition::CURRENT_TAB);
+      chrome::GoBack(browser(), WindowOpenDisposition::kCurrentTab);
     }
   }
 
@@ -5278,7 +5332,7 @@ IN_PROC_BROWSER_TEST_P(WebUIToolbarAlreadyExistsForTheSameProfileOnInitTest,
   // new tab and navigating it to Tab Search.
   GURL tab_search_url("chrome://tab-search.top-chrome/");
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), tab_search_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), tab_search_url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Create a second browser window. This will trigger the creation of a new
@@ -5717,7 +5771,7 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarWebViewPermissionBrowserTest,
   run_loop.Run();
 
   // The Page Info Bubble should NOT have reopened!
-  EXPECT_EQ(nullptr, PageInfoBubbleViewBase::GetPageInfoBubbleForTesting());
+  EXPECT_FALSE(PageInfoBubbleViewBase::IsShowing(web_contents));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -5900,6 +5954,8 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarSynchronousStartupBrowserTest,
   EXPECT_TRUE(dict->contains("layoutConstantsVersion"));
   EXPECT_TRUE(dict->contains("touchUi"));
   EXPECT_TRUE(dict->contains("isFallbackPrewarming"));
+  EXPECT_TRUE(dict->contains("isProfileEligibleForGlic"));
+  EXPECT_TRUE(dict->contains("canShowAvatarForProfile"));
 }
 
 // Test fixture that enables all WebUI toolbar controls.
@@ -7194,6 +7250,142 @@ IN_PROC_BROWSER_TEST_F(WebUIToolbarFullyEnabledBrowserTest,
         )")
         .ExtractBool();
   }));
+
+  AssertNoJsErrors();
+}
+
+// Tests that extensions are hidden when there's not enough room for them, and
+// that they have lower priority than pinned toolbar actions. The extensions
+// menu button should never be hidden.
+IN_PROC_BROWSER_TEST_F(WebUIToolbarFullyEnabledBrowserTest,
+                       ResponsiveExtensionsShrinkToolbar) {
+  auto* model = PinnedToolbarActionsModel::Get(browser()->GetProfile());
+  model->UpdatePinnedState(kActionShowDownloads, true);
+
+  base::ScopedAllowBlockingForTesting allow_blocking;
+  base::ScopedTempDir temp_dir1;
+  base::ScopedTempDir temp_dir2;
+  base::ScopedTempDir temp_dir3;
+  ASSERT_TRUE(temp_dir1.CreateUniqueTempDir());
+  ASSERT_TRUE(temp_dir2.CreateUniqueTempDir());
+  ASSERT_TRUE(temp_dir3.CreateUniqueTempDir());
+  scoped_refptr<const extensions::Extension> extension1 =
+      LoadAndPinExtension(temp_dir1);
+  ASSERT_TRUE(extension1);
+  scoped_refptr<const extensions::Extension> extension2 =
+      LoadAndPinExtension(temp_dir2);
+  ASSERT_TRUE(extension2);
+  scoped_refptr<const extensions::Extension> extension3 =
+      LoadAndPinExtension(temp_dir3);
+  ASSERT_TRUE(extension3);
+
+  InstallErrorListener();
+
+  // Pinned extensions are displayed in the order they were pinned, followed by
+  // the extensions menu button and the divider.
+  const std::string& id1 = extension1->id();
+  const std::string& id2 = extension2->id();
+  const std::string& id3 = extension3->id();
+  const std::string no_extensions_hidden =
+      base::StrCat({id1, ",", id2, ",", id3, ",<menu>,<divider>"});
+  const std::string all_extensions_hidden =
+      base::StrCat({"!", id1, ",!", id2, ",!", id3, ",<menu>,<divider>"});
+
+  // Wait for the three extensions, the extensions menu button, and the divider
+  // to be visible.
+  ASSERT_TRUE(WaitForExtensionsState(no_extensions_hidden));
+
+  ASSERT_TRUE(WaitForPinnedActionVisible(
+      toolbar_ui_api::mojom::PinnedToolbarAction::kShowDownloads));
+
+  // Create spacer so that any padding it adds is taken into account by
+  // the MeasureResponsiveControls() call.
+  int spacer_width = 0;
+  ASSERT_EQ(SetSpacerWidth(spacer_width), true);
+  AllResponsiveControlsInfo all_controls_info;
+  ASSERT_NO_FATAL_FAILURE(MeasureResponsiveControls(all_controls_info));
+
+  // Size spacer so that all controls are at their preferred size, but no extra
+  // space is available.
+  base::DictValue preferred_sizes;
+  for (const ResponsiveControlInfo& info : all_controls_info.controls) {
+    preferred_sizes.Set(info.id, info.preferred_width);
+  }
+  spacer_width += all_controls_info.location_bar_extra_width;
+  ASSERT_EQ(SetSpacerWidth(spacer_width), true);
+  CheckControlSizes(preferred_sizes);
+  EXPECT_EQ(GetExtensionsState(), no_extensions_hidden);
+
+  // For each extension, from left to right, grow the spacer by one pixel, which
+  // should hide only that extension, since extensions are the lowest priority
+  // controls. Since extensions don't add items to the overflow menu, the
+  // overflow button should not be shown, and all other controls should remain
+  // at their preferred sizes, except the location bar, which takes up the space
+  // freed by the hidden extension. Then grow the spacer by how much the
+  // location bar grew, so everything other than the extensions container is
+  // its preferred size again, and growing the spacer by one more pixel will
+  // hide the next extension.
+  base::DictValue expected_sizes = preferred_sizes.Clone();
+  std::optional<int> preferred_location_bar_width =
+      preferred_sizes.FindInt("location-bar");
+  ASSERT_TRUE(preferred_location_bar_width);
+  for (const std::string& expected_extensions_state :
+       {base::StrCat({"!", id1, ",", id2, ",", id3, ",<menu>,<divider>"}),
+        base::StrCat({"!", id1, ",!", id2, ",", id3, ",<menu>,<divider>"}),
+        all_extensions_hidden}) {
+    SCOPED_TRACE(expected_extensions_state);
+    spacer_width += 1;
+    ASSERT_EQ(SetSpacerWidth(spacer_width), true);
+    ASSERT_TRUE(WaitForExtensionsState(expected_extensions_state));
+
+    base::DictValue actual_sizes = GetControlSizes();
+
+    // The extensions container should shrink. This code avoids depending on
+    // the exact amount of space hiding an action should shrink it by.
+    std::optional<int> previous_extensions_width =
+        expected_sizes.FindInt("extensions");
+    ASSERT_TRUE(previous_extensions_width);
+    std::optional<int> actual_extensions_width =
+        actual_sizes.FindInt("extensions");
+    ASSERT_TRUE(actual_extensions_width);
+    EXPECT_LT(*actual_extensions_width, *previous_extensions_width);
+    // Set expected extensions element size to actual size, so we can compare
+    // expected and actual sizes.
+    expected_sizes.Set("extensions", *actual_extensions_width);
+
+    // The location bar should take up the space freed by the hidden extension,
+    // minus the extra pixel taken by the spacer.
+    std::optional<int> actual_location_bar_width =
+        actual_sizes.FindInt("location-bar");
+    ASSERT_TRUE(actual_location_bar_width);
+    int location_bar_growth =
+        *actual_location_bar_width - *preferred_location_bar_width;
+    EXPECT_EQ(location_bar_growth,
+              *previous_extensions_width - *actual_extensions_width - 1);
+    // Set expected location bar size to actual size, so we can compare
+    // expected and actual sizes.
+    expected_sizes.Set("location-bar", *actual_location_bar_width);
+
+    // This also checks that the overflow button is not shown.
+    EXPECT_EQ(actual_sizes, expected_sizes);
+
+    // Grow the spacer by how much the location bar grew. Everything should be
+    // its preferred size again, except the extensions container, which should
+    // have the same extensions hidden, and be the same size as before.
+    spacer_width += location_bar_growth;
+    ASSERT_EQ(SetSpacerWidth(spacer_width), true);
+    expected_sizes.Set("location-bar", *preferred_location_bar_width);
+    CheckControlSizes(expected_sizes);
+    EXPECT_EQ(GetExtensionsState(), expected_extensions_state);
+  }
+
+  // Make the spacer as wide as the toolbar, which should overflow everything
+  // that can be overflowed. The extensions menu button and the divider after
+  // it should remain visible.
+  ASSERT_EQ(SetSpacerWidth(GetWebUIToolbar()->bounds().width()), true);
+  ASSERT_TRUE(WaitForExtensionsState(all_extensions_hidden));
+  EXPECT_TRUE(WaitForPinnedActionHidden(
+      toolbar_ui_api::mojom::PinnedToolbarAction::kShowDownloads));
 
   AssertNoJsErrors();
 }

@@ -362,7 +362,7 @@ GlicPageHandler* Host::FindPageHandlerForWebUiContents(
 }
 
 void Host::NotifyWindowIntentToShow() {
-  if (features::IsGlicNoWebviewEnabled()) {
+  if (glic_service().IsNoWebviewEnabled()) {
     if (contents_ && contents_->ShouldReloadOnShow()) {
       Reload();
       return;
@@ -373,8 +373,16 @@ void Host::NotifyWindowIntentToShow() {
   }
 }
 
+void Host::WaitForLoad(base::OnceCallback<void(bool failed)> callback) {
+  if (!contents_) {
+    std::move(callback).Run(/*failed=*/true);
+    return;
+  }
+  contents_->WaitForLoad(std::move(callback));
+}
+
 void Host::Zoom(mojom::ZoomAction zoom_action, ZoomSource source) {
-  if (features::IsGlicNoWebviewEnabled()) {
+  if (glic_service().IsNoWebviewEnabled()) {
     if (contents_) {
       contents_->Zoom(zoom_action, source);
     }
@@ -545,6 +553,7 @@ void Host::OnGuestWebClientCleared(bool had_web_client) {
     instance_delegate().OnWebClientCleared();
   }
   client_state_ = {};
+  UpdateClientLoadState();
   observers_.Notify(&Observer::WebClientDisconnected);
 }
 
@@ -644,11 +653,17 @@ void Host::WebUiStateChanged(GlicPageHandler* page_handler,
 }
 
 void Host::ClientLoadErrorOccurred(ClientLoadErrorReason reason) {
+  client_load_error_reason_ = reason;
   observers_.Notify(&Observer::ClientLoadErrorOccurred, reason);
 }
 
 void Host::SetClientLoadFailed(bool failed) {
   client_load_failed_ = failed;
+  if (!failed) {
+    // The failure is withdrawn (reload, retry on show), and with it its cause.
+    // A host that fails again reports the new cause before the new failure.
+    client_load_error_reason_.reset();
+  }
   UpdateClientLoadState();
 }
 
@@ -674,6 +689,7 @@ void Host::UpdateClientLoadState() {
   if (web_state == mojom::WebClientState::kResponsive ||
       web_state == mojom::WebClientState::kUnresponsive) {
     state = ClientLoadState::kReady;
+    client_load_error_reason_.reset();
   } else if (client_load_failed_) {
     state = ClientLoadState::kError;
   } else {

@@ -183,8 +183,8 @@ void PluginPlaceholder::OnDestruct() {
 gin::ObjectTemplateBuilder PluginPlaceholder::GetObjectTemplateBuilder(
     v8::Isolate* isolate) {
   return gin::Wrappable<PluginPlaceholder>::GetObjectTemplateBuilder(isolate)
-      .SetMethod<void (plugins::PluginPlaceholder::*)()>(
-          "hide", &PluginPlaceholder::HideCallback);
+      .SetMethod<static_cast<void (plugins::PluginPlaceholder::*)()>(
+          &PluginPlaceholder::HideCallback)>("hide");
 }
 
 // static

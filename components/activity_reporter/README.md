@@ -12,6 +12,11 @@ de-identified and privacy-preserving way.
 updater, to better isolate functionality. It may be disabled by the
 `report_activity=false` GN arg.
 
+`activity_reporter` is never built on ChromeOS. Its `BUILD.gn` asserts
+`!is_chromeos`, and `BrowserProcess::activity_reporter()` and its callers in
+`//chrome` are compiled out with `!is_chromeos` / `!BUILDFLAG(IS_CHROMEOS)`, so
+that activity reporting cannot be accidentally enabled there.
+
 The [update protocol documentation](//docs/updater/protocol_4.md) describes the
 transmitted information and deduplication algorithm in more detail.
 
@@ -42,6 +47,9 @@ As a result:
   `DateLastRollCall` timestamps managed by `update_client::PersistedData`—is
   stored exclusively in `Local State` (`g_browser_process->local_state()`),
   located at the root of the User Data Directory.
+* The pending `Local State` write is committed to disk as soon as each update
+  check completes, so that the server-provided `DateLastActive` survives the
+  browser process terminating before the pref store's scheduled write.
 * Because state is stored at the browser level and no profile-specific data is
   created or retained, browsing in Incognito mode leaves no browsing traces in
   profile storage while still allowing the browser installation to track its

@@ -191,8 +191,8 @@ class NGShapeCache : public GarbageCollected<NGShapeCache>,
   static constexpr base::MemoryConsumerTraits kNGShapeCacheTraits{
       // Bounded entries of short strings; footprint under 10MB.
       base::MemoryConsumerTraits::EstimatedMemoryUsage::kSmall,
-      // Clearing maps requires traversing hash map structures.
-      base::MemoryConsumerTraits::ReleaseMemoryCost::kRequiresTraversal,
+      // Clearing the maps reads the entries being freed.
+      base::MemoryConsumerTraits::ReleaseMemoryDataAccess::kReads,
       // Results can be shaped again if cleared.
       base::MemoryConsumerTraits::InformationRetention::kLossless,
       // Synchronously clears maps.
@@ -229,7 +229,7 @@ class NGShapeCache : public GarbageCollected<NGShapeCache>,
       const bool has_private_or_non_characters =
           !key.GetText().Is8Bit() &&
           std::ranges::any_of(key.GetText().Span16(), [](UChar32 c) {
-            return Character::IsPrivateUse(c) || Character::IsNonCharacter(c);
+            return unicode::IsPrivateUse(c) || unicode::IsNonCharacter(c);
           });
       // The shape-result call might try and reuse previous shape-results, we
       // can't check for equality in this case.

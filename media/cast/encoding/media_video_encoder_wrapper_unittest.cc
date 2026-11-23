@@ -104,6 +104,16 @@ class MediaVideoEncoderWrapperTest : public TestWithCastEnvironment {
 
     EXPECT_CALL(status_change_cb_, Run(STATUS_INITIALIZED))
         .Times(testing::AtLeast(1));
+    RecreateEncoder();
+  }
+
+  ~MediaVideoEncoderWrapperTest() override = default;
+
+  // (Re)creates `encoder_` using `config_`, backed by a new `mock_encoder_`.
+  void RecreateEncoder() {
+    mock_encoder_ = nullptr;
+    encoder_.reset();
+
     auto mock_encoder = std::make_unique<NiceMock<MockVideoEncoder>>();
     mock_encoder_ = mock_encoder.get();
     encoder_ = std::make_unique<MediaVideoEncoderWrapper>(
@@ -112,8 +122,6 @@ class MediaVideoEncoderWrapperTest : public TestWithCastEnvironment {
         status_change_cb_.Get(), mock_gpu_factories_.get());
     encoder_->SetEncoderForTesting(std::move(mock_encoder));
   }
-
-  ~MediaVideoEncoderWrapperTest() override = default;
 
   void SetEncoderAsInitialized() {
     // We simulate the encoder as initialized for the purpose of testing.
@@ -200,6 +208,29 @@ class MediaVideoEncoderWrapperTest : public TestWithCastEnvironment {
     return options;
   }
 
+  // Encodes a key frame and returns the content hint that the encoder was
+  // initialized with.
+  std::optional<media::VideoEncoder::ContentHint> GetInitialContentHint() {
+    std::optional<media::VideoEncoder::ContentHint> content_hint;
+    EXPECT_CALL(*mock_encoder_, Initialize(_, _, _, _, _))
+        .WillOnce([&](VideoCodecProfile profile,
+                      const media::VideoEncoder::Options& options,
+                      media::VideoEncoder::EncoderInfoCB info,
+                      media::VideoEncoder::OutputCB output,
+                      media::VideoEncoder::EncoderStatusCB done) {
+          content_hint = options.content_hint;
+          std::move(info).Run(VideoEncoderInfo());
+          std::move(done).Run(EncoderStatus::Codes::kOk);
+          output_cb_ = output;
+        });
+    EXPECT_CALL(*mock_encoder_, DisablePostedCallbacks());
+
+    const FrameInfo frame_info = CreateFrameInfo(FrameType::kKey);
+    ExpectVideoFrameEncoded(frame_info);
+    EXPECT_NE(EncodeVideoFrame(frame_info), nullptr);
+    return content_hint;
+  }
+
   media::VideoEncoder::OutputCB output_cb_;
 
   FrameSenderConfig config_ = GetDefaultVideoSenderConfig();
@@ -224,6 +255,28 @@ TEST_F(MediaVideoEncoderWrapperTest, InitializeEncoderAndSendFrame) {
   EXPECT_EQ(encoded_frame->is_key_frame, true);
   EXPECT_EQ(encoded_frame->frame_id, FrameId::first());
   EXPECT_GE(encoded_frame->lossiness, 0.0f);
+}
+
+// Test that the encoder is tuned for screen content, since mirroring always
+// captures tabs, windows, or screens.
+TEST_F(MediaVideoEncoderWrapperTest, InitializesEncoderForScreenContent) {
+  EXPECT_EQ(GetInitialContentHint(), media::VideoEncoder::ContentHint::Screen);
+}
+
+// libvpx's VP9 screen content mode currently blurs text after content
+// changes, so VP9 software encoding keeps the default (camera) tuning.
+TEST_F(MediaVideoEncoderWrapperTest,
+       DoesNotTuneVp9SoftwareEncoderForScreenContent) {
+  config_.video_codec_params->codec = VideoCodec::kVP9;
+  RecreateEncoder();
+  EXPECT_EQ(GetInitialContentHint(), std::nullopt);
+}
+
+TEST_F(MediaVideoEncoderWrapperTest, TunesVp9HardwareEncoderForScreenContent) {
+  config_.video_codec_params->codec = VideoCodec::kVP9;
+  config_.use_hardware_encoder = true;
+  RecreateEncoder();
+  EXPECT_EQ(GetInitialContentHint(), media::VideoEncoder::ContentHint::Screen);
 }
 
 TEST_F(MediaVideoEncoderWrapperTest, SendsIntermediateFramesAfterKeyFrames) {
@@ -644,8 +697,9 @@ TEST_F(MediaVideoEncoderWrapperTest, DropsFrameOnSizeChangeDuringEstimation) {
 
   bool trigger_dropped = false;
   base::MockCallback<VideoEncoder::FrameEncodedCallback> callback_trigger;
-  EXPECT_CALL(callback_trigger, Run(testing::IsNull()))
-      .WillOnce(testing::InvokeWithoutArgs([&]() { trigger_dropped = true; }));
+  EXPECT_CALL(callback_trigger, Run(testing::IsNull())).WillOnce([&]() {
+    trigger_dropped = true;
+  });
 
   EXPECT_TRUE(encoder_->EncodeVideoFrame(video_frame_trigger,
                                          frame_info_trigger.reference_time,
@@ -728,6 +782,64 @@ TEST_F(MediaVideoEncoderWrapperTest, SoftwareEncoderUtilization) {
   // Software utilization should be processing_time (15ms) /
   // target_frame_duration (33.333ms for 30fps) = 15000 / 33333 = 0.4500045...
   EXPECT_DOUBLE_EQ(encoded_frame->encoder_utilization, 15000.0 / 33333.0);
+}
+
+TEST_F(MediaVideoEncoderWrapperTest, UsesEncoderQpForLossinessWhenAvailable) {
+  ExpectEncoderInitialized();
+
+  constexpr size_t kEncodedBytes = 1000;
+  constexpr double kKeyFrameQp = 0.5;
+  constexpr double kDeltaFrameQp = 0.25;
+
+  const FrameInfo key_frame_info = CreateFrameInfo(FrameType::kKey);
+  AdvanceClock(base::Milliseconds(30));
+  const FrameInfo delta_frame_info = CreateFrameInfo(FrameType::kIntermediate);
+
+  EXPECT_CALL(*mock_encoder_, Encode(FrameInfosAreEqual(key_frame_info), _, _))
+      .WillOnce([&, key_frame_info](
+                    scoped_refptr<VideoFrame> frame,
+                    const media::VideoEncoder::EncodeOptions& options,
+                    media::VideoEncoder::EncoderStatusCB done) {
+        std::move(done).Run(EncoderStatus::Codes::kOk);
+        VideoEncoderOutput output;
+        output.key_frame = true;
+        output.timestamp = key_frame_info.reference_time - base::TimeTicks();
+        output.data = base::HeapArray<uint8_t>::WithSize(kEncodedBytes);
+        output.qp = kKeyFrameQp;
+        output_cb_.Run(std::move(output), std::nullopt);
+      });
+
+  EXPECT_CALL(*mock_encoder_,
+              Encode(FrameInfosAreEqual(delta_frame_info), _, _))
+      .WillOnce([&, delta_frame_info](
+                    scoped_refptr<VideoFrame> frame,
+                    const media::VideoEncoder::EncodeOptions& options,
+                    media::VideoEncoder::EncoderStatusCB done) {
+        std::move(done).Run(EncoderStatus::Codes::kOk);
+        VideoEncoderOutput output;
+        output.key_frame = false;
+        output.timestamp = delta_frame_info.reference_time - base::TimeTicks();
+        output.data = base::HeapArray<uint8_t>::WithSize(kEncodedBytes);
+        output.qp = kDeltaFrameQp;
+        output_cb_.Run(std::move(output), std::nullopt);
+      });
+
+  const double bitrate_utilization =
+      (kEncodedBytes * 8.0 / key_frame_info.frame_duration.InSecondsF()) /
+      config_.start_bitrate;
+
+  const auto encoded_key_frame = EncodeVideoFrame(key_frame_info);
+  ASSERT_NE(encoded_key_frame, nullptr);
+  EXPECT_DOUBLE_EQ(encoded_key_frame->lossiness,
+                   bitrate_utilization * kKeyFrameQp);
+
+  // Subsequent frames bypass FrameComplexityEstimator (which would return 0.0
+  // for two identical zero-initialized frames) and compute lossiness from
+  // `output.qp`.
+  const auto encoded_delta_frame = EncodeVideoFrame(delta_frame_info);
+  ASSERT_NE(encoded_delta_frame, nullptr);
+  EXPECT_DOUBLE_EQ(encoded_delta_frame->lossiness,
+                   bitrate_utilization * kDeltaFrameQp);
 }
 
 TEST_F(MediaVideoEncoderWrapperTest, HardwareEncoderUtilization) {
@@ -832,6 +944,111 @@ TEST_F(MediaVideoEncoderWrapperTest, EncodesNv12VideoFrame) {
 
   EXPECT_NE(encoded_frame, nullptr);
   EXPECT_TRUE(encoded_frame->is_key_frame);
+}
+
+TEST_F(MediaVideoEncoderWrapperTest, QueuesFramesWhileBitRateUpdateIsPending) {
+  ExpectEncoderInitialized();
+
+  const FrameInfo frame_info_1 = CreateFrameInfo(FrameType::kKey);
+  ExpectVideoFrameEncoded(frame_info_1);
+  EXPECT_NE(EncodeVideoFrame(frame_info_1), nullptr);
+
+  AdvanceClock(base::Milliseconds(30));
+  const FrameInfo frame_info_2 = CreateFrameInfo(FrameType::kIntermediate);
+  AdvanceClock(base::Milliseconds(30));
+  const FrameInfo frame_info_3 = CreateFrameInfo(FrameType::kIntermediate);
+
+  constexpr uint32_t kNewBitRate = 25000000;
+  media::VideoEncoder::EncoderStatusCB change_options_done_cb;
+  base::RunLoop change_options_called_loop;
+
+  EXPECT_CALL(*mock_encoder_, Flush(_))
+      .WillOnce([](media::VideoEncoder::EncoderStatusCB done) {
+        std::move(done).Run(EncoderStatus::Codes::kOk);
+      });
+
+  EXPECT_CALL(*mock_encoder_, ChangeOptions(_, _, _))
+      .WillOnce([&](const media::VideoEncoder::Options& options,
+                    media::VideoEncoder::OutputCB output,
+                    media::VideoEncoder::EncoderStatusCB done_cb) {
+        EXPECT_EQ(options.bitrate, Bitrate::ConstantBitrate(kNewBitRate));
+        change_options_done_cb = std::move(done_cb);
+        change_options_called_loop.Quit();
+      });
+
+  bool options_updated = false;
+  EXPECT_CALL(*mock_encoder_, Encode(FrameInfosAreEqual(frame_info_2), _, _))
+      .WillOnce([&, frame_info_2](
+                    scoped_refptr<VideoFrame> frame,
+                    const media::VideoEncoder::EncodeOptions& options,
+                    media::VideoEncoder::EncoderStatusCB done) {
+        EXPECT_TRUE(options_updated);
+        std::move(done).Run(EncoderStatus::Codes::kOk);
+        if (output_cb_) {
+          VideoEncoderOutput output;
+          output.key_frame = false;
+          output.timestamp = frame_info_2.reference_time - base::TimeTicks();
+          output.data = base::HeapArray<uint8_t>::WithSize(100);
+          output_cb_.Run(std::move(output), std::nullopt);
+        }
+      });
+
+  EXPECT_CALL(*mock_encoder_, Encode(FrameInfosAreEqual(frame_info_3), _, _))
+      .WillOnce([&, frame_info_3](
+                    scoped_refptr<VideoFrame> frame,
+                    const media::VideoEncoder::EncodeOptions& options,
+                    media::VideoEncoder::EncoderStatusCB done) {
+        EXPECT_TRUE(options_updated);
+        std::move(done).Run(EncoderStatus::Codes::kOk);
+        if (output_cb_) {
+          VideoEncoderOutput output;
+          output.key_frame = false;
+          output.timestamp = frame_info_3.reference_time - base::TimeTicks();
+          output.data = base::HeapArray<uint8_t>::WithSize(100);
+          output_cb_.Run(std::move(output), std::nullopt);
+        }
+      });
+
+  encoder_->SetBitRate(kNewBitRate);
+
+  std::unique_ptr<SenderEncodedFrame> encoded_frame_2;
+  std::unique_ptr<SenderEncodedFrame> encoded_frame_3;
+  base::RunLoop encode_2_loop;
+  base::RunLoop encode_3_loop;
+
+  auto video_frame_2 = CreateVideoFrame(frame_info_2);
+  EXPECT_TRUE(encoder_->EncodeVideoFrame(
+      video_frame_2, frame_info_2.reference_time,
+      base::BindLambdaForTesting(
+          [&](std::unique_ptr<SenderEncodedFrame> frame) {
+            encoded_frame_2 = std::move(frame);
+            encode_2_loop.Quit();
+          })));
+
+  auto video_frame_3 = CreateVideoFrame(frame_info_3);
+  EXPECT_TRUE(encoder_->EncodeVideoFrame(
+      video_frame_3, frame_info_3.reference_time,
+      base::BindLambdaForTesting(
+          [&](std::unique_ptr<SenderEncodedFrame> frame) {
+            encoded_frame_3 = std::move(frame);
+            encode_3_loop.Quit();
+          })));
+
+  change_options_called_loop.Run();
+
+  options_updated = true;
+  std::move(change_options_done_cb).Run(EncoderStatus::Codes::kOk);
+
+  encode_2_loop.Run();
+  encode_3_loop.Run();
+
+  ASSERT_NE(encoded_frame_2, nullptr);
+  EXPECT_EQ(encoded_frame_2->frame_id, FrameId::first() + 1);
+  EXPECT_EQ(encoded_frame_2->referenced_frame_id, FrameId::first());
+
+  ASSERT_NE(encoded_frame_3, nullptr);
+  EXPECT_EQ(encoded_frame_3->frame_id, FrameId::first() + 2);
+  EXPECT_EQ(encoded_frame_3->referenced_frame_id, FrameId::first() + 1);
 }
 
 }  // namespace media::cast

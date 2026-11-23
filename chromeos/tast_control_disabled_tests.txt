@@ -16,9 +16,6 @@
 # To disable on public builder only, modify chromeos/tast_control.gni.template
 # (for now)
 
-# https://crbug.com/1307940
-tast.policy.URLCheck.blocklist
-
 # http://crbug.com/1335213
 tast.arc.WindowState.clamshell
 
@@ -57,7 +54,6 @@ tast.ui.WebUIJSErrors.field_trial_on
 
 # b/394409115
 tast.network.AllowCACertificateManagement
-tast.network.AllowClientCertificateManagement
 
 # b/408102591
 tast.network.ARCEAPWifiProvisioning.eap_wifi_tls
@@ -73,10 +69,6 @@ tast.inputs.VirtualKeyboardSpeech
 
 # b/424789710
 tast.apps.LaunchGalleryFromNotifications.stable
-
-# https://crbug.com/434741638
-apps.Sharesheet
-tast.apps.Sharesheet
 
 # https://crbug.com/437961311
 tast.bruschetta.Basic.with_fieldtrial_config@betty
@@ -121,5 +113,13 @@ tast.shimlessrma.CancelFlow.select_components_none_next_cancel_critical
 # tast.camera.CCAUISmoke.vivid.
 tast.camera.CCAUISmoke.fake_hal
 tast.camera.CCAUISmoke.vivid
+
+# b/574345073: GAIA rejects the connectivity_fwdump_policytest*@managedchrome.com
+# test accounts due to the domain's 2-Step Verification policy.
+# TODO(b/574345073): Re-enable once the test accounts are fixed.
+tast.crash.ValidateFirmwareDumpGeneration.multi_session_policy_all
+tast.crash.ValidateFirmwareDumpGeneration.policy_all
+tast.crash.ValidateFirmwareDumpGeneration.policy_none
+tast.crash.ValidateFirmwareDumpGeneration.policy_wifi
 
 # READ COMMENT AT TOP BEFORE ADDING NEW TESTS HERE.

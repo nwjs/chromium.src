@@ -4,26 +4,22 @@
 
 package org.chromium.chrome.test.transit.page;
 
-import static org.chromium.base.test.transit.Condition.whether;
-
 import com.google.errorprone.annotations.CheckReturnValue;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.TriStateUtils;
 import org.chromium.base.test.transit.CallbackCondition;
-import org.chromium.base.test.transit.Condition;
-import org.chromium.base.test.transit.ConditionStatus;
 import org.chromium.base.test.transit.ConditionStatusWithResult;
 import org.chromium.base.test.transit.ConditionWithResult;
 import org.chromium.base.test.transit.Element;
 import org.chromium.base.test.transit.TripBuilder;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.tab.TabCreationState;
-import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.test.transit.ChromeActivityTabModelBoundStation;
+import org.chromium.chrome.test.transit.tabmodel.TabAddedCondition;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.PageTransition;
 
@@ -268,7 +264,8 @@ public class BasePageStation<HostActivity extends ChromeActivity>
         }
         loadedTabElement =
                 declareEnterConditionAsElement(
-                        new PageLoadedCondition(activityTabElement, mIsIncognito));
+                        new PageLoadedCondition(
+                                activityTabElement, TriStateUtils.from(mIsIncognito)));
 
         declareEnterCondition(new PageInteractableOrHiddenCondition(loadedTabElement));
 
@@ -310,90 +307,6 @@ public class BasePageStation<HostActivity extends ChromeActivity>
                 .withTimeout(10000)
                 .withPossiblyAlreadyFulfilled()
                 .waitForAnd(new PageLoadCallbackCondition(loadedTabElement.value()));
-    }
-
-    /** Condition to check the page url contains a certain substring. */
-    public static class PageUrlContainsCondition extends Condition {
-        private final String mExpectedUrlPiece;
-        private final Supplier<Tab> mLoadedTabSupplier;
-
-        public PageUrlContainsCondition(String expectedUrl, Supplier<Tab> loadedTabSupplier) {
-            super(/* isRunOnUiThread= */ true);
-            mExpectedUrlPiece = expectedUrl;
-            mLoadedTabSupplier = dependOnSupplier(loadedTabSupplier, "LoadedTab");
-        }
-
-        @Override
-        protected ConditionStatus checkWithSuppliers() throws Exception {
-            String url = mLoadedTabSupplier.get().getUrl().getSpec();
-            return whether(url.contains(mExpectedUrlPiece), "ActivityTab url: \"%s\"", url);
-        }
-
-        @Override
-        public String buildDescription() {
-            return String.format("URL of activity tab contains \"%s\"", mExpectedUrlPiece);
-        }
-    }
-
-    /** Condition to check the page title. */
-    public static class PageTitleCondition extends Condition {
-        private final String mExpectedTitle;
-        private final Supplier<Tab> mLoadedTabSupplier;
-
-        public PageTitleCondition(String expectedTitle, Supplier<Tab> loadedTabSupplier) {
-            super(/* isRunOnUiThread= */ true);
-            mExpectedTitle = expectedTitle;
-            mLoadedTabSupplier = dependOnSupplier(loadedTabSupplier, "LoadedTab");
-        }
-
-        @Override
-        protected ConditionStatus checkWithSuppliers() throws Exception {
-            String title = mLoadedTabSupplier.get().getTitle();
-            return whether(mExpectedTitle.equals(title), "ActivityTab title: \"%s\"", title);
-        }
-
-        @Override
-        public String buildDescription() {
-            return String.format("Title of activity tab is \"%s\"", mExpectedTitle);
-        }
-    }
-
-    private static class TabAddedCondition extends CallbackCondition implements TabModelObserver {
-        private TabModel mTabModel;
-        private final Supplier<TabModel> mTabModelSupplier;
-
-        protected TabAddedCondition(int numTabsBeingOpened, Supplier<TabModel> tabModelSupplier) {
-            super("didAddTab", numTabsBeingOpened);
-            mTabModelSupplier = dependOnSupplier(tabModelSupplier, "TabModel");
-        }
-
-        @Override
-        public void didAddTab(
-                Tab tab,
-                @TabLaunchType int type,
-                @TabCreationState int creationState,
-                boolean markedForSelection) {
-            notifyCalled();
-        }
-
-        @Override
-        public void onStartMonitoring() {
-            super.onStartMonitoring();
-            ThreadUtils.runOnUiThreadBlocking(
-                    () -> {
-                        mTabModel = mTabModelSupplier.get();
-                        mTabModel.addObserver(this);
-                    });
-        }
-
-        @Override
-        public void onStopMonitoring() {
-            super.onStopMonitoring();
-            ThreadUtils.runOnUiThreadBlocking(
-                    () -> {
-                        mTabModel.removeObserver(this);
-                    });
-        }
     }
 
     private static class TabSelectedCondition extends CallbackCondition

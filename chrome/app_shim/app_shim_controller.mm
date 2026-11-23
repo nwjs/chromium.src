@@ -309,8 +309,8 @@ void AppShimController::PreInitFeatureState(
        "DisallowSpaceCharacterInURLHostParsing", "LRUCacheMemoryConsumer",
        "NonSpecialLeadingSlashHandling", "PreservePercentEncodedDotInPath",
        "UseIDNAContextJRules", "MojoBindingsInlineSLS", "MojoIpczMemV2",
-       "MojoFixGeometricBufferGrowth", "UseAdHocSigningForWebAppShims",
-       "UseNSURLDataForGURLConversion",
+       "MojoFixGeometricBufferGrowth", "MojoFixGeometricBufferGrowth2",
+       "UseAdHocSigningForWebAppShims", "UseNSURLDataForGURLConversion",
        "SonomaAccessibilityActivationRefinements", "FeatureParamWithCache",
        "UseMachVouchers"});
 }
@@ -542,6 +542,14 @@ void AppShimController::PollForChromeReady(
   if (chrome_to_connect_to_ && chrome_to_connect_to_.terminated) {
     if (chrome_launched_by_app_) {
       LOG(FATAL) << "Running chrome instance launched by shim terminated "
+                    "before connecting.";
+    } else if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+                   app_mode::kLaunchedByChromeProcessId)) {
+      // This shim was launched by Chrome, and that Chrome terminated before
+      // the shim could connect to it (e.g. because Chrome was shutting down).
+      // Kept separate from the case below so the two can be told apart in
+      // crash reports.
+      LOG(FATAL) << "Chrome instance that launched this shim terminated "
                     "before connecting.";
     } else {
       LOG(FATAL) << "Running chrome instance terminated before connecting.";
@@ -908,8 +916,6 @@ void AppShimController::BindNotificationService(
       // notification actions to be triggered before the browser process tries
       // to connect to the notification service.
       notification_service_un()->Bind(std::move(service));
-      // TODO(crbug.com/40616749): Determine when to ask for permissions.
-      notification_service_un()->RequestPermission(base::DoNothing());
     }
   } else {
     // NSUserNotificationCenter is in the process of being replaced, and

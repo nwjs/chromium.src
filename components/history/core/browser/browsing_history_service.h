@@ -146,14 +146,17 @@ class BrowsingHistoryService : public HistoryServiceObserver,
     bool sync_timed_out = false;
   };
 
-  // Used to group sync IDs of clients that share a name.
+  // Represents a physical device by grouping sync IDs of clients that share a
+  // name and is_local status.
   struct ClientGroup {
     std::string name;
+    bool is_local_device = false;
     std::vector<std::string> client_ids;
   };
 
   BrowsingHistoryService(BrowsingHistoryDriver* driver,
                          HistoryService* local_history,
+                         WebHistoryService* web_history,
                          syncer::SyncService* sync_service,
                          syncer::DeviceInfoTracker* device_info_tracker);
 
@@ -187,18 +190,15 @@ class BrowsingHistoryService : public HistoryServiceObserver,
   // the actual implementation.
   void RemoveVisits(const std::vector<HistoryEntry>& items);
 
-  // Returns synced clients deduplicated by name (mapping each name to its list
-  // of sync IDs).
-  virtual std::vector<ClientGroup> GetAllSyncedClientsGroupedByName() const;
-
-  // SyncServiceObserver implementation.
-  void OnStateChanged(syncer::SyncService* sync) override;
-  void OnSyncShutdown(syncer::SyncService* sync) override;
+  // Returns synced clients deduplicated by a combination of the name and
+  // is_local status.
+  virtual std::vector<ClientGroup> GetSyncedDevicesForFiltering() const;
 
  protected:
   // Constructor that allows specifying more dependencies for unit tests.
   BrowsingHistoryService(BrowsingHistoryDriver* driver,
                          HistoryService* local_history,
+                         WebHistoryService* web_history,
                          syncer::SyncService* sync_service,
                          std::unique_ptr<base::OneShotTimer> web_history_timer,
                          syncer::DeviceInfoTracker* device_info_tracker);
@@ -222,6 +222,11 @@ class BrowsingHistoryService : public HistoryServiceObserver,
 
     auto operator<=>(const GroupingKey& other) const = default;
   };
+
+  // Prepare the object for shutdown, clearing all pending requests, and
+  // resetting member variables pointing to other objects that may soon
+  // be destroyed.
+  void Shutdown();
 
   static bool ShouldQueryRemote(const QueryHistoryState& state);
 
@@ -279,7 +284,9 @@ class BrowsingHistoryService : public HistoryServiceObserver,
   // BrowsingHistoryDriver.
   void ReturnResultsToDriver(scoped_refptr<QueryHistoryState> state);
 
-  void RecordResultsMetrics(const std::vector<HistoryEntry>& results);
+  // Records the metrics for results.
+  static void RecordResultsMetrics(const std::vector<HistoryEntry>& results,
+                                   base::Time now);
 
   // Records the number of duplicate visits removed from a history query.
   static void RecordDuplicateVisitsCount(
@@ -306,6 +313,9 @@ class BrowsingHistoryService : public HistoryServiceObserver,
 
   // Callback from history server when visits were deleted.
   void RemoveWebHistoryComplete(bool success);
+
+  // SyncServiceObserver implementation.
+  void OnSyncShutdown(syncer::SyncService* sync) override;
 
   // HistoryServiceObserver implementation.
   void OnHistoryDeletions(HistoryService* history_service,
@@ -339,7 +349,7 @@ class BrowsingHistoryService : public HistoryServiceObserver,
   base::ScopedObservation<WebHistoryService, WebHistoryServiceObserver>
       web_history_service_observation_{this};
 
-  // SyncService observer listens to late initialization of history sync.
+  // SyncService observer listens to destruction of the SyncService.
   base::ScopedObservation<syncer::SyncService, syncer::SyncServiceObserver>
       sync_service_observation_{this};
 
@@ -351,9 +361,11 @@ class BrowsingHistoryService : public HistoryServiceObserver,
 
   raw_ptr<BrowsingHistoryDriver, DanglingUntriaged> driver_;
 
-  raw_ptr<HistoryService, DanglingUntriaged> local_history_;
+  raw_ptr<HistoryService> local_history_;
 
-  raw_ptr<syncer::SyncService, DanglingUntriaged> sync_service_;
+  raw_ptr<WebHistoryService> web_history_;
+
+  raw_ptr<syncer::SyncService> sync_service_;
 
   raw_ptr<syncer::DeviceInfoTracker> device_info_tracker_ = nullptr;
 

@@ -12,9 +12,11 @@
 
 #include "ash/accessibility/a11y_feature_type.h"
 #include "ash/accessibility/accessibility_notification_controller.h"
+#include "ash/accessibility/hover_text_event_handler_delegate.h"
 #include "ash/ash_export.h"
 #include "ash/constants/ash_constants.h"
 #include "ash/public/cpp/accelerator_actions.h"
+#include "ash/public/cpp/accessibility_controller_enums.h"
 #include "ash/public/cpp/input_device_settings_controller.h"
 #include "ash/public/cpp/session/session_observer.h"
 #include "base/functional/callback_forward.h"
@@ -41,6 +43,10 @@ namespace mojom {
 enum class Gesture;
 }  // namespace mojom
 }  // namespace ax
+
+namespace base::i18n {
+class LanguageTag;
+}  // namespace base::i18n
 
 namespace display {
 enum class TabletState;
@@ -74,6 +80,9 @@ class FaceGazeBubbleController;
 class FilterKeysEventRewriter;
 class FlashScreenController;
 class FloatingAccessibilityController;
+class HoverTextBubbleController;
+struct HoverTextBubbleProps;
+class HoverTextEventHandler;
 class PointScanController;
 class ScopedBacklightsForcedOff;
 class SelectToSpeakEventHandler;
@@ -126,7 +135,8 @@ enum class A11yNotificationType {
 class ASH_EXPORT AccessibilityController
     : public SessionObserver,
       public display::DisplayObserver,
-      public InputDeviceSettingsController::Observer {
+      public InputDeviceSettingsController::Observer,
+      public HoverTextEventHandlerDelegate {
  public:
   // Common interface for all features.
   class Feature {
@@ -563,8 +573,8 @@ class ASH_EXPORT AccessibilityController
   // Shows a nudge explaining that a user's dictation language was upgraded to
   // work offline.
   void ShowDictationLanguageUpgradedNudge(
-      const std::string& dictation_locale,
-      const std::string& application_locale);
+      const base::i18n::LanguageTag& dictation_locale,
+      const base::i18n::LanguageTag& application_locale);
 
   // Called when the Automatic Clicks extension finds scrollable bounds.
   void HandleAutoclickScrollableBoundsFound(const gfx::Rect& bounds_in_screen);
@@ -625,6 +635,24 @@ class ASH_EXPORT AccessibilityController
 
   // Updates the FaceGaze UI bubble.
   void UpdateFaceGazeBubble(const std::u16string& text, bool is_warning);
+
+  // Updates the Hover Text UI bubble.
+  void UpdateHoverTextBubble(const HoverTextBubbleProps& props);
+
+  // Dispatches a pointer or touch coordinate update to Hover Text in the
+  // component extension.
+  // HoverTextEventHandlerDelegate:
+  void OnHoverTextPointUpdated(const gfx::Point& point_in_screen,
+                               HoverTextPointerType pointer_type) override;
+  void OnHoverTextKeyEvent(bool is_active, bool stop_speech) override;
+
+  // Returns whether Hover Text is currently active (while the Search key is
+  // held or the shelf status area tray button is toggled active).
+  bool IsHoverTextActive() const;
+
+  // Toggles Hover Text between inactive and active when the shelf status area
+  // tray button is clicked or tapped.
+  void ToggleHoverTextActive();
 
   // Shows a notification notifying the user about the FaceGaze DLC download.
   void ShowNotificationForFaceGaze(FaceGazeNotificationType type);
@@ -722,6 +750,11 @@ class ASH_EXPORT AccessibilityController
   DictationBubbleController* GetDictationBubbleControllerForTest();
 
   FaceGazeBubbleController* GetFaceGazeBubbleControllerForTest();
+
+  HoverTextBubbleController* GetHoverTextBubbleControllerForTest();
+  HoverTextEventHandler* GetHoverTextEventHandlerForTest() const {
+    return hover_text_event_handler_.get();
+  }
 
   DragEventRewriter* GetDragEventRewriterForTest() const {
     return drag_event_rewriter_.get();
@@ -823,6 +856,9 @@ class ASH_EXPORT AccessibilityController
   void UpdateMouseKeysDominantHandFromPref();
   void UpdateFloatingMenuPositionFromPref();
   void UpdateLargeCursorFromPref();
+  void UpdateMouseShakeToLocateFromPref();
+  // Cancels any ongoing mouse shake-to-locate effect if active.
+  void MaybeCancelMouseShakeToLocateEffect();
   void UpdateLiveCaptionFromPref();
   void UpdateCursorColorFromPrefs(bool notify);
   void UpdateFaceGazeFromPrefs();
@@ -942,6 +978,10 @@ class ASH_EXPORT AccessibilityController
 
   // Used to control the FaceGaze bubble UI.
   std::unique_ptr<FaceGazeBubbleController> facegaze_bubble_controller_;
+
+  // Used to control the Hover Text bubble UI and passive event observer.
+  std::unique_ptr<HoverTextBubbleController> hover_text_bubble_controller_;
+  std::unique_ptr<HoverTextEventHandler> hover_text_event_handler_;
 
   // Used to support drag-and-drop for features, including FaceGaze.
   std::unique_ptr<DragEventRewriter> drag_event_rewriter_;

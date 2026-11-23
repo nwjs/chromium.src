@@ -20,6 +20,7 @@
 #include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/color_space.h"
+#include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/hdr_metadata.h"
 
@@ -42,7 +43,6 @@ struct ReturnedResourceViz;
 
 struct VIZ_COMMON_EXPORT TransferableResource {
   struct VIZ_COMMON_EXPORT MetadataOverride {
-    std::optional<bool> is_overlay_candidate;
     std::optional<gfx::ColorSpace> color_space;
     std::optional<SkAlphaType> alpha_type;
   };
@@ -167,10 +167,9 @@ struct VIZ_COMMON_EXPORT TransferableResource {
   // A gpu resource may be possible to use directly in an overlay if this is
   // true.
   bool GetIsOverlayCandidate() const {
-    return metadata_override_.is_overlay_candidate.value_or(
-        shared_image_
-            ? shared_image_->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT)
-            : false);
+    return shared_image_
+               ? shared_image_->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT)
+               : false;
   }
 
   // The color space that is used for pixel path operations (e.g, TexImage,
@@ -190,6 +189,8 @@ struct VIZ_COMMON_EXPORT TransferableResource {
     return metadata_override_.color_space.value_or(
         shared_image_ ? shared_image_->color_space() : gfx::ColorSpace());
   }
+
+  gfx::ContentColorUsage GetContentColorUsage() const;
 
   // Origin of the underlying resource.
   GrSurfaceOrigin GetOrigin() const {

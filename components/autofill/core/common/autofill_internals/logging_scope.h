@@ -14,6 +14,7 @@ class LogBuffer;
 // Generator for source code related to logging scopes. Pass a template T which
 // takes a single parameter, the name of the scope the log messages are related
 // to.
+// LINT.IfChange(LoggingScope)
 #define AUTOFILL_LOGGING_SCOPE_TEMPLATES(T)                            \
   /* Information about the sync status, existence of profiles, etc. */ \
   T(Context)                                                           \
@@ -48,7 +49,13 @@ class LogBuffer;
   /* One Time Token. */                                                \
   T(OneTimeTokens)                                                     \
   /* AtMemory. */                                                      \
-  T(AtMemory)
+  T(AtMemory)                                                          \
+  /* Email Verification Protocol (EVP). */                             \
+  T(EmailVerification)
+// LINT.ThenChange(
+//     //components/autofill/core/browser/autofill_and_password_manager_internals/autofill_and_password_manager_internals.html:LoggingScope,
+//     //components/autofill/core/browser/autofill_and_password_manager_internals/autofill_and_password_manager_internals.ts:LoggingScope
+// )
 
 // Define a bunch of logging scopes: kContext, kParsing, ...
 #define AUTOFILL_TEMPLATE(NAME) k##NAME,

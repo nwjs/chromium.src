@@ -63,6 +63,7 @@
 #include "chrome/browser/webauthn/enclave_manager_factory.h"
 #include "chrome/browser/webauthn/fake_magic_arch.h"
 #include "chrome/browser/webauthn/gpm_enclave_controller.h"
+#include "chrome/browser/webauthn/gpm_pin_crypto.h"
 #include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/browser/webauthn/proto/enclave_local_state.pb.h"
 #include "chrome/browser/webauthn/test_util.h"
@@ -120,8 +121,12 @@
 #endif
 
 #if BUILDFLAG(IS_MAC)
+#include "base/test/run_until.h"
 #include "base/test/test_future.h"
+#include "chrome/browser/sync/test/integration/sync_service_impl_harness.h"
 #include "chrome/browser/webauthn/chrome_authenticator_request_delegate_mac.h"
+#include "chrome/browser/webauthn/passkey_unlock_manager.h"
+#include "chrome/browser/webauthn/passkey_unlock_manager_factory.h"
 #include "chrome/common/chrome_version.h"
 #include "components/trusted_vault/icloud_recovery_key_mac.h"
 #include "components/trusted_vault/proto/vault.pb.h"
@@ -213,6 +218,23 @@ static constexpr char kMakeCredentialUvDiscouraged[] = R"((() => {
     rp: { name: "www.example.com" },
     user: { id: new Uint8Array([0]), name: "foo", displayName: "" },
     pubKeyCredParams: [{type: "public-key", alg: -7}],
+    challenge: new Uint8Array([0]),
+    timeout: 10000,
+    authenticatorSelection: {
+      userVerification: 'discouraged',
+      requireResidentKey: true,
+    },
+  }}).then(c => window.domAutomationController.send('webauthn: OK'),
+           e => window.domAutomationController.send('error ' + e));
+})())";
+
+// A create() request that only allows RS256, which the enclave does not
+// support.
+static constexpr char kMakeCredentialUnsupportedAlgorithm[] = R"((() => {
+  return navigator.credentials.create({ publicKey: {
+    rp: { name: "www.example.com" },
+    user: { id: new Uint8Array([0]), name: "foo", displayName: "" },
+    pubKeyCredParams: [{type: "public-key", alg: -257}],
     challenge: new Uint8Array([0]),
     timeout: 10000,
     authenticatorSelection: {
@@ -1138,6 +1160,40 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   EXPECT_THAT(GetDeviceLog(), testing::HasSubstr("\"key\": \"[redacted]\""));
 }
 
+// Regression test for https://crbug.com/571594985.
+// The enclave only supports ES256. A request for any other algorithm is
+// rejected by the enclave, which should result in an error rather than the
+// request hanging forever.
+IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
+                       MakeCredentialUnsupportedAlgorithm) {
+  SetTrustedVaultEmpty();
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::DOMMessageQueue message_queue(web_contents);
+  content::ExecuteScriptAsync(web_contents,
+                              kMakeCredentialUnsupportedAlgorithm);
+  delegate_observer()->WaitForUI();
+
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kGPMCreatePasskey);
+  model_observer()->WaitForStep();
+  dialog_model()->OnGPMCreationConfirmed();
+  ASSERT_EQ(dialog_model()->step(),
+            AuthenticatorRequestDialogModel::Step::kGPMCreatePin);
+
+  model_observer()->SetStepToObserve(
+      AuthenticatorRequestDialogModel::Step::kMissingCapability);
+  dialog_model()->OnGPMPinEntered(u"123456");
+  model_observer()->WaitForStep();
+
+  // The request is resolved once the user dismisses the error sheet.
+  dialog_model()->CancelAuthenticatorRequest();
+  std::string script_result;
+  ASSERT_TRUE(message_queue.WaitForMessage(&script_result));
+  EXPECT_THAT(script_result, testing::HasSubstr("\"error NotAllowedError"));
+}
+
 // Regression test for https://crbug.com/451876194.
 // Tests a make credential operation when the enclave is already loaded and
 // ready and checking for UV takes long enough that the enclave is selected
@@ -1399,7 +1455,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   registration_state_result.key_version = kSecretVersion;
   registration_state_result.gpm_pin_metadata = trusted_vault::GpmPinMetadata(
       "public key", trusted_vault::UsableRecoveryPinMetadata(
-                        EnclaveManager::MakeWrappedPINForTesting(
+                        webauthn::MakeWrappedPINForTesting(
                             kSecurityDomainSecret, "123456"),
                         /*expiry=*/base::Time::Now() + base::Seconds(10000)));
   SetMockVaultConnectionOnRequestDelegate(std::move(registration_state_result));
@@ -1624,7 +1680,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   registration_state_result.key_version = kSecretVersion;
   registration_state_result.gpm_pin_metadata = trusted_vault::GpmPinMetadata(
       "public key", trusted_vault::UsableRecoveryPinMetadata(
-                        EnclaveManager::MakeWrappedPINForTesting(
+                        webauthn::MakeWrappedPINForTesting(
                             kSecurityDomainSecret, "123456"),
                         /*expiry=*/base::Time::Now() + base::Seconds(10000)));
   SetMockVaultConnectionOnRequestDelegate(std::move(registration_state_result));
@@ -2828,7 +2884,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, BiometricsInPWA) {
 
   ASSERT_TRUE(NavigateToURLWithDisposition(
       app_browser, https_server_.GetURL("www.example.com", "/title1.html"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
   content::WebContents* web_contents =
       app_browser->tab_strip_model()->GetActiveWebContents();
@@ -3627,6 +3683,77 @@ IN_PROC_BROWSER_TEST_F(EnclaveICloudRecoveryKeyTest, DISABLED_Recovery) {
   }
 }
 
+class EnclavePasskeyUnlockICloudRecoveryTest
+    : public EnclaveICloudRecoveryKeyTest {
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      device::kPasskeyUnlockICloudRecovery};
+};
+
+IN_PROC_BROWSER_TEST_F(
+    EnclavePasskeyUnlockICloudRecoveryTest,
+    PasskeyUnlockManagerRecoversWithICloudKeychainOnStartup) {
+  // Enroll the device with the enclave and set up a GPM PIN.
+  base::test::TestFuture<bool> setup_future;
+  enclave_manager().SetupWithPIN("123456", setup_future.GetCallback());
+  ASSERT_TRUE(setup_future.Wait());
+  ASSERT_TRUE(setup_future.Get());
+  ASSERT_TRUE(enclave_manager().IsReady());
+
+  // Create an iCloud recovery key in the fake keychain and enroll it with the
+  // enclave and fake security domain service.
+  base::test::TestFuture<std::unique_ptr<trusted_vault::ICloudRecoveryKey>>
+      create_key_future;
+  trusted_vault::ICloudRecoveryKey::Create(
+      create_key_future.GetCallback(),
+      trusted_vault::SecurityDomainId::kPasskeys,
+      kICloudKeychainRecoveryKeyAccessGroup);
+  ASSERT_TRUE(create_key_future.Wait());
+  std::unique_ptr<trusted_vault::ICloudRecoveryKey> icloud_key =
+      create_key_future.Take();
+  ASSERT_TRUE(icloud_key);
+
+  base::test::TestFuture<bool> add_key_future;
+  enclave_manager().AddICloudRecoveryKey(std::move(icloud_key),
+                                         add_key_future.GetCallback());
+  ASSERT_TRUE(add_key_future.Wait());
+  ASSERT_TRUE(add_key_future.Get());
+
+  // Simulate a locked device by clearing local enclave registration and cached
+  // keys, waiting for the state write to complete, and reloading the enclave so
+  // that PasskeyUnlockManager observes the unready state while EnclaveManager
+  // remains loaded.
+  enclave_manager().ClearRegistrationForTesting();
+  enclave_manager().ClearCachedKeysForTesting();
+  base::test::TestFuture<void> write_future;
+  enclave_manager().RunWhenStoppedForTesting(write_future.GetCallback());
+  ASSERT_TRUE(write_future.Wait());
+  enclave_manager().ResetForTesting();
+  WaitForEnclaveLoaded();
+  ASSERT_TRUE(enclave_manager().IsLoaded());
+  ASSERT_FALSE(enclave_manager().IsReady());
+
+  // Ensure sync is active and no recovery attempt has fired before a passkey
+  // exists.
+  ASSERT_TRUE(sync_harness_->AwaitSyncTransportActive());
+  histogram_tester_.ExpectTotalCount(
+      "WebAuthentication.Enclave.ActionOutcome.RecoverWithICloudKeychain", 0);
+
+  // Add a GPM passkey so PasskeyUnlockManager sees locked passkeys and triggers
+  // a single startup iCloud Keychain recovery attempt.
+  AddTestPasskeyToModel();
+
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return enclave_manager().IsReady(); }));
+  EXPECT_TRUE(enclave_manager().IsReady());
+  EXPECT_FALSE(webauthn::PasskeyUnlockManagerFactory::GetForProfile(
+                   browser()->GetProfile())
+                   ->ShouldDisplayErrorUi());
+  histogram_tester_.ExpectUniqueSample(
+      "WebAuthentication.Enclave.ActionOutcome.RecoverWithICloudKeychain",
+      EnclaveManager::ActionOutcome::kSuccess, 1);
+}
+
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_MAC)
@@ -3906,7 +4033,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   registration_state_result.key_version = kSecretVersion;
   registration_state_result.gpm_pin_metadata = trusted_vault::GpmPinMetadata(
       "public key", trusted_vault::UsableRecoveryPinMetadata(
-                        EnclaveManager::MakeWrappedPINForTesting(
+                        webauthn::MakeWrappedPINForTesting(
                             *security_domain_secret, newpin),
                         /*expiry=*/base::Time::Now() + base::Seconds(10000)));
   SetMockVaultConnectionOnRequestDelegate(std::move(registration_state_result));
@@ -4374,7 +4501,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
   // A second WebContents attempts a transaction while the first is pending.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), https_server_.GetURL("www.example.com", "/title1.html"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* second_web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();

@@ -38,9 +38,8 @@ class WebProcessMemoryDump;
 
 // Ref-counted wrapper around a PendingRemote<CacheStorageSideDataWriter>.
 // This allows the one-shot writer to be shared across cloned responses
-// (ResourceResponse / FetchResponseData) and ServiceWorkerCachedMetadataSender,
-// so that whichever consumer uses it first takes the underlying PendingRemote
-// from `data`.
+// (ResourceResponse / FetchResponseData), so that whichever consumer uses it
+// first takes the underlying PendingRemote from `data`.
 using CacheStorageSideDataWriterHolder = base::RefCountedData<
     mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>>;
 
@@ -56,17 +55,8 @@ class PLATFORM_EXPORT CachedMetadataSender {
       mojom::blink::CodeCacheType,
       scoped_refptr<const SecurityOrigin> requestor_origin);
 
-  static void SendToCodeCacheHost(
-      CodeCacheHost*,
-      mojom::blink::CodeCacheType,
-      String,
-      base::Time,
-      mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>,
-      base::span<const uint8_t>);
-
   virtual ~CachedMetadataSender() = default;
-  virtual void Send(CodeCacheHost* code_cache_host,
-                    base::span<const uint8_t>) = 0;
+  virtual void Send(CodeCacheHost* code_cache_host, mojo_base::BigBuffer) = 0;
 
   // IsServedFromCacheStorage is used to alter caching strategy to be more
   // aggressive. See V8CodeCache::GetCompileOptions() for an example.
@@ -214,6 +204,10 @@ class CachedMetadataHandler : public GarbageCollected<CachedMetadataHandler> {
   // Called when a code cache will eventually be generated. It won't necessarily
   // be generated immediately. Intended for logging.
   virtual void WillProduceCodeCache() {}
+
+  // Returns the sender used to persist cached metadata, transferring ownership
+  // to the caller. Subsequent calls return nullptr.
+  virtual std::unique_ptr<CachedMetadataSender> TakeSender() { return nullptr; }
 
  protected:
   CachedMetadataHandler() = default;

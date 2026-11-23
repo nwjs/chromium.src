@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Win Builder (dbg)",
-              "project": "chromium-m157"
+              "project": "chromium-m158"
             },
             "builder_spec": {
               "builder_group": "chromium.win",
@@ -35,7 +35,7 @@
         {
           "bucket": "ci",
           "builder": "Win Builder (dbg)",
-          "project": "chromium-m157"
+          "project": "chromium-m158"
         }
       ],
       "is_compile_only": true,
@@ -43,8 +43,7 @@
     }
   },
   "$build/flakiness": {
-    "check_for_flakiness": true,
-    "check_for_flakiness_with_resultdb": true
+    "check_for_flakiness": true
   },
   "$build/siso": {
     "configs": [

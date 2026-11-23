@@ -113,7 +113,7 @@ class SendKeysMenuListener : public AppMenuButtonObserver {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
           FROM_HERE, loop_.QuitWhenIdleClosure(), base::Milliseconds(200));
     } else {
-      DCHECK(observation_.IsObserving());
+      CHECK(observation_.IsObserving(), base::NotFatalUntil::M162);
       observation_.Reset();
       if (!views::PlatformStyle::kAutoSelectFirstMenuItemFromKeyboard) {
         // Press DOWN to select the first item, then RETURN to select it. Only
@@ -350,7 +350,7 @@ void KeyboardAccessTest::TestSystemMenuReopenClosedTabWithKeyboard() {
 
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), GURL("chrome://version/"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   ASSERT_EQ(1, browser()->GetTabStripModel()->active_index());
@@ -494,7 +494,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardAccessTest, ReserveKeyboardAccelerators) {
       "</script></html>";
   GURL url("data:text/html," + kBadPage);
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(browser(), ui::VKEY_TAB, true,
@@ -502,7 +502,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardAccessTest, ReserveKeyboardAccelerators) {
   ASSERT_EQ(0, browser()->GetTabStripModel()->active_index());
 
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ASSERT_EQ(2, browser()->GetTabStripModel()->active_index());
 
@@ -593,7 +593,7 @@ IN_PROC_BROWSER_TEST_F(KeyboardAccessSimplificationKombuchaTest,
             ui_test_utils::NavigateToURL(browser(), GURL("chrome://version/")));
         ui_test_utils::NavigateToURLWithDisposition(
             browser(), GURL("chrome://version/"),
-            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            WindowOpenDisposition::kNewForegroundTab,
             ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
         ASSERT_EQ(1, browser()->GetTabStripModel()->active_index());
         browser()->GetTabStripModel()->CloseSelectedTabs();

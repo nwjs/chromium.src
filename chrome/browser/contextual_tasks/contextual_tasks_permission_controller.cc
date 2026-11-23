@@ -140,7 +140,7 @@ void ContextualTasksPermissionController::PushStateToWebUINow() {
   // controller, so holding a pointer to it would mean tracking its lifetime.
   if (auto* ui = ContextualTasksUIBase::FromWebContents(
           location_bar_->GetToolbarWebContents())) {
-    // `ui` drops the update if this controller's task is not the active one.
+    // `ui` drops the update if this isn't its window's controller.
     ui->NotifyPermissionDashboardStateChanged(this);
   }
 #endif
@@ -195,14 +195,35 @@ WebUIPermissionChip* ContextualTasksPermissionController::GetChip(
 
 void ContextualTasksPermissionController::OnChipClicked(
     toolbar_ui_api::mojom::LhsChipIdentifier chip_identifier,
-    bool is_mouse_interaction) {
+    bool is_mouse_interaction,
+    uint32_t state_token) {
 #if !BUILDFLAG(IS_ANDROID)
   if (WebUIPermissionChip* chip = GetChip(chip_identifier)) {
-    chip->OnClicked(is_mouse_interaction);
+    chip->OnClickedIfCurrent(is_mouse_interaction, state_token);
   }
 
   // Ignore the event if the chip does not exist (if dashboard is torn down
   // and mojo event arrives afterwards).
+#endif
+}
+
+void ContextualTasksPermissionController::OnChipPointerEntered(
+    toolbar_ui_api::mojom::LhsChipIdentifier chip_identifier) {
+#if !BUILDFLAG(IS_ANDROID)
+  if (WebUIPermissionChip* chip = GetChip(chip_identifier)) {
+    chip->OnMouseEntered();
+  }
+  // No state to push to webUI, so do not push state to webUI here.
+#endif
+}
+
+void ContextualTasksPermissionController::OnChipPointerExited(
+    toolbar_ui_api::mojom::LhsChipIdentifier chip_identifier) {
+#if !BUILDFLAG(IS_ANDROID)
+  if (WebUIPermissionChip* chip = GetChip(chip_identifier)) {
+    chip->OnMouseExited();
+  }
+  // No state to push to webUI, so do not push state to webUI here.
 #endif
 }
 

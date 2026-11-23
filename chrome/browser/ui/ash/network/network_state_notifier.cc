@@ -612,8 +612,7 @@ void NetworkStateNotifier::ShowConnectErrorNotification(
   if (IsSimLockConnectionFailure(error_name, network)) {
     on_click = base::BindRepeating(&NetworkStateNotifier::ShowSimUnlockSettings,
                                    weak_ptr_factory_.GetWeakPtr());
-  } else if (features::IsApnRevampEnabled() && network &&
-             network->GetError() == shill::kErrorInvalidAPN) {
+  } else if (network && network->GetError() == shill::kErrorInvalidAPN) {
     on_click = base::BindRepeating(&NetworkStateNotifier::ShowApnSettings,
                                    weak_ptr_factory_.GetWeakPtr(), guid);
   } else {
@@ -630,7 +629,7 @@ void NetworkStateNotifier::ShowConnectErrorNotification(
 }
 
 void NetworkStateNotifier::ShowVpnDisconnectedNotification(VpnDetails* vpn) {
-  DCHECK(vpn);
+  CHECK(vpn, base::NotFatalUntil::M162);
   std::u16string error_msg = l10n_util::GetStringFUTF16(
       IDS_NETWORK_VPN_CONNECTION_LOST_BODY, base::UTF8ToUTF16(vpn->name));
   ShowErrorNotification(
@@ -705,7 +704,6 @@ void NetworkStateNotifier::ShowMobileDataSubpage() {
 }
 
 void NetworkStateNotifier::ShowApnSettings(const std::string& network_id) {
-  CHECK(features::IsApnRevampEnabled());
   if (!system_tray_client_) {
     return;
   }

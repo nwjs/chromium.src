@@ -32,6 +32,16 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/critical_actions/core/browser/critical_action_types.h:ActionSource) -->
 
+<!-- LINT.IfChange(CriticalActionRedirectType) -->
+
+<variants name="CriticalActionRedirectType">
+  <variant name="ClientRedirect"
+      summary="a client redirect (JavaScript or meta refresh)"/>
+  <variant name="ServerRedirect" summary="a server redirect"/>
+</variants>
+
+<!-- LINT.ThenChange(//components/critical_actions/core/browser/critical_action_service.h:RedirectType) -->
+
 <histogram
     name="CriticalActions.ConversationIdDeferredResolutionOutcome.{ActionSource}"
     enum="CriticalActionConversationIdDeferredResolutionOutcome"
@@ -48,7 +58,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="CriticalActions.ConversationIdResolutionOutcome.{ActionSource}"
     enum="CriticalActionConversationIdResolutionOutcome"
-    expires_after="2027-01-01">
+    expires_after="2027-04-11">
   <owner>kutylbeky@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
@@ -58,8 +68,20 @@ chromium-metrics-reviews@google.com.
   <token key="ActionSource" variants="ActionSource"/>
 </histogram>
 
+<histogram name="CriticalActions.Database.MigrationVacuumResult"
+    enum="BooleanSuccess" expires_after="2027-03-18">
+  <owner>horwathleszek@google.com</owner>
+  <owner>kjarosz@google.com</owner>
+  <summary>
+    Records whether the SQLite VACUUM operation succeeded after migrating the
+    CriticalActions database from schema V2 to V3 (which drops the url column).
+    Emitted once per database migration at the end of
+    CriticalActionDatabase::Init().
+  </summary>
+</histogram>
+
 <histogram name="CriticalActions.Database.SqliteError"
-    enum="SqliteLoggedResultCode" expires_after="2026-11-01">
+    enum="SqliteLoggedResultCode" expires_after="2027-11-01">
   <owner>kalinino@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
@@ -72,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CriticalActions.EventLogged.{ActionSource}"
-    enum="CriticalActionType" expires_after="2026-11-01">
+    enum="CriticalActionType" expires_after="2027-11-01">
   <owner>kalinino@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
@@ -84,8 +106,24 @@ chromium-metrics-reviews@google.com.
   <token key="ActionSource" variants="ActionSource"/>
 </histogram>
 
+<histogram
+    name="CriticalActions.EventLoggedInRedirect.{RedirectType}.{ActionSource}"
+    enum="CriticalActionType" expires_after="2027-04-11">
+  <owner>kutylbeky@google.com</owner>
+  <owner>polonium@google.com</owner>
+  <summary>
+    Records the ActionType category of a critical action triggered by
+    {ActionSource} whose visit is redirected to another visit by {RedirectType}.
+    Not recorded for actions on the final visit of a redirect chain. Compare
+    against CriticalActions.EventLogged.{ActionSource} to compute the share of
+    critical actions logged on redirected visits.
+  </summary>
+  <token key="RedirectType" variants="CriticalActionRedirectType"/>
+  <token key="ActionSource" variants="ActionSource"/>
+</histogram>
+
 <histogram name="CriticalActions.OpenConversationResult"
-    enum="OpenConversationResult" expires_after="2026-11-01">
+    enum="OpenConversationResult" expires_after="2027-11-01">
   <owner>heychirag@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
@@ -97,7 +135,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CriticalActions.VisitIdResolutionOutcome.{ActionSource}"
-    enum="CriticalActionVisitIdResolutionOutcome" expires_after="2026-11-01">
+    enum="CriticalActionVisitIdResolutionOutcome" expires_after="2027-11-01">
   <owner>kutylbeky@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>

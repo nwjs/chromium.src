@@ -7,6 +7,8 @@
 #include <memory>
 
 #include "ash/constants/ash_features.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/types/expected.h"
 #include "chrome/browser/ash/login/signin_partition_manager.h"
 #include "chrome/browser/ash/login/signin_partition_manager_factory.h"
@@ -255,8 +257,8 @@ void GaiaCookieRetriever::RetrieveCookies(
   }
 
   // Validity check that partition did not change during login flow.
-  DCHECK_EQ(signin_partition_manager_->GetCurrentStoragePartitionName(),
-            signin_partition_name_);
+  CHECK_EQ(signin_partition_manager_->GetCurrentStoragePartitionName(),
+           signin_partition_name_, base::NotFatalUntil::M162);
 
   network::mojom::CookieManager* cookie_manager =
       partition->GetCookieManagerForBrowserProcess();

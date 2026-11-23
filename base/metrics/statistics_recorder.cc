@@ -366,7 +366,7 @@ HistogramBase* StatisticsRecorder::FindHistogramByHashInternal(
 
 // static
 void StatisticsRecorder::AddHistogramSampleObserver(
-    const std::string& name,
+    std::string_view name,
     StatisticsRecorder::ScopedHistogramSampleObserver* observer) {
   DCHECK(observer);
   uint64_t hash = HashMetricName(name);
@@ -376,12 +376,13 @@ void StatisticsRecorder::AddHistogramSampleObserver(
 
   auto iter = top_->observers_.find(hash);
   if (iter == top_->observers_.end()) {
-    top_->observers_.insert(
-        {hash, base::MakeRefCounted<HistogramSampleObserverList>(
-                   ObserverListPolicy::EXISTING_ONLY)});
+    iter = top_->observers_
+               .emplace(hash, base::MakeRefCounted<HistogramSampleObserverList>(
+                                  ObserverListPolicy::EXISTING_ONLY))
+               .first;
   }
 
-  top_->observers_[hash]->AddObserver(observer);
+  iter->second->AddObserver(observer);
 
   HistogramBase* histogram = top_->FindHistogramByHashInternal(hash, name);
   if (histogram) {
@@ -397,7 +398,7 @@ void StatisticsRecorder::AddHistogramSampleObserver(
 
 // static
 void StatisticsRecorder::RemoveHistogramSampleObserver(
-    const std::string& name,
+    std::string_view name,
     StatisticsRecorder::ScopedHistogramSampleObserver* observer) {
   uint64_t hash = HashMetricName(name);
 
@@ -410,7 +411,7 @@ void StatisticsRecorder::RemoveHistogramSampleObserver(
   auto result = iter->second->RemoveObserver(observer);
   if (result ==
       HistogramSampleObserverList::RemoveObserverResult::kWasOrBecameEmpty) {
-    top_->observers_.erase(hash);
+    top_->observers_.erase(iter);
 
     // We also clear the flag from the histogram (if it exists).
     HistogramBase* histogram = top_->FindHistogramByHashInternal(hash, name);
@@ -584,9 +585,13 @@ StatisticsRecorder::Histograms StatisticsRecorder::WithName(
     Histograms histograms,
     std::string_view query,
     bool case_sensitive) {
+  if (query.empty()) {
+    return histograms;
+  }
+
   // Char equality comparator which respects the `case_sensitive` setting.
   auto comparator = [case_sensitive](char a, char b) {
-    return case_sensitive ? a == b : std::toupper(a) == std::toupper(b);
+    return case_sensitive ? a == b : ToUpperASCII(a) == ToUpperASCII(b);
   };
   // Filter function that returns true if `h->histogram_name()` does not contain
   // `query`. Uses `comparator` to compare chars.

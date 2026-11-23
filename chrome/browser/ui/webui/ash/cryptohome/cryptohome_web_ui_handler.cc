@@ -13,6 +13,7 @@
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
 #include "chromeos/ash/components/dbus/cryptohome/rpc.pb.h"
 #include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/userdataauth/cryptohome_pkcs11_client.h"
@@ -36,7 +37,7 @@ constexpr int kRecoveryIdHistoryDepth = 5;
 
 void ForwardToUIThread(base::OnceCallback<void(bool)> ui_callback,
                        bool result) {
-  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  CHECK_CURRENTLY_ON(BrowserThread::IO, base::NotFatalUntil::M162);
   content::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE, base::BindOnce(std::move(ui_callback), result));
 }
@@ -113,7 +114,7 @@ void CryptohomeWebUIHandler::OnJavascriptDisallowed() {
 
 void CryptohomeWebUIHandler::GotIsTPMTokenEnabledOnUIThread(
     bool is_tpm_token_enabled) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
 
   base::Value is_tpm_token_enabled_value(is_tpm_token_enabled);
   SetCryptohomeProperty("is-tpm-token-ready",

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import '//resources/cr_elements/cr_button/cr_button.js';
+
 import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
@@ -10,8 +11,9 @@ import type {ProtoWrapper} from '//resources/mojo/mojo/public/mojom/base/proto_w
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
-import {BrowserProxyImpl} from './browser_proxy.js';
 import {DrivePickerApiProxyImpl} from './drive_picker_api_proxy.js';
+import {browserProxyFactory} from './drive_picker_host_untrusted.mojom-webui.js';
+import type {BrowserProxy} from './drive_picker_host_untrusted.mojom-webui.js';
 import {DrivePickerError} from './drive_picker_result_handler.mojom-webui.js';
 import type {DriveFile, DrivePickerResultHandlerRemote} from './drive_picker_result_handler.mojom-webui.js';
 
@@ -19,7 +21,7 @@ const CONSENT_KIT_ORIGIN = 'https://consent.google.com';
 const HANDSHAKE_MESSAGE = 'cpw';
 const IFRAME_MESSAGE_KEY = 'base64webEncodedIframeMessage';
 const PRIVACY_FLOW_RESULT_KEY = 'base64webEncodedPrivacyFlowResult';
-const HANDSHAKE_TIMEOUT_MS = 5000;
+export const HANDSHAKE_TIMEOUT_MS = 5000;
 
 const DrivePickerHostUntrustedAppElementBase = I18nMixinLit(CrLitElement);
 
@@ -43,12 +45,14 @@ export class DrivePickerHostUntrustedAppElement extends
     };
   }
 
-  private browserProxy_ = BrowserProxyImpl.getInstance();
+  private browserProxy_: BrowserProxy = browserProxyFactory.getInstance();
   private drivePickerApiProxy_ = DrivePickerApiProxyImpl.getInstance();
   private resultHandler_: DrivePickerResultHandlerRemote|null = null;
   private listenerIds_: number[] = [];
   private handshakeTimeoutId_: number|null = null;
   private port_: MessagePort|null = null;
+  // The browser sizes the dialog for the error screen while this is true.
+  // Clearing it to show ConsentKit again must call onHideErrorDialog().
   protected accessor showErrorScreen_: boolean = false;
   private lastConsentKitUrl_: string = '';
 
@@ -141,6 +145,7 @@ export class DrivePickerHostUntrustedAppElement extends
 
   protected onTryAgainClick_() {
     this.showErrorScreen_ = false;
+    this.browserProxy_.handler.onHideErrorDialog();
     this.loadConsentKitUrl_(this.lastConsentKitUrl_);
   }
 

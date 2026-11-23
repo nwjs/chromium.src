@@ -52,7 +52,13 @@ const base::FeatureParam<bool> kUseStaleConnectorsForOptimisticDns{
 
 BASE_FEATURE(kOptimisticDnsForQuic, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAddressSorterConnectCache, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAddressSorterConnectCache,
+#if BUILDFLAG(IS_ANDROID)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE_PARAM(size_t,
                    kAddressSorterConnectCacheMaxNetworks,
@@ -264,6 +270,24 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE(kConnectionKeepAliveForHttp2, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kQuicPreconnectInitialRtt, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kQuicPreconnectInitialRttParam,
+                   &kQuicPreconnectInitialRtt,
+                   base::Milliseconds(25));
+
+std::optional<base::TimeDelta> GetQuicPreconnectInitialRtt() {
+  if (!base::FeatureList::IsEnabled(kQuicPreconnectInitialRtt)) {
+    return std::nullopt;
+  }
+  const base::TimeDelta initial_rtt = kQuicPreconnectInitialRttParam.Get();
+  if (!initial_rtt.is_positive() || initial_rtt.is_inf()) {
+    return std::nullopt;
+  }
+  return initial_rtt;
+}
+
 BASE_FEATURE(kShortLaxAllowUnsafeThreshold, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSameSiteDefaultChecksMethodRigorously,
@@ -324,14 +348,14 @@ BASE_FEATURE(kDeferConnectionTypeAtStartup, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 #if BUILDFLAG(IS_MAC)
-BASE_FEATURE(kTcpPortRandomizationMac, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTcpPortRandomizationMac, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(int,
                    kTcpPortRandomizationReuseDelaySec,
                    &kTcpPortRandomizationMac,
                    "reuse_delay_sec",
                    120);
 BASE_FEATURE_PARAM(bool,
-                   kTcpPortRandomizationMacForLoopback,
+                   kTcpPortRandomizationMacForPrivateRoutes,
                    &kTcpPortRandomizationMac,
                    false);
 #endif
@@ -497,6 +521,9 @@ BASE_FEATURE_PARAM(bool,
                    "CheckWellKnown",
                    true);
 
+BASE_FEATURE(kDeviceBoundSessionsFederatedRegistrationBlockRedirects,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kDeviceBoundSessionsForRestrictedSites,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -511,6 +538,9 @@ BASE_FEATURE(kDeviceBoundSessionsPersistExpiryOnRefresh,
 
 BASE_FEATURE(kDeviceBoundSessionsIncludeAudienceClaim,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeviceBoundSessionsDrainDeferredOnAllCanceled,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSpdySessionForProxyAdditionalChecks,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -538,9 +568,6 @@ BASE_FEATURE(kNoVarySearchIgnoreUnrecognizedKeys,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnforceOneRfc6962CtPolicy, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kCertificateTransparencyIgnoreOcspScts,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDiskCacheBackendExperiment, base::FEATURE_DISABLED_BY_DEFAULT);
 constexpr base::FeatureParam<DiskCacheBackend>::Option
@@ -880,7 +907,18 @@ BASE_FEATURE_PARAM(size_t,
                    "mtu",
                    quic::kDefaultMaxPacketSize);
 
-BASE_FEATURE(kQuicUseReadMultiple, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kQuicUseReadMultiple,
+#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || \
+     BUILDFLAG(IS_ANDROID)) &&                        \
+    !BUILDFLAG(CRONET_BUILD)
+             // Only Linux, ChromeOS, and Android implement batched recvmmsg()
+             // in UDPSocketPosix::ReadMultiple(). Cronet is still running its
+             // own experiment and will launch it separately.
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif
+);
 
 BASE_FEATURE(kEnableUdpGro, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -947,6 +985,8 @@ BASE_FEATURE(kEnableBootstrapIPRandomizationForDoh,
 
 #if BUILDFLAG(IS_APPLE)
 BASE_FEATURE(kUseNSURLDataForGURLConversion, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAsyncProxyResolverApple, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_APPLE)
 
 BASE_FEATURE(kDrainSpdySessionSynchronouslyOnRemoteEndpointDisconnect,
@@ -1040,8 +1080,6 @@ BASE_FEATURE_PARAM(int,
                    &kCacheCertVerification,
                    1800);
 
-BASE_FEATURE(kTlsGreaseSigalgs, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kEnableBackendCleanupTrackerOnHttpCache,
 #if BUILDFLAG(CRONET_BUILD)
              // Disable for Cronet because when a CronetContext is shut down,
@@ -1085,6 +1123,26 @@ BASE_FEATURE_PARAM(int,
                    kQuicSocketSendBufferSizeParam,
                    &kQuicSocketSendBufferSize,
                    -1);
+
+BASE_FEATURE(kShaderDiskCacheBackendExperiment,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<DiskCacheBackend>::Option
+    kShaderDiskCacheBackendTypeOptions[] = {
+        {DiskCacheBackend::kDefault, "default"},
+        {DiskCacheBackend::kSimple, "simple"},
+};
+
+BASE_FEATURE_ENUM_PARAM(DiskCacheBackend,
+                        kShaderDiskCacheBackendType,
+                        &kShaderDiskCacheBackendExperiment,
+                        "type",
+                        DiskCacheBackend::kSimple,
+                        &kShaderDiskCacheBackendTypeOptions);
+
+BASE_FEATURE(kCookieMonsterPerKeyDelete, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kHttpChunkedDecoderInRust, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features
 

@@ -32,6 +32,7 @@
 #include "base/time/time.h"
 #include "cc/base/features.h"
 #include "cc/layers/texture_layer.h"
+#include "cc/paint/display_item_list.h"
 #include "cc/paint/paint_flags.h"
 #include "cc/paint/paint_image.h"
 #include "cc/paint/paint_op.h"
@@ -44,6 +45,7 @@
 #include "components/viz/common/resources/transferable_resource.h"
 #include "components/viz/test/test_context_provider.h"
 #include "components/viz/test/test_context_support.h"
+#include "components/viz/test/test_raster_interface.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/common/capabilities.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
@@ -457,13 +459,51 @@ class CanvasRenderingContext2DTestBase : public ::testing::Test,
   }
 };
 
+class MockRasterInterface : public viz::TestRasterInterface {
+ public:
+  void RasterCHROMIUM(const cc::DisplayItemList* list,
+                      cc::ImageProvider* provider,
+                      const gfx::Size& content_size,
+                      const gfx::Rect& full_raster_rect,
+                      const gfx::Rect& playback_rect,
+                      const gfx::Vector2dF& post_translate,
+                      const gfx::Vector2dF& post_scale,
+                      bool requires_clear,
+                      const ScrollOffsetMap* raster_inducing_scroll_offsets,
+                      size_t* max_op_size_hint,
+                      base::RepeatingCallback<void(SkCanvas*, uint32_t)>
+                          custom_raster_callback) override {
+    CHECK_EQ(list->paint_op_buffer().size(), 1u);
+    const cc::PaintOp& op = list->paint_op_buffer().GetFirstOp();
+    CHECK_EQ(op.GetType(), cc::PaintOpType::kDrawRecord);
+    RasterRecord(static_cast<const cc::DrawRecordOp&>(op).record);
+  }
+
+  MOCK_METHOD(void, RasterRecord, (cc::PaintRecord));
+  MOCK_METHOD(void,
+              WritePixels,
+              (const gpu::Mailbox& dest_mailbox,
+               int dst_x_offset,
+               int dst_y_offset,
+               GLenum texture_target,
+               const SkPixmap& src_sk_pixmap),
+              (override));
+};
+
 class CanvasRenderingContext2DTest : public CanvasRenderingContext2DTestBase {
  public:
   void CreateContextProvider(SetIsContextLost set_context_lost) override {
-    test_context_provider_ = viz::TestContextProvider::CreateRaster();
+    test_context_provider_ = viz::TestContextProvider::CreateRaster(
+        std::make_unique<testing::NiceMock<MockRasterInterface>>());
     InitializeSharedGpuContext(test_context_provider_.get(),
                                /*cache=*/nullptr, set_context_lost);
     ConfigureContextProvider(*test_context_provider_);
+  }
+
+ protected:
+  MockRasterInterface* test_raster_interface() const {
+    return static_cast<MockRasterInterface*>(
+        test_context_provider_->GetTestRasterInterface());
   }
 };
 
@@ -602,65 +642,6 @@ void CanvasRenderingContext2DTestBase::TearDown() {
 
 //============================================================================
 
-class FakeCanvasResourceProvider : public Canvas2DResourceProvider {
- public:
-  FakeCanvasResourceProvider(gfx::Size size, RasterModeHint hint)
-      : Canvas2DResourceProvider(
-            size,
-            GetN32FormatForCanvas(),
-            kPremul_SkAlphaType,
-            gfx::ColorSpace::CreateSRGB(),
-            gfx::HDRMetadata(),
-            SharedGpuContext::ContextProviderWrapper(),
-            /*is_accelerated=*/hint != RasterModeHint::kPreferCPU,
-            gpu::SHARED_IMAGE_USAGE_DISPLAY_READ |
-                gpu::SHARED_IMAGE_USAGE_RASTER_WRITE) {
-    ON_CALL(*this, Snapshot)
-        .WillByDefault([this](ImageOrientation orientation) {
-          return UnacceleratedSnapshot(orientation);
-        });
-  }
-  ~FakeCanvasResourceProvider() override = default;
-  scoped_refptr<CanvasResource> ProduceCanvasResource() override {
-    return scoped_refptr<CanvasResource>(
-        CanvasResourceSharedImage::CreateForTesting(
-            Size(), GetSharedImageFormat(), GetAlphaType(), GetColorSpace(),
-            GetSharedImageUsageFlags(),
-            /*is_software=*/false, IsAccelerated(),
-            weak_ptr_factory_.GetWeakPtr(),
-            SharedGpuContext::ContextProviderWrapper(),
-            /*shared_image_interface_provider=*/nullptr));
-  }
-  sk_sp<SkSurface> CreateSkSurface() const override {
-    const auto info =
-        SkImageInfo::Make(Size().width(), Size().height(),
-                          viz::ToClosestSkColorType(GetSharedImageFormat()),
-                          GetAlphaType(), GetColorSpace().ToSkColorSpace());
-    return SkSurfaces::Raster(info);
-  }
-
-  MOCK_METHOD((void),
-              RasterRecord,
-              (cc::PaintRecord last_recording,
-               cc::PlaybackCallbacks::CustomDataRasterCallback custom_callback),
-              (override));
-
-  MOCK_METHOD((scoped_refptr<StaticBitmapImage>),
-              Snapshot,
-              (ImageOrientation orientation));
-
-  MOCK_METHOD(bool,
-              WritePixels,
-              (const SkImageInfo& orig_info,
-               const void* pixels,
-               size_t row_bytes,
-               int x,
-               int y));
-
- private:
-  base::WeakPtrFactory<FakeCanvasResourceProvider> weak_ptr_factory_{this};
-};
-
 // Sets up an accelerated CanvasResourceProvider, accelerated compositing, and a
 // CcLayer on the passed-in HTMLCanvasElement and context. Returns false if the
 // CcLayer couldn't be created.
@@ -769,12 +750,8 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   CreateContext(kNonOpaque);
   EXPECT_FALSE(!!CanvasElement().RateLimiter());
 
-  // Install a CanvasResourceProvider that supports direct compositing to make
-  // the canvas composited.
-  gfx::Size size = CanvasElement().Size();
-  auto provider = std::make_unique<FakeCanvasResourceProvider>(
-      size, RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
+  Context2D()->InitializeBacking();
+  ASSERT_TRUE(Context2D()->IsComposited());
 
   CanvasElement().SetIsDisplayed(true);
   EXPECT_FALSE(!!CanvasElement().RateLimiter());
@@ -790,12 +767,8 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   CreateContext(kNonOpaque);
   EXPECT_FALSE(!!CanvasElement().RateLimiter());
 
-  // Install a CanvasResourceProvider that supports direct compositing to make
-  // the canvas composited.
-  gfx::Size size = CanvasElement().Size();
-  auto provider = std::make_unique<FakeCanvasResourceProvider>(
-      size, RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
+  Context2D()->InitializeBacking();
+  ASSERT_TRUE(Context2D()->IsComposited());
 
   CanvasElement().SetIsDisplayed(true);
   EXPECT_FALSE(!!CanvasElement().RateLimiter());
@@ -817,10 +790,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   ScopedCanvas2dDeferredFlushForTest enable_feature(true);
   CreateContext(kNonOpaque);
 
-  gfx::Size size = CanvasElement().Size();
-  auto provider = std::make_unique<FakeCanvasResourceProvider>(
-      size, RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
+  Context2D()->InitializeBacking();
   ASSERT_TRUE(Context2D()->IsComposited());
   ASSERT_TRUE(CanvasElement().GetOrCreateCcLayerForCanvas2DIfNeeded());
 
@@ -878,10 +848,7 @@ TEST_P(CanvasRenderingContext2DTest, FlushNotDeferredWhenNonComposited) {
 TEST_P(CanvasRenderingContext2DTest, GetImageWithAccelerationDisabled) {
   CreateContext(kNonOpaque);
 
-  gfx::Size size = CanvasElement().Size();
-  auto provider = std::make_unique<FakeCanvasResourceProvider>(
-      size, RasterModeHint::kPreferCPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
+  Context2D()->InitializeBacking();
   ASSERT_EQ(CanvasElement().GetRasterModeForCanvas2D(), RasterMode::kCPU);
 
   EXPECT_FALSE(
@@ -1357,18 +1324,13 @@ TEST_P(CanvasRenderingContext2DTest, DrawImage_Clipped) {
 TEST_P(CanvasRenderingContext2DTestAccelerated, PutImageData_FullCoverage) {
   CreateContext(kNonOpaque);
   CanvasElement().SetSize(gfx::Size(10, 10));
-
-  gfx::Size size = CanvasElement().Size();
-  auto provider = std::make_unique<FakeCanvasResourceProvider>(
-      size, RasterModeHint::kPreferGPU);
+  Context2D()->InitializeBacking();
 
   // The recording will be cleared, so nothing will be rastered before
   // `WritePixels` is called.
   InSequence s;
-  EXPECT_CALL(*provider, RasterRecord).Times(0);
-  EXPECT_CALL(*provider, WritePixels).Times(1);
-
-  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
+  EXPECT_CALL(*test_raster_interface(), RasterRecord).Times(0);
+  EXPECT_CALL(*test_raster_interface(), WritePixels).Times(1);
 
   NonThrowableExceptionState exception_state;
   Context2D()->fillRect(3, 3, 1, 1);
@@ -1385,20 +1347,15 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, PutImageData_FullCoverage) {
 TEST_P(CanvasRenderingContext2DTestAccelerated, PutImageData_PartialCoverage) {
   CreateContext(kNonOpaque);
   CanvasElement().SetSize(gfx::Size(10, 10));
-
-  gfx::Size size = CanvasElement().Size();
-  auto provider = std::make_unique<FakeCanvasResourceProvider>(
-      size, RasterModeHint::kPreferGPU);
+  Context2D()->InitializeBacking();
 
   // `putImageData` forces a flush, so the `fillRect` will get rasterized before
   // `WritePixels` is called.
   InSequence s;
-  EXPECT_CALL(*provider,
-              RasterRecord(RecordedOpsAre(PaintOpIs<DrawRectOp>()), _))
+  EXPECT_CALL(*test_raster_interface(),
+              RasterRecord(RecordedOpsAre(PaintOpIs<DrawRectOp>())))
       .Times(1);
-  EXPECT_CALL(*provider, WritePixels).Times(1);
-
-  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
+  EXPECT_CALL(*test_raster_interface(), WritePixels).Times(1);
 
   // `putImageData` forces a flush, which clears the recording.
   NonThrowableExceptionState exception_state;
@@ -1492,12 +1449,9 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   CreateContext(kNonOpaque);
 
   gfx::Size size(10, 10);
-  std::unique_ptr<FakeCanvasResourceProvider> fake_resource_provider =
-      std::make_unique<FakeCanvasResourceProvider>(size,
-                                                   RasterModeHint::kPreferGPU);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      std::move(fake_resource_provider), size);
+  CanvasElement().SetSize(size);
+  Context2D()->InitializeBacking();
 
   // 800 = 10 * 10 * 4 * 2 where 10*10 is canvas size, 4 is num of bytes per
   // pixel per buffer, and 2 is an estimate of num of gpu buffers required
@@ -1517,14 +1471,11 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   anotherCanvas->GetCanvasRenderingContext(GetExecutionContext(), "2d",
                                            attributes);
   gfx::Size size2(10, 5);
-  std::unique_ptr<FakeCanvasResourceProvider> fake_resource_provider2 =
-      std::make_unique<FakeCanvasResourceProvider>(size2,
-                                                   RasterModeHint::kPreferGPU);
   anotherCanvas->SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
+  anotherCanvas->SetSize(size2);
   auto* second_canvas_context =
       static_cast<CanvasRenderingContext2D*>(anotherCanvas->RenderingContext());
-  second_canvas_context->SetCanvas2DResourceProviderForTesting(
-      std::move(fake_resource_provider2), size2);
+  second_canvas_context->InitializeBacking();
 
   // Tear down the first image buffer that resides in current canvas element
   CanvasElement().SetSize(gfx::Size(20, 20));
@@ -1601,8 +1552,7 @@ TEST_P(CanvasRenderingContext2DTest,
   CreateContext(kNonOpaque, kNormalLatency);
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
 
   DrawSomething();
   NonThrowableExceptionState exception_state;
@@ -1618,8 +1568,7 @@ TEST_P(CanvasRenderingContext2DTest, AutoFlush) {
   CreateContext(kNonOpaque);
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
   Context2D()->fillRect(0, 0, 1, 1);  // Ensure resource provider is created.
   const size_t initial_op_count = Context2D()->Recorder()->TotalOpCount();
 
@@ -1638,8 +1587,7 @@ TEST_P(CanvasRenderingContext2DTest, AutoFlushPinnedImages) {
   CreateContext(kNonOpaque);
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
 
   Context2D()->fillRect(0, 0, 1, 1);  // Ensure resource provider is created.
 
@@ -1672,8 +1620,7 @@ TEST_P(CanvasRenderingContext2DTest, OverdrawResetsPinnedImageBytes) {
   CreateContext(kNonOpaque);
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
 
   constexpr unsigned int kImageSize = 10;
   constexpr unsigned int kBytesPerImage = 400;
@@ -1696,8 +1643,7 @@ TEST_P(CanvasRenderingContext2DTest, AutoFlushSameImage) {
   CreateContext(kNonOpaque);
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
 
   Context2D()->fillRect(0, 0, 1, 1);  // Ensure resource provider is created.
   size_t expected_op_count = Context2D()->Recorder()->TotalOpCount();
@@ -1723,8 +1669,7 @@ TEST_P(CanvasRenderingContext2DTest, AutoFlushDelayedByLayer) {
   CreateContext(kNonOpaque);
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
   NonThrowableExceptionState exception_state;
   Context2D()->beginLayer(ToScriptStateForMainWorld(GetDocument().GetFrame()),
                           BeginLayerOptions::Create(), exception_state);
@@ -2078,8 +2023,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
       CanvasContextCreationAttributesCore::WillReadFrequently::kFalse);
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
 
   DrawSomething();
   NonThrowableExceptionState exception_state;
@@ -3338,19 +3282,14 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, HibernationWithUnclosedLayer) {
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
 
   gfx::Size size(200, 200);
-  auto provider = std::make_unique<FakeCanvasResourceProvider>(
-      size, RasterModeHint::kPreferGPU);
+  CanvasElement().SetSize(size);
+  Context2D()->InitializeBacking();
 
-  // Recorded draw ops are resterized on hibernation. The provider gets replaced
-  // when getting out of hibernation, so this mock will not see the later calls
-  // to `RasterRecord`.
+  // Recorded draw ops are rasterized on hibernation.
   cc::PaintRecord hibernation_raster;
-  EXPECT_CALL(*provider, Snapshot(_)).Times(1);
-  EXPECT_CALL(*provider, RasterRecord)
+  EXPECT_CALL(*test_raster_interface(), RasterRecord)
       .Times(1)
       .WillOnce(SaveArg<0>(&hibernation_raster));
-
-  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
 
   ThreadScheduler::Current()->PostIdleTask(
       FROM_HERE, BindOnce(
@@ -3385,6 +3324,8 @@ TEST_P(CanvasRenderingContext2DTestAccelerated, HibernationWithUnclosedLayer) {
 
   SetDocumentVisibility(GetDocument(), PageVisibilityState::kHidden);
   WaitForHibernation();
+  Mock::VerifyAndClearExpectations(test_raster_interface());
+  EXPECT_TRUE(Context2D()->GetHibernationHandler()->IsHibernating());
   EXPECT_EQ(Context2D()->Recorder(), initial_recorder);
 
   // Hibernating should have rastered paint ops preceding `beginLayer`.
@@ -3415,8 +3356,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   CreateContext(kNonOpaque);
   gfx::Size size(300, 300);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
   EXPECT_EQ(CanvasElement().GetRasterModeForCanvas2D(), RasterMode::kGPU);
 
   EXPECT_TRUE(CanvasElement().GetLayoutBoxModelObject());
@@ -3585,8 +3525,7 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
 
   gfx::Size size(10, 10);
   CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-  Context2D()->SetCanvas2DResourceProviderForTesting(
-      /*provider=*/nullptr, size);
+  CanvasElement().SetSize(size);
   CanvasRenderingContext2D* context = Context2D();
 
   // 800 = 10 * 10 * 4 * 2 where 10*10 is canvas size, 4 is num of bytes per
@@ -3733,11 +3672,13 @@ TEST_P(CanvasRenderingContext2DTestLowLatency, LowLatencyIsSingleBuffered) {
   EXPECT_TRUE(
       Context2D()->GetSharedImageProviderForTesting()->IsSingleBuffered());
   auto frame1_resource =
-      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource();
+      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource(
+          /*surface=*/nullptr);
   EXPECT_TRUE(frame1_resource);
   DrawSomething();
   auto frame2_resource =
-      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource();
+      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource(
+          /*surface=*/nullptr);
   EXPECT_TRUE(frame2_resource);
   EXPECT_EQ(frame1_resource.get(), frame2_resource.get());
 }
@@ -3776,11 +3717,13 @@ TEST_P(CanvasRenderingContext2DTestSwapChain, LowLatencyIsSingleBuffered) {
   EXPECT_TRUE(
       Context2D()->GetSharedImageProviderForTesting()->IsSingleBuffered());
   auto frame1_resource =
-      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource();
+      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource(
+          /*surface=*/nullptr);
   EXPECT_TRUE(frame1_resource);
   DrawSomething();
   auto frame2_resource =
-      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource();
+      Context2D()->GetSharedImageProviderForTesting()->ProduceCanvasResource(
+          /*surface=*/nullptr);
   EXPECT_TRUE(frame2_resource);
   EXPECT_EQ(frame1_resource.get(), frame2_resource.get());
 }
@@ -4140,6 +4083,68 @@ TEST_P(CanvasRenderingContext2DTest,
   EXPECT_THAT(Context2D()->createPattern(&cross_origin_source, "repeat",
                                          exception_state),
               Pointee(PatternSizeIs(20, 10)));
+}
+
+TEST_P(CanvasRenderingContext2DTest, ContextCreationErrorEventReentrancy) {
+  HTMLCanvasElement& canvas = CanvasElement();
+  ExecutionContext* execution_context = GetDocument().GetExecutionContext();
+  CanvasRenderingContext2D* reentrant_context = nullptr;
+
+  canvas.addEventListener(
+      event_type_names::kWebglcontextcreationerror,
+      MakeGarbageCollected<CallbackEventListener>(
+          base::BindLambdaForTesting([&]() {
+            reentrant_context = static_cast<CanvasRenderingContext2D*>(
+                canvas.GetCanvasRenderingContext(execution_context, "2d", {}));
+          })));
+
+  CanvasRenderingContext* webgl_context =
+      canvas.GetCanvasRenderingContext(execution_context, "webgl", {});
+  EXPECT_EQ(webgl_context, nullptr);
+  ASSERT_NE(reentrant_context, nullptr);
+  EXPECT_EQ(canvas.RenderingContext(), reentrant_context);
+
+  auto* subsequent_context = static_cast<CanvasRenderingContext2D*>(
+      canvas.GetCanvasRenderingContext(execution_context, "2d", {}));
+  EXPECT_EQ(subsequent_context, reentrant_context);
+
+  FakeImageSource cross_origin_source({
+      .size = gfx::Size(10, 10),
+      .would_taint_origin = true,
+  });
+
+  reentrant_context->drawImage(&cross_origin_source, 0, 0, 10, 10, 0, 0, 10, 10,
+                               ASSERT_NO_EXCEPTION);
+  EXPECT_FALSE(canvas.OriginClean());
+  EXPECT_FALSE(reentrant_context->OriginClean());
+
+  {
+    DummyExceptionStateForTesting exception_state;
+    reentrant_context->getImageData(0, 0, 1, 1, exception_state);
+    EXPECT_TRUE(exception_state.HadException());
+    EXPECT_EQ(exception_state.CodeAs<DOMExceptionCode>(),
+              DOMExceptionCode::kSecurityError);
+  }
+
+  // Resizing the canvas resets the active 2D context and restores origin-clean.
+  canvas.setWidth(64, ASSERT_NO_EXCEPTION);
+  EXPECT_TRUE(canvas.OriginClean());
+  EXPECT_TRUE(reentrant_context->OriginClean());
+
+  // Drawing another cross-origin image after resize must taint the canvas
+  // again and prevent readback.
+  reentrant_context->drawImage(&cross_origin_source, 0, 0, 10, 10, 0, 0, 10, 10,
+                               ASSERT_NO_EXCEPTION);
+  EXPECT_FALSE(canvas.OriginClean());
+  EXPECT_FALSE(reentrant_context->OriginClean());
+
+  {
+    DummyExceptionStateForTesting exception_state;
+    reentrant_context->getImageData(0, 0, 1, 1, exception_state);
+    EXPECT_TRUE(exception_state.HadException());
+    EXPECT_EQ(exception_state.CodeAs<DOMExceptionCode>(),
+              DOMExceptionCode::kSecurityError);
+  }
 }
 
 }  // namespace blink

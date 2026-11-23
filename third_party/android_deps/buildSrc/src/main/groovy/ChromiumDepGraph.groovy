@@ -23,6 +23,10 @@ import java.nio.file.Paths
  */
 class ChromiumDepGraph {
 
+    // Limit concurrent HTTP requests to avoid bursting hundreds of connections
+    // and exhausting the 512MB Gradle daemon heap.
+    static final int CONCURRENT_HTTP_TASKS = 32
+    static final int HTTP_TIMEOUT_MS = 15000
     private static final String DEFAULT_CIPD_SUFFIX = 'cr2'
 
     // Some libraries don't properly fill their POM with the appropriate licensing information. It is provided here from
@@ -182,12 +186,20 @@ class ChromiumDepGraph {
             org_checkerframework_checker_util: new PropertyOverride(
                     licenseUrl: 'https://raw.githubusercontent.com/typetools/checker-framework/master/checker-util/LICENSE.txt',
                     licenseName: 'MIT'),
+            org_commonmark_commonmark: new PropertyOverride(
+                    licenseUrl: 'https://raw.githubusercontent.com/commonmark/commonmark-java/main/LICENSE.txt',
+                    licenseName: 'BSD-2-Clause'),
+            org_commonmark_commonmark_ext_gfm_tables: new PropertyOverride(
+                    licenseUrl: 'https://raw.githubusercontent.com/commonmark/commonmark-java/main/LICENSE.txt',
+                    licenseName: 'BSD-2-Clause'),
             org_conscrypt_conscrypt_openjdk_uber: new PropertyOverride(
                     licenseUrl: 'https://raw.githubusercontent.com/google/conscrypt/master/LICENSE',
                     licenseName: 'Apache 2.0'),
             org_hamcrest_hamcrest: new PropertyOverride(
                     licenseUrl: 'https://raw.githubusercontent.com/hamcrest/JavaHamcrest/master/LICENSE',
                     licenseName: 'BSD'),
+            org_jetbrains_kotlin_kotlin_stdlib: new PropertyOverride(
+                    cpePrefix: 'cpe:/a:jetbrains:kotlin'),
             org_jsoup_jsoup: new PropertyOverride(
                     cpePrefix: 'cpe:/a:jsoup:jsoup:1.14.3',
                     licenseUrl: 'https://raw.githubusercontent.com/jhy/jsoup/master/LICENSE',
@@ -258,19 +270,9 @@ class ChromiumDepGraph {
             org_robolectric_utils_reflector: new PropertyOverride(
                     licenseName: 'Apache-2.0, MIT',
                     licenseUrl: 'https://raw.githubusercontent.com/robolectric/robolectric/master/LICENSE'),
-            // Prevent version changing ~weekly. https://crbug.com/1257197
-            org_jetbrains_kotlinx_kotlinx_coroutines_core_jvm: new PropertyOverride(
-                    resolveVersion: '1.8.1'),
-            org_jetbrains_kotlinx_kotlinx_coroutines_android: new PropertyOverride(
-                    resolveVersion: '1.8.1'),
-            org_jetbrains_kotlinx_kotlinx_coroutines_guava: new PropertyOverride(
-                    resolveVersion: '1.8.1'),
-            org_jetbrains_kotlinx_kotlinx_serialization_core_jvm: new PropertyOverride(
-                    resolveVersion: '1.7.3'),
-            org_jetbrains_kotlinx_kotlinx_serialization_json: new PropertyOverride(
-                    resolveVersion: '1.7.3'),
-            org_jetbrains_kotlinx_kotlinx_coroutines_test_jvm: new PropertyOverride(
-                    resolveVersion: '1.7.3'),
+            org_safere_safere: new PropertyOverride(
+                    licenseUrl: 'https://raw.githubusercontent.com/eaftan/safere/main/LICENSE',
+                    licenseName: 'BSD'),
             io_reactivex_rxjava3_rxjava: new PropertyOverride(
                     exclude: true),  // An unnecessary dep of androidx.xr.runtime.
             org_jetbrains_kotlinx_kotlinx_coroutines_reactive: new PropertyOverride(
@@ -334,8 +336,6 @@ class ChromiumDepGraph {
     void collectDependencies() {
         Set<ResolvedDependency> deps = [] as Set
         Map<String, SortedSet<String>> resolvedDeps = [:]
-        ExecutorService downloadExecutor = Executors.newCachedThreadPool()
-        List<Future> futures = []
         String[] configNames = [
                 'compile',
                 'compileLatest',
@@ -378,7 +378,7 @@ class ChromiumDepGraph {
             topLevelIds.add(makeModuleId(dependency.module))
             resolveVersionRecursive(dependency, resolvedVersions)
         }
-        ExecutorService taskExecutor = Executors.newCachedThreadPool()
+        ExecutorService taskExecutor = Executors.newFixedThreadPool(CONCURRENT_HTTP_TASKS)
         List<Future> taskList = []
         timeIt("** Parse all pom files") {
             buildDepDescriptionsAsync(resolvedVersions, taskExecutor, taskList)
@@ -780,8 +780,12 @@ class ChromiumDepGraph {
             int delayMs = 1000
             for (int retry = 0; retry <= maxRetries; retry++) {
                 try {
-                    GPathResult content = new XmlSlurper(
-                            false /* validating */, false /* namespaceAware */).parse(fileUrl)
+                    URLConnection connection = new URL(fileUrl).openConnection()
+                    connection.connectTimeout = HTTP_TIMEOUT_MS
+                    connection.readTimeout = HTTP_TIMEOUT_MS
+                    GPathResult content = connection.inputStream.withCloseable { stream ->
+                        new XmlSlurper(false /* validating */, false /* namespaceAware */).parse(stream)
+                    }
                     logger.debug("Succeeded in resolving url $fileUrl")
                     return [repoUrl, fileUrl, content]
                 } catch (java.io.FileNotFoundException fnfe) {
@@ -817,8 +821,8 @@ class ChromiumDepGraph {
             try {
                 http = (HttpURLConnection) new URL(url).openConnection()
                 http.requestMethod = 'HEAD'
-                http.connectTimeout = 15000
-                http.readTimeout = 15000
+                http.connectTimeout = HTTP_TIMEOUT_MS
+                http.readTimeout = HTTP_TIMEOUT_MS
                 code = http.responseCode
             } catch (Throwable t) {
                 if (retry == maxRetries) {

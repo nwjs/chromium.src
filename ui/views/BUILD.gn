@@ -260,6 +260,7 @@ component("views") {
     "controls/views_text_services_context_menu.h",
     "controls/views_text_services_context_menu_base.h",
     "debug_utils.h",
+    "deprecated_layout_immediately_pass_key.h",
     "dialog_model_context_menu_controller.h",
     "drag_controller.h",
     "drag_utils.h",
@@ -325,10 +326,12 @@ component("views") {
     "view.h",
     "view_class_properties.h",
     "view_constants.h",
+    "view_decoration.h",
+    "view_guard.h",
+    "view_hierarchy_changed_details.h",
     "view_model.h",
     "view_model_utils.h",
     "view_observer.h",
-    "view_shadow.h",
     "view_targeter.h",
     "view_targeter_delegate.h",
     "view_tracker.h",
@@ -565,9 +568,10 @@ component("views") {
     "style/typography_provider.cc",
     "view.cc",
     "view_class_properties.cc",
+    "view_decoration.cc",
+    "view_guard.cc",
     "view_model.cc",
     "view_model_utils.cc",
-    "view_shadow.cc",
     "view_targeter.cc",
     "view_targeter_delegate.cc",
     "view_tracker.cc",
@@ -1046,7 +1050,6 @@ component("views") {
   if (use_ozone) {
     deps += [ "//ui/ozone" ]
   }
-  check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
 }
 
 if (is_win || is_mac || is_linux || is_chromeos) {
@@ -1278,10 +1281,6 @@ source_set("test_support") {
     ]
     deps += [ "//ui/ozone:ui_test_support" ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 test("views_unittests") {
@@ -1397,9 +1396,10 @@ test("views_unittests") {
     "scoped_paint_lock_unittest.cc",
     "selection_controller_unittest.cc",
     "test/widget_test_unittest.cc",
+    "view_decoration_unittest.cc",
+    "view_guard_unittest.cc",
     "view_model_unittest.cc",
     "view_model_utils_unittest.cc",
-    "view_shadow_unittest.cc",
     "view_targeter_unittest.cc",
     "view_tracker_unittest.cc",
     "view_unittest.cc",

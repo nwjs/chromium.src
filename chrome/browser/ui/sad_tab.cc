@@ -197,14 +197,14 @@ int SadTab::GetCrashedErrorCode() {
 }
 
 void SadTab::RecordFirstPaint() {
-  DCHECK(!recorded_paint_);
+  CHECK(!recorded_paint_, base::NotFatalUntil::M162);
   recorded_paint_ = true;
 
   RecordEvent(show_feedback_button_, ui_metrics::SadTabEvent::DISPLAYED);
 }
 
 void SadTab::PerformAction(SadTab::Action action) {
-  DCHECK(recorded_paint_);
+  CHECK(recorded_paint_, base::NotFatalUntil::M162);
   switch (action) {
     case Action::kButton:
       RecordEvent(show_feedback_button_,
@@ -236,7 +236,7 @@ void SadTab::PerformAction(SadTab::Action action) {
                   ui_metrics::SadTabEvent::HELP_LINK_CLICKED);
       content::OpenURLParams params =
           content::OpenURLParams::CreateBrowserInitiated(
-              GURL(GetHelpLinkURL()), WindowOpenDisposition::CURRENT_TAB,
+              GURL(GetHelpLinkURL()), WindowOpenDisposition::kCurrentTab,
               ui::PAGE_TRANSITION_LINK);
       web_contents_->OpenURL(params, /*navigation_handle_callback=*/{});
       break;

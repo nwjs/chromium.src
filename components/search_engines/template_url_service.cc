@@ -57,7 +57,6 @@
 #include "components/search_engines/search_engine_split_metrics.h"
 #include "components/search_engines/search_engine_type.h"
 #include "components/search_engines/search_engines_pref_names.h"
-#include "components/search_engines/search_engines_switches.h"
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_data.h"
@@ -704,6 +703,26 @@ bool TemplateURLService::IsPrepopulatedOrDefaultProviderByPolicy(
 bool TemplateURLService::ShowInDefaultList(const TemplateURL* t_url) const {
   return t_url == default_search_provider_ ||
          IsPrepopulatedOrDefaultProviderByPolicy(t_url);
+}
+
+bool TemplateURLService::ShowInDsePickerList(const TemplateURL* t_url) const {
+  if (t_url == default_search_provider_) {
+    return true;
+  }
+
+  if (!t_url->SupportsReplacement(search_terms_data())) {
+    return false;
+  }
+
+  if (t_url->CreatedByDefaultSearchProviderPolicy()) {
+    return true;
+  }
+  if (t_url->CreatedByRegulatoryProgram()) {
+    return true;
+  }
+  return t_url->prepopulate_id() > 0 &&
+         prepopulate_data_resolver_->GetPrepopulatedEngine(
+             t_url->prepopulate_id()) != nullptr;
 }
 
 bool TemplateURLService::ShowInActivesList(const TemplateURL* t_url) const {
@@ -3176,9 +3195,7 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
           ? nullptr
           : GetTemplateURLForGUID(previous_default_search_engine_guid);
   if (previous_turl && !ShowInDefaultList(previous_turl) &&
-      CanMakeDefault(previous_turl) &&
-      base::FeatureList::IsEnabled(
-          switches::kVisitCustomSearchOnUndefaulting)) {
+      CanMakeDefault(previous_turl)) {
     UpdateTemplateURLVisitTime(previous_turl);
   }
 
@@ -3852,4 +3869,3 @@ TemplateURLService::GetEnterpriseSearchManager(PrefService* prefs) {
   return nullptr;
 #endif
 }
-

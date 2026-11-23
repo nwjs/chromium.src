@@ -216,6 +216,7 @@ class GPU_GLES2_EXPORT SharedImageFactory {
                            gfx::GpuMemoryBufferType gmb_type,
                            const gfx::Size& size,
                            const std::string& debug_label);
+  static const char* GmbTypeToString(gfx::GpuMemoryBufferType type);
 #if BUILDFLAG(IS_WIN)
   bool IsD3DSharedImageSupported() const;
 #endif
@@ -298,8 +299,6 @@ class GPU_GLES2_EXPORT SharedImageRepresentationFactory {
   std::unique_ptr<OverlayImageRepresentation> ProduceOverlay(
       const Mailbox& mailbox);
   std::unique_ptr<MemoryImageRepresentation> ProduceMemory(
-      const Mailbox& mailbox);
-  std::unique_ptr<RasterImageRepresentation> ProduceRaster(
       const Mailbox& mailbox);
 
 #if BUILDFLAG(IS_ANDROID)

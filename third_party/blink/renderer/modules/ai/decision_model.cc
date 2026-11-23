@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/ai/decision_model.h"
 
+#include "base/check_deref.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/expected.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
@@ -11,6 +12,7 @@
 #include "third_party/blink/public/mojom/ai/ai_manager.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_create_monitor_callback.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_decision_model_backend.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_decision_model_create_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_decision_model_decide_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_decision_model_decision.h"
@@ -28,8 +30,8 @@
 #include "third_party/blink/renderer/modules/ai/ai_metrics.h"
 #include "third_party/blink/renderer/modules/ai/ai_utils.h"
 #include "third_party/blink/renderer/modules/ai/availability.h"
-#include "third_party/blink/renderer/modules/ai/create_monitor.h"
 #include "third_party/blink/renderer/modules/ai/exception_helpers.h"
+#include "third_party/blink/renderer/modules/ai/resolver_with_abort_signal.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_receiver.h"
@@ -47,7 +49,7 @@ constexpr wtf_size_t kMaxQuestions = 16;
 constexpr wtf_size_t kMinChoiceOptions = 2;
 constexpr wtf_size_t kMaxChoiceOptions = 26;
 constexpr wtf_size_t kMinScoreOptions = 2;
-constexpr wtf_size_t kMaxScoreOptions = 9;
+constexpr wtf_size_t kMaxScoreOptions = 11;
 
 // Validates the developer-provided schema. Throws a TypeError and returns false
 // if it is malformed. When `require_questions` is false, a missing `questions`
@@ -115,7 +117,7 @@ bool ValidateQuestions(const DecisionModelCreateCoreOptions* options,
         if (has_opts &&
             (num_opts < kMinScoreOptions || num_opts > kMaxScoreOptions)) {
           exception_state.ThrowTypeError(
-              "Score DecisionModelQuestion options must have between 2 and 9 "
+              "Score DecisionModelQuestion options must have between 2 and 11 "
               "levels when specified.");
           return false;
         }
@@ -185,6 +187,17 @@ bool HasUnsupportedExpectedInputs(
   return false;
 }
 
+mojom::blink::AIDecisionModelBackend ToMojoDecisionModelBackend(
+    V8DecisionModelBackend backend) {
+  switch (backend.AsEnum()) {
+    case V8DecisionModelBackend::Enum::kEmbeddingGemmaV1:
+      return mojom::blink::AIDecisionModelBackend::kEmbeddingGemmaV1;
+    case V8DecisionModelBackend::Enum::kLanguageModel:
+      return mojom::blink::AIDecisionModelBackend::kLanguageModel;
+  }
+  NOTREACHED();
+}
+
 mojom::blink::AIDecisionModelQuestionType ToMojoQuestionType(
     V8DecisionModelQuestionType question_type) {
   switch (question_type.AsEnum()) {
@@ -205,6 +218,10 @@ mojom::blink::AIDecisionModelCreateOptionsPtr CreateOptionsToMojo(
   auto mojo_options = mojom::blink::AIDecisionModelCreateOptions::New();
   if (!options) {
     return mojo_options;
+  }
+  if (options->hasDevTrialBackend()) {
+    mojo_options->backend =
+        ToMojoDecisionModelBackend(options->devTrialBackend());
   }
   mojo_options->preference = ToMojoPerformancePreference(options->preference());
   if (options->hasContext()) {
@@ -253,28 +270,22 @@ class CreateDecisionModelClient
  public:
   CreateDecisionModelClient(ScriptState* script_state,
                             ScriptPromiseResolver<DecisionModel>* resolver,
-                            AbortSignal* signal,
                             DecisionModelCreateOptions* options)
       : ExecutionContextClient(ExecutionContext::From(script_state)),
-        AIContextObserver(script_state, this, resolver, signal),
+        AIContextObserver(script_state,
+                          this,
+                          resolver,
+                          options->getSignalOr(nullptr)),
         options_(options),
-        receiver_(this, ExecutionContext::From(script_state)),
-        task_runner_(ExecutionContext::From(script_state)
-                         ->GetTaskRunner(TaskType::kInternalDefault)) {
-    if (options_->hasMonitor()) {
-      monitor_ = MakeGarbageCollected<CreateMonitor>(
-          ExecutionContext::From(script_state), options_->getSignalOr(nullptr),
-          task_runner_);
-      if (options_->monitor()->Invoke(nullptr, monitor_).IsNothing()) {
-        GetResolver()->Detach();
-        Cleanup();
-        return;
-      }
+        receiver_(this, GetExecutionContext()),
+        task_runner_(
+            GetExecutionContext()->GetTaskRunner(TaskType::kInternalDefault)) {
+    if (!InitializeMonitor(options, task_runner_)) {
+      return;
     }
 
     HeapMojoRemote<mojom::blink::AIManager>& ai_manager_remote =
-        AIInterfaceProxy::GetAIManagerRemote(
-            ExecutionContext::From(GetScriptState()));
+        AIInterfaceProxy::GetAIManagerRemote(GetExecutionContext());
 
     ai_manager_remote->CanCreateDecisionModel(
         CreateOptionsToMojo(options_),
@@ -286,13 +297,14 @@ class CreateDecisionModelClient
     ExecutionContextClient::Trace(visitor);
     visitor->Trace(options_);
     visitor->Trace(receiver_);
-    visitor->Trace(monitor_);
   }
 
   // mojom::blink::AIManagerCreateDecisionModelClient:
   void OnSessionCreated(mojo::PendingRemote<mojom::blink::AIDecisionModel>
                             pending_remote) override {
-    CHECK(GetResolver());
+    if (!CompleteDownloadProgress()) {
+      return;
+    }
     CHECK(pending_remote);
     GetResolver()->Resolve(MakeGarbageCollected<DecisionModel>(
         GetScriptState(), task_runner_, std::move(pending_remote), options_));
@@ -364,13 +376,12 @@ class CreateDecisionModelClient
     receiver_.set_disconnect_handler(
         BindOnce(&CreateDecisionModelClient::OnConnectionError,
                  WrapWeakPersistent(this)));
-    ai_manager_remote->CreateDecisionModel(
-        std::move(client_remote), CreateOptionsToMojo(options_),
-        monitor_ ? monitor_->BindRemote() : mojo::NullRemote());
+    ai_manager_remote->CreateDecisionModel(std::move(client_remote),
+                                           CreateOptionsToMojo(options_),
+                                           BindMonitorRemote());
   }
 
   Member<DecisionModelCreateOptions> options_;
-  Member<CreateMonitor> monitor_;
   HeapMojoReceiver<mojom::blink::AIManagerCreateDecisionModelClient,
                    CreateDecisionModelClient>
       receiver_;
@@ -387,6 +398,9 @@ DecisionModel::DecisionModel(
     : ExecutionContextClient(ExecutionContext::From(script_state)),
       task_runner_(std::move(task_runner)),
       decision_model_remote_(ExecutionContext::From(script_state)),
+      abort_manager_(script_state,
+                     options ? options->getSignalOr(nullptr) : nullptr,
+                     this),
       // `DecisionModelCreateCoreOptions.preference` defaults to `"auto"` at the
       // WebIDL layer (matching `SummarizerCreateCoreOptions`), with `kAuto` as
       // a fallback when constructed with null options in C++ unit tests.
@@ -400,6 +414,7 @@ void DecisionModel::Trace(Visitor* visitor) const {
   ScriptWrappable::Trace(visitor);
   ExecutionContextClient::Trace(visitor);
   visitor->Trace(decision_model_remote_);
+  visitor->Trace(abort_manager_);
 }
 
 // static
@@ -472,8 +487,8 @@ ScriptPromise<DecisionModel> DecisionModel::create(
     return ScriptPromise<DecisionModel>();
   }
 
-  AbortSignal* signal = options->hasSignal() ? options->signal() : nullptr;
-  if (HandleAbortSignal(signal, script_state, exception_state)) {
+  if (HandleAbortSignal(options->getSignalOr(nullptr), script_state,
+                        exception_state)) {
     return EmptyPromise();
   }
 
@@ -499,7 +514,7 @@ ScriptPromise<DecisionModel> DecisionModel::create(
   }
 
   MakeGarbageCollected<CreateDecisionModelClient>(script_state, resolver,
-                                                  signal, options);
+                                                  options);
   return promise;
 }
 
@@ -513,8 +528,15 @@ DecisionModel::decide(ScriptState* script_state,
     return ScriptPromise<IDLRecord<IDLString, DecisionModelDecision>>();
   }
 
-  AbortSignal* signal = options ? options->getSignalOr(nullptr) : nullptr;
-  if (HandleAbortSignal(signal, script_state, exception_state)) {
+  auto* signal = abort_manager_.CreateSignal(
+      script_state, CHECK_DEREF(options).getSignalOr(nullptr), exception_state);
+  if (!signal) {
+    return EmptyPromise();
+  }
+
+  if (!decision_model_remote_.is_bound() ||
+      !decision_model_remote_.is_connected()) {
+    ThrowSessionDestroyedException(exception_state);
     return EmptyPromise();
   }
 
@@ -524,37 +546,10 @@ DecisionModel::decide(ScriptState* script_state,
     return ScriptPromise<IDLRecord<IDLString, DecisionModelDecision>>();
   }
 
-  auto* resolver = MakeGarbageCollected<
-      ScriptPromiseResolver<IDLRecord<IDLString, DecisionModelDecision>>>(
-      script_state);
+  using DecideResult = IDLRecord<IDLString, DecisionModelDecision>;
+  auto* resolver = MakeGarbageCollected<ResolverWithAbortSignal<DecideResult>>(
+      script_state, signal);
   auto promise = resolver->Promise();
-  if (!decision_model_remote_.is_bound() ||
-      !decision_model_remote_.is_connected()) {
-    resolver->RejectWithDOMException(
-        DOMExceptionCode::kInvalidStateError,
-        "The session cannot be executed because the model was deleted or the "
-        "session was destroyed.");
-    return promise;
-  }
-
-  AbortSignal::AlgorithmHandle* abort_handle = nullptr;
-  if (signal) {
-    abort_handle = signal->AddAlgorithm(BindOnce(
-        [](ScriptPromiseResolver<IDLRecord<IDLString, DecisionModelDecision>>*
-               resolver,
-           AbortSignal* signal) {
-          if (!resolver) {
-            return;
-          }
-          ScriptState* script_state = resolver->GetScriptState();
-          if (!script_state || !script_state->ContextIsValid()) {
-            return;
-          }
-          ScriptState::Scope scope(script_state);
-          resolver->Reject(signal->reason(script_state));
-        },
-        WrapWeakPersistent(resolver), WrapWeakPersistent(signal)));
-  }
 
   // Pass a persistent reference to `this` so the DecisionModel and its
   // `decision_model_remote_` stay alive while `Decide()` is in flight.
@@ -563,17 +558,11 @@ DecisionModel::decide(ScriptState* script_state,
       mojo::WrapCallbackWithDefaultInvokeIfNotRun(
           BindOnce(
               [](DecisionModel*,
-                 ScriptPromiseResolver<
-                     IDLRecord<IDLString, DecisionModelDecision>>* resolver,
-                 AbortSignal* signal,
-                 AbortSignal::AlgorithmHandle* abort_handle,
+                 ResolverWithAbortSignal<DecideResult>* resolver,
                  base::expected<mojom::blink::AIDecisionModelResultPtr,
                                 mojom::blink::AIDecisionModelDecideErrorPtr>
                      result) {
-                if (signal && abort_handle) {
-                  signal->RemoveAlgorithm(abort_handle);
-                }
-                if (signal && signal->aborted()) {
+                if (resolver->aborted()) {
                   return;
                 }
                 if (!result.has_value()) {
@@ -608,8 +597,7 @@ DecisionModel::decide(ScriptState* script_state,
                 }
                 resolver->Resolve(decisions_record);
               },
-              WrapPersistent(this), WrapPersistent(resolver),
-              WrapPersistent(signal), WrapPersistent(abort_handle)),
+              WrapPersistent(this), WrapPersistent(resolver)),
           base::unexpected(mojom::blink::AIDecisionModelDecideError::New(
               ModelStreamingResponseStatus::kErrorSessionDestroyed,
               /*quota_error_info=*/nullptr))));
@@ -618,7 +606,9 @@ DecisionModel::decide(ScriptState* script_state,
 
 void DecisionModel::destroy(ScriptState* script_state,
                             ExceptionState& exception_state) {
-  decision_model_remote_.reset();
+  if (abort_manager_.OnDestroy(script_state, exception_state)) {
+    decision_model_remote_.reset();
+  }
 }
 
 }  // namespace blink

@@ -71,7 +71,9 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
-import org.chromium.chrome.browser.RecentlyClosedEntriesManager;
+import org.chromium.chrome.browser.ChromeCommandIds;
+import org.chromium.chrome.browser.KeyboardShortcuts;
+import org.chromium.chrome.browser.KeyboardShortcutsJni;
 import org.chromium.chrome.browser.app.appmenu.AppMenuItemTheme;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl.MenuGroup;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
@@ -89,6 +91,7 @@ import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.feed.FeedFeatures;
 import org.chromium.chrome.browser.feed.FeedServiceBridge;
 import org.chromium.chrome.browser.feed.FeedServiceBridgeJni;
+import org.chromium.chrome.browser.feedback.FeedbackPolicyManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicUtils;
@@ -115,6 +118,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
 import org.chromium.chrome.browser.recent_tabs.ForeignSessionHelper;
+import org.chromium.chrome.browser.recent_tabs.RecentlyClosedEntriesManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
@@ -295,7 +299,7 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     @Mock private Pane mPane;
     @Mock private BookmarkImageFetcher mBookmarkImageFetcher;
     @Mock private FaviconHelper.Natives mFaviconHelperJniMock;
-
+    @Mock private FeedbackPolicyManager mFeedbackPolicyManager;
     @Mock private RecentlyClosedEntriesManager mRecentlyClosedEntriesManager;
     @Mock private SideUiStateProvider mSideUiStateProvider;
 
@@ -388,7 +392,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         Mockito.when(mAppBannerManagerJniMock.getInstallableWebAppManifestId(any()))
                 .thenReturn(null);
         UserPrefsJni.setInstanceForTesting(mUserPrefsNatives);
-
+        FeedbackPolicyManager.setInstanceForTesting(mFeedbackPolicyManager);
+        when(mFeedbackPolicyManager.isUserFeedbackAllowed()).thenReturn(true);
         when(mUserPrefsNatives.get(mProfile)).thenReturn(mPrefService);
 
         SyncServiceFactory.setInstanceForTesting(mSyncService);
@@ -664,7 +669,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         item(
                                 R.id.help_parent_menu_id,
                                 item(R.id.about_chrome_menu_id),
-                                item(R.id.help_id))));
+                                item(R.id.help_id),
+                                item(R.id.report_issue_menu_id))));
 
         assertMenuItemsAreEqual(modelList, expectedItems);
     }
@@ -783,7 +789,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         item(
                                 R.id.help_parent_menu_id,
                                 item(R.id.about_chrome_menu_id),
-                                item(R.id.help_id))));
+                                item(R.id.help_id),
+                                item(R.id.report_issue_menu_id))));
 
         assertMenuItemsAreEqual(modelList, expectedItems);
     }
@@ -999,12 +1006,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                 item(
                         R.id.help_parent_menu_id,
                         item(R.id.about_chrome_menu_id),
-                        item(R.id.help_id)));
+                        item(R.id.help_id),
+                        item(R.id.report_issue_menu_id)));
         expectedTitles.add(
                 item(
                         R.string.menu_help,
                         item(R.string.menu_about_chrome),
-                        item(R.string.menu_help_center)));
+                        item(R.string.menu_help_center),
+                        item(R.string.menu_report_issue)));
 
         Integer[] expectedActionBarItems =
                 ChromeFeatureList.sThreeDotMenuBackButton.isEnabled()
@@ -1318,12 +1327,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                 item(
                         R.id.help_parent_menu_id,
                         item(R.id.about_chrome_menu_id),
-                        item(R.id.help_id)));
+                        item(R.id.help_id),
+                        item(R.id.report_issue_menu_id)));
         expectedTitles.add(
                 item(
                         R.string.menu_help,
                         item(R.string.menu_about_chrome),
-                        item(R.string.menu_help_center)));
+                        item(R.string.menu_help_center),
+                        item(R.string.menu_report_issue)));
 
         assertMenuItemsAreEqual(modelList, expectedItems);
         assertMenuTitlesAreEqual(modelList, expectedTitles);
@@ -1684,12 +1695,14 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                 item(
                         R.id.help_parent_menu_id,
                         item(R.id.about_chrome_menu_id),
-                        item(R.id.help_id)));
+                        item(R.id.help_id),
+                        item(R.id.report_issue_menu_id)));
         expectedTitles.add(
                 item(
                         R.string.menu_help,
                         item(R.string.menu_about_chrome),
-                        item(R.string.menu_help_center)));
+                        item(R.string.menu_help_center),
+                        item(R.string.menu_report_issue)));
 
         Integer[] expectedActionBarItems =
                 ChromeFeatureList.sThreeDotMenuBackButton.isEnabled()
@@ -1789,7 +1802,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         item(
                                 R.id.help_parent_menu_id,
                                 item(R.id.about_chrome_menu_id),
-                                item(R.id.help_id))));
+                                item(R.id.help_id),
+                                item(R.id.report_issue_menu_id))));
 
         assertMenuItemsAreEqual(modelList, expectedItems);
     }
@@ -1875,7 +1889,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         item(
                                 R.id.help_parent_menu_id,
                                 item(R.id.about_chrome_menu_id),
-                                item(R.id.help_id))));
+                                item(R.id.help_id),
+                                item(R.id.report_issue_menu_id))));
 
         assertMenuItemsHaveIcons(modelList, expectedItems);
     }
@@ -2304,7 +2319,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         item(
                                 R.id.help_parent_menu_id,
                                 item(R.id.about_chrome_menu_id),
-                                item(R.id.help_id))));
+                                item(R.id.help_id),
+                                item(R.id.report_issue_menu_id))));
 
         assertMenuItemsAreEqual(modelList, expectedItems);
 
@@ -2418,7 +2434,8 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
                         item(
                                 R.id.help_parent_menu_id,
                                 item(R.id.about_chrome_menu_id),
-                                item(R.id.help_id)),
+                                item(R.id.help_id),
+                                item(R.id.report_issue_menu_id)),
                         item(R.id.managed_by_divider_line_id),
                         item(R.id.managed_by_menu_id)));
 
@@ -2693,6 +2710,29 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
 
         model.set(AppMenuItemProperties.SHORTCUT_TEXT, null);
         assertEquals(View.GONE, shortcut.getVisibility());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_KEYBOARD_SHORTCUT_HINTS)
+    public void testShortcutTextPopulatedWhenEnabled() {
+        setUpMocksForPageMenu();
+        when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
+        doReturn(mTabModel).when(mTabModelSelector).getCurrentModel();
+
+        KeyboardShortcuts.Natives keyboardShortcutsJniMock = mock(KeyboardShortcuts.Natives.class);
+        KeyboardShortcutsJni.setInstanceForTesting(keyboardShortcutsJniMock);
+        when(keyboardShortcutsJniMock.getShortcutTextForCommandId(anyInt())).thenReturn("");
+        when(keyboardShortcutsJniMock.getShortcutTextForCommandId(ChromeCommandIds.NEW_TAB))
+                .thenReturn("Ctrl+T");
+
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+
+        // Check an arbitrary item to verify the SHORTCUT_TEXT wiring.
+        assertEquals(
+                "Ctrl+T",
+                findItemById(modelList, R.id.new_tab_menu_id)
+                        .model
+                        .get(AppMenuItemProperties.SHORTCUT_TEXT));
     }
 
     @Test
@@ -4132,8 +4172,9 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
     }
 
     @Test
-    public void testHelpMenuItem() {
+    public void testHelpMenuItem_PolicyDisabled() {
         setUpMocksForPageMenu();
+        when(mFeedbackPolicyManager.isUserFeedbackAllowed()).thenReturn(false);
 
         ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
         ListItem helpParentItem = findItemById(modelList, R.id.help_parent_menu_id);
@@ -4149,6 +4190,29 @@ public class TabbedAppMenuPropertiesDelegateUnitTest {
         // Should contain "About Chrome" and "Help Center", but NOT "Report an issue".
         assertNotNull(findItemById(subItems, R.id.about_chrome_menu_id));
         assertNotNull(findItemById(subItems, R.id.help_id));
+        assertNull(findItemById(subItems, R.id.report_issue_menu_id));
+    }
+
+    @Test
+    public void testHelpMenuItem_PolicyEnabled() {
+        setUpMocksForPageMenu();
+        when(mFeedbackPolicyManager.isUserFeedbackAllowed()).thenReturn(true);
+
+        ModelList modelList = mTabbedAppMenuPropertiesDelegate.getMenuItems();
+        ListItem helpParentItem = findItemById(modelList, R.id.help_parent_menu_id);
+        assertNotNull(helpParentItem);
+
+        assertTrue(
+                helpParentItem.model.containsKey(
+                        AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER));
+        List<ListItem> subItems =
+                helpParentItem.model.get(AppMenuItemWithSubmenuProperties.SUBMENU_PROVIDER).get();
+        assertNotNull(subItems);
+
+        // Should contain "About Chrome", "Help Center" and "Report an issue".
+        assertNotNull(findItemById(subItems, R.id.about_chrome_menu_id));
+        assertNotNull(findItemById(subItems, R.id.help_id));
+        assertNotNull(findItemById(subItems, R.id.report_issue_menu_id));
     }
 
     @Test

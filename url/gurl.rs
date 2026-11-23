@@ -16,12 +16,58 @@ pub mod ffi {
 
         pub type GURL;
 
+        fn is_valid(self: &GURL) -> bool;
+        #[rust_name = "is_about_blank"]
+        fn IsAboutBlank(self: &GURL) -> bool;
+        #[rust_name = "is_about_srcdoc"]
+        fn IsAboutSrcdoc(self: &GURL) -> bool;
+        #[rust_name = "scheme_is_blob"]
+        fn SchemeIsBlob(self: &GURL) -> bool;
+        #[rust_name = "scheme_is_file"]
+        fn SchemeIsFile(self: &GURL) -> bool;
+        #[rust_name = "scheme_is_filesystem"]
+        fn SchemeIsFileSystem(self: &GURL) -> bool;
+
+        #[namespace = "url"]
+        #[rust_name = "create_gurl_from_str"]
+        fn CreateGURLFromStr(spec: &str) -> UniquePtr<GURL>;
+
         #[namespace = "url"]
         #[rust_name = "possibly_invalid_spec"]
         fn GURLPossiblyInvalidSpec(gurl: &GURL) -> &str;
+
+        #[namespace = "url"]
+        #[rust_name = "gurl_content"]
+        fn GURLContent(gurl: &GURL) -> &str;
+
+        #[namespace = "url"]
+        #[rust_name = "gurl_scheme"]
+        fn GURLScheme(gurl: &GURL) -> &str;
+
+        #[namespace = "url"]
+        #[rust_name = "gurl_scheme_is"]
+        fn GURLSchemeIs(gurl: &GURL, lower_ascii_scheme: &str) -> bool;
     }
 
     impl UniquePtr<GURL> {}
+}
+
+impl ffi::GURL {
+    pub fn possibly_invalid_spec(&self) -> &str {
+        ffi::possibly_invalid_spec(self)
+    }
+
+    pub fn content(&self) -> &str {
+        ffi::gurl_content(self)
+    }
+
+    pub fn scheme(&self) -> &str {
+        ffi::gurl_scheme(self)
+    }
+
+    pub fn scheme_is(&self, lower_ascii_scheme: &str) -> bool {
+        ffi::gurl_scheme_is(self, lower_ascii_scheme)
+    }
 }
 
 // SAFETY: `GURL` does not utilize shared or thread-bound data so moving it
@@ -35,7 +81,7 @@ unsafe impl Send for ffi::GURL {}
 // and CXX has support for calling overload operators.
 impl PartialEq for ffi::GURL {
     fn eq(&self, other: &Self) -> bool {
-        ffi::possibly_invalid_spec(self) == ffi::possibly_invalid_spec(other)
+        self.possibly_invalid_spec() == other.possibly_invalid_spec()
     }
 }
 impl Eq for ffi::GURL {}
@@ -48,12 +94,12 @@ impl PartialOrd for ffi::GURL {
 
 impl Ord for ffi::GURL {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        ffi::possibly_invalid_spec(self).cmp(ffi::possibly_invalid_spec(other))
+        self.possibly_invalid_spec().cmp(other.possibly_invalid_spec())
     }
 }
 
 impl Debug for ffi::GURL {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GURL").field("spec", &ffi::possibly_invalid_spec(self)).finish()
+        f.debug_struct("GURL").field("spec", &self.possibly_invalid_spec()).finish()
     }
 }

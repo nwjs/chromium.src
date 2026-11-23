@@ -20,6 +20,10 @@ namespace base {
 class SingleThreadTaskExecutor;
 }  // namespace base
 
+namespace gfx {
+class Size;
+}
+
 namespace payments {
 
 class PaymentUIObserver;
@@ -62,13 +66,12 @@ class TestContentPaymentRequestDelegate : public ContentPaymentRequestDelegate {
   PrefService* GetPrefService() override;
   void EmbedPaymentHandlerWindow(
       const GURL& url,
+      const std::optional<gfx::Size>& preferred_web_contents_size,
       PaymentHandlerOpenWindowCallback callback) override;
   bool IsInteractive() const override;
   std::string GetInvalidSslCertificateErrorMessage() override;
 
   autofill::TestAddressNormalizer* test_address_normalizer();
-  void DelayFullCardRequestCompletion();
-  void CompleteFullCardRequest();
   const base::WeakPtr<PaymentUIObserver> GetPaymentUIObserver() const override;
 
   std::string GetSecurePaymentConfirmationKeychainAccessGroup() const override;

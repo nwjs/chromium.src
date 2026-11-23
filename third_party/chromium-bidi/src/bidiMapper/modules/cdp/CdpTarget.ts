@@ -281,14 +281,14 @@ export class CdpTarget {
       this.#cdpClient.sendCommand('Runtime.enable'),
       // Enabling CDP Network domain is required for navigation detection:
       // https://github.com/GoogleChromeLabs/chromium-bidi/issues/2856.
-      this.#cdpClient
-        .sendCommand('Network.enable', {
-          // If `googDisableNetworkDurableMessages` flag is set, do not enable durable
-          // messages.
-          enableDurableMessages: config.disableNetworkDurableMessages !== true,
-          maxTotalBufferSize: MAX_TOTAL_COLLECTED_SIZE,
-        })
-        .then(() => this.toggleNetworkIfNeeded()),
+      this.#cdpClient.sendCommand('Network.enable', {
+        // If `googDisableNetworkDurableMessages` flag is set, do not enable durable
+        // messages.
+        enableDurableMessages: config.disableNetworkDurableMessages !== true,
+        maxTotalBufferSize: MAX_TOTAL_COLLECTED_SIZE,
+      }),
+      // Schedule network and Fetch configuration before unpausing the target so initial popup requests are intercepted.
+      this.toggleNetworkIfNeeded(),
       this.#cdpClient.sendCommand('Target.setAutoAttach', {
         autoAttach: true,
         waitForDebuggerOnStart: true,
@@ -776,8 +776,12 @@ export class CdpTarget {
     }
 
     if (CdpTarget.isFrameTarget(this.#targetType)) {
-      // Geolocation, script execution, certificate errors, touch, and media emulation
-      // are only supported on frame targets.
+      // CSP bypass, geolocation, script execution, certificate errors, touch,
+      // and media emulation are only supported on frame targets.
+      if (config.bypassCSP !== undefined) {
+        promises.push(this.setBypassCSP(config.bypassCSP));
+      }
+
       if (config.geolocation !== undefined && config.geolocation !== null) {
         promises.push(this.setGeolocationOverride(config.geolocation));
       }
@@ -798,8 +802,16 @@ export class CdpTarget {
         promises.push(this.setTouchOverride(config.maxTouchPoints));
       }
 
-      if (config.mediaFeatures !== undefined) {
-        promises.push(this.setMediaFeaturesOverride(config.mediaFeatures));
+      if (
+        config.mediaFeatures !== undefined ||
+        config.forcedColorsModeTheme !== undefined
+      ) {
+        promises.push(
+          this.setEmulatedMedia(
+            config.mediaFeatures ?? null,
+            config.forcedColorsModeTheme ?? null,
+          ),
+        );
       }
     }
 
@@ -1004,6 +1016,19 @@ export class CdpTarget {
     }
   }
 
+  async setBypassCSP(bypassCSP: true | null): Promise<void> {
+    if (!CdpTarget.isFrameTarget(this.#targetType)) {
+      // Bypassing CSP is only supported on frame targets.
+      return;
+    }
+    // In Chromium, `Page.setBypassCSP` only takes effect when a new document is
+    // created (i.e. on the next navigation), and does not bypass
+    // `frame-ancestors`.
+    await this.cdpClient.sendCommand('Page.setBypassCSP', {
+      enabled: bypassCSP === true,
+    });
+  }
+
   async setScriptingEnabled(scriptingEnabled: false | null): Promise<void> {
     if (!CdpTarget.isFrameTarget(this.#targetType)) {
       // Disabling script execution is only supported on frame targets.
@@ -1100,22 +1125,34 @@ export class CdpTarget {
     ]);
   }
 
-  async setMediaFeaturesOverride(
+  async setEmulatedMedia(
     mediaFeatures: Emulation.MediaFeatures | null,
+    forcedColorsModeTheme: Emulation.ForcedColorsModeTheme | null,
   ): Promise<void> {
     if (!CdpTarget.isFrameTarget(this.#targetType)) {
       // Media emulation is only supported on frame targets.
       return;
     }
-    const features: Protocol.Emulation.MediaFeature[] = [];
+    const featuresMap = new Map<string, string>();
+    if (forcedColorsModeTheme !== null) {
+      featuresMap.set('forced-colors', 'active');
+      featuresMap.set('prefers-color-scheme', forcedColorsModeTheme);
+    }
+    // Explicit `emulation.setMediaFeaturesOverride` values take precedence over
+    // the defaults derived from `forcedColorsModeTheme` (BiDi spec §8.3.2).
+    // Note: in Blink (`InspectorEmulationAgent::setEmulatedMedia`),
+    // `prefers-color-scheme` also selects the forced-colors palette and
+    // `forced-colors: none` disables forced colors entirely, so CDP cannot
+    // currently decouple the forced-colors palette from those media queries.
     for (const [name, value] of Object.entries(mediaFeatures ?? {})) {
       if (value !== null && value !== undefined) {
-        features.push({
-          name,
-          value: String(value),
-        });
+        featuresMap.set(name, String(value));
       }
     }
+    const features: Protocol.Emulation.MediaFeature[] = Array.from(
+      featuresMap,
+      ([name, value]) => ({name, value}),
+    );
 
     await this.cdpClient.sendCommand('Emulation.setEmulatedMedia', {
       features,

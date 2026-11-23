@@ -87,7 +87,7 @@ ScopedJavaGlobalRef<jobject> ConvertAccessorySheetDataToJavaObject(
   TRACE_EVENT0(
       "passwords",
       "ManualFillingViewAndroid::ConvertAccessorySheetDataToJavaObject");
-  DCHECK(java_object);
+  CHECK(java_object, base::NotFatalUntil::M162);
   JNIEnv* env = base::android::AttachCurrentThread();
   ScopedJavaGlobalRef<jobject> j_tab_data;
   j_tab_data.Reset(Java_ManualFillingComponentBridge_createAccessorySheetData(
@@ -204,12 +204,13 @@ void ManualFillingViewAndroid::SwapSheetWithKeyboard() {
 void ManualFillingViewAndroid::Show(
     WaitForKeyboard wait_for_keyboard,
     ShouldShowOnLargeFormFactor should_show_on_large_form_factor,
-    IsContentEditable is_content_editable) {
+    IsUnstructuredField is_unstructured_field) {
   TRACE_EVENT0("passwords", "ManualFillingViewAndroid::Show");
   if (auto obj = GetOrCreateJavaObject()) {
     Java_ManualFillingComponentBridge_show(
         base::android::AttachCurrentThread(), obj, wait_for_keyboard.value(),
-        should_show_on_large_form_factor.value(), is_content_editable.value());
+        should_show_on_large_form_factor.value(),
+        is_unstructured_field.value());
   }
 }
 

@@ -31,6 +31,71 @@ const CGFloat kIconSize = 16.0;
 const CGFloat kCaretSize = 14.0;
 const NSTimeInterval kAnimationDuration = 0.25;
 
+// Kind of indicator displayed in the leading timeline gutter.
+enum class IndicatorKind {
+  // No indicator. Items without an indicator never draw connectors.
+  kNone,
+  // Small dot, with a border when the item is active.
+  kSmallDot,
+  // Large circle that can host an icon.
+  kLargeCircle,
+};
+
+// Visual configuration derived from an `ActuationWorklogItemStyle`.
+struct ItemStyleConfig {
+  IndicatorKind indicator = IndicatorKind::kNone;
+  // Whether the subtitle and icon are displayed.
+  bool shows_details = false;
+  // Whether the content is wrapped in a card container, which can host an
+  // accessory item.
+  bool is_card = false;
+  // Leading inset of the content from the view's leading edge.
+  CGFloat content_leading_inset = kTimelineGutterWidth;
+  UIFont* title_font = nil;
+  UIColor* title_color = nil;
+};
+
+// Returns the visual configuration for `style`. This is the single place where
+// styles are mapped to their presentation.
+ItemStyleConfig ConfigForStyle(ActuationWorklogItemStyle style) {
+  UIFont* boldSubheadline =
+      PreferredFontForTextStyle(UIFontTextStyleSubheadline, UIFontWeightBold);
+  UIColor* primaryColor = [UIColor colorNamed:kTextPrimaryColor];
+
+  switch (style) {
+    case ActuationWorklogItemStyle::kSimple:
+      return {
+          .indicator = IndicatorKind::kSmallDot,
+          .title_font =
+              [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote],
+          .title_color = [UIColor colorNamed:kTextSecondaryColor],
+      };
+    case ActuationWorklogItemStyle::kLabeled:
+      return {
+          .indicator = IndicatorKind::kLargeCircle,
+          .shows_details = true,
+          .title_font = boldSubheadline,
+          .title_color = primaryColor,
+      };
+    case ActuationWorklogItemStyle::kCard:
+      return {
+          .indicator = IndicatorKind::kLargeCircle,
+          .shows_details = true,
+          .is_card = true,
+          .title_font = boldSubheadline,
+          .title_color = primaryColor,
+      };
+    case ActuationWorklogItemStyle::kFreeform:
+      // Freeform text aligns with the leading edge of the large circle.
+      return {
+          .content_leading_inset =
+              (kTimelineGutterWidth - kDotSizeLabeled) / 2.0,
+          .title_font = [UIFont preferredFontForTextStyle:UIFontTextStyleBody],
+          .title_color = primaryColor,
+      };
+  }
+}
+
 }  // namespace
 
 @implementation ActuationWorklogItemView {
@@ -48,8 +113,10 @@ const NSTimeInterval kAnimationDuration = 0.25;
 
   NSLayoutConstraint* _dotSizeConstraint;
   NSLayoutConstraint* _bottomBufferHeightConstraint;
+  NSLayoutConstraint* _mainRowLeadingConstraint;
 
   ActuationWorklogItem* _item;
+  ItemStyleConfig _config;
   CAShapeLayer* _connectorLayer;
 }
 
@@ -68,11 +135,13 @@ const NSTimeInterval kAnimationDuration = 0.25;
 - (void)configureWithItem:(ActuationWorklogItem*)item {
   CHECK(item);
   _item = item;
+  _config = ConfigForStyle(item.style);
 
   [self updateContent];
   [self updateCardStyleAndLayout];
   [self updateFontsAndColors];
   [self updateDotAppearance];
+  [self setNeedsLayout];
 }
 
 - (void)setConnectorVisibility:
@@ -140,7 +209,9 @@ const NSTimeInterval kAnimationDuration = 0.25;
 
 // Updates the connector line's shape path and dash phase alignment.
 - (void)updateConnectorPath {
-  if (_connectorVisibility == ActuationWorklogConnectorVisibility::kNone) {
+  // Connectors link indicators, so items without one never draw a connector.
+  if (_connectorVisibility == ActuationWorklogConnectorVisibility::kNone ||
+      _config.indicator == IndicatorKind::kNone) {
     _connectorLayer.path = nil;
     return;
   }
@@ -266,11 +337,13 @@ const NSTimeInterval kAnimationDuration = 0.25;
 
   NSDirectionalEdgeInsets insets = NSDirectionalEdgeInsetsMake(
       kSpacingTiny, kTimelineGutterWidth, kSpacingTiny, kSpacingLarge);
+  _mainRowLeadingConstraint =
+      [_mainRowStack.leadingAnchor constraintEqualToAnchor:self.leadingAnchor
+                                                  constant:insets.leading];
   [NSLayoutConstraint activateConstraints:@[
     [_mainRowStack.topAnchor constraintEqualToAnchor:self.topAnchor
                                             constant:insets.top],
-    [_mainRowStack.leadingAnchor constraintEqualToAnchor:self.leadingAnchor
-                                                constant:insets.leading],
+    _mainRowLeadingConstraint,
     [_mainRowStack.trailingAnchor constraintEqualToAnchor:self.trailingAnchor
                                                  constant:-insets.trailing],
 
@@ -300,21 +373,18 @@ const NSTimeInterval kAnimationDuration = 0.25;
 - (void)updateContent {
   _titleLabel.text = _item.title;
 
-  BOOL showSubtitle = _item.style != ActuationWorklogItemStyle::kSimple &&
-                      _item.subtitle.length > 0;
+  BOOL showSubtitle = _config.shows_details && _item.subtitle.length > 0;
   _subtitleLabel.hidden = !showSubtitle;
   _subtitleLabel.text = showSubtitle ? _item.subtitle : nil;
 
-  BOOL hasIcon =
-      (_item.style != ActuationWorklogItemStyle::kSimple) && _item.icon;
+  BOOL hasIcon = _config.shows_details && _item.icon;
   _iconView.image =
       hasIcon ? [_item.icon
                     imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate]
               : nil;
   _iconView.hidden = !hasIcon;
 
-  BOOL showAccessory = (_item.style == ActuationWorklogItemStyle::kCard) &&
-                       (_item.accessoryItem != nil);
+  BOOL showAccessory = _config.is_card && _item.accessoryItem;
   _accessoryCardView.hidden = !showAccessory;
   if (showAccessory) {
     [_accessoryCardView configureWithAccessoryItem:_item.accessoryItem];
@@ -324,9 +394,9 @@ const NSTimeInterval kAnimationDuration = 0.25;
 // Updates constraints values and spacing based on the view style.
 - (void)updateCardStyleAndLayout {
   self.backgroundColor = [UIColor clearColor];
+  _mainRowLeadingConstraint.constant = _config.content_leading_inset;
 
-  BOOL isCard = (_item.style == ActuationWorklogItemStyle::kCard);
-
+  BOOL isCard = _config.is_card;
   _mainRowStack.backgroundColor =
       isCard ? [UIColor colorNamed:kSecondaryBackgroundColor]
              : [UIColor clearColor];
@@ -346,32 +416,37 @@ const NSTimeInterval kAnimationDuration = 0.25;
 
 // Updates the font and color based on the view style.
 - (void)updateFontsAndColors {
-  BOOL simpleStyle = (_item.style == ActuationWorklogItemStyle::kSimple);
-  _titleLabel.font =
-      simpleStyle ? [UIFont preferredFontForTextStyle:UIFontTextStyleFootnote]
-                  : PreferredFontForTextStyle(UIFontTextStyleSubheadline,
-                                              UIFontWeightBold);
-  _titleLabel.textColor = simpleStyle ? [UIColor colorNamed:kTextSecondaryColor]
-                                      : [UIColor colorNamed:kTextPrimaryColor];
+  _titleLabel.font = _config.title_font;
+  _titleLabel.textColor = _config.title_color;
 }
 
+// Updates the indicator's visibility, size and colors based on its kind and
+// the item's active state.
 - (void)updateDotAppearance {
-  CGFloat dotSize;
-  BOOL showLargeDot = (_item.style != ActuationWorklogItemStyle::kSimple);
   BOOL active = _item.isActive;
+  UIColor* backgroundColor = nil;
+  CGFloat dotSize = 0.0;
+  CGFloat borderWidth = 0.0;
 
-  if (showLargeDot) {
-    _dotView.backgroundColor = [UIColor colorNamed:kGrey200Color];
-    dotSize = kDotSizeLabeled;
-  } else {
-    _dotView.backgroundColor = active ? [UIColor colorNamed:kSolidWhiteColor]
-                                      : [UIColor colorNamed:kGrey400Color];
-    dotSize = active ? (kDotSizeSimple + kDotBorderWidth) : kDotSizeSimple;
+  switch (_config.indicator) {
+    case IndicatorKind::kNone:
+      break;
+    case IndicatorKind::kSmallDot:
+      backgroundColor = active ? [UIColor colorNamed:kSolidWhiteColor]
+                               : [UIColor colorNamed:kGrey400Color];
+      dotSize = active ? (kDotSizeSimple + kDotBorderWidth) : kDotSizeSimple;
+      borderWidth = active ? kDotBorderWidth : 0.0;
+      break;
+    case IndicatorKind::kLargeCircle:
+      backgroundColor = [UIColor colorNamed:kGrey200Color];
+      dotSize = kDotSizeLabeled;
+      break;
   }
 
+  _dotView.hidden = (_config.indicator == IndicatorKind::kNone);
+  _dotView.backgroundColor = backgroundColor;
   _dotView.layer.cornerRadius = dotSize / 2.0;
-  _dotView.layer.borderWidth =
-      (active && !showLargeDot) ? kDotBorderWidth : 0.0;
+  _dotView.layer.borderWidth = borderWidth;
   _dotSizeConstraint.constant = dotSize;
 }
 

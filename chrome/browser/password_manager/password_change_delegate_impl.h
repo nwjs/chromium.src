@@ -20,6 +20,7 @@
 #include "chrome/browser/password_manager/password_change_delegate.h"
 #include "chrome/browser/ui/passwords/password_change_ui_controller.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -67,8 +68,9 @@ class PasswordChangeDelegateImpl : public PasswordChangeDelegate,
   PasswordChangeActuator* actuator() { return actuator_.get(); }
   PasswordChangeUIController* ui_controller() { return ui_controller_.get(); }
   ModelQualityLogsUploader* logs_uploader() { return logs_uploader_.get(); }
-  std::u16string generated_password() {
-    return actuator_ ? actuator_->GetGeneratedPassword() : std::u16string();
+  password_manager::PasswordString generated_password() const {
+    return actuator_ ? actuator_->GetGeneratedPassword()
+                     : password_manager::PasswordString();
   }
 
   void SetCustomUIController(
@@ -120,8 +122,11 @@ class PasswordChangeDelegateImpl : public PasswordChangeDelegate,
 
   void OnCrossOriginNavigationDetected();
 
-  // Resets all helpers. `hidden_executor_` is kept as it is as user might want
-  // to open it.
+  // Marks an ongoing login check as interrupted, cancels the actuator, and
+  // resets all internal helpers.
+  void CancelOngoingFlow();
+
+  // Resets all internal helpers.
   void ResetInternalState();
 
   void ObserveCrossOriginNavigationInOriginator();

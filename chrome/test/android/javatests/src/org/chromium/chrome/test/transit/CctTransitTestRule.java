@@ -46,7 +46,7 @@ public class CctTransitTestRule implements TestRule {
         sentinel.setAsEntryPoint();
 
         CctPageStation page = CctPageStation.newBuilder().withEntryPoint().build();
-        return sentinel.runTo(() -> mActivityTestRule.startActivityCompletely(intent))
+        return sentinel.runTo(() -> mActivityTestRule.startCustomTabActivityWithIntent(intent))
                 .arriveAt(page);
     }
 
@@ -62,8 +62,17 @@ public class CctTransitTestRule implements TestRule {
         mActivityTestRule.setActivity(cctActivity);
     }
 
+    public void waitForActivityNativeInitializationComplete() {
+        mActivityTestRule.waitForActivityNativeInitializationComplete();
+    }
+
     public void waitForActivityCompletelyLoaded() {
         mActivityTestRule.waitForActivityCompletelyLoaded();
+    }
+
+    // TODO(crbug.com/406324209): Support recreateActivity() in Public Transit.
+    public void recreateActivity() {
+        mActivityTestRule.recreateActivity();
     }
 
     public WebContents getWebContents() {

@@ -159,6 +159,10 @@ class DeviceInfo {
     // Serialized proto bytes of tink.Keyset.
     std::vector<uint8_t> serialized_tink_keyset;
 
+    // Whether the device supports any SPII entity types (e.g. passport or
+    // driver's license).
+    bool eligible_for_spii = false;
+
     friend bool operator==(const PersonalContextInfo&,
                            const PersonalContextInfo&) = default;
   };
@@ -222,7 +226,6 @@ class DeviceInfo {
       const std::string& full_hardware_class,
       base::Time last_updated_timestamp,
       base::TimeDelta pulse_interval,
-      bool send_tab_to_self_receiving_enabled,
       SendTabReceivingType send_tab_to_self_receiving_type,
       const std::optional<SharingInfo>& sharing_info,
       const std::optional<PhoneAsASecurityKeyInfo>& paask_info,
@@ -299,11 +302,7 @@ class DeviceInfo {
   // apps on Android).
   base::TimeDelta pulse_interval() const;
 
-  // Whether the receiving side of the SendTabToSelf feature is enabled.
-  bool send_tab_to_self_receiving_enabled() const;
-
   // Enabled message types for the receiving side of the SendTabToSelf feature.
-  // This is meaningless if send_tab_to_self_receiving_enabled() returns false.
   // If not set, the in-app message type will be assumed.
   SendTabReceivingType send_tab_to_self_receiving_type() const;
 
@@ -350,8 +349,6 @@ class DeviceInfo {
   void set_public_id(const std::string& id);
 
   void set_full_hardware_class(const std::string& full_hardware_class);
-
-  void set_send_tab_to_self_receiving_enabled(bool new_value);
 
   void set_send_tab_to_self_receiving_type(SendTabReceivingType new_value);
 
@@ -425,8 +422,6 @@ class DeviceInfo {
   const base::Time last_updated_timestamp_;
 
   const base::TimeDelta pulse_interval_;
-
-  bool send_tab_to_self_receiving_enabled_;
 
   SendTabReceivingType send_tab_to_self_receiving_type_;
 

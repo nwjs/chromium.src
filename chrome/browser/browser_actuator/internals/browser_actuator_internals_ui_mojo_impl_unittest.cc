@@ -14,16 +14,16 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
-#include "chrome/browser/browser_actuator/browser_actuator_service_factory.h"
 #include "chrome/browser/browser_actuator/internals/browser_actuator_internals.mojom.h"
 #include "chrome/browser/browser_actuator/internals/browser_actuator_internals_ui.h"
+#include "chrome/browser/browser_actuator/transport/transport_service_factory.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/browser_actuator/internal/proto/transport_messages.pb.h"
-#include "components/browser_actuator/internal/session_stream_recorder.h"
-#include "components/browser_actuator/public/browser_actuator_service.h"
-#include "components/browser_actuator/public/common.h"
+#include "components/browser_actuator/internal/transport/proto/transport_messages.pb.h"
+#include "components/browser_actuator/internal/transport/session_stream_recorder.h"
 #include "components/browser_actuator/public/features.h"
-#include "components/browser_actuator/public/transport_session.h"
+#include "components/browser_actuator/public/transport/common.h"
+#include "components/browser_actuator/public/transport/transport_service.h"
+#include "components/browser_actuator/public/transport/transport_session.h"
 #include "content/public/test/browser_task_environment.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -78,16 +78,18 @@ class BrowserActuatorInternalsUIMojoImplTest : public testing::Test {
   }
 
   void RecordStartSessionCommand(std::string_view session_id) {
-    BrowserActuatorService* service =
-        BrowserActuatorServiceFactory::GetForProfile(profile_.get());
-    ASSERT_NE(service, nullptr);
+    transport::TransportService* transport_service =
+        transport::TransportServiceFactory::GetForProfile(profile_.get());
+    ASSERT_NE(transport_service, nullptr);
 
-    TransportSession* session = service->GetOrCreateSession(session_id);
+    transport::TransportSession* session =
+        transport_service->GetOrCreateSession(session_id);
     ASSERT_NE(session, nullptr);
 
     ControlCommand command;
     command.mutable_start_session();
-    session->OnMessage(PayloadType::kControl, command);
+    session->OnMessage(transport::PayloadType::kControl,
+                       command.SerializeAsString());
   }
 
  protected:
@@ -109,9 +111,9 @@ TEST_F(BrowserActuatorInternalsUIMojoImplTest, BindsMojoEndpoints) {
 
 TEST_F(BrowserActuatorInternalsUIMojoImplTest,
        GetSessionHistoryReturnsEmptyWithNoSessions) {
-  base::test::TestFuture<std::vector<SessionSnapshot>> future;
+  base::test::TestFuture<std::vector<transport::SessionSnapshot>> future;
   ui_remote_->GetSessionHistory(
-      future.GetCallback<const std::vector<SessionSnapshot>&>());
+      future.GetCallback<const std::vector<transport::SessionSnapshot>&>());
   EXPECT_TRUE(future.Get().empty());
 }
 
@@ -130,9 +132,9 @@ TEST_F(BrowserActuatorInternalsUIMojoImplTest,
       remote.BindNewPipeAndPassReceiver(), page.BindAndPassRemote(),
       profile.get());
 
-  base::test::TestFuture<std::vector<SessionSnapshot>> future;
+  base::test::TestFuture<std::vector<transport::SessionSnapshot>> future;
   remote->GetSessionHistory(
-      future.GetCallback<const std::vector<SessionSnapshot>&>());
+      future.GetCallback<const std::vector<transport::SessionSnapshot>&>());
   EXPECT_TRUE(future.Get().empty());
 }
 
@@ -140,10 +142,10 @@ TEST_F(BrowserActuatorInternalsUIMojoImplTest,
        GetSessionHistoryReturnsRecordedSession) {
   RecordStartSessionCommand("test_session_1");
 
-  base::test::TestFuture<std::vector<SessionSnapshot>> future;
+  base::test::TestFuture<std::vector<transport::SessionSnapshot>> future;
   ui_remote_->GetSessionHistory(
-      future.GetCallback<const std::vector<SessionSnapshot>&>());
-  const std::vector<SessionSnapshot>& sessions = future.Get();
+      future.GetCallback<const std::vector<transport::SessionSnapshot>&>());
+  const std::vector<transport::SessionSnapshot>& sessions = future.Get();
 
   ASSERT_EQ(sessions.size(), 1u);
   EXPECT_EQ(sessions[0].session_id, "test_session_1");
@@ -178,9 +180,9 @@ TEST_F(BrowserActuatorInternalsUIMojoImplTest,
       remote.BindNewPipeAndPassReceiver(), page.BindAndPassRemote(),
       /*profile=*/nullptr);
 
-  base::test::TestFuture<std::vector<SessionSnapshot>> future;
+  base::test::TestFuture<std::vector<transport::SessionSnapshot>> future;
   remote->GetSessionHistory(
-      future.GetCallback<const std::vector<SessionSnapshot>&>());
+      future.GetCallback<const std::vector<transport::SessionSnapshot>&>());
   EXPECT_TRUE(future.Get().empty());
 }
 

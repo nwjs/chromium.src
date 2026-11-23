@@ -515,13 +515,11 @@ class FinishOrContinueStepController : public IntroBasedAnimatedStepController {
   base::WeakPtrFactory<FinishOrContinueStepController> weak_ptr_factory_{this};
 };
 
-using IdentityStepsCompletedCallback =
-    base::OnceCallback<void(PostHostClearedCallback post_host_cleared_callback,
-                            bool is_continue_callback)>;
+using IdentityStepsCompletedCallback = base::OnceCallback<void(
+    PostHostClearedCallback post_host_cleared_callback)>;
 
-// Instance allowing `TurnSyncOnHelper` (in legacy sync flow) or
-// `HistorySyncOptinHelper` (in new history sync flow) to drive the interface in
-// the `kPostSignIn` step.
+// Instance allowing `HistorySyncOptinHelper` to drive the interface in the
+// `kPostSignIn` step.
 class FirstRunPostSignInAdapter : public ProfilePickerPostSignInAdapter {
  public:
   FirstRunPostSignInAdapter(
@@ -540,16 +538,16 @@ class FirstRunPostSignInAdapter : public ProfilePickerPostSignInAdapter {
         step_completed_callback_(std::move(step_completed_callback)),
         play_celebration_sound_callback_(
             std::move(play_celebration_sound_callback)) {
-    DCHECK(step_completed_callback_);
+    CHECK(step_completed_callback_, base::NotFatalUntil::M162);
   }
 
   void Init(StepSwitchFinishedCallback step_switch_callback) override {
     // Stop with the sign-in navigation and show a spinner instead. The spinner
-    // will be shown until TurnSyncOnHelper or HistorySyncOptinHelper figures
-    // out whether it's a managed account and whether sync/policies are resolved
-    // (which in some cases involves fetching policies/capabilities and can take
-    // a couple of seconds).
-    host()->ShowScreen(contents(), GetSyncConfirmationURL(/*loading=*/true),
+    // will be shown until `HistorySyncOptinHelper` figures out whether it's a
+    // managed account and whether sync/policies are resolved (which in some
+    // cases involves fetching policies/capabilities and can take a couple of
+    // seconds).
+    host()->ShowScreen(contents(), GetLoadingScreenURL(),
                        /*navigation_finished_closure=*/base::OnceClosure());
 
     ProfilePickerPostSignInAdapter::Init(std::move(step_switch_callback));
@@ -565,11 +563,8 @@ class FirstRunPostSignInAdapter : public ProfilePickerPostSignInAdapter {
   }
 
   void FinishAndOpenBrowserInternal(
-      PostHostClearedCallback post_host_cleared_callback,
-      bool is_continue_callback) override {
-    // Do nothing if this has already been called. Note that this can get called
-    // first time from a special case handling (such as the Settings link) and
-    // than second time when the TurnSyncOnHelper finishes.
+      PostHostClearedCallback post_host_cleared_callback) override {
+    // Do nothing if this has already been called.
     if (!step_completed_callback_) {
       return;
     }
@@ -581,8 +576,7 @@ class FirstRunPostSignInAdapter : public ProfilePickerPostSignInAdapter {
     auto combined_callback =
         CombineCallbacks<PostHostClearedCallback, BrowserWindowInterface*>(
             std::move(callbacks));
-    std::move(step_completed_callback_)
-        .Run(std::move(combined_callback), is_continue_callback);
+    std::move(step_completed_callback_).Run(std::move(combined_callback));
   }
 
   void ShowSignInCelebration(base::OnceClosure celebration_finished) override {
@@ -903,8 +897,8 @@ FirstRunFlowController::FirstRunFlowController(
                                           /*flow_type_string=*/"FREFlow"),
       profile_(profile),
       first_run_exited_callback_(std::move(first_run_exited_callback)) {
-  DCHECK(profile_);
-  DCHECK(first_run_exited_callback_);
+  CHECK(profile_, base::NotFatalUntil::M162);
+  CHECK(first_run_exited_callback_, base::NotFatalUntil::M162);
 }
 
 FirstRunFlowController::~FirstRunFlowController() {
@@ -1046,8 +1040,7 @@ void FirstRunFlowController::CancelSigninFlow() {
   // TODO(crbug.com/40067597): Look into letting the user keep their account.
   signin::ClearProfileWithManagedAccounts(profile_);
 
-  HandleIdentityStepsCompleted(profile_, PostHostClearedCallback(),
-                               /*is_continue_callback=*/false);
+  HandleIdentityStepsCompleted(profile_, PostHostClearedCallback());
 }
 
 void FirstRunFlowController::PickProfile(
@@ -1058,7 +1051,7 @@ void FirstRunFlowController::PickProfile(
 }
 
 bool FirstRunFlowController::PreFinishWithBrowser() {
-  DCHECK(first_run_exited_callback_);
+  CHECK(first_run_exited_callback_, base::NotFatalUntil::M162);
   std::move(first_run_exited_callback_)
       .Run(ProfilePicker::FirstRunExitStatus::kCompleted, finish_reason_);
 
@@ -1091,8 +1084,7 @@ void FirstRunFlowController::HandleIntroSigninChoice(IntroChoice choice) {
   }
 
   if (choice == IntroChoice::kContinueWithoutAccount) {
-    HandleIdentityStepsCompleted(profile_, PostHostClearedCallback(),
-                                 /*is_continue_callback=*/false);
+    HandleIdentityStepsCompleted(profile_, PostHostClearedCallback());
     return;
   }
 
@@ -1106,7 +1098,7 @@ FirstRunFlowController::CreatePostSignInAdapter(
     Profile* signed_in_profile,
     const CoreAccountInfo& account_info,
     std::unique_ptr<content::WebContents> contents) {
-  DCHECK_EQ(profile_, signed_in_profile);
+  CHECK_EQ(profile_, signed_in_profile, base::NotFatalUntil::M162);
   return std::make_unique<FirstRunPostSignInAdapter>(
       host(), signed_in_profile, account_info, std::move(contents),
       base::BindOnce(&FirstRunFlowController::HandleIdentityStepsCompleted,

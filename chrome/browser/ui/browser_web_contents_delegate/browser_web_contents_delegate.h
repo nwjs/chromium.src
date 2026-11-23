@@ -201,7 +201,7 @@ class BrowserWebContentsDelegate : public content::WebContentsDelegate {
                           scoped_refptr<content::FileSelectListener> listener,
                           const base::FilePath& path) override;
   bool GetCanResize() override;
-  bool GetIsAlwaysOnTop() override;
+  bool GetIsAlwaysOnTopPopup() override;
   bool CanUseWindowingControls(
       content::RenderFrameHost* requesting_frame) override;
   void MinimizeFromWebAPI() override;
@@ -243,11 +243,6 @@ class BrowserWebContentsDelegate : public content::WebContentsDelegate {
                                   blink::mojom::MediaStreamType type) override;
   std::string GetTitleForMediaControls(
       content::WebContents* web_contents) override;
-  void GetAIPageContent(
-      content::WebContents* web_contents,
-      bool include_actionable_elements,
-      base::OnceCallback<void(base::expected<std::string, std::string>)>
-          callback) override;
   void PrintCrossProcessSubframe(
       content::WebContents* web_contents,
       const gfx::Rect& rect,

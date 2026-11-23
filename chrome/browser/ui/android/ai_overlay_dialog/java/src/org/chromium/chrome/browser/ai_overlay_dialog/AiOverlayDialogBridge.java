@@ -6,12 +6,15 @@ package org.chromium.chrome.browser.ai_overlay_dialog;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniPtr;
+import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.UnownedUserDataKey;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask.NativeBrowserWindowInterface;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeature;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
@@ -37,7 +40,7 @@ public class AiOverlayDialogBridge implements ChromeAndroidTaskFeature {
         assert mNativeAiOverlayDialogBridge == 0 : "AiOverlayDialogBridge is already in a task.";
         mNativeAiOverlayDialogBridge =
                 AiOverlayDialogBridgeJni.get()
-                        .create(/* caller= */ this, initInfo.nativeBrowserWindowPtr);
+                        .create(/* caller= */ this, initInfo.nativeBrowserWindow);
     }
 
     @Override
@@ -108,7 +111,8 @@ public class AiOverlayDialogBridge implements ChromeAndroidTaskFeature {
      * which is bound on that thread.
      */
     @CalledByNative
-    private static void updateAudioEnergy(WindowAndroid window, float energy) {
+    private static void updateAudioEnergy(
+            @JniType("ui::WindowAndroid*") WindowAndroid window, float energy) {
         ThreadUtils.assertOnUiThread();
         AudioEnergyListener listener =
                 AUDIO_ENERGY_LISTENER_KEY.retrieveDataFromHost(window.getUnownedUserDataHost());
@@ -124,11 +128,13 @@ public class AiOverlayDialogBridge implements ChromeAndroidTaskFeature {
          * the given window.
          *
          * @param caller The Java object calling this method.
-         * @param nativeBrowserWindowPtr The pointer to the native {@code BrowserWindowInterface}.
+         * @param browserWindow The native {@code BrowserWindowInterface}, or null if there is none.
          * @return The address of the native bridge, or 0 if the window gets no overlay (it is not a
          *     normal browser window, or this is not Desktop Android).
          */
-        long create(AiOverlayDialogBridge caller, long nativeBrowserWindowPtr);
+        long create(
+                AiOverlayDialogBridge caller,
+                @Nullable JniPtr<NativeBrowserWindowInterface> browserWindow);
 
         /** Destroys the native bridge and the controller it owns. */
         void destroy(long nativeAiOverlayDialogBridge);

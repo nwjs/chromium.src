@@ -10,7 +10,6 @@
 
 #include <array>
 #include <cstdint>
-#include <deque>
 #include <list>
 #include <map>
 #include <memory>
@@ -136,6 +135,7 @@
 #include "services/network/public/mojom/cookie_access_observer.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom-forward.h"
 #include "services/network/public/mojom/mdns_responder.mojom.h"
+#include "services/network/public/mojom/restricted_device_bound_sessions.mojom-forward.h"
 #include "services/network/public/mojom/shared_dictionary_access_observer.mojom.h"
 #include "services/network/public/mojom/trust_token_access_observer.mojom.h"
 #include "services/network/public/mojom/url_loader_network_service_observer.mojom-forward.h"
@@ -206,6 +206,7 @@
 #include "ui/accessibility/platform/ax_platform_tree_manager_delegate.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/base/clipboard/clipboard_metadata.h"
+#include "ui/base/ime/mojom/text_input_state.mojom-forward.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect.h"
@@ -326,6 +327,7 @@ class UnboundedSurfaceWindow;
 class WebAuthRequestSecurityChecker;
 class WebAuthRequestSecurityCheckerImpl;
 class WebUIImpl;
+struct ChildProcessTerminationInfo;
 struct ResourceTimingInfo;
 
 // To be called when a RenderFrameHostImpl receives an event.
@@ -507,6 +509,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   FrameTreeNodeId GetFrameTreeNodeId() const override;
   blink::DOMNodeIdType GetFocusedDOMNodeId() const override;
   EditableLevel GetFocusedEditableLevel() const override;
+  bool IsFocusedElementPasswordLike() override;
+  std::optional<ui::TextInputType> GetFocusedElementTextInputType() override;
   const base::UnguessableToken& GetDevToolsFrameToken() override;
   std::optional<base::UnguessableToken> GetEmbeddingToken() override;
   const std::string& GetFrameName() override;
@@ -1787,6 +1791,19 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Returns the current size for this frame.
   const std::optional<gfx::Size>& frame_size() const { return frame_size_; }
 
+  // Returns the current bounds of this frame in its local root widget's DIP
+  // space.
+  const std::optional<gfx::Rect>& frame_bounds_in_local_root() const {
+    return frame_bounds_in_local_root_;
+  }
+
+  // Computes the intersection of screen bounds of all ancestor frames that do
+  // not allow an unbounded element from this frame to escape their bounds.
+  // Returns std::nullopt if the unbounded element is allowed to escape all
+  // ancestor iframes up to the outermost main frame.
+  std::optional<gfx::Rect> GetUnboundedElementConstrainingBoundsInScreen(
+      RenderWidgetHostViewBase* root_view);
+
   // Allow tests to override the timeout used to keep subframe processes alive
   // for unload handler processing.
   void SetSubframeUnloadTimeoutForTesting(const base::TimeDelta& timeout);
@@ -2082,6 +2099,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const url::Origin& origin,
       net::CookieSettingOverrides cookie_setting_overrides);
 
+  // Binds a RestrictedDeviceBoundSessionManager for the current document.
+  // Blink asks only when CanUseDeviceBoundSessionJsApi() is true, so this
+  // reports a bad message otherwise, like CreateWebUsbService().
+  void BindRestrictedDeviceBoundSessionManager(
+      mojo::PendingReceiver<network::mojom::RestrictedDeviceBoundSessionManager>
+          receiver);
+
   // Requires the following preconditions, reporting a bad message otherwise.
   //
   // 1. This frame's top-frame origin must be potentially trustworthy and
@@ -2196,6 +2220,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
   const std::optional<network::ConnectionAllowlist>&
   required_connection_allowlist() const {
     return required_connection_allowlist_;
+  }
+
+  // Whether the current document may bind
+  // network.mojom.RestrictedDeviceBoundSessionManager. NavigationRequest
+  // computed this at commit and sent the same value to the renderer in
+  // CommitNavigationParams.
+  bool CanUseDeviceBoundSessionJsApi() const {
+    return document_associated_data_->can_use_device_bound_session_js_api();
   }
 
   bool IsCredentialless() const override;
@@ -2470,6 +2502,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const std::optional<std::u16string>& source_id,
       const std::optional<std::u16string>& untrusted_stack_trace) override;
   void FrameSizeChanged(const gfx::Size& frame_size) override;
+  void FrameBoundsInLocalRootChanged(const gfx::Rect& bounds) override;
   void DidChangeSrcDoc(const blink::FrameToken& child_frame_token,
                        const std::string& srcdoc_value) override;
   void ReceivedDelegatedCapability(
@@ -2505,6 +2538,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
   enum class UnboundedElementAuth {
     kDenied,
     kAllowedOpenWeb,
+    // A non-privileged subframe, allowed by permissions policy, whose outermost
+    // main frame is privileged. Unlike kAllowedOpenWeb, this does not require
+    // user activation.
+    kAllowedByPrivilegedMainFrame,
     kAllowedPrivileged,
   };
   UnboundedElementAuth GetUnboundedElementAuth() const;
@@ -3097,12 +3134,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Subframe: RenderWidgetHost is owned by this RenderFrameHost.
   RenderWidgetHostImpl* GetLocalRenderWidgetHost() const;
 
-  // Called by `SharedStorageHeaderObserver` to add operation deferral callbacks
-  // to `deferred_shared_storage_header_callbacks_` to be run by
-  // `RunDeferredSharedStorageHeaderCallbacks()` after commit.
-  void AddDeferredSharedStorageHeaderCallback(
-      base::OnceCallback<void(NavigationOrDocumentHandle*)> callback);
-
   // Find the frame that triggered the beforeunload handler to run in this
   // frame, which might be the frame itself or its ancestor.  This will
   // return the frame that is navigating, or the main frame if beforeunload was
@@ -3443,6 +3474,11 @@ class CONTENT_EXPORT RenderFrameHostImpl
       RenderFrameHostOrProxy child_frame_or_proxy,
       bad_message::BadMessageReason reason);
 
+  // Returns the text input state of the focused editable element in this
+  // frame, or nullptr if no editable element is focused or its state hasn't
+  // arrived yet.
+  const ui::mojom::TextInputState* GetFocusedElementTextInputState();
+
   // IPC Message handlers.
   void OnForwardResourceTimingToParent(
       const ResourceTimingInfo& resource_timing);
@@ -3503,6 +3539,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       mojom::DidCommitSameDocumentNavigationParamsPtr same_document_params)
       override;
   void DidOpenDocumentInputStream(const GURL& url) override;
+  void DidCommitDocumentReplacement() override;
   // |initiator_navigation_state_keep_alive_handle| is needed to ensure that the
   // NavigationStateKeepAlive of the initiator RenderFrameHost can still be
   // retrieved even if the RenderFrameHost has been deleted.
@@ -3947,9 +3984,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const SubresourceLoaderFactoriesConfig& config,
       const base::flat_set<url::Origin>& isolated_world_origins);
 
-  // Based on the termination |status| and |exit_code|, may generate a crash
-  // report to be routed to the Reporting API.
-  void MaybeGenerateCrashReport(base::TerminationStatus status, int exit_code);
+  // Based on the process termination |info|, may generate a crash report to be
+  // routed to the Reporting API.
+  void MaybeGenerateCrashReport(const ChildProcessTerminationInfo& info);
   base::DictValue ReadCrashReportAPIBody();
 
   // Bitfield values for recording navigation frame-type (main or subframe)
@@ -4455,12 +4492,21 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // cases when a FrameTree embeds another FrameTree are not reflected here.
   const unsigned int depth_ = 0u;
 
-  // The FrameNavigationEntry for the current document in this RenderFrameHost,
-  // shared with any NavigationEntries that reference it. Updated after every
+  // The FrameNavigationEntry for the document currently committed in this
+  // RenderFrameHost, shared with any NavigationEntries that reference it.
+  // Updated when the initial NavigationEntry is created and after every
   // commit.
-  // For now, there are cases when this can be null (e.g., initial state, or
-  // cases from https://crbug.com/608402 when the FrameNavigationEntry is
-  // missing for a frame).
+  //
+  // This can differ from `GetLastCommittedEntry()->GetFrameEntry()` during a
+  // multi-frame history navigation: as soon as the first frame commits,
+  // `GetLastCommittedEntry()` advances to the target NavigationEntry, so for
+  // frames whose navigation is still pending, `GetLastCommittedEntry()` holds
+  // the target FrameNavigationEntry while `last_committed_frame_entry_` still
+  // reflects the currently committed document.
+  //
+  // For now, there are cases when this can be null (e.g., before the first
+  // commit in a subframe, or cases from https://crbug.com/608402 when the
+  // FrameNavigationEntry is missing for a frame).
   // TODO(crbug.com/40217743): Ensure this is always set, and use it to
   // avoid separately storing the last committed URL and origin here.
   scoped_refptr<FrameNavigationEntry> last_committed_frame_entry_;
@@ -4818,6 +4864,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Used for tracking the latest size of the RenderFrame.
   std::optional<gfx::Size> frame_size_;
+
+  // Used for tracking the latest bounds of the RenderFrame in its local root
+  // widget's DIP space.
+  std::optional<gfx::Rect> frame_bounds_in_local_root_;
 
   // This boolean indicates whether the RenderFrame has committed *any*
   // navigation or not. Starts off false and is set to true for the lifetime of
@@ -5461,11 +5511,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Listens for changes to DeviceBoundSessions on this page.
   std::unique_ptr<DeviceBoundSessionObserver> device_bound_session_observer_;
 
-  // Deferred shared storage operations to run after navigation commit in the
-  // event of a race between navigation and subresource request(s).
-  std::deque<base::OnceCallback<void(NavigationOrDocumentHandle*)>>
-      deferred_shared_storage_header_callbacks_;
-
 #if BUILDFLAG(IS_ANDROID)
   // Holds a reference to a pending remote WebAuthn RP ID validation while one
   // is ongoing. Destroying this object cancels the validation.
@@ -5477,6 +5522,15 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // reports will be grouped under `crash-reporting`.
   // See for https://github.com/WICG/crash-reporting/issues/24 more details.
   std::string crash_reporting_group_ = "default";
+
+  // Prevents generating duplicate crash reports for this frame when an
+  // ancestor's `RenderProcessGone()` visits descendant frames in the crashed
+  // `SiteInstanceGroup` in addition to this frame receiving its own
+  // `SiteInstanceGroup::Observer` notification. This is usually redundant with
+  // `ResetChildren()` destroying descendant frames before their observer
+  // notifications run, but enforces a stronger per-frame invariant if that
+  // ordering or cleanup ever changes.
+  bool has_reported_crash_ = false;
 
   PrerenderStateChangedCallback prerender_state_callback_;
 

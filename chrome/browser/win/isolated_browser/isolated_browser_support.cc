@@ -30,6 +30,7 @@
 #include "base/win/security_descriptor.h"
 #include "base/win/sid.h"
 #include "chrome/browser/os_crypt/app_bound_encryption_provider_win.h"
+#include "chrome/common/chrome_paths_internal.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/elevation_service/elevation_service_idl.h"
 #include "chrome/elevation_service/elevator.h"
@@ -236,16 +237,6 @@ base::expected<IsolatedBrowserProcess, HRESULT> IsolatedBrowserProcess::Launch(
     return base::unexpected(HRESULT_FROM_WIN32(::GetLastError()));
   }
 
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit_information = {};
-  limit_information.BasicLimitInformation.LimitFlags =
-      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
-
-  if (!::SetInformationJobObject(job.get(), JobObjectExtendedLimitInformation,
-                                 &limit_information,
-                                 sizeof(limit_information))) {
-    return base::unexpected(HRESULT_FROM_WIN32(::GetLastError()));
-  }
-
   // Create an I/O Completion Port and associate it with the Job Object.
   // This allows the stub process to monitor process exit events
   // (`JOB_OBJECT_MSG_EXIT_PROCESS`) and wait until all isolated browser
@@ -295,6 +286,23 @@ base::expected<IsolatedBrowserProcess, HRESULT> IsolatedBrowserProcess::Launch(
     return base::unexpected(HRESULT_FROM_WIN32(::GetLastError()));
   }
   base::win::ScopedHandle query_job(query_job_handle);
+
+  // Configure `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` only after
+  // `RunIsolatedChrome` and `DuplicateHandle` have succeeded. Because the stub
+  // process was already assigned to `job` via `AssignProcessToJobObject`,
+  // setting `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` prior to `RunIsolatedChrome`
+  // would cause `ScopedHandle` destruction of `job` on an early failure return
+  // to terminate the stub process itself instead of allowing it to fall back to
+  // running as the unisolated browser.
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION limit_information = {};
+  limit_information.BasicLimitInformation.LimitFlags =
+      JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+
+  if (!::SetInformationJobObject(job.get(), JobObjectExtendedLimitInformation,
+                                 &limit_information,
+                                 sizeof(limit_information))) {
+    return base::unexpected(HRESULT_FROM_WIN32(::GetLastError()));
+  }
 
   // Intentionally leak the primary job handle so that ScopedHandle destruction
   // when IsolatedBrowserProcess goes out of scope does not close the final job
@@ -420,7 +428,12 @@ void SetIsolationState(
     base::OnceCallback<void(base::expected<IsolationState, HRESULT>)>
         completed) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  if (!install_static::IsSystemInstall()) {
+  // Process isolation is only supported when using the default user data
+  // directory. Custom user data directories (e.g. specified via
+  // --user-data-dir) run unisolated, so avoid writing isolation state to
+  // the registry to prevent cross-profile contamination.
+  if (!install_static::IsSystemInstall() ||
+      !chrome::IsUsingDefaultDataDirectory().value_or(false)) {
     if (completed) {
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE,

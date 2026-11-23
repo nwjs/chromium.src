@@ -8,6 +8,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "base/functional/callback.h"
 #include "base/time/time.h"
@@ -16,6 +17,10 @@
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
+
+namespace content {
+class BrowserContext;
+}  // namespace content
 
 // ChromeKeepAliveRequestTracker is responsible for recording browser-side
 // metrics for an eligible fetch keepalive request.
@@ -29,17 +34,17 @@ class ChromeKeepAliveRequestTracker : public content::KeepAliveRequestTracker {
  public:
   ~ChromeKeepAliveRequestTracker() override;
 
-  // Returns a tracker instance if `request` is eligible to be tracked.
+  // Returns tracker instances if `request` is eligible to be tracked.
   //
   // `ukm_source_id` is the UKM ID to associate with the events logged by the
   // returned tracker.
   // `is_context_detached_callback` tells if the context of `request` is
   // detached at the time running the callback.
-  static std::unique_ptr<ChromeKeepAliveRequestTracker>
-  MaybeCreateKeepAliveRequestTracker(
-      const network::ResourceRequest& request,
-      std::optional<ukm::SourceId> ukm_source_id,
-      IsContextDetachedCallback is_context_detached_callback);
+  static std::vector<std::unique_ptr<content::KeepAliveRequestTracker>>
+  MaybeCreateTrackers(const network::ResourceRequest& request,
+                      std::optional<ukm::SourceId> ukm_source_id,
+                      content::BrowserContext* browser_context,
+                      IsContextDetachedCallback is_context_detached_callback);
 
  private:
   ChromeKeepAliveRequestTracker(

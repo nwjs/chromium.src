@@ -4,24 +4,37 @@
 
 #include "chrome/browser/ui/webui/ai_overlay_dialog/page_context_monitor.h"
 
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
 #include "base/feature_list.h"
 #include "base/files/file_util.h"
+#include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/hash/hash.h"
 #include "base/json/json_reader.h"
-#include "base/notreached.h"
+#include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "chrome/browser/page_content_annotations/page_content_screenshot_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog_page_handler.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/content/browser/page_content_proto_util.h"
-#include "components/tabs/public/tab_interface.h"
+#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
-#include "third_party/re2/src/re2/re2.h"
+#include "url/gurl.h"
 
 namespace ttc {
 
@@ -258,14 +271,7 @@ CachedWebMcpTool::~CachedWebMcpTool() = default;
 
 PageContextMonitor::PageContextMonitor(BrowserWindowInterface& window,
                                        AiOverlayDialogPageHandler& page_handler)
-    : window_(window), page_handler_(page_handler) {
-#if !BUILDFLAG(IS_ANDROID)
-  active_tab_subscription_ =
-      window.RegisterActiveTabDidChange(base::BindRepeating(
-          &PageContextMonitor::OnActiveTabChanged, base::Unretained(this)));
-  OnActiveTabChanged(&window);
-#endif
-}
+    : window_(window), page_handler_(page_handler) {}
 
 PageContextMonitor::~PageContextMonitor() = default;
 
@@ -314,24 +320,22 @@ void PageContextMonitor::DidStopLoading() {
   }
 }
 
-void PageContextMonitor::OnActiveTabChanged(BrowserWindowInterface* window) {
-#if BUILDFLAG(IS_ANDROID)
-  NOTREACHED();
-#else
-  CHECK_EQ(window, &window_.get());
+void PageContextMonitor::OnActiveWebContentsChanged(
+    content::WebContents* contents) {
+  if (contents == web_contents()) {
+    return;
+  }
 
-  tabs::TabInterface* active_tab = window_->GetActiveTabInterface();
-  Observe(active_tab ? active_tab->GetContents() : nullptr);
+  Observe(contents);
   ResetPageContextState();
 
-  if (!active_tab) {
+  if (!contents) {
     return;
   }
 
   page_handler_->DidChangePage(web_contents()->GetLastCommittedURL(),
                                web_contents()->GetTitle(), std::nullopt);
   StartNewFetch();
-#endif
 }
 
 void PageContextMonitor::StartNewFetch() {

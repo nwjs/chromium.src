@@ -87,6 +87,7 @@
 #include "ui/views/buildflags.h"
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/controls/scroll_view.h"
+#include "ui/views/deprecated_layout_immediately_pass_key.h"
 #include "ui/views/drag_controller.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -996,6 +997,10 @@ int View::GetMirroredXWithWidthInView(int x, int w) const {
 // Layout ----------------------------------------------------------------------
 
 void View::DeprecatedLayoutImmediately() {
+  LayoutImmediately();
+}
+
+void View::DeprecatedLayoutImmediately(DeprecatedLayoutImmediatelyPassKey) {
   LayoutImmediately();
 }
 
@@ -4030,7 +4035,18 @@ void View::UnregisterAccelerators(bool leave_data_intact) {
 
   if (GetWidget()) {
     if (auto* focus_manager = GetFocusManager()) {
-      focus_manager->UnregisterAccelerators(this);
+      // Only [0, registered_accelerator_count_) are registered with the
+      // FocusManager. Unregister just those rather than scanning every
+      // accelerator registered in the FocusManager. Accelerators registered
+      // for this view by other means would stay registered, so make sure
+      // there are none.
+#if DCHECK_IS_ON()
+      DCHECK_EQ(focus_manager->GetAcceleratorCountForTarget(this),
+                registered_accelerator_count_);
+#endif
+      for (size_t i = 0; i < registered_accelerator_count_; ++i) {
+        focus_manager->UnregisterAccelerator((*accelerators_)[i], this);
+      }
     }
     if (!leave_data_intact) {
       accelerators_->clear();

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/tabs/common/split_tab_view.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -13,6 +14,7 @@
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_drag_handler.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
+#include "chrome/browser/ui/views/tabs/common/tab_strip_layout_utils.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/tab/glow_hover_controller.h"
@@ -48,13 +50,15 @@ SplitTabView::SplitTabView(TabCollectionNode* collection_node)
           &SplitTabView::ResetCollectionNode, base::Unretained(this)));
 
   CHECK(collection_node_->GetController());
-  auto* state_controller =
-      collection_node_->GetController()->GetStateController();
-  CHECK(state_controller);
-  OnCollapseStateChanged(state_controller->GetCollapseState());
-  collapsed_state_changed_subscription_ =
-      state_controller->RegisterOnCollapseChanged(base::BindRepeating(
-          &SplitTabView::OnCollapseStateChanged, base::Unretained(this)));
+  if (orientation_ == TabStripOrientation::kVertical) {
+    auto* state_controller =
+        collection_node_->GetController()->GetStateController();
+    CHECK(state_controller);
+    OnCollapseStateChanged(state_controller->GetCollapseState());
+    collapsed_state_changed_subscription_ =
+        state_controller->RegisterOnCollapseChanged(base::BindRepeating(
+            &SplitTabView::OnCollapseStateChanged, base::Unretained(this)));
+  }
 
   // Ensures this view gets mouse events as well its children.
   SetNotifyEnterExitOnChild(true);
@@ -127,23 +131,19 @@ views::ProposedLayout SplitTabView::CalculateProposedLayout(
 
 gfx::Size SplitTabView::GetMinimumSize() const {
   if (orientation_ == TabStripOrientation::kHorizontal) {
-    const auto children = collection_node_
-                              ? collection_node_->GetDirectChildren()
-                              : TabCollectionNode::ChildViews();
-    if (children.empty()) {
-      return gfx::Size(0, 0);
-    }
-    int min_width = 0;
-    for (views::View* child : children) {
-      min_width += child->GetMinimumSize().width();
-    }
-    const int tab_overlap = TabStyle::Get()->GetTabOverlap();
-    const int total_overlap =
-        static_cast<int>(children.size() - 1) * tab_overlap;
-    return gfx::Size(std::max(0, min_width - total_overlap),
-                     TabStyle::Get()->GetStandardHeight());
+    const int min_width = ComputeHorizontalWidth([](const views::View* child) {
+      return child->GetMinimumSize().width();
+    });
+    return gfx::Size(min_width, TabStyle::Get()->GetStandardHeight());
   }
   return views::View::GetMinimumSize();
+}
+
+int SplitTabView::GetCrossoverWidth() const {
+  if (orientation_ == TabStripOrientation::kHorizontal) {
+    return ComputeHorizontalWidth(&GetChildCrossoverWidth);
+  }
+  return GetMinimumSize().width();
 }
 
 std::optional<BrowserRootView::DropIndex> SplitTabView::GetLinkDropIndex(
@@ -246,6 +246,23 @@ void SplitTabView::UpdateHovered(bool hovered) {
   }
 
   SchedulePaint();
+}
+
+int SplitTabView::ComputeHorizontalWidth(
+    base::FunctionRef<int(const views::View*)> get_child_width) const {
+  const auto split_children = collection_node_
+                                  ? collection_node_->GetDirectChildren()
+                                  : TabCollectionNode::ChildViews();
+  if (split_children.empty()) {
+    return 0;
+  }
+  int width = 0;
+  for (const views::View* split_child : split_children) {
+    width += get_child_width(split_child);
+  }
+  const int total_overlap = static_cast<int>(split_children.size() - 1) *
+                            TabStyle::Get()->GetTabOverlap();
+  return std::max(0, width - total_overlap);
 }
 
 views::ProposedLayout SplitTabView::CalculateHorizontalLayout(
@@ -363,12 +380,18 @@ views::ProposedLayout SplitTabView::CalculateVerticalLayout(
 
 void SplitTabView::OnCollapseStateChanged(
     tabs::VerticalTabStripCollapseState state) {
-  collapsed_ = state == tabs::VerticalTabStripCollapseState::kCollapsed;
+  const bool collapsed =
+      state == tabs::VerticalTabStripCollapseState::kCollapsed;
+  if (collapsed_ != collapsed) {
+    collapsed_ = collapsed;
+    InvalidateLayout();
+  }
 }
 
 std::unique_ptr<views::View> SplitTabView::RemoveChildViewForReparenting(
     views::View* child_view) {
-  DCHECK(std::ranges::contains(children(), child_view));
+  CHECK(std::ranges::contains(children(), child_view),
+        base::NotFatalUntil::M162);
   CHECK(collection_node_);
 
   auto children = collection_node_->GetDirectChildren();
@@ -378,14 +401,14 @@ std::unique_ptr<views::View> SplitTabView::RemoveChildViewForReparenting(
           .animation_axis =
               TabCollectionAnimatingLayoutManager::AnimationAxis::kHorizontal,
           // Note: Tabs are removed from the split view collection from the
-          // front first so it is necessary to test the number of children
-          // in the collection when computing the animation direction.
-          .animation_direction =
-              (children.size() == 2 && children[0] == child_view)
-                  ? TabCollectionAnimatingLayoutManager::AnimationDirection::
-                        kEndToStart
-                  : TabCollectionAnimatingLayoutManager::AnimationDirection::
-                        kStartToEnd,
+          // front first and the node is removed from `collection_node_` before
+          // detaching the view, so 1 remaining child indicates the first tab
+          // is being removed.
+          .animation_direction = children.size() == 1
+                                     ? TabCollectionAnimatingLayoutManager::
+                                           AnimationDirection::kEndToStart
+                                     : TabCollectionAnimatingLayoutManager::
+                                           AnimationDirection::kStartToEnd,
       });
 
   // Ensure we remove the child view before setting source layout info to

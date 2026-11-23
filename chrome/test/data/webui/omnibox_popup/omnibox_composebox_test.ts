@@ -2,13 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import 'chrome://omnibox-popup.top-chrome/omnibox_popup_aim.js';
 
-import {SearchboxBrowserProxy} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
-import type {OmniboxComposeboxElement} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
-import {ComposeboxProxyImpl} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import {AimButtonMode, ComposeboxProxyImpl, SearchboxBrowserProxy} from 'chrome://omnibox-popup.top-chrome/omnibox_popup_aim.js';
+import type {OmniboxComposeboxElement} from 'chrome://omnibox-popup.top-chrome/omnibox_popup_aim.js';
 import {ComposeboxFile, SingleTabType} from 'chrome://resources/cr_components/composebox/common.js';
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import type {ComposeboxAimButtonElement} from 'chrome://resources/cr_components/composebox/composebox_aim_button.js';
 import type {ComposeboxFaviconGroupElement} from 'chrome://resources/cr_components/composebox/composebox_favicon_group.js';
 import {ContextUploadErrorType, ContextUploadStatus, InputType, ModelMode, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ComposeboxFileCarouselElement} from 'chrome://resources/cr_components/composebox/file_carousel.js';
@@ -17,9 +17,9 @@ import {GlowAnimationState} from 'chrome://resources/cr_components/search/consta
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
-import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SearchContext, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteResult, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SearchContext, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {RenderType, SideType, TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertNear, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -50,7 +50,6 @@ suite('OmniboxComposeboxTest', () => {
 
     loadTimeData.overrideValues({
       composeboxShowZps: true,
-      askGBlockAutoTabZeroStateSuggestions: false,
       // Read by the cr-omnibox-composebox constructor; pinned so the tests do
       // not depend on the page's flag defaults.
       searchboxLayoutMode: 'TallBottomContext',
@@ -509,12 +508,8 @@ suite('OmniboxComposeboxTest', () => {
   });
 
   test(
-      'addSearchContext skips autocomplete query for tab when flag is enabled' +
-          ' and source is auto-added',
+      'addSearchContext skips autocomplete query for an auto-added tab',
       async () => {
-        loadTimeData.overrideValues(
-            {askGBlockAutoTabZeroStateSuggestions: true});
-
         const initialCallCount =
             testProxy.handler.getCallCount('queryAutocomplete');
         const context = {
@@ -541,11 +536,10 @@ suite('OmniboxComposeboxTest', () => {
       });
 
   test(
-      'addSearchContext does NOT skip autocomplete query for tab when flag' +
-          ' is disabled',
+      'addSearchContext skips autocomplete query for a context menu tab',
       async () => {
-        loadTimeData.overrideValues(
-            {askGBlockAutoTabZeroStateSuggestions: false});
+        testProxy.handler.setPromiseResolveFor(
+            'addTabContext', 'mock-tab-token');
 
         const initialCallCount =
             testProxy.handler.getCallCount('queryAutocomplete');
@@ -556,7 +550,7 @@ suite('OmniboxComposeboxTest', () => {
               tabId: 42,
               title: 'Google',
               url: 'https://google.com',
-              source: TabAttachmentSource.kAutoAdded,
+              source: TabAttachmentSource.kContextMenu,
             },
           }],
           toolMode: 0,
@@ -566,18 +560,16 @@ suite('OmniboxComposeboxTest', () => {
         omniboxComposebox.addSearchContext(context as unknown as SearchContext);
         await microtasksFinished();
 
-        // Verify query was NOT skipped
+        // The tab's upload fetches the contextual suggestions itself, so
+        // nothing is queried up front.
         assertEquals(
-            initialCallCount + 1,
+            initialCallCount,
             testProxy.handler.getCallCount('queryAutocomplete'));
       });
 
   test(
       'contextual suggestions animate in after a blocked zero state',
       async () => {
-        loadTimeData.overrideValues(
-            {askGBlockAutoTabZeroStateSuggestions: true});
-
         const context = {
           input: '',
           attachments: [{
@@ -616,11 +608,42 @@ suite('OmniboxComposeboxTest', () => {
       'contextual suggestions do not animate when the zero state query was' +
           ' not blocked',
       async () => {
-        loadTimeData.overrideValues(
-            {askGBlockAutoTabZeroStateSuggestions: false});
-
+        const initialCallCount =
+            testProxy.handler.getCallCount('queryAutocomplete');
         const context = {
           input: '',
+          attachments: [],
+          toolMode: 0,
+        };
+        omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+        await microtasksFinished();
+
+        // Without a tab the zero state query goes out right away.
+        assertEquals(
+            initialCallCount + 1,
+            testProxy.handler.getCallCount('queryAutocomplete'));
+
+        testProxy.page.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              queryId: omniboxComposebox.activeQueryId,
+              matches: [createSearchMatchForTesting({
+                allowedToBeDefaultMatch: false,
+              })],
+            }));
+        await testProxy.page.$.flushForTesting();
+        await microtasksFinished();
+
+        // Suggestions were never withheld, so the dropdown appearing is the
+        // ordinary zero state and must not animate.
+        assertTrue(omniboxComposebox.showDropdown);
+        assertEquals(0, loadInAnimationCount());
+      });
+
+  test(
+      'contextual suggestions do not animate when the context has input',
+      async () => {
+        const context = {
+          input: 'query',
           attachments: [{
             tabAttachment: {
               tabId: 42,
@@ -645,18 +668,19 @@ suite('OmniboxComposeboxTest', () => {
         await testProxy.page.$.flushForTesting();
         await microtasksFinished();
 
-        // Suggestions were never withheld, so the dropdown appearing is the
-        // ordinary zero state and must not animate.
+        // The box opened with text in it, so it never was the empty zero state
+        // that the animation expands from.
         assertTrue(omniboxComposebox.showDropdown);
         assertEquals(0, loadInAnimationCount());
       });
 
   test(
-      'addSearchContext does NOT skip autocomplete query for tab when source' +
-          ' is NOT auto-added',
+      'context menu tab queries once its upload is ready for suggest and' +
+          ' animates the suggestions in',
       async () => {
-        loadTimeData.overrideValues(
-            {askGBlockAutoTabZeroStateSuggestions: true});
+        // Must be a well-formed token: it is sent over a real Mojo pipe below.
+        const mockToken = '12345678901234567890123456789104';
+        testProxy.handler.setPromiseResolveFor('addTabContext', mockToken);
 
         const initialCallCount =
             testProxy.handler.getCallCount('queryAutocomplete');
@@ -673,14 +697,39 @@ suite('OmniboxComposeboxTest', () => {
           toolMode: 0,
           modelMode: 0,
         };
-
         omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+        await testProxy.handler.whenCalled('addTabContext');
         await microtasksFinished();
 
-        // Verify query was NOT skipped
+        // Nothing is queried or shown while the upload is in flight.
+        assertEquals(
+            initialCallCount,
+            testProxy.handler.getCallCount('queryAutocomplete'));
+        assertFalse(omniboxComposebox.showDropdown);
+        assertEquals(0, loadInAnimationCount());
+
+        // The upload becoming ready for suggest triggers the one query.
+        testProxy.page.onContextualInputStatusChanged(
+            mockToken, ContextUploadStatus.kProcessingSuggestSignalsReady,
+            null);
+        await testProxy.page.$.flushForTesting();
+        await microtasksFinished();
         assertEquals(
             initialCallCount + 1,
             testProxy.handler.getCallCount('queryAutocomplete'));
+
+        testProxy.page.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              queryId: omniboxComposebox.activeQueryId,
+              matches: [createSearchMatchForTesting({
+                allowedToBeDefaultMatch: false,
+              })],
+            }));
+        await testProxy.page.$.flushForTesting();
+        await microtasksFinished();
+
+        assertTrue(omniboxComposebox.showDropdown);
+        assertNotEquals(0, loadInAnimationCount());
       });
 
   test(
@@ -765,9 +814,8 @@ suite('OmniboxComposeboxTest', () => {
   test('Render Error Scrim on validation error', async () => {
     let scrim = omniboxComposebox.shadowRoot.querySelector('ntp-error-scrim');
     assertFalse(!!scrim);
-    const composebox =
-        omniboxComposebox.shadowRoot.querySelector('#composebox');
-    assertFalse(composebox!.hasAttribute('inert'));
+    const composebox = omniboxComposebox.$.composebox;
+    assertFalse(composebox.hasAttribute('inert'));
 
     omniboxComposebox.errorMessage = 'File size exceeds 100 MiB';
     await microtasksFinished();
@@ -776,7 +824,7 @@ suite('OmniboxComposeboxTest', () => {
     scrim = omniboxComposebox.shadowRoot.querySelector('ntp-error-scrim');
     assertTrue(!!scrim);
     assertEquals('File size exceeds 100 MiB', scrim.errorMessage);
-    assertTrue(composebox!.hasAttribute('inert'));
+    assertTrue(composebox.hasAttribute('inert'));
 
     // Dismiss error scrim.
     scrim.fire('dismiss-error-scrim');
@@ -786,7 +834,7 @@ suite('OmniboxComposeboxTest', () => {
     assertEquals('', omniboxComposebox.errorMessage);
     scrim = omniboxComposebox.shadowRoot.querySelector('ntp-error-scrim');
     assertFalse(!!scrim);
-    assertFalse(composebox!.hasAttribute('inert'));
+    assertFalse(composebox.hasAttribute('inert'));
   });
 
   test('Add Attachment with validation error fails', async () => {
@@ -1067,10 +1115,8 @@ suite('OmniboxComposeboxTest', () => {
     // When the submit button is clicked.
     const composeboxSubmit =
         omniboxComposebox.shadowRoot.querySelector('cr-composebox-submit');
-    const submitContainer =
-        composeboxSubmit!.shadowRoot.querySelector<HTMLElement>(
-            '#submitContainer');
-    submitContainer!.click();
+    const submitContainer = composeboxSubmit!.$.submitContainer;
+    submitContainer.click();
     await microtasksFinished();
 
     // Then openAutocompleteMatch is called.
@@ -1115,10 +1161,8 @@ suite('OmniboxComposeboxTest', () => {
 
         const composeboxSubmit =
             omniboxComposebox.shadowRoot.querySelector('cr-composebox-submit');
-        const submitContainer =
-            composeboxSubmit!.shadowRoot.querySelector<HTMLElement>(
-                '#submitContainer');
-        submitContainer!.click();
+        const submitContainer = composeboxSubmit!.$.submitContainer;
+        submitContainer.click();
         await microtasksFinished();
 
         assertEquals(1, testProxy.handler.getCallCount('submitQuery'));
@@ -1183,10 +1227,8 @@ suite('OmniboxComposeboxTest', () => {
         const composeboxSubmit =
             omniboxComposebox.shadowRoot.querySelector('cr-composebox-submit');
         assertFalse(composeboxSubmit!.hasAttribute('disabled'));
-        const submitContainer =
-            composeboxSubmit!.shadowRoot.querySelector<HTMLElement>(
-                '#submitContainer');
-        submitContainer!.click();
+        const submitContainer = composeboxSubmit!.$.submitContainer;
+        submitContainer.click();
         await microtasksFinished();
 
         // Then submitQuery is called.
@@ -1224,6 +1266,7 @@ suite('OmniboxComposeboxTest', () => {
           maxInputsByType: {},
           maxTotalInputs: 0,
           isCanvasQuerySubmitted: false,
+          willFulfillInAim: true,
         };
         testProxy.page.onInputStateChanged(inputState);
         await testProxy.page.$.flushForTesting();
@@ -1335,6 +1378,7 @@ suite('OmniboxComposeboxTest', () => {
       maxInputsByType: {},
       maxTotalInputs: 0,
       isCanvasQuerySubmitted: false,
+      willFulfillInAim: true,
     };
     testProxy.page.onInputStateChanged(inputState);
     await testProxy.page.$.flushForTesting();
@@ -1689,6 +1733,25 @@ suite('OmniboxComposeboxTest', () => {
         assertFalse(!!suggestionActivity);
       });
 
+  test('suggestion activity link hidden once the user types', async () => {
+    testProxy.page.autocompleteResultChanged(
+        createAutocompleteResultForTesting({
+          queryId: omniboxComposebox.activeQueryId,
+          matches: [createSearchMatchForTesting()],
+          showAimActivityLink: true,
+        }));
+    await testProxy.page.$.flushForTesting();
+    await microtasksFinished();
+    await omniboxComposebox.updateComplete;
+    assertTrue(
+        !!omniboxComposebox.shadowRoot.querySelector('#suggestionActivity'));
+
+    omniboxComposebox.input = 'test';
+    await omniboxComposebox.updateComplete;
+    assertFalse(
+        !!omniboxComposebox.shadowRoot.querySelector('#suggestionActivity'));
+  });
+
   function createDragEvent(type: string, files: File[]): DragEvent {
     const event = new DragEvent(type, {
       bubbles: true,
@@ -1757,13 +1820,11 @@ suite('OmniboxComposeboxTest', () => {
     });
 
     test('sets is-dragging-file attribute on dragenter', async () => {
-      const dropZone =
-          omniboxComposebox.shadowRoot.querySelector('#composebox');
-      assertTrue(!!dropZone);
+      const dropZone = omniboxComposebox.$.composebox;
 
       assertFalse(omniboxComposebox.hasAttribute('is-dragging-file'));
 
-      dropZone?.dispatchEvent(new DragEvent('dragenter', {
+      dropZone.dispatchEvent(new DragEvent('dragenter', {
         bubbles: true,
         composed: true,
       }));
@@ -1775,16 +1836,14 @@ suite('OmniboxComposeboxTest', () => {
     });
 
     test('removes is-dragging-file attribute on dragleave', async () => {
-      const dropZone =
-          omniboxComposebox.shadowRoot.querySelector('#composebox');
-      assertTrue(!!dropZone);
+      const dropZone = omniboxComposebox.$.composebox;
 
       omniboxComposebox.animationState = GlowAnimationState.DRAGGING;
-      dropZone?.dispatchEvent(new DragEvent('dragenter', {
+      dropZone.dispatchEvent(new DragEvent('dragenter', {
         bubbles: true,
         composed: true,
       }));
-      dropZone?.dispatchEvent(new DragEvent('dragleave', {
+      dropZone.dispatchEvent(new DragEvent('dragleave', {
         bubbles: true,
         composed: true,
       }));
@@ -2470,9 +2529,7 @@ suite('OmniboxComposeboxTest', () => {
       assertTrue(!!submitButton);
       await submitButton.updateComplete;
 
-      const submitContainer =
-          submitButton.shadowRoot.querySelector<HTMLElement>('#submitContainer');
-      assertTrue(!!submitContainer);
+      const submitContainer = submitButton.$.submitContainer;
       submitContainer.click();
 
       await microtasksFinished();
@@ -3343,5 +3400,330 @@ suite('OmniboxComposeboxTest', () => {
       assertTrue(omniboxComposebox.hasAttribute('has-grid'));
       assertEquals('1', window.getComputedStyle(container).order);
     });
+  });
+});
+
+suite('OmniboxComposeboxPersistentAimButtonTest', () => {
+  let omniboxComposebox: OmniboxComposeboxElement;
+  let mockPageHandler: TestMock<PageHandlerRemote>&PageHandlerRemote;
+  let testProxy: TestSearchboxBrowserProxy;
+  let originalWindowProxy: WindowProxy;
+
+  // Same wiring as OmniboxComposeboxTest, minus the element: the flags are
+  // read when the element is created, so each test creates its own.
+  setup(() => {
+    if (!originalWindowProxy) {
+      originalWindowProxy = WindowProxy.getInstance();
+    }
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    loadTimeData.overrideValues({
+      composeboxShowZps: true,
+      searchboxLayoutMode: 'TallBottomContext',
+      caretAnimationEnabled: true,
+      energyEffectEnabled: true,
+      contextualMenuUsePecApi: true,
+      contextManagementInComposeboxEnabled: false,
+      composeboxSmartComposeEnabled: true,
+      contextButtonShapeIsOblong: true,
+      webuiOmniboxSimplificationEnabled: true,
+      voiceSearchCoherenceComposeboxesEnabled: false,
+    });
+
+    testProxy = new TestSearchboxBrowserProxy();
+    testProxy.handler.setPromiseResolveFor('getInputState', {
+      state: {
+        ...createDefaultInputState(),
+        allowedModels: [1],
+      },
+    });
+    SearchboxBrowserProxy.setInstance(testProxy);
+
+    mockPageHandler = TestMock.fromClass(PageHandlerRemote);
+    mockPageHandler.setResultMapperFor(
+        'getSmartTabSharingActive', () => Promise.resolve({active: false}));
+    ComposeboxProxyImpl.setInstance(new ComposeboxProxyImpl(
+        mockPageHandler,
+        testProxy.handler as unknown as SearchboxPageHandlerRemote,
+        testProxy.callbackRouter as unknown as SearchboxPageCallbackRouter));
+    testProxy.handler.setPromiseResolveFor('getPageClassification', {
+      metricSource: 'NTP_OMNIBOX_COMPOSEBOX',
+    });
+  });
+
+  teardown(() => {
+    if (originalWindowProxy) {
+      WindowProxy.setInstance(originalWindowProxy);
+    }
+    loadTimeData.overrideValues({
+      composeboxPersistentAimButton: false,
+      composeboxPersistentAimButtonWithX: false,
+    });
+  });
+
+  async function createComposebox(
+      enabled: boolean, withX: boolean, layoutMode: string) {
+    loadTimeData.overrideValues({
+      composeboxPersistentAimButton: enabled,
+      composeboxPersistentAimButtonWithX: withX,
+      searchboxComposeButtonText: 'AI Mode',
+      composeboxAimButtonExitTitle: 'Exit AI Mode',
+      composeboxAimButtonSendTitle: 'Send',
+    });
+    omniboxComposebox = document.createElement('cr-omnibox-composebox');
+    document.body.appendChild(omniboxComposebox);
+    omniboxComposebox.setBaseSearchboxLayoutModeForTesting(layoutMode);
+    await microtasksFinished();
+  }
+
+  async function setInput(text: string) {
+    omniboxComposebox.input = text;
+    await omniboxComposebox.updateComplete;
+    await microtasksFinished();
+  }
+
+  function queryAimButton(): ComposeboxAimButtonElement|null {
+    return omniboxComposebox.shadowRoot
+        .querySelector<ComposeboxAimButtonElement>('cr-composebox-aim-button');
+  }
+
+  function getAimButton(): ComposeboxAimButtonElement {
+    const aimButton = queryAimButton();
+    assertTrue(!!aimButton);
+    return aimButton;
+  }
+
+  function hasSubmitButton(): boolean {
+    return !!omniboxComposebox.shadowRoot.querySelector('cr-composebox-submit');
+  }
+
+  [false, true].forEach(enabled => {
+    [false, true].forEach(withX => {
+      test(
+          `mounts in TallBottomContext per flags: enabled=${enabled}, ` +
+              `withX=${withX}`,
+          async () => {
+            await createComposebox(enabled, withX, 'TallBottomContext');
+            await setInput('test');
+
+            const aimButton = queryAimButton();
+            assertEquals(enabled, !!aimButton);
+            // The AIM button replaces the clear (X) and submit buttons.
+            assertEquals(
+                enabled, omniboxComposebox.getInputElement().hideCancel);
+            assertEquals(!enabled, hasSubmitButton());
+            if (aimButton) {
+              assertEquals(withX, aimButton.showExitIcon);
+              assertEquals('AI Mode', aimButton.label);
+              assertEquals('Exit AI Mode', aimButton.exitTitle);
+              assertEquals('Send', aimButton.sendTitle);
+            }
+          });
+    });
+  });
+
+  test('is not mounted in the Compact layout', async () => {
+    await createComposebox(true, false, 'Compact');
+    await setInput('test');
+
+    assertFalse(!!queryAimButton());
+    assertFalse(omniboxComposebox.getInputElement().hideCancel);
+    // Compact never renders the submit button, flag or not.
+    assertFalse(hasSubmitButton());
+  });
+
+  test('is not mounted when Tall falls back to Compact', async () => {
+    // No allowed (+) inputs collapses the empty bottom row into Compact.
+    testProxy.handler.setPromiseResolveFor(
+        'getInputState', {state: createDefaultInputState()});
+    await createComposebox(true, false, 'TallBottomContext');
+    await setInput('test');
+
+    assertEquals('Compact', omniboxComposebox.searchboxLayoutMode);
+    assertFalse(!!queryAimButton());
+    assertFalse(omniboxComposebox.getInputElement().hideCancel);
+    assertFalse(hasSubmitButton());
+  });
+
+  test('mode follows the input', async () => {
+    await createComposebox(true, false, 'TallBottomContext');
+    const aimButton = getAimButton();
+    assertEquals(AimButtonMode.EXIT, aimButton.mode);
+
+    await setInput('test');
+    assertEquals(AimButtonMode.SEND, aimButton.mode);
+
+    await setInput('');
+    assertEquals(AimButtonMode.EXIT, aimButton.mode);
+  });
+
+  test('EXIT click closes the composebox without submitting', async () => {
+    await createComposebox(true, false, 'TallBottomContext');
+    let closeEventFired = false;
+    omniboxComposebox.addEventListener('close-composebox', () => {
+      closeEventFired = true;
+    });
+
+    getAimButton().$.button.click();
+    await microtasksFinished();
+
+    assertTrue(closeEventFired);
+    assertEquals(0, testProxy.handler.getCallCount('submitQuery'));
+  });
+
+  test('SEND click submits and keeps SEND', async () => {
+    await createComposebox(true, false, 'TallBottomContext');
+    await setInput('test');
+    const aimButton = getAimButton();
+
+    aimButton.$.button.click();
+    await microtasksFinished();
+
+    assertEquals(1, testProxy.handler.getCallCount('submitQuery'));
+    // onComposeboxSubmit_() clears the input, but SEND is held while the
+    // navigation is pending and the button is not dimmed.
+    assertEquals('', omniboxComposebox.input);
+    assertTrue(omniboxComposebox.submitting);
+    assertEquals(AimButtonMode.SEND, aimButton.mode);
+    assertFalse(aimButton.disabled);
+  });
+
+  test('focusin in SEND selects the first match', async () => {
+    await createComposebox(true, false, 'TallBottomContext');
+    await setInput('test');
+    testProxy.page.autocompleteResultChanged(
+        createAutocompleteResultForTesting({
+          queryId: omniboxComposebox.activeQueryId,
+          input: 'test',
+          matches: [createSearchMatchForTesting({fillIntoEdit: 'test'})],
+        }));
+    await testProxy.page.$.flushForTesting();
+    await microtasksFinished();
+    assertEquals(-1, omniboxComposebox.selectedMatchIndex);
+
+    getAimButton().dispatchEvent(
+        new FocusEvent('focusin', {bubbles: true, composed: true}));
+    await microtasksFinished();
+    assertEquals(0, omniboxComposebox.selectedMatchIndex);
+  });
+
+  test('Omnibox sizes keep the width and slide the label 16px', async () => {
+    await createComposebox(true, false, 'TallBottomContext');
+    const aimButton = getAimButton();
+    // Finish transitions instantly so the geometry is final.
+    aimButton.style.setProperty('--aim-motion-duration-short', '0ms');
+    aimButton.style.setProperty('--aim-motion-duration-long', '0ms');
+    const button = aimButton.$.button;
+    const label = aimButton.shadowRoot.querySelector<HTMLElement>('#label');
+    assertTrue(!!label);
+    const leadingIcon =
+        aimButton.shadowRoot.querySelector<HTMLElement>('#leadingIcon');
+    assertTrue(!!leadingIcon);
+    const trailingIcon =
+        aimButton.shadowRoot.querySelector<HTMLElement>('#trailingIcon');
+    assertTrue(!!trailingIcon);
+
+    // EXIT: leading icon 6px from the start edge.
+    const exitButton = button.getBoundingClientRect();
+    const exitLabel = label.getBoundingClientRect();
+    assertNear(exitLabel.width + 36, exitButton.width, 0.5);
+    assertNear(
+        exitButton.left + 6, leadingIcon.getBoundingClientRect().left, 0.5);
+
+    // SEND: same width, trailing icon 6px from the end edge.
+    await setInput('test');
+    await aimButton.updateComplete;
+    assertEquals(AimButtonMode.SEND, aimButton.mode);
+    const sendButton = button.getBoundingClientRect();
+    const sendLabel = label.getBoundingClientRect();
+    assertNear(exitButton.width, sendButton.width, 0.5);
+    assertNear(
+        sendButton.right - 6, trailingIcon.getBoundingClientRect().right, 0.5);
+    assertNear(
+        exitLabel.left - exitButton.left - 16, sendLabel.left - sendButton.left,
+        0.5);
+  });
+
+  function mockVoiceSearch() {
+    const windowProxy = TestMock.fromClass(WindowProxy);
+    windowProxy.setResultFor('hasWebkitSpeechRecognition', true);
+    windowProxy.setResultMapperFor('createSpeechRecognition', () => {
+      const speechMock = new EventTarget() as unknown as SpeechRecognition;
+      speechMock.abort = () => {};
+      speechMock.start = () => {};
+      speechMock.stop = () => {};
+      return speechMock;
+    });
+    windowProxy.setResultMapperFor(
+        'matchMedia', (query: string) => window.matchMedia(query));
+    WindowProxy.setInstance(windowProxy);
+  }
+
+  async function sendResult(result: AutocompleteResult) {
+    testProxy.page.autocompleteResultChanged(result);
+    await testProxy.page.$.flushForTesting();
+    await microtasksFinished();
+  }
+
+  function getMic(): HTMLElement {
+    const mic = omniboxComposebox.shadowRoot.querySelector<HTMLElement>(
+        '#voiceSearchButton');
+    assertTrue(!!mic);
+    return mic;
+  }
+
+  [true, false].forEach(energyEnabled => {
+    test(
+        `mic sits ${energyEnabled ? 10 : 11}px from the bottom with the ` +
+            `dropdown: energy=${energyEnabled}`,
+        async () => {
+          loadTimeData.overrideValues({energyEffectEnabled: energyEnabled});
+          mockVoiceSearch();
+          await createComposebox(true, false, 'TallBottomContext');
+          await setInput('test');
+          await sendResult(createAutocompleteResultForTesting({
+            queryId: omniboxComposebox.activeQueryId,
+            input: 'test',
+            matches: [createSearchMatchForTesting({fillIntoEdit: 'test'})],
+          }));
+
+          assertTrue(omniboxComposebox.hasAttribute('submit-enabled'));
+          assertTrue(omniboxComposebox.hasAttribute('show-dropdown'));
+          const micBottom = getComputedStyle(getMic()).bottom;
+          assertEquals(energyEnabled ? '10px' : '11px', micBottom);
+        });
+  });
+
+  test('mic returns to its static position with the image grid', async () => {
+    loadTimeData.overrideValues({composeboxRichImageSuggestionsEnabled: true});
+    try {
+      mockVoiceSearch();
+      await createComposebox(true, false, 'TallBottomContext');
+      await setInput('test');
+      await sendResult(createAutocompleteResultForTesting({
+        queryId: omniboxComposebox.activeQueryId,
+        matches: [createSearchMatchForTesting({
+          allowedToBeDefaultMatch: false,
+          suggestionGroupId: 100,
+        })],
+        suggestionGroupsMap: {
+          100: {
+            header: 'Images',
+            renderType: RenderType.kGrid,
+            sideType: SideType.kDefaultPrimary,
+          },
+        },
+      }));
+
+      assertTrue(omniboxComposebox.hasAttribute('has-grid'));
+      assertTrue(omniboxComposebox.hasAttribute('show-dropdown'));
+      // Both block insets compute to auto, i.e. the static position.
+      const style = getMic().computedStyleMap();
+      assertEquals('auto', style.get('top')!.toString());
+      assertEquals('auto', style.get('bottom')!.toString());
+    } finally {
+      loadTimeData.overrideValues(
+          {composeboxRichImageSuggestionsEnabled: false});
+    }
   });
 });

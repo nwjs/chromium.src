@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "base/base64url.h"
-#include "base/containers/flat_map.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_split.h"
@@ -28,9 +28,6 @@
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/web_contents.h"
 #include "net/http/http_response_headers.h"
-#include "services/metrics/public/cpp/ukm_builders.h"
-#include "services/metrics/public/cpp/ukm_recorder.h"
-#include "services/metrics/public/cpp/ukm_source_id.h"
 #include "url/gurl.h"
 
 using ThrottleCheckResult = content::NavigationThrottle::ThrottleCheckResult;
@@ -225,20 +222,14 @@ ThrottleCheckResult OidcAuthResponseCaptureNavigationThrottle::
     RecordOidcInterceptionFunnelStep(
         OidcInterceptionFunnelStep::kSuccessfulInfoParsed);
 
-    const bool async_mode = base::FeatureList::IsEnabled(
-        profile_management::features::kOidcNavigationThrottleAsyncMode);
-
-    bool interception_started = !async_mode;
-    interception_started |= interceptor->MaybeInterceptOidcAuthentication(
-        navigation_handle()->GetWebContents(),
-        ProfileManagementOidcTokens(
-            registration_payload.encrypted_user_information()),
-        registration_payload.issuer(), registration_payload.subject(),
-        registration_payload.email(),
-        base::BindOnce(&OidcAuthResponseCaptureNavigationThrottle::Resume,
-                       weak_ptr_factory_.GetWeakPtr()));
-
-    if (async_mode && !interception_started) {
+    if (!interceptor->MaybeInterceptOidcAuthentication(
+            navigation_handle()->GetWebContents(),
+            ProfileManagementOidcTokens(
+                registration_payload.encrypted_user_information()),
+            registration_payload.issuer(), registration_payload.subject(),
+            registration_payload.email(),
+            base::BindOnce(&OidcAuthResponseCaptureNavigationThrottle::Resume,
+                           weak_ptr_factory_.GetWeakPtr()))) {
       return PROCEED;
     }
 

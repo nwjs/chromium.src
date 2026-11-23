@@ -2835,15 +2835,12 @@ void StyleEngine::UpdateViewTransitionOptIn() {
       cross_document_enabled, types, preview_types);
 }
 
-bool StyleEngine::HasRulesForId(const AtomicString& id) const {
-  DCHECK(global_rule_set_);
-  return global_rule_set_->GetRuleFeatureSet()
-      .GetRuleInvalidationData()
-      .HasSelectorForId(id);
-}
-
 void StyleEngine::InitialStyleChanged() {
   InvalidateInitialStyle();
+  // Cached styles may depend on the old settings, e.g. minimum font size.
+  if (resolver_) {
+    resolver_->InvalidateMatchedPropertiesCache();
+  }
   MarkViewportStyleDirty();
   // We need to update the viewport style immediately because media queries
   // evaluated in MediaQueryAffectingValueChanged() below may rely on the
@@ -4776,10 +4773,11 @@ void StyleEngine::UpdateForcedBackgroundColor() {
   CHECK(GetDocument().GetPage());
   mojom::blink::ColorScheme color_scheme = mojom::blink::ColorScheme::kLight;
   forced_background_color_ = LayoutTheme::GetTheme().SystemColor(
-      CSSValueID::kCanvas, color_scheme,
-      GetDocument().GetPage()->GetColorProviderForPainting(
-          color_scheme, forced_colors_ != ForcedColors::kNone),
-      GetDocument().IsInWebAppScope() && GetDocument().IsInitialProfile());
+      CSSValueID::kCanvas,
+      /*theme_info=*/
+      {.color_provider = GetDocument().GetPage()->GetColorProviderForPainting(
+           color_scheme, forced_colors_ != ForcedColors::kNone),
+       .color_scheme = color_scheme});
 }
 
 mojom::blink::ColorScheme StyleEngine::AdjustAboutBlankColorScheme(
@@ -5034,6 +5032,12 @@ const CSSValue* StyleEngine::GetCachedFillOrClipPathURIValue(
 }
 
 void StyleEngine::BaseURLChanged() {
+  fill_or_clip_path_uri_value_cache_.clear();
+}
+
+void StyleEngine::ReferrerPolicyChanged() {
+  // Cached CSSURIValues carry the referrer policy of the element sheet they
+  // were parsed with.
   fill_or_clip_path_uri_value_cache_.clear();
 }
 

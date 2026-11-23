@@ -434,7 +434,8 @@ class PasswordFormManager : public PasswordFormManagerForUI,
   void DelayFillForServerSidePredictions();
 
   // Sends fill data to the renderer immediately regardless of whether server
-  // predictions are available.
+  // predictions are available. Note that this method can cause `this` to be
+  // destroyed, so no logic should be executed after calling `FillNow()`.
   void FillNow();
 
   // Checks if `best_candidate` has better signal than the username
@@ -522,6 +523,10 @@ class PasswordFormManager : public PasswordFormManagerForUI,
 
   // Time when stored credentials are received from the store. Used for metrics.
   base::TimeTicks received_stored_credentials_time_;
+
+  // Ensures that TimeBetweenStoreAndServer2 is recorded at most once during the
+  // lifetime of this form manager.
+  bool has_recorded_time_between_store_and_server_uma_ = false;
 
   PasswordFormPredictionWaiter async_predictions_waiter_;
 

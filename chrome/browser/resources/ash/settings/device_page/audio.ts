@@ -15,7 +15,6 @@ import 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import 'chrome://resources/ash/common/cr_elements/localized_link/localized_link.js';
 import 'chrome://resources/ash/common/cr_elements/policy/cr_policy_indicator.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import type {CrSliderElement} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import {CrToggleElement} from 'chrome://resources/ash/common/cr_elements/cr_toggle/cr_toggle.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
@@ -33,7 +32,8 @@ import {AudioDeviceType, AudioEffectState, AudioEffectType, AudioSystemPropertie
 import type {VoiceIsolationUIAppearance} from '../mojom-webui/cros_audio_config.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import {AudioAndCaptionsPageBrowserProxyImpl} from '../os_a11y_page/audio_and_captions_page_browser_proxy.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {routes} from '../router.js';
 
 import {getTemplate} from './audio.html.js';
@@ -151,6 +151,10 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
         type: Boolean,
         value: true,
       },
+
+      batteryStatus_: {
+        type: Object,
+      },
     };
   }
 
@@ -181,7 +185,7 @@ export class SettingsAudioElement extends SettingsAudioElementBase {
   private isSpatialAudioSupported_: boolean = false;
   declare private outputVolume_: number;
   declare private startupSoundEnabled_: boolean;
-  private batteryStatus_: BatteryStatus|undefined;
+  declare private batteryStatus_: BatteryStatus|undefined;
   declare private powerSoundsHidden_: boolean;
   declare private voiceIsolationEffectModePrefValues_: {[key: string]: number};
 

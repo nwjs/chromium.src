@@ -194,17 +194,33 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
                         (ios::provider::GeminiDormantReason)dormantReason
                         sessionID:(NSString*)sessionID
                    conversationID:(NSString*)conversationID {
+  [self didUpdateProcessingStatus:processStatus
+                    dormantReason:dormantReason
+                            error:nil
+                        errorCode:ios::provider::GeminiErrorCode::kNone
+                        sessionID:sessionID
+                   conversationID:conversationID];
+}
+
+- (void)didUpdateProcessingStatus:(ios::provider::GeminiClientMode)processStatus
+                    dormantReason:
+                        (ios::provider::GeminiDormantReason)dormantReason
+                            error:(NSError*)error
+                        errorCode:(ios::provider::GeminiErrorCode)errorCode
+                        sessionID:(NSString*)sessionID
+                   conversationID:(NSString*)conversationID {
   [self handleProcessingStatusUpdate:processStatus];
-  if (IsGeminiLiveDormantReasonsEnabled()) {
-    [self.geminiViewStateDelegate didUpdateProcessingStatus:processStatus
-                                              dormantReason:dormantReason
-                                                  sessionID:sessionID
-                                             conversationID:conversationID];
-  } else {
-    [self.geminiViewStateDelegate didUpdateProcessingStatus:processStatus
-                                                  sessionID:sessionID
-                                             conversationID:conversationID];
-  }
+  ios::provider::GeminiDormantReason reason =
+      (dormantReason != ios::provider::GeminiDormantReason::kUnknown &&
+       IsGeminiLiveDormantReasonsEnabled())
+          ? dormantReason
+          : ios::provider::GeminiDormantReason::kUnknown;
+  [self.geminiViewStateDelegate didUpdateProcessingStatus:processStatus
+                                            dormantReason:reason
+                                                    error:error
+                                                errorCode:errorCode
+                                                sessionID:sessionID
+                                           conversationID:conversationID];
 }
 
 // TODO(crbug.com/504596190): Remove this method when internal code doesn't use
@@ -295,13 +311,12 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
                    longPressImage:(BOOL)longPressImage
               pageContextAttached:(BOOL)pageContextAttached {
   NSUInteger tabsAttachedCount = 0;
-  if (IsGeminiMultiTabContextEnabled() && self.attachedTabsCountProvider) {
-    tabsAttachedCount = self.attachedTabsCountProvider();
+  if (self.geminiViewStateDelegate && IsGeminiMultiTabContextEnabled()) {
+    tabsAttachedCount = [self.geminiViewStateDelegate attachedTabsCount];
   } else {
     tabsAttachedCount = pageContextAttached ? 1 : 0;
   }
-  BOOL usedMultiTab =
-      self.isMultiTabUsedProvider ? self.isMultiTabUsedProvider() : NO;
+  BOOL usedMultiTab = [self.geminiViewStateDelegate isMultiTabUsed];
 
   _totalPromptsInSession++;
 
@@ -406,21 +421,15 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
 }
 
 - (void)didRequestToDetachTabWithID:(NSString*)tabID {
-  if (self.tabDetachRequestCallback) {
-    self.tabDetachRequestCallback(tabID);
-  }
+  [self.geminiViewStateDelegate didRequestToDetachTabWithID:tabID];
 }
 
 - (void)didAttachTabWithID:(NSString*)tabID {
-  if (self.tabAttachedCallback) {
-    self.tabAttachedCallback(tabID);
-  }
+  [self.geminiViewStateDelegate didAttachTabWithID:tabID];
 }
 
 - (void)didDetachTabWithID:(NSString*)tabID {
-  if (self.tabDetachedCallback) {
-    self.tabDetachedCallback(tabID);
-  }
+  [self.geminiViewStateDelegate didDetachTabWithID:tabID];
 }
 
 - (void)geminiLiveUserDidBargeIn {
@@ -484,6 +493,16 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
   [self.geminiViewStateDelegate
       didFinishLoadingConversationWithID:conversationID
                                    error:error];
+}
+
+- (void)inputPlateDidChangePageContextAttachment:(BOOL)isAttached {
+  [self.geminiViewStateDelegate
+      inputPlateDidChangePageContextAttachment:isAttached];
+}
+
+- (void)inputPlateDidChangeNanoBananaAttachment:(BOOL)isSelected {
+  [self.geminiViewStateDelegate
+      inputPlateDidChangeNanoBananaAttachment:isSelected];
 }
 
 - (void)handleChatMessageRequest:(GeminiChatMessageRequest*)request

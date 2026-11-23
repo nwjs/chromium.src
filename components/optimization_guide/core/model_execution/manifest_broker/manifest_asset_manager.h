@@ -27,6 +27,7 @@
 #include "base/version.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/optimization_guide/core/model_execution/component_download_observer.h"
+#include "components/optimization_guide/core/model_execution/manifest_broker/asset_priorities.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_asset_manager_delegate.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/manifest_monitor.h"
@@ -35,6 +36,7 @@
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/manifest.pb.h"
+#include "components/prefs/pref_change_registrar.h"
 
 class PrefService;
 
@@ -51,36 +53,6 @@ BASE_DECLARE_FEATURE(kScanForOrphanedManifestAssets);
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kOrphanedManifestAssetScanDelay);
 
 class UsageTracker;
-
-// Priorities for assets in the manifest.
-enum class AssetPriority {
-  kEvictable = 0,
-  kRetain = 1,
-  kSpeculative = 2,
-  kBestEffort = 3,
-  kUserBlocking = 4,
-};
-
-// Tracks the priority of assets in the manifest.
-class AssetPriorities {
- public:
-  AssetPriorities();
-  ~AssetPriorities();
-  AssetPriorities(const AssetPriorities&);
-  AssetPriorities& operator=(const AssetPriorities&);
-  AssetPriorities(AssetPriorities&&);
-  AssetPriorities& operator=(AssetPriorities&&);
-
-  void Raise(AssetPriority priority,
-             const absl::flat_hash_set<Manifest::AssetId>& assets);
-  void Clear();
-
-  bool IsAtLeast(AssetPriority priority,
-                 const Manifest::AssetId& asset_id) const;
-
- private:
-  absl::flat_hash_map<Manifest::AssetId, AssetPriority> priorities_;
-};
 
 // Manages the state of assets defined in the on-device model manifest.
 class ManifestAssetManager : public UsageTracker::Observer,
@@ -138,12 +110,17 @@ class ManifestAssetManager : public UsageTracker::Observer,
                            const std::string& version,
                            bool is_already_installed) override;
 
-  // Recomputes the priorities of assets required by use cases.
+  // Recomputes asset priorities from the current manifest and usage tracker,
+  // then updates component registrations.
   void RecomputeAssetPriorities();
 
-  // Forces eviction of evictable assets to be enabled regardless of the
-  // `kOnDeviceModelEviction` feature flag.
-  void EnableEviction();
+  // Requests uninstall for all use cases in the manifest and updates component
+  // registrations.
+  void UninstallAllAssets();
+
+  // Requests uninstall for all use cases requiring the base model asset
+  // identified by `model_asset_id` and recomputes asset priorities.
+  void UninstallCapability(const Manifest::AssetId& model_asset_id);
 
  private:
   enum class ComponentState {
@@ -348,8 +325,7 @@ class ManifestAssetManager : public UsageTracker::Observer,
 
   AssetPriorities asset_priorities_ GUARDED_BY_CONTEXT(sequence_checker_);
 
-  bool is_eviction_enabled_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
-
+  PrefChangeRegistrar pref_change_registrar_;
   base::ScopedObservation<UsageTracker, UsageTracker::Observer>
       usage_tracker_observation_{this};
   SEQUENCE_CHECKER(sequence_checker_);

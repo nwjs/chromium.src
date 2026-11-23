@@ -4,15 +4,22 @@
 
 #include "gpu/ipc/host/gpu_disk_cache.h"
 
+#include <string>
+
 #include "base/debug/leak_annotations.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
+#include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "build/build_config.h"
+#include "net/base/features.h"
 #include "net/base/net_errors.h"
 #include "net/base/test_completion_callback.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -25,6 +32,24 @@ const char kCacheKey[] = "key";
 const char kCacheValue[] = "cached value";
 const char kCacheKey2[] = "key2";
 const char kCacheValue2[] = "cached value2";
+
+// Creates `dir` containing a single file of `size_kb` KB.
+[[nodiscard]] bool CreateDirWithSize(const base::FilePath& dir, int size_kb) {
+  return base::CreateDirectory(dir) &&
+         base::WriteFile(dir.AppendASCII("data"),
+                         std::string(size_kb * 1024, 'x'));
+}
+
+// Creates a cache for `handle`, waits until it is available and then releases
+// it.
+void CreateAndReleaseCache(GpuDiskCacheFactory* factory,
+                           const GpuDiskCacheHandle& handle) {
+  scoped_refptr<GpuDiskCache> cache = factory->Create(handle);
+  ASSERT_TRUE(cache);
+  net::TestCompletionCallback available_cb;
+  ASSERT_EQ(net::OK, available_cb.GetResult(
+                         cache->SetAvailableCallback(available_cb.callback())));
+}
 
 }  // namespace
 
@@ -45,7 +70,9 @@ class GpuDiskCacheTest : public testing::Test {
 
   ~GpuDiskCacheTest() override = default;
 
-  const base::FilePath& cache_path() { return temp_dir_.GetPath(); }
+  base::FilePath cache_path() {
+    return temp_dir_.GetPath().AppendASCII("cache");
+  }
 
   void InitCache() {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
@@ -55,11 +82,16 @@ class GpuDiskCacheTest : public testing::Test {
 
   GpuDiskCacheFactory* factory() { return factory_.get(); }
 
+  void FlushCacheTasks() {
+    disk_cache::FlushCacheThreadForTesting();
+    task_environment_.RunUntilIdle();
+  }
+
   void TearDown() override {
     // Run all pending tasks before destroying TaskEnvironment. Otherwise,
     // SimpleEntryImpl instances bound to pending tasks are destroyed in an
     // incorrect state (see |state_| DCHECK in ~SimpleEntryImpl).
-    task_environment_.RunUntilIdle();
+    FlushCacheTasks();
   }
 
   int32_t GetCacheSize(GpuDiskCache* cache) {
@@ -382,5 +414,378 @@ TEST_F(GpuDiskCacheTest, SetAvailableCallbackReturnsErrorAfterCreationFailure) {
 
   EXPECT_TRUE(clear_completed);
 }
+
+TEST_F(GpuDiskCacheTest, ShaderDiskCacheBackendExperimentDisabledDoesNotWipe) {
+  InitCache();
+
+  // Populate cache with the experiment disabled.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        net::features::kShaderDiskCacheBackendExperiment);
+
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(handle_);
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    cache->Cache(kCacheKey, kCacheValue);
+    net::TestCompletionCallback complete_cb;
+    ASSERT_EQ(net::OK, complete_cb.GetResult(cache->SetCacheCompleteCallback(
+                           complete_cb.callback())));
+  }
+  FlushCacheTasks();
+
+  // Re-open with the experiment still disabled (Group 1: No-op) and verify
+  // existing entries are preserved.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        net::features::kShaderDiskCacheBackendExperiment);
+
+    std::vector<std::pair<std::string, std::string>> loaded_data;
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(
+        handle_,
+        base::BindLambdaForTesting([&loaded_data](const GpuDiskCacheHandle&,
+                                                  const std::string& key,
+                                                  const std::string& value) {
+          loaded_data.emplace_back(key, value);
+        }));
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    EXPECT_THAT(loaded_data,
+                testing::ElementsAre(std::pair(kCacheKey, kCacheValue)));
+  }
+}
+
+TEST_F(GpuDiskCacheTest, ShaderDiskCacheBackendExperimentDefaultWipesOnce) {
+  InitCache();
+
+  // Populate a pre-experiment cache on disk.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        net::features::kShaderDiskCacheBackendExperiment);
+
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(handle_);
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    cache->Cache(kCacheKey, kCacheValue);
+    net::TestCompletionCallback complete_cb;
+    ASSERT_EQ(net::OK, complete_cb.GetResult(cache->SetCacheCompleteCallback(
+                           complete_cb.callback())));
+  }
+  FlushCacheTasks();
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      net::features::kShaderDiskCacheBackendExperiment, {{"type", "default"}});
+
+  // First open in Group 2 (Status quo + wipe) must wipe the pre-existing cache
+  // and write the new entry.
+  {
+    std::vector<std::pair<std::string, std::string>> loaded_data;
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(
+        handle_,
+        base::BindLambdaForTesting([&loaded_data](const GpuDiskCacheHandle&,
+                                                  const std::string& key,
+                                                  const std::string& value) {
+          loaded_data.emplace_back(key, value);
+        }));
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    EXPECT_TRUE(loaded_data.empty());
+    EXPECT_EQ(0, GetCacheSize(cache.get()));
+
+    cache->Cache(kCacheKey2, kCacheValue2);
+    net::TestCompletionCallback complete_cb;
+    ASSERT_EQ(net::OK, complete_cb.GetResult(cache->SetCacheCompleteCallback(
+                           complete_cb.callback())));
+    EXPECT_EQ(1, GetCacheSize(cache.get()));
+  }
+  FlushCacheTasks();
+
+  // Second open in Group 2 must NOT wipe the cache again.
+  {
+    std::vector<std::pair<std::string, std::string>> loaded_data;
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(
+        handle_,
+        base::BindLambdaForTesting([&loaded_data](const GpuDiskCacheHandle&,
+                                                  const std::string& key,
+                                                  const std::string& value) {
+          loaded_data.emplace_back(key, value);
+        }));
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    EXPECT_THAT(loaded_data,
+                testing::ElementsAre(std::pair(kCacheKey2, kCacheValue2)));
+  }
+}
+
+TEST_F(GpuDiskCacheTest, ShaderDiskCacheBackendExperimentSimpleWipesOnce) {
+  InitCache();
+
+  // Populate a pre-experiment cache on disk.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        net::features::kShaderDiskCacheBackendExperiment);
+
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(handle_);
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    cache->Cache(kCacheKey, kCacheValue);
+    net::TestCompletionCallback complete_cb;
+    ASSERT_EQ(net::OK, complete_cb.GetResult(cache->SetCacheCompleteCallback(
+                           complete_cb.callback())));
+  }
+  FlushCacheTasks();
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      net::features::kShaderDiskCacheBackendExperiment, {{"type", "simple"}});
+
+  // First open in Group 3 (SimpleCache + wipe) must wipe the pre-existing
+  // cache, recreate it with SimpleCache, and write the new entry.
+  {
+    std::vector<std::pair<std::string, std::string>> loaded_data;
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(
+        handle_,
+        base::BindLambdaForTesting([&loaded_data](const GpuDiskCacheHandle&,
+                                                  const std::string& key,
+                                                  const std::string& value) {
+          loaded_data.emplace_back(key, value);
+        }));
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    EXPECT_TRUE(loaded_data.empty());
+    EXPECT_EQ(0, GetCacheSize(cache.get()));
+
+    cache->Cache(kCacheKey2, kCacheValue2);
+    net::TestCompletionCallback complete_cb;
+    ASSERT_EQ(net::OK, complete_cb.GetResult(cache->SetCacheCompleteCallback(
+                           complete_cb.callback())));
+    EXPECT_EQ(1, GetCacheSize(cache.get()));
+  }
+
+  // Closing SimpleBackendImpl flushes the real index into `index-dir`.
+  FlushCacheTasks();
+  EXPECT_TRUE(base::DirectoryExists(cache_path().AppendASCII("index-dir")));
+
+  // Second open in Group 3 must NOT wipe the cache again.
+  {
+    std::vector<std::pair<std::string, std::string>> loaded_data;
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(
+        handle_,
+        base::BindLambdaForTesting([&loaded_data](const GpuDiskCacheHandle&,
+                                                  const std::string& key,
+                                                  const std::string& value) {
+          loaded_data.emplace_back(key, value);
+        }));
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    EXPECT_THAT(loaded_data,
+                testing::ElementsAre(std::pair(kCacheKey2, kCacheValue2)));
+  }
+}
+
+TEST_F(GpuDiskCacheTest,
+       ShaderDiskCacheBackendExperimentWipesExistingSimpleCacheOnce) {
+  InitCache();
+
+  // Populate a pre-experiment SimpleCache on disk (simulating platforms such
+  // as Android/Fuchsia where SimpleCache is the default backend).
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndDisableFeature(
+        net::features::kShaderDiskCacheBackendExperiment);
+
+    base::test::TestFuture<disk_cache::BackendResult> create_future;
+    disk_cache::BackendResult rv = disk_cache::CreateCacheBackend(
+        net::SHADER_CACHE, net::CACHE_BACKEND_SIMPLE,
+        /*file_operations=*/nullptr, cache_path(), /*max_bytes=*/0,
+        disk_cache::ResetHandling::kResetOnError, /*net_log=*/nullptr,
+        /*cache_encryption_delegate=*/nullptr, create_future.GetCallback());
+    ASSERT_EQ(net::ERR_IO_PENDING, rv.net_error);
+    disk_cache::BackendResult backend_result = create_future.Take();
+    ASSERT_EQ(net::OK, backend_result.net_error);
+
+    base::test::TestFuture<disk_cache::EntryResult> entry_future;
+    disk_cache::EntryResult entry_rv = backend_result.backend->CreateEntry(
+        kCacheKey, net::HIGHEST, entry_future.GetCallback());
+    if (entry_rv.net_error() == net::ERR_IO_PENDING) {
+      entry_rv = entry_future.Take();
+    }
+    ASSERT_EQ(net::OK, entry_rv.net_error());
+    entry_rv.ReleaseEntry()->Close();
+  }
+  FlushCacheTasks();
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      net::features::kShaderDiskCacheBackendExperiment, {{"type", "simple"}});
+
+  // First open under the experiment must wipe the pre-existing SimpleCache.
+  {
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(handle_);
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    EXPECT_EQ(0, GetCacheSize(cache.get()));
+
+    cache->Cache(kCacheKey2, kCacheValue2);
+    net::TestCompletionCallback complete_cb;
+    ASSERT_EQ(net::OK, complete_cb.GetResult(cache->SetCacheCompleteCallback(
+                           complete_cb.callback())));
+    EXPECT_EQ(1, GetCacheSize(cache.get()));
+  }
+  FlushCacheTasks();
+
+  // Second open under the experiment must preserve entries.
+  {
+    std::vector<std::pair<std::string, std::string>> loaded_data;
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(
+        handle_,
+        base::BindLambdaForTesting([&loaded_data](const GpuDiskCacheHandle&,
+                                                  const std::string& key,
+                                                  const std::string& value) {
+          loaded_data.emplace_back(key, value);
+        }));
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    EXPECT_THAT(loaded_data,
+                testing::ElementsAre(std::pair(kCacheKey2, kCacheValue2)));
+  }
+}
+
+#if BUILDFLAG(IS_WIN)
+TEST_F(GpuDiskCacheTest, RecordsDiskSizeWhenCacheIsCreated) {
+  constexpr char kGlHistogram[] = "GPU.ShaderCache.DiskSize.GlShaders";
+  constexpr char kWebGpuHistogram[] = "GPU.ShaderCache.DiskSize.DawnWebGPU";
+  base::HistogramTester histogram_tester;
+  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+  const base::FilePath gl_path = cache_path().AppendASCII("GPUCache");
+  const base::FilePath webgpu_path =
+      cache_path().AppendASCII("DawnWebGPUCache");
+  ASSERT_TRUE(CreateDirWithSize(gl_path, 10));
+  ASSERT_TRUE(CreateDirWithSize(webgpu_path, 20));
+
+  const GpuDiskCacheHandle gl_handle =
+      factory()->GetCacheHandle(GpuDiskCacheType::kGlShaders, gl_path);
+  factory()->GetCacheHandle(GpuDiskCacheType::kDawnWebGPU, webgpu_path);
+  base::ThreadPoolInstance::Get()->FlushForTesting();
+
+  // Registering a cache doesn't record its size.
+  histogram_tester.ExpectTotalCount(kGlHistogram, 0);
+  histogram_tester.ExpectTotalCount(kWebGpuHistogram, 0);
+
+  ASSERT_NO_FATAL_FAILURE(CreateAndReleaseCache(factory(), gl_handle));
+  base::ThreadPoolInstance::Get()->FlushForTesting();
+
+  // The size can include files created by the cache backend, so only check a
+  // lower bound.
+  histogram_tester.ExpectTotalCount(kGlHistogram, 1);
+  EXPECT_GE(histogram_tester.GetTotalSum(kGlHistogram), 10);
+  histogram_tester.ExpectTotalCount(kWebGpuHistogram, 0);
+}
+
+TEST_F(GpuDiskCacheTest, RecordsDiskSizeOncePerPath) {
+  constexpr char kHistogram[] = "GPU.ShaderCache.DiskSize.GlShaders";
+  base::HistogramTester histogram_tester;
+  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+  const base::FilePath gl_path = cache_path().AppendASCII("GPUCache");
+  ASSERT_TRUE(CreateDirWithSize(gl_path, 10));
+
+  const GpuDiskCacheHandle gl_handle =
+      factory()->GetCacheHandle(GpuDiskCacheType::kGlShaders, gl_path);
+  {
+    scoped_refptr<GpuDiskCache> cache = factory()->Create(gl_handle);
+    ASSERT_TRUE(cache);
+    net::TestCompletionCallback available_cb;
+    ASSERT_EQ(net::OK, available_cb.GetResult(cache->SetAvailableCallback(
+                           available_cb.callback())));
+    // Release the only reference to `gl_handle`, which unregisters `gl_path`.
+    factory()->ReleaseCacheHandle(cache.get());
+  }
+
+  // Registering `gl_path` again creates a new handle, but creating a cache for
+  // it must not record the size again.
+  const GpuDiskCacheHandle new_gl_handle =
+      factory()->GetCacheHandle(GpuDiskCacheType::kGlShaders, gl_path);
+  EXPECT_NE(gl_handle, new_gl_handle);
+  ASSERT_NO_FATAL_FAILURE(CreateAndReleaseCache(factory(), new_gl_handle));
+  base::ThreadPoolInstance::Get()->FlushForTesting();
+
+  histogram_tester.ExpectTotalCount(kHistogram, 1);
+}
+
+TEST_F(GpuDiskCacheTest, RecordsDiskSizeForReservedHandles) {
+  constexpr char kCompositorHistogram[] =
+      "GPU.ShaderCache.DiskSize.DisplayCompositor";
+  constexpr char kGrShaderHistogram[] = "GPU.ShaderCache.DiskSize.GrShader";
+  base::HistogramTester histogram_tester;
+  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+  const base::FilePath compositor_path =
+      cache_path().AppendASCII("ShaderCache");
+  const base::FilePath gr_shader_path =
+      cache_path().AppendASCII("GrShaderCache");
+  ASSERT_TRUE(CreateDirWithSize(compositor_path, 10));
+  ASSERT_TRUE(CreateDirWithSize(gr_shader_path, 20));
+
+  GpuDiskCacheFactory::HandleToPathMap reserved_handles;
+  reserved_handles.emplace(kDisplayCompositorGpuDiskCacheHandle,
+                           compositor_path);
+  reserved_handles.emplace(kGrShaderGpuDiskCacheHandle, gr_shader_path);
+  // Leaked on purpose, like `factory_`.
+  GpuDiskCacheFactory* reserved_factory =
+      new GpuDiskCacheFactory(reserved_handles);
+  ANNOTATE_LEAKING_OBJECT_PTR(reserved_factory);
+  base::ThreadPoolInstance::Get()->FlushForTesting();
+
+  // Registering the reserved handles doesn't record their sizes.
+  histogram_tester.ExpectTotalCount(kCompositorHistogram, 0);
+  histogram_tester.ExpectTotalCount(kGrShaderHistogram, 0);
+
+  ASSERT_NO_FATAL_FAILURE(
+      CreateAndReleaseCache(reserved_factory, kGrShaderGpuDiskCacheHandle));
+  base::ThreadPoolInstance::Get()->FlushForTesting();
+
+  histogram_tester.ExpectTotalCount(kGrShaderHistogram, 1);
+  EXPECT_GE(histogram_tester.GetTotalSum(kGrShaderHistogram), 20);
+  histogram_tester.ExpectTotalCount(kCompositorHistogram, 0);
+}
+#else
+TEST_F(GpuDiskCacheTest, DoesNotRecordDiskSize) {
+  base::HistogramTester histogram_tester;
+  ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
+  const base::FilePath gl_path = cache_path().AppendASCII("GPUCache");
+  ASSERT_TRUE(CreateDirWithSize(gl_path, 10));
+
+  ASSERT_NO_FATAL_FAILURE(CreateAndReleaseCache(
+      factory(),
+      factory()->GetCacheHandle(GpuDiskCacheType::kGlShaders, gl_path)));
+  base::ThreadPoolInstance::Get()->FlushForTesting();
+
+  // The sizes are only recorded on Windows.
+  histogram_tester.ExpectTotalCount("GPU.ShaderCache.DiskSize.GlShaders", 0);
+}
+#endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace gpu

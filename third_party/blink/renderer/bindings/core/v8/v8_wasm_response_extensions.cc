@@ -8,11 +8,11 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
-#include "base/numerics/safe_conversions.h"
+#include "base/numerics/checked_math.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "components/crash/core/common/crash_key.h"
+#include "mojo/public/cpp/base/big_buffer.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
@@ -38,7 +38,6 @@
 #include "third_party/blink/renderer/platform/loader/fetch/cached_metadata.h"
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/cached_metadata_handler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
@@ -46,74 +45,45 @@ namespace blink {
 
 namespace {
 
-// The first `kWireBytesDigestSize` bytes of CachedMetadata body stores the
-// SHA-256 hash of the wire bytes and created/consumed here in Blink. The
-// remaining part of CachedMetadata is created/consumed by V8.
-static const size_t kWireBytesDigestSize = 32;
+// After the header, the next `kWireBytesDigestSize` bytes of CachedMetadata
+// body stores the SHA-256 hash of the wire bytes and created/consumed here in
+// Blink. The remaining part of CachedMetadata is created/consumed by V8.
+constexpr size_t kWireBytesDigestSize = 32;
 
 // Wasm only has a single metadata type, but we need to tag it.
 // `2` is used to invalidate old cached data (which used kWasmModuleTag = 1).
-static const int kWasmModuleTag = 2;
+constexpr int kWasmModuleTag = 2;
 
-void SendCachedData(
-    String response_url,
-    base::Time response_time,
-    mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
-        cache_storage_side_data_writer,
-    ExecutionContext* execution_context,
-    Vector<uint8_t> serialized_module) {
-  if (!execution_context) {
-    return;
-  }
-  scoped_refptr<CachedMetadata> cached_metadata =
-      CachedMetadata::CreateFromSerializedData(std::move(serialized_module));
-
-  CodeCacheHost* code_cache_host =
-      ExecutionContext::GetCodeCacheHostFromContext(execution_context);
-  CachedMetadataSender::SendToCodeCacheHost(
-      code_cache_host, mojom::blink::CodeCacheType::kWebAssembly, response_url,
-      response_time, std::move(cache_storage_side_data_writer),
-      cached_metadata->SerializedData());
-}
-
-class WasmCodeCachingCallback {
+class WasmCodeCachingCallback
+    : public base::RefCountedThreadSafe<WasmCodeCachingCallback> {
  public:
   WasmCodeCachingCallback(
       const String& response_url,
-      const base::Time& response_time,
-      mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
-          cache_storage_side_data_writer,
+      std::unique_ptr<CachedMetadataSender> sender,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       ExecutionContext* execution_context)
       : response_url_(response_url),
-        response_time_(response_time),
-        cache_storage_side_data_writer_(
-            std::move(cache_storage_side_data_writer)),
+        sender_(std::move(sender)),
         execution_context_task_runner_(std::move(task_runner)),
         execution_context_(execution_context) {}
 
   WasmCodeCachingCallback(const WasmCodeCachingCallback&) = delete;
   WasmCodeCachingCallback operator=(const WasmCodeCachingCallback&) = delete;
 
+  // Called on a V8 background thread.
   void OnMoreFunctionsCanBeSerialized(v8::CompiledWasmModule compiled_module) {
-    // Called from V8 background thread.
     TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                         "v8.wasm.compiledModule", "url", response_url_.Utf8());
-    v8::OwnedBuffer serialized_module;
-    {
-      // Use a standard milliseconds based timer (up to 10 seconds, 50 buckets),
-      // similar to "V8.WasmDeserializationTimeMilliSeconds" defined in V8.
-      SCOPED_UMA_HISTOGRAM_TIMER("V8.WasmSerializationTimeMilliSeconds");
-      serialized_module = compiled_module.Serialize();
-    }
+    v8::OwnedBuffer serialized_module = compiled_module.Serialize();
+    base::span<const uint8_t> module_bytes = serialized_module.as_span();
     // V8 might not be able to serialize the module.
-    if (serialized_module.size == 0) {
+    if (module_bytes.empty()) {
       return;
     }
 
     TRACE_EVENT_INSTANT(TRACE_DISABLED_BY_DEFAULT("devtools.timeline"),
                         "v8.wasm.cachedModule", "producedCacheSize",
-                        serialized_module.size);
+                        module_bytes.size());
 
     DigestValue wire_bytes_digest;
     {
@@ -129,38 +99,43 @@ class WasmCodeCachingCallback {
       }
     }
 
-    // The resources needed for caching may have been GC'ed, but we should still
-    // save the compiled module. Use the platform API directly.
-    Vector<uint8_t> serialized_data = CachedMetadata::GetSerializedDataHeader(
-        kWasmModuleTag, kWireBytesDigestSize + base::checked_cast<wtf_size_t>(
-                                                   serialized_module.size));
-    serialized_data.append_range(wire_bytes_digest);
-    // SAFETY: v8::CompiledWasmModule::Serialize ensures the
-    // serialized_module.buffer size is equal to serialized_module.size.
-    serialized_data.append_range(UNSAFE_BUFFERS(base::span(
-        base::unchecked,
-        reinterpret_cast<const uint8_t*>(serialized_module.buffer.get()),
-        serialized_module.size)));
-
-    // Make sure the data could be copied.
-    if (serialized_data.size() < serialized_module.size) {
-      return;
-    }
+    mojo_base::BigBuffer serialized_data(
+        base::CheckAdd(sizeof(CachedMetadataHeader) + kWireBytesDigestSize,
+                       module_bytes.size())
+            .ValueOrDie());
+    base::span<uint8_t> serialized_data_span(serialized_data);
+    const CachedMetadataHeader header = {
+        .marker = CachedMetadataHandler::kSingleEntryWithTag,
+        .type = kWasmModuleTag,
+    };
+    serialized_data_span.take_first<sizeof(header)>().copy_from_nonoverlapping(
+        base::byte_span_from_ref(header));
+    serialized_data_span.take_first<kWireBytesDigestSize>()
+        .copy_from_nonoverlapping(wire_bytes_digest);
+    serialized_data_span.copy_from_nonoverlapping(module_bytes);
 
     DCHECK(execution_context_task_runner_.get());
     execution_context_task_runner_->PostTask(
-        FROM_HERE,
-        ConvertToBaseOnceCallback(CrossThreadBindOnce(
-            &SendCachedData, response_url_, response_time_,
-            std::move(cache_storage_side_data_writer_), execution_context_,
-            std::move(serialized_data))));
+        FROM_HERE, ConvertToBaseOnceCallback(CrossThreadBindOnce(
+                       &WasmCodeCachingCallback::SendCachedData,
+                       WrapRefCounted(this), std::move(serialized_data))));
   }
 
  private:
+  friend class base::RefCountedThreadSafe<WasmCodeCachingCallback>;
+  ~WasmCodeCachingCallback() = default;
+
+  void SendCachedData(mojo_base::BigBuffer data) {
+    if (!execution_context_) {
+      return;
+    }
+    CodeCacheHost* code_cache_host =
+        ExecutionContext::GetCodeCacheHostFromContext(execution_context_);
+    sender_->Send(code_cache_host, std::move(data));
+  }
+
   const String response_url_;
-  const base::Time response_time_;
-  mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
-      cache_storage_side_data_writer_;
+  std::unique_ptr<CachedMetadataSender> sender_;
   scoped_refptr<base::SingleThreadTaskRunner> execution_context_task_runner_;
   CrossThreadWeakPersistent<ExecutionContext> execution_context_;
 };
@@ -186,7 +161,7 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
       std::shared_ptr<v8::WasmStreaming> streaming,
       ScriptState* script_state,
       CachedMetadataHandler* cache_handler,
-      std::shared_ptr<WasmCodeCachingCallback> code_caching_callback)
+      scoped_refptr<WasmCodeCachingCallback> code_caching_callback)
       : url_(url),
         streaming_(std::move(streaming)),
         script_state_(script_state),
@@ -295,18 +270,14 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
                   base::UmaHistogramEnumeration(
                       "V8.WasmCodeCaching",
                       WasmCodeCaching::kInvalidCacheEntry);
-                  // TODO(mythria): Also support using context specific code
-                  // cache host here. When we pass nullptr for CodeCacheHost
-                  // we use per-process interface. Currently this code is
-                  // run on a thread started via a Platform::PostJob. So it
-                  // isn't safe to use CodeCacheHost interface that was
-                  // bound on the frame / worker threads. We should instead
-                  // post a task back to the frame / worker threads with the
-                  // required data which can then write to generated code
-                  // caches.
+                  // Clear the invalid in-memory cached metadata locally.
+                  // Ownership of `cache_handler_`'s `CachedMetadataSender` has
+                  // already been transferred to `WasmCodeCachingCallback`,
+                  // which will overwrite persistent storage once V8 compiles
+                  // the module from wire bytes.
                   cache_handler_->ClearCachedMetadata(
-                      /*code_cache_host*/ nullptr,
-                      CachedMetadataHandler::kClearPersistentStorage);
+                      /*code_cache_host=*/nullptr,
+                      CachedMetadataHandler::kClearLocally);
                 }
               };
             }
@@ -425,7 +396,7 @@ class FetchDataLoaderForWasmStreaming final : public FetchDataLoader,
   std::shared_ptr<v8::WasmStreaming> streaming_;
   const Member<ScriptState> script_state_;
   Member<CachedMetadataHandler> cache_handler_;
-  std::shared_ptr<WasmCodeCachingCallback> code_caching_callback_;
+  scoped_refptr<WasmCodeCachingCallback> code_caching_callback_;
   CodeCacheState code_cache_state_ = CodeCacheState::kBeforeFirstByte;
 };
 
@@ -611,22 +582,22 @@ void StreamFromResponseCallback(
   const std::string& url_utf8 = url.Utf8();
   streaming->SetUrl(url_utf8.c_str(), url_utf8.size());
   auto* cache_handler = response->BodyBuffer()->GetCachedMetadataHandler();
-  std::shared_ptr<WasmCodeCachingCallback> code_caching_callback;
+  scoped_refptr<WasmCodeCachingCallback> code_caching_callback;
   if (cache_handler) {
-    auto* execution_context = ExecutionContext::From(script_state);
-    DCHECK_NE(execution_context, nullptr);
+    if (std::unique_ptr<CachedMetadataSender> sender =
+            cache_handler->TakeSender()) {
+      auto* execution_context = ExecutionContext::From(script_state);
+      DCHECK_NE(execution_context, nullptr);
 
-    code_caching_callback = std::make_shared<WasmCodeCachingCallback>(
-        url, response->GetResponse()->InternalResponse()->ResponseTime(),
-        response->GetResponse()
-            ->InternalResponse()
-            ->TakeCacheStorageSideDataWriter(),
-        GetContextTaskRunner(*execution_context), execution_context);
-    streaming->SetMoreFunctionsCanBeSerializedCallback(
-        [code_caching_callback](v8::CompiledWasmModule compiled_module) {
-          code_caching_callback->OnMoreFunctionsCanBeSerialized(
-              std::move(compiled_module));
-        });
+      code_caching_callback = base::MakeRefCounted<WasmCodeCachingCallback>(
+          url, std::move(sender), GetContextTaskRunner(*execution_context),
+          execution_context);
+      streaming->SetMoreFunctionsCanBeSerializedCallback(
+          [code_caching_callback](v8::CompiledWasmModule compiled_module) {
+            code_caching_callback->OnMoreFunctionsCanBeSerialized(
+                std::move(compiled_module));
+          });
+    }
   }
 
   FetchDataLoaderForWasmStreaming* loader =

@@ -38,10 +38,9 @@
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/save_password_progress_logger.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/core/browser/generation/password_generator.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -156,7 +155,9 @@ PasswordChangeDelegateImpl::PasswordChangeDelegateImpl(
     GURL change_password_url,
     password_manager::PasswordForm credentials,
     tabs::TabInterface* tab_interface)
-    : change_password_url_(std::move(change_password_url)),
+    : change_password_url_(change_password_url.is_empty()
+                               ? credentials.url
+                               : std::move(change_password_url)),
       password_form_info_(std::move(credentials)),
       originator_(tab_interface->GetContents()),
       profile_(Profile::FromBrowserContext(originator_->GetBrowserContext())),
@@ -301,8 +302,7 @@ void PasswordChangeDelegateImpl::StartPasswordChangeFlow() {
   flow_start_time_ = base::Time::Now();
 
   logs_uploader_ = std::make_unique<ModelQualityLogsUploader>(
-      originator_, change_password_url_.is_empty() ? password_form_info_.url
-                                                   : change_password_url_);
+      originator_, change_password_url_);
   logs_uploader_->SetLoginPasswordFormInfo(password_form_info_);
 
   if (!actuator_) {
@@ -423,17 +423,7 @@ void PasswordChangeDelegateImpl::CancelPasswordChangeFlow() {
     logger->LogMessage(BrowserSavePasswordProgressLogger::
                            STRING_AUTOMATED_PASSWORD_CHANGE_CANCEL_FLOW);
   }
-  if (login_state_checker_ && logs_uploader_) {
-    logs_uploader_->SetFlowInterrupted(
-        ModelQualityLogsUploader::FlowStep::
-            PasswordChangeRequest_FlowStep_IS_LOGGED_IN_STEP,
-        ModelQualityLogsUploader::QualityStatus::
-            PasswordChangeQuality_StepQuality_SubmissionStatus_FLOW_INTERRUPTED);
-  }
-  if (actuator_) {
-    actuator_->Cancel();
-  }
-  ResetInternalState();
+  CancelOngoingFlow();
   UpdateState(State::kCanceled);
 }
 
@@ -460,20 +450,8 @@ void PasswordChangeDelegateImpl::OnTabWillDetach(
   base::UmaHistogramEnumeration("PasswordManager.PasswordChange.UserClosedTab",
                                 current_state_);
 
-  if (login_state_checker_ && logs_uploader_) {
-    logs_uploader_->SetFlowInterrupted(
-        ModelQualityLogsUploader::FlowStep::
-            PasswordChangeRequest_FlowStep_IS_LOGGED_IN_STEP,
-        ModelQualityLogsUploader::QualityStatus::
-            PasswordChangeQuality_StepQuality_SubmissionStatus_FLOW_INTERRUPTED);
-  }
-  if (actuator_) {
-    // Notify actuator to record and treat it as cancelation.
-    actuator_->Cancel();
-  }
-
   // Reset pointers immediately to avoid keeping dangling pointer to the tab.
-  ResetInternalState();
+  CancelOngoingFlow();
   originator_ = nullptr;
   ui_controller_.reset();
   Stop();
@@ -508,17 +486,16 @@ void PasswordChangeDelegateImpl::OpenPasswordDetails() {
     return;
   }
 
-  const GURL& target_url = change_password_url_.is_empty()
-                               ? password_form_info_.url
-                               : change_password_url_;
   bool is_same_domain = affiliations::IsExtendedPublicSuffixDomainMatch(
-      target_url, originator_->GetLastCommittedURL(), {});
+      change_password_url_, originator_->GetLastCommittedURL(), {});
 
   if (is_same_domain) {
+    // UI boundary: the confirmation bubble requires the plaintext password.
     ManagePasswordsUIController::FromWebContents(originator_)
         ->ShowChangePasswordBubble(
             password_form_info_.username_value,
-            actuator_ ? actuator_->GetGeneratedPassword() : std::u16string());
+            actuator_ ? actuator_->GetGeneratedPassword().value()
+                      : std::u16string());
   } else {
     auto* tab = tabs::TabInterface::GetFromContents(originator_);
     BrowserWindowInterface* browser = tab->GetBrowserWindowInterface();
@@ -628,9 +605,7 @@ bool PasswordChangeDelegateImpl::IsPrivacyNoticeAcknowledged() const {
 
 std::u16string PasswordChangeDelegateImpl::GetDisplayOrigin() const {
   return url_formatter::FormatUrlForSecurityDisplay(
-      change_password_url_.is_empty() ? password_form_info_.url
-                                      : change_password_url_,
-      url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
+      change_password_url_, url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
 }
 
 void PasswordChangeDelegateImpl::OnCrossOriginNavigationDetected() {
@@ -647,6 +622,20 @@ void PasswordChangeDelegateImpl::OnCrossOriginNavigationDetected() {
 
 base::WeakPtr<PasswordChangeDelegate> PasswordChangeDelegateImpl::AsWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
+}
+
+void PasswordChangeDelegateImpl::CancelOngoingFlow() {
+  if (login_state_checker_ && logs_uploader_) {
+    logs_uploader_->SetFlowInterrupted(
+        ModelQualityLogsUploader::FlowStep::
+            PasswordChangeRequest_FlowStep_IS_LOGGED_IN_STEP,
+        ModelQualityLogsUploader::QualityStatus::
+            PasswordChangeQuality_StepQuality_SubmissionStatus_FLOW_INTERRUPTED);
+  }
+  if (actuator_) {
+    actuator_->Cancel();
+  }
+  ResetInternalState();
 }
 
 void PasswordChangeDelegateImpl::ResetInternalState() {

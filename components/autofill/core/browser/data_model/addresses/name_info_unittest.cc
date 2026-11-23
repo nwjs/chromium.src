@@ -56,20 +56,6 @@ struct FullAlternativeNameTestCase {
   std::u16string family_name_output;
 };
 
-// Profiles are considered migrated if the regular name fields are empty and the
-// alternative name fields are populated with regular name original values.
-MATCHER_P(NameIsMigrated, original_profile, "") {
-  return arg.record_type() == original_profile.record_type() &&
-         original_profile.GetRawInfo(NAME_FULL) ==
-             arg.GetRawInfo(ALTERNATIVE_FULL_NAME) &&
-         original_profile.GetRawInfo(NAME_LAST) ==
-             arg.GetRawInfo(ALTERNATIVE_FAMILY_NAME) &&
-         original_profile.GetRawInfo(NAME_FIRST) ==
-             arg.GetRawInfo(ALTERNATIVE_GIVEN_NAME) &&
-         arg.GetRawInfo(NAME_FULL).empty() &&
-         arg.GetNameInfo().GetRootForType(NAME_FULL)->AllDescendantsAreEmpty();
-}
-
 class SetFullNameTest : public TestWithParam<FullNameTestCase> {};
 
 TEST_P(SetFullNameTest, SetFullName) {
@@ -495,6 +481,157 @@ TEST_F(NameInfoTest, FinalizeAfterImportWithIncompleteNameAndAlternativeName) {
 
   name.GetMatchingTypes(u"ヤマモト アオイ", "JP", &matching_types);
   EXPECT_EQ(matching_types, FieldTypeSet({ALTERNATIVE_FULL_NAME}));
+}
+
+// Tests that `FinalizeAfterImport` wipes invalid name and alternative name
+// subcomponents and re-parses the full names even when the root nodes are not
+// user-verified.
+TEST_F(NameInfoTest, FinalizeAfterImportWipeInvalidNameStructure) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillWipeInvalidNameStructure};
+
+  NameInfo name(/*alternative_names_supported=*/true);
+  test::FormGroupValues name_values = {
+      {.type = NAME_FULL,
+       .value = "Peter Pan",
+       .verification_status = VerificationStatus::kObserved},
+      {.type = NAME_FIRST,
+       .value = "Peter",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = NAME_LAST,
+       .value = "A Pan",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = NAME_LAST_SECOND,
+       .value = "A Pan",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = ALTERNATIVE_FULL_NAME,
+       .value = "やまもと あおい",
+       .verification_status = VerificationStatus::kObserved},
+      {.type = ALTERNATIVE_GIVEN_NAME,
+       .value = "あおい",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = ALTERNATIVE_FAMILY_NAME,
+       .value = "さとう",
+       .verification_status = VerificationStatus::kParsed}};
+  test::SetFormGroupValues(name, name_values);
+
+  EXPECT_TRUE(name.FinalizeAfterImport());
+
+  test::FormGroupValues expectation = {
+      {.type = NAME_FULL,
+       .value = "Peter Pan",
+       .verification_status = VerificationStatus::kObserved},
+      {.type = NAME_FIRST,
+       .value = "Peter",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = NAME_MIDDLE,
+       .value = "",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = NAME_LAST,
+       .value = "Pan",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = NAME_LAST_FIRST,
+       .value = "",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = NAME_LAST_SECOND,
+       .value = "Pan",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = NAME_LAST_CONJUNCTION,
+       .value = "",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = ALTERNATIVE_FULL_NAME,
+       .value = "やまもと あおい",
+       .verification_status = VerificationStatus::kObserved},
+      {.type = ALTERNATIVE_GIVEN_NAME,
+       .value = "あおい",
+       .verification_status = VerificationStatus::kParsed},
+      {.type = ALTERNATIVE_FAMILY_NAME,
+       .value = "やまもと",
+       .verification_status = VerificationStatus::kParsed}};
+  test::VerifyFormGroupValues(name, expectation);
+}
+
+// Tests that structured name and alternative name subcomponents are preserved
+// when `NAME_FULL` or `ALTERNATIVE_FULL_NAME` is updated via
+// `SetRawInfoWithVerificationStatus` to a token-equivalent value, and wiped
+// when updated to a non-token-equivalent value.
+TEST_F(NameInfoTest, ResetStructuredNameTokens) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillWipeInvalidNameStructure};
+
+  NameInfo name(/*alternative_names_supported=*/true);
+  name.SetRawInfoWithVerificationStatus(NAME_FULL, u"Peter Pan",
+                                        VerificationStatus::kUserVerified);
+  name.SetRawInfoWithVerificationStatus(ALTERNATIVE_FULL_NAME,
+                                        u"やまもと あおい",
+                                        VerificationStatus::kUserVerified);
+  EXPECT_TRUE(name.FinalizeAfterImport());
+
+  EXPECT_EQ(name.GetRawInfo(NAME_FIRST), u"Peter");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_FIRST),
+            VerificationStatus::kParsed);
+  EXPECT_EQ(name.GetRawInfo(NAME_LAST), u"Pan");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_LAST), VerificationStatus::kParsed);
+  EXPECT_EQ(name.GetRawInfo(ALTERNATIVE_GIVEN_NAME), u"あおい");
+  EXPECT_EQ(name.GetVerificationStatus(ALTERNATIVE_GIVEN_NAME),
+            VerificationStatus::kParsed);
+  EXPECT_EQ(name.GetRawInfo(ALTERNATIVE_FAMILY_NAME), u"やまもと");
+  EXPECT_EQ(name.GetVerificationStatus(ALTERNATIVE_FAMILY_NAME),
+            VerificationStatus::kParsed);
+
+  // Lift the verification status of the last/family names to `kObserved`.
+  name.SetRawInfoWithVerificationStatus(NAME_LAST, u"Pan",
+                                        VerificationStatus::kObserved);
+  name.SetRawInfoWithVerificationStatus(ALTERNATIVE_FAMILY_NAME, u"やまもと",
+                                        VerificationStatus::kObserved);
+
+  // Set new full names that have the same tokens in a different order.
+  name.SetRawInfoWithVerificationStatus(NAME_FULL, u"Pan, Peter",
+                                        VerificationStatus::kUserVerified);
+  name.SetRawInfoWithVerificationStatus(ALTERNATIVE_FULL_NAME,
+                                        u"あおい やまもと",
+                                        VerificationStatus::kUserVerified);
+
+  // After this operation, the structure should be maintained including the
+  // observed status of the last/family names.
+  EXPECT_EQ(name.GetRawInfo(NAME_FIRST), u"Peter");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_FIRST),
+            VerificationStatus::kParsed);
+  EXPECT_EQ(name.GetRawInfo(NAME_LAST), u"Pan");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_LAST),
+            VerificationStatus::kObserved);
+  EXPECT_EQ(name.GetRawInfo(ALTERNATIVE_GIVEN_NAME), u"あおい");
+  EXPECT_EQ(name.GetVerificationStatus(ALTERNATIVE_GIVEN_NAME),
+            VerificationStatus::kParsed);
+  EXPECT_EQ(name.GetRawInfo(ALTERNATIVE_FAMILY_NAME), u"やまもと");
+  EXPECT_EQ(name.GetVerificationStatus(ALTERNATIVE_FAMILY_NAME),
+            VerificationStatus::kObserved);
+
+  // Now set different full names.
+  name.SetRawInfoWithVerificationStatus(NAME_FULL, u"Hook",
+                                        VerificationStatus::kUserVerified);
+  name.SetRawInfoWithVerificationStatus(ALTERNATIVE_FULL_NAME, u"さとう さくら",
+                                        VerificationStatus::kUserVerified);
+
+  // Setting non-equivalent full names should unset the child tokens.
+  EXPECT_EQ(name.GetRawInfo(NAME_FIRST), u"");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_FIRST),
+            VerificationStatus::kNoStatus);
+  EXPECT_EQ(name.GetRawInfo(NAME_LAST), u"");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_LAST),
+            VerificationStatus::kNoStatus);
+  EXPECT_EQ(name.GetRawInfo(NAME_LAST_FIRST), u"");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_LAST_FIRST),
+            VerificationStatus::kNoStatus);
+  EXPECT_EQ(name.GetRawInfo(NAME_LAST_SECOND), u"");
+  EXPECT_EQ(name.GetVerificationStatus(NAME_LAST_SECOND),
+            VerificationStatus::kNoStatus);
+  EXPECT_EQ(name.GetRawInfo(ALTERNATIVE_GIVEN_NAME), u"");
+  EXPECT_EQ(name.GetVerificationStatus(ALTERNATIVE_GIVEN_NAME),
+            VerificationStatus::kNoStatus);
+  EXPECT_EQ(name.GetRawInfo(ALTERNATIVE_FAMILY_NAME), u"");
+  EXPECT_EQ(name.GetVerificationStatus(ALTERNATIVE_FAMILY_NAME),
+            VerificationStatus::kNoStatus);
 }
 
 // Tests that `MergeStructuredName` returns false when alternative name support
@@ -1426,74 +1563,6 @@ INSTANTIATE_TEST_SUITE_P(
                             "Ignatius Conan", "Doyle"},
            FullNameTestCase{"Pablo Diego Ruiz y Picasso", "Pablo Diego", "",
                             "Ruiz y Picasso"}));
-
-struct NameMigrationTestCase {
-  std::string name;
-  bool should_migrate;
-  AddressCountryCode country_code = AddressCountryCode("JP");
-};
-
-class NameInfoNameMigrationTest
-    : public NameInfoTest,
-      public WithParamInterface<NameMigrationTestCase> {};
-
-// Profiles that contain phonetic names stored in regular name fields should,
-// migrate them to the alternative name fields. Those that do have other
-// characters than phonetic symbols should not be migrated.
-TEST_P(NameInfoNameMigrationTest, NameMigration) {
-  AutofillProfile profile(GetParam().country_code);
-
-  profile.SetRawInfo(NAME_FULL, base::UTF8ToUTF16(GetParam().name));
-  profile.FinalizeAfterImport();
-  EXPECT_EQ(profile.GetNameInfo().HasNameEligibleForPhoneticNameMigration(),
-            GetParam().should_migrate);
-
-  if (GetParam().should_migrate) {
-    AutofillProfile migrated_profile = profile;
-    migrated_profile.MigrateRegularNameToPhoneticName();
-    EXPECT_THAT(migrated_profile, NameIsMigrated(profile));
-  }
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    NameInfoNameMigrationTest,
-    Values(
-        // Only katakana.
-        NameMigrationTestCase{"メタワ", true},
-        NameMigrationTestCase{"ワ 　タシ", true},
-        NameMigrationTestCase{"メタ-ワ", true},
-        NameMigrationTestCase{"メタ・ ワ", true},
-        // Only hiragana.
-        NameMigrationTestCase{"ねこです", true},
-        NameMigrationTestCase{"ねこ です", true},
-        NameMigrationTestCase{"ねこ-です", true},
-        NameMigrationTestCase{"ねこ・です", true},
-        NameMigrationTestCase{"ねこ・ 　です", true},
-        // The following names should not be migrated
-        // because they contain Latin characters.
-        NameMigrationTestCase{"John Doe", false},
-        NameMigrationTestCase{"John-Doe", false},
-        NameMigrationTestCase{"John・Doe", false},
-        NameMigrationTestCase{"abcメタワ", false},
-        NameMigrationTestCase{"abcワ 　タシ", false},
-        NameMigrationTestCase{"abc-ワ", false},
-        NameMigrationTestCase{"メタ・ ワab", false},
-        NameMigrationTestCase{"abcねこです", false},
-        NameMigrationTestCase{"abcねこ です", false},
-        NameMigrationTestCase{"ねこ-ですabc", false},
-        NameMigrationTestCase{"abcねこ・です", false},
-        NameMigrationTestCase{"ねこ・ 　ですabc", false},
-        // The following names should not be migrated
-        // because they contain Kanji characters.
-        NameMigrationTestCase{"静夢メタワ", false},
-        NameMigrationTestCase{"静夢ワ 　タシ", false},
-        NameMigrationTestCase{"a静夢-ワ", false},
-        NameMigrationTestCase{"メタ・ ワ静夢", false},
-        NameMigrationTestCase{"a静ねこです", false},
-        // Non Japanese profiles shouldn't offer migration.
-        NameMigrationTestCase{"メタワ", false, AddressCountryCode("US")},
-        NameMigrationTestCase{"ねこです", false, AddressCountryCode("US")}));
 
 }  // namespace
 }  // namespace autofill

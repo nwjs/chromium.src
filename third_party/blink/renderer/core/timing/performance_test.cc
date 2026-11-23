@@ -253,16 +253,18 @@ TEST_F(PerformanceTest, InsertEntryOnEmptyBuffer) {
   PerformanceEventTiming::EventTimingReportingInfo info{
       .creation_time = base_->MsAfterTimeOrigin(0),
       .processing_start_time = base_->MsAfterTimeOrigin(0),
-      .processing_end_time = base_->MsAfterTimeOrigin(0)};
+      .processing_end_time = base_->MsAfterTimeOrigin(0),
+      .fallback_time = base_->MsAfterTimeOrigin(0)};
 
   auto* window = LocalDOMWindow::From(scope.GetScriptState());
   ASSERT_TRUE(window);
   auto* performance = DOMWindowPerformance::performance(*window);
   ASSERT_TRUE(performance);
 
-  PerformanceEventTiming* test_entry = PerformanceEventTiming::Create(
-      AtomicString("event"), info, false, window,
-      performance->NavigationId().web_exposed_id);
+  PerformanceEventTiming* test_entry =
+      PerformanceEventTiming::Create(AtomicString("event"), info, false, window,
+                                     performance->NavigationId().web_exposed_id,
+                                     PerformanceTimelineEntryIdInfo::kNone);
 
   base_->InsertEntryIntoSortedBuffer(test_buffer_, *test_entry);
 
@@ -289,22 +291,26 @@ TEST_F(PerformanceTest, InsertEntryOnExistingBuffer) {
     PerformanceEventTiming::EventTimingReportingInfo info{
         .creation_time = base_->MsAfterTimeOrigin(tmp * i),
         .processing_start_time = base_->MsAfterTimeOrigin(0),
-        .processing_end_time = base_->MsAfterTimeOrigin(0)};
+        .processing_end_time = base_->MsAfterTimeOrigin(0),
+        .fallback_time = base_->MsAfterTimeOrigin(0)};
 
     PerformanceEventTiming* entry = PerformanceEventTiming::Create(
         AtomicString("event"), info, false, window,
-        performance->NavigationId().web_exposed_id);
+        performance->NavigationId().web_exposed_id,
+        PerformanceTimelineEntryIdInfo::kNone);
     test_buffer_.push_back(*entry);
   }
 
   PerformanceEventTiming::EventTimingReportingInfo info{
       .creation_time = base_->MsAfterTimeOrigin(1),
       .processing_start_time = base_->MsAfterTimeOrigin(0),
-      .processing_end_time = base_->MsAfterTimeOrigin(0)};
+      .processing_end_time = base_->MsAfterTimeOrigin(0),
+      .fallback_time = base_->MsAfterTimeOrigin(0)};
 
-  PerformanceEventTiming* test_entry = PerformanceEventTiming::Create(
-      AtomicString("event"), info, false, window,
-      performance->NavigationId().web_exposed_id);
+  PerformanceEventTiming* test_entry =
+      PerformanceEventTiming::Create(AtomicString("event"), info, false, window,
+                                     performance->NavigationId().web_exposed_id,
+                                     PerformanceTimelineEntryIdInfo::kNone);
 
   // Create copy of the test_buffer_.
   PerformanceEntryVector sorted_buffer_ = test_buffer_;
@@ -336,22 +342,26 @@ TEST_F(PerformanceTest, InsertEntryToFrontOfBuffer) {
     PerformanceEventTiming::EventTimingReportingInfo info{
         .creation_time = base_->MsAfterTimeOrigin(tmp * i),
         .processing_start_time = base_->MsAfterTimeOrigin(0),
-        .processing_end_time = base_->MsAfterTimeOrigin(0)};
+        .processing_end_time = base_->MsAfterTimeOrigin(0),
+        .fallback_time = base_->MsAfterTimeOrigin(0)};
 
     PerformanceEventTiming* entry = PerformanceEventTiming::Create(
         AtomicString("event"), info, false, window,
-        performance->NavigationId().web_exposed_id);
+        performance->NavigationId().web_exposed_id,
+        PerformanceTimelineEntryIdInfo::kNone);
     test_buffer_.push_back(*entry);
   }
 
   PerformanceEventTiming::EventTimingReportingInfo info{
       .creation_time = base_->MsAfterTimeOrigin(0),
       .processing_start_time = base_->MsAfterTimeOrigin(0),
-      .processing_end_time = base_->MsAfterTimeOrigin(0)};
+      .processing_end_time = base_->MsAfterTimeOrigin(0),
+      .fallback_time = base_->MsAfterTimeOrigin(0)};
 
-  PerformanceEventTiming* test_entry = PerformanceEventTiming::Create(
-      AtomicString("event"), info, false, window,
-      performance->NavigationId().web_exposed_id);
+  PerformanceEventTiming* test_entry =
+      PerformanceEventTiming::Create(AtomicString("event"), info, false, window,
+                                     performance->NavigationId().web_exposed_id,
+                                     PerformanceTimelineEntryIdInfo::kNone);
 
   // Create copy of the test_buffer_.
   PerformanceEntryVector sorted_buffer_ = test_buffer_;
@@ -499,6 +509,38 @@ TEST_F(PerformanceTest, GetEntriesByTypeUseCounters) {
       EXPECT_TRUE(scope.GetDocument().IsUseCounted(feature));
     }
   }
+}
+
+TEST_F(PerformanceTest, CanExposeNodeRequiresMatchingSourceWindow) {
+  V8TestingScope main_scope;
+  V8TestingScope other_scope;
+
+  LocalDOMWindow* main_window = main_scope.GetFrame().DomWindow();
+  LocalDOMWindow* other_window = other_scope.GetFrame().DomWindow();
+  ASSERT_TRUE(main_window);
+  ASSERT_TRUE(other_window);
+
+  Node* main_node = main_scope.GetDocument().documentElement();
+  Node* other_node = other_scope.GetDocument().documentElement();
+  ASSERT_TRUE(main_node);
+  ASSERT_TRUE(other_node);
+
+  EXPECT_TRUE(Performance::CanExposeNode(main_node, main_window));
+  EXPECT_TRUE(Performance::CanExposeNode(other_node, other_window));
+  EXPECT_FALSE(Performance::CanExposeNode(other_node, main_window));
+  EXPECT_FALSE(Performance::CanExposeNode(main_node, other_window));
+  EXPECT_FALSE(Performance::CanExposeNode(main_node, nullptr));
+
+  auto* main_performance = DOMWindowPerformance::performance(*main_window);
+  PerformanceEventTiming* entry = PerformanceEventTiming::Create(
+      AtomicString("pointerdown"),
+      PerformanceEventTiming::EventTimingReportingInfo{}, false, main_window,
+      main_performance->NavigationId().web_exposed_id);
+  entry->SetTarget(other_node);
+  EXPECT_EQ(nullptr, entry->target());
+
+  entry->SetTarget(main_node);
+  EXPECT_EQ(main_node, entry->target());
 }
 
 }  // namespace blink

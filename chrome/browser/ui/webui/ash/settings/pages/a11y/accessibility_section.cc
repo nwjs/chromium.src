@@ -565,6 +565,23 @@ base::span<const SearchConcept> GetA11yDisableTouchpadSearchConcepts() {
   return tags;
 }
 
+base::span<const SearchConcept> GetA11yShakeToLocateSearchConcepts() {
+  static constexpr auto tags = std::to_array<SearchConcept>(
+      {{IDS_OS_SETTINGS_TAG_A11Y_SHAKE_TO_LOCATE_CURSOR,
+        mojom::kCursorAndTouchpadSubpagePath,
+        mojom::SearchResultIcon::kCursorClick,
+        mojom::SearchResultDefaultRank::kMedium,
+        mojom::SearchResultType::kSetting,
+        {.setting = mojom::Setting::kShakeToLocateCursor},
+        {
+            IDS_OS_SETTINGS_TAG_A11Y_SHAKE_TO_LOCATE_CURSOR_ALT1,
+            IDS_OS_SETTINGS_TAG_A11Y_SHAKE_TO_LOCATE_CURSOR_ALT2,
+            IDS_OS_SETTINGS_TAG_A11Y_SHAKE_TO_LOCATE_CURSOR_ALT3,
+            SearchConcept::kAltTagEnd,
+        }}});
+  return tags;
+}
+
 base::span<const SearchConcept> GetA11yBounceKeysSearchConcepts() {
   static constexpr auto tags = std::to_array<SearchConcept>({
       {IDS_OS_SETTINGS_TAG_A11Y_BOUNCE_KEYS,
@@ -1239,6 +1256,8 @@ void AccessibilitySection::AddLoadTimeData(
       {"keyboardSettingsTitle",
        IDS_SETTINGS_ACCESSIBILITY_KEYBOARD_SETTINGS_TITLE},
       {"largeMouseCursorLabel", IDS_SETTINGS_LARGE_MOUSE_CURSOR_LABEL},
+      {"shakeToLocateLabel",
+       IDS_OS_SETTINGS_ACCESSIBILITY_SHAKE_TO_LOCATE_LABEL},
       {"largeMouseCursorSizeDefaultLabel",
        IDS_SETTINGS_LARGE_MOUSE_CURSOR_SIZE_DEFAULT_LABEL},
       {"largeMouseCursorSizeLabel", IDS_SETTINGS_LARGE_MOUSE_CURSOR_SIZE_LABEL},
@@ -1569,6 +1588,9 @@ void AccessibilitySection::AddLoadTimeData(
 
   html_source->AddBoolean("showTabletModeShelfNavigationButtonsSettings",
                           AreTabletNavigationButtonsAllowed());
+
+  html_source->AddBoolean("isAccessibilityShakeToLocateEnabled",
+                          ::features::IsAccessibilityShakeToLocateEnabled());
 
   html_source->AddString("tabletModeShelfNavigationButtonsLearnMoreUrl",
                          ash::external_urls::kTabletModeGesturesLearnMoreURL);
@@ -1902,6 +1924,7 @@ void AccessibilitySection::RegisterHierarchy(
       mojom::Setting::kBounceKeys,
       mojom::Setting::kSlowKeys,
       mojom::Setting::kDisableTouchpad,
+      mojom::Setting::kShakeToLocateCursor,
   };
   RegisterNestedSettingBulk(mojom::Subpage::kManageAccessibility,
                             kManageAccessibilitySettings, generator);
@@ -2037,6 +2060,10 @@ void AccessibilitySection::UpdateSearchTags() {
   updater.AddSearchTags(GetA11yMouseKeysSearchConcepts());
 
   updater.AddSearchTags(GetA11yDisableTouchpadSearchConcepts());
+
+  if (::features::IsAccessibilityShakeToLocateEnabled()) {
+    updater.AddSearchTags(GetA11yShakeToLocateSearchConcepts());
+  }
 
   if (!pref_service_->GetBoolean(prefs::kAccessibilitySwitchAccessEnabled)) {
     return;

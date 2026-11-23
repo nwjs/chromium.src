@@ -133,19 +133,32 @@ class PermissionRequest {
 
   // Returns prompt icon appropriate for displaying on the chip button in the
   // location bar.
-  IconId GetIconForChip();
+  virtual IconId GetIconForChip() const;
 
   // Returns prompt icon appropriate for displaying on the quiet chip button in
   // the location bar.
-  IconId GetBlockedIconForChip();
+  virtual IconId GetBlockedIconForChip() const;
+
+  // Returns whether the request stays pending, with its chip still in the
+  // location bar, when the user closes the prompt bubble without deciding. The
+  // user can then reopen the bubble from the chip until the chip expires.
+  // Otherwise, closing the bubble dismisses the request.
+  virtual bool ShouldKeepChipOnBubbleClose() const;
 
   // Returns prompt text appropriate for displaying on the chip button in the
   // location bar.
-  std::optional<std::u16string> GetRequestChipText(ChipTextType type) const;
+  virtual std::optional<std::u16string> GetRequestChipText(
+      ChipTextType type) const;
 
   // Returns prompt text appropriate for displaying under the dialog title
   // "[domain] wants to:".
   virtual std::u16string GetMessageTextFragment() const;
+
+  // Returns whether the prompt bubble opens automatically when the request is
+  // shown with a chip in the location bar. Otherwise, only the chip is shown,
+  // and the user can click it to open the bubble. Quiet chips never open their
+  // bubble automatically.
+  virtual bool ShouldBubbleStartOpen() const;
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
   // Returns the text to be used in the "allow always" button of the

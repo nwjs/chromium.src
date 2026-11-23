@@ -1159,6 +1159,40 @@ TEST_F(AuthenticatorImplTest, Win_IsUVPAA) {
     }
   }
 }
+
+// Tests that a create() response from the Windows API that can't be parsed
+// fails the request immediately, rather than crashing or timing out.
+TEST_F(AuthenticatorImplTest, WinMakeCredentialUnparsableResponse) {
+  virtual_device_factory_->set_discover_win_webauthn_api_authenticator(true);
+  fake_win_webauthn_api_.set_available(true);
+  fake_win_webauthn_api_.set_corrupt_authenticator_data(true);
+  NavigateAndCommit(GURL(kTestOrigin1));
+
+  EXPECT_EQ(AuthenticatorMakeCredential().status,
+            AuthenticatorStatus::NOT_ALLOWED_ERROR);
+  VerifyMakeCredentialOutcomeUkm(
+      0, MakeCredentialOutcome::kUnknownResponseFromAuthenticator,
+      AuthenticationRequestMode::kModalWebAuthn);
+}
+
+// Tests that a get() response from the Windows API that can't be parsed fails
+// the request immediately, rather than timing out.
+TEST_F(AuthenticatorImplTest, WinGetAssertionUnparsableResponse) {
+  virtual_device_factory_->set_discover_win_webauthn_api_authenticator(true);
+  fake_win_webauthn_api_.set_available(true);
+  NavigateAndCommit(GURL(kTestOrigin1));
+  PublicKeyCredentialRequestOptionsPtr options =
+      GetTestPublicKeyCredentialRequestOptions();
+  ASSERT_TRUE(fake_win_webauthn_api_.InjectNonDiscoverableCredential(
+      options->allow_credentials[0].id, kTestRelyingPartyId));
+  fake_win_webauthn_api_.set_corrupt_authenticator_data(true);
+
+  EXPECT_EQ(AuthenticatorGetAssertion(std::move(options)).status,
+            AuthenticatorStatus::NOT_ALLOWED_ERROR);
+  VerifyGetAssertionOutcomeUkm(
+      0, GetAssertionOutcome::kUnknownResponseFromAuthenticator,
+      AuthenticationRequestMode::kModalWebAuthn);
+}
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -3389,13 +3423,11 @@ TEST_F(AuthenticatorImplRequestDelegateTest,
 
   base::RunLoop usb_device_found_done;
   EXPECT_CALL(*mock_delegate_ptr, FidoAuthenticatorAdded(_))
-      .WillOnce(testing::InvokeWithoutArgs(
-          [&usb_device_found_done]() { usb_device_found_done.Quit(); }));
+      .WillOnce([&usb_device_found_done]() { usb_device_found_done.Quit(); });
 
   base::RunLoop usb_device_lost_done;
   EXPECT_CALL(*mock_delegate_ptr, FidoAuthenticatorRemoved(_))
-      .WillOnce(testing::InvokeWithoutArgs(
-          [&usb_device_lost_done]() { usb_device_lost_done.Quit(); }));
+      .WillOnce([&usb_device_lost_done]() { usb_device_lost_done.Quit(); });
 
   authenticator->GetCredential(std::move(options), future.GetCallback());
   fake_hid_discovery->WaitForCallToStartAndSimulateSuccess();

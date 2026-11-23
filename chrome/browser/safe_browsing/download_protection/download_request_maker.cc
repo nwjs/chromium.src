@@ -264,11 +264,12 @@ void DownloadRequestMaker::Start(
 
 #if BUILDFLAG(IS_WIN)
   // Only add AV status for ESB users that have the AV download telemetry
-  // feature enabled.
+  // feature enabled. Check feature flag after ESB check so that the Finch
+  // experiment groups only include clients that can send telemetry reports.
   bool is_enhanced_protection =
       profile && IsEnhancedProtectionEnabled(*profile->GetPrefs());
-  if (base::FeatureList::IsEnabled(kAntivirusTelemetryForDownloads) &&
-      is_enhanced_protection) {
+  if (is_enhanced_protection &&
+      base::FeatureList::IsEnabled(kAntivirusTelemetryForDownloads)) {
     AntiVirusMetricsProvider provider;
     provider.AsyncInit(
         base::BindOnce(&DownloadRequestMaker::OnGotAntivirusProducts,
@@ -282,7 +283,7 @@ void DownloadRequestMaker::Start(
 
 void DownloadRequestMaker::OnFileFeatureExtractionDone(
     FileAnalyzer::Results results) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
 
   details_.inspection_type = results.inspection_performed;
 
@@ -311,7 +312,7 @@ void DownloadRequestMaker::OnFileFeatureExtractionDone(
 }
 
 void DownloadRequestMaker::GetTabRedirects() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (!tab_urls_.url.is_valid()) {
     OnGotTabRedirects({});
     return;
@@ -339,7 +340,7 @@ void DownloadRequestMaker::GetTabRedirects() {
 
 void DownloadRequestMaker::OnGotTabRedirects(
     history::RedirectList redirect_list) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
 
   for (size_t i = 0; i < redirect_list.size(); ++i) {
     ClientDownloadRequest::Resource* resource = request_->add_resources();

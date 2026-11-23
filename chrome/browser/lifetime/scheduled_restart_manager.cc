@@ -17,17 +17,20 @@
 #include "base/functional/bind.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/power_monitor/power_monitor.h"
 #include "base/sequence_checker.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
 #include "base/time/time.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/lifetime/restartability_monitor.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "components/policy/core/common/management/management_service.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 
@@ -35,6 +38,10 @@ namespace features {
 
 // Controls the Scheduled Restart feature on Desktop platforms.
 BASE_FEATURE(kScheduledRestart, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether the "Relaunch later..." item is shown in the 3-dot App Menu
+// when the Scheduled Restart feature is enabled and an update is available.
+BASE_FEATURE(kScheduledRestartAppMenuItem, base::FEATURE_ENABLED_BY_DEFAULT);
 
 const base::FeatureParam<base::TimeDelta> kScheduledRestartFirstNudgeDelay{
     &kScheduledRestart, "first_nudge_delay", base::Days(14)};
@@ -107,6 +114,7 @@ void ScheduledRestartManager::RegisterLocalStatePrefs(
   // downstream CLs to enforce reminder cooldowns.
   registry->RegisterTimePref(prefs::kScheduledRestartLastNudgeTime,
                              base::Time());
+  registry->RegisterDictionaryPref(prefs::kScheduledRestartHatsPendingSurvey);
 }
 
 // static
@@ -231,8 +239,29 @@ base::TimeDelta ScheduledRestartManager::GetNudgeCooldown() {
   return param;
 }
 
+// static
+bool ScheduledRestartManager::AreScheduledRestartsEnabled() {
+  const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  if (!cmd_line->HasSwitch(switches::kSimulateUpgrade) &&
+      !cmd_line->HasSwitch(switches::kSimulateOutdated) &&
+      policy::ManagementServiceFactory::GetForPlatform()->IsManaged()) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(features::kScheduledRestart);
+}
+
+// static
+bool ScheduledRestartManager::IsAppMenuItemEnabled() {
+  return AreScheduledRestartsEnabled() &&
+         base::FeatureList::IsEnabled(features::kScheduledRestartAppMenuItem);
+}
+
+bool ScheduledRestartManager::IsUpgradeAvailableForScheduling() const {
+  return !is_scheduled() && upgrade_detector_->is_upgrade_available();
+}
+
 bool ScheduledRestartManager::ShouldShowNudge() const {
-  if (is_scheduled() || !upgrade_detector_->is_upgrade_available()) {
+  if (!IsUpgradeAvailableForScheduling()) {
     return false;
   }
 
@@ -276,6 +305,8 @@ ScheduledRestartManager::ScheduledRestartManager(
 
 ScheduledRestartManager::~ScheduledRestartManager() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Unregisters from PowerMonitor; idle_observation_ resets on its own.
+  StopIdleMonitoring();
   if (mode_ != ScheduledRestartMode::kNone && !is_executing_restart_) {
     RecordExecutionMetrics(
         ScheduledRestartExecutionOutcome::kCanceledBeforeExecution,
@@ -336,20 +367,98 @@ void ScheduledRestartManager::UpdateMonitoringState() {
 
 void ScheduledRestartManager::StartIdleMonitoring() {
   if (!idle_observation_.IsObserving()) {
+    // Seed the poll baseline at schedule start so a suspend occurring before
+    // the first poll callback is still detected.
+    last_idle_poll_time_ = base::Time::Now();
+    last_idle_poll_live_ticks_ = base::LiveTicks::Now();
+    last_wake_live_ticks_ = base::LiveTicks();
+    // Monitoring starts when the user schedules a restart, so the system is
+    // awake. PowerMonitor's own suspended state is not inherited because it
+    // stays set if a resume notification was missed.
+    is_system_suspended_ = false;
+    suspend_live_ticks_ = base::LiveTicks();
+    base::PowerMonitor::GetInstance()->AddPowerSuspendObserver(this);
     idle_observation_.Observe(ui::IdlePollingService::GetInstance());
   }
 }
 
 void ScheduledRestartManager::StopIdleMonitoring() {
-  idle_observation_.Reset();
+  if (idle_observation_.IsObserving()) {
+    base::PowerMonitor::GetInstance()->RemovePowerSuspendObserver(this);
+    idle_observation_.Reset();
+  }
+  last_idle_poll_time_ = base::Time();
+  last_idle_poll_live_ticks_ = base::LiveTicks();
+  last_wake_live_ticks_ = base::LiveTicks();
+  is_system_suspended_ = false;
+  suspend_live_ticks_ = base::LiveTicks();
+}
+
+void ScheduledRestartManager::OnSuspend() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  is_system_suspended_ = true;
+  suspend_live_ticks_ = base::LiveTicks::Now();
+}
+
+void ScheduledRestartManager::OnResume() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  is_system_suspended_ = false;
+  const base::Time now = base::Time::Now();
+  const base::LiveTicks now_live_ticks = base::LiveTicks::Now();
+  // Reset the poll baseline alongside `last_wake_live_ticks_` so the next
+  // idle poll does not re-detect this same sleep via clock skew.
+  last_idle_poll_time_ = now;
+  last_idle_poll_live_ticks_ = now_live_ticks;
+  last_wake_live_ticks_ = now_live_ticks;
 }
 
 void ScheduledRestartManager::OnIdleStateChange(
     const ui::IdlePollingService::State& state) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (state.idle_time >= GetIdleThreshold()) {
-    MaybeExecuteRestart();
+
+  // OnSuspend() and OnResume() are best-effort on every platform, so sleep is
+  // also inferred from wall-clock vs. base::LiveTicks skew between polls. The
+  // check runs on every poll, including when `state.idle_time` is still below
+  // the threshold (e.g. carried-over pre-sleep idle on macOS/X11).
+  const base::Time now = base::Time::Now();
+  const base::LiveTicks now_live_ticks = base::LiveTicks::Now();
+  const base::TimeDelta idle_threshold = GetIdleThreshold();
+  if (!last_idle_poll_time_.is_null()) {
+    const base::TimeDelta suspended =
+        (now - last_idle_poll_time_) -
+        (now_live_ticks - last_idle_poll_live_ticks_);
+    if (suspended > kMinDetectedSuspend) {
+      // The system slept since the previous poll and is awake now. Handle this
+      // like OnResume(), which might never arrive.
+      is_system_suspended_ = false;
+      last_wake_live_ticks_ = now_live_ticks;
+    }
   }
+  last_idle_poll_time_ = now;
+  last_idle_poll_live_ticks_ = now_live_ticks;
+
+  // User input after OnSuspend() shows that the system is awake even if
+  // OnResume() was missed. Input just after OnSuspend() (e.g. while the lid
+  // closes) also matches; OnResume() still opens the wake window at lid open.
+  if (is_system_suspended_ && state.idle_time + kMinDetectedSuspend <
+                                  now_live_ticks - suspend_live_ticks_) {
+    is_system_suspended_ = false;
+  }
+
+  if (state.idle_time < idle_threshold) {
+    return;
+  }
+
+  // Other blockers are intentionally not evaluated while wake-deferred so
+  // they are not recorded for restarts that the wake alone held back.
+  if (is_system_suspended_ ||
+      (!last_wake_live_ticks_.is_null() &&
+       now_live_ticks - last_wake_live_ticks_ < idle_threshold)) {
+    encountered_blockers_.Put(ScheduledRestartBlocker::kRecentSystemWake);
+    return;
+  }
+
+  MaybeExecuteRestart();
 }
 
 void ScheduledRestartManager::MaybeExecuteRestart() {

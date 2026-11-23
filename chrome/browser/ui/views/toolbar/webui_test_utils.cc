@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button_state_manager.h"
 #include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
@@ -104,7 +105,7 @@ constexpr char kClickExtensionButtonScript[] = R"(
         .querySelectorAll('webui-toolbar-extension');
     const el = Array.from(extensionElements)
         .find(el => el.state.id === '%s');
-    const btn = el.shadowRoot.querySelector('cr-button');
+    const btn = el.shadowRoot.querySelector('toolbar-chip-button');
     %s
   })();
 )";
@@ -147,7 +148,8 @@ void WaitUntilInitialWebUIPaintAndFlushMetricsForTesting(
 void WaitForInitialWebUIToolbar(BrowserWindowInterface* browser) {
   base::RunLoop run_loop;
   InitialWebUIManager* manager = InitialWebUIManager::From(browser);
-  if (!manager || !manager->RequestDeferShow(run_loop.QuitClosure())) {
+  if (!manager ||
+      !manager->RegisterWebUIReadyCallback(run_loop.QuitClosure())) {
     return;
   }
   run_loop.Run();
@@ -1178,4 +1180,38 @@ const char kGetAllAnimationsJS[] = R"(
   })())";
   return content::ExecJs(toolbar->GetWebViewForTesting()->web_contents(),
                          kFlushJS);
+}
+
+::testing::AssertionResult SetWebUIToolbarClickSuppressionThreshold(
+    BrowserWindowInterface* browser,
+    base::TimeDelta threshold) {
+  WebUIToolbarWebView* toolbar = GetWebUIToolbarWebView(browser);
+  if (!toolbar) {
+    return ::testing::AssertionFailure() << "no WebUI toolbar";
+  }
+
+  // Native-side suppressors (page info, content settings, permission chip).
+  if (WebUILocationBar* location_bar = toolbar->GetLocationBar()) {
+    location_bar->SetSuppressionThresholdForTesting(threshold);  // IN-TEST
+  }
+
+  // WebUI-side suppression (HighlightTracker in toolbar_button.ts). Import the
+  // setter via the page's entry module (which re-exports it) rather than
+  // '/shared/toolbar_button.js' directly: in optimized builds the shared module
+  // is bundled into webui_toolbar.js, so importing it by its own URL would
+  // create a second module instance that the toolbar's buttons don't use.
+  content::WebContents* web_contents =
+      toolbar->GetWebViewForTesting()->web_contents();
+  if (!web_contents) {
+    return ::testing::AssertionFailure() << "WebUI toolbar has no WebContents";
+  }
+  if (!content::WaitForLoadStop(web_contents)) {
+    return ::testing::AssertionFailure() << "WebUI toolbar failed to load";
+  }
+  return content::ExecJs(
+      web_contents,
+      content::JsReplace(
+          "import('/webui_toolbar.js').then(m => "
+          "m.HighlightTracker.setClickSuppressionThresholdForTesting($1))",
+                         threshold.InMillisecondsF()));
 }

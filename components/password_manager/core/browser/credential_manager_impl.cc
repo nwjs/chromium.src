@@ -14,6 +14,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
+#include "components/device_reauth/device_auth_availability_checker.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/core/browser/credential_manager_logger.h"
 #include "components/password_manager/core/browser/credential_manager_pending_request_task.h"
@@ -93,10 +94,7 @@ void CredentialManagerImpl::Store(const CredentialInfo& credential,
   // only available on HTTPS origins.
   auto form_fetcher = std::make_unique<FormFetcherImpl>(
       observed_digest, client_, /*should_migrate_http_passwords=*/false);
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kPasswordFormGroupedAffiliations)) {
-    form_fetcher->set_filter_grouped_credentials(false);
-  }
+  form_fetcher->set_filter_grouped_credentials(false);
   form_manager_ = std::make_unique<CredentialManagerPasswordFormManager>(
       client_, std::move(form), this, nullptr, std::move(form_fetcher));
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
@@ -255,11 +253,27 @@ void CredentialManagerImpl::SendPasswordForm(
     metrics_util::LogCredentialManagerGetResult(
         metrics_util::CredentialManagerGetResult::kAccountChooser, mediation);
 
-    std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator =
-        client_->GetDeviceAuthenticator();
-    if (authenticator &&
-        client_->IsReauthBeforeFillingRequiredLegacy(authenticator.get())) {
-      authenticator_ = std::move(authenticator);
+    bool reauth_required = false;
+    if (!base::FeatureList::IsEnabled(
+            password_manager::features::kDeviceReauthRefactor)) {
+      std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator =
+          client_->GetDeviceAuthenticator();
+      if (authenticator &&
+          client_->IsReauthBeforeFillingRequiredLegacy(authenticator.get())) {
+        authenticator_ = std::move(authenticator);
+        reauth_required = true;
+      }
+    } else {
+      std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker> checker =
+          client_->GetDeviceAuthAvailabilityChecker();
+      if (client_->IsReauthBeforeFillingRequired(checker.get())) {
+        authenticator_ = client_->GetDeviceAuthenticator();
+        reauth_required = true;
+      }
+    }
+
+    if (reauth_required) {
+      CHECK(authenticator_);
       std::u16string message;
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
       const std::u16string origin = base::UTF8ToUTF16(

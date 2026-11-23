@@ -20,7 +20,6 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 
 import androidx.annotation.DimenRes;
-import androidx.annotation.DrawableRes;
 import androidx.annotation.MainThread;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
@@ -92,11 +91,6 @@ public class ProfileDataCache
     private final int mImageSize;
     private final int mAvatarSize;
     private final int mTotalPadding;
-    // The badge for a given account is selected as follows:
-    // * If there is a config for that specific account, use that
-    // * Else if there is a default config, use that
-    // * Else do not display a badge.
-    private @Nullable BadgeConfig mDefaultBadgeConfig;
     private final Map<CoreAccountId, BadgeConfig> mPerAccountBadgeConfig = new HashMap<>();
     private final Drawable mPlaceholderImage;
     private final ObserverList<Observer> mObservers = new ObserverList<>();
@@ -116,7 +110,6 @@ public class ProfileDataCache
             @Nullable SubscriptionEligibilityService subscriptionEligibilityService,
             @Px int imageSize,
             @Px int ringThicknessPx,
-            @Nullable BadgeConfig badgeConfig,
             boolean aiTierRingEnabled,
             @Nullable SubscriptionTierBrandingDelegate brandingDelegate) {
         assert identityManager != null;
@@ -132,17 +125,13 @@ public class ProfileDataCache
         }
         mImageSize = imageSize;
         mRingThicknessPx = ringThicknessPx;
-        mDefaultBadgeConfig = badgeConfig;
         mAiTierRingEnabled = aiTierRingEnabled;
         mBrandingDelegate = brandingDelegate;
         mSubscriptionEligibilityService = subscriptionEligibilityService;
 
         if (mAiTierRingEnabled) {
             int ringSpacingPx =
-                    context.getResources()
-                            .getDimensionPixelSize(
-                                    org.chromium.components.browser_ui.util.R.dimen
-                                            .ai_tier_ring_spacing);
+                    context.getResources().getDimensionPixelSize(R.dimen.ai_tier_ring_spacing);
             mTotalPadding = mRingThicknessPx + ringSpacingPx;
             mAvatarSize = mImageSize - 2 * mTotalPadding;
         } else {
@@ -179,7 +168,6 @@ public class ProfileDataCache
                 subscriptionEligibilityService,
                 imageSize,
                 ringThicknessPx,
-                /* badgeConfig= */ null,
                 /* aiTierRingEnabled= */ true,
                 brandingDelegate);
     }
@@ -198,29 +186,6 @@ public class ProfileDataCache
                 /* subscriptionEligibilityService= */ null,
                 context.getResources().getDimensionPixelSize(R.dimen.user_picture_size),
                 /* ringThicknessPx= */ 0,
-                /* badgeConfig= */ null,
-                /* aiTierRingEnabled= */ false,
-                /* brandingDelegate= */ null);
-    }
-
-    /**
-     * @param context Context of the application to extract resources from.
-     * @param badgeResId Resource id of the badge to be attached.
-     * @return A {@link ProfileDataCache} object with default image size(R.dimen.user_picture_size)
-     *     and a badge of given badgeResId provided
-     *     <p>TODO(crbug.com/40798208): remove this method and instead migrate users to set
-     *     per-account badges?
-     */
-    public static ProfileDataCache createWithDefaultImageSize(
-            Context context, IdentityManager identityManager, @DrawableRes int badgeResId) {
-        return new ProfileDataCache(
-                context,
-                AccountManagerFacadeProvider.getInstance(),
-                identityManager,
-                /* subscriptionEligibilityService= */ null,
-                context.getResources().getDimensionPixelSize(R.dimen.user_picture_size),
-                /* ringThicknessPx= */ 0,
-                BadgeConfig.create(badgeResId).withDefaultSizeChildAccountConfig().build(context),
                 /* aiTierRingEnabled= */ false,
                 /* brandingDelegate= */ null);
     }
@@ -239,7 +204,6 @@ public class ProfileDataCache
                 /* subscriptionEligibilityService= */ null,
                 context.getResources().getDimensionPixelSize(imageSizeResId),
                 /* ringThicknessPx= */ 0,
-                /* badgeConfig= */ null,
                 /* aiTierRingEnabled= */ false,
                 /* brandingDelegate= */ null);
     }
@@ -316,40 +280,23 @@ public class ProfileDataCache
     }
 
     /**
-     * Sets a default {@link BadgeConfig} and then populates the cache with the new Badge.
-     *
-     * @param badgeConfig The badge configuration. If null then the current badge is removed.
-     *     <p>If both a per-account and default badge are set, the per-account badge takes
-     *     precedence.
-     *     <p>TODO(crbug.com/40798208): replace usages of this method with the per-account config
-     *     below.
-     */
-    public void setBadge(@Nullable BadgeConfig badgeConfig) {
-        if (Objects.equals(mDefaultBadgeConfig, badgeConfig)) {
-            return;
-        }
-
-        mDefaultBadgeConfig = badgeConfig;
-        updateCache();
-    }
-
-    /**
      * Sets a {@link BadgeConfig} for a given account and refreshes its cached profile data, if any.
      * Otherwise, the badge is applied once the account's profile data is built.
      *
-     * @param coreAccountId The account id for which to set this badge.
+     * @param accountId The account id for which to set this badge.
      * @param badgeConfig The badge configuration. If null then the current badge is removed.
-     *     <p>If both a per-account and default badge are set, the per-account badge takes
-     *     precedence.
      */
     public void setBadge(CoreAccountId accountId, @Nullable BadgeConfig badgeConfig) {
-        if (mPerAccountBadgeConfig.containsKey(accountId)
-                && Objects.equals(mPerAccountBadgeConfig.get(accountId), badgeConfig)) {
+        if (Objects.equals(mPerAccountBadgeConfig.get(accountId), badgeConfig)) {
             // Update is a no-op. The per-account badge set to accountId is the same as the
-            // badgeResId.
+            // badgeConfig.
             return;
         }
-        mPerAccountBadgeConfig.put(accountId, badgeConfig);
+        if (badgeConfig != null) {
+            mPerAccountBadgeConfig.put(accountId, badgeConfig);
+        } else {
+            mPerAccountBadgeConfig.remove(accountId);
+        }
         if (SigninFeatureMap.isEnabled(SigninFeatures.MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS)) {
             if (!mAccountsCache.containsKey(accountId)) return;
         }
@@ -358,7 +305,7 @@ public class ProfileDataCache
     }
 
     public @Nullable BadgeConfig getBadgeConfigForTesting(CoreAccountId accountId) {
-        return getBadgeConfigForAccount(accountId);
+        return mPerAccountBadgeConfig.get(accountId);
     }
 
     /**
@@ -483,15 +430,24 @@ public class ProfileDataCache
 
     /**
      * Updates the cached profile data of a single account and notifies the observers about it.
-     * Observers are not notified about the account list: with IdentityManager as the source of
-     * accounts, new accounts are added by {@link #addToCache(AccountInfo)}; with
-     * AccountManagerFacade, the list is rebuilt by onAccountsChanged().
+     * onAccountsUpdated() is only called if MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS flag is
+     * enabled and the {@link #getAccounts()} Promise is fulfilled. onProfileDataUpdated() is always
+     * called.
+     *
+     * <p>TODO(crbug.com/571803558): updateCache() and addToCache() methods have similar logic and
+     * should be unified after the MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS flag cleanup.
      */
     private void updateCache(final AccountInfo accountInfo) {
+        if (SigninFeatureMap.isEnabled(SigninFeatures.MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS)) {
+            assert mAccountsCache.containsKey(accountInfo.getId());
+        }
         var profileData = toDisplayableProfileData(accountInfo);
         mAccountsCache.put(accountInfo.getId(), profileData);
         refreshAccountsPromiseIfFulfilled();
-        // TODO(crbug.com/570481489) : Notify onAccountsUpdated() as well.
+        if (SigninFeatureMap.isEnabled(SigninFeatures.MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS)
+                && mAccountsPromise.isFulfilled()) {
+            fireOnAccountsUpdated(mAccountsPromise.getResult());
+        }
         fireOnProfileDataUpdated(profileData);
     }
 
@@ -499,13 +455,16 @@ public class ProfileDataCache
      * Adds a new account to the cache and notifies the observers about the updated account list and
      * the profile data of the added account. Must only be called once the account list has been
      * loaded, i.e. the {@link #getAccounts()} Promise is fulfilled.
+     *
+     * <p>TODO(crbug.com/571803558): updateCache() and addToCache() methods have similar logic and
+     * should be unified after the MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS flag cleanup.
      */
     private void addToCache(final AccountInfo accountInfo) {
         assert !mAccountsCache.containsKey(accountInfo.getId());
         assert mAccountsPromise.isFulfilled();
         var profileData = toDisplayableProfileData(accountInfo);
         mAccountsCache.put(accountInfo.getId(), profileData);
-        refreshAccountsPromiseIfFulfilled();
+        mAccountsPromise = Promise.fulfilled(new ArrayList<>(mAccountsCache.values()));
         fireOnAccountsUpdated(mAccountsPromise.getResult());
         fireOnProfileDataUpdated(profileData);
     }
@@ -555,7 +514,7 @@ public class ProfileDataCache
                         ? AvatarGenerator.makeRoundAvatar(
                                 mContext.getResources(), accountInfo.getAccountImage(), mAvatarSize)
                         : mPlaceholderImage;
-        BadgeConfig badgeConfig = getBadgeConfigForAccount(accountInfo.getId());
+        BadgeConfig badgeConfig = mPerAccountBadgeConfig.get(accountInfo.getId());
         boolean hasAiTierRing = false;
 
         if (mAiTierRingEnabled) {
@@ -747,12 +706,6 @@ public class ProfileDataCache
         drawable.setBounds(0, 0, imageSize, imageSize);
         drawable.draw(canvas);
         return new BitmapDrawable(context.getResources(), output);
-    }
-
-    private @Nullable BadgeConfig getBadgeConfigForAccount(CoreAccountId accountId) {
-        return mPerAccountBadgeConfig.get(accountId) != null
-                ? mPerAccountBadgeConfig.get(accountId)
-                : mDefaultBadgeConfig;
     }
 
     private class AccountManagerAccountsChangeObserver implements AccountsChangeObserver {

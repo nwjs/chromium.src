@@ -24,7 +24,8 @@ class AndroidTranslationAdapterBrowserTest : public AndroidBrowserTest {
     AndroidBrowserTest::SetUpOnMainThread();
 
     model_ = &testing::GetTabModel(GetProfile());
-    injector_ = std::make_unique<tabs_api::AndroidTabStripApiInjector>(model_);
+    injector_ = std::make_unique<tabs_api::AndroidTabStripApiInjector>(
+        model_, TabModel::TabLaunchType::FROM_TAB_LIST_INTERFACE);
   }
 
   void TearDownOnMainThread() override {

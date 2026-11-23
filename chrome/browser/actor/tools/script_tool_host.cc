@@ -156,7 +156,6 @@ void ScriptToolHost::Invoke(ToolCallback callback) {
   auto invocation = actor::mojom::ToolInvocation::New();
   invocation->action = action_->Clone();
   invocation->task_id = task_id();
-  execution_id_ = base::UnguessableToken::Create();
   invocation->execution_id = execution_id_;
   invocation->target =
       actor::mojom::ToolTarget::NewDomNodeId(kRootElementDomNodeId);
@@ -235,12 +234,6 @@ GURL ScriptToolHost::JournalURL() const {
 
 std::string ScriptToolHost::JournalEvent() const {
   return DebugString();
-}
-
-void ScriptToolHost::UpdateTaskBeforeInvoke(ActorTask& task,
-                                            ToolCallback callback) const {
-  task.AddActorSurface(actor_surface_handle_, /*stop_task_on_detach=*/true,
-                       std::move(callback));
 }
 
 ActorSurfaceHandle ScriptToolHost::GetTargetActorSurface() const {

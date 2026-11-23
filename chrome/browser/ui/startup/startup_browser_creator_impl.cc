@@ -251,7 +251,7 @@ void StartupBrowserCreatorImpl::Launch(
     Profile* profile,
     chrome::startup::IsProcessStartup process_startup,
     bool restore_tabbed_browser) {
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M162);
   profile_ = profile;
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -299,6 +299,8 @@ BrowserWindowInterface* StartupBrowserCreatorImpl::OpenTabsInBrowser(
     chrome::startup::IsProcessStartup process_startup,
     const StartupTabs& tabs,
     TabOverWrite is_active_tab_overwrite) {
+  // TODO(crbug.com/577331562): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(!tabs.empty());
 
   // If we don't yet have a profile, try to use the one we're given from
@@ -309,16 +311,11 @@ BrowserWindowInterface* StartupBrowserCreatorImpl::OpenTabsInBrowser(
   }
 
 #if BUILDFLAG(IS_LINUX)
-  std::string startup_id =
-      command_line_->GetSwitchValueASCII(base::nix::kXdgActivationTokenSwitch);
-  if (startup_id.empty()) {
-    startup_id = command_line_->GetSwitchValueASCII("desktop-startup-id");
+  auto token = base::nix::GetXdgActivationTokenFromCommandLine(*command_line_);
+  if (!token) {
+    token = base::nix::TakeXdgActivationToken();
   }
-  if (startup_id.empty()) {
-    if (auto token = base::nix::TakeXdgActivationToken()) {
-      startup_id = *token;
-    }
-  }
+  std::string startup_id = std::move(token).value_or("");
 #endif
 
   // Launchers that only need to hand a URL to an already-running browser can
@@ -362,8 +359,8 @@ BrowserWindowInterface* StartupBrowserCreatorImpl::OpenTabsInBrowser(
         CreateBrowserWindow(std::move(params));
     if (auto* manager =
             InitialWebUIWindowMetricsManager::From(browser_window)) {
-      manager->SetWindowCreationInfo(
-          waap::NewWindowCreationSource::kBrowserInitiated, now);
+      manager->SetWindowCreationInfo(waap::NewWindowCreationSource::kLaunch,
+                                     now);
     }
     browser = browser_window;
   }
@@ -428,7 +425,7 @@ BrowserWindowInterface* StartupBrowserCreatorImpl::OpenTabsInBrowser(
         (is_active_tab_overwrite == TabOverWrite::kYes)) {
       NavigateParams params(browser, tab.url,
                             ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
-      params.disposition = WindowOpenDisposition::CURRENT_TAB;
+      params.disposition = WindowOpenDisposition::kCurrentTab;
       params.tabstrip_add_types = ADD_NONE;
       first_tab = false;
       Navigate(&params);
@@ -453,8 +450,8 @@ BrowserWindowInterface* StartupBrowserCreatorImpl::OpenTabsInBrowser(
     // when the tab strip is empty, so the first tab of a new window is still
     // activated under kOpenInBackground.
     params.disposition = (first_tab && !open_in_background)
-                             ? WindowOpenDisposition::NEW_FOREGROUND_TAB
-                             : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+                             ? WindowOpenDisposition::kNewForegroundTab
+                             : WindowOpenDisposition::kNewBackgroundTab;
     params.tabstrip_add_types = add_types;
 
 #if BUILDFLAG(ENABLE_RLZ)

@@ -59,11 +59,11 @@
 #include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_face.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_run.h"
 #include "third_party/blink/renderer/platform/fonts/small_caps_iterator.h"
-#include "third_party/blink/renderer/platform/fonts/utf16_text_iterator.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/text_break_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
+#include "third_party/blink/renderer/platform/wtf/text/code_point_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
@@ -187,7 +187,7 @@ FontFallbackPriority ApplyFontVariantEmojiOnFallbackPriority(
     FontVariantEmoji font_variant_emoji) {
   // font-variant-emoji property should not override emoji variation selectors,
   // see https://www.w3.org/TR/css-fonts-4/#font-variant-emoji-prop.
-  if (!HasVSFallbackPriority(curr_font_fallback_priority)) {
+  if (!HasVsFallbackPriority(curr_font_fallback_priority)) {
     if (font_variant_emoji == kEmojiVariantEmoji) {
       return FontFallbackPriority::kEmojiEmoji;
     }
@@ -274,7 +274,7 @@ namespace {
 
 // A port of hb_icu_script_to_script because harfbuzz on CrOS is built
 // without hb-icu. See http://crbug.com/356929
-static inline hb_script_t ICUScriptToHBScript(UScriptCode script) {
+static inline hb_script_t IcuScriptToHbScript(UScriptCode script) {
   if (script == USCRIPT_INVALID_CODE) [[unlikely]] {
     return HB_SCRIPT_INVALID;
   }
@@ -340,7 +340,7 @@ inline bool ShapeRange(hb_buffer_t* buffer,
       variant_features ? *variant_features : font_features;
 
   hb_buffer_set_language(buffer, language);
-  hb_buffer_set_script(buffer, ICUScriptToHBScript(current_run_script));
+  hb_buffer_set_script(buffer, IcuScriptToHbScript(current_run_script));
   hb_buffer_set_direction(buffer, direction);
 
   hb_font_t* hb_font =
@@ -412,12 +412,12 @@ BufferSlice ComputeSlice(RangeContext* range_data,
 inline bool IsLastFontToShape(
     HarfBuzzShaper::FallbackFontStage fallback_stage) {
   return fallback_stage == HarfBuzzShaper::kLast ||
-         fallback_stage == HarfBuzzShaper::kLastIgnoreVS;
+         fallback_stage == HarfBuzzShaper::kLastIgnoreVs;
 }
 
 inline bool StageNeedsQueueReset(
     HarfBuzzShaper::FallbackFontStage fallback_stage) {
-  return fallback_stage == HarfBuzzShaper::kLastWithVS;
+  return fallback_stage == HarfBuzzShaper::kLastWithVs;
 }
 
 HarfBuzzShaper::FallbackFontStage ChangeStageToLast(
@@ -425,24 +425,24 @@ HarfBuzzShaper::FallbackFontStage ChangeStageToLast(
   switch (fallback_stage) {
     case HarfBuzzShaper::kIntermediate:
       return HarfBuzzShaper::kLast;
-    case HarfBuzzShaper::kIntermediateWithVS:
-      return HarfBuzzShaper::kLastWithVS;
-    case HarfBuzzShaper::kIntermediateIgnoreVS:
-      return HarfBuzzShaper::kLastIgnoreVS;
+    case HarfBuzzShaper::kIntermediateWithVs:
+      return HarfBuzzShaper::kLastWithVs;
+    case HarfBuzzShaper::kIntermediateIgnoreVs:
+      return HarfBuzzShaper::kLastIgnoreVs;
     default:
       return fallback_stage;
   }
 }
 
-HarfBuzzShaper::FallbackFontStage ChangeStageToVS(
+HarfBuzzShaper::FallbackFontStage ChangeStageToVs(
     HarfBuzzShaper::FallbackFontStage fallback_stage) {
   switch (fallback_stage) {
     case HarfBuzzShaper::kIntermediate:
-      return HarfBuzzShaper::kIntermediateWithVS;
+      return HarfBuzzShaper::kIntermediateWithVs;
     case HarfBuzzShaper::kLast:
-      return HarfBuzzShaper::kLastWithVS;
-    case HarfBuzzShaper::kIntermediateWithVS:
-    case HarfBuzzShaper::kLastWithVS:
+      return HarfBuzzShaper::kLastWithVs;
+    case HarfBuzzShaper::kIntermediateWithVs:
+    case HarfBuzzShaper::kLastWithVs:
       return fallback_stage;
     default:
       // We should not call this function on the second fallback pass.
@@ -518,7 +518,7 @@ void HarfBuzzShaper::CommitGlyphs(RangeContext* range_data,
                                   const BufferSlice& slice,
                                   ShapeResult* shape_result) const {
   hb_direction_t direction = range_data->HarfBuzzDirection(canvas_rotation);
-  hb_script_t script = ICUScriptToHBScript(current_run_script);
+  hb_script_t script = IcuScriptToHbScript(current_run_script);
   // Here we need to specify glyph positions.
   BufferSlice next_slice;
   wtf_size_t run_start_index = slice.start_character_index;
@@ -607,8 +607,8 @@ void HarfBuzzShaper::ExtractShapeResults(
       // We revisit when HarfBuzz decides how to solve this more generally.
       // https://github.com/harfbuzz/harfbuzz/issues/2889
       glyph_result = kNotDef;
-    } else if (glyph_id == kUnmatchedVSGlyphId) {
-      fallback_stage = ChangeStageToVS(fallback_stage);
+    } else if (glyph_id == kUnmatchedVsGlyphId) {
+      fallback_stage = ChangeStageToVs(fallback_stage);
       glyph_result = kNotDef;
     } else {
       glyph_result = kShaped;
@@ -733,7 +733,7 @@ bool HarfBuzzShaper::CollectFallbackHintChars(
         // FontFallbackIterator needs a character with a determined script to
         // perform meaningful system fallback.
         if (!needs_hint_list &&
-            !Character::IsCommonOrInheritedScript(hint_char)) {
+            !unicode::IsCommonOrInheritedScript(hint_char)) {
           return true;
         }
       }
@@ -741,10 +741,14 @@ bool HarfBuzzShaper::CollectFallbackHintChars(
     }
 
     // !text_.Is8Bit()...
-    UChar32 hint_char;
-    UTF16TextIterator iterator(
+    CodePointIterator::Utf16 iterator(
         text_.Span16().subspan(it->start_index_, it->num_characters_));
-    while (iterator.Consume(hint_char)) {
+    const CodePointIterator::Utf16 end = iterator.EndForThis();
+    for (; iterator != end; ++iterator) {
+      UChar32 hint_char = *iterator;
+      if (U_IS_SURROGATE(hint_char)) [[unlikely]] {
+        hint_char = uchar::kReplacementCharacter;
+      }
       hint.push_back(hint_char);
       num_chars_added++;
       // Determine if we can take a shortcut and not fill the hint list
@@ -752,11 +756,9 @@ bool HarfBuzzShaper::CollectFallbackHintChars(
       // managed to find a character with a definite script since
       // FontFallbackIterator needs a character with a determined script to
       // perform meaningful system fallback.
-      if (!needs_hint_list &&
-          !Character::IsCommonOrInheritedScript(hint_char)) {
+      if (!needs_hint_list && !unicode::IsCommonOrInheritedScript(hint_char)) {
         return true;
       }
-      iterator.Advance();
     }
   }
   return num_chars_added > 0;
@@ -940,9 +942,9 @@ void HarfBuzzShaper::ShapeSegment(
         // for the base codepoint of unshaped variation sequences, so we need to
         // restart the fallback queue and set the variation selector mode to
         // `kIgnoreVariationSelector`.
-        DCHECK_EQ(fallback_stage, kLastWithVS);
+        DCHECK_EQ(fallback_stage, kLastWithVs);
         fallback_iterator.Reset();
-        fallback_stage = kIntermediateIgnoreVS;
+        fallback_stage = kIntermediateIgnoreVs;
         variation_selector_mode = kIgnoreVariationSelector;
       }
 
@@ -978,7 +980,7 @@ void HarfBuzzShaper::ShapeSegment(
           OpenTypeCapsSupport(font_data->PlatformData().GetHarfBuzzFace(),
                               font_description.VariantCaps(),
                               font_description.GetFontSynthesisSmallCaps(),
-                              ICUScriptToHBScript(segment.script));
+                              IcuScriptToHbScript(segment.script));
       if (caps_support.NeedsRunCaseSplitting()) {
         SplitUntilNextCaseChange(text_, &range_data->reshape_queue,
                                  current_queue_item, small_caps_behavior);
@@ -1200,7 +1202,7 @@ void HarfBuzzShaper::GetGlyphData(const SimpleFontData& font_data,
   PooledHarfBuzzBuffer pooled_hb_buffer;
   hb_buffer_t* hb_buffer = pooled_hb_buffer.Get();
   hb_buffer_set_language(hb_buffer, locale.HarfbuzzLanguage());
-  hb_buffer_set_script(hb_buffer, ICUScriptToHBScript(script));
+  hb_buffer_set_script(hb_buffer, IcuScriptToHbScript(script));
   hb_buffer_set_direction(
       hb_buffer, is_horizontal ? (blink::IsLtr(direction) ? HB_DIRECTION_LTR
                                                           : HB_DIRECTION_RTL)

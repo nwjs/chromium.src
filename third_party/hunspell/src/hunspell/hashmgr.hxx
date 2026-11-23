@@ -72,6 +72,8 @@
 #define HASHMGR_HXX_
 
 #include <cstdio>
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -136,7 +138,7 @@ class HashMgr {
   // This function allows that cache to be emptied and not grow infinitely.
   void EmptyHentryCache();
 #else
-  HashMgr(const char* tpath, const char* apath, const char* key = NULL);
+  HashMgr(const char* tpath, const char* apath, const char* key = nullptr);
 #endif
   ~HashMgr();
 
@@ -145,7 +147,7 @@ class HashMgr {
   struct hentry* walk_hashtable(int& col, struct hentry* hp) const;
 
   int add(const std::string& word);
-  int add_with_flags(const std::string& word, const std::string& flags, const std::string& desc);
+  int add_with_flags(const std::string& word, const std::string& flags, const std::string& desc = "");
   int add_with_affix(const std::string& word, const std::string& pattern);
   int remove(const std::string& word);
   int decode_flags(unsigned short** result, const std::string& flags, FileMgr* af) const;
@@ -168,7 +170,8 @@ class HashMgr {
                int al,
                const std::string* desc,
                bool onlyupcase,
-               int captype);
+               int captype,
+               bool own_aff);
   int load_config(const char* affpath, const char* key);
   bool parse_aliasf(const std::string& line, FileMgr* af);
 
@@ -215,7 +218,21 @@ class HashMgr {
   bool parse_reptable(const std::string& line, FileMgr* af);
   void remove_forbidden_flag(const std::string& word);
   void free_table();
-  void free_flag(unsigned short* astr, int alen);
+  void release_flags(unsigned short* astr, bool owned);
+
+  // Only internal consumers are allowed to arena-allocate.
+  int decode_flags(unsigned short** result, const std::string& flags, FileMgr* af, bool use_arena) const;
+
+  // Bump-pointer arena for load-time hentry/flag/aliasm allocations. Freed in
+  // bulk at destruction. arena_free is a no-op that tracks outstanding allocs
+  // and aborts on underflow. Mutable so const decode_flags can arena-allocate.
+  void* arena_alloc(size_t num_bytes, size_t alignment) const;
+  void arena_free(void* ptr) const;
+
+  mutable std::vector<std::unique_ptr<uint8_t[]>> arena;
+  mutable size_t current_chunk_size = 0;
+  mutable size_t current_chunk_offset = 0;
+  mutable size_t outstanding_arena_allocations = 0;
 };
 
 #endif

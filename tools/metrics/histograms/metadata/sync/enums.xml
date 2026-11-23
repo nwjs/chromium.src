@@ -402,6 +402,12 @@ chromium-metrics-reviews@google.com.
   <int value="128" label="CustomLinksListMobile"/>
   <int value="129" label="SiteTokenProviderPref"/>
   <int value="130" label="ReaderForAccessibility"/>
+  <int value="131" label="SafeBrowsingNoProtectionDisabledTimestamp"/>
+  <int value="132" label="SafeBrowsingPreNoProtectionState"/>
+  <int value="133" label="SafeBrowsingNoProtectionDisabledPermanently"/>
+  <int value="134" label="SafeBrowsingNoProtectionReminderDismissed"/>
+  <int value="135" label="SafeBrowsingNoProtectionReminderLastShown"/>
+  <int value="136" label="SafeBrowsingNoProtectionReminderCount"/>
 <!-- LINT.ThenChange(/components/sync_preferences/common_syncable_prefs_database.cc:CommonSyncablePref)-->
 
 <!-- LINT.IfChange(ChromeSyncablePref) -->
@@ -422,7 +428,7 @@ chromium-metrics-reviews@google.com.
   <int value="100013" label="HatsSurveyMetadata"/>
   <int value="100014" label="HomePage"/>
   <int value="100015" label="HomePageIsNewTabPage"/>
-  <int value="100016" label="NtpCustomBackgroundDict"/>
+  <int value="100016" label="(obsolete) NtpCustomBackgroundDict"/>
   <int value="100017" label="LiveCaptionBubbleExpanded"/>
   <int value="100018" label="(Obsolete) LiveCaptionBubblePinned"/>
   <int value="100019" label="LiveCaptionEnabled"/>
@@ -615,7 +621,7 @@ chromium-metrics-reviews@google.com.
   <int value="100193" label="ProfileDefaultContentSettingValuesPopups"/>
   <int value="100194"
       label="ProfileDefaultContentSettingValuesWindowPlacement"/>
-  <int value="100195" label="WebauthnCablev2Pairings"/>
+  <int value="100195" label="(obsolete) WebauthnCablev2Pairings"/>
   <int value="100196" label="DynamicColorColorScheme"/>
   <int value="100197" label="DynamicColorSeedColor"/>
   <int value="100198" label="LongPressDiacritics"/>
@@ -640,10 +646,10 @@ chromium-metrics-reviews@google.com.
   <int value="100216" label="SixPackKeyInsertNotificationsRemaining"/>
   <int value="100217" label="LiveCaptionMaskOffensiveWords"/>
   <int value="100218" label="AshSessionTimeOfLastActivation"/>
-  <int value="100219" label="BrowserColorScheme"/>
-  <int value="100220" label="BrowserColorVariant"/>
-  <int value="100221" label="GrayscaleThemeEnabled"/>
-  <int value="100222" label="UserColor"/>
+  <int value="100219" label="(obsolete) BrowserColorScheme"/>
+  <int value="100220" label="(obsolete) BrowserColorVariant"/>
+  <int value="100221" label="(obsolete) GrayscaleThemeEnabled"/>
+  <int value="100222" label="(obsolete) UserColor"/>
   <int value="100223" label="(Obsolete) BlockAll3pcToggleEnabled"/>
   <int value="100224" label="(Obsolete) TrackingProtectionLevel"/>
   <int value="100225" label="UserSpeakOnMuteDetectionEnabled"/>
@@ -1628,7 +1634,7 @@ chromium-metrics-reviews@google.com.
   <int value="104" label="kNigoriInvalidPassphraseTransition"/>
   <int value="105" label="kNigoriInvalidSpecifics"/>
   <int value="106" label="kNigoriMissingKeystoreKeysDuringInitialSync"/>
-  <int value="107" label="kNigoriMissingLastTrustedVaultKeyInKeybag"/>
+  <int value="107" label="kNigoriMissingLastDefaultKeyInKeybag"/>
   <int value="108" label="kNigoriMissingNewDefaultKeyInKeybag"/>
   <int value="121" label="(Obsolete) kPlusAddressAddOrUpdateProfileFailed"/>
   <int value="122" label="(Obsolete) kPlusAddressClearProfilesFailed"/>
@@ -1957,18 +1963,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/components/sync_user_events/user_event_service_impl.cc:SyncUserEventType) -->
-
-<!-- LINT.IfChange(ThemePrefInMigration) -->
-
-<enum name="ThemePrefInMigration">
-  <int value="0" label="kBrowserColorScheme"/>
-  <int value="1" label="kUserColor"/>
-  <int value="2" label="kBrowserColorVariant"/>
-  <int value="3" label="kGrayscaleThemeEnabled"/>
-  <int value="4" label="kNtpCustomBackgroundDict"/>
-</enum>
-
-<!-- LINT.ThenChange(/chrome/browser/themes/theme_syncable_service.h:ThemePrefInMigration) -->
 
 <!-- LINT.IfChange(TriggerRefreshSource) -->
 

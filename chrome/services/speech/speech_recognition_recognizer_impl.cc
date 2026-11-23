@@ -698,6 +698,10 @@ void SpeechRecognitionRecognizerImpl::ResetSoda() {
   config_msg_.set_enable_speaker_change_detection(
       base::FeatureList::IsEnabled(media::kSpeakerChangeDetection));
   config_msg_.set_mask_offensive_words(mask_offensive_words_);
+  // Only set when enabled so the serialized config is unchanged otherwise.
+  if (base::FeatureList::IsEnabled(media::kSodaXnnpackDelegate)) {
+    config_msg_.set_enable_xnnpack_delegate(true);
+  }
   if (config_paths_.size() > 0 && options_->allow_multi_language) {
     auto* multilang_config = config_msg_.mutable_multilang_config();
     multilang_config->set_rewind_when_switching_language(true);

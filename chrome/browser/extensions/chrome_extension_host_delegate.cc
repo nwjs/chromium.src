@@ -27,7 +27,6 @@
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
 #include "chrome/browser/content_settings/request_desktop_site_web_contents_observer_android.h"
 #include "chrome/browser/extensions/tab_helper.h"
@@ -78,14 +77,11 @@ void ChromeExtensionHostDelegate::CreateTab(
   CHECK(profile);
 #if BUILDFLAG(IS_ANDROID)
   // On Android, tab creation is asynchronous, but `CreateNewWindow()`
-  // immediately starts navigation. Attach `TabHelpers` synchronously so
+  // immediately starts navigation. Attach early helpers synchronously so
   // observers like `RequestDesktopSiteWebContentsObserverAndroid` are present
   // for the initial load. This matches
-  // `TabWebContentsDelegateAndroid::AddNewContents()`. It is safe to
-  // attach `TabHelpers` multiple times since `AttachTabHelpers()` is
-  // idempotent.
+  // `TabWebContentsDelegateAndroid::AddNewContents()`.
   // TODO(crbug.com/499200457): Add instrumentation test.
-  TabAndroid::AttachTabHelpers(web_contents.get());
   CreateSubresourceFilterWebContentsHelper(web_contents.get());
   content_settings::PageSpecificContentSettings::CreateForWebContents(
       web_contents.get(), std::make_unique<PageSpecificContentSettingsDelegate>(
@@ -162,8 +158,8 @@ void ChromeExtensionHostDelegate::NavigateBrowser(
   // supported. See browser_navigator_android.cc or http://crbug.com/441594986.
   auto params =
       std::make_unique<NavigateParams>(browser, /*contents_to_insert=*/nullptr);
-  if (disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-      disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB) {
+  if (disposition == WindowOpenDisposition::kNewForegroundTab ||
+      disposition == WindowOpenDisposition::kNewBackgroundTab) {
     params->contents_to_insert = std::move(web_contents);
   } else {
     params->url = std::move(target_url);
@@ -178,7 +174,7 @@ void ChromeExtensionHostDelegate::NavigateBrowser(
   // among other things, whether the location bar gets displayed.
   // TODO(mpcomplete): This seems wrong. What if the extension content is
   // hosted in a tab?
-  if (disposition == WindowOpenDisposition::NEW_POPUP) {
+  if (disposition == WindowOpenDisposition::kNewPopup) {
     params->app_id = extension_id;
   }
 

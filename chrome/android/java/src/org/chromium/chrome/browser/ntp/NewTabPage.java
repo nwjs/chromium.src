@@ -332,7 +332,7 @@ public class NewTabPage
             Tab currentTab = mActivityTabProvider.get();
             if (currentTab == null) return null;
             NativePage nativePage = currentTab.getNativePage();
-            return (nativePage instanceof NewTabPage) ? (NewTabPage) nativePage : null;
+            return (nativePage instanceof NewTabPage newTabPage) ? newTabPage : null;
         }
 
         @Override
@@ -954,6 +954,11 @@ public class NewTabPage
         mNewTabPageCoordinator.getSearchBoxBounds(bounds, translation, getView());
     }
 
+    /** Returns the fake search box view. */
+    public View getSearchBoxView() {
+        return mNewTabPageCoordinator.getSearchBoxView();
+    }
+
     /**
      * Get the vertical inset applied to the search box bounds.
      *
@@ -1251,6 +1256,11 @@ public class NewTabPage
 
     @Override
     public boolean shouldCaptureThumbnail() {
+        // A newly created (e.g. unfrozen) NTP must not overwrite the cached thumbnail until it has
+        // been drawn for display; otherwise the capture is blank, e.g. when restoring directly
+        // into the Hub after activity recreation.
+        if (!mFeedSurfaceProvider.hasDrawnFrame()) return false;
+
         return mNewTabPageCoordinator.shouldCaptureThumbnail()
                 || mFeedSurfaceProvider.shouldCaptureThumbnail()
                 || mSnapshotSingleTabCardChanged;
@@ -1362,12 +1372,13 @@ public class NewTabPage
     }
 
     private void updateNtpScrollListener(boolean attach) {
-        if (!(mFeedSurfaceProvider instanceof FeedSurfaceCoordinator)) return;
+        if (!(mFeedSurfaceProvider instanceof FeedSurfaceCoordinator feedSurfaceCoordinator)) {
+            return;
+        }
 
         if (!BottomBarConfigUtils.isNtpScrollOffEnabled(mTab, mContext)) return;
 
-        RecyclerView recyclerView =
-                ((FeedSurfaceCoordinator) mFeedSurfaceProvider).getRecyclerView();
+        RecyclerView recyclerView = feedSurfaceCoordinator.getRecyclerView();
         if (recyclerView == null) {
             if (mNtpScrollListener != null) {
                 mNtpScrollListener = null;

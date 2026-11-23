@@ -35,6 +35,7 @@
 #import "ios/chrome/browser/signin/model/capabilities_types.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/test_constants.h"
+#import "ios/chrome/common/ui/button_stack/button_stack_constants.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/promo_style/constants.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
@@ -49,6 +50,7 @@
 #import "ios/testing/earl_grey/app_launch_configuration.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
+#import "ios/testing/test_tag_registry.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/test/ios/ui_image_test_utils.h"
@@ -94,7 +96,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Skip remaining screens.
   [[self class] dismissDefaultBrowserAndRemainingScreens];
@@ -113,7 +115,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is on.
   GREYAssertTrue(
@@ -133,7 +135,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                ManageUMALinkMatcher(),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   // Turn off UMA.
@@ -151,7 +153,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is off.
   GREYAssertFalse(
@@ -171,7 +173,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
       grey_allOf(ManageUMALinkMatcher(), grey_sufficientlyVisible(), nil);
   [[self elementInteractionWithGreyMatcher:manageUMALinkMatcher
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
 
   // This wait is required because, on devices, EG-test may tap on the button
@@ -197,7 +199,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   // Open UMA dialog again.
   [[self elementInteractionWithGreyMatcher:manageUMALinkMatcher
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check UMA off.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
@@ -215,7 +217,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is off.
   GREYAssertFalse(
@@ -236,7 +238,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
       grey_allOf(ManageUMALinkMatcher(), grey_sufficientlyVisible(), nil);
   [[self elementInteractionWithGreyMatcher:manageUMALinkMatcher
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   // Turn off UMA.
@@ -253,7 +255,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   // Open UMA dialog again.
   [[self elementInteractionWithGreyMatcher:manageUMALinkMatcher
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   // Turn UMA back on.
@@ -271,7 +273,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is on.
   GREYAssertTrue(
@@ -294,7 +296,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                ManageUMALinkMatcher(),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   // Turn off UMA.
@@ -312,7 +314,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept sync.
   [self acceptSyncOrHistory];
@@ -329,6 +331,8 @@ id<GREYMatcher> ManageUMALinkMatcher() {
 }
 
 // Tests FRE with UMA default value and with sign-in.
+TAG_SMOKE_TEST(FirstRunWithoutSearchEngineChoiceTestCase,
+               testWithUMACheckedAndSignin);
 - (void)testWithUMACheckedAndSignin {
   // Add identity.
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
@@ -340,7 +344,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept sync.
   [self acceptSyncOrHistory];
@@ -372,7 +376,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept sync.
   [self acceptSyncOrHistory];
@@ -392,13 +396,13 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Refuse sync.
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is on.
   GREYAssertTrue(
@@ -425,7 +429,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is on.
   GREYAssertTrue(
@@ -450,7 +454,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept sync.
   [self acceptSyncOrHistory];
@@ -484,13 +488,13 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Refuse history sync.
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is on.
   GREYAssertTrue(
@@ -523,7 +527,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is on.
   GREYAssertTrue(
@@ -554,7 +558,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Check that UMA is on.
   GREYAssertTrue(
@@ -589,7 +593,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept sync.
   [self acceptSyncOrHistory];
@@ -619,7 +623,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept sync.
   [self acceptSyncOrHistory];
@@ -651,7 +655,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept sync.
   [self acceptSyncOrHistory];
@@ -682,7 +686,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Verify that the History Sync Opt-In screen is shown.
@@ -704,7 +708,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that latency metrics are recorded.
   GREYAssertNil([MetricsAppInterface
@@ -750,7 +754,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Verify that the History Sync Opt-In screen is shown.
@@ -773,7 +777,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that History Sync buttons metrics are recorded.
   GREYAssertNil(
@@ -797,7 +801,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Wait for the History Sync Opt-In screen.
@@ -825,7 +829,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that latency metrics are recorded later for when the capability is
   // not immediately available.
@@ -868,7 +872,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Wait for the History Sync Opt-In screen.
@@ -879,7 +883,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that latency metrics are recorded later for when the capability is
   // not immediately available.
@@ -920,7 +924,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGreyUI addFakeAccountInFakeAddAccountMenu:fakeIdentity];
@@ -937,7 +941,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that the History Sync Opt-In screen is shown.
   [[EarlGrey
@@ -963,7 +967,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifySignedOut];
   // Verify that the History Sync Opt-In screen is hidden.
@@ -985,7 +989,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Verify that the History Sync Opt-In screen is shown.
@@ -1000,7 +1004,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                grey_text(disclaimerText),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       assertWithMatcher:grey_notNil()];
   // Verify that buttons have the expected colors.
   [[EarlGrey
@@ -1017,7 +1021,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that History Sync buttons metrics are recorded.
   GREYAssertNil(
@@ -1045,7 +1049,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                grey_text(subtitle),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       assertWithMatcher:grey_notNil()];
 }
 
@@ -1072,13 +1076,13 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                grey_text(subtitle),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       assertWithMatcher:grey_notNil()];
   // Accept sign-in.
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Verify that the History Sync Opt-In screen is hidden.
@@ -1113,13 +1117,13 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                grey_text(subtitle),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       assertWithMatcher:grey_notNil()];
   // Accept sign-in.
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Verify that the History Sync Opt-In screen is hidden.
@@ -1154,13 +1158,13 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                grey_text(subtitle),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       assertWithMatcher:grey_notNil()];
   // Accept sign-in.
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [SigninEarlGrey verifyPrimaryAccountWithEmail:fakeIdentity.userEmail];
   // Verify that the History Sync Opt-In screen is shown.
@@ -1180,13 +1184,13 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Accept History Sync.
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that the default browser screen is shown.
   [self verifyDefaultBrowserIsDisplayed];
@@ -1217,13 +1221,13 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Refuse History Sync.
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackSecondaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that the default browser screen is shown.
   [self verifyDefaultBrowserIsDisplayed];
@@ -1254,7 +1258,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
   [[self elementInteractionWithGreyMatcher:chrome_test_util::
                                                ButtonStackPrimaryButton()
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   // Verify that the History Sync Opt-In screen is shown.
   [[EarlGrey
@@ -1330,7 +1334,7 @@ id<GREYMatcher> ManageUMALinkMatcher() {
                                                ManageUMALinkMatcher(),
                                                grey_sufficientlyVisible(), nil)
                       scrollViewIdentifier:
-                          kPromoStyleScrollViewAccessibilityIdentifier]
+                          kButtonStackScrollViewAccessibilityIdentifier]
       performAction:grey_tap()];
   [ChromeEarlGreyUI waitForAppToIdle];
   // Turn off UMA.

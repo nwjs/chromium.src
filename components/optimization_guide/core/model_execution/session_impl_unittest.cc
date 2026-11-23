@@ -13,6 +13,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
+#include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -33,14 +34,13 @@
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/scenario_builder.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h"
 #include "components/optimization_guide/core/model_execution/model_broker_client.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/multimodal_message.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_execution.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_access_controller.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_execution_proto_value_utils.h"
-#include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
+#include "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
@@ -61,7 +61,6 @@
 #include "components/optimization_guide/proto/on_device_model_execution_config.pb.h"
 #include "components/optimization_guide/proto/redaction.pb.h"
 #include "components/optimization_guide/proto/substitution.pb.h"
-#include "components/optimization_guide/proto/text_safety_model_metadata.pb.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom.h"
 #include "components/prefs/testing_pref_service.h"
@@ -83,8 +82,10 @@ using ::on_device_model::mojom::PerformanceClass;
 using ExecuteModelResult = ::optimization_guide::OnDeviceExecution::Result;
 
 using ::testing::AllOf;
+using ::testing::Contains;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::ResultOf;
 
@@ -96,11 +97,23 @@ auto SimpleComposeConfigForTesting() {
   return cfg;
 }
 
-auto UnsafeComposeConfig() {
-  auto cfg = SimpleComposeConfigForTesting();
-  cfg.set_can_skip_text_safety(true);
-  return cfg;
-}
+// Records messages logged to chrome://on-device-internals. Observing a logger
+// also enables its debug logs.
+class TestLoggerObserver : public OptimizationGuideLogger::Observer {
+ public:
+  void OnLogMessageAdded(base::Time event_time,
+                         optimization_guide_common::mojom::LogSource log_source,
+                         const std::string& source_file,
+                         int source_line,
+                         const std::string& message) override {
+    messages_.push_back(message);
+  }
+
+  const std::vector<std::string>& messages() const { return messages_; }
+
+ private:
+  std::vector<std::string> messages_;
+};
 
 }  // namespace
 
@@ -148,9 +161,6 @@ class SessionImplTest : public testing::Test {
         solution_config.feature().feature();
     mojom::OnDeviceFeature feature = *ToOnDeviceFeature(feature_proto);
     std::string use_case = ToUseCaseName(feature);
-    if (solution_config.has_safety()) {
-      solution_config.mutable_safety()->set_feature(feature_proto);
-    }
 
     ScenarioBuilder builder(broker_.component_state());
     builder.AddBaseModel(
@@ -160,14 +170,8 @@ class SessionImplTest : public testing::Test {
             proto::BaseModelRecipe::PERFORMANCE_HINT_HIGHEST_QUALITY, {},
             /*max_tokens=*/0),
         FakeBaseModelAsset::Content{}, "1");
-    if (solution_config.has_safety()) {
-      builder.AddSafetyModel("safety_model");
-      builder.AddSafeSolution(use_case, "base_model", "safety_model",
+    builder.AddUnsafeSolution(use_case, "base_model",
                               std::move(solution_config));
-    } else {
-      builder.AddUnsafeSolution(use_case, "base_model",
-                                std::move(solution_config));
-    }
     builder.Finish();
 
     broker_.Startup();
@@ -179,7 +183,6 @@ class SessionImplTest : public testing::Test {
   void Initialize() {
     proto::SolutionConfig config;
     *config.mutable_feature() = SimpleComposeConfigForTesting();
-    *config.mutable_safety() = ComposeSafetyConfig();
     Initialize(std::move(config));
   }
 
@@ -271,7 +274,6 @@ TEST_F(SessionImplTest, TokenLimits) {
     input_config.set_max_context_tokens(5);
     input_config.set_max_execute_tokens(3);
     config.mutable_feature()->mutable_output_config()->set_max_output_tokens(1);
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
   auto session = CreateSession(SessionConfigParams{});
@@ -293,7 +295,6 @@ TEST_F(SessionImplTest, TokenLimitsCapped) {
     input_config.set_max_execute_tokens(100000);
     config.mutable_feature()->mutable_output_config()->set_max_output_tokens(
         100000);
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
   auto session = CreateSession(SessionConfigParams{});
@@ -451,6 +452,46 @@ TEST_F(SessionImplTest, AddContextMultipleSessions) {
   EXPECT_EQ(*response2.value(), expected_response2);
 }
 
+TEST_F(SessionImplTest, LogsInputContextTokensProcessed) {
+  Initialize();
+  // Observing the logger enables debug logs and captures their output.
+  TestLoggerObserver logger_observer;
+  base::ScopedObservation<OptimizationGuideLogger,
+                          OptimizationGuideLogger::Observer>
+      logger_observation(&logger_observer);
+  logger_observation.Observe(&logger_);
+
+  auto session = CreateSession(SessionConfigParams{});
+  ASSERT_TRUE(session);
+
+  base::test::TestFuture<base::expected<size_t, OnDeviceError>>
+      set_input_future;
+  session->SetInput(MultimodalMessage(UserInputRequest("foo")),
+                    set_input_future.GetCallback());
+  // The fake service counts one token per character of "ctx:foo".
+  ASSERT_EQ(*set_input_future.Take(), 7ul);
+  EXPECT_THAT(logger_observer.messages(),
+              Contains(AllOf(HasSubstr("Processed input context of 7 tokens"),
+                             HasSubstr("ctx:foo"))));
+
+  session->ExecuteModel(PageUrlRequest("bar"),
+                        response_.GetStreamingCallback());
+  ASSERT_TRUE(response_.GetFinalStatus());
+  ASSERT_TRUE(response_.model_execution_info());
+  ASSERT_GT(response_.model_execution_info()
+                ->on_device_model_execution_info()
+                .execution_infos_size(),
+            0);
+  const auto& logged_request = response_.model_execution_info()
+                                   ->on_device_model_execution_info()
+                                   .execution_infos(0)
+                                   .request()
+                                   .on_device_model_service_request();
+  EXPECT_EQ(logged_request.input_context_string(), "ctx:foo");
+  EXPECT_EQ(logged_request.input_context_num_tokens_processed(), 7u);
+  EXPECT_EQ(logged_request.execution_string(), "execute:foobar");
+}
+
 TEST_F(SessionImplTest, FailsOnGpuBlockedService) {
   Initialize();
   broker_.settings().service_disconnect_reason =
@@ -476,12 +517,7 @@ TEST_F(SessionImplTest, FailsOnGpuBlockedService) {
 }
 
 TEST_F(SessionImplTest, AddContextInvalidConfig) {
-  Initialize([]() {
-    proto::SolutionConfig config;
-    auto* feature = config.mutable_feature();
-    feature->set_can_skip_text_safety(true);
-    return config;
-  }());
+  Initialize(proto::SolutionConfig{});
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -505,12 +541,7 @@ TEST_F(SessionImplTest, AddContextInvalidConfig) {
 }
 
 TEST_F(SessionImplTest, ExecuteInvalidConfig) {
-  Initialize([]() {
-    proto::SolutionConfig config;
-    auto* feature = config.mutable_feature();
-    feature->set_can_skip_text_safety(true);
-    return config;
-  }());
+  Initialize(proto::SolutionConfig{});
 
   auto session = CreateSession(SessionConfigParams{});
   ASSERT_TRUE(session);
@@ -562,7 +593,7 @@ TEST_F(SessionImplTest, DetectsRepeatsAndCancelsResponse) {
   base::HistogramTester histogram_tester;
   Initialize([]() {
     proto::SolutionConfig config;
-    *config.mutable_feature() = UnsafeComposeConfig();
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
     return config;
   }());
 
@@ -609,7 +640,7 @@ TEST_F(SessionImplTest, ExcusedFeaturesIgnoreRepeats) {
   base::HistogramTester histogram_tester;
   Initialize([]() {
     proto::SolutionConfig config;
-    *config.mutable_feature() = UnsafeComposeConfig();
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
     config.mutable_feature()->set_feature(
         proto::MODEL_EXECUTION_FEATURE_PROOFREADER_API);
     return config;
@@ -662,7 +693,7 @@ TEST_F(SessionImplTest, DetectsRepeatsAcrossResponses) {
   base::HistogramTester histogram_tester;
   Initialize([]() {
     proto::SolutionConfig config;
-    *config.mutable_feature() = UnsafeComposeConfig();
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
     return config;
   }());
 
@@ -705,7 +736,7 @@ TEST_F(SessionImplTest, IgnoresNonRepeatingText) {
   base::HistogramTester histogram_tester;
   Initialize([]() {
     proto::SolutionConfig config;
-    *config.mutable_feature() = UnsafeComposeConfig();
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
     return config;
   }());
 
@@ -748,7 +779,7 @@ TEST_F(SessionImplTest, IgnoresNonRepeatingText) {
 TEST_F(SessionImplTest, WithholdsTrailingNewlinesAcrossResponses) {
   Initialize([]() {
     proto::SolutionConfig config;
-    *config.mutable_feature() = UnsafeComposeConfig();
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
     return config;
   }());
 
@@ -783,7 +814,7 @@ TEST_F(SessionImplTest, WithholdsTrailingNewlinesAcrossResponses) {
 TEST_F(SessionImplTest, WithholdsTrailingNewlinesNoTrailingNewlines) {
   Initialize([]() {
     proto::SolutionConfig config;
-    *config.mutable_feature() = UnsafeComposeConfig();
+    *config.mutable_feature() = SimpleComposeConfigForTesting();
     return config;
   }());
 
@@ -818,7 +849,6 @@ TEST_F(SessionImplTest, UsesSessionTopKAndTemperature) {
     *config.mutable_feature() = SimpleComposeConfig();
     config.mutable_feature()->mutable_sampling_params()->set_top_k(4);
     config.mutable_feature()->mutable_sampling_params()->set_temperature(1.5);
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
 
@@ -878,7 +908,6 @@ TEST_F(SessionImplTest, ImageExecutionSuccess) {
   sampling->set_top_k(1);
   sampling->set_temperature(0);
   *config->mutable_output_config() = ResponseHolderOutputConfig();
-  *solution_config.mutable_safety() = ComposeSafetyConfig();
   Initialize(std::move(solution_config));
   MultimodalMessage request((proto::ExampleForTestingRequest()));
   request.edit()
@@ -937,7 +966,6 @@ TEST_F(SessionImplTest, KeepInputOnExtension) {
     *feature->mutable_input_config() = TestInputConfig(
         ForEachRepeated(FormatTestMessage()), EmptySubstitution());
     *feature->mutable_output_config() = ResponseHolderOutputConfig();
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
   base::test::TestFuture<base::expected<size_t, OnDeviceError>>
@@ -1033,7 +1061,6 @@ TEST_F(SessionImplTest, OmitEmptyInputs) {
     *input_config.add_input_context_substitutions() = EmptySubstitution();
     *input_config.add_execute_substitutions() = EmptySubstitution();
     *feature->mutable_output_config() = ResponseHolderOutputConfig();
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
   auto session = CreateSession(SessionConfigParams{});
@@ -1053,7 +1080,6 @@ TEST_F(SessionImplTest, CloneUsesSessionTopKAndTemperature) {
     *config.mutable_feature() = SimpleComposeConfig();
     config.mutable_feature()->mutable_sampling_params()->set_top_k(4);
     config.mutable_feature()->mutable_sampling_params()->set_temperature(1.5);
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
 
@@ -1327,7 +1353,6 @@ TEST_F(SessionImplTest, ResponseConstraintConfigJson) {
         ->mutable_output_config()
         ->mutable_response_constraint()
         ->set_json_schema("{ type: \"object\"}");
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
 
@@ -1351,7 +1376,6 @@ TEST_F(SessionImplTest, ResponseConstraintConfigRegex) {
         ->mutable_output_config()
         ->mutable_response_constraint()
         ->set_regex("[A-Z]*");
-    *config.mutable_safety() = ComposeSafetyConfig();
     return config;
   }());
 

@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
@@ -78,6 +79,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/omnibox/composebox/contextual_search_mojom_traits.h"
 #include "components/prefs/pref_service.h"
+#include "components/search_engines/util.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
@@ -293,7 +295,8 @@ int ContextualSearchboxHandler::GetContextMenuMaxTabSuggestions() {
 std::vector<searchbox::mojom::TabInfoPtr>
 ContextualSearchboxHandler::GetRecentTabInfos(
     BrowserWindowInterface* browser_window_interface,
-    int max_tab_suggestions) {
+    std::optional<int> max_tab_suggestions,
+    const base::flat_set<SessionID>& always_include_tab_ids) {
   if (!browser_window_interface) {
     return {};
   }
@@ -313,14 +316,19 @@ ContextualSearchboxHandler::GetRecentTabInfos(
       continue;
     }
     const GURL& url = tab->GetURL();
-    if (!url.is_valid() || url.IsAboutBlank()) {
+    if (!url.is_valid() || url.IsAboutBlank() || IsAimURL(url) ||
+        IsAimZeroStateURL(url)) {
       continue;
     }
     bool is_internal_page = url.SchemeIs(content::kChromeUIScheme) ||
                             url.SchemeIs(content::kChromeUIUntrustedScheme) ||
                             url.SchemeIs("chrome-extension");
+    const bool is_always_included =
+        !always_include_tab_ids.empty() && tab->GetContents() &&
+        always_include_tab_ids.contains(
+            sessions::SessionTabHelper::IdForTab(tab->GetContents()));
 
-    if (!is_internal_page) {
+    if (!is_internal_page || is_always_included) {
       tab_times.push_back({
           .tab = tab,
           .time = GetTabLastActiveTimeTicks(tab),
@@ -337,9 +345,9 @@ ContextualSearchboxHandler::GetRecentTabInfos(
     }
     return a.time > b.time;
   };
-  if (max_tab_suggestions > 0) {
+  if (max_tab_suggestions.has_value() && *max_tab_suggestions > 0) {
     int count =
-        std::min(static_cast<int>(tab_times.size()), max_tab_suggestions);
+        std::min(static_cast<int>(tab_times.size()), *max_tab_suggestions);
     std::partial_sort(tab_times.begin(), tab_times.begin() + count,
                       tab_times.end(), cmp);
     tab_times.resize(count);
@@ -412,13 +420,19 @@ void ContextualSearchboxHandler::GetRecentTabs(GetRecentTabsCallback callback) {
     tab_list_observation_.Observe(tab_list);
   }
 
-  int max_tab_suggestions = -1;
+  std::optional<int> max_tab_suggestions;
   if (!base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
     max_tab_suggestions = GetContextMenuMaxTabSuggestions();
   }
 
-  std::vector<searchbox::mojom::TabInfoPtr> tabs =
-      GetRecentTabInfos(browser_window_interface, max_tab_suggestions);
+  base::flat_set<SessionID> always_include_tab_ids;
+  if (contextual_search::ContextualSearchSessionHandle* session_handle =
+          GetContextualSessionHandle()) {
+    always_include_tab_ids = session_handle->GetNonDeselectedTabSessionIds();
+  }
+
+  std::vector<searchbox::mojom::TabInfoPtr> tabs = GetRecentTabInfos(
+      browser_window_interface, max_tab_suggestions, always_include_tab_ids);
 
   if (auto* metrics_recorder = GetMetricsRecorder()) {
     // Count duplicate tab titles to record in an UMA histogram.
@@ -1295,11 +1309,21 @@ void ContextualSearchboxHandler::ContinueAddTabContext(
                      weak_ptr_factory_.GetWeakPtr(), context_token));
   pending_tab_context_fetches_.insert_or_assign(context_token,
                                                 std::move(fetch));
+  // `GetPageContext()` may synchronously start reloading a crashed or
+  // discarded tab; if so, notify the page and observe when loading finishes.
+  const bool was_loading = IsTabShowingLoadingIndicator(tab->GetContents());
   tab_contextualization_controller->GetPageContext(
       base::BindOnce(&ContextualSearchboxHandler::OnGetTabPageContext,
                      weak_ptr_factory_.GetWeakPtr(), delay_upload,
                      context_token),
       context_token);
+  if (!was_loading && IsTabShowingLoadingIndicator(tab->GetContents())) {
+    tab_load_stop_observers_.push_back(std::make_unique<TabLoadStopObserver>(
+        tab->GetContents(),
+        base::BindRepeating(&ContextualSearchboxHandler::OnTabStoppedLoading,
+                            base::Unretained(this))));
+    page_->OnTabStripChanged();
+  }
 
   auto pending_request = pending_tab_context_fetches_.find(context_token);
   if (pending_request != pending_tab_context_fetches_.end() &&
@@ -2448,7 +2472,7 @@ void ContextualSearchboxHandler::ProcessContextAndOpenUrl(
 
 #if !BUILDFLAG(IS_ANDROID)
   if (OmniboxPopupWebContentsHelper::FromWebContents(web_contents_.get()) &&
-      disposition == WindowOpenDisposition::CURRENT_TAB) {
+      disposition == WindowOpenDisposition::kCurrentTab) {
     auto* browser_window_interface =
         webui::GetBrowserWindowInterface(web_contents_);
     auto* tab_list = TabListInterface::From(browser_window_interface);
@@ -2503,7 +2527,7 @@ void ContextualSearchboxHandler::ProcessContextAndOpenUrl(
   }
 
 #if !BUILDFLAG(IS_ANDROID)
-  if (disposition == WindowOpenDisposition::CURRENT_TAB) {
+  if (disposition == WindowOpenDisposition::kCurrentTab) {
     content::WebContents* target_web_contents = web_contents_.get();
     if (OmniboxPopupWebContentsHelper::FromWebContents(web_contents_.get())) {
       if (auto* browser_window_interface =
@@ -2601,7 +2625,7 @@ void ContextualSearchboxHandler::OpenUrl(
     // the focus is re-captured by the Omnibox after query submission (see:
     // http://crbug.com/469458346).
     if (target_web_contents &&
-        disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB) {
+        disposition != WindowOpenDisposition::kNewBackgroundTab) {
       target_web_contents->Focus();
     }
   }

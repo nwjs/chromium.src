@@ -16,6 +16,7 @@ compile_ts("common_ts") {
 
 compile_ts("dom_node_ids_ts") {
   sources = [ "resources/dom_node_ids.ts" ]
+  deps = [ "//components/autofill/ios/form_util:unique_node_id_ts" ]
 }
 
 optimize_ts("dom_node_ids_test_ts") {
@@ -38,6 +39,7 @@ compile_ts("annotated_page_content_extraction_ts") {
     ":dom_node_ids_ts",
     ":page_content_types_ts",
     "//components/autofill/ios/form_util:fill_js_constants",
+    "//components/autofill/ios/form_util:unique_node_id_ts",
     "//ios/web/public/js_messaging:gcrweb",
   ]
 }
@@ -149,6 +151,7 @@ source_set("proto_wrappers") {
     "//ios/web/public",
     "//ios/web/public/js_messaging",
     "//net",
+    "//ui/gfx/geometry",
     "//url",
   ]
 }
@@ -257,8 +260,6 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/snapshots/model",
     "//ios/chrome/browser/snapshots/model:model_swift",
-    "//ios/chrome/browser/snapshots/model:snapshot_source",
-    "//ios/chrome/browser/snapshots/model:test_utils",
     "//ios/chrome/test:test_support",
     "//ios/testing:embedded_test_server_support",
     "//ios/web/common:features",
@@ -271,6 +272,9 @@ source_set("unit_tests") {
     "//ios/web/public/ui",
     "//net:test_support",
     "//testing/gtest",
+    "//third_party/ocmock",
+    "//ui/base:test_support",
+    "//ui/gfx/geometry",
     "//url",
   ]
 }

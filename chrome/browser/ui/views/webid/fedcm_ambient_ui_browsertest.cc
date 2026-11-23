@@ -34,7 +34,6 @@
 namespace webid {
 
 using testing::_;
-using testing::InvokeWithoutArgs;
 using testing::NiceMock;
 
 class MockDelegate : public AccountSelectionView::Delegate {
@@ -268,9 +267,9 @@ IN_PROC_BROWSER_TEST_F(FedCmAmbientUiBrowserTest, SignInTransition) {
   EXPECT_FALSE(view()->GetDialogWidget());
 
   bool account_selected = false;
-  EXPECT_CALL(*delegate_, OnAccountSelected).WillOnce(InvokeWithoutArgs([&]() {
+  EXPECT_CALL(*delegate_, OnAccountSelected).WillOnce([&]() {
     account_selected = true;
-  }));
+  });
 
   // Simulate click on the omnibox chip.
   view()->OnPageActionClicked();
@@ -319,9 +318,9 @@ IN_PROC_BROWSER_TEST_F(FedCmAmbientUiBrowserTest, SignInCollapsedTransition) {
                                AmbientImpression::kSignInIcon, 1);
 
   bool account_selected = false;
-  EXPECT_CALL(*delegate_, OnAccountSelected).WillOnce(InvokeWithoutArgs([&]() {
+  EXPECT_CALL(*delegate_, OnAccountSelected).WillOnce([&]() {
     account_selected = true;
-  }));
+  });
 
   // We simulate clicking on the icon, which should now sign the user in
   // directly.
@@ -405,13 +404,13 @@ IN_PROC_BROWSER_TEST_F(FedCmAmbientUiBrowserTest, ReloadPage) {
       *delegate_,
       OnDismiss(
           content::IdentityRequestDialogController::DismissReason::kOther))
-      .WillOnce(InvokeWithoutArgs([&]() { dismissed = true; }));
+      .WillOnce([&]() { dismissed = true; });
 
   // Reload the page.
   content::WebContents* web_contents =
       browser()->GetTabStripModel()->GetActiveWebContents();
   content::TestNavigationObserver navigation(web_contents);
-  chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
+  chrome::Reload(browser(), WindowOpenDisposition::kCurrentTab);
   navigation.Wait();
 
   // The FedCM request should be dismissed on navigation/reload.
@@ -846,9 +845,9 @@ IN_PROC_BROWSER_TEST_F(FedCmAmbientUiBrowserTest, SignInNoVerifyingImpression) {
   histograms.ExpectTotalCount("Blink.FedCm.Ambient.Impression", 1);
 
   bool account_selected = false;
-  EXPECT_CALL(*delegate_, OnAccountSelected).WillOnce(InvokeWithoutArgs([&]() {
+  EXPECT_CALL(*delegate_, OnAccountSelected).WillOnce([&]() {
     account_selected = true;
-  }));
+  });
 
   // We simulate clicking on the chip, which should now sign the user in
   // directly and show "Signing in...".

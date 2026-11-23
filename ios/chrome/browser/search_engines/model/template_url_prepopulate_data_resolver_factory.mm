@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/search_engines/model/template_url_prepopulate_data_resolver_factory.h"
 
 #import <memory>
+#import <utility>
 
 #import "base/check_deref.h"
 #import "components/search_engines/template_url_prepopulate_data_resolver.h"
@@ -14,32 +15,15 @@
 namespace ios {
 
 TemplateURLPrepopulateDataResolverFactory::
-    TemplateURLPrepopulateDataResolverFactory()
-    : ProfileKeyedServiceFactoryIOS(
+    TemplateURLPrepopulateDataResolverFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
           "TemplateURLPrepopulateDataResolver",
           // Service intended as a helper / forwarder to other services. So it
           // should be as available as possible, other services are responsible
           // of forwarding to the parent profile as they see fit.
           ProfileSelection::kOwnInstanceInIncognito) {
   DependsOn(RegionalCapabilitiesServiceFactory::GetInstance());
-}
-
-TemplateURLPrepopulateDataResolverFactory::
-    ~TemplateURLPrepopulateDataResolverFactory() = default;
-
-// static
-TemplateURLPrepopulateDataResolverFactory*
-TemplateURLPrepopulateDataResolverFactory::GetInstance() {
-  static base::NoDestructor<TemplateURLPrepopulateDataResolverFactory> factory;
-  return factory.get();
-}
-
-// static
-TemplateURLPrepopulateData::Resolver*
-TemplateURLPrepopulateDataResolverFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<TemplateURLPrepopulateData::Resolver>(
-          profile, /*create=*/true);
 }
 
 std::unique_ptr<KeyedService>

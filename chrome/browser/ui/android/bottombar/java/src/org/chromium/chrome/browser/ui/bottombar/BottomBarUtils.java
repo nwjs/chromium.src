@@ -19,6 +19,8 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.ui.android.bars_common.CaptureSafeRippleDrawable;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.IncognitoColors;
+import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightParams;
+import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightShape;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.ui.util.ValueUtils;
@@ -53,10 +55,22 @@ public class BottomBarUtils {
         return IncognitoColors.getColorSurfaceContainerHigh(context, isIncognito);
     }
 
-    /** Gets the height of the bottom bar. */
-    public static @Px int getBottomBarHeight(Context context) {
+    /**
+     * Gets the height of the bottom bar, accounting for whether the bottom omnibox is present.
+     *
+     * @param context The context used to resolve dimensions.
+     * @param isBottomOmniboxPresent Whether the bottom omnibox is present right above the bottom
+     *     bar. Pass {@code false} to get the full configured bar height.
+     * @return The height of the bottom bar in pixels.
+     */
+    public static @Px int getBottomBarHeight(Context context, boolean isBottomOmniboxPresent) {
         int heightDp = BottomBarConfigUtils.getBottomBarHeightDp();
-        return ViewUtils.dpToPx(context, heightDp);
+        int heightPx = ViewUtils.dpToPx(context, heightDp);
+        if (isBottomOmniboxPresent
+                && BottomBarConfigUtils.shouldRemoveTopPaddingForBottomOmnibox()) {
+            heightPx -= getButtonPaddingVertical(context);
+        }
+        return heightPx;
     }
 
     /**
@@ -68,7 +82,7 @@ public class BottomBarUtils {
      * also what keeps the IPH highlight rectangle wrapped tightly around that background.
      */
     public static @Px int getButtonPaddingVertical(Context context) {
-        int barHeightPx = getBottomBarHeight(context);
+        int barHeightPx = getBottomBarHeight(context, /* isBottomOmniboxPresent= */ false);
         int backgroundSizePx =
                 context.getResources()
                         .getDimensionPixelSize(R.dimen.bottom_bar_new_tab_background_size);
@@ -214,5 +228,17 @@ public class BottomBarUtils {
     public static @ColorInt int getRippleColorBackground(Context context, boolean isIncognito) {
         int onSurface = IncognitoColors.getColorOnSurface(context, isIncognito);
         return ColorUtils.setAlphaComponentWithFloat(onSurface, 0.08f);
+    }
+
+    public static HighlightParams createButtonHighlightParams(
+            Context context, boolean useNewTabBackgroundRadius) {
+        HighlightParams params = new HighlightParams(HighlightShape.RECTANGLE);
+        params.setBoundsRespectPadding(true);
+        int radiusResId =
+                useNewTabBackgroundRadius
+                        ? R.dimen.bottom_bar_new_tab_background_radius
+                        : R.dimen.bottom_bar_button_highlight_radius;
+        params.setCornerRadius(context.getResources().getDimensionPixelSize(radiusResId));
+        return params;
     }
 }

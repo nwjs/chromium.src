@@ -9,9 +9,8 @@
  */
 import '/shared/settings/controls/cr_policy_pref_indicator.js';
 
+import {PrefKeyObserverMixinLit} from '/shared/settings/prefs2/pref_key_observer_mixin_lit.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
-
-import {PrefKeyObserverMixinLit} from '../controls/pref_key_observer_mixin_lit.js';
 
 import {getCss} from './ai_policy_indicator.css.js';
 import {getHtml} from './ai_policy_indicator.html.js';
@@ -44,15 +43,6 @@ export class SettingsAiPolicyIndicatorElement extends
   override render() {
     return getHtml.bind(this)();
   }
-
-  static override get properties() {
-    return {
-      pref: {type: Object},
-    };
-  }
-
-  protected accessor pref: chrome.settingsPrivate.PrefObject|undefined =
-      undefined;
 
   protected isFeatureDisabledByPolicy_(): boolean {
     return isFeatureDisabledByPolicy(this.pref);

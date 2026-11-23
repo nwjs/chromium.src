@@ -979,7 +979,7 @@ IN_PROC_BROWSER_TEST_F(ContentScriptApiTest, ContentScriptBlockingScript) {
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
           embedded_test_server()->GetURL("/empty.html"),
-          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
+          WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 
@@ -1033,7 +1033,7 @@ IN_PROC_BROWSER_TEST_F(ContentScriptApiTest,
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
           embedded_test_server()->GetURL("/empty.html"),
-          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
+          WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 
@@ -1074,7 +1074,7 @@ IN_PROC_BROWSER_TEST_F(ContentScriptApiTest,
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
           embedded_test_server()->GetURL("/empty.html"),
-          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
+          WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 
@@ -1971,7 +1971,7 @@ IN_PROC_BROWSER_TEST_F(ContentScriptRelatedFrameTest,
   NavigateParams navigate_params(browser_window_interface(),
                                  null_document_url(),
                                  ui::PAGE_TRANSITION_TYPED);
-  navigate_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  navigate_params.disposition = WindowOpenDisposition::kNewForegroundTab;
 
   // Save the WebContents instance that will be created by this navigation, as
   // the dom message that we later wait for is sent in this instance.
@@ -2432,16 +2432,6 @@ IN_PROC_BROWSER_TEST_P(ContentScriptApiPrerenderingMV3Test, SpeculationRules) {
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-
-
-// Inject two extensions with matching rules. Only the extension
-// that matches the outermost extension's content_scripts should
-// get injected.
-// The documentIdle extension should execute (sending 'done').
-// The documentStart extension should not-execute (sending 'fail') since it
-// isn't the parent extension of the fenced frame.
-
-
 class ContentScriptApiTestWithActivityLog : public ContentScriptApiTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     command_line->AppendSwitch(::switches::kEnableExtensionActivityLogging);
@@ -2628,7 +2618,7 @@ IN_PROC_BROWSER_TEST_P(ContentScriptApiTestWithBackgroundCompilation,
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
           embedded_test_server()->GetURL("/empty.html"),
-          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
+          WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 

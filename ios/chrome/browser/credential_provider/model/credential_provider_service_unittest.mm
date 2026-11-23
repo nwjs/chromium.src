@@ -270,7 +270,13 @@ TEST_F(CredentialProviderServiceTest, FirstSync) {
               base::SysUTF16ToNSString(kTestPassword1));
 }
 
-TEST_F(CredentialProviderServiceTest, TwoStores) {
+// TODO(crbug.com/575488677): Flaky on physical devices.
+#if TARGET_OS_SIMULATOR
+#define MAYBE_TwoStores TwoStores
+#else
+#define MAYBE_TwoStores DISABLED_TwoStores
+#endif
+TEST_F(CredentialProviderServiceTest, MAYBE_TwoStores) {
   password_manager::PasswordForm local_form;
   local_form.url = GURL(kTestUrl1);
   local_form.username_value = kTestUsername1;
@@ -680,8 +686,9 @@ TEST_F(CredentialProviderServiceTest,
 
   // We expect exactly 1 call to FaviconForPageUrl even though we add two
   // forms with the same URL in the same batch.
-  EXPECT_CALL(favicon_loader_, FaviconForPageUrl)
-      .WillOnce(testing::InvokeWithoutArgs([&]() { favicon_called_ = true; }));
+  EXPECT_CALL(favicon_loader_, FaviconForPageUrl).WillOnce([&]() {
+    favicon_called_ = true;
+  });
 
   password_manager::PasswordForm form1;
   form1.url = GURL("http://g.com");

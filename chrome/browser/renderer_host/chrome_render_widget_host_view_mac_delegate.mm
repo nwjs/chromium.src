@@ -205,7 +205,7 @@
 
   webContents->BackNavigationLikely(
       content::preloading_predictor::kBackGestureNavigation,
-      WindowOpenDisposition::CURRENT_TAB);
+      WindowOpenDisposition::kCurrentTab);
 }
 
 - (BOOL)validateUserInterfaceItem:(id<NSValidatedUserInterfaceItem>)item
@@ -217,7 +217,7 @@
 
   const PrefService::Preference* spellCheckEnablePreference =
       pref->FindPreference(spellcheck::prefs::kSpellCheckEnable);
-  DCHECK(spellCheckEnablePreference);
+  CHECK(spellCheckEnablePreference, base::NotFatalUntil::M162);
   const bool spellCheckUserModifiable =
       spellCheckEnablePreference->IsUserModifiable();
 

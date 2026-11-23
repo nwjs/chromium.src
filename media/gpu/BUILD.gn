@@ -82,10 +82,7 @@ component("gpu") {
     "gpu_video_encode_accelerator_factory.h",
   ]
 
-  configs += [
-    "//build/config/compiler:wexit_time_destructors",
-    "//build/config/compiler:wglobal_constructors",
-  ]
+  configs += [ "//build/config/compiler:wglobal_constructors" ]
 
   public_deps = [
     ":buildflags",
@@ -206,8 +203,6 @@ component("gpu") {
       "windows/d3d11_copying_texture_wrapper.h",
       "windows/d3d11_texture_selector.cc",
       "windows/d3d11_texture_selector.h",
-      "windows/d3d11_texture_wrapper.cc",
-      "windows/d3d11_texture_wrapper.h",
       "windows/d3d11_video_decoder_backend.cc",
       "windows/d3d11_video_decoder_backend.h",
       "windows/d3d11_video_decoder_wrapper.cc",
@@ -252,6 +247,8 @@ component("gpu") {
       "windows/d3d_picture_buffer.cc",
       "windows/d3d_picture_buffer.h",
       "windows/d3d_status.h",
+      "windows/d3d_texture_wrapper.cc",
+      "windows/d3d_texture_wrapper.h",
       "windows/d3d_video_decoder.cc",
       "windows/d3d_video_decoder.h",
       "windows/d3d_video_decoder_backend.h",
@@ -380,10 +377,7 @@ source_set("common") {
     ]
   }
 
-  configs += [
-    "//build/config/compiler:wexit_time_destructors",
-    "//build/config/compiler:wglobal_constructors",
-  ]
+  configs += [ "//build/config/compiler:wglobal_constructors" ]
 
   visibility = [
     ":gpu",
@@ -466,10 +460,7 @@ source_set("command_buffer_helper") {
     "command_buffer_helper.h",
   ]
 
-  configs += [
-    "//build/config/compiler:wexit_time_destructors",
-    "//build/config/compiler:wglobal_constructors",
-  ]
+  configs += [ "//build/config/compiler:wglobal_constructors" ]
 
   public_deps = [
     "//base",
@@ -507,10 +498,7 @@ if (use_linux_video_acceleration) {
       "video_frame_mapper_factory.h",
     ]
 
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
 
     public_deps = [
       ":buildflags",

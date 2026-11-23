@@ -26,6 +26,9 @@ class ConfigurationProvider;
 // Max number of days for storing client side event data, ~10 years.
 constexpr uint32_t kMaxStoragePeriod = 365 * 10;
 
+// Max number of days for the window of client side event data, ~10 years.
+inline constexpr uint32_t kMaxWindowPeriod = kMaxStoragePeriod;
+
 // A ComparatorType describes the relationship between two numbers.
 enum ComparatorType {
   ANY = 0,  // Will always yield true.
@@ -35,6 +38,10 @@ enum ComparatorType {
   GREATER_THAN_OR_EQUAL = 4,
   EQUAL = 5,
   NOT_EQUAL = 6,
+  // Will always yield true. Must be used if the comparator is the same as
+  // `ANY` and the window is not 0. This should be exceptional, if needed to
+  // know the number of events that occurred in the window.
+  ANY_RELAXED = 7,
 };
 
 // A StorageType describes which type of storage the feature engagement events
@@ -67,6 +74,7 @@ struct Comparator {
 };
 
 inline constexpr Comparator kAlwaysTrue(ANY, 0);
+inline constexpr Comparator kAlwaysTrueRelaxed(ANY_RELAXED, 0);
 inline constexpr Comparator kAlwaysAvailable(ANY, 0);
 inline constexpr Comparator kNoRestrictions(ANY, 0);
 

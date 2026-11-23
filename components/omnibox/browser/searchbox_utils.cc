@@ -23,6 +23,7 @@
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_provider.h"
+#include "components/omnibox/browser/contextual_search_provider.h"
 #if !BUILDFLAG(IS_IOS)
 #include "components/omnibox/browser/geolocation_header_service.h"
 #endif  // !BUILDFLAG(IS_IOS)
@@ -47,6 +48,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "net/cookies/cookie_util.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/vector_icon_types.h"
@@ -136,7 +138,7 @@ void OpenMatch(
     const AutocompleteSnapshot& snapshot,
     OmniboxPopupSelection selection,
     AutocompleteMatch match,
-    WindowOpenDisposition disposition,
+    ui::mojom::WindowOpenDisposition disposition,
     const InteractionMetricsTracker& metrics_tracker,
     OmniboxEventProto::KeywordModeEntryMethod keyword_mode_entry_method,
     const std::u16string& pasted_text) {
@@ -177,7 +179,7 @@ void OpenMatch(
   const bool is_tab_switch_action =
       action && action->ActionId() == OmniboxActionId::TAB_SWITCH;
   if (is_open_tab_match || is_tab_switch_action) {
-    disposition = WindowOpenDisposition::SWITCH_TO_TAB;
+    disposition = ui::mojom::WindowOpenDisposition::kSwitchToTab;
   }
 
   base::TimeDelta elapsed_time_since_user_first_modified_omnibox =
@@ -266,7 +268,7 @@ void OpenMatch(
   log.input_state = input.input_state();
   log.ukm_source_id = client->GetUKMSourceId();
 
-  if ((disposition == WindowOpenDisposition::CURRENT_TAB) &&
+  if ((disposition == ui::mojom::WindowOpenDisposition::kCurrentTab) &&
       client->CurrentPageExists()) {
     // If we know the destination is being opened in the current tab,
     // we can easily get the tab ID.  (If it's being opened in a new
@@ -449,7 +451,7 @@ void PasteAndGo(AutocompleteController* autocomplete_controller,
       input, autocomplete_controller->result().CopyForSnapshot());
   OpenMatch(autocomplete_controller, client, snapshot,
             OmniboxPopupSelection(OmniboxPopupSelection::kNoMatch), match,
-            WindowOpenDisposition::CURRENT_TAB, metrics_tracker,
+            ui::mojom::WindowOpenDisposition::kCurrentTab, metrics_tracker,
             keyword_mode_entry_method, text);
 }
 
@@ -498,7 +500,7 @@ void RecordSuggestionUsedMetrics(const AutocompleteMatch& match) {
   LOCAL_HISTOGRAM_BOOLEAN("Omnibox.EventCount", true);
 }
 
-WindowOpenDisposition ComputeOpenDispositionFromModifiersAndLogToUma(
+ui::mojom::WindowOpenDisposition ComputeOpenDispositionFromModifiersAndLogToUma(
     bool shift,
     bool control,
     bool alt,
@@ -523,28 +525,29 @@ WindowOpenDisposition ComputeOpenDispositionFromModifiersAndLogToUma(
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:OpenMatchWithKeyboardModifiers)
 
-  WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB;
+  ui::mojom::WindowOpenDisposition disposition =
+      ui::mojom::WindowOpenDisposition::kCurrentTab;
   OpenMatchWithKeyboardModifiers metric_value;
   if (alt && !shift) {
     metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlAlt
                            : OpenMatchWithKeyboardModifiers::kAlt;
-    disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    disposition = ui::mojom::WindowOpenDisposition::kNewForegroundTab;
   } else if (shift && command) {
     metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlShiftCommand
                            : OpenMatchWithKeyboardModifiers::kShiftCommand;
-    disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    disposition = ui::mojom::WindowOpenDisposition::kNewForegroundTab;
   } else if (alt && shift) {
     metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlAltShift
                            : OpenMatchWithKeyboardModifiers::kAltShift;
-    disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
+    disposition = ui::mojom::WindowOpenDisposition::kNewBackgroundTab;
   } else if (command && !shift) {
     metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlCommand
                            : OpenMatchWithKeyboardModifiers::kCommand;
-    disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
+    disposition = ui::mojom::WindowOpenDisposition::kNewBackgroundTab;
   } else if (shift && !alt) {
     metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrlShift
                            : OpenMatchWithKeyboardModifiers::kShift;
-    disposition = WindowOpenDisposition::NEW_WINDOW;
+    disposition = ui::mojom::WindowOpenDisposition::kNewWindow;
   } else {
     metric_value = control ? OpenMatchWithKeyboardModifiers::kCtrl
                            : OpenMatchWithKeyboardModifiers::kNoModifier;
@@ -629,6 +632,7 @@ std::u16string GetAccessibilityLabelForSelection(
     const std::u16string& match_text,
     bool include_positional_info,
     const TemplateURLService* template_url_service,
+    const AutocompleteProviderClient* client,
     int* label_prefix_length) {
   const size_t line = selection.line;
   CHECK_NE(line, OmniboxPopupSelection::kNoMatch);
@@ -758,6 +762,23 @@ std::u16string GetAccessibilityLabelForSelection(
   }
   if (additional_message_id != 0 && additional_message.empty()) {
     additional_message = l10n_util::GetStringUTF16(additional_message_id);
+  }
+
+  // Narrate the "Opens in side panel" description shown on the match, ahead of
+  // any other suffix.
+  if (selection.state == OmniboxPopupSelection::LineState::kNormal &&
+      ContextualSearchProvider::HasSidePanelDescription(match, client)) {
+    // TODO(crbug.com/573671297): Hardcoded format string is to avoid adding a
+    // translation string after M158 string cutoff. Will be replaced by a
+    // dedicated suffix message.
+    const std::u16string side_panel_suffix = base::StrCat(
+        {u"$1, ",
+         l10n_util::GetStringUTF16(IDS_CONTEXTUAL_SEARCH_OPENS_IN_SIDE_PANEL)});
+    additional_message =
+        additional_message.empty()
+            ? side_panel_suffix
+            : l10n_util::FormatString(additional_message, {side_panel_suffix},
+                                      nullptr);
   }
 
   // If there's a button focused, we don't want the "n of m" message announced.

@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/omnibox/test_omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/test_omnibox_view.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/mock_contextual_search_service.h"
@@ -103,7 +104,7 @@ void OpenUrlFromEditBox(OmniboxController* controller,
     model->SetUserText(url_text);
   }
   model->OnSetFocus(false);
-  model->OpenMatchForTesting(match, WindowOpenDisposition::CURRENT_TAB, GURL(),
+  model->OpenMatchForTesting(match, WindowOpenDisposition::kCurrentTab, GURL(),
                              std::u16string(), 0);
 }
 
@@ -372,7 +373,7 @@ TEST_F(OmniboxEditModelTest, AlternateNavHasHTTP) {
 
   model()->OnSetFocus(false);  // Avoids DCHECK in OpenMatch().
   model()->SetUserText(u"http://abcd");
-  model()->OpenMatchForTesting(match, WindowOpenDisposition::CURRENT_TAB,
+  model()->OpenMatchForTesting(match, WindowOpenDisposition::kCurrentTab,
                                alternate_nav_url, std::u16string(), 0);
   EXPECT_TRUE(
       AutocompleteInput::HasHTTPScheme(alternate_nav_match.fill_into_edit));
@@ -381,7 +382,7 @@ TEST_F(OmniboxEditModelTest, AlternateNavHasHTTP) {
       .WillOnce(SaveArg<10>(&alternate_nav_match));
 
   model()->SetUserText(u"abcd");
-  model()->OpenMatchForTesting(match, WindowOpenDisposition::CURRENT_TAB,
+  model()->OpenMatchForTesting(match, WindowOpenDisposition::kCurrentTab,
                                alternate_nav_url, std::u16string(), 0);
   EXPECT_TRUE(
       AutocompleteInput::HasHTTPScheme(alternate_nav_match.fill_into_edit));
@@ -420,6 +421,45 @@ TEST_F(OmniboxEditModelTest, CurrentMatch) {
     // Additionally verify we aren't accidentally dropping the HTTPS scheme.
     EXPECT_EQ("https://www.google.com/", match.destination_url.spec());
   }
+}
+
+// Classifying empty text never yields a match, so the `AutocompleteClassifier`
+// should not be requested for it. This keeps the classifier from being created
+// while the browser window is being created.
+TEST_F(OmniboxEditModelTest, CurrentMatchForEmptyTextSkipsClassifier) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kLazyKeyedServiceInstantiation);
+
+  location_bar_model()->set_url(GURL());
+  location_bar_model()->set_url_for_display(std::u16string());
+  model()->ResetDisplayTexts();
+  model()->Revert();
+  ASSERT_EQ(std::u16string(), view()->GetText());
+
+  const int classifier_count = client()->get_autocomplete_classifier_count();
+  GURL alternate_nav_url("https://example.com/");
+  AutocompleteMatch match =
+      model()->CurrentMatchAndAlternateNavUrl(&alternate_nav_url);
+  EXPECT_FALSE(match.destination_url.is_valid());
+  EXPECT_FALSE(alternate_nav_url.is_valid());
+  EXPECT_EQ(classifier_count, client()->get_autocomplete_classifier_count());
+}
+
+TEST_F(OmniboxEditModelTest, CurrentMatchForEmptyTextUsesClassifierByDefault) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kLazyKeyedServiceInstantiation);
+
+  location_bar_model()->set_url(GURL());
+  location_bar_model()->set_url_for_display(std::u16string());
+  model()->ResetDisplayTexts();
+  model()->Revert();
+  ASSERT_EQ(std::u16string(), view()->GetText());
+
+  const int classifier_count = client()->get_autocomplete_classifier_count();
+  AutocompleteMatch match = model()->CurrentMatch();
+  EXPECT_FALSE(match.destination_url.is_valid());
+  EXPECT_EQ(classifier_count + 1,
+            client()->get_autocomplete_classifier_count());
 }
 
 TEST_F(OmniboxEditModelTest, DisplayText) {
@@ -663,7 +703,7 @@ TEST_F(OmniboxEditModelTest, CtrlEnterSelectionNavigatesToDesiredTLDNoMatch) {
   TestOmniboxClient* client =
       static_cast<TestOmniboxClient*>(controller_->client());
   EXPECT_CALL(*client, OnAutocompleteAccept(GURL("http://www.google.com/"), _,
-                                            WindowOpenDisposition::CURRENT_TAB,
+                                            WindowOpenDisposition::kCurrentTab,
                                             _, _, _, _, _, _, _, _))
       .Times(1);
 
@@ -1445,7 +1485,7 @@ TEST_F(OmniboxEditModelPopupTest, OpenActionSelectionLogsOmniboxEvent) {
   model()->OpenSelection(OmniboxPopupSelection(
       1, OmniboxPopupSelection::LineState::kFocusedButtonAction));
   EXPECT_EQ(client()->last_log_disposition(),
-            WindowOpenDisposition::SWITCH_TO_TAB);
+            WindowOpenDisposition::kSwitchToTab);
   histogram_tester.ExpectUniqueSample("Omnibox.EventCount", 1, 1);
 }
 #endif
@@ -1483,7 +1523,7 @@ TEST_F(OmniboxEditModelPopupTest, CtrlEnterOnPopupLineLogsGeneratedUrlMatch) {
 
   EXPECT_CALL(*client(),
               OnAutocompleteAccept(GURL("http://www.google.com/"), _,
-                                   WindowOpenDisposition::CURRENT_TAB, _, _, _,
+                                   WindowOpenDisposition::kCurrentTab, _, _, _,
                                    _, _, _, _, _))
       .Times(1);
   model()->OpenSelection(
@@ -1527,7 +1567,7 @@ TEST_F(OmniboxEditModelPopupTest, CtrlEnterWithoutDotComUrlLogsPopupMatches) {
   const OmniboxPopupSelection selection(
       0, OmniboxPopupSelection::LineState::kCtrlEnter);
   EXPECT_CALL(*client(), OnAutocompleteAccept(
-                             search_url, _, WindowOpenDisposition::CURRENT_TAB,
+                             search_url, _, WindowOpenDisposition::kCurrentTab,
                              _, _, _, _, _, _, _, _))
       .Times(1);
   model()->OpenSelection(selection);
@@ -1942,9 +1982,9 @@ TEST_F(OmniboxEditModelTest, OpenTabMatch) {
 
   model()->OnSetFocus(false);  // Avoids DCHECK in OpenMatch().
   model()->SetUserText(u"http://abcd");
-  model()->OpenMatchForTesting(match, WindowOpenDisposition::CURRENT_TAB,
+  model()->OpenMatchForTesting(match, WindowOpenDisposition::kCurrentTab,
                                GURL(), std::u16string(), 0);
-  EXPECT_EQ(disposition, WindowOpenDisposition::SWITCH_TO_TAB);
+  EXPECT_EQ(disposition, WindowOpenDisposition::kSwitchToTab);
 
   EXPECT_CALL(*client(), OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(SaveArg<2>(&disposition));
@@ -1952,9 +1992,9 @@ TEST_F(OmniboxEditModelTest, OpenTabMatch) {
   // Suggestions not from the Open Tab Provider or not from keyword mode should
   // not change the disposition.
   match.from_keyword = false;
-  model()->OpenMatchForTesting(match, WindowOpenDisposition::CURRENT_TAB,
+  model()->OpenMatchForTesting(match, WindowOpenDisposition::kCurrentTab,
                                GURL(), std::u16string(), 0);
-  EXPECT_EQ(disposition, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_EQ(disposition, WindowOpenDisposition::kCurrentTab);
 
   EXPECT_CALL(*client(), OnAutocompleteAccept(_, _, _, _, _, _, _, _, _, _, _))
       .WillOnce(SaveArg<2>(&disposition));
@@ -1962,9 +2002,9 @@ TEST_F(OmniboxEditModelTest, OpenTabMatch) {
   match.provider = controller()->autocomplete_controller()->search_provider();
   match.type = omnibox::AutocompleteMatchType::kSearchWhatYouTyped;
   match.from_keyword = true;
-  model()->OpenMatchForTesting(match, WindowOpenDisposition::CURRENT_TAB,
+  model()->OpenMatchForTesting(match, WindowOpenDisposition::kCurrentTab,
                                GURL(), std::u16string(), 0);
-  EXPECT_EQ(disposition, WindowOpenDisposition::CURRENT_TAB);
+  EXPECT_EQ(disposition, WindowOpenDisposition::kCurrentTab);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -2562,13 +2602,13 @@ TEST_F(OmniboxEditModelTest, NavigateToThirdPartyAiMode) {
 
   // Test with query.
   EXPECT_CALL(*client(), OpenUrl(GURL("https://url.com/search?p=query"),
-                                 WindowOpenDisposition::CURRENT_TAB))
+                                 WindowOpenDisposition::kCurrentTab))
       .Times(1);
   model()->NavigateToThirdPartyAiMode(u"query");
 
   // Test without query.
   EXPECT_CALL(*client(), OpenUrl(GURL("https://url-empty.com"),
-                                 WindowOpenDisposition::CURRENT_TAB))
+                                 WindowOpenDisposition::kCurrentTab))
       .Times(1);
   model()->NavigateToThirdPartyAiMode(u"");
 }
@@ -2623,7 +2663,7 @@ TEST_F(OmniboxEditModelContextualSearchTest,
 
   model()
       ->NavigateToAiModeWithContextualizerOnContextualizationCompleteForTesting(
-          u"test query", WindowOpenDisposition::CURRENT_TAB,
+          u"test query", WindowOpenDisposition::kCurrentTab,
           session_handle->AsWeakPtr());
 }
 
@@ -2665,7 +2705,7 @@ TEST_F(OmniboxEditModelContextualSearchTest,
   // yet).
   model()
       ->NavigateToAiModeWithContextualizerOnContextualizationCompleteForTesting(
-          u"test query", WindowOpenDisposition::CURRENT_TAB, nullptr);
+          u"test query", WindowOpenDisposition::kCurrentTab, nullptr);
 }
 
 TEST_F(OmniboxEditModelTest, OpenComposeboxForAskG) {
@@ -2700,9 +2740,9 @@ TEST_F(OmniboxEditModelTest, OpenMatchWithActionPreservesPopupState) {
             OmniboxPopupState::kAim);
 
   model()->OnSetFocus(false);
-  model()->OpenMatchForTesting(
-      match, WindowOpenDisposition::CURRENT_TAB, GURL(), std::u16string(),
-      /*index=*/0, base::TimeTicks::Now());
+  model()->OpenMatchForTesting(match, WindowOpenDisposition::kCurrentTab,
+                               GURL(), std::u16string(),
+                               /*index=*/0, base::TimeTicks::Now());
 
   EXPECT_EQ(controller()->popup_state_manager()->popup_state(),
             OmniboxPopupState::kAim);

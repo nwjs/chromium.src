@@ -26,10 +26,13 @@ class OtpManagerImplTestApi {
 
   explicit OtpManagerImplTestApi(OtpManagerImpl& manager) : manager_(manager) {}
 
-  std::optional<one_time_tokens::OneTimeToken> SelectMostRecentToken(
-      std::optional<one_time_tokens::OneTimeTokenType> type =
-          std::nullopt) const {
-    return manager_->SelectMostRecentToken(type);
+  std::optional<one_time_tokens::OneTimeToken> SelectMostRecentToken() const {
+    return manager_->SelectMostRecentToken();
+  }
+
+  void set_last_retrieved_gmail_otp(
+      std::optional<one_time_tokens::OneTimeToken> token) {
+    manager_->last_retrieved_gmail_otp_ = std::move(token);
   }
 
   const one_time_tokens::ExpiringSubscription& gmail_otp_tickle_subscription()
@@ -47,8 +50,6 @@ class OtpManagerImplTestApi {
     return manager_->UserOptedIntoGmailOtpFilling();
   }
 
-  bool has_log_subscription() const { return !!manager_->log_subscription_; }
-
   std::optional<FormGlobalId> currently_focused_form_id() const {
     return manager_->currently_focused_form_id_;
   }
@@ -61,21 +62,18 @@ class OtpManagerImplTestApi {
     return manager_->last_triggered_otp_value_;
   }
 
-  const AutofillField* GetFocusedOtpField() const {
-    return manager_->GetFocusedOtpField();
+  const AutofillField* GetTargetOtpField() const {
+    return manager_->GetTargetOtpField();
   }
 
   void OnOneTimeTokenReceived(
-      one_time_tokens::OneTimeTokenSource source,
       base::expected<one_time_tokens::OneTimeToken,
                      one_time_tokens::OneTimeTokenRetrievalError>
           token_or_error) {
-    manager_->OnOneTimeTokenReceived(source, std::move(token_or_error));
+    manager_->OnOneTimeTokenReceived(std::move(token_or_error));
   }
 
-  void OnTickleReceived(one_time_tokens::OneTimeTokenSource source) {
-    manager_->OnTickleReceived(source);
-  }
+  void OnTickleReceived() { manager_->OnTickleReceived(); }
 
   one_time_tokens::GmailOtpRetriever* gmail_otp_retriever() const {
     return manager_->gmail_otp_retriever_.get();

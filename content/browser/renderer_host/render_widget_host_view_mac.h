@@ -34,6 +34,7 @@
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/base/cocoa/accessibility_focus_overrider.h"
 #include "ui/base/cocoa/remote_layer_api.h"
+#include "ui/base/cursor/cursor.h"
 #include "ui/base/mojom/attributed_string.mojom-forward.h"
 #include "ui/display/display_list.h"
 #include "ui/events/gesture_detection/filtered_gesture_provider.h"
@@ -209,10 +210,7 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   void DidNavigate() override;
 
   void CreateUnboundedSurface(
-      mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-      mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
-          client,
-      const gfx::Rect& bounds_in_dips,
+      const gfx::Rect& bounds_in_screen,
       base::WeakPtr<RenderWidgetHostViewBase> subframe_view) override;
 
   blink::mojom::PointerLockResult LockPointer(bool) override;
@@ -670,6 +668,10 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
 
   // Indicates if the page is loading.
   bool is_loading_;
+
+  // The cursor most recently passed to DisplayCursor(). Used to seed a newly
+  // created unbounded surface window, since Blink only reports changes.
+  ui::Cursor last_displayed_cursor_;
 
   // Our parent host view, if this is a popup.  NULL otherwise.
   raw_ptr<RenderWidgetHostViewMac> popup_parent_host_view_;

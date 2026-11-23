@@ -17,12 +17,10 @@ export function getHtml(this: OmniboxEverywhereComposeboxElement) {
           animation-state="${this.animationState}"
           .coloredTicTacVoiceAnimationEnabled="${false}"
           .isListening="${this.isListening}"
-          .entrypointName="${this.entrypointName}"
           .requiresVoice="${this.shouldShowVoiceSearchAnimation()}"
           .transcript="${this.transcript}"
           .receivedSpeech="${this.receivedSpeech}"
           .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled}"
-          .isZeroState="${false}"
           exportparts="composebox-background">
       </search-animated-glow>
     ` : ''}

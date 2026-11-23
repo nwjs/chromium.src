@@ -23,8 +23,11 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/simple_test_tick_clock.h"
+#include "base/test/tracing/trace_test_utils.h"
 #include "base/time/time.h"
 #include "base/timer/mock_timer.h"
+#include "base/trace_event/trace_config.h"
+#include "base/trace_event/trace_log.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "cc/animation/animation_host.h"
@@ -45,6 +48,7 @@
 #include "cc/resources/ui_resource_manager.h"
 #include "cc/test/fake_content_layer_client.h"
 #include "cc/test/fake_frame_info.h"
+#include "cc/test/fake_layer_tree_host.h"
 #include "cc/test/fake_layer_tree_host_delegate.h"
 #include "cc/test/fake_paint_image_generator.h"
 #include "cc/test/fake_picture_layer.h"
@@ -62,6 +66,7 @@
 #include "cc/test/skia_common.h"
 #include "cc/test/stub_input_handler_client.h"
 #include "cc/test/test_layer_tree_frame_sink.h"
+#include "cc/test/test_task_graph_runner.h"
 #include "cc/trees/clip_node.h"
 #include "cc/trees/compositor_commit_data.h"
 #include "cc/trees/effect_node.h"
@@ -91,6 +96,7 @@
 #include "components/viz/common/quads/draw_quad.h"
 #include "components/viz/common/quads/texture_draw_quad.h"
 #include "components/viz/common/quads/tile_draw_quad.h"
+#include "components/viz/common/surfaces/local_surface_id.h"
 #include "components/viz/service/display/output_surface.h"
 #include "components/viz/service/display/skia_output_surface.h"
 #include "components/viz/service/layers/layer_context_impl.h"
@@ -8641,16 +8647,16 @@ class LayerTreeHostTestSubmitFrameResources : public LayerTreeHostTest {
                                    DrawResult draw_result) override {
     frame->render_passes.clear();
 
-    viz::CompositorRenderPass* child_pass = AddRenderPass(
-        &frame->render_passes, viz::CompositorRenderPassId{2},
-        gfx::Rect(3, 3, 100, 100), gfx::Transform(), FilterOperations());
+    viz::CompositorRenderPass* child_pass =
+        AddRenderPass(&frame->render_passes, viz::CompositorRenderPassId{2},
+                      gfx::Rect(3, 3, 100, 100), gfx::Transform());
     std::vector<viz::ResourceId> child_resources =
         AddOneOfEveryQuadType(child_pass, host_impl->resource_provider(),
                               viz::CompositorRenderPassId{0});
 
-    viz::CompositorRenderPass* pass = AddRenderPass(
-        &frame->render_passes, viz::CompositorRenderPassId{1},
-        gfx::Rect(3, 3, 100, 100), gfx::Transform(), FilterOperations());
+    viz::CompositorRenderPass* pass =
+        AddRenderPass(&frame->render_passes, viz::CompositorRenderPassId{1},
+                      gfx::Rect(3, 3, 100, 100), gfx::Transform());
     std::vector<viz::ResourceId> root_resources = AddOneOfEveryQuadType(
         pass, host_impl->resource_provider(), child_pass->id);
 
@@ -12349,6 +12355,198 @@ class LayerTreeHostTestTreesInVizSyncViewportDeltas : public LayerTreeHostTest {
 };
 
 SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestTreesInVizSyncViewportDeltas);
+
+class LayerTreeHostTestSetMemoryPolicy : public LayerTreeHostTest {
+ public:
+  void InitializeSettings(LayerTreeSettings* settings) override {
+    settings->memory_policy = ManagedMemoryPolicy(
+        256u * 1024u * 1024u, gpu::MemoryAllocation::CUTOFF_ALLOW_NICE_TO_HAVE,
+        ManagedMemoryPolicy::kDefaultNumResourcesLimit);
+  }
+
+  void BeginTest() override { PostSetNeedsCommitToMainThread(); }
+
+  void DidCommit() override {
+    if (layer_tree_host()->SourceFrameNumber() == 1) {
+      layer_tree_host()->SetMemoryPolicy(
+          ManagedMemoryPolicy(1024u * 1024u * 1024u,
+                              gpu::MemoryAllocation::CUTOFF_ALLOW_NICE_TO_HAVE,
+                              ManagedMemoryPolicy::kDefaultNumResourcesLimit));
+      PostSetNeedsCommitToMainThread();
+    }
+  }
+
+  void CommitCompleteOnThread(LayerTreeHostImpl* host_impl) override {
+    if (host_impl->sync_tree()->source_frame_number() == 0) {
+      EXPECT_EQ(
+          256u * 1024u * 1024u,
+          host_impl->ActualManagedMemoryPolicy().bytes_limit_when_visible);
+    } else if (host_impl->sync_tree()->source_frame_number() == 1) {
+      EXPECT_EQ(
+          1024u * 1024u * 1024u,
+          host_impl->ActualManagedMemoryPolicy().bytes_limit_when_visible);
+      EXPECT_EQ(1024u * 1024u * 1024u,
+                host_impl->global_tile_state().hard_memory_limit_in_bytes);
+      EndTest();
+    }
+  }
+};
+
+SINGLE_AND_MULTI_THREAD_TEST_F(LayerTreeHostTestSetMemoryPolicy);
+
+// A parent can send an invalid viz::LocalSurfaceId after a valid one, for
+// example when the browser resizes a hidden view that has no surface yet.
+// Hashing that id for the "viz.surface_id_flow" trace flows used to DCHECK
+// (https://crbug.com/548257127).
+TEST(LayerTreeHostLocalSurfaceIdTest,
+     InvalidLocalSurfaceIdFromParentWithSurfaceIdFlowTracing) {
+  base::test::TracingEnvironment tracing_environment;
+  base::trace_event::TraceLog::GetInstance()->SetEnabled(
+      base::trace_event::TraceConfig(
+          TRACE_DISABLED_BY_DEFAULT("viz.surface_id_flow"), ""));
+
+  FakeLayerTreeHostDelegate delegate;
+  TestTaskGraphRunner task_graph_runner;
+  auto animation_host = AnimationHost::CreateForTesting(ThreadInstance::kMain);
+  std::unique_ptr<FakeLayerTreeHost> host = FakeLayerTreeHost::Create(
+      &delegate, &task_graph_runner, animation_host.get());
+  host->InitializeForTesting(
+      TaskRunnerProvider::Create(
+          base::SingleThreadTaskRunner::GetCurrentDefault(), nullptr),
+      std::make_unique<FakeProxy>());
+
+  const viz::LocalSurfaceId valid_id(
+      1u, base::UnguessableToken::CreateForTesting(2u, 3u));
+  host->SetLocalSurfaceIdFromParent(valid_id);
+  EXPECT_EQ(valid_id, host->local_surface_id_from_parent());
+
+  host->SetLocalSurfaceIdFromParent(viz::LocalSurfaceId());
+  EXPECT_FALSE(host->local_surface_id_from_parent().is_valid());
+
+  // Valid ids are still accepted, and traced, after the invalid one.
+  const viz::LocalSurfaceId next_valid_id(
+      2u, base::UnguessableToken::CreateForTesting(2u, 3u));
+  host->SetLocalSurfaceIdFromParent(next_valid_id);
+  EXPECT_EQ(next_valid_id, host->local_surface_id_from_parent());
+
+  // Disable tracing to avoid teardown failures.
+  base::trace_event::TraceLog::GetInstance()->SetDisabled();
+}
+
+TEST(LayerTreeHostLocalSurfaceIdTest,
+     SetViewportRectAndScaleCoalescesSetNeedsCommit) {
+  enum class Request {
+    kCommitUrgent,
+    kCommitNonUrgent,
+    kUpdateLayers,
+  };
+  class CommitTrackingProxy : public FakeProxy {
+   public:
+    void SetNeedsCommit(bool urgent) override {
+      requests_.push_back(urgent ? Request::kCommitUrgent
+                                 : Request::kCommitNonUrgent);
+    }
+    void SetNeedsUpdateLayers() override {
+      requests_.push_back(Request::kUpdateLayers);
+    }
+    std::vector<Request> TakeRequests() { return std::exchange(requests_, {}); }
+
+   private:
+    std::vector<Request> requests_;
+  };
+  class TestLayerTreeHost : public LayerTreeHost {
+   public:
+    explicit TestLayerTreeHost(InitParams params)
+        : LayerTreeHost(std::move(params), CompositorMode::SINGLE_THREADED) {}
+    using LayerTreeHost::InitializeForTesting;
+  };
+
+  FakeLayerTreeHostDelegate delegate;
+  TestTaskGraphRunner task_graph_runner;
+  LayerTreeSettings settings;
+  auto animation_host = AnimationHost::CreateForTesting(ThreadInstance::kMain);
+  LayerTreeHost::InitParams params;
+  params.client = &delegate;
+  params.settings = &settings;
+  params.task_graph_runner = &task_graph_runner;
+  params.mutator_host = animation_host.get();
+  TestLayerTreeHost host(std::move(params));
+  auto proxy = std::make_unique<CommitTrackingProxy>();
+  CommitTrackingProxy* proxy_ptr = proxy.get();
+  host.InitializeForTesting(
+      TaskRunnerProvider::Create(
+          base::SingleThreadTaskRunner::GetCurrentDefault(), nullptr),
+      std::move(proxy));
+
+  const auto token = base::UnguessableToken::CreateForTesting(2u, 3u);
+  const viz::LocalSurfaceId id1(1u, token);
+  const viz::LocalSurfaceId id2(2u, token);
+  const viz::LocalSurfaceId id3(3u, token);
+
+  // Initial viewport + LocalSurfaceId should request an urgent commit first so
+  // the subsequent non-urgent requests from SetPropertyTreesNeedRebuild() and
+  // SetLocalSurfaceIdFromParent() coalesce into it.
+  host.SetViewportRectAndScale(gfx::Rect(100, 100), 1.0f, id1);
+  EXPECT_EQ(id1, host.local_surface_id_from_parent());
+  EXPECT_THAT(
+      proxy_ptr->TakeRequests(),
+      testing::ElementsAre(Request::kCommitUrgent, Request::kUpdateLayers,
+                           Request::kCommitNonUrgent));
+
+  // Changing only LocalSurfaceId should issue a single non-urgent commit.
+  host.SetViewportRectAndScale(gfx::Rect(100, 100), 1.0f, id2);
+  EXPECT_EQ(id2, host.local_surface_id_from_parent());
+  EXPECT_THAT(proxy_ptr->TakeRequests(),
+              testing::ElementsAre(Request::kCommitNonUrgent));
+
+  // Steady-state resize advancing parent sequence number and viewport rect
+  // should issue an urgent SetNeedsCommit(true) before the non-urgent
+  // SetNeedsUpdateLayers() and SetNeedsCommit(false) calls so ProxyMain
+  // deduplicates them into a single urgent commit request.
+  host.SetViewportRectAndScale(gfx::Rect(200, 200), 1.0f, id3);
+  EXPECT_EQ(id3, host.local_surface_id_from_parent());
+  EXPECT_THAT(
+      proxy_ptr->TakeRequests(),
+      testing::ElementsAre(Request::kCommitUrgent, Request::kUpdateLayers,
+                           Request::kCommitNonUrgent));
+
+  // Calling with identical viewport, scale, and LocalSurfaceId should not
+  // request a commit.
+  host.SetViewportRectAndScale(gfx::Rect(200, 200), 1.0f, id3);
+  EXPECT_TRUE(proxy_ptr->TakeRequests().empty());
+}
+
+class LayerTreeHostTestResizeCoalescesProxyMainCommitRequests
+    : public LayerTreeHostTest {
+ public:
+  void BeginTest() override { PostSetNeedsCommitToMainThread(); }
+
+  void OnCommitRequested() override { commit_requests_++; }
+
+  void DidCommitAndDrawFrame() override {
+    if (!resized_) {
+      resized_ = true;
+      commit_requests_ = 0;
+      GenerateNewLocalSurfaceId();
+      layer_tree_host()->SetViewportRectAndScale(gfx::Rect(200, 200), 1.0f,
+                                                 GetCurrentLocalSurfaceId());
+      // ProxyMain::SendCommitRequestToImplThreadIfNeeded() invokes
+      // OnCommitRequested() each time it posts a SetNeedsCommitOnImpl task.
+      // A viewport resize + new LocalSurfaceId must coalesce into a single
+      // urgent request rather than posting non-urgent followed by urgent.
+      EXPECT_EQ(1, commit_requests_);
+    } else {
+      EXPECT_EQ(gfx::Rect(200, 200), layer_tree_host()->device_viewport_rect());
+      EndTest();
+    }
+  }
+
+ private:
+  bool resized_ = false;
+  int commit_requests_ = 0;
+};
+
+MULTI_THREAD_TEST_F(LayerTreeHostTestResizeCoalescesProxyMainCommitRequests);
 
 }  // namespace
 }  // namespace cc

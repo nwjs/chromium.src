@@ -31,6 +31,7 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notreached.h"
+#include "base/time/time.h"
 #include "cc/paint/paint_flags.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
@@ -38,6 +39,7 @@
 #include "third_party/blink/renderer/core/html/canvas/canvas_context_creation_attributes_core.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_performance_monitor.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_rendering_context_host.h"
+#include "third_party/blink/renderer/platform/graphics/exported_canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_types_3d.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
 #include "third_party/blink/renderer/platform/heap/prefinalizer.h"
@@ -99,6 +101,11 @@ class CORE_EXPORT CanvasRenderingContext
    private:
     CanvasRenderingContext& this_;
   };
+
+  // Delay for recording UKM metrics to allow text and attributes to settle.
+  // This value is chosen arbitrarily and can be subject to optimization.
+  static constexpr base::TimeDelta kAccessibilityUkmRecordingDelay =
+      base::Seconds(5);
 
   CanvasRenderingContext(const CanvasRenderingContext&) = delete;
   CanvasRenderingContext& operator=(const CanvasRenderingContext&) = delete;
@@ -178,7 +185,6 @@ class CORE_EXPORT CanvasRenderingContext
   // which are being rendered to, just not being displayed in the
   // page.
   virtual void PageVisibilityChanged() = 0;
-  virtual void SizeChanged() {}
   virtual bool isContextLost() const { return true; }
   bool IsContextBeingRestored() const { return is_context_being_restored_; }
   // TODO(fserb): remove AsV8RenderingContext and AsV8OffscreenRenderingContext.
@@ -200,7 +206,7 @@ class CORE_EXPORT CanvasRenderingContext
 
   // WebGL-specific methods
   virtual void ClearMarkedCanvasDirty() {}
-  virtual scoped_refptr<CanvasResource> PaintRenderingResultsToResource(
+  virtual scoped_refptr<ExportedCanvasResource> PaintRenderingResultsToResource(
       SourceDrawingBuffer source_buffer,
       FlushReason reason) {
     NOTREACHED();
@@ -258,12 +264,10 @@ class CORE_EXPORT CanvasRenderingContext
   virtual std::optional<cc::PaintRecord> FlushCanvas(FlushReason) {
     NOTREACHED();
   }
-  virtual void Reset() {}
   virtual void RestoreFromInvalidSizeIfNeeded() {}
   virtual void StyleDidChange(const ComputedStyle* old_style,
                               const ComputedStyle& new_style) {}
   virtual void LangAttributeChanged() {}
-  virtual String GetIdFromControl(const Element* element) { return String(); }
   virtual int LayerCount() const { return 0; }
   virtual void DisableAccelerationForCanvas2D() { NOTREACHED(); }
 
@@ -273,8 +277,8 @@ class CORE_EXPORT CanvasRenderingContext
   virtual bool Is2DCanvasAccelerated() const { NOTREACHED(); }
 
   virtual void setFontForTesting(const String&) { NOTREACHED(); }
-  virtual void fillTextForTesting(const String& text, double x, double y) {
-    NOTREACHED();
+  void RecordUKMCanvasAccessibilityForTesting() {
+    RecordUKMCanvasAccessibility();
   }
 
   scoped_refptr<StaticBitmapImage> GetElementImage(
@@ -298,12 +302,12 @@ class CORE_EXPORT CanvasRenderingContext
 
   // WebGL & WebGPU-specific interface
   virtual void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) {}
-  virtual void Reshape(int width, int height) {}
+  virtual void Reshape(gfx::Size old_size, gfx::Size new_size) {}
 
   virtual base::ByteSize AllocatedBufferSize() const = 0;
 
   // OffscreenCanvas-specific methods.
-  virtual scoped_refptr<CanvasResource> GetResourceForPushFrame(
+  virtual scoped_refptr<ExportedCanvasResource> GetResourceForPushFrame(
       bool& should_call_push_frame) {
     should_call_push_frame = false;
     return nullptr;
@@ -334,17 +338,18 @@ class CORE_EXPORT CanvasRenderingContext
 
   void Trace(Visitor*) const override;
   virtual void Stop() = 0;
+  virtual void Dispose();
 
   static CanvasPerformanceMonitor& GetCanvasPerformanceMonitor();
 
   bool did_print_in_current_task() const { return did_print_in_current_task_; }
+  bool did_draw_text_for_testing() const { return did_draw_text_; }
+  void DisposeForTesting() { Dispose(); }
 
  protected:
   CanvasRenderingContext(CanvasRenderingContextHost*,
                          const CanvasContextCreationAttributesCore&,
                          CanvasRenderingAPI);
-
-  virtual void Dispose();
 
   bool IsDrawElementImageEligible(Element* element,
                                   const String& func_name,
@@ -366,7 +371,7 @@ class CORE_EXPORT CanvasRenderingContext
   void RenderTaskEnded();
   bool did_draw_in_current_task_ = false;
   bool did_print_in_current_task_ = false;
-  bool did_record_accessibility_ukm_ = false;
+  bool should_record_accessibility_ukm_ = true;
   bool did_schedule_accessibility_ukm_recording_ = false;
   bool did_process_task_ = false;
   bool did_draw_text_ = false;

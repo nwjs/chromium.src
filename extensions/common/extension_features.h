@@ -134,6 +134,10 @@ BASE_DECLARE_FEATURE(kApiDesktopAndroidNativeMessagingBypassExtensionAllowlist);
 
 // For historical reasons, this includes some APIs. Please don't add more APIs.
 
+// Controls whether opted-in component extension frames are permitted to
+// enter BackForwardCache instead of being unconditionally disabled.
+BASE_DECLARE_FEATURE(kBackForwardCacheForComponentExtensionFrames);
+
 // If enabled, navigations and window.open calls to URLs outside a hosted app's
 // web extent in background contents are blocked and not persisted to prefs.
 // TODO(crbug.com/511824746): Clean up in M156.
@@ -150,9 +154,25 @@ BASE_DECLARE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs);
 // URLs in worker scripts and subresources.
 BASE_DECLARE_FEATURE(kComponentExtensionAllowWorkerChromeResources);
 
+// When enabled (the default), `CrxInstaller::ReloadExtensionAfterInstall`
+// verifies that the manifest reloaded from the final install directory matches
+// the unpacked manifest validated in `OnUnpackSuccess`, failing the install
+// on mismatch (or falling back to a local install on ChromeOS if a shared copy
+// mismatched), and cleans up `version_dir` under `install_directory_` on
+// post-install reload failures (`CANT_LOAD_EXTENSION` and
+// `MANIFEST_MISMATCH_AFTER_INSTALL`).
+BASE_DECLARE_FEATURE(kCrxInstallerVerifyReloadedManifest);
+
 // Gates native UI affordances for leaving reviews on installed Chrome Web Store
 // extensions.
 BASE_DECLARE_FEATURE(kCWSReviewPromptingNativeUI);
+
+// If enabled, declarative net request rules that match on the values of
+// response headers (other than CORS-safelisted response headers and
+// Content-Encoding) only match requests that the extension has host permissions
+// for. If disabled (kill switch), rule matching conditions can match against
+// requests the extension does not have host permissions for.
+BASE_DECLARE_FEATURE(kDeclarativeNetRequestRestrictResponseHeaderValueMatching);
 
 // If enabled, <webview>s will be allowed to request permission from an
 // embedding Chrome App to request access to Human Interface Devices.
@@ -176,15 +196,22 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kMaxScriptSizeForBackgroundCompilation);
 // prompting the user.
 BASE_DECLARE_FEATURE(kExtensionAutoRejectIncognitoConnectability);
 
-// If enabled (the default), extensions calling chrome.debugger.attach are
-// rejected upfront when enterprise policy configures runtime_blocked_hosts or
-// disables/restricts screenshots. If disabled (kill switch), extension debugger
-// attachment reverts to the pre-existing behavior prior to M155: falling back
-// to per-URL IsPolicyBlockedHost checks and allowing attachment when
-// screenshots are disabled. Note that disabling this feature has security
-// implications.
-// See https://developer.chrome.com/blog/debugger-enterprise-policy-restrictions.
+// If enabled, extensions calling chrome.debugger.attach are rejected upfront
+// when enterprise policy configures runtime_blocked_hosts or disables/restricts
+// screenshots. If disabled (the default), extension debugger attachment reverts
+// to the pre-existing behavior prior to M155: falling back to per-URL
+// IsPolicyBlockedHost checks and allowing attachment when screenshots are
+// disabled. Note that disabling this feature has security implications.
+// See
+// https://developer.chrome.com/blog/debugger-enterprise-policy-restrictions.
 BASE_DECLARE_FEATURE(kExtensionDebuggerStrictPolicyRestrictions);
+
+// If enabled (the default), ExtensionDownloader decides whether to require Web
+// Store publisher proof based on the update URLs of the tasks requesting a
+// download. If disabled (kill switch), it reverts to checking the CRX download
+// URL from the update manifest. Note that disabling this feature has security
+// implications.
+BASE_DECLARE_FEATURE(kExtensionDownloaderPublisherProofByUpdateUrl);
 
 // Allow e.g. .css files to use default_locale messages in WAR files via GUID.
 // TODO(crbug.com/435609878): Remove after m142. It's for safe m141 back merge.
@@ -358,6 +385,12 @@ BASE_DECLARE_FEATURE(kWebRequestPerContextEventDispatch);
 
 // If enabled, `HashedExtensionId` uses SHA-256 hashes instead of SHA-1.
 BASE_DECLARE_FEATURE(kUseSha256ForExtensionHashes);
+
+// When enabled, generated paths (e.g. _favicon and the generated background
+// page) are excluded from wildcard web_accessible_resources entries. _favicon
+// must be explicitly listed to be web accessible, and the generated background
+// page is never web accessible.
+BASE_DECLARE_FEATURE(kRestrictGeneratedPathsInWebAccessibleResources);
 
 }  // namespace extensions_features
 

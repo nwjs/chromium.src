@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 #include "chrome/browser/ui/views/send_tab_to_self/send_tab_to_self_bubble_controller.h"
 
-#include "base/test/scoped_feature_list.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
@@ -20,7 +19,6 @@
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/send_tab_to_self/fake_send_tab_to_self_model.h"
-#include "components/send_tab_to_self/features.h"
 #include "components/send_tab_to_self/metrics_util.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #include "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
@@ -34,8 +32,14 @@ namespace send_tab_to_self {
 
 namespace {
 
+class SendTabToSelfInteractiveUiTest;
+
 using FormFactor = syncer::DeviceInfo::FormFactor;
 using OsType = syncer::DeviceInfo::OsType;
+// Test suite for interactive UI tests that are not part of the
+// `SendTabToSelfInteractiveUiTest.*` filter in `pixel_tests.filter`.
+using SendTabToSelfDeviceSelectionInteractiveUiTest =
+    SendTabToSelfInteractiveUiTest;
 using syncer::RemoteDeviceInfo;
 
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kPrimaryTabId);
@@ -44,10 +48,7 @@ constexpr char kScreenshotBaselineCL[] = "7819337";
 
 class SendTabToSelfInteractiveUiTest : public InteractiveBrowserTest {
  public:
-  SendTabToSelfInteractiveUiTest() {
-    feature_list_.InitWithFeatures({kSendTabToSelfPostSendToast},
-                                   {kSendTabToSelfPropagateScrollPosition});
-  }
+  SendTabToSelfInteractiveUiTest() = default;
 
   void SetUpInProcessBrowserTestFixture() override {
     create_services_subscription_ =
@@ -90,22 +91,6 @@ class SendTabToSelfInteractiveUiTest : public InteractiveBrowserTest {
     });
   }
 
-  auto ShowToast(ToastParams params) {
-    return Do(base::BindOnce(
-        [](ToastController* toast_controller, ToastParams toast_params) {
-          toast_controller->MaybeShowToast(std::move(toast_params));
-          toast_controller->GetToastCloseTimerForTesting()->Stop();
-        },
-        ToastController::From(browser()), std::move(params)));
-  }
-
-  SendTabToSelfDevicePickerBubbleView* GetBubbleView() {
-    return static_cast<SendTabToSelfDevicePickerBubbleView*>(
-        SendTabToSelfBubbleController::GetOrCreateForWebContents(
-            browser()->GetTabStripModel()->GetActiveWebContents())
-            ->send_tab_to_self_bubble_view());
-  }
-
   auto SetUpTargetDevicesAndShowBubble(
       std::vector<RemoteDeviceInfo> target_devices) {
     const GURL test_url = embedded_test_server()->GetURL("/empty.html");
@@ -134,11 +119,11 @@ class SendTabToSelfInteractiveUiTest : public InteractiveBrowserTest {
   auto SetUpSingleDeviceAndShowBubble() {
     return SetUpTargetDevicesAndShowBubble(
         {RemoteDeviceInfo("device_1", "device_1", FormFactor::kDesktop,
-                          OsType::kLinux, base::Time::Now())});
+                          OsType::kLinux, base::Time::Now(),
+                          /*has_high_precision_timestamp=*/false)});
   }
 
  protected:
-  base::test::ScopedFeatureList feature_list_;
   base::CallbackListSubscription create_services_subscription_;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_env_adaptor_;
@@ -167,18 +152,8 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfInteractiveUiTest,
                                   kSendTabToSelfDevicePickerBubbleId));
 }
 
-class SendTabToSelfDeviceSelectionInteractiveUiTest
-    : public SendTabToSelfInteractiveUiTest {
- public:
-  SendTabToSelfDeviceSelectionInteractiveUiTest() {
-    scoped_feature_list_.InitAndEnableFeature(kSendTabToSelfEnhancedDesktopUI);
-  }
-  ~SendTabToSelfDeviceSelectionInteractiveUiTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
+// Verifies that the device selection bubble selects and focuses the first
+// device by default and sends the tab when the Send button is pressed.
 IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
                        SendTabShowsBubbleAndToastDeviceSelection) {
   RunTestSequence(
@@ -217,9 +192,11 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfDeviceSelectionInteractiveUiTest,
   RunTestSequence(
       SetUpTargetDevicesAndShowBubble(
           {RemoteDeviceInfo("device_1", "device_1", FormFactor::kDesktop,
-                            OsType::kLinux, base::Time::Now()),
+                            OsType::kLinux, base::Time::Now(),
+                            /*has_high_precision_timestamp=*/false),
            RemoteDeviceInfo("device_2", "device_2", FormFactor::kPhone,
-                            OsType::kAndroid, base::Time::Now())}),
+                            OsType::kAndroid, base::Time::Now(),
+                            /*has_high_precision_timestamp=*/false)}),
       NameDescendantViewByType<SendTabToSelfBubbleDeviceButton>(
           SendTabToSelfDevicePickerBubbleView::
               kSendTabToSelfDevicePickerBubbleId,

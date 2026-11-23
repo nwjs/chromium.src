@@ -469,7 +469,8 @@ TEST_F(ClipboardHistoryControllerTest, VerifyAvailabilityInUserModes) {
 
   for (const auto& test_case : kTestCases) {
     ClearLogin();
-    SimulateUserLogin({"user1@test.com", test_case.user_type});
+    SimulateUserLogin({.account_id = AccountId::FromUserEmail("user1@test.com"),
+                       .user_type = test_case.user_type});
 
     // Write a new item into the clipboard buffer.
     {

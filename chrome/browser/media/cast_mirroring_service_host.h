@@ -7,12 +7,14 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/sequence_checker.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/unguessable_token.h"
+#include "build/build_config.h"
 #include "chrome/browser/media/mirroring_service_host.h"
 #include "chrome/browser/media/offscreen_tab.h"
 #include "components/mirroring/mojom/mirroring_service.mojom.h"
@@ -41,6 +43,10 @@ namespace viz {
 class GpuClient;
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
+class ScreenCaptureNotificationUI;
+#endif
+
 namespace mirroring {
 
 // CastMirroringServiceHost starts/stops a mirroring session through Mirroring
@@ -57,6 +63,11 @@ class CastMirroringServiceHost final : public MirroringServiceHost,
   CastMirroringServiceHost& operator=(const CastMirroringServiceHost&) = delete;
 
   ~CastMirroringServiceHost() override;
+
+  // Returns the audio input device ID used to capture system audio when
+  // mirroring a desktop (screen). Whether local playback is muted while
+  // capturing depends on the platform and on feature state.
+  static std::string_view GetDesktopAudioLoopbackDeviceId();
 
   // MirroringServiceHost implementation.
   void Start(mojom::SessionParametersPtr session_params,
@@ -114,9 +125,28 @@ class CastMirroringServiceHost final : public MirroringServiceHost,
   // content::WebContentsObserver implementation.
   void WebContentsDestroyed() override;
 
+  // Stops the mirroring session and releases its resources.
+  void StopMirroringSession();
+
   // Registers the media stream to show a capture indicator icon on the
-  // tabstrip.
+  // tabstrip. For desktop mirroring on ChromeOS, instead registers the capture
+  // with the system screen security UI (see ShowDesktopCaptureNotification()).
   void ShowCaptureIndicator();
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Registers a desktop mirroring session with the ash screen security
+  // framework, so that it is treated like any other whole-screen capture. In
+  // particular, this makes ash::ScreenSwitchCheckController prompt the user
+  // before switching to another user in a multi-profile session, and stops
+  // mirroring if the switch proceeds, so that another user's desktop is never
+  // streamed to the sink.
+  void ShowDesktopCaptureNotification();
+
+  // Run by ash (via `desktop_capture_notification_ui_`) when it stops all
+  // screen access, e.g. on a user switch or when the user presses "Stop".
+  // Stops mirroring and releases the notification UI.
+  void OnDesktopCaptureStopRequested();
+#endif
 
   // Registers the media stream to show source tab switching UI and a capture
   // indicator icon on the tabstrip.
@@ -177,6 +207,12 @@ class CastMirroringServiceHost final : public MirroringServiceHost,
   // The lifetime of the capture indicator icon on the tabstrip is tied to that
   // of |media_stream_ui_|.
   std::unique_ptr<content::MediaStreamUI> media_stream_ui_;
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // For desktop mirroring only. While alive, the session is registered with
+  // the ash screen security framework. See ShowDesktopCaptureNotification().
+  std::unique_ptr<ScreenCaptureNotificationUI> desktop_capture_notification_ui_;
+#endif
 
   const bool tab_switching_ui_enabled_;
 

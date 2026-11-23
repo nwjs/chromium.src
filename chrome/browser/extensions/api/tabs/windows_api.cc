@@ -927,14 +927,14 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
   auto create_nav_params = [&](const GURL& url, bool is_first_nav) {
     NavigateParams navigate_params(new_window, url, ui::PAGE_TRANSITION_LINK);
 
-    navigate_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    navigate_params.disposition = WindowOpenDisposition::kNewForegroundTab;
 
 #if BUILDFLAG(IS_ANDROID)
     // On Android, new windows are created with a single empty tab. As such,
     // when navigating, we need to navigate that first tab, instead of adding
     // new ones. Otherwise, we'd end up with one extra tab in the new window.
     if (is_first_nav) {
-      navigate_params.disposition = WindowOpenDisposition::CURRENT_TAB;
+      navigate_params.disposition = WindowOpenDisposition::kCurrentTab;
     }
 #endif
     // Ensure that these navigations will not get 'captured' into PWA windows,
@@ -1102,44 +1102,48 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
   base::WeakPtr<BrowserWindowInterface> weak_window = new_window->GetWeakPtr();
 
   Browser* b = static_cast<Browser*>(new_window);
-  BrowserView::GetBrowserViewForBrowser(b)->SetMinimumSize(gfx::Size(min_width, min_height));
-  BrowserView::GetBrowserViewForBrowser(b)->SetMaximumSize(gfx::Size(max_width, max_height));
+  BrowserView::GetBrowserViewForBrowser(b)->SetMinimumSize(
+      gfx::Size(min_width, min_height));
+  BrowserView::GetBrowserViewForBrowser(b)->SetMaximumSize(
+      gfx::Size(max_width, max_height));
 
 #if defined(OS_LINUX) || defined(OS_WIN)
-  if (!resizable)
+  if (!resizable) {
     BrowserView::GetBrowserViewForBrowser(b)->SetResizable(false);
+  }
 #endif
 
   if (initial_show_state == ui::mojom::WindowShowState::kFullscreen) {
-    BrowserWidget* frame2 = BrowserView::GetBrowserViewForBrowser(b)->browser_widget();
+    BrowserWidget* frame2 =
+        BrowserView::GetBrowserViewForBrowser(b)->browser_widget();
     frame2->SetFullscreen(true);
   }
 
   if (!hidden) {
-  if (focused) {
-    new_window->GetWindow()->Show();
-  } else {
-    // TODO(https://crbug.com/545671279): Port to desktop android.
-#if !BUILDFLAG(IS_ANDROID)
-    // Show an unfocused new window.
-    BrowserWindowInterface* const last_active_bwi =
-        GetLastActiveBrowserWindowInterfaceWithAnyProfile();
-
-    // On some OSes the new unfocused window is shown on top by default.
-    // ScopedPinBrowserAtFront prevents the new browser from being shown above
-    // the old active browser.
-    if (last_active_bwi && last_active_bwi->IsActive()) {
-      ScopedPinBrowserAtFront scoper(last_active_bwi);
-      new_window->GetWindow()->ShowInactive();
+    if (focused) {
+      new_window->GetWindow()->Show();
     } else {
-      new_window->GetWindow()->ShowInactive();
-    }
+      // TODO(https://crbug.com/545671279): Port to desktop android.
+#if !BUILDFLAG(IS_ANDROID)
+      // Show an unfocused new window.
+      BrowserWindowInterface* const last_active_bwi =
+          GetLastActiveBrowserWindowInterfaceWithAnyProfile();
+
+      // On some OSes the new unfocused window is shown on top by default.
+      // ScopedPinBrowserAtFront prevents the new browser from being shown above
+      // the old active browser.
+      if (last_active_bwi && last_active_bwi->IsActive()) {
+        ScopedPinBrowserAtFront scoper(last_active_bwi);
+        new_window->GetWindow()->ShowInactive();
+      } else {
+        new_window->GetWindow()->ShowInactive();
+      }
 #else
-    new_window->GetWindow()->ShowInactive();
+      new_window->GetWindow()->ShowInactive();
 #endif  // BUILDFLAG(IS_ANDROID)
-  }
-  } else { //hidden
-    BrowserView::GetBrowserViewForBrowser(b)->Hide();
+    }
+  } else {  // hidden
+    BrowserView::GetBrowserViewForBrowser(new_window)->Hide();
   }
   if (!weak_window) {
     return RespondNow(Error(ExtensionTabUtil::kNoCurrentWindowError));
@@ -1193,16 +1197,16 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
     return RespondNow(WithArguments(base::Value()));
   }
 
-  if (b->DidFinishFirstNavigation())
-  return RespondNow(WithArguments(ExtensionTabUtil::CreateWindowValueForExtension(
-      *new_window, extension(), WindowController::kPopulateTabs,
-      source_context_type())));
+  if (b->DidFinishFirstNavigation()) {
+    return RespondNow(
+        WithArguments(ExtensionTabUtil::CreateWindowValueForExtension(
+            *new_window, extension(), WindowController::kPopulateTabs,
+            source_context_type())));
+  }
 
-  b->AddOnDidFinishFirstNavigationCallback(
-    base::BindOnce(&WindowsCreateFunction::
-                   OnFinishedFirstNavigationOrClosed,
-                   this, base::Unretained(b), base::Unretained(extension()),
-		   source_context_type()));
+  b->AddOnDidFinishFirstNavigationCallback(base::BindOnce(
+      &WindowsCreateFunction::OnFinishedFirstNavigationOrClosed, this,
+      base::Unretained(b), base::Unretained(extension()), source_context_type()));
 
   return RespondLater();
 }
@@ -1477,12 +1481,15 @@ bool WindowsUpdateFunction::UpdateWindowState(
     // TODO(varkha): Updating bounds during a drag can cause problems and a more
     // general solution is needed. See http://crbug.com/40322435 .
 #if defined(OS_WIN)
-    if (set_pos_only)
+    if (set_pos_only) {
       BrowserView::GetBrowserViewForBrowser(browser)
-      ->SetPosition(window_bounds.origin());
-    else
-#endif
+          ->SetPosition(window_bounds.origin());
+    } else {
       browser_window->SetBounds(window_bounds);
+    }
+#else
+    browser_window->SetBounds(window_bounds);
+#endif
     if (!weak_browser || !weak_window_controller) {
       return false;
     }
@@ -1515,15 +1522,22 @@ bool WindowsUpdateFunction::UpdateWindowState(
 
   if (params.update_info.show && *params.update_info.show) {
     browser_window->Show();
+    if (!weak_browser || !weak_window_controller) {
+      return false;
+    }
   }
   if (params.update_info.resizable) {
-    BrowserView::GetBrowserViewForBrowser(browser)->SetResizable(*params.update_info.resizable);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetResizable(
+        *params.update_info.resizable);
   }
   if (params.update_info.all_visible) {
-    BrowserView::GetBrowserViewForBrowser(browser)->SetAllVisible(*params.update_info.all_visible);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetAllVisible(
+        *params.update_info.all_visible);
   }
   if (params.update_info.always_on_top) {
-    BrowserView::GetBrowserViewForBrowser(browser)->SetZOrderLevel(*params.update_info.always_on_top ? ui::ZOrderLevel::kFloatingWindow : ui::ZOrderLevel::kNormal);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetZOrderLevel(
+        *params.update_info.always_on_top ? ui::ZOrderLevel::kFloatingWindow
+                                         : ui::ZOrderLevel::kNormal);
   }
   if (params.update_info.show_in_taskbar) {
     BrowserView::GetBrowserViewForBrowser(browser)->SetShowInTaskbar(*params.update_info.show_in_taskbar);

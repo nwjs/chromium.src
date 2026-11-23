@@ -12,11 +12,14 @@ import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
 import {getContextMenuPosition, getEventDispositionFlags, HelpBubbleAnchorMixin, playIconAnimation, PressHandler, roundedIconsEnabled} from '/shared/toolbar_button.js';
+import {ContextMenuType} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import type {BackForwardButtonState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {getCss} from './back_forward_button.css.js';
 import {getHtml} from './back_forward_button.html.js';
-import {BrowserProxyImpl, ContextMenuType} from './browser_proxy.js';
-import type {BackForwardButtonState, BrowserProxy} from './browser_proxy.js';
+import {BrowserProxyImpl} from './browser_proxy.js';
+import type {BrowserProxy} from './browser_proxy.js';
+import type {OverflowableButtonState} from './overflowable_button.js';
 import {OverflowableButtonMixin} from './overflowable_button.js';
 
 const BackForwardButtonElementBase =
@@ -54,8 +57,11 @@ export class BackForwardButtonElement extends BackForwardButtonElementBase {
   }
 
   accessor direction: 'back'|'forward' = 'back';
-  override accessor state: BackForwardButtonState = {
+  override accessor state: BackForwardButtonState&OverflowableButtonState = {
     enabled: false,
+
+    // These fields are from OverflowableButtonState (in addition to
+    // BackForwardButtonState), and are used by OverflowableButtonMixin.
     shouldBeShown: true,
     isContextMenuVisible: false,
   };

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/browser.h"
 
 #include "extensions/browser/event_router.h"
+#include "extensions/common/event_args.h"
 #include "extensions/browser/process_manager.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -110,7 +111,6 @@
 #include "chrome/browser/ui/status_bubble.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tab_dialogs.h"
-#include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_change_type.h"
@@ -429,7 +429,7 @@ Browser::~Browser() {
   //
   // TODO(crbug.com/40887606): This DCHECK doesn't always pass.
   // TODO(crbug.com/40064092): convert this to CHECK.
-  DCHECK(tab_strip_model_->empty());
+  CHECK(tab_strip_model_->empty(), base::NotFatalUntil::M162);
 
   SessionServiceBase* service = GetAppropriateSessionServiceForProfile(this);
 
@@ -452,14 +452,14 @@ bool Browser::NWCanClose(bool user_force) {
     ExtensionHasEventListener(extension->id(), extensions::api::windows::OnRemoving::kEventName,
 			      frame_token, &listener_extension_id);
   if (listening_to_close) {
-    std::unique_ptr<base::ListValue> args(new base::ListValue());
-    args->Append(GetSessionID().id());
+    auto args = base::MakeRefCounted<extensions::EventArgs>();
+    args->data.Append(GetSessionID().id());
     if (user_force)
-      args->Append("quit");
+      args->data.Append("quit");
     auto event =
       std::make_unique<extensions::Event>(extensions::events::UNKNOWN,
                                           extensions::api::windows::OnRemoving::kEventName,
-                                          std::move(*args), GetProfile());
+                                          std::move(args), GetProfile());
     event->filter_info = extensions::mojom::EventFilteringInfo::New();
     event->filter_info->window_exposed_by_default = true;
     event->filter_info->nw_instance_id = frame_token;
@@ -636,7 +636,7 @@ WebContents* Browser::OpenURL(
     base::OnceCallback<void(content::NavigationHandle&)>
         navigation_handle_callback) {
 #if DCHECK_IS_ON()
-  DCHECK(params.Valid());
+  CHECK(params.Valid(), base::NotFatalUntil::M162);
 #endif
 
   return BrowserWebContentsDelegate::From(this)->OpenURLFromTab(

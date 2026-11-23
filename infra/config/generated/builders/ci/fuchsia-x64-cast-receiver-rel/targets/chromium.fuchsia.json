@@ -183,7 +183,6 @@
       {
         "args": [
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--device-spec=x64-emu-large"
         ],
         "isolate_profile_data": true,
@@ -568,7 +567,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 1
+          "shards": 2
         },
         "test": "content_unittests",
         "test_id_prefix": "ninja://content/test:content_unittests/"
@@ -1869,7 +1868,6 @@
           "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --use-cmd-decoder=passthrough --use-gl=angle",
           "--enforce-browser-version",
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--dont-restore-color-profile-after-test",
           "--test-machine-name",
           "${buildername}",
@@ -2010,7 +2008,6 @@
           "--extra-browser-args=--enable-logging=stderr --js-flags=--expose-gc --use-cmd-decoder=passthrough --use-gl=angle",
           "--enforce-browser-version",
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--dont-restore-color-profile-after-test",
           "--test-machine-name",
           "${buildername}",

@@ -42,15 +42,16 @@ import org.chromium.chrome.browser.browsing_data.ClearBrowsingDataFragment;
 import org.chromium.chrome.browser.commerce.PriceNotificationSettingsFragment;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchSettingsFragment;
 import org.chromium.chrome.browser.download.settings.DownloadSettings;
-import org.chromium.chrome.browser.glic.GlicActorLoginPermissionsFragment;
-import org.chromium.chrome.browser.glic.GlicNavigationUtils;
-import org.chromium.chrome.browser.glic.GlicSettings;
+import org.chromium.chrome.browser.glic.actor_login.GlicActorLoginPermissionsFragment;
+import org.chromium.chrome.browser.glic.settings.GlicNavigationUtils;
+import org.chromium.chrome.browser.glic.settings.GlicSettings;
 import org.chromium.chrome.browser.homepage.settings.HomepageSettings;
 import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsSettings;
 import org.chromium.chrome.browser.language.settings.AlwaysTranslateListFragment;
 import org.chromium.chrome.browser.language.settings.LanguageSettings;
 import org.chromium.chrome.browser.language.settings.NeverTranslateListFragment;
 import org.chromium.chrome.browser.language.settings.SelectLanguageFragment;
+import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.settings.ThemeSettingsFragment;
 import org.chromium.chrome.browser.prefetch.settings.ExtendedPreloadingSettingsFragment;
 import org.chromium.chrome.browser.prefetch.settings.PreloadPagesSettingsFragment;
@@ -66,10 +67,10 @@ import org.chromium.chrome.browser.safe_browsing.settings.EnhancedProtectionSett
 import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFragment;
 import org.chromium.chrome.browser.safe_browsing.settings.StandardProtectionSettingsFragment;
 import org.chromium.chrome.browser.safety_hub.SafetyHubFragment;
-import org.chromium.chrome.browser.safety_hub.SafetyHubNotificationsFragment;
 import org.chromium.chrome.browser.safety_hub.SafetyHubPermissionsFragment;
 import org.chromium.chrome.browser.search_engines.settings.SearchEngineSettings;
 import org.chromium.chrome.browser.search_engines.settings.SiteSearchSettings;
+import org.chromium.chrome.browser.settings.startup.OnStartupSettingsFragment;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.ssl.HttpsFirstModeSettingsFragment;
 import org.chromium.chrome.browser.sync.settings.GoogleServicesSettings;
@@ -316,7 +317,6 @@ public class SettingsFragmentRegistry {
         // Safety Check / Safety Hub
         registerMapping("/safetyCheck", SafetyHubFragment.class);
         registerMapping("/safetyCheck/permissions", SafetyHubPermissionsFragment.class);
-        registerMapping("/safetyCheck/notifications", SafetyHubNotificationsFragment.class);
 
         // Autofill & Passwords
         registerMapping("/autofill", AutofillAndPasswordsFragment.class);
@@ -349,6 +349,10 @@ public class SettingsFragmentRegistry {
 
         // Homepage
         registerMapping("/homepage", HomepageSettings.class);
+
+        // On startup
+        registerMapping("/onStartup", OnStartupSettingsFragment.class)
+                .availableWhen(profile -> MultiWindowUtils.isOnStartupSettingsUiEnabled());
 
         // Appearance
         registerMapping("/appearance", AppearanceSettingsFragment.class);
@@ -585,11 +589,6 @@ public class SettingsFragmentRegistry {
     public static void registerMappingForTesting(
             String path, Class<? extends Fragment> detailFragmentClass) {
         registerMapping(path, detailFragmentClass);
-    }
-
-    public static void registerMainMenuAnchorForTesting(
-            Class<? extends Fragment> fragmentClass, String mainMenuKey) {
-        registerMainMenuAnchor(fragmentClass, mainMenuKey);
     }
 
     /**

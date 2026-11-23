@@ -45,6 +45,7 @@ import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.night_mode.ChromeNightModeTestUtils;
 import org.chromium.chrome.browser.signin.services.AccountPreviewDataService;
@@ -83,7 +84,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Rule
     public final RenderTestRule mRenderTestRule =
             RenderTestRule.Builder.withPublicCorpus()
-                    .setRevision(9)
+                    .setRevision(11)
                     .setBugComponent(RenderTestRule.Component.SERVICES_SIGN_IN)
                     .build();
 
@@ -183,7 +184,7 @@ public class AccountPickerBottomSheetRenderTest {
         when(mSigninManagerMock.isSigninAllowed()).thenReturn(true);
         when(mSigninManagerMock.extractDomainName(any()))
                 .thenReturn(TestAccounts.ACCOUNT1.getEmail());
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(null);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(null);
     }
 
     @AfterClass
@@ -216,6 +217,7 @@ public class AccountPickerBottomSheetRenderTest {
     @Feature("RenderTest")
     @Features.EnableFeatures(SigninFeatures.SMART_EMAIL_LINE_BREAKING)
     @UseMethodParameter(NightModeTestUtils.NightModeParams.class)
+    @DisabledTest(message = "https://crbug.com/562983248")
     public void testCollapsedSheetWithAccountViewForSendTabToSelfEntryPoint(
             boolean nightModeEnabled) throws IOException {
         mSigninAccessPoint = SigninAccessPoint.SEND_TAB_TO_SELF_PROMO;
@@ -262,6 +264,7 @@ public class AccountPickerBottomSheetRenderTest {
         SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT
     })
     @UseMethodParameter(NightModeTestUtils.NightModeParams.class)
+    @DisabledTest(message = "https://crbug.com/562983248")
     public void testCollapsedSheetWithPreferredAccountForWebSigninEntryPoint(
             boolean nightModeEnabled) throws IOException {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);
@@ -270,7 +273,7 @@ public class AccountPickerBottomSheetRenderTest {
                         TestAccounts.ACCOUNT1.getGaiaId(),
                         new int[] {DataType.BOOKMARKS},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
 
         buildAndShowCollapsedBottomSheet();
 
@@ -305,6 +308,7 @@ public class AccountPickerBottomSheetRenderTest {
         SigninFeatures.ENABLE_ACCOUNT_PREVIEW_PREFERRED_ACCOUNT
     })
     @UseMethodParameter(NightModeTestUtils.NightModeParams.class)
+    @DisabledTest(message = "https://crbug.com/562983248")
     public void testCollapsedSheetWithPreferredAccountForNtpSignedOutIconEntryPoint(
             boolean nightModeEnabled) throws IOException {
         mSigninAccessPoint = SigninAccessPoint.NTP_SIGNED_OUT_ICON;
@@ -314,7 +318,7 @@ public class AccountPickerBottomSheetRenderTest {
                         TestAccounts.ACCOUNT1.getGaiaId(),
                         new int[] {DataType.BOOKMARKS},
                         SyncEnums.DeviceFormFactor.DEVICE_FORM_FACTOR_PHONE);
-        when(mAccountPreviewDataServiceMock.getPreferredAccountForPromo()).thenReturn(preference);
+        when(mAccountPreviewDataServiceMock.getPreferredAccountForSignin()).thenReturn(preference);
 
         buildAndShowCollapsedBottomSheet();
 
@@ -449,6 +453,7 @@ public class AccountPickerBottomSheetRenderTest {
     @MediumTest
     @Feature("RenderTest")
     @Features.EnableFeatures(SigninFeatures.SMART_EMAIL_LINE_BREAKING)
+    @Features.DisableFeatures(ChromeFeatureList.ANDROID_NEW_MANAGEMENT_NOTICE)
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testConfirmManagementView(boolean nightModeEnabled) throws IOException {
         mAccountManagerTestRule.addAccount(TestAccounts.ACCOUNT1);

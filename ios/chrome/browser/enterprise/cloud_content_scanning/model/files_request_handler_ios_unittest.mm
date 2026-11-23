@@ -66,6 +66,12 @@ class MockContentAnalysisInfoBase : public ContentAnalysisInfoBase {
               (),
               (const, override));
   MOCK_METHOD(std::string, GetContentAreaAccountEmail, (), (const, override));
+  MOCK_METHOD(
+      std::optional<
+          ::safe_browsing::ExtensionTelemetryReportRequest::ExtensionInfo>,
+      extension_initiator,
+      (),
+      (const, override));
 };
 
 // Mock implementation of BinaryUploadService to verify that upload requests
@@ -136,7 +142,7 @@ class FilesRequestHandlerIOSTest : public PlatformTest {
 
   // Enables the file download connector by setting the appropriate pref.
   void EnableConnector() {
-    profile_->GetTestingPrefService()->Set(
+    profile_->GetPrefs()->Set(
         AnalysisConnectorPref(AnalysisConnector::FILE_DOWNLOADED),
         *base::JSONReader::Read(kWildcardAnalysisSettingsPref,
                                 base::JSON_PARSE_RFC));

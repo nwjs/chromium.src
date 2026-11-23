@@ -33,6 +33,7 @@ import type {Result} from '../utils/result.js';
 import {BidiNoOpParser} from './BidiNoOpParser.js';
 import type {BidiCommandParameterParser} from './BidiParser.js';
 import type {MapperOptions} from './MapperOptions.js';
+import {AutofillProcessor} from './modules/autofill/AutofillProcessor.js';
 import type {BluetoothProcessor} from './modules/bluetooth/BluetoothProcessor.js';
 import {BrowserProcessor} from './modules/browser/BrowserProcessor.js';
 import type {ContextConfigStorage} from './modules/browser/ContextConfigStorage.js';
@@ -68,6 +69,7 @@ interface CommandProcessorEventsMap extends Record<string | symbol, unknown> {
 
 export class CommandProcessor extends EventEmitter<CommandProcessorEventsMap> {
   // keep-sorted start
+  #autofillProcessor: AutofillProcessor;
   #bluetoothProcessor: BluetoothProcessor;
   #browserCdpClient: CdpClient;
   #browserProcessor: BrowserProcessor;
@@ -112,6 +114,7 @@ export class CommandProcessor extends EventEmitter<CommandProcessorEventsMap> {
     this.#digitalCredentialsProcessor = digitalCredentialsProcessor;
 
     // keep-sorted start block=yes
+    this.#autofillProcessor = new AutofillProcessor(browsingContextStorage);
     this.#browserProcessor = new BrowserProcessor(
       browserCdpClient,
       browsingContextStorage,
@@ -121,7 +124,6 @@ export class CommandProcessor extends EventEmitter<CommandProcessorEventsMap> {
     this.#browsingContextProcessor = new BrowsingContextProcessor(
       browserCdpClient,
       browsingContextStorage,
-      userContextStorage,
       contextConfigStorage,
       eventManager,
     );
@@ -131,11 +133,7 @@ export class CommandProcessor extends EventEmitter<CommandProcessorEventsMap> {
       cdpConnection,
       browserCdpClient,
     );
-    this.#emulationProcessor = new EmulationProcessor(
-      browsingContextStorage,
-      userContextStorage,
-      contextConfigStorage,
-    );
+    this.#emulationProcessor = new EmulationProcessor(contextConfigStorage);
     this.#inputProcessor = new InputProcessor(browsingContextStorage);
     this.#networkProcessor = new NetworkProcessor(
       browsingContextStorage,
@@ -170,6 +168,14 @@ export class CommandProcessor extends EventEmitter<CommandProcessorEventsMap> {
     command: ChromiumBidi.Command,
   ): Promise<ChromiumBidi.ResultData> {
     switch (command.method) {
+      // Autofill module
+      // keep-sorted start block=yes
+      case 'autofill.trigger':
+        return await this.#autofillProcessor.trigger(
+          this.#parser.parseAutofillTriggerParams(command.params),
+        );
+      // keep-sorted end
+
       // Bluetooth module
       // keep-sorted start block=yes
       case 'bluetooth.disableSimulation':
@@ -299,9 +305,8 @@ export class CommandProcessor extends EventEmitter<CommandProcessorEventsMap> {
           this.#parser.parseReloadParams(command.params),
         );
       case 'browsingContext.setBypassCSP':
-        this.#parser.parseSetBypassCspParams(command.params);
-        throw new UnsupportedOperationException(
-          `Method ${command.method} is not implemented.`,
+        return await this.#browsingContextProcessor.setBypassCSP(
+          this.#parser.parseSetBypassCspParams(command.params),
         );
       case 'browsingContext.setViewport':
         return await this.#browsingContextProcessor.setViewport(
@@ -350,11 +355,10 @@ export class CommandProcessor extends EventEmitter<CommandProcessorEventsMap> {
       // Emulation module
       // keep-sorted start block=yes
       case 'emulation.setForcedColorsModeThemeOverride':
-        this.#parser.parseSetForcedColorsModeThemeOverrideParams(
-          command.params,
-        );
-        throw new UnsupportedOperationException(
-          `Method ${command.method} is not implemented.`,
+        return await this.#emulationProcessor.setForcedColorsModeThemeOverride(
+          this.#parser.parseSetForcedColorsModeThemeOverrideParams(
+            command.params,
+          ),
         );
       case 'emulation.setGeolocationOverride':
         return await this.#emulationProcessor.setGeolocationOverride(

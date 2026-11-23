@@ -14,7 +14,6 @@ import '../settings_shared.css.js';
 import './ax_annotations_section.js';
 import './bluetooth_braille_display_ui.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import type {BrailleTable} from 'chrome://resources/ash/common/accessibility/braille_table.js';
 import {JP_BRAILLE_TENJI_TABLE} from 'chrome://resources/ash/common/accessibility/braille_table.js';
 import type {CrInputElement} from 'chrome://resources/ash/common/cr_elements/cr_input/cr_input.js';
@@ -28,13 +27,12 @@ import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {RouteOriginMixin} from '../common/route_origin_mixin.js';
 import type {DropdownMenuOptionList, SettingsDropdownMenuElement} from '../controls/settings_dropdown_menu.js';
 import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {Router, routes} from '../router.js';
 
 import {getTemplate} from './chromevox_subpage.html.js';
 import {ChromeVoxSubpageBrowserProxyImpl} from './chromevox_subpage_browser_proxy.js';
-
-export {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 
 const SYSTEM_VOICE = 'chromeos_system_voice';
 const CHROMEVOX_EXTENSION_ID = 'mndnfokpggljbaajbnioimlmbfngpief';
@@ -331,6 +329,11 @@ export class SettingsChromeVoxSubpageElement extends
         value: loadTimeData.getBoolean('japaneseBrailleEnabled'),
         readOnly: true,
       },
+
+      brailleTables_: {
+        type: Array,
+        value: () => [],
+      },
     };
   }
 
@@ -355,7 +358,7 @@ export class SettingsChromeVoxSubpageElement extends
   declare private virtualBrailleDisplayStyleOptions_: DropdownMenuOptionList;
   private chromeVoxBrowserProxy_ =
       ChromeVoxSubpageBrowserProxyImpl.getInstance();
-  private brailleTables_: BrailleTable[] = [];
+  declare private brailleTables_: BrailleTable[];
   declare private developerOptionsExpanded_: boolean;
   declare private readonly eventStreamFilters_: string[];
   declare private readonly mainNodeAnnotationsFeatureEnabled_: boolean;

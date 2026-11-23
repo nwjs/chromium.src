@@ -71,7 +71,9 @@ enum class SuggestionFeatureForIPH {
   // Denoting IPH for the home and work address suggestion.
   kHomeAndWorkAddressSuggestion = 2,
   // Denoting IPH for the name and email suggestion.
-  kAccountNameEmailSuggestion = 3
+  kAccountNameEmailSuggestion = 3,
+  // Denoting IPH for the Ambient Autofill SPII disclaimer suggestion.
+  kAutofillAmbientAutofillSpiiDisclaimer = 4
 };
 
 // Enum class used to determine the icon for the suggestion.
@@ -86,6 +88,8 @@ enum class SuggestionIconType {
   kBackupPassword = 3,
   // Undo autofill icon
   kUndoAutofill = 4,
+  // Contact information icon.
+  kContact = 5,
 };
 
 // Represents a user-selectable suggestion for a single field within a form

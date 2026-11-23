@@ -12,8 +12,10 @@
 #import "components/enterprise/browser/reporting/reporting_features.h"
 #import "components/enterprise/browser/reporting/saas_usage/saas_usage_report_scheduler.h"
 #import "components/enterprise/device_attestation/device_attestation_service_factory.h"
+#import "ios/chrome/browser/enterprise/connectors/reporting/ios_realtime_reporting_client_factory.h"
 #import "ios/chrome/browser/enterprise/identifiers/profile_id_service_factory_ios.h"
 #import "ios/chrome/browser/enterprise/signals/model/ios_signals_aggregator_factory.h"
+#import "ios/chrome/browser/policy/model/cloud/user_policy_signin_service_factory.h"
 #import "ios/chrome/browser/policy/model/reporting/cloud_profile_reporting_service_ios.h"
 #import "ios/chrome/browser/policy/model/reporting/features.h"
 #import "ios/chrome/browser/policy/model/reporting/reporting_delegate_factory_ios.h"
@@ -39,20 +41,6 @@ std::unique_ptr<SaasUsageReportScheduler> CreateSaasUsageReportScheduler(
 
 }  // namespace
 
-// static
-CloudProfileReportingServiceFactoryIOS*
-CloudProfileReportingServiceFactoryIOS::GetInstance() {
-  static base::NoDestructor<CloudProfileReportingServiceFactoryIOS> instance;
-  return instance.get();
-}
-
-// static
-CloudProfileReportingServiceIOS*
-CloudProfileReportingServiceFactoryIOS::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<CloudProfileReportingServiceIOS>(
-      profile, /*create=*/true);
-}
-
 std::unique_ptr<KeyedService>
 CloudProfileReportingServiceFactoryIOS::BuildServiceInstanceFor(
     ProfileIOS* profile) const {
@@ -65,21 +53,25 @@ CloudProfileReportingServiceFactoryIOS::BuildServiceInstanceFor(
       profile->GetSharedURLLoaderFactory(), profile->GetProfileName(),
       delegate_factory.GetReportSchedulerDelegate(profile),
       IOSSignalsAggregatorFactory::GetForProfile(profile),
-      CreateSaasUsageReportScheduler(profile));
+      CreateSaasUsageReportScheduler(profile),
+      profile->GetUserCloudPolicyManager());
 }
 
-CloudProfileReportingServiceFactoryIOS::CloudProfileReportingServiceFactoryIOS()
-    : ProfileKeyedServiceFactoryIOS("CloudProfileReportingService",
-                                    ProfileSelection::kNoInstanceInIncognito,
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {
+CloudProfileReportingServiceFactoryIOS::CloudProfileReportingServiceFactoryIOS(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "CloudProfileReportingService",
+          ProfileSelection::kNoInstanceInIncognito,
+          ServiceCreation::kCreateWithProfile,
+          TestingCreation::kNoServiceForTests) {
+  DependsOn(policy::UserPolicySigninServiceFactory::GetInstance());
   DependsOn(enterprise::ProfileIdServiceFactoryIOS::GetInstance());
   DependsOn(IOSSignalsAggregatorFactory::GetInstance());
+  DependsOn(
+      enterprise_connectors::IOSRealtimeReportingClientFactory::GetInstance());
   enterprise::DeviceAttestationServiceFactory::SetAttestationServiceIOSProvider(
       base::BindRepeating(&ios::provider::CreateAttestationServiceIOS));
 }
-
-CloudProfileReportingServiceFactoryIOS::
-    ~CloudProfileReportingServiceFactoryIOS() = default;
 
 }  // namespace enterprise_reporting

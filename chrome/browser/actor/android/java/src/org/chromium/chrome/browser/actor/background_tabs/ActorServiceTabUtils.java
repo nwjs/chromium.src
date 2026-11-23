@@ -1,0 +1,72 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.actor.background_tabs;
+
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
+import org.chromium.chrome.browser.actor.ActorTaskId;
+import org.chromium.chrome.browser.actor.StoppedReason;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/** Utility methods for interacting between ActorService and Tabs. */
+@NullMarked
+public class ActorServiceTabUtils {
+    /**
+     * Returns a list of task IDs that are actuating in the given list of tabs.
+     *
+     * @param tabModel The {@link TabModel} to act on.
+     * @param tabs The list of {@link Tab}s to check for active tasks.
+     * @return A list of active task IDs.
+     */
+    public static List<@ActorTaskId Integer> getOngoingActorTasks(
+            @Nullable TabModel tabModel, @Nullable List<Tab> tabs) {
+        if (tabModel == null || tabs == null || tabs.isEmpty()) return Collections.emptyList();
+        Profile profile = tabModel.getProfile();
+        if (profile == null) return Collections.emptyList();
+
+        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
+        if (service == null || service.getActiveTasksCount() == 0) return Collections.emptyList();
+
+        Set<@ActorTaskId Integer> taskIds = new HashSet<>();
+        for (Tab tab : tabs) {
+            @Nullable
+            @ActorTaskId
+            Integer taskId = service.getActiveTaskIdOnTab(tab.getId(), /* includePaused= */ true);
+            if (taskId != null) {
+                taskIds.add(taskId);
+            }
+        }
+        if (taskIds.isEmpty()) return Collections.emptyList();
+        return new ArrayList<>(taskIds);
+    }
+
+    /**
+     * Stops the given list of ongoing actor tasks for the profile.
+     *
+     * @param profile The {@link Profile} to act on.
+     * @param taskIds The list of active task IDs to stop.
+     */
+    public static void stopOngoingActorTasks(
+            @Nullable Profile profile, @Nullable List<@ActorTaskId Integer> taskIds) {
+        if (profile == null || taskIds == null || taskIds.isEmpty()) return;
+
+        ActorKeyedService service = ActorKeyedServiceFactory.getForProfile(profile);
+        if (service == null) return;
+
+        for (@ActorTaskId Integer taskId : taskIds) {
+            service.stopTask(taskId, StoppedReason.STOPPED_BY_USER);
+        }
+    }
+}

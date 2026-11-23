@@ -46,8 +46,6 @@ HoldingSpaceFile::FileSystemType ToHoldingSpaceFileSystemType(
       return HoldingSpaceFile::FileSystemType::kDriveFs;
     case storage::FileSystemType::kFileSystemTypeExternal:
       return HoldingSpaceFile::FileSystemType::kExternal;
-    case storage::FileSystemType::kFileSystemTypeForTransientFile:
-      return HoldingSpaceFile::FileSystemType::kForTransientFile;
     case storage::FileSystemType::kFileSystemTypeFuseBox:
       return HoldingSpaceFile::FileSystemType::kFuseBox;
     case storage::FileSystemType::kFileSystemTypeIsolated:
@@ -73,6 +71,10 @@ HoldingSpaceFile::FileSystemType ToHoldingSpaceFileSystemType(
     case storage::FileSystemType::kFileSystemTypeTest:
       return HoldingSpaceFile::FileSystemType::kTest;
     case storage::FileSystemType::kFileSystemTypeUnknown:
+      return HoldingSpaceFile::FileSystemType::kUnknown;
+    // In-memory files are only ever created for transient browser-internal
+    // uploads and are never surfaced in holding space.
+    case storage::FileSystemType::kFileSystemTypeInMemory:
       return HoldingSpaceFile::FileSystemType::kUnknown;
     case storage::FileSystemType::kFileSystemInternalTypeEnumStart:
     case storage::FileSystemType::kFileSystemInternalTypeEnumEnd:

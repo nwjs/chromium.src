@@ -40,6 +40,7 @@
 #include "gpu/command_buffer/service/dawn_service_serializer.h"
 #include "gpu/command_buffer/service/dawn_wire_server.h"
 #include "gpu/command_buffer/service/decoder_client.h"
+#include "gpu/command_buffer/service/gl_utils.h"
 #include "gpu/command_buffer/service/graphite_utils.h"
 #include "gpu/command_buffer/service/isolation_key_provider.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
@@ -67,6 +68,7 @@
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/graphite/Context.h"
 #include "ui/gl/gl_context_egl.h"
+#include "ui/gl/gl_implementation.h"
 #include "ui/gl/gl_surface_egl.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -96,6 +98,26 @@ constexpr wgpu::TextureUsage kAllowedMailboxTextureUsages =
 constexpr wgpu::BufferUsage kAllowedMailboxBufferUsages =
     wgpu::BufferUsage::CopySrc | wgpu::BufferUsage::CopyDst |
     wgpu::BufferUsage::Storage;
+
+// Returns true if GL errors should be checked around a Skia write to
+// `representation`, which may be an upload or a clear. Skia does not report GL
+// errors from uploads or draws.
+//
+// Errors are only checked while the image is uncleared: that is when a failed
+// write could leave uninitialized contents marked as cleared. Checking only
+// then avoids the cost of glGetError on every write once the image has been
+// initialized.
+//
+// When this returns true, the shared context is current, so callers drain
+// errors from the thread's current GL API.
+bool ShouldCheckGLErrors(SharedContextState* shared_context_state,
+                         SkiaImageRepresentation* representation) {
+  const bool should_check = !representation->IsCleared() &&
+                            shared_context_state->GrContextIsGL() &&
+                            !shared_context_state->context_lost();
+  DCHECK(!should_check || shared_context_state->IsCurrent(nullptr));
+  return should_check;
+}
 
 template <typename T1, typename T2>
 void ChainStruct(T1& head, T2* struct_to_chain) {
@@ -409,6 +431,7 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   std::unique_ptr<SharedImageRepresentationFactory>
       shared_image_representation_factory_;
 
+  std::unique_ptr<DawnCachingInterface> dawn_caching_interface_;
   std::unique_ptr<dawn::platform::Platform> dawn_platform_;
   std::unique_ptr<DawnInstance> dawn_instance_;
   std::unique_ptr<DawnServiceMemoryTransferService> memory_transfer_service_;
@@ -839,6 +862,12 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
 
       auto* surface = scoped_write_access->surface();
 
+      const bool check_gl_errors = ShouldCheckGLErrors(
+          shared_context_state_.get(), representation_.get());
+      if (check_gl_errors) {
+        DrainGLErrors(gl::g_current_gl_context);
+      }
+
       WaitForSemaphores(std::move(begin_semaphores));
       surface->writePixels(SkPixmap(surface->imageInfo(), data, bytes_per_row),
                            /*x*/ 0, /*y*/ 0);
@@ -860,6 +889,11 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
       scoped_write_access->ApplyBackendSurfaceEndState();
 
       SignalSemaphores(std::move(end_semaphores));
+
+      if (success && check_gl_errors &&
+          DrainGLErrors(gl::g_current_gl_context) != GL_NO_ERROR) {
+        success = false;
+      }
 
       return success;
     }
@@ -1094,10 +1128,11 @@ WebGPUDecoderImpl::WebGPUDecoderImpl(
           std::make_unique<SharedImageRepresentationFactory>(
               shared_image_manager,
               std::move(memory_tracker))),
-      dawn_platform_(new DawnPlatform(
+      dawn_caching_interface_(
           base::FeatureList::IsEnabled(features::kWebGPUBlobCache)
               ? std::move(dawn_caching_interface)
-              : nullptr,
+              : nullptr),
+      dawn_platform_(new DawnPlatform(
           /*progress_reporter=*/nullptr,
           /*uma_prefix=*/"GPU.WebGPU.",
           /*record_cache_count_uma=*/false)),
@@ -1589,6 +1624,23 @@ WGPUFuture WebGPUDecoderImpl::RequestDeviceImpl(
   wgpu::DawnCacheDeviceDescriptor dawn_cache;
   if (!isolation_key_->empty()) {
     dawn_cache.isolationKey = isolation_key_->c_str();
+    if (dawn_caching_interface_) {
+      dawn_cache.SetDawnLoadCacheDataCallback(
+          [](std::string_view key, base::span<uint8_t> value,
+             DawnCachingInterface* caching_interface) -> size_t {
+            if (value.empty()) {
+              return caching_interface->FindKey(key);
+            }
+            return caching_interface->LoadData(key, value);
+          },
+          dawn_caching_interface_.get());
+      dawn_cache.SetDawnStoreCacheDataCallback(
+          [](std::string_view key, base::span<const uint8_t> value,
+             DawnCachingInterface* caching_interface) {
+            caching_interface->StoreData(key, value);
+          },
+          dawn_caching_interface_.get());
+    }
     ChainStruct(desc, &dawn_cache);
   }
 
@@ -1786,6 +1838,26 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
     adapter.GetInfo(&adapter_info);
 
     if (use_blocklist() && IsWebGPUAdapterBlocklisted(adapter).blocked) {
+      return false;
+    }
+
+    // Web-facing Dawn GL backend must run on top of ANGLE. Dawn uses
+    // Chrome's GL setup (EGL display and GL proc addresses), so if Chrome is
+    // using a native (non-ANGLE) EGL/GLES driver, Dawn would talk directly to
+    // that driver. Requiring ANGLE guarantees that Dawn GL inherits all of the
+    // driver bug workarounds and mitigations already implemented in ANGLE.
+    //
+    // TODO(crbug.com/576008842):
+    // Long term (e.g. after WebGL-on-WebGPU), we will probably want to remove
+    // ANGLE from the GPU process and run Dawn GL directly on native GLES.
+    // Before removing this check, all the relevant ANGLE driver workarounds
+    // must first be added to Dawn's GL backend.
+    //
+    // This is only relaxed with --enable-unsafe-webgpu (or
+    // --disable-dawn-features=adapter_blocklist) for local testing.
+    if (adapter_info.backendType == wgpu::BackendType::OpenGLES &&
+        use_blocklist() &&
+        gl::GetGLImplementation() != gl::kGLImplementationEGLANGLE) {
       return false;
     }
 
@@ -2463,6 +2535,12 @@ bool WebGPUDecoderImpl::ClearSharedImageWithSkia(const Mailbox& mailbox) {
     return false;
   }
 
+  const bool check_gl_errors =
+      ShouldCheckGLErrors(shared_context_state_.get(), representation.get());
+  if (check_gl_errors) {
+    DrainGLErrors(gl::g_current_gl_context);
+  }
+
   auto* surface = scoped_write_access->surface();
   if (!begin_semaphores.empty()) {
     // gr_context() must not be null when begin_semaphores is not empty.
@@ -2506,6 +2584,10 @@ bool WebGPUDecoderImpl::ClearSharedImageWithSkia(const Mailbox& mailbox) {
   if (!shared_context_state_->SubmitIfNecessary(
           std::move(end_semaphores), /*need_graphite_submit=*/false)) {
     DLOG(ERROR) << "ClearSharedImage: SharedContextState submit failed";
+    return false;
+  }
+  if (check_gl_errors &&
+      DrainGLErrors(gl::g_current_gl_context) != GL_NO_ERROR) {
     return false;
   }
   representation->SetCleared();

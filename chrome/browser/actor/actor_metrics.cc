@@ -14,7 +14,9 @@
 #include "chrome/browser/actor/actor_task.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
+#include "components/page_content_annotations/content/page_context_fetcher_metrics.h"
 
 namespace actor {
 
@@ -42,6 +44,8 @@ std::string_view ToString(ActorTask::StoppedReason stopped_reason) {
       return "UserNavigatedAway";
     case ActorTask::StoppedReason::kTimeout:
       return "Timeout";
+    case ActorTask::StoppedReason::kAbortedByPolicy:
+      return "AbortedByPolicy";
   }
   NOTREACHED();
 }
@@ -170,9 +174,19 @@ void RecordPageContextApcDuration(base::TimeDelta duration) {
   base::UmaHistogramMediumTimes("Actor.PageContext.APC.Duration", duration);
 }
 
+void RecordPageContextApcStatus(
+    optimization_guide::AIPageContentExtractionStatus status) {
+  base::UmaHistogramEnumeration(kActorPageContextApcStatus, status);
+}
+
 void RecordPageContextScreenshotDuration(base::TimeDelta duration) {
   base::UmaHistogramMediumTimes("Actor.PageContext.Screenshot.Duration",
                                 duration);
+}
+
+void RecordPageContextScreenshotStatus(
+    page_content_annotations::ScreenshotCaptureStatus status) {
+  base::UmaHistogramEnumeration(kActorPageContextScreenshotStatus, status);
 }
 
 void RecordPageContextTabCount(size_t tab_count) {
@@ -215,6 +229,21 @@ void RecordScriptToolOutputSizeBytes(size_t size_bytes) {
 void RecordNavigationGatingDecision(ExecutionEngine::GatingDecision decision) {
   base::UmaHistogramEnumeration("Actor.NavigationGating.GatingDecision2",
                                 decision);
+}
+
+void RecordPageActionTargetFrameType(PageActionTargetFrameType type) {
+  base::UmaHistogramEnumeration("Actor.OriginGating.TargetFrameType", type);
+}
+
+void RecordSubframeGatingDryRunOutcome(SubframeGatingDryRunOutcome outcome) {
+  base::UmaHistogramEnumeration("Actor.OriginGating.SubframeDryRun.Outcome",
+                                outcome);
+}
+
+void RecordSubframeGatingDryRunBlockReason(
+    MayActOnUrlBlockReason block_reason) {
+  base::UmaHistogramEnumeration("Actor.OriginGating.SubframeDryRun.BlockReason",
+                                block_reason);
 }
 
 // Records the outcome of an post-performActions observation fetch.

@@ -8,10 +8,13 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/string_view_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
 #include "chrome/browser/certificate_viewer.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -25,6 +28,7 @@
 #include "components/server_certificate_database/server_certificate_database.h"
 #include "components/server_certificate_database/server_certificate_database_test_util.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/test/browser_test.h"
@@ -33,11 +37,20 @@
 #include "net/cert/x509_util.h"
 #include "net/test/test_certificate_data.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/views/widget/widget.h"
+#include "url/gurl.h"
+#include "url/url_constants.h"
 
 // Test framework for
 // chrome/test/data/webui/certificate_viewer_dialog_browsertest.js.
 class CertificateViewerUITest : public WebUIMochaBrowserTest {
  protected:
+  static constexpr CertificateViewerEntrypoint kEntrypointForHistogramTest =
+      CertificateViewerEntrypoint::kCertificateManager;
+  static constexpr std::string_view kTimeShownHistogramName =
+      "Net.CertificateViewer.TimeShown.CertificateManager";
+
   CertificateViewerUITest() {
     // Set a loadable URL so that loading the initial tab doesn't fail.
     // Certificate viewer tests run in a constrained dialog containing the
@@ -60,6 +73,7 @@ class CertificateViewerUITest : public WebUIMochaBrowserTest {
   }
 
   void RunTestCase(const std::string& testCase) {
+    base::HistogramTester histograms;
     bssl::UniquePtr<CRYPTO_BUFFER> cert = GetCerts();
     ASSERT_TRUE(cert);
     std::optional<
@@ -75,9 +89,13 @@ class CertificateViewerUITest : public WebUIMochaBrowserTest {
         base::StringPrintf("runMochaTest('CertificateViewer', '%s');",
                            testCase.c_str()),
         /*skip_test_loader=*/ true));
+    histograms.ExpectUniqueSample("Net.CertificateViewer.Opened",
+                                  kEntrypointForHistogramTest, 1);
+
+    CloseDialogWindow();
+    histograms.ExpectTotalCount(kTimeShownHistogramName, 1);
   }
 
- private:
   content::WebContents* ShowCertificateViewer(
       bssl::UniquePtr<CRYPTO_BUFFER> cert,
       std::optional<
@@ -93,20 +111,35 @@ class CertificateViewerUITest : public WebUIMochaBrowserTest {
           std::move(cert), std::move(*cert_metadata),
           GetModificationsCallback(),
           browser()->tab_strip_model()->GetActiveWebContents(),
-          browser()->GetWindow()->GetNativeWindow());
+          browser()->GetWindow()->GetNativeWindow(),
+          kEntrypointForHistogramTest);
     } else {
       dialog = CertificateViewerDialog::ShowConstrained(
           std::move(cert), browser()->tab_strip_model()->GetActiveWebContents(),
-          browser()->GetWindow()->GetNativeWindow());
+          browser()->GetWindow()->GetNativeWindow(),
+          kEntrypointForHistogramTest);
     }
 
     content::WebContents* webui_webcontents =
         dialog->delegate_->GetWebContents();
+    if (views::Widget* widget = views::Widget::GetWidgetForNativeWindow(
+            dialog->GetNativeWebContentsModalDialog())) {
+      dialog_widget_ = widget->GetWeakPtr();
+    }
     EXPECT_TRUE(content::WaitForLoadStop(webui_webcontents));
     webui_webcontents->GetPrimaryMainFrame()->SetWebUIProperty(
         "expectedUrl", chrome::kChromeUICertificateViewerURL);
     return webui_webcontents;
   }
+
+  // Closes the dialog's window, as its close button or Escape does.
+  void CloseDialogWindow() {
+    ASSERT_TRUE(dialog_widget_);
+    dialog_widget_->CloseNow();
+  }
+
+ private:
+  base::WeakPtr<views::Widget> dialog_widget_;
 };
 
 IN_PROC_BROWSER_TEST_F(CertificateViewerUITest, DialogURL) {
@@ -119,6 +152,47 @@ IN_PROC_BROWSER_TEST_F(CertificateViewerUITest, CommonName) {
 
 IN_PROC_BROWSER_TEST_F(CertificateViewerUITest, Details) {
   RunTestCase("Details");
+}
+
+IN_PROC_BROWSER_TEST_F(CertificateViewerUITest, TimeShownLoggedWhenClosed) {
+  base::ScopedMockElapsedTimersForTest mock_timers;
+  base::HistogramTester histograms;
+  content::WebContents* dialog_contents =
+      ShowCertificateViewer(GetCerts(), GetCertMetadata());
+  ASSERT_TRUE(dialog_contents);
+
+  histograms.ExpectTotalCount(kTimeShownHistogramName, 0);
+
+  CloseDialogWindow();
+
+  histograms.ExpectTotalCount(kTimeShownHistogramName, 1);
+  histograms.ExpectUniqueTimeSample(
+      kTimeShownHistogramName,
+      base::ScopedMockElapsedTimersForTest::kMockElapsedTime, 1);
+}
+
+// Time while the dialog's tab is in the background is not counted.
+IN_PROC_BROWSER_TEST_F(CertificateViewerUITest, TimeShownExcludesHiddenTime) {
+  base::ScopedMockElapsedTimersForTest mock_timers;
+  base::HistogramTester histograms;
+  content::WebContents* dialog_contents =
+      ShowCertificateViewer(GetCerts(), GetCertMetadata());
+  ASSERT_TRUE(dialog_contents);
+
+  // Backgrounding the host tab hides the tab-modal dialog.
+  ASSERT_TRUE(
+      AddTabAtIndex(1, GURL(url::kAboutBlankURL), ui::PAGE_TRANSITION_TYPED));
+  EXPECT_EQ(dialog_contents->GetVisibility(), content::Visibility::HIDDEN);
+
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  EXPECT_NE(dialog_contents->GetVisibility(), content::Visibility::HIDDEN);
+
+  CloseDialogWindow();
+
+  // One mock interval for each of the two visible stretches.
+  histograms.ExpectUniqueTimeSample(
+      kTimeShownHistogramName,
+      2 * base::ScopedMockElapsedTimersForTest::kMockElapsedTime, 1);
 }
 
 class CertificateViewerUIInvalidCertTest : public CertificateViewerUITest {

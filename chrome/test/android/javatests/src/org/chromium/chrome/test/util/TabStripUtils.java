@@ -4,14 +4,22 @@
 
 package org.chromium.chrome.test.util;
 
+import static org.junit.Assert.assertTrue;
+
 import android.app.Instrumentation;
 
+import org.chromium.base.test.transit.Triggers;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.compositor.layouts.components.CompositorButton;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelper;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutTab;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.test.transit.tabmodel.TabAddedCondition;
+import org.chromium.chrome.test.transit.tabmodel.TabClosingCondition;
+
+import java.util.concurrent.TimeUnit;
 
 /** A utility class that contains methods generic to all TabStrip test classes. */
 public class TabStripUtils {
@@ -91,6 +99,47 @@ public class TabStripUtils {
                         manager.simulateClick(x, y, 0, 0);
                     }
                 });
+    }
+
+    /**
+     * Clicks the new tab button of the current (regular or incognito) tab strip and waits for the
+     * new tab to be added. Tablets only. Does not wait for the tab to be loaded.
+     */
+    public static void clickNewTabButton(
+            Instrumentation instrumentation, ChromeTabbedActivity activity) {
+        assertTrue("The tab strip is only shown on tablets", activity.isTablet());
+        boolean incognito = activity.getTabModelSelector().isIncognitoSelected();
+        TabModel tabModel = activity.getTabModelSelector().getModel(incognito);
+        Triggers.runTo(
+                        () -> {
+                            StripLayoutHelper strip = getStripLayoutHelper(activity, incognito);
+                            clickCompositorButton(
+                                    strip.getNewTabButton(), instrumentation, activity);
+                            instrumentation.waitForIdleSync();
+                        })
+                .withTimeout(TimeUnit.SECONDS.toMillis(10))
+                .waitFor(new TabAddedCondition(/* numTabsBeingOpened= */ 1, () -> tabModel));
+    }
+
+    /**
+     * Clicks the close button of the tab strip tab with the given id and waits for the tab to start
+     * closing.
+     */
+    public static void closeTab(
+            Instrumentation instrumentation,
+            ChromeTabbedActivity activity,
+            boolean incognito,
+            int id) {
+        TabModel tabModel = activity.getTabModelSelector().getModel(incognito);
+        Triggers.runTo(
+                        () ->
+                                clickCompositorButton(
+                                        findStripLayoutTab(activity, incognito, id)
+                                                .getCloseButton(),
+                                        instrumentation,
+                                        activity))
+                .waitFor(new TabClosingCondition(() -> tabModel));
+        instrumentation.waitForIdleSync();
     }
 
     /**

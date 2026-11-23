@@ -11,9 +11,11 @@
 #include <utility>
 
 #include "base/base64.h"
+#include "base/check.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
@@ -47,9 +49,11 @@
 #include "components/autofill/core/common/autofill_util.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/password_generation_util.h"
+#include "components/device_reauth/device_auth_availability_checker.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/content/browser/content_password_manager_driver.h"
 #include "components/password_manager/core/browser/credential_cache.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/origin_credential_store.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_driver.h"
@@ -227,13 +231,11 @@ PasswordAccessoryControllerImpl::GetSheetData() const {
   const bool is_password_field = last_focus_info_->focused_field_type ==
                                  FocusedFieldType::kFillablePasswordField;
   if (autofill::IsFillable(last_focus_info_->focused_field_type)) {
-    base::span<const UiCredential> suggestions =
-        credential_cache_->GetCredentialStore(origin).GetCredentials();
-    info_to_add.reserve(suggestions.size());
-    for (const auto& credential : suggestions) {
-      info_to_add.emplace_back(
-          TranslateCredentials(credential, origin, is_password_field));
-    }
+    info_to_add = base::ToVector(
+        credential_cache_->GetCredentialStore(origin).GetCredentials(),
+        [&origin, is_password_field](const UiCredential& credential) {
+          return TranslateCredentials(credential, origin, is_password_field);
+        });
   }
 
   if (password_manager::PasswordManagerDriver* driver =
@@ -243,12 +245,12 @@ PasswordAccessoryControllerImpl::GetSheetData() const {
       credentials_delegate->NotifyForPasskeysDisplay();
       auto passkeys = credentials_delegate->GetPasskeys();
       if (passkeys.has_value()) {
-        passkeys_to_add.reserve(passkeys.value()->size());
-        for (const password_manager::PasskeyCredential& passkey :
-             *passkeys.value()) {
-          passkeys_to_add.emplace_back(passkey.display_name(),
-                                       passkey.credential_id());
-        }
+        passkeys_to_add = base::ToVector(
+            *passkeys.value(),
+            [](const password_manager::PasskeyCredential& passkey) {
+              return PasskeySection(passkey.display_name(),
+                                    passkey.credential_id());
+            });
       }
     }
   }
@@ -430,7 +432,7 @@ void PasswordAccessoryControllerImpl::OnOptionSelected(
     case autofill::AccessoryAction::SHOW_AT_MEMORY_BOTTOMSHEET:
     case autofill::AccessoryAction::COUNT:
       NOTREACHED() << "Unhandled selected action: "
-                   << static_cast<int>(selected_action);
+                   << std::to_underlying(selected_action);
   }
 }
 
@@ -442,7 +444,7 @@ void PasswordAccessoryControllerImpl::OnToggleChanged(
     return;
   }
   NOTREACHED() << "Unhandled selected action: "
-               << static_cast<int>(toggled_action);
+               << std::to_underlying(toggled_action);
 }
 
 void PasswordAccessoryControllerImpl::RefreshSuggestionsForField(
@@ -732,7 +734,15 @@ bool PasswordAccessoryControllerImpl::ShouldTriggerBiometricReauth(
     return false;
   }
 
-  return password_client_->IsReauthBeforeFillingRequiredLegacy(authenticator_.get());
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kDeviceReauthRefactor)) {
+    return password_client_->IsReauthBeforeFillingRequiredLegacy(
+        authenticator_.get());
+  }
+
+  std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker> checker =
+      password_client_->GetDeviceAuthAvailabilityChecker();
+  return password_client_->IsReauthBeforeFillingRequired(checker.get());
 }
 
 void PasswordAccessoryControllerImpl::OnReauthCompleted(
@@ -872,12 +882,25 @@ void PasswordAccessoryControllerImpl::OnAcknowledgementBeforeFillingReceived(
 void PasswordAccessoryControllerImpl::ReauthenticateAndFill(
     const autofill::AccessorySheetField& selection,
     const url::Origin& origin_to_fill_on) {
-  authenticator_ = password_client_->GetDeviceAuthenticator();
-  if (!ShouldTriggerBiometricReauth(selection)) {
+  bool should_reauth = false;
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kDeviceReauthRefactor)) {
+    authenticator_ = password_client_->GetDeviceAuthenticator();
+    should_reauth = ShouldTriggerBiometricReauth(selection);
+  } else {
+    should_reauth = ShouldTriggerBiometricReauth(selection);
+    if (should_reauth) {
+      authenticator_ = password_client_->GetDeviceAuthenticator();
+    }
+  }
+
+  if (!should_reauth) {
     authenticator_.reset();
     FillSelection(selection, origin_to_fill_on);
     return;
   }
+
+  CHECK(authenticator_);
   // |this| cancels the authentication when it is destroyed if one is ongoing,
   // which resets the callback, so it's safe to use base::Unretained(this) here.
   authenticator_->AuthenticateWithMessage(

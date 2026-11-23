@@ -16,11 +16,11 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/types/expected.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_lifecycle_observer.h"
-#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_translate_observer.h"
 #include "chrome/common/read_anything/distillation_evaluator.mojom.h"
@@ -52,6 +52,7 @@ class NavigationHandle;
 class ScopedAccessibilityMode;
 }
 
+class ReadAnythingIphController;
 class ReadAnythingUntrustedPageHandler;
 
 // LINT.IfChange(EngineInstallationState)
@@ -381,6 +382,17 @@ class ReadAnythingUntrustedPageHandler :
   // Sends whether the tab is currently translated to the page.
   void SendTranslationState(bool is_translated);
 
+  // Triggers the tab's pending PDF translation, if any. A PDF translation
+  // requested while Reading Mode was closed stays pending on the tab's
+  // ContentTranslateDriver until Reading Mode has distilled the PDF's content,
+  // so that the translation applies to the content it displays. It stays
+  // pending until it's triggered, Reading Mode is closed, or the page changes.
+  void MaybeTriggerPendingPdfTranslation();
+
+  // Tells the page that a translation of the tab failed. Only sent when
+  // translate::kEnableTranslatePdf is enabled.
+  void SendTranslationFailed();
+
   void SetUpPdfObserver();
   void CheckIfActiveAXTreeChangedToPdf();
 
@@ -464,6 +476,9 @@ class ReadAnythingUntrustedPageHandler :
   const raw_ptr<content::WebUI> web_ui_;
   raw_ptr<tabs::TabInterface> tab_;
 
+  // Shows and closes Reading Mode's IPH.
+  std::unique_ptr<ReadAnythingIphController> iph_controller_;
+
   std::unique_ptr<ReadAnythingWebContentsObserver> main_observer_;
 
   // This observer is used when the current page is a pdf. It observes a child
@@ -479,9 +494,6 @@ class ReadAnythingUntrustedPageHandler :
   const mojo::Receiver<read_anything::mojom::UntrustedPageHandler> receiver_;
   const mojo::Remote<read_anything::mojom::UntrustedPage> page_;
 
-  // Whether the Read Anything feature is currently active. The feature is
-  // active when it is currently shown in the Side Panel.
-  bool active_ = true;
   // Whether the tab is going to detach soon.
   bool tab_will_detach_ = false;
 

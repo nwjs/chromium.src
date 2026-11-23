@@ -327,8 +327,6 @@ BASE_FEATURE(kWebGPUEnableRangeAnalysisForRobustness,
 
 BASE_FEATURE(kWebGPUUseSpirv14, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebGPUDecomposeUniformBuffers, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kWebGPUUseHLSL2021, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGPUUseSpirvReconvergenceMode,
@@ -379,7 +377,7 @@ const base::FeatureParam<std::string> kDrDcBlockListByAndroidBuildFP{
 // --disable-skia-graphite which take precedence over the feature flag, and the
 // Dawn backend can be overridden with the --skia-graphite-dawn-backend flag.
 BASE_FEATURE(kSkiaGraphite,
-#if BUILDFLAG(IS_APPLE)
+#if BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_WIN)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -396,7 +394,7 @@ BASE_FEATURE(kSkiaGraphiteWinIntel,
 
 // Allows CompoundImageBacking to allocate backings during runtime if a
 // compatible backing to serve clients requested usage is not already present.
-BASE_FEATURE(kUseDynamicBackingAllocations, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUseDynamicBackingAllocations, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, this feature allows ClientSharedImage to store and use a
 // scoped_refptr to SharedImageInterface, instead of the raw_ptr as used in
@@ -490,6 +488,9 @@ BASE_FEATURE(kGpuPersistentCacheMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGpuPersistentCacheMetadataPreloadCount{
     &kGpuPersistentCacheMetadata, "preload_count", 50};
 
+BASE_FEATURE(kGpuPersistentCacheAsyncInitialize,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Use a 100-command limit before forcing context switch per command buffer
 // instead of 20.
 BASE_FEATURE(kIncreasedCmdBufferParseSlice, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -556,15 +557,8 @@ bool NeedThreadSafeAndroidMedia() {
 namespace {
 bool IsSkiaGraphiteSupportedByDevice() {
 #if BUILDFLAG(IS_APPLE)
-  return UsePassthroughCommandDecoder();
+  return true;
 #elif BUILDFLAG(IS_ANDROID)
-  // Desktop Android isn't ready to pick up the fieldtrial_testing_config.json
-  // change that enables graphite. However, it's the same platform as regular
-  // Android and does. Skip enabling the feature there for now.
-  if (base::android::device_info::is_desktop()) {
-    return false;
-  }
-
   // Graphite on Android uses the Dawn Vulkan backend. Only enable Graphite if
   // device would already be using Ganesh/Vulkan.
   return IsUsingVulkan();

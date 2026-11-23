@@ -20,7 +20,7 @@
 #include "components/search_engines/test_ai_mode_button_service.h"
 #include "components/sessions/core/session_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
-#include "ui/base/window_open_disposition.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/gfx/image/image.h"
 
 class AutocompleteSchemeClassifier;
@@ -82,7 +82,7 @@ class TestOmniboxClient final : public testing::NiceMock<OmniboxClient> {
               OnAutocompleteAccept,
               (const GURL& destination_url,
                TemplateURLRef::PostContent* post_content,
-               WindowOpenDisposition disposition,
+               ui::mojom::WindowOpenDisposition disposition,
                ui::PageTransition transition,
                omnibox::AutocompleteMatchType match_type,
                base::TimeTicks match_selection_timestamp,
@@ -95,7 +95,11 @@ class TestOmniboxClient final : public testing::NiceMock<OmniboxClient> {
   MOCK_METHOD(PrefService*, GetPrefs, (), (override));
   MOCK_METHOD(const PrefService*, GetPrefs, (), (const, override));
   MOCK_METHOD(bool, IsAimPopupEnabled, (), (const, override));
-  MOCK_METHOD(void, OpenUrl, (GURL, WindowOpenDisposition), (override));
+  MOCK_METHOD(void, OnPopupVisibilityChanged, (bool popup_is_open), (override));
+  MOCK_METHOD(void,
+              OpenUrl,
+              (GURL, ui::mojom::WindowOpenDisposition),
+              (override));
   MOCK_METHOD(std::optional<lens::proto::LensOverlaySuggestInputs>,
               GetLensOverlaySuggestInputs,
               (),
@@ -113,7 +117,7 @@ class TestOmniboxClient final : public testing::NiceMock<OmniboxClient> {
 
   base::WeakPtr<OmniboxClient> AsWeakPtr() override;
 
-  WindowOpenDisposition last_log_disposition() const {
+  ui::mojom::WindowOpenDisposition last_log_disposition() const {
     return last_log_disposition_;
   }
 
@@ -123,6 +127,11 @@ class TestOmniboxClient final : public testing::NiceMock<OmniboxClient> {
     return &autocomplete_classifier_;
   }
 
+  // Returns how many times `GetAutocompleteClassifier()` has been called.
+  int get_autocomplete_classifier_count() const {
+    return get_autocomplete_classifier_count_;
+  }
+
  private:
   SessionID session_id_;
   TestLocationBarModel location_bar_model_;
@@ -130,7 +139,9 @@ class TestOmniboxClient final : public testing::NiceMock<OmniboxClient> {
   std::unique_ptr<TestAiModeButtonService> ai_mode_button_service_;
   TestSchemeClassifier scheme_classifier_;
   AutocompleteClassifier autocomplete_classifier_;
-  WindowOpenDisposition last_log_disposition_;
+  int get_autocomplete_classifier_count_ = 0;
+  ui::mojom::WindowOpenDisposition last_log_disposition_ =
+      ui::mojom::WindowOpenDisposition::kUnknown;
   GURL url_;
   base::WeakPtrFactory<TestOmniboxClient> weak_factory_{this};
 };

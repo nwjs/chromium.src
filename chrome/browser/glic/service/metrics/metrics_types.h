@@ -219,7 +219,11 @@ enum class ResponseSegmentation {
   kWebContentsContextMenuTextSelectionAttachedAudio = 194,
   kWebContentsContextMenuTextSelectionDetachedText = 195,
   kWebContentsContextMenuTextSelectionDetachedAudio = 196,
-  kMaxValue = kWebContentsContextMenuTextSelectionDetachedAudio,
+  kActorToolAttachedText = 197,
+  kActorToolAttachedAudio = 198,
+  kActorToolDetachedText = 199,
+  kActorToolDetachedAudio = 200,
+  kMaxValue = kActorToolDetachedAudio,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicResponseSegmentation)
 
@@ -246,19 +250,24 @@ enum class DaisyChainSource {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/histograms.xml:Source)
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
 // LINT.IfChange(GlicDragAndDropValidationResult)
 enum class GlicDragAndDropValidationResult {
   kSuccess = 0,
   kBlockedByFeatureFlag = 1,
-  kInvalidDragId = 2,
+  kObsoleteInvalidDragId = 2,
   kCrossProfileDragBlocked = 3,
-  kSourceWebContentsDestroyed = 4,
-  kSourceTabClosed = 5,
-  kTargetWebContentsDestroyed = 6,
-  kSourceFrameNavigatedBeforeContextFetched = 7,
-  kContextFetchFailed = 8,
+  kObsoleteSourceWebContentsDestroyed = 4,
+  kObsoleteSourceTabClosed = 5,
+  kObsoleteTargetWebContentsDestroyed = 6,
+  kObsoleteSourceFrameNavigatedBeforeContextFetched = 7,
+  kObsoleteContextFetchFailed = 8,
   kUnsupportedContentType = 9,
-  kMaxValue = kUnsupportedContentType,
+  kPageContextIneligible = 10,
+  kUnknownDragSource = 11,
+  kSourceFrameDestroyed = 12,
+  kMaxValue = kSourceFrameDestroyed,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicDragAndDropValidationResult)
 
@@ -343,7 +352,8 @@ enum class GlicInstanceEvent {
   kUserInputSubmitted = 41,
   kFocusedTabContextRequested = 42,
   kResponseStarted = 43,
-  kResponseStopped = 44,
+  // kResponseStopped = 44 - Deprecated in favor of kResponseStoppedByUser,
+  // kResponseStoppedOther, and kResponseStoppedSuccess.
   kTurnCompleted = 45,
   kReaction = 46,
   kShown = 47,
@@ -356,7 +366,12 @@ enum class GlicInstanceEvent {
   // Logged for all tab context requests (including focused tab requests, which
   // also log kFocusedTabContextRequested).
   kTabContextRequested = 54,
-  kMaxValue = kTabContextRequested,
+  kOptInImpression = 55,
+  kResponseStoppedByUser = 56,
+  kResponseStoppedOther = 57,
+  kResponseStoppedSuccess = 58,
+  kWebUiStateGuestLoaded = 59,
+  kMaxValue = kWebUiStateGuestLoaded,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicInstanceEvent)
 

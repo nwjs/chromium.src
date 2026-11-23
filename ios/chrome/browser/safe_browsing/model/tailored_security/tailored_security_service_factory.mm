@@ -4,28 +4,17 @@
 
 #import "ios/chrome/browser/safe_browsing/model/tailored_security/tailored_security_service_factory.h"
 
+#import <utility>
+
 #import "components/safe_browsing/core/browser/tailored_security_service/tailored_security_service.h"
 #import "ios/chrome/browser/safe_browsing/model/tailored_security/chrome_tailored_security_service.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 
-// static
-safe_browsing::TailoredSecurityService*
-TailoredSecurityServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<safe_browsing::TailoredSecurityService>(
-          profile, /*create=*/true);
-}
-
-// static
-TailoredSecurityServiceFactory* TailoredSecurityServiceFactory::GetInstance() {
-  static base::NoDestructor<TailoredSecurityServiceFactory> instance;
-  return instance.get();
-}
-
-TailoredSecurityServiceFactory::TailoredSecurityServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("TailoredSecurityService") {
+TailoredSecurityServiceFactory::TailoredSecurityServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "TailoredSecurityService") {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(SyncServiceFactory::GetInstance());
 }

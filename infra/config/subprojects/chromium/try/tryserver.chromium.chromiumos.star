@@ -232,6 +232,7 @@ try_.orchestrator_builder(
     # use_orchestrator_pool = True,
     cq_settings = try_.cq_settings(
         on_default_cq = True,
+        reuse_max_commit_distance = 800 if settings.is_main else None,
     ),
     experiments = {
         # go/nplus1shardsproposal
@@ -280,8 +281,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/linux-chromeos-annotator-rel",
-            "try_builder",
-            "no_symbols",
+            "release_try_builder",
             "enable_dangling_raw_ptr_feature_flag",
             "enable_backup_ref_ptr_feature_flag",
         ],
@@ -348,6 +348,9 @@ try_.builder(
             "verify_paths_only": True,
         },
     },
+    # Download the build outputs so that the "Verify Archive Paths" step can
+    # find them.
+    siso_output_local_strategy = "greedy",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 

@@ -72,7 +72,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
-#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
@@ -165,7 +165,6 @@ bool TextControlElement::DispatchFocusEvent(
     InputDeviceCapabilities* source_capabilities) {
   if (SupportsPlaceholder())
     UpdatePlaceholderVisibility();
-  HandleFocusEvent(old_focused_element, type);
   return HTMLFormControlElementWithState::DispatchFocusEvent(
       old_focused_element, type, source_capabilities);
 }
@@ -471,9 +470,9 @@ void TextControlElement::setRangeText(const String& replacement,
   if (start > end) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"The provided start value (", String::Number(start),
-                ") is larger than the provided end value (",
-                String::Number(end), ")."}));
+        Format("The provided start value ({}) is larger than the provided end "
+               "value ({}).",
+               start, end));
     return;
   }
   if (OpenShadowRoot())
@@ -891,8 +890,7 @@ void TextControlElement::setMaxLength(int new_value,
   if (new_value < 0) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"The value provided (", String::Number(new_value),
-                ") is not positive or 0."}));
+        Format("The value provided ({}) is not positive or 0.", new_value));
   } else if (min >= 0 && new_value < min) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
@@ -909,8 +907,7 @@ void TextControlElement::setMinLength(int new_value,
   if (new_value < 0) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"The value provided (", String::Number(new_value),
-                ") is not positive or 0."}));
+        Format("The value provided ({}) is not positive or 0.", new_value));
   } else if (max >= 0 && new_value > max) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
@@ -1056,6 +1053,36 @@ bool TextControlElement::IsPlaceholderBreakElement(const Node* node) {
              shadow_element_names::kIdPlaceholderBreak;
 }
 
+void TextControlElement::UpdatePlaceholderBreakAriaHidden(const String& value) {
+  if (!RuntimeEnabledFeatures::
+          TextAreaPlaceholderBreakAriaHiddenUpdateEnabled() ||
+      !IsA<HTMLTextAreaElement>(this)) {
+    return;
+  }
+  Node* last_child = InnerEditorElement()->lastChild();
+  if (!IsPlaceholderBreakElement(last_child)) {
+    return;
+  }
+  // The same placeholder break can be kept while the value changes, e.g. when
+  // text is pasted into an empty <textarea>. So the attribute is updated here
+  // rather than when the element is created.
+  // If the value ends with a newline, the placeholder break represents the
+  // blank last line, and should be exposed to accessibility. Otherwise, e.g.
+  // for an empty value, it only provides one line-height and should be hidden.
+  auto& placeholder_break = To<Element>(*last_child);
+  const bool should_hide = !value.ends_with('\n');
+  if (should_hide ==
+      placeholder_break.FastHasAttribute(html_names::kAriaHiddenAttr)) {
+    return;
+  }
+  if (should_hide) {
+    placeholder_break.setAttribute(html_names::kAriaHiddenAttr,
+                                   keywords::kTrue);
+  } else {
+    placeholder_break.removeAttribute(html_names::kAriaHiddenAttr);
+  }
+}
+
 void TextControlElement::AdjustPlaceholderBreakElement() {
   HTMLElement* inner_editor = InnerEditorElement();
   if (inner_editor->GetLayoutObject() &&
@@ -1135,6 +1162,7 @@ void TextControlElement::SetInnerEditorValue(const String& value) {
   // Add a placeholder <br> so that we can put the caret at the next line of
   // the last newline.
   AdjustPlaceholderBreakElement();
+  UpdatePlaceholderBreakAriaHidden(value);
 
   if (text_is_changed) {
     MaybeSetHasBeenHeuristicCustomPasswordJS();

@@ -231,7 +231,10 @@ data/bear-vp9-opus.webm
 data/bear-vp9.ivf
 data/bear-vp9.ivf.context
 data/bear-vp9.webm
+data/bear-vp9a-420-10bit.webm
+data/bear-vp9a-422-10bit.webm
 data/bear-vp9a-422.webm
+data/bear-vp9a-444-10bit.webm
 data/bear-vp9a-444.webm
 data/bear-vp9a-odd-dimensions.webm
 data/bear-vp9a.webm
@@ -489,6 +492,7 @@ data/sfx_s24le.wav
 data/sfx_s32le.wav
 data/sfx_u8.wav
 data/silent-section.mp3
+data/sine-s32-stereo.flac
 data/solid_green_2015x2015.webp
 data/speech_16b_stereo_48kHz.raw
 data/speex_audio_vorbis_video.ogv
@@ -521,6 +525,7 @@ data/tiny-clip.mp4
 data/tos-h264-opus.mp4
 data/track-disabled.mp4
 data/trailing-garbage.mp3
+data/trun_overflow.mp4
 data/tulip2.webm
 data/vorbis-extradata
 data/vorbis-packet-0

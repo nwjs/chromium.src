@@ -1,0 +1,14 @@
+load("//crowbar", "crowbar_workflow")
+
+crowbar_workflow(
+    origin_files = glob(
+        [
+            "LICENSE",
+            "double-conversion/**",
+        ],
+        exclude = [
+            "double-conversion/.gitignore",
+            "double-conversion/SConscript",
+        ],
+    ),
+)

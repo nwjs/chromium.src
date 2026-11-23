@@ -12,8 +12,14 @@
 
 class PrefService;
 
+namespace user_prefs {
+class PrefRegistrySyncable;
+}  // namespace user_prefs
+
 namespace gemini {
-// TODO(crbug.com/485892276): Move ProfilePrefs registration here.
+
+// Registers the profile prefs associated with Gemini.
+void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry);
 
 // Enterprise policies allow for Gemini usage within Chrome.
 bool GeminiAllowedByPolicy(PrefService* prefs);
@@ -22,13 +28,12 @@ bool GeminiAllowedByEnterprise(PrefService* prefs);
 
 // Functions that interact with the Gemini consent.
 void ResetGeminiConsent(PrefService* prefs);
-// TODO(crbug.com/568034294): Other clients should avoid using this method until
-// the first run state logic is fixed.
-FirstRunState CurrentFirstRunState(PrefService* prefs);
+// Returns the current `FirstRunState` for Gemini based on user prefs.
+FirstRunState CurrentFirstRunState(const PrefService* prefs);
 bool DidUserConsentToGemini(const PrefService* prefs);
-bool DidUserConsentToGeminiLive(PrefService* prefs);
-bool DidUserSeeGeminiPromo(PrefService* prefs);
-bool DidGeminiLiveIntroPlay(PrefService* prefs);
+bool DidUserConsentToGeminiLive(const PrefService* prefs);
+bool DidUserSeeGeminiPromo(const PrefService* prefs);
+bool DidGeminiLiveIntroPlay(const PrefService* prefs);
 void SetGeminiLiveIntroPlayed(PrefService* prefs);
 void UpdateUserConsentPrefs(bool consent, PrefService* prefs);
 

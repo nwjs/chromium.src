@@ -5,12 +5,12 @@
 #ifndef CHROME_BROWSER_UI_TABS_ORGANIZER_ORGANIZER_PANEL_CONTROLLER_H_
 #define CHROME_BROWSER_UI_TABS_ORGANIZER_ORGANIZER_PANEL_CONTROLLER_H_
 
+#include <memory>
 #include <optional>
 
 #include "base/callback_list.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "base/time/time.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_host.h"
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
@@ -45,6 +45,10 @@ class OrganizerPanelController {
   static OrganizerPanelController* From(BrowserWindowInterface* browser_window);
 
   bool IsOrganizerPanelVisible() const;
+
+  // Returns whether the organizer panel is currently visible and embedded
+  // within the vertical tab strip.
+  bool IsOrganizerPanelEmbeddedInVerticalTabStrip() const;
 
   void SetOrganizerVisible(bool visible, bool immediate = false);
 
@@ -94,10 +98,6 @@ class OrganizerPanelController {
   class PanelViewManager;
   const std::unique_ptr<PanelViewManager> panel_view_manager_;
   base::CallbackListSubscription vertical_tab_strip_animation_subscription_;
-
-  // Records the last time the panel was opened. Used for recording how long the
-  // panel was open.
-  base::TimeTicks last_opened_time_;
 
   // Callback list for state changes to the visibility.
   base::RepeatingCallbackList<void(OrganizerPanelController*)>

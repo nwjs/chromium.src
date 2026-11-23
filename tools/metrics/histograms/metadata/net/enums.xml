@@ -86,11 +86,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="coalesced"/>
 </enum>
 
-<enum name="BooleanConfirmed">
-  <int value="0" label="Not Confirmed"/>
-  <int value="1" label="Confirmed"/>
-</enum>
-
 <enum name="BooleanExceeded">
   <int value="0" label="Not exceeded"/>
   <int value="1" label="Exceeded"/>
@@ -142,6 +137,18 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Trust"/>
   <int value="1" label="Client Cert"/>
 </enum>
+
+<!-- LINT.IfChange(CertificateViewerEntrypoint) -->
+
+<enum name="CertificateViewerEntrypoint">
+  <int value="0" label="Page Info"/>
+  <int value="1" label="SSL interstitial"/>
+  <int value="2" label="DevTools"/>
+  <int value="3" label="Certificate Manager"/>
+  <int value="4" label="Client certificate selector"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/certificate_viewer.h:CertificateViewerEntrypoint) -->
 
 <enum name="ConnectionInfo">
   <summary>
@@ -630,6 +637,16 @@ historical analysis. -->
 
 <!-- LINT.ThenChange(//services/network/public/mojom/device_bound_sessions.mojom:DeviceBoundSessionDeletionReason) -->
 
+<!-- LINT.IfChange(DeviceBoundSessionFederatedRegistrationRedirect) -->
+
+<enum name="DeviceBoundSessionFederatedRegistrationRedirect">
+  <int value="0" label="No redirect"/>
+  <int value="1" label="Same origin"/>
+  <int value="2" label="Cross origin"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/device_bound_sessions/registration_fetcher.cc:FederatedRegistrationRedirect) -->
+
 <!-- LINT.IfChange(DeviceBoundSessionPrewarmTrigger) -->
 
 <enum name="DeviceBoundSessionPrewarmTrigger">
@@ -672,6 +689,7 @@ historical analysis. -->
   <int value="7" label="Refreshed as waiter"/>
   <int value="8" label="Transient signing error"/>
   <int value="9" label="In-scope refresh not yet needed"/>
+  <int value="10" label="Canceled (deferred requests destroyed)"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/device_bound_sessions/refresh_result.h:DeviceBoundSessionRefreshResult) -->
@@ -1438,18 +1456,6 @@ historical analysis. -->
   <int value="8" label="Queued"/>
   <int value="9" label="Discarded: include_subdomains without DNS error"/>
   <int value="10" label="Discarded: IP address mismatch"/>
-</enum>
-
-<enum name="NetReportingHeaderType">
-  <int value="0" label="Report-To"/>
-  <int value="1" label="Invalid Report-To"/>
-  <int value="2" label="Reporting-Endpoints"/>
-  <int value="3" label="Invalid Reporting-Endpoints"/>
-</enum>
-
-<enum name="NetReportingUploadHeaderType">
-  <int value="0" label="ReportTo"/>
-  <int value="1" label="ReportingEndpoints"/>
 </enum>
 
 <enum name="NetTrustAnchors">
@@ -2851,29 +2857,6 @@ Called by update_net_trust_anchors.py.-->
   <int value="5" label="FIVE_PACKETS_LOST"/>
 </enum>
 
-<enum name="QuicConnectionMigrationStatus">
-  <int value="0" label="No stream to migrate"/>
-  <int value="1" label="Already migrated"/>
-  <int value="2" label="Internal error"/>
-  <int value="3" label="Too many migrations"/>
-  <int value="4" label="Success"/>
-  <int value="5" label="Disabled by non-migratable stream"/>
-  <int value="6" label="Migration not enabled"/>
-  <int value="7" label="No alternate network"/>
-  <int value="8" label="Disabled by too many path degradings"/>
-  <int value="9" label="Disabled by config"/>
-  <int value="10" label="Path degrading not enabled"/>
-  <int value="11" label="Timeout with no new network"/>
-  <int value="12"
-      label="Exceeding maximum number of migrations on write error"/>
-  <int value="13" label="Path degrading before handshake confirmed"/>
-  <int value="14" label="Idle migration period exceeded"/>
-  <int value="15" label="Migration fails due to lack of connection ID"/>
-  <int value="16" label="Migration Probe received Stateless Reset"/>
-  <int value="17" label="Migration aborted due to session close"/>
-  <int value="18" label="Path validation aborted because of newer validation"/>
-</enum>
-
 <enum name="QuicDisabledReason">
   <int value="1" label="Public reset post handshake"/>
   <int value="2" label="Timeout with open streams"/>
@@ -3519,7 +3502,7 @@ Called by update_net_trust_anchors.py.-->
 <enum name="SCTOrigin">
   <int value="0" label="SCT_EMBEDDED"/>
   <int value="1" label="SCT_FROM_TLS_EXTENSION"/>
-  <int value="2" label="SCT_FROM_OCSP_RESPONSE"/>
+  <int value="2" label="(Obsolete) SCT_FROM_OCSP_RESPONSE"/>
 </enum>
 
 <!-- LINT.IfChange(SecureDnsModeDetails) -->

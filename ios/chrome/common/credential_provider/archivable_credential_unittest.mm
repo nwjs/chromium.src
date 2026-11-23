@@ -7,18 +7,13 @@
 #import "base/test/ios/wait_util.h"
 #import "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #import "ios/chrome/common/credential_provider/archivable_credential+passkey.h"
+#import "ios/chrome/common/credential_provider/archivable_credential_test_util.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 
 namespace {
 
-constexpr int64_t kJan1st2024 = 1704085200;
-
 using ArchivableCredentialTest = PlatformTest;
-
-NSData* StringToData(std::string str) {
-  return [NSData dataWithBytes:str.data() length:str.length()];
-}
 
 ArchivableCredential* TestCredential() {
   return [[ArchivableCredential alloc] initWithFavicon:@"favicon"
@@ -32,26 +27,6 @@ ArchivableCredential* TestCredential() {
                                               username:@"user"
                                                   note:@"note"
                                           lastUsedTime:0];
-}
-
-ArchivableCredential* TestPasskeyCredential() {
-  return
-      [[ArchivableCredential alloc] initWithFavicon:@"favicon"
-                                               gaia:nil
-                                   recordIdentifier:@"recordIdentifier"
-                                             syncId:StringToData("syncId")
-                                           username:@"username"
-                                    userDisplayName:@"userDisplayName"
-                                             userId:StringToData("userId")
-                                       credentialId:StringToData("credentialId")
-                                               rpId:@"rpId"
-                                         privateKey:StringToData("privateKey")
-                                          encrypted:StringToData("encrypted")
-                                       creationTime:kJan1st2024
-                                       lastUsedTime:kJan1st2024
-                                             hidden:NO
-                                         hiddenTime:kJan1st2024
-                                       editedByUser:NO];
 }
 
 // Tests that an ArchivableCredential can be created.
@@ -74,48 +49,29 @@ TEST_F(ArchivableCredentialTest, create) {
 
 // Tests that a passkey ArchivableCredential can be created.
 TEST_F(ArchivableCredentialTest, createPasskey) {
-  // In a real world scenario, "privateKey" and "encrypted" are mutually
-  // exclusive. They use the same internal pointer in the passkey data structure
-  // and an internal enum determines if the data pointer to represents one or
-  // the other. This test verifies that either of them can be nil without issue.
+  // In a real world scenario, "privateKey", "encrypted", and
+  // "securityDomainEncrypted" are mutually exclusive. They use the same
+  // internal pointer in the passkey data structure and an internal enum
+  // determines which field the data pointer represents. This test verifies that
+  // any of them can be nil without issue.
 
   ArchivableCredential* credential =
-      [[ArchivableCredential alloc] initWithFavicon:@"favicon"
-                                               gaia:nil
-                                   recordIdentifier:@"recordIdentifier"
-                                             syncId:StringToData("syncId")
-                                           username:@"username"
-                                    userDisplayName:@"userDisplayName"
-                                             userId:StringToData("userId")
-                                       credentialId:StringToData("credentialId")
-                                               rpId:@"rpId"
-                                         privateKey:StringToData("test")
-                                          encrypted:nil
-                                       creationTime:kJan1st2024
-                                       lastUsedTime:kJan1st2024
-                                             hidden:NO
-                                         hiddenTime:kJan1st2024
-                                       editedByUser:NO];
+      TestPasskeyCredential(TestPasskeyCredentialOverrides{
+          .private_key = TestDataFromString("test"),
+      });
   EXPECT_TRUE(credential);
   EXPECT_TRUE(credential.isPasskey);
 
-  credential =
-      [[ArchivableCredential alloc] initWithFavicon:@"favicon"
-                                               gaia:nil
-                                   recordIdentifier:@"recordIdentifier"
-                                             syncId:StringToData("syncId")
-                                           username:@"username"
-                                    userDisplayName:@"userDisplayName"
-                                             userId:StringToData("userId")
-                                       credentialId:StringToData("credentialId")
-                                               rpId:@"rpId"
-                                         privateKey:nil
-                                          encrypted:StringToData("test")
-                                       creationTime:kJan1st2024
-                                       lastUsedTime:kJan1st2024
-                                             hidden:NO
-                                         hiddenTime:kJan1st2024
-                                       editedByUser:NO];
+  credential = TestPasskeyCredential(TestPasskeyCredentialOverrides{
+      .encrypted = TestDataFromString("test"),
+  });
+  EXPECT_TRUE(credential);
+  EXPECT_TRUE(credential.isPasskey);
+
+  credential = TestPasskeyCredential(TestPasskeyCredentialOverrides{
+      .security_domain_encrypted = TestDataFromString("test"),
+      .device_auth_key_version = 42,
+  });
   EXPECT_TRUE(credential);
   EXPECT_TRUE(credential.isPasskey);
 }
@@ -206,6 +162,10 @@ TEST_F(ArchivableCredentialTest, retrievePasskeyData) {
   EXPECT_NSEQ(credential.rpId, unarchivedCredential.rpId);
   EXPECT_NSEQ(credential.privateKey, unarchivedCredential.privateKey);
   EXPECT_NSEQ(credential.encrypted, unarchivedCredential.encrypted);
+  EXPECT_NSEQ(credential.securityDomainEncrypted,
+              unarchivedCredential.securityDomainEncrypted);
+  EXPECT_EQ(credential.deviceAuthKeyVersion,
+            unarchivedCredential.deviceAuthKeyVersion);
   EXPECT_EQ(credential.creationTime, unarchivedCredential.creationTime);
   EXPECT_EQ(credential.hidden, unarchivedCredential.hidden);
   EXPECT_EQ(credential.hiddenTime, unarchivedCredential.hiddenTime);
@@ -257,42 +217,31 @@ TEST_F(ArchivableCredentialTest, passkeyEquality) {
   EXPECT_NSEQ(credential, credentialIdentical);
   EXPECT_EQ(credential.hash, credentialIdentical.hash);
 
-  ArchivableCredential* credentialSameIdentifier = [[ArchivableCredential alloc]
-       initWithFavicon:@"other_favicon"
-                  gaia:nil
-      recordIdentifier:@"recordIdentifier"
-                syncId:StringToData("other_syncId")
-              username:@"other_username"
-       userDisplayName:@"other_userDisplayName"
-                userId:StringToData("other_userId")
-          credentialId:StringToData("other_credentialId")
-                  rpId:@"other_rpId"
-            privateKey:StringToData("other_privateKey")
-             encrypted:StringToData("other_encrypted")
-          creationTime:kJan1st2024 + 10
-          lastUsedTime:kJan1st2024 + 10
-                hidden:NO
-            hiddenTime:kJan1st2024 + 10
-          editedByUser:NO];
+  ArchivableCredential* credentialSameIdentifier =
+      TestPasskeyCredential(TestPasskeyCredentialOverrides{
+          .favicon = @"other_favicon",
+          .sync_id = TestDataFromString("other_syncId"),
+          .username = @"other_username",
+          .user_display_name = @"other_userDisplayName",
+          .user_id = TestDataFromString("other_userId"),
+          .credential_id = TestDataFromString("other_credentialId"),
+          .rp_id = @"other_rpId",
+          .private_key = TestDataFromString("other_privateKey"),
+          .encrypted = TestDataFromString("other_encrypted"),
+          .security_domain_encrypted =
+              TestDataFromString("other_securityDomainEncrypted"),
+          .device_auth_key_version = 43,
+          .creation_time = kDefaultCreationTime + 10,
+          .last_used_time = kDefaultLastUsedTime + 10,
+          .hidden = NO,
+          .hidden_time = kDefaultLastUsedTime + 10,
+          .edited_by_user = NO,
+      });
   EXPECT_NSNE(credential, credentialSameIdentifier);
 
   ArchivableCredential* credentialDiferentIdentifier =
-      [[ArchivableCredential alloc] initWithFavicon:@"favicon"
-                                               gaia:nil
-                                   recordIdentifier:@"other_recordIdentifier"
-                                             syncId:StringToData("syncId")
-                                           username:@"username"
-                                    userDisplayName:@"userDisplayName"
-                                             userId:StringToData("userId")
-                                       credentialId:StringToData("credentialId")
-                                               rpId:@"rpId"
-                                         privateKey:StringToData("privateKey")
-                                          encrypted:StringToData("encrypted")
-                                       creationTime:kJan1st2024
-                                       lastUsedTime:kJan1st2024
-                                             hidden:NO
-                                         hiddenTime:kJan1st2024
-                                       editedByUser:NO];
+      TestPasskeyCredential(TestPasskeyCredentialOverrides{
+          .record_identifier = @"other_recordIdentifier"});
   EXPECT_NSNE(credential, credentialDiferentIdentifier);
 
   EXPECT_NSNE(credential, nil);
@@ -300,24 +249,42 @@ TEST_F(ArchivableCredentialTest, passkeyEquality) {
 
 TEST_F(ArchivableCredentialTest, HiddenTimeNotSetForNotHiddenPasskey) {
   ArchivableCredential* credential =
-      [[ArchivableCredential alloc] initWithFavicon:@"favicon"
-                                               gaia:nil
-                                   recordIdentifier:@"recordIdentifier"
-                                             syncId:StringToData("syncId")
-                                           username:@"username"
-                                    userDisplayName:@"userDisplayName"
-                                             userId:StringToData("userId")
-                                       credentialId:StringToData("credentialId")
-                                               rpId:@"rpId"
-                                         privateKey:StringToData("test")
-                                          encrypted:nil
-                                       creationTime:kJan1st2024
-                                       lastUsedTime:kJan1st2024
-                                             hidden:NO
-                                         hiddenTime:0
-                                       editedByUser:NO];
+      TestPasskeyCredential(TestPasskeyCredentialOverrides{
+          .hidden = NO, .hidden_time = kDefaultLastUsedTime});
 
   EXPECT_FALSE(PasskeyFromCredential(credential).has_hidden_time());
+}
+
+// Tests that `initWithFavicon:gaia:passkey:` and `PasskeyFromCredential`
+// preserve `security_domain_encrypted` and `device_authorization_key_version`.
+TEST_F(ArchivableCredentialTest, PasskeyFromCredentialSecurityDomainEncrypted) {
+  sync_pb::WebauthnCredentialSpecifics passkey;
+  passkey.set_sync_id("sync_id_16_bytes");
+  passkey.set_credential_id("cred_id_16_bytes");
+  passkey.set_rp_id("example.com");
+  passkey.set_user_id("user_id");
+  passkey.set_user_name("username");
+  passkey.set_user_display_name("userDisplayName");
+  passkey.set_security_domain_encrypted("encrypted_secrets");
+  passkey.set_device_authorization_key_version(7);
+
+  ArchivableCredential* credential =
+      [[ArchivableCredential alloc] initWithFavicon:@"favicon"
+                                               gaia:@"gaia"
+                                            passkey:passkey];
+  ASSERT_TRUE(credential);
+  EXPECT_EQ(credential.privateKey.length, 0u);
+  EXPECT_EQ(credential.encrypted.length, 0u);
+  EXPECT_NSEQ(credential.securityDomainEncrypted,
+              TestDataFromString("encrypted_secrets"));
+  EXPECT_EQ(credential.deviceAuthKeyVersion, 7);
+
+  sync_pb::WebauthnCredentialSpecifics roundtrip =
+      PasskeyFromCredential(credential);
+  EXPECT_FALSE(roundtrip.has_private_key());
+  EXPECT_FALSE(roundtrip.has_encrypted());
+  EXPECT_EQ(roundtrip.security_domain_encrypted(), "encrypted_secrets");
+  EXPECT_EQ(roundtrip.device_authorization_key_version(), 7);
 }
 
 }  // namespace

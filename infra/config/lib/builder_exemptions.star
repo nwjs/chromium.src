@@ -6,45 +6,13 @@
 
 ************************************WARNING*************************************
 NOTHING in this file should be added to. The builders here are merely those that
-got grandfathered into being exempted from newer restrictions. So the amount of
+existed before newer restrictions and were exempted from them. So the amount of
 builders listed here should not grow, and should *only* decrease.
 ************************************WARNING*************************************
 
 """
 
-exempted_from_description_builders = {
-    "codesearch": set([
-        "gen-android-try",
-        "gen-chromiumos-try",
-        "gen-fuchsia-try",
-        "gen-ios-try",
-        "gen-linux-try",
-        "gen-mac-try",
-        "gen-webview-try",
-        "gen-win-try",
-    ]),
-    "findit": set([
-        "gofindit-culprit-verification",
-        "test-single-revision",
-    ]),
-    "flaky-reproducer": set([
-        "runner",
-    ]),
-    "infra": set([
-        "autosharder",
-    ]),
-    "reviver": set([
-        "android-coverage-launcher",
-        "android-device-launcher",
-        "android-launcher",
-        "coverage-runner",
-        "fuchsia-coordinator",
-        "linux-launcher",
-        "mac-launcher",
-        "runner",
-        "win-launcher",
-    ]),
-}
+exempted_from_description_builders = {}
 
 # This dict should NOT be added to. It contains a list of builders that are
 # exempted from needing a contact_team_email field.
@@ -99,7 +67,6 @@ exempted_from_contact_builders = {
         "linux-chromeos-code-coverage",
         "linux-code-coverage",
         "linux-fieldtrial-rel",
-        "linux-fuzz-coverage",
         "linux-headless-shell-rel",
         "linux-js-code-coverage",
         "linux-local-ssd-rel-dev",
@@ -207,37 +174,6 @@ exempted_from_contact_builders = {
         "win_upload_clang",
         "win_upload_rust",
     ],
-    "infra": [
-        "autosharder",
-    ],
-    "codesearch": [
-        "gen-android-try",
-        "gen-chromiumos-try",
-        "gen-fuchsia-try",
-        "gen-ios-try",
-        "gen-linux-try",
-        "gen-mac-try",
-        "gen-webview-try",
-        "gen-win-try",
-    ],
-    "findit": [
-        "gofindit-culprit-verification",
-        "test-single-revision",
-    ],
-    "flaky-reproducer": [
-        "runner",
-    ],
-    "reviver": [
-        "android-coverage-launcher",
-        "android-device-launcher",
-        "android-launcher",
-        "coverage-runner",
-        "fuchsia-coordinator",
-        "linux-launcher",
-        "mac-launcher",
-        "runner",
-        "win-launcher",
-    ],
 }
 
 mega_cq_excluded_builders = [
@@ -278,8 +214,6 @@ mega_cq_excluded_gardener_rotations = [
 # This dict should NOT be added to. It contains a list of ci builders that are
 # already being mirrored in CQ but have no gardener rotation.
 exempted_gardened_mirrors_in_cq_builders = [
-    # TODO(crbug.com/564535071): Revert once the bug is fixed.
-    "ci/Linux ASan LSan Tests (1)",
     "ci/fuchsia-x64-accessibility-rel",
     "ci/linux-enterprise-companion-builder-dbg",
     "ci/linux-enterprise-companion-builder-rel",

@@ -146,9 +146,8 @@ public class BaseSuggestionViewBinderUnitTest {
         List<Action> list =
                 Arrays.asList(
                         new Action(
-                                mContext,
                                 OmniboxDrawableState.forColor(0),
-                                R.string.accessibility_omnibox_btn_refine,
+                                mContext.getString(R.string.accessibility_omnibox_btn_refine),
                                 mRunnable));
         mModel.set(BaseSuggestionViewProperties.ACTION_BUTTONS, list);
 
@@ -174,19 +173,16 @@ public class BaseSuggestionViewBinderUnitTest {
         List<Action> list =
                 Arrays.asList(
                         new Action(
-                                mContext,
                                 OmniboxDrawableState.forColor(0),
-                                R.string.accessibility_omnibox_btn_refine,
+                                mContext.getString(R.string.accessibility_omnibox_btn_refine),
                                 call1),
                         new Action(
-                                mContext,
                                 OmniboxDrawableState.forColor(0),
-                                R.string.accessibility_omnibox_btn_refine,
+                                mContext.getString(R.string.accessibility_omnibox_btn_refine),
                                 call2),
                         new Action(
-                                mContext,
                                 OmniboxDrawableState.forColor(0),
-                                R.string.accessibility_omnibox_btn_refine,
+                                mContext.getString(R.string.accessibility_omnibox_btn_refine),
                                 call3));
         mModel.set(BaseSuggestionViewProperties.ACTION_BUTTONS, list);
 
@@ -217,19 +213,16 @@ public class BaseSuggestionViewBinderUnitTest {
         final List<Action> list =
                 Arrays.asList(
                         new Action(
-                                mContext,
                                 OmniboxDrawableState.forColor(0),
-                                R.string.accessibility_omnibox_btn_refine,
+                                mContext.getString(R.string.accessibility_omnibox_btn_refine),
                                 CallbackUtils.emptyRunnable()),
                         new Action(
-                                mContext,
                                 OmniboxDrawableState.forColor(0),
-                                R.string.accessibility_omnibox_btn_refine,
+                                mContext.getString(R.string.accessibility_omnibox_btn_refine),
                                 CallbackUtils.emptyRunnable()),
                         new Action(
-                                mContext,
                                 OmniboxDrawableState.forColor(0),
-                                R.string.accessibility_omnibox_btn_refine,
+                                mContext.getString(R.string.accessibility_omnibox_btn_refine),
                                 CallbackUtils.emptyRunnable()));
 
         final List<ActionButtonView> actionButtons = mBaseView.getActionButtons();
@@ -562,6 +555,53 @@ public class BaseSuggestionViewBinderUnitTest {
     public void topPadding() {
         mModel.set(BaseSuggestionViewProperties.TOP_PADDING, 13);
         assertEquals(13, mBaseView.getPaddingTop());
+    }
+
+    @Test
+    public void bindContent_onlyCalledForContentAndColorSchemeKeys() {
+        List<PropertyKey> boundContentKeys = new java.util.ArrayList<>();
+        BaseSuggestionViewBinder<View> binder =
+                new TestBaseSuggestionViewBinder<>(
+                        (m, v, p) -> {
+                            boundContentKeys.add(p);
+                        });
+
+        binder.bind(mModel, mBaseView, SuggestionCommonProperties.RESOURCE_PROVIDER);
+        binder.bind(mModel, mBaseView, BaseSuggestionViewProperties.ICON);
+        binder.bind(mModel, mBaseView, BaseSuggestionViewProperties.TOP_PADDING);
+        binder.bind(mModel, mBaseView, ActionChipsProperties.ACTION_CHIPS);
+        binder.bind(mModel, mBaseView, SuggestionCommonProperties.SHOW_DIVIDER);
+        assertTrue(boundContentKeys.isEmpty());
+
+        binder.bind(mModel, mBaseView, SuggestionCommonProperties.COLOR_SCHEME);
+        assertEquals(List.of(SuggestionCommonProperties.COLOR_SCHEME), boundContentKeys);
+    }
+
+    @Test
+    public void actionButton_reusesAccessibilityDelegateAcrossBinds() {
+        Action action1 =
+                new Action(
+                        OmniboxDrawableState.forColor(0),
+                        "desc1",
+                        /* onClickAnnouncement= */ "ann1",
+                        CallbackUtils.emptyRunnable());
+        Action action2 =
+                new Action(
+                        OmniboxDrawableState.forColor(0),
+                        "desc2",
+                        /* onClickAnnouncement= */ "ann2",
+                        CallbackUtils.emptyRunnable());
+
+        mModel.set(BaseSuggestionViewProperties.ACTION_BUTTONS, List.of(action1));
+        ActionButtonView button = mBaseView.getActionButtons().get(0);
+        View.AccessibilityDelegate delegate = button.getAccessibilityDelegate();
+        assertNotNull(delegate);
+        assertSame(action1, button.getTag());
+
+        mModel.set(BaseSuggestionViewProperties.ACTION_BUTTONS, List.of(action2));
+        assertSame(delegate, button.getAccessibilityDelegate());
+        assertSame(action2, button.getTag());
+        assertEquals("desc2", button.getContentDescription());
     }
 
     private void setColorScheme(@BrandedColorScheme int scheme) {

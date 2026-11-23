@@ -49,7 +49,7 @@ MediaRouterInternalsWebUIMessageHandler::
     MediaRouterInternalsWebUIMessageHandler(MediaRouter* router,
                                             MediaRouterDebugger& debugger)
     : router_(router), debugger_(debugger) {
-  DCHECK(router_);
+  CHECK(router_, base::NotFatalUntil::M162);
   debugger_->AddObserver(*this);
   if (router_->GetLogger()) {
     router_->GetLogger()->AddObserver(this);
@@ -208,8 +208,12 @@ void MediaRouterInternalsWebUIMessageHandler::HandleStartTracing(
     return;
   }
 
+  // Record the Cast Streaming categories, plus the media and GPU categories
+  // used by capture and encoding. High-volume, general-purpose categories
+  // such as "base" and "toplevel" are omitted: with "record-until-full" they
+  // fill the buffer within seconds and truncate the trace.
   const base::trace_event::TraceConfig trace_config(
-      "media.cast,openscreen,gpu,media,base,toplevel", "record-until-full");
+      "cast.stream,cast_perf_test,openscreen,media,gpu", "record-until-full");
 
   tracing_session_ =
       perfetto::Tracing::NewTrace(perfetto::BackendType::kCustomBackend);

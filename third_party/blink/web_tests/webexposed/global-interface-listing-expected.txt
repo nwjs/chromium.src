@@ -2095,6 +2095,7 @@ interface Document : Node
     getter onfullscreenerror
     getter ongotpointercapture
     getter oninput
+    getter oninstallresult
     getter oninvalid
     getter onkeydown
     getter onkeypress
@@ -2331,6 +2332,7 @@ interface Document : Node
     setter onfullscreenerror
     setter ongotpointercapture
     setter oninput
+    setter oninstallresult
     setter oninvalid
     setter onkeydown
     setter onkeypress
@@ -3100,7 +3102,7 @@ interface FocusEvent : UIEvent
 interface Focusable
     attribute @@toStringTag
     getter pseudoElement
-    getter shadowHost
+    getter shadowHostChain
     getter target
     method constructor
     method focus
@@ -4093,6 +4095,7 @@ interface HTMLElement : Element
     getter onformdata
     getter ongotpointercapture
     getter oninput
+    getter oninstallresult
     getter oninvalid
     getter onkeydown
     getter onkeypress
@@ -4242,6 +4245,7 @@ interface HTMLElement : Element
     setter onformdata
     setter ongotpointercapture
     setter oninput
+    setter oninstallresult
     setter oninvalid
     setter onkeydown
     setter onkeypress
@@ -4340,7 +4344,6 @@ interface HTMLEmbedElement : HTMLElement
     setter width
 interface HTMLFieldSetElement : HTMLElement
     attribute @@toStringTag
-    getter checkable
     getter disabled
     getter elements
     getter form
@@ -4353,7 +4356,6 @@ interface HTMLFieldSetElement : HTMLElement
     method constructor
     method reportValidity
     method setCustomValidity
-    setter checkable
     setter disabled
     setter name
 interface HTMLFontElement : HTMLElement
@@ -4752,22 +4754,14 @@ interface HTMLInputElement : HTMLElement
     setter width
 interface HTMLInstallElement : HTMLElement
     attribute @@toStringTag
-    getter initialPermissionStatus
     getter invalidReason
     getter isValid
     getter manifest
     getter manifestId
-    getter oninstallresult
-    getter onpromptaction
-    getter onpromptdismiss
     getter onvalidationstatuschange
-    getter permissionStatus
     method constructor
     setter manifest
     setter manifestId
-    setter oninstallresult
-    setter onpromptaction
-    setter onpromptdismiss
     setter onvalidationstatuschange
 interface HTMLLIElement : HTMLElement
     attribute @@toStringTag
@@ -4955,18 +4949,36 @@ interface HTMLMenuElement : HTMLElement
     getter compact
     method constructor
     setter compact
-interface HTMLMenuItemElement : HTMLElement
+interface HTMLMenuItemCheckboxElement : HTMLElement
     attribute @@toStringTag
     getter checked
-    getter command
-    getter commandForElement
     getter defaultChecked
     getter disabled
     getter interestForElement
     method constructor
     setter checked
+    setter defaultChecked
+    setter disabled
+    setter interestForElement
+interface HTMLMenuItemElement : HTMLElement
+    attribute @@toStringTag
+    getter command
+    getter commandForElement
+    getter disabled
+    getter interestForElement
+    method constructor
     setter command
     setter commandForElement
+    setter disabled
+    setter interestForElement
+interface HTMLMenuItemRadioElement : HTMLElement
+    attribute @@toStringTag
+    getter checked
+    getter defaultChecked
+    getter disabled
+    getter interestForElement
+    method constructor
+    setter checked
     setter defaultChecked
     setter disabled
     setter interestForElement
@@ -6287,6 +6299,7 @@ interface MathMLElement : Element
     getter onformdata
     getter ongotpointercapture
     getter oninput
+    getter oninstallresult
     getter oninvalid
     getter onkeydown
     getter onkeypress
@@ -6408,6 +6421,7 @@ interface MathMLElement : Element
     setter onformdata
     setter ongotpointercapture
     setter oninput
+    setter oninstallresult
     setter oninvalid
     setter onkeydown
     setter onkeypress
@@ -6820,9 +6834,14 @@ interface ModelContext : EventTarget
     method executeTool
     method getTools
     method registerTool
+    method resumeTool
     setter ontoolactivated
     setter ontoolcancel
     setter ontoolchange
+interface ModelContextToolInvocation
+    attribute @@toStringTag
+    method constructor
+    method requestToken
 interface Mojo
     static method bindInterface
     static method createDataPipe
@@ -7826,7 +7845,9 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter serverTiming
     getter transferSize
     getter workerCacheLookupStart
+    getter workerFinalRouterSource
     getter workerFinalSourceType
+    getter workerMatchedRouterSource
     getter workerMatchedSourceType
     getter workerRouterEvaluationStart
     getter workerStart
@@ -7990,12 +8011,6 @@ interface PopStateEvent : Event
     getter hasUAVisualTransition
     getter state
     method constructor
-interface PreconnectData
-    attribute @@toStringTag
-    getter crossorigin
-    getter earlyhint
-    getter origin
-    method constructor
 interface PreferenceManager
     attribute @@toStringTag
     getter colorScheme
@@ -8014,14 +8029,6 @@ interface PreferenceObject : EventTarget
     method constructor
     method requestOverride
     setter onchange
-interface PreloadData
-    attribute @@toStringTag
-    getter as
-    getter crossorigin
-    getter earlyhint
-    getter url
-    getter used
-    method constructor
 interface Presentation
     attribute @@toStringTag
     getter defaultRequest
@@ -8722,24 +8729,43 @@ interface RtcTransportIceEvent : Event
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter download
+    getter hash
+    getter host
+    getter hostname
     getter href
     getter hreflang
     getter interestForElement
+    getter origin
+    getter password
+    getter pathname
     getter ping
+    getter port
+    getter protocol
     getter referrerPolicy
     getter rel
     getter relList
+    getter search
     getter target
     getter type
+    getter username
     method constructor
     setter download
+    setter hash
+    setter host
+    setter hostname
     setter hreflang
     setter interestForElement
+    setter password
+    setter pathname
     setter ping
+    setter port
+    setter protocol
     setter referrerPolicy
     setter rel
     setter relList
+    setter search
     setter type
+    setter username
 interface SVGAngle
     attribute @@toStringTag
     attribute SVG_ANGLETYPE_DEG
@@ -8935,6 +8961,7 @@ interface SVGElement : Element
     getter onformdata
     getter ongotpointercapture
     getter oninput
+    getter oninstallresult
     getter oninvalid
     getter onkeydown
     getter onkeypress
@@ -9058,6 +9085,7 @@ interface SVGElement : Element
     setter onformdata
     setter ongotpointercapture
     setter oninput
+    setter oninstallresult
     setter oninvalid
     setter onkeydown
     setter onkeypress
@@ -10256,20 +10284,6 @@ interface SourceBufferList : EventTarget
     method constructor
     setter onaddsourcebuffer
     setter onremovesourcebuffer
-interface SpeculationData
-    attribute @@toStringTag
-    getter navigationDestinationURL
-    getter navigations
-    getter preconnects
-    getter preloads
-    method constructor
-interface SpeculationNavigationData
-    attribute @@toStringTag
-    getter eagerness
-    getter tags
-    getter type
-    getter url
-    method constructor
 interface SpeechGrammar
     attribute @@toStringTag
     getter src
@@ -10773,6 +10787,16 @@ interface ToggleEvent : Event
     getter newState
     getter oldState
     getter source
+    method constructor
+interface Tool
+    attribute @@toStringTag
+    getter annotations
+    getter description
+    getter inputSchema
+    getter name
+    getter origin
+    getter title
+    getter window
     method constructor
 interface ToolActivatedEvent : Event
     attribute @@toStringTag
@@ -13816,7 +13840,7 @@ namespace console
     attribute propertyNamesInGlobal
     attribute testRunner
     attribute textInputController
-    getter alwaysOnTop
+    getter alwaysOnTopPopup
     getter caches
     getter clientInformation
     getter closed
@@ -13902,6 +13926,7 @@ namespace console
     getter ongotpointercapture
     getter onhashchange
     getter oninput
+    getter oninstallresult
     getter oninvalid
     getter onkeydown
     getter onkeypress
@@ -14141,6 +14166,7 @@ namespace console
     setter ongotpointercapture
     setter onhashchange
     setter oninput
+    setter oninstallresult
     setter oninvalid
     setter onkeydown
     setter onkeypress

@@ -478,8 +478,8 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     }
 
     @Override
-    public @Nullable Integer getNativeSessionIdForTesting() {
-        return mDelegateModel.getNativeSessionIdForTesting();
+    public @Nullable Integer getNativeSessionId() {
+        return mDelegateModel.getNativeSessionId();
     }
 
     @Override
@@ -603,6 +603,16 @@ class IncognitoTabModelImpl implements IncognitoTabModelInternal {
     public void mergeListOfTabsToGroup(
             List<Tab> tabs, Tab destinationTab, @Nullable Integer indexInGroup, int notify) {
         mDelegateModel.mergeListOfTabsToGroup(tabs, destinationTab, indexInGroup, notify);
+    }
+
+    @Override
+    public void mergeListOfTabsToExistingGroup(
+            List<Tab> tabs,
+            Token destinationGroupId,
+            @Nullable Integer indexInGroup,
+            @TabGroupMergeNotificationType int notify) {
+        mDelegateModel.mergeListOfTabsToExistingGroup(
+                tabs, destinationGroupId, indexInGroup, notify);
     }
 
     @Override

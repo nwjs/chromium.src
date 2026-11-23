@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 
+#import <utility>
+
 #import "components/keyed_service/core/service_access_type.h"
 #import "ios/chrome/browser/favicon/model/favicon_loader_impl.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
@@ -19,39 +21,19 @@ std::unique_ptr<KeyedService> BuildFaviconLoader(ProfileIOS* profile) {
 }  // namespace
 
 // static
-FaviconLoader* IOSChromeFaviconLoaderFactory::GetForProfileIfExists(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<FaviconLoader>(profile,
-                                                              /*create=*/false);
-}
-
-// static
-FaviconLoader* IOSChromeFaviconLoaderFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<FaviconLoader>(profile,
-                                                              /*create=*/true);
-}
-
-// static
-IOSChromeFaviconLoaderFactory* IOSChromeFaviconLoaderFactory::GetInstance() {
-  static base::NoDestructor<IOSChromeFaviconLoaderFactory> instance;
-  return instance.get();
-}
-
-// static
 IOSChromeFaviconLoaderFactory::TestingFactory
 IOSChromeFaviconLoaderFactory::GetDefaultFactory() {
   return base::BindOnce(&BuildFaviconLoader);
 }
 
-IOSChromeFaviconLoaderFactory::IOSChromeFaviconLoaderFactory()
-    : ProfileKeyedServiceFactoryIOS("FaviconLoader",
-                                    ProfileSelection::kRedirectedInIncognito,
-                                    TestingCreation::kNoServiceForTests) {
+IOSChromeFaviconLoaderFactory::IOSChromeFaviconLoaderFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "FaviconLoader",
+          ProfileSelection::kRedirectedInIncognito,
+          TestingCreation::kNoServiceForTests) {
   DependsOn(IOSChromeLargeIconServiceFactory::GetInstance());
 }
-
-IOSChromeFaviconLoaderFactory::~IOSChromeFaviconLoaderFactory() = default;
 
 std::unique_ptr<KeyedService>
 IOSChromeFaviconLoaderFactory::BuildServiceInstanceFor(

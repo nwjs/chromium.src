@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/autofill/atmemory/model/ios_at_memory_query_service_factory.h"
 
+#import <utility>
+
 #import "base/feature_list.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/autofill/core/browser/at_memory/autofill_data_provider.h"
@@ -30,22 +32,11 @@ using personal_context::PersonalContextService;
 using subscription_eligibility::SubscriptionEligibilityService;
 }  // namespace
 
-// static
-AtMemoryQueryService* IOSAtMemoryQueryServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<AtMemoryQueryService>(
-      profile, /*create=*/true);
-}
-
-// static
-IOSAtMemoryQueryServiceFactory* IOSAtMemoryQueryServiceFactory::GetInstance() {
-  static base::NoDestructor<IOSAtMemoryQueryServiceFactory> instance;
-  return instance.get();
-}
-
-IOSAtMemoryQueryServiceFactory::IOSAtMemoryQueryServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("AtMemoryQueryService",
-                                    ProfileSelection::kNoInstanceInIncognito) {
+IOSAtMemoryQueryServiceFactory::IOSAtMemoryQueryServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "AtMemoryQueryService",
+          ProfileSelection::kNoInstanceInIncognito) {
   DependsOn(AutofillLogRouterFactory::GetInstance());
   DependsOn(PersonalDataManagerFactory::GetInstance());
   DependsOn(IOSAutofillEntityDataManagerFactory::GetInstance());
@@ -53,8 +44,6 @@ IOSAtMemoryQueryServiceFactory::IOSAtMemoryQueryServiceFactory()
   DependsOn(IOSPersonalContextEligibilityServiceFactory::GetInstance());
   DependsOn(SubscriptionEligibilityServiceFactory::GetInstance());
 }
-
-IOSAtMemoryQueryServiceFactory::~IOSAtMemoryQueryServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 IOSAtMemoryQueryServiceFactory::BuildServiceInstanceFor(

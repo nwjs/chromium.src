@@ -8,7 +8,6 @@
 #include "ash/public/cpp/window_properties.h"
 #include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/new_window/chrome_new_window_client.h"
 #include "content/public/browser/focused_node_details.h"
@@ -57,7 +56,7 @@ gfx::NativeView AshWebViewImpl::GetNativeView() {
 }
 
 void AshWebViewImpl::ChildPreferredSizeChanged(views::View* child) {
-  DCHECK_EQ(web_view_, child);
+  CHECK_EQ(web_view_, child, base::NotFatalUntil::M162);
   SetPreferredSize(web_view_->GetPreferredSize());
 }
 
@@ -128,7 +127,7 @@ bool AshWebViewImpl::IsWebContentsCreationOverridden(
     const GURL& target_url) {
   if (params_.suppress_navigation) {
     NotifyDidSuppressNavigation(target_url,
-                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                                WindowOpenDisposition::kNewForegroundTab,
                                 /*from_user_gesture=*/true);
     return true;
   }
@@ -171,13 +170,13 @@ void AshWebViewImpl::ActivateContents(content::WebContents* contents) {
 
 void AshWebViewImpl::ResizeDueToAutoResize(content::WebContents* web_contents,
                                            const gfx::Size& new_size) {
-  DCHECK_EQ(web_contents_.get(), web_contents);
+  CHECK_EQ(web_contents_.get(), web_contents, base::NotFatalUntil::M162);
   web_view_->SetPreferredSize(new_size);
 }
 
 bool AshWebViewImpl::TakeFocus(content::WebContents* web_contents,
                                bool reverse) {
-  DCHECK_EQ(web_contents_.get(), web_contents);
+  CHECK_EQ(web_contents_.get(), web_contents, base::NotFatalUntil::M162);
   auto* focus_manager = GetFocusManager();
   if (focus_manager) {
     focus_manager->ClearNativeFocus();
@@ -188,7 +187,7 @@ bool AshWebViewImpl::TakeFocus(content::WebContents* web_contents,
 void AshWebViewImpl::NavigationStateChanged(
     content::WebContents* web_contents,
     content::InvalidateTypes changed_flags) {
-  DCHECK_EQ(web_contents_.get(), web_contents);
+  CHECK_EQ(web_contents_.get(), web_contents, base::NotFatalUntil::M162);
   UpdateCanGoBack();
 }
 
@@ -260,7 +259,8 @@ void AshWebViewImpl::RenderFrameHostChanged(
 }
 
 void AshWebViewImpl::PrimaryPageChanged(content::Page& page) {
-  DCHECK_EQ(&page.GetMainDocument(), web_contents_->GetPrimaryMainFrame());
+  CHECK_EQ(&page.GetMainDocument(), web_contents_->GetPrimaryMainFrame(),
+           base::NotFatalUntil::M162);
   if (!web_contents_->GetRenderWidgetHostView()) {
     return;
   }

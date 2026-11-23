@@ -11,8 +11,6 @@ import type {InputState} from '//resources/mojo/components/omnibox/composebox/co
 import {ToolMode as ComposeboxToolMode} from '//resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import {assertEquals} from '//webui-test/chai_assert.js';
 
-export type {InputState};
-
 /**
  * Asserts the computed style value for an element.
  * @param name The name of the style to assert.
@@ -110,6 +108,7 @@ export class MockInputState implements InputState {
   maxInputsByType: {[key: number]: number} = {};
   maxTotalInputs: number = 0;
   isCanvasQuerySubmitted: boolean = false;
+  willFulfillInAim: boolean = true;
 
   hintText: string = '';
 
@@ -131,7 +130,7 @@ export function createClipboardEvent(name: string): ClipboardEvent {
 export interface SuggestTemplateInfoModifiers extends
     Omit<Partial<SuggestTemplateInfo>, 'primaryText'|'secondaryText'> {
   primaryText?: string|FormattedString;
-  secondaryText?: string|FormattedString;
+  secondaryText?: string|FormattedString|null;
 }
 
 /**
@@ -140,11 +139,12 @@ export interface SuggestTemplateInfoModifiers extends
  */
 export function createSuggestTemplateInfo(
     modifiers: SuggestTemplateInfoModifiers = {}): SuggestTemplateInfo {
-  const {primaryText = '', secondaryText = '', ...otherModifiers} = modifiers;
+  const {primaryText = '', secondaryText = null, ...otherModifiers} = modifiers;
   return createSuggestTemplateInfoBase({
     ...otherModifiers,
     primaryText: toFormattedString(primaryText),
-    secondaryText: toFormattedString(secondaryText),
+    secondaryText: secondaryText === null ? null :
+                                            toFormattedString(secondaryText),
   });
 }
 
@@ -170,8 +170,8 @@ export function createUrlMatch(modifiers: Partial<AutocompleteMatch> = {}):
     type: 'url-what-you-typed',
     suggestTemplate: createSuggestTemplateInfo({
       primaryText: createFormattedString(
-          'helloworld.com',
-          [createFormattedStringFragment({color: ColorType.kPrimary})]),
+          'helloworld.com', [createFormattedStringFragment(
+                                {color: ColorType.kSuggestActionHigh})]),
     }),
     ...modifiers,
   });

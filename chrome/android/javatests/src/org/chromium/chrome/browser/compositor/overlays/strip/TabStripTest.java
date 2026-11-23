@@ -25,6 +25,7 @@ import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.transit.Triggers;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -52,6 +53,7 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
+import org.chromium.chrome.test.transit.page.CtaPageStation;
 import org.chromium.chrome.test.util.ChromeTabUtils;
 import org.chromium.chrome.test.util.TabStripUtils;
 import org.chromium.content_public.browser.test.util.DOMUtils;
@@ -67,6 +69,7 @@ import java.util.concurrent.TimeoutException;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@DisableIf.Device(DeviceFormFactor.AUTOMOTIVE) // crbug.com/462592111
 public class TabStripTest {
     @Rule
     public AutoResetCtaTransitTestRule mActivityTestRule =
@@ -141,7 +144,7 @@ public class TabStripTest {
                 getIndexOnUiThread(
                         mActivityTestRule.getActivity().getTabModelSelector().getModel(false)));
 
-        ChromeTabUtils.clickNewTabButton(
+        TabStripUtils.clickNewTabButton(
                 InstrumentationRegistry.getInstrumentation(), mActivityTestRule.getActivity());
 
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -190,7 +193,7 @@ public class TabStripTest {
                         mActivityTestRule.getActivity().getTabModelSelector().getModel(false)));
         compareAllTabStripsWithModel();
 
-        ChromeTabUtils.clickNewTabButton(
+        TabStripUtils.clickNewTabButton(
                 InstrumentationRegistry.getInstrumentation(), mActivityTestRule.getActivity());
 
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -1039,7 +1042,7 @@ public class TabStripTest {
 
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-        ChromeTabUtils.clickNewTabButton(
+        TabStripUtils.clickNewTabButton(
                 InstrumentationRegistry.getInstrumentation(), mActivityTestRule.getActivity());
 
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
@@ -1324,26 +1327,27 @@ public class TabStripTest {
     }
 
     /**
-     * Simulates a click on a tab, selecting it.
+     * Simulates a click on a tab, selecting it, and hops on at the selected tab.
      *
      * @param incognito Whether or not this tab is in the incognito or normal stack.
      * @param id The id of the tab to click.
+     * @return The CtaPageStation for the selected tab.
      */
-    protected void selectTab(final boolean incognito, final int id) {
+    protected CtaPageStation selectTab(final boolean incognito, final int id) {
         resetTabStripsOnUiThread();
-        ChromeTabUtils.selectTabWithAction(
-                InstrumentationRegistry.getInstrumentation(),
-                mActivityTestRule.getActivity(),
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        TabStripUtils.clickTab(
-                                TabStripUtils.findStripLayoutTab(
-                                        mActivityTestRule.getActivity(), incognito, id),
-                                InstrumentationRegistry.getInstrumentation(),
-                                mActivityTestRule.getActivity());
-                    }
-                });
+        ChromeTabbedActivity activity = mActivityTestRule.getActivity();
+        return Triggers.runTo(
+                        () ->
+                                TabStripUtils.clickTab(
+                                        TabStripUtils.findStripLayoutTab(activity, incognito, id),
+                                        InstrumentationRegistry.getInstrumentation(),
+                                        activity))
+                .hopOnTo(
+                        activity,
+                        CtaPageStation.newGenericBuilder()
+                                .withIncognito(incognito)
+                                .initSelectingExistingTab()
+                                .build());
     }
 
     /**
@@ -1354,21 +1358,11 @@ public class TabStripTest {
      */
     protected void closeTab(final boolean incognito, final int id) {
         resetTabStripsOnUiThread();
-        ChromeTabUtils.closeTabWithAction(
+        TabStripUtils.closeTab(
                 InstrumentationRegistry.getInstrumentation(),
                 mActivityTestRule.getActivity(),
-                new Runnable() {
-                    @Override
-                    public void run() {
-                        StripLayoutTab tab =
-                                TabStripUtils.findStripLayoutTab(
-                                        mActivityTestRule.getActivity(), incognito, id);
-                        TabStripUtils.clickCompositorButton(
-                                tab.getCloseButton(),
-                                InstrumentationRegistry.getInstrumentation(),
-                                mActivityTestRule.getActivity());
-                    }
-                });
+                incognito,
+                id);
     }
 
     /**

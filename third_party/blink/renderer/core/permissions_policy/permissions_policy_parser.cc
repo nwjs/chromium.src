@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <bitset>
 #include <utility>
+#include <variant>
 
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
@@ -16,6 +17,7 @@
 #include "services/network/public/cpp/permissions_policy/origin_with_possible_wildcards.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/web/web_navigation_params.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -30,6 +32,7 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "url/origin.h"
 
@@ -403,9 +406,8 @@ PermissionsPolicyParser::Node ParsingContext::ParseFeaturePolicyToIR(
       network::OriginWithPossibleWildcards::NodeType::kAttribute};
 
   if (policy.length() > MAX_LENGTH_PARSE) {
-    logger_.Error(StrCat({"Feature policy declaration exceeds size limit(",
-                          String::Number(policy.length()), ">",
-                          String::Number(MAX_LENGTH_PARSE), ")"}));
+    logger_.Error(Format("Feature policy declaration exceeds size limit({}>{})",
+                         policy.length(), MAX_LENGTH_PARSE));
     return {};
   }
 
@@ -479,9 +481,9 @@ String GetEndpoint(const net::structured_headers::Parameters& params) {
 PermissionsPolicyParser::Node ParsingContext::ParsePermissionsPolicyToIR(
     const String& policy) {
   if (policy.length() > MAX_LENGTH_PARSE) {
-    logger_.Error(StrCat({"Permissions policy declaration exceeds size limit(",
-                          String::Number(policy.length()), ">",
-                          String::Number(MAX_LENGTH_PARSE), ")"}));
+    logger_.Error(
+        Format("Permissions policy declaration exceeds size limit({}>{})",
+               policy.length(), MAX_LENGTH_PARSE));
     return {};
   }
 
@@ -495,71 +497,69 @@ PermissionsPolicyParser::Node ParsingContext::ParsePermissionsPolicyToIR(
 
   PermissionsPolicyParser::Node ir_root{
       network::OriginWithPossibleWildcards::NodeType::kHeader};
-  for (const auto& feature_entry : root.value()) {
-    const auto& key = feature_entry.first;
-    const char* feature_name = key.c_str();
-    const auto& value = feature_entry.second;
+  for (const auto& [key, value] : root.value()) {
+    String feature_name(key);
 
     Vector<String> allowlist;
 
     const auto process_item = [&](const net::structured_headers::Item& item) {
-      String allowlist_item;
-      if (const std::string* token_value = item.GetIfToken()) {
-        // All special keyword appears as token, i.e. self, src and *.
-        if (*token_value != "*" && *token_value != "self") {
-          logger_.Warn(
-              StrCat({"Invalid allowlist item(", token_value->c_str(),
-                      ") for feature ", feature_name,
-                      ". Allowlist item must be *, self or quoted url."}));
-          return;
-        }
-
-        if (*token_value == "*") {
-          allowlist_item = "*";
-        } else {
-          allowlist_item = StrCat({"'", token_value->c_str(), "'"});
-        }
-      } else if (const std::string* str = item.GetIfString()) {
-        allowlist_item = String(*str);
-      } else {
-        logger_.Warn(
-            StrCat({"Invalid allowlist item for feature ", feature_name,
-                    ". Allowlist item must be *, self, or quoted url."}));
-        return;
-      }
+      String allowlist_item = item.Visit(absl::Overload{
+          [&](const net::structured_headers::Item::Token& token) -> String {
+            // All special keyword appears as token, i.e. self and *.
+            if (token.value == "*") {
+              return "*";
+            }
+            if (token.value == "self") {
+              return "'self'";
+            }
+            logger_.Warn(
+                StrCat({"Invalid allowlist item(", token.value.c_str(),
+                        ") for feature ", feature_name,
+                        ". Allowlist item must be *, self or quoted url."}));
+            return String();
+          },
+          [](const std::string& str) { return String(str); },
+          [&](const auto&) -> String {
+            logger_.Warn(
+                StrCat({"Invalid allowlist item for feature ", feature_name,
+                        ". Allowlist item must be *, self, or quoted url."}));
+            return String();
+          },
+      });
       if (!allowlist_item.empty()) {
-        allowlist.push_back(allowlist_item);
+        allowlist.push_back(std::move(allowlist_item));
       }
     };
 
-    String endpoint;
-    if (const net::structured_headers::ParameterizedItem* item =
-            value.GetIfItem()) {
-      endpoint = GetEndpoint(item->params);
-      process_item(item->item);
-    } else if (const net::structured_headers::InnerList* inner_list =
-                   value.GetIfInnerList()) {
-      endpoint = GetEndpoint(inner_list->params);
-      for (const auto& parameterized_item : inner_list->items) {
-        if (!parameterized_item.params.empty()) {
-          logger_.Warn(
-              StrCat({"Feature ", feature_name, "'s parameters are ignored."}));
-        }
+    String endpoint = value.Visit(absl::Overload{
+        [&](const net::structured_headers::ParameterizedItem& item) {
+          process_item(item.item);
+          return GetEndpoint(item.params);
+        },
+        [&](const net::structured_headers::InnerList& inner_list) {
+          for (const auto& parameterized_item : inner_list.items) {
+            if (!parameterized_item.params.empty()) {
+              logger_.Warn(StrCat(
+                  {"Feature ", feature_name, "'s parameters are ignored."}));
+            }
 
-        process_item(parameterized_item.item);
-      }
-    } else {
-      // Parsed dictionaries always return a value from either
-      // `GetIfItem()` or `GetIfInnerList()`.
-      NOTREACHED();
-    }
+            process_item(parameterized_item.item);
+          }
+          return GetEndpoint(inner_list.params);
+        },
+        [](std::monostate) -> String {
+          // Parsed dictionaries always return a value from either
+          // `GetIfItem()` or `GetIfInnerList()`.
+          NOTREACHED();
+        },
+    });
 
     if (allowlist.empty()) {
       allowlist.push_back("'none'");
     }
 
     ir_root.declarations.push_back(PermissionsPolicyParser::Declaration{
-        feature_name, std::move(allowlist), endpoint});
+        std::move(feature_name), std::move(allowlist), std::move(endpoint)});
   }
 
   return ir_root;
@@ -755,6 +755,29 @@ network::ParsedPermissionsPolicy PermissionsPolicyParser::ParseAttribute(
       .ParseFeaturePolicy(policy);
 }
 
+network::PermissionsPolicyFeaturesBitset
+PermissionsPolicyParser::ParseAllowForWorkers(
+    const String& policy,
+    const SecurityOrigin& self_origin,
+    const SecurityOrigin& src_origin,
+    PolicyParserMessageBuffer& logger,
+    ExecutionContext* execution_context) {
+  network::ParsedPermissionsPolicy parsed_policy = ParseAttribute(
+      policy, self_origin, src_origin, logger, execution_context);
+  const url::Origin src_url_origin = src_origin.ToUrlOrigin();
+  network::PermissionsPolicyFeaturesBitset allowed_features;
+  for (const auto& decl : parsed_policy) {
+    // The 'allow' parameter for workers determines the feature->boolean mapping
+    // of whether each feature is enabled or not in the worker. Since workers
+    // cannot be navigated away, we can just check here whether the worker's
+    // origin (which is immutable) is allowed or not.
+    if (decl.Contains(src_url_origin)) {
+      allowed_features.Add(decl.feature);
+    }
+  }
+  return allowed_features;
+}
+
 network::ParsedPermissionsPolicy PermissionsPolicyParser::ParsePolicyFromNode(
     PermissionsPolicyParser::Node& policy,
     const SecurityOrigin& origin,
@@ -860,6 +883,7 @@ const Vector<String> GetAvailableFeatures(ExecutionContext* execution_context) {
       execution_context && execution_context->IsIsolatedContext();
   for (const auto& feature : GetDefaultFeatureNameMap(is_isolated_context)) {
     if (!DisabledByOriginTrial(feature.key, execution_context) &&
+        !DisabledByContext(feature.key, execution_context) &&
         !IsFeatureForMeasurementOnly(feature.value)) {
       available_features.push_back(feature.key);
     }

@@ -13,20 +13,19 @@
 #import "ios/chrome/browser/ai_prototyping/ttc/model/ttc_session_controller.h"
 #import "ios/chrome/browser/ai_prototyping/ttc/model/ttc_websocket_backend.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
-#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
-#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/public/provider/chrome/browser/intelligence/ttc_api.h"
 
-TTCKeyedService::TTCKeyedService(ProfileIOS* profile) : profile_(profile) {
-  CHECK(profile_);
-}
+TTCKeyedService::TTCKeyedService(OptimizationGuideService* optimization_guide,
+                                 BrowserList* browser_list)
+    : optimization_guide_(optimization_guide), browser_list_(browser_list) {}
 
 TTCKeyedService::~TTCKeyedService() = default;
 
 void TTCKeyedService::Shutdown() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   EndSession();
+  browser_list_ = nullptr;
 }
 
 bool TTCKeyedService::IsEnabled() const {
@@ -36,13 +35,13 @@ bool TTCKeyedService::IsEnabled() const {
 
 bool TTCKeyedService::is_session_active() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return session_controller_ != nil &&
-         session_controller_.lifecycle != TTCSessionLifecycle::kFinished;
+  return session_controller_ != nullptr &&
+         session_controller_->lifecycle() != TTCSessionLifecycle::kFinished;
 }
 
-TTCSessionController* TTCKeyedService::session_controller() const {
+TtcSessionController* TTCKeyedService::session_controller() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  return is_session_active() ? session_controller_ : nil;
+  return is_session_active() ? session_controller_.get() : nullptr;
 }
 
 TTCServiceState TTCKeyedService::GetState() const {
@@ -59,7 +58,7 @@ TTCSessionLifecycle TTCKeyedService::GetSessionLifecycle() const {
   if (!session_controller_) {
     return TTCSessionLifecycle::kFinished;
   }
-  return session_controller_.lifecycle;
+  return session_controller_->lifecycle();
 }
 
 void TTCKeyedService::StartSession() {
@@ -67,8 +66,8 @@ void TTCKeyedService::StartSession() {
   CHECK(IsEnabled());
   CHECK(!is_session_active());
   if (session_controller_) {
-    [session_controller_ disconnect];
-    session_controller_ = nil;
+    session_controller_->Disconnect();
+    session_controller_.reset();
   }
   journal_.Clear();
 
@@ -77,15 +76,14 @@ void TTCKeyedService::StartSession() {
   if (config.is_valid() && !config.api_key.empty()) {
     backend = std::make_unique<TtcWebSocketBackend>();
   } else {
-    backend = std::make_unique<ttc::TtcMesClient>(
-        OptimizationGuideServiceFactory::GetForProfile(profile_));
+    backend = std::make_unique<ttc::TtcMesClient>(optimization_guide_.get());
   }
 
   session_controller_ =
-      [[TTCSessionController alloc] initWithBackend:std::move(backend)];
-  CHECK(session_controller_);
+      std::make_unique<TtcSessionController>(std::move(backend), browser_list_);
+  session_controller_->set_journal(&journal_);
 
-  [session_controller_ startSession];
+  session_controller_->StartSession();
   state_changed_callbacks_.Notify(GetState());
 }
 
@@ -94,9 +92,9 @@ void TTCKeyedService::EndSession() {
   if (!is_session_active() && !session_controller_) {
     return;
   }
-  TTCSessionController* controller = session_controller_;
-  session_controller_ = nil;
-  [controller disconnect];
+  std::unique_ptr<TtcSessionController> controller =
+      std::move(session_controller_);
+  controller->Disconnect();
   state_changed_callbacks_.Notify(GetState());
 }
 

@@ -149,7 +149,6 @@ source_set("internal") {
       "//chrome/browser/ui/views/location_bar/cookie_controls",
       "//chrome/browser/ui/views/media_router",
       "//chrome/browser/ui/views/new_tab_footer",
-      "//chrome/browser/ui/views/qrcode_generator",
       "//chrome/browser/ui/views/send_tab_to_self",
       "//chrome/browser/ui/views/sharing",
       "//chrome/browser/ui/views/side_panel",
@@ -349,6 +348,7 @@ if (is_android) {
       "android/java/src/org/chromium/chrome/browser/ui/browser_window/BrowserWindowInterfaceIteratorAndroid.java",
       "android/java/src/org/chromium/chrome/browser/ui/browser_window/GlobalBrowserCollectionPlatformDelegate.java",
     ]
+    deps = [ "//chrome/browser/ui/browser_window/public/android:jni" ]
   }
 
   robolectric_library("junit") {
@@ -386,6 +386,7 @@ if (is_android) {
       "//content/public/android:content_full_java",
       "//third_party/androidx:androidx_core_core_java",
       "//third_party/androidx:androidx_test_core_java",
+      "//third_party/jni_zero:jni_zero_java",
       "//third_party/junit",
       "//third_party/mockito:mockito_java",
       "//ui/android:ui_no_recycler_view_java",

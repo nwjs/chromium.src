@@ -209,7 +209,7 @@ struct BeginNavigationParams {
   // ID of the tool invocation. This helps the browser to associate the
   // navigation with the tool that caused it.
   // This is null for navigations that were not triggered by a script tool.
-  mojo_base.mojom.UnguessableToken? script_tool_invocation_id;
+  blink.mojom.ToolInvocationToken? script_tool_invocation_id;
 
   // The host of the entity that injected the script initiating this
   // navigation, or empty if none. This is only populated when the initiator
@@ -793,6 +793,11 @@ struct CommitNavigationParams {
   // document (e.g. preventing injected scripts from navigating the page without
   // a user gesture).
   ScriptInjectionPolicy script_injection_policy = kNone;
+
+  // Whether the committed document may bind
+  // network.mojom.RestrictedDeviceBoundSessionManager. Computed from facts that
+  // do not change for the document's life. Defaults to false.
+  bool can_use_device_bound_session_js_api = false;
 };
 
 // Parameters used to dispatch the `pageswap` event on the old Document for

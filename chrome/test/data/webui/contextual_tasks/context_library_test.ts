@@ -5,10 +5,17 @@
 import 'chrome://contextual-tasks/contextual_tasks_extension/context_library.js';
 
 import {ExtensionBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
+import {setComposeboxProxyForTesting} from 'chrome://contextual-tasks/contextual_tasks_extension/context_library.js';
 import type {ContextLibraryElement} from 'chrome://contextual-tasks/contextual_tasks_extension/context_library.js';
+import {PageHandlerRemote as ComposeboxPageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
+import {getFaviconForPageURL, getUrlForCss} from 'chrome://resources/js/icon.js';
+import {TrackedElementManager} from 'chrome://resources/js/tracked_element/tracked_element_manager.js';
+import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
+import {TestMock} from 'chrome://webui-test/test_mock.js';
+import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestExtensionBrowserProxy} from './test_contextual_tasks_browser_proxy.js';
 
@@ -27,6 +34,8 @@ function createTab(tabId: number, url: string): TabInfo {
 suite('ContextLibraryTest', () => {
   let app: ContextLibraryElement;
   let browserProxy: TestExtensionBrowserProxy;
+  let mockSearchboxPageHandler: TestMock<SearchboxPageHandlerRemote>&
+      SearchboxPageHandlerRemote;
 
   // Resolves the next time the element asks the embedder to re-measure it.
   let nextRequestResize: Promise<void>;
@@ -43,6 +52,13 @@ suite('ContextLibraryTest', () => {
 
     browserProxy = new TestExtensionBrowserProxy();
     ExtensionBrowserProxyImpl.setInstance(browserProxy);
+
+    mockSearchboxPageHandler = TestMock.fromClass(SearchboxPageHandlerRemote);
+    mockSearchboxPageHandler.setResultFor(
+        'waitForTabFaviconLoad', Promise.resolve({faviconDataUrl: null}));
+    setComposeboxProxyForTesting(new ComposeboxProxyImpl(
+        TestMock.fromClass(ComposeboxPageHandlerRemote),
+        mockSearchboxPageHandler, new SearchboxPageCallbackRouter()));
 
     iframeRequestResize();
     window.requestResize = () => {
@@ -137,26 +153,6 @@ suite('ContextLibraryTest', () => {
     assertEquals(submitted, app.$.faviconGroup.submittedTabIds);
   });
 
-  test('Updates tabs via SET_TABS postMessage', async () => {
-    const messageDelivered = eventToPromise('message', window);
-    window.postMessage(
-        {
-          type: 'SET_TABS',
-          tabs: [
-            createTab(1, 'https://www.google.com'),
-            createTab(2, 'https://www.youtube.com'),
-          ],
-        },
-        '*');
-    await messageDelivered;
-    await microtasksFinished();
-
-    assertEquals(2, app.tabs.length);
-    const items =
-        app.$.faviconGroup.shadowRoot.querySelectorAll('.favicon-item');
-    assertEquals(2, items.length);
-  });
-
   test(
       'Updates tabs and submittedTabIds when onTabContextUpdated is dispatched',
       async () => {
@@ -164,7 +160,8 @@ suite('ContextLibraryTest', () => {
           createTab(10, 'https://www.google.com'),
           createTab(20, 'https://www.youtube.com'),
         ];
-        browserProxy.callbackRouterRemote.onTabContextUpdated(tabs, [20]);
+        browserProxy.callbackRouterRemote.onTabContextUpdated(
+            tabs, [20], {active: false, visible: false});
         await browserProxy.callbackRouterRemote.$.flushForTesting();
         await microtasksFinished();
 
@@ -173,6 +170,7 @@ suite('ContextLibraryTest', () => {
         assertEquals(20, app.tabs[1]!.tabId);
         assertTrue(app.submittedTabIds.has(20));
         assertFalse(app.submittedTabIds.has(10));
+        assertFalse(app.smartTabSharingActive);
         assertTrue(app.$.faviconGroup.submittedTabIds.has(20));
 
         const items =
@@ -180,11 +178,41 @@ suite('ContextLibraryTest', () => {
         assertEquals(2, items.length);
       });
 
+  test(
+      'Renders Smart Tab Sharing coin when smartTabSharingActive is true',
+      async () => {
+        assertEquals(null, app.shadowRoot.querySelector('#stsCoin'));
+        assertFalse(app.$.faviconGroup.hidden);
+
+        browserProxy.callbackRouterRemote.onTabContextUpdated(
+            [], [], {active: true, visible: true});
+        await browserProxy.callbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertTrue(app.smartTabSharingActive);
+        const stsCoin = app.shadowRoot.querySelector('#stsCoin');
+        assertTrue(!!stsCoin);
+        assertEquals(
+            'composebox:screensaverAuto', stsCoin.getAttribute('icon'));
+        assertTrue(app.$.faviconGroup.hidden);
+
+        browserProxy.callbackRouterRemote.onTabContextUpdated(
+            [createTab(10, 'https://www.google.com')], [],
+            {active: false, visible: true});
+        await browserProxy.callbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+
+        assertFalse(app.smartTabSharingActive);
+        assertEquals(null, app.shadowRoot.querySelector('#stsCoin'));
+        assertFalse(app.$.faviconGroup.hidden);
+      });
+
   test('Stops updating after element is disconnected', async () => {
     app.remove();
 
     browserProxy.callbackRouterRemote.onTabContextUpdated(
-        [createTab(10, 'https://www.google.com')], [10]);
+        [createTab(10, 'https://www.google.com')], [10],
+        {active: false, visible: false});
     await browserProxy.callbackRouterRemote.$.flushForTesting();
     await microtasksFinished();
 
@@ -216,31 +244,54 @@ suite('ContextLibraryTest', () => {
       });
 
   test('Dark mode reflects attribute and updates border color', async () => {
-    app.tabs = [createTab(1, 'https://www.google.com')];
+    app.tabs = [
+      createTab(1, 'https://www.google.com'),
+      createTab(2, 'https://www.youtube.com'),
+      createTab(3, 'https://en.wikipedia.org'),
+      createTab(4, 'https://github.com'),
+    ];
     await microtasksFinished();
 
     const item = app.$.faviconGroup.shadowRoot.querySelector<HTMLElement>(
         '.favicon-item');
     assertTrue(!!item);
+    const moreItems =
+        app.$.faviconGroup.shadowRoot.querySelector<HTMLElement>('#more-items');
+    assertTrue(!!moreItems);
 
     assertFalse(app.darkMode);
     assertFalse(app.hasAttribute('dark-mode'));
+    assertEquals('light', getComputedStyle(app).colorScheme);
     assertEquals('rgb(240, 242, 245)', getComputedStyle(item).borderColor);
+    assertEquals('rgb(71, 71, 71)', getComputedStyle(moreItems).color);
 
     app.darkMode = true;
     await microtasksFinished();
     assertTrue(app.hasAttribute('dark-mode'));
+    assertEquals('dark', getComputedStyle(app).colorScheme);
     assertEquals('rgb(78, 80, 89)', getComputedStyle(item).borderColor);
+    assertEquals('rgb(199, 199, 199)', getComputedStyle(moreItems).color);
 
     app.darkMode = false;
     await microtasksFinished();
     assertFalse(app.hasAttribute('dark-mode'));
+    assertEquals('light', getComputedStyle(app).colorScheme);
   });
 
   test('Initializes darkMode from cs=1 URL query param', async () => {
     const originalUrl = window.location.href;
+    let lightApp;
     let darkApp;
     try {
+      window.history.replaceState({}, '', '?cs=0');
+      lightApp = document.createElement('context-library');
+      document.body.appendChild(lightApp);
+      await microtasksFinished();
+
+      assertFalse(lightApp.darkMode);
+      assertFalse(lightApp.hasAttribute('dark-mode'));
+      assertEquals('light', getComputedStyle(lightApp).colorScheme);
+
       window.history.replaceState({}, '', '?cs=1');
       darkApp = document.createElement('context-library');
       document.body.appendChild(darkApp);
@@ -248,11 +299,107 @@ suite('ContextLibraryTest', () => {
 
       assertTrue(darkApp.darkMode);
       assertTrue(darkApp.hasAttribute('dark-mode'));
+      assertEquals('dark', getComputedStyle(darkApp).colorScheme);
     } finally {
+      if (lightApp && lightApp.parentNode) {
+        lightApp.remove();
+      }
       if (darkApp && darkApp.parentNode) {
         darkApp.remove();
       }
       window.history.replaceState({}, '', originalUrl);
     }
   });
+  test(
+      'Tracks and untracks faviconGroup with TrackedElementManager',
+      async () => {
+        const manager = TrackedElementManager.getInstance();
+        assertEquals(undefined, manager.getElementFor(app.$.faviconGroup));
+
+        app.tabs = [createTab(1, 'https://www.google.com')];
+        await microtasksFinished();
+        assertTrue(!!manager.getElementFor(app.$.faviconGroup));
+        assertEquals(
+            'kContextualTasksFaviconsElementId',
+            TrackedElementManager.getElementId(app.$.faviconGroup)
+                ?.nativeIdentifier);
+
+        app.tabs = [];
+        await microtasksFinished();
+        assertEquals(undefined, manager.getElementFor(app.$.faviconGroup));
+
+        app.tabs = [createTab(1, 'https://www.google.com')];
+        await microtasksFinished();
+        assertTrue(!!manager.getElementFor(app.$.faviconGroup));
+        app.remove();
+        assertEquals(undefined, manager.getElementFor(app.$.faviconGroup));
+
+        document.body.appendChild(app);
+        await microtasksFinished();
+        assertTrue(!!manager.getElementFor(app.$.faviconGroup));
+      });
+
+  test(
+      'Forwards wait-for-tab-load and refreshes favicon on same-tab navigation',
+      async () => {
+        const liveFaviconDataUrl = 'data:image/png;base64,' +
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ' +
+            'AAAAC0lEQVQI12NgAAIAAAUAAeImBZsAAAAASUVORK5CYII=';
+        mockSearchboxPageHandler.setResultFor(
+            'waitForTabFaviconLoad',
+            Promise.resolve({faviconDataUrl: liveFaviconDataUrl}));
+
+        let bubbledEvents = 0;
+        const bodyListener = () => {
+          bubbledEvents++;
+        };
+        document.body.addEventListener('wait-for-tab-load', bodyListener);
+
+        try {
+          const dogTab = createTab(7, 'https://en.wikipedia.org/wiki/Dog');
+          dogTab.isLoading = true;
+          app.tabs = [dogTab];
+          await microtasksFinished();
+
+          const requestedTabId = await mockSearchboxPageHandler.whenCalled(
+              'waitForTabFaviconLoad');
+          assertEquals(7, requestedTabId);
+          assertEquals(0, bubbledEvents);
+          await microtasksFinished();
+
+          const item = app.$.faviconGroup.shadowRoot.querySelector<HTMLElement>(
+              '.favicon-item');
+          assertTrue(!!item);
+          assertEquals(
+              getUrlForCss(liveFaviconDataUrl),
+              item.style.getPropertyValue('--favicon-image').trim());
+
+          // Navigating the same tab (tabId 7) to a new URL whose favicon
+          // request returns null or rejects must immediately drop the previous
+          // page's favicon and fall back to getFaviconForPageURL().
+          mockSearchboxPageHandler.resetResolver('waitForTabFaviconLoad');
+          mockSearchboxPageHandler.setResultFor(
+              'waitForTabFaviconLoad',
+              Promise.reject(new Error('No live favicon')));
+          const nextUrl = 'https://example.com/next';
+          app.tabs = [createTab(7, nextUrl)];
+          await microtasksFinished();
+
+          assertEquals(
+              7,
+              await mockSearchboxPageHandler.whenCalled(
+                  'waitForTabFaviconLoad'));
+          await microtasksFinished();
+
+          const updatedItem =
+              app.$.faviconGroup.shadowRoot.querySelector<HTMLElement>(
+                  '.favicon-item');
+          assertTrue(!!updatedItem);
+          assertEquals(
+              getFaviconForPageURL(nextUrl, false),
+              updatedItem.style.getPropertyValue('--favicon-image').trim());
+        } finally {
+          document.body.removeEventListener('wait-for-tab-load', bodyListener);
+        }
+      });
 });

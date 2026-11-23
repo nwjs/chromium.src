@@ -42,7 +42,6 @@ source_set("impl") {
   sources = [ "vr_tab_helper.cc" ]
   deps = [
     ":vr",
-    "//chrome/browser:browser_public_dependencies",
     "//chrome/browser/ui/browser_window",
     "//device/vr/buildflags",
     "//third_party/blink/public/common:headers",
@@ -122,6 +121,10 @@ source_set("xr_browser_tests_common") {
 
   if (enable_vr) {
     deps += [ "//device/vr" ]
+  }
+
+  if (enable_cardboard) {
+    deps += [ "//device/vr/android/cardboard:vr_cardboard" ]
   }
 
   if (enable_vr && is_win) {

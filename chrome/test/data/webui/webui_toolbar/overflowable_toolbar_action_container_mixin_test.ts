@@ -2,16 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-toolbar.top-chrome/app.js';
+import 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import {assertNotReached} from '//resources/js/assert.js';
 import {CrLitElement, html} from '//resources/lit/v3_0/lit.rollup.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {OverflowableToolbarActionContainerMixin, OverflowableToolbarActionMixin} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {OverflowableToolbarActionElement} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {OverflowMenuItem} from 'chrome://webui-toolbar.top-chrome/shared/toolbar_ui_api.mojom-webui.js';
-import {PinnedToolbarAction} from 'chrome://webui-toolbar.top-chrome/shared/toolbar_ui_api_data_model.mojom-webui.js';
+import {OverflowableToolbarActionContainerMixin, OverflowableToolbarActionMixin, PinnedToolbarAction} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+import type {OverflowableToolbarActionElement, OverflowMenuItem} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 const DummyActionElementBase = OverflowableToolbarActionMixin(CrLitElement);
 
@@ -24,13 +22,19 @@ class DummyIconElement extends DummyActionElementBase {
     return {
       action: {type: Number},
       enabled: {type: Boolean},
+      hasOverflowMenuItem: {type: Boolean},
     };
   }
 
   accessor action: PinnedToolbarAction = PinnedToolbarAction.kPrint;
   accessor enabled: boolean = true;
+  // If false, getOverflowMenuItem() returns null.
+  accessor hasOverflowMenuItem: boolean = true;
 
-  override getOverflowMenuItem(): OverflowMenuItem {
+  override getOverflowMenuItem(): OverflowMenuItem|null {
+    if (!this.hasOverflowMenuItem) {
+      return null;
+    }
     return {
       id: {
         pinnedAction: this.action,
@@ -374,6 +378,25 @@ suite('OverflowableToolbarActionContainerMixinTest', () => {
     actions[1]!.classList.remove('overflow-display-none');
     actions[0]!.classList.remove('overflow-display-none');
     assertEquals(0, control.controlsToAddToOverflowMenu().length);
+  });
+
+  test('controlsToAddToOverflowMenu with no menu item', () => {
+    const actions = control.getActions();
+    const icon1 = actions[0]! as DummyIconElement;
+    const icon3 = actions[3]! as DummyIconElement;
+    icon1.hasOverflowMenuItem = false;
+    icon3.hasOverflowMenuItem = false;
+
+    // Hide all elements. Only `icon2` should be added to the overflow menu,
+    // since the other two have no overflow menu item.
+    control.setToMinWidth();
+    for (const el of actions) {
+      assertTrue(el.classList.contains('overflow-display-none'));
+    }
+    const items = control.controlsToAddToOverflowMenu();
+    assertEquals(1, items.length);
+    assertEquals(
+        PinnedToolbarAction.kClearBrowsingData, items[0]!.id.pinnedAction);
   });
 
   test('request-layout tests', async () => {

@@ -42,6 +42,7 @@
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "ui/gfx/geometry/size.h"
 
 using blink::test::RunPendingTasks;
@@ -936,8 +937,7 @@ TEST_F(LocalFrameViewSimTest, FragmentNavChangesFocusWhileRenderingBlocked) {
 
   // Click on the anchor element. This will cause a synchronous same-document
   //  navigation.
-  auto* anchor = To<HTMLAnchorElement>(
-      GetDocument().getElementById(AtomicString("anchorlink")));
+  auto* anchor = To<HTMLAnchorElement>(GetElementById("anchorlink"));
   anchor->click();
 
   // Even though the navigation is synchronous, the active element shouldn't be
@@ -963,8 +963,7 @@ TEST_F(LocalFrameViewSimTest, FragmentNavChangesFocusWhileRenderingBlocked) {
   RunPendingTasks();
   Compositor().BeginFrame();
   ASSERT_TRUE(GetDocument().IsLoadCompleted());
-  EXPECT_EQ(GetDocument().getElementById(AtomicString("bottom")),
-            GetDocument().ActiveElement())
+  EXPECT_EQ(GetElementById("bottom"), GetDocument().ActiveElement())
       << "Active element wasn't changed after load completed.";
   EXPECT_NE(ScrollOffset(), viewport->GetScrollOffset())
       << "Scroll offset wasn't changed after load completed.";
@@ -1068,8 +1067,7 @@ TEST_F(LocalFrameViewSimTest, SameOriginPaintEligibility) {
       </iframe>
     )HTML");
 
-  auto* frame_element = To<HTMLIFrameElement>(
-      GetDocument().getElementById(AtomicString("frame")));
+  auto* frame_element = To<HTMLIFrameElement>(GetElementById("frame"));
   auto* frame_document = frame_element->contentDocument();
   PaintTiming& frame_timing = PaintTiming::From(*frame_document);
 
@@ -1097,8 +1095,7 @@ TEST_F(LocalFrameViewSimTest, CrossOriginPaintEligibility) {
       </iframe>
     )HTML");
 
-  auto* frame_element = To<HTMLIFrameElement>(
-      GetDocument().getElementById(AtomicString("frame")));
+  auto* frame_element = To<HTMLIFrameElement>(GetElementById("frame"));
   auto* frame_document = frame_element->contentDocument();
   PaintTiming& frame_timing = PaintTiming::From(*frame_document);
 
@@ -1133,8 +1130,7 @@ TEST_F(LocalFrameViewSimTest, NestedCrossOriginPaintEligibility) {
       </iframe>
     )HTML");
 
-  auto* outer_frame_element = To<HTMLIFrameElement>(
-      GetDocument().getElementById(AtomicString("outer")));
+  auto* outer_frame_element = To<HTMLIFrameElement>(GetElementById("outer"));
   auto* outer_frame_document = outer_frame_element->contentDocument();
   PaintTiming& outer_frame_timing = PaintTiming::From(*outer_frame_document);
 
@@ -2082,7 +2078,7 @@ TEST_F(LocalFrameViewPresentationTimeTest,
   // 5. Simulate 100 more same-document navigations.
   for (int i = 0; i < 100; ++i) {
     loader->CommitSameDocumentNavigation(
-        KURL(StrCat({"https://example.com/test.html#bar", String::Number(i)})),
+        KURL(Format("https://example.com/test.html#bar{}", i)),
         WebFrameLoadType::kStandard, nullptr,
         ClientRedirectPolicy::kNotClientRedirect,
         false /* has_transient_user_activation */, /*initiator_origin=*/nullptr,

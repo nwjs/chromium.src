@@ -55,17 +55,11 @@
 #include "content/public/test/web_contents_tester.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/tab_list/mock_tab_list_interface.h"
-#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/tab_list/tab_removed_reason.h"
-#include "chrome/browser/ui/browser_manager_service.h"
-#include "chrome/browser/ui/browser_manager_service_factory.h"
-#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #endif
@@ -666,7 +660,6 @@ TEST_F(ContextHubServiceTest,
   ASSERT_EQ(items.size(), 1u);
   EXPECT_EQ(items[0].id, "todo_history_1");
   EXPECT_TRUE(items[0].is_first_party());
-  EXPECT_TRUE(items[0].HasChromeHistoryReferences());
   const auto* fp_data = std::get_if<FirstPartyData>(&items[0].data);
   ASSERT_TRUE(fp_data);
   EXPECT_FALSE(fp_data->actionable_url.has_value());
@@ -1638,22 +1631,6 @@ TEST_F(ContextHubServiceTest,
   content::WebContentsTester::For(raw_web_contents)
       ->SetTitle(base::UTF8ToUTF16(page_title));
 
-  auto mock_browser =
-      std::make_unique<testing::NiceMock<MockBrowserWindowInterface>>();
-  testing::NiceMock<MockTabListInterface> mock_tab_list;
-  ui::ScopedUnownedUserData<TabListInterface> tab_list_registration(
-      mock_browser->GetUnownedUserDataHost(), mock_tab_list);
-  tabs::MockTabInterface mock_tab;
-  ON_CALL(mock_tab, GetContents())
-      .WillByDefault(testing::Return(raw_web_contents));
-  ON_CALL(mock_tab_list, GetActiveTab())
-      .WillByDefault(testing::Return(&mock_tab));
-  ON_CALL(mock_tab_list, GetAllTabs())
-      .WillByDefault(
-          testing::Return(std::vector<tabs::TabInterface*>{&mock_tab}));
-  BrowserManagerServiceFactory::GetForProfile(&profile_)->AddBrowser(
-      std::move(mock_browser));
-
   EXPECT_CALL(mock_page_content_extraction_service_,
               GetExtractedPageContentAndEligibilityForPageAsync(
                   testing::Ref(raw_web_contents->GetPrimaryPage()), _, true))
@@ -1673,9 +1650,8 @@ TEST_F(ContextHubServiceTest,
 
   base::test::TestFuture<bool> save_future;
   service_.SaveMemoryBankEntry(
-      MemoryBankEntry(MemoryBankType::kTab, example_url, page_title,
-                      "some text that should be ignored"),
-      save_future.GetCallback());
+      MemoryBankEntry(MemoryBankType::kTab, example_url, page_title),
+      save_future.GetCallback(), raw_web_contents->GetWeakPtr());
   EXPECT_TRUE(save_future.Get());
 
   base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
@@ -1684,14 +1660,11 @@ TEST_F(ContextHubServiceTest,
   ASSERT_EQ(entries.size(), 1u);
   EXPECT_EQ(entries[0].url, example_url);
   ASSERT_TRUE(entries[0].selected_text.has_value());
-  EXPECT_TRUE(entries[0].selected_text->contains(apc_text));
-  EXPECT_TRUE(entries[0].selected_text->contains(page_title));
-  EXPECT_TRUE(entries[0].selected_text->contains(example_url.spec()));
+  EXPECT_EQ(entries[0].selected_text, apc_text);
 }
-#endif
 
 TEST_F(ContextHubServiceTest,
-       SaveMemoryBankEntry_StandardFallbackWhenSyncFlagDisabled) {
+       SavePendingMemoryBankEntry_ExtractsPageContentFromTrackedWebContents) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/{features::kContextHub, features::kMemoryBanks},
@@ -1700,17 +1673,98 @@ TEST_F(ContextHubServiceTest,
   const GURL example_url = GURL("https://example.com");
   std::unique_ptr<content::WebContents> web_contents =
       CreateEligibleTab(example_url);
-  std::string given_inner_text = "Inner text provided for a tab";
+  content::WebContents* raw_web_contents = web_contents.get();
+  std::string page_title = "Title";
+  std::string apc_text = "APC text with enough words to form a passage";
+  content::WebContentsTester::For(raw_web_contents)
+      ->SetTitle(base::UTF8ToUTF16(page_title));
 
   EXPECT_CALL(mock_page_content_extraction_service_,
-              GetExtractedPageContentAndEligibilityForPageAsync(_, _, _))
-      .Times(0);
+              GetExtractedPageContentAndEligibilityForPageAsync(
+                  testing::Ref(raw_web_contents->GetPrimaryPage()), _, true))
+      .WillOnce([&page_title, &apc_text](
+                    content::Page& page,
+                    page_content_annotations::PageContentExtractionService::
+                        GetExtractedPageContentAndEligibilityCallback callback,
+                    bool trigger_if_not_cached) {
+        page_content_annotations::ExtractedPageContentResult result;
+        optimization_guide::proto::AnnotatedPageContent apc =
+            FakeApc(page_title, apc_text);
+        result.page_content = base::MakeRefCounted<
+            page_content_annotations::RefCountedAnnotatedPageContent>(
+            std::move(apc));
+        std::move(callback).Run(std::move(result));
+      });
+
+  service_.SetPendingMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, example_url, page_title),
+      raw_web_contents->GetWeakPtr());
+  EXPECT_TRUE(service_.SavePendingMemoryBankEntry(
+      /*tags=*/{"tag1"}, /*note=*/"note1", /*collection=*/"col1"));
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service_.GetAllEntries(get_entries_future.GetCallback());
+  auto entries = get_entries_future.Get();
+  ASSERT_EQ(entries.size(), 1u);
+  EXPECT_EQ(entries[0].url, example_url);
+  EXPECT_EQ(entries[0].note, "note1");
+  EXPECT_EQ(entries[0].collection, "col1");
+  EXPECT_THAT(entries[0].tags, testing::ElementsAre("tag1"));
+  ASSERT_TRUE(entries[0].selected_text.has_value());
+  EXPECT_EQ(entries[0].selected_text, apc_text);
+}
+
+TEST_F(ContextHubServiceTest,
+       ExtractsPageContentWithMultipleNodesAndJoinsWithSpace) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kContextHub, features::kMemoryBanks},
+      /*disabled_features=*/{features::kContextHubTabContextSyncStorage,
+                             features::kContextHubDatabaseStorage});
+  const GURL example_url = GURL("https://example.com");
+  std::unique_ptr<content::WebContents> web_contents =
+      CreateEligibleTab(example_url);
+  content::WebContents* raw_web_contents = web_contents.get();
+  std::string page_title = "Title";
+
+  EXPECT_CALL(mock_page_content_extraction_service_,
+              GetExtractedPageContentAndEligibilityForPageAsync(
+                  testing::Ref(raw_web_contents->GetPrimaryPage()), _, true))
+      .WillOnce([](content::Page& page,
+                   page_content_annotations::PageContentExtractionService::
+                       GetExtractedPageContentAndEligibilityCallback callback,
+                   bool trigger_if_not_cached) {
+        using optimization_guide::proto::ContentNode;
+        optimization_guide::proto::AnnotatedPageContent apc;
+        ContentNode* root_node = apc.mutable_root_node();
+        root_node->mutable_content_attributes()->set_attribute_type(
+            optimization_guide::proto::CONTENT_ATTRIBUTE_ROOT);
+
+        ContentNode* child1 = root_node->add_children_nodes();
+        child1->mutable_content_attributes()->set_attribute_type(
+            optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT);
+        child1->mutable_content_attributes()
+            ->mutable_text_data()
+            ->set_text_content("First node");
+
+        ContentNode* child2 = root_node->add_children_nodes();
+        child2->mutable_content_attributes()->set_attribute_type(
+            optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT);
+        child2->mutable_content_attributes()
+            ->mutable_text_data()
+            ->set_text_content("Second node");
+
+        page_content_annotations::ExtractedPageContentResult result;
+        result.page_content = base::MakeRefCounted<
+            page_content_annotations::RefCountedAnnotatedPageContent>(
+            std::move(apc));
+        std::move(callback).Run(std::move(result));
+      });
 
   base::test::TestFuture<bool> save_future;
   service_.SaveMemoryBankEntry(
-      MemoryBankEntry(MemoryBankType::kTab, example_url, "Title",
-                      given_inner_text),
-      save_future.GetCallback());
+      MemoryBankEntry(MemoryBankType::kTab, example_url, page_title),
+      save_future.GetCallback(), raw_web_contents->GetWeakPtr());
   EXPECT_TRUE(save_future.Get());
 
   base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
@@ -1718,8 +1772,50 @@ TEST_F(ContextHubServiceTest,
   auto entries = get_entries_future.Get();
   ASSERT_EQ(entries.size(), 1u);
   EXPECT_EQ(entries[0].url, example_url);
-  EXPECT_EQ(entries[0].selected_text, given_inner_text);
+  ASSERT_TRUE(entries[0].selected_text.has_value());
+  EXPECT_EQ(entries[0].selected_text, "First node Second node");
 }
+
+TEST_F(ContextHubServiceTest,
+       SaveMemoryBankEntry_EmptyPageContentSavesWithNullSelectedText) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kContextHub, features::kMemoryBanks},
+      /*disabled_features=*/{features::kContextHubTabContextSyncStorage,
+                             features::kContextHubDatabaseStorage});
+  const GURL example_url = GURL("https://example.com");
+  std::unique_ptr<content::WebContents> web_contents =
+      CreateEligibleTab(example_url);
+  content::WebContents* raw_web_contents = web_contents.get();
+  std::string page_title = "Title";
+
+  EXPECT_CALL(mock_page_content_extraction_service_,
+              GetExtractedPageContentAndEligibilityForPageAsync(
+                  testing::Ref(raw_web_contents->GetPrimaryPage()), _, true))
+      .WillOnce([](content::Page& page,
+                   page_content_annotations::PageContentExtractionService::
+                       GetExtractedPageContentAndEligibilityCallback callback,
+                   bool trigger_if_not_cached) {
+        page_content_annotations::ExtractedPageContentResult result;
+        result.page_content = base::MakeRefCounted<
+            page_content_annotations::RefCountedAnnotatedPageContent>();
+        std::move(callback).Run(std::move(result));
+      });
+
+  base::test::TestFuture<bool> save_future;
+  service_.SaveMemoryBankEntry(
+      MemoryBankEntry(MemoryBankType::kTab, example_url, page_title),
+      save_future.GetCallback(), raw_web_contents->GetWeakPtr());
+  EXPECT_TRUE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> get_entries_future;
+  service_.GetAllEntries(get_entries_future.GetCallback());
+  auto entries = get_entries_future.Get();
+  ASSERT_EQ(entries.size(), 1u);
+  EXPECT_EQ(entries[0].url, example_url);
+  EXPECT_FALSE(entries[0].selected_text.has_value());
+}
+#endif
 
 TEST_F(ContextHubServiceTest,
        SaveMemoryBankEntry_TabNotFoundFallbackWhenSyncFlagEnabled) {
@@ -2443,6 +2539,13 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
 
   std::vector<int64_t> ids = {entries[0].id, entries[1].id};
 
+  service_.AddMemoryBankChatHistoryTurn(
+      optimization_guide::proto::ChatHistoryTurn::ROLE_USER, "previous prompt");
+  service_.AddMemoryBankChatHistoryTurn(
+      optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT,
+      "previous answer",
+      {{.title = entries[0].tab_title, .url = entries[0].url}});
+
   EXPECT_CALL(
       mock_remote_model_executor_,
       ExecuteModel(optimization_guide::ModelBasedCapabilityKey::kContextHub, _,
@@ -2463,6 +2566,14 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
 
         EXPECT_TRUE(request.entry_items(0).has_memory_bank_entry());
         EXPECT_TRUE(request.entry_items(1).has_memory_bank_entry());
+
+        ASSERT_EQ(request.chat_history_size(), 2);
+        EXPECT_EQ(request.chat_history(0).role(),
+                  optimization_guide::proto::ChatHistoryTurn::ROLE_USER);
+        EXPECT_EQ(request.chat_history(0).message_content(), "previous prompt");
+        EXPECT_EQ(request.chat_history(1).role(),
+                  optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT);
+        EXPECT_EQ(request.chat_history(1).message_content(), "previous answer");
 
         optimization_guide::proto::ContextHubResponse response;
         auto* chat_response = response.mutable_memory_bank_chat_response();
@@ -2486,7 +2597,7 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
       });
 
   base::test::TestFuture<std::optional<std::string>,
-                         std::vector<ContextHubService::MemoryBankChatCitation>>
+                         std::vector<MemoryBankChatCitation>>
       future;
   service_.ExecuteMemoryBankChat(ids, "summarize these",
                                  /*save_to_history=*/true,
@@ -2499,7 +2610,32 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Success) {
   EXPECT_EQ(citations[0].url, entries[1].url);
   EXPECT_EQ(citations[1].title, entries[0].tab_title);
   EXPECT_EQ(citations[1].url, entries[0].url);
-  EXPECT_EQ(service_.GetMemoryBankChatHistory().size(), 2u);
+
+  std::vector<MemoryBankChatHistoryTurn> history =
+      service_.GetMemoryBankChatHistory();
+  ASSERT_EQ(history.size(), 4u);
+  EXPECT_EQ(history[0].turn.role(),
+            optimization_guide::proto::ChatHistoryTurn::ROLE_USER);
+  EXPECT_EQ(history[0].turn.message_content(), "previous prompt");
+  EXPECT_TRUE(history[0].citations.empty());
+  EXPECT_EQ(history[1].turn.role(),
+            optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT);
+  EXPECT_EQ(history[1].turn.message_content(), "previous answer");
+  ASSERT_EQ(history[1].citations.size(), 1u);
+  EXPECT_EQ(history[1].citations[0].title, entries[0].tab_title);
+  EXPECT_EQ(history[1].citations[0].url, entries[0].url);
+  EXPECT_EQ(history[2].turn.role(),
+            optimization_guide::proto::ChatHistoryTurn::ROLE_USER);
+  EXPECT_EQ(history[2].turn.message_content(), "summarize these");
+  EXPECT_TRUE(history[2].citations.empty());
+  EXPECT_EQ(history[3].turn.role(),
+            optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT);
+  EXPECT_EQ(history[3].turn.message_content(), "This is the LLM summary.");
+  ASSERT_EQ(history[3].citations.size(), 2u);
+  EXPECT_EQ(history[3].citations[0].title, entries[1].tab_title);
+  EXPECT_EQ(history[3].citations[0].url, entries[1].url);
+  EXPECT_EQ(history[3].citations[1].title, entries[0].tab_title);
+  EXPECT_EQ(history[3].citations[1].url, entries[0].url);
 }
 
 TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_NoSaveToHistory) {
@@ -2549,7 +2685,7 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_NoSaveToHistory) {
       });
 
   base::test::TestFuture<std::optional<std::string>,
-                         std::vector<ContextHubService::MemoryBankChatCitation>>
+                         std::vector<MemoryBankChatCitation>>
       future;
   service_.ExecuteMemoryBankChat(ids, "summarize these",
                                  /*save_to_history=*/false,
@@ -2580,7 +2716,7 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Error) {
           });
 
   base::test::TestFuture<std::optional<std::string>,
-                         std::vector<ContextHubService::MemoryBankChatCitation>>
+                         std::vector<MemoryBankChatCitation>>
       future;
   std::vector<int64_t> ids = {100};
   service_.ExecuteMemoryBankChat(ids, "hello", /*save_to_history=*/true,
@@ -2611,7 +2747,7 @@ TEST_F(ContextHubServiceTest, ExecuteMemoryBankChat_Error) {
           });
 
   base::test::TestFuture<std::optional<std::string>,
-                         std::vector<ContextHubService::MemoryBankChatCitation>>
+                         std::vector<MemoryBankChatCitation>>
       throttled_future;
   service_.ExecuteMemoryBankChat(ids, "hello", /*save_to_history=*/true,
                                  throttled_future.GetCallback());
@@ -2629,16 +2765,22 @@ TEST_F(ContextHubServiceTest, AddAndGetMemoryBankChatHistory) {
   task_environment_.FastForwardBy(base::Milliseconds(1));
   service_.AddMemoryBankChatHistoryTurn(
       optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT,
-      "Assistant memory answer");
+      "Assistant memory answer",
+      {{.title = "Source 1", .url = GURL("https://example.com/source1")}});
 
-  auto history = service_.GetMemoryBankChatHistory();
+  std::vector<MemoryBankChatHistoryTurn> history =
+      service_.GetMemoryBankChatHistory();
   ASSERT_EQ(history.size(), 2u);
-  EXPECT_EQ(history[0].role(),
+  EXPECT_EQ(history[0].turn.role(),
             optimization_guide::proto::ChatHistoryTurn::ROLE_USER);
-  EXPECT_EQ(history[0].message_content(), "User query");
-  EXPECT_EQ(history[1].role(),
+  EXPECT_EQ(history[0].turn.message_content(), "User query");
+  EXPECT_TRUE(history[0].citations.empty());
+  EXPECT_EQ(history[1].turn.role(),
             optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT);
-  EXPECT_EQ(history[1].message_content(), "Assistant memory answer");
+  EXPECT_EQ(history[1].turn.message_content(), "Assistant memory answer");
+  ASSERT_EQ(history[1].citations.size(), 1u);
+  EXPECT_EQ(history[1].citations[0].title, "Source 1");
+  EXPECT_EQ(history[1].citations[0].url, GURL("https://example.com/source1"));
 }
 
 TEST_F(ContextHubServiceTest, MemoryBankChatHistory_Clear) {

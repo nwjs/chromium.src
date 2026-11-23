@@ -5,10 +5,12 @@
 #include "components/safe_browsing/core/common/visual_utils.h"
 
 #include <array>
+#include <limits>
 
 #include "base/containers/span.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_discardable_memory_allocator.h"
+#include "build/build_config.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -246,7 +248,7 @@ TEST_F(VisualUtilsTest, NonSquareBlurredImage) {
   }
 }
 
-// Tests that GetBitmapForVisualFeatures downsamples the image to pHash
+// Tests that `GetBitmapForVisualFeatures()` downsamples the image to pHash
 // dimensions on iOS and preserves the original dimensions on non-iOS platforms.
 TEST_F(VisualUtilsTest, GetBitmapForVisualFeatures) {
   base::test::ScopedFeatureList feature_list;
@@ -281,6 +283,67 @@ TEST_F(VisualUtilsTest, GetBitmapForVisualFeatures) {
   EXPECT_TRUE(empty_bitmap.drawsNothing());
 }
 
+#if BUILDFLAG(IS_IOS)
+// Tests that `GetResizedImageAsSkBitmap()` returns an empty bitmap
+// for invalid inputs.
+TEST_F(VisualUtilsTest, GetResizedImageAsSkBitmapEmptyInputs) {
+  static constexpr int kTargetWidth = 108;
+  static constexpr int kTargetHeight = 192;
+
+  // Empty input image.
+  EXPECT_TRUE(GetResizedImageAsSkBitmap(gfx::Image(),
+                                        gfx::Size(kTargetWidth, kTargetHeight))
+                  .drawsNothing());
+
+  // Non-empty input image.
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(kTargetWidth, kTargetHeight);
+  bitmap.eraseColor(SK_ColorWHITE);
+  gfx::Image image = gfx::Image::CreateFrom1xBitmap(bitmap);
+
+  // Zero-width or zero-height target size.
+  EXPECT_TRUE(GetResizedImageAsSkBitmap(image, gfx::Size(0, kTargetHeight))
+                  .drawsNothing());
+  EXPECT_TRUE(GetResizedImageAsSkBitmap(image, gfx::Size(kTargetWidth, 0))
+                  .drawsNothing());
+}
+
+// Tests that `GetResizedImageAsSkBitmap()` resizes images directly to target
+// pixel dimensions without bleeding detail across block boundaries.
+TEST_F(VisualUtilsTest, GetResizedImageAsSkBitmap) {
+  static constexpr int kTargetWidth = 108;
+  static constexpr int kTargetHeight = 192;
+  static constexpr int kScaleFactor = 3;
+  static constexpr int kSourceWidth = kTargetWidth * kScaleFactor;
+  static constexpr int kSourceHeight = kTargetHeight * kScaleFactor;
+
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(kSourceWidth, kSourceHeight);
+  bitmap.erase(SK_ColorBLACK,
+               SkIRect::MakeXYWH(0, 0, kSourceWidth, kSourceHeight / 2));
+  bitmap.erase(
+      SK_ColorWHITE,
+      SkIRect::MakeXYWH(0, kSourceHeight / 2, kSourceWidth, kSourceHeight / 2));
+  gfx::Image image = gfx::Image::CreateFrom1xBitmap(bitmap);
+
+  SkBitmap resized =
+      GetResizedImageAsSkBitmap(image, gfx::Size(kTargetWidth, kTargetHeight));
+  ASSERT_FALSE(resized.drawsNothing());
+  ASSERT_EQ(kTargetWidth, resized.width());
+  ASSERT_EQ(kTargetHeight, resized.height());
+
+  // Verify that the direct resize preserves the sharp horizontal boundary
+  // between the top (black) and bottom (white) halves without upsample bleed.
+  EXPECT_EQ(SK_ColorBLACK, resized.getColor(kTargetWidth / 2, 0));
+  EXPECT_EQ(SK_ColorBLACK,
+            resized.getColor(kTargetWidth / 2, kTargetHeight / 2 - 1));
+  EXPECT_EQ(SK_ColorWHITE,
+            resized.getColor(kTargetWidth / 2, kTargetHeight / 2));
+  EXPECT_EQ(SK_ColorWHITE,
+            resized.getColor(kTargetWidth / 2, kTargetHeight - 1));
+}
+#endif  // BUILDFLAG(IS_IOS)
+
 TEST_F(VisualUtilsTest, EncodeScreenshot) {
   const int kBitmapWidth = 40;
   const int kBitmapHeight = 40;
@@ -300,6 +363,101 @@ TEST_F(VisualUtilsTest, EncodeScreenshot) {
                gfx::Rect(20, 0, 20, 10), kBitmapWidth);
   ExpectPixels(SK_ColorWHITE, encoded_screenshot.data(),
                gfx::Rect(0, 10, 40, 30), kBitmapWidth);
+}
+
+TEST_F(VisualUtilsTest, IsUniformImageSolidColors) {
+  VisualFeatures::BlurredImage blurred;
+
+  // Solid white.
+  bitmap_.eraseColor(SK_ColorWHITE);
+  ASSERT_TRUE(GetBlurredImage(bitmap_, &blurred));
+  EXPECT_TRUE(IsUniformImage(blurred));
+
+  // Solid black.
+  blurred.Clear();
+  bitmap_.eraseColor(SK_ColorBLACK);
+  ASSERT_TRUE(GetBlurredImage(bitmap_, &blurred));
+  EXPECT_TRUE(IsUniformImage(blurred));
+
+  // Solid grey.
+  blurred.Clear();
+  bitmap_.eraseColor(SkColorSetRGB(128, 128, 128));
+  ASSERT_TRUE(GetBlurredImage(bitmap_, &blurred));
+  EXPECT_TRUE(IsUniformImage(blurred));
+}
+
+TEST_F(VisualUtilsTest, IsUniformImageToleranceAndNonUniform) {
+  VisualFeatures::BlurredImage blurred;
+  blurred.set_width(2);
+  blurred.set_height(2);
+  // 4 pixels: (100, 100, 100), (105, 100, 95), (110, 105, 100), (100, 95, 105)
+  // Channel ranges: R=[100,110] (10), G=[95,105] (10), B=[95,105] (10).
+  const std::array<uint8_t, 12> kWithinTolerance = {
+      100, 100, 100, 105, 100, 95, 110, 105, 100, 100, 95, 105};
+  blurred.set_data(reinterpret_cast<const char*>(kWithinTolerance.data()),
+                   kWithinTolerance.size());
+  EXPECT_TRUE(IsUniformImage(blurred));
+  EXPECT_TRUE(IsUniformImage(blurred, /*max_color_range=*/10));
+  EXPECT_FALSE(IsUniformImage(blurred, /*max_color_range=*/9));
+
+  // Change one pixel's B channel to 94 so B range is [94, 105] (11 > 10).
+  (*blurred.mutable_data())[5] = static_cast<char>(94);
+  EXPECT_FALSE(IsUniformImage(blurred));
+
+  // Half white, half black full bitmap -> not uniform.
+  VisualFeatures::BlurredImage half_blurred;
+  bitmap_.erase(SK_ColorBLACK, SkIRect::MakeXYWH(0, 0, 1000, 500));
+  bitmap_.erase(SK_ColorWHITE, SkIRect::MakeXYWH(0, 500, 1000, 500));
+  ASSERT_TRUE(GetBlurredImage(bitmap_, &half_blurred));
+  EXPECT_FALSE(IsUniformImage(half_blurred));
+}
+
+TEST_F(VisualUtilsTest, IsUniformImageOutlierTolerance) {
+  // For a 48x48 (2304-pixel) blurred image, 0.5% tail trim ignores
+  // floor(2304 * 0.005) = 11 outlier pixels at each tail.
+  VisualFeatures::BlurredImage blurred;
+  blurred.set_width(48);
+  blurred.set_height(48);
+  std::string data(48 * 48 * 3, '\xff');
+
+  // Set 11 pixels (0.48% <= 0.5%) to black (0, 0, 0): still uniform.
+  for (int i = 0; i < 11; ++i) {
+    data[i * 3] = '\x00';
+    data[i * 3 + 1] = '\x00';
+    data[i * 3 + 2] = '\x00';
+  }
+  blurred.set_data(data);
+  EXPECT_TRUE(IsUniformImage(blurred));
+
+  // Setting a 12th pixel (0.52% > 0.5%) to black exceeds the 0.5% lower tail
+  // trim, making the 0.5th percentile 0 and range 255 > 10.
+  data[11 * 3] = '\x00';
+  data[11 * 3 + 1] = '\x00';
+  data[11 * 3 + 2] = '\x00';
+  blurred.set_data(data);
+  EXPECT_FALSE(IsUniformImage(blurred));
+}
+
+TEST_F(VisualUtilsTest, IsUniformImageInvalidInputs) {
+  VisualFeatures::BlurredImage empty_blurred;
+  EXPECT_FALSE(IsUniformImage(empty_blurred));
+
+  VisualFeatures::BlurredImage mismatched_blurred;
+  mismatched_blurred.set_width(2);
+  mismatched_blurred.set_height(2);
+  mismatched_blurred.set_data("short");
+  EXPECT_FALSE(IsUniformImage(mismatched_blurred));
+
+  VisualFeatures::BlurredImage valid_blurred;
+  valid_blurred.set_width(1);
+  valid_blurred.set_height(1);
+  valid_blurred.set_data("\x00\x00\x00", 3);
+  EXPECT_FALSE(IsUniformImage(valid_blurred, /*max_color_range=*/-1));
+
+  VisualFeatures::BlurredImage overflow_blurred;
+  overflow_blurred.set_width(std::numeric_limits<int>::max());
+  overflow_blurred.set_height(std::numeric_limits<int>::max());
+  EXPECT_FALSE(IsUniformImage(overflow_blurred));
 }
 
 }  // namespace safe_browsing::visual_utils

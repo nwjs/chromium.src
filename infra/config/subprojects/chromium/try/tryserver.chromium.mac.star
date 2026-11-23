@@ -167,8 +167,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/mac-perfetto-rel",
-            "try_builder",
-            "no_symbols",
+            "release_try_builder",
         ],
     ),
     cpu = cpu.ARM64,
@@ -242,7 +241,9 @@ try_.builder(
     cpu = cpu.ARM64,
     contact_team_email = "chrome-devtools@google.com",
     cq_settings = try_.cq_settings(
-        includable_only = True,
+        location_filters = [
+            "third_party/chromium-bidi/.+",
+        ],
     ),
     main_list_view = "try",
 )

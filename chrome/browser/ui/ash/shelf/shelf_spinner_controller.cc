@@ -179,7 +179,7 @@ ShelfSpinnerController::~ShelfSpinnerController() {
 
 void ShelfSpinnerController::MaybeApplySpinningEffect(const std::string& app_id,
                                                       gfx::ImageSkia* image) {
-  DCHECK(image);
+  CHECK(image, base::NotFatalUntil::M162);
   auto it = app_controller_map_.find(app_id);
   if (it == app_controller_map_.end()) {
     return;
@@ -230,10 +230,11 @@ bool ShelfSpinnerController::RemoveSpinnerFromControllerMap(
   }
 
   const ash::ShelfID shelf_id(app_id);
-  DCHECK_EQ(it->second.controller(),
-            it->second.IsKilled()
-                ? nullptr
-                : owner_->shelf_model()->GetShelfItemDelegate(shelf_id));
+  CHECK_EQ(it->second.controller(),
+           it->second.IsKilled()
+               ? nullptr
+               : owner_->shelf_model()->GetShelfItemDelegate(shelf_id),
+           base::NotFatalUntil::M162);
   app_controller_map_.erase(it);
 
   return true;

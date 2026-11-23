@@ -41,6 +41,7 @@
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/test/fakes/fake_web_frame.h"
@@ -50,6 +51,7 @@
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
+#import "ui/base/l10n/l10n_util.h"
 
 @interface FakeActorTaskUpdatesObserver : NSObject <ActorTaskUpdatesObserver>
 
@@ -280,11 +282,9 @@ class ActorTaskTest : public PlatformTest {
   void SetUp() override {
     PlatformTest::SetUp();
     // Backgrounding is disabled by default so that general tests do not start
-    // the repeating heartbeat timer. `ActorTaskBackgroundingTest` re-enables
-    // it.
+    // the repeating heartbeat timer. `ActorTaskBackgroundingTest` enables it.
     scoped_feature_list_.InitWithFeatures(
-        {kPageActionMenu, kActorTools, kActorOriginGating,
-         kGeminiClientMigration, kGeminiActor},
+        {kPageActionMenu, kActorTools, kActorOriginGating, kGeminiActor},
         {kEnableBackgroundContinuedProcessing});
     profile_ = TestProfileIOS::Builder().Build();
     journal_ = std::make_unique<AggregatedJournal>();
@@ -293,7 +293,8 @@ class ActorTaskTest : public PlatformTest {
     task_ = std::make_unique<ActorTask>(
         ActorTaskId(1), "Test Task", TestSource(),
         /*allow_incognito_web_states=*/false, journal_.get(),
-        tool_factory_.get(), BrowserListFactory::GetForProfile(profile_.get()));
+        tool_factory_.get(), BrowserListFactory::GetForProfile(profile_.get()),
+        /*policy_checker=*/nullptr);
   }
 
   void TearDown() override {
@@ -1138,7 +1139,8 @@ TEST_F(ActorTaskTest, KeepRenderProcessAliveFollowsControlState) {
   auto scoped_task = std::make_unique<ActorTask>(
       ActorTaskId(42), "Scoped Task", TestSource(),
       /*allow_incognito_web_states=*/false, journal_.get(), tool_factory_.get(),
-      BrowserListFactory::GetForProfile(profile_.get()));
+      BrowserListFactory::GetForProfile(profile_.get()),
+      /*policy_checker=*/nullptr);
   scoped_task->Act({}, "update", base::DoNothing());
   scoped_task->AddControlledWebState(web_state3.get());
   EXPECT_TRUE(web_state3->keep_render_process_alive());
@@ -1147,10 +1149,10 @@ TEST_F(ActorTaskTest, KeepRenderProcessAliveFollowsControlState) {
   EXPECT_FALSE(web_state3->keep_render_process_alive());
 }
 
-// Fixture for tests exercising the backgrounding code paths. Re-enables the
-// `kEnableBackgroundContinuedProcessing` killswitch that `ActorTaskTest`
-// disables. Tests are skipped when backgrounding is unavailable in the current
-// configuration (i.e. the `ios_enable_background_continued_processing` GN arg
+// Fixture for tests exercising the backgrounding code paths. Enables
+// `kEnableBackgroundContinuedProcessing`, which `ActorTaskTest` disables. Tests
+// are skipped when backgrounding is unavailable in the current configuration
+// (i.e. the `ios_enable_background_continued_processing` GN arg
 // is false, or the OS is older than iOS 26), since
 // `IsGeminiActorBackgroundingEnabled()` is then always false regardless of the
 // runtime feature state.
@@ -1272,10 +1274,10 @@ TEST_F(ActorTaskTest, BackgroundWorkerReflectsTask) {
   EXPECT_EQ(task_->title(), worker->title());
 }
 
-// Test that when backgrounding is disabled (via the killswitch that
-// `ActorTaskTest` disables, or because it is unavailable in the current
-// configuration), the task ignores background contexts and never sends
-// heartbeat pings.
+// Tests that when backgrounding is disabled (via
+// `kEnableBackgroundContinuedProcessing`, which `ActorTaskTest` disables, or
+// because it is unavailable in the current configuration), the task ignores
+// background contexts and never sends heartbeat pings.
 TEST_F(ActorTaskTest, BackgroundingInertWhenDisabled) {
   ASSERT_FALSE(IsGeminiActorBackgroundingEnabled());
 
@@ -1331,7 +1333,8 @@ TEST_F(ActorTaskBackgroundingTest, DestructorFinalizesBackgroundTask) {
   auto task = std::make_unique<ActorTask>(
       ActorTaskId(1), "Test Task", TestSource(),
       /*allow_incognito_web_states=*/false, journal_.get(), tool_factory_.get(),
-      BrowserListFactory::GetForProfile(profile_.get()));
+      BrowserListFactory::GetForProfile(profile_.get()),
+      /*policy_checker=*/nullptr);
   task->background_worker()->SetContext(context);
   EXPECT_FALSE(context.completed);
 
@@ -1340,13 +1343,16 @@ TEST_F(ActorTaskBackgroundingTest, DestructorFinalizesBackgroundTask) {
   EXPECT_TRUE(context.completed);
 }
 
-// Tests that waiting on user confirmation completes the background task with
-// success, through the task's state change.
+// Tests that awaiting user confirmation completes the background task
+// successfully: updates the task state, displays the wait message as the title
+// with the task name as subtitle, and leaves the progress bar unfilled.
 TEST_F(ActorTaskBackgroundingTest, WaitingOnUserCompletesBackgroundTask) {
   task_->Act({}, "Act", base::DoNothing());
   TestBackgroundContinuedProcessingTaskContext* context =
       CreateBackgroundTaskContext();
   task_->background_worker()->SetContext(context);
+  const double progress = context.fractionCompleted;
+  ASSERT_NSEQ(context.subtitle, @"Act");
 
   FakeActorTaskInterventionDelegate* delegate =
       [[FakeActorTaskInterventionDelegate alloc] init];
@@ -1356,7 +1362,10 @@ TEST_F(ActorTaskBackgroundingTest, WaitingOnUserCompletesBackgroundTask) {
   ASSERT_EQ(task_->GetState(), ActorTaskState::kWaitingOnUser);
 
   EXPECT_TRUE(context.completed);
-  EXPECT_DOUBLE_EQ(context.fractionCompleted, 1.0);
+  EXPECT_DOUBLE_EQ(context.fractionCompleted, progress);
+  EXPECT_NSEQ(context.title, l10n_util::GetNSString(
+                                 IDS_IOS_ACTOR_BACKGROUND_TASK_INPUT_NEEDED));
+  EXPECT_NSEQ(context.subtitle, @"Test Task");
 }
 
 // Test that the task forwards actuation to the background worker, which
@@ -1434,8 +1443,9 @@ TEST_F(ActorTaskBackgroundingTest, HeartbeatPingsReachAllControlledWebStates) {
   EXPECT_EQ(main_frame2->GetJavaScriptCallHistory().size(), 2u);
 }
 
-// Test that no heartbeat pings are sent when the backgrounding feature
-// parameter is disabled, even though the killswitch is enabled.
+// Tests that no heartbeat pings are sent when the backgrounding feature
+// parameter is disabled, even though `kEnableBackgroundContinuedProcessing` is
+// enabled.
 TEST_F(ActorTaskBackgroundingTest,
        HeartbeatPingsDisabledWhenFeatureParamDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
@@ -1468,7 +1478,8 @@ TEST_F(ActorTaskTest,
   auto task = std::make_unique<ActorTask>(
       ActorTaskId(1), "Test Task", TestSource(),
       /*allow_incognito_web_states=*/false, journal_.get(), tool_factory_.get(),
-      BrowserListFactory::GetForProfile(profile_.get()));
+      BrowserListFactory::GetForProfile(profile_.get()),
+      /*policy_checker=*/nullptr);
 
   auto web_state = std::make_unique<web::FakeWebState>();
   task->AddControlledWebState(web_state.get());
@@ -1539,8 +1550,8 @@ TEST_F(ActorTaskTest, InterruptWaitingUserConfirmationFromActing) {
   EXPECT_EQ(helper->GetControlState(),
             actor::ActorControlState::kActorControlled);
   EXPECT_TRUE(delegate.requestConfirmationCalled);
-  EXPECT_NSEQ(delegate.confirmationTitle, @"Please confirm purchase");
-  EXPECT_EQ(delegate.confirmationSubtitle, nil);
+  EXPECT_NSEQ(delegate.confirmationTitle, @"Input needed");
+  EXPECT_NSEQ(delegate.confirmationSubtitle, @"Please confirm purchase");
   EXPECT_NSEQ(delegate.confirmationButtonText, @"Continue");
 }
 
@@ -1560,8 +1571,8 @@ TEST_F(ActorTaskTest, InterruptWaitingUserConfirmationFromReflecting) {
 
   EXPECT_EQ(task_->GetState(), ActorTaskState::kWaitingOnUser);
   EXPECT_TRUE(delegate.requestConfirmationCalled);
-  EXPECT_NSEQ(delegate.confirmationTitle, @"Please review details");
-  EXPECT_EQ(delegate.confirmationSubtitle, nil);
+  EXPECT_NSEQ(delegate.confirmationTitle, @"Input needed");
+  EXPECT_NSEQ(delegate.confirmationSubtitle, @"Please review details");
 }
 
 // Test that interrupting a task in non-executing states is ignored.
@@ -1782,8 +1793,8 @@ TEST_F(ActorTaskTest, InterruptWaitingUserConfirmationFromInit) {
   EXPECT_EQ(observer.oldState, ActorTaskState::kInit);
   EXPECT_EQ(observer.newState, ActorTaskState::kWaitingOnUser);
   EXPECT_TRUE(delegate.requestConfirmationCalled);
-  EXPECT_NSEQ(delegate.confirmationTitle, @"Please confirm before starting");
-  EXPECT_EQ(delegate.confirmationSubtitle, nil);
+  EXPECT_NSEQ(delegate.confirmationTitle, @"Input needed");
+  EXPECT_NSEQ(delegate.confirmationSubtitle, @"Please confirm before starting");
   EXPECT_NSEQ(delegate.confirmationButtonText, @"Continue");
   ASSERT_TRUE(delegate.hasPendingUserIntervention);
 
@@ -1828,7 +1839,8 @@ TEST_F(ActorTaskTest, InterruptIgnoredWhenAlreadyWaitingOnUser) {
 
   EXPECT_EQ(task_->GetState(), ActorTaskState::kWaitingOnUser);
   EXPECT_FALSE(delegate.requestConfirmationCalled);
-  EXPECT_NSEQ(delegate.confirmationTitle, @"Please confirm the purchase");
+  EXPECT_NSEQ(delegate.confirmationTitle, @"Input needed");
+  EXPECT_NSEQ(delegate.confirmationSubtitle, @"Please confirm the purchase");
 }
 
 // Test that notifications posted before the task is destroyed are still

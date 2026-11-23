@@ -135,21 +135,6 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
                                "Safe Browsing Setting After Trigger",
                                "Client Channel", "Time On Page"});
   survey_configs.emplace_back(
-      &features::kHappinessTrackingSurveysForSecurityPage,
-      kHatsSurveyTriggerSettingsSecurityV2,
-      /*presupplied_trigger_id=*/
-      features::kHappinessTrackingSurveysForSecurityPageTriggerId.Get(),
-      std::vector<std::string>{},
-      std::vector<std::string>{
-          "Security page user actions",
-          "Safe browsing setting when security page opened",
-          "Security settings bundle setting when security "
-          "page opened",
-          "Safe browsing setting when security page closed",
-          "Security settings bundle setting when security "
-          "page closed",
-          "Client channel", "Time on page (bucketed seconds)"});
-  survey_configs.emplace_back(
       &features::kHappinessTrackingSurveysForDesktopPrivacyGuide,
       kHatsSurveyTriggerPrivacyGuide);
 
@@ -381,6 +366,38 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       kHatsSurveyTriggerWallpaperSearch);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  // Scheduled Restart survey.
+  // LINT.IfChange(ScheduledRestartHatsPsdFields)
+  survey_configs.emplace_back(
+      &features::kHappinessTrackingSurveysForDesktopScheduledRestart,
+      kHatsSurveyTriggerScheduledRestart,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/
+      std::vector<std::string>{
+          // Whether any incognito window is currently open (excludes Guest).
+          "Incognito window present",
+      },
+      /*product_specific_string_data_fields=*/
+      std::vector<std::string>{
+          "Client channel",
+          // Exponentially bucketed duration in seconds the prompt was visible.
+          "Seconds the prompt was visible",
+          // User action: "restart now", "restart when idle", or "dismiss".
+          "User choice",
+          // Elapsed days since update became available (capped at 90 days).
+          "Days since update became available",
+          // Tab and window counts across all normal browser windows.
+          "Number of open tabs and windows",
+          // Whether the dialog was triggered automatically or manually:
+          // "automatic" or "manual".
+          "Trigger type",
+          // Configured first nudge delay in days.
+          "First nudge delay in days",
+          // Configured nudge cooldown in days.
+          "Nudge cooldown in days",
+      });
+  // LINT.ThenChange(//chrome/browser/ui/views/scheduled_restart/scheduled_restart_hats.h:ScheduledRestartHatsPsdFields)
+
   std::vector<std::string> identity_string_psd_fields{
       "Channel", "Chrome Version", "Number of Chrome Profiles",
       "Number of Google Accounts", "Sign-in Status"};
@@ -724,7 +741,8 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       kHatsSurveyTriggerContextualCueingDismissed,
       /*presupplied_trigger_id=*/std::nullopt,
       /*product_specific_bits_data_fields=*/std::vector<std::string>{},
-      /*product_specific_string_data_fields=*/std::vector<std::string>{"CUJ"});
+      /*product_specific_string_data_fields=*/
+      std::vector<std::string>{"CUJ", "hostname"});
 
 #else  // BUILDFLAG(IS_ANDROID)
   survey_configs.emplace_back(&chrome::android::kChromeSurveyNextAndroid,
@@ -779,17 +797,26 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
           safe_browsing::kReportType, safe_browsing::kTimeWarningVisible,
           safe_browsing::kUserAction, safe_browsing::kUserActivityWithUrls});
 
+#endif  // #if !BUILDFLAG(IS_ANDROID)
+
   // Suspicious Site Warning surveys.
   survey_configs.emplace_back(
       &safe_browsing::kSuspiciousSiteWarningSurvey,
       kHatsSurveyTriggerSuspiciousSiteWarning,
       safe_browsing::kSuspiciousSiteWarningSurveyTriggerId.Get(),
-      std::vector<std::string>{"did_proceed", "learn_more_clicked",
-                               "repeat_visit"},
-      std::vector<std::string>{"site_origin", "user_choice",
-                               "time_prompt_visible", "referrer_origin",
-                               "referring_app"});
-#endif  // #if !BUILDFLAG(IS_ANDROID)
+      std::vector<std::string>{"Did proceed", "Learn more clicked",
+                               "Repeat visit"},
+      std::vector<std::string>{
+          // TODO(crbug.com/516759212): Coarsen site origin and referrer origin
+          // to eTLD+1.
+          "Site origin",
+          "User choice",
+          "Time prompt visible",
+          "Referrer origin",
+#if BUILDFLAG(IS_ANDROID)
+          "Referring app",
+#endif
+      });
 
   auto with_client_context_psd_fields = [](std::vector<std::string> fields) {
     fields.insert(
@@ -863,6 +890,19 @@ std::vector<hats::SurveyConfig> GetAllSurveyConfigs() {
       /*presupplied_trigger_id=*/std::nullopt,
       /*product_specific_bits_data_fields=*/std::vector<std::string>{},
       autofill_personalization_and_trust_product_specific_data);
+  survey_configs.emplace_back(
+      &::autofill::features::
+          kAutofillPersonalizationAndTrustOneTimePasswordSurvey,
+      kHatsSurveyTriggerAutofillPersonalizationAndTrustOneTimePasswordDismissed,
+      /*presupplied_trigger_id=*/std::nullopt,
+      /*product_specific_bits_data_fields=*/std::vector<std::string>{},
+      /*product_specific_string_data_fields=*/
+      with_client_context_psd_fields({
+          // Description of how the OTP suggestion popup was dismissed.
+          "Type of dismissal",
+          // Source of the OTP offer that was dismissed (e.g. Gmail, SMS).
+          "OTP type",
+      }));
   survey_configs.emplace_back(
       &password_manager::features::
           kAutofillPersonalizationAndTrustPasswordSurvey,
@@ -1023,6 +1063,10 @@ void GetActiveSurveyConfigs(SurveyConfigs& survey_configs_by_triggers_) {
 
     survey_configs_by_triggers_.emplace(survey.trigger, survey);
   }
+}
+
+std::vector<SurveyConfig> GetAllSurveyConfigsForTesting() {
+  return GetAllSurveyConfigs();
 }
 
 }  // namespace hats

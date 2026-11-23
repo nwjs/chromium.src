@@ -10,7 +10,7 @@ import 'chrome://resources/cr_elements/icons.html.js';
 import './shared_style.css.js';
 import './checkup_list_item.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
+import {PrefServiceObserverMixin} from '/shared/settings/prefs2/pref_service_observer_mixin.js';
 import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
 import {assert, assertNotReached} from 'chrome://resources/js/assert.js';
@@ -19,8 +19,9 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 
 import {getTemplate} from './checkup_details_section.html.js';
 import type {CheckupListItemElement} from './checkup_list_item.js';
+import {PasswordAutomaticChangeState} from './password_manager.mojom-webui.js';
 import type {CredentialsChangedListener} from './password_manager_proxy.js';
-import {PasswordAutomaticChangeState, PasswordCheckInteraction, PasswordManagerImpl} from './password_manager_proxy.js';
+import {PasswordCheckInteraction, PasswordManagerImpl} from './password_manager_proxy.js';
 import type {Route} from './router.js';
 import {CheckupSubpage, Page, RouteObserverMixin, Router} from './router.js';
 
@@ -51,7 +52,7 @@ export interface CheckupDetailsSectionElement {
 }
 
 const CheckupDetailsSectionElementBase =
-    PrefsMixin(I18nMixin(RouteObserverMixin(PolymerElement)));
+    PrefServiceObserverMixin(I18nMixin(RouteObserverMixin(PolymerElement)));
 
 export class CheckupDetailsSectionElement extends
     CheckupDetailsSectionElementBase {
@@ -112,8 +113,7 @@ export class CheckupDetailsSectionElement extends
 
       isMutingDisabled_: {
         type: Boolean,
-        computed: 'computeIsMutingDisabled_(' +
-            'prefs.profile.password_dismiss_compromised_alert.value)',
+        value: false,
       },
 
       passwordChangeStates_: {
@@ -145,6 +145,11 @@ export class CheckupDetailsSectionElement extends
 
   override connectedCallback() {
     super.connectedCallback();
+
+    this.addPrefObserver<boolean>(
+        'profile.password_dismiss_compromised_alert', pref => {
+          this.isMutingDisabled_ = !pref.value;
+        });
 
     const updateGroups = () => {
       PasswordManagerImpl.getInstance().getCredentialGroups().then(
@@ -366,10 +371,6 @@ export class CheckupDetailsSectionElement extends
 
   private getShowHideTitle_(): string {
     return this.activeListItem_?.getShowHideButtonLabel() || '';
-  }
-
-  private computeIsMutingDisabled_(): boolean {
-    return !this.getPref('profile.password_dismiss_compromised_alert').value;
   }
 
   private getMuteUnmuteLabel_(): string {

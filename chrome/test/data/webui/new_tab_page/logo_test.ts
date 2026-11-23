@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'chrome://new-tab-page/lazy_load.js';
+
 import type {SkColor} from '//resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
 import type {Doodle, LogoElement, Theme} from 'chrome://new-tab-page/new_tab_page.js';
-import {$$, DoodleImageType, DoodleShareChannel, NewTabPageProxy, PageCallbackRouter, PageHandlerRemote, WindowProxy} from 'chrome://new-tab-page/new_tab_page.js';
+import {$$, DoodleImageType, DoodleShareChannel, newTabPageProxyFactory, PageHandlerRemote, WindowProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import {hexColorToSkColor} from 'chrome://resources/js/color_utils.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
@@ -93,9 +95,11 @@ suite('NewTabPageLogoTest', () => {
 
     windowProxy = installMock(WindowProxy);
     windowProxy.setResultFor('createIframeSrc', '');
+    windowProxy.setPromiseResolveFor('ensureLazyLoaded');
     handler = installMock(
         PageHandlerRemote,
-        mock => NewTabPageProxy.setInstance(mock, new PageCallbackRouter()));
+        mock => newTabPageProxyFactory.setInstance(
+            newTabPageProxyFactory.createForTest(mock).instance));
     handler.setPromiseResolveFor('onDoodleImageRendered', {
       imageClickParams: '',
       interactionLogUrl: null,
@@ -451,11 +455,22 @@ suite('NewTabPageLogoTest', () => {
 
   test('clicking share button adds share dialog', async () => {
     // Arrange.
+    const lazyLoadResolver = new PromiseResolver<void>();
+    windowProxy.resetResolver('ensureLazyLoaded');
+    windowProxy.setResultFor('ensureLazyLoaded', lazyLoadResolver.promise);
     const doodle = createImageDoodle();
     const logo = await createLogo(doodle, createTheme({isDark: false}));
 
     // Act.
     $$<HTMLElement>(logo, '#shareButton')!.click();
+    await microtasksFinished();
+
+    // Assert: dialog is not stamped until ensureLazyLoaded resolves.
+    assertEquals(1, windowProxy.getCallCount('ensureLazyLoaded'));
+    assertFalse(!!logo.shadowRoot.querySelector('ntp-doodle-share-dialog'));
+
+    // Act.
+    lazyLoadResolver.resolve();
     await microtasksFinished();
 
     // Assert.

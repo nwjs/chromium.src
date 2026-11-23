@@ -7,11 +7,14 @@
 #include <memory>
 #include <ranges>
 
+#include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "testing/gmock/include/gmock/gmock-matchers.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_utilities.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
+#include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
 #include "third_party/blink/renderer/core/html/media/html_media_element.h"
@@ -1317,8 +1320,8 @@ TEST_F(AccessibilityTest, ComputedDetailsRelationWithDisplayLockedHintPopover) {
     ScopedFreezeAXCache freeze(GetAXObjectCache());
     ui::AXNodeData node_data;
     ax_button->Serialize(&node_data, ui::kAXModeComplete);
-    return node_data.GetIntListAttribute(
-        ax::mojom::IntListAttribute::kDetailsIds);
+    return base::ToVector(node_data.GetIntListAttribute(
+        ax::mojom::IntListAttribute::kDetailsIds));
   };
 
   // popovertarget: the hint is open in the DOM but absent from the AX tree.
@@ -1381,8 +1384,8 @@ TEST_F(AccessibilityTest, ComputedDetailsRelationForPlainContentPopover) {
     ScopedFreezeAXCache freeze(GetAXObjectCache());
     ui::AXNodeData node_data;
     ax_button->Serialize(&node_data, ui::kAXModeComplete);
-    return node_data.GetIntListAttribute(
-        ax::mojom::IntListAttribute::kDetailsIds);
+    return base::ToVector(node_data.GetIntListAttribute(
+        ax::mojom::IntListAttribute::kDetailsIds));
   };
 
   const std::vector<int32_t> manual_popover_ids = {
@@ -1918,11 +1921,13 @@ TEST_F(AccessibilityTest, ScrollToMakeVisible) {
 
   // 1. `ScrollToMakeVisible()` on a `LayoutBox` (`#target`) whose top edge
   // (`250px`) is inside the `300px` scroller but whose bottom (`450px`) extends
-  // below the scroller should scroll the full bounding box into view.
+  // below the scroller should center `#target` vertically in the scroller
+  // (`scrollTop = 250 + 100 - 150 = 200`), rather than stopping as soon as the
+  // bottom edge enters the scroller (`scrollTop = 450 - 300 = 150`).
   ASSERT_EQ(scroller->scrollTop(), 0);
   WebAXObject ax_target = WebAXObject::FromWebNode(target);
   ax_target.ScrollToMakeVisible();
-  ASSERT_GT(scroller->scrollTop(), 0);
+  EXPECT_EQ(scroller->scrollTop(), 200);
 
   // 2. `ScrollToMakeVisible()` on a `LayoutInline` (`#inline_target`) located
   // 800px down inside `#inline_container` (whose own top-left origin is at y=0)
@@ -1932,6 +1937,83 @@ TEST_F(AccessibilityTest, ScrollToMakeVisible) {
   WebAXObject ax_inline_target = WebAXObject::FromWebNode(inline_target);
   ax_inline_target.ScrollToMakeVisible();
   EXPECT_GT(scroller->scrollTop(), 500);
+}
+
+TEST_F(AccessibilityTest, ScrollToMakeVisibleCentersPartiallyOffscreenTarget) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    #scroller {
+      overflow: auto;
+      height: 200px;
+      width: 200px;
+    }
+    #target {
+      margin-top: 180px;
+      height: 60px;
+      width: 100px;
+      scroll-margin: 0px;
+    }
+    .spacer {
+      height: 1000px;
+    }
+    </style>
+    <div id="scroller">
+      <div id="target">Partially offscreen</div>
+      <div class="spacer"></div>
+    </div>
+  )HTML");
+
+  Element* scroller = GetElementById("scroller");
+  Element* target = GetElementById("target");
+  WebAXObject ax_target = WebAXObject::FromWebNode(target);
+
+  // `#target` spans `[180, 240]` in a `200px` viewport (partially visible at
+  // the bottom of the viewport). `ScrollToMakeVisible()` defaults to centering
+  // (`scrollTop = 180 + 30 - 100 = 110`), placing `#target` at `[70, 130]` in
+  // the middle of the viewport rather than stopping at the bottom edge
+  // (`scrollTop = 180 + 60 - 200 = 40`, which would leave `#target` at
+  // `[140, 200]`).
+  ASSERT_EQ(scroller->scrollTop(), 0);
+  ax_target.ScrollToMakeVisible();
+  EXPECT_EQ(scroller->scrollTop(), 110);
+
+  // Explicit `kScrollAlignmentClosestEdge` aligns the bottom edge with the
+  // bottom of the viewport (`scrollTop = 180 + 60 - 200 = 40`).
+  scroller->setScrollTop(0);
+  ASSERT_EQ(scroller->scrollTop(), 0);
+  ax_target.ScrollToMakeVisible(
+      ax::mojom::blink::ScrollAlignment::kScrollAlignmentClosestEdge,
+      ax::mojom::blink::ScrollAlignment::kScrollAlignmentClosestEdge,
+      ax::mojom::blink::ScrollBehavior::kDoNotScrollIfVisible);
+  EXPECT_EQ(scroller->scrollTop(), 40);
+
+  // Single-axis `kNone` on horizontal with `kScrollAlignmentTop` on vertical
+  // (used by Read Anything) aligns the top edge (`scrollTop = 180`).
+  scroller->setScrollTop(0);
+  ASSERT_EQ(scroller->scrollTop(), 0);
+  ax_target.ScrollToMakeVisible(
+      ax::mojom::blink::ScrollAlignment::kNone,
+      ax::mojom::blink::ScrollAlignment::kScrollAlignmentTop,
+      ax::mojom::blink::ScrollBehavior::kDoNotScrollIfVisible);
+  EXPECT_EQ(scroller->scrollTop(), 180);
+
+  // When `#target` (`[180, 240]`) is already fully visible inside `[110, 310]`,
+  // `kDoNotScrollIfVisible` does not scroll, whereas `kScrollIfVisible` scrolls
+  // `#target` to the requested alignment (`scrollTop = 180` for
+  // `kScrollAlignmentTop`).
+  scroller->setScrollTop(110);
+  ASSERT_EQ(scroller->scrollTop(), 110);
+  ax_target.ScrollToMakeVisible(
+      ax::mojom::blink::ScrollAlignment::kScrollAlignmentCenter,
+      ax::mojom::blink::ScrollAlignment::kScrollAlignmentTop,
+      ax::mojom::blink::ScrollBehavior::kDoNotScrollIfVisible);
+  EXPECT_EQ(scroller->scrollTop(), 110);
+
+  ax_target.ScrollToMakeVisible(
+      ax::mojom::blink::ScrollAlignment::kScrollAlignmentCenter,
+      ax::mojom::blink::ScrollAlignment::kScrollAlignmentTop,
+      ax::mojom::blink::ScrollBehavior::kScrollIfVisible);
+  EXPECT_EQ(scroller->scrollTop(), 180);
 }
 
 TEST_F(AccessibilityTest, ScrollToMakeVisibleWithSubFocus) {
@@ -3471,6 +3553,267 @@ TEST_F(AccessibilityTest, InterestForRichHintIncrementalUpdates) {
   ax_other_popover = find_update("otherPopover");
   ASSERT_NE(nullptr, ax_other_popover);
   EXPECT_EQ(ax::mojom::blink::Role::kGroup, ax_other_popover->role);
+}
+
+TEST_F(AccessibilityTest, ClearChildrenDetachesIncludedAndUnincludedChildren) {
+  SetBodyInnerHTML(R"HTML(
+      <div id="parent" role="group">
+        <span id="unincluded" role="none">
+          <button id="grandchild">Grandchild</button>
+        </span>
+        <button id="included">Included</button>
+      </div>
+      )HTML");
+
+  AXObject* parent = GetAXObjectByElementId("parent");
+  ASSERT_NE(nullptr, parent);
+  AXObject* unincluded = GetAXObjectByElementId("unincluded");
+  ASSERT_NE(nullptr, unincluded);
+  AXObject* included = GetAXObjectByElementId("included");
+  ASSERT_NE(nullptr, included);
+
+  ASSERT_TRUE(parent->IsIncludedInTree());
+  ASSERT_FALSE(unincluded->IsIncludedInTree());
+  ASSERT_TRUE(included->IsIncludedInTree());
+  EXPECT_EQ(parent, unincluded->ParentObjectIfPresent());
+  EXPECT_EQ(parent, included->ParentObjectIfPresent());
+
+  // First `ClearChildren()` detaches both included and unincluded DOM children.
+  parent->ClearChildren();
+  EXPECT_EQ(nullptr, unincluded->ParentObjectIfPresent());
+  EXPECT_EQ(nullptr, included->ParentObjectIfPresent());
+
+  // Calling `ClearChildren()` again when no children are attached is a no-op.
+  parent->ClearChildren();
+  EXPECT_EQ(nullptr, unincluded->ParentObjectIfPresent());
+  EXPECT_EQ(nullptr, included->ParentObjectIfPresent());
+
+  // Re-adding children via `UpdateAXForAllDocuments()` re-attaches existing
+  // child AXObjects via `SetParent()`, and a subsequent `ClearChildren()` must
+  // again detach both included and unincluded DOM children.
+  parent->ChildrenChangedWithCleanLayout();
+  GetAXObjectCache().UpdateAXForAllDocuments();
+  EXPECT_EQ(parent, unincluded->ParentObjectIfPresent());
+  EXPECT_EQ(parent, included->ParentObjectIfPresent());
+
+  parent->ClearChildren();
+  EXPECT_EQ(nullptr, unincluded->ParentObjectIfPresent());
+  EXPECT_EQ(nullptr, included->ParentObjectIfPresent());
+}
+
+TEST_F(AccessibilityTest, SetAncestorsHaveDirtyDescendantsAndDynamicInclusion) {
+  SetBodyInnerHTML(R"HTML(
+      <main id="main">
+        <div id="ignored_included" role="none" lang="en">
+          <span>
+            <button id="leaf_1">One</button>
+            <button id="leaf_2">Two</button>
+          </span>
+        </div>
+        <div role="radiogroup" id="rg">
+          <div role="radio" id="radio_1">Choice 1</div>
+        </div>
+      </main>)HTML");
+
+  auto& cache = GetAXObjectCache();
+  AXObject* root = cache.Root();
+  ASSERT_NE(nullptr, root);
+  AXObject* main = GetAXObjectByElementId("main");
+  ASSERT_NE(nullptr, main);
+  AXObject* ignored_included = cache.Get(GetElementById("ignored_included"));
+  ASSERT_NE(nullptr, ignored_included);
+  ASSERT_TRUE(ignored_included->IsIgnored());
+  ASSERT_TRUE(ignored_included->IsIncludedInTree());
+
+  Element* unincluded_element =
+      GetDocument().QuerySelector(AtomicString("span"));
+  ASSERT_NE(nullptr, unincluded_element);
+  AXObject* unincluded = cache.Get(unincluded_element);
+  ASSERT_NE(nullptr, unincluded);
+  ASSERT_FALSE(unincluded->IsIncludedInTree());
+
+  AXObject* leaf_1 = GetAXObjectByElementId("leaf_1");
+  ASSERT_NE(nullptr, leaf_1);
+  AXObject* leaf_2 = GetAXObjectByElementId("leaf_2");
+  ASSERT_NE(nullptr, leaf_2);
+
+  // 1. Dirtying a leaf propagates `HasDirtyDescendants()` through unincluded
+  // ancestors to all included ancestors up to `Root()`.
+  leaf_1->SetNeedsToUpdateChildren();
+  EXPECT_FALSE(leaf_1->HasDirtyDescendants());
+  EXPECT_FALSE(unincluded->HasDirtyDescendants());
+  EXPECT_TRUE(ignored_included->HasDirtyDescendants());
+  EXPECT_TRUE(main->HasDirtyDescendants());
+  EXPECT_TRUE(root->HasDirtyDescendants());
+
+  // Dirtying a sibling leaf stops at the already-dirty included ancestor while
+  // preserving the upward invariant across the ancestor chain.
+  leaf_2->SetNeedsToUpdateChildren();
+  EXPECT_TRUE(ignored_included->HasDirtyDescendants());
+  EXPECT_TRUE(main->HasDirtyDescendants());
+  EXPECT_TRUE(root->HasDirtyDescendants());
+
+  // 2. When an unincluded node dynamically becomes included in the tree while
+  // its ignored-but-included parent has dirty descendants, it inherits
+  // `HasDirtyDescendants()` during deferred update processing so
+  // `FinalizeTree()` continues down to update `leaf_1` and `leaf_2`.
+  unincluded_element->setAttribute(html_names::kAriaLabelAttr,
+                                   AtomicString("label"));
+  cache.UpdateAXForAllDocuments();
+  EXPECT_TRUE(unincluded->IsIncludedInTree());
+  EXPECT_FALSE(unincluded->HasDirtyDescendants());
+  EXPECT_FALSE(leaf_1->NeedsToUpdateChildren());
+  EXPECT_FALSE(leaf_2->NeedsToUpdateChildren());
+  EXPECT_FALSE(ignored_included->HasDirtyDescendants());
+  EXPECT_FALSE(main->HasDirtyDescendants());
+  EXPECT_FALSE(root->HasDirtyDescendants());
+
+  // 3. If an ancestor already has `NeedsToUpdateChildren()` set before
+  // `MarkDocumentDirty()`, `MarkDocumentDirtyWithCleanLayout()` still sets
+  // `HasDirtyDescendants()` on that ancestor so subsequent dirty-descendant
+  // propagation on deeper nodes does not leave a gap in the ancestor chain.
+  main->SetNeedsToUpdateChildren();
+  ASSERT_TRUE(main->NeedsToUpdateChildren());
+  ASSERT_FALSE(main->HasDirtyDescendants());
+
+  cache.MarkDocumentDirty();
+  cache.UpdateAXForAllDocuments();
+
+  EXPECT_FALSE(main->NeedsToUpdateChildren());
+  EXPECT_FALSE(main->HasDirtyDescendants());
+  EXPECT_FALSE(root->HasDirtyDescendants());
+
+  // 4. When a sibling under `main` is dirtied (marking `main` dirty while
+  // leaving `ignored_included` clean), an unincluded node becoming included
+  // under `ignored_included` must not copy `HasDirtyDescendants()` from `main`
+  // while leaving `ignored_included` clean; otherwise dirtying a descendant
+  // under that node would stop early and skip `ignored_included`.
+  unincluded_element->removeAttribute(html_names::kAriaLabelAttr);
+  cache.UpdateAXForAllDocuments();
+  unincluded = cache.Get(unincluded_element);
+  ASSERT_NE(nullptr, unincluded);
+  ASSERT_FALSE(unincluded->IsIncludedInTree());
+  ASSERT_FALSE(ignored_included->HasDirtyDescendants());
+  ASSERT_FALSE(main->HasDirtyDescendants());
+
+  GetElementById("rg")->setAttribute(html_names::kAriaLabelAttr,
+                                     AtomicString("Updated sibling"));
+  unincluded_element->setAttribute(html_names::kIdAttr,
+                                   AtomicString("wrapper"));
+  GetElementById("leaf_1")->setAttribute(html_names::kAriaLabelAttr,
+                                         AtomicString("Updated descendant"));
+  cache.UpdateAXForAllDocuments();
+
+  unincluded = cache.Get(unincluded_element);
+  ASSERT_NE(nullptr, unincluded);
+  EXPECT_TRUE(unincluded->IsIncludedInTree());
+  EXPECT_FALSE(unincluded->HasDirtyDescendants());
+  EXPECT_FALSE(ignored_included->HasDirtyDescendants());
+  EXPECT_FALSE(main->HasDirtyDescendants());
+  EXPECT_FALSE(root->HasDirtyDescendants());
+}
+
+TEST_F(AccessibilityTest, FilterableSelectControlsAndRole) {
+  ScopedFilterableSelectForTest filterable_select_enabled(true);
+  SetBodyInnerHTML(R"HTML(
+    <input id="input1" filter="select1">
+    <select id="select1" size="4">
+      <option>one</option>
+      <option>two</option>
+    </select>
+
+    <select id="select2" style="appearance: base-select">
+      <input id="input2">
+      <option>one</option>
+      <option>two</option>
+    </select>
+
+    <select id="select3" size="4">
+      <input id="input3">
+      <option>one</option>
+      <option>two</option>
+    </select>
+
+    <input type="checkbox" id="checkbox" filter="select1">
+  )HTML");
+
+  AXObjectCacheImpl& cache = GetAXObjectCache();
+  cache.UpdateAXForAllDocuments();
+
+  // 1. External <input filter="select1"> targeting <select id="select1"
+  // size="4">.
+  AXObject* ax_input1 = GetAXObjectByElementId("input1");
+  AXObject* ax_select1 = GetAXObjectByElementId("select1");
+  ASSERT_NE(nullptr, ax_input1);
+  ASSERT_NE(nullptr, ax_select1);
+  EXPECT_EQ(ax::mojom::blink::Role::kTextField, ax_input1->RoleValue());
+  EXPECT_EQ(ax::mojom::blink::Role::kListBox, ax_select1->RoleValue());
+
+  // 2. Nested <input> inside dropdown <select id="select2">.
+  auto* select2 = To<HTMLSelectElement>(GetElementById("select2"));
+  ASSERT_NE(nullptr, select2->ListBoxForFilter());
+  AXObject* ax_input2 = GetAXObjectByElementId("input2");
+  AXObject* ax_listbox2 = cache.Get(select2->ListBoxForFilter());
+  ASSERT_NE(nullptr, ax_input2);
+  ASSERT_NE(nullptr, ax_listbox2);
+  EXPECT_EQ(ax::mojom::blink::Role::kTextField, ax_input2->RoleValue());
+  EXPECT_EQ(ax::mojom::blink::Role::kListBox, ax_listbox2->RoleValue());
+
+  // 3. Nested <input> inside listbox <select id="select3" size="4">.
+  auto* select3 = To<HTMLSelectElement>(GetElementById("select3"));
+  ASSERT_NE(nullptr, select3->ListBoxForFilter());
+  AXObject* ax_input3 = GetAXObjectByElementId("input3");
+  AXObject* ax_listbox3 = cache.Get(select3->ListBoxForFilter());
+  ASSERT_NE(nullptr, ax_input3);
+  ASSERT_NE(nullptr, ax_listbox3);
+  EXPECT_EQ(ax::mojom::blink::Role::kTextField, ax_input3->RoleValue());
+  EXPECT_EQ(ax::mojom::blink::Role::kListBox, ax_listbox3->RoleValue());
+
+  // 4. Non-textfield <input type="checkbox" filter="select1"> should not get
+  // controlsIds.
+  AXObject* ax_checkbox = GetAXObjectByElementId("checkbox");
+  ASSERT_NE(nullptr, ax_checkbox);
+
+  {
+    ScopedFreezeAXCache freeze(cache);
+
+    ui::AXNodeData node_data1;
+    ax_input1->Serialize(&node_data1, ui::kAXModeComplete);
+    EXPECT_THAT(node_data1.GetIntListAttribute(
+                    ax::mojom::blink::IntListAttribute::kControlsIds),
+                testing::ElementsAre(ax_select1->AXObjectID()));
+
+    ui::AXNodeData node_data2;
+    ax_input2->Serialize(&node_data2, ui::kAXModeComplete);
+    EXPECT_THAT(node_data2.GetIntListAttribute(
+                    ax::mojom::blink::IntListAttribute::kControlsIds),
+                testing::ElementsAre(ax_listbox2->AXObjectID()));
+
+    ui::AXNodeData node_data3;
+    ax_input3->Serialize(&node_data3, ui::kAXModeComplete);
+    EXPECT_THAT(node_data3.GetIntListAttribute(
+                    ax::mojom::blink::IntListAttribute::kControlsIds),
+                testing::ElementsAre(ax_listbox3->AXObjectID()));
+
+    ui::AXNodeData checkbox_data;
+    ax_checkbox->Serialize(&checkbox_data, ui::kAXModeComplete);
+    EXPECT_FALSE(checkbox_data.HasIntListAttribute(
+        ax::mojom::blink::IntListAttribute::kControlsIds));
+  }
+
+  // 5. Updating the filter attribute marks the input dirty and updates
+  // controlsIds.
+  GetElementById("input1")->setAttribute(html_names::kFilterAttr,
+                                         AtomicString("select3"));
+  cache.UpdateAXForAllDocuments();
+  {
+    ScopedFreezeAXCache freeze(cache);
+    ui::AXNodeData node_data1;
+    ax_input1->Serialize(&node_data1, ui::kAXModeComplete);
+    EXPECT_THAT(node_data1.GetIntListAttribute(
+                    ax::mojom::blink::IntListAttribute::kControlsIds),
+                testing::ElementsAre(ax_listbox3->AXObjectID()));
+  }
 }
 
 }  // namespace test

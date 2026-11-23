@@ -23,12 +23,12 @@ class MostVisitedSites;
 // Provides the list of most visited sites and their thumbnails to Java.
 class MostVisitedSitesBridge {
  public:
-  MostVisitedSitesBridge(Profile* profile, bool enable_custom_links);
+  explicit MostVisitedSitesBridge(Profile* profile);
 
   MostVisitedSitesBridge(const MostVisitedSitesBridge&) = delete;
   MostVisitedSitesBridge& operator=(const MostVisitedSitesBridge&) = delete;
 
-  void Destroy();
+  ~MostVisitedSitesBridge();
 
   void OnHomepageStateChanged();
 
@@ -71,8 +71,6 @@ class MostVisitedSitesBridge {
   double GetSuggestionScore(const GURL& url);
 
  private:
-  ~MostVisitedSitesBridge();
-
   class JavaObserver;
   std::unique_ptr<JavaObserver> java_observer_;
 

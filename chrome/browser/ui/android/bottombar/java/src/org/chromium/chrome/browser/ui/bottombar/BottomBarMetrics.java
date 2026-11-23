@@ -4,12 +4,14 @@
 
 package org.chromium.chrome.browser.ui.bottombar;
 
+import android.content.Context;
+
 import androidx.annotation.IntDef;
 import androidx.annotation.StringDef;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.chrome.browser.glic.GlicButtonStateController;
+import org.chromium.chrome.browser.glic.toolbar_button.GlicButtonStateController;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -30,24 +32,75 @@ public class BottomBarMetrics {
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidBottomBarPromoEvent)
 
+    // LINT.IfChange(AndroidBottomBarEducationOnboardingEvent)
+    /** Events associated with the bottom bar education bubble and opt-in dialog. */
+    @IntDef({
+        EducationOnboardingEvent.SHOWN,
+        EducationOnboardingEvent.ACCEPTED,
+        EducationOnboardingEvent.DECLINED,
+        EducationOnboardingEvent.SETTINGS_CLICKED,
+        EducationOnboardingEvent.DISMISSED_OTHER,
+        EducationOnboardingEvent.TAPPED_SCRIM,
+        EducationOnboardingEvent.TAPPED_BOTTOM_BAR,
+        EducationOnboardingEvent.BACK_PRESSED
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface EducationOnboardingEvent {
+        int SHOWN = 0;
+        int ACCEPTED = 1;
+        int DECLINED = 2;
+        int SETTINGS_CLICKED = 3;
+        int DISMISSED_OTHER = 4;
+        int TAPPED_SCRIM = 5;
+        int TAPPED_BOTTOM_BAR = 6;
+        int BACK_PRESSED = 7;
+        int COUNT = 8;
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidBottomBarEducationOnboardingEvent)
+
+    // LINT.IfChange(AndroidBottomBarEducationOnboardingType)
+    /** The education UI that recorded the event; the {OnboardingType} histogram variant. */
+    @StringDef({
+        EducationOnboardingType.DEFAULT_BUBBLE,
+        EducationOnboardingType.GEMINI_BUBBLE,
+        EducationOnboardingType.OPT_IN_DIALOG
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface EducationOnboardingType {
+        String DEFAULT_BUBBLE = "DefaultBubble";
+        String GEMINI_BUBBLE = "GeminiBubble";
+        String OPT_IN_DIALOG = "OptInDialog";
+    }
+
+    // LINT.ThenChange(//tools/metrics/histograms/metadata/android/histograms.xml:AndroidBottomBarEducationOnboardingType)
+
     // LINT.IfChange(AndroidBottomBarIphEvent)
-    /** Events representing showing or dismissing Bottom Bar In-Product Helps (IPH). */
-    @IntDef({IphEvent.SHOWN, IphEvent.DISMISSED})
+    /** Events representing showing, dismissing, or acting on Bottom Bar In-Product Helps (IPH). */
+    @IntDef({IphEvent.SHOWN, IphEvent.DISMISSED, IphEvent.MOVED_TO_BOTTOM})
     @Retention(RetentionPolicy.SOURCE)
     public @interface IphEvent {
         int SHOWN = 0;
         int DISMISSED = 1;
-        int COUNT = 2;
+        int MOVED_TO_BOTTOM = 2;
+        int COUNT = 3;
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidBottomBarIphEvent)
 
     // LINT.IfChange(AndroidBottomBarIphFeature)
-    @StringDef({IphFeature.GLIC, IphFeature.NEW_TAB})
+    @StringDef({
+        IphFeature.ADDRESS_BAR,
+        IphFeature.GLIC,
+        IphFeature.NEW_TAB,
+        IphFeature.TAB_SWITCHER
+    })
     @Retention(RetentionPolicy.SOURCE)
     public @interface IphFeature {
+        String ADDRESS_BAR = "AddressBar";
         String GLIC = "Glic";
         String NEW_TAB = "NewTab";
+        String TAB_SWITCHER = "TabSwitcher";
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/histograms.xml:AndroidBottomBarIphFeature)
@@ -116,6 +169,18 @@ public class BottomBarMetrics {
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidBottomBarGlicIneligibilityReason)
 
     /**
+     * Records whether the bottom bar is enabled on an eligible device when bottom controls are
+     * initialized.
+     *
+     * @param context The context to check device eligibility against.
+     */
+    public static void maybeRecordEnabledState(Context context) {
+        if (!BottomBarConfigUtils.isBottomBarEligible(context)) return;
+        RecordHistogram.recordBooleanHistogram(
+                "Android.BottomBar.EnabledState", BottomBarConfigUtils.isBottomBarEnabled(context));
+    }
+
+    /**
      * Records the visual state of the Glic button in the bottom bar at the moment of the user
      * click.
      *
@@ -169,10 +234,25 @@ public class BottomBarMetrics {
     }
 
     /**
+     * Records education dialog and bubble events.
+     *
+     * @param onboardingType The onboarding type (e.g. "DefaultBubble", "OptInDialog").
+     * @param event The event type.
+     */
+    public static void recordEducationOnboardingEvent(
+            @EducationOnboardingType String onboardingType, @EducationOnboardingEvent int event) {
+        RecordHistogram.recordEnumeratedHistogram(
+                "Android.BottomBar.Education.Onboarding." + onboardingType + ".Event",
+                event,
+                EducationOnboardingEvent.COUNT);
+    }
+
+    /**
      * Records In-Product Help (IPH) trigger events for Bottom Bar actions.
      *
-     * @param event The IPH event (Shown or Dismissed).
-     * @param featureType The feature type suffix for the histogram (e.g. "Glic", "NewTab").
+     * @param event The IPH event (Shown, Dismissed, or MovedToBottom).
+     * @param featureType The feature type suffix for the histogram (e.g. "AddressBar", "Glic",
+     *     "NewTab").
      */
     public static void recordIphEvent(@IphEvent int event, @IphFeature String featureType) {
         RecordHistogram.recordEnumeratedHistogram(

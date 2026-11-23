@@ -10,12 +10,20 @@
   -->
   <meta name="responsive-embedded-sizing" content="allow-origins=*">
   <title>Context Library</title>
+  <script src="color_scheme.js"></script>
   <style>
+    html {
+      color-scheme: light;
+    }
+
+    html[dark-mode] {
+      color-scheme: light dark;
+    }
+
     html,
     body {
       align-items: center;
       background-color: transparent;
-      color-scheme: light dark;
       display: flex;
       height: 100%;
       justify-content: center;
@@ -30,6 +38,5 @@
 <body>
   <context-library></context-library>
   <script type="module" src="context_library.js"></script>
-  <script type="module" src="post_message_entrypoint.js"></script>
 </body>
 </html>

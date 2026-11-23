@@ -13,10 +13,11 @@
 
 namespace device {
 
-// Timeout for waiting for a swapchain image. 50ms is chosen to be long enough
-// to avoid false positives on slow frames, but short enough to avoid ANR.
+// Timeout for waiting for a swapchain image. 1000ms is chosen to be long enough
+// to avoid false positives on heavy GPU frames, but well below Android's 5s ANR
+// timeout.
 constexpr XrDuration kSwapchainWaitTimeout =
-    base::Milliseconds(50).InNanoseconds();
+    base::Milliseconds(1000).InNanoseconds();
 
 // static
 OpenXrCompositionLayer::Type OpenXrCompositionLayer::GetTypeFromMojomData(
@@ -45,8 +46,12 @@ OpenXrCompositionLayer::OpenXrCompositionLayer(
   type_ = GetTypeFromMojomData(*creation_data_->mutable_data->layer_data);
 
   // Projection layers will have same size as the base layer, and will
-  // be set later.
-  if (type_ != Type::kProjection) {
+  // be set later, though their initial transfer size comes from the layer
+  // creation data.
+  if (type_ == Type::kProjection) {
+    SetTransferSize(gfx::Size(read_only_data().texture_width,
+                              read_only_data().texture_height));
+  } else {
     SetSwapchainImageSize(gfx::Size(read_only_data().texture_width,
                                     read_only_data().texture_height));
   }

@@ -137,7 +137,7 @@ class AccountReconcilorLockWrapper
  public:
   explicit AccountReconcilorLockWrapper(
       const content::WebContents::Getter& web_contents_getter) {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
     content::WebContents* web_contents = web_contents_getter.Run();
     if (!web_contents)
       return;
@@ -163,7 +163,7 @@ class AccountReconcilorLockWrapper
  private:
   friend class base::RefCountedThreadSafe<AccountReconcilorLockWrapper>;
   ~AccountReconcilorLockWrapper() {
-    DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+    CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   }
 
   std::unique_ptr<AccountReconcilor::Lock> account_reconcilor_lock_;
@@ -251,10 +251,10 @@ void ProcessMirrorHeader(
     ManageAccountsParams manage_accounts_params,
     const content::WebContents::Getter& web_contents_getter,
     const std::optional<url::Origin>& request_initiator) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
 
   GAIAServiceType service_type = manage_accounts_params.service_type;
-  DCHECK_NE(GAIA_SERVICE_TYPE_NONE, service_type);
+  CHECK_NE(GAIA_SERVICE_TYPE_NONE, service_type, base::NotFatalUntil::M162);
 
   content::WebContents* web_contents = web_contents_getter.Run();
   if (!web_contents)
@@ -396,7 +396,7 @@ void ProcessMirrorHeader(
   if (service_type == signin::GAIA_SERVICE_TYPE_INCOGNITO) {
     web_contents->OpenURL(
         content::OpenURLParams::CreateBrowserInitiated(
-            continue_url, WindowOpenDisposition::OFF_THE_RECORD,
+            continue_url, WindowOpenDisposition::kOffTheRecord,
             ui::PAGE_TRANSITION_AUTO_TOPLEVEL),
         /*navigation_handle_callback=*/{});
     return;
@@ -472,7 +472,7 @@ void ProcessMirrorHeader(
 void ProcessDiceHeader(
     DiceResponseParams dice_params,
     const content::WebContents::Getter& web_contents_getter) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
 
   content::WebContents* web_contents = web_contents_getter.Run();
   if (!web_contents)
@@ -480,7 +480,7 @@ void ProcessDiceHeader(
 
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  DCHECK(!profile->IsOffTheRecord());
+  CHECK(!profile->IsOffTheRecord(), base::NotFatalUntil::M162);
 
   // Ignore Dice response headers if Dice is not enabled.
   if (!AccountConsistencyModeManager::IsDiceEnabledForProfile(profile))
@@ -628,7 +628,7 @@ void ProcessRemoveLocalAccountResponseHeaderIfExists(ResponseAdapter* response,
 
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
-  DCHECK(!profile->IsOffTheRecord());
+  CHECK(!profile->IsOffTheRecord(), base::NotFatalUntil::M162);
 
   IdentityManagerFactory::GetForProfile(profile)
       ->GetAccountsCookieMutator()
@@ -666,7 +666,7 @@ void FixAccountConsistencyRequestHeader(
     const GaiaId& primary_account_gaia_id,
     ConsentLevel primary_account_consent_level,
     signin::Tribool is_child_account,
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(ENABLE_MIRROR)
     bool is_secondary_account_addition_allowed,
 #endif
     bool is_sync_feature_enabled,
@@ -688,7 +688,7 @@ void FixAccountConsistencyRequestHeader(
     profile_mode_mask |= PROFILE_MODE_INCOGNITO_DISABLED;
   }
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(ENABLE_MIRROR)
   if (!is_secondary_account_addition_allowed) {
     account_consistency = AccountConsistencyMethod::kMirror;
     // Can't add new accounts.

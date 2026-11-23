@@ -9,11 +9,14 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include "base/barrier_callback.h"
 #include "base/check.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
@@ -29,6 +32,7 @@
 #include "base/state_transitions.h"
 #include "base/strings/string_split.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/task/task_traits.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/expected.h"
@@ -43,7 +47,7 @@
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/site_policy.h"
-#include "chrome/browser/actor/tools/attempt_login_tool.h"
+#include "chrome/browser/actor/tools/password_manager/attempt_login/attempt_login_tool.h"
 #include "chrome/browser/actor/tools/tool_controller.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/ui/event_dispatcher.h"
@@ -88,6 +92,8 @@
 #include "components/password_manager/core/browser/actor_login/actor_login_types.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/browser_task_traits.h"
+#include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -99,6 +105,7 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/mime_util/mime_util.h"
 #include "ui/event_dispatcher.h"
@@ -121,7 +128,6 @@ using origin_gating::CustomPredicate;
 using origin_gating::DecisionSource;
 using origin_gating::GateableEvent;
 using origin_gating::GateableEventSet;
-using tabs::TabInterface;
 
 namespace actor {
 
@@ -232,9 +238,16 @@ ExecutionEngine::NavigationDecisionCallback TrackPendingNavigation(
 
 struct OriginGatingDecisionContext
     : public origin_gating::GatingDecisionContext {
+  explicit OriginGatingDecisionContext(bool is_dry_run = false)
+      : is_dry_run(is_dry_run) {}
+  ~OriginGatingDecisionContext() override = default;
+
   // Whether the destination origin is considered sensitive. Nullopt until
   // optimization guide has been queried.
   std::optional<bool> destination_is_sensitive;
+  // When true, the evaluation must not prompt the user or mutate the origin
+  // gating cache.
+  const bool is_dry_run = false;
 };
 
 struct NavigationResponseContext : public OriginGatingDecisionContext {
@@ -259,8 +272,10 @@ struct NavigationResponseContext : public OriginGatingDecisionContext {
 // it.
 struct PageActionGatingContext : public OriginGatingDecisionContext {
   explicit PageActionGatingContext(
-      base::WeakPtr<content::WebContents> web_contents)
-      : web_contents(std::move(web_contents)) {}
+      base::WeakPtr<content::WebContents> web_contents,
+      bool is_dry_run = false)
+      : OriginGatingDecisionContext(is_dry_run),
+        web_contents(std::move(web_contents)) {}
   ~PageActionGatingContext() override = default;
 
   base::WeakPtr<content::WebContents> web_contents;
@@ -752,6 +767,43 @@ GetOriginGatingCacheScope() {
                                                      : CacheScope::kOrigin;
 }
 
+struct WouldBeAllowed {};
+struct WouldRequireUserConfirmation {};
+struct WouldBlock {
+  MayActOnUrlBlockReason reason;
+};
+
+// Outcome of dry-run page-action gating for a single origin, ordered from least
+// to most restrictive so that `index()` increases with restrictiveness.
+using SubframeDryRunResult =
+    std::variant<WouldBeAllowed, WouldRequireUserConfirmation, WouldBlock>;
+
+// Records the most restrictive of `results`, since that is what would apply to
+// the action if every frame were gated.
+void RecordMostRestrictiveSubframeDryRunResult(
+    std::vector<SubframeDryRunResult> results) {
+  CHECK(!results.empty());
+  const SubframeDryRunResult& most_restrictive =
+      *std::ranges::max_element(results, {}, &SubframeDryRunResult::index);
+  std::visit(
+      absl::Overload{
+          [](WouldBeAllowed) {
+            RecordSubframeGatingDryRunOutcome(
+                SubframeGatingDryRunOutcome::kWouldBeAllowed);
+          },
+          [](WouldRequireUserConfirmation) {
+            RecordSubframeGatingDryRunOutcome(
+                SubframeGatingDryRunOutcome::kWouldRequireUserConfirmation);
+          },
+          [](WouldBlock block) {
+            RecordSubframeGatingDryRunOutcome(
+                SubframeGatingDryRunOutcome::kWouldBlock);
+            RecordSubframeGatingDryRunBlockReason(block.reason);
+          },
+      },
+      most_restrictive);
+}
+
 }  // namespace
 
 ToolDelegate::CredentialWithPermission::CredentialWithPermission() = default;
@@ -1125,6 +1177,15 @@ void ExecutionEngine::OnNoVerdict(
     return;
   }
 
+  auto* decision_context = static_cast<OriginGatingDecisionContext*>(context);
+  CHECK(decision_context);
+  if (decision_context->is_dry_run) {
+    std::move(callback).Run({.is_allowed = !requires_user_confirmation,
+                             .did_prompt_user = false,
+                             .bypass_cache = true});
+    return;
+  }
+
   NavigationResponseContext* navigation_response_context =
       event.is_navigation_response()
           ? static_cast<NavigationResponseContext*>(context)
@@ -1454,8 +1515,7 @@ void ExecutionEngine::KickOffNextAction() {
         task_->ObserveActorSurfaceOnce(
             GetNextAction().GetActorSurfaceForValidation());
       } else {
-        task_->AddActorSurface(actor_surface->GetHandle(),
-                               /*stop_task_on_detach=*/true, base::DoNothing());
+        CHECK(task_->IsActingOnActorSurface(actor_surface->GetHandle()));
       }
       CompleteActions(MakeResult(mojom::ActionResultCode::kRendererCrashed,
                                  /*requires_page_stabilization=*/false,
@@ -1535,6 +1595,15 @@ void ExecutionEngine::DidFinishAsyncSafetyChecks(
     return;
   }
 
+  auto ensure_surface_observed = [&]() {
+    const ToolRequest& action = GetNextAction();
+    if (action.GetActorSurfaceHandle().is_null()) {
+      task_->ObserveActorSurfaceOnce(action.GetActorSurfaceForValidation());
+    } else {
+      CHECK(task_->IsActingOnActorSurface(action.GetActorSurfaceHandle()));
+    }
+  };
+
   TaskId task_id = task_->id();
   if (!committed_origin.IsSameOriginWith(actor_surface->GetWebContents()
                                              ->GetPrimaryMainFrame()
@@ -1546,7 +1615,7 @@ void ExecutionEngine::DidFinishAsyncSafetyChecks(
                   JournalDetailsBuilder()
                       .AddError("Acting after cross-origin navigation occurred")
                       .Build());
-    FailedOnTabBeforeToolCreation();
+    ensure_surface_observed();
     CompleteActions(MakeResult(mojom::ActionResultCode::kCrossOriginNavigation,
                                /*requires_page_stabilization=*/false,
                                "Acting after cross-origin navigation occurred"),
@@ -1558,7 +1627,7 @@ void ExecutionEngine::DidFinishAsyncSafetyChecks(
     journal_->Log(
         GetNextAction().GetURLForJournal(), task_id, "Act Failed",
         JournalDetailsBuilder().AddError("URL blocked for actions").Build());
-    FailedOnTabBeforeToolCreation();
+    ensure_surface_observed();
     CompleteActions(MakeResult(result_code,
                                /*requires_page_stabilization=*/false,
                                "URL blocked for actions"),
@@ -1567,24 +1636,6 @@ void ExecutionEngine::DidFinishAsyncSafetyChecks(
   }
 
   ExecuteNextAction();
-}
-
-void ExecutionEngine::FailedOnTabBeforeToolCreation() {
-  journal_->Log(
-      GetNextAction().GetURLForJournal(), task_->id(), "Act Failed",
-      JournalDetailsBuilder()
-          .Add("tabId", GetNextAction().GetTabForValidation().raw_value())
-          .AddError("Associating tab for failed action")
-          .Build());
-  ActorSurfaceHandle actuation_actor_surface_handle =
-      GetNextAction().GetActorSurfaceHandle();
-  if (actuation_actor_surface_handle.is_null()) {
-    task_->ObserveActorSurfaceOnce(
-        GetNextAction().GetActorSurfaceForValidation());
-  } else {
-    task_->AddActorSurface(actuation_actor_surface_handle,
-                           /*stop_task_on_detach=*/true, base::DoNothing());
-  }
 }
 
 void ExecutionEngine::ExecuteNextAction() {
@@ -1626,10 +1677,13 @@ void ExecutionEngine::FinishedUiPreInvoke(mojom::ActionResultPtr result) {
   // critical action under the correct pre-navigation page context.
   pre_invoke_navigation_id_ = 0;
   const ToolRequest& current_action = GetInProgressAction();
-  tabs::TabInterface* tab = current_action.GetTabForValidation().Get();
-  if (tab && tab->GetContents() && tab->GetContents()->GetPrimaryMainFrame()) {
+  ActorSurface* actor_surface =
+      current_action.GetActorSurfaceForValidation().Get();
+  content::WebContents* contents =
+      actor_surface ? actor_surface->GetWebContents() : nullptr;
+  if (contents && contents->GetPrimaryMainFrame()) {
     pre_invoke_navigation_id_ =
-        tab->GetContents()->GetPrimaryMainFrame()->GetNavigationId();
+        contents->GetPrimaryMainFrame()->GetNavigationId();
   }
 
   SetState(State::kToolInvoke);
@@ -1690,12 +1744,14 @@ void ExecutionEngine::FinishedToolInvoke(mojom::ActionResultPtr result) {
   RecordToolTimings(GetInProgressAction().Name(), end_time - action_start_time_,
                     end_time - *result->execution_end_time);
 
-  if (GetInProgressAction().GetTabForValidation() != tabs::TabHandle::Null()) {
+  if (ActorSurfaceHandle actor_surface_handle =
+          GetInProgressAction().GetActorSurfaceForValidation();
+      !actor_surface_handle.is_null()) {
     observation_strategy_.VoteForScreenshot(
-        GetInProgressAction().GetTabForValidation(),
+        actor_surface_handle,
         static_cast<ScreenshotPolicy>(result->screenshot_policy));
     observation_strategy_.VoteForPageContentExtraction(
-        GetInProgressAction().GetTabForValidation(),
+        actor_surface_handle,
         static_cast<PageContentExtractionPolicy>(result->page_content_policy));
   }
 
@@ -2001,24 +2057,120 @@ void ExecutionEngine::EnqueueFollowupAction(
                           std::move(action));
 }
 
-void ExecutionEngine::AddTab(
-    tabs::TabHandle tab_handle,
+void ExecutionEngine::AddActorSurface(
+    ActorSurfaceHandle actor_surface_handle,
     bool stop_task_on_detach,
     base::OnceCallback<void(mojom::ActionResultPtr)> callback) {
-  task_->AddTab(tab_handle, stop_task_on_detach, std::move(callback));
+  task_->AddActorSurface(actor_surface_handle, stop_task_on_detach,
+                         std::move(callback));
 }
 
-bool ExecutionEngine::HasTab(tabs::TabHandle tab_handle) {
-  return task_->HasTab(tab_handle);
+bool ExecutionEngine::HasActorSurface(ActorSurfaceHandle actor_surface_handle) {
+  return task_->HasActorSurface(actor_surface_handle);
 }
 
-void ExecutionEngine::RemoveTab(tabs::TabHandle tab_handle) {
-  task_->RemoveTab(tab_handle);
+void ExecutionEngine::RemoveActorSurface(
+    ActorSurfaceHandle actor_surface_handle) {
+  task_->RemoveActorSurface(actor_surface_handle);
 }
 
 base::WeakPtr<actor_login::ActionSequenceDelegate>
 ExecutionEngine::GetActionSequenceDelegate() {
   return GetActionSequenceWeakPtr();
+}
+
+void ExecutionEngine::OnActionTargetFrameResolved(
+    RenderFrameHost& target_frame) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!base::FeatureList::IsEnabled(kGlicActorSubframeGatingDryRun)) {
+    return;
+  }
+  // Only measure actions that are subject to page-action gating on the main
+  // frame (see `KickOffNextAction`).
+  if (!GetInProgressAction().RequiresUrlCheckInCurrentTab()) {
+    return;
+  }
+
+  // Page actions are only gated on the main frame's origin (see
+  // `SafetyChecksForNextAction`). Walk up to the main frame, collecting the
+  // distinct origins of the frames between the target and the main frame.
+  std::set<url::Origin> origins;
+  RenderFrameHost* main_frame = &target_frame;
+  while (RenderFrameHost* parent = main_frame->GetParentOrOuterDocument()) {
+    origins.insert(
+        OriginOrPrecursorIfOpaque(main_frame->GetLastCommittedOrigin()));
+    main_frame = parent;
+  }
+  if (main_frame == &target_frame) {
+    RecordPageActionTargetFrameType(PageActionTargetFrameType::kMainFrame);
+    // The dry run wouldn't add anything on top of the existing main-frame
+    // checks, so skip it.
+    return;
+  }
+
+  origins.erase(
+      OriginOrPrecursorIfOpaque(main_frame->GetLastCommittedOrigin()));
+  if (origins.empty()) {
+    RecordPageActionTargetFrameType(
+        PageActionTargetFrameType::kSameOriginSubframe);
+    // Every subframe in the chain is same-origin with the main frame, so the
+    // dry run wouldn't add anything on top of the main-frame check.
+    return;
+  }
+  RecordPageActionTargetFrameType(
+      PageActionTargetFrameType::kCrossOriginSubframe);
+
+  // The dry run is for metrics only, so keep it off the action's critical path.
+  // Bound to `GetWeakPtr()` rather than the action sequence so the outcome is
+  // still recorded if the action sequence ends first.
+  content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
+      ->PostTask(FROM_HERE,
+                 base::BindOnce(
+                     &ExecutionEngine::RunSubframeGatingDryRun, GetWeakPtr(),
+                     WebContents::FromRenderFrameHost(main_frame)->GetWeakPtr(),
+                     GetClientToolForRequest(GetInProgressAction()),
+                     std::move(origins)));
+}
+
+void ExecutionEngine::RunSubframeGatingDryRun(
+    base::WeakPtr<WebContents> web_contents,
+    origin_gating::ClientTool tool,
+    std::set<url::Origin> origins) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!web_contents) {
+    return;
+  }
+
+  auto barrier = base::BarrierCallback<SubframeDryRunResult>(
+      origins.size(),
+      base::BindOnce(&RecordMostRestrictiveSubframeDryRunResult));
+  for (const url::Origin& origin : origins) {
+    GURL url = origin.GetURL();
+    GetOriginGatingChecker().ComputeGatingDecision(
+        std::make_unique<PageActionGatingContext>(web_contents,
+                                                  /*is_dry_run=*/true),
+        GateableEvent(
+            origin_gating::PageActionEvent{.destination = url, .tool = tool}),
+        base::BindOnce(
+            [](const GURL& url,
+               std::unique_ptr<origin_gating::GatingDecisionContext>,
+               origin_gating::GatingDecision decision) -> SubframeDryRunResult {
+              if (decision.is_allowed) {
+                return WouldBeAllowed{};
+              }
+              if (decision.attribution == DecisionSource::kNoVerdict) {
+                // A disallowed dry run without a verdict means the destination
+                // requires user confirmation, so a live evaluation's
+                // `OnNoVerdict` would prompt the user.
+                return WouldRequireUserConfirmation{};
+              }
+              return WouldBlock{
+                  .reason = MapGatingDecisionToBlockReason(decision, url),
+              };
+            },
+            url)
+            .Then(barrier));
+  }
 }
 
 base::CallbackListSubscription ExecutionEngine::RegisterActionSequenceEnded(

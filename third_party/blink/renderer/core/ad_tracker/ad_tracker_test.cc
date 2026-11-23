@@ -4291,7 +4291,7 @@ TEST_F(AdTrackerSimTest, AdScriptAncestry_AttributeScript) {
   base::RunLoop().RunUntilIdle();
 
   // Click the div to trigger the event handler.
-  Element* div = GetDocument().getElementById(AtomicString("test_div"));
+  Element* div = GetElementById("test_div");
   div->DispatchSimulatedClick(nullptr);
   base::RunLoop().RunUntilIdle();
 
@@ -4365,7 +4365,7 @@ TEST_F(AdTrackerSimTest, AdScriptAncestry_DocumentWriteAttributeScript) {
   base::RunLoop().RunUntilIdle();
 
   // Click the div to trigger the event handler.
-  Element* div = GetDocument().getElementById(AtomicString("test_div"));
+  Element* div = GetElementById("test_div");
   ASSERT_TRUE(div);
   div->DispatchSimulatedClick(nullptr);
   base::RunLoop().RunUntilIdle();
@@ -4401,7 +4401,7 @@ TEST_F(AdTrackerSimTest, AdScriptAncestry_InnerHTMLAttributeScript) {
   base::RunLoop().RunUntilIdle();
 
   // Click the div to trigger the event handler.
-  Element* div = GetDocument().getElementById(AtomicString("test_div"));
+  Element* div = GetElementById("test_div");
   ASSERT_TRUE(div);
   div->DispatchSimulatedClick(nullptr);
   base::RunLoop().RunUntilIdle();
@@ -4483,7 +4483,7 @@ TEST_F(AdTrackerSimTest, AdScriptAncestry_SetAttributeNodeAttributeScript) {
   base::RunLoop().RunUntilIdle();
 
   // Click the div to trigger the event handler.
-  Element* div = GetDocument().getElementById(AtomicString("test_div"));
+  Element* div = GetElementById("test_div");
   ASSERT_TRUE(div);
   div->DispatchSimulatedClick(nullptr);
   base::RunLoop().RunUntilIdle();
@@ -4611,7 +4611,7 @@ TEST_F(AdTrackerSimTest, JavascriptUrlDetected) {
   base::RunLoop().RunUntilIdle();
 
   // Verify that the second iframe (test) is created.
-  Element* test_element = GetDocument().getElementById(AtomicString("test"));
+  Element* test_element = GetElementById("test");
   ASSERT_TRUE(test_element);
 
   auto* test_frame = To<HTMLFrameOwnerElement>(test_element)->ContentFrame();
@@ -4649,7 +4649,7 @@ TEST_F(AdTrackerSimTest, JavascriptUrlAnchorDetected) {
   base::RunLoop().RunUntilIdle();
 
   // Verify that the iframe (test) is created.
-  Element* test_element = GetDocument().getElementById(AtomicString("test"));
+  Element* test_element = GetElementById("test");
   ASSERT_TRUE(test_element);
 
   auto* test_frame = To<HTMLFrameOwnerElement>(test_element)->ContentFrame();
@@ -4687,7 +4687,7 @@ TEST_F(AdTrackerSimTest, JavascriptUrlFormDetected) {
   base::RunLoop().RunUntilIdle();
 
   // Verify that the iframe (test) is created.
-  Element* test_element = GetDocument().getElementById(AtomicString("test"));
+  Element* test_element = GetElementById("test");
   ASSERT_TRUE(test_element);
 
   auto* test_frame = To<HTMLFrameOwnerElement>(test_element)->ContentFrame();
@@ -4849,6 +4849,81 @@ TEST_F(AdTrackerSimTest, NoScriptExecutionDuringAdTrackerMonkeyPatchCheck) {
   // denied, meaning it falls back to the stack. Since the ad script is on the
   // stack (via the monkey-patched appendChild), the frame should be correctly
   // flagged as an ad frame.
+  EXPECT_TRUE(child_frame->IsFrameCreatedByAdScript());
+}
+
+// Regression test for https://crbug.com/566156384.
+//
+// Verifies that AdTracker's monkey-patch check does not invoke native Blink
+// built-in functions installed as Proxy traps or property getters.
+TEST_F(AdTrackerSimTest,
+       NoNativeBuiltinExecutionDuringAdTrackerMonkeyPatchCheck) {
+  String ad_script_url = "https://example.com/script.js?ad=true";
+  String vanilla_script_url = "https://example.com/script.js";
+  SimSubresourceRequest ad_script(ad_script_url, "text/javascript");
+  SimSubresourceRequest vanilla_script(vanilla_script_url, "text/javascript");
+
+  main_resource_->Complete(R"HTML(
+    <body>
+      <div id="proxy_target"></div>
+      <div id="getter_target"></div>
+      <script src="script.js?ad=true"></script>
+      <script src="script.js"></script>
+    </body>
+  )HTML");
+
+  ad_script.Complete(R"SCRIPT(
+    const originalNode = window.Node;
+    window.originalAppendChild = originalNode.prototype.appendChild;
+    originalNode.prototype.appendChild = function(child) {
+      return window.originalAppendChild.call(this, child);
+    };
+  )SCRIPT");
+
+  vanilla_script.Complete(R"SCRIPT(
+    // 1. Install a native built-in (appendChild) as a Proxy `get` trap on
+    //    `window.Node`. Invoking it would move `#proxy_target` after
+    //    `#getter_target`.
+    const proxyTarget = document.getElementById("proxy_target");
+    document.body.get = window.originalAppendChild;
+    window.Node = new Proxy(proxyTarget, document.body);
+
+    // Inserting a <video> via the patched appendChild runs the check.
+    const video1 = document.createElement("video");
+    document.body.appendChild(video1);
+
+    // 2. Install a native built-in (Element.prototype.remove) as a getter on
+    //    `window.Node.prototype`. Invoking it would remove `#getter_target`.
+    const getterTarget = document.getElementById("getter_target");
+    Object.defineProperty(getterTarget, "prototype", {
+      configurable: true,
+      get: Element.prototype.remove
+    });
+    window.Node = getterTarget;
+
+    const fragment = document.createDocumentFragment();
+    const video2 = document.createElement("video");
+    const iframe = document.createElement("iframe");
+    fragment.appendChild(video2);
+    fragment.appendChild(iframe);
+    document.body.appendChild(fragment);
+  )SCRIPT");
+
+  test::RunPendingTasks();
+
+  Element* proxy_target =
+      GetDocument().getElementById(AtomicString("proxy_target"));
+  Element* getter_target =
+      GetDocument().getElementById(AtomicString("getter_target"));
+  ASSERT_TRUE(proxy_target);
+  EXPECT_EQ(GetDocument().body()->firstElementChild(), proxy_target);
+  EXPECT_TRUE(getter_target);
+
+  // The check bails out, so attribution falls back to the stack, where the ad
+  // script is on top (via the patched appendChild).
+  auto* child_frame =
+      To<LocalFrame>(GetDocument().GetFrame()->Tree().FirstChild());
+  ASSERT_TRUE(child_frame);
   EXPECT_TRUE(child_frame->IsFrameCreatedByAdScript());
 }
 

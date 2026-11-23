@@ -123,14 +123,14 @@ IN_PROC_BROWSER_TEST_F(TerminalPrivateBrowserTest, OpenCroshProcessChecks) {
 IN_PROC_BROWSER_TEST_F(TerminalPrivateBrowserTest,
                        OnProcessOutputSendToCorrectRenderer) {
   // Open 2 tabs in crosh.  Crosh will echo input for tests.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
-                                           GURL("chrome-untrusted://crosh/")));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome-untrusted://crosh/html/crosh.html")));
   content::WebContents* tab1 =
       browser()->GetTabStripModel()->GetActiveWebContents();
 
   ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL("chrome-untrusted://crosh/"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), GURL("chrome-untrusted://crosh/html/crosh.html"),
+      WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
   content::WebContents* tab2 =
       browser()->GetTabStripModel()->GetActiveWebContents();

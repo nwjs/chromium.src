@@ -9,9 +9,11 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "base/memory/raw_ptr.h"
+#include "chrome/utility/safe_browsing/mac/rust/ffi.rs.h"
 
 namespace safe_browsing {
 namespace dmg {
@@ -37,7 +39,9 @@ class HFSForkReadStream;
 // <https://developer.apple.com/legacy/library/technotes/tn/tn1150.html>.
 class HFSIterator {
  public:
-  // Constructs an iterator from a stream.
+  // Constructs an iterator from a stream. Does not take ownership of `stream`,
+  // which must outlive this `HFSIterator` and any `ReadStream`s obtained from
+  // `GetReadStream()`.
   explicit HFSIterator(ReadStream* stream);
 
   HFSIterator(const HFSIterator&) = delete;
@@ -90,6 +94,7 @@ class HFSIterator {
   ReadStream* stream() const { return stream_; }
 
   const raw_ptr<ReadStream> stream_;  // The stream backing the filesystem.
+  std::optional<::rust::Box<rust_ffi::RustHfsIterator>> rust_iterator_;
   HFSPlusVolumeHeader volume_header_;
   std::unique_ptr<HFSForkReadStream>
       catalog_file_;  // Data of the catalog file.

@@ -210,6 +210,8 @@ std::string_view ToString(GlicHostApiRequestId request_id) {
       return "SetClientStorageItem";
     case GlicHostApiRequestId::kClearClientStorage:
       return "ClearClientStorage";
+    case GlicHostApiRequestId::kGetSendTabToSelfDevices:
+      return "GetSendTabToSelfDevices";
   }
   return "";
 }
@@ -236,6 +238,15 @@ void LogApiRequestCount(GlicHostApiRequestId request_type_id,
       case mojom::GlicRequestEvent::kResponseSent:
         break;
     }
+  }
+}
+
+void LogApiRequestLatency(GlicHostApiRequestId request_type_id,
+                          base::TimeDelta latency) {
+  std::string_view request_type = ToString(request_type_id);
+  if (!request_type.empty()) {
+    base::UmaHistogramTimes(
+        base::StrCat({"Glic.Api.RequestHostLatency.", request_type}), latency);
   }
 }
 

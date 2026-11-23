@@ -21,6 +21,8 @@
 
 namespace blink {
 
+BASE_FEATURE(kSortAnimationEvents, base::FEATURE_ENABLED_BY_DEFAULT);
+
 AnimationTimeline::AnimationTimeline(Document* document)
     : document_(document), outdated_animation_count_(0) {
   document_->GetDocumentAnimations().AddTimeline(*this);
@@ -129,19 +131,66 @@ void AnimationTimeline::ServiceAnimations(TimingUpdateReason reason) {
     }
   }
 
+  const bool sort_animation_events =
+      base::FeatureList::IsEnabled(kSortAnimationEvents);
+  const bool only_service_outdated = sort_animation_events &&
+                                     reason == kTimingUpdateOnDemand &&
+                                     current_time == last_current_time_;
   last_current_time_ = current_time;
 
   HeapVector<Member<Animation>> animations;
-  animations.ReserveInitialCapacity(animations_needing_update_.size());
-  for (Animation* animation : animations_needing_update_)
-    animations.push_back(animation);
+  bool is_first_pass = true;
+  do {
+    // This loop is bounded to at most 2 passes. A second pass only updates
+    // outdated animations, which bypass IsInDisplayLockedSubtree() in
+    // Animation::Update() and therefore cannot trigger another slot assignment
+    // recalc.
+    animations.assign(animations_needing_update_);
+    if (!sort_animation_events) {
+      // When sort_animation_events is enabled, we defer sorting until we have
+      // produced animation events. If no events are generated, there is no
+      // need to sort. Sorting for the effect stack is handled separately.
+      std::sort(animations.begin(), animations.end(), CompareAnimations);
+    }
 
-  std::sort(animations.begin(), animations.end(), CompareAnimations);
+    for (Animation* animation : animations) {
+      // Though the collection of animations is seeded from animations needing
+      // update, slot reassignment during flat tree traversal may alter the
+      // set of animations attached to a timeline.
+      if (!animations_needing_update_.Contains(animation)) {
+        continue;
+      }
 
-  for (Animation* animation : animations) {
-    if (!animation->Update(reason))
-      animations_needing_update_.erase(animation);
-  }
+      // Avoid redundant updates.
+      if (!animation->Outdated() && !is_first_pass) {
+        continue;
+      }
+
+      bool persist = false;
+      if (only_service_outdated && !animation->Outdated() &&
+          !animation->EffectSuppressed()) {
+        persist = !animation->Inactive() || animation->TimeToEffectChange();
+      } else {
+        persist = animation->Update(reason);
+      }
+      if (!persist) {
+        animations_needing_update_.erase(animation);
+      }
+    }
+    DCHECK(is_first_pass || !HasOutdatedAnimation());
+    is_first_pass = false;
+  } while (HasOutdatedAnimation());
+
+  // Slot assignment recalc during an animation update may have detached
+  // elements and cancelled animations that were already serviced earlier in
+  // the pass. Prune any animations that became inactive.
+  animations_needing_update_.erase_if([](Animation* animation) {
+    return !animation->Outdated() && !animation->EffectSuppressed() &&
+           animation->Inactive() && !animation->TimeToEffectChange();
+  });
+
+  // Explicitly free the backing store to avoid memory regressions.
+  animations.clear();
 
   DCHECK_EQ(outdated_animation_count_, 0U);
   DCHECK(last_current_time_ == CurrentTimeInternal());
@@ -150,9 +199,6 @@ void AnimationTimeline::ServiceAnimations(TimingUpdateReason reason) {
   for (const auto& animation : animations_needing_update_)
     DCHECK(!animation->Outdated());
 #endif
-  // Explicitly free the backing store to avoid memory regressions.
-  // TODO(bikineev): Revisit when young generation is done.
-  animations.clear();
 }
 
 // https://drafts.csswg.org/web-animations-1/#removing-replaced-animations

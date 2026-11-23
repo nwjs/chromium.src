@@ -8,9 +8,6 @@
 #
 # DO NOT ADD QUOTATION MARK AND TRAILING COMMA AT EACH LINE
 
-# b/512598250
-tast.crostini.AppAndroidStudio.bookworm_clamshell_stable@volteer
-
 # b/537158036
 tast.flex.HWIS
 
@@ -22,29 +19,12 @@ tast.wmp.DesksTemplatesLaunch
 tast.inputs.InputMethodShelfInputs
 
 # b/549299789
-tast.secagentd.AuthenticationEvents
-tast.secagentd.FileEvents.cookies
-tast.secagentd.FileEvents.user_fs
 tast.secagentd.FileEvents.auth_factors
-tast.secagentd.FileEvents.user_credential
 tast.secagentd.NetworkEvents.relaxed_tcp
 tast.secagentd.NetworkEvents.relaxed_udp
 
-# b/509364671 b/555577489
-tast.ui.ChromeCrashReporterMetrics.miss_crashpad@reven-vmtest
-tast.ui.ChromeCrashReporterMetrics.success_crashpad@reven-vmtest
-
 # b/555605549
 tast.camera.CCAUISmoke.fake_vcd
-
-# b/561313615
-tast.vm.AudioResumeAfterCrasRestarted.virtio_cras_snd@brya
-
-# b/567359111
-tast.ui.ChromeCrashReporterMetrics.success_crashpad@trogdor
-
-# b/555577489
-tast.ui.ChromeCrashReporterMetrics.miss_crashpad
 
 # b/567899351
 tast.crash.SenderNoConsent.fieldtrial_testing_config_on

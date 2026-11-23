@@ -76,6 +76,7 @@ buildflag_header("buildflags") {
     "USE_MINIKIN_HYPHENATION=$use_minikin_hyphenation",
     "ENABLE_UNHANDLED_TAP=$enable_unhandled_tap",
     "VERBOSE_PERSISTENT=$cppgc_enable_object_names",
+    "ENABLE_SMART_CARD=$enable_smart_card",
   ]
 }
 
@@ -128,7 +129,10 @@ source_set("blink_headers") {
     "platform/cross_variant_mojo_util.h",
     "platform/file_path_conversion.h",
     "platform/interface_registry.h",
+    "platform/media/key_system_config_selector.h",
     "platform/media/video_capture.h",
+    "platform/media/web_encrypted_media_client_impl.h",
+    "platform/media/web_media_player_builder.h",
     "platform/media/web_media_player_delegate.h",
     "platform/modules/mediastream/media_stream_types.h",
     "platform/modules/mediastream/secure_display_link_tracker.h",
@@ -348,6 +352,7 @@ source_set("blink_headers") {
     "web/web_page_popup.h",
     "web/web_performance_metrics_for_nested_contexts.h",
     "web/web_performance_metrics_for_reporting.h",
+    "web/web_performance_timings.h",
     "web/web_picture_in_picture_window_options.h",
     "web/web_plugin.h",
     "web/web_plugin_container.h",
@@ -427,6 +432,8 @@ source_set("blink_headers") {
     ":resources_grit",
     ":runtime_features_for_public",
     "//components/subresource_filter/core/common",
+    "//media",
+    "//media/mojo/mojom:mojom_shared",
     "//net",
     "//services/network/public/mojom:mojom_shared",
     "//services/service_manager/public/cpp",

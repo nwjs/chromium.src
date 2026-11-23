@@ -294,6 +294,115 @@ TEST(SchedulerLoopQuarantineConfigTest, WildcardMatching) {
   EXPECT_EQ(100, config.branch_capacity_in_bytes);
 }
 
+constexpr char kPurgeHeadroomConfigJSON[] = R"({
+  "browser": {
+    "main": {
+      "enable-quarantine": true,
+      "purge-headroom-percent": 10
+    },
+    "io": {
+      "enable-quarantine": true,
+      "purge-headroom-percent": 1000
+    },
+    "*": {
+      "enable-quarantine": true,
+      "purge-headroom-percent": -1
+    },
+  },
+})";
+
+TEST(SchedulerLoopQuarantineConfigTest, PurgeHeadroomPercent) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      base::features::kPartitionAllocSchedulerLoopQuarantine,
+      {{base::features::kPartitionAllocSchedulerLoopQuarantineConfig.name,
+        kPurgeHeadroomConfigJSON}});
+
+  partition_alloc::internal::SchedulerLoopQuarantineConfig config;
+
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kMain);
+  EXPECT_EQ(10u, config.purge_headroom_percent);
+
+  // Too large values are clamped.
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kIO);
+  EXPECT_EQ(partition_alloc::internal::kMaxPurgeHeadroomPercent,
+            config.purge_headroom_percent);
+
+  // Negative values are ignored.
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kThreadLocalDefault);
+  EXPECT_EQ(0u, config.purge_headroom_percent);
+
+  // Defaults to 0.
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kGlobal);
+  EXPECT_EQ(0u, config.purge_headroom_percent);
+}
+
+constexpr char kCapacityUnlimitedConfigJSON[] = R"({
+  "browser": {
+    "main": {
+      "enable-quarantine": true,
+      "capacity-unlimited": true
+    },
+    "io": {
+      "enable-quarantine": true,
+      "capacity-unlimited": false
+    },
+    "viz-compositor": {
+      "enable-quarantine": true,
+      "branch-capacity-in-bytes": 2147483647
+    },
+    "compositor-gpu": {
+      "enable-quarantine": true,
+      "capacity-unlimited": false,
+      "branch-capacity-in-bytes": 2147483647
+    },
+    "*": {
+      "enable-quarantine": true,
+      "branch-capacity-in-bytes": 1024
+    },
+  },
+})";
+
+TEST(SchedulerLoopQuarantineConfigTest, CapacityUnlimited) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      base::features::kPartitionAllocSchedulerLoopQuarantine,
+      {{base::features::kPartitionAllocSchedulerLoopQuarantineConfig.name,
+        kCapacityUnlimitedConfigJSON}});
+
+  partition_alloc::internal::SchedulerLoopQuarantineConfig config;
+
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kMain);
+  EXPECT_TRUE(config.capacity_unlimited);
+
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kIO);
+  EXPECT_FALSE(config.capacity_unlimited);
+
+  // Fallback: branch-capacity-in-bytes == INT_MAX sets capacity_unlimited to
+  // true when "capacity-unlimited" is omitted.
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kVizCompositor);
+  EXPECT_TRUE(config.capacity_unlimited);
+  EXPECT_EQ(2147483647u, config.branch_capacity_in_bytes);
+
+  // Explicit "capacity-unlimited" takes precedence over INT_MAX fallback.
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kCompositorGpu);
+  EXPECT_FALSE(config.capacity_unlimited);
+  EXPECT_EQ(2147483647u, config.branch_capacity_in_bytes);
+
+  // Defaults to false.
+  config = GetSchedulerLoopQuarantineConfiguration(
+      "browser", SchedulerLoopQuarantineBranchType::kThreadLocalDefault);
+  EXPECT_FALSE(config.capacity_unlimited);
+}
+
 constexpr char kInvalidTestingConfigJSON[] = "nyan";
 
 TEST(SchedulerLoopQuarantineConfigTest, InvalidConfig) {

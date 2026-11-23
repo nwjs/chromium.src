@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_CONTEXTUAL_TASKS_MOCK_CONTEXTUAL_TASKS_PAGE_H_
 #define CHROME_BROWSER_CONTEXTUAL_TASKS_MOCK_CONTEXTUAL_TASKS_PAGE_H_
 
+#include <string>
 #include <vector>
 
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
@@ -91,10 +92,6 @@ class MockContextualTasksExtensionPage : public mojom::ExtensionPage {
   mojo::PendingRemote<mojom::ExtensionPage> BindAndGetRemote();
   void FlushForTesting() { receiver_.FlushForTesting(); }
 
-  MOCK_METHOD(void,
-              PostAimMessage,
-              (const std::vector<uint8_t>& message),
-              (override));
   MOCK_METHOD(void, PostSearchMessage, (mojo_base::ProtoWrapper message), ());
   MOCK_METHOD(void,
               PostSearchMessageWithDocumentId,
@@ -110,13 +107,13 @@ class MockContextualTasksExtensionPage : public mojom::ExtensionPage {
       PostSearchMessage(std::move(message));
     }
   }
-  MOCK_METHOD(void, OnHandshakeComplete, (), (override));
   MOCK_METHOD(void, OnLensOverlayStateChanged, (bool is_showing), (override));
   MOCK_METHOD(void, OnLensCropUpdated, (const GURL& data_uri), (override));
   MOCK_METHOD(void,
               OnTabContextUpdated,
               (std::vector<searchbox::mojom::TabInfoPtr> tabs,
-               const std::vector<int32_t>& submitted_tab_ids),
+               const std::vector<int32_t>& submitted_tab_ids,
+               mojom::SmartTabSharingStatePtr smart_tab_sharing_state),
               (override));
 
  private:
@@ -133,6 +130,10 @@ class MockContextualTasksToolbarPage
   void FlushForTesting() { receiver_.FlushForTesting(); }
 
   MOCK_METHOD(void, OnSidePanelPinStateChanged, (bool is_pinned), (override));
+  MOCK_METHOD(void,
+              OnPinButtonEligibilityChanged,
+              (bool is_eligible),
+              (override));
   MOCK_METHOD(void, OnAiPageStatusChanged, (bool is_ai_page), (override));
   MOCK_METHOD(
       void,
@@ -143,6 +144,10 @@ class MockContextualTasksToolbarPage
   MOCK_METHOD(void, SetThreadTitle, (const std::string& title), (override));
   MOCK_METHOD(void, OnSidePanelStateChanged, (), (override));
   MOCK_METHOD(void, SetProfileAvatarUrl, (const GURL& avatar_url), (override));
+  MOCK_METHOD(void,
+              SetAccountInfo,
+              (const std::string& full_name, const std::string& email),
+              (override));
 
  private:
   mojo::Receiver<contextual_tasks_toolbar::mojom::Page> receiver_{this};

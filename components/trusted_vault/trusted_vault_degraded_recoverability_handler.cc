@@ -11,8 +11,9 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/time/time.h"
-#include "base/timer/timer.h"
+#include "base/timer/wall_clock_timer.h"
 #include "components/trusted_vault/proto/local_trusted_vault.pb.h"
 #include "components/trusted_vault/proto_time_conversion.h"
 #include "components/trusted_vault/standalone_trusted_vault_storage.h"
@@ -95,8 +96,9 @@ void TrustedVaultDegradedRecoverabilityHandler::
         TrustedVaultHintDegradedRecoverabilityChangedReasonForUMA reason) {
   if (next_refresh_timer_.IsRunning()) {
     trusted_vault::RecordTrustedVaultHintDegradedRecoverabilityChangedReason(
-        reason);
-    next_refresh_timer_.FireNow();
+        security_domain_, reason);
+    next_refresh_timer_.Stop();
+    Refresh();
   }
 }
 
@@ -124,12 +126,14 @@ void TrustedVaultDegradedRecoverabilityHandler::UpdateCurrentRefreshPeriod() {
 
 void TrustedVaultDegradedRecoverabilityHandler::Start() {
   base::UmaHistogramExactLinear(
-      "TrustedVault.TrustedVaultDegradedRecoverabilityValue",
+      base::StrCat({"TrustedVault.TrustedVaultDegradedRecoverabilityValue.",
+                    GetSecurityDomainNameForUma(security_domain_)}),
       degraded_recoverability_value_,
       trusted_vault_pb::DegradedRecoverabilityValue_ARRAYSIZE);
   next_refresh_timer_.Start(
       FROM_HERE,
-      ComputeTimeUntilNextRefresh(current_refresh_period_, last_refresh_time_),
+      base::Time::Now() + ComputeTimeUntilNextRefresh(current_refresh_period_,
+                                                      last_refresh_time_),
       this, &TrustedVaultDegradedRecoverabilityHandler::Refresh);
 }
 
@@ -148,7 +152,9 @@ void TrustedVaultDegradedRecoverabilityHandler::
     OnRecoverabilityIsDegradedDownloaded(
         TrustedVaultRecoverabilityStatus status) {
   base::UmaHistogramEnumeration(
-      "TrustedVault.RecoverabilityStatusOnRequestCompletion", status);
+      base::StrCat({"TrustedVault.RecoverabilityStatusOnRequestCompletion.",
+                    GetSecurityDomainNameForUma(security_domain_)}),
+      status);
   trusted_vault_pb::DegradedRecoverabilityValue
       old_degraded_recoverability_value = degraded_recoverability_value_;
   switch (status) {
@@ -180,7 +186,7 @@ void TrustedVaultDegradedRecoverabilityHandler::
       MakeDegradedRecoverabilityState(degraded_recoverability_value_,
                                       base::Time::Now()));
   next_refresh_timer_.Start(
-      FROM_HERE, current_refresh_period_, this,
+      FROM_HERE, base::Time::Now() + current_refresh_period_, this,
       &TrustedVaultDegradedRecoverabilityHandler::Refresh);
 }
 

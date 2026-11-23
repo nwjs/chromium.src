@@ -4,6 +4,7 @@
 
 #include "remoting/protocol/webrtc_transport.h"
 
+#include <optional>
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -11,12 +12,12 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "base/threading/platform_thread.h"
 #include "base/threading/watchdog.h"
 #include "base/time/time.h"
-#include "build/build_config.h"
 #include "components/webrtc/thread_wrapper.h"
 #include "net/base/io_buffer.h"
 #include "net/url_request/url_request_context_getter.h"
@@ -174,6 +175,7 @@ class WebrtcTransportTest : public testing::Test {
     webrtc::ThreadWrapper::EnsureForCurrentMessageLoop();
     network_settings_ =
         NetworkSettings(NetworkSettings::NAT_TRAVERSAL_OUTGOING);
+    WebrtcTransport::SetDataChannelPollingIntervalForTests(base::TimeDelta());
   }
 
   void TearDown() override {
@@ -190,6 +192,14 @@ class WebrtcTransportTest : public testing::Test {
       bool normalize_line_endings,
       std::unique_ptr<JingleTransportInfo> transport_info) {
     ASSERT_TRUE(target_transport);
+    if (target_transport == &host_transport_ &&
+        transport_info->session_description) {
+      last_client_session_description_ = *transport_info->session_description;
+    }
+    if (target_transport == &client_transport_ && host_transport_info_cb_) {
+      host_transport_info_cb_.Run(std::move(transport_info));
+      return;
+    }
     EXPECT_TRUE((*target_transport)->ProcessTransportInfo(*transport_info));
   }
 
@@ -279,7 +289,12 @@ class WebrtcTransportTest : public testing::Test {
     EXPECT_EQ(name, kChannelName);
     client_message_pipe_ = std::move(pipe);
     client_message_pipe_->Start(&client_message_pipe_event_handler_);
+    client_message_pipe_event_handler_.set_open_callback(
+        base::BindRepeating(&WebrtcTransportTest::OnClientChannelConnected,
+                            base::Unretained(this)));
+  }
 
+  void OnClientChannelConnected() {
     if (run_loop_ && host_message_pipe_event_handler_.is_open()) {
       run_loop_->Quit();
     }
@@ -344,15 +359,12 @@ class WebrtcTransportTest : public testing::Test {
   ErrorCode host_error_ = ErrorCode::OK;
 
   bool destroy_on_error_ = false;
+
+  std::optional<SessionDescription> last_client_session_description_;
+  WebrtcTransport::SendTransportInfoCallback host_transport_info_cb_;
 };
 
-// crbug.com/1224862: Tests are flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_Connects DISABLED_Connects
-#else
-#define MAYBE_Connects Connects
-#endif
-TEST_F(WebrtcTransportTest, MAYBE_Connects) {
+TEST_F(WebrtcTransportTest, Connects) {
   InitializeConnection();
   StartConnection();
   WaitUntilConnected();
@@ -369,13 +381,7 @@ TEST_F(WebrtcTransportTest, InvalidAuthKey) {
   EXPECT_EQ(client_error_, ErrorCode::AUTHENTICATION_FAILED);
 }
 
-// crbug.com/1224862: Tests are flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_DataStream DISABLED_DataStream
-#else
-#define MAYBE_DataStream DataStream
-#endif
-TEST_F(WebrtcTransportTest, MAYBE_DataStream) {
+TEST_F(WebrtcTransportTest, DataStream) {
   client_event_handler_.set_connecting_callback(base::BindRepeating(
       &WebrtcTransportTest::ExpectClientDataStream, base::Unretained(this)));
   host_event_handler_.set_connecting_callback(base::BindRepeating(
@@ -388,7 +394,9 @@ TEST_F(WebrtcTransportTest, MAYBE_DataStream) {
   run_loop_->Run();
 
   EXPECT_TRUE(client_message_pipe_);
+  EXPECT_TRUE(client_message_pipe_event_handler_.is_open());
   EXPECT_TRUE(host_message_pipe_);
+  EXPECT_TRUE(host_message_pipe_event_handler_.is_open());
 
   TextEvent message;
   message.set_text("Hello");
@@ -406,14 +414,8 @@ TEST_F(WebrtcTransportTest, MAYBE_DataStream) {
   EXPECT_EQ(received_message->text(), message.text());
 }
 
-// crbug.com/1224862: Tests are flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_DataStreamLate DISABLED_DataStreamLate
-#else
-#define MAYBE_DataStreamLate DataStreamLate
-#endif
 // Verify that data streams can be created after connection has been initiated.
-TEST_F(WebrtcTransportTest, MAYBE_DataStreamLate) {
+TEST_F(WebrtcTransportTest, DataStreamLate) {
   InitializeConnection();
   StartConnection();
   WaitUntilConnected();
@@ -425,16 +427,12 @@ TEST_F(WebrtcTransportTest, MAYBE_DataStreamLate) {
   run_loop_->Run();
 
   EXPECT_TRUE(client_message_pipe_);
+  EXPECT_TRUE(client_message_pipe_event_handler_.is_open());
   EXPECT_TRUE(host_message_pipe_);
+  EXPECT_TRUE(host_message_pipe_event_handler_.is_open());
 }
 
-// crbug.com/1224862: Tests are flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_TerminateDataChannel DISABLED_TerminateDataChannel
-#else
-#define MAYBE_TerminateDataChannel TerminateDataChannel
-#endif
-TEST_F(WebrtcTransportTest, MAYBE_TerminateDataChannel) {
+TEST_F(WebrtcTransportTest, TerminateDataChannel) {
   InitializeConnection();
   StartConnection();
   WaitUntilConnected();
@@ -446,7 +444,9 @@ TEST_F(WebrtcTransportTest, MAYBE_TerminateDataChannel) {
   run_loop_->Run();
 
   EXPECT_TRUE(client_message_pipe_);
+  EXPECT_TRUE(client_message_pipe_event_handler_.is_open());
   EXPECT_TRUE(host_message_pipe_);
+  EXPECT_TRUE(host_message_pipe_event_handler_.is_open());
 
   destroy_on_error_ = true;
 
@@ -465,6 +465,52 @@ TEST_F(WebrtcTransportTest, MAYBE_TerminateDataChannel) {
   // Check that OnHostChannelClosed() has been called.
   EXPECT_EQ(host_error_, ErrorCode::OK);
   EXPECT_FALSE(host_message_pipe_);
+}
+
+TEST_F(WebrtcTransportTest,
+       DestroyOnFailedPendingCandidateInOnLocalDescriptionSet) {
+  InitializeConnection();
+  StartConnection();
+  WaitUntilConnected();
+  ASSERT_TRUE(last_client_session_description_.has_value());
+
+  destroy_on_error_ = true;
+
+  host_transport_info_cb_ = base::BindLambdaForTesting(
+      [this](std::unique_ptr<JingleTransportInfo> transport_info) {
+        if (!transport_info->session_description) {
+          return;
+        }
+        // Post a task to run right after SetLocalDescription() sets the
+        // signaling state to kHaveLocalOffer, but before the posted
+        // OnLocalDescriptionSet() callback executes.
+        base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, base::BindLambdaForTesting([this]() {
+              // 1. Queue a candidate with an invalid sdp_mid while in
+              // kHaveLocalOffer.
+              JingleTransportInfo bad_candidate_info;
+              bad_candidate_info.candidates.emplace_back(
+                  "invalid_mid", webrtc::Candidate(), 0);
+              EXPECT_TRUE(
+                  host_transport_->ProcessTransportInfo(bad_candidate_info));
+
+              // 2. Replay the valid SDP answer to transition back to kStable
+              // before OnLocalDescriptionSet() runs.
+              JingleTransportInfo replayed_answer_info;
+              replayed_answer_info.session_description =
+                  last_client_session_description_;
+              EXPECT_TRUE(
+                  host_transport_->ProcessTransportInfo(replayed_answer_info));
+            }));
+      });
+
+  host_transport_->RequestSdpRestart();
+
+  run_loop_ = std::make_unique<base::RunLoop>();
+  run_loop_->Run();
+
+  EXPECT_EQ(host_error_, ErrorCode::CHANNEL_CONNECTION_ERROR);
+  EXPECT_FALSE(host_transport_);
 }
 
 }  // namespace remoting::protocol

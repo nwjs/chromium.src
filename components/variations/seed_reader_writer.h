@@ -32,10 +32,10 @@ class EntropyProviders;
 // Trial and group names for the seed file experiment.
 const char kSeedFileTrial[] = "SeedFileTrial";
 const char kDefaultGroup[] = "Default";
-const char kControlGroup[] = "Control_V14";
+const char kControlGroup[] = "Control_V15";
 // TODO(crbug.com/530049020): Launch on Android and iOS
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-const char kSeedFilesGroup[] = "SeedFiles_V14";
+const char kSeedFilesGroup[] = "SeedFiles_V15";
 #else
 const char kSeedFilesGroup[] = "SeedFilesLaunched";
 #endif
@@ -187,6 +187,12 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
   // Clears the session country code.
   void ClearSessionCountry();
 
+  // Updates the session country code and administrative area (geo_level1)
+  // if `country_code` is non-empty. Returns true if either stored value
+  // changed.
+  bool SetSessionCountryAndGeoLevel1(std::string_view country_code,
+                                     std::string_view geo_level1);
+
   // Returns stored seed-related info. Contrary to the seed data, the data is
   // stored in memory, so it can be read synchronously.
   SeedInfo GetSeedInfo() const;
@@ -236,6 +242,9 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
   void StoreBase64EncodedSeedAndSignatureForTesting(
       std::string base64_compressed_data,
       std::string base64_signature);
+
+  // Returns true if no seed data is currently stored.
+  bool IsEmpty() const;
 
   // Returns true if the seed data is the same as the safe seed sentinel.
   bool IsIdenticalToSafeSeedSentinel();
@@ -427,6 +436,10 @@ class COMPONENT_EXPORT(VARIATIONS) SeedReaderWriter
   // new one. This is used to determine whether the old sources should be
   // cleared.
   bool migrating_from_old_source_ = false;
+
+  // Number of background file writes that have been scheduled on
+  // `file_task_runner_` and have not yet finished writing to disk.
+  int pending_background_writes_ = 0;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

@@ -320,6 +320,33 @@ public class AutofillProviderTest {
     }
 
     @Test
+    public void testAutofillWithHighSessionId() {
+        FormFieldDataBuilder fieldBuilder = new FormFieldDataBuilder();
+        FormData formData =
+                new FormData(
+                        /* sessionId= */ 0xffff,
+                        /* name= */ null,
+                        /* host= */ null,
+                        Collections.singletonList(fieldBuilder.build()));
+
+        mAutofillProvider.startAutofillSession(
+                formData,
+                /* focus= */ 0,
+                /* x= */ 0,
+                /* y= */ 0,
+                /* width= */ 0,
+                /* height= */ 0,
+                /* hasServerPrediction= */ false);
+
+        SparseArray<AutofillValue> fillResult = new SparseArray<>(1);
+        fillResult.put(mFocusVirtualId, AutofillValue.forText("filled_value"));
+        mAutofillProvider.autofill(fillResult);
+
+        assertTrue(formData.mFields.get(0).isAutofilled());
+        assertEquals("filled_value", formData.mFields.get(0).getValue());
+    }
+
+    @Test
     @Config(sdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     public void testSendingPrefillRequestUsesCorrectHints() {
@@ -462,6 +489,70 @@ public class AutofillProviderTest {
         assertEquals(mFocusVirtualId, FormData.toFieldVirtualId(newSessionId, (short) focus));
 
         verify(mNativeMock, never()).onShowBottomSheetResult(anyLong(), anyBoolean(), anyBoolean());
+
+        // Starting another session later that happens to reuse prefillSessionId must not trigger
+        // the stale prefill request.
+        mAutofillProvider.startAutofillSession(
+                formData,
+                focus,
+                /* x= */ 0,
+                /* y= */ 0,
+                /* width= */ 0,
+                /* height= */ 0,
+                /* hasServerPrediction= */ false);
+        assertEquals(0, mDialogVirtualId);
+    }
+
+    @Test
+    @Config(sdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testSetWebContentsCancelsSessionAndClearsPrefillRequest() {
+        int focus = 0;
+        int sessionId = 1;
+        FormData formData = setupPrefillRequest(sessionId);
+
+        WebContents newWebContents = Mockito.mock(WebContents.class);
+        when(newWebContents.getTopLevelNativeWindow()).thenReturn(mWindowAndroid);
+        mAutofillProvider.setWebContents(newWebContents);
+
+        verify(mAutofillManager).cancel();
+
+        // Starting a session on the new WebContents with the same sessionId must not match the
+        // prefill request from the previous WebContents.
+        mAutofillProvider.startAutofillSession(
+                formData,
+                focus,
+                /* x= */ 0,
+                /* y= */ 0,
+                /* width= */ 0,
+                /* height= */ 0,
+                /* hasServerPrediction= */ false);
+        assertEquals(0, mDialogVirtualId);
+        assertEquals(FormData.toFieldVirtualId(sessionId, (short) focus), mFocusVirtualId);
+    }
+
+    @Test
+    @Config(sdk = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testSetNativeAutofillProviderZeroCancelsSessionAndClearsPrefillRequest() {
+        int focus = 0;
+        int sessionId = 1;
+        FormData formData = setupPrefillRequest(sessionId);
+
+        mAutofillProvider.setNativeAutofillProvider(0);
+        verify(mAutofillManager).cancel();
+
+        mAutofillProvider.setNativeAutofillProvider(mMockedNativeAndroidAutofillProvider);
+        mAutofillProvider.startAutofillSession(
+                formData,
+                focus,
+                /* x= */ 0,
+                /* y= */ 0,
+                /* width= */ 0,
+                /* height= */ 0,
+                /* hasServerPrediction= */ false);
+        assertEquals(0, mDialogVirtualId);
+        assertEquals(FormData.toFieldVirtualId(sessionId, (short) focus), mFocusVirtualId);
     }
 
     @Test
@@ -770,11 +861,6 @@ public class AutofillProviderTest {
         Activity activity = Robolectric.buildActivity(Activity.class).get();
         mAutofillProvider.switchToContext(new WeakReference<>(activity));
 
-        // A popup is currently showing, but the field moves outside visible bounds.
-        // The stale popup must be dismissed.
-        AutofillPopup mockPopup = Mockito.mock(AutofillPopup.class);
-        mAutofillProvider.setDatalistPopupForTesting(mockPopup);
-
         RectF offscreenBounds = new RectF(0, -2000, 100, -1900);
         FormFieldDataBuilder fieldBuilder = new FormFieldDataBuilder();
         fieldBuilder.mBounds = offscreenBounds;
@@ -795,8 +881,50 @@ public class AutofillProviderTest {
                 offscreenBounds.height(),
                 /* hasServerPrediction= */ false);
 
+        // A popup is currently showing, but the field moves outside visible bounds.
+        // The stale popup must be dismissed.
+        AutofillPopup mockPopup = Mockito.mock(AutofillPopup.class);
+        mAutofillProvider.setDatalistPopupForTesting(mockPopup);
+
         mAutofillProvider.showDatalistPopup(
                 new String[] {"Value 1"}, new String[] {"Label 1"}, /* isRtl= */ false);
+
+        verify(mockPopup).dismiss();
+        assertNull(mAutofillProvider.getDatalistPopupForTesting());
+    }
+
+    @Test
+    public void testStartAutofillSession_dismissesDatalistPopup() {
+        AutofillPopup mockPopup = Mockito.mock(AutofillPopup.class);
+        mAutofillProvider.setDatalistPopupForTesting(mockPopup);
+
+        FormFieldDataBuilder fieldBuilder = new FormFieldDataBuilder();
+        FormData form =
+                new FormData(
+                        /* sessionId= */ 123,
+                        /* name= */ null,
+                        /* host= */ null,
+                        Collections.singletonList(fieldBuilder.build()));
+
+        mAutofillProvider.startAutofillSession(
+                form,
+                /* focus= */ 0,
+                /* x= */ 0,
+                /* y= */ 0,
+                /* width= */ 50,
+                /* height= */ 20,
+                /* hasServerPrediction= */ false);
+
+        verify(mockPopup).dismiss();
+        assertNull(mAutofillProvider.getDatalistPopupForTesting());
+    }
+
+    @Test
+    public void testCancelSession_dismissesDatalistPopup() {
+        AutofillPopup mockPopup = Mockito.mock(AutofillPopup.class);
+        mAutofillProvider.setDatalistPopupForTesting(mockPopup);
+
+        mAutofillProvider.cancelSession();
 
         verify(mockPopup).dismiss();
         assertNull(mAutofillProvider.getDatalistPopupForTesting());
@@ -807,6 +935,37 @@ public class AutofillProviderTest {
         mAutofillProvider.setNativeAutofillProvider(0);
         assertFalse(mAutofillProvider.shouldOfferPasskeyEntry());
         verify(mNativeMock, never()).hasPasskeyRequest(anyLong());
+    }
+
+    @Test
+    public void testCallsNativeOnDidShowSuggestions() {
+        FormFieldDataBuilder fieldBuilder = new FormFieldDataBuilder();
+        FormData formData =
+                new FormData(
+                        /* sessionId= */ 123,
+                        /* name= */ null,
+                        /* host= */ null,
+                        Collections.singletonList(fieldBuilder.build()));
+        mAutofillProvider.startAutofillSession(
+                formData,
+                /* focus= */ 0,
+                /* x= */ 0,
+                /* y= */ 0,
+                /* width= */ 50,
+                /* height= */ 20,
+                /* hasServerPrediction= */ false);
+
+        mAutofillProvider.getAutofillManagerWrapper().notifyInputUiChange();
+        verify(mNativeMock).onDidShowSuggestions(eq(mMockedNativeAndroidAutofillProvider));
+    }
+
+    @Test
+    public void testIsAutofillDisabled() {
+        when(mAutofillManager.isEnabled()).thenReturn(true);
+        assertFalse(mAutofillProvider.isAutofillDisabled());
+
+        when(mAutofillManager.isEnabled()).thenReturn(false);
+        assertTrue(mAutofillProvider.isAutofillDisabled());
     }
 
     @Test

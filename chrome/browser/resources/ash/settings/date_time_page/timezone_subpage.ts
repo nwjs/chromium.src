@@ -14,7 +14,6 @@ import './timezone_selector.js';
 import '../os_privacy_page/privacy_hub_geolocation_dialog.js';
 import '../os_privacy_page/privacy_hub_geolocation_warning_text.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -23,13 +22,14 @@ import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
 import {isChild} from '../common/load_time_booleans.js';
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
 import type {SettingsDropdownMenuElement} from '../controls/settings_dropdown_menu.js';
+import type {PageCallbackRouter as DateTimePageCallbackRouter, PageHandlerRemote as DateTimePageHandlerRemote} from '../mojom-webui/date_time_handler.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import {GeolocationAccessLevel} from '../os_privacy_page/privacy_hub_geolocation_subpage.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {routes} from '../router.js';
-import type {Route} from '../router.js';
 
 import {DateTimeBrowserProxy} from './date_time_browser_proxy.js';
-import type {DateTimePageCallbackRouter, DateTimePageHandlerRemote} from './date_time_browser_proxy.js';
 import {TimeZoneAutoDetectMethod} from './date_time_types.js';
 import type {TimezoneSelectorElement} from './timezone_selector.js';
 import {getTemplate} from './timezone_subpage.html.js';
@@ -139,7 +139,13 @@ export class TimezoneSubpageElement extends TimezoneSubpageElementBase {
    * 'access-code-validation-complete' event is triggered which invokes
    * enableTimeZoneSetting_.
    */
-  override currentRouteChanged(newRoute: Route, _oldRoute?: Route): void {
+  override currentRouteChanged(newRoute: Route, oldRoute?: Route): void {
+    if (oldRoute === routes.DATETIME_TIMEZONE_SUBPAGE) {
+      if (isChild()) {
+        this.disableTimeZoneSetting_();
+        this.pageHandler.onSubpageClosed();
+      }
+    }
     if (newRoute !== routes.DATETIME_TIMEZONE_SUBPAGE) {
       return;
     }

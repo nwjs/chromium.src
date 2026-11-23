@@ -35,6 +35,10 @@
   --tile-hover-color: rgba(255, 255, 255, .1);
 }
 
+:host([is-dark_]) .drag-pan-icon {
+  background-color: white;
+}
+
 #container {
   --content-width: calc(
       var(--column-count) * var(--tile-size) +
@@ -99,13 +103,16 @@
   background-color: var(--google-grey-700);
 }
 
-@media (forced-colors: active) {
-  #addShortcutIcon,
-  #showMoreIcon,
-  #showLessIcon,
-  .query-tile-icon {
-    background-color: ButtonText;
-  }
+.sr-only {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 :host([use-white-tile-icon_]) #addShortcutIcon,
@@ -164,22 +171,6 @@
   box-shadow: var(--most-visited-focus-shadow);
 }
 
-@media (forced-colors: active) {
-  :host-context(.focus-outline-visible):host(
-      :not([hide-title]):not([non-editable])) .tile a:focus,
-  :host-context(.focus-outline-visible):host([hide-title])
-      .tile a:focus ~ .tile-icon,
-  :host-context(.focus-outline-visible):host([non-editable])
-      .tile a:focus ~ .tile-icon,
-  :host-context(.focus-outline-visible) #addShortcut:focus,
-  :host-context(.focus-outline-visible) #showMore:focus,
-  :host-context(.focus-outline-visible) #showLess:focus {
-    /* Use outline instead of box-shadow (which does not work) in Windows
-        HCM. */
-    outline: var(--cr-focus-outline-hcm);
-  }
-}
-
 #addShortcut,
 #showMore,
 #showLess {
@@ -197,6 +188,75 @@
 :host(:not([reordering_])) #showLess:hover,
 .force-hover {
   background-color: var(--tile-hover-color);
+}
+
+@media (forced-colors: active) {
+  #addShortcutIcon,
+  #showMoreIcon,
+  #showLessIcon,
+  :host([use-white-tile-icon_]) #addShortcutIcon,
+  :host([use-white-tile-icon_]) #showMoreIcon,
+  :host([use-white-tile-icon_]) #showLessIcon,
+  .query-tile-icon,
+  .drag-pan-icon {
+    background-color: ButtonText;
+  }
+
+  :host-context(.focus-outline-visible):host(
+      :not([hide-title]):not([non-editable])) .tile a:focus,
+  :host-context(.focus-outline-visible):host([hide-title])
+      .tile a:focus ~ .tile-icon,
+  :host-context(.focus-outline-visible):host([non-editable])
+      .tile a:focus ~ .tile-icon,
+  :host-context(.focus-outline-visible) #addShortcut:focus,
+  :host-context(.focus-outline-visible) #showMore:focus,
+  :host-context(.focus-outline-visible) #showLess:focus {
+    /* Use outline instead of box-shadow (which does not work) in Windows
+        HCM. */
+    outline: var(--cr-focus-outline-hcm);
+  }
+
+  :host(:not([reordering_])) .tile:hover,
+  :host(:not([reordering_])) #addShortcut:hover,
+  :host(:not([reordering_])) #showMore:hover,
+  :host(:not([reordering_])) #showLess:hover,
+  .force-hover {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
+
+  .tile-icon {
+    background-color: Canvas;
+    border: 1px solid CanvasText;
+    box-sizing: border-box;
+  }
+
+  .tile-icon-container {
+    background-color: ButtonFace;
+    border-color: ButtonText;
+  }
+
+  #addShortcut:hover .tile-icon-container,
+  #showMore:hover .tile-icon-container,
+  #showLess:hover .tile-icon-container {
+    background-color: Highlight;
+    border-color: Highlight;
+  }
+
+  #addShortcut:hover #addShortcutIcon,
+  #showMore:hover #showMoreIcon,
+  #showLess:hover #showLessIcon {
+    background-color: HighlightText;
+  }
+
+  .tile-title {
+    color: CanvasText;
+  }
+
+  :host(:not([reordering_])) cr-icon-button:hover {
+    outline: 1px solid Highlight;
+    outline-offset: -1px;
+  }
 }
 
 .tile-icon {
@@ -298,6 +358,35 @@ cr-policy-indicator {
   background-color: var(--tile-hover-color);
   transition-property: none;
   z-index: 2;
+}
+
+.drag-pan-icon {
+  -webkit-mask-image: url(chrome://resources/cr_components/most_visited/drag_pan.svg);
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 100%;
+  background-color: var(
+      --color-sys-on-surface-subtle,
+      var(--cr-fallback-color-on-surface-subtle));
+  height: 24px;
+  inset-inline-start: 0;
+  margin: 4px 2px;
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  width: 24px;
+}
+
+:host-context(:not(.focus-outline-visible))
+    #container:not(:has(.force-hover))
+    .tile:hover
+    .drag-pan-icon,
+.force-hover .drag-pan-icon {
+  opacity: 1;
+}
+
+:host-context(.focus-outline-visible) .tile:focus-within .drag-pan-icon {
+  opacity: 1;
 }
 
 cr-icon-button {

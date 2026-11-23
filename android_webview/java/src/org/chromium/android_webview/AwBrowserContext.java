@@ -15,12 +15,14 @@ import androidx.annotation.VisibleForTesting;
 
 import org.jni_zero.CalledByNative;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniRawPtr;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.android_webview.common.MediaIntegrityApiStatus;
 import org.chromium.android_webview.common.MediaIntegrityProvider;
+import org.chromium.android_webview.http_headers.AwHeaderInterceptorStore;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.StrictModeContext;
 import org.chromium.base.ThreadUtils;
@@ -32,6 +34,7 @@ import org.chromium.content_public.browser.ContentViewStatics;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -101,6 +104,7 @@ public class AwBrowserContext implements BrowserContextHandle {
 
     private final AwPrefetchManager mPrefetchManager;
     private final AwPreconnector mPreconnector;
+    @NonNull private final AwHeaderInterceptorStore mHeaderInterceptorStore;
 
     /**
      * Cache key for MediaIntegrityProviders. Ensures that values are keyed by
@@ -175,6 +179,8 @@ public class AwBrowserContext implements BrowserContextHandle {
         mHttpCacheManager = httpCacheManager;
         mPrefetchManager = prefetchManager;
         mPreconnector = preconnector;
+        mHeaderInterceptorStore =
+                new AwHeaderInterceptorStore(this::supplyNativeHeaderInterceptorStore);
         mIsDefault = isDefault;
 
         try (StrictModeContext ignored = StrictModeContext.allowDiskWrites()) {
@@ -305,6 +311,19 @@ public class AwBrowserContext implements BrowserContextHandle {
     @NonNull
     public AwPreconnector getPreconnector() {
         return mPreconnector;
+    }
+
+    @NonNull
+    public AwHeaderInterceptorStore getHeaderInterceptorStore() {
+        return mHeaderInterceptorStore;
+    }
+
+    private @Nullable JniRawPtr<AwHeaderInterceptorStore.Native>
+            supplyNativeHeaderInterceptorStore() {
+        return mNativeAwBrowserContext == 0
+                ? null
+                : AwBrowserContextJni.get()
+                        .getHeaderInterceptorStoreFromJava(mNativeAwBrowserContext);
     }
 
     public void setOriginMatchedHeader(
@@ -525,6 +544,31 @@ public class AwBrowserContext implements BrowserContextHandle {
                 AwBrowserContextJni.get().getCrossOriginIsolatedAllowList(mNativeAwBrowserContext));
     }
 
+    @UiThread
+    public void configureIsolatedSites(@NonNull Set<String> sites) {
+        ThreadUtils.assertOnUiThread();
+        if (!canConfigureIsolatedSites()) {
+            throw new IllegalStateException(
+                    "Cannot configure isolated sites for this profile anymore.");
+        }
+        if (sites.isEmpty()) {
+            throw new IllegalArgumentException("At least one site must be provided.");
+        }
+        List<String> invalidSites =
+                AwBrowserContextJni.get().configureIsolatedSites(mNativeAwBrowserContext, sites);
+        if (!invalidSites.isEmpty()) {
+            Collections.sort(invalidSites);
+            throw new IllegalArgumentException(
+                    "Invalid site(s): " + String.join(", ", invalidSites));
+        }
+    }
+
+    @UiThread
+    public boolean canConfigureIsolatedSites() {
+        ThreadUtils.assertOnUiThread();
+        return AwBrowserContextJni.get().canConfigureIsolatedSites(mNativeAwBrowserContext);
+    }
+
     @NativeMethods
     interface Natives {
         AwBrowserContext getDefaultJava();
@@ -597,5 +641,15 @@ public class AwBrowserContext implements BrowserContextHandle {
 
         @JniType("std::vector<std::string>")
         List<String> getCrossOriginIsolatedAllowList(long nativeAwBrowserContext);
+
+        @JniType("std::vector<std::string>")
+        List<String> configureIsolatedSites(
+                long nativeAwBrowserContext,
+                @JniType("std::vector<std::string>") @NonNull Set<String> sites);
+
+        boolean canConfigureIsolatedSites(long nativeAwBrowserContext);
+
+        JniRawPtr<AwHeaderInterceptorStore.Native> getHeaderInterceptorStoreFromJava(
+                long nativeAwBrowserContext);
     }
 }

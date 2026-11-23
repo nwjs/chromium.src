@@ -242,9 +242,12 @@ ViewTransition::ViewTransition(PassKey,
       has_document_scope_(true),
       delegate_(delegate),
       transition_token_(transition_token),
-      style_tracker_(
-          MakeGarbageCollected<ViewTransitionStyleTracker>(*document_,
-                                                           transition_token_)),
+      style_tracker_(MakeGarbageCollected<ViewTransitionStyleTracker>(
+          *document_,
+          transition_token_,
+          /*generates_pseudo_element_tree=*/
+          !RuntimeEnabledFeatures::
+              ViewTransitionSkipPseudoTreeForNavigationCaptureEnabled())),
       transition_state_callback_(std::move(callback)),
       script_delegate_(MakeGarbageCollected<DOMViewTransition>(
           document_->GetExecutionContext(),
@@ -297,9 +300,10 @@ ViewTransition::ViewTransition(PassKey,
       document_(document),
       has_document_scope_(true),
       delegate_(delegate),
-      style_tracker_(
-          MakeGarbageCollected<ViewTransitionStyleTracker>(*document_,
-                                                           transition_token_)),
+      style_tracker_(MakeGarbageCollected<ViewTransitionStyleTracker>(
+          *document_,
+          transition_token_,
+          /*generates_pseudo_element_tree=*/true)),
       script_delegate_(MakeGarbageCollected<DOMViewTransition>(
           document_->GetExecutionContext(),
           *this)) {
@@ -674,6 +678,10 @@ void ViewTransition::ProcessCurrentState() {
         if (!should_run_for_commit && !should_run_for_captured) {
           DCHECK(WaitsForNotification(state_));
           break;
+        }
+
+        if (style_tracker_->IsOldSnapshotFrozen()) {
+          style_tracker_->CaptureResolved();
         }
 
         switch (creation_type_) {
@@ -1438,16 +1446,6 @@ bool ViewTransition::UnsupportedCapture() {
           "Scoped view-transitions require layout containment.");
       return true;
     }
-    const ComputedStyle* style = scope_->GetComputedStyle();
-    if (style && style->HasMask()) {
-      // TODO(crbug.com/429763389): image masks are not currently supported on
-      // the scoped element. This restriction may be resolved by making the
-      // view-transition's layout object a sibling of the scoped element's
-      // layout object. For now, skip the transition.
-      LogMessageToConsole(
-          "Scoped view-transitions do not currently support mask-image.");
-      return true;
-    }
   }
 
   return false;
@@ -1528,6 +1526,10 @@ bool ViewTransition::MaybeCrossFrameSink() const {
 bool ViewTransition::IsGeneratingPseudo(
     const ViewTransitionPseudoElementBase& pseudo_element) const {
   return pseudo_element.IsBoundTo(style_tracker_.Get());
+}
+
+bool ViewTransition::GeneratesPseudoElementTree() const {
+  return style_tracker_ && style_tracker_->GeneratesPseudoElementTree();
 }
 
 Element* ViewTransition::Scope() const {

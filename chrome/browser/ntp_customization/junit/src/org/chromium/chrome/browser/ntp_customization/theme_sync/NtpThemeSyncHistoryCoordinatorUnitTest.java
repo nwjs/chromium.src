@@ -46,9 +46,11 @@ import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp_customization.BottomSheetDelegate;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
 import org.chromium.chrome.browser.ntp_customization.R;
@@ -187,9 +189,21 @@ public class NtpThemeSyncHistoryCoordinatorUnitTest {
         assertTrue(mPropertyModel.get(NtpThemeSyncHistoryProperties.IS_VISIBLE));
         assertNotNull(
                 mPropertyModel.get(NtpThemeSyncHistoryProperties.RECYCLER_VIEW_LAYOUT_MANAGER));
-        assertEquals(
-                mMoreOptionsClickListener,
+        assertNotNull(
                 mPropertyModel.get(NtpThemeSyncHistoryProperties.MORE_OPTIONS_CLICK_LISTENER));
+    }
+
+    @Test
+    public void testMoreOptionsClick_RecordsMetricsAndInvokesListener() {
+        View view = new View(mContext);
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "NewTabPage.Customization.ThemeHistory.MoreOptionButton.Click", true);
+
+        mPropertyModel.get(NtpThemeSyncHistoryProperties.MORE_OPTIONS_CLICK_LISTENER).onClick(view);
+
+        histogramWatcher.assertExpected();
+        verify(mMoreOptionsClickListener).onClick(view);
     }
 
     @Test
@@ -217,6 +231,16 @@ public class NtpThemeSyncHistoryCoordinatorUnitTest {
         assertEquals(
                 0, (int) mPropertyModel.get(NtpThemeSyncHistoryProperties.HIGHLIGHTED_ITEM_INDEX));
         assertNotNull(mPropertyModel.get(NtpThemeSyncHistoryProperties.RECYCLER_VIEW_ADAPTER));
+    }
+
+    @Test
+    public void testPrepareToShow_RecordsImpression() {
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "NewTabPage.Customization.BottomSheet.Shown",
+                        BottomSheetType.THEME_HISTORY_SCROLLABLE_LIST);
+        mCoordinator.prepareToShow();
+        histogramWatcher.assertExpected();
     }
 
     @Test
@@ -361,10 +385,19 @@ public class NtpThemeSyncHistoryCoordinatorUnitTest {
         NtpThemeSyncHistoryRecyclerViewAdaptor adapter = getAdapterImpl(mCoordinator);
 
         int position = 1;
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "NewTabPage.Customization.ThemeHistory.Click.IOS",
+                                remoteColor.getBackgroundType())
+                        .expectIntRecord(
+                                "NewTabPage.Customization.ThemeHistory.Click.Index", position)
+                        .build();
         // Click the remote history item (index 1, after Default)
         adapter.setSelectedPosition(position, /* isFromClick= */ true);
 
         assertBackgroundDataChangedImpl(remoteColor, /* expectedRecreate= */ true);
+        histogramWatcher.assertExpected();
 
         // Click it again, should not trigger changes since it's already selected.
         clearInvocations(mNtpCustomizationConfigManager);
@@ -745,7 +778,16 @@ public class NtpThemeSyncHistoryCoordinatorUnitTest {
                 .when(mMockImageFetcher)
                 .fetchImage(any(), any());
 
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "NewTabPage.Customization.ThemeHistory.Click.Android",
+                                NtpBackgroundType.THEME_COLLECTION)
+                        .expectIntRecord(
+                                "NewTabPage.Customization.ThemeHistory.Click.Index", position)
+                        .build();
         adapter.setSelectedPosition(position, /* isFromClick= */ true);
+        histogramWatcher.assertExpected();
         RobolectricUtil.runAllBackgroundAndUi();
 
         // Verify it fetches the image again.

@@ -5,7 +5,11 @@
 #ifndef BASE_FEATURE_LIST_INTERNAL_H_
 #define BASE_FEATURE_LIST_INTERNAL_H_
 
+#include <stdint.h>
+
 #include <functional>
+#include <limits>
+#include <optional>
 #include <string>
 
 #include "base/base_export.h"
@@ -15,9 +19,15 @@
 
 namespace base::internal {
 
-// Each of these masks corresponds to one or more bits between bits 16 and 23
-// of the 32-bit `cached_value` and is used to check or set particular flags
-// tracking the use or usability of the feature.
+// Allocates a caching context, skipping zero when the counter wraps around.
+inline uint16_t NextCachingContext(uint16_t& next_context) {
+  const uint16_t context = next_context;
+  next_context =
+      context == std::numeric_limits<uint16_t>::max() ? 1 : context + 1;
+  return context;
+}
+
+// Masks for the fields in the 32-bit `cached_value`.
 enum : Feature::FeatureStateCache {
   // The bottom 16 bits of the 32-bit cached value are used for the caching
   // context ID.
@@ -35,6 +45,11 @@ enum : Feature::FeatureStateCache {
   // The feature has been declared as runtime mutable. The feature's state may
   // be subject to change at runtime.
   kRuntimeMutabilityMask = 1 << 18,
+
+  // The resolved enabled state and explicit override marker are cached
+  // separately so the enabled state can be read without decoding an override.
+  kCachedResolvedEnabledMask = 1 << 24,
+  kCachedExplicitOverrideMask = 1 << 25,
 };
 
 // Result of a runtime-mutable feature operation. These values are logged to
@@ -47,10 +62,7 @@ enum class RuntimeMutabilityResult {
   // A runtime-update was rejected because the targeted feature was not found
   // to be enabled for runtime mutability.
   kFailure = 2,
-  // A runtime-update was rejected because the requested feature state is not
-  // supported. V0, for example, only supports the disabling of runtime-mutable
-  // features.
-  kFailure_StateNotSupported = 3,
+  // kFailure_StateNotSupported = 3,  // Obsolete.
   // The runtime-mutability of a feature has been disabled because the feature's
   // state was set via a command-line override. This is not an error, per se,
   // but is still worth logging to understand whether runtime mutability is
@@ -87,13 +99,13 @@ struct BASE_EXPORT RuntimeMutableFeatureState {
   FeatureList::OnRuntimeMutableFeatureStateChangedCallback
       post_mutation_callback;
 
-  // The runtime override state of the feature, or OVERRIDE_USE_DEFAULT if the
+  // The runtime override state of the feature, or `std::nullopt` if the
   // feature is not runtime overridden.
-  FeatureList::OverrideState override_state = FeatureList::OVERRIDE_USE_DEFAULT;
+  std::optional<FeatureList::OverrideState> override_state;
 
   // The runtime override info associated with this feature, or null if there is
   // none.
-  base::raw_ptr<const RuntimeFieldTrialInfo> override_info;
+  base::raw_ptr<RuntimeFieldTrialInfo> override_info;
 };
 
 }  // namespace base::internal

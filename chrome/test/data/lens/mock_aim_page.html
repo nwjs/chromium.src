@@ -124,6 +124,7 @@
       return res;
     }
 
+    const CHROME_SEARCH_CHANNEL_NAME = 'chrome-search-channel';
     const urlParams = new URLSearchParams(window.location.search);
     const configuredExtensionId = urlParams.get('extension_id') ||
         'glbjnfimcajjenihimblfaponejbkoph';
@@ -133,24 +134,19 @@
           '/lens_button.html?cs=0';
     }
 
-    window.addEventListener('message', (event) => {
-      let dataBytes;
-      if (event.data instanceof ArrayBuffer) {
-        dataBytes = new Uint8Array(event.data);
-      } else if (event.data instanceof Uint8Array) {
-        dataBytes = event.data;
-      } else {
-        return;
-      }
+    let searchPort = null;
 
+    function handleSearchMessage(dataBytes) {
       window.receivedMessages.push(dataBytes);
 
       // Handle HandshakePing: field 1 length-delimited (tag 10).
       if (dataBytes.length >= 2 && dataBytes[0] === 10) {
         // Send SearchToClientMessage with HandshakeResponse (field 1, wire type 2, length 0 -> [10, 0]).
-        if (event.source) {
-          const response = new Uint8Array([10, 0]);
-          event.source.postMessage(response.buffer, event.origin);
+        if (searchPort) {
+          searchPort.postMessage({
+            type: CHROME_SEARCH_CHANNEL_NAME,
+            payload: [10, 0],
+          });
         }
         document.body.dataset.handshakeComplete = 'true';
         return;
@@ -187,34 +183,51 @@
           }
         }
       }
-    });
+    }
 
-    // Proactively post 'domContentLoaded' to the lens button iframe to establish
-    // the target origin in post_message_handler.ts.
-    function pingButtonIframe() {
-      if (document.body.dataset.handshakeComplete === 'true') {
+    function connectSearchChannel() {
+      if (document.body.dataset.handshakeComplete === 'true' || searchPort) {
         return;
       }
-      const buttonIframe = document.getElementById('lens-button-iframe');
-      if (buttonIframe && buttonIframe.contentWindow) {
-        buttonIframe.contentWindow.postMessage('domContentLoaded', '*');
+      if (!window.chrome || !chrome.runtime || !chrome.runtime.connect) {
+        return;
+      }
+      try {
+        const port = chrome.runtime.connect(
+            configuredExtensionId, {name: CHROME_SEARCH_CHANNEL_NAME});
+        searchPort = port;
+        port.onMessage.addListener((msg) => {
+          if (!msg || msg.type !== CHROME_SEARCH_CHANNEL_NAME ||
+              !Array.isArray(msg.payload)) {
+            return;
+          }
+          handleSearchMessage(new Uint8Array(msg.payload));
+        });
+        port.onDisconnect.addListener(() => {
+          if (searchPort === port) {
+            searchPort = null;
+          }
+        });
+      } catch (e) {
+        searchPort = null;
       }
     }
 
-    const pingInterval = setInterval(() => {
+    const connectInterval = setInterval(() => {
       if (document.body.dataset.handshakeComplete === 'true') {
-        clearInterval(pingInterval);
+        clearInterval(connectInterval);
       } else {
-        pingButtonIframe();
+        connectSearchChannel();
       }
     }, 50);
 
     function submitQuery() {
-      const buttonIframe = document.getElementById('lens-button-iframe');
-      if (buttonIframe && buttonIframe.contentWindow) {
+      if (searchPort) {
         // SearchToClientMessage with OnSubmitQueryRequest: field 2, length 0 -> [18, 0].
-        const request = new Uint8Array([18, 0]);
-        buttonIframe.contentWindow.postMessage(request.buffer, '*');
+        searchPort.postMessage({
+          type: CHROME_SEARCH_CHANNEL_NAME,
+          payload: [18, 0],
+        });
       }
     }
     const submitBtn = document.getElementById('submitQueryButton');
@@ -223,7 +236,7 @@
     }
     window.submitQuery = submitQuery;
 
-    window.addEventListener('load', pingButtonIframe);
+    connectSearchChannel();
   </script>
 </body>
 </html>

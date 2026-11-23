@@ -5,19 +5,6 @@
 #import "ios/chrome/browser/content_suggestions/public/content_suggestions_constants.h"
 
 #import "base/notreached.h"
-#import "components/ntp_tiles/features.h"
-#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
-
-namespace {
-
-// The maximum number of Most Visited tiles shown.
-constexpr NSUInteger kContentSuggestionsMostVisitedTilesMax = 8;
-
-// The maximum number of Most Visited tiles shown when the AIM tile is eligible.
-constexpr NSUInteger kContentSuggestionsMostVisitedTilesMaxWithAim =
-    kContentSuggestionsMostVisitedTilesMax + 1;
-
-}  // namespace
 
 NSString* const kContentSuggestionsCollectionIdentifier =
     @"ContentSuggestionsCollectionIdentifier";
@@ -29,6 +16,9 @@ NSString* const kContentSuggestionsMostVisitedAccessibilityIdentifierPrefix =
 
 NSString* const kContentSuggestionsShortcutsAccessibilityIdentifierPrefix =
     @"contentSuggestionsShortcutsAccessibilityIdentifierPrefix";
+
+NSString* const kContentSuggestionsAIMModuleAccessibilityIdentifier =
+    @"ContentSuggestionsAIMModuleAccessibilityIdentifier";
 
 NSString* const kMagicStackScrollViewAccessibilityIdentifier =
     @"MagicStackScrollViewAccessibilityIdentifier";
@@ -48,6 +38,8 @@ const CGFloat kMagicStackWideWidth = 430;
 const CGFloat kMostVisitedBottomMargin = 13;
 
 const CGFloat kMagicStackFaviconWidth = 28;
+
+const NSUInteger kContentSuggestionsMostVisitedTilesMax = 8;
 
 ContentSuggestionsModuleType SetUpListModuleTypeForSetUpListType(
     SetUpListItemType type) {
@@ -76,6 +68,7 @@ bool IsTipsModuleType(ContentSuggestionsModuleType type) {
     case ContentSuggestionsModuleType::kTips:
     case ContentSuggestionsModuleType::kAppBundlePromo:
     case ContentSuggestionsModuleType::kDefaultBrowser:
+    case ContentSuggestionsModuleType::kTipsNTPThemeActionable:
       return true;
     case ContentSuggestionsModuleType::kInvalid:
     case ContentSuggestionsModuleType::kTabResumption:
@@ -89,12 +82,4 @@ bool IsTipsModuleType(ContentSuggestionsModuleType type) {
     case ContentSuggestionsModuleType::kLevelUp:
       return false;
   }
-}
-
-NSUInteger MaximumMostVisitedTilesCount() {
-  if (IsAimEnabledInNtp() && ntp_tiles::GetAimButtonRefactorArm() ==
-                                 ntp_tiles::AimButtonRefactorArm::kAimAsMvt) {
-    return kContentSuggestionsMostVisitedTilesMaxWithAim;
-  }
-  return kContentSuggestionsMostVisitedTilesMax;
 }

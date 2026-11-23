@@ -9,13 +9,13 @@
 #include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/memory/raw_ref.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/login/auth/auth_performer.h"
 #include "chromeos/ash/components/osauth/public/auth_policy_utils.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/known_user.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 
 namespace ash::legacy {
 namespace {
@@ -78,15 +78,13 @@ CryptohomePinEngine::~CryptohomePinEngine() = default;
 std::optional<bool> CryptohomePinEngine::IsCryptohomePinDisabledByPolicy(
     const AccountId& account_id,
     CryptohomePinEngine::Purpose purpose) const {
-  Profile* profile =
-      ash::ProfileHelper::Get()->GetProfileByAccountId(account_id);
-
-  if (!profile) {
+  const user_manager::User* const user =
+      user_manager::UserManager::Get()->FindUser(account_id);
+  if (!user) {
     return std::nullopt;
   }
 
-  auto* pref_service = profile->GetPrefs();
-
+  const PrefService* const pref_service = user->GetProfilePrefs();
   if (!pref_service) {
     return std::nullopt;
   }

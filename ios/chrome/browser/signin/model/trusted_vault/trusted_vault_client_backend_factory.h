@@ -7,28 +7,22 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class ProfileIOS;
-class TrustedVaultClientBackend;
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
+#import "ios/chrome/browser/signin/model/trusted_vault/trusted_vault_client_backend.h"
 
 // Singleton that owns all TrustedVaultClientBackends and associates them with
 // ProfileIOS.
-class TrustedVaultClientBackendFactory : public ProfileKeyedServiceFactoryIOS {
+class TrustedVaultClientBackendFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          TrustedVaultClientBackendFactory,
+          TrustedVaultClientBackend> {
  public:
-  static TrustedVaultClientBackend* GetForProfile(ProfileIOS* profile);
-  static TrustedVaultClientBackendFactory* GetInstance();
+  explicit TrustedVaultClientBackendFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<TrustedVaultClientBackendFactory>;
-
-  TrustedVaultClientBackendFactory();
-  ~TrustedVaultClientBackendFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_SIGNIN_MODEL_TRUSTED_VAULT_TRUSTED_VAULT_CLIENT_BACKEND_FACTORY_H_

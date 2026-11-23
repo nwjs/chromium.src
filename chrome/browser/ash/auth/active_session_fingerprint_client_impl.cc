@@ -14,6 +14,7 @@
 #include "ash/public/cpp/login_types.h"
 #include "ash/shell.h"
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/memory/raw_ptr.h"
@@ -21,9 +22,6 @@
 #include "base/notreached.h"
 #include "base/values.h"
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/ash/components/dbus/cryptohome/UserDataAuth.pb.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/ash/components/login/auth/public/auth_callbacks.h"
@@ -32,6 +30,10 @@
 #include "components/account_id/account_id.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
+#include "components/user_manager/user.h"
+#include "components/user_manager/user_manager.h"
 
 namespace ash {
 
@@ -39,6 +41,19 @@ namespace {
 
 const char kFactorsOptionAll[] = "all";
 const char kFactorsOptionFingerprint[] = "FINGERPRINT";
+
+// Whether `account_id` owns the primary session. "Primary" is a property of
+// the session rather than of the user, so it is asked of SessionManager.
+bool IsPrimarySession(const AccountId& account_id) {
+  const session_manager::SessionManager* const session_manager =
+      session_manager::SessionManager::Get();
+  if (!session_manager) {
+    return false;
+  }
+  const session_manager::Session* const primary_session =
+      session_manager->GetPrimarySession();
+  return primary_session && primary_session->account_id() == account_id;
+}
 
 }  // namespace
 
@@ -67,17 +82,15 @@ void ActiveSessionFingerprintClientImpl::OnShellDestroying() {
 bool ActiveSessionFingerprintClientImpl::IsFingerprintAvailable(
     AuthRequest::Reason reason,
     const AccountId& account_id) {
-  auto* profile = ProfileHelper::Get()->GetProfileByAccountId(account_id);
+  const user_manager::User& user =
+      CHECK_DEREF(user_manager::UserManager::Get()->FindUser(account_id));
 
-  CHECK(profile);
-
-  auto* pref_service = profile->GetPrefs();
-
+  const PrefService* const pref_service = user.GetProfilePrefs();
   if (!pref_service) {
     return false;
   }
 
-  if (profile != ProfileManager::GetPrimaryUserProfile()) {
+  if (!IsPrimarySession(account_id)) {
     return false;
   }
 

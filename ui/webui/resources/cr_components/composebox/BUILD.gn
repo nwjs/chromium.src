@@ -70,11 +70,13 @@ build_webui("build") {
     "window_proxy.ts",
   ]
   css_files = [
+    "aim_button_shared_vars.css",
     "composebox.css",
     "composebox_aim_button.css",
     "composebox_favicon_group.css",
     "composebox_submit.css",
     "composebox_dropdown.css",
+    "composebox_energy_style.css",
     "composebox_input.css",
     "composebox_lens_search.css",
     "composebox_match.css",

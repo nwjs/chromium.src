@@ -24,7 +24,7 @@
 #include "services/network/public/mojom/web_sandbox_flags.mojom-shared.h"
 #include "third_party/blink/public/common/context_menu_data/untrustworthy_context_menu_params.h"
 #include "third_party/blink/public/common/frame/frame_ad_evidence.h"
-#include "third_party/blink/public/common/frame/user_activation_update_source.h"
+#include "third_party/blink/public/common/frame/user_activation_update_scope.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/back_forward_cache_not_restored_reasons.mojom-forward.h"
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-shared.h"
@@ -117,6 +117,7 @@ struct FramePolicy;
 struct WebAssociatedURLLoaderOptions;
 struct WebConsoleMessage;
 struct WebIsolatedWorldInfo;
+struct WebPerformanceTimings;
 struct WebPolicyContainer;
 struct WebPrintPageDescription;
 struct WebPrintParams;
@@ -262,6 +263,9 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
   // Tests whether the policy-controlled feature is enabled in this frame.
   virtual bool IsFeatureEnabled(
       const network::mojom::PermissionsPolicyFeature&) const = 0;
+
+  // Returns true if this frame's page is currently in the BackForwardCache.
+  virtual bool IsInBackForwardCache() const = 0;
 
   // Hierarchy ----------------------------------------------------------
 
@@ -908,6 +912,7 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
       const = 0;
   virtual WebPerformanceMetricsForNestedContexts
   PerformanceMetricsForNestedContexts() const = 0;
+  virtual WebPerformanceTimings PerformanceTimings() const = 0;
 
   // Ad Tagging ---------------------------------------------------------
 
@@ -944,8 +949,8 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
 
   // See |blink::LocalFrame::ConsumeTransientUserActivation()|.
   virtual bool ConsumeTransientUserActivation(
-      UserActivationUpdateSource update_source =
-          UserActivationUpdateSource::kRenderer) = 0;
+      UserActivationUpdateScope update_scope =
+          UserActivationUpdateScope::kDefault) = 0;
 
   // See |blink::Frame::LastActivationWasRestricted()|.
   virtual bool LastActivationWasRestricted() const = 0;

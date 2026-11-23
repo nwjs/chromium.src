@@ -23,7 +23,6 @@ import './per_device_install_row.js';
 import './per_device_subsection_header.js';
 import 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {PolymerElementProperties} from 'chrome://resources/polymer/v3_0/polymer/interfaces.js';
@@ -35,7 +34,8 @@ import type {MousePolicies} from '../mojom-webui/input_device_settings.mojom-web
 import {MouseSettingsObserverReceiver} from '../mojom-webui/input_device_settings_provider.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import {DisableTouchpadMode} from '../os_a11y_page/disable_touchpad_constants.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {Router, routes} from '../router.js';
 
 import {FakeInputDeviceSettingsProvider} from './fake_input_device_settings_provider.js';
@@ -200,15 +200,6 @@ export class SettingsPerDeviceTouchpadSubsectionElement extends
         reflectToAttribute: true,
       },
 
-      isAltClickAndSixPackCustomizationEnabled: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean(
-              'enableAltClickAndSixPackCustomization');
-        },
-        readOnly: true,
-      },
-
       mice: {
         type: Array,
       },
@@ -269,7 +260,6 @@ export class SettingsPerDeviceTouchpadSubsectionElement extends
       getInputDeviceSettingsProvider();
   declare protected touchpadIndex: number;
   declare protected isLastDevice: boolean;
-  declare protected isAltClickAndSixPackCustomizationEnabled: boolean;
   declare protected mice: Mouse[];
   private mouseSettingsObserverReceiver_ =
       new MouseSettingsObserverReceiver(this);

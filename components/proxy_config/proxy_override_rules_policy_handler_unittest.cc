@@ -8,6 +8,7 @@
 #include "base/logging.h"
 #include "base/types/expected_macros.h"
 #include "components/policy/core/browser/policy_error_map.h"
+#include "components/policy/policy_constants.h"
 #include "components/prefs/pref_value_map.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -216,7 +217,8 @@ constexpr TestCase kInvalidTestCases[] = {
         u"Error at ProxyOverrideRules[0].Conditions[0].Host: \"://\" is not a "
         u"valid value.",
     },
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_ANDROID)
     {
         R"([
              {
@@ -235,7 +237,8 @@ constexpr TestCase kInvalidTestCases[] = {
         u"This policy value is ignored since the user is not affiliated.",
         /*affiliated=*/false,
     },
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) ||
+        // BUILDFLAG(IS_ANDROID)
 };
 
 class ProxyOverrideRulesPolicyHandlerTest
@@ -313,7 +316,8 @@ TEST_F(ProxyOverrideRulesPolicyHandlerTest, UnaffiliatedUserPolicyRejected) {
       base::JSONReader::Read(kPolicyValue, base::JSON_ALLOW_TRAILING_COMMAS),
       nullptr);
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_ANDROID)
   // Scenario 1: Unaffiliated user
   policy_map.SetDeviceAffiliationIds({"device_id"});
   policy_map.SetUserAffiliationIds({"user_id"});
@@ -333,6 +337,27 @@ TEST_F(ProxyOverrideRulesPolicyHandlerTest, UnaffiliatedUserPolicyRejected) {
   handler->ApplyPolicySettings(policy_map, &prefs);
   const base::Value* val = nullptr;
   EXPECT_TRUE(prefs.GetValue(prefs::kProxyOverrideRules, &val));
+
+  // Scenario 3: Unaffiliated user with machine-scoped enable policy
+  errors.Clear();
+  policy_map.SetUserAffiliationIds({"user_id"});
+  policy_map.Set(policy::key::kEnableProxyOverrideRulesForAllUsers,
+                 policy::PolicyLevel::POLICY_LEVEL_MANDATORY,
+                 policy::PolicyScope::POLICY_SCOPE_MACHINE,
+                 policy::PolicySource::POLICY_SOURCE_CLOUD, base::Value(1),
+                 nullptr);
+  EXPECT_TRUE(handler->CheckPolicySettings(policy_map, &errors));
+  EXPECT_TRUE(errors.empty());
+
+  // Scenario 4: Unaffiliated user with user-scoped enable policy is ignored
+  errors.Clear();
+  policy_map.Set(policy::key::kEnableProxyOverrideRulesForAllUsers,
+                 policy::PolicyLevel::POLICY_LEVEL_MANDATORY,
+                 policy::PolicyScope::POLICY_SCOPE_USER,
+                 policy::PolicySource::POLICY_SOURCE_CLOUD, base::Value(1),
+                 nullptr);
+  EXPECT_FALSE(handler->CheckPolicySettings(policy_map, &errors));
+  EXPECT_TRUE(errors.HasError(kPolicyName));
 #endif
 }
 

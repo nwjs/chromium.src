@@ -448,7 +448,7 @@ class PictureInPictureBrowserFrameViewTestBase : public WebRtcTestBase {
               child_web_contents));
       ASSERT_TRUE(browser_view);
       ASSERT_EQ(browser_view->browser()->GetType(),
-                BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE);
+                BrowserWindowInterface::Type::TYPE_FLOATING);
 
       pip_frame_view_ = static_cast<PictureInPictureBrowserFrameView*>(
           browser_view->browser_widget()->GetFrameView());
@@ -635,6 +635,14 @@ class PictureInPictureFrameControlsTestBase
     }
   }
 
+  bool WaitForTopBarActiveStatus(bool active) {
+    return base::test::RunUntil([&] {
+      return (UseStandaloneDocumentPip()
+                  ? GetStandaloneAnimationController()->is_top_bar_active()
+                  : pip_frame_view()->IsTopBarActiveForTesting()) == active;
+    });
+  }
+
   std::vector<raw_ptr<gfx::Animation>> GetTopBarAnimations(bool active) {
     if (!UseStandaloneDocumentPip()) {
       return active ? pip_frame_view()->GetRenderActiveAnimationsForTesting()
@@ -693,6 +701,7 @@ IN_PROC_BROWSER_TEST_P(PictureInPictureTitleActivationTest,
   gfx::Point center = GetPipFrameView()->GetLocalBounds().CenterPoint();
   views::View::ConvertPointToScreen(GetPipFrameView(), &center);
   ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(center));
+  ASSERT_TRUE(WaitForTopBarActiveStatus(/*active=*/true));
   WaitForTopBarAnimations(GetTopBarAnimations(/*active=*/true));
   ASSERT_TRUE(IsButtonVisible(GetBackToTabButton()));
   ASSERT_TRUE(IsButtonVisible(GetCloseButton()));
@@ -704,12 +713,14 @@ IN_PROC_BROWSER_TEST_P(PictureInPictureTitleActivationTest,
       BrowserView::GetBrowserViewForBrowser(browser()), &outside);
   ASSERT_FALSE(IsPointInPIPFrameView(outside));
   ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(outside));
+  ASSERT_TRUE(WaitForTopBarActiveStatus(/*active=*/false));
   WaitForTopBarAnimations(GetTopBarAnimations(/*active=*/false));
   ASSERT_FALSE(IsButtonVisible(GetBackToTabButton()));
   ASSERT_FALSE(IsButtonVisible(GetCloseButton()));
 
   // Move mouse back in pip window should activate title.
   ASSERT_TRUE(ui_test_utils::SendMouseMoveSync(center));
+  ASSERT_TRUE(WaitForTopBarActiveStatus(/*active=*/true));
   WaitForTopBarAnimations(GetTopBarAnimations(/*active=*/true));
   ASSERT_TRUE(IsButtonVisible(GetBackToTabButton()));
   ASSERT_TRUE(IsButtonVisible(GetCloseButton()));
@@ -1665,7 +1676,8 @@ IN_PROC_BROWSER_TEST_P(PictureInPictureAnimationTimingTest,
     show_animation_waiter.WaitForAnimationInterval(
         show_expectations.time_delta);
     if (test_case.disallow_return_to_opener) {
-      DCHECK(!show_expectations.expected_back_to_tab_button_is_visible);
+      CHECK(!show_expectations.expected_back_to_tab_button_is_visible,
+            base::NotFatalUntil::M162);
       ASSERT_EQ(nullptr, GetBackToTabButton());
     } else {
       ASSERT_EQ(show_expectations.expected_back_to_tab_button_is_visible,
@@ -1690,7 +1702,8 @@ IN_PROC_BROWSER_TEST_P(PictureInPictureAnimationTimingTest,
     hide_animation_waiter.WaitForAnimationInterval(
         hide_expectations.time_delta);
     if (test_case.disallow_return_to_opener) {
-      DCHECK(!hide_expectations.expected_back_to_tab_button_is_visible);
+      CHECK(!hide_expectations.expected_back_to_tab_button_is_visible,
+            base::NotFatalUntil::M162);
       ASSERT_EQ(nullptr, GetBackToTabButton());
     } else {
       ASSERT_EQ(hide_expectations.expected_back_to_tab_button_is_visible,

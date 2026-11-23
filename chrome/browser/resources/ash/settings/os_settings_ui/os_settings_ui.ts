@@ -11,7 +11,6 @@
  *    <settings-ui prefs="{{prefs}}"></settings-ui>
  */
 import 'chrome://resources/polymer/v3_0/iron-media-query/iron-media-query.js';
-import '/shared/settings/prefs/prefs.js';
 import 'chrome://resources/ash/common/cr_elements/cr_drawer/cr_drawer.js';
 import 'chrome://resources/ash/common/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/ash/common/cr_elements/cr_page_host_style.css.js';
@@ -19,14 +18,15 @@ import 'chrome://resources/ash/common/cr_elements/icons.html.js';
 import 'chrome://resources/ash/common/cr_elements/cr_shared_vars.css.js';
 import '../os_settings_menu/os_settings_menu.js';
 import '../os_settings_main/os_settings_main.js';
+import '../prefs/prefs.js';
 import '../settings_shared.css.js';
 import '../settings_vars.css.js';
 import './toolbar.js';
 
-import type {SettingsPrefsElement} from '/shared/settings/prefs/prefs.js';
 import {CrContainerShadowMixin} from 'chrome://resources/ash/common/cr_elements/cr_container_shadow_mixin.js';
 import type {CrDrawerElement} from 'chrome://resources/ash/common/cr_elements/cr_drawer/cr_drawer.js';
 import {FindShortcutMixin} from 'chrome://resources/ash/common/cr_elements/find_shortcut_mixin.js';
+import {ColorChangeUpdater} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {listenOnce} from 'chrome://resources/js/util.js';
@@ -42,7 +42,8 @@ import {recordClick, recordNavigation, recordPageBlur, recordPageFocus, recordSe
 import {convertPrefToSettingMetric} from '../metrics_utils.js';
 import type {OsPageAvailability} from '../os_page_availability.js';
 import {createPageAvailability} from '../os_page_availability.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import type {SettingsPrefsElement} from '../prefs/prefs.js';
 import {Router} from '../router.js';
 
 import {getTemplate} from './os_settings_ui.html.js';
@@ -181,6 +182,9 @@ export class OsSettingsUiElement extends OsSettingsUiElementBase {
     this.scrollEndDebouncer_ = null;
 
     Router.getInstance().initializeRouteFromUrl();
+
+    // Listen for changes to Jelly dynamic colors.
+    ColorChangeUpdater.forDocument().start();
   }
 
   override ready(): void {

@@ -1,0 +1,463 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.actor.notifications;
+
+import android.app.Notification;
+import android.content.Intent;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.TextUtils;
+
+import androidx.annotation.VisibleForTesting;
+
+import org.chromium.base.ResettersForTesting;
+import org.chromium.base.TimeUtils;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.ActorKeyedService;
+import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
+import org.chromium.chrome.browser.actor.ActorMetrics;
+import org.chromium.chrome.browser.actor.ActorTask;
+import org.chromium.chrome.browser.actor.ActorTaskState;
+import org.chromium.chrome.browser.actor.ActorUtils;
+import org.chromium.chrome.browser.actor.foreground_service.ActorForegroundServiceManager;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.notifications.NotificationConstants;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxy;
+import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxyFactory;
+import org.chromium.components.browser_ui.notifications.NotificationMetadata;
+import org.chromium.components.browser_ui.notifications.NotificationWrapper;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Manages the state and display of notifications for Actor tasks. When foreground service is
+ * running, one notification is always pinned to it.
+ */
+@NullMarked
+public class ActorNotificationService {
+    private static final String TAG = "ActorNotification";
+    private static final int INVALID_TASK_ID = -1;
+    private static final int INVALID_TASK_STATE = -1;
+
+    // Delay to demote terminal live notifications to regular dismissible notifications.
+    // Matches the toolbar action chip collapse delay (30 seconds).
+    public static final long LIVE_NOTIFICATION_DEMOTION_DELAY_MS = TimeUnit.SECONDS.toMillis(30);
+    private static long sDemotionDelayMs = LIVE_NOTIFICATION_DEMOTION_DELAY_MS;
+
+    // Tag for a task notification that is no longer pinned. Android cancels the previously pinned
+    // untagged key asynchronously and never treats a tagged notification as a foreground service
+    // notification.
+    @VisibleForTesting public static final String UNPINNED_NOTIFICATION_TAG = "actor_unpinned";
+
+    private final Map<Integer, ActorTask> mTaskCache = new HashMap<>();
+    private final Map<Integer, NotificationWrapper> mNotificationCache = new HashMap<>();
+    private final Map<Integer, Integer> mTaskStates = new HashMap<>();
+    private final Map<Integer, Long> mLastWorklogUpdateTimes = new HashMap<>();
+    // Insertion-ordered so that the oldest pending demotion is promoted first.
+    private final Map<Integer, Runnable> mDemoteRunnables = new LinkedHashMap<>();
+    private final Set<Integer> mUnpinnedTagTaskIds = new HashSet<>();
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private final BaseNotificationManagerProxy mNotificationManager;
+    private final ActorKeyedService mKeyedService;
+
+    /**
+     * Constructs an {@link ActorNotificationService} instance.
+     *
+     * @param keyedService The {@link ActorKeyedService} used to retrieve task information when
+     *     creating or updating notifications.
+     */
+    public ActorNotificationService(ActorKeyedService keyedService) {
+        mNotificationManager = BaseNotificationManagerProxyFactory.create();
+        mKeyedService = keyedService;
+    }
+
+    public static long getDemotionDelayMs() {
+        return sDemotionDelayMs;
+    }
+
+    public boolean hasPendingDemotions() {
+        return !mDemoteRunnables.isEmpty();
+    }
+
+    /** Returns the IDs of the tasks whose live notification is still awaiting demotion. */
+    public Set<Integer> getPendingDemotionTaskIds() {
+        return mDemoteRunnables.keySet();
+    }
+
+    /**
+     * Reposts a cached notification silently as a regular notification. Used when the foreground
+     * service releases a notification that was removed along with the foreground state.
+     *
+     * @param taskId The ID of the task whose notification should be reposted.
+     * @param isWarning Whether the task is in a warning state.
+     */
+    public void repostNotification(int taskId, boolean isWarning) {
+        ActorTask task = getTask(taskId);
+        Integer state = mTaskStates.get(taskId);
+        if (!mNotificationCache.containsKey(taskId) || task == null || state == null) return;
+        // The cached notification may be loud, and the repost under the unpinned tag is a new
+        // notification to Android, so it is rebuilt silently.
+        notifyTaskNotification(
+                ActorNotificationFactory.buildNotification(
+                        task,
+                        state,
+                        /* isSilent= */ true,
+                        isWarning,
+                        /* isLive= */ !ActorUtils.isCompletedState(state)));
+    }
+
+    /**
+     * Marks a task's notification as no longer pinned to the foreground service and cancels its
+     * untagged copy. Until {@link #onNotificationPinned} is called, the task's notifications are
+     * posted under {@link #UNPINNED_NOTIFICATION_TAG}.
+     *
+     * @param taskId The ID of the task whose notification was unpinned.
+     */
+    public void onNotificationUnpinned(int taskId) {
+        mUnpinnedTagTaskIds.add(taskId);
+        mNotificationManager.cancel(taskId);
+    }
+
+    /**
+     * Marks a task's notification as pinned to the foreground service again and cancels its copy
+     * posted under {@link #UNPINNED_NOTIFICATION_TAG}.
+     *
+     * @param taskId The ID of the task whose notification was pinned.
+     */
+    public void onNotificationPinned(int taskId) {
+        if (mUnpinnedTagTaskIds.remove(taskId)) {
+            mNotificationManager.cancel(UNPINNED_NOTIFICATION_TAG, taskId);
+        }
+    }
+
+    /**
+     * Demotes a task's live notification ahead of its scheduled demotion. Used when the
+     * notification is no longer pinned to the foreground service and therefore cannot stay live.
+     *
+     * @param taskId The ID of the task to demote.
+     */
+    public void demoteNow(int taskId) {
+        Runnable runnable = mDemoteRunnables.get(taskId);
+        if (runnable == null) return;
+        mHandler.removeCallbacks(runnable);
+        demoteToNonLiveNotification(taskId, /* notifyManager= */ false);
+    }
+
+    /**
+     * Returns the notification that should be pinned to the {@link ActorForegroundService}.
+     *
+     * @param task The task to show the notification for.
+     * @param isSilent Whether the notification should be silent or popup if it needs to be built.
+     * @param isWarning Whether the notification is in a warning state.
+     * @return The notification to be used for the foreground service, or null if the task is null.
+     */
+    public @Nullable Notification getForegroundNotification(
+            @Nullable ActorTask task, boolean isSilent, boolean isWarning) {
+        if (task == null) return null;
+
+        // Currently, we only support pinning one task's notification.
+        // In the future, this can be extended to return a grouped summary notification.
+        return getCachedNotification(task.getId(), isSilent, isWarning);
+    }
+
+    /**
+     * Updates the internal notification state for a specific task based on its new state.
+     *
+     * @param taskId The ID of the task that changed state.
+     * @param newState The new state of the task.
+     * @param isSilent Whether the notification should be silent or popup.
+     * @param isWarning Whether the notification is in a warning state.
+     */
+    public void updateNotificationForTask(
+            int taskId, @ActorTaskState int newState, boolean isSilent, boolean isWarning) {
+        cancelDemoteRunnable(taskId);
+        if (!ActorUtils.isRunningState(newState)) {
+            mLastWorklogUpdateTimes.remove(taskId);
+        }
+        NotificationWrapper old = mNotificationCache.get(taskId);
+        NotificationWrapper current =
+                getOrBuildNotificationWrapper(taskId, newState, isSilent, isWarning);
+        if (current == null) {
+            cancelTaskNotifications(mNotificationManager, taskId);
+            clearTaskData(taskId);
+            return;
+        }
+
+        if (current != old) {
+            notifyTaskNotification(current);
+        }
+
+        if (ActorUtils.isOngoingNotification(ActorUtils.isCompletedState(newState))) {
+            scheduleDemotion(taskId);
+        }
+    }
+
+    private void scheduleDemotion(int taskId) {
+        Runnable runnable = () -> demoteToNonLiveNotification(taskId);
+        mDemoteRunnables.put(taskId, runnable);
+        mHandler.postDelayed(runnable, sDemotionDelayMs);
+    }
+
+    private void cancelDemoteRunnable(int taskId) {
+        Runnable runnable = mDemoteRunnables.remove(taskId);
+        if (runnable != null) {
+            mHandler.removeCallbacks(runnable);
+        }
+    }
+
+    @VisibleForTesting
+    void demoteToNonLiveNotification(int taskId) {
+        demoteToNonLiveNotification(taskId, /* notifyManager= */ true);
+    }
+
+    private void demoteToNonLiveNotification(int taskId, boolean notifyManager) {
+        if (mDemoteRunnables.remove(taskId) == null) {
+            return;
+        }
+        ActorTask task = getTask(taskId);
+        Integer state = mTaskStates.get(taskId);
+        if (task == null || state == null || !ActorUtils.isCompletedState(state)) {
+            return;
+        }
+
+        // Remove the live notification from the cache before notifying the manager so that if
+        // maybeStopServiceNow() tears down the service, repostNotification() does not repost it
+        // before we post the demoted replacement below.
+        mNotificationCache.remove(taskId);
+        if (notifyManager) {
+            ActorForegroundServiceManager manager = ActorForegroundServiceManager.getInstance();
+            if (manager != null) {
+                manager.maybeStopServiceNow();
+            }
+        }
+
+        NotificationWrapper nonLiveWrapper =
+                ActorNotificationFactory.buildNotification(
+                        task,
+                        state,
+                        /* isSilent= */ true,
+                        /* isWarning= */ false,
+                        /* isLive= */ false);
+        mNotificationCache.put(taskId, nonLiveWrapper);
+        notifyTaskNotification(nonLiveWrapper);
+    }
+
+    /**
+     * Updates the notification for a task when its step progress changes.
+     *
+     * @param taskId The ID of the task whose step progress updated.
+     */
+    public void updateNotificationForStepProgress(int taskId) {
+        if (!ChromeFeatureList.sActorStepProgressNotification.isEnabled()) {
+            return;
+        }
+        ActorTask task = getTask(taskId);
+        if (task == null) {
+            return;
+        }
+        @ActorTaskState int state = getEffectiveState(taskId, task);
+        // Step progress must never revive the notification of a task that already finished.
+        if (ActorUtils.isCompletedState(state)) {
+            return;
+        }
+        NotificationWrapper current =
+                ActorNotificationFactory.buildNotification(
+                        task, state, /* isSilent= */ true, /* isWarning= */ false);
+        mNotificationCache.put(taskId, current);
+        notifyTaskNotification(current);
+
+        if (ActorUtils.isRunningState(state) && !TextUtils.isEmpty(task.getCurrentActionName())) {
+            long now = TimeUtils.elapsedRealtimeMillis();
+            Long lastTime = mLastWorklogUpdateTimes.put(taskId, now);
+            if (lastTime != null) {
+                ActorMetrics.recordTimeBetweenWorklogUpdates(now - lastTime);
+            }
+        }
+    }
+
+    /**
+     * Resends the notification for a running task as loud (e.g. when moving to background or PiP).
+     *
+     * @param taskId The ID of the task to resend notification for.
+     */
+    public void resendWorkingNotificationLoudly(int taskId) {
+        ActorTask task = getTask(taskId);
+        if (task == null || !ActorUtils.isRunningState(task.getState())) {
+            return;
+        }
+        NotificationWrapper loudNotification =
+                ActorNotificationFactory.buildNotification(
+                        task, task.getState(), /* isSilent= */ false, /* isWarning= */ false);
+        mNotificationCache.put(taskId, loudNotification);
+        mTaskStates.put(taskId, task.getState());
+        notifyTaskNotification(loudNotification);
+    }
+
+    /**
+     * Cancels the notification for an actor task if the task is in a completed state.
+     *
+     * @param intent The intent received when the notification or its action button was clicked.
+     * @param profile The current user {@link Profile}.
+     */
+    public static void maybeDismissNotificationFromIntent(
+            @Nullable Intent intent, @Nullable Profile profile) {
+        if (intent == null) return;
+        if (!intent.hasExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID)) return;
+
+        int taskId = intent.getIntExtra(NotificationConstants.EXTRA_ACTOR_TASK_ID, INVALID_TASK_ID);
+        if (taskId == INVALID_TASK_ID) return;
+
+        int state = INVALID_TASK_STATE;
+        if (profile != null) {
+            ActorKeyedService service =
+                    ActorKeyedServiceFactory.getForProfile(profile.getOriginalProfile());
+            if (service != null) {
+                ActorTask task = service.getTask(taskId);
+                if (task != null) {
+                    state = task.getState();
+                }
+            }
+        }
+
+        if (state == INVALID_TASK_STATE) {
+            state =
+                    intent.getIntExtra(
+                            NotificationConstants.EXTRA_ACTOR_TASK_STATE, INVALID_TASK_STATE);
+        }
+
+        if (state != INVALID_TASK_STATE && ActorUtils.isCompletedState(state)) {
+            ActorForegroundServiceManager manager = ActorForegroundServiceManager.getInstance();
+            if (manager != null) {
+                manager.onNotificationDismissed(taskId);
+            }
+            cancelTaskNotifications(BaseNotificationManagerProxyFactory.create(), taskId);
+        }
+    }
+
+    /**
+     * Retrieves the cached notification for a task, or creates a new one if it doesn't exist.
+     *
+     * @param taskId The ID of the task.
+     * @param isSilent Whether the notification should be silent or popup if it needs to be built.
+     * @param isWarning Whether the notification is in a warning state.
+     * @return The {@link Notification} object, or null if the task cannot be found.
+     */
+    @Nullable
+    public Notification getCachedNotification(int taskId, boolean isSilent, boolean isWarning) {
+        NotificationWrapper wrapper =
+                getOrBuildNotificationWrapper(taskId, null, isSilent, isWarning);
+        return wrapper != null ? wrapper.getNotification() : null;
+    }
+
+    /**
+     * Returns the authoritative state for a task.
+     *
+     * <p>Prefers the last state delivered through {@link ActorKeyedService.Observer}, which this
+     * service records in {@link #mTaskStates}. {@link ActorTask#getState()} is only consulted for a
+     * task we have not observed a transition for yet, where CREATED is the truthful answer. A task
+     * whose native object has been destroyed cannot report its own state reliably, and this service
+     * caches {@link ActorTask} instances indefinitely in {@link #mTaskCache}.
+     */
+    private @ActorTaskState int getEffectiveState(int taskId, ActorTask task) {
+        Integer observed = mTaskStates.get(taskId);
+        return observed != null ? observed : task.getState();
+    }
+
+    private @Nullable NotificationWrapper getOrBuildNotificationWrapper(
+            int taskId, @Nullable Integer newState, boolean isSilent, boolean isWarning) {
+        ActorTask task = getTask(taskId);
+        if (task == null) return null;
+
+        @ActorTaskState int state = newState != null ? newState : getEffectiveState(taskId, task);
+        Integer oldState = mTaskStates.get(taskId);
+        NotificationWrapper cachedNotification = mNotificationCache.get(taskId);
+
+        boolean shouldUpdate =
+                (cachedNotification == null)
+                        || isWarning
+                        || (oldState == null)
+                        || ActorNotificationFactory.shouldUpdateNotification(oldState, state);
+
+        if (shouldUpdate) {
+            cachedNotification =
+                    ActorNotificationFactory.buildNotification(task, state, isSilent, isWarning);
+            mNotificationCache.put(taskId, cachedNotification);
+        }
+
+        mTaskStates.put(taskId, state);
+        return cachedNotification;
+    }
+
+    private void notifyTaskNotification(NotificationWrapper wrapper) {
+        NotificationMetadata metadata = wrapper.getMetadata();
+        if (mUnpinnedTagTaskIds.contains(metadata.id)) {
+            wrapper =
+                    new NotificationWrapper(
+                            wrapper.getNotification(),
+                            new NotificationMetadata(
+                                    metadata.type, UNPINNED_NOTIFICATION_TAG, metadata.id),
+                            wrapper.isSilent());
+        }
+        mNotificationManager.notify(wrapper);
+    }
+
+    private static void cancelTaskNotifications(
+            BaseNotificationManagerProxy notificationManager, int taskId) {
+        notificationManager.cancel(taskId);
+        notificationManager.cancel(UNPINNED_NOTIFICATION_TAG, taskId);
+    }
+
+    /**
+     * Returns the task with the given ID, checking both the keyed service and the local cache.
+     *
+     * @param taskId The ID of the task.
+     * @return The {@link ActorTask} if found, null otherwise.
+     */
+    public @Nullable ActorTask getTask(int taskId) {
+        return mTaskCache.computeIfAbsent(taskId, mKeyedService::getTask);
+    }
+
+    /** Clears local cache for all actor notifications. */
+    public void clearAll() {
+        for (Runnable runnable : mDemoteRunnables.values()) {
+            mHandler.removeCallbacks(runnable);
+        }
+        mDemoteRunnables.clear();
+        mUnpinnedTagTaskIds.clear();
+        mNotificationCache.clear();
+        mTaskStates.clear();
+        mLastWorklogUpdateTimes.clear();
+        mTaskCache.clear();
+    }
+
+    public void clearTaskData(int taskId) {
+        cancelDemoteRunnable(taskId);
+        mUnpinnedTagTaskIds.remove(taskId);
+        mNotificationCache.remove(taskId);
+        mTaskStates.remove(taskId);
+        mLastWorklogUpdateTimes.remove(taskId);
+        mTaskCache.remove(taskId);
+    }
+
+    public static void setDemotionDelayMsForTesting(long delayMs) {
+        sDemotionDelayMs = delayMs;
+        ResettersForTesting.register(() -> sDemotionDelayMs = LIVE_NOTIFICATION_DEMOTION_DELAY_MS);
+    }
+
+    boolean hasPendingDemotionForTesting(int taskId) {
+        return mDemoteRunnables.containsKey(taskId);
+    }
+
+    @Nullable NotificationWrapper getCachedNotificationWrapperForTesting(int taskId) {
+        return mNotificationCache.get(taskId);
+    }
+}

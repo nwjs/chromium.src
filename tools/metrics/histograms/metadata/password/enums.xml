@@ -205,6 +205,7 @@ chromium-metrics-reviews@google.com.
   <summary>State of authenticating using Windows Hello.</summary>
   <int value="0" label="Authentication was started."/>
   <int value="1" label="Authentication was finished."/>
+  <int value="2" label="Authentication was canceled by Chrome."/>
 </enum>
 
 <enum name="AutoSigninFirstRun">
@@ -663,6 +664,8 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/password_manager/core/browser/password_manager.h:LogInWithChangedPasswordOutcome) -->
 
+<!-- LINT.IfChange(ManagePasswordsReferrer) -->
+
 <enum name="ManagePasswordsReferrer">
   <int value="0" label="Chrome Settings"/>
   <int value="1" label="Manage Passwords Bubble"/>
@@ -698,6 +701,8 @@ chromium-metrics-reviews@google.com.
   <int value="29" label="Password change state information bubble"/>
   <int value="30" label="Autofill and passwords settings page"/>
 </enum>
+
+<!-- LINT.ThenChange(//components/password_manager/core/browser/manage_passwords_referrer.h:ManagePasswordsReferrer, //chrome/browser/resources/settings/autofill_page/passwords/password_manager_proxy.ts:ManagePasswordsReferrer) -->
 
 <!-- LINT.IfChange(OnDeviceEncryptionStateHistogramBucket) -->
 
@@ -958,7 +963,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(
   //chrome/browser/resources/password_manager/side_bar.ts:PasswordCheckReferrer,
-  //chrome/browser/resources/settings/autofill_page/passwords/password_manager_proxy.ts:PasswordCheckReferrer,
   //components/password_manager/core/browser/ui/password_check_referrer.h:PasswordCheckReferrer
 ) -->
 
@@ -1871,7 +1875,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Permission grant failed"/>
 </enum>
 
-<!-- LINT.ThenChange(/chrome/browser/password_manager/remote_actor/remote_actor_credential_sharing_service_impl.h:RemoteActorCredentialSharingFailureReason) -->
+<!-- LINT.ThenChange(/components/password_manager/core/browser/remote_actor/remote_actor_credential_sharing_service_impl.h:RemoteActorCredentialSharingFailureReason) -->
 
 <!-- LINT.IfChange(RemoteActorCredentialSharingResult) -->
 
@@ -1889,7 +1893,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="Blocked by policy"/>
 </enum>
 
-<!-- LINT.ThenChange(/chrome/browser/password_manager/remote_actor/remote_actor_credential_sharing_impl.h:RemoteActorCredentialSharingResult) -->
+<!-- LINT.ThenChange(/components/password_manager/core/browser/remote_actor/remote_actor_credential_sharing_result.h:RemoteActorCredentialSharingResult) -->
 
 <enum name="ReusedPasswordType">
   <int value="0" label="Saved password"/>

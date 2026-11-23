@@ -52,7 +52,7 @@ ui::BaseWindow* FindMostRecentWindow(
       [&](BrowserWindowInterface* last_active) {
         if (last_active && matcher(last_active)) {
           window = last_active->GetWindow();
-          DCHECK(window);
+          CHECK(window, base::NotFatalUntil::M162);
           return false;  // stop iterating
         }
         return true;  // continue iterating
@@ -76,8 +76,8 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
       gfx::Rect* bounds,
       gfx::Rect* work_area,
       ui::mojom::WindowShowState* show_state) const override {
-    DCHECK(bounds);
-    DCHECK(show_state);
+    CHECK(bounds, base::NotFatalUntil::M162);
+    CHECK(show_state, base::NotFatalUntil::M162);
 
     if (!browser_ || !browser_->GetProfile()->GetPrefs()) {
       return false;
@@ -120,7 +120,7 @@ class DefaultStateProvider : public WindowSizer::StateProvider {
   bool GetLastActiveWindowState(
       gfx::Rect* bounds,
       ui::mojom::WindowShowState* show_state) const override {
-    DCHECK(show_state);
+    CHECK(show_state, base::NotFatalUntil::M162);
     // Legacy Applications and Devtools are always restored with the same
     // position.
     if (browser_ && !web_app::AppBrowserController::IsWebApp(browser_) &&
@@ -245,8 +245,8 @@ bool WindowSizer::GetBrowserWindowBoundsAndShowState(
     BrowserWindowInterface* browser,
     gfx::Rect* bounds,
     ui::mojom::WindowShowState* show_state) {
-  DCHECK(bounds);
-  DCHECK(show_state);
+  CHECK(bounds, base::NotFatalUntil::M162);
+  CHECK(show_state, base::NotFatalUntil::M162);
 #if BUILDFLAG(IS_CHROMEOS)
   WindowSizerChromeOS sizer(std::move(state_provider), browser);
 #else
@@ -308,8 +308,8 @@ void WindowSizer::AdjustWorkAreaForPlatform(gfx::Rect& work_area) {}
 bool WindowSizer::GetLastActiveWindowBounds(
     gfx::Rect* bounds,
     ui::mojom::WindowShowState* show_state) const {
-  DCHECK(bounds);
-  DCHECK(show_state);
+  CHECK(bounds, base::NotFatalUntil::M162);
+  CHECK(show_state, base::NotFatalUntil::M162);
   if (!state_provider_.get() ||
       !state_provider_->GetLastActiveWindowState(bounds, show_state)) {
     return false;
@@ -323,8 +323,8 @@ bool WindowSizer::GetLastActiveWindowBounds(
 bool WindowSizer::GetSavedWindowBounds(
     gfx::Rect* bounds,
     ui::mojom::WindowShowState* show_state) const {
-  DCHECK(bounds);
-  DCHECK(show_state);
+  CHECK(bounds, base::NotFatalUntil::M162);
+  CHECK(show_state, base::NotFatalUntil::M162);
   gfx::Rect saved_work_area;
   if (!state_provider_.get() || !state_provider_->GetPersistentState(
                                     bounds, &saved_work_area, show_state)) {

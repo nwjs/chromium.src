@@ -116,47 +116,52 @@ class FrameQueue : public ThreadSafeRefCounted<FrameQueue<NativeFrameType>> {
     queue_.clear();
   }
 
+  // Pending pulls track how many frames the current consumer of this queue has
+  // requested but not yet received. The queue may be shared by multiple
+  // sources (e.g., when a stream is transferred to a worker), but only one of
+  // them consumes frames at any given time, so a single shared counter is
+  // sufficient and avoids cross-thread reads of the consumer's state.
+  void IncrementPendingPulls() {
+    base::AutoLock locker(GetLock());
+    num_pending_pulls_++;
+  }
+
+  // Decrements the number of pending pulls, if any. Returns true if there are
+  // still pending pulls after the decrement.
+  bool DecrementPendingPulls() {
+    base::AutoLock locker(GetLock());
+    if (num_pending_pulls_ > 0) {
+      num_pending_pulls_--;
+    }
+    return num_pending_pulls_ > 0;
+  }
+
+  void ResetPendingPulls() {
+    base::AutoLock locker(GetLock());
+    ResetPendingPullsLocked();
+  }
+
+  void ResetPendingPullsLocked() EXCLUSIVE_LOCKS_REQUIRED(GetLock()) {
+    num_pending_pulls_ = 0;
+  }
+
+  bool HasPendingPulls() const {
+    base::AutoLock locker(GetLock());
+    return num_pending_pulls_ > 0;
+  }
+
+  int NumPendingPulls() const {
+    base::AutoLock locker(GetLock());
+    return num_pending_pulls_;
+  }
+
  private:
   mutable base::Lock lock_;
   Deque<NativeFrameType> queue_ GUARDED_BY(GetLock());
   const wtf_size_t max_size_;
   uint64_t total_frames_ GUARDED_BY(GetLock()) = 0;
   uint64_t discarded_frames_ GUARDED_BY(GetLock()) = 0;
-};
-
-// Wrapper that allows sharing a single FrameQueue reference across multiple
-// threads.
-template <typename NativeFrameType>
-class FrameQueueHandle {
- public:
-  explicit FrameQueueHandle(
-      scoped_refptr<FrameQueue<NativeFrameType>> frame_queue)
-      : queue_(std::move(frame_queue)) {
-    DCHECK(queue_);
-  }
-  FrameQueueHandle(const FrameQueueHandle&) = delete;
-  FrameQueueHandle& operator=(const FrameQueueHandle&) = delete;
-
-  ~FrameQueueHandle() { Invalidate(); }
-
-  // Returns a copy of |queue_|, which should be checked for nullity and
-  // re-used throughout the scope of a function call, instead of calling
-  // Queue() multiple times.  Otherwise the queue could be destroyed
-  // between calls.
-  scoped_refptr<FrameQueue<NativeFrameType>> Queue() const {
-    base::AutoLock locker(lock_);
-    return queue_;
-  }
-
-  // Releases the internal FrameQueue reference.
-  void Invalidate() {
-    base::AutoLock locker(lock_);
-    queue_.reset();
-  }
-
- private:
-  mutable base::Lock lock_;
-  scoped_refptr<FrameQueue<NativeFrameType>> queue_ GUARDED_BY(lock_);
+  int num_pending_pulls_ GUARDED_BY(GetLock()) = 0;
 };
 
 }  // namespace blink

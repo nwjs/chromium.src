@@ -9,6 +9,7 @@
 
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
 #include "content/browser/bad_message.h"
@@ -26,7 +27,9 @@
 #include "content/public/common/url_constants.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "net/http/http_request_headers.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom.h"
+#include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/window_open_disposition.h"
 
 namespace content {
@@ -38,14 +41,14 @@ namespace {
 // render_frame_impl.cc.
 bool IsValidRendererDisposition(WindowOpenDisposition disposition) {
   switch (disposition) {
-    case WindowOpenDisposition::CURRENT_TAB:
-    case WindowOpenDisposition::NEW_FOREGROUND_TAB:
-    case WindowOpenDisposition::NEW_BACKGROUND_TAB:
-    case WindowOpenDisposition::NEW_POPUP:
-    case WindowOpenDisposition::NEW_WINDOW:
-    case WindowOpenDisposition::SAVE_TO_DISK:
-    case WindowOpenDisposition::NEW_PICTURE_IN_PICTURE:
-    case WindowOpenDisposition::NEW_SPLIT_VIEW:
+    case WindowOpenDisposition::kCurrentTab:
+    case WindowOpenDisposition::kNewForegroundTab:
+    case WindowOpenDisposition::kNewBackgroundTab:
+    case WindowOpenDisposition::kNewPopup:
+    case WindowOpenDisposition::kNewWindow:
+    case WindowOpenDisposition::kSaveToDisk:
+    case WindowOpenDisposition::kNewPictureInPicture:
+    case WindowOpenDisposition::kNewSplitView:
       return true;
     default:
       // Certain dispositions, such as SWITCH_TO_TAB, are only used internally
@@ -438,9 +441,32 @@ bool VerifyCreateNewWindowParams(const RenderFrameHostImpl& current_rfh,
   }
 
   if (params.pip_options &&
-      params.disposition != WindowOpenDisposition::NEW_PICTURE_IN_PICTURE) {
+      params.disposition != WindowOpenDisposition::kNewPictureInPicture) {
     bad_message::ReceivedBadMessage(
         process, bad_message::RFH_CREATE_NEW_WINDOW_INVALID_PIP_OPTIONS);
+    return false;
+  }
+
+  // Split tab hints may only be sent when the WindowOpenSplitTab feature is
+  // enabled. The Blink runtime feature follows any override of the
+  // base::Feature, so a well-behaved renderer never sends these when the
+  // base::Feature is disabled. The position and size hints are only sent along
+  // with a split request, and the size is always in
+  // [kMinSplitSize, kMaxSplitSize].
+  CHECK(params.features);
+  const blink::mojom::WindowFeatures& features = *params.features;
+  const bool has_split_hints =
+      features.split_position != blink::mojom::SplitTabPosition::kUnspecified ||
+      features.split_size.has_value();
+  if ((features.is_split || has_split_hints) &&
+      (!base::FeatureList::IsEnabled(blink::features::kWindowOpenSplitTab) ||
+       !features.is_split ||
+       (features.split_size.has_value() &&
+        (*features.split_size < blink::mojom::WindowFeatures::kMinSplitSize ||
+         *features.split_size >
+             blink::mojom::WindowFeatures::kMaxSplitSize)))) {
+    bad_message::ReceivedBadMessage(
+        process, bad_message::RFH_CREATE_NEW_WINDOW_INVALID_SPLIT_TAB_FEATURES);
     return false;
   }
 
@@ -450,6 +476,16 @@ bool VerifyCreateNewWindowParams(const RenderFrameHostImpl& current_rfh,
     bad_message::ReceivedBadMessage(process,
                                     bad_message::ILLEGAL_UPLOAD_PARAMS);
     return false;
+  }
+
+  // Verify `referrer`.
+  if (params.referrer && !params.referrer->url.is_empty()) {
+    if (!policy->HostsOrigin(process->GetID().GetUnsafeValue(),
+                             url::Origin::Create(params.referrer->url))) {
+      bad_message::ReceivedBadMessage(
+          process, bad_message::RFH_CREATE_NEW_WINDOW_INVALID_REFERRER);
+      return false;
+    }
   }
 
   return true;

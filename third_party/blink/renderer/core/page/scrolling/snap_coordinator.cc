@@ -243,7 +243,7 @@ void SnapCoordinator::AddOverscrollSnapAreas(
       cc::SnapAlignment::kCenter, cc::SnapAlignment::kCenter);
   // We must always stop at the initial area, i.e. it is unexpected to swipe
   // from one side of overscroll to the other.
-  overscroll_initial_snap_area.must_snap = true;
+  overscroll_initial_snap_area.snap_stop = cc::SnapStop::kAlways;
   snap_container_data.AddSnapAreaData(overscroll_initial_snap_area);
 
   // Create a snap area for the overscroll area.
@@ -251,7 +251,7 @@ void SnapCoordinator::AddOverscrollSnapAreas(
   cc::SnapAreaData overscroll_snap_area = CalculateSnapAreaData(
       overscroll_area, snap_container, kPhysicalAxesBoth,
       WritingDirectionMode(WritingMode::kHorizontalTb, TextDirection::kLtr));
-  overscroll_snap_area.must_snap = false;
+  overscroll_snap_area.snap_stop = cc::SnapStop::kNormal;
   overscroll_snap_area.scroll_snap_align = cc::ScrollSnapAlign(
       cc::SnapAlignment::kCenter, cc::SnapAlignment::kCenter);
   snap_container_data.AddSnapAreaData(overscroll_snap_area);
@@ -345,8 +345,17 @@ cc::SnapAreaData SnapCoordinator::CalculateSnapAreaData(
     const auto* multicol_box = DynamicTo<LayoutBox>(
         column_pseudo.UltimateOriginatingElement().GetLayoutObject());
     DCHECK(multicol_box->IsFragmentationContextRoot());
+    PhysicalRect column_rect = column_pseudo.ColumnRect();
+    // `column_rect` is in `multicol_box`'s coordinates. If `multicol_box` is a
+    // scroll container, mapping starts at it, so its scroll origin is not
+    // applied (see LayoutObject::OffsetFromScrollableContainer()). Apply it
+    // here so that the rect is consistent with other snap areas.
+    if (multicol_box->IsScrollContainer()) {
+      column_rect.Move(
+          PhysicalOffset(multicol_box->GetScrollableArea()->ScrollOrigin()));
+    }
     quads.push_back(multicol_box->LocalRectToAncestorQuad(
-        column_pseudo.ColumnRect(), &snap_container, mapping_mode));
+        column_rect, &snap_container, mapping_mode));
   }
 
   PhysicalRect area_rect;
@@ -377,8 +386,7 @@ cc::SnapAreaData SnapCoordinator::CalculateSnapAreaData(
 
   snap_area_data.scroll_snap_align = alignment;
 
-  snap_area_data.must_snap =
-      (area_style->ScrollSnapStop() == EScrollSnapStop::kAlways);
+  snap_area_data.snap_stop = area_style->ScrollSnapStop();
 
   snap_area_data.has_focus_within = snap_area.HasFocusWithin();
 

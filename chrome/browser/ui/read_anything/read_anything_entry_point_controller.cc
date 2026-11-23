@@ -11,21 +11,19 @@
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/types/pass_key.h"
 #include "chrome/browser/dom_distiller/tab_utils.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_triggers.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
-#include "chrome/browser/ui/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -270,13 +268,11 @@ void ReadAnythingEntryPointController::ShowUI(
                                   open_trigger);
   }
 
-  // TODO(crbug.com/471001915): Change IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE,
-  // one of the triggers of this method, to reflect that it's opening Immersive
-  // mode instead of Side Panel.
   if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
     auto* controller = ReadAnythingController::From(tab);
     CHECK(controller);
-    controller->ShowInPreferredUI(open_trigger);
+    controller->ShowInPreferredUI(
+        base::PassKey<ReadAnythingEntryPointController>(), open_trigger);
   }
 }
 
@@ -296,7 +292,17 @@ void ReadAnythingEntryPointController::ToggleUI(
   if (tabs::TabInterface* tab = bwi->GetActiveTabInterface()) {
     auto* controller = ReadAnythingController::From(tab);
     CHECK(controller);
-    controller->ToggleUI(open_trigger);
+    // Tell user education the keyboard shortcut was used, whether it opens or
+    // closes Reading Mode.
+    if (open_trigger == ReadAnythingOpenTrigger::kKeyboardShortcut) {
+      if (auto* user_ed = BrowserUserEducationInterface::From(bwi)) {
+        user_ed->NotifyFeaturePromoFeatureUsed(
+            feature_engagement::kIPHReadingModeKeyboardShortcutFeature,
+            FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
+      }
+    }
+    controller->ToggleUI(base::PassKey<ReadAnythingEntryPointController>(),
+                         open_trigger);
   }
 }
 
@@ -304,7 +310,7 @@ void ReadAnythingEntryPointController::ToggleUI(
 bool ReadAnythingEntryPointController::IsUIShowing(
     BrowserWindowInterface* bwi) {
   if (!bwi) {
-    return IsReadAnythingEntryShowing(bwi);
+    return false;
   }
 
   auto* controller = ReadAnythingController::From(bwi->GetActiveTabInterface());
@@ -352,12 +358,12 @@ void ReadAnythingEntryPointController::UpdatePageActionVisibility(
       page_action_controller->ShowSuggestionChip(
           kActionSidePanelShowReadAnything);
     }
-    user_education::FeaturePromoParams params(
-        feature_engagement::kIPHReadingModePageActionLabelFeature);
     if (show_promo_callback) {
+      user_education::FeaturePromoParams params(
+          feature_engagement::kIPHReadingModePageActionLabelFeature);
       params.show_promo_result_callback = std::move(show_promo_callback);
+      user_ed->MaybeShowFeaturePromo(std::move(params));
     }
-    user_ed->MaybeShowFeaturePromo(std::move(params));
     return;
   }
 

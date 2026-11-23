@@ -11,19 +11,14 @@
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/time/time.h"
-#include "base/timer/timer.h"
+#include "base/types/pass_key.h"
 #include "chrome/browser/ui/read_anything/read_anything_contents_wrapper.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
-#include "chrome/browser/ui/read_anything/read_anything_hats_survey_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_immersive_activation_observer.h"
 #include "chrome/browser/ui/read_anything/read_anything_lifecycle_observer.h"
-#include "chrome/browser/ui/read_anything/read_anything_omnibox_controller.h"
-#include "chrome/browser/ui/read_anything/read_anything_side_panel_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
-#include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/contents_observing_tab_feature.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
@@ -43,7 +38,16 @@ namespace input {
 struct NativeWebKeyboardEvent;
 }  // namespace input
 
+namespace read_anything {
+class ReadAnythingEntryPointController;
+}  // namespace read_anything
+
 class ReadAnythingController;
+class ReadAnythingHatsSurveyController;
+class ReadAnythingOmniboxController;
+class ReadAnythingSidePanelController;
+class ReadAnythingUntrustedPageHandler;
+class SidePanelRegistry;
 
 #if BUILDFLAG(ENABLE_PDF)
 class GURL;
@@ -62,7 +66,6 @@ class WebContentsObserverInstance : public content::WebContentsObserver {
  public:
   WebContentsObserverInstance(
       content::WebContents* web_contents,
-      base::RepeatingClosure primary_page_changed_callback,
       base::RepeatingClosure renderer_crashed_callback,
       base::RepeatingCallback<void(content::Visibility)>
           visibility_changed_callback);
@@ -73,7 +76,6 @@ class WebContentsObserverInstance : public content::WebContentsObserver {
   ~WebContentsObserverInstance() override;
 
   // content::WebContentsObserver:
-  void PrimaryPageChanged(content::Page& page) override;
   void OnVisibilityChanged(content::Visibility visibility) override;
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
@@ -81,7 +83,6 @@ class WebContentsObserverInstance : public content::WebContentsObserver {
       content::RenderProcessHost* render_process_host) override;
 
  private:
-  base::RepeatingClosure primary_page_changed_callback_;
   base::RepeatingClosure renderer_crashed_callback_;
   base::RepeatingCallback<void(content::Visibility)>
       visibility_changed_callback_;
@@ -112,8 +113,11 @@ class ReadAnythingControllerGlue
 // This controller is owned by TabFeatures and is instantiated once per tab.
 // Its lifetime is tied to the TabInterface.
 //
-// It acts as the primary entry point for all Reading Mode commands and is
-// responsible for orchestrating the display of the Reading Mode UI.
+// External callers must use ReadAnythingEntryPointController to open or toggle
+// Reading Mode. ReadAnythingController orchestrates the display and lifecycle
+// of the Reading Mode UI once invoked. Once Reading Mode is open, controls
+// inside its own WebUI (through ReadAnythingUntrustedPageHandler) can also
+// close the immersive overlay or switch presentations.
 class ReadAnythingController : public tabs::ContentsObservingTabFeature {
  public:
   using Observer = ReadAnythingLifecycleObserver;
@@ -151,33 +155,34 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   void OnEntryShown(ReadAnythingOpenTrigger trigger);
   void OnEntryHidden();
 
-  // Displays the Reading Mode UI in the Side Panel.
-  void ShowSidePanelUI(SidePanelOpenTrigger trigger);
-
-  // Displays the Immersive Reading Mode UI in a full screen overlay.
-  void ShowImmersiveUI(ReadAnythingOpenTrigger trigger);
-
-  // Closes the Immersive Reading Mode UI.
-  void CloseImmersiveUI(ReadAnythingCloseReason reason);
-
-  // Closes the Reading mode side panel UI.
-  void CloseSidePanelUI(ReadAnythingCloseReason reason);
-
   // Shows Reading Mode using the user's preferred presentation mode.
-  void ShowInPreferredUI(ReadAnythingOpenTrigger trigger);
+  void ShowInPreferredUI(
+      base::PassKey<read_anything::ReadAnythingEntryPointController>,
+      ReadAnythingOpenTrigger trigger);
 
-  // Toggles the Immersive Reading Mode UI.
-  void ToggleUI(ReadAnythingOpenTrigger trigger);
+  // Toggles the Reading Mode UI.
+  void ToggleUI(base::PassKey<read_anything::ReadAnythingEntryPointController>,
+                ReadAnythingOpenTrigger trigger);
 
-  // Toggles between the Immersive Reading Mode UI and the Side Panel UI.
-  void TogglePresentation(bool is_user_initiated);
+  // The following methods back controls inside Reading Mode's own WebUI, so
+  // they're restricted to ReadAnythingUntrustedPageHandler. They act on Reading
+  // Mode once it's open, rather than being entry points that open it, so they
+  // don't go through ReadAnythingEntryPointController.
+
+  // Closes the Immersive Reading Mode UI. Backs the immersive overlay's close
+  // button.
+  void CloseImmersiveUI(base::PassKey<ReadAnythingUntrustedPageHandler>,
+                        ReadAnythingCloseReason reason);
+
+  // Toggles between the Immersive Reading Mode UI and the Side Panel UI. Backs
+  // Reading Mode's presentation menu.
+  void TogglePresentation(base::PassKey<ReadAnythingUntrustedPageHandler>,
+                          bool is_user_initiated);
 
   // Returns the current presentation_state_ of the Reading Mode feature. This
   // refers to the current host of the WebUI, but does not guarantee that the
   // feature is necessarily showing by the host.
   PresentationState GetPresentationState() const;
-
-  void SetPresentationState(PresentationState new_state);
 
   // Handles OpenURL requests originating from Reading Mode WebUI instances
   // (both side panel and immersive views). Enforces security policies
@@ -196,26 +201,18 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
 
   void OnDistillationStateChanged(DistillationState new_state);
 
-  void OnAiPlaybackStateChanged(bool enabled);
-
-  static constexpr base::TimeDelta kAiPlaybackIphDefaultDelay =
-      base::Seconds(30);
-
   // Called when the Reading Mode WebUI reports the result of a distillation
   // attempt. Coordinates any follow-up work that depends on how Reading Mode
-  // was opened (e.g. triggering a pending PDF translation, or logging omnibox
-  // entry point metrics).
+  // was opened (e.g. logging omnibox entry point metrics).
   void OnDistillationStatus(read_anything::mojom::DistillationStatus status,
                             int word_count);
 
   static constexpr int kMaxWordsDistilled = 25000;
   static constexpr int kWordsDistilledBuckets = 100;
 
-  // For testing only. Pauses distillation-related reactions from occurring.
+  // For testing only. Pauses this controller's reactions to distillation state
+  // changes.
   static void SetFreezeDistillationOnCreationForTesting(bool locked);
-
-  // For testing only. Overrides the delay before showing the AI Playback IPH.
-  static void SetAiPlaybackIphDelayForTesting(base::TimeDelta delay);
 
   // Lazily creates and returns the WebUIContentsWrapper for the
   // Reading Mode WebUI. Transfers ownership of the WebUIContentsWrapper to the
@@ -228,6 +225,13 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   // determine if the Reading Mode is ready to be shown, or if it should wait
   // for a notification that it is ready.
   bool has_shown_ui() const { return has_shown_ui_; }
+
+  // Returns whether Reading Mode is switching between the side panel and
+  // immersive presentations. True from the start of a switch until the new
+  // presentation is shown.
+  bool is_presentation_transitioning() const {
+    return is_presentation_transitioning_;
+  }
 
   void SetWebUIWrapperForTest(ReadAnythingContentsWrapper web_ui_wrapper);
 
@@ -245,16 +249,39 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   // omnibox entry point.
   void SetDwellTimeForTesting(base::TimeTicks test_time);
 
-  ReadAnythingSidePanelController* GetSidePanelControllerForTesting() {
-    return read_anything_side_panel_controller_.get();
-  }
-
   void OnSoftNavigation();
 
   // Called when the Reading Mode side panel entry is about to be hidden.
   void OnSidePanelWillHide(SidePanelEntryHideReason side_panel_reason);
 
  private:
+  friend class ReadAnythingControllerBrowserTest;
+  friend class ReadAnythingControllerUnitTest;
+  friend class ReadAnythingIphControllerTest;
+
+  // Displays the Reading Mode UI in the Side Panel.
+  void ShowSidePanelUI(SidePanelOpenTrigger trigger);
+
+  // Displays the Immersive Reading Mode UI in a full screen overlay.
+  void ShowImmersiveUI(ReadAnythingOpenTrigger trigger);
+
+  // Closes the Immersive Reading Mode UI.
+  void CloseImmersiveUI(ReadAnythingCloseReason reason);
+
+  // Closes the Reading mode side panel UI.
+  void CloseSidePanelUI(ReadAnythingCloseReason reason);
+
+  // Shows Reading Mode using the user's preferred presentation mode.
+  void ShowInPreferredUI(ReadAnythingOpenTrigger trigger);
+
+  // Toggles the Reading Mode UI.
+  void ToggleUI(ReadAnythingOpenTrigger trigger);
+
+  // Toggles between the Immersive Reading Mode UI and the Side Panel UI.
+  void TogglePresentation(bool is_user_initiated);
+
+  void SetPresentationState(PresentationState new_state);
+
   // Saves the presentation state to the user's preferences.
   void SavePresentationPreference(PresentationState state);
 
@@ -262,8 +289,6 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   // ensures that find-in-page (Cmd-F) targets the IRM overlay when it's open,
   // rather than the occluded main WebContents.
   void MaybeUpdateFindBarController();
-
-  void MaybeShowAiPlaybackIph();
 
   std::unique_ptr<WebContentsObserverInstance> ra_web_ui_observer_;
   std::unique_ptr<ReadAnythingOmniboxController> omnibox_controller_;
@@ -290,7 +315,6 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   SidePanelUI* GetSidePanelUI();
 
   raw_ptr<tabs::TabInterface> tab_ = nullptr;
-  raw_ptr<SidePanelRegistry> side_panel_registry_ = nullptr;
   ui::ScopedUnownedUserData<ReadAnythingController> scoped_unowned_user_data_;
 
   ReadAnythingContentsWrapper web_ui_wrapper_;
@@ -348,10 +372,6 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
 
   DistillationState distillation_state_ = DistillationState::kUndefined;
 
-  // Timer for showing the AI Playback IPH promo after the user has used
-  // Reading Mode for at least 30 seconds.
-  base::OneShotTimer ai_playback_iph_timer_;
-
   // The trigger used the last time Reading Mode was shown. Intentionally not
   // reset when Reading Mode is hidden, so that a distillation result arriving
   // after the UI is closed is still attributed to the right entry point.
@@ -368,9 +388,6 @@ class ReadAnythingController : public tabs::ContentsObservingTabFeature {
   base::ScopedClosureRunner main_contents_capturer_handle_;
 
   static bool freeze_distillation_for_testing_;
-  static base::TimeDelta ai_playback_iph_delay_;
-
-  base::WeakPtrFactory<ReadAnythingController> weak_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_READ_ANYTHING_READ_ANYTHING_CONTROLLER_H_

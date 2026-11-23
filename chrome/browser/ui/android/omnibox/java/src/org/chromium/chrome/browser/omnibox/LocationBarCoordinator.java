@@ -12,7 +12,6 @@ import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
-import android.graphics.Bitmap;
 import android.transition.ChangeBounds;
 import android.transition.Fade;
 import android.transition.Transition;
@@ -56,10 +55,10 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.omnibox.LocationBarMediator.OmniboxUma;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxState;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.PopupState;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
 import org.chromium.chrome.browser.omnibox.geo.GeolocationHeader;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator.PageInfoAction;
@@ -105,7 +104,6 @@ import org.chromium.ui.widget.ViewRectProvider;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -237,7 +235,7 @@ public class LocationBarCoordinator
      * @param isToolbarPositionCustomizationEnabled Whether toolbar position customization is
      *     enabled.
      * @param pageZoomManager The {@link PageZoomManager} for managing the page zoom.
-     * @param tabFaviconFunction Function to get tab favicon.
+     * @param resourceProvider The {@link OmniboxResourceProvider} for Omnibox resources.
      * @param snackbarManager Manager for snackbars.
      * @param bottomContainerView The bottom container view.
      * @param omniboxChipManager The {@link OmniboxChipManager} to show chips in the omnibox.
@@ -279,7 +277,7 @@ public class LocationBarCoordinator
             @Nullable BrowserControlsStateProvider browserControlsStateProvider,
             boolean isToolbarPositionCustomizationEnabled,
             @Nullable PageZoomManager pageZoomManager,
-            Function<Tab, @Nullable Bitmap> tabFaviconFunction,
+            OmniboxResourceProvider resourceProvider,
             SnackbarManager snackbarManager,
             View bottomContainerView,
             @Nullable OmniboxChipManager omniboxChipManager,
@@ -295,11 +293,7 @@ public class LocationBarCoordinator
         mUserEducationHelper = userEducationHelper;
         mActivityLifecycleDispatcher.register(this);
         Context context = mLocationBarLayout.getContext();
-        mResourceProvider =
-                new OmniboxResourceProvider(
-                        context,
-                        locationBarDataProvider.isIncognitoBranded(),
-                        locationBarDataProvider.getPrimaryColor());
+        mResourceProvider = resourceProvider;
 
         OneshotSupplierImpl<TemplateUrlService> templateUrlServiceSupplier =
                 new OneshotSupplierImpl<>();
@@ -314,7 +308,6 @@ public class LocationBarCoordinator
         mUrlBar = mLocationBarLayout.findViewById(R.id.url_bar);
         final boolean isIncognito =
                 incognitoStateProvider != null && incognitoStateProvider.isIncognitoSelected();
-        OmniboxResourceProvider.setTabFaviconFactory(tabFaviconFunction);
         mWindowFocusSupplier = new WindowFocusSupplier(activityLifecycleDispatcher, windowAndroid);
         mFuseboxCoordinator =
                 new FuseboxCoordinator(
@@ -329,6 +322,7 @@ public class LocationBarCoordinator
                                 mAutocompleteCoordinator != null
                                         ? mAutocompleteCoordinator.getSuggestionsDropdown()
                                         : null,
+                        () -> locationBarDataProvider.getNewTabPageDelegate().getSearchBoxView(),
                         backPressManager,
                         uiOverrides.isForcedPhoneStyleOmnibox());
         NonNullObservableSupplier<Integer> fuseboxStateSupplier =
@@ -520,7 +514,8 @@ public class LocationBarCoordinator
                 mUrlCoordinator,
                 mStatusCoordinator,
                 locationBarDataProvider,
-                mWindowAndroid);
+                mWindowAndroid,
+                mResourceProvider);
 
         Callback<Profile> profileObserver =
                 new Callback<>() {
@@ -646,8 +641,6 @@ public class LocationBarCoordinator
 
         mLocationBarLayout.getContext().unregisterComponentCallbacks(mLocationBarMediator);
 
-        mResourceProvider.destroy();
-
         mAutocompleteCoordinator.destroy();
         mAutocompleteCoordinator = null;
         mSuggestionsChangeObservers.clear();
@@ -770,6 +763,11 @@ public class LocationBarCoordinator
     @Override
     public @Nullable VoiceRecognitionHandler getVoiceRecognitionHandler() {
         return mLocationBarMediator.getVoiceRecognitionHandler();
+    }
+
+    @Override
+    public OmniboxResourceProvider getResourceProvider() {
+        return mResourceProvider;
     }
 
     @Override
@@ -1500,10 +1498,8 @@ public class LocationBarCoordinator
             return false;
         }
         boolean isNtp =
-                mLocationBarMediator
-                        .getLocationBarDataProvider()
-                        .getNewTabPageDelegate()
-                        .isCurrentlyVisible();
+                OmniboxUrlUtils.isNtpUrl(
+                        mLocationBarMediator.getLocationBarDataProvider().getCurrentGurl());
         return !isNtp && !mLocationBarMediator.isUrlBarFocused() && !mMiniOriginMode;
     }
 

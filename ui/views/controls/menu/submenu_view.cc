@@ -80,11 +80,33 @@ SubmenuView::~SubmenuView() {
 }
 
 std::vector<MenuItemView*> SubmenuView::GetMenuItems() {
-  return GetMenuItemsFromChildren<MenuItemView, View>(children());
+  std::vector<MenuItemView*> menu_items;
+  if (scroll_view_container_) {
+    const auto headers = scroll_view_container_->pinned_header_region();
+    menu_items.insert(menu_items.end(), headers.begin(), headers.end());
+  }
+  auto middle_items = GetMenuItemsFromChildren<MenuItemView, View>(children());
+  menu_items.insert(menu_items.end(), middle_items.begin(), middle_items.end());
+  if (scroll_view_container_) {
+    const auto footers = scroll_view_container_->pinned_footer_region();
+    menu_items.insert(menu_items.end(), footers.begin(), footers.end());
+  }
+  return menu_items;
 }
 
 std::vector<const MenuItemView*> SubmenuView::GetMenuItems() const {
-  return GetMenuItemsFromChildren<const MenuItemView, const View>(children());
+  std::vector<const MenuItemView*> menu_items;
+  if (scroll_view_container_) {
+    const auto headers = scroll_view_container_->pinned_header_region();
+    menu_items.insert(menu_items.end(), headers.begin(), headers.end());
+  }
+  auto middle_items = GetMenuItemsFromChildren<MenuItemView, View>(children());
+  menu_items.insert(menu_items.end(), middle_items.begin(), middle_items.end());
+  if (scroll_view_container_) {
+    const auto footers = scroll_view_container_->pinned_footer_region();
+    menu_items.insert(menu_items.end(), footers.begin(), footers.end());
+  }
+  return menu_items;
 }
 
 MenuItemView* SubmenuView::GetMenuItemAt(size_t index) {
@@ -287,6 +309,16 @@ gfx::Size SubmenuView::CalculatePreferredSize(
           std::max(max_complex_width, child->GetPreferredSize({}).width());
     }
   }
+  // Pinned items aren't in `children()`, but their titles are painted using
+  // this submenu's minor text column, so include them to avoid eliding.
+  for (const MenuItemView* item : GetMenuItems()) {
+    if (item->IsPinned() && item->GetVisible()) {
+      const auto& dimensions = item->GetDimensions();
+      max_simple_width = std::max(max_simple_width, dimensions.standard_width);
+      max_minor_text_width_ =
+          std::max(max_minor_text_width_, dimensions.minor_text_width);
+    }
+  }
   const auto& config = MenuConfig::instance();
   if (max_minor_text_width_ > 0) {
     max_minor_text_width_ += config.item_horizontal_padding;
@@ -404,6 +436,9 @@ bool SubmenuView::OnMouseWheel(const ui::MouseWheelEvent& e) {
   if (vis_bounds.height() == height() || menu_items.empty()) {
     // All menu items are visible, nothing to scroll.
     return true;
+  }
+  if (use_scroll_bar_) {
+    return OnScroll(0, e.y_offset());
   }
 
   auto i = std::ranges::lower_bound(menu_items, vis_bounds.y(), {},

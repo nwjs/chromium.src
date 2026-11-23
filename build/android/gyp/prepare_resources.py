@@ -8,17 +8,34 @@
 files."""
 
 import argparse
+import hashlib
+import logging
 import os
+import re
 import shutil
+import subprocess
 import sys
+import tempfile
+import zipfile
 
 from util import build_utils
 from util import jar_info_utils
-from util import md5_check
+from util import parallel
 from util import resource_utils
 from util import resources_parser
-import action_helpers  # build_utils adds //build to sys.path.
-import zip_helpers
+import zip_helpers  # build_utils adds //build to sys.path.
+
+# Pngs that we shouldn't convert to webp. Please add rationale when updating.
+_PNG_WEBP_EXCLUSION_PATTERN = re.compile(
+    '|'.join(
+        [
+            # Android requires pngs for 9-patch images.
+            r'.*\.9\.png',
+            # Daydream requires pngs for icon files.
+            r'.*daydream_icon_.*\.png',
+        ]
+    )
+)
 
 
 def _ParseArgs(args):
@@ -28,12 +45,15 @@ def _ParseArgs(args):
       An options object as from argparse.ArgumentParser.parse_args()
     """
     parser = argparse.ArgumentParser(description=__doc__)
-    action_helpers.add_depfile_arg(parser)
 
-    parser.add_argument(
+    input_group = parser.add_mutually_exclusive_group(required=True)
+    input_group.add_argument(
         '--res-sources-path',
-        required=True,
         help='Path to a list of input resources for this target.',
+    )
+    input_group.add_argument(
+        '--resources-zip-path',
+        help='Path to an uncompiled input resources zip.',
     )
 
     parser.add_argument(
@@ -43,16 +63,14 @@ def _ParseArgs(args):
     )
 
     parser.add_argument(
-        '--allow-missing-resources',
-        action='store_true',
-        help='Do not fail if some resources exist in the res/ dir but are not '
-        'listed in the sources.',
+        '--aapt2-path',
+        required=True,
+        help='Path to the Android aapt2 tool.',
     )
 
     parser.add_argument(
         '--resource-zip-out',
-        help='Path to a zip archive containing all resources from '
-        '--resource-dirs, merged into a single directory tree.',
+        help='Path to a zip archive containing all compiled resources.',
     )
 
     parser.add_argument(
@@ -64,24 +82,72 @@ def _ParseArgs(args):
         action="store_true",
         help='Remove drawables from the resources.',
     )
+    parser.add_argument(
+        '--webp-binary', default='', help='Path to the cwebp binary.'
+    )
+    parser.add_argument(
+        '--webp-cache-dir', help='The directory to store webp image cache.'
+    )
 
     options = parser.parse_args(args)
 
-    with open(options.res_sources_path, encoding='utf-8') as f:
-        options.sources = f.read().splitlines()
-    options.resource_dirs = resource_utils.DeduceResourceDirsFromFileList(
-        options.sources
-    )
+    if options.res_sources_path:
+        with open(options.res_sources_path, encoding='utf-8') as f:
+            options.sources = f.read().splitlines()
+        options.resource_dirs = resource_utils.DeduceResourceDirsFromFileList(
+            options.sources
+        )
 
     return options
 
 
-def _CheckAllFilesListed(resource_files, resource_dirs):
+def _CollectFilesByDirectory(resource_dirs):
+    """Walks each resource directory once.
+
+    Returns:
+      Dict mapping each resource_dir to a list of (path, archive_path) tuples.
+    """
+    files_by_dir = {}
+    for resource_dir in resource_dirs:
+        entries = []
+        for root, _, files in os.walk(resource_dir):
+            parent_dir = os.path.relpath(root, resource_dir)
+            for f in files:
+                archive_path = (
+                    f if parent_dir == '.' else os.path.join(parent_dir, f)
+                )
+                entries.append((os.path.join(root, f), archive_path))
+        files_by_dir[resource_dir] = entries
+    return files_by_dir
+
+
+def _FilterFilesByDirectory(files_by_dir, ignore_pattern):
+    globs = resource_utils.GenerateGlobs(ignore_pattern)
+    ret = {}
+    for resource_dir, entries in files_by_dir.items():
+        active_entries = [
+            (path, archive_path)
+            for path, archive_path in entries
+            if not (
+                build_utils.MatchesGlob(archive_path, globs)
+                or build_utils.MatchesGlob(
+                    os.path.basename(archive_path), globs
+                )
+            )
+        ]
+        if active_entries:
+            ret[resource_dir] = active_entries
+    return ret
+
+
+def _CheckAllFilesListed(resource_files, active_files_by_dir):
     resource_files = set(resource_files)
-    missing_files = []
-    for path, _ in resource_utils.IterResourceFilesInDirectories(resource_dirs):
-        if path not in resource_files:
-            missing_files.append(path)
+    missing_files = [
+        path
+        for entries in active_files_by_dir.values()
+        for path, _ in entries
+        if path not in resource_files
+    ]
 
     if missing_files:
         sys.stderr.write(
@@ -155,13 +221,110 @@ def _TransformArchivePath(archive_path, existing_dirs, renamed_dirs):
     return archive_path
 
 
-def _ZipResources(resource_dirs, zip_path, ignore_pattern):
-    # ignore_pattern is a string of ':' delimited list of globs used to ignore
-    # files that should not be part of the final resource zip.
+def _ConvertToWebPSingle(png_path, cwebp_binary, cwebp_version, webp_cache_dir):
+    with open(png_path, 'rb') as f:
+        sha1_hash = hashlib.sha1(f.read()).hexdigest()
+
+    # The set of arguments that will appear in the cache key.
+    quality_args = ['-m', '6', '-q', '100', '-lossless']
+
+    webp_cache_path = os.path.join(
+        webp_cache_dir,
+        '{}-{}-{}'.format(sha1_hash, cwebp_version, ''.join(quality_args)),
+    )
+
+    cache_hit = os.path.exists(webp_cache_path)
+    if not cache_hit:
+        with tempfile.NamedTemporaryFile(
+            dir=webp_cache_dir, suffix='.webp', delete=False
+        ) as webp_tmp:
+            webp_tmp_path = webp_tmp.name
+        try:
+            args = [
+                cwebp_binary,
+                png_path,
+                '-o',
+                webp_tmp_path,
+                '-quiet',
+            ] + quality_args
+            subprocess.check_call(args)
+            os.replace(webp_tmp_path, webp_cache_path)
+        except BaseException:
+            if os.path.exists(webp_tmp_path):
+                os.unlink(webp_tmp_path)
+            raise
+
+    return png_path, webp_cache_path, cache_hit
+
+
+def _ConvertToWebP(cwebp_binary, png_paths, webp_cache_dir):
+    cwebp_version = subprocess.check_output([cwebp_binary, '-version']).rstrip()
+    build_utils.MakeDirectory(webp_cache_dir)
+    results = parallel.BulkForkAndCall(
+        _ConvertToWebPSingle,
+        [(f,) for f in png_paths],
+        cwebp_binary=cwebp_binary,
+        cwebp_version=cwebp_version,
+        webp_cache_dir=webp_cache_dir,
+    )
+    webp_map = {}
+    total_cache_hits = 0
+    for png_path, webp_cache_path, cache_hit in results:
+        webp_map[png_path] = webp_cache_path
+        total_cache_hits += int(cache_hit)
+
+    logging.debug('png->webp cache: %d/%d', total_cache_hits, len(png_paths))
+    return webp_map
+
+
+def _CompileResourceZip(
+    aapt2_path, input_zip_path, output_zip_path, before_join_callback=None
+):
+    """Compiles a zip of raw Android resources into a zip of .flat files."""
+    with zipfile.ZipFile(input_zip_path) as z:
+        if not z.namelist():
+            shutil.copyfile(input_zip_path, output_zip_path)
+            if before_join_callback:
+                before_join_callback()
+            return
+    compile_command = [
+        aapt2_path,
+        'compile',
+        # TODO(wnwen): Turn this on once aapt2 forces 9-patch to be crunched.
+        # '--no-crunch',
+        '--zip',
+        input_zip_path,
+        '-o',
+        output_zip_path,
+    ]
+    # There are resources targeting API-versions lower than our minapi. For
+    # various reasons it's easier to let aapt2 ignore these than for us to
+    # remove them from our build (e.g. it's from a 3rd party library).
+    build_utils.CheckOutput(
+        compile_command,
+        env=resource_utils.Aapt2Env(),
+        stderr_filter=lambda output: build_utils.FilterLines(
+            output, r'ignoring configuration .* for (styleable|attribute)'
+        ),
+        before_join_callback=before_join_callback,
+    )
+
+
+def _ZipResources(
+    active_files_by_dir,
+    zip_path,
+    aapt2_path,
+    webp_binary=None,
+    webp_cache_dir=None,
+    before_join_callback=None,
+):
     files_to_zip = []
+    png_paths = []
     seen_archive_paths = set()
     path_info = resource_utils.ResourceInfoFile()
-    for index, resource_dir in enumerate(resource_dirs):
+    for index, (resource_dir, entries) in enumerate(
+        active_files_by_dir.items()
+    ):
         attributed_aar = None
         if not resource_dir.startswith('..'):
             aar_source_info_path = os.path.join(
@@ -172,16 +335,23 @@ def _ZipResources(resource_dirs, zip_path, ignore_pattern):
                     aar_source_info_path
                 )
 
-        existing_dirs = set(os.listdir(resource_dir))
+        existing_dirs = {
+            os.path.dirname(archive_path) for _, archive_path in entries
+        }
         renamed_dirs = {}
-        for path, archive_path in resource_utils.IterResourceFilesInDirectories(
-            [resource_dir], ignore_pattern
-        ):
+        for path, archive_path in entries:
             attributed_path = path
             if attributed_aar:
                 attributed_path = os.path.join(
-                    attributed_aar, 'res', path[len(resource_dir) + 1 :]
+                    attributed_aar, 'res', archive_path
                 )
+            if (
+                webp_binary
+                and not archive_path.startswith('raw/')
+                and archive_path.endswith('.png')
+                and not _PNG_WEBP_EXCLUSION_PATTERN.match(archive_path)
+            ):
+                png_paths.append(path)
             archive_path = _TransformArchivePath(
                 archive_path, existing_dirs, renamed_dirs
             )
@@ -197,96 +367,97 @@ def _ZipResources(resource_dirs, zip_path, ignore_pattern):
             seen_archive_paths.add(archive_path)
             files_to_zip.append((archive_path, path))
 
+    if png_paths:
+        webp_map = _ConvertToWebP(webp_binary, png_paths, webp_cache_dir)
+        files_to_zip = [
+            (archive_path, webp_map.get(path, path))
+            for archive_path, path in files_to_zip
+        ]
+
     path_info.Write(zip_path + '.info')
-    zip_helpers.add_files_to_zip(files_to_zip, zip_path)
+    # `aapt2 compile --dir` cannot be used directly on `resource_dirs` because:
+    # 1. It only accepts a single directory, whereas targets can have multiple.
+    # 2. It has no ignore-pattern flag for AAPT_IGNORE_PATTERN /
+    #    --strip-drawables.
+    # 3. _TransformArchivePath() renames subdirectories and files (locale
+    #    normalization, removing -mdpi, stripping .png/.webp extensions, and
+    #    disambiguating duplicate values*/ filenames across resource_dirs).
+    # Writing an uncompressed raw.zip and passing `--zip` is also faster than
+    # staging a directory tree of symlinks/copies for `--dir`, and embeds clean
+    # zip-relative paths in .flat headers rather than temp_dir paths
+    # (https://crbug.com/939984).
+    with build_utils.TempDir() as temp_dir:
+        raw_zip_path = os.path.join(temp_dir, 'raw.zip')
+        zip_helpers.add_files_to_zip(files_to_zip, raw_zip_path)
+        _CompileResourceZip(
+            aapt2_path,
+            raw_zip_path,
+            zip_path,
+            before_join_callback=before_join_callback,
+        )
 
 
-def _GenerateRTxt(options, r_txt_path):
-    """Generate R.txt file.
-
-    Args:
-      options: The command-line options tuple.
-      r_txt_path: Locates where the R.txt file goes.
-    """
-    ignore_pattern = resource_utils.AAPT_IGNORE_PATTERN
-    if options.strip_drawables:
-        ignore_pattern += ':*drawable*'
-
-    resources_parser.RTxtGenerator(
-        options.resource_dirs, ignore_pattern
-    ).WriteRTxtFile(r_txt_path)
-
-
-def _OnStaleMd5(options):
-    with resource_utils.BuildContext() as build:
-        if options.sources and not options.allow_missing_resources:
-            _CheckAllFilesListed(options.sources, options.resource_dirs)
-        if options.r_text_in:
-            r_txt_path = options.r_text_in
-        else:
-            _GenerateRTxt(options, build.r_txt_path)
-            r_txt_path = build.r_txt_path
-
-        if options.r_text_out:
-            shutil.copyfile(r_txt_path, options.r_text_out)
-
-        if options.resource_zip_out:
-            ignore_pattern = resource_utils.AAPT_IGNORE_PATTERN
-            if options.strip_drawables:
-                ignore_pattern += ':*drawable*'
-            _ZipResources(
-                options.resource_dirs, options.resource_zip_out, ignore_pattern
-            )
+def _GenerateRTxt(
+    options,
+    active_files_by_dir=None,
+    ignore_pattern=resource_utils.AAPT_IGNORE_PATTERN,
+):
+    """Generate R.txt file."""
+    if not options.r_text_out:
+        return
+    if options.r_text_in:
+        shutil.copyfile(options.r_text_in, options.r_text_out)
+    elif options.resources_zip_path:
+        resources_parser.RTxtGenerator(
+            res_zips=[options.resources_zip_path]
+        ).WriteRTxtFile(options.r_text_out)
+    else:
+        resources_parser.RTxtGenerator(
+            active_files_by_dir.keys(), ignore_pattern
+        ).WriteRTxtFile(options.r_text_out)
 
 
 def main(args):
     args = build_utils.ExpandFileArgs(args)
     options = _ParseArgs(args)
 
-    # Order of these must match order specified in GN so that the correct one
-    # appears first in the depfile.
-    output_paths = [
-        options.resource_zip_out,
-        options.resource_zip_out + '.info',
-        options.r_text_out,
-    ]
+    if options.resources_zip_path:
+        if options.resource_zip_out:
+            _CompileResourceZip(
+                options.aapt2_path,
+                options.resources_zip_path,
+                options.resource_zip_out,
+                before_join_callback=lambda: _GenerateRTxt(options),
+            )
+        else:
+            _GenerateRTxt(options)
+        return
 
-    input_paths = [options.res_sources_path]
-    if options.r_text_in:
-        input_paths += [options.r_text_in]
+    files_by_dir = _CollectFilesByDirectory(options.resource_dirs)
+    ignore_pattern = resource_utils.AAPT_IGNORE_PATTERN
+    active_files_by_dir = _FilterFilesByDirectory(files_by_dir, ignore_pattern)
+    if options.sources:
+        _CheckAllFilesListed(options.sources, active_files_by_dir)
 
-    # Resource files aren't explicitly listed in GN. Listing them in the depfile
-    # ensures the target will be marked stale when resource files are removed.
-    depfile_deps = []
-    resource_names = []
-    for resource_dir in options.resource_dirs:
-        for resource_file in build_utils.FindInDirectory(resource_dir, '*'):
-            # Don't list the empty .keep file in depfile. Since it doesn't end up
-            # included in the .zip, it can lead to -w 'dupbuild=err' ninja errors
-            # if ever moved.
-            if not resource_file.endswith(os.path.join('empty', '.keep')):
-                input_paths.append(resource_file)
-                depfile_deps.append(resource_file)
-            resource_names.append(os.path.relpath(resource_file, resource_dir))
+    if options.strip_drawables:
+        ignore_pattern += ':*drawable*'
+        active_files_by_dir = _FilterFilesByDirectory(
+            active_files_by_dir, ignore_pattern
+        )
 
-    # Resource filenames matter to the output, so add them to strings as well.
-    # This matters if a file is renamed but not changed (http://crbug.com/597126).
-    input_strings = sorted(resource_names) + [
-        options.strip_drawables,
-    ]
-
-    # Since android_resources targets like *__all_dfm_resources depend on java
-    # targets that they do not need (in reality it only needs the transitive
-    # resource targets that those java targets depend on), md5_check is used to
-    # prevent outputs from being re-written when real inputs have not changed.
-    md5_check.CallAndWriteDepfileIfStale(
-        lambda: _OnStaleMd5(options),
-        options,
-        input_paths=input_paths,
-        input_strings=input_strings,
-        output_paths=output_paths,
-        depfile_deps=depfile_deps,
-    )
+    if options.resource_zip_out:
+        _ZipResources(
+            active_files_by_dir,
+            options.resource_zip_out,
+            options.aapt2_path,
+            webp_binary=options.webp_binary,
+            webp_cache_dir=options.webp_cache_dir,
+            before_join_callback=lambda: _GenerateRTxt(
+                options, active_files_by_dir, ignore_pattern
+            ),
+        )
+    else:
+        _GenerateRTxt(options, active_files_by_dir, ignore_pattern)
 
 
 if __name__ == '__main__':

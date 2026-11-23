@@ -4,6 +4,8 @@
 
 #include "ios/chrome/browser/signin/model/about_signin_internals_factory.h"
 
+#include <utility>
+
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/signin/core/browser/about_signin_internals.h"
 #include "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -14,27 +16,13 @@
 
 namespace ios {
 
-AboutSigninInternalsFactory::AboutSigninInternalsFactory()
-    : ProfileKeyedServiceFactoryIOS("AboutSigninInternals") {
+AboutSigninInternalsFactory::AboutSigninInternalsFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "AboutSigninInternals") {
   DependsOn(ios::AccountReconcilorFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(SigninClientFactory::GetInstance());
   DependsOn(SigninErrorControllerFactory::GetInstance());
-}
-
-AboutSigninInternalsFactory::~AboutSigninInternalsFactory() = default;
-
-// static
-AboutSigninInternals* AboutSigninInternalsFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<AboutSigninInternals>(
-      profile, /*create=*/true);
-}
-
-// static
-AboutSigninInternalsFactory* AboutSigninInternalsFactory::GetInstance() {
-  static base::NoDestructor<AboutSigninInternalsFactory> instance;
-  return instance.get();
 }
 
 std::unique_ptr<KeyedService>

@@ -199,6 +199,10 @@ inline void CheckGlobalStringMatches(
       v8::String::NewFromUtf8Literal(isolate, "transformers.js_config");
   v8::Local<v8::String> media_pipe_string = v8::String::NewFromUtf8Literal(
       isolate, "addStringVectorToInputSidePacket");
+  v8::Local<v8::String> litert_string =
+      v8::String::NewFromUtf8Literal(isolate, "litert_wasm_internal.js");
+  v8::Local<v8::String> litert_lm_string =
+      v8::String::NewFromUtf8Literal(isolate, "liteRtLmWasm");
   if (tfjs_string->IsInStringTable(isolate)) {
     result.detected_versions[JavaScriptFramework::kTFJS] =
         kNoFrameworkVersionDetected;
@@ -211,16 +215,24 @@ inline void CheckGlobalStringMatches(
     result.detected_versions[JavaScriptFramework::kMediaPipe] =
         kNoFrameworkVersionDetected;
   }
+  if (litert_string->IsInStringTable(isolate)) {
+    result.detected_versions[JavaScriptFramework::kLiteRT] =
+        kNoFrameworkVersionDetected;
+  }
+  if (litert_lm_string->IsInStringTable(isolate)) {
+    result.detected_versions[JavaScriptFramework::kLiteRTLM] =
+        kNoFrameworkVersionDetected;
+  }
 }
 
 int64_t ExtractVersion(v8::Local<v8::RegExp> regexp,
                        v8::Local<v8::Context> context,
                        v8::Local<v8::Value> version) {
-  v8::Local<v8::Object> groups;
+  v8::Local<v8::Value> groups;
   v8::Local<v8::Value> major;
   v8::Local<v8::Value> minor;
   bool success =
-      regexp->Exec(context, version.As<v8::String>()).ToLocal(&groups);
+      regexp->ExecV2(context, version.As<v8::String>()).ToLocal(&groups);
   if (!success || !groups->IsArray()) {
     return kNoFrameworkVersionDetected;
   }
@@ -331,7 +343,7 @@ void DetectFrameworkVersions(Document& document,
   }
 
   if (generator_meta) {
-    const AtomicString& content = generator_meta->Content();
+    const AtomicString content = generator_meta->Content();
     if (!content.empty()) {
       if (content.starts_with("Wix")) {
         result.detected_versions[JavaScriptFramework::kWix] =
@@ -339,31 +351,27 @@ void DetectFrameworkVersions(Document& document,
       } else if (content.starts_with("Joomla")) {
         result.detected_versions[JavaScriptFramework::kJoomla] =
             kNoFrameworkVersionDetected;
-      } else {
-        constexpr char kWordpressPrefix[] = "WordPress ";
+      } else if (constexpr char kWordpressPrefix[] = "WordPress ";
+                 content.starts_with(kWordpressPrefix)) {
         constexpr size_t kWordpressPrefixLength =
             std::char_traits<char>::length(kWordpressPrefix);
 
-        if (content.starts_with(kWordpressPrefix)) {
-          StringView version_string = content;
-          version_string.remove_prefix(kWordpressPrefixLength);
-          result.detected_versions[JavaScriptFramework::kWordPress] =
-              ExtractVersion(version_regexp, context,
-                             V8String(isolate, version_string));
-        }
-
-        constexpr char kDrupalPrefix[] = "Drupal ";
+        StringView version_string = content;
+        version_string.remove_prefix(kWordpressPrefixLength);
+        result.detected_versions[JavaScriptFramework::kWordPress] =
+            ExtractVersion(version_regexp, context,
+                           V8String(isolate, version_string));
+      } else if (constexpr char kDrupalPrefix[] = "Drupal ";
+                 content.starts_with(kDrupalPrefix)) {
         constexpr size_t kDrupalPrefixLength =
             std::char_traits<char>::length(kDrupalPrefix);
 
-        if (content.starts_with(kDrupalPrefix)) {
-          StringView version_string(content, kDrupalPrefixLength);
-          version_string = version_string.substr(0, version_string.find(' '));
-          std::optional<int> version = StringToIntLoose(version_string);
-          result.detected_versions[JavaScriptFramework::kDrupal] =
-              version.has_value() ? ((*version & 0xff) << 8)
-                                  : kNoFrameworkVersionDetected;
-        }
+        StringView version_string(content, kDrupalPrefixLength);
+        version_string = version_string.substr(0, version_string.find(' '));
+        std::optional<int> version = StringToIntLoose(version_string);
+        result.detected_versions[JavaScriptFramework::kDrupal] =
+            version.has_value() ? ((*version & 0xff) << 8)
+                                : kNoFrameworkVersionDetected;
       }
     }
   }

@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {HAS_BEEN_PASSWORD_SYMBOL, ID_SYMBOL} from '//components/autofill/ios/form_util/resources/fill_constants.js';
+import {HAS_BEEN_PASSWORD_SYMBOL} from '//components/autofill/ios/form_util/resources/fill_constants.js';
+import {safeOwnerDocument} from '//components/autofill/ios/form_util/resources/unique_node_id.js';
 import {APC_NODE_DEPTH_COST, getRemoteFrameRemoteToken, NONCE_ATTR} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/common.js';
-import {getNodeId, getOrCreateNodeId, safeOwnerDocument} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/dom_node_ids.js';
+import {getNodeId, getOrCreateNodeId} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/dom_node_ids.js';
 import {AxRole, FormControlType, PageContentAnchorRel, PageContentAnnotatedRole, PageContentAttributeType, PageContentClickabilityReason, PageContentCssPosition, PageContentInteractionDisabledReason, PageContentMediaType, PageContentRedactionDecision, PageContentTableRowType, PageContentTextSize} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
 import type {PageContent, PageContentAttributes, PageContentFormControlData, PageContentFormData, PageContentFrameData, PageContentFrameInteractionInfo, PageContentGeometry, PageContentMediaData, PageContentNode, PageContentNodeInteractionInfo, PageContentPageInteractionInfo, PageContentScrollerInfo, PageContentTableData, Point, Rect} from '//ios/chrome/browser/intelligence/proto_wrappers/resources/page_content_types.js';
 
@@ -25,12 +26,6 @@ interface HtmlElementWithDisabled extends HTMLElement {
 // it has been a password field.
 interface PasswordTrackedElement extends HTMLInputElement {
   [HAS_BEEN_PASSWORD_SYMBOL]?: boolean;
-}
-
-// An HTMLInputElement that can hold an Autofill node id via the designated
-// symbol property.
-interface HtmlElementWithAutofillId extends HTMLElement {
-  [ID_SYMBOL]?: number;
 }
 
 // Safe getters for prototype properties to prevent DOM stomping/clobbering.
@@ -547,6 +542,7 @@ const ATTR_VALUE_ROLE_REGION = 'region';
 const ATTR_VALUE_ROLE_COMPLEMENTARY = 'complementary';
 const ATTR_VALUE_ROLE_CONTENT_INFO = 'contentinfo';
 const ATTR_VALUE_ROLE_NONE = 'none';
+const ATTR_VALUE_ROLE_PRESENTATION = 'presentation';
 
 // Style values.
 const ATTR_POSITION_ABSOLUTE = 'absolute';
@@ -631,6 +627,11 @@ const MAX_TABLE_ANCESTOR_LOOKUP_DEPTH = 100;
 const MAX_CAPTION_CHILD_SEARCH_COUNT = 50;
 
 /**
+ * `CSS.supports()` query for CSS anchor positioning.
+ */
+const ANCHOR_POSITIONING_SUPPORT_QUERY = 'anchor-name: --a';
+
+/**
  * Returns true if page context actionable optimization is enabled.
  */
 function isPageContextActionableOptimizationEnabled() {
@@ -638,7 +639,19 @@ function isPageContextActionableOptimizationEnabled() {
       false;
 }
 
-
+/**
+ * Whether `filter` creates a containing block for fixed- and absolute-position
+ * descendants in WebKit.
+ *
+ * In iOS 18 and earlier, `filter` does not create a containing block, causing
+ * those descendants to be laid out relative to an outer containing block, such
+ * as the viewport. Detecting this layout fix
+ * (https://commits.webkit.org/295958) directly would require a layout probe, so
+ * support for CSS anchor positioning (`anchor-name`) is used as an iOS version
+ * proxy: both features debuted together in iOS 26.
+ */
+const FILTER_FORMS_CONTAINING_BLOCK =
+    CSS.supports(ANCHOR_POSITIONING_SUPPORT_QUERY);
 
 /**
  * Maps a tag name to its corresponding PageContentAnnotatedRole.
@@ -761,6 +774,7 @@ function getAXRoleForAriaRole(roleString: string): AxRole {
       case ATTR_VALUE_ROLE_CONTENT_INFO:
         return AxRole.AX_ROLE_CONTENT_INFO;
       case ATTR_VALUE_ROLE_NONE:
+      case ATTR_VALUE_ROLE_PRESENTATION:
         return AxRole.AX_ROLE_NONE;
       default:
         continue;
@@ -1618,9 +1632,11 @@ function getNodeInteractionInfo(
       safeHasAttribute(element, ATTR_KEY_ONMOUSEUP)) {
     clickabilityReasons.push(PageContentClickabilityReason.MOUSE_CLICK);
   }
-  if (safeHasAttribute(element, ATTR_KEY_ONMOUSEOVER) ||
-      safeHasAttribute(element, ATTR_KEY_ONMOUSEENTER)) {
-    clickabilityReasons.push(PageContentClickabilityReason.MOUSE_HOVER);
+  if (safeHasAttribute(element, ATTR_KEY_ONMOUSEENTER)) {
+    clickabilityReasons.push(PageContentClickabilityReason.MOUSE_ENTER);
+  }
+  if (safeHasAttribute(element, ATTR_KEY_ONMOUSEOVER)) {
+    clickabilityReasons.push(PageContentClickabilityReason.MOUSE_OVER);
   }
   if (safeHasAttribute(element, ATTR_KEY_ONKEYDOWN) ||
       safeHasAttribute(element, ATTR_KEY_ONKEYUP) ||
@@ -2538,20 +2554,6 @@ function getCustomPasswordRedactionDecision(
 }
 
 /**
- * Gets the autofill node ID for the `element` if one is available.
- *
- * @param element The DOM element to process.
- * @return The autofill node ID, or undefined if there is no ID.
- */
-function getAutofillNodeId(element: HTMLElement): number|undefined {
-  const id = (element as HtmlElementWithAutofillId)[ID_SYMBOL];
-  if (Number.isFinite(id)) {
-    return id;
-  }
-  return undefined;
-}
-
-/**
  * Extracts form control specific content attributes from a given DOM element.
  * Handles inputs, textareas, selects, and buttons.
  *
@@ -2647,8 +2649,6 @@ function getFormControlData(
       });
     }
   }
-
-  formControlData.autofillNodeId = getAutofillNodeId(domNode);
 
   return formControlData as PageContentFormControlData;
 }
@@ -3077,14 +3077,10 @@ function getContentForCustomTableElement(
  * @param styleCache The style cache to use for computing styles.
  */
 function populateCommonAttributes(
-    element: HTMLElement,
-    attributes: PageContentAttributes,
-    interactionInfo: PageContentNodeInteractionInfo | undefined,
-    paidContentContext: PaidContentExtractionContext,
-    actionableMode: boolean,
-    annotatedRoles?: PageContentAnnotatedRole[],
-    styleCache?: StyleCache) {
-
+    element: HTMLElement, attributes: PageContentAttributes,
+    interactionInfo: PageContentNodeInteractionInfo|undefined,
+    paidContentContext: PaidContentExtractionContext, actionableMode: boolean,
+    annotatedRoles?: PageContentAnnotatedRole[], styleCache?: StyleCache) {
   if (interactionInfo) {
     attributes.nodeInteractionInfo = interactionInfo;
   }
@@ -3100,8 +3096,13 @@ function populateCommonAttributes(
   }
   if (actionableMode) {
     const roleStr = safeGetAttribute(element, ATTR_KEY_ROLE);
-    attributes.ariaRole =
+    const ariaRole =
         roleStr ? getAXRoleForAriaRole(roleStr) : AxRole.AX_ROLE_UNKNOWN;
+    // Match Blink: omit missing, empty, or invalid roles, but preserve explicit
+    // presentational roles as AX_ROLE_NONE.
+    if (ariaRole !== AxRole.AX_ROLE_UNKNOWN) {
+      attributes.ariaRole = ariaRole;
+    }
   }
 
   const ariaLabel = getAriaLabel(element, styleCache);
@@ -3377,7 +3378,8 @@ function populateFragmentsIfNeeded(
  * Per CSS Transforms, CSS Filter Effects, and CSS Containment specifications,
  * elements with properties such as transform, translate, rotate, scale,
  * perspective, filter, backdrop-filter, or contain: paint/layout/strict/content
- * create a containing block for fixed descendants.
+ * create a containing block for fixed descendants. `filter` only does so on
+ * WebKit versions that implement it (see `FILTER_FORMS_CONTAINING_BLOCK`).
  *
  * @param style The computed style of the element.
  * @return True if the element forms a containing block for fixed elements.
@@ -3386,27 +3388,25 @@ function formsContainingBlockForFixed(style?: CSSStyleDeclaration): boolean {
   if (!style) {
     return false;
   }
-  if (style.transform && style.transform !== STYLE_VALUE_NONE) {
+
+  // Each computed style property is read exactly once into a local, and the
+  // properties that WebKit doesn't treat as layout-dependent are checked first
+  // so that the layout-dependent ones (see below) are only read when none of
+  // the others apply.
+  const translate = style.translate;
+  if (translate && translate !== STYLE_VALUE_NONE) {
     return true;
   }
-  if (style.translate && style.translate !== STYLE_VALUE_NONE) {
+  const rotate = style.rotate;
+  if (rotate && rotate !== STYLE_VALUE_NONE) {
     return true;
   }
-  if (style.rotate && style.rotate !== STYLE_VALUE_NONE) {
+  const scale = style.scale;
+  if (scale && scale !== STYLE_VALUE_NONE) {
     return true;
   }
-  if (style.scale && style.scale !== STYLE_VALUE_NONE) {
-    return true;
-  }
-  if (style.perspective && style.perspective !== STYLE_VALUE_NONE) {
-    return true;
-  }
-  if (style.filter && style.filter !== STYLE_VALUE_NONE) {
-    return true;
-  }
-  const backdropFilter = style.backdropFilter ||
-      (style as {webkitBackdropFilter?: string}).webkitBackdropFilter;
-  if (backdropFilter && backdropFilter !== STYLE_VALUE_NONE) {
+  const perspective = style.perspective;
+  if (perspective && perspective !== STYLE_VALUE_NONE) {
     return true;
   }
   const contain = style.contain;
@@ -3424,6 +3424,34 @@ function formsContainingBlockForFixed(style?: CSSStyleDeclaration): boolean {
         properties.includes('scale') || properties.includes('contain')) {
       return true;
     }
+  }
+
+  // In WebKit (`Source/WebCore/style/StyleExtractor.cpp`), reading computed
+  // `transform`, `filter`, `backdrop-filter`, or `-webkit-backdrop-filter` is
+  // treated as layout-dependent by `isLayoutDependent()`.
+  //
+  // When read on an element inside a `content-visibility` skipped subtree,
+  // `Extractor::computeStyle()` forces a layout update with
+  // `LayoutOptions::TreatContentVisibilityHiddenAsVisible`, which invokes
+  // `runForcedLayoutOnSkippedContentIfNeeded()` and walks all descendants of
+  // the skipped subtree on every read.
+  //
+  // Reading these is deferred until after all non-layout-dependent properties
+  // have been checked, and each is read at most once.
+  const transform = style.transform;
+  if (transform && transform !== STYLE_VALUE_NONE) {
+    return true;
+  }
+  if (FILTER_FORMS_CONTAINING_BLOCK) {
+    const filter = style.filter;
+    if (filter && filter !== STYLE_VALUE_NONE) {
+      return true;
+    }
+  }
+  const backdropFilter = style.backdropFilter ||
+      (style as {webkitBackdropFilter?: string}).webkitBackdropFilter;
+  if (backdropFilter && backdropFilter !== STYLE_VALUE_NONE) {
+    return true;
   }
   return false;
 }
@@ -3526,62 +3554,48 @@ function addNodeGeometry(
     delete attributes.nodeInteractionInfo;
   }
 
-  // Determine the new clip context to pass down to children.
-  let newNormalClip = context.normalClip;
-  let newAbsoluteClip = context.absoluteClip;
-  let newFixedClip = context.fixedClip;
-  let newHasOverflowClip = context.hasOverflowClip;
-
-  const overflowX = style?.overflowX || '';
-  const overflowY = style?.overflowY || '';
-  const isFixedContainingBlock = formsContainingBlockForFixed(style);
-  const isAbsoluteContainingBlock =
-      (position && position !== ATTR_POSITION_STATIC) || isFixedContainingBlock;
-
-  if (isClippedStyle(overflowX) || isClippedStyle(overflowY)) {
-    newHasOverflowClip = true;
-    const visibleRectForClip = visibleRect;
-
-    // If the element actively clips its children, its own visible bounds become
-    // the new boundary for normal flow descendants.
-    newNormalClip = visibleRectForClip;
-
-    // Absolute descendants are only clipped if this element forms a containing
-    // block.
-    if (isAbsoluteContainingBlock) {
-      newAbsoluteClip = visibleRectForClip;
-    }
-
-    // Fixed descendants are only clipped if this element forms a containing
-    // block for fixed-position elements.
-    if (isFixedContainingBlock) {
-      newFixedClip = visibleRectForClip;
-    }
-  } else {
-    if ((position === ATTR_POSITION_ABSOLUTE ||
-         position === ATTR_POSITION_FIXED) &&
-        clipToUse) {
-      newNormalClip = clipToUse;
-    }
-    if (isAbsoluteContainingBlock) {
-      // Since this element forms an absolute containing block but doesn't clip,
-      // reset the absolute clip to match the clip applied to this containing
-      // block.
-      newAbsoluteClip = clipToUse;
-    }
-    if (isFixedContainingBlock) {
-      // Since this element forms a fixed containing block but doesn't clip,
-      // reset the fixed clip to match the clip applied to this containing
-      // block.
-      newFixedClip = clipToUse;
-    }
+  // Determine the new clip context to pass down to children. An element that
+  // clips its overflow becomes the clip for its normal flow descendants and for
+  // descendants for which it forms a containing block.
+  const clipsOverflow = isClippedStyle(style?.overflowX || '') ||
+      isClippedStyle(style?.overflowY || '');
+  const containingBlockClip = clipsOverflow ? visibleRect : clipToUse;
+  let normalClip = context.normalClip;
+  if (clipsOverflow) {
+    normalClip = visibleRect;
+  } else if (
+      (position === ATTR_POSITION_ABSOLUTE ||
+       position === ATTR_POSITION_FIXED) &&
+      clipToUse) {
+    normalClip = clipToUse;
   }
 
+  // Lazily evaluate `formsContainingBlockForFixed()` at most once.
+  let isFixedContainingBlock: boolean|undefined;
+  const formsFixedContainingBlock = () => isFixedContainingBlock ??=
+      formsContainingBlockForFixed(style);
+  let absoluteClip: Rect|null|undefined;
+  let fixedClip: Rect|null|undefined;
+  const isPositioned = !!position && position !== ATTR_POSITION_STATIC;
+
   return {
-    normalClip: newNormalClip,
-    absoluteClip: newAbsoluteClip,
-    fixedClip: newFixedClip,
-    hasOverflowClip: newHasOverflowClip,
+    normalClip,
+    get absoluteClip() {
+      if (absoluteClip === undefined) {
+        absoluteClip = isPositioned || formsFixedContainingBlock() ?
+            containingBlockClip :
+            context.absoluteClip;
+      }
+      return absoluteClip;
+    },
+    get fixedClip() {
+      if (fixedClip === undefined) {
+        fixedClip = formsFixedContainingBlock() ? containingBlockClip :
+                                                  context.fixedClip;
+      }
+      return fixedClip;
+    },
+    hasOverflowClip: clipsOverflow || context.hasOverflowClip,
   };
 }
 
@@ -3765,6 +3779,11 @@ function shouldAcceptNode(node: Node, styleCache?: StyleCache): number {
 /**
  * Tracks inherited clipping rectangles separately for normal flow elements,
  * absolute positioned elements, and fixed positioned elements.
+ *
+ * `absoluteClip` and `fixedClip` are implemented as lazy getters that defer
+ * reading layout-dependent styles until a positioned descendant is encountered.
+ * Contexts must be consumed synchronously during the walk; copying them
+ * triggers eager evaluation.
  */
 interface ClippingContext {
   /** Clipping rectangle applied to static and relative positioned elements. */

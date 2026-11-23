@@ -36,6 +36,7 @@
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/signin/public/base/signin_buildflags.h"
+#include "components/site_engagement/content/site_engagement_service.h"
 #include "content/public/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 #include "rlz/buildflags/buildflags.h"
@@ -56,6 +57,7 @@ class CookieControlsPageActionController;
 class CoreTabHelper;
 class ExternalProtocolObserver;
 class FileSystemAccessPageActionController;
+class FileSystemAccessPermissionRequestManager;
 class FileSystemAccessTabHelper;
 class FocusTabAfterNavigationHelper;
 class FontPrewarmerTabHelper;
@@ -86,7 +88,6 @@ class Profile;
 class PwaInstallPageActionController;
 class QwacWebContentsObserver;
 class ReadAnythingController;
-class ReadAnythingSidePanelController;
 class RecentlyAudibleHelper;
 class RecordReplayPageActionController;
 class RevokedPermissionsTabHelper;
@@ -128,6 +129,7 @@ class BackToOpenerController;
 }  // namespace back_to_opener
 
 namespace blocked_content {
+class PopupBlockerTabHelper;
 class PopupOpenerTabHelper;
 }  // namespace blocked_content
 
@@ -205,6 +207,10 @@ namespace customize_chrome {
 class SidePanelController;
 }  // namespace customize_chrome
 
+namespace dictation {
+class DictationIphController;
+}  // namespace dictation
+
 namespace download {
 class DownloadNavigationObserver;
 }  // namespace download
@@ -228,6 +234,7 @@ class GlicPromotionSourceNavigationObserver;
 class GlicTabIndicatorHelper;
 class GlicSidePanelCoordinator;
 class GlicSelectionObserver;
+class GlicWebDragObserver;
 class SelectionOverlayController;
 class SelectionSuggestionTool;
 class GlicPageFeaturesManager;
@@ -248,6 +255,12 @@ class ZoomViewController;
 namespace permissions {
 class PermissionIndicatorsTabData;
 }  // namespace permissions
+
+#if BUILDFLAG(IS_CHROMEOS)
+namespace policy {
+class DlpContentTabHelper;
+}  // namespace policy
+#endif
 
 namespace predictors {
 class LoadingPredictorTabHelper;
@@ -286,7 +299,6 @@ class SyncSessionsRouterTabHelper;
 
 namespace tab_groups {
 class SavedTabGroupWebContentsListener;
-class SavedTabGroupOnCloseHelper;
 }  // namespace tab_groups
 
 namespace page_actions {
@@ -294,6 +306,7 @@ class PageActionController;
 }  // namespace page_actions
 
 namespace page_content_annotations {
+class AnnotatedPageContentRequest;
 class PageContentAnnotationsWebContentsObserver;
 }  // namespace page_content_annotations
 
@@ -316,6 +329,7 @@ class RecordReplayClient;
 #endif
 
 namespace lens {
+class LensSuggestionTool;
 class TabContextualizationController;
 }  // namespace lens
 
@@ -341,9 +355,6 @@ namespace ash {
 class BootTimesRecorderTabHelper;
 class CrosIsolatedWebAppEnabler;
 }  // namespace ash
-namespace ash::app_time {
-class WebTimeNavigationObserver;
-}  // namespace ash::app_time
 namespace mahi {
 class MahiTabHelper;
 }  // namespace mahi
@@ -443,11 +454,6 @@ class TabFeatures {
     return saved_tab_group_web_contents_listener_.get();
   }
 
-  tab_groups::SavedTabGroupOnCloseHelper* saved_tab_group_on_close_helper()
-      const {
-    return saved_tab_group_on_close_helper_.get();
-  }
-
   TabDialogManager* tab_dialog_manager() { return tab_dialog_manager_.get(); }
 
   page_actions::PageActionController* page_action_controller() {
@@ -494,10 +500,6 @@ class TabFeatures {
     return inactive_window_mouse_event_controller_.get();
   }
 
-  MemorySaverChipTabHelper* memory_saver_chip_helper() {
-    return memory_saver_chip_helper_.get();
-  }
-
   TabUIHelper* SetTabUIHelperForTesting(
       std::unique_ptr<TabUIHelper> tab_ui_helper);
 
@@ -509,29 +511,12 @@ class TabFeatures {
   TabAlertController* SetTabAlertControllerForTesting(
       std::unique_ptr<TabAlertController> tab_alert_controller);
 
-  TabCreationMetricsController* tab_creation_metrics_controller() {
-    return tab_creation_metrics_controller_.get();
-  }
-
-  autofill::PaymentsChurnedUsersPageActionController*
-  payments_churned_users_page_action_controller() {
-    return payments_churned_users_page_action_controller_.get();
-  }
-
   autofill::BubbleManager* autofill_bubble_manager() {
     return autofill_bubble_manager_.get();
   }
 
   autofill::BubbleManager* SetBubbleManagerForTesting(
       std::unique_ptr<autofill::BubbleManager> bubble_manager);
-
-  AskBeforeHttpDialogController* ask_before_http_dialog_controller() {
-    return ask_before_http_dialog_controller_.get();
-  }
-
-  back_to_opener::BackToOpenerController* back_to_opener_controller() {
-    return back_to_opener_controller_.get();
-  }
 
   BookmarkBarPreloadPipelineManager* bookmarkbar_preload_pipeline_manager() {
     return bookmarkbar_preload_pipeline_manager_.get();
@@ -541,9 +526,8 @@ class TabFeatures {
     return new_tab_page_preload_pipeline_manager_.get();
   }
 
-  contextual_cueing::ContextualCueingController*
-  contextual_cueing_controller() {
-    return contextual_cueing_controller_.get();
+  site_engagement::SiteEngagementService::Helper* site_engagement_helper() {
+    return site_engagement_helper_.get();
   }
 
   // Called exactly once to initialize features.
@@ -597,20 +581,10 @@ class TabFeatures {
   // form-submission UKM).
   std::unique_ptr<SecurityStateEventObserver> security_state_event_observer_;
 
-  // Forwards tab-related events to sync.
-  std::unique_ptr<sync_sessions::SyncSessionsRouterTabHelper>
-      sync_sessions_router_;
-
-  // Provides this tab's session identity to sync.
-  std::unique_ptr<BrowserSyncedTabDelegate> browser_synced_tab_delegate_;
-
   // Responsible for keeping a tab within a tab group in sync with its remote
   // tab counterpart from sync.
   std::unique_ptr<tab_groups::SavedTabGroupWebContentsListener>
       saved_tab_group_web_contents_listener_;
-
-  std::unique_ptr<tab_groups::SavedTabGroupOnCloseHelper>
-      saved_tab_group_on_close_helper_;
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Manages the protocol handler picker dialog on ChromeOS. Must be destroyed
@@ -708,10 +682,11 @@ class TabFeatures {
   std::unique_ptr<glic::GlicTabIndicatorHelper> glic_tab_indicator_helper_;
   std::unique_ptr<glic::GlicSidePanelCoordinator> glic_side_panel_coordinator_;
   std::unique_ptr<glic::GlicSelectionObserver> glic_selection_observer_;
-  std::unique_ptr<selection::SuggestionService>
-      selection_suggestion_service_;
+  std::unique_ptr<glic::GlicWebDragObserver> glic_web_drag_observer_;
+  std::unique_ptr<selection::SuggestionService> selection_suggestion_service_;
   std::unique_ptr<glic::SelectionSuggestionTool>
       glic_selection_suggestion_tool_;
+  std::unique_ptr<lens::LensSuggestionTool> lens_suggestion_tool_;
   std::unique_ptr<glic::SelectionOverlayController>
       glic_selection_overlay_controller_;
 
@@ -852,6 +827,8 @@ class TabFeatures {
   std::unique_ptr<back_to_opener::BackToOpenerController>
       back_to_opener_controller_;
 
+  std::unique_ptr<dictation::DictationIphController> dictation_iph_controller_;
+
   std::unique_ptr<skills::SkillsUiTabControllerInterface>
       skills_ui_tab_controller_;
 
@@ -903,8 +880,6 @@ class TabFeatures {
       cros_isolated_web_app_enabler_;
   std::unique_ptr<GeminiAppTabHelper> gemini_app_tab_helper_;
   std::unique_ptr<mahi::MahiTabHelper> mahi_tab_helper_;
-  std::unique_ptr<ash::app_time::WebTimeNavigationObserver>
-      web_time_navigation_observer_;
   std::unique_ptr<ash::BootTimesRecorderTabHelper>
       boot_times_recorder_tab_helper_;
 #endif
@@ -1030,6 +1005,18 @@ class TabFeatures {
   std::unique_ptr<SupervisedUserNavigationObserver>
       supervised_user_navigation_observer_;
 
+  // Provides this tab's session identity to sync. Declared after
+  // `task_tab_helper_` and `supervised_user_navigation_observer_` so those
+  // dependencies outlive it.
+  std::unique_ptr<BrowserSyncedTabDelegate> browser_synced_tab_delegate_;
+
+  // Forwards tab-related events to sync. Declared after
+  // `browser_synced_tab_delegate_` and `sad_tab_helper_` so it is destroyed
+  // before teardown side effects (such as `~SadTabHelper` visibility changes)
+  // or `browser_synced_tab_delegate_` destruction.
+  std::unique_ptr<sync_sessions::SyncSessionsRouterTabHelper>
+      sync_sessions_router_;
+
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
   std::unique_ptr<offline_pages::OfflinePageTabHelper> offline_page_tab_helper_;
   std::unique_ptr<offline_pages::RecentTabHelper> recent_tab_helper_;
@@ -1050,6 +1037,8 @@ class TabFeatures {
   std::unique_ptr<metrics::MetricsServicesWebContentsObserver>
       metrics_services_web_contents_observer_;
 
+  std::unique_ptr<blocked_content::PopupBlockerTabHelper>
+      popup_blocker_tab_helper_;
   std::unique_ptr<blocked_content::PopupOpenerTabHelper>
       popup_opener_tab_helper_;
 
@@ -1069,6 +1058,19 @@ class TabFeatures {
       loading_predictor_tab_helper_;
 
   std::unique_ptr<BreadcrumbManagerTabHelper> breadcrumb_manager_tab_helper_;
+
+  std::unique_ptr<site_engagement::SiteEngagementService::Helper>
+      site_engagement_helper_;
+
+  std::unique_ptr<page_content_annotations::AnnotatedPageContentRequest>
+      annotated_page_content_request_;
+
+  std::unique_ptr<FileSystemAccessPermissionRequestManager>
+      file_system_access_permission_request_manager_;
+
+#if BUILDFLAG(IS_CHROMEOS)
+  std::unique_ptr<policy::DlpContentTabHelper> dlp_content_tab_helper_;
+#endif
 
   // Must be the last member.
   base::WeakPtrFactory<TabFeatures> weak_factory_{this};

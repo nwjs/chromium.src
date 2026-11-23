@@ -25,6 +25,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/variations/client_filterable_state.h"
+#include "components/variations/metrics.h"
 #include "components/variations/pref_names.h"
 #include "components/variations/proto/variations_seed.pb.h"
 #include "components/variations/seed_reader_writer.h"
@@ -193,17 +194,6 @@ base::OnceCallback<void(Args...)> CallbackUmaHistogramTimer(
       std::move(done_callback), std::string(histogram_name),
       base::TimeTicks::Now());
 }
-
-#if BUILDFLAG(IS_ANDROID)
-// Marks seed storing as successful on the Java side to avoid repeated seed
-// fetches. Called only on first run.
-void MarkVariationsSeedAsStoredIfEmptySeed(
-    SeedReaderWriter::ReadSeedDataResult read_result) {
-  if (read_result.result == LoadSeedResult::kEmpty) {
-    android::MarkVariationsSeedAsStored();
-  }
-}
-#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -521,9 +511,19 @@ void VariationsSeedStore::RecordLastFetchTime(base::Time fetch_time) {
   }
 }
 
-void VariationsSeedStore::UpdateSeedDateAndLogDayChange(base::Time seed_date) {
+UpdateSeedDateResult VariationsSeedStore::UpdateSeedDateAndLogDayChange(
+    base::Time seed_date) {
+  const UpdateSeedDateResult result = GetSeedDateUpdateResult(seed_date);
   LogSeedDayChange(seed_date);
   seed_reader_writer_->SetSeedDate(seed_date);
+  return result;
+}
+
+bool VariationsSeedStore::UpdateSessionCountryAndGeoLevel1(
+    std::string_view country_code,
+    std::string_view geo_level1) {
+  return seed_reader_writer_->SetSessionCountryAndGeoLevel1(country_code,
+                                                            geo_level1);
 }
 
 UpdateSeedDateResult VariationsSeedStore::GetSeedDateUpdateResult(
@@ -773,6 +773,9 @@ void VariationsSeedStore::VerifyAndParseSeedAndRunCallback(
   if (result == LoadSeedResult::kCorruptProtobuf) {
     ClearPrefs(seed_type);
   }
+  if (seed_type == SeedType::LATEST && result == LoadSeedResult::kSuccess) {
+    StoreLatestSerialNumber(seed.serial_number());
+  }
   LogLoadSeedResult(seed_type, result);
   std::move(done_callback)
       .Run(std::move(read_result.seed_data), std::move(read_result.signature),
@@ -913,10 +916,8 @@ void VariationsSeedStore::StoreValidatedSeed(
 #if BUILDFLAG(IS_ANDROID)
   // If currently we do not have any stored seed, then we mark seed storing as
   // successful on the Java side to avoid repeated seed fetches.
-  if (use_first_run_prefs_) {
-    ReadSeedData(/*done_callback=*/base::BindOnce(
-                     &MarkVariationsSeedAsStoredIfEmptySeed),
-                 SeedType::LATEST, require_synchronous);
+  if (use_first_run_prefs_ && seed_reader_writer_->IsEmpty()) {
+    android::MarkVariationsSeedAsStored();
   }
 #endif  // BUILDFLAG(IS_ANDROID)
 

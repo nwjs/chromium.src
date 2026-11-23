@@ -89,7 +89,7 @@
 #include "third_party/blink/renderer/core/paint/contoured_border_geometry.h"
 #include "third_party/blink/renderer/core/paint/cull_rect_updater.h"
 #include "third_party/blink/renderer/core/paint/filter_effect_builder.h"
-#include "third_party/blink/renderer/core/paint/fragment_data_iterator.h"
+#include "third_party/blink/renderer/core/paint/fragment_data.h"
 #include "third_party/blink/renderer/core/paint/hit_testing_transform_state.h"
 #include "third_party/blink/renderer/core/paint/object_paint_invalidator.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
@@ -988,9 +988,10 @@ void PaintLayer::CollectFragments(
   // The inherited offset_from_root does not include any pagination offsets.
   // In the presence of fragmentation, we cannot use it.
   wtf_size_t physical_fragment_idx = 0u;
-  for (FragmentDataIterator iterator(GetLayoutObject()); !iterator.IsDone();
+  const FragmentDataList& fragment_list = GetLayoutObject().FragmentList();
+  for (auto iterator = fragment_list.begin(); iterator != fragment_list.end();
        ++iterator, physical_fragment_idx++) {
-    const FragmentData* fragment_data = iterator.GetFragmentData();
+    const FragmentData* fragment_data = &*iterator;
     const FragmentData* root_fragment_data = nullptr;
     if (root_fragment_arg) {
       DCHECK(this != root_layer);
@@ -1344,17 +1345,6 @@ PaintLayer* PaintLayer::HitTestLayer(
     check_position_visibility_scope.emplace(*this);
   }
 
-  // TODO(vmpstr): We need to add a simple document flag which says whether
-  // there is an ongoing transition, since this may be too heavy of a check for
-  // each hit test.
-  if (auto* transition =
-          ViewTransitionUtils::TransitionForParticipantOrScope(layout_object)) {
-    // This means that the contents of the object are drawn elsewhere.
-    if (transition->IsRepresentedViaPseudoElements(layout_object)) {
-      return nullptr;
-    }
-  }
-
   ShouldRespectOverflowClipType clip_behavior = kRespectOverflowClip;
   if (result.GetHitTestRequest().IgnoreClipping() ||
       (RuntimeEnabledFeatures::UnboundedElementEnabled() &&
@@ -1440,28 +1430,25 @@ PaintLayer* PaintLayer::HitTestLayer(
     DCHECK(!Preserves3D());
     // We need transform state for the first time, or to offset the container
     // state, so create it here.
-    FragmentDataIterator iterator(layout_object);
-    const FragmentData* local_fragment_for_transform_state =
-        iterator.GetFragmentData();
+    const FragmentData* local_fragment_for_transform_state = nullptr;
     const FragmentData* container_fragment_for_transform_state;
     if (container_fragment_data) {
       container_fragment_for_transform_state = container_fragment_data;
       const auto& container_transform =
           container_fragment_data->ContentsProperties().Transform();
-      while (!iterator.IsDone()) {
+      for (const FragmentData& fragment : layout_object.FragmentList()) {
         // Find the first local fragment that is a descendant of
         // container_fragment.
         if (container_transform.IsAncestorOf(
-                local_fragment_for_transform_state->LocalBorderBoxProperties()
-                    .Transform())) {
+                fragment.LocalBorderBoxProperties().Transform())) {
+          local_fragment_for_transform_state = &fragment;
           break;
         }
-        ++iterator;
-        local_fragment_for_transform_state = iterator.GetFragmentData();
       }
       if (!local_fragment_for_transform_state)
         return nullptr;
     } else {
+      local_fragment_for_transform_state = &layout_object.FirstFragment();
       container_fragment_for_transform_state =
           &container_layout_object.FirstFragment();
     }
@@ -1518,6 +1505,21 @@ PaintLayer* PaintLayer::HitTestLayer(
         // other hit_layer candidates.
         candidate_layer = hit_layer;
       }
+    }
+  }
+
+  // Elements represented via transition pseudos are not hit-tested at their
+  // DOM locations. The scope's transition pseudo subtree is handled above.
+  // TODO(vmpstr): We need to add a simple document flag which says whether
+  // there is an ongoing transition, since this may be too heavy of a check for
+  // each hit test.
+  if (auto* transition =
+          ViewTransitionUtils::TransitionForParticipantOrScope(layout_object)) {
+    if (transition->IsRepresentedViaPseudoElements(layout_object)) {
+      // Transition participants force 3D flattening, so an overlay hit would
+      // have returned above rather than being saved for depth sorting.
+      DCHECK(!candidate_layer);
+      return nullptr;
     }
   }
 
@@ -2575,7 +2577,7 @@ FilterOperations PaintLayer::FilterOperationsIncludingReflection() const {
 }
 
 void PaintLayer::UpdateCompositorFilterOperationsForFilter(
-    CompositorFilterOperations& operations) {
+    CompositorFilterOperations& operations) const {
   auto filter = FilterOperationsIncludingReflection();
   gfx::RectF reference_box = FilterReferenceBox();
 
@@ -2593,18 +2595,17 @@ void PaintLayer::UpdateCompositorFilterOperationsForFilter(
   operations =
       FilterEffectBuilder(reference_box, FilterViewport(), zoom,
                           style.VisitedDependentColor(GetCSSPropertyColor()),
-                          style.UsedColorScheme())
+                          style.UsedColorScheme(),
+                          GetLayoutObject().IsInCanvasSubtree())
           .BuildFilterOperations(filter);
-  filter_on_effect_node_dirty_ = false;
 }
 
 void PaintLayer::UpdateCompositorFilterOperationsForBackdropFilter(
     CompositorFilterOperations& operations,
-    SkPath& backdrop_filter_bounds) {
+    SkPath& backdrop_filter_bounds) const {
   const auto& style = GetLayoutObject().Style();
   if (style.BackdropFilter().IsEmpty()) {
     operations.Clear();
-    backdrop_filter_on_effect_node_dirty_ = false;
     return;
   }
 
@@ -2637,12 +2638,12 @@ void PaintLayer::UpdateCompositorFilterOperationsForBackdropFilter(
   operations =
       FilterEffectBuilder(reference_box, FilterViewport(), zoom,
                           style.VisitedDependentColor(GetCSSPropertyColor()),
-                          style.UsedColorScheme(), nullptr, nullptr)
+                          style.UsedColorScheme(),
+                          GetLayoutObject().IsInCanvasSubtree())
           .BuildFilterOperations(filter_operations, /*contains_backdrop=*/true);
   // Note that |operations| may be empty here, if the |filter_operations| list
   // contains only invalid filters (e.g. invalid reference filters). See
   // https://crbug.com/983157 for details.
-  backdrop_filter_on_effect_node_dirty_ = false;
 }
 
 PaintLayerResourceInfo& PaintLayer::EnsureResourceInfo() {

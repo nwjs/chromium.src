@@ -110,8 +110,6 @@ component("config") {
     "gpu_preferences.h",
     "gpu_switches.cc",
     "gpu_switches.h",
-    "gpu_switching.cc",
-    "gpu_switching.h",
     "gpu_test_config.cc",
     "gpu_test_config.h",
     "gpu_test_expectations_parser.cc",
@@ -131,8 +129,6 @@ component("config") {
   sources += process_json_outputs
 
   defines = [ "GPU_CONFIG_IMPLEMENTATION" ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   public_deps = [
     "//components/crash/core/common:crash_key",
@@ -192,7 +188,6 @@ component("config") {
   }
   if (is_mac) {
     sources += [ "gpu_info_collector_mac.mm" ]
-    frameworks = [ "OpenGL.framework" ]
   }
   if (is_ios) {
     sources += [ "gpu_info_collector_ios.mm" ]

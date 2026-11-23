@@ -6,7 +6,6 @@
 
 #include <memory>
 #include <optional>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -14,18 +13,21 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/weak_ptr.h"
+#include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_path_override.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
-#include "chrome/browser/autocomplete/chrome_aim_eligibility_service.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/new_tab_page/prefs/ntp_pref_names.h"
-#include "chrome/browser/search_engines/ai_mode_button_service_factory.h"
+#include "chrome/browser/themes/theme_service.h"
+#include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_context_menu_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_fre_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_prefs.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_region_select_overlay.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_widget_delegate.h"
@@ -40,30 +42,34 @@
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/ntp_tiles/custom_links_pref_names.h"
 #include "components/ntp_tiles/enterprise/enterprise_shortcuts_pref_names.h"
-#include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "components/search_engines/test_ai_mode_button_service.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/common/drop_data.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/skia/include/core/SkBitmap.h"
-#include "ui/base/clipboard/clipboard.h"
-#include "ui/base/clipboard/clipboard_buffer.h"
-#include "ui/base/clipboard/scoped_clipboard_writer.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/base/mojom/themes.mojom.h"
+#include "ui/color/color_id.h"
+#include "ui/color/color_provider.h"
+#include "ui/color/color_provider_key.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/test_screen.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/menus/simple_menu_model.h"
+#include "ui/native_theme/mock_os_settings_provider.h"
+#include "ui/native_theme/native_theme.h"
 #include "ui/views/controls/menu/menu_runner.h"
 #include "ui/views/controls/menu/menu_runner_handler.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/test/menu_runner_test_api.h"
 #include "ui/views/test/mock_activation_controller.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/test/widget_test.h"
+#include "ui/views/view.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_utils.h"
 #include "ui/views/window/dialog_delegate.h"
@@ -82,14 +88,23 @@
 
 #include "base/files/file_util.h"
 #include "base/win/scoped_propvariant.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_event_handler_aura.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_tree_host.h"
+#include "ui/events/event.h"
+#include "ui/events/event_constants.h"
+#include "ui/events/event_utils.h"
+#include "ui/gfx/geometry/vector2d.h"
+#include "ui/views/widget/desktop_aura/desktop_drag_drop_client_win.h"
+#include "ui/views/widget/desktop_aura/desktop_native_widget_aura.h"
 #include "ui/views/win/hwnd_util.h"
 #endif
 
 namespace omnibox_everywhere {
 
 namespace {
+
+using Modal = OmniboxEverywhereUIManager::Modal;
 
 class ScopedScreenOverride {
  public:
@@ -153,28 +168,6 @@ class TestMenuRunnerHandler : public views::MenuRunnerHandler {
                  int32_t types) override {}
 };
 
-class TestingAimEligibilityService : public ChromeAimEligibilityService {
- public:
-  TestingAimEligibilityService(Profile* profile, bool is_fusebox_eligible)
-      : ChromeAimEligibilityService(*profile->GetPrefs(),
-                                    /*template_url_service=*/nullptr,
-                                    /*url_loader_factory=*/nullptr,
-                                    /*identity_manager=*/nullptr,
-                                    /*configuration=*/{}),
-        is_fusebox_eligible_(is_fusebox_eligible) {}
-
-  variations::VariationsService* GetVariationsService() const override {
-    return nullptr;
-  }
-
-  bool IsAimEligible() const override { return is_fusebox_eligible_; }
-  bool IsFuseboxEligible() const override { return is_fusebox_eligible_; }
-  bool IsAimAllowedByDse() const override { return is_fusebox_eligible_; }
-
- private:
-  const bool is_fusebox_eligible_;
-};
-
 class TestingOmniboxEverywhereService : public OmniboxEverywhereService {
  public:
   explicit TestingOmniboxEverywhereService(Profile* profile)
@@ -214,56 +207,35 @@ class OmniboxEverywhereUIManagerTest : public ChromeViewsTestBase {
     ChromeViewsTestBase::SetUp();
   }
 
-  void SetUpAimEligibilityService(bool is_fusebox_eligible) {
-    AimEligibilityServiceFactory::GetInstance()->SetTestingFactory(
-        &profile_,
-        base::BindRepeating(
-            [](bool fusebox_eligible, content::BrowserContext* context)
-                -> std::unique_ptr<KeyedService> {
-              return std::make_unique<TestingAimEligibilityService>(
-                  static_cast<TestingProfile*>(context), fusebox_eligible);
-            },
-            is_fusebox_eligible));
-  }
-
-  void SetUpAiModeButtonService() {
-    AiModeButtonServiceFactory::GetInstance()->SetTestingFactory(
-        &profile_, base::BindRepeating([](content::BrowserContext* context)
-                                           -> std::unique_ptr<KeyedService> {
-          auto service = std::make_unique<TestAiModeButtonService>(
-              /*template_url_service=*/nullptr);
-          AiModeButtonUiConfig test_config(
-              SearchEngineType::SEARCH_ENGINE_GOOGLE, u"AI Mode", u"Google",
-              /*favicon_url=*/"", /*navigation_url=*/"",
-              /*navigation_url_empty=*/"");
-          service->current_ui_config_ = test_config;
-          return service;
-        }));
-  }
-
   std::unique_ptr<OmniboxEverywhereUIManager> CreateUIManager() {
     auto ui_manager =
         std::make_unique<OmniboxEverywhereUIManager>(base::BindRepeating(
             [](Profile* profile) -> std::unique_ptr<WebUIContentsWrapper> {
               return std::make_unique<TestWebUIContentsWrapper>(profile);
             }));
-    ui_manager->SetMenuRunnerFactoryForTesting(base::BindRepeating(
-        [](ui::MenuModel* model, base::RepeatingClosure on_closed) {
-          auto runner = std::make_unique<views::MenuRunner>(
-              model,
-              views::MenuRunner::HAS_MNEMONICS |
-                  views::MenuRunner::CONTEXT_MENU,
-              std::move(on_closed));
-          views::test::MenuRunnerTestAPI(runner.get())
-              .SetMenuRunnerHandler(std::make_unique<TestMenuRunnerHandler>());
-          return runner;
-        }));
+    ui_manager->context_menu_controller_for_testing()
+        ->SetMenuRunnerFactoryForTesting(base::BindRepeating(
+            [](base::RepeatingClosure* last_on_closed, ui::MenuModel* model,
+               base::RepeatingClosure on_closed) {
+              *last_on_closed = on_closed;
+              auto runner = std::make_unique<views::MenuRunner>(
+                  model,
+                  views::MenuRunner::HAS_MNEMONICS |
+                      views::MenuRunner::CONTEXT_MENU,
+                  std::move(on_closed));
+              views::test::MenuRunnerTestAPI(runner.get())
+                  .SetMenuRunnerHandler(
+                      std::make_unique<TestMenuRunnerHandler>());
+              return runner;
+            },
+            base::Unretained(&last_context_menu_closed_callback_)));
     return ui_manager;
   }
 
  protected:
   base::test::ScopedFeatureList feature_list_;
   TestingProfile profile_;
+  base::RepeatingClosure last_context_menu_closed_callback_;
 #if BUILDFLAG(IS_WIN)
   base::ScopedTempDir temp_start_menu_dir_;
   std::optional<base::ScopedPathOverride> start_menu_override_;
@@ -390,8 +362,10 @@ TEST_F(OmniboxEverywhereUIManagerTest,
 
   // 1. Fresh profile with kOmniboxEverywhereFre enabled starts at
   // FreStage::kIntroModal and uses kFreModalRestingHeight.
-  ASSERT_EQ(omnibox_everywhere::prefs::GetCurrentFreStage(&profile_),
-            omnibox_everywhere::prefs::FreStage::kIntroModal);
+  auto* service = OmniboxEverywhereServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(service && service->fre_controller());
+  ASSERT_EQ(service->fre_controller()->GetCurrentStage(),
+            FreStage::kIntroModal);
   {
     auto ui_manager = CreateUIManager();
     ui_manager->ShowForProfile(&profile_, GetContext());
@@ -413,8 +387,8 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   // initial bounds use kDefaultRestingHeight.
   profile_.GetPrefs()->SetBoolean(omnibox_everywhere::prefs::kFreIntroDismissed,
                                   true);
-  ASSERT_EQ(omnibox_everywhere::prefs::GetCurrentFreStage(&profile_),
-            omnibox_everywhere::prefs::FreStage::kShortcutSetupChin);
+  ASSERT_EQ(service->fre_controller()->GetCurrentStage(),
+            FreStage::kShortcutSetupChin);
   {
     auto ui_manager = CreateUIManager();
     ui_manager->ShowForProfile(&profile_, GetContext());
@@ -699,15 +673,15 @@ TEST_F(OmniboxEverywhereUIManagerTest, FileChooserStateTracking) {
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->web_contents());
 
-  EXPECT_FALSE(ui_manager->is_file_chooser_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kFileChooser));
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnFileChooserOpened();
-  EXPECT_TRUE(ui_manager->is_file_chooser_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kFileChooser));
   EXPECT_TRUE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnFileChooserClosed();
-  EXPECT_FALSE(ui_manager->is_file_chooser_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kFileChooser));
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 }
 
@@ -881,14 +855,47 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   EXPECT_TRUE(widget->IsVisible());
 
   // Simulate context menu open.
-  ui_manager->set_is_context_menu_open_for_testing(true);
-  EXPECT_TRUE(ui_manager->is_context_menu_open_for_testing());
+  ui_manager->context_menu_controller_for_testing()->HandleContextMenu(
+      content::ContextMenuParams());
+  EXPECT_TRUE(ui_manager->context_menu_controller_for_testing()->IsOpen());
 
   // Becoming invisible on screen while a context menu is open should NOT close
   // the widget.
   ui_manager->OnWidgetVisibilityOnScreenChanged(widget, /*visible=*/false);
   EXPECT_TRUE(ui_manager->widget());
   EXPECT_TRUE(widget->IsVisible());
+}
+
+TEST_F(OmniboxEverywhereUIManagerTest, ShowOverflowMenu) {
+  auto ui_manager = CreateUIManager();
+
+  // Without a widget, ShowOverflowMenu immediately runs the closed callback.
+  base::test::TestFuture<void> no_widget_closed;
+  ui_manager->ShowOverflowMenu(gfx::Rect(100, 100, 28, 28),
+                               ui::mojom::MenuSourceType::kMouse,
+                               no_widget_closed.GetCallback());
+  EXPECT_TRUE(no_widget_closed.IsReady());
+  EXPECT_FALSE(ui_manager->context_menu_controller_for_testing()->IsOpen());
+
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+
+  // A deactivation queued while no menu was open (e.g. the WebContents losing
+  // focus as the button is clicked) is cancelled when the menu opens.
+  task_environment()->FastForwardBy(
+      omnibox_everywhere::OmniboxEverywhereUIManager::kActivationGracePeriod +
+      base::Milliseconds(1));
+  ui_manager->OnWidgetActivationChanged(widget, /*active=*/false);
+  base::test::TestFuture<void> closed;
+  ui_manager->ShowOverflowMenu(gfx::Rect(100, 100, 28, 28),
+                               ui::mojom::MenuSourceType::kMouse,
+                               closed.GetCallback());
+  task_environment()->FastForwardBy(base::TimeDelta());
+  EXPECT_TRUE(ui_manager->context_menu_controller_for_testing()->IsOpen());
+  EXPECT_TRUE(widget->IsVisible());
+  EXPECT_FALSE(ui_manager->is_demoted());
+  EXPECT_FALSE(closed.IsReady());
 }
 
 // TODO(crbug.com/546604786): Deactivation within grace period tests are flaky
@@ -1199,27 +1206,30 @@ TEST_F(OmniboxEverywhereUIManagerTest, MAYBE_DemoteCancelsOpenContextMenu) {
   params.is_editable = true;
 
   bool menu_runner_created = false;
-  ui_manager->SetMenuRunnerFactoryForTesting(base::BindRepeating(
-      [](bool* created, ui::MenuModel* model,
-         base::RepeatingClosure on_closed) {
-        *created = true;
-        auto runner = std::make_unique<views::MenuRunner>(
-            model,
-            views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU,
-            on_closed);
-        views::test::MenuRunnerTestAPI(runner.get())
-            .SetMenuRunnerHandler(std::make_unique<TestMenuRunnerHandler>());
-        return runner;
-      },
-      &menu_runner_created));
+  ui_manager->context_menu_controller_for_testing()
+      ->SetMenuRunnerFactoryForTesting(base::BindRepeating(
+          [](bool* created, ui::MenuModel* model,
+             base::RepeatingClosure on_closed) {
+            *created = true;
+            auto runner = std::make_unique<views::MenuRunner>(
+                model,
+                views::MenuRunner::HAS_MNEMONICS |
+                    views::MenuRunner::CONTEXT_MENU,
+                on_closed);
+            views::test::MenuRunnerTestAPI(runner.get())
+                .SetMenuRunnerHandler(
+                    std::make_unique<TestMenuRunnerHandler>());
+            return runner;
+          },
+          &menu_runner_created));
 
   ui_manager->HandleContextMenu(*rfh, params);
   EXPECT_TRUE(menu_runner_created);
-  EXPECT_TRUE(ui_manager->is_context_menu_open_for_testing());
+  EXPECT_TRUE(ui_manager->context_menu_controller_for_testing()->IsOpen());
 
   // Demote() while context menu is open should cancel the runner and demote.
   ui_manager->Demote();
-  EXPECT_FALSE(ui_manager->is_context_menu_open_for_testing());
+  EXPECT_FALSE(ui_manager->context_menu_controller_for_testing()->IsOpen());
   EXPECT_TRUE(ui_manager->widget()->IsVisible());
   EXPECT_EQ(ui_manager->widget()->GetZOrderLevel(), ui::ZOrderLevel::kNormal);
 
@@ -1271,7 +1281,9 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   views::Widget* widget = ui_manager->widget();
   ASSERT_TRUE(widget);
 
-  ui_manager->set_is_context_menu_open_for_testing(true);
+  ui_manager->context_menu_controller_for_testing()->HandleContextMenu(
+      content::ContextMenuParams());
+  ASSERT_TRUE(ui_manager->context_menu_controller_for_testing()->IsOpen());
 
   // Simulate deactivation while menu is open.
   ui_manager->OnWidgetActivationChanged(widget, /*active=*/false);
@@ -1279,7 +1291,8 @@ TEST_F(OmniboxEverywhereUIManagerTest,
 
   // Closing context menu while inactive in persistent mode leaves widget
   // visible.
-  ui_manager->OnContextMenuClosedForTesting();
+  ASSERT_TRUE(last_context_menu_closed_callback_);
+  last_context_menu_closed_callback_.Run();
   EXPECT_TRUE(widget->IsVisible());
 
   ui_manager->Close();
@@ -1350,7 +1363,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringFileChooser) {
 
   // Mark file chooser as open.
   ui_manager->OnFileChooserOpened();
-  EXPECT_TRUE(ui_manager->is_file_chooser_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kFileChooser));
 
   // Simulating deactivation while a file chooser is open should NOT close the
   // widget.
@@ -1418,8 +1431,8 @@ TEST_F(OmniboxEverywhereUIManagerTest, ShutdownSynchronouslyDestroysResources) {
   EXPECT_FALSE(ui_manager->widget());
   EXPECT_FALSE(ui_manager->contents_wrapper_for_testing());
   EXPECT_EQ(ui_manager->profile(), nullptr);
-  EXPECT_FALSE(ui_manager->is_file_chooser_open_for_testing());
-  EXPECT_FALSE(ui_manager->is_permission_prompt_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kFileChooser));
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kPermissionPrompt));
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1508,15 +1521,15 @@ TEST_F(OmniboxEverywhereUIManagerTest, DrivePickerStateTracking) {
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->web_contents());
 
-  EXPECT_FALSE(ui_manager->is_drive_picker_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kDrivePicker));
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnDrivePickerOpened();
-  EXPECT_TRUE(ui_manager->is_drive_picker_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kDrivePicker));
   EXPECT_TRUE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnDrivePickerClosed();
-  EXPECT_FALSE(ui_manager->is_drive_picker_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kDrivePicker));
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 }
 
@@ -1534,7 +1547,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringDrivePicker) {
 
   // Mark drive picker as open.
   ui_manager->OnDrivePickerOpened();
-  EXPECT_TRUE(ui_manager->is_drive_picker_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kDrivePicker));
 
   // Simulating deactivation while drive picker is open should NOT close the
   // widget.
@@ -1566,6 +1579,38 @@ TEST_F(OmniboxEverywhereUIManagerTest, CloseDestroysWidgetWhenChooserOpen) {
   // orphaned modals.
   ui_manager->Close();
   EXPECT_FALSE(ui_manager->widget());
+}
+
+// Regression test for crbug.com/567673370: Close() can run inside a call on the
+// WebContents itself (e.g. OpenURLFromTab), so with a modal open it must
+// destroy only the widget and keep the contents.
+TEST_F(OmniboxEverywhereUIManagerTest,
+       CloseWithModalOpenDestroysWidgetButKeepsContents) {
+  auto ui_manager = CreateUIManager();
+
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+  WebUIContentsWrapper* contents_wrapper =
+      ui_manager->contents_wrapper_for_testing();
+  ASSERT_TRUE(contents_wrapper);
+  content::WebContents* web_contents = ui_manager->web_contents();
+  ASSERT_TRUE(web_contents);
+
+  ui_manager->OnDrivePickerOpened();
+  ui_manager->Close();
+
+  EXPECT_FALSE(ui_manager->widget());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kDrivePicker));
+  EXPECT_EQ(ui_manager->contents_wrapper_for_testing(), contents_wrapper);
+  EXPECT_EQ(ui_manager->web_contents(), web_contents);
+  EXPECT_FALSE(web_contents->ShouldIgnoreInputEventsForTesting());
+
+  // The next show creates a new widget around the same contents.
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+  EXPECT_EQ(ui_manager->web_contents(), web_contents);
+
+  ui_manager->Shutdown();
 }
 
 TEST_F(OmniboxEverywhereUIManagerTest,
@@ -1618,6 +1663,146 @@ TEST_F(OmniboxEverywhereUIManagerTest,
       ui_manager->widget_delegate()->ShouldDescendIntoChildForEventHandling(
           gfx::NativeView(), gfx::Point(200, 40)));
 }
+
+#if BUILDFLAG(IS_WIN)
+// While a left press is held on a draggable region but has not yet crossed the
+// window-drag threshold (so no move loop is running), renderer-initiated data
+// drags must be suppressed so a compromised renderer underneath the widget
+// cannot latch onto the held button (b/576129731). The suppression must end as
+// soon as the press ends, and must never outlive the widget.
+TEST_F(OmniboxEverywhereUIManagerTest,
+       PreThresholdDragHoldSuppressesRendererDataDrags) {
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+  ASSERT_TRUE(ui_manager->widget_delegate()->GetContentsView());
+  // Use the manager's own handler, which outlives individual widgets.
+  OmniboxEverywhereEventHandlerAura* handler =
+      ui_manager->event_handler_for_testing();
+  ASSERT_TRUE(handler);
+
+  std::vector<blink::mojom::DraggableRegionPtr> regions;
+  auto drag_region = blink::mojom::DraggableRegion::New();
+  drag_region->bounds = gfx::Rect(0, 0, 800, 600);
+  drag_region->draggable = true;
+  regions.push_back(std::move(drag_region));
+  auto no_drag_region = blink::mojom::DraggableRegion::New();
+  no_drag_region->bounds = gfx::Rect(100, 30, 400, 50);
+  no_drag_region->draggable = false;
+  regions.push_back(std::move(no_drag_region));
+  ui_manager->DraggableRegionsChanged(regions, nullptr);
+
+  const gfx::Point kDraggable(10, 10);
+  const gfx::Point kNonDraggable(200, 40);
+
+  // The events have no target, so the handler reads their locations in root
+  // view coordinates.
+  auto to_root = [&](const gfx::Point& point_in_contents) {
+    gfx::Point point = point_in_contents;
+    views::View::ConvertPointToTarget(
+        ui_manager->widget_delegate()->GetContentsView(),
+        ui_manager->widget()->GetRootView(), &point);
+    return point;
+  };
+  // Sends a mouse event directly to the handler and returns whether the
+  // handler consumed it.
+  auto send = [&](ui::EventType type, const gfx::Point& point_in_contents,
+                  int flags, int changed_flags) {
+    const gfx::Point location = to_root(point_in_contents);
+    ui::MouseEvent event(type, location, location, ui::EventTimeForNow(), flags,
+                         changed_flags);
+    handler->OnMouseEvent(&event);
+    return event.handled();
+  };
+  auto press = [&](const gfx::Point& point_in_contents) {
+    return send(ui::EventType::kMousePressed, point_in_contents,
+                ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  };
+  auto release = [&] {
+    send(ui::EventType::kMouseReleased, kDraggable, ui::EF_LEFT_MOUSE_BUTTON,
+         ui::EF_LEFT_MOUSE_BUTTON);
+  };
+  auto is_suppressed = [] {
+    return views::DesktopDragDropClientWin::
+        IsDragInProgressOrSuppressedForTesting();
+  };
+
+  EXPECT_FALSE(is_suppressed());
+
+  // A press on a draggable region suppresses data drags, without consuming the
+  // press, while it is held below the drag threshold and until it is released.
+  EXPECT_FALSE(press(kDraggable));
+  EXPECT_TRUE(is_suppressed());
+  send(ui::EventType::kMouseDragged, kDraggable + gfx::Vector2d(1, 0),
+       ui::EF_LEFT_MOUSE_BUTTON, ui::EF_NONE);
+  EXPECT_TRUE(is_suppressed());
+  release();
+  EXPECT_FALSE(is_suppressed());
+
+  // Losing capture mid-hold ends the hold.
+  press(kDraggable);
+  EXPECT_TRUE(is_suppressed());
+  send(ui::EventType::kMouseCaptureChanged, kDraggable, ui::EF_NONE,
+       ui::EF_NONE);
+  EXPECT_FALSE(is_suppressed());
+
+  // A second press replaces, rather than stacks, the previous suppression.
+  press(kDraggable);
+  press(kDraggable);
+  EXPECT_TRUE(is_suppressed());
+  release();
+  EXPECT_FALSE(is_suppressed());
+
+  // Presses on non-draggable regions, or with buttons other than the left
+  // button alone, never suppress data drags.
+  press(kNonDraggable);
+  EXPECT_FALSE(is_suppressed());
+  send(ui::EventType::kMousePressed, kDraggable, ui::EF_RIGHT_MOUSE_BUTTON,
+       ui::EF_RIGHT_MOUSE_BUTTON);
+  EXPECT_FALSE(is_suppressed());
+
+  // Events that can arrive while the button is still held, such as the mouse
+  // wheel, keep the hold. A mouse move is only sent with no button down, so it
+  // means the release was missed and ends the hold.
+  press(kDraggable);
+  {
+    const gfx::Point location = to_root(kDraggable);
+    ui::MouseWheelEvent wheel(gfx::Vector2d(0, 120), location, location,
+                              ui::EventTimeForNow(), ui::EF_LEFT_MOUSE_BUTTON,
+                              ui::EF_NONE);
+    handler->OnMouseEvent(&wheel);
+  }
+  EXPECT_TRUE(is_suppressed());
+  send(ui::EventType::kMouseMoved, kDraggable, ui::EF_NONE, ui::EF_NONE);
+  EXPECT_FALSE(is_suppressed());
+
+  // Demoting keeps the widget visible and attached, so the release still
+  // reaches the handler. The hold must last until then, since the button is
+  // still down.
+  press(kDraggable);
+  ui_manager->Demote();
+  ASSERT_TRUE(ui_manager->is_demoted());
+  EXPECT_TRUE(is_suppressed());
+  release();
+  EXPECT_FALSE(is_suppressed());
+
+  // Hiding the widget ends the hold, since the handler may never see the
+  // release once the widget is hidden.
+  press(kDraggable);
+  EXPECT_TRUE(is_suppressed());
+  ui_manager->Close();
+  EXPECT_FALSE(is_suppressed());
+
+  // Destroying the widget ends the hold too, since the handler is detached
+  // from the widget first.
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+  press(kDraggable);
+  EXPECT_TRUE(is_suppressed());
+  ui_manager->Shutdown();
+  EXPECT_FALSE(is_suppressed());
+}
+#endif  // BUILDFLAG(IS_WIN)
 
 TEST_F(OmniboxEverywhereUIManagerTest,
        NonDraggableRegionTakesPrecedenceOverSubsequentDraggableRegion) {
@@ -1684,8 +1869,9 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringContextMenu) {
   EXPECT_TRUE(widget->IsVisible());
 
   // Mark context menu as open.
-  ui_manager->set_is_context_menu_open_for_testing(true);
-  EXPECT_TRUE(ui_manager->is_context_menu_open_for_testing());
+  ui_manager->context_menu_controller_for_testing()->HandleContextMenu(
+      content::ContextMenuParams());
+  EXPECT_TRUE(ui_manager->context_menu_controller_for_testing()->IsOpen());
 
   // Simulating deactivation while context menu is open should NOT close the
   // widget.
@@ -1698,7 +1884,8 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringContextMenu) {
   task_environment()->FastForwardBy(
       omnibox_everywhere::OmniboxEverywhereUIManager::kActivationGracePeriod +
       base::Milliseconds(1));
-  ui_manager->OnContextMenuClosedForTesting();
+  ASSERT_TRUE(last_context_menu_closed_callback_);
+  last_context_menu_closed_callback_.Run();
   ui_manager->OnWidgetActivationChanged(widget, /*active=*/false);
   EXPECT_TRUE(base::test::RunUntil([&]() { return !widget->IsVisible(); }));
   EXPECT_TRUE(ui_manager->widget());
@@ -1717,177 +1904,52 @@ TEST_F(OmniboxEverywhereUIManagerTest, CloseCancelsOpenContextMenu) {
   params.is_editable = true;
 
   bool menu_runner_created = false;
-  ui_manager->SetMenuRunnerFactoryForTesting(base::BindRepeating(
-      [](bool* created, ui::MenuModel* model,
-         base::RepeatingClosure on_closed) {
-        *created = true;
-        auto runner = std::make_unique<views::MenuRunner>(
-            model,
-            views::MenuRunner::HAS_MNEMONICS | views::MenuRunner::CONTEXT_MENU,
-            on_closed);
-        views::test::MenuRunnerTestAPI(runner.get())
-            .SetMenuRunnerHandler(std::make_unique<TestMenuRunnerHandler>());
-        return runner;
-      },
-      &menu_runner_created));
+  ui_manager->context_menu_controller_for_testing()
+      ->SetMenuRunnerFactoryForTesting(base::BindRepeating(
+          [](bool* created, ui::MenuModel* model,
+             base::RepeatingClosure on_closed) {
+            *created = true;
+            auto runner = std::make_unique<views::MenuRunner>(
+                model,
+                views::MenuRunner::HAS_MNEMONICS |
+                    views::MenuRunner::CONTEXT_MENU,
+                on_closed);
+            views::test::MenuRunnerTestAPI(runner.get())
+                .SetMenuRunnerHandler(
+                    std::make_unique<TestMenuRunnerHandler>());
+            return runner;
+          },
+          &menu_runner_created));
 
   ui_manager->HandleContextMenu(*rfh, params);
   EXPECT_TRUE(menu_runner_created);
-  EXPECT_TRUE(ui_manager->is_context_menu_open_for_testing());
+  EXPECT_TRUE(ui_manager->context_menu_controller_for_testing()->IsOpen());
 
   // Calling Close() while context menu is open should cancel the runner and
   // reset state.
   ui_manager->Close();
-  EXPECT_FALSE(ui_manager->is_context_menu_open_for_testing());
+  EXPECT_FALSE(ui_manager->context_menu_controller_for_testing()->IsOpen());
   EXPECT_FALSE(ui_manager->widget()->IsVisible());
 }
 
-TEST_F(OmniboxEverywhereUIManagerTest, ContextMenuModelEditableElement) {
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
-
-  content::ContextMenuParams params;
-  params.is_editable = true;
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-
-  const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-
-  size_t index = 0;
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kUndo);
-  EXPECT_EQ(model->GetTypeAt(index++), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kCut);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kCopy);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kPaste);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kPasteAndSearch);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kDelete);
-  EXPECT_EQ(model->GetTypeAt(index++), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kSelectAll);
-  EXPECT_EQ(model->GetTypeAt(index++), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(
-      model->GetCommandIdAt(index++),
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines);
-  EXPECT_EQ(model->GetTypeAt(index++), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::
-                kCustomizeKeyboardShortcut);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kSettings);
-#if BUILDFLAG(IS_WIN)
-  EXPECT_EQ(model->GetTypeAt(index++), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kMinimize);
-  EXPECT_EQ(model->GetCommandIdAt(index++),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kClose);
-#endif  // BUILDFLAG(IS_WIN)
-  EXPECT_EQ(model->GetItemCount(), index);
-}
-
 TEST_F(OmniboxEverywhereUIManagerTest,
-       ContextMenuModelNonEditableElementWithSelection) {
+       DestroyWidgetClearsWebViewContextMenuController) {
   auto ui_manager = CreateUIManager();
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->widget());
+  ASSERT_TRUE(ui_manager->widget_delegate());
 
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
+  views::View* contents_view = ui_manager->widget_delegate()->GetContentsView();
+  ASSERT_TRUE(contents_view);
+  EXPECT_EQ(contents_view->context_menu_controller(),
+            ui_manager->context_menu_controller_for_testing());
 
-  content::ContextMenuParams params;
-  params.is_editable = false;
-  params.selection_text = u"selected text";
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-
-  const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-#if BUILDFLAG(IS_WIN)
-  EXPECT_EQ(model->GetItemCount(), 12u);
-#else
-  EXPECT_EQ(model->GetItemCount(), 9u);
-#endif  // BUILDFLAG(IS_WIN)
-  EXPECT_EQ(model->GetCommandIdAt(0),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kCopy);
-  EXPECT_EQ(model->GetTypeAt(1), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(2),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kSelectAll);
-  EXPECT_EQ(model->GetTypeAt(3), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(
-      model->GetCommandIdAt(4),
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines);
-  EXPECT_EQ(model->GetTypeAt(5), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(6),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts);
-  EXPECT_EQ(model->GetCommandIdAt(7),
-            omnibox_everywhere::OmniboxEverywhereUIManager::
-                kCustomizeKeyboardShortcut);
-  EXPECT_EQ(model->GetCommandIdAt(8),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kSettings);
-#if BUILDFLAG(IS_WIN)
-  EXPECT_EQ(model->GetTypeAt(9), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(10),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kMinimize);
-  EXPECT_EQ(model->GetCommandIdAt(11),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kClose);
-#endif  // BUILDFLAG(IS_WIN)
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest, ContextMenuModelNonEditableBackground) {
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
-
-  // Right-clicking on empty background space (not editable, no selection text).
-  content::ContextMenuParams params;
-  params.is_editable = false;
-  params.selection_text = u"";
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-
-  const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-#if BUILDFLAG(IS_WIN)
-  EXPECT_EQ(model->GetItemCount(), 8u);
-#else
-  EXPECT_EQ(model->GetItemCount(), 5u);
-#endif  // BUILDFLAG(IS_WIN)
-  EXPECT_EQ(
-      model->GetCommandIdAt(0),
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines);
-  EXPECT_EQ(model->GetTypeAt(1), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(2),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts);
-  EXPECT_EQ(model->GetCommandIdAt(3),
-            omnibox_everywhere::OmniboxEverywhereUIManager::
-                kCustomizeKeyboardShortcut);
-  EXPECT_EQ(model->GetCommandIdAt(4),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kSettings);
-#if BUILDFLAG(IS_WIN)
-  EXPECT_EQ(model->GetTypeAt(5), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(6),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kMinimize);
-  EXPECT_EQ(model->GetCommandIdAt(7),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kClose);
-#endif  // BUILDFLAG(IS_WIN)
+  // Shutdown() calls DestroyWidget(), which posts the widget for deferred
+  // deletion. Before the task queue drains, the WebView's context menu
+  // controller pointer must already be cleared so it cannot dangle if the
+  // manager is destroyed first.
+  ui_manager->Shutdown();
+  EXPECT_EQ(contents_view->context_menu_controller(), nullptr);
 }
 
 TEST_F(OmniboxEverywhereUIManagerTest,
@@ -1895,85 +1957,56 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   auto ui_manager = CreateUIManager();
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->widget());
+  ASSERT_TRUE(ui_manager->widget_delegate());
 
-  views::View* contents_view = ui_manager->widget()->GetContentsView();
+  views::View* contents_view = ui_manager->widget_delegate()->GetContentsView();
   ASSERT_TRUE(contents_view);
 
   // Trigger context menu via views::ContextMenuController (e.g. right-click on
   // draggable background region).
-  ui_manager->ShowContextMenuForView(contents_view, gfx::Point(50, 50),
-                                     ui::mojom::MenuSourceType::kMouse);
+  contents_view->ShowContextMenu(gfx::Point(50, 50),
+                                 ui::mojom::MenuSourceType::kMouse);
 
   const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
+      ui_manager->context_menu_controller_for_testing()->model_for_testing();
   ASSERT_TRUE(model);
 #if BUILDFLAG(IS_WIN)
   EXPECT_EQ(model->GetItemCount(), 8u);
 #else
   EXPECT_EQ(model->GetItemCount(), 5u);
 #endif  // BUILDFLAG(IS_WIN)
-  EXPECT_EQ(
-      model->GetCommandIdAt(0),
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines);
+  EXPECT_EQ(model->GetCommandIdAt(0),
+            omnibox_everywhere::OmniboxEverywhereContextMenuController::
+                kManageSearchEngines);
   EXPECT_EQ(model->GetTypeAt(1), ui::MenuModel::ItemType::TYPE_SEPARATOR);
   EXPECT_EQ(model->GetCommandIdAt(2),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts);
+            omnibox_everywhere::OmniboxEverywhereContextMenuController::
+                kShowShortcuts);
   EXPECT_EQ(model->GetCommandIdAt(3),
-            omnibox_everywhere::OmniboxEverywhereUIManager::
+            omnibox_everywhere::OmniboxEverywhereContextMenuController::
                 kCustomizeKeyboardShortcut);
-  EXPECT_EQ(model->GetCommandIdAt(4),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kSettings);
+  EXPECT_EQ(
+      model->GetCommandIdAt(4),
+      omnibox_everywhere::OmniboxEverywhereContextMenuController::kSettings);
 #if BUILDFLAG(IS_WIN)
   EXPECT_EQ(model->GetTypeAt(5), ui::MenuModel::ItemType::TYPE_SEPARATOR);
-  EXPECT_EQ(model->GetCommandIdAt(6),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kMinimize);
+  EXPECT_EQ(
+      model->GetCommandIdAt(6),
+      omnibox_everywhere::OmniboxEverywhereContextMenuController::kMinimize);
   EXPECT_EQ(model->GetCommandIdAt(7),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kClose);
+            omnibox_everywhere::OmniboxEverywhereContextMenuController::kClose);
 #endif  // BUILDFLAG(IS_WIN)
 }
 
 #if BUILDFLAG(IS_WIN)
-TEST_F(OmniboxEverywhereUIManagerTest,
-       ContextMenuOmitsWindowControlsWhenEphemeral) {
-  base::ScopedClosureRunner reset_pref;
-  if (g_browser_process && g_browser_process->local_state()) {
-    g_browser_process->local_state()->SetBoolean(
-        omnibox_everywhere::prefs::kOmniboxEverywhereEphemeralModel, true);
-    reset_pref.ReplaceClosure(base::BindOnce([]() {
-      if (g_browser_process && g_browser_process->local_state()) {
-        g_browser_process->local_state()->ClearPref(
-            omnibox_everywhere::prefs::kOmniboxEverywhereEphemeralModel);
-      }
-    }));
-  }
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
-
-  content::ContextMenuParams params;
-  params.is_editable = false;
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-
-  const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-  EXPECT_EQ(model->GetItemCount(), 5u);
-  EXPECT_EQ(model->GetCommandIdAt(4),
-            omnibox_everywhere::OmniboxEverywhereUIManager::kSettings);
-}
-
 TEST_F(OmniboxEverywhereUIManagerTest, ExecuteCloseCommandHidesWidget) {
   auto ui_manager = CreateUIManager();
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->widget());
   ASSERT_TRUE(ui_manager->IsVisible());
 
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kClose, 0);
+  ui_manager->context_menu_controller_for_testing()->ExecuteCommand(
+      omnibox_everywhere::OmniboxEverywhereContextMenuController::kClose, 0);
 
   // Close hides the widget but keeps it reshowable via hotkey or tray icon.
   EXPECT_TRUE(ui_manager->widget());
@@ -1986,347 +2019,101 @@ TEST_F(OmniboxEverywhereUIManagerTest, ExecuteMinimizeCommandKeepsWidgetAlive) {
   ASSERT_TRUE(ui_manager->widget());
   ASSERT_TRUE(ui_manager->IsVisible());
 
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kMinimize, 0);
+  ui_manager->context_menu_controller_for_testing()->ExecuteCommand(
+      omnibox_everywhere::OmniboxEverywhereContextMenuController::kMinimize, 0);
 
   EXPECT_TRUE(ui_manager->widget());
   EXPECT_TRUE(ui_manager->widget()->IsMinimized());
   EXPECT_TRUE(ui_manager->web_contents());
 }
 
-TEST_F(OmniboxEverywhereUIManagerTest, MinimizeDoesNotRecordFreImpression) {
+TEST_F(OmniboxEverywhereUIManagerTest, MinimizeDoesNotEndFreSession) {
   auto ui_manager = CreateUIManager();
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->widget());
   ASSERT_TRUE(ui_manager->IsVisible());
 
-  // An impression bumps the counter for whichever FRE stage is active.
+  auto* service = OmniboxEverywhereServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(service);
+  ASSERT_TRUE(service->fre_controller());
+
   PrefService* prefs = profile_.GetPrefs();
-  auto fre_impression_counts = [prefs]() {
-    return std::make_tuple(
-        prefs->GetInteger(omnibox_everywhere::prefs::kFreIntroImpressionCount),
-        prefs->GetInteger(
-            omnibox_everywhere::prefs::kFreShortcutSetupImpressionCount),
-        prefs->GetInteger(
-            omnibox_everywhere::prefs::kFreShortcutReminderImpressionCount));
-  };
-  const auto counts_before = fre_impression_counts();
+  // Simulate the WebUI recording an impression when the FRE is shown.
+  service->fre_controller()->IncrementImpression(
+      omnibox_everywhere::FreStage::kIntroModal);
+  EXPECT_EQ(1, prefs->GetInteger(
+                   omnibox_everywhere::prefs::kFreIntroImpressionCount));
 
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kMinimize, 0);
-  EXPECT_EQ(counts_before, fre_impression_counts());
+  // Minimizing and restoring does not end the FRE session, so a subsequent
+  // IncrementImpression() in the same session does not increment the count.
+  ui_manager->context_menu_controller_for_testing()->ExecuteCommand(
+      omnibox_everywhere::OmniboxEverywhereContextMenuController::kMinimize, 0);
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  service->fre_controller()->IncrementImpression(
+      omnibox_everywhere::FreStage::kIntroModal);
+  EXPECT_EQ(1, prefs->GetInteger(
+                   omnibox_everywhere::prefs::kFreIntroImpressionCount));
 
-  // Close does record one, so the expectation above isn't vacuous.
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kClose, 0);
-  EXPECT_NE(counts_before, fre_impression_counts());
+  // Closing the widget ends the FRE session so the next open can record an
+  // impression.
+  ui_manager->context_menu_controller_for_testing()->ExecuteCommand(
+      omnibox_everywhere::OmniboxEverywhereContextMenuController::kClose, 0);
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  service->fre_controller()->IncrementImpression(
+      omnibox_everywhere::FreStage::kIntroModal);
+  EXPECT_EQ(2, prefs->GetInteger(
+                   omnibox_everywhere::prefs::kFreIntroImpressionCount));
 }
 #endif  // BUILDFLAG(IS_WIN)
 
-TEST_F(OmniboxEverywhereUIManagerTest, ContextMenuCommandEnablement) {
-  SetUpAimEligibilityService(/*is_fusebox_eligible=*/true);
-  SetUpAiModeButtonService();
-
+TEST_F(OmniboxEverywhereUIManagerTest, DemotePreservesAndCloseEndsFreSession) {
   auto ui_manager = CreateUIManager();
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->widget());
+  ASSERT_TRUE(ui_manager->IsVisible());
 
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
+  auto* service = OmniboxEverywhereServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(service);
+  ASSERT_TRUE(service->fre_controller());
 
-  content::ContextMenuParams params;
-  params.is_editable = true;
-  params.edit_flags = blink::ContextMenuDataEditFlags::kCanCut |
-                      blink::ContextMenuDataEditFlags::kCanCopy |
-                      blink::ContextMenuDataEditFlags::kCanUndo |
-                      blink::ContextMenuDataEditFlags::kCanDelete;
-  ui_manager->HandleContextMenu(*rfh, params);
+  PrefService* prefs = profile_.GetPrefs();
+  // Session 1: Record an impression while visible; duplicate calls in the same
+  // session are ignored.
+  service->fre_controller()->IncrementImpression(
+      omnibox_everywhere::FreStage::kIntroModal);
+  service->fre_controller()->IncrementImpression(
+      omnibox_everywhere::FreStage::kIntroModal);
+  EXPECT_EQ(1, prefs->GetInteger(
+                   omnibox_everywhere::prefs::kFreIntroImpressionCount));
 
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kUndo));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kCut));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kCopy));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPaste));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kDelete));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kSelectAll));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::
-          kCustomizeKeyboardShortcut));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kSettings));
-#if BUILDFLAG(IS_WIN)
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kMinimize));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kClose));
-#endif  // BUILDFLAG(IS_WIN)
-
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPaste));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPasteAndSearch));
-
-  // Without edit flags, Cut, Copy, Undo, and Delete should be disabled if
-  // selection is empty.
-  params.edit_flags = 0;
-  params.selection_text = u"";
-  ui_manager->HandleContextMenu(*rfh, params);
-
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kUndo));
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kCut));
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kCopy));
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kDelete));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPaste));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPasteAndSearch));
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kSelectAll));
-
-  // When not editable and without kCanPaste flag, Paste is disabled.
-  params.is_editable = false;
-  ui_manager->HandleContextMenu(*rfh, params);
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPaste));
-
-  // When not editable but kCanPaste flag is explicitly present, Paste is
-  // enabled.
-  params.edit_flags = blink::ContextMenuDataEditFlags::kCanPaste;
-  ui_manager->HandleContextMenu(*rfh, params);
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPaste));
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest, ExecutePasteAndSearchCommand) {
-  auto ui_manager = CreateUIManager();
+  // Demoting the widget (persistent mode deactivation) does not end the FRE
+  // session or count as a new impression when re-activated.
+  ui_manager->Demote();
   ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
+  service->fre_controller()->IncrementImpression(
+      omnibox_everywhere::FreStage::kIntroModal);
+  EXPECT_EQ(1, prefs->GetInteger(
+                   omnibox_everywhere::prefs::kFreIntroImpressionCount));
 
-  {
-    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kCopyPaste);
-    writer.WriteText(u"https://example.com/");
-  }
-
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPasteAndSearch));
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kPasteAndSearch, 0);
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest,
-       ContextMenuManageSearchEnginesSafetyGuard) {
-  auto ui_manager = CreateUIManager();
-  // Before showing (no WebContents / no profile), commands are disabled.
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines));
-
+  // Closing the widget ends the FRE session so the next ShowForProfile() can
+  // record the 2nd impression.
+  ui_manager->Close();
   ui_manager->ShowForProfile(&profile_, GetContext());
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines));
+  service->fre_controller()->IncrementImpression(
+      omnibox_everywhere::FreStage::kIntroModal);
+  EXPECT_EQ(2, prefs->GetInteger(
+                   omnibox_everywhere::prefs::kFreIntroImpressionCount));
+  // Stage stays latched at kIntroModal until the session ends.
+  EXPECT_EQ(omnibox_everywhere::FreStage::kIntroModal,
+            service->fre_controller()->GetCurrentStage());
 
-  ui_manager->Shutdown();
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kManageSearchEngines));
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest, ContextMenuAiModeFuseboxIneligible) {
-  SetUpAimEligibilityService(/*is_fusebox_eligible=*/false);
-  SetUpAiModeButtonService();
-
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  EXPECT_FALSE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode));
-
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
-  content::ContextMenuParams params;
-  params.is_editable = false;
-  params.selection_text = u"";
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-
-  const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-  EXPECT_FALSE(
-      model
-          ->GetIndexOfCommandId(
-              omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode)
-          .has_value());
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest, ContextMenuAiModeFuseboxEligible) {
-  SetUpAimEligibilityService(/*is_fusebox_eligible=*/true);
-  SetUpAiModeButtonService();
-
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  EXPECT_TRUE(ui_manager->IsCommandIdEnabled(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode));
-
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
-  content::ContextMenuParams params;
-  params.is_editable = false;
-  params.selection_text = u"";
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-
-  const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-  EXPECT_TRUE(
-      model
-          ->GetIndexOfCommandId(
-              omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode)
-          .has_value());
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest, ContextMenuAlwaysShowAiModeToggle) {
-  SetUpAimEligibilityService(/*is_fusebox_eligible=*/true);
-  SetUpAiModeButtonService();
-
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  profile_.GetPrefs()->SetBoolean(
-      omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode, true);
-  profile_.GetPrefs()->SetBoolean(omnibox::kShowAiModeOmniboxButton, true);
-  EXPECT_TRUE(ui_manager->IsCommandIdChecked(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode));
-
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode, 0);
-  EXPECT_FALSE(profile_.GetPrefs()->GetBoolean(
-      omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode));
-  EXPECT_FALSE(ui_manager->IsCommandIdChecked(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode));
-  // Verify that the browser omnibox preference remains unaffected.
-  EXPECT_TRUE(
-      profile_.GetPrefs()->GetBoolean(omnibox::kShowAiModeOmniboxButton));
-
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode, 0);
-  EXPECT_TRUE(profile_.GetPrefs()->GetBoolean(
-      omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode));
-  EXPECT_TRUE(ui_manager->IsCommandIdChecked(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kAlwaysShowAiMode));
-  EXPECT_TRUE(
-      profile_.GetPrefs()->GetBoolean(omnibox::kShowAiModeOmniboxButton));
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest, ContextMenuShowShortcutsToggle) {
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  profile_.GetPrefs()->SetInteger(
-      omnibox_everywhere::prefs::kOmniboxEverywhereShowShortcuts,
-      static_cast<int>(
-          omnibox_everywhere::prefs::ShowShortcutsPrefValue::kEnabled));
-  EXPECT_TRUE(ui_manager->IsCommandIdChecked(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts));
-
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts, 0);
-  EXPECT_EQ(profile_.GetPrefs()->GetInteger(
-                omnibox_everywhere::prefs::kOmniboxEverywhereShowShortcuts),
-            static_cast<int>(
-                omnibox_everywhere::prefs::ShowShortcutsPrefValue::kDisabled));
-  EXPECT_FALSE(ui_manager->IsCommandIdChecked(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts));
-
-  ui_manager->ExecuteCommand(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts, 0);
-  EXPECT_EQ(profile_.GetPrefs()->GetInteger(
-                omnibox_everywhere::prefs::kOmniboxEverywhereShowShortcuts),
-            static_cast<int>(
-                omnibox_everywhere::prefs::ShowShortcutsPrefValue::kEnabled));
-  EXPECT_TRUE(ui_manager->IsCommandIdChecked(
-      omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts));
-}
-
-TEST_F(OmniboxEverywhereUIManagerTest,
-       ContextMenuShowShortcutsHiddenWhenNoShortcutsAvailable) {
-  auto ui_manager = CreateUIManager();
-  ui_manager->ShowForProfile(&profile_, GetContext());
-  ASSERT_TRUE(ui_manager->widget());
-
-  auto* rfh = ui_manager->contents_wrapper_for_testing()
-                  ->web_contents()
-                  ->GetPrimaryMainFrame();
-  content::ContextMenuParams params;
-  params.is_editable = false;
-
-  // By default, personal shortcuts are enabled, so the option should be
-  // present.
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-  const ui::SimpleMenuModel* model =
-      ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-  EXPECT_TRUE(
-      model
-          ->GetIndexOfCommandId(
-              omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts)
-          .has_value());
-
-  // Without enterprise policy shortcuts, the option is always present.
-  profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpPersonalShortcutsVisible,
-                                  false);
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-  model = ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-  EXPECT_TRUE(
-      model
-          ->GetIndexOfCommandId(
-              omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts)
-          .has_value());
-
-  // Add enterprise shortcuts policy so both checkboxes exist.
-  {
-    ScopedListPrefUpdate update(
-        profile_.GetPrefs(), ntp_tiles::prefs::kEnterpriseShortcutsPolicyList);
-    update->Append(base::DictValue()
-                       .Set("url", "https://corp.example.com")
-                       .Set("title", "Corp"));
-  }
-
-  // When both checkboxes are unchecked, no shortcuts can be shown at all.
-  profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpEnterpriseShortcutsVisible,
-                                  false);
-  profile_.GetPrefs()->SetBoolean(ntp_prefs::kNtpPersonalShortcutsVisible,
-                                  false);
-
-  EXPECT_TRUE(ui_manager->HandleContextMenu(*rfh, params));
-  model = ui_manager->context_menu_model_for_testing();
-  ASSERT_TRUE(model);
-  EXPECT_FALSE(
-      model
-          ->GetIndexOfCommandId(
-              omnibox_everywhere::OmniboxEverywhereUIManager::kShowShortcuts)
-          .has_value());
+  // Closing the widget (including when a modal dialog is open) ends the FRE
+  // session and unlatches the stage to kShortcutSetupChin.
+  ui_manager->OnDrivePickerOpened();
+  ui_manager->Close();
+  ui_manager->OnDrivePickerClosed();
+  EXPECT_EQ(omnibox_everywhere::FreStage::kShortcutSetupChin,
+            service->fre_controller()->GetCurrentStage());
 }
 
 // TODO(crbug.com/546710681): Re-enable test on linux
@@ -2689,6 +2476,65 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   ui_manager->Shutdown();
 }
 
+// Regression test for crbug.com/579037685: changing a most-visited or shortcuts
+// preference while hidden can run synchronously inside a Mojo call on the
+// popup's WebContents (such as `MostVisitedHandler`), so it must destroy only
+// the widget while keeping `contents_wrapper_` alive.
+TEST_F(OmniboxEverywhereUIManagerTest,
+       MostVisitedPrefChangeWhenHiddenDestroysWidgetButKeepsContents) {
+  TestingProfile other_profile;
+  auto ui_manager = CreateUIManager();
+
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+  ASSERT_TRUE(ui_manager->contents_wrapper_for_testing());
+  ASSERT_TRUE(ui_manager->web_contents());
+  base::WeakPtr<content::WebContents> first_profile_web_contents =
+      ui_manager->web_contents()->GetWeakPtr();
+
+  {
+    WebUIContentsWrapper* contents_wrapper =
+        ui_manager->contents_wrapper_for_testing();
+    content::WebContents* web_contents = ui_manager->web_contents();
+
+    ui_manager->Close();
+    ASSERT_TRUE(ui_manager->widget());
+    EXPECT_FALSE(ui_manager->widget()->IsVisible());
+
+    profile_.GetPrefs()->SetInteger(
+        omnibox_everywhere::prefs::kOmniboxEverywhereShowShortcuts,
+        std::to_underlying(
+            omnibox_everywhere::prefs::ShowShortcutsPrefValue::kDisabled));
+
+    EXPECT_FALSE(ui_manager->widget());
+    EXPECT_EQ(ui_manager->contents_wrapper_for_testing(), contents_wrapper);
+    EXPECT_EQ(ui_manager->web_contents(), web_contents);
+
+    // Re-showing for the same profile wraps a fresh widget around the existing
+    // WebContents.
+    ui_manager->ShowForProfile(&profile_, GetContext());
+    ASSERT_TRUE(ui_manager->widget());
+    EXPECT_EQ(ui_manager->web_contents(), web_contents);
+  }
+
+  // Destroying only the widget and then switching to a different profile must
+  // still replace the first profile's WebContents.
+  ui_manager->Close();
+  profile_.GetPrefs()->SetInteger(
+      omnibox_everywhere::prefs::kOmniboxEverywhereShowShortcuts,
+      std::to_underlying(
+          omnibox_everywhere::prefs::ShowShortcutsPrefValue::kEnabled));
+  ASSERT_FALSE(ui_manager->widget());
+  ASSERT_TRUE(first_profile_web_contents);
+
+  ui_manager->ShowForProfile(&other_profile, GetContext());
+  EXPECT_FALSE(first_profile_web_contents);
+  ASSERT_TRUE(ui_manager->web_contents());
+  EXPECT_EQ(ui_manager->web_contents()->GetBrowserContext(), &other_profile);
+
+  ui_manager->Shutdown();
+}
+
 TEST_F(OmniboxEverywhereUIManagerTest,
        CleanUpWidgetOnCustomLinksListPrefChangeWhenHidden) {
   auto ui_manager = CreateUIManager();
@@ -2720,17 +2566,17 @@ TEST_F(OmniboxEverywhereUIManagerTest, ScreensharePickerStateTracking) {
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->web_contents());
 
-  EXPECT_FALSE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_FALSE(ui_manager->IsScreenshareCaptureInProgress());
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnScreensharePickerOpened();
-  EXPECT_TRUE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_TRUE(ui_manager->IsScreenshareCaptureInProgress());
   EXPECT_TRUE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnScreensharePickerClosed();
-  EXPECT_FALSE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_FALSE(ui_manager->IsScreenshareCaptureInProgress());
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 }
@@ -2743,12 +2589,12 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   EXPECT_TRUE(ui_manager->widget()->IsVisible());
 
   ui_manager->OnScreensharePickerOpened();
-  EXPECT_TRUE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_TRUE(ui_manager->IsScreenshareCaptureInProgress());
   EXPECT_FALSE(ui_manager->widget()->IsVisible());
 
   EXPECT_TRUE(ui_manager->CancelChromeDefaultPicker());
-  EXPECT_FALSE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_FALSE(ui_manager->IsScreenshareCaptureInProgress());
   EXPECT_TRUE(ui_manager->widget()->IsVisible());
 }
@@ -2773,14 +2619,14 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   EXPECT_TRUE(ui_manager->widget()->IsVisible());
 
   ui_manager->OnScreensharePickerOpened();
-  EXPECT_TRUE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_TRUE(ui_manager->IsScreenshareCaptureInProgress());
   EXPECT_FALSE(ui_manager->widget()->IsVisible());
 
   // When invoked for a different profile, the picker is cancelled but the old
   // profile's widget is not restored/focused (preventing visual flicker).
   EXPECT_TRUE(ui_manager->CancelChromeDefaultPicker(&other_profile));
-  EXPECT_FALSE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_FALSE(ui_manager->IsScreenshareCaptureInProgress());
   EXPECT_FALSE(ui_manager->widget()->IsVisible());
 }
@@ -2800,7 +2646,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringScreensharePicker) {
   // Mark screenshare picker as open. Opening the screenshare picker hides the
   // widget to prevent it from obstructing screen capture.
   ui_manager->OnScreensharePickerOpened();
-  EXPECT_TRUE(ui_manager->is_screenshare_picker_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kScreensharePicker));
   EXPECT_FALSE(widget->IsVisible());
 
   // Simulating deactivation while screenshare picker is open should NOT destroy
@@ -2840,7 +2686,7 @@ TEST_F(OmniboxEverywhereUIManagerTest,
 
   // Show screenshare disclosure dialog.
   ui_manager->ShowScreenshotDisclosureDialog(base::DoNothing());
-  EXPECT_TRUE(ui_manager->is_screenshare_disclosure_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kScreenshareDisclosure));
   EXPECT_TRUE(ui_manager->HasOpenModalDialog());
   views::Widget* disclosure_widget =
       ui_manager->disclosure_dialog_widget_for_testing();
@@ -2887,7 +2733,8 @@ TEST_F(OmniboxEverywhereUIManagerTest, ScreenshareDisclosure_AcceptFlow) {
 
   EXPECT_TRUE(accepted_future.Wait());
   EXPECT_FALSE(cancelled_future.IsReady());
-  EXPECT_FALSE(ui_manager->is_screenshare_disclosure_open_for_testing());
+  EXPECT_FALSE(
+      ui_manager->IsModalOpenForTesting(Modal::kScreenshareDisclosure));
   EXPECT_FALSE(ui_manager->HasOpenModalDialog());
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 }
@@ -2908,7 +2755,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, ScreenshareDisclosure_CancelFlow) {
   views::Widget* disclosure_widget =
       ui_manager->disclosure_dialog_widget_for_testing();
   ASSERT_TRUE(disclosure_widget);
-  EXPECT_TRUE(ui_manager->is_screenshare_disclosure_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kScreenshareDisclosure));
   EXPECT_TRUE(ui_manager->HasOpenModalDialog());
   EXPECT_TRUE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
   EXPECT_EQ(disclosure_widget->GetZOrderLevel(), widget->GetZOrderLevel());
@@ -2922,7 +2769,8 @@ TEST_F(OmniboxEverywhereUIManagerTest, ScreenshareDisclosure_CancelFlow) {
 
   EXPECT_FALSE(accepted_future.IsReady());
   EXPECT_TRUE(cancelled_future.Wait());
-  EXPECT_FALSE(ui_manager->is_screenshare_disclosure_open_for_testing());
+  EXPECT_FALSE(
+      ui_manager->IsModalOpenForTesting(Modal::kScreenshareDisclosure));
   EXPECT_FALSE(ui_manager->HasOpenModalDialog());
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 }
@@ -2946,7 +2794,8 @@ TEST_F(OmniboxEverywhereUIManagerTest,
   EXPECT_FALSE(cancelled);
   EXPECT_FALSE(ui_manager->widget());
   EXPECT_FALSE(ui_manager->disclosure_dialog_widget_for_testing());
-  EXPECT_FALSE(ui_manager->is_screenshare_disclosure_open_for_testing());
+  EXPECT_FALSE(
+      ui_manager->IsModalOpenForTesting(Modal::kScreenshareDisclosure));
 }
 
 TEST_F(OmniboxEverywhereUIManagerTest,
@@ -3523,16 +3372,16 @@ TEST_F(OmniboxEverywhereUIManagerTest, PermissionPromptStateTracking) {
   ui_manager->ShowForProfile(&profile_, GetContext());
   ASSERT_TRUE(ui_manager->web_contents());
 
-  EXPECT_FALSE(ui_manager->is_permission_prompt_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kPermissionPrompt));
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnPermissionPromptChanged(/*is_showing=*/true,
                                         gfx::Size(100, 100));
-  EXPECT_TRUE(ui_manager->is_permission_prompt_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kPermissionPrompt));
   EXPECT_TRUE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnPermissionPromptChanged(/*is_showing=*/false, gfx::Size());
-  EXPECT_FALSE(ui_manager->is_permission_prompt_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kPermissionPrompt));
   EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 }
 
@@ -3564,7 +3413,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringPermissionPrompt) {
   // Mark permission prompt as showing.
   ui_manager->OnPermissionPromptChanged(/*is_showing=*/true,
                                         gfx::Size(100, 100));
-  EXPECT_TRUE(ui_manager->is_permission_prompt_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kPermissionPrompt));
   EXPECT_TRUE(ui_manager->HasOpenModalDialog());
 
   // Simulating deactivation while permission prompt is open should NOT close
@@ -3576,7 +3425,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringPermissionPrompt) {
   // Mark permission prompt as closed and simulate deactivation after grace
   // period.
   ui_manager->OnPermissionPromptChanged(/*is_showing=*/false, gfx::Size());
-  EXPECT_FALSE(ui_manager->is_permission_prompt_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kPermissionPrompt));
   EXPECT_FALSE(ui_manager->HasOpenModalDialog());
 
   task_environment()->FastForwardBy(
@@ -3590,15 +3439,29 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringPermissionPrompt) {
 
 TEST_F(OmniboxEverywhereUIManagerTest, HotkeyDropdownStateTracking) {
   auto ui_manager = CreateUIManager();
-  EXPECT_FALSE(ui_manager->is_hotkey_dropdown_open_for_testing());
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_TRUE(ui_manager->web_contents());
+
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kHotkeyDropdown));
   EXPECT_FALSE(ui_manager->HasOpenModalDialog());
+  EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnHotkeyDropdownOpened();
-  EXPECT_TRUE(ui_manager->is_hotkey_dropdown_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kHotkeyDropdown));
   EXPECT_TRUE(ui_manager->HasOpenModalDialog());
+  EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
+
+  // Closing another modal while the hotkey dropdown is open must release
+  // input-blocking while keeping HasOpenModalDialog() true.
+  ui_manager->OnPermissionPromptChanged(/*is_showing=*/true,
+                                        gfx::Size(100, 100));
+  EXPECT_TRUE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
+  ui_manager->OnPermissionPromptChanged(/*is_showing=*/false, gfx::Size());
+  EXPECT_TRUE(ui_manager->HasOpenModalDialog());
+  EXPECT_FALSE(ui_manager->web_contents()->ShouldIgnoreInputEventsForTesting());
 
   ui_manager->OnHotkeyDropdownClosed();
-  EXPECT_FALSE(ui_manager->is_hotkey_dropdown_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kHotkeyDropdown));
   EXPECT_FALSE(ui_manager->HasOpenModalDialog());
 }
 
@@ -3616,7 +3479,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringHotkeyDropdown) {
 
   // Mark hotkey dropdown as open.
   ui_manager->OnHotkeyDropdownOpened();
-  EXPECT_TRUE(ui_manager->is_hotkey_dropdown_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kHotkeyDropdown));
   EXPECT_TRUE(ui_manager->HasOpenModalDialog());
 
   // Simulating deactivation while hotkey dropdown is open should NOT close
@@ -3627,7 +3490,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringHotkeyDropdown) {
 
   // Closing hotkey dropdown posts a deactivation check.
   ui_manager->OnHotkeyDropdownClosed();
-  EXPECT_FALSE(ui_manager->is_hotkey_dropdown_open_for_testing());
+  EXPECT_FALSE(ui_manager->IsModalOpenForTesting(Modal::kHotkeyDropdown));
   EXPECT_FALSE(ui_manager->HasOpenModalDialog());
   EXPECT_TRUE(
       ui_manager->is_hotkey_dropdown_deactivation_task_pending_for_testing());
@@ -3636,7 +3499,7 @@ TEST_F(OmniboxEverywhereUIManagerTest, DismissBypassedDuringHotkeyDropdown) {
   ui_manager->OnHotkeyDropdownOpened();
   EXPECT_FALSE(
       ui_manager->is_hotkey_dropdown_deactivation_task_pending_for_testing());
-  EXPECT_TRUE(ui_manager->is_hotkey_dropdown_open_for_testing());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kHotkeyDropdown));
 
   // Close it again, verify the pending task is scheduled, and run it.
   ui_manager->OnHotkeyDropdownClosed();
@@ -3810,5 +3673,331 @@ TEST_F(OmniboxEverywhereUIManagerTest, LensPromoLifecycleInEphemeralMode) {
 
   ui_manager->Shutdown();
 }
+
+// Verifies that the Omnibox Everywhere widget is not hardcoded to kLight and
+// reflects both OS PreferredColorScheme (when BrowserColorScheme is kSystem)
+// and Chrome's explicit BrowserColorScheme (kLight / kDark).
+TEST_F(OmniboxEverywhereUIManagerTest,
+       WidgetRespectsBrowserColorSchemeAndOSTheme) {
+  ui::MockOsSettingsProvider os_settings;
+  os_settings.SetPreferredColorScheme(
+      ui::NativeTheme::PreferredColorScheme::kLight);
+  auto* theme_service = ThemeServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(theme_service);
+  theme_service->UseDefaultTheme();
+  theme_service->SetBrowserColorScheme(
+      ThemeService::BrowserColorScheme::kSystem);
+
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+
+  EXPECT_FALSE(widget->color_mode_override().has_value());
+  EXPECT_EQ(ui::ColorProviderKey::ColorMode::kLight, widget->GetColorMode());
+  const SkColor light_bg =
+      widget->GetColorProvider()->GetColor(kColorOmniboxResultsBackground);
+
+  os_settings.SetPreferredColorScheme(
+      ui::NativeTheme::PreferredColorScheme::kDark);
+  EXPECT_EQ(ui::ColorProviderKey::ColorMode::kDark, widget->GetColorMode());
+  const SkColor dark_bg =
+      widget->GetColorProvider()->GetColor(kColorOmniboxResultsBackground);
+  EXPECT_NE(light_bg, dark_bg);
+
+  theme_service->SetBrowserColorScheme(
+      ThemeService::BrowserColorScheme::kLight);
+  EXPECT_EQ(ui::ColorProviderKey::ColorMode::kLight, widget->GetColorMode());
+  EXPECT_EQ(light_bg, widget->GetColorProvider()->GetColor(
+                          kColorOmniboxResultsBackground));
+
+  os_settings.SetPreferredColorScheme(
+      ui::NativeTheme::PreferredColorScheme::kLight);
+  theme_service->SetBrowserColorScheme(ThemeService::BrowserColorScheme::kDark);
+  EXPECT_EQ(ui::ColorProviderKey::ColorMode::kDark, widget->GetColorMode());
+  EXPECT_EQ(dark_bg, widget->GetColorProvider()->GetColor(
+                         kColorOmniboxResultsBackground));
+
+  ui_manager->Shutdown();
+}
+
+// Verifies that the Omnibox Everywhere widget ignores Chrome browser color
+// themes and OS accent color tinting (always using the unthemed GM3 baseline
+// palette), while updating its Light/Dark mode when switching profiles.
+TEST_F(OmniboxEverywhereUIManagerTest,
+       WidgetRespectsChromeThemeAndProfileSwitch) {
+  ui::MockOsSettingsProvider os_settings;
+  os_settings.SetPreferredColorScheme(
+      ui::NativeTheme::PreferredColorScheme::kLight);
+  auto* theme_service = ThemeServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(theme_service);
+  theme_service->UseDefaultTheme();
+  theme_service->SetBrowserColorScheme(
+      ThemeService::BrowserColorScheme::kLight);
+
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+
+  const SkColor baseline_surface =
+      widget->GetColorProvider()->GetColor(ui::kColorSysSurface);
+  const SkColor baseline_omnibox_bg =
+      widget->GetColorProvider()->GetColor(kColorOmniboxResultsBackground);
+  auto expect_unthemed_baseline = [](views::Widget* w) {
+    const ui::ColorProviderKey key = w->GetColorProviderKeyForTesting();
+    EXPECT_EQ(ui::ColorProviderKey::UserColorSource::kBaseline,
+              key.user_color_source);
+    EXPECT_FALSE(key.user_color.has_value());
+    EXPECT_FALSE(key.scheme_variant.has_value());
+    EXPECT_EQ(nullptr, key.custom_theme.get());
+  };
+
+  theme_service->SetUserColorAndBrowserColorVariant(
+      SK_ColorBLUE, ui::mojom::BrowserColorVariant::kTonalSpot);
+  os_settings.SetAccentColor(SK_ColorGREEN);
+  expect_unthemed_baseline(widget);
+  EXPECT_EQ(baseline_surface,
+            widget->GetColorProvider()->GetColor(ui::kColorSysSurface));
+  EXPECT_EQ(baseline_omnibox_bg, widget->GetColorProvider()->GetColor(
+                                     kColorOmniboxResultsBackground));
+
+  theme_service->BuildAutogeneratedThemeFromColor(SK_ColorRED);
+  expect_unthemed_baseline(widget);
+  EXPECT_EQ(baseline_surface,
+            widget->GetColorProvider()->GetColor(ui::kColorSysSurface));
+
+  TestingProfile profile_2;
+  auto* theme_service_2 = ThemeServiceFactory::GetForProfile(&profile_2);
+  ASSERT_TRUE(theme_service_2);
+  theme_service_2->SetBrowserColorScheme(
+      ThemeService::BrowserColorScheme::kDark);
+  theme_service_2->SetUserColorAndBrowserColorVariant(
+      SK_ColorMAGENTA, ui::mojom::BrowserColorVariant::kVibrant);
+
+  ui_manager->ShowForProfile(&profile_2, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+  EXPECT_EQ(ui::ColorProviderKey::ColorMode::kDark,
+            ui_manager->widget()->GetColorMode());
+  expect_unthemed_baseline(ui_manager->widget());
+  EXPECT_NE(
+      baseline_surface,
+      ui_manager->widget()->GetColorProvider()->GetColor(ui::kColorSysSurface));
+
+  ui_manager->Shutdown();
+}
+
+#if BUILDFLAG(IS_WIN)
+// Fakes whether the widget is on the current virtual desktop, and records the
+// windows that were checked.
+class OmniboxEverywhereUIManagerVirtualDesktopTest
+    : public OmniboxEverywhereUIManagerTest {
+ protected:
+  std::unique_ptr<OmniboxEverywhereUIManager> CreateUIManager() {
+    auto ui_manager = OmniboxEverywhereUIManagerTest::CreateUIManager();
+    ui_manager->SetIsOnCurrentVirtualDesktopCallbackForTesting(
+        base::BindLambdaForTesting([this](HWND hwnd) {
+          queried_hwnds_.push_back(hwnd);
+          return on_current_desktop_;
+        }));
+    return ui_manager;
+  }
+
+  bool on_current_desktop_ = true;
+  std::vector<HWND> queried_hwnds_;
+};
+
+// Tests that re-invoking reuses the widget when it is on the current virtual
+// desktop.
+TEST_F(OmniboxEverywhereUIManagerVirtualDesktopTest,
+       ReshowReusesWidgetOnCurrentDesktop) {
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+  // A newly created widget opens on the current desktop.
+  EXPECT_TRUE(queried_hwnds_.empty());
+
+  ui_manager->Close();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  EXPECT_EQ(widget, ui_manager->widget());
+  EXPECT_TRUE(widget->IsVisible());
+  EXPECT_EQ(queried_hwnds_, std::vector<HWND>{views::HWNDForWidget(widget)});
+
+  ui_manager->Shutdown();
+}
+
+// Tests that re-invoking recreates the widget at the same position, showing
+// the same `WebContents`, when it is on another virtual desktop.
+TEST_F(OmniboxEverywhereUIManagerVirtualDesktopTest,
+       ReshowRecreatesWidgetOnOtherDesktop) {
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* old_widget = ui_manager->widget();
+  ASSERT_TRUE(old_widget);
+  content::WebContents* web_contents = ui_manager->web_contents();
+  ASSERT_TRUE(web_contents);
+  gfx::Rect bounds = old_widget->GetWindowBoundsInScreen();
+  bounds.Offset(10, 10);
+  old_widget->SetBounds(bounds);
+  bounds = old_widget->GetRestoredBounds();
+
+  ui_manager->Close();
+  on_current_desktop_ = false;
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* new_widget = ui_manager->widget();
+  ASSERT_TRUE(new_widget);
+  EXPECT_NE(old_widget, new_widget);
+  EXPECT_TRUE(new_widget->IsVisible());
+  EXPECT_EQ(bounds.origin(), new_widget->GetRestoredBounds().origin());
+  EXPECT_EQ(web_contents, ui_manager->web_contents());
+  auto* web_view = views::AsViewClass<views::WebView>(
+      ui_manager->widget_delegate()->GetContentsView());
+  ASSERT_TRUE(web_view);
+  EXPECT_EQ(web_contents, web_view->web_contents());
+
+  ui_manager->Shutdown();
+}
+
+// Tests that a demoted persistent widget on another virtual desktop is
+// recreated as an active, non-demoted widget at the same position.
+TEST_F(OmniboxEverywhereUIManagerVirtualDesktopTest,
+       ReshowRecreatesDemotedWidgetOnOtherDesktop) {
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        prefs::kOmniboxEverywhereEphemeralModel, false);
+  }
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* old_widget = ui_manager->widget();
+  ASSERT_TRUE(old_widget);
+  const gfx::Point origin = old_widget->GetRestoredBounds().origin();
+  ui_manager->Demote();
+  ASSERT_TRUE(ui_manager->is_demoted());
+
+  on_current_desktop_ = false;
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* new_widget = ui_manager->widget();
+  ASSERT_TRUE(new_widget);
+  EXPECT_NE(old_widget, new_widget);
+  EXPECT_TRUE(new_widget->IsVisible());
+  EXPECT_FALSE(ui_manager->is_demoted());
+  views::test::WaitForWidgetActive(new_widget, true);
+  EXPECT_TRUE(ui_manager->IsActive());
+  EXPECT_EQ(origin, new_widget->GetRestoredBounds().origin());
+
+  ui_manager->Shutdown();
+}
+
+// Tests that recreating a demoted persistent widget on another virtual desktop
+// preserves the active FRE session rather than unlatching or counting a second
+// impression.
+TEST_F(OmniboxEverywhereUIManagerVirtualDesktopTest,
+       ReshowDemotedWidgetOnOtherDesktopPreservesFreSession) {
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        prefs::kOmniboxEverywhereEphemeralModel, false);
+  }
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* old_widget = ui_manager->widget();
+  ASSERT_TRUE(old_widget);
+
+  auto* service = OmniboxEverywhereServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(service);
+  ASSERT_TRUE(service->fre_controller());
+  PrefService* prefs = profile_.GetPrefs();
+
+  service->fre_controller()->IncrementImpression(FreStage::kIntroModal);
+  EXPECT_EQ(1, prefs->GetInteger(prefs::kFreIntroImpressionCount));
+
+  ui_manager->Demote();
+  on_current_desktop_ = false;
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_NE(old_widget, ui_manager->widget());
+
+  // Re-invoking on another virtual desktop keeps the same FRE session open.
+  service->fre_controller()->IncrementImpression(FreStage::kIntroModal);
+  EXPECT_EQ(1, prefs->GetInteger(prefs::kFreIntroImpressionCount));
+
+  // Explicitly closing ends the FRE session so the next open counts a new
+  // impression.
+  ui_manager->Close();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  service->fre_controller()->IncrementImpression(FreStage::kIntroModal);
+  EXPECT_EQ(2, prefs->GetInteger(prefs::kFreIntroImpressionCount));
+
+  ui_manager->Shutdown();
+}
+
+// Tests that a minimized persistent widget on another virtual desktop is
+// recreated restored, at its restored position.
+TEST_F(OmniboxEverywhereUIManagerVirtualDesktopTest,
+       ReshowRecreatesMinimizedWidgetOnOtherDesktop) {
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        prefs::kOmniboxEverywhereEphemeralModel, false);
+  }
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* old_widget = ui_manager->widget();
+  ASSERT_TRUE(old_widget);
+  const gfx::Point origin = old_widget->GetRestoredBounds().origin();
+  ui_manager->Minimize();
+  ASSERT_TRUE(old_widget->IsMinimized());
+
+  on_current_desktop_ = false;
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* new_widget = ui_manager->widget();
+  ASSERT_TRUE(new_widget);
+  EXPECT_NE(old_widget, new_widget);
+  EXPECT_TRUE(new_widget->IsVisible());
+  EXPECT_FALSE(new_widget->IsMinimized());
+  EXPECT_EQ(origin, new_widget->GetRestoredBounds().origin());
+
+  ui_manager->Shutdown();
+}
+
+// Tests that the widget is left alone while a modal dialog is open, since
+// recreating it would dismiss the dialog.
+TEST_F(OmniboxEverywhereUIManagerVirtualDesktopTest,
+       ReshowLeavesWidgetWithOpenDialog) {
+  if (g_browser_process && g_browser_process->local_state()) {
+    g_browser_process->local_state()->SetBoolean(
+        prefs::kOmniboxEverywhereEphemeralModel, false);
+  }
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  views::Widget* widget = ui_manager->widget();
+  ASSERT_TRUE(widget);
+  ui_manager->OnFileChooserOpened();
+
+  on_current_desktop_ = false;
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  EXPECT_EQ(widget, ui_manager->widget());
+  EXPECT_TRUE(ui_manager->IsModalOpenForTesting(Modal::kFileChooser));
+  EXPECT_TRUE(queried_hwnds_.empty());
+
+  ui_manager->OnFileChooserClosed();
+  ui_manager->Shutdown();
+}
+
+// Tests that switching profiles creates a new widget without checking the old
+// widget's virtual desktop.
+TEST_F(OmniboxEverywhereUIManagerVirtualDesktopTest,
+       ProfileSwitchDoesNotCheckDesktop) {
+  auto ui_manager = CreateUIManager();
+  ui_manager->ShowForProfile(&profile_, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+
+  on_current_desktop_ = false;
+  TestingProfile profile_2;
+  ui_manager->ShowForProfile(&profile_2, GetContext());
+  ASSERT_TRUE(ui_manager->widget());
+  EXPECT_TRUE(queried_hwnds_.empty());
+
+  ui_manager->Shutdown();
+}
+#endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace omnibox_everywhere

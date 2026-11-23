@@ -181,15 +181,27 @@ class WebUIReadOnlyOmnibox
   void ResetFormatting();
   void ResetBrowserVersion();
 
+  OmniboxView::State GetStateWithoutInlineSuggestion();
+
   // Returns whether the toolbar's views::WebView currently has Views focus.
   // This is distinct from `has_focus_`, which tracks whether the omnibox
   // element inside the WebUI has reported itself as focused.
   bool IsWebViewFocused();
 
-  // Returns whether `view` is the toolbar's View (as returned by
-  // `toolbar_delegate_->GetView()`) or one of its descendants. Returns false
-  // if `view` is null or if there is no toolbar delegate/view.
-  bool IsToolbarViewOrDescendant(const views::View* view) const;
+  // Returns whether `view` is the WebUI toolbar's View (i.e. the
+  // WebUIToolbarWebView returned by `toolbar_delegate_->GetView()`) or one of
+  // its descendants. Returns false if `view` is null or if there is no toolbar
+  // delegate/view.
+  bool IsWebUIToolbarViewOrDescendant(const views::View* view) const;
+
+  // Returns true if the toolbar's widget has a FocusManager whose focused view
+  // is *not* the WebUI toolbar's View or one of its descendants, i.e. views
+  // focus is verifiably somewhere else. This includes the widget being
+  // inactive, since FocusManager has no focused view then (see the
+  // implementation for why that's intended). Used to reject stale focus claims
+  // and the text input that accompanies them. Returns false if there's no
+  // toolbar delegate/view/widget/FocusManager to consult (e.g. in some tests).
+  bool IsViewsFocusOutsideToolbar() const;
 
   base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnFocusChange(
       const toolbar_ui_api::mojom::OmniboxActionFocusChange& focus_change);
@@ -203,6 +215,7 @@ class WebUIReadOnlyOmnibox
       const toolbar_ui_api::mojom::OmniboxActionDropText& drop_text);
   base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnDropFile(
       const toolbar_ui_api::mojom::OmniboxActionDropFile& drop_file);
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr> OnDragStart();
 
   void OnContextMenuReady(views::Widget* widget,
                           const gfx::Point& point,

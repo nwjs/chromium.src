@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/enterprise/client_certificates/client_certificates_service_ios_factory.h"
 
+#import <utility>
+
 #import "components/enterprise/client_certificates/ios/certificate_provisioning_service_ios.h"
 #import "ios/chrome/browser/enterprise/client_certificates/certificate_provisioning_service_factory_ios.h"
 #import "ios/chrome/browser/enterprise/client_certificates/client_certificates_service_ios.h"
@@ -14,28 +16,14 @@
 
 namespace client_certificates {
 
-// static
-ClientCertificatesServiceIOSFactory*
-ClientCertificatesServiceIOSFactory::GetInstance() {
-  static base::NoDestructor<ClientCertificatesServiceIOSFactory> instance;
-  return instance.get();
-}
-
-// static
-ClientCertificatesServiceIOS*
-ClientCertificatesServiceIOSFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<ClientCertificatesServiceIOS>(
-      profile, /*create=*/true);
-}
-
-ClientCertificatesServiceIOSFactory::ClientCertificatesServiceIOSFactory()
-    : ProfileKeyedServiceFactoryIOS("ClientCertificatesServiceIOS",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
+ClientCertificatesServiceIOSFactory::ClientCertificatesServiceIOSFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "ClientCertificatesServiceIOS",
+          ProfileSelection::kOwnInstanceInIncognito) {
   DependsOn(CertificateProvisioningServiceFactoryIOS::GetInstance());
 }
-
-ClientCertificatesServiceIOSFactory::~ClientCertificatesServiceIOSFactory() =
-    default;
 
 std::unique_ptr<KeyedService>
 ClientCertificatesServiceIOSFactory::BuildServiceInstanceFor(

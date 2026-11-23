@@ -5,7 +5,7 @@
 /** @fileoverview Test implementation of PasswordManagerProxy. */
 
 // clang-format off
-import type {PasswordCheckReferrer, PasswordManagerProxy, PasswordManagerPage} from 'chrome://settings/settings.js';
+import type {PasswordManagerProxy, PasswordManagerPage} from 'chrome://settings/settings.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 
 // clang-format on
@@ -17,15 +17,13 @@ export class TestPasswordManagerProxy extends TestBrowserProxy implements
     PasswordManagerProxy {
   constructor() {
     super([
-      'recordPasswordCheckReferrer',
+      'recordPasswordsPageAccessInSettings',
       'showPasswordManager',
     ]);
   }
 
-  recordPasswordsPageAccessInSettings() {}
-
-  recordPasswordCheckReferrer(referrer: PasswordCheckReferrer) {
-    this.methodCalled('recordPasswordCheckReferrer', referrer);
+  recordPasswordsPageAccessInSettings() {
+    this.methodCalled('recordPasswordsPageAccessInSettings');
   }
 
   showPasswordManager(page: PasswordManagerPage) {

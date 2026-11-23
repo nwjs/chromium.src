@@ -5,16 +5,10 @@
 #ifndef COMPONENTS_BROWSER_ACTUATOR_TEST_SUPPORT_MOCK_BROWSER_ACTUATOR_SERVICE_H_
 #define COMPONENTS_BROWSER_ACTUATOR_TEST_SUPPORT_MOCK_BROWSER_ACTUATOR_SERVICE_H_
 
-#include <string_view>
-
 #include "components/browser_actuator/public/browser_actuator_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace browser_actuator {
-
-class SessionStreamRecorderFactory;
-class TransportChannel;
-class TransportSession;
 
 class MockBrowserActuatorService : public BrowserActuatorService {
  public:
@@ -22,16 +16,6 @@ class MockBrowserActuatorService : public BrowserActuatorService {
   ~MockBrowserActuatorService() override;
 
   MOCK_METHOD(bool, IsInitialized, (), (const, override));
-  MOCK_METHOD(TransportChannel*, GetChannel, (), (override));
-  MOCK_METHOD(TransportSession*,
-              GetOrCreateSession,
-              (std::string_view),
-              (override));
-  MOCK_METHOD(TransportSession*, GetSession, (std::string_view), (override));
-  MOCK_METHOD(SessionStreamRecorderFactory*,
-              GetStreamRecorderFactory,
-              (),
-              (override));
 };
 
 }  // namespace browser_actuator

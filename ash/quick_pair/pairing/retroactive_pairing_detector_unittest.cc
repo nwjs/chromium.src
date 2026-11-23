@@ -257,7 +257,8 @@ class RetroactivePairingDetectorTest
     if (user_type == user_manager::UserType::kGuest) {
       SimulateGuestLogin();
     } else {
-      SimulateUserLogin({kUserEmail, user_type});
+      SimulateUserLogin({.account_id = AccountId::FromUserEmail(kUserEmail),
+                         .user_type = user_type});
     }
   }
 
@@ -1533,10 +1534,6 @@ TEST_F(RetroactivePairingDetectorTest, NoCrashWhenFootprintsResponseIsSlow) {
 TEST_F(RetroactivePairingDetectorTest,
        ClassicBluetoothPairedLEDeviceDoesNotTriggerRetroactivePair) {
   Login(user_manager::UserType::kRegular);
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{features::kFastPairKeyboards},
-      /*disabled_features=*/{});
   fast_pair_repository_->SetOptInStatus(
       nearby::fastpair::OptInStatus::STATUS_OPTED_IN);
   base::RunLoop().RunUntilIdle();

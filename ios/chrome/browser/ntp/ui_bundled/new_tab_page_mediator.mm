@@ -25,7 +25,6 @@
 #import "components/image_fetcher/core/image_fetcher.h"
 #import "components/image_fetcher/core/image_fetcher_service.h"
 #import "components/image_fetcher/core/request_metadata.h"
-#import "components/ntp_tiles/features.h"
 #import "components/ntp_tiles/pref_names.h"
 #import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/omnibox/browser/omnibox_pref_names.h"
@@ -43,6 +42,10 @@
 #import "components/subscription_eligibility/subscription_eligibility_service.h"
 #import "ios/chrome/browser/aim/model/ai_mode_button_service_ios.h"
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
+#import "ios/chrome/browser/composebox/coordinator/composebox_input_state_manager.h"
+#import "ios/chrome/browser/composebox/public/composebox_attachment_option.h"
+#import "ios/chrome/browser/composebox/public/composebox_mode.h"
+#import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui/user_account_image_update_delegate.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
@@ -109,9 +112,6 @@
 #import "ios/web/public/navigation/referrer.h"
 #import "ios/web/public/web_state.h"
 #import "skia/ext/skia_utils_ios.h"
-#import "third_party/omnibox_proto/searchbox_config.pb.h"
-#import "third_party/omnibox_proto/tool_config.pb.h"
-#import "third_party/omnibox_proto/tool_mode.pb.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
@@ -295,35 +295,10 @@ void CleanupImageFetcherCacheIfNeeded(PrefService* pref_service,
   pref_service->SetBoolean(prefs::kIosImageFetcherShouldClearCache, false);
 }
 
-// Returns whether AIM image generation is allowed.
-BOOL IsAimImageGenerationAllowed(
-    const AimEligibilityService* aim_eligibility_service) {
-  CHECK_EQ(ntp_tiles::GetAimButtonRefactorArm(),
-           ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction);
-  if (!aim_eligibility_service || !aim_eligibility_service->IsAimEligible() ||
-      !aim_eligibility_service->IsServerEligibilityEnabled()) {
-    return NO;
-  }
-
-  const omnibox::SearchboxConfig* config =
-      aim_eligibility_service->GetSearchboxConfig();
-
-  if (!config) {
-    return NO;
-  }
-
-  for (const auto& tool_config : config->tool_configs()) {
-    if (tool_config.tool() == omnibox::ToolMode::TOOL_MODE_IMAGE_GEN) {
-      return YES;
-    }
-  }
-
-  return NO;
-}
-
 }  // namespace
 
 @interface NewTabPageMediator () <BooleanObserver,
+                                  ComposeboxInputStateManagerDelegate,
                                   FullscreenBrowserAgentObserving,
                                   HomeBackgroundCustomizationServiceObserving,
                                   IdentityManagerObserving,
@@ -553,6 +528,22 @@ BOOL IsAimImageGenerationAllowed(
   }
 }
 
+- (void)setComposeboxInputStateManager:
+    (ComposeboxInputStateManager*)composeboxInputStateManager {
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  if (arm != AimButtonRefactorArm::kImageGenerationQuickAction &&
+      arm != AimButtonRefactorArm::kAttachImageQuickAction) {
+    return;
+  }
+
+  if (composeboxInputStateManager == _composeboxInputStateManager) {
+    return;
+  }
+  _composeboxInputStateManager.delegate = nil;
+  _composeboxInputStateManager = composeboxInputStateManager;
+  _composeboxInputStateManager.delegate = self;
+}
+
 #pragma mark - NewTabPageMutator
 
 - (void)notifyNtpDisplayedInLandscape {
@@ -675,6 +666,13 @@ BOOL IsAimImageGenerationAllowed(
   _backgroundCustomizationService = nullptr;
   _imageFetcherService = nullptr;
   self.placeholderService = nullptr;
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  if (arm == AimButtonRefactorArm::kImageGenerationQuickAction ||
+      arm == AimButtonRefactorArm::kAttachImageQuickAction) {
+    [self.composeboxInputStateManager disconnect];
+    self.composeboxInputStateManager.delegate = nil;
+    self.composeboxInputStateManager = nil;
+  }
   _fullscreenBrowserAgentObserverBridge.reset();
   _fullscreenBrowserAgent = nullptr;
   base::UmaHistogramBoolean("IOS.NTP.LandscapeMode", _wasNTPInLandscape);
@@ -880,24 +878,29 @@ BOOL IsAimImageGenerationAllowed(
                                 style);
 }
 
+// Updates NTP for AIM feature availability.
 - (void)updateAIMAvailability {
   BOOL aimAllowed = NO;
-  BOOL fuseboxEligible = NO;
+
   if (_aiModeButtonServiceIOS) {
     aimAllowed = _aiModeButtonServiceIOS->IsButtonAvailable();
   }
-  if (_aimEligibilityService) {
-    fuseboxEligible = _aimEligibilityService->IsFuseboxEligible();
+
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  if (arm == AimButtonRefactorArm::kImageGenerationQuickAction ||
+      arm == AimButtonRefactorArm::kAttachImageQuickAction) {
+    [self updateAIMQuickActionsAvailability];
+  } else {
+    BOOL fuseboxEligible = NO;
+    if (_aimEligibilityService) {
+      fuseboxEligible = _aimEligibilityService->IsFuseboxEligible();
+    }
+    [self.headerConsumer setFuseboxEligible:fuseboxEligible];
   }
 
   [self.consumer setAIMAllowed:aimAllowed];
   [self.headerConsumer setAIMAllowed:aimAllowed];
-  [self.headerConsumer setFuseboxEligible:fuseboxEligible];
-  if (ntp_tiles::GetAimButtonRefactorArm() ==
-      ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction) {
-    [self.consumer setAIMImageGenerationAllowed:IsAimImageGenerationAllowed(
-                                                    _aimEligibilityService)];
-  }
+
   if (_aiModeButtonServiceIOS) {
     [self.consumer
                setAIMTitle:_aiModeButtonServiceIOS->GetTitle()
@@ -916,6 +919,31 @@ BOOL IsAimImageGenerationAllowed(
   if (IsAIMEligibilityRefreshNTPModulesEnabled() && _mediatorSetUp) {
     [self.NTPContentDelegate updateModuleVisibility];
   }
+}
+
+// Updates the availability of the AI Mode buttons in the Quick Actions row
+// based on tool and input state availability.
+- (void)updateAIMQuickActionsAvailability {
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  CHECK(arm == AimButtonRefactorArm::kImageGenerationQuickAction ||
+        arm == AimButtonRefactorArm::kAttachImageQuickAction);
+
+  BOOL fuseboxEligible = [self.composeboxInputStateManager isEligibleToAIM];
+
+  ComposeboxUIInputState* inputState =
+      [self.composeboxInputStateManager computeUIInputStateWithFavicon:nil
+                                                   attachedWebStateIDs:{}];
+  BOOL imageGenerationAllowed =
+      arm == AimButtonRefactorArm::kAttachImageQuickAction
+          ? NO
+          : [inputState isToolAvailable:ComposeboxMode::kImageGeneration];
+  BOOL attachImagesAllowed =
+      [inputState isAttachmentAvailable:ComposeboxAttachmentOption::kGallery] &&
+      inputState.remainingNumberOfImagesAllowed > 0;
+
+  [self.consumer setAIMImageGenerationAllowed:imageGenerationAllowed
+                          attachImagesAllowed:attachImagesAllowed];
+  [self.headerConsumer setFuseboxEligible:fuseboxEligible];
 }
 
 // Fetches and update user's avatar on NTP, or use default avatar if user is
@@ -1229,6 +1257,24 @@ BOOL IsAimImageGenerationAllowed(
 
 - (image_fetcher::ImageFetcherService*)imageFetcherService {
   return _imageFetcherService;
+}
+
+#pragma mark - ComposeboxInputStateManagerDelegate
+
+- (void)inputStateManager:(ComposeboxInputStateManager*)manager
+             didChangeMode:(ComposeboxMode)mode
+    invalidatedAttachments:(NSArray<ComposeboxInputItem*>*)invalidatedItems {
+  // No-op.
+}
+
+- (void)inputStateManagerDidUpdateUIState:
+    (ComposeboxInputStateManager*)manager {
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  if (arm != AimButtonRefactorArm::kImageGenerationQuickAction &&
+      arm != AimButtonRefactorArm::kAttachImageQuickAction) {
+    return;
+  }
+  [self updateAIMQuickActionsAvailability];
 }
 
 #pragma mark - SubscriptionEligibilityServiceObserving

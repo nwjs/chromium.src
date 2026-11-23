@@ -50,6 +50,7 @@
 #include "components/safe_browsing/buildflags.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_interface.h"
@@ -86,6 +87,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/webapps/isolated_web_apps/scheme.h"
 #endif
 
@@ -122,6 +124,8 @@ constexpr char kTabIndexNotFoundError[] = "No tab at index: *.";
 constexpr char kCannotFindTabToDiscard[] = "Cannot find a tab to discard.";
 constexpr char kCannotUnhighlightAllTabsError[] =
     "Cannot unhighlight all tabs.";
+constexpr char kTabOpenerMustBeInSameWindowError[] =
+    "Tab opener must be in the same window as the updated tab.";
 
 #if !BUILDFLAG(IS_ANDROID)
 constexpr char kTabsCreateIwaUrlNotAllowedError[] =
@@ -152,7 +156,7 @@ bool SetOpenerOfTab(Profile& profile,
   BrowserWindowInterface* tab_browser =
       browser_window_util::GetBrowserForTabContents(*tab.GetContents());
   if (!opener_browser || opener_browser != tab_browser) {
-    error = "Tab opener must be in the same window as the updated tab.";
+    error = kTabOpenerMustBeInSameWindowError;
     return false;
   }
 
@@ -1041,8 +1045,7 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
     BrowserWindowInterface* opener_browser =
         browser_window_util::GetBrowserForTabContents(*opener);
     if (!opener_browser || opener_browser != browser) {
-      return RespondNow(
-          Error("Tab opener must be in the same window as the updated tab."));
+      return RespondNow(Error(kTabOpenerMustBeInSameWindowError));
     }
   }
 
@@ -1149,8 +1152,9 @@ void TabsCreateFunction::OpenTabInBrowser(BrowserWindowInterface& browser,
     // We know these should never be null:
     // * We just created the tab in OpenTabHelper::OpenTab() above, and verified
     //   it returned a valid contents.
-    // * The `opener_tab` is fetched from GetTabById(), which only returns tab
-    //   contents, so if `opener_tab` is non-null, there should always be a
+    // * We verified in TabsCreateFunction::Run() (via
+    //   browser_window_util::GetBrowserForTabContents()) that `opener_tab`
+    //   belongs to the target browser window, so there should always be a
     //   TabInterface for it.
     ::tabs::TabInterface* tab_interface =
         ::tabs::TabInterface::GetFromContents(new_contents);
@@ -1444,8 +1448,10 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
     }
 
     ::tabs::TabInterface* opener_tab =
-        ::tabs::TabInterface::GetFromContents(opener_contents);
-    CHECK(opener_tab);
+        ::tabs::TabInterface::MaybeGetFromContents(opener_contents);
+    if (!opener_tab) {
+      return RespondNow(Error(kTabOpenerMustBeInSameWindowError));
+    }
     if (!SetOpenerOfTab(*window->profile(), *target_tab, *opener_tab, error)) {
       return RespondNow(Error(std::move(error)));
     }
@@ -1491,7 +1497,7 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
   // Navigate the tab to a new location if the url is different.
   if (params->update_properties.url) {
     std::string updated_url = *params->update_properties.url;
-    if (window->profile()->IsIncognitoProfile() &&
+    if (window->profile()->IsPrimaryOTRProfileWithRegularParent() &&
         !IsURLAllowedInIncognito(GURL(updated_url))) {
       return RespondNow(Error(ErrorUtils::FormatErrorMessage(
           tabs_constants::kURLsNotAllowedInIncognitoError, updated_url)));
@@ -1829,7 +1835,18 @@ bool TabsMoveFunction::MoveTab(int tab_id,
        source_browser->GetType() == BrowserWindowInterface::TYPE_APP);
 #endif
 
-  if (window_id && *window_id != ExtensionTabUtil::GetWindowIdOfTab(contents)) {
+  WindowController* target_controller = nullptr;
+  if (window_id) {
+    target_controller = ExtensionTabUtil::GetControllerFromWindowID(
+        ChromeExtensionFunctionDetails(this), *window_id, error);
+    if (!target_controller) {
+      return false;
+    }
+  }
+
+  // WINDOW_ID_CURRENT can resolve to the tab's own window.
+  if (target_controller && target_controller->GetWindowId() !=
+                               ExtensionTabUtil::GetWindowIdOfTab(contents)) {
 #if BUILDFLAG(IS_ANDROID)
     if (is_source_window_cct_or_app_on_android &&
         contents != source_window->GetActiveTab()) {
@@ -1838,13 +1855,6 @@ bool TabsMoveFunction::MoveTab(int tab_id,
       return false;
     }
 #endif
-
-    WindowController* target_controller =
-        ExtensionTabUtil::GetControllerFromWindowID(
-            ChromeExtensionFunctionDetails(this), *window_id, error);
-    if (!target_controller) {
-      return false;
-    }
 
 #if BUILDFLAG(IS_ANDROID)
     if (is_source_window_cct_or_app_on_android &&
@@ -2400,7 +2410,10 @@ ExtensionFunction::ResponseAction TabsCreateSplitFunction::Run() {
   CHECK(browser);
   TabListInterface* tab_list = TabListInterface::From(browser);
   std::optional<split_tabs::SplitTabId> split_id =
-      tab_list ? tab_list->CreateSplit(tab_handles) : std::nullopt;
+      tab_list ? tab_list->CreateSplit(
+                     tab_handles, split_tabs::SplitTabVisualData(
+                                      split_tabs::SplitTabLayout::kSideBySide))
+               : std::nullopt;
   if (!split_id) {
     return RespondNow(Error(tabs_constants::kSplitViewCreationFailedError));
   }

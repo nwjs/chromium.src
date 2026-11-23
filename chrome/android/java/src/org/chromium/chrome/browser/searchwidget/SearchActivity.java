@@ -42,6 +42,7 @@ import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.back_press.BackPressManager;
@@ -59,7 +60,6 @@ import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.LocationBarEmbedder;
 import org.chromium.chrome.browser.omnibox.LocationBarEmbedderUiOverrides;
 import org.chromium.chrome.browser.omnibox.UrlFocusChangeListener;
-import org.chromium.chrome.browser.omnibox.suggestions.CachedZeroSuggestionsManager;
 import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.password_manager.ManagePasswordsReferrer;
@@ -81,6 +81,7 @@ import org.chromium.ui.AsyncViewStub;
 import org.chromium.ui.base.ActivityKeyboardVisibilityDelegate;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.KeyNavigationUtil;
+import org.chromium.ui.base.WindowAndroid.IntentCallback;
 import org.chromium.ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.url.GURL;
@@ -264,6 +265,32 @@ public class SearchActivity extends AsyncInitializationActivity
             public @Nullable ModalDialogManager getModalDialogManager() {
                 return SearchActivity.this.getModalDialogManager();
             }
+
+            @Override
+            public int showCancelableIntent(
+                    Intent intent, @Nullable IntentCallback callback, @Nullable Integer errorId) {
+                return super.showCancelableIntent(
+                        intent, bindCallbackToCurrentSession(callback), errorId);
+            }
+        };
+    }
+
+    /**
+     * Wraps the result callback of a child activity (e.g. Camera or a file picker) so that the
+     * result is dropped if a new intent started a different session in the meantime.
+     *
+     * @param callback The callback to receive the result, if still relevant.
+     * @return The wrapped callback, or {@code callback} itself if no wrapping is needed.
+     */
+    @VisibleForTesting
+    /* package */ @Nullable IntentCallback bindCallbackToCurrentSession(
+            @Nullable IntentCallback callback) {
+        if (callback == null || !ChromeFeatureList.sOneStepAimAccess.isEnabled()) return callback;
+
+        SearchActivitySession launchingSession = mCurrentSession;
+        return (resultCode, data) -> {
+            if (launchingSession != mCurrentSession) return;
+            callback.onIntentCompleted(resultCode, data);
         };
     }
 
@@ -337,7 +364,7 @@ public class SearchActivity extends AsyncInitializationActivity
     @VisibleForTesting
     /* package */ void handleNewIntent(Intent intent, boolean activityPresent) {
         setIntent(intent);
-        mCurrentSession = SearchActivityUtils.getIntentSession(intent);
+        beginSession(intent);
         @IntentOrigin int intentOrigin = mCurrentSession.intentOrigin;
         @SearchType int searchType = mCurrentSession.searchType;
 
@@ -377,15 +404,6 @@ public class SearchActivity extends AsyncInitializationActivity
                 setHubSearchBoxVisualElements();
                 break;
 
-            case IntentOrigin.LAUNCHER:
-                locationBarUiOverrides
-                        .setLensEntrypointAllowed(true)
-                        .setVoiceEntrypointAllowed(true);
-                var jumpStartContext = CachedZeroSuggestionsManager.readJumpStartContext();
-                mSearchBoxDataProvider.setCurrentUrl(jumpStartContext.url);
-                mSearchBoxDataProvider.setPageClassification(jumpStartContext.pageClass);
-                break;
-
             case IntentOrigin.SEARCH_WIDGET:
             // fallthrough
 
@@ -399,6 +417,33 @@ public class SearchActivity extends AsyncInitializationActivity
         }
 
         beginQuery();
+    }
+
+    /**
+     * Begins a new search session for the incoming intent, ending any existing session first.
+     *
+     * @param intent The incoming search intent.
+     */
+    private void beginSession(Intent intent) {
+        endSession();
+        mCurrentSession = SearchActivityUtils.getIntentSession(intent);
+    }
+
+    /**
+     * Ends the current session, if any.
+     *
+     * <p>The draft is kept across focus loss, so it must be discarded here: otherwise it would leak
+     * into the next session, and the Omnibox would keep the active input and ignore the new
+     * session's request type.
+     */
+    private void endSession() {
+        if (mCurrentSession == null) return;
+        // With the feature off, focus is still cleared on top-resumed loss, so there is no draft
+        // to discard here; keep legacy behavior unchanged.
+        if (ChromeFeatureList.sOneStepAimAccess.isEnabled()) {
+            // End the Omnibox input.
+            mSearchUiCoordinator.getLocationBarCoordinator().setUrlBarFocus(null);
+        }
     }
 
     @Override
@@ -479,6 +524,7 @@ public class SearchActivity extends AsyncInitializationActivity
 
     @VisibleForTesting
     void finishDeferredInitialization() {
+        DeferredStartupHandler.getInstance().queueDeferredTasksOnIdleHandler();
         mSearchUiCoordinator
                 .getSearchBox()
                 .onDeferredStartup(mCurrentSession.searchType, assertNonNull(getWindowAndroid()));
@@ -550,6 +596,7 @@ public class SearchActivity extends AsyncInitializationActivity
     @Override
     protected void onDestroy() {
         if (mSearchUiCoordinator != null) {
+            endSession();
             mSearchUiCoordinator.removeUrlFocusChangeListener(this);
             mSearchUiCoordinator.destroy();
         }
@@ -884,8 +931,13 @@ public class SearchActivity extends AsyncInitializationActivity
         // This may only happen when user enters tab switcher, and immediately returns to the
         // SearchActivity.
         if (!isTopResumedActivity) {
-            mSearchUiCoordinator.getSearchBox().clearOmniboxFocus();
+            // Keep the draft (typed text, Fusebox attachments), e.g. while Camera or a file picker
+            // is on top. endSession() discards it when a new session starts.
+            if (!ChromeFeatureList.sOneStepAimAccess.isEnabled()) {
+                mSearchUiCoordinator.getSearchBox().clearOmniboxFocus();
+            }
         } else {
+            // A no-op for a retained draft: the Omnibox still has focus.
             mSearchUiCoordinator.getSearchBox().requestOmniboxFocus();
         }
     }

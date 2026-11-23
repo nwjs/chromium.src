@@ -4,34 +4,22 @@
 
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_cloud_binary_upload_service_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_cloud_binary_upload_service.h"
 #import "ios/chrome/browser/policy/model/browser_management_service_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
 namespace enterprise_connectors {
 
-// static
-IOSCloudBinaryUploadServiceFactory*
-IOSCloudBinaryUploadServiceFactory::GetInstance() {
-  static base::NoDestructor<IOSCloudBinaryUploadServiceFactory> instance;
-  return instance.get();
-}
-
-// static
-BinaryUploadService* IOSCloudBinaryUploadServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<BinaryUploadService>(
-      profile, /*create=*/true);
-}
-
-IOSCloudBinaryUploadServiceFactory::IOSCloudBinaryUploadServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("IOSCloudBinaryUploadService",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
+IOSCloudBinaryUploadServiceFactory::IOSCloudBinaryUploadServiceFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "IOSCloudBinaryUploadService",
+          ProfileSelection::kOwnInstanceInIncognito) {
   DependsOn(policy::BrowserManagementServiceFactory::GetInstance());
 }
-
-IOSCloudBinaryUploadServiceFactory::~IOSCloudBinaryUploadServiceFactory() =
-    default;
 
 std::unique_ptr<KeyedService>
 IOSCloudBinaryUploadServiceFactory::BuildServiceInstanceFor(

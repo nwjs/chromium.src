@@ -22,6 +22,7 @@ import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
@@ -30,6 +31,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import static org.chromium.base.test.util.Batch.PER_CLASS;
@@ -88,6 +90,7 @@ import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFrag
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.privacy.settings.PrivacySettings;
+import org.chromium.chrome.browser.settings.search.SearchResultsPreferenceFragment;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -196,7 +199,17 @@ public class SettingsPageTest {
                         });
 
         // 1. Simulate opening the side panel (shrinking container width to narrow).
-        final int narrowWidth = Math.min(800, originalWidth - 200);
+        final int narrowWidth =
+                ThreadUtils.runOnUiThreadBlocking(
+                        () ->
+                                Math.min(
+                                        ViewUtils.dpToPx(
+                                                mActivityTestRule
+                                                        .getActivity()
+                                                        .getResources()
+                                                        .getDisplayMetrics(),
+                                                500),
+                                        originalWidth - 200));
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     var activity = mActivityTestRule.getActivity();
@@ -520,7 +533,6 @@ public class SettingsPageTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
-    @EnableFeatures(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)
     public void testAutofillAndPasswordsHighlighting() {
         // The test requires an emulator wide enough to use two-column mode.
         Resources res = mActivityTestRule.getActivity().getResources();
@@ -630,10 +642,7 @@ public class SettingsPageTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
-    @EnableFeatures({
-        ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV,
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV)
     public void testPaymentAppsUrlHighlightsMainMenu_urlNav() {
         assertUrlHighlightsAutofillAndPasswords("/paymentApps", AndroidPaymentAppsFragment.class);
     }
@@ -645,10 +654,7 @@ public class SettingsPageTest {
     @Test
     @MediumTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
-    @EnableFeatures({
-        ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV,
-        ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
-    })
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB_URL_NAV)
     public void testFoldedRowPagesUrlHighlightMainMenu_urlNav() {
         assertUrlHighlightsAutofillAndPasswords("/payments", AutofillPaymentMethodsFragment.class);
         assertUrlHighlightsAutofillAndPasswords("/addresses", AutofillProfilesFragment.class);
@@ -950,6 +956,59 @@ public class SettingsPageTest {
         // Verify that the search result is not visible/shown behind the detail pane.
         onView(allOf(withId(android.R.id.title), withText(R.string.theme_settings)))
                 .check(doesNotExist());
+    }
+
+    /** Regression test for https://crbug.com/573289137. */
+    @Test
+    @MediumTest
+    @Restriction({
+        DeviceFormFactor.ONLY_TABLET,
+        // Automotive devices do not support display rotation.
+        DeviceRestriction.RESTRICTION_TYPE_NON_AUTO,
+    })
+    public void testSearchResultInMultiColumnStaysOpenAfterTabSwitch() {
+        // Ensure landscape (two-column mode). See getCurrentTabIndex() for why the index is
+        // captured.
+        ensureActivityOrientation(Configuration.ORIENTATION_LANDSCAPE);
+        mActivityTestRule.loadUrl("chrome-native://settings/");
+        int settingsTab = getCurrentTabIndex();
+        onViewWaiting(withText(R.string.search_engine_settings)).check(matches(isDisplayed()));
+        ensureTwoColumnMode();
+
+        // Search for "Theme" and open the result.
+        onViewWaiting(withId(R.id.search_box)).perform(click());
+        onViewWaiting(withId(R.id.search_query)).perform(replaceText("Theme"), closeSoftKeyboard());
+        onViewWaiting(allOf(withId(android.R.id.title), withText(R.string.theme_settings)))
+                .perform(click());
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Fragment fragment = getSettingsMainFragment();
+                    return fragment != null
+                            && !(fragment instanceof SearchResultsPreferenceFragment);
+                },
+                "The search result page should be shown.");
+        Class<?> resultPageClass = getSettingsMainFragment().getClass();
+        Object settingsPage = getCurrentNativePage();
+
+        // Open a second tab, then switch back to the Settings tab.
+        mActivityTestRule.loadUrlInNewTab("about:blank");
+        ChromeTabUtils.switchTabInCurrentTabModel(mActivityTestRule.getActivity(), settingsTab);
+        onViewWaiting(withId(R.id.search_query_container)).check(matches(isDisplayed()));
+
+        // A single tab switch keeps the settings page alive, rather than freezing and recreating
+        // it, so its fragment state is preserved.
+        assertSame(
+                "The settings page should not be recreated.", settingsPage, getCurrentNativePage());
+
+        // Let pending fragment transactions run, then verify the result page is still shown rather
+        // than the search results it was opened from.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    var hostFragment = SettingsHostFragment.get(mActivityTestRule.getActivity());
+                    assertNotNull(hostFragment);
+                    hostFragment.executePendingNavigations();
+                });
+        assertThat(getSettingsMainFragment(), instanceOf(resultPageClass));
     }
 
     /**
@@ -1738,6 +1797,21 @@ public class SettingsPageTest {
                     return hostFragment != null && !hostFragment.isTwoColumnSettingsVisible();
                 },
                 "Settings should be shown in single-column mode.");
+    }
+
+    /** Returns the current tab's native page, or null. */
+    private Object getCurrentNativePage() {
+        return ThreadUtils.runOnUiThreadBlocking(
+                () -> mActivityTestRule.getActivity().getActivityTab().getNativePage());
+    }
+
+    /** Returns the fragment shown as the settings main content, or null. */
+    private Fragment getSettingsMainFragment() {
+        return ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    var hostFragment = SettingsHostFragment.get(mActivityTestRule.getActivity());
+                    return hostFragment != null ? hostFragment.getMainFragment() : null;
+                });
     }
 
     /**

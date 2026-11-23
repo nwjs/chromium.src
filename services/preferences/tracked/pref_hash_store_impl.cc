@@ -333,9 +333,10 @@ PrefHashStoreImpl::PrefHashStoreTransactionImpl::PrefHashStoreTransactionImpl(
       base::DictValue filtered_dict;
       // Filter out legacy HMACs to compute the hash over encrypted hashes only.
       FilterEncryptedHashesRecursive(*contents, filtered_dict);
-      std::string expected_hash =
-          outer_->ComputeEncryptedHash("", &filtered_dict, encryptor_.get());
-      if (super_encrypted_hash == expected_hash) {
+      base::Value filtered_value(std::move(filtered_dict));
+      if (outer_->pref_hash_calculator_.ValidateEncryptedHash(
+              "", &filtered_value, super_encrypted_hash, encryptor_.get()) ==
+          ValidationResult::VALID_ENCRYPTED) {
         super_encrypted_hash_valid_ = true;
       } else {
         super_encrypted_hash_mismatch_ = true;
@@ -470,10 +471,10 @@ ValueState PrefHashStoreImpl::PrefHashStoreTransactionImpl::CheckValueInternal(
           outer_->pref_hash_calculator_.ValidateHmac(path, value, *stored_hmac);
       if (hmac_validation_result == ValidationResult::VALID_HMAC) {
         // If we fell through from encrypted (which was unusable), a valid HMAC
-        // still means the value is UNCHANGED.
-        return ValueState::UNCHANGED;
+        // still means the value is UNCHANGED_HMAC.
+        return ValueState::UNCHANGED_HMAC;
       }
-      return value ? ValueState::CHANGED : ValueState::CLEARED;
+      return value ? ValueState::CHANGED_HMAC : ValueState::CLEARED_HMAC;
     }
   }
 
@@ -692,9 +693,10 @@ PrefHashStoreImpl::PrefHashStoreTransactionImpl::CheckSplitValueInternal(
       }
 
       if (invalid_keys->empty()) {
-        return ValueState::UNCHANGED;
+        return ValueState::UNCHANGED_HMAC;
       }
-      return is_initial_value_empty ? ValueState::CLEARED : ValueState::CHANGED;
+      return is_initial_value_empty ? ValueState::CLEARED_HMAC
+                                    : ValueState::CHANGED_HMAC;
     }
     if (has_encrypted_hashes && !has_hmacs) {
       only_unusable_encrypted_present = true;
@@ -708,7 +710,7 @@ PrefHashStoreImpl::PrefHashStoreTransactionImpl::CheckSplitValueInternal(
   // 3. Encryptor is present, encrypted hashes missing, and legacy fallback
   // disabled.
   if (is_initial_value_empty) {
-    return ValueState::UNCHANGED;
+    return ValueState::UNCHANGED_HMAC;
   }
 
   if (only_unusable_encrypted_present) {

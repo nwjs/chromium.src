@@ -278,7 +278,10 @@ public class ChosenObjectSettings extends BaseSiteSettingsFragment
         header.setTitle(titleText);
         header.setImageView(
                 R.drawable.ic_delete_white_24dp,
-                R.string.website_settings_revoke_all_permissions_for_device,
+                requireContext()
+                        .getString(
+                                R.string.website_settings_revoke_all_permissions_for_device,
+                                titleText),
                 (View view) -> {
                     new AlertDialog.Builder(
                                     getContext(), R.style.ThemeOverlay_BrowserUI_AlertDialog)
@@ -293,6 +296,7 @@ public class ChosenObjectSettings extends BaseSiteSettingsFragment
                             .setNegativeButton(R.string.cancel, null)
                             .show();
                 });
+        header.setSelectable(false);
         preferenceScreen.addPreference(header);
 
         // TODO(chouinard): Handle this header and divider in a cleaner way. May need to migrate
@@ -300,6 +304,7 @@ public class ChosenObjectSettings extends BaseSiteSettingsFragment
         // programmatically.
         Preference divider = new Preference(getStyledContext());
         divider.setLayoutResource(R.layout.horizontal_divider);
+        divider.setSelectable(false);
         preferenceScreen.addPreference(divider);
     }
 
@@ -326,7 +331,10 @@ public class ChosenObjectSettings extends BaseSiteSettingsFragment
             preference.setFragment(SingleWebsiteSettings.class.getCanonicalName());
             preference.setImageView(
                     R.drawable.ic_delete_white_24dp,
-                    R.string.website_settings_revoke_device_permission,
+                    requireContext()
+                            .getString(
+                                    R.string.website_settings_revoke_device_permission,
+                                    site.getTitle()),
                     (View view) -> {
                         info.revoke(getSiteSettingsDelegate().getBrowserContextHandle());
                         getInfo();

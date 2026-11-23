@@ -6,14 +6,15 @@ package org.chromium.chrome.browser.ntp_customization.theme;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.jni_zero.JniUniquePtr;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -23,6 +24,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.ntp_customization.theme.NtpSyncedThemeBridge.NativeNtpSyncedThemeBridge;
 import org.chromium.chrome.browser.ntp_customization.theme.NtpSyncedThemeBridge.SyncedBackgroundInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.CustomBackgroundInfo;
@@ -33,7 +35,6 @@ import org.chromium.url.JUnitTestGURLs;
 /** Unit tests for {@link NtpSyncedThemeBridge}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class NtpSyncedThemeBridgeUnitTest {
-    public static final long NATIVE_NTP_SYNCED_THEME_BRIDGE = 1L;
     public static final GURL BACKGROUND_URL = JUnitTestGURLs.URL_1;
     public static final String COLLECTION_ID = "test_collection";
     public static final String ATTRIBUTION_LINE_1 = "Attribution 1";
@@ -43,6 +44,7 @@ public class NtpSyncedThemeBridgeUnitTest {
     public static final int PRIMARY_COLOR = 0xFF123456;
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private NtpSyncedThemeBridge.Natives mNatives;
+    @Mock private JniUniquePtr<NativeNtpSyncedThemeBridge> mNativeNtpSyncedThemeBridge;
     @Mock private Profile mProfile;
     @Mock private NtpSyncedThemeBridge.Observer mObserver;
     private NtpSyncedThemeBridge mNtpSyncedThemeBridge;
@@ -50,7 +52,7 @@ public class NtpSyncedThemeBridgeUnitTest {
     @Before
     public void setUp() {
         NtpSyncedThemeBridgeJni.setInstanceForTesting(mNatives);
-        when(mNatives.init(any(), any())).thenReturn(NATIVE_NTP_SYNCED_THEME_BRIDGE);
+        when(mNatives.init(any(), any())).thenReturn(mNativeNtpSyncedThemeBridge);
         mNtpSyncedThemeBridge = new NtpSyncedThemeBridge(mProfile, mObserver);
     }
 
@@ -58,48 +60,56 @@ public class NtpSyncedThemeBridgeUnitTest {
     public void testInitAndDestroy() {
         verify(mNatives).init(eq(mProfile), any(NtpSyncedThemeBridge.class));
         mNtpSyncedThemeBridge.destroy();
-        verify(mNatives).destroy(NATIVE_NTP_SYNCED_THEME_BRIDGE);
+        verify(mNativeNtpSyncedThemeBridge).destroy();
 
         // Calling destroy() again should be a no-op.
         mNtpSyncedThemeBridge.destroy();
-        verify(mNatives).destroy(NATIVE_NTP_SYNCED_THEME_BRIDGE);
+        verify(mNativeNtpSyncedThemeBridge).destroy();
     }
 
     @Test
-    public void onCustomBackgroundImageUpdated() {
+    public void testOnThemeCollectionUpdated_passesIsImageFromSyncThrough() {
         CustomBackgroundInfo info =
                 new CustomBackgroundInfo(
                         BACKGROUND_URL,
                         COLLECTION_ID,
                         /* isUploadedImage= */ false,
                         /* isDailyRefreshEnabled= */ false);
-        when(mNatives.getCustomBackgroundInfo(anyLong()))
+        when(mNatives.getCustomBackgroundInfo(any()))
                 .thenReturn(new SyncedBackgroundInfo(info, /* primaryColor= */ null));
-        mNtpSyncedThemeBridge.onCustomBackgroundImageUpdated();
-        verify(mObserver).onThemeCollectionSynced(info, /* primaryColor= */ null);
+        mNtpSyncedThemeBridge.onThemeCollectionUpdated(/* isImageFromSync= */ true);
+        verify(mObserver)
+                .onThemeCollectionImageAvailable(
+                        info, /* primaryColor= */ null, /* isImageFromSync= */ true);
 
-        when(mNatives.getCustomBackgroundInfo(anyLong()))
+        when(mNatives.getCustomBackgroundInfo(any()))
                 .thenReturn(new SyncedBackgroundInfo(info, PRIMARY_COLOR));
-        mNtpSyncedThemeBridge.onCustomBackgroundImageUpdated();
-        verify(mObserver).onThemeCollectionSynced(info, PRIMARY_COLOR);
+        mNtpSyncedThemeBridge.onThemeCollectionUpdated(/* isImageFromSync= */ false);
+        verify(mObserver)
+                .onThemeCollectionImageAvailable(info, PRIMARY_COLOR, /* isImageFromSync= */ false);
+    }
+
+    @Test
+    public void testOnThemeCollectionUpdated_nullInfo() {
+        when(mNatives.getCustomBackgroundInfo(any())).thenReturn(null);
+        mNtpSyncedThemeBridge.onThemeCollectionUpdated(/* isImageFromSync= */ true);
+        verify(mObserver)
+                .onThemeCollectionImageAvailable(
+                        /* info= */ null, /* primaryColor= */ null, /* isImageFromSync= */ true);
+    }
+
+    @Test
+    public void testOnThemeCollectionUpdated_afterDestroy_isNoOp() {
+        mNtpSyncedThemeBridge.destroy();
+        mNtpSyncedThemeBridge.onThemeCollectionUpdated(/* isImageFromSync= */ true);
+        verify(mNatives, never()).getCustomBackgroundInfo(any());
+        verify(mObserver, never()).onThemeCollectionImageAvailable(any(), any(), anyBoolean());
     }
 
     @Test
     public void testFetchNextThemeCollectionImage() {
         mNtpSyncedThemeBridge.fetchNextThemeCollectionImage();
-        verify(mNatives).fetchNextThemeCollectionImage(NATIVE_NTP_SYNCED_THEME_BRIDGE);
-    }
-
-    @Test
-    public void testIsProcessingSyncUpdate() {
-        when(mNatives.isProcessingSyncUpdate(NATIVE_NTP_SYNCED_THEME_BRIDGE)).thenReturn(true);
-        assertTrue(mNtpSyncedThemeBridge.isProcessingSyncUpdate());
-
-        when(mNatives.isProcessingSyncUpdate(NATIVE_NTP_SYNCED_THEME_BRIDGE)).thenReturn(false);
-        assertFalse(mNtpSyncedThemeBridge.isProcessingSyncUpdate());
-
-        mNtpSyncedThemeBridge.destroy();
-        assertFalse(mNtpSyncedThemeBridge.isProcessingSyncUpdate());
+        verify(mNatives).fetchNextThemeCollectionImage(mNativeNtpSyncedThemeBridge);
     }
 
     @Test
@@ -113,10 +123,12 @@ public class NtpSyncedThemeBridgeUnitTest {
                         COLLECTION_ID,
                         /* isUploadedImage= */ false,
                         /* isDailyRefreshEnabled= */ false);
-        when(mNatives.getCustomBackgroundInfo(anyLong()))
+        when(mNatives.getCustomBackgroundInfo(any()))
                 .thenReturn(new SyncedBackgroundInfo(info, /* primaryColor= */ null));
-        bridge.onCustomBackgroundImageUpdated();
-        verify(observer).onThemeCollectionSynced(info, /* primaryColor= */ null);
+        bridge.onThemeCollectionUpdated(/* isImageFromSync= */ true);
+        verify(observer)
+                .onThemeCollectionImageAvailable(
+                        info, /* primaryColor= */ null, /* isImageFromSync= */ true);
 
         bridge.onChromeColorSynced(THEME_COLOR_ID);
         verify(observer).onChromeColorSynced(THEME_COLOR_ID);
@@ -128,13 +140,13 @@ public class NtpSyncedThemeBridgeUnitTest {
     @Test
     public void testOutboundSyncMethods() {
         mNtpSyncedThemeBridge.setChromeColor(THEME_COLOR_ID);
-        verify(mNatives).setChromeColor(NATIVE_NTP_SYNCED_THEME_BRIDGE, THEME_COLOR_ID);
+        verify(mNatives).setChromeColor(mNativeNtpSyncedThemeBridge, THEME_COLOR_ID);
 
         mNtpSyncedThemeBridge.resetCustomBackgroundInfo();
-        verify(mNatives).resetCustomBackgroundInfo(NATIVE_NTP_SYNCED_THEME_BRIDGE);
+        verify(mNatives).resetCustomBackgroundInfo(mNativeNtpSyncedThemeBridge);
 
         mNtpSyncedThemeBridge.selectLocalBackgroundImage();
-        verify(mNatives).selectLocalBackgroundImage(NATIVE_NTP_SYNCED_THEME_BRIDGE);
+        verify(mNatives).selectLocalBackgroundImage(mNativeNtpSyncedThemeBridge);
 
         mNtpSyncedThemeBridge.updateCustomBackgroundPrefsWithColor(
                 BACKGROUND_URL,
@@ -146,7 +158,7 @@ public class NtpSyncedThemeBridgeUnitTest {
                 /* isDailyRefresh= */ true);
         verify(mNatives)
                 .updateCustomBackgroundPrefsWithColor(
-                        NATIVE_NTP_SYNCED_THEME_BRIDGE,
+                        mNativeNtpSyncedThemeBridge,
                         BACKGROUND_URL,
                         COLLECTION_ID,
                         ATTRIBUTION_LINE_1,
@@ -166,13 +178,13 @@ public class NtpSyncedThemeBridgeUnitTest {
                 /* isDailyRefresh= */ true);
         verify(mNatives)
                 .updateCustomBackgroundPrefsWithColor(
-                        NATIVE_NTP_SYNCED_THEME_BRIDGE,
+                        mNativeNtpSyncedThemeBridge,
                         BACKGROUND_URL,
                         COLLECTION_ID,
                         ATTRIBUTION_LINE_1,
                         ATTRIBUTION_LINE_2,
                         ATTRIBUTION_ACTION_URL,
-                        0,
+                        /* primaryColor= */ 0,
                         /* isDailyRefresh= */ true);
     }
 

@@ -221,6 +221,7 @@
 #include "third_party/blink/renderer/core/html/html_image_element.h"
 #include "third_party/blink/renderer/core/html/html_link_element.h"
 #include "third_party/blink/renderer/core/html/html_menu_item_element.h"
+#include "third_party/blink/renderer/core/html/html_menu_item_element_base.h"
 #include "third_party/blink/renderer/core/html/html_menu_list_element.h"
 #include "third_party/blink/renderer/core/html/html_plugin_element.h"
 #include "third_party/blink/renderer/core/html/html_quote_element.h"
@@ -291,6 +292,7 @@
 #include "third_party/blink/renderer/core/trustedtypes/trusted_html_parser_options.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_names.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_pseudo_element_base.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_skip_reason.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
@@ -399,17 +401,17 @@ class DisplayLockStyleScope {
   bool did_update_children_ = false;
 };
 
-ScrollDirectionPhysical GetPhysicalDirectionForCommand(
+mojom::blink::ScrollDirectionPhysical GetPhysicalDirectionForCommand(
     CommandEventType command,
     const ComputedStyle& style) {
   if (command == CommandEventType::kPageUp) {
-    return kScrollUp;
+    return mojom::blink::ScrollDirectionPhysical::kUp;
   } else if (command == CommandEventType::kPageDown) {
-    return kScrollDown;
+    return mojom::blink::ScrollDirectionPhysical::kDown;
   } else if (command == CommandEventType::kPageLeft) {
-    return kScrollLeft;
+    return mojom::blink::ScrollDirectionPhysical::kLeft;
   } else if (command == CommandEventType::kPageRight) {
-    return kScrollRight;
+    return mojom::blink::ScrollDirectionPhysical::kRight;
   } else {
     LogicalToPhysical<bool> mapping(
         style.GetWritingDirection(),
@@ -419,13 +421,13 @@ ScrollDirectionPhysical GetPhysicalDirectionForCommand(
         command == CommandEventType::kPageBlockEnd);
 
     if (mapping.Top()) {
-      return kScrollUp;
+      return mojom::blink::ScrollDirectionPhysical::kUp;
     } else if (mapping.Bottom()) {
-      return kScrollDown;
+      return mojom::blink::ScrollDirectionPhysical::kDown;
     } else if (mapping.Left()) {
-      return kScrollLeft;
+      return mojom::blink::ScrollDirectionPhysical::kLeft;
     } else if (mapping.Right()) {
-      return kScrollRight;
+      return mojom::blink::ScrollDirectionPhysical::kRight;
     }
   }
   NOTREACHED();
@@ -3287,7 +3289,7 @@ bool Element::HandleScrollByPageCommand(CommandEventType command) {
     return false;
   }
 
-  ScrollDirectionPhysical physical_direction =
+  mojom::blink::ScrollDirectionPhysical physical_direction =
       GetPhysicalDirectionForCommand(command, box->Style());
 
   return scrollable_area->ScrollByPageWithSnap(physical_direction);
@@ -4023,10 +4025,18 @@ void Element::ClassAttributeChanged(const AtomicString& new_class_string) {
     GetElementData()->ClearClass();
     return;
   }
-  if (GetDocument().InQuirksMode()) [[unlikely]] {
-    GetElementData()->SetClassFoldingCase(new_class_string);
-  } else {
-    GetElementData()->SetClass(new_class_string);
+  // Avoid redundant work if we're using shared attribute data with already
+  // parsed class names. Mutations use unique data; uppercase values may need
+  // different quirks-mode folding.
+  const bool can_reuse_class_names =
+      IsHTMLElement() && !GetElementData()->IsUnique() &&
+      GetElementData()->HasClass() && new_class_string.ContainsNoAsciiUpper();
+  if (!can_reuse_class_names) {
+    if (GetDocument().InQuirksMode()) [[unlikely]] {
+      GetElementData()->SetClassFoldingCase(new_class_string);
+    } else {
+      GetElementData()->SetClass(new_class_string);
+    }
   }
   const SpaceSplitString& new_classes = GetElementData()->ClassNames();
   for (const AtomicString& class_name : new_classes) {
@@ -4304,12 +4314,17 @@ Node::InsertionNotificationRequest Element::InsertedInto(
   RecomputeDirectionFromParent();
 
   auto* parent = ParentOrShadowHostElement();
-  if (parent && parent->IsCanvasOrInCanvasSubtree()) {
+  if (!IsPseudoElement() && IsChildOfShadowHost()) {
+    if (auto* slot = AssignedSlotWithoutRecalc();
+        slot && slot->OwnerShadowHost() == parent &&
+        slot->IsInCanvasSubtree()) {
+      SetIsInCanvasSubtree(true);
+    }
+  } else if (parent && parent->IsCanvasOrInCanvasSubtree()) {
     const auto* slot = ToHTMLSlotElementIfSupportsAssignmentOrNull(*parent);
     const bool is_inactive_fallback_content =
         slot && !slot->AssignedNodesNoRecalc().empty();
-    if (IsPseudoElement() ||
-        (!IsChildOfShadowHost() && !is_inactive_fallback_content)) {
+    if (IsPseudoElement() || !is_inactive_fallback_content) {
       SetIsInCanvasSubtree(true);
     }
   } else if (!parent && insertion_point.IsDocumentNode()) {
@@ -4488,7 +4503,8 @@ void Element::VerifySubtreeIsInCanvas(bool value) {
   } else if (auto* slot = ToHTMLSlotElementIfSupportsAssignmentOrNull(*this);
              slot && !slot->AssignedNodesNoRecalc().empty()) {
     for (Node* node : slot->AssignedNodesNoRecalc()) {
-      if (auto* child = DynamicTo<Element>(node)) {
+      if (auto* child = DynamicTo<Element>(node);
+          child && child->AssignedSlotWithoutRecalc() == slot) {
         child->VerifySubtreeIsInCanvas(value);
       }
     }
@@ -4512,8 +4528,11 @@ void Element::VerifySubtreeIsInCanvas(bool value) {
 }
 #endif
 
-void Element::SetIsInCanvasSubtree(bool value) {
-  if (value == IsInCanvasSubtree()) {
+void Element::SetIsInCanvasSubtree(
+    bool value,
+    CanvasSubtreePropagation propagation_behavior) {
+  if (propagation_behavior == CanvasSubtreePropagation::kOnlyIfChanged &&
+      value == IsInCanvasSubtree()) {
 #if DCHECK_IS_ON()
     if (!GetDocument().IsSlotAssignmentRecalcForbidden()) {
       VerifySubtreeIsInCanvas(value);
@@ -4524,7 +4543,7 @@ void Element::SetIsInCanvasSubtree(bool value) {
 
   SetElementFlag(ElementFlags::kIsInCanvasSubtree, value);
   // Note that this call leads to HTMLFrameOwnerElement updating iframes.
-  DidChangeIsInCanvasSubtree();
+  DidChangeIsInCanvasSubtree(propagation_behavior);
   if (!value && IsA<HTMLCanvasElement>(*this)) {
     // Nested canvas element must reset the value to true.
     value = true;
@@ -4539,27 +4558,30 @@ void Element::SetIsInCanvasSubtree(bool value) {
   //    this visits active fallback content).
   if (ShadowRoot* shadow_root = GetShadowRoot()) {
     for (Element& child : ElementTraversal::ChildrenOf(*shadow_root)) {
-      child.SetIsInCanvasSubtree(value);
+      child.SetIsInCanvasSubtree(value, propagation_behavior);
     }
   } else if (auto* slot = ToHTMLSlotElementIfSupportsAssignmentOrNull(*this)) {
-    for (Node* node : slot->AssignedNodesNoRecalc()) {
-      if (auto* child = DynamicTo<Element>(node)) {
-        child->SetIsInCanvasSubtree(value);
+    const HeapVector<Member<Node>> assigned_nodes =
+        slot->AssignedNodesNoRecalc();
+    for (Node* node : assigned_nodes) {
+      if (auto* child = DynamicTo<Element>(node);
+          child && child->AssignedSlotWithoutRecalc() == slot) {
+        child->SetIsInCanvasSubtree(value, propagation_behavior);
       }
     }
     // Fallback content
     for (Element& child : ElementTraversal::ChildrenOf(*this)) {
-      child.SetIsInCanvasSubtree(value &&
-                                 slot->AssignedNodesNoRecalc().empty());
+      child.SetIsInCanvasSubtree(value && slot->AssignedNodesNoRecalc().empty(),
+                                 propagation_behavior);
     }
   } else {
     for (Element& child : ElementTraversal::ChildrenOf(*this)) {
-      child.SetIsInCanvasSubtree(value);
+      child.SetIsInCanvasSubtree(value, propagation_behavior);
     }
   }
   if (const NodeRareData* rare_data = RareData()) {
     for (PseudoElement* pseudo_element : rare_data->GetPseudoElements()) {
-      pseudo_element->SetIsInCanvasSubtree(value);
+      pseudo_element->SetIsInCanvasSubtree(value, propagation_behavior);
     }
   }
 }
@@ -4574,14 +4596,19 @@ bool Element::IsCanvasOrInCanvasSubtree() const {
   return false;
 }
 
-void Element::DidChangeIsInCanvasSubtree() {
+void Element::DidChangeIsInCanvasSubtree(CanvasSubtreePropagation) {
+  if (IsLink() && GetComputedStyle()) {
+    SetNeedsStyleRecalc(kLocalStyleChange,
+                        StyleChangeReasonForTracing::Create(
+                            style_change_reason::kFlatTreeChange));
+  }
   if (auto* layout_object = GetLayoutObject()) {
     layout_object->SetNeedsPaintPropertyUpdate();
     layout_object->SetSubtreeShouldDoFullPaintInvalidation();
     if (layout_object->HasLayer()) {
-      To<LayoutBoxModelObject>(layout_object)
-          ->Layer()
-          ->SetFilterOnEffectNodeDirty();
+      PaintLayer* layer = To<LayoutBoxModelObject>(layout_object)->Layer();
+      layer->SetFilterOnEffectNodeDirty();
+      layer->SetBackdropFilterOnEffectNodeDirty();
     }
   }
 }
@@ -5592,7 +5619,8 @@ void Element::RecalcStyle(const StyleRecalcChange change,
                           child_recalc_context);
       UpdateColumnPseudoElements(child_change, child_recalc_context);
 
-      if (IsA<HTMLMenuItemElement>(this) || IsA<HTMLOptionElement>(this) ||
+      if (IsA<HTMLMenuItemCheckableElementBase>(this) ||
+          IsA<HTMLOptionElement>(this) ||
           (IsA<HTMLInputElement>(this) &&
            RuntimeEnabledFeatures::AppearanceBaseEnabled())) {
         UpdatePseudoElement(kPseudoIdCheckMark, child_change,
@@ -8462,7 +8490,8 @@ void Element::RemoveAttributeInternal(wtf_size_t index,
     DetachAttrNodeFromElementWithValue(attr_node, value_being_removed);
   }
 
-  // WillModifyAttribute() may pause in the debugger and allow script to mutate
+  // WillModifyAttribute() may run script (e.g. by pausing in the debugger or
+  // lazily initializing a WindowProxy during UpdateName()) and mutate
   // attributes, invalidating `index`.
   if (index >= mutable_attributes.size() ||
       mutable_attributes[index].GetName() != name) {
@@ -8491,7 +8520,15 @@ void Element::AppendAttributeInternal(const QualifiedName& name,
   }
   attribute_or_class_bloom_ |= FilterForAttribute(name);
   UpdateSubtreeBloomFilterAfterInsert();
-  EnsureUniqueElementData().Attributes().Append(name, value);
+  // WillModifyAttribute() may run script (e.g. by pausing in the debugger or
+  // lazily initializing a WindowProxy during UpdateName()) and add the
+  // attribute re-entrantly before we append it here.
+  if (wtf_size_t index = FindAttributeIndex(name); index != kNotFound)
+      [[unlikely]] {
+    EnsureUniqueElementData().Attributes().at(index).SetValue(value);
+  } else {
+    EnsureUniqueElementData().Attributes().Append(name, value);
+  }
   if (reason !=
       AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
     DidAddAttribute(name, value);
@@ -10500,20 +10537,6 @@ void Element::SetShadowPseudoId(const AtomicString& id) {
   setAttribute(html_names::kPseudoAttr, id);
 }
 
-bool Element::IsInDescendantTreeOf(const Element* shadow_host) const {
-  DCHECK(shadow_host);
-  DCHECK(IsShadowHost(shadow_host));
-
-  for (const Element* ancestor_shadow_host = OwnerShadowHost();
-       ancestor_shadow_host;
-       ancestor_shadow_host = ancestor_shadow_host->OwnerShadowHost()) {
-    if (ancestor_shadow_host == shadow_host) {
-      return true;
-    }
-  }
-  return false;
-}
-
 namespace {
 
 HeapVector<Member<Element>> CollectAncestorsToEnsure(Element& element) {
@@ -11148,6 +11171,15 @@ void Element::UpdateFirstLetterPseudoElement(
         ->SetPseudoElement(kPseudoIdFirstLetter, nullptr)
         .RefreshNode(*this);
     GetDocument().GetStyleEngine().PseudoElementRemoved(*this);
+    // Removing this ::first-letter may allow an ancestor's ::first-letter to
+    // apply. The interleaved style recalc for a size container skips
+    // RecalcStyleForTraversalRootAncestor() for its ancestors, so mark for
+    // layout tree rebuild to make sure RebuildFirstLetterLayoutTree() is
+    // called for them.
+    if (!ChildNeedsReattachLayoutTree()) {
+      SetChildNeedsReattachLayoutTree();
+      MarkAncestorsWithChildNeedsReattachLayoutTree();
+    }
   }
 }
 
@@ -11774,7 +11806,10 @@ const ComputedStyle* Element::StyleForSearchTextPseudoElement(
 
 bool Element::CanGeneratePseudoElement(PseudoId pseudo_id) const {
   if (pseudo_id == kPseudoIdViewTransition) {
-    return !!ViewTransitionUtils::GetTransition(*this) && !!GetComputedStyle();
+    const ViewTransition* transition =
+        ViewTransitionUtils::GetTransition(*this);
+    return transition && transition->GeneratesPseudoElementTree() &&
+           !!GetComputedStyle();
   }
   if (pseudo_id == kPseudoIdFirstLetter && IsSVGElement()) {
     return false;
@@ -11800,8 +11835,8 @@ bool Element::CanGeneratePseudoElement(PseudoId pseudo_id) const {
       }
       return false;
     };
-    const HTMLMenuItemElement* menu_item = DynamicTo<HTMLMenuItemElement>(this);
-    const bool checkable_menu_item = menu_item && menu_item->IsCheckable();
+    const auto* checkable_menu_item =
+        DynamicTo<HTMLMenuItemCheckableElementBase>(this);
     const HTMLInputElement* input = DynamicTo<HTMLInputElement>(this);
     const bool base_checkable_input =
         RuntimeEnabledFeatures::AppearanceBaseEnabled() && input &&
@@ -12083,7 +12118,10 @@ void Element::SetIsInTopLayer(bool in_top_layer) {
     // A popover inside a canvas subtree does not render with privacy
     // protections when in the top layer. So treat transitioning between top
     // layer states as equivalent to moving in or out of the canvas subtree.
-    DidChangeIsInCanvasSubtree();
+    // Moving into or out of the top layer does not by itself imply a change in
+    // IsInCanvasSubtree state, so kAlways is used to force invalidation.
+    SetIsInCanvasSubtree(IsInCanvasSubtree(),
+                         CanvasSubtreePropagation::kAlways);
   }
 
   bool user_action_stops_at_top_layer =
@@ -12466,13 +12504,13 @@ void Element::DidMoveToNewDocument(Document& old_document) {
     // this element's attributes, we shouldn't make UniqueElementData, and this
     // element should point to the shareable one.
 
-    if (const AtomicString& id_attr = GetIdAttribute()) {
+    if (AtomicString id_attr = GetIdAttribute()) {
       if (!id_attr.ContainsNoAsciiUpper()) {
         EnsureUniqueElementData();
         SetIdAttribute(id_attr);
       }
     }
-    if (const AtomicString& class_attr = GetClassAttribute()) {
+    if (AtomicString class_attr = GetClassAttribute()) {
       if (!class_attr.ContainsNoAsciiUpper()) {
         EnsureUniqueElementData();
         // Going through setAttribute() to synchronize the attribute is only
@@ -12810,9 +12848,14 @@ bool Element::IsStyleAttributeChangeAllowed(const AtomicString& style_string) {
         start_position =
             document.GetScriptableDocumentParser()->GetTextPosition();
       }
+      ReportingDisposition disposition =
+          document.IsDOMParserDocument()
+              ? ReportingDisposition::kSuppressReporting
+              : ReportingDisposition::kReport;
       return policy->AllowInline(
           ContentSecurityPolicy::InlineType::kStyleAttribute, this,
-          style_string, String() /* nonce */, document.Url(), start_position);
+          style_string, String() /* nonce */, document.Url(), start_position,
+          disposition);
     }
   }
   return false;
@@ -14083,36 +14126,45 @@ ALWAYS_INLINE void Element::SetAttributeInternal(
       GetElementData()->Attributes().at(index);
   QualifiedName existing_attribute_name = existing_attribute.GetName();
 
+  // `new_value` may be a reference into `ElementData::Attributes()`, which can
+  // be reallocated if `WillModifyAttribute()` pauses in the debugger and script
+  // mutates attributes. Copy it here (rather than taking `new_value` by value
+  // in `SetAttributeInternal`, which would add refcount churn to the
+  // `AppendAttributeInternal` fast path).
   if (new_value == existing_attribute.Value()) {
     if (reason !=
         AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
-      WillModifyAttribute(existing_attribute_name, new_value, new_value);
-      DidModifyAttribute(existing_attribute_name, new_value, new_value, reason);
+      AtomicString value_copy = new_value;
+      WillModifyAttribute(existing_attribute_name, value_copy, value_copy);
+      DidModifyAttribute(existing_attribute_name, value_copy, value_copy,
+                         reason);
     }
   } else {
     AtomicString existing_attribute_value = existing_attribute.Value();
+    AtomicString value_copy = new_value;
     if (reason !=
         AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
       WillModifyAttribute(existing_attribute_name, existing_attribute_value,
-                          new_value);
+                          value_copy);
     }
     MutableAttributeCollection mutable_attributes =
         EnsureUniqueElementData().Attributes();
-    // WillModifyAttribute() may pause in the debugger and allow script to
-    // mutate attributes, invalidating `index`.
+    // WillModifyAttribute() may run script (e.g. by pausing in the debugger or
+    // lazily initializing a WindowProxy during UpdateName()) and mutate
+    // attributes, invalidating `index`.
     if (index >= mutable_attributes.size() ||
         mutable_attributes[index].GetName() != existing_attribute_name) {
       index = mutable_attributes.FindIndex(existing_attribute_name);
     }
     if (index != kNotFound) {
-      mutable_attributes[index].SetValue(new_value);
+      mutable_attributes[index].SetValue(value_copy);
     } else {
-      mutable_attributes.Append(existing_attribute_name, new_value);
+      mutable_attributes.Append(existing_attribute_name, value_copy);
     }
     if (reason !=
         AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
       DidModifyAttribute(existing_attribute_name, existing_attribute_value,
-                         new_value, reason);
+                         value_copy, reason);
     }
   }
 }

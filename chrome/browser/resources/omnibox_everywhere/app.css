@@ -8,9 +8,9 @@
  * #css_wrapper_metadata_end */
 
 :host {
+  --color-searchbox-background: var(--color-sys-surface);
   --loomnibox-content-width: 680px;
   --most-visited-container-inset: 0px;
-  --most-visited-tile-count: 7;
   display: block;
   position: relative;
   transition: opacity 150ms ease;
@@ -19,7 +19,6 @@
 
 :host([small-loomnibox]) {
   --loomnibox-content-width: 480px;
-  --most-visited-tile-count: 5;
 }
 
 :host([small-font]) {
@@ -36,12 +35,10 @@
 
 :host([dynamic-sizing][dynamic-sizing-width='600']) {
   --loomnibox-content-width: 600px;
-  --most-visited-tile-count: 6;
 }
 
 :host([dynamic-sizing][small-loomnibox]) {
   --loomnibox-content-width: 480px;
-  --most-visited-tile-count: 5;
 }
 
 :host(:not([is-active])) {
@@ -65,9 +62,10 @@ omnibox-everywhere-composebox {
   --cr-searchbox-icon-top-position: 0;
   --cr-searchbox-min-width: 100%;
 
-  --color-composebox-type-ahead: #5f6368;
-  --color-composebox-type-ahead-chip: rgba(26, 115, 232, 0.1);
-  --color-composebox-font-light: #1f1f1f;
+  --color-composebox-background: var(--color-sys-surface);
+  --color-composebox-type-ahead: var(--color-sys-on-surface-subtle);
+  --color-composebox-type-ahead-chip: var(--color-sys-surface-container-high);
+  --color-composebox-font-light: var(--color-sys-on-surface);
   --color-searchbox-placeholder: var(--color-composebox-type-ahead);
   display: block;
 }
@@ -106,15 +104,20 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
 }
 
 #voiceSearchDialog {
-  --color-composebox-submit-button-background: var(
-      --color-new-tab-page-composebox-submit-button-background, #1a73e8);
-  --color-composebox-submit-button-icon: white;
+  --color-composebox-cancel-button-light: var(--color-sys-on-surface-subtle);
+  --color-composebox-font-light: var(--color-sys-on-surface);
+  --color-composebox-link: var(--color-sys-primary);
+  --color-composebox-submit-button-background: var(--color-sys-primary);
+  --color-composebox-submit-button-icon: var(--color-sys-on-primary);
+  --color-composebox-voice-search-font: var(--color-sys-on-surface);
+  --color-search-animated-glow-background: var(--color-sys-surface);
+  --cr-composebox-background-color: var(--color-sys-surface);
   --cr-composebox-submit-border-radius: 100px;
   --cr-composebox-submit-height: 36px;
   --cr-composebox-submit-icon-offset: 0;
   --cr-composebox-submit-icon-size: 24px;
   --cr-composebox-submit-width: 48px;
-  background: var(--color-composebox-background, #fff);
+  background: var(--color-sys-surface);
   border: none;
   border-radius: 16px;
   bottom: auto;
@@ -156,6 +159,8 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
 }
 
 #voiceSearch::part(voice-stop-button) {
+  --cr-icon-button-fill-color: var(--color-sys-on-surface);
+  background-color: var(--color-sys-neutral-container);
   position: relative;
 }
 
@@ -205,22 +210,78 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
   max-width: calc(100% - 4px);
 }
 
+#mostVisitedCloseButton,
+#mostVisitedCloseButton * {
+  -webkit-app-region: no-drag;
+}
+
+#mostVisitedCloseButton {
+  align-items: center;
+  background-color: var(--color-searchbox-background, #fff);
+  border: 1px solid var(--color-sys-neutral-outline, rgba(0, 0, 0, 0.12));
+  border-radius: 50%;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px 0 rgba(0, 0, 0, 0.12);
+  box-sizing: border-box;
+  color: var(--color-sys-on-surface-subtle, #474747);
+  cursor: pointer;
+  display: flex;
+  height: 20px;
+  inset-inline-end: -8px;
+  justify-content: center;
+  opacity: 0;
+  outline: none;
+  padding: 0;
+  pointer-events: none;
+  position: absolute;
+  top: -8px;
+  transition: opacity 150ms ease, background-color 150ms ease;
+  width: 20px;
+  z-index: 101;
+}
+
+#mostVisitedCloseButton cr-icon {
+  --cr-icon-size: 14px;
+  height: 14px;
+  pointer-events: none;
+  width: 14px;
+}
+
+#mostVisitedContainer:hover #mostVisitedCloseButton,
+#mostVisitedCloseButton:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#mostVisitedCloseButton:hover {
+  background-color: var(--color-sys-surface-container-highest, #dde3ea);
+  color: var(--color-sys-on-surface, #1f1f1f);
+}
+
+#mostVisitedCloseButton:focus-visible {
+  outline: 2px solid var(--color-sys-primary, #0b57d0);
+  outline-offset: 2px;
+}
+
 cr-most-visited {
   -webkit-app-region: drag;
+  --add-shortcut-foreground-color: var(--color-sys-on-surface);
   --most-visited-focus-shadow: 0 0 0 2px var(--color-sys-primary, #1a73e8);
-  /* Total inner width:
-   * var(--loomnibox-content-width) - 32px (16px * 2 padding) - 4px (2px * 2
-   * border) - var(--most-visited-container-inset).
-   * Distributed evenly across (var(--most-visited-tile-count) - 1) gaps. */
+  /* --most-visited-gap is the per-gap width between adjacent tiles inside
+   * cr-most-visited (width: max-content). Pin it to the compact 5-tile-in-
+   * 480px reference spacing ((480px - 36px padding/border - inset - 5 tiles) /
+   * 4 gaps) rather than dividing --loomnibox-content-width by
+   * --most-visited-tile-count, so removing a tile shrinks the card width
+   * (4 tiles + 3 gaps in 480px mode; 5 tiles + 4 gaps in 600px/680px mode)
+   * instead of stretching the card to the full Loomnibox width. */
   --most-visited-gap: calc(
-      (var(--loomnibox-content-width) - 36px -
-           var(--most-visited-container-inset) -
-           var(--most-visited-tile-count) * var(--most-visited-tile-size)) /
-      (var(--most-visited-tile-count) - 1));
+      (480px - 36px - var(--most-visited-container-inset) -
+           5 * var(--most-visited-tile-size)) /
+      4);
   --most-visited-icon-margin-top: 8px;
   --most-visited-icon-size: 48px;
   --most-visited-managed-icon-left: 44px;
   --most-visited-managed-icon-top: 32px;
+  --most-visited-text-color: var(--color-sys-on-surface);
   --most-visited-tile-size: 68px;
   --tile-background-color: var(--color-sys-surface-variant);
   --tile-hover-color: var(--color-sys-state-hover-on-subtle);
@@ -270,6 +331,7 @@ cr-most-visited:not([hide-title]) {
 #content:has([has-user-input]) #mostVisitedContainer,
 #content:has([is-context-menu-open]) #mostVisitedContainer,
 #content:has([is-screenshot-menu-open]) #mostVisitedContainer,
+#content:has([is-overflow-menu-open]) #mostVisitedContainer,
 #content:has(#composebox) #mostVisitedContainer,
 #mostVisitedContainer[hidden],
 #mostVisitedContainer:has(cr-most-visited:not([visible_])),
@@ -341,6 +403,9 @@ fre-chin.dismissing {
   }
   #mostVisitedContainer {
     animation: none;
+  }
+  #mostVisitedCloseButton {
+    transition: none;
   }
 }
 

@@ -83,6 +83,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/devtools/devtools_agent.mojom.h"
+#include "third_party/blink/public/public_buildflags.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "content/browser/renderer_host/compositor_impl_android.h"
@@ -93,7 +94,7 @@
 #include "content/browser/devtools/protocol/webauthn_handler.h"
 #endif
 
-#ifdef ENABLE_SMART_CARD
+#if BUILDFLAG(ENABLE_SMART_CARD)
 #include "content/browser/devtools/protocol/smart_card_emulation_handler.h"
 #endif
 
@@ -430,14 +431,15 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
   session->CreateAndAddHandler<protocol::DOMHandler>(
       session->GetClient()->MayReadLocalFiles());
   auto* emulation_handler =
-      session->CreateAndAddHandler<protocol::EmulationHandler>();
+      session->CreateAndAddHandler<protocol::EmulationHandler>(
+          session->GetClient());
   session->CreateAndAddHandler<protocol::InputHandler>(
       session->GetClient()->MayReadLocalFiles(),
       session->GetClient()->IsTrusted());
   session->CreateAndAddHandler<protocol::InspectorHandler>();
   session->CreateAndAddHandler<protocol::IOHandler>(GetIOContext());
   session->CreateAndAddHandler<protocol::MemoryHandler>();
-#ifdef ENABLE_SMART_CARD
+#if BUILDFLAG(ENABLE_SMART_CARD)
   if (is_main_frame) {
     session->CreateAndAddHandler<protocol::SmartCardEmulationHandler>(
         content::WebContents::FromRenderFrameHost(frame_host_));
@@ -596,8 +598,8 @@ void RenderFrameDevToolsAgentHost::DidFinishNavigation(
       UpdateRawHeadersAccess(frame_tree_node_->current_frame_host(), nullptr);
     }
 
-    // Same-document navigations don't get a new RFH, so there isn't really
-    // anything to update here. Eagerly updating the tracked RFH is harmful,
+    // Same-document navigations don't get a new RFH, so |frame_host_| doesn't
+    // need to be updated here. Eagerly updating the tracked RFH is harmful,
     // since the same-document navigation may interleave with cross-document
     // navigations, e.g. if triggered from an unload handler.
     // Another navigation may still be waiting to commit in the selected RFH.
@@ -613,6 +615,11 @@ void RenderFrameDevToolsAgentHost::DidFinishNavigation(
       // UpdateFrameHost may destruct |this|.
       protect = this;
       UpdateFrameHost(frame_tree_node_->current_frame_host());
+    } else if (request->IsSameDocument() && request->HasCommitted() &&
+               request->GetRenderFrameHost() == frame_host_) {
+      // Re-evaluate session access against the newly committed URL without
+      // switching the tracked RenderFrameHost.
+      protect = RevalidateSessionAccess(frame_host_);
     }
 
     if (navigation_requests_.empty()) {
@@ -625,6 +632,22 @@ void RenderFrameDevToolsAgentHost::DidFinishNavigation(
       NavigationRequest::From(navigation_handle));
 }
 
+scoped_refptr<RenderFrameDevToolsAgentHost>
+RenderFrameDevToolsAgentHost::RevalidateSessionAccess(
+    RenderFrameHostImpl* frame_host) {
+  scoped_refptr<RenderFrameDevToolsAgentHost> retain_this(this);
+  std::vector<DevToolsSession*> restricted_sessions;
+  for (DevToolsSession* session : sessions()) {
+    if (!ShouldAllowSession(frame_host, session)) {
+      restricted_sessions.push_back(session);
+    }
+  }
+  if (!restricted_sessions.empty()) {
+    ForceDetachRestrictedSessions(restricted_sessions);
+  }
+  return retain_this;
+}
+
 void RenderFrameDevToolsAgentHost::UpdateFrameHost(
     RenderFrameHostImpl* frame_host) {
   if (frame_host && !ShouldCreateDevToolsForHost(frame_host)) {
@@ -633,17 +656,8 @@ void RenderFrameDevToolsAgentHost::UpdateFrameHost(
     return;
   }
 
-  std::vector<DevToolsSession*> restricted_sessions;
-  for (DevToolsSession* session : sessions()) {
-    if (!ShouldAllowSession(frame_host, session)) {
-      restricted_sessions.push_back(session);
-    }
-  }
-  scoped_refptr<RenderFrameDevToolsAgentHost> protect;
-  if (!restricted_sessions.empty()) {
-    protect = this;
-    ForceDetachRestrictedSessions(restricted_sessions);
-  }
+  scoped_refptr<RenderFrameDevToolsAgentHost> protect =
+      RevalidateSessionAccess(frame_host);
 
   if (frame_host == frame_host_) {
     if (frame_host && !render_frame_alive_)

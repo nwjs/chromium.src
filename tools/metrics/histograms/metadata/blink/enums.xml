@@ -1297,7 +1297,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="859" label="V8MouseEvent_LayerY_AttributeGetter"/>
   <int value="860" label="InnerTextWithShadowTree"/>
   <int value="861" label="SelectionToStringWithShadowTree"/>
-  <int value="862" label="WindowFindWithShadowTree"/>
+  <int value="862" label="OBSOLETE_WindowFindWithShadowTree"/>
   <int value="863" label="V8CompositionEvent_InitCompositionEvent_Method"/>
   <int value="864" label="V8CustomEvent_InitCustomEvent_Method"/>
   <int value="865" label="V8DeviceMotionEvent_InitDeviceMotionEvent_Method"/>
@@ -4960,7 +4960,8 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4329" label="ReplacedElementPaintedWithLargeOverflow"/>
   <int value="4330" label="FlexboxAbsPosJustifyContent"/>
   <int value="4331" label="MultipleFetchHandlersInServiceWorker"/>
-  <int value="4332" label="StorageAccessAPI_requestStorageAccessFor_Method"/>
+  <int value="4332"
+      label="OBSOLETE_StorageAccessAPI_requestStorageAccessFor_Method"/>
   <int value="4333" label="OBSOLETE_PrivateAggregationApiAll"/>
   <int value="4334" label="OBSOLETE_PrivateAggregationApiFledge"/>
   <int value="4335" label="OBSOLETE_PrivateAggregationApiSharedStorage"/>
@@ -5281,8 +5282,10 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="4621" label="OBSOLETE_ORBBlockWithOnLoadAndOnErrorEventHandler"/>
   <int value="4622" label="OBSOLETE_ORBBlockWithAnyEventHandler"/>
   <int value="4623" label="V8RTCEncodedVideoFrame_SetMetadata_Method"/>
-  <int value="4624" label="V8RTCEncodedVideoFrame_SetTimestamp_Method"/>
-  <int value="4625" label="V8RTCEncodedAudioFrame_SetTimestamp_Method"/>
+  <int value="4624"
+      label="OBSOLETE_V8RTCEncodedVideoFrame_SetTimestamp_Method"/>
+  <int value="4625"
+      label="OBSOLETE_V8RTCEncodedAudioFrame_SetTimestamp_Method"/>
   <int value="4626" label="CSSAtRuleViewTransition"/>
   <int value="4627" label="SharedDictionaryUsedWithSharedBrotli"/>
   <int value="4628" label="SharedDictionaryUsedWithSharedZstd"/>
@@ -6573,7 +6576,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5771" label="SetCookieWithEmptyName"/>
   <int value="5772" label="SetCookieWithEmptyNameAndAmbiguousValue"/>
   <int value="5773"
-      label="StorageAccessAPI_requestStorageAccessFor_Method_AsyncSuccess"/>
+      label="OBSOLETE_StorageAccessAPI_requestStorageAccessFor_Method_AsyncSuccess"/>
   <int value="5774" label="WebAudioRenderSizeHint"/>
   <int value="5775" label="WebAudioRenderQuantumSize"/>
   <int value="5776" label="ImageElementTimingNotImageOrVideoNode"/>
@@ -6795,7 +6798,8 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5980" label="UAReplaceEndAddListener"/>
   <int value="5981" label="AdImageHDR"/>
   <int value="5982" label="AdVideoHDR"/>
-  <int value="5983" label="LocalNetworkAccessShouldTreatAsPublicAddressCsp"/>
+  <int value="5983"
+      label="OBSOLETE_LocalNetworkAccessShouldTreatAsPublicAddressCsp"/>
   <int value="5984" label="CreateBytesModuleScript"/>
   <int value="5985" label="V8ModuleNamespaceMissingDefaultWithStarExport"/>
   <int value="5986" label="V8WasmGCAllocation"/>
@@ -6857,6 +6861,28 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="6040" label="HTMLSelectedContentElement"/>
   <int value="6041" label="WebTransportExportKeyingMaterial"/>
   <int value="6042" label="OfflineAudioContextClose"/>
+  <int value="6043" label="ViewTransitionPreventSvgFilterPaint"/>
+  <int value="6044" label="MulticastControllerJoinGroupWithSourceAddress"/>
+  <int value="6045" label="CSSGridLanesLayout"/>
+  <int value="6046" label="SmartCardContextRelease"/>
+  <int value="6047" label="SameDocumentSameSiteCrossOriginInitiator"/>
+  <int value="6048" label="SameDocumentCrossSiteInitiator"/>
+  <int value="6079"
+      label="V8PerformanceResourceTiming_WorkerMatchedRouterSource_AttributeGetter"/>
+  <int value="6080"
+      label="V8PerformanceResourceTiming_WorkerFinalRouterSource_AttributeGetter"/>
+  <int value="6081"
+      label="PerformanceResourceTimingWorkerMatchedSourceTypeNonEmpty"/>
+  <int value="6082"
+      label="PerformanceResourceTimingWorkerFinalSourceTypeNonEmpty"/>
+  <int value="6083"
+      label="PerformanceResourceTimingWorkerMatchedRouterSourceNonEmpty"/>
+  <int value="6084"
+      label="PerformanceResourceTimingWorkerFinalRouterSourceNonEmpty"/>
+  <int value="6085"
+      label="PerformanceResourceTimingWorkerMatchedBothGettersNonEmpty"/>
+  <int value="6086"
+      label="PerformanceResourceTimingWorkerFinalBothGettersNonEmpty"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -7017,6 +7043,7 @@ Called by update_permissions_policy_enum.py.-->
   <int value="147" label="WebNN"/>
   <int value="148" label="Haptics"/>
   <int value="149" label="PublicKeyCredentialsRemoteClientDataJson"/>
+  <int value="150" label="UnboundedElement"/>
 </enum>
 
 <!-- LINT.IfChange(FedCmAccountChooserResult) -->
@@ -8593,7 +8620,7 @@ Called by update_use_counter_css.py.-->
   <int value="805" label="text-wrap-mode"/>
   <int value="806" label="text-wrap-style"/>
   <int value="807" label="masonry-track (obsolete)"/>
-  <int value="808" label="flow-tolerance"/>
+  <int value="808" label="fit-tolerance"/>
   <int value="809" label="caret-animation"/>
   <int value="810" label="view-transition-capture-mode (obsolete)"/>
   <int value="811" label="interactivity"/>
@@ -8752,6 +8779,14 @@ Called by update_use_counter_css.py.-->
   <int value="964" label="text-decoration-inset"/>
   <int value="965" label="overscroll-container-type"/>
   <int value="966" label="link-parameters"/>
+  <int value="967" label="border-block-end-radius"/>
+  <int value="968" label="border-block-start-radius"/>
+  <int value="969" label="border-inline-end-radius"/>
+  <int value="970" label="border-inline-start-radius"/>
+  <int value="971" label="border-bottom-radius"/>
+  <int value="972" label="border-left-radius"/>
+  <int value="973" label="border-right-radius"/>
+  <int value="974" label="border-top-radius"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom:CSSSampleId) -->
@@ -9332,7 +9367,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="421" label="Proofreader"/>
   <int value="422" label="Rewriter"/>
   <int value="423" label="Writer"/>
-  <int value="424" label="DRAFT_InstallElement"/>
+  <int value="424" label="Install"/>
   <int value="425" label="Languagedetector"/>
   <int value="426" label="Translator"/>
   <int value="427" label="DocumentModelcontext"/>

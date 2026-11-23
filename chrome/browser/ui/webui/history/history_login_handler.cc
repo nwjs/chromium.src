@@ -104,7 +104,7 @@ void HistoryLoginHandler::HandleTurnOnSyncFlow(
                        .GetCoreAccountInfo();
   }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
-  signin_ui_util::EnableSyncFromSingleAccountPromo(
+  signin_ui_util::EnableHistorySyncFromSingleAccountPromo(
       profile, account_info, signin_metrics::AccessPoint::kRecentTabs);
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
@@ -149,4 +149,4 @@ base::DictValue HistoryLoginHandler::GetHistoryIdentityStateDict() {
            static_cast<int>(history_identity_state.history_sync));
   return dict;
 }
-// LINT.ThenChange(/chrome/browser/resources/history/externs.ts:HistoryIdentityState)
+// LINT.ThenChange(/chrome/browser/resources/history/browser_proxy.ts:HistoryIdentityState)

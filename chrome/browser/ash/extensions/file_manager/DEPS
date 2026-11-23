@@ -22,16 +22,12 @@ include_rules = [
   "+chrome/browser/ash/policy/dlp",
   "+chrome/browser/ash/policy/skyvault",
   "+chrome/browser/ash/smb_client",
-  "+chrome/browser/chromeos/drivefs",
   "+chrome/browser/chromeos/policy/dlp",
-  "+chrome/browser/chromeos/upload_office_to_cloud",
   "+chrome/browser/devtools",
   "+chrome/browser/download",
   "+chrome/browser/extensions/api/file_system",
   "+chrome/browser/extensions/devtools_util.h",
-  "+chrome/browser/extensions/extension_util.h",
   "+chrome/browser/feedback/show_feedback_page.h",
-  "+chrome/browser/net",
   "+chrome/browser/pdf",
   "+chrome/browser/platform_util.h",
   "+chrome/browser/sharesheet",
@@ -48,6 +44,10 @@ specific_include_rules = {
   ],
 
   "private_api_dialog\\.cc" : [
+    "+chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension.h",
+  ],
+
+  "select_file_dialog_extension_user_data\\.cc" : [
     "+chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension.h",
   ],
 

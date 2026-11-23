@@ -100,7 +100,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Search.Ambient.Query" enum="AmbientSearchEntryPoint"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>juanmojica@google.com</owner>
   <owner>schechter@google.com</owner>
   <owner>stanfield@google.com</owner>
@@ -402,7 +402,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.ChoiceDebug.PreexistingProgramTaggedEntries"
-    units="entries" expires_after="2027-02-07">
+    units="entries" expires_after="2027-04-11">
   <owner>dgn@google.com</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
   <summary>
@@ -1106,7 +1106,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.DefaultSearchEngineMirrorCheckOutcome"
-    enum="DefaultSearchEngineMirrorCheckOutcomeType" expires_after="2027-02-07">
+    enum="DefaultSearchEngineMirrorCheckOutcomeType" expires_after="2027-04-11">
   <owner>fikremengistu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1136,7 +1136,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.DefaultSearchEngineResetNotificationShown"
-    enum="BooleanShown" expires_after="2027-02-07">
+    enum="BooleanShown" expires_after="2027-04-11">
   <owner>fikremengistu@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -1152,7 +1152,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.DefaultSearchProviderType2{Population}"
-    enum="OmniboxSearchEngineType" expires_after="2027-02-07">
+    enum="OmniboxSearchEngineType" expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>ftirelo@chromium.org</owner>
   <summary>
@@ -1202,7 +1202,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.Image.Camera.Open" enum="CameraOpenEntryPoint"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>juanmojica@google.com</owner>
   <owner>schechter@google.com</owner>
   <owner>stanfield@google.com</owner>
@@ -1512,6 +1512,43 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
   <token key="Enterprise" variants="SearchIntegrityEnterprise"/>
 </histogram>
 
+<histogram name="Search.Integrity{Enterprise}.IsDefaultSetByPolicyInLowTrust"
+    enum="Boolean" expires_after="2027-10-01">
+  <owner>yeroshkin@chromium.org</owner>
+  <owner>musalmaan@chromium.org</owner>
+  <owner>chrome-desktop-ui-waterloo@google.com</owner>
+  <summary>
+    Records whether the default search engine has policy_origin set to
+    kDefaultSearchProvider (CreatedByDefaultSearchProviderPolicy) while the
+    browser and profile are in a low-trust management environment (management
+    authority trustworthiness below TRUSTED) {Enterprise}.
+
+    Recorded once per profile at startup when the search engine allowlist is
+    initialized and the configuration is checked, if the default search engine
+    has policy_origin set to kDefaultSearchProvider.
+  </summary>
+  <token key="Enterprise" variants="SearchIntegrityEnterprise"/>
+</histogram>
+
+<histogram
+    name="Search.Integrity{Enterprise}.IsDefaultSetByPolicyWithoutMatchingPolicy"
+    enum="Boolean" expires_after="2027-10-01">
+  <owner>yeroshkin@chromium.org</owner>
+  <owner>musalmaan@chromium.org</owner>
+  <owner>chrome-desktop-ui-waterloo@google.com</owner>
+  <summary>
+    Records whether the default search engine has policy_origin set to
+    kDefaultSearchProvider (CreatedByDefaultSearchProviderPolicy), but there is
+    no active mandatory or recommended DefaultSearchProvider enterprise policy
+    with a matching URL {Enterprise}.
+
+    Recorded once per profile at startup when the search engine allowlist is
+    initialized and the configuration is checked, if the default search engine
+    has policy_origin set to kDefaultSearchProvider.
+  </summary>
+  <token key="Enterprise" variants="SearchIntegrityEnterprise"/>
+</histogram>
+
 <histogram name="Search.iOS.SelectDefaultSearchEngine"
     enum="OmniboxSearchEngineType" expires_after="2026-11-29">
   <owner>gambard@chromium.org</owner>
@@ -1550,7 +1587,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.OsDefaultsChoice.DelayFromDialogShownToFirstStatus"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-04-11">
   <owner>dgn@chromium.org</owner>
   <owner>triploblastic@google.com</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
@@ -1570,7 +1607,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.OsDefaultsChoice.DelayFromObservationToFirstStatus"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-04-11">
   <owner>dgn@chromium.org</owner>
   <owner>triploblastic@google.com</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
@@ -1777,7 +1814,7 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
 </histogram>
 
 <histogram name="Search.RegionSearch.Lens.Result"
-    enum="LensRegionSearchCaptureResult" expires_after="2027-02-07">
+    enum="LensRegionSearchCaptureResult" expires_after="2027-04-11">
   <owner>juanmojica@google.com</owner>
   <owner>benwgold@google.com</owner>
   <owner>stanfield@google.com</owner>
@@ -2093,6 +2130,10 @@ https://chromium.googlesource.com/chromium/src/tools/+/HEAD/metrics/histograms/R
     task-specific exit code to Chrome. Only recorded on Windows.
   </summary>
   <token key="Outcome">
+    <variant name="EscapeHatchLaunchFailed"
+        summary="escape hatch store page launch failed"/>
+    <variant name="EscapeHatchSuccess"
+        summary="escape hatch store page launch succeeded"/>
     <variant name="ForegroundFallbackLaunchFailed"
         summary="foreground fallback launch failed"/>
     <variant name="InvalidExtensionId"

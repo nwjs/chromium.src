@@ -2,7 +2,7 @@ Tests property access on a cached DOMWindow after the associated frame is naviga
 
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
-PASS oldChildWindow.alwaysOnTop is newChildWindow.alwaysOnTop
+PASS oldChildWindow.alwaysOnTopPopup is newChildWindow.alwaysOnTopPopup
 PASS oldChildWindow.closed is newChildWindow.closed
 PASS oldChildWindow.cookieStore.onchange is newChildWindow.cookieStore.onchange
 PASS oldChildWindow.credentialless is newChildWindow.credentialless
@@ -171,6 +171,7 @@ PASS oldChildWindow.ongamepadrawinputchanged is newChildWindow.ongamepadrawinput
 PASS oldChildWindow.ongotpointercapture is newChildWindow.ongotpointercapture
 PASS oldChildWindow.onhashchange is newChildWindow.onhashchange
 PASS oldChildWindow.oninput is newChildWindow.oninput
+PASS oldChildWindow.oninstallresult is newChildWindow.oninstallresult
 PASS oldChildWindow.oninvalid is newChildWindow.oninvalid
 PASS oldChildWindow.onkeydown is newChildWindow.onkeydown
 PASS oldChildWindow.onkeypress is newChildWindow.onkeypress

@@ -12,7 +12,6 @@
 #include "base/strings/strcat.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/omnibox/alternate_nav_infobar_delegate.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/infobars/confirm_infobar_with_styled_label.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/text_elider.h"
@@ -24,10 +23,7 @@
 // static
 std::unique_ptr<infobars::InfoBar> AlternateNavInfoBarDelegate::CreateInfoBar(
     std::unique_ptr<AlternateNavInfoBarDelegate> delegate) {
-  if (base::FeatureList::IsEnabled(features::kInfoBarInlineLinks)) {
-    return std::make_unique<ConfirmInfoBarWithStyledLabel>(std::move(delegate));
-  }
-  return std::make_unique<AlternateNavInfoBarView>(std::move(delegate));
+  return std::make_unique<ConfirmInfoBarWithStyledLabel>(std::move(delegate));
 }
 
 // AlternateNavInfoBarView -----------------------------------------------------
@@ -38,7 +34,7 @@ AlternateNavInfoBarView::AlternateNavInfoBarView(
   auto* delegate_ptr = GetDelegate();
   size_t offset;
   std::u16string message_text = delegate_ptr->GetMessageTextWithOffset(&offset);
-  DCHECK_NE(std::u16string::npos, offset);
+  CHECK_NE(std::u16string::npos, offset, base::NotFatalUntil::M162);
   label_1_text_ = message_text.substr(0, offset);
 
   label_1_ = content_container()->AddChildView(CreateLabel(label_1_text_));

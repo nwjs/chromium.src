@@ -99,13 +99,6 @@ enum FileSystemType {
   // the handlers of kFileSystemTypeExternal.
   kFileSystemTypeLocalForPlatformApp = 108,
 
-  // Indicates an isolated filesystem which is supposed to contain one
-  // temporary which is supposed to go away when the last reference of
-  // its snapshot is dropped.
-  // This type is useful for creating a blob reference for a temporary
-  // file which must go away when the blob's last reference is dropped.
-  kFileSystemTypeForTransientFile = 109,
-
   // A filesystem that is mounted via the FileSystemProvider API.
   kFileSystemTypeProvided = 110,
 
@@ -128,7 +121,13 @@ enum FileSystemType {
   // Indicates a FUSE filesystem which provides access to virtual files.
   kFileSystemTypeFuseBox = 116,
 
-  kFileSystemTypeLast = kFileSystemTypeFuseBox,
+  // A filesystem whose file contents live only in browser process memory and
+  // are never written to disk. Files of this type are registered with
+  // IsolatedContext and are therefore only reachable through
+  // kFileSystemTypeIsolated URLs.
+  kFileSystemTypeInMemory = 117,
+
+  kFileSystemTypeLast = kFileSystemTypeInMemory,
 
   // --------------------------------------------------------------------
   // Marks the end of internal type enum. (This is not the actual fs type)

@@ -39,6 +39,7 @@
 #include "ui/views/test/test_views.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/test/widget_test.h"
+#include "ui/views/view_tracker.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/native_widget_private.h"
 #include "ui/views/widget/widget.h"
@@ -47,6 +48,7 @@
 #include "ui/views/widget/widget_utils.h"
 
 #if BUILDFLAG(IS_MAC)
+#include "ui/views/controls/menu/menu_closure_animation_mac.h"
 #include "ui/views/controls/menu/menu_cocoa_watcher_mac.h"
 #endif
 
@@ -217,7 +219,10 @@ TEST_F(MenuRunnerTest, MAYBE_LatinMnemonic) {
     return;
   }
 
-  views::test::DisableMenuClosureAnimations();
+#if BUILDFLAG(IS_MAC)
+  MenuClosureAnimationMac::ScopedDisableAnimationsForTesting
+      disable_closure_animations;
+#endif
   InitMenuRunner(0);
   MenuRunner* runner = menu_runner();
   runner->RunMenuAt(owner(), nullptr, gfx::Rect(), MenuAnchorPosition::kTopLeft,
@@ -242,7 +247,10 @@ TEST_F(MenuRunnerTest, NonLatinMnemonic) {
     return;
   }
 
-  views::test::DisableMenuClosureAnimations();
+#if BUILDFLAG(IS_MAC)
+  MenuClosureAnimationMac::ScopedDisableAnimationsForTesting
+      disable_closure_animations;
+#endif
   InitMenuRunner(0);
   MenuRunner* runner = menu_runner();
   runner->RunMenuAt(owner(), nullptr, gfx::Rect(), MenuAnchorPosition::kTopLeft,
@@ -304,7 +312,10 @@ TEST_F(MenuRunnerTest, PrefixSelect) {
   // It progressively prefix searches for "One " (note the space) and ensures
   // that the right item is found.
 
-  views::test::DisableMenuClosureAnimations();
+#if BUILDFLAG(IS_MAC)
+  MenuClosureAnimationMac::ScopedDisableAnimationsForTesting
+      disable_closure_animations;
+#endif
   InitMenuRunner(0);
   menu_item_view()->AppendMenuItem(3, u"One Two");
 
@@ -349,7 +360,10 @@ TEST_F(MenuRunnerTest, SpaceActivatesItem) {
     return;
   }
 
-  views::test::DisableMenuClosureAnimations();
+#if BUILDFLAG(IS_MAC)
+  MenuClosureAnimationMac::ScopedDisableAnimationsForTesting
+      disable_closure_animations;
+#endif
   InitMenuRunner(0);
 
   MenuRunner* runner = menu_runner();
@@ -398,7 +412,10 @@ TEST_F(MenuRunnerTest, NestingDuringDrag) {
 // over the desired item. Releasing the mouse activates the item.
 TEST_F(MenuRunnerTest, RightClickAndDragSelectsMenuItem) {
   // Just makes the test run a little faster.
-  views::test::DisableMenuClosureAnimations();
+#if BUILDFLAG(IS_MAC)
+  MenuClosureAnimationMac::ScopedDisableAnimationsForTesting
+      disable_closure_animations;
+#endif
 
   InitMenuRunner(0);
 
@@ -463,7 +480,10 @@ class MenuRunnerFalseTriggerTest
 // not select the closest item.
 TEST_P(MenuRunnerFalseTriggerTest, DetectsRightClickAndDragFalseTrigger) {
   // Just makes the test run a little faster.
-  views::test::DisableMenuClosureAnimations();
+#if BUILDFLAG(IS_MAC)
+  MenuClosureAnimationMac::ScopedDisableAnimationsForTesting
+      disable_closure_animations;
+#endif
 
   const gfx::Rect screen_bounds =
       display::Screen::Get()->GetPrimaryDisplay().bounds();
@@ -1459,6 +1479,29 @@ class ReleaseOnHostHidden : public WidgetObserver {
   bool fired_ = false;
 };
 
+class ReleaseOnMenuClosedDelegate : public TestMenuDelegate {
+ public:
+  ReleaseOnMenuClosedDelegate() = default;
+  ReleaseOnMenuClosedDelegate(const ReleaseOnMenuClosedDelegate&) = delete;
+  ReleaseOnMenuClosedDelegate& operator=(const ReleaseOnMenuClosedDelegate&) =
+      delete;
+  ~ReleaseOnMenuClosedDelegate() override = default;
+
+  void set_menu_runner(std::unique_ptr<MenuRunner> runner) {
+    runner_ = std::move(runner);
+  }
+
+  MenuRunner* menu_runner() { return runner_.get(); }
+
+  void OnMenuClosed(MenuItemView* menu) override {
+    TestMenuDelegate::OnMenuClosed(menu);
+    runner_.reset();
+  }
+
+ private:
+  std::unique_ptr<MenuRunner> runner_;
+};
+
 }  // namespace
 
 // SubmenuView::Hide() calls host_->HideMenuHost() which invokes Widget::Hide(),
@@ -1497,6 +1540,50 @@ TEST_F(MenuRunnerImplTest, SubmenuHideUseAfterFreeViaWidgetHide) {
 
   // Only reached if Hide() has been hardened with a liveness re-check.
   EXPECT_TRUE(observer.fired());
+}
+
+// Verifies that when a MenuDelegate resets its MenuRunner inside OnMenuClosed
+// while MenuController::SetSelection / MenuItemView::SetSelected is active on
+// the stack, MenuRunnerImpl destruction (and thus MenuItemView destruction) is
+// deferred until the active MenuController stack unwinds.
+TEST_F(MenuRunnerTest,
+       ReleaseInOnMenuClosedDuringSetSelectedDefersDestruction) {
+  ReleaseOnMenuClosedDelegate delegate;
+  auto root = std::make_unique<TestMenuItemView>(&delegate);
+  MenuItemView* item1 = root->AppendMenuItem(TestCommandIds::kItem1, u"One");
+  root->AppendMenuItem(TestCommandIds::kItem2, u"Two");
+  ViewTracker item_tracker(item1);
+
+  delegate.set_menu_runner(std::make_unique<MenuRunner>(std::move(root), 0));
+  delegate.menu_runner()->RunMenuAt(
+      /*parent=*/owner(), /*button_controller=*/nullptr, /*bounds=*/{},
+      /*anchor=*/MenuAnchorPosition::kTopLeft,
+      /*source_type=*/ui::mojom::MenuSourceType::kNone);
+
+  bool selection_event_fired = false;
+  item1->GetViewAccessibility().set_accessibility_events_callback(
+      base::BindLambdaForTesting([&](const ui::AXPlatformNodeDelegate*,
+                                     const ax::mojom::Event event_type) {
+        if (event_type != ax::mojom::Event::kSelection ||
+            selection_event_fired) {
+          return;
+        }
+        selection_event_fired = true;
+        MenuController::GetActiveInstance()->Cancel(
+            MenuController::ExitType::kAll);
+        // MenuItemView::SetSelected is still on the call stack, so `item1`
+        // must remain alive until MenuController::SetSelection unwinds.
+        EXPECT_NE(nullptr, item_tracker.view());
+      }));
+
+  ui::test::EventGenerator generator(GetContext(), owner()->GetNativeWindow());
+  generator.PressKey(ui::VKEY_DOWN, 0);
+
+  EXPECT_TRUE(selection_event_fired);
+  EXPECT_EQ(1, delegate.on_menu_closed_called());
+  EXPECT_EQ(nullptr, delegate.menu_runner());
+  EXPECT_EQ(nullptr, item_tracker.view());
+  EXPECT_EQ(nullptr, MenuController::GetActiveInstance());
 }
 
 }  // namespace views::test

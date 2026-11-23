@@ -40,9 +40,12 @@
 #include "chrome/browser/ui/views/permissions/chip/webui_permission_chip.h"
 #include "chrome/browser/ui/views/permissions/chip/webui_permission_dashboard.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
+#include "chrome/browser/ui/views/permissions/permission_prompt_observer.h"
 #include "chrome/test/permissions/permission_request_manager_test_api.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/permissions/permission_request_manager.h"
+#include "components/permissions/permission_uma_constants.h"
+#include "components/permissions/request_type.h"
 #include "components/permissions/test/permission_request_observer.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_test_util.h"
@@ -88,9 +91,9 @@
 #include "net/base/url_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_switches.h"
-#include "ui/base/window_open_disposition.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
 namespace {
@@ -404,7 +407,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   GURL url("https://www.google.com/search?q=test");
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
-          url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK);
+          url, ui::mojom::WindowOpenDisposition::kCurrentTab,
+          ui::PAGE_TRANSITION_LINK);
   controller_->TransferNavigationToEmbeddedPage(params);
   run_loop.Run();
 }
@@ -1163,19 +1167,29 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
   EXPECT_FALSE(main_omnibox_chip_controller->IsPermissionPromptChipVisible());
 
   // `GetChipAnchor()` and `GetPermissionPromptBubbleAnchorConfiguration()`
-  // should return the side panel's request chip anchor.
+  // should return the side panel's request chip anchor, and highlight the
+  // request chip in the toolbar document's context.
   std::optional<bubble_anchor_util::AnchorConfiguration> chip_anchor =
       location_bar->GetChipAnchor();
   ASSERT_TRUE(chip_anchor.has_value());
   EXPECT_EQ(chip_anchor->anchor.GetIfElement(), expected_chip_anchor);
-  EXPECT_EQ(chip_anchor->highlighted_element, std::nullopt);
+  EXPECT_EQ(chip_anchor->highlighted_element,
+            PermissionChipView::kPermissionRequestChipElementId);
+  EXPECT_EQ(chip_anchor->highlighted_element_context, context);
   EXPECT_EQ(chip_anchor->bubble_arrow, views::BubbleBorder::TOP_LEFT);
 
   bubble_anchor_util::AnchorConfiguration prompt_anchor_config =
       bubble_anchor_util::GetPermissionPromptBubbleAnchorConfiguration(
           panel_contents);
   EXPECT_EQ(prompt_anchor_config.anchor.GetIfElement(), expected_chip_anchor);
-  EXPECT_EQ(prompt_anchor_config.highlighted_element, std::nullopt);
+  EXPECT_EQ(prompt_anchor_config.highlighted_element,
+            PermissionChipView::kPermissionRequestChipElementId);
+  EXPECT_EQ(prompt_anchor_config.highlighted_element_context, context);
+
+  // The real request chip can register once the toolbar WebUI renders the
+  // request. Remove the stand-in so the two never coexist when the prompt
+  // bubble highlights the chip, which expects a single chip in `context`.
+  fallback_chip_element.reset();
 
   // Finish the expand animation so the prompt bubble opens, then click Accept
   // and verify it routes through the side panel's ChipController.
@@ -1195,6 +1209,106 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
     return !side_panel_chip_controller->IsBubbleShowing() &&
            !prm->IsRequestInProgress();
   }));
+}
+
+// Requests made without a user gesture, such as voice search's microphone
+// request via the Web Speech API, get a chip-less prompt bubble in the main
+// omnibox. In the side panel, they still show the request chip, which the
+// prompt bubble then opens from and notifies `PermissionPromptObserver` on
+// show/hide (see `PermissionPromptAnchorsAndRoutesToSidePanelLocationBar`).
+IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
+                       PermissionRequestWithoutUserGestureShowsRequestChip) {
+  class TestPermissionPromptObserver
+      : public PermissionPromptObserver::Observer {
+   public:
+    void OnPermissionPromptChanged(bool is_showing,
+                                   const gfx::Size& prompt_size) override {
+      is_showing_history.push_back(is_showing);
+    }
+    std::vector<bool> is_showing_history;
+  };
+
+  auto* service =
+      contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser()->GetProfile());
+  auto* tab = TabListInterface::From(browser())->GetActiveTab();
+  service->InitSidePanelWithGhostLoader(browser(), tab, nullptr);
+
+  auto* panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(panel_controller);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() { return panel_controller->IsPanelOpenForContextualTask(); }));
+
+  auto* coordinator =
+      contextual_tasks::ContextualTasksSidePanelCoordinator::Get(
+          browser()->GetUnownedUserDataHost());
+  ASSERT_TRUE(coordinator);
+  content::WebContents* panel_contents = coordinator->GetActiveWebContents();
+  ASSERT_TRUE(panel_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(panel_contents));
+
+  auto* location_bar =
+      coordinator->permission_controller()->GetLocationBarForTesting();
+  ASSERT_TRUE(location_bar);
+  content::WebContents* toolbar_contents =
+      location_bar->GetToolbarWebContents();
+  ASSERT_TRUE(toolbar_contents);
+  EXPECT_TRUE(content::WaitForLoadStop(toolbar_contents));
+
+  PermissionPromptObserver::CreateForWebContents(panel_contents);
+  PermissionPromptObserver* prompt_observer =
+      PermissionPromptObserver::FromWebContents(panel_contents);
+  ASSERT_TRUE(prompt_observer);
+  TestPermissionPromptObserver test_observer;
+  prompt_observer->AddObserver(&test_observer);
+
+  auto* prm =
+      permissions::PermissionRequestManager::FromWebContents(panel_contents);
+  ASSERT_TRUE(prm);
+  test::PermissionRequestManagerTestApi test_api(prm);
+  permissions::PermissionRequestObserver observer(panel_contents);
+  test_api.AddSimpleRequest(panel_contents->GetPrimaryMainFrame(),
+                            permissions::RequestType::kMicStream,
+                            /*user_gesture=*/false);
+  observer.Wait();
+  ASSERT_TRUE(observer.request_shown());
+
+  // The prompt is shown through the side panel's request chip rather than as a
+  // chip-less bubble.
+  EXPECT_EQ(prm->current_request_prompt_disposition_for_testing(),
+            permissions::PermissionPromptDisposition::
+                LOCATION_BAR_LEFT_CHIP_AUTO_BUBBLE);
+  ChipController* side_panel_chip_controller =
+      location_bar->GetChipController();
+  ASSERT_TRUE(side_panel_chip_controller);
+  EXPECT_TRUE(side_panel_chip_controller->IsPermissionPromptChipVisible());
+
+  // Finishing the chip expand animation opens the prompt bubble and notifies
+  // `PermissionPromptObserver` on the side panel `WebContents`.
+  side_panel_chip_controller->chip()->EndAnimationForTesting();
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return !side_panel_chip_controller->is_waiting_for_anchor_for_testing() &&
+           side_panel_chip_controller->IsBubbleShowing() &&
+           test_observer.is_showing_history.size() >= 1u;
+  }));
+  ASSERT_EQ(1u, test_observer.is_showing_history.size());
+  EXPECT_TRUE(test_observer.is_showing_history[0]);
+
+  auto* bubble_view = static_cast<PermissionPromptBubbleBaseView*>(
+      side_panel_chip_controller->get_prompt_bubble_view_for_testing());
+  ASSERT_TRUE(bubble_view);
+  bubble_view->RunButtonCallback(static_cast<int>(
+      PermissionPromptBubbleBaseView::PermissionDialogButton::kAccept));
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    return !side_panel_chip_controller->IsBubbleShowing() &&
+           !prm->IsRequestInProgress() &&
+           test_observer.is_showing_history.size() >= 2u;
+  }));
+  ASSERT_EQ(2u, test_observer.is_showing_history.size());
+  EXPECT_FALSE(test_observer.is_showing_history[1]);
+
+  prompt_observer->RemoveObserver(&test_observer);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -1434,4 +1548,126 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   ASSERT_TRUE(side_panel_inner_zoom_controller);
   EXPECT_EQ(zoom::ZoomController::ZoomMode::ZOOM_MODE_DISABLED,
             side_panel_inner_zoom_controller->zoom_mode());
+}
+
+class ContextualTasksInternalsLegacyBrowserTest : public InProcessBrowserTest {
+ public:
+  ContextualTasksInternalsLegacyBrowserTest() {
+    feature_list_.InitWithFeatures(
+        {contextual_tasks::kContextualTasks},
+        {contextual_tasks::kContextualTasksSidePanelRearchitecture});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksInternalsLegacyBrowserTest,
+                       LoadsWithoutCrash) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome://contextual-tasks/internals")));
+  content::WebContents* web_contents =
+      TabListInterface::From(browser())->GetActiveTab()->GetContents();
+  ASSERT_FALSE(web_contents->IsCrashed());
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return content::EvalJs(
+               web_contents,
+               "(() => {"
+               "  const app = document.querySelector("
+               "      'contextual-tasks-internals-app');"
+               "  const status = app?.shadowRoot?.querySelector("
+               "      '.eligibility-status');"
+               "  const reasons = app?.shadowRoot?.querySelector("
+               "      '.eligibility-reasons')?.textContent ?? '';"
+               "  return Boolean(status && !reasons.includes("
+               "      'Feature flag (kContextualTasks) is not enabled.'));"
+               "})()")
+        .ExtractBool();
+  }));
+}
+
+class ContextualTasksInternalsPostRearchitectureBrowserTest
+    : public InProcessBrowserTest {
+ public:
+  ContextualTasksInternalsPostRearchitectureBrowserTest() {
+    feature_list_.InitWithFeatures(
+        {contextual_tasks::kContextualTasksSidePanelRearchitecture},
+        {contextual_tasks::kContextualTasks,
+         contextual_tasks::kContextualTasksSidePanel,
+         contextual_tasks::kContextualTasksRearchitecture});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksInternalsPostRearchitectureBrowserTest,
+                       LoadsWithoutCrash) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome://contextual-tasks/internals")));
+  content::WebContents* web_contents =
+      TabListInterface::From(browser())->GetActiveTab()->GetContents();
+  ASSERT_FALSE(web_contents->IsCrashed());
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return content::EvalJs(
+               web_contents,
+               "(() => {"
+               "  const app = document.querySelector("
+               "      'contextual-tasks-internals-app');"
+               "  const status = app?.shadowRoot?.querySelector("
+               "      '.eligibility-status');"
+               "  const reasons = app?.shadowRoot?.querySelector("
+               "      '.eligibility-reasons')?.textContent ?? '';"
+               "  return Boolean(status && !reasons.includes("
+               "      'Feature flag (kContextualTasks) is not enabled.'));"
+               "})()")
+        .ExtractBool();
+  }));
+
+  // Navigating to the root legacy WebUI path after registering the data source
+  // must fail with an error document rather than instantiating
+  // `ContextualTasksUIPostRearchitecture` with `<contextual-tasks-app>`.
+  (void)ui_test_utils::NavigateToURL(browser(),
+                                     GURL("chrome://contextual-tasks/"));
+  EXPECT_FALSE(web_contents->IsCrashed());
+  EXPECT_TRUE(web_contents->GetPrimaryMainFrame()->IsErrorDocument());
+  EXPECT_EQ(web_contents->GetWebUI(), nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksInternalsPostRearchitectureBrowserTest,
+                       OnVoiceTranscribedSafelyNoOps) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome://contextual-tasks/internals")));
+  content::WebContents* web_contents =
+      TabListInterface::From(browser())->GetActiveTab()->GetContents();
+  ASSERT_NE(web_contents->GetWebUI(), nullptr);
+
+  // Invoking `OnVoiceTranscribed()` when the active WebUI controller is
+  // `ContextualTasksUIPostRearchitecture` must safely no-op without downcasting
+  // to `ContextualTasksUI`.
+  auto* ui_service =
+      contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+          browser()->GetProfile());
+  ASSERT_NE(ui_service, nullptr);
+  ui_service->StartPlatformVoiceRecognition(browser(), web_contents);
+  ui_service->OnVoiceTranscribed("test voice query");
+  EXPECT_EQ(contextual_tasks::GetWebUiInterface(web_contents), nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksInternalsPostRearchitectureBrowserTest,
+                       FiltersLegacyWebUIResources) {
+  // Attempting to fetch or import legacy pre-rearchitecture modules (such as
+  // `app.js`) from a post-rearchitecture WebUI document must fail rather than
+  // executing `BrowserProxyImpl` or terminating the renderer with
+  // `RFH_INVALID_WEB_UI_CONTROLLER`.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), GURL("chrome://contextual-tasks/internals")));
+  content::WebContents* web_contents =
+      TabListInterface::From(browser())->GetActiveTab()->GetContents();
+  EXPECT_EQ(false, content::EvalJs(web_contents,
+                                   "import('chrome://contextual-tasks/app.js')"
+                                   "  .then(() => true, () => false)"));
+  EXPECT_FALSE(web_contents->IsCrashed());
 }

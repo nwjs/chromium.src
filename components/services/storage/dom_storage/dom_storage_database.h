@@ -564,6 +564,15 @@ class DomStorageDatabaseFactory {
       std::optional<DestroyOutcome> destroy_outcome,
       LevelDbOnDiskState leveldb_state);
 
+  // For `DomStorageSqliteRolloutStage::kUseLevelDbForNewDatabases`.  Uses
+  // SQLite when the database already exists.  Otherwise, uses LevelDB.
+  static void ResolveBackendWhenNewDatabasesUseLeveldb(
+      StorageType storage_type,
+      base::FilePath dir_to_open,
+      OnBackendResolvedCallback callback,
+      std::optional<DestroyOutcome> destroy_outcome,
+      bool sqlite_exists);
+
   // Constructs the resolved backend, opens it, records the OpenDatabase
   // histograms, and runs `callback` (already bound to the caller's sequence)
   // with the assembled `OpenResult`.
@@ -605,7 +614,8 @@ class DomStorageDatabaseFactory {
 
   // Verifies that `destination` contains the same maps, metadata and entries
   // as `source`.
-  static DbStatus VerifyMigration(DomStorageDatabase& source,
+  static DbStatus VerifyMigration(StorageType storage_type,
+                                  DomStorageDatabase& source,
                                   DomStorageDatabase& destination);
 
   // Returns the open callback, lazily initialized on first call. Defaults to

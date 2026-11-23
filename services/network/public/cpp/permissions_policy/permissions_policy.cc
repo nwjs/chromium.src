@@ -222,6 +222,16 @@ std::unique_ptr<PermissionsPolicy> PermissionsPolicy::CreateFromParsedPolicy(
 }
 
 // static
+std::unique_ptr<PermissionsPolicy> PermissionsPolicy::CreateFromInheritedPolicy(
+    const network::PermissionsPolicyFeaturesBitset& inherited_policies,
+    const network::ParsedPermissionsPolicy& header_policy,
+    const url::Origin& origin) {
+  return base::WrapUnique(new PermissionsPolicy(
+      origin, CreateAllowlistsAndReportingEndpoints(header_policy),
+      inherited_policies, network::GetPermissionsPolicyFeatureList(origin)));
+}
+
+// static
 bool PermissionsPolicy::IsHeaderlessUrl(const GURL& url) {
   return url.IsAboutSrcdoc() || url.IsAboutBlank() ||
          url.SchemeIs(url::kDataScheme) || url.SchemeIsBlob();
@@ -293,6 +303,16 @@ bool PermissionsPolicy::IsFeatureEnabledForOrigin(
   }
   // 9.9.6: Return "Disabled".
   return false;
+}
+
+bool PermissionsPolicy::CanDelegateFeatureToOrigin(
+    network::mojom::PermissionsPolicyFeature feature,
+    const url::Origin& origin) const {
+  auto it = feature_list_->find(feature);
+  if (it == feature_list_->end()) {
+    return false;
+  }
+  return GetFeatureValueForOrigin(feature, it->second, origin);
 }
 
 // Implements Permissions Policy 9.8: Get feature value for origin.
@@ -411,6 +431,16 @@ PermissionsPolicy::GetAllowlistForFeatureIfExists(
   }
 
   // Only return allowlist if actually in `allowlists_`.
+  auto allowlist = allowlists_.find(feature);
+  if (allowlist != allowlists_.end()) {
+    return allowlist->second;
+  }
+  return std::nullopt;
+}
+
+std::optional<PermissionsPolicy::Allowlist>
+PermissionsPolicy::GetHeaderAllowlistForFeatureIfExists(
+    network::mojom::PermissionsPolicyFeature feature) const {
   auto allowlist = allowlists_.find(feature);
   if (allowlist != allowlists_.end()) {
     return allowlist->second;

@@ -37,8 +37,6 @@
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_gpu.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/skia/include/core/SkAlphaType.h"
@@ -56,17 +54,6 @@
 
 namespace blink {
 
-namespace {
-// Controls whether ExternalCanvasResource::WaitSyncToken() should store the
-// SyncToken and pass it to the release callback to wait at destruction time
-// (when enabled), or wait on the SyncToken immediately (when disabled). This
-// feature is part of the effort of reducing WaitSyncTokenCHROMIUM usage in
-// favor of the automatic SyncToken management in ClientSharedImage.
-BASE_FEATURE(kDeferWaitSyncTokenInExternalCanvasResource,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-}  // namespace
-
 CanvasResource::CanvasResource(
     scoped_refptr<gpu::ClientSharedImage> shared_image)
     : gpu::ClientImage(std::move(shared_image)),
@@ -74,19 +61,6 @@ CanvasResource::CanvasResource(
       owning_thread_task_runner_(
           ThreadScheduler::Current()->CleanupTaskRunner()) {
   subclass_manages_destruction_sync_token_ = true;
-}
-
-gpu::InterfaceBase* ExternalCanvasResource::InterfaceBase() const {
-  if (!ContextProviderWrapper())
-    return nullptr;
-  return ContextProviderWrapper()->ContextProvider().InterfaceBase();
-}
-
-gpu::raster::RasterInterface* CanvasResourceSharedImage::RasterInterface()
-    const {
-  if (!ContextProviderWrapper())
-    return nullptr;
-  return ContextProviderWrapper()->ContextProvider().RasterInterface();
 }
 
 // static
@@ -118,8 +92,6 @@ void CanvasResource::DropRefOnOwningThread(
 
 viz::TransferableResource CanvasResource::PrepareTransferableResource() {
   TRACE_EVENT0("blink", "CanvasResource::PrepareTransferableResource");
-
-  CHECK(!CreatesAcceleratedTransferableResources() || ContextProviderWrapper());
 
   auto resource = viz::TransferableResource::Make(
       GetSharedImage(), GetTransferableResourceSource(), sync_token());
@@ -294,7 +266,8 @@ scoped_refptr<StaticBitmapImage> CanvasResourceSharedImage::Bitmap() {
       return nullptr;
     }
 
-    auto image = UnacceleratedStaticBitmapImage::Create(sk_image);
+    auto image = UnacceleratedStaticBitmapImage::Create(
+        sk_image, ImageOrientationEnum::kDefault, hdr_metadata_);
     image->SetOriginClean(OriginClean());
     return image;
   }
@@ -331,10 +304,13 @@ void CanvasResourceSharedImage::EndExternalWrite(
   // internal interface as part of generating the TransferableResource. This new
   // sync token will be chained after `external_write_sync_token` thanks to the
   // wait above.
+  CHECK(context_provider_wrapper_);
+
   std::unique_ptr<gpu::RasterScopedAccess> access =
-      GetSharedImage()->BeginRasterAccess(RasterInterface(),
-                                          acquire_sync_token_,
-                                          /*readonly=*/true);
+      GetSharedImage()->BeginRasterAccess(
+          context_provider_wrapper_->ContextProvider().RasterInterface(),
+          acquire_sync_token_,
+          /*readonly=*/true);
   auto sync_token = gpu::RasterScopedAccess::EndAccess(std::move(access));
   SetReleaseSyncToken(sync_token);
   GetSharedImage()->UpdateDestructionSyncToken(sync_token);
@@ -386,12 +362,6 @@ void CanvasResourceSharedImage::NotifyResourceLost() {
   resource_is_lost_ = true;
 }
 
-base::WeakPtr<WebGraphicsContext3DProviderWrapper>
-CanvasResourceSharedImage::ContextProviderWrapper() const {
-  DCHECK(!is_cross_thread());
-  return context_provider_wrapper_;
-}
-
 void CanvasResourceSharedImage::OnMemoryDump(
     base::trace_event::ProcessMemoryDump* pmd,
     const std::string& parent_path) const {
@@ -415,27 +385,6 @@ void CanvasResourceSharedImage::OnMemoryDump(
 
 // ExternalCanvasResource
 //==============================================================================
-scoped_refptr<ExternalCanvasResource> ExternalCanvasResource::Create(
-    scoped_refptr<gpu::ClientSharedImage> client_si,
-    const gpu::SyncToken& sync_token,
-    viz::TransferableResource::ResourceSource resource_source,
-    const gfx::HDRMetadata& hdr_metadata,
-    viz::ReleaseCallback release_callback,
-    base::WeakPtr<WebGraphicsContext3DProviderWrapper>
-        context_provider_wrapper) {
-  TRACE_EVENT0("blink", "ExternalCanvasResource::Create");
-  CHECK(client_si);
-  auto resource = AdoptRef(new ExternalCanvasResource(
-      std::move(client_si), sync_token, resource_source, hdr_metadata,
-      std::move(release_callback), std::move(context_provider_wrapper)));
-
-  if (!resource->is_cross_thread() && !resource->context_provider_wrapper_) {
-    return nullptr;
-  }
-
-  return resource;
-}
-
 ExternalCanvasResource::~ExternalCanvasResource() {
   if (is_cross_thread()) {
     // Destroyed on wrong thread. This can happen when the thread of origin was
@@ -446,13 +395,8 @@ ExternalCanvasResource::~ExternalCanvasResource() {
   }
 
   if (release_callback_) {
-    if (base::FeatureList::IsEnabled(
-            kDeferWaitSyncTokenInExternalCanvasResource)) {
-      std::move(release_callback_)
-          .Run(destruction_sync_token_, resource_is_lost_);
-    } else {
-      std::move(release_callback_).Run(sync_token(), resource_is_lost_);
-    }
+    std::move(release_callback_)
+        .Run(destruction_sync_token_, resource_is_lost_);
   }
 }
 
@@ -488,22 +432,8 @@ scoped_refptr<StaticBitmapImage> ExternalCanvasResource::Bitmap() {
 
 void ExternalCanvasResource::WaitSyncToken(const gpu::SyncToken& sync_token) {
   if (sync_token.HasData()) {
-    if (base::FeatureList::IsEnabled(
-            kDeferWaitSyncTokenInExternalCanvasResource)) {
-      destruction_sync_token_ = sync_token;
-    } else {
-      if (auto* interface_base = InterfaceBase()) {
-        interface_base->WaitSyncTokenCHROMIUM(sync_token.GetConstData());
-      }
-    }
+    destruction_sync_token_ = sync_token;
   }
-}
-
-base::WeakPtr<WebGraphicsContext3DProviderWrapper>
-ExternalCanvasResource::ContextProviderWrapper() const {
-  // The context provider is not thread-safe, nor is the WeakPtr that holds it.
-  DCHECK(!is_cross_thread());
-  return context_provider_wrapper_;
 }
 
 ExternalCanvasResource::ExternalCanvasResource(

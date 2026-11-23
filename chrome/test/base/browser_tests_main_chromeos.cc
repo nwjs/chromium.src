@@ -4,9 +4,9 @@
 
 #include "ash/test/ui_controls_ash.h"
 #include "base/command_line.h"
-#include "base/test/launcher/test_launcher.h"
 #include "chrome/test/base/chrome_test_launcher.h"
 #include "chrome/test/base/chrome_test_suite.h"
+#include "content/public/test/test_launcher.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "ui/base/test/ui_controls.h"
 
@@ -39,7 +39,7 @@ class BrowserTestSuiteRunnerChromeOS : public ChromeTestSuiteRunner {
 
 int main(int argc, char** argv) {
   base::CommandLine::Init(argc, argv);
-  size_t parallel_jobs = base::NumParallelJobs(/*cores_per_job=*/2);
+  size_t parallel_jobs = content::NumParallelJobsForBrowserTests();
   if (parallel_jobs == 0U)
     return 1;
 

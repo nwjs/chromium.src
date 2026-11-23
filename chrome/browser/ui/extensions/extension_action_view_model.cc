@@ -217,17 +217,17 @@ std::unique_ptr<ExtensionActionViewModel> ExtensionActionViewModel::Create(
     const extensions::ExtensionId& extension_id,
     BrowserWindowInterface* browser,
     std::unique_ptr<ExtensionActionDelegate> delegate) {
-  DCHECK(browser);
+  CHECK(browser, base::NotFatalUntil::M162);
 
   Profile* profile = browser->GetProfile();
   auto* registry = extensions::ExtensionRegistry::Get(profile);
   scoped_refptr<const extensions::Extension> extension =
       registry->enabled_extensions().GetByID(extension_id);
-  DCHECK(extension);
+  CHECK(extension, base::NotFatalUntil::M162);
   extensions::ExtensionAction* extension_action =
       extensions::ExtensionActionManager::Get(profile)->GetExtensionAction(
           *extension);
-  DCHECK(extension_action);
+  CHECK(extension_action, base::NotFatalUntil::M162);
 
   // WrapUnique() because the constructor is private.
   return base::WrapUnique(new ExtensionActionViewModel(
@@ -258,6 +258,8 @@ ExtensionActionViewModel::~ExtensionActionViewModel() {
 #if !BUILDFLAG(IS_ANDROID)
   // On Android, the UI is destroyed by the Java coordinator before the native
   // model is destroyed.
+  // TODO(crbug.com/574714884): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(!IsShowingPopup());
 #endif
   delegate_->DetachFromModel();
@@ -556,7 +558,7 @@ void ExtensionActionViewModel::UnregisterCommand() {
 }
 
 bool ExtensionActionViewModel::TryHandleAcceleratorPress() {
-  DCHECK(CanHandleAccelerators());
+  CHECK(CanHandleAccelerators(), base::NotFatalUntil::M162);
 
   if (IsShowingPopup()) {
     // TODO(crbug.com/498029086): This code is not reached on Android, because
@@ -604,7 +606,7 @@ void ExtensionActionViewModel::OnExtensionCommandRemoved(
 }
 
 void ExtensionActionViewModel::OnCommandServiceDestroying() {
-  DCHECK(command_service_observation_.IsObserving());
+  CHECK(command_service_observation_.IsObserving(), base::NotFatalUntil::M162);
   command_service_observation_.Reset();
 }
 
@@ -659,7 +661,7 @@ const extensions::Extension* ExtensionActionViewModel::GetExtension() const {
 
 bool ExtensionActionViewModel::GetExtensionCommand(
     extensions::Command* command) const {
-  DCHECK(command);
+  CHECK(command, base::NotFatalUntil::M162);
   if (!ExtensionIsValid()) {
     return false;
   }
@@ -724,7 +726,7 @@ bool ExtensionActionViewModel::CanHandleAccelerators() const {
 #if DCHECK_IS_ON()
   {
     extensions::Command command;
-    DCHECK(GetExtensionCommand(&command));
+    CHECK(GetExtensionCommand(&command), base::NotFatalUntil::M162);
   }
 #endif
 
@@ -757,8 +759,10 @@ void ExtensionActionViewModel::TriggerPopup(PopupShowAction show_action,
 
   content::WebContents* const web_contents = GetCurrentWebContents();
   const int tab_id = sessions::SessionTabHelper::IdForTab(web_contents).id();
+  // TODO(crbug.com/580768670): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(extension_action_->GetIsVisible(tab_id));
-  DCHECK(extension_action_->HasPopup(tab_id));
+  CHECK(extension_action_->HasPopup(tab_id), base::NotFatalUntil::M162);
 
   const GURL popup_url = extension_action_->GetPopupUrl(tab_id);
 

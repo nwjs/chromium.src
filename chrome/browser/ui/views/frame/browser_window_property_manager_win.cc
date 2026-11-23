@@ -31,7 +31,7 @@ BrowserWindowPropertyManager::BrowserWindowPropertyManager(
     HWND hwnd)
     : view_(view), hwnd_(hwnd) {
   // At this point, the HWND is unavailable from BrowserView.
-  DCHECK(hwnd);
+  CHECK(hwnd, base::NotFatalUntil::M162);
   profile_pref_registrar_.Init(
       const_cast<Profile*>(view_->browser()->GetProfile())->GetPrefs());
 
@@ -61,7 +61,7 @@ void BrowserWindowPropertyManager::UpdateWindowProperties() {
               browser->GetType() ==
                   BrowserWindowInterface::Type::TYPE_DEVTOOLS ||
               (browser->GetType() ==
-                   BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE &&
+                   BrowserWindowInterface::Type::TYPE_FLOATING &&
                !BrowserInitState::From(browser)
                     ->create_params()
                     .app_name.empty())

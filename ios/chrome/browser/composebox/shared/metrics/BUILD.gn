@@ -11,16 +11,18 @@ source_set("metrics") {
     "composebox_metrics_recorder.h",
     "composebox_metrics_recorder.mm",
   ]
-  public_deps = [ ":metrics_constants" ]
+  public_deps = [
+    ":metrics_constants",
+    "//third_party/omnibox_proto",
+  ]
   deps = [
     "//base",
     "//base:i18n",
     "//components/contextual_search:public",
-    "//components/ntp_tiles",
     "//components/omnibox/browser",
     "//ios/chrome/browser/composebox/public:composebox_mode",
     "//ios/chrome/browser/composebox/public:entrypoint",
-    "//ios/chrome/browser/composebox/public:model_options",
+    "//ios/chrome/browser/ntp/ui_bundled:feature_flags",
     "//skia",
   ]
 }

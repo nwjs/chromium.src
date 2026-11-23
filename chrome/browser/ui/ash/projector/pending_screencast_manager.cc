@@ -12,6 +12,7 @@
 #include "ash/projector/projector_metrics.h"
 #include "ash/webui/projector_app/public/mojom/projector_types.mojom-forward.h"
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -24,11 +25,15 @@
 #include "base/task/thread_pool.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/projector/projector_utils.h"
+#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
+#include "chromeos/ash/components/signin/identity_manager_provider.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/storage_partition.h"
 #include "net/base/url_util.h"
 
 namespace {
@@ -107,7 +112,8 @@ void GetDriveFileMetadata(
     const AccountId& account_id,
     const base::FilePath& drive_relative_path,
     PendingScreencastManager::OnGetFileIdCallback callback) {
-  DCHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI),
+        base::NotFatalUntil::M162);
   auto* drive_integration_service =
       ProjectorDriveFsProvider::GetDriveIntegrationService(account_id);
   if (!drive_integration_service) {
@@ -139,7 +145,8 @@ void GetDriveFileMetadata(
 // }
 // Returns the indexable text concated by all "text" fields content.
 std::string GetIndexableText(const base::FilePath& metadata_file_local_path) {
-  DCHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  CHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI),
+        base::NotFatalUntil::M162);
   std::string indexable_text = "";
 
   // Reads the Json content in `metadata_file_local_path` to `dict_value`:
@@ -187,7 +194,8 @@ std::string GetIndexableText(const base::FilePath& metadata_file_local_path) {
 // }
 const std::string BuildRequestBody(
     const base::FilePath& metadata_file_local_path) {
-  DCHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  CHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI),
+        base::NotFatalUntil::M162);
   const std::string indexable_text = GetIndexableText(metadata_file_local_path);
   if (indexable_text.empty()) {
     return std::string();
@@ -208,7 +216,8 @@ std::optional<ash::PendingScreencastContainer> GetPendingScreencastContainer(
     const base::FilePath& container_dir,
     const base::FilePath& drivefs_mounted_point,
     bool upload_failed) {
-  DCHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  CHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI),
+        base::NotFatalUntil::M162);
   const base::FilePath container_absolute_path =
       GetLocalAbsolutePath(drivefs_mounted_point, container_dir);
   if (!base::PathExists(container_absolute_path)) {
@@ -272,7 +281,8 @@ ash::PendingScreencastContainerSet ProcessAndGenerateNewScreencasts(
         pending_webm_or_projector_events,
     const std::set<base::FilePath>& error_syncing_file,
     const base::FilePath drivefs_mounted_point) {
-  DCHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
+  CHECK(!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI),
+        base::NotFatalUntil::M162);
   // The valid screencasts set.
   ash::PendingScreencastContainerSet screencasts;
 
@@ -342,6 +352,16 @@ ash::PendingScreencastContainerSet ProcessAndGenerateNewScreencasts(
   }
 
   return screencasts;
+}
+
+// Returns the profile that owns `account_id`'s DriveFS, or null if it has no
+// browser context. Notification suppression is per-user, so this follows the
+// DriveFS being observed rather than whichever user happens to be active.
+Profile* GetProfileForAccount(const AccountId& account_id) {
+  content::BrowserContext* const context =
+      ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+          account_id);
+  return context ? Profile::FromBrowserContext(context) : nullptr;
 }
 
 }  // namespace
@@ -474,23 +494,36 @@ void PendingScreencastManager::SetProjectorXhrSenderForTest(
 void PendingScreencastManager::MaybeSwitchDriveFsObservation(
     const AccountId& account_id) {
   drive::DriveIntegrationService* const service =
-      ProjectorDriveFsProvider::GetDriveIntegrationService(account_id);
-  if (!service) {
+      account_id.is_valid()
+          ? ProjectorDriveFsProvider::GetDriveIntegrationService(account_id)
+          : nullptr;
+  drivefs::DriveFsHost* const host =
+      service ? service->GetDriveFsHost() : nullptr;
+  if (account_id_ == account_id && GetHost() == host) {
     return;
   }
 
-  drivefs::DriveFsHost* const host = service->GetDriveFsHost();
-  if (!host || GetHost() == host) {
-    return;
-  }
-
+  // Detach from any previously observed DriveFS and drop all per-user state
+  // (including in-flight async replies bound to `weak_ptr_factory_`) even if
+  // the newly active user has no mounted DriveFS host.
+  Reset();
+  weak_ptr_factory_.InvalidateWeakPtrs();
   pending_screencast_cache_.clear();
   error_syncing_files_.clear();
+  syncing_metadata_files_.clear();
+  paths_notifications_suppressors_.clear();
+  last_pending_screencast_change_tick_ = base::TimeTicks();
+  // `xhr_sender_` is created once and holds the previous user's
+  // IdentityManager; the next request rebuilds it from `account_id_`.
+  xhr_sender_.reset();
+
   // Every provider call below is keyed on it, so remember whose DriveFS this
   // is.
   account_id_ = account_id;
 
-  Observe(host);
+  if (host) {
+    Observe(host);
+  }
 }
 
 void PendingScreencastManager::ToggleFileSyncingNotificationForPaths(
@@ -502,7 +535,11 @@ void PendingScreencastManager::ToggleFileSyncingNotificationForPaths(
     return;
   }
 
-  Profile* profile = ProfileManager::GetActiveUserProfile();
+  Profile* const profile = GetProfileForAccount(account_id_);
+  if (!profile) {
+    return;
+  }
+
   for (const auto& path : paths) {
     base::FilePath drive_path;
     drivefs_integration->GetRelativeDrivePath(path, &drive_path);
@@ -517,7 +554,11 @@ void PendingScreencastManager::ToggleFileSyncingNotificationForPaths(
 }
 
 void PendingScreencastManager::OnAppActiveStatusChanged(bool is_active) {
-  Profile* profile = ProfileManager::GetActiveUserProfile();
+  Profile* const profile = GetProfileForAccount(account_id_);
+  if (!profile) {
+    return;
+  }
+
   for (auto& [path, suppressor] : paths_notifications_suppressors_) {
     if (is_active) {
       if (!suppressor) {
@@ -607,15 +648,22 @@ void PendingScreencastManager::OnGetFileId(
 void PendingScreencastManager::SendDrivePatchRequest(
     const std::string& file_id,
     const std::string& request_body) {
-  DCHECK(!file_id.empty());
+  CHECK(!file_id.empty(), base::NotFatalUntil::M162);
   if (request_body.empty()) {
     return;
   }
 
   if (!xhr_sender_) {
+    Profile* const profile = GetProfileForAccount(account_id_);
+    if (!profile) {
+      return;
+    }
     xhr_sender_ = std::make_unique<ash::ProjectorXhrSender>(
-        ash::ProjectorAppClient::Get()->GetIdentityManager(),
-        ash::ProjectorAppClient::Get()->GetUrlLoaderFactory());
+        ash::IdentityManagerProvider::Get().Find(account_id_),
+        profile->GetDefaultStoragePartition()
+            ->GetURLLoaderFactoryForBrowserProcess()
+            .get(),
+        account_id_);
   }
 
   // TODO(b/288457397): Pass the primary account email after email become

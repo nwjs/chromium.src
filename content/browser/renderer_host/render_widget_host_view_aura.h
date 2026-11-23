@@ -15,6 +15,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -103,6 +104,8 @@ inline constexpr char16_t kArabicIndicZero = u'\u0660';
 #if BUILDFLAG(IS_WIN)
 CONTENT_EXPORT void ResetArabicIndicDigitInputStateForTesting();
 #endif  // BUILDFLAG(IS_WIN)
+
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPreventReentrantInternalSetBounds);
 
 // RenderWidgetHostView class hierarchy described in render_widget_host_view.h.
 class CONTENT_EXPORT RenderWidgetHostViewAura
@@ -248,10 +251,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
 
   // Unbounded element API overrides:
   void CreateUnboundedSurface(
-      mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-      mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
-          client,
-      const gfx::Rect& bounds_in_dips,
+      const gfx::Rect& bounds_in_screen,
       base::WeakPtr<RenderWidgetHostViewBase> subframe_view) override;
 
   void TakeFallbackContentFrom(RenderWidgetHostView* view) override;
@@ -343,20 +343,15 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
       const gfx::Range& range,
       const std::u16string& active_composition_text,
       bool is_composition_committed) override;
-#endif
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   // Returns the editing context of the active web content.
-  // This is currently used by TSF and ChromeOS to fetch the URL of the active
-  // web content.
+  // This is currently used by TSF to fetch the URL of the active web content.
   // https://docs.microsoft.com/en-us/windows/win32/tsf/predefined-properties
   ui::TextInputClient::EditingContext GetTextEditingContext() override;
-#endif
 
-#if BUILDFLAG(IS_WIN)
   // Notify TSF (via text store) when URL of the frame in focus changes.
   void NotifyOnFrameFocusChanged() override;
-#endif
+#endif  // BUILDFLAG(IS_WIN)
 
   // Overridden from display::DisplayObserver:
   void OnDisplayMetricsChanged(const display::Display& display,
@@ -619,6 +614,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
                            ScrollOOPIFEditableElement);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostViewAuraTest, OcclusionHidesTooltip);
   FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostViewAuraTest,
+                           SetBoundsDoesNotReenterInternalSetBounds);
+  FRIEND_TEST_ALL_PREFIXES(RenderWidgetHostViewAuraTest,
                            UpdateInsetsWithVirtualKeyboardEnabled);
 
   class WindowObserver;
@@ -637,6 +634,17 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
 
   void CreateDelegatedFrameHostClient();
 
+  // Returns the native window of the active unbounded surface, or null when
+  // there is no surface or it has no native window (e.g. mid-destruction).
+  aura::Window* GetUnboundedSurfaceNativeWindow() const;
+
+  // Returns true if the pointer is over `window_` or over the unbounded
+  // surface spawned by this view. The surface may live in its own root
+  // window, so it is hit-tested in that root.
+  bool IsPointerOverSelfOrUnboundedSurface() const;
+
+  // Updates the root window's cursor client if the pointer is over `window_`
+  // or the active unbounded surface spawned by this view.
   void UpdateCursorIfOverSelf();
 
   bool SynchronizeVisualProperties(
@@ -789,8 +797,22 @@ class CONTENT_EXPORT RenderWidgetHostViewAura
   // again while inside shutdown, causing a double-free.
   bool in_shutdown_;
 
-  // True if in the process of handling a window bounds changed notification.
-  bool in_bounds_changed_;
+  // Prevents mutual recursion between `InternalSetBounds()` and
+  // `OnBoundsChanged()`:
+  //
+  // 1. Bounds set via `RenderWidgetHostViewAura::SetBounds()` / `SetSize()`:
+  //    - `InternalSetBounds()` (sets `is_setting_bounds_ = true`)
+  //    - `aura::Window::SetBounds()`
+  //    - ...
+  //    - `OnBoundsChanged()` (skips `SetSize()`)
+  //
+  // 2. Bounds set directly on `window_` via `aura::Window::SetBounds()`:
+  //    - `aura::Window::SetBounds()`
+  //    - ...
+  //    - `OnBoundsChanged()` (sets `is_setting_bounds_ = true`)
+  //    - `SetSize()`
+  //    - `InternalSetBounds()` (skips `window_->SetBounds()`)
+  bool is_setting_bounds_ = false;
 
   // Our parent host view, if this is a popup.  NULL otherwise.
   //

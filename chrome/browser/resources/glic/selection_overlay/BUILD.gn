@@ -8,9 +8,13 @@ build_webui("build") {
   grd_prefix = "glic_untrusted"
 
   static_files = [
+    "arrow_upward.svg",
     "explain.svg",
+    "prompt_suggestion.svg",
     "selection_overlay.html",
+    "settings.svg",
     "spark.svg",
+    "spark_mono.svg",
   ]
 
   ts_files = [

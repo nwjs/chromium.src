@@ -33,6 +33,7 @@
 #include "ui/views/background.h"
 #include "ui/views/border.h"
 #include "ui/views/controls/focus_ring.h"
+#include "ui/views/deprecated_layout_immediately_pass_key.h"
 #include "ui/views/metadata/type_conversion.h"
 #include "ui/views/property_effects.h"
 #include "ui/views/style/platform_style.h"
@@ -394,8 +395,7 @@ ScrollView* ScrollView::GetScrollViewForContents(View* contents) {
   }
 
   auto* scroll_view = static_cast<ScrollView*>(grandparent);
-  DCHECK_EQ(contents, scroll_view->contents());
-  return scroll_view;
+  return contents == scroll_view->contents() ? scroll_view : nullptr;
 }
 
 void ScrollView::SetContentsImpl(std::unique_ptr<View> a_view) {
@@ -760,11 +760,11 @@ void ScrollView::SetHasFocusIndicator(bool has_focus_indicator) {
 }
 
 bool ScrollView::IsHorizontalContentOverflowing() const {
-  return contents_->width() > contents_viewport_->width();
+  return contents_ && contents_->width() > contents_viewport_->width();
 }
 
 bool ScrollView::IsVerticalContentOverflowing() const {
-  return contents_->height() > contents_viewport_->height();
+  return contents_ && contents_->height() > contents_viewport_->height();
 }
 
 base::CallbackListSubscription ScrollView::AddContentsScrolledCallback(
@@ -808,7 +808,8 @@ void ScrollView::Layout(PassKey) {
   }
 
   if (views::FocusRing::Get(this)) {
-    views::FocusRing::Get(this)->DeprecatedLayoutImmediately();
+    views::FocusRing::Get(this)->DeprecatedLayoutImmediately(
+        DeprecatedLayoutImmediatelyPassKey());
   }
 
   gfx::Rect available_rect = GetContentsBounds();
@@ -845,7 +846,8 @@ void ScrollView::Layout(PassKey) {
     // otherwise be unaware of changes to its bounds or visibility status.
     contents_viewport_->SetBoundsRect(viewport_bounds);
     if (contents_) {
-      contents_->DeprecatedLayoutImmediately();
+      contents_->DeprecatedLayoutImmediately(
+          DeprecatedLayoutImmediatelyPassKey());
     }
     return;
   }
@@ -879,7 +881,8 @@ void ScrollView::Layout(PassKey) {
   // Give |contents_| a chance to update its bounds if it depends on the
   // viewport.
   if (contents_) {
-    contents_->DeprecatedLayoutImmediately();
+    contents_->DeprecatedLayoutImmediately(
+        DeprecatedLayoutImmediatelyPassKey());
   }
 
   bool should_layout_contents = false;
@@ -949,7 +952,8 @@ void ScrollView::Layout(PassKey) {
   // Update to the real client size with the visible scrollbars.
   contents_viewport_->SetBoundsRect(viewport_bounds);
   if (should_layout_contents && contents_) {
-    contents_->DeprecatedLayoutImmediately();
+    contents_->DeprecatedLayoutImmediately(
+        DeprecatedLayoutImmediatelyPassKey());
   }
 
   // Even when |contents_| needs to scroll, it can still be narrower or wider
@@ -993,7 +997,7 @@ void ScrollView::Layout(PassKey) {
   header_viewport_->SetBounds(contents_x, contents_y, viewport_bounds.width(),
                               header_height);
   if (header_) {
-    header_->DeprecatedLayoutImmediately();
+    header_->DeprecatedLayoutImmediately(DeprecatedLayoutImmediatelyPassKey());
   }
 
   ConstrainScrollToBounds(header_viewport_, header_,
@@ -1011,22 +1015,6 @@ void ScrollView::Layout(PassKey) {
     // TODO(tluk): Consider adding a CHECK on needs_layout() once layout
     // invalidation issues with overflow indicators have been resolved.
     post_layout_callback_.Run(this);
-  }
-
-  if (next_successful_frame_post_layout_callback_) {
-    // Layout should only occur to Widget parented Views.
-    views::Widget* const widget = GetWidget();
-    CHECK(widget);
-    widget->GetCompositor()->RequestSuccessfulPresentationTimeForNextFrame(
-        base::BindOnce(
-            [](base::WeakPtr<ScrollView> self, base::OnceClosure callback,
-               const viz::FrameTimingDetails& frame_timing_details) {
-              if (self) {
-                std::move(callback).Run();
-              }
-            },
-            weak_ptr_factory_.GetWeakPtr(),
-            std::move(next_successful_frame_post_layout_callback_)));
   }
 }
 
@@ -1622,11 +1610,6 @@ void ScrollView::UpdateOverflowIndicatorVisibility(const gfx::PointF& offset) {
 void ScrollView::RegisterPostLayoutCallback(
     base::RepeatingCallback<void(ScrollView*)> post_layout_callback) {
   post_layout_callback_ = post_layout_callback;
-}
-
-void ScrollView::RegisterNextSuccessfulFramePostLayoutCallback(
-    base::OnceClosure callback) {
-  next_successful_frame_post_layout_callback_ = std::move(callback);
 }
 
 View* ScrollView::GetContentsViewportForTest() const {

@@ -94,7 +94,6 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_convert_coordinate_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_document_ready_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_creation_options.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_element_registration_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_focus_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_import_node_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_observable_array_css_style_sheet.h"
@@ -300,7 +299,6 @@
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer_controller.h"
 #include "third_party/blink/renderer/core/intersection_observer/intersection_observer_entry.h"
 #include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
-#include "third_party/blink/renderer/core/layout/hit_test_canvas_result.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
@@ -5349,6 +5347,18 @@ CSSStyleSheet& Document::ElementSheet() {
   return *elem_sheet_;
 }
 
+void Document::ReferrerPolicyChanged() {
+  // The element sheet holds no rules; it only carries the CSSParserContext
+  // used for inline style and presentation attributes. That context
+  // snapshots the referrer policy, so drop the sheet and let ElementSheet()
+  // recreate it with the new policy.
+  if (elem_sheet_) {
+    DCHECK(!elem_sheet_->Contents()->RuleCount());
+    elem_sheet_ = nullptr;
+  }
+  GetStyleEngine().ReferrerPolicyChanged();
+}
+
 bool Document::InvalidationDisallowed() const {
   return View() && View()->InvalidationDisallowed();
 }
@@ -6654,10 +6664,6 @@ EventListener* Document::GetWindowAttributeEventListener(
   return dom_window->GetAttributeEventListener(event_type);
 }
 
-void Document::EnqueueDisplayLockActivationTask(base::OnceClosure task) {
-  scripted_animation_controller_->EnqueueTask(std::move(task));
-}
-
 void Document::EnqueueAnimationFrameTask(base::OnceClosure task) {
   scripted_animation_controller_->EnqueueTask(std::move(task));
 }
@@ -7955,10 +7961,6 @@ SVGDocumentExtensions& Document::AccessSVGExtensions() {
   return *svg_extensions_;
 }
 
-bool Document::HasSVGRootNode() const {
-  return IsA<SVGSVGElement>(documentElement());
-}
-
 HTMLCollection* Document::images() {
   return EnsureCachedCollection<HTMLCollection>(kDocImages);
 }
@@ -8003,14 +8005,6 @@ DocumentNameCollection* Document::DocumentNamedItems(const AtomicString& name) {
 HTMLCollection* Document::DocumentAllNamedItems(const AtomicString& name) {
   return EnsureCachedCollection<DocumentAllNameCollection>(
       kDocumentAllNamedItems, name);
-}
-
-void Document::IncrementImmediateChildFrameCreationCount() {
-  data_->immediate_child_frame_creation_count_++;
-}
-
-int Document::GetImmediateChildFrameCreationCount() const {
-  return data_->immediate_child_frame_creation_count_;
 }
 
 DOMWindow* Document::defaultView() const {
@@ -9639,7 +9633,6 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(popover_pointerdown_target_);
   visitor->Trace(dialog_pointerdown_target_);
   visitor->Trace(popover_picker_pointerdown_info_);
-  visitor->Trace(popovers_waiting_to_hide_);
   visitor->Trace(all_open_popovers_);
   visitor->Trace(all_open_dialogs_);
   visitor->Trace(elements_with_interest_);
@@ -9780,16 +9773,6 @@ bool Document::IsFocusAllowed(FocusTrigger trigger,
     return true;
   }
 
-  // Check the focus setter's permissions policy to see if it allows focus
-  // without user activation.
-  const ExecutionContext* initiator_context = initiator_frame.DomWindow();
-  if (initiator_context && initiator_context->IsFeatureEnabled(
-                               network::mojom::PermissionsPolicyFeature::
-                                   kFocusWithoutUserActivation)) {
-    CountUse(WebFeature::kFocusWithoutUserActivationAllowedByPolicy);
-    return true;
-  }
-
   // Allow focus if the currently focused frame is an inclusive descendant of
   // the focus setter's frame. This means the setter (or one of its children)
   // already has focus, so moving focus within is not stealing it from a parent.
@@ -9805,10 +9788,16 @@ bool Document::IsFocusAllowed(FocusTrigger trigger,
     }
   }
 
-  AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-      ConsoleMessage::Source::kOther, ConsoleMessage::Level::kWarning,
-      "Blocked focus call from a frame because its "
-      "'focus-without-user-activation' permissions policy is denied."));
+  // Check the focus setter's permissions policy to see if it allows focus
+  // without user activation.
+  const LocalDOMWindow* initiator_window = initiator_frame.DomWindow();
+  if (initiator_window &&
+      initiator_window->GetExecutionContext()->IsFeatureEnabled(
+          network::mojom::PermissionsPolicyFeature::kFocusWithoutUserActivation,
+          ReportOptions::kReportOnFailure)) {
+    CountUse(WebFeature::kFocusWithoutUserActivationAllowedByPolicy);
+    return true;
+  }
 
   CountUse(WebFeature::kFocusWithoutUserActivationBlocked);
   return false;

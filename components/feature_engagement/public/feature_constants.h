@@ -5,11 +5,13 @@
 #ifndef COMPONENTS_FEATURE_ENGAGEMENT_PUBLIC_FEATURE_CONSTANTS_H_
 #define COMPONENTS_FEATURE_ENGAGEMENT_PUBLIC_FEATURE_CONSTANTS_H_
 
+#include <optional>
 #include <string>
 
 #include "base/component_export.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -43,12 +45,15 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeMSBBSettingsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHComposeNewBadgeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHContextualTasksEphemeralToolbarButtonFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHContextualTasksPinnedIconChangedFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCriticalActionAppMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHCriticalActionFilterChipFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSharedHighlightingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeExperimentFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopCustomizeChromeAutoOpenFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopRealboxContextualSearchFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDictationFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDictationHotkeyFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDiscardRingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadEsbPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
@@ -108,6 +113,7 @@ extern const base::FeatureParam<std::string>
     kIPHLensOverlayUrlPathMatchBlockPatterns;
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime;
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHOmniboxAskGLensIconFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHOmniboxEverywhereLensPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabAudioMutingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSavePrimingPromoFeature);
@@ -138,7 +144,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeKeyboardShortcutFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeLineFocusFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePageActionLabelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePresentationModeFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeSidePanelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSendTabToSelfTutorialFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHShoppingCollectionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingDefaultOnFeature);
@@ -157,12 +162,13 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSidePanelContextualTasksPinnableFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideSearchAutoTriggeringFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideSearchPageActionLabelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPwaQuietNotificationFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsFocusingFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsUnfocusingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSaveV2IntroFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSaveV2CloseGroupFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSharedTabChangedFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSharedTabFeedbackFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabScrollButtonFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSearchComboButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopSnoozeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDesktopPwaInstallFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHProfileSwitchFeature);
@@ -184,8 +190,14 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsPinnedByDefaultFeature);
 #if BUILDFLAG(IS_ANDROID)
 // FEATURE_CONSTANTS_DECLARE_FEATURE_ANDROID_START
 // keep-sorted start case=no
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_AndroidTipsOptInPromo);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_AppLanguagePromo);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_ArchivedTabsAutoDeletePromo);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_BlueBubbleCooldownGroup);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_FullscreenSigninPromo);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_InterruptiveIphCooldownGroup);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_NotificationPermissionPromo);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_SearchEngineChoicePromo);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAccountSettingsHistorySync);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationAddToBookmarksFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationNewTabFeature);
@@ -198,6 +210,9 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationTra
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationVoiceSearchFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAdaptiveButtonPinGlicToolbarButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAimActivationHint);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarAddressBar);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarEducation);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarEducationTooltips);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarGlic);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarNewTab);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarPromoDialog);
@@ -239,6 +254,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHFeedCardMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHFeedHeaderMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHFeedSwipeRefresh);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHFuseboxAttachmentFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHFuseboxPlusButtonHintFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGenericAlwaysTriggerHelpUiFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGestureUserEducation);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGlicPromoAndroidFeature);
@@ -290,6 +306,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsRemoteGroupFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSurfaceFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupsSurfaceOnHideFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabGroupSyncOnStripFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabPickerSelectTabsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherAddToGroup);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabSwitcherButtonSwitchIncognitoFeature);
@@ -471,6 +488,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillHomeWorkProfileSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAutofillAccountNameEmailSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillAiValuablesFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPH_AutofillAmbientAutofillSpiiDisclaimer);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
@@ -485,7 +503,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillWalletDirectOffersFeature);
 #if BUILDFLAG(IS_CHROMEOS)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGrowthFramework);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHGoogleOneOfferNotificationFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLauncherSearchHelpUiFeature);
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
@@ -551,6 +568,15 @@ COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionInstructionsUrl);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionMinPehVersion);
+// When non-zero, opens `store_url` if installation hasn't completed within this
+// time. Keep well under the 15s task timeout (e.g. <= 10s).
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSearchPromotionEscapeHatchTime);
+
+// Returns the escape hatch timeout if configured (positive), or std::nullopt
+// if disabled.
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+std::optional<base::TimeDelta> GetSearchPromotionEscapeHatchTime();
 
 inline constexpr char kSearchPromotionActionOpen[] = "open";
 inline constexpr char kSearchPromotionActionInstall[] = "install";

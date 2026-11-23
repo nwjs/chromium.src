@@ -30,6 +30,7 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/permissions/test/object_permission_context_base_mock_permission_observer.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_features.h"
@@ -40,6 +41,7 @@
 #include "services/device/public/mojom/hid.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -78,6 +80,11 @@ class HidChooserContextTestBase {
 #if !BUILDFLAG(IS_ANDROID)
     scoped_feature_list_.InitAndEnableFeature(
         features::kSecurityKeyHidInterfacesAreFido);
+#elif BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+    scoped_feature_list_.InitWithFeatures(
+        {blink::features::kWebHID, features::kSecurityKeyHidInterfacesAreFido,
+         features::kWebHidOnDesktopAndroidServiceWorkers},
+        {});
 #endif  // !BUILDFLAG(IS_ANDROID)
   }
 
@@ -189,7 +196,7 @@ class HidChooserContextTestBase {
     return ConnectDeviceBlocking(CreateDevice(kTestSerialNumber));
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   device::mojom::HidDeviceInfoPtr ConnectFidoDeviceBlocking() {
     auto device = CreateDevice(/*serial_number=*/"");
     device->collections[0]->usage->usage_page = device::mojom::kPageFido;
@@ -215,7 +222,7 @@ class HidChooserContextTestBase {
     device->collections[0]->usage->usage = 1;
     return ConnectDeviceBlocking(std::move(device));
   }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   device::mojom::HidDeviceInfoPtr ConnectDeviceBlocking(
       device::mojom::HidDeviceInfoPtr device) {
@@ -368,11 +375,27 @@ class HidChooserContextTestBase {
 class HidChooserContextTest : public HidChooserContextTestBase,
                               public testing::Test {
  public:
+  HidChooserContextTest() = default;
+
   void SetUp() override {
     DoSetUp(/*is_affiliated=*/true, /*login_user=*/true);
   }
   void TearDown() override { DoTearDown(); }
 };
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+class HidChooserContextDesktopAndroidFeatureDisabledTest
+    : public HidChooserContextTest {
+ public:
+  HidChooserContextDesktopAndroidFeatureDisabledTest() {
+    disabled_feature_list_.InitAndDisableFeature(
+        features::kWebHidOnDesktopAndroidServiceWorkers);
+  }
+
+ private:
+  base::test::ScopedFeatureList disabled_feature_list_;
+};
+#endif  // BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
 
 }  // namespace
 
@@ -1337,7 +1360,7 @@ TEST_F(HidChooserContextTest, ClearBrowsingDataRegressionFromBlock) {
   EXPECT_FALSE(context()->HasDevicePermission(kOrigin, *device));
 }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 TEST_F(HidChooserContextTest, FidoAllowlistOverridesBlocklistDeviceIdRule) {
   const auto kFidoAllowedOrigin = url::Origin::Create(
       GURL("chrome-extension://ckcendljdlmgnhghiaomidhiiclmapok"));
@@ -1412,7 +1435,22 @@ TEST_P(HidChooserContextAffiliatedTest,
                                  kFidoAndPolicyAllowedOrigin, *device));
   EXPECT_FALSE(context()->HasDevicePermission(kOtherOrigin, *device));
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+TEST_F(HidChooserContextDesktopAndroidFeatureDisabledTest,
+       FidoDisallowedWhenDesktopAndroidFeatureDisabled) {
+  const auto kFidoAllowedOrigin = url::Origin::Create(
+      GURL("chrome-extension://ckcendljdlmgnhghiaomidhiiclmapok"));
+  EXPECT_FALSE(context()->IsFidoAllowedForOrigin(kFidoAllowedOrigin));
+
+  auto sibling_device = ConnectFidoSiblingDeviceBlocking();
+  EXPECT_TRUE(context()->IsKnownSecurityKey(*sibling_device));
+  GrantDevicePermissionBlocking(kFidoAllowedOrigin, *sibling_device);
+  EXPECT_FALSE(
+      context()->HasDevicePermission(kFidoAllowedOrigin, *sibling_device));
+}
+#endif  // BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 // Boolean parameter means if user is affiliated on the device. Affiliated
 // users belong to the domain that owns the device and is only meaningful
@@ -1540,6 +1578,67 @@ TEST_F(HidChooserContextWebViewTest, RevokeDevicePermissionFromEmbedder) {
   EXPECT_FALSE(context()->HasDevicePermission(kEmbeddingOrigin, *device));
   EXPECT_FALSE(context()->HasDevicePermission(kWebViewOrigin, *device,
                                               kEmbeddingOrigin));
+}
+
+// Tests that revoking HID device permission from an embedder when the guest
+// shares the embedder's origin (e.g. platform app loading accessible_resources)
+// cleanly revokes both without re-entrant UAF or double-free.
+TEST_F(HidChooserContextWebViewTest,
+       RevokeDevicePermissionFromSameOriginEmbedderAndWebView) {
+  const auto kOrigin = url::Origin::Create(
+      GURL("chrome-extension://" + std::string(kTestExtensionId)));
+
+  // Connect two ephemeral devices and grant permission to the embedder and
+  // same-origin WebView.
+  auto device1 = ConnectDeviceBlocking(CreateDevice(
+      /*serial_number=*/"", /*physical_device_id=*/kTestPhysicalDeviceIds[0]));
+  auto device2 = ConnectDeviceBlocking(CreateDevice(
+      /*serial_number=*/"", /*physical_device_id=*/kTestPhysicalDeviceIds[1]));
+  GrantDevicePermissionBlocking(kOrigin, *device1);
+  GrantDevicePermissionBlocking(kOrigin, *device1, kOrigin);
+  GrantDevicePermissionBlocking(kOrigin, *device2);
+  GrantDevicePermissionBlocking(kOrigin, *device2, kOrigin);
+  EXPECT_TRUE(context()->HasDevicePermission(kOrigin, *device1));
+  EXPECT_TRUE(context()->HasDevicePermission(kOrigin, *device1, kOrigin));
+  EXPECT_TRUE(context()->HasDevicePermission(kOrigin, *device2));
+  EXPECT_TRUE(context()->HasDevicePermission(kOrigin, *device2, kOrigin));
+
+  // Revoke permission for `device1` from the embedder. The same-origin guest
+  // permission for `device1` should be revoked cleanly without crashing or
+  // affecting `device2`.
+  EXPECT_CALL(permission_observer(),
+              OnObjectPermissionChanged(
+                  std::make_optional(ContentSettingsType::HID_GUARD),
+                  ContentSettingsType::HID_CHOOSER_DATA))
+      .Times(2);
+  EXPECT_CALL(permission_observer(), OnPermissionRevoked(kOrigin)).Times(2);
+  context()->RevokeDevicePermission(kOrigin, *device1);
+  EXPECT_TRUE(
+      testing::Mock::VerifyAndClearExpectations(&permission_observer()));
+  EXPECT_FALSE(context()->HasDevicePermission(kOrigin, *device1));
+  EXPECT_FALSE(context()->HasDevicePermission(kOrigin, *device1, kOrigin));
+  EXPECT_TRUE(context()->HasDevicePermission(kOrigin, *device2));
+  EXPECT_TRUE(context()->HasDevicePermission(kOrigin, *device2, kOrigin));
+
+  // Re-grant `device1` to the embedder and verify the WebView entry in
+  // `device_access_` was actually removed rather than only short-circuiting on
+  // the embedder permission check.
+  GrantDevicePermissionBlocking(kOrigin, *device1);
+  EXPECT_TRUE(context()->HasDevicePermission(kOrigin, *device1));
+  EXPECT_FALSE(context()->HasDevicePermission(kOrigin, *device1, kOrigin));
+
+  // Disconnecting `device2` removes it from `devices_` before notifying
+  // observers (`GetDeviceInfo` returns nullptr), which should still revoke the
+  // same-origin guest permission and notify observers twice.
+  EXPECT_CALL(permission_observer(),
+              OnObjectPermissionChanged(
+                  std::make_optional(ContentSettingsType::HID_GUARD),
+                  ContentSettingsType::HID_CHOOSER_DATA))
+      .Times(2);
+  EXPECT_CALL(permission_observer(), OnPermissionRevoked(kOrigin)).Times(2);
+  DisconnectDeviceBlocking(device2->guid);
+  EXPECT_FALSE(context()->HasDevicePermission(kOrigin, *device2));
+  EXPECT_FALSE(context()->HasDevicePermission(kOrigin, *device2, kOrigin));
 }
 
 // Ensures that the revocation of HID device permission from a WebView does not

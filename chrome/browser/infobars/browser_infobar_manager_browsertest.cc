@@ -131,8 +131,52 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   manager()->Show(tab, identifier);
   EXPECT_EQ(1u, infobar_manager->infobars().size());
 
-  manager()->Hide(identifier);
+  manager()->Hide(tab->GetContents(), identifier);
   EXPECT_EQ(0u, infobar_manager->infobars().size());
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
+                       HideByIdentifierReachesEveryTab) {
+  const auto identifier = InfoBarDelegate::TEST_INFOBAR;
+  manager()->Register(InfoBarSpec::Builder(identifier)
+                          .SetMessageText(u"Test Message")
+                          .SetScope(InfoBarScope::kTab)
+                          .Build());
+
+  tabs::TabInterface* background_tab =
+      browser()->GetTabStripModel()->GetActiveTab();
+  ASSERT_TRUE(manager()->Show(background_tab, identifier));
+  chrome::AddTabAt(browser(), GURL("about:blank"), -1, /*foreground=*/true);
+  tabs::TabInterface* active_tab =
+      browser()->GetTabStripModel()->GetActiveTab();
+  ASSERT_NE(background_tab, active_tab);
+  ASSERT_TRUE(manager()->Show(active_tab, identifier));
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
+  tabs::TabInterface* other_window_tab =
+      browser2->GetTabStripModel()->GetActiveTab();
+  ASSERT_TRUE(manager()->Show(other_window_tab, identifier));
+
+  auto count = [](tabs::TabInterface* tab) {
+    return ContentInfoBarManager::FromWebContents(tab->GetContents())
+        ->infobars()
+        .size();
+  };
+
+  ASSERT_EQ(1u, count(background_tab));
+  ASSERT_EQ(1u, count(active_tab));
+  ASSERT_EQ(1u, count(other_window_tab));
+
+  manager()->Hide(identifier,
+                  base::BindLambdaForTesting([&](BrowserWindowInterface* b) {
+                    return b == browser2;
+                  }));
+  EXPECT_EQ(1u, count(background_tab));
+  EXPECT_EQ(1u, count(active_tab));
+  EXPECT_EQ(0u, count(other_window_tab));
+
+  manager()->Hide(identifier);
+  EXPECT_EQ(0u, count(background_tab));
+  EXPECT_EQ(0u, count(active_tab));
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest, ButtonConfiguration) {
@@ -518,7 +562,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
 
   // Clicking the inline link routes to the spec's callback.
   EXPECT_FALSE(delegate->InlineSubstitutionLinkClicked(
-      0u, WindowOpenDisposition::CURRENT_TAB));
+      0u, WindowOpenDisposition::kCurrentTab));
   EXPECT_EQ(web_contents, link_contents);
   EXPECT_EQ(0u, clicked_index);
 }
@@ -644,7 +688,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   // The click asks to close; the removal must report kLinkClicked as the
   // terminal result, not kIgnored.
   EXPECT_TRUE(delegate->InlineSubstitutionLinkClicked(
-      0u, WindowOpenDisposition::NEW_FOREGROUND_TAB));
+      0u, WindowOpenDisposition::kNewForegroundTab));
   infobar_manager->RemoveInfoBar(infobar);
   ASSERT_EQ(1u, results.size());
   EXPECT_EQ(InfoBarResult::kLinkClicked, results[0]);
@@ -680,7 +724,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
       infobar_manager->infobars()[0]->delegate()->AsConfirmInfoBarDelegate();
   ASSERT_TRUE(delegate);
   EXPECT_FALSE(delegate->InlineSubstitutionLinkClicked(
-      0u, WindowOpenDisposition::CURRENT_TAB));
+      0u, WindowOpenDisposition::kCurrentTab));
   EXPECT_EQ(1u, infobar_manager->infobars().size());
   browser()->tab_strip_model()->CloseWebContentsAt(0,
                                                    TabCloseTypes::CLOSE_NONE);
@@ -1235,7 +1279,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest, CentralizedMetrics) {
                                       1);
 
   // 5. LinkClicked and check "LinkClicked" metric.
-  delegate->LinkClicked(WindowOpenDisposition::CURRENT_TAB);
+  delegate->LinkClicked(WindowOpenDisposition::kCurrentTab);
   histogram_tester.ExpectUniqueSample("InfoBar.Centralized.LinkClicked",
                                       identifier, 1);
 }
@@ -1576,7 +1620,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   infobars::InfoBar* tab0_infobar = tab0_manager->infobars()[0];
 
   if (tab0_infobar->delegate()->LinkClicked(
-          WindowOpenDisposition::NEW_FOREGROUND_TAB)) {
+          WindowOpenDisposition::kNewForegroundTab)) {
     tab0_infobar->RemoveSelf();
   }
 
@@ -1625,7 +1669,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   ASSERT_TRUE(tab0_delegate);
 
   if (tab0_delegate->InlineSubstitutionLinkClicked(
-          0u, WindowOpenDisposition::NEW_FOREGROUND_TAB)) {
+          0u, WindowOpenDisposition::kNewForegroundTab)) {
     tab0_infobar->RemoveSelf();
   }
 
@@ -1668,7 +1712,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   ASSERT_TRUE(delegate);
 
   EXPECT_TRUE(delegate->InlineSubstitutionLinkClicked(
-      0u, WindowOpenDisposition::CURRENT_TAB));
+      0u, WindowOpenDisposition::kCurrentTab));
   ASSERT_EQ(1u, results.size());
   EXPECT_EQ(InfoBarResult::kLinkClicked, results[0]);
 
@@ -1713,7 +1757,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   ASSERT_TRUE(tab0_delegate);
 
   if (tab0_delegate->InlineSubstitutionLinkClicked(
-          0u, WindowOpenDisposition::NEW_FOREGROUND_TAB)) {
+          0u, WindowOpenDisposition::kNewForegroundTab)) {
     tab0_infobar->RemoveSelf();
   }
 
@@ -1746,7 +1790,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents());
   infobars::InfoBar* window1_infobar = window1_tab0_manager->infobars()[0];
   if (window1_infobar->delegate()->LinkClicked(
-          WindowOpenDisposition::NEW_FOREGROUND_TAB)) {
+          WindowOpenDisposition::kNewForegroundTab)) {
     window1_infobar->RemoveSelf();
   }
 
@@ -1798,7 +1842,7 @@ IN_PROC_BROWSER_TEST_F(BrowserInfoBarManagerBrowserTest,
   ASSERT_TRUE(tab0_delegate);
 
   if (tab0_delegate->InlineSubstitutionLinkClicked(
-          0u, WindowOpenDisposition::CURRENT_TAB)) {
+          0u, WindowOpenDisposition::kCurrentTab)) {
     tab0_infobar->RemoveSelf();
   }
 
@@ -1851,7 +1895,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(tab0_delegate);
 
   if (tab0_delegate->InlineSubstitutionLinkClicked(
-          0u, WindowOpenDisposition::NEW_FOREGROUND_TAB)) {
+          0u, WindowOpenDisposition::kNewForegroundTab)) {
     tab0_infobar->RemoveSelf();
   }
   ASSERT_EQ(1u, results.size());
@@ -1890,7 +1934,7 @@ IN_PROC_BROWSER_TEST_F(
           browser()->tab_strip_model()->GetActiveWebContents())
           ->infobars()[0];
   EXPECT_FALSE(window1_infobar->delegate()->LinkClicked(
-      WindowOpenDisposition::NEW_BACKGROUND_TAB));
+      WindowOpenDisposition::kNewBackgroundTab));
 
   infobars::InfoBar* window2_infobar =
       ContentInfoBarManager::FromWebContents(

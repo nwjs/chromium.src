@@ -57,8 +57,10 @@ cast_source_set("graphics") {
 
     # These deps provide an implementation of UiEventSource::Create().
     if (enable_starboard_graphics && !remove_starboard_headers) {
-      deps +=
-          [ "//chromecast/starboard/chromecast/events:starboard_event_source" ]
+      deps += [
+        "//chromecast/starboard/chromecast/events:starboard_event_source",
+        "//chromecast/starboard/chromecast/starboard_adapter",
+      ]
     } else {
       deps +=
           [ "//chromecast/starboard/chromecast/events:dummy_ui_event_source" ]
@@ -115,7 +117,6 @@ cast_shared_library("libcast_graphics_1.0") {
   sources = [
     "cast_egl_platform_default.cc",
     "graphics_properties_default.cc",
-    "osd_plane_default.cc",
   ]
 
   public_deps = [ "//chromecast/public" ]
@@ -149,8 +150,10 @@ if (use_aura && !is_fuchsia) {
       "//ui/aura",
       "//ui/aura:test_support",
       "//ui/base:test_support",
+      "//ui/display",
       "//ui/events:test_support",
       "//ui/gfx",
+      "//ui/gfx/geometry",
       "//ui/gl:test_support",
       "//ui/platform_window",
       "//ui/views",

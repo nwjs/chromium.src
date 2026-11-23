@@ -14,7 +14,6 @@
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_utils.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 #include "chrome/browser/ui/webui/side_panel/history/history_side_panel_ui.h"
@@ -38,6 +37,11 @@ HistorySidePanelCoordinator::HistorySidePanelCoordinator(
     BrowserWindowInterface* browser)
     : browser_(browser),
       scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this) {
+  SidePanelRegistry::From(browser)->Register(std::make_unique<SidePanelEntry>(
+      SidePanelEntry::Key(SidePanelEntry::Id::kHistory),
+      base::BindRepeating(&HistorySidePanelCoordinator::CreateHistoryWebView,
+                          base::Unretained(this)),
+      /*default_content_width_callback=*/base::NullCallback()));
   pref_change_registrar_.Init(browser->GetProfile()->GetPrefs());
   base::RepeatingClosure callback(base::BindRepeating(
       &HistorySidePanelCoordinator::OnHistoryClustersPreferenceChanged,
@@ -56,15 +60,6 @@ HistorySidePanelCoordinator* HistorySidePanelCoordinator::From(
 // static
 bool HistorySidePanelCoordinator::IsSupported() {
   return base::FeatureList::IsEnabled(features::kByDateHistoryInSidePanel);
-}
-
-void HistorySidePanelCoordinator::CreateAndRegisterEntry(
-    SidePanelRegistry* global_registry) {
-  global_registry->Register(std::make_unique<SidePanelEntry>(
-      SidePanelEntry::Key(SidePanelEntry::Id::kHistory),
-      base::BindRepeating(&HistorySidePanelCoordinator::CreateHistoryWebView,
-                          base::Unretained(this)),
-      /*default_content_width_callback=*/base::NullCallback()));
 }
 
 std::unique_ptr<views::View> HistorySidePanelCoordinator::CreateHistoryWebView(

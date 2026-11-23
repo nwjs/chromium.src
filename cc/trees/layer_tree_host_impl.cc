@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -217,19 +218,6 @@ void DidVisibilityChange(LayerTreeHostImpl* id, bool visible) {
                   /*"LayerTreeHostImpl::SetVisible"*/ visibility_track);
 }
 
-void PopulateMetadataContentColorUsage(const LayerTreeImpl* active_tree,
-                                       const FrameData* frame,
-                                       viz::CompositorFrameMetadata* metadata) {
-  metadata->content_color_usage = gfx::ContentColorUsage::kSRGB;
-  for (int layer_id : frame->will_draw_layers) {
-    const LayerImpl* layer = active_tree->LayerById(layer_id);
-    if (layer) {
-      metadata->content_color_usage = std::max(metadata->content_color_usage,
-                                               layer->GetContentColorUsage());
-    }
-  }
-}
-
 // Dump verbose log with
 // --vmodule=layer_tree_host_impl=3 for renderer only, or
 // --vmodule=layer_tree_host_impl=4 for all clients.
@@ -403,6 +391,113 @@ gfx::Rect CalculateVisibleBounds(
   return element_screen_rect;
 }
 
+void RemoveRenderPassesOptimized(FrameData* frame) {
+  // There is always at least a root RenderPass.
+  DCHECK_GE(frame->render_passes.size(), 1u);
+
+  // TODO(crbug.com/444264038): Consider merging this pre-scan with one of the
+  // loops below to avoid an extra walk over all draw quads.
+  // A set of RenderPasses that have filters or backdrop filters applied to
+  // them.
+  base::flat_set<viz::CompositorRenderPassId> pass_with_filters;
+  // RenderPasses referenced by a viz::RenderPassDrawQuad in a retained pass.
+  base::flat_set<viz::CompositorRenderPassId> referenced_passes;
+  // A set of viz::SharedElementDrawQuad references that we have seen.
+  base::flat_set<viz::ViewTransitionElementResourceId>
+      view_transition_quad_references;
+
+  // Remove RenderPasses that are not referenced by any draw quads or copy
+  // requests (except the root RenderPass).
+  for (auto pass_it = frame->render_passes.rbegin();
+       pass_it != frame->render_passes.rend();) {
+    // Iterating from the back of the list to the front, in order to remove each
+    // qualified RenderPass, and drop references to earlier RenderPasses
+    // allowing them to be removed to.
+    viz::CompositorRenderPass* pass = pass_it->get();
+
+    const bool is_root_pass = pass->id == frame->render_passes.back()->id;
+    // Retain render passes generating ViewTransition snapshots if they are
+    // referenced by a quad or this frame will process a save directive. We need
+    // to render and screenshot offscreen content as well, which won't be
+    // referenced by a quad.
+    const bool does_contribute_to_view_transition_snapshot =
+        pass->view_transition_element_resource_id.IsValid() &&
+        (frame->has_view_transition_save_directive ||
+         view_transition_quad_references.contains(
+             pass->view_transition_element_resource_id));
+    if (is_root_pass || !pass->copy_requests.empty() ||
+        referenced_passes.contains(pass->id) ||
+        does_contribute_to_view_transition_snapshot) {
+      for (const auto* quad : pass->quad_list) {
+        if (quad->material == viz::DrawQuad::Material::kSharedElement) {
+          view_transition_quad_references.insert(
+              viz::SharedElementDrawQuad::MaterialCast(quad)
+                  ->element_resource_id);
+        } else if (quad->material ==
+                   viz::DrawQuad::Material::kCompositorRenderPass) {
+          const viz::CompositorRenderPassDrawQuad* render_pass_quad =
+              viz::CompositorRenderPassDrawQuad::MaterialCast(quad);
+          if (!render_pass_quad->filters.IsEmpty() ||
+              !render_pass_quad->backdrop_filters.IsEmpty()) {
+            pass_with_filters.insert(render_pass_quad->render_pass_id);
+          }
+          referenced_passes.insert(render_pass_quad->render_pass_id);
+        }
+      }
+      ++pass_it;
+      continue;
+    }
+
+    pass_it = std::make_reverse_iterator(
+        frame->render_passes.erase(std::next(pass_it).base()));
+  }
+
+  // A set of RenderPasses that we have seen.
+  base::flat_set<viz::CompositorRenderPassId> pass_exists;
+  // Iterate RenderPasses in draw order, removing empty render passes (except
+  // the root RenderPass).
+  for (auto pass_it = frame->render_passes.begin();
+       pass_it != frame->render_passes.end();) {
+    viz::CompositorRenderPass* pass = pass_it->get();
+
+    // Remove orphan viz::RenderPassDrawQuads.
+    for (auto it = pass->quad_list.begin(); it != pass->quad_list.end();) {
+      if (it->material == viz::DrawQuad::Material::kCompositorRenderPass) {
+        const viz::CompositorRenderPassDrawQuad* quad =
+            viz::CompositorRenderPassDrawQuad::MaterialCast(*it);
+        // If the RenderPass doesn't exist, we can remove the quad.
+        if (pass_exists.count(quad->render_pass_id)) {
+          ++it;
+        } else {
+          it = pass->quad_list.EraseAndInvalidateAllPointers(it);
+        }
+      } else {
+        ++it;
+      }
+    }
+
+    if (pass_it == frame->render_passes.end() - 1) {
+      // Don't remove the root RenderPass.
+      break;
+    }
+
+    const bool is_no_op_pass =
+        pass->quad_list.empty() && pass->copy_requests.empty() &&
+        !pass->subtree_capture_id.is_valid() &&
+        !pass_with_filters.contains(pass->id) &&
+        // TODO(khushalsagar) : Send information about no-op passes to viz to
+        // retain this optimization for shared elements. See crbug.com/1265178.
+        !pass->view_transition_element_resource_id.IsValid();
+    if (is_no_op_pass) {
+      pass_it = frame->render_passes.erase(pass_it);
+      continue;
+    }
+
+    pass_exists.insert(pass->id);
+    ++pass_it;
+  }
+}
+
 #define VERBOSE_LOG() \
   VLOG_IF(3, VerboseLogEnabled()) << ClientNameForVerboseLog() << ": "
 
@@ -504,7 +599,7 @@ void LayerTreeHostImpl::DidEndScroll() {
   if (base::FeatureList::IsEnabled(
           features::kNewContentForCheckerboardedScrolls) &&
       ::features::kNewContentForCheckerboardedScrollsParam.Get() ==
-          ::features::kNewContentForCheckerboardedScrollsPerScroll) {
+          ::features::NewContentForCheckerboardedScrollsMode::kPerScroll) {
     prioritize_new_content_due_to_checkerboarding_ = false;
   }
 
@@ -1339,7 +1434,11 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame,
       // TODO(b/512804780) - Audit if this is necessary for UI in TreesInViz
       // mode.
       if (settings_.enable_compositing_based_throttling && target_render_pass) {
-        throttle_decider_.ProcessRenderPass(*target_render_pass);
+        throttle_decider_.ProcessRenderPass(
+            *target_render_pass,
+            /*has_foreground_blur=*/
+            target_render_surface->Filters().HasFilterOfType(
+                FilterOperation::BLUR));
       }
     } else if (it.state() ==
                EffectTreeLayerListIterator::State::kContributingSurface) {
@@ -1650,8 +1749,31 @@ DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame,
 }
 
 void LayerTreeHostImpl::RemoveRenderPasses(FrameData* frame) {
+  if (base::FeatureList::IsEnabled(features::kOptimizeRemoveRenderPasses)) {
+    RemoveRenderPassesOptimized(frame);
+    return;
+  }
+
   // There is always at least a root RenderPass.
   DCHECK_GE(frame->render_passes.size(), 1u);
+
+  // TODO(crbug.com/444264038): Consider merging this pre-scan with one of the
+  // loops below to avoid an extra walk over all draw quads.
+  // A set of RenderPasses that have filters or backdrop filters applied to
+  // them.
+  base::flat_set<viz::CompositorRenderPassId> pass_with_filters;
+  for (const auto& render_pass : frame->render_passes) {
+    for (auto it = render_pass->quad_list.begin();
+         it != render_pass->quad_list.end(); ++it) {
+      if (it->material == viz::DrawQuad::Material::kCompositorRenderPass) {
+        const viz::CompositorRenderPassDrawQuad* quad =
+            viz::CompositorRenderPassDrawQuad::MaterialCast(*it);
+        if (!quad->filters.IsEmpty() || !quad->backdrop_filters.IsEmpty()) {
+          pass_with_filters.insert(quad->render_pass_id);
+        }
+      }
+    }
+  }
 
   // A set of RenderPasses that we have seen.
   base::flat_set<viz::CompositorRenderPassId> pass_exists;
@@ -1699,8 +1821,8 @@ void LayerTreeHostImpl::RemoveRenderPasses(FrameData* frame) {
     }
 
     if (pass->quad_list.empty() && pass->copy_requests.empty() &&
-        !pass->subtree_capture_id.is_valid() && pass->filters.IsEmpty() &&
-        pass->backdrop_filters.IsEmpty() &&
+        !pass->subtree_capture_id.is_valid() &&
+        !pass_with_filters.contains(pass->id) &&
         // TODO(khushalsagar) : Send information about no-op passes to viz to
         // retain this optimization for shared elements. See crbug.com/1265178.
         !pass->view_transition_element_resource_id.IsValid()) {
@@ -2692,7 +2814,8 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
 
     // Send updates to Viz even for no damage case when TreesInViz is enabled.
     if (settings_.TreesInVizInClientProcess()) {
-      UpdateDisplayTree(*frame, {}, viz::TrackedElementRects());
+      UpdateDisplayTree(*frame, {}, viz::TrackedElementRects(),
+                        /*frame_interval_inputs=*/std::nullopt);
     }
 
     active_tree()->ResetAllChangeTracking();
@@ -2791,7 +2914,8 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
         compositor_frame.metadata.send_frame_token_to_embedder;
     trees_in_viz_submit_time = UpdateDisplayTree(
         *frame, std::move(compositor_frame.metadata.latency_info),
-        std::move(compositor_frame.metadata.tracked_element_rects));
+        std::move(compositor_frame.metadata.tracked_element_rects),
+        std::move(compositor_frame.metadata.frame_interval_inputs));
 
     layer_tree_frame_sink_->ExportFrameTiming();
   } else {
@@ -2919,18 +3043,18 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
   // painting in the next frame.
   if (base::FeatureList::IsEnabled(
           features::kNewContentForCheckerboardedScrolls)) {
-    const std::string param =
-        ::features::kNewContentForCheckerboardedScrollsParam.Get();
-    if (param == ::features::kNewContentForCheckerboardedScrollsPerScroll) {
-      if (GetActivelyScrollingType() != ActivelyScrollingType::kNone &&
-          frame->checkerboarded_needs_record) {
-        prioritize_new_content_due_to_checkerboarding_ = true;
-      }
-    } else if (param ==
-               ::features::kNewContentForCheckerboardedScrollsPerFrame) {
-      prioritize_new_content_due_to_checkerboarding_ =
-          GetActivelyScrollingType() != ActivelyScrollingType::kNone &&
-          frame->checkerboarded_needs_record;
+    switch (::features::kNewContentForCheckerboardedScrollsParam.Get()) {
+      case ::features::NewContentForCheckerboardedScrollsMode::kPerScroll:
+        if (GetActivelyScrollingType() != ActivelyScrollingType::kNone &&
+            frame->checkerboarded_needs_record) {
+          prioritize_new_content_due_to_checkerboarding_ = true;
+        }
+        break;
+      case ::features::NewContentForCheckerboardedScrollsMode::kPerFrame:
+        prioritize_new_content_due_to_checkerboarding_ =
+            GetActivelyScrollingType() != ActivelyScrollingType::kNone &&
+            frame->checkerboarded_needs_record;
+        break;
     }
   }
 
@@ -3036,7 +3160,8 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
           << view_transition_element_map[view_transition_element_resource_id]
                  .GetUnsafeValue();
 
-      if (view_transition_element_resource_id.MatchesToken(
+      if (render_surface->has_view_transition_capture_contributions() &&
+          view_transition_element_resource_id.MatchesToken(
               capture_view_transition_tokens)) {
         view_transition_element_map[view_transition_element_resource_id] =
             render_surface->view_transition_capture_render_pass_id();
@@ -3088,7 +3213,6 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
     }
   }
 
-  PopulateMetadataContentColorUsage(active_tree_.get(), frame, &metadata);
   metadata.has_shared_element_resources = frame->has_shared_element_resources;
   uint32_t frame_deadline = frame->deadline_in_frames.value_or(0u);
   // Set a higher frame deadline for ViewTransitions with `kAnimateRenderer` to
@@ -3157,12 +3281,11 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
     frame->damage_reasons.Remove(DamageReason::kScrollbarFadeOutAnimation);
   }
 
-  // TODO(crbug.com/555345506): Support TreesInViz. There, the frame used for
-  // refresh rate selection is generated by the Viz-process instance. It
-  // attributes client effect updates to kUntracked, and only has
-  // kCompositorAnimation from animations it ticks itself (TreeAnimationsInViz).
-  // Until TreesInViz is supported, it skips this block, so those frames keep
-  // kCompositorAnimation and stay ineligible for refresh rate throttling.
+  // Skipped in the Viz process: with TreesInViz alone, the frame uses the
+  // client's inputs instead, which already include this entry (see below).
+  // TODO(crbug.com/388855821): Support TreeAnimationsInViz, where Viz ticks
+  // animations itself. Until then, those frames keep kCompositorAnimation and
+  // stay ineligible for refresh rate throttling.
   if (frame->damage_reasons.Has(DamageReason::kCompositorAnimation) &&
       !settings_.trees_in_viz_in_viz_process) {
     // MinimumTickInterval() is zero if any ticking animation is continuous or
@@ -3188,6 +3311,23 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
   // removed, then can set `has_only_content_frame_interval_updates`.
   metadata.frame_interval_inputs.has_only_content_frame_interval_updates =
       frame->damage_reasons.empty();
+
+  // TreesInViz without TreeAnimationsInViz: every change originates in the
+  // client, and viz::LayerContextImpl only draws in response to a client
+  // update, so use the inputs of the frame the client drew (once), keeping this
+  // frame's time. Without them, keep the inputs computed above.
+  // TODO(crbug.com/388855821): With TreeAnimationsInViz, combine the client's
+  // inputs (e.g. input and scroll speed) with Viz's own.
+  if (settings_.trees_in_viz_in_viz_process &&
+      !settings_.TreeAnimationsInVizInVizProcess() &&
+      frame_interval_inputs_from_client_) {
+    const base::TimeTicks frame_time =
+        metadata.frame_interval_inputs.frame_time;
+    metadata.frame_interval_inputs =
+        std::move(*frame_interval_inputs_from_client_);
+    metadata.frame_interval_inputs.frame_time = frame_time;
+    frame_interval_inputs_from_client_.reset();
+  }
 
   metadata.activation_dependencies = std::move(frame->activation_dependencies);
   active_tree()->FinishSwapPromises(&metadata);
@@ -3333,6 +3473,7 @@ base::TimeTicks LayerTreeHostImpl::UpdateDisplayTree(
     FrameData& frame,
     std::vector<ui::LatencyInfo> latency_info,
     viz::TrackedElementRects tracked_element_rects,
+    std::optional<viz::FrameIntervalInputs> frame_interval_inputs,
     bool is_flush) {
   DCHECK(settings_.TreesInVizInClientProcess());
   DCHECK(layer_context_);
@@ -3343,7 +3484,8 @@ base::TimeTicks LayerTreeHostImpl::UpdateDisplayTree(
       *active_tree(), *resource_provider(),
       layer_tree_frame_sink_->shared_image_interface().get(),
       viewport_damage_rect_, !frame.has_no_damage, is_flush,
-      std::move(latency_info), std::move(tracked_element_rects));
+      std::move(latency_info), std::move(tracked_element_rects),
+      std::move(frame_interval_inputs));
 }
 
 void LayerTreeHostImpl::FlushDisplayTree() {
@@ -3372,7 +3514,8 @@ void LayerTreeHostImpl::FlushDisplayTree() {
   // activation of this specific update and ensures that subsequent metadata
   // (like frame tokens in ACKs) remains consistent.
   ++next_frame_token_;
-  UpdateDisplayTree(frame, {}, viz::TrackedElementRects(), /*is_flush=*/true);
+  UpdateDisplayTree(frame, {}, viz::TrackedElementRects(),
+                    /*frame_interval_inputs=*/std::nullopt, /*is_flush=*/true);
 
   // A flush update synchronizes state (e.g. tile evictions) to Viz but does not
   // result in a frame draw. We reset internal damage tracking and tree change
@@ -4650,7 +4793,7 @@ void LayerTreeHostImpl::DidScrollContent(ElementId element_id,
     if (base::FeatureList::IsEnabled(
             features::kNewContentForCheckerboardedScrolls) &&
         ::features::kNewContentForCheckerboardedScrollsParam.Get() ==
-            ::features::kNewContentForCheckerboardedScrollsPerFrame) {
+            ::features::NewContentForCheckerboardedScrollsMode::kPerFrame) {
       prioritize_new_content_due_to_checkerboarding_ = false;
       const auto& scroll_tree = active_tree_->property_trees()->scroll_tree();
       if (const gfx::Rect* cull_rect =

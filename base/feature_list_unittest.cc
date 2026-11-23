@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <limits>
 #include <ostream>
 #include <set>
 #include <string>
@@ -194,6 +195,10 @@ class FeatureListTest : public testing::Test {
     feature.cached_value.store(value, std::memory_order_relaxed);
   }
 
+  Feature::FeatureStateCache GetFeatureStateForTesting(const Feature& feature) {
+    return feature.cached_value.load(std::memory_order_relaxed);
+  }
+
  private:
   test::ScopedFeatureList scoped_feature_list_;
 };
@@ -201,6 +206,59 @@ class FeatureListTest : public testing::Test {
 TEST_F(FeatureListTest, DefaultStates) {
   EXPECT_TRUE(FeatureList::IsEnabled(kFeatureOnByDefault));
   EXPECT_FALSE(FeatureList::IsEnabled(kFeatureOffByDefault));
+}
+
+TEST_F(FeatureListTest, CacheStoresResolvedAndExplicitState) {
+  FeatureList::ClearFeatureCachedValueForTesting(kFeatureOnByDefault);
+  EXPECT_TRUE(FeatureList::IsEnabled(kFeatureOnByDefault));
+  Feature::FeatureStateCache cached_value =
+      GetFeatureStateForTesting(kFeatureOnByDefault);
+  EXPECT_TRUE(cached_value & internal::kCachedResolvedEnabledMask);
+  EXPECT_FALSE(cached_value & internal::kCachedExplicitOverrideMask);
+  EXPECT_FALSE(
+      FeatureList::GetStateIfOverridden(kFeatureOnByDefault).has_value());
+
+  FeatureList::ClearFeatureCachedValueForTesting(kFeatureOffByDefault);
+  EXPECT_FALSE(FeatureList::IsEnabled(kFeatureOffByDefault));
+  cached_value = GetFeatureStateForTesting(kFeatureOffByDefault);
+  EXPECT_FALSE(cached_value & internal::kCachedResolvedEnabledMask);
+  EXPECT_FALSE(cached_value & internal::kCachedExplicitOverrideMask);
+  EXPECT_FALSE(
+      FeatureList::GetStateIfOverridden(kFeatureOffByDefault).has_value());
+
+  test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{kFeatureOffByDefault},
+      /*disabled_features=*/{kFeatureOnByDefault});
+
+  EXPECT_TRUE(FeatureList::IsEnabled(kFeatureOffByDefault));
+  cached_value = GetFeatureStateForTesting(kFeatureOffByDefault);
+  EXPECT_TRUE(cached_value & internal::kCachedResolvedEnabledMask);
+  EXPECT_TRUE(cached_value & internal::kCachedExplicitOverrideMask);
+  const auto off_by_default_state =
+      FeatureList::GetStateIfOverridden(kFeatureOffByDefault);
+  ASSERT_TRUE(off_by_default_state.has_value());
+  EXPECT_TRUE(*off_by_default_state);
+
+  EXPECT_FALSE(FeatureList::IsEnabled(kFeatureOnByDefault));
+  cached_value = GetFeatureStateForTesting(kFeatureOnByDefault);
+  EXPECT_FALSE(cached_value & internal::kCachedResolvedEnabledMask);
+  EXPECT_TRUE(cached_value & internal::kCachedExplicitOverrideMask);
+  const auto on_by_default_state =
+      FeatureList::GetStateIfOverridden(kFeatureOnByDefault);
+  ASSERT_TRUE(on_by_default_state.has_value());
+  EXPECT_FALSE(*on_by_default_state);
+}
+
+TEST(FeatureListCachingContextTest, SkipsZeroOnWraparound) {
+  constexpr uint16_t kMaxContext = std::numeric_limits<uint16_t>::max();
+  uint16_t next_context = kMaxContext - 1;
+
+  EXPECT_EQ(internal::NextCachingContext(next_context), kMaxContext - 1);
+  EXPECT_EQ(internal::NextCachingContext(next_context), kMaxContext);
+  EXPECT_EQ(internal::NextCachingContext(next_context), 1);
+  EXPECT_EQ(internal::NextCachingContext(next_context), 2);
+  EXPECT_EQ(next_context, 3);
 }
 
 // Testing the 2-argument BASE_FEATURE macro.
@@ -1386,7 +1444,8 @@ struct RuntimeMutabilityCallbackData {
   std::string feature_name;
   std::string trial_name;
   std::string group_name;
-  FeatureList::OverrideState state;
+  bool old_is_enabled = false;
+  bool new_is_enabled = false;
   bool feature_enabled = false;
 };
 
@@ -1399,12 +1458,14 @@ void RuntimeMutabilityCallback(
     std::reference_wrapper<const base::Feature> feature,
     std::string_view trial,
     std::string_view group,
-    FeatureList::OverrideState state) {
+    bool old_is_enabled,
+    bool new_is_enabled) {
   (*calls)++;
   data->feature_name = feature.get().name;
   data->trial_name = std::string(trial);
   data->group_name = std::string(group);
-  data->state = state;
+  data->old_is_enabled = old_is_enabled;
+  data->new_is_enabled = new_is_enabled;
   data->feature_enabled = FeatureList::IsEnabled(feature);
 }
 
@@ -1480,7 +1541,8 @@ TEST_F(FeatureListTest, EnableRuntimeMutability_PostMutationOnly) {
   EXPECT_EQ(kRuntimeMutableFeature.name, post_callback_data.feature_name);
   EXPECT_EQ("TrialA", post_callback_data.trial_name);
   EXPECT_EQ("GroupA", post_callback_data.group_name);
-  EXPECT_EQ(FeatureList::OVERRIDE_DISABLE_FEATURE, post_callback_data.state);
+  EXPECT_TRUE(post_callback_data.old_is_enabled);
+  EXPECT_FALSE(post_callback_data.new_is_enabled);
   EXPECT_FALSE(post_callback_data.feature_enabled);
   EXPECT_FALSE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 }
@@ -1552,6 +1614,7 @@ TEST_F(FeatureListTest,
   // unittests.
   std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
   std::unique_ptr<base::RuntimeFieldTrialInfo> reenable_override_info;
+  std::unique_ptr<base::RuntimeFieldTrialInfo> default_override_info;
   test::ScopedFeatureList scoped_feature_list;
   {
     auto feature_list = std::make_unique<FeatureList>();
@@ -1585,7 +1648,8 @@ TEST_F(FeatureListTest,
   EXPECT_EQ(kRuntimeMutableFeature.name, pre_callback_data.feature_name);
   EXPECT_EQ("TrialA", pre_callback_data.trial_name);
   EXPECT_EQ("GroupA", pre_callback_data.group_name);
-  EXPECT_EQ(FeatureList::OVERRIDE_DISABLE_FEATURE, pre_callback_data.state);
+  EXPECT_TRUE(pre_callback_data.old_is_enabled);
+  EXPECT_FALSE(pre_callback_data.new_is_enabled);
   // During pre-mutation callback, the feature is still in its old state
   // (enabled).
   EXPECT_TRUE(pre_callback_data.feature_enabled);
@@ -1599,7 +1663,8 @@ TEST_F(FeatureListTest,
   EXPECT_EQ(kRuntimeMutableFeature.name, post_callback_data.feature_name);
   EXPECT_EQ("TrialA", post_callback_data.trial_name);
   EXPECT_EQ("GroupA", post_callback_data.group_name);
-  EXPECT_EQ(FeatureList::OVERRIDE_DISABLE_FEATURE, post_callback_data.state);
+  EXPECT_TRUE(post_callback_data.old_is_enabled);
+  EXPECT_FALSE(post_callback_data.new_is_enabled);
   // During post-mutation callback, the feature is in its new state (disabled).
   EXPECT_FALSE(post_callback_data.feature_enabled);
 
@@ -1620,6 +1685,8 @@ TEST_F(FeatureListTest,
   reenable_update->RunPreMutationCallback();
   reenable_update->UpdateState();
   reenable_update->RunPostMutationCallback();
+  EXPECT_FALSE(post_callback_data.old_is_enabled);
+  EXPECT_TRUE(post_callback_data.new_is_enabled);
 
   // Both override disabling and re-enabling should be logged as successes.
   histogram_tester.ExpectBucketCount(kRuntimeMutabilityResult,
@@ -1629,16 +1696,111 @@ TEST_F(FeatureListTest,
   EXPECT_EQ(2, post_callback_calls);
   EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
 
-  // Attempting to update with OVERRIDE_USE_DEFAULT is not supported.
+  // Disable again and then update with OVERRIDE_USE_DEFAULT, which should use
+  // the feature's default state (enabled) and activate the override upon query.
+  auto disable_again_update =
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
+  ASSERT_TRUE(disable_again_update.has_value());
+  disable_again_update->RunPreMutationCallback();
+  disable_again_update->UpdateState();
+  disable_again_update->RunPostMutationCallback();
+  EXPECT_FALSE(FeatureList::IsEnabled(kRuntimeMutableFeature));
+
+  default_override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialC", "Default", base::FieldTrialParams(), nullptr);
   auto default_update =
       FeatureList::GetInstance()
           ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
-              pass_key(), reenable_override_info.get(),
+              pass_key(), default_override_info.get(),
               kRuntimeMutableFeature.name, FeatureList::OVERRIDE_USE_DEFAULT);
-  EXPECT_FALSE(default_update.has_value());
-  histogram_tester.ExpectBucketCount(
-      kRuntimeMutabilityResult,
-      RuntimeMutabilityResult::kFailure_StateNotSupported, 1);
+  ASSERT_TRUE(default_update.has_value());
+  default_update->RunPreMutationCallback();
+  EXPECT_EQ(4, pre_callback_calls);
+  EXPECT_EQ("TrialC", pre_callback_data.trial_name);
+  EXPECT_EQ("Default", pre_callback_data.group_name);
+  // OVERRIDE_USE_DEFAULT resolves to the feature's default state (enabled).
+  EXPECT_FALSE(pre_callback_data.old_is_enabled);
+  EXPECT_TRUE(pre_callback_data.new_is_enabled);
+  EXPECT_FALSE(pre_callback_data.feature_enabled);
+
+  default_update->UpdateState();
+  default_update->RunPostMutationCallback();
+  EXPECT_EQ(4, post_callback_calls);
+  EXPECT_EQ("TrialC", post_callback_data.trial_name);
+  EXPECT_EQ("Default", post_callback_data.group_name);
+  EXPECT_FALSE(post_callback_data.old_is_enabled);
+  EXPECT_TRUE(post_callback_data.new_is_enabled);
+  EXPECT_TRUE(post_callback_data.feature_enabled);
+
+  EXPECT_TRUE(FeatureList::IsEnabled(kRuntimeMutableFeature));
+  EXPECT_TRUE(default_override_info->is_active());
+  histogram_tester.ExpectBucketCount(kRuntimeMutabilityResult,
+                                     RuntimeMutabilityResult::kSuccess, 4);
+}
+
+// Verifies that computing the old/new enabled states passed to the
+// runtime-mutation callbacks does not activate the field trial that currently
+// controls the feature.
+TEST_F(FeatureListTest, RuntimeMutability_CallbackStatesDoNotActivateTrial) {
+  int pre_callback_calls = 0;
+  RuntimeMutabilityCallbackData pre_callback_data;
+  int post_callback_calls = 0;
+  RuntimeMutabilityCallbackData post_callback_data;
+  auto record = [](int* calls, RuntimeMutabilityCallbackData* data,
+                   std::reference_wrapper<const base::Feature> feature,
+                   std::string_view trial, std::string_view group,
+                   bool old_is_enabled, bool new_is_enabled) {
+    // Unlike `RuntimeMutabilityCallback()`, don't query the feature's state,
+    // since that would activate the trial.
+    (*calls)++;
+    data->old_is_enabled = old_is_enabled;
+    data->new_is_enabled = new_is_enabled;
+  };
+
+  // The destruction order is important here. See the comment in
+  // `EnableRuntimeMutability_PostMutationOnly`.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
+  test::ScopedFeatureList scoped_feature_list;
+  FieldTrial* trial = FieldTrialList::CreateFieldTrial("StaticTrial", "Group");
+  {
+    auto feature_list = std::make_unique<FeatureList>();
+    feature_list->EnableRuntimeMutability(
+        kRuntimeMutableFeature,
+        base::BindRepeating(record, base::Unretained(&pre_callback_calls),
+                            base::Unretained(&pre_callback_data)),
+        base::BindRepeating(record, base::Unretained(&post_callback_calls),
+                            base::Unretained(&post_callback_data)));
+    // kRuntimeMutableFeature is ENABLED_BY_DEFAULT, but disabled by a static
+    // trial that has not been activated yet.
+    feature_list->RegisterFieldTrialOverride(
+        kRuntimeMutableFeature.name, FeatureList::OVERRIDE_DISABLE_FEATURE,
+        trial);
+    scoped_feature_list.InitWithFeatureList(std::move(feature_list));
+  }
+  ASSERT_FALSE(FieldTrialList::IsTrialActive("StaticTrial"));
+
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialA", "GroupA", base::FieldTrialParams(), nullptr);
+  auto update =
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_ENABLE_FEATURE);
+  ASSERT_TRUE(update.has_value());
+  update->RunPreMutationCallback();
+  update->UpdateState();
+  update->RunPostMutationCallback();
+
+  EXPECT_EQ(1, pre_callback_calls);
+  EXPECT_FALSE(pre_callback_data.old_is_enabled);
+  EXPECT_TRUE(pre_callback_data.new_is_enabled);
+  EXPECT_EQ(1, post_callback_calls);
+  EXPECT_FALSE(post_callback_data.old_is_enabled);
+  EXPECT_TRUE(post_callback_data.new_is_enabled);
+  EXPECT_FALSE(FieldTrialList::IsTrialActive("StaticTrial"));
 }
 
 #if defined(GTEST_HAS_DEATH_TEST)
@@ -1865,7 +2027,7 @@ TEST_F(FeatureListTest, RuntimeMutability_GetRuntimeMutableFeatureState) {
   auto it = states.find(kRuntimeMutableFeature.name);
   ASSERT_NE(it, states.end());
   EXPECT_EQ(&kRuntimeMutableFeature, &it->second.feature.get());
-  EXPECT_EQ(FeatureList::OVERRIDE_USE_DEFAULT, it->second.override_state);
+  EXPECT_EQ(std::nullopt, it->second.override_state);
   EXPECT_TRUE(it->second.override_info == nullptr);
   // Now update the state.
   override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
@@ -1926,6 +2088,56 @@ TEST_F(FeatureListTest, RuntimeMutability_GetOverrideStateWithoutActivation) {
 
   // The trial MUST NOW be active!
   EXPECT_TRUE(FieldTrialList::IsTrialActive(trial->trial_name()));
+}
+
+TEST_F(FeatureListTest, RuntimeMutability_ActivateRuntimeOverrideOnQuery) {
+  // The destruction order is important here. FeatureList holds raw_ptr
+  // references to the RuntimeFieldTrialInfo object(s). Declaring these
+  // unique_ptrs before ScopedFeatureList ensures they are destructed *after*
+  // the FeatureList singleton is torn down, preventing DanglingPtr crash in
+  // unittests.
+  std::unique_ptr<base::RuntimeFieldTrialInfo> override_info;
+  test::ScopedFeatureList scoped_feature_list;
+  {
+    auto feature_list = std::make_unique<FeatureList>();
+    feature_list->EnableRuntimeMutability(
+        kRuntimeMutableFeature,
+        /*pre_mutation_callback=*/
+        base::FeatureList::OnRuntimeMutableFeatureStateChangedCallback(),
+        /*post_mutation_callback=*/
+        base::FeatureList::OnRuntimeMutableFeatureStateChangedCallback());
+
+    scoped_feature_list.InitWithFeatureList(std::move(feature_list));
+  }
+
+  // Apply an inactive runtime override.
+  override_info = std::make_unique<base::RuntimeFieldTrialInfo>(
+      "TrialA", "GroupA", base::FieldTrialParams(),
+      /*overridden_trial=*/nullptr);
+  auto update =
+      FeatureList::GetInstance()
+          ->PrepareRuntimeMutableFeatureStateUpdateForTesting(
+              pass_key(), override_info.get(), kRuntimeMutableFeature.name,
+              FeatureList::OVERRIDE_DISABLE_FEATURE);
+  ASSERT_TRUE(update.has_value());
+  update->RunPreMutationCallback();
+  update->UpdateState();
+  update->RunPostMutationCallback();
+
+  // The runtime override should initially be inactive.
+  EXPECT_FALSE(override_info->is_active());
+
+  // Querying without activation should not activate the override.
+  FeatureList::OverrideState override_state =
+      FeatureList::GetInstance()->GetOverrideStateWithoutActivation(
+          kRuntimeMutableFeature, metrics::RuntimeMutableFeaturesHandlerBase::
+                                      CreatePassKeyForTesting());
+  EXPECT_EQ(FeatureList::OVERRIDE_DISABLE_FEATURE, override_state);
+  EXPECT_FALSE(override_info->is_active());
+
+  // Querying with activation (IsEnabled) should activate the override!
+  EXPECT_FALSE(FeatureList::IsEnabled(kRuntimeMutableFeature));
+  EXPECT_TRUE(override_info->is_active());
 }
 
 TEST_F(FeatureListTest,
@@ -2201,6 +2413,26 @@ TEST_F(FeatureListTest, GetFeaturesAssociatedWithTrial_ReplaceUseDefault) {
   EXPECT_EQ(base::flat_set<std::string>({kFeatureOnByDefaultName}),
             FeatureList::GetInstance()->GetFeaturesAssociatedWithTrial(
                 FeatureList::ControllingTrialInfo{.trial_name = "Trial1"}));
+}
+
+TEST_F(FeatureListTest,
+       RegisterExtraFeatureOverrides_ReplaceUseDefaultWithNullTrial) {
+  auto feature_list = std::make_unique<FeatureList>();
+
+  // Register an OVERRIDE_USE_DEFAULT entry without an associated FieldTrial.
+  feature_list->InitFromCommandLine("*FeatureOnByDefault", "");
+
+  std::vector<FeatureList::FeatureOverrideInfo> overrides;
+  overrides.emplace_back(std::cref(kFeatureOnByDefault),
+                         FeatureList::OverrideState::OVERRIDE_DISABLE_FEATURE);
+  feature_list->RegisterExtraFeatureOverrides(
+      std::move(overrides), /*replace_use_default_overrides=*/true);
+
+  test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatureList(std::move(feature_list));
+
+  EXPECT_FALSE(FeatureList::IsEnabled(kFeatureOnByDefault));
+  EXPECT_EQ(nullptr, FeatureList::GetFieldTrial(kFeatureOnByDefault));
 }
 
 TEST_F(FeatureListTest, RuntimeMutableFeatureUpdate_MoveSemantics) {

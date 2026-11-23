@@ -6,6 +6,7 @@
 
 #include "base/check.h"
 #include "base/check_deref.h"
+#include "base/containers/map_util.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/notimplemented.h"
@@ -49,7 +50,7 @@ CreateFakeUpsertPassResponse() {
 
   return WalletPassAccessManager::GetDetailsForUpsertPassResponse{
       .legal_message_lines = std::move(legal_message_lines),
-      .context_token = "mock_context_token",
+      .legal_message_token = "mock_legal_message_token",
       .user_eligibility = WalletPassAccessManager::UserEligibility::kEligible,
   };
 }
@@ -236,9 +237,9 @@ FakeWalletPassAccessManager::RunGetUnmaskedCallback(
     return std::nullopt;
   }
 
-  auto it = fake_entities_cache_.find(entity_id);
-  if (it != fake_entities_cache_.end()) {
-    return it->second;
+  if (const EntityInstance* entity =
+          base::FindOrNull(fake_entities_cache_, entity_id)) {
+    return *entity;
   }
 
   NOTIMPLEMENTED();

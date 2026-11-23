@@ -259,11 +259,14 @@ std::string ToolbarController::GetActionNameFromElementIdentifier(
            {kActionSidePanelShowSearchCompanion,
             "PinnedShowSearchCompanionSidePanelButton"},
            {kActionTaskManager, "PinnedTaskManagerButton"},
+           {kActionTtcToolbar, "PinnedTtcButton"},
            {kActionSidePanelShowLensOverlayResults,
             "PinnedShowLensOverlayResultsSidePanelButton"},
            {kActionSendSharedTabGroupFeedback, "SharedTabGroupFeedbackButton"},
            {kActionTabSearch, "PinnedTabSearchButton"},
            {kActionSidePanelShowGlic, "PinnedGlicButton"},
+           {kActionSidePanelShowTabsFromOtherDevices,
+            "PinnedTabsFromOtherDevicesButton"},
            {kGlicButtonElementId, "GlicButtonElementId"}});
 
   const auto it = identifier_to_action_name_map->find(identifier);

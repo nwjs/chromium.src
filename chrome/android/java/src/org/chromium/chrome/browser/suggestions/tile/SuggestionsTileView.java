@@ -34,7 +34,7 @@ public class SuggestionsTileView extends TileView {
     // TileView override.
     @Override
     public boolean isDraggable() {
-        return mData.source == TileSource.CUSTOM_LINKS;
+        return mData.isCustomLink() || mData.isAiMode();
     }
 
     /**
@@ -46,7 +46,7 @@ public class SuggestionsTileView extends TileView {
      */
     @Initializer
     public void initialize(Tile tile, int titleLines) {
-        boolean showPinnedShortcutBadge = tile.getSource() == TileSource.CUSTOM_LINKS;
+        boolean showPinnedShortcutBadge = tile.isCustomLink() || tile.isAiMode();
         super.initialize(
                 TitleUtil.getTitleForDisplay(tile.getTitle(), tile.getUrl()),
                 tile.isOfflineAvailable(),

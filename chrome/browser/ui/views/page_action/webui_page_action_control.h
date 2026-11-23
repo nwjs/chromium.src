@@ -58,15 +58,18 @@ class WebUIPageActionControl {
   // Asks the active controller to update visibility of page actions.
   void SetShouldHidePageActions(bool should_hide_page_actions);
 
+  // Re-resolves and pushes the state of all page actions. Needed because
+  // `PageActionState` carries resolved `SkColor`s (the color overrides and the
+  // blended `kCascadingAccent` icon color), which otherwise go stale on a
+  // same-tab theme change. Mirrors `PageActionView::OnThemeChanged()`.
+  void OnThemeChanged();
+
   // Returns the current state of all visible page actions for WebUI.
   std::vector<toolbar_ui_api::mojom::PageActionStatePtr> GetPageActionStates();
 
   // Returns the PageActionViewInterface for the given action id.
   PageActionViewInterface* GetPageActionViewInterface(
       actions::ActionId action_id);
-
-  // Handles a pointer down on a page action from WebUI.
-  void OnPageActionPointerDown(toolbar_ui_api::mojom::PageActionId action_id);
 
   // Handles a click on a page action from WebUI.
   void OnPageActionClick(
@@ -81,8 +84,6 @@ class WebUIPageActionControl {
       bool is_showing,
       toolbar_ui_api::mojom::ToolbarUIService::
           OnPageActionChipShowingChangedCallback callback);
-
-  void SetSuppressionThresholdForTesting(base::TimeDelta threshold);
 
   // Helpers accessed by WebUIPageActionView:
   BrowserWindowInterface* GetBrowser();

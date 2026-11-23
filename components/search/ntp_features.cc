@@ -96,6 +96,12 @@ BASE_FEATURE(kNtpChromeCartModule,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+// If enabled, loads the experimental NTP component extension, which overrides
+// chrome://newtab.
+BASE_FEATURE(kNtpComponentExtension, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kNtpComponentExtensionUseComponentUpdater{
+    &kNtpComponentExtension, "use_component_updater", true};
+
 // If enabled, customization of Chrome will be promoted on the NTP.
 BASE_FEATURE(kNtpCustomizeChromeAutoOpen, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -162,11 +168,6 @@ BASE_FEATURE(kNtpModulesMaxColumnCount, base::FEATURE_DISABLED_BY_DEFAULT);
 // This is used for an emergency Finch param. Keep indefinitely.
 BASE_FEATURE(kNtpModulesLoadedWithOtherModulesMaxInstanceCount,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, modules will be loaded but not shown. This is useful to determine
-// if a user would have seen modules in order to counterfactually log or
-// trigger.
-BASE_FEATURE(kNtpModulesLoad, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, makes browser sign-in requirement per-module, instead of a
 // requirement for all modules.
@@ -344,6 +345,10 @@ BASE_FEATURE(kNtpEnableInstantApiAndroid, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, shortcuts will have a reorder entrypoint.
 BASE_FEATURE(kNtpShortcutsReorder, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, the NTP composebox will be lazy-loaded after initial page
+// render instead of on the critical loading path.
+BASE_FEATURE(kNtpLazyLoadComposebox, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const char kNtpModuleIgnoredCriteriaThreshold[] =
     "NtpModuleIgnoredCriteriaThreshold";

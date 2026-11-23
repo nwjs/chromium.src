@@ -15,7 +15,10 @@
 #include "build/buildflag.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_group_data.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state.h"
 #include "chrome/browser/ui/views/tabs/common/tab_group_style.h"
+#include "chrome/browser/ui/views/tabs/common/tab_group_unfocus_button.h"
+#include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -23,9 +26,11 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/events/types/event_type.h"
 #include "ui/gfx/text_elider.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/widget/widget.h"
@@ -36,6 +41,8 @@ class MockDelegate : public TabGroupHeaderView::Delegate {
  public:
   MockDelegate() {
     ON_CALL(*this, GetTabClosingHelper).WillByDefault(testing::Return(nullptr));
+    ON_CALL(*this, CanShowEditorBubbleButton)
+        .WillByDefault(testing::Return(true));
   }
   MOCK_METHOD(void,
               ToggleCollapsedState,
@@ -61,9 +68,15 @@ class MockDelegate : public TabGroupHeaderView::Delegate {
               AcquireExpandOnHoverLock,
               (),
               (override));
+  MOCK_METHOD(std::unique_ptr<TabHoverCardController::ScopedHideHoverCardLock>,
+              AcquireHoverCardHideLock,
+              (),
+              (override));
   MOCK_METHOD(void, ShiftGroupUp, (), (override));
   MOCK_METHOD(void, ShiftGroupDown, (), (override));
   MOCK_METHOD(bool, IsGroupFocused, (), (const, override));
+  MOCK_METHOD(bool, IsUnfocusButtonFocused, (), (const, override));
+  MOCK_METHOD(bool, CanShowEditorBubbleButton, (), (const, override));
   MOCK_METHOD(HorizontalTabClosingHelper*,
               GetTabClosingHelper,
               (),
@@ -735,4 +748,133 @@ TEST_F(TabGroupHeaderViewTest, AnchorPosition_Orientation) {
       delegate, TabStripOrientation::kVertical, nullptr, &visual_data);
   EXPECT_EQ(vertical_header->GetAnchorPosition(),
             views::BubbleBorder::Arrow::LEFT_TOP);
+}
+
+TEST_F(TabGroupHeaderViewTest, HideHoverCardOnBlurWhenUnfocusButtonFocused) {
+  MockDelegate delegate;
+  ON_CALL(delegate, IsFocusInTabStrip()).WillByDefault(testing::Return(true));
+
+  tab_groups::TabGroupVisualData visual_data(
+      u"Test Group", tab_groups::TabGroupColorId::kBlue, false);
+
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto* container = widget->SetContentsView(std::make_unique<views::View>());
+  auto* header = container->AddChildView(std::make_unique<TabGroupHeaderView>(
+      delegate, TabStripOrientation::kHorizontal, nullptr, &visual_data));
+  auto* other_view = container->AddChildView(std::make_unique<views::View>());
+  other_view->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
+  widget->Show();
+
+  views::FocusManager* focus_manager = widget->GetFocusManager();
+  ASSERT_NE(nullptr, focus_manager);
+  focus_manager->SetKeyboardAccessible(true);
+
+  EXPECT_CALL(delegate,
+              UpdateHoverCard(TabSlotController::HoverCardUpdateType::kFocus))
+      .Times(1);
+  focus_manager->SetFocusedView(header);
+
+  // Blurring to another hovercard target in the tab strip does not hide the
+  // hovercard.
+  ON_CALL(delegate, IsUnfocusButtonFocused())
+      .WillByDefault(testing::Return(false));
+  EXPECT_CALL(delegate, HideHoverCard(testing::_)).Times(0);
+  focus_manager->SetFocusedView(other_view);
+
+  EXPECT_CALL(delegate,
+              UpdateHoverCard(TabSlotController::HoverCardUpdateType::kFocus))
+      .Times(1);
+  focus_manager->SetFocusedView(header);
+
+  // Blurring to the unfocus button hides the hovercard even though focus is
+  // still in the tab strip.
+  ON_CALL(delegate, IsUnfocusButtonFocused())
+      .WillByDefault(testing::Return(true));
+  EXPECT_CALL(delegate,
+              HideHoverCard(TabSlotController::HoverCardUpdateType::kFocus))
+      .Times(1);
+  focus_manager->SetFocusedView(other_view);
+}
+
+TEST_F(TabGroupHeaderViewTest, HideHoverCardOnMouseExitInFocusMode) {
+  MockDelegate delegate;
+  ON_CALL(delegate, IsGroupFocused()).WillByDefault(testing::Return(true));
+
+  tab_groups::TabGroupVisualData visual_data(
+      u"Test Group", tab_groups::TabGroupColorId::kBlue, false);
+
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto* header = widget->SetContentsView(std::make_unique<TabGroupHeaderView>(
+      delegate, TabStripOrientation::kHorizontal, nullptr, &visual_data));
+  header->SetBounds(0, 0, 100, 24);
+  widget->Show();
+
+  ui::test::EventGenerator generator(GetContext(), widget->GetNativeWindow());
+  EXPECT_CALL(delegate,
+              UpdateHoverCard(TabSlotController::HoverCardUpdateType::kHover))
+      .Times(1);
+  MoveMouseTo(generator, header, true);
+
+  EXPECT_CALL(delegate,
+              HideHoverCard(TabSlotController::HoverCardUpdateType::kHover))
+      .Times(1);
+  MoveMouseTo(generator, header, false);
+}
+
+TEST_F(TabGroupHeaderViewTest, AcquiresHoverCardHideLockWhenEditorBubbleOpens) {
+  MockDelegate delegate;
+  tab_groups::TabGroupVisualData visual_data(
+      u"Test Group", tab_groups::TabGroupColorId::kBlue, false);
+
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto* header = widget->SetContentsView(std::make_unique<TabGroupHeaderView>(
+      delegate, TabStripOrientation::kVertical, nullptr, &visual_data));
+  widget->Show();
+
+  EXPECT_CALL(delegate, AcquireExpandOnHoverLock()).WillOnce([]() {
+    return std::make_unique<ExpandOnHoverLock>();
+  });
+  EXPECT_CALL(delegate, AcquireHoverCardHideLock()).Times(1);
+  EXPECT_CALL(delegate, ShowGroupEditorBubble(testing::_))
+      .WillOnce([this](bool) {
+        return CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+      });
+
+  header->ShowContextMenuForViewImpl(header, gfx::Point(),
+                                     ui::mojom::MenuSourceType::kNone);
+}
+
+TEST_F(TabGroupHeaderViewTest, UnfocusButtonCollapsedState) {
+  std::unique_ptr<views::Widget> widget =
+      CreateTestWidget(views::Widget::InitParams::CLIENT_OWNS_WIDGET);
+  auto* button =
+      widget->SetContentsView(std::make_unique<TabGroupUnfocusButton>(
+          TabStripOrientation::kVertical, base::DoNothing()));
+
+  const std::u16string expected_text =
+      l10n_util::GetStringUTF16(IDS_TAB_GROUP_HEADER_UNFOCUS_BUTTON);
+  const int collapsed_width =
+      tabs::kVerticalTabStripCollapsedWidth -
+      2 * GetLayoutConstant(LayoutConstant::kVerticalTabStripHorizontalPadding);
+
+  // Expanded width: shows text and no icon.
+  button->SetBounds(0, 0, collapsed_width + 20, 24);
+  EXPECT_EQ(button->GetText(), expected_text);
+  EXPECT_FALSE(button->GetImageModel(views::Button::STATE_NORMAL).has_value());
+
+  // Collapsed width: clears text, shows icon, and preserves accessible name.
+  button->SetBounds(0, 0, collapsed_width, 24);
+  EXPECT_TRUE(button->GetText().empty());
+  ASSERT_TRUE(button->GetImageModel(views::Button::STATE_NORMAL).has_value());
+  EXPECT_FALSE(button->GetImageModel(views::Button::STATE_NORMAL)->IsEmpty());
+  EXPECT_EQ(button->GetViewAccessibility().GetCachedName(), expected_text);
+
+  // Expanding again restores text and clears icon.
+  button->SetBounds(0, 0, collapsed_width + 20, 24);
+  EXPECT_EQ(button->GetText(), expected_text);
+  ASSERT_TRUE(button->GetImageModel(views::Button::STATE_NORMAL).has_value());
+  EXPECT_TRUE(button->GetImageModel(views::Button::STATE_NORMAL)->IsEmpty());
 }

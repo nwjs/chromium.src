@@ -63,6 +63,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "mojo/public/cpp/bindings/interface_endpoint_client.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -385,6 +386,8 @@ network::mojom::NetworkServiceParamsPtr CreateNetworkServiceParams() {
           net::NetworkChangeNotifier::GetConnectionSubtype());
   network_service_params->default_observer =
       g_client->BindURLLoaderNetworkServiceObserver();
+  network_service_params->initial_insecure_dns_mode =
+      GetContentClient()->browser()->GetInitialInsecureDnsMode();
 #if BUILDFLAG(IS_LINUX)
   if (IsOutOfProcessNetworkService()) {
     auto [address_map, online_links] =
@@ -473,8 +476,9 @@ base::RepeatingCallbackList<void(bool)>& GetProcessGoneHandlersList() {
 }
 
 void OnNetworkServiceProcessGone(bool crashed) {
-  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
-        base::NotFatalUntil::M160);
+  // TODO(crbug.com/578652641): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
   CHECK(g_observed_network_service, base::NotFatalUntil::M160);
   CHECK(g_observed_network_service->remote().is_bound(),
         base::NotFatalUntil::M160);

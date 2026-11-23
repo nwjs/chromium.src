@@ -173,6 +173,12 @@
     'android_omnibox': {
       'filepath': 'chrome/browser/ui/android/omnibox/',
     },
+    'android_popup_windows': {
+      'filepath': 'chrome/android/java/src/org/chromium/chrome/browser/app/tab_activity_glue/PopupCreatorImpl.java' \
+                  '|chrome/android/javatests/src/org/chromium/chrome/browser/popups/PopupMultiwindowPTTest.java' \
+                  '|chrome/android/junit/src/org/chromium/chrome/browser/app/tab_activity_glue/PopupCreatorImplUnitTest.java' \
+                  '|chrome/browser/android/customtabs/java/src/org/chromium/chrome/browser/customtabs/PopupCreator.java',
+    },
     'android_search_widget': {
       'filepath': 'chrome/android/java/src/org/chromium/chrome/browser/locale/' \
                   '|chrome/android/java/src/org/chromium/chrome/browser/searchwidget/'
@@ -1586,8 +1592,7 @@
                   '|chrome/browser/ash/file_manager/virtual_tasks/install_isolated_web_app_virtual_task',
     },
     'kiosk': {
-      'filepath': 'chrome/browser/chromeos/app_mode/'\
-                  '|chrome/browser/ash/app_mode/'\
+      'filepath': 'chrome/browser/ash/app_mode/'\
                   '|chrome/browser/ash/login/app_mode/',
     },
     'language': {
@@ -1640,7 +1645,7 @@
                   '|third_party/blink/renderer/modules/manifest/',
     },
     'media': {
-      'filepath': 'media|third_party/(ffmpeg|opus|libvpx)'
+      'filepath': '(^|/)media/|^third_party/(ffmpeg|dav1d)(/|$)|^third_party/rust/.*symphonia',
     },
     'media_capture_from_element': {
       'filepath': 'content/renderer/media_capture_from_element/' \
@@ -1782,11 +1787,6 @@
                   'chrome/browser/ui/webui/nearby_share/|'\
                   'chrome/services/sharing/|'\
                   'chromeos/ash/components/nearby/common/'
-    },
-    'nearby_presence': {
-      'filepath': 'chrome/browser/ash/nearby/|'\
-                  'chromeos/ash/components/nearby/presence/|'\
-                  'chromeos/ash/services/nearby/'
     },
     'net': {
       'filepath': 'net/',
@@ -2646,6 +2646,8 @@
     'android_ntp_customization': ['hanxi+watch@chromium.org'],
     'android_omnibox': ['ender+watch@chromium.org',
                         'skym+watch@chromium.org'],
+    'android_popup_windows': ['jthiesen+watch@chromium.org',
+                              'linyuh+watch@google.com'],
     'android_search_widget': ['yusufo+watch@chromium.org'],
     'android_side_panel': ['clhager@google.com',
                            'linyuh+watch@google.com',
@@ -3253,12 +3255,6 @@
                'jackshira+watch-nearby@google.com',
                'pushi+watch-nearby@google.com',
                'xlythe+watch-nearby@google.com'],
-    'nearby_presence': ['ajayramamurthy+watch-presence@google.com',
-                        'akingsb+watch-presence@google.com',
-                        'crisrael+watch-presence@google.com',
-                        'hansberry+watch-presence@chromium.org',
-                        'jackshira+watch-presence@google.com',
-                        'julietlevesque+watch-presence@google.com'],
     'net': ['net-reviews@chromium.org'],
     'net_base': ['bnc+watch@chromium.org'],
     'net_http2': ['bnc+watch@chromium.org'],
@@ -3350,7 +3346,6 @@
     'runtime_enabled_features': ['jmedley+watch@chromium.org'],
     'rust': ['hans@chromium.org'],
       'safe_browsing': ['nwokedi+watch@chromium.org',
-                      'vakh+safe_browsing_watch@chromium.org',
                       'xinghuilu+watch@chromium.org',
                       'zackhan+watch@chromium.org'],
     'sampling_profiler': ['thiabaud@google.com', 'spvm@chromium.org'],

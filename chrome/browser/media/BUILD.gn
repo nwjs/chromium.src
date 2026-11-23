@@ -131,7 +131,10 @@ source_set("unittests") {
 
   if (enable_extensions) {
     sources += [ "cast_mirroring_service_host_unittest.cc" ]
-    deps += [ ":impl" ]
+    deps += [
+      ":impl",
+      "//chrome/browser/media/router:media_router_feature",
+    ]
   }
 
   if (enable_media_remoting && !is_android) {
@@ -442,6 +445,7 @@ source_set("impl") {
       "platform_verification_chromeos.cc",
     ]
     deps += [
+      "//chrome/browser/ui:screen_capture_notification_ui",
       "//chrome/browser/ui/ash/login",
       "//chrome/browser/ui/webui/ash/lock_screen_reauth",
       "//chromeos/ash/components/settings",
@@ -549,6 +553,35 @@ source_set("impl") {
 
   if (enable_library_cdms || is_win) {
     sources += [ "cdm_document_service_impl.cc" ]
+  }
+}
+
+source_set("test_support") {
+  testonly = true
+  public = [ "mock_media_engagement_service.h" ]
+  sources = [ "mock_media_engagement_service.cc" ]
+  public_deps = [
+    ":media",
+    "//testing/gmock",
+  ]
+  deps = [
+    "//chrome/browser/profiles:profile",
+    "//components/keyed_service/core",
+    "//content/public/browser",
+  ]
+  if (enable_library_cdms || is_win) {
+    public += [ "clear_key_cdm_test_helper.h" ]
+    sources += [ "clear_key_cdm_test_helper.cc" ]
+    public_deps += [
+      "//base/test:test_support",
+      "//media:media_buildflags",
+    ]
+    deps += [
+      "//base",
+      "//media",
+      "//media/cdm:cdm_paths",
+      "//media/cdm:clear_key_cdm_common",
+    ]
   }
 }
 

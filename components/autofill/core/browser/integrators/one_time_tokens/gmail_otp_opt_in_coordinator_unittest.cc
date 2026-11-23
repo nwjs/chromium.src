@@ -8,7 +8,7 @@
 #include <string>
 
 #include "base/functional/callback.h"
-#include "base/functional/callback_helpers.h"
+#include "base/supports_user_data.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
@@ -17,9 +17,8 @@
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "components/one_time_tokens/core/browser/mock_one_time_token_service.h"
-#include "components/one_time_tokens/core/browser/one_time_token_service.h"
-#include "components/one_time_tokens/core/browser/util/expiring_subscription_manager.h"
+#include "components/one_time_tokens/core/browser/fake_gmail_otp_backend.h"
+#include "components/one_time_tokens/core/browser/one_time_token_backend_notification.h"
 #include "components/signin/public/base/consent_level.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -53,23 +52,18 @@ class MockOptInAutofillClient : public TestAutofillClient {
               (override));
 };
 
+class TestSessionUserData : public base::SupportsUserData {
+ public:
+  TestSessionUserData() = default;
+  ~TestSessionUserData() override = default;
+};
+
 class GmailOtpOptInCoordinatorTest : public Test {
  public:
   GmailOtpOptInCoordinatorTest() {
     auto detector = std::make_unique<TestOtpFieldDetector>();
     detector_ = detector.get();
     client_.set_otp_field_detector(std::move(detector));
-
-    ON_CALL(
-        mock_ott_service_,
-        SubscribeToTickles(one_time_tokens::OneTimeTokenSource::kGmail, _, _))
-        .WillByDefault(
-            [this](one_time_tokens::OneTimeTokenSource, base::Time exp,
-                   one_time_tokens::OneTimeTokenService::TickleCallback cb) {
-              return subscription_manager_.Subscribe(
-                  exp, std::move(cb),
-                  /*expiration_callback=*/base::DoNothing());
-            });
   }
 
   void SignIn(const std::string& email = "user@gmail.com") {
@@ -82,7 +76,9 @@ class GmailOtpOptInCoordinatorTest : public Test {
   }
 
   void SimulateTickleReceived() {
-    subscription_manager_.Notify(one_time_tokens::OneTimeTokenSource::kGmail);
+    one_time_tokens::OneTimeTokenBackendNotification notification;
+    notification.notification_received_timeticks = base::TimeTicks::Now();
+    gmail_otp_backend_.OnIncomingOneTimeTokenBackendNotification(notification);
   }
 
  protected:
@@ -91,16 +87,15 @@ class GmailOtpOptInCoordinatorTest : public Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   NiceMock<MockOptInAutofillClient> client_;
   raw_ptr<TestOtpFieldDetector> detector_ = nullptr;
-  NiceMock<one_time_tokens::MockOneTimeTokenService> mock_ott_service_;
-  one_time_tokens::ExpiringSubscriptionManager<void(
-      one_time_tokens::OneTimeTokenSource)>
-      subscription_manager_;
+  one_time_tokens::FakeGmailOtpBackend gmail_otp_backend_;
+  TestSessionUserData session_user_data_;
 };
 
-TEST_F(GmailOtpOptInCoordinatorTest, NullServiceDoesNotCrash) {
+TEST_F(GmailOtpOptInCoordinatorTest, NullBackendDoesNotCrash) {
   SignIn();
   GmailOtpOptInCoordinator coordinator(client_,
-                                       /*one_time_token_service=*/nullptr);
+                                       /*gmail_otp_backend=*/nullptr,
+                                       session_user_data_);
   EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(0);
   SimulateOtpFieldDetected();
 }
@@ -110,17 +105,28 @@ TEST_F(GmailOtpOptInCoordinatorTest, NullServiceDoesNotCrash) {
 TEST_F(GmailOtpOptInCoordinatorTest,
        DoesNotSubscribeToTicklesUntilOtpFieldDetected) {
   SignIn();
-  EXPECT_CALL(mock_ott_service_, SubscribeToTickles).Times(0);
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
-  Mock::VerifyAndClearExpectations(&mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+  EXPECT_EQ(gmail_otp_backend_.num_tickle_callbacks(), 0u);
 
-  EXPECT_CALL(mock_ott_service_,
-              SubscribeToTickles(
-                  one_time_tokens::OneTimeTokenSource::kGmail,
-                  base::Time::Now() +
-                      GmailOtpOptInCoordinator::kTickleSubscriptionDuration,
-                  _));
   SimulateOtpFieldDetected();
+  EXPECT_EQ(gmail_otp_backend_.num_tickle_callbacks(), 1u);
+}
+
+// Verifies that the tickle subscription expires `kTickleSubscriptionDuration`
+// after the OTP field was detected.
+TEST_F(GmailOtpOptInCoordinatorTest,
+       TickleSubscriptionExpiresAfterSubscriptionDuration) {
+  SignIn();
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+  SimulateOtpFieldDetected();
+
+  task_environment_.FastForwardBy(
+      GmailOtpOptInCoordinator::kTickleSubscriptionDuration - base::Seconds(1));
+  EXPECT_EQ(gmail_otp_backend_.num_tickle_callbacks(), 1u);
+  task_environment_.FastForwardBy(base::Seconds(1));
+  EXPECT_EQ(gmail_otp_backend_.num_tickle_callbacks(), 0u);
 }
 
 // Scenario A: The OTP form is detected first, and a Gmail tickle arrives later
@@ -128,7 +134,8 @@ TEST_F(GmailOtpOptInCoordinatorTest,
 TEST_F(GmailOtpOptInCoordinatorTest,
        TriggersWhenOtpFieldDetectedBeforeTickleReceived) {
   SignIn("alice@gmail.com");
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
 
   SimulateOtpFieldDetected();
   task_environment_.FastForwardBy(base::Minutes(1));
@@ -144,18 +151,9 @@ TEST_F(GmailOtpOptInCoordinatorTest,
 TEST_F(GmailOtpOptInCoordinatorTest,
        TriggersWhenCachedTickleDeliveredOnOtpFieldDetection) {
   SignIn("bob@gmail.com");
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
-
-  ON_CALL(mock_ott_service_,
-          SubscribeToTickles(one_time_tokens::OneTimeTokenSource::kGmail, _, _))
-      .WillByDefault(
-          [this](one_time_tokens::OneTimeTokenSource, base::Time exp,
-                 one_time_tokens::OneTimeTokenService::TickleCallback cb) {
-            cb.Run(one_time_tokens::OneTimeTokenSource::kGmail);
-            return subscription_manager_.Subscribe(
-                exp, std::move(cb),
-                /*expiration_callback=*/base::DoNothing());
-          });
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+  SimulateTickleReceived();
 
   EXPECT_CALL(client_,
               ShowGmailOtpOptInBubble(std::u16string(u"bob@gmail.com"), _));
@@ -169,21 +167,12 @@ TEST_F(GmailOtpOptInCoordinatorTest,
        SubscribesAndTriggersOnConstructionWhenOtpFieldAlreadyPresent) {
   SignIn("sync@gmail.com");
   SimulateOtpFieldDetected();
-
-  ON_CALL(mock_ott_service_,
-          SubscribeToTickles(one_time_tokens::OneTimeTokenSource::kGmail, _, _))
-      .WillByDefault(
-          [this](one_time_tokens::OneTimeTokenSource, base::Time exp,
-                 one_time_tokens::OneTimeTokenService::TickleCallback cb) {
-            cb.Run(one_time_tokens::OneTimeTokenSource::kGmail);
-            return subscription_manager_.Subscribe(
-                exp, std::move(cb),
-                /*expiration_callback=*/base::DoNothing());
-          });
+  SimulateTickleReceived();
 
   EXPECT_CALL(client_,
               ShowGmailOtpOptInBubble(std::u16string(u"sync@gmail.com"), _));
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
 }
 
 // Verifies that once `kTickleSubscriptionDuration` elapses after OTP field
@@ -192,7 +181,8 @@ TEST_F(GmailOtpOptInCoordinatorTest,
 TEST_F(GmailOtpOptInCoordinatorTest,
        DoesNotTriggerAfterTickleSubscriptionExpires) {
   SignIn();
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
 
   SimulateOtpFieldDetected();
   task_environment_.FastForwardBy(
@@ -207,18 +197,18 @@ TEST_F(GmailOtpOptInCoordinatorTest,
 TEST_F(GmailOtpOptInCoordinatorTest,
        ExtendsSubscriptionWhenNewOtpFormDetected) {
   SignIn();
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
 
-  EXPECT_CALL(mock_ott_service_, SubscribeToTickles).Times(1);
   FormGlobalId form1 = test::MakeFormGlobalId();
   detector_->AddFormAndNotifyIfNecessary(form1);
-  Mock::VerifyAndClearExpectations(&mock_ott_service_);
+  EXPECT_EQ(gmail_otp_backend_.num_tickle_callbacks(), 1u);
 
   // Advance 2 minutes, then navigate to a new OTP form (0 -> 1 transition).
   task_environment_.FastForwardBy(base::Minutes(2));
   detector_->RemoveFormAndNotifyIfNecessary(form1);
-  EXPECT_CALL(mock_ott_service_, SubscribeToTickles).Times(0);
   detector_->AddFormAndNotifyIfNecessary(test::MakeFormGlobalId());
+  EXPECT_EQ(gmail_otp_backend_.num_tickle_callbacks(), 1u);
 
   // Advance another 2 minutes (4 minutes total since form1, but 2 minutes since
   // form2). The extended subscription should still be alive.
@@ -233,7 +223,8 @@ TEST_F(GmailOtpOptInCoordinatorTest,
        DoesNotTriggerWhenGmailOtpFillingAlreadyEnabled) {
   SignIn();
   prefs::SetAutofillGmailOtpFillingEnabled(client_.GetPrefs(), true);
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
 
   EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(0);
   SimulateOtpFieldDetected();
@@ -242,7 +233,8 @@ TEST_F(GmailOtpOptInCoordinatorTest,
 
 // Gating check: Do not show if there is no signed-in primary account.
 TEST_F(GmailOtpOptInCoordinatorTest, DoesNotTriggerWhenNotSignedIn) {
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
 
   EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(0);
   SimulateOtpFieldDetected();
@@ -254,7 +246,8 @@ TEST_F(GmailOtpOptInCoordinatorTest, DoesNotTriggerWhenNotSignedIn) {
 // current bubble closes.
 TEST_F(GmailOtpOptInCoordinatorTest, DoesNotTriggerWhileBubbleAlreadyShowing) {
   SignIn();
-  GmailOtpOptInCoordinator coordinator(client_, &mock_ott_service_);
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
   SimulateOtpFieldDetected();
 
   base::OnceCallback<void(GmailOtpOptInResult)> bubble_callback;
@@ -276,6 +269,171 @@ TEST_F(GmailOtpOptInCoordinatorTest, DoesNotTriggerWhileBubbleAlreadyShowing) {
   std::move(bubble_callback).Run(GmailOtpOptInResult::kLostFocus);
   EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(1);
   SimulateTickleReceived();
+}
+
+// Gating check: Do not show during the 90-day cool-off period after the user
+// declined the opt-in bubble.
+TEST_F(GmailOtpOptInCoordinatorTest,
+       SuppressesBubbleDuringDeclinedCooldownPeriod) {
+  SignIn();
+  prefs::SetAutofillGmailOtpFillingActivationDismissalTimestamp(
+      client_.GetPrefs(), base::Time::Now());
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+
+  task_environment_.FastForwardBy(base::Days(89));
+  SimulateOtpFieldDetected();
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(0);
+  SimulateTickleReceived();
+}
+
+// Gating check: Allow showing the opt-in bubble again once the 90-day cool-off
+// period has elapsed.
+TEST_F(GmailOtpOptInCoordinatorTest,
+       ShowsBubbleAfterDeclinedCooldownPeriodExpires) {
+  SignIn();
+  prefs::SetAutofillGmailOtpFillingActivationDismissalTimestamp(
+      client_.GetPrefs(), base::Time::Now());
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+
+  task_environment_.FastForwardBy(base::Days(90));
+  SimulateOtpFieldDetected();
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(1);
+  SimulateTickleReceived();
+}
+
+// Outcome 1 (`kAccepted`): Enables `kAutofillGmailOtpFillingEnabled` and clears
+// any previous dismissal timestamp.
+TEST_F(GmailOtpOptInCoordinatorTest,
+       OutcomeAccepted_EnablesPrefAndClearsDismissalTimestamp) {
+  SignIn();
+  // Set an old dismissal timestamp (>90 days ago) so the bubble can show.
+  prefs::SetAutofillGmailOtpFillingActivationDismissalTimestamp(
+      client_.GetPrefs(), base::Time::Now() - base::Days(100));
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+
+  base::OnceCallback<void(GmailOtpOptInResult)> captured_callback;
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble)
+      .WillOnce([&](const std::u16string&,
+                    base::OnceCallback<void(GmailOtpOptInResult)> cb) {
+        captured_callback = std::move(cb);
+      });
+
+  SimulateOtpFieldDetected();
+  SimulateTickleReceived();
+  ASSERT_TRUE(captured_callback);
+
+  std::move(captured_callback).Run(GmailOtpOptInResult::kAccepted);
+
+  EXPECT_TRUE(prefs::IsAutofillGmailOtpFillingEnabled(client_.GetPrefs()));
+  EXPECT_TRUE(prefs::GetAutofillGmailOtpFillingActivationDismissalTimestamp(
+                  client_.GetPrefs())
+                  .is_null());
+
+  // Subsequent tickles do not show the bubble because the pref is now enabled.
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(0);
+  SimulateTickleReceived();
+}
+
+// Outcome 2 (`kDeclined`): Records the dismissal timestamp and suppresses the
+// bubble for 90 days.
+TEST_F(GmailOtpOptInCoordinatorTest,
+       OutcomeDeclined_RecordsDismissalTimestamp) {
+  SignIn();
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+
+  base::OnceCallback<void(GmailOtpOptInResult)> captured_callback;
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble)
+      .WillOnce([&](const std::u16string&,
+                    base::OnceCallback<void(GmailOtpOptInResult)> cb) {
+        captured_callback = std::move(cb);
+      });
+
+  SimulateOtpFieldDetected();
+  SimulateTickleReceived();
+  ASSERT_TRUE(captured_callback);
+
+  const base::Time dismissal_time = base::Time::Now();
+  std::move(captured_callback).Run(GmailOtpOptInResult::kDeclined);
+
+  EXPECT_FALSE(prefs::IsAutofillGmailOtpFillingEnabled(client_.GetPrefs()));
+  EXPECT_EQ(prefs::GetAutofillGmailOtpFillingActivationDismissalTimestamp(
+                client_.GetPrefs()),
+            dismissal_time);
+
+  // Subsequent tickles within 90 days are suppressed.
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(0);
+  SimulateTickleReceived();
+}
+
+// Outcome 3 (`kClosed` via X button or Esc): Suppresses the bubble for the rest
+// of the current browser session (even across new coordinator/tab instances)
+// without recording a 90-day dismissal timestamp.
+TEST_F(GmailOtpOptInCoordinatorTest,
+       OutcomeClosed_SuppressesForCurrentSessionOnly) {
+  SignIn();
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+
+  base::OnceCallback<void(GmailOtpOptInResult)> captured_callback;
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble)
+      .WillOnce([&](const std::u16string&,
+                    base::OnceCallback<void(GmailOtpOptInResult)> cb) {
+        captured_callback = std::move(cb);
+      });
+
+  SimulateOtpFieldDetected();
+  SimulateTickleReceived();
+  ASSERT_TRUE(captured_callback);
+
+  std::move(captured_callback).Run(GmailOtpOptInResult::kClosed);
+
+  EXPECT_FALSE(prefs::IsAutofillGmailOtpFillingEnabled(client_.GetPrefs()));
+  EXPECT_TRUE(prefs::GetAutofillGmailOtpFillingActivationDismissalTimestamp(
+                  client_.GetPrefs())
+                  .is_null());
+
+  // Subsequent tickles in the same coordinator or a newly created coordinator
+  // in the same browser session do not trigger the bubble.
+  GmailOtpOptInCoordinator second_tab_coordinator(client_, &gmail_otp_backend_,
+                                                  session_user_data_);
+  EXPECT_CALL(client_, ShowGmailOtpOptInBubble).Times(0);
+  SimulateTickleReceived();
+}
+
+// Outcome 4 (`kLostFocus` / `kDiscarded` / `kUnknown`): Does not modify prefs
+// or session dismissal state, allowing future triggers.
+TEST_F(GmailOtpOptInCoordinatorTest,
+       OutcomeLostFocusOrDiscarded_AllowsFutureTrigger) {
+  SignIn();
+  GmailOtpOptInCoordinator coordinator(client_, &gmail_otp_backend_,
+                                       session_user_data_);
+
+  SimulateOtpFieldDetected();
+
+  for (GmailOtpOptInResult result :
+       {GmailOtpOptInResult::kLostFocus, GmailOtpOptInResult::kDiscarded,
+        GmailOtpOptInResult::kUnknown}) {
+    base::OnceCallback<void(GmailOtpOptInResult)> captured_callback;
+    EXPECT_CALL(client_, ShowGmailOtpOptInBubble)
+        .WillOnce([&](const std::u16string&,
+                      base::OnceCallback<void(GmailOtpOptInResult)> cb) {
+          captured_callback = std::move(cb);
+        });
+
+    SimulateTickleReceived();
+    ASSERT_TRUE(captured_callback);
+    std::move(captured_callback).Run(result);
+    Mock::VerifyAndClearExpectations(&client_);
+
+    EXPECT_FALSE(prefs::IsAutofillGmailOtpFillingEnabled(client_.GetPrefs()));
+    EXPECT_TRUE(prefs::GetAutofillGmailOtpFillingActivationDismissalTimestamp(
+                    client_.GetPrefs())
+                    .is_null());
+  }
 }
 
 }  // namespace

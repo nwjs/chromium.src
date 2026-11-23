@@ -142,7 +142,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Autofill Attention Dialog accepted by the user"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/actor/tools/attempt_form_filling_tool_metrics.h:AttemptFormFillingToolEvent) -->
+<!-- LINT.ThenChange(//chrome/browser/actor/tools/autofill/attempt_form_filling/attempt_form_filling_tool_metrics.h:AttemptFormFillingToolEvent) -->
 
 <enum name="AufofillStructuredTokenVerificationStatus">
   <int value="0" label="No Status"/>
@@ -3268,11 +3268,11 @@ Called by update_autofill_enums.py.-->
   <int value="8"
       label="User entered the autofill options via private inference notice."/>
   <int value="9"
-      label="User entered the autofill options via personal context atmemory
-             notice."/>
+      label="(Obsolete) User entered the autofill options via personal
+             context atmemory notice."/>
   <int value="10"
-      label="User entered the autofill options via personal context ambient
-             autofill notice."/>
+      label="(Obsolete) User entered the autofill options via personal
+             context ambient autofill notice."/>
   <int value="11"
       label="User entered the autofill options via settings search."/>
 </enum>
@@ -4215,17 +4215,35 @@ Called by update_autofill_enums.py.-->
 <!-- LINT.IfChange(AutofillPromoCodeFormEvent) -->
 
 <enum name="AutofillPromoCodeFormEvent">
-<!-- Enum value 0 is reserved for navigated to a page with a promo code field
-     and promo code present (once) -->
-
-<!-- Enum value 1 is reserved for navigated to a page with a promo code field
-     and no promo code present (once) -->
-
+  <int value="0"
+      label="Navigated to page with promo code field and promo code present
+             (once)"/>
+  <int value="1"
+      label="Navigated to page with promo code field and no promo code
+             present (once)"/>
   <int value="2" label="Promo code suggestions shown (once)"/>
   <int value="3" label="Promo code suggestion filled (once)"/>
+  <int value="4"
+      label="Form submitted with promo code present for the page (once). This
+             is tracked separately of submissions with fills to compare
+             conversion rates with users that don't have a promo code saved
+             for a page"/>
+  <int value="5"
+      label="Form submitted without promo code present for the page (once).
+             This is used to compare conversion rates between pages with and
+             without promo codes"/>
+  <int value="6"
+      label="Form submitted after promo code suggestion was filled on
+             suggestion acceptance (once). This is used to see the funnel for
+             how often users submit a form after filling a promo code
+             suggestion"/>
+  <int value="7"
+      label="Form submitted and promo code field contained a value (once).
+             This can be compared with the autofilled metric to see how often
+             users manually enter a promo code in the field"/>
 </enum>
 
-<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/promo_code_metrics.h:AutofillPromoCodeFormEvent) -->
+<!-- LINT.ThenChange(//components/autofill/core/browser/metrics/payments/promo_code_metrics.h:AutofillPromoCodeFormEvent) -->
 
 <enum name="AutofillPromptStatus">
   <int value="0" label="Address and credit card"/>
@@ -5119,6 +5137,17 @@ Called by update_autofill_enums.py.-->
   <int value="4" label="Flow was cancelled"/>
   <int value="5" label="Unexpected errors"/>
 </enum>
+
+<!-- LINT.IfChange(CardVerificationStatus) -->
+
+<enum name="CardVerificationStatus">
+  <int value="0" label="Card is verified on this device"/>
+  <int value="1"
+      label="Card is not verified on this device (forces required CVC auth)"/>
+  <int value="2" label="Preflight call timed out (forces fallback CVC auth)"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/better_auth_metrics.h:CardVerificationStatus) -->
 
 <enum name="CheckBoxStatus">
   <int value="0" label="Not shown"/>

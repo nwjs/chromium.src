@@ -17,7 +17,7 @@ class PasswordManagerInternalsBrowserTest : public WebUIMochaBrowserTest {
  protected:
   void SetUpOnMainThread() override {
     WebUIMochaBrowserTest::SetUpOnMainThread();
-    OpenInternalsPage(WindowOpenDisposition::CURRENT_TAB);
+    OpenInternalsPage(WindowOpenDisposition::kCurrentTab);
   }
 
   // Navigates to the internals page in a tab specified by |disposition| (and
@@ -74,7 +74,7 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInternalsBrowserTest,
           browser()->GetProfile());
   ASSERT_TRUE(log_router);
   log_router->ProcessLog("<script> text for testing");
-  OpenInternalsPage(WindowOpenDisposition::CURRENT_TAB);  // Reload.
+  OpenInternalsPage(WindowOpenDisposition::kCurrentTab);  // Reload.
   content::WebContents* web_contents =
       chrome_test_utils::GetActiveWebContents(this);
   ASSERT_TRUE(RunTestOnWebContents(
@@ -108,6 +108,34 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerInternalsBrowserTest,
       web_contents,
       "password_manager_internals/password_manager_internals_test.js",
       "runMochaTest('PasswordManagerInternals', 'NonIncognitoDescription')",
+      /*skip_test_loader=*/true));
+}
+
+IN_PROC_BROWSER_TEST_F(PasswordManagerInternalsBrowserTest, AutoScroll) {
+  autofill::LogRouter* log_router =
+      password_manager::PasswordManagerLogRouterFactory::GetForBrowserContext(
+          browser()->GetProfile());
+  ASSERT_TRUE(log_router);
+  for (int i = 0; i < 50; ++i) {
+    log_router->ProcessLog("Log entry for auto-scroll testing");
+  }
+  content::WebContents* web_contents =
+      chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(RunTestOnWebContents(
+      web_contents,
+      "password_manager_internals/password_manager_internals_test.js",
+      "runMochaTest('PasswordManagerInternals', 'AutoScroll')",
+      /*skip_test_loader=*/true));
+}
+
+// Tests that wiggling the cursor changes it to the Password Manager logo.
+IN_PROC_BROWSER_TEST_F(PasswordManagerInternalsBrowserTest, CursorWiggle) {
+  content::WebContents* web_contents =
+      chrome_test_utils::GetActiveWebContents(this);
+  ASSERT_TRUE(RunTestOnWebContents(
+      web_contents,
+      "password_manager_internals/password_manager_internals_test.js",
+      "runMochaTest('PasswordManagerInternals', 'CursorWiggle')",
       /*skip_test_loader=*/true));
 }
 

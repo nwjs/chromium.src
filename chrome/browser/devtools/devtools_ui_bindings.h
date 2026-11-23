@@ -14,6 +14,7 @@
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/values.h"
 #include "chrome/browser/devtools/aida_client.h"
 #include "chrome/browser/devtools/devtools_dispatch_http_request_params.h"
@@ -27,6 +28,8 @@
 #include "chrome/browser/devtools/devtools_targets_ui.h"
 #include "chrome/browser/devtools/visual_logging.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "components/search_engines/template_url_service.h"
+#include "components/search_engines/template_url_service_observer.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/devtools_frontend_host.h"
 #include "extensions/buildflags/buildflags.h"
@@ -37,7 +40,6 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-#include "base/scoped_observation.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_observer.h"
 #include "extensions/common/extension_id.h"
@@ -71,6 +73,7 @@ class Profile;
 class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
                            public DevToolsAndroidBridge::DeviceCountListener,
                            public content::DevToolsAgentHostClient,
+                           public TemplateURLServiceObserver,
 #if !BUILDFLAG(IS_ANDROID)
                            public ThemeServiceObserver,
 #endif
@@ -137,6 +140,9 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
   content::WebContents* web_contents() { return web_contents_; }
   Profile* profile() { return profile_; }
   content::DevToolsAgentHost* agent_host() { return agent_host_.get(); }
+  bool IsTrustedLocalFrontend() const {
+    return frontend_host_ != nullptr && is_local_frontend_;
+  }
 
   // Takes ownership over the |delegate|.
   void SetDelegate(Delegate* delegate);
@@ -454,6 +460,11 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
 
   // Extensions support.
   void AddDevToolsExtensionsToClient();
+  void UpdateOriginsForbiddenForExtensions();
+
+  // TemplateURLServiceObserver:
+  void OnTemplateURLServiceChanged() override;
+  void OnTemplateURLServiceShuttingDown() override;
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // extensions::ExtensionRegistryObserver:
@@ -466,6 +477,7 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
   static bool GetFeatureStateForDevTools(const base::Feature& feature,
                                          std::string enabled_by_flags,
                                          std::string disabled_by_flags);
+  static bool HasUntrustedOpenerChain(content::WebContents* web_contents);
 
   static DevToolsUIBindingsList& GetDevToolsUIBindings();
 
@@ -502,6 +514,8 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
   using ExtensionsAPIs = std::map<std::string, std::string>;
   ExtensionsAPIs extensions_api_;
   std::string initial_target_id_;
+  base::ScopedObservation<TemplateURLService, TemplateURLServiceObserver>
+      template_url_service_observation_{this};
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   base::ScopedObservation<extensions::ExtensionRegistry,
                           extensions::ExtensionRegistryObserver>
@@ -519,7 +533,6 @@ class DevToolsUIBindings : public DevToolsEmbedderMessageDispatcher::Delegate,
 
   base::UnguessableToken session_id_for_logging_;
   bool is_local_frontend_ = false;
-  bool has_committed_non_local_frontend_ = false;
   bool has_previous_frontend_host_ = false;
   base::WeakPtrFactory<DevToolsUIBindings> weak_factory_{this};
 };

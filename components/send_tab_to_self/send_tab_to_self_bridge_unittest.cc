@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
@@ -104,17 +105,12 @@ std::unique_ptr<syncer::DeviceInfo> CreateDevice(
     const std::string& guid,
     const std::string& name,
     base::Time last_updated_timestamp,
-    const std::string& model = "model",
-    bool send_tab_to_self_receiving_enabled = true,
-    syncer::DeviceInfo::SendTabReceivingType send_tab_to_self_receiving_type =
-        syncer::DeviceInfo::SendTabReceivingType::kChromeOrUnspecified) {
+    const std::string& model = "model") {
   return syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kLinux)
       .WithGuid(guid)
       .WithClientName(name)
       .WithModelName(model)
       .WithLastUpdatedTimestamp(last_updated_timestamp)
-      .WithSendTabToSelfReceivingEnabled(send_tab_to_self_receiving_enabled)
-      .WithSendTabToSelfReceivingType(send_tab_to_self_receiving_type)
       .Build();
 }
 
@@ -272,17 +268,14 @@ class SendTabToSelfBridgeTest : public testing::Test {
   // returns an EntityChangeList containing them all. Order is maintained.
   syncer::EntityChangeList EntityAddList(
       const std::vector<sync_pb::SendTabToSelfSpecifics>& specifics_list) {
-    syncer::EntityChangeList changes;
-    for (const auto& specifics : specifics_list) {
-      syncer::EntityData entity_data;
-
-      *entity_data.specifics.mutable_send_tab_to_self() = specifics;
-      entity_data.name = specifics.url();
-
-      changes.push_back(syncer::EntityChange::CreateAdd(
-          specifics.guid(), std::move(entity_data)));
-    }
-    return changes;
+    return base::ToVector(
+        specifics_list, [](const sync_pb::SendTabToSelfSpecifics& specifics) {
+          syncer::EntityData entity_data;
+          *entity_data.specifics.mutable_send_tab_to_self() = specifics;
+          entity_data.name = specifics.url();
+          return syncer::EntityChange::CreateAdd(specifics.guid(),
+                                                 std::move(entity_data));
+        });
   }
 
   // For Model Tests.
@@ -678,7 +671,9 @@ TEST_F(SendTabToSelfBridgeTest, MarkEntryOpenedInformsServer) {
   EXPECT_TRUE(uploaded_opened_entity.specifics.send_tab_to_self().opened());
 }
 
-TEST_F(SendTabToSelfBridgeTest, DismissEntryInformsServer) {
+// Verifies that dismissing an entry's notification uploads the updated
+// `notification_dismissed` state to the sync server.
+TEST_F(SendTabToSelfBridgeTest, DismissEntryNotificationInformsServer) {
   InitializeBridge();
 
   SendTabToSelfEntry entry("guid", GURL("http://g.com/"), "title",
@@ -694,7 +689,7 @@ TEST_F(SendTabToSelfBridgeTest, DismissEntryInformsServer) {
   syncer::EntityData uploaded_dismissed_entity;
   EXPECT_CALL(*processor(), Put("guid", _, _))
       .WillOnce(SaveArgPointeeMove<1>(&uploaded_dismissed_entity));
-  bridge()->DismissEntry("guid");
+  bridge()->DismissEntryNotification("guid");
   EXPECT_TRUE(uploaded_dismissed_entity.specifics.send_tab_to_self()
                   .notification_dismissed());
 }
@@ -937,6 +932,119 @@ TEST_F(SendTabToSelfBridgeTest, MarkEntryOpenedBeforeLoad) {
   histogram_tester.ExpectTotalCount(kTimeSentToOpenedHistogram, 1);
 }
 
+// Verifies that calling `MarkEntryOpened` after the entries were loaded from
+// disk but before metadata is loaded queues the open instead of applying it,
+// and applies it once metadata is loaded.
+TEST_F(SendTabToSelfBridgeTest,
+       MarkEntryOpenedAfterDataLoadBeforeMetadataLoad) {
+  InitializeBridge();
+
+  SendTabToSelfEntry entry("guid", GURL("http://g.com/"), "title",
+                           AdvanceAndGetTime(), "remote", "remote",
+                           PageContext(), NavigationHistory());
+  syncer::EntityChangeList remote_data;
+  remote_data.push_back(
+      syncer::EntityChange::CreateAdd("guid", MakeEntityData(entry)));
+  bridge()->MergeFullSyncData(bridge()->CreateMetadataChangeList(),
+                              std::move(remote_data));
+
+  // Shutdown bridge to persist data to store_.
+  ShutdownBridge();
+
+  // Re-create bridge but do NOT run the loop yet.
+  InitializeBridgeWithoutRunningLoop();
+  SetIsTrackingMetadata(false);
+
+  base::HistogramTester histogram_tester;
+
+  // `ModelReadyToSync()` is called once the entries are loaded, but before
+  // the bridge starts tracking metadata.
+  EXPECT_CALL(*processor(), ModelReadyToSync(_)).WillOnce([&]() {
+    ASSERT_TRUE(bridge()->GetEntryByGUID("guid"));
+
+    bridge()->MarkEntryOpened("guid");
+
+    EXPECT_FALSE(bridge()->GetEntryByGUID("guid")->IsOpened());
+    histogram_tester.ExpectTotalCount(kTimeSentToOpenedHistogram, 0);
+
+    SetIsTrackingMetadata(true);
+  });
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(*mock_observer(), OnModelReady()).WillOnce([&run_loop]() {
+    run_loop.Quit();
+  });
+
+  // Now run the loop to load the store and process the queued open.
+  EXPECT_CALL(*processor(), Put("guid", _, _)).Times(1);
+  run_loop.Run();
+
+  EXPECT_TRUE(bridge()->GetEntryByGUID("guid")->IsOpened());
+  histogram_tester.ExpectTotalCount(kTimeSentToOpenedHistogram, 1);
+}
+
+// Verifies that calling `MarkEntryOpened` and `MarkEntryActivated` after the
+// entries were loaded from disk but before metadata is loaded queues both, and
+// applies them in order once metadata is loaded.
+TEST_F(SendTabToSelfBridgeTest,
+       MarkEntryOpenedAndActivatedAfterDataLoadBeforeMetadataLoad) {
+  InitializeBridge();
+
+  SendTabToSelfEntry entry("guid", GURL("http://g.com/"), "title",
+                           AdvanceAndGetTime(), "remote", "remote",
+                           PageContext(), NavigationHistory());
+  syncer::EntityChangeList remote_data;
+  remote_data.push_back(
+      syncer::EntityChange::CreateAdd("guid", MakeEntityData(entry)));
+  bridge()->MergeFullSyncData(bridge()->CreateMetadataChangeList(),
+                              std::move(remote_data));
+
+  // Shutdown bridge to persist data to store_.
+  ShutdownBridge();
+
+  // Re-create bridge but do NOT run the loop yet.
+  InitializeBridgeWithoutRunningLoop();
+  SetIsTrackingMetadata(false);
+
+  base::HistogramTester histogram_tester;
+
+  // `ModelReadyToSync()` is called once the entries are loaded, but before
+  // the bridge starts tracking metadata.
+  EXPECT_CALL(*processor(), ModelReadyToSync(_)).WillOnce([&]() {
+    ASSERT_TRUE(bridge()->GetEntryByGUID("guid"));
+
+    bridge()->MarkEntryOpened("guid");
+    bridge()->MarkEntryActivated("guid",
+                                 ShareActivatedEntryPoint::kDesktopToast);
+
+    EXPECT_FALSE(bridge()->GetEntryByGUID("guid")->IsOpened());
+    EXPECT_FALSE(bridge()->GetEntryByGUID("guid")->IsActivated());
+    histogram_tester.ExpectTotalCount(
+        "Sharing.SendTabToSelf.TimeOpenedToActivated", 0);
+
+    SetIsTrackingMetadata(true);
+  });
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(*mock_observer(), OnModelReady()).WillOnce([&run_loop]() {
+    run_loop.Quit();
+  });
+
+  // Now run the loop to load the store and process the queued open and
+  // activation.
+  EXPECT_CALL(*processor(), Put("guid", _, _)).Times(2);
+  run_loop.Run();
+
+  EXPECT_TRUE(bridge()->GetEntryByGUID("guid")->IsOpened());
+  EXPECT_TRUE(bridge()->GetEntryByGUID("guid")->IsActivated());
+  // Opened and activated at the same time, so the open is applied before the
+  // activation.
+  histogram_tester.ExpectUniqueTimeSample(
+      "Sharing.SendTabToSelf.TimeOpenedToActivated", base::TimeDelta(), 1);
+}
+
+// Verifies that an entry's notification dismissal state is persisted across
+// bridge restarts.
 TEST_F(SendTabToSelfBridgeTest, PreserveDissmissalAfterRestartBridge) {
   InitializeBridge();
 
@@ -950,7 +1058,7 @@ TEST_F(SendTabToSelfBridgeTest, PreserveDissmissalAfterRestartBridge) {
 
   EXPECT_CALL(*processor(), Put(_, _, _));
 
-  bridge()->DismissEntry(specifics.guid());
+  bridge()->DismissEntryNotification(specifics.guid());
 
   ShutdownBridge();
 
@@ -1504,38 +1612,47 @@ TEST_F(SendTabToSelfBridgeTest,
   // All devices should be returned without deduplication, sorted by recency.
   RemoteDeviceInfo target_device_info1(
       kDeviceName, recent_device->guid(), recent_device->form_factor(),
-      recent_device->os_type(), recent_device->last_updated_timestamp());
+      recent_device->os_type(), recent_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
   RemoteDeviceInfo target_device_info2(
       kDeviceName, old_device->guid(), old_device->form_factor(),
-      old_device->os_type(), old_device->last_updated_timestamp());
+      old_device->os_type(), old_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
   RemoteDeviceInfo target_device_info3(
       kDeviceName, older_device->guid(), older_device->form_factor(),
-      older_device->os_type(), older_device->last_updated_timestamp());
+      older_device->os_type(), older_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(target_device_info1, target_device_info2,
                           target_device_info3));
 }
 
-// Tests that only devices that have the send tab to self receiving feature
-// enabled are returned.
+// Verifies that non-Chrome `DeviceInfo` entries (such as Google Play Services
+// clients with an empty `chrome_version`) are excluded from
+// `GetTargetDeviceInfoSortedList()`.
 TEST_F(SendTabToSelfBridgeTest,
-       GetTargetDeviceInfoSortedList_OnlyReceivingEnabled) {
+       GetTargetDeviceInfoSortedList_ExcludesNonChromeDevices) {
   InitializeBridge();
 
-  std::unique_ptr<syncer::DeviceInfo> enabled_device =
-      CreateDevice("enabled_guid", "enabled_device_name", clock()->Now());
-  AddTestDevice(enabled_device.get());
+  std::unique_ptr<syncer::DeviceInfo> chrome_device =
+      CreateDevice("chrome_guid", "chrome_device_name", clock()->Now());
+  AddTestDevice(chrome_device.get());
 
-  std::unique_ptr<syncer::DeviceInfo> disabled_device =
-      CreateDevice("disabled_guid", "disabled_device_name", clock()->Now(),
-                   "model", /*send_tab_to_self_receiving_enabled=*/false);
-  AddTestDevice(disabled_device.get());
+  std::unique_ptr<syncer::DeviceInfo> non_chrome_device =
+      syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kAndroid)
+          .WithGuid("non_chrome_guid")
+          .WithClientName("non_chrome_device_name")
+          .WithChromeVersion("")
+          .WithLastUpdatedTimestamp(clock()->Now())
+          .Build();
+  AddTestDevice(non_chrome_device.get());
 
   RemoteDeviceInfo target_device_info(
-      enabled_device->client_name(), enabled_device->guid(),
-      enabled_device->form_factor(), enabled_device->os_type(),
-      enabled_device->last_updated_timestamp());
+      chrome_device->client_name(), chrome_device->guid(),
+      chrome_device->form_factor(), chrome_device->os_type(),
+      chrome_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(target_device_info));
@@ -1557,7 +1674,8 @@ TEST_F(SendTabToSelfBridgeTest,
   RemoteDeviceInfo target_device_info(
       valid_device->client_name(), valid_device->guid(),
       valid_device->form_factor(), valid_device->os_type(),
-      valid_device->last_updated_timestamp());
+      valid_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(target_device_info));
@@ -1583,11 +1701,13 @@ TEST_F(SendTabToSelfBridgeTest, GetTargetDeviceInfoSortedList_NoLocalDevice) {
   RemoteDeviceInfo other_local_target_info(
       other_local_device->client_name(), other_local_device->guid(),
       other_local_device->form_factor(), other_local_device->os_type(),
-      other_local_device->last_updated_timestamp());
+      other_local_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
   RemoteDeviceInfo other_target_info(
       other_device->client_name(), other_device->guid(),
       other_device->form_factor(), other_device->os_type(),
-      other_device->last_updated_timestamp());
+      other_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(other_local_target_info, other_target_info));
@@ -1610,11 +1730,13 @@ TEST_F(SendTabToSelfBridgeTest,
   RemoteDeviceInfo older_device_info(
       older_device->client_name(), older_device->guid(),
       older_device->form_factor(), older_device->os_type(),
-      older_device->last_updated_timestamp());
+      older_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
   RemoteDeviceInfo recent_device_info(
       recent_device->client_name(), recent_device->guid(),
       recent_device->form_factor(), recent_device->os_type(),
-      recent_device->last_updated_timestamp());
+      recent_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
 
   // Make sure the list has the 2 devices.
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
@@ -1641,7 +1763,8 @@ TEST_F(SendTabToSelfBridgeTest,
   // Make sure the list has the device.
   RemoteDeviceInfo device_info(device->client_name(), device->guid(),
                                device->form_factor(), device->os_type(),
-                               device->last_updated_timestamp());
+                               device->last_updated_timestamp(),
+                               /*has_high_precision_timestamp=*/false);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(device_info));
@@ -1654,7 +1777,8 @@ TEST_F(SendTabToSelfBridgeTest,
   // Make sure both devices are in the list.
   RemoteDeviceInfo new_device_info(
       new_device->client_name(), new_device->guid(), new_device->form_factor(),
-      new_device->os_type(), new_device->last_updated_timestamp());
+      new_device->os_type(), new_device->last_updated_timestamp(),
+      /*has_high_precision_timestamp=*/false);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(device_info, new_device_info));
@@ -1678,10 +1802,12 @@ TEST_F(SendTabToSelfBridgeTest,
       ElementsAre(
           RemoteDeviceInfo(device1->client_name(), device1->guid(),
                            device1->form_factor(), device1->os_type(),
-                           device1->last_updated_timestamp()),
+                           device1->last_updated_timestamp(),
+                           /*has_high_precision_timestamp=*/false),
           RemoteDeviceInfo(device2_old->client_name(), device2_old->guid(),
                            device2_old->form_factor(), device2_old->os_type(),
-                           device2_old->last_updated_timestamp())));
+                           device2_old->last_updated_timestamp(),
+                           /*has_high_precision_timestamp=*/false)));
 
   // Simulate device 2 being used today.
   std::unique_ptr<syncer::DeviceInfo> device2_new = CreateDevice(
@@ -1694,10 +1820,12 @@ TEST_F(SendTabToSelfBridgeTest,
       ElementsAre(
           RemoteDeviceInfo(device2_new->client_name(), device2_new->guid(),
                            device2_new->form_factor(), device2_new->os_type(),
-                           device2_new->last_updated_timestamp()),
+                           device2_new->last_updated_timestamp(),
+                           /*has_high_precision_timestamp=*/false),
           RemoteDeviceInfo(device1->client_name(), device1->guid(),
                            device1->form_factor(), device1->os_type(),
-                           device1->last_updated_timestamp())));
+                           device1->last_updated_timestamp(),
+                           /*has_high_precision_timestamp=*/false)));
 }
 
 TEST_F(SendTabToSelfBridgeTest, NotifyRemoteSendTabToSelfEntryOpened) {
@@ -2027,7 +2155,6 @@ TEST_F(SendTabToSelfBridgeTest,
           .WithClientName("model1")
           .WithModelName("model1")
           .WithLastUpdatedTimestamp(clock()->Now())
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
   ASSERT_EQ("Manufacturer Phone", syncer::GetDeviceDisplayName(device1.get()));
   AddTestDevice(device1.get());
@@ -2038,7 +2165,6 @@ TEST_F(SendTabToSelfBridgeTest,
           .WithClientName("model2")
           .WithModelName("model2")
           .WithLastUpdatedTimestamp(clock()->Now() - base::Seconds(1))
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
   ASSERT_EQ("Manufacturer Phone", syncer::GetDeviceDisplayName(device2.get()));
   AddTestDevice(device2.get());
@@ -2066,7 +2192,6 @@ TEST_F(SendTabToSelfBridgeTest,
           .WithModelName("Pixel 6")
           .WithSyncUserAgent("Mozilla/5.0 channel(stable)")
           .WithLastUpdatedTimestamp(clock()->Now())
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
   AddTestDevice(device1.get());
 
@@ -2078,7 +2203,6 @@ TEST_F(SendTabToSelfBridgeTest,
           .WithModelName("Pixel 6")
           .WithSyncUserAgent("Mozilla/5.0 channel(canary)")
           .WithLastUpdatedTimestamp(clock()->Now() - base::Seconds(1))
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
   AddTestDevice(device2.get());
 
@@ -2123,38 +2247,15 @@ TEST_F(SendTabToSelfBridgeTest,
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(), SizeIs(1));
 }
 
-TEST_F(SendTabToSelfBridgeTest,
-       GetTargetDeviceInfoSortedList_DeduplicationAfterFiltering) {
-  InitializeBridge();
-
-  // Create two devices with the same full name "A".
-  // The more recent one is disabled, the older one is enabled.
-  // If we deduplicate before filtering, we would pick the disabled one and then
-  // filter it out, leaving 0 devices.
-  // If we filter before deduplicating, we pick the enabled one.
-
-  std::unique_ptr<syncer::DeviceInfo> device_recent_disabled =
-      CreateDevice("guid_recent", "A", clock()->Now(), "model",
-                   /*send_tab_to_self_receiving_enabled=*/false);
-  std::unique_ptr<syncer::DeviceInfo> device_older_enabled =
-      CreateDevice("guid_older", "A", clock()->Now() - base::Days(1));
-
-  AddTestDevice(device_recent_disabled.get());
-  AddTestDevice(device_older_enabled.get());
-
-  std::vector<RemoteDeviceInfo> list =
-      bridge()->GetTargetDeviceInfoSortedList();
-  ASSERT_EQ(1ul, list.size());
-  EXPECT_EQ("guid_older", list[0].cache_guid);
-}
-
+// Verifies that `GetTargetDeviceInfoSortedList()` preserves the order from
+// `GetAllChromeDeviceInfo()` when two devices have identical timestamps.
 TEST_F(SendTabToSelfBridgeTest,
        GetTargetDeviceInfoSortedList_StableSortIdenticalTimestamps) {
   InitializeBridge();
 
   const base::Time now = clock()->Now();
-  // Device 1 and Device 2 have exactly the same timestamp.
-  // We add Device 1 first, then Device 2.
+  // Device 1 and Device 2 have the same timestamp. Add Device 1 first, then
+  // Device 2.
   std::unique_ptr<syncer::DeviceInfo> device1 =
       CreateDevice("guid1", "Device B", now);
   std::unique_ptr<syncer::DeviceInfo> device2 =
@@ -2165,9 +2266,9 @@ TEST_F(SendTabToSelfBridgeTest,
 
   std::vector<RemoteDeviceInfo> list =
       bridge()->GetTargetDeviceInfoSortedList();
-  // Stable sort should preserve the order from GetAllDeviceInfo if timestamps
-  // are equal. FakeDeviceInfoTracker::GetAllDeviceInfo usually returns in order
-  // of addition. This is a safety check for deterministic behavior.
+  // Stable sort should preserve the order from `GetAllChromeDeviceInfo()` if
+  // timestamps are equal. `FakeDeviceInfoTracker::GetAllChromeDeviceInfo()`
+  // returns devices in order of addition.
   EXPECT_THAT(list, ElementsAre(Field(&RemoteDeviceInfo::cache_guid, "guid1"),
                                 Field(&RemoteDeviceInfo::cache_guid, "guid2")));
 }
@@ -2180,7 +2281,6 @@ TEST_F(SendTabToSelfBridgeTest, GetTargetDeviceInfoSortedList_FormFactors) {
           .WithGuid("desktop_guid")
           .WithClientName("desktop")
           .WithLastUpdatedTimestamp(clock()->Now())
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
 
   std::unique_ptr<syncer::DeviceInfo> phone =
@@ -2188,7 +2288,6 @@ TEST_F(SendTabToSelfBridgeTest, GetTargetDeviceInfoSortedList_FormFactors) {
           .WithGuid("phone_guid")
           .WithClientName("phone")
           .WithLastUpdatedTimestamp(clock()->Now() - base::Seconds(1))
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
 
   AddTestDevice(desktop.get());
@@ -2211,7 +2310,6 @@ TEST_F(SendTabToSelfBridgeTest, GetTargetDeviceInfo) {
           .WithGuid("desktop_guid")
           .WithClientName("desktop")
           .WithLastUpdatedTimestamp(clock()->Now())
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
 
   AddTestDevice(desktop.get());
@@ -2324,7 +2422,6 @@ TEST_F(SendTabToSelfBridgeTest, SendEntry_RecordsDeviceFormFactorCombination) {
       syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kAndroid)
           .WithGuid("target_phone_guid")
           .WithFormFactor(syncer::DeviceInfo::FormFactor::kPhone)
-          .WithSendTabToSelfReceivingEnabled(true)
           .Build();
   AddTestDevice(target_device.get());
 
@@ -2779,6 +2876,9 @@ TEST_F(SendTabToSelfBridgeTest, DeleteAllEntriesPersists) {
   EXPECT_EQ(0ul, bridge()->GetAllGuids().size());
 }
 
+// Verifies that `GetUnopenedEntriesTargetedToLocalDevice` returns unopened
+// entries targeted to the local device even if their notification was
+// dismissed.
 TEST_F(SendTabToSelfBridgeTest, GetUnopenedEntriesTargetedToLocalDevice) {
   InitializeBridge();
 
@@ -2824,7 +2924,7 @@ TEST_F(SendTabToSelfBridgeTest, GetUnopenedEntriesTargetedToLocalDevice) {
                               std::move(remote_input));
 
   bridge()->MarkEntryOpened("guid3");
-  bridge()->DismissEntry("guid4");
+  bridge()->DismissEntryNotification("guid4");
 
   std::vector<const SendTabToSelfEntry*> unopened_entries =
       bridge()->GetUnopenedEntriesTargetedToLocalDevice();

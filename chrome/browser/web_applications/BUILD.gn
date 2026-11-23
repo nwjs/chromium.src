@@ -539,6 +539,7 @@ source_set("web_applications") {
   deps = [
     ":features",
     "//base",
+    "//base:i18n",
     "//build:branding_buildflags",
     "//chrome/app/resources:platform_locale_settings",
     "//chrome/app/theme:chrome_unscaled_resources",
@@ -682,10 +683,10 @@ source_set("web_applications") {
       "//ash/constants",
       "//ash/public/cpp",
       "//chrome/browser/ash/app_mode/isolated_web_app:policy_util",
+      "//chrome/browser/ash/cloud_upload",
       "//chrome/browser/ash/drive",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/profiles",
-      "//chrome/browser/chromeos/upload_office_to_cloud",
       "//chrome/browser/policy:system_features_disable_list",
       "//chrome/common/chromeos/extensions",
       "//chromeos/ash/components/browser_context_helper",
@@ -913,10 +914,6 @@ source_set("web_applications_test_support") {
       "//chromeos/ash/experiences/system_web_apps/types",
     ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 # This has to be a separate target to avoid circular dependencies with
@@ -1064,6 +1061,7 @@ source_set("web_applications_unit_tests") {
     "web_app_scope_extensions_unittest.cc",
     "web_app_scope_unittest.cc",
     "web_app_sync_bridge_unittest.cc",
+    "web_app_tab_helper_unittest.cc",
     "web_app_translation_manager_unittest.cc",
     "web_app_ui_manager_unittest.cc",
     "web_app_unittest.cc",
@@ -1142,10 +1140,10 @@ source_set("web_applications_unit_tests") {
     "//chrome/browser/apps/link_capturing:test_support",
     "//chrome/browser/component_updater",
     "//chrome/browser/content_settings:content_settings_factory",
-    "//chrome/browser/notifications:system_notification_helper",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles/keep_alive",
     "//chrome/browser/shortcuts",
+    "//chrome/browser/ui/browser_window/test:test_support",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/web_applications/isolated_web_apps/test:test_support",
     "//chrome/browser/web_applications/locks:partitioned_lock_manager_unit_tests",
@@ -1194,6 +1192,7 @@ source_set("web_applications_unit_tests") {
   if (is_chromeos) {
     deps += [
       "//ash/constants",
+      "//ash/public/cpp",
       "//chrome/browser/ash/app_list",
       "//chrome/browser/ash/app_list/arc:test_support",
       "//chrome/browser/ash/system_web_apps/test_support",
@@ -1207,6 +1206,9 @@ source_set("web_applications_unit_tests") {
       "//chromeos/ash/experiences/arc/mojom",
       "//chromeos/ash/experiences/system_web_apps/types",
       "//chromeos/components/kiosk:test_support",
+      "//components/account_id",
+      "//google_apis",
+      "//ui/message_center",
     ]
   }
 
@@ -1272,6 +1274,7 @@ source_set("web_applications_browser_tests") {
     "isolated_web_apps/isolated_web_app_browsing_data_browsertest.cc",
     "isolated_web_apps/isolated_web_app_csp_browsertest.cc",
     "isolated_web_apps/isolated_web_app_dev_tools_browsertest.cc",
+    "isolated_web_apps/isolated_web_app_device_attributes_browsertest.cc",
     "isolated_web_apps/isolated_web_app_entitlements_browsertest.cc",
     "isolated_web_apps/isolated_web_app_error_page_browsertest.cc",
     "isolated_web_apps/isolated_web_app_file_handling_browsertest.cc",
@@ -1308,9 +1311,9 @@ source_set("web_applications_browser_tests") {
     "web_app_database_recovery_browsertest.cc",
     "web_app_icon_manager_browsertest.cc",
     "web_app_install_migration_browsertest.cc",
-    "web_app_link_capturing_parameterized_browsertest.cc",
     "web_app_navigation_capturing_browsertest_base.cc",
     "web_app_navigation_capturing_browsertest_base.h",
+    "web_app_navigation_capturing_parameterized_browsertest.cc",
     "web_app_origin_association_manager_browsertest.cc",
     "web_app_scope_extensions_browsertest.cc",
     "web_app_tab_helper_origin_associations_browsertest.cc",
@@ -1329,7 +1332,6 @@ source_set("web_applications_browser_tests") {
   if (is_chromeos) {
     sources += [
       "commands/install_app_from_verified_manifest_command_browsertest.cc",
-      "isolated_web_apps/isolated_web_app_device_attributes_browsertest.cc",
       "isolated_web_apps/isolated_web_app_managed_configuration_api_browsertest.cc",
       "isolated_web_apps/policy/isolated_web_app_cache_browsertest.cc",
       "web_app_run_on_os_login_manager_browsertest.cc",
@@ -1372,7 +1374,6 @@ source_set("web_applications_browser_tests") {
     "//chrome/browser/devtools",
     "//chrome/browser/devtools:test_support",
     "//chrome/browser/gcm",
-    "//chrome/browser/notifications:system_notification_helper",
     "//chrome/browser/permissions",
     "//chrome/browser/policy:policy_util",
     "//chrome/browser/prefs:util",
@@ -1425,6 +1426,7 @@ source_set("web_applications_browser_tests") {
     "//content/public/browser",
     "//services/network/public/cpp",
     "//testing/perf",
+    "//third_party/blink/public:buildflags",
     "//ui/color",
     "//ui/events/devices:test_support",
     "//url",
@@ -1433,6 +1435,7 @@ source_set("web_applications_browser_tests") {
   if (is_chromeos) {
     deps += [
       "//ash/constants",
+      "//ash/public/cpp",
       "//chrome/browser/ash/app_list",
       "//chrome/browser/ash/app_mode/test:test_support",
       "//chrome/browser/ash/file_manager:test_support",
@@ -1446,8 +1449,10 @@ source_set("web_applications_browser_tests") {
       "//chrome/browser/ash/test:test_support",
       "//chrome/browser/device_api",
       "//chrome/browser/ui/ash/login",
+      "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/policy/device_policy:test_support",
       "//chromeos/ash/components/system",
+      "//ui/message_center",
     ]
   } else {
     deps += [ "//chrome/browser/apps/link_capturing" ]
@@ -1456,6 +1461,7 @@ source_set("web_applications_browser_tests") {
   if (is_mac) {
     deps += [
       "//chrome/browser/apps/app_shim",
+      "//components/remote_cocoa/browser",
       "//components/system_media_controls",
     ]
   }

@@ -17,9 +17,8 @@
 namespace ui::decoration {
 
 // DecorationSource that frames content with a highlight border: an outer
-// `border_color` ring hugging the content from the outside and an inner
-// `highlight_color` ring just inside the content edge (see
-// HighlightBorderValue).
+// `border_color` ring and an inner `highlight_color` ring along the inside of
+// the content edge (see HighlightBorderValue).
 class COMPONENT_EXPORT(UI_DECORATION) HighlightBorder
     : public DecorationSource {
  public:
@@ -43,6 +42,13 @@ class COMPONENT_EXPORT(UI_DECORATION) HighlightBorder
   // the content allows it.
   void SetThickness(int thickness);
   int thickness() const { return thickness_; }
+
+  // Computes the size-adjusted highlight border value for `content_bounds` and
+  // `rounded_corners`. Returns std::nullopt when the content is too small to
+  // hold even a hairline border.
+  std::optional<HighlightBorderValue> GetSpec(
+      const gfx::Rect& content_bounds,
+      const gfx::RoundedCornersF& rounded_corners) const;
 
   // DecorationSource:
   std::optional<Details> GetDetails(

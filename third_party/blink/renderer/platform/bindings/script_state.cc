@@ -26,9 +26,15 @@ ScriptState::ScriptState(v8::Local<v8::Context> context,
   CHECK(isolate_);
   DCHECK(world_);
   context_.SetPhantom();
-  context->SetAlignedPointerInEmbedderData(kV8ContextPerContextDataIndex, this,
-                                           kTypeTag);
-  for (int i = 32; i <= 36; i++) { //node_context_data.h
+  context->SetAlignedPointerInEmbedderDataV2(kV8ContextPerContextDataIndex,
+                                             this, kTypeTag);
+  // NW.js stores its own data (node env pointer, script state slot and the
+  // security token marker) in high embedder data indexes, e.g. node's
+  // NODE_CONTEXT_EMBEDDER_DATA_INDEX (32). Contexts are created with only
+  // V8_EMBEDDER_DATA_ARRAY_SIZE slots, and the new V2 API refuses to grow the
+  // array ("Index too large"), so keep using the growing variant here to
+  // pre-allocate and zero those slots.
+  for (int i = 32; i <= 36; i++) {  // node_context_data.h
     context->SetAlignedPointerInEmbedderData(
         i, nullptr, v8::kEmbedderDataTypeTagDefault);
   }
@@ -94,7 +100,7 @@ void ScriptState::DissociateContext() {
 
   v8::HandleScope scope(GetIsolate());
   // Cut the reference from V8 context to ScriptState.
-  GetContext()->SetAlignedPointerInEmbedderData(
+  GetContext()->SetAlignedPointerInEmbedderDataV2(
       kV8ContextPerContextDataIndex, static_cast<ScriptState*>(nullptr),
       kTypeTag);
 

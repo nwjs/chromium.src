@@ -10,6 +10,7 @@ apkbuilder.py and dex.py use to create zips and sign APKs in a single pass.
 
 import os
 import pathlib
+import random
 import shutil
 import sys
 import zipfile
@@ -118,12 +119,19 @@ def _post_process(src_jar_path, dst_jar_path):
     _gen_keystore(keytool, jks_keystore, 'JKS')
     _gen_keystore(keytool, p12_keystore, 'PKCS12')
 
-    def make_tracing_args(output_name, keystore, min_sdk, *, v1, v3, v4):
+    def make_tracing_args(output_name,
+                          keystore,
+                          min_sdk,
+                          *,
+                          v1,
+                          v3,
+                          v4,
+                          spec=spec_file):
         return [
             '--output',
             str(trace_dir / output_name),
             '--spec',
-            str(spec_file),
+            str(spec),
             '--keystore',
             keystore,
             '--key-alias',
@@ -153,18 +161,66 @@ def _post_process(src_jar_path, dst_jar_path):
         ),
     ]
 
+    # A larger, APK-like input (many small entries plus a large native
+    # library) is used as a representative workload for profile-guided
+    # optimizations.
+    pgo_zip = trace_dir / 'pgo_input.zip'
+    with zipfile.ZipFile(pgo_zip, 'w', zipfile.ZIP_DEFLATED) as z:
+        for i in range(2000):
+            z.writestr(f'res/raw/file{i}.txt', b'resource %d\n' % i * 50)
+    pgo_lib = trace_dir / 'pgo_lib.so'
+    # Incompressible, but deterministic.
+    rng = random.Random(0)
+    with open(pgo_lib, 'wb') as f:
+        for _ in range(64):
+            f.write(rng.getrandbits(8 << 20).to_bytes(1 << 20, 'little'))
+    pgo_spec = trace_dir / 'pgo_spec.txt'
+    pgo_spec.write_text(
+        '\n'.join([
+            f'AndroidManifest.xml\t-1\t0\t{src_zip}\tAndroidManifest.xml',
+            f'lib/x86_64/libpgo.so\t0\t16384\t{pgo_lib}',
+            f'assets/compressed.so\t1\t0\t{pgo_lib}',
+            f'\t-1\t4\t{pgo_zip}\t',
+        ]) + '\n',
+        encoding='utf-8',
+    )
+    pgo_args_list = [
+        make_tracing_args(
+            'pgo_fast.apk',
+            jks_keystore,
+            24,
+            v1=False,
+            v3=True,
+            v4=True,
+            spec=pgo_spec,
+        ),
+        make_tracing_args(
+            'pgo_v1.apk',
+            p12_keystore,
+            1,
+            v1=True,
+            v3=False,
+            v4=False,
+            spec=pgo_spec,
+        ),
+    ]
+
     output_bin = os.path.join(os.path.dirname(dst_jar_path), 'signflinger')
     graalvm.build_native_image(
         dst_jar_path,
         output_bin,
         main_class=_MAIN_CLASS,
         tracing_args_list=tracing_args_list,
-        # Enable SHA-NI and CLMUL intrinsics on top of x86-64-v3 (AVX2) so
-        # SHA-256 signing uses hardware sha256rnds2 instructions. Callers fall
-        # back to signflinger.jar on hosts lacking these CPU features.
+        pgo_args_list=pgo_args_list,
+        # Enable only the CPU features needed by the SHA-1, SHA-256 and CRC32
+        # intrinsics: SHA-1 needs SHA on top of x86-64-v2, SHA-256 also needs
+        # AVX, AVX2 and BMI2 (it falls back to a ~7x slower path without them),
+        # and CRC32 needs CLMUL. The rest of x86-64-v3 is omitted to support
+        # more hosts. Callers fall back to signflinger.jar on hosts lacking
+        # these CPU features (see //build/android/gyp/util/zipbuilder.py).
         extra_native_image_args=[
-            '-march=x86-64-v3',
-            '-H:CPUFeatures=SHA,CLMUL,AES',
+            '-march=x86-64-v2',
+            '-H:CPUFeatures=AVX,AVX2,BMI2,SHA,CLMUL,AES',
         ],
     )
 
@@ -174,4 +230,5 @@ maven.main(
     post_process_func=_post_process,
     runtime_deps=[('//' + _JAVA_SRC, _JAVA_CHECKOUT_SUBPATH)],
     version_deps=['//' + _JAVA_SRC],
+    version_strings_func=graalvm.version_strings,
 )

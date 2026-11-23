@@ -7,27 +7,22 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class TextClassifierModelService;
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
+#import "ios/chrome/browser/text_selection/model/text_classifier_model_service.h"
 
 // Singleton that owns all TextClassifierModelService(s) and associates them
 // with ProfileIOS.
-class TextClassifierModelServiceFactory : public ProfileKeyedServiceFactoryIOS {
+class TextClassifierModelServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          TextClassifierModelServiceFactory,
+          TextClassifierModelService> {
  public:
-  static TextClassifierModelService* GetForProfile(ProfileIOS* profile);
-  static TextClassifierModelServiceFactory* GetInstance();
+  explicit TextClassifierModelServiceFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<TextClassifierModelServiceFactory>;
-
-  TextClassifierModelServiceFactory();
-  ~TextClassifierModelServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation:
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_TEXT_SELECTION_MODEL_TEXT_CLASSIFIER_MODEL_SERVICE_FACTORY_H_

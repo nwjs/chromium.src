@@ -14,12 +14,13 @@
 #import "components/feature_engagement/public/tracker.h"
 #import "components/feature_engagement/test/mock_tracker.h"
 #import "components/omnibox/browser/test_location_bar_model.h"
-#import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/metrics_util.h"
 #import "components/variations/scoped_variations_ids_provider.h"
 #import "components/variations/variations_ids_provider.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_browser_agent.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_classifier_factory.h"
+#import "ios/chrome/browser/drag_and_drop/model/drag_item_util.h"
+#import "ios/chrome/browser/drag_and_drop/model/url_drag_drop_handler.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
@@ -51,6 +52,7 @@
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/send_tab_to_self_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
+#import "ios/chrome/browser/shared/public/commands/tab_picker_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size_browser_agent.h"
@@ -60,6 +62,7 @@
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
+#import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
@@ -91,7 +94,7 @@ using variations::VariationsIdsProvider;
 
 @end
 
-@interface LocationBarCoordinator (Testing)
+@interface LocationBarCoordinator (Testing) <URLDragDataSource>
 - (BOOL)shouldShowAIHubNewFeatureBadge;
 - (void)locationBarDidTapAIHubNewBadge;
 - (web::WebState*)webState;
@@ -189,6 +192,10 @@ class LocationBarCoordinatorTest : public PlatformTest {
         startDispatchingToTarget:mock_contextual_panel_entrypoint_iph_handler
                      forProtocol:@protocol(
                                      ContextualPanelEntrypointIPHCommands)];
+    id tab_picker_commands_handler =
+        OCMProtocolMock(@protocol(TabPickerCommands));
+    [dispatcher startDispatchingToTarget:tab_picker_commands_handler
+                             forProtocol:@protocol(TabPickerCommands)];
 
     // Set up application and settings handler mocks.
     id mock_application_handler = OCMProtocolMock(@protocol(SceneCommands));
@@ -277,7 +284,7 @@ TEST_F(LocationBarCoordinatorTest, LoadGoogleUrl) {
 
   GURL url("https://www.google.com/");
   ui::PageTransition transition = ui::PAGE_TRANSITION_TYPED;
-  WindowOpenDisposition disposition = WindowOpenDisposition::SWITCH_TO_TAB;
+  WindowOpenDisposition disposition = WindowOpenDisposition::kSwitchToTab;
   [coordinator_ start];
   [coordinator_ loadGURLFromLocationBar:url
                                  postContent:nil
@@ -313,7 +320,7 @@ TEST_F(LocationBarCoordinatorTest, LoadNonGoogleUrl) {
 
   GURL url("https://www.nongoogle.com/");
   ui::PageTransition transition = ui::PAGE_TRANSITION_TYPED;
-  WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB;
+  WindowOpenDisposition disposition = WindowOpenDisposition::kCurrentTab;
   [coordinator_ start];
   [coordinator_ loadGURLFromLocationBar:url
                                  postContent:nil
@@ -403,32 +410,9 @@ TEST_F(LocationBarCoordinatorTest, MultipleTriggersAIHubNewBadge) {
   [coordinator_ stop];
 }
 
-// Test that locationBarCanSendTabToSelf returns NO when the feature flag is
-// disabled.
-TEST_F(LocationBarCoordinatorTest, CanSendTabToSelfDisabledByFeatureFlag) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(
-      send_tab_to_self::kSendTabToSelfExtraEntryPoints);
-
-  [coordinator_ start];
-
-  auto fake_web_state = std::make_unique<web::FakeWebState>();
-  fake_web_state->SetCurrentURL(GURL("http://test/"));
-
-  id partial_mock_coordinator = OCMPartialMock(coordinator_);
-  OCMStub([partial_mock_coordinator webState]).andReturn(fake_web_state.get());
-
-  EXPECT_FALSE([partial_mock_coordinator locationBarCanSendTabToSelf]);
-}
-
-// Test that locationBarCanSendTabToSelf returns NO when the feature flag is
-// enabled but there is no active web state or SendTabToSelfSyncService does not
-// offer it.
+// Test that `locationBarCanSendTabToSelf` returns NO when there is no active
+// web state or `SendTabToSelfSyncService` does not offer it.
 TEST_F(LocationBarCoordinatorTest, CanSendTabToSelfNoService) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      send_tab_to_self::kSendTabToSelfExtraEntryPoints);
-
   [coordinator_ start];
 
   auto fake_web_state = std::make_unique<web::FakeWebState>();
@@ -442,13 +426,9 @@ TEST_F(LocationBarCoordinatorTest, CanSendTabToSelfNoService) {
   EXPECT_FALSE([partial_mock_coordinator locationBarCanSendTabToSelf]);
 }
 
-// Test that locationBarSendTabToSelfTapped triggers the browser coordinator
+// Test that `locationBarSendTabToSelfTapped` triggers the browser coordinator
 // command to show the UI and notifies the feature engagement tracker.
 TEST_F(LocationBarCoordinatorTest, SendTabToSelfTapped) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      send_tab_to_self::kSendTabToSelfExtraEntryPoints);
-
   [coordinator_ start];
 
   auto fake_web_state = std::make_unique<web::FakeWebState>();
@@ -476,6 +456,31 @@ TEST_F(LocationBarCoordinatorTest, SendTabToSelfTapped) {
   // `self` is needed by OCMVerifyAll macro in C++ tests.
   id self = nil;
   OCMVerifyAll(mock_send_tab_to_self_handler_);
+}
+
+// Tests that URLInfoForView returns nil when there is no active WebState and
+// returns a valid URLInfo when there is an active WebState.
+TEST_F(LocationBarCoordinatorTest, URLInfoForView) {
+  [coordinator_ start];
+
+  EXPECT_EQ(nil,
+            [coordinator_
+                URLInfoForView:coordinator_.locationBarViewController.view]);
+
+  auto fake_web_state = std::make_unique<web::FakeWebState>();
+  fake_web_state->SetCurrentURL(GURL("http://test/"));
+  fake_web_state->SetTitle(u"Test Title");
+
+  id partial_mock_coordinator = OCMPartialMock(coordinator_);
+  OCMStub([partial_mock_coordinator webState]).andReturn(fake_web_state.get());
+
+  URLInfo* url_info = [partial_mock_coordinator
+      URLInfoForView:coordinator_.locationBarViewController.view];
+  ASSERT_TRUE(url_info);
+  EXPECT_EQ(GURL("http://test/"), url_info.URL);
+  EXPECT_NSEQ(@"Test Title", url_info.title);
+
+  [coordinator_ stop];
 }
 
 }  // namespace

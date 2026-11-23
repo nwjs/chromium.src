@@ -50,7 +50,8 @@ function showModalDialog(text: string) {
 // scrollDown() if needsScrollDown() was true.
 
 function isScrolledDown(): boolean {
-  return window.innerHeight + window.scrollY >= document.body.offsetHeight;
+  return Math.ceil(window.innerHeight + window.scrollY) >=
+      document.body.offsetHeight;
 }
 
 // Whether autoscroll is currently scrolling.
@@ -300,6 +301,7 @@ function setUpPasswordManagerInternals() {
   setUpMarker();
   setUpDownload('password-manager');
   setUpStopRecording();
+  setUpCursorWiggle();
 
   const overrideContainer =
       getRequiredElement('password-change-override-container');
@@ -314,15 +316,82 @@ function setUpPasswordManagerInternals() {
   });
 }
 
+// Temporarily changes the cursor to the password manager logo when the user
+// wiggles the cursor rapidly.
+function setUpCursorWiggle() {
+  const kMinMoveDistance = 10;
+  const kWiggleWindowMs = 500;
+  const kMinReversals = 3;
+  const kCursorRevertDelayMs = 1000;
+
+  let lastX: number|undefined;
+  let lastY: number|undefined;
+  let lastMoveTime = 0;
+  let lastDx = 0;
+  let lastDy = 0;
+  let reversalTimestamps: number[] = [];
+  let revertTimer: number|undefined;
+
+  document.addEventListener('mousemove', (e: MouseEvent) => {
+    const now = performance.now();
+    if (lastX === undefined || lastY === undefined ||
+        now - lastMoveTime > kWiggleWindowMs) {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      lastMoveTime = now;
+      lastDx = 0;
+      lastDy = 0;
+      reversalTimestamps = [];
+      return;
+    }
+
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    if (Math.hypot(dx, dy) < kMinMoveDistance) {
+      return;
+    }
+
+    if (lastDx !== 0 || lastDy !== 0) {
+      if (dx * lastDx + dy * lastDy < 0) {
+        reversalTimestamps.push(now);
+        reversalTimestamps =
+            reversalTimestamps.filter(t => now - t <= kWiggleWindowMs);
+        if (reversalTimestamps.length >= kMinReversals ||
+            document.body.classList.contains('password-manager-cursor')) {
+          document.body.classList.add('password-manager-cursor');
+          if (revertTimer !== undefined) {
+            window.clearTimeout(revertTimer);
+          }
+          revertTimer = window.setTimeout(() => {
+            document.body.classList.remove('password-manager-cursor');
+            revertTimer = undefined;
+          }, kCursorRevertDelayMs);
+        }
+      }
+    }
+
+    lastX = e.clientX;
+    lastY = e.clientY;
+    lastMoveTime = now;
+    lastDx = dx;
+    lastDy = dy;
+  });
+}
+
 function enableResetCacheButton() {
   getRequiredElement('reset-cache-fake-button').style.display = 'inline';
 }
 
 function notifyAboutIncognito(isIncognito: boolean) {
+  const scrollAfterInsert = needsScrollDown();
   document.body.dataset['incognito'] = isIncognito.toString();
+  if (scrollAfterInsert) {
+    scrollDown();
+  }
 }
 
 function notifyAboutVariations(variations: string[]) {
+  const scrollAfterInsert = needsScrollDown();
   const list = document.createElement('div');
   for (const item of variations) {
     list.appendChild(document.createTextNode(item));
@@ -331,6 +400,9 @@ function notifyAboutVariations(variations: string[]) {
   const variationsList =
       getRequiredElement<HTMLTableCellElement>('variations-list');
   variationsList.appendChild(list);
+  if (scrollAfterInsert) {
+    scrollDown();
+  }
 }
 
 // Setup a (fake) button to add visual markers
@@ -691,22 +763,44 @@ function setUpScopeCheckboxes() {
 
   // Create and initialize filter checkboxes: remove/add hide-<Scope> class to
   // |logDiv| when (un)checked.
+  // LINT.IfChange(LoggingScope)
   const SCOPES: CheckboxInfo[] = [
     {id: 'Context'},
     {id: 'Parsing'},
+    {id: 'Rationalization'},
     {id: 'AbortParsing'},
     {id: 'Filling'},
     {id: 'Submission'},
     {id: 'AutofillServer'},
     {id: 'Metrics'},
     {id: 'AddressProfileFormImport'},
+    {id: 'CreditCardUploadStatus'},
+    {id: 'CardUploadDecision'},
     {id: 'WebsiteModifiedFieldValue'},
     {id: 'TouchToFill'},
     {id: 'AutofillAi'},
     {id: 'AutofillActor'},
     {id: 'OneTimeTokens'},
     {id: 'AtMemory'},
+    {id: 'EmailVerification'},
   ];
+  // LINT.ThenChange(
+  //     //components/autofill/core/common/autofill_internals/logging_scope.h:LoggingScope,
+  //     //components/autofill/core/browser/autofill_and_password_manager_internals/autofill_and_password_manager_internals.html:LoggingScope
+  // )
+
+  // Generate hide-<Scope> rules dynamically so every filter checkbox hides its
+  // matching log entries and the <hr> inserted immediately before each entry
+  // (inlined in <head> so HTML exports preserve active filter state).
+  const style = document.createElement('style');
+  style.textContent =
+      SCOPES
+          .map(
+              scope => `.hide-${scope.id} .log-entry[scope='${
+                  scope.id}'], .hide-${scope.id} hr:has(+ .log-entry[scope='${
+                  scope.id}']) { display: none; }`)
+          .join('\n');
+  document.head.appendChild(style);
 
   interface ScopeCheckbox {
     input: HTMLInputElement;
@@ -769,6 +863,12 @@ function setUpSettingCheckboxes() {
     const input = createCheckbox(setting);
     settingsPlaceholder.appendChild(input.parentElement!);
   }
+  getRequiredElement<HTMLInputElement>('EnableAutoscroll')
+      .addEventListener('change', (e) => {
+        if ((e.target as HTMLInputElement).checked) {
+          scrollDown();
+        }
+      });
   {
     // Add the timestamp for AutomaticallyStopRecording.
     const span = document.createElement('span');

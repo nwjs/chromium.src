@@ -191,6 +191,8 @@ source_set("impl") {
     "//chrome/browser/ssl",
     "//chrome/browser/task_manager",
     "//chrome/browser/webid",
+    "//chrome/common",
+    "//chrome/common:channel_info",
     "//chrome/common:version_header",
     "//chrome/common/request_header_integrity:buildflags",
     "//components/certificate_transparency",
@@ -207,8 +209,6 @@ source_set("impl") {
     "//components/enterprise/encryption/cache",
     "//components/language/core/browser",
     "//components/link_header_util",
-    "//chrome/common",
-    "//chrome/common:channel_info",
     "//components/metrics",
     "//components/net_log",
     "//components/no_state_prefetch/browser",
@@ -322,6 +322,7 @@ source_set("impl") {
       deps += [
         "//chromeos/ash/components/dbus",
         "//chromeos/ash/components/dbus/userdataauth",
+        "//chromeos/ash/components/dbus/userdataauth:userdataauth_proto",
         "//chromeos/ash/components/tpm",
         "//chromeos/components/certificate_provider",
       ]
@@ -365,6 +366,14 @@ if (is_android) {
       "//net:test_support",
       "//testing/gtest",
     ]
+    if (enable_reporting) {
+      sources += [ "reporting_browsertest_android.cc" ]
+      deps += [
+        "//chrome/browser/ssl:cert_verifier_test_support",
+        "//content/test:browsertest_support",
+        "//services/network/public/cpp",
+      ]
+    }
   }
 } else {
   source_set("storage_test_utils") {
@@ -429,6 +438,7 @@ source_set("unit_tests") {
     "explicitly_allowed_network_ports_policy_handler_unittest.cc",
     "net_error_tab_helper_unittest.cc",
     "probe_message_unittest.cc",
+    "proxy_config_monitor_unittest.cc",
     "secure_dns_config_unittest.cc",
     "secure_dns_policy_handler_unittest.cc",
     "secure_dns_util_unittest.cc",
@@ -451,6 +461,8 @@ source_set("unit_tests") {
     "//chrome/test/base:chrome_render_view_host_test_harness",
     "//chrome/test/base:testing_browser_process",
     "//components/prefs:test_support",
+    "//components/proxy_config",
+    "//components/sync_preferences:test_support",
     "//components/tabs:test_support",
     "//content/test:test_support",
     "//net:test_support",
@@ -632,10 +644,6 @@ if (!is_android) {
         "//components/os_crypt/browser:test_secret_portal",
       ]
     }
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 }
 
@@ -658,8 +666,4 @@ source_set("platform_browser_tests") {
     "//chrome/test/base:chrome_test_utils",
     "//content/test:test_support",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }

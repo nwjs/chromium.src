@@ -62,6 +62,22 @@ ToStructuredClientLoadState(ClientLoadState state) {
       return StructuredClientLoadState::LOAD_ERROR;
   }
 }
+
+metrics::structured::events::v2::glic::GlicInvokeEntryPath
+ToStructuredEntryPath(GlicInvokeEntryPath entry_path) {
+  using StructuredEntryPath =
+      metrics::structured::events::v2::glic::GlicInvokeEntryPath;
+  switch (entry_path) {
+    case GlicInvokeEntryPath::kUnknown:
+      return StructuredEntryPath::UNKNOWN;
+    case GlicInvokeEntryPath::kToggle:
+      return StructuredEntryPath::TOGGLE;
+    case GlicInvokeEntryPath::kInvoke:
+      return StructuredEntryPath::INVOKE;
+    case GlicInvokeEntryPath::kInvokeWithAutoSubmit:
+      return StructuredEntryPath::INVOKE_WITH_AUTO_SUBMIT;
+  }
+}
 #endif
 
 }  // namespace
@@ -78,6 +94,8 @@ glic::GlicCuiOutcome MapInvokeErrorToCuiOutcome(GlicInvokeError error) {
     case GlicInvokeError::kInstanceDestroyedArchived:
     case GlicInvokeError::kInstanceDestroyedSignedOut:
     case GlicInvokeError::kInstanceDestroyedShutdown:
+    case GlicInvokeError::kPanelClosed:
+    case GlicInvokeError::kSignInRequired:
       return glic::GlicCuiOutcome::kAbandoned;
     default:
       return glic::GlicCuiOutcome::kFailed;
@@ -91,11 +109,19 @@ GlicInvokeMetrics::GlicInvokeMetrics(mojom::InvocationSource source)
   base::UmaHistogramEnumeration(kInvokeSourceHistogramName, source_);
 }
 
+GlicInvokeMetrics::~GlicInvokeMetrics() = default;
+
+void GlicInvokeMetrics::SetCuiTracker(
+    std::unique_ptr<GlicCuiTracker> cui_tracker) {
+  cui_tracker_ = std::move(cui_tracker);
+}
+
 void GlicInvokeMetrics::RecordStarted() const {
 #if BUILDFLAG(STRUCTURED_METRICS_ENABLED)
   metrics::structured::events::v2::glic::InvokeStarted event;
   event.SetInvocationId(invocation_id_)
-      .SetInvocationSource(static_cast<int>(source_));
+      .SetInvocationSource(static_cast<int>(source_))
+      .SetEntryPath(ToStructuredEntryPath(entry_path_));
   if (feature_mode_.has_value()) {
     event.SetFeatureMode(static_cast<int>(*feature_mode_));
   }
@@ -135,6 +161,9 @@ void GlicInvokeMetrics::RecordSuccess(
                          GetInvocationSourceString(source_)),
       duration);
 
+  if (cui_tracker_) {
+    cui_tracker_->Resolve(glic::GlicCuiOutcome::kSuccess);
+  }
   RecordTerminated(/*error=*/std::nullopt, final_task_type, duration,
                    /*in_progress_invocation_id=*/std::nullopt);
 }
@@ -172,6 +201,9 @@ void GlicInvokeMetrics::RecordErrorInternal(
     RecordTimeoutStage(stopped_task);
   }
 
+  if (cui_tracker_) {
+    cui_tracker_->Resolve(MapInvokeErrorToCuiOutcome(result));
+  }
   RecordTerminated(result, stopped_task, duration, in_progress_invocation_id);
 }
 
@@ -187,6 +219,7 @@ void GlicInvokeMetrics::RecordTerminated(
   metrics::structured::events::v2::glic::InvokeTerminated event;
   event.SetInvocationId(invocation_id_)
       .SetInvocationSource(static_cast<int>(source_))
+      .SetEntryPath(ToStructuredEntryPath(entry_path_))
       .SetOutcome(
           static_cast<metrics::structured::events::v2::glic::GlicCuiOutcome>(
               static_cast<int>(outcome)))

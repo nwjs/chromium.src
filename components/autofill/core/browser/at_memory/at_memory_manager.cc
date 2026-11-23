@@ -89,47 +89,6 @@ constexpr std::array<int, 3> kFetchingStringIds = std::to_array<int>({
     IDS_AUTOFILL_AT_MEMORY_FETCHING_PUTTING_IT_TOGETHER,
 });
 
-std::string_view SuggestionHidingReasonToDismissalTypeForHats(
-    SuggestionHidingReason reason) {
-  switch (reason) {
-    case SuggestionHidingReason::kTabGone:
-    case SuggestionHidingReason::kFocusChanged:
-    case SuggestionHidingReason::kEndEditing:
-    case SuggestionHidingReason::kSearchBarFocusLost:
-    case SuggestionHidingReason::kNoFrameHasFocus:
-      return "Focus lost, tab hidden or tab closed";
-    case SuggestionHidingReason::kContentAreaMoved:
-    case SuggestionHidingReason::kElementOutsideOfContentArea:
-    case SuggestionHidingReason::kWidgetChanged:
-    case SuggestionHidingReason::kInsufficientSpace:
-      return "Window resized, page zoomed or insufficient space";
-    case SuggestionHidingReason::kRendererEvent:
-    case SuggestionHidingReason::kAttachInterstitialPage:
-    case SuggestionHidingReason::kFieldValueChanged:
-      return "Page scrolled, navigated or field/DOM changed";
-    case SuggestionHidingReason::kUserAborted:
-      return "User dismissed";
-    case SuggestionHidingReason::kOverlappingWithAnotherPrompt:
-    case SuggestionHidingReason::kOverlappingWithPasswordGenerationPopup:
-    case SuggestionHidingReason::kOverlappingWithTouchToFillSurface:
-    case SuggestionHidingReason::kOverlappingWithAutofillContextMenu:
-    case SuggestionHidingReason::kOverlappingWithPictureInPictureWindow:
-    case SuggestionHidingReason::kContextMenuOpened:
-      return "Overlapped by another UI surface or menu";
-    case SuggestionHidingReason::kAcceptSuggestion:
-      return "Suggestion accepted";
-    case SuggestionHidingReason::kNoSuggestions:
-    case SuggestionHidingReason::kStaleData:
-    case SuggestionHidingReason::kViewDestroyed:
-    case SuggestionHidingReason::kMouseLocked:
-    case SuggestionHidingReason::kExpandedSuggestionCollapsedSubPopup:
-    case SuggestionHidingReason::kFadeTimerExpired:
-    case SuggestionHidingReason::kHiddenByCaller:
-      return "Other";
-  }
-  NOTREACHED();
-}
-
 // Returns the primary type name label for `entry`. For AutofillAi
 // entities and attributes, this resolves to the Entity name.
 std::u16string GetSuggestionPrimaryTypeName(const MemorySearchResult& entry) {
@@ -267,8 +226,6 @@ Suggestion CreateNoDataSuggestion() {
   suggestion.icon = Suggestion::Icon::kSadTab;
   return suggestion;
 }
-
-
 
 std::optional<std::u16string> GetAttributeFillValue(
     const EntityInstance& entity,
@@ -457,18 +414,35 @@ AtMemorySearchState AtMemoryManager::GetStateForField(
     const FieldGlobalId& field_id,
     const url::Origin& field_origin,
     std::optional<AutofillSuggestionTriggerSource> trigger_source) {
-  if (base::FeatureList::IsEnabled(
+  if (!base::FeatureList::IsEnabled(
           features::kAutofillAtMemorySearchStatefulness)) {
-    if (const AtMemorySearchState& state =
-            state_manager_.GetStateForField(field_id, field_origin);
-        state.status != AtMemorySearchStatus::kZeroState) {
-      return state;
-    }
-  } else {
     target_field_origin_ = field_origin;
+    return {.suggestions = GetEmptyQuerySuggestions(/*on_popup_open=*/true,
+                                                    trigger_source)};
   }
-  return {.suggestions =
-              GetEmptyQuerySuggestions(/*on_popup_open=*/true, trigger_source)};
+
+  const AtMemorySearchState& state =
+      state_manager_.GetStateForField(field_id, field_origin);
+  AtMemorySearchState result_state = state;
+  switch (result_state.status) {
+    case AtMemorySearchStatus::kZeroState:
+      result_state.suggestions =
+          GetEmptyQuerySuggestions(/*on_popup_open=*/true, trigger_source);
+      break;
+    case AtMemorySearchStatus::kQueryModified:
+      result_state.suggestions = GetQueryTypingSuggestions(result_state.filter);
+      break;
+    case AtMemorySearchStatus::kSearching:
+      // `OnPopupShown()` resumes rotating the fetching messages.
+      result_state.suggestions = GetFetchingStateSuggestions();
+      break;
+    case AtMemorySearchStatus::kPartialResponseReceived:
+    case AtMemorySearchStatus::kResponseReceived:
+      result_state.suggestions =
+          GetResultsRetrievedSuggestions(result_state.suggestions);
+      break;
+  }
+  return result_state;
 }
 
 const url::Origin& AtMemoryManager::target_field_origin() const {
@@ -523,8 +497,13 @@ void AtMemoryManager::OnPopupShown(
               client_->GetPageTitle(), field_id, form_signature,
               field_signature));
     }
-    // TODO(crbug.com/535486238): Restart `fetching_timer` if search is still
-    // in progress when reopening the popup.
+    // With search statefulness, a search may outlive the popup that started
+    // it. Resume rotating the fetching messages when the popup is reopened
+    // while no (partial) results were received yet. Without search
+    // statefulness, the persisted state is never searching.
+    if (state_manager_.status() == AtMemorySearchStatus::kSearching) {
+      StartFetchingTimer();
+    }
 
     if (base::FeatureList::IsEnabled(
             features::kAutofillAtMemorySearchStatefulness)) {
@@ -545,8 +524,8 @@ bool AtMemoryManager::OnFilterChanged(const std::u16string& filter) {
           features::kAutofillAtMemorySearchStatefulness)) {
     state_manager_.OnFilterChanged(filter);
   }
+  CancelPendingQueries(AtMemoryQueryCompleted(false));
   if (filter.empty()) {
-    CancelPendingQueries(AtMemoryQueryCompleted(false));
     ShowEmptyQuerySuggestions();
     return true;
   }
@@ -918,12 +897,8 @@ void AtMemoryManager::ExecuteQuery(const std::u16string& filter) {
   } else {
     popup_state_->is_searching = true;
   }
-  popup_state_->fetching_string_index = 0;
+  StartFetchingTimer();
   ShowFetchingStateSuggestions();
-  popup_state_->fetching_timer.Start(
-      FROM_HERE, kFetchingMessageInterval,
-      base::BindRepeating(&AtMemoryManager::AdvanceFetchingSuggestion,
-                          query_weak_ptr_factory_.GetWeakPtr()));
   query_service->Query(
       filter, client_->GetLastCommittedPrimaryMainFrameURL(),
       client_->GetPageTitle(),
@@ -1013,10 +988,7 @@ Suggestion AtMemoryManager::CreateNoConnectionSuggestion(std::u16string query) {
 
 void AtMemoryManager::CancelPendingQueries(
     AtMemoryQueryCompleted query_completed) {
-  if (popup_state_) {
-    popup_state_->fetching_timer.Stop();
-    popup_state_->fetching_string_index = 0;
-  }
+  StopFetchingTimer();
   query_weak_ptr_factory_.InvalidateWeakPtrs();
   if (base::FeatureList::IsEnabled(
           features::kAutofillAtMemorySearchStatefulness)) {
@@ -1034,11 +1006,7 @@ void AtMemoryManager::OnStateReset() {
   }
 }
 
-void AtMemoryManager::SendSuggestions(std::vector<Suggestion> suggestions) {
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillAtMemorySearchStatefulness)) {
-    state_manager_.OnSuggestionsChanged(suggestions);
-  }
+void AtMemoryManager::ShowSuggestions(std::vector<Suggestion> suggestions) {
   if (popup_state_ && popup_state_->update_callback) {
     popup_state_->update_callback.Run(std::move(suggestions),
                                       popup_state_->trigger_source);
@@ -1051,18 +1019,40 @@ void AtMemoryManager::AdvanceFetchingSuggestion() {
   ShowFetchingStateSuggestions();
 }
 
-void AtMemoryManager::ShowFetchingStateSuggestions() {
+void AtMemoryManager::StartFetchingTimer() {
   CHECK(popup_state_);
+  popup_state_->fetching_string_index = 0;
+  popup_state_->fetching_timer.Start(
+      FROM_HERE, kFetchingMessageInterval,
+      base::BindRepeating(&AtMemoryManager::AdvanceFetchingSuggestion,
+                          query_weak_ptr_factory_.GetWeakPtr()));
+}
+
+void AtMemoryManager::StopFetchingTimer() {
+  if (popup_state_) {
+    popup_state_->fetching_timer.Stop();
+    popup_state_->fetching_string_index = 0;
+  }
+}
+
+std::vector<Suggestion> AtMemoryManager::GetFetchingStateSuggestions() const {
   std::vector<Suggestion> suggestions;
+  const size_t fetching_string_index =
+      popup_state_ ? popup_state_->fetching_string_index : 0;
   Suggestion fetching_suggestion =
-      CreateFetchingSuggestion(popup_state_->fetching_string_index);
-  if (popup_state_->fetching_string_index == 0) {
+      CreateFetchingSuggestion(fetching_string_index);
+  if (fetching_string_index == 0) {
     fetching_suggestion.a11y_announcement = l10n_util::GetStringUTF16(
         IDS_AUTOFILL_AT_MEMORY_LOADING_A11Y_ANNOUNCEMENT);
   }
   suggestions.emplace_back(std::move(fetching_suggestion));
   MaybeAppendPersonalContextNotice(suggestions);
-  SendSuggestions(std::move(suggestions));
+  return suggestions;
+}
+
+void AtMemoryManager::ShowFetchingStateSuggestions() {
+  CHECK(popup_state_);
+  ShowSuggestions(GetFetchingStateSuggestions());
 }
 
 std::vector<Suggestion> AtMemoryManager::GetEmptyQuerySuggestions(
@@ -1076,10 +1066,11 @@ std::vector<Suggestion> AtMemoryManager::GetEmptyQuerySuggestions(
 }
 
 void AtMemoryManager::ShowEmptyQuerySuggestions() {
-  SendSuggestions(GetEmptyQuerySuggestions(/*on_popup_open=*/false));
+  ShowSuggestions(GetEmptyQuerySuggestions(/*on_popup_open=*/false));
 }
 
-void AtMemoryManager::ShowQueryTypingSuggestions(const std::u16string& query) {
+std::vector<Suggestion> AtMemoryManager::GetQueryTypingSuggestions(
+    const std::u16string& query) const {
   std::vector<Suggestion> suggestions;
   if (net::NetworkChangeNotifier::IsOffline()) {
     suggestions.push_back(CreateNoConnectionSuggestion(query));
@@ -1088,23 +1079,47 @@ void AtMemoryManager::ShowQueryTypingSuggestions(const std::u16string& query) {
   }
   MaybeAppendPersonalContextNotice(suggestions);
   MaybeAppendAiDisclosure(suggestions);
-  SendSuggestions(std::move(suggestions));
+  return suggestions;
+}
+
+void AtMemoryManager::ShowQueryTypingSuggestions(const std::u16string& query) {
+  ShowSuggestions(GetQueryTypingSuggestions(query));
+}
+
+std::vector<Suggestion> AtMemoryManager::GetResultsRetrievedSuggestions(
+    const std::vector<Suggestion>& results) const {
+  std::vector<Suggestion> suggestions = results;
+  if (results.empty()) {
+    suggestions.push_back(CreateNoDataSuggestion());
+  }
+  if (suggestions.front().type == SuggestionType::kAtMemorySearchResult &&
+      std::holds_alternative<Suggestion::AtMemoryPayload>(
+          suggestions.front().payload)) {
+    suggestions.front().a11y_announcement = l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_AT_MEMORY_SEARCH_RESULTS_A11Y_ANNOUNCEMENT);
+    InsertSectionTitles(suggestions);
+  }
+  MaybeAppendPersonalContextNotice(suggestions);
+  return suggestions;
 }
 
 void AtMemoryManager::ShowResultsRetrievedStateSuggestions(
     const MemorySearchResults& result) {
-  std::vector<Suggestion> suggestions;
+  // The results replace the fetching suggestion, so the fetching timer must not
+  // bring it back. This matters for partial responses, where the query is
+  // still pending; for final responses, the timer is already stopped.
+  StopFetchingTimer();
   const std::string_view app_locale = client_->GetAppLocale();
-  suggestions =
+  std::vector<Suggestion> suggestions =
       base::ToVector(result.entries, [&](const MemorySearchResult& entry) {
         return TransformResultIntoSuggestion(entry, app_locale);
       });
   CHECK(!suggestions.empty());
-  suggestions.front().a11y_announcement = l10n_util::GetStringUTF16(
-      IDS_AUTOFILL_AT_MEMORY_SEARCH_RESULTS_A11Y_ANNOUNCEMENT);
-  InsertSectionTitles(suggestions);
-  MaybeAppendPersonalContextNotice(suggestions);
-  SendSuggestions(std::move(suggestions));
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    state_manager_.OnSuggestionsChanged(suggestions);
+  }
+  ShowSuggestions(GetResultsRetrievedSuggestions(suggestions));
 }
 
 void AtMemoryManager::ShowNoResultsStateSuggestions(
@@ -1139,8 +1154,11 @@ void AtMemoryManager::ShowNoResultsStateSuggestions(
       result.status == MemorySearchStatus::kNoConnectionFailure
           ? l10n_util::GetStringUTF16(IDS_AUTOFILL_AT_MEMORY_NO_CONNECTION)
           : suggestions.front().main_text.value;
-  MaybeAppendPersonalContextNotice(suggestions);
-  SendSuggestions(std::move(suggestions));
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillAtMemorySearchStatefulness)) {
+    state_manager_.OnSuggestionsChanged(suggestions);
+  }
+  ShowSuggestions(GetResultsRetrievedSuggestions(suggestions));
 }
 
 void AtMemoryManager::OnSearchResultsReceived(const std::u16string& query,

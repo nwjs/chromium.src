@@ -331,6 +331,7 @@ void PolicyUI::CreateHandler(
     mojo::PendingRemote<policy::mojom::PolicyPageClient> client) {
   page_handler_ = std::make_unique<PolicyUIHandler>(
       std::move(handler), std::move(client), Profile::FromWebUI(web_ui()));
+  page_handler_->SendInitialState();
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(PolicyUI)
@@ -394,7 +395,8 @@ base::Value PolicyUI::GetSchema(Profile* profile) {
       continue;
     }
     for (const auto& [component_id, schema] : *components) {
-      DCHECK_EQ(schema.type(), base::Value::Type::DICT);
+      CHECK_EQ(schema.type(), base::Value::Type::DICT,
+               base::NotFatalUntil::M162);
       base::ListValue policy_names;
       auto it = schema.GetPropertiesIterator();
       for (; !it.IsAtEnd(); it.Advance()) {

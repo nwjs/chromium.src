@@ -248,6 +248,7 @@
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/perfetto/include/perfetto/tracing/track_event_args.h"
 #include "ui/accessibility/ax_tree_update.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/base_event_utils.h"
 #include "url/origin.h"
 #include "url/url_constants.h"
@@ -1044,6 +1045,8 @@ void FillMiscNavigationParams(
   navigation_params->is_browser_initiated = commit_params.is_browser_initiated;
   navigation_params->is_secure_context_root =
       commit_params.is_secure_context_root;
+  navigation_params->can_use_device_bound_session_js_api =
+      commit_params.can_use_device_bound_session_js_api;
 
   navigation_params->is_cross_site_cross_browsing_context_group =
       commit_params.is_cross_site_cross_browsing_context_group;
@@ -1288,22 +1291,23 @@ WindowOpenDisposition NavigationPolicyToDisposition(
     WebNavigationPolicy policy) {
   switch (policy) {
     case blink::kWebNavigationPolicyDownload:
-      return WindowOpenDisposition::SAVE_TO_DISK;
+      return WindowOpenDisposition::kSaveToDisk;
     case blink::kWebNavigationPolicyCurrentTab:
+      return WindowOpenDisposition::kCurrentTab;
     case blink::kWebNavigationPolicyIgnore:
-      return WindowOpenDisposition::CURRENT_TAB;
+      return WindowOpenDisposition::kCurrentTab;
     case blink::kWebNavigationPolicyNewBackgroundTab:
-      return WindowOpenDisposition::NEW_BACKGROUND_TAB;
+      return WindowOpenDisposition::kNewBackgroundTab;
     case blink::kWebNavigationPolicyNewForegroundTab:
-      return WindowOpenDisposition::NEW_FOREGROUND_TAB;
+      return WindowOpenDisposition::kNewForegroundTab;
     case blink::kWebNavigationPolicyNewWindow:
-      return WindowOpenDisposition::NEW_WINDOW;
+      return WindowOpenDisposition::kNewWindow;
     case blink::kWebNavigationPolicyNewPopup:
-      return WindowOpenDisposition::NEW_POPUP;
+      return WindowOpenDisposition::kNewPopup;
     case blink::kWebNavigationPolicyPictureInPicture:
-      return WindowOpenDisposition::NEW_PICTURE_IN_PICTURE;
+      return WindowOpenDisposition::kNewPictureInPicture;
     case blink::kWebNavigationPolicySplitView:
-      return WindowOpenDisposition::NEW_SPLIT_VIEW;
+      return WindowOpenDisposition::kNewSplitView;
   }
   NOTREACHED() << "Unexpected WebNavigationPolicy";
 }
@@ -4217,6 +4221,8 @@ void RenderFrameImpl::DidCommitNavigation(
 
 void RenderFrameImpl::DidCommitDocumentReplacementNavigation(
     blink::WebDocumentLoader* document_loader) {
+  GetFrameHost()->DidCommitDocumentReplacement();
+
   // TODO(crbug.com/40581836): figure out which of the following observer
   // calls are necessary, if any.
   for (auto& observer : observers_) {
@@ -4981,13 +4987,41 @@ void RenderFrameImpl::DidCreateScriptContext(v8::Local<v8::Context> context,
          GetWebFrame()->GetSecurityOrigin().IsWebUI() &&
          GetWebFrame()->GetSecurityOrigin().Protocol() !=
              kChromeUIUntrustedScheme) ||
-        GetContentClient()->renderer()->IsUnboundedElementAllowed(this);
+        (GetWebFrame() &&
+         GetContentClient()->renderer()->IsUnboundedElementAllowed(
+             GetWebFrame()->GetSecurityOrigin()));
+    // Frames whose top frame is privileged may use the non-privileged version
+    // without user activation, subject to permissions policy. The top frame
+    // may be remote, so this is based on its replicated origin. This mirrors
+    // RenderFrameHostImpl::GetUnboundedElementAuth().
+    bool is_root_privileged = false;
+    if (GetWebFrame() && GetWebFrame()->Top()) {
+      WebSecurityOrigin top_origin = GetWebFrame()->Top()->GetSecurityOrigin();
+      if (!top_origin.IsNull()) {
+        is_root_privileged =
+            (top_origin.IsWebUI() &&
+             top_origin.Protocol() != kChromeUIUntrustedScheme) ||
+            GetContentClient()->renderer()->IsUnboundedElementAllowed(
+                top_origin);
+      }
+    }
     bool is_unbounded_allowed =
         base::FeatureList::IsEnabled(
             blink::features::kUnsafeUnboundedElementOnTheOpenWeb) ||
-        is_privileged;
+        base::FeatureList::IsEnabled(
+            blink::features::kUnsafeEscapingUnboundedElementOnTheOpenWeb) ||
+        is_privileged || is_root_privileged;
     if (is_unbounded_allowed) {
-      blink::WebV8Features::EnableUnboundedElement(context, is_privileged);
+      blink::WebV8Features::UnboundedElementPrivilege privilege =
+          blink::WebV8Features::UnboundedElementPrivilege::kNone;
+      if (is_privileged) {
+        privilege =
+            blink::WebV8Features::UnboundedElementPrivilege::kPrivileged;
+      } else if (is_root_privileged) {
+        privilege = blink::WebV8Features::UnboundedElementPrivilege::
+            kIframePrivilegedByEmbedder;
+      }
+      blink::WebV8Features::EnableUnboundedElement(context, privilege);
     }
   }
 
@@ -7128,7 +7162,9 @@ WebView* RenderFrameImpl::CreateNewWindow(
         request.GetReferrerPolicy());
   }
   params->features = ConvertWebWindowFeaturesToMojoWindowFeatures(features);
-  params->nw_window_manifest = manifest->Utf16();
+  if (manifest) {
+    params->nw_window_manifest = manifest->Utf16();
+  }
 
   params->is_form_submission = request.IsFormSubmission();
   params->consumes_user_activation =
@@ -7164,7 +7200,7 @@ WebView* RenderFrameImpl::CreateNewWindow(
   // We preserve this information before sending the message since |params| is
   // moved on send.
   bool is_background_tab =
-      params->disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB;
+      params->disposition == WindowOpenDisposition::kNewBackgroundTab;
 
   mojo::PendingAssociatedReceiver<mojom::Frame> pending_frame_receiver;
   params->frame_remote =
@@ -7234,7 +7270,7 @@ WebView* RenderFrameImpl::CreateNewWindow(
 
   // Consume the transient user activation in the current renderer.
   consumed_user_gesture = GetWebFrame()->ConsumeTransientUserActivation(
-      blink::UserActivationUpdateSource::kBrowser);
+      blink::UserActivationUpdateScope::kCurrentRenderer);
 
   // If we should ignore the new window (e.g. because of `noopener`), return
   // now that user activation was consumed.

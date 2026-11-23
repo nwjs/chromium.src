@@ -228,8 +228,6 @@ void TabSearchPageHandler::CloseTab(int32_t tab_id) {
 
   ++num_tabs_closed_;
 
-  profile_->GetPrefs()->SetBoolean(tab_search_prefs::kTabSearchUsed, true);
-
   // CloseTab() can target the WebContents hosting Tab Search if the Tab Search
   // WebUI is open in a chrome browser tab rather than its bubble. In this case
   // CloseWebContentsAt() closes the WebContents hosting this
@@ -241,7 +239,7 @@ void TabSearchPageHandler::CloseTab(int32_t tab_id) {
   CHECK(service);
   auto node_id = tabs_api::NodeId::FromTabHandle(tab->GetHandle());
   const auto result = service->CloseNodes({node_id});
-  DCHECK(result.has_value());
+  CHECK(result.has_value(), base::NotFatalUntil::M162);
   // Do not add code past this point.
 }
 
@@ -276,7 +274,6 @@ void TabSearchPageHandler::CloseTabs(const std::vector<int32_t>& tab_ids) {
   }
 
   num_tabs_closed_ += nodes.size();
-  profile_->GetPrefs()->SetBoolean(tab_search_prefs::kTabSearchUsed, true);
 
   if (split_id.has_value()) {
     BrowserWindowInterface* browser = valid_tab->GetBrowserWindowInterface();
@@ -291,7 +288,7 @@ void TabSearchPageHandler::CloseTabs(const std::vector<int32_t>& tab_ids) {
       GetTabStripService(valid_tab->GetBrowserWindowInterface());
   CHECK(service);
   const auto result = service->CloseNodes(nodes);
-  DCHECK(result.has_value());
+  CHECK(result.has_value(), base::NotFatalUntil::M162);
 }
 
 void TabSearchPageHandler::CloseWebUiTab() {
@@ -370,13 +367,11 @@ void TabSearchPageHandler::SwitchToTab(
                 ? TabSearchCloseAction::kSwitchTabAndCloseTab
                 : TabSearchCloseAction::kSwitchTab;
 
-  profile_->GetPrefs()->SetBoolean(tab_search_prefs::kTabSearchUsed, true);
-
   tabs_api::TabStripService* const service =
       GetTabStripService(tab->GetBrowserWindowInterface());
   const auto result =
       service->ActivateTab(tabs_api::NodeId::FromTabHandle(tab->GetHandle()));
-  DCHECK(result.has_value());
+  CHECK(result.has_value(), base::NotFatalUntil::M162);
 
   // Tab search shows tabs from other windows in the profile. So if a user
   // selects a tab in another window, we need to manually activate it so
@@ -404,13 +399,11 @@ void TabSearchPageHandler::OpenRecentlyClosedEntry(int32_t session_id) {
                 ? TabSearchCloseAction::kOpenRecentTabAndCloseTab
                 : TabSearchCloseAction::kOpenRecentTab;
 
-  profile_->GetPrefs()->SetBoolean(tab_search_prefs::kTabSearchUsed, true);
-
   tab_restore_service->RestoreEntryById(
       BrowserLiveTabContext::FindContextForWebContents(
           browser_->GetActiveTabInterface()->GetContents()),
       SessionID::FromSerializedValue(session_id),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB);
+      WindowOpenDisposition::kNewForegroundTab);
 }
 
 void TabSearchPageHandler::ReplaceActiveSplitTab(int32_t replacement_tab_id) {
@@ -419,7 +412,7 @@ void TabSearchPageHandler::ReplaceActiveSplitTab(int32_t replacement_tab_id) {
     const auto result = GetTabStripService(browser_)->ReplaceTabInSplit(
         tabs_api::NodeId::FromTabHandle(active_tab->GetHandle()),
         tabs_api::NodeId::FromTabHandle(tabs::TabHandle(replacement_tab_id)));
-    DCHECK(result.has_value());
+    CHECK(result.has_value(), base::NotFatalUntil::M162);
   }
 }
 
@@ -690,7 +683,8 @@ void TabSearchPageHandler::AddRecentlyClosedEntries(
           }
 
           // Handle Group ID.
-          if (!recently_closed_split_view->group_id && tab->group.has_value()) {
+          if (!recently_closed_split_view->group_id && tab->group.has_value() &&
+              !tab->is_group_ephemeral) {
             recently_closed_split_view->group_id = tab->group.value().token();
           }
 
@@ -736,7 +730,7 @@ bool TabSearchPageHandler::AddRecentlyClosedTab(
   }
   tab_dedup_keys.insert(dedup_id);
 
-  if (tab->group.has_value()) {
+  if (tab->group.has_value() && !tab->is_group_ephemeral) {
     recently_closed_tab->group_id = tab->group.value().token();
     CreateTabGroupIfNotPresent(tab, tab_group_ids, tab_groups);
   }
@@ -859,7 +853,7 @@ tab_search::mojom::RecentlyClosedTabPtr
 TabSearchPageHandler::GetRecentlyClosedTab(sessions::tab_restore::Tab* tab,
                                            const base::Time& close_time) {
   auto recently_closed_tab = tab_search::mojom::RecentlyClosedTab::New();
-  DCHECK(tab->navigations.size() > 0);
+  CHECK(tab->navigations.size() > 0, base::NotFatalUntil::M162);
   sessions::SerializedNavigationEntry& entry =
       tab->navigations[tab->current_navigation_index];
   // N.B. Recently closed tabs use session ids, not TabHandle ids.
@@ -876,7 +870,7 @@ TabSearchPageHandler::GetRecentlyClosedTab(sessions::tab_restore::Tab* tab,
   recently_closed_tab->last_active_elapsed_text =
       GetLastActiveElapsedText(last_active_time);
 
-  if (tab->group.has_value()) {
+  if (tab->group.has_value() && !tab->is_group_ephemeral) {
     recently_closed_tab->group_id = tab->group.value().token();
   }
 

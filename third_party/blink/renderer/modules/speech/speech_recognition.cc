@@ -49,9 +49,9 @@
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_availability_status.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_media_track_settings.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_observable_array_speech_recognition_phrase.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_speech_recognition_availability_status.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_speech_recognition_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_speech_recognition_quality.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -66,6 +66,7 @@
 #include "third_party/blink/renderer/modules/speech/speech_recognition_phrase.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_source.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
@@ -88,6 +89,19 @@ constexpr char kWebSpeechSetProcessLocallyHistogram[] =
 constexpr char kWebSpeechDownloadActivationOutcomeHistogram[] =
     "Accessibility.WebSpeech.DownloadActivationOutcome";
 
+// When enabled, Web Speech API trace events under the "speech" category include
+// the recognized utterance text. This is strictly for local debugging/benchmark
+// use and will never be enabled by default or shipped, to avoid logging PII in
+// field traces.
+BASE_FEATURE(kWebSpeechTraceUtterance, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Consolidates simple Web Speech lifecycle trace events into a single
+// out-of-line call site to avoid duplicating Perfetto template expansions.
+NOINLINE void TraceWebSpeechEvent(const char* event_name) {
+  TRACE_EVENT_INSTANT("speech", "SpeechRecognition::Event", "event",
+                      event_name);
+}
+
 // LINT.IfChange(WebSpeechDownloadActivationOutcome)
 //
 // Outcome of SpeechRecognition.install() activation check without transient
@@ -108,23 +122,23 @@ enum class WebSpeechDownloadActivationOutcome {
 // LINT.ThenChange(//tools/metrics/histograms/metadata/accessibility/enums.xml:WebSpeechDownloadActivationOutcome,
 // //third_party/blink/renderer/modules/speech/speech_recognition_test.cc:WebSpeechDownloadActivationOutcome)
 
-blink::V8AvailabilityStatus AvailabilityStatusToV8(
+blink::V8SpeechRecognitionAvailabilityStatus AvailabilityStatusToV8(
     media::mojom::blink::AvailabilityStatus status) {
   switch (status) {
     case media::mojom::blink::AvailabilityStatus::kUnavailable:
-      return blink::V8AvailabilityStatus(
-          blink::V8AvailabilityStatus::Enum::kUnavailable);
+      return blink::V8SpeechRecognitionAvailabilityStatus(
+          blink::V8SpeechRecognitionAvailabilityStatus::Enum::kUnavailable);
     case media::mojom::blink::AvailabilityStatus::kDownloadable:
     case media::mojom::blink::AvailabilityStatus::
         kDownloadableWithoutTransientUserActivation:
-      return blink::V8AvailabilityStatus(
-          blink::V8AvailabilityStatus::Enum::kDownloadable);
+      return blink::V8SpeechRecognitionAvailabilityStatus(
+          blink::V8SpeechRecognitionAvailabilityStatus::Enum::kDownloadable);
     case media::mojom::blink::AvailabilityStatus::kDownloading:
-      return blink::V8AvailabilityStatus(
-          blink::V8AvailabilityStatus::Enum::kDownloading);
+      return blink::V8SpeechRecognitionAvailabilityStatus(
+          blink::V8SpeechRecognitionAvailabilityStatus::Enum::kDownloading);
     case media::mojom::blink::AvailabilityStatus::kAvailable:
-      return blink::V8AvailabilityStatus(
-          blink::V8AvailabilityStatus::Enum::kAvailable);
+      return blink::V8SpeechRecognitionAvailabilityStatus(
+          blink::V8SpeechRecognitionAvailabilityStatus::Enum::kAvailable);
   }
 }
 
@@ -160,10 +174,11 @@ void SpeechRecognition::start(ExceptionState& exception_state) {
   if (DomWindow() && DomWindow()->document()->IsPrerendering()) {
     DomWindow()->document()->AddPostPrerenderingActivationStep(
         BindOnce(&SpeechRecognition::CheckAvailabilityAndStart,
-                 WrapWeakPersistent(this), /*exception_state=*/nullptr));
+                 WrapWeakPersistent(this), /*exception_state=*/nullptr,
+                 /*media_stream_track=*/nullptr));
     return;
   }
-  CheckAvailabilityAndStart(&exception_state);
+  CheckAvailabilityAndStart(&exception_state, /*media_stream_track=*/nullptr);
 }
 
 // TODO(crbug.com/384797834): Add Web Platform Tests for MediaStreamTrack
@@ -172,8 +187,11 @@ void SpeechRecognition::start(MediaStreamTrack* media_stream_track,
                               ExceptionState& exception_state) {
   DCHECK(media_stream_track && media_stream_track->Component());
 
-  if (media_stream_track->Component()->GetReadyState() !=
-          MediaStreamSource::kReadyStateLive ||
+  if (media_stream_track->Ended() ||
+      media_stream_track->GetReadyState() ==
+          MediaStreamSource::kReadyStateEnded ||
+      media_stream_track->Component()->GetReadyState() ==
+          MediaStreamSource::kReadyStateEnded ||
       media_stream_track->Component()->GetSourceType() !=
           MediaStreamSource::kTypeAudio) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
@@ -182,8 +200,15 @@ void SpeechRecognition::start(MediaStreamTrack* media_stream_track,
     return;
   }
 
-  stream_track_ = media_stream_track;
-  start(exception_state);
+  // https://wicg.github.io/nav-speculation/prerendering.html#web-speech-patch
+  // If this is called in prerendering, it should be deferred.
+  if (DomWindow() && DomWindow()->document()->IsPrerendering()) {
+    DomWindow()->document()->AddPostPrerenderingActivationStep(BindOnce(
+        &SpeechRecognition::CheckAvailabilityAndStart, WrapWeakPersistent(this),
+        /*exception_state=*/nullptr, WrapPersistent(media_stream_track)));
+    return;
+  }
+  CheckAvailabilityAndStart(&exception_state, media_stream_track);
 }
 
 void SpeechRecognition::stopFunction() {
@@ -200,8 +225,20 @@ void SpeechRecognition::stopFunction() {
 
   if (started_ && !stopping_) {
     stopping_ = true;
-    session_->StopCapture();
     ResetAudioSink();
+    if (receiver_.is_bound()) {
+      session_->StopCapture();
+    } else {
+      // If `StartController()` has not run yet (e.g. a muted MediaStreamTrack
+      // has not delivered its first audio buffer), there is no browser session
+      // to stop. End the session locally and asynchronously on the same
+      // `kMiscPlatformAPI` task runner used by the audio sink, matching the
+      // browser's `AbortSilently()` behavior before audio capture starts.
+      GetExecutionContext()
+          ->GetTaskRunner(TaskType::kMiscPlatformAPI)
+          ->PostTask(FROM_HERE, BindOnce(&SpeechRecognition::Ended,
+                                         WrapWeakPersistent(this)));
+    }
   }
 }
 
@@ -219,17 +256,29 @@ void SpeechRecognition::abort() {
 
   if (started_ && !stopping_) {
     stopping_ = true;
-    session_->Abort();
     ResetAudioSink();
+    if (receiver_.is_bound()) {
+      session_->Abort();
+    } else {
+      // If `StartController()` has not run yet (e.g. a muted MediaStreamTrack
+      // has not delivered its first audio buffer), there is no browser session
+      // to abort. End the session locally and asynchronously on the same
+      // `kMiscPlatformAPI` task runner used by the audio sink, matching the
+      // browser's `AbortSilently()` behavior before audio capture starts.
+      GetExecutionContext()
+          ->GetTaskRunner(TaskType::kMiscPlatformAPI)
+          ->PostTask(FROM_HERE, BindOnce(&SpeechRecognition::Ended,
+                                         WrapWeakPersistent(this)));
+    }
   }
 }
 
 // Returns a promise that resolves to a enum indicating whether on-device
 // speech recognition is available for a given BCP-47 language code.
-ScriptPromise<V8AvailabilityStatus> SpeechRecognition::available(
-    ScriptState* script_state,
-    const blink::SpeechRecognitionOptions* options,
-    ExceptionState& exception_state) {
+ScriptPromise<V8SpeechRecognitionAvailabilityStatus>
+SpeechRecognition::available(ScriptState* script_state,
+                             const blink::SpeechRecognitionOptions* options,
+                             ExceptionState& exception_state) {
   LocalDOMWindow& window = *LocalDOMWindow::From(script_state);
   UseCounter::Count(window, WebFeature::kWebSpeechSttAvailable);
   auto* controller = SpeechRecognitionController::From(window);
@@ -244,9 +293,9 @@ ScriptPromise<V8AvailabilityStatus> SpeechRecognition::available(
     return EmptyPromise();
   }
 
-  auto* resolver =
-      MakeGarbageCollected<ScriptPromiseResolver<V8AvailabilityStatus>>(
-          script_state, exception_state.GetContext());
+  auto* resolver = MakeGarbageCollected<
+      ScriptPromiseResolver<V8SpeechRecognitionAvailabilityStatus>>(
+      script_state, exception_state.GetContext());
   auto result = resolver->Promise();
   bool is_cross_origin_iframe = window.IsCrossSiteSubframeIncludingScheme();
 
@@ -268,7 +317,8 @@ ScriptPromise<V8AvailabilityStatus> SpeechRecognition::available(
     controller->AvailableOnDevice(
         options->langs(), SpeechRecognitionQualityToMojom(quality),
         BindOnce(
-            [](ScriptPromiseResolver<V8AvailabilityStatus>* resolver,
+            [](ScriptPromiseResolver<V8SpeechRecognitionAvailabilityStatus>*
+                   resolver,
                media::mojom::blink::AvailabilityStatus status) {
               resolver->Resolve(AvailabilityStatusToV8(status));
             },
@@ -482,10 +532,52 @@ void SpeechRecognition::ResultRetrieved(
     event_time_stamp = audio_start_ticks_ + *latest_audio_end_time;
   }
 
+  const wtf_size_t result_index = aggregated_results.size() - results.size();
+  TRACE_EVENT_INSTANT(
+      "speech", "SpeechRecognition::ResultRetrieved", "event", "result", "data",
+      [&](perfetto::TracedValue context) {
+        const bool trace_utterance =
+            base::FeatureList::IsEnabled(kWebSpeechTraceUtterance);
+        perfetto::TracedDictionary dict = std::move(context).WriteDictionary();
+        dict.Add("result_index", result_index);
+        dict.Add("new_result_count", results.size());
+        dict.Add("final_count", results.size() - provisional_count);
+        dict.Add("provisional_count", provisional_count);
+        dict.Add("total_result_count", aggregated_results.size());
+        dict.Add("event_time_stamp_us",
+                 event_time_stamp.since_origin().InMicroseconds());
+        if (latest_audio_end_time.has_value()) {
+          dict.Add("latest_audio_end_time_ms",
+                   latest_audio_end_time->InMilliseconds());
+        }
+        perfetto::TracedArray results_array = dict.AddArray("results");
+        for (const auto& result : results) {
+          perfetto::TracedDictionary result_dict =
+              results_array.AppendDictionary();
+          result_dict.Add("is_final", !result->is_provisional);
+          result_dict.Add("hypothesis_count", result->hypotheses.size());
+          if (result->audio_start_time.has_value()) {
+            result_dict.Add("audio_start_time_ms",
+                            result->audio_start_time->InMilliseconds());
+          }
+          if (result->audio_end_time.has_value()) {
+            result_dict.Add("audio_end_time_ms",
+                            result->audio_end_time->InMilliseconds());
+          }
+          if (!result->hypotheses.empty()) {
+            const auto& top = result->hypotheses[0];
+            result_dict.Add("top_confidence", top->confidence);
+            result_dict.Add("top_utterance_length", top->utterance.length());
+            if (trace_utterance) {
+              result_dict.Add("top_utterance", top->utterance);
+            }
+          }
+        }
+      });
+
   // We dispatch an event with (1) + (2) + (3).
   DispatchEvent(*SpeechRecognitionEvent::CreateResult(
-      aggregated_results.size() - results.size(),
-      std::move(aggregated_results), event_time_stamp));
+      result_index, std::move(aggregated_results), event_time_stamp));
 }
 
 void SpeechRecognition::ErrorOccurred(
@@ -496,14 +588,18 @@ void SpeechRecognition::ErrorOccurred(
   base::UmaHistogramEnumeration(kWebSpeechErrorOccurredHistogram, error->code);
   if (error->code ==
       media::mojom::blink::SpeechRecognitionErrorCode::kNoMatch) {
+    TraceWebSpeechEvent("nomatch");
     DispatchEvent(*SpeechRecognitionEvent::CreateNoMatch(nullptr));
   } else {
+    TRACE_EVENT_INSTANT("speech", "SpeechRecognition::ErrorOccurred", "event",
+                        "error", "error_code", error->code);
     // TODO(primiano): message?
     DispatchEvent(*SpeechRecognitionErrorEvent::Create(error->code, String()));
   }
 }
 
 void SpeechRecognition::Started() {
+  TraceWebSpeechEvent("start");
   DispatchEvent(*Event::Create(event_type_names::kStart));
 }
 
@@ -511,20 +607,26 @@ void SpeechRecognition::AudioStarted() {
   // Per spec, result timestamps are relative to the `audiostart` event, so
   // record that instant as the time origin for incoming result offsets.
   audio_start_ticks_ = base::TimeTicks::Now();
+  TraceWebSpeechEvent("audiostart");
   DispatchEvent(*Event::Create(event_type_names::kAudiostart));
 }
 
 void SpeechRecognition::SoundStarted() {
+  TraceWebSpeechEvent("soundstart");
   DispatchEvent(*Event::Create(event_type_names::kSoundstart));
+  TraceWebSpeechEvent("speechstart");
   DispatchEvent(*Event::Create(event_type_names::kSpeechstart));
 }
 
 void SpeechRecognition::SoundEnded() {
+  TraceWebSpeechEvent("speechend");
   DispatchEvent(*Event::Create(event_type_names::kSpeechend));
+  TraceWebSpeechEvent("soundend");
   DispatchEvent(*Event::Create(event_type_names::kSoundend));
 }
 
 void SpeechRecognition::AudioEnded() {
+  TraceWebSpeechEvent("audioend");
   DispatchEvent(*Event::Create(event_type_names::kAudioend));
 }
 
@@ -538,14 +640,19 @@ void SpeechRecognition::ResetAudioSink() {
     stream_track_->UnregisterSink(audio_sink_.Get());
     audio_sink_ = nullptr;
   }
+  stream_track_ = nullptr;
 }
 
 void SpeechRecognition::Ended() {
+  if (!GetExecutionContext() || !started_) {
+    return;
+  }
   started_ = false;
   stopping_ = false;
   session_.reset();
   receiver_.reset();
   ResetAudioSink();
+  TraceWebSpeechEvent("end");
   DispatchEvent(*Event::Create(event_type_names::kEnd));
 }
 
@@ -584,7 +691,7 @@ void SpeechRecognition::OnPhrasesChanged() {
   }
 
   // If the speech recognition session has started, update the phrases.
-  if (started_) {
+  if (started_ && receiver_.is_bound()) {
     CHECK(session_);
     Vector<media::mojom::blink::SpeechRecognitionPhrasePtr> wtf_phrases;
     for (const auto& phrase : *phrases_) {
@@ -647,7 +754,8 @@ void SpeechRecognition::OnConnectionError() {
 }
 
 void SpeechRecognition::CheckAvailabilityAndStart(
-    ExceptionState* exception_state) {
+    ExceptionState* exception_state,
+    MediaStreamTrack* media_stream_track) {
   if (!controller_ || !GetExecutionContext()) {
     if (exception_state) {
       exception_state->ThrowDOMException(
@@ -692,8 +800,9 @@ void SpeechRecognition::CheckAvailabilityAndStart(
         Vector<String>{lang_}, SpeechRecognitionQualityToMojom(quality_),
         BindOnce(
             [](SpeechRecognition* speech_recognition,
+               MediaStreamTrack* media_stream_track,
                media::mojom::blink::AvailabilityStatus status) {
-              if (!speech_recognition) {
+              if (!speech_recognition || speech_recognition->started_) {
                 return;
               }
 
@@ -707,16 +816,16 @@ void SpeechRecognition::CheckAvailabilityAndStart(
                 return;
               }
 
-              speech_recognition->StartInternal();
+              speech_recognition->StartInternal(media_stream_track);
             },
-            WrapWeakPersistent(this)));
+            WrapWeakPersistent(this), WrapPersistent(media_stream_track)));
     return;
   }
 
-  StartInternal();
+  StartInternal(media_stream_track);
 }
 
-void SpeechRecognition::StartInternal() {
+void SpeechRecognition::StartInternal(MediaStreamTrack* media_stream_track) {
   // If this is called from a bound task (eg. from
   // SpeechRecognitionController::AvailableOnDevice), the caller must not invoke
   // it after the ExecutionContext is destroyed.
@@ -738,6 +847,9 @@ void SpeechRecognition::StartInternal() {
 
   final_results_.clear();
   audio_start_ticks_ = base::TimeTicks();
+  started_ = true;
+  stopping_ = false;
+  stream_track_ = media_stream_track;
 
   auto task_runner =
       GetExecutionContext()->GetTaskRunner(TaskType::kMiscPlatformAPI);
@@ -746,7 +858,8 @@ void SpeechRecognition::StartInternal() {
     SpeechRecognitionMediaStreamAudioSink* sink =
         MakeGarbageCollected<SpeechRecognitionMediaStreamAudioSink>(
             GetExecutionContext(),
-            BindOnce(&SpeechRecognition::StartController, WrapPersistent(this),
+            BindOnce(&SpeechRecognition::StartController,
+                     WrapWeakPersistent(this),
                      session_.BindNewPipeAndPassReceiver(task_runner)));
     WebMediaStreamAudioSink::AddToAudioTrack(
         sink, WebMediaStreamTrack(stream_track_->Component()));
@@ -755,8 +868,6 @@ void SpeechRecognition::StartInternal() {
   } else {
     StartController(session_.BindNewPipeAndPassReceiver(task_runner));
   }
-
-  started_ = true;
 }
 
 void SpeechRecognition::StartController(
@@ -769,6 +880,13 @@ void SpeechRecognition::StartController(
   // SpeechRecognitionMediaStreamAudioSink), the caller must not invoke it after
   // the ExecutionContext is destroyed.
   CHECK(GetExecutionContext());
+  // `ResetAudioSink()` removes the sink under the deliverer lock before
+  // `stopFunction()`/`abort()` posts `Ended()` to `TaskType::kMiscPlatformAPI`
+  // (the same FIFO runner used by `SpeechRecognitionMediaStreamAudioSink`), so
+  // any in-flight `OnSetFormat()` task runs while `stopping_` is still true.
+  if (!started_ || stopping_ || receiver_.is_bound()) {
+    return;
+  }
   UseCounter::Count(GetExecutionContext(), WebFeature::kWebSpeechSttStart);
 
   LocalDOMWindow* window = DomWindow();

@@ -16,16 +16,19 @@
 #import "base/not_fatal_until.h"
 #import "ios/chrome/browser/assistant/coordinator/assistant_container_commands.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_detent.h"
+#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/intelligence/actor/coordinator/actuation_worklog_coordinator.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_service.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_container_mediator.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_container_mediator_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_web_modal_coordinator.h"
+#import "ios/chrome/browser/intelligence/bwg/metrics/gemini_session_metrics_manager.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_gateway_manager.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_page_state_change_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_session_handler.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_startup_configuration.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_container_view_controller.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/zero_state_suggestions/ui/gemini_zero_state_view_controller.h"
@@ -36,8 +39,10 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 
 @interface GeminiContainerCoordinator () <GeminiContainerMediatorDelegate,
@@ -51,6 +56,8 @@
   __weak id<AssistantContainerCommands> _containerHandler;
   // Mediator for the Gemini container.
   GeminiContainerMediator* _mediator;
+  // Manager for tracking and recording Gemini session metrics.
+  GeminiSessionMetricsManager* _sessionMetricsManager;
   // The zero-state suggestions view controller.
   GeminiZeroStateViewController* _geminiZeroStateViewController;
   // Child coordinator managing the actuation worklog.
@@ -61,12 +68,19 @@
 
 - (void)start {
   CHECK(_startupState, base::NotFatalUntil::M160);
+  if (!_sessionMetricsManager) {
+    _sessionMetricsManager = [[GeminiSessionMetricsManager alloc] init];
+  }
+  [_sessionMetricsManager geminiWillStart];
   GeminiBrowserAgent* geminiBrowserAgent =
       GeminiBrowserAgent::FromBrowser(self.browser);
   // TODO(crbug.com/571095367): Move source of truth back to coordinator.
   if (geminiBrowserAgent && geminiBrowserAgent->is_floaty_invoked()) {
     CHECK(_mediator, base::NotFatalUntil::M160);
     [_mediator updateWithStartupState:_startupState];
+    // TODO(crbug.com/573609932): Consider recording a separate metrics for
+    // Gemini invoked case.
+    [_sessionMetricsManager geminiStarted:_startupState.isFirstSession];
     return;
   }
 
@@ -103,6 +117,7 @@
   [self dismissWebModal];
   [_mediator disconnect];
   _mediator = nil;
+  _sessionMetricsManager = nil;
   _viewController = nil;
   _containerHandler = nil;
   _geminiZeroStateViewController = nil;
@@ -163,7 +178,8 @@
       authenticationService:AuthenticationServiceFactory::GetForProfile(
                                 self.browser->GetProfile())
                eventHandler:geminiBrowserAgent
-         sharedTabsDelegate:geminiBrowserAgent];
+         sharedTabsDelegate:geminiBrowserAgent
+      sessionMetricsManager:_sessionMetricsManager];
   _mediator.delegate = self;
   _mediator.startupState = _startupState;
   // TODO(crbug.com/537730178): Delegate the permission prompt request up to
@@ -203,6 +219,7 @@
   // Calling connect will result in setting the initial detent
   // which only works after assistant container is presenting.
   [_mediator connect];
+  [_sessionMetricsManager geminiStarted:_startupState.isFirstSession];
 }
 
 // Configures the command handlers on `_mediator` and its session handler.
@@ -218,6 +235,14 @@
   _containerHandler = HandlerForProtocol(self.browser->GetCommandDispatcher(),
                                          AssistantContainerCommands);
   _mediator.containerHandler = _containerHandler;
+
+  if (IsFullscreenRefactoringEnabled()) {
+    _mediator.fullscreenHandler =
+        HandlerForProtocol(dispatcher, FullscreenCommands);
+  } else {
+    _mediator.fullscreenController =
+        FullscreenController::FromBrowser(self.browser);
+  }
 }
 
 // Dismisses Gemini from all other windows and executes `completion`.

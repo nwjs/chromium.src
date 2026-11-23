@@ -428,10 +428,10 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   bool ConsumeTextFragmentToken();
 
   // Returns the text fragment to scroll to and clears it.
-  std::optional<String> TakeInternalScrollToTextFragment();
+  String TakeInternalScrollToTextFragment();
 
   bool HasInternalScrollToTextFragment() const {
-    return internal_scroll_to_text_fragment_.has_value();
+    return !internal_scroll_to_text_fragment_.IsNull();
   }
 
   // For testing purposes.
@@ -802,6 +802,10 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
   // window's SecurityContext.
   bool is_secure_context_root_ = false;
 
+  // Whether the document may bind RestrictedDeviceBoundSessionManager, from
+  // the commit params. Applied to the LocalDOMWindow for every new document.
+  bool can_use_device_bound_session_js_api_ = false;
+
   // Policy controlling script injection tracking and protections for this
   // document.
   mojom::blink::ScriptInjectionPolicy script_injection_policy_ =
@@ -830,7 +834,7 @@ class CORE_EXPORT DocumentLoader : public GarbageCollected<DocumentLoader>,
 
   // If set, the document should attempt to scroll this text fragment into view
   // upon load, without highlighting it.
-  std::optional<String> internal_scroll_to_text_fragment_;
+  String internal_scroll_to_text_fragment_;
 
   // See WebNavigationParams for definition.
   const bool was_discarded_ = false;

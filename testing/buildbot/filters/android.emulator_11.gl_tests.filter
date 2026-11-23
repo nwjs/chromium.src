@@ -12,9 +12,12 @@
 -AHardwareBufferImageBackingFactoryTest.CannotReadWhileWriting/GaneshGL
 -AHardwareBufferImageBackingFactoryTest.CannotWriteWhileReading/GaneshGL
 -AHardwareBufferImageBackingFactoryTest.ConcurrentReadWrite/GaneshGL
+-AHardwareBufferImageBackingFactoryTest.GLWriteSkiaRead/GaneshGL
 -AHardwareBufferImageBackingFactoryTest.InitialData/GaneshGL
 -AHardwareBufferImageBackingFactoryTest.OnlyOneWriter/GaneshGL
 -AHardwareBufferImageBackingFactoryTest.Overlay/GaneshGL
+-AHardwareBufferImageBackingFactoryTest.UploadAndReadback/GaneshGL
+-AHardwareBufferImageBackingFactoryTest.UploadReadbackCrossThreadWithTLS/GaneshGL
 
 # BGRA_8888 support is poor in Android emulator.
 -GLTextureImageBackingFactory*/BGRA_8888

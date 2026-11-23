@@ -95,7 +95,7 @@ class TabStrip : public views::View,
 
   // Returns the size needed for the specified views. This is invoked during
   // drag and drop to calculate offsets and positioning.
-  static int GetSizeNeededForViews(const std::vector<TabSlotView*>& views);
+  static int GetSizeNeededForViews(const std::vector<views::View*>& views);
 
   // Sets the observer to be notified of changes within this TabStrip.
   void SetTabStripObserver(TabStripObserver* observer);
@@ -314,6 +314,8 @@ class TabStrip : public views::View,
       const tab_groups::TabGroupColorId& color_id) const override;
   void ShiftGroupLeft(const tab_groups::TabGroupId& group) override;
   void ShiftGroupRight(const tab_groups::TabGroupId& group) override;
+  void EnterFocusMode(const tab_groups::TabGroupId& group) override;
+  void ExitFocusMode(std::optional<TabGroupFocusExitReason> reason) override;
   BrowserWindowInterface* GetBrowserWindowInterface() override;
 
   // views::View:

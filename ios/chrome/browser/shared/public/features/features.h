@@ -109,9 +109,6 @@ BASE_DECLARE_FEATURE(kHideToolbar);
 // Returns true if the "Hide Toolbar" button is enabled.
 bool IsHideToolbarEnabled();
 
-// Flag to hide voice and lens actions in fusebox.
-BASE_DECLARE_FEATURE(kHideFuseboxVoiceLensActions);
-
 // Whether the Safety Check Manager can automatically trigger Safety Checks.
 bool IsSafetyCheckAutorunByManagerEnabled();
 
@@ -530,6 +527,13 @@ bool IsBestOfAppBestFeaturesEnabled();
 // Whether the `kDefaultBrowserPromoPropensityModel` feature is enabled.
 bool IsDefaultBrowserPromoPropensityModelEnabled();
 
+// Whether `kDefaultBrowserPromoPropensityModel` is configured to log the model
+// result without suppressing promo display.
+bool IsLogDefaultBrowserPromoPropensityModelResultAndShowPromoEnabled();
+
+// Returns the propensity score threshold for default browser promo.
+double GetDefaultBrowserPromoPropensityScoreCutoff();
+
 // Feature flag to enable the trusted vault provisional notification.
 BASE_DECLARE_FEATURE(kIOSTrustedVaultNotification);
 
@@ -728,11 +732,23 @@ extern const base::FeatureParam<base::TimeDelta>
 // Whether the Soft Lock feature is enabled.
 bool IsIOSSoftLockEnabled();
 
-// Enables the AimCobrowse feature.
+// Enables the AimCobrowse feature. Intended to be used with the Add Tab
+// entrypoint in Composebox enabled by default; see
+// `kAimCobrowseAddTabEntrypoint` to disable that entrypoint while keeping other
+// Cobrowse entrypoints (such as `kAimCobrowseWebSelectionSearch`) enabled.
 BASE_DECLARE_FEATURE(kAimCobrowse);
+
+// Parameter to enable or disable the Add Tab entrypoint for AimCobrowse
+// (defaults to true).
+inline constexpr char kAimCobrowseAddTabEntrypointParam[] =
+    "add_tab_entrypoint_enabled";
+BASE_DECLARE_FEATURE_PARAM(bool, kAimCobrowseAddTabEntrypoint);
 
 // Returns true if the AimCobrowse feature is enabled.
 bool IsAimCobrowseEnabled();
+
+// Returns true if the Add Tab entrypoint for AimCobrowse is enabled.
+bool IsAimCobrowseAddTabEntrypointEnabled();
 
 // Enables Cobrowse automatically opening when the user taps on an AIM SRP link.
 BASE_DECLARE_FEATURE(kEnableCobrowseOnAimSrpTap);
@@ -822,12 +838,6 @@ BASE_DECLARE_FEATURE(kBackgroundRefreshRegressionTest);
 
 // Returns the current arm for the BackgroundRefreshRegressionTest experiment.
 BackgroundRefreshRegressionTestArm GetBackgroundRefreshRegressionTestArm();
-
-// Enables the OpenEditGroupViewByTappingTitle feature.
-BASE_DECLARE_FEATURE(kOpenEditGroupViewByTappingTitle);
-
-// Returns true if the OpenEditGroupViewByTappingTitle feature is enabled.
-bool IsOpenEditGroupViewByTappingTitleEnabled();
 
 // Returns true if the UpdateTabGroupColors feature is enabled.
 bool IsUpdateTabGroupColorsEnabled();
@@ -1004,6 +1014,12 @@ BASE_DECLARE_FEATURE(kAppBarAssistantCustomization);
 // Returns true if the AppBarAssistantCustomization feature is enabled.
 bool IsAppBarAssistantCustomizationEnabled();
 
+// Feature flag to enable using CIFilter for grayscale image rendering.
+BASE_DECLARE_FEATURE(kGreyImageCIFilter);
+
+// Returns true if the `kGreyImageCIFilter` feature flag is enabled.
+bool IsGreyImageCIFilterEnabled();
+
 // Enables the LightAppBar feature.
 BASE_DECLARE_FEATURE(kLightAppBar);
 
@@ -1028,6 +1044,14 @@ BASE_DECLARE_FEATURE(kFiveButtonAppBarLayout);
 // Returns true if the FiveButtonAppBarLayout feature is enabled.
 bool IsFiveButtonAppBarLayoutEnabled();
 
+// Feature flag (acting as kill switch) to clear window rootViewController after
+// disconnecting scene state to avoid UIKit focus system exceptions.
+BASE_DECLARE_FEATURE(kClearRootViewControllerAfterSceneDisconnect);
+
+// Returns true if the ClearRootViewControllerAfterSceneDisconnect feature is
+// enabled.
+bool IsClearRootViewControllerAfterSceneDisconnectEnabled();
+
 // Enables the `kLocationBarPerformanceImprovements` feature.
 BASE_DECLARE_FEATURE(kLocationBarPerformanceImprovements);
 
@@ -1048,13 +1072,5 @@ BASE_DECLARE_FEATURE(kAppBarDisableLongPress);
 
 // Returns true if the AppBarDisableLongPress feature is enabled.
 bool IsAppBarDisableLongPressEnabled();
-
-// Feature flag (acting as kill switch) to clear window rootViewController after
-// disconnecting scene state to avoid UIKit focus system exceptions.
-BASE_DECLARE_FEATURE(kClearRootViewControllerAfterSceneDisconnect);
-
-// Returns true if the ClearRootViewControllerAfterSceneDisconnect feature is
-// enabled.
-bool IsClearRootViewControllerAfterSceneDisconnectEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

@@ -312,12 +312,12 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Listener,
   virtual bool ShutdownRequested() = 0;
 
   // Try to shut down the associated renderer process as fast as possible. If a
-  // non-zero |page_count| value is provided, then a fast shutdown will only
+  // non-zero |page_count| value is provided, or if
+  // `use_outermost_main_frame_check` is true, then a fast shutdown will only
   // happen if the count matches the active view count. Returns true if it was
-  // able to do fast shutdown.
-  // If `use_outermost_main_frame_check` is true `page_count` will check
-  // resident counts of outermost main frames, instead of resident
-  // RenderWidgetHosts.
+  // able to do fast shutdown. If `use_outermost_main_frame_check` is true,
+  // `page_count` will check against the number of active, non-discarded
+  // outermost main frames, instead of resident RenderWidgetHosts.
   // TODO(crbug.com/463513005): Make this behavior default and remove
   // `page_count`.
   // If |skip_unload_handlers| is false and this renderer has any RenderViews
@@ -595,18 +595,6 @@ class CONTENT_EXPORT RenderProcessHost : public IPC::Listener,
   //    the renderer process to be alive. The ref count is incremented when
   //    a shared worker is created in the process, and decremented when
   //    it is terminated (it self-destructs when it no longer has clients).
-  //  - Shared Storage Worklet:
-  //    (https://github.com/pythagoraskitty/shared-storage)
-  //    While there are shared storage worklets who live in this process, they
-  //    wish the renderer process to be alive. The ref count is incremented when
-  //    a shared storage worklet is created in the process, and decremented when
-  //    it is terminated (after the document is destroyed, the worklet
-  //    will be destroyed when all pending operations have finished or a timeout
-  //    is reached). Note that this is only relevant for the implementation of
-  //    shared storage worklets that run in the renderer process. The actual
-  //    process that the shared storage worklets are going to use is determined
-  //    by the concrete implementation of
-  //    `SharedStorageRenderThreadWorkletDriver`.
   //  - Auction Worklets (on Android only):
   //    (https://github.com/WICG/turtledove/blob/main/FLEDGE.md)
   //    Keeps the renderer alive if there are any worklets using it.

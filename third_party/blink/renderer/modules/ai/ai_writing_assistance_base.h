@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_MODULES_AI_AI_WRITING_ASSISTANCE_BASE_H_
 #define THIRD_PARTY_BLINK_RENDERER_MODULES_AI_AI_WRITING_ASSISTANCE_BASE_H_
 
+#include "base/check_deref.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/sequenced_task_runner.h"
@@ -13,11 +14,11 @@
 #include "third_party/blink/public/mojom/ai/ai_common.mojom-blink.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise.h"
-#include "third_party/blink/renderer/core/dom/abort_controller.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/streams/readable_stream.h"
+#include "third_party/blink/renderer/modules/ai/abort_manager.h"
 #include "third_party/blink/renderer/modules/ai/ai_interface_proxy.h"
 #include "third_party/blink/renderer/modules/ai/ai_metrics.h"
 #include "third_party/blink/renderer/modules/ai/ai_utils.h"
@@ -26,6 +27,7 @@
 #include "third_party/blink/renderer/modules/ai/exception_helpers.h"
 #include "third_party/blink/renderer/modules/ai/feedback_helpers.h"
 #include "third_party/blink/renderer/modules/ai/model_execution_responder.h"
+#include "third_party/blink/renderer/modules/ai/resolver_with_abort_signal.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 
@@ -105,29 +107,19 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
       : ExecutionContextClient(ExecutionContext::From(script_state)),
         remote_(GetExecutionContext()),
         options_(options),
-        destruction_abort_controller_(AbortController::Create(script_state)),
-        create_abort_signal_(options->getSignalOr(nullptr)),
+        abort_manager_(script_state, options->getSignalOr(nullptr), this),
         task_runner_(std::move(task_runner)),
         context_window_(context_window),
         metric_session_type_(GetSessionType()),
         echo_whitespace_input_(echo_whitespace_input) {
     remote_.Bind(std::move(pending_remote), task_runner_);
-
-    if (create_abort_signal_) {
-      CHECK(!create_abort_signal_->aborted());
-      create_abort_handle_ = create_abort_signal_->AddAlgorithm(
-          BindOnce(&AIWritingAssistanceBase::OnCreateAbortSignalAborted,
-                   WrapWeakPersistent(this), WrapWeakPersistent(script_state)));
-    }
   }
 
   void Trace(Visitor* visitor) const override {
     ExecutionContextClient::Trace(visitor);
     visitor->Trace(remote_);
     visitor->Trace(options_);
-    visitor->Trace(destruction_abort_controller_);
-    visitor->Trace(create_abort_signal_);
-    visitor->Trace(create_abort_handle_);
+    visitor->Trace(abort_manager_);
   }
 
   static ScriptPromise<V8Availability> availability(
@@ -236,10 +228,10 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
       return ScriptPromise<IDLString>();
     }
 
-    CHECK(options);
-    AbortSignal* composite_signal =
-        CreateCompositeSignal(script_state, options);
-    if (HandleAbortSignal(composite_signal, script_state, exception_state)) {
+    auto* signal = abort_manager_.CreateSignal(
+        script_state, CHECK_DEREF(options).getSignalOr(nullptr),
+        exception_state);
+    if (!signal) {
       return EmptyPromise();
     }
 
@@ -266,15 +258,14 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
         options->getContextOr(g_empty_string).StripWhiteSpace();
     // Pass persistent refs to keep this instance alive during the response.
     auto pending_remote = CreateModelExecutionResponder(
-        script_state, composite_signal, task_runner_, metric_session_type_,
+        script_state, signal, task_runner_, metric_session_type_,
         BindOnce(&ResolvePromiseOnCompletion<IDLString>,
                  WrapPersistent(resolver)),
         /*tool_call_callback=*/base::DoNothing(),
         base::DoNothingWithBoundArgs(WrapPersistent(this)),
         BindOnce(&RejectPromiseOnError<IDLString>, WrapPersistent(resolver)),
         BindOnce(&RejectPromiseOnAbort<IDLString>, WrapPersistent(resolver),
-                 WrapPersistent(composite_signal),
-                 WrapPersistent(script_state)));
+                 WrapPersistent(signal), WrapPersistent(script_state)));
     remoteExecute(trimmed_input, trimmed_context, std::move(pending_remote));
     return promise;
   }
@@ -290,10 +281,10 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
       return nullptr;
     }
 
-    CHECK(options);
-    AbortSignal* composite_signal =
-        CreateCompositeSignal(script_state, options);
-    if (HandleAbortSignal(composite_signal, script_state, exception_state)) {
+    auto* signal = abort_manager_.CreateSignal(
+        script_state, CHECK_DEREF(options).getSignalOr(nullptr),
+        exception_state);
+    if (!signal) {
       return nullptr;
     }
 
@@ -316,7 +307,7 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
     // Pass persistent refs to keep this instance alive during the response.
     auto [readable_stream, pending_remote] =
         CreateModelExecutionStreamingResponder(
-            script_state, composite_signal, task_runner_, metric_session_type_,
+            script_state, signal, task_runner_, metric_session_type_,
             base::DoNothingWithBoundArgs(WrapPersistent(this)),
             base::DoNothingWithBoundArgs(WrapPersistent(this)));
     remoteExecute(trimmed_input, trimmed_context, std::move(pending_remote));
@@ -332,10 +323,10 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
       return ScriptPromise<IDLDouble>();
     }
 
-    CHECK(options);
-    AbortSignal* composite_signal =
-        CreateCompositeSignal(script_state, options);
-    if (HandleAbortSignal(composite_signal, script_state, exception_state)) {
+    auto* signal = abort_manager_.CreateSignal(
+        script_state, CHECK_DEREF(options).getSignalOr(nullptr),
+        exception_state);
+    if (!signal) {
       return EmptyPromise();
     }
 
@@ -344,24 +335,15 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
       return ScriptPromise<IDLDouble>();
     }
 
-    auto* resolver =
-        MakeGarbageCollected<ScriptPromiseResolver<IDLDouble>>(script_state);
+    auto* resolver = MakeGarbageCollected<ResolverWithAbortSignal<IDLDouble>>(
+        script_state, signal);
     auto promise = resolver->Promise();
-    auto reject_fn = RejectOnDestruction(resolver, composite_signal);
 
     remote_->MeasureUsage(
         input, options->getContextOr(g_empty_string),
         BindOnce(
-            [](ScriptPromiseResolver<IDLDouble>* resolver, AbortSignal* signal,
+            [](ResolverWithAbortSignal<IDLDouble>* resolver,
                std::optional<uint32_t> usage) {
-              ExecutionContext* context = resolver->GetExecutionContext();
-              if (!context) {
-                return;
-              }
-              if (signal && signal->aborted()) {
-                resolver->Reject(signal->reason(resolver->GetScriptState()));
-                return;
-              }
               if (!usage.has_value()) {
                 resolver->Reject(DOMException::Create(
                     kExceptionMessageUnableToCalculateUsage,
@@ -371,20 +353,16 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
               }
               resolver->Resolve(static_cast<double>(usage.value()));
             },
-            WrapPersistent(resolver), WrapPersistent(composite_signal))
-            .Then(std::move(reject_fn)));
+            WrapPersistent(resolver))
+            .Then(RejectOnDestruction(resolver)));
 
     return promise;
   }
 
   void destroy(ScriptState* script_state, ExceptionState& exception_state) {
-    if (!script_state->ContextIsValid()) {
-      ThrowInvalidContextException(exception_state);
-      return;
+    if (abort_manager_.OnDestroy(script_state, exception_state)) {
+      remote_.reset();
     }
-
-    destruction_abort_controller_->abort(script_state);
-    DestroyImpl();
   }
 
   String sharedContext() const {
@@ -441,37 +419,6 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
   Member<CreateOptions> options_;
 
  private:
-  void DestroyImpl() {
-    remote_.reset();
-
-    if (create_abort_handle_) {
-      create_abort_signal_->RemoveAlgorithm(create_abort_handle_);
-      create_abort_handle_ = nullptr;
-    }
-  }
-
-  void OnCreateAbortSignalAborted(ScriptState* script_state) {
-    if (script_state) {
-      destruction_abort_controller_->abort(
-          script_state, create_abort_signal_->reason(script_state));
-    }
-    DestroyImpl();
-  }
-
-  AbortSignal* CreateCompositeSignal(ScriptState* script_state,
-                                     const ExecuteOptions* options) {
-    HeapVector<Member<AbortSignal>> signals;
-
-    signals.push_back(destruction_abort_controller_->signal());
-
-    CHECK(options);
-    if (options->hasSignal()) {
-      signals.push_back(options->signal());
-    }
-
-    return MakeGarbageCollected<AbortSignal>(script_state, signals);
-  }
-
   static bool ValidateAndCanonicalizeOptionLanguages(
       v8::Isolate* isolate,
       CreateCoreOptions* options) {
@@ -505,16 +452,7 @@ class AIWritingAssistanceBase : public ExecutionContextClient {
     return true;
   }
 
-  // Abort controller triggered on destroy() or when create abort signal is
-  // executed.
-  Member<AbortController> destruction_abort_controller_;
-
-  // Abort signal passed to CreateOptions.
-  Member<AbortSignal> create_abort_signal_;
-
-  // Handle to hold create_abort_signal_ callback, which is run when aborted.
-  Member<AbortSignal::AlgorithmHandle> create_abort_handle_;
-
+  AbortManager abort_manager_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
   const uint64_t context_window_;
 

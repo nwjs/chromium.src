@@ -248,7 +248,7 @@ class AXPosition {
       base::RepeatingCallback<bool(const AXPositionInstance&)>;
 
   using BoundaryTextOffsetsFunc =
-      base::RepeatingCallback<const std::vector<int32_t>&(
+      base::RepeatingCallback<base::span<const int32_t>(
           const AXPositionInstance&)>;
 
   static const int BEFORE_TEXT = -1;
@@ -765,7 +765,7 @@ class AXPosition {
       case AXPositionKind::TREE_POSITION:
         NOTREACHED();
       case AXPositionKind::TEXT_POSITION: {
-        const std::vector<int32_t>& word_starts =
+        base::span<const int32_t> word_starts =
             text_position->GetWordStartOffsets();
         return std::ranges::contains(word_starts,
                                      int32_t{text_position->text_offset_});
@@ -792,7 +792,7 @@ class AXPosition {
       case AXPositionKind::TREE_POSITION:
         NOTREACHED();
       case AXPositionKind::TEXT_POSITION: {
-        const std::vector<int32_t>& word_ends =
+        base::span<const int32_t> word_ends =
             text_position->GetWordEndOffsets();
         return std::ranges::contains(word_ends,
                                      int32_t{text_position->text_offset_});
@@ -1062,7 +1062,7 @@ class AXPosition {
       case AXPositionKind::TREE_POSITION:
         NOTREACHED();
       case AXPositionKind::TEXT_POSITION: {
-        const std::vector<int32_t>& sentence_starts =
+        base::span<const int32_t> sentence_starts =
             text_position->GetAnchor()->GetIntListAttribute(
                 ax::mojom::IntListAttribute::kSentenceStarts);
         return std::ranges::contains(sentence_starts,
@@ -1090,7 +1090,7 @@ class AXPosition {
       case AXPositionKind::TREE_POSITION:
         NOTREACHED();
       case AXPositionKind::TEXT_POSITION: {
-        const std::vector<int32_t>& sentence_ends =
+        base::span<const int32_t> sentence_ends =
             text_position->GetAnchor()->GetIntListAttribute(
                 ax::mojom::IntListAttribute::kSentenceEnds);
         return std::ranges::contains(sentence_ends,
@@ -1547,7 +1547,10 @@ class AXPosition {
         if (!position->GetAnchor())
           return CreateNullPosition();
 
-        if (const AXNode* empty_object_node = GetEmptyObjectAncestorNode()) {
+        // An empty text field can be its own empty-object ancestor. Positions
+        // on that anchor still use normal offset clamping.
+        const AXNode* empty_object_node = GetEmptyObjectAncestorNode();
+        if (empty_object_node && empty_object_node != position->GetAnchor()) {
           // This is needed because an empty object as defined in this class can
           // have descendants that should not be exposed. See comment above in
           // similar implementation for AXPositionKind::TREE_POSITION.
@@ -5343,10 +5346,9 @@ class AXPosition {
 
   ax::mojom::Role GetRole(AXNode* node) const { return node->GetRole(); }
 
-  const std::vector<int32_t>& GetWordStartOffsets() const {
+  base::span<const int32_t> GetWordStartOffsets() const {
     if (IsNullPosition()) {
-      static const base::NoDestructor<std::vector<int32_t>> empty_word_starts;
-      return *empty_word_starts;
+      return {};
     }
     DCHECK(GetAnchor());
 
@@ -5376,10 +5378,9 @@ class AXPosition {
         ax::mojom::IntListAttribute::kWordStarts);
   }
 
-  const std::vector<int32_t>& GetWordEndOffsets() const {
+  base::span<const int32_t> GetWordEndOffsets() const {
     if (IsNullPosition()) {
-      static const base::NoDestructor<std::vector<int32_t>> empty_word_ends;
-      return *empty_word_ends;
+      return {};
     }
     DCHECK(GetAnchor());
 
@@ -5434,7 +5435,7 @@ class AXPosition {
       return *default_format_starts;
     }
 
-    const std::vector<int32_t>& marker_types =
+    base::span<const int32_t> marker_types =
         parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerTypes);
 
     // If there are no markers, there are no format boundaries to add.
@@ -5442,7 +5443,7 @@ class AXPosition {
       return *default_format_starts;
     }
 
-    const std::vector<int32_t>& highlight_types = parent->GetIntListAttribute(
+    base::span<const int32_t> highlight_types = parent->GetIntListAttribute(
         ax::mojom::IntListAttribute::kHighlightTypes);
 
     // highlight_types may be empty for regular spelling/grammar markers.
@@ -5451,9 +5452,9 @@ class AXPosition {
       CHECK_EQ(marker_types.size(), highlight_types.size());
     }
 
-    const std::vector<int>& marker_starts =
+    base::span<const int> marker_starts =
         parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerStarts);
-    const std::vector<int>& marker_ends =
+    base::span<const int> marker_ends =
         parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
 
     CHECK_EQ(marker_types.size(), marker_starts.size());
@@ -5532,7 +5533,7 @@ class AXPosition {
       return cached_format_end_offsets_;
     }
 
-    const std::vector<int32_t>& marker_types =
+    base::span<const int32_t> marker_types =
         parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerTypes);
 
     // If there are no markers, there are no format boundaries to add.
@@ -5541,7 +5542,7 @@ class AXPosition {
       return cached_format_end_offsets_;
     }
 
-    const std::vector<int32_t>& highlight_types = parent->GetIntListAttribute(
+    base::span<const int32_t> highlight_types = parent->GetIntListAttribute(
         ax::mojom::IntListAttribute::kHighlightTypes);
 
     // highlight_types may be empty for regular spelling/grammar markers.
@@ -5550,9 +5551,9 @@ class AXPosition {
       CHECK_EQ(marker_types.size(), highlight_types.size());
     }
 
-    const std::vector<int>& marker_starts =
+    base::span<const int> marker_starts =
         parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerStarts);
-    const std::vector<int>& marker_ends =
+    base::span<const int> marker_ends =
         parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
 
     CHECK_EQ(marker_types.size(), marker_starts.size());
@@ -6084,11 +6085,11 @@ class AXPosition {
       int box_start = ComputeTextStartOfChildInParent(anchor, parent);
       int parent_offset = box_start + offset;
 
-      const std::vector<int32_t>& marker_types = parent->GetIntListAttribute(
+      base::span<const int32_t> marker_types = parent->GetIntListAttribute(
           ax::mojom::IntListAttribute::kMarkerTypes);
-      const std::vector<int>& marker_starts = parent->GetIntListAttribute(
+      base::span<const int> marker_starts = parent->GetIntListAttribute(
           ax::mojom::IntListAttribute::kMarkerStarts);
-      const std::vector<int>& marker_ends =
+      base::span<const int> marker_ends =
           parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
 
       for (size_t i = 0; i < marker_types.size(); ++i) {
@@ -6107,11 +6108,11 @@ class AXPosition {
     }
 
     // For StaticText or other nodes, check if offset is in any marker range.
-    const std::vector<int32_t>& marker_types =
+    base::span<const int32_t> marker_types =
         anchor->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerTypes);
-    const std::vector<int>& marker_starts =
+    base::span<const int> marker_starts =
         anchor->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerStarts);
-    const std::vector<int>& marker_ends =
+    base::span<const int> marker_ends =
         anchor->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
 
     for (size_t i = 0; i < marker_types.size(); ++i) {
@@ -6163,11 +6164,11 @@ class AXPosition {
       }
       int parent_offset = box_start + offset;
 
-      const std::vector<int32_t>& marker_types = parent->GetIntListAttribute(
+      base::span<const int32_t> marker_types = parent->GetIntListAttribute(
           ax::mojom::IntListAttribute::kMarkerTypes);
-      const std::vector<int>& marker_starts = parent->GetIntListAttribute(
+      base::span<const int> marker_starts = parent->GetIntListAttribute(
           ax::mojom::IntListAttribute::kMarkerStarts);
-      const std::vector<int>& marker_ends =
+      base::span<const int> marker_ends =
           parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
 
       for (size_t i = 0; i < marker_types.size(); ++i) {
@@ -6186,11 +6187,11 @@ class AXPosition {
     }
 
     // For other node types, check markers directly on the node.
-    const std::vector<int32_t>& marker_types =
+    base::span<const int32_t> marker_types =
         anchor->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerTypes);
-    const std::vector<int>& marker_starts =
+    base::span<const int> marker_starts =
         anchor->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerStarts);
-    const std::vector<int>& marker_ends =
+    base::span<const int> marker_ends =
         anchor->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
 
     for (size_t i = 0; i < marker_types.size(); ++i) {
@@ -6233,11 +6234,11 @@ class AXPosition {
       }
       int box_end = box_start + anchor->GetTextContentLengthUTF16();
 
-      const std::vector<int32_t>& marker_types = parent->GetIntListAttribute(
+      base::span<const int32_t> marker_types = parent->GetIntListAttribute(
           ax::mojom::IntListAttribute::kMarkerTypes);
-      const std::vector<int>& marker_starts = parent->GetIntListAttribute(
+      base::span<const int> marker_starts = parent->GetIntListAttribute(
           ax::mojom::IntListAttribute::kMarkerStarts);
-      const std::vector<int>& marker_ends =
+      base::span<const int> marker_ends =
           parent->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
 
       for (size_t i = 0; i < marker_types.size(); ++i) {
@@ -6256,7 +6257,7 @@ class AXPosition {
     }
 
     // For StaticText or other nodes, check if they have any markers.
-    const std::vector<int32_t>& marker_types =
+    base::span<const int32_t> marker_types =
         anchor->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerTypes);
     for (int32_t type : marker_types) {
       if (type == static_cast<int32_t>(ax::mojom::MarkerType::kSpelling) ||
@@ -6500,45 +6501,42 @@ class AXPosition {
     NOTREACHED();
   }
 
-  static const std::vector<int32_t>& GetSentenceStartOffsetsFunc(
+  static base::span<const int32_t> GetSentenceStartOffsetsFunc(
       const AXPositionInstance& position) {
     if (position->IsNullPosition()) {
-      static const base::NoDestructor<std::vector<int32_t>>
-          empty_sentence_starts;
-      return *empty_sentence_starts;
+      return {};
     }
     DCHECK(position->GetAnchor());
     return position->GetAnchor()->GetIntListAttribute(
         ax::mojom::IntListAttribute::kSentenceStarts);
   }
 
-  static const std::vector<int32_t>& GetSentenceEndOffsetsFunc(
+  static base::span<const int32_t> GetSentenceEndOffsetsFunc(
       const AXPositionInstance& position) {
     if (position->IsNullPosition()) {
-      static const base::NoDestructor<std::vector<int32_t>> empty_sentence_ends;
-      return *empty_sentence_ends;
+      return {};
     }
     DCHECK(position->GetAnchor());
     return position->GetAnchor()->GetIntListAttribute(
         ax::mojom::IntListAttribute::kSentenceEnds);
   }
 
-  static const std::vector<int32_t>& GetWordStartOffsetsFunc(
+  static base::span<const int32_t> GetWordStartOffsetsFunc(
       const AXPositionInstance& position) {
     return position->GetWordStartOffsets();
   }
 
-  static const std::vector<int32_t>& GetWordEndOffsetsFunc(
+  static base::span<const int32_t> GetWordEndOffsetsFunc(
       const AXPositionInstance& position) {
     return position->GetWordEndOffsets();
   }
 
-  static const std::vector<int32_t>& GetFormatStartOffsetsFunc(
+  static base::span<const int32_t> GetFormatStartOffsetsFunc(
       const AXPositionInstance& position) {
     return position->GetFormatStartOffsets();
   }
 
-  static const std::vector<int32_t>& GetFormatEndOffsetsFunc(
+  static base::span<const int32_t> GetFormatEndOffsetsFunc(
       const AXPositionInstance& position) {
     return position->GetFormatEndOffsets();
   }
@@ -6624,10 +6622,10 @@ class AXPosition {
       return Clone();
 
     AXPositionInstance text_position = AsTextPosition();
-    const std::vector<int32_t>& boundary_offsets =
-        get_offsets.Run(text_position);
-    if (boundary_offsets.empty())
+    base::span<const int32_t> boundary_offsets = get_offsets.Run(text_position);
+    if (boundary_offsets.empty()) {
       return text_position;
+    }
 
     switch (move_direction) {
       case ax::mojom::MoveDirection::kNone:
@@ -6680,8 +6678,7 @@ class AXPosition {
       return Clone();
 
     AXPositionInstance text_position = AsTextPosition();
-    const std::vector<int32_t>& boundary_offsets =
-        get_offsets.Run(text_position);
+    base::span<const int32_t> boundary_offsets = get_offsets.Run(text_position);
     switch (move_direction) {
       case ax::mojom::MoveDirection::kNone:
         NOTREACHED();

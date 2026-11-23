@@ -19,6 +19,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/self_deleting.h"
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
@@ -43,6 +44,7 @@
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/origin_trial_state_host_impl.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
+#include "content/browser/renderer_host/text_input_manager.h"
 #include "content/browser/sms/test/mock_sms_provider.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
@@ -54,6 +56,7 @@
 #include "content/public/browser/cors_origin_pattern_setter.h"
 #include "content/public/browser/document_service.h"
 #include "content/public/browser/document_user_data.h"
+#include "content/public/browser/focused_node_details.h"
 #include "content/public/browser/javascript_dialog_manager.h"
 #include "content/public/browser/network_service_util.h"
 #include "content/public/browser/origin_trials_controller_delegate.h"
@@ -299,6 +302,21 @@ class RenderFrameHostImplBrowserTest : public ContentBrowserTest {
 
   RenderFrameHostImpl* root_frame_host() const {
     return web_contents()->GetPrimaryMainFrame();
+  }
+
+  // Focuses the element with `id` via script (simulated taps can miss on
+  // Android) and waits for its focus change and text input state to reach the
+  // browser.
+  void FocusAndWaitForTextInputState(const std::string& id) {
+    ASSERT_TRUE(ExecJs(web_contents(),
+                       JsReplace("document.getElementById($1).focus();", id)));
+    const int node_id = GetDOMNodeId(*root_frame_host(), "#" + id).value();
+    ASSERT_TRUE(base::test::RunUntil([&] {
+      auto* state = web_contents()->GetTextInputManager()->GetTextInputState();
+      return state && state->node_id == node_id &&
+             root_frame_host()->GetFocusedDOMNodeId().GetUnsafeValue() ==
+                 node_id;
+    })) << id;
   }
 
  private:
@@ -602,6 +620,78 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   web_contents()->WasHidden();
   EXPECT_EQ(PageVisibilityState::kHidden,
             web_contents()->GetPrimaryMainFrame()->GetVisibilityState());
+}
+
+// Test that a cross-process subframe reports the same visibility as the page
+// that embeds it. This is a regression test for a bug where the visibility
+// state was looked up through the subframe's RenderViewHost, whose widget never
+// gets a RenderWidgetHostView for out-of-process iframes, causing them to
+// always report kHidden.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       GetVisibilityState_CrossProcessIframe) {
+  IsolateAllSitesForTesting(base::CommandLine::ForCurrentProcess());
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL(
+                   "a.com", "/cross_site_iframe_factory.html?a(b)")));
+  RenderFrameHostImpl* main_frame = web_contents()->GetPrimaryMainFrame();
+  RenderFrameHostImpl* child_frame =
+      main_frame->child_at(0)->current_frame_host();
+  ASSERT_TRUE(child_frame->IsCrossProcessSubframe());
+
+  web_contents()->WasShown();
+  EXPECT_EQ(PageVisibilityState::kVisible, main_frame->GetVisibilityState());
+  EXPECT_EQ(PageVisibilityState::kVisible, child_frame->GetVisibilityState());
+
+  web_contents()->WasHidden();
+  EXPECT_EQ(PageVisibilityState::kHidden, main_frame->GetVisibilityState());
+  EXPECT_EQ(PageVisibilityState::kHidden, child_frame->GetVisibilityState());
+
+  // A hidden page that is being captured keeps painting (kHiddenButPainting).
+  // A RenderWidgetHostViewChildFrame cannot tell this state apart from being
+  // visible on its own, so the subframe must defer to the root view and report
+  // the same state as the main frame, whatever the platform view reports.
+  base::ScopedClosureRunner capture_handle =
+      web_contents()->IncrementCapturerCount(gfx::Size(), /*stay_hidden=*/true,
+                                             /*stay_awake=*/false,
+                                             /*is_activity=*/false);
+  EXPECT_EQ(main_frame->GetVisibilityState(),
+            child_frame->GetVisibilityState());
+  capture_handle.RunAndReset();
+  EXPECT_EQ(PageVisibilityState::kHidden, main_frame->GetVisibilityState());
+  EXPECT_EQ(PageVisibilityState::kHidden, child_frame->GetVisibilityState());
+
+  web_contents()->WasShown();
+  EXPECT_EQ(PageVisibilityState::kVisible, main_frame->GetVisibilityState());
+  EXPECT_EQ(PageVisibilityState::kVisible, child_frame->GetVisibilityState());
+}
+
+// Test that a cross-process subframe whose view is no longer embedded in the
+// page reports kHidden. Here the subframe is swapped out by a cross-process
+// navigation and kept alive to run unload handlers: its widget was never
+// hidden, but its RenderWidgetHostViewChildFrame has been detached from the
+// frame connector, so it cannot be on screen.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
+                       GetVisibilityState_SwappedOutCrossProcessIframe) {
+  IsolateAllSitesForTesting(base::CommandLine::ForCurrentProcess());
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL(
+                   "a.com", "/cross_site_iframe_factory.html?a(b)")));
+  RenderFrameHostImpl* main_frame = web_contents()->GetPrimaryMainFrame();
+  RenderFrameHostImpl* rfh_b = main_frame->child_at(0)->current_frame_host();
+  ASSERT_TRUE(rfh_b->IsCrossProcessSubframe());
+  EXPECT_EQ(PageVisibilityState::kVisible, rfh_b->GetVisibilityState());
+
+  // Keep `rfh_b` alive after it is swapped out.
+  LeaveInPendingDeletionState(rfh_b);
+  EXPECT_TRUE(NavigateIframeToURL(
+      web_contents(), "child-0",
+      embedded_test_server()->GetURL("c.com", "/title1.html")));
+  RenderFrameHostImpl* rfh_c = main_frame->child_at(0)->current_frame_host();
+  ASSERT_NE(rfh_b, rfh_c);
+  ASSERT_TRUE(rfh_b->IsPendingDeletion());
+
+  EXPECT_EQ(PageVisibilityState::kHidden, rfh_b->GetVisibilityState());
+  EXPECT_EQ(PageVisibilityState::kVisible, rfh_c->GetVisibilityState());
 }
 
 // Check that the URLLoaderFactories created by RenderFrameHosts for renderers
@@ -7442,12 +7532,16 @@ class DestructorLifetimeDocumentService
   DestructorLifetimeDocumentService(
       RenderFrameHostImpl& render_frame_host,
       mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker> receiver,
-      bool& was_destroyed)
-      : DocumentService(render_frame_host, std::move(receiver)),
+      bool& was_destroyed,
+      base::SelfDeletingPassKey key)
+      : DocumentService(render_frame_host, std::move(receiver), key),
         render_frame_host_(render_frame_host.GetWeakPtr()),
         page_(render_frame_host.GetPage().GetWeakPtr()),
         was_destroyed_(was_destroyed) {}
 
+  void GetInterface(mojo::GenericPendingReceiver pending_receiver) override {}
+
+ private:
   ~DestructorLifetimeDocumentService() override {
     *was_destroyed_ = true;
     // The destructor should run before SafeRef<RenderFrameHost> is invalidated.
@@ -7455,9 +7549,6 @@ class DestructorLifetimeDocumentService
     EXPECT_TRUE(page_);
   }
 
-  void GetInterface(mojo::GenericPendingReceiver pending_receiver) override {}
-
- private:
   // This should be a SafeRef but that is not yet exposed publicly.
   const base::WeakPtr<RenderFrameHostImpl> render_frame_host_;
   const base::WeakPtr<Page> page_;
@@ -7513,10 +7604,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   bool document_service_was_destroyed = false;
   mojo::Remote<blink::mojom::BrowserInterfaceBroker> remote;
-  // This is self-owned so the bare new is OK.
-  new DestructorLifetimeDocumentService(*main_frame,
-                                        remote.BindNewPipeAndPassReceiver(),
-                                        document_service_was_destroyed);
+  base::MakeSelfDeleting<DestructorLifetimeDocumentService>(
+      *main_frame, remote.BindNewPipeAndPassReceiver(),
+      document_service_was_destroyed);
 
   bool document_user_data_was_destroyed = false;
   DestructorLifetimeDocumentUserData::CreateForCurrentDocument(
@@ -7562,10 +7652,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   bool document_service_was_destroyed = false;
   mojo::Remote<blink::mojom::BrowserInterfaceBroker> remote;
-  // This is self-owned so the bare new is OK.
-  new DestructorLifetimeDocumentService(*main_frame,
-                                        remote.BindNewPipeAndPassReceiver(),
-                                        document_service_was_destroyed);
+  base::MakeSelfDeleting<DestructorLifetimeDocumentService>(
+      *main_frame, remote.BindNewPipeAndPassReceiver(),
+      document_service_was_destroyed);
 
   bool document_user_data_was_destroyed = false;
   DestructorLifetimeDocumentUserData::CreateForCurrentDocument(
@@ -7602,10 +7691,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   bool document_service_was_destroyed = false;
   mojo::Remote<blink::mojom::BrowserInterfaceBroker> remote;
-  // This is self-owned so the bare new is OK.
-  new DestructorLifetimeDocumentService(*child_frame,
-                                        remote.BindNewPipeAndPassReceiver(),
-                                        document_service_was_destroyed);
+  base::MakeSelfDeleting<DestructorLifetimeDocumentService>(
+      *child_frame, remote.BindNewPipeAndPassReceiver(),
+      document_service_was_destroyed);
 
   bool document_user_data_was_destroyed = false;
   DestructorLifetimeDocumentUserData::CreateForCurrentDocument(
@@ -7649,10 +7737,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   bool document_service_was_destroyed = false;
   mojo::Remote<blink::mojom::BrowserInterfaceBroker> remote;
-  // This is self-owned so the bare new is OK.
-  new DestructorLifetimeDocumentService(*child_frame,
-                                        remote.BindNewPipeAndPassReceiver(),
-                                        document_service_was_destroyed);
+  base::MakeSelfDeleting<DestructorLifetimeDocumentService>(
+      *child_frame, remote.BindNewPipeAndPassReceiver(),
+      document_service_was_destroyed);
 
   bool document_user_data_was_destroyed = false;
   DestructorLifetimeDocumentUserData::CreateForCurrentDocument(
@@ -7687,10 +7774,9 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
 
   bool document_service_was_destroyed = false;
   mojo::Remote<blink::mojom::BrowserInterfaceBroker> remote;
-  // This is self-owned so the bare new is OK.
-  new DestructorLifetimeDocumentService(*child_frame,
-                                        remote.BindNewPipeAndPassReceiver(),
-                                        document_service_was_destroyed);
+  base::MakeSelfDeleting<DestructorLifetimeDocumentService>(
+      *child_frame, remote.BindNewPipeAndPassReceiver(),
+      document_service_was_destroyed);
 
   bool document_user_data_was_destroyed = false;
   DestructorLifetimeDocumentUserData::CreateForCurrentDocument(
@@ -11718,6 +11804,212 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   histogram_tester.ExpectBucketCount(
       "Stability.BadMessageTerminated.Content",
       bad_message::RFH_COMMIT_NAVIGATION_DISALLOWED_QUALIFIER, 0);
+}
+
+namespace {
+
+// Records IsFocusedElementPasswordLike() at the moment focus changes, before
+// the text input state for the newly focused element has arrived.
+class PasswordLikeAtFocusChangeObserver : public WebContentsObserver {
+ public:
+  explicit PasswordLikeAtFocusChangeObserver(WebContents* web_contents)
+      : WebContentsObserver(web_contents) {}
+
+  int focus_change_count() const { return focus_change_count_; }
+  bool password_like_at_focus_change() const {
+    return password_like_at_focus_change_;
+  }
+
+  // WebContentsObserver:
+  void OnFocusChangedInPage(const FocusedNodeDetails& details) override {
+    ++focus_change_count_;
+    password_like_at_focus_change_ =
+        web_contents()->GetPrimaryMainFrame()->IsFocusedElementPasswordLike();
+  }
+
+ private:
+  int focus_change_count_ = 0;
+  bool password_like_at_focus_change_ = false;
+};
+
+}  // namespace
+
+class RenderFrameHostImplPasswordLikeBrowserTest
+    : public RenderFrameHostImplBrowserTest {
+ protected:
+  void SetUpOnMainThread() override {
+    RenderFrameHostImplBrowserTest::SetUpOnMainThread();
+    ASSERT_TRUE(
+        NavigateToURL(shell(), embedded_test_server()->GetURL(
+                                   "/textinput/ime_enable_disable_test.html")));
+    ASSERT_TRUE(ExecJs(web_contents(), R"(
+      document.body.insertAdjacentHTML('beforeend', `
+        <input id="revealed" type="password" value="abc">
+        <input id="js_masked" type="text" value="\u2022\u2022\u2022\u2022a">
+        <div id="masked_ce" contenteditable
+             style="-webkit-text-security: disc">secret</div>
+        <div id="empty_masked_ce" contenteditable
+             style="-webkit-text-security: disc; min-height: 24px"></div>
+        <div id="plain_ce" contenteditable>hello</div>`);
+    )"));
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPasswordLikeBrowserTest,
+                       DetectsPasswordLikeFields) {
+  FocusAndWaitForTextInputState("text01_id");
+  EXPECT_FALSE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  FocusAndWaitForTextInputState("password01_id");
+  EXPECT_TRUE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  FocusAndWaitForTextInputState("js_masked");
+  EXPECT_TRUE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  FocusAndWaitForTextInputState("masked_ce");
+  EXPECT_TRUE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  FocusAndWaitForTextInputState("plain_ce");
+  EXPECT_FALSE(root_frame_host()->IsFocusedElementPasswordLike());
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPasswordLikeBrowserTest,
+                       RevealedPasswordStaysPasswordLike) {
+  FocusAndWaitForTextInputState("revealed");
+  EXPECT_TRUE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  // Simulate a "show password" toggle.
+  ASSERT_TRUE(ExecJs(web_contents(),
+                     "document.getElementById('revealed').type = 'text'"));
+  FocusAndWaitForTextInputState("text01_id");
+  FocusAndWaitForTextInputState("revealed");
+  EXPECT_TRUE(root_frame_host()->IsFocusedElementPasswordLike());
+}
+
+// An empty masked contenteditable is only detected once masked text exists.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPasswordLikeBrowserTest,
+                       EmptyMaskedContentEditableDetectedOnceTextExists) {
+  FocusAndWaitForTextInputState("empty_masked_ce");
+  EXPECT_FALSE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  ASSERT_TRUE(ExecJs(web_contents(),
+                     "document.execCommand('insertText', false, 'x');"));
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return root_frame_host()->IsFocusedElementPasswordLike(); }));
+}
+
+// The text input state arrives after the focus change. The previous field's
+// state must not be attributed to the newly focused element.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPasswordLikeBrowserTest,
+                       StaleStateIsNotUsedAtFocusChange) {
+  FocusAndWaitForTextInputState("password01_id");
+  ASSERT_TRUE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  PasswordLikeAtFocusChangeObserver observer(web_contents());
+  FocusAndWaitForTextInputState("text01_id");
+  ASSERT_GE(observer.focus_change_count(), 1);
+  EXPECT_FALSE(observer.password_like_at_focus_change());
+  EXPECT_FALSE(root_frame_host()->IsFocusedElementPasswordLike());
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplPasswordLikeBrowserTest,
+                       FalseAfterBlur) {
+  FocusAndWaitForTextInputState("password01_id");
+  ASSERT_TRUE(root_frame_host()->IsFocusedElementPasswordLike());
+
+  ASSERT_TRUE(ExecJs(web_contents(), "document.activeElement.blur()"));
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return !root_frame_host()->IsFocusedElementPasswordLike(); }));
+}
+
+namespace {
+
+// Records GetFocusedElementTextInputType() at the moment focus changes, before
+// the text input state for the newly focused element has arrived.
+class TextInputTypeAtFocusChangeObserver : public WebContentsObserver {
+ public:
+  explicit TextInputTypeAtFocusChangeObserver(WebContents* web_contents)
+      : WebContentsObserver(web_contents) {}
+
+  int focus_change_count() const { return focus_change_count_; }
+  std::optional<ui::TextInputType> type_at_focus_change() const {
+    return type_at_focus_change_;
+  }
+
+  // WebContentsObserver:
+  void OnFocusChangedInPage(const FocusedNodeDetails& details) override {
+    ++focus_change_count_;
+    type_at_focus_change_ =
+        web_contents()->GetPrimaryMainFrame()->GetFocusedElementTextInputType();
+  }
+
+ private:
+  int focus_change_count_ = 0;
+  std::optional<ui::TextInputType> type_at_focus_change_;
+};
+
+}  // namespace
+
+class RenderFrameHostImplTextInputTypeBrowserTest
+    : public RenderFrameHostImplBrowserTest {
+ protected:
+  void SetUpOnMainThread() override {
+    RenderFrameHostImplBrowserTest::SetUpOnMainThread();
+    ASSERT_TRUE(
+        NavigateToURL(shell(), embedded_test_server()->GetURL("/title1.html")));
+    ASSERT_TRUE(ExecJs(web_contents(), R"(
+      document.body.innerHTML = `
+        <input id="text">
+        <input id="search" type="search">
+        <textarea id="textarea"></textarea>
+        <div id="editable" contenteditable>hello</div>`;
+    )"));
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplTextInputTypeBrowserTest,
+                       ReportsTextInputType) {
+  ASSERT_NO_FATAL_FAILURE(FocusAndWaitForTextInputState("text"));
+  EXPECT_EQ(root_frame_host()->GetFocusedElementTextInputType(),
+            ui::TEXT_INPUT_TYPE_TEXT);
+
+  ASSERT_NO_FATAL_FAILURE(FocusAndWaitForTextInputState("search"));
+  EXPECT_EQ(root_frame_host()->GetFocusedElementTextInputType(),
+            ui::TEXT_INPUT_TYPE_SEARCH);
+
+  ASSERT_NO_FATAL_FAILURE(FocusAndWaitForTextInputState("textarea"));
+  EXPECT_EQ(root_frame_host()->GetFocusedElementTextInputType(),
+            ui::TEXT_INPUT_TYPE_TEXT_AREA);
+
+  ASSERT_NO_FATAL_FAILURE(FocusAndWaitForTextInputState("editable"));
+  EXPECT_EQ(root_frame_host()->GetFocusedElementTextInputType(),
+            ui::TEXT_INPUT_TYPE_CONTENT_EDITABLE);
+}
+
+// The text input state arrives after the focus change. The previous field's
+// type must not be attributed to the newly focused element.
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplTextInputTypeBrowserTest,
+                       StaleTypeIsNotUsedAtFocusChange) {
+  ASSERT_NO_FATAL_FAILURE(FocusAndWaitForTextInputState("textarea"));
+  ASSERT_EQ(root_frame_host()->GetFocusedElementTextInputType(),
+            ui::TEXT_INPUT_TYPE_TEXT_AREA);
+
+  TextInputTypeAtFocusChangeObserver observer(web_contents());
+  ASSERT_NO_FATAL_FAILURE(FocusAndWaitForTextInputState("search"));
+  ASSERT_GE(observer.focus_change_count(), 1);
+  EXPECT_EQ(observer.type_at_focus_change(), std::nullopt);
+  EXPECT_EQ(root_frame_host()->GetFocusedElementTextInputType(),
+            ui::TEXT_INPUT_TYPE_SEARCH);
+}
+
+IN_PROC_BROWSER_TEST_F(RenderFrameHostImplTextInputTypeBrowserTest,
+                       NoTextInputTypeAfterBlur) {
+  ASSERT_NO_FATAL_FAILURE(FocusAndWaitForTextInputState("textarea"));
+  ASSERT_TRUE(root_frame_host()->GetFocusedElementTextInputType());
+
+  ASSERT_TRUE(ExecJs(web_contents(), "document.activeElement.blur()"));
+  EXPECT_TRUE(base::test::RunUntil(
+      [&] { return !root_frame_host()->GetFocusedElementTextInputType(); }));
 }
 
 }  // namespace content

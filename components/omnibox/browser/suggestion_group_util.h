@@ -41,6 +41,10 @@ inline constexpr int kContextualActionZeroSuggestRelevanceLow = 410;
 // appear below open tab and contextual action suggestions (1500) and above the
 // remote zero-prefix suggestions which have relevance scores between 550-1400.
 inline constexpr int kCrossDeviceTabZeroSuggestRelevance = 1450;
+// Recently closed tab suggestions are assigned a base relevance of 1440 to
+// ensure they appear below open tab suggestions (1500), so that an open tab
+// wins de-duplication against a recently closed tab with the same URL.
+inline constexpr int kRecentlyClosedTabZeroSuggestRelevance = 1440;
 // Remote zero-prefix suggestions are assigned a default relevance of 1400 when
 // not explicitly specified by the server, ensuring consistency with their usual
 // relevance scores.
@@ -63,9 +67,8 @@ inline constexpr int kIPHZeroSuggestRelevance = 300;
 using GroupConfigMap = std::unordered_map<GroupId, GroupConfig>;
 
 // Builds the pre-defined static groups that are useful for sorting suggestions.
-const omnibox::GroupConfigMap& BuildDefaultGroupsForInput(
-    const AutocompleteInput& input,
-    bool is_incognito);
+const GroupConfigMap& BuildDefaultGroupsForInput(const AutocompleteInput& input,
+                                                 bool is_incognito);
 
 // Returns the omnibox::GroupId enum object corresponding to |value|, or
 // omnibox::GROUP_INVALID when there is no corresponding enum object.

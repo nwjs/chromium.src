@@ -14,6 +14,7 @@
 
 #include "base/check.h"
 #include "base/check_deref.h"
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/no_destructor.h"
 #include "base/numerics/checked_math.h"
@@ -323,7 +324,8 @@ std::optional<size_t> AXPlatformNodeBase::GetIndexInParent() {
   DCHECK(delegate->IsIgnored())
       << "Unable to find the unignored child in the list of its parent's "
          "children.\n* Child: "
-      << *this << "\n* Parent's subtree: " << parent->SubtreeToString();
+      << *this << "\n* Parent's subtree: "
+      << parent->SubtreeToString(/*stop_at_document=*/true);
   return std::nullopt;
 }
 
@@ -731,7 +733,7 @@ bool AXPlatformNodeBase::HasIntListAttribute(
   return GetDelegate()->HasIntListAttribute(attribute);
 }
 
-const std::vector<int32_t>& AXPlatformNodeBase::GetIntListAttribute(
+base::span<const int32_t> AXPlatformNodeBase::GetIntListAttribute(
     ax::mojom::IntListAttribute attribute) const {
   return GetDelegate()->GetIntListAttribute(attribute);
 }
@@ -747,7 +749,7 @@ bool AXPlatformNodeBase::HasStringListAttribute(
   return GetDelegate()->HasStringListAttribute(attribute);
 }
 
-const std::vector<std::string>& AXPlatformNodeBase::GetStringListAttribute(
+base::span<const std::string> AXPlatformNodeBase::GetStringListAttribute(
     ax::mojom::StringListAttribute attribute) const {
   return GetDelegate()->GetStringListAttribute(attribute);
 }
@@ -2691,7 +2693,7 @@ void AXPlatformNodeBase::SanitizeTextAttributeValue(const std::string& input,
 }
 
 bool AXPlatformNodeBase::IsDescribedByTooltip() const {
-  const std::vector<int32_t>& description_ids =
+  base::span<const int32_t> description_ids =
       GetIntListAttribute(ax::mojom::IntListAttribute::kDescribedbyIds);
 
   std::string description_from;
@@ -2709,10 +2711,11 @@ bool AXPlatformNodeBase::IsDescribedByTooltip() const {
 }
 
 std::string AXPlatformNodeBase::ComputeDetailsRoles() const {
-  const std::vector<int32_t>& details_ids =
+  base::span<const int32_t> details_ids =
       GetIntListAttribute(ax::mojom::IntListAttribute::kDetailsIds);
-  if (details_ids.empty())
+  if (details_ids.empty()) {
     return std::string();
+  }
 
   std::set<std::string> details_roles_set;
 

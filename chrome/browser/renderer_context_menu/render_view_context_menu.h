@@ -361,6 +361,7 @@ class RenderViewContextMenu
   void AppendMediaRouterItem();
   void AppendReadAnythingItem();
   void AppendSaveToMemoryBanksItem();
+  bool CanSaveImageToMemoryBanks() const;
   void AppendGlicItems();
   void AppendRotationItems();
   void AppendSpellingAndSearchSuggestionItems();
@@ -378,8 +379,10 @@ class RenderViewContextMenu
   void AppendPrintPreviewItems();
   void AppendSearchWebForImageItems();
   void AppendGlicShareImageItem();
+  void AppendIndigoItem();
   bool CanAppendRegionSearchItem() const;
   bool CanAppendGlicShareImageItem() const;
+  bool CanAppendIndigoItem() const;
   void AppendLensGeminiSection();
   void AppendRevisedTextSelectionSection();
   void AppendProtocolHandlerSubMenu();
@@ -439,6 +442,7 @@ class RenderViewContextMenu
   void ExecSaveLinkAs();
   void ExecSaveAs();
   void ExecGlicShareImage();
+  void ExecIndigo();
   void ExecExitFullscreen();
   void ExecCopyLinkText();
   void ExecCopyImageAt();
@@ -501,9 +505,8 @@ class RenderViewContextMenu
   // or whether the current page can be translated.
   bool CanTranslate(bool menu_logging);
 
-  // Whether or not partial translation is supported for the current target
-  // language.
-  bool CanPartiallyTranslateTargetLanguage();
+  // Whether or not partial translation on this page can be triggered.
+  bool CanPartiallyTranslate();
 
   // Under the correct conditions, issues a preconnection to the Lens URL and
   // warms up a renderer process.
@@ -654,6 +657,10 @@ class RenderViewContextMenu
   //  Used for CTR metrics of menu item for opening Glic.
   bool glic_item_shown_ = false;
   bool glic_item_executed_ = false;
+
+  // Used for CTR metrics of the Glic share image menu item.
+  bool glic_share_image_item_shown_ = false;
+  bool glic_share_image_item_executed_ = false;
 
   // Tracks the originating document at menu-open time so Glic actions can bail
   // out if the tab navigated while the menu was open.

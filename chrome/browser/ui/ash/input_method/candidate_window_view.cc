@@ -196,7 +196,7 @@ CandidateWindowView::CandidateWindowView(gfx::NativeView parent)
     : selected_candidate_index_in_page_(-1) {
   DialogDelegate::SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   SetCanActivate(false);
-  DCHECK(parent);
+  CHECK(parent, base::NotFatalUntil::M162);
   set_parent_window(parent);
   set_margins(gfx::Insets());
   // Ignore this role for accessibility purposes.
@@ -210,6 +210,8 @@ CandidateWindowView::CandidateWindowView(gfx::NativeView parent)
   // of the frame view created by the BubbleDialogDelegateView is consistent
   // with what CandidateWindowView expects.
   set_use_round_corners(false);
+
+  SetBorder(views::CreateSolidBorder(/*thickness=*/1, ui::kColorMenuBorder));
 
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
@@ -251,12 +253,6 @@ std::unique_ptr<views::Widget> CandidateWindowView::InitWidget() {
       std::make_unique<CandidateWindowBorder>());
   GetBubbleFrameView()->OnThemeChanged();
   return widget;
-}
-
-void CandidateWindowView::OnThemeChanged() {
-  BubbleDialogDelegateView::OnThemeChanged();
-  SetBorder(views::CreateSolidBorder(
-      1, GetColorProvider()->GetColor(ui::kColorMenuBorder)));
 }
 
 void CandidateWindowView::UpdateVisibility() {

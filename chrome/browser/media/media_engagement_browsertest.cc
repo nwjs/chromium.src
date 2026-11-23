@@ -43,6 +43,8 @@
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/no_state_prefetch/common/no_state_prefetch_final_status.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
@@ -175,7 +177,7 @@ class MediaEngagementBrowserTest : public InProcessBrowserTest {
 
   void OpenTab(const GURL& url, ui::PageTransition transition) {
     NavigateParams params(browser(), url, transition);
-    params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    params.disposition = WindowOpenDisposition::kNewForegroundTab;
     // params.opener does not need to be set in the context of this test because
     // it will use the current tab by default.
     Navigate(&params);
@@ -241,7 +243,7 @@ class MediaEngagementBrowserTest : public InProcessBrowserTest {
   void OpenTabAsLink() {
     ui_test_utils::NavigateToURLWithDisposition(
         browser(), GURL("chrome://about"),
-        WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        WindowOpenDisposition::kNewForegroundTab,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   }
 
@@ -824,7 +826,13 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementPreThirdPartyCookieDeprecationBrowserTest,
       no_state_prefetch_manager->StartPrefetchingFromLinkRelPrerender(
           /*process_id=*/-1, /*route_id=*/-1, url,
           blink::mojom::PrerenderTriggerType::kLinkRelPrerender,
-          content::Referrer(), url::Origin::Create(url), gfx::Size(640, 480));
+          content::Referrer(), url::Origin::Create(url),
+          browser()
+              ->GetTabStripModel()
+              ->GetActiveWebContents()
+              ->GetPrimaryMainFrame()
+              ->GetCurrentInitiatorNavigationState(),
+          gfx::Size(640, 480));
 
   ASSERT_EQ(no_state_prefetch_handle->contents(), test_prerender->contents());
 

@@ -4,6 +4,7 @@
 
 /* #css_wrapper_metadata_start
  * #type=style-lit
+ * #import=//resources/cr_components/composebox/aim_button_shared_vars.css.js
  * #scheme=relative
  * #css_wrapper_metadata_end */
 
@@ -23,10 +24,6 @@
   --cr-hover-background-color: #F3F5F6;
   --cr-button-height: 32px;
   flex-shrink: 0;
-  /* Dynamic mode motion tokens */
-  --aim-motion-duration-enter: 333ms;
-  --aim-motion-duration-exit: 383ms;
-  --aim-motion-easing: cubic-bezier(0.2, 0, 0, 1);
 
   --label-transform-input: translateX(-18px);
 }
@@ -52,6 +49,25 @@
   outline: 2px solid var(
       --color-searchbox-results-icon-focused-outline,
       var(--cr-focus-outline-color));
+}
+
+@media (forced-colors: active) {
+  :host {
+    --cr-hover-background-color: Highlight;
+  }
+
+  #composeButton {
+    background-color: ButtonFace;
+    border: 1px solid ButtonText;
+    color: ButtonText;
+  }
+
+  #composeButton:hover,
+  :host([has-virtual-focus]) #composeButton {
+    background-color: Highlight;
+    border-color: HighlightText;
+    color: HighlightText;
+  }
 }
 
 .compose-container {
@@ -555,12 +571,12 @@
   display: inline-block;
   margin-inline-start: 22px; /* 18px icon + 4px gap */
   transform: translateX(0);
-  transition: transform var(--aim-motion-duration-exit) var(--aim-motion-easing);
+  transition: transform var(--aim-motion-duration-long) var(--aim-motion-easing);
 }
 
 :host([dynamic][has-user-input]) #label {
   transform: var(--label-transform-input);
-  transition: transform var(--aim-motion-duration-enter) var(--aim-motion-easing);
+  transition: transform var(--aim-motion-duration-short) var(--aim-motion-easing);
 }
 
 :host([dynamic]) .compose-icon {
@@ -572,8 +588,8 @@
   top: 50%;
   transform: translateY(-50%);
   visibility: visible;
-  transition: opacity var(--aim-motion-duration-exit) var(--aim-motion-easing),
-              visibility var(--aim-motion-duration-exit) var(--aim-motion-easing);
+  transition: opacity var(--aim-motion-duration-long) var(--aim-motion-easing),
+              visibility var(--aim-motion-duration-long) var(--aim-motion-easing);
 }
 
 :host([dynamic][has-user-input]) .compose-icon {
@@ -582,6 +598,22 @@
   visibility: hidden;
   transition: opacity 50ms linear,
               visibility 50ms linear;
+}
+
+/* With inherit-visibility, the icon inherits its visibility instead of
+ * forcing visible, so it stays hidden while an ancestor (e.g. the NTP
+ * searchbox) is hidden. It shows instantly and hides after the 50 ms fade.
+ * These rules must come after the ones above (same specificity). */
+:host([dynamic][inherit-visibility]) .compose-icon {
+  visibility: inherit;
+  transition: opacity var(--aim-motion-duration-long) var(--aim-motion-easing),
+              visibility 0s;
+}
+
+:host([dynamic][inherit-visibility][has-user-input]) .compose-icon {
+  visibility: hidden;
+  transition: opacity 50ms linear,
+              visibility 0s linear 50ms; /* hide after the fade-out */
 }
 
 :host([dynamic]) .arrow-icon {
@@ -600,10 +632,14 @@
               visibility 50ms linear;
 }
 
+:host-context([dir='rtl']) .arrow-icon {
+  scale: -1 1;
+}
+
 :host([dynamic][has-user-input]) .arrow-icon {
   opacity: 1;
   pointer-events: auto;
   visibility: visible;
-  transition: opacity var(--aim-motion-duration-enter) var(--aim-motion-easing),
-              visibility var(--aim-motion-duration-enter) var(--aim-motion-easing);
+  transition: opacity var(--aim-motion-duration-short) var(--aim-motion-easing),
+              visibility var(--aim-motion-duration-short) var(--aim-motion-easing);
 }

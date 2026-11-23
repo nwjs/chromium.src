@@ -7,7 +7,6 @@
 #include <utility>
 
 #include "base/functional/bind.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sharesheet/sharesheet_service_delegator.h"
 #include "chrome/browser/ui/ash/sharesheet/sharesheet_bubble_view.h"
 #include "ui/views/widget/widget.h"
@@ -85,8 +84,8 @@ void SharesheetBubbleViewDelegate::OnActionLaunched(bool has_action_view) {
 
 void SharesheetBubbleViewDelegate::SetBubbleSize(int width, int height) {
   CHECK(sharesheet_bubble_view_);
-  DCHECK_GT(width, 0);
-  DCHECK_GT(height, 0);
+  CHECK_GT(width, 0, base::NotFatalUntil::M162);
+  CHECK_GT(height, 0, base::NotFatalUntil::M162);
   sharesheet_bubble_view_->ResizeBubble(width, height);
 }
 

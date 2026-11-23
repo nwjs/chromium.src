@@ -17,10 +17,6 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/history/profile_based_browsing_history_driver.h"
 
-namespace syncer {
-class DeviceInfo;
-}
-
 using base::android::JavaRef;
 
 // The bridge for fetching browsing history information for the Android
@@ -51,7 +47,7 @@ class BrowsingHistoryBridge : public ProfileBasedBrowsingHistoryDriver {
 
   void GetAllAppIds();
 
-  std::vector<const syncer::DeviceInfo*> GetAllClients();
+  std::vector<history::BrowsingHistoryService::ClientGroup> GetAllClients();
 
   void GetLastVisitToHostBeforeRecentNavigations(
       const std::string& host_name,
@@ -69,6 +65,14 @@ class BrowsingHistoryBridge : public ProfileBasedBrowsingHistoryDriver {
   // Removes all items that have been marked for removal through
   // ::markItemForRemoval().
   void RemoveItems();
+
+  // Queries `HistoryService` for the cached page title associated with `url` in
+  // `profile`, invoking `callback` with the UTF-8 page title (or an empty
+  // string if unavailable).
+  static void GetPageTitleForUrl(
+      Profile* profile,
+      const GURL& url,
+      base::OnceCallback<void(const std::string&)> callback);
 
   // BrowsingHistoryDriver implementation.
   void OnQueryComplete(

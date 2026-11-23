@@ -14,7 +14,6 @@ import android.os.IBinder;
 import android.os.SystemClock;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.core.app.ServiceCompat;
 
 import org.chromium.base.Log;
 import org.chromium.base.SplitCompatService;
@@ -22,6 +21,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.actor.ActorForegroundServiceUmaHelper.ForegroundLifecycle;
 import org.chromium.chrome.browser.actor.ActorForegroundServiceUmaHelper.StopReason;
+import org.chromium.chrome.browser.actor.foreground_service.ActorForegroundServiceController;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.components.browser_ui.notifications.ForegroundServiceUtils;
@@ -51,22 +51,19 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
      *
      * @param newNotificationId The ID for the new notification.
      * @param newNotification The notification to display.
-     * @param oldNotificationId The ID of the previous notification, or -1 if none.
-     * @param killOldNotification Whether to remove the old notification.
+     * @param oldNotificationId Unused.
+     * @param killOldNotification Unused.
      */
     public void startOrUpdateForegroundService(
             int newNotificationId,
             Notification newNotification,
             int oldNotificationId,
             boolean killOldNotification) {
+        // TODO(crbug.com/578059672): Remove the unused oldNotificationId and killOldNotification
+        // parameters once the M158 merges are done.
 
-        if (oldNotificationId != -1 && oldNotificationId != newNotificationId) {
-            stopForegroundInternal(
-                    killOldNotification
-                            ? ServiceCompat.STOP_FOREGROUND_REMOVE
-                            : ServiceCompat.STOP_FOREGROUND_DETACH);
-        }
-
+        // Calling stopForeground() before a notification ID swap would reset the background start
+        // allowance, making startForeground() throw while Chrome is backgrounded.
         if (!mIsForeground) {
             ActorForegroundServiceUmaHelper.recordLifecycleHistogram(ForegroundLifecycle.STARTED);
             mIsForeground = true;
@@ -141,8 +138,8 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
     }
 
     /** Local binder class to allow clients to access this service instance. */
-    class LocalBinder extends Binder {
-        ActorForegroundServiceImpl getService() {
+    public class LocalBinder extends Binder {
+        public ActorForegroundServiceImpl getService() {
             return ActorForegroundServiceImpl.this;
         }
     }

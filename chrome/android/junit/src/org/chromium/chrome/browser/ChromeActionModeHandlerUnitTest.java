@@ -11,9 +11,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
+import android.content.ComponentName;
 import android.content.Intent;
-import android.content.pm.ActivityInfo;
-import android.content.pm.ResolveInfo;
+import android.content.IntentFilter;
 import android.graphics.Rect;
 import android.view.ActionMode;
 import android.view.Menu;
@@ -26,6 +26,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
@@ -38,7 +39,6 @@ import org.robolectric.shadows.ShadowPackageManager;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.PackageManagerUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -48,11 +48,13 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.locale.LocaleManagerDelegate;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
+import org.chromium.chrome.browser.selection.GlicSelectionMenuTracker;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.content.R;
 import org.chromium.content_public.browser.ActionModeCallbackHelper;
+import org.chromium.content_public.browser.SelectionMenuItem;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 
@@ -61,6 +63,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.function.BooleanSupplier;
 
 /** Unit tests for the {@link ChromeActionModeHandler}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -77,12 +80,16 @@ public class ChromeActionModeHandlerUnitTest {
     @Mock private WebContents mWebContents;
     @Mock private WeakReference<Activity> mWeakActivityRef;
     @Mock private DataProtectionBridge.Natives mDataProtectionBridgeJniMock;
+    @Mock private GlicSelectionMenuTracker mGlicSelectionMenuTracker;
 
     private Activity mActivity;
 
     private class TestChromeActionModeCallback
             extends ChromeActionModeHandler.ChromeActionModeCallback {
-        TestChromeActionModeCallback(Tab tab, ActionModeCallbackHelper helper) {
+        TestChromeActionModeCallback(
+                Tab tab,
+                ActionModeCallbackHelper helper,
+                GlicSelectionMenuTracker glicSelectionMenuTracker) {
             super(
                     tab,
                     null,
@@ -90,7 +97,8 @@ public class ChromeActionModeHandlerUnitTest {
                     true,
                     () -> mShareDelegate,
                     mControlsState,
-                    () -> mReadAloudController);
+                    () -> mReadAloudController,
+                    glicSelectionMenuTracker);
         }
 
         @Override
@@ -109,7 +117,9 @@ public class ChromeActionModeHandlerUnitTest {
         Mockito.when(mDataProtectionBridgeJniMock.isSearchWithAllowed(any())).thenReturn(true);
 
         mActionModeCallback =
-                Mockito.spy(new TestChromeActionModeCallback(mTab, mActionModeCallbackHelper));
+                Mockito.spy(
+                        new TestChromeActionModeCallback(
+                                mTab, mActionModeCallbackHelper, mGlicSelectionMenuTracker));
         Mockito.when(mTab.getWindowAndroid()).thenReturn(mWindowAndroid);
         Mockito.when(mTab.getWebContents()).thenReturn(mWebContents);
         Mockito.when(mWebContents.isDestroyed()).thenReturn(false);
@@ -200,28 +210,35 @@ public class ChromeActionModeHandlerUnitTest {
     @Test
     public void testSelectActionMenuTextProcessingMenus() {
         ShadowPackageManager packageManager =
-                Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager());
+                Shadows.shadowOf(RuntimeEnvironment.getApplication().getPackageManager());
         List<String> browserPackageNames = new ArrayList<>();
         List<String> launcherPackageNames = new ArrayList<>();
         List<String> otherPackageNames = new ArrayList<>();
-        List<ResolveInfo> browsersList = new ArrayList<>();
-        List<ResolveInfo> launchersList = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             browserPackageNames.add("foo " + i);
-            browsersList.add(createResolveInfo(browserPackageNames.get(i)));
             launcherPackageNames.add("bar " + i);
-            launchersList.add(createResolveInfo(launcherPackageNames.get(i)));
             otherPackageNames.add("baz " + i);
         }
 
-        // Mock intent for querying web browsers.
-        packageManager.addResolveInfoForIntent(PackageManagerUtils.BROWSER_INTENT, browsersList);
+        // Install web browsers. The browser query uses MATCH_DEFAULT_ONLY, so the filter needs
+        // CATEGORY_DEFAULT.
+        IntentFilter browserFilter = new IntentFilter(Intent.ACTION_VIEW);
+        browserFilter.addCategory(Intent.CATEGORY_BROWSABLE);
+        browserFilter.addCategory(Intent.CATEGORY_DEFAULT);
+        browserFilter.addDataScheme("http");
+        for (String packageName : browserPackageNames) {
+            addActivityWithIntentFilter(packageManager, packageName, browserFilter);
+        }
 
-        // Mock intent for querying home launchers.
-        packageManager.addResolveInfoForIntent(
-                PackageManagerUtils.getQueryInstalledHomeLaunchersIntent(), launchersList);
+        // Install home launchers.
+        IntentFilter launcherFilter = new IntentFilter(Intent.ACTION_MAIN);
+        launcherFilter.addCategory(Intent.CATEGORY_HOME);
+        launcherFilter.addCategory(Intent.CATEGORY_DEFAULT);
+        for (String packageName : launcherPackageNames) {
+            addActivityWithIntentFilter(packageManager, packageName, launcherFilter);
+        }
 
-        RoboMenu menu = new RoboMenu(RuntimeEnvironment.application);
+        RoboMenu menu = new RoboMenu(RuntimeEnvironment.getApplication());
 
         List<String> allNames = new ArrayList<>();
         allNames.addAll(browserPackageNames);
@@ -477,12 +494,11 @@ public class ChromeActionModeHandlerUnitTest {
         return view;
     }
 
-    private ResolveInfo createResolveInfo(String packageName) {
-        ResolveInfo resolveInfo = new ResolveInfo();
-        ActivityInfo activityInfo = new ActivityInfo();
-        activityInfo.packageName = packageName;
-        resolveInfo.activityInfo = activityInfo;
-        return resolveInfo;
+    private void addActivityWithIntentFilter(
+            ShadowPackageManager packageManager, String packageName, IntentFilter filter) {
+        ComponentName activity = new ComponentName(packageName, "MainActivity");
+        packageManager.addActivityIfNotPresent(activity);
+        packageManager.addIntentFilterForActivity(activity, filter);
     }
 
     private void addMenuItem(Menu menu, int order, String packageName) {
@@ -493,5 +509,44 @@ public class ChromeActionModeHandlerUnitTest {
                                 .setType("text/plain")
                                 .putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true)
                                 .setClassName(packageName, "foo"));
+    }
+
+    @Test
+    public void testOnPrepareActionMode_forwardsMenuToGlicSelectionMenuTracker() {
+        mActionModeCallback.onPrepareActionMode(mActionMode, mMenu);
+        verify(mGlicSelectionMenuTracker).onFloatingMenuPrepared(mMenu);
+    }
+
+    @Test
+    public void testOnActionItemClicked_forwardsIdToGlicSelectionMenuTracker() {
+        MenuItem menuItem = Mockito.mock(MenuItem.class);
+        Mockito.when(menuItem.getItemId()).thenReturn(12345);
+        Mockito.when(mActionModeCallbackHelper.isActionModeValid()).thenReturn(true);
+
+        mActionModeCallback.onActionItemClicked(mActionMode, menuItem);
+        verify(mGlicSelectionMenuTracker).onFloatingItemClicked(12345);
+    }
+
+    @Test
+    public void testOnDropdownItemClicked_doesNotNotifyGlicSelectionMenuTracker() {
+        SelectionMenuItem item = new SelectionMenuItem.Builder("title").setId(54321).build();
+
+        mActionModeCallback.onDropdownItemClicked(item, /* closeMenu= */ true);
+        Mockito.verifyNoInteractions(mGlicSelectionMenuTracker);
+    }
+
+    @Test
+    public void testOnDestroyActionMode_passesActionModeStateToGlicSelectionMenuTracker() {
+        mActionModeCallback.onDestroyActionMode(mActionMode);
+
+        ArgumentCaptor<BooleanSupplier> captor = ArgumentCaptor.forClass(BooleanSupplier.class);
+        verify(mGlicSelectionMenuTracker).onFloatingMenuDestroyed(captor.capture());
+        BooleanSupplier supplier = captor.getValue();
+
+        Mockito.when(mActionModeCallbackHelper.isActionModeValid()).thenReturn(true);
+        Assert.assertTrue(supplier.getAsBoolean());
+
+        Mockito.when(mActionModeCallbackHelper.isActionModeValid()).thenReturn(false);
+        Assert.assertFalse(supplier.getAsBoolean());
     }
 }

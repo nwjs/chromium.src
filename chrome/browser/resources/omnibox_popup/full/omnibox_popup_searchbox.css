@@ -1,0 +1,503 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=chrome://resources/cr_elements/cr_icons_lit.css.js
+ * #import=chrome://omnibox-popup.top-chrome/shared/omnibox_popup_shared_style.css.js
+ * #include=cr-icons-lit omnibox-popup-shared-style
+ * #css_wrapper_metadata_end */
+
+:host {
+  --cr-searchbox-icon-top-position: 0;
+  --cr-searchbox-border-radius: calc(0.5 * var(--cr-searchbox-height));
+  --cr-searchbox-font-size: var(--omnibox-primary-font-size);
+  --cr-searchbox-height: var(--location-bar-height);
+  --cr-searchbox-icon-size-in-searchbox: var(--location-bar-icon-size);
+  --cr-searchbox-icon-spacing: 11px;
+  --cr-searchbox-icon-width: 26px;
+  --cr-searchbox-inner-icon-margin: 8px;
+  --cr-searchbox-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.15),
+      0 1px 3px 0 rgba(0, 0, 0, 0.30);
+  --cr-searchbox-voice-icon-offset: 16px;
+  --cr-searchbox-voice-search-button-width: 0px;
+  --cr-searchbox-input-height: calc(
+      var(--cr-searchbox-height) -
+      2 * var(--location-bar-page-info-icon-vertical-padding));
+  --cr-searchbox-width: calc(100% - 2 * var(--alignment-inset-horizontal));
+
+  border-radius: var(--cr-searchbox-border-radius);
+  display: block;
+  font-family: var(--omnibox-primary-font-family);
+  font-size: var(--cr-searchbox-font-size);
+  font-weight: var(--omnibox-primary-font-weight);
+  margin-top: 0;
+  margin-inline: auto;
+  height: var(--cr-searchbox-height);
+  width: var(--cr-searchbox-width);
+  z-index: 99;
+}
+
+:host([searchbox-chrome-refresh-theming][dropdown-is-visible]) {
+  --cr-searchbox-shadow: 0 0 12px 4px var(--color-searchbox-shadow);
+}
+
+:host([searchbox-chrome-refresh-theming]:not([searchbox-steady-state-shadow]):not([dropdown-is-visible])) {
+  --cr-searchbox-shadow: none;
+}
+
+/* TODO(b/504669359): Define other location bar border colors such as high contrast. */
+:host(:not([dropdown-is-visible])) {
+  --cr-searchbox-icon-container-size: calc(
+      var(--location-bar-icon-size) +
+      var(--location-bar-page-info-icon-padding-start) +
+      var(--location-bar-page-info-icon-padding-end));
+  --cr-searchbox-icon-left-position:
+      var(--location-bar-leading-decoration-edge-padding);
+  --cr-searchbox-icon-right-position:
+      var(--location-bar-leading-decoration-inner-padding);
+  --cr-searchbox-shadow: inset 0 0 0 1px var(--color-location-bar-border-on-mismatch);
+  box-sizing: border-box;
+  margin-top: var(--alignment-inset-top);
+  margin-bottom: var(--alignment-inset-bottom);
+}
+
+:host(:not([dropdown-is-visible]):not([has-input-selection_]):not([is-logically-focused_])) #inputWrapper:hover:not(:focus-within) {
+  cursor: text;
+  background-color: var(--color-omnibox-results-background-hovered);
+}
+
+:host(:not([dropdown-is-visible])) #inputWrapper:focus-within,
+:host([is-logically-focused_]:not([dropdown-is-visible])) #inputWrapper {
+  --cr-searchbox-shadow: none;
+  /* Mirrors views::FocusRing's default halo (kDefaultHaloThickness = 2.0f,
+   * kDefaultHaloInset = kDefaultHaloThickness * -0.5f = -1.0f), which draws
+   * 1px outside and 1px inside the location bar boundary. */
+  box-shadow: 0 0 0 1px var(--cr-focus-outline-color),
+      inset 0 0 0 1px var(--cr-focus-outline-color);
+}
+
+/* The compose button takes the focus ring's place while it has focus. With
+ * the dropdown visible there is no focus ring, and #inputWrapper's box-shadow
+ * is the popup's drop shadow, which stays. */
+:host(:not([dropdown-is-visible])) #inputWrapper:has(#composeButton:is(:focus-within, [has-virtual-focus])) {
+  background-color: var(--color-location-bar-background, var(--color-omnibox-results-background-hovered));
+  box-shadow: none;
+}
+
+/* TODO(b/511199705): Widget is too wide when dropdown is visible. This is a
+   workaround until we fix that. */
+:host([dropdown-is-visible]) {
+  --cr-searchbox-icon-container-size: 28px;
+  --cr-searchbox-icon-left-position: calc(
+      16px - var(--alignment-inset-horizontal));
+  --cr-searchbox-icon-right-position: 10px;
+  --cr-searchbox-border-radius: 16px;
+  --cr-searchbox-width: 100%;
+  height: auto;
+}
+
+
+:host([searchbox-voice-search-enabled_]) {
+  --cr-searchbox-voice-search-button-width: var(--cr-searchbox-icon-width);
+}
+
+:host([searchbox-lens-search-enabled_]) {
+  --cr-searchbox-voice-icon-offset: 53px;
+}
+
+/* With the dropdown visible, #inputWrapper is the popup's surface, so its
+ * shadow is the popup's drop shadow when the page paints it.
+ * TODO(crbug.com/563367122): Clean up shadow coordination between the inner
+ * searchbox and the outer popup shadow. */
+:host([webui-shadow-enabled_][dropdown-is-visible]) {
+  --cr-searchbox-shadow: var(--omnibox-webui-shadow);
+}
+
+@media (forced-colors: active) {
+  :host {
+    border: 1px solid ActiveBorder;
+  }
+}
+
+#input {
+  flex: 0 0 auto;
+  height: var(--cr-searchbox-height);
+}
+
+:host([dropdown-is-visible]) #input {
+  margin-top: var(--alignment-inset-top);
+  margin-bottom: var(--alignment-inset-bottom);
+  margin-inline: auto;
+  width: calc(100% - 2 * var(--alignment-inset-horizontal));
+}
+
+/* Keep #inputWrapper free of ::before/::after pseudo-elements; see the note on
+ * '--omnibox-webui-shadow' in omnibox_popup_shared_style.css. */
+#inputWrapper {
+  background-color: var(--color-searchbox-background);
+  border-radius: var(--cr-searchbox-border-radius);
+  box-shadow: var(--cr-searchbox-shadow);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: var(--cr-searchbox-height);
+  position: relative;
+  width: 100%;
+}
+
+cr-searchbox-input::part(searchbox-input),
+cr-searchbox-input::part(mirror) {
+  align-self: center;
+  box-sizing: border-box;
+  font-weight: inherit;
+  height: var(--cr-searchbox-input-height);
+  padding-bottom: 2px;
+  padding-inline: 0;
+  padding-top: 0;
+}
+
+/* Pad the input and #mirror alike, rather than adding a margin outside the
+ * input, so that the gap is part of the input's hit area: like in the Views
+ * omnibox, a click in it places the caret. Uses physical sides keyed off the
+ * UI direction, since URLs are laid out LTR (the input and #mirror get
+ * dir="ltr"), so that the gap stays at the end of the field in RTL UIs. */
+:host(:not([aim-button-visible_]):dir(ltr))
+    cr-searchbox-input::part(searchbox-input),
+:host(:not([aim-button-visible_]):dir(ltr)) cr-searchbox-input::part(mirror) {
+  padding-right: 18px;
+}
+
+:host(:not([aim-button-visible_]):dir(rtl))
+    cr-searchbox-input::part(searchbox-input),
+:host(:not([aim-button-visible_]):dir(rtl)) cr-searchbox-input::part(mirror) {
+  padding-left: 18px;
+}
+
+/* An <input> clips its text, and so its selection, to its content box, but an
+ * overflow: hidden <div> like #mirror clips to its padding box. So clip #mirror
+ * to its content box too, or it paints overflowing text into the gap, e.g.
+ * past the end of the selection highlight when all of a long URL is selected.
+ * #mirror ignores pointer events, so this doesn't change hit-testing. */
+:host(:not([aim-button-visible_]):dir(ltr)) cr-searchbox-input::part(mirror) {
+  clip-path: inset(0 18px 0 0);
+}
+
+:host(:not([aim-button-visible_]):dir(rtl)) cr-searchbox-input::part(mirror) {
+  clip-path: inset(0 0 0 18px);
+}
+
+/* Align text to the UI's leading edge, like the Views omnibox does
+ * (gfx::RenderText defaults to ALIGN_RIGHT in RTL UIs, whatever the text's
+ * own direction). 'text-align: start' would instead follow the input's and
+ * #mirror's own direction, which updateMirror_() sets to dir="ltr" for URLs
+ * and dir="auto" for queries, e.g. putting a URL on the far side of an RTL UI.
+ * Both layers must align alike, or the #mirror's text won't line up with the
+ * input's caret and selection. */
+:host(:dir(ltr)) cr-searchbox-input::part(searchbox-input),
+:host(:dir(ltr)) cr-searchbox-input::part(mirror) {
+  text-align: left;
+}
+
+:host(:dir(rtl)) cr-searchbox-input::part(searchbox-input),
+:host(:dir(rtl)) cr-searchbox-input::part(mirror) {
+  text-align: right;
+}
+
+/* When the window is inactive (top container has focus), the selection should
+   still be the same color. */
+cr-searchbox-input::part(searchbox-input)::selection,
+cr-searchbox-input::part(searchbox-input):window-inactive::selection {
+  background-color: var(--color-omnibox-selection-background);
+  color: var(--color-omnibox-selection-foreground);
+}
+
+cr-searchbox-input::part(icon) {
+  align-self: center;
+}
+
+.searchbox-icon-button {
+  background-color: transparent;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 21px 21px;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  height: 100%;
+  outline: none;
+  padding: 0;
+  pointer-events: auto;
+  position: static;
+  right: 16px;
+  width: var(--cr-searchbox-icon-width);
+  z-index: 100;
+}
+
+/* When voice/lens icons are monochrome, they are webkit mask images.
+ * Webkit mask images hide borders so container rules are created to
+ * show focus borders on these icons. */
+.searchbox-icon-button-container {
+  align-items: center;
+  border-radius: 50%;
+  display: flex;
+  flex-shrink: 0;
+  height: var(--cr-searchbox-height);
+  justify-content: center;
+  position: relative;
+  width: var(--cr-searchbox-height);
+  z-index: 100;
+}
+
+@media (forced-colors: active) {
+  .searchbox-icon-button-container {
+    background-color: ButtonText;
+  }
+  .searchbox-icon-button-container:focus-within {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+:host-context(.focus-outline-visible) .searchbox-icon-button-container:focus-within {
+  box-shadow: 0 0 0 2px var(--cr-focus-outline-color);
+}
+
+:host(:not([use-webkit-search-icons_])) #voiceSearchButton {
+  background-image: url(//resources/cr_components/searchbox/icons/mic_old.svg);
+}
+
+:host(:not([use-webkit-search-icons_])) #lensSearchButton {
+  background-image: url(//resources/cr_components/searchbox/icons/camera.svg);
+}
+
+:host([use-webkit-search-icons_]) #voiceSearchButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic_old.svg);
+}
+
+:host([use-webkit-search-icons_]) #lensSearchButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/camera.svg);
+}
+
+:host([use-webkit-search-icons_]) #voiceSearchButton,
+:host([use-webkit-search-icons_]) #lensSearchButton {
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: 21px 21px;
+  background-color: var(--color-searchbox-lens-voice-icon-background);
+}
+
+cr-searchbox-dropdown::part(dropdown-content) {
+  background-color: unset;
+  border-radius: 0;
+  box-shadow: unset;
+  gap: unset;
+  margin-bottom: unset;
+  overflow: unset;
+  padding-top: unset;
+}
+
+omnibox-popup-contextual-entrypoint {
+  --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 0;
+}
+
+.searchbox-icon-button-container.lens {
+  margin-inline-end: 10px;
+}
+
+.searchbox-icon-button-container.voice {
+  margin-inline-end: 4px;
+}
+
+.searchbox-icon-button-container.debug,
+.searchbox-icon-button-container.dogfood {
+  align-self: center;
+  cursor: pointer;
+  margin-inline-end: 6px;
+  pointer-events: auto;
+}
+
+.searchbox-icon-button-container.debug:hover,
+.searchbox-icon-button-container.dogfood:hover {
+  background-color: var(--color-omnibox-results-background-hovered);
+}
+
+#debugButton,
+#dogfoodFeedbackButton {
+  -webkit-mask-image:
+      url(//resources/cr_components/searchbox/icons/dino_cr23_old.svg);
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: var(--cr-searchbox-icon-size-in-searchbox, 16px)
+      var(--cr-searchbox-icon-size-in-searchbox, 16px);
+  background-color: var(
+      --color-searchbox-search-icon-background,
+      var(--color-omnibox-results-icon));
+  height: var(--cr-searchbox-icon-size-in-searchbox, 16px);
+  width: var(--cr-searchbox-icon-size-in-searchbox, 16px);
+}
+
+#dogfoodFeedbackButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/dogfood.svg);
+}
+
+:host([multi-line-enabled]) {
+  height: auto;
+  min-height: var(--cr-searchbox-height);
+}
+
+:host([multi-line-enabled]) cr-searchbox-input::part(searchbox-input),
+:host([multi-line-enabled]) cr-searchbox-input::part(mirror) {
+  height: auto;
+  min-height: var(--cr-searchbox-input-height);
+}
+
+#composeButton {
+  --cr-button-height: var(--cr-searchbox-input-height);
+  align-self: center;
+}
+
+#composeButton::part(glow-container) {
+  height: var(--cr-searchbox-input-height);
+  /* .glow-container in searchbox_compose_button.css adds
+   * padding-inline: 2px, so subtract 2px to place the button's edge at
+   * --location-bar-trailing-decoration-aim-edge-padding. */
+  margin-inline-end: calc(
+      var(--location-bar-trailing-decoration-aim-edge-padding) - 2px);
+  top: 0;
+}
+
+#composeButton::part(compose-button) {
+  --cr-hover-background-color: transparent;
+  cursor: default;
+  background-color: var(--color-sys-tonal-container);
+  color: var(--color-sys-on-tonal-container);
+  font-family: var(--omnibox-primary-body-3-emphasis-font-family);
+  font-size: var(--omnibox-primary-body-3-emphasis-font-size);
+  font-weight: var(--omnibox-primary-body-3-emphasis-font-weight);
+  padding-inline-end: 13px;
+  padding-inline-start: 8px;
+}
+
+:host([persistent-aim-button-enabled_]) #composeButton::part(compose-button) {
+  font-family: var(--omnibox-chip-font-family);
+  font-size: var(--omnibox-chip-font-size);
+  font-weight: var(--omnibox-chip-font-weight);
+}
+
+#composeButton[dynamic]::part(compose-button) {
+  padding-inline-end: 11px;
+}
+
+:host([searchbox-dynamic-color-scheme_]) #composeButton::part(compose-button) {
+  background-color: var(
+      --color-omnibox-composebox-context-entrypoint-background);
+  color: var(--color-omnibox-context-entrypoint-text);
+}
+
+#composeButton[has-virtual-focus]::part(compose-button),
+#composeButton:focus-visible::part(compose-button),
+:host-context(.focus-outline-visible) #composeButton:focus::part(compose-button) {
+  background-color: var(--color-sys-tonal-container);
+  outline: 2px solid var(
+      --color-searchbox-results-icon-focused-outline,
+      var(--cr-focus-outline-color));
+}
+
+:host([searchbox-dynamic-color-scheme_]) #composeButton[has-virtual-focus]::part(compose-button),
+:host([searchbox-dynamic-color-scheme_]) #composeButton:focus-visible::part(compose-button),
+:host-context(.focus-outline-visible):host([searchbox-dynamic-color-scheme_]) #composeButton:focus::part(compose-button) {
+  background-color: var(--color-omnibox-results-background-hovered);
+}
+
+#composeButton::part(compose-icon) {
+  height: var(--location-bar-chip-icon-size);
+  max-width: var(--location-bar-chip-icon-size);
+  padding: 0;
+  width: var(--location-bar-chip-icon-size);
+}
+
+#composeButton[dynamic]::part(compose-icon) {
+  inset-inline-start: 6px;
+}
+
+:host(:not([aim-button-icon-only_])) #composeButton[dynamic][has-user-input]::part(compose-icon) {
+  max-width: 0;
+}
+
+#composeButton::part(label) {
+  margin-inline-start: 1px;
+}
+
+#composeButton[dynamic]::part(label) {
+  margin-inline-start: 18px;
+}
+
+#composeButton[dynamic][has-user-input]::part(label) {
+  transform: translateX(calc(-1 * var(--location-bar-chip-icon-size)));
+}
+
+#composeButton::part(arrow-icon) {
+  height: 15px;
+  max-width: 15px;
+}
+
+#composeButton[dynamic][has-user-input]::part(arrow-icon) {
+  inset-inline-end: 7px;
+}
+
+:host([aim-button-icon-only_]) #composeButton::part(compose-button) {
+  border-radius: 50%;
+  padding: 0;
+  /* Match width to height for a 1:1 circular icon button. */
+  min-width: var(--cr-button-height);
+  width: var(--cr-button-height);
+}
+
+:host([aim-button-icon-only_]) #composeButton::part(compose-icon) {
+  inset-inline-start: unset;
+  opacity: 1;
+  position: static;
+  scale: 1;
+  transform: none;
+  visibility: visible;
+}
+
+:host([aim-button-icon-only_]) #composeButton::part(label),
+:host([aim-button-icon-only_]) #composeButton::part(arrow-icon) {
+  display: none;
+}
+
+#composeButton::part(hoverBackground) {
+  background-color: var(--color-sys-state-hover-dim-blend-protection);
+  display: block;
+  opacity: var(--compose-button-hover-background-opacity, 0);
+  transition: opacity 250ms linear;
+}
+
+#composeButton::part(compose-button):hover {
+  --compose-button-hover-background-opacity: 1;
+}
+
+:host-context([webui-rounded-icons]):host(:not([use-webkit-search-icons_])) #voiceSearchButton {
+  background-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+}
+
+:host-context([webui-rounded-icons]):host([use-webkit-search-icons_]) #voiceSearchButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+}
+
+:host-context([webui-rounded-icons]) #debugButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/dino_cr23.svg);
+}
+
+/* Only set min height/width if it exists;
+ * otherwise use existing min height/width.
+ */
+:host(.permission-prompt-showing),
+:host(.permission-prompt-showing) #inputWrapper {
+  min-height: var(--cr_composebox_minimum_height, var(--cr-searchbox-height));
+  min-width: var(--cr_composebox_minimum_width);
+}

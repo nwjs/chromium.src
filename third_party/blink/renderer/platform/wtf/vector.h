@@ -501,8 +501,9 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") VectorBufferBase {
     }
   }
 
-  size_t AllocationSize(size_t capacity) const {
-    return Allocator::template QuantizedSize<T>(capacity);
+  wtf_size_t AllocationSize(wtf_size_t capacity) const {
+    return base::checked_cast<wtf_size_t>(
+        Allocator::template QuantizedSize<T>(capacity));
   }
 
   T* Buffer() { return buffer_; }
@@ -675,7 +676,7 @@ class VectorBuffer<T, 0, Allocator>
   }
 
   bool ExpandBuffer(wtf_size_t new_capacity) {
-    size_t size_to_allocate = AllocationSize(new_capacity);
+    wtf_size_t size_to_allocate = AllocationSize(new_capacity);
     if (buffer_ && Allocator::ExpandVectorBacking(buffer_, size_to_allocate)) {
       capacity_ = static_cast<wtf_size_t>(size_to_allocate / sizeof(T));
       return true;
@@ -686,7 +687,7 @@ class VectorBuffer<T, 0, Allocator>
   inline bool ShrinkBuffer(wtf_size_t new_capacity) {
     DCHECK(buffer_);
     DCHECK_LT(new_capacity, capacity());
-    size_t size_to_allocate = AllocationSize(new_capacity);
+    wtf_size_t size_to_allocate = AllocationSize(new_capacity);
 #ifdef ANNOTATE_CONTIGUOUS_CONTAINER
     UNSAFE_TODO(ANNOTATE_DELETE_BUFFER(buffer_, capacity_, size_));
 #endif
@@ -798,7 +799,7 @@ class VectorBuffer : protected VectorBufferBase<T, Allocator, true> {
     if (buffer_ == InlineBuffer())
       return false;
 
-    size_t size_to_allocate = AllocationSize(new_capacity);
+    wtf_size_t size_to_allocate = AllocationSize(new_capacity);
     if (buffer_ && Allocator::ExpandVectorBacking(buffer_, size_to_allocate)) {
       capacity_ = static_cast<wtf_size_t>(size_to_allocate / sizeof(T));
       return true;
@@ -815,7 +816,7 @@ class VectorBuffer : protected VectorBufferBase<T, Allocator, true> {
       return false;
     }
     DCHECK_NE(buffer_, InlineBuffer());
-    size_t new_size = AllocationSize(new_capacity);
+    wtf_size_t new_size = AllocationSize(new_capacity);
     bool succeeded = false;
 #ifdef ANNOTATE_CONTIGUOUS_CONTAINER
     UNSAFE_TODO(ANNOTATE_DELETE_BUFFER(buffer_, capacity_, size_));
@@ -845,7 +846,7 @@ class VectorBuffer : protected VectorBufferBase<T, Allocator, true> {
     }
   }
 
-  size_t AllocationSize(size_t capacity) const {
+  wtf_size_t AllocationSize(wtf_size_t capacity) const {
     if (capacity <= kInlineCapacity) {
       return kInlineBufferSize;
     }
@@ -1102,8 +1103,8 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
   using iterator_concept = std::contiguous_iterator_tag;
 
   constexpr UncheckedIterator() = default;
-  explicit UncheckedIterator(T* cur) : current_(cur) {}
-  UncheckedIterator(T* cur, const uint32_t* modifications_ptr)
+  ALWAYS_INLINE explicit UncheckedIterator(T* cur) : current_(cur) {}
+  ALWAYS_INLINE UncheckedIterator(T* cur, const uint32_t* modifications_ptr)
     requires(kCheckModifications)
       : current_(cur),
         modification_state_{modifications_ptr,
@@ -1112,83 +1113,88 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
   UncheckedIterator(UncheckedIterator&& other) = default;
   // Allow implicit conversion from a base::CheckedContiguousIterator<T>.
   // NOLINTNEXTLINE(google-explicit-constructor)
-  UncheckedIterator(const base::CheckedContiguousIterator<T>& other)
+  ALWAYS_INLINE UncheckedIterator(
+      const base::CheckedContiguousIterator<T>& other)
       : current_(base::to_address(other)) {}
   ~UncheckedIterator() = default;
 
   UncheckedIterator& operator=(const UncheckedIterator& other) = default;
   UncheckedIterator& operator=(UncheckedIterator&& other) = default;
 
-  friend constexpr bool operator==(const UncheckedIterator& lhs,
-                                   const UncheckedIterator& rhs) {
+  ALWAYS_INLINE friend constexpr bool operator==(const UncheckedIterator& lhs,
+                                                 const UncheckedIterator& rhs) {
     return lhs.current_ == rhs.current_;
   }
-  friend auto operator<=>(const UncheckedIterator& lhs,
-                          const UncheckedIterator& rhs) {
+  ALWAYS_INLINE friend auto operator<=>(const UncheckedIterator& lhs,
+                                        const UncheckedIterator& rhs) {
     return lhs.current_ <=> rhs.current_;
   }
 
-  UNSAFE_BUFFER_USAGE UncheckedIterator& operator++() {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator& operator++() {
     DCheckModifications();
     ++current_;
     return *this;
   }
-  UNSAFE_BUFFER_USAGE UncheckedIterator operator++(int) {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator operator++(int) {
     DCheckModifications();
     auto old = *this;
     ++current_;
     return old;
   }
-  UNSAFE_BUFFER_USAGE UncheckedIterator& operator--() {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator& operator--() {
     DCheckModifications();
     --current_;
     return *this;
   }
-  UNSAFE_BUFFER_USAGE UncheckedIterator operator--(int) {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator operator--(int) {
     DCheckModifications();
     auto old = *this;
     --current_;
     return old;
   }
-  UNSAFE_BUFFER_USAGE UncheckedIterator& operator+=(difference_type rhs) {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator& operator+=(
+      difference_type rhs) {
     DCheckModifications();
     current_ += rhs;
     return *this;
   }
-  UNSAFE_BUFFER_USAGE UncheckedIterator operator+(difference_type rhs) const {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator
+  operator+(difference_type rhs) const {
     auto it = *this;
     it += rhs;
     return it;
   }
-  UNSAFE_BUFFER_USAGE friend UncheckedIterator operator+(
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE friend UncheckedIterator operator+(
       difference_type lhs,
       const UncheckedIterator& rhs) {
     return rhs + lhs;
   }
-  UNSAFE_BUFFER_USAGE UncheckedIterator& operator-=(difference_type rhs) {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator& operator-=(
+      difference_type rhs) {
     DCheckModifications();
     current_ -= rhs;
     return *this;
   }
-  UNSAFE_BUFFER_USAGE UncheckedIterator operator-(difference_type rhs) const {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE UncheckedIterator
+  operator-(difference_type rhs) const {
     auto it = *this;
     it -= rhs;
     return it;
   }
-  friend difference_type operator-(const UncheckedIterator& lhs,
-                                   const UncheckedIterator& rhs) {
+  ALWAYS_INLINE friend difference_type operator-(const UncheckedIterator& lhs,
+                                                 const UncheckedIterator& rhs) {
     return lhs.current_ - rhs.current_;
   }
 
-  T& operator*() const {
+  ALWAYS_INLINE T& operator*() const {
     CheckModifications();
     return *current_;
   }
-  T* operator->() const {
+  ALWAYS_INLINE T* operator->() const {
     CheckModifications();
     return current_;
   }
-  UNSAFE_BUFFER_USAGE T& operator[](difference_type rhs) const {
+  UNSAFE_BUFFER_USAGE ALWAYS_INLINE T& operator[](difference_type rhs) const {
     CheckModifications();
     return current_[rhs];
   }
@@ -1521,10 +1527,14 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
   // the requirements of UNSAFE_BUFFERS. See the macro definition in
   // https://source.chromium.org/chromium/chromium/src/+/main:base/compiler_specific.h
   // for more.
-  iterator begin() { return MakeIterator(data()); }
-  iterator end() { return MakeIterator(DataEnd()); }
-  const_iterator begin() const { return MakeConstIterator(data()); }
-  const_iterator end() const { return MakeConstIterator(DataEnd()); }
+  ALWAYS_INLINE iterator begin() { return MakeIterator(data()); }
+  ALWAYS_INLINE iterator end() { return MakeIterator(DataEnd()); }
+  ALWAYS_INLINE const_iterator begin() const {
+    return MakeConstIterator(data());
+  }
+  ALWAYS_INLINE const_iterator end() const {
+    return MakeConstIterator(DataEnd());
+  }
 
   reverse_iterator rbegin() { return reverse_iterator(end()); }
   reverse_iterator rend() { return reverse_iterator(begin()); }
@@ -1758,6 +1768,8 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
 
   // Swap two vectors quickly.
   void swap(Vector& other) {
+    this->RegisterModification();
+    other.RegisterModification();
     Base::SwapVectorBuffer(other, OffsetRange(), OffsetRange(),
                            VectorOperationOrigin::kRegularModification);
   }
@@ -1813,14 +1825,14 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
   const T* const* GetBufferSlot() const { return Base::BufferSlot(); }
 
  private:
-  iterator MakeIterator(T* ptr) {
+  ALWAYS_INLINE iterator MakeIterator(T* ptr) {
     if constexpr (kCheckModifications) {
       return iterator(ptr, &this->modification_state_.count);
     } else {
       return iterator(ptr);
     }
   }
-  const_iterator MakeConstIterator(const T* ptr) const {
+  ALWAYS_INLINE const_iterator MakeConstIterator(const T* ptr) const {
     if constexpr (kCheckModifications) {
       return const_iterator(ptr, &this->modification_state_.count);
     } else {

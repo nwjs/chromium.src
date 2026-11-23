@@ -167,6 +167,16 @@ scoped_refptr<ClientSharedImage> ClientSharedImageInterface::CreateSharedImage(
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   CHECK(!si_info.format.PrefersExternalSampler()) << si_info.format.ToString();
 #endif
+
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+  // Only valid client from renderer on ChromeOS and Linux is VideoCapture, that
+  // uses SCANOUT_VEA_CPU_READ.
+  if (gpu_channel_->client_type() == viz::mojom::GpuClientType::kRenderer) {
+    CHECK_EQ(buffer_usage, gfx::BufferUsage::SCANOUT_VEA_CPU_READ,
+             base::NotFatalUntil::M158);
+  }
+#endif
+
   // Copy which can be modified.
   SharedImageInfo si_info_copy = si_info;
   // Set CPU read/write usage based on buffer usage.
@@ -188,6 +198,14 @@ scoped_refptr<ClientSharedImage> ClientSharedImageInterface::CreateSharedImage(
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   CHECK(!si_info.format.PrefersExternalSampler()) << si_info.format.ToString();
 #endif
+
+#if !BUILDFLAG(IS_FUCHSIA)
+  // This path of creating SI with buffer_handle inside renderer is used only on
+  // Fuchsia for video decoder.
+  CHECK_NE(gpu_channel_->client_type(), viz::mojom::GpuClientType::kRenderer,
+           base::NotFatalUntil::M158);
+#endif
+
   auto buffer_handle_type = buffer_handle.type;
   auto mailbox = proxy_->CreateSharedImage(si_info, std::move(buffer_handle));
   return base::MakeRefCounted<ClientSharedImage>(AddMailbox(mailbox), si_info,
@@ -232,9 +250,9 @@ ClientSharedImageInterface::CreateSharedImageForSoftwareCompositor(
 }
 
 void ClientSharedImageInterface::CopyToGpuMemoryBuffer(
-    const SyncToken& sync_token,
+    std::vector<SyncToken> sync_tokens,
     const Mailbox& mailbox) {
-  proxy_->CopyToGpuMemoryBuffer(sync_token, mailbox);
+  proxy_->CopyToGpuMemoryBuffer(std::move(sync_tokens), mailbox);
 }
 
 #if BUILDFLAG(IS_WIN)
@@ -289,14 +307,6 @@ void ClientSharedImageInterface::DestroySharedImage(
   proxy_->DestroySharedImage(std::move(sync_tokens), mailbox);
 }
 
-void ClientSharedImageInterface::DestroySharedImage(
-    const SyncToken& sync_token,
-    scoped_refptr<ClientSharedImage> client_shared_image) {
-  CHECK(client_shared_image->HasOneRef());
-  CHECK(client_shared_image->HasHolder());
-  client_shared_image->UpdateDestructionSyncToken(sync_token);
-}
-
 scoped_refptr<ClientSharedImage> ClientSharedImageInterface::ImportSharedImage(
     ExportedSharedImage exported_shared_image) {
   const auto& mailbox = exported_shared_image.mailbox_;
@@ -306,8 +316,8 @@ scoped_refptr<ClientSharedImage> ClientSharedImageInterface::ImportSharedImage(
   AddMailbox(mailbox);
   proxy_->AddReferenceToSharedImage(sync_token, mailbox);
 
-  return base::WrapRefCounted<ClientSharedImage>(
-      new ClientSharedImage(std::move(exported_shared_image), holder_));
+  return base::WrapRefCounted<ClientSharedImage>(new ClientSharedImage(
+      std::move(exported_shared_image), holder_, shared_memory_pool_));
 }
 
 scoped_refptr<ClientSharedImage> ClientSharedImageInterface::NotifyMailboxAdded(

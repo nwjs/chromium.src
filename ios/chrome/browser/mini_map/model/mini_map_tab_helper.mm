@@ -77,7 +77,7 @@ void MiniMapTabHelper::ShouldAllowRequest(NSURLRequest* request,
     std::move(callback).Run(PolicyDecision::Cancel());
 
     web::WebState::OpenURLParams params(modified_url, web::Referrer(),
-                                        WindowOpenDisposition::CURRENT_TAB,
+                                        WindowOpenDisposition::kCurrentTab,
                                         request_info.transition_type,
                                         /*is_renderer_initiated=*/false);
     web_state()->OpenURL(params);
@@ -112,7 +112,7 @@ void MiniMapTabHelper::OnMiniMapFailure() {
   if (policy_callback_) {
     std::move(policy_callback_).Run(PolicyDecision::Cancel());
     web::WebState::OpenURLParams params(pending_treatment_url_, web::Referrer(),
-                                        WindowOpenDisposition::CURRENT_TAB,
+                                        WindowOpenDisposition::kCurrentTab,
                                         pending_transition_type_,
                                         /*is_renderer_initiated=*/false);
     web_state()->OpenURL(params);
@@ -139,8 +139,15 @@ bool MiniMapTabHelper::ShouldInterceptRequest(
     // Only consider links from Google Search results page when service exists.
     return false;
   }
-  if (mini_map_service_->IsGoogleMapsInstalled()) {
-    // Do not intercept if Google Maps is installed.
+
+  // If Google Maps is installed and the bypass experiment is disabled, do not
+  // intercept; allow standard navigation / Universal Links to handle the URL.
+  // When the bypass flag is enabled, we intercept the request so that the
+  // downstream provider/handler can directly launch Google Maps via custom
+  // schemes, avoiding any intermediate preview sheets and disengaged link
+  // issues.
+  if (mini_map_service_->IsGoogleMapsInstalled() &&
+      !mini_map_service_->IsMapsNativePreviewBypassEnabled()) {
     return false;
   }
 

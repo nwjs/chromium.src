@@ -42,6 +42,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetType;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
@@ -94,6 +95,7 @@ public class TipsPromoCoordinator {
     public static final int INVALID_TIPS_NOTIFICATION_FEATURE_TYPE = -1;
 
     private final Context mContext;
+    private final WindowAndroid mWindowAndroid;
     private final BottomSheetController mBottomSheetController;
     private final TipsPromoSheetContent mSheetContent;
     private final PropertyModel mPropertyModel;
@@ -131,6 +133,7 @@ public class TipsPromoCoordinator {
             Supplier<LayoutManager> layoutManagerSupplier,
             @TipsNotificationsFeatureType int featureType) {
         mContext = context;
+        mWindowAndroid = windowAndroid;
         mBottomSheetController = bottomSheetController;
         mPropertyModel = TipsPromoProperties.createDefaultModel();
         mLensController = LensController.getInstance();
@@ -159,7 +162,6 @@ public class TipsPromoCoordinator {
                         ? promoHandler
                         : new LegacyTipsPromoHandler(
                                 featureType,
-                                windowAndroid,
                                 isIncognito,
                                 mIsUserSignedIn,
                                 quickDeleteControllerCreator,
@@ -240,7 +242,7 @@ public class TipsPromoCoordinator {
     }
 
     private void performFeatureAction() {
-        mPromoHandler.onPromoAccepted(mContext);
+        mPromoHandler.onPromoAccepted(mWindowAndroid);
     }
 
     private void onShowPromoForFeatureType(
@@ -342,6 +344,8 @@ public class TipsPromoCoordinator {
 
     @NullMarked
     protected class TipsPromoSheetContent implements BottomSheetContent {
+        private static final BottomSheetType SHEET_TYPE = new BottomSheetType.Builder().build();
+
         private final TipsPromoView mContentView;
         private final PropertyModel mModel;
         private final BottomSheetController mController;
@@ -417,6 +421,11 @@ public class TipsPromoCoordinator {
         @Override
         public void destroy() {
             TipsPromoCoordinator.this.destroy();
+        }
+
+        @Override
+        public BottomSheetType getSheetType() {
+            return SHEET_TYPE;
         }
 
         @Override

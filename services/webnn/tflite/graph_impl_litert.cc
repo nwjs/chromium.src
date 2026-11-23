@@ -60,6 +60,12 @@
 #include "third_party/litert/src/litert/core/buffer_error_reporter.h"
 #include "third_party/litert/src/tflite/tools/verifier.h"
 
+#if BUILDFLAG(BUILD_LITERT_WITH_ML_DRIFT)
+#include "third_party/litert/src/litert/c/internal/litert_accelerator_def.h"
+
+extern "C" const LiteRtAcceleratorDef LiteRtAcceleratorImpl;
+#endif
+
 #if BUILDFLAG(BUILD_LITERT_WITH_XNNPACK)
 #include "third_party/litert/src/tflite/delegates/xnnpack/xnnpack_delegate.h"
 #include "third_party/xnnpack/src/include/xnnpack.h"  // nogncheck
@@ -212,6 +218,11 @@ class GraphImplLiteRt::ComputeResources {
 
     std::vector<::litert::EnvironmentOptions::Option> env_options;
     if (context_device == mojom::Device::kGpu) {
+#if BUILDFLAG(BUILD_LITERT_WITH_ML_DRIFT)
+      env_options.emplace_back(
+          ::litert::EnvironmentOptions::Tag::kSystemGpuAcceleratorHandle,
+          static_cast<const void*>(&LiteRtAcceleratorImpl));
+#endif
       const DawnProcTable* dawn_procs = static_cast<const DawnProcTable*>(
           self->webgpu_properties_.dawn_procs.get());
 
@@ -265,25 +276,27 @@ class GraphImplLiteRt::ComputeResources {
     ASSIGN_OR_RETURN(self->profiler_,
                      AsBaseExpected(self->model_->GetProfiler()));
 #endif
-    // TODO(crbug.com/454732289): LiteRT currently provides no API to query
-    // runtime accelerators. As a temporary workaround we infer the target
-    // devices from the compilation options when the model is fully
-    // accelerated. Replace this inference with the official LiteRT API once
-    // it becomes available.
-    if (self->model_->IsFullyAccelerated()) {
-      ASSIGN_OR_RETURN(
-          auto hardware_accelerators,
-          AsBaseExpected(compilation_options.GetHardwareAccelerators()));
-      if (hardware_accelerators & kLiteRtHwAcceleratorGpu) {
-        self->devices.push_back(mojom::Device::kGpu);
+    ASSIGN_OR_RETURN(auto delegation_metrics,
+                     AsBaseExpected(self->model_->GetDelegationMetrics()));
+    LiteRtHwAcceleratorSet active_accelerators = kLiteRtHwAcceleratorNone;
+    int total_delegated_nodes = 0;
+    for (const auto& accelerator : delegation_metrics.accelerators) {
+      if (accelerator.delegated_node_count > 0) {
+        active_accelerators |= accelerator.hardware_type;
+        total_delegated_nodes += accelerator.delegated_node_count;
       }
-      if (hardware_accelerators & kLiteRtHwAcceleratorNpu) {
-        self->devices.push_back(mojom::Device::kNpu);
-      }
-      if (hardware_accelerators & kLiteRtHwAcceleratorCpu) {
-        self->devices.push_back(mojom::Device::kCpu);
-      }
-    } else {
+    }
+    if (total_delegated_nodes < delegation_metrics.total_node_count ||
+        active_accelerators == kLiteRtHwAcceleratorNone) {
+      active_accelerators |= kLiteRtHwAcceleratorCpu;
+    }
+    if (active_accelerators & kLiteRtHwAcceleratorGpu) {
+      self->devices.push_back(mojom::Device::kGpu);
+    }
+    if (active_accelerators & kLiteRtHwAcceleratorNpu) {
+      self->devices.push_back(mojom::Device::kNpu);
+    }
+    if (active_accelerators & kLiteRtHwAcceleratorCpu) {
       self->devices.push_back(mojom::Device::kCpu);
     }
 
@@ -614,19 +627,19 @@ GraphImplLiteRt::BuildGraphOnBackgroundThread(
     base::flat_map<OperandId, OperationId> operand_to_producing_operation,
     base::File weights_file,
     mojo::SharedRemote<mojom::WeightsFileSession> shared_session) {
-  ASSIGN_OR_RETURN(
-      tflite::GraphBuilderTflite::Result result,
-      tflite::GraphBuilderTflite::CreateAndBuild(
-          context_properties, context_device, *graph_info,
-          std::move(constant_operands),
-          std::move(operand_to_dependent_operations),
-          std::move(operand_to_producing_operation), std::move(weights_file),
-          std::move(shared_session),
-          /*use_external_buffer=*/true),
-      [](std::string error) {
-        return mojom::Error::New(mojom::Error::Code::kNotSupportedError,
-                                 std::move(error));
-      });
+  ASSIGN_OR_RETURN(tflite::GraphBuilderTflite::Result result,
+                   tflite::GraphBuilderTflite::CreateAndBuild(
+                       context_properties, context_device, *graph_info,
+                       std::move(constant_operands),
+                       std::move(operand_to_dependent_operations),
+                       std::move(operand_to_producing_operation),
+                       std::move(weights_file), std::move(shared_session),
+                       /*use_external_buffer=*/true),
+                   [](std::string error) {
+                     return mojom::Error::New(
+                         mojom::Error::Code::kNotSupportedError,
+                         std::move(error));
+                   });
   return result;
 }
 

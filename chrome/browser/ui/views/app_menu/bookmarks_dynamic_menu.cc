@@ -75,7 +75,7 @@ class BookmarkModelDropObserver : public BookmarkMergedSurfaceServiceObserver {
         index_to_drop_at_(index_to_drop_at),
         bookmark_service_(BookmarkMergedSurfaceServiceFactory::GetForProfile(
             browser->GetProfile())) {
-    DCHECK(drop_data_.is_valid());
+    CHECK(drop_data_.is_valid(), base::NotFatalUntil::M162);
     CHECK(bookmark_service_);
     bookmark_service_observation_.Observe(bookmark_service_);
   }
@@ -632,8 +632,8 @@ actions::ActionItem* BookmarksDynamicMenu::AddBookmarkNodeAction(
             profile_metrics::GetBrowserProfileType(browser->GetProfile()));
         WindowOpenDisposition disposition =
             context.GetProperty(chrome::kDispositionKey);
-        if (disposition == WindowOpenDisposition::UNKNOWN) {
-          disposition = WindowOpenDisposition::CURRENT_TAB;
+        if (disposition == WindowOpenDisposition::kUnknown) {
+          disposition = WindowOpenDisposition::kCurrentTab;
         }
         bookmarks::BookmarkModel* model =
             BookmarkModelFactory::GetForBrowserContext(browser->GetProfile());

@@ -1014,6 +1014,9 @@ bool WebAppRegistrar::AppMatches(const webapps::AppId& app_id,
               case WebAppFilter::SimpleCondition::kIsolatedSubApp:
                 return app.parent_app_id() &&
                        IsIsolatedApp(*app.parent_app_id());
+              case WebAppFilter::SimpleCondition::kIsolatedSubAppDevMode:
+                return app.parent_app_id() &&
+                       IsIsolatedAppInDevMode(*app.parent_app_id());
               case WebAppFilter::SimpleCondition::kOpensInDedicatedWindow: {
                 DisplayMode display_mode = GetAppEffectiveDisplayMode(app_id);
                 return display_mode != DisplayMode::kBrowser &&
@@ -1096,7 +1099,7 @@ std::vector<webapps::AppId> WebAppRegistrar::FindAllAppsNestedInUrl(
   std::vector<webapps::AppId> apps_in_outer_scope;
   for (const auto& app_id : GetAppIds(filter)) {
     std::string app_scope = GetAppScope(app_id).spec();
-    DCHECK(!app_scope.empty());
+    CHECK(!app_scope.empty(), base::NotFatalUntil::M162);
 
     if (!base::StartsWith(app_scope, outer_scope_spec,
                           base::CompareCase::SENSITIVE)) {
@@ -1898,7 +1901,8 @@ WebAppRegistrar::AppSet::AppSet(const WebAppRegistrar* registrar, Filter filter)
 
 WebAppRegistrar::AppSet::~AppSet() {
 #if DCHECK_IS_ON()
-  DCHECK_EQ(mutations_count_, registrar_->mutations_count_);
+  CHECK_EQ(mutations_count_, registrar_->mutations_count_,
+           base::NotFatalUntil::M162);
 #endif
 }
 
@@ -2026,7 +2030,7 @@ WebAppRegistrarMutable::WebAppRegistrarMutable(Profile* profile)
 WebAppRegistrarMutable::~WebAppRegistrarMutable() = default;
 
 void WebAppRegistrarMutable::InitRegistry(Registry&& registry) {
-  DCHECK(is_empty());
+  CHECK(is_empty(), base::NotFatalUntil::M162);
   SetRegistry(std::move(registry));
 }
 

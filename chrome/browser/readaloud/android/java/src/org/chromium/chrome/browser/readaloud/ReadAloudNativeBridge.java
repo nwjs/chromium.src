@@ -173,10 +173,11 @@ class ReadAloudNativeBridge {
     }
 
     /** Plays or resumes a short audio sample of the specified voice. */
-    public void previewVoice(String voiceId) {
+    public void previewVoice(String voiceId, String previewText) {
         ThreadUtils.assertOnUiThread();
         if (mNativeReadAloudBridge != 0) {
-            ReadAloudNativeBridgeJni.get().previewVoice(mNativeReadAloudBridge, voiceId);
+            ReadAloudNativeBridgeJni.get()
+                    .previewVoice(mNativeReadAloudBridge, voiceId, previewText);
         }
     }
 
@@ -228,6 +229,14 @@ class ReadAloudNativeBridge {
         }
     }
 
+    /** Initializes and fetches the available synthesis voices from native. */
+    public void initVoices() {
+        ThreadUtils.assertOnUiThread();
+        if (mNativeReadAloudBridge != 0) {
+            ReadAloudNativeBridgeJni.get().initVoices(mNativeReadAloudBridge);
+        }
+    }
+
     // ============================================================================
     // C++ -> Java Inbound Callbacks (@CalledByNative)
     // ============================================================================
@@ -261,10 +270,19 @@ class ReadAloudNativeBridge {
     void onVoicesAvailable(
             @JniType("std::vector<std::string>") String[] voiceIds,
             @JniType("std::vector<std::string>") String[] voiceDisplayNames,
-            @JniType("std::string") String selectedVoiceId) {
+            @JniType("std::vector<std::string>") String[] voiceLangs,
+            @JniType("std::vector<std::string>") String[] voiceRegions,
+            @JniType("std::vector<int32_t>") int[] voicePitches,
+            @JniType("std::vector<int32_t>") int[] voiceTones) {
         ThreadUtils.assertOnUiThread();
         if (mController != null) {
-            mController.onVoicesAvailable(voiceIds, voiceDisplayNames, selectedVoiceId);
+            mController.onVoicesAvailable(
+                    voiceIds,
+                    voiceDisplayNames,
+                    voiceLangs,
+                    voiceRegions,
+                    voicePitches,
+                    voiceTones);
         }
     }
 
@@ -385,7 +403,10 @@ class ReadAloudNativeBridge {
                 long nativeReadAloudBridge, @JniType("std::string") String languageCode);
 
         // Plays or resumes a short audio sample of the specified voice.
-        void previewVoice(long nativeReadAloudBridge, @JniType("std::string") String voiceId);
+        void previewVoice(
+                long nativeReadAloudBridge,
+                @JniType("std::string") String voiceId,
+                @JniType("std::u16string") String previewText);
 
         // Pauses the active voice preview playback.
         void pauseVoicePreview(long nativeReadAloudBridge);
@@ -404,6 +425,9 @@ class ReadAloudNativeBridge {
 
         // Initiates an asynchronous check to determine if the URL is readable.
         void checkReadability(long nativeReadAloudBridge, @JniType("GURL") GURL url);
+
+        // Initializes and fetches the available synthesis voices from native.
+        void initVoices(long nativeReadAloudBridge);
 
         // Destroys the native bridge delegate.
         void destroy(long nativeReadAloudBridge);

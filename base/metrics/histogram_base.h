@@ -318,8 +318,6 @@ class BASE_EXPORT HistogramBase {
   void WriteJSON(std::string* output, JSONVerbosityLevel verbosity_level) const;
 
  protected:
-  enum ReportActivity { HISTOGRAM_CREATED, HISTOGRAM_LOOKUP };
-
   struct BASE_EXPORT CountAndBucketData {
     Count32 count;
     int64_t sum;
@@ -342,20 +340,6 @@ class BASE_EXPORT HistogramBase {
   // counts to |buckets|, the total sample count to |count| and the total sum
   // to |sum|.
   CountAndBucketData GetCountAndBucketData() const;
-
-  // Produces an actual graph (set of blank vs non blank char's) for a bucket.
-  void WriteAsciiBucketGraph(double x_count,
-                             int line_length,
-                             std::string* output) const;
-
-  // Return a string description of what goes in a given bucket.
-  const std::string GetSimpleAsciiBucketRange(Sample32 sample) const;
-
-  // Write textual description of the bucket contents (relative to histogram).
-  // Output is the count in the buckets, as well as the percentage.
-  void WriteAsciiBucketValue(Count32 current,
-                             double scaled_sum,
-                             std::string* output) const;
 
   // Retrieves the registered callbacks for this histogram, if any, and runs
   // them passing |sample| as the parameter.

@@ -11,7 +11,6 @@
 #include "ash/public/cpp/login_screen.h"
 #include "base/check.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/management/management_ui.h"
 #include "chrome/browser/ui/webui/management/management_ui_handler_chromeos.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -29,14 +28,15 @@ ManagementDisclosureClientImpl::ManagementDisclosureClientImpl(
   // Register this object as the client interface implementation.
   ash::LoginScreen::Get()->SetManagementDisclosureClient(this);
 
-  DCHECK(!g_management_disclosure_client_instance);
+  CHECK(!g_management_disclosure_client_instance, base::NotFatalUntil::M162);
   g_management_disclosure_client_instance = this;
 }
 
 ManagementDisclosureClientImpl::~ManagementDisclosureClientImpl() {
   ash::LoginScreen::Get()->SetManagementDisclosureClient(nullptr);
 
-  DCHECK_EQ(this, g_management_disclosure_client_instance);
+  CHECK_EQ(this, g_management_disclosure_client_instance,
+           base::NotFatalUntil::M162);
   g_management_disclosure_client_instance = nullptr;
   connector_ = nullptr;
   profile_ = nullptr;

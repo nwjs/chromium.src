@@ -30,8 +30,6 @@ def __step_config(ctx, step_config):
         # Reads .gclient_entries which is outside of the source tree.
         "build/private_code_test/list_gclient_deps.py",
         "build/private_code_test/ninja_parser.py",
-        # TODO(https://crrev.com/c/8376442): Remove once fixed.
-        "chrome/browser/resources/omnibox_internals/aim_eligibility_extension/unpack_component_extension.py",
         "chrome/installer/linux/debian/build.py",
         "chrome/installer/linux/debian/calculate_package_deps.py",
         "chrome/installer/linux/debian/merge_package_versions.py",
@@ -103,6 +101,11 @@ def __step_config(ctx, step_config):
         "ui/webui/resources/tools/bundle_js.py",
         "ui/webui/resources/tools/generate_code_cache.py",
         "v8/third_party/inspector_protocol/code_generator.py",
+        # compare-checked-in-headers.py in --update mode
+        # (regen_checked_in_generated_headers) reads and writes checked-in
+        # files under v8/src/gen/ in the source tree without declaring them as
+        # action inputs or outputs, making it incompatible with RBE sandboxes.
+        "v8/tools/compare-checked-in-headers.py",
         # metagen.py executes `gn desc` at action runtime to query compile flags,
         # which requires `.gn` and repository build files. Additionally, it
         # parses C++ headers via libclang without declaring them as action inputs

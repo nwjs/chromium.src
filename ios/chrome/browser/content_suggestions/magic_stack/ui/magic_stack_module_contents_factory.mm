@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_module_contents_factory.h"
 
+#import "base/apple/foundation_util.h"
 #import "base/notreached.h"
 #import "ios/chrome/browser/content_suggestions/app_bundle_promo/ui/app_bundle_promo_config.h"
 #import "ios/chrome/browser/content_suggestions/default_browser/ui/default_browser_config.h"
@@ -32,6 +33,8 @@
 #import "ios/chrome/browser/content_suggestions/shortcuts/ui/shortcuts_tile_view.h"
 #import "ios/chrome/browser/content_suggestions/tab_resumption/ui/tab_resumption_config.h"
 #import "ios/chrome/browser/content_suggestions/tab_resumption/ui/tab_resumption_view.h"
+#import "ios/chrome/browser/content_suggestions/tips/ui/ntp_theme_actionable_tip_config.h"
+#import "ios/chrome/browser/content_suggestions/tips/ui/ntp_theme_actionable_tip_view.h"
 #import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_audience.h"
 #import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_config.h"
 #import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_view.h"
@@ -112,6 +115,11 @@
     case ContentSuggestionsModuleType::kLevelUp: {
       LevelUpConfig* levelUpConfig = static_cast<LevelUpConfig*>(config);
       return [self levelUpViewForConfig:levelUpConfig];
+    }
+    case ContentSuggestionsModuleType::kTipsNTPThemeActionable: {
+      NTPThemeActionableTipConfig* ntpThemeConfig =
+          base::apple::ObjCCastStrict<NTPThemeActionableTipConfig>(config);
+      return [[NTPThemeActionableTipView alloc] initWithConfig:ntpThemeConfig];
     }
     default:
       NOTREACHED();

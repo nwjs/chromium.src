@@ -40,11 +40,12 @@ bool CSSParser::ParseDeclarationList(const CSSParserContext* context,
 
 StyleRuleBase* CSSParser::ParseNestedDeclarationsRule(
     const CSSParserContext* context,
+    StyleSheetContents* style_sheet,
     CSSNestingType nesting_type,
     StyleRule* parent_rule_for_nesting,
     StringView text) {
   return CSSParserImpl::ParseNestedDeclarationsRule(
-      context, nesting_type, parent_rule_for_nesting, text);
+      context, style_sheet, nesting_type, parent_rule_for_nesting, text);
 }
 
 void CSSParser::ParseDeclarationListForInspector(
@@ -436,16 +437,13 @@ bool CSSParser::ParseColor(Color& color, const String& string, bool strict) {
 
 bool CSSParser::ParseSystemColor(Color& color,
                                  const String& color_string,
-                                 mojom::blink::ColorScheme color_scheme,
-                                 const ui::ColorProvider* color_provider,
-                                 bool can_expose_accent_color) {
+                                 const ColorThemeInfo& theme_info) {
   CSSValueID id = CssValueKeywordID(color_string);
   if (!StyleColor::IsSystemColorIncludingDeprecated(id)) {
     return false;
   }
 
-  color = LayoutTheme::GetTheme().SystemColor(id, color_scheme, color_provider,
-                                              can_expose_accent_color);
+  color = LayoutTheme::GetTheme().SystemColor(id, theme_info);
   return true;
 }
 

@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/platform/graphics/video_frame_image_util.h"
 
 #include "base/logging.h"
+#include "base/memory/ptr_util.h"
 #include "build/build_config.h"
 #include "cc/paint/skia_paint_canvas.h"
 #include "cc/raster/playback_image_provider.h"
@@ -12,6 +13,7 @@
 #include "components/viz/common/resources/release_callback.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/client/raster_interface.h"
+#include "gpu/command_buffer/common/shared_image_usage.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_types.h"
 #include "media/base/video_util.h"
@@ -19,7 +21,6 @@
 #include "media/gfx/paint_canvas_video_renderer.h"
 #include "skia/ext/legacy_display_globals.h"
 #include "third_party/blink/renderer/platform/graphics/accelerated_static_bitmap_image.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_deferred_paint_record.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_non_2d_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
@@ -51,15 +52,7 @@ class ImageProviderImpl : public cc::ImageProvider {
   // cc::ImageProvider:
   cc::ImageProvider::ScopedResult GetRasterContent(
       const cc::DrawImage& draw_image) override {
-    cc::PaintImage paint_image = draw_image.paint_image();
-    if (paint_image.IsDeferredPaintRecord()) {
-      CHECK(!paint_image.IsPaintWorklet());
-      scoped_refptr<CanvasDeferredPaintRecord> canvas_deferred_paint_record(
-          static_cast<CanvasDeferredPaintRecord*>(
-              paint_image.deferred_paint_record().get()));
-      return cc::ImageProvider::ScopedResult(
-          canvas_deferred_paint_record->GetPaintRecord());
-    }
+    CHECK(!draw_image.paint_image().IsDeferredPaintRecord());
 
     // To decode high bit depth image source to half float backed image, we need
     // to sniff the image bit depth here to avoid double decoding.
@@ -94,16 +87,16 @@ sk_sp<SkSurface> CreateSoftwareSurface(const CanvasSnapshotInfo& info) {
 
 scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame,
-    CanvasNon2DResourceProvider* snapshot_provider,
+    VideoFrameAcceleratedSnapshotPool* snapshot_pool,
     std::optional<CanvasSnapshotInfo> sw_draw_info,
     media::PaintCanvasVideoRenderer* video_renderer,
     VideoOrientationBehavior orientation_behavior,
     VideoColorSpaceInterpretation color_space_interpretation) {
-  CHECK(sw_draw_info || snapshot_provider);
-  CHECK(!sw_draw_info || !snapshot_provider);
+  CHECK(sw_draw_info || snapshot_pool);
+  CHECK(!sw_draw_info || !snapshot_pool);
 
   auto raster_context_provider = GetRasterContextProvider();
-  bool is_accelerated = snapshot_provider && !snapshot_provider->IsSoftware();
+  bool is_accelerated = snapshot_pool != nullptr;
   if (is_accelerated) {
     orientation_behavior = VideoOrientationBehavior::kHardFlip;
   }
@@ -143,8 +136,8 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
       frame->metadata().transformation.value_or(media::kNoTransformation);
 
   media::PaintCanvasVideoRenderer::PaintParams params;
-  params.dest_rect = gfx::RectF(snapshot_provider ? snapshot_provider->Size()
-                                                  : sw_draw_info->size);
+  params.dest_rect = gfx::RectF(
+      snapshot_pool ? snapshot_pool->provider()->Size() : sw_draw_info->size);
   params.transformation =
       orientation_behavior == VideoOrientationBehavior::kTagOrientation
           ? media::kNoTransformation
@@ -165,11 +158,42 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
                                   orientation);
   }
 
-  return static_cast<CanvasNon2DResourceProvider*>(snapshot_provider)
-      ->DoExternalOverdrawAndSnapshot(draw_callback, orientation);
+  return snapshot_pool->provider()->DoExternalOverdrawAndSnapshot(draw_callback,
+                                                                  orientation);
 }
 
 }  // namespace
+
+// static
+std::unique_ptr<VideoFrameAcceleratedSnapshotPool>
+VideoFrameAcceleratedSnapshotPool::Create(const CanvasSnapshotInfo& info) {
+  auto provider = CanvasNon2DResourceProvider::Create(
+      info.size, info.format, info.alpha_type, info.color_space,
+      info.hdr_metadata, SharedGpuContext::ContextProviderWrapper(),
+      gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
+  if (!provider) {
+    return nullptr;
+  }
+  return base::WrapUnique(
+      new VideoFrameAcceleratedSnapshotPool(std::move(provider)));
+}
+
+VideoFrameAcceleratedSnapshotPool::VideoFrameAcceleratedSnapshotPool(
+    std::unique_ptr<CanvasNon2DResourceProvider> provider)
+    : provider_(std::move(provider)) {
+  CHECK(provider_);
+}
+
+VideoFrameAcceleratedSnapshotPool::~VideoFrameAcceleratedSnapshotPool() =
+    default;
+
+bool VideoFrameAcceleratedSnapshotPool::IsValid() const {
+  return provider_->IsValid();
+}
+
+CanvasSnapshotInfo VideoFrameAcceleratedSnapshotPool::GetInfo() const {
+  return provider_->GetInfo();
+}
 
 scoped_refptr<StaticBitmapImage> DrawAndSnapshotToImage(
     const CanvasSnapshotInfo& info,
@@ -274,13 +298,13 @@ bool WillCreateAcceleratedImagesFromVideoFrame() {
 
 scoped_refptr<StaticBitmapImage> CreateAcceleratedImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame,
-    CanvasNon2DResourceProvider* snapshot_provider,
+    VideoFrameAcceleratedSnapshotPool* snapshot_pool,
     media::PaintCanvasVideoRenderer* video_renderer,
     VideoOrientationBehavior orientation_behavior,
     VideoColorSpaceInterpretation color_space_interpretation) {
-  CHECK(snapshot_provider);
+  CHECK(snapshot_pool);
   return CreateImageFromVideoFrame(
-      std::move(frame), snapshot_provider, /*sw_draw_info=*/std::nullopt,
+      std::move(frame), snapshot_pool, /*sw_draw_info=*/std::nullopt,
       video_renderer, orientation_behavior, color_space_interpretation);
 }
 

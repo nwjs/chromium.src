@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.KeyboardShortcuts;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.content_public.browser.selection.SelectionDropdownMenuDelegate;
 import org.chromium.ui.hierarchicalmenu.FlyoutController;
@@ -43,9 +44,23 @@ import java.util.List;
 @NullMarked
 public class ChromeSelectionDropdownMenuDelegate
         implements SelectionDropdownMenuDelegate, FlyoutHandler<AnchoredPopupWindow> {
+    private final @Nullable GlicSelectionMenuTracker mGlicSelectionMenuTracker;
     private @Nullable ItemClickListener mClickListener;
     private @Nullable View mRootView;
     private @Nullable HierarchicalMenuController<AnchoredPopupWindow> mHierarchicalMenuController;
+
+    public ChromeSelectionDropdownMenuDelegate() {
+        this(null);
+    }
+
+    /**
+     * @param glicSelectionMenuTracker Told when the menu is shown or dismissed and when an item is
+     *     clicked, or null if the menu can't show Ask Gemini.
+     */
+    public ChromeSelectionDropdownMenuDelegate(
+            @Nullable GlicSelectionMenuTracker glicSelectionMenuTracker) {
+        mGlicSelectionMenuTracker = glicSelectionMenuTracker;
+    }
 
     @Override
     public void show(
@@ -57,7 +72,11 @@ public class ChromeSelectionDropdownMenuDelegate
             int x,
             int y) {
         mRootView = rootView;
-        mClickListener = clickListener;
+        ItemClickListener listener =
+                mGlicSelectionMenuTracker == null
+                        ? clickListener
+                        : mGlicSelectionMenuTracker.wrapDropdownClickListener(clickListener);
+        mClickListener = listener;
         mHierarchicalMenuController = ListMenuUtils.createHierarchicalMenuController(context);
         mHierarchicalMenuController.setupCallbacks(
                 /* headerModelList= */ null, items, dismissMenuCallback);
@@ -69,7 +88,7 @@ public class ChromeSelectionDropdownMenuDelegate
         Rect dropdownRect = new Rect(windowX, windowY, windowX + 1, windowY + 1);
         BasicListMenu menu =
                 BrowserUiListMenuUtils.getBasicListMenu(
-                        context, items, (model, view) -> clickListener.onItemClick(model));
+                        context, items, (model, view) -> listener.onItemClick(model));
 
         final View contentView = menu.getContentView();
         int maxWidthPx = calculateMaxWidthPx(rootView);
@@ -99,9 +118,15 @@ public class ChromeSelectionDropdownMenuDelegate
         popupWindow.addOnDismissListener(
                 () -> {
                     dismiss();
+                    if (mGlicSelectionMenuTracker != null) {
+                        mGlicSelectionMenuTracker.onDropdownMenuDismissed();
+                    }
                 });
 
         popupWindow.show();
+        if (mGlicSelectionMenuTracker != null) {
+            mGlicSelectionMenuTracker.onDropdownMenuShown(items);
+        }
 
         mHierarchicalMenuController.setupFlyoutController(
                 /* flyoutHandler= */ this,
@@ -228,6 +253,9 @@ public class ChromeSelectionDropdownMenuDelegate
                         .with(ListMenuItemProperties.CONTENT_DESCRIPTION, contentDescription)
                         .with(ListMenuItemProperties.GROUP_ID, groupId)
                         .with(ListMenuItemProperties.MENU_ITEM_ID, id)
+                        .with(
+                                ListMenuItemProperties.SHORTCUT_TEXT,
+                                KeyboardShortcuts.getShortcutText(id))
                         .with(ListMenuItemProperties.START_ICON_DRAWABLE, null)
                         .with(ListMenuItemProperties.ENABLED, enabled)
                         .with(ListMenuItemProperties.INTENT, intent)

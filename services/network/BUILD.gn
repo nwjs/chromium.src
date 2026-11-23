@@ -315,6 +315,13 @@ component("network_service") {
     ]
   }
 
+  if (enable_device_bound_sessions) {
+    sources += [
+      "restricted_device_bound_session_manager_impl.cc",
+      "restricted_device_bound_session_manager_impl.h",
+    ]
+  }
+
   if (is_chromeos) {
     sources += [
       "dhcp_pac_file_fetcher_mojo.cc",
@@ -356,8 +363,6 @@ component("network_service") {
   if (!is_fuchsia) {
     sources += [ "pervasive_resources/shared_resource_checker_patterns.h" ]
   }
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     "//base",
@@ -462,7 +467,6 @@ if (is_linux || is_chromeos) {
       "//sandbox/linux:sandbox_services",
       "//sandbox/policy",
     ]
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
   }
 }
 
@@ -610,6 +614,7 @@ source_set("tests") {
     sources += [
       "device_bound_session_manager_unittest.cc",
       "device_bound_session_service_delegate_unittest.cc",
+      "restricted_device_bound_session_manager_impl_unittest.cc",
     ]
   }
 
@@ -771,10 +776,6 @@ source_set("test_support") {
     "//net:test_support",
     "//testing/gtest",
   ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 fuzzer_test("network_content_security_policy_fuzzer") {

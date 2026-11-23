@@ -7,10 +7,11 @@
 
 #include <vector>
 
-#include "base/values.h"
+#include "base/memory/scoped_refptr.h"
 #include "content/public/browser/tts_controller.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/buildflags/buildflags.h"
+#include "extensions/common/event_args.h"
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
@@ -86,27 +87,20 @@ class TtsExtensionEngine : public content::TtsEngineDelegate {
   void Resume(content::BrowserContext* browser_context,
               const std::string& engine_id);
 
-  // Returns true if |extension_id| matches the active speaking engine.
-  bool IsCurrentUtteranceEngine(const std::string& extension_id) const;
-
-  void set_current_utterance_engine(const std::string& engine_id) {
-    current_utterance_engine_id_ = engine_id;
-  }
-
   void DisableBuiltInTTSEngineForTesting() {
     disable_built_in_tts_engine_for_testing_ = true;
   }
 
  protected:
-  base::ListValue BuildSpeakArgs(content::TtsUtterance* utterance,
-                                 const content::VoiceData& voice);
-  base::ListValue BuildLanguagePackArgs(
+  scoped_refptr<extensions::EventArgs> BuildSpeakArgs(
+      content::TtsUtterance* utterance,
+      const content::VoiceData& voice);
+  scoped_refptr<extensions::EventArgs> BuildLanguagePackArgs(
       const std::string& lang,
       const std::string& client_id,
       tts_engine_events::TtsClientSource source);
 
   bool disable_built_in_tts_engine_for_testing_ = false;
-  std::string current_utterance_engine_id_;
 };
 
 // Function that allows tts engines to update its list of supported voices at

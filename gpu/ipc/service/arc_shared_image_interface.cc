@@ -110,7 +110,7 @@ scoped_refptr<ClientSharedImage> ArcSharedImageInterface::CreateSharedImage(
   gpu_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ArcSharedImageInterface::CreateSharedImageOnGpuThread,
-                     base::Unretained(this), mailbox, si_info_copy,
+                     base::WrapRefCounted(this), mailbox, si_info_copy,
                      buffer_usage, std::move(buffer_handle)));
 
   return base::MakeRefCounted<ClientSharedImage>(
@@ -135,12 +135,6 @@ void ArcSharedImageInterface::CreateSharedImageOnGpuThread(
     encountered_error_.store(true, std::memory_order_relaxed);
     return;
   }
-}
-
-void ArcSharedImageInterface::DestroySharedImage(
-    const SyncToken& sync_token,
-    scoped_refptr<ClientSharedImage> client_shared_image) {
-  NOTREACHED();
 }
 
 scoped_refptr<ClientSharedImage> ArcSharedImageInterface::CreateSharedImage(
@@ -195,7 +189,7 @@ void ArcSharedImageInterface::DestroySharedImage(
   gpu_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&ArcSharedImageInterface::DestroySharedImageOnGpuThread,
-                     base::Unretained(this), mailbox));
+                     base::WrapRefCounted(this), mailbox));
 }
 
 void ArcSharedImageInterface::DestroySharedImageOnGpuThread(

@@ -56,6 +56,7 @@
 #include "chrome/browser/glic/suggestions/contextual_cueing_service.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service_factory.h"
 #include "chrome/browser/metrics/profile_metrics_service_factory.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -89,7 +90,7 @@
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/actor/android/offscreen_rendering_manager_android.h"
+#include "chrome/browser/actor/android/background_tabs/offscreen_rendering_manager_android.h"
 #include "chrome/browser/glic/host/context/glic_empty_pinned_tab_manager.h"
 #include "chrome/browser/glic/widget/conversions.h"
 #include "chrome/browser/glic/widget/glic_floating_ui_android.h"
@@ -432,7 +433,7 @@ bool GlicInstanceImpl::IsActuating() const {
   return actor_task_manager_ && actor_task_manager_->IsActuating();
 }
 
-bool GlicInstanceImpl::IsLiveMode() {
+bool GlicInstanceImpl::IsLiveMode() const {
   return interaction_mode_ == mojom::WebClientMode::kAudio;
 }
 
@@ -484,8 +485,6 @@ void GlicInstanceImpl::Show(ShowOptions options) {
 
   EmbedderKey new_key = GetEmbedderKey(options);
 
-  GlicUiEmbedder* embedder_to_show = nullptr;
-
   if (IsActiveEmbedder(new_key)) {
     if (!options.reinitialize_if_already_active) {
       // The panel is already up, so there is nothing to re-show. Unless this
@@ -499,23 +498,28 @@ void GlicInstanceImpl::Show(ShowOptions options) {
         host_.NotifyWindowIntentToShow();
       }
       return;
-    } else {
-      embedder_to_show = GetActiveEmbedder();
     }
   } else {
     DeactivateCurrentEmbedder();
     // Ensure that there is a WebContents for the embedder to use.
     EnsureHostAwake();
     StopOffscreenRendering();
-    embedder_to_show = CreateActiveEmbedder(options);
-    CHECK(embedder_to_show);
-    host_.SetDelegate(embedder_to_show->GetHostEmbedderDelegate());
+    GlicUiEmbedder* embedder = CreateActiveEmbedder(options);
+    CHECK(embedder);
+    host_.SetDelegate(embedder->GetHostEmbedderDelegate());
     SetActiveEmbedderAndNotifyVisibilityChange(new_key);
   }
 
   MaybeWarmZeroStateSuggestions(options.invocation_source);
 
-  MaybeShowHostUi(embedder_to_show, options.invocation_source,
+  // Re-fetch the active embedder rather than caching a raw pointer across
+  // synchronous notifications that may deactivate or destroy the embedder.
+  GlicUiEmbedder* embedder_to_show = GetActiveEmbedderForKey(new_key);
+  if (!embedder_to_show) {
+    return;
+  }
+
+  MaybeShowHostUi(*embedder_to_show, options.invocation_source,
                   options.prompt_suggestion, options.fre_override);
 
   if (instance_metrics().MarkShownAndCheckIfFirstTime(new_key)) {
@@ -532,12 +536,19 @@ void GlicInstanceImpl::Show(ShowOptions options) {
     }
   }
 
+  // MaybeShowHostUi() or OnInvoked() may also deactivate or destroy the
+  // embedder, so re-fetch before calling Show().
+  embedder_to_show = GetActiveEmbedderForKey(new_key);
+  if (!embedder_to_show) {
+    return;
+  }
+
   embedder_to_show->Show(options);
   host_.SetWebContentsVisibilityOverride(std::nullopt);
   // WARNING: Show() may result in deleting the embedder! Check if the embedder
   // is still active before calling Focus().
-  if (options.focus_on_show && IsActiveEmbedder(new_key)) {
-    if (auto* active_embedder = GetActiveEmbedder()) {
+  if (options.focus_on_show) {
+    if (auto* active_embedder = GetActiveEmbedderForKey(new_key)) {
       active_embedder->Focus();
     }
   }
@@ -600,12 +611,17 @@ void GlicInstanceImpl::Close(EmbedderKey key, const CloseOptions& options) {
 void GlicInstanceImpl::CloseInternal(EmbedderKey key,
                                      EmbedderEntry& entry,
                                      const CloseOptions& options) {
-  service_->metrics()->OnInstanceClosed();
-  instance_metrics_.OnClose();
-  instance_metrics_.ResetShownState(key);
+  OnEmbedderClosed(key);
   if (entry.embedder) {
     // May delete this.
     entry.embedder->Close(options);
+  }
+}
+
+void GlicInstanceImpl::OnEmbedderClosed(EmbedderKey key) {
+  if (instance_metrics_.ResetShownState(key)) {
+    service_->metrics()->OnInstanceClosed();
+    instance_metrics_.OnClose();
   }
 }
 
@@ -967,7 +983,9 @@ void GlicInstanceImpl::UpdateOffscreenRenderingState() {
 
   if (should_render_offscreen) {
     EnsureHostAwake();
-    if (content::WebContents* contents = host_.webui_contents()) {
+    // TODO(b/572001459): Re-attach offscreen rendering when the host contents
+    // are recreated (e.g. Host::Reload()) while offscreen rendering is active.
+    if (content::WebContents* contents = GetOffscreenRenderingContents()) {
       actor::StartOffscreenRenderingForWebContents(contents);
       is_offscreen_rendering_active_ = true;
     }
@@ -977,10 +995,19 @@ void GlicInstanceImpl::UpdateOffscreenRenderingState() {
 #endif
 }
 
+// Returns the WebContents to render offscreen: the WebUI contents in webview
+// mode, or the guest contents that hosts the web client in NoWebview mode.
+// TODO(b/534807813): Remove this helper once webview is deleted and have
+// callers use host_.web_client_contents() directly.
+content::WebContents* GlicInstanceImpl::GetOffscreenRenderingContents() const {
+  return service_->IsNoWebviewEnabled() ? host_.web_client_contents()
+                                        : host_.webui_contents();
+}
+
 void GlicInstanceImpl::StopOffscreenRendering() {
 #if BUILDFLAG(IS_ANDROID)
   if (is_offscreen_rendering_active_) {
-    if (content::WebContents* contents = host_.webui_contents()) {
+    if (content::WebContents* contents = GetOffscreenRenderingContents()) {
       actor::StopOffscreenRenderingForWebContents(contents);
     }
     is_offscreen_rendering_active_ = false;
@@ -1060,8 +1087,9 @@ GlicInstanceImpl::GetInitialInvocationSource() const {
   return instance_metrics_.initial_invocation_source();
 }
 
-std::vector<tabs::TabInterface*> GlicInstanceImpl::GetBoundTabs() const {
-  std::vector<tabs::TabInterface*> tabs;
+std::vector<raw_ptr<tabs::TabInterface>> GlicInstanceImpl::GetBoundTabs()
+    const {
+  std::vector<raw_ptr<tabs::TabInterface>> tabs;
   for (const auto& [key, entry] : embedders_) {
     if (tabs::TabInterface* tab = GetTabFromEmbedderKey(key)) {
       tabs.push_back(tab);
@@ -1139,6 +1167,13 @@ GlicUiEmbedder* GlicInstanceImpl::GetActiveEmbedder() {
     return it->second.embedder.get();
   }
   return nullptr;
+}
+
+GlicUiEmbedder* GlicInstanceImpl::GetActiveEmbedderForKey(EmbedderKey key) {
+  if (!IsActiveEmbedder(key)) {
+    return nullptr;
+  }
+  return GetActiveEmbedder();
 }
 
 void GlicInstanceImpl::DeactivateCurrentEmbedder() {
@@ -1254,8 +1289,11 @@ void GlicInstanceImpl::ClearActiveEmbedderAndNotifyVisibilityChange() {
     NotifyVisibilityChange();
     host().PanelWasClosed();
 #if !BUILDFLAG(IS_ANDROID)
-    MaybeShowShortcutSnoozePromo();
-    MaybeShowCriticalActionFeaturePromo();
+    // KeyedService lookups are illegal once profile destruction has started.
+    if (!profile_->ShutdownStarted()) {
+      MaybeShowCriticalActionFeaturePromo();
+      MaybeShowShortcutSnoozePromo();
+    }
 #endif  // !BUILDFLAG(IS_ANDROID)
   }
   return;
@@ -1312,11 +1350,11 @@ void GlicInstanceImpl::UpdateFloatingPanelCanAttach() {
 }
 
 void GlicInstanceImpl::MaybeShowHostUi(
-    GlicUiEmbedder* embedder,
+    GlicUiEmbedder& embedder,
     mojom::InvocationSource invocation_source,
     std::optional<std::string> prompt_suggestion,
     mojom::FreOverride fre_override) {
-  Host::EmbedderDelegate* delegate = embedder->GetHostEmbedderDelegate();
+  Host::EmbedderDelegate* delegate = embedder.GetHostEmbedderDelegate();
   if (!delegate) {
     return;
   }
@@ -1331,6 +1369,7 @@ void GlicInstanceImpl::MaybeShowHostUi(
 void GlicInstanceImpl::OnBoundTabDestroyed(tabs::TabInterface* tab) {
   instance_metrics_.OnBoundTabDestroyed();
   EmbedderKey key = GetEmbedderKeyForTab(tab);
+  OnEmbedderClosed(key);
   if (active_embedder_key_ == key) {
     host_.SetDelegate(&empty_embedder_delegate_);
     ClearActiveEmbedderAndNotifyVisibilityChange();
@@ -1526,7 +1565,7 @@ void GlicInstanceImpl::ShowForTabGroup(tab_groups::TabGroupId group_id,
     return;
   }
 
-  std::vector<tabs::TabInterface*> group_tabs =
+  std::vector<raw_ptr<tabs::TabInterface>> group_tabs =
       GetTabsInTabGroup(window, group_id);
   if (group_tabs.empty()) {
     return;
@@ -1601,6 +1640,7 @@ void GlicInstanceImpl::MaybeInitializeHiddenClient(
     EnsureHostAwake();
   }
 
+  host_.NotifyWindowIntentToShow();
   NotifyPanelWillOpen(invocation_source, std::nullopt, fre_override);
 }
 
@@ -1609,7 +1649,23 @@ void GlicInstanceImpl::DidCloseFor(EmbedderKey key,
   TRACE_EVENT("glic", "GlicInstanceImpl::DidCloseFor", "reason", reason);
   // Must be called early to avoid use-after-free if instance is deleted.
   if (reason == EmbedderCloseReason::kExplicitlyClosed) {
-    instance_metrics().ResetShownState(key);
+    OnEmbedderClosed(key);
+    // The user dismissed the UI this instance was showing before the
+    // invocation could finish, so an invocation that only came to show that UI
+    // before the client became usable, or any invocation still waiting on FRE
+    // completion in that UI, is abandoned rather than left to time out. Only
+    // the active embedder counts: closing an inactive one, or the old embedder
+    // while moving the conversation to another surface (detach/attach), does
+    // not take the UI away. Invocations that will send something to a
+    // consented client keep running, as the client may still act on them (and
+    // keep the instance alive, see MaybeRemoveBlankInstanceOnClose()).
+    if (IsActiveEmbedder(key) && coordinator_delegate_ &&
+        (base::FeatureList::IsEnabled(
+             features::kGlicInvokeErrorRecoveryFixes) ||
+         host_.client_load_state() != ClientLoadState::kReady)) {
+      coordinator_delegate_->CancelInvokesOnPanelClose(
+          this, GlicInvokeError::kPanelClosed);
+    }
   }
 
   // Deactivation might delete 'this'
@@ -2059,7 +2115,7 @@ void GlicInstanceImpl::UnbindTabGroup() {
 
   tab_group_binding_.reset();
 
-  std::vector<tabs::TabInterface*> bound_tabs = GetBoundTabs();
+  std::vector<raw_ptr<tabs::TabInterface>> bound_tabs = GetBoundTabs();
   std::vector<tabs::TabHandle> handles;
   for (tabs::TabInterface* t : bound_tabs) {
     handles.push_back(t->GetHandle());

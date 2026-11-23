@@ -26,6 +26,21 @@ package foo
 data class Sample(val x: Int) { fun f() = listOf(x).map { it + 1 } }
 // Traces the lookup of package-info.class files.
 fun g() = java.net.URI("a")
+// Traces resolving types from .java sources (e.g. from srcjars).
+class Impl : JavaSample.Natives {
+  override fun f(l: List<String>) = JavaSample.X
+}
+"""
+
+_SAMPLE_JAVA = """\
+package foo;
+public class JavaSample {
+  public static final int X = 1;
+  // Traces the Java parser's error messages, which "<" looks up while trying
+  // to parse type arguments.
+  public static final boolean B = X < 2;
+  public interface Natives { int f(java.util.List<String> l); }
+}
 """
 
 
@@ -46,10 +61,11 @@ def do_install(args):
     # Build a native kotlinc for use by compile_kt.py.
     graal_home = graalvm.ensure_graalvm()
     pathlib.Path('Sample.kt').write_text(_SAMPLE_KT, encoding='utf-8')
+    pathlib.Path('JavaSample.java').write_text(_SAMPLE_JAVA, encoding='utf-8')
     lib_dir = os.path.join(args.output_prefix, 'lib')
     abi_jar = os.path.join(lib_dir, 'jvm-abi-gen.jar')
 
-    def sample_args(out_dir):
+    def sample_args(out_dir, sources=('Sample.kt', 'JavaSample.java')):
         return [
             '-kotlin-home',
             args.output_prefix,
@@ -64,8 +80,26 @@ def do_install(args):
             f'-Xplugin={abi_jar}',
             '-P',
             f'plugin:org.jetbrains.kotlin.jvm.abi:outputDir={out_dir}/abi',
-            'Sample.kt',
-        ]
+        ] + list(sources)
+
+    # Compiling kotlin-metadata-jvm is used as a representative workload for
+    # profile-guided optimizations.
+    pgo_src_dir = pathlib.Path('pgo_src').resolve()
+    common.run_cmd([
+        'unzip', '-q',
+        os.path.join(lib_dir, 'kotlin-metadata-jvm-sources.jar'), '-d',
+        str(pgo_src_dir)
+    ])
+    pgo_sources = sorted(
+        str(p) for p in pgo_src_dir.glob('**/*')
+        if p.suffix in ('.kt', '.java'))
+    pgo_args = [
+        # These sources are part of the "kotlin" package.
+        '-Xallow-kotlin-package',
+        '-XXLanguage:+NameBasedDestructuring',
+        '-cp',
+        os.path.join(lib_dir, 'kotlin-compiler.jar'),
+    ] + sample_args('pgo_out', pgo_sources)
 
     output_path = os.path.join(args.output_prefix, 'bin', 'kotlinc-graalvm')
     graalvm.build_native_image(
@@ -79,6 +113,7 @@ def do_install(args):
             os.path.join(lib_dir, 'compose-compiler-plugin.jar')
         ],
         tracing_args_list=[sample_args('tracing_out')],
+        pgo_args_list=[pgo_args],
         # Register all compiler argument methods for reflection (as upstream
         # JetBrains does) so CLI flags are supported without retracing.
         extra_reachability_metadata={
@@ -137,6 +172,7 @@ def main():
     common.main(
         do_latest=do_latest,
         do_install=do_install,
+        version_strings_func=graalvm.version_strings,
     )
 
 

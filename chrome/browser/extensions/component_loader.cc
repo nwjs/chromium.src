@@ -71,6 +71,7 @@
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/webui/buildflags.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_extension_constants.h"
@@ -96,6 +97,11 @@
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "chrome/browser/defaults.h"
 #endif
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#include "chrome/grit/new_tab_page_extension_resources.h"
+#include "components/search/ntp_features.h"
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
@@ -428,17 +434,22 @@ void ComponentLoader::Load(const ComponentExtensionInfo& info) {
   registrar->AddComponentExtension(extension.get());
 }
 
-bool ComponentLoader::MaybeLoadStagedExtension(PrefService& local_state,
-                                               const ExtensionId& extension_id,
+bool ComponentLoader::MaybeLoadStagedExtension(const ExtensionId& extension_id,
                                                int manifest_resource_id) {
+  PrefService* local_state =
+      g_browser_process ? g_browser_process->local_state() : nullptr;
+  if (!local_state) {
+    return false;
+  }
+
   // Clear staged prefs on any failure return.
   base::ScopedClosureRunner clear_staged_prefs(
       base::BindOnce(&component_loader_prefs::ClearExtension,
-                     std::ref(local_state), extension_id));
+                     std::ref(*local_state), extension_id));
 
   std::optional<component_loader_prefs::StagedComponentExtensionInfo>
       staged_info =
-          component_loader_prefs::GetExtension(local_state, extension_id);
+          component_loader_prefs::GetExtension(*local_state, extension_id);
   if (!staged_info) {
     return false;
   }
@@ -558,11 +569,8 @@ void ComponentLoader::AddAimEligibilityExtension() {
   }
 
   // Try to load a newer version from disk installed by the component updater.
-  PrefService* local_state =
-      g_browser_process ? g_browser_process->local_state() : nullptr;
-  if (local_state && omnibox::kAimEligibilityUseComponentUpdater.Get() &&
-      MaybeLoadStagedExtension(*local_state,
-                               extension_misc::kAimEligibilityExtensionId,
+  if (omnibox::kAimEligibilityUseComponentUpdater.Get() &&
+      MaybeLoadStagedExtension(extension_misc::kAimEligibilityExtensionId,
                                IDR_AIM_ELIGIBILITY_EXTENSION_MANIFEST_JSON)) {
     return;
   }
@@ -570,6 +578,25 @@ void ComponentLoader::AddAimEligibilityExtension() {
   // Fallback to bundled extension if no newer version exists on disk.
   Add(IDR_AIM_ELIGIBILITY_EXTENSION_MANIFEST_JSON,
       base::FilePath(extension_misc::kAimEligibilityExtensionDirName));
+}
+
+void ComponentLoader::AddNewTabPageExtension() {
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+  if (!base::FeatureList::IsEnabled(ntp_features::kNtpComponentExtension)) {
+    return;
+  }
+
+  // Try to load a newer version from disk installed by the component updater.
+  if (ntp_features::kNtpComponentExtensionUseComponentUpdater.Get() &&
+      MaybeLoadStagedExtension(extension_misc::kNewTabPageExtensionId,
+                               IDR_NEW_TAB_PAGE_EXTENSION_MANIFEST_JSON)) {
+    return;
+  }
+
+  // Fallback to bundled extension if no newer version exists on disk.
+  Add(IDR_NEW_TAB_PAGE_EXTENSION_MANIFEST_JSON,
+      base::FilePath(extension_misc::kNewTabPageExtensionDirName));
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 }
 
 void ComponentLoader::AddGlicExtension() {
@@ -828,7 +855,6 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
           switches::kLoadGuestModeTestExtension));
       AddGuestModeTestExtension(path);
     }
-    AddImageLoaderExtension();
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     // TODO(https://crbug.com/1005083): Force the off the record profile to be
@@ -844,6 +870,7 @@ void ComponentLoader::AddDefaultComponentExtensionsWithBackgroundPages(
   }
 
   AddAimEligibilityExtension();
+  AddNewTabPageExtension();
   AddGlicExtension();
   AddContextualTasksExtension();
 

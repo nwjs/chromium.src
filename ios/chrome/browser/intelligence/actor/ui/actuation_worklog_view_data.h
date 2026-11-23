@@ -16,6 +16,9 @@ enum class ActuationWorklogItemStyle {
   // Card style with an icon in a circle, and the title/subtitle inside a card
   // container. Optionally contains an `ActuationWorklogAccessoryItem`.
   kCard,
+  // Freeform text-only style (e.g. a question or clarification) spanning the
+  // full width, without any timeline decoration (no dot, icon or connector).
+  kFreeform,
 };
 
 // View data object describing a nested accessory card inside an actuation
@@ -112,6 +115,10 @@ enum class ActuationWorklogItemStyle {
                            active:(BOOL)active
                     accessoryItem:(ActuationWorklogAccessoryItem*)accessoryItem;
 
+// Creates a freeform text-only item without timeline decoration. `text` is
+// exposed through `title`.
++ (instancetype)freeformItemWithText:(NSString*)text;
+
 #pragma mark - Helpers
 
 // Returns a copy of the item with the active state updated.
@@ -148,21 +155,32 @@ typedef NS_ENUM(NSInteger, ActuationWorklogDisplayMode) {
 
 // Visual layouts for an interactive intervention in the actuation worklog.
 enum class ActuationInterventionType {
-  // Card with `title`, optional `subtitle`, and a primary action button.
+  // Card with `title`, optional `subtitle`, and a single action button.
   kCard,
-  // Standalone full-width primary action button.
-  kSingleButton,
-  // Standalone, side-by-side secondary and primary action buttons.
-  kDualButton,
+  // Row of one or two action buttons, without `title` or `subtitle`.
+  kRow,
+  // Column of one to three action buttons, without `title` or `subtitle`.
+  kColumn,
 };
 
-// User action triggered on an active worklog intervention.
-enum class ActuationInterventionAction {
-  // The primary confirmation/continuation action.
-  kPrimary,
-  // The secondary cancellation/alternative action.
-  kSecondary,
-};
+// View data object describing an action of an `ActuationInterventionData`.
+@interface ActuationInterventionAction : NSObject
+
+// Caller-defined identifier, passed back when the action is triggered.
+@property(nonatomic, assign, readonly) NSInteger identifier;
+
+// Title of the button triggering the action.
+@property(nonatomic, copy, readonly) NSString* title;
+
+// TODO(crbug.com/573145076): Add an optional `icon` for `columnItem`.
+
+// Designated initializer.
+- (instancetype)initWithIdentifier:(NSInteger)identifier
+                             title:(NSString*)title NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
 
 // View data object describing an intervention in the actuation worklog.
 @interface ActuationInterventionData : NSObject
@@ -176,29 +194,62 @@ enum class ActuationInterventionAction {
 // Optional subtitle text (used if `type == kCard`).
 @property(nonatomic, copy, readonly) NSString* subtitle;
 
-// Mandatory primary action button title.
-@property(nonatomic, copy, readonly) NSString* primaryButtonText;
-
-// Optional secondary action button title (mandatory if `type == kDualButton`).
-@property(nonatomic, copy, readonly) NSString* secondaryButtonText;
+// Actions of the intervention, in display order. Never empty.
+@property(nonatomic, copy, readonly)
+    NSArray<ActuationInterventionAction*>* actions;
 
 - (instancetype)init NS_UNAVAILABLE;
 
 #pragma mark - Factory Constructors
 
-// Creates a card layout intervention with a single action button.
+// Creates a card layout intervention with a single `action`.
 + (instancetype)cardItemWithTitle:(NSString*)title
                          subtitle:(NSString*)subtitle
-                primaryButtonText:(NSString*)primaryButtonText;
+                           action:(ActuationInterventionAction*)action;
 
-// Creates a single-button layout intervention.
-+ (instancetype)singleButtonItemWithPrimaryButtonText:
-    (NSString*)primaryButtonText;
+// Creates an intervention with a row of one or two `actions`, in display order.
++ (instancetype)rowItemWithActions:
+    (NSArray<ActuationInterventionAction*>*)actions;
 
-// Creates a dual-button layout intervention.
-+ (instancetype)dualButtonItemWithPrimaryButtonText:(NSString*)primaryButtonText
-                                secondaryButtonText:
-                                    (NSString*)secondaryButtonText;
+// Creates an intervention with a column of one to three `actions`, in display
+// order.
++ (instancetype)columnItemWithActions:
+    (NSArray<ActuationInterventionAction*>*)actions;
+
+@end
+
+// View data object describing the text displayed in the actuation header.
+@interface ActuationHeaderContent : NSObject
+
+// Main title text.
+@property(nonatomic, copy, readonly) NSString* title;
+
+// Optional subtitle text displayed below `title`.
+@property(nonatomic, copy, readonly) NSString* subtitle;
+
+// Designated initializer.
+- (instancetype)initWithTitle:(NSString*)title
+                     subtitle:(NSString*)subtitle NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+@end
+
+// View data object describing the header content to display in each
+// `ActuationWorklogDisplayMode`.
+@interface ActuationHeaderContentVariants : NSObject
+
+// Designated initializer.
+- (instancetype)initWithMinimizedContent:(ActuationHeaderContent*)minimized
+                          compactContent:(ActuationHeaderContent*)compact
+                         expandedContent:(ActuationHeaderContent*)expanded
+    NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
+
+// Returns the content to display in `mode`.
+- (ActuationHeaderContent*)contentForDisplayMode:
+    (ActuationWorklogDisplayMode)mode;
 
 @end
 

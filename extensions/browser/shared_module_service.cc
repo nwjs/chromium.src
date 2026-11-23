@@ -25,8 +25,8 @@ namespace extensions {
 
 namespace {
 
-typedef std::vector<SharedModuleInfo::ImportInfo> ImportInfoVector;
-typedef std::list<SharedModuleInfo::ImportInfo> ImportInfoList;
+using ImportInfoVector = std::vector<SharedModuleInfo::ImportInfo>;
+using ImportInfoList = std::list<SharedModuleInfo::ImportInfo>;
 
 bool IsSharedModule(const Extension* extension,
                     content::BrowserContext* context) {
@@ -180,7 +180,7 @@ void SharedModuleService::PruneSharedModules() {
   std::vector<std::string>::const_iterator shared_modules_iter;
   for (shared_modules_iter = shared_modules.begin();
        shared_modules_iter != shared_modules.end(); shared_modules_iter++) {
-    if (used_shared_modules.count(*shared_modules_iter)) {
+    if (used_shared_modules.contains(*shared_modules_iter)) {
       continue;
     }
     registrar->UninstallExtension(

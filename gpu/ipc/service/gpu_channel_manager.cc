@@ -20,6 +20,7 @@
 #include "base/memory_coordinator/utils.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/system/sys_info.h"
 #include "base/task/bind_post_task.h"
@@ -93,8 +94,8 @@ const int kMaxKeepAliveTimeMs = 200;
 constexpr base::MemoryConsumerTraits kGpuChannelManagerTraits(
     // Can free hundreds of MB via Skia, Dawn, and persistent cache purges.
     base::MemoryConsumerTraits::EstimatedMemoryUsage::kLarge,
-    // Purging requires iterating caches and invoking GPU resource cleanup.
-    base::MemoryConsumerTraits::ReleaseMemoryCost::kRequiresTraversal,
+    // Purging iterates caches, reading the entries being freed.
+    base::MemoryConsumerTraits::ReleaseMemoryDataAccess::kReads,
     // Freed resources are caches or scratch buffers that can be recreated.
     base::MemoryConsumerTraits::InformationRetention::kLossless,
     // Asynchronous since AsyncMemoryConsumerRegistration is used.
@@ -455,11 +456,6 @@ gles2::ProgramCache* GpuChannelManager::program_cache() {
   // PassthroughProgramCache registers process-wide EGL blob cache callbacks on
   // the display, which would be forwarded to the native driver even if no
   // context group is attached to the cache.
-  //
-  // Note: GpuPreferences::disable_gpu_program_cache is intentionally not
-  // checked here. It is set whenever the shader *disk* cache is disabled
-  // (see service_utils.cc), and disabling the disk cache should not also
-  // disable the in-memory program cache in the GPU process.
   if (gpu_driver_bug_workarounds_.disable_program_cache) {
     return nullptr;
   }
@@ -614,6 +610,15 @@ void GpuChannelManager::PopulateCache(const gpu::GpuDiskCacheHandle& handle,
                                       const std::string& data) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
+  // Record how much of the shader disk cache has been loaded so far, to help
+  // diagnose crashes and hangs while it is being loaded.
+  const uint64_t old_loaded_kb = loaded_shader_cache_size_.InKiB();
+  loaded_shader_cache_size_ += base::ByteSize(key.size() + data.size());
+  const uint64_t loaded_kb = loaded_shader_cache_size_.InKiB();
+  if (loaded_kb != old_loaded_kb) {
+    crash_keys::shader_cache_loaded_kb.Set(base::NumberToString(loaded_kb));
+  }
+
   switch (gpu::GetHandleType(handle)) {
     case gpu::GpuDiskCacheType::kGlShaders: {
       auto gl_shader_handle = std::get<gpu::GpuDiskCacheGlShaderHandle>(handle);
@@ -632,9 +637,8 @@ void GpuChannelManager::PopulateCache(const gpu::GpuDiskCacheHandle& handle,
 #if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
       TRACE_EVENT1("gpu", "GpuChannelManager::PopulateCacheDawn", "handle_type",
                    gpu::GetHandleType(handle));
-      std::unique_ptr<gpu::webgpu::DawnCachingInterface>
-          dawn_caching_interface =
-              dawn_caching_interface_factory()->CreateInstance(handle);
+      std::unique_ptr<gpu::webgpu::DawnInMemoryCache> dawn_caching_interface =
+          dawn_caching_interface_factory()->CreateInstance(handle);
       if (!dawn_caching_interface) {
         return;
       }

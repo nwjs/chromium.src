@@ -22,7 +22,6 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/network/device_state.h"
@@ -92,7 +91,7 @@ base::Value GetCellularNetworkInfoValue(const NetworkState* network,
     return base::Value(std::move(info));
   }
 
-  DCHECK_EQ(network->device_path(), device->path());
+  CHECK_EQ(network->device_path(), device->path(), base::NotFatalUntil::M162);
 
   info.Set(keys::kMeid, base::Value(device->meid()));
   info.Set(keys::kImei, base::Value(device->imei()));
@@ -270,7 +269,8 @@ void MobileSetupUIHTMLSource::StartDataRequest(
 
   // mobile_setup_ui.cc will only be triggered from the detail page for
   // activated cellular network.
-  DCHECK(network->activation_state() == shill::kActivationStateActivated);
+  CHECK(network->activation_state() == shill::kActivationStateActivated,
+        base::NotFatalUntil::M162);
   std::string html_string =
       ui::ResourceBundle::GetSharedInstance().LoadDataResourceString(
           IDR_MOBILE_SETUP_PORTAL_PAGE_HTML);
@@ -400,9 +400,9 @@ void MobileSetupHandler::NetworkConnectionStateChanged(
 
 void MobileSetupHandler::UpdatePortalReachability(const NetworkState* network,
                                                   bool force_notification) {
-  DCHECK(web_ui());
+  CHECK(web_ui(), base::NotFatalUntil::M162);
 
-  DCHECK_EQ(type_, TYPE_PORTAL_LTE);
+  CHECK_EQ(type_, TYPE_PORTAL_LTE, base::NotFatalUntil::M162);
 
   NetworkStateHandler* nsh = NetworkHandler::Get()->network_state_handler();
   bool portal_reachable =
@@ -453,7 +453,7 @@ MobileSetupUI::MobileSetupUI(
 
   // Set up the chrome://mobilesetup/ source.
   content::URLDataSource::Add(
-      Profile::FromWebUI(web_ui),
+      web_ui->GetWebContents()->GetBrowserContext(),
       std::make_unique<MobileSetupUIHTMLSource>(application_locale_storage));
 }
 

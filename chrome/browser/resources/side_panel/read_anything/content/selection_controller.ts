@@ -2,20 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import {isDistilledByReadability} from '../shared/common.js';
-import {getNearestTextBoundaryPoint, getTextNodeOffsets} from '../shared/dom_queries.js';
+import {getNearestTextBoundaryPoint, getTextNodeOffsets, isBackwardSelection} from '../shared/dom_queries.js';
 
 import type {ContentBrowserProxy} from './content_browser_proxy.js';
 import {ContentBrowserProxyImpl} from './content_browser_proxy.js';
 import {NodeStore} from './node_store.js';
 import {ContentPositionSource} from './read_anything_types.js';
-import type {ContentPosition, SelectionWithIds} from './read_anything_types.js';
-
-interface ReadOnlySelection {
-  anchorNode: Node;
-  anchorOffset: number;
-  focusNode: Node;
-  focusOffset: number;
-}
+import type {ContentPosition, ReadingModeSelection, SelectionWithIds} from './read_anything_types.js';
 
 export interface SelectionEndpoint {
   nodeId?: number;
@@ -44,30 +37,19 @@ export class SelectionController {
       return null;
     }
 
-    let node: Node|null = null;
-    let offset: number = 0;
-    const pos =
-        selection.anchorNode.compareDocumentPosition(selection.focusNode);
-    // If the focus and anchor are the same node, use the earlier offset.
-    if (pos === 0) {
-      node = selection.anchorNode;
-      offset = Math.min(selection.anchorOffset, selection.focusOffset);
-    } else {
-      const focusIsFirst = pos === Node.DOCUMENT_POSITION_PRECEDING;
-      node = focusIsFirst ? selection.focusNode : selection.anchorNode;
-      offset = focusIsFirst ? selection.focusOffset : selection.anchorOffset;
+    const isBackward = isBackwardSelection(
+        selection.anchorNode, selection.anchorOffset, selection.focusNode,
+        selection.focusOffset);
+    let node: Node = isBackward ? selection.focusNode : selection.anchorNode;
+    let offset = isBackward ? selection.focusOffset : selection.anchorOffset;
+
+    const ancestor = this.nodeStore_.getAncestor(node);
+    if (ancestor) {
+      node = ancestor.node;
+      offset += ancestor.offset;
     }
 
-    if (node) {
-      const ancestor = this.nodeStore_.getAncestor(node);
-      if (ancestor) {
-        node = ancestor.node;
-        offset += ancestor.offset;
-      }
-    }
-
-    return node ? {node, offset, source: ContentPositionSource.SELECTION} :
-                  null;
+    return {node, offset, source: ContentPositionSource.SELECTION};
   }
 
   // Called when the user selects text in reading mode. Forwards that
@@ -97,11 +79,9 @@ export class SelectionController {
       return;
     }
 
-    // If we're using Readability with select text enabled, report a user
-    // selection attempt to try to log this as an early selection attempt from
-    // the side panel.
-    if (isDistilledByReadability() &&
-        this.contentBrowserProxy_.isReadabilitySelectTextEnabled()) {
+    // If we're using Readability, report a user selection attempt to try to log
+    // this as an early selection attempt from the side panel.
+    if (isDistilledByReadability()) {
       this.contentBrowserProxy_.attemptLogEarlySelection(
           /*fromSidePanel=*/ true);
     }
@@ -112,16 +92,9 @@ export class SelectionController {
     // end (isStart = false) to perform correct boundary shifting without
     // leaking into preceding elements (like the article title on backward
     // drags).
-    let isBackward = false;
-    if (selection.anchorNode && selection.focusNode) {
-      const position =
-          selection.anchorNode.compareDocumentPosition(selection.focusNode);
-      if (position === Node.DOCUMENT_POSITION_PRECEDING) {
-        isBackward = true;
-      } else if (position === 0) {
-        isBackward = selection.anchorOffset > selection.focusOffset;
-      }
-    }
+    const isBackward = isBackwardSelection(
+        selection.anchorNode, selection.anchorOffset, selection.focusNode,
+        selection.focusOffset);
 
     // Normalize the selection boundaries to ensure they fall on valid text
     // nodes within the article container, adjusting for the direction of
@@ -200,7 +173,7 @@ export class SelectionController {
   }
 
   // Updates the reading mode selection to match the main panel selection.
-  updateSelection(selectionToUpdate: Selection|null, container: Node) {
+  updateSelection(selectionToUpdate: Selection|null) {
     if (!selectionToUpdate) {
       return;
     }
@@ -213,16 +186,14 @@ export class SelectionController {
       return;
     }
 
-    // If we're using Readability with select text enabled, report a user
-    // selection attempt to try to log this as an early selection attempt from
-    // the main panel.
-    if (isDistilledByReadability() &&
-        this.contentBrowserProxy_.isReadabilitySelectTextEnabled()) {
+    // If we're using Readability, report a user selection attempt to try to log
+    // this as an early selection attempt from the main panel.
+    if (isDistilledByReadability()) {
       this.contentBrowserProxy_.attemptLogEarlySelection(
           /*fromSidePanel=*/ false);
     }
 
-    const newSelection = this.getNewSelection_(container);
+    const newSelection = this.getNewSelection_();
     if (!newSelection) {
       return;
     }
@@ -259,86 +230,11 @@ export class SelectionController {
     });
   }
 
-  private getNewSelection_(container: Node): ReadOnlySelection|null {
-    const selectionIds = {
-      anchorNodeId: this.contentBrowserProxy_.getStartNodeId(),
-      anchorOffset: this.contentBrowserProxy_.getStartOffset(),
-      focusNodeId: this.contentBrowserProxy_.getEndNodeId(),
-      focusOffset: this.contentBrowserProxy_.getEndOffset(),
-    };
-
-    if (isDistilledByReadability()) {
-      return this.contentBrowserProxy_.isReadabilitySelectTextEnabled() ?
-          this.getNewSelectionWithAxIds_(selectionIds) :
-          this.getNewSelectionWithoutAxIds_(container, selectionIds);
-    }
-
-    return this.getNewSelectionWithAxIds_(selectionIds);
-  }
-
-  private getNewSelectionWithoutAxIds_(
-      container: Node, selectionIds: SelectionWithIds): ReadOnlySelection|null {
-    const {anchorNodeId, focusNodeId} = selectionIds;
-    let {anchorOffset, focusOffset} = selectionIds;
-    if (!anchorNodeId || !focusNodeId) {
-      return null;
-    }
-
-    const anchorContent =
-        this.contentBrowserProxy_.getTextContent(anchorNodeId);
-    const focusContent = this.contentBrowserProxy_.getTextContent(focusNodeId);
-
-    // If the nodes don't have valid text content, they shouldn't be used
-    // for selection.
-    if (!anchorContent || !focusContent) {
-      return null;
-    }
-
-    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-    const anchorContext = {
-      prefix: this.contentBrowserProxy_.getPrefixText(anchorNodeId),
-      content: anchorContent,
-    };
-    const focusContext = {
-      prefix: this.contentBrowserProxy_.getPrefixText(focusNodeId),
-      content: focusContent,
-    };
-
-    const result = this.findTargetNodes_(walker, anchorContext, focusContext);
-    if (!result) {
-      return null;
-    }
-
-    const anchorNode = result.startNode;
-    const focusNode = result.endNode;
-    const isSameNode = anchorNodeId === focusNodeId;
-    const originalFocus =
-        isSameNode ? focusOffset : anchorContext.content.length;
-    const originalContent =
-        anchorContext.content.substring(anchorOffset, originalFocus);
-    const actualContent =
-        anchorNode.textContent?.substring(anchorOffset, originalFocus);
-    // If the actually selected text matches the found Reading mode text, use
-    // the original offsets. Otherwise, search for the selected text within
-    // the Reading mode node and use that as the offset.
-    if (actualContent !== originalContent) {
-      const foundIndex = anchorNode.textContent?.indexOf(originalContent) ?? -1;
-      if (foundIndex < 0) {
-        return null;
-      }
-
-      anchorOffset = foundIndex;
-      focusOffset =
-          isSameNode ? (foundIndex + originalContent.length) : focusOffset;
-    }
-
-    return {anchorNode, anchorOffset, focusNode, focusOffset};
-  }
-
-  private getNewSelectionWithAxIds_(selectionIds: SelectionWithIds):
-      ReadOnlySelection|null {
-    const {anchorNodeId, focusNodeId} = selectionIds;
-    let {anchorOffset, focusOffset} = selectionIds;
+  private getNewSelection_(): ReadingModeSelection|null {
+    const anchorNodeId = this.contentBrowserProxy_.getStartNodeId();
+    const focusNodeId = this.contentBrowserProxy_.getEndNodeId();
+    let anchorOffset = this.contentBrowserProxy_.getStartOffset();
+    let focusOffset = this.contentBrowserProxy_.getEndOffset();
     if (!anchorNodeId || !focusNodeId) {
       return null;
     }
@@ -377,58 +273,6 @@ export class SelectionController {
     focusOffset -= adjustedFocus.offset;
 
     return {anchorNode, anchorOffset, focusNode, focusOffset};
-  }
-
-  // Locates selection nodes based on their text content and prefix text.
-  // Assumptions made:
-  // - start content is <= end content (i.e. either earlier in the document or
-  //   the same content) (see PostProcessSelection in read_anything_app_model.cc
-  //   which always sends a forward selection)
-  // - start prefix is either a superset of the start content or strictly
-  //   earlier in the document (see GetPrefixText in
-  //   read_anything_node_utils.cc)
-  // - end prefix is either a superset of the end content or strictly
-  //   earlier in the document
-  // Unknowns:
-  // - The end prefix may be anywhere relative to the start node depending on
-  //   how the prefix is calculated. It could be before the start node if the
-  //   start content is too short to be a reliable prefix. It could be the same
-  //   as the start node if its content is long enough. Or it could be later
-  //   than the start node if the end node is very far after the start node.
-  private findTargetNodes_(
-      walker: TreeWalker, startContext: {prefix: string, content: string},
-      endContext: {prefix: string, content: string}):
-      {startNode: Node, endNode: Node}|null {
-    let startNode: Node|undefined;
-    let endNode: Node|undefined;
-    // If the prefix contains the content (i.e. it is a parent of the target
-    // node), then skip looking for a prefix.
-    let foundStartPrefix = startContext.prefix.includes(startContext.content);
-    let foundEndPrefix = endContext.prefix.includes(endContext.content);
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      if (foundStartPrefix && node.nodeValue?.includes(startContext.content)) {
-        startNode = node;
-      }
-      if (foundEndPrefix && node.nodeValue?.includes(endContext.content)) {
-        endNode = node;
-      }
-
-      // Look for the prefix first in order to reduce the risk of matching the
-      // same text earlier in the document.
-      if (node.nodeValue?.includes(startContext.prefix)) {
-        foundStartPrefix = true;
-      }
-      if (node.nodeValue?.includes(endContext.prefix)) {
-        foundEndPrefix = true;
-      }
-
-      if (startNode && endNode) {
-        return {startNode, endNode};
-      }
-    }
-
-    return null;
   }
 
   // Returns true if the node maps to a valid AX ID in the NodeStore.

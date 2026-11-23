@@ -18,46 +18,91 @@ args-based wrappers for the teardown and monitoring helpers.
 import logging
 import multiprocessing
 import subprocess
+import time
 
 from contextlib import AbstractContextManager
 
-# pylint: disable=import-error, wrong-import-position, unused-import
+from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
+import urllib3
+
 # Imported first: puts build/util, fuchsia_web/av_testing, and
 # build/fuchsia/test on sys.path for the imports below.
-import perf_config  # noqa: F401
-from lib.proto import measures  # noqa: F401
-import server  # noqa: F401
-import video_analyzer  # noqa: F401
-import camera  # noqa: F401
-from repeating_log import RepeatingLog  # noqa: F401
-
-from cros_setup import setup_cros_environment  # noqa: F401
-from media_metrics import (
-    calculate_psnr_ssim,  # noqa: F401
-    finalize_results,  # noqa: F401
-    parse_glances_csv_and_record,  # noqa: F401
-)
 from perf_config import (
-    BUILD_UTIL_ROOT,  # noqa: F401
-    CHROME_FUCHSIA_ROOT,  # noqa: F401
-    CFT_JSON_URL,  # noqa: F401
-    CHROMEDRIVER_PORT,  # noqa: F401
-    LOCAL_HOST_IP,  # noqa: F401
-    RECORDINGS_DIR,  # noqa: F401
-    REMOTE_URL,  # noqa: F401
-    REPO_ROOT,  # noqa: F401
+    BUILD_UTIL_ROOT,
+    CHROME_FUCHSIA_ROOT,
+    CFT_JSON_URL,
+    CHROMEDRIVER_PORT,
+    LOCAL_HOST_IP,
+    RECORDINGS_DIR,
+    REMOTE_URL,
+    REPO_ROOT,
     SERVER_PORT,
-    TEST_SCRIPTS_ROOT,  # noqa: F401
-    TRACES_DIR,  # noqa: F401
+    TEST_SCRIPTS_ROOT,
+    TRACES_DIR,
+)
+from lib.proto import measures
+import server
+import video_analyzer
+import camera
+from repeating_log import RepeatingLog
+
+from cros_setup import setup_cros_environment
+from media_metrics import (
+    calculate_psnr_ssim,
+    finalize_results,
+    parse_glances_csv_and_record,
 )
 from remote_transport import (
-    RemoteDeviceError,  # noqa: F401
-    SenderNotFoundError,  # noqa: F401
-    SenderSshError,  # noqa: F401
-    SenderUnreachableError,  # noqa: F401
+    RemoteDeviceError,
+    SenderNotFoundError,
+    SenderSshError,
+    SenderUnreachableError,
 )
-from senders import WIN_REMOTE_TMP_DIR, make_sender  # noqa: F401
-# pylint: enable=import-error, wrong-import-position, unused-import
+from senders import WIN_REMOTE_TMP_DIR, make_sender
+
+__all__ = [
+    # Re-exported for the test scripts.
+    'BUILD_UTIL_ROOT',
+    'CFT_JSON_URL',
+    'CHROMEDRIVER_PORT',
+    'CHROME_FUCHSIA_ROOT',
+    'LOCAL_HOST_IP',
+    'RECORDINGS_DIR',
+    'REMOTE_URL',
+    'REPO_ROOT',
+    'SERVER_PORT',
+    'TEST_SCRIPTS_ROOT',
+    'TRACES_DIR',
+    'RemoteDeviceError',
+    'RepeatingLog',
+    'SenderNotFoundError',
+    'SenderSshError',
+    'SenderUnreachableError',
+    'WIN_REMOTE_TMP_DIR',
+    'calculate_psnr_ssim',
+    'camera',
+    'finalize_results',
+    'make_sender',
+    'measures',
+    'parse_glances_csv_and_record',
+    'server',
+    'setup_cros_environment',
+    'video_analyzer',
+    # Defined here.
+    'FAIL_CODE',
+    'METRICS',
+    'VIDEOS',
+    'StartProcess',
+    'WEBDRIVER_ERRORS',
+    'cleanup_binaries',
+    'connect_to_remote_driver',
+    'dump_remote_logs',
+    'start_glances_monitoring',
+    'stop_glances_monitoring',
+    'teardown_recording_process',
+    'teardown_test_environment',
+]
 
 # This code is used as the default failure value for recordings in the case that
 # `results.get()` throws an unexpected error. -128 is chosen as a clear fail
@@ -71,6 +116,12 @@ METRICS = [
     'total_frame_count',
     'dropped_frame_percentage',
 ]
+
+# What a WebDriver call raises when it fails: a WebDriver protocol error, or
+# an HTTP/socket error when chromedriver or the tunnel is down.
+WEBDRIVER_ERRORS = (WebDriverException, urllib3.exceptions.HTTPError, OSError)
+
+_CONNECT_ATTEMPTS = 20
 
 # Framerate is now legacy data, but until our results are standardized we'll
 # maintain the data in case it's necessary to pass later.
@@ -98,6 +149,33 @@ class StartProcess(AbstractContextManager):
         self._proc.join()
         if not self._terminate:
             assert self._proc.exitcode == 0
+
+
+def connect_to_remote_driver(chrome_options):
+    """Starts a WebDriver session through the tunnel.
+
+    Retries while chromedriver and the tunnel come up.
+
+    Raises:
+        RuntimeError: No session could be started.
+    """
+    logging.info("Attempting connection to %s.", REMOTE_URL)
+    last_error = None
+    for _ in range(_CONNECT_ATTEMPTS):
+        try:
+            driver = webdriver.Remote(
+                command_executor=REMOTE_URL, options=chrome_options
+            )
+        except WEBDRIVER_ERRORS as e:
+            last_error = e
+            logging.info("Tunnel not yet up. Sleeping ... Error: %s", e)
+            time.sleep(2)
+            continue
+        logging.info("Successfully connected!")
+        return driver
+    raise RuntimeError(
+        "Could not connect to the remote chromedriver."
+    ) from last_error
 
 
 def _sender_for_cleanup(args):
@@ -162,8 +240,11 @@ def teardown_test_environment(driver, tunnel_proc, args):
         args: The parsed command-line arguments.
     """
     if driver:
-        driver.quit()
-        logging.info("Terminated chromedriver.")
+        try:
+            driver.quit()
+            logging.info("Terminated chromedriver.")
+        except WEBDRIVER_ERRORS as e:
+            logging.warning("Failed to quit the WebDriver session: %s", e)
 
     if tunnel_proc:
         if hasattr(tunnel_proc, 'poll'):
@@ -175,7 +256,9 @@ def teardown_test_environment(driver, tunnel_proc, args):
             try:
                 tunnel_proc.ports.stop_reverse_forward(SERVER_PORT)
                 logging.info("Stopped Crossbench port forwarding.")
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            # Crossbench does not document what this raises, and teardown
+            # must not raise.
+            except Exception as e:
                 logging.warning("Failed to stop Crossbench forwarding: %s", e)
 
     sender = _sender_for_cleanup(args)

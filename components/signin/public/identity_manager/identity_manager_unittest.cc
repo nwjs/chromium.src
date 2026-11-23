@@ -66,6 +66,7 @@
 #include "components/account_manager_core/account.h"
 #include "components/account_manager_core/account_manager_facade_impl.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/signin/internal/identity_manager/test_profile_oauth2_token_service_delegate_chromeos.h"
 #endif
 
@@ -355,7 +356,8 @@ class IdentityManagerTest : public testing::Test {
         &pref_service_, temp_profile_dir_.GetPath());
 
 #if BUILDFLAG(IS_CHROMEOS)
-    account_manager::AccountManager::RegisterPrefs(pref_service_.registry());
+    pref_service_.registry()->RegisterBooleanPref(
+        policy::policy_prefs::kSecondaryGoogleAccountSigninAllowed, true);
     auto* ash_account_manager = GetAccountManagerFactory()->GetAccountManager(
         temp_profile_dir_.GetPath().value());
     ash_account_manager->InitializeInEphemeralMode(
@@ -1606,6 +1608,14 @@ TEST_F(IdentityManagerTest,
             identity_manager_diagnostics_observer()
                 ->on_access_token_request_completed_error());
   histogram_tester.ExpectUniqueSample("Signin.AccessTokenFetch.Success", 0, 1);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.Request.Success", 1);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.EndToEnd.Success", 1);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.Request.Failure", 0);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.EndToEnd.Failure", 0);
 }
 
 TEST_F(IdentityManagerTest,
@@ -1639,6 +1649,14 @@ TEST_F(IdentityManagerTest,
                 ->on_access_token_request_completed_error());
   histogram_tester.ExpectUniqueSample(
       "Signin.AccessTokenFetch.Failure.AccountNotFound", 0, 1);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.Request.Failure", 1);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.EndToEnd.Failure", 1);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.Request.Success", 0);
+  histogram_tester.ExpectTotalCount(
+      "Signin.AccessTokenFetch.Latency.EndToEnd.Success", 0);
 }
 
 TEST_F(IdentityManagerTest, GetAccountsCookieMutator) {
@@ -2550,8 +2568,10 @@ TEST_F(IdentityManagerTest, BatchOfPrimaryAccountChanges) {
   identity_manager_observer()->SetOnPrimaryAccountChangedCallback(
       primary_account_callback);
 
+  EXPECT_FALSE(identity_manager()->IsBatchOfPrimaryAccountChangesInProgress());
   base::ScopedClosureRunner scoped_closure_runner =
       identity_manager()->StartBatchOfPrimaryAccountChanges();
+  EXPECT_TRUE(identity_manager()->IsBatchOfPrimaryAccountChangesInProgress());
   EXPECT_EQ(on_primary_account_changed_called, 0ul);
   ClearPrimaryAccount(identity_manager());
   EXPECT_EQ(on_primary_account_changed_called, 1ul);
@@ -2566,6 +2586,7 @@ TEST_F(IdentityManagerTest, BatchOfPrimaryAccountChanges) {
       primary_account_callback);
 
   scoped_closure_runner.RunAndReset();
+  EXPECT_FALSE(identity_manager()->IsBatchOfPrimaryAccountChangesInProgress());
   EXPECT_EQ(identity_manager_observer()
                 ->GetOnEndBatchOfPrimaryAccountChangesCalledCount(),
             1ul);

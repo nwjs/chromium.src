@@ -68,7 +68,7 @@
 
 ChromeBrowserFieldTrials::ChromeBrowserFieldTrials(PrefService* local_state)
     : local_state_(local_state) {
-  DCHECK(local_state_);
+  CHECK(local_state_, base::NotFatalUntil::M162);
 }
 
 ChromeBrowserFieldTrials::~ChromeBrowserFieldTrials() = default;
@@ -171,10 +171,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // Enable V8 optimizations for high-end Android Desktop devices.
   // TODO(crbug.com/425860368): Remove when the feature is stable.
   feature_overrides.EnableFeature(features::kV8AndroidDesktopHighEndConfig);
-  // TODO(crbug.com/430304112): Remove when rollout is complete to all form
-  // factors.
-  feature_overrides.EnableFeature(
-      autofill::features::kAutofillAndroidDesktopSuppressAccessoryOnEmpty);
   // TODO(crbug.com/445446479): Remove when rollout is complete to all form
   // factors.
   feature_overrides.EnableFeature(
@@ -226,13 +222,6 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
   // Enforces 2-pixel even boundary alignment for YUV SurfaceControl overlays
   // on desktop Android as a native workaround for Intel hardware scalers.
   feature_overrides.EnableFeature(features::kAndroidYuvOverlayEvenAlignment);
-
-  // Enable by default for desktop platforms, pending a phone / foldable /
-  // tablet rollout using the same flag.
-  // TODO(crbug.com/442327273): Remove when rollout is complete to all form
-  // factors.
-  feature_overrides.EnableFeature(
-      autofill::features::kAutofillAndroidDesktopKeyboardAccessoryRevamp);
 
   // Enable ANGLE/Vulkan features.
   // TODO (crbug.com//376280554): Enable these features with runtime checks
@@ -399,5 +388,7 @@ void ChromeBrowserFieldTrials::RegisterFeatureOverrides(
 
 void ChromeBrowserFieldTrials::EnableRuntimeMutableFeatures(
     base::FeatureList* feature_list) {
+  variations::PlatformFieldTrials::EnableRuntimeMutableFeatures(feature_list);
+
   // Add calls to enable runtime-mutable features here.
 }

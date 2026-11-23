@@ -8,6 +8,7 @@
 
 #include <utility>
 
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -227,10 +228,9 @@ SyncableServiceBasedBridge::SyncableServiceBasedBridge(
     SyncableService* syncable_service)
     : DataTypeSyncBridge(std::move(change_processor)),
       type_(type),
-      syncable_service_(syncable_service) {
+      syncable_service_(syncable_service),
+      init_start_time_(base::Time::Now()) {
   DCHECK(syncable_service_);
-
-  init_start_time_ = base::Time::Now();
 
   std::move(store_factory)
       .Run(type_, base::BindOnce(&SyncableServiceBasedBridge::OnStoreCreated,
@@ -520,14 +520,14 @@ std::optional<ModelError> SyncableServiceBasedBridge::StartSyncableService() {
 
   // Sync enabled, so exercise MergeDataAndStartSyncing() immediately, since
   // this function is reached only if sync is starting already.
-  SyncDataList initial_sync_data;
-  initial_sync_data.reserve(in_memory_store_.size());
-  for (const auto& [storage_key, persisted_entity_data] : in_memory_store_) {
-    // Note that client tag hash is used as storage key too.
-    initial_sync_data.push_back(
-        SyncData::CreateRemoteData(persisted_entity_data.specifics(),
-                                   ClientTagHash::FromHashed(storage_key)));
-  }
+  const SyncDataList initial_sync_data =
+      base::ToVector(in_memory_store_, [](const auto& entry) {
+        const auto& [storage_key, persisted_entity_data] = entry;
+        // Note that client tag hash is used as storage key too.
+        return SyncData::CreateRemoteData(
+            persisted_entity_data.specifics(),
+            ClientTagHash::FromHashed(storage_key));
+      });
 
   auto error_callback =
       base::BindRepeating(&SyncableServiceBasedBridge::ReportErrorIfSet,

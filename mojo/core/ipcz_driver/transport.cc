@@ -32,6 +32,9 @@
 #include "third_party/ipcz/include/ipcz/ipcz.h"
 
 #if BUILDFLAG(IS_WIN)
+#include <windows.h>
+
+#include "base/win/security_util.h"
 #include "base/win/win_util.h"
 #include "mojo/public/cpp/platform/platform_handle_security_util_win.h"
 #endif
@@ -187,7 +190,6 @@ bool EncodeHandle(PlatformHandle& handle,
 // INVALID_HANDLE_VALUE is one of the problematic handle values that a caller
 // might misinterpret.
 std::optional<PlatformHandle> DecodeHandle(HandleData data,
-                                           const base::Process& remote_process,
                                            HandleOwner handle_owner,
                                            Transport& from_transport) {
   const HANDLE handle = DataToHandle(data);
@@ -201,13 +203,10 @@ std::optional<PlatformHandle> DecodeHandle(HandleData data,
   }
 
   if (handle_owner == HandleOwner::kRecipient) {
-    // Senders can only duplicate handles into this (receiving) process in
-    // two scenarios:
-    // - The sender is at least as privileged as this process; see
-    //   Transport::CanAcceptReceiverOwnedHandles().
-    // - The sender is in the same process, i.e. for `mojo::DirectReceiver`.
-    if (!from_transport.CanAcceptReceiverOwnedHandles() &&
-        !remote_process.is_current()) {
+    // Senders can only duplicate handles into this (receiving) process if the
+    // sender is at least as privileged as this process; see
+    // Transport::CanAcceptReceiverOwnedHandles().
+    if (!from_transport.CanAcceptReceiverOwnedHandles()) {
       return std::nullopt;
     }
     // Verify that this is a handle to a valid object. We do not yet know the
@@ -219,6 +218,7 @@ std::optional<PlatformHandle> DecodeHandle(HandleData data,
     return PlatformHandle(base::win::ScopedHandle(handle));
   }
 
+  const base::Process& remote_process = from_transport.remote_process();
   if (!remote_process.IsValid()) {
     return std::nullopt;
   }
@@ -230,6 +230,21 @@ std::optional<PlatformHandle> DecodeHandle(HandleData data,
     return std::nullopt;
   }
   return PlatformHandle(base::win::ScopedHandle(local_dupe));
+}
+
+// Returns true if `handle` is a named pipe end and is the only open handle to
+// its underlying kernel file object, in any process.
+//
+// On Windows, I/O completion port association is a property of the file
+// object rather than of any one handle to it. A Channel registers its handle
+// with this process's I/O completion port, so it must only adopt pipe ends on
+// which nothing outside this process can start I/O. Once ours is the only
+// handle, no less privileged process can obtain another: opening a pipe by
+// name creates a new file object, and duplicating a handle out of this process
+// requires PROCESS_DUP_HANDLE access to it.
+bool IsExclusivelyOwnedPipe(HANDLE handle) {
+  return base::win::GetObjectHandleCount(handle) == 1u &&
+         ::GetNamedPipeInfo(handle, nullptr, nullptr, nullptr, nullptr);
 }
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -580,7 +595,7 @@ IpczResult Transport::DeserializeObject(
   platform_handles.resize(num_handles);
   for (size_t i = 0; i < num_handles; ++i) {
 #if BUILDFLAG(IS_WIN)
-    auto h = DecodeHandle(handle_data[i], remote_process_, handle_owner, *this);
+    auto h = DecodeHandle(handle_data[i], handle_owner, *this);
     if (!h.has_value()) {
       return IPCZ_RESULT_INVALID_ARGUMENT;
     }
@@ -666,6 +681,13 @@ bool Transport::Serialize(Transport& transmitter,
   }
 
   CHECK(inactive_endpoint_.is_valid());
+#if BUILDFLAG(IS_MAC)
+  // A peer process requirement is enforced only when the endpoint is activated
+  // locally. Serializing (relaying) the endpoint to another process would drop
+  // the requirement and silently disable peer authentication, so refuse to
+  // relay a requirement-bearing endpoint instead of weakening it.
+  CHECK(!inactive_endpoint_.has_peer_process_requirement());
+#endif
   handles[0] = inactive_endpoint_.TakePlatformHandle();
   return true;
 }
@@ -705,6 +727,17 @@ scoped_refptr<Transport> Transport::Deserialize(
     // Do not accept broker connections from untrusted transports.
     return nullptr;
   }
+
+#if BUILDFLAG(IS_WIN)
+  // A less privileged peer must hand over its pipe end outright. If it kept
+  // another handle to the same pipe end, it could keep generating completion
+  // packets for the Channel which adopts it. Transferring a handle closes the
+  // sender's copy, so the handle we now hold must be the only one.
+  if (!is_source_at_least_as_privileged &&
+      !IsExclusivelyOwnedPipe(handles[0].GetHandle().get())) {
+    return nullptr;
+  }
+#endif
 
   // A peer may choose the new transport's remote process, by attaching a
   // process handle or by claiming the process is its own. Honor either only if
@@ -750,7 +783,7 @@ void Transport::OnChannelMessage(
     size_t payload_size,
     std::vector<PlatformHandle> handles,
     scoped_refptr<ipcz_driver::Envelope> envelope) {
-  std::vector<IpczDriverHandle> driver_handles(handles.size());
+  absl::InlinedVector<IpczDriverHandle, 2> driver_handles(handles.size());
   for (size_t i = 0; i < handles.size(); ++i) {
     driver_handles[i] = TransmissiblePlatformHandle::ReleaseAsHandle(
         base::MakeRefCounted<TransmissiblePlatformHandle>(
@@ -788,11 +821,10 @@ void Transport::OnChannelDestroyed() {
 bool Transport::CanTransmitHandles() const {
 #if BUILDFLAG(IS_WIN)
   // On Windows, we can transmit handles only if at least one endpoint is a
-  // broker, or if we have a handle to the remote process, or if the both ends
-  // of the transport are held by the same process.
+  // broker, or if we have a handle to the remote process and are trusted by the
+  // peer.
   return destination_type() == kBroker || source_type() == kBroker ||
-         (remote_process_.IsValid() && is_trusted_by_peer()) ||
-         remote_process_.is_current();
+         (remote_process_.IsValid() && is_trusted_by_peer());
 #else
   return true;
 #endif

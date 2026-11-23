@@ -12,6 +12,7 @@
 #include "chrome/browser/glic/host/glic_theme_util.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/guest_view/browser/guest_view_base.h"
 #include "content/public/browser/navigation_handle.h"
@@ -19,6 +20,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_features.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/mojom/autoplay/autoplay.mojom.h"
@@ -47,7 +49,12 @@ GlicGuestObserver::Metrics::~Metrics() = default;
 
 void GlicGuestObserver::Metrics::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
-  if (!features::IsGlicNoWebviewEnabled()) {
+  Profile* profile =
+      navigation_handle && navigation_handle->GetWebContents()
+          ? Profile::FromBrowserContext(
+                navigation_handle->GetWebContents()->GetBrowserContext())
+          : nullptr;
+  if (!GlicKeyedService::IsNoWebviewEnabled(profile)) {
     return;
   }
   if (navigation_handle->IsInPrimaryMainFrame() &&
@@ -60,8 +67,13 @@ void GlicGuestObserver::Metrics::DidFinishNavigation(
   }
 }
 
-void GlicGuestObserver::Metrics::DocumentOnLoadCompletedInPrimaryMainFrame() {
-  if (!features::IsGlicNoWebviewEnabled()) {
+void GlicGuestObserver::Metrics::DocumentOnLoadCompletedInPrimaryMainFrame(
+    content::WebContents* web_contents) {
+  Profile* profile =
+      web_contents
+          ? Profile::FromBrowserContext(web_contents->GetBrowserContext())
+          : nullptr;
+  if (!GlicKeyedService::IsNoWebviewEnabled(profile)) {
     return;
   }
   if (!navigation_commit_time_.is_null() && !has_recorded_load_complete_) {
@@ -75,7 +87,8 @@ void GrantAutoplayPermissions(content::NavigationHandle* navigation_handle) {
   if (!navigation_handle->IsInPrimaryMainFrame()) {
     return;
   }
-  url::Origin origin = url::Origin::Create(navigation_handle->GetURL());
+  url::Origin origin =
+      navigation_handle->GetOriginToCommit().value_or(url::Origin());
   if (!IsGuestOriginAllowed(
           origin, navigation_handle->GetWebContents()->GetBrowserContext())) {
     return;
@@ -135,7 +148,7 @@ void GlicGuestObserver::DidFinishNavigation(
 }
 
 void GlicGuestObserver::DocumentOnLoadCompletedInPrimaryMainFrame() {
-  metrics_.DocumentOnLoadCompletedInPrimaryMainFrame();
+  metrics_.DocumentOnLoadCompletedInPrimaryMainFrame(web_contents());
 }
 
 void GlicGuestObserver::MaybeEnableMojoJsBindings(
@@ -143,13 +156,14 @@ void GlicGuestObserver::MaybeEnableMojoJsBindings(
   if (!navigation_handle->IsInPrimaryMainFrame()) {
     return;
   }
-  // Enable MojoJS bindings if the pending navigation is targeting an allowed
+  // Enable MojoJS bindings if the pending navigation is committing an allowed
   // origin so Blink can initialize the Mojo context during document load.
   // The frame's committed origin is checked in `BindGlicWebClientHandler()`
   // when the page attempts to bind the pipe.
+  url::Origin origin =
+      navigation_handle->GetOriginToCommit().value_or(url::Origin());
   if (IsOriginAllowedGlicApi(
-          url::Origin::Create(navigation_handle->GetURL()),
-          navigation_handle->GetWebContents()->GetBrowserContext())) {
+          origin, navigation_handle->GetWebContents()->GetBrowserContext())) {
     navigation_handle->GetRenderFrameHost()->EnableMojoJsBindings(
         /*features=*/nullptr);
   }
@@ -169,16 +183,19 @@ void GlicGuestObserver::MaybeSetBackgroundColor(
 
 void GlicGuestObserver::MaybeUpdateTopLevelScreenInfo() {
   if (!web_contents() ||
+      base::FeatureList::IsEnabled(
+          features::kPopulateUnattachedAuraScreenInfo) ||
       !base::FeatureList::IsEnabled(kGlicUpdateHiddenScreenInfo)) {
     return;
   }
   content::WebContents* top =
       guest_view::GuestViewBase::GetTopLevelWebContents(web_contents());
   if (top && top->GetVisibility() == content::Visibility::HIDDEN) {
-    // TODO(b/573268718): RenderWidgetHostViewAura::InitAsChild
-    // leaves screen_infos_ at 0x0 when a WebContents is created unattached
-    // and hidden, causing the guest's window.screen.height to be 0 during
-    // warmup. Pulsing IncrementCapturerCount(stay_hidden=true) triggers
+    // TODO(b/573268718): When kPopulateUnattachedAuraScreenInfo is disabled,
+    // RenderWidgetHostViewAura::InitAsChild leaves screen_infos_ at 0x0 when a
+    // WebContents is created unattached and hidden, causing the guest's
+    // window.screen.height to be 0 during warmup. Pulsing
+    // IncrementCapturerCount(stay_hidden=true) triggers
     // ShowWithVisibility(kHiddenButPainting) -> UpdateScreenInfo() ->
     // Hide() while keeping the WebContents hidden.
     std::ignore = top->IncrementCapturerCount(gfx::Size(), /*stay_hidden=*/true,

@@ -194,14 +194,22 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
       ui::MenuSeparatorType separator_style,
       std::optional<ui::ColorId> submenu_background_color = std::nullopt,
       std::optional<ui::ColorId> foreground_color = std::nullopt,
-      std::optional<ui::ColorId> selected_color_id = std::nullopt);
+      std::optional<ui::ColorId> selected_color_id = std::nullopt,
+      std::optional<ui::ColorId> submenu_arrow_color_id = std::nullopt);
 
   // Appends `item` to the menu, or inserts it at `index` if specified.
   template <typename T>
     requires(std::derived_from<T, MenuItemView>)
-  T* AddMenuItemView(std::unique_ptr<T> item,
-                     std::optional<size_t> index = std::nullopt) {
-    return static_cast<T*>(AddMenuItemViewImpl(std::move(item), index));
+  T* AddMenuItemView(
+      std::unique_ptr<T> item,
+      std::optional<size_t> index = std::nullopt,
+      std::optional<ui::ColorId> submenu_background_color = std::nullopt,
+      std::optional<ui::ColorId> foreground_color = std::nullopt,
+      std::optional<ui::ColorId> selected_color_id = std::nullopt,
+      std::optional<ui::ColorId> submenu_arrow_color_id = std::nullopt) {
+    return static_cast<T*>(AddMenuItemViewImpl(
+        std::move(item), index, submenu_background_color, foreground_color,
+        selected_color_id, submenu_arrow_color_id));
   }
 
   void SetMenuItemBackground(
@@ -232,6 +240,9 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
   std::optional<MenuItemBackground> GetMenuItemBackground() {
     return menu_item_background_;
   }
+
+  // Returns how far the hover highlight is inset from this item's bounds.
+  gfx::Insets GetHighlightInsets() const;
 
   void SetSelectedColorId(std::optional<ui::ColorId> selected_color_id) {
     selected_color_id_ = selected_color_id;
@@ -351,6 +362,8 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
 
   // Returns true if the item is selected.
   bool IsSelected() const { return selected_; }
+  void SetIsPinned(bool is_pinned);
+  bool IsPinned() const { return is_pinned_; }
 
   // Adds a callback subscription associated with the above selected property.
   // The callback will be invoked whenever the selected property changes.
@@ -560,7 +573,10 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
   MenuItemView* AddMenuItemViewImpl(
       std::unique_ptr<MenuItemView> item,
       std::optional<size_t> index,
-      std::optional<ui::ColorId> submenu_background_color = std::nullopt);
+      std::optional<ui::ColorId> submenu_background_color = std::nullopt,
+      std::optional<ui::ColorId> foreground_color = std::nullopt,
+      std::optional<ui::ColorId> selected_color_id = std::nullopt,
+      std::optional<ui::ColorId> submenu_arrow_color_id = std::nullopt);
 
   const SubmenuView* GetContainingSubmenu() const {
     return parent_menu_item_->GetSubmenu();
@@ -690,6 +706,11 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
     foreground_color_id_ = foreground_color_id;
   }
 
+  void SetSubmenuArrowColorId(
+      std::optional<ui::ColorId> submenu_arrow_color_id) {
+    submenu_arrow_color_id_ = submenu_arrow_color_id;
+  }
+
   // Returns the corresponding margin from the `MenuConfig` if
   // `vertical_margin_` is not set.
   int GetVerticalMargin() const;
@@ -730,6 +751,8 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
 
   // Whether we're selected.
   bool selected_ = false;
+
+  bool is_pinned_ = false;
 
   bool last_paint_as_selected_ = false;
 
@@ -839,15 +862,10 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
   // and SetIconView() explicitly calls UpdateSelectionBasedStateIfChanged().
   bool update_selection_based_state_in_view_herarchy_changed_ = true;
 
-  // There are cases where menu insertions can lead to synchronous accessibility
-  // events, which can in turn lead to a miscalibrated or malicious
-  // accessibility tool attempting to close the menu mid-insertion. Guard
-  // against the item being destroyed while it is being added.
-  bool inserting_into_menu_ = false;
-
   std::optional<ui::ColorId> foreground_color_id_;
   std::optional<MenuItemBackground> menu_item_background_;
   std::optional<ui::ColorId> selected_color_id_;
+  std::optional<ui::ColorId> submenu_arrow_color_id_;
   std::optional<int> top_margin_;
   std::optional<int> bottom_margin_;
 

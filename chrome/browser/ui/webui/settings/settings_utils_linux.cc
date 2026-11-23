@@ -61,7 +61,7 @@ constexpr char kLinuxProxyConfigUrl[] = "chrome://linux-proxy-config";
 // Show the proxy config URL in the given tab.
 void ShowLinuxProxyConfigUrl(base::WeakPtr<content::WebContents> web_contents,
                              bool launched) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   if (launched) {
     return;
   }
@@ -71,7 +71,7 @@ void ShowLinuxProxyConfigUrl(base::WeakPtr<content::WebContents> web_contents,
     LOG(ERROR) << "Could not find " << name << " network settings in $PATH";
   }
   OpenURLParams params = OpenURLParams::CreateBrowserInitiated(
-      GURL(kLinuxProxyConfigUrl), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      GURL(kLinuxProxyConfigUrl), WindowOpenDisposition::kNewForegroundTab,
       ui::PAGE_TRANSITION_LINK);
 
   if (web_contents) {

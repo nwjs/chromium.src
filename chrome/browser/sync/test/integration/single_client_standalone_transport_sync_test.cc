@@ -17,10 +17,12 @@
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/data_sharing/public/features.h"
 #include "components/password_manager/core/browser/features/password_features.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/skills/features.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
+#include "components/sync/base/pref_names.h"
 #include "components/sync/service/glue/sync_transport_data_prefs.h"
 #include "components/sync/service/sync_service_impl.h"
 #include "components/sync/test/fake_server_nigori_helper.h"
@@ -95,7 +97,9 @@ class SingleClientStandaloneTransportSyncTest : public SyncTest {
     override_features_.InitWithFeatures(
         /*enabled_features=*/
         {
+#if BUILDFLAG(IS_CHROMEOS)
             syncer::kSyncEnableContactInfoDataTypeForCustomPassphraseUsers,
+#endif  // BUILDFLAG(IS_CHROMEOS)
             switches::kSyncEnableBookmarksInTransportMode,
 #if !BUILDFLAG(IS_ANDROID)
             syncer::kReadingListEnableSyncTransportModeUponSignIn,
@@ -413,9 +417,8 @@ IN_PROC_BROWSER_TEST_F(SingleClientStandaloneTransportSyncTest,
 
   // CONTACT_INFO is controlled by the kAutofill datatype. With a custom
   // passphrase, it's additionally guarded by
-  // kSyncEnableContactInfoDataTypeForCustomPassphraseUsers. The feature is
-  // enabled by default on mobile, but disabled on desktop. This test enables
-  // it on all platforms.
+  // IsContactInfoDataTypeForCustomPassphraseUsersEnabled(). It is enabled by
+  // default on mobile and desktop, and enabled by this test on ChromeOS.
   EXPECT_TRUE(
       GetSyncService(0)->GetActiveDataTypes().Has(syncer::CONTACT_INFO));
 }
@@ -451,8 +454,6 @@ class ReplaceSyncWithSigninMigrationSyncTest : public SyncTest {
     // The Sync-to-Signin feature is only enabled in non-PRE_ tests.
     sync_to_signin_feature_.InitWithFeatureStates(
         {{syncer::kReplaceSyncPromosWithSignInPromos, !content::IsPreTest()},
-         {syncer::kReplaceSyncPromosWithSigninPromosNewSignin,
-          !content::IsPreTest()},
          {switches::kEnablePreferencesAccountStorage, !content::IsPreTest()}});
   }
   ~ReplaceSyncWithSigninMigrationSyncTest() override = default;
@@ -493,6 +494,11 @@ IN_PROC_BROWSER_TEST_F(ReplaceSyncWithSigninMigrationSyncTest,
   ASSERT_TRUE(GetClient(0)->AwaitSyncTransportActive());
   ASSERT_EQ(syncer::SyncService::TransportState::ACTIVE,
             GetSyncService(0)->GetTransportState());
+
+  // Clear the migration state pref so that the migration runs on the next
+  // startup for the now-signed-in user.
+  GetProfile(0)->GetPrefs()->ClearPref(
+      syncer::prefs::internal::kSyncToSigninMigrationState);
 }
 
 IN_PROC_BROWSER_TEST_F(ReplaceSyncWithSigninMigrationSyncTest,
@@ -548,6 +554,11 @@ IN_PROC_BROWSER_TEST_F(ReplaceSyncWithSigninMigrationSyncTest,
   // Preferences is not supported without `kReplaceSyncPromosWithSignInPromos`.
   ASSERT_FALSE(GetSyncService(0)->GetUserSettings()->GetSelectedTypes().Has(
       syncer::UserSelectableType::kPreferences));
+
+  // Clear the migration state pref so that the migration runs on the next
+  // startup for the now-signed-in user.
+  GetProfile(0)->GetPrefs()->ClearPref(
+      syncer::prefs::internal::kSyncToSigninMigrationState);
 }
 
 IN_PROC_BROWSER_TEST_F(ReplaceSyncWithSigninMigrationSyncTest,

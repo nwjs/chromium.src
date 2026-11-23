@@ -63,6 +63,8 @@ import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory
 import org.chromium.chrome.browser.autofill.editors.common.EditorObserverForTest;
 import org.chromium.chrome.browser.autofill.editors.common.EditorViewBase;
 import org.chromium.chrome.browser.autofill.settings.personal_context.AutofillPersonalContextFragment;
+import org.chromium.chrome.browser.device_reauth.BiometricStatus;
+import org.chromium.chrome.browser.device_reauth.DeviceAuthAvailabilityCheckerBridge;
 import org.chromium.chrome.browser.device_reauth.ReauthenticatorBridge;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
@@ -97,7 +99,6 @@ import java.util.List;
 @Batch(Batch.PER_CLASS)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @EnableFeatures({
-    ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID,
     ChromeFeatureList.AUTOFILL_AI_WITH_DATA_SCHEMA,
     ChromeFeatureList.AUTOFILL_AI_AVAILABLE_BY_DEFAULT,
 })
@@ -118,6 +119,8 @@ public class AutofillTravelFragmentTest {
     public void setUp() {
         HelpAndFeedbackLauncherFactory.setInstanceForTesting(mHelpAndFeedbackLauncher);
         ReauthenticatorBridge.setInstanceForTesting(mMockReauthenticatorBridge);
+        DeviceAuthAvailabilityCheckerBridge.setBiometricAvailabilityStatusForTesting(
+                BiometricStatus.BIOMETRICS_AVAILABLE);
 
         mEntityDataManager = mock(EntityDataManager.class);
         EntityDataManagerFactory.setInstanceForTesting(mEntityDataManager);

@@ -98,6 +98,7 @@
 #include "third_party/blink/renderer/platform/wtf/casting.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "third_party/skia/include/core/SkRRect.h"
+#include "ui/gfx/geometry/outsets.h"
 #include "ui/gfx/geometry/outsets_f.h"
 #include "ui/gfx/geometry/point3_f.h"
 #include "ui/gfx/geometry/transform.h"
@@ -548,13 +549,7 @@ static bool NeedsScrollAndScrollTranslation(
 }
 
 static bool NeedsReplacedContentTransform(const LayoutObject& object) {
-  if (object.IsSVGRoot())
-    return true;
-
-  if (auto* layout_embedded_object = DynamicTo<LayoutEmbeddedContent>(object))
-    return layout_embedded_object->FrozenFrameSize().has_value();
-
-  return false;
+  return object.IsSVGRoot();
 }
 
 static bool NeedsPaintOffsetTranslationForOverflowControls(
@@ -1164,19 +1159,23 @@ void FragmentPaintPropertyTreeBuilder::UpdateElementCanvasTransform() {
     context_.current.clip = &canvas_contents.Clip();
     // Reparent the drawable element's effect to the nearest drawable
     // ancestor's effect, or the canvas's contents effect, skipping any
-    // effects from intermediate non-drawable ancestors. Note that a nested
-    // drawable still paints with the canvas's contents effect (via
-    // `CanvasDrawableState::content_effect`), not the ancestor drawable's
-    // effect; parenting to the ancestor drawable's effect keeps the nested
+    // effects from intermediate non-drawable ancestors (and filters/masks/etc.
+    // on the drawable ancestor). Note that a nested drawable sets
+    // `CanvasDrawableState::content_effect` to this parent effect so the
+    // ancestor drawable's effect is not applied when painting the nested
+    // drawable; parenting to the ancestor drawable's effect keeps the nested
     // drawable as a subgroup in
     // `PaintArtifactCompositor::Layerizer::LayerizeGroup()` so the ancestor
     // drawable's effect group is not exited early.
     const auto* effect = &context_.current_effect->Unalias();
-    while (effect && effect != &canvas_contents.Effect() &&
+    if (!effect->IsInDrawableCanvasSubtree()) {
+      effect = &canvas_contents.Effect().Unalias();
+    }
+    while (effect->IsInDrawableCanvasSubtree() &&
            !effect->HasCanvasDrawableState()) {
       effect = effect->UnaliasedParent();
     }
-    context_.current_effect = effect ? effect : &canvas_contents.Effect();
+    context_.current_effect = effect;
   }
 }
 
@@ -2095,7 +2094,8 @@ static void PopulateCanvasDrawablePaintState(
 static void PopulateCanvasDrawableState(
     const LayoutObject& object,
     EffectPaintPropertyNode::State& state,
-    const TransformPaintPropertyNodeOrAlias& current_transform) {
+    const TransformPaintPropertyNodeOrAlias& current_transform,
+    const EffectPaintPropertyNodeOrAlias& current_effect) {
   LayoutObject* canvas_object = object.CanvasForDrawingLayoutObject();
   CHECK(canvas_object);
   auto* canvas = To<HTMLCanvasElement>(canvas_object->GetNode());
@@ -2117,8 +2117,7 @@ static void PopulateCanvasDrawableState(
       reference_box_offset;
   PopulateCanvasDrawablePaintState(canvas, To<Element>(object.GetNode()),
                                    state.canvas_drawable_state->paint_state);
-  state.canvas_drawable_state->content_effect =
-      canvas_fragment.ContentsEffect();
+  state.canvas_drawable_state->content_effect = &current_effect;
   const auto* properties = object.FirstFragment().PaintProperties();
   DCHECK(properties);
   state.canvas_drawable_state->content_clip =
@@ -2322,7 +2321,8 @@ void FragmentPaintPropertyTreeBuilder::UpdateEffect() {
         if (state.direct_compositing_reasons.Has(
                 CompositingReason::kCanvasDrawableElement)) {
           PopulateCanvasDrawableState(object_, state,
-                                      *context_.current.transform);
+                                      *context_.current.transform,
+                                      *context_.current_effect);
         }
       } else {
         // The effect node CompositorElementId is used to uniquely identify
@@ -2680,10 +2680,12 @@ static void UpdateFilterEffect(
     }
     PaintLayer* layer = To<LayoutBoxModelObject>(object).Layer();
 #if DCHECK_IS_ON()
-    // We should have already updated the reference box.
-    auto reference_box = layer->FilterReferenceBox();
-    layer->UpdateFilterReferenceBox();
-    DCHECK_EQ(reference_box, layer->FilterReferenceBox());
+    if (!PrePaintDisableSideEffectsScope::IsDisabled()) {
+      // We should have already updated the reference box.
+      auto reference_box = layer->FilterReferenceBox();
+      layer->UpdateFilterReferenceBox();
+      DCHECK_EQ(reference_box, layer->FilterReferenceBox());
+    }
 #endif
     layer->UpdateCompositorFilterOperationsForFilter(filter_info.operations);
     filter_info.output_bounds = filter_info.operations.MapRect(
@@ -3378,8 +3380,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateOverflowClip() {
               LayoutReplaced::PreSnappedRectForPersistentSizing(content_rect);
         }
         // LayoutReplaced clips the foreground by rounded content box.
-        const PhysicalBoxStrut border_padding =
-            replaced.BorderOutsets() + replaced.PaddingOutsets();
+        const gfx::Outsets border_padding =
+            (replaced.BorderOutsets() + replaced.PaddingOutsets())
+                .ToRoundedOutsets();
         auto clip_rect =
             ContouredBorderGeometry::PixelSnappedContouredBorderWithOutsets(
                 replaced.Style(), content_rect, -border_padding)
@@ -3503,15 +3506,9 @@ void FragmentPaintPropertyTreeBuilder::UpdateReplacedContentTransform() {
   if (NeedsPaintPropertyUpdate() && !NeedsReplacedContentTransform(object_)) {
     OnClearTransform(properties_->ClearReplacedContentTransform());
   } else if (NeedsPaintPropertyUpdate()) {
-    AffineTransform content_to_parent_space;
-    if (object_.IsSVGRoot()) {
-      content_to_parent_space =
-          SVGRootPainter(To<LayoutSVGRoot>(object_))
-              .TransformToPixelSnappedBorderBox(context_.current.paint_offset);
-    } else if (object_.IsLayoutEmbeddedContent()) {
-      content_to_parent_space =
-          To<LayoutEmbeddedContent>(object_).EmbeddedContentTransform();
-    }
+    AffineTransform content_to_parent_space =
+        SVGRootPainter(To<LayoutSVGRoot>(object_))
+            .TransformToPixelSnappedBorderBox(context_.current.paint_offset);
     if (!content_to_parent_space.IsIdentity()) {
       TransformPaintPropertyNode::State state;
       state.transform_and_origin = {content_to_parent_space.ToTransform()};
@@ -4852,6 +4849,12 @@ void PaintPropertyTreeBuilder::UpdateForSelf() {
   if (!PrePaintDisableSideEffectsScope::IsDisabled()) {
     object_.GetMutableForPainting()
         .SetShouldAssumePaintOffsetTranslationForLayoutShiftTracking(false);
+    if ((!pre_paint_info_ || pre_paint_info_->is_last_for_node) &&
+        object_.NeedsPaintPropertyUpdate() && object_.HasLayer()) {
+      To<LayoutBoxModelObject>(object_)
+          .Layer()
+          ->ClearFilterAndBackdropFilterOnEffectNodeDirty();
+    }
   }
 }
 

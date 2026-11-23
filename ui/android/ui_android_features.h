@@ -18,6 +18,12 @@ namespace ui {
 // ships.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidHDR);
 
+// Kill switch for keeping status bar insets visible in InsetObserver while
+// Chrome's window is unfocused and another window (e.g. a translucent share
+// sheet) has hidden the status bars.
+UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(
+    kAndroidPreserveStatusBarInsetsWhenUnfocused);
+
 // Drops the cached bitmap in SoftwareDraw immediately after capture.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidResourceMemoryOptimization);
 
@@ -100,6 +106,10 @@ UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kRequireLeadingInTextViewWithLeading);
 
 // Update display for context on configuration changed and activity resumed.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidUpdateDisplayForContext);
+
+// Overrides the pointer and screen space switching logic between flyout and
+// drilldown submenus in hierarchical menus for testing.
+UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kSubmenuTypeOverride);
 
 // Kill switch to turn off new supportKeyabord method
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kSupportKeyboard);

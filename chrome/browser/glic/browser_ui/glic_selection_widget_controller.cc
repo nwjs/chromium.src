@@ -8,7 +8,6 @@
 #include <utility>
 
 #include "base/feature_list.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/task/single_thread_task_runner.h"
@@ -20,6 +19,7 @@
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_passkeys.h"
+#include "chrome/browser/glic/public/glic_provider_metrics.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "chrome/browser/glic/selection/inline_cue_blocklist_utils.h"
 #include "chrome/browser/glic/selection/selection_overlay.mojom.h"
@@ -82,16 +82,17 @@ void InvokeGlicFromSelectionAffordance(
   const char* histogram_suffix =
       GlicEnabling::HasConsentedForProfile(profile) ? ".PostFre" : ".PreFre";
 
-  base::UmaHistogramEnumeration(
-      base::StrCat({"Glic.Selection.Action", histogram_suffix}),
+  GlicMetricReporter metric_reporter(profile);
+  metric_reporter.RecordEnumeration(
+      base::StrCat({"Selection.Action", histogram_suffix}),
       GlicSelectionAction::kWidgetClicked);
-  base::UmaHistogramCounts1000(
+  metric_reporter.RecordCounts1000(
       base::StrCat(
-          {"Glic.Selection.WidgetClicked.SelectionLength", histogram_suffix}),
+          {"Selection.WidgetClicked.SelectionLength", histogram_suffix}),
       selected_text.length());
-  base::UmaHistogramCounts1000(
-      base::StrCat({"Glic.Selection.WidgetClicked.SelectionWordCount",
-                    histogram_suffix}),
+  metric_reporter.RecordCounts1000(
+      base::StrCat(
+          {"Selection.WidgetClicked.SelectionWordCount", histogram_suffix}),
       CountWords(selected_text));
 
   auto* tab_interface = tabs::TabInterface::MaybeGetFromContents(&web_contents);
@@ -132,7 +133,10 @@ void InvokeGlicFromSelectionAffordance(
 GlicSelectionWidgetController::GlicSelectionWidgetController(
     content::WebContents* web_contents,
     GlicSelectionWidgetControllerDelegate& delegate)
-    : web_contents_(web_contents->GetWeakPtr()), delegate_(delegate) {
+    : web_contents_(web_contents->GetWeakPtr()),
+      delegate_(delegate),
+      metric_reporter_(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext())) {
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   glic_keyed_service_ = GlicKeyedService::Get(profile);
@@ -149,6 +153,9 @@ GlicSelectionWidgetController::GlicSelectionWidgetController(
 GlicSelectionWidgetController::~GlicSelectionWidgetController() = default;
 
 void GlicSelectionWidgetController::OnAskGemini() {
+  if (!web_contents()) {
+    return;
+  }
   if (base::FeatureList::IsEnabled(features::kGlicSelectionSmallChip)) {
     Dismiss(DismissReason::kActionTaken);
     ShowSelectionOverlay();
@@ -161,6 +168,9 @@ void GlicSelectionWidgetController::OnAskGemini() {
 }
 
 void GlicSelectionWidgetController::OnCopy() {
+  if (!web_contents()) {
+    return;
+  }
   Dismiss(DismissReason::kActionTaken);
   web_contents()->Copy();
 }
@@ -173,6 +183,9 @@ void GlicSelectionWidgetController::OnHide() {
 }
 
 void GlicSelectionWidgetController::OnSettings() {
+  if (!web_contents()) {
+    return;
+  }
   auto* tab_interface =
       tabs::TabInterface::MaybeGetFromContents(web_contents());
   if (tab_interface) {
@@ -214,8 +227,8 @@ void GlicSelectionWidgetController::Dismiss(DismissReason reason) {
           (reason == DismissReason::kCloseButton)
               ? GlicSelectionAction::kWidgetDismissedByButton
               : GlicSelectionAction::kWidgetDismissedByClickOutside;
-      base::UmaHistogramEnumeration(
-          base::StrCat({"Glic.Selection.Action", histogram_suffix}), action);
+      metric_reporter_.RecordEnumeration(
+          base::StrCat({"Selection.Action", histogram_suffix}), action);
     }
     dismissal_recorded_ = true;
     widget_delegate_->CloseWidget();
@@ -224,6 +237,9 @@ void GlicSelectionWidgetController::Dismiss(DismissReason reason) {
 
 GlicSelectionWidgetController::ShowResult GlicSelectionWidgetController::Show(
     const std::u16string& selected_text) {
+  if (!web_contents()) {
+    return ShowResult::kSkipped;
+  }
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
@@ -249,16 +265,16 @@ GlicSelectionWidgetController::ShowResult GlicSelectionWidgetController::Show(
       widget_delegate_->CloseWidget();
     }
 
-    base::UmaHistogramEnumeration(
-        base::StrCat({"Glic.Selection.Action", histogram_suffix}),
+    metric_reporter_.RecordEnumeration(
+        base::StrCat({"Selection.Action", histogram_suffix}),
         GlicSelectionAction::kWidgetShown);
-    base::UmaHistogramCounts1000(
+    metric_reporter_.RecordCounts1000(
         base::StrCat(
-            {"Glic.Selection.WidgetShown.SelectionLength", histogram_suffix}),
+            {"Selection.WidgetShown.SelectionLength", histogram_suffix}),
         selected_text.length());
-    base::UmaHistogramCounts1000(
-        base::StrCat({"Glic.Selection.WidgetShown.SelectionWordCount",
-                      histogram_suffix}),
+    metric_reporter_.RecordCounts1000(
+        base::StrCat(
+            {"Selection.WidgetShown.SelectionWordCount", histogram_suffix}),
         CountWords(selected_text));
 
     widget_delegate_ = std::make_unique<GlicSelectionWidgetDelegate>(
@@ -307,19 +323,6 @@ void GlicSelectionWidgetController::ShowSelectionOverlay() {
     return;
   }
 
-  overlay_closed_subscription_ = controller->RegisterOverlayClosedCallback(
-      base::BindOnce(
-          [](GlicSelectionWidgetController* self,
-             SelectionOverlayController::CloseReason reason) {
-            if (reason ==
-                    SelectionOverlayController::CloseReason::kCloseButton ||
-                reason ==
-                    SelectionOverlayController::CloseReason::kEscapeKeyPress) {
-              self->OnHide();
-            }
-          },
-          base::Unretained(this)));
-
   // When the side panel is open, let the web client start the capture session.
   if (glic_keyed_service_ &&
       GlicSidePanelCoordinator::IsShowing(tab_interface) &&
@@ -338,7 +341,8 @@ void GlicSelectionWidgetController::ShowSelectionOverlay() {
     controller->ShowWithSelection(
         delegate_->GetSelectedFrame(), *bounds,
         selection::InteractionOptions::New(
-            /*hide_handles=*/true, /*disable_multi_select=*/true));
+            /*hide_handles=*/true, /*disable_multi_select=*/true,
+            /*skip_intro_animation=*/true));
   } else {
     controller->Show(/*options=*/nullptr);
   }
@@ -350,6 +354,9 @@ bool GlicSelectionWidgetController::ShouldShowSelectionWidget() {
 }
 
 void GlicSelectionWidgetController::UpdatePageBlockedState() {
+  if (!web_contents()) {
+    return;
+  }
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   is_site_blocked_on_current_page_ =

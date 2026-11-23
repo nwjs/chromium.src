@@ -4,8 +4,10 @@
 
 #include "third_party/blink/renderer/core/css/style_recalc_context.h"
 
+#include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_context.h"
 #include "third_party/blink/renderer/core/dom/flat_tree_traversal.h"
+#include "third_party/blink/renderer/core/dom/node-inl.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
@@ -37,6 +39,14 @@ bool IsOrWasOverscrollContainer(const Element& element) {
   // type does not imply that the feature is enabled for this document.
   return RuntimeEnabledFeatures::OverscrollAreasEnabled(
       element.GetExecutionContext());
+}
+
+// Whether `element` may currently have animations or transitions in effect.
+// This is conservative: it can be true for an element whose animations are
+// being cancelled or have not started yet.
+bool MayHaveActiveAnimations(const Element& element) {
+  const ElementAnimations* animations = element.GetElementAnimations();
+  return animations && animations->MayHaveActiveEffects();
 }
 
 }  // namespace
@@ -75,6 +85,11 @@ StyleRecalcContext StyleRecalcContext::FromInclusiveAncestors(
         result.has_anchored_container =
             style->IsContainerForAnchoredContainerQueries();
       }
+      if (!result.has_hover_affected_ancestor &&
+          (style->AffectedByHover() ||
+           style->AffectedByNonSubjectHoverSelector())) {
+        result.has_hover_affected_ancestor = true;
+      }
     }
 
     if (!result.has_content_visibility_auto_locked_ancestor) {
@@ -87,7 +102,7 @@ StyleRecalcContext StyleRecalcContext::FromInclusiveAncestors(
       }
     }
 
-    if (!result.has_animating_ancestor && element->GetElementAnimations()) {
+    if (!result.has_animating_ancestor && MayHaveActiveAnimations(*element)) {
       result.has_animating_ancestor = true;
     }
   }
@@ -144,9 +159,14 @@ StyleRecalcContext StyleRecalcContext::FromParentContext(
     if (style->IsContainerForAnchoredContainerQueries()) {
       result.has_anchored_container = true;
     }
+    if (!result.has_hover_affected_ancestor &&
+        (style->AffectedByHover() ||
+         style->AffectedByNonSubjectHoverSelector())) {
+      result.has_hover_affected_ancestor = true;
+    }
   }
 
-  if (!result.has_animating_ancestor && element.GetElementAnimations()) {
+  if (!result.has_animating_ancestor && MayHaveActiveAnimations(element)) {
     result.has_animating_ancestor = true;
   }
 

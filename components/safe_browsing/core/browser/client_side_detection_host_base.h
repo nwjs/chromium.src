@@ -19,6 +19,7 @@
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/tick_clock.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
 #include "components/history/core/browser/history_service_observer.h"
 #include "components/history/core/browser/history_types.h"
@@ -226,6 +227,14 @@ class ClientSideDetectionHostBase : public autofill::AutofillManager::Observer,
     probability_for_sending_sample_request_ = sample_ping_rate;
   }
 
+  // Returns the PNG-encoded screenshot bytes passed to the most recent
+  // `StartIntelligentScan` call, used in unit tests to verify multimodal
+  // screenshot capture and encoding.
+  const std::optional<std::string>&
+  last_intelligent_scan_tab_screenshot_for_testing() const {
+    return last_intelligent_scan_tab_screenshot_for_testing_;
+  }
+
  protected:
   base::WeakPtr<ClientSideDetectionServiceBase> GetClientSideDetectionService()
       const;
@@ -326,6 +335,29 @@ class ClientSideDetectionHostBase : public autofill::AutofillManager::Observer,
       std::optional<bool> did_match_high_confidence_allowlist,
       bool is_invalid_ip,
       std::string inner_text);
+
+  // Returns true if the feature configuration and device capabilities allow
+  // capturing a screenshot for multimodal intelligent scan.
+  bool ShouldCaptureScreenshotForIntelligentScan() const;
+
+  // Optionally captures a viewport screenshot for multimodal intelligent scan
+  // before starting the scan via `StartIntelligentScan`. By default, invokes
+  // `StartIntelligentScan` immediately without a screenshot.
+  virtual void MaybeCaptureScreenshotAndStartIntelligentScan(
+      std::unique_ptr<ClientPhishingRequest> verdict,
+      std::optional<bool> did_match_high_confidence_allowlist,
+      bool is_invalid_ip,
+      std::string inner_text);
+
+  // Invokes `IntelligentScanDelegate::StartIntelligentScan` and logs the begin
+  // event, or skips the scan if `inner_text` is empty or too short and
+  // `tab_screenshot` is empty.
+  void StartIntelligentScan(
+      std::unique_ptr<ClientPhishingRequest> verdict,
+      std::optional<bool> did_match_high_confidence_allowlist,
+      bool is_invalid_ip,
+      std::string inner_text,
+      std::optional<std::string> tab_screenshot);
 
   // Callback function when StartIntelligentScan from the intelligent scan
   // delegate is completed.
@@ -490,6 +522,15 @@ class ClientSideDetectionHostBase : public autofill::AutofillManager::Observer,
   bool is_classifying() const { return is_classifying_; }
   void set_is_classifying(bool value) { is_classifying_ = value; }
 
+  bool is_checking_uniform_image() const { return is_checking_uniform_image_; }
+  bool is_uniform_image_retry_timer_running() const {
+    return keyboard_lock_uniform_image_retry_timer_.IsRunning();
+  }
+  void set_last_phishing_detector_result(PhishingDetectorResult result) {
+    last_phishing_detector_result_ = result;
+  }
+  void ResetUniformImageRetryState();
+
   ClientSideDetectionType last_request_type() const {
     return last_request_type_;
   }
@@ -511,6 +552,14 @@ class ClientSideDetectionHostBase : public autofill::AutofillManager::Observer,
 
   int GetTriggerModelVersion() const;
   bool IsModelAvailable() const;
+
+  void TriggerSecondForceRequest();
+
+  void TriggerKeyboardLockUniformImageRetry(
+      std::unique_ptr<ClientPhishingRequest> verdict,
+      std::optional<bool> did_match_high_confidence_allowlist,
+      bool is_invalid_ip,
+      PhishingDetectorResult result);
 
   // MaybeTriggerCreditCardFormPing is a helper that determines whether
   // a credit card form event should trigger a CSD ping. It takes
@@ -575,6 +624,10 @@ class ClientSideDetectionHostBase : public autofill::AutofillManager::Observer,
   // The intelligent scan ID for the current intelligent scan request.
   std::optional<base::UnguessableToken> intelligent_scan_id_;
 
+  // Stores the last `tab_screenshot` passed to `StartIntelligentScan` for
+  // testing.
+  std::optional<std::string> last_intelligent_scan_tab_screenshot_for_testing_;
+
   // The last text that was copied to the clipboard.
   std::u16string last_copied_text_;
   std::unique_ptr<ClipboardExtractedData> clipboard_extracted_data_;
@@ -594,8 +647,26 @@ class ClientSideDetectionHostBase : public autofill::AutofillManager::Observer,
   // PreClassificationCheck until just prior to the network request being sent.
   bool is_csd_running_ = false;
   bool is_classifying_ = false;
+  bool is_checking_uniform_image_ = false;
+  int keyboard_lock_uniform_image_retry_count_ = 0;
+  PhishingDetectorResult last_phishing_detector_result_ =
+      PhishingDetectorResult::CLASSIFICATION_SUCCESS;
+  base::OneShotTimer keyboard_lock_uniform_image_retry_timer_;
   ClientSideDetectionType last_request_type_ =
       ClientSideDetectionType::CLIENT_SIDE_DETECTION_TYPE_UNSPECIFIED;
+
+  // Timer used to delay the second FORCE_REQUEST pre-classification when
+  // `kClientSideDetectionSecondForceRequestWithDelay` is enabled.
+  base::OneShotTimer second_force_request_timer_;
+
+  // True once the delayed second FORCE_REQUEST has been triggered on the
+  // current navigation. Reset in `CancelPendingRequests()`.
+  bool has_triggered_second_force_request_ = false;
+
+  // URL of the first FORCE_REQUEST ping. Reset in `CancelPendingRequests()`.
+  // TODO(crbug.com/579072786): Remove once the renderer allows classification
+  // after same-document URL changes.
+  GURL second_force_request_url_;
 
   // Records the start time of when image embedding started.
   base::TimeTicks image_embedding_start_time_;

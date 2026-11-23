@@ -32,6 +32,9 @@ def ParseJson(filename: str) -> dict:
 
 
 def PlotSuperPageData(data: dict, output_filename: str):
+  if not data:
+    print('No superpages to plot.')
+    return
   num_superpages = len(data)
   num_partition_pages = len(data[0]['partition_pages'])
   data_np = np.zeros((num_superpages, num_partition_pages, 3))
@@ -44,7 +47,7 @@ def PlotSuperPageData(data: dict, output_filename: str):
   RED = (1.0, 0.0, 0.0)
   GREEN = (0.0, 0.8, 0.0)
   WHITE = (1.0, 1.0, 1.0)
-  cmap = matplotlib.cm.get_cmap('coolwarm')
+  cmap = plt.get_cmap('coolwarm')
 
   for superpage_index in range(len(addresses)):
     superpage = address_to_superpage[addresses[superpage_index]]
@@ -54,9 +57,8 @@ def PlotSuperPageData(data: dict, output_filename: str):
         value = BLACK
       elif partition_page['type'] == 'guard':
         value = GRAY
-      elif partition_page['all_zeros'] and 'is_active' not in partition_page:
-        # Otherwise it may be the subsequent partition page of a decommitted
-        # slot span.
+      elif 'is_active' not in partition_page:
+        # Otherwise it may be the subsequent partition page of a slot span.
         if partition_page['page_index_in_span'] == 0:
           value = WHITE
 
@@ -107,6 +109,9 @@ def PlotSuperPageData(data: dict, output_filename: str):
 
 
 def PlotSuperPageCompressionData(data: dict, output_filename: str):
+  if not data:
+    print('No superpages to plot.')
+    return
   num_superpages = len(data)
   num_pages = len(data[0]['page_sizes'])
   data_np = np.zeros((num_superpages, num_pages, 3))
@@ -115,7 +120,7 @@ def PlotSuperPageCompressionData(data: dict, output_filename: str):
   addresses = sorted(address_to_superpage.keys())
 
   WHITE = (1.0, 1.0, 1.0)
-  cmap = matplotlib.cm.get_cmap('coolwarm')
+  cmap = plt.get_cmap('coolwarm')
 
   total_compressed_size = 0
   total_uncompressed_size = 0
@@ -269,6 +274,69 @@ def PlotDelta(data: dict, bucket_sizes: list, output_filename: str):
   plt.savefig(output_filename, bbox_inches='tight')
 
 
+def PlotGigacageData(data: dict, output_filename: str):
+  if not data or 'superpages' not in data:
+    return
+
+  superpages = data['superpages']
+  pool_base = int(data['pool_base'], 16)
+  superpage_size_mib = 2
+  superpage_size = superpage_size_mib * (1 << 20)
+  cols = 128
+  rows = len(superpages) // cols
+
+  GRAY = (0.9, 0.9, 0.9)
+  BLUE = (0.17, 0.48, 0.73)
+  PURPLE = (0.48, 0.20, 0.58)
+  color_map = {'free': GRAY, 'normal': BLUE, 'direct_mapped': PURPLE}
+
+  grid = np.array([color_map[sp] for sp in superpages]).reshape(rows, cols, 3)
+
+  normal_count = superpages.count('normal')
+  dm_count = superpages.count('direct_mapped')
+  free_count = superpages.count('free')
+  allocated = normal_count + dm_count
+
+  plt.figure(figsize=(20, 10))
+  plt.imshow(grid, aspect='auto', interpolation='nearest')
+  plt.title(
+    'GigaCage SuperPage Map (Base: %s) - Allocated: %d / %d (%d MiB / %d GiB)'
+    % (
+      data['pool_base'],
+      allocated,
+      len(superpages),
+      allocated * superpage_size_mib,
+      (len(superpages) * superpage_size_mib) // 1024,
+    )
+  )
+  plt.yticks(
+    ticks=range(0, rows, 8),
+    labels=[
+      '0x%x (+%d GiB)'
+      % (
+        pool_base + r * cols * superpage_size,
+        (r * cols * superpage_size_mib) // 1024,
+      )
+      for r in range(0, rows, 8)
+    ],
+  )
+  plt.xlabel('SuperPage index in 256 MiB row (2 MiB per SuperPage)')
+
+  handles = [
+    matplotlib.patches.Patch(
+      facecolor=BLUE, edgecolor='k', label='Normal Buckets (%d)' % normal_count
+    ),
+    matplotlib.patches.Patch(
+      facecolor=PURPLE, edgecolor='k', label='Direct Mapped (%d)' % dm_count
+    ),
+    matplotlib.patches.Patch(
+      facecolor=GRAY, edgecolor='k', label='Free (%d)' % free_count
+    ),
+  ]
+  plt.legend(handles=handles, loc='lower right', fontsize=12, framealpha=0.7)
+  plt.savefig(output_filename, bbox_inches='tight')
+
+
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
@@ -283,6 +351,8 @@ def main():
   PlotSuperPageCompressionData(
     data['superpages'], args.output + '_compression.png'
   )
+  if 'gigacage' in data:
+    PlotGigacageData(data['gigacage'], args.output + '_gigacage.png')
 
   # Allocated object data is not always available.
   if 'allocated_sizes' in data:

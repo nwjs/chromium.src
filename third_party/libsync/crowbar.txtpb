@@ -1,0 +1,21 @@
+upstream {
+  commit: "a3b721a32242006b59cb12bd62c9133632af3a2d"
+  artifacts {
+    git {
+      repository: "https://android.googlesource.com/platform/system/core"
+      commit: "a3b721a32242006b59cb12bd62c9133632af3a2d"
+    }
+  }
+}
+stages {
+  input {
+    patch { copybara {} }
+  }
+  publish { git {} }
+}
+latest {
+  git {
+    repository: "https://android.googlesource.com/platform/system/core"
+    branch: "HEAD"
+  }
+}

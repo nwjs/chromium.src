@@ -74,6 +74,7 @@ void AdvanceSVGImageAnimationUntil(SVGImage& image,
 class SVGImageTest : public testing::Test, private ScopedMockOverlayScrollbars {
  public:
   SVGImage& GetImage() { return *image_; }
+  void ResetImage() { image_.reset(); }
 
   void Load(base::span<const char> data, bool should_pause) {
     observer_ = MakeGarbageCollected<PauseControlImageObserver>(should_pause);
@@ -581,7 +582,7 @@ TEST_F(SVGImageSimTest, PageVisibilityHiddenToVisible) {
   Compositor().BeginFrame();
   test::RunPendingTasks();
 
-  Element* element = GetDocument().getElementById(AtomicString("image"));
+  Element* element = GetElementById("image");
   ASSERT_TRUE(IsA<HTMLImageElement>(element));
 
   ImageResourceContent* image_content =
@@ -645,7 +646,7 @@ TEST_F(SVGImageSimTest, AnimationsPausedWhenImageScrolledOutOfView) {
   Compositor().BeginFrame();
   test::RunPendingTasks();
 
-  Element* element = GetDocument().getElementById(AtomicString("image"));
+  Element* element = GetElementById("image");
   ASSERT_TRUE(IsA<HTMLImageElement>(element));
 
   ImageResourceContent* image_content =
@@ -717,7 +718,7 @@ TEST_F(SVGImageSimTest, AnimationsResumedWhenImageScrolledIntoView) {
 
   Compositor().BeginFrame();
 
-  Element* element = GetDocument().getElementById(AtomicString("image"));
+  Element* element = GetElementById("image");
   ASSERT_TRUE(IsA<HTMLImageElement>(element));
 
   ImageResourceContent* image_content =
@@ -800,8 +801,7 @@ TEST_F(SVGImageSimTest, CachedFiniteCssAnimationResetWhileDetached) {
   Compositor().BeginFrame();
   test::RunPendingTasks();
 
-  Element* visible_element =
-      GetDocument().getElementById(AtomicString("visible"));
+  Element* visible_element = GetElementById("visible");
   ASSERT_TRUE(IsA<HTMLImageElement>(visible_element));
   ImageResourceContent* visible_image_content =
       To<HTMLImageElement>(*visible_element).CachedImage();
@@ -826,8 +826,7 @@ TEST_F(SVGImageSimTest, CachedFiniteCssAnimationResetWhileDetached) {
   Compositor().BeginFrame();
   test::RunPendingTasks();
 
-  Element* hidden_element =
-      GetDocument().getElementById(AtomicString("hidden"));
+  Element* hidden_element = GetElementById("hidden");
   ASSERT_TRUE(IsA<HTMLImageElement>(hidden_element));
   EXPECT_FALSE(hidden_element->GetLayoutObject());
   hidden_element->setAttribute(html_names::kSrcAttr, AtomicString("image.svg"));
@@ -963,7 +962,7 @@ TEST_F(SVGImageSimTest, SpriteSheetCulling) {
 
   // Adjust the height so one green circle and three blue circles are visible,
   // and ensure four circles are recorded.
-  Element* div = GetDocument().getElementById(AtomicString("div"));
+  Element* div = GetElementById("div");
   div->setAttribute(html_names::kStyleAttr, AtomicString("height: 200px;"));
   Compositor().BeginFrame();
   record = GetDocument().View()->GetPaintRecord();
@@ -1016,7 +1015,7 @@ TEST_F(SVGImageSimTest, SpriteSheetCullingBorderRadius) {
 
   // Adjust the height so one green circle and three blue circles are visible,
   // and ensure four circles are recorded.
-  Element* div = GetDocument().getElementById(AtomicString("div"));
+  Element* div = GetElementById("div");
   div->setAttribute(html_names::kStyleAttr, AtomicString("height: 200px;"));
   Compositor().BeginFrame();
   record = GetDocument().View()->GetPaintRecord();
@@ -1067,7 +1066,7 @@ TEST_F(SVGImageSimTest, ClippedAbsoluteImageSpriteSheetCulling) {
 
   // Adjust the div's height so one green circle and three blue circles are
   // visible, and ensure four circles are recorded.
-  Element* div_element = GetDocument().getElementById(AtomicString("div"));
+  Element* div_element = GetElementById("div");
   div_element->setAttribute(html_names::kStyleAttr,
                             AtomicString("height: 200px;"));
   Compositor().BeginFrame();
@@ -1076,7 +1075,7 @@ TEST_F(SVGImageSimTest, ClippedAbsoluteImageSpriteSheetCulling) {
 
   // Adjust the image's position so only the three blue circles are visible,
   // and ensure three circles are recorded.
-  Element* image_element = GetDocument().getElementById(AtomicString("image"));
+  Element* image_element = GetElementById("image");
   image_element->setAttribute(html_names::kStyleAttr,
                               AtomicString("top: -200px;"));
   Compositor().BeginFrame();
@@ -1126,7 +1125,7 @@ TEST_F(SVGImageSimTest, ClippedStaticImageSpriteSheetCulling) {
 
   // Adjust the div's height so one green circle and three blue circles are
   // visible, and ensure four circles are recorded.
-  Element* div_element = GetDocument().getElementById(AtomicString("div"));
+  Element* div_element = GetElementById("div");
   div_element->setAttribute(html_names::kStyleAttr,
                             AtomicString("height: 200px;"));
   Compositor().BeginFrame();
@@ -1135,7 +1134,7 @@ TEST_F(SVGImageSimTest, ClippedStaticImageSpriteSheetCulling) {
 
   // Adjust the image's position so only the three blue circles are visible,
   // and ensure three circles are recorded.
-  Element* image_element = GetDocument().getElementById(AtomicString("image"));
+  Element* image_element = GetElementById("image");
   image_element->setAttribute(html_names::kStyleAttr,
                               AtomicString("margin-top: -200px;"));
   Compositor().BeginFrame();
@@ -1196,7 +1195,7 @@ TEST_F(SVGImageSimTest, InterestRectDoesNotCullImageSpriteSheet) {
 
   // Adjust the div's width and height so that it creates a cull rect that clips
   // to just a single circle, and ensure just one circle is recorded.
-  Element* div_element = GetDocument().getElementById(AtomicString("div"));
+  Element* div_element = GetElementById("div");
   div_element->setAttribute(html_names::kStyleAttr,
                             AtomicString("width: 100px; height: 200px;"));
   Compositor().BeginFrame();
@@ -1260,6 +1259,45 @@ TEST_F(SVGImageSimTest, SpriteSheetNonDrawingCulling) {
   PaintRecord record = GetDocument().View()->GetPaintRecord();
   EXPECT_EQ(1U, CountPaintOpType(record, cc::PaintOpType::kDrawOval));
   EXPECT_EQ(0U, CountPaintOpType(record, cc::PaintOpType::kTranslate));
+}
+
+TEST_F(SVGImageTest, SVGImageForContainerRetainsSVGImage) {
+  const bool kShouldPause = false;
+  Load(base::span_from_cstring(R"SVG(
+         <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'>
+           <rect width='10' height='10' fill='blue'/>
+         </svg>)SVG"),
+       kShouldPause);
+
+  auto container =
+      SVGImageForContainer::Create(GetImage(), gfx::SizeF(100, 100), 1, nullptr,
+                                   mojom::blink::PreferredColorScheme::kLight);
+  ResetImage();
+  SkBitmap bitmap =
+      container->AsSkBitmapForCurrentFrame(kDoNotRespectImageOrientation);
+  ASSERT_EQ(bitmap.width(), 100);
+  ASSERT_EQ(bitmap.height(), 100);
+  EXPECT_EQ(bitmap.getColor(50, 50), SK_ColorBLUE);
+}
+
+TEST_F(SVGImageSimTest, ElementSizeAndDefaultDestinationSizeWithViewSpec) {
+  SimRequest main_resource("https://example.com/", "text/html");
+  LoadURL("https://example.com/");
+  main_resource.Complete(R"HTML(
+    <img id="image" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='blue' width='100' height='100'/></svg>#svgView(viewBox(0,0,50,25);transform(scale(1)))">
+  )HTML");
+
+  Compositor().BeginFrame();
+  test::RunPendingTasks();
+
+  auto* image =
+      To<HTMLImageElement>(GetDocument().getElementById(AtomicString("image")));
+  ASSERT_TRUE(image);
+  EXPECT_EQ(gfx::SizeF(300, 150),
+            image->ElementSize(gfx::SizeF(300, 300), kRespectImageOrientation));
+  EXPECT_EQ(gfx::SizeF(300, 150),
+            image->DefaultDestinationSize(gfx::SizeF(300, 300),
+                                          kRespectImageOrientation));
 }
 
 }  // namespace blink

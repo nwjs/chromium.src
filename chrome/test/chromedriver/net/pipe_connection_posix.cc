@@ -8,13 +8,13 @@
 #include <memory>
 #include <string>
 
-#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/synchronization/atomic_flag.h"
 #include "base/threading/thread.h"
 #include "base/values.h"
 #include "chrome/test/chromedriver/net/command_id.h"
@@ -285,8 +285,8 @@ class PipeWriter {
     }
 
     // enqueue with the trailing zero character
-    queued_.insert(queued_.end(), message.c_str(),
-                   UNSAFE_TODO(message.c_str() + message.size() + 1));
+    queued_.append(message);
+    queued_.push_back('\0');
     if (!write_buffer_->BytesRemaining()) {
       const size_t queued_size = queued_.size();
       write_buffer_ = base::MakeRefCounted<net::DrainableIOBuffer>(

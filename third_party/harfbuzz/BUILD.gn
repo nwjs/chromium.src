@@ -23,7 +23,6 @@ if (use_system_harfbuzz) {
 
   component("harfbuzz") {
     public_configs = [ ":harfbuzz_from_pkgconfig" ]
-    check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
   }
 } else {
   import("//build/rust/cargo_crate.gni")
@@ -39,7 +38,6 @@ if (use_system_harfbuzz) {
       "no-doc-comments",
     ]
     configs = [ ":harfbuzz_config" ]
-    check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
   }
 
   cargo_crate("harfbuzz_rust") {
@@ -56,17 +54,19 @@ if (use_system_harfbuzz) {
     edition = "2021"
     features = [
       "font",
-      "shape",
       "skrifa",
     ]
     bindgen_deps = [ ":hb_rs_generator" ]
     deps = [
       "//third_party/rust/font_types/v0_12:lib",
-      "//third_party/rust/harfrust/v0_14:lib",
       "//third_party/rust/read_fonts/v0_45:lib",
       "//third_party/rust/skrifa/v0_48:lib",
       "//third_party/rust/smallvec/v1:lib",
     ]
+    if (enable_harfrust) {
+      features += [ "shape" ]
+      deps += [ "//third_party/rust/harfrust/v0_14:lib" ]
+    }
   }
 
   config("harfbuzz_config") {
@@ -479,7 +479,6 @@ if (use_system_harfbuzz) {
       "HAVE_FONTATIONS",
       "HB_NO_MMAP",
       "HB_NO_RESOURCE_FORK",
-      "HAVE_HARFRUST",
 
       # Use assignment to empty value to work around a build failure.
       "HB_NO_PAINT=",
@@ -570,15 +569,17 @@ if (use_system_harfbuzz) {
     deps = [
       ":harfbuzz_rust",
       "//third_party/icu:icuuc",
-      "//third_party/rust/harfrust/v0_14:lib",
     ]
+    if (enable_harfrust) {
+      defines += [ "HAVE_HARFRUST" ]
+      deps += [ "//third_party/rust/harfrust/v0_14:lib" ]
+    }
 
     if (use_glib) {
       configs += [ "//build/config/linux:glib" ]
       public += [ "src/src/hb-glib.h" ]
       sources += [ "src/src/hb-glib.cc" ]
     }
-    check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
   }
 }
 

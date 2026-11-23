@@ -18,11 +18,11 @@ import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {browserProxyFactory, TopicRating} from '../context_hub.mojom-webui.js';
-import type {TopicsFeedbackExportDomain, TopicsFeedbackExportOptions, TopicsFeedbackExportPreview, TopicsFeedbackExportUrl} from '../context_hub.mojom-webui.js';
+import type {TopicFeedback, TopicsFeedbackExportDomain, TopicsFeedbackExportOptions, TopicsFeedbackExportPreview, TopicsFeedbackExportUrl} from '../context_hub.mojom-webui.js';
 
 import {getCss} from './topic_feedback_export_dialog.css.js';
 import {getHtml} from './topic_feedback_export_dialog.html.js';
-import type {TopicFeedback, TopicItem} from './topic_utils.js';
+import type {TopicItem} from './topic_utils.js';
 
 export interface TopicFeedbackExportDialogElement {
   $: {
@@ -93,7 +93,8 @@ export function hasDetailedFeedback(feedback: TopicFeedback|undefined):
     boolean {
   return !!feedback && feedback.rating !== TopicRating.kUnrated &&
       (feedback.queryFeedbacks.length > 0 ||
-       feedback.rejectedVisits.length > 0 || !!feedback.duplicateOf);
+       feedback.rejectedVisits.length > 0 || !!feedback.duplicateOf ||
+       feedback.collectionFeedbacks.length > 0);
 }
 
 function readStoredCoverageTopicIds(): string[] {
@@ -151,6 +152,7 @@ export class TopicFeedbackExportDialogElement extends CrLitElement {
       acknowledged_: {type: Boolean},
       coverageTopicIds_: {type: Array},
       exportState_: {type: String},
+      hasDownloaded_: {type: Boolean},
       confirmingClear_: {type: Boolean},
     };
   }
@@ -169,6 +171,9 @@ export class TopicFeedbackExportDialogElement extends CrLitElement {
   protected accessor acknowledged_: boolean = false;
   protected accessor coverageTopicIds_: string[] = [];
   protected accessor exportState_: ExportState = 'idle';
+  // Whether a bundle was downloaded since the dialog opened. Stays true if a
+  // later download fails, so the form stays the next step.
+  protected accessor hasDownloaded_: boolean = false;
   protected accessor confirmingClear_: boolean = false;
 
   // Ignores previews of windows the rater has since moved away from.
@@ -418,6 +423,7 @@ export class TopicFeedbackExportDialogElement extends CrLitElement {
                                .handler.generateTopicsFeedbackBundle(options);
       fileDownloader(jsonBundle, getExportFileName(new Date()));
       this.exportState_ = 'done';
+      this.hasDownloaded_ = true;
     } catch (e) {
       console.error('Failed to generate the topics feedback bundle:', e);
       this.exportState_ = 'error';
@@ -430,11 +436,22 @@ export class TopicFeedbackExportDialogElement extends CrLitElement {
         '';
   }
 
+  // After a download, uploading to the form is the next step, so the form
+  // replaces the download as the primary action.
+  protected isFormNextStep_(): boolean {
+    return this.hasDownloaded_ && !!this.getFormUrl_();
+  }
+
   protected onOpenFormClick_() {
     const formUrl = this.getFormUrl_();
     if (formUrl) {
       OpenWindowProxyImpl.getInstance().openUrl(formUrl);
     }
+  }
+
+  protected onFormLinkClick_(e: Event) {
+    e.preventDefault();
+    this.onOpenFormClick_();
   }
 
   protected onClearClick_() {

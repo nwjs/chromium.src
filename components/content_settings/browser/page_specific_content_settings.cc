@@ -22,6 +22,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/browsing_data/content/cookie_helper.h"
+#include "components/browsing_data/core/features.h"
 #include "components/content_settings/common/content_settings_agent.mojom.h"
 #include "components/content_settings/core/browser/content_settings_utils.h"
 #include "components/content_settings/core/browser/permission_settings_info.h"
@@ -31,7 +32,6 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_types.mojom-shared.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
-#include "components/content_settings/core/common/features.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/cookie_access_details.h"
@@ -71,11 +71,9 @@ namespace {
 // longer than `kMediaIndicatorMinimumHoldDuration`.
 constexpr auto kMediaIndicatorHoldAfterUseDuration = base::Seconds(1);
 // A minimum delay before media indicator disappears.
-constexpr auto kMediaIndicatorMinimumHoldDuration = base::Seconds(5);
-constexpr auto kMediaIndicatorMinimumHoldDurationPhase2 = base::Seconds(4);
+constexpr auto kMediaIndicatorMinimumHoldDuration = base::Seconds(4);
 // A delay before blocked media indicator disappears.
-constexpr auto kBlockedMediaIndicatorDismissDelay = base::Minutes(1);
-constexpr auto kBlockedMediaIndicatorDismissDelayPhase2 = base::Seconds(4);
+constexpr auto kBlockedMediaIndicatorDismissDelay = base::Seconds(4);
 #if BUILDFLAG(IS_CHROMEOS)
 // A delay before in-use indicator for device (currently only smart cards)
 // disappears.
@@ -843,10 +841,20 @@ void PageSpecificContentSettings::SharedWorkerAccessed(
   PageSpecificContentSettings* settings = GetForFrame(
       content::RenderFrameHost::FromID(render_process_id, render_frame_id));
   if (settings) {
-    settings->OnBrowsingDataAccessed(
-        browsing_data::SharedWorkerInfo{worker_url, name, storage_key,
-                                        same_site_cookies},
-        BrowsingDataModel::StorageType::kSharedWorker, blocked_by_policy);
+    // Keying shared workers by StorageKey avoids retaining potentially large or
+    // unique worker URLs and names in memory across the lifetime of the page.
+    if (base::FeatureList::IsEnabled(
+            browsing_data::features::
+                kBrowsingDataModelSharedWorkerKeyWithoutURL)) {
+      settings->OnBrowsingDataAccessed(
+          storage_key, BrowsingDataModel::StorageType::kSharedWorker,
+          blocked_by_policy);
+    } else {
+      settings->OnBrowsingDataAccessed(
+          browsing_data::SharedWorkerInfo{worker_url, name, storage_key,
+                                          same_site_cookies},
+          BrowsingDataModel::StorageType::kSharedWorker, blocked_by_policy);
+    }
   }
 }
 
@@ -1313,16 +1321,13 @@ void PageSpecificContentSettings::OnMediaStreamPermissionSet(
       }
     }
 
-    if (base::FeatureList::IsEnabled(
-            content_settings::features::kLeftHandSideActivityIndicators)) {
-      // Microphone and Camera share an activity indicator view. If a blocked
-      // indicator is displayed, there is no need to re-show it and it will be
-      // reset automatically. An in-use indicator will be shown/hidden in
-      // `OnCapturingStateChanged`.
-      if (microphone_camera_state_.HasAny(
-              {kCameraAccessed, kMicrophoneAccessed})) {
-        return;
-      }
+    // Microphone and Camera share an activity indicator view. If a blocked
+    // indicator is displayed, there is no need to re-show it and it will be
+    // reset automatically. An in-use indicator will be shown/hidden in
+    // `OnCapturingStateChanged`.
+    if (microphone_camera_state_.HasAny(
+            {kCameraAccessed, kMicrophoneAccessed})) {
+      return;
     }
 
     microphone_camera_state_ = new_microphone_camera_state;
@@ -1599,27 +1604,13 @@ void PageSpecificContentSettings::OnCapturingStateChanged(
          !microphone_camera_state_.Has(kCameraAccessed))) {
       base::TimeDelta indicator_display_time =
           base::TimeTicks::Now() - media_indicator_time_;
-      base::TimeDelta delay;
-      base::TimeDelta min_delay;
 
       // A total duration of an indicator should never be less than
-      // `kMediaIndicatorMinimumHoldDuration`.
-      if (base::FeatureList::IsEnabled(
-              content_settings::features::kLeftHandSideActivityIndicators)) {
-        min_delay = kMediaIndicatorMinimumHoldDurationPhase2;
-      } else {
-        min_delay = kMediaIndicatorMinimumHoldDuration;
-      }
-
-      if (indicator_display_time < min_delay) {
-        delay = min_delay - indicator_display_time;
-        // `delay` should not be smaller than
-        // `kMediaIndicatorHoldAfterUseDuration`.
-        delay = std::max(min_delay - indicator_display_time,
-                         kMediaIndicatorHoldAfterUseDuration);
-      } else {
-        delay = kMediaIndicatorHoldAfterUseDuration;
-      }
+      // `kMediaIndicatorMinimumHoldDuration`, and `delay` should not be smaller
+      // than `kMediaIndicatorHoldAfterUseDuration`.
+      base::TimeDelta delay =
+          std::max(kMediaIndicatorMinimumHoldDuration - indicator_display_time,
+                   kMediaIndicatorHoldAfterUseDuration);
 
       indicators_hiding_delay_timer_[type].Start(
           FROM_HERE, delay,
@@ -1820,15 +1811,8 @@ void PageSpecificContentSettings::StartBlockedIndicatorTimer(
   if (ignore_blocked_media_indicator_timer_for_testing_) {
     return;
   }
-  base::TimeDelta blocked_indicator_delay;
-  if (base::FeatureList::IsEnabled(
-          content_settings::features::kLeftHandSideActivityIndicators)) {
-    blocked_indicator_delay = kBlockedMediaIndicatorDismissDelayPhase2;
-  } else {
-    blocked_indicator_delay = kBlockedMediaIndicatorDismissDelay;
-  }
   media_blocked_indicator_timer_[type].Start(
-      FROM_HERE, blocked_indicator_delay,
+      FROM_HERE, kBlockedMediaIndicatorDismissDelay,
       base::BindOnce(&PageSpecificContentSettings::ResetMediaBlockedState,
                      weak_factory_.GetWeakPtr(), type,
                      /*update_indicators=*/true));

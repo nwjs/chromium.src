@@ -25,7 +25,6 @@
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
@@ -54,10 +53,9 @@ constexpr char kConsumerName[] = "ParkableStringManager";
 constexpr base::MemoryConsumerTraits kMemoryConsumerTraits(
     // Parkable strings typically save tens of MBs across a renderer process.
     base::MemoryConsumerTraits::EstimatedMemoryUsage::kMedium,
-    // Compressing unparked strings iterates over existing memory allocations.
-    base::MemoryConsumerTraits::ReleaseMemoryCost::kRequiresTraversal,
-    // Parking compresses strings or writes them to disk without losing user
-    // data.
+    // Compressing a string reads its contents.
+    base::MemoryConsumerTraits::ReleaseMemoryDataAccess::kReads,
+    // Compressed strings are decompressed on access without losing user data.
     base::MemoryConsumerTraits::InformationRetention::kLossless,
     // Required because the consumer registers via
     // AsyncMemoryConsumerRegistration.
@@ -66,7 +64,9 @@ constexpr base::MemoryConsumerTraits kMemoryConsumerTraits(
     base::MemoryConsumerTraits::SupportsMemoryLimit::kNo,
     // Performs a one-time purge on critical pressure instead of maintaining a
     // lasting limit.
-    base::MemoryConsumerTraits::IsStateful::kNo);
+    base::MemoryConsumerTraits::IsStateful::kNo,
+    // Parking compresses strings.
+    base::MemoryConsumerTraits::ReleaseMemoryCpuCost::kExpensive);
 
 bool CompressionEnabled() {
   return base::FeatureList::IsEnabled(features::kCompressParkableStrings);

@@ -14,11 +14,15 @@
 #include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/notreached.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "components/autofill/core/browser/at_memory/at_memory_metrics_recorder.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
+#include "components/autofill/core/browser/data_model/valuables/loyalty_card.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_driver.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
+#include "components/autofill/core/browser/integrators/at_memory/memory_data_type_util.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
@@ -95,6 +99,7 @@ AtMemoryStateRestored GetStateRestored(const AtMemorySearchState& state) {
     case AtMemorySearchStatus::kQueryModified:
       return AtMemoryStateRestored::kRestoredWithExistingQuery;
     case AtMemorySearchStatus::kSearching:
+    case AtMemorySearchStatus::kPartialResponseReceived:
       return AtMemoryStateRestored::kRestoredWhileSearching;
     case AtMemorySearchStatus::kResponseReceived:
       return AtMemoryStateRestored::kRestoredWithResponse;
@@ -102,6 +107,125 @@ AtMemoryStateRestored GetStateRestored(const AtMemorySearchState& state) {
   NOTREACHED();
 }
 
+// Returns true if `payload` is an address suggestion whose underlying profile
+// no longer exists in `adm`, or was modified after `insertion_time`. Returns
+// false for non-address suggestions or if the profile identifier is not known.
+bool ShouldPruneSuggestionOnAddressDataChange(
+    const Suggestion::AtMemoryPayload& payload,
+    base::Time insertion_time,
+    AddressDataManager& adm) {
+  // Not a Contact Info suggestion - ignore.
+  if (GetMemoryDataTypeCategory(payload.memory_data_type) !=
+      MemoryDataTypeCategory::kContactInfo) {
+    return false;
+  }
+  const std::string* guid = std::get_if<std::string>(&payload.identifier);
+  // Invalid id - ignore.
+  if (!guid || guid->empty()) {
+    return false;
+  }
+  const AutofillProfile* profile = adm.GetProfileByGUID(*guid);
+  // Profile was deleted - prune.
+  if (!profile) {
+    return true;
+  }
+  // If profile was modified after the suggestion was inserted, prune.
+  return !insertion_time.is_null() &&
+         profile->usage_history().modification_date() > insertion_time;
+}
+
+// Returns true if `payload` is a payment suggestion (credit card or IBAN) whose
+// underlying data no longer exists in `pdm`, or was modified after
+// `insertion_time`. Returns false for non-payment suggestions or if the payment
+// identifier is not known.
+bool ShouldPruneSuggestionOnPaymentsDataChange(
+    const Suggestion::AtMemoryPayload& payload,
+    base::Time insertion_time,
+    PaymentsDataManager& pdm) {
+  const MemoryDataTypeCategory category =
+      GetMemoryDataTypeCategory(payload.memory_data_type);
+  if (category == MemoryDataTypeCategory::kCreditCard) {
+    const std::string* guid = std::get_if<std::string>(&payload.identifier);
+    // Invalid id - ignore.
+    if (!guid || guid->empty()) {
+      return false;
+    }
+    const CreditCard* card = pdm.GetCreditCardByGUID(*guid);
+    // Card was deleted - prune.
+    if (!card) {
+      return true;
+    }
+    // If card was modified after the suggestion was inserted, prune.
+    return !insertion_time.is_null() &&
+           card->usage_history().modification_date() > insertion_time;
+  }
+  if (category == MemoryDataTypeCategory::kIban) {
+    const Iban* iban = nullptr;
+    if (const Iban::Guid* guid = std::get_if<Iban::Guid>(&payload.identifier)) {
+      iban = pdm.GetIbanByGUID(guid->value());
+    } else if (const Iban::InstrumentId* instrument_id =
+                   std::get_if<Iban::InstrumentId>(&payload.identifier)) {
+      iban = pdm.GetIbanByInstrumentId(instrument_id->value());
+    }
+    // IBAN was deleted - prune.
+    if (!iban) {
+      return true;
+    }
+    // If IBAN was modified after the suggestion was inserted, prune.
+    return !insertion_time.is_null() &&
+           iban->usage_history().modification_date() > insertion_time;
+  }
+  // Not a payment suggestion - ignore.
+  return false;
+}
+
+// Returns true if `payload` is an Autofill AI entity suggestion whose
+// underlying entity no longer exists in `edm`, or was modified after
+// `insertion_time`. Returns false for non-entity suggestions or if the entity
+// identifier is not known.
+bool ShouldPruneSuggestionOnEntityDataChange(
+    const Suggestion::AtMemoryPayload& payload,
+    base::Time insertion_time,
+    EntityDataManager& edm) {
+  // Not a Autofill AI entity suggestion - ignore.
+  if (!ToEntityType(payload.memory_data_type).has_value()) {
+    return false;
+  }
+  const EntityInstance::EntityId* guid =
+      std::get_if<EntityInstance::EntityId>(&payload.identifier);
+  // Invalid id - ignore.
+  if (!guid || guid->value().empty()) {
+    return false;
+  }
+  const base::optional_ref<const EntityInstance> entity =
+      edm.GetEntityInstance(*guid);
+  // Entity was deleted - prune.
+  if (!entity.has_value()) {
+    return true;
+  }
+  // If entity was modified after the suggestion was inserted, prune.
+  return !insertion_time.is_null() && entity->date_modified() > insertion_time;
+}
+
+// Returns true if `payload` is a loyalty card suggestion whose underlying card
+// no longer exists in `vdm`. Returns false for non-loyalty card suggestions or
+// if the card identifier is not known.
+bool ShouldPruneSuggestionOnValuablesDataChange(
+    const Suggestion::AtMemoryPayload& payload,
+    ValuablesDataManager& vdm) {
+  // Not a loyalty card suggestion - ignore.
+  if (GetMemoryDataTypeCategory(payload.memory_data_type) !=
+      MemoryDataTypeCategory::kLoyaltyCard) {
+    return false;
+  }
+  const ValuableId* id = std::get_if<ValuableId>(&payload.identifier);
+  // Invalid id - ignore.
+  if (!id || id->value().empty()) {
+    return false;
+  }
+  // Card was deleted - prune.
+  return !vdm.GetLoyaltyCardById(*id).has_value();
+}
 }  // namespace
 
 AtMemoryPersistedStateManager::AtMemoryPersistedStateManager(
@@ -110,14 +234,26 @@ AtMemoryPersistedStateManager::AtMemoryPersistedStateManager(
     base::RepeatingClosure on_reset_callback)
     : on_reset_callback_(std::move(on_reset_callback)) {
   CHECK(client);
+  if (client->HasPersonalDataManager()) {
+    address_data_manager_observation_.Observe(
+        &client->GetPersonalDataManager().address_data_manager());
+    payments_data_manager_observation_.Observe(
+        &client->GetPersonalDataManager().payments_data_manager());
+  }
+  if (EntityDataManager* entity_data_manager = client->GetEntityDataManager()) {
+    entity_data_manager_observation_.Observe(entity_data_manager);
+  }
+  if (ValuablesDataManager* valuables_data_manager =
+          client->GetValuablesDataManager()) {
+    valuables_data_manager_observation_.Observe(valuables_data_manager);
+  }
   if (history_service) {
     history_service_observation_.Observe(history_service);
   }
   if (PrefService* pref_service = client->GetPrefs()) {
     pref_registrar_.Init(pref_service);
     pref_registrar_.Add(
-        personal_context::prefs::
-            kPersonalContextInAutofillSettingsToggleStatus,
+        personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
         base::BindRepeating(&AtMemoryPersistedStateManager::OnPrefChanged,
                             base::Unretained(this)));
   }
@@ -171,6 +307,9 @@ void AtMemoryPersistedStateManager::OnFilterSubmitted(
     const std::u16string& filter) {
   CHECK(field_id_);
   search_state_.filter = filter;
+  // Suggestions of a previous search must not be mistaken for (partial)
+  // results of the new one.
+  search_state_.suggestions.clear();
   search_state_.status = AtMemorySearchStatus::kSearching;
   RestartSearchStateTimer();
 }
@@ -181,7 +320,12 @@ void AtMemoryPersistedStateManager::OnSuggestionsChanged(
   if (search_state_.status == AtMemorySearchStatus::kZeroState) {
     return;
   }
+  if (search_state_.status == AtMemorySearchStatus::kSearching &&
+      !suggestions.empty()) {
+    search_state_.status = AtMemorySearchStatus::kPartialResponseReceived;
+  }
   search_state_.suggestions = std::move(suggestions);
+  search_state_.insertion_time = base::Time::Now();
   RestartSearchStateTimer();
 }
 
@@ -200,11 +344,10 @@ void AtMemoryPersistedStateManager::OnSuggestionAccepted(
     const auto it =
         std::ranges::find(previously_filled_suggestions_, suggestion_to_store,
                           &ExpiringSuggestion::suggestion);
-    const base::TimeTicks expiration_time =
-        base::TimeTicks::Now() + kDefaultTimeToLive;
+    const base::Time insertion_time = base::Time::Now();
 
     if (it != previously_filled_suggestions_.end()) {
-      it->expiration_time = expiration_time;
+      it->insertion_time = insertion_time;
       std::rotate(it, it + 1, previously_filled_suggestions_.end());
     } else {
       if (previously_filled_suggestions_.size() >=
@@ -212,9 +355,8 @@ void AtMemoryPersistedStateManager::OnSuggestionAccepted(
         previously_filled_suggestions_.erase(
             previously_filled_suggestions_.begin());
       }
-      previously_filled_suggestions_.push_back(
-          ExpiringSuggestion{.suggestion = suggestion_to_store,
-                             .expiration_time = expiration_time});
+      previously_filled_suggestions_.push_back(ExpiringSuggestion{
+          .suggestion = suggestion_to_store, .insertion_time = insertion_time});
     }
     RestartPreviouslyFilledSuggestionsTimer();
   }
@@ -241,7 +383,8 @@ AtMemoryPersistedStateManager::TakeMetricsRecorder() {
 }
 
 bool AtMemoryPersistedStateManager::IsSearching() const {
-  return search_state_.status == AtMemorySearchStatus::kSearching;
+  return search_state_.status == AtMemorySearchStatus::kSearching ||
+         search_state_.status == AtMemorySearchStatus::kPartialResponseReceived;
 }
 
 void AtMemoryPersistedStateManager::StopSearching(
@@ -253,6 +396,80 @@ void AtMemoryPersistedStateManager::StopSearching(
   search_state_.status = query_completed.value()
                              ? AtMemorySearchStatus::kResponseReceived
                              : AtMemorySearchStatus::kQueryModified;
+}
+
+void AtMemoryPersistedStateManager::PruneSuggestions(
+    base::FunctionRef<bool(const Suggestion::AtMemoryPayload&, base::Time)>
+        should_prune) {
+  auto should_prune_suggestion = [&](const Suggestion& suggestion,
+                                     base::Time insertion_time) -> bool {
+    const Suggestion::AtMemoryPayload* payload =
+        std::get_if<Suggestion::AtMemoryPayload>(&suggestion.payload);
+    if (!payload || payload->is_personal_context_sourced) {
+      return false;
+    }
+    return should_prune(*payload, insertion_time);
+  };
+
+  std::erase_if(
+      previously_filled_suggestions_, [&](const ExpiringSuggestion& es) {
+        return should_prune_suggestion(es.suggestion, es.insertion_time);
+      });
+  std::erase_if(search_state_.suggestions, [&](const Suggestion& suggestion) {
+    return should_prune_suggestion(suggestion, search_state_.insertion_time);
+  });
+  // If all partial results were pruned, the search awaits results again.
+  if (search_state_.status == AtMemorySearchStatus::kPartialResponseReceived &&
+      search_state_.suggestions.empty()) {
+    search_state_.status = AtMemorySearchStatus::kSearching;
+  }
+}
+
+void AtMemoryPersistedStateManager::OnAddressDataChanged() {
+  AddressDataManager* adm = address_data_manager_observation_.GetSource();
+  if (!adm) {
+    return;
+  }
+  PruneSuggestions([adm](const Suggestion::AtMemoryPayload& payload,
+                         base::Time insertion_time) {
+    return ShouldPruneSuggestionOnAddressDataChange(payload, insertion_time,
+                                                    *adm);
+  });
+}
+
+void AtMemoryPersistedStateManager::OnPaymentsDataChanged() {
+  PaymentsDataManager* pdm = payments_data_manager_observation_.GetSource();
+  if (!pdm) {
+    return;
+  }
+  PruneSuggestions([pdm](const Suggestion::AtMemoryPayload& payload,
+                         base::Time insertion_time) {
+    return ShouldPruneSuggestionOnPaymentsDataChange(payload, insertion_time,
+                                                     *pdm);
+  });
+}
+
+void AtMemoryPersistedStateManager::OnEntityInstancesChanged() {
+  EntityDataManager* edm = entity_data_manager_observation_.GetSource();
+  if (!edm) {
+    return;
+  }
+  PruneSuggestions([edm](const Suggestion::AtMemoryPayload& payload,
+                         base::Time insertion_time) {
+    return ShouldPruneSuggestionOnEntityDataChange(payload, insertion_time,
+                                                   *edm);
+  });
+}
+
+void AtMemoryPersistedStateManager::OnValuablesDataChanged() {
+  ValuablesDataManager* vdm = valuables_data_manager_observation_.GetSource();
+  if (!vdm) {
+    return;
+  }
+  PruneSuggestions(
+      [vdm](const Suggestion::AtMemoryPayload& payload, base::Time) {
+        return ShouldPruneSuggestionOnValuablesDataChange(payload, *vdm);
+      });
 }
 
 void AtMemoryPersistedStateManager::OnHistoryDeletions(
@@ -284,6 +501,14 @@ void AtMemoryPersistedStateManager::OnEligibilityStateChanged(
   }
 }
 
+void AtMemoryPersistedStateManager::OnContextSourceDisabled() {
+  // Cached search results and previously filled suggestions may contain data
+  // from the disabled source. Clear everything (instead of filtering by source)
+  // so that in-flight queries, which may still return data from that source,
+  // are cancelled as well.
+  Reset();
+}
+
 void AtMemoryPersistedStateManager::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
   if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) !=
@@ -303,8 +528,17 @@ void AtMemoryPersistedStateManager::OnAutofillManagerStateChanged(
     AutofillManager::LifecycleState new_state) {
   switch (new_state) {
     case AutofillManager::LifecycleState::kInactive:
-    case AutofillManager::LifecycleState::kActive:
       return;
+    case AutofillManager::LifecycleState::kActive:
+      // A main frame that turns from inactive to active becomes the primary
+      // main frame. This happens when a prerendered page is activated or a
+      // BFCached page is restored. Such navigations do not emit
+      // `kPendingReset`, so the state of the previous page is reset here.
+      // (`kPendingReset -> kActive` follows a reset that was already handled.)
+      if (old_state != AutofillManager::LifecycleState::kInactive) {
+        return;
+      }
+      break;
     case AutofillManager::LifecycleState::kPendingReset:
     case AutofillManager::LifecycleState::kPendingDeletion:
       break;
@@ -355,19 +589,19 @@ void AtMemoryPersistedStateManager::RestartPreviouslyFilledSuggestionsTimer() {
   }
   // Finds the suggestion that expires next.
   const auto min_it = std::ranges::min_element(
-      previously_filled_suggestions_, {}, &ExpiringSuggestion::expiration_time);
+      previously_filled_suggestions_, {}, &ExpiringSuggestion::insertion_time);
   const base::TimeDelta delay = std::max(
-      base::TimeDelta(), min_it->expiration_time - base::TimeTicks::Now());
+      base::TimeDelta(), min_it->expiration_time() - base::Time::Now());
   previously_filled_suggestions_timer_.Start(
       FROM_HERE, delay, this,
       &AtMemoryPersistedStateManager::RemoveExpiredPreviouslyFilledSuggestions);
 }
 
 void AtMemoryPersistedStateManager::RemoveExpiredPreviouslyFilledSuggestions() {
-  const base::TimeTicks now = base::TimeTicks::Now();
+  const base::Time now = base::Time::Now();
   std::erase_if(previously_filled_suggestions_,
                 [now](const ExpiringSuggestion& entry) {
-                  return entry.expiration_time <= now;
+                  return entry.expiration_time() <= now;
                 });
   RestartPreviouslyFilledSuggestionsTimer();
 }

@@ -25,6 +25,9 @@ namespace {
 
 using layout_state::LayoutStateTestPassKeyFactory;
 
+// Narrow frame size used to force button title truncation.
+constexpr CGRect kNarrowAppBarFrame = {{0, 0}, {100, 50}};
+
 // Tests for the AppBarViewController state.
 class AppBarViewControllerTest : public PlatformTest {
  protected:
@@ -395,6 +398,43 @@ TEST_F(AppBarViewControllerTest, TestTabGridButtonAccessibilityValue) {
   EXPECT_NSEQ(button.accessibilityValue, @"0");
 }
 
+// Tests that assistant button in kAIM state sets correct image, title, and
+// accessibility label.
+TEST_F(AppBarViewControllerTest, TestAssistantButtonStateAIM) {
+  UIButton* button = assistantButton();
+  ASSERT_NE(button, nil);
+
+  // Test full title when width is default (or 0).
+  [view_controller_ setAssistantButtonState:AppBarAssistantButtonState::kAIM
+                                highlighted:NO
+                                    enabled:YES
+                                     avatar:nil
+                                   signedIn:NO];
+  [button setNeedsUpdateConfiguration];
+  [button layoutIfNeeded];
+
+  UIButtonConfiguration* config = button.configuration;
+  EXPECT_NSEQ(config.title, l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK_GOOGLE));
+  EXPECT_NSEQ(button.accessibilityLabel,
+              l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK_GOOGLE));
+  EXPECT_NE(config.image, nil);
+
+  // Set the view width to a very small size to force truncation.
+  view_controller_.view.frame = kNarrowAppBarFrame;
+  [view_controller_ setAssistantButtonState:AppBarAssistantButtonState::kAIM
+                                highlighted:NO
+                                    enabled:YES
+                                     avatar:nil
+                                   signedIn:NO];
+  [button setNeedsUpdateConfiguration];
+  [button layoutIfNeeded];
+
+  config = button.configuration;
+  EXPECT_NSEQ(config.title, l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK));
+  EXPECT_NSEQ(button.accessibilityLabel,
+              l10n_util::GetNSString(IDS_IOS_APP_BAR_ASK_GOOGLE));
+}
+
 // Tests that assistant button in kLens state sets correct image and title.
 TEST_F(AppBarViewControllerTest, TestAssistantButtonStateLens) {
   UIButton* button = assistantButton();
@@ -414,7 +454,7 @@ TEST_F(AppBarViewControllerTest, TestAssistantButtonStateLens) {
   EXPECT_NE(config.image, nil);
 
   // Set the view width to a very small size to force truncation.
-  view_controller_.view.frame = CGRectMake(0, 0, 100, 50);
+  view_controller_.view.frame = kNarrowAppBarFrame;
   [view_controller_ setAssistantButtonState:AppBarAssistantButtonState::kLens
                                 highlighted:NO
                                     enabled:YES
@@ -579,6 +619,29 @@ TEST_F(AppBarViewControllerTest, TestNewTabButtonMetricsIncognito) {
       user_action_tester.GetActionCount("MobileToolbarNewIncognitoTabShortcut"),
       1);
   EXPECT_EQ(user_action_tester.GetActionCount("MobileTabNewTab"), 1);
+}
+
+// Tests that fullscreen action metrics are only recorded when the app bar is
+// positioned at the bottom (and not in regular-width / non-bottom layouts).
+TEST_F(AppBarViewControllerTest, TestFullscreenMetricsDependOnAppBarPosition) {
+  base::UserActionTester user_action_tester;
+
+  [view_controller_ setTabGridVisible:NO];
+  [view_controller_ updateForFullscreenProgress:0.5];
+
+  UIButton* button = openNewTabButton();
+  [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "MobileToolbarNewTabShortcutFullscreen"),
+            1);
+
+  [layout_state_
+      setAppBarPosition:AppBarPosition::kNone
+                passKey:LayoutStateTestPassKeyFactory::CreateSceneKey()];
+  [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+  EXPECT_EQ(user_action_tester.GetActionCount(
+                "MobileToolbarNewTabShortcutFullscreen"),
+            1);
 }
 
 // Tests that the assistant button reflects the enabled state passed to

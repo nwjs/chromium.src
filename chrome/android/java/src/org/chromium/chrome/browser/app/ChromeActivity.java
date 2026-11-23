@@ -12,10 +12,8 @@ import android.app.Activity;
 import android.app.Fragment;
 import android.app.HandoffActivityData;
 import android.app.HandoffActivityDataRequestInfo;
-import android.app.KeyguardManager;
 import android.app.PictureInPictureUiState;
 import android.app.assist.AssistContent;
-import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
 import android.content.res.Configuration;
@@ -96,8 +94,8 @@ import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.ZoomController;
 import org.chromium.chrome.browser.about_settings.AboutChromeSettings;
 import org.chromium.chrome.browser.actor.ActorMetrics;
-import org.chromium.chrome.browser.actor.ActorPictureInPictureController;
 import org.chromium.chrome.browser.actor.ActorUtils;
+import org.chromium.chrome.browser.actor.pip.ActorPictureInPictureController;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl;
 import org.chromium.chrome.browser.app.download.DownloadMessageUiDelegate;
 import org.chromium.chrome.browser.app.metrics.LaunchCauseMetrics;
@@ -117,11 +115,13 @@ import org.chromium.chrome.browser.bookmarks.PowerBookmarkUtils;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProviderSupplier;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.CompositorViewHolderSupplier;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManagerHandler;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
+import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.desktop_site.DesktopSiteUtils;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.devtools.DevToolsWindowAndroid;
@@ -134,6 +134,7 @@ import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinatorSupplier;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.feedback.FeedbackPolicyManager;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherImpl;
+import org.chromium.chrome.browser.feedback.ScreenshotMode;
 import org.chromium.chrome.browser.firstrun.ForcedSigninProcessor;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -172,6 +173,7 @@ import org.chromium.chrome.browser.night_mode.WebContentsDarkModeMessageControll
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
 import org.chromium.chrome.browser.offlinepages.OfflinePageUtils;
 import org.chromium.chrome.browser.omaha.UpdateMenuItemHelper;
+import org.chromium.chrome.browser.omaha.inline.InAppUpdateController;
 import org.chromium.chrome.browser.open_in_app.OpenInAppDelegate;
 import org.chromium.chrome.browser.page_info.ChromePageInfo;
 import org.chromium.chrome.browser.page_info.ChromePageInfoHighlight;
@@ -315,6 +317,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         implements TabCreatorManager,
                 PolicyChangeListener,
                 SnackbarManageable,
+                InAppUpdateController.InAppUpdateManageable,
                 StatusBarColorController.StatusBarColorProvider,
                 AppMenuDelegate,
                 AppMenuBlocker,
@@ -503,6 +506,10 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     private final OneshotSupplierImpl<ChromeAndroidTask> mChromeAndroidTaskSupplier =
             new OneshotSupplierImpl<>();
+
+    // TODO(crbug.com/574106939): Move InAppUpdateController initialization out of ChromeActivity
+    // into TabbedRootUiCoordinator.
+    private @Nullable InAppUpdateController mInAppUpdateController;
 
     protected ChromeActivity() {
         mManualFillingComponentSupplier.set(ManualFillingComponentFactory.createComponent());
@@ -693,6 +700,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         CompositorViewHolderSupplier.attach(host, mCompositorViewHolderSupplier);
         ManualFillingComponentSupplier.attach(host, mManualFillingComponentSupplier);
         BrowserControlsManagerSupplier.attach(host, mBrowserControlsManagerSupplier);
+        BrowserControlsStateProviderSupplier.attach(host, mBrowserControlsManagerSupplier);
         // BrowserControlsManager is ready immediately.
         mBrowserControlsManagerSupplier.set(
                 new BrowserControlsManager(
@@ -824,8 +832,12 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                         new StartupSigninStateCheckController(
                                 /* context= */ this,
                                 /* dialogManager= */ modalDialogManager,
+                                /* bottomSheetController= */ assertNonNull(
+                                        mRootUiCoordinator.getBottomSheetController()),
                                 /* lifecycleDispatcher= */ getLifecycleDispatcher(),
-                                /* profileSupplier= */ mTabModelProfileSupplier);
+                                /* profileSupplier= */ mTabModelProfileSupplier,
+                                /* showInfoPageCallback= */ url ->
+                                        CustomTabActivity.showInfoPage(this, url));
             }
 
             mShowContentRunnable =
@@ -1449,11 +1461,6 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     private void checkForDeviceLockOnAutomotive() {
         if (DeviceInfo.isAutomotive()) {
-            KeyguardManager keyguardManager =
-                    (KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
-            RecordHistogram.recordBooleanHistogram(
-                    "Android.Automotive.DeviceLockSet", keyguardManager.isDeviceSecure());
-
             if (mMissingDeviceLockLauncher == null) {
                 var modalDialogManager = getModalDialogManagerSupplier().get();
                 assert modalDialogManager != null;
@@ -1992,6 +1999,15 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             chromeAndroidTask.removeAllFeaturesForActivity(activityWindowAndroid);
         }
 
+        // TODO(crbug.com/553918188): Remove logging once in-app update flow stabilizes.
+        if (mInAppUpdateController != null) {
+            Log.i(
+                    InAppUpdateController.TAG,
+                    "ChromeActivity.onDestroy: destroying InAppUpdateController");
+            mInAppUpdateController.destroy();
+            mInAppUpdateController = null;
+        }
+
         SnackbarManager snackbarManager = mSnackbarManagerSupplier.get();
         if (snackbarManager != null) {
             SnackbarManagerProvider.detach(snackbarManager);
@@ -2071,6 +2087,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             browserControlsManager.destroy();
         }
         BrowserControlsManagerSupplier.destroy(mBrowserControlsManagerSupplier);
+        BrowserControlsStateProviderSupplier.destroy(mBrowserControlsManagerSupplier);
 
         if (mStartupMetricsTracker != null) {
             mStartupMetricsTracker.destroy();
@@ -2262,6 +2279,23 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @Override
     public SnackbarManager getSnackbarManager() {
         return assertNonNull(mSnackbarManagerSupplier.get());
+    }
+
+    /**
+     * Returns the {@link InAppUpdateController} for this Activity, or null if the feature is
+     * disabled.
+     */
+    // TODO(crbug.com/574106939): Move InAppUpdateController and InAppUpdateManageable
+    // out of ChromeActivity into TabbedRootUiCoordinator.
+    @Override
+    public @Nullable InAppUpdateController getInAppUpdateController() {
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.IN_APP_UPDATE_FLOW)) {
+            return null;
+        }
+        if (mInAppUpdateController == null) {
+            mInAppUpdateController = new InAppUpdateController(this, mSnackbarManagerSupplier);
+        }
+        return mInAppUpdateController;
     }
 
     @Override
@@ -2825,6 +2859,16 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                 }
             }
 
+            // Recreate (rather than letting the OS do so) to apply the "Bold text" accessibility
+            // setting so that tabs and tab-scoped UI (e.g. the side panel) are retained. Unlike
+            // density / fontScale, this is not affected by window resizing, so also applies on
+            // automotive.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                    && newConfig.fontWeightAdjustment != mConfig.fontWeightAdjustment) {
+                doRecreateActivity();
+                return;
+            }
+
             // Maintain tab state by re-parenting tabs when a Chrome window is moved between
             // displays.
             if ((newConfig.touchscreen != mConfig.touchscreen
@@ -3097,7 +3141,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             return true;
         }
 
-        if (id == R.id.feedback_form) {
+        if (id == R.id.feedback_form || id == R.id.report_issue_menu_id) {
             if (!FeedbackPolicyManager.getInstance().isUserFeedbackAllowed()) {
                 return true;
             }
@@ -3106,7 +3150,15 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                     HelpAndFeedbackLauncherImpl.getHelpContextIdFromUrl(
                             this, url, getCurrentTabModel().isIncognitoBranded());
             HelpAndFeedbackLauncherImpl.getForProfile(currentProfile)
-                    .showFeedback(this, url, helpContextId);
+                    .showFeedback(
+                            this,
+                            url,
+                            /* categoryTag= */ null,
+                            ScreenshotMode.DEFAULT,
+                            helpContextId);
+            if (fromMenu) {
+                RecordUserAction.record("MobileMenuReportAnIssue");
+            }
             return true;
         }
 
@@ -3609,6 +3661,21 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @Override
     public boolean onActivityResultWithNative(
             int requestCode, int resultCode, @Nullable Intent intent) {
+        // TODO(crbug.com/574106939): Handle activity result via ActivityResultWithNativeObserver in
+        // TabbedRootUiCoordinator instead of overriding onActivityResultWithNative in
+        // ChromeActivity.
+        if (requestCode == InAppUpdateController.REQUEST_CODE_IN_APP_UPDATE) {
+            // TODO(crbug.com/553918188): Remove logging once in-app update flow stabilizes.
+            Log.i(
+                    InAppUpdateController.TAG,
+                    "ChromeActivity.onActivityResultWithNative: resultCode=%d",
+                    resultCode);
+            InAppUpdateController inAppUpdateController = getInAppUpdateController();
+            if (inAppUpdateController != null) {
+                inAppUpdateController.handleActivityResult(requestCode, resultCode);
+            }
+            return true;
+        }
         return super.onActivityResultWithNative(requestCode, resultCode, intent);
     }
 

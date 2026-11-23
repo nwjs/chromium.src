@@ -42,6 +42,7 @@
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/trace_event/typed_macros.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -168,11 +169,14 @@ bool g_instance_already_created = false;
 // See http://crbug.com/141302.
 int g_browser_process_pid;
 
-// A shutdown function set on signal callback registration.
-base::OnceCallback<void(int)> ShutdownHandler;
+// The test to notify from SignalHandler(), set on signal callback
+// registration.
+BrowserTestBase* g_signal_test = nullptr;
 
 void SignalHandler(int signal) {
-  std::move(ShutdownHandler).Run(signal);
+  if (BrowserTestBase* test = std::exchange(g_signal_test, nullptr)) {
+    test->SignalRunTestOnMainThread(signal);
+  }
 
   if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableInProcessStackTraces) &&
@@ -229,8 +233,7 @@ std::string GetDefaultTraceBasename(TraceBasenameType type) {
   // stream the results (to avoid losing them if test crashes).
   // - the second time, if test execution finishes normally, to calculate the
   // resulting name of the file, including test result.
-  static std::string random_seed =
-      base::NumberToString(base::RandIntInclusive(1e7, 1e8 - 1));
+  static const int random_seed = base::RandIntInclusive(1e7, 1e8 - 1);
   std::string status;
   if (type == TraceBasenameType::kWithTestStatus) {
     if (test_info) {
@@ -242,8 +245,8 @@ std::string GetDefaultTraceBasename(TraceBasenameType type) {
     // In order to be able to stream the test to the file,
     status = "NOT_FINISHED";
   }
-  return "trace_test_" + test_suite_name + "_" + test_name + "_" + random_seed +
-         "_" + status;
+  return "trace_test_" + test_suite_name + "_" + test_name + "_" +
+         base::NumberToString(random_seed) + "_" + status;
 }
 
 // See SetInitialWebContents comment for more information.
@@ -746,16 +749,20 @@ void BrowserTestBase::SetUp() {
     params.created_main_parts_closure =
         std::move(content_main_params.created_main_parts_closure);
     params.startup_data = std::move(startup_data);
-    params.ui_task = base::BindOnce(&BrowserTestBase::WaitUntilJavaIsReady,
-                                    base::Unretained(this), loop.QuitClosure(),
-                                    /*wait_retry_left=*/
-                                    TestTimeouts::action_max_timeout());
+    params.ui_task = base::BindOnce(
+        &testing::android::SetJavaStartupTasksCompleteCallbackForBrowserTests,
+        loop.QuitClosure());
     // Passing "" as the process type to indicate the browser process.
     auto exit_code = delegate->RunProcess("", std::move(params));
     DCHECK(std::holds_alternative<int>(exit_code));
     DCHECK_EQ(std::get<int>(exit_code), 0);
 
     // Waits for Java to finish initialization, then we can run the test.
+    base::OneShotTimer timeout_timer;
+    timeout_timer.Start(FROM_HERE, TestTimeouts::action_max_timeout(),
+                        base::BindOnce([]() {
+                          LOG(FATAL) << "WaitUntilJavaIsReady() timed out.";
+                        }));
     loop.Run();
   }
 
@@ -778,9 +785,14 @@ void BrowserTestBase::SetUp() {
     // otherwise we will crash when finishing the Activity as too much
     // infrastructure has been torn down.
     base::RunLoop loop{base::RunLoop::Type::kNestableTasksAllowed};
+    testing::android::SetActivityTeardownCompleteCallbackForBrowserTests(
+        loop.QuitClosure());
     testing::android::RunActivityTeardownCallback();
-    WaitUntilActivityTeardownIsFinished(loop.QuitClosure(),
-                                        TestTimeouts::action_max_timeout());
+    base::OneShotTimer timeout_timer;
+    timeout_timer.Start(
+        FROM_HERE, TestTimeouts::action_max_timeout(), base::BindOnce([]() {
+          LOG(FATAL) << "WaitUntilActivityTeardownIsFinished() timed out.";
+        }));
     loop.Run();
   }
 
@@ -862,48 +874,6 @@ void BrowserTestBase::IgnoreNetworkServiceCrashes() {
   network_service_test_.reset();
 }
 
-#if BUILDFLAG(IS_ANDROID)
-void BrowserTestBase::WaitUntilJavaIsReady(
-    base::OnceClosure quit_closure,
-    const base::TimeDelta& wait_retry_left) {
-  CHECK_GE(wait_retry_left.InMilliseconds(), 0)
-      << "WaitUntilJavaIsReady() timed out.";
-
-  if (testing::android::JavaAsyncStartupTasksCompleteForBrowserTests()) {
-    std::move(quit_closure).Run();
-    return;
-  }
-
-  base::TimeDelta retry_interval = base::Milliseconds(100);
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&BrowserTestBase::WaitUntilJavaIsReady,
-                     base::Unretained(this), std::move(quit_closure),
-                     wait_retry_left - retry_interval),
-      retry_interval);
-}
-
-void BrowserTestBase::WaitUntilActivityTeardownIsFinished(
-    base::OnceClosure quit_closure,
-    const base::TimeDelta& wait_retry_left) {
-  CHECK_GE(wait_retry_left.InMilliseconds(), 0)
-      << "WaitUntilActivityTeardownIsFinished() timed out.";
-
-  if (testing::android::JavaActivityTeardownCompleteForBrowserTests()) {
-    std::move(quit_closure).Run();
-    return;
-  }
-
-  base::TimeDelta retry_interval = base::Milliseconds(100);
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&BrowserTestBase::WaitUntilActivityTeardownIsFinished,
-                     base::Unretained(this), std::move(quit_closure),
-                     wait_retry_left - retry_interval),
-      retry_interval);
-}
-#endif
-
 void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
   // Chrome bans unresponsive tasks just before starting the main message loop.
   // Re-allow such tasks while for init / tear down
@@ -953,6 +923,7 @@ void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
 
   absl::Cleanup restore_signal_handlers = [&old_sigsegv_action,
                                            &old_sigterm_action] {
+    g_signal_test = nullptr;
     if (old_sigsegv_action) {
       sigaction(SIGSEGV, &*old_sigsegv_action, nullptr);
     }
@@ -961,8 +932,7 @@ void BrowserTestBase::ProxyRunTestOnMainThreadLoop() {
     }
   };
 
-  ShutdownHandler = base::BindOnce(&BrowserTestBase::SignalRunTestOnMainThread,
-                                   base::Unretained(this));
+  g_signal_test = this;
 #endif  // BUILDFLAG(IS_POSIX)
 
   {

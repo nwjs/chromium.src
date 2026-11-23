@@ -11,7 +11,7 @@
 #include "chrome/browser/ui/animation/browser_animation_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
-#include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/organizer/organizer_panel_controller.h"
 #include "chrome/browser/ui/views/animations/organizer_panel_animations.h"
 #include "chrome/common/pref_names.h"
@@ -87,11 +87,10 @@ class VerticalTabStripSegmentedControlTest : public ChromeViewsTestBase {
 TEST_F(VerticalTabStripSegmentedControlTest, PreferredSize) {
   constexpr auto kTotalInsets = gfx::Insets(3);
   constexpr int kBetweenChildSpacing = 4;
-  const int button_size = GetLayoutConstant(
-      LayoutConstant::kVerticalTabStripTopContainerButtonSize);
+  constexpr int kButtonSize = 26;
   const int expected_width =
-      (button_size * 2) + kBetweenChildSpacing + kTotalInsets.width();
-  const int expected_height = button_size + kTotalInsets.height();
+      (kButtonSize * 2) + kBetweenChildSpacing + kTotalInsets.width();
+  const int expected_height = kButtonSize + kTotalInsets.height();
   EXPECT_EQ(control()->GetPreferredSize(),
             gfx::Size(expected_width, expected_height));
 }
@@ -212,4 +211,10 @@ TEST_F(VerticalTabStripSegmentedControlTest, ContextMenuOnlyOnOrganizerButton) {
   EXPECT_EQ(model->GetCommandIdAt(0), IDC_TAB_SEARCH_TOGGLE_PIN);
   EXPECT_EQ(model->GetLabelAt(0),
             l10n_util::GetStringUTF16(IDS_TAB_SEARCH_BUTTON_CXMENU_PIN));
+}
+
+TEST_F(VerticalTabStripSegmentedControlTest, BackgroundColor) {
+  ASSERT_NE(control()->GetBackground(), nullptr);
+  EXPECT_EQ(control()->GetBackground()->color(),
+            ui::ColorVariant(kColorNewTabButtonCRBackgroundFrameActive));
 }

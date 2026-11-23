@@ -8,11 +8,12 @@
 #include <stdint.h>
 
 #include <array>
+#include <string>
+#include <utility>
 
 #include "base/containers/enum_set.h"
-#include "base/containers/flat_map.h"
 #include "ui/display/types/display_types_export.h"
-#include "ui/gfx/geometry/size_conversions.h"
+#include "ui/gfx/geometry/size.h"
 
 namespace display {
 
@@ -331,12 +332,6 @@ inline constexpr DisplayData oled_display_configs[] = {
     {15.6f,  kFHD,       1.25,       {1536, 864}, false,     kExact},
     // clang-format on
 };
-
-// A map of DRM formats and modifiers that are supported by the hardware planes
-// of the display.
-// See third_party/libdrm/src/include/drm/drm_fourcc.h for the canonical list of
-// formats and modifiers
-using DrmFormatsAndModifiers = base::flat_map<uint32_t, std::vector<uint64_t>>;
 
 // Converts the display connection type from enum to string.
 DISPLAY_TYPES_EXPORT std::string DisplayConnectionTypeString(

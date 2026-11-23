@@ -64,6 +64,17 @@ std::vector<LoyaltyCard> ExtractLoyaltyCardsFromDataBatch(
   }
   return loyalty_cards;
 }
+
+std::vector<AutofillOfferData> ExtractOffersFromDataBatch(
+    std::unique_ptr<syncer::DataBatch> batch) {
+  std::vector<AutofillOfferData> offers;
+  while (batch->HasNext()) {
+    const syncer::KeyAndData& data_pair = batch->Next();
+    offers.push_back(CreateOfferDataFromValuableSpecifics(
+        data_pair.second->specifics.autofill_valuable()));
+  }
+  return offers;
+}
 #endif  // !BUILDFLAG(IS_IOS)
 
 std::unique_ptr<syncer::EntityData> CreateEntityDataFromSpecifics(
@@ -107,10 +118,12 @@ class ValuableSyncBridgeTest : public testing::Test {
  public:
   // Creates the `bridge()` and mocks its `ValuablesTable`.
   void SetUp() override {
-    feature_list_.InitWithFeatures({syncer::kSyncWalletFlightReservations,
-                                    syncer::kSyncWalletVehicleRegistrations,
-                                    features::kAutofillAiWalletShopping},
-                                   /*disabled_features=*/{});
+    feature_list_.InitWithFeatures(
+        {syncer::kSyncWalletFlightReservations,
+         syncer::kSyncWalletVehicleRegistrations,
+         features::kAutofillAiWalletShopping,
+         features::kAutofillEnableWalletDisclosureNoticePublicPass},
+        /*disabled_features=*/{});
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     db_.AddTable(&valuables_table_);
     db_.AddTable(&sync_metadata_table_);
@@ -189,7 +202,8 @@ class ValuableSyncBridgeTest : public testing::Test {
   syncer::EntityData EntityInstanceToEntityData(const EntityInstance& entity) {
     return std::move(
         *CreateEntityDataFromEntityInstance(entity,
-                                            /*base_specifics=*/{}));
+                                            /*base_specifics=*/{},
+                                            /*legal_message_token=*/{}));
   }
 
   // Tells the processor to start syncing with pre-existing `offers`.
@@ -206,6 +220,10 @@ class ValuableSyncBridgeTest : public testing::Test {
     // `MergeFullSyncData()` returns an error if it fails.
     return !bridge().MergeFullSyncData(bridge().CreateMetadataChangeList(),
                                        std::move(entity_data));
+  }
+
+  void AddOffers(const std::vector<AutofillOfferData>& offers) {
+    payments_table_.SetAutofillOffers(offers);
   }
 
   std::vector<AutofillOfferData> GetAllOffersFromTable() {
@@ -436,25 +454,16 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataValid) {
   EXPECT_TRUE(
       bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(specifics)));
   EXPECT_TRUE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
-      TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
-                         /*description=*/"50% off your next purchase",
-                         /*pass_view_url=*/"https://safeway.com/offer-details",
-                         /*offer_title_image_url=*/""))));
+      TestOfferSpecifics(kId1, {.offer_title_image_url = ""}))));
   EXPECT_TRUE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
-      TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
-                         /*description=*/"50% off your next purchase",
-                         /*pass_view_url=*/"https://safeway.com/offer-details",
-                         /*offer_title_image_url=*/"invalid_url"))));
+      TestOfferSpecifics(kId1, {.offer_title_image_url = "invalid_url"}))));
 
   // Description is optional and does not affect validity.
   specifics.mutable_offer()->clear_description();
   EXPECT_TRUE(
       bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(specifics)));
-  EXPECT_TRUE(bridge().IsEntityDataValid(
-      *CreateEntityDataFromSpecifics(TestOfferSpecifics(
-          kId1, /*offer_code=*/"SAFEWAY50",
-          /*description=*/"",
-          /*pass_view_url=*/"https://safeway.com/offer-details"))));
+  EXPECT_TRUE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
+      TestOfferSpecifics(kId1, {.description = ""}))));
 }
 
 // The server is not required to send numeric offer ids, so ids that cannot be
@@ -482,11 +491,8 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_OfferCode) {
   base::test::ScopedFeatureList feature_list{
       features::kAutofillEnableWalletDirectOffers};
   // Invalid offer code.
-  EXPECT_FALSE(bridge().IsEntityDataValid(
-      *CreateEntityDataFromSpecifics(TestOfferSpecifics(
-          kId1, /*offer_code=*/"",
-          /*description=*/"50% off your next purchase",
-          /*pass_view_url=*/"https://safeway.com/offer-details"))));
+  EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
+      TestOfferSpecifics(kId1, {.offer_code = ""}))));
 }
 
 TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_OfferDetailsUrl) {
@@ -494,15 +500,11 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_OfferDetailsUrl) {
       features::kAutofillEnableWalletDirectOffers};
   // Invalid offer details url.
   EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
-      TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
-                         /*description=*/"50% off your next purchase",
-                         /*pass_view_url=*/"invalid_url"))));
+      TestOfferSpecifics(kId1, {.pass_view_url = "invalid_url"}))));
 
   // Empty offer details url.
   EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
-      TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
-                         /*description=*/"50% off your next purchase",
-                         /*pass_view_url=*/""))));
+      TestOfferSpecifics(kId1, {.pass_view_url = ""}))));
 
   // Missing offer details url.
   sync_pb::AutofillValuableSpecifics missing_pass_view_url_specifics =
@@ -543,11 +545,7 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_OfferShortTitle) {
       features::kAutofillEnableWalletDirectOffers};
   // Invalid offer short title.
   EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
-      TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
-                         /*description=*/"50% off your next purchase",
-                         /*pass_view_url=*/"https://safeway.com/offer-details",
-                         /*offer_title_image_url=*/"https://image.com/logo.png",
-                         /*offer_short_title=*/""))));
+      TestOfferSpecifics(kId1, {.offer_short_title = ""}))));
 
   // Missing offer short title.
   sync_pb::AutofillValuableSpecifics empty_short_title_specifics =
@@ -562,12 +560,7 @@ TEST_F(ValuableSyncBridgeTest, IsOfferEntityDataInvalid_Expiry) {
       features::kAutofillEnableWalletDirectOffers};
   // Invalid expiry (<= 0).
   EXPECT_FALSE(bridge().IsEntityDataValid(*CreateEntityDataFromSpecifics(
-      TestOfferSpecifics(kId1, /*offer_code=*/"SAFEWAY50",
-                         /*description=*/"50% off your next purchase",
-                         /*pass_view_url=*/"https://safeway.com/offer-details",
-                         /*offer_title_image_url=*/"https://image.com/logo.png",
-                         /*offer_short_title=*/"50% off",
-                         /*expiration_time_unix_epoch_micros=*/0))));
+      TestOfferSpecifics(kId1, {.expiration_time_unix_epoch_micros = 0}))));
 
   // Missing expiry.
   sync_pb::AutofillValuableSpecifics missing_expiry_specifics =
@@ -764,6 +757,32 @@ TEST_F(ValuableSyncBridgeTest, GetAllDataForDebuggingForLoyaltyCards) {
   EXPECT_THAT(loyalty_cards, UnorderedElementsAre(card1, card2));
 }
 
+// Tests that `GetAllDataForDebugging()` returns all offers.
+TEST_F(ValuableSyncBridgeTest, GetAllDataForDebuggingForOffers) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillEnableWalletDirectOffers};
+  const AutofillOfferData offer1 =
+      CreateOfferDataFromValuableSpecifics(TestOfferSpecifics(kId1));
+  const AutofillOfferData offer2 =
+      CreateOfferDataFromValuableSpecifics(TestOfferSpecifics(kId2));
+  AddOffers({offer1, offer2});
+
+  EXPECT_THAT(ExtractOffersFromDataBatch(bridge().GetAllDataForDebugging()),
+              UnorderedElementsAre(offer1, offer2));
+}
+
+// Tests that `GetAllDataForDebugging()` doesn't return offers if Wallet Direct
+// Offers are disabled.
+TEST_F(ValuableSyncBridgeTest,
+       GetAllDataForDebuggingForOffers_DirectOffersDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAutofillEnableWalletDirectOffers);
+  AddOffers({CreateOfferDataFromValuableSpecifics(TestOfferSpecifics(kId1))});
+
+  EXPECT_FALSE(bridge().GetAllDataForDebugging()->HasNext());
+}
+
 // Tests that trimming `AutofillValuableSpecifics` with only supported values
 // set results in a zero-length specifics.
 TEST_F(ValuableSyncBridgeTest,
@@ -865,7 +884,8 @@ TEST_F(ValuableSyncBridgeTest, GetStorageKey) {
   EntityInstance vehicle = GetServerVehicleEntityInstance(
       {.guid = "00000000-0000-4000-8000-300000000000"});
   std::unique_ptr<syncer::EntityData> entity =
-      CreateEntityDataFromEntityInstance(vehicle, /*base_specifics=*/{});
+      CreateEntityDataFromEntityInstance(vehicle, /*base_specifics=*/{},
+                                         /*legal_message_token=*/{});
   ASSERT_TRUE(bridge().IsEntityDataValid(*entity));
   EXPECT_EQ("00000000-0000-4000-8000-300000000000",
             bridge().GetStorageKey(*entity));
@@ -875,7 +895,8 @@ TEST_F(ValuableSyncBridgeTest, GetClientTag) {
   EntityInstance vehicle = GetServerVehicleEntityInstance(
       {.guid = "00000000-0000-4000-8000-300000000000"});
   std::unique_ptr<syncer::EntityData> entity =
-      CreateEntityDataFromEntityInstance(vehicle, /*base_specifics=*/{});
+      CreateEntityDataFromEntityInstance(vehicle, /*base_specifics=*/{},
+                                         /*legal_message_token=*/{});
   ASSERT_TRUE(bridge().IsEntityDataValid(*entity));
   EXPECT_EQ("00000000-0000-4000-8000-300000000000",
             bridge().GetClientTag(*entity));
@@ -1080,7 +1101,7 @@ TEST_F(ValuableSyncBridgeTest,
 
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::ADD, vehicle.guid(), vehicle),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 }
 
 // Tests that `EntityInstanceChanged()` ignores local entities.
@@ -1090,7 +1111,7 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_IgnoresLocalEntities) {
 
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::ADD, vehicle.guid(), vehicle),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 }
 
 // Tests that `EntityInstanceChanged()` handles ADD and UPDATE changes.
@@ -1107,7 +1128,7 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_AddUpdate) {
       });
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::ADD, vehicle.guid(), vehicle),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 
   EXPECT_CALL(mock_processor(), Put)
       .WillOnce([](const std::string&,
@@ -1119,7 +1140,7 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_AddUpdate) {
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::UPDATE, vehicle.guid(),
                            vehicle),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 }
 
 // Tests that `EntityInstanceChanged()` includes the legal message token.
@@ -1142,6 +1163,125 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_WithLegalMessageToken) {
       "test_token");
 }
 
+// Tests that `GetDataForCommit()` reads a stored legal message token from
+// `EntityTable` while the entity is unsynced (without `GetAllDataForDebugging`
+// populating it), and that `ApplyIncrementalSyncChanges()` clears it once the
+// commit succeeds.
+TEST_F(ValuableSyncBridgeTest,
+       GetDataForCommit_PreservesLegalMessageTokenUntilCommitSucceeds) {
+  ON_CALL(mock_processor(), IsTrackingMetadata).WillByDefault(Return(true));
+  const EntityInstance vehicle = GetServerVehicleEntityInstance();
+  ASSERT_TRUE(entity_table_.AddOrUpdateEntityInstance(vehicle, "test_token"));
+
+  // `GetAllDataForDebugging()` (`GetData()`) does not query or attach
+  // `legal_message_token`.
+  std::unique_ptr<syncer::DataBatch> debug_batch =
+      bridge().GetAllDataForDebugging();
+  ASSERT_TRUE(debug_batch);
+  ASSERT_TRUE(debug_batch->HasNext());
+  EXPECT_FALSE(debug_batch->Next()
+                   .second->specifics.autofill_valuable()
+                   .has_legal_message_token());
+
+  // While the entity is unsynced, `ApplyIncrementalSyncChanges()` keeps the
+  // token and `GetDataForCommit()` includes it on retry.
+  ON_CALL(mock_processor(), IsEntityUnsynced(vehicle.guid().value()))
+      .WillByDefault(Return(true));
+  EXPECT_FALSE(bridge().ApplyIncrementalSyncChanges(
+      bridge().CreateMetadataChangeList(), syncer::EntityChangeList()));
+
+  std::unique_ptr<syncer::DataBatch> retry_batch =
+      bridge().GetDataForCommit({vehicle.guid().value()});
+  ASSERT_TRUE(retry_batch);
+  ASSERT_TRUE(retry_batch->HasNext());
+  EXPECT_EQ(retry_batch->Next()
+                .second->specifics.autofill_valuable()
+                .legal_message_token(),
+            "test_token");
+  EXPECT_FALSE(retry_batch->HasNext());
+
+  // Once the commit succeeds (`IsEntityUnsynced` is false),
+  // `OnCommitCompleted()` triggers `ApplyIncrementalSyncChanges()` with an
+  // empty `EntityChangeList`, which clears the stored token in `EntityTable`.
+  ON_CALL(mock_processor(), IsEntityUnsynced(vehicle.guid().value()))
+      .WillByDefault(Return(false));
+  EXPECT_FALSE(bridge().ApplyIncrementalSyncChanges(
+      bridge().CreateMetadataChangeList(), syncer::EntityChangeList()));
+  EXPECT_EQ(entity_table_.GetLegalMessageToken(vehicle.guid()), std::nullopt);
+
+  std::unique_ptr<syncer::DataBatch> post_commit_batch =
+      bridge().GetDataForCommit({vehicle.guid().value()});
+  ASSERT_TRUE(post_commit_batch);
+  ASSERT_TRUE(post_commit_batch->HasNext());
+  EXPECT_FALSE(post_commit_batch->Next()
+                   .second->specifics.autofill_valuable()
+                   .has_legal_message_token());
+}
+
+// Tests that locally updating an entity before its initial creation commit has
+// synced preserves the pending `legal_message_token` in both `Put()` and
+// `GetDataForCommit()`, while subsequent updates after commit completion do not
+// include the token.
+TEST_F(
+    ValuableSyncBridgeTest,
+    EntityInstanceChanged_LocalUpdateBeforeInitialSyncPreservesLegalMessageToken) {
+  ON_CALL(mock_processor(), IsTrackingMetadata).WillByDefault(Return(true));
+  const EntityInstance vehicle = GetServerVehicleEntityInstance();
+  ASSERT_TRUE(entity_table_.AddOrUpdateEntityInstance(vehicle, "test_token"));
+  ON_CALL(mock_processor(), IsEntityUnsynced(vehicle.guid().value()))
+      .WillByDefault(Return(true));
+
+  // Simulate a local edit to the entity while it is still unsynced.
+  const EntityInstance updated_vehicle =
+      GetServerVehicleEntityInstance({.model = u"Updated Model"});
+  ASSERT_EQ(updated_vehicle.guid(), vehicle.guid());
+  ASSERT_TRUE(entity_table_.AddOrUpdateEntityInstance(updated_vehicle));
+
+  EXPECT_CALL(mock_processor(), Put)
+      .WillOnce([&updated_vehicle](
+                    const std::string& storage_key,
+                    std::unique_ptr<syncer::EntityData> entity_data,
+                    syncer::MetadataChangeList*) {
+        ASSERT_EQ(storage_key, updated_vehicle.guid().value());
+        EXPECT_EQ(
+            entity_data->specifics.autofill_valuable().legal_message_token(),
+            "test_token");
+      });
+  bridge().EntityInstanceChanged(
+      EntityInstanceChange(EntityInstanceChange::UPDATE, updated_vehicle.guid(),
+                           updated_vehicle),
+      /*legal_message_token=*/std::nullopt);
+
+  std::unique_ptr<syncer::DataBatch> retry_batch =
+      bridge().GetDataForCommit({updated_vehicle.guid().value()});
+  ASSERT_TRUE(retry_batch);
+  ASSERT_TRUE(retry_batch->HasNext());
+  EXPECT_EQ(retry_batch->Next()
+                .second->specifics.autofill_valuable()
+                .legal_message_token(),
+            "test_token");
+
+  // Once the initial commit succeeds, the token is cleared and later updates no
+  // longer include a `legal_message_token`.
+  ON_CALL(mock_processor(), IsEntityUnsynced(vehicle.guid().value()))
+      .WillByDefault(Return(false));
+  EXPECT_FALSE(bridge().ApplyIncrementalSyncChanges(
+      bridge().CreateMetadataChangeList(), syncer::EntityChangeList()));
+  EXPECT_EQ(entity_table_.GetLegalMessageToken(vehicle.guid()), std::nullopt);
+
+  EXPECT_CALL(mock_processor(), Put)
+      .WillOnce([](const std::string&,
+                   std::unique_ptr<syncer::EntityData> entity_data,
+                   syncer::MetadataChangeList*) {
+        EXPECT_FALSE(entity_data->specifics.autofill_valuable()
+                         .has_legal_message_token());
+      });
+  bridge().EntityInstanceChanged(
+      EntityInstanceChange(EntityInstanceChange::UPDATE, updated_vehicle.guid(),
+                           updated_vehicle),
+      /*legal_message_token=*/std::nullopt);
+}
+
 // Tests that `EntityInstanceChanged()` ignores a local entity REMOVE
 // change.
 TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_RemoveLocal) {
@@ -1150,7 +1290,7 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_RemoveLocal) {
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::REMOVE, vehicle.guid(),
                            vehicle),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 }
 
 // Tests that `EntityInstanceChanged()` doesn't commit changes for private
@@ -1163,15 +1303,15 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_PrivatePasses) {
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::ADD, passport.guid(),
                            passport),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::UPDATE, passport.guid(),
                            passport),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::REMOVE, passport.guid(),
                            passport),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 }
 
 // Tests that `EntityInstanceChanged()` doesn't commit changes for shopping
@@ -1187,11 +1327,11 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_Shopping) {
   EXPECT_CALL(mock_processor(), Put).Times(0);
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::ADD, order.guid(), order),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::UPDATE, shipment.guid(),
                            shipment),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 }
 
 // Tests that `EntityInstanceChanged()` includes unknown fields from the server.
@@ -1218,7 +1358,7 @@ TEST_F(ValuableSyncBridgeTest, EntityInstanceChanged_PreservesUnknownFields) {
 
   bridge().EntityInstanceChanged(
       EntityInstanceChange(EntityInstanceChange::ADD, vehicle.guid(), vehicle),
-      /*context_token=*/std::nullopt);
+      /*legal_message_token=*/std::nullopt);
 }
 
 class ValuableSyncBridgeWithIncrementalUpdates : public ValuableSyncBridge {
@@ -1402,9 +1542,8 @@ TEST_F(ValuableSyncBridgeIncrementalUpdatesTest,
   syncer::EntityChangeList entity_change_list;
   entity_change_list.push_back(syncer::EntityChange::CreateUpdate(
       kId1, std::move(*CreateEntityDataFromSpecifics(TestOfferSpecifics(
-                kId1, /*offer_code=*/"SAFEWAY75",
-                /*description=*/"75% off your next purchase",
-                /*pass_view_url=*/"https://safeway.com/offer-details")))));
+                kId1, {.offer_code = "SAFEWAY75",
+                       .description = "75% off your next purchase"})))));
 
   EXPECT_FALSE(bridge().ApplyIncrementalSyncChanges(
       bridge().CreateMetadataChangeList(), std::move(entity_change_list)));

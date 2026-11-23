@@ -5,29 +5,22 @@
 #ifndef IOS_CHROME_BROWSER_PUSH_NOTIFICATION_MODEL_PROVISIONAL_PUSH_NOTIFICATION_SERVICE_FACTORY_H_
 #define IOS_CHROME_BROWSER_PUSH_NOTIFICATION_MODEL_PROVISIONAL_PUSH_NOTIFICATION_SERVICE_FACTORY_H_
 
-#include "base/no_destructor.h"
-#include "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class ProfileIOS;
-class ProvisionalPushNotificationService;
+#include "ios/chrome/browser/push_notification/model/provisional_push_notification_service.h"
+#include "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Factory that owns all ProvisionalPushNotificationService instances and
 // associates them to ProfileIOS instances.
-class ProvisionalPushNotificationServiceFactory
-    : public ProfileKeyedServiceFactoryIOS {
+class ProvisionalPushNotificationServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          ProvisionalPushNotificationServiceFactory,
+          ProvisionalPushNotificationService> {
  public:
-  static ProvisionalPushNotificationService* GetForProfile(ProfileIOS* profile);
-  static ProvisionalPushNotificationServiceFactory* GetInstance();
+  explicit ProvisionalPushNotificationServiceFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<ProvisionalPushNotificationServiceFactory>;
-
-  ProvisionalPushNotificationServiceFactory();
-  ~ProvisionalPushNotificationServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_PUSH_NOTIFICATION_MODEL_PROVISIONAL_PUSH_NOTIFICATION_SERVICE_FACTORY_H_

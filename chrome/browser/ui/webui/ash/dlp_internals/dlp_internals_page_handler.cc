@@ -13,12 +13,12 @@
 #include "chrome/browser/chromeos/policy/dlp/dlp_content_restriction_set.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/ash/dlp_internals/dlp_internals.mojom.h"
 #include "chrome/common/chrome_paths.h"
 #include "chromeos/dbus/dlp/dlp_client.h"
 #include "components/enterprise/common/proto/synced/dlp_policy_event.pb.h"
 #include "components/enterprise/data_controls/core/browser/rule.h"
+#include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "ui/base/clipboard/clipboard.h"
@@ -79,7 +79,7 @@ std::vector<dlp_internals::mojom::RenderFrameHostInfoPtr> RfhInfoToMojo(
     std::vector<DlpContentTabHelper::RfhInfo> rfh_info_vector) {
   std::vector<dlp_internals::mojom::RenderFrameHostInfoPtr> rfh_info_mojo_arr;
   for (const auto& rfh_info : rfh_info_vector) {
-    DCHECK(rfh_info.first);
+    CHECK(rfh_info.first, base::NotFatalUntil::M162);
     rfh_info_mojo_arr.push_back(dlp_internals::mojom::RenderFrameHostInfo::New(
         rfh_info.first->GetLastCommittedURL(),
         RestrictionSetToMojo(rfh_info.second)));
@@ -184,11 +184,8 @@ dlp_internals::mojom::EventDestinationPtr EventDestinationToMojo(
 }  // namespace
 
 DlpInternalsPageHandler::DlpInternalsPageHandler(
-    mojo::PendingReceiver<dlp_internals::mojom::PageHandler> receiver,
-    Profile* profile)
-    : receiver_(this, std::move(receiver)), profile_(profile) {
-  DCHECK(profile_);
-
+    mojo::PendingReceiver<dlp_internals::mojom::PageHandler> receiver)
+    : receiver_(this, std::move(receiver)) {
   auto* rules_manager = DlpRulesManagerFactory::GetForPrimaryProfile();
   auto* reporting_manager =
       rules_manager ? rules_manager->GetReportingManager() : nullptr;
@@ -273,7 +270,7 @@ void DlpInternalsPageHandler::GetContentRestrictionsInfo(
   std::vector<dlp_internals::mojom::WebContentsInfoPtr> info_mojo_array;
 
   for (const auto& web_contents_info : info_vector) {
-    DCHECK(web_contents_info.web_contents);
+    CHECK(web_contents_info.web_contents, base::NotFatalUntil::M162);
     info_mojo_array.push_back(dlp_internals::mojom::WebContentsInfo::New(
         web_contents_info.web_contents->GetLastCommittedURL(),
         RestrictionSetToMojo(web_contents_info.restriction_set),

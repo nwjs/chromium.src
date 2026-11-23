@@ -19,7 +19,6 @@ source_set("bloomfilter") {
     "//base",
     "//third_party/smhasher:murmurhash3",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 static_library("filters") {
@@ -43,7 +42,6 @@ static_library("filters") {
     "//url",
   ]
   public_deps = [ ":bloomfilter" ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   visibility = [ ":*" ]
 }
 
@@ -61,6 +59,8 @@ component("features") {
     # remote model execution / MQLS.
     "feature_registry/enterprise_policy_registry.cc",
     "feature_registry/enterprise_policy_registry.h",
+    "feature_registry/feature_keys.cc",
+    "feature_registry/feature_keys.h",
     "feature_registry/feature_registration.cc",
     "feature_registry/feature_registration.h",
     "feature_registry/mqls_feature_registry.cc",
@@ -68,13 +68,8 @@ component("features") {
     "feature_registry/settings_ui_registry.cc",
     "feature_registry/settings_ui_registry.h",
 
-    # TODO(crbug.com/514743962): This belongs with remote model execution.
-    "model_execution/feature_keys.h",
-
     # TODO(crbug.com/514743962): This is mostly on-device model things,
     # with a couple stray remote model execution things.
-    "model_execution/model_execution_prefs.cc",
-    "model_execution/model_execution_prefs.h",
     "model_execution/on_device_features.cc",
     "model_execution/on_device_features.h",
 
@@ -82,8 +77,6 @@ component("features") {
     "optimization_guide_enums.h",
     "optimization_guide_features.cc",
     "optimization_guide_features.h",
-    "optimization_guide_prefs.cc",
-    "optimization_guide_prefs.h",
   ]
   public_deps = [
     "//base",
@@ -103,7 +96,6 @@ component("features") {
   if (is_android) {
     deps += [ "//components/version_info/android:channel_getter" ]
   }
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   defines = [ "IS_OPTIMIZATION_GUIDE_FEATURES_IMPL" ]
 }
 
@@ -283,6 +275,8 @@ source_set("ondevice") {
   sources = [
     "model_execution/on_device_capability.cc",
     "model_execution/on_device_capability.h",
+    "model_execution/on_device_prefs.cc",
+    "model_execution/on_device_prefs.h",
   ]
   deps = [
     ":core_util",
@@ -314,8 +308,6 @@ source_set("ondevice") {
       "model_execution/model_broker_client.h",
       "model_execution/model_broker_impl.cc",
       "model_execution/model_broker_impl.h",
-      "model_execution/model_execution_util.cc",
-      "model_execution/model_execution_util.h",
       "model_execution/multimodal_message.cc",
       "model_execution/multimodal_message.h",
       "model_execution/on_device_context.cc",
@@ -399,6 +391,8 @@ source_set("ondevice") {
 if (build_with_model_execution) {
   source_set("manifest_broker") {
     sources = [
+      "model_execution/manifest_broker/asset_priorities.cc",
+      "model_execution/manifest_broker/asset_priorities.h",
       "model_execution/manifest_broker/manifest.cc",
       "model_execution/manifest_broker/manifest.h",
       "model_execution/manifest_broker/manifest_asset_manager.cc",
@@ -455,8 +449,8 @@ if (build_with_model_execution) {
     ]
     deps = [
       ":manifest_broker",
-      ":model_execution_test_support",
       ":ondevice",
+      ":ondevice_test_support",
       "//base",
       "//base/test:test_support",
       "//components/crx_file",
@@ -554,7 +548,6 @@ static_library("prediction") {
     "//net/traffic_annotation",
     "//services/network/public/cpp",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("page_content") {
@@ -632,21 +625,25 @@ static_library("model_execution_test_support") {
   ]
   deps = [
     ":core_util",
-    ":delivery_test_support",
     ":features",
     ":model_execution",
-    ":ondevice",
-    ":prediction",
     "//base",
-    "//base/test:test_support",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//services/network/public/cpp",
     "//testing/gmock",
-    "//testing/gtest",
-    "//url",
   ]
   if (build_with_model_execution) {
     sources += [
+      "model_execution/test/mock_remote_model_executor.cc",
+      "model_execution/test/mock_remote_model_executor.h",
+    ]
+  }
+}
+
+if (build_with_model_execution) {
+  static_library("ondevice_test_support") {
+    testonly = true
+    sources = [
       "model_execution/test/fake_component_update_service.cc",
       "model_execution/test/fake_component_update_service.h",
       "model_execution/test/fake_model_assets.cc",
@@ -657,21 +654,29 @@ static_library("model_execution_test_support") {
       "model_execution/test/mock_download_progress_observer.h",
       "model_execution/test/mock_on_device_capability.cc",
       "model_execution/test/mock_on_device_capability.h",
-      "model_execution/test/mock_remote_model_executor.cc",
-      "model_execution/test/mock_remote_model_executor.h",
       "model_execution/test/request_builder.cc",
       "model_execution/test/request_builder.h",
       "model_execution/test/response_holder.cc",
       "model_execution/test/response_holder.h",
     ]
     public_deps = [ "//components/optimization_guide/core/model_execution/configs:substitution_builders" ]
-    deps += [
+    deps = [
+      ":core_util",
+      ":delivery_test_support",
+      ":features",
+      ":ondevice",
+      ":prediction",
+      "//base",
+      "//base/test:test_support",
       "//components/component_updater:test_support",
+      "//components/optimization_guide/proto:optimization_guide_proto",
       "//components/optimization_guide/public/mojom",
       "//components/prefs:test_support",
       "//components/update_client",
       "//services/on_device_model/public/cpp:types",
       "//services/on_device_model/public/cpp/test_support",
+      "//testing/gmock",
+      "//testing/gtest",
       "//third_party/dawn/src/dawn:proc",
     ]
     if (is_android) {
@@ -699,6 +704,7 @@ group("test_support") {
   if (build_with_model_execution) {
     public_deps += [
       ":manifest_broker_test_support",
+      ":ondevice_test_support",
       "//components/optimization_guide/core/model_execution/configs:substitution_builders",
     ]
   }
@@ -816,11 +822,9 @@ source_set("model_execution_unit_tests") {
   ]
   deps = [
     ":core_util",
-    ":delivery_test_support",
     ":features",
     ":model_execution",
     ":model_execution_test_support",
-    ":ondevice",
     "//base",
     "//base/test:test_proto",
     "//base/test:test_support",
@@ -833,18 +837,43 @@ source_set("model_execution_unit_tests") {
     "//components/variations:test_support",
     "//services/network:network_service",
     "//services/network:test_support",
-    "//services/preferences/public/cpp",
+    "//testing/gmock",
     "//testing/gtest",
   ]
 
-  # CfT bypasses On Device model installation throttling breaking most of the
-  # tests below. See https://crbug.com/514435730.
-  if (build_with_model_execution && !is_chrome_for_testing) {
+  if (build_with_model_execution) {
     sources += [
+      "model_execution/model_execution_features_controller_unittest.cc",
+      "model_execution/model_execution_features_unittest.cc",
+      "model_execution/model_execution_fetcher_impl_unittest.cc",
+      "model_execution/model_execution_manager_unittest.cc",
+      "model_execution/optimization_guide_model_execution_error_unittest.cc",
+      "model_execution/private_ai_model_execution_fetcher_unittest.cc",
+      "model_execution/remote_model_execution_common_unittest.cc",
+      "model_execution/remote_model_execution_session_impl_unittest.cc",
+      "model_quality/model_execution_logging_wrappers_unittest.cc",
+    ]
+    deps += [
+      "//components/private_ai:proto",
+      "//components/private_ai:testing",
+      "//components/signin/public/identity_manager:test_support",
+      "//components/streaming_client",
+      "//components/sync_preferences:test_support",
+    ]
+  }
+}
+
+# CfT bypasses On Device model installation throttling breaking most of the
+# tests below. See https://crbug.com/514435730.
+if (build_with_model_execution && !is_chrome_for_testing) {
+  source_set("ondevice_unit_tests") {
+    testonly = true
+    sources = [
       "model_execution/aqa_response_parser_unittest.cc",
       "model_execution/configs/summarize_solution_config_unittest.cc",
       "model_execution/fieldwise_response_parser_unittest.cc",
       "model_execution/json_response_parser_unittest.cc",
+      "model_execution/manifest_broker/asset_priorities_unittest.cc",
       "model_execution/manifest_broker/manifest_asset_manager_unittest.cc",
       "model_execution/manifest_broker/manifest_broker_service_crash_unittest.cc",
       "model_execution/manifest_broker/manifest_broker_state_unittest.cc",
@@ -853,43 +882,49 @@ source_set("model_execution_unit_tests") {
       "model_execution/manifest_broker/manifest_validation_unittest.cc",
       "model_execution/manifest_broker/override_manifest_asset_manager_delegate_unittest.cc",
       "model_execution/model_broker_client_unittest.cc",
-      "model_execution/model_execution_features_controller_unittest.cc",
-      "model_execution/model_execution_features_unittest.cc",
-      "model_execution/model_execution_fetcher_impl_unittest.cc",
-      "model_execution/model_execution_manager_unittest.cc",
       "model_execution/multimodal_message_unittest.cc",
       "model_execution/on_device_model_download_progress_manager_unittest.cc",
       "model_execution/on_device_model_execution_proto_descriptors_unittest.cc",
       "model_execution/on_device_model_execution_proto_value_utils_unittest.cc",
       "model_execution/on_device_model_feature_adapter_unittest.cc",
       "model_execution/on_device_model_validator_unittest.cc",
-      "model_execution/optimization_guide_model_execution_error_unittest.cc",
       "model_execution/performance_class_unittest.cc",
-      "model_execution/remote_model_execution_common_unittest.cc",
-      "model_execution/remote_model_execution_session_impl_unittest.cc",
       "model_execution/repetition_checker_unittest.cc",
       "model_execution/response_parser_factory_unittest.cc",
       "model_execution/session_impl_unittest.cc",
       "model_execution/simple_response_parser_unittest.cc",
       "model_execution/substitution_unittest.cc",
       "model_execution/usage_tracker_unittest.cc",
-      "model_quality/model_execution_logging_wrappers_unittest.cc",
     ]
-    deps += [
+    deps = [
+      ":core_util",
+      ":delivery_test_support",
+      ":features",
       ":manifest_broker",
       ":manifest_broker_test_support",
+      ":ondevice",
+      ":ondevice_test_support",
       ":prediction",
+      "//base",
+      "//base/test:test_proto",
+      "//base/test:test_support",
       "//components/component_updater",
       "//components/crx_file",
+      "//components/optimization_guide:optimization_guide_buildflags",
       "//components/optimization_guide/core/model_execution/configs:manifest_builder",
       "//components/optimization_guide/core/model_execution/configs:substitution_builders",
       "//components/optimization_guide/core/model_execution/configs:summarize_config",
+      "//components/optimization_guide/proto:optimization_guide_proto",
       "//components/optimization_guide/public/mojom",
-      "//components/signin/public/identity_manager:test_support",
+      "//components/prefs:test_support",
       "//components/sync_preferences:test_support",
+      "//components/version_info",
       "//services/on_device_model/public/cpp",
       "//services/on_device_model/public/cpp/test_support",
       "//services/on_device_model/public/mojom",
+      "//services/preferences/public/cpp",
+      "//testing/gmock",
+      "//testing/gtest",
       "//third_party/tflite:buildflags",
     ]
     if (is_android) {
@@ -899,17 +934,7 @@ source_set("model_execution_unit_tests") {
         "//services/on_device_model/android:test_support",
       ]
     }
-    sources +=
-        [ "model_execution/private_ai_model_execution_fetcher_unittest.cc" ]
-    deps += [
-      "//components/private_ai:proto",
-      "//components/private_ai:testing",
-    ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 source_set("unit_tests") {
@@ -944,6 +969,9 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+  if (build_with_model_execution && !is_chrome_for_testing) {
+    deps += [ ":ondevice_unit_tests" ]
+  }
 }
 
 bundle_data("unit_tests_bundle_data") {

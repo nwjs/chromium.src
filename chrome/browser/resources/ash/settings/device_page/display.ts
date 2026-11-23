@@ -24,7 +24,6 @@ import '../settings_vars.css.js';
 import 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import 'chrome://resources/ash/common/cr_elements/cr_shared_style.css.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import type {CrCheckboxElement} from 'chrome://resources/ash/common/cr_elements/cr_checkbox/cr_checkbox.js';
 import type {SliderTick} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
 import {CrSliderElement} from 'chrome://resources/ash/common/cr_elements/cr_slider/cr_slider.js';
@@ -44,7 +43,8 @@ import type {SettingsSliderElement} from '../controls/settings_slider.js';
 import type {DisplaySettingsProviderInterface, DisplaySettingsValue} from '../mojom-webui/display_settings_provider.mojom-webui.js';
 import {AmbientLightSensorObserverReceiver, DisplayBrightnessSettingsObserverReceiver, DisplayConfigurationObserverReceiver, DisplaySettingsOrientationOption, DisplaySettingsType, TabletModeObserverReceiver} from '../mojom-webui/display_settings_provider.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {routes} from '../router.js';
 
 import type {DevicePageBrowserProxy} from './device_page_browser_proxy.js';
@@ -185,13 +185,6 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
         },
       },
 
-      isDisplayPerformanceSupported_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('isDisplayPerformanceSupported');
-        },
-      },
-
       ambientColorAvailable_: {
         type: Boolean,
         value() {
@@ -236,11 +229,6 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
       brightnessSliderMax_: {
         type: Number,
         value: 100,
-      },
-
-      isDisplayPerformanceEnabled_: {
-        type: Boolean,
-        value: false,
       },
 
       selectedParentModePref_: {
@@ -319,8 +307,6 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
   declare private hasAmbientLightSensor_: boolean;
   private invalidDisplayId_: string;
   declare private isAmbientLightSensorEnabled_: boolean;
-  declare private isDisplayPerformanceEnabled_: boolean;
-  declare private readonly isDisplayPerformanceSupported_: boolean;
   declare private isTabletMode_: boolean;
   declare private logicalResolutionText_: string;
   private mirroringExcludedId_: string;
@@ -1574,12 +1560,6 @@ export class SettingsDisplayElement extends SettingsDisplayElementBase {
       displayLayout.updateDisplays(
           this.displays, this.layouts, this.mirroringDestinationIds);
     }
-  }
-
-  private toggleDisplayPerformanceEnabled_(): void {
-    this.isDisplayPerformanceEnabled_ = !this.isDisplayPerformanceEnabled_;
-    this.displaySettingsProvider.setShinyPerformance(
-        this.isDisplayPerformanceEnabled_);
   }
 
   getInvalidDisplayId(): string {

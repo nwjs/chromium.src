@@ -332,6 +332,7 @@ source_set("impl") {
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/flags",
+    "//chrome/browser/ui/webui/top_chrome",
     "//chrome/browser/ui/webui/webui_toolbar",
     "//chrome/browser/ui/webui/webui_toolbar:impl",
     "//chrome/browser/ui/webui/webui_toolbar/adapters:impl",
@@ -343,6 +344,7 @@ source_set("impl") {
     "//chrome/common:chrome_features",
     "//chrome/common:constants",
     "//components/autofill/core/common:features",
+    "//components/contextual_tasks/public",
     "//components/feature_engagement/public",
     "//components/omnibox/browser",
     "//components/password_manager/content/common",
@@ -436,6 +438,7 @@ if (!is_android) {
       "//ui/views",
       "//ui/views:test_support",
       "//ui/views/interaction:test_support",
+      "//ui/webui/tracked_element:test_support",
     ]
   }
 
@@ -560,6 +563,7 @@ if (!is_android) {
         "//chrome/browser/ash/settings",
         "//chromeos/ash/components/cryptohome",
         "//chromeos/ash/components/dbus/session_manager",
+        "//chromeos/constants",
         "//components/user_manager",
       ]
     }
@@ -639,6 +643,7 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/translate:test_support",
+      "//chrome/browser/ui/views/extensions:extension_popup",
       "//chrome/browser/ui/views/extensions:extensions_menu_coordinator",
       "//chrome/browser/ui/views/extensions:extensions_toolbar_button",
       "//chrome/browser/ui/views/extensions:test_support",
@@ -679,10 +684,15 @@ if (!is_android && !is_chromeos_device) {
       deps += [
         "//chrome/browser/ui:toolbar_controller_util",
         "//chrome/browser/ui/views/global_media_controls",
+        "//chrome/browser/ui/views/profiles:profile_menu_coordinator",
+        "//chrome/browser/ui/views/profiles:profile_menu_view_base",
       ]
     }
     if (use_aura) {
       deps += [ "//ui/aura:test_support" ]
+    }
+    if (use_ozone) {
+      deps += [ "//ui/ozone" ]
     }
   }
 }
@@ -710,6 +720,7 @@ if (toolkit_views) {
       "//chrome/browser:flags",
       "//chrome/browser/history",
       "//chrome/browser/sessions",
+      "//chrome/browser/themes",
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:layout_constants",
       "//chrome/browser/ui:test_support",

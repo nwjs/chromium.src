@@ -61,10 +61,10 @@
 #include "chrome/browser/ui/ash/global_media_controls/media_notification_provider_impl.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_ui.h"
 #include "chrome/browser/ui/ash/session/session_util.h"
-#include "chrome/browser/ui/ash/shell_delegate/tab_scrubber.h"
 #include "chrome/browser/ui/ash/user_education/chrome_user_education_delegate.h"
 #include "chrome/browser/ui/ash/wm/coral_delegate_impl.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/chromeos/tab_scrubber/tab_scrubber.h"
 #include "chrome/browser/ui/webui/ash/diagnostics_dialog/diagnostics_dialog.h"
 #include "chromeos/ash/components/audio/system_sounds_delegate_impl.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -246,7 +246,7 @@ ChromeShellDelegate::CreateScannerDelegate() const {
 }
 
 scoped_refptr<network::SharedURLLoaderFactory>
-ChromeShellDelegate::GetBrowserProcessUrlLoaderFactory() const {
+ChromeShellDelegate::GetBrowserProcessUrlLoaderFactory() {
   return g_browser_process->shared_url_loader_factory();
 }
 
@@ -264,7 +264,9 @@ bool ChromeShellDelegate::CanGoBack(gfx::NativeWindow window) const {
 }
 
 void ChromeShellDelegate::SetTabScrubberEnabled(bool enabled) {
-  ash::TabScrubber::GetInstance()->SetEnabled(enabled);
+  if (ash::TabScrubber* tab_scrubber = ash::TabScrubber::GetInstance()) {
+    tab_scrubber->SetEnabled(enabled);
+  }
 }
 
 bool ChromeShellDelegate::AllowDefaultTouchActions(gfx::NativeWindow window) {
@@ -394,7 +396,7 @@ bool ChromeShellDelegate::IsUiDevToolsStarted() const {
 void ChromeShellDelegate::StartUiDevTools() {
   base::FilePath output_dir;
   bool result = base::PathService::Get(ash::DIR_USER_DATA, &output_dir);
-  DCHECK(result);
+  CHECK(result, base::NotFatalUntil::M162);
 
   return ui_devtools::ServerHolder::GetInstance()->CreateUiDevTools(output_dir);
 }

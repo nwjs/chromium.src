@@ -99,6 +99,7 @@ class CdmStorageDataModel;
 class CdmStorageManager;
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
 class CookieStoreManager;
+class CrossThreadNetworkContext;
 class DevToolsBackgroundServicesContextImpl;
 class FileSystemAccessEntryFactory;
 class FileSystemAccessManagerImpl;
@@ -172,6 +173,7 @@ class CONTENT_EXPORT StoragePartitionImpl
   CreateURLLoaderNetworkObserverForNavigationRequest(
       NavigationRequest& navigation_request) override;
   storage::QuotaManager* GetQuotaManager() override;
+  storage::QuotaManagerProxy* GetQuotaManagerProxy() override;
   BackgroundSyncContextImpl* GetBackgroundSyncContext() override;
   storage::FileSystemContext* GetFileSystemContext() override;
   DOMStorageContextWrapper* GetDOMStorageContext() override;
@@ -378,6 +380,18 @@ class CONTENT_EXPORT StoragePartitionImpl
   // Returns the shared top-level connection to the Storage Service.
   static mojo::Remote<storage::mojom::StorageService>& GetStorageService();
 
+  // Clones the NetworkContext connection. The new receiver is bound to the
+  // same underlying NetworkContext in the NetworkService.
+  // Must be called on the UI thread.
+  void CloneNetworkContext(
+      mojo::PendingReceiver<network::mojom::NetworkContext> receiver);
+
+  // Creates a helper that can be passed to and used on a background sequence
+  // to make calls directly to the NetworkContext, automatically handling
+  // NetworkService crash recovery via pipe-buffering.
+  // Must be called on the UI thread.
+  scoped_refptr<CrossThreadNetworkContext> CreateCrossThreadNetworkContext();
+
   // Binds the mojo endpoint for an `IDBFactory` (which implements
   // `window.indexedDB`).
   void BindIndexedDB(
@@ -482,8 +496,6 @@ class CONTENT_EXPORT StoragePartitionImpl
 
   // The same as above but for LocalStorage.
   void ResetLocalStorageConnections();
-
-  storage::QuotaManagerProxy* GetQuotaManagerProxy();
 
   // Called by BrowserContextImpl prior to destruction.
   void OnBrowserContextWillBeDestroyed();

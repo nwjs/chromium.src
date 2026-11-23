@@ -28,6 +28,7 @@ class TabGroupUnfocusButton : public views::LabelButton {
   // views::LabelButton:
   gfx::Size CalculatePreferredSize(
       const views::SizeBounds& available_size) const override;
+  void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
   void OnThemeChanged() override;
   void OnMouseEntered(const ui::MouseEvent& event) override;
   void OnMouseExited(const ui::MouseEvent& event) override;
@@ -35,9 +36,15 @@ class TabGroupUnfocusButton : public views::LabelButton {
   void RemovedFromWidget() override;
 
  private:
+  SkColor GetBackgroundColor() const;
+  SkColor GetForegroundColor() const;
+  void UpdateCollapsedState();
+  void UpdateTextAndIcon();
+
   const TabStripOrientation orientation_;
   tab_groups::TabGroupColorId color_id_ = tab_groups::TabGroupColorId::kGrey;
   bool is_ephemeral_ = false;
+  bool is_collapsed_ = false;
   base::CallbackListSubscription paint_as_active_subscription_;
 };
 

@@ -151,6 +151,16 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(/chrome/browser/extensions/extension_context_menu_model.h:ExtensionContextMenuRateExtensionOutcome) -->
 
+<!-- LINT.IfChange(ExtensionCrxInstallerReloadManifestVerificationResult) -->
+
+<enum name="ExtensionCrxInstallerReloadManifestVerificationResult">
+  <int value="0" label="kMatch"/>
+  <int value="1" label="kMismatch"/>
+  <int value="2" label="kSharedCopyMismatchFallback"/>
+</enum>
+
+<!-- LINT.ThenChange(//extensions/browser/crx_installer.h:CrxInstallerReloadManifestVerificationResult) -->
+
 <enum name="ExtensionDisableReason">
   <int value="0" label="UNKNOWN"/>
   <int value="1" label="USER_ACTION"/>
@@ -821,6 +831,7 @@ Called by update_extension_histograms.py.-->
   <int value="581" label="ENTERPRISE_WEBRTC_ON_PEER_CONNECTION_ADDED"/>
   <int value="582" label="ENTERPRISE_WEBRTC_ON_PEER_CONNECTION_REMOVED"/>
   <int value="583" label="RUNTIME_ON_EXTENSION_LOADED"/>
+  <int value="584" label="ENTERPRISE_WEBRTC_ON_SNAPSHOT_TRUNCATED"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_event_histogram_value.h:HistogramValue) -->
@@ -2192,7 +2203,7 @@ Called by update_extension_histograms.py.-->
   <int value="1296" label="INPUTMETHODPRIVATE_SETSETTINGS"/>
   <int value="1297" label="FILEMANAGERPRIVATEINTERNAL_UNSHAREPATHWITHCROSTINI"/>
   <int value="1298"
-      label="PASSWORDSPRIVATE_RECORDPASSWORDSPAGEACCESSINSETTINGS"/>
+      label="DELETED_PASSWORDSPRIVATE_RECORDPASSWORDSPAGEACCESSINSETTINGS"/>
   <int value="1299" label="AUTOFILLPRIVATE_SERVERCARDLINKCLICKED"/>
   <int value="1300" label="AUTOTESTPRIVATE_GETARCAPP"/>
   <int value="1301" label="AUTOTESTPRIVATE_GETARCPACKAGE"/>
@@ -2940,9 +2951,12 @@ Called by update_extension_histograms.py.-->
   <int value="1990" label="AUTOFILLPRIVATE_GETDETAILSFORUPSERTPASS"/>
   <int value="1991" label="AUTOFILLPRIVATE_PRELOADDETAILSFORUPSERTPASS"/>
   <int value="1992" label="EXPERIMENTALAIDATA_GETAPCSNAPSHOT"/>
+  <int value="1993" label="EXPERIMENTALAIDATA_GETTEXTSURROUNDINGSELECTION"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_function_histogram_value.h:HistogramValue) -->
+
+<!-- LINT.IfChange(ExtensionInstallationCrxInstallError) -->
 
 <enum name="ExtensionInstallationCrxInstallError">
   <int value="0" label="NONE"/>
@@ -2971,7 +2985,10 @@ Called by update_extension_histograms.py.-->
   <int value="23" label="USER_ABORTED"/>
   <int value="24" label="UPDATE_NON_EXISTING_EXTENSION"/>
   <int value="25" label="PROFILE_SHUTTING_DOWN"/>
+  <int value="26" label="MANIFEST_MISMATCH_AFTER_INSTALL"/>
 </enum>
+
+<!-- LINT.ThenChange(//extensions/browser/install/crx_install_error.h:CrxInstallErrorDetail,//components/policy/proto/device_management_backend.proto:CrxInstallErrorDetail) -->
 
 <enum name="ExtensionInstallationDownloadingCacheStatus">
   <int value="0" label="UNKNOWN"/>
@@ -3367,6 +3384,10 @@ Called by update_extension_permission.py.-->
   <int value="6" label="Not pinned (Installed from sync)">
     The extension was not pinned by default because it was installed via Chrome
     Sync.
+  </int>
+  <int value="7" label="Not pinned (Installed by default)">
+    The extension was not pinned by default because it was pre-installed by
+    default.
   </int>
 </enum>
 

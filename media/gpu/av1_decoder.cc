@@ -54,15 +54,59 @@ VideoCodecProfile AV1ProfileToVideoCodecProfile(
   }
 }
 
-// Returns true iff the current decode sequence has multiple spatial layers.
-bool IsSpatialLayerDecoding(int operating_point_idc) {
+// Returns true if the sequence header uses the AV1 RTP payload format wildcard
+// operating point (AV1 RTP Specification Section 5):
+// "A sender MAY produce a sequence header with operating_points_cnt_minus_1 = 0
+// and operating_point_idc[0] = 0xFFF and seq_level_idx[0] = 0. In such case,
+// seq_level_idx[0] does not reflect the level of the operating point."
+bool IsRtpWildcardOperatingPoint(
+    const libgav1::ObuSequenceHeader& sequence_header) {
+  constexpr int kRtpWildcardOperatingPointIdc = 0b1111'1111'1111;  // 0xfff
+  return sequence_header.operating_points == 1 &&
+         sequence_header.operating_point_idc[kDefaultOperatingPoint] ==
+             kRtpWildcardOperatingPointIdc;
+}
+
+// Returns true iff the sequence header explicitly specifies multiple spatial
+// layers for the default operating point.
+bool IsSpatialLayerDecoding(const libgav1::ObuSequenceHeader& sequence_header) {
+  if (IsRtpWildcardOperatingPoint(sequence_header)) {
+    return false;
+  }
   // Spec 6.4.1.
   constexpr int kTemporalLayerBitMaskBits = 8;
+  const int operating_point_idc =
+      sequence_header.operating_point_idc[kDefaultOperatingPoint];
   const int kUsedSpatialLayerBitMask =
       (operating_point_idc >> kTemporalLayerBitMaskBits) & 0b1111;
   // In case of an only temporal layer encoding e.g. L1T3, spatial layer#0 bit
   // is 1. We allow this case.
   return kUsedSpatialLayerBitMask > 1;
+}
+
+bool HasSpatialLayerObu(
+    const libgav1::Vector<libgav1::ObuHeader>& obu_headers) {
+  return std::ranges::any_of(obu_headers, [](const libgav1::ObuHeader& header) {
+    return header.spatial_id > 0;
+  });
+}
+
+libgav1::StatusCode ParseOneFrame(libgav1::ObuParser& parser,
+                                  libgav1::RefCountedBufferPtr* current_frame) {
+  libgav1::StatusCode status_code = parser.ParseOneFrame(current_frame);
+  // ObuParser::ParseOneFrame() only populates `*current_frame` immediately
+  // before running CheckLevelConformance() at the very end of the function.
+  // When the RTP wildcard operating point is used with seq_level_idx[0] = 0
+  // (Level 2.0), seq_level_idx[0] does not reflect the level of the operating
+  // point and CheckLevelConformance() will fail for resolutions above Level
+  // 2.0 (147,456 pixels).
+  if (status_code == libgav1::kStatusBitstreamError && *current_frame &&
+      IsRtpWildcardOperatingPoint(parser.sequence_header()) &&
+      parser.sequence_header().level[kDefaultOperatingPoint].major == 2 &&
+      parser.sequence_header().level[kDefaultOperatingPoint].minor == 0) {
+    return libgav1::kStatusOk;
+  }
+  return status_code;
 }
 
 bool IsValidBitDepth(uint8_t bit_depth, VideoCodecProfile profile) {
@@ -200,11 +244,11 @@ void AV1Decoder::Reset() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   ClearCurrentFrame();
 
-  // We must reset the |current_sequence_header_| to ensure we don't try to
-  // decode frames using an incorrect sequence header. If the first
-  // DecoderBuffer after the reset doesn't contain a sequence header, we'll just
-  // skip it and will keep skipping until we get a sequence header.
-  current_sequence_header_.reset();
+  // We must require a new sequence header after a reset to ensure we don't try
+  // to decode frames using an incorrect sequence header, while keeping
+  // `current_sequence_header_` so the first post-reset sequence header can be
+  // compared against the current hardware configuration.
+  need_sequence_header_ = true;
   stream_id_ = 0;
   on_error_ = false;
 
@@ -241,8 +285,9 @@ void AV1Decoder::SetStream(int32_t id,
     return;
   }
 
-  if (current_sequence_header_)
+  if (current_sequence_header_ && !need_sequence_header_) {
     parser_->set_sequence_header(*current_sequence_header_);
+  }
   if (decoder_buffer_->decrypt_config()) {
     decrypt_config_ = decoder_buffer_->decrypt_config()->Clone();
   } else {
@@ -301,7 +346,14 @@ AcceleratedVideoDecoder::DecodeResult AV1Decoder::DecodeInternal() {
       continue;
     }
     if (!current_frame_header_) {
-      libgav1::StatusCode status_code = parser_->ParseOneFrame(&current_frame_);
+      if (decoder_buffer_->side_data() &&
+          decoder_buffer_->side_data()->spatial_layers.size() > 1) {
+        DVLOG(1) << "Spatial layer decoding is not supported";
+        return kDecodeError;
+      }
+
+      libgav1::StatusCode status_code =
+          ParseOneFrame(*parser_, &current_frame_);
       if (status_code != libgav1::kStatusOk) {
         DLOG(WARNING) << "Failed to parse OBU: "
                       << libgav1::GetErrorString(status_code);
@@ -313,11 +365,14 @@ AcceleratedVideoDecoder::DecodeResult AV1Decoder::DecodeInternal() {
       }
 
       current_frame_header_ = parser_->frame_header();
+      if (HasSpatialLayerObu(parser_->obu_headers())) {
+        DVLOG(1) << "Spatial layer decoding is not supported";
+        return kDecodeError;
+      }
+
       // Detects if a new coded video sequence is starting.
       if (parser_->sequence_header_changed()) {
-        if (IsSpatialLayerDecoding(
-                parser_->sequence_header()
-                    .operating_point_idc[kDefaultOperatingPoint])) {
+        if (IsSpatialLayerDecoding(parser_->sequence_header())) {
           constexpr size_t kOperatingPointIdcBits = 12;
           DVLOG(1) << "Spatial layer decoding is not supported: "
                    << "operating_point_idc="
@@ -399,6 +454,7 @@ AcceleratedVideoDecoder::DecodeResult AV1Decoder::DecodeInternal() {
                                          new_sequence_header);
 
         current_sequence_header_ = new_sequence_header;
+        need_sequence_header_ = false;
         ClearReferenceFrames();
 
         // Issue kConfigChange if the sequence header changed significantly,
@@ -429,7 +485,7 @@ AcceleratedVideoDecoder::DecodeResult AV1Decoder::DecodeInternal() {
       }
     }
 
-    if (!current_sequence_header_) {
+    if (need_sequence_header_) {
       // Decoding is not doable because we haven't received a sequence header.
       // This occurs when seeking a video.
       DVLOG(3) << "Discarded the current frame because no sequence header has "

@@ -12,6 +12,7 @@ source_set("selection") {
     "suggestion.h",
     "suggestion_service.cc",
     "suggestion_service.h",
+    "suggestion_tool.cc",
     "suggestion_tool.h",
   ]
 
@@ -32,6 +33,7 @@ source_set("selection") {
     "//components/variations/service",
     "//components/version_info",
     "//ui/gfx/codec",
+    "//ui/gfx/geometry:geometry_skia",
   ]
 }
 
@@ -57,5 +59,6 @@ source_set("unit_tests") {
     "//mojo/public/cpp/bindings",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/gfx/codec",
   ]
 }

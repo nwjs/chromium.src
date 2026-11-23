@@ -1,0 +1,99 @@
+// Copyright 2025 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/actor/tools/password_manager/attempt_login/attempt_login_tool_request.h"
+
+#include <optional>
+#include <string_view>
+
+#include "chrome/browser/actor/actor_surface.h"
+#include "chrome/browser/actor/tools/password_manager/attempt_login/attempt_login_tool.h"
+#include "chrome/browser/actor/tools/registry/tool_definition.h"
+#include "chrome/browser/actor/tools/registry/tool_definition_builder.h"
+#include "chrome/browser/actor/tools/tool.h"
+#include "chrome/browser/actor/tools/tool_request_visitor_functor.h"
+#include "chrome/common/actor/action_result.h"
+#include "components/actor/core/actor_features.h"
+#include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/password_manager/core/browser/features/password_features.h"
+#include "components/tabs/public/tab_interface.h"
+#include "content/public/common/content_features.h"
+
+namespace actor {
+
+namespace {
+
+constexpr std::string_view kAttemptLoginToolDescription =
+    "Attempts to log in to the website using saved credentials or social login "
+    "buttons.";
+
+}  // namespace
+
+AttemptLoginToolRequest::AttemptLoginToolRequest(
+    ActorSurfaceHandle actor_surface_handle,
+    std::optional<PageTarget> password_button,
+    std::optional<PageTarget> sign_in_with_google_button)
+    : TabToolRequest(actor_surface_handle),
+      password_button_(password_button),
+      sign_in_with_google_button_(sign_in_with_google_button) {}
+
+AttemptLoginToolRequest::~AttemptLoginToolRequest() = default;
+
+// static
+std::optional<ToolDefinition> AttemptLoginToolRequest::GetToolDefinition() {
+  return ToolDefinitionBuilder(ToolId::kAttemptLogin, kModelFacingName,
+                               kAttemptLoginToolDescription)
+      .Build();
+}
+
+AttemptLoginToolRequest::AttemptLoginToolRequest(
+    const AttemptLoginToolRequest&) = default;
+AttemptLoginToolRequest& AttemptLoginToolRequest::operator=(
+    const AttemptLoginToolRequest&) = default;
+
+ToolRequest::CreateToolResult AttemptLoginToolRequest::CreateTool(
+    TaskId task_id,
+    ToolDelegate& tool_delegate) const {
+  ActorSurface* actor_surface = GetActorSurfaceHandle().Get();
+  if (!actor_surface) {
+    return {/*tool=*/nullptr, MakeResult(mojom::ActionResultCode::kTabWentAway,
+                                         /*requires_page_stabilization=*/false,
+                                         "The tab is no longer present.")};
+  }
+
+  return {std::make_unique<AttemptLoginTool>(
+              task_id, tool_delegate, *actor_surface, password_button_,
+              sign_in_with_google_button_, RequiresOpeningWebContents()),
+          MakeOkResult()};
+}
+
+void AttemptLoginToolRequest::Apply(ToolRequestVisitorFunctor& f) const {
+  f.Apply(*this);
+}
+
+std::string_view AttemptLoginToolRequest::Name() const {
+  return kName;
+}
+
+bool AttemptLoginToolRequest::RequiresOpeningWebContents() const {
+  return base::FeatureList::IsEnabled(features::kFedCmEmbedderInitiatedLogin);
+}
+
+ObservationDelayController::PageStabilityConfig
+AttemptLoginToolRequest::GetLoginObservationPageStabilityConfig() {
+  ObservationDelayController::PageStabilityConfig config{
+      .supports_paint_stability = true,
+  };
+  if (base::FeatureList::IsEnabled(kActorLoginObservationStartDelay)) {
+    config.start_delay = kActorLoginObservationStartDelayDuration.Get();
+  }
+  return config;
+}
+
+ObservationDelayController::PageStabilityConfig
+AttemptLoginToolRequest::GetObservationPageStabilityConfig() const {
+  return GetLoginObservationPageStabilityConfig();
+}
+
+}  // namespace actor

@@ -209,8 +209,9 @@ TEST_F(SyncUserSettingsImplTest, GetSelectedTypesWhileSignedOut) {
 }
 
 // kReplaceSyncPromosWithSignInPromos has been enabled by default on mobile
-// platforms for a long time, so the feature-disabled case is not worth testing.
-#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+// and desktop platforms, so the feature-disabled case is only tested on
+// ChromeOS.
+#if BUILDFLAG(IS_CHROMEOS)
 TEST_F(SyncUserSettingsImplTest,
        DefaultSelectedTypesWhileSignedIn_SyncToSigninDisabled) {
   base::test::ScopedFeatureList feature_list;
@@ -220,8 +221,7 @@ TEST_F(SyncUserSettingsImplTest,
                             kSeparateLocalAndAccountSearchEngines,
                             syncer::kSeparateLocalAndAccountThemes,
                             switches::kEnablePreferencesAccountStorage},
-      /*disabled_features=*/{kReplaceSyncPromosWithSignInPromos,
-                             kReplaceSyncPromosWithSigninPromosNewSignin});
+      /*disabled_features=*/{kReplaceSyncPromosWithSignInPromos});
 
   std::unique_ptr<SyncUserSettingsImpl> sync_user_settings =
       MakeSyncUserSettings(GetUserTypes());
@@ -241,17 +241,8 @@ TEST_F(SyncUserSettingsImplTest,
   expected_types.Put(UserSelectableType::kThemes);
   EXPECT_THAT(sync_user_settings->GetSelectedTypes(),
               ContainerEq(expected_types));
-
-#if !BUILDFLAG(IS_CHROMEOS)
-  SigninPrefs(pref_service_)
-      .SetBookmarksExplicitBrowserSignin(kTestGaiaId, true);
-  expected_types.Put(UserSelectableType::kBookmarks);
-  expected_types.Put(UserSelectableType::kReadingList);
-  EXPECT_THAT(sync_user_settings->GetSelectedTypes(),
-              ContainerEq(expected_types));
-#endif  // !BUILDFLAG(IS_CHROMEOS)
 }
-#endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(SyncUserSettingsImplTest,
        DefaultSelectedTypesWhileSignedIn_SyncToSigninEnabled) {
@@ -648,18 +639,15 @@ TEST_F(SyncUserSettingsImplTest, ShouldSyncSessionsOnlyIfOpenTabsIsSelected) {
       /*types=*/{UserSelectableType::kHistory, UserSelectableType::kTabs});
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   // For android and iOS, we enable SAVED_TAB_GROUP under OpenTabs as well.
-  EXPECT_EQ(
-      GetPreferredUserTypes(*sync_user_settings),
-      Union(Union(AlwaysPreferredUserTypes(), history_types),
-            {COLLABORATION_GROUP, SAVED_TAB_GROUP, SHARED_COMMENT,
-             SHARED_TAB_GROUP_DATA, SESSIONS, SHARED_TAB_GROUP_ACCOUNT_DATA,
-             WORKSPACE_DESK, ENCRYPTED_TAB_CONTEXT_CONTAINER,
-             ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK}));
+  EXPECT_EQ(GetPreferredUserTypes(*sync_user_settings),
+            Union(Union(AlwaysPreferredUserTypes(), history_types),
+                  {COLLABORATION_GROUP, SAVED_TAB_GROUP, SHARED_COMMENT,
+                   SHARED_TAB_GROUP_DATA, SESSIONS,
+                   SHARED_TAB_GROUP_ACCOUNT_DATA, WORKSPACE_DESK, NOTEBOOK}));
 #else
   EXPECT_EQ(GetPreferredUserTypes(*sync_user_settings),
             Union(Union(AlwaysPreferredUserTypes(), history_types),
-                  {SESSIONS, WORKSPACE_DESK, ENCRYPTED_TAB_CONTEXT_CONTAINER,
-                   ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK}));
+                  {SESSIONS, WORKSPACE_DESK, NOTEBOOK}));
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
   // History only: SESSIONS-related types are gone.
@@ -674,18 +662,15 @@ TEST_F(SyncUserSettingsImplTest, ShouldSyncSessionsOnlyIfOpenTabsIsSelected) {
       /*sync_everything=*/false,
       /*types=*/{UserSelectableType::kTabs});
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  EXPECT_EQ(
-      GetPreferredUserTypes(*sync_user_settings),
-      Union(AlwaysPreferredUserTypes(),
-            {COLLABORATION_GROUP, SAVED_TAB_GROUP, SESSIONS,
-             SHARED_TAB_GROUP_DATA, SHARED_TAB_GROUP_ACCOUNT_DATA,
-             WORKSPACE_DESK, SHARED_COMMENT, ENCRYPTED_TAB_CONTEXT_CONTAINER,
-             ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK}));
-#else
   EXPECT_EQ(GetPreferredUserTypes(*sync_user_settings),
             Union(AlwaysPreferredUserTypes(),
-                  {SESSIONS, WORKSPACE_DESK, ENCRYPTED_TAB_CONTEXT_CONTAINER,
-                   ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK}));
+                  {COLLABORATION_GROUP, SAVED_TAB_GROUP, SESSIONS,
+                   SHARED_TAB_GROUP_DATA, SHARED_TAB_GROUP_ACCOUNT_DATA,
+                   WORKSPACE_DESK, SHARED_COMMENT, NOTEBOOK}));
+#else
+  EXPECT_EQ(
+      GetPreferredUserTypes(*sync_user_settings),
+      Union(AlwaysPreferredUserTypes(), {SESSIONS, WORKSPACE_DESK, NOTEBOOK}));
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 // SavedTabGroups enabled on desktop. It should enable both saved tab groups and

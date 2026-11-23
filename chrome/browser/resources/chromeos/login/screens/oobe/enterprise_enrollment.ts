@@ -57,7 +57,6 @@ interface EnterpriseEnrollmentScreenData {
   gaiaPath: string|undefined;
   gaia_buttons_type: string|undefined;
   clientId: string|undefined;
-  clientVersion: string|undefined;
   hl: string|undefined;
   management_domain: string|undefined;
   email: string|undefined;
@@ -302,8 +301,6 @@ export class EnterpriseEnrollmentElement extends
         this.authenticator.getDeviceIdResponse(deviceId);
       });
     });
-
-    this.authenticator.samlApiUsedCallback = this.samlApiUsed.bind(this);
   }
 
   /**
@@ -360,9 +357,6 @@ export class EnterpriseEnrollmentElement extends
         // will in fact be modifiable.
         gaiaParams.readOnlyEmail = true;
         gaiaParams.email = data.email;
-      }
-      if (data.clientVersion) {
-        gaiaParams.clientVersion = data.clientVersion;
       }
 
       assert(this.authenticator);
@@ -791,14 +785,6 @@ export class EnterpriseEnrollmentElement extends
 
   showSkipConfirmationDialog(): void {
     this.getSkipConfirmationDialog().showDialog();
-  }
-
-  /**
-   * Record that SAML API was used during sign-in.
-   * @param isThirdPartyIdP ignored.
-   */
-  private samlApiUsed(_: boolean): void {
-    this.userActed('using-saml-api');
   }
 }
 

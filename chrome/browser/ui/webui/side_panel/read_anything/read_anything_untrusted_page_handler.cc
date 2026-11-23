@@ -15,6 +15,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/types/pass_key.h"
 #include "base/values.h"
 #include "chrome/browser/accessibility/phrase_segmentation/dependency_parser_model_loader.h"
 #include "chrome/browser/accessibility/phrase_segmentation/dependency_parser_model_loader_factory.h"
@@ -30,7 +31,7 @@
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
-#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_iph_controller.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/read_anything/read_anything.mojom-shared.h"
@@ -42,7 +43,6 @@
 #include "components/dom_distiller/core/distiller_page.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/dom_distiller/core/task_tracker.h"
-#include "components/feature_engagement/public/feature_constants.h"
 #include "components/language/core/browser/language_model.h"
 #include "components/language/core/browser/language_model_manager.h"
 #include "components/language/core/common/locale_util.h"
@@ -84,6 +84,7 @@
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "components/pdf/common/pdf_util.h"
+#include "components/translate/content/browser/content_translate_driver.h"
 #include "extensions/browser/mime_handler/mime_handler_stream_manager.h"
 #include "pdf/pdf_features.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
@@ -447,6 +448,9 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
               base::Unretained(this)),
           base::BindRepeating(
               &ReadAnythingUntrustedPageHandler::SendTranslationState,
+              base::Unretained(this)),
+          base::BindRepeating(
+              &ReadAnythingUntrustedPageHandler::SendTranslationFailed,
               base::Unretained(this))) {
   ax_action_handler_observer_.Observe(
       ui::AXActionHandlerRegistry::GetInstance());
@@ -464,6 +468,8 @@ ReadAnythingUntrustedPageHandler::ReadAnythingUntrustedPageHandler(
   CHECK(read_anything_controller_);
   read_anything_controller_->AddObserver(this);
   tab_ = read_anything_controller_->tab();
+  iph_controller_ =
+      std::make_unique<ReadAnythingIphController>(read_anything_controller_);
   pinned_toolbar_ = PinnedToolbarActionsModel::Get(Profile::FromWebUI(web_ui));
   pinned_toolbar_actions_observation_.Observe(pinned_toolbar_);
   MaybeUpdateImmersivePinStatus();
@@ -831,10 +837,20 @@ void ReadAnythingUntrustedPageHandler::OnDistillationStateChanged(
   }
 
   distillation_state_ = new_state;
+  // Update IPH before ReadAnythingController, which moves Reading Mode from
+  // immersive to the side panel when the page is empty.
+  iph_controller_->OnDistillationStateChanged(new_state);
   auto* ra_controller = GetReadAnythingController();
   CHECK(ra_controller);
 
   ra_controller->OnDistillationStateChanged(new_state);
+
+  // Translate only once the content is distilled, so that the translation
+  // applies to the content shown in Reading Mode.
+  if (new_state == read_anything::mojom::ReadAnythingDistillationState::
+                       kDistillationWithContent) {
+    MaybeTriggerPendingPdfTranslation();
+  }
 }
 
 void ReadAnythingUntrustedPageHandler::OnGetVoicePackInfo(
@@ -954,7 +970,7 @@ bool ReadAnythingUntrustedPageHandler::AreActionsAllowedInTree(
     const ui::AXTreeID& tree_id) const {
   content::RenderFrameHost* rfh =
       content::RenderFrameHost::FromAXTreeID(tree_id);
-  if (!rfh) {
+  if (!rfh || rfh->IsErrorDocument()) {
     return false;
   }
 
@@ -1081,24 +1097,12 @@ void ReadAnythingUntrustedPageHandler::OnLineFocusChanged(
       return;
     }
 
-    if (tab_ && tab_->GetBrowserWindowInterface()) {
-      if (auto* user_ed = BrowserUserEducationInterface::From(
-              tab_->GetBrowserWindowInterface())) {
-        user_ed->NotifyFeaturePromoFeatureUsed(
-            feature_engagement::kIPHReadingModeLineFocusFeature,
-            FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
-      }
-    }
+    iph_controller_->OnLineFocusTurnedOn();
   }
 }
 
 void ReadAnythingUntrustedPageHandler::OnAiPlaybackStateChanged(bool enabled) {
-  if (!features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled()) {
-    return;
-  }
-  if (auto* ra_controller = GetReadAnythingController()) {
-    ra_controller->OnAiPlaybackStateChanged(enabled);
-  }
+  iph_controller_->OnAiPlaybackStateChanged(enabled);
 }
 
 void ReadAnythingUntrustedPageHandler::UpdateForListenToThisPage(
@@ -1268,6 +1272,14 @@ void ReadAnythingUntrustedPageHandler::ScrollToTargetNode(
     return;
   }
 
+  // If the render frame is in an errored state, return early instead of
+  // scrolling to avoid performing actions on invalid nodes.
+  content::RenderFrameHost* rfh =
+      content::RenderFrameHost::FromAXTreeID(target_tree_id);
+  if (!rfh || rfh->IsErrorDocument()) {
+    return;
+  }
+
   base::UmaHistogramEnumeration(kRendererScrollRequestHistogram,
                                 ReadAnythingRendererRequestResult::kAllowed);
   if (!ui::IsValidAXNodeIDFromRenderer(target_node_id)) {
@@ -1300,6 +1312,7 @@ void ReadAnythingUntrustedPageHandler::CloseUI() {
     return;
   }
   read_anything_controller_->CloseImmersiveUI(
+      base::PassKey<ReadAnythingUntrustedPageHandler>(),
       ReadAnythingCloseReason::kClosedByUser);
 }
 
@@ -1316,7 +1329,9 @@ void ReadAnythingUntrustedPageHandler::SendPinStateRequest() {
 
 void ReadAnythingUntrustedPageHandler::TogglePresentation() {
   CHECK(read_anything_controller_);
-  read_anything_controller_->TogglePresentation(/*is_user_initiated=*/true);
+  read_anything_controller_->TogglePresentation(
+      base::PassKey<ReadAnythingUntrustedPageHandler>(),
+      /*is_user_initiated=*/true);
 }
 
 void ReadAnythingUntrustedPageHandler::AckReadingModeHidden() {
@@ -1494,8 +1509,7 @@ void ReadAnythingUntrustedPageHandler::Activate(
     bool active,
     ReadAnythingOpenTrigger open_trigger,
     std::optional<base::TimeDelta> completed_session_duration) {
-  active_ = active;
-  if (active_) {
+  if (active) {
     if (features::IsReadAnythingImprovedUiEnabled() &&
         open_trigger == ReadAnythingOpenTrigger::kListenToThisPageContextMenu) {
       if (listen_to_this_page_playback_state_ !=
@@ -1519,6 +1533,14 @@ void ReadAnythingUntrustedPageHandler::Activate(
     // it was previously marked as hidden.
     OnGetPresentationState();
     RestoreSettingsFromPrefs();
+
+    // The content may have been distilled before Reading Mode was shown, in
+    // which case the distillation state won't change again.
+    if (distillation_state_ ==
+        read_anything::mojom::ReadAnythingDistillationState::
+            kDistillationWithContent) {
+      MaybeTriggerPendingPdfTranslation();
+    }
   }
   if (!active && !tab_will_detach_) {
     if (features::IsReadAnythingImprovedUiEnabled() &&
@@ -1706,6 +1728,19 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
   // Reset the distillation from the previous tree/page so its result is not
   // used as stale content.
   ResetReadabilityState();
+  // Likewise, the previous page's distillation state no longer applies, and
+  // distillation of the new page hasn't been attempted yet. Otherwise, e.g.
+  // Activate() could trigger a pending PDF translation before the new page's
+  // content is distilled. This is set directly rather than through
+  // OnDistillationStateChanged(), whose validation of the renderer's messages
+  // still rejects kNotAttempted after initialization. Leave kUndefined alone:
+  // this is also called from the constructor, before the renderer reports its
+  // initial kNotAttempted state, which must still be accepted.
+  if (distillation_state_ !=
+      read_anything::mojom::ReadAnythingDistillationState::kUndefined) {
+    distillation_state_ =
+        read_anything::mojom::ReadAnythingDistillationState::kNotAttempted;
+  }
 
   is_pdf_with_frame_ = false;
 
@@ -1792,6 +1827,7 @@ void ReadAnythingUntrustedPageHandler::OnActiveAXTreeIDChanged() {
     RequestDomDistillerDistillation(contents);
   }
 }
+
 bool ReadAnythingUntrustedPageHandler::RequestDomDistillerDistillation(
     content::WebContents* content) {
   if (!content || !features::IsReadAnythingWithReadabilityEnabled() ||
@@ -1817,8 +1853,10 @@ bool ReadAnythingUntrustedPageHandler::RequestDomDistillerDistillation(
   const GURL& url = content->GetLastCommittedURL();
   RecordDistillationSchemeHistogram(url);
 
-  if (!url.SchemeIsHTTPOrHTTPS()) {
-    VLOG(1) << kReadAnythingPrefix << ": URL is not HTTP/HTTPS, skipping for "
+  content::RenderFrameHost* rfh = content->GetPrimaryMainFrame();
+  if (!url.SchemeIsHTTPOrHTTPS() || !rfh || rfh->IsErrorDocument()) {
+    VLOG(1) << kReadAnythingPrefix
+            << ": URL is not HTTP/HTTPS or is error document, skipping for "
             << url.spec();
     // Call UpdateContent with empty values so status can be updated from show
     // loading to no content.
@@ -1834,7 +1872,7 @@ bool ReadAnythingUntrustedPageHandler::RequestDomDistillerDistillation(
   dom_distiller::DomDistillerService* dom_distiller_service =
       dom_distiller::DomDistillerServiceFactory::GetForBrowserContext(
           content->GetBrowserContext());
-  DCHECK(dom_distiller_service);
+  CHECK(dom_distiller_service, base::NotFatalUntil::M162);
   page_->OnReadabilityDistillationStateChanged(
       read_anything::mojom::ReadAnythingDistillationState::
           kDistillationInProgress);
@@ -2114,6 +2152,33 @@ void ReadAnythingUntrustedPageHandler::SendTranslationState(
   }
   last_sent_is_translated_ = is_translated;
   page_->OnTranslationStateChanged(is_translated);
+}
+
+void ReadAnythingUntrustedPageHandler::MaybeTriggerPendingPdfTranslation() {
+#if BUILDFLAG(ENABLE_PDF)
+  if (!base::FeatureList::IsEnabled(translate::kEnableTranslatePdf)) {
+    return;
+  }
+  // The pending translation is on the tab's ContentTranslateDriver, which is
+  // attached to the tab's contents rather than to the inner contents hosting
+  // the PDF.
+  content::WebContents* tab_contents = tab_ ? tab_->GetContents() : nullptr;
+  if (!tab_contents) {
+    return;
+  }
+  if (auto* driver =
+          translate::ContentTranslateDriver::FromWebContents(tab_contents)) {
+    // This is a no-op unless a PDF translation is pending.
+    driver->MaybeTriggerPendingPdfTranslation();
+  }
+#endif  // BUILDFLAG(ENABLE_PDF)
+}
+
+void ReadAnythingUntrustedPageHandler::SendTranslationFailed() {
+  if (!base::FeatureList::IsEnabled(translate::kEnableTranslatePdf)) {
+    return;
+  }
+  page_->OnTranslationFailed();
 }
 
 void ReadAnythingUntrustedPageHandler::LogExtensionState() {

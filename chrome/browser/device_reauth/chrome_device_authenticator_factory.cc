@@ -7,6 +7,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "components/device_reauth/device_auth_availability_checker.h"
 #include "components/device_reauth/device_authenticator_common.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/device_reauth/android/device_auth_availability_checker_android.h"
@@ -129,18 +130,27 @@ std::unique_ptr<KeyedService>
 ChromeDeviceAuthenticatorFactory::BuildServiceInstanceForBrowserContext(
     BrowserContext* context) const {
 #if BUILDFLAG(IS_WIN)
-  // Here we cache the biometric availability. If cached value is wrong(eg. user
-  // disable biometrics while chrome is running) then standard password prompt
-  // will appear.
-  DeviceAuthenticatorWin::CacheIfBiometricsAvailable(
-      std::make_unique<AuthenticatorWin>().get());
+  // Here we cache the biometric availability. If cached value is wrong (eg.
+  // user disable biometrics while chrome is running) then standard password
+  // prompt will appear.
+  // When the flag is enabled, the caching happens 30 seconds after startup.
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kDeviceReauthRefactor)) {
+    DeviceAuthenticatorWin::CacheIfBiometricsAvailable(
+        std::make_unique<AuthenticatorWin>().get());
+  }
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Asynchronously check for PIN availability and cache the result in a local
   // state preference.
-  DeviceAuthenticatorChromeOS::CacheIfPinIsAvailable(
-      std::make_unique<AuthenticatorChromeOS>().get());
+  // When the flag is enabled, the caching happens 30 seconds after each user
+  // profile is initialized.
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kDeviceReauthRefactor)) {
+    DeviceAuthenticatorChromeOS::CacheIfPinIsAvailable(
+        std::make_unique<AuthenticatorChromeOS>().get());
+  }
 #endif
   return std::make_unique<DeviceAuthenticatorProxy>();
 }

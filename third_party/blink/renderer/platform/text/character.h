@@ -32,7 +32,6 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_TEXT_CHARACTER_H_
 
 #include <unicode/uchar.h>
-#include <unicode/uniset.h>
 #include <unicode/uscript.h>
 
 #include "base/containers/span.h"
@@ -45,6 +44,10 @@
 #include "third_party/blink/renderer/platform/wtf/text/ascii_ctype.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
+
+U_NAMESPACE_BEGIN
+class UnicodeSet;
+U_NAMESPACE_END
 
 namespace blink::unicode {
 
@@ -352,42 +355,5 @@ inline bool MayNeedEastAsianSpacing(UChar32 ch) {
 }
 
 }  // namespace blink::unicode
-
-// TODO(crbug.com/492927412): Stop using Character namespace. It's for backward
-// compatibility.
-namespace blink::Character {
-using unicode::CanReceiveTextEmphasis;
-using unicode::CanTextDecorationSkipInk;
-using unicode::GetScriptBasedOnUnicodeBlock;
-using unicode::HasLikelyScript;
-using unicode::IsBidiControl;
-using unicode::IsCollapsibleSpace;
-using unicode::IsCommonOrInheritedScript;
-using unicode::IsCursiveScript;
-using unicode::IsDefaultIgnorable;
-using unicode::IsGcMark;
-using unicode::IsGraphemeExtended;
-using unicode::IsInRange;
-using unicode::IsLineFeed;
-using unicode::IsModernGeorgianUppercase;
-using unicode::IsModifier;
-using unicode::IsNonCharacter;
-using unicode::IsNormalizedCanvasSpaceCharacter;
-using unicode::IsOtherSpaceSeparator;
-using unicode::IsPrivateUse;
-using unicode::IsRegionalIndicator;
-using unicode::IsStandardizedVariationSequence;
-using unicode::IsUnicodeVariationSelector;
-using unicode::IsUprightInMixedVertical;
-using unicode::IsVariationSequence;
-using unicode::IsVerticalMathCharacter;
-using unicode::LowercaseModernGeorgianUppercase;
-using unicode::MaybeBidiRtl;
-using unicode::MaybeBidiRtlUtf16;
-using unicode::TreatAsSpace;
-using unicode::TreatAsZeroWidthSpace;
-using unicode::TreatAsZeroWidthSpaceInComplexScript;
-using unicode::TreatAsZeroWidthSpaceInComplexScriptLegacy;
-}  // namespace blink::Character
 
 #endif  // THIRD_PARTY_BLINK_RENDERER_PLATFORM_TEXT_CHARACTER_H_

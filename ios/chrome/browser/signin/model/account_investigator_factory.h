@@ -5,35 +5,26 @@
 #ifndef IOS_CHROME_BROWSER_SIGNIN_MODEL_ACCOUNT_INVESTIGATOR_FACTORY_H_
 #define IOS_CHROME_BROWSER_SIGNIN_MODEL_ACCOUNT_INVESTIGATOR_FACTORY_H_
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
+#import "components/signin/core/browser/account_investigator.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
-class AccountInvestigator;
 class PrefRegistrySyncable;
-class ProfileIOS;
 
 namespace ios {
 
 // Singleton that creates the AccountInvestigatorFactory(s) and associates those
 // services with profiles.
-class AccountInvestigatorFactory : public ProfileKeyedServiceFactoryIOS {
+class AccountInvestigatorFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<AccountInvestigatorFactory,
+                                                AccountInvestigator> {
  public:
-  // Returns null if this profile cannot have an AccountInvestigatorFactory (for
-  // example, if it is incognito).
-  static AccountInvestigator* GetForProfile(ProfileIOS* profile);
-  static AccountInvestigatorFactory* GetInstance();
+  explicit AccountInvestigatorFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<AccountInvestigatorFactory>;
-
-  AccountInvestigatorFactory();
-  ~AccountInvestigatorFactory() override;
-
   // ProfileKeyedServiceFactoryIOS:
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
-  void RegisterProfilePrefs(
-      user_prefs::PrefRegistrySyncable* registry) override;
+      ProfileIOS* profile) const final;
+  void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) final;
 };
 
 }  // namespace ios

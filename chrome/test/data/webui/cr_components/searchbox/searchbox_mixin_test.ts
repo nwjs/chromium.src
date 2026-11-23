@@ -144,7 +144,7 @@ function simulateUserTextInput(
 /**
  * Types 'https://local' and responds with deletable matches, the first of which
  * is the default match, like in the interactive
- * `WebUILocationBarInteractiveUiTest.NavigateSuggestionsTab` test.
+ * `WebUILocationBarEagerPopupInteractiveUiTest.NavigateSuggestionsTab` test.
  */
 async function showDeletableMatches(element: TestSearchboxMixinElement):
     Promise<AutocompleteMatch[]> {
@@ -223,7 +223,7 @@ function createCalculatorMatch(modifiers: Partial<AutocompleteMatch> = {}):
 function verifyMatch(match: AutocompleteMatch, matchEl: SearchboxMatchElement) {
   assertEquals('option', matchEl.getAttribute('role'));
   const primaryText = match.suggestTemplate.primaryText.text;
-  const secondaryText = match.suggestTemplate.secondaryText.text;
+  const secondaryText = match.suggestTemplate.secondaryText?.text ?? '';
   const separatorText =
       secondaryText ? loadTimeData.getString('searchboxSeparator') : '';
   const text = matchEl.$.primaryText.textContent +
@@ -1438,6 +1438,17 @@ suite('SearchboxMixinTest', () => {
     assertEquals(args.input, mockInput.inputElement.value);
     assertTrue(args.preventInlineAutocomplete);
     assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
+
+    testProxy.handler.reset();
+
+    // Committing the composition queries it again, like typed text.
+    mockInput.inputElement.dispatchEvent(
+        new CompositionEvent('compositionend', {data: '간'}));
+
+    args = await testProxy.handler.whenCalled('queryAutocomplete');
+    assertEquals(args.input, mockInput.inputElement.value);
+    assertFalse(args.preventInlineAutocomplete);
+    assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
   });
 
   test('match calculator answer type', async () => {
@@ -1892,6 +1903,47 @@ suite('SearchboxMixinTest', () => {
     assertTrue(element.inputKeywordModel !== null);
     assertEquals(KeywordType.kInKeyword, element.inputKeywordModel.type);
   });
+
+  test(
+      'space composed by an IME enters keyword mode once committed',
+      async () => {
+        const mockInput = element.getInputElement();
+        const keyword = 'google.com';
+        await simulateUserTextInput(mockInput, keyword);
+        element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+          queryId: element.activeQueryId,
+          input: keyword,
+          matches: [createSearchMatchForTesting({
+            allowedToBeDefaultMatch: true,
+            keywordModel: createMatchKeywordModelForTesting({
+              type: KeywordType.kChip,
+              keyword,
+              chipHint: 'Search Google',
+            }),
+          })],
+        }));
+        await microtasksFinished();
+
+        // Composing a full-width space doesn't enter keyword mode, which would
+        // replace the text under the IME.
+        mockInput.inputElement.value = keyword + '\u3000';
+        mockInput.inputElement.dispatchEvent(new InputEvent('input', {
+          inputType: 'insertCompositionText',
+          data: '\u3000',
+          isComposing: true,
+        }));
+        await microtasksFinished();
+        assertFalse(element.keywordModeManager.isInKeywordMode);
+        assertEquals(keyword + '\u3000', mockInput.inputElement.value);
+
+        // Committing it does.
+        mockInput.inputElement.dispatchEvent(
+            new CompositionEvent('compositionend', {data: '\u3000'}));
+        await microtasksFinished();
+        assertTrue(element.keywordModeManager.isInKeywordMode);
+        assertEquals(keyword, element.keywordModeManager.activeKeyword);
+        assertEquals('', mockInput.inputElement.value);
+      });
 
   test('question mark keyword entry', async () => {
     testProxy.callbackRouterRemote.setAvailableKeywordModels(

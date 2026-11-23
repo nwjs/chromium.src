@@ -176,6 +176,7 @@
 #include "third_party/blink/renderer/platform/loader/static_data_navigation_body_loader.h"
 #include "third_party/blink/renderer/platform/mhtml/archive_resource.h"
 #include "third_party/blink/renderer/platform/mhtml/mhtml_archive.h"
+#include "third_party/blink/renderer/platform/network/blink_schemeful_site.h"
 #include "third_party/blink/renderer/platform/network/content_security_policy_response_headers.h"
 #include "third_party/blink/renderer/platform/network/encoded_form_data.h"
 #include "third_party/blink/renderer/platform/network/http_names.h"
@@ -412,13 +413,14 @@ struct SameSizeAsDocumentLoader
   bool last_navigation_had_transient_user_activation;
   bool last_navigation_had_trusted_initiator;
   bool is_secure_context_root;
+  bool can_use_device_bound_session_js_api;
   mojom::blink::ScriptInjectionPolicy script_injection_policy;
   bool had_sticky_activation;
   bool is_browser_initiated;
   bool is_prerendering;
   bool has_text_fragment_token;
   bool text_fragment_token_had_trusted_initiator;
-  std::optional<String> internal_scroll_to_text_fragment;
+  String internal_scroll_to_text_fragment;
   bool was_discarded;
   bool loading_main_document_from_mhtml_archive;
   bool loading_srcdoc;
@@ -642,6 +644,8 @@ DocumentLoader::DocumentLoader(
   DCHECK(frame_);
   DCHECK(params_);
   is_secure_context_root_ = params_->is_secure_context_root;
+  can_use_device_bound_session_js_api_ =
+      params_->can_use_device_bound_session_js_api;
   script_injection_policy_ = params_->script_injection_policy;
 
   // See `archive_` attribute documentation.
@@ -796,9 +800,9 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
   params->has_text_fragment_token = has_text_fragment_token_;
   params->text_fragment_token_had_trusted_initiator =
       text_fragment_token_had_trusted_initiator_;
-  if (internal_scroll_to_text_fragment_) {
+  if (!internal_scroll_to_text_fragment_.IsNull()) {
     params->internal_scroll_to_text_fragment =
-        WebString(*internal_scroll_to_text_fragment_);
+        WebString(internal_scroll_to_text_fragment_);
   }
   // Origin trials must still work on the cloned document.
   params->initiator_origin_trial_features =
@@ -821,6 +825,8 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
   params->reduced_accept_language = reduced_accept_language_;
   params->navigation_delivery_type = navigation_delivery_type_;
   params->load_with_storage_access = storage_access_api_status_;
+  params->can_use_device_bound_session_js_api =
+      can_use_device_bound_session_js_api_;
   params->modified_runtime_features = modified_runtime_features_;
   params->visited_link_salt = visited_link_salt_;
   params->content_settings = content_settings_->Clone();
@@ -1778,6 +1784,22 @@ mojom::CommitResult DocumentLoader::CommitSameDocumentNavigation(
       // https://crbug.com/1209772.
       return mojom::blink::CommitResult::RestartCrossDocument;
     }
+  }
+
+  const SecurityOrigin* current_origin =
+      frame_->DomWindow()->GetSecurityOrigin();
+  if (is_synchronously_committed && initiator_origin &&
+      !initiator_origin->IsSameOriginWith(current_origin)) {
+    // Record `SameDocumentCrossOriginInitiator` metrics for cross-origin
+    // same-document navigations that commit synchronously in the renderer
+    // without going through a browser-side `NavigationRequest` before commit
+    // (e.g., when a same-process cross-origin frame navigates this frame's
+    // fragment).
+    CountUse(WebFeature::kSameDocumentCrossOriginInitiator);
+    CountUse(BlinkSchemefulSite(initiator_origin) ==
+                     BlinkSchemefulSite(current_origin)
+                 ? WebFeature::kSameDocumentSameSiteCrossOriginInitiator
+                 : WebFeature::kSameDocumentCrossSiteInitiator);
   }
 
   // If this is a continuation of a script-initiated navigation, e.g.
@@ -2949,6 +2971,11 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
 
   frame_->DomWindow()->SetInitiatorStateToken(initiator_state_token_);
 
+  // Set after the window is chosen, because a same-origin commit from the
+  // initial empty document keeps the old window.
+  frame_->DomWindow()->SetCanUseDeviceBoundSessionJsApi(
+      can_use_device_bound_session_js_api_);
+
   frame_->DomWindow()->SetPolicyContainer(std::move(policy_container_));
   frame_->DomWindow()->SetContentSecurityPolicy(csp);
 
@@ -3936,9 +3963,9 @@ bool DocumentLoader::ConsumeTextFragmentToken() {
   return token_value;
 }
 
-std::optional<String> DocumentLoader::TakeInternalScrollToTextFragment() {
-  std::optional<String> result = std::move(internal_scroll_to_text_fragment_);
-  internal_scroll_to_text_fragment_.reset();
+String DocumentLoader::TakeInternalScrollToTextFragment() {
+  String result = std::move(internal_scroll_to_text_fragment_);
+  internal_scroll_to_text_fragment_ = String();
   return result;
 }
 

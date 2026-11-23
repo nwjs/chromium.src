@@ -1,0 +1,328 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.actor.background_tabs;
+
+import android.content.pm.PackageManager;
+import android.os.Process;
+import android.util.DisplayMetrics;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+
+import org.jni_zero.CalledByNative;
+import org.jni_zero.JNINamespace;
+import org.jni_zero.JniPtr;
+import org.jni_zero.JniType;
+import org.jni_zero.JniTypeToken;
+import org.jni_zero.JniUniquePtr;
+import org.jni_zero.NativeMethods;
+
+import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.base.ContextUtils;
+import org.chromium.base.ResettersForTesting;
+import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.content_public.browser.Visibility;
+import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.ViewAndroidDelegate;
+import org.chromium.ui.base.WindowAndroid;
+import org.chromium.ui.permissions.AndroidPermissionDelegate;
+import org.chromium.ui.permissions.PermissionCallback;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
+/**
+ * Singleton manager for offscreen rendering. Responsible for managing the offscreen window and
+ * compositor.
+ */
+@JNINamespace("actor")
+@NullMarked
+public class OffscreenRenderingManager {
+    @JniType("::actor::OffscreenRenderingManagerAndroid")
+    interface NativeOffscreenRenderingManagerAndroid extends JniTypeToken {}
+
+    private static @Nullable OffscreenRenderingManager sInstance;
+
+    private @Nullable JniUniquePtr<NativeOffscreenRenderingManagerAndroid> mNativePtr;
+    private @Nullable WindowAndroid mOffscreenWindow;
+    private final Set<Tab> mOffscreenTabs = new HashSet<>();
+    private final Set<WebContents> mOffscreenWebContents = new HashSet<>();
+    private final ManagerTabObserver mTabObserver = new ManagerTabObserver(this);
+
+    private static class ManagerTabObserver implements TabObserver {
+        private final OffscreenRenderingManager mManager;
+
+        ManagerTabObserver(OffscreenRenderingManager manager) {
+            mManager = manager;
+        }
+
+        @Override
+        public void onDestroyed(Tab tab) {
+            mManager.stopOffscreenRendering(tab);
+        }
+    }
+
+    /** Returns the singleton instance of OffscreenRenderingManager. */
+    public static OffscreenRenderingManager getInstance() {
+        if (sInstance == null) {
+            sInstance = new OffscreenRenderingManager();
+        }
+        return sInstance;
+    }
+
+    private OffscreenRenderingManager() {}
+
+    /**
+     * Starts offscreen rendering for a standalone WebContents (e.g. Glic WebContents).
+     *
+     * @param webContents The WebContents to render offscreen.
+     */
+    @CalledByNative
+    public static void startOffscreenRenderingForWebContents(WebContents webContents) {
+        DisplayMetrics displayMetrics =
+                ContextUtils.getApplicationContext().getResources().getDisplayMetrics();
+        getInstance()
+                .startOffscreenRenderingForWebContents(
+                        webContents, displayMetrics.widthPixels, displayMetrics.heightPixels);
+    }
+
+    /**
+     * Stops offscreen rendering for a standalone WebContents.
+     *
+     * @param webContents The WebContents to stop rendering offscreen.
+     */
+    @CalledByNative
+    public static void stopOffscreenRenderingForWebContents(WebContents webContents) {
+        getInstance().stopOffscreenRendering(webContents);
+    }
+
+    private void ensureNativeInitialized() {
+        if (mNativePtr != null) return;
+
+        mOffscreenWindow =
+                new WindowAndroid(
+                        ContextUtils.getApplicationContext(),
+                        /* occlusionTrackingAllowed= */ false);
+        // Offscreen windows do not have an associated Activity, so they cannot support or
+        // request new permissions. We query the real application-level permission status
+        // for read operations (as permissions are granted per application package on Android)
+        // to ensure permission state consistency across windows. Interactive prompts and
+        // requests are rejected as there is no Activity to present UI.
+        mOffscreenWindow.setAndroidPermissionDelegate(
+                new AndroidPermissionDelegate() {
+                    @Override
+                    public boolean hasPermission(String permission) {
+                        return ApiCompatibilityUtils.checkPermission(
+                                        ContextUtils.getApplicationContext(),
+                                        permission,
+                                        Process.myPid(),
+                                        Process.myUid())
+                                == PackageManager.PERMISSION_GRANTED;
+                    }
+
+                    @Override
+                    public boolean canRequestPermission(String permission) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean isPermissionRevokedByPolicy(String permission) {
+                        return ContextUtils.getApplicationContext()
+                                .getPackageManager()
+                                .isPermissionRevokedByPolicy(
+                                        permission,
+                                        ContextUtils.getApplicationContext().getPackageName());
+                    }
+
+                    @Override
+                    public void requestPermissions(
+                            String[] permissions, PermissionCallback callback) {
+                        int[] grantResults = new int[permissions.length];
+                        Arrays.fill(grantResults, PackageManager.PERMISSION_DENIED);
+                        callback.onRequestPermissionsResult(permissions, grantResults);
+                    }
+
+                    @Override
+                    public boolean handlePermissionResult(
+                            int requestCode, String[] permissions, int[] grantResults) {
+                        return false;
+                    }
+                });
+
+        // Initialize native with an arbitrary size. It doesn't need to match the tab size
+        // as long as we don't do readback from the root layer.
+        mNativePtr = OffscreenRenderingManagerJni.get().init(mOffscreenWindow, 1, 1);
+    }
+
+    /**
+     * Starts offscreen rendering for the given Tab.
+     *
+     * @param tab The Tab to render offscreen.
+     * @param width The width of the offscreen surface.
+     * @param height The height of the offscreen surface.
+     */
+    public void startOffscreenRendering(Tab tab, int width, int height) {
+        ensureNativeInitialized();
+        if (mNativePtr == null || mOffscreenTabs.contains(tab)) return;
+
+        WebContents webContents = tab.getWebContents();
+        if (webContents == null || webContents.isDestroyed()) return;
+        tab.addObserver(mTabObserver);
+
+        webContents.setSize(width, height);
+        OffscreenRenderingManagerJni.get()
+                .startOffscreenRendering(mNativePtr, webContents, width, height);
+        tab.startOffscreenRendering();
+        webContents.setTopLevelNativeWindow(mOffscreenWindow);
+
+        mOffscreenTabs.add(tab);
+    }
+
+    /**
+     * Starts offscreen rendering for a standalone WebContents (e.g. Glic WebContents).
+     *
+     * @param webContents The WebContents to render offscreen.
+     * @param width The width of the offscreen surface.
+     * @param height The height of the offscreen surface.
+     */
+    // TODO(b/560179581): Refactor to deduplicate logic with startOffscreenRendering(Tab).
+    public void startOffscreenRenderingForWebContents(
+            WebContents webContents, int width, int height) {
+        ensureNativeInitialized();
+        if (mNativePtr == null
+                || webContents.isDestroyed()
+                || mOffscreenWebContents.contains(webContents)) {
+            return;
+        }
+
+        if (webContents.getViewAndroidDelegate() == null) {
+            ViewGroup containerView = new FrameLayout(ContextUtils.getApplicationContext());
+            webContents.setDelegates(
+                    "",
+                    ViewAndroidDelegate.createBasicDelegate(containerView),
+                    /* accessDelegate= */ null,
+                    /* windowAndroid= */ mOffscreenWindow,
+                    WebContents.createDefaultInternalsHolder());
+        }
+
+        webContents.setSize(width, height);
+        OffscreenRenderingManagerJni.get()
+                .startOffscreenRendering(mNativePtr, webContents, width, height);
+        webContents.setTopLevelNativeWindow(mOffscreenWindow);
+        webContents.updateWebContentsVisibility(Visibility.VISIBLE);
+
+        mOffscreenWebContents.add(webContents);
+    }
+
+    /**
+     * Stops offscreen rendering for a standalone WebContents.
+     *
+     * @param webContents The WebContents to stop rendering offscreen.
+     */
+    public void stopOffscreenRendering(WebContents webContents) {
+        if (!mOffscreenWebContents.contains(webContents)) {
+            return;
+        }
+
+        if (!webContents.isDestroyed()) {
+            if (mNativePtr != null) {
+                OffscreenRenderingManagerJni.get().stopOffscreenRendering(mNativePtr, webContents);
+            }
+            if (webContents.getTopLevelNativeWindow() == mOffscreenWindow) {
+                webContents.setTopLevelNativeWindow(null);
+            }
+        }
+        mOffscreenWebContents.remove(webContents);
+
+        if (mOffscreenTabs.isEmpty() && mOffscreenWebContents.isEmpty()) {
+            destroy();
+        }
+    }
+
+    /**
+     * Stops offscreen rendering for the given Tab.
+     *
+     * @param tab The Tab to stop rendering offscreen.
+     */
+    public void stopOffscreenRendering(Tab tab) {
+        if (!mOffscreenTabs.contains(tab)) return;
+
+        WebContents webContents = tab.getWebContents();
+        if (webContents == null || webContents.isDestroyed()) {
+            throw new IllegalStateException(
+                    "WebContents should not be null or destroyed when stopping offscreen"
+                            + " rendering.");
+        }
+
+        assert mNativePtr != null;
+        OffscreenRenderingManagerJni.get().stopOffscreenRendering(mNativePtr, webContents);
+
+        tab.removeObserver(mTabObserver);
+        // Handles window restoration.
+        tab.stopOffscreenRendering();
+        mOffscreenTabs.remove(tab);
+
+        // If this was the last tab and there are no active standalone WebContents,
+        // clean up the native manager and offscreen window.
+        if (mOffscreenTabs.isEmpty() && mOffscreenWebContents.isEmpty()) {
+            destroy();
+        }
+    }
+
+    /** Destroy the native counterpart and resources. */
+    public void destroy() {
+        // Stop all active offscreen rendering sessions.
+        HashSet<Tab> remainingOffscreenTabs = new HashSet<>(mOffscreenTabs);
+        for (Tab tab : remainingOffscreenTabs) {
+            stopOffscreenRendering(tab);
+        }
+        HashSet<WebContents> remainingWebContents = new HashSet<>(mOffscreenWebContents);
+        for (WebContents webContents : remainingWebContents) {
+            stopOffscreenRendering(webContents);
+        }
+
+        if (mNativePtr != null) {
+            mNativePtr.destroy();
+            mNativePtr = null;
+        }
+        if (mOffscreenWindow != null) {
+            mOffscreenWindow.destroy();
+            mOffscreenWindow = null;
+        }
+        sInstance = null;
+    }
+
+    public static void setInstanceForTesting(OffscreenRenderingManager instance) {
+        var oldInstance = sInstance;
+        sInstance = instance;
+        ResettersForTesting.register(() -> sInstance = oldInstance);
+    }
+
+    /** Returns the offscreen WindowAndroid used for rendering, initializing it if necessary. */
+    public WindowAndroid getOffscreenWindow() {
+        ensureNativeInitialized();
+        assert mOffscreenWindow != null;
+        return mOffscreenWindow;
+    }
+
+    @NativeMethods
+    interface Natives {
+        JniUniquePtr<NativeOffscreenRenderingManagerAndroid> init(
+                @JniType("ui::WindowAndroid*") WindowAndroid window, int width, int height);
+
+        void startOffscreenRendering(
+                JniPtr<NativeOffscreenRenderingManagerAndroid> self,
+                @JniType("content::WebContents*") WebContents webContents,
+                int width,
+                int height);
+
+        void stopOffscreenRendering(
+                JniPtr<NativeOffscreenRenderingManagerAndroid> self,
+                @JniType("content::WebContents*") WebContents webContents);
+    }
+}

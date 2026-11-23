@@ -23,6 +23,7 @@
 #include "remoting/base/session_policies.h"
 #include "remoting/host/action_executor.h"
 #include "remoting/host/active_display_monitor.h"
+#include "remoting/host/agent_integration_configurator.h"
 #include "remoting/host/audio_capturer.h"
 #include "remoting/host/audio_injector.h"
 #include "remoting/host/base/desktop_environment_options.h"
@@ -107,6 +108,10 @@ class MockDesktopEnvironment : public DesktopEnvironment {
               CreateUrlForwarderConfigurator,
               (),
               (override));
+  MOCK_METHOD(std::unique_ptr<AgentIntegrationConfigurator>,
+              CreateAgentIntegrationConfigurator,
+              (),
+              (override));
   MOCK_METHOD(std::unique_ptr<RemoteWebAuthnStateChangeNotifier>,
               CreateRemoteWebAuthnStateChangeNotifier,
               (),
@@ -150,8 +155,6 @@ class MockClientSessionControl : public ClientSessionControl {
               (const protocol::MicrophoneControl&),
               (override));
 };
-
-
 
 class MockClientSessionEvents : public ClientSessionEvents {
  public:
@@ -356,6 +359,28 @@ class MockUrlForwarderConfigurator final : public UrlForwarderConfigurator {
               (override));
 };
 
+class MockAgentIntegrationConfigurator final
+    : public AgentIntegrationConfigurator {
+ public:
+  MockAgentIntegrationConfigurator();
+
+  MockAgentIntegrationConfigurator(const MockAgentIntegrationConfigurator&) =
+      delete;
+  MockAgentIntegrationConfigurator& operator=(
+      const MockAgentIntegrationConfigurator&) = delete;
+
+  ~MockAgentIntegrationConfigurator() override;
+
+  MOCK_METHOD(void,
+              IsAgentIntegrationEnabled,
+              (IsAgentIntegrationEnabledCallback callback),
+              (override));
+  MOCK_METHOD(void,
+              SetAgentIntegrationEnabled,
+              (bool enabled, SetAgentIntegrationEnabledCallback callback),
+              (override));
+};
+
 class MockChromotingSessionServices : public mojom::ChromotingSessionServices {
  public:
   MockChromotingSessionServices();
@@ -380,6 +405,11 @@ class MockChromotingSessionServices : public mojom::ChromotingSessionServices {
               (mojo::PendingReceiver<mojom::SecurityKeyForwarder> receiver),
               (override));
 #endif
+  MOCK_METHOD(void,
+              SetAgentStatus,
+              (const protocol::TerminalControl::AgentInfo& agent_status,
+               SetAgentStatusCallback callback),
+              (override));
 };
 
 class MockChromotingHostServicesProvider

@@ -463,6 +463,13 @@ bool TabStripView::IsTabScrollButtonsPinned() const {
                : true;
 }
 
+void TabStripView::SetLeadingOverlap(int leading_overlap) {
+  if (leading_overlap != leading_overlap_) {
+    leading_overlap_ = leading_overlap;
+    InvalidateLayout(/*avoid_propagate_during_layout=*/true);
+  }
+}
+
 void TabStripView::SetCollapsedState(bool is_collapsed) {
   if (is_collapsed != is_collapsed_) {
     is_collapsed_ = is_collapsed;
@@ -806,12 +813,6 @@ void TabStripView::OnScrollButtonsVisibilityChanged() {
   if (collection_node_ && tab_scroll_button_container_->GetVisible() &&
       target_views_tracker_->empty()) {
     ScrollToFitTabs(collection_node_->GetController()->GetActiveTab(), nullptr);
-  }
-}
-
-void TabStripView::SetAvailableUnpinnedSpace(views::SizeBound space) const {
-  if (unpinned_tabs_container_view_) {
-    unpinned_tabs_container_view_->SetAvailableSpace(space);
   }
 }
 

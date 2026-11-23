@@ -47,7 +47,7 @@ public class HostBrowserClassLoaderTest {
 
     @Before
     public void setUp() throws Exception {
-        mContext = RuntimeEnvironment.application;
+        mContext = RuntimeEnvironment.getApplication();
         mPackageManager = mContext.getPackageManager();
         setRemoteVersionCode(REMOTE_VERSION_CODE);
 
@@ -131,7 +131,7 @@ public class HostBrowserClassLoaderTest {
         PackageInfo packageInfo = new PackageInfo();
         packageInfo.packageName = REMOTE_PACKAGE_NAME;
         packageInfo.versionCode = versionCode;
-        Shadows.shadowOf(mPackageManager).addPackage(packageInfo);
+        Shadows.shadowOf(mPackageManager).installPackage(packageInfo);
     }
 
     /**

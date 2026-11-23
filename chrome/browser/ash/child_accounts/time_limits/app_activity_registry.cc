@@ -682,7 +682,9 @@ void AppActivityRegistry::SaveAppActivity() {
     for (base::Value& entry : list) {
       std::optional<AppId> app_id =
           policy::AppIdFromAppInfoDict(entry.GetIfDict());
-      CHECK(app_id.has_value(), base::NotFatalUntil::M160);
+      // TODO(crbug.com/576424768): CHECK-exclusion: Convert to a CHECK once we
+      // are confident it won't be triggered.
+      DCHECK(app_id.has_value());
 
       if (!activity_registry_.contains(app_id.value())) {
         std::optional<AppState> state =
@@ -853,10 +855,9 @@ void AppActivityRegistry::NotifyLimitReached(const AppId& app_id,
 
   const std::optional<AppLimit>& limit = activity_registry_.at(app_id).limit;
   CHECK(limit->daily_limit(), base::NotFatalUntil::M160);
-  for (auto& observer : app_state_observers_) {
-    observer.OnAppLimitReached(app_id, limit->daily_limit().value(),
-                               was_active);
-  }
+  app_state_observers_.NotifyAllowReentrancy(
+      &AppStateObserver::OnAppLimitReached, app_id,
+      limit->daily_limit().value(), was_active);
 }
 
 void AppActivityRegistry::SetAppActive(const AppId& app_id,
@@ -1163,7 +1164,9 @@ void AppActivityRegistry::InitializeAppActivities() {
 PersistedAppInfo AppActivityRegistry::GetPersistedAppInfoForApp(
     const AppId& app_id,
     base::Time timestamp) {
-  CHECK(activity_registry_.contains(app_id), base::NotFatalUntil::M160);
+  // TODO(crbug.com/576775867): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK(activity_registry_.contains(app_id));
 
   AppDetails& details = activity_registry_.at(app_id);
 

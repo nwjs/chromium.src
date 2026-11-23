@@ -128,6 +128,25 @@ enum class WebauthnResultMetric {
   kMaxValue = kNotAllowedError,
 };
 
+// The card-on-device verification status of a masked server card when
+// evaluating the GetDetailsForGetRealPan preflight response.
+//
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(CardVerificationStatus)
+enum class CardVerificationStatus {
+  // The card was present in `verified_instrument_ids`.
+  kVerified = 0,
+  // The card was absent from `verified_instrument_ids`, mandating CVC
+  // authentication.
+  kUnverified = 1,
+  // The preflight call timed out (or the response was unavailable), forcing a
+  // CVC fallback.
+  kTimedOut = 2,
+  kMaxValue = kTimedOut,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:CardVerificationStatus)
+
 // Logs the card fetch latency |duration| after a WebAuthn prompt. |result|
 // indicates whether the unmasking request was successful or not. |card_type|
 // indicates the type of the credit card that the request fetched.
@@ -162,6 +181,11 @@ void LogPreflightCallResponseReceivedOnCardSelection(
     bool fido_opted_in,
     CreditCard::RecordType record_type);
 
+// Logs the card-on-device verification status when evaluating the
+// GetDetailsForGetRealPan preflight response for a masked server card.
+void LogServerControlledReauthCardVerificationStatus(
+    CardVerificationStatus status);
+
 // Logs the existence of any user-perceived latency between selecting a Google
 // Payments server card and seeing a card unmask prompt.
 void LogUserPerceivedLatencyOnCardSelection(PreflightCallEvent event,
@@ -172,9 +196,18 @@ void LogUserPerceivedLatencyOnCardSelection(PreflightCallEvent event,
 void LogUserPerceivedLatencyOnCardSelectionDuration(
     const base::TimeDelta duration);
 
-// Logs whether or not the verifying pending dialog timed out between
-// selecting a Google Payments server card and seeing a card unmask prompt.
-void LogUserPerceivedLatencyOnCardSelectionTimedOut(bool did_time_out);
+// Logs whether or not the verify pending dialog timed out between selecting a
+// Google Payments server card and seeing a card unmask prompt (falling back to
+// CVC authentication instead of continuing to FIDO) when risk-based
+// authentication is not used.
+void LogUserPerceivedLatencyOnCardSelectionTimedOutCvcFallback(
+    bool did_time_out);
+
+// Logs whether or not the wait for the preflight call response timed out
+// between selecting a Google Payments server card and starting the risk-based
+// authentication. The risk-based authentication only waits when card-on-device
+// verification is enforced.
+void LogUserPerceivedLatencyOnCardSelectionRiskBasedTimedOut(bool did_time_out);
 
 // Logs the duration of WebAuthn's
 // IsUserVerifiablePlatformAuthenticatorAvailable() call. It is supposedly an

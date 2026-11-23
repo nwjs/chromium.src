@@ -126,9 +126,10 @@ std::optional<std::vector<uint8_t>> EncodeBitmapAsJpeg(int quality,
 }
 
 std::optional<std::vector<uint8_t>> EncodeBitmapAsWebp(int quality,
+                                                       int method,
                                                        const SkBitmap& bitmap) {
   TRACE_EVENT0("devtools", "EncodeBitmapAsWebp");
-  return gfx::WebpCodec::Encode(bitmap, quality);
+  return gfx::WebpCodec::Encode(bitmap, quality, method);
 }
 
 std::variant<protocol::Response, BitmapEncoder>
@@ -145,7 +146,17 @@ GetEncoder(const std::string& format, int quality, bool optimize_for_speed) {
     return base::BindRepeating(&EncodeBitmapAsJpeg, quality);
   }
   if (format == protocol::Page::CaptureScreenshot::FormatEnum::Webp) {
-    return base::BindRepeating(&EncodeBitmapAsWebp, quality);
+    // Quality 100 is lossless. There, method 1 is several times smaller than
+    // method 0 at a small cost. For lossy, method 2 takes about half the time
+    // of method 3 and is a few percent bigger. Higher methods are much slower
+    // for little or no gain.
+    int method;
+    if (quality == 100) {
+      method = optimize_for_speed ? 0 : 1;
+    } else {
+      method = optimize_for_speed ? 2 : 3;
+    }
+    return base::BindRepeating(&EncodeBitmapAsWebp, quality, method);
   }
   return protocol::Response::InvalidParams("Invalid image format");
 }
@@ -242,10 +253,11 @@ void GotManifest(std::optional<std::string> manifest_id,
                  ::blink::mojom::ManifestPtr input_manifest,
                  blink::mojom::ManifestDebugInfoPtr debug_info) {
   if (manifest_id &&
-      manifest_id.value() != input_manifest->id.possibly_invalid_spec()) {
+      (!input_manifest ||
+       manifest_id.value() != input_manifest->id.possibly_invalid_spec())) {
     std::move(callback)->sendFailure(protocol::Response::InvalidParams(
         std::string("Page manifest id ") +
-        input_manifest->id.possibly_invalid_spec() +
+        (input_manifest ? input_manifest->id.possibly_invalid_spec() : "none") +
         " does not match the input " + manifest_id.value()));
     return;
   }
@@ -265,6 +277,14 @@ void GotManifest(std::optional<std::string> manifest_id,
         failed = true;
       }
     }
+  }
+
+  if (!input_manifest) {
+    std::move(callback)->sendSuccess(
+        manifest_url.possibly_invalid_spec(), std::move(errors),
+        failed ? std::optional<std::string>() : debug_info->raw_manifest,
+        /*parsed=*/nullptr, Page::WebAppManifest::Create().Build());
+    return;
   }
 
   auto convert_icon = [](const blink::Manifest::ImageResource& input_icon)
@@ -1113,45 +1133,6 @@ void PageHandler::Navigate(const std::string& url,
   const base::UnguessableToken& navigation_token =
       navigation_request->devtools_navigation_token();
   navigate_callbacks_[navigation_token] = std::move(callback);
-}
-
-namespace optimization_guide::proto {
-class AnnotatedPageContent;
-}
-
-void PageHandler::GetAnnotatedPageContent(
-    std::optional<bool> include_actionable_information,
-    std::unique_ptr<GetAnnotatedPageContentCallback> callback) {
-  ResponseOrWebContents result = GetWebContentsForTopLevelActiveFrame();
-  if (std::holds_alternative<Response>(result)) {
-    callback->sendFailure(std::get<Response>(result));
-    return;
-  }
-  WebContentsImpl* web_contents = std::get<WebContentsImpl*>(result);
-  if (!web_contents) {
-    callback->sendFailure(Response::ServerError("WebContents not found."));
-    return;
-  }
-
-  if (WebContentsDelegate* delegate = web_contents->GetDelegate()) {
-    delegate->GetAIPageContent(
-        web_contents, include_actionable_information.value_or(true),
-        base::BindOnce(
-            [](std::unique_ptr<GetAnnotatedPageContentCallback> callback,
-               base::expected<std::string, std::string> result) {
-              if (result.has_value()) {
-                callback->sendSuccess(protocol::Binary::fromString(*result));
-              } else {
-                callback->sendFailure(Response::ServerError(
-                    base::StrCat({"Failed to get annotated page content: ",
-                                  result.error()})));
-              }
-            },
-            std::move(callback)));
-  } else {
-    callback->sendFailure(Response::ServerError(
-        "No WebContentsDelegate available to get annotated page content"));
-  }
 }
 
 void PageHandler::NavigationReset(NavigationRequest* navigation_request) {
@@ -2791,9 +2772,13 @@ void PageHandler::ReadyToCommitNavigation(
     have_pending_reload_ = false;
     pending_script_to_evaluate_on_load_.clear();
   } else if (have_pending_reload_) {
-    if (navigation_request->WasServerRedirect() &&
-        !initiating_origin_.IsSameOriginWith(
-            navigation_request->GetOriginToCommit().value_or(url::Origin()))) {
+    // Drop the pending script if the reload encountered an error or if the
+    // navigation was redirected to a different origin.
+    if (navigation_request->DidEncounterError() ||
+        (navigation_request->WasServerRedirect() &&
+         !initiating_origin_.IsSameOriginWith(
+             navigation_request->GetOriginToCommit().value_or(
+                 url::Origin())))) {
       pending_script_to_evaluate_on_load_.clear();
     }
     prepare_for_reload_callback_.Run(

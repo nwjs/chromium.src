@@ -34,7 +34,6 @@
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
-#include "ui/base/models/tree_model.h"
 #include "url/origin.h"
 
 namespace web_app {
@@ -50,7 +49,7 @@ class StoragePartitionSizeEstimator : private ProfileObserver {
       Profile* profile,
       const content::StoragePartitionConfig& storage_partition_config,
       base::OnceCallback<void(int64_t)> complete_callback) {
-    DCHECK(!storage_partition_config.is_default());
+    CHECK(!storage_partition_config.is_default(), base::NotFatalUntil::M162);
 
     // |owning_closure| will own the StoragePartitionSizeEstimator and delete
     // it when called or reset.

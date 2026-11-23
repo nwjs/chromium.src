@@ -215,7 +215,9 @@ source_set("chromoting_host_services_client") {
     "//components/named_mojo_ipc_server",
     "//mojo/public/cpp/platform",
     "//remoting/base",
+    "//remoting/host/base",
     "//remoting/host/mojom",
+    "//remoting/proto",
   ]
   if (is_win) {
     deps += [ "//remoting/host/win:acl_util" ]
@@ -402,6 +404,10 @@ static_library("common") {
     "action_message_handler.cc",
     "action_message_handler.h",
     "active_display_monitor.cc",
+    "agent_integration_configurator.cc",
+    "agent_integration_configurator.h",
+    "agent_integration_control_message_handler.cc",
+    "agent_integration_control_message_handler.h",
     "audio_capturer.cc",
     "audio_injector.cc",
     "audio_silence_detector.cc",
@@ -657,6 +663,8 @@ static_library("common") {
 
   if (is_linux) {
     sources += [
+      "agent_integration_configurator_linux.cc",
+      "agent_integration_configurator_linux.h",
       "daemon_process_linux.cc",
       "host_wtmpdb_logger.cc",
       "host_wtmpdb_logger.h",
@@ -804,6 +812,7 @@ static_library("common") {
       "keyboard_layout_monitor_win.cc",
       "pairing_registry_delegate_win.cc",
       "pairing_registry_delegate_win.h",
+      "privacy_overlay_win.cc",
       "remote_client_cert_store.cc",
       "remote_client_cert_store.h",
       "remote_ssl_private_key.cc",
@@ -837,6 +846,8 @@ static_library("test_support") {
   sources = [
     "fake_active_display_monitor.cc",
     "fake_active_display_monitor.h",
+    "fake_agent_integration_configurator.cc",
+    "fake_agent_integration_configurator.h",
     "fake_desktop_environment.cc",
     "fake_desktop_environment.h",
     "fake_keyboard_layout_monitor.cc",
@@ -886,6 +897,7 @@ source_set("unit_tests") {
   testonly = true
 
   sources = [
+    "agent_integration_control_message_handler_unittest.cc",
     "audio_silence_detector_unittest.cc",
     "audio_volume_filter_unittest.cc",
     "backoff_timer_unittest.cc",
@@ -947,7 +959,7 @@ source_set("unit_tests") {
     ]
   }
 
-  if (use_ozone || is_chromeos) {
+  if ((use_ozone && !remoting_use_x11) || is_chromeos) {
     sources -= [ "input_monitor/local_input_monitor_unittest.cc" ]
   }
 
@@ -1041,6 +1053,7 @@ source_set("unit_tests") {
 
   if (is_linux) {
     sources += [
+      "agent_integration_configurator_linux_unittest.cc",
       "disconnect_window_linux_unittest.cc",
       "pairing_registry_delegate_linux_unittest.cc",
       "terminal_process_monitor_linux_unittest.cc",
@@ -1101,6 +1114,7 @@ source_set("unit_tests") {
       "certificate_broker_impl_unittest.cc",
       "clipboard_win_unittest.cc",
       "pairing_registry_delegate_win_unittest.cc",
+      "privacy_overlay_win_unittest.cc",
       "remote_client_cert_store_unittest.cc",
       "remote_ssl_private_key_unittest.cc",
       "touch_injector_win_unittest.cc",
@@ -1383,6 +1397,13 @@ if (enable_me2me_host) {
       "//remoting/host/base",
       "//remoting/host/setup:common",
     ]
+    if (!is_chromeos) {
+      deps += [
+        ":chromoting_host_services_client",
+        "//remoting/host/mojom",
+        "//remoting/proto",
+      ]
+    }
   }
 
   # Windows defines its own entry point function.

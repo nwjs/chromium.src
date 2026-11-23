@@ -1,13 +1,15 @@
 include_rules = [
-  # Existing dependencies within //chrome. There is an active effort to
-  # refactor //chrome/browser/ui/ash to break these dependencies; see b/332804822.
-  # Whenever possible, avoid adding new //chrome dependencies to this list.
+  # Other ash directories in //chrome.
   "+chrome/browser/ash/app_restore",
   "+chrome/browser/ash/arc",
   "+chrome/browser/ash/drive",
   "+chrome/browser/ash/login/quick_unlock",
   "+chrome/browser/ash/login/users",
   "+chrome/browser/ash/system_web_apps/apps/personalization_app",
+
+  # Existing dependencies within //chrome. There is an active effort to
+  # refactor //chrome/browser/ui/ash to break these dependencies; see b/332804822.
+  # Whenever possible, avoid adding new //chrome dependencies to this list.
   "+chrome/browser/enterprise/browser_management",
   "+chrome/browser/nearby_sharing",
   "+chrome/browser/policy",
@@ -43,11 +45,9 @@ specific_include_rules = {
     '+ash/shell_observer.h',
     "+ash/display/cros_display_config.h",
     "+ash/display/display_prefs.h",
-    "+ash/display/display_performance_mode_controller.h",
   ],
   'display_settings_provider_unittest\\.cc': [
     '+ash/shell.h',
-    "+ash/display/display_performance_mode_controller.h",
   ],
   'fast_pair_.*': [
     "+ash/quick_pair",

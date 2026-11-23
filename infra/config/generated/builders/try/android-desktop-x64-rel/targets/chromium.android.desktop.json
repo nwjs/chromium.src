@@ -37,7 +37,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -50,15 +50,8 @@
             }
           ],
           "optional_dimensions": {
-            "120": {
-              "caches": "android_35_google_apis_tablet_x64_tablet_landscape"
-            },
-            "30": {
-              "caches": "android_35_google_apis_tablet_x64_tablet_landscape",
-              "cpu": "x86-64-n4"
-            },
             "60": {
-              "cpu": "x86-64-n4"
+              "caches": "android_35_google_apis_tablet_x64_tablet_landscape"
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
@@ -70,7 +63,6 @@
       {
         "args": [
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--force-desktop-android",
           "--timeout-scale=2.0",
           "--avd-config=../../tools/android/avd/proto/android_35_google_apis_tablet_x64_tablet_landscape.textpb",
@@ -104,7 +96,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -131,7 +123,6 @@
         "args": [
           "--annotation=Restriction=Desktop,Restriction=TabletOrDesktop,ImportantFormFactors=Desktop,ImportantFormFactors=TabletOrDesktop",
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--force-desktop-android",
           "--timeout-scale=2.0",
           "--avd-config=../../tools/android/avd/proto/android_35_google_apis_tablet_x64_tablet_landscape.textpb",
@@ -164,7 +155,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -190,7 +181,6 @@
       {
         "args": [
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--force-desktop-android",
           "--avd-config=../../tools/android/avd/proto/android_35_google_apis_tablet_x64_tablet_landscape.textpb",
           "--gtest_filter=-org.chromium.chrome.browser.ui.appmenu.AppMenuTest.testShowAppMenu_AnchorTop",
@@ -224,7 +214,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -275,7 +265,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -326,7 +316,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -377,7 +367,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -428,7 +418,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",
@@ -485,7 +475,7 @@
         "swarming": {
           "dimensions": {
             "cores": "8",
-            "cpu": "x86-64",
+            "cpu": "x86-64-n4|x86-64",
             "device_os": null,
             "device_type": null,
             "os": "Ubuntu-22.04",

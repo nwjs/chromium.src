@@ -52,7 +52,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
-#include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "components/android_autofill/browser/android_autofill_client.h"
 #include "components/android_autofill/browser/android_autofill_manager.h"
@@ -151,12 +150,6 @@ TabAndroid* TabAndroid::FromTabHandle(tabs::TabHandle handle) {
 // static
 TabAndroid* TabAndroid::GetNativeTab(JNIEnv* env, const JavaRef<jobject>& obj) {
   return reinterpret_cast<TabAndroid*>(Java_TabImpl_getNativePtr(env, obj));
-}
-
-// static
-void TabAndroid::AttachTabHelpers(content::WebContents* web_contents) {
-  CHECK(web_contents, base::NotFatalUntil::M161);
-  TabHelpers::AttachTabHelpers(web_contents);
 }
 
 TabAndroid::TabAndroid(JNIEnv* env,
@@ -313,7 +306,11 @@ sync_sessions::SyncedTabDelegate* TabAndroid::GetSyncedTabDelegate() {
     synced_tab_delegate_ =
         std::make_unique<browser_sync::SyncedTabDelegateAndroid>(this);
     if (web_contents_) {
-      synced_tab_delegate_->SetWebContents(web_contents_.get());
+      synced_tab_delegate_->SetWebContents(
+          web_contents_.get(),
+          tab_features_ ? tab_features_->task_tab_helper() : nullptr,
+          tab_features_ ? tab_features_->supervised_user_navigation_observer()
+                        : nullptr);
     }
   }
   return synced_tab_delegate_.get();
@@ -440,7 +437,6 @@ void TabAndroid::InitWebContents(
   web_contents_->SetSelectionPopupDelegate(
       std::make_unique<android::ChromeSelectionDropdownMenuDelegate>());
 
-  AttachTabHelpers(web_contents_.get());
   tab_features_ =
       std::make_unique<tabs::TabFeatures>(web_contents_.get(), profile());
   // When restoring a frame that was unloaded we re-create the TabAndroid and
@@ -471,7 +467,9 @@ void TabAndroid::InitWebContents(
       ->SetPopulatorFactory(jcontext_menu_populator_factory);
 
   if (synced_tab_delegate_) {
-    synced_tab_delegate_->SetWebContents(web_contents_.get());
+    synced_tab_delegate_->SetWebContents(
+        web_contents_.get(), tab_features_->task_tab_helper(),
+        tab_features_->supervised_user_navigation_observer());
   }
 
   // Verify that the WebContents this tab represents matches the expected
@@ -656,11 +654,11 @@ tabs::TabDestroyStatus TabAndroid::DestroyWebContents() {
   }
 
   ResetTabAlertController();
-  tab_features_.reset();
-  web_contents_.reset();
   if (synced_tab_delegate_) {
     synced_tab_delegate_->ResetWebContents();
   }
+  tab_features_.reset();
+  web_contents_.reset();
   content_layer_.reset();
 
   return tabs::TabDestroyStatus::FAST_SHUTDOWN;
@@ -692,6 +690,9 @@ std::unique_ptr<content::WebContents> TabAndroid::ReleaseWebContentsInternal(
   WillRemoveWebContentsFromTab(web_contents(), clear_delegate);
 
   ResetTabAlertController();
+  if (synced_tab_delegate_) {
+    synced_tab_delegate_->ResetWebContents();
+  }
   tab_features_.reset();
   std::unique_ptr<content::WebContents> released_contents =
       std::move(web_contents_);
@@ -705,9 +706,6 @@ std::unique_ptr<content::WebContents> TabAndroid::ReleaseWebContentsInternal(
     ClearSessionId();
   }
 
-  if (synced_tab_delegate_) {
-    synced_tab_delegate_->ResetWebContents();
-  }
   content_layer_.reset();
   return released_contents;
 }
@@ -748,7 +746,12 @@ void TabAndroid::SetActiveNavigationEntryTitleForUrl(const std::string& url,
 
   content::NavigationEntry* entry =
       web_contents()->GetController().GetVisibleEntry();
-  if (entry && url == entry->GetVirtualURL().spec()) {
+  // Some native pages are shown for an entry whose virtual URL differs from the
+  // native page URL, e.g. a PdfPage for a web PDF has the internal
+  // chrome-native://pdf URL, while the virtual URL is the PDF URL. Accept a
+  // match against either URL.
+  if (entry &&
+      (url == entry->GetVirtualURL().spec() || url == entry->GetURL().spec())) {
     entry->SetTitle(std::move(title));
   }
 }

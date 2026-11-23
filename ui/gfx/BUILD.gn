@@ -44,7 +44,6 @@ component("gfx_skia") {
     "skia_util.cc",
     "skia_util.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   public_deps = [
     "//base",
     "//skia",
@@ -163,7 +162,6 @@ component("gfx") {
   configs += [
     ":gfx_impl_define",
     "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
   ]
 
   public_deps = [
@@ -193,6 +191,7 @@ component("gfx") {
     "//device/vr/buildflags",
     "//mojo/public/cpp/bindings:struct_traits",
     "//skia",
+    "//third_party/abseil-cpp:absl",
     "//third_party/zlib",
     "//ui/base:features",
     "//ui/base:ozone_buildflags",
@@ -441,6 +440,8 @@ component("color_space") {
     "hdr_static_metadata.h",
     "skia_color_space_util.cc",
     "skia_color_space_util.h",
+    "tone_map_util.cc",
+    "tone_map_util.h",
   ]
   if (is_win) {
     sources += [
@@ -545,10 +546,7 @@ source_set("selection_bound_sources") {
     "selection_bound.h",
   ]
 
-  configs += [
-    ":gfx_impl_define",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ ":gfx_impl_define" ]
 
   public_deps = [
     "//base",
@@ -609,10 +607,7 @@ source_set("memory_buffer_sources") {
     ]
   }
 
-  configs += [
-    ":gfx_impl_define",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ ":gfx_impl_define" ]
 
   public_deps = [ ":buffer_types" ]
 
@@ -702,7 +697,6 @@ static_library("test_support") {
     "geometry/test/geometry_util.h",
     "image/image_unittest_util.cc",
     "image/image_unittest_util.h",
-    "test/font_fallback_test_data.cc",
     "test/font_fallback_test_data.h",
     "test/scoped_default_font_description.h",
     "test/sk_color_eq.cc",
@@ -743,10 +737,6 @@ static_library("test_support") {
 
     deps += [ "//third_party/harfbuzz" ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 test("gfx_unittests") {

@@ -8,13 +8,15 @@ import type {SettingsShoppingPageElement} from './shopping_page.js';
 
 export function getHtml(this: SettingsShoppingPageElement) {
   return html`<!--_html_template_start_-->
-<settings-subpage page-title="$i18n{shoppingCardTitle}" class="multi-card">
+<settings-subpage page-title="$i18n{shoppingCardTitle}" class="multi-card"
+    route-path="${this.routePath}">
   <div class="card">
     <settings-toggle-button id="optInToggle"
         ?disabled="${this.optInToggleDisabled_()}"
         @settings-boolean-control-change="${
             this.onOptInToggleSettingsBooleanControlChange_}"
-        .pref="${this.shoppingOptedIn_}"
+        pref-key="synthetic.settings.autofill.shopping_opted_in"
+        no-set-pref
         no-extension-indicator
         label="$i18n{shoppingOptInToggleLabel}"
         sub-label="$i18n{shoppingOptInToggleSubLabel}">
@@ -46,7 +48,7 @@ export function getHtml(this: SettingsShoppingPageElement) {
         page-name="Shopping"
         .allowedEntityTypes="${this.allowedEntityTypes_}"
         .metricEntityTypes="${this.metricEntityTypes_}"
-        .allowNewEntitiesAdditionPref="${this.shoppingOptedIn_}">
+        .allowNewEntitiesAdditionPref="${this.shoppingOptedInPref_}">
     </settings-autofill-ai-entries-list>
   </div>
 </settings-subpage>

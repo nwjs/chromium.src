@@ -2626,6 +2626,10 @@ interface External
     method AddSearchProvider
     method IsSearchProviderInstalled
     method constructor
+interface EyeDropper
+    attribute @@toStringTag
+    method constructor
+    method open
 interface FeaturePolicy
     attribute @@toStringTag
     method allowedFeatures
@@ -6375,6 +6379,7 @@ interface OfflineAudioContext : BaseAudioContext
     attribute @@toStringTag
     getter length
     getter oncomplete
+    method close
     method constructor
     method resume
     method startRendering
@@ -6722,11 +6727,13 @@ interface PerformanceLongAnimationFrameTiming : PerformanceEntry
     attribute @@toStringTag
     getter blockingDuration
     getter firstUIEventTimestamp
+    getter layoutDuration
     getter paintTime
     getter presentationTime
     getter renderStart
     getter scripts
     getter styleAndLayoutStart
+    getter styleDuration
     method constructor
     method toJSON
 interface PerformanceLongTaskTiming : PerformanceEntry
@@ -6816,7 +6823,9 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter serverTiming
     getter transferSize
     getter workerCacheLookupStart
+    getter workerFinalRouterSource
     getter workerFinalSourceType
+    getter workerMatchedRouterSource
     getter workerMatchedSourceType
     getter workerRouterEvaluationStart
     getter workerStart
@@ -6825,7 +6834,9 @@ interface PerformanceResourceTiming : PerformanceEntry
 interface PerformanceScriptTiming : PerformanceEntry
     attribute @@toStringTag
     getter executionStart
+    getter forcedLayoutDuration
     getter forcedStyleAndLayoutDuration
+    getter forcedStyleDuration
     getter invoker
     getter invokerType
     getter pauseDuration
@@ -8563,6 +8574,7 @@ interface SVGTextPathElement : SVGTextContentElement
     attribute TEXTPATH_SPACINGTYPE_UNKNOWN
     getter href
     getter method
+    getter side
     getter spacing
     getter startOffset
     method constructor
@@ -11043,8 +11055,11 @@ interface WebSocketStream
 interface WebTransport
     static getter supportsReliableOnly
     attribute @@toStringTag
+    getter anticipatedConcurrentIncomingBidirectionalStreams
+    getter anticipatedConcurrentIncomingUnidirectionalStreams
     getter closed
     getter datagrams
+    getter draining
     getter incomingBidirectionalStreams
     getter incomingUnidirectionalStreams
     getter protocol
@@ -11055,6 +11070,8 @@ interface WebTransport
     method constructor
     method createBidirectionalStream
     method createUnidirectionalStream
+    setter anticipatedConcurrentIncomingBidirectionalStreams
+    setter anticipatedConcurrentIncomingUnidirectionalStreams
 interface WebTransportBidirectionalStream
     attribute @@toStringTag
     getter readable
@@ -11251,17 +11268,6 @@ interface XRLayer : EventTarget
 interface XRWebGLBinding
     attribute @@toStringTag
     method constructor
-interface XSLTProcessor
-    attribute @@toStringTag
-    method clearParameters
-    method constructor
-    method getParameter
-    method importStylesheet
-    method removeParameter
-    method reset
-    method setParameter
-    method transformToDocument
-    method transformToFragment
 interface webkitMediaStream : EventTarget
     attribute @@toStringTag
     getter active

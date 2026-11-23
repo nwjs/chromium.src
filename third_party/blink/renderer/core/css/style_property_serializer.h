@@ -33,6 +33,7 @@
 
 namespace blink {
 
+class CSSProperty;
 class CSSPropertyName;
 class CSSPropertyValueSet;
 class StylePropertyShorthand;
@@ -55,6 +56,9 @@ class CORE_EXPORT StylePropertySerializer {
                              const StylePropertyShorthand&) const;
   String BorderImagePropertyValue() const;
   String BorderRadiusValue() const;
+  String BorderRadiusCornerShorthandValue(
+      const CSSProperty& first_corner,
+      const CSSProperty& second_corner) const;
   String CornerShapeValue() const;
   String CornersValue() const;
   String SingleCornerShorthandValue(const StylePropertyShorthand&) const;
@@ -124,11 +128,6 @@ class CORE_EXPORT StylePropertySerializer {
                           const String& value,
                           bool is_important,
                           bool is_not_first_decl) const;
-  bool IsPropertyShorthandAvailable(const StylePropertyShorthand&) const;
-  bool ShorthandHasOnlyInitialOrInheritedValue(
-      const StylePropertyShorthand&) const;
-  void AppendBackgroundPropertyAsText(StringBuilder& result,
-                                      unsigned& num_decls) const;
 
   // This function does checks common to all shorthands, and returns:
   // - The serialization if the shorthand serializes as a css-wide keyword.

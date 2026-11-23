@@ -45,7 +45,9 @@
 #include "components/performance_manager/public/performance_manager.h"
 #include "components/performance_manager/test_support/test_harness_helper.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/referrer.h"
+#include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/web_contents_tester.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -450,6 +452,36 @@ TEST_F(TabLifecycleUnitTest, MetricsRecordedOnFocusTriggeredReload) {
   // Finish load to cleanup state.
   tab_lifecycle_unit->DidStopLoading();
 
+  tab_strip_model_->RemoveObserver(GetTabLifecycleUnitSource());
+}
+class TabLifecycleUnitTestWithWorker : public TabLifecycleUnitTest {
+ public:
+  TabLifecycleUnitTestWithWorker() {
+    feature_list_.InitAndEnableFeature(features::kWebContentsDiscard);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(TabLifecycleUnitTestWithWorker, DiscardWithWorker) {
+  tab_strip_model_->AddObserver(GetTabLifecycleUnitSource());
+  TabLifecycleUnit* tab_lifecycle_unit = AddNewHiddenLifecycleUnitToTabStrip();
+  ASSERT_TRUE(tab_lifecycle_unit);
+
+  auto* mock_process = static_cast<content::MockRenderProcessHost*>(
+      tab_lifecycle_unit->GetWebContents()
+          ->GetPrimaryMainFrame()
+          ->GetProcess());
+  mock_process->IncrementWorkerRefCount();
+  EXPECT_FALSE(mock_process->FastShutdownStarted());
+
+  const uint64_t kMemoryEstimateBytes = 100 * 1024 * 1024;
+  EXPECT_TRUE(tab_lifecycle_unit->Discard(LifecycleUnitDiscardReason::PROACTIVE,
+                                          kMemoryEstimateBytes));
+  EXPECT_TRUE(mock_process->FastShutdownStarted());
+
+  mock_process->DecrementWorkerRefCount();
   tab_strip_model_->RemoveObserver(GetTabLifecycleUnitSource());
 }
 

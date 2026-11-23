@@ -4,6 +4,7 @@
 
 #import "chrome/services/mac_notifications/mac_notification_service_un.h"
 
+#import <AppKit/AppKit.h>
 #import <UserNotifications/UserNotifications.h>
 
 #include <string>
@@ -76,6 +77,9 @@ InvocationBlock invokeClosure(base::OnceClosure closure) {
 class MacNotificationServiceUNTest : public testing::Test {
  public:
   MacNotificationServiceUNTest() {
+    MacNotificationServiceUN::SetOpenSystemSettingsCallbackForTesting(
+        open_system_settings_future_.GetRepeatingCallback());
+
     mock_notification_center_ =
         [OCMockObject mockForClass:[UNUserNotificationCenter class]];
     // Expect the MacNotificationServiceUN ctor to register a delegate with
@@ -119,6 +123,8 @@ class MacNotificationServiceUNTest : public testing::Test {
     base::test::TestFuture<mojom::RequestPermissionResult> permission_result;
     service_->RequestPermission(permission_result.GetCallback());
     EXPECT_TRUE(permission_result.Wait());
+    EXPECT_TRUE(open_system_settings_future_.Wait());
+    open_system_settings_future_.Clear();
     EXPECT_OCMOCK_VERIFY(mock_notification_center_);
   }
 
@@ -126,6 +132,8 @@ class MacNotificationServiceUNTest : public testing::Test {
     if (service_) {
       ResetService();
     }
+    MacNotificationServiceUN::SetOpenSystemSettingsCallbackForTesting(
+        base::NullCallback());
   }
 
   void ResetService() {
@@ -353,9 +361,17 @@ class MacNotificationServiceUNTest : public testing::Test {
         handler_receiver.BindNewPipeAndPassRemote(), base::DoNothing(),
         mock_notification_center);
     service->Bind(service_remote.BindNewPipeAndPassReceiver());
+    open_system_settings_future_.Clear();
     base::test::TestFuture<mojom::RequestPermissionResult> permission_result;
     service->RequestPermission(permission_result.GetCallback());
     EXPECT_EQ(result, permission_result.Get());
+    if (result ==
+        mojom::RequestPermissionResult::kPermissionPreviouslyGranted) {
+      EXPECT_FALSE(open_system_settings_future_.IsReady());
+    } else {
+      EXPECT_TRUE(open_system_settings_future_.Wait());
+      open_system_settings_future_.Clear();
+    }
     if (on_create)
       std::move(on_create).Run(service.get());
 
@@ -374,6 +390,7 @@ class MacNotificationServiceUNTest : public testing::Test {
   id<UNUserNotificationCenterDelegate> notification_center_delegate_ = nullptr;
   std::unique_ptr<MacNotificationServiceUN> service_;
   unsigned int category_count_ = 0u;
+  base::test::TestFuture<void> open_system_settings_future_;
 };
 
 TEST_F(MacNotificationServiceUNTest, DisplayNotification) {
@@ -745,7 +762,8 @@ TEST_F(MacNotificationServiceUNTest, RedisplayNotification) {
               verify_notification_content(request.content);
               return YES;
             }]
-             withCompletionHandler:[OCMArg any]])
+             withCompletionHandler:([OCMArg invokeBlockWithArgs:[NSNull null],
+                                                                nil])])
         .andDo(invokeClosure(run_loop.QuitClosure()));
 
     service_remote_->DisplayNotification(notification_no_renotify.Clone());
@@ -777,7 +795,9 @@ TEST_F(MacNotificationServiceUNTest, RedisplayNotification) {
                                           verify_notification_content(content);
                                           return YES;
                                         }]
-                                 completionHandler:[OCMArg any]])
+                                 completionHandler:
+                                     ([OCMArg invokeBlockWithArgs:[NSNull null],
+                                                                  nil])])
         .andDo(invokeClosure(run_loop.QuitClosure()));
     service_remote_->DisplayNotification(notification_no_renotify.Clone());
 
@@ -797,18 +817,24 @@ TEST_F(MacNotificationServiceUNTest, RedisplayNotification) {
               verify_notification_content(request.content);
               return YES;
             }]
-             withCompletionHandler:[OCMArg any]])
+             withCompletionHandler:([OCMArg invokeBlockWithArgs:[NSNull null],
+                                                                nil])])
         .andDo(invokeClosure(run_loop.QuitClosure()));
     service_remote_->DisplayNotification(notification_with_renotify.Clone());
 
     run_loop.Run();
+    task_environment_.RunUntilIdle();
     EXPECT_OCMOCK_VERIFY(mock_notification_center_);
   }
 
   {
     // Finally, display the notification with renotify set to false, but with
-    // the notification having been closed by the OS in the meantime,
+    // the notification having been closed by the OS in the meantime. Replacing
+    // a notification whose previous toast was already dismissed must not emit a
+    // synthetic kClose action to Chrome (which would delete the replacement
+    // notification from the NotificationDatabase).
     base::RunLoop run_loop;
+    EXPECT_CALL(mock_handler_, OnNotificationAction).Times(0);
 
     OCMExpect([mock_notification_center_
         getDeliveredNotificationsWithCompletionHandler:
@@ -821,12 +847,35 @@ TEST_F(MacNotificationServiceUNTest, RedisplayNotification) {
               verify_notification_content(request.content);
               return YES;
             }]
-             withCompletionHandler:[OCMArg any]])
+             withCompletionHandler:([OCMArg invokeBlockWithArgs:[NSNull null],
+                                                                nil])])
         .andDo(invokeClosure(run_loop.QuitClosure()));
     service_remote_->DisplayNotification(notification_no_renotify.Clone());
 
     run_loop.Run();
+    task_environment_.RunUntilIdle();
     EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+    testing::Mock::VerifyAndClearExpectations(&mock_handler_);
+  }
+
+  {
+    // If the replaced notification is subsequently closed by the user before
+    // the next synchronization pass, kClose should still be reported normally.
+    base::RunLoop run_loop;
+    OCMExpect([mock_notification_center_
+        getDeliveredNotificationsWithCompletionHandler:
+            ([OCMArg invokeBlockWithArgs:@[], nil])]);
+    EXPECT_CALL(mock_handler_, OnNotificationAction)
+        .WillOnce([&](mojom::NotificationActionInfoPtr action_info) {
+          EXPECT_EQ(NotificationOperation::kClose, action_info->operation);
+          EXPECT_EQ("notificationId", action_info->meta->id->id);
+          run_loop.Quit();
+        });
+    task_environment_.FastForwardBy(
+        MacNotificationServiceUN::kSynchronizationInterval);
+    run_loop.Run();
+    EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+    testing::Mock::VerifyAndClearExpectations(&mock_handler_);
   }
 }
 
@@ -938,6 +987,279 @@ TEST_F(MacNotificationServiceUNTest, SynchronizesNotifications) {
         run_loop.Quit();
       });
   run_loop.Run();
+  testing::Mock::VerifyAndClearExpectations(&mock_handler_);
+}
+
+TEST_F(MacNotificationServiceUNTest,
+       DisplayNotification_FailedDeliveryDoesNotEmitCloseOnSynchronize) {
+  EXPECT_CALL(mock_handler_, OnNotificationAction).Times(0);
+
+  // Simulate addNotificationRequest failing (e.g. when OS notification
+  // permission is not granted).
+  DisplayNotificationSync("notificationId", "profileId", /*incognito=*/false,
+                          /*success=*/false);
+  task_environment_.RunUntilIdle();
+
+  // The category allocated for the failed notification should be released and
+  // the subsequent synchronization pass must not synthesize a phantom kClose.
+  EXPECT_EQ(0u, category_count_);
+  base::RunLoop sync_loop;
+  OCMExpect(
+      [mock_notification_center_ getDeliveredNotificationsWithCompletionHandler:
+                                     ([OCMArg invokeBlockWithArgs:@[], nil])])
+      .andDo(invokeClosure(sync_loop.QuitClosure()));
+  task_environment_.FastForwardBy(
+      MacNotificationServiceUN::kSynchronizationInterval);
+  sync_loop.Run();
+  task_environment_.RunUntilIdle();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  testing::Mock::VerifyAndClearExpectations(&mock_handler_);
+}
+
+TEST_F(MacNotificationServiceUNTest,
+       DisplayNotification_FailedAttachmentRetryDoesNotEmitCloseOnSynchronize) {
+  EXPECT_CALL(mock_handler_, OnNotificationAction).Times(0);
+
+  base::RunLoop run_loop;
+  NSError* attachment_error =
+      [NSError errorWithDomain:UNErrorDomain
+                          code:UNErrorCodeAttachmentMoveIntoDataStoreFailed
+                      userInfo:nil];
+  NSError* retry_error =
+      [NSError errorWithDomain:UNErrorDomain
+                          code:UNErrorCodeNotificationsNotAllowed
+                      userInfo:nil];
+
+  OCMExpect([mock_notification_center_
+      addNotificationRequest:[OCMArg checkWithBlock:^BOOL(
+                                         UNNotificationRequest* request) {
+        return request.content.attachments.count == 1u;
+      }]
+       withCompletionHandler:([OCMArg
+                                 invokeBlockWithArgs:attachment_error, nil])]);
+  OCMExpect(
+      [mock_notification_center_
+          addNotificationRequest:[OCMArg checkWithBlock:^BOOL(
+                                             UNNotificationRequest* request) {
+            return request.content.attachments.count == 0u;
+          }]
+           withCompletionHandler:([OCMArg
+                                     invokeBlockWithArgs:retry_error, nil])])
+      .andDo(invokeClosure(run_loop.QuitClosure()));
+
+  auto notification = CreateMojoNotification("notificationId", "profileId",
+                                             /*incognito=*/false);
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(64, 64);
+  bitmap.eraseARGB(255, 100, 150, 200);
+  notification->icon = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
+  service_remote_->DisplayNotification(std::move(notification));
+
+  run_loop.Run();
+  task_environment_.RunUntilIdle();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  EXPECT_EQ(0u, category_count_);
+
+  base::RunLoop sync_loop;
+  OCMExpect(
+      [mock_notification_center_ getDeliveredNotificationsWithCompletionHandler:
+                                     ([OCMArg invokeBlockWithArgs:@[], nil])])
+      .andDo(invokeClosure(sync_loop.QuitClosure()));
+
+  task_environment_.FastForwardBy(
+      MacNotificationServiceUN::kSynchronizationInterval);
+  sync_loop.Run();
+  task_environment_.RunUntilIdle();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  testing::Mock::VerifyAndClearExpectations(&mock_handler_);
+}
+
+TEST_F(MacNotificationServiceUNTest,
+       DisplayNotification_FailedReplaceContentKeepsTrackedNotification) {
+  auto notification = CreateMojoNotification("notificationId", "profileId",
+                                             /*incognito=*/false,
+                                             /*renotify=*/false);
+  DisplayNotificationSync("notificationId", "profileId", /*incognito=*/false,
+                          /*success=*/true);
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ(1u, category_count_);
+
+  // Replace the notification in place (`renotify = false` while the previous
+  // notification is still delivered), and simulate
+  // `replaceContentForRequestWithIdentifier:` failing with a non-attachment
+  // error.
+  {
+    base::RunLoop run_loop;
+    NSError* replace_error =
+        [NSError errorWithDomain:UNErrorDomain
+                            code:UNErrorCodeNotificationsNotAllowed
+                        userInfo:nil];
+    OCMExpect([mock_notification_center_
+        getDeliveredNotificationsWithCompletionHandler:
+            ([OCMArg invokeBlockWithArgs:@[
+              CreateNotification("notificationId", "profileId",
+                                 /*incognito=*/false, /*display=*/false)
+            ],
+                                         nil])]);
+    OCMExpect(
+        [mock_notification_center_
+            replaceContentForRequestWithIdentifier:@"r|profileId|notificationId"
+                                replacementContent:[OCMArg any]
+                                 completionHandler:
+                                     ([OCMArg invokeBlockWithArgs:replace_error,
+                                                                  nil])])
+        .andDo(invokeClosure(run_loop.QuitClosure()));
+    service_remote_->DisplayNotification(notification.Clone());
+    run_loop.Run();
+    task_environment_.RunUntilIdle();
+    EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  }
+
+  // Because the existing notification remained on screen, it should still be
+  // tracked and emit `kClose` when later dismissed.
+  EXPECT_EQ(1u, category_count_);
+  base::RunLoop close_loop;
+  EXPECT_CALL(mock_handler_, OnNotificationAction)
+      .WillOnce([&](mojom::NotificationActionInfoPtr action_info) {
+        EXPECT_EQ(NotificationOperation::kClose, action_info->operation);
+        EXPECT_EQ("notificationId", action_info->meta->id->id);
+        close_loop.Quit();
+      });
+  OCMExpect(
+      [mock_notification_center_ getDeliveredNotificationsWithCompletionHandler:
+                                     ([OCMArg invokeBlockWithArgs:@[], nil])]);
+  task_environment_.FastForwardBy(
+      MacNotificationServiceUN::kSynchronizationInterval);
+  close_loop.Run();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  testing::Mock::VerifyAndClearExpectations(&mock_handler_);
+}
+
+TEST_F(MacNotificationServiceUNTest,
+       DisplayNotification_StaleFailedDeliveryDoesNotEraseNewerNotification) {
+  __block void (^first_completion_handler)(NSError* _Nullable) = nil;
+  {
+    base::RunLoop run_loop;
+    OCMExpect([mock_notification_center_
+                  addNotificationRequest:[OCMArg any]
+                   withCompletionHandler:[OCMArg checkWithBlock:^BOOL(
+                                                     void (^completion_handler)(
+                                                         NSError* _Nullable)) {
+                     first_completion_handler = [completion_handler copy];
+                     return YES;
+                   }]])
+        .andDo(invokeClosure(run_loop.QuitClosure()));
+    auto notification = CreateMojoNotification("notificationId", "profileId",
+                                               /*incognito=*/false);
+    SkBitmap bitmap;
+    bitmap.allocN32Pixels(64, 64);
+    bitmap.eraseARGB(255, 100, 150, 200);
+    notification->icon = gfx::ImageSkia::CreateFrom1xBitmap(bitmap);
+    service_remote_->DisplayNotification(std::move(notification));
+    run_loop.Run();
+    EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  }
+
+  // Re-display the same notification ID before the first attempt's completion
+  // handler runs, and let the second attempt succeed.
+  DisplayNotificationSync("notificationId", "profileId", /*incognito=*/false,
+                          /*success=*/true);
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ(1u, category_count_);
+
+  // Now invoke the first attempt's completion handler with an attachment error.
+  // Because a newer display of the same notification ID is now tracked, the
+  // stale failure must neither trigger an attachment-free retry nor erase the
+  // newer notification.
+  ASSERT_TRUE(first_completion_handler);
+  first_completion_handler([NSError
+      errorWithDomain:UNErrorDomain
+                 code:UNErrorCodeAttachmentMoveIntoDataStoreFailed
+             userInfo:nil]);
+  first_completion_handler = nil;
+  task_environment_.RunUntilIdle();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  EXPECT_EQ(1u, category_count_);
+
+  // When the second notification is later dismissed by the user, synchronize
+  // should still report its kClose action.
+  base::RunLoop close_loop;
+  EXPECT_CALL(mock_handler_, OnNotificationAction)
+      .WillOnce([&](mojom::NotificationActionInfoPtr action_info) {
+        EXPECT_EQ(NotificationOperation::kClose, action_info->operation);
+        EXPECT_EQ("notificationId", action_info->meta->id->id);
+        close_loop.Quit();
+      });
+  OCMExpect(
+      [mock_notification_center_ getDeliveredNotificationsWithCompletionHandler:
+                                     ([OCMArg invokeBlockWithArgs:@[], nil])]);
+  task_environment_.FastForwardBy(
+      MacNotificationServiceUN::kSynchronizationInterval);
+  close_loop.Run();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  testing::Mock::VerifyAndClearExpectations(&mock_handler_);
+}
+
+TEST_F(
+    MacNotificationServiceUNTest,
+    SynchronizesNotifications_DoesNotCloseNotificationWhileDeliveryInFlight) {
+  EXPECT_CALL(mock_handler_, OnNotificationAction).Times(0);
+
+  // Start displaying a notification, holding its `addNotificationRequest:`
+  // completion handler so delivery remains in flight during synchronization.
+  __block void (^saved_add_handler)(NSError* _Nullable) = nil;
+  base::RunLoop display_started_loop;
+  OCMExpect(
+      [mock_notification_center_
+          addNotificationRequest:[OCMArg any]
+           withCompletionHandler:[OCMArg checkWithBlock:^BOOL(void (
+                                     ^completion_handler)(NSError* _Nullable)) {
+             saved_add_handler = [completion_handler copy];
+             return YES;
+           }]])
+      .andDo(invokeClosure(display_started_loop.QuitClosure()));
+  service_remote_->DisplayNotification(CreateMojoNotification(
+      "notificationId", "profileId", /*incognito=*/false));
+  display_started_loop.Run();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  ASSERT_TRUE(saved_add_handler);
+  EXPECT_EQ(1u, category_count_);
+
+  // Run a periodic synchronization pass while delivery is still in flight; an
+  // empty delivered list must not treat the in-flight notification as closed.
+  base::RunLoop sync_loop;
+  OCMExpect(
+      [mock_notification_center_ getDeliveredNotificationsWithCompletionHandler:
+                                     ([OCMArg invokeBlockWithArgs:@[], nil])])
+      .andDo(invokeClosure(sync_loop.QuitClosure()));
+  task_environment_.FastForwardBy(
+      MacNotificationServiceUN::kSynchronizationInterval);
+  sync_loop.Run();
+  task_environment_.RunUntilIdle();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
+  EXPECT_EQ(1u, category_count_);
+  testing::Mock::VerifyAndClearExpectations(&mock_handler_);
+
+  // Once delivery finishes (`pending_content` is cleared), a subsequent
+  // synchronization pass with an empty delivered list should report `kClose`.
+  saved_add_handler(nil);
+  saved_add_handler = nil;
+  task_environment_.RunUntilIdle();
+
+  base::RunLoop close_loop;
+  EXPECT_CALL(mock_handler_, OnNotificationAction)
+      .WillOnce([&](mojom::NotificationActionInfoPtr action_info) {
+        EXPECT_EQ(NotificationOperation::kClose, action_info->operation);
+        EXPECT_EQ("notificationId", action_info->meta->id->id);
+        close_loop.Quit();
+      });
+  OCMExpect(
+      [mock_notification_center_ getDeliveredNotificationsWithCompletionHandler:
+                                     ([OCMArg invokeBlockWithArgs:@[], nil])]);
+  task_environment_.FastForwardBy(
+      MacNotificationServiceUN::kSynchronizationInterval);
+  close_loop.Run();
+  EXPECT_OCMOCK_VERIFY(mock_notification_center_);
   testing::Mock::VerifyAndClearExpectations(&mock_handler_);
 }
 
@@ -1186,6 +1508,7 @@ TEST_F(MacNotificationServiceUNTest,
   EXPECT_EQ(permission_result.Get(),
             mojom::RequestPermissionResult::kPermissionGranted);
   EXPECT_EQ(status.Take(), mojom::PermissionStatus::kGranted);
+  EXPECT_TRUE(open_system_settings_future_.Wait());
 }
 
 TEST_F(MacNotificationServiceUNTest,
@@ -1198,22 +1521,41 @@ TEST_F(MacNotificationServiceUNTest,
       &mock_handler};
 
   mojom::PermissionStatus status = mojom::PermissionStatus::kNotDetermined;
-  base::RunLoop loop;
   auto service = std::make_unique<MacNotificationServiceUN>(
       handler_receiver.BindNewPipeAndPassRemote(),
       base::BindLambdaForTesting([&](mojom::PermissionStatus new_status) {
+        EXPECT_NE(new_status, mojom::PermissionStatus::kPromptPending);
         status = new_status;
-        loop.Quit();
       }),
       mock_notification_center);
-  loop.Run();
-  EXPECT_EQ(status, mojom::PermissionStatus::kDenied);
 
-  base::test::TestFuture<mojom::RequestPermissionResult> permission_result;
-  service->RequestPermission(permission_result.GetCallback());
-  EXPECT_EQ(permission_result.Get(),
-            mojom::RequestPermissionResult::kPermissionPreviouslyDenied);
-  EXPECT_EQ(status, mojom::PermissionStatus::kDenied);
+  // Call `RequestPermission` immediately while the initial
+  // `SynchronizePermissionStatus` reply from the constructor is still pending
+  // on the task runner (so the sync reply arrives while
+  // `pending_permission_requests_` is non-empty and before the
+  // `RequestPermission` settings callback). `kPromptPending` should not be
+  // reported.
+  {
+    base::test::TestFuture<mojom::RequestPermissionResult> permission_result;
+    service->RequestPermission(permission_result.GetCallback());
+    EXPECT_EQ(permission_result.Get(),
+              mojom::RequestPermissionResult::kPermissionPreviouslyDenied);
+    EXPECT_EQ(status, mojom::PermissionStatus::kDenied);
+    EXPECT_TRUE(open_system_settings_future_.Wait());
+    open_system_settings_future_.Clear();
+  }
+
+  // Calling `RequestPermission` again after the status is already synchronized
+  // should also not report `kPromptPending`.
+  {
+    base::test::TestFuture<mojom::RequestPermissionResult> permission_result;
+    service->RequestPermission(permission_result.GetCallback());
+    EXPECT_EQ(permission_result.Get(),
+              mojom::RequestPermissionResult::kPermissionPreviouslyDenied);
+    EXPECT_EQ(status, mojom::PermissionStatus::kDenied);
+    EXPECT_TRUE(open_system_settings_future_.Wait());
+    open_system_settings_future_.Clear();
+  }
 }
 
 TEST_F(MacNotificationServiceUNTest,
@@ -1248,6 +1590,58 @@ TEST_F(MacNotificationServiceUNTest,
 
   current_status = UNAuthorizationStatusAuthorized;
   EXPECT_EQ(status.Take(), mojom::PermissionStatus::kGranted);
+}
+
+TEST_F(MacNotificationServiceUNTest,
+       PermissionStateChangedCallback_ApplicationDidBecomeActive) {
+  // Reset the service created by the test harness so it doesn't interfere with
+  // the one created in this test.
+  ResetService();
+
+  UNAuthorizationStatus current_status = UNAuthorizationStatusAuthorized;
+  auto& status_ref = current_status;
+  id settings = OCMClassMock([UNNotificationSettings class]);
+  OCMStub([settings authorizationStatus]).andDo(^(NSInvocation* invocation) {
+    [invocation setReturnValue:(void*)(&status_ref)];
+  });
+  id mock_notification_center = CreateMockNotificationCenter(settings);
+
+  MockNotificationActionHandler mock_handler;
+  mojo::Receiver<mojom::MacNotificationActionHandler> handler_receiver{
+      &mock_handler};
+
+  base::test::TestFuture<mojom::PermissionStatus> status;
+  auto service = std::make_unique<MacNotificationServiceUN>(
+      handler_receiver.BindNewPipeAndPassRemote(),
+      status.GetRepeatingCallback(), mock_notification_center);
+  EXPECT_EQ(status.Take(), mojom::PermissionStatus::kGranted);
+
+  // Becoming active without a status change should not run the callback.
+  // Only advance mock time by a second (well below the 10 minute periodic
+  // synchronization interval), so only the activation can trigger a poll.
+  [NSNotificationCenter.defaultCenter
+      postNotificationName:NSApplicationDidBecomeActiveNotification
+                    object:nil];
+  task_environment_.FastForwardBy(base::Seconds(1));
+  EXPECT_FALSE(status.IsReady());
+
+  // A status change is picked up as soon as the app becomes active.
+  current_status = UNAuthorizationStatusDenied;
+  [NSNotificationCenter.defaultCenter
+      postNotificationName:NSApplicationDidBecomeActiveNotification
+                    object:nil];
+  task_environment_.FastForwardBy(base::Seconds(1));
+  ASSERT_TRUE(status.IsReady());
+  EXPECT_EQ(status.Take(), mojom::PermissionStatus::kDenied);
+
+  // After the service is destroyed, becoming active is a no-op.
+  service.reset();
+  current_status = UNAuthorizationStatusAuthorized;
+  [NSNotificationCenter.defaultCenter
+      postNotificationName:NSApplicationDidBecomeActiveNotification
+                    object:nil];
+  task_environment_.FastForwardBy(base::Seconds(1));
+  EXPECT_FALSE(status.IsReady());
 }
 
 }  // namespace mac_notifications

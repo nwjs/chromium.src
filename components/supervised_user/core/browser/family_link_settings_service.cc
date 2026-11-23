@@ -172,17 +172,17 @@ void FamilyLinkSettingsService::SetActive(bool active) {
 
   if (active_) {
     // Child account supervised users must be signed in.
-    SetLocalSetting(kSigninAllowed, base::Value(true));
-    SetLocalSetting(kSigninAllowedOnNextStartup, base::Value(true));
+    local_settings_.Set(kSigninAllowed, base::Value(true));
+    local_settings_.Set(kSigninAllowedOnNextStartup, base::Value(true));
 
     // Always allow cookies, to avoid website compatibility issues.
-    SetLocalSetting(kCookiesAlwaysAllowed, base::Value(true));
+    local_settings_.Set(kCookiesAlwaysAllowed, base::Value(true));
 
     // SafeSearch and GeolocationDisabled are controlled at the account level,
     // so don't override them client-side.
   } else {
-    RemoveLocalSetting(kSigninAllowed);
-    RemoveLocalSetting(kCookiesAlwaysAllowed);
+    local_settings_.Remove(kSigninAllowed);
+    local_settings_.Remove(kCookiesAlwaysAllowed);
   }
 
   InformSubscribers();

@@ -35,7 +35,6 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
@@ -205,10 +204,8 @@ void RemoteFontFaceSource::NotifyFinished(Resource* resource) {
   // SRI applies to fonts loaded via preload (ForceIntegrityChecks) and via
   // CSS URL modifiers (e.g. integrity() in @font-face src). In either case
   // we check here and simulate a network error on failure.
-  const bool check_integrity =
-      resource->ForceIntegrityChecks() ||
-      (RuntimeEnabledFeatures::CSSResourceIntegrityEnforcementEnabled() &&
-       !resource->GetIntegrityMetadata().empty());
+  const bool check_integrity = resource->ForceIntegrityChecks() ||
+                               !resource->GetIntegrityMetadata().empty();
   if (check_integrity) {
     resource->IntegrityReport().SendReports(execution_context);
   }
@@ -315,6 +312,23 @@ bool RemoteFontFaceSource::UpdatePeriod() {
   }
   period_ = new_period;
   return changed;
+}
+
+void RemoteFontFaceSource::UpdateCustomFontData(
+    const FontCustomPlatformData* custom_font_data) {
+  CHECK(custom_font_data);
+  custom_font_data_ = custom_font_data;
+  ClearTable();
+  InvalidateFontFace();
+}
+
+void RemoteFontFaceSource::InvalidateFontFace() {
+  if (face_->FallbackVisibilityChanged(this)) {
+    // TODO(wmedrano): Only invalidate `FontFallbackList`s that use this font
+    // instead of all `FontFallbackList`s.
+    font_selector_->FontFaceInvalidated(
+        FontInvalidationReason::kGeneralInvalidation);
+  }
 }
 
 bool RemoteFontFaceSource::ShouldTriggerWebFontsIntervention() {

@@ -86,7 +86,7 @@ mojo::SelfOwnedReceiverRef<mojom::ServiceWorkerStorageControl>
 ServiceWorkerStorageControlImpl::Create(
     mojo::PendingReceiver<mojom::ServiceWorkerStorageControl> receiver,
     const base::FilePath& user_data_directory,
-    scoped_refptr<storage::ServiceWorkerStorage::StorageSharedBuffer>
+    scoped_refptr<ServiceWorkerStorage::StorageSharedBuffer>
         storage_shared_buffer) {
   return mojo::MakeSelfOwnedReceiver(
       base::WrapUnique(new ServiceWorkerStorageControlImpl(
@@ -96,7 +96,7 @@ ServiceWorkerStorageControlImpl::Create(
 
 ServiceWorkerStorageControlImpl::ServiceWorkerStorageControlImpl(
     const base::FilePath& user_data_directory,
-    scoped_refptr<storage::ServiceWorkerStorage::StorageSharedBuffer>
+    scoped_refptr<ServiceWorkerStorage::StorageSharedBuffer>
         storage_shared_buffer)
     : storage_(ServiceWorkerStorage::Create(user_data_directory,
                                             std::move(storage_shared_buffer))),
@@ -104,7 +104,7 @@ ServiceWorkerStorageControlImpl::ServiceWorkerStorageControlImpl(
 
 ServiceWorkerStorageControlImpl::ServiceWorkerStorageControlImpl(  // IN-TEST
     const base::FilePath& user_data_directory,
-    scoped_refptr<storage::ServiceWorkerStorage::StorageSharedBuffer>
+    scoped_refptr<ServiceWorkerStorage::StorageSharedBuffer>
         storage_shared_buffer,
     mojo::PendingReceiver<mojom::ServiceWorkerStorageControl> receiver)
     : storage_(ServiceWorkerStorage::Create(user_data_directory,
@@ -601,15 +601,14 @@ void ServiceWorkerStorageControlImpl::MaybePurgeResources(
     int64_t version_id,
     const std::vector<int64_t>& purgeable_resources) {
   if (version_id == blink::mojom::kInvalidServiceWorkerVersionId ||
-      purgeable_resources.size() == 0) {
+      purgeable_resources.empty()) {
     return;
   }
 
-  if (live_versions_.contains(version_id)) {
-    live_versions_[version_id]->set_purgeable_resources(
-        std::move(purgeable_resources));
+  if (auto it = live_versions_.find(version_id); it != live_versions_.end()) {
+    it->second->set_purgeable_resources(purgeable_resources);
   } else {
-    storage_->PurgeResources(std::move(purgeable_resources));
+    storage_->PurgeResources(purgeable_resources);
   }
 }
 

@@ -169,15 +169,21 @@ class MEDIA_GPU_EXPORT MediaCodecVideoDecoder final
   // Sets |codecs_|'s output surface to |target_surface_bundle_|.
   void TransitionToTargetSurface();
 
+  using CdmContextRefHolder =
+      base::RefCountedData<std::unique_ptr<CdmContextRef>>;
+
   // Creates a codec asynchronously.
   void CreateCodec();
 
-  // Trampoline helper which ensures correct release of MediaCodecBridge and
-  // CodecSurfaceBundle even if this class goes away.
+  // Trampoline helper which ensures correct release of MediaCodecBridge,
+  // CodecSurfaceBundle, MediaCrypto, and CdmContextRef even if this class goes
+  // away.
   static void OnCodecConfiguredInternal(
       base::WeakPtr<MediaCodecVideoDecoder> weak_this,
       CodecAllocator* codec_allocator,
       scoped_refptr<CodecSurfaceBundle> surface_bundle,
+      base::android::ScopedJavaGlobalRef<jobject> media_crypto,
+      scoped_refptr<CdmContextRefHolder> cdm_context_ref,
       std::unique_ptr<MediaCodecBridge> codec);
   void OnCodecConfigured(scoped_refptr<CodecSurfaceBundle> surface_bundle,
                          std::unique_ptr<MediaCodecBridge> media_codec);
@@ -232,6 +238,11 @@ class MEDIA_GPU_EXPORT MediaCodecVideoDecoder final
   // Create a callback that will handle promotion hints, and set the overlay
   // position if required.
   PromotionHintAggregator::NotifyPromotionHintCB CreatePromotionHintCB();
+
+  // Returns whether codecs should use block model (LinearBlock). The result
+  // doesn't change while a codec exists, since `media_crypto_` is set before
+  // the first codec is created and only cleared during teardown.
+  bool ShouldUseBlockModel() const;
 
   // Returns true if the MediaCodec must be reallocated due to an increase in
   // resolution.
@@ -320,6 +331,10 @@ class MEDIA_GPU_EXPORT MediaCodecVideoDecoder final
   // Owned by CDM which is external to this decoder.
   raw_ptr<MediaCryptoContext> media_crypto_context_ = nullptr;
 
+  // Keeps the backing CDM alive while the decoder or an asynchronous
+  // CodecAllocator task is using it.
+  scoped_refptr<CdmContextRefHolder> cdm_context_ref_;
+
   // To keep the CdmContext event callback registered.
   std::unique_ptr<CallbackRegistration> event_cb_registration_;
 
@@ -357,8 +372,10 @@ class MEDIA_GPU_EXPORT MediaCodecVideoDecoder final
   // Name of the MediaCodec that was created.
   std::string codec_name_;
 
-  // Enables Block Model (LinearBlock).
+  // Whether block model (LinearBlock) is enabled for codecs without and with a
+  // MediaCrypto. Use ShouldUseBlockModel() instead of reading these directly.
   const bool use_block_model_;
+  const bool use_block_model_for_encrypted_;
 
   HdrMetadataReorderingMap hdr_metadata_reordering_map_;
 

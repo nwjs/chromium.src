@@ -52,9 +52,7 @@
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_utils.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/managed_ui.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
-#include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/browser/ui/webui/access_code_cast/access_code_cast_dialog.h"
 #include "chrome/browser/ui/webui/ash/bluetooth/bluetooth_pairing_dialog.h"
 #include "chrome/browser/ui/webui/ash/internet/internet_config_dialog.h"
@@ -63,6 +61,7 @@
 #include "chrome/browser/ui/webui/ash/set_time/set_time_dialog.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/network_state.h"
@@ -80,6 +79,8 @@
 #include "components/user_manager/user_manager.h"
 #include "third_party/cros_system_api/dbus/shill/dbus-constants.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/event_constants.h"
 #include "url/gurl.h"
 
@@ -184,9 +185,13 @@ bool IsAppInstalled(std::string app_id) {
 }
 
 void OpenInBrowser(const GURL& event_url) {
-  ShowSingletonTabOverwritingNTP(ProfileManager::GetActiveUserProfile(),
-                                 event_url,
-                                 NavigateParams::IGNORE_AND_NAVIGATE);
+  const session_manager::Session& session =
+      CHECK_DEREF(SessionManager::Get()->GetActiveSession());
+  ash::BrowserController::GetInstance()->OpenUrl(
+      session.account_id(), event_url,
+      {.disposition = WindowOpenDisposition::kSwitchToTab,
+       .transition = ui::PAGE_TRANSITION_AUTO_BOOKMARK,
+       .ignore_path_for_tab_reuse = true});
 }
 
 ash::ManagementDeviceMode GetManagementDeviceMode(
@@ -266,13 +271,13 @@ class SystemTrayClientImpl::EnterpriseAccountObserver
   }
 
   void UpdateProfile() {
-    user_manager::User* user =
-        user_manager::UserManager::Get()->GetActiveUser();
+    const session_manager::Session* session =
+        SessionManager::Get()->GetActiveSession();
     Profile* profile =
-        user ? Profile::FromBrowserContext(
-                   ash::BrowserContextHelper::Get()->GetBrowserContextByUser(
-                       user))
-             : nullptr;
+        session ? Profile::FromBrowserContext(
+                      ash::BrowserContextHelper::Get()
+                          ->GetBrowserContextByAccountId(session->account_id()))
+                : nullptr;
     if (profile == profile_) {
       return;
     }
@@ -319,13 +324,13 @@ SystemTrayClientImpl::SystemTrayClientImpl(
 
   system_tray_->SetClient(this);
 
-  DCHECK(!g_system_tray_client_instance);
+  CHECK(!g_system_tray_client_instance, base::NotFatalUntil::M162);
   g_system_tray_client_instance = this;
   UpgradeDetector::GetInstance()->AddObserver(this);
 }
 
 SystemTrayClientImpl::~SystemTrayClientImpl() {
-  DCHECK_EQ(this, g_system_tray_client_instance);
+  CHECK_EQ(this, g_system_tray_client_instance, base::NotFatalUntil::M162);
   g_system_tray_client_instance = nullptr;
 
   // This can happen when mocking this class in tests.
@@ -389,8 +394,13 @@ void SystemTrayClientImpl::SetShowEolNotice(bool show,
 void SystemTrayClientImpl::ShowSettings(int64_t display_id) {
   // TODO(jamescook): Use different metric for OS settings.
   base::RecordAction(base::UserMetricsAction("ShowOptions"));
+  // TODO(crbug.com/278643115): Take the account_id from the callers.
+  const session_manager::Session* session =
+      SessionManager::Get()->GetActiveSession();
+  CHECK(session);
   ash::SettingsAppManager::Get()->Open(
-      CHECK_DEREF(user_manager::UserManager::Get()->GetActiveUser()),
+      CHECK_DEREF(
+          user_manager::UserManager::Get()->FindUser(session->account_id())),
       {.display_id = display_id});
 }
 
@@ -559,8 +569,12 @@ void SystemTrayClientImpl::ShowGestureEducationHelp() {
 }
 
 void SystemTrayClientImpl::ShowPaletteHelp() {
-  ShowSingletonTab(ProfileManager::GetActiveUserProfile(),
-                   GURL(ash::external_urls::kPaletteHelpURL));
+  const session_manager::Session& session =
+      CHECK_DEREF(SessionManager::Get()->GetActiveSession());
+  ash::BrowserController::GetInstance()->OpenUrl(
+      session.account_id(), GURL(ash::external_urls::kPaletteHelpURL),
+      {.disposition = WindowOpenDisposition::kSingletonTab,
+       .transition = ui::PAGE_TRANSITION_AUTO_BOOKMARK});
 }
 
 void SystemTrayClientImpl::ShowPaletteSettings() {
@@ -590,7 +604,7 @@ void SystemTrayClientImpl::ShowNetworkConfigure(const std::string& network_id) {
     return;
   }
 
-  DCHECK(ash::NetworkHandler::IsInitialized());
+  CHECK(ash::NetworkHandler::IsInitialized(), base::NotFatalUntil::M162);
   const ash::NetworkState* network_state = GetNetworkState(network_id);
   if (!network_state) {
     LOG(ERROR) << "Network not found: " << network_id;
@@ -656,15 +670,15 @@ void SystemTrayClientImpl::ShowArcVpnCreate(const std::string& app_id) {
 void SystemTrayClientImpl::ShowSettingsSimUnlock() {
   // TODO(crbug.com/40134918) Add metrics action recorder.
   SessionManager* const session_manager = SessionManager::Get();
-  DCHECK(session_manager->IsSessionStarted());
-  DCHECK(!session_manager->IsInSecondaryLoginScreen());
+  CHECK(session_manager->IsSessionStarted(), base::NotFatalUntil::M162);
+  CHECK(!session_manager->IsInSecondaryLoginScreen(),
+        base::NotFatalUntil::M162);
   std::string page = chromeos::settings::mojom::kCellularNetworksSubpagePath;
   page += "&showSimLockDialog=true";
   ShowSettingsSubPageForActiveUser(page);
 }
 
 void SystemTrayClientImpl::ShowApnSubpage(const std::string& network_id) {
-  CHECK(ash::features::IsApnRevampEnabled());
   std::string page = chromeos::settings::mojom::kApnSubpagePath +
                      std::string("?guid=") +
                      base::EscapeUrlEncodedData(network_id, /*use_plus=*/true);
@@ -928,7 +942,7 @@ bool SystemTrayClientImpl::IsUserFeedbackEnabled() {
   }
   PrefService* signin_prefs =
       ProfileManager::GetActiveUserProfile()->GetPrefs();
-  DCHECK(signin_prefs);
+  CHECK(signin_prefs, base::NotFatalUntil::M162);
   return signin_prefs->GetBoolean(ash::chrome_prefs::kUserFeedbackAllowed);
 }
 

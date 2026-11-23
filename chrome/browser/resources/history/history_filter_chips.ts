@@ -6,11 +6,13 @@
 import './internal/icons.html.js';
 // </if>
 
+import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_chip/cr_chip.js';
 import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import type {Device, TimePeriodOption} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
@@ -34,19 +36,25 @@ export class HistoryFilterChipsElement extends CrLitElement {
     return {
       showDeviceFilter: {type: Boolean},
       devices: {type: Array},
+      timePeriodOptions: {type: Array},
+      showTimePeriodFilter: {type: Boolean},
       showActorFilter: {type: Boolean},
       userVisits: {type: Boolean},
       actorVisits: {type: Boolean},
+      clientIds: {type: Array},
     };
   }
 
   accessor showDeviceFilter: boolean = false;
-  accessor devices: Array<{name: string}> = [];
+  accessor devices: Device[] = [];
+  accessor timePeriodOptions: TimePeriodOption[] = [];
+  accessor showTimePeriodFilter: boolean = false;
   accessor showActorFilter: boolean = false;
   // These values are used to filter the history query; true indicates that
   // results for the respective value should be included.
-  private accessor userVisits: boolean = true;
-  private accessor actorVisits: boolean = true;
+  accessor userVisits: boolean = true;
+  accessor actorVisits: boolean = true;
+  accessor clientIds: string[] = [];
 
   protected isUserSelected(): boolean {
     return this.userVisits && !this.actorVisits;
@@ -54,6 +62,72 @@ export class HistoryFilterChipsElement extends CrLitElement {
 
   protected isActorSelected(): boolean {
     return this.actorVisits && !this.userVisits;
+  }
+
+  protected isDeviceSelected_(device: Device): boolean {
+    return this.clientIds.length > 0 &&
+        this.clientIds.length === device.ids.length &&
+        this.clientIds.every((id, index) => id === device.ids[index]);
+  }
+
+  protected hasActiveFilter_(): boolean {
+    const hasActiveActorDropdownFilter =
+        this.showActorFilterDropDownVersion_() &&
+        (this.isUserSelected() || this.isActorSelected());
+    return hasActiveActorDropdownFilter || this.clientIds.length > 0;
+  }
+
+  protected onActorSelectMousedown_() {
+    BrowserProxyImpl.getInstance().recordAction(
+        'HistoryPage_OpenActorFilterSheet');
+  }
+
+  protected onActorSelectChange_(e: Event) {
+    const value = (e.target as HTMLSelectElement).value;
+    if (value === 'user') {
+      this.userVisits = true;
+      this.actorVisits = false;
+    } else if (value === 'actor') {
+      this.userVisits = false;
+      this.actorVisits = true;
+    } else {
+      this.userVisits = true;
+      this.actorVisits = true;
+    }
+
+    this.recordMetrics_(this.userVisits, this.actorVisits);
+    this.fireChange_(this.userVisits, this.actorVisits);
+  }
+
+  protected onDeviceSelectMousedown_() {
+    BrowserProxyImpl.getInstance().recordAction(
+        'HistoryPage_OpenDeviceFilterSheet');
+  }
+
+  protected onDeviceSelectChange_(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    const index = Number(select.value);
+    const device = index >= 0 ? this.devices[index] : undefined;
+    this.clientIds = device ? device.ids : [];
+
+    // Do not record metrics for the default option.
+    if (device) {
+      BrowserProxyImpl.getInstance().recordAction(
+          'HistoryPage_DeviceFilterSelected');
+    }
+    this.fireChange_(this.userVisits, this.actorVisits);
+  }
+
+  protected async onClearAllClick_() {
+    this.userVisits = true;
+    this.actorVisits = true;
+    this.clientIds = [];
+
+    BrowserProxyImpl.getInstance().recordAction('HistoryPage_ClearAllFilters');
+    this.fireChange_(this.userVisits, this.actorVisits);
+
+    await this.updateComplete;
+    this.focusFirstFilter_();
   }
 
   protected onUserVisitsClick_() {
@@ -108,13 +182,25 @@ export class HistoryFilterChipsElement extends CrLitElement {
     // </if>
   }
 
+  protected showActorFilterDropDownVersion_(): boolean {
+    return loadTimeData.getBoolean('isBrowsingHistoryFilterByActorEnabled');
+  }
+
   private isCriticalActionsEnabled_(): boolean {
     return loadTimeData.valueExists('isCriticalActionsEnabled') &&
         loadTimeData.getBoolean('isCriticalActionsEnabled');
   }
 
+  private focusFirstFilter_() {
+    this.shadowRoot.querySelector('select')?.focus();
+  }
+
   private fireChange_(userVisits: boolean, actorVisits: boolean) {
-    this.fire('filter-changed', {userVisits, actorVisits});
+    this.fire('filter-changed', {
+      userVisits,
+      actorVisits,
+      clientIds: this.clientIds,
+    });
   }
 }
 

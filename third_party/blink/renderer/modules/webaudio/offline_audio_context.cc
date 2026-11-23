@@ -354,10 +354,8 @@ ScriptPromise<AudioBuffer> OfflineAudioContext::startOfflineRendering(
   if (!render_target) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kNotSupportedError,
-        StrCat({"startRendering failed to create AudioBuffer(",
-                String::Number(number_of_channels), ", ",
-                String::Number(buffer_size), ", ", String::Number(sample_rate),
-                ")"}));
+        Format("startRendering failed to create AudioBuffer({}, {}, {:g})",
+               number_of_channels, buffer_size, sample_rate));
     return EmptyPromise();
   }
 
@@ -371,7 +369,8 @@ ScriptPromise<AudioBuffer> OfflineAudioContext::startOfflineRendering(
   start_rendering_resolvers_.push_back(resolver);
   pending_render_targets_.push_back(render_target);
 
-  if (pending_render_targets_.size() == 1) {
+  if (pending_render_targets_.size() == 1u) {
+    CHECK_EQ(start_rendering_resolvers_.size(), 1u);
     DestinationHandler().EnsureOfflineRenderThreadInitialized();
     is_rendering_started_ = true;
     SetContextState(V8AudioContextState::Enum::kRunning);
@@ -383,12 +382,11 @@ ScriptPromise<AudioBuffer> OfflineAudioContext::startOfflineRendering(
 
 void OfflineAudioContext::StartNextRender() {
   DCHECK(IsMainThread());
-  DCHECK(!pending_render_targets_.empty());
+  CHECK(!pending_render_targets_.empty());
+  CHECK_EQ(start_rendering_resolvers_.size(), pending_render_targets_.size());
 
   AudioBuffer* render_target = pending_render_targets_.front().Get();
 
-  destinationNode()
-      ->SetDestinationBuffer(render_target);
   DestinationHandler().SetSharedRenderTarget(render_target);
   DestinationHandler().StartRendering();
 }
@@ -411,8 +409,7 @@ ScriptPromise<IDLUndefined> OfflineAudioContext::suspendContext(
   if (when < 0) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        StrCat({"negative suspend time (", String::Number(when),
-                ") is not allowed"}));
+        Format("negative suspend time ({:g}) is not allowed", when));
     return EmptyPromise();
   }
 
@@ -423,13 +420,12 @@ ScriptPromise<IDLUndefined> OfflineAudioContext::suspendContext(
     if (total_render_duration <= when) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kInvalidStateError,
-          StrCat({"cannot schedule a suspend at ",
-                  String::NumberToStringEcmaScript(when),
-                  " seconds because it is greater than or equal to the "
-                  "total render duration of ",
-                  String::Number(total_render_frames_.value()), " frames (",
-                  String::NumberToStringEcmaScript(total_render_duration),
-                  " seconds)"}));
+          Format("cannot schedule a suspend at {} seconds because it is "
+                 "greater than or equal to the total render duration of {} "
+                 "frames ({} seconds)",
+                 String::NumberToStringEcmaScript(when),
+                 total_render_frames_.value(),
+                 String::NumberToStringEcmaScript(total_render_duration)));
       return EmptyPromise();
     }
   }
@@ -454,11 +450,9 @@ ScriptPromise<IDLUndefined> OfflineAudioContext::suspendContext(
     }
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
-        StrCat({"suspend(", String::Number(when),
-                ") failed to suspend at frame ", String::Number(frame),
-                " because it is earlier than the current frame of ",
-                String::Number(current_frame_clamped), " (",
-                String::Number(current_time_clamped), " seconds)"}));
+        Format("suspend({:g}) failed to suspend at frame {} because it is "
+               "earlier than the current frame of {} ({:g} seconds)",
+               when, frame, current_frame_clamped, current_time_clamped));
     return EmptyPromise();
   }
 
@@ -474,9 +468,9 @@ ScriptPromise<IDLUndefined> OfflineAudioContext::suspendContext(
     if (scheduled_suspends_.Contains(frame)) {
       exception_state.ThrowDOMException(
           DOMExceptionCode::kInvalidStateError,
-          StrCat({"cannot schedule more than one suspend at frame ",
-                  String::Number(frame), " (", String::Number(when),
-                  " seconds)"}));
+          Format("cannot schedule more than one suspend at frame {} ({:g} "
+                 "seconds)",
+                 frame, when));
       return EmptyPromise();
     }
 
@@ -575,15 +569,29 @@ void OfflineAudioContext::OnChunkRendered() {
   }
 
   CHECK(GetExecutionContext());
-  DCHECK(!start_rendering_resolvers_.empty());
-  DCHECK(!pending_render_targets_.empty());
+  CHECK(!start_rendering_resolvers_.empty());
+  CHECK(!pending_render_targets_.empty());
+  CHECK_EQ(start_rendering_resolvers_.size(), pending_render_targets_.size());
 
   Member<ScriptPromiseResolver<AudioBuffer>> resolver =
       start_rendering_resolvers_.TakeFirst();
-  Member<AudioBuffer> rendered_buffer = pending_render_targets_.TakeFirst();
+  Member<AudioBuffer> rendered_buffer = pending_render_targets_.front();
 
   CHECK(rendered_buffer);
+  // Keep the target queued across `Resolve()` so synchronous thenable getters
+  // can enqueue more chunks without starting a duplicate render.
   resolver->Resolve(rendered_buffer.Get());
+
+  if (IsContextCleared() ||
+      ContextState() == V8AudioContextState::Enum::kClosed) {
+    // close() or teardown ran inside Resolve(), so OnRenderStopped() or
+    // Uninitialize() finishes the cleanup and no complete event is fired.
+    return;
+  }
+
+  CHECK(!pending_render_targets_.empty());
+  CHECK_EQ(pending_render_targets_.front(), rendered_buffer);
+  pending_render_targets_.TakeFirst();
 
   if (IsRenderComplete()) {
     CloseInternal();
@@ -618,6 +626,13 @@ bool OfflineAudioContext::IsRenderComplete() const {
 void OfflineAudioContext::CloseInternal() {
   DCHECK(IsMainThread());
 
+  // Stop the render thread before tearing down tail processing or marking
+  // the context closed: once closed, `AudioNode::Dispose()` stops deferring
+  // handler deletion. Callers only reach here after the render sequence is
+  // idle; in AudioWorklet mode this merely drops the task runner.
+  DestinationHandler().StopRenderThread();
+  is_rendering_started_ = false;
+
   // Context is finished, so remove any tail processing nodes; there's nowhere
   // for the output to go.
   GetDeferredTaskHandler().FinishTailProcessing();
@@ -625,8 +640,6 @@ void OfflineAudioContext::CloseInternal() {
   // We set the state to closed here so that the oncomplete event handler sees
   // that the context has been closed.
   SetContextState(V8AudioContextState::Enum::kClosed);
-  DestinationHandler().StopRenderThread();
-  is_rendering_started_ = false;
 }
 
 void OfflineAudioContext::FireCompletionEvent(AudioBuffer* rendered_buffer) {

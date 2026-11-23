@@ -7,8 +7,6 @@
 #include <utility>
 
 #include "build/build_config.h"
-#include "chrome/browser/enterprise/client_certificates/browser_context_delegate.h"
-#include "chrome/browser/enterprise/client_certificates/cert_utils.h"
 #include "chrome/common/chrome_version.h"
 #include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
 #include "components/enterprise/client_certificates/core/ec_private_key_factory.h"
@@ -33,6 +31,7 @@
 #if !BUILDFLAG(IS_CHROMEOS)
 // Browser (machine) scope provisioning relies on Chrome Browser Cloud
 // Management, which is not available on ChromeOS.
+#include "chrome/browser/enterprise/client_certificates/browser_context_delegate.h"
 #include "components/enterprise/client_certificates/core/browser_cloud_management_delegate.h"
 #include "components/enterprise/client_certificates/core/dm_server_client.h"
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -91,13 +90,15 @@ CreateBrowserCertificateProvisioningService(
     client_certificates::CertificateStore* certificate_store,
     policy::DeviceManagementService* device_management_service,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
-  if (!url_loader_factory || !device_management_service || !certificate_store) {
+  if (!local_state || !url_loader_factory || !device_management_service ||
+      !certificate_store) {
     return nullptr;
   }
 
   return client_certificates::CertificateProvisioningService::Create(
       local_state, certificate_store,
-      std::make_unique<client_certificates::BrowserContextDelegate>(),
+      std::make_unique<client_certificates::BrowserContextDelegate>(
+          local_state),
       client_certificates::KeyUploadClient::Create(
           std::make_unique<
               enterprise_attestation::BrowserCloudManagementDelegate>(

@@ -65,6 +65,17 @@ class NewTabPageBrowserTest : public NewTabPageMochaBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
+class NewTabPageLazyLoadBrowserTest : public NewTabPageMochaBrowserTest {
+ protected:
+  NewTabPageLazyLoadBrowserTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        ntp_features::kNtpLazyLoadComposebox);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
 class NewTabPageNextBrowserTest : public NewTabPageMochaBrowserTest {
  protected:
   NewTabPageNextBrowserTest() {
@@ -79,6 +90,10 @@ class NewTabPageNextBrowserTest : public NewTabPageMochaBrowserTest {
 };
 
 using NewTabPageTest = NewTabPageBrowserTest;
+
+IN_PROC_BROWSER_TEST_F(NewTabPageLazyLoadBrowserTest, LazyLoad) {
+  RunTest("new_tab_page/lazy_load_test.js", "mocha.run()");
+}
 
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, MetricsUtils) {
   RunTest("new_tab_page/metrics_utils_test.js", "mocha.run()");
@@ -148,18 +163,8 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, MAYBE_Composebox) {
           "runMochaSuite('NewTabPageComposeboxTest')");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxResizeObserver) {
-  RunTest("new_tab_page/composebox/composebox_test.js",
-          "runMochaSuite('NewTabPageComposeboxResizeObserverTest')");
-}
-
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxSubmit) {
   RunTest("new_tab_page/composebox/composebox_submit_test.js", "mocha.run()");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, CrComposeboxAutocompleteContextTest) {
-  RunTest("new_tab_page/composebox/composebox_autocomplete_test.js",
-          "runMochaSuite('CrComposeboxAutocompleteContextTest')");
 }
 
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxContextMenu) {
@@ -185,11 +190,6 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxUploadToolModeTest) {
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, ComposeboxUploadContextTest) {
   RunTest("new_tab_page/composebox/composebox_upload_test.js",
           "runMochaSuite('NewTabPageComposeboxUploadContextTest')");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, CrComposeboxUploadContextTest) {
-  RunTest("new_tab_page/composebox/composebox_upload_test.js",
-          "runMochaSuite('CrComposeboxUploadContextTest')");
 }
 
 IN_PROC_BROWSER_TEST_F(NewTabPageTest, ThreadsRail) {
@@ -348,11 +348,6 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, V2Modules) {
           "runMochaSuite('NewTabPageAppTest V2Modules')");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, CounterfactualModules) {
-  RunTest("new_tab_page/app_test.js",
-          "runMochaSuite('NewTabPageAppTest CounterfactualModules')");
-}
-
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, CustomizeChromeSidePanel) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppTest CustomizeChromeSidePanel')");
@@ -413,7 +408,7 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, RealboxNext) {
 }
 
 // TODO(crbug.com/554367777): Disabled by Gardener due to flakiness.
-#if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
+#if BUILDFLAG(IS_LINUX)
 #define MAYBE_ActionChips DISABLED_ActionChips
 #else
 #define MAYBE_ActionChips ActionChips

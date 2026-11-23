@@ -5,9 +5,11 @@
 #ifndef CHROME_BROWSER_ENTERPRISE_PROFILE_MANAGEMENT_PROFILE_MANAGEMENT_FEATURES_H_
 #define CHROME_BROWSER_ENTERPRISE_PROFILE_MANAGEMENT_PROFILE_MANAGEMENT_FEATURES_H_
 
+#include <string>
+
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
-#include "build/build_config.h"
+#include "base/time/time.h"
 
 namespace profile_management::features {
 
@@ -31,10 +33,6 @@ BASE_DECLARE_FEATURE(kOidcEnrollmentAuthSource);
 // Controls whether OIDC interception from navigation auth header instead of the
 // usual URL params is permitted. This flag only works on Chrome Canary or Dev.
 BASE_DECLARE_FEATURE(kOidcAuthHeaderInterception);
-
-// Controls OIDC navigation throttle execution mode (async/non-blocking if
-// enabled).
-BASE_DECLARE_FEATURE(kOidcNavigationThrottleAsyncMode);
 
 // Oidc authentication related feature params.
 extern const base::FeatureParam<std::string> kOidcAuthStubDmToken;

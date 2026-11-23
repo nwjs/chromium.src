@@ -102,7 +102,6 @@ IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxMatchTest) {
   RunTest("cr_components/searchbox/searchbox_match_test.js", "mocha.run()");
 }
 
-
 IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, SearchboxInputTest) {
   set_test_loader_host(chrome::kChromeUINewTabPageHost);
   RunTest("cr_components/searchbox/searchbox_input_test.js", "mocha.run()");
@@ -113,7 +112,6 @@ IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, RealboxPlaceholderTest) {
   RunTest("cr_components/searchbox/placeholder_text_cycler_test.js",
           "runMochaSuite('PlaceholderTextCyclerTest');");
 }
-
 
 IN_PROC_BROWSER_TEST_F(CrComponentsSearchboxTest, SearchboxDropdownTest) {
   set_test_loader_host(chrome::kChromeUINewTabPageHost);
@@ -329,7 +327,8 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ContextualEntrypointButton) {
           "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ContextualEntrypointAndMenu) {
+IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest,
+                       ContextualEntrypointAndMenu) {
   RunTest("cr_components/composebox/contextual_entrypoint_and_menu_test.js",
           "mocha.run()");
 }
@@ -353,6 +352,10 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest,
 }
 
 typedef WebUIMochaBrowserTest CrComponentsSearchTest;
+IN_PROC_BROWSER_TEST_F(CrComponentsSearchTest, AnimatedGlow) {
+  RunTest("cr_components/search/animated_glow_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(CrComponentsSearchTest, RecordingWave) {
   RunTest("cr_components/search/recording_wave_test.js", "mocha.run()");
 }
@@ -479,13 +482,7 @@ class CrComponentsWithPixelOutputTest : public WebUIMochaBrowserTest {
   }
 };
 
-// TODO(crbug.com/568716335): Re-enable this test once fixed.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_CrLottie DISABLED_CrLottie
-#else
-#define MAYBE_CrLottie CrLottie
-#endif
-IN_PROC_BROWSER_TEST_F(CrComponentsWithPixelOutputTest, MAYBE_CrLottie) {
+IN_PROC_BROWSER_TEST_F(CrComponentsWithPixelOutputTest, CrLottie) {
   RunTest("cr_components/cr_lottie/cr_lottie_test.js", "mocha.run()");
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

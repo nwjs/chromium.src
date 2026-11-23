@@ -390,6 +390,9 @@ auto GetNtpPromoData(
       storage.ReadNtpPromoData(id).value_or(user_education::NtpPromoData());
   std::vector<FeaturePromoDemoPageDataPtr> result;
   std::string eligibility = [&]() {
+    if (!context || !context->IsValid()) {
+      return "Not Eligible";
+    }
     switch (spec.eligibility_callback().Run(context)) {
       case user_education::NtpPromoSpecification::Eligibility::kEligible:
         return "Eligible";
@@ -939,12 +942,36 @@ void UserEducationInternalsPageHandlerImpl::ClearWhatsNewData(
   std::move(callback).Run(std::string());
 }
 
+void UserEducationInternalsPageHandlerImpl::ClearWhatsNewModuleData(
+    const std::string& module_name,
+    ClearWhatsNewModuleDataCallback callback) {
+  auto* const registry = GetWhatsNewRegistry();
+  if (!registry) {
+    std::move(callback).Run(std::string("Cannot get registry"));
+    return;
+  }
+  registry->ClearModuleData(module_name);
+  std::move(callback).Run(std::string());
+}
+
+void UserEducationInternalsPageHandlerImpl::ClearWhatsNewEditionData(
+    const std::string& edition_name,
+    ClearWhatsNewEditionDataCallback callback) {
+  auto* const registry = GetWhatsNewRegistry();
+  if (!registry) {
+    std::move(callback).Run(std::string("Cannot get registry"));
+    return;
+  }
+  registry->ClearEditionData(edition_name);
+  std::move(callback).Run(std::string());
+}
+
 void UserEducationInternalsPageHandlerImpl::LaunchWhatsNewStaging() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   GURL url = net::AppendQueryParameter(GURL(chrome::kChromeUIWhatsNewURL),
                                        "staging", "true");
   NavigateParams params(profile_, url, ui::PAGE_TRANSITION_TYPED);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   params.browser = GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
       web_ui_->GetWebContents());
   Navigate(&params);

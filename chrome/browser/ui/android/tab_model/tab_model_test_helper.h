@@ -95,6 +95,9 @@ class TestTabModel : public TabModel {
   tabs::TabInterface* OpenTab(const GURL& url,
                               int index,
                               bool foreground) override;
+  tabs::TabInterface* OpenTab(const GURL& url,
+                              int index,
+                              TabLaunchType launch_type) override;
   void SetOpenerForTab(tabs::TabHandle target, tabs::TabHandle opener) override;
   tabs::TabInterface* GetOpenerForTab(tabs::TabHandle target) override;
   tabs::TabInterface* InsertWebContentsAt(
@@ -118,11 +121,14 @@ class TestTabModel : public TabModel {
   std::set<split_tabs::SplitTabId> ListSplits() override;
   std::optional<tab_groups::TabGroupVisualData> GetTabGroupVisualData(
       tab_groups::TabGroupId group_id) override;
+  std::optional<split_tabs::SplitTabVisualData> GetSplitTabVisualData(
+      split_tabs::SplitTabId split_id) override;
   gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
   std::optional<tab_groups::TabGroupId> CreateTabGroup(
       const std::vector<tabs::TabHandle>& tabs) override;
   std::optional<split_tabs::SplitTabId> CreateSplit(
-      const std::vector<tabs::TabHandle>& tabs) override;
+      const std::vector<tabs::TabHandle>& tabs,
+      const split_tabs::SplitTabVisualData& visual_data) override;
   void SetTabGroupVisualData(
       tab_groups::TabGroupId group_id,
       const tab_groups::TabGroupVisualData& visual_data) override;
@@ -245,6 +251,9 @@ class OwningTestTabModel : public TabModel {
   tabs::TabInterface* OpenTab(const GURL& url,
                               int index,
                               bool foreground) override;
+  tabs::TabInterface* OpenTab(const GURL& url,
+                              int index,
+                              TabLaunchType launch_type) override;
   void SetOpenerForTab(tabs::TabHandle target, tabs::TabHandle opener) override;
   tabs::TabInterface* GetOpenerForTab(tabs::TabHandle target) override;
   tabs::TabInterface* InsertWebContentsAt(
@@ -268,11 +277,14 @@ class OwningTestTabModel : public TabModel {
   std::set<split_tabs::SplitTabId> ListSplits() override;
   std::optional<tab_groups::TabGroupVisualData> GetTabGroupVisualData(
       tab_groups::TabGroupId group_id) override;
+  std::optional<split_tabs::SplitTabVisualData> GetSplitTabVisualData(
+      split_tabs::SplitTabId split_id) override;
   gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
   std::optional<tab_groups::TabGroupId> CreateTabGroup(
       const std::vector<tabs::TabHandle>& tabs) override;
   std::optional<split_tabs::SplitTabId> CreateSplit(
-      const std::vector<tabs::TabHandle>& tabs) override;
+      const std::vector<tabs::TabHandle>& tabs,
+      const split_tabs::SplitTabVisualData& visual_data) override;
   void SetTabGroupVisualData(
       tab_groups::TabGroupId group_id,
       const tab_groups::TabGroupVisualData& visual_data) override;

@@ -36,6 +36,32 @@ enum class TipsNotificationType;
 // YES if the current interface language uses RTL layout.
 + (BOOL)isRTL;
 
+// Stops startup tracing, flushes trace file to disk, and returns trace file
+// path.
++ (NSString*)stopStartupTracing;
+
+// Starts manual tracing. Returns YES on success.
++ (BOOL)startManualTracing;
+
+// Starts manual tracing with `categoryFilter` (e.g., @"ui"). Returns YES on
+// success.
++ (BOOL)startManualTracingWithCategoryFilter:(NSString*)categoryFilter;
+
+// Stops manual tracing, flushes trace file to disk, and returns trace file
+// path.
++ (NSString*)stopManualTracing;
+
+// Returns YES if the trace file at `filePath` exists and has a size greater
+// than 0.
++ (BOOL)isTraceFileReadyAtPath:(NSString*)filePath;
+
+// Returns the content of the trace file at `filePath` as NSData, or nil if
+// reading failed.
++ (NSData*)traceDataForPath:(NSString*)filePath;
+
+// Removes the trace file at `filePath`. Returns YES if successfully deleted.
++ (BOOL)removeTraceFileAtPath:(NSString*)filePath;
+
 // Returns YES if the application window is in windowed mode (multitasking).
 + (BOOL)isWindowedMode;
 
@@ -87,6 +113,25 @@ enum class TipsNotificationType;
 // Returns YES if any WebState across all foreground tabs is loading.
 + (BOOL)isAnyWebStateLoading;
 
+// Starts polling the pending wait condition prepared by a preceding
+// `prepareConditionFor...` helper that returned YES. Invokes `completion`
+// once satisfied. Must only be called after a `prepareConditionFor...`
+// helper returns YES.
++ (void)startPendingWaitWithCompletion:(ProceduralBlock)completion;
+
+// Cancels any pending asynchronous in-app wait timer.
++ (void)cancelPendingWait;
+
+// Prepares an in-app wait for the current WebState to finish loading. Returns
+// YES if a wait was needed and prepared for `startPendingWaitWithCompletion:`,
+// or NO immediately if already not loading.
++ (BOOL)prepareConditionForPageToFinishLoading;
+
+// Prepares an in-app wait for all foreground WebStates to finish loading.
+// Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if none are loading.
++ (BOOL)prepareConditionForAllWebStatesToFinishLoading;
+
 // Reloads the page without waiting for the page to load.
 + (void)startReloading;
 
@@ -113,6 +158,11 @@ enum class TipsNotificationType;
 // `ProfileAttributesStorageIOS::GetPersonalProfileName()`.
 + (NSString*)personalProfileName;
 
+// Prepares an in-app wait for `currentProfileName` to equal `profileName`.
+// Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already equal.
++ (BOOL)prepareConditionForCurrentProfileName:(NSString*)profileName;
+
 #pragma mark - Tab Utilities (EG2)
 
 // Selects tab with given index in current mode (incognito or main
@@ -134,9 +184,6 @@ enum class TipsNotificationType;
 
 // Returns the number of open incognito tabs.
 + (NSUInteger)incognitoTabCount [[nodiscard]];
-
-// Returns the number of open browsers.
-+ (NSUInteger)browserCount [[nodiscard]];
 
 // Returns the number of the realized web states from the existing web states.
 + (NSInteger)realizedWebStatesCount [[nodiscard]];
@@ -235,6 +282,26 @@ enum class TipsNotificationType;
 // Returns YES if the current active WebState is showing a new tab page.
 + (BOOL)isCurrentTabNTP;
 
+// Prepares an in-app wait for `currentTabTitle` to equal `tabTitle`. Returns
+// YES if a wait was needed and prepared for `startPendingWaitWithCompletion:`,
+// or NO immediately if already equal.
++ (BOOL)prepareConditionForCurrentTabTitle:(NSString*)tabTitle;
+
+// Prepares an in-app wait for `mainTabCount` to equal `count`. Returns YES if a
+// wait was needed and prepared for `startPendingWaitWithCompletion:`, or NO
+// immediately if already equal.
++ (BOOL)prepareConditionForMainTabCount:(NSUInteger)count;
+
+// Prepares an in-app wait for `inactiveTabCount` to equal `count`. Returns YES
+// if a wait was needed and prepared for `startPendingWaitWithCompletion:`, or
+// NO immediately if already equal.
++ (BOOL)prepareConditionForInactiveTabCount:(NSUInteger)count;
+
+// Prepares an in-app wait for `incognitoTabCount` to equal `count`. Returns YES
+// if a wait was needed and prepared for `startPendingWaitWithCompletion:`, or
+// NO immediately if already equal.
++ (BOOL)prepareConditionForIncognitoTabCount:(NSUInteger)count;
+
 #pragma mark - Window utilities (EG2)
 
 // Returns screen position of the given `windowNumber`
@@ -282,6 +349,34 @@ enum class TipsNotificationType;
 
 // Returns the number of open incognito tabs, in window with given number.
 + (NSUInteger)incognitoTabCountInWindowWithNumber:(int)windowNumber;
+
+// Prepares an in-app wait for `windowCount` to equal `count`. Returns YES if a
+// wait was needed and prepared for `startPendingWaitWithCompletion:`, or NO
+// immediately if already equal.
++ (BOOL)prepareConditionForWindowCount:(NSUInteger)count;
+
+// Prepares an in-app wait for `foregroundWindowCount` to equal `count`. Returns
+// YES if a wait was needed and prepared for `startPendingWaitWithCompletion:`,
+// or NO immediately if already equal.
++ (BOOL)prepareConditionForForegroundWindowCount:(NSUInteger)count;
+
+// Prepares an in-app wait for the current WebState in `windowNumber` to finish
+// loading. Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already not loading.
++ (BOOL)prepareConditionForPageToFinishLoadingInWindowWithNumber:
+    (int)windowNumber;
+
+// Prepares an in-app wait for `mainTabCountInWindowWithNumber:` to equal
+// `count`. Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already equal.
++ (BOOL)prepareConditionForMainTabCount:(NSUInteger)count
+                     inWindowWithNumber:(int)windowNumber;
+
+// Prepares an in-app wait for `incognitoTabCountInWindowWithNumber:` to equal
+// `count`. Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already equal.
++ (BOOL)prepareConditionForIncognitoTabCount:(NSUInteger)count
+                          inWindowWithNumber:(int)windowNumber;
 
 // Returns a key window from the connected scenes.
 + (UIWindow*)keyWindow;
@@ -355,6 +450,16 @@ enum class TipsNotificationType;
 // Returns YES if the current WebState's zoom scale is close to `scale`.
 + (BOOL)webStateZoomScaleCloseTo:(CGFloat)scale;
 
+// Prepares an in-app wait for `webStateZoomScaleCloseTo:scale` to become true.
+// Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already satisfied.
++ (BOOL)prepareConditionForWebStateZoomScale:(CGFloat)scale;
+
+// Prepares an in-app wait for the current WebState's visible URL to equal
+// `spec`. Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already equal.
++ (BOOL)prepareConditionForWebStateVisibleURL:(NSString*)spec;
+
 // Signs the user out from Chrome and then starts clearing the identities.
 //
 // Note: The idendities & browsing data cleanings are executed asynchronously.
@@ -376,13 +481,6 @@ enum class TipsNotificationType;
 // version for back/forward navigation for HTTP pages and may serve a version
 // from the cache even if the Cache-Control response header says otherwise.
 + (NSError*)purgeCachedWebViewPages;
-
-// Returns YES if the current WebState's web view uses the content inset to
-// correctly align the top of the content with the bottom of the top bar.
-+ (BOOL)webStateWebViewUsesContentInset;
-
-// Returns the size of the current WebState's web view.
-+ (CGSize)webStateWebViewSize;
 
 // Stops any pending navigations in all WebStates which are loading.
 + (void)stopAllWebStatesLoading;
@@ -482,6 +580,16 @@ enum class TipsNotificationType;
 // device with the given `deviceName`.
 + (BOOL)hasSendTabToSelfTargetDevice:(NSString*)deviceName;
 
+// Prepares an in-app wait for `hasSendTabToSelfEntryWithGUID:guid` to become
+// true. Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already present.
++ (BOOL)prepareConditionForSendTabToSelfEntryWithGUID:(NSString*)guid;
+
+// Prepares an in-app wait for `hasSendTabToSelfTargetDevice:deviceName` to
+// become true. Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already present.
++ (BOOL)prepareConditionForSendTabToSelfTargetDevice:(NSString*)deviceName;
+
 // Returns the generated text fragment for the given URL, or nil if no entry
 // exists or no fragment is set.
 + (NSString*)textFragmentForSendTabToSelfEntryWithURL:(NSString*)URL;
@@ -526,10 +634,6 @@ enum class TipsNotificationType;
 + (BOOL)isAutofillProfilePresentWithGUID:(NSString*)GUID
                      autofillProfileName:(NSString*)fullName;
 
-// Deletes an autofill profile from the fake sync server with `GUID`, if it
-// exists. If it doesn't exist, nothing is done.
-+ (void)deleteAutofillProfileFromFakeSyncServerWithGUID:(NSString*)GUID;
-
 // Verifies the sessions hierarchy on the Sync FakeServer. `specs` is
 // the collection of URLs that are to be expected for a single window. On
 // failure, returns a NSError describing the failure. See the
@@ -548,6 +652,14 @@ enum class TipsNotificationType;
                                           name:(NSString*)name
                                          count:(NSUInteger)count;
 
+// Prepares an in-app wait for `verifyNumberOfSyncEntitiesWithType:name:count:`
+// to succeed (return nil error). Returns YES if a wait was needed and prepared
+// for `startPendingWaitWithCompletion:`, or NO immediately if already
+// satisfied.
++ (BOOL)prepareConditionForSyncServerEntitiesWithType:(NSUInteger)type
+                                                 name:(NSString*)name
+                                                count:(NSUInteger)count;
+
 // Adds a bookmark with a sync passphrase. The sync server will need the sync
 // passphrase to start.
 + (void)addBookmarkWithSyncPassphrase:(NSString*)syncPassphrase;
@@ -565,12 +677,6 @@ enum class TipsNotificationType;
 // JavaScript exception is thrown, `success` is NO.
 // otherwise returns object representing execution result.
 + (JavaScriptExecutionResult*)executeJavaScript:(NSString*)javaScript;
-
-// Same as -executeJavaScript but executes the script in the isolated world
-// instead of the page content world. This allows interacting with the gcrweb
-// objects that are injected there.
-+ (JavaScriptExecutionResult*)executeJavaScriptInIsolatedWorld:
-    (NSString*)javaScript;
 
 // Returns the user agent that should be used for the mobile version.
 + (NSString*)mobileUserAgentString;
@@ -694,10 +800,6 @@ enum class TipsNotificationType;
 // returns a Value of type NONE.
 + (NSString*)localStatePrefValue:(NSString*)prefName;
 
-// Gets the time value for the local state pref with `prefName`. Local State
-// contains the preferences that are shared between all profiles.
-+ (base::Time)localStateTimePref:(NSString*)prefName;
-
 // Sets the integer value for the local state pref with `prefName`. `value`
 // can be either a casted enum or any other numerical value. Local State
 // contains the preferences that are shared between all profiles.
@@ -805,18 +907,6 @@ enum class TipsNotificationType;
 
 #pragma mark - Watcher utilities
 
-// Starts monitoring for buttons (based on traits) with the given
-// (accessibility) `labels`. Monitoring will stop once all are found, or if
-// timeout expires. If a previous set is currently being watched for it gets
-// replaced with this set. Note that timeout is best effort and can be a bit
-// longer than specified. This method returns immediately.
-+ (void)watchForButtonsWithLabels:(NSArray<NSString*>*)labels
-                          timeout:(base::TimeDelta)timeout;
-
-// Returns YES if the button with given (accessibility) `label` was observed at
-// some point since `watchForButtonsWithLabels:timeout:` was called.
-+ (BOOL)watcherDetectedButtonWithLabel:(NSString*)label;
-
 // Clear the watcher list, stopping monitoring.
 + (void)stopWatcher;
 
@@ -824,9 +914,6 @@ enum class TipsNotificationType;
 
 // Clears default browser promo data to restart capping for the promos.
 + (void)clearDefaultBrowserPromoData;
-
-// Copies a chrome:// URL that doesn't require internet connection.
-+ (void)copyURLToPasteBoard;
 
 #pragma mark - First Run Utilities
 
@@ -844,11 +931,6 @@ enum class TipsNotificationType;
 
 + (void)requestTipsNotification:(TipsNotificationType)type;
 
-#pragma mark - Variations Utilities
-
-// Forces an override of the variations stored permanent country.
-+ (void)overrideVariationsServiceStoredPermanentCountry:(NSString*)country;
-
 #pragma mark - Shared Tab Groups Utilities
 
 // Waits for the MessagingBackendService to be initialized.
@@ -858,8 +940,12 @@ enum class TipsNotificationType;
 // animating.
 + (BOOL)isViewAnimatingWithAccessibilityID:(NSString*)accessibilityID;
 
-// Programmatically crashes the host application.
-+ (void)induceCrash;
+// Prepares an in-app wait for `isViewAnimatingWithAccessibilityID:` to become
+// NO. Returns YES if a wait was needed and prepared for
+// `startPendingWaitWithCompletion:`, or NO immediately if already not
+// animating.
++ (BOOL)prepareConditionForViewToStopAnimatingWithAccessibilityID:
+    (NSString*)accessibilityID;
 
 @end
 

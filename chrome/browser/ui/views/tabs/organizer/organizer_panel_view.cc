@@ -19,17 +19,21 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/custom_corners_background.h"
 #include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_host.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "extensions/buildflags/buildflags.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
+#include "third_party/skia/include/core/SkRegion.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
+#include "ui/gfx/draggable_region.h"
+#include "ui/gfx/geometry/point.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/fill_layout.h"
@@ -43,11 +47,6 @@
 
 namespace {
 
-// Custom WebView which forwards accelerators to the browser.
-//
-// This is required because on Mac, keypresses are routed directly to the
-// WebContents without touching the normal browser event handling logic unless
-// they're forwarded (for example, by an UnhandledKeyboardEventHandler).
 class OrganizerPanelWebView : public views::WebView {
   METADATA_HEADER(OrganizerPanelWebView, views::WebView)
  public:
@@ -55,15 +54,18 @@ class OrganizerPanelWebView : public views::WebView {
   ~OrganizerPanelWebView() override = default;
 
   // views::WebView:
-  bool HandleKeyboardEvent(
-      content::WebContents* source,
-      const input::NativeWebKeyboardEvent& event) override {
-    return keyboard_event_handler_.HandleKeyboardEvent(event,
-                                                       GetFocusManager());
+  void DraggableRegionsChanged(
+      const std::vector<blink::mojom::DraggableRegionPtr>& regions,
+      content::WebContents* contents) override {
+    draggable_region_ = gfx::DraggableRegionsToSkRegion(regions);
+  }
+
+  bool IsPositionInWindowCaption(const gfx::Point& point) const {
+    return draggable_region_.contains(point.x(), point.y());
   }
 
  private:
-  views::UnhandledKeyboardEventHandler keyboard_event_handler_;
+  SkRegion draggable_region_;
 };
 
 BEGIN_METADATA(OrganizerPanelWebView)
@@ -78,7 +80,10 @@ class OrganizerPanelViewImpl : public OrganizerPanelView,
     SetLayoutManager(std::make_unique<views::FillLayout>());
     web_view_ = AddChildView(
         std::make_unique<OrganizerPanelWebView>(browser.GetProfile()));
+    web_view_->SetAcceleratorHandling(
+        views::WebContentsAcceleratorHandling::kEnabled);
     webui::SetBrowserWindowInterface(web_view_->GetWebContents(), &browser);
+    web_view_->GetWebContents()->SetSupportsDraggableRegions(true);
     views::WebContentsSetBackgroundColor::CreateForWebContentsWithColor(
         web_view_->GetWebContents(), SK_ColorTRANSPARENT);
     web_view_->LoadInitialURL(GURL(chrome::kChromeUIOrganizerPanelURL));
@@ -110,22 +115,40 @@ class OrganizerPanelViewImpl : public OrganizerPanelView,
       }
     } else if (previously_focused_view_) {
       if (!currently_focused || Contains(currently_focused)) {
-        focus_manager->SetFocusedView(previously_focused_view_.view());
+        if (GetWidget() && !GetWidget()->IsActive()) {
+          focus_manager->SetStoredFocusView(previously_focused_view_.view());
+        } else {
+          focus_manager->SetFocusedView(previously_focused_view_.view());
+        }
       }
       previously_focused_view_.SetView(nullptr);
     } else if (!currently_focused || Contains(currently_focused)) {
       // Losing visibility and there's no view to set as currently focused.
-      // Focus the location bar.
-      if (auto* browser_view =
-              BrowserView::GetBrowserViewForBrowser(&*browser_)) {
-        browser_view->SetFocusToLocationBar(false);
+      // Focus the location bar only if the browser window is active.
+      if (GetWidget() && GetWidget()->IsActive()) {
+        if (auto* browser_view =
+                BrowserView::GetBrowserViewForBrowser(&*browser_)) {
+          browser_view->SetFocusToLocationBar(false);
+        }
       }
     }
   }
 
+  bool IsPositionInWindowCaption(const gfx::Point& point) const override {
+    if (!web_view_) {
+      return false;
+    }
+    if (!DoesVerticalTabStripSupportEmbeddedOrganizerPanel(browser_.get())) {
+      return false;
+    }
+    const gfx::Point point_in_webview =
+        views::View::ConvertPointToTarget(this, web_view_, point);
+    return web_view_->IsPositionInWindowCaption(point_in_webview);
+  }
+
  private:
   const raw_ref<BrowserWindowInterface> browser_;
-  raw_ptr<views::WebView> web_view_ = nullptr;
+  raw_ptr<OrganizerPanelWebView> web_view_ = nullptr;
   base::ScopedObservation<views::View, views::ViewObserver> observation_{this};
   views::ViewTracker previously_focused_view_;
 };
@@ -170,6 +193,11 @@ OrganizerPanelView::OrganizerPanelView(BrowserWindowInterface& browser)
 OrganizerPanelView::~OrganizerPanelView() = default;
 
 bool OrganizerPanelView::IsInExtensionModeForTesting() const {
+  return false;
+}
+
+bool OrganizerPanelView::IsPositionInWindowCaption(
+    const gfx::Point& point) const {
   return false;
 }
 

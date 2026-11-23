@@ -4,19 +4,31 @@
 
 #include "chrome/browser/android/selection/chrome_selection_dropdown_menu_delegate.h"
 
+#include <optional>
+
+#include "base/check_op.h"
 #include "base/feature_list.h"
+#include "base/memory/weak_ptr.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/devtools/devtools_availability_checker.h"
 #include "chrome/browser/devtools/devtools_window.h"
+#include "chrome/browser/keyboard_accessory/android/accessory_sheet_enums.h"
+#include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
+#include "chrome/browser/keyboard_accessory/android/password_accessory_controller.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/autofill/autofill_context_menu_utils.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
+#include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "extensions/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
+#include "ui/base/mojom/menu_source_type.mojom-shared.h"
 #include "ui/menus/simple_menu_model.h"
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -40,6 +52,10 @@ namespace {
 // The display order for the At Memory menu item in the selection dropdown menu.
 // Placed at the very beginning of the selection dropdown menu.
 constexpr int kAtMemoryMenuItemOrder = 5;
+
+// The display order for the Select Password menu item in the selection
+// dropdown menu. Placed at the beginning of the selection dropdown menu.
+constexpr int kSelectPasswordMenuItemOrder = 6;
 
 #if BUILDFLAG(ENABLE_PRINTING)
 // The display order for the Print menu item in the selection dropdown menu.
@@ -117,6 +133,10 @@ class ChromeSelectionDropdownMenuModel : public BaseSelectionDropdownMenuModel
     if (command_id == IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY) {
       return kAtMemoryMenuItemOrder;
     }
+    if (command_id ==
+        IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD) {
+      return kSelectPasswordMenuItemOrder;
+    }
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
     int base_order = BaseSelectionDropdownMenuModel::GetDisplayOrderAt(index);
     if (base_order >= 0) {
@@ -169,6 +189,21 @@ class ChromeSelectionDropdownMenuModel : public BaseSelectionDropdownMenuModel
       return;
     }
 
+    if (command_id ==
+        IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD) {
+      auto* rfh = content::RenderFrameHost::FromID(rfh_id_);
+      if (rfh && rfh->IsRenderFrameLive()) {
+        content::WebContents* web_contents =
+            content::WebContents::FromRenderFrameHost(rfh);
+        if (PasswordAccessoryController* accessory =
+                PasswordAccessoryController::GetIfExisting(web_contents)) {
+          accessory->OnOptionSelected(
+              autofill::AccessoryAction::USE_OTHER_PASSWORD);
+        }
+      }
+      return;
+    }
+
 #if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
     BaseSelectionDropdownMenuModel::ExecuteCommand(command_id, event_flags);
 #endif
@@ -184,6 +219,10 @@ class ChromeSelectionDropdownMenuModel : public BaseSelectionDropdownMenuModel
     }
 #endif
     if (command_id == IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY) {
+      return true;
+    }
+    if (command_id ==
+        IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD) {
       return true;
     }
     return false;
@@ -222,6 +261,10 @@ class ChromeSelectionDropdownMenuModel : public BaseSelectionDropdownMenuModel
     }
 #endif
     if (command_id == IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY) {
+      return true;
+    }
+    if (command_id ==
+        IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD) {
       return true;
     }
 
@@ -286,13 +329,79 @@ ChromeSelectionDropdownMenuDelegate::GetSelectionPopupExtraItems(
                                IDS_INSPECT_ELEMENT_ANDROID);
   }
 
-  if (autofill::ShouldShowAtMemoryContextMenuItem(render_frame_host, params)) {
+  const bool add_at_memory =
+      autofill::ShouldShowAtMemoryContextMenuItem(render_frame_host, params);
+  if (add_at_memory) {
     model->AddItemWithStringId(IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY,
                                IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AT_MEMORY);
+  }
+
+  const bool add_select_password =
+      autofill::ShouldShowSelectPasswordContextMenuItem(render_frame_host,
+                                                        params);
+  if (add_select_password) {
+    model->AddItemWithStringId(
+        IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD,
+        IDS_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PASSWORDS_SELECT_PASSWORD);
+  }
+
+  if (add_at_memory || add_select_password) {
     model->AddSeparator(ui::NORMAL_SEPARATOR);
   }
 
   return model;
+}
+
+void ChromeSelectionDropdownMenuDelegate::OnShowSelectionPopup(
+    content::RenderFrameHost& render_frame_host,
+    const content::ContextMenuParams& params) {
+  switch (params.source_type) {
+    case ui::mojom::MenuSourceType::kMouse:
+      OnShowDropdownContextMenu(render_frame_host, params);
+      break;
+    case ui::mojom::MenuSourceType::kNone:
+    case ui::mojom::MenuSourceType::kKeyboard:
+    case ui::mojom::MenuSourceType::kTouch:
+    case ui::mojom::MenuSourceType::kTouchEditMenu:
+    case ui::mojom::MenuSourceType::kLongPress:
+    case ui::mojom::MenuSourceType::kLongTap:
+    case ui::mojom::MenuSourceType::kTouchHandle:
+    case ui::mojom::MenuSourceType::kStylus:
+    case ui::mojom::MenuSourceType::kAdjustSelection:
+    case ui::mojom::MenuSourceType::kAdjustSelectionReset:
+      break;
+  }
+}
+
+void ChromeSelectionDropdownMenuDelegate::OnShowDropdownContextMenu(
+    content::RenderFrameHost& render_frame_host,
+    const content::ContextMenuParams& params) {
+  CHECK_EQ(params.source_type, ui::mojom::MenuSourceType::kMouse);
+  if (!base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAndroidHideSuggestionsOnContextMenu)) {
+    return;
+  }
+
+  // Hide Autofill/@memory suggestions and the keyboard accessory so they do
+  // not overlap with the dropdown context menu.
+  // `HideSuggestions()` dismisses @memory and clears Autofill suggestions and
+  // keyboard listeners.
+  // `ManualFillingController::Hide()` hides the accessory bar itself (which
+  // stays visible in floating mode with a hardware keyboard when fallback
+  // sources are available).
+  content::WebContents* web_contents =
+      content::WebContents::FromRenderFrameHost(&render_frame_host);
+  if (autofill::AutofillClient* autofill_client =
+          autofill::ContentAutofillClient::FromWebContents(web_contents)) {
+    autofill_client->HideSuggestions(
+        autofill::SuggestionHidingReason::kContextMenuOpened,
+        /*product=*/std::nullopt);
+  }
+
+  if (base::WeakPtr<ManualFillingController> manual_filling_controller =
+          ManualFillingController::Get(web_contents)) {
+    manual_filling_controller->Hide();
+  }
 }
 
 }  // namespace android

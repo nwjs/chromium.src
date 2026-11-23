@@ -7,7 +7,6 @@
 #include <memory>
 #include <optional>
 
-#include "base/feature_list.h"
 #include "base/i18n/message_formatter.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -16,6 +15,7 @@
 #include "chrome/browser/page_info/page_info_features.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/page_info/about_this_site_icon.h"
 #include "chrome/browser/ui/page_info/chrome_page_info_ui_delegate.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/accessibility/non_accessible_image_view.h"
@@ -302,15 +302,12 @@ void PageInfoMainView::SetPermissionInfo(
     return;
   }
 
-  // When LHS indicators are enabled, permissions usage in PageInfo should be
-  // updated to reflect activity indicators.
-  if (base::FeatureList::IsEnabled(
-          content_settings::features::kLeftHandSideActivityIndicators)) {
-    for (const auto& permission : permission_info_list) {
-      auto it = syncable_permission_rows_.find(permission.type);
-      if (it != syncable_permission_rows_.end()) {
-        it->second->UpdatePermission(permission);
-      }
+  // Permissions usage in PageInfo should be updated to reflect activity
+  // indicators.
+  for (const auto& permission : permission_info_list) {
+    auto it = syncable_permission_rows_.find(permission.type);
+    if (it != syncable_permission_rows_.end()) {
+      it->second->UpdatePermission(permission);
     }
   }
 
@@ -746,8 +743,7 @@ std::unique_ptr<views::View> PageInfoMainView::CreateAboutThisSiteButton(
             view->GetWidget()->Close();
           },
           this, GURL(info.more_about().url()), info.has_description()),
-      PageInfoViewFactory::GetImageModel(
-          PageInfoViewFactory::GetAboutThisSiteVectorIcon()),
+      PageInfoViewFactory::GetImageModel(page_info::GetAboutThisSiteIcon()),
       title, description, PageInfoViewFactory::GetLaunchIcon());
   about_this_site_button->SetID(
       PageInfoViewFactory::VIEW_ID_PAGE_INFO_ABOUT_THIS_SITE_BUTTON);

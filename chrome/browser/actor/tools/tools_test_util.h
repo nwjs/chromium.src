@@ -25,6 +25,9 @@
 #include "content/public/browser/webid/identity_credential_source.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
+class GURL;
+class TabListInterface;
+
 namespace content {
 class WebContents;
 }
@@ -103,17 +106,21 @@ class MockToolDelegate : public ToolDelegate {
               (std::unique_ptr<ToolRequest>),
               (override));
   MOCK_METHOD(void,
-              AddTab,
-              (tabs::TabHandle,
+              AddActorSurface,
+              (ActorSurfaceHandle,
                bool,
                base::OnceCallback<void(mojom::ActionResultPtr)>),
               (override));
-  MOCK_METHOD(bool, HasTab, (tabs::TabHandle), (override));
-  MOCK_METHOD(void, RemoveTab, (tabs::TabHandle), (override));
+  MOCK_METHOD(bool, HasActorSurface, (ActorSurfaceHandle), (override));
+  MOCK_METHOD(void, RemoveActorSurface, (ActorSurfaceHandle), (override));
   MOCK_METHOD(void, FailCurrentTool, (mojom::ActionResultCode), (override));
   MOCK_METHOD(base::WeakPtr<actor_login::ActionSequenceDelegate>,
               GetActionSequenceDelegate,
               (),
+              (override));
+  MOCK_METHOD(void,
+              OnActionTargetFrameResolved,
+              (content::RenderFrameHost&),
               (override));
 };
 
@@ -194,6 +201,9 @@ class ActorToolsTest : public PlatformBrowserTest {
   ActorToolsTest& operator=(const ActorToolsTest&) = delete;
   ~ActorToolsTest() override;
 
+  // Skips the test, before the browser is launched, on OS versions where
+  // actor isn't supported.
+  void SetUp() override;
   void SetUpOnMainThread() override;
   void SetUpCommandLine(base::CommandLine* command_line) override;
   void TearDownOnMainThread() override;
@@ -204,6 +214,14 @@ class ActorToolsTest : public PlatformBrowserTest {
   content::WebContents* web_contents();
   tabs::TabInterface* active_tab();
   content::RenderFrameHost* main_frame();
+
+  // The tab list of the window containing `active_tab()`.
+  TabListInterface* tab_list();
+
+  // Opens `url` in a new tab in the current window, waits for it to load, and
+  // makes it the active tab. Fails the test on error.
+  void OpenForegroundTab(const GURL& url);
+
   ExecutionEngine& execution_engine();
   ActorKeyedService& actor_keyed_service() const;
   ActorTask& actor_task() const;

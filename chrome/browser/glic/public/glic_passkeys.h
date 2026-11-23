@@ -25,8 +25,13 @@ class IndigoPageActionController;
 class ContextHubPageHandler;
 class GlicPasswordChangeActuator;
 
+namespace actor {
+class ActorGeminiPanelToolBrowserTest;
+}
+
 namespace ttc {
 class AiOverlayTools;
+class ToolController;
 }
 
 namespace skills {
@@ -75,7 +80,9 @@ class InvokeWithAutoSubmitPasskeyProvider {
   friend class SelectionOverlayController;
   friend class SelectionSuggestion;
   friend class ::indigo::IndigoPageActionController;
+  friend class ::actor::ActorGeminiPanelToolBrowserTest;
   friend class ::ttc::AiOverlayTools;
+  friend class ::ttc::ToolController;
   friend class ::skills::SkillsUiTabController;
   friend class ::skills::SkillsInvocationInteractiveUiTest;
   friend class AndroidAutoSubmitPasskeyHelper<

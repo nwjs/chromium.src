@@ -1352,6 +1352,13 @@ const LayoutResult* FlexLayoutAlgorithm::LayoutInternal() {
     if (IsBreakInside(GetBreakToken()) && gap_accumulator) {
       gap_accumulator->SetEffectiveGapBetweenLines(
           current_gap_data.effective_gap_between_lines);
+      if (!is_column_ && !previous_gap_data->gap_data_for_rows.empty()) {
+        const FlexRowGapBreakTokenData& previous_row_gap_data =
+            previous_gap_data->gap_data_for_rows.front();
+        gap_accumulator->SetFirstUnprocessedRowGapIndex(
+            previous_row_gap_data.first_row_gap_index +
+            previous_row_gap_data.row_gap_count);
+      }
     }
 
     LayoutResult::EStatus status =
@@ -2134,9 +2141,9 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
   LayoutResult::EStatus status = LayoutResult::kSuccess;
   LayoutUnit fragmentainer_space = FragmentainerSpaceLeftForChildren();
 
-  HeapVector<FlexColumnBreakInfo> column_break_info;
+  HeapVector<ColumnBreakInfo> column_break_info;
   if (is_column_) {
-    column_break_info = HeapVector<FlexColumnBreakInfo>(flex_lines->size());
+    column_break_info = HeapVector<ColumnBreakInfo>(flex_lines->size());
   }
 
   LayoutUnit previously_consumed_block_size;
@@ -2182,6 +2189,13 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
     const auto* item_break_token = To<BlockBreakToken>(entry.token);
     bool is_last_item_in_line =
         flex_item_idx == flex_line.line_items_data.size() - 1;
+
+    // A row with no in-flow content left completed in an earlier
+    // fragmentainer, and its items are only revisited to lay out overflow. Its
+    // gaps were built in that fragmentainer, so it must not build any here.
+    const bool row_completed_in_previous_fragmentainer =
+        !is_column_ && item_break_token && item_break_token->IsAtBlockEnd() &&
+        !flex_line.has_inflow_continuation;
 
     bool is_first_line = flex_line_idx == 0;
     bool is_last_line = flex_line_idx == flex_lines->size() - 1;
@@ -2318,7 +2332,6 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
       }
     }
 
-    const EarlyBreak* early_break_in_child = nullptr;
     if (early_break_) [[unlikely]] {
       if (!is_column_)
         container_builder_.SetLineCount(flex_line_idx);
@@ -2345,9 +2358,6 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
         }
         last_line_idx_to_process_first_child_ = flex_line_idx;
         continue;
-      } else {
-        early_break_in_child =
-            EnterEarlyBreakInChild(flex_item->block_node, *early_break_);
       }
     }
 
@@ -2393,11 +2403,14 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
         /* override_inline_size */ std::nullopt,
         flex_item->main_axis_final_size, line_cross_size, offset.block_offset,
         min_block_size_should_encompass_intrinsic_size);
-    const LayoutResult* layout_result = flex_item->block_node.Layout(
-        child_space, item_break_token, early_break_in_child);
+    FragmentationLayoutInput fragmentation =
+        GetFragmentationLayoutInputForChild(flex_item->block_node,
+                                            item_break_token);
+    const LayoutResult* layout_result =
+        flex_item->block_node.Layout(child_space, fragmentation);
 
     BreakStatus break_status = BreakStatus::kContinue;
-    FlexColumnBreakInfo* current_column_break_info = nullptr;
+    ColumnBreakInfo* current_column_break_info = nullptr;
     if (!early_break_ && GetConstraintSpace().HasBlockFragmentation()) {
       bool has_container_separation = false;
       if (!is_column_) {
@@ -2560,7 +2573,7 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
     }
 
     // This item may have expanded due to fragmentation. Record how large the
-    // shift was (if any). Only do this if the item has completed layout.
+    // shift was (if any). Only do this if the item has reached its block end.
     if (is_column_) {
       LayoutUnit cloned_block_decorations;
       if (!is_at_block_end &&
@@ -2578,7 +2591,8 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
       flex_item->total_remaining_block_size -=
           fragment.BlockSize() - cloned_block_decorations;
       if (flex_item->total_remaining_block_size < LayoutUnit() &&
-          !physical_fragment.GetBreakToken()) {
+          is_at_block_end &&
+          !(item_break_token && item_break_token->IsAtBlockEnd())) {
         LayoutUnit expansion = -flex_item->total_remaining_block_size;
         flex_line.item_offset_adjustment += expansion;
       }
@@ -2647,7 +2661,7 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
 
     intrinsic_block_size_ = std::max(item_block_end, intrinsic_block_size_);
     container_builder_.AddResult(*layout_result, offset);
-    if (gap_accumulator) {
+    if (gap_accumulator && !row_completed_in_previous_fragmentainer) {
       LayoutUnit container_main_end =
           is_column_
               ? fragmentainer_space
@@ -2718,6 +2732,11 @@ FlexLayoutAlgorithm::GiveItemsFinalPositionAndSizeForFragmentation(
       }
     }
     last_line_idx_to_process_first_child_ = flex_line_idx;
+  }
+
+  for (wtf_size_t i = 0; i < flex_lines->size(); ++i) {
+    (*flex_lines)[i].has_inflow_continuation =
+        has_inflow_child_break_inside_line[i];
   }
 
   if (needs_earlier_break_in_column ||
@@ -3081,7 +3100,7 @@ LayoutUnit FlexLayoutAlgorithm::FragmentainerSpaceAvailable(
 void FlexLayoutAlgorithm::ConsumeRemainingFragmentainerSpace(
     LayoutUnit offset_in_stitched_container,
     FlexLine* flex_line,
-    const FlexColumnBreakInfo* column_break_info) {
+    const ColumnBreakInfo* column_break_info) {
   if (To<BlockBreakToken>(container_builder_.LastChildBreakToken())
           ->IsForcedBreak()) {
     // This will be further adjusted by the total consumed block size once we
@@ -3241,8 +3260,8 @@ const LayoutResult* FlexLayoutAlgorithm::RelayoutWithNewRowSizes() {
   LayoutAlgorithmParams params(Node(),
                                container_builder_.InitialFragmentGeometry(),
                                GetConstraintSpace());
-  params.break_token = GetBreakToken();
-  params.early_break = early_break_;
+  params.fragmentation.break_token = GetBreakToken();
+  params.fragmentation.early_break = early_break_;
   params.additional_early_breaks = additional_early_breaks_;
   FlexLayoutAlgorithm algorithm_with_row_cross_sizes(params,
                                                      &row_cross_size_updates_);

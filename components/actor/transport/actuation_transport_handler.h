@@ -13,51 +13,51 @@
 #include "base/memory/weak_ptr.h"
 #include "components/actor/core/task_id.h"
 #include "components/actor/transport/actuation_delegate.h"
-#include "components/browser_actuator/public/transport_handler.h"
+#include "components/browser_actuator/public/transport/transport_handler.h"
 
-namespace browser_actuator {
+namespace browser_actuator::transport {
 class TransportSession;
-}  // namespace browser_actuator
+}  // namespace browser_actuator::transport
 
 namespace actor {
 
-namespace proto {
-class StopTask;
-}  // namespace proto
-
 // Routes actuation commands from a transport session to an ActuationDelegate
 // and sends the results upstream.
-class ActuationTransportHandler : public browser_actuator::TransportHandler {
+class ActuationTransportHandler
+    : public browser_actuator::transport::TransportHandler {
  public:
-  ActuationTransportHandler(browser_actuator::TransportSession* session,
-                            std::unique_ptr<ActuationDelegate> delegate);
+  ActuationTransportHandler(
+      browser_actuator::transport::TransportSession* session,
+      std::unique_ptr<ActuationDelegate> delegate);
   ActuationTransportHandler(const ActuationTransportHandler&) = delete;
   ActuationTransportHandler& operator=(const ActuationTransportHandler&) =
       delete;
   ~ActuationTransportHandler() override;
 
-  // browser_actuator::TransportHandler:
-  void OnMessage(browser_actuator::PayloadType payload_type,
+  // browser_actuator::transport::TransportHandler:
+  void OnMessage(browser_actuator::transport::PayloadType payload_type,
                  std::string_view serialized_payload) override;
 
  private:
-  void HandleStartTask(
-      const std::string& request_id,
-      const optimization_guide::proto::BrowserStartTask& request);
-  void OnStartTaskComplete(
-      const std::string& request_id,
-      optimization_guide::proto::BrowserStartTaskResult result);
+  void HandleStartTask(const std::string& request_id,
+                       const proto::StartTaskRequest& request);
+  void OnStartTaskComplete(const std::string& request_id,
+                           TaskId task_id,
+                           proto::StartTaskResponse response);
 
   void HandleStopTask(const std::string& request_id,
-                      const proto::StopTask& request);
+                      std::string_view task_id_str,
+                      const proto::StopTaskRequest& request);
   void OnStopTaskComplete(const std::string& request_id,
-                          TaskId task_id,
+                          const std::string& task_id_str,
                           bool success);
 
-  void HandleAct(const std::string& request_id,
-                 const optimization_guide::proto::Actions& actions);
+  void HandlePerformActions(const std::string& request_id,
+                            std::string_view task_id_str,
+                            const proto::PerformActionsRequest& request);
   void OnActComplete(const std::string& request_id,
-                     optimization_guide::proto::ActionsResult result);
+                     const std::string& task_id_str,
+                     proto::PerformActionsResponse response);
 
   std::unique_ptr<ActuationDelegate> delegate_;
   base::flat_set<TaskId> active_tasks_;

@@ -12,9 +12,8 @@
 #import "base/check.h"
 #import "base/notreached.h"
 #import "ios/chrome/browser/shared/ui/bottom_sheet/table_view_bottom_sheet_view_controller+subclassing.h"
-#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
-#import "ui/base/device_form_factor.h"
+#import "ios/chrome/common/ui/util/ui_util.h"
 
 namespace {
 
@@ -54,6 +53,16 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
 
   // Keep track of the minimized state height.
   std::optional<CGFloat> _minimizedStateHeight;
+
+  // Horizontal leading and trailing constraints for transaction buttons.
+  NSArray<NSLayoutConstraint*>* _buttonLeadingConstraints;
+  NSArray<NSLayoutConstraint*>* _buttonTrailingConstraints;
+
+  // Registration for window trait changes.
+  id<UITraitChangeRegistration> _windowTraitChangeRegistration;
+
+  // The window on which `_windowTraitChangeRegistration` is registered.
+  __weak UIWindow* _observedWindow;
 }
 
 @end
@@ -62,6 +71,11 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
 
 - (void)reloadTableViewData {
   [_tableView reloadData];
+  if ([self rowCount] > 0) {
+    // `reloadData` clears the table view's selection, so it needs to be
+    // restored to keep it in sync with the checkmark.
+    [self selectFirstRow];
+  }
   [self updateHeight];
 }
 
@@ -84,14 +98,26 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
 }
 
 - (void)adjustTransactionsButtonHorizontalConstraints {
-  CGFloat buttonHorizontalMargin =
-      (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET ? 64.0
-                                                                  : 24.0);
-
-  [self applyHorizontalConstraints:buttonHorizontalMargin
-                         forButton:self.primaryActionButton];
-  [self applyHorizontalConstraints:buttonHorizontalMargin
-                         forButton:self.secondaryActionButton];
+  CGFloat margin = [self buttonHorizontalMargin];
+  UILayoutGuide* safeArea = self.view.safeAreaLayoutGuide;
+  _buttonLeadingConstraints = @[
+    [self.primaryActionButton.leadingAnchor
+        constraintGreaterThanOrEqualToAnchor:safeArea.leadingAnchor
+                                    constant:margin],
+    [self.secondaryActionButton.leadingAnchor
+        constraintGreaterThanOrEqualToAnchor:safeArea.leadingAnchor
+                                    constant:margin],
+  ];
+  _buttonTrailingConstraints = @[
+    [self.primaryActionButton.trailingAnchor
+        constraintLessThanOrEqualToAnchor:safeArea.trailingAnchor
+                                 constant:-margin],
+    [self.secondaryActionButton.trailingAnchor
+        constraintLessThanOrEqualToAnchor:safeArea.trailingAnchor
+                                 constant:-margin],
+  ];
+  [NSLayoutConstraint activateConstraints:_buttonLeadingConstraints];
+  [NSLayoutConstraint activateConstraints:_buttonTrailingConstraints];
 }
 
 #pragma mark - Subclassing
@@ -143,14 +169,29 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
                   "must implement this method.";
 }
 
+- (BOOL)shouldAlwaysUseLargeDetent {
+  return NO;
+}
+
+#pragma mark - BottomSheetViewController
+
+- (void)setUpBottomSheetDetents {
+  if ([self shouldAlwaysUseLargeDetent]) {
+    [self setUpLargeDetent];
+    return;
+  }
+  [super setUpBottomSheetDetents];
+}
+
 #pragma mark - UIViewController
 
 - (void)viewDidLoad {
   self.view.accessibilityViewIsModal = YES;
 
-  // If the table has too many rows for the initial state, we open bottom sheet
-  // minimized.
-  _tableViewIsMinimized = [self rowCount] > [self initialNumberOfVisibleCells];
+  // Open the bottom sheet minimized if the table has more rows than fit in the
+  // initial state, unless it always uses the large detent.
+  _tableViewIsMinimized = ![self shouldAlwaysUseLargeDetent] &&
+                          [self rowCount] > [self initialNumberOfVisibleCells];
 
   self.underTitleView = [self createUnderTitleView];
 
@@ -183,7 +224,30 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
 - (void)viewIsAppearing:(BOOL)animated {
   [super viewIsAppearing:animated];
 
+  [self updateTransactionsButtonHorizontalConstraints];
+  if (self.view.window && self.view.window != _observedWindow) {
+    [_observedWindow unregisterForTraitChanges:_windowTraitChangeRegistration];
+    _observedWindow = self.view.window;
+    __weak __typeof(self) weakSelf = self;
+    _windowTraitChangeRegistration = [_observedWindow
+        registerForTraitChanges:@[
+          UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class
+        ]
+                    withHandler:^(id<UITraitEnvironment> traitEnvironment,
+                                  UITraitCollection* previousCollection) {
+                      [weakSelf updateTransactionsButtonHorizontalConstraints];
+                    }];
+  }
   [self updateHeight];
+}
+
+- (void)viewDidDisappear:(BOOL)animated {
+  [super viewDidDisappear:animated];
+  if (_windowTraitChangeRegistration) {
+    [_observedWindow unregisterForTraitChanges:_windowTraitChangeRegistration];
+    _windowTraitChangeRegistration = nil;
+    _observedWindow = nil;
+  }
 }
 
 #pragma mark - UITableViewDelegate
@@ -211,20 +275,24 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
 
 #pragma mark - Private
 
-// Applies horizontal constraints to a button.
-- (void)applyHorizontalConstraints:(CGFloat)buttonHorizontalMargin
-                         forButton:(UIView*)button {
-  [button.leadingAnchor
-      constraintGreaterThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                               .leadingAnchor
-                                  constant:buttonHorizontalMargin]
-      .active = YES;
+// Returns the horizontal margin for transaction buttons based on window
+// size-class traits.
+- (CGFloat)buttonHorizontalMargin {
+  return IsRegularXRegularSizeClass(self.view.window) ? 64.0 : 24.0;
+}
 
-  [button.trailingAnchor
-      constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
-                                            .trailingAnchor
-                               constant:-buttonHorizontalMargin]
-      .active = YES;
+// Updates stored button horizontal constraints when container traits change.
+- (void)updateTransactionsButtonHorizontalConstraints {
+  if (!_buttonLeadingConstraints.count && !_buttonTrailingConstraints.count) {
+    return;
+  }
+  CGFloat margin = [self buttonHorizontalMargin];
+  for (NSLayoutConstraint* constraint in _buttonLeadingConstraints) {
+    constraint.constant = margin;
+  }
+  for (NSLayoutConstraint* constraint in _buttonTrailingConstraints) {
+    constraint.constant = -margin;
+  }
 }
 
 // Maximum initial number of visible cells.
@@ -274,6 +342,13 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
     }
   }
 
+  if ([self shouldAlwaysUseLargeDetent]) {
+    _minimizedHeightConstraint.active = NO;
+    _heightConstraint.active = YES;
+    [self setUpLargeDetent];
+    return;
+  }
+
   // Update the custom detent with the correct initial height for the bottom
   // sheet. (Initial height is not calculated properly in -viewDidLoad, but we
   // need to setup the bottom sheet in that method so there is not a delay when
@@ -318,6 +393,16 @@ NSString* const kCustomDetentIdentifier = @"customDetent";
   presentationController.selectedDetentIdentifier =
       useMinimizedState ? kCustomMinimizedDetentIdentifier
                         : kCustomDetentIdentifier;
+}
+
+// Sets the large detent as the bottom sheet's only detent.
+- (void)setUpLargeDetent {
+  UISheetPresentationController* presentationController =
+      self.sheetPresentationController;
+  presentationController.detents =
+      @[ [UISheetPresentationControllerDetent largeDetent] ];
+  presentationController.selectedDetentIdentifier =
+      UISheetPresentationControllerDetentIdentifierLarge;
 }
 
 // Returns whether the provided index path points to the last row of the table

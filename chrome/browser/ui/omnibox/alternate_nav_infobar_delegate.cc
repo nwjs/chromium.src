@@ -12,18 +12,11 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/autocomplete/shortcuts_backend_factory.h"
-#include "chrome/browser/history/history_service_factory.h"
-#include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/omnibox/chrome_omnibox_navigation_observer_base.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/history/core/browser/history_service.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/infobars/core/infobar.h"
-#include "components/omnibox/browser/shortcuts_backend.h"
-#include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -39,9 +32,8 @@ void AlternateNavInfoBarDelegate::CreateForOmniboxNavigation(
       infobars::ContentInfoBarManager::FromWebContents(web_contents);
   infobar_manager->AddInfoBar(AlternateNavInfoBarDelegate::CreateInfoBar(
       base::WrapUnique(new AlternateNavInfoBarDelegate(
-          Profile::FromBrowserContext(web_contents->GetBrowserContext()), text,
-          std::make_unique<AutocompleteMatch>(match), match.destination_url,
-          search_url))));
+          text, std::make_unique<AutocompleteMatch>(match),
+          match.destination_url, search_url))));
 }
 
 std::u16string AlternateNavInfoBarDelegate::GetMessageTextWithOffset(
@@ -61,10 +53,7 @@ const gfx::VectorIcon& AlternateNavInfoBarDelegate::GetVectorIcon() const {
 }
 
 std::u16string AlternateNavInfoBarDelegate::GetLinkText() const {
-  if (base::FeatureList::IsEnabled(features::kInfoBarInlineLinks)) {
-    return std::u16string();
-  }
-  return base::UTF8ToUTF16(destination_url_.spec());
+  return std::u16string();
 }
 
 GURL AlternateNavInfoBarDelegate::GetLinkURL() const {
@@ -73,31 +62,10 @@ GURL AlternateNavInfoBarDelegate::GetLinkURL() const {
 
 bool AlternateNavInfoBarDelegate::LinkClicked(
     WindowOpenDisposition disposition) {
-  DCHECK(match_);
-  history::HistoryService* const history_service =
-      HistoryServiceFactory::GetForProfile(profile_,
-                                           ServiceAccessType::IMPLICIT_ACCESS);
-
-  // Tell the shortcuts backend to remove the shortcut it added for the
-  // original search and instead add one reflecting this navigation.
-  scoped_refptr<ShortcutsBackend> shortcuts_backend(
-      ShortcutsBackendFactory::GetForProfile(profile_));
-  if (shortcuts_backend.get()) {  // May be NULL in incognito.
-    shortcuts_backend->DeleteShortcutsWithURL(original_url_);
-    shortcuts_backend->AddOrUpdateShortcut(text_, *match_);
-  }
-
-  // Tell the history system to remove any saved search term for the search.
-  if (history_service) {
-    history_service->DeleteKeywordSearchTermForURL(original_url_);
-  }
-
-  // Pretend the user typed this URL, so that navigating to it will be the
-  // default action when it's typed again in the future.
-  infobars::ContentInfoBarManager::WebContentsFromInfoBar(infobar())->OpenURL(
-      content::OpenURLParams::CreateBrowserInitiated(
-          destination_url_, disposition, ui::PAGE_TRANSITION_TYPED),
-      /*navigation_handle_callback=*/{});
+  CHECK(match_, base::NotFatalUntil::M162);
+  ChromeOmniboxNavigationObserverBase::OpenAlternativeNavMatch(
+      infobars::ContentInfoBarManager::WebContentsFromInfoBar(infobar()), text_,
+      *match_, original_url_, disposition);
 
   // We should always close, even if the navigation did not occur within this
   // WebContents.
@@ -130,22 +98,21 @@ int AlternateNavInfoBarDelegate::GetButtons() const {
 }
 
 AlternateNavInfoBarDelegate::AlternateNavInfoBarDelegate(
-    Profile* profile,
     const std::u16string& text,
     std::unique_ptr<AutocompleteMatch> match,
     const GURL& destination_url,
     const GURL& original_url)
-    : profile_(profile),
-      text_(text),
+    : text_(text),
       match_(std::move(match)),
       destination_url_(destination_url),
       original_url_(original_url) {
   if (match_) {
-    DCHECK_EQ(destination_url_, match_->destination_url);
+    CHECK_EQ(destination_url_, match_->destination_url,
+             base::NotFatalUntil::M162);
   }
 
-  DCHECK(destination_url_.is_valid());
-  DCHECK(original_url_.is_valid());
+  CHECK(destination_url_.is_valid(), base::NotFatalUntil::M162);
+  CHECK(original_url_.is_valid(), base::NotFatalUntil::M162);
 
   substitutions_.emplace_back(base::UTF8ToUTF16(destination_url_.spec()),
                               /*is_link=*/true, std::nullopt);

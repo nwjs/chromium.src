@@ -45,6 +45,7 @@
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
+#include "chrome/browser/ui/webui/signin/signin_policy_fetch_tracker.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
 #include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/common/channel_info.h"
@@ -67,9 +68,8 @@
 
 namespace {
 
-// TODO(b/537182192): Replace with a P-link.
 constexpr char kSignalsDisclaimerLearnMoreURL[] =
-    "https://support.google.com/chrome/a/answer/16191236";
+    "https://support.google.com/chrome/a?p=managed_profile_signals";
 
 bool CanTryPolicyRegistration(std::optional<base::Time> last_failure_time) {
   if (!last_failure_time) {
@@ -334,6 +334,8 @@ void ProfileManagementDisclaimerService::
       return;
     }
     policy::UserCloudManagementStatusFetcher::FetchStatusAndPolicies(
+        policy::UserCloudManagementStatusFetcher::Caller::
+            kProfileManagementDisclaimer,
         g_browser_process->browser_policy_connector()
             ->device_management_service(),
         g_browser_process->system_network_context_manager()
@@ -364,8 +366,8 @@ void ProfileManagementDisclaimerService::
   // Create a new tracker for the account, if it doesn't exist yet or if it had
   // a cached failure. This will also reset any cached failure.
   policy_fetch_tracker_by_account_id_[account_id] =
-      TurnSyncOnHelperPolicyFetchTracker::CreateInstance(
-          &profile_.get(), info.GetCoreAccountInfo());
+      SigninPolicyFetchTracker::CreateInstance(&profile_.get(),
+                                               info.GetCoreAccountInfo());
 
   policy_fetch_tracker_by_account_id_[account_id]->RegisterForPolicy(
       base::BindOnce(&ProfileManagementDisclaimerService::OnRegisteredForPolicy,

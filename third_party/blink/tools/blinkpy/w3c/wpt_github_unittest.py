@@ -14,12 +14,13 @@ from blinkpy.w3c.wpt_github import (
     GitHubError,
     MergeError,
     PullRequest,
+    PullRequestState,
     WPTGitHub,
 )
 
 
 class WPTGitHubTest(unittest.TestCase):
-    def generate_pr_item(self, pr_number, state='closed'):
+    def generate_pr_item(self, pr_number, state=PullRequestState.CLOSED):
         return {
             'title': 'Foobar',
             'number': pr_number,
@@ -423,7 +424,7 @@ class WPTGitHubTest(unittest.TestCase):
         pull_request = self.wpt_github.pr_for_chromium_commit(chromium_commit)
         self.assertEqual(pull_request.number, 2)
 
-    def test_pr_for_chromium_commit_multiple_change_ids(self):
+    def test_pr_for_chromium_commit_prefers_last_change_id(self):
         self.wpt_github.all_pull_requests = lambda: [
             PullRequest(
                 'PR1',
@@ -440,8 +441,9 @@ class WPTGitHubTest(unittest.TestCase):
             change_id='I00c0ffee',
             position='refs/heads/master@{#10}',
         )
-        pull_request = self.wpt_github.pr_for_chromium_commit(chromium_commit)
-        self.assertEqual(pull_request.number, 1)
+        self.assertIsNone(
+            self.wpt_github.pr_for_chromium_commit(chromium_commit)
+        )
 
         chromium_commit = MockChromiumCommit(
             MockHost(),
@@ -471,3 +473,83 @@ class WPTGitHubTest(unittest.TestCase):
         )
         pull_request = self.wpt_github.pr_for_chromium_commit(chromium_commit)
         self.assertEqual(pull_request.number, 1)
+
+    def test_pr_for_chromium_commit_prefers_open_pr(self):
+        self.wpt_github.all_pull_requests = lambda: [
+            PullRequest(
+                'PR1',
+                1,
+                'body\nChange-Id: I00decade',
+                PullRequestState.CLOSED,
+                'PR_kwDOADc1Vc5jhje_',
+                [],
+            ),
+            PullRequest(
+                'PR2',
+                2,
+                'body\nChange-Id: I00decade',
+                PullRequestState.OPEN,
+                'PR_kwDOADc1Vc5jhje_',
+                [],
+            ),
+        ]
+        chromium_commit = MockChromiumCommit(
+            MockHost(),
+            change_id='I00decade',
+        )
+        pull_request = self.wpt_github.pr_for_chromium_commit(chromium_commit)
+        self.assertEqual(pull_request.number, 2)
+
+    def test_pr_for_chromium_commit_prefers_newest_closed_pr(self):
+        self.wpt_github.all_pull_requests = lambda: [
+            PullRequest(
+                'PR1',
+                1,
+                'body\nChange-Id: I00decade',
+                PullRequestState.CLOSED,
+                'PR_kwDOADc1Vc5jhje_',
+                [],
+            ),
+            PullRequest(
+                'PR2',
+                2,
+                'body\nChange-Id: I00decade',
+                PullRequestState.CLOSED,
+                'PR_kwDOADc1Vc5jhje_',
+                [],
+            ),
+        ]
+        chromium_commit = MockChromiumCommit(
+            MockHost(),
+            change_id='I00decade',
+        )
+        pull_request = self.wpt_github.pr_for_chromium_commit(chromium_commit)
+        self.assertEqual(pull_request.number, 1)
+
+    def test_pr_for_chromium_commit_link_prefers_open_pr(self):
+        link = 'https://chromium-review.googlesource.com/id/I0123456789abcdef0123456789abcdef01234567'
+        self.wpt_github.all_pull_requests = lambda: [
+            PullRequest(
+                'PR1',
+                1,
+                f'body\nLink: {link}',
+                PullRequestState.CLOSED,
+                'PR_kwDOADc1Vc5jhje_',
+                [],
+            ),
+            PullRequest(
+                'PR2',
+                2,
+                f'body\nLink: {link}',
+                PullRequestState.OPEN,
+                'PR_kwDOADc1Vc5jhje_',
+                [],
+            ),
+        ]
+        chromium_commit = MockChromiumCommit(
+            MockHost(),
+            change_id='',
+            link=link,
+        )
+        pull_request = self.wpt_github.pr_for_chromium_commit(chromium_commit)
+        self.assertEqual(pull_request.number, 2)

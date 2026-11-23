@@ -21,6 +21,8 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.ntp_customization.BottomSheetDelegate;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator.BottomSheetType;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationMetricsUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.R;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo.NtpThemeColorId;
@@ -128,7 +130,10 @@ public class NtpThemeSyncHistoryCoordinator {
                 NtpThemeSyncHistoryProperties.RECYCLER_VIEW_LAYOUT_MANAGER, layoutManager);
         mPropertyModel.set(
                 NtpThemeSyncHistoryProperties.MORE_OPTIONS_CLICK_LISTENER,
-                moreOptionsClickListener);
+                (view) -> {
+                    moreOptionsClickListener.onClick(view);
+                    NtpCustomizationMetricsUtils.recordThemeHistoryMoreOptionButtonClick();
+                });
 
         mDefaultOptions = new ArrayList<>();
         mDefaultThemeCollections = new ArrayList<>();
@@ -412,6 +417,9 @@ public class NtpThemeSyncHistoryCoordinator {
         // Sets the highlighted color item if user has chosen a customized color theme.
         mPropertyModel.set(
                 NtpThemeSyncHistoryProperties.HIGHLIGHTED_ITEM_INDEX, mLastSelectedIndex);
+
+        NtpCustomizationMetricsUtils.recordBottomSheetShown(
+                BottomSheetType.THEME_HISTORY_SCROLLABLE_LIST);
     }
 
     /**
@@ -423,6 +431,7 @@ public class NtpThemeSyncHistoryCoordinator {
     private void onItemClicked(NtpBackgroundDataBase backgroundData, int position) {
         boolean shouldRecreate = shouldRecreateActivity(backgroundData);
         mBottomSheetDelegate.onNewColorSelected(shouldRecreate);
+        recordItemClick(backgroundData, position);
 
         boolean updateOtherPlatformThemeData = false;
         if (backgroundData instanceof NtpBackgroundDataThemeCollection themeCollectionData) {
@@ -455,6 +464,19 @@ public class NtpThemeSyncHistoryCoordinator {
             mNtpBackgroundDataManager.updateRemoteSyncDataToSharedPreference(
                     (NtpBackgroundDataThemeCollection) backgroundData);
         }
+    }
+
+    /**
+     * Records metrics for a click on an item in the theme history list, including the background
+     * type split by the platform where the theme was originally set, and the clicked index.
+     *
+     * @param backgroundData The {@link NtpBackgroundDataBase} of the clicked item.
+     * @param position The index of the clicked item in the history list.
+     */
+    private void recordItemClick(NtpBackgroundDataBase backgroundData, int position) {
+        NtpCustomizationMetricsUtils.recordThemeHistoryClick(
+                backgroundData.getBackgroundType(), backgroundData.getPlatformType());
+        NtpCustomizationMetricsUtils.recordThemeHistoryClickIndex(position);
     }
 
     /**

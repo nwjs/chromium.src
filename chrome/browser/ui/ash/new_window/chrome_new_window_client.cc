@@ -36,12 +36,11 @@
 #include "chrome/browser/ash/system_web_apps/apps/camera_app/chrome_camera_app_ui_delegate.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/chromeos/arc/arc_web_contents_data.h"
-#include "chrome/browser/chromeos/network/network_portal_signin_window.h"
-#include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
+#include "chrome/browser/ui/ash/network/network_portal_signin_window.h"
 #include "chrome/browser/ui/ash/shelf/app_service/app_service_app_window_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/app_window_base.h"
 #include "chrome/browser/ui/ash/shelf/app_window_shelf_item_controller.h"
@@ -55,7 +54,6 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
-#include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/components/browser_delegate/browser_delegate.h"
@@ -230,13 +228,13 @@ WindowOpenDisposition ToWindowOpenDisposition(
     ash::NewWindowDelegate::Disposition disposition) {
   switch (disposition) {
     case ash::NewWindowDelegate::Disposition::kNewForegroundTab:
-      return WindowOpenDisposition::NEW_FOREGROUND_TAB;
+      return WindowOpenDisposition::kNewForegroundTab;
     case ash::NewWindowDelegate::Disposition::kNewWindow:
-      return WindowOpenDisposition::NEW_WINDOW;
+      return WindowOpenDisposition::kNewWindow;
     case ash::NewWindowDelegate::Disposition::kOffTheRecord:
-      return WindowOpenDisposition::OFF_THE_RECORD;
+      return WindowOpenDisposition::kOffTheRecord;
     case ash::NewWindowDelegate::Disposition::kSwitchToTab:
-      return WindowOpenDisposition::SWITCH_TO_TAB;
+      return WindowOpenDisposition::kSwitchToTab;
   }
 }
 }  // namespace
@@ -310,7 +308,7 @@ void ChromeNewWindowClient::OpenCalculator() {
   Profile* const profile = ProfileManager::GetActiveUserProfile();
   apps::AppServiceProxy* proxy =
       apps::AppServiceProxyFactory::GetForProfile(profile);
-  DCHECK(proxy);
+  CHECK(proxy, base::NotFatalUntil::M162);
   proxy->Launch(ash::calculator_app::GetInstalledCalculatorAppId(profile),
                 ui::EF_NONE, apps::LaunchSource::kFromKeyboard);
 }
@@ -323,7 +321,7 @@ void ChromeNewWindowClient::OpenFileManager() {
 
   apps::AppServiceProxy* proxy =
       apps::AppServiceProxyFactory::GetForProfile(profile);
-  DCHECK(proxy);
+  CHECK(proxy, base::NotFatalUntil::M162);
 
   auto launch_files_app = [proxy](const apps::AppUpdate& update) {
     if (update.Readiness() != apps::Readiness::kReady) {
@@ -334,14 +332,14 @@ void ChromeNewWindowClient::OpenFileManager() {
     }
 
     proxy->Launch(update.AppId(),
-                  apps::GetEventFlags(WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                  apps::GetEventFlags(WindowOpenDisposition::kNewForegroundTab,
                                       /*prefer_container=*/true),
                   apps::LaunchSource::kFromKeyboard);
   };
 
   bool result = proxy->AppRegistryCache().ForOneApp(
       file_manager::kFileManagerAppId, std::move(launch_files_app));
-  DCHECK(result);
+  CHECK(result, base::NotFatalUntil::M162);
 }
 
 void ChromeNewWindowClient::OpenDownloadsFolder() {
@@ -356,7 +354,7 @@ void ChromeNewWindowClient::OpenDownloadsFolder() {
       apps::AppServiceProxyFactory::GetForProfile(profile);
   auto downloads_path =
       file_manager::util::GetDownloadsFolderForProfile(profile);
-  DCHECK(proxy);
+  CHECK(proxy, base::NotFatalUntil::M162);
 
   auto launch_files_app = [proxy,
                            downloads_path](const apps::AppUpdate& update) {
@@ -371,14 +369,14 @@ void ChromeNewWindowClient::OpenDownloadsFolder() {
     launch_files.push_back(downloads_path);
     proxy->LaunchAppWithFiles(
         update.AppId(),
-        apps::GetEventFlags(WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        apps::GetEventFlags(WindowOpenDisposition::kNewForegroundTab,
                             /*prefer_container=*/true),
         apps::LaunchSource::kFromKeyboard, std::move(launch_files));
   };
 
   bool result = proxy->AppRegistryCache().ForOneApp(
       file_manager::kFileManagerAppId, launch_files_app);
-  DCHECK(result);
+  CHECK(result, base::NotFatalUntil::M162);
 }
 
 void ChromeNewWindowClient::OpenCrosh() {
@@ -433,7 +431,7 @@ void ChromeNewWindowClient::OpenPersonalizationHub() {
 }
 
 void ChromeNewWindowClient::OpenCaptivePortalSignin(const GURL& url) {
-  chromeos::NetworkPortalSigninWindow::Get()->Show(url);
+  ash::NetworkPortalSigninWindow::Get()->Show(url);
 }
 
 void ChromeNewWindowClient::OpenFile(const base::FilePath& file_path) {
@@ -468,7 +466,7 @@ void ChromeNewWindowClient::ToggleGeminiApp() {
 void ChromeNewWindowClient::LaunchCameraApp(const std::string& queries,
                                             bool launch_in_dialog,
                                             int32_t task_id) {
-  DCHECK(IsCameraAppEnabled());
+  CHECK(IsCameraAppEnabled(), base::NotFatalUntil::M162);
   ChromeCameraAppUIDelegate::CameraAppDialog::ShowIntent(
       queries, launch_in_dialog, arc::GetArcWindow(task_id));
   apps::RecordAppLaunch(ash::kCameraAppId, apps::LaunchSource::kFromArc);
@@ -484,7 +482,7 @@ void ChromeNewWindowClient::CloseCameraApp() {
     return;
   }
 
-  DCHECK_LE(app_controller->window_count(), 1lu);
+  CHECK_LE(app_controller->window_count(), 1lu, base::NotFatalUntil::M162);
   if (app_controller->window_count() > 0) {
     app_controller->windows().front()->Close();
   }

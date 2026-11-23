@@ -40,7 +40,9 @@
 // `UIScrollView.contentInset`, `contentOffset`, or the web view's frame.
 @property(nonatomic) UIEdgeInsets obscuredContentInsets API_AVAILABLE(ios(26));
 
-// Sets the web view's min and max viewport insets.
+// Sets the web view's min and max viewport insets. The values persist across
+// content view changes: they are also applied to content views set later,
+// e.g. when the web view is created after this is called.
 - (void)setMinimumViewportInset:(UIEdgeInsets)minInset
            maximumViewportInset:(UIEdgeInsets)maxInset;
 
@@ -75,15 +77,17 @@
 
 // Whether or not the content view should use the content inset when setting
 // `contentInset`. Implementations may or may not respect the setting of this
-// property.
+// property. The value set persists across content view changes: it is also
+// applied to content views set later, e.g. when the web view is created after
+// this is set. Reading it returns the current content view's value (`NO` if
+// there is no web view).
 @property(nonatomic, assign) BOOL shouldUseViewContentInset;
 
 // YES if the keyboard is currently visible for use in the web view.
 @property(nonatomic, readonly, getter=isKeyboardVisible) BOOL keyboardVisible;
 
-// Whether input views (the software keyboard and input accessory views) should
-// be suppressed. Defaults to `NO`. Must not be set to `YES` on tablets.
-// TODO(crbug.com/556733164): Add support for tablets.
+// Whether input views (the software keyboard, input accessory views, and
+// tablet shortcut bar) should be suppressed. Defaults to `NO`.
 @property(nonatomic, assign) BOOL shouldSuppressInputViews;
 
 // Register the given insets for the given caller.

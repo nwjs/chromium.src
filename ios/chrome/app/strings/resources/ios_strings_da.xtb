@@ -195,10 +195,10 @@
 <translation id="154312949627292154">Åbn faner, der er modtaget fra dine andre enheder, via låseskærmen.</translation>
 <translation id="1544653821167545205">Opsummer siden</translation>
 <translation id="1545749641540134597">Scan QR-kode</translation>
-<translation id="1545757265410828525">Prishistorik</translation>
 <translation id="1547610699249301703">Del adgangskoder</translation>
 <translation id="1554043146674176775">Deaktiver AI-tilstand</translation>
 <translation id="1554477036522844996">Nyt vindue</translation>
+<translation id="1557806604681757705">din computer</translation>
 <translation id="1558391695376153246">Luk inkognitofaner</translation>
 <translation id="1560153516220021659">Den sekundære knap til værktøjslinjen er skjult</translation>
 <translation id="1562601408588733317">Administrer, hvordan du finder og udfylder oplysninger med Gemini</translation>
@@ -325,6 +325,7 @@
 <translation id="1925706052394657380">Åbn indstillingerne for <ph name="BEGIN_BOLD" />Standardapps<ph name="END_BOLD" /> i iOS</translation>
 <translation id="1938871630297275912">{count,plural, =1{Linket er modtaget}one{{count} link er modtaget}other{{count} links er modtaget}}</translation>
 <translation id="1941314575388338491">Tryk to gange for at kopiere.</translation>
+<translation id="1942483019269000450">For at fortsætte opgaven kan Gemini bede Google Wallet om at udfylde dine kreditkortoplysninger</translation>
 <translation id="1943478190258551035">Menu → Indstillinger</translation>
 <translation id="1944477975050820119">Få forslag i realtid, der kan hjælpe dig med at finde nye måder at browse på med AI. <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
 <translation id="1952728750904661634">Log ind med en managerstyret konto</translation>
@@ -358,12 +359,14 @@
 <translation id="2012723204723845092">Velkommen tilbage.</translation>
 <translation id="2015722694326466240">Angiv en adgangskode på din enhed, før du kan se adgangskoder.</translation>
 <translation id="201759455285471444">Udvid fanegruppe.</translation>
+<translation id="2022431790688770637">Administrer Gemini-forslag</translation>
 <translation id="2031515492007104071">Level Up</translation>
 <translation id="2044394949148788042">Åbn fanegitteret</translation>
 <translation id="2044681667265133332">Kontoen <ph name="USER_EMAIL" /> administreres af <ph name="HOSTED_DOMAIN" />, som muligvis kan se visse oplysninger. <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
 <translation id="20485545164632846">nyt element</translation>
 <translation id="2049727122989709386"><ph name="COUNT" /> konti bruger den samme adgangskode</translation>
 <translation id="205013082884273671">Søg efter hvad som helst på din skærm</translation>
+<translation id="2053311407685904414">Vælg adresse</translation>
 <translation id="2054044186557130763">Log ind som <ph name="NAME" /> <ph name="EMAIL" />, der administreres af din organisation.</translation>
 <translation id="2059166748188874810">Kommune</translation>
 <translation id="2060638295449304809">Denne adresse gemmes kun på denne enhed. Hvis du vil bruge den på dine andre enheder, skal du gemme den på din Google-konto, <ph name="USER_EMAIL" /></translation>
@@ -464,6 +467,7 @@
 <translation id="2359043044084662842">Oversæt</translation>
 <translation id="2359808026110333948">Fortsæt</translation>
 <translation id="2360196772093551345">Anmod om mobilversion</translation>
+<translation id="2360272811987888433">Log ind manuelt</translation>
 <translation id="2362083820973145409">Logget ind som <ph name="USER_NAME" />. <ph name="USER_EMAIL" />. Åbner indstillinger.</translation>
 <translation id="2367025302166767427">Dine oplysninger kunne ikke udfyldes</translation>
 <translation id="2371084566192454134">Faner og fanegrupper</translation>
@@ -486,7 +490,6 @@
 <translation id="2434405374328098816">Du har allerede gemt en adgangskode for "<ph name="USERNAME" />" på <ph name="WEBSITE" /></translation>
 <translation id="2434918313224755415">Du kan rulle til venstre for at browse i inkognito.</translation>
 <translation id="2435457462613246316">Vis adgangskode</translation>
-<translation id="2451607499823206582">Overvågning</translation>
 <translation id="2458827363789845126">{count,plural, =1{{count} historikelement}one{{count} historikelement}other{{count} historikelementer}}</translation>
 <translation id="2461070143328828326">Adgangskodeindstillinger</translation>
 <translation id="2462736546165239215">Du kan se hele din browserhistorik her.</translation>
@@ -515,7 +518,6 @@
 <translation id="2524699375503213836">Overfør dine data fra Safari</translation>
 <translation id="2526166285241366046">Gem en adgangskode</translation>
 <translation id="2529021024822217800">Åbn alle</translation>
-<translation id="2530932541542751783">Noget gik galt med denne indstilling. Opdater og genstart Chrome og iPadOS, og prøv igen. Hvis denne fejl fortsætter, understøtter din iPad muligvis ikke denne indstilling.</translation>
 <translation id="2536991091671391962">Du kan bruge gemte adgangskoder på alle enheder. De er gemt i Google Adgangs­kode­admin­istrator for <ph name="EMAIL" />.</translation>
 <translation id="2538103551183528357">Skjult, adgangskode</translation>
 <translation id="2538705697765638552">Gem dine oplysninger, og få mere fra hånden hurtigere, f.eks. ved at udfylde formularer i Google-produkter. Du kan administrere dine oplysninger i Google Wallet for <ph name="USER_EMAIL" />.</translation>
@@ -567,7 +569,6 @@
 <translation id="2673508731173059946">Gå til kopieret link</translation>
 <translation id="2679659833697380">Dine oplysninger gemmes på din enhed</translation>
 <translation id="2681572445246787428">Dokumentsignering</translation>
-<translation id="2685514716378236873">Ikke tilladt</translation>
 <translation id="2688535388040882469">Bannere</translation>
 <translation id="2690858294534178585">Kameraet er i brug</translation>
 <translation id="2691653761409724435">Ikke tilgængelig offline</translation>
@@ -598,7 +599,6 @@
 <translation id="2781331604911854368">Til</translation>
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2783161812871838616">Anmod om computerwebsite</translation>
-<translation id="2789486458103222910">OK</translation>
 <translation id="2789552044937754463">{COUNT,plural, =1{Adgangskoden er gemt på din Google-konto, {EMAIL}}one{Adgangskoden er gemt på din Google-konto, {EMAIL}}other{Adgangskoderne er gemt på din Google-konto, {EMAIL}}}</translation>
 <translation id="2791174088547598693">Tilføj adgangskode…</translation>
 <translation id="2793703503584038325">Vælg en adgangskode, og tryk på delingsikonet</translation>
@@ -626,6 +626,7 @@
 <translation id="2865392654629180917">Spørg om hvad som helst, og få AI-baserede svar</translation>
 <translation id="2870560284913253234">Website</translation>
 <translation id="2876369937070532032">Sender webadresser på nogle sider, som du besøger, til Google, når din sikkerhed er truet</translation>
+<translation id="2880119244122776372">Byg og kod</translation>
 <translation id="2883151425485251736">Se og rediger de emner, du har skjult på din konto</translation>
 <translation id="2884437560239137197">Kræver din opmærksomhed</translation>
 <translation id="288655811176831528">Luk fane</translation>
@@ -701,6 +702,7 @@
 <translation id="3140825265190223781">Gemte adgangskoder og adgangsnøgler</translation>
 <translation id="3143515551205905069">Annuller synkronisering</translation>
 <translation id="3144126448740580210">UDFØR</translation>
+<translation id="3147048678293362228">Administrer kontaktoplysninger…</translation>
 <translation id="3147521114983561406">Adgangsnøgler gemmes i din adgangskodeadministrator. Du kan tilgå dem via inkognitofaner og almindelige faner.</translation>
 <translation id="3148052723910099040">Gitter med almindelige faner</translation>
 <translation id="3148237711805373460">Gå derhen</translation>
@@ -718,6 +720,7 @@
 <translation id="3186796054637504691">Ryd historik og websitedata</translation>
 <translation id="3190558889382726167">Adgangskoden er blevet gemt</translation>
 <translation id="3190736958609431397">Hold ikke længere øje</translation>
+<translation id="3192820089569442694">Noget gik galt med din anmodning om fravalg af databrug</translation>
 <translation id="3208260410153224535">Din organisation har deaktiveret login. Nye bogmærker, adgangskoder m.m. gemmes kun på denne enhed.</translation>
 <translation id="3211969308836412674">Frigør website</translation>
 <translation id="3213807041830307252">Køb, oversæt og identificer det, du ser, med dit kamera og billedgalleri.</translation>
@@ -772,19 +775,20 @@
 <translation id="3404232721752787413">Gem i Google Fotos</translation>
 <translation id="3406506285180498376">Del side…</translation>
 <translation id="340669334496430859">Senest ændret</translation>
+<translation id="3407832712016477396">Gemini kan bruge Google Adgangskodeadministrator til at logge ind for dig</translation>
 <translation id="3409785640040772790">Maps</translation>
 <translation id="3416023309465857378">25. okt. 2023</translation>
 <translation id="3419787211763835342">Hjælp med at forbedre forbedret autofyld</translation>
 <translation id="3422958112451181446">Hold fingeren nede for at fastgøre dit foretrukne værktøj her</translation>
 <translation id="3430407169377889553">Brug Gemini med omtanke, og overtag styringen, hvis det er nødvendigt. Du er ansvarlig for de handlinger, Gemini foretager under opgaver.</translation>
+<translation id="3432601291244612633">Luk side</translation>
 <translation id="3435738964857648380">Sikkerhed</translation>
 <translation id="3441673211568148613">Hold din browsing privat</translation>
-<translation id="3443810440409579745">Du har modtaget en fane.</translation>
 <translation id="3445288400492335833"><ph name="MINUTES" /> min.</translation>
 <translation id="344589138074534176">Få flere oplysninger om Google Lens</translation>
-<translation id="3447332786336558089">Når du logger ud, lukkes fanerne, og data, der ikke er gemt, slettes fra denne enhed. Disse data kan omfatte adgangskoder, historik m.m.</translation>
 <translation id="3449029510150690417">Opret din nye fanegruppe ved at give den et navn og en farve</translation>
 <translation id="345348365500626747">Adressen blev fundet</translation>
+<translation id="3453878468834191501">Den aktuelle fane deles med Gemini, når du starter en ny chat. <ph name="BEGIN_LINK" />Få flere oplysninger om AI og privatliv<ph name="END_LINK" /></translation>
 <translation id="3459644598174926977">Brug Live med Gemini til at spørge om en side, brainstorme højt og føre samtaler.</translation>
 <translation id="3462768334899086950">Det betyder, at du mister din ikke-gemte fil og dine aktuelle faner</translation>
 <translation id="3464194322481586217">Prissporing mislykkedes.</translation>
@@ -797,7 +801,6 @@
 <translation id="3481315707647070701">Visualiser og rediger</translation>
 <translation id="3485558910355485767">Nyt inkognitovindue</translation>
 <translation id="3488501490964659223">Fanerne er blevet lukket, og browserdataene er blevet slettet. Du er blevet logget ud</translation>
-<translation id="3490396108106323715">Del aktuel fane</translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /> om anbefalet indhold</translation>
 <translation id="349446645805573740">Vælg, hvor du vil gemme "<ph name="BEGIN_BOLD" /><ph name="FILENAME" /><ph name="END_BOLD" />"</translation>
 <translation id="3504377992102007712">Indstillinger</translation>
@@ -825,7 +828,6 @@
 <translation id="3565012355885596568">Billederne kunne ikke indlæses</translation>
 <translation id="3565930036634619844">Fane. <ph name="TAB_INDEX" /> af <ph name="NUMBER_OF_TABS" />.</translation>
 <translation id="3567168891086460374">Gem på en anden måde</translation>
-<translation id="3572503683475187385">Den aktuelle fane deles med Gemini, når du starter en ny chat. Når du deler en fane med Gemini, sendes dens indhold og webadresse til Google. <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
 <translation id="3572607909481582402">På din Google-konto</translation>
 <translation id="3575234738189584619">Søg med Lens</translation>
 <translation id="3575426792457739946">Denne liste indeholder alle indlæste profiler.</translation>
@@ -853,6 +855,7 @@
 <translation id="3659297405161482746">Der blev ikke fundet nogen betalingsmetoder</translation>
 <translation id="3662966164093827811">{count,plural, =1{1 er valgt}one{# er valgt}other{# er valgt}}</translation>
 <translation id="3668035568083954765">Beskyt dit privatliv, og øg sikkerheden</translation>
+<translation id="3668703890943804691">Opgaven er stoppet</translation>
 <translation id="3668816008081204991">Læselisten er skjult</translation>
 <translation id="3670030362669914947">Nummer</translation>
 <translation id="3672283986707092811">Vælg alle</translation>
@@ -983,7 +986,6 @@
 <translation id="4092655288299341041">Vis Hjælp</translation>
 <translation id="4095483462103784441">Opret ny fanegruppe</translation>
 <translation id="4099756562043439968">Opret en påmindelse</translation>
-<translation id="4108998448622696017">Registrerer og advarer dig om skadelige hændelser, når de opstår.</translation>
 <translation id="4111985840824673503">Markér alle som læste</translation>
 <translation id="411254640334432676">Download mislykkedes.</translation>
 <translation id="4112644173421521737">Søg</translation>
@@ -1049,6 +1051,8 @@
 <translation id="4290920330097335010">Tillad aldrig</translation>
 <translation id="4293154608148215505">din telefon</translation>
 <translation id="4294506173142861371">Vil du logge ind som <ph name="FIRST_NAME" />?</translation>
+<translation id="4297031046690565608">Angiv manuelt</translation>
+<translation id="4297418774230471285">Vælg personlige oplysninger</translation>
 <translation id="4302061870579014542">Vælg placering</translation>
 <translation id="4304713468139749426">Adgangskode­administrator</translation>
 <translation id="4309403553630140242">Tryk to gange for at få flere oplysninger</translation>
@@ -1130,7 +1134,6 @@
 <translation id="456502772933839252"><ph name="PAGE_TITLE" /> deles</translation>
 <translation id="4565377596337484307">Skjul adgangskode</translation>
 <translation id="4568230126482344545">Skjul seneste faner</translation>
-<translation id="4571490460651837010">Administrer adresser m.m.</translation>
 <translation id="4578835633387306383">Aktivér…</translation>
 <translation id="4580621046861724270">Nogle bogmærker gemmes ikke</translation>
 <translation id="4580716718466706433">Gå til "Adgangskodeadministrator"</translation>
@@ -1164,6 +1167,7 @@
 <translation id="4658335131052370646">Gem</translation>
 <translation id="465947902531722727">Skift profil</translation>
 <translation id="466307903888586355">Din organisation har blokeret muligheden for at gemme filer</translation>
+<translation id="4665303625242639572">Luk <ph name="PAGE_TITLE" /></translation>
 <translation id="4668929960204016307">,</translation>
 <translation id="4669618761237477717">Din organisation kræver, at du bruger privat browsing. Fanegrupper synkroniseres ikke i inkognitotilstand.
 <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
@@ -1281,6 +1285,7 @@
 <translation id="4991383000638469704"><ph name="USER_NAME" />, <ph name="EMAIL" />. <ph name="AI_TIER" />.</translation>
 <translation id="4992255726304765516">Fanegruppens farve <ph name="COLOR" /></translation>
 <translation id="5005498671520578047">Kopiér adgangskode</translation>
+<translation id="5007392906805964215">Gennemgå</translation>
 <translation id="5009127379503001909">Fortsæt med at browse</translation>
 <translation id="5016205925109358554">Serif</translation>
 <translation id="5016420433031926653">Send til <ph name="USER_EMAIL" /></translation>
@@ -1388,6 +1393,7 @@
 <translation id="5315029634103634221">Gemini er et AI-produkt og kan begå fejl. <ph name="BEGIN_LINK" />Få flere oplysninger om relevante data, der sendes til Google<ph name="END_LINK" /></translation>
 <translation id="5315870524563628285">Der er intet at importere</translation>
 <translation id="5316356981864168850"><ph name="INDEX" /> af <ph name="NUM_SUGGESTIONS" /></translation>
+<translation id="5316823130598991834">Log ind på <ph name="SITE_DOMAIN" /></translation>
 <translation id="5317780077021120954">Gem</translation>
 <translation id="5318298563956633672">Du holder allerede øje med dette produkt.</translation>
 <translation id="5327248766486351172">Navn</translation>
@@ -1405,7 +1411,6 @@
 <translation id="5371112366564891538">Forøg tekststørrelse</translation>
 <translation id="5376135254804080693">Fravælg alle</translation>
 <translation id="537853552771686272">Administrer de emner og websites, du er interesseret i</translation>
-<translation id="5385892579392932755">din computer</translation>
 <translation id="5390458669633674385">{count,plural, =1{{count} er lukket}one{{count} closed}other{{count} er lukket}}</translation>
 <translation id="5394975111793637642">Skjul kortet Produktanmeldelser til dig</translation>
 <translation id="5414763847370083940">Du får en underretning, hvis prisen falder på et website.</translation>
@@ -1470,6 +1475,7 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="559567008082979829">Angiv, at dine downloads skal slettes efter én måned.</translation>
 <translation id="5596627076506792578">Flere valgmuligheder</translation>
 <translation id="560322036295180549">Deaktiveret af din organisation</translation>
+<translation id="5604254791550001355">Rediger prompt</translation>
 <translation id="5611398002774823980">Gem på konto</translation>
 <translation id="5612225021788368236">Luk promovering af standardbrowser</translation>
 <translation id="561269594905823128">Tryk på <ph name="BEGIN_BOLD" />Vælg din fil<ph name="END_BOLD" /></translation>
@@ -1535,7 +1541,6 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="5768870767339201169">Fortsæt, hvor du slap</translation>
 <translation id="5779117921996157216">{count,plural, =1{Du har {count} kompromitteret adgangskode, hvilket kan udgøre en sikkerhedsrisiko. Løs problemet nu for at forblive beskyttet.}one{Du har {count} kompromitteret adgangskode, hvilket kan udgøre en sikkerhedsrisiko. Løs problemet nu for at forblive beskyttet.}other{Du har {count} kompromitterede adgangskoder, hvilket kan udgøre en sikkerhedsrisiko. Løs problemet nu for at forblive beskyttet.}}</translation>
 <translation id="5791632441210678828">Knappen Sortér for feedet Følger.</translation>
-<translation id="5799263916847593256">Åbn for at se prishistorikken</translation>
 <translation id="5801568494490449797">Præferencer</translation>
 <translation id="5803566855766646066">Er du sikker på, at du vil kassere dette nye kort?</translation>
 <translation id="5804241973901381774">Tilladelser</translation>
@@ -1623,6 +1628,7 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="6078236141387574983">Juster regnearkets højde</translation>
 <translation id="6084848228346514841">Vælg faner</translation>
 <translation id="6089212833343035912">Pinkode til Google Adgangskodeadministrator</translation>
+<translation id="6090690847556987004">Noget gik galt med denne indstilling. Opdater Chrome og iOS, og genstart derefter din enhed for at prøve igen. Hvis dette fortsætter, understøtter din iPhone muligvis ikke denne indstilling.</translation>
 <translation id="6090760257419195752">Lukkede advarsler</translation>
 <translation id="6094325891006032858">Aktivér Udvidet beskyttet browsing</translation>
 <translation id="6096965253650248286"><ph name="COUNT" /> blev fundet</translation>
@@ -1673,6 +1679,7 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="6227958838185907047">Log ind som <ph name="NAME" /> <ph name="EMAIL" /></translation>
 <translation id="6231782223312638214">Foreslået</translation>
 <translation id="6232329973559504466">Søgning i inkognitotilstand</translation>
+<translation id="6233463157595806945">Input er påkrævet</translation>
 <translation id="6234310016144827337">Tjek din forbindelse, og prøv igen</translation>
 <translation id="6236952928980352967">Gendan advarsel</translation>
 <translation id="623755660902014047">Læsetilstand</translation>
@@ -1699,10 +1706,11 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="6301104306974789820">Få notifikationer om prissporing</translation>
 <translation id="6301767200000930965">Aa</translation>
 <translation id="630308129961693966">Vælg placering for adresselinje</translation>
-<translation id="6307241780749477694">Verificer din identitet for at få alle dine adgangskoder på denne enhed</translation>
+<translation id="6305257382500066042">Prøv den nu</translation>
 <translation id="6307792728709337290">Gem dit kort på din Google-konto for at udfylde kortoplysninger automatisk ved dette og fremtidige køb i Chrome.</translation>
 <translation id="6316141353357700666">Vælg den adgangskode, du vil bruge, på den liste, der vises.</translation>
 <translation id="6321526113093607004">Føj til Bogmærker</translation>
+<translation id="6322064144568952786">Opgaven mislykkedes</translation>
 <translation id="6324054713176642683">Vælg mellem temaer og farver, eller upload dit eget billede.</translation>
 <translation id="6327249202318869726">Gemini er deaktiveret for din konto. Kontakt din administrator for at få flere oplysninger.</translation>
 <translation id="6331836477476466332">En mere sikker og effektiv browser til dig</translation>
@@ -1851,7 +1859,6 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="6708501134077648845">Indstillinger til adgangskode</translation>
 <translation id="6709964700841491574">Funktionen Låsning</translation>
 <translation id="6710079714193676716">Administreret af din organisation. Nogle funktioner er muligvis ikke tilgængelige. <ph name="BEGIN_LINK" />Få flere oplysninger<ph name="END_LINK" /></translation>
-<translation id="6712003214447962889">Smartere og hurtigere svar</translation>
 <translation id="6713676799463473249">Ændret <ph name="LAST_MODIFICATION_DATE" /></translation>
 <translation id="6722623263381062480">Modtagne faner</translation>
 <translation id="6722638373100589752">Aktivér "Brug kort og billetter på Google" i Wallet-indstillingerne for at få dine oplysninger udfyldt automatisk</translation>
@@ -1874,6 +1881,7 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="6770452996697898492">[BOOKET]</translation>
 <translation id="6775952316617222141">Gå live med Gemini i Chrome</translation>
 <translation id="6779455296366983087">Dine browserdata slettes</translation>
+<translation id="6782311720357312958">Spørg Google</translation>
 <translation id="6782531425936234573">Eksportér data</translation>
 <translation id="6789665473250283877">Fjern <ph name="TOOL_NAME" /></translation>
 <translation id="6791425686608802741">Tryk på "Føj fane til ny gruppe"</translation>
@@ -1885,7 +1893,6 @@ Handoff skal være aktiveret i afsnittet Generelt i Indstillinger, og dine enhed
 <translation id="6815692190508268848">Dine præferencer for udseende er anvendt</translation>
 <translation id="681631578600400068">Gem kørekort</translation>
 <translation id="6825078212112407882">{count,plural, =1{Bogmærket er gemt på din Google-konto, {email}}one{{count} bogmærke er gemt på din Google-konto, {email}}other{{count} bogmærker er gemt på din Google-konto, {email}}}</translation>
-<translation id="6826004672264649705">Der holdes øje med dette produkt. Åbn for at se prishistorikken</translation>
 <translation id="6830728435402077660">Ikke sikker</translation>
 <translation id="6831043979455480757">Oversæt</translation>
 <translation id="6842136130964845393">Verificer din identitet for at sikre, at du altid har adgang til dine gemte adgangskoder</translation>
@@ -1932,8 +1939,8 @@ Skift til <ph name="OTHER_EMAIL" /> for at fortsætte på din computer. Du får 
 <translation id="6938212956536472404">Denne fane kan ikke deles</translation>
 <translation id="6945221475159498467">Vælg</translation>
 <translation id="6946722113367118030">Tænker</translation>
-<translation id="6947751977892029882">Noget gik galt med denne indstilling. Opdater og genstart Chrome og iOS, og prøv igen. Hvis denne fejl fortsætter, understøtter din iPhone muligvis ikke denne indstilling.</translation>
 <translation id="6950522403736391608">Skjult</translation>
+<translation id="6957084631403333422">Prøv en fokuseret side med en ny fane</translation>
 <translation id="695965663642079255">Gem og administrer betalingsoplysninger for at betale hurtigere</translation>
 <translation id="6962809930976936328">Få indsigt med Gemini</translation>
 <translation id="6964300328304469089"><ph name="NAME" />, <ph name="EMAIL" /> er valgt i øjeblikket. Vælg en konto.</translation>
@@ -2020,6 +2027,7 @@ Skift til <ph name="OTHER_EMAIL" /> for at fortsætte på din computer. Du får 
 <translation id="7241135764990439166">Inkognitotilstand er ikke tilgængelig</translation>
 <translation id="7245288034498365666">Få overblik, og spar tid</translation>
 <translation id="7253951228444156601">Tjekker adgangskoder…</translation>
+<translation id="725583671816239562">Opgaven er udført</translation>
 <translation id="7261217796641151584">Del gruppe</translation>
 <translation id="7266578100016339897">Dette hjælper dig med at bevare overblikket. Du kan til enhver tid ændre dette i indstillingerne.</translation>
 <translation id="7270491814777319521"><ph name="BEGIN_LINK" />Googles servicevilkår<ph name="END_LINK" /> og <ph name="BEGIN_LINK" />privatlivsmeddelelsen for Gemini-apps<ph name="END_LINK" /> er gældende. Gemini er en AI-assistent og kan begå fejl, herunder om personer.</translation>
@@ -2062,7 +2070,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="7411034503745719324"><ph name="EMAIL" />. <ph name="MANAGED_STATUS" />.</translation>
 <translation id="7412027924265291969">Fortsæt</translation>
 <translation id="741204030948306876">Ja tak</translation>
-<translation id="7417055777338419059">Kod, skriv, eller opret dias</translation>
 <translation id="7419565702166471774">Brug altid sikre forbindelser</translation>
 <translation id="7423098979219808738">Spørg først</translation>
 <translation id="7425053386765766120">Tilføj betalingsmetode…</translation>
@@ -2112,11 +2119,13 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="7525067979554623046">Opret</translation>
 <translation id="75362970626182391">Ny fanegruppe</translation>
 <translation id="7537586195939242955">Din adgangssætning kan ikke installeres på Passbook lige nu.</translation>
+<translation id="7540924742308928499">Brainstorm og opsummer</translation>
 <translation id="754655535278952384">Tjek udført for <ph name="TIME" /></translation>
 <translation id="7554645225856321710">Luk alle</translation>
 <translation id="7557508262441527045">Logget ud</translation>
 <translation id="7561196759112975576">Altid</translation>
 <translation id="7561982940498449837">Luk menu</translation>
+<translation id="7562347727679121642">Føj et billede til din søgning</translation>
 <translation id="7566349809380613217">Åbn <ph name="GROUP_TITLE" />, delt gruppe med <ph name="NUMBER_OF_TABS" />, <ph name="CREATION_TEXT" /></translation>
 <translation id="7567579665882069209">Bogmærkerne er skjult</translation>
 <translation id="7575664680938145959">Åbn med et enkelt tryk</translation>
@@ -2161,7 +2170,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="7700527812567437847">Søg på skærmen med Google Lens</translation>
 <translation id="7701040980221191251">Ingen</translation>
 <translation id="7702428539671224160">Udfyld automatisk betalingsoplysninger på <ph name="URL" /></translation>
-<translation id="7708994397325774423">Få alle dine adgangskoder</translation>
 <translation id="7710096647785049958">Spar tid på hvert link</translation>
 <translation id="7711440461521638739">Du genbruger ikke nogen adgangskoder</translation>
 <translation id="7712361583414030698">Viser offlineversion</translation>
@@ -2170,6 +2178,7 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="7724085059277147439">{count,plural, =1{Elementet er gemt på din Google-konto, {email}}one{Elementet er gemt på din Google-konto, {email}}other{Elementerne er gemt på din Google-konto, {email}}}</translation>
 <translation id="7729458878441927652">Hvis du vil se faner fra dine andre enheder, skal du synkronisere dine faner og din historik.</translation>
 <translation id="7730020510075123961">Nej. Flet data</translation>
+<translation id="7730937523779541003">Fokuseret side med en ny fane er anvendt</translation>
 <translation id="7733646263819020771"><ph name="BOOKMRK_NAME" />. Kun på denne enhed.</translation>
 <translation id="7737550920399185748">Billeder på startsiden fra din billedsamling synkroniseres ikke på dine enheder.</translation>
 <translation id="7738120385185846461">Rapportér et problem…</translation>
@@ -2181,7 +2190,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="7758789811447313947">Violet tema</translation>
 <translation id="7759809451544302770">Valgfrit</translation>
 <translation id="7765158879357617694">Flyt</translation>
-<translation id="7767651976342854115">Der opstod en fejl med indstillingen for dataforbrug.</translation>
 <translation id="7768507955883790804">Websites følger automatisk denne indstilling, når du besøger dem</translation>
 <translation id="7772032839648071052">Bekræft adgangssætning</translation>
 <translation id="7772948288262733182">Velkommen tilbage</translation>
@@ -2205,6 +2213,7 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="7839994177130598711">Dine familiemedlemmer kan nu benytte dit brugernavn og din adgangskode, når de bruger Google Adgangs­kode­admin­istrator til at logge ind på <ph name="BEGIN_BOLD" /><ph name="WEBSITE" /><ph name="END_BOLD" />.</translation>
 <translation id="7841180087127694526">Søg efter kopieret tekst</translation>
 <translation id="7841418003178675048">Vælg, hvilke kort du vil se på siden Ny fane.</translation>
+<translation id="7842369010458597654">Udfylder betalingsoplysninger</translation>
 <translation id="7845466610722898">Vis læselisten</translation>
 <translation id="7846161022626028328">Der opstod en fejl. Prøv igen.</translation>
 <translation id="784623644169604270">Ingen seneste aktivitet</translation>
@@ -2328,7 +2337,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="8187200657863701733">Nuværende Chrome-niveau</translation>
 <translation id="8189484403434216074">Opret en fanegruppe</translation>
 <translation id="8189615296021678665">Tryk på "Gem" for nemt at få adgang til denne adgangskode, næste gang du logger ind.</translation>
-<translation id="8193953846147532858"><ph name="BEGIN_LINK" />Dine enheder<ph name="END_LINK" /> · <ph name="EMAIL" /></translation>
 <translation id="8195191503358432289">Tilføj adgangskode</translation>
 <translation id="8195936400946057039">Beskyttelse mod onlinetrusler</translation>
 <translation id="8205564605687841303">Annuller</translation>
@@ -2482,7 +2490,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="8642417828095157370">Faner deles, så du kan få mere relevante svar</translation>
 <translation id="8643403533759285912">Slet gruppe</translation>
 <translation id="8646357898207744479">Lens</translation>
-<translation id="8647280737650867362">Prissporingen kunne ikke deaktiveres.</translation>
 <translation id="8654802032646794042">Annuller</translation>
 <translation id="8655861111558401309">Vælg Slet browserdata</translation>
 <translation id="8659875081143553823">Vent et øjeblik</translation>
@@ -2495,7 +2502,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="8674716540979958118">Du har kompromitterede adgangskoder.</translation>
 <translation id="8679900250380464358">Føj til læseliste</translation>
 <translation id="8680643216091361291">Indstillingen <ph name="BEGIN_LINK" />Bevar aktivitet<ph name="END_LINK" /> er som standard deaktiveret. Når den er deaktiveret, gemmer Google dine chatsamtaler i 3 dage. Google bruger dem til at beskytte Gemini-apps, få dem til at fungere korrekt og løse problemer ud fra din feedback. Du kan aktivere Bevar aktivitet for at hjælpe med at forbedre Google AI for alle.</translation>
-<translation id="8680786875305615692">Vær med til at forbedre sikkerheden på nettet for alle</translation>
 <translation id="8680787084697685621">Oplysningerne om kontologin er forældede.</translation>
 <translation id="868648444055742370">"<ph name="SITE_DOMAIN" />" har ikke adgang til din mikrofon</translation>
 <translation id="8690752723634292147">Bekræft sletning</translation>
@@ -2561,7 +2567,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="8849001918648564819">Skjult</translation>
 <translation id="8855242995793521265">Gør ikke din browser eller enhed mærkbart langsommere.</translation>
 <translation id="8856643812068084733">Arkiver</translation>
-<translation id="8863067612494559785">Sender til <ph name="DEVICE_NAME" />…</translation>
 <translation id="8863431381414769983">Få rutevejledning og lokale oplysninger fra Google Maps</translation>
 <translation id="8871974300055371298">Indholdsindstillinger</translation>
 <translation id="8876661425082386199">Tjek din forbindelse</translation>
@@ -2572,7 +2577,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="8888595487174963247">Fjern påmindelse</translation>
 <translation id="8890516388109605451">Kilder</translation>
 <translation id="8893208530912252670">Videoer</translation>
-<translation id="8898822736010347272">Sender webadresser på visse sider, du besøger, begrænsede systemoplysninger og indhold fra visse sider til Google med henblik på at opdage nye trusler og beskytte brugerne på nettet.</translation>
 <translation id="890009681345348416">Over 40 adgangskoder er udfyldt automatisk</translation>
 <translation id="8900845556227858314">Browserapp</translation>
 <translation id="890565330728586731">Tilbage</translation>
@@ -2603,6 +2607,7 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="8976414606286374109">Kort gemmes på din Google-konto.</translation>
 <translation id="8981454092730389528">Aktivitetsadministration på Google</translation>
 <translation id="8988107725234939347"><ph name="WEBSITE_TITLE" />, fastgjort website</translation>
+<translation id="8989779557457435460">Del den aktuelle fane som standard</translation>
 <translation id="8990960056509724223">Filen kunne ikke gemmes på grund af din organisations politikker</translation>
 <translation id="8998289560386111590">Ikke tilgængelig på din enhed</translation>
 <translation id="9003677638446136377">Kontrollér igen</translation>
@@ -2615,6 +2620,7 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="9032405509996909363">Bekræft sletning af browserdata</translation>
 <translation id="9038526468059454274">Opsummer med</translation>
 <translation id="9039373489628511875">Båndbredde</translation>
+<translation id="9042363670218758847">Skift til et layout, der er designet til hurtige søgninger</translation>
 <translation id="9042893549633094279">Privatliv og sikkerhed</translation>
 <translation id="9044703854323320868">Gmail-meddelelse <ph name="INDEX" /></translation>
 <translation id="9055291197094969722">Opret fanegrupper for at organisere dine åbne faner og få mere fra hånden</translation>
@@ -2654,7 +2660,6 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="9149866541089851383">Rediger...</translation>
 <translation id="9152637745605628097">Vælg mellem temaer og farver, eller upload et billede</translation>
 <translation id="9153159728062222866">Slip for at kopiere og indsætte</translation>
-<translation id="9159628751968616911">Send webside</translation>
 <translation id="9162412286847966593">Din organisations data og optagelser anvendes ikke til at forbedre generativ AI-modeller. <ph name="BEGIN_LINK" />Dit privatliv og Gemini<ph name="END_LINK" /></translation>
 <translation id="9162432979321511934">Aktivér Adgangskoder via Autofyld</translation>
 <translation id="9165320910061267720">Hvis du vil have notifikationer om prisfald, skal du aktivere notifikationer i iOS-indstillingerne.</translation>
@@ -2668,6 +2673,7 @@ Du kan til enhver tid genstarte.</translation>
 <translation id="9203951165704618409">Flyt adresselinjen fra toppen til bunden af skærmen for at få en tilpasset browseroplevelse.</translation>
 <translation id="9205189991633470489">Låsning af inkognitofaner</translation>
 <translation id="9206887540681440657">Hastighed</translation>
+<translation id="9218088788182688902">Noget gik galt med denne indstilling. Opdater Chrome og iPadOS, og genstart derefter din enhed for at prøve igen. Hvis dette fortsætter, understøtter din iPad muligvis ikke denne indstilling.</translation>
 <translation id="9218430445555521422">Angiv som standard</translation>
 <translation id="9219103736887031265">Billeder</translation>
 <translation id="9219154867334666734">Søg i faner…</translation>

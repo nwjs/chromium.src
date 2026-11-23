@@ -352,9 +352,6 @@ void ContentSecurityPolicy::ReportUseCounters(
     const Vector<network::mojom::blink::ContentSecurityPolicyPtr>& policies) {
   for (const auto& policy : policies) {
     Count(GetUseCounterType(policy->header->type));
-    if (policy->treat_as_public_address) {
-      Count(WebFeature::kLocalNetworkAccessShouldTreatAsPublicAddressCsp);
-    }
     if (CSPDirectiveListAllowDynamic(*policy,
                                      CSPDirectiveName::ScriptSrcAttr) ||
         CSPDirectiveListAllowDynamic(*policy,
@@ -577,7 +574,6 @@ void ContentSecurityPolicy::ComputeInternalStateForParsedPolicy(
       case CSPDirectiveName::ReportURI:
       case CSPDirectiveName::RequireTrustedTypesFor:
       case CSPDirectiveName::Sandbox:
-      case CSPDirectiveName::TreatAsPublicAddress:
       case CSPDirectiveName::TrustedTypes:
       case CSPDirectiveName::UpgradeInsecureRequests:
       case CSPDirectiveName::WorkerSrc:
@@ -1231,8 +1227,8 @@ SourceLocation* GatherSecurityPolicyViolationEventData(
     SourceLocation* source_location,
     const StringView& script_source,
     const StringView& sample_prefix,
-    const std::optional<String> eval_hash,
-    const std::optional<String> url_hash) {
+    const String& eval_hash,
+    const String& url_hash) {
   if (effective_type == CSPDirectiveName::FrameAncestors) {
     // If this load was blocked via 'frame-ancestors', then the URL of
     // |document| has not yet been initialized. In this case, we'll set both
@@ -1253,8 +1249,8 @@ SourceLocation* GatherSecurityPolicyViolationEventData(
         break;
       case ContentSecurityPolicyViolationType::kEvalViolation:
         init->setBlockedURI("eval");
-        if (eval_hash.has_value() && !eval_hash->IsNull()) {
-          init->setEvalHash(eval_hash.value());
+        if (!eval_hash.IsNull()) {
+          init->setEvalHash(eval_hash);
         }
         break;
       case ContentSecurityPolicyViolationType::kWasmEvalViolation:
@@ -1268,8 +1264,8 @@ SourceLocation* GatherSecurityPolicyViolationEventData(
         // redirects).
         init->setBlockedURI(ContentSecurityPolicy::StripURLForUseInReport(
             delegate->GetSecurityOrigin(), blocked_url, effective_type));
-        if (url_hash.has_value() && !url_hash->IsNull()) {
-          init->setUrlHash(url_hash.value());
+        if (!url_hash.IsNull()) {
+          init->setUrlHash(url_hash);
         }
         break;
       case ContentSecurityPolicyViolationType::kTrustedTypesSinkViolation:
@@ -1379,8 +1375,8 @@ void ContentSecurityPolicy::ReportViolation(
     const String& source,
     const String& source_prefix,
     std::optional<base::UnguessableToken> issue_id,
-    std::optional<String> eval_hash,
-    std::optional<String> url_hash) {
+    const String& eval_hash,
+    const String& url_hash) {
   CHECK(violation_type == kURLViolation || blocked_url.IsEmpty() ||
         violation_type == kSRIViolation);
 
@@ -1686,8 +1682,6 @@ const char* ContentSecurityPolicy::GetDirectiveName(CSPDirectiveName type) {
       return "style-src-attr";
     case CSPDirectiveName::StyleSrcElem:
       return "style-src-elem";
-    case CSPDirectiveName::TreatAsPublicAddress:
-      return "treat-as-public-address";
     case CSPDirectiveName::TrustedTypes:
       return "trusted-types";
     case CSPDirectiveName::UpgradeInsecureRequests:
@@ -1755,8 +1749,6 @@ CSPDirectiveName ContentSecurityPolicy::GetDirectiveType(const String& name) {
     return CSPDirectiveName::StyleSrcAttr;
   if (name == "style-src-elem")
     return CSPDirectiveName::StyleSrcElem;
-  if (name == "treat-as-public-address")
-    return CSPDirectiveName::TreatAsPublicAddress;
   if (name == "trusted-types")
     return CSPDirectiveName::TrustedTypes;
   if (name == "upgrade-insecure-requests")

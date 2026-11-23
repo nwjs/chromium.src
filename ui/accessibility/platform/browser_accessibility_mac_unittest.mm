@@ -21,6 +21,7 @@
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/accessibility/ax_tree_update.h"
 #include "ui/accessibility/ax_updates_and_events.h"
+#include "ui/accessibility/platform/ax_platform_node_mac.h"
 #include "ui/accessibility/platform/ax_private_webkit_constants_mac.h"
 #include "ui/accessibility/platform/browser_accessibility_cocoa.h"
 #include "ui/accessibility/platform/browser_accessibility_manager.h"
@@ -678,11 +679,9 @@ TEST_F(BrowserAccessibilityMacTest, TableWithRowHeaders) {
   id second_row_header_cell = row_headers[1];
   EXPECT_EQ(second_row_header_cell, second_row_children[0]);
 
-  // If we ask a row header cell for its rowHeaders, we should get that
-  // cell back.
+  // A row header should not expose itself as its own row header.
   row_headers = [first_row_header_cell rowHeaders];
-  EXPECT_EQ(1U, [row_headers count]);
-  EXPECT_EQ(first_row_header_cell, row_headers[0]);
+  EXPECT_EQ(nil, row_headers);
 
   // A non-row-header cell should return the header for its row.
   id last_cell_second_row = second_row_children[1];
@@ -1196,6 +1195,55 @@ TEST_F(BrowserAccessibilityMacTest,
   NSRange visibleRange = [accessibility_ accessibilityVisibleCharacterRange];
   EXPECT_EQ(visibleRange.location, 0U);
   EXPECT_EQ(visibleRange.length, 11U);
+}
+
+TEST_F(BrowserAccessibilityMacTest, GetNSWindow) {
+  // In production, -[BrowserAccessibilityCocoa window] traverses to the root
+  // frame manager to retrieve its parent view and window via the delegate.
+  // Supply a delegate providing test_window() and its content view to mirror
+  // the production hierarchy.
+  class WindowTestDelegate : public TestAXPlatformTreeManagerDelegate {
+   public:
+    explicit WindowTestDelegate(NSWindow* window) : window_(window) {}
+    gfx::NativeViewAccessible AccessibilityGetNativeViewAccessible() override {
+      return gfx::NativeViewAccessible([window_ contentView]);
+    }
+    gfx::NativeViewAccessible AccessibilityGetNativeViewAccessibleForWindow()
+        override {
+      return gfx::NativeViewAccessible(window_);
+    }
+
+   private:
+    NSWindow* window_;
+  };
+
+  WindowTestDelegate window_delegate(test_window());
+  auto manager = std::make_unique<BrowserAccessibilityManagerMac>(
+      BrowserAccessibilityManagerMac::GetEmptyDocument(), node_id_delegate_,
+      &window_delegate);
+  BrowserAccessibility* root = manager->GetBrowserAccessibilityRoot();
+  ASSERT_TRUE(root);
+  BrowserAccessibilityMac* root_mac =
+      static_cast<BrowserAccessibilityMac*>(root);
+  gfx::NativeViewAccessible ns_window = root_mac->GetNSWindow();
+  EXPECT_EQ(ns_window.Get(), test_window());
+  EXPECT_EQ(ns_window.Get(), [root_mac->GetNativeWrapper() window]);
+  EXPECT_EQ([root_mac->GetNativeWrapper() AXWindow],
+            [root_mac->GetNativeWrapper() window]);
+}
+
+TEST_F(BrowserAccessibilityMacTest,
+       NotifyAccessibilityEventWithoutNativeMappingDoesNotCrash) {
+  BrowserAccessibility* root = manager_->GetBrowserAccessibilityRoot();
+  ASSERT_TRUE(root);
+  ui::AXPlatformNodeMac* platform_node =
+      static_cast<ui::AXPlatformNodeMac*>(root->GetAXPlatformNode());
+  if (platform_node) {
+    // kControlsChanged has no native NSAccessibility notification mapping on
+    // macOS. NotifyAccessibilityEvent should return early in NotifyMacEvent
+    // without querying the window or crashing.
+    platform_node->NotifyAccessibilityEvent(ax::mojom::Event::kControlsChanged);
+  }
 }
 
 // A Views-sourced tree whose WebView node hosts the web content child tree.

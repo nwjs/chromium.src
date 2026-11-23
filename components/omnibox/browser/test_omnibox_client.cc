@@ -31,8 +31,7 @@ TestOmniboxClient::TestOmniboxClient()
               AutocompleteControllerConfig{
                   .provider_types =
                       AutocompleteClassifier::DefaultOmniboxProviders()}),
-          std::make_unique<TestSchemeClassifier>()),
-      last_log_disposition_(WindowOpenDisposition::UNKNOWN) {}
+          std::make_unique<TestSchemeClassifier>()) {}
 
 TestOmniboxClient::~TestOmniboxClient() {
   autocomplete_classifier_.Shutdown();
@@ -85,6 +84,7 @@ const AutocompleteSchemeClassifier& TestOmniboxClient::GetSchemeClassifier()
 }
 
 AutocompleteClassifier* TestOmniboxClient::GetAutocompleteClassifier() {
+  ++get_autocomplete_classifier_count_;
   return &autocomplete_classifier_;
 }
 

@@ -7,33 +7,25 @@
 
 #include <memory>
 
-#include "base/no_destructor.h"
-#include "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-namespace language {
-class UrlLanguageHistogram;
-}
+#include "components/language/core/browser/url_language_histogram.h"
+#include "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 namespace user_prefs {
 class PrefRegistrySyncable;
 }
 
-class UrlLanguageHistogramFactory : public ProfileKeyedServiceFactoryIOS {
+class UrlLanguageHistogramFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          UrlLanguageHistogramFactory,
+          language::UrlLanguageHistogram> {
  public:
-  static language::UrlLanguageHistogram* GetForProfile(ProfileIOS* profile);
-  static UrlLanguageHistogramFactory* GetInstance();
+  explicit UrlLanguageHistogramFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<UrlLanguageHistogramFactory>;
-
-  UrlLanguageHistogramFactory();
-  ~UrlLanguageHistogramFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
-  void RegisterProfilePrefs(
-      user_prefs::PrefRegistrySyncable* registry) override;
+      ProfileIOS* profile) const final;
+  void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) final;
 };
 
 #endif  // IOS_CHROME_BROWSER_LANGUAGE_MODEL_URL_LANGUAGE_HISTOGRAM_FACTORY_H_

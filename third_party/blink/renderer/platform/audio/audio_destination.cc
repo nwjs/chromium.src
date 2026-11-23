@@ -55,8 +55,6 @@
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_media.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
 
@@ -466,10 +464,8 @@ void AudioDestination::SetDetectSilence(bool detect_silence) {
   DCHECK(IsMainThread());
   TRACE_EVENT1("webaudio", "AudioDestination::SetDetectSilence",
                "detect_silence", detect_silence);
-  SendLogMessage(
-      __func__,
-      StrCat({"({detect_silence=",
-              String::Number(static_cast<int>(detect_silence)), "})"}));
+  SendLogMessage(__func__, Format("({{detect_silence={}}})",
+                                  static_cast<int>(detect_silence)));
 
   web_audio_device_->SetDetectSilence(detect_silence);
 }
@@ -526,15 +522,11 @@ AudioDestination::AudioDestination(
   }
 
   SendLogMessage(__func__,
-                 StrCat({"({output_channels=",
-                         String::Number(number_of_output_channels), "})"}));
-  SendLogMessage(
-      __func__,
-      StrCat({"=> (FIFO size=", String::Number(fifo_->length()), " bytes)"}));
+                 Format("({{output_channels={}}})", number_of_output_channels));
+  SendLogMessage(__func__, Format("=> (FIFO size={} bytes)", fifo_->length()));
 
-  SendLogMessage(__func__,
-                 StrCat({"=> (device callback buffer size=",
-                         String::Number(callback_buffer_size_), " frames)"}));
+  SendLogMessage(__func__, Format("=> (device callback buffer size={} frames)",
+                                  callback_buffer_size_));
   SendLogMessage(__func__, Format("=> (device sample rate={:.0f} Hz)",
                                   web_audio_device_->SampleRate()));
   if (is_output_buffer_bypassed_) {
@@ -604,15 +596,6 @@ AudioDestination::AudioDestination(
                context_sample_rate_));
   }
 
-  // Record the sizes if we successfully created an output device.
-  // Histogram for audioHardwareBufferSize
-  base::UmaHistogramSparse(
-      "WebAudio.AudioDestination.HardwareBufferSize",
-      static_cast<int>(Platform::Current()->AudioHardwareBufferSize()));
-
-  // Histogram for the actual callback size used.  Typically, this is the same
-  // as audioHardwareBufferSize, but can be adjusted depending on some
-  // heuristics below.
   base::UmaHistogramSparse("WebAudio.AudioDestination.CallbackBufferSize",
                            callback_buffer_size_);
 

@@ -17,6 +17,7 @@
 #include "ash/app_list/test/app_list_test_helper.h"
 #include "ash/app_list/views/app_list_view.h"
 #include "ash/constants/ash_features.h"
+#include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/drag_drop/drag_drop_controller.h"
 #include "ash/focus/focus_cycler.h"
@@ -4675,20 +4676,19 @@ TEST_F(NoSessionShelfLayoutManagerTest, UpdateShelfVisibilityAfterLogin) {
   constexpr char kUser[] = "user1@test.com";
   const AccountId kUserAccount = AccountId::FromUserEmail(kUser);
 
-  auto user_prefs = std::make_unique<TestingPrefServiceSimple>();
-  RegisterUserProfilePrefs(user_prefs->registry(), /*country=*/"",
-                           /*for_test=*/true);
-  SetShelfAutoHideBehaviorPref(user_prefs.get(),
-                               WindowTreeHostManager::GetPrimaryDisplayId(),
-                               ShelfAutoHideBehavior::kAlways);
-
   // Create a window that covers the full height of the in-session work area.
   const int kExpectedWindowHeight = 800 - ShelfConfig::Get()->shelf_size();
   auto window = CreateWindowWithAppType(chromeos::AppType::NON_APP,
                                         {400, kExpectedWindowHeight});
 
   // Simulate login.
-  SimulateUserLogin({}, kUserAccount, std::move(user_prefs));
+  SimulateUserLogin(
+      {.account_id = kUserAccount,
+       .init_pref_service_value = base::DictValue()
+                                      .Set(prefs::kShelfAutoHideBehaviorLocal,
+                                           kShelfAutoHideBehaviorAlways)
+                                      .Set(prefs::kShelfAutoHideBehavior,
+                                           kShelfAutoHideBehaviorAlways)});
 
   // The window should be the same height.
   EXPECT_EQ(kExpectedWindowHeight, window->bounds().height());
@@ -5119,15 +5119,12 @@ class ShelfLayoutManagerWithEcheTest : public ShelfLayoutManagerTestBase {
   template <typename... TaskEnvironmentTraits>
   explicit ShelfLayoutManagerWithEcheTest(TaskEnvironmentTraits&&... traits)
       : ShelfLayoutManagerTestBase(
-            std::forward<TaskEnvironmentTraits>(traits)...) {
-    scoped_feature_list_.InitAndEnableFeature(features::kEcheSWA);
-  }
+            std::forward<TaskEnvironmentTraits>(traits)...) {}
 
  protected:
   void SetUp() override { ShelfLayoutManagerTestBase::SetUp(); }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   // Calling the factory constructor is enough to set it up.
   TestAshWebViewFactory test_web_view_factory_;
 };

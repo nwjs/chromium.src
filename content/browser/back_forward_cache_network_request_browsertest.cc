@@ -270,7 +270,8 @@ IN_PROC_BROWSER_TEST_F(
 
 // If too much data is processed while in bfcache, evict the entry.
 // TODO(crbug.com/325558875): Flaky on Mac and ChromeOS bots.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
+// TODO(crbug.com/487897247): Flaky on Linux bots.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 #define MAYBE_PageWithDrainedDatapipeAsBytesConsumerCannotProcessTooMuchData \
   DISABLED_PageWithDrainedDatapipeAsBytesConsumerCannotProcessTooMuchData
 #else
@@ -505,9 +506,18 @@ IN_PROC_BROWSER_TEST_P(BackForwardCacheNetworkLimitBrowserTest,
   EXPECT_EQ("error", EvalJs(rfh_1.get(), "image_load_status"));
 }
 
+// Flaky on Mac.
+// https://ci.chromium.org/ui/inv/build-8667819425430646593
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_ImageStillLoading_ResponseStartedWhileRestoring_DoNotTriggerEviction \
+  DISABLED_ImageStillLoading_ResponseStartedWhileRestoring_DoNotTriggerEviction
+#else
+#define MAYBE_ImageStillLoading_ResponseStartedWhileRestoring_DoNotTriggerEviction \
+  ImageStillLoading_ResponseStartedWhileRestoring_DoNotTriggerEviction
+#endif
 IN_PROC_BROWSER_TEST_P(
     BackForwardCacheNetworkLimitBrowserTest,
-    ImageStillLoading_ResponseStartedWhileRestoring_DoNotTriggerEviction) {
+    MAYBE_ImageStillLoading_ResponseStartedWhileRestoring_DoNotTriggerEviction) {
   net::test_server::ControllableHttpResponse image_response(
       embedded_test_server(), "/image.png");
   ASSERT_TRUE(embedded_test_server()->Start());

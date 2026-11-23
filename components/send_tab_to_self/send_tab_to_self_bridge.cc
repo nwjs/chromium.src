@@ -8,6 +8,7 @@
 #include <optional>
 #include <vector>
 
+#include "base/check_op.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
@@ -15,6 +16,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/not_fatal_until.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -153,22 +155,18 @@ struct DeviceWithTimestamp {
 std::vector<DeviceWithTimestamp> GetDevicesWithLastActiveTime(
     const std::vector<const syncer::DeviceInfo*>& all_devices,
     const base::flat_map<std::string, base::Time>& session_timestamps) {
-  std::vector<DeviceWithTimestamp> devices_with_timestamps;
-  devices_with_timestamps.reserve(all_devices.size());
-
-  for (const syncer::DeviceInfo* device : all_devices) {
-    base::Time last_active = device->last_updated_timestamp();
-    bool has_high_precision = false;
-    auto it = session_timestamps.find(device->guid());
-    if (it != session_timestamps.end()) {
-      last_active = std::max(last_active, it->second);
-      // If the device has a session timestamp, it is highly precise.
-      has_high_precision = true;
-    }
-    devices_with_timestamps.emplace_back(device, last_active,
-                                         has_high_precision);
-  }
-  return devices_with_timestamps;
+  return base::ToVector(
+      all_devices, [&session_timestamps](const syncer::DeviceInfo* device) {
+        base::Time last_active = device->last_updated_timestamp();
+        bool has_high_precision = false;
+        auto it = session_timestamps.find(device->guid());
+        if (it != session_timestamps.end()) {
+          last_active = std::max(last_active, it->second);
+          // If the device has a session timestamp, it is highly precise.
+          has_high_precision = true;
+        }
+        return DeviceWithTimestamp{device, last_active, has_high_precision};
+      });
 }
 
 }  // namespace
@@ -450,12 +448,10 @@ SendTabToSelfBridge::OnCommitAttemptFailed(syncer::SyncCommitError error) {
 }
 
 std::vector<std::string> SendTabToSelfBridge::GetAllGuids() const {
-  std::vector<std::string> keys;
-  for (const auto& it : entries_) {
-    DCHECK_EQ(it.first, it.second->GetGUID());
-    keys.push_back(it.first);
-  }
-  return keys;
+  return base::ToVector(entries_, [](const auto& pair) -> const std::string& {
+    DCHECK_EQ(pair.first, pair.second->GetGUID());
+    return pair.first;
+  });
 }
 
 const SendTabToSelfEntry* SendTabToSelfBridge::GetEntryByGUID(
@@ -609,7 +605,7 @@ const SendTabToSelfEntry* SendTabToSelfBridge::SendEntry(
   return result;
 }
 
-void SendTabToSelfBridge::DismissEntry(std::string_view guid) {
+void SendTabToSelfBridge::DismissEntryNotification(std::string_view guid) {
   SendTabToSelfEntry* entry = GetMutableEntryByGUID(guid);
   // Assure that an entry with that guid exists.
   if (!entry) {
@@ -629,8 +625,10 @@ void SendTabToSelfBridge::MarkEntryOpened(std::string_view guid) {
 void SendTabToSelfBridge::MarkEntryOpenedImpl(std::string_view guid,
                                               base::Time opened_time) {
   SendTabToSelfEntry* entry = GetMutableEntryByGUID(guid);
-  // Assure that an entry with that guid exists.
-  if (!entry) {
+  // Queue the open if the entry is not in the model yet, or if it was loaded
+  // from disk but metadata is not loaded yet so the change can't be committed.
+  // Queued opens are applied once the entry is received or metadata is loaded.
+  if (!entry || !change_processor()->IsTrackingMetadata()) {
     // Keep the first opened time, consistent with known entries, which ignore
     // repeated opens.
     unknown_opened_entries_.try_emplace(guid, opened_time);
@@ -647,8 +645,6 @@ void SendTabToSelfBridge::MarkEntryOpenedImpl(std::string_view guid,
   if (entry->IsOpened()) {
     return;
   }
-
-  DCHECK(change_processor()->IsTrackingMetadata());
 
   entry->MarkOpened(opened_time);
 
@@ -667,10 +663,11 @@ void SendTabToSelfBridge::MarkEntryActivatedImpl(
     ShareActivatedEntryPoint entry_point,
     base::Time activated_time) {
   SendTabToSelfEntry* entry = GetMutableEntryByGUID(guid);
-  if (!entry) {
+  if (!entry || !change_processor()->IsTrackingMetadata()) {
     // If the entry is not yet in the model (because it has not loaded yet or
-    // has not been received from the server yet), store the activated time and
-    // entry point and apply it when the entry is added to the model.
+    // has not been received from the server yet), or metadata is not loaded
+    // yet so the change can't be committed, store the activated time and entry
+    // point and apply it once the entry is received or metadata is loaded.
     unknown_activated_entries_.try_emplace(guid, activated_time, entry_point);
     return;
   }
@@ -719,13 +716,8 @@ void SendTabToSelfBridge::OnHistoryDeletions(
   }
 
   if (!deletion_info.IsAllHistory()) {
-    std::vector<GURL> urls;
-
-    for (const history::URLRow& row : deletion_info.deleted_rows()) {
-      urls.push_back(row.url());
-    }
-
-    DeleteEntries(urls);
+    DeleteEntries(
+        base::ToVector(deletion_info.deleted_rows(), &history::URLRow::url));
     return;
   }
 
@@ -765,8 +757,9 @@ SendTabToSelfBridge::GetTargetDeviceInfoSortedList() {
 
   // Pre-calculate last active timestamps for sorting and filtering.
   std::vector<DeviceWithTimestamp> devices_with_timestamps =
-      GetDevicesWithLastActiveTime(device_info_tracker_->GetAllDeviceInfo(),
-                                   GetSessionTimestamps(session_sync_service_));
+      GetDevicesWithLastActiveTime(
+          device_info_tracker_->GetAllChromeDeviceInfo(),
+          GetSessionTimestamps(session_sync_service_));
 
   // Sort the devices so the most recently active devices are first.
   std::stable_sort(
@@ -777,11 +770,12 @@ SendTabToSelfBridge::GetTargetDeviceInfoSortedList() {
 
   std::vector<DeviceWithTimestamp> devices;
   for (const auto& entry : devices_with_timestamps) {
-    // Filter out devices that are too old or don't support the feature.
     if (clock_->Now() - entry.last_active > kDeviceExpiration) {
       break;
     }
-    if (ShouldIncludeDevice(*entry.device)) {
+    if (!device_info_tracker_->IsRecentLocalCacheGuid(entry.device->guid())) {
+      CHECK_NE(entry.device->guid(), change_processor()->TrackedCacheGuid(),
+               base::NotFatalUntil::M162);
       devices.push_back(entry);
     }
   }
@@ -982,24 +976,6 @@ std::string SendTabToSelfBridge::GetLocalDeviceName() const {
   }
 
   return syncer::GetDeviceDisplayName(local_device);
-}
-
-bool SendTabToSelfBridge::ShouldIncludeDevice(
-    const syncer::DeviceInfo& device) const {
-  // Don't include this device if it is the local device.
-  if (device_info_tracker_->IsRecentLocalCacheGuid(device.guid())) {
-    return false;
-  }
-
-  DCHECK_NE(device.guid(), change_processor()->TrackedCacheGuid());
-
-  // Don't include devices that have disabled the send tab to self receiving
-  // feature.
-  if (!device.send_tab_to_self_receiving_enabled()) {
-    return false;
-  }
-
-  return true;
 }
 
 void SendTabToSelfBridge::DoGarbageCollection() {

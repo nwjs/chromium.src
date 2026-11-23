@@ -14,6 +14,7 @@
 #include "base/barrier_callback.h"
 #include "base/check_deref.h"
 #include "base/containers/map_util.h"
+#include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -123,6 +124,8 @@ class DebugHeaderBuilder {
       case RefreshResult::kFatalError:
       case RefreshResult::kRefreshedAsWaiter:
       case RefreshResult::kInScopeRefreshNotYetNeeded:
+      // Only reported to requests that have already been destroyed.
+      case RefreshResult::kCanceled:
         return;
       case RefreshResult::kInitializedService:
         NOTREACHED();
@@ -216,7 +219,7 @@ SessionServiceImpl::SessionServiceImpl(
       session_store_(store),
       restricted_sites_(restricted_sites),
       client_cert_handler_(std::move(client_cert_handler)),
-      sso_key_manager_(std::move(has_cookie_access_cb)) {
+      sso_key_manager_(key_service, std::move(has_cookie_access_cb)) {
   ignore_signing_quota_ = !features::kDeviceBoundSessionsSigningQuota.Get();
   CHECK(context_);
   CHECK(client_cert_handler_);
@@ -449,7 +452,8 @@ void SessionServiceImpl::RegisterBoundSession(
     ASSIGN_OR_RETURN(
         unexportable_keys::UnexportableSigningKeyId pre_provisioned_key,
         sso_key_manager_.FindPreProvisionedKey(
-            *provider_params, registration_params.original_request_initiator),
+            provider_params->provider_key,
+            registration_params.original_request_initiator),
         [&](SessionError::ErrorType error) {
           OnRegistrationComplete(
               registration_params.access_callback,
@@ -1656,11 +1660,16 @@ void SessionServiceImpl::RefreshSessionInternal(
       auto req_it = std::ranges::find_if(
           *deferred_reqs, [](const auto& req) { return !!req.request; });
       if (req_it == deferred_reqs->end()) {
-        // All deferred requests were cancelled or destroyed.
-        // TODO(crbug.com/509885112): We should call UnblockWaitingRequests()
-        // here to drain the queue of deferred requests because all the requests
-        // have already been canceled. Use a new `RefreshResult::kCancelled` for
-        // this.
+        // All deferred requests were destroyed (e.g. canceled) while the key
+        // was being restored, so there is no request to refresh on behalf of.
+        // The queue must still be drained: a stale `deferred_requests_` entry
+        // looks like an in-flight refresh, so later deferred requests and
+        // pre-warms would wait on it, and proactive refreshes would not start.
+        // Note that this invalidates `deferred_reqs`.
+        if (base::FeatureList::IsEnabled(
+                features::kDeviceBoundSessionsDrainDeferredOnAllCanceled)) {
+          UnblockWaitingRequests(session_key, RefreshResult::kCanceled);
+        }
         return;
       }
 

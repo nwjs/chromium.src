@@ -11,10 +11,13 @@
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
+#include "base/timer/elapsed_timer.h"
 #include "base/values.h"
+#include "chrome/browser/certificate_viewer.h"
 #include "chrome/common/net/x509_certificate_model.h"
 #include "components/server_certificate_database/server_certificate_database.h"
 #include "components/server_certificate_database/server_certificate_database.pb.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
@@ -36,17 +39,20 @@ class ConstrainedWebDialogDelegate;
 // desktop builds to display detailed information in a floating dialog when the
 // user clicks on "Certificate Information" from the lock icon of a web site or
 // "View" from the Certificate Manager.
-class CertificateViewerDialog : public ui::WebDialogDelegate {
+class CertificateViewerDialog : public ui::WebDialogDelegate,
+                                public content::WebContentsObserver {
  public:
   static CertificateViewerDialog* ShowConstrained(
       std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> certs,
       content::WebContents* web_contents,
-      gfx::NativeWindow parent);
+      gfx::NativeWindow parent,
+      CertificateViewerEntrypoint entrypoint);
 
   static CertificateViewerDialog* ShowConstrained(
       bssl::UniquePtr<CRYPTO_BUFFER> cert,
       content::WebContents* web_contents,
-      gfx::NativeWindow parent);
+      gfx::NativeWindow parent,
+      CertificateViewerEntrypoint entrypoint);
 
   static CertificateViewerDialog* ShowConstrainedWithMetadata(
       bssl::UniquePtr<CRYPTO_BUFFER> cert,
@@ -54,7 +60,8 @@ class CertificateViewerDialog : public ui::WebDialogDelegate {
           cert_metadata,
       CertMetadataModificationsCallback modifications_callback,
       content::WebContents* web_contents,
-      gfx::NativeWindow parent);
+      gfx::NativeWindow parent,
+      CertificateViewerEntrypoint entrypoint);
 
   using MockShowCallback = base::RepeatingCallback<void(
       std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> certs,
@@ -80,17 +87,43 @@ class CertificateViewerDialog : public ui::WebDialogDelegate {
           cert_metadata,
       CertMetadataModificationsCallback modifications_callback,
       content::WebContents* web_contents,
-      gfx::NativeWindow parent);
+      gfx::NativeWindow parent,
+      CertificateViewerEntrypoint entrypoint);
 
   // Construct a certificate viewer for the passed in certificate. A reference
   // to the certificate pointer is added for the lifetime of the certificate
   // viewer.
   CertificateViewerDialog(
+      CertificateViewerEntrypoint entrypoint,
       std::vector<bssl::UniquePtr<CRYPTO_BUFFER>> certs,
       std::optional<
           chrome_browser_server_certificate_database::CertificateMetadata>
           cert_metadata,
       CertMetadataModificationsCallback modifications_callback);
+
+  // Cleans up state and logs metrics when the dialog is closed.
+  void OnDialogClosedCallback(const std::string&);
+
+  // content::WebContentsObserver:
+  void DocumentOnLoadCompletedInPrimaryMainFrame() override;
+  void OnVisibilityChanged(content::Visibility visibility) override;
+
+  // Starts tracking visible time.
+  void StartVisibleTimer();
+  // Stops tracking visible time, accumulating the just-finished visible time
+  // interval into `visible_duration_`.
+  void StopVisibleTimer();
+
+  // The UI surface the dialog was opened from, for metrics.
+  CertificateViewerEntrypoint entrypoint_;
+  // Whether the dialog's WebUI has finished its initial load. Visible time is
+  // only counted after that, so it excludes page load.
+  bool loaded_ = false;
+  // Total time the loaded dialog has been visible (including occluded), not
+  // counting the current visible stretch, if any.
+  base::TimeDelta visible_duration_;
+  // Running while the loaded dialog is visible.
+  std::optional<base::ElapsedTimer> visible_timer_;
 
   raw_ptr<ConstrainedWebDialogDelegate, DanglingUntriaged> delegate_ = nullptr;
 };

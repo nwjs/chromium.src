@@ -19,6 +19,19 @@ source_set("device_check_eg2_tests") {
   frameworks = [ "UIKit.framework" ]
 }
 
+source_set("eg2_tests") {
+  configs += [ "//build/config/ios:xctest_config" ]
+  testonly = true
+  sources = [ "chrome_test_case_egtest.mm" ]
+  deps = [
+    ":eg_test_support+eg2",
+    ":switches",
+    "//ios/testing/earl_grey:eg_test_support+eg2",
+    "//ios/testing/earl_grey:launch_configuration",
+  ]
+  frameworks = [ "UIKit.framework" ]
+}
+
 source_set("hooks") {
   testonly = true
   sources = [ "eg_tests_hook.mm" ]
@@ -52,7 +65,6 @@ source_set("hooks") {
     "//ios/chrome/browser/aim/model:test_support",
     "//ios/chrome/browser/authentication/test:eg_app_support+eg2",
     "//ios/chrome/browser/autocomplete/test:eg_app_support+eg2",
-    "//ios/chrome/browser/composebox/eg_tests/inttest:eg_app_support+eg2",
     "//ios/chrome/browser/composebox/model:test_support",
     "//ios/chrome/browser/drive/model:test_support",
     "//ios/chrome/browser/flags:system_flags",
@@ -304,11 +316,11 @@ source_set("eg_app_support+eg2") {
     "//ios/chrome/browser/tabs/ui_bundled/tests:eg_app_support+eg2",
     "//ios/chrome/browser/tips_notifications/coordinator",
     "//ios/chrome/browser/tips_notifications/model:utils",
-    "//ios/chrome/browser/toolbar/legacy/ui_bundled:eg_app_support+eg2",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled:ui",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled/buttons:constants",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled/public:constants",
     "//ios/chrome/browser/toolbar/ui:constants",
+    "//ios/chrome/browser/tracing",
     "//ios/chrome/browser/translate/model:eg_app_support+eg2",
     "//ios/chrome/browser/unified_consent/model",
     "//ios/chrome/browser/unit_conversion/ui_bundled:eg_app_support+eg2",
@@ -355,6 +367,7 @@ source_set("eg_app_support+eg2") {
     "//services/metrics/public/cpp:metrics_cpp",
     "//third_party/metrics_proto",
     "//third_party/ocmock",
+    "//third_party/perfetto:libperfetto",
     "//ui/base",
     "//ui/base:test_support",
   ]
@@ -438,11 +451,11 @@ source_set("eg_test_support+eg2") {
     "//ios/chrome/browser/shared/ui/table_view:constants",
     "//ios/chrome/browser/tab_switcher/ui_bundled/tab_grid:tab_grid_ui_constants",
     "//ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/grid:grid_ui_constants",
-    "//ios/chrome/browser/toolbar/legacy/ui_bundled:eg_test_support+eg2",
     "//ios/chrome/browser/toolbar/legacy/ui_bundled/public:constants",
     "//ios/chrome/test:eg_test_support+eg2",
     "//ios/testing:http_server_bundle_data",
     "//ios/testing:nserror_support",
+    "//ios/testing:test_tag_registry",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:launch_configuration",
     "//ios/third_party/edo",

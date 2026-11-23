@@ -8,7 +8,9 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <queue>
+#include <string>
 #include <variant>
 
 #include "base/containers/span.h"
@@ -67,6 +69,7 @@
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_delegate.h"
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
+#include "components/enterprise/connectors/core/analysis_settings.h"
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -120,6 +123,24 @@ bool SkipDataControlOrContentAnalysisChecks(
   // point needs one.
   return !(main_endpoint.is_service_worker() &&
            main_endpoint.browser_context());
+}
+
+// Lets a copy through. When a Data Controls rule keeps the copied data in
+// managed Chrome, `data_controls_replacement` is the message that goes to the
+// OS clipboard instead of `data`, and `data` is remembered for the next
+// clipboard sequence number so it can be restored for pastes inside Chrome.
+void CompleteAllowedCopy(
+    const ui::ClipboardFormatType& format_type,
+    const content::ClipboardPasteData& data,
+    std::optional<std::u16string> data_controls_replacement,
+    content::ContentBrowserClient::IsClipboardCopyAllowedCallback callback) {
+  if (data_controls_replacement) {
+    data_controls::LastReplacedClipboardDataObserver::GetInstance()
+        ->AddDataToNextSeqno(
+            data, data_controls::CopyRestrictionLevel::kKeptInManagedChrome);
+  }
+  std::move(callback).Run(format_type, data,
+                          std::move(data_controls_replacement));
 }
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
@@ -278,6 +299,9 @@ void OnIsClipboardOwnerByContentAnalysis(
           source, destination,
           enterprise_connectors::kOnBulkDataEntryScopePref);
   dialog_data.source_content_area_email = source.active_user;
+  if (content::RenderFrameHost* rfh = destination.render_frame_host()) {
+    dialog_data.initiating_frame_id = rfh->GetGlobalId();
+  }
 
   if (is_files) {
     dialog_data.paths = std::move(clipboard_paste_data.file_paths);
@@ -291,8 +315,12 @@ void OnIsClipboardOwnerByContentAnalysis(
   }
 }
 
+// `data_controls_replacement` is set when a Data Controls rule keeps the copy
+// in managed Chrome; it only applies if the scan doesn't restrict the copy
+// further.
 void OnCopyDeepScanComplete(
     content::ClipboardPasteData clipboard_paste_data,
+    std::optional<std::u16string> data_controls_replacement,
     content::ContentBrowserClient::IsClipboardCopyAllowedCallback callback,
     ui::ClipboardFormatType format_type,
     base::WeakPtr<content::WebContents> web_contents,
@@ -306,25 +334,40 @@ void OnCopyDeepScanComplete(
   if (text_blocked || image_blocked) {
     // In copy case, this could be a KeptInManagedChrome result, so we need to
     // check the result type to determine the enforcement level.
-    data_controls::LastReplacedClipboardDataObserver::GetInstance()
-        ->AddDataToNextSeqno(
-            std::move(clipboard_paste_data),
-            result.is_kept_in_managed_chrome
-                ? data_controls::CopyRestrictionLevel::kKeptInManagedChrome
-                : data_controls::CopyRestrictionLevel::kBlocked);
-    // TODO(b/325455508) The message is being overridden regardless of the
-    // most restrictive enforcement level, this needs to be fixed to override
-    // after all scans are completed.
+    auto* observer =
+        data_controls::LastReplacedClipboardDataObserver::GetInstance();
+    observer->AddDataToNextSeqno(
+        std::move(clipboard_paste_data),
+        result.is_kept_in_managed_chrome
+            ? data_controls::CopyRestrictionLevel::kKeptInManagedChrome
+            : data_controls::CopyRestrictionLevel::kBlocked);
+    // Each format of a copy (e.g. its text and its HTML) is scanned by its own
+    // delegate and every verdict rewrites the text put on the OS clipboard, so
+    // the message has to follow the most restrictive level staged for this
+    // copy so far rather than this format's own verdict. Otherwise a
+    // kept-in-managed-Chrome verdict arriving after a block would leave the
+    // "kept" message next to a blocked restriction level.
+    // TODO(crbug.com/575553037) Address the following gaps
+    // Toasts still follow the last verdict: in the blocked-then-kept order,
+    // the kept verdict shows `"Your organization monitors copying"` over the
+    // `"blocked"` toast and an allowed format still reaches the OS clipboard:
+    // if the bitmap is allowed and the markup is blocked, the image ends up
+    // next to the "blocked" message.
+    bool blocked = observer->pending_restriction_level() ==
+                   data_controls::CopyRestrictionLevel::kBlocked;
     std::move(callback).Run(
         format_type, content::ClipboardPasteData(),
         l10n_util::GetStringUTF16(
-            result.is_kept_in_managed_chrome
-                ? IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_KEPT_IN_MANAGED_CHROME_MESSAGE
-                : IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_BLOCKED_MESSAGE));
+            blocked
+                ? IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_BLOCKED_MESSAGE
+                : IDS_ENTERPRISE_CONTENT_ANALYSIS_COPY_KEPT_IN_MANAGED_CHROME_MESSAGE));
     return;
   }
-  std::move(callback).Run(format_type, std::move(clipboard_paste_data),
-                          std::nullopt);
+  // The scan allows the copy, which leaves any Data Controls decision to keep
+  // the data in managed Chrome in force.
+  CompleteAllowedCopy(format_type, clipboard_paste_data,
+                      std::move(data_controls_replacement),
+                      std::move(callback));
 }
 
 // Returns whether copies from `url` are scanned, filling `data` if so.
@@ -339,25 +382,55 @@ bool IsCopyContentAnalysisEnabled(
              enterprise_connectors::AnalysisConnector::DATA_COPIED);
 }
 
+// Scans the copy if a content analysis policy applies to it, otherwise lets it
+// through. `data_controls_replacement` is set when a Data Controls rule already
+// decided to keep the copy in managed Chrome; it is applied whenever the copy
+// is let through, scanned or not.
 void CopyIfAllowedByContentAnalysis(
     content::WebContents* web_contents,
     const content::ClipboardEndpoint& source,
     const ui::ClipboardMetadata& metadata,
     const content::ClipboardPasteData& data,
+    std::optional<std::u16string> data_controls_replacement,
     content::ContentBrowserClient::IsClipboardCopyAllowedCallback callback) {
-  CHECK(web_contents, base::NotFatalUntil::M161);
+  // Only a service worker copy legitimately has no tab.
+  CHECK(web_contents || source.is_service_worker(), base::NotFatalUntil::M161);
   Profile* profile = Profile::FromBrowserContext(source.browser_context());
   if (!profile) {
-    std::move(callback).Run(metadata.format_type, data, std::nullopt);
+    CompleteAllowedCopy(metadata.format_type, data,
+                        std::move(data_controls_replacement),
+                        std::move(callback));
     return;
   }
 
   enterprise_connectors::ContentAnalysisDelegate::Data delegate_data;
   if (!IsCopyContentAnalysisEnabled(profile, GetUrlFromEndpoint(source),
                                     &delegate_data)) {
-    std::move(callback).Run(metadata.format_type, data, std::nullopt);
+    CompleteAllowedCopy(metadata.format_type, data,
+                        std::move(data_controls_replacement),
+                        std::move(callback));
     return;
   }
+
+  if (!web_contents) {
+    // ContentAnalysisDelegate needs a tab both to scan and to surface a block
+    // or warning verdict, so a service worker copy can't be scanned. When the
+    // policy gates the copy on the verdict, fail closed rather than let
+    // unscanned data through. An audit-only policy never gates the copy, so
+    // let it proceed.
+    if (delegate_data.settings.block_until_verdict ==
+        enterprise_connectors::BlockUntilVerdict::kBlock) {
+      std::move(callback).Run(metadata.format_type,
+                              content::ClipboardPasteData(),
+                              /*replacement_data=*/std::nullopt);
+    } else {
+      CompleteAllowedCopy(metadata.format_type, data,
+                          std::move(data_controls_replacement),
+                          std::move(callback));
+    }
+    return;
+  }
+
   delegate_data.reason =
       enterprise_connectors::ContentAnalysisRequest::CLIPBOARD_COPY;
 
@@ -367,6 +440,9 @@ void CopyIfAllowedByContentAnalysis(
   delegate_data.source_content_area_email =
       enterprise_connectors::ContentAreaUserProvider::GetUser(source);
   delegate_data.AddClipboardData(data);
+  if (content::RenderFrameHost* rfh = source.render_frame_host()) {
+    delegate_data.initiating_frame_id = rfh->GetGlobalId();
+  }
 
   // Write a placeholder to the OS clipboard while the scan is ongoing.
   // The original data is saved to be pasted if the user pastes in the same tab.
@@ -383,7 +459,8 @@ void CopyIfAllowedByContentAnalysis(
 
   enterprise_connectors::ContentAnalysisDelegate::CreateForWebContents(
       web_contents, std::move(delegate_data),
-      base::BindOnce(&OnCopyDeepScanComplete, data, std::move(callback),
+      base::BindOnce(&OnCopyDeepScanComplete, data,
+                     std::move(data_controls_replacement), std::move(callback),
                      metadata.format_type, web_contents->GetWeakPtr()),
       enterprise_connectors::DeepScanAccessPoint::COPY);
 }
@@ -757,34 +834,29 @@ void IsCopyToOSClipboardRestricted(
     return;
   }
 
-  std::u16string replacement;
-  GetCopyToOSClipboardReplacement(source, metadata, &replacement);
-  if (!replacement.empty()) {
-    // Before calling `callback`, we remember `data` will correspond to the next
-    // clipboard sequence number so that it can be potentially replaced again at
-    // paste time.
-    data_controls::LastReplacedClipboardDataObserver::GetInstance()
-        ->AddDataToNextSeqno(
-            data, data_controls::CopyRestrictionLevel::kKeptInManagedChrome);
-    std::move(callback).Run(metadata.format_type, data, replacement);
-    // TODO(b/325455508): This early return skips copy content analysis if there
-    // is a Data Controls replacement verdict. This should be updated in the
-    // future.
-    return;
+  std::optional<std::u16string> data_controls_replacement;
+  {
+    std::u16string replacement;
+    GetCopyToOSClipboardReplacement(source, metadata, &replacement);
+    if (!replacement.empty()) {
+      data_controls_replacement = std::move(replacement);
+    }
   }
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
-  // Content analysis needs a tab: ContentAnalysisDelegate is created from a
-  // WebContents and has no tab-free entry point, so a service worker copy is
-  // not scanned.
-  if (source.web_contents()) {
-    CopyIfAllowedByContentAnalysis(source.web_contents(), source, metadata,
-                                   data, std::move(callback));
-  } else {
-    std::move(callback).Run(metadata.format_type, data, std::nullopt);
-  }
+  // A Data Controls rule keeping the data in managed Chrome doesn't exempt the
+  // copy from content analysis: the scan can still block it outright, which is
+  // more restrictive than the replacement, and audit-only policies still have
+  // to report it. The replacement is applied if the scan lets the copy through.
+  // `source.web_contents()` is null for a service worker copy, which
+  // CopyIfAllowedByContentAnalysis() handles.
+  CopyIfAllowedByContentAnalysis(source.web_contents(), source, metadata, data,
+                                 std::move(data_controls_replacement),
+                                 std::move(callback));
 #else
-  std::move(callback).Run(metadata.format_type, data, std::nullopt);
+  CompleteAllowedCopy(metadata.format_type, data,
+                      std::move(data_controls_replacement),
+                      std::move(callback));
 #endif
 }
 

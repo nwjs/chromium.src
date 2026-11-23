@@ -12,9 +12,6 @@
 -WebContentsImplBrowserTest.SameInitialScaleAcrossNavigations
 -WebContentsImplBrowserTest.ToggleFullscreen
 
-# crbug.com/382588633
--Default/MediaTest.VideoBearWavPcm3kHz*
-
 # crbug.com/353818063
 -CrossPlatformAccessibilityBrowserTest.ImplicitRootScroller
 
@@ -23,6 +20,3 @@
 
 # crbug.com/422528199
 -All/SitePerProcessBrowserTestWithoutSadFrameTabReload.ChildFrameCrashMetrics_ScrolledIntoViewAfterTabIsShown/*
-
-# crbug.com/544000851
--All/AndroidInputBrowserTest.RestartingGPUProcessResetsMojoConnection/*

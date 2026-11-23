@@ -46,6 +46,8 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeatures;
+import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncFeaturesJni;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tabmodel.NextTabPolicy.NextTabPolicySupplier;
 import org.chromium.components.visited_url_ranking.url_grouping.TabSelectionCause;
@@ -68,6 +70,7 @@ public class TabCollectionTabModelImplUnitTest {
 
     @Mock private TabModelJniBridge.Natives mTabModelJniBridgeJni;
     @Mock private TabCollectionTabModelImpl.Natives mTabCollectionTabModelImplJni;
+    @Mock private TabGroupSyncFeatures.Natives mTabGroupSyncFeaturesJni;
     @Mock private Profile mProfile;
     @Mock private Profile mOtrProfile;
     @Mock private TabCreator mRegularTabCreator;
@@ -92,6 +95,7 @@ public class TabCollectionTabModelImplUnitTest {
         // Required to use MockTab.
         PriceTrackingFeatures.setIsSignedInAndSyncEnabledForTesting(false);
         PriceTrackingFeatures.setPriceAnnotationsEnabledForTesting(false);
+        TabGroupSyncFeaturesJni.setInstanceForTesting(mTabGroupSyncFeaturesJni);
 
         when(mProfile.isOffTheRecord()).thenReturn(false);
         when(mProfile.isIncognitoBranded()).thenReturn(false);
@@ -157,8 +161,10 @@ public class TabCollectionTabModelImplUnitTest {
                         invocation -> {
                             int oldIndex = invocation.getArgument(1);
                             int newIndex = invocation.getArgument(2);
+                            Token newGroupId = invocation.getArgument(3);
                             Tab tab = mTabs.get(oldIndex);
                             mTabs.remove(oldIndex);
+                            tab.setTabGroupId(newGroupId);
                             mTabs.add(newIndex, tab);
                             return newIndex;
                         });
@@ -495,6 +501,57 @@ public class TabCollectionTabModelImplUnitTest {
     }
 
     @Test
+    public void testGetTabsInGroup_NativeNotInitialized() {
+        mTabModel.destroy();
+        mExpectNoJniCalls = true;
+        assertEquals(Collections.emptyList(), mTabModel.getTabsInGroup(new Token(1L, 2L)));
+    }
+
+    @Test
+    public void testMergeListOfTabsToExistingGroup() {
+        Token groupId = new Token(1L, 2L);
+        MockTab tab0 = createMockTab(0, mProfile);
+        MockTab tab1 = createMockTab(1, mProfile);
+        MockTab tab2 = createMockTab(2, mProfile);
+        MockTab tab3 = createMockTab(3, mProfile);
+        MockTab tab4 = createMockTab(4, mProfile);
+        MockTab tab5 = createMockTab(5, mProfile);
+        tab2.setTabGroupId(groupId);
+        tab3.setTabGroupId(groupId);
+        mTabs.addAll(List.of(tab0, tab1, tab2, tab3, tab4, tab5));
+
+        when(mTabCollectionTabModelImplJni.tabGroupExists(
+                        TAB_COLLECTION_TAB_MODEL_IMPL_PTR, groupId))
+                .thenReturn(true);
+
+        // Merging into a non-existent group should no-op.
+        mTabModel.mergeListOfTabsToExistingGroup(
+                List.of(tab1),
+                new Token(9L, 9L),
+                /* indexInGroup= */ null,
+                TabGroupMergeNotificationType.DONT_NOTIFY);
+        assertEquals(List.of(tab0, tab1, tab2, tab3, tab4, tab5), mTabs);
+
+        // Append tab5 to the end of the existing group.
+        mTabModel.mergeListOfTabsToExistingGroup(
+                List.of(tab5),
+                groupId,
+                /* indexInGroup= */ null,
+                TabGroupMergeNotificationType.DONT_NOTIFY);
+        assertEquals(groupId, tab5.getTabGroupId());
+        assertEquals(List.of(tab0, tab1, tab2, tab3, tab5, tab4), mTabs);
+
+        // Insert tab1 at index 1 in the existing group.
+        mTabModel.mergeListOfTabsToExistingGroup(
+                List.of(tab1),
+                groupId,
+                /* indexInGroup= */ 1,
+                TabGroupMergeNotificationType.DONT_NOTIFY);
+        assertEquals(groupId, tab1.getTabGroupId());
+        assertEquals(List.of(tab0, tab2, tab1, tab3, tab5, tab4), mTabs);
+    }
+
+    @Test
     public void testSetIndex() {
         // Simulate a regular Profile.
         doReturn(false).when(mProfile).isOffTheRecord();
@@ -558,6 +615,47 @@ public class TabCollectionTabModelImplUnitTest {
                         /* supportUndo= */ true);
 
         assertFalse(incognitoModel.supportsPendingClosures());
+    }
+
+    @Test
+    public void testRemoveTabsAndSelectNext_closeLastIncognitoTabWithStubRegularModel() {
+        doReturn(true).when(mOtrProfile).isOffTheRecord();
+        doReturn(true).when(mOtrProfile).isIncognitoBranded();
+        when(mTabCollectionTabModelImplJni.init(eq(mOtrProfile)))
+                .thenReturn(TAB_COLLECTION_TAB_MODEL_IMPL_PTR);
+
+        TabCollectionTabModelImpl incognitoModel =
+                new TabCollectionTabModelImpl(
+                        mOtrProfile,
+                        ActivityType.TABBED,
+                        /* customTabProfileType= */ null,
+                        TabModelType.STANDARD,
+                        mRegularTabCreator,
+                        mIncognitoTabCreator,
+                        mOrderController,
+                        mTabContentManager,
+                        mNextTabPolicySupplier,
+                        mTabModelDelegate,
+                        mAsyncTabParamsManager,
+                        mTabRemover,
+                        /* isIncognitoBranded= */ true,
+                        mTabUngrouperFactory,
+                        () -> mScopedStorageBatch,
+                        /* supportUndo= */ false);
+
+        MockTab tabToClose = createMockTab(123, mOtrProfile);
+        tabToClose.setIsInitialized(true);
+        when(mOrderController.determineInsertionIndex(anyInt(), anyInt(), any())).thenReturn(0);
+        incognitoModel.addTab(
+                tabToClose, 0, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        verifyBatchedAndReset();
+
+        StubTabModel stubRegularModel = new StubTabModel(/* isIncognito= */ false, mProfile);
+        when(mTabModelDelegate.getModel(false)).thenReturn(stubRegularModel);
+        when(mTabModelDelegate.getModel(true)).thenReturn(incognitoModel);
+
+        incognitoModel.closeTabs(TabClosureParams.closeAllTabs().allowUndo(false).build());
+        verify(mTabModelDelegate).getModel(true);
     }
 
     @Test

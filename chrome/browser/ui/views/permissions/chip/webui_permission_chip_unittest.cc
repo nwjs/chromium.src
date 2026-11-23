@@ -8,6 +8,7 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/bind.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
@@ -203,6 +204,31 @@ TEST_F(WebUIPermissionChipTest, GetIsRequestForTesting) {
   EXPECT_FALSE(chip.GetIsRequestForTesting());
 }
 
+TEST_F(WebUIPermissionChipTest, OnClickedIfCurrentDropsStaleTokens) {
+  WebUIPermissionChip chip(location_bar_.get(),
+                           PermissionChipView::kPermissionRequestChipElementId);
+  int pressed_count = 0;
+  bool pressed_with_pointer = false;
+  chip.SetPressedCallback(base::BindLambdaForTesting(
+      [&pressed_count, &pressed_with_pointer](bool is_pointer_interaction) {
+        ++pressed_count;
+        pressed_with_pointer = is_pointer_interaction;
+      }));
+
+  const uint32_t stale_token = chip.state_token();
+  chip.InvalidateStateToken();
+  ASSERT_NE(chip.state_token(), stale_token);
+
+  EXPECT_FALSE(
+      chip.OnClickedIfCurrent(/*is_pointer_interaction=*/true, stale_token));
+  EXPECT_EQ(pressed_count, 0);
+
+  EXPECT_TRUE(chip.OnClickedIfCurrent(/*is_pointer_interaction=*/true,
+                                      chip.state_token()));
+  EXPECT_EQ(pressed_count, 1);
+  EXPECT_TRUE(pressed_with_pointer);
+}
+
 TEST_F(WebUIPermissionChipTest, GetAnchorPrefersChipElementOverLocationBar) {
   SetBrowser(&mock_browser_);
   TestBrowserElements browser_elements(mock_browser_, kTestContext);
@@ -375,14 +401,45 @@ TEST_F(WebUIPermissionChipTest, WaitForAnchorIgnoresChipElementInOtherContext) {
   EXPECT_EQ(chip.GetAnchor().GetIfElement(), &chip_element);
 }
 
-// With no element context (e.g. the location bar isn't attached to a browser
-// or its WebUI isn't loaded), there is nothing to wait for.
-TEST_F(WebUIPermissionChipTest, WaitForAnchorRunsImmediatelyWithoutContext) {
+// The element context may not be available yet (e.g. the location bar isn't
+// attached to a browser or its WebUI isn't loaded), so `WaitForAnchor()` waits
+// for the chip element to be shown in the context the location bar has by then.
+TEST_F(WebUIPermissionChipTest, WaitForAnchorWaitsForContext) {
   WebUIPermissionChip chip(location_bar_.get(),
                            PermissionChipView::kPermissionRequestChipElementId);
 
   base::test::TestFuture<void> future;
   chip.WaitForAnchor(future.GetCallback());
+  EXPECT_FALSE(future.IsReady());
+
+  // The context becomes available, then the chip element is shown in it.
+  SetBrowser(&mock_browser_);
+  TestBrowserElements browser_elements(mock_browser_, kTestContext);
+  ui::test::TestElement chip_element(
+      PermissionChipView::kPermissionRequestChipElementId, kTestContext);
+  chip_element.Show();
+  EXPECT_TRUE(future.IsReady());
+  EXPECT_EQ(chip.GetAnchor().GetIfElement(), &chip_element);
+}
+
+// Without a context, a chip element shown in another context doesn't count, and
+// `WaitForAnchor()` still falls back after the timeout.
+TEST_F(WebUIPermissionChipTest,
+       WaitForAnchorWithoutContextFallsBackAfterTimeout) {
+  constexpr ui::ElementContext kOtherContext =
+      ui::ElementContext::CreateFakeContextForTesting(2);
+  WebUIPermissionChip chip(location_bar_.get(),
+                           PermissionChipView::kPermissionRequestChipElementId);
+
+  base::test::TestFuture<void> future;
+  chip.WaitForAnchor(future.GetCallback());
+  ui::test::TestElement other_context_chip_element(
+      PermissionChipView::kPermissionRequestChipElementId, kOtherContext);
+  other_context_chip_element.Show();
+  browser_threads_.FastForwardBy(kJustBeforeAnchorFallback);
+  EXPECT_FALSE(future.IsReady());
+
+  browser_threads_.FastForwardBy(base::Milliseconds(1));
   EXPECT_TRUE(future.IsReady());
 }
 

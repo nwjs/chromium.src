@@ -36,6 +36,10 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/resource/resource_bundle.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "ui/base/resource/resource_bundle_android.h"
+#endif
+
 namespace extensions {
 
 namespace OnMessage = api::test::OnMessage;
@@ -193,9 +197,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebUITest, OnMessage) {
   OnMessage::Info info;
   info.data = "hi";
   info.last_message = true;
-  EventRouter::Get(profile())->BroadcastEvent(base::WrapUnique(
-      new Event(events::RUNTIME_ON_MESSAGE, OnMessage::kEventName,
-                OnMessage::Create(info))));
+  auto event_args = base::MakeRefCounted<EventArgs>(OnMessage::Create(info));
+  auto event = std::make_unique<Event>(
+      events::RUNTIME_ON_MESSAGE, OnMessage::kEventName, std::move(event_args));
+  EventRouter::Get(profile())->BroadcastEvent(std::move(event));
 
   ASSERT_TRUE(result_listener.WaitUntilSatisfied());
   EXPECT_EQ("true", result_listener.message());
@@ -416,11 +421,15 @@ class ExtensionWebUIListenersTest : public ExtensionWebUITest {
     ExtensionWebUITest::SetUpOnMainThread();
 
     // Load browser_tests.pak.
+#if BUILDFLAG(IS_ANDROID)
+    ui::LoadPackFileFromApk("assets/browser_tests.pak", /*split_name=*/"");
+#else
     base::FilePath pak_path;
     ASSERT_TRUE(base::PathService::Get(base::DIR_ASSETS, &pak_path));
     pak_path = pak_path.AppendASCII("browser_tests.pak");
     ui::ResourceBundle::GetSharedInstance().AddDataPackFromPath(
         pak_path, ui::kScaleFactorNone);
+#endif
     // Register the chrome://webui-test data source.
     webui::CreateAndAddWebUITestDataSource(profile());
   }

@@ -86,18 +86,16 @@ bool TestMenuDelegate::ShouldCloseOnDragDropCompleted() {
   return should_close_on_drag_complete_;
 }
 
+bool TestMenuDelegate::ShouldDragActivateChildButtons() const {
+  return should_drag_activate_child_buttons_;
+}
+
 void TestMenuDelegate::PerformDrop(
     const ui::DropTargetEvent& event,
     ui::mojom::DragOperation& output_drag_op,
     std::unique_ptr<ui::LayerTreeOwner> drag_image_layer_owner) {
   is_drop_performed_ = true;
   output_drag_op = ui::mojom::DragOperation::kCopy;
-}
-
-void DisableMenuClosureAnimations() {
-#if BUILDFLAG(IS_MAC)
-  MenuClosureAnimationMac::DisableAnimationsForTesting();
-#endif
 }
 
 void WaitForMenuClosureAnimation() {

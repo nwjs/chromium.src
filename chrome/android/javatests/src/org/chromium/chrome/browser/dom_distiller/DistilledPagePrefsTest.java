@@ -4,7 +4,6 @@
 
 package org.chromium.chrome.browser.dom_distiller;
 
-import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.SmallTest;
 
 import com.google.common.util.concurrent.AtomicDouble;
@@ -12,14 +11,15 @@ import com.google.common.util.concurrent.AtomicDouble;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.dom_distiller.core.DistilledPagePrefs;
 import org.chromium.components.dom_distiller.core.DomDistillerService;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Test class for {@link DistilledPagePrefs}. */
-@RunWith(BaseJUnit4ClassRunner.class)
+@RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
 public class DistilledPagePrefsTest {
     private DistilledPagePrefs mDistilledPagePrefs;
@@ -42,16 +42,25 @@ public class DistilledPagePrefsTest {
     private static final TimeUnit SEMAPHORE_TIMEOUT_UNIT = TimeUnit.SECONDS;
     private static final long SEMAPHORE_TIMEOUT_VALUE = 5;
 
+    @BeforeClass
+    public static void setUpClass() {
+        NativeLibraryTestUtils.loadNativeLibraryAndInitBrowserProcess();
+    }
+
     @Before
     public void setUp() {
-        NativeLibraryTestUtils.loadNativeLibraryAndInitBrowserProcess();
         getDistilledPagePrefs();
     }
 
     @After
     public void tearDown() {
-        // Set back to default theme
-        setUserPrefTheme(Theme.LIGHT);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mDistilledPagePrefs.setUserPrefTheme(Theme.LIGHT);
+                    mDistilledPagePrefs.setFontFamily(FontFamily.SANS_SERIF);
+                    mDistilledPagePrefs.setFontScaling(/* scaling= */ 1.0f);
+                    mDistilledPagePrefs.setLinksEnabled(/* enabled= */ true);
+                });
     }
 
     private void getDistilledPagePrefs() {
@@ -67,18 +76,17 @@ public class DistilledPagePrefsTest {
 
     @Test
     @SmallTest
-    @UiThreadTest
     @Feature({"DomDistiller"})
     public void testGetAndSetUserPrefTheme() {
         // Check the default theme.
-        Assert.assertEquals(Theme.LIGHT, mDistilledPagePrefs.getTheme());
+        Assert.assertEquals(Theme.LIGHT, getTheme());
         // Check that theme can be correctly set.
         setUserPrefTheme(Theme.DARK);
-        Assert.assertEquals(Theme.DARK, mDistilledPagePrefs.getTheme());
+        Assert.assertEquals(Theme.DARK, getTheme());
         setUserPrefTheme(Theme.LIGHT);
-        Assert.assertEquals(Theme.LIGHT, mDistilledPagePrefs.getTheme());
+        Assert.assertEquals(Theme.LIGHT, getTheme());
         setUserPrefTheme(Theme.SEPIA);
-        Assert.assertEquals(Theme.SEPIA, mDistilledPagePrefs.getTheme());
+        Assert.assertEquals(Theme.SEPIA, getTheme());
     }
 
     @Test
@@ -122,14 +130,13 @@ public class DistilledPagePrefsTest {
 
     @Test
     @SmallTest
-    @UiThreadTest
     @Feature({"DomDistiller"})
     public void testGetAndSetFontFamily() {
         // Check the default font family.
-        Assert.assertEquals(FontFamily.SANS_SERIF, mDistilledPagePrefs.getFontFamily());
+        Assert.assertEquals(FontFamily.SANS_SERIF, getFontFamily());
         // Check that font family can be correctly set.
         setFontFamily(FontFamily.SERIF);
-        Assert.assertEquals(FontFamily.SERIF, mDistilledPagePrefs.getFontFamily());
+        Assert.assertEquals(FontFamily.SERIF, getFontFamily());
     }
 
     @Test
@@ -173,14 +180,13 @@ public class DistilledPagePrefsTest {
 
     @Test
     @SmallTest
-    @UiThreadTest
     @Feature({"DomDistiller"})
     public void testGetAndSetFontScaling() {
         // Check the default font scaling.
-        Assert.assertEquals(1.0, mDistilledPagePrefs.getFontScaling(), EPSILON);
+        Assert.assertEquals(1.0, getFontScaling(), EPSILON);
         // Check that font scaling can be correctly set.
         setFontScaling(1.2f);
-        Assert.assertEquals(1.2, mDistilledPagePrefs.getFontScaling(), EPSILON);
+        Assert.assertEquals(1.2, getFontScaling(), EPSILON);
     }
 
     @Test
@@ -241,14 +247,13 @@ public class DistilledPagePrefsTest {
 
     @Test
     @SmallTest
-    @UiThreadTest
     @Feature({"DomDistiller"})
     public void testGetAndSetLinksEnabled() {
         // Check the default links enabled.
-        Assert.assertTrue(mDistilledPagePrefs.getLinksEnabled());
+        Assert.assertTrue(getLinksEnabled());
         // Check that links enabled can be correctly set.
         setLinksEnabled(false);
-        Assert.assertFalse(mDistilledPagePrefs.getLinksEnabled());
+        Assert.assertFalse(getLinksEnabled());
     }
 
     private static class TestingObserver implements DistilledPagePrefs.Observer {
@@ -321,16 +326,32 @@ public class DistilledPagePrefsTest {
         }
     }
 
+    private int getFontFamily() {
+        return ThreadUtils.runOnUiThreadBlocking(() -> mDistilledPagePrefs.getFontFamily());
+    }
+
     private void setFontFamily(final int font) {
         ThreadUtils.runOnUiThreadBlocking(() -> mDistilledPagePrefs.setFontFamily(font));
+    }
+
+    private int getTheme() {
+        return ThreadUtils.runOnUiThreadBlocking(() -> mDistilledPagePrefs.getTheme());
     }
 
     private void setUserPrefTheme(final int theme) {
         ThreadUtils.runOnUiThreadBlocking(() -> mDistilledPagePrefs.setUserPrefTheme(theme));
     }
 
+    private float getFontScaling() {
+        return ThreadUtils.runOnUiThreadBlocking(() -> mDistilledPagePrefs.getFontScaling());
+    }
+
     private void setFontScaling(final float scaling) {
         ThreadUtils.runOnUiThreadBlocking(() -> mDistilledPagePrefs.setFontScaling(scaling));
+    }
+
+    private boolean getLinksEnabled() {
+        return ThreadUtils.runOnUiThreadBlocking(() -> mDistilledPagePrefs.getLinksEnabled());
     }
 
     private void setLinksEnabled(final boolean enabled) {

@@ -34,10 +34,13 @@ class GPU_GLES2_EXPORT SkiaGraphiteVkAndroidImageRepresentation
   // SkiaGraphiteImageRepresentation implementation:
   std::vector<sk_sp<SkSurface>> BeginWriteAccess(
       const SkSurfaceProps& surface_props,
-      const gfx::Rect& update_rect) override;
-  std::vector<scoped_refptr<GraphiteTextureHolder>> BeginWriteAccess() override;
+      const gfx::Rect& update_rect,
+      EndAccessState& end_access_state) override;
+  std::vector<scoped_refptr<GraphiteTextureHolder>> BeginWriteAccess(
+      EndAccessState& end_access_state) override;
   void EndWriteAccess() override;
-  std::vector<scoped_refptr<GraphiteTextureHolder>> BeginReadAccess() override;
+  std::vector<scoped_refptr<GraphiteTextureHolder>> BeginReadAccess(
+      EndAccessState& end_access_state) override;
   void EndReadAccess() override;
 
  protected:
@@ -60,6 +63,7 @@ class GPU_GLES2_EXPORT SkiaGraphiteVkAndroidImageRepresentation
 
  private:
   scoped_refptr<GraphiteTextureHolder> CreateGraphiteTextureHolder();
+  EndAccessState GenerateEndAccessState();
 
   const scoped_refptr<SharedContextState> context_state_;
   std::unique_ptr<VulkanImage> vulkan_image_;

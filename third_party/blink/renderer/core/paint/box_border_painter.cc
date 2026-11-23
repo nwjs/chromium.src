@@ -20,7 +20,6 @@
 #include "third_party/blink/renderer/platform/graphics/graphics_context_state_saver.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/styled_stroke_data.h"
-#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "third_party/skia/include/core/SkPath.h"
 #include "third_party/skia/include/core/SkPathBuilder.h"
@@ -615,52 +614,23 @@ bool DarkenBoxSide(BoxSide side, EBorderStyle style) {
 }
 
 Color CalculateInsetOutsetColor(bool is_darken, const Color& color) {
-  if (RuntimeEnabledFeatures::TableDefaultBorderColorCurrentColorEnabled()) {
-    // This algorithm is chosen to match WebKit's behavior for softening
-    // inset/outset colors.
-    constexpr float kBaseDarkColorLuminance =
-        0.014443844f;  // Luminance of rgb(32, 32, 32)
-    constexpr float kBaseLightColorLuminance =
-        0.83077f;  // Luminance of rgb(235, 235, 235)
-    float luminance = color_utils::GetRelativeLuminance4f(color.toSkColor4f());
+  // This algorithm is chosen to match WebKit's behavior for softening
+  // inset/outset colors.
+  constexpr float kBaseDarkColorLuminance =
+      0.014443844f;  // Luminance of rgb(32, 32, 32)
+  constexpr float kBaseLightColorLuminance =
+      0.83077f;  // Luminance of rgb(235, 235, 235)
+  float luminance = color_utils::GetRelativeLuminance4f(color.toSkColor4f());
 
-    // Special case very dark colors to give them extra contrast.
-    if (luminance <= kBaseDarkColorLuminance) {
-      return is_darken ? color.Light() : color.Light().Light();
-    }
-    if (is_darken) {
-      return color.Dark();
-    }
-    // For very light colors, return the color as-is. Otherwise, lighten it.
-    return luminance > kBaseLightColorLuminance ? color : color.Light();
+  // Special case very dark colors to give them extra contrast.
+  if (luminance <= kBaseDarkColorLuminance) {
+    return is_darken ? color.Light() : color.Light().Light();
   }
-
-  const Color dark_color = color.Dark();
-  // Inset, outset, ridge, and groove paint a darkened or "shadow" edge:
-  // https://w3c.github.io/csswg-drafts/css-backgrounds/#border-style. By
-  // default, darken |color| for the darker edge and use |color| for the lighter
-  // edge.
   if (is_darken) {
-    return dark_color;
+    return color.Dark();
   }
-
-  const SkColor4f sk_color = color.toSkColor4f();
-  auto should_lighten_color = [sk_color, dark_color]() -> bool {
-    // This constant is used to determine if there is enough contrast between
-    // the darkened edge and |color|. If not, also lighten |color| for the
-    // lighter edge.
-    constexpr float kMinimumBorderEdgeContrastRatio = 1.75f;
-    return color_utils::GetContrastRatio(sk_color, dark_color.toSkColor4f()) <
-           kMinimumBorderEdgeContrastRatio;
-  };
-  // The following condition skips should_lighten_color() when the result is
-  // know to be false. The values came from a brute force search of r, g, b
-  // values, see https://crrev.com/c/4200827/3.
-  if (sk_color.fR >= (150 / 255.0f) || sk_color.fG >= (92 / 255.0f)) {
-    DCHECK(!should_lighten_color());
-    return color;
-  }
-  return should_lighten_color() ? color.Light() : color;
+  // For very light colors, return the color as-is. Otherwise, lighten it.
+  return luminance > kBaseLightColorLuminance ? color : color.Light();
 }
 
 void DrawDoubleBoxSide(GraphicsContext& context,
@@ -1249,7 +1219,7 @@ void BoxBorderPainter::DrawDoubleBorder() const {
   AutoDarkMode auto_dark_mode(PaintAutoDarkMode(style_, element_role_));
 
   // outer stripe
-  const PhysicalBoxStrut outer_third_outsets =
+  const gfx::Outsets outer_third_outsets =
       DoubleStripeOutsets(BorderEdge::kDoubleBorderStripeOuter);
   FloatRoundedRect outer_third_rect =
       ContouredBorderGeometry::PixelSnappedContouredBorderWithOutsets(
@@ -1261,7 +1231,7 @@ void BoxBorderPainter::DrawDoubleBorder() const {
                           outer_third_rect, color, auto_dark_mode);
 
   // inner stripe
-  const PhysicalBoxStrut inner_third_outsets =
+  const gfx::Outsets inner_third_outsets =
       DoubleStripeOutsets(BorderEdge::kDoubleBorderStripeInner);
   FloatRoundedRect inner_third_rect =
       ContouredBorderGeometry::PixelSnappedContouredBorderWithOutsets(
@@ -1401,10 +1371,10 @@ BoxBorderPainter::BoxBorderPainter(GraphicsContext& context,
                                    const ComputedStyle& style,
                                    const PhysicalRect& border_rect,
                                    int width,
-                                   const PhysicalBoxStrut& inner_outsets)
+                                   const gfx::Outsets& inner_outsets)
     : context_(context),
       border_rect_(border_rect),
-      outer_outsets_(inner_outsets + PhysicalBoxStrut(LayoutUnit(width))),
+      outer_outsets_(inner_outsets + gfx::Outsets(width)),
       style_(style),
       bleed_avoidance_(kBackgroundBleedNone),
       sides_to_include_(PhysicalBoxSides()),
@@ -1867,7 +1837,7 @@ void BoxBorderPainter::DrawCurvedDoubleBoxSide(Color color) const {
   // Draw inner border line
   {
     GraphicsContextStateSaver state_saver(context_);
-    const PhysicalBoxStrut inner_outsets =
+    const gfx::Outsets inner_outsets =
         DoubleStripeOutsets(BorderEdge::kDoubleBorderStripeInner);
     ContouredRect inner_clip =
         ContouredBorderGeometry::PixelSnappedContouredBorderWithOutsets(
@@ -1881,12 +1851,12 @@ void BoxBorderPainter::DrawCurvedDoubleBoxSide(Color color) const {
   {
     GraphicsContextStateSaver state_saver(context_);
     PhysicalRect used_border_rect = border_rect_;
-    PhysicalBoxStrut outer_outsets =
+    gfx::Outsets outer_outsets =
         DoubleStripeOutsets(BorderEdge::kDoubleBorderStripeOuter);
 
     if (BleedAvoidanceIsClipping(bleed_avoidance_)) {
       used_border_rect.Inflate(LayoutUnit(1));
-      outer_outsets.Inflate(LayoutUnit(-1));
+      outer_outsets += gfx::Outsets(-1);
     }
 
     ContouredRect outer_clip =
@@ -2464,22 +2434,25 @@ void BoxBorderPainter::ClipBorderSidePolygon(BoxSide side,
   }
 }
 
-PhysicalBoxStrut BoxBorderPainter::DoubleStripeOutsets(
+gfx::Outsets BoxBorderPainter::DoubleStripeOutsets(
     BorderEdge::DoubleBorderStripe stripe) const {
   return outer_outsets_ -
-         PhysicalBoxStrut::FromInts(
-             Edge(BoxSide::kTop).GetDoubleBorderStripeWidth(stripe),
-             Edge(BoxSide::kRight).GetDoubleBorderStripeWidth(stripe),
-             Edge(BoxSide::kBottom).GetDoubleBorderStripeWidth(stripe),
-             Edge(BoxSide::kLeft).GetDoubleBorderStripeWidth(stripe));
+         gfx::Outsets()
+             .set_top(Edge(BoxSide::kTop).GetDoubleBorderStripeWidth(stripe))
+             .set_right(
+                 Edge(BoxSide::kRight).GetDoubleBorderStripeWidth(stripe))
+             .set_bottom(
+                 Edge(BoxSide::kBottom).GetDoubleBorderStripeWidth(stripe))
+             .set_left(Edge(BoxSide::kLeft).GetDoubleBorderStripeWidth(stripe));
 }
 
-PhysicalBoxStrut BoxBorderPainter::CenterOutsets() const {
+gfx::Outsets BoxBorderPainter::CenterOutsets() const {
   return outer_outsets_ -
-         PhysicalBoxStrut::FromInts(Edge(BoxSide::kTop).UsedWidth() * 0.5,
-                                    Edge(BoxSide::kRight).UsedWidth() * 0.5,
-                                    Edge(BoxSide::kBottom).UsedWidth() * 0.5,
-                                    Edge(BoxSide::kLeft).UsedWidth() * 0.5);
+         gfx::Outsets()
+             .set_top(Edge(BoxSide::kTop).UsedWidth() * 0.5)
+             .set_right(Edge(BoxSide::kRight).UsedWidth() * 0.5)
+             .set_bottom(Edge(BoxSide::kBottom).UsedWidth() * 0.5)
+             .set_left(Edge(BoxSide::kLeft).UsedWidth() * 0.5);
 }
 
 bool BoxBorderPainter::ColorsMatchAtCorner(BoxSide side,

@@ -12,6 +12,8 @@ source_set("model") {
     "enterprise_proxy_error_service_factory_ios.mm",
     "enterprise_proxy_service_factory_ios.h",
     "enterprise_proxy_service_factory_ios.mm",
+    "enterprise_proxy_tab_helper.h",
+    "enterprise_proxy_tab_helper.mm",
     "proxy_service_controller.h",
     "proxy_service_controller.mm",
     "proxy_service_controller_factory.h",
@@ -30,6 +32,7 @@ source_set("model") {
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
     "//ios/chrome/browser/signin/model",
+    "//ios/chrome/common",
     "//ios/components/security_interstitials",
     "//ios/components/ui_util",
     "//ios/web/public",
@@ -58,6 +61,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "enterprise_proxy_blocking_page_unittest.mm",
+    "enterprise_proxy_tab_helper_unittest.mm",
     "proxy_auth_challenge_util_unittest.mm",
     "proxy_service_controller_unittest.mm",
   ]
@@ -72,6 +76,8 @@ source_set("unit_tests") {
     "//components/security_interstitials/core",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile/test",
+    "//ios/chrome/browser/signin/model:fake_system_identity",
+    "//ios/chrome/browser/signin/model:test_support",
     "//ios/chrome/test:test_support",
     "//ios/web/public",
     "//ios/web/public/proxy",

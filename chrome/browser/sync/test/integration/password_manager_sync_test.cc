@@ -140,6 +140,8 @@ class SyncActiveWithoutPasswordsChecker
 
   // StatusChangeChecker implementation.
   bool IsExitConditionSatisfied(std::ostream* os) override {
+    *os << "Waiting for PASSWORDS to become inactive and Sync to become "
+           "active.";
     // DEVICE_INFO is another arbitrary type supported for signed-in users,
     // just so we rule out no type at all is active.
     return !service()->GetActiveDataTypes().Has(syncer::PASSWORDS) &&
@@ -152,8 +154,7 @@ class SyncActiveWithoutPasswordsChecker
 #if !BUILDFLAG(IS_CHROMEOS)
 content::WebContents* GetNewTab(BrowserWindowInterface* browser) {
   ui_test_utils::NavigateToURLWithDisposition(
-      browser, GURL("data:text/html"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser, GURL("data:text/html"), WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
   return browser->GetTabStripModel()->GetActiveWebContents();
 }

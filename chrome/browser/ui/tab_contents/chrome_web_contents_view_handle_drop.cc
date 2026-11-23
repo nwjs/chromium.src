@@ -122,7 +122,7 @@ void CompletionCallback(
 
   // For file drag-drops, block file paths depending on the verdict obtained for
   // child paths.
-  DCHECK(files_scan_data);
+  CHECK(files_scan_data, base::NotFatalUntil::M162);
   absl::flat_hash_set<size_t> file_indexes_to_block =
       files_scan_data->IndexesToBlock(result.paths_results);
 
@@ -142,8 +142,8 @@ void CompletionCallback(
   // A specific index could be blocked due to its parent folder being
   // blocked and not because it got a bad verdict itself, so `result` needs
   // to be updated to reflect that.
-  DCHECK_EQ(data.paths.size(),
-            files_scan_data->expanded_paths_indexes().size());
+  CHECK_EQ(data.paths.size(), files_scan_data->expanded_paths_indexes().size(),
+           base::NotFatalUntil::M162);
   for (size_t i = 0; i < data.paths.size(); ++i) {
     int parent_index =
         files_scan_data->expanded_paths_indexes().at(data.paths[i]);
@@ -200,7 +200,7 @@ class HandleDropScanData : public content::WebContentsObserver {
 
   void ScanData(
       std::unique_ptr<enterprise_connectors::FilesScanData> files_scan_data) {
-    DCHECK(web_contents());
+    CHECK(web_contents(), base::NotFatalUntil::M162);
     if (files_scan_data) {
       for (const auto& path : files_scan_data->expanded_paths()) {
         analysis_data_.paths.push_back(path);
@@ -249,7 +249,7 @@ void HandleOnPerformingDrop(
     // scanning) here. This is intended because we will run DLP scanning for
     // the payload as part of the Glic invocation, and if that fails the user
     // won't see the content anyway.
-    if (glic::IsGlicWebDrag(drop_data)) {
+    if (glic::IsChromeWebDrag(drop_data)) {
       glic::StartDragAndDropInvoke(web_contents, drop_data);
       // Do not forward the DOM drop to the guest renderer (`std::nullopt`
       // triggers `DragTargetDragLeave` to dismiss the guest drop-target

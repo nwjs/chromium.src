@@ -109,14 +109,12 @@ def cq_build_perf_builder(description_html, **kwargs):
     # Use CQ RBE instance and high remote_jobs/cores to simulate CQ builds.
     if not "siso_configs" in kwargs:
         kwargs["siso_configs"] = ["builder", "remote-link"]
-    props = {}
-    if not kwargs.get("siso_enabled", True):
-        props["$build/reclient"] = {
-            "instance": siso.project.DEFAULT_UNTRUSTED,
-            "jobs": 500,
-            "metrics_project": "chromium-reclient-metrics",
-            "scandeps_server": True,
-        }
+
+    # Run the extra missing-deps check build (crbug.com/346429448) on all
+    # platforms by default; builders can opt out by passing
+    # enable_missing_deps_check = False in properties.
+    props = {"enable_missing_deps_check": True}
+    props.update(kwargs.pop("properties", {}))
     return ci.builder(
         description_html = description_html + "<br>Build stats are shown in <a href=\"http://shortn/_wiYV1BraSr\">http://shortn/_wiYV1BraSr</a>.",
         siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -165,8 +163,8 @@ cq_build_perf_builder(
         ),
     ),
     gn_args = {
-        "builtin": gn_args.config(configs = ["try/android-arm64-rel", "no_reclient"]),
-        "no_clang_modules": gn_args.config(configs = ["try/android-arm64-rel", "no_reclient", "no_clang_modules"]),
+        "builtin": gn_args.config(configs = ["try/android-arm64-rel"]),
+        "no_clang_modules": gn_args.config(configs = ["try/android-arm64-rel", "no_clang_modules"]),
     },
     os = os.LINUX_DEFAULT,
     console_view_entry = consoles.console_view_entry(
@@ -197,8 +195,8 @@ cq_build_perf_builder(
         ),
     ),
     gn_args = {
-        "builtin": gn_args.config(configs = ["try/linux-rel", "no_reclient"]),
-        "no_clang_modules": gn_args.config(configs = ["try/linux-rel", "no_reclient", "no_clang_modules"]),
+        "builtin": gn_args.config(configs = ["try/linux-rel"]),
+        "no_clang_modules": gn_args.config(configs = ["try/linux-rel", "no_clang_modules"]),
     },
     os = os.LINUX_DEFAULT,
     console_view_entry = consoles.console_view_entry(
@@ -229,14 +227,99 @@ cq_build_perf_builder(
         ),
     ),
     gn_args = {
-        "builtin": gn_args.config(configs = ["try/win-rel", "no_reclient"]),
-        "no_clang_modules": gn_args.config(configs = ["try/win-rel", "no_reclient", "no_clang_modules"]),
+        "builtin": gn_args.config(configs = ["try/win-rel"]),
+        "no_clang_modules": gn_args.config(configs = ["try/win-rel", "no_clang_modules"]),
     },
     os = os.WINDOWS_DEFAULT,
     console_view_entry = consoles.console_view_entry(
         category = "build perf|windows",
         short_name = "siso",
     ),
+    # Enabling local profiler hangs windows builders (http://b/476821630). So set cloud explicitly here.
+    siso_profile_mode = "cloud",
+)
+
+# Prototype builders for Chrome Build Service (b/571342297). These use the
+# same build configs as *-build-perf-siso, but run on the highest spec GCE
+# machines available, to measure how fast Chrome can be built.
+cq_build_perf_builder(
+    name = "linux-build-service",
+    description_html = "This is a prototype builder for Chrome Build Service (<a href=\"http://b/571342297\">b/571342297</a>). " +
+                       "It uses the same build configs as " + linkify_builder("build", "linux-build-perf-siso", "chromium") +
+                       ", but runs on the highest spec GCE machine available (c4d-standard-384-lssd), to measure how fast Chrome can be built.",
+    executable = "recipe:chrome_build/build_perf_siso",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "siso_latest",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            target_platform = builder_config.target_platform.LINUX,
+        ),
+    ),
+    gn_args = {
+        "builtin": gn_args.config(configs = ["try/linux-rel"]),
+        "no_clang_modules": gn_args.config(configs = ["try/linux-rel", "no_clang_modules"]),
+    },
+    # The bot runs the noble image, since the jammy kernel soft-locks up under
+    # siso's page-fault load on 384 vCPUs (http://b/574340805).
+    os = os.LINUX_NOBLE,
+    console_view_entry = consoles.console_view_entry(
+        category = "build perf|linux",
+        short_name = "svc",
+    ),
+    properties = {
+        # Only the baseline clean and incremental build times matter here.
+        "enable_missing_deps_check": False,
+    },
+    # On 384 vCPUs siso exhausts the Cloud Trace write quota within minutes,
+    # and the backed-up exporter then blocks every clog call behind its
+    # bundler mutex, which stalls the build (http://b/575633282).
+    siso_enable_cloud_trace = False,
+    siso_profile_mode = "local",
+)
+
+cq_build_perf_builder(
+    name = "win-build-service",
+    description_html = "This is a prototype builder for Chrome Build Service (<a href=\"http://b/571342297\">b/571342297</a>). " +
+                       "It uses the same build configs as " + linkify_builder("build", "win-build-perf-siso", "chromium") +
+                       ", but runs on the highest spec GCE machine available for Windows (c4d-standard-192-lssd, Windows 11), to measure how fast Chrome can be built.",
+    executable = "recipe:chrome_build/build_perf_siso",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "siso_latest",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            target_platform = builder_config.target_platform.WIN,
+        ),
+    ),
+    gn_args = {
+        "builtin": gn_args.config(configs = ["try/win-rel"]),
+        "no_clang_modules": gn_args.config(configs = ["try/win-rel", "no_clang_modules"]),
+    },
+    # The bot runs on Windows 11 (C4D VMs require UEFI images).
+    os = os.WINDOWS_11,
+    console_view_entry = consoles.console_view_entry(
+        category = "build perf|windows",
+        short_name = "svc",
+    ),
+    properties = {
+        # Only the baseline clean and incremental build times matter here.
+        "enable_missing_deps_check": False,
+    },
     # Enabling local profiler hangs windows builders (http://b/476821630). So set cloud explicitly here.
     siso_profile_mode = "cloud",
 )
@@ -262,8 +345,8 @@ ci_build_perf_builder(
         ),
     ),
     gn_args = {
-        "builtin": gn_args.config(configs = ["ci/Win x64 Builder", "no_reclient"]),
-        "no_clang_modules": gn_args.config(configs = ["ci/Win x64 Builder", "no_reclient", "no_clang_modules"]),
+        "builtin": gn_args.config(configs = ["ci/Win x64 Builder"]),
+        "no_clang_modules": gn_args.config(configs = ["ci/Win x64 Builder", "no_clang_modules"]),
     },
     os = os.WINDOWS_DEFAULT,
     console_view_entry = consoles.console_view_entry(
@@ -300,8 +383,8 @@ cq_build_perf_builder(
         ),
     ),
     gn_args = {
-        "builtin": gn_args.config(configs = ["try/linux-chromeos-rel", "no_reclient"]),
-        "no_clang_modules": gn_args.config(configs = ["try/linux-chromeos-rel", "no_reclient", "no_clang_modules"]),
+        "builtin": gn_args.config(configs = ["try/linux-chromeos-rel"]),
+        "no_clang_modules": gn_args.config(configs = ["try/linux-chromeos-rel", "no_clang_modules"]),
     },
     os = os.LINUX_DEFAULT,
     console_view_entry = consoles.console_view_entry(
@@ -334,8 +417,8 @@ cq_build_perf_builder(
         ),
     ),
     gn_args = {
-        "builtin": gn_args.config(configs = ["try/mac-rel", "no_reclient"]),
-        "no_clang_modules": gn_args.config(configs = ["try/mac-rel", "no_reclient", "no_clang_modules"]),
+        "builtin": gn_args.config(configs = ["try/mac-rel"]),
+        "no_clang_modules": gn_args.config(configs = ["try/mac-rel", "no_clang_modules"]),
     },
     os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
@@ -371,8 +454,8 @@ cq_build_perf_builder(
         ),
     ),
     gn_args = {
-        "builtin": gn_args.config(configs = ["try/ios-simulator", "no_reclient"]),
-        "no_clang_modules": gn_args.config(configs = ["try/ios-simulator", "no_reclient", "no_clang_modules"]),
+        "builtin": gn_args.config(configs = ["try/ios-simulator"]),
+        "no_clang_modules": gn_args.config(configs = ["try/ios-simulator", "no_clang_modules"]),
     },
     os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
@@ -385,14 +468,11 @@ cq_build_perf_builder(
     xcode = xcode.xcode_default,
 )
 
-def developer_build_perf_builder(description_html, reclient_jobs = None, **kwargs):
+def developer_build_perf_builder(description_html, **kwargs):
     props = {
-        "$build/reclient": {
-            "instance": siso.project.DEFAULT_UNTRUSTED,
-            "jobs": reclient_jobs,
-            "metrics_project": "chromium-reclient-metrics",
-            "scandeps_server": True,
-        },
+        # Run the extra missing-deps check build (crbug.com/346429448) on all
+        # platforms.
+        "enable_missing_deps_check": True,
     }
     return ci.builder(
         description_html = description_html + "<br>Build stats are shown in <a href=\"http://shortn/_wiYV1BraSr\">http://shortn/_wiYV1BraSr</a>." +
@@ -435,16 +515,14 @@ This builder measures build performance for Android developer builds, by simulat
         ),
     ),
     gn_args = {
-        "ninja": gn_args.config(configs = ["android_developer", "remoteexec", "no_siso", "reclient"]),
-        "siso_native": gn_args.config(configs = ["android_developer", "remoteexec", "no_reclient"]),
-        "siso_no_clang_modules": gn_args.config(configs = ["android_developer", "remoteexec", "no_reclient", "no_clang_modules"]),
+        "siso_native": gn_args.config(configs = ["android_developer", "remoteexec"]),
+        "siso_no_clang_modules": gn_args.config(configs = ["android_developer", "remoteexec", "no_clang_modules"]),
     },
     os = os.LINUX_DEFAULT,
     console_view_entry = consoles.console_view_entry(
         category = "build perf|android",
         short_name = "dev",
     ),
-    reclient_jobs = 5120,
     siso_profile_mode = "local",
     # Setting -1 makes siso use the default remote concurrency.
     siso_remote_jobs = -1,
@@ -471,16 +549,14 @@ This builder measures build performance for Linux developer builds, by simulatin
         ),
     ),
     gn_args = {
-        "ninja": gn_args.config(configs = ["developer", "remoteexec", "no_siso", "reclient", "linux", "x64"]),
-        "siso_native": gn_args.config(configs = ["developer", "remoteexec", "no_reclient", "linux", "x64"]),
-        "siso_no_clang_modules": gn_args.config(configs = ["developer", "remoteexec", "no_reclient", "linux", "x64", "no_clang_modules"]),
+        "siso_native": gn_args.config(configs = ["developer", "remoteexec", "linux", "x64"]),
+        "siso_no_clang_modules": gn_args.config(configs = ["developer", "remoteexec", "linux", "x64", "no_clang_modules"]),
     },
     os = os.LINUX_DEFAULT,
     console_view_entry = consoles.console_view_entry(
         category = "build perf|linux",
         short_name = "dev",
     ),
-    reclient_jobs = 5120,
     siso_profile_mode = "local",
     # Setting -1 makes siso use the default remote concurrency.
     siso_remote_jobs = -1,
@@ -507,8 +583,7 @@ This builder measures build performance for Windows developer builds, by simulat
         ),
     ),
     gn_args = {
-        "ninja": gn_args.config(configs = ["windows_developer", "remoteexec", "no_siso", "reclient"]),
-        "siso_native": gn_args.config(configs = ["windows_developer", "remoteexec", "no_reclient"]),
+        "siso_native": gn_args.config(configs = ["windows_developer", "remoteexec"]),
         # TODO(https://crbug.com/425537956): Add no clang modules build config after enabling clang modules on Windows.
     },
     os = os.WINDOWS_DEFAULT,
@@ -516,7 +591,6 @@ This builder measures build performance for Windows developer builds, by simulat
         category = "build perf|windows",
         short_name = "dev",
     ),
-    reclient_jobs = 1000,
     # Enabling local profiler hangs windows builders (http://b/476821630). So set cloud explicitly here.
     siso_profile_mode = "cloud",
     # Setting -1 makes siso use the default remote concurrency.
@@ -544,9 +618,8 @@ This builder measures build performance for Mac developer builds, by simulating 
         ),
     ),
     gn_args = {
-        "ninja": gn_args.config(configs = ["mac_developer", "remoteexec", "no_siso", "reclient"]),
-        "siso_native": gn_args.config(configs = ["mac_developer", "remoteexec", "no_reclient"]),
-        "siso_no_clang_modules": gn_args.config(configs = ["mac_developer", "remoteexec", "no_reclient", "no_clang_modules"]),
+        "siso_native": gn_args.config(configs = ["mac_developer", "remoteexec"]),
+        "siso_no_clang_modules": gn_args.config(configs = ["mac_developer", "remoteexec", "no_clang_modules"]),
     },
     os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
@@ -554,7 +627,6 @@ This builder measures build performance for Mac developer builds, by simulating 
         category = "build perf|mac",
         short_name = "dev",
     ),
-    reclient_jobs = 640,
     siso_configs = [],
     siso_profile_mode = "local",
     # Setting -1 makes siso use the default remote concurrency.
@@ -585,9 +657,8 @@ This builder measures build performance for iOS developer builds, by simulating 
         ),
     ),
     gn_args = {
-        "ninja": gn_args.config(configs = ["ios_developer", "remoteexec", "no_siso", "reclient", "arm64"]),
-        "siso_native": gn_args.config(configs = ["ios_developer", "remoteexec", "no_reclient", "arm64"]),
-        "siso_no_clang_modules": gn_args.config(configs = ["ios_developer", "remoteexec", "no_reclient", "arm64", "no_clang_modules"]),
+        "siso_native": gn_args.config(configs = ["ios_developer", "remoteexec", "arm64"]),
+        "siso_no_clang_modules": gn_args.config(configs = ["ios_developer", "remoteexec", "arm64", "no_clang_modules"]),
     },
     os = os.MAC_DEFAULT,
     cpu = cpu.ARM64,
@@ -595,7 +666,6 @@ This builder measures build performance for iOS developer builds, by simulating 
         category = "build perf|ios",
         short_name = "dev",
     ),
-    reclient_jobs = 640,
     siso_configs = [],
     siso_profile_mode = "local",
     # Setting -1 makes siso use the default remote concurrency.
@@ -650,6 +720,9 @@ def cq_rbe_test_builder(**kwargs):
         builderless = True,
         execution_timeout = 10 * time.hour,
         priority = ci_constants.DEFAULT_FYI_PRIORITY,
+        # Keep running the extra missing-deps check build (crbug.com/346429448)
+        # like the build-perf builders do.
+        properties = {"enable_missing_deps_check": True},
         siso_configs = ["builder"],
         siso_project = siso.project.TEST_UNTRUSTED,
         siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,

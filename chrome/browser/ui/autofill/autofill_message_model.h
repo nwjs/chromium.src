@@ -48,6 +48,11 @@ class AutofillMessageModel {
     // interacts with a credit card form. Prompts them to re-enable payment
     // autofill ("resurrecting" them) when they accept the message.
     kResurrectChurnedUsers = 8,
+    // Used when Email Verification Protocol (EVP) verification fails.
+    kEmailVerificationError = 9,
+    // Used while verifying an email on subsequent Email Verification Protocol
+    // (EVP) runs.
+    kEmailVerificationLoading = 10,
   };
 
   AutofillMessageModel(std::unique_ptr<messages::MessageWrapper> message,
@@ -74,9 +79,14 @@ class AutofillMessageModel {
       base::OnceClosure action_callback,
       messages::MessageWrapper::DismissCallback dismiss_callback,
       base::RepeatingClosure secondary_action_callback);
+  static std::unique_ptr<AutofillMessageModel>
+  CreateForEmailVerificationLoading(
+      messages::MessageWrapper::DismissCallback dismiss_callback);
   static std::unique_ptr<AutofillMessageModel> CreateForEmailVerified(
       const GURL& issuer,
       base::OnceClosure action_callback);
+  static std::unique_ptr<AutofillMessageModel>
+  CreateForEmailVerificationError();
   static std::unique_ptr<AutofillMessageModel> CreateForResurrectChurnedUsers(
       base::OnceClosure action_callback,
       messages::MessageWrapper::DismissCallback dismiss_callback);

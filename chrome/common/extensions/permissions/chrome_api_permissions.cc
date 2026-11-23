@@ -89,9 +89,6 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
     {APIPermissionID::kEnterpriseWebrtc, "enterprise.webrtc",
      APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
     {APIPermissionID::kFavicon, "favicon"},
-    {APIPermissionID::kFileBrowserHandler, "fileBrowserHandler",
-     APIPermissionInfo::kFlagCannotBeOptional |
-         APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
     {APIPermissionID::kFontSettings, "fontSettings",
      APIPermissionInfo::kFlagCannotBeOptional |
          APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
@@ -130,9 +127,6 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
     {APIPermissionID::kTts, "tts", APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kTtsEngine, "ttsEngine",
      APIPermissionInfo::kFlagCannotBeOptional},
-    {APIPermissionID::kWallpaper, "wallpaper",
-     APIPermissionInfo::kFlagCannotBeOptional |
-         APIPermissionInfo::kFlagDoesNotRequireManagedSessionFullLoginWarning},
     {APIPermissionID::kWebAuthenticationProxy, "webAuthenticationProxy",
      APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kWebNavigation, "webNavigation",
@@ -154,8 +148,6 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
     {APIPermissionID::kDeveloperPrivate, "developerPrivate",
      APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kDictationPrivate, "dictationPrivate",
-     APIPermissionInfo::kFlagCannotBeOptional},
-    {APIPermissionID::kEchoPrivate, "echoPrivate",
      APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kEnterprisePlatformKeysPrivate,
      "enterprise.platformKeysPrivate",
@@ -179,7 +171,6 @@ constexpr APIPermissionInfo::InitInfo permissions_to_register[] = {
     {APIPermissionID::kSafeBrowsingPrivate, "safeBrowsingPrivate"},
     {APIPermissionID::kSettingsPrivate, "settingsPrivate",
      APIPermissionInfo::kFlagCannotBeOptional},
-    {APIPermissionID::kSmartCardProviderPrivate, "smartCardProviderPrivate"},
     {APIPermissionID::kSystemPrivate, "systemPrivate",
      APIPermissionInfo::kFlagCannotBeOptional},
     {APIPermissionID::kTerminalPrivate, "terminalPrivate",

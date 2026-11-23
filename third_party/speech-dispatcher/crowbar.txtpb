@@ -1,0 +1,22 @@
+upstream {
+  version: "0.12.1"
+  artifacts {
+    git {
+      repository: "https://github.com/brailcom/speechd"
+      commit: "6781ff1709eca1c3d7f748e5361a6aa157dd5f18"
+    }
+  }
+}
+stages {
+  input {
+    patch { copybara {} }
+  }
+  publish { git {} }
+}
+latest {
+  semver {}
+  git {
+    repository: "https://github.com/brailcom/speechd"
+    tags {}
+  }
+}

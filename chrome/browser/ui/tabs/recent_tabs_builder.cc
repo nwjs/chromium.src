@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/feature_list.h"
 #include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -32,6 +33,7 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/history/core/common/pref_names.h"
 #include "components/prefs/pref_service.h"
@@ -102,7 +104,8 @@ RecentTabItem BuildTabItem(const sessions::tab_restore::Tab& tab,
   item.set_icon(favicon::GetDefaultFaviconModel());
   item.set_is_local(true);
 
-  if (show_group_minor_icon && tab.group_visual_data.has_value()) {
+  if (show_group_minor_icon && tab.group_visual_data.has_value() &&
+      !tab.is_group_ephemeral) {
     const ui::ColorId color_id =
         GetTabGroupContextMenuColorId(tab.group_visual_data.value().color());
     constexpr int kIconSize = 12;
@@ -403,6 +406,19 @@ std::vector<RecentTabItem> RecentTabsBuilder::BuildHistoryEntries(
           ui::kColorMenuIcon, gfx::kFaviconSize));
       items.push_back(std::move(history_side_panel));
     }
+
+    if (TabsFromOtherDevicesSidePanelCoordinator::IsSupported(profile)) {
+      RecentTabItem other_devices(
+          RecentTabItem::Type::kCommand,
+          l10n_util::GetStringUTF16(
+              IDS_SIDE_PANEL_SHOW_TABS_FROM_OTHER_DEVICES));
+      other_devices.set_action_id(kActionSidePanelShowTabsFromOtherDevices);
+      other_devices.set_icon(ui::ImageModel::FromVectorIcon(
+          features::IsRoundedIconsEnabled() ? kDevicesIcon
+                                            : kDevicesChromeRefreshOldIcon,
+          ui::kColorMenuIcon, gfx::kFaviconSize));
+      items.push_back(std::move(other_devices));
+    }
   }
 
   return items;
@@ -468,7 +484,10 @@ std::vector<RecentTabItem> RecentTabsBuilder::BuildLocalEntries(
 std::vector<RecentTabItem> RecentTabsBuilder::BuildRemoteEntries(
     Profile* profile) {
   std::vector<RecentTabItem> items;
-  if (!profile ||
+  // With kCrossDeviceTabsInAppMenu, tabs from other devices are listed in a
+  // dedicated app menu entry instead of the History submenu.
+  if (base::FeatureList::IsEnabled(syncer::kCrossDeviceTabsInAppMenu) ||
+      !profile ||
       !remote_tabs_menu_util::ShouldShowTabsFromOtherDevices(profile)) {
     return items;
   }

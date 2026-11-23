@@ -75,7 +75,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.AppBoundProvider.Encrypt.ResultCode" enum="Hresult"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -88,7 +88,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.AppBoundProvider.Encrypt.ResultLastError"
-    enum="WinGetLastError" expires_after="2026-12-16">
+    enum="WinGetLastError" expires_after="2027-04-18">
   <owner>wfh@chromium.org</owner>
   <owner>nparker@chromium.org</owner>
   <summary>
@@ -146,7 +146,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.EncryptorKeyCount{EncryptorKeyType}" units="key count"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>wfh@chromium.org</owner>
   <owner>chrome-platform-security-core@google.com</owner>
   <summary>
@@ -172,7 +172,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.Mac.FindGenericPasswordError"
-    enum="MacSecurityFrameworkOSStatus" expires_after="2027-02-14">
+    enum="MacSecurityFrameworkOSStatus" expires_after="2027-04-18">
   <owner>avi@chromium.org</owner>
   <owner>lgrey@chromium.org</owner>
   <owner>markrowe@chromium.org</owner>
@@ -190,7 +190,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OSCrypt.Mac.FindGenericPasswordResult"
-    enum="FindGenericPasswordResult" expires_after="2027-02-14">
+    enum="FindGenericPasswordResult" expires_after="2027-04-18">
   <owner>avi@chromium.org</owner>
   <owner>lgrey@chromium.org</owner>
   <owner>markrowe@chromium.org</owner>
@@ -332,13 +332,16 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.GwpAsan.Activated.{Allocator}.{Process}"
-    enum="Boolean" expires_after="2026-08-23">
+    enum="Boolean" expires_after="2027-10-19">
   <owner>mpdenton@chromium.org</owner>
   <owner>kdlee@chromium.org</owner>
   <owner>memory-safety-dev@chromium.org</owner>
   <summary>
     Reports the activation state of {Allocator} GWP-ASan for {Process}. Reported
     once when the memory system initializes.
+
+    Warning: this histogram was expired from 2026-08-23 to 2026-10-19; data may
+    be missing.
   </summary>
   <token key="Allocator">
     <variant name="Malloc"/>
@@ -355,7 +358,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.GwpAsan.AllocatorOom.{Allocator}.{Process}"
-    units="allocations" expires_after="2026-06-21">
+    units="allocations" expires_after="2027-10-19">
   <owner>mpdenton@chromium.org</owner>
   <owner>kdlee@chromium.org</owner>
   <owner>memory-safety-dev@chromium.org</owner>
@@ -363,6 +366,9 @@ chromium-metrics-reviews@google.com.
     Reports how many allocations it took for {Allocator} GWP-ASan in {Process}
     to hit OOM. Reported once when GWP-ASan fails to allocate
     `GuardedPageAllocator::kOutOfMemoryCount` times in a row.
+
+    Warning: this histogram was expired from 2026-06-21 to 2026-10-19; data may
+    be missing.
   </summary>
   <token key="Allocator">
     <variant name="Malloc"/>
@@ -379,7 +385,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.GwpAsan.CrashAnalysisResult.{Allocator}"
-    enum="GwpAsanCrashAnalysisResult" expires_after="2026-05-04">
+    enum="GwpAsanCrashAnalysisResult" expires_after="2027-10-19">
   <owner>glazunov@google.com</owner>
   <owner>mpdenton@chromium.org</owner>
   <owner>chrome-memory-tok@google.com</owner>
@@ -387,6 +393,9 @@ chromium-metrics-reviews@google.com.
     Reports the GWP-ASan crash analysis result. That can either be a
     determination that the crash was related to GWP-ASan, not related to
     GWP-ASan, or an error making that determination. Recorded with every crash.
+
+    Warning: this histogram was expired from 2026-05-04 to 2026-10-19; data may
+    be missing.
   </summary>
   <token key="Allocator">
     <variant name="Malloc"/>
@@ -634,7 +643,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.MerchantTrustEngagement.{Event}"
-    units="EngagementScore" expires_after="2027-02-14">
+    units="EngagementScore" expires_after="2027-04-18">
   <owner>tommasin@chromium.org</owner>
   <owner>privacy-on-the-web@google.com</owner>
   <summary>
@@ -649,7 +658,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PageInfo.MerchantTrustInteraction.{SiteFamiliarity}"
-    enum="MerchantTrustInteraction" expires_after="2027-02-14">
+    enum="MerchantTrustInteraction" expires_after="2027-04-18">
   <owner>tommasin@chromium.org</owner>
   <owner>privacy-on-the-web@google.com</owner>
   <summary>
@@ -1273,7 +1282,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.MissedReuseOpportunity.Found.MainFrame"
-    enum="Boolean" expires_after="2027-01-24">
+    enum="Boolean" expires_after="2027-04-11">
   <owner>aattar@google.com</owner>
   <owner>olivierli@chromium.org</owner>
   <summary>
@@ -1297,7 +1306,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.OutOfProcessIframes" units="oopifs"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>

@@ -15,7 +15,6 @@
 #include "base/json/json_reader.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
-#include "chrome/browser/net/system_network_context_manager.h"
 #include "chromeos/ash/components/login/auth/recovery/service_constants.h"
 #include "google_apis/credentials_mode.h"
 #include "google_apis/google_api_keys.h"
@@ -116,7 +115,7 @@ void GaiaReauthTokenFetcher::OnSimpleLoaderComplete(
   }
 
   // TODO(b/200782732): Add metrics to record error code.
-  if (response_code == net::HTTP_OK) {
+  if (response_code == net::HTTP_OK && response_body.has_value()) {
     auto message_value = base::JSONReader::Read(
         *response_body, base::JSON_PARSE_CHROMIUM_EXTENSIONS);
     if (message_value && message_value->is_dict()) {

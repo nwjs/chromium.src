@@ -5,29 +5,21 @@
 #ifndef IOS_CHROME_BROWSER_SHARING_MESSAGE_MODEL_IOS_SHARING_MESSAGE_BRIDGE_FACTORY_H_
 #define IOS_CHROME_BROWSER_SHARING_MESSAGE_MODEL_IOS_SHARING_MESSAGE_BRIDGE_FACTORY_H_
 
-#import "base/no_destructor.h"
 #import "components/sharing_message/sharing_message_bridge.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class SharingMessageBridge;
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all SharingMessageBridge and associates them with
 // Profile.
-class IOSSharingMessageBridgeFactory : public ProfileKeyedServiceFactoryIOS {
+class IOSSharingMessageBridgeFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<IOSSharingMessageBridgeFactory,
+                                                SharingMessageBridge> {
  public:
-  static SharingMessageBridge* GetForProfile(ProfileIOS* profile);
-  static SharingMessageBridge* GetForProfileIfExists(ProfileIOS* profile);
-  static IOSSharingMessageBridgeFactory* GetInstance();
+  explicit IOSSharingMessageBridgeFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<IOSSharingMessageBridgeFactory>;
-
-  IOSSharingMessageBridgeFactory();
-  ~IOSSharingMessageBridgeFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_SHARING_MESSAGE_MODEL_IOS_SHARING_MESSAGE_BRIDGE_FACTORY_H_

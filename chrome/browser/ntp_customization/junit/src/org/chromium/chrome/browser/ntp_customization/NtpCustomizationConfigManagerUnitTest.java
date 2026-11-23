@@ -55,6 +55,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -65,6 +66,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager.HomepageStateListener;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils.NtpBackgroundType;
+import org.chromium.chrome.browser.ntp_customization.theme.NtpSyncedThemeManager;
 import org.chromium.chrome.browser.ntp_customization.theme.NtpThemeStateProvider;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorFromHexInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo;
@@ -96,6 +98,7 @@ public class NtpCustomizationConfigManagerUnitTest {
     @Mock private NtpThemeDailyRefreshManager mNtpThemeDailyRefreshManager;
     @Mock private NtpBackgroundDataManager mNtpBackgroundDataManager;
     @Mock private NtpThemeStateProvider mNtpThemeStateProvider;
+    @Mock private NtpSyncedThemeManager mNtpSyncedThemeManager;
     @Captor private ArgumentCaptor<Bitmap> mBitmapCaptor;
     @Captor private ArgumentCaptor<BackgroundImageInfo> mBackgroundImageInfoCaptor;
     @Captor private ArgumentCaptor<Callback<Bitmap>> mBitmapCallbackCaptor;
@@ -120,6 +123,7 @@ public class NtpCustomizationConfigManagerUnitTest {
                         R.style.Theme_BrowserUI_DayNight);
         NtpThemeDailyRefreshManager.setInstanceForTesting(mNtpThemeDailyRefreshManager);
         NtpThemeStateProvider.setInstanceForTesting(mNtpThemeStateProvider);
+        NtpSyncedThemeManager.setInstanceForTesting(mNtpSyncedThemeManager);
         ThreadUtils.runOnUiThreadBlocking(
                 () -> mNtpCustomizationConfigManager = new NtpCustomizationConfigManager());
         mNtpCustomizationConfigManager.setNtpBackgroundDataManagerForTesting(
@@ -369,11 +373,13 @@ public class NtpCustomizationConfigManagerUnitTest {
                 NtpBackgroundType.COLOR_FROM_HEX);
         mNtpCustomizationConfigManager.setIsInitializedForTesting(false);
         NtpCustomizationUtils.removeCustomizedPrimaryColorFromSharedPreference();
+        clearInvocations(mNtpThemeDailyRefreshManager);
         mNtpCustomizationConfigManager.addListener(mListener, mContext, /* skipNotify= */ false);
         assertEquals(NtpBackgroundType.DEFAULT, mNtpCustomizationConfigManager.getBackgroundType());
         verify(mListener, never())
                 .onBackgroundColorChanged(any(), anyInt(), anyBoolean(), anyInt(), anyInt());
         verify(mListener).onBackgroundReset(NtpBackgroundType.COLOR_FROM_HEX);
+        verify(mNtpThemeDailyRefreshManager).discardPendingDailyRefresh();
         mNtpCustomizationConfigManager.removeListener(mListener);
         clearInvocations(mListener);
 
@@ -976,6 +982,29 @@ public class NtpCustomizationConfigManagerUnitTest {
         assertEquals(customBackgroundInfo, configManager.getCustomBackgroundInfo());
     }
 
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+    public void testInitialization_withThemeCollection_noCustomBackgroundInfo() {
+        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(
+                NtpBackgroundType.THEME_COLLECTION);
+        NtpCustomizationUtils.setCustomizedPrimaryColorToSharedPreference(Color.RED);
+        // mNtpThemeDailyRefreshManager returns a null CustomBackgroundInfo by default, e.g., when
+        // the persisted info is missing or invalid.
+
+        NtpCustomizationConfigManager configManager =
+                ThreadUtils.runOnUiThreadBlocking(NtpCustomizationConfigManager::new);
+
+        // Verify that it falls back to the default background instead of crashing.
+        assertEquals(NtpBackgroundType.DEFAULT, configManager.getBackgroundType());
+        assertNull(configManager.getNtpBackgroundData());
+        assertNull(configManager.getCustomBackgroundInfo());
+        verify(mNtpThemeDailyRefreshManager, never())
+                .readNtpBackgroundImageForThemeCollection(any(), any(), any());
+        assertPrefsRemoved(NTP_CUSTOMIZATION_BACKGROUND_TYPE, NTP_CUSTOMIZATION_PRIMARY_COLOR);
+        assertPersistedBackgroundType(NtpBackgroundType.DEFAULT);
+        verify(mNtpThemeStateProvider, never()).notifyCustomBackgroundChanged();
+    }
+
     private void testOnBackgroundImageLoadedFromDiskImpl(
             @Nullable Bitmap bitmap,
             @Nullable BackgroundImageInfo imageInfo,
@@ -1156,25 +1185,6 @@ public class NtpCustomizationConfigManagerUnitTest {
         verify(mNtpThemeStateProvider).notifyApplyThemeChanges();
         verify(mNtpBackgroundDataManager)
                 .saveUserSelectedBackgroundTypeToSharedPreference(syncedData);
-    }
-
-    @Test
-    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
-    public void testMaybeApplyBackgroundUpdateFromDeviceSync_sameThemeAndColor_doesNotReapply() {
-        NtpCustomizationConfigManager manager = createConfigManagerWithListener();
-        CustomBackgroundInfo info = createTestCustomBackgroundInfo();
-        manager.onBackgroundDataChanged(
-                mContext, createTestThemeCollectionDataWithColor(info, Color.RED));
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        // Sync delivers the theme that is already applied.
-        manager.onSyncedThemeCollectionImageChanged(
-                mContext, createTestThemeCollectionDataWithColor(info, Color.RED));
-        RobolectricUtil.runAllBackgroundAndUi();
-
-        manager.maybeApplyBackgroundUpdateFromDeviceSync(mContext);
-
-        verify(mNtpThemeStateProvider, never()).notifyApplyThemeChanges();
     }
 
     @Test
@@ -1360,6 +1370,180 @@ public class NtpCustomizationConfigManagerUnitTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void testOnSyncedThemeCollectionImageChanged_sameTheme_isIgnored() {
+        NtpCustomizationConfigManager manager = createConfigManagerWithListener();
+        CustomBackgroundInfo info = createTestCustomBackgroundInfo();
+        NtpBackgroundDataThemeCollection themeCollectionData =
+                createTestThemeCollectionDataWithColor(info, Color.RED);
+        manager.onBackgroundDataChanged(mContext, themeCollectionData);
+        RobolectricUtil.runAllBackgroundAndUi();
+        String filePath = NtpCustomizationUtils.getBackgroundImageFilePathFromSharedPreference();
+        assertNotNull(filePath);
+        clearInvocations(mNtpThemeDailyRefreshManager);
+
+        manager.onSyncedThemeCollectionImageChanged(
+                mContext, createTestThemeCollectionDataWithColor(info, Color.RED));
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        assertNull(manager.getSyncedNtpBackgroundData());
+        assertPersistedBackgroundType(NtpBackgroundType.THEME_COLLECTION);
+        assertEquals(
+                filePath, NtpCustomizationUtils.getBackgroundImageFilePathFromSharedPreference());
+        verify(mNtpBackgroundDataManager, never()).maybeCleanUpUnusedSyncedImageData(any());
+        verify(mNtpThemeDailyRefreshManager, never()).discardPendingDailyRefresh();
+
+        // A synced reset to default clears SharedPreferences while the in-memory background is
+        // still THEME_COLLECTION. The same theme synced again in that window is staged normally.
+        manager.onSyncedDefaultThemeReset(mContext);
+        manager.onSyncedThemeCollectionImageChanged(mContext, themeCollectionData);
+        RobolectricUtil.runAllBackgroundAndUi();
+        assertEquals(themeCollectionData, manager.getSyncedNtpBackgroundData());
+        assertPersistedBackgroundType(NtpBackgroundType.THEME_COLLECTION);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void testOnSyncedDefaultThemeReset_alreadyDefault_isIgnored() {
+        NtpCustomizationConfigManager manager = createConfigManagerWithListener();
+        assertEquals(NtpBackgroundType.DEFAULT, manager.getBackgroundType());
+        assertPersistedBackgroundType(NtpBackgroundType.DEFAULT);
+        // A sentinel which the SharedPreferences wipe of a real reset would remove.
+        ChromeSharedPreferences.getInstance().writeInt(NTP_CUSTOMIZATION_BACKGROUND_COLOR, 1);
+
+        manager.onSyncedDefaultThemeReset(mContext);
+
+        assertNull(manager.getSyncedNtpBackgroundData());
+        assertPersistedBackgroundType(NtpBackgroundType.DEFAULT);
+        assertTrue(
+                ChromeSharedPreferences.getInstance().contains(NTP_CUSTOMIZATION_BACKGROUND_COLOR));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void testOnSyncedChromeColorChanged_beforeInitialized_recreatesActivityWhenNtpShown() {
+        // A Chrome color is persisted, but not initialized yet, e.g. on a tablet before the NTP is
+        // shown. The Activity's dynamic colors were computed from SharedPreferences.
+        NtpCustomizationConfigManager manager = createUninitializedManagerWithChromeColor();
+        NtpBackgroundDataColor greenColorData =
+                new NtpBackgroundDataColor(
+                        PlatformType.ANDROID,
+                        /* isChromeColorDailyRefreshEnabled= */ false,
+                        NtpThemeColorUtils.createNtpThemeColorInfo(
+                                mContext, NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_GREEN));
+
+        // The synced color only replaces SharedPreferences; nothing is initialized.
+        // NtpSyncedThemeManager passes the unthemed application context; using it here matches the
+        // real caller and helps catch if the sync path resolves theme-dependent colors early.
+        manager.onSyncedChromeColorChanged(ContextUtils.getApplicationContext(), greenColorData);
+
+        assertNull(manager.getNtpBackgroundData());
+        assertEquals(greenColorData, manager.getSyncedNtpBackgroundData());
+        assertEquals(
+                NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_GREEN,
+                NtpCustomizationUtils.getNtpThemeColorIdFromSharedPreference());
+
+        // Showing the NTP initializes the color theme from the replaced SharedPreferences, so it
+        // can't tell that the Activity is stale by comparing them. The Activity is recreated
+        // because a synced theme replaced the persisted one.
+        when(mNtpThemeDailyRefreshManager.getNtpThemeColorIdForChromeColorTheme())
+                .thenReturn(NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_GREEN);
+        manager.addListener(mListener, mContext, /* skipNotify= */ false);
+        manager.maybeApplyBackgroundUpdateFromDeviceSync(mContext);
+
+        assertEquals(greenColorData, manager.getNtpBackgroundData());
+        assertNull(manager.getSyncedNtpBackgroundData());
+        verify(mNtpThemeStateProvider).notifyApplyThemeChanges();
+
+        // Showing the NTP again doesn't recreate the Activity again.
+        clearInvocations(mNtpThemeStateProvider);
+        manager.maybeApplyBackgroundUpdateFromDeviceSync(mContext);
+        verify(mNtpThemeStateProvider, never()).notifyApplyThemeChanges();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void testOnSyncedChromeColorChanged_sameColorBeforeInitialized_isIgnored() {
+        // The persisted Chrome color is replayed on startup before it is initialized. It is
+        // compared with SharedPreferences, so nothing is replaced and the Activity isn't recreated.
+        NtpCustomizationConfigManager manager = createUninitializedManagerWithChromeColor();
+
+        manager.onSyncedChromeColorChanged(
+                ContextUtils.getApplicationContext(), createTestColorData());
+
+        assertNull(manager.getNtpBackgroundData());
+        assertNull(manager.getSyncedNtpBackgroundData());
+        assertPersistedBackgroundType(NtpBackgroundType.CHROME_COLOR);
+        assertEquals(
+                NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_BLUE,
+                NtpCustomizationUtils.getNtpThemeColorIdFromSharedPreference());
+
+        manager.addListener(mListener, mContext, /* skipNotify= */ false);
+        manager.maybeApplyBackgroundUpdateFromDeviceSync(mContext);
+
+        assertEquals(createTestColorData(), manager.getNtpBackgroundData());
+        verify(mNtpThemeStateProvider, never()).notifyApplyThemeChanges();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void
+            testOnSyncedDefaultThemeReset_beforeHexColorInitialized_recreatesActivityWhenNtpShown() {
+        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(
+                NtpBackgroundType.COLOR_FROM_HEX);
+        NtpCustomizationUtils.saveThemeColorFromHexInfoToSharedPreference(
+                createTestHexColorData().getNtpThemeColorFromHexInfo());
+        NtpCustomizationConfigManager manager = createUninitializedManager();
+
+        manager.onSyncedDefaultThemeReset(ContextUtils.getApplicationContext());
+
+        assertNull(manager.getNtpBackgroundData());
+        assertPersistedBackgroundType(NtpBackgroundType.DEFAULT);
+
+        // Showing the NTP fails to initialize the hex color whose colors are gone and resets the
+        // in-memory type to DEFAULT, then recreates the Activity for the synced reset.
+        manager.addListener(mListener, mContext, /* skipNotify= */ false);
+        manager.maybeApplyBackgroundUpdateFromDeviceSync(mContext);
+
+        assertEquals(NtpBackgroundType.DEFAULT, manager.getBackgroundType());
+        assertNull(manager.getNtpBackgroundData());
+        verify(mNtpThemeStateProvider).notifyApplyThemeChanges();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void testSyncedBackground_discardsPendingDailyRefresh() {
+        NtpCustomizationConfigManager manager = createConfigManagerWithListener();
+
+        manager.onSyncedChromeColorChanged(mContext, createTestColorData());
+        verify(mNtpThemeDailyRefreshManager).discardPendingDailyRefresh();
+        clearInvocations(mNtpThemeDailyRefreshManager);
+
+        manager.onSyncedThemeCollectionImageChanged(
+                mContext, createTestThemeCollectionData(createTestCustomBackgroundInfo()));
+        RobolectricUtil.runAllBackgroundAndUi();
+        verify(mNtpThemeDailyRefreshManager).discardPendingDailyRefresh();
+        clearInvocations(mNtpThemeDailyRefreshManager);
+
+        manager.onSyncedDefaultThemeReset(mContext);
+        verify(mNtpThemeDailyRefreshManager).discardPendingDailyRefresh();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void testOnBackgroundDataChanged_discardsPendingDailyRefresh() {
+        NtpCustomizationConfigManager manager = createConfigManagerWithListener();
+        clearInvocations(mNtpThemeDailyRefreshManager);
+
+        // A local selection replaces the persisted background, so a daily refresh computed from
+        // the previous background must not be saved over it.
+        manager.onBackgroundDataChanged(mContext, createTestColorData());
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        verify(mNtpThemeDailyRefreshManager).discardPendingDailyRefresh();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
     public void testThemeCollectionToUploadImage_clearsThemeCollectionAndDailyRefreshData() {
         NtpCustomizationConfigManager manager = createConfigManagerWithListener();
         manager.onBackgroundDataChanged(
@@ -1495,14 +1679,12 @@ public class NtpCustomizationConfigManagerUnitTest {
             NtpBackgroundDataImageBase imageData) {
         NtpCustomizationConfigManager manager = createConfigManagerWithListener();
         manager.onBackgroundDataChanged(mContext, createTestColorData());
-        NtpCustomizationConfigManager.ThemeSyncObserver observer =
-                mock(NtpCustomizationConfigManager.ThemeSyncObserver.class);
-        manager.addThemeSyncObserver(observer);
+        clearInvocations(mNtpSyncedThemeManager);
 
         manager.onBackgroundDataChanged(mContext, imageData);
 
         // Verifies that it resets to the default background, both locally and for the
-        // ThemeSyncObservers.
+        // NtpSyncedThemeManager.
         assertEquals(NtpBackgroundType.DEFAULT, manager.getBackgroundType());
         assertNull(manager.getNtpBackgroundData());
         assertPersistedBackgroundType(NtpBackgroundType.DEFAULT);
@@ -1511,15 +1693,12 @@ public class NtpCustomizationConfigManagerUnitTest {
                 NTP_CUSTOMIZATION_BACKGROUND_IMAGE_FILE_PATH,
                 NTP_CUSTOMIZATION_PRIMARY_COLOR);
         verify(mListener).onBackgroundReset(eq(NtpBackgroundType.CHROME_COLOR));
-        verify(observer).onThemeCommitted(null);
+        verify(mNtpSyncedThemeManager).onThemeCommitted(null);
     }
 
     @Test
-    public void testThemeSyncObserver_defaultChromeColor_notifiesNull() {
+    public void testOnBackgroundDataChanged_defaultChromeColor_commitsNull() {
         NtpCustomizationConfigManager manager = createConfigManagerWithListener();
-        NtpCustomizationConfigManager.ThemeSyncObserver observer =
-                mock(NtpCustomizationConfigManager.ThemeSyncObserver.class);
-        manager.addThemeSyncObserver(observer);
 
         manager.onBackgroundDataChanged(
                 mContext,
@@ -1530,7 +1709,7 @@ public class NtpCustomizationConfigManagerUnitTest {
                                 mContext, NtpThemeColorInfo.NtpThemeColorId.DEFAULT)));
 
         assertEquals(NtpBackgroundType.DEFAULT, manager.getBackgroundType());
-        verify(observer).onThemeCommitted(null);
+        verify(mNtpSyncedThemeManager).onThemeCommitted(null);
     }
 
     @Test
@@ -1746,36 +1925,30 @@ public class NtpCustomizationConfigManagerUnitTest {
     }
 
     @Test
-    public void testMaybeApplyBackgroundUpdateFromDeviceSync_defaultMismatch() {
+    @EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_THEME_SYNC)
+    public void testMaybeApplyBackgroundUpdateFromDeviceSync_syncedDefaultReset() {
         NtpCustomizationConfigManager manager = createConfigManagerWithListener();
-        int colorId = NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_BLUE;
-        NtpThemeColorInfo colorInfo = NtpThemeColorUtils.createNtpThemeColorInfo(mContext, colorId);
-        NtpBackgroundDataColor colorData =
-                new NtpBackgroundDataColor(
-                        PlatformType.ANDROID,
-                        /* isChromeColorDailyRefreshEnabled= */ false,
-                        colorInfo);
-        manager.onBackgroundDataChanged(mContext, colorData);
+        manager.onBackgroundDataChanged(mContext, createTestColorData());
         RobolectricUtil.runAllBackgroundAndUi();
         assertEquals(NtpBackgroundType.CHROME_COLOR, manager.getBackgroundType());
 
-        // Now simulate SharedPreference being reset to DEFAULT (e.g. from background sync)
-        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(NtpBackgroundType.DEFAULT);
+        manager.onSyncedDefaultThemeReset(mContext);
+        assertPersistedBackgroundType(NtpBackgroundType.DEFAULT);
+        // The active in-memory state isn't changed until the NTP is shown.
+        assertEquals(NtpBackgroundType.CHROME_COLOR, manager.getBackgroundType());
 
         manager.maybeApplyBackgroundUpdateFromDeviceSync(mContext);
         RobolectricUtil.runAllBackgroundAndUi();
 
         assertEquals(NtpBackgroundType.DEFAULT, manager.getBackgroundType());
+        verify(mNtpThemeStateProvider).notifyApplyThemeChanges();
     }
 
     @Test
-    public void testThemeSyncObserver_localAndSyncCommit() {
+    public void testOnBackgroundDataChanged_commitsToSyncedThemeManager() {
         NtpCustomizationConfigManager manager =
                 ThreadUtils.runOnUiThreadBlocking(NtpCustomizationConfigManager::new);
         manager.setNtpBackgroundDataManagerForTesting(mNtpBackgroundDataManager);
-        NtpCustomizationConfigManager.ThemeSyncObserver observer =
-                mock(NtpCustomizationConfigManager.ThemeSyncObserver.class);
-        manager.addThemeSyncObserver(observer);
 
         int colorInfoId = NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_BLUE;
         NtpThemeColorInfo colorInfo =
@@ -1786,22 +1959,15 @@ public class NtpCustomizationConfigManagerUnitTest {
                         /* isChromeColorDailyRefreshEnabled= */ false,
                         colorInfo);
         manager.onBackgroundDataChanged(
-                mContext, colorData, /* shouldNotifyThemeSyncObserver= */ true);
+                mContext, colorData, /* shouldNotifySyncedThemeManager= */ true);
         RobolectricUtil.runAllBackgroundAndUi();
-        verify(observer).onThemeCommitted(eq(colorData));
+        verify(mNtpSyncedThemeManager).onThemeCommitted(eq(colorData));
 
-        clearInvocations(observer);
+        clearInvocations(mNtpSyncedThemeManager);
         manager.onBackgroundDataChanged(
-                mContext, /* backgroundData= */ null, /* shouldNotifyThemeSyncObserver= */ false);
+                mContext, /* backgroundData= */ null, /* shouldNotifySyncedThemeManager= */ false);
         RobolectricUtil.runAllBackgroundAndUi();
-        verify(observer, never()).onThemeCommitted(any());
-
-        clearInvocations(observer);
-        manager.removeThemeSyncObserver(observer);
-        manager.onBackgroundDataChanged(
-                mContext, colorData, /* shouldNotifyThemeSyncObserver= */ true);
-        RobolectricUtil.runAllBackgroundAndUi();
-        verify(observer, never()).onThemeCommitted(any());
+        verify(mNtpSyncedThemeManager, never()).onThemeCommitted(any());
     }
 
     private NtpCustomizationConfigManager createConfigManagerWithListener() {
@@ -1811,6 +1977,26 @@ public class NtpCustomizationConfigManagerUnitTest {
         manager.addListener(mListener, mContext, /* skipNotify= */ false);
         RobolectricUtil.runAllBackgroundAndUi();
         return manager;
+    }
+
+    /** Creates a manager from the current SharedPreferences, without initializing it. */
+    private NtpCustomizationConfigManager createUninitializedManager() {
+        NtpCustomizationConfigManager manager =
+                ThreadUtils.runOnUiThreadBlocking(NtpCustomizationConfigManager::new);
+        manager.setNtpBackgroundDataManagerForTesting(mNtpBackgroundDataManager);
+        assertNull(manager.getNtpBackgroundData());
+        return manager;
+    }
+
+    /** Persists a blue Chrome color and creates a manager that hasn't initialized it yet. */
+    private NtpCustomizationConfigManager createUninitializedManagerWithChromeColor() {
+        NtpCustomizationUtils.setNtpBackgroundTypeToSharedPreference(
+                NtpBackgroundType.CHROME_COLOR);
+        NtpCustomizationUtils.setNtpThemeColorIdToSharedPreference(
+                NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_BLUE);
+        when(mNtpThemeDailyRefreshManager.getNtpThemeColorIdForChromeColorTheme())
+                .thenReturn(NtpThemeColorInfo.NtpThemeColorId.NTP_COLORS_BLUE);
+        return createUninitializedManager();
     }
 
     private CustomBackgroundInfo createTestCustomBackgroundInfo() {

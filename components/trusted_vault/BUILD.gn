@@ -20,7 +20,6 @@ static_library("trusted_vault") {
     "//base",
     "//components/keyed_service/core",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   if (!is_android && !is_ios) {
     sources += [
@@ -80,6 +79,8 @@ static_library("trusted_vault") {
 
     deps += [
       "//components/account_id",
+      "//components/os_crypt/async/browser",
+      "//components/os_crypt/async/common",
       "//components/trusted_vault/proto",
       "//crypto",
       "//google_apis",
@@ -133,6 +134,8 @@ if (!is_android && !is_ios) {
     deps = [
       ":test_support",
       ":trusted_vault",
+      "//components/os_crypt/async/browser:test_support",
+      "//components/os_crypt/async/common",
       "//components/signin/public/identity_manager:test_support",
       "//components/trusted_vault/proto",
       "//google_apis",

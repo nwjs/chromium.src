@@ -80,7 +80,6 @@
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/timing/paint_timing_detector.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_non_2d_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_snapshot_info.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
@@ -95,6 +94,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/page_scheduler.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "ui/gfx/geometry/size.h"
 
@@ -599,8 +599,7 @@ void HTMLVideoElement::RequestSaveVideoFrame() {
   params->should_prompt_for_save_location = true;
   auto timestamp_ms = base::saturated_cast<uint32_t>(
       currentTime() * base::Time::kMillisecondsPerSecond);
-  params->suggested_name =
-      StrCat({"videoframe_", String::Number(timestamp_ms)});
+  params->suggested_name = Format("videoframe_{}", timestamp_ms);
   params->url = KURL(blob_url);
   params->blob_url_token = std::move(blob_url_token);
 
@@ -617,7 +616,8 @@ void HTMLVideoElement::OnVisibilityRatioReport(double ratio) {
 }
 
 void HTMLVideoElement::ResetCache(TimerBase*) {
-  snapshot_provider_.reset();
+  cache_deleting_timer_.Stop();
+  snapshot_pool_.reset();
   cached_draw_info_.reset();
 }
 
@@ -898,8 +898,9 @@ unsigned HTMLVideoElement::webkitDecodedFrameCount() const {
   return 0;
 }
 
-void HTMLVideoElement::DidChangeIsInCanvasSubtree() {
-  HTMLMediaElement::DidChangeIsInCanvasSubtree();
+void HTMLVideoElement::DidChangeIsInCanvasSubtree(
+    CanvasSubtreePropagation propagation_behavior) {
+  HTMLMediaElement::DidChangeIsInCanvasSubtree(propagation_behavior);
   if (IsInCanvasSubtree()) {
     UpdateLayoutObject();
     if (auto* wmp = GetWebMediaPlayer()) {
@@ -969,16 +970,12 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
       cached_draw_info_ &&
       required_provider_info.Matches(cached_draw_info_.value());
   if (!cached_info_matches_required_info) {
-    snapshot_provider_.reset();
+    snapshot_pool_.reset();
 
     if (is_accelerated) {
-      snapshot_provider_ = CanvasNon2DResourceProvider::Create(
-          required_provider_info.size, required_provider_info.format,
-          required_provider_info.alpha_type, required_provider_info.color_space,
-          required_provider_info.hdr_metadata,
-          SharedGpuContext::ContextProviderWrapper(),
-          gpu::SHARED_IMAGE_USAGE_DISPLAY_READ);
-      if (!snapshot_provider_) {
+      snapshot_pool_ =
+          VideoFrameAcceleratedSnapshotPool::Create(required_provider_info);
+      if (!snapshot_pool_) {
         return nullptr;
       }
     }
@@ -989,9 +986,9 @@ scoped_refptr<StaticBitmapImage> HTMLVideoElement::CreateStaticBitmapImage(
                                      FROM_HERE);
 
   scoped_refptr<StaticBitmapImage> image;
-  if (snapshot_provider_) {
+  if (snapshot_pool_) {
     image = CreateAcceleratedImageFromVideoFrame(
-        std::move(media_video_frame), snapshot_provider_.get(), video_renderer,
+        std::move(media_video_frame), snapshot_pool_.get(), video_renderer,
         orientation_behavior, color_space_interpretation);
   } else {
     image = CreateUnacceleratedImageFromVideoFrame(
@@ -1270,6 +1267,7 @@ void HTMLVideoElement::OnWebMediaPlayerCreated() {
 }
 
 void HTMLVideoElement::OnWebMediaPlayerCleared() {
+  ResetCache();
   has_received_first_frame_ = false;
   if (auto* vfc_requester = VideoFrameCallbackRequester::From(*this)) {
     vfc_requester->OnWebMediaPlayerCleared();

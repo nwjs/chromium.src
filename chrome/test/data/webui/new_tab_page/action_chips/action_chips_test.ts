@@ -11,7 +11,6 @@ import type {ActionChip, ActionChipsPageRemote as PageRemote, TabInfo} from 'chr
 import {WindowProxy} from 'chrome://new-tab-page/new_tab_page.js';
 import type {TabUpload} from 'chrome://resources/cr_components/composebox/common.js';
 import {ModelMode, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
-import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -246,6 +245,12 @@ suite('NewTabPageActionChipsTest', () => {
     const recentTabChipIcon = chips.shadowRoot.querySelector<HTMLImageElement>(
         '.action-chip-recent-tab-favicon');
     assertTrue(!!recentTabChipIcon);
+    assertTrue(recentTabChipIcon.src.startsWith('chrome://favicon2/?'));
+    const faviconUrl = new URL(recentTabChipIcon.src);
+    assertEquals('https://example.com', faviconUrl.searchParams.get('pageUrl'));
+    assertEquals('24', faviconUrl.searchParams.get('size'));
+    assertEquals('1x', faviconUrl.searchParams.get('scaleFactor'));
+    assertTrue(faviconUrl.searchParams.has('showFallbackMonogram'));
   });
 
   test('deep dive chip renders correct format', async () => {
@@ -279,6 +284,67 @@ suite('NewTabPageActionChipsTest', () => {
     const deepDiveChipTitle =
         chips.shadowRoot.querySelector<HTMLImageElement>('.chip-title');
     assertEquals(null, deepDiveChipTitle);
+  });
+
+  [true, false].forEach(roundedIcons => {
+    test(`chips render icons with rounded icons ${roundedIcons}`, async () => {
+      loadTimeData.overrideValues({webuiRoundedIconsEnabled: roundedIcons});
+      await initializeChips({});
+
+      const icons =
+          Array.from(chips.shadowRoot.querySelectorAll('.action-chip'))
+              .map(chip => chip.querySelector('cr-icon')?.getAttribute('icon'));
+      assertDeepEquals(
+          [
+            // Favicon chips show the tab's favicon instead of an icon.
+            undefined,
+            'composebox:nanoBanana-custom',
+            roundedIcons ? 'ntp-action-chips:globe-with-search-loop' :
+                           'ntp-action-chips:globe-with-search-loop-old',
+          ],
+          icons);
+    });
+
+    test(
+        `all chip icons exist with rounded icons ${roundedIcons}`, async () => {
+          loadTimeData.overrideValues({webuiRoundedIconsEnabled: roundedIcons});
+          const iconTypes = [
+            IconType.kBanana,
+            IconType.kGlobeWithSearchLoop,
+            IconType.kSubArrowRight,
+            IconType.kDraftSpark,
+            IconType.kSearchLoopWithSparkle,
+            IconType.kLightbulb,
+            IconType.kAttachFile,
+            IconType.kSchool,
+            IconType.kInkPen,
+            IconType.kTab,
+            IconType.kPhotoSpark,
+            IconType.kBolt,
+            IconType.kImageCreate,
+          ];
+          await initializeChips({
+            actionChips: iconTypes.map(typeIcon => ({
+                                         suggestTemplateInfo: {
+                                           typeIcon,
+                                           primaryText: 'Title',
+                                           secondaryText: '',
+                                         },
+                                         suggestion: 'Suggestion',
+                                         tab: null,
+                                       })),
+          });
+
+          const icons =
+              chips.shadowRoot.querySelectorAll('.action-chip cr-icon');
+          assertEquals(iconTypes.length, icons.length);
+          for (const icon of icons) {
+            // <cr-icon> only renders an <svg> if its iconset defines the icon.
+            assertTrue(
+                !!icon.shadowRoot!.querySelector('svg'),
+                icon.getAttribute('icon')!);
+          }
+        });
   });
 
   test('click routing based on queryActionOverride', async () => {
@@ -736,9 +802,7 @@ suite('NewTabPageActionChipsTest', () => {
           '.action-chips-container');
       assertTrue(!!container);
 
-      const actionMenu =
-          chips.shadowRoot.querySelector<CrActionMenuElement>('#actionMenu');
-      assertTrue(!!actionMenu);
+      const actionMenu = chips.$.actionMenu;
 
       container.dispatchEvent(
           new MouseEvent('contextmenu', {cancelable: true}));
@@ -765,9 +829,7 @@ suite('NewTabPageActionChipsTest', () => {
           assertEquals(3, allChips.length);
 
           const firstChip = allChips[0]!;
-          const actionMenu =
-              chips.shadowRoot.querySelector<HTMLElement>('#actionMenu');
-          assertTrue(!!actionMenu);
+          const actionMenu = chips.$.actionMenu;
 
           firstChip.dispatchEvent(
               new MouseEvent('contextmenu', {cancelable: true}));
@@ -986,6 +1048,7 @@ suite('NewTabPageActionChipsTest', () => {
               suggestTemplateInfo: {
                 typeIcon: IconType.kFavicon,
                 primaryText: 'Example Tab',
+                secondaryText: null,
               },
               fuseboxAction: {
                 preselectedTool: ToolMode.kUnspecified,

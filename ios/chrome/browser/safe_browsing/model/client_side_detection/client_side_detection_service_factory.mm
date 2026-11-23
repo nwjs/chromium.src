@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_service_factory.h"
 
+#import <utility>
+
 #import "components/safe_browsing/core/common/features.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
@@ -11,29 +13,14 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 
-// static
-safe_browsing::ClientSideDetectionService*
-ClientSideDetectionServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<safe_browsing::ClientSideDetectionService>(
-          profile, true);
-}
-
-// static
-ClientSideDetectionServiceFactory*
-ClientSideDetectionServiceFactory::GetInstance() {
-  static base::NoDestructor<ClientSideDetectionServiceFactory> instance;
-  return instance.get();
-}
-
-ClientSideDetectionServiceFactory::ClientSideDetectionServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("ClientSideDetectionService",
-                                    ProfileSelection::kNoInstanceInIncognito) {
+ClientSideDetectionServiceFactory::ClientSideDetectionServiceFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "ClientSideDetectionService",
+          ProfileSelection::kNoInstanceInIncognito) {
   DependsOn(OptimizationGuideServiceFactory::GetInstance());
 }
-
-ClientSideDetectionServiceFactory::~ClientSideDetectionServiceFactory() =
-    default;
 
 std::unique_ptr<KeyedService>
 ClientSideDetectionServiceFactory::BuildServiceInstanceFor(

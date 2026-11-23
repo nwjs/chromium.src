@@ -17,10 +17,11 @@ export enum AimButtonMode {
   SEND = 'send',
 }
 
-// The string is used as the CSS class of the trailing icon element (close icon
-// or arrow icon). Keep the string in sync with the selectors in the stylesheet.
+// The string is used as the CSS class of the trailing icon element (close icon,
+// arrow icon, or collapsed). Keep the string in sync with the selectors in the
+// stylesheet.
 enum TrailingIcon {
-  NONE = '',
+  NONE = 'collapsed',
   ARROW = 'arrow-icon',
   EXIT = 'icon-clear',
 }
@@ -46,25 +47,23 @@ export class ComposeboxAimButtonElement extends CrLitElement {
 
   static override get properties() {
     return {
-      mode: {type: String},
+      mode: {type: String, reflect: true},
       showExitIcon: {type: Boolean},
       disabled: {type: Boolean, reflect: true},
       label: {type: String},
-      leadingIconUrl: {type: String},
       exitTitle: {type: String},
       sendTitle: {type: String},
+      energyEffectAnimationEnabled: {type: Boolean},
     };
   }
 
-  // `mode` is not reflected; styling is conditioned on icon presence rather
-  // than the mode state itself.
   accessor mode: AimButtonMode = AimButtonMode.EXIT;
   accessor showExitIcon: boolean = false;
   accessor disabled: boolean = false;
   accessor label: string = '';
-  accessor leadingIconUrl: string = '';
   accessor exitTitle: string = '';
   accessor sendTitle: string = '';
+  accessor energyEffectAnimationEnabled: boolean = false;
 
   private keyboardActivationEvent_: KeyboardEvent|null = null;
 
@@ -87,10 +86,21 @@ export class ComposeboxAimButtonElement extends CrLitElement {
     this.$.button?.blur();
   }
 
-  // Only the exit state without X (exit icon) shows the leading icon.
-  protected showLeadingIcon_(): boolean {
-    return this.mode === AimButtonMode.EXIT && !this.showExitIcon &&
-        !!this.leadingIconUrl;
+  // Only the exit state without X (exit icon) shows the leading icon. The
+  // returned class must match the stylesheet's `.collapsed` selector.
+  protected getLeadingIconClass_(): string {
+    const shown = this.mode === AimButtonMode.EXIT && !this.showExitIcon;
+    return shown ? '' : 'collapsed';
+  }
+
+  // The energy effect only runs in SEND; EXIT keeps the plain button.
+  protected showEnergyEffect_(): boolean {
+    return this.energyEffectAnimationEnabled &&
+        this.mode === AimButtonMode.SEND;
+  }
+
+  protected getButtonClass_(): string {
+    return this.showEnergyEffect_() ? 'energy-effect' : '';
   }
 
   // Send state shows the arrow icon; exit state with X (exit icon) shows the

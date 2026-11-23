@@ -3,6 +3,8 @@
 // found in the LICENSE file.
 
 #import <optional>
+#import <string>
+#import <string_view>
 
 #import "base/path_service.h"
 #import "components/autofill/core/common/autofill_debug_features.h"
@@ -12,6 +14,7 @@
 #import "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/autofill/atmemory/test/at_memory_test_util.h"
+#import "ios/chrome/browser/autofill/manual_fill/test/manual_fill_matchers.h"
 #import "ios/chrome/browser/autofill/ui_bundled/autofill_app_interface.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_settings_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -31,6 +34,19 @@ constexpr char kMakeFieldText[] = "Make:";
 constexpr char kHttpServerFilesDirectory[] =
     "ios/testing/data/http_server_files/";
 constexpr char kMockPersonalContextVehicleMakeResultType[] = "14";
+constexpr CGFloat kAIDisclosureLinkTapXPercentage = 0.15;
+constexpr CGFloat kAIDisclosureLinkTapYPercentage = 0.75;
+
+// Override parameter used to simulate server predictions for
+// `kVehicleFormPageURL`.
+constexpr std::string_view kVehicleOverrideParam =
+    "2031728383716307484_1092605073_178-"
+    "2031728383716307484_2435123338_179-"
+    "2031728383716307484_3040116536_185-"
+    "2031728383716307484_1294171443_7-"
+    "2031728383716307484_3811017579_176-"
+    "2031728383716307484_2296829005_186-"
+    "2031728383716307484_3849212670_177";
 
 // Element IDs for SSL warning bypass.
 NSString* const kDetailsButtonID = @"details-button";
@@ -85,15 +101,12 @@ void SetUpAtMemoryEligibleUser() {
                    forUserPref:prefs::kAIHubEligibilityTriggered];
 }
 
-// Proceeds past the SSL warning interstitial shown for the HTTPS test server
-// if present.
+// Proceeds past the SSL warning interstitial shown for the HTTPS test server.
 void BypassSSLWarning() {
-  base::Value result = [ChromeEarlGrey
-      evaluateJavaScript:@"document.getElementById('details-button') !== null"];
-  if (result.is_bool() && result.GetBool()) {
-    [ChromeEarlGrey tapWebStateElementWithID:kDetailsButtonID];
-    [ChromeEarlGrey tapWebStateElementWithID:kProceedLinkID];
-  }
+  [ChromeEarlGrey waitForJavaScriptCondition:
+                      @"document.getElementById('details-button') !== null"];
+  [ChromeEarlGrey tapWebStateElementWithID:kDetailsButtonID];
+  [ChromeEarlGrey tapWebStateElementWithID:kProceedLinkID];
 }
 
 // Loads the vehicle form page on the HTTPS test server.
@@ -116,7 +129,7 @@ void OpenAtMemoryForVehicleMakeField() {
   [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil atMemoryButton]]
       performAction:grey_tap()];
   [ChromeEarlGrey
-      waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil searchBar]];
+      waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil bottomSheetTitle]];
 }
 
 // Verifies that the web input field with `field_id` has been filled with
@@ -130,6 +143,8 @@ void VerifyFieldHasBeenFilled(const char* field_id, NSString* expected_value) {
 // Types `query` into the AtMemory search bar and taps the search prompt cell to
 // submit the search.
 void AtMemorySearchWithQuery(NSString* query) {
+  [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil searchButton]]
+      performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil searchBar]]
       performAction:grey_typeText(query)];
   [ChromeEarlGrey
@@ -175,20 +190,6 @@ void DismissSettings() {
 
 @implementation AtMemoryTestCase
 
-// TODO(crbug.com/570993873): Fix and re-enable these tests when compiled with
-// iOS 27.1 SDK.
-#if defined(__IPHONE_27_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_27_1
-#define MAYBE_testInlineNoticeAcknowledge DISABLED_testInlineNoticeAcknowledge
-#define MAYBE_testInlineNoticeSettingsLink DISABLED_testInlineNoticeSettingsLink
-#define MAYBE_testDisableFeatureInSettingsDismissesAtMemory \
-  DISABLED_testDisableFeatureInSettingsDismissesAtMemory
-#else
-#define MAYBE_testInlineNoticeAcknowledge testInlineNoticeAcknowledge
-#define MAYBE_testInlineNoticeSettingsLink testInlineNoticeSettingsLink
-#define MAYBE_testDisableFeatureInSettingsDismissesAtMemory \
-  testDisableFeatureInSettingsDismissesAtMemory
-#endif
-
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.relaunch_policy = ForceRelaunchByCleanShutdown;
@@ -209,17 +210,28 @@ void DismissSettings() {
               .name,
           kMockPersonalContextVehicleMakeResultType}}}});
 
-  if ([self isRunningTest:@selector(MAYBE_testInlineNoticeAcknowledge)] ||
-      [self isRunningTest:@selector(MAYBE_testInlineNoticeSettingsLink)] ||
-      [self
-          isRunningTest:
-              @selector(MAYBE_testDisableFeatureInSettingsDismissesAtMemory)]) {
+  if ([self isRunningTest:@selector(testInlineNoticeAcknowledge)] ||
+      [self isRunningTest:@selector(testInlineNoticeSettingsLink)] ||
+      [self isRunningTest:@selector(
+                              testDisableFeatureInSettingsDismissesAtMemory)]) {
     config.features_enabled.push_back(
         personal_context::features::debug::
             kAutofillAmbientAutofillSkipEligibilityChecks);
     config.features_enabled.push_back(
         personal_context::features::debug::
             kPersonalContextResetNoticePrefsOnStartup);
+  }
+
+  if ([self
+          isRunningTest:@selector(
+                            testShowsAtMemoryBottomSheetFromSuggestionStrip)]) {
+    config.features_enabled.push_back(
+        autofill::features::debug::kAutofillAiForceOptIn);
+    config.features_enabled_and_params.push_back(
+        {autofill::features::debug::kAutofillOverridePredictions,
+         {{"spec", std::string(kVehicleOverrideParam)}}});
+    config.features_enabled.push_back(
+        autofill::features::kAutofillAiAlwaysTriggerServerModel);
   }
   return config;
 }
@@ -229,7 +241,11 @@ void DismissSettings() {
   SetUpHTTPSServer(_HTTPSServer);
   SetUpAtMemoryEligibleUser();
   LoadVehicleFormPage(&_HTTPSServer.value());
-  OpenAtMemoryForVehicleMakeField();
+  if (![self
+          isRunningTest:@selector(
+                            testShowsAtMemoryBottomSheetFromSuggestionStrip)]) {
+    OpenAtMemoryForVehicleMakeField();
+  }
 }
 
 - (void)tearDownHelper {
@@ -250,6 +266,31 @@ void DismissSettings() {
 - (void)testShowsAtMemoryBottomSheet {
   [ChromeEarlGrey
       waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil emptyStateImage]];
+}
+
+// Tests that tapping the AtMemory suggestion chip in the keyboard suggestion
+// scroll view opens the AtMemory bottom sheet.
+- (void)testShowsAtMemoryBottomSheetFromSuggestionStrip {
+  GREYAssertTrue([AutofillAppInterface saveVehicleEntity],
+                 @"Failed to save vehicle entity.");
+
+  // Focus on the vehicle make field to trigger suggestions.
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+      performAction:chrome_test_util::TapWebElementWithId(kVehicleMakeFieldID)];
+
+  // Scroll to the right of the keyboard accessory so that the AtMemory
+  // suggestion chip is visible.
+  [[EarlGrey selectElementWithMatcher:manual_fill::FormSuggestionViewMatcher()]
+      performAction:grey_scrollToContentEdge(kGREYContentEdgeRight)];
+
+  // Tap the AtMemory suggestion chip in the suggestion strip.
+  [[EarlGrey
+      selectElementWithMatcher:[AtMemoryTestUtil suggestionStripAtMemoryButton]]
+      performAction:grey_tap()];
+
+  // Verify the AtMemory bottom sheet is visible.
+  [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil bottomSheetTitle]]
+      assertWithMatcher:grey_sufficientlyVisible()];
 }
 
 // Tests that searching for a query with no matching data ("flight") displays
@@ -273,14 +314,9 @@ void DismissSettings() {
 
 // Tests that typing in the search bar updates the search prompt cell and
 // displays the AI disclosure footer.
-// TODO(crbug.com/570993873): Fix and re-enable this test when compiled with iOS
-// 27.1 SDK.
-#if defined(__IPHONE_27_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_27_1
-#define MAYBE_testTypingState DISABLED_testTypingState
-#else
-#define MAYBE_testTypingState testTypingState
-#endif
-- (void)MAYBE_testTypingState {
+- (void)testTypingState {
+  [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil searchButton]]
+      performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil searchBar]]
       performAction:grey_typeText(kCarSearchQuery)];
 
@@ -297,15 +333,38 @@ void DismissSettings() {
           [AtMemoryTestUtil searchPromptCellWithQuery:kCarsSearchQuery]];
 }
 
+// Tests that tapping the link in the AI disclosure footer while in the typing
+// state opens the Help improve enhanced autofill settings page.
+- (void)testAIDisclosureLink {
+  [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil searchButton]]
+      performAction:grey_tap()];
+  [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil searchBar]]
+      performAction:grey_typeText(kCarSearchQuery)];
+
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil
+                                              aiDisclosureFooterLink]];
+  // When the AI disclosure link wraps across multiple lines, a center tap
+  // misses the link glyphs, so tap on the second line where the wrapped link
+  // text starts. Otherwise, a standard center tap hits the single-line link.
+  NSError* error = nil;
+  [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil aiDisclosureFooterLink]]
+      assertWithMatcher:[AtMemoryTestUtil isMultilineLink]
+                  error:&error];
+  id<GREYAction> tapAction = error ? grey_tap()
+                                   : chrome_test_util::TapAtPointPercentage(
+                                         kAIDisclosureLinkTapXPercentage,
+                                         kAIDisclosureLinkTapYPercentage);
+  [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil aiDisclosureFooterLink]]
+      performAction:tapAction];
+
+  [ChromeEarlGrey
+      waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil
+                                              helpImproveSettingsPage]];
+}
+
 // Tests granular filling of a specific field from the entity details view.
-// TODO(crbug.com/570993873): Fix and re-enable this test when compiled with iOS
-// 27.1 SDK.
-#if defined(__IPHONE_27_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_27_1
-#define MAYBE_testGranularFill DISABLED_testGranularFill
-#else
-#define MAYBE_testGranularFill testGranularFill
-#endif
-- (void)MAYBE_testGranularFill {
+- (void)testGranularFill {
   [AutofillAppInterface saveVehicleEntity];
   AtMemorySearchWithQuery(kCarSearchQuery);
 
@@ -330,14 +389,7 @@ void DismissSettings() {
 
 // Tests that previously filled items appear in the zero state and can be
 // selected to re-fill.
-// TODO(crbug.com/570993873): Fix and re-enable this test when compiled with iOS
-// 27.1 SDK.
-#if defined(__IPHONE_27_1) && __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_27_1
-#define MAYBE_testRecentFills DISABLED_testRecentFills
-#else
-#define MAYBE_testRecentFills testRecentFills
-#endif
-- (void)MAYBE_testRecentFills {
+- (void)testRecentFills {
   [AutofillAppInterface saveVehicleEntity];
   AtMemorySearchWithQuery(kCarSearchQuery);
 
@@ -367,7 +419,7 @@ void DismissSettings() {
 }
 
 // Tests that the inline privacy notice is displayed and can be dismissed.
-- (void)MAYBE_testInlineNoticeAcknowledge {
+- (void)testInlineNoticeAcknowledge {
   [ChromeEarlGrey
       waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil inlineNoticeTitle]];
   [[EarlGrey selectElementWithMatcher:[AtMemoryTestUtil inlineNoticeOKButton]]
@@ -383,12 +435,12 @@ void DismissSettings() {
 // Tests that tapping the "Manage settings" link in the inline privacy notice
 // opens the Suggestions from Gemini settings page, and dismissing returns to
 // the AtMemory screen with the notice dismissed.
-- (void)MAYBE_testInlineNoticeSettingsLink {
+- (void)testInlineNoticeSettingsLink {
   OpenSuggestionsFromGeminiSettingsViaInlineNotice();
   DismissSettings();
 
   [ChromeEarlGrey
-      waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil searchBar]];
+      waitForUIElementToAppearWithMatcher:[AtMemoryTestUtil bottomSheetTitle]];
   [ChromeEarlGrey
       waitForUIElementToDisappearWithMatcher:[AtMemoryTestUtil
                                                  inlineNoticeTitle]];
@@ -396,7 +448,7 @@ void DismissSettings() {
 
 // Tests that disabling the Suggestions from Gemini toggle in settings causes
 // the AtMemory bottom sheet to automatically dismiss when settings is closed.
-- (void)MAYBE_testDisableFeatureInSettingsDismissesAtMemory {
+- (void)testDisableFeatureInSettingsDismissesAtMemory {
   OpenSuggestionsFromGeminiSettingsViaInlineNotice();
 
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
@@ -405,8 +457,8 @@ void DismissSettings() {
 
   DismissSettings();
 
-  [ChromeEarlGrey
-      waitForUIElementToDisappearWithMatcher:[AtMemoryTestUtil searchBar]];
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:[AtMemoryTestUtil
+                                                             bottomSheetTitle]];
 }
 
 @end

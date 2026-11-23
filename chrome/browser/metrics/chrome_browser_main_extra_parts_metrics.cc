@@ -106,6 +106,7 @@
 #include "base/win/registry.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
+#include "chrome/browser/default_browser/default_browser_startup_metrics.h"
 #include "chrome/browser/metrics/key_credential_manager_support_reporter_win.h"
 #include "chrome/browser/shell_integration_win.h"
 #include "chrome/browser/win/cloud_synced_folder_checker.h"
@@ -923,8 +924,6 @@ void RecordStartupMetrics() {
 
   base::UmaHistogramBoolean("Windows.HasHighResolutionTimeTicks",
                             base::TimeTicks::IsHighResolution());
-  base::UmaHistogramBoolean("Windows.HasThreadTicks",
-                            base::ThreadTicks::IsSupported());
 
   // Determine whether parallel DLL loading is enabled for the browser process
   // executable. This is disabled by default on fresh Windows installations, but
@@ -948,10 +947,18 @@ void RecordStartupMetrics() {
   // Record whether Chrome is the default browser or not.
   // Disabled on Linux due to hanging browser tests, see crbug.com/40770414.
 #if !BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN)
+  // Read before GetDefaultBrowser(), which updates the beacons.
+  const default_browser::DefaultBrowserBeacons beacons =
+      default_browser::ReadDefaultBrowserBeacons();
+#endif  // BUILDFLAG(IS_WIN)
   shell_integration::DefaultWebClientState default_state =
       shell_integration::GetDefaultBrowser();
   base::UmaHistogramEnumeration("DefaultBrowser.State", default_state,
                                 shell_integration::NUM_DEFAULT_STATES);
+#if BUILDFLAG(IS_WIN)
+  default_browser::RecordStartupStateTransition(beacons, default_state);
+#endif  // BUILDFLAG(IS_WIN)
 #endif  // !BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

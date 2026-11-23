@@ -79,22 +79,22 @@ TEST_F(GeminiEnterpriseUrlPolicyHandlerTest, ValidUrl) {
 }
 
 TEST_F(GeminiEnterpriseUrlPolicyHandlerTest, ValidUrlWithPort) {
-  SetPolicy(base::Value("https://localhost.corp.google.com:10443/side-panel"));
+  SetPolicy(base::Value(
+      "https://enterprise.gemini.cloud.google.com:10443/side-panel"));
 
   EXPECT_TRUE(handler_.CheckPolicySettings(policies_, &errors_));
   EXPECT_TRUE(errors_.empty());
 
-  ExpectAppliedPref("https://localhost.corp.google.com:10443/side-panel");
+  ExpectAppliedPref(
+      "https://enterprise.gemini.cloud.google.com:10443/side-panel");
 }
 
-TEST_F(GeminiEnterpriseUrlPolicyHandlerTest, ValidUrlRecommendedLevel) {
+TEST_F(GeminiEnterpriseUrlPolicyHandlerTest, RecommendedLevelRejected) {
   SetPolicy(base::Value("https://business.gemini.google/"),
             POLICY_LEVEL_RECOMMENDED);
 
-  EXPECT_TRUE(handler_.CheckPolicySettings(policies_, &errors_));
-  EXPECT_TRUE(errors_.empty());
-
-  ExpectAppliedPref("https://business.gemini.google/");
+  EXPECT_FALSE(handler_.CheckPolicySettings(policies_, &errors_));
+  ExpectSingleError(IDS_POLICY_LEVEL_ERROR);
 }
 
 TEST_F(GeminiEnterpriseUrlPolicyHandlerTest, EmptyUrl) {
@@ -163,7 +163,9 @@ TEST_F(GeminiEnterpriseUrlPolicyHandlerTest, LookalikeHosts) {
   for (const char* url :
        {"https://business.gemini.google.example.com/",
         "https://examplecloud.google.com/", "https://cloud.google.com.evil/",
-        "https://sub.business.gemini.google/"}) {
+        "https://console.cloud.google.com/", "https://storage.cloud.google/",
+        "https://foo.corp.google.com/",
+        "https://ucs-app-autopush.corp.google.com/"}) {
     SCOPED_TRACE(url);
     PolicyErrorMap errors;
     SetPolicy(base::Value(url));

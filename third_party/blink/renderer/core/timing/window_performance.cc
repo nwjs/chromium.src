@@ -51,6 +51,7 @@
 #include "services/network/public/mojom/load_timing_info.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
+#include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
@@ -58,6 +59,12 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_cross_origin_mode.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_navigation_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_object_builder.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_preconnect_data.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_preload_data.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_speculation_data.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_speculation_eagerness_value.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_speculation_navigation_data.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_speculation_navigation_type.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/dom_high_res_time_stamp.h"
 #include "third_party/blink/renderer/core/dom/qualified_name.h"
@@ -85,6 +92,7 @@
 #include "third_party/blink/renderer/core/speculation_rules/document_speculation_rules.h"
 #include "third_party/blink/renderer/core/speculation_rules/speculation_candidate.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
+#include "third_party/blink/renderer/core/timing/cross_origin_mode_converter.h"
 #include "third_party/blink/renderer/core/timing/event_timing.h"
 #include "third_party/blink/renderer/core/timing/global_performance.h"
 #include "third_party/blink/renderer/core/timing/interaction_contentful_paint.h"
@@ -103,13 +111,9 @@
 #include "third_party/blink/renderer/core/timing/performance_soft_navigation.h"
 #include "third_party/blink/renderer/core/timing/performance_timing.h"
 #include "third_party/blink/renderer/core/timing/performance_timing_for_reporting.h"
-#include "third_party/blink/renderer/core/timing/preconnect_data.h"
-#include "third_party/blink/renderer/core/timing/preload_data.h"
 #include "third_party/blink/renderer/core/timing/responsiveness_metrics.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_context.h"
 #include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
-#include "third_party/blink/renderer/core/timing/speculation_data.h"
-#include "third_party/blink/renderer/core/timing/speculation_navigation_data.h"
 #include "third_party/blink/renderer/core/timing/timing_utils.h"
 #include "third_party/blink/renderer/core/timing/visibility_state_entry.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_deque.h"
@@ -663,6 +667,7 @@ PerformanceEventTiming* WindowPerformance::EventTimingProcessingStart(
       .processing_start_time = processing_start,
       .is_processing_fully_nested_in_another_event =
           !active_event_timing_entries_.empty(),
+      .is_main_frame = DomWindow()->GetFrame()->IsMainFrame(),
   };
 
   if (pointer_event) {
@@ -1026,7 +1031,6 @@ void WindowPerformance::TryFlushEventTimingQueue() {
   CHECK(DomWindow()->document());
   InteractiveDetector* interactive_detector =
       InteractiveDetector::From(*(DomWindow()->document()));
-
 
   bool tracing_enabled = TRACE_EVENT_CATEGORY_ENABLED("latency");
 
@@ -1451,32 +1455,14 @@ void WindowPerformance::AddLongAnimationFrameEntry(PerformanceEntry* entry) {
   NotifyObserversOfEntry(*entry);
 }
 
-void WindowPerformance::AddElementTiming(
-    const AtomicString& name,
-    const String& url,
-    const gfx::RectF& rect,
-    const DOMPaintTimingInfo& paint_timing_info,
-    base::TimeTicks load_time,
-    const AtomicString& identifier,
-    const gfx::Size& intrinsic_size,
-    const AtomicString& id,
-    Element* element,
-    PerformanceTimelineEntryIdInfo navigation_id) {
+void WindowPerformance::AddElementTiming(PerformanceElementTiming* entry) {
   if (!DomWindow()) {
     return;
   }
 
-  DOMHighResTimeStamp coarsened_load_time =
-      MonotonicTimeToDOMHighResTimeStamp(load_time);
-
-  PerformanceElementTiming* entry = PerformanceElementTiming::Create(
-      name, url, rect, paint_timing_info.presentation_time, coarsened_load_time,
-      identifier, intrinsic_size.width(), intrinsic_size.height(), id, element,
-      DomWindow(), navigation_id.web_exposed_id);
   TRACE_EVENT2("loading", "PerformanceElementTiming", "data",
                entry->ToTracedValue(), "frame",
                GetFrameIdForTracing(DomWindow()->GetFrame()));
-  entry->SetPaintTimingInfo(paint_timing_info);
   UseCounter::Count(GetExecutionContext(),
                     WebFeature::kElementTimingEntryEmitted);
   if (HasObserverFor(PerformanceEntry::kElement)) {
@@ -1568,7 +1554,7 @@ void WindowPerformance::AddScrollTiming(base::TimeTicks start_time,
   // also defends in its `target()` getter, but filtering here keeps the stored
   // entry consistent with the intended design.
   Node* exposable_target =
-      Performance::CanExposeNode(target) ? target : nullptr;
+      Performance::CanExposeNode(target, DomWindow()) ? target : nullptr;
 
   PerformanceScrollTiming* entry =
       MakeGarbageCollected<PerformanceScrollTiming>(
@@ -1689,12 +1675,58 @@ EventCounts* WindowPerformance::eventCounts() {
   return event_counts_.Get();
 }
 
+namespace {
+
+V8SpeculationNavigationType::Enum ToV8SpeculationNavigationType(
+    mojom::blink::SpeculationAction action) {
+  switch (action) {
+    case mojom::blink::SpeculationAction::kPrefetch:
+      return V8SpeculationNavigationType::Enum::kPrefetch;
+    case mojom::blink::SpeculationAction::kPrerender:
+      return V8SpeculationNavigationType::Enum::kPrerender;
+    case mojom::blink::SpeculationAction::kPrerenderUntilScript:
+      return V8SpeculationNavigationType::Enum::kPrerenderUntilScript;
+  }
+}
+
+V8SpeculationEagernessValue::Enum ToV8SpeculationEagernessValue(
+    mojom::blink::SpeculationEagerness eagerness) {
+  switch (eagerness) {
+    case mojom::blink::SpeculationEagerness::kConservative:
+      return V8SpeculationEagernessValue::Enum::kConservative;
+    case mojom::blink::SpeculationEagerness::kModerate:
+      return V8SpeculationEagernessValue::Enum::kModerate;
+    case mojom::blink::SpeculationEagerness::kImmediate:
+      return V8SpeculationEagernessValue::Enum::kImmediate;
+    case mojom::blink::SpeculationEagerness::kEager:
+      return V8SpeculationEagernessValue::Enum::kEager;
+  }
+}
+
+// The returned dictionaries are converted to plain JS objects, so the result
+// can be serialized (e.g. with JSON.stringify() or structuredClone()). All of
+// their members are required, so they're always present, even when empty or
+// null.
+SpeculationData* CreateSpeculationData(
+    HeapVector<Member<PreloadData>> preloads,
+    HeapVector<Member<PreconnectData>> preconnects,
+    HeapVector<Member<SpeculationNavigationData>> navigations,
+    const KURL& navigation_destination_url) {
+  auto* data = SpeculationData::Create();
+  data->setPreloads(std::move(preloads));
+  data->setPreconnects(std::move(preconnects));
+  data->setNavigations(std::move(navigations));
+  // A null KURL has a null string, which is exposed as `null`.
+  data->setNavigationDestinationURL(navigation_destination_url.GetString());
+  return data;
+}
+
+}  // namespace
+
 SpeculationData* WindowPerformance::getSpeculations() {
   LocalDOMWindow* window = DomWindow();
   if (!window || !window->document()) {
-    return MakeGarbageCollected<SpeculationData>(
-        HeapVector<Member<PreloadData>>(), HeapVector<Member<PreconnectData>>(),
-        HeapVector<Member<SpeculationNavigationData>>(), KURL());
+    return CreateSpeculationData({}, {}, {}, KURL());
   }
 
   Document* document = window->document();
@@ -1705,16 +1737,28 @@ SpeculationData* WindowPerformance::getSpeculations() {
   if (document->Fetcher()) {
     const auto& preload_records = document->Fetcher()->GetPreloadRecords();
     for (const auto& [url, info] : preload_records) {
-      preloads.push_back(MakeGarbageCollected<PreloadData>(
-          url, info.as, info.crossorigin, info.early_hints, info.used_time));
+      auto* preload = PreloadData::Create();
+      preload->setUrl(url.GetString());
+      preload->setAs(info.as);
+      preload->setCrossorigin(ToV8CrossOriginMode(info.crossorigin));
+      preload->setEarlyhint(info.early_hints);
+      std::optional<DOMHighResTimeStamp> used;
+      if (info.used_time.has_value()) {
+        used = MonotonicTimeToDOMHighResTimeStamp(info.used_time.value());
+      }
+      preload->setUsed(used);
+      preloads.push_back(preload);
     }
 
     // Collect preconnects.
     const auto& preconnect_records =
         document->Fetcher()->GetPreconnectRecords();
     for (const auto& [key, info] : preconnect_records) {
-      preconnects.push_back(MakeGarbageCollected<PreconnectData>(
-          info.origin, info.crossorigin, info.early_hints));
+      auto* preconnect = PreconnectData::Create();
+      preconnect->setOrigin(info.origin);
+      preconnect->setCrossorigin(ToV8CrossOriginMode(info.crossorigin));
+      preconnect->setEarlyhint(info.early_hints);
+      preconnects.push_back(preconnect);
     }
   }
 
@@ -1734,14 +1778,19 @@ SpeculationData* WindowPerformance::getSpeculations() {
       if (!(candidate_tags.size() == 1 && candidate_tags[0].empty())) {
         tags = candidate_tags;
       }
-      navigations.push_back(MakeGarbageCollected<SpeculationNavigationData>(
-          candidate->action(), candidate->url(), tags, candidate->eagerness()));
+      auto* navigation = SpeculationNavigationData::Create();
+      navigation->setType(ToV8SpeculationNavigationType(candidate->action()));
+      navigation->setUrl(candidate->url().GetString());
+      navigation->setTags(std::move(tags));
+      navigation->setEagerness(
+          ToV8SpeculationEagernessValue(candidate->eagerness()));
+      navigations.push_back(navigation);
     }
   }
 
-  return MakeGarbageCollected<SpeculationData>(
-      std::move(preloads), std::move(preconnects), std::move(navigations),
-      navigation_destination_url_);
+  return CreateSpeculationData(std::move(preloads), std::move(preconnects),
+                               std::move(navigations),
+                               navigation_destination_url_);
 }
 
 uint64_t WindowPerformance::interactionCount() const {

@@ -11,12 +11,10 @@ import sys
 import time
 from unittest.mock import MagicMock
 
+from selenium.common.exceptions import WebDriverException
+
 import perf_config
 import senders
-
-# Crossbench only exposes the Selenium driver and window setup as private
-# members, so this module has to reach into them.
-# pylint: disable=protected-access
 
 # Optional Crossbench dependencies that the perf bots do not install.
 _MOCKED_PACKAGES = [
@@ -78,30 +76,35 @@ def _prepare_crossbench_imports():
     sys.path.insert(0, perf_config.CROSSBENCH_ROOT)
 
 
-def _detect_milestone(cb_platform):
-    """Returns the milestone (e.g. '129') of Chrome on the DUT, or None."""
-    try:
-        version_str = cb_platform.app_version(_CROS_CHROME_PATH)
-        version_match = re.search(r'(\d+\.\d+\.\d+\.\d+)', version_str)
-        if version_match:
-            actual_version = version_match.group(1)
-        else:
-            # Fallback to the previous split logic if regex fails.
-            actual_version = version_str.split()[-2]
+def _selenium_driver(browser):
+    """Returns the Selenium driver, which Crossbench only exposes privately."""
+    return browser._private_driver  # pylint: disable=protected-access
 
-        milestone = actual_version.split('.')[0]
-        logging.info(
-            "Detected remote Chrome version: %s (milestone: %s)",
-            actual_version,
-            milestone,
+
+def detect_milestone(cb_platform):
+    """Returns the milestone (e.g. '129') of Chrome on the DUT.
+
+    Raises:
+        RuntimeError: The version could not be parsed. Falling back to the
+            newest chromedriver would usually mismatch the DUT's Chrome.
+    """
+    version_str = cb_platform.app_version(_CROS_CHROME_PATH)
+    version_match = re.search(r'(\d+)\.\d+\.\d+\.\d+', version_str)
+    if not version_match:
+        raise RuntimeError(
+            f"Could not parse the Chrome version on ChromeOS DUT from "
+            f"{version_str!r}."
         )
-        return milestone
-    except Exception as e:  # pylint: disable=broad-exception-caught
-        logging.warning("Failed to detect remote Chrome version: %s", e)
-        return None
+    milestone = version_match.group(1)
+    logging.info(
+        "Detected remote Chrome version: %s (milestone: %s)",
+        version_match.group(0),
+        milestone,
+    )
+    return milestone
 
 
-def _install_chromedriver(sender, milestone):
+def install_chromedriver(sender, milestone):
     """Installs a chromedriver matching `milestone` on the DUT.
 
     Crossbench's SSH platform expects the driver to be on the remote device.
@@ -111,12 +114,6 @@ def _install_chromedriver(sender, milestone):
     Returns:
         The remote chromedriver path.
     """
-    if not milestone:
-        logging.warning(
-            "Milestone is None. download_cft_urls will fall "
-            "back to the latest version, which may cause a "
-            "mismatch."
-        )
     sender.install_chrome(milestone)
     return sender.driver_path
 
@@ -175,8 +172,8 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
     time.sleep(1)
 
     # Use the DUT's Chrome milestone to pick a matching chromedriver.
-    milestone = _detect_milestone(cb_platform)
-    remote_driver_path = _install_chromedriver(sender, milestone)
+    milestone = detect_milestone(cb_platform)
+    remote_driver_path = install_chromedriver(sender, milestone)
 
     chrome_os_flags = _crossbench_flags(chrome_options_list)
     settings = Settings(
@@ -200,17 +197,19 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
         # Window handles can be briefly unavailable while autologin runs.
         for _ in range(20):
             try:
-                handles = browser._private_driver.window_handles
+                handles = _selenium_driver(browser).window_handles
                 if handles:
-                    browser._private_driver.switch_to.window(handles[0])
+                    _selenium_driver(browser).switch_to.window(handles[0])
                     return
-            except Exception as e:  # pylint: disable=broad-exception-caught
+            except WebDriverException as e:
                 logging.debug("Window not ready yet: %s", e)
             time.sleep(0.5)
         logging.warning(
             "No browser window found; continuing without switching windows."
         )
 
+    # Crossbench has no public hook for window setup.
+    # pylint: disable-next=protected-access
     browser._setup_window = _safe_setup_window
 
     logging.info("Starting Crossbench Browser on ChromeOS...")
@@ -231,7 +230,8 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
         try:
             # Clears a forward left over from an earlier run, if any.
             cb_platform.ports.stop_reverse_forward(server_port)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        # Crossbench does not document what this raises when there is none.
+        except Exception as e:
             logging.debug("No stale reverse forward to stop: %s", e)
         cb_platform.ports.reverse_forward(server_port, server_port)
         logging.info("Final ChromeOS flags: %s", chrome_os_flags)
@@ -241,7 +241,7 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
             logging.error("Browser failed to start.")
             raise
 
-    driver = browser._private_driver
+    driver = _selenium_driver(browser)
     actual_version = str(browser.version)
     logging.info("Detected remote Chrome version: %s", actual_version)
     return driver, cb_platform, actual_version

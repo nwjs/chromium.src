@@ -535,7 +535,8 @@ class PrefProxyConfigOverrideRulesTest : public PrefProxyConfigTrackerImplTest {
   void SetOverrideRulesInternal(const std::string& pref,
                                 bool is_extension = false,
                                 bool is_valid = true) {
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || \
+    BUILDFLAG(IS_ANDROID)
     pref_service_->SetInteger(
         proxy_config::prefs::kEnableProxyOverrideRulesForAllUsers, 1);
 #endif
@@ -555,7 +556,7 @@ class PrefProxyConfigOverrideRulesTest : public PrefProxyConfigTrackerImplTest {
       base::RunLoop run_loop;
       MockObserver observer;
       EXPECT_CALL(observer, OnProxyConfigChanged(testing::_, testing::_))
-          .WillOnce(testing::InvokeWithoutArgs([&] { run_loop.Quit(); }));
+          .WillOnce([&] { run_loop.Quit(); });
       proxy_config_service_->AddObserver(&observer);
       set_pref();
       run_loop.Run();

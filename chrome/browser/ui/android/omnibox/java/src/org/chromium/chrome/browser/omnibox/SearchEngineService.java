@@ -226,10 +226,18 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
         if (Objects.equals(mAiModeButtonUiConfigSupplier.get(), config)) return;
 
         mAiModeButtonUiConfigSupplier.set(config);
-        mAiModeButtonIconSupplier.set(
-                new StatusIconResource(R.drawable.ic_search_spark_24dp, Resources.ID_NULL));
+        if (config == null) return;
 
-        if (config == null || GURL.isEmptyOrInvalid(config.faviconUrl)) return;
+        if (isDefaultSearchEngineGoogle()) {
+            mAiModeButtonIconSupplier.set(
+                    new StatusIconResource(R.drawable.ic_search_spark_24dp, Resources.ID_NULL));
+            return;
+        }
+
+        // Third party engines show the loupe until their own icon is fetched.
+        mAiModeButtonIconSupplier.set(
+                new StatusIconResource(R.drawable.ic_search_24dp, Resources.ID_NULL));
+        if (GURL.isEmptyOrInvalid(config.faviconUrl)) return;
 
         GURL faviconUrl = config.faviconUrl;
         // Request the displayed size, so that the best frame of a multi-resolution favicon is
@@ -243,7 +251,11 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
         mImageFetcher.fetchImage(
                 params,
                 bitmap -> {
-                    if (bitmap == null) return;
+                    if (bitmap == null
+                            || !Objects.equals(config, mAiModeButtonUiConfigSupplier.get())) {
+                        return;
+                    }
+
                     mAiModeButtonIconSupplier.set(
                             new StatusIconResource(
                                     faviconUrl.getSpec(), bitmap, Resources.ID_NULL));
@@ -264,24 +276,12 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
     }
 
     /**
-     * Fakes the AI Mode entry point configuration of the current default search engine, as native
-     * only provides one to an eligible client. Subsequent updates from native are ignored, so that
-     * an eligibility change can't clear the config mid-test.
+     * Supplies the icon for the AI Mode entry point button.
      *
-     * @param config The config to supply, or null to surface no AI Mode entry point.
+     * <p>Google uses the spark icon. A third party search engine uses the loupe until its favicon
+     * is fetched, and keeps the loupe if the fetch fails. The icon isn't updated without a
+     * configuration. Placeholders are resource-based; a fetched favicon is bitmap-based.
      */
-    public void setAiModeButtonUiConfigForTesting(@Nullable AiModeButtonUiConfig config) {
-        @Nullable AiModeButtonUiConfig oldConfig = mAiModeButtonUiConfigSupplier.get();
-        mIsAiModeButtonUiConfigOverriddenForTesting = true;
-        mAiModeButtonUiConfigSupplier.set(config);
-        ResettersForTesting.register(
-                () -> {
-                    mIsAiModeButtonUiConfigOverriddenForTesting = false;
-                    mAiModeButtonUiConfigSupplier.set(oldConfig);
-                });
-    }
-
-    /** Supplies the icon for the AI Mode entry point button. */
     public NonNullObservableSupplier<StatusIconResource> getAiModeButtonIconSupplier() {
         return mAiModeButtonIconSupplier;
     }
@@ -474,21 +474,19 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
     /** Returns the hint text to be used on fakebox/searchbox on the New Tab Page. */
     public String getNtpHintText(Context context) {
         if (TextUtils.isEmpty(mSearchEngineName)) {
-            return OmniboxResourceProvider.getString(context, R.string.omnibox_empty_hint);
+            return context.getString(R.string.omnibox_empty_hint);
         }
 
         @StringRes int hintId = getHintStringRes(/* isNtpSearchBox= */ true);
-        return OmniboxResourceProvider.getString(context, hintId, mSearchEngineName);
+        return OmniboxResourceProvider.expandString(context.getString(hintId), mSearchEngineName);
     }
 
-    /** Returns the hint text string to be used on the omnibox for Hint Text Updater. */
-    public String getOmniboxHintString() {
-        // Hint text updater checks for empty search engine name and returns the empty hint in that
-        // case so this should never be null.
-        assert mSearchEngineName != null;
-
-        @StringRes int hintId = getHintStringRes(/* isNtpSearchBox= */ false);
-        return OmniboxResourceProvider.getString(mContext, hintId, mSearchEngineName);
+    /**
+     * Returns the omnibox hint string resource. The string expects the search engine name as its
+     * only argument.
+     */
+    public @StringRes int getOmniboxHintStringRes() {
+        return getHintStringRes(/* isNtpSearchBox= */ false);
     }
 
     private @StringRes int getHintStringRes(boolean isNtpSearchBox) {
@@ -509,6 +507,24 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
         }
 
         return R.string.omnibox_empty_hint_with_dse_name;
+    }
+
+    /**
+     * Fakes the AI Mode entry point configuration of the current default search engine, as native
+     * only provides one to an eligible client. Subsequent updates from native are ignored, so that
+     * an eligibility change can't clear the config mid-test.
+     *
+     * @param config The config to supply, or null to surface no AI Mode entry point.
+     */
+    public void setAiModeButtonUiConfigForTesting(@Nullable AiModeButtonUiConfig config) {
+        @Nullable AiModeButtonUiConfig oldConfig = mAiModeButtonUiConfigSupplier.get();
+        mIsAiModeButtonUiConfigOverriddenForTesting = true;
+        mAiModeButtonUiConfigSupplier.set(config);
+        ResettersForTesting.register(
+                () -> {
+                    mIsAiModeButtonUiConfigOverriddenForTesting = false;
+                    mAiModeButtonUiConfigSupplier.set(oldConfig);
+                });
     }
 
     /** Set the instance for testing. */

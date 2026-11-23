@@ -7,12 +7,9 @@
 
 #import <UIKit/UIKit.h>
 
-#import <unordered_set>
-
 #import "ios/chrome/browser/composebox/ui/composebox_input_item.h"
 
 enum class ComposeboxInputPlateControls : unsigned int;
-enum class ComposeboxModelOption;
 @class ComposeboxUIInputState;
 
 // Consumer for the composebox composebox.
@@ -39,6 +36,11 @@ enum class ComposeboxModelOption;
 
 // Whether to force disable the send functionality.
 - (void)disableSending:(BOOL)disableSending;
+
+// Sets whether a send is pending, i.e. held until attachments finish
+// uploading. While pending, the send button shows an activity indicator and is
+// disabled.
+- (void)setSendPending:(BOOL)sendPending;
 
 @end
 

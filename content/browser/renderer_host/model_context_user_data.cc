@@ -46,6 +46,21 @@ bool IsWebMCPEnabled(RenderFrameHost& rfh) {
          rfh.IsFeatureEnabled(network::mojom::PermissionsPolicyFeature::kTools);
 }
 
+blink::mojom::ExecuteRemoteScriptToolError ToExecuteRemoteScriptToolError(
+    blink::mojom::ScriptToolErrorCode code) {
+  switch (code) {
+    case blink::mojom::ScriptToolErrorCode::kInvalidToolName:
+      return blink::mojom::ExecuteRemoteScriptToolError::kNotFoundError;
+    case blink::mojom::ScriptToolErrorCode::kInvalidInputArguments:
+      return blink::mojom::ExecuteRemoteScriptToolError::kDataError;
+    case blink::mojom::ScriptToolErrorCode::kMissingRequiredSubmitButton:
+    case blink::mojom::ScriptToolErrorCode::kToolInvocationFailed:
+      return blink::mojom::ExecuteRemoteScriptToolError::kOperationError;
+    case blink::mojom::ScriptToolErrorCode::kToolCancelled:
+      return blink::mojom::ExecuteRemoteScriptToolError::kAbortError;
+  }
+}
+
 }  // namespace
 
 DOCUMENT_USER_DATA_KEY_IMPL(ModelContextUserData);
@@ -74,6 +89,7 @@ void ModelContextUserData::Bind(
     mojo::PendingReceiver<blink::mojom::ModelContextHost> receiver) {
   auto* user_data = ModelContextUserData::GetForCurrentDocument(rfh);
   if (user_data) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(rfh->GetProcess(),
                                     bad_message::RFHI_WEBMCP_DUPLICATE_BIND);
     return;
@@ -85,6 +101,7 @@ void ModelContextUserData::Bind(
 void ModelContextUserData::BindModelContext(
     mojo::PendingRemote<blink::mojom::ModelContext> model_context) {
   if (model_context_remote_.is_bound()) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(
         render_frame_host().GetProcess(),
         bad_message::RFHI_WEBMCP_DUPLICATE_SET_RECEIVER);
@@ -97,6 +114,7 @@ void ModelContextUserData::RegisterScriptTool(
     blink::mojom::ScriptToolPtr tool,
     RegisterScriptToolCallback callback) {
   if (!IsWebMCPEnabled(render_frame_host())) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(render_frame_host().GetProcess(),
                                     bad_message::RFHI_WEBMCP_NOT_ENABLED);
     std::move(callback).Run();
@@ -106,6 +124,7 @@ void ModelContextUserData::RegisterScriptTool(
   // Kill the renderer if it tries to register a tool with an invalid name,
   // because the renderer should prevent this.
   if (!blink::IsValidScriptToolName(tool->name)) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(render_frame_host().GetProcess(),
                                     bad_message::RFHI_WEBMCP_INVALID_TOOL_NAME);
     std::move(callback).Run();
@@ -120,6 +139,7 @@ void ModelContextUserData::RegisterScriptTool(
                           [&](const blink::mojom::ScriptToolPtr& t) {
                             return t->tool_id == tool->tool_id;
                           })) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(
         render_frame_host().GetProcess(),
         bad_message::RFHI_WEBMCP_REGISTER_INVALID_TOOL_ID);
@@ -134,6 +154,7 @@ void ModelContextUserData::RegisterScriptTool(
                           [&](const blink::mojom::ScriptToolPtr& t) {
                             return t->name == tool->name;
                           })) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(
         render_frame_host().GetProcess(),
         bad_message::RFHI_WEBMCP_REGISTER_DUPLICATE_TOOL_NAME);
@@ -143,26 +164,13 @@ void ModelContextUserData::RegisterScriptTool(
 
   for (const auto& origin : tool->exposed_origins) {
     if (!network::IsOriginPotentiallyTrustworthy(origin)) {
+      // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
       bad_message::ReceivedBadMessage(
           render_frame_host().GetProcess(),
           bad_message::RFHI_WEBMCP_EXPOSED_UNTRUSTWORTHY_ORIGIN);
       std::move(callback).Run();
       return;
     }
-  }
-
-  // TOOD(https://crbug.com/509568047): Stop passing in a frame token and origin
-  // during tool registration. These values are obvious from context, and the
-  // renderer shouldn't need to pass them in and have the browser verify them.
-  // Instead, the browser should be setting them for the first time here, with
-  // no input from the renderer.
-  if (tool->tool_owner_frame_token != render_frame_host().GetFrameToken() ||
-      tool->origin != render_frame_host().GetLastCommittedOrigin()) {
-    bad_message::ReceivedBadMessage(
-        render_frame_host().GetProcess(),
-        bad_message::RFHI_WEBMCP_INVALID_TOOL_OWNER);
-    std::move(callback).Run();
-    return;
   }
 
   std::vector<url::Origin> exposed_origins = tool->exposed_origins;
@@ -174,6 +182,7 @@ void ModelContextUserData::RegisterScriptTool(
 void ModelContextUserData::UnregisterScriptTool(
     const base::UnguessableToken& tool_id) {
   if (!IsWebMCPEnabled(render_frame_host())) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(render_frame_host().GetProcess(),
                                     bad_message::RFHI_WEBMCP_NOT_ENABLED);
     return;
@@ -184,6 +193,7 @@ void ModelContextUserData::UnregisterScriptTool(
                            return t->tool_id == tool_id;
                          });
   if (it == script_tools_.end()) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(
         render_frame_host().GetProcess(),
         bad_message::RFHI_WEBMCP_UNREGISTER_INVALID_TOOL_ID);
@@ -201,6 +211,7 @@ void ModelContextUserData::GetScriptTools(
     const std::vector<url::Origin>& from_origins,
     GetScriptToolsCallback callback) {
   if (!IsWebMCPEnabled(render_frame_host())) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(render_frame_host().GetProcess(),
                                     bad_message::RFHI_WEBMCP_NOT_ENABLED);
     std::move(callback).Run({});
@@ -210,7 +221,7 @@ void ModelContextUserData::GetScriptTools(
   const url::Origin& caller_origin =
       render_frame_host().GetLastCommittedOrigin();
 
-  std::vector<blink::mojom::ScriptToolPtr> all_tools;
+  std::vector<blink::mojom::ExposedScriptToolPtr> all_tools;
   RenderFrameHost* main_frame = render_frame_host().GetMainFrame();
   SiteInstanceGroup* site_instance_group =
       static_cast<SiteInstanceImpl*>(render_frame_host().GetSiteInstance())
@@ -243,7 +254,7 @@ void ModelContextUserData::GetScriptTools(
         continue;
       }
 
-      blink::mojom::ScriptToolPtr cloned_tool = t.Clone();
+      blink::mojom::ScriptToolPtr exposed_tool = t.Clone();
       // Find the frame (it could be local or remote) that the caller can use
       // to reference the `Window` hosting the tool.
       //
@@ -254,36 +265,38 @@ void ModelContextUserData::GetScriptTools(
                ->render_manager()
                ->GetFrameTokenForSiteInstanceGroup(site_instance_group);
 
-      cloned_tool->tool_owner_frame_token = token;
-
       // Clear `exposed_origins` to prevent leaking the full list of
       // authorized origins to the calling renderer process.
-      cloned_tool->exposed_origins.clear();
+      exposed_tool->exposed_origins.clear();
 
-      all_tools.push_back(std::move(cloned_tool));
+      all_tools.push_back(blink::mojom::ExposedScriptTool::New(
+          std::move(exposed_tool), token, tool_owner_origin));
     }
     return RenderFrameHost::FrameIterationAction::kContinue;
   });
 
-  std::ranges::sort(all_tools, [](const blink::mojom::ScriptToolPtr& a,
-                                  const blink::mojom::ScriptToolPtr& b) {
-    return a->name < b->name;
+  std::ranges::sort(all_tools, [](const blink::mojom::ExposedScriptToolPtr& a,
+                                  const blink::mojom::ExposedScriptToolPtr& b) {
+    return a->tool->name < b->tool->name;
   });
 
   std::move(callback).Run(std::move(all_tools));
 }
 
 void ModelContextUserData::ExecuteRemoteScriptTool(
-    const base::UnguessableToken& invocation_id,
+    const blink::ToolInvocationToken& invocation_id,
+    const base::UnguessableToken& tool_id,
     const blink::FrameToken& tool_owner_frame_token,
     const url::Origin& expected_target_origin,
-    const std::string& name,
     const std::string& input_arguments,
     ExecuteRemoteScriptToolCallback callback) {
   if (!IsWebMCPEnabled(render_frame_host())) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(render_frame_host().GetProcess(),
                                     bad_message::RFHI_WEBMCP_NOT_ENABLED);
-    std::move(callback).Run(std::nullopt, false);
+    std::move(callback).Run(
+        std::nullopt,
+        blink::mojom::ExecuteRemoteScriptToolError::kInvalidStateError);
     return;
   }
 
@@ -308,7 +321,9 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   // main-frame check below.
   RenderFrameHost* main_frame = render_frame_host().GetMainFrame();
   if (!target_rfh || main_frame != target_rfh->GetMainFrame()) {
-    std::move(callback).Run(std::nullopt, false);
+    std::move(callback).Run(
+        std::nullopt,
+        blink::mojom::ExecuteRemoteScriptToolError::kInvalidStateError);
     return;
   }
 
@@ -316,10 +331,13 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   // with an opaque origin; therefore, `expected_target_origin` will never be
   // opaque.
   if (expected_target_origin.opaque()) {
+    // TODO(crbug.com/573662751): Migrate to mojo::ReportBadMessage.
     bad_message::ReceivedBadMessage(
         render_frame_host().GetProcess(),
         bad_message::RFHI_WEBMCP_OPAQUE_TARGET_ORIGIN);
-    std::move(callback).Run(std::nullopt, false);
+    std::move(callback).Run(
+        std::nullopt,
+        blink::mojom::ExecuteRemoteScriptToolError::kInvalidStateError);
     return;
   }
 
@@ -329,7 +347,9 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   // tree node's `current_frame_host()` has changed since tool registration.
   if (!target_rfh->GetLastCommittedOrigin().IsSameOriginWith(
           expected_target_origin)) {
-    std::move(callback).Run(std::nullopt, false);
+    std::move(callback).Run(
+        std::nullopt,
+        blink::mojom::ExecuteRemoteScriptToolError::kNotFoundError);
     return;
   }
 
@@ -343,20 +363,25 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   // for a legitimate renderer to supply a frame token targeting a frame host
   // that exists, but does not have `target_data`.
   if (!target_data) {
-    std::move(callback).Run(std::nullopt, false);
+    std::move(callback).Run(
+        std::nullopt,
+        blink::mojom::ExecuteRemoteScriptToolError::kNotFoundError);
     return;
   }
 
   auto& tools = target_data->script_tools();
-  auto it = std::find_if(
-      tools.begin(), tools.end(),
-      [&](const blink::mojom::ScriptToolPtr& t) { return t->name == name; });
+  auto it = std::find_if(tools.begin(), tools.end(),
+                         [&](const blink::mojom::ScriptToolPtr& t) {
+                           return t->tool_id == tool_id;
+                         });
 
-  // Don't kill the renderer, since legitimate script can provide the name of a
+  // Don't kill the renderer, since legitimate script can provide the id of a
   // tool that doesn't exist (including one that did exist, but got unregistered
   // by the time the call to invoke it here).
   if (it == tools.end()) {
-    std::move(callback).Run(std::nullopt, false);
+    std::move(callback).Run(
+        std::nullopt,
+        blink::mojom::ExecuteRemoteScriptToolError::kNotFoundError);
     return;
   }
 
@@ -367,7 +392,9 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
           /*tool_owner_origin=*/target_rfh->GetLastCommittedOrigin(),
           (*it)->exposed_origins,
           /*accessing_origin=*/render_frame_host().GetLastCommittedOrigin())) {
-    std::move(callback).Run(std::nullopt, false);
+    std::move(callback).Run(
+        std::nullopt,
+        blink::mojom::ExecuteRemoteScriptToolError::kNotFoundError);
     return;
   }
 
@@ -380,26 +407,31 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
       static_cast<RenderFrameHostImpl&>(render_frame_host()).GetDocumentToken();
   execution.target_token = target_rfh->GetDocumentToken();
   execution.target_document = target_rfh->GetWeakDocumentPtr();
-  execution.tool_name = name;
+  execution.tool_name = (*it)->name;
   execution.callback = std::move(callback);
   page_data->AddPendingScriptToolExecution(invocation_id, std::move(execution));
 
   target_data->model_context_remote_->ExecuteScriptTool(
-      invocation_id, name, input_arguments,
+      invocation_id, tool_id, input_arguments,
       base::BindOnce(
           [](base::WeakPtr<ModelContextPageUserData> page_data,
-             base::UnguessableToken invocation_id,
-             const std::optional<std::string>& result, bool success) {
+             blink::ToolInvocationToken invocation_id,
+             const std::optional<std::string>& result,
+             std::optional<blink::mojom::ScriptToolErrorCode> error_code) {
             if (page_data) {
+              auto error =
+                  error_code ? std::optional(
+                                   ToExecuteRemoteScriptToolError(*error_code))
+                             : std::nullopt;
               page_data->CompletePendingScriptToolExecution(invocation_id,
-                                                            result, success);
+                                                            result, error);
             }
           },
           page_data->GetWeakPtr(), invocation_id));
 }
 
 void ModelContextUserData::CancelRemoteScriptTool(
-    const base::UnguessableToken& invocation_id) {
+    const blink::ToolInvocationToken& invocation_id) {
   if (ModelContextPageUserData* page_data =
           ModelContextPageUserData::GetOrCreateForPage(
               render_frame_host().GetPage())) {
@@ -457,15 +489,15 @@ ModelContextPageUserData::ModelContextPageUserData(Page& page)
 ModelContextPageUserData::~ModelContextPageUserData() = default;
 
 void ModelContextPageUserData::AddPendingScriptToolExecution(
-    const base::UnguessableToken& invocation_id,
+    const blink::ToolInvocationToken& invocation_id,
     PendingScriptToolExecution execution) {
   pending_script_tool_executions_.emplace(invocation_id, std::move(execution));
 }
 
 void ModelContextPageUserData::CompletePendingScriptToolExecution(
-    const base::UnguessableToken& invocation_id,
+    const blink::ToolInvocationToken& invocation_id,
     const std::optional<std::string>& result,
-    bool success) {
+    std::optional<blink::mojom::ExecuteRemoteScriptToolError> error) {
   // We are here because a tool just returned a result, and we should forward
   // the result to the tool's invoker. But it's possible that no pending
   // execution exists for this tool anymore. This can happen if the invoker
@@ -482,13 +514,13 @@ void ModelContextPageUserData::CompletePendingScriptToolExecution(
     return;
   }
 
-  std::move(it->second.callback).Run(result, success);
+  std::move(it->second.callback).Run(result, error);
   pending_script_tool_executions_.erase(it);
 }
 
 void ModelContextPageUserData::SendCancelScriptToolToTarget(
     WeakDocumentPtr target_document,
-    const base::UnguessableToken& invocation_id) {
+    const blink::ToolInvocationToken& invocation_id) {
   RenderFrameHost* target_rfh = target_document.AsRenderFrameHostIfValid();
   // `target_rfh` and `target_data` are always non-null, because they are only
   // cleared or invalidated during destruction when the tool owner is destroyed,
@@ -501,7 +533,7 @@ void ModelContextPageUserData::SendCancelScriptToolToTarget(
 }
 
 void ModelContextPageUserData::CancelPendingScriptToolExecution(
-    const base::UnguessableToken& invocation_id) {
+    const blink::ToolInvocationToken& invocation_id) {
   // We are here because a caller document aborted its execution signal for a
   // tool. However, it is possible that no pending execution exists for this
   // `invocation_id` anymore. This can happen in legitimate, non-compromised
@@ -517,7 +549,9 @@ void ModelContextPageUserData::CancelPendingScriptToolExecution(
     return;
   }
   SendCancelScriptToolToTarget(it->second.target_document, invocation_id);
-  std::move(it->second.callback).Run(std::nullopt, false);
+  std::move(it->second.callback)
+      .Run(std::nullopt,
+           blink::mojom::ExecuteRemoteScriptToolError::kAbortError);
   pending_script_tool_executions_.erase(it);
 }
 
@@ -541,7 +575,9 @@ void ModelContextPageUserData::CancelPendingScriptToolExecutionsForDocument(
     if (!is_target) {
       SendCancelScriptToolToTarget(it->second.target_document, it->first);
     }
-    std::move(it->second.callback).Run(std::nullopt, false);
+    std::move(it->second.callback)
+        .Run(std::nullopt,
+             blink::mojom::ExecuteRemoteScriptToolError::kAbortError);
     it = pending_script_tool_executions_.erase(it);
   }
 }

@@ -113,8 +113,10 @@
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs_factory.h"
 #include "chrome/browser/ash/app_list/test/fake_app_list_model_updater.h"
 #include "chrome/browser/sync/test/integration/sync_arc_package_helper.h"
+#include "chrome/browser/ui/ash/shelf/chrome_shelf_prefs.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/experiences/arc/test/arc_util_test_support.h"
 #include "components/account_id/account_id.h"
 #include "components/account_id/account_id_literal.h"  // nogncheck
@@ -173,6 +175,8 @@ int GetNumClients(SyncTest::TestType test_type) {
 
 // Creates a fake GCMProfileService to simulate sync invalidations.
 std::unique_ptr<KeyedService> CreateGCMProfileService(
+    base::WeakPtr<fake_server::FakeServerSyncInvalidationSender>
+        invalidation_sender,
     content::BrowserContext* context) {
   scoped_refptr<base::SequencedTaskRunner> blocking_task_runner(
       base::ThreadPool::CreateSequencedTaskRunner(
@@ -184,26 +188,18 @@ std::unique_ptr<KeyedService> CreateGCMProfileService(
       std::make_unique<FakeSyncGCMDriver>(profile, blocking_task_runner);
   fake_gcm_driver->WaitForAppIdBeforeConnection(
       fake_server::FakeServerSyncInvalidationSender::kSyncInvalidationsAppId);
+
+  CHECK(invalidation_sender);
+  invalidation_sender->AddFakeGCMDriver(fake_gcm_driver.get());
+  // `FakeSyncGCMDriver` may outlive `invalidation_sender`, as `SyncTest`
+  // destroys `fake_server_sync_invalidation_sender_` in `TearDownOnMainThread()`
+  // before `ProfileManager` destroys profiles and their `KeyedService`s.
+  fake_gcm_driver->SetOnDestroyedCallback(base::BindOnce(
+      &fake_server::FakeServerSyncInvalidationSender::RemoveFakeGCMDriver,
+      invalidation_sender, fake_gcm_driver.get()));
+
   return std::make_unique<gcm::FakeGCMProfileService>(
       std::move(fake_gcm_driver));
-}
-
-// Returns the `FakeGCMDriverForInstanceID` for `profile`.
-// `CreateGCMProfileService` is registered as the testing factory in
-// `OnProfileCreationStarted()`, and `GCMProfileServiceFactory` caches a single
-// `KeyedService` instance per `Profile` until `KeyedService`s are destroyed
-// (which happens after `OnProfileWillBeDestroyed()`), so `GetForProfile()` is
-// guaranteed to return the same `FakeGCMProfileService` instance throughout
-// the profile's lifetime.
-instance_id::FakeGCMDriverForInstanceID* GetFakeGCMDriverForProfile(
-    Profile* profile) {
-  auto* gcm_profile_service = static_cast<gcm::FakeGCMProfileService*>(
-      gcm::GCMProfileServiceFactory::GetForProfile(profile));
-  CHECK(gcm_profile_service);
-  instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver =
-      gcm_profile_service->GetFakeGCMDriver();
-  CHECK(fake_gcm_driver);
-  return fake_gcm_driver;
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -405,6 +401,27 @@ void SyncTest::PostCreateThreads() {
   CHECK(g_browser_process->profile_manager());
   profile_manager_observation_.Observe(g_browser_process->profile_manager());
 
+#if BUILDFLAG(IS_CHROMEOS)
+  // Sets Arc flags, need to be called before create test profiles.
+  ArcAppListPrefsFactory::SetFactoryForSyncTest();
+
+  // Client 0 may reuse the primary user profile, which has
+  // ChromeShelfController attached. Once app list sync starts, it would
+  // pre-allocate pin positions for uninstalled default apps in
+  // AppListSyncableService.
+  ChromeShelfPrefs::SetShouldAddDefaultAppsForTest(false);
+
+  // Uses a fake app list model updater to avoid interacting with Ash.
+  model_updater_factory_scope_ =
+      app_list::AppListSyncableService::SetScopedModelUpdaterFactoryForTest(
+          base::BindRepeating(
+              [](app_list::reorder::AppListReorderDelegate* reorder_delegate)
+                  -> std::unique_ptr<AppListModelUpdater> {
+                return std::make_unique<FakeAppListModelUpdater>(
+                    /*profile=*/nullptr, reorder_delegate);
+              }));
+#endif
+
   switch (server_type_) {
     case EXTERNAL_LIVE_SERVER: {
       // Allows google.com as well as country-specific TLDs.
@@ -431,14 +448,15 @@ void SyncTest::PostCreateThreads() {
       // after the threadpool is initialized.
       base::FilePath user_data_dir;
       base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
-      fake_server_ = std::make_unique<fake_server::FakeServer>(
-          user_data_dir.AppendASCII("FakeServer"));
+      const base::FilePath fake_server_dir =
+          user_data_dir.AppendASCII("FakeServer");
+      fake_server_ = std::make_unique<fake_server::FakeServer>(fake_server_dir);
       embedded_fake_server_adapter_ =
           std::make_unique<fake_server::EmbeddedFakeServerAdapter>(
               fake_server_->AsWeakPtr());
       fake_server_sync_invalidation_sender_ =
           std::make_unique<fake_server::FakeServerSyncInvalidationSender>(
-              fake_server_.get());
+              fake_server_.get(), fake_server_dir);
 
       SetupMockGaiaResponses();
 
@@ -660,21 +678,6 @@ bool SyncTest::SetupClients() {
     cl->AppendSwitchASCII(syncer::kSyncDeferredStartupTimeoutSeconds, "0");
   }
 
-#if BUILDFLAG(IS_CHROMEOS)
-  // Sets Arc flags, need to be called before create test profiles.
-  ArcAppListPrefsFactory::SetFactoryForSyncTest();
-
-  // Uses a fake app list model updater to avoid interacting with Ash.
-  model_updater_factory_scope_ =
-      app_list::AppListSyncableService::SetScopedModelUpdaterFactoryForTest(
-          base::BindRepeating(
-              [](app_list::reorder::AppListReorderDelegate* reorder_delegate)
-                  -> std::unique_ptr<AppListModelUpdater> {
-                return std::make_unique<FakeAppListModelUpdater>(
-                    /*profile=*/nullptr, reorder_delegate);
-              }));
-#endif
-
   base::ScopedAllowBlockingForTesting allow_blocking;
 
   for (int i = 0; i < num_clients_; ++i) {
@@ -686,16 +689,6 @@ bool SyncTest::SetupClients() {
               << "; elapsed time since construction: "
               << (base::Time::Now() - test_construction_time_);
   }
-
-#if BUILDFLAG(IS_CHROMEOS)
-  if (ArcAppListPrefsFactory::IsFactorySetForSyncTest()) {
-    // Init SyncArcPackageHelper to ensure that the arc services are initialized
-    // for each Profile, only can be called after test profiles are created.
-    if (!sync_arc_helper()) {
-      return false;
-    }
-  }
-#endif
 
   LOG(INFO)
       << "SyncTest::SetupClients() completed; elapsed time since construction: "
@@ -733,11 +726,6 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
     browser->GetWindow()->Show();
   }
 #endif
-
-  if (server_type_ == IN_PROCESS_FAKE_SERVER) {
-    fake_server_sync_invalidation_sender_->AddFakeGCMDriver(
-        GetFakeGCMDriverForProfile(profile));
-  }
 
   SyncServiceImplHarness::SigninType signin_type =
       server_type_ == EXTERNAL_LIVE_SERVER
@@ -1056,14 +1044,6 @@ void SyncTest::TearDownOnMainThread() {
 void SyncTest::OnProfileWillBeDestroyed(Profile* profile) {
   profile->RemoveObserver(this);
 
-  if (server_type_ == IN_PROCESS_FAKE_SERVER &&
-      fake_server_sync_invalidation_sender_) {
-    // `KeyedService`s are destroyed after `OnProfileWillBeDestroyed()`, so
-    // `FakeGCMProfileService` (and its `FakeGCMDriver`) is still alive here.
-    fake_server_sync_invalidation_sender_->RemoveFakeGCMDriver(
-        GetFakeGCMDriverForProfile(profile));
-  }
-
   for (size_t index = 0; index < clients_.size(); ++index) {
     if (clients_[index].profile != profile) {
       continue;
@@ -1090,6 +1070,11 @@ void SyncTest::OnProfileAdded(Profile* profile) {
     account_manager->SetUrlLoaderFactoryForTests(
         test_url_loader_factory_.GetSafeWeakWrapper());
   }
+
+  if (ArcAppListPrefsFactory::IsFactorySetForSyncTest() &&
+      ash::IsUserBrowserContext(profile)) {
+    sync_arc_helper()->SetupProfile(profile);
+  }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -1105,9 +1090,12 @@ void SyncTest::OnProfileCreationStarted(Profile* profile) {
   }
 
   CHECK(GetFakeServer());
+  CHECK(fake_server_sync_invalidation_sender_);
 
   gcm::GCMProfileServiceFactory::GetInstance()->SetTestingFactory(
-      profile, base::BindRepeating(&CreateGCMProfileService));
+      profile,
+      base::BindRepeating(&CreateGCMProfileService,
+                          fake_server_sync_invalidation_sender_->GetWeakPtr()));
   ChromeSigninClientFactory::GetInstance()->SetTestingFactory(
       profile, base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
                                    &test_url_loader_factory_));
@@ -1221,12 +1209,19 @@ void SyncTest::DisableNetwork() {
 
   connection_change_simulator_.SetConnectionType(
       net::NetworkChangeNotifier::ConnectionType::CONNECTION_NONE);
+
+  if (fake_server_sync_invalidation_sender_) {
+    fake_server_sync_invalidation_sender_->SetOfflineAllClients(true);
+  }
 }
 
 void SyncTest::EnableNetwork() {
   url_loader_interceptor_.reset();
   connection_change_simulator_.SetConnectionType(
       net::NetworkChangeNotifier::ConnectionType::CONNECTION_ETHERNET);
+  if (fake_server_sync_invalidation_sender_) {
+    fake_server_sync_invalidation_sender_->SetOfflineAllClients(false);
+  }
 }
 
 void SyncTest::TriggerSyncForDataTypes(int index,

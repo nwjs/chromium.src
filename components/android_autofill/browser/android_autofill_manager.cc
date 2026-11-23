@@ -4,11 +4,13 @@
 
 #include "components/android_autofill/browser/android_autofill_manager.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
 #include "components/android_autofill/browser/android_form_event_logger.h"
@@ -16,15 +18,95 @@
 #include "components/android_autofill/browser/autofill_type_util.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion_util.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/password_manager/core/browser/password_form.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 namespace autofill {
+
+namespace {
+
+// Returns the `FieldTypeGroup` for `field`. If `pw_form` is a login form and
+// `field` is its username or password element, returns the corresponding
+// credential group instead of `field`'s Autofill classification (e.g., an
+// `<input type="email">` username field). Otherwise, returns `kNoGroup` if
+// suggestions and filling are suppressed for `field` by default (e.g., due to
+// an unrecognized autocomplete attribute), matching
+// `FormStructure::GetFormTypes()`.
+FieldTypeGroup ComputeFieldTypeGroup(
+    const AutofillField& field,
+    const password_manager::PasswordForm* pw_form,
+    AutocompleteUnrecognizedBehavior ac_unrecognized_behavior) {
+  if (pw_form && pw_form->IsLikelyLoginForm()) {
+    if (field.renderer_id() == pw_form->username_element_renderer_id) {
+      return FieldTypeGroup::kUsernameField;
+    }
+    if (field.renderer_id() == pw_form->password_element_renderer_id) {
+      return FieldTypeGroup::kPasswordField;
+    }
+  }
+  if (field.ShouldSuppressSuggestionsAndFillingByDefault(
+          ac_unrecognized_behavior)) {
+    return FieldTypeGroup::kNoGroup;
+  }
+  return GroupTypeOfFieldType(GetMostRelevantFieldType(field.Type()));
+}
+
+DenseSet<FormType> GetFormTypesForLogging(
+    const FormStructure& form_structure,
+    const password_manager::PasswordForm* pw_form,
+    AutocompleteUnrecognizedBehavior ac_unrecognized_behavior) {
+  DenseSet<FormType> form_types(
+      form_structure.fields(),
+      [&](const std::unique_ptr<AutofillField>& field) {
+        return FieldTypeGroupToFormType(
+            ComputeFieldTypeGroup(*field, pw_form, ac_unrecognized_behavior));
+      });
+  form_types.erase(FormType::kUnknownFormType);
+  return form_types;
+}
+
+// Returns the `FormTypeNameForLogging`s that `form_type` is logged as for
+// `form_structure`. Like `autofill_metrics::GetFormTypesForLogging()`, address
+// forms are also logged as email-only or postal address forms.
+DenseSet<FormTypeNameForLogging> GetFormTypeNamesForLogging(
+    const FormStructure& form_structure,
+    FormType form_type) {
+  switch (form_type) {
+    case FormType::kAddressForm:
+      if (autofill_metrics::internal::IsEmailOnlyForm(form_structure)) {
+        return {FormTypeNameForLogging::kAddressForm,
+                FormTypeNameForLogging::kEmailOnlyForm};
+      }
+      if (autofill_metrics::internal::IsPostalAddressForm(form_structure)) {
+        return {FormTypeNameForLogging::kAddressForm,
+                FormTypeNameForLogging::kPostalAddressForm};
+      }
+      return {FormTypeNameForLogging::kAddressForm};
+    case FormType::kCreditCardForm:
+      return {FormTypeNameForLogging::kCreditCardForm};
+    case FormType::kStandaloneCvcForm:
+      return {FormTypeNameForLogging::kStandaloneCvcForm};
+    case FormType::kLoyaltyCardForm:
+      return {FormTypeNameForLogging::kLoyaltyCardForm};
+    case FormType::kPasswordForm:
+      return {FormTypeNameForLogging::kPasswordForm};
+    case FormType::kOneTimePasswordForm:
+      return {FormTypeNameForLogging::kOneTimePasswordForm};
+    case FormType::kUnknownFormType:
+      return {};
+  }
+  NOTREACHED();
+}
+
+}  // namespace
 
 using base::TimeTicks;
 
@@ -49,12 +131,28 @@ bool AndroidAutofillManager::ShouldClearPreviewedForm() {
 void AndroidAutofillManager::OnFormSubmittedImpl(
     const FormData& form,
     mojom::SubmissionSource source) {
-  address_logger_->OnWillSubmitForm();
-  loyalty_card_logger_->OnWillSubmitForm();
-  payments_logger_->OnWillSubmitForm();
-  password_logger_->OnWillSubmitForm();
-  if (auto* provider = GetAutofillProvider())
+  const FormStructure* submitted_form = FindCachedFormById(form.global_id());
+  const password_manager::PasswordForm* pw_form =
+      submitted_form ? FindCachedPasswordForm(*submitted_form) : nullptr;
+  // A form being hidden or removed after autofill is a weak submission signal
+  // because filling can itself add or remove fields (e.g., after filling a
+  // country). It is therefore only accepted for password forms, whose
+  // mutations are rarer, and only if the feature is enabled.
+  if (source == mojom::SubmissionSource::DOM_MUTATION_AFTER_AUTOFILL &&
+      (!pw_form ||
+       !base::FeatureList::IsEnabled(
+           features::kAutofillAcceptDomMutationAfterAutofillSubmission))) {
+    return;
+  }
+  if (auto* provider = GetAutofillProvider()) {
     provider->OnFormSubmitted(this, form, source);
+  }
+  if (!submitted_form) {
+    return;
+  }
+  for (AndroidFormEventLogger* logger : GetEventFormLoggers(*submitted_form)) {
+    logger->OnWillSubmitForm();
+  }
 }
 
 void AndroidAutofillManager::OnTextFieldValueChangedImpl(
@@ -76,7 +174,8 @@ void AndroidAutofillManager::OnTextFieldValueChangedImpl(
 
   provider->OnTextFieldValueChanged(this, form, *field, timestamp);
 
-  if (auto* logger = GetEventFormLogger(form.global_id(), field_id)) {
+  for (AndroidFormEventLogger* logger :
+       GetEventFormLoggers(form.global_id(), field_id)) {
     if (cached_is_autofilled) {
       logger->OnEditedAutofilledField();
     } else {
@@ -112,7 +211,8 @@ void AndroidAutofillManager::OnAskForValuesToFillImpl(
 
   provider->OnAskForValuesToFill(this, form, *field, trigger_source);
 
-  if (auto* logger = GetEventFormLogger(form.global_id(), field_id)) {
+  for (AndroidFormEventLogger* logger :
+       GetEventFormLoggers(form.global_id(), field_id)) {
     logger->OnDidInteractWithAutofillableForm();
   }
 }
@@ -158,12 +258,8 @@ void AndroidAutofillManager::OnHidePopupImpl() {
 
 void AndroidAutofillManager::OnFormProcessed(
     const FormStructure& form_structure) {
-  DenseSet<FormType> form_types =
-      form_structure.GetFormTypes(GetAcUnrecognizedBehavior(client()));
-  for (FormType form_type : form_types) {
-    if (auto* logger = GetEventFormLogger(form_type)) {
-      logger->OnDidParseForm();
-    }
+  for (AndroidFormEventLogger* logger : GetEventFormLoggers(form_structure)) {
+    logger->OnDidParseForm();
   }
 }
 
@@ -181,6 +277,7 @@ void AndroidAutofillManager::Reset() {
   }
   AutofillManager::Reset();
   forms_with_server_predictions_.clear();
+  password_forms_.clear();
   StartNewLoggingSession();
 }
 
@@ -190,6 +287,9 @@ void AndroidAutofillManager::OnFieldTypesDetermined(
     FieldTypeSource source,
     bool small_forms_were_parsed) {
   CHECK_EQ(&manager, this);
+  // The cached `PasswordForm` may be outdated now. `FindCachedPasswordForm()`
+  // parses it again when it's needed.
+  password_forms_.erase(form);
   switch (source) {
     case FieldTypeSource::kAutofillAiModel:
     case FieldTypeSource::kAutofillServer:
@@ -224,23 +324,22 @@ AndroidAutofillManager::GetCreditCardAccessManager() const {
   return nullptr;
 }
 
-FieldTypeGroup AndroidAutofillManager::ComputeFieldTypeGroupForField(
+void AndroidAutofillManager::OnDidShowSuggestions(
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id) {
-  auto [form, field] = FindFormAndField(form_id, field_id);
-  if (!field) {
-    return FieldTypeGroup::kNoGroup;
+  for (AndroidFormEventLogger* logger :
+       GetEventFormLoggers(form_id, field_id)) {
+    logger->OnDidShowSuggestions();
   }
-  return GroupTypeOfFieldType(GetMostRelevantFieldType(field->Type()));
 }
 
 void AndroidAutofillManager::FillOrPreviewForm(
     mojom::ActionPersistence action_persistence,
     FormData form,
-    FieldTypeGroup field_type_group,
     const url::Origin& triggered_origin) {
   DCHECK_EQ(action_persistence, mojom::ActionPersistence::kFill);
 
+  const FormGlobalId form_id = form.global_id();
   std::vector<FormFieldData> fields = form.ExtractFields();
   std::erase_if(fields, [&](const FormFieldData& field) {
     // The renderer doesn't fill such fields, and therefore they can be removed
@@ -261,9 +360,20 @@ void AndroidAutofillManager::FillOrPreviewForm(
                            fields, FillId::Create(),
                            /*supports_refill=*/false, triggered_origin,
                            field_type_map);
-  // We do not call OnAutofillProfileOrCreditCardFormFilled() because WebView
-  // doesn't have AutofillProfile or CreditCard.
-  if (auto* logger = GetEventFormLogger(field_type_group)) {
+  // WebView does not have visibility into what type of dataset the Android
+  // Autofill service used to fill the form, so it infers the affected loggers
+  // from the classified types of the filled `fields`. Looking at all filled
+  // fields ensures fills are still attributed when predictions arrive
+  // asynchronously after focus, when the trigger field itself is unclassified,
+  // or when a single fill populates multiple field groups. However, this
+  // remains an approximation and may call the wrong logger if a filled field
+  // was misclassified or has multiple possible types.
+  base::flat_set<AndroidFormEventLogger*> loggers;
+  for (const FormFieldData& field : fields) {
+    loggers.insert_range(GetEventFormLoggers(form_id, field.global_id()));
+  }
+  for (AndroidFormEventLogger* logger : loggers) {
+    logger->OnDidInteractWithAutofillableForm();
     logger->OnDidFillSuggestion();
   }
 }
@@ -280,42 +390,110 @@ void AndroidAutofillManager::FillOrPreviewField(
 }
 
 void AndroidAutofillManager::StartNewLoggingSession() {
+  address_logger_.reset();
+  postal_address_logger_.reset();
+  email_only_logger_.reset();
+  loyalty_card_logger_.reset();
+  payments_logger_.reset();
+  password_logger_.reset();
+  // There is nothing to measure if Android Autofill is disabled. Unlike
+  // `GetAutofillProvider()`, this doesn't require `rfh` to be active, because
+  // prerendered pages aren't reset when they're activated.
+  if (auto* rfh =
+          static_cast<ContentAutofillDriver&>(driver()).render_frame_host()) {
+    if (auto* web_contents = content::WebContents::FromRenderFrameHost(rfh)) {
+      if (auto* provider = AutofillProvider::FromWebContents(web_contents);
+          provider && provider->IsAutofillDisabled()) {
+        return;
+      }
+    }
+  }
   address_logger_ = std::make_unique<AndroidFormEventLogger>("Address");
+  postal_address_logger_ =
+      std::make_unique<AndroidFormEventLogger>("PostalAddress");
+  email_only_logger_ = std::make_unique<AndroidFormEventLogger>("EmailOnly");
   loyalty_card_logger_ =
       std::make_unique<AndroidFormEventLogger>("LoyaltyCard");
   payments_logger_ = std::make_unique<AndroidFormEventLogger>("CreditCard");
   password_logger_ = std::make_unique<AndroidFormEventLogger>("Password");
 }
 
-AndroidFormEventLogger* AndroidAutofillManager::GetEventFormLogger(
-    const FormGlobalId& form_id,
-    const FieldGlobalId& field_id) {
-  return GetEventFormLogger(ComputeFieldTypeGroupForField(form_id, field_id));
+std::vector<AndroidFormEventLogger*>
+AndroidAutofillManager::GetEventFormLoggers(
+    const FormStructure& form_structure) {
+  DenseSet<FormTypeNameForLogging> form_type_names;
+  for (FormType form_type : GetFormTypesForLogging(
+           form_structure, FindCachedPasswordForm(form_structure),
+           GetAcUnrecognizedBehavior(client()))) {
+    form_type_names.insert_all(
+        GetFormTypeNamesForLogging(form_structure, form_type));
+  }
+  std::vector<AndroidFormEventLogger*> loggers;
+  loggers.reserve(form_type_names.size());
+  for (FormTypeNameForLogging form_type_name : form_type_names) {
+    AndroidFormEventLogger* logger = GetEventFormLogger(form_type_name);
+    if (logger) {
+      loggers.push_back(logger);
+    }
+  }
+  std::ranges::sort(loggers);
+  auto [first_dup, last] = std::ranges::unique(loggers);
+  loggers.erase(first_dup, last);
+  return loggers;
+}
+
+std::vector<AndroidFormEventLogger*>
+AndroidAutofillManager::GetEventFormLoggers(const FormGlobalId& form_id,
+                                            const FieldGlobalId& field_id) {
+  auto [form, field] = FindFormAndField(form_id, field_id);
+  if (!form || !field) {
+    return {};
+  }
+  const FormType form_type = FieldTypeGroupToFormType(
+      ComputeFieldTypeGroup(*field, FindCachedPasswordForm(*form),
+                            GetAcUnrecognizedBehavior(client())));
+  std::vector<AndroidFormEventLogger*> loggers;
+  for (FormTypeNameForLogging form_type_name :
+       GetFormTypeNamesForLogging(*form, form_type)) {
+    if (AndroidFormEventLogger* logger = GetEventFormLogger(form_type_name)) {
+      loggers.push_back(logger);
+    }
+  }
+  return loggers;
 }
 
 AndroidFormEventLogger* AndroidAutofillManager::GetEventFormLogger(
-    FieldTypeGroup group) {
-  return GetEventFormLogger(FieldTypeGroupToFormType(group));
-}
-
-AndroidFormEventLogger* AndroidAutofillManager::GetEventFormLogger(
-    FormType form_type) {
+    FormTypeNameForLogging form_type) {
   switch (form_type) {
-    case FormType::kAddressForm:
+    case FormTypeNameForLogging::kAddressForm:
       return address_logger_.get();
-    case FormType::kLoyaltyCardForm:
+    case FormTypeNameForLogging::kEmailOnlyForm:
+      return email_only_logger_.get();
+    case FormTypeNameForLogging::kPostalAddressForm:
+      return postal_address_logger_.get();
+    case FormTypeNameForLogging::kLoyaltyCardForm:
       return loyalty_card_logger_.get();
-    case FormType::kCreditCardForm:
-    case FormType::kStandaloneCvcForm:
+    case FormTypeNameForLogging::kCreditCardForm:
+    case FormTypeNameForLogging::kStandaloneCvcForm:
       return payments_logger_.get();
-    case FormType::kPasswordForm:
+    case FormTypeNameForLogging::kPasswordForm:
       return password_logger_.get();
     // TODO(crbug.com/443693025): Add event logger for OTP fields
-    case FormType::kOneTimePasswordForm:
-    case FormType::kUnknownFormType:
+    case FormTypeNameForLogging::kOneTimePasswordForm:
+    case FormTypeNameForLogging::kUnknownFormType:
       return nullptr;
   }
   NOTREACHED();
+}
+
+const password_manager::PasswordForm*
+AndroidAutofillManager::FindCachedPasswordForm(
+    const FormStructure& form_structure) {
+  auto [it, inserted] = password_forms_.try_emplace(form_structure.global_id());
+  if (inserted) {
+    it->second = ParseToPasswordForm(form_structure);
+  }
+  return it->second.get();
 }
 
 }  // namespace autofill

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/containers/to_value_list.h"
 #include "base/json/json_writer.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
@@ -35,12 +36,12 @@ namespace {
 
 namespace mojom = ::browser::context_hub::mojom;
 
-// A history visit that survives minimization, linked to its Topic.
+// A visit that survives minimization, linked to its Topic.
 struct ExportedVisit {
   base::Time visit_time;
   // Minimized URL.
   GURL url;
-  // Points into `TopicsFeedbackExportData::visits`.
+  // Points into `TopicsFeedbackExportData::visits` or `journeys`.
   raw_ref<const std::u16string> title;
   bool is_foreign;
   // Id of the Topic the visit belongs to, or null if it is unclustered. Points
@@ -48,40 +49,72 @@ struct ExportedVisit {
   raw_ptr<const std::string> topic_id;
 };
 
+// A visit of a Topic in `TopicsFeedbackExportData::journeys`, and whether a
+// history visit was linked to it.
+struct TopicVisit {
+  raw_ref<const history::journeys::JourneyVisit> visit;
+  raw_ref<const std::string> topic_id;
+  bool linked = false;
+};
+
 // Drops visits that must not be exported, minimizes the URLs of the rest, and
 // links each to the first Topic with a visit at the same time to the same
-// minimized URL.
+// minimized URL. Then adds the Topic visits since `data.window_start` that
+// are missing from `data.visits`, and returns all the visits newest first.
 std::vector<ExportedVisit> MinimizeAndLinkVisits(
     const TopicsFeedbackExportData& data) {
-  std::map<std::pair<base::Time, std::string>, const std::string*>
-      topic_id_by_visit;
+  std::map<std::pair<base::Time, std::string>, TopicVisit> topic_visits;
   for (const history::journeys::Journey& journey : data.journeys) {
     for (const history::journeys::JourneyVisit& visit : journey.visits) {
       if (std::optional<GURL> url = MinimizeUrlForTopicsFeedback(visit.url)) {
         // `emplace()` keeps the first Topic if a visit is in several.
-        topic_id_by_visit.emplace(std::make_pair(visit.visit_time, url->spec()),
-                                  &journey.journey_id);
+        topic_visits.emplace(
+            std::make_pair(visit.visit_time, url->spec()),
+            TopicVisit{.visit = raw_ref(visit),
+                       .topic_id = raw_ref(journey.journey_id)});
       }
     }
   }
 
   std::vector<ExportedVisit> exported_visits;
-  exported_visits.reserve(data.visits.size());
+  exported_visits.reserve(data.visits.size() + topic_visits.size());
   for (const TopicsFeedbackHistoryVisit& visit : data.visits) {
     std::optional<GURL> url = MinimizeUrlForTopicsFeedback(visit.url);
     if (!url) {
       continue;
     }
-    auto it =
-        topic_id_by_visit.find(std::make_pair(visit.visit_time, url->spec()));
+    const std::string* topic_id = nullptr;
+    auto it = topic_visits.find(std::make_pair(visit.visit_time, url->spec()));
+    if (it != topic_visits.end()) {
+      it->second.linked = true;
+      topic_id = &it->second.topic_id.get();
+    }
     exported_visits.push_back(ExportedVisit{
         .visit_time = visit.visit_time,
         .url = std::move(*url),
         .title = raw_ref<const std::u16string>(visit.title),
         .is_foreign = visit.is_foreign,
-        .topic_id = it != topic_id_by_visit.end() ? it->second : nullptr,
+        .topic_id = topic_id,
     });
   }
+
+  // History doesn't return some visits that Topics contain, e.g. ones replaced
+  // by a client redirect.
+  for (const auto& [key, topic_visit] : topic_visits) {
+    const history::journeys::JourneyVisit& visit = *topic_visit.visit;
+    if (topic_visit.linked || visit.visit_time < data.window_start) {
+      continue;
+    }
+    exported_visits.push_back(ExportedVisit{
+        .visit_time = visit.visit_time,
+        .url = GURL(key.second),
+        .title = raw_ref<const std::u16string>(visit.title),
+        .is_foreign = visit.is_foreign,
+        .topic_id = &topic_visit.topic_id.get(),
+    });
+  }
+  std::ranges::stable_sort(exported_visits, std::ranges::greater(),
+                           &ExportedVisit::visit_time);
   return exported_visits;
 }
 
@@ -182,6 +215,23 @@ base::DictValue JourneyToDict(const history::journeys::Journey& journey) {
                                     .Set("prompt", query.prompt));
   }
 
+  // A collection's pages are visits of the Topic, so they're exported as
+  // visit times, which join to `visits`. Redacting a visit thus also hides the
+  // page.
+  base::ListValue collections;
+  collections.reserve(journey.collections.size());
+  for (const history::journeys::JourneyVisitCollection& collection :
+       journey.collections) {
+    base::ListValue visit_times;
+    visit_times.reserve(collection.visits.size());
+    for (const history::journeys::JourneyVisit& visit : collection.visits) {
+      visit_times.Append(FormatTopicsFeedbackTime(visit.visit_time));
+    }
+    collections.Append(base::DictValue()
+                           .Set("title", collection.title)
+                           .Set("visit_times", std::move(visit_times)));
+  }
+
   return base::DictValue()
       .Set("id", journey.journey_id)
       .Set("title", journey.title)
@@ -190,7 +240,8 @@ base::DictValue JourneyToDict(const history::journeys::Journey& journey) {
       .Set("short_overview", journey.short_overview.value_or(""))
       .Set("created_at", FormatTopicsFeedbackTime(journey.creation_time))
       .Set("visits", std::move(visits))
-      .Set("continuation_queries", std::move(continuation_queries));
+      .Set("continuation_queries", std::move(continuation_queries))
+      .Set("collections", std::move(collections));
 }
 
 base::DictValue DuplicateTopicToDict(
@@ -202,21 +253,26 @@ base::DictValue DuplicateTopicToDict(
 }
 
 base::DictValue FeedbackToDict(const mojom::TopicFeedback& feedback) {
-  base::ListValue defects;
-  defects.reserve(feedback.defects.size());
-  for (mojom::TopicDefectCategory defect : feedback.defects) {
-    defects.Append(DefectToString(defect));
-  }
+  base::ListValue defects = base::ToValueList(feedback.defects, DefectToString);
 
-  base::ListValue query_feedbacks;
-  query_feedbacks.reserve(feedback.query_feedbacks.size());
-  for (const mojom::TopicQueryFeedbackPtr& query_feedback :
-       feedback.query_feedbacks) {
-    query_feedbacks.Append(base::DictValue()
-                               .Set("index", query_feedback->index)
-                               .Set("query_text", query_feedback->query_text)
-                               .Set("liked", query_feedback->liked));
-  }
+  base::ListValue query_feedbacks =
+      base::ToValueList(feedback.query_feedbacks,
+                        [](const mojom::TopicQueryFeedbackPtr& query_feedback) {
+                          return base::DictValue()
+                              .Set("index", query_feedback->index)
+                              .Set("query_text", query_feedback->query_text)
+                              .Set("liked", query_feedback->liked);
+                        });
+
+  base::ListValue collection_feedbacks = base::ToValueList(
+      feedback.collection_feedbacks,
+      [](const mojom::TopicCollectionFeedbackPtr& collection_feedback) {
+        return base::DictValue()
+            .Set("title", collection_feedback->title)
+            .Set("rating", RatingToString(collection_feedback->rating))
+            .Set("rejected_item_visits",
+                 TimesToList(collection_feedback->rejected_item_visits));
+      });
 
   const mojom::TopicSnapshot& snapshot = *feedback.snapshot;
   return base::DictValue()
@@ -239,7 +295,8 @@ base::DictValue FeedbackToDict(const mojom::TopicFeedback& feedback) {
       .Set("duplicate_of",
            feedback.duplicate_of
                ? base::Value(DuplicateTopicToDict(*feedback.duplicate_of))
-               : base::Value());
+               : base::Value())
+      .Set("collection_feedbacks", std::move(collection_feedbacks));
 }
 
 }  // namespace

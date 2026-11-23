@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/organizer/organizer_panel_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -42,6 +43,7 @@ namespace {
 
 constexpr auto kInsideBorderInsets = gfx::Insets(3);
 constexpr int kBetweenChildSpacing = 4;
+constexpr int kButtonSize = 26;
 
 }  // namespace
 
@@ -56,10 +58,8 @@ VerticalTabStripSegmentedControl::VerticalTabStripSegmentedControl(
   CHECK(browser_);
   SetProperty(views::kElementIdentifierKey, kSegmentedControlElementId);
 
-  const int button_size = GetLayoutConstant(
-      LayoutConstant::kVerticalTabStripTopContainerButtonSize);
-
-  SetBackground(views::CreatePillBackground(ui::kColorSysSurface));
+  SetBackground(
+      views::CreatePillBackground(kColorNewTabButtonCRBackgroundFrameActive));
 
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kHorizontal, kInsideBorderInsets,
@@ -74,7 +74,7 @@ VerticalTabStripSegmentedControl::VerticalTabStripSegmentedControl(
                             base::Unretained(this), segment));
     button->SetTooltipText(l10n_util::GetStringUTF16(tooltip_id));
     button->SetProperty(views::kElementIdentifierKey, element_id);
-    button->SetPreferredSize(gfx::Size(button_size, button_size));
+    button->SetPreferredSize(gfx::Size(kButtonSize, kButtonSize));
     button->SetImageHorizontalAlignment(views::ImageButton::ALIGN_CENTER);
     button->SetImageVerticalAlignment(views::ImageButton::ALIGN_MIDDLE);
     button->GetViewAccessibility().SetRole(ax::mojom::Role::kToggleButton);
@@ -198,10 +198,14 @@ void VerticalTabStripSegmentedControl::UpdateButtonIcons() {
 }
 
 void VerticalTabStripSegmentedControl::UpdateSegmentBackgrounds() {
+  const bool is_active = GetWidget() && GetWidget()->ShouldPaintAsActive();
+  const ui::ColorId container_bg_color =
+      is_active ? kColorNewTabButtonCRBackgroundFrameActive
+                : kColorNewTabButtonCRBackgroundFrameInactive;
+  SetBackground(views::CreatePillBackground(container_bg_color));
+
   const ui::ColorId active_bg_color =
-      GetWidget() && GetWidget()->ShouldPaintAsActive()
-          ? ui::kColorFrameActive
-          : ui::kColorFrameInactive;
+      is_active ? ui::kColorFrameActive : ui::kColorFrameInactive;
   auto update_segment_background = [&](Segment segment) {
     if (views::ImageButton* button = GetButton(segment)) {
       button->SetBackground(active_segment_ == segment

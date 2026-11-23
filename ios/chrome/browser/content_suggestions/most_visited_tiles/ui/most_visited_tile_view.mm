@@ -8,7 +8,6 @@
 #import "base/check.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/favicon_base/fallback_icon_style.h"
-#import "components/ntp_tiles/features.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_module_content_view_delegate.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/public/most_visited_tiles_constants.h"
@@ -34,9 +33,6 @@ namespace {
 
 // The width of a Most Visited Tile's favicon.
 constexpr CGFloat kMostVisitedFaviconWidth = 24.0;
-
-// The size of the AIM symbol and its container.
-constexpr CGFloat kAimIconSize = 20.0;
 
 }  // namespace
 
@@ -66,8 +62,7 @@ constexpr CGFloat kAimIconSize = 20.0;
     if (IsNewTabPageUICleanupEnabled()) {
       self.titleLabel.numberOfLines = 1;
     }
-    if (ntp_tiles::GetAimButtonRefactorArm() ==
-        ntp_tiles::AimButtonRefactorArm::kAimAsModule) {
+    if (GetAimButtonRefactorArm() == AimButtonRefactorArm::kAimAsModule) {
       self.imageContainerView.backgroundColor = UIColor.clearColor;
       self.titleLabel.numberOfLines = 1;
     }
@@ -91,9 +86,8 @@ constexpr CGFloat kAimIconSize = 20.0;
     _faviconView.translatesAutoresizingMaskIntoConstraints = NO;
     [NSLayoutConstraint activateConstraints:@[
       [_faviconView.heightAnchor
-          constraintEqualToConstant:ntp_tiles::GetAimButtonRefactorArm() ==
-                                            ntp_tiles::AimButtonRefactorArm::
-                                                kAimAsModule
+          constraintEqualToConstant:GetAimButtonRefactorArm() ==
+                                            AimButtonRefactorArm::kAimAsModule
                                         ? kMostVisitedFaviconWidth
                                         : kMagicStackFaviconWidth],
       [_faviconView.widthAnchor
@@ -118,25 +112,38 @@ constexpr CGFloat kAimIconSize = 20.0;
 #pragma mark - Public
 
 - (void)configureAsAIMTile {
-  CHECK(IsAimEnabledInNtp());
-  ntp_tiles::AimButtonRefactorArm arm = ntp_tiles::GetAimButtonRefactorArm();
-  CHECK(arm == ntp_tiles::AimButtonRefactorArm::kAimAsMvt ||
-        arm == ntp_tiles::AimButtonRefactorArm::kAimAsModule);
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  CHECK(arm == AimButtonRefactorArm::kAimAsMvt ||
+        arm == AimButtonRefactorArm::kAimAsModule);
   _faviconView.hidden = YES;
   if (!_aimIconView) {
     _aimIconView = [[UIImageView alloc] init];
     _aimIconView.translatesAutoresizingMaskIntoConstraints = NO;
-    _aimIconView.image = MakeSymbolMonochrome(
-        SymbolWithPointSize(SymbolMagnifyingglassSpark, kAimIconSize));
-    _aimIconView.tintColor = [UIColor colorNamed:kTextPrimaryColor];
+    _aimIconView.contentMode = UIViewContentModeScaleAspectFit;
+    AddSquareConstraints(_aimIconView, kMostVisitedAimIconSize);
     [self addSubview:_aimIconView];
     AddSameCenterConstraints(_aimIconView, self.imageContainerView);
   }
   _aimIconView.hidden = NO;
-  if (!self.titleLabel.text) {
-    self.titleLabel.text = l10n_util::GetNSString(IDS_NTP_TILES_AI_MODE_TITLE);
+  if (self.configuration) {
+    MostVisitedItem* item = [self mostVisitedItem];
+    UIImage* icon = item.attributes.faviconImage;
+    _aimIconView.image = icon;
+  } else {
+    // TODO(crbug.com/574153738): Update the kAimAsModule arm to use the
+    // AIModeButtonServiceIOS to configure its AIM tile.
+    _aimIconView.image = MakeSymbolMonochrome(SymbolWithPointSize(
+        SymbolMagnifyingglassSpark, kMostVisitedAimIconSize));
   }
-  self.accessibilityLabel = self.titleLabel.text;
+
+  _aimIconView.tintColor = [UIColor colorNamed:kTextPrimaryColor];
+  if (GetAimButtonRefactorArm() == AimButtonRefactorArm::kAimAsModule) {
+    if (!self.titleLabel.text) {
+      self.titleLabel.text =
+          l10n_util::GetNSString(IDS_IOS_NTP_QUICK_ACTIONS_AIM);
+    }
+    self.accessibilityLabel = self.titleLabel.text;
+  }
 }
 
 #pragma mark - ContentSuggestionsTileView
@@ -179,7 +186,7 @@ constexpr CGFloat kAimIconSize = 20.0;
                                                             fromView:self]
            : @[];
   if (item) {
-    if ([item isAIMTile]) {
+    if (item.source == ntp_tiles::TileSource::AI_MODE) {
       [self configureAsAIMTile];
     } else {
       _faviconView.hidden = NO;
@@ -250,15 +257,14 @@ constexpr CGFloat kAimIconSize = 20.0;
 #pragma mark - NewTabPageColorUpdating
 
 - (void)applyBackgroundColors {
-  if (ntp_tiles::GetAimButtonRefactorArm() ==
-      ntp_tiles::AimButtonRefactorArm::kAimAsModule) {
+  if (GetAimButtonRefactorArm() == AimButtonRefactorArm::kAimAsModule) {
     return;
   }
   NewTabPageColorPalette* colorPalette =
       [self.traitCollection objectForNewTabPageTrait];
   // Favicon monogram will only be applied if defaultBackgroundColor is set.
   MostVisitedItem* configuration = [self mostVisitedItem];
-  if ([configuration isAIMTile]) {
+  if (configuration.source == ntp_tiles::TileSource::AI_MODE) {
     _aimIconView.tintColor = [UIColor colorNamed:kTextPrimaryColor];
   } else {
     if (configuration.attributes.defaultBackgroundColor) {

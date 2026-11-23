@@ -26,9 +26,9 @@
 #include "components/autofill/content/browser/test_content_autofill_client.h"
 #include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/form_data_test_api.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/proto/features/password_change_submission.pb.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_string.h"
@@ -128,7 +128,10 @@ class MockPasswordChangeActuator : public PasswordChangeActuator {
               (),
               (const, override));
   MOCK_METHOD(void, OpenPasswordChangeTab, (content::WebContents*), (override));
-  MOCK_METHOD(std::u16string, GetGeneratedPassword, (), (const, override));
+  MOCK_METHOD(password_manager::PasswordString,
+              GetGeneratedPassword,
+              (),
+              (const, override));
   MOCK_METHOD(void, AddObserver, (Observer*), (override));
   MOCK_METHOD(void, RemoveObserver, (Observer*), (override));
 
@@ -239,7 +242,7 @@ class PasswordChangeDelegateImplTest : public ChromeRenderViewHostTestHarness {
 
   PasswordChangeDelegateImpl* delegate() { return delegate_.get(); }
 
-  void CreateDelegate() {
+  void CreateDelegate(bool inject_actuator = true) {
     password_manager::PasswordForm form;
     form.url = GURL(kChangePasswordURL);
     form.signon_realm = GURL(kChangePasswordURL).GetWithEmptyPath().spec();
@@ -251,7 +254,9 @@ class PasswordChangeDelegateImplTest : public ChromeRenderViewHostTestHarness {
     delegate_->SetCustomUIController(
         std::make_unique<NiceMock<MockPasswordChangeUIController>>(
             delegate_.get()));
-    actuator_ = InjectMockActuator();
+    if (inject_actuator) {
+      actuator_ = InjectMockActuator();
+    }
   }
 
   void ResetDelegate() {
@@ -306,6 +311,25 @@ class PasswordChangeDelegateImplTest : public ChromeRenderViewHostTestHarness {
   autofill::TestAutofillClientInjector<CustomTestContentAutofillClient>
       autofill_client_injector_;
 };
+
+TEST_F(PasswordChangeDelegateImplTest,
+       GeneratedPasswordWithoutActuatorIsEmpty) {
+  CreateDelegate(/*inject_actuator=*/false);
+
+  EXPECT_TRUE(delegate()->generated_password().empty());
+}
+
+TEST_F(PasswordChangeDelegateImplTest, GeneratedPasswordOutlivesDelegate) {
+  CreateDelegate();
+  const password_manager::PasswordString password(u"generated_password");
+  EXPECT_CALL(*actuator(), GetGeneratedPassword()).WillOnce(Return(password));
+
+  const password_manager::PasswordString generated_password =
+      delegate()->generated_password();
+  ResetDelegate();
+
+  EXPECT_EQ(generated_password, password);
+}
 
 TEST_F(PasswordChangeDelegateImplTest, WaitingForAgreement) {
   base::HistogramTester histogram_tester;
@@ -847,7 +871,8 @@ TEST_F(PasswordChangeDelegateImplTest, OpenPasswordDetails) {
 
   const std::u16string kNewPassword = u"NewSecurePassword";
   EXPECT_CALL(*actuator(), GetGeneratedPassword())
-      .WillOnce(Return(kNewPassword));
+      .WillOnce(Return(
+          password_manager::PasswordString(std::u16string(kNewPassword))));
   EXPECT_CALL(*manage_passwords_ui_controller(),
               ShowChangePasswordBubble(kTestEmail, kNewPassword));
 

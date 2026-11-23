@@ -46,7 +46,10 @@ export class OrganizerListSectionElement extends CrLitElement implements
     return {
       delegate: {type: Object},
       items: {type: Array},
-      expanded_: {type: Boolean},
+      expanded: {
+        type: Boolean,
+        notify: true,
+      },
       noAnimation_: {type: Boolean},
       showAll_: {type: Boolean},
       searchQuery: {type: String},
@@ -64,7 +67,7 @@ export class OrganizerListSectionElement extends CrLitElement implements
   private sectionStateChangedListenerId_: number|null = null;
   accessor delegate: OrganizerListSectionDelegate<unknown>|null = null;
   accessor items: Array<OrganizerListSectionItem<unknown>> = [];
-  protected accessor expanded_: boolean = true;
+  accessor expanded: boolean = true;
   protected accessor noAnimation_: boolean = false;
   protected accessor showAll_: boolean = false;
   accessor searchQuery: string = '';
@@ -92,7 +95,16 @@ export class OrganizerListSectionElement extends CrLitElement implements
               },
               {
                 name: 'description',
-                getter: item => item.description?.map(d => d.text),
+                // Map non-matchable parts to empty strings instead of filtering
+                // them out so highlight range indices stay aligned with
+                // `item.description`.
+                getter: item => item.description?.map(
+                    d => (d.matchable ?? true) ? d.text : ''),
+                weight: 1,
+              },
+              {
+                name: 'extraSearchTerms',
+                getter: item => item.extraSearchTerms,
                 weight: 1,
               },
             ],
@@ -137,7 +149,9 @@ export class OrganizerListSectionElement extends CrLitElement implements
     }
 
     if (changedProperties.has('searchQuery') ||
-        (changedProperties.has('items') && !this.isSearching_())) {
+        (changedProperties.has('items') &&
+         (!this.isSearching_() ||
+          changedProperties.get('items')?.length !== this.items.length))) {
       this.updateFilteredItems_();
     }
 
@@ -168,7 +182,7 @@ export class OrganizerListSectionElement extends CrLitElement implements
     }
     // Disable the transition when the expanded state is loaded from prefs.
     this.noAnimation_ = true;
-    this.expanded_ = state.expanded;
+    this.expanded = state.expanded;
     this.showAll_ = state.showAll;
     await this.updateComplete;
     this.noAnimation_ = false;
@@ -178,7 +192,7 @@ export class OrganizerListSectionElement extends CrLitElement implements
     assert(this.delegate);
     const state = sectionsState[this.delegate.getId()];
     assert(state);
-    this.expanded_ = state.expanded;
+    this.expanded = state.expanded;
     this.showAll_ = state.showAll;
   }
 
@@ -198,15 +212,6 @@ export class OrganizerListSectionElement extends CrLitElement implements
     }
   }
 
-  expand() {
-    if (this.expanded_) {
-      return;
-    }
-    this.expanded_ = true;
-    assert(this.delegate);
-    this.browserProxy_.handler.setSectionExpanded(this.delegate.getId(), true);
-  }
-
   protected hasContextMenu_(): boolean {
     return !!this.delegate?.onItemContextMenuClicked;
   }
@@ -216,7 +221,7 @@ export class OrganizerListSectionElement extends CrLitElement implements
   }
 
   protected isExpanded_(): boolean {
-    return this.expanded_ || this.isSearching_();
+    return this.expanded || this.isSearching_();
   }
 
   private hasNoSearchResults_(): boolean {
@@ -224,13 +229,13 @@ export class OrganizerListSectionElement extends CrLitElement implements
   }
 
   protected onExpandedChanged_(e: CustomEvent<{value: boolean}>) {
-    if (this.isSearching_() || this.expanded_ === e.detail.value) {
+    if (this.isSearching_() || this.expanded === e.detail.value) {
       return;
     }
-    this.expanded_ = e.detail.value;
+    this.expanded = e.detail.value;
     assert(this.delegate);
     this.browserProxy_.handler.setSectionExpanded(
-        this.delegate.getId(), this.expanded_);
+        this.delegate.getId(), this.expanded);
   }
 
   protected hasZeroState_(): boolean {
@@ -291,7 +296,47 @@ export class OrganizerListSectionElement extends CrLitElement implements
     if (this.showAll_ || this.isSearching_()) {
       return this.filteredItems_;
     }
-    return this.filteredItems_.slice(0, INITIAL_ITEM_COUNT);
+    const alwaysShowIndices: number[] = [];
+    const regularIndices: number[] = [];
+    for (let i = 0; i < this.filteredItems_.length; i++) {
+      if (this.filteredItems_[i]!.alwaysShow) {
+        alwaysShowIndices.push(i);
+      } else {
+        regularIndices.push(i);
+      }
+    }
+
+    const maxItems = alwaysShowIndices.length > 0 ? INITIAL_ITEM_COUNT + 1 :
+                                                    INITIAL_ITEM_COUNT;
+    const selectedAlwaysShow = alwaysShowIndices.slice(0, maxItems);
+    const selectedRegular =
+        regularIndices.slice(0, maxItems - selectedAlwaysShow.length);
+    const selectedIndices =
+        new Set([...selectedAlwaysShow, ...selectedRegular]);
+    return this.filteredItems_.filter((_, index) => selectedIndices.has(index));
+  }
+
+  override focus() {
+    this.$.header.focus();
+  }
+
+  getNavigableElements(): HTMLElement[] {
+    if (this.hidden) {
+      return [];
+    }
+    const elements: HTMLElement[] = [this.$.header];
+    if (this.isExpanded_()) {
+      elements.push(
+          ...this.shadowRoot.querySelectorAll<OrganizerListSectionItemElement>(
+              'organizer-list-section-item'));
+    }
+    return elements;
+  }
+
+  getVisibleItems(): OrganizerListSectionItemElement[] {
+    return Array.from(
+        this.shadowRoot.querySelectorAll<OrganizerListSectionItemElement>(
+            'organizer-list-section-item'));
   }
 }
 

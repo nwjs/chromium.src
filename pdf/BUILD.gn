@@ -45,7 +45,7 @@ source_set("pdf_accessibility_constants_helper") {
 
 if (enable_pdf) {
   config("strict") {
-    configs = [ "//build/config/compiler:wexit_time_destructors" ]
+    configs = [ "//build/config/compiler:wglobal_constructors" ]
   }
 
   config("pdfium_includes") {
@@ -460,7 +460,6 @@ if (enable_pdf) {
       "//ui/gfx/range",
       "//v8",
     ]
-    check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
   }
 
   source_set("pdf_test_utils") {

@@ -25,11 +25,15 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/fake_frame_widget.h"
 #include "content/public/test/navigation_simulator.h"
+#include "content/public/test/test_browser_context.h"
 #include "content/public/test/test_renderer_host.h"
+#include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/drag_drop_client.h"
+#include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
+#include "ui/aura/env_input_state_controller.h"
 #include "ui/aura/test/env_test_helper.h"
 #include "ui/aura/test/test_windows.h"
 #include "ui/aura/test/window_test_api.h"
@@ -42,6 +46,7 @@
 #include "ui/base/ozone_buildflags.h"
 #include "ui/display/display_switches.h"
 #include "ui/events/base_event_utils.h"
+#include "ui/events/event.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/image/image_skia.h"
 #include "url/origin.h"
@@ -99,6 +104,35 @@ class PrivilegedWebContentsDelegate : public WebContentsDelegate {
   // WebContentsDelegate:
   bool IsPrivileged() override { return true; }
 };
+
+// Updates aura's input state as if a touch event at `location_in_screen` had
+// been dispatched to `target`.
+void UpdateTouchState(aura::Window* target,
+                      ui::EventType type,
+                      const gfx::Point& location_in_screen) {
+  aura::Window* root = target->GetRootWindow();
+  gfx::Point location_in_root = location_in_screen;
+  if (auto* client = aura::client::GetScreenPositionClient(root)) {
+    client->ConvertPointFromScreen(root, &location_in_root);
+  }
+  ui::TouchEvent event(type, location_in_root, ui::EventTimeForNow(),
+                       ui::PointerDetails(ui::EventPointerType::kTouch, 0));
+  aura::Env::GetInstance()->env_controller()->UpdateStateForTouchEvent(target,
+                                                                       event);
+}
+
+// Updates aura's input state as if a left mouse button event of `type` with
+// `flags` had been dispatched to `target`. The last mouse location is not
+// updated.
+void UpdateLeftMouseState(aura::Window* target,
+                          ui::EventType type,
+                          int flags = ui::EF_NONE) {
+  ui::MouseEvent event(type, gfx::Point(), gfx::Point(), ui::EventTimeForNow(),
+                       ui::EF_LEFT_MOUSE_BUTTON | flags,
+                       ui::EF_LEFT_MOUSE_BUTTON);
+  aura::Env::GetInstance()->env_controller()->UpdateStateForMouseEvent(
+      /*window=*/nullptr, target, event);
+}
 
 class TestDragDropClient : public aura::client::DragDropClient {
  public:
@@ -221,6 +255,8 @@ class WebContentsViewAuraTest : public RenderViewHostTestHarness {
     aura::Env::GetInstance()->SetLastMouseLocation(gfx::Point());
     aura::test::EnvTestHelper(aura::Env::GetInstance())
         .SetInputStateLookup(aura::InputStateLookup::Create());
+    aura::test::EnvTestHelper(aura::Env::GetInstance())
+        .SetLeftMousePressTarget(nullptr);
     aura::Env::GetInstance()->set_mouse_button_flags(0);
     RenderViewHostTestHarness::TearDown();
   }
@@ -1047,6 +1083,8 @@ TEST_F(WebContentsViewAuraTest, StartDragging) {
 
   DropData drop_data;
   drop_data.text.emplace(u"Hello World!");
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationNone,
                       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1176,6 +1214,73 @@ TEST_F(WebContentsViewAuraTest, StartDraggingBlockedByPolicy) {
   SetBrowserClientForTesting(old_client);
 }
 
+// Returns an off-the-record BrowserContext as the user BrowserContext of any
+// frame.
+class OffTheRecordUserContentBrowserClient : public ContentBrowserClient {
+ public:
+  OffTheRecordUserContentBrowserClient() {
+    browser_context_.set_is_off_the_record(true);
+  }
+
+  // ContentBrowserClient:
+  BrowserContext* GetUserBrowserContext(
+      RenderFrameHost& render_frame_host) override {
+    return &browser_context_;
+  }
+
+ private:
+  TestBrowserContext browser_context_;
+};
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Tests that the source endpoint of a drag uses the off-the-record state of the
+// user BrowserContext, instead of that of the WebContents.
+TEST_F(WebContentsViewAuraTest, StartDraggingUsesUserBrowserContext) {
+  NavigateAndCommit(GURL("https://google.com/"));
+  FocusWebContentsOnMainFrame();
+
+  OffTheRecordUserContentBrowserClient browser_client;
+  ScopedContentBrowserClientSetting browser_client_setting(&browser_client);
+
+  TestDragDropClient drag_drop_client;
+  aura::client::SetDragDropClient(root_window(), &drag_drop_client);
+
+  WebContentsViewAura* view = GetView();
+  view->drag_in_progress_ = true;
+
+  DropData drop_data;
+  drop_data.text.emplace(u"Hello World!");
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
+  view->StartDragging(*main_rfh(), drop_data,
+                      blink::DragOperationsMask::kDragOperationNone,
+                      gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
+                      blink::mojom::DragEventSourceInfo());
+
+  ui::OSExchangeData* exchange_data = drag_drop_client.GetDragDropData();
+  ASSERT_TRUE(exchange_data);
+  ASSERT_TRUE(exchange_data->GetSource());
+  EXPECT_TRUE(exchange_data->GetSource()->off_the_record());
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+// Tests that the destination endpoint of a drag uses the off-the-record state
+// of the user BrowserContext, instead of that of the WebContents.
+TEST_F(WebContentsViewAuraTest, DragUpdatedUsesUserBrowserContext) {
+  NavigateAndCommit(GURL("https://google.com/"));
+  FocusWebContentsOnMainFrame();
+
+  WebContentsViewAura* view = GetView();
+  auto data = std::make_unique<ui::OSExchangeData>();
+  ui::DropTargetEvent event(*data.get(), kClientPt, kScreenPt,
+                            ui::DragDropTypes::DRAG_COPY);
+  EXPECT_TRUE(view->OnDragUpdated(event).data_endpoint.IsUrlType());
+
+  OffTheRecordUserContentBrowserClient browser_client;
+  ScopedContentBrowserClientSetting browser_client_setting(&browser_client);
+  EXPECT_FALSE(view->OnDragUpdated(event).data_endpoint.IsUrlType());
+}
+
 TEST_F(WebContentsViewAuraTest,
        RejectDragFromPrivilegedWebContentsToNonPrivilegedWebContents) {
   WebContentsViewAura* view = GetView();
@@ -1238,6 +1343,8 @@ TEST_F(WebContentsViewAuraTest, StartDragFromPrivilegedWebContents) {
   DropData drop_data;
   aura::Env::GetInstance()->SetLastMouseLocation(
       view->GetContentNativeView()->GetBoundsInScreen().CenterPoint());
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationNone,
                       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1265,6 +1372,8 @@ TEST_F(WebContentsViewAuraTest, RejectDragFromHiddenWebContents) {
   drop_data.url_infos = {ui::ClipboardUrlInfo{GURL(kGoogleUrl), u""}};
 
   view->GetContentNativeView()->Hide();
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationNone,
                       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1305,6 +1414,8 @@ TEST_F(WebContentsViewAuraTest, ClampMouseLocationToBrowserObservedPoint) {
                                     view_bounds_on_screen.y() + 4);
   aura::Env::GetInstance()->SetLastMouseLocation(trusted_location);
 
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(
       *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1341,9 +1452,7 @@ TEST_F(WebContentsViewAuraTest, ClampTouchLocationToBrowserObservedPoint) {
   ASSERT_TRUE(bounds.Contains(trusted));
   ASSERT_TRUE(bounds.Contains(spoofed));
 
-  aura::Env* const env = aura::Env::GetInstance();
-  env->SetTouchDown(true);
-  env->SetLastTouchLocation(content, trusted);
+  UpdateTouchState(content, ui::EventType::kTouchPressed, trusted);
 
   DropData drop_data;
   view->StartDragging(*main_rfh(), drop_data,
@@ -1358,7 +1467,48 @@ TEST_F(WebContentsViewAuraTest, ClampTouchLocationToBrowserObservedPoint) {
       << "Renderer-supplied screen location must be clamped to the "
          "browser-observed last touch point.";
 
-  env->SetTouchDown(false);
+  UpdateTouchState(content, ui::EventType::kTouchReleased, trusted);
+}
+
+// A renderer-initiated touch drag must be backed by a touch that was pressed on
+// the web contents itself. A touch on another window, e.g. on the window
+// caption to move the window, must not satisfy the check, even though a touch
+// is down.
+TEST_F(WebContentsViewAuraTest, TouchDragRequiresTouchOnWebContents) {
+  NavigateAndCommit(GURL("https://example.com/"));
+
+  TestDragDropClient drag_drop_client;
+  aura::client::SetDragDropClient(root_window(), &drag_drop_client);
+
+  WebContentsViewAura* view = GetView();
+  // Needed to avoid calling WebContentsViewAura::EndDrag, which results in
+  // NOTREACHED being called in
+  // `RenderWidgetHostViewBase::TransformPointToCoordSpaceForView`.
+  view->drag_in_progress_ = true;
+
+  aura::Window* const content = view->GetContentNativeView();
+  const gfx::Point location = content->GetBoundsInScreen().CenterPoint();
+  const blink::mojom::DragEventSourceInfo event_info(
+      location, ui::mojom::DragEventSource::kTouch);
+  DropData drop_data;
+
+  UpdateTouchState(root_window(), ui::EventType::kTouchPressed, location);
+  ASSERT_TRUE(aura::Env::GetInstance()->is_touch_down());
+  view->StartDragging(
+      *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
+      gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(), event_info);
+  EXPECT_FALSE(drag_drop_client.GetDragDropData())
+      << "A touch on another window must not allow a web contents drag.";
+  EXPECT_FALSE(view->drag_security_info_.did_initiate());
+  UpdateTouchState(root_window(), ui::EventType::kTouchReleased, location);
+
+  // The same drag is allowed with a touch on the web contents.
+  UpdateTouchState(content, ui::EventType::kTouchPressed, location);
+  view->StartDragging(
+      *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
+      gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(), event_info);
+  EXPECT_TRUE(drag_drop_client.GetDragDropData());
+  UpdateTouchState(content, ui::EventType::kTouchReleased, location);
 }
 
 // Blink only ever starts a mouse drag from a left-button gesture, so a
@@ -1388,6 +1538,10 @@ TEST_F(WebContentsViewAuraTest, StartDraggingMouseRequiresLeftButton) {
   // `RenderWidgetHostViewBase::TransformPointToCoordSpaceForView`.
   view->drag_in_progress_ = true;
 
+  // The left button was pressed on the web contents, but only other buttons
+  // are held now.
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   env->set_mouse_button_flags(ui::EF_MIDDLE_MOUSE_BUTTON |
                               ui::EF_RIGHT_MOUSE_BUTTON |
                               ui::EF_BACK_MOUSE_BUTTON);
@@ -1406,6 +1560,61 @@ TEST_F(WebContentsViewAuraTest, StartDraggingMouseRequiresLeftButton) {
       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(), event_info);
 
   EXPECT_TRUE(drag_drop_client.GetDragDropData());
+}
+
+// A renderer-initiated mouse drag must be backed by a left button press that
+// was dispatched to the web contents itself. A press on another window, e.g. on
+// the window caption to move the window, or a non-client press, e.g. on a
+// draggable region of a frameless app window, must not satisfy the check, even
+// though the left button is held.
+TEST_F(WebContentsViewAuraTest, MouseDragRequiresPressOnWebContents) {
+  NavigateAndCommit(GURL("https://example.com/"));
+
+  TestDragDropClient drag_drop_client;
+  aura::client::SetDragDropClient(root_window(), &drag_drop_client);
+
+  WebContentsViewAura* view = GetView();
+  // Needed to avoid calling WebContentsViewAura::EndDrag, which results in
+  // NOTREACHED being called in
+  // `RenderWidgetHostViewBase::TransformPointToCoordSpaceForView`.
+  view->drag_in_progress_ = true;
+
+  aura::Window* const content = view->GetContentNativeView();
+  const gfx::Point location = content->GetBoundsInScreen().CenterPoint();
+  aura::Env* const env = aura::Env::GetInstance();
+  env->SetLastMouseLocation(location);
+  const blink::mojom::DragEventSourceInfo event_info(
+      location, ui::mojom::DragEventSource::kMouse);
+  DropData drop_data;
+
+  UpdateLeftMouseState(root_window(), ui::EventType::kMousePressed);
+  ASSERT_TRUE(env->IsLeftMouseButtonDown());
+  view->StartDragging(
+      *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
+      gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(), event_info);
+  EXPECT_FALSE(drag_drop_client.GetDragDropData())
+      << "A press on another window must not allow a web contents drag.";
+  EXPECT_FALSE(view->drag_security_info_.did_initiate());
+  UpdateLeftMouseState(root_window(), ui::EventType::kMouseReleased);
+
+  UpdateLeftMouseState(content, ui::EventType::kMousePressed,
+                       ui::EF_IS_NON_CLIENT);
+  ASSERT_TRUE(env->IsLeftMouseButtonDown());
+  view->StartDragging(
+      *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
+      gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(), event_info);
+  EXPECT_FALSE(drag_drop_client.GetDragDropData())
+      << "A non-client press must not allow a web contents drag.";
+  EXPECT_FALSE(view->drag_security_info_.did_initiate());
+  UpdateLeftMouseState(content, ui::EventType::kMouseReleased);
+
+  // The same drag is allowed with a press on the web contents.
+  UpdateLeftMouseState(content, ui::EventType::kMousePressed);
+  view->StartDragging(
+      *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
+      gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(), event_info);
+  EXPECT_TRUE(drag_drop_client.GetDragDropData());
+  UpdateLeftMouseState(content, ui::EventType::kMouseReleased);
 }
 
 // A drag that is refused before it starts must not leave `drag_security_info_`
@@ -1446,7 +1655,8 @@ TEST_F(WebContentsViewAuraTest, RefusedDragDoesNotBlockSubsequentDrags) {
 
   // A hidden source view is refused by the second check, which must not latch
   // the state either.
-  env->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->GetContentNativeView()->Hide();
   view->StartDragging(
       *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
@@ -1455,8 +1665,13 @@ TEST_F(WebContentsViewAuraTest, RefusedDragDoesNotBlockSubsequentDrags) {
   ASSERT_FALSE(drag_drop_client.GetDragDropData());
   EXPECT_FALSE(view->drag_security_info_.did_initiate());
 
-  // A subsequent genuine drag gesture must still be able to start.
+  // A subsequent genuine drag gesture, which starts with a new press, must
+  // still be able to start.
   view->GetContentNativeView()->Show();
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMouseReleased);
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(
       *main_rfh(), drop_data, blink::DragOperationsMask::kDragOperationNone,
       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(), event_info);
@@ -1487,6 +1702,8 @@ TEST_F(WebContentsViewAuraTest, EmptyTextInDropDataIsNonNullInOSExchangeData) {
 
   aura::Env::GetInstance()->SetLastMouseLocation(
       view->GetContentNativeView()->GetBoundsInScreen().CenterPoint());
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationNone,
                       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1522,6 +1739,8 @@ TEST_F(WebContentsViewAuraTest,
 
   aura::Env::GetInstance()->SetLastMouseLocation(
       view->GetContentNativeView()->GetBoundsInScreen().CenterPoint());
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationNone,
                       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1556,6 +1775,8 @@ TEST_F(WebContentsViewAuraTest,
 
   aura::Env::GetInstance()->SetLastMouseLocation(
       view->GetContentNativeView()->GetBoundsInScreen().CenterPoint());
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationNone,
                       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1593,6 +1814,8 @@ TEST_F(WebContentsViewAuraTest, EndDragIsCalledAfterAsyncDrop) {
 
   aura::Env::GetInstance()->SetLastMouseLocation(
       view->GetContentNativeView()->GetBoundsInScreen().CenterPoint());
+  UpdateLeftMouseState(view->GetContentNativeView(),
+                       ui::EventType::kMousePressed);
   view->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationNone,
                       gfx::ImageSkia(), gfx::Vector2d(), gfx::Rect(),
@@ -1694,6 +1917,9 @@ TEST_F(WebContentsViewAuraTest, StartDragAllowedByPolicy) {
 
   aura::Env::GetInstance()->SetLastMouseLocation(
       view_interface->GetNativeView()->GetBoundsInScreen().CenterPoint());
+  UpdateLeftMouseState(
+      web_contents()->GetRenderWidgetHostView()->GetNativeView(),
+      ui::EventType::kMousePressed);
   static_cast<RenderViewHostDelegateView*>(&mock_view)
       ->StartDragging(*main_rfh(), drop_data,
                       blink::DragOperationsMask::kDragOperationCopy,

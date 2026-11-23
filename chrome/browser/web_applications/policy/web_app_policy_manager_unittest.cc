@@ -393,7 +393,7 @@ class WebAppPolicyManagerTest : public WebAppPolicyManagerTestBase,
 };
 
 TEST_F(WebAppPolicyManagerTest, GetPolicyIdsForWebApp) {
-  const GURL kWebAppUrl = GURL("https://example.com/path/index.html");
+  const GURL kWebAppUrl = GURL("https://www.example.com/path/index.html");
   const GURL kInstallUrl = GURL("https://www.example.com/install_url.html");
   const GURL kManifestUrl = GURL("https://www.example.com/manifest.json");
 
@@ -1126,7 +1126,6 @@ TEST_F(WebAppPolicyManagerDisableListTest, DisableSystemWebApps) {
           .Append(static_cast<int>(policy::SystemFeature::kPrintJobs))
           .Append(static_cast<int>(policy::SystemFeature::kKeyShortcuts))
           .Append(static_cast<int>(policy::SystemFeature::kRecorder)));
-  base::RunLoop().RunUntilIdle();
 
   disabled_apps = policy_manager().GetDisabledSystemWebApps();
   EXPECT_THAT(

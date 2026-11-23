@@ -1,0 +1,11 @@
+Tests that Network.setCacheDisabled affects the signed exchange certificate fetch request.
+
+* https://127.0.0.1:8443/loading/sxg/resources/127.0.0.1.sxg.pem.cbor
+  cached: false
+* https://127.0.0.1:8443/loading/sxg/resources/127.0.0.1.sxg.pem.cbor
+  cached: false
+* https://127.0.0.1:8443/loading/sxg/resources/127.0.0.1.sxg.pem.cbor
+  cached: true
+* https://127.0.0.1:8443/loading/sxg/resources/127.0.0.1.sxg.pem.cbor
+  cached: false
+

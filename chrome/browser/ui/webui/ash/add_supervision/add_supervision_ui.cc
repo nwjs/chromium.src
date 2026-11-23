@@ -8,13 +8,12 @@
 #include <utility>
 
 #include "ash/constants/webui_url_constants.h"
+#include "base/check.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/system/sys_info.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/views/chrome_web_dialog_view.h"
 #include "chrome/browser/ui/webui/ash/add_supervision/add_supervision.mojom.h"
 #include "chrome/browser/ui/webui/ash/add_supervision/add_supervision_handler_utils.h"
 #include "chrome/browser/ui/webui/ash/add_supervision/add_supervision_metrics_recorder.h"
@@ -26,10 +25,13 @@
 #include "chrome/grit/supervision_resources.h"
 #include "chrome/grit/supervision_resources_map.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/signin/identity_manager_provider.h"
 #include "chromeos/ash/components/supervised_user/supervised_user_service_provider.h"
 #include "components/application_locale_storage/application_locale_storage.h"
 #include "components/google/core/common/google_util.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_ui.h"
@@ -86,8 +88,13 @@ void AddSupervisionDialog::Show() {
   // SystemWebDialogDelegate::OnDialogClosed() is called.
   current_instance = new AddSupervisionDialog();
 
+  // TODO(crbug.com/278643115): Take the account_id from the callers.
+  const auto* primary_session =
+      session_manager::SessionManager::Get()->GetPrimarySession();
+  CHECK(primary_session);
   current_instance->ShowSystemDialogForBrowserContext(
-      ProfileManager::GetPrimaryUserProfile());
+      BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+          primary_session->account_id()));
 
   // Record UMA metric that user has initiated the Add Supervision process.
   AddSupervisionMetricsRecorder::GetInstance()->RecordAddSupervisionEnrollment(
@@ -225,7 +232,7 @@ void AddSupervisionUI::SetUpResources(const std::string& app_locale) {
   // Initialize supervision URL from the command-line arguments (if provided).
   supervision_url_ = GetAddSupervisionURL();
   if (!allow_non_google_url_for_tests_) {
-    DCHECK(supervision_url_.DomainIs("google.com"));
+    CHECK(supervision_url_.DomainIs("google.com"), base::NotFatalUntil::M162);
   }
 
   source->EnableReplaceI18nInJS();

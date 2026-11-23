@@ -145,6 +145,14 @@ public abstract class CronetEngineBase extends ExperimentalCronetEngine {
         return new UrlRequestBuilderImpl(url, callback, executor, this);
     }
 
+    boolean shouldDisableSharedBrotli() {
+        return false;
+    }
+
+    boolean shouldDisableSetIdempotency() {
+        return false;
+    }
+
     @IntDef({
         UrlRequest.Builder.REQUEST_PRIORITY_IDLE,
         UrlRequest.Builder.REQUEST_PRIORITY_LOWEST,

@@ -179,12 +179,6 @@ std::unique_ptr<ObservationDelayController> HistoryTool::GetObservationDelayer(
       page_stability_config);
 }
 
-void HistoryTool::UpdateTaskBeforeInvoke(ActorTask& task,
-                                         ToolCallback callback) const {
-  task.AddActorSurface(actor_surface_handle_, /*stop_task_on_detach=*/true,
-                       std::move(callback));
-}
-
 ActorSurfaceHandle HistoryTool::GetTargetActorSurface() const {
   return actor_surface_handle_;
 }

@@ -7,6 +7,7 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/timer/timer.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
@@ -46,12 +47,13 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/proto/features/quick_answers.pb.h"
 #include "components/optimization_guide/proto/features/smart_selection_suggestions.pb.h"
 #include "components/page_content_annotations/content/page_context_fetcher_options.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/vector_icons/vector_icons.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -121,6 +123,34 @@ class ActiveTabObserver : public TabStripModelObserver,
 
 DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ActiveTabObserver, kActiveTabChanged);
 
+// Waits for `PrimaryMainFrameWasResized` to settle, matching
+// `StabilizationTask` in `glic_invoke_task.cc`. A resize dismisses the small
+// chip and nothing brings it back, and opening the side panel can land its
+// tab-contents resize after the test selects text (seen on Mac).
+class TabResizeSettledObserver : public content::WebContentsObserver,
+                                 public ui::test::StateObserver<bool> {
+ public:
+  explicit TabResizeSettledObserver(content::WebContents* web_contents)
+      : content::WebContentsObserver(web_contents) {
+    ResetTimer();
+  }
+
+  void PrimaryMainFrameWasResized(bool width_changed) override { ResetTimer(); }
+
+ private:
+  void ResetTimer() {
+    timer_.Start(
+        FROM_HERE, base::Milliseconds(300),
+        base::BindOnce(&TabResizeSettledObserver::OnStateObserverStateChanged,
+                       base::Unretained(this), true));
+  }
+
+  base::OneShotTimer timer_;
+};
+
+DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(TabResizeSettledObserver,
+                                    kTabResizeSettled);
+
 class SelectionOverlayInteractiveTest : public test::InteractiveGlicTest {
  public:
   SelectionOverlayInteractiveTest() {
@@ -184,17 +214,28 @@ class SelectionOverlayInteractiveTest : public test::InteractiveGlicTest {
     return embedded_test_server()->GetURL("/empty.html");
   }
 
+  SelectionOverlayController* GetController() {
+    return SelectionOverlayController::FromTabWebContents(
+        browser()->tab_strip_model()->GetActiveWebContents());
+  }
+
   void ShowWithSelection(selection::InteractionOptionsPtr options) {
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
-    auto* controller =
-        SelectionOverlayController::FromTabWebContents(web_contents);
+    auto* controller = GetController();
     ASSERT_TRUE(controller);
     gfx::Rect view_bounds = web_contents->GetViewBounds();
     controller->ShowWithSelection(
         web_contents->GetPrimaryMainFrame(),
         gfx::Rect(view_bounds.x() + 10, view_bounds.y() + 10, 100, 50),
         std::move(options));
+  }
+
+  auto LoadPageAndWaitForPaint(ui::ElementIdentifier tab) {
+    return Steps(InstrumentTab(tab),
+                 NavigateWebContents(
+                     tab, embedded_test_server()->GetURL("/title2.html")),
+                 WaitForWebContentsPainted(tab));
   }
 
  private:
@@ -230,16 +271,21 @@ class FakePromptSuggestionTool : public ::selection::SuggestionTool {
       const optimization_guide::proto::SmartSelectionSuggestion&
           server_suggestion) override {
     QueueServerResponse();
-    return std::make_unique<SelectionSuggestion>(*tab_, u"Ask Gemini");
+    return std::make_unique<SelectionSuggestion>(
+        *tab_, base::UTF8ToUTF16(server_suggestion.label()));
   }
 
  private:
   void QueueServerResponse() {
     optimization_guide::proto::SmartSelectionSuggestionsResponse response;
-    auto* s = response.add_suggestions();
-    s->set_tool(
+    auto* s1 = response.add_suggestions();
+    s1->set_tool(
         optimization_guide::proto::SMART_SELECTION_TOOL_GEMINI_IN_CHROME);
-    s->set_label("Ask Gemini");
+    s1->set_label("Summarize");
+    auto* s2 = response.add_suggestions();
+    s2->set_tool(
+        optimization_guide::proto::SMART_SELECTION_TOOL_GEMINI_IN_CHROME);
+    s2->set_label("Ask Gemini");
     optimization_guide::proto::Any any;
     any.set_value(response.SerializeAsString());
     any.set_type_url(
@@ -262,8 +308,7 @@ class SelectionOverlayInteractiveTestWithPrompt
  public:
   SelectionOverlayInteractiveTestWithPrompt() {
     feature_list_.InitWithFeatures(
-        {features::kGlicSelectionOverlayPrompt,
-         features::kGlicSelectionOverlayPromptBox,
+        {features::kGlicSelectionOverlayPromptBox,
          ::selection::kSmartSelectionServerSuggestions},
         {});
   }
@@ -278,7 +323,7 @@ class SelectionOverlayInteractiveTestWithPrompt
   }
 
   void TearDownOnMainThread() override {
-    tabs::TabInterface* tab = browser()->tab_strip_model()->GetActiveTab();
+    tabs::TabInterface* tab = browser()->tab_strip_model()->GetTabAtIndex(0);
     if (tab && fake_tool_) {
       if (auto* service = ::selection::SuggestionService::From(tab)) {
         service->UnregisterTool(fake_tool_.get());
@@ -402,14 +447,16 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithTextSelection,
 
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
                        ShowWithSelectionSendsInteractionOptions) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
   const DeepQuery kOverlay = {"selection-overlay-app",
                               "glic-selection-overlay"};
 
   RunTestSequence(
-      Do([this]() {
+      LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
         ShowWithSelection(selection::InteractionOptions::New(
-            /*hide_handles=*/false, /*disable_multi_select=*/true));
+            /*hide_handles=*/false, /*disable_multi_select=*/true,
+            /*skip_intro_animation=*/true));
       }),
       WaitForShow(OverlayBaseController::kOverlayId),
       InstrumentNonTabWebView(kOverlayWebContentsId,
@@ -418,10 +465,122 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
                         "el => !el.hideHandles && el.disableMultiSelect"));
 }
 
-// With `disable_multi_select`, the overlay shows the normal cursor and a
-// background click dismisses it instead of drawing a new region.
+// The overlay learns whether the Glic side panel is showing when the session
+// starts, and again when the panel opens mid-session.
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
-                       DisableMultiSelectClickDismissesOverlay) {
+                       SidePanelOpenFollowsPanel) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+  const DeepQuery kOverlay = {"selection-overlay-app",
+                              "glic-selection-overlay"};
+  const DeepQuery kRenderer = {"selection-overlay-app",
+                               "glic-selection-overlay",
+                               "post-selection-renderer"};
+
+  RunTestSequence(LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
+                    ShowWithSelection(selection::InteractionOptions::New(
+                        /*hide_handles=*/true, /*disable_multi_select=*/true,
+                        /*skip_intro_animation=*/true));
+                  }),
+                  WaitForShow(OverlayBaseController::kOverlayId),
+                  InstrumentNonTabWebView(kOverlayWebContentsId,
+                                          OverlayBaseController::kOverlayId),
+                  // Started with the panel closed. The region is sent after
+                  // the initial value, so this is not just the default.
+                  WaitForJsResultAt(kOverlayWebContentsId, kRenderer,
+                                    "el => el.selectedRegions.length === 1"),
+                  CheckJsResultAt(kOverlayWebContentsId, kOverlay,
+                                  "el => el.sidePanelOpen === false"),
+                  // The panel opens mid-session.
+                  OpenGlic(),
+                  WaitForJsResultAt(kOverlayWebContentsId, kOverlay,
+                                    "el => el.sidePanelOpen === true"),
+                  // Closing the panel closes the overlay with it, whichever
+                  // way the session started (`GlicSidePanelUi::Close()`).
+                  ToggleGlicWindow(GlicWindowMode::kAttached),
+                  InAnyContext(WaitForHide(kGlicHostElementId)),
+                  WaitForHide(OverlayBaseController::kOverlayId));
+}
+
+// Nothing carries over from a closed session to the next one: the next
+// session starts with its own interaction options and no regions.
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
+                       ClosedSessionStateDoesNotCarryOver) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstOverlayWebContentsId);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondOverlayWebContentsId);
+  const DeepQuery kOverlayApp = {"selection-overlay-app"};
+  const DeepQuery kOverlay = {"selection-overlay-app",
+                              "glic-selection-overlay"};
+  const DeepQuery kRenderer = {"selection-overlay-app",
+                               "glic-selection-overlay",
+                               "post-selection-renderer"};
+
+  RunTestSequence(
+      LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
+        ShowWithSelection(selection::InteractionOptions::New(
+            /*hide_handles=*/true, /*disable_multi_select=*/true,
+            /*skip_intro_animation=*/true));
+      }),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kFirstOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kFirstOverlayWebContentsId, kRenderer,
+                        "el => el.selectedRegions.length === 1"),
+      CheckJsResultAt(kFirstOverlayWebContentsId, kOverlay,
+                      "el => el.hideHandles && el.disableMultiSelect"),
+      Do([this]() { GetController()->Close(); }),
+      WaitForHide(OverlayBaseController::kOverlayId),
+      // A plain session: default options, no pre-selected region.
+      Do([this]() { GetController()->Show(/*options=*/nullptr); }),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kSecondOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      // The options are sent before the screenshot, so once the screenshot is
+      // here the checks below see the session's options, not the defaults.
+      WaitForJsResultAt(kSecondOverlayWebContentsId, kOverlayApp,
+                        "el => el.screenshot_ !== null"),
+      CheckJsResultAt(kSecondOverlayWebContentsId, kOverlay,
+                      "el => !el.hideHandles && !el.disableMultiSelect"),
+      CheckJsResultAt(kSecondOverlayWebContentsId, kRenderer,
+                      "el => el.selectedRegions.length === 0"),
+      CheckResult(
+          [this]() { return GetController()->GetSelectedRegionCount(); }, 0u));
+}
+
+// A session with a pre-selected region opens directly in the post-selection
+// state, without the intro border glow.
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
+                       ShowWithSelectionSkipsBorderGlow) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+  const DeepQuery kOverlay = {"selection-overlay-app",
+                              "glic-selection-overlay"};
+
+  RunTestSequence(
+      LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
+        ShowWithSelection(selection::InteractionOptions::New(
+            /*hide_handles=*/true, /*disable_multi_select=*/true,
+            /*skip_intro_animation=*/true));
+      }),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kOverlayWebContentsId, kOverlay,
+                        "el => el.skipIntroAnimation && "
+                        "getComputedStyle(el.shadowRoot.querySelector("
+                        "'#overlayBorderGlow')).visibility === 'hidden' && "
+                        "el.shadowRoot.querySelector('#regionSelectionLayer')"
+                        ".hasAttribute('has-selected') && "
+                        "el.shadowRoot.querySelector('#regionSelectionLayer')"
+                        ".hasAttribute('skip-scrim-transition')"));
+}
+
+// Drawing a new region clears the pre-selected region, which restores the
+// normal border glow and scrim behavior.
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
+                       ShowWithSelectionNewDragRestoresDefaultState) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
   const DeepQuery kOverlay = {"selection-overlay-app",
                               "glic-selection-overlay"};
@@ -430,15 +589,57 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
                                "post-selection-renderer"};
 
   RunTestSequence(
-      Do([this]() {
+      LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
         ShowWithSelection(selection::InteractionOptions::New(
-            /*hide_handles=*/false, /*disable_multi_select=*/true));
+            /*hide_handles=*/false, /*disable_multi_select=*/false,
+            /*skip_intro_animation=*/true));
       }),
       WaitForShow(OverlayBaseController::kOverlayId),
       InstrumentNonTabWebView(kOverlayWebContentsId,
                               OverlayBaseController::kOverlayId),
-      WaitForJsResultAt(kOverlayWebContentsId, {"selection-overlay-app"},
-                        "el => el.screenshot_ !== null"),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0 && el.skipIntroAnimation"),
+      WaitForJsResultAt(kOverlayWebContentsId, kRenderer,
+                        "el => el.hasSelection()"),
+      MoveMouseTo(OverlayBaseController::kOverlayId,
+                  GetPointWithOffset(300, 300)),
+      DragMouseTo(OverlayBaseController::kOverlayId,
+                  GetPointWithOffset(400, 400)),
+      WaitForJsResultAt(kOverlayWebContentsId, kOverlay,
+                        "el => !el.skipIntroAnimation && "
+                        "getComputedStyle(el.shadowRoot.querySelector("
+                        "'#overlayBorderGlow')).visibility === 'visible' && "
+                        "!el.shadowRoot.querySelector('#regionSelectionLayer')"
+                        ".hasAttribute('skip-scrim-transition')"));
+}
+
+// With `disable_multi_select`, the overlay shows the normal cursor and a
+// background click dismisses it instead of drawing a new region.
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
+                       DisableMultiSelectClickDismissesOverlay) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+  const DeepQuery kOverlay = {"selection-overlay-app",
+                              "glic-selection-overlay"};
+  const DeepQuery kRenderer = {"selection-overlay-app",
+                               "glic-selection-overlay",
+                               "post-selection-renderer"};
+
+  RunTestSequence(
+      LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
+        ShowWithSelection(selection::InteractionOptions::New(
+            /*hide_handles=*/false, /*disable_multi_select=*/true,
+            /*skip_intro_animation=*/true));
+      }),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0"),
       WaitForJsResultAt(kOverlayWebContentsId, kRenderer,
                         "el => el.hasSelection()"),
       WaitForJsResultAt(
@@ -456,21 +657,27 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
 // of drawing a new region.
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
                        DisableMultiSelectDragDismissesOverlay) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+  const DeepQuery kOverlay = {"selection-overlay-app",
+                              "glic-selection-overlay"};
   const DeepQuery kRenderer = {"selection-overlay-app",
                                "glic-selection-overlay",
                                "post-selection-renderer"};
 
   RunTestSequence(
-      Do([this]() {
+      LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
         ShowWithSelection(selection::InteractionOptions::New(
-            /*hide_handles=*/false, /*disable_multi_select=*/true));
+            /*hide_handles=*/false, /*disable_multi_select=*/true,
+            /*skip_intro_animation=*/true));
       }),
       WaitForShow(OverlayBaseController::kOverlayId),
       InstrumentNonTabWebView(kOverlayWebContentsId,
                               OverlayBaseController::kOverlayId),
-      WaitForJsResultAt(kOverlayWebContentsId, {"selection-overlay-app"},
-                        "el => el.screenshot_ !== null"),
+      WaitForJsResultAt(
+          kOverlayWebContentsId, kOverlay,
+          "el => el.isScreenshotRendered && el.selectionOverlayRect.width > 0 "
+          "&& el.selectionOverlayRect.height > 0"),
       WaitForJsResultAt(kOverlayWebContentsId, kRenderer,
                         "el => el.hasSelection()"),
       MoveMouseTo(OverlayBaseController::kOverlayId,
@@ -482,14 +689,16 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
 
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
                        ShowWithSelectionHidesHandles) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
   const DeepQuery kRenderer = {"selection-overlay-app",
                                "glic-selection-overlay",
                                "post-selection-renderer"};
 
-  RunTestSequence(Do([this]() {
+  RunTestSequence(LoadPageAndWaitForPaint(kActiveTab), Do([this]() {
                     ShowWithSelection(selection::InteractionOptions::New(
-                        /*hide_handles=*/true, /*disable_multi_select=*/false));
+                        /*hide_handles=*/true, /*disable_multi_select=*/false,
+                        /*skip_intro_animation=*/true));
                   }),
                   WaitForShow(OverlayBaseController::kOverlayId),
                   InstrumentNonTabWebView(kOverlayWebContentsId,
@@ -1367,8 +1576,9 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
                               OverlayBaseController::kOverlayId),
       WaitForJsResultAt(kOverlayWebContentsId, {"selection-overlay-app"},
                         "el => el.screenshot_ !== null"),
-      CheckResult(GetOverlayVisibilityAt(0), true),
-      Do([this]() { chrome::AddTabAt(browser(), GetEmptyDocURL(), -1, true); }),
+      CheckResult(GetOverlayVisibilityAt(0), true), Do([this]() {
+        chrome::AddTabAt(browser(), GetEmptyDocURL(), -1, false);
+      }),
       EnterSplitView(/*active_tab=*/0, /*other_tab=*/1),
       CheckResult(GetOverlayVisibilityAt(0), true),
       CheckOverlayBoundsMatchContents(0),
@@ -1628,18 +1838,28 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPrompt,
           "el => {"
           "  const chips = "
           "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
-          "  if (chips.length !== 1) return false;"
+          "  if (chips.length !== 2) return false;"
           "  const titles = chips.map(c => "
           "c.querySelector('.chip-label')?.textContent?.trim());"
-          "  return titles[0] === 'Ask Gemini';"
+          "  return titles[0] === 'Summarize' && titles[1] === 'Ask Gemini';"
           "}"),
       WaitForJsResultAt(
           kOverlayWebContentsId, kSelectionOverlay,
           "el => {"
           "  const container = "
           "el.shadowRoot.querySelector('#floatingPromptContainer');"
+          "  const pill = el.shadowRoot.querySelector('.searchbox-pill');"
+          "  const chips = "
+          "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
+          "  if (!container || !pill || chips.length !== 2) return false;"
           "  const rect = container.getBoundingClientRect();"
-          "  return rect.height > 38 && rect.height <= 96;"
+          "  const pillRect = pill.getBoundingClientRect();"
+          "  const chip0Rect = chips[0].getBoundingClientRect();"
+          "  const chip1Rect = chips[1].getBoundingClientRect();"
+          "  return rect.height > 96 && rect.height <= 130 && "
+          "      chip1Rect.top >= chip0Rect.bottom && "
+          "      Math.abs(chip0Rect.left - pillRect.left) <= 1 && "
+          "      Math.abs(chip1Rect.left - pillRect.left) <= 1;"
           "}"));
 }
 
@@ -1649,8 +1869,8 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPromptWithoutBox,
   const DeepQuery kOverlayApp = {"selection-overlay-app"};
   const DeepQuery kSelectionOverlay = {"selection-overlay-app",
                                        "glic-selection-overlay"};
-  const DeepQuery kCloseRegionButton = {
-      "selection-overlay-app", "glic-selection-overlay", "#closeRegionButton"};
+  const DeepQuery kSettingsButton = {
+      "selection-overlay-app", "glic-selection-overlay", "#settingsButton"};
 
   RunTestSequence(
       OpenGlic(), ClickMockGlicElement({"#captureRegionBtn"}),
@@ -1667,7 +1887,7 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPromptWithoutBox,
       MoveMouseTo(OverlayBaseController::kOverlayId,
                   GetPointWithOffset(50, 50)),
       DragMouseTo(OverlayBaseController::kOverlayId,
-                  GetPointWithOffset(250, 150)),
+                  GetPointWithOffset(150, 150)),
       WaitForJsResultAt(
           kOverlayWebContentsId, kSelectionOverlay,
           "el => {"
@@ -1683,10 +1903,10 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPromptWithoutBox,
           "el => {"
           "  const chips = "
           "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
-          "  if (chips.length !== 1) return false;"
+          "  if (chips.length !== 2) return false;"
           "  const titles = chips.map(c => "
           "c.querySelector('.chip-label')?.textContent?.trim());"
-          "  return titles[0] === 'Ask Gemini';"
+          "  return titles[0] === 'Summarize' && titles[1] === 'Ask Gemini';"
           "}"),
       WaitForJsResultAt(
           kOverlayWebContentsId, kSelectionOverlay,
@@ -1704,13 +1924,16 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPromptWithoutBox,
           "el => {"
           "  const container = "
           "el.shadowRoot.querySelector('#floatingPromptContainer');"
-          "  const closeBtn = "
-          "el.shadowRoot.querySelector('#closeRegionButton');"
-          "  const chip = el.shadowRoot.querySelector('.action-chip');"
-          "  if (!container || !closeBtn || !chip) return false;"
+          "  const settingsBtn = "
+          "el.shadowRoot.querySelector('#settingsButton');"
+          "  const chips = "
+          "Array.from(el.shadowRoot.querySelectorAll('.action-chip'));"
+          "  if (!container || !settingsBtn || chips.length !== 2) return "
+          "false;"
           "  const containerRect = container.getBoundingClientRect();"
-          "  const btnRect = closeBtn.getBoundingClientRect();"
-          "  const chipRect = chip.getBoundingClientRect();"
+          "  const btnRect = settingsBtn.getBoundingClientRect();"
+          "  const chip0Rect = chips[0].getBoundingClientRect();"
+          "  const chip1Rect = chips[1].getBoundingClientRect();"
           "  const overlayRect = el.selectionOverlayRect;"
           "  const sel = el.activeSelection;"
           "  const selRight = overlayRect.left + (sel.left + sel.width) * "
@@ -1718,9 +1941,10 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithPromptWithoutBox,
           "  const selTop = overlayRect.top + sel.top * overlayRect.height;"
           "  return Math.abs(containerRect.left - selRight) <= 2 && "
           "      Math.abs(containerRect.bottom - selTop) <= 2 && "
-          "      btnRect.left >= chipRect.right;"
+          "      chip1Rect.left >= chip0Rect.right && "
+          "      btnRect.left >= chip1Rect.right;"
           "}"),
-      MoveMouseTo(kOverlayWebContentsId, kCloseRegionButton), ClickMouse(),
+      MoveMouseTo(kOverlayWebContentsId, kSettingsButton), ClickMouse(),
       WaitForHide(OverlayBaseController::kOverlayId));
 }
 
@@ -1840,7 +2064,7 @@ class SelectionOverlayInteractiveTestWithInlineFulfillment
     feature_list_.InitFromCommandLine(
         /*enable_features=*/
         "GlicSelectionOverlayPrompt,GlicSelectionSmallChip,GlicSelectionPrompt,"
-        "QuickAnswersSelectionSuggestions",
+        "StaticSelectionSuggestions,QuickAnswersSelectionSuggestions",
         /*disable_features=*/"");
   }
 
@@ -1849,19 +2073,21 @@ class SelectionOverlayInteractiveTestWithInlineFulfillment
                                        "glic-selection-overlay"};
 
   auto OpenOverlayFromSmallChip(ui::ElementIdentifier tab,
-                                ui::ElementIdentifier overlay) {
+                                ui::ElementIdentifier overlay,
+                                std::string_view paragraph_style = "") {
     const DeepQuery kOverlayApp = {"selection-overlay-app"};
 
-    // Text for the user to select.
-    static constexpr char kAddTextJs[] = R"js(
-      () => {
-        document.body.innerHTML = '<p>Explain this sentence please</p>';
-      }
-    )js";
+    // Text for the user to select. `width/height: fit-content` on `html`,
+    // `body`, and `p` ensures `SelectAll()`'s range bounding box wraps the
+    // paragraph rather than the full quirks-mode viewport.
+    std::string add_text_js = base::StrCat(
+        {"() => { document.body.innerHTML = '<style>html, body, p { width: "
+         "fit-content; height: fit-content; }</style><p style=\"",
+         paragraph_style, "\">Explain this sentence please</p>'; }"});
 
     return Steps(
         InstrumentTab(tab), NavigateWebContents(tab, GetEmptyDocURL()),
-        ExecuteJs(tab, kAddTextJs),
+        ExecuteJs(tab, add_text_js),
         // Focus the page and select the text. The small chip shows up on it.
         // This avoids an OS mouse drag, which can hang on Windows bots.
         WaitForWebContentsPainted(tab), MoveMouseTo(tab, DeepQuery{"p"}),
@@ -1903,8 +2129,14 @@ class SelectionOverlayInteractiveTestWithInlineFulfillment
 
 }  // namespace
 
+// TODO(crbug.com/577914378): Flaky on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_ClickExplainChipShowsCard DISABLED_ClickExplainChipShowsCard
+#else
+#define MAYBE_ClickExplainChipShowsCard ClickExplainChipShowsCard
+#endif
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
-                       ClickExplainChipShowsCard) {
+                       MAYBE_ClickExplainChipShowsCard) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
 
@@ -1924,7 +2156,7 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
 
   static constexpr char kCardTextJs[] = R"js(
     el => el.shadowRoot.querySelector(
-        '#inlineFulfillmentHost > glic-explain-fulfillment > .explanation')
+        '#inlineFulfillmentHost > glic-explain-fulfillment .explanation')
         ?.textContent
   )js";
   static constexpr char kChipsHiddenJs[] = R"js(
@@ -1942,8 +2174,14 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
       CheckResult(GetOverlayVisibilityAt(0), true));
 }
 
+// TODO(crbug.com/576383946): Flaky on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_GrowingCardStaysInViewport DISABLED_GrowingCardStaysInViewport
+#else
+#define MAYBE_GrowingCardStaysInViewport GrowingCardStaysInViewport
+#endif
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
-                       GrowingCardStaysInViewport) {
+                       MAYBE_GrowingCardStaysInViewport) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
 
@@ -1984,7 +2222,56 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
 }
 
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
-                       ClickCardAskGeminiOpensSidePanel) {
+                       CardKeepsCueTopLeftAndGrowsDownward) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+
+  // The fade-in animation offsets the cue, so wait for it to end.
+  static constexpr char kRecordCueAndClickExplainJs[] = R"js(
+    el => {
+      const cue = el.shadowRoot.querySelector('#floatingPromptContainer');
+      const chip = [...el.shadowRoot.querySelectorAll('.action-chip')].find(
+          c => c.querySelector('.chip-label')?.textContent === 'Explain');
+      if (!chip || cue.hidden || cue.getAnimations().length > 0) {
+        return false;
+      }
+      window.cueRect = cue.getBoundingClientRect();
+      chip.click();
+      return true;
+    }
+  )js";
+  static constexpr char kCardAtCueTopLeftJs[] = R"js(
+    el => {
+      const rect = el.shadowRoot.querySelector('#floatingPromptContainer')
+                       .getBoundingClientRect();
+      return !!el.shadowRoot.querySelector(
+                 '#inlineFulfillmentHost > glic-explain-fulfillment') &&
+             Math.abs(rect.left - cueRect.left) <= 2 &&
+             Math.abs(rect.top - cueRect.top) <= 2 &&
+             rect.bottom > cueRect.bottom;
+    }
+  )js";
+
+  RunTestSequence(
+      // Far enough below the top edge that neither the cue nor the card is
+      // clamped to the top margin.
+      OpenOverlayFromSmallChip(kActiveTab, kOverlayWebContentsId,
+                               "margin-top: 200px"),
+      WaitForJsResultAt(kOverlayWebContentsId, kSelectionOverlay,
+                        kRecordCueAndClickExplainJs),
+      WaitForJsResultAt(kOverlayWebContentsId, kSelectionOverlay,
+                        kCardAtCueTopLeftJs));
+}
+
+// TODO(crbug.com/577914378): Flaky on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_ClickCardAskGeminiOpensSidePanel \
+  DISABLED_ClickCardAskGeminiOpensSidePanel
+#else
+#define MAYBE_ClickCardAskGeminiOpensSidePanel ClickCardAskGeminiOpensSidePanel
+#endif
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
+                       MAYBE_ClickCardAskGeminiOpensSidePanel) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
   const DeepQuery kAskGemini = {
@@ -2033,61 +2320,59 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
       CheckJsResultAt(kOverlayWebContentsId, kRenderer, kHandlesHiddenJs));
 }
 
+// With the side panel open, the small chip starts a capture session through
+// the web client. The session pre-selects the text selection and treats it
+// like the other small chip paths: no handles, no click-to-add-region.
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
-                       CloseOverlayWithCloseButtonShowsHiddenToast) {
+                       SmallChipWithSidePanelOpenKeepsTextSelection) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
-  const DeepQuery kCloseRegionButton = {
-      "selection-overlay-app", "glic-selection-overlay", "#closeRegionButton"};
+  const DeepQuery kRenderer = {"selection-overlay-app",
+                               "glic-selection-overlay",
+                               "post-selection-renderer"};
+
+  RunTestSequence(
+      OpenGlic(),
+      ObserveState(
+          kTabResizeSettled,
+          [this]() {
+            return browser()->tab_strip_model()->GetActiveWebContents();
+          }),
+      WaitForState(kTabResizeSettled, true),
+      StopObservingState(kTabResizeSettled),
+      OpenOverlayFromSmallChip(kActiveTab, kOverlayWebContentsId),
+      // One region around the text selection.
+      WaitForJsResultAt(kOverlayWebContentsId, kRenderer,
+                        "el => el.selectedRegions.length === 1"),
+      CheckJsResultAt(kOverlayWebContentsId, kSelectionOverlay,
+                      "el => el.hideHandles && el.disableMultiSelect && "
+                      "el.sidePanelOpen"));
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
+                       ClickSettingsButtonOpensInlineCueMenuSettings) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+  const DeepQuery kSettingsButton = {
+      "selection-overlay-app", "glic-selection-overlay", "#settingsButton"};
 
   RunTestSequence(
       OpenOverlayFromSmallChip(kActiveTab, kOverlayWebContentsId),
-      WaitForElementVisible(kOverlayWebContentsId, kCloseRegionButton),
-      ClickElement(kOverlayWebContentsId, kCloseRegionButton,
+      WaitForElementVisible(kOverlayWebContentsId, kSettingsButton),
+      ClickElement(kOverlayWebContentsId, kSettingsButton,
                    ExecuteJsMode::kFireAndForget),
       WaitForHide(OverlayBaseController::kOverlayId),
-      WaitForShow(toasts::ToastView::kToastViewId),
+      EnsureNotPresent(toasts::ToastView::kToastViewId),
+      CheckResult([this]() { return browser()->tab_strip_model()->count(); },
+                  2),
       CheckResult(
           [this]() {
-            auto* toast_controller = ToastController::MaybeGetForWebContents(
-                browser()->tab_strip_model()->GetActiveWebContents());
-            return toast_controller ? toast_controller->GetCurrentToastId()
-                                    : std::nullopt;
+            return browser()
+                ->tab_strip_model()
+                ->GetActiveWebContents()
+                ->GetVisibleURL();
           },
-          std::optional<ToastId>(ToastId::kGlicSelectionHiddenForSite)));
-}
-
-IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
-                       CloseOverlayWithEscapeKeyShowsHiddenToast) {
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
-
-  RunTestSequence(
-      OpenOverlayFromSmallChip(kActiveTab, kOverlayWebContentsId),
-      SendKeyPress(OverlayBaseController::kOverlayId, ui::VKEY_ESCAPE),
-      WaitForHide(OverlayBaseController::kOverlayId),
-      WaitForShow(toasts::ToastView::kToastViewId),
-      CheckResult(
-          [this]() {
-            auto* toast_controller = ToastController::MaybeGetForWebContents(
-                browser()->tab_strip_model()->GetActiveWebContents());
-            return toast_controller ? toast_controller->GetCurrentToastId()
-                                    : std::nullopt;
-          },
-          std::optional<ToastId>(ToastId::kGlicSelectionHiddenForSite)));
-}
-
-IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithInlineFulfillment,
-                       CloseOverlayWithBackgroundClickDoesNotShowHiddenToast) {
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kActiveTab);
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
-
-  RunTestSequence(
-      OpenOverlayFromSmallChip(kActiveTab, kOverlayWebContentsId),
-      MoveMouseTo(OverlayBaseController::kOverlayId,
-                  GetPointWithOffset(300, 300)),
-      ClickMouse(), WaitForHide(OverlayBaseController::kOverlayId),
-      EnsureNotPresent(toasts::ToastView::kToastViewId));
+          GURL("chrome://settings/ai/inlineCueMenu")));
 }
 
 namespace {

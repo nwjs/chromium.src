@@ -11,6 +11,7 @@
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/history_clusters/history_clusters_metrics_logger.h"
 #include "chrome/browser/history_clusters/history_clusters_service_factory.h"
+#include "chrome/browser/history_clusters/history_clusters_side_panel_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -18,7 +19,6 @@
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_utils.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
@@ -55,6 +55,10 @@ HistoryClustersSidePanelCoordinator::HistoryClustersSidePanelCoordinator(
     : scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
       browser_(CHECK_DEREF(browser)),
       profile_(CHECK_DEREF(profile)) {
+  if (IsSupported(profile)) {
+    SidePanelRegistry::From(browser)->Register(CreateEntry());
+  }
+
   pref_change_registrar_.Init(profile_->GetPrefs());
   base::RepeatingClosure callback(base::BindRepeating(
       &HistoryClustersSidePanelCoordinator::OnHistoryClustersPreferenceChanged,
@@ -67,13 +71,12 @@ HistoryClustersSidePanelCoordinator::~HistoryClustersSidePanelCoordinator() =
 
 // static
 bool HistoryClustersSidePanelCoordinator::IsSupported(Profile* profile) {
-  return side_panel::history_clusters::
-      IsHistoryClustersSidePanelSupportedForProfile(profile);
+  return history_clusters::IsSidePanelSupported(profile);
 }
 
-void HistoryClustersSidePanelCoordinator::CreateAndRegisterEntry(
-    SidePanelRegistry* global_registry) {
-  global_registry->Register(std::make_unique<SidePanelEntry>(
+std::unique_ptr<SidePanelEntry>
+HistoryClustersSidePanelCoordinator::CreateEntry() {
+  return std::make_unique<SidePanelEntry>(
       SidePanelEntry::Key(SidePanelEntry::Id::kHistoryClusters),
       base::BindRepeating(
           &HistoryClustersSidePanelCoordinator::CreateHistoryClustersWebView,
@@ -82,7 +85,7 @@ void HistoryClustersSidePanelCoordinator::CreateAndRegisterEntry(
           &HistoryClustersSidePanelCoordinator::GetOpenInNewTabURL,
           base::Unretained(this)),
       /*more_info_callback=*/base::NullCallback(),
-      /*default_content_width_callback=*/base::NullCallback()));
+      /*default_content_width_callback=*/base::NullCallback());
 }
 
 std::unique_ptr<views::View>
@@ -128,7 +131,7 @@ HistoryClustersSidePanelCoordinator::CreateHistoryClustersWebView(
 void HistoryClustersSidePanelCoordinator::OnHistoryClustersPreferenceChanged() {
   auto* const global_registry = SidePanelRegistry::From(&browser_.get());
   if (IsSupported(profile())) {
-    CreateAndRegisterEntry(global_registry);
+    global_registry->Register(CreateEntry());
   } else {
     global_registry->Deregister(
         SidePanelEntry::Key(SidePanelEntry::Id::kHistoryClusters));

@@ -13,8 +13,11 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/tick_clock.h"
+#include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/uuid.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_observer.h"
@@ -28,6 +31,10 @@
 
 class BrowserWindowInterface;
 class SidePanelEntry;
+
+namespace actions {
+class ActionItem;
+}  // namespace actions
 
 namespace content {
 class Page;
@@ -73,6 +80,12 @@ class ContextualTasksEphemeralButtonController
   // AimEligibilityService observation:
   void OnAimEligibilityResponseChanged();
 
+  // EntryPointEligibilityManager observation. Under Pinning V2, losing
+  // entry point eligibility (e.g. the default search engine changes) hides the
+  // ephemeral button for every task instead of leaving a thread-state button
+  // behind until navigation, auto-dismiss, or tab close.
+  void OnEntryPointEligibilityChanged(bool is_eligible);
+
   // SidePanelEntryObserver override:
   void OnEntryShown(SidePanelEntry* entry) override;
   void OnEntryWillHide(SidePanelEntry* entry,
@@ -92,51 +105,112 @@ class ContextualTasksEphemeralButtonController
   base::CallbackListSubscription RegisterShouldUpdateButtonPosition(
       ShouldUpdateButtonPositionCallbackList::CallbackType callback);
 
+  enum class RemovalReason {
+    kContextMenu,
+    kAutoDismissed,
+    kTaskDisassociated,
+  };
+
   bool ShouldShowEphemeralButton();
+  bool ShouldShowPinnedButtonActiveIndicator();
+  bool IsActiveTabAssociatedToTask();
+  bool IsPanelOpen() const {
+    return is_contextual_tasks_panel_open_ &&
+           !is_hiding_contextual_tasks_panel_;
+  }
   void RemoveEphemeralButtonForCurrentTask();
+  void RecordToolbarButtonOpenClick(bool is_permanent_button);
+  void RecordEphemeralButtonClicked();
+  std::optional<RemovalReason> removal_reason() const {
+    return removal_reason_;
+  }
   bool HasAutoDismissTimerForTesting(SessionID tab_id) const;
   void SetTaskRunnerForTesting(
       scoped_refptr<base::SequencedTaskRunner> task_runner);
+  void SetTickClockForTesting(const base::TickClock* tick_clock);
 
  private:
+  struct ClickCounts {
+    bool collapsed_shown = false;
+    int open_clicks = 0;
+    int rapid_open_clicks = 0;
+    int sustained_open_clicks = 0;
+  };
+
+  struct OpenSidePanelSessionCounts {
+    ClickCounts ephemeral;
+    ClickCounts permanent;
+    std::optional<base::TimeTicks> last_open_click_time;
+    bool last_open_was_permanent = false;
+  };
+
   // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;
 
   contextual_tasks::ContextualTasksService* GetContextualTasksService();
   std::optional<SessionID> GetCurrentTabSessionId();
-  bool IsActiveTabAssociatedToTask();
+  std::optional<base::Uuid> GetActiveTaskId();
+  bool HasPanelResults() const;
+  base::TimeTicks NowTicks() const;
+  void SettlePendingOpenClick(OpenSidePanelSessionCounts& counts,
+                              bool closed_by_user);
   void OnActiveTabChange(BrowserWindowInterface* browser_window_interface);
   void OnSidePanelAlignmentChanged();
   void MaybeNotifyVisibilityShouldChange();
+  void RecordTaskOpenClickCounts(const OpenSidePanelSessionCounts& counts);
+  void FlushOpenClickCounts(bool flush_all);
+  void UpdatePinnedButtonActiveIndicator();
+  void UpdatePinButtonTooltip();
+  void UpdateEphemeralStateInToolbar(bool show);
+  void RecordShownDuration(std::string_view end_reason);
   void UpdateActiveTabObservation();
   void OnTabDiscarded(tabs::TabInterface* tab,
                       content::WebContents* old_contents,
                       content::WebContents* new_contents);
   base::TimeDelta GetAutoDismissDuration() const;
+  void StartAutoDismissTimerForTab(SessionID tab_id);
   void OnAutoDismissTimerFired(SessionID tab_id);
+  void ClearTabEligibility(SessionID tab_id);
+  bool IsTaskEligibleForEphemeralButton(const base::Uuid& task_id);
+  bool IsActiveTabEligible();
+  void HideTaskSidePanel();
+  void MaybeCleanUpUnusedSidePanelWebContents();
   void DismissEphemeralButtonForTab(SessionID tab_id);
+  void DisassociateNavigatedTab();
   void CancelAutoDismissTimersForActiveTask();
 
   bool is_contextual_tasks_panel_open_ = false;
   bool is_hiding_contextual_tasks_panel_ = false;
+  bool was_ephemeral_button_visible_ = false;
+  bool was_ephemeral_panel_open_ = false;
+  std::optional<base::TimeTicks> ephemeral_button_shown_time_ticks_;
+  std::optional<RemovalReason> removal_reason_;
   raw_ptr<AimEligibilityService> aim_eligibility_service_;
 
-  // Tabs associated to a task whose side panel was dismissed by the user. All
+  // Tabs associated to a task whose side panel was shown or dismissed. All
   // of the task's tabs are recorded rather than the task itself, because a
   // zero-state task with no thread is destroyed as soon as it loses its last
   // tab, which would otherwise take the button down with it.
   std::vector<SessionID> ephemeral_button_eligible_tabs_;
   std::map<SessionID, base::OneShotTimer>
       ephemeral_button_auto_dismiss_timers_;
+  // Tracks the number of times the ephemeral and permanent toolbar buttons
+  // were clicked to reopen the side panel for each task whose side panel was
+  // closed with results.
+  std::map<base::Uuid, OpenSidePanelSessionCounts>
+      open_side_panel_session_counts_;
   scoped_refptr<base::SequencedTaskRunner> task_runner_for_testing_;
+  raw_ptr<const base::TickClock> tick_clock_for_testing_ = nullptr;
   base::ScopedObservation<SidePanelEntry, SidePanelEntryObserver>
       contextual_task_entry_observation_{this};
   raw_ptr<BrowserWindowInterface> browser_window_interface_ = nullptr;
+  raw_ptr<actions::ActionItem> close_side_panel_action_item_ = nullptr;
 
   PrefChangeRegistrar pref_change_registrar_;
   base::CallbackListSubscription tab_change_subscription_;
   base::CallbackListSubscription tab_discard_subscription_;
   base::CallbackListSubscription aim_eligibility_service_subscription_;
+  base::CallbackListSubscription entry_point_eligibility_subscription_;
   ui::ScopedUnownedUserData<ContextualTasksEphemeralButtonController>
       scoped_unowned_user_data_;
   base::ScopedObservation<contextual_tasks::ContextualTasksService,
@@ -147,6 +221,8 @@ class ContextualTasksEphemeralButtonController
       pinned_toolbar_observation_{this};
   ShouldUpdateVisibilityCallbackList should_update_visibility_callbacks_;
   ShouldUpdateButtonPositionCallbackList should_update_position_callbacks_;
+  base::WeakPtrFactory<ContextualTasksEphemeralButtonController>
+      weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_EPHEMERAL_BUTTON_CONTROLLER_H_

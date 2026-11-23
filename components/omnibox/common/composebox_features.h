@@ -56,6 +56,30 @@ BASE_DECLARE_FEATURE(kComposeboxPersistentAimButtonOmnibox);
 // the persistent AIM button is also enabled for the surface.
 BASE_DECLARE_FEATURE(kComposeboxPersistentAimButtonWithX);
 
+// If enabled, dynamically routes Realbox Composebox queries between SRP and AIM
+// based on active tools, models, and inputs.
+BASE_DECLARE_FEATURE(kDynamicAimFulfillmentRealbox);
+// If enabled, dynamically routes Omnibox Composebox queries between SRP and AIM
+// based on active tools, models, and inputs.
+BASE_DECLARE_FEATURE(kDynamicAimFulfillmentOmnibox);
+// Main switch for dynamic AIM fulfillment, and the settings both surfaces
+// share. A surface uses dynamic AIM fulfillment only if this feature and that
+// surface's feature above are both enabled; with this feature disabled, every
+// composebox query routes to AIM as before.
+BASE_DECLARE_FEATURE(kDynamicAimFulfillment);
+// Which attached inputs may go to the Search results page: "none",
+// "single_image", "multi_image" or "any_combination".
+extern const base::FeatureParam<std::string>
+    kDynamicAimFulfillmentSrpInputPhase;
+// Whether to use the phase sent by the server, when present, instead of
+// `srp_input_phase`.
+extern const base::FeatureParam<bool> kDynamicAimFulfillmentUseServerInputRules;
+// Whether dynamic AIM fulfillment is enabled for the Realbox / Omnibox
+// Composebox: `kDynamicAimFulfillment` and the surface's feature are both
+// enabled.
+bool IsDynamicAimFulfillmentEnabledForRealbox();
+bool IsDynamicAimFulfillmentEnabledForOmnibox();
+
 // If enabled, clicking outside the Realbox Composebox closes the suggestions
 // dropdown and restores page interaction while keeping the Composebox open.
 BASE_DECLARE_FEATURE(kComposeboxRealboxOutsideClick);
@@ -107,6 +131,17 @@ extern const base::FeatureParam<bool>
 // parent feature kContextManagementInComposebox to be enabled and the param to
 // be true.
 bool IsSingleTabMenuItemInComposeboxEnabled();
+
+// If enabled, tab context state in the composebox is driven by the backend
+// session handle (`OnTabContextUpdated`) rather than tracked separately on the
+// frontend.
+extern const base::FeatureParam<bool>
+    kContextManagementInComposeboxTabStateUnification;
+
+// Helper to check if tab state unification is enabled, which requires the
+// parent feature kContextManagementInComposebox to be enabled and the param to
+// be true.
+bool IsTabStateUnificationInComposeboxEnabled();
 
 }  // namespace omnibox
 

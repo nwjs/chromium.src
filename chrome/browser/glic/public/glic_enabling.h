@@ -24,6 +24,7 @@
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_webui.mojom.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_provider.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -40,6 +41,10 @@ class Profile;
 class ProfileAttributesStorage;
 
 namespace glic {
+
+#if BUILDFLAG(IS_ANDROID)
+class BackgroundActuationCapability;
+#endif  // BUILDFLAG(IS_ANDROID)
 class GlicActorPolicyChecker;
 class GlicKeyedService;
 namespace prefs {
@@ -52,6 +57,14 @@ namespace mojom {
 enum class ProfileReadyState : int32_t;
 enum class InvocationSource : int32_t;
 }  // namespace mojom
+
+// Trial and group names for the GlicHotkeyDefaultScope synthetic field trial.
+inline constexpr char kGlicHotkeyDefaultScopeTrialName[] =
+    "GlicHotkeyDefaultScope";
+inline constexpr char kGlicHotkeyDefaultLocalScopeGroupName[] =
+    "GlicHotkeyDefaultLocalScope";
+inline constexpr char kGlicHotkeyDefaultGlobalScopeGroupName[] =
+    "GlicHotkeyDefaultGlobalScope";
 
 // Feature flag kGlicCountryFiltering controls whether country filtering is
 // applied client side. Two finch params are used to control this, both are a
@@ -205,14 +218,6 @@ enum class RequiredExperimentalOptIn {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicRequiredExperimentalOptIn)
 
-// The product that powers Glic for a profile. Providers are mutually exclusive.
-enum class GlicProvider {
-  // Gemini in Chrome.
-  kGemini,
-  // Gemini Enterprise in Chrome (GEiC).
-  kGeminiEnterprise,
-};
-
 // Returns true if any Glic entry point (such as the tab strip button or the
 // OS-level shortcut) is enabled in settings.
 bool IsAnyEntryPointEnabled(Profile* profile);
@@ -321,6 +326,12 @@ class GlicEnabling final : public signin::IdentityManager::Observer,
 
   // Returns true if the profile has completed the FRE.
   static bool HasConsentedForProfile(Profile* profile);
+
+  // Registers the synthetic trial for default hotkey scope
+  // ("GlicHotkeyDefaultScope") based on the `prefs::kGlicDefaultHotkeyScope`
+  // local state pref if `kGlicHotkeyLocalScope` feature is enabled and the
+  // given profile has completed the First Run Experience (FRE).
+  static void RegisterDefaultHotkeyScopeSyntheticTrial(Profile* profile);
 
   // Returns true if the given profile has Glic enabled and has completed the
   // FRE. True implies that IsEnabledByGlobalCriteria(),
@@ -557,10 +568,13 @@ class GlicEnabling final : public signin::IdentityManager::Observer,
   // otherwise.
   bool HasConsented() const;
 
-  // Returns the FRE status.
+  // Returns the status of the FRE the profile's provider uses (see
+  // `GlicProviderSpec::GetFreStore()`).
   static prefs::FreStatus GetCompletedFre(Profile* profile);
   prefs::FreStatus GetCompletedFre() const;
-  // Sets the FRE status.
+  // Sets the status of the FRE the profile's provider uses (see
+  // `GlicProviderSpec::GetFreStore()`). Statuses that FRE doesn't support are
+  // ignored, e.g. the GEiC FRE can only be completed.
   void SetCompletedFre(prefs::FreStatus status);
 
   // Whether the Web Actuation Toggle (Auto Browse) should be shown in Settings.
@@ -669,6 +683,8 @@ class GlicEnabling final : public signin::IdentityManager::Observer,
   base::CallbackListSubscription RegisterOnExperimentalTriggeringEnabledChanged(
       ExperimentalTriggeringEnabledChangedCallback callback);
 
+  // Called when `GetExperimentalTriggeringState()` or
+  // `GetExperimentalTriggeringCapabilities()` might return a different value.
   using ExperimentalTriggeringStateChangedCallback = base::RepeatingClosure;
   base::CallbackListSubscription RegisterOnExperimentalTriggeringStateChanged(
       ExperimentalTriggeringStateChangedCallback callback);
@@ -770,7 +786,17 @@ class GlicEnabling final : public signin::IdentityManager::Observer,
   syncer::DeviceInfo::GlicExperimentalTriggeringState
       last_experimental_triggering_state_ =
           syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable;
+  // The experimental triggering capabilities as of the last
+  // `ExperimentalTriggeringStateChangedCallback` notification. Observers are
+  // notified when either the state or the capabilities change.
+  base::flat_set<std::string> last_experimental_triggering_capabilities_;
   mojom::ProfileReadyState last_profile_ready_state_;
+#if BUILDFLAG(IS_ANDROID)
+  // Tracks the "background_actuation" capability. Only created while
+  // `kGlicExperimentalTriggering` and `kGlicBackgroundActuation` are enabled.
+  std::unique_ptr<BackgroundActuationCapability>
+      background_actuation_capability_;
+#endif  // BUILDFLAG(IS_ANDROID)
 };
 
 }  // namespace glic

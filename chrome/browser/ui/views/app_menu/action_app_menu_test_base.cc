@@ -14,6 +14,7 @@
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
+#include "chrome/browser/ui/actions/actions_util.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/safety_hub/menu_notification_service_factory.h"
@@ -86,6 +87,7 @@ void ActionAppMenuTestBase::SetUp() {
                 .SetAccessibleName(text)
                 .SetEnabled(true)
                 .SetVisible(action_id != kActionUpgradeDialog &&
+                            action_id != kActionScheduledRestartDialog &&
                             action_id != kActionGlobalError &&
                             action_id != kActionSetBrowserAsDefault &&
                             action_id != kActionSkillsAndExtensionsSubmenu &&
@@ -99,14 +101,14 @@ void ActionAppMenuTestBase::SetUp() {
 
   add_action(kActionNewTab, u"New Tab");
   add_action(kActionNewWindow, u"New Window");
-  add_action(kActionNewIncognitoWindow,
-             BrowserActions::GetCleanTitleAndTooltipText(
-                 l10n_util::GetStringUTF16(IDS_NEW_INCOGNITO_WINDOW)),
-             l10n_util::GetStringUTF16(IDS_APP_MENU_BLOCK_INCOGNITO));
-  add_action(kActionNewIsolatedWindow,
-             BrowserActions::GetCleanTitleAndTooltipText(
-                 l10n_util::GetStringUTF16(IDS_NEW_ISOLATED_WINDOW)),
-             l10n_util::GetStringUTF16(IDS_APP_MENU_BLOCK_ISOLATED));
+  add_action(
+      kActionNewIncognitoWindow,
+      chrome::GetCleanText(l10n_util::GetStringUTF16(IDS_NEW_INCOGNITO_WINDOW)),
+      l10n_util::GetStringUTF16(IDS_APP_MENU_BLOCK_INCOGNITO));
+  add_action(
+      kActionNewIsolatedWindow,
+      chrome::GetCleanText(l10n_util::GetStringUTF16(IDS_NEW_ISOLATED_WINDOW)),
+      l10n_util::GetStringUTF16(IDS_APP_MENU_BLOCK_ISOLATED));
   add_action(kActionProfileSubmenu, u"Profile");
   add_action(kActionManageGoogleAccount, u"Manage your Google Account");
   add_action(kActionCustomizeChrome, u"Customize Chrome");
@@ -120,6 +122,7 @@ void ActionAppMenuTestBase::SetUp() {
   add_action(kActionShowSyncPassphraseDialog, u"Enter passphrase");
   add_action(kActionShowSigninWhenPaused, u"Sign in again");
   add_action(kActionUpgradeDialog, u"Update Chrome");
+  add_action(kActionScheduledRestartDialog, u"Relaunch later...");
   add_action(kActionGlobalError, u"Global error");
   add_action(kActionOpenSafetyHub, u"Safety Hub");
   add_action(kActionSafetyHubManageExtensions, u"Manage extensions");
@@ -133,6 +136,7 @@ void ActionAppMenuTestBase::SetUp() {
   add_action(kActionShowTravel, u"Travel");
   add_action(kActionShowHistory, u"History");
   add_action(kActionRecentTabsSubmenu, u"Recent Tabs");
+  add_action(kActionOtherDeviceTabsSubmenu, u"Other device tabs");
   add_action(kActionShowDownloadsPage, u"Downloads");
   add_action(kActionBookmarksSubmenu, u"Bookmarks and Lists");
   add_action(kActionBookmarkThisTab, u"Bookmark This Tab");
@@ -201,6 +205,8 @@ void ActionAppMenuTestBase::SetUp() {
   add_action(kActionRecentTabsLoginForDeviceTabs, u"Login for Device Tabs");
   add_action(kActionSidePanelShowHistoryCluster, u"History Clusters");
   add_action(kActionSidePanelShowHistory, u"History");
+  add_action(kActionSidePanelShowTabsFromOtherDevices,
+             u"Tabs from Other Devices");
   add_action(kActionOptions, u"Settings");
   add_action(kActionHelpSubmenu, u"Help");
   add_action(kActionAbout, u"About");

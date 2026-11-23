@@ -12,8 +12,9 @@ import {ReadAloudNodeStore} from './read_aloud_node_store.js';
 // representing text nodes and segments, allowing the core logic to work
 // with different text segmentation strategies.
 
-// Display types that should signal a line break.
-const LINE_BREAKING_DISPLAY_TYPES = [
+// Set of display types that signal a line break. Using a Set allows O(1)
+// lookup instead of array scanning during text traversal.
+const LINE_BREAKING_DISPLAY_TYPES = new Set([
   'block',
   'list-item',
   'flex',
@@ -25,7 +26,7 @@ const LINE_BREAKING_DISPLAY_TYPES = [
   'table-row-group',
   'table-header-group',
   'table-footer-group',
-];
+]);
 
 // Wrapper class to represent a node used by read aloud. The type of node
 // could be either a DOM node or an AXNode depending on what type of text
@@ -108,14 +109,14 @@ class AxReadAloudNodeImpl extends AxReadAloudNode {
 
 // Represents a node used by read aloud that's based entirely on the DOM.
 export class DomReadAloudNode extends ReadAloudNode {
-  nearestBlockAncestor: Node|undefined = undefined;
+  private readonly nearestBlockAncestor_: Node|undefined;
   private isSuperscript_?: boolean;
 
   protected constructor(protected node: Node) {
     super();
     ReadAloudNodeStore.getInstance().register(this);
-    // lineBreakingItem_ only needs to be set once.
-    this.nearestBlockAncestor = this.getNearestBlockAncestor_();
+    // nearestBlockAncestor_ only needs to be set once.
+    this.nearestBlockAncestor_ = this.getNearestBlockAncestor_();
   }
 
   equals(other: ReadAloudNode|undefined|null): boolean {
@@ -134,10 +135,10 @@ export class DomReadAloudNode extends ReadAloudNode {
   }
 
   // Refresh the DOM node associated with this read aloud node if the original
-  // node has been changed, such as from highlighting.
+  // node has been changed, such as from highlighting. The replacement is in
+  // place, so the block ancestor is unchanged.
   refresh(newNode: Node) {
     this.node = newNode;
-    this.nearestBlockAncestor = this.getNearestBlockAncestor_();
   }
 
   // Returns true if the DOM node associated with this ReadAloudNode is
@@ -167,18 +168,33 @@ export class DomReadAloudNode extends ReadAloudNode {
   // The nearest ancestor to the DOM node associated with this ReadAloudNode
   // that is of a "block" style such that it would constitute a line break.
   getBlockAncestor(): Node|undefined {
-    return this.nearestBlockAncestor;
+    return this.nearestBlockAncestor_;
   }
 
   private getNearestBlockAncestor_(): Node|undefined {
-    let currentAncestor = this.node.parentElement;
-
+    const nodeStore = NodeStore.getInstance();
+    const parent = this.node.parentElement;
+    let currentAncestor: Element|null = parent;
     while (currentAncestor) {
+      // Reuse the cached block ancestor and memoize for the immediate parent.
+      const cached = nodeStore.getBlockAncestor(currentAncestor);
+      if (cached) {
+        if (parent) {
+          nodeStore.setBlockAncestor(parent, cached);
+        }
+        return cached;
+      }
+
       const displayStyle = window.getComputedStyle(currentAncestor).display;
-      // Check for common block-level display values
-      if (LINE_BREAKING_DISPLAY_TYPES.includes(displayStyle)) {
+      if (LINE_BREAKING_DISPLAY_TYPES.has(displayStyle)) {
+        // Cache this block element for itself and the immediate parent.
+        nodeStore.setBlockAncestor(currentAncestor, currentAncestor);
+        if (parent) {
+          nodeStore.setBlockAncestor(parent, currentAncestor);
+        }
         return currentAncestor;
       }
+
       currentAncestor = currentAncestor.parentElement;
     }
 

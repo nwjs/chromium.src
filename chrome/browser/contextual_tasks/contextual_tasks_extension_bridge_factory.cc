@@ -10,6 +10,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "extensions/browser/extension_config_map_factory.h"
 #include "extensions/browser/extension_mojo_binder_registry_factory.h"
+#include "extensions/browser/extension_registry_factory.h"
+#include "extensions/browser/process_manager_factory.h"
 
 namespace contextual_tasks {
 
@@ -31,11 +33,16 @@ ContextualTasksExtensionBridgeFactory::ContextualTasksExtensionBridgeFactory()
     : ProfileKeyedServiceFactory(
           "ContextualTasksExtensionBridge",
           ProfileSelections::Builder()
-              .WithRegular(ProfileSelection::kOriginalOnly)
-              .WithGuest(ProfileSelection::kOriginalOnly)
+              // Off-the-record profiles get their own bridge, since the
+              // extension runs a separate instance in each of them (split
+              // incognito mode).
+              .WithRegular(ProfileSelection::kOwnInstance)
+              .WithGuest(ProfileSelection::kOwnInstance)
               .Build()) {
   DependsOn(extensions::ExtensionConfigMapFactory::GetInstance());
   DependsOn(extensions::ExtensionMojoBinderRegistryFactory::GetInstance());
+  DependsOn(extensions::ExtensionRegistryFactory::GetInstance());
+  DependsOn(extensions::ProcessManagerFactory::GetInstance());
 }
 
 ContextualTasksExtensionBridgeFactory::

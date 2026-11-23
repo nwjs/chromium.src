@@ -34,6 +34,8 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/command_updater.h"
+#include "chrome/browser/contextual_tasks/search_journey_tracker.h"
+#include "chrome/browser/contextual_tasks/search_journey_tracker_factory.h"
 #include "chrome/browser/extensions/api/omnibox/omnibox_api.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/feedback/public/feedback_source.h"
@@ -461,6 +463,8 @@ gfx::Image ChromeOmniboxClient::GetSizedIcon(const gfx::Image& icon) const {
   // In touch mode, icons are 20x20. FaviconCache and ExtensionIconManager both
   // guarantee favicons and extension icons will be 16x16, so add extra padding
   // around them to align them vertically with the other vector icons.
+  // TODO(crbug.com/576479304): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_GE(icon_size, icon.Height());
   DCHECK_GE(icon_size, icon.Width());
   auto padding_border = gfx::Insets::VH((icon_size - icon.Height()) / 2,
@@ -964,9 +968,26 @@ void ChromeOmniboxClient::OnAutocompleteAccept(
                     {header.first, ": ", header.second, "\r\n"});
   }
 
+  // Tells Search when the query matches text the user recently copied, so it
+  // can slice metrics by it.
+  GURL url = destination_url;
+  // `match` with `url`, if that differs. Code that runs after the navigation
+  // finds this search by the match's URL, e.g. to remove it from history if the
+  // user picks the "Did you mean" infobar instead.
+  std::optional<AutocompleteMatch> match_with_url;
+  if (contextual_tasks::SearchJourneyTracker* tracker =
+          contextual_tasks::SearchJourneyTrackerFactory::GetForProfile(
+              profile_)) {
+    url = tracker->MaybeAppendCopyMatchParam(destination_url);
+    if (url != destination_url) {
+      match_with_url = match;
+      match_with_url->destination_url = url;
+    }
+  }
+
   // Store the details necessary to open the omnibox match via browser commands.
   location_bar_->set_navigation_params(LocationBar::NavigationParams(
-      destination_url, disposition, transition, match_selection_timestamp,
+      url, disposition, transition, match_selection_timestamp,
       destination_url_entered_without_scheme,
       destination_url_entered_with_http_scheme, extra_headers));
 
@@ -983,8 +1004,9 @@ void ChromeOmniboxClient::OnAutocompleteAccept(
             chrome_navigation_initiator::kOmniboxDefaultSearchEngine);
       }
     }
-    ChromeOmniboxNavigationObserver::Create(navigation.get(), profile_, text,
-                                            match, alternative_nav_match);
+    ChromeOmniboxNavigationObserver::Create(
+        navigation.get(), profile_, text,
+        match_with_url ? *match_with_url : match, alternative_nav_match);
     search_engines::MaybeShowSearchEngineResetNotification(browser_,
                                                            match_type);
   }
@@ -1024,6 +1046,10 @@ void ChromeOmniboxClient::OnInputInProgress(bool in_progress) {
 }
 
 void ChromeOmniboxClient::OnPopupVisibilityChanged(bool popup_is_open) {
+  if (!location_bar_) {
+    // `location_bar_` can be null in tests.
+    return;
+  }
   content::WebContents* const web_contents = location_bar_->GetWebContents();
   if (web_contents) {
     auto* const helper =
@@ -1058,7 +1084,7 @@ void ChromeOmniboxClient::OpenIphLink(GURL gurl) {
   ui::PageTransition transition = ui::PageTransitionFromInt(
       ui::PAGE_TRANSITION_LINK | ui::PAGE_TRANSITION_FROM_ADDRESS_BAR);
   NavigateParams params(profile_, gurl, transition);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   Navigate(&params);
 }
 
@@ -1116,7 +1142,8 @@ void ChromeOmniboxClient::DoPrerender(const AutocompleteMatch& match) {
     return;
   }
 
-  DCHECK(!AutocompleteMatch::IsSearchType(match.type));
+  CHECK(!AutocompleteMatch::IsSearchType(match.type),
+        base::NotFatalUntil::M162);
 
   predictors::AutocompleteActionPredictorFactory::GetForProfile(profile_)
       ->StartPrerendering(match.destination_url, *web_contents);

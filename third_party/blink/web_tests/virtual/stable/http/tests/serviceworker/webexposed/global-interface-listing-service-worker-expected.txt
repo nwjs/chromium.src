@@ -1592,7 +1592,9 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter serverTiming
     getter transferSize
     getter workerCacheLookupStart
+    getter workerFinalRouterSource
     getter workerFinalSourceType
+    getter workerMatchedRouterSource
     getter workerMatchedSourceType
     getter workerRouterEvaluationStart
     getter workerStart
@@ -3427,8 +3429,11 @@ interface WebSocketStream
 interface WebTransport
     static getter supportsReliableOnly
     attribute @@toStringTag
+    getter anticipatedConcurrentIncomingBidirectionalStreams
+    getter anticipatedConcurrentIncomingUnidirectionalStreams
     getter closed
     getter datagrams
+    getter draining
     getter incomingBidirectionalStreams
     getter incomingUnidirectionalStreams
     getter protocol
@@ -3439,6 +3444,8 @@ interface WebTransport
     method constructor
     method createBidirectionalStream
     method createUnidirectionalStream
+    setter anticipatedConcurrentIncomingBidirectionalStreams
+    setter anticipatedConcurrentIncomingUnidirectionalStreams
 interface WebTransportBidirectionalStream
     attribute @@toStringTag
     getter readable

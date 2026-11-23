@@ -93,7 +93,7 @@ class SelectionPopupController;
 class SynchronousCompositorHost;
 class SynchronousCompositorClient;
 class TouchSelectionControllerClientManagerAndroid;
-class WebContentsAccessibilityAndroid;
+class WebContentsAccessibilityBase;
 struct ContextMenuParams;
 
 BASE_FEATURE(kTooltips, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -220,10 +220,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void DestroyImpl() override;
   void OnDestroyOrDefer() override;
   void CreateUnboundedSurface(
-      mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-      mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
-          client,
-      const gfx::Rect& bounds_in_dips,
+      const gfx::Rect& bounds_in_screen,
       base::WeakPtr<RenderWidgetHostViewBase> subframe_view) override;
   void UpdateTooltipUnderCursor(const std::u16string& tooltip_text) override;
   void UpdateTooltip(const std::u16string& tooltip_text) override;
@@ -452,7 +449,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   bool IsClosing() const { return in_shutdown_; }
 
   void SetWebContentsAccessibility(
-      WebContentsAccessibilityAndroid* web_contents_accessibility);
+      WebContentsAccessibilityBase* web_contents_accessibility);
 
   base::android::ScopedJavaLocalRef<jobject> GetJavaObject();
 
@@ -512,6 +509,12 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void SetInputTransferHandlerForTesting(InputTransferHandlerAndroid* handler);
 
  protected:
+  // Allows tests to choose between the browser compositor and the synchronous
+  // (WebView) compositor, rather than using `CompositorImpl::IsInitialized()`.
+  RenderWidgetHostViewAndroid(RenderWidgetHostImpl* widget,
+                              gfx::NativeView parent_native_view,
+                              cc::slim::Layer* parent_layer,
+                              bool using_browser_compositor);
   ~RenderWidgetHostViewAndroid() override;
 
   void CleanUpHostObservers() override;
@@ -675,7 +678,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
                         float mousedown_x,
                         float mouse_down_y);
 
-  WebContentsAccessibilityAndroid* GetWebContentsAccessibilityAndroid() const;
+  WebContentsAccessibilityBase* GetWebContentsAccessibilityBase() const;
 
   void OnFocusInternal();
   void LostFocusInternal();
@@ -847,8 +850,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   bool in_destroy_ = false;
 
-  raw_ptr<WebContentsAccessibilityAndroid> web_contents_accessibility_ =
-      nullptr;
+  raw_ptr<WebContentsAccessibilityBase> web_contents_accessibility_ = nullptr;
 
   // Represents a feature of the physical display whose offset and mask_length
   // are expressed in DIPs relative to the view. See display_feature.h for more

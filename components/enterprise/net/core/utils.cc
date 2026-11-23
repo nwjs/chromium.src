@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/json/json_reader.h"
 #include "base/strings/strcat.h"
@@ -17,7 +18,10 @@
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
 #include "components/enterprise/net/core/auth_scope_metadata.h"
+#include "components/enterprise/net/core/features.h"
+#include "components/enterprise/net/core/prefs.h"
 #include "components/policy/core/common/values_util.h"
+#include "components/prefs/pref_service.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
@@ -78,23 +82,6 @@ std::string AuthTypeToString(AuthType type) {
       return kAuthNone;
     case AuthType::kProfileBearerToken:
       return kAuthTypeProfileBearerToken;
-  }
-}
-
-std::string StateToString(ProvisioningDomainProxyConfig::State state) {
-  switch (state) {
-    case ProvisioningDomainProxyConfig::State::kRefreshNeeded:
-      return "RefreshNeeded";
-    case ProvisioningDomainProxyConfig::State::kFetching:
-      return "Fetching";
-    case ProvisioningDomainProxyConfig::State::kValid:
-      return "Valid";
-    case ProvisioningDomainProxyConfig::State::kFailedTransient:
-      return "FailedTransient";
-    case ProvisioningDomainProxyConfig::State::kFailedBlocked:
-      return "FailedBlocked";
-    case ProvisioningDomainProxyConfig::State::kFailedPermanent:
-      return "FailedPermanent";
   }
 }
 
@@ -317,6 +304,24 @@ void WidenDomainsToSubdomains(std::vector<std::string>& domains) {
 #endif  // BUILDFLAG(IS_IOS)
 
 }  // namespace
+
+std::string_view ProvisioningDomainStateToString(
+    ProvisioningDomainProxyConfig::State state) {
+  switch (state) {
+    case ProvisioningDomainProxyConfig::State::kRefreshNeeded:
+      return "RefreshNeeded";
+    case ProvisioningDomainProxyConfig::State::kFetching:
+      return "Fetching";
+    case ProvisioningDomainProxyConfig::State::kValid:
+      return "Valid";
+    case ProvisioningDomainProxyConfig::State::kFailedTransient:
+      return "FailedTransient";
+    case ProvisioningDomainProxyConfig::State::kFailedBlocked:
+      return "FailedBlocked";
+    case ProvisioningDomainProxyConfig::State::kFailedPermanent:
+      return "FailedPermanent";
+  }
+}
 
 std::optional<ProvisioningDomainProxyConfig::RoutingRule> ParseRoutingRule(
     const base::DictValue& match_dict) {
@@ -627,7 +632,7 @@ base::DictValue ProvisioningDomainProxyConfigToDict(
     const ProvisioningDomainProxyConfig& proxy_config) {
   base::DictValue dict;
   dict.Set(kIdentifierKey, proxy_config.pvd_id);
-  dict.Set("state", StateToString(proxy_config.state));
+  dict.Set("state", ProvisioningDomainStateToString(proxy_config.state));
   if (!proxy_config.expires.is_null()) {
     dict.Set(kExpiresKey, net::HttpUtil::TimeFormatHTTP(proxy_config.expires));
   }
@@ -675,6 +680,16 @@ base::DictValue ProvisioningDomainProxyConfigToDict(
   dict.Set(kProxyMatchKey, std::move(rules_list));
 
   return dict;
+}
+
+bool IsSecureGatewayEnabled(PrefService* prefs) {
+  CHECK(prefs);
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  return IsDynamicRouteFetchingEnabled() &&
+         !prefs->GetList(kProxyProvisioningDomains).empty();
+#else
+  return false;
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 }
 
 }  // namespace enterprise_net

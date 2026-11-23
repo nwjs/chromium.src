@@ -26,6 +26,7 @@
 #include "components/ntp_tiles/most_visited_sites.h"
 #include "components/ntp_tiles/section_type.h"
 #include "components/ntp_tiles/tile_source.h"
+#include "third_party/jni_zero/jni_zero.h"
 #include "ui/gfx/android/java_bitmap.h"
 #include "url/android/gurl_android.h"
 
@@ -166,22 +167,17 @@ void MostVisitedSitesBridge::JavaObserver::OnIconMadeAvailable(
   Java_MostVisitedSitesBridge_onIconMadeAvailable(env, observer_, site_url);
 }
 
-MostVisitedSitesBridge::MostVisitedSitesBridge(Profile* profile,
-                                               bool enable_custom_links)
+MostVisitedSitesBridge::MostVisitedSitesBridge(Profile* profile)
     : most_visited_(ChromeMostVisitedSitesFactory::NewForProfile(profile)),
       profile_(profile) {
   CHECK(!profile->IsOffTheRecord(), base::NotFatalUntil::M161);
   most_visited_->EnableTileTypes(
       ntp_tiles::MostVisitedSites::EnableTileTypesOptions()
           .with_top_sites(true)
-          .with_custom_links(enable_custom_links));
+          .with_custom_links(true));
 }
 
 MostVisitedSitesBridge::~MostVisitedSitesBridge() = default;
-
-void MostVisitedSitesBridge::Destroy() {
-  delete this;
-}
 
 void MostVisitedSitesBridge::OnHomepageStateChanged() {
   most_visited_->RefreshTiles();
@@ -280,11 +276,9 @@ double MostVisitedSitesBridge::GetSuggestionScore(const GURL& url) {
   return most_visited_->GetSuggestionScore(url);
 }
 
-static int64_t JNI_MostVisitedSitesBridge_Init(Profile* profile,
-                                               bool enable_custom_links) {
-  MostVisitedSitesBridge* most_visited_sites =
-      new MostVisitedSitesBridge(profile, enable_custom_links);
-  return reinterpret_cast<intptr_t>(most_visited_sites);
+static jni_zero::JniUniquePtr<MostVisitedSitesBridge>
+JNI_MostVisitedSitesBridge_Init(Profile* profile) {
+  return jni_zero::MakeUnique<MostVisitedSitesBridge>(profile);
 }
 
 DEFINE_JNI(MostVisitedSitesBridge)

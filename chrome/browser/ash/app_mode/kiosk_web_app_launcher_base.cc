@@ -10,9 +10,8 @@
 #include "base/functional/bind.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launcher.h"
-#include "chrome/browser/chromeos/app_mode/kiosk_app_service_launcher.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_service_launcher.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/web_applications/web_app_helpers.h"
 #include "components/account_id/account_id.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 

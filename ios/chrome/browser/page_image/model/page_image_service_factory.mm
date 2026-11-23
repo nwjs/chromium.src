@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/page_image/model/page_image_service_factory.h"
 
+#import <utility>
+
 #import "components/page_image_service/image_service.h"
 #import "components/page_image_service/image_service_impl.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_scheme_classifier_impl.h"
@@ -14,29 +16,13 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 
-// static
-page_image_service::ImageService* PageImageServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<page_image_service::ImageService>(
-          profile, /*create=*/true);
-}
-
-PageImageServiceFactory::PageImageServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("PageImageService") {
+PageImageServiceFactory::PageImageServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key), "PageImageService") {
   DependsOn(ios::TemplateURLServiceFactory::GetInstance());
   DependsOn(RemoteSuggestionsServiceFactory::GetInstance());
   DependsOn(OptimizationGuideServiceFactory::GetInstance());
   DependsOn(SyncServiceFactory::GetInstance());
 }
-
-// static
-PageImageServiceFactory* PageImageServiceFactory::GetInstance() {
-  static base::NoDestructor<PageImageServiceFactory> instance;
-  return instance.get();
-}
-
-PageImageServiceFactory::~PageImageServiceFactory() {}
 
 std::unique_ptr<KeyedService> PageImageServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

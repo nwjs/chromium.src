@@ -143,10 +143,6 @@ void ExtensionsToolbarButton::OnWidgetDestroying(views::Widget* widget) {
   extensions_toolbar_->OnMenuClosed();
 }
 
-bool ExtensionsToolbarButton::ShouldShowInkdropAfterIphInteraction() {
-  return false;
-}
-
 void ExtensionsToolbarButton::ToggleExtensionsMenu() {
   if (extensions_menu_coordinator_ &&
       extensions_menu_coordinator_->IsShowing()) {
@@ -155,6 +151,10 @@ void ExtensionsToolbarButton::ToggleExtensionsMenu() {
   } else if (ExtensionsMenuView::IsShowing()) {
     ExtensionsMenuView::Hide();
     return;
+  }
+
+  if (extensions_menu_widget_) {
+    extensions_menu_widget_->CloseNow();
   }
 
   pressed_lock_ = menu_button_controller_->TakeLock();

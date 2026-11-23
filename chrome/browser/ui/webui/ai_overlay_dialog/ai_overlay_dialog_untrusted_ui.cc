@@ -12,15 +12,24 @@
 #include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/strings/strcat.h"
+#include "base/version_info/channel.h"
 #include "build/branding_buildflags.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ttc/core/buildflags.h"
+#include "chrome/browser/ttc/core/switches.h"
+#include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
+#if BUILDFLAG(ENABLE_TTC_WEBUI)
+#include "chrome/browser/ttc/core/harness_page_handler.h"
+#include "chrome/browser/ttc/core/ttc_keyed_service.h"
+#endif
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog_page_handler.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/page_context_monitor.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/tools/tools.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
@@ -43,9 +52,14 @@ AiOverlayDialogUntrustedUIConfig::AiOverlayDialogUntrustedUIConfig()
 
 bool AiOverlayDialogUntrustedUIConfig::IsWebUIEnabled(
     content::BrowserContext* browser_context) {
-  return base::FeatureList::IsEnabled(features::kAiOverlayDialog) &&
-         glic::GlicEnabling::IsProfileEligible(
-             Profile::FromBrowserContext(browser_context));
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(::switches::kAiOverlayDialogTestMode) ||
+      command_line->HasSwitch(ttc::switches::kEnableTtcTestApi)) {
+    return true;
+  }
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  return AiOverlayDialogController::IsEnabledForProfile(profile) &&
+         glic::GlicEnabling::IsProfileEligible(profile);
 }
 
 AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
@@ -80,10 +94,20 @@ AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
   html_source->AddResourcePath(
       "notes", IDR_AI_OVERLAY_DIALOG_UNTRUSTED_NOTES_NOTES_HTML);
 
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  const bool enable_test_api =
+      command_line->HasSwitch(::switches::kAiOverlayDialogTestMode) ||
+      command_line->HasSwitch(ttc::switches::kEnableTtcTestApi);
+#if BUILDFLAG(ENABLE_TTC_WEBUI)
+  if (enable_test_api) {
+    html_source->AddResourcePath(
+        "eval", IDR_AI_OVERLAY_DIALOG_UNTRUSTED_EVAL_EVAL_HTML);
+    html_source->AddResourcePath(
+        "eval.html", IDR_AI_OVERLAY_DIALOG_UNTRUSTED_EVAL_EVAL_HTML);
+  }
+#endif
   html_source->AddBoolean("isAndroidBackend", BUILDFLAG(IS_ANDROID));
-  html_source->AddBoolean("enableTtcTestApi",
-                          base::CommandLine::ForCurrentProcess()->HasSwitch(
-                              switches::kAiOverlayDialogTestMode));
+  html_source->AddBoolean("enableTtcTestApi", enable_test_api);
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   html_source->OverrideContentSecurityPolicy(
@@ -93,25 +117,26 @@ AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
   html_source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ConnectSrc,
       "connect-src 'self' wss://generativelanguage.googleapis.com "
-      "https://*.google.com;");
+      "https://generativelanguage.googleapis.com https://*.google.com;");
 #else
   html_source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::MediaSrc,
       "media-src 'self' chrome-untrusted://resources data: blob:;");
   html_source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ConnectSrc,
-      "connect-src 'self' wss://generativelanguage.googleapis.com;");
+      "connect-src 'self' wss://generativelanguage.googleapis.com "
+      "https://generativelanguage.googleapis.com;");
 #endif
 
-  auto* command_line = base::CommandLine::ForCurrentProcess();
   GURL ttc_bundle_url =
-      GURL(command_line->GetSwitchValueASCII(switches::kTtcBundleUrl));
+      GURL(command_line->GetSwitchValueASCII(::switches::kTtcBundleUrl));
   if (ttc_bundle_url.is_valid()) {
     // Sources that are needed however the bundle is served.
     static constexpr std::string_view kCommonMediaSrc =
         "media-src 'self' chrome-untrusted://resources data: blob:";
     static constexpr std::string_view kCommonConnectSrc =
-        "connect-src 'self' wss://generativelanguage.googleapis.com";
+        "connect-src 'self' wss://generativelanguage.googleapis.com "
+        "https://generativelanguage.googleapis.com";
 
     // Sources that depend on where the bundle is served from. In dev mode it
     // may come from an arbitrary local web server, so allow any http(s)/ws(s)
@@ -138,11 +163,17 @@ AiOverlayDialogUntrustedUI::AiOverlayDialogUntrustedUI(content::WebUI* web_ui)
       "ttcBundleUrl", ttc_bundle_url.is_valid() ? ttc_bundle_url.spec() : "");
 
   html_source->AddString("apiKey", features::kAiOverlayDialogApiKey.Get());
+  const version_info::Channel channel = chrome::GetChannel();
+  html_source->AddBoolean("allowBuiltInDefaults",
+                          channel == version_info::Channel::CANARY ||
+                              channel == version_info::Channel::DEV ||
+                              channel == version_info::Channel::UNKNOWN);
   html_source->AddBoolean(
       "useMes", base::FeatureList::IsEnabled(features::kAiOverlayDialog) &&
                     features::kAiOverlayDialogUseMes.Get());
   html_source->AddBoolean("enablePageTools",
                           features::kAiOverlayDialogPageTools.Get());
+  html_source->AddBoolean("enableNext", features::kAiOverlayDialogNext.Get());
   html_source->AddBoolean("aiOverlayDisableNavigationContext",
                           base::FeatureList::IsEnabled(
                               features::kAiOverlayDisableNavigationContext));
@@ -164,6 +195,14 @@ void AiOverlayDialogUntrustedUI::BindInterface(
       std::move(receiver), std::move(dummy_remote), nullptr);
 }
 
+#if BUILDFLAG(ENABLE_TTC_WEBUI)
+void AiOverlayDialogUntrustedUI::BindInterface(
+    mojo::PendingReceiver<ttc::mojom::HarnessPageHandlerFactory> receiver) {
+  harness_page_handler_factory_receiver_.reset();
+  harness_page_handler_factory_receiver_.Bind(std::move(receiver));
+}
+#endif
+
 WEB_UI_CONTROLLER_TYPE_IMPL(AiOverlayDialogUntrustedUI)
 
 void AiOverlayDialogUntrustedUI::CreatePageHandler(
@@ -177,11 +216,21 @@ void AiOverlayDialogUntrustedUI::CreatePageHandler(
   page_handler_ = std::make_unique<AiOverlayDialogPageHandler>(
       std::move(receiver), std::move(remote), bwi, this);
 
-  page_context_monitor_ =
-      std::make_unique<PageContextMonitor>(*bwi, *page_handler_);
+  page_context_monitor_ = PageContextMonitor::Create(*bwi, *page_handler_);
 
   tools_ = AiOverlayTools::Create(std::move(tools), bwi,
                                   page_context_monitor_.get());
 }
+
+#if BUILDFLAG(ENABLE_TTC_WEBUI)
+void AiOverlayDialogUntrustedUI::CreatePageHandler(
+    mojo::PendingReceiver<ttc::mojom::HarnessPageHandler> handler) {
+  if (auto* service = TtcKeyedService::Get(
+          web_ui()->GetWebContents()->GetBrowserContext())) {
+    harness_page_handler_ =
+        std::make_unique<HarnessPageHandler>(*service, std::move(handler));
+  }
+}
+#endif
 
 }  // namespace ttc

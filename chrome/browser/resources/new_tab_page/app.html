@@ -1,5 +1,5 @@
 <!-- #html_wrapper_imports_start
-import {SubmitButtonIconType} from '//resources/cr_components/composebox/composebox.js';
+import {SubmitButtonIconType} from '//resources/cr_components/composebox/common.js';
 #html_wrapper_imports_end -->
 <div id="content">
   ${this.enableThreadsRail_ ? html`
@@ -72,13 +72,13 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
                   searchbox-layout-mode="Compact"
                   searchbox-next-enabled
                   ?disable-caret-color-animation="${!this.caretAnimationsEnabled_}"
-                  .state="${this.composeboxState_}"
                   .usePecApi="${this.usePecApi_}"
                   .showVoiceSearch="${true}"
                   .smartTabSharingVisible="${this.smartTabSharingVisible_}"
                   .contextManagementInComposeboxEnabled="${this.contextManagementInComposeboxEnabled_}"
                   @context-menu-opened="${this.onComposeboxContextMenuOpened_}"
                   @close-composebox="${this.onCloseComposebox_}"
+                  .focused="${this.composeboxFocused_}"
                   @voice-search-action="${this.onComposeVoiceSearchAction_}"
                   .submitButtonIconType="${SubmitButtonIconType.FORWARD}"
                   .clearAllInputsWhenSubmittingQuery="${true}"
@@ -245,7 +245,9 @@ ${this.showVoiceSearchOverlay_ &&
   </ntp-voice-search-overlay>
 ` : ''}
 ${!this.ntpRealboxNextEnabled_ &&
-    (this.showComposebox_ || this.showVoiceSearchScrim_) ? html`
+    ((this.composeboxOutsideClickEnabled_ ? this.composeboxFocused_ :
+                                            this.showComposebox_) ||
+     this.showVoiceSearchScrim_) ? html`
   <div id="scrim"
       @click="${this.onScrimClick_}"></div>
 ` : ''}

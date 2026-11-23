@@ -61,6 +61,7 @@ import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.metrics.SigninFunnelEvent;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
@@ -233,9 +234,11 @@ public class FullscreenSigninMediator
         assert !mDestroyed;
         if (mContinueButtonProfileDataCache != null) {
             mContinueButtonProfileDataCache.removeObserver(mContinueButtonObserver);
+            mContinueButtonProfileDataCache = null;
         }
         if (mSigninAnimationProfileDataCache != null) {
             mSigninAnimationProfileDataCache.removeObserver(mSigninAnimationObserver);
+            mSigninAnimationProfileDataCache = null;
         }
         if (mForcedSigninStatusProvider != null) {
             mForcedSigninStatusProvider.hideForcedSigninScreen(mForcedSigninToken);
@@ -244,11 +247,18 @@ public class FullscreenSigninMediator
         mDestroyed = true;
     }
 
+    /**
+     * Resets the sign-in progress and animation state of the model. Must only be called when the
+     * user navigates back to the sign-in screen with the back button, as it also notifies the
+     * delegate that the promo is shown again (see {@link
+     * FullscreenSigninCoordinator.Delegate#logPromoShownFunnelEventOnBackPress}).
+     */
     void reset() {
         mModel.set(FullscreenSigninProperties.SHOW_SIGNIN_PROGRESS_SPINNER_WITH_TEXT, false);
         mModel.set(FullscreenSigninProperties.SHOW_SIGNIN_PROGRESS_SPINNER, false);
         mModel.set(FullscreenSigninProperties.ANIMATOR_LISTENER, null);
         mModel.set(FullscreenSigninProperties.START_ANIMATION, false);
+        logPromoShownFunnelEvent(/* isBackPress= */ true);
     }
 
     private void onNativeLoaded() {
@@ -378,10 +388,35 @@ public class FullscreenSigninMediator
         AccountUtils.checkIsSubjectToParentalControls(
                 mAccountManagerFacade, accounts, this::onChildAccountStatusReady);
 
+        logPromoShownFunnelEvent(/* isBackPress= */ false);
         // Directly start the flow to add a selected account if it is specified in the config for
         // signin and does not already exist on the device.
         maybeStartAddingSelectedAccount();
         mDelegate.onInitialLoadCompleted();
+    }
+
+    /**
+     * Logs the Signin.SigninFunnel.{AccessPoint} promo shown event, with or without an account
+     * depending on whether an account is currently selected and if sign-in is allowed.
+     *
+     * @param isBackPress Whether the promo is shown again because the user navigated back to the
+     *     sign-in screen. In that case, logging is delegated to {@link
+     *     FullscreenSigninCoordinator.Delegate#logPromoShownFunnelEventOnBackPress}.
+     */
+    private void logPromoShownFunnelEvent(boolean isBackPress) {
+        if (mDestroyed || !mInitialLoadCompleted || !mIsSigninSupported) return;
+        @SigninFunnelEvent
+        int event =
+                mSelectedAccount != null
+                        ? SigninFunnelEvent.PROMO_SHOWN_WITH_ACCOUNT
+                        : SigninFunnelEvent.PROMO_SHOWN_NO_ACCOUNT;
+        if (isBackPress) {
+            // Only flows that reuse the FullscreenSigninCoordinator on back press (e.g. the FRE)
+            // should log another promo shown event.
+            mDelegate.logPromoShownFunnelEventOnBackPress(mAccessPoint, event);
+        } else {
+            SigninMetricsUtils.logSigninFunnelEvent(mAccessPoint, event);
+        }
     }
 
     /**
@@ -660,6 +695,13 @@ public class FullscreenSigninMediator
                         .getImage());
         if (sAnimationsEnabled) {
             mModel.set(FullscreenSigninProperties.SHOW_ANIMATION, mConfig.logoId == 0);
+            if (mConfig.logoId != 0) {
+                // The animation view is hidden when a custom logo is used, so the animation would
+                // never end. Only wait for the delay that lets users read the welcome text.
+                ThreadUtils.postOnUiThreadDelayed(
+                        () -> finishSignIn(signinTimestampsLogger), SIGNIN_ANIMATION_DELAY_MS);
+                return;
+            }
             mModel.set(
                     FullscreenSigninProperties.ANIMATOR_LISTENER,
                     new AnimatorListenerAdapter() {
@@ -957,11 +999,9 @@ public class FullscreenSigninMediator
 
     @VisibleForTesting
     void onChildAccountStatusReady(boolean isChild, @Nullable CoreAccountInfo childInfo) {
-        if (mContinueButtonProfileDataCache == null) {
-            // Both caches are initialized together so they're either both null or none of them are.
-            assert mSigninAnimationProfileDataCache == null;
-            return;
-        }
+        if (mContinueButtonProfileDataCache == null) return;
+        // Both caches are initialized together so they're either both null or none of them are.
+        assert mSigninAnimationProfileDataCache != null;
 
         mIsChild = isChild;
         mModel.set(FullscreenSigninProperties.SHOW_ACCOUNT_SUPERVISION_NOTICE, mIsChild);
@@ -975,22 +1015,27 @@ public class FullscreenSigninMediator
         updateShouldHideDismissButton();
         // Selected account data will be updated by the ProfileDataCache observers.
 
-        BadgeConfig continueButtonBadgeConfig = null;
-        BadgeConfig signinAnimationBadgeConfig = null;
-        if (isChild) {
-            continueButtonBadgeConfig =
+        if (isChild && childInfo != null) {
+            mContinueButtonProfileDataCache.setBadge(
+                    childInfo.getId(),
                     BadgeConfig.create(R.drawable.ic_account_child_20dp)
                             .withDefaultSizeChildAccountConfig()
-                            .build(mContext);
+                            .build(mContext));
             // The recommendation for a 32dp icon is to use the 40dp icon and scale it down.
-            signinAnimationBadgeConfig =
+            mSigninAnimationProfileDataCache.setBadge(
+                    childInfo.getId(),
                     BadgeConfig.create(R.drawable.ic_account_child_40dp)
                             .withLargeChildAccountConfig()
-                            .build(mContext);
-        }
-        mContinueButtonProfileDataCache.setBadge(continueButtonBadgeConfig);
-        if (mSigninAnimationProfileDataCache != null) {
-            mSigninAnimationProfileDataCache.setBadge(signinAnimationBadgeConfig);
+                            .build(mContext));
+        } else {
+            // The child account status is re-checked on every account list update, so an account
+            // may stop being supervised while this screen is shown. The listener doesn't provide
+            // the account in that case, so remove the child badge from all accounts. This is a
+            // no-op for accounts without a badge, i.e. in the common case.
+            for (AccountInfo account : getAccountsIfLoadedOrEmpty()) {
+                mContinueButtonProfileDataCache.setBadge(account.getId(), null);
+                mSigninAnimationProfileDataCache.setBadge(account.getId(), null);
+            }
         }
     }
 
@@ -1084,7 +1129,7 @@ public class FullscreenSigninMediator
             List<AccountInfo> accounts) {
         if (isPreferredAccountEnabled() && mAccountPreviewDataService != null) {
             AccountPreviewPreference preference =
-                    mAccountPreviewDataService.getPreferredAccountForPromo();
+                    mAccountPreviewDataService.getPreferredAccountForSignin();
             if (preference != null
                     && AccountUtils.findAccountByGaiaId(accounts, preference.getGaiaId()) != null) {
                 return preference;

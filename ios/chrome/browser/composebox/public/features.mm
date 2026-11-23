@@ -85,14 +85,6 @@ bool IsComposeboxAIMNudgeEnabled() {
   return base::FeatureList::IsEnabled(kComposeboxAIMNudge);
 }
 
-BASE_FEATURE(kComposeboxFetchContextualSuggestionsForMultipleAttachments,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsComposeboxFetchContextualSuggestionsForMultiAttachmentsEnabled() {
-  return base::FeatureList::IsEnabled(
-      kComposeboxFetchContextualSuggestionsForMultipleAttachments);
-}
-
 BASE_FEATURE(kComposeboxConditionalPlusButton,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -118,7 +110,7 @@ bool IsComposeboxDriveOptionEnabled() {
 }
 
 BASE_FEATURE(kComposeboxPhysicalKeyboardReturnKeys,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsComposeboxPhysicalKeyboardReturnKeysEnabled() {
   return base::FeatureList::IsEnabled(kComposeboxPhysicalKeyboardReturnKeys);

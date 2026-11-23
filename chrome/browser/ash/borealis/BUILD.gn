@@ -83,9 +83,11 @@ static_library("borealis") {
     "//chromeos/ash/components/dbus",
     "//chromeos/ash/components/dbus:vm_applications_apps_proto",
     "//chromeos/ash/components/dbus:vm_launch_proto",
+    "//chromeos/ash/components/dbus/chunneld",
     "//chromeos/ash/components/dbus/cicerone:cicerone_proto_lib",
     "//chromeos/ash/components/dbus/concierge:concierge_proto_lib",
     "//chromeos/ash/components/dbus/dlcservice:dlcservice_proto",
+    "//chromeos/ash/components/dbus/seneschal",
     "//chromeos/ash/components/install_attributes",
     "//chromeos/ash/components/settings",
     "//chromeos/ash/components/system",
@@ -104,6 +106,10 @@ static_library("borealis") {
     "//ui/display",
     "//ui/message_center",
     "//url",
+
+    # TODO(crbug.com/556482973): Use //chrome/browser/ash/guest_os instead
+    # after fixing cyclic dependency.
+    "//chromeos/ash/experiences/arc/mojom",
   ]
 }
 

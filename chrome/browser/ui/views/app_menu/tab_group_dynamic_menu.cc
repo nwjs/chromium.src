@@ -47,9 +47,6 @@
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/view_class_properties.h"
 
-DEFINE_UI_CLASS_PROPERTY_TYPE(base::Uuid*)
-DEFINE_OWNED_UI_CLASS_PROPERTY_KEY(base::Uuid, kSavedTabGroupGuidKey)
-
 TabGroupDynamicMenu::TabGroupDynamicMenu(BrowserWindowInterface* bwi)
     : browser_window_interface_(bwi) {}
 
@@ -99,7 +96,7 @@ void TabGroupDynamicMenu::BuildTabGroupsAction(
             tab_groups::TabGroupMenuAction::Type::OPEN_IN_BROWSER,
             browser_window_interface_));
     auto group_action = std::move(group_builder).Build();
-    group_action->SetProperty(kSavedTabGroupGuidKey,
+    group_action->SetProperty(tab_groups::kSavedTabGroupGuidKey,
                               std::make_unique<base::Uuid>(uuid));
     if (i == 0) {
       group_action->SetProperty(views::kElementIdentifierKey,
@@ -135,30 +132,37 @@ void TabGroupDynamicMenu::BuildTabGroupCommands(
     actions::BaseAction* parent_item,
     const base::Uuid& uuid,
     Profile* profile) {
-  auto open_in_browser_item =
+  const bool is_local = group->local_group_id().has_value();
+  auto open_or_close_item =
       actions::ActionItem::Builder(
           base::BindRepeating(
               &TabGroupDynamicMenu::PerformTabGroupAction,
               base::Unretained(this),
-              tab_groups::TabGroupMenuAction::Type::OPEN_IN_BROWSER,
+              is_local ? tab_groups::TabGroupMenuAction::Type::CLOSE_GROUP
+                       : tab_groups::TabGroupMenuAction::Type::OPEN_IN_BROWSER,
               browser_window_interface_))
-          .SetActionId(kActionTabGroupOpenInBrowser)
-          .SetText(l10n_util::GetStringUTF16(IDS_OPEN_GROUP_IN_BROWSER_MENU))
+          .SetActionId(is_local ? kActionCloseTabGroup
+                                : kActionTabGroupOpenInBrowser)
+          .SetText(l10n_util::GetStringUTF16(
+              is_local ? IDS_TAB_GROUP_HEADER_CXMENU_CLOSE_GROUP
+                       : IDS_OPEN_GROUP_IN_BROWSER_MENU))
           .SetImage(ui::ImageModel::FromVectorIcon(
-              features::IsRoundedIconsEnabled() ? kOpenInBrowserIcon
-                                                : kOpenInBrowserOldIcon))
+              is_local ? (features::IsRoundedIconsEnabled()
+                              ? kTabCloseIcon
+                              : kCloseGroupRefreshOldIcon)
+                       : (features::IsRoundedIconsEnabled()
+                              ? kOpenInBrowserIcon
+                              : kOpenInBrowserOldIcon)))
           .SetProperty(AppMenuActionItem::kDisplayTypeKey,
                        AppMenuActionItem::DisplayType::kRow)
           .SetProperty(views::kElementIdentifierKey,
-                       tab_groups::STGTabsMenuModel::kOpenGroup)
+                       is_local ? tab_groups::STGTabsMenuModel::kCloseGroup
+                                : tab_groups::STGTabsMenuModel::kOpenGroup)
           .Build();
 
-  open_in_browser_item->SetProperty(kSavedTabGroupGuidKey,
-                                    std::make_unique<base::Uuid>(uuid));
-  open_in_browser_item->SetEnabled(!group->local_group_id().has_value());
-  parent_item->AddChild(std::move(open_in_browser_item));
-
-  bool is_local = group->local_group_id().has_value();
+  open_or_close_item->SetProperty(tab_groups::kSavedTabGroupGuidKey,
+                                  std::make_unique<base::Uuid>(uuid));
+  parent_item->AddChild(std::move(open_or_close_item));
   std::optional<std::u16string> move_text_override =
       is_local ? std::make_optional(l10n_util::GetStringUTF16(
                      IDS_TAB_GROUP_HEADER_CXMENU_MOVE_GROUP_TO_NEW_WINDOW))
@@ -203,7 +207,7 @@ void TabGroupDynamicMenu::BuildTabGroupCommands(
               tab_groups::STGTabsMenuModel::kMoveGroupToNewWindowMenuItem)
           .Build();
 
-  move_or_open_item->SetProperty(kSavedTabGroupGuidKey,
+  move_or_open_item->SetProperty(tab_groups::kSavedTabGroupGuidKey,
                                  std::make_unique<base::Uuid>(uuid));
   if (move_text_override.has_value()) {
     move_or_open_item->SetProperty(
@@ -236,9 +240,7 @@ void TabGroupDynamicMenu::BuildTabGroupCommands(
             .SetActionId(kActionToggleTabGroupFocus)
             .SetText(l10n_util::GetStringUTF16(
                 IDS_TAB_GROUP_HEADER_CXMENU_FOCUS_GROUP))
-            .SetImage(ui::ImageModel::FromVectorIcon(
-                features::IsRoundedIconsEnabled() ? kZoomInMapIcon
-                                                  : kZoomInMapOldIcon))
+            .SetImage(ui::ImageModel::FromVectorIcon(kFilterTiltShiftIcon))
             .SetProperty(AppMenuActionItem::kDisplayTypeKey,
                          AppMenuActionItem::DisplayType::kRow)
             .SetProperty(
@@ -246,18 +248,13 @@ void TabGroupDynamicMenu::BuildTabGroupCommands(
                 tab_groups::STGTabsMenuModel::kToggleGroupFocusStateMenuItem)
             .Build();
 
-    focus_item->SetProperty(kSavedTabGroupGuidKey,
+    focus_item->SetProperty(tab_groups::kSavedTabGroupGuidKey,
                             std::make_unique<base::Uuid>(uuid));
     if (is_group_focused) {
       focus_item->SetProperty(
           AppMenuActionItem::kTextOverrideKey,
           std::make_unique<std::u16string>(l10n_util::GetStringUTF16(
               IDS_TAB_GROUP_HEADER_CXMENU_UNFOCUS_GROUP)));
-      focus_item->SetProperty(
-          AppMenuActionItem::kIconOverrideKey,
-          std::make_unique<ui::ImageModel>(ui::ImageModel::FromVectorIcon(
-              features::IsRoundedIconsEnabled() ? kZoomOutMapIcon
-                                                : kZoomOutMapOldIcon)));
     }
 
     parent_item->AddChild(std::move(focus_item));
@@ -293,7 +290,7 @@ void TabGroupDynamicMenu::BuildTabGroupCommands(
               tab_groups::STGTabsMenuModel::kToggleGroupPinStateMenuItem)
           .Build();
 
-  pin_item->SetProperty(kSavedTabGroupGuidKey,
+  pin_item->SetProperty(tab_groups::kSavedTabGroupGuidKey,
                         std::make_unique<base::Uuid>(uuid));
   if (pin_text_override.has_value()) {
     pin_item->SetProperty(
@@ -336,7 +333,7 @@ void TabGroupDynamicMenu::BuildTabGroupCommands(
                            : tab_groups::STGTabsMenuModel::kLeaveGroupMenuItem)
           .Build();
 
-  delete_or_leave_item->SetProperty(kSavedTabGroupGuidKey,
+  delete_or_leave_item->SetProperty(tab_groups::kSavedTabGroupGuidKey,
                                     std::make_unique<base::Uuid>(uuid));
   if (delete_text_override.has_value()) {
     delete_or_leave_item->SetProperty(
@@ -409,7 +406,7 @@ void TabGroupDynamicMenu::PerformTabGroupAction(
   if (!bwi || !item) {
     return;
   }
-  base::Uuid* guid = item->GetProperty(kSavedTabGroupGuidKey);
+  base::Uuid* guid = item->GetProperty(tab_groups::kSavedTabGroupGuidKey);
   if (!guid || !guid->is_valid()) {
     return;
   }

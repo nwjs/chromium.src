@@ -15,7 +15,10 @@ import("//third_party/tflite/tflite_target.gni")
 
 buildflag_header("buildflags") {
   header = "buildflags.h"
-  flags = [ "BUILD_LITERT_WITH_XNNPACK=$build_litert_with_xnnpack" ]
+  flags = [
+    "BUILD_LITERT_WITH_ML_DRIFT=$build_litert_with_ml_drift",
+    "BUILD_LITERT_WITH_XNNPACK=$build_litert_with_xnnpack",
+  ]
 }
 
 config("warnings_config") {
@@ -51,7 +54,7 @@ config("warnings_config") {
 # The "public" target for all litert/litert files.
 tflite_group("litert") {
   public_deps = [ ":litert_headers" ]
-  if (build_with_chromium && build_with_internal_optimization_guide) {
+  if (build_with_chromium) {
     public_deps_for_standalone = [ ":serialization_schema_litert" ]
   }
   conditional_deps = [
@@ -157,6 +160,17 @@ config("tflite_flags") {
     "-Wno-unused-variable",
   ]
 
+  cflags_objc = [
+    "-Wno-objc-missing-property-synthesis",
+    "-Wno-objc-property-no-attribute",
+    "-fno-objc-exceptions",
+  ]
+  cflags_objcc = [
+    "-Wno-objc-missing-property-synthesis",
+    "-Wno-objc-property-no-attribute",
+    "-fno-objc-exceptions",
+  ]
+
   defines = [
     "EIGEN_ALLOW_UNALIGNED_SCALARS",
     "FARMHASH_NO_CXX_STRING",
@@ -195,6 +209,13 @@ config("tflite_flags") {
   }
 }
 
+config("tflite_coreml_flags") {
+  cflags_objcc = [
+    "-fobjc-exceptions",
+    "-U__EXCEPTIONS",
+  ]
+}
+
 flatbuffer("mutable_schema_litert_tflite_path") {
   sources = [ "src/tflite/converter/schema/schema.fbs" ]
   flatc_out_dir = "src/tflite/schema/mutable"
@@ -213,23 +234,36 @@ flatbuffer("weight_cache_schema_litert") {
   ]
 }
 
-if (build_with_chromium && build_with_internal_optimization_guide) {
+if (build_with_chromium) {
   flatbuffer("serialization_schema_litert") {
     sources = [ "src/ml_drift_delegate/delegate/serialization_weight_cache/serialization_schema.fbs" ]
     flatc_out_dir = "src/ml_drift_delegate/delegate/serialization_weight_cache"
-    args = [
-      "-I",
-      rebase_path(
-          "//components/optimization_guide/internal/third_party/ml_drift/src",
-          root_build_dir),
-    ]
+    flatc_include_dirs = [ "//third_party/ml_drift/src" ]
     mutable = true
-    deps = [ "//components/optimization_guide/internal/third_party/ml_drift:ml_drift_flatbuffers" ]
+    public_deps = [ "//third_party/ml_drift:ml_drift_flatbuffers" ]
     visibility = [
       ":*",
       "//components/optimization_guide/internal/*",
       "//third_party/tflite:*",
     ]
+  }
+
+  if (build_litert_with_ml_drift) {
+    flatbuffer("serialization_program_cache_schema_litert") {
+      sources = [ "src/ml_drift_delegate/delegate/serialization_program_cache/serialization_program_cache_schema.fbs" ]
+      flatc_out_dir =
+          "src/ml_drift_delegate/delegate/serialization_program_cache"
+      args = [ "--gen-object-api" ]
+      visibility = [ ":*" ]
+    }
+
+    flatbuffer("webgpu_pipeline_cache_schema_litert") {
+      sources =
+          [ "src/ml_drift_delegate/delegate/cache/webgpu_pipeline_cache.fbs" ]
+      flatc_out_dir = "src/ml_drift_delegate/delegate/cache"
+      args = [ "--scoped-enums" ]
+      visibility = [ ":*" ]
+    }
   }
 }
 
@@ -243,9 +277,12 @@ source_set("mutable_tflite_schema") {
 
 source_set("litert_headers") {
   public = [
+    "src/litert/c/internal/litert_abi_header.h",
     "src/litert/c/internal/litert_accelerator.h",
+    "src/litert/c/internal/litert_accelerator_def.h",
     "src/litert/c/internal/litert_accelerator_registration.h",
     "src/litert/c/internal/litert_compiler_context.h",
+    "src/litert/c/internal/litert_custom_tensor_buffer_handlers_def.h",
     "src/litert/c/internal/litert_delegate_wrapper.h",
     "src/litert/c/internal/litert_external_litert_buffer_context.h",
     "src/litert/c/internal/litert_logging.h",
@@ -606,6 +643,310 @@ tflite_static_library("litert_runtime") {
   ]
 }
 
+if (build_with_chromium && build_litert_with_ml_drift) {
+  action("generate_ml_drift_build_identifier") {
+    script = "src/ml_drift_delegate/delegate/serialization_weight_cache/generate_build_identifier.py"
+    outputs = [ "$target_gen_dir/build_identifier.cc" ]
+    sources = [
+      "//third_party/ml_drift/src/ml_drift/common/kernels/fully_connected.cc",
+      "//third_party/ml_drift/src/ml_drift/common/kernels/fully_connected.h",
+      "//third_party/ml_drift/src/ml_drift/common/task/weights_conversion.cc",
+      "//third_party/ml_drift/src/ml_drift/common/task/weights_conversion.h",
+      "//third_party/ml_drift/src/ml_drift/common/task/weights_layout.cc",
+      "//third_party/ml_drift/src/ml_drift/common/task/weights_layout.h",
+    ]
+    args =
+        [
+          "--output",
+          rebase_path(target_gen_dir, root_build_dir) + "/build_identifier.cc",
+        ] + rebase_path(sources, root_build_dir)
+    visibility = [ ":ml_drift_delegate" ]
+  }
+
+  template("litert_ml_drift_source_set") {
+    source_set(target_name) {
+      forward_variables_from(invoker,
+                             [
+                               "defines",
+                               "sources",
+                               "visibility",
+                             ])
+
+      # Upstream ml_drift_delegate files include "absl/log/log.h", which is in
+      # absl_full_deps rather than absl_component_deps.
+      check_includes = false
+      _configs = configs
+      configs = []
+      configs = [ "//third_party/tflite:tflite_shim_config" ] + _configs
+      configs -= [ "//build/config/compiler:chromium_code" ]
+      configs += [
+        "//build/config/compiler:no_chromium_code",
+        "//build/config/compiler:rtti",
+        "//third_party/eigen3:eigen_includes",
+        "//third_party/gemmlowp:gemmlowp_include",
+        "//third_party/ml_drift:ml_drift_config",
+        ":litert_config",
+        ":tflite_config",
+        ":warnings_config",
+      ]
+
+      deps = [
+        ":litert_headers",
+        "//third_party/abseil-cpp:absl",
+        "//third_party/dawn/include/dawn:cpp_headers",
+        "//third_party/dawn/src/dawn:cpp",
+        "//third_party/dawn/src/dawn:proc",
+        "//third_party/dawn/src/dawn/native:headers",
+        "//third_party/farmhash",
+        "//third_party/flatbuffers",
+        "//third_party/fp16",
+        "//third_party/gemmlowp",
+        "//third_party/ml_drift",
+        "//third_party/neon_2_sse",
+        "//third_party/pthreadpool",
+        "//third_party/ruy",
+        "//third_party/xnnpack",
+      ]
+      if (use_litert_tflite) {
+        deps += [ ":tflite_public_headers" ]
+      } else {
+        deps += [ "//third_party/tflite:tflite_public_headers" ]
+      }
+      if (defined(invoker.deps)) {
+        deps += invoker.deps
+      }
+    }
+  }
+
+  litert_ml_drift_source_set("ml_drift_delegate_tflite") {
+    sources = [
+      "//third_party/ml_drift/src/ml_drift/common/default/custom_parsers.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_absolute_positional_embedding.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_argmax.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_aux.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_batch_matmul.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_bitcast.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_broadcast_in_dim.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_cbrt.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_clamp.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_concat.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_conv.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_cumsum.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_depth_to_space.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_depthwise_conv.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_dequantize.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_dynamic_update_slice.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_elementwise.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_embedding_lookup.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_fully_connected.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_gather.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_group_norm.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_layer_norm.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_one_hot.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_pack.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_pad.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_pixel_shuffle.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_pooling2d.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_prelu.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_quantize.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_reduce.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_relu.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_resampler.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_reshape.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_resize2d.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_reverse.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_rms_norm.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_rope.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_sdpa.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_select.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_slice.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_softmax.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_space_to_depth.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_split.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_strided_slice.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_tile.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_topk.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_transpose.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_transpose_conv.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_unpack.cc",
+      "src/ml_drift_delegate/tflite/convert/convert_unpooling2d.cc",
+      "src/ml_drift_delegate/tflite/ir_model_builder.cc",
+      "src/ml_drift_delegate/tflite/ir_model_builder_helper.cc",
+      "src/ml_drift_delegate/tflite/lstm_parser.cc",
+      "src/ml_drift_delegate/tflite/model_builder.cc",
+      "src/ml_drift_delegate/tflite/model_builder_helper.cc",
+      "src/ml_drift_delegate/tflite/object_reader.cc",
+      "src/ml_drift_delegate/tflite/operation_parser.cc",
+      "src/ml_drift_delegate/tflite/support/support.cc",
+      "src/ml_drift_delegate/tflite/support/support_absolute_positional_embedding.cc",
+      "src/ml_drift_delegate/tflite/support/support_argmax.cc",
+      "src/ml_drift_delegate/tflite/support/support_aux.cc",
+      "src/ml_drift_delegate/tflite/support/support_batch_matmul.cc",
+      "src/ml_drift_delegate/tflite/support/support_bitcast.cc",
+      "src/ml_drift_delegate/tflite/support/support_broadcast_in_dim.cc",
+      "src/ml_drift_delegate/tflite/support/support_clamp.cc",
+      "src/ml_drift_delegate/tflite/support/support_concat.cc",
+      "src/ml_drift_delegate/tflite/support/support_conv.cc",
+      "src/ml_drift_delegate/tflite/support/support_cumsum.cc",
+      "src/ml_drift_delegate/tflite/support/support_depth_to_space.cc",
+      "src/ml_drift_delegate/tflite/support/support_depthwise_conv.cc",
+      "src/ml_drift_delegate/tflite/support/support_dequantize.cc",
+      "src/ml_drift_delegate/tflite/support/support_dynamic_update_slice.cc",
+      "src/ml_drift_delegate/tflite/support/support_elementwise.cc",
+      "src/ml_drift_delegate/tflite/support/support_embedding_lookup.cc",
+      "src/ml_drift_delegate/tflite/support/support_fully_connected.cc",
+      "src/ml_drift_delegate/tflite/support/support_gather.cc",
+      "src/ml_drift_delegate/tflite/support/support_group_norm.cc",
+      "src/ml_drift_delegate/tflite/support/support_layer_norm.cc",
+      "src/ml_drift_delegate/tflite/support/support_lstm.cc",
+      "src/ml_drift_delegate/tflite/support/support_one_hot.cc",
+      "src/ml_drift_delegate/tflite/support/support_pack.cc",
+      "src/ml_drift_delegate/tflite/support/support_pad.cc",
+      "src/ml_drift_delegate/tflite/support/support_pixel_shuffle.cc",
+      "src/ml_drift_delegate/tflite/support/support_pooling2d.cc",
+      "src/ml_drift_delegate/tflite/support/support_prelu.cc",
+      "src/ml_drift_delegate/tflite/support/support_quantize.cc",
+      "src/ml_drift_delegate/tflite/support/support_reduce.cc",
+      "src/ml_drift_delegate/tflite/support/support_relu.cc",
+      "src/ml_drift_delegate/tflite/support/support_resampler.cc",
+      "src/ml_drift_delegate/tflite/support/support_reshape.cc",
+      "src/ml_drift_delegate/tflite/support/support_resize2d.cc",
+      "src/ml_drift_delegate/tflite/support/support_reverse.cc",
+      "src/ml_drift_delegate/tflite/support/support_rms_norm.cc",
+      "src/ml_drift_delegate/tflite/support/support_rotary_positional_embedding.cc",
+      "src/ml_drift_delegate/tflite/support/support_sdpa.cc",
+      "src/ml_drift_delegate/tflite/support/support_select.cc",
+      "src/ml_drift_delegate/tflite/support/support_slice.cc",
+      "src/ml_drift_delegate/tflite/support/support_softmax.cc",
+      "src/ml_drift_delegate/tflite/support/support_space_to_depth.cc",
+      "src/ml_drift_delegate/tflite/support/support_split.cc",
+      "src/ml_drift_delegate/tflite/support/support_splitv.cc",
+      "src/ml_drift_delegate/tflite/support/support_strided_slice.cc",
+      "src/ml_drift_delegate/tflite/support/support_tile.cc",
+      "src/ml_drift_delegate/tflite/support/support_topk.cc",
+      "src/ml_drift_delegate/tflite/support/support_transpose.cc",
+      "src/ml_drift_delegate/tflite/support/support_transpose_conv.cc",
+      "src/ml_drift_delegate/tflite/support/support_unpack.cc",
+      "src/ml_drift_delegate/tflite/support/support_unpooling2d.cc",
+    ]
+    visibility = [ ":*" ]
+  }
+
+  litert_ml_drift_source_set("ml_drift_delegate_composite") {
+    sources = [
+      "src/ml_drift_delegate/delegate/composite/add_values_to_cache_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/add_values_to_cache_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/custom_parsers.cc",
+      "src/ml_drift_delegate/delegate/composite/custom_transformations.cc",
+      "src/ml_drift_delegate/delegate/composite/fuse_qkv_norm_rope.cc",
+      "src/ml_drift_delegate/delegate/composite/fuse_sdpa_transposed_reshape.cc",
+      "src/ml_drift_delegate/delegate/composite/fuse_short_conv_step.cc",
+      "src/ml_drift_delegate/delegate/composite/gated_delta_update_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/gated_delta_update_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/glu_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/glu_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/litert_op_selector.cc",
+      "src/ml_drift_delegate/delegate/composite/moe_experts_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/moe_experts_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/qkv_norm_rope_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/qkv_norm_rope_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/rope_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/runtime_batched_matmul_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/runtime_batched_matmul_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/sdpa_transposed_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/sdpa_transposed_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/short_conv_step_kernel.cc",
+      "src/ml_drift_delegate/delegate/composite/short_conv_step_parser.cc",
+    ]
+    deps = [
+      ":ml_drift_delegate_composite_ir",
+      ":ml_drift_delegate_tflite",
+    ]
+    visibility = [ ":*" ]
+  }
+
+  litert_ml_drift_source_set("ml_drift_delegate_composite_ir") {
+    sources = [
+      "src/ml_drift_delegate/delegate/composite/ir/add_values_to_cache_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/custom_parsers.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/gated_delta_update_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/glu_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/litert_op_selector.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/moe_experts_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/qkv_norm_rope_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/rope_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/runtime_batched_matmul_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/sdpa_transposed_parser.cc",
+      "src/ml_drift_delegate/delegate/composite/ir/short_conv_step_parser.cc",
+    ]
+    deps = [ ":ml_drift_delegate_tflite" ]
+    visibility = [ ":*" ]
+  }
+
+  litert_ml_drift_source_set("ml_drift_delegate") {
+    sources = [
+      "$target_gen_dir/build_identifier.cc",
+      "src/ml_drift_delegate/delegate/buffer_handler_utils.cc",
+      "src/ml_drift_delegate/delegate/buffer_handler_webgpu.cc",
+      "src/ml_drift_delegate/delegate/cache/simple_cache.cc",
+      "src/ml_drift_delegate/delegate/cache/webgpu_pipeline_cache.cc",
+      "src/ml_drift_delegate/delegate/delegate_kernel.cc",
+      "src/ml_drift_delegate/delegate/delegate_kernel_litert.cc",
+      "src/ml_drift_delegate/delegate/delegate_utils.cc",
+      "src/ml_drift_delegate/delegate/delegate_webgpu.cc",
+      "src/ml_drift_delegate/delegate/gpu_backend_webgpu.cc",
+      "src/ml_drift_delegate/delegate/gpu_backend_webgpu_litert.cc",
+      "src/ml_drift_delegate/delegate/gpu_backend_webgpu_litert_extweights.cc",
+      "src/ml_drift_delegate/delegate/incrementable_blocking_counter.cc",
+      "src/ml_drift_delegate/delegate/quantization_util.cc",
+      "src/ml_drift_delegate/delegate/serialization_program_cache/serialization_program_cache.cc",
+      "src/ml_drift_delegate/delegate/serialization_weight_cache/cache_builder.cc",
+      "src/ml_drift_delegate/delegate/serialization_weight_cache/file_util.cc",
+      "src/ml_drift_delegate/delegate/serialization_weight_cache/mmap_handle.cc",
+      "src/ml_drift_delegate/delegate/serialization_weight_cache/serialization_weight_cache.cc",
+      "src/ml_drift_delegate/delegate/shared_memory_manager/gf32_graph_adapter.cc",
+      "src/ml_drift_delegate/delegate/shared_memory_manager/ir_graph_adapter.cc",
+      "src/ml_drift_delegate/delegate/shared_memory_manager/shared_memory_manager.cc",
+      "src/ml_drift_delegate/delegate/shared_memory_manager/shared_memory_manager_webgpu.cc",
+      "src/ml_drift_delegate/delegate/shared_memory_manager/shared_memory_manager_webgpu_common.cc",
+      "src/ml_drift_delegate/delegate/shared_memory_manager/shared_memory_manager_webgpu_litert.cc",
+      "src/ml_drift_delegate/delegate/task_executor.cc",
+      "src/ml_drift_delegate/delegate/tflite_profile.cc",
+    ]
+    if (is_win) {
+      sources += [ "src/ml_drift_delegate/delegate/serialization_weight_cache/windows_util.cc" ]
+    }
+    deps = [
+      ":generate_ml_drift_build_identifier",
+      ":ml_drift_delegate_composite",
+      ":ml_drift_delegate_composite_ir",
+      ":ml_drift_delegate_tflite",
+      ":serialization_program_cache_schema_litert",
+      ":serialization_schema_litert",
+      ":webgpu_pipeline_cache_schema_litert",
+    ]
+    visibility = [ ":*" ]
+  }
+
+  litert_ml_drift_source_set("ml_drift_webgpu_accelerator") {
+    sources = [
+      "src/litert/runtime/accelerators/gpu/ml_drift_delegate_create.cc",
+      "src/litert/runtime/accelerators/gpu/ml_drift_webgpu_accelerator.cc",
+    ]
+    deps = [
+      ":ml_drift_delegate",
+      ":ml_drift_delegate_composite",
+      ":ml_drift_delegate_composite_ir",
+      ":ml_drift_delegate_tflite",
+      "//third_party/dawn/src/dawn/native",
+    ]
+    visibility = [
+      ":*",
+      "//services/webnn:*",
+    ]
+  }
+}
+
 if (use_litert_tflite) {
   proto_library("tflite_proto") {
     proto_in_dir = "src"
@@ -669,7 +1010,6 @@ if (use_litert_tflite) {
       "src/tflite/kernels/bitwise_xor.cc",
       "src/tflite/kernels/broadcast_args.cc",
       "src/tflite/kernels/bucketize.cc",
-      "src/tflite/kernels/call_once.cc",
       "src/tflite/kernels/complex_support.cc",
       "src/tflite/kernels/conv3d.cc",
       "src/tflite/kernels/conv3d_transpose.cc",
@@ -700,7 +1040,6 @@ if (use_litert_tflite) {
       "src/tflite/kernels/stablehlo_reduce_window.cc",
       "src/tflite/kernels/stablehlo_shift_left.cc",
       "src/tflite/kernels/unsorted_segment.cc",
-      "src/tflite/kernels/var_handle.cc",
     ]
 
     deps = [
@@ -750,40 +1089,53 @@ if (use_litert_tflite) {
     ]
     public = [
       "//third_party/tflite/shims/tensorflow/lite/types/fp16.h",
-      "src/tflite/acceleration/configuration/flatbuffer_to_proto.h",
-      "src/tflite/acceleration/configuration/proto_to_flatbuffer.h",
       "src/tflite/allocation.h",
       "src/tflite/arena_planner.h",
       "src/tflite/array.h",
       "src/tflite/builtin_ops.h",
       "src/tflite/c/builtin_op_data.h",
+      "src/tflite/c/common_internal.h",
       "src/tflite/context.h",
       "src/tflite/context_util.h",
       "src/tflite/converter/allocation.h",
+      "src/tflite/converter/core/api/error_reporter.h",
       "src/tflite/converter/core/model_builder_base.h",
+      "src/tflite/converter/experimental/remat/metadata_util.h",
       "src/tflite/converter/schema/schema_generated.h",
       "src/tflite/converter/schema/schema_utils.h",
       "src/tflite/core/api/profiler.h",
+      "src/tflite/core/async/async_kernel_internal.h",
+      "src/tflite/core/async/async_signature_runner.h",
+      "src/tflite/core/async/async_subgraph.h",
       "src/tflite/core/c/c_api.h",
       "src/tflite/core/c/c_api_types.h",
       "src/tflite/core/c/common.h",
+      "src/tflite/core/c/operator.h",
       "src/tflite/core/create_op_resolver.h",
       "src/tflite/core/interpreter.h",
       "src/tflite/core/interpreter_builder.h",
       "src/tflite/core/macros.h",
       "src/tflite/core/model_builder.h",
+      "src/tflite/core/signature_runner.h",
       "src/tflite/core/subgraph.h",
+      "src/tflite/delegates/utils/simple_opaque_delegate.h",
       "src/tflite/delegates/xnnpack/xnnpack_delegate.h",
       "src/tflite/error_reporter.h",
       "src/tflite/graph_info.h",
       "src/tflite/logger.h",
+      "src/tflite/memory_planner.h",
       "src/tflite/minimal_logging.h",
       "src/tflite/model.h",
       "src/tflite/mutable_op_resolver.h",
       "src/tflite/op_resolver.h",
       "src/tflite/optional_debug_tools.h",
+      "src/tflite/profiling/memory_info.h",
       "src/tflite/profiling/profile_buffer.h",
+      "src/tflite/profiling/root_profiler.h",
+      "src/tflite/profiling/telemetry/profiler.h",
+      "src/tflite/profiling/time.h",
       "src/tflite/signature_runner.h",
+      "src/tflite/simple_memory_arena.h",
       "src/tflite/stderr_reporter.h",
       "src/tflite/string_type.h",
       "src/tflite/string_util.h",
@@ -794,7 +1146,10 @@ if (use_litert_tflite) {
 
     # The shims files need to access USE_LITERT_TFLITE before completely
     # switching to use LiteRT.
-    public_deps = [ "//third_party/tflite:buildflags" ]
+    public_deps = [
+      ":tflite_kernel_common_headers",
+      "//third_party/tflite:buildflags",
+    ]
     configs += [ ":tflite_flags" ]
   }
 
@@ -1067,6 +1422,7 @@ if (use_litert_tflite) {
       "src/tflite/kernels/bidirectional_sequence_rnn.cc",
       "src/tflite/kernels/broadcast_to.cc",
       "src/tflite/kernels/builtin_op_kernels.h",
+      "src/tflite/kernels/call_once.cc",
       "src/tflite/kernels/cast.cc",
       "src/tflite/kernels/ceil.cc",
       "src/tflite/kernels/comparisons.cc",
@@ -1167,6 +1523,7 @@ if (use_litert_tflite) {
       "src/tflite/kernels/unidirectional_sequence_rnn.cc",
       "src/tflite/kernels/unique.cc",
       "src/tflite/kernels/unpack.cc",
+      "src/tflite/kernels/var_handle.cc",
       "src/tflite/kernels/where.cc",
       "src/tflite/kernels/while.cc",
       "src/tflite/kernels/zeros_like.cc",
@@ -1217,9 +1574,9 @@ if (use_litert_tflite) {
   if (!is_fuchsia) {
     tflite_static_library("tflite_op_shim") {
       sources = [
-        "src/tflite/kernels/shim/shape.cc",
-        "src/tflite/kernels/shim/tflite_op_shim.cc",
-        "src/tflite/kernels/shim/tflite_tensor_view.cc",
+        "//third_party/tflite/src/tensorflow/lite/kernels/shim/shape.cc",
+        "//third_party/tflite/src/tensorflow/lite/kernels/shim/tflite_op_shim.cc",
+        "//third_party/tflite/src/tensorflow/lite/kernels/shim/tflite_tensor_view.cc",
       ]
 
       if (is_win) {
@@ -1332,8 +1689,82 @@ if (use_litert_tflite) {
     ]
   }
 
+  if (is_ios) {
+    tflite_source_set("tflite_coreml_delegate") {
+      sources = [
+        "src/tflite/delegates/coreml/builders/activation_layer_builder.cc",
+        "src/tflite/delegates/coreml/builders/activation_layer_builder.h",
+        "src/tflite/delegates/coreml/builders/add_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/add_op_builder.h",
+        "src/tflite/delegates/coreml/builders/concatenation_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/concatenation_op_builder.h",
+        "src/tflite/delegates/coreml/builders/convolution_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/convolution_op_builder.h",
+        "src/tflite/delegates/coreml/builders/dummy_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/dummy_op_builder.h",
+        "src/tflite/delegates/coreml/builders/fully_connected_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/fully_connected_op_builder.h",
+        "src/tflite/delegates/coreml/builders/hardswish_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/hardswish_op_builder.h",
+        "src/tflite/delegates/coreml/builders/mul_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/mul_op_builder.h",
+        "src/tflite/delegates/coreml/builders/op_builder.cc",
+        "src/tflite/delegates/coreml/builders/op_builder.h",
+        "src/tflite/delegates/coreml/builders/op_factory.h",
+        "src/tflite/delegates/coreml/builders/op_validator.h",
+        "src/tflite/delegates/coreml/builders/pad_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/pad_op_builder.h",
+        "src/tflite/delegates/coreml/builders/pooling_layer_builder.cc",
+        "src/tflite/delegates/coreml/builders/pooling_layer_builder.h",
+        "src/tflite/delegates/coreml/builders/reshape_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/reshape_op_builder.h",
+        "src/tflite/delegates/coreml/builders/resize_bilinear_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/resize_bilinear_op_builder.h",
+        "src/tflite/delegates/coreml/builders/softmax_op_builder.cc",
+        "src/tflite/delegates/coreml/builders/softmax_op_builder.h",
+        "src/tflite/delegates/coreml/builders/threshold_layer_builder.cc",
+        "src/tflite/delegates/coreml/builders/threshold_layer_builder.h",
+        "src/tflite/delegates/coreml/builders/util.cc",
+        "src/tflite/delegates/coreml/builders/util.h",
+        "src/tflite/delegates/coreml/coreml_delegate.h",
+        "src/tflite/delegates/coreml/coreml_delegate.mm",
+        "src/tflite/delegates/coreml/coreml_delegate_kernel.h",
+        "src/tflite/delegates/coreml/coreml_delegate_kernel.mm",
+        "src/tflite/delegates/coreml/coreml_executor.h",
+        "src/tflite/delegates/coreml/coreml_executor.mm",
+      ]
+      configs_to_add = [
+        ":tflite_config",
+        ":tflite_flags",
+        ":tflite_coreml_flags",
+        "//third_party/eigen3:eigen_includes",
+      ]
+      public_deps = [
+        ":tflite_kernel_common_headers",
+        ":tflite_kernel_internals",
+        ":tflite_public_headers",
+      ]
+      deps = [
+        "//third_party/abseil-cpp:absl",
+        "//third_party/coremltools:modelformat_proto",
+        "//third_party/flatbuffers",
+        "//third_party/fp16",
+        "//third_party/gemmlowp",
+      ]
+      frameworks = [
+        "CoreML.framework",
+        "Foundation.framework",
+      ]
+      include_dirs = [ "$root_gen_dir/third_party/coremltools" ]
+      check_includes = false
+      visibility = [ ":*" ]
+    }
+  }
+
   tflite_static_library("tflite_framework_core") {
     sources = [
+      "//third_party/tflite/src/tensorflow/lite/experimental/acceleration/mini_benchmark/mini_benchmark.cc",
+      "//third_party/tflite/src/tensorflow/lite/experimental/acceleration/mini_benchmark/mini_benchmark.h",
       "//third_party/tflite/src/third_party/xla/xla/tsl/util/stats_calculator.cc",
       "//third_party/tflite/src/third_party/xla/xla/tsl/util/stats_calculator.h",
       "src/tflite/acceleration/configuration/flatbuffer_to_proto.cc",
@@ -1343,15 +1774,10 @@ if (use_litert_tflite) {
       "src/tflite/arena_planner.cc",
       "src/tflite/array.cc",
       "src/tflite/c/common_internal.cc",
-      "src/tflite/c/common_internal.h",
       "src/tflite/converter/allocation.cc",
-      "src/tflite/converter/allocation.h",
       "src/tflite/converter/core/api/error_reporter.cc",
-      "src/tflite/converter/core/api/error_reporter.h",
       "src/tflite/converter/core/model_builder_base.cc",
-      "src/tflite/converter/core/model_builder_base.h",
       "src/tflite/converter/experimental/remat/metadata_util.cc",
-      "src/tflite/converter/experimental/remat/metadata_util.h",
       "src/tflite/converter/schema/schema_utils.cc",
       "src/tflite/converter/utils/string_utils.cc",
       "src/tflite/core/acceleration/configuration/delegate_registry.cc",
@@ -1359,21 +1785,16 @@ if (use_litert_tflite) {
       "src/tflite/core/api/flatbuffer_conversions.cc",
       "src/tflite/core/api/flatbuffer_conversions.h",
       "src/tflite/core/api/op_resolver.cc",
-      "src/tflite/core/api/profiler.h",
       "src/tflite/core/api/tensor_utils.cc",
       "src/tflite/core/api/tensor_utils.h",
-      "src/tflite/core/async/async_kernel_internal.h",
       "src/tflite/core/async/async_signature_runner.cc",
-      "src/tflite/core/async/async_signature_runner.h",
       "src/tflite/core/async/async_subgraph.cc",
-      "src/tflite/core/async/async_subgraph.h",
       "src/tflite/core/async/task_internal.cc",
       "src/tflite/core/async/task_internal.h",
       "src/tflite/core/interpreter.cc",
       "src/tflite/core/interpreter_builder.cc",
       "src/tflite/core/interpreter_experimental.cc",
       "src/tflite/core/signature_runner.cc",
-      "src/tflite/core/signature_runner.h",
       "src/tflite/core/subgraph.cc",
       "src/tflite/core/tools/verifier.cc",
       "src/tflite/core/tools/verifier_internal.cc",
@@ -1396,14 +1817,13 @@ if (use_litert_tflite) {
       "src/tflite/graph_info.cc",
       "src/tflite/kernels/internal/portable_tensor_utils.cc",
       "src/tflite/logger.cc",
-      "src/tflite/memory_planner.h",
       "src/tflite/minimal_logging.cc",
       "src/tflite/mutable_op_resolver.cc",
       "src/tflite/nnapi/NeuralNetworksTypes.h",
       "src/tflite/nnapi/nnapi_implementation.h",
+      "src/tflite/nnapi/nnapi_implementation_disabled.cc",
       "src/tflite/optional_debug_tools.cc",
       "src/tflite/profiling/memory_info.cc",
-      "src/tflite/profiling/memory_info.h",
       "src/tflite/profiling/memory_latency_logger.cc",
       "src/tflite/profiling/memory_latency_logger.h",
       "src/tflite/profiling/memory_usage_monitor.cc",
@@ -1413,21 +1833,16 @@ if (use_litert_tflite) {
       "src/tflite/profiling/platform_profiler.cc",
       "src/tflite/profiling/platform_profiler.h",
       "src/tflite/profiling/profile_buffer.cc",
-      "src/tflite/profiling/profile_buffer.h",
       "src/tflite/profiling/profile_summarizer.cc",
       "src/tflite/profiling/profile_summarizer.h",
       "src/tflite/profiling/profile_summary_formatter.cc",
       "src/tflite/profiling/profile_summary_formatter.h",
       "src/tflite/profiling/root_profiler.cc",
-      "src/tflite/profiling/root_profiler.h",
       "src/tflite/profiling/telemetry/profiler.cc",
-      "src/tflite/profiling/telemetry/profiler.h",
       "src/tflite/profiling/telemetry/telemetry.cc",
       "src/tflite/profiling/telemetry/telemetry.h",
       "src/tflite/profiling/time.cc",
-      "src/tflite/profiling/time.h",
       "src/tflite/simple_memory_arena.cc",
-      "src/tflite/simple_memory_arena.h",
       "src/tflite/stderr_reporter.cc",
       "src/tflite/string_util.cc",
       "src/tflite/tools/command_line_flags.h",
@@ -1477,6 +1892,9 @@ if (use_litert_tflite) {
     ]
 
     conditional_public_deps = [ ":tflite_litert" ]
+    if (is_ios) {
+      conditional_public_deps += [ ":tflite_coreml_delegate" ]
+    }
 
     public_deps = [
       ":mutable_tflite_schema",
@@ -1518,11 +1936,9 @@ if (use_litert_tflite) {
       "src/tflite/core/c/c_api_opaque.cc",
       "src/tflite/core/c/c_api_opaque.h",
       "src/tflite/core/c/operator.cc",
-      "src/tflite/core/c/operator.h",
       "src/tflite/delegates/utils/simple_delegate.cc",
       "src/tflite/delegates/utils/simple_delegate.h",
       "src/tflite/delegates/utils/simple_opaque_delegate.cc",
-      "src/tflite/delegates/utils/simple_opaque_delegate.h",
     ]
 
     deps = [
@@ -1609,7 +2025,6 @@ if (use_litert_tflite) {
         "src/tflite/delegates/xnnpack/windows_util.cc",
         "src/tflite/delegates/xnnpack/windows_util.h",
         "src/tflite/delegates/xnnpack/xnnpack_delegate.cc",
-        "src/tflite/delegates/xnnpack/xnnpack_delegate.h",
       ]
     }
 
@@ -1645,6 +2060,9 @@ if (use_litert_tflite) {
       # absl::Cord::CopyToArray is not available on fuchsia but is required by
       # this library.
       conditional_public_deps += [ ":tflite_op_shim" ]
+    }
+    if (is_ios) {
+      conditional_public_deps += [ ":tflite_coreml_delegate" ]
     }
 
     public_deps = [
@@ -1682,7 +2100,7 @@ if (use_litert_tflite) {
     # target (which is assumed to be for third_party code that is OK to have
     # these switches).
     public_deps_for_standalone = [ "//third_party/neon_2_sse" ]
-    if (build_with_chromium && build_with_internal_optimization_guide) {
+    if (build_with_chromium) {
       public_deps_for_standalone += [ ":serialization_schema_litert" ]
     }
   }

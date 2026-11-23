@@ -79,7 +79,6 @@
 #include "components/image_fetcher/core/image_fetcher_service.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
@@ -830,7 +829,7 @@ bool PopupViewViews::HandlePopupHorizontalNavigation(
 }
 
 void PopupViewViews::SelectPreviousRow() {
-  DCHECK(!rows_.empty());
+  CHECK(!rows_.empty(), base::NotFatalUntil::M162);
   std::optional<CellIndex> old_index = GetSelectedCell();
   // Temporarily use an int to avoid underflows.
   int new_row = old_index ? static_cast<int>(old_index->first) - 1 : -1;
@@ -857,7 +856,7 @@ void PopupViewViews::SelectPreviousRow() {
 }
 
 void PopupViewViews::SelectNextRow(PopupCellSelectionSource source) {
-  DCHECK(!rows_.empty());
+  CHECK(!rows_.empty(), base::NotFatalUntil::M162);
   std::optional<CellIndex> old_index = GetSelectedCell();
 
   size_t new_row = old_index ? old_index->first + 1u : 0u;
@@ -1503,7 +1502,8 @@ void PopupViewViews::CreateSuggestionViews() {
       /*initial_visible_height=*/current_body_visible_height);
 
   for (; current_line_number < suggestions.size(); ++current_line_number) {
-    DCHECK(IsFooterItem(suggestions, current_line_number));
+    CHECK(IsFooterItem(suggestions, current_line_number),
+          base::NotFatalUntil::M162);
     // The footer can contain either footer views or separator lines.
     if (suggestions[current_line_number].type == SuggestionType::kSeparator) {
       footer_builder.AddRow(
@@ -1989,6 +1989,9 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
     kAutofillCreditCardSuggestionEntryElementId);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PopupViewViews,
                                       kAutofillAiValuablesElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
+    PopupViewViews,
+    kAutofillAmbientAutofillSpiiDisclaimerElementId);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PopupViewViews,
                                       kAutofillAiOptInIphElementId);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PopupViewViews,

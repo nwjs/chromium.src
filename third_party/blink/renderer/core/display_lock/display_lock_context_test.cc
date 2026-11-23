@@ -214,6 +214,56 @@ class DisplayLockContextTest : public testing::Test {
   frame_test_helpers::WebViewHelper web_view_helper_;
 };
 
+TEST_F(DisplayLockContextTest, UnlockWithBlockedChildLayoutMarksAncestors) {
+  SetHtmlInnerHTML(
+      "<div id='outer'><div id='lock'><div id='inner'>x</div></div></div>");
+  auto* element = GetDocument().getElementById(AtomicString("lock"));
+  LockElement(*element, false);
+  auto* context = element->GetDisplayLockContext();
+  ASSERT_TRUE(context);
+  ASSERT_TRUE(context->IsLocked());
+  auto* holder = element->GetLayoutObject();
+  ASSERT_TRUE(holder);
+
+  auto* inner = GetDocument().getElementById(AtomicString("inner"));
+  inner->GetLayoutObject()->SetNeedsLayout("test");
+  auto* outer = GetDocument().getElementById(AtomicString("outer"));
+  EXPECT_TRUE(inner->GetLayoutObject()->NeedsLayout());
+  EXPECT_TRUE(holder->ChildNeedsFullLayout());
+  EXPECT_FALSE(outer->GetLayoutObject()->NeedsLayout());
+  context->NotifyChildLayoutWasBlocked();
+
+  UnlockImmediate(context);
+
+  EXPECT_TRUE(outer->GetLayoutObject()->ChildNeedsFullLayout());
+}
+
+TEST_F(DisplayLockContextTest,
+       UnlockWithBlockedChildLayoutMarksAncestorsDisabled) {
+  ScopedMarkAncestorsOnDisplayLockUnlockForTest scoped_feature(false);
+  SetHtmlInnerHTML(
+      "<div id='outer'><div id='lock'><div id='inner'>x</div></div></div>");
+  auto* element = GetDocument().getElementById(AtomicString("lock"));
+  LockElement(*element, false);
+  auto* context = element->GetDisplayLockContext();
+  ASSERT_TRUE(context);
+  ASSERT_TRUE(context->IsLocked());
+  auto* holder = element->GetLayoutObject();
+  ASSERT_TRUE(holder);
+
+  auto* inner = GetDocument().getElementById(AtomicString("inner"));
+  inner->GetLayoutObject()->SetNeedsLayout("test");
+  auto* outer = GetDocument().getElementById(AtomicString("outer"));
+  EXPECT_TRUE(inner->GetLayoutObject()->NeedsLayout());
+  EXPECT_TRUE(holder->ChildNeedsFullLayout());
+  EXPECT_FALSE(outer->GetLayoutObject()->NeedsLayout());
+  context->NotifyChildLayoutWasBlocked();
+
+  UnlockImmediate(context);
+
+  EXPECT_FALSE(outer->GetLayoutObject()->ChildNeedsFullLayout());
+}
+
 TEST_F(DisplayLockContextTest, LockAfterAppendStyleDirtyBits) {
   SetHtmlInnerHTML(R"HTML(
     <style>
@@ -2173,7 +2223,7 @@ TEST_F(DisplayLockContextRenderingTest, FrameDocumentRemovedWhileAcquire) {
   )HTML");
 
   auto* target = ChildDocument().getElementById(AtomicString("target"));
-  GetDocument().getElementById(AtomicString("frame"))->remove();
+  GetElementById("frame")->remove();
 
   LockImmediate(&target->EnsureDisplayLockContext());
 }
@@ -2197,14 +2247,14 @@ TEST_F(DisplayLockContextRenderingTest,
     </div>
   )HTML");
 
-  auto* parent = GetDocument().getElementById(AtomicString("parent"));
+  auto* parent = GetElementById("parent");
   auto* parent_box = parent->GetLayoutBoxModelObject();
   ASSERT_TRUE(parent_box);
   EXPECT_TRUE(parent_box->Layer());
   EXPECT_TRUE(parent_box->HasSelfPaintingLayer());
 
   // Lock the container.
-  auto* lockable = GetDocument().getElementById(AtomicString("lockable"));
+  auto* lockable = GetElementById("lockable");
   lockable->classList().Add(AtomicString("hidden"));
   UpdateAllLifecyclePhasesForTest();
 
@@ -2240,9 +2290,9 @@ TEST_F(DisplayLockContextRenderingTest, FloatChildLocked) {
     </div>
   )HTML");
 
-  auto* lockable = GetDocument().getElementById(AtomicString("lockable"));
+  auto* lockable = GetElementById("lockable");
   auto* lockable_box = lockable->GetLayoutBox();
-  auto* floating = GetDocument().getElementById(AtomicString("floating"));
+  auto* floating = GetElementById("floating");
   EXPECT_EQ(PhysicalRect(0, 0, 200, 100), lockable_box->VisualOverflowRect());
   EXPECT_EQ(PhysicalRect(0, 0, 200, 100),
             lockable_box->ScrollableOverflowRect());
@@ -2298,14 +2348,14 @@ TEST_F(DisplayLockContextRenderingTest,
     </div>
   )HTML");
 
-  auto* parent = GetDocument().getElementById(AtomicString("parent"));
+  auto* parent = GetElementById("parent");
   auto* parent_box = parent->GetLayoutBoxModelObject();
   ASSERT_TRUE(parent_box);
   EXPECT_TRUE(parent_box->Layer());
   EXPECT_TRUE(parent_box->HasSelfPaintingLayer());
 
   // Lock the container.
-  auto* lockable = GetDocument().getElementById(AtomicString("lockable"));
+  auto* lockable = GetElementById("lockable");
   lockable->classList().Add(AtomicString("hidden"));
   UpdateAllLifecyclePhasesForTest();
 
@@ -2352,22 +2402,10 @@ TEST_F(DisplayLockContextRenderingTest, ObjectsNeedingLayoutConsidersLocks) {
 
   // Dirty all of the leaf nodes.
   auto dirty_all = [this]() {
-    GetDocument()
-        .getElementById(AtomicString("c"))
-        ->GetLayoutObject()
-        ->SetNeedsLayout("test");
-    GetDocument()
-        .getElementById(AtomicString("d"))
-        ->GetLayoutObject()
-        ->SetNeedsLayout("test");
-    GetDocument()
-        .getElementById(AtomicString("f"))
-        ->GetLayoutObject()
-        ->SetNeedsLayout("test");
-    GetDocument()
-        .getElementById(AtomicString("g"))
-        ->GetLayoutObject()
-        ->SetNeedsLayout("test");
+    GetElementById("c")->GetLayoutObject()->SetNeedsLayout("test");
+    GetElementById("d")->GetLayoutObject()->SetNeedsLayout("test");
+    GetElementById("f")->GetLayoutObject()->SetNeedsLayout("test");
+    GetElementById("g")->GetLayoutObject()->SetNeedsLayout("test");
   };
 
   unsigned dirty_count = 0;
@@ -2381,10 +2419,8 @@ TEST_F(DisplayLockContextRenderingTest, ObjectsNeedingLayoutConsidersLocks) {
   EXPECT_EQ(dirty_count, 10u);
   EXPECT_EQ(total_count, 10u);
 
-  GetDocument()
-      .getElementById(AtomicString("e"))
-      ->setAttribute(html_names::kStyleAttr,
-                     AtomicString("content-visibility: hidden"));
+  GetElementById("e")->setAttribute(html_names::kStyleAttr,
+                                    AtomicString("content-visibility: hidden"));
   UpdateAllLifecyclePhasesForTest();
 
   // Note that the dirty_all call propagate the dirty bit from the unlocked
@@ -2399,10 +2435,8 @@ TEST_F(DisplayLockContextRenderingTest, ObjectsNeedingLayoutConsidersLocks) {
   // We still see the locked element, so the total is 8.
   EXPECT_EQ(total_count, 8u);
 
-  GetDocument()
-      .getElementById(AtomicString("a"))
-      ->setAttribute(html_names::kStyleAttr,
-                     AtomicString("content-visibility: hidden"));
+  GetElementById("a")->setAttribute(html_names::kStyleAttr,
+                                    AtomicString("content-visibility: hidden"));
   UpdateAllLifecyclePhasesForTest();
 
   // Note that this dirty_all call is now not propagating the dirty bits at all,
@@ -2433,10 +2467,10 @@ TEST_F(DisplayLockContextRenderingTest,
     </div>
   )HTML");
 
-  auto* parent = GetDocument().getElementById(AtomicString("parent"));
-  auto* lockable = GetDocument().getElementById(AtomicString("lockable"));
-  auto* child = GetDocument().getElementById(AtomicString("child"));
-  auto* grandchild = GetDocument().getElementById(AtomicString("grandchild"));
+  auto* parent = GetElementById("parent");
+  auto* lockable = GetElementById("lockable");
+  auto* child = GetElementById("child");
+  auto* grandchild = GetElementById("grandchild");
 
   auto* parent_box = parent->GetLayoutBoxModelObject();
   auto* lockable_box = lockable->GetLayoutBoxModelObject();
@@ -2566,10 +2600,9 @@ TEST_F(DisplayLockContextRenderingTest,
     </div>
   )HTML");
 
-  auto* inner_element = GetDocument().getElementById(AtomicString("inner"));
-  auto* unrelated_element =
-      GetDocument().getElementById(AtomicString("unrelated"));
-  auto* outer_element = GetDocument().getElementById(AtomicString("outer"));
+  auto* inner_element = GetElementById("inner");
+  auto* unrelated_element = GetElementById("unrelated");
+  auto* outer_element = GetElementById("outer");
 
   // Ensure that the visibility switch happens. This would also clear the
   // layout.
@@ -2687,10 +2720,9 @@ TEST_F(DisplayLockContextRenderingTest, NestedLockDoesHideWhenItIsOffscreen) {
     </div>
   )HTML");
 
-  auto* inner_element = GetDocument().getElementById(AtomicString("inner"));
-  auto* unrelated_element =
-      GetDocument().getElementById(AtomicString("unrelated"));
-  auto* outer_element = GetDocument().getElementById(AtomicString("outer"));
+  auto* inner_element = GetElementById("inner");
+  auto* unrelated_element = GetElementById("unrelated");
+  auto* outer_element = GetElementById("outer");
 
   // Ensure that the visibility switch happens. This would also clear the
   // layout.
@@ -2741,8 +2773,7 @@ TEST_F(DisplayLockContextRenderingTest, NestedLockDoesHideWhenItIsOffscreen) {
   EXPECT_FALSE(inner_element->GetLayoutObject()->SelfNeedsFullLayout());
 
   // Let future spacer become a real spacer!
-  GetDocument()
-      .getElementById(AtomicString("future_spacer"))
+  GetElementById("future_spacer")
       ->setAttribute(html_names::kClassAttr, AtomicString("spacer"));
 
   UpdateAllLifecyclePhasesForTest();
@@ -2816,7 +2847,7 @@ TEST_F(DisplayLockContextRenderingTest,
     </div>
   )HTML");
 
-  auto* target = GetDocument().getElementById(AtomicString("target"));
+  auto* target = GetElementById("target");
   EXPECT_TRUE(target->IsFocusable());
 }
 
@@ -2829,7 +2860,7 @@ TEST_F(DisplayLockContextRenderingTest, ForcedUnlockBookkeeping) {
     <div id=target class=hidden></div>
   )HTML");
 
-  auto* target = GetDocument().getElementById(AtomicString("target"));
+  auto* target = GetElementById("target");
   auto* context = target->GetDisplayLockContext();
 
   ASSERT_TRUE(context);
@@ -2864,12 +2895,12 @@ TEST_F(DisplayLockContextRenderingTest, LayoutRootIsSkippedIfLocked) {
   )HTML");
 
   // Lock an ancestor.
-  auto* hide = GetDocument().getElementById(AtomicString("hide"));
+  auto* hide = GetElementById("hide");
   hide->classList().Add(AtomicString("hidden"));
   UpdateAllLifecyclePhasesForTest();
 
-  auto* target = GetDocument().getElementById(AtomicString("target"));
-  auto* new_parent = GetDocument().getElementById(AtomicString("new_parent"));
+  auto* target = GetElementById("target");
+  auto* new_parent = GetElementById("new_parent");
 
   // Reparent elements which will invalidate layout without needing to process
   // style (which is blocked by the display-lock).
@@ -2913,12 +2944,12 @@ TEST_F(DisplayLockContextRenderingTest,
   )HTML");
 
   // Lock an ancestor.
-  auto* hide = GetDocument().getElementById(AtomicString("hide"));
+  auto* hide = GetElementById("hide");
   hide->classList().Add(AtomicString("hidden"));
   UpdateAllLifecyclePhasesForTest();
 
-  auto* target = GetDocument().getElementById(AtomicString("target"));
-  auto* new_parent = GetDocument().getElementById(AtomicString("new_parent"));
+  auto* target = GetElementById("target");
+  auto* new_parent = GetElementById("new_parent");
 
   // Reparent elements which will invalidate layout without needing to process
   // style (which is blocked by the display-lock).
@@ -2964,7 +2995,7 @@ TEST_F(DisplayLockContextRenderingTest, ContainStrictChild) {
   )HTML");
 
   // Lock an ancestor.
-  auto* hide = GetDocument().getElementById(AtomicString("hide"));
+  auto* hide = GetElementById("hide");
   hide->classList().Add(AtomicString("hidden"));
 
   // This should not DCHECK.
@@ -2988,20 +3019,14 @@ TEST_F(DisplayLockContextRenderingTest, UseCounter) {
   EXPECT_FALSE(
       GetDocument().IsUseCounted(WebFeature::kContentVisibilityHidden));
 
-  GetDocument()
-      .getElementById(AtomicString("e1"))
-      ->classList()
-      .Add(AtomicString("auto"));
+  GetElementById("e1")->classList().Add(AtomicString("auto"));
   UpdateAllLifecyclePhasesForTest();
 
   EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kContentVisibilityAuto));
   EXPECT_FALSE(
       GetDocument().IsUseCounted(WebFeature::kContentVisibilityHidden));
 
-  GetDocument()
-      .getElementById(AtomicString("e2"))
-      ->classList()
-      .Add(AtomicString("hidden"));
+  GetElementById("e2")->classList().Add(AtomicString("hidden"));
   UpdateAllLifecyclePhasesForTest();
 
   EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kContentVisibilityAuto));
@@ -3024,11 +3049,11 @@ TEST_F(DisplayLockContextRenderingTest,
   )HTML");
 
   // Lock an ancestor.
-  auto* hide = GetDocument().getElementById(AtomicString("hide"));
+  auto* hide = GetElementById("hide");
   hide->classList().Add(AtomicString("hidden"));
   UpdateAllLifecyclePhasesForTest();
 
-  auto* target = GetDocument().getElementById(AtomicString("target"));
+  auto* target = GetElementById("target");
   target->classList().Add(AtomicString("backface_hidden"));
 
   auto scope =
@@ -3052,11 +3077,11 @@ TEST_F(DisplayLockContextRenderingTest, InnerScrollerAutoVisibilityMargin) {
   )HTML");
 
   UpdateAllLifecyclePhasesForTest();
-  auto* target = GetDocument().getElementById(AtomicString("target"));
+  auto* target = GetElementById("target");
   ASSERT_TRUE(target->GetDisplayLockContext());
   EXPECT_TRUE(target->GetDisplayLockContext()->IsLocked());
 
-  auto* scroller = GetDocument().getElementById(AtomicString("scroller"));
+  auto* scroller = GetElementById("scroller");
   // 2600 is spacer (3000) minus scroller height (300) minus 100 for some extra
   // padding.
   scroller->setScrollTop(2600);
@@ -3093,7 +3118,7 @@ TEST_F(DisplayLockContextRenderingTest,
 
   GetDocument().scrollingElement()->setScrollTop(29000);
 
-  Element* element = GetDocument().getElementById(AtomicString("e1"));
+  Element* element = GetElementById("e1");
 
   // Note that this test also unlock/relocks #e2 but we only care about #e1
   // settling into a steady state.
@@ -3145,7 +3170,7 @@ TEST_F(DisplayLockContextRenderingTest,
 
   GetDocument().scrollingElement()->setScrollLeft(29000);
 
-  Element* element = GetDocument().getElementById(AtomicString("e1"));
+  Element* element = GetElementById("e1");
 
   // Note that this test also unlock/relocks #e2 but we only care about #e1
   // settling into a steady state.
@@ -3197,7 +3222,7 @@ TEST_F(DisplayLockContextRenderingTest,
 
   GetDocument().scrollingElement()->setScrollLeft(-29000);
 
-  Element* element = GetDocument().getElementById(AtomicString("e1"));
+  Element* element = GetElementById("e1");
 
   // Note that this test also unlock/relocks #e2 but we only care about #e1
   // settling into a steady state.
@@ -3239,8 +3264,8 @@ TEST_F(DisplayLockContextRenderingTest, FirstAutoFramePaintsInViewport) {
     <div id=hidden><div>content</div></div>
   )HTML");
 
-  auto* visible = GetDocument().getElementById(AtomicString("visible"));
-  auto* hidden = GetDocument().getElementById(AtomicString("hidden"));
+  auto* visible = GetElementById("visible");
+  auto* hidden = GetElementById("hidden");
 
   visible->classList().Add(AtomicString("auto"));
   hidden->classList().Add(AtomicString("auto"));
@@ -3269,7 +3294,7 @@ TEST_F(DisplayLockContextRenderingTest,
     <div id=target class=auto></div>
   )HTML");
 
-  auto* element = GetDocument().getElementById(AtomicString("target"));
+  auto* element = GetElementById("target");
   auto* context = element->GetDisplayLockContext();
   ASSERT_TRUE(context);
   test::RunPendingTasks();
@@ -4350,8 +4375,8 @@ TEST_F(DisplayLockContextRenderingTest,
     </svg>
   )HTML");
 
-  auto* outer = GetDocument().getElementById(AtomicString("outer_lock"));
-  auto* inner = GetDocument().getElementById(AtomicString("inner_lock"));
+  auto* outer = GetElementById("outer_lock");
+  auto* inner = GetElementById("inner_lock");
 
   LockImmediate(&outer->EnsureDisplayLockContext());
   LockImmediate(&inner->EnsureDisplayLockContext());
@@ -4384,7 +4409,7 @@ TEST_F(DisplayLockContextRenderingTest, VisualOverflowUpdateAfterUnlock) {
     <div id="target"></div>
   )HTML");
 
-  auto* target = GetDocument().getElementById(AtomicString("target"));
+  auto* target = GetElementById("target");
   auto* box = target->GetLayoutBox();
   auto* layer = box->Layer();
 

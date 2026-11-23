@@ -48,7 +48,6 @@
 #include "third_party/blink/renderer/core/animation/element_animations.h"
 #include "third_party/blink/renderer/core/animation/keyframe_effect_model.h"
 #include "third_party/blink/renderer/core/css/background_color_paint_image_generator.h"
-#include "third_party/blink/renderer/core/css/box_shadow_paint_image_generator.h"
 #include "third_party/blink/renderer/core/css/clip_path_paint_image_generator.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/properties/longhands.h"
@@ -238,7 +237,6 @@ CompositorAnimations::CompositorElementNamespaceForProperty(
     case CSSPropertyID::kFilter:
       return CompositorElementIdNamespace::kEffectFilter;
     case CSSPropertyID::kBackgroundColor:
-    case CSSPropertyID::kBoxShadow:
     case CSSPropertyID::kClipPath:
     case CSSPropertyID::kVariable:
       // TODO(crbug.com/883721): Variables and these raster-inducing properties
@@ -350,7 +348,6 @@ CompositorAnimations::CheckCanStartEffectOnCompositor(
           if (HasNativePaintWorketReason(
                   npw_reasons, Animation::NativePaintWorkletProperties::
                                    kBackgroundColorPaintWorklet)) {
-            DCHECK(RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled());
             generator = target_element.GetDocument()
                             .GetFrame()
                             ->GetBackgroundColorPaintImageGenerator();
@@ -890,8 +887,12 @@ void AddKeyframeToCurve(cc::KeyframedFilterAnimationCurve& curve,
                         const CompositorKeyframeValue* value,
                         const TimingFunction& keyframe_timing_function,
                         bool is_backdrop_filter) {
+  // Composited animations are not supported for html-in-canvas, and
+  // drawElementImage() uses main-thread paint records rather than compositor
+  // animation curves, so `is_in_canvas_subtree` can be false here.
   FilterEffectBuilder builder(gfx::RectF(), std::nullopt, 1, Color::kBlack,
-                              mojom::blink::ColorScheme::kLight);
+                              mojom::blink::ColorScheme::kLight,
+                              /*is_in_canvas_subtree=*/false);
   CompositorFilterOperations operations = builder.BuildFilterOperations(
       To<CompositorKeyframeFilterOperations>(value)->Operations(),
       is_backdrop_filter);

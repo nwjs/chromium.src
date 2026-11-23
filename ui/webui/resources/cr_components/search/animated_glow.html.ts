@@ -5,7 +5,7 @@
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {SearchAnimatedGlowElement} from './animated_glow.js';
-import {GlowAnimationState} from './constants.js';
+import {GlowAnimationState, GlowMode} from './constants.js';
 
 export function getHtml(this: SearchAnimatedGlowElement) {
   /*
@@ -39,34 +39,29 @@ export function getHtml(this: SearchAnimatedGlowElement) {
    * NOTE: Voice search animations are not dependent on 'energyEffectAnimationEnabled' flag.
    */
 
-  // TODO(b/543432985): Generalize energy-effect animation conditions so new
-  // embedders don't require adding explicit entrypointName checks.
   // clang-format off
   return html`<!--_html_template_start_-->
-    ${this.energyEffectAnimationEnabled &&
-      (this.animationState === GlowAnimationState.DRAGGING ||
-       this.animationState === GlowAnimationState.SUBMITTING ||
-       this.isZeroState || this.entrypointName === 'Realbox' ||
-       this.entrypointName === 'OmniboxEverywhere') ? html`
-      <div class="gradient-blur-wrapper">
-        <div class="gradient"></div>
-      </div>
-      <div class="gradient-sharp-wrapper">
+    ${this.glowMode !== GlowMode.NONE ? html`
+      ${this.useEnergyEffect_() &&
+        (this.animationState === GlowAnimationState.DRAGGING ||
+         this.animationState === GlowAnimationState.SUBMITTING ||
+         this.animationState === GlowAnimationState.EXPANDING) ? html`
+        <div class="gradient-blur-wrapper">
+          <div class="gradient"></div>
+        </div>
+        <div class="gradient-sharp-wrapper">
+          <div class="double-gradient"></div>
+        </div>
+        <div class="double-gradient-mask"></div>
+      ` : html`
+        <div class="gradient gradient-outer-glow"></div>
         <div class="double-gradient"></div>
-      </div>
-      <div class="double-gradient-mask"></div>
-      <div class="background" part="composebox-background"></div>
-      <div id="dragDropPlaceholder">${this.dragDropPlaceholder}</div>
-    ` : html`
-      <div id="dragDropPlaceholder">${this.dragDropPlaceholder}</div>
-      <div class="gradient gradient-outer-glow"></div>
-      <div class="double-gradient"></div>
-      <div class="double-gradient-mask"></div>
-      <div class="gradient"></div>
-      <div class="background"
-          part="composebox-background">
-      </div>
-    `}
+        <div class="double-gradient-mask"></div>
+        <div class="gradient"></div>
+      `}
+    ` : ''}
+    <div class="background" part="composebox-background"></div>
+    <div id="dragDropPlaceholder">${this.dragDropPlaceholder}</div>
 
     <div id="fullContainerOverlay" part="full-container-overlay">
       ${this.requiresVoice && this.coloredTicTacVoiceAnimationEnabled ?

@@ -27,7 +27,6 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +34,7 @@ import static org.mockito.Mockito.when;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Color;
+import android.os.Build;
 import android.util.SparseArray;
 import android.view.View;
 import android.view.ViewStructure;
@@ -47,10 +47,12 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.robolectric.Robolectric;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.ActivityState;
@@ -61,7 +63,7 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.chrome.browser.app.ChromeActivity;
+import org.chromium.chrome.browser.content.WebContentsFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.pdf.PdfUtils;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -90,6 +92,7 @@ import org.chromium.content_public.browser.NavigationController;
 import org.chromium.content_public.browser.NavigationResult;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
+import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestOrigins;
@@ -99,7 +102,6 @@ import java.lang.ref.WeakReference;
 
 /** Tests for {@link Tab}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@SuppressWarnings("DoNotMock") // TODO(567604165): Remove mocking of Views / Activities
 public class TabUnitTest {
     private static final int TAB1_ID = 456;
     private static final int TAB2_ID = 789;
@@ -109,10 +111,6 @@ public class TabUnitTest {
     @Mock private Profile mProfile;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private TabObserver mObserver;
-    @Mock private Context mContext;
-    @Mock private WeakReference<Context> mWeakReferenceContext;
-    @Mock private WeakReference<Activity> mWeakReferenceActivity;
-    @Mock private Activity mActivity;
     @Mock private NativePage mNativePage;
     @Mock private TabDelegateFactory mDelegateFactory;
     @Mock private TabWebContentsDelegateAndroid mTabWebContentsDelegateAndroid;
@@ -121,9 +119,6 @@ public class TabUnitTest {
     private WebContents mWebContents;
 
     @Mock private NavigationController mNavigationController;
-
-    @Mock private View mNativePageView;
-    @Mock private ChromeActivity mChromeActivity;
     @Mock private UserPrefs.Natives mUserPrefsNatives;
     @Mock private PrefService mPrefs;
     @Mock private AutofillProvider.Natives mAutofillProviderNatives;
@@ -134,18 +129,19 @@ public class TabUnitTest {
 
     private final SettableLookAheadObservableSupplier<Tab> mTabSupplier =
             new SettableLookAheadObservableSupplier<>();
+    private Activity mActivity;
+    private View mNativePageView;
     private TabImpl mTab;
     private boolean mIsTabHidden;
 
     @Before
     public void setUp() {
-
-        doReturn(mWeakReferenceActivity).when(mWindowAndroid).getActivity();
-        doReturn(mWeakReferenceContext).when(mWindowAndroid).getContext();
+        mActivity = Robolectric.buildActivity(Activity.class).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getActivity();
+        doReturn(new WeakReference<>(ContextUtils.getApplicationContext()))
+                .when(mWindowAndroid)
+                .getContext();
         doReturn(ObservableSuppliers.alwaysFalse()).when(mWindowAndroid).getOcclusionSupplier();
-        doReturn(mActivity).when(mWeakReferenceActivity).get();
-        doReturn(mContext).when(mWeakReferenceContext).get();
-        doReturn(mContext).when(mContext).getApplicationContext();
         UserPrefsJni.setInstanceForTesting(mUserPrefsNatives);
         SecurityStateModelJni.setInstanceForTesting(mSecurityStateModelNatives);
         AutofillProviderJni.setInstanceForTesting(mAutofillProviderNatives);
@@ -388,6 +384,7 @@ public class TabUnitTest {
         doReturn(mTabWebContentsDelegateAndroid)
                 .when(mDelegateFactory)
                 .createWebContentsDelegate(any(Tab.class));
+        mNativePageView = new View(mActivity);
         doReturn(mNativePage)
                 .when(mDelegateFactory)
                 .createNativePage(any(String.class), any(), any(Tab.class), any());
@@ -404,7 +401,7 @@ public class TabUnitTest {
                         })
                 .when(mWebContents)
                 .setTopLevelNativeWindow(any());
-        doReturn(mChromeActivity).when(mWeakReferenceContext).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
 
         mIsTabHidden = true;
         mTab =
@@ -453,15 +450,8 @@ public class TabUnitTest {
         verify(smoothTransitionDelegate).prepare();
         clearInvocations(mObserver);
 
-        FrameLayout parent = mock(FrameLayout.class);
-        doReturn(parent).when(mNativePageView).getParent();
-        doAnswer(
-                        inv -> {
-                            doReturn(null).when(mNativePageView).getParent();
-                            return null;
-                        })
-                .when(parent)
-                .removeView(mNativePageView);
+        FrameLayout parent = new FrameLayout(mActivity);
+        parent.addView(mNativePageView);
         doAnswer(
                         inv -> {
                             assertTrue(mTab.isDetachedFromActivity());
@@ -476,13 +466,13 @@ public class TabUnitTest {
         // is still attached to its parent, then remove the NativePage view from its parent,
         // cancel any active SmoothTransitionDelegate, freeze the NativePage, and finally notify
         // onContentChanged.
-        InOrder inOrder = inOrder(mObserver, parent, mNativePage);
+        InOrder inOrder = inOrder(mObserver, mNativePage);
         doReturn(null).when(mWebContents).getTopLevelNativeWindow();
         mTab.updateAttachment(/* window= */ null, /* tabDelegateFactory= */ null);
         inOrder.verify(mObserver).onInteractabilityChanged(mTab, /* isInteractable= */ false);
-        inOrder.verify(parent).removeView(mNativePageView);
         inOrder.verify(mNativePage).destroy();
         inOrder.verify(mObserver).onContentChanged(mTab);
+        assertNull(mNativePageView.getParent());
         verify(smoothTransitionDelegate).cancel();
         assertNotEquals(mNativePage, mTab.getNativePage());
         assertTrue(mTab.getNativePage().isFrozen());
@@ -498,7 +488,7 @@ public class TabUnitTest {
 
         // Reattaching a visible Tab should reload and unfreeze the NativePage.
         NativePage newNativePage = mock(NativePage.class);
-        View newNativePageView = mock(View.class);
+        View newNativePageView = new View(mActivity);
         doReturn(newNativePageView).when(newNativePage).getView();
         doReturn(false).when(newNativePage).isFrozen();
         doReturn("newtab").when(newNativePage).getHost();
@@ -526,8 +516,8 @@ public class TabUnitTest {
         assertEquals(parent, view.getParent());
 
         try {
-            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.CREATED);
-            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.RESUMED);
+            ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
+            ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.RESUMED);
 
             // 1. Detaching while RESUMED defers freezing the NativePage.
             doReturn(null).when(mWebContents).getTopLevelNativeWindow();
@@ -542,20 +532,20 @@ public class TabUnitTest {
             doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
             mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
             assertNull(view.getParent());
-            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.STOPPED);
+            ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.STOPPED);
             assertFalse(mTab.getNativePage().isFrozen());
             verify(mNativePage, never()).destroy();
 
             // 3. Detaching again while RESUMED freezes on STOPPED.
-            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.RESUMED);
+            ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.RESUMED);
             doReturn(null).when(mWebContents).getTopLevelNativeWindow();
             mTab.updateAttachment(null, null);
             assertFalse(mTab.getNativePage().isFrozen());
-            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.STOPPED);
+            ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.STOPPED);
             assertTrue(mTab.getNativePage().isFrozen());
             verify(mNativePage).destroy();
         } finally {
-            ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.DESTROYED);
+            ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.DESTROYED);
         }
     }
 
@@ -564,8 +554,8 @@ public class TabUnitTest {
         setupTabWithNativePage();
 
         mIsTabHidden = true;
-        ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.CREATED);
-        ApplicationStatus.onStateChangeForTesting(mChromeActivity, ActivityState.RESUMED);
+        ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.CREATED);
+        ApplicationStatus.onStateChangeForTesting(mActivity, ActivityState.RESUMED);
 
         doReturn(null).when(mWebContents).getTopLevelNativeWindow();
         mTab.updateAttachment(null, null);
@@ -615,7 +605,7 @@ public class TabUnitTest {
         doReturn(false).when(mNativePage).isFrozen();
         doReturn(view).when(mNativePage).getView();
         doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
-        doReturn(mChromeActivity).when(mWeakReferenceContext).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
 
         mTab =
                 new TabImpl(TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI) {
@@ -676,7 +666,7 @@ public class TabUnitTest {
         doReturn(view).when(mNativePage).getView();
 
         doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
-        doReturn(mChromeActivity).when(mWeakReferenceContext).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
 
         boolean[] isHidden = new boolean[] {false};
         mTab =
@@ -745,20 +735,13 @@ public class TabUnitTest {
                 .createNativePage(any(String.class), any(), any(Tab.class), any());
         doReturn(false).when(mNativePage).isFrozen();
 
-        FrameLayout parent = mock(FrameLayout.class);
-        View view = spy(new View(ContextUtils.getApplicationContext()));
-        doReturn(parent).when(view).getParent();
-        doAnswer(
-                        inv -> {
-                            doReturn(null).when(view).getParent();
-                            return null;
-                        })
-                .when(parent)
-                .removeView(view);
+        FrameLayout parent = new FrameLayout(mActivity);
+        View view = new View(mActivity);
+        parent.addView(view);
         doReturn(view).when(mNativePage).getView();
 
         doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
-        doReturn(mChromeActivity).when(mWeakReferenceContext).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
 
         boolean[] isHidden = new boolean[] {false};
         mTab =
@@ -808,11 +791,61 @@ public class TabUnitTest {
         // When a native page view has a parent ViewGroup upon hidden re-attachment, its view is
         // detached from its parent and the native page is frozen and destroyed without recreating
         // it.
-        verify(parent).removeView(view);
         assertNull(view.getParent());
         assertTrue(mTab.getNativePage().isFrozen());
         verify(mNativePage).destroy();
         verify(mDelegateFactory, never()).createNativePage(any(), any(), any(), any());
+    }
+
+    @Test
+    public void testUpdateTitle_keepsNavigationEntryTitleInSyncWithNativePage() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+
+        String pdfUrl = "chrome-native://pdf/link?url=https%3A%2F%2Fwww.foo.com%2Ftest.pdf";
+        doReturn(mTabWebContentsDelegateAndroid)
+                .when(mDelegateFactory)
+                .createWebContentsDelegate(any(Tab.class));
+        doReturn(true).when(mNativePage).isPdf();
+        doReturn(false).when(mNativePage).isFrozen();
+        doReturn(pdfUrl).when(mNativePage).getUrl();
+        doReturn("Loading PDF").when(mNativePage).getTitle();
+        doReturn(new View(ContextUtils.getApplicationContext())).when(mNativePage).getView();
+        doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
+
+        mTab =
+                new TabImpl(TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI) {
+                    @Override
+                    public WebContents getWebContents() {
+                        return mWebContents;
+                    }
+                };
+        mTab.setNativePtrForTesting(1);
+        mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        mTab.showNativePage(mNativePage);
+        doReturn("Loading PDF").when(mWebContents).getTitle();
+        mTab.updateTitle();
+        assertEquals("Loading PDF", mTab.getTitle());
+        clearInvocations(mNativeMock);
+
+        // The navigation entry title already matches the native page title.
+        mTab.updateTitle();
+        verify(mNativeMock, never()).setActiveNavigationEntryTitleForUrl(anyLong(), any(), any());
+
+        // A changed native page title, e.g. once a PDF download completes, is pushed to the
+        // navigation entry.
+        doReturn("test.pdf").when(mNativePage).getTitle();
+        mTab.updateTitle();
+        assertEquals("test.pdf", mTab.getTitle());
+        verify(mNativeMock).setActiveNavigationEntryTitleForUrl(1L, pdfUrl, "test.pdf");
+        doReturn("test.pdf").when(mWebContents).getTitle();
+        clearInvocations(mNativeMock);
+
+        // The native page title is pushed again if the navigation entry title was reset, e.g. by
+        // the renderer for the placeholder document, even though the tab title is unchanged.
+        doReturn("www.foo.com/test.pdf").when(mWebContents).getTitle();
+        mTab.updateTitle();
+        assertEquals("test.pdf", mTab.getTitle());
+        verify(mNativeMock).setActiveNavigationEntryTitleForUrl(1L, pdfUrl, "test.pdf");
     }
 
     @Test
@@ -836,7 +869,7 @@ public class TabUnitTest {
         doReturn(view).when(mNativePage).getView();
 
         doReturn(mWindowAndroid).when(mWebContents).getTopLevelNativeWindow();
-        doReturn(mChromeActivity).when(mWeakReferenceContext).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
 
         boolean[] isHidden = new boolean[] {false};
         mTab =
@@ -1005,7 +1038,7 @@ public class TabUnitTest {
 
                     @Override
                     public Context getContext() {
-                        return mContext;
+                        return mActivity;
                     }
 
                     @Override
@@ -1061,7 +1094,7 @@ public class TabUnitTest {
 
                     @Override
                     public Context getContext() {
-                        return mContext;
+                        return mActivity;
                     }
 
                     @Override
@@ -1388,7 +1421,7 @@ public class TabUnitTest {
     @Test
     public void testShow_unfreezesFrozenNativePageWhenAlreadyShown() {
         TabImplJni.setInstanceForTesting(mNativeMock);
-        doReturn(mActivity).when(mWeakReferenceContext).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
         when(mWebContents.getTopLevelNativeWindow()).thenReturn(mWindowAndroid);
 
         NativePage frozenNativePage = mock(NativePage.class);
@@ -1455,7 +1488,7 @@ public class TabUnitTest {
     @EnableFeatures(ChromeFeatureList.PDF_REUSE_FRAGMENT)
     public void testShow_doesNotReuseFrozenPdfNativePage_whenPdfReuseFragmentEnabled() {
         TabImplJni.setInstanceForTesting(mNativeMock);
-        doReturn(mActivity).when(mWeakReferenceContext).get();
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
         when(mWebContents.getTopLevelNativeWindow()).thenReturn(mWindowAndroid);
 
         String pdfUrl = "file:///data/user/0/com.android.chrome/files/Download/test.pdf";
@@ -1783,5 +1816,77 @@ public class TabUnitTest {
                                         httpUrl.equals(params.getUrl())
                                                 && !params.getIsRendererInitiated()
                                                 && params.getInitiatorOrigin() == null));
+    }
+
+    @Test
+    @Config(sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM)
+    public void testLoadUrl_SetsIsPdfWhenNativePageCommitPending() {
+        doReturn(new WeakReference<>(mActivity)).when(mWindowAndroid).getContext();
+        setUpTabWithWebContents();
+        doReturn(mNativePage)
+                .when(mDelegateFactory)
+                .createNativePage(any(String.class), any(), eq(mTab), any());
+        doReturn(new View(mActivity)).when(mNativePage).getView();
+
+        // First loadUrl shows a native page and sets mIsNativePageCommitPending = true.
+        LoadUrlParams firstParams = new LoadUrlParams("chrome-native://newtab/");
+        mTab.loadUrl(firstParams);
+        verify(mDelegateFactory)
+                .createNativePage(eq("chrome-native://newtab/"), any(), eq(mTab), any());
+
+        // Second loadUrl for a downloaded PDF arrives before the first navigation commits.
+        String pdfUrl = PdfUtils.encodePdfPageUrl("content://media/external/downloads/100");
+        LoadUrlParams secondParams = new LoadUrlParams(pdfUrl);
+        assertFalse(secondParams.getIsPdf());
+
+        mTab.loadUrl(secondParams);
+
+        assertTrue(secondParams.getIsPdf());
+        verify(mNavigationController)
+                .loadUrl(argThat(params -> pdfUrl.equals(params.getUrl()) && params.getIsPdf()));
+    }
+
+    @Test
+    public void testUnfreezeContents_RestoreFailed_SetsRendererInitiatedAndOpaqueOrigin() {
+        WebContentsFactory.setWebContentsForTesting(mWebContents);
+        when(mWebContents.getNavigationController()).thenReturn(mNavigationController);
+        when(mWebContents.getTopLevelNativeWindow()).thenReturn(mWindowAndroid);
+        String fallbackUrl = "https://example.com/";
+        WebContentsState mockState = mock(WebContentsState.class);
+        when(mockState.restoreWebContents(any(), anyBoolean(), anyBoolean())).thenReturn(null);
+        when(mockState.getVirtualUrlFromState()).thenReturn(fallbackUrl);
+        when(mockState.getDisplayTitleFromState()).thenReturn("");
+        TabState tabState = new TabState();
+        tabState.contentsState = mockState;
+
+        TabImpl tab =
+                new TabImpl(TAB1_ID, mProfile, TabLaunchType.FROM_RESTORE) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+
+                    @Override
+                    void initWebContents(WebContents webContents) {
+                        setWebContentsForTesting(webContents);
+                    }
+                };
+        tab.setNativePtrForTesting(1);
+        tab.updateAttachment(mWindowAndroid, mDelegateFactory);
+        tab.restoreFieldsFromState(tabState);
+        tab.addObserver(mObserver);
+
+        tab.loadIfNeeded(/* forceBackingSize= */ false);
+
+        verify(mObserver).onRestoreFailed(tab);
+        verify(mockState).destroy();
+        ArgumentCaptor<LoadUrlParams> paramsCaptor = ArgumentCaptor.forClass(LoadUrlParams.class);
+        verify(mNavigationController).loadUrl(paramsCaptor.capture());
+        LoadUrlParams params = paramsCaptor.getValue();
+        assertEquals(fallbackUrl, params.getUrl());
+        assertEquals(PageTransition.GENERATED, params.getTransitionType());
+        assertTrue(params.getIsRendererInitiated());
+        assertNotNull(params.getInitiatorOrigin());
+        assertTrue(params.getInitiatorOrigin().isOpaque());
     }
 }

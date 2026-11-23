@@ -13,12 +13,12 @@
 #include "chrome/browser/glic/public/glic_provider_spec.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/resources/grit/glic_browser_resources.h"
-#include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
-#include "chrome/browser/private_ai/private_ai_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/themes/custom_theme_supplier.h"
 #include "chrome/browser/themes/theme_helper.h"
+#include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -28,16 +28,13 @@
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/tabs/glic/tab_strip_glic_button.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_glic_button.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/prefs/pref_service.h"
-#include "components/private_ai/features.h"
-#include "components/private_ai/private_ai_service.h"
-#include "components/private_ai/proto/private_ai.pb.h"
-#include "components/private_ai/testing/mock_private_ai_client.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -45,6 +42,7 @@
 #include "ui/base/mojom/menu_source_type.mojom-shared.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/events/event_constants.h"
+#include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
@@ -209,137 +207,47 @@ IN_PROC_BROWSER_TEST_F(GlicButtonTest,
             l10n_util::GetStringUTF16(IDS_GLIC_TAB_STRIP_BUTTON_TOOLTIP_CLOSE));
 }
 
-class GlicButtonPrewarmDelayedTest : public GlicButtonTest {
+class TestCustomThemeSupplier : public CustomThemeSupplier {
  public:
-  GlicButtonPrewarmDelayedTest() {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{private_ai::kPrivateAi, {{"api-key", "xxxxx"}}},
-         {glic::kZeroStateSuggestionsUsePrivateAi,
-          {{"ZSSPrivateAiPrewarmDelay", "0ms"}}}},
-        {});
+  TestCustomThemeSupplier() : CustomThemeSupplier(ThemeType::kExtension) {}
+
+  void SetColor(int id, SkColor color) override { colors_[id] = color; }
+
+  bool GetColor(int id, SkColor* color) const override {
+    auto it = colors_.find(id);
+    if (it != colors_.end()) {
+      *color = it->second;
+      return true;
+    }
+    return false;
   }
 
  protected:
-  void SetUpOnMainThread() override {
-    GlicButtonTest::SetUpOnMainThread();
-    auto mock_client = std::make_unique<
-        testing::StrictMock<private_ai::MockPrivateAiClient>>();
-    mock_client_ptr_ = mock_client.get();
-    private_ai::PrivateAiService* service =
-        private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->GetProfile());
-    ASSERT_TRUE(service);
-    service->SetClientForTesting(std::move(mock_client));
-  }
-
-  void TearDownOnMainThread() override {
-    mock_client_ptr_ = nullptr;
-    private_ai::PrivateAiService* service =
-        private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->GetProfile());
-    if (service) {
-      service->SetClientForTesting(nullptr);
-    }
-    GlicButtonTest::TearDownOnMainThread();
-  }
-
-  raw_ptr<testing::StrictMock<private_ai::MockPrivateAiClient>>
-      mock_client_ptr_ = nullptr;
+  ~TestCustomThemeSupplier() override = default;
 
  private:
-  base::test::ScopedFeatureList feature_list_;
+  std::map<int, SkColor> colors_;
 };
-
-IN_PROC_BROWSER_TEST_F(GlicButtonPrewarmDelayedTest, PrewarmDelayedOnHover) {
-  base::RunLoop run_loop;
-  bool connection_established = false;
-  EXPECT_CALL(*mock_client_ptr_,
-              EstablishConnection(
-                  private_ai::proto::FEATURE_NAME_CHROME_ZERO_STATE_SUGGESTION))
-      .WillOnce([&]() {
-        connection_established = true;
-        run_loop.Quit();
-      });
-
-  // Transition GlicButton to STATE_HOVERED.
-  glic_button()->SetState(views::Button::ButtonState::STATE_HOVERED);
-
-  // Connection should not be established immediately (still requires pumping
-  // the loop).
-  EXPECT_FALSE(connection_established);
-
-  // Run the loop until the timer fires and the callback quits the loop.
-  run_loop.Run();
-
-  EXPECT_TRUE(connection_established);
-}
-
-class GlicButtonPrewarmCancelledTest : public GlicButtonTest {
- public:
-  GlicButtonPrewarmCancelledTest() {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{private_ai::kPrivateAi, {{"api-key", "xxxxx"}}},
-         {glic::kZeroStateSuggestionsUsePrivateAi,
-          {{"ZSSPrivateAiPrewarmDelay", "10s"}}}},
-        {});
-  }
-
- protected:
-  void SetUpOnMainThread() override {
-    GlicButtonTest::SetUpOnMainThread();
-    auto mock_client = std::make_unique<
-        testing::StrictMock<private_ai::MockPrivateAiClient>>();
-    mock_client_ptr_ = mock_client.get();
-    private_ai::PrivateAiService* service =
-        private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->GetProfile());
-    ASSERT_TRUE(service);
-    service->SetClientForTesting(std::move(mock_client));
-  }
-
-  void TearDownOnMainThread() override {
-    mock_client_ptr_ = nullptr;
-    private_ai::PrivateAiService* service =
-        private_ai::PrivateAiServiceFactory::GetForProfile(
-            browser()->GetProfile());
-    if (service) {
-      service->SetClientForTesting(nullptr);
-    }
-    GlicButtonTest::TearDownOnMainThread();
-  }
-
-  raw_ptr<testing::StrictMock<private_ai::MockPrivateAiClient>>
-      mock_client_ptr_ = nullptr;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(GlicButtonPrewarmCancelledTest,
-                       PrewarmCancelledOnHoverExit) {
-  EXPECT_CALL(*mock_client_ptr_,
-              EstablishConnection(
-                  private_ai::proto::FEATURE_NAME_CHROME_ZERO_STATE_SUGGESTION))
-      .Times(0);
-
-  // Transition to STATE_HOVERED. Starts the prewarm timer.
-  glic_button()->SetState(views::Button::ButtonState::STATE_HOVERED);
-  EXPECT_TRUE(glic_button()->IsPrewarmTimerRunningForTesting());
-
-  // Transition back to STATE_NORMAL immediately, stopping the timer.
-  glic_button()->SetState(views::Button::ButtonState::STATE_NORMAL);
-  EXPECT_FALSE(glic_button()->IsPrewarmTimerRunningForTesting());
-}
-
 class FakeThemeService : public ThemeService {
  public:
   explicit FakeThemeService(Profile* profile)
       : ThemeService(profile, GetFakeThemeHelper()) {}
+
+  CustomThemeSupplier* GetThemeSupplier() const override {
+    return theme_supplier_ ? theme_supplier_.get()
+                           : ThemeService::GetThemeSupplier();
+  }
+
   bool UsingExtensionTheme() const override {
-    return is_using_extension_theme_;
+    return is_using_extension_theme_ || ThemeService::UsingExtensionTheme();
   }
   void set_using_extension_theme(bool value) {
     is_using_extension_theme_ = value;
+  }
+
+  void SetCustomThemeSupplier(
+      scoped_refptr<CustomThemeSupplier> theme_supplier) {
+    theme_supplier_ = std::move(theme_supplier);
   }
 
  private:
@@ -348,6 +256,7 @@ class FakeThemeService : public ThemeService {
     return *helper;
   }
 
+  scoped_refptr<CustomThemeSupplier> theme_supplier_;
   bool is_using_extension_theme_ = false;
 };
 
@@ -375,13 +284,7 @@ class GlicButtonThemeTest : public GlicButtonTest {
   base::CallbackListSubscription create_services_subscription_;
 };
 
-// TODO(crbug.com/484258521): Resolve flakiness on Linux.
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_CustomThemeFallback DISABLED_CustomThemeFallback
-#else
-#define MAYBE_CustomThemeFallback CustomThemeFallback
-#endif
-IN_PROC_BROWSER_TEST_F(GlicButtonThemeTest, MAYBE_CustomThemeFallback) {
+IN_PROC_BROWSER_TEST_F(GlicButtonThemeTest, CustomThemeFallback) {
   FakeThemeService* fake_theme_service = static_cast<FakeThemeService*>(
       ThemeServiceFactory::GetForProfile(browser()->GetProfile()));
   ASSERT_TRUE(fake_theme_service);
@@ -389,7 +292,7 @@ IN_PROC_BROWSER_TEST_F(GlicButtonThemeTest, MAYBE_CustomThemeFallback) {
   // 1. By default, the button should not use the fallback text color.
   EXPECT_NE(glic_button()->GetTextColorForTesting(views::Button::STATE_NORMAL),
             glic_button()->GetColorProvider()->GetColor(
-                kColorTabSearchButtonCRForegroundFrameActive));
+                kColorTabForegroundInactiveFrameActive));
 
   // 2. Enable the custom theme fallback in the fake theme service.
   fake_theme_service->set_using_extension_theme(true);
@@ -400,7 +303,134 @@ IN_PROC_BROWSER_TEST_F(GlicButtonThemeTest, MAYBE_CustomThemeFallback) {
   // 3. Verify that the button now uses the custom theme fallback color.
   EXPECT_EQ(glic_button()->GetTextColorForTesting(views::Button::STATE_NORMAL),
             glic_button()->GetColorProvider()->GetColor(
-                kColorTabSearchButtonCRForegroundFrameActive));
+                kColorTabForegroundInactiveFrameActive));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicButtonThemeTest,
+                       CustomThemeDarkBackgroundHasLightTextColor) {
+  FakeThemeService* fake_theme_service = static_cast<FakeThemeService*>(
+      ThemeServiceFactory::GetForProfile(browser()->GetProfile()));
+  ASSERT_TRUE(fake_theme_service);
+
+  auto theme_supplier = base::MakeRefCounted<TestCustomThemeSupplier>();
+  theme_supplier->SetColor(ThemeProperties::COLOR_FRAME_ACTIVE, SK_ColorBLACK);
+  theme_supplier->SetColor(
+      ThemeProperties::COLOR_TAB_BACKGROUND_INACTIVE_FRAME_ACTIVE,
+      SkColorSetRGB(0x20, 0x20, 0x20));
+  fake_theme_service->set_using_extension_theme(true);
+  fake_theme_service->SetCustomThemeSupplier(theme_supplier);
+  glic_button()->OnThemeChanged();
+
+  const SkColor text_color =
+      glic_button()->GetTextColorForTesting(views::Button::STATE_NORMAL);
+  const SkColor expected_fg_color = glic_button()->GetColorProvider()->GetColor(
+      kColorTabForegroundInactiveFrameActive);
+  EXPECT_EQ(text_color, expected_fg_color);
+
+  // The text color must be light and contrast adequately with the dark
+  // background.
+  const SkColor bg_color = glic_button()->GetColorProvider()->GetColor(
+      kColorNewTabButtonCRBackgroundFrameActive);
+  EXPECT_FALSE(color_utils::IsDark(text_color));
+  EXPECT_GE(color_utils::GetContrastRatio(text_color, bg_color),
+            color_utils::kMinimumReadableContrastRatio);
+}
+
+class ToolbarGlicButtonThemeTest : public InProcessBrowserTest {
+ public:
+  ToolbarGlicButtonThemeTest()
+      : glic_test_env_({},
+                       GetEnabledFeatures(),
+                       GetDefaultDisabledGlicTestFeatures()) {}
+
+  void SetUpInProcessBrowserTestFixture() override {
+    InProcessBrowserTest::SetUpInProcessBrowserTestFixture();
+    create_services_subscription_ =
+        BrowserContextDependencyManager::GetInstance()
+            ->RegisterCreateServicesCallbackForTesting(
+                base::BindRepeating([](content::BrowserContext* context) {
+                  ThemeServiceFactory::GetInstance()->SetTestingFactory(
+                      context,
+                      base::BindRepeating([](content::BrowserContext* context)
+                                              -> std::unique_ptr<KeyedService> {
+                        auto service = std::make_unique<FakeThemeService>(
+                            static_cast<Profile*>(context));
+                        service->Init();
+                        return service;
+                      }));
+                }));
+  }
+
+ protected:
+  glic::ToolbarGlicButton* glic_button() {
+    return views::AsViewClass<glic::ToolbarGlicButton>(
+        glic::GlicButtonInterface::FromBrowser(browser()));
+  }
+
+ private:
+  static std::vector<base::test::FeatureRef> GetEnabledFeatures() {
+    std::vector<base::test::FeatureRef> enabled =
+        GetDefaultEnabledGlicTestFeatures();
+    enabled.push_back(features::kGlicHorizontalTabToolbarButton);
+    return enabled;
+  }
+
+  GlicTestEnvironment glic_test_env_;
+  base::CallbackListSubscription create_services_subscription_;
+};
+
+IN_PROC_BROWSER_TEST_F(ToolbarGlicButtonThemeTest, CustomThemeFallback) {
+  FakeThemeService* fake_theme_service = static_cast<FakeThemeService*>(
+      ThemeServiceFactory::GetForProfile(browser()->GetProfile()));
+  ASSERT_TRUE(fake_theme_service);
+  ASSERT_TRUE(glic_button());
+
+  // 1. By default, the button should not use the fallback text color.
+  EXPECT_NE(glic_button()->GetTextColorForTesting(views::Button::STATE_NORMAL),
+            glic_button()->GetColorProvider()->GetColor(
+                kColorAvatarButtonHighlightDefaultForeground));
+
+  // 2. Enable the custom theme fallback in the fake theme service.
+  fake_theme_service->set_using_extension_theme(true);
+
+  // Trigger OnThemeChanged to update the button colors.
+  glic_button()->OnThemeChanged();
+
+  // 3. Verify that the button now uses the custom theme fallback color.
+  EXPECT_EQ(glic_button()->GetTextColorForTesting(views::Button::STATE_NORMAL),
+            glic_button()->GetColorProvider()->GetColor(
+                kColorAvatarButtonHighlightDefaultForeground));
+}
+
+IN_PROC_BROWSER_TEST_F(ToolbarGlicButtonThemeTest,
+                       CustomThemeDarkBackgroundHasLightTextColor) {
+  FakeThemeService* fake_theme_service = static_cast<FakeThemeService*>(
+      ThemeServiceFactory::GetForProfile(browser()->GetProfile()));
+  ASSERT_TRUE(fake_theme_service);
+  ASSERT_TRUE(glic_button());
+
+  auto theme_supplier = base::MakeRefCounted<TestCustomThemeSupplier>();
+  theme_supplier->SetColor(ThemeProperties::COLOR_FRAME_ACTIVE, SK_ColorBLACK);
+  theme_supplier->SetColor(
+      ThemeProperties::COLOR_TAB_BACKGROUND_INACTIVE_FRAME_ACTIVE,
+      SkColorSetRGB(0x20, 0x20, 0x20));
+  fake_theme_service->set_using_extension_theme(true);
+  fake_theme_service->SetCustomThemeSupplier(theme_supplier);
+  glic_button()->OnThemeChanged();
+
+  const SkColor text_color =
+      glic_button()->GetTextColorForTesting(views::Button::STATE_NORMAL);
+  const SkColor expected_fg_color = glic_button()->GetColorProvider()->GetColor(
+      kColorAvatarButtonHighlightDefaultForeground);
+  EXPECT_EQ(text_color, expected_fg_color);
+
+  // The text color must be light and contrast adequately with the dark
+  // background.
+  const SkColor bg_color = glic_button()->GetColorProvider()->GetColor(
+      kColorAvatarButtonHighlightDefault);
+  EXPECT_FALSE(color_utils::IsDark(text_color));
+  EXPECT_GE(color_utils::GetContrastRatio(text_color, bg_color),
+            color_utils::kMinimumReadableContrastRatio);
 }
 
 }  // namespace

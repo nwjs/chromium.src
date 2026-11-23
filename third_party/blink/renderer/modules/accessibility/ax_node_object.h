@@ -54,8 +54,8 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
 
   ~AXNodeObject() override;
 
-  static std::optional<String> GetCSSAltText(const Element*);
-  static std::optional<String> GetCSSContentText(const Element*);
+  static String GetCSSAltText(const Element*);
+  static String GetCSSContentText(const Element*);
 
   void Trace(Visitor*) const override;
 
@@ -399,9 +399,7 @@ class MODULES_EXPORT AXNodeObject : public AXObject {
       String* text_alternative,
       AXRelatedObjectVector* related_objects) const;
 
-  // Takes title by value as computing inner text can modify attribute storage.
   String TextAlternativeFromTitleAttribute(
-      AtomicString title,
       ax::mojom::blink::NameFrom& name_from,
       NameSources* name_sources,
       bool* found_text_alternative) const;

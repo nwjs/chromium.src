@@ -14,6 +14,7 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/common/bookmark_metrics.h"
+#include "components/sync_bookmarks/scoped_bookmark_extensive_changes.h"
 
 namespace sync_bookmarks {
 
@@ -44,6 +45,8 @@ InitialAccountBookmarkDeduplicator::~InitialAccountBookmarkDeduplicator() =
     default;
 
 void InitialAccountBookmarkDeduplicator::Deduplicate() {
+  ScopedBookmarkExtensiveChanges extensive_changes(*bookmark_model_);
+
   for (const auto& [local_permanent_node, account_permanent_node] :
        GetLocalAndAccountPermanentNodePairs(bookmark_model_)) {
     std::vector<size_t> indices_to_remove;

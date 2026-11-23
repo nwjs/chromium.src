@@ -8,24 +8,18 @@
 #include <utility>
 
 #include "base/memory/raw_ptr.h"
-#include "base/notreached.h"
-#include "base/run_loop.h"
 #include "base/scoped_observation.h"
 #include "base/strings/escape.h"
-#include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "content/browser/accessibility/browser_accessibility_state_impl.h"
-#include "content/browser/accessibility/render_accessibility_host.h"
 #if BUILDFLAG(IS_ANDROID)
-#include "content/browser/accessibility/web_contents_accessibility_android.h"
+#include "content/browser/accessibility/web_contents_accessibility_base.h"
 #endif
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_accessibility_state.h"
 #include "content/public/browser/web_contents.h"
-#include "content/public/test/accessibility_notification_waiter.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/content_browser_test.h"
@@ -34,11 +28,9 @@
 #include "content/shell/browser/shell.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/platform/ax_mode_observer.h"
 #include "ui/accessibility/platform/ax_platform.h"
-#include "ui/accessibility/platform/browser_accessibility_manager.h"
 
 namespace content {
 
@@ -451,198 +443,6 @@ IN_PROC_BROWSER_TEST_F(ScopedAccessibilityModeTest, AXModesFromPlatform) {
       ->SetDiscoverAssistiveTechnologyCallbackForTesting({});
 }
 
-class AccessibilityPerformanceMeasurementExperimentTest
-    : public ScopedAccessibilityModeTest,
-      public testing::WithParamInterface<std::string> {
- protected:
-  AccessibilityPerformanceMeasurementExperimentTest() {
-    // Initialize the feature and its parameters before the browser is
-    // created, as its value is accessed during browser initialization. Please
-    // see base::test::ScopedFeatureList documentation for more details. Note
-    // that `GetParam()`will be instantiated for each test case with the
-    // possible experiment groups.
-    feature_list_.InitAndEnableFeatureWithParameters(
-        features::kAccessibilityPerformanceMeasurementExperiment,
-        {{"accessibility_performance_group_name", GetParam()}});
-  }
-
-  static ui::AXMode ExpectedAXModeForExperimentGroup() {
-    if (GetParam() == "AXModeComplete") {
-      return ui::kAXModeComplete & ~kIgnoredModeFlags;
-    }
-    if (GetParam() == "WebContentsOnly") {
-      return ui::kAXModeBasic & ~kIgnoredModeFlags;
-    }
-    if (GetParam() == "AXModeCompleteNoInlineTextBoxes") {
-      return (ui::kAXModeComplete & ~ui::AXMode::kInlineTextBoxes) &
-             ~kIgnoredModeFlags;
-    }
-    if (GetParam() == "RendererSerializationOnly") {
-      return ui::kAXModeComplete & ~kIgnoredModeFlags;
-    }
-    NOTREACHED();
-  }
-
-  void WaitForExperimentShutDown() {
-    base::RunLoop loop;
-    base::RepeatingClosure check_task;  // Declare upfront for self-capture
-    check_task = base::BindLambdaForTesting([&]() {
-      if (!accessibility_state()
-               .IsAccessibilityPerformanceMeasurementExperimentActive()) {
-        return loop.Quit();
-      }
-      base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-          FROM_HERE, check_task, base::Milliseconds(10));
-    });
-
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(FROM_HERE,
-                                                             check_task);
-    loop.Run();
-  }
-
-  base::test::ScopedFeatureList feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(AXModeComplete,
-                         AccessibilityPerformanceMeasurementExperimentTest,
-                         testing::Values("AXModeComplete"));
-INSTANTIATE_TEST_SUITE_P(WebContentsOnly,
-                         AccessibilityPerformanceMeasurementExperimentTest,
-                         testing::Values("WebContentsOnly"));
-INSTANTIATE_TEST_SUITE_P(AXModeCompleteNoInlineTextBoxes,
-                         AccessibilityPerformanceMeasurementExperimentTest,
-                         testing::Values("AXModeCompleteNoInlineTextBoxes"));
-INSTANTIATE_TEST_SUITE_P(RendererSerializationOnly,
-                         AccessibilityPerformanceMeasurementExperimentTest,
-                         testing::Values("RendererSerializationOnly"));
-
-// Verifies that when the feature
-// `AccessibilityPerformanceMeasurementExperiment`is enabled, it modifies the
-// AXModes.
-IN_PROC_BROWSER_TEST_P(
-    AccessibilityPerformanceMeasurementExperimentTest,
-    AccessibilityPerformanceMeasurementExperimentChangesAXModes) {
-  ASSERT_TRUE(
-      features::IsAccessibilityPerformanceMeasurementExperimentEnabled());
-  ASSERT_TRUE(accessibility_state()
-                  .IsAccessibilityPerformanceMeasurementExperimentActive());
-
-  // The AXModes must be the ones coming from the experiment group.
-  ASSERT_EQ(web_contents1().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ExpectedAXModeForExperimentGroup());
-  ASSERT_EQ(web_contents2().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ExpectedAXModeForExperimentGroup());
-  ASSERT_EQ(web_contents3().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ExpectedAXModeForExperimentGroup());
-
-  // Set a new AXMode, which will cause the experiment to stop running and the
-  // new AXMode to be only the one being set.
-  auto scoped_mode = accessibility_state().CreateScopedModeForProcess(
-      ui::kAXModeBasic & ~kIgnoredModeFlags);
-
-  WaitForExperimentShutDown();
-  ASSERT_FALSE(accessibility_state()
-                   .IsAccessibilityPerformanceMeasurementExperimentActive());
-
-  EXPECT_EQ(web_contents1().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ui::kAXModeBasic & ~kIgnoredModeFlags);
-  EXPECT_EQ(web_contents2().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ui::kAXModeBasic & ~kIgnoredModeFlags);
-  EXPECT_EQ(web_contents3().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ui::kAXModeBasic & ~kIgnoredModeFlags);
-}
-
-// Verifies that when the experiment is running, it gets turned off in case a
-// BrowserContext has AXModes set.
-IN_PROC_BROWSER_TEST_P(AccessibilityPerformanceMeasurementExperimentTest,
-                       ExperimentStopsAfterAXModeChangesForBrowserContext) {
-  ASSERT_TRUE(
-      features::IsAccessibilityPerformanceMeasurementExperimentEnabled());
-  ASSERT_TRUE(accessibility_state()
-                  .IsAccessibilityPerformanceMeasurementExperimentActive());
-
-  auto scoped_mode = accessibility_state().CreateScopedModeForBrowserContext(
-      &browser_context1(), ui::kAXModeComplete);
-
-  WaitForExperimentShutDown();
-  ASSERT_FALSE(accessibility_state()
-                   .IsAccessibilityPerformanceMeasurementExperimentActive());
-  EXPECT_EQ(web_contents1().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ui::kAXModeComplete & ~kIgnoredModeFlags);
-  EXPECT_EQ(web_contents2().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ui::kAXModeComplete & ~kIgnoredModeFlags);
-  EXPECT_EQ(web_contents3().GetAccessibilityMode() & ~kIgnoredModeFlags,
-            ui::AXMode() & ~kIgnoredModeFlags);
-  EXPECT_EQ(accessibility_state().GetAccessibilityModeForBrowserContext(
-                &browser_context1()) &
-                ~kIgnoredModeFlags,
-            ui::kAXModeComplete & ~kIgnoredModeFlags);
-  EXPECT_EQ(accessibility_state().GetAccessibilityModeForBrowserContext(
-                &browser_context2()) &
-                ~kIgnoredModeFlags,
-            ui::AXMode() & ~kIgnoredModeFlags);
-}
-
-class AccessibilityPerformanceMeasurementExperimentSerializationOnlyResetTest
-    : public AccessibilityPerformanceMeasurementExperimentTest {
- protected:
-  AccessibilityPerformanceMeasurementExperimentSerializationOnlyResetTest() =
-      default;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    RendererSerializationOnly,
-    AccessibilityPerformanceMeasurementExperimentSerializationOnlyResetTest,
-    testing::Values("RendererSerializationOnly"));
-
-// This test verifies that accessibility is reset when leaving the Renderer
-// Serialization Only experiment variant.
-IN_PROC_BROWSER_TEST_P(
-    AccessibilityPerformanceMeasurementExperimentSerializationOnlyResetTest,
-    WebContentsResetAfterExperimentShutDown) {
-  ASSERT_TRUE(
-      features::IsAccessibilityPerformanceMeasurementExperimentEnabled());
-  ASSERT_TRUE(accessibility_state()
-                  .IsAccessibilityPerformanceMeasurementExperimentActive());
-
-  base::RunLoop loop;
-  RenderAccessibilityHost::SetAccessibilityDataDiscardedCallbackForTesting(
-      loop.QuitClosure());
-
-  // Navigate to a page and check that the accessibility events have been
-  // discarded.
-  const std::string html = "<p>Hello World</p>";
-  GURL url("data:text/html," + base::EscapeQueryParamValue(html, false));
-  EXPECT_TRUE(NavigateToURL(shell(), url));
-
-  // This loop will quit once accessibility events arrive in the browser and
-  // are discarded because the "RendererSerializationOnly" variant of the
-  // performance experiment is active.
-  loop.Run();
-  RenderAccessibilityHost::SetAccessibilityDataDiscardedCallbackForTesting({});
-
-  // Check that events have been discarded properly. This means that a
-  // BrowserAccessibilityManager (BAM) was not created for this WebContents,
-  // as a BAM is typically instantiated when processing accessibility events.
-  auto* web_contents_impl = static_cast<WebContentsImpl*>(&web_contents1());
-  ASSERT_FALSE(web_contents_impl->GetRootBrowserAccessibilityManager());
-
-  AccessibilityNotificationWaiter waiter(&web_contents1(),
-                                         ax::mojom::Event::kLoadComplete);
-
-  // Create a new mode, which will stop the experiment.
-  auto scoped_mode =
-      accessibility_state().CreateScopedModeForProcess(ui::kAXModeBasic);
-
-  ASSERT_TRUE(waiter.WaitForNotification());
-
-  // Verify that the accessibility tree has now been loaded as a result of
-  // resetting accessibility on the WebContents.
-  ASSERT_TRUE(web_contents_impl->GetRootBrowserAccessibilityManager());
-  ASSERT_TRUE(web_contents_impl->GetRootBrowserAccessibilityManager()
-                  ->GetBrowserAccessibilityRoot());
-}
-
 #if BUILDFLAG(IS_ANDROID)
 // Exhaustively verifies per-WebContents vs. GetAccessibilityMode(),
 // ActiveAssistiveTech, and UMA histograms when Java
@@ -664,20 +464,40 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(web_contents2().GetAccessibilityMode(), ui::AXMode());
   ASSERT_EQ(web_contents3().GetAccessibilityMode(), ui::AXMode());
 
-  // Initialize WebContentsAccessibilityAndroid on web_contents1() ONLY
+  // Initialize WebContentsAccessibilityBase on web_contents1() ONLY
   // (simulating Java becoming ready on a foreground tab while web_contents2()
   // and web_contents3() do not have Java accessibility ready). Owned by
   // WebContents via RenderWidgetHostConnector.
-  auto* wcax1 = new WebContentsAccessibilityAndroid(&web_contents1());
+  auto* wcax1 = new WebContentsAccessibilityBase(&web_contents1());
 
-  // Case 1: No accessibility services enabled (e.g. framework probe during
-  // view/autofill structure query).
+  // Case 1: No accessibility services or password managers enabled (e.g.
+  // framework probe during view/autofill structure query).
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/false,
       /*is_complex_accessibility_service_enabled=*/false,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/false);
+  // Without any accessibility service or password manager, no AXMode is set.
+  EXPECT_EQ(accessibility_state().GetAccessibilityMode(), ui::AXMode());
+  EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::AXMode());
+  EXPECT_EQ(web_contents2().GetAccessibilityMode(), ui::AXMode());
+  EXPECT_EQ(web_contents3().GetAccessibilityMode(), ui::AXMode());
+  histogram_tester.ExpectTotalCount("Accessibility.Bundle", 0);
+  histogram_tester.ExpectTotalCount("Accessibility.ModeFlag", 0);
+  histogram_tester.ExpectTotalCount("Accessibility.EngineUse.TimeUntilStart",
+                                    0);
+
+  // Case 2: Basic accessibility service enabled (neither complex nor screen
+  // reader).
+  wcax1->SetBrowserAXMode(
+      /*env=*/nullptr,
+      /*is_known_screen_reader_enabled=*/false,
+      /*is_complex_accessibility_service_enabled=*/false,
+      /*is_form_controls_candidate=*/false,
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
   // GetAccessibilityMode() reflects the active mode across WebContents
   // (ui::kAXModeBasic), while web_contents2() and web_contents3() remain at
   // ui::AXMode().
@@ -696,13 +516,14 @@ IN_PROC_BROWSER_TEST_F(
   histogram_tester.ExpectTotalCount("Accessibility.EngineUse.TimeUntilStart",
                                     1);
 
-  // Case 2: Password manager only (FormControls candidate).
+  // Case 3: Password manager only (FormControls candidate).
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/false,
       /*is_complex_accessibility_service_enabled=*/false,
       /*is_form_controls_candidate=*/true,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/false);
   EXPECT_EQ(accessibility_state().GetAccessibilityMode(),
             ui::kAXModeFormControls);
   EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::kAXModeFormControls);
@@ -711,37 +532,40 @@ IN_PROC_BROWSER_TEST_F(
       "Accessibility.Bundle", ui::AXMode::BundleHistogramValue::kFormControls,
       1);
 
-  // Case 3: Single basic on-screen service.
+  // Case 4: Single basic on-screen service.
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/false,
       /*is_complex_accessibility_service_enabled=*/false,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/true);
+      /*is_on_screen_mode_candidate=*/true,
+      /*is_any_accessibility_service_enabled=*/true);
   EXPECT_EQ(accessibility_state().GetAccessibilityMode(), ui::kAXModeBasic);
   EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::kAXModeBasic);
   EXPECT_EQ(web_contents2().GetAccessibilityMode(), ui::AXMode());
 
-  // Case 4: Complex user interaction accessibility service.
+  // Case 5: Complex user interaction accessibility service.
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/false,
       /*is_complex_accessibility_service_enabled=*/true,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
   EXPECT_EQ(accessibility_state().GetAccessibilityMode(), ui::kAXModeComplete);
   EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::kAXModeComplete);
   EXPECT_EQ(web_contents2().GetAccessibilityMode(), ui::AXMode());
   histogram_tester.ExpectBucketCount(
       "Accessibility.Bundle", ui::AXMode::BundleHistogramValue::kComplete, 1);
 
-  // Case 5: Known screen reader (TalkBack) enabled.
+  // Case 6: Known screen reader (TalkBack) enabled.
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/true,
       /*is_complex_accessibility_service_enabled=*/true,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
   EXPECT_EQ(accessibility_state().GetAccessibilityMode(),
             ui::kAXModeComplete | ui::AXMode::kScreenReader);
   EXPECT_EQ(accessibility_state().ActiveAssistiveTech(),
@@ -775,13 +599,14 @@ IN_PROC_BROWSER_TEST_F(
   base::HistogramTester histogram_tester;
   accessibility_state().SetActivationFromPlatformEnabled(true);
 
-  auto* wcax1 = new WebContentsAccessibilityAndroid(&web_contents1());
+  auto* wcax1 = new WebContentsAccessibilityBase(&web_contents1());
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/true,
       /*is_complex_accessibility_service_enabled=*/true,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
 
   ASSERT_EQ(accessibility_state().ActiveAssistiveTech(),
             ui::AssistiveTech::kTalkback);
@@ -806,13 +631,14 @@ IN_PROC_BROWSER_TEST_F(
 
   // Once Java WebContentsAccessibilityImpl initializes for `new_wc` and calls
   // SetBrowserAXMode, `new_wc` receives the full accessibility mode.
-  auto* wcax_new = new WebContentsAccessibilityAndroid(new_wc);
+  auto* wcax_new = new WebContentsAccessibilityBase(new_wc);
   wcax_new->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/true,
       /*is_complex_accessibility_service_enabled=*/true,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
 
   EXPECT_EQ(new_wc->GetAccessibilityMode(),
             ui::kAXModeComplete | ui::AXMode::kScreenReader);
@@ -826,7 +652,7 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 // Verifies the b/565076216 scenario: a background/hidden tab initializing
-// WebContentsAccessibilityAndroid when no accessibility services are enabled
+// WebContentsAccessibilityBase when no accessibility services are enabled
 // never leaks kAXModeBasic to a foreground tab, and auto-disabling one tab
 // does not affect another active tab.
 IN_PROC_BROWSER_TEST_F(
@@ -836,15 +662,30 @@ IN_PROC_BROWSER_TEST_F(
 
   // web_contents1() is the active foreground tab; web_contents2() is a
   // background tab (e.g. restored at startup on desktop/phone).
-  auto* wcax_bg = new WebContentsAccessibilityAndroid(&web_contents2());
+  auto* wcax_bg = new WebContentsAccessibilityBase(&web_contents2());
   wcax_bg->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/false,
       /*is_complex_accessibility_service_enabled=*/false,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/false);
 
-  // Foreground tab (web_contents1) must remain at ui::AXMode().
+  // Without any accessibility service or password manager, neither tab gets an
+  // AXMode.
+  EXPECT_EQ(accessibility_state().GetAccessibilityMode(), ui::AXMode());
+  EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::AXMode());
+  EXPECT_EQ(web_contents2().GetAccessibilityMode(), ui::AXMode());
+
+  // Even when a basic accessibility service is enabled on the background tab,
+  // the foreground tab (web_contents1) must remain at ui::AXMode().
+  wcax_bg->SetBrowserAXMode(
+      /*env=*/nullptr,
+      /*is_known_screen_reader_enabled=*/false,
+      /*is_complex_accessibility_service_enabled=*/false,
+      /*is_form_controls_candidate=*/false,
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
   EXPECT_EQ(accessibility_state().GetAccessibilityMode(), ui::kAXModeBasic);
   EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::AXMode());
   EXPECT_EQ(web_contents2().GetAccessibilityMode(), ui::kAXModeBasic);
@@ -863,13 +704,14 @@ IN_PROC_BROWSER_TEST_F(ScopedAccessibilityModeTest,
                        ProcessAndWebContentsScoperCoexistence) {
   accessibility_state().SetActivationFromPlatformEnabled(true);
 
-  auto* wcax1 = new WebContentsAccessibilityAndroid(&web_contents1());
+  auto* wcax1 = new WebContentsAccessibilityBase(&web_contents1());
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/true,
       /*is_complex_accessibility_service_enabled=*/true,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
 
   ASSERT_EQ(accessibility_state().GetAccessibilityMode(),
             ui::kAXModeComplete | ui::AXMode::kScreenReader);
@@ -906,7 +748,7 @@ IN_PROC_BROWSER_TEST_F(ScopedAccessibilityModeTest,
 // destroyed (closed), GetAccessibilityMode() and ActiveAssistiveTech() cleanly
 // reset to off/kNone via OnAnyModeChanged() even though ~WebContentsImpl()
 // detaches the WebContents from GetAllWebContents() before
-// ~WebContentsAccessibilityAndroid() destroys its ScopedAccessibilityMode.
+// ~WebContentsAccessibilityBase() destroys its ScopedAccessibilityMode.
 IN_PROC_BROWSER_TEST_F(ScopedAccessibilityModeTest,
                        LastWebContentsDestructionResetsAnyMode) {
   accessibility_state().SetActivationFromPlatformEnabled(true);
@@ -914,13 +756,14 @@ IN_PROC_BROWSER_TEST_F(ScopedAccessibilityModeTest,
   Shell* extra_shell = CreateBrowser();
   WebContents* extra_wc = extra_shell->web_contents();
 
-  auto* wcax_extra = new WebContentsAccessibilityAndroid(extra_wc);
+  auto* wcax_extra = new WebContentsAccessibilityBase(extra_wc);
   wcax_extra->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/true,
       /*is_complex_accessibility_service_enabled=*/true,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
 
   ASSERT_EQ(accessibility_state().GetAccessibilityMode(),
             ui::kAXModeComplete | ui::AXMode::kScreenReader);
@@ -935,7 +778,7 @@ IN_PROC_BROWSER_TEST_F(ScopedAccessibilityModeTest,
             ui::AssistiveTech::kNone);
 }
 
-// Verifies that when WebContentsAccessibilityAndroid::SetBrowserAXMode enables
+// Verifies that when WebContentsAccessibilityBase::SetBrowserAXMode enables
 // accessibility on an outer WebContents, attached inner WebContents (such as
 // SlimWebViewGuest <webview> instances) also receive the AXMode whether they
 // attach before or after SetBrowserAXMode is called.
@@ -949,7 +792,7 @@ IN_PROC_BROWSER_TEST_F(
   // WebContentsAccessibilityImpl during SetUpOnMainThread or navigation, reset
   // its renderer accessibility scoper so we start from a clean ui::AXMode().
   for (WebContentsImpl* wc : WebContentsImpl::GetAllWebContents()) {
-    if (auto* wcax = static_cast<WebContentsAccessibilityAndroid*>(
+    if (auto* wcax = static_cast<WebContentsAccessibilityBase*>(
             wc->GetPrimaryMainFrame()
                 ->AccessibilityGetWebContentsAccessibility())) {
       wcax->DisableRendererAccessibility(/*env=*/nullptr);
@@ -965,19 +808,20 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::AXMode());
   EXPECT_EQ(inner_before->GetAccessibilityMode(), ui::AXMode());
 
-  auto* wcax1 = static_cast<WebContentsAccessibilityAndroid*>(
+  auto* wcax1 = static_cast<WebContentsAccessibilityBase*>(
       static_cast<WebContentsImpl*>(&web_contents1())
           ->GetPrimaryMainFrame()
           ->AccessibilityGetWebContentsAccessibility());
   if (!wcax1) {
-    wcax1 = new WebContentsAccessibilityAndroid(&web_contents1());
+    wcax1 = new WebContentsAccessibilityBase(&web_contents1());
   }
   wcax1->SetBrowserAXMode(
       /*env=*/nullptr,
       /*is_known_screen_reader_enabled=*/true,
       /*is_complex_accessibility_service_enabled=*/true,
       /*is_form_controls_candidate=*/false,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/true);
 
   const ui::AXMode expected_mode =
       ui::kAXModeComplete | ui::AXMode::kScreenReader;
@@ -999,7 +843,8 @@ IN_PROC_BROWSER_TEST_F(
       /*is_known_screen_reader_enabled=*/false,
       /*is_complex_accessibility_service_enabled=*/false,
       /*is_form_controls_candidate=*/true,
-      /*is_on_screen_mode_candidate=*/false);
+      /*is_on_screen_mode_candidate=*/false,
+      /*is_any_accessibility_service_enabled=*/false);
   EXPECT_EQ(web_contents1().GetAccessibilityMode(), ui::kAXModeFormControls);
   EXPECT_EQ(inner_before->GetAccessibilityMode(), ui::kAXModeFormControls);
   EXPECT_EQ(inner_after->GetAccessibilityMode(), ui::kAXModeFormControls);

@@ -11,6 +11,7 @@
 #include <variant>
 #include <vector>
 
+#include "base/check_op.h"
 #include "base/notreached.h"
 #include "base/time/time.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub.mojom.h"
@@ -252,6 +253,8 @@ browser::context_hub::mojom::EntryType EnumTraits<
       return browser::context_hub::mojom::EntryType::kTab;
     case context_hub::MemoryBankType::kTextSelection:
       return browser::context_hub::mojom::EntryType::kTextSelection;
+    case context_hub::MemoryBankType::kImage:
+      return browser::context_hub::mojom::EntryType::kImage;
   }
   NOTREACHED();
 }
@@ -265,6 +268,8 @@ context_hub::MemoryBankType EnumTraits<browser::context_hub::mojom::EntryType,
       return context_hub::MemoryBankType::kTab;
     case browser::context_hub::mojom::EntryType::kTextSelection:
       return context_hub::MemoryBankType::kTextSelection;
+    case browser::context_hub::mojom::EntryType::kImage:
+      return context_hub::MemoryBankType::kImage;
   }
   NOTREACHED();
 }
@@ -278,8 +283,8 @@ bool StructTraits<browser::context_hub::mojom::MemoryBankEntryDataView,
   return data.ReadType(&out->type) && data.ReadTimestamp(&out->timestamp) &&
          data.ReadUrl(&out->url) && data.ReadTabTitle(&out->tab_title) &&
          data.ReadSelectedText(&out->selected_text) &&
-         data.ReadTags(&out->tags) && data.ReadNote(&out->note) &&
-         data.ReadCollection(&out->collection);
+         data.ReadImageUrl(&out->image_url) && data.ReadTags(&out->tags) &&
+         data.ReadNote(&out->note) && data.ReadCollection(&out->collection);
 }
 
 // static
@@ -424,6 +429,61 @@ bool StructTraits<browser::context_hub::mojom::SmartSearchResultDataView,
   }
   out->set_description(description);
   return data.ReadSourceReferences(out->mutable_source_references());
+}
+
+// static
+bool StructTraits<browser::context_hub::mojom::ChatReferenceDataView,
+                  context_hub::MemoryBankChatCitation>::
+    Read(browser::context_hub::mojom::ChatReferenceDataView data,
+         context_hub::MemoryBankChatCitation* out) {
+  std::string title;
+  GURL url;
+  if (!data.ReadTitle(&title) || !data.ReadUrl(&url)) {
+    return false;
+  }
+  out->title = std::move(title);
+  out->url = std::move(url);
+  return true;
+}
+
+// static
+browser::context_hub::mojom::ChatRole
+StructTraits<browser::context_hub::mojom::MemoryBankChatMessageDataView,
+             context_hub::MemoryBankChatHistoryTurn>::
+    role(const context_hub::MemoryBankChatHistoryTurn& entry) {
+  if (entry.turn.role() ==
+      optimization_guide::proto::ChatHistoryTurn::ROLE_USER) {
+    return browser::context_hub::mojom::ChatRole::kUser;
+  }
+  CHECK_EQ(entry.turn.role(),
+           optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT);
+  return browser::context_hub::mojom::ChatRole::kAssistant;
+}
+
+// static
+bool StructTraits<browser::context_hub::mojom::MemoryBankChatMessageDataView,
+                  context_hub::MemoryBankChatHistoryTurn>::
+    Read(browser::context_hub::mojom::MemoryBankChatMessageDataView data,
+         context_hub::MemoryBankChatHistoryTurn* out) {
+  browser::context_hub::mojom::ChatRole role;
+  std::string_view content;
+  std::vector<context_hub::MemoryBankChatCitation> citations;
+  if (!data.ReadRole(&role) || !data.ReadContent(&content) ||
+      !data.ReadReferences(&citations)) {
+    return false;
+  }
+  switch (role) {
+    case browser::context_hub::mojom::ChatRole::kUser:
+      out->turn.set_role(optimization_guide::proto::ChatHistoryTurn::ROLE_USER);
+      break;
+    case browser::context_hub::mojom::ChatRole::kAssistant:
+      out->turn.set_role(
+          optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT);
+      break;
+  }
+  out->turn.set_message_content(content);
+  out->citations = std::move(citations);
+  return true;
 }
 
 }  // namespace mojo

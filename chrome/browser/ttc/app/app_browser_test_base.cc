@@ -14,7 +14,7 @@
 #include "chrome/browser/optimization_guide/mock_remote_model_executor.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ttc/app/audio_controller.h"
+#include "chrome/browser/ttc/app/audio_controller_impl.h"
 #include "chrome/browser/ttc/app/conversation_impl.h"
 #include "chrome/browser/ttc/app/public/conversation.h"
 #include "chrome/browser/ttc/app/public/make_conversation.h"
@@ -268,23 +268,26 @@ bool AppBrowserTestBase::WaitForServiceState(ServiceState state) {
 }
 
 std::unique_ptr<Conversation> AppBrowserTestBase::MakeConversation(
-    SessionController& session_controller) {
-  // Holding on to the receiver without binding it means no real capture stream
-  // is ever opened, while keeping the pipe open so that capture doesn't fail.
-  auto audio_controller = std::make_unique<AudioController>(
-      base::BindLambdaForTesting(
-          [this](mojo::PendingReceiver<media::mojom::AudioStreamFactory>
-                     receiver) {
-            audio_stream_factory_receivers_.push_back(std::move(receiver));
-          }),
-      base::BindLambdaForTesting(
-          [this]() -> std::unique_ptr<media::AudioSystem> {
-            return std::make_unique<media::AudioSystemImpl>(
-                audio_manager_.get());
-          }));
+    SessionController& session_controller,
+    std::unique_ptr<AudioController> audio_controller) {
+  if (!audio_controller) {
+    // Holding on to the receiver without binding it means no real capture
+    // stream is ever opened, while keeping the pipe open so that capture
+    // doesn't fail.
+    audio_controller = std::make_unique<AudioControllerImpl>(
+        base::BindLambdaForTesting(
+            [this](mojo::PendingReceiver<media::mojom::AudioStreamFactory>
+                       receiver) {
+              audio_stream_factory_receivers_.push_back(std::move(receiver));
+            }),
+        base::BindLambdaForTesting(
+            [this]() -> std::unique_ptr<media::AudioSystem> {
+              return std::make_unique<media::AudioSystemImpl>(
+                  audio_manager_.get());
+            }));
+  }
 
-  return MakeConversationImplForTesting(session_controller,
-                                        std::move(audio_controller));
+  return MakeConversationImpl(session_controller, std::move(audio_controller));
 }
 
 }  // namespace ttc

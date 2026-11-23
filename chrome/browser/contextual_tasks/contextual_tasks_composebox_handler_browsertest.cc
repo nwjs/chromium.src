@@ -4,7 +4,10 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler.h"
 
+#include <map>
 #include <memory>
+#include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -33,11 +36,13 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
+#include "chrome/browser/contextual_tasks/mock_contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/smart_tab_sharing_metrics.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/desktop_query_contextualizer_delegate.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_query_flow_router.h"
@@ -60,6 +65,7 @@
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/lens/lens_features.h"
 #include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -82,8 +88,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/page_transition_types.h"
-#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -188,7 +194,7 @@ class MockContextualTasksUI : public ContextualTasksUI {
               TakeInputStateModel,
               (),
               (override));
-  MOCK_METHOD(std::vector<int32_t>, GetRestoredTabIds, (), (override));
+  MOCK_METHOD(const std::vector<int32_t>&, GetRestoredTabIds, (), (override));
   MOCK_METHOD(bool, IsActiveTabContextSuggestionShowing, (), (const, override));
   MOCK_METHOD(bool, IsContextualTasksEligibleOnInit, (), (const, override));
   MOCK_METHOD(contextual_tasks::ContextualTasksAutoSuggestionManager*,
@@ -414,6 +420,8 @@ class ContextualTasksComposeboxHandlerTest
     ON_CALL(*mock_ui_, GetBrowser()).WillByDefault(testing::Return(browser()));
     ON_CALL(*mock_ui_, GetInnerFrameUrl())
         .WillByDefault(testing::ReturnRefOfCopy(GURL()));
+    ON_CALL(*mock_ui_, GetRestoredTabIds())
+        .WillByDefault(testing::ReturnRefOfCopy(std::vector<int32_t>()));
     ON_CALL(*mock_ui_, GetAutoSuggestionManager())
         .WillByDefault(testing::Return(&auto_suggestion_manager_));
     ON_CALL(*mock_ui_, IsActiveTabContextSuggestionShowing())
@@ -654,6 +662,108 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
 
   handler_->CreateAndSendQueryMessage(kQuery, /*is_voice_search=*/false,
                                       kCgiParams);
+}
+
+// Fixture for verifying the toolbar-reopened session CGI param ("ctrs"). Points
+// the WebUI's browser window at a mock that hosts a mock panel controller so
+// the test can dictate whether the panel is open, whether the session was
+// reopened via a toolbar button, and which toolbar button reopened it.
+class ContextualTasksComposeboxHandlerReopenedViaToolbarTest
+    : public ContextualTasksComposeboxHandlerTest {
+ public:
+  using EntrySource =
+      contextual_tasks::ContextualTasksPanelController::EntrySource;
+
+  void SetUpOnMainThread() override {
+    ContextualTasksComposeboxHandlerTest::SetUpOnMainThread();
+    mock_browser_window_ =
+        std::make_unique<testing::NiceMock<MockBrowserWindowInterface>>();
+    mock_panel_controller_ = std::make_unique<
+        testing::NiceMock<contextual_tasks::MockContextualTasksPanelController>>(
+        mock_browser_window_.get());
+    webui::SetBrowserWindowInterface(web_contents(),
+                                     mock_browser_window_.get());
+  }
+
+  void TearDownOnMainThread() override {
+    // Restore the real browser window before the mocks go away so nothing is
+    // left pointing at a destroyed object.
+    webui::SetBrowserWindowInterface(web_contents(), browser());
+    mock_panel_controller_.reset();
+    mock_browser_window_.reset();
+    ContextualTasksComposeboxHandlerTest::TearDownOnMainThread();
+  }
+
+  void SetPanelState(bool is_open,
+                     bool is_reopened_via_toolbar_button,
+                     EntrySource entry_source) {
+    ON_CALL(*mock_panel_controller_, IsPanelOpenForContextualTask())
+        .WillByDefault(testing::Return(is_open));
+    ON_CALL(*mock_panel_controller_, IsActiveSessionReopenedViaToolbarButton())
+        .WillByDefault(testing::Return(is_reopened_via_toolbar_button));
+    ON_CALL(*mock_panel_controller_, GetActiveEntrySource())
+        .WillByDefault(testing::Return(entry_source));
+  }
+
+  // Submits a query and returns the CGI params the handler attached to the
+  // client-to-AIM request.
+  std::map<std::string, std::string> SubmitAndCaptureCgiParams() {
+    std::map<std::string, std::string> captured;
+    EXPECT_CALL(*mock_ui_, GetTaskId())
+        .WillRepeatedly(testing::ReturnRefOfCopy(std::optional<base::Uuid>()));
+    EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_))
+        .WillOnce(
+            [&captured](
+                std::unique_ptr<
+                    contextual_search::ContextualSearchContextController::
+                        CreateClientToAimRequestInfo> info) {
+              captured = info->additional_cgi_params;
+              return lens::ClientToAimMessage();
+            });
+    EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_));
+    handler_->CreateAndSendQueryMessage("reopened query",
+                                        /*is_voice_search=*/false);
+    return captured;
+  }
+
+ protected:
+  std::unique_ptr<testing::NiceMock<MockBrowserWindowInterface>>
+      mock_browser_window_;
+  std::unique_ptr<
+      testing::NiceMock<contextual_tasks::MockContextualTasksPanelController>>
+      mock_panel_controller_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerReopenedViaToolbarTest,
+                       ReopenedViaPinnedToolbarButton_SetsCtrsToOne) {
+  SetPanelState(/*is_open=*/true, /*is_reopened_via_toolbar_button=*/true,
+                EntrySource::kPermanentToolbarButton);
+  const auto cgi_params = SubmitAndCaptureCgiParams();
+  ASSERT_TRUE(cgi_params.contains("ctrs"));
+  EXPECT_EQ(cgi_params.at("ctrs"), "1");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerReopenedViaToolbarTest,
+                       ReopenedViaEphemeralToolbarButton_SetsCtrsToTwo) {
+  SetPanelState(/*is_open=*/true, /*is_reopened_via_toolbar_button=*/true,
+                EntrySource::kEphemeralToolbarButton);
+  const auto cgi_params = SubmitAndCaptureCgiParams();
+  ASSERT_TRUE(cgi_params.contains("ctrs"));
+  EXPECT_EQ(cgi_params.at("ctrs"), "2");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerReopenedViaToolbarTest,
+                       NotReopenedViaToolbarButton_OmitsCtrs) {
+  SetPanelState(/*is_open=*/true, /*is_reopened_via_toolbar_button=*/false,
+                EntrySource::kPermanentToolbarButton);
+  EXPECT_FALSE(SubmitAndCaptureCgiParams().contains("ctrs"));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerReopenedViaToolbarTest,
+                       PanelClosed_OmitsCtrs) {
+  SetPanelState(/*is_open=*/false, /*is_reopened_via_toolbar_button=*/true,
+                EntrySource::kEphemeralToolbarButton);
+  EXPECT_FALSE(SubmitAndCaptureCgiParams().contains("ctrs"));
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
@@ -1387,7 +1497,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   AutocompleteMatch match;
   handler_->GetOmniboxClientForTesting()->OnAutocompleteAccept(
       GURL("https://www.google.com/search?q=test query"), nullptr,
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
+      ui::mojom::WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED,
       omnibox::AutocompleteMatchType::kSearchSuggest, base::TimeTicks::Now(),
       false, false, u"test query", match, match);
 
@@ -1426,7 +1536,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   AutocompleteMatch match;
   handler_->GetOmniboxClientForTesting()->OnAutocompleteAccept(
       GURL("https://www.google.com/search?q=extracted%20query"), nullptr,
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
+      ui::mojom::WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED,
       omnibox::AutocompleteMatchType::kSearchSuggest, base::TimeTicks::Now(),
       false, false, u"extracted query", match, match);
 }
@@ -1445,7 +1555,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   AutocompleteMatch match;
   handler_->GetOmniboxClientForTesting()->OnAutocompleteAccept(
       GURL("https://www.google.com/search?other=param"), nullptr,
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
+      ui::mojom::WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED,
       omnibox::AutocompleteMatchType::kSearchSuggest, base::TimeTicks::Now(),
       false, false, u"other param", match, match);
 }
@@ -1813,7 +1923,7 @@ IN_PROC_BROWSER_TEST_F(
     RestoreTabIds) {
   std::vector<int32_t> restored_tab_ids = {1, 2};
   EXPECT_CALL(*mock_ui_, GetRestoredTabIds())
-      .WillOnce(testing::Return(restored_tab_ids));
+      .WillOnce(testing::ReturnRef(restored_tab_ids));
   EXPECT_CALL(mock_searchbox_page_, SetRestoredTabIds(restored_tab_ids))
       .Times(1);
 
@@ -4096,7 +4206,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Mock UI indicates tab_id 42 is already restored in the task.
   EXPECT_CALL(*mock_ui_, GetRestoredTabIds())
-      .WillRepeatedly(testing::Return(std::vector<int32_t>{42}));
+      .WillRepeatedly(testing::ReturnRefOfCopy(std::vector<int32_t>{42}));
 
   // Expect that auto-suggestion is suppressed (sent as nullptr) because the tab
   // is already restored.
@@ -4859,4 +4969,217 @@ IN_PROC_BROWSER_TEST_F(
   // enabled.
   histogram_tester.ExpectTotalCount(
       "ContextualSearch.SmartTabSharing.OptOutMidThread", 0);
+}
+
+class ContextualTasksComposeboxHandlerDriveUrlTest
+    : public ContextualTasksComposeboxHandlerTest {
+ public:
+  ContextualTasksComposeboxHandlerDriveUrlTest() {
+    drive_url_feature_list_.InitAndEnableFeature(
+        lens::features::kLensSendDriveTabUrlsInComposeboxes);
+  }
+  ~ContextualTasksComposeboxHandlerDriveUrlTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList drive_url_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerDriveUrlTest,
+                       SubmitQuery_UploadsDriveTabUrlAsUnresolvedUrl) {
+  tabs::TabInterface* active_tab = browser()->GetActiveTabInterface();
+  ASSERT_NE(active_tab, nullptr);
+  int32_t active_tab_id = active_tab->GetHandle().raw_value();
+  SessionID session_id = sessions::SessionTabHelper::IdForTab(web_contents());
+  const GURL kDriveUrl("https://docs.google.com/document/d/1234567890/edit");
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  EXPECT_CALL(*mock_ui_, GetTaskId())
+      .WillRepeatedly(
+          testing::ReturnRefOfCopy(std::optional<base::Uuid>(task_id)));
+
+  contextual_tasks::ContextualTask task(task_id);
+  auto context =
+      std::make_unique<contextual_tasks::ContextualTaskContext>(task);
+  EXPECT_CALL(*mock_contextual_tasks_service_ptr_,
+              GetContextForTask(testing::_, testing::_, testing::_, testing::_))
+      .WillOnce(
+          [&context](
+              const base::Uuid&,
+              const std::set<contextual_tasks::ContextualTaskContextSource>&,
+              std::unique_ptr<contextual_tasks::ContextDecorationParams>,
+              base::OnceCallback<void(
+                  std::unique_ptr<contextual_tasks::ContextualTaskContext>)>
+                  callback) { std::move(callback).Run(std::move(context)); });
+
+  // Add a delayed (implicit) tab context for the active tab.
+  base::MockCallback<ContextualSearchboxHandler::AddTabContextCallback>
+      callback;
+  std::optional<base::UnguessableToken> active_token_opt;
+  EXPECT_CALL(callback, Run(testing::_)).WillOnce([&](const auto& result) {
+    ASSERT_TRUE(result.has_value());
+    active_token_opt = result.value();
+  });
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
+  ASSERT_TRUE(active_token_opt.has_value());
+
+  EXPECT_CALL(*mock_tab_controller_, GetPageContext(testing::_))
+      .WillOnce([session_id, kDriveUrl](
+                    MockTabContextualizationController::GetPageContextCallback
+                        page_context_callback) {
+        auto data = std::make_unique<lens::ContextualInputData>();
+        data->tab_session_id = session_id;
+        data->page_url = kDriveUrl;
+        data->page_title = "Drive Doc";
+        data->is_page_context_eligible = true;
+        std::move(page_context_callback).Run(std::move(data));
+      });
+
+  bool saw_tab_upload = false;
+  bool saw_url_upload = false;
+  EXPECT_CALL(*mock_controller_,
+              StartFileUploadFlow(testing::_, testing::_, testing::_))
+      .Times(2)
+      .WillRepeatedly(
+          [this, kDriveUrl, &saw_tab_upload, &saw_url_upload](
+              const base::UnguessableToken& file_token,
+              std::unique_ptr<lens::ContextualInputData> data,
+              std::optional<lens::ImageEncodingOptions> image_options) {
+            ASSERT_NE(data, nullptr);
+            if (data->tab_session_id.has_value()) {
+              saw_tab_upload = true;
+              EXPECT_EQ(data->page_url, kDriveUrl);
+              EXPECT_TRUE(data->is_implicit_upload);
+            } else {
+              saw_url_upload = true;
+              EXPECT_EQ(data->parsed_url, kDriveUrl.spec());
+            }
+            PostUploadStatusChanged(
+                file_token, lens::MimeType::kUnknown,
+                contextual_search::ContextUploadStatus::kUploadSuccessful);
+          });
+
+  EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_))
+      .WillOnce(testing::Return(lens::ClientToAimMessage()));
+  base::RunLoop run_loop;
+  EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_))
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+
+  handler_->CreateAndSendQueryMessage("Summarize doc",
+                                      /*is_voice_search=*/false);
+  run_loop.Run();
+
+  EXPECT_TRUE(saw_tab_upload);
+  EXPECT_TRUE(saw_url_upload);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerDriveUrlTest,
+    SubmitQuery_UploadsManuallyAddedDriveTabUrlAsUnresolvedUrl) {
+  tabs::TabInterface* active_tab = browser()->GetActiveTabInterface();
+  ASSERT_NE(active_tab, nullptr);
+  int32_t active_tab_id = active_tab->GetHandle().raw_value();
+  SessionID session_id = sessions::SessionTabHelper::IdForTab(web_contents());
+  const GURL kDriveUrl("https://docs.google.com/document/d/1234567890/edit");
+
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  EXPECT_CALL(*mock_ui_, GetTaskId())
+      .WillRepeatedly(
+          testing::ReturnRefOfCopy(std::optional<base::Uuid>(task_id)));
+
+  contextual_tasks::ContextualTask task(task_id);
+  auto context =
+      std::make_unique<contextual_tasks::ContextualTaskContext>(task);
+  EXPECT_CALL(*mock_contextual_tasks_service_ptr_,
+              GetContextForTask(testing::_, testing::_, testing::_, testing::_))
+      .WillOnce(
+          [&context](
+              const base::Uuid&,
+              const std::set<contextual_tasks::ContextualTaskContextSource>&,
+              std::unique_ptr<contextual_tasks::ContextDecorationParams>,
+              base::OnceCallback<void(
+                  std::unique_ptr<contextual_tasks::ContextualTaskContext>)>
+                  callback) { std::move(callback).Run(std::move(context)); });
+
+  EXPECT_CALL(*mock_tab_controller_, GetPageContext(testing::_))
+      .WillOnce([session_id, kDriveUrl](
+                    MockTabContextualizationController::GetPageContextCallback
+                        page_context_callback) {
+        auto data = std::make_unique<lens::ContextualInputData>();
+        data->tab_session_id = session_id;
+        data->page_url = kDriveUrl;
+        data->page_title = "Drive Doc";
+        data->is_page_context_eligible = true;
+        std::move(page_context_callback).Run(std::move(data));
+      });
+
+  base::UnguessableToken tab_token;
+  EXPECT_CALL(*mock_controller_,
+              StartFileUploadFlow(testing::_, testing::_, testing::_))
+      .WillOnce([this, kDriveUrl, &tab_token](
+                    const base::UnguessableToken& file_token,
+                    std::unique_ptr<lens::ContextualInputData> data,
+                    std::optional<lens::ImageEncodingOptions> image_options) {
+        ASSERT_NE(data, nullptr);
+        EXPECT_TRUE(data->tab_session_id.has_value());
+        EXPECT_EQ(data->page_url, kDriveUrl);
+        tab_token = file_token;
+        PostUploadStatusChanged(
+            file_token, lens::MimeType::kUnknown,
+            contextual_search::ContextUploadStatus::kUploadSuccessful);
+      });
+
+  base::MockCallback<ContextualTasksComposeboxHandler::AddTabContextCallback>
+      callback;
+  std::optional<base::UnguessableToken> token_opt;
+  base::RunLoop add_tab_loop;
+  EXPECT_CALL(callback, Run(testing::_)).WillOnce([&](const auto& result) {
+    ASSERT_TRUE(result.has_value());
+    token_opt = result.value();
+    add_tab_loop.Quit();
+  });
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
+  add_tab_loop.Run();
+  ASSERT_TRUE(token_opt.has_value());
+
+  contextual_search::FileInfo uploaded_tab_info;
+  uploaded_tab_info.file_token = *token_opt;
+  uploaded_tab_info.tab_session_id = session_id;
+  uploaded_tab_info.tab_url = kDriveUrl;
+  uploaded_tab_info.request_id = lens::LensOverlayRequestId();
+  uploaded_tab_info.upload_status =
+      contextual_search::ContextUploadStatus::kUploadSuccessful;
+  ON_CALL(*mock_controller_, GetFileInfo(*token_opt))
+      .WillByDefault(testing::Return(&uploaded_tab_info));
+
+  bool saw_url_upload = false;
+  EXPECT_CALL(*mock_controller_,
+              StartFileUploadFlow(testing::_, testing::_, testing::_))
+      .WillOnce([this, kDriveUrl, &saw_url_upload](
+                    const base::UnguessableToken& file_token,
+                    std::unique_ptr<lens::ContextualInputData> data,
+                    std::optional<lens::ImageEncodingOptions> image_options) {
+        ASSERT_NE(data, nullptr);
+        EXPECT_FALSE(data->tab_session_id.has_value());
+        EXPECT_EQ(data->parsed_url, kDriveUrl.spec());
+        saw_url_upload = true;
+        PostUploadStatusChanged(
+            file_token, lens::MimeType::kUnknown,
+            contextual_search::ContextUploadStatus::kUploadSuccessful);
+      });
+
+  EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_))
+      .WillOnce(testing::Return(lens::ClientToAimMessage()));
+  base::RunLoop submit_loop;
+  EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_))
+      .WillOnce(base::test::RunClosure(submit_loop.QuitClosure()));
+
+  handler_->CreateAndSendQueryMessage("Summarize manual doc",
+                                      /*is_voice_search=*/false);
+  submit_loop.Run();
+
+  EXPECT_TRUE(saw_url_upload);
 }

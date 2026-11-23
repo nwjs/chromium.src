@@ -7,9 +7,11 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/webpreferences/web_preferences.mojom-blink.h"
 #include "third_party/blink/renderer/core/css/media_values_cached.h"
+#include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/media_type_names.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
 
@@ -102,7 +104,7 @@ TEST_F(SizesAttributeParserTest, Basic) {
 
   for (const SizesAttributeParserTestCase& test_case : test_cases) {
     SizesAttributeParser parser(media_values, test_case.input, nullptr);
-    EXPECT_EQ(test_case.effective_size, parser.Size()) << test_case.input;
+    EXPECT_EQ(test_case.effective_size, parser.Size().width) << test_case.input;
   }
 }
 
@@ -168,7 +170,7 @@ TEST_F(SizesAttributeParserTest, FloatViewportWidth) {
 
   for (const SizesAttributeParserTestCase& test_case : test_cases) {
     SizesAttributeParser parser(media_values, test_case.input, nullptr);
-    EXPECT_EQ(test_case.effective_size, parser.Size()) << test_case.input;
+    EXPECT_EQ(test_case.effective_size, parser.Size().width) << test_case.input;
   }
 }
 
@@ -176,35 +178,35 @@ TEST_F(SizesAttributeParserTest, NegativeSourceSizesValue) {
   SizesAttributeParser parser(GetTestMediaValues(), "-10px", nullptr);
 
   ASSERT_TRUE(!parser.IsAuto());
-  ASSERT_EQ(500, parser.Size());
+  ASSERT_EQ(500, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, ZeroSourceSizesValue) {
   SizesAttributeParser parser(GetTestMediaValues(), "0px", nullptr);
 
   ASSERT_TRUE(!parser.IsAuto());
-  ASSERT_EQ(0, parser.Size());
+  ASSERT_EQ(0, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, PositiveSourceSizesValue) {
   SizesAttributeParser parser(GetTestMediaValues(), "27px", nullptr);
 
   ASSERT_TRUE(!parser.IsAuto());
-  ASSERT_EQ(27, parser.Size());
+  ASSERT_EQ(27, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, EmptySizes) {
   SizesAttributeParser parser(GetTestMediaValues(), "", nullptr);
 
   ASSERT_TRUE(!parser.IsAuto());
-  ASSERT_EQ(500, parser.Size());
+  ASSERT_EQ(500, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizes) {
   SizesAttributeParser parser(GetTestMediaValues(), "auto", nullptr);
 
   ASSERT_TRUE(parser.IsAuto());
-  ASSERT_EQ(500, parser.Size());
+  ASSERT_EQ(500, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesNonLazyImg) {
@@ -217,7 +219,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesNonLazyImg) {
   SizesAttributeParser parser(GetTestMediaValues(), "auto", nullptr, img);
 
   ASSERT_TRUE(parser.IsAuto());
-  ASSERT_EQ(500, parser.Size());
+  ASSERT_EQ(500, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesLazyImgNoWidth) {
@@ -233,7 +235,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesLazyImgNoWidth) {
 
   // When img does not have a width and height defined the value from the UA
   // style sheet will be used
-  ASSERT_EQ(300, parser.Size());
+  ASSERT_EQ(300, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesLazyImgZeroWidth) {
@@ -246,7 +248,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesLazyImgZeroWidth) {
   SizesAttributeParser parser(GetTestMediaValues(), "auto", nullptr, img);
 
   ASSERT_TRUE(parser.IsAuto());
-  ASSERT_EQ(0, parser.Size());
+  ASSERT_EQ(0, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesLazyImgSmallPositiveWidth) {
@@ -259,7 +261,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesLazyImgSmallPositiveWidth) {
   SizesAttributeParser parser(GetTestMediaValues(), "auto", nullptr, img);
 
   ASSERT_TRUE(parser.IsAuto());
-  ASSERT_EQ(5, parser.Size());
+  ASSERT_EQ(5, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesLazyImgLargePositiveWidth) {
@@ -272,7 +274,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesLazyImgLargePositiveWidth) {
   SizesAttributeParser parser(GetTestMediaValues(), "auto", nullptr, img);
 
   ASSERT_TRUE(parser.IsAuto());
-  ASSERT_EQ(531, parser.Size());
+  ASSERT_EQ(531, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesUsesExplicitFallbackWhenNotRendered) {
@@ -287,7 +289,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesUsesExplicitFallbackWhenNotRendered) {
   // it, so the explicit fallback is used afterwards.
   SizesAttributeParser rendered_parser(GetTestMediaValues(), "auto, 123px",
                                        nullptr, img);
-  ASSERT_EQ(531, rendered_parser.Size());
+  ASSERT_EQ(531, rendered_parser.Size().width);
 
   img->remove();
 
@@ -295,7 +297,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesUsesExplicitFallbackWhenNotRendered) {
                               img);
 
   ASSERT_TRUE(parser.IsAuto());
-  EXPECT_EQ(123, parser.Size());
+  EXPECT_EQ(123, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesUsesLastWidthWhenNotRendered) {
@@ -308,7 +310,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesUsesLastWidthWhenNotRendered) {
 
   SizesAttributeParser rendered_parser(GetTestMediaValues(), "auto, 123px",
                                        nullptr, img);
-  ASSERT_EQ(531, rendered_parser.Size());
+  ASSERT_EQ(531, rendered_parser.Size().width);
 
   img->setAttribute(html_names::kStyleAttr, AtomicString("display: none"));
   UpdateAllLifecyclePhasesForTest();
@@ -318,7 +320,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesUsesLastWidthWhenNotRendered) {
                               img);
 
   ASSERT_TRUE(parser.IsAuto());
-  EXPECT_EQ(531, parser.Size());
+  EXPECT_EQ(531, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesNeverRenderedUsesFallback) {
@@ -336,7 +338,7 @@ TEST_F(SizesAttributeParserTest, AutoSizesNeverRenderedUsesFallback) {
                               img);
 
   ASSERT_TRUE(parser.IsAuto());
-  EXPECT_EQ(123, parser.Size());
+  EXPECT_EQ(123, parser.Size().width);
 }
 
 TEST_F(SizesAttributeParserTest, AutoSizesPrefersRenderedWidthToFallback) {
@@ -350,7 +352,184 @@ TEST_F(SizesAttributeParserTest, AutoSizesPrefersRenderedWidthToFallback) {
                               img);
 
   ASSERT_TRUE(parser.IsAuto());
-  EXPECT_EQ(531, parser.Size());
+  EXPECT_EQ(531, parser.Size().width);
+}
+
+TEST_F(SizesAttributeParserTest, TwoDimensionalSizes) {
+  ScopedSrcsetTwoDimensionalSizesForTest scoped_feature(true);
+  using Fit = EObjectFit;
+  // The viewport is 500px x 600px.
+  struct {
+    const char* input;
+    TargetBoxSize expected;
+  } test_cases[] = {
+      // Bare two-dimensional sizes.
+      {"contain 100px 50px", {100, 50, Fit::kContain}},
+      {"cover 100px 50px", {100, 50, Fit::kCover}},
+      {"COVER 100px 50px", {100, 50, Fit::kCover}},
+      {"Contain 100px 50px", {100, 50, Fit::kContain}},
+      {"  contain   50vw   50vh  ", {250, 300, Fit::kContain}},
+      {"cover calc(100px + 1px) 0", {101, 0, Fit::kCover}},
+      {"contain min(100px, 50vw) max(10px, 10vh)", {100, 60, Fit::kContain}},
+      {"cover clamp(10px, 50vw, 1000px) 5em", {250, 80, Fit::kCover}},
+      {"cover 100px 50px, 400px", {100, 50, Fit::kCover}},
+      {"400px, cover 100px 50px", {400}},
+
+      // Matching media condition with a two-dimensional size.
+      {"(min-width: 400px) contain 100px 50px", {100, 50, Fit::kContain}},
+      {"(min-width:500px) cover 100px 50px, 400px", {100, 50, Fit::kCover}},
+      {"(min-width: 400px) cover 50vw 50vh, 10px", {250, 300, Fit::kCover}},
+      // Non-matching media condition falls back to a one-dimensional size.
+      {"(min-width:5000px) cover 100px 50px, 400px", {400}},
+      // Non-matching media condition falls back to another media condition
+      // with a two-dimensional size.
+      {"(min-width: 5000px) contain 100px 50px, "
+       "(min-width: 400px) cover 200px 100px, 300px",
+       {200, 100, Fit::kCover}},
+      // Non-matching media condition falls back to a bare 2D size.
+      {"(min-width: 5000px) contain 100px 50px, cover 200px 100px",
+       {200, 100, Fit::kCover}},
+      // A one-dimensional size with a matching media condition wins over a
+      // later two-dimensional size.
+      {"(min-width: 400px) 200px, (min-width: 400px) cover 100px 50px", {200}},
+      // ... and vice versa.
+      {"(min-width: 400px) cover 200px 100px, (min-width: 400px) 200px, 100px",
+       {200, 100, Fit::kCover}},
+      // A two-dimensional size with a matching media condition after a
+      // one-dimensional size with a non-matching media condition.
+      {"(max-width: 100px) 200px, (min-width: 400px) contain 100px 50px",
+       {100, 50, Fit::kContain}},
+      // Complex media conditions.
+      {"not (max-width: 100px) cover 100px 50px, 10px", {100, 50, Fit::kCover}},
+      {"not (min-width: 100px) cover 100px 50px, 10px", {10}},
+      {"(min-width: 100px) and (max-width: 1000px) contain 100px 50px, 10px",
+       {100, 50, Fit::kContain}},
+      {"(min-width: 100px) and (max-width: 200px) contain 100px 50px, 10px",
+       {10}},
+      {"(max-width: 100px) or (min-width: 400px) cover 100px 50px, 10px",
+       {100, 50, Fit::kCover}},
+      {"(width >= 400px) cover 100px 50px, 10px", {100, 50, Fit::kCover}},
+      {"(400px <= width <= 1000px) contain calc(10vw + 10px) 50px, 10px",
+       {60, 50, Fit::kContain}},
+      {"(width < 400px) cover 100px 50px, contain 20px 10px",
+       {20, 10, Fit::kContain}},
+      {"(orientation: portrait) cover 100px 50px, 10px",
+       {100, 50, Fit::kCover}},
+      {"(orientation: landscape) cover 100px 50px, 10px", {10}},
+      // `auto` without an img falls back to the next source size, which may be
+      // a two-dimensional size with a media condition.
+      {"auto, (min-width: 400px) cover 150px 75px, 300px",
+       {150, 75, Fit::kCover}},
+      {"auto, (min-width: 4000px) cover 150px 75px, 300px", {300}},
+
+      // Invalid: skipped in favor of the next source size.
+      {"contain 100px, 200px", {200}},
+      {"contain 100px 50px 20px, 200px", {200}},
+      {"contain -100px 50px, 200px", {200}},
+      {"contain 100px -50px, 200px", {200}},
+      {"contain 100 50, 200px", {200}},
+      {"contain 100px 50%, 200px", {200}},
+      {"fill 100px 50px, 200px", {200}},
+      {"scale-down 100px 50px, 200px", {200}},
+      {"100px 50px, 200px", {200}},
+      {"100px contain 50px, 200px", {200}},
+      {"contain cover 100px 50px, 200px", {200}},
+      {"contain, 200px", {200}},
+      {"(min-width: 400px) contain 100px, 200px", {200}},
+      {"(min-width: 400px) contain 100px -50px, 200px", {200}},
+      {"(min-width: 400px) contain 100px 50px 25px, 200px", {200}},
+      {"(min-width: 400px) contain 100px 50px 25px, "
+       "(min-width: 400px) cover 20px 10px",
+       {20, 10, Fit::kCover}},
+      {"contain 100px 50px 20px", {500}},
+  };
+
+  MediaValues* media_values = GetTestMediaValues();
+  for (const auto& test_case : test_cases) {
+    SizesAttributeParser parser(media_values, test_case.input, nullptr);
+    EXPECT_EQ(test_case.expected, parser.Size()) << test_case.input;
+  }
+}
+
+TEST_F(SizesAttributeParserTest, TwoDimensionalSizesDisabled) {
+  ScopedSrcsetTwoDimensionalSizesForTest scoped_feature(false);
+  const char* inputs[] = {
+      "cover 100px 50px, 200px",
+      "(min-width: 400px) cover 100px 50px, 200px",
+      "(min-width: 400px) contain 100px 50px, (min-width: 400px) 200px",
+  };
+  for (const char* input : inputs) {
+    SizesAttributeParser parser(GetTestMediaValues(), input, nullptr);
+    EXPECT_EQ((TargetBoxSize{200}), parser.Size()) << input;
+  }
+}
+
+TEST_F(SizesAttributeParserTest, TwoDimensionalSizesAutoFallbackNotRendered) {
+  ScopedSrcsetTwoDimensionalSizesForTest scoped_feature(true);
+  // A never-rendered auto-sized img uses the explicit fallback, which carries
+  // its own fit rather than the img's computed 'object-fit'.
+  SetBodyInnerHTML(R"HTML(
+    <div style="display: none">
+      <img id="target" loading="lazy" width="531" height="246"
+           style="object-fit: cover">
+    </div>
+  )HTML");
+
+  auto* img = To<HTMLImageElement>(GetElementById("target"));
+  ASSERT_FALSE(img->IsBeingRendered());
+
+  SizesAttributeParser parser(
+      GetTestMediaValues(),
+      "auto, (min-width: 5000px) cover 1px 1px, (min-width: 400px) contain "
+      "123px 45px, 10px",
+      nullptr, img);
+  ASSERT_TRUE(parser.IsAuto());
+  EXPECT_EQ((TargetBoxSize{123, 45, EObjectFit::kContain}), parser.Size());
+
+  // A one-dimensional fallback is 'fill', even though the img has
+  // 'object-fit: cover'.
+  SizesAttributeParser parser2(GetTestMediaValues(), "auto, 123px", nullptr,
+                               img);
+  EXPECT_EQ((TargetBoxSize{123}), parser2.Size());
+}
+
+TEST_F(SizesAttributeParserTest, AutoSizesTwoDimensional) {
+  ScopedSrcsetTwoDimensionalSizesForTest scoped_feature(true);
+  SetBodyInnerHTML(R"HTML(
+    <img id="target" loading="lazy" width="531" height="246" sizes="auto"
+         style="object-fit: scale-down">
+  )HTML");
+
+  auto* img = To<HTMLImageElement>(GetElementById("target"));
+  SizesAttributeParser parser(GetTestMediaValues(), "auto", nullptr, img);
+  EXPECT_EQ((TargetBoxSize{531, 246, EObjectFit::kScaleDown}), parser.Size());
+
+  img->setAttribute(html_names::kStyleAttr,
+                    AtomicString("object-fit: cover; display: none"));
+  GetDocument().UpdateStyleAndLayoutTree();
+  ASSERT_FALSE(img->IsBeingRendered());
+
+  // The last auto-sizes size and object-fit are used when not rendered.
+  SizesAttributeParser parser2(GetTestMediaValues(), "auto", nullptr, img);
+  EXPECT_EQ((TargetBoxSize{531, 246, EObjectFit::kScaleDown}), parser2.Size());
+
+  img->setAttribute(html_names::kStyleAttr, AtomicString("object-fit: cover"));
+  // Layout is needed so the new layout box has a content box size.
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  SizesAttributeParser parser3(GetTestMediaValues(), "auto", nullptr, img);
+  EXPECT_EQ((TargetBoxSize{531, 246, EObjectFit::kCover}), parser3.Size());
+}
+
+TEST_F(SizesAttributeParserTest, AutoSizesTwoDimensionalDisabled) {
+  ScopedSrcsetTwoDimensionalSizesForTest scoped_feature(false);
+  SetBodyInnerHTML(R"HTML(
+    <img id="target" loading="lazy" width="531" height="246" sizes="auto"
+         style="object-fit: cover">
+  )HTML");
+
+  auto* img = To<HTMLImageElement>(GetElementById("target"));
+  SizesAttributeParser parser(GetTestMediaValues(), "auto", nullptr, img);
+  EXPECT_EQ((TargetBoxSize{531}), parser.Size());
 }
 
 }  // namespace blink

@@ -4,9 +4,10 @@
 
 #import "ios/chrome/browser/safe_browsing/model/real_time_url_lookup_service_factory.h"
 
+#import <utility>
+
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
-#import "base/no_destructor.h"
 #import "components/safe_browsing/core/browser/realtime/url_lookup_service.h"
 #import "components/safe_browsing/core/browser/sync/safe_browsing_primary_account_token_fetcher.h"
 #import "components/safe_browsing/core/browser/sync/sync_utils.h"
@@ -31,23 +32,9 @@ variations::VariationsService* GetVariationsService() {
 
 }  // namespace
 
-// static
-safe_browsing::RealTimeUrlLookupService*
-RealTimeUrlLookupServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<safe_browsing::RealTimeUrlLookupService>(
-          profile, /*create=*/true);
-}
-
-// static
-RealTimeUrlLookupServiceFactory*
-RealTimeUrlLookupServiceFactory::GetInstance() {
-  static base::NoDestructor<RealTimeUrlLookupServiceFactory> instance;
-  return instance.get();
-}
-
-RealTimeUrlLookupServiceFactory::RealTimeUrlLookupServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("RealTimeUrlLookupService") {
+RealTimeUrlLookupServiceFactory::RealTimeUrlLookupServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "RealTimeUrlLookupService") {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(SyncServiceFactory::GetInstance());
   DependsOn(VerdictCacheManagerFactory::GetInstance());

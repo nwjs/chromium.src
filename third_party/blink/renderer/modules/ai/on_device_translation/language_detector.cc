@@ -4,20 +4,18 @@
 
 #include "third_party/blink/renderer/modules/ai/on_device_translation/language_detector.h"
 
+#include "base/check_deref.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/metrics/histogram_functions.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-blink.h"
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom-blink.h"
 #include "third_party/blink/public/platform/web_runtime_features.h"
-#include "third_party/blink/renderer/bindings/modules/v8/v8_create_monitor_callback.h"
-#include "third_party/blink/renderer/core/dom/abort_controller.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/modules/ai/ai_context_observer.h"
 #include "third_party/blink/renderer/modules/ai/ai_interface_proxy.h"
 #include "third_party/blink/renderer/modules/ai/ai_metrics.h"
 #include "third_party/blink/renderer/modules/ai/ai_utils.h"
 #include "third_party/blink/renderer/modules/ai/availability.h"
-#include "third_party/blink/renderer/modules/ai/create_monitor.h"
 #include "third_party/blink/renderer/modules/ai/exception_helpers.h"
 #include "third_party/blink/renderer/modules/ai/feedback_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
@@ -77,16 +75,8 @@ class LanguageDetectorCreateTask
                           options->getSignalOr(nullptr)),
         task_runner_(AIInterfaceProxy::GetTaskRunner(GetExecutionContext())),
         options_(options) {
-    if (options->hasMonitor()) {
-      monitor_ = MakeGarbageCollected<CreateMonitor>(
-          GetExecutionContext(), options->getSignalOr(nullptr), task_runner_);
-
-      // If an exception is thrown, don't initiate language detection model
-      // download. `CreateMonitorCallback`'s `Invoke` will automatically
-      // reject the promise with the thrown exception.
-      if (options->monitor()->Invoke(nullptr, monitor_).IsNothing()) {
-        return;
-      }
+    if (!InitializeMonitor(options, task_runner_)) {
+      return;
     }
 
     AIInterfaceProxy::GetLanguageDetectionModelStatus(
@@ -99,7 +89,6 @@ class LanguageDetectorCreateTask
   void Trace(Visitor* visitor) const override {
     ExecutionContextClient::Trace(visitor);
     AIContextObserver::Trace(visitor);
-    visitor->Trace(monitor_);
     visitor->Trace(options_);
   }
 
@@ -166,23 +155,8 @@ class LanguageDetectorCreateTask
       }
       return;
     }
-    if (monitor_) {
-      // Zero must be sent.
-      monitor_->OnDownloadProgressUpdate(0, kNormalizedDownloadProgressMax);
-
-      // Abort may have been triggered by `OnDownloadProgressUpdate`.
-      if (!GetResolver()) {
-        return;
-      }
-
-      // Ensure that a download completion event is sent.
-      monitor_->OnDownloadProgressUpdate(kNormalizedDownloadProgressMax,
-                                         kNormalizedDownloadProgressMax);
-
-      // Abort may have been triggered by `OnDownloadProgressUpdate`.
-      if (!GetResolver()) {
-        return;
-      }
+    if (!CompleteDownloadProgress()) {
+      return;
     }
     GetResolver()->Resolve(MakeGarbageCollected<LanguageDetector>(
         GetScriptState(), maybe_model.value(), GetAbortSignal(),
@@ -193,8 +167,6 @@ class LanguageDetectorCreateTask
   void ResetReceiver() override {}
 
   scoped_refptr<base::SequencedTaskRunner> task_runner_;
-
-  Member<CreateMonitor> monitor_;
   Member<LanguageDetectorCreateOptions> options_;
 };
 
@@ -333,22 +305,12 @@ LanguageDetector::LanguageDetector(
     scoped_refptr<base::SequencedTaskRunner>& task_runner)
     : task_runner_(task_runner),
       language_detection_model_(language_detection_model),
-      destruction_abort_controller_(AbortController::Create(script_state)),
-      create_abort_signal_(create_abort_signal),
-      expected_input_languages_(std::move(expected_input_languages)) {
-  if (create_abort_signal_) {
-    CHECK(!create_abort_signal_->aborted());
-    create_abort_handle_ = create_abort_signal_->AddAlgorithm(
-        BindOnce(&LanguageDetector::OnCreateAbortSignalAborted,
-                 WrapWeakPersistent(this), WrapWeakPersistent(script_state)));
-  }
-}
+      abort_manager_(script_state, create_abort_signal, this),
+      expected_input_languages_(std::move(expected_input_languages)) {}
 
 void LanguageDetector::Trace(Visitor* visitor) const {
   visitor->Trace(language_detection_model_);
-  visitor->Trace(destruction_abort_controller_);
-  visitor->Trace(create_abort_signal_);
-  visitor->Trace(create_abort_handle_);
+  visitor->Trace(abort_manager_);
   ScriptWrappable::Trace(visitor);
 }
 
@@ -366,8 +328,9 @@ ScriptPromise<IDLSequence<LanguageDetectionResult>> LanguageDetector::detect(
     return EmptyPromise();
   }
 
-  AbortSignal* composite_signal = CreateCompositeSignal(script_state, options);
-  if (HandleAbortSignal(composite_signal, script_state, exception_state)) {
+  auto* signal = abort_manager_.CreateSignal(
+      script_state, CHECK_DEREF(options).getSignalOr(nullptr), exception_state);
+  if (!signal) {
     return EmptyPromise();
   }
 
@@ -377,7 +340,7 @@ ScriptPromise<IDLSequence<LanguageDetectionResult>> LanguageDetector::detect(
 
   auto* resolver = MakeGarbageCollected<
       ResolverWithAbortSignal<IDLSequence<LanguageDetectionResult>>>(
-      script_state, composite_signal);
+      script_state, signal);
 
   language_detection_model_->DetectLanguage(
       task_runner_, input,
@@ -387,24 +350,10 @@ ScriptPromise<IDLSequence<LanguageDetectionResult>> LanguageDetector::detect(
 }
 
 void LanguageDetector::destroy(ScriptState* script_state) {
-  destruction_abort_controller_->abort(script_state);
-  DestroyImpl();
-}
-
-void LanguageDetector::DestroyImpl() {
-  language_detection_model_ = nullptr;
-  if (create_abort_handle_) {
-    create_abort_signal_->RemoveAlgorithm(create_abort_handle_);
-    create_abort_handle_ = nullptr;
+  // TODO(crbug.com/468104678): Align destroy() RaisesException behavior.
+  if (abort_manager_.OnDestroy(script_state, IGNORE_EXCEPTION)) {
+    language_detection_model_ = nullptr;
   }
-}
-
-void LanguageDetector::OnCreateAbortSignalAborted(ScriptState* script_state) {
-  if (script_state) {
-    destruction_abort_controller_->abort(
-        script_state, create_abort_signal_->reason(script_state));
-  }
-  DestroyImpl();
 }
 
 ScriptPromise<IDLDouble> LanguageDetector::measureInputUsage(
@@ -421,14 +370,14 @@ ScriptPromise<IDLDouble> LanguageDetector::measureInputUsage(
     return EmptyPromise();
   }
 
-  AbortSignal* composite_signal = CreateCompositeSignal(script_state, options);
-  if (HandleAbortSignal(composite_signal, script_state, exception_state)) {
+  auto* signal = abort_manager_.CreateSignal(
+      script_state, CHECK_DEREF(options).getSignalOr(nullptr), exception_state);
+  if (!signal) {
     return EmptyPromise();
   }
 
-  ResolverWithAbortSignal<IDLDouble>* resolver =
-      MakeGarbageCollected<ResolverWithAbortSignal<IDLDouble>>(
-          script_state, composite_signal);
+  auto* resolver = MakeGarbageCollected<ResolverWithAbortSignal<IDLDouble>>(
+      script_state, signal);
 
   task_runner_->PostTask(
       FROM_HERE, BindOnce(&ResolverWithAbortSignal<IDLDouble>::Resolve<double>,
@@ -555,21 +504,6 @@ void LanguageDetector::OnDetectComplete(
             DOMExceptionCode::kNotSupportedError, "Model not available"));
     }
   }
-}
-
-AbortSignal* LanguageDetector::CreateCompositeSignal(
-    ScriptState* script_state,
-    LanguageDetectorDetectOptions* options) {
-  HeapVector<Member<AbortSignal>> signals;
-
-  signals.push_back(destruction_abort_controller_->signal());
-
-  CHECK(options);
-  if (options->hasSignal()) {
-    signals.push_back(options->signal());
-  }
-
-  return MakeGarbageCollected<AbortSignal>(script_state, signals);
 }
 
 }  // namespace blink

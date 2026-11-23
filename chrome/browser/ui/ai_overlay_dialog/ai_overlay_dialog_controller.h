@@ -23,6 +23,7 @@ class PrefRegistrySyncable;
 }  // namespace user_prefs
 
 class HostContentSettingsMap;
+class Profile;
 
 namespace ttc {
 
@@ -42,6 +43,8 @@ class AiOverlayDialogController : public content::WebContentsDelegate {
 
   DECLARE_USER_DATA(AiOverlayDialogController);
 
+  static bool IsEnabledForProfile(Profile* profile);
+
   static AiOverlayDialogController* From(BrowserWindowInterface* browser);
 
   explicit AiOverlayDialogController(BrowserWindowInterface* browser);
@@ -54,8 +57,8 @@ class AiOverlayDialogController : public content::WebContentsDelegate {
   // Shows the transparent overlay above the browser window.
   virtual void ShowOverlay() = 0;
 
-  // Hides the overlay.
-  virtual void HideOverlay() = 0;
+  // Closes the overlay and tears down the active session.
+  virtual void CloseOverlay() = 0;
 
   // Toggles the overlay visibility.
   void ToggleOverlay();

@@ -427,6 +427,9 @@ class Profile : public content::BrowserContext {
   // Returns whether it is a system profile.
   bool IsSystemProfile() const;
 
+  // Returns whether it is a Top Chrome WebUI profile.
+  bool IsTopChromeWebUIProfile() const;
+
   // Returns true if this OffTheRecord profile was created via the
   // "createBrowsingContext" Chrome DevTools Protocol command.
   bool IsDevToolsOTRProfile() const;
@@ -454,7 +457,7 @@ class Profile : public content::BrowserContext {
   }
 
   void ResumeAccessibilityEvents() {
-    DCHECK_GT(accessibility_pause_level_, 0);
+    CHECK_GT(accessibility_pause_level_, 0, base::NotFatalUntil::M162);
     accessibility_pause_level_--;
   }
 

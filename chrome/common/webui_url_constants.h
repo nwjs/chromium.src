@@ -124,6 +124,7 @@ inline constexpr char kChromeUIDevToolsBlankPath[] = "blank";
 inline constexpr char kChromeUIDevToolsBundledPath[] = "bundled";
 inline constexpr char kChromeUIDevToolsCustomPath[] = "custom";
 inline constexpr char kChromeUIDevToolsHost[] = "devtools";
+inline constexpr char kChromeUIDevToolsRemoteHost[] = "devtools-remote";
 inline constexpr char kChromeUIDevToolsRemotePath[] = "remote";
 inline constexpr char kChromeUIDevToolsURL[] =
     "devtools://devtools/bundled/inspector.html";
@@ -326,7 +327,6 @@ inline constexpr char kChromeUISubresourceFilterInternalsHost[] =
 inline constexpr char kChromeUISuggestInternalsHost[] = "suggest-internals";
 inline constexpr char kChromeUISupportToolHost[] = "support-tool";
 inline constexpr char kChromeUISyncConfirmationHost[] = "sync-confirmation";
-inline constexpr char kChromeUISyncConfirmationLoadingPath[] = "loading";
 inline constexpr char kChromeUISyncConfirmationURL[] =
     "chrome://sync-confirmation/";
 inline constexpr char kChromeUISyncInternalsHost[] = "sync-internals";
@@ -433,6 +433,10 @@ inline constexpr char kChromeUISearchSettingsPath[] = "/search";
 inline constexpr char kChromeUITabSearchHost[] = "tab-search.top-chrome";
 inline constexpr char kChromeUITabSearchURL[] =
     "chrome://tab-search.top-chrome/";
+inline constexpr char kChromeUITabsFromOtherDevicesSidePanelHost[] =
+    "tabs-from-other-devices.top-chrome";
+inline constexpr char kChromeUITabsFromOtherDevicesSidePanelURL[] =
+    "chrome://tabs-from-other-devices.top-chrome/";
 inline constexpr char kChromeUIUntrustedReadAnythingSidePanelHost[] =
     "read-anything-side-panel.top-chrome";
 inline constexpr char kChromeUIUntrustedReadAnythingSidePanelURL[] =
@@ -515,6 +519,7 @@ inline constexpr char kChromeUIProfilePickerOmniboxEverywhereQuery[] =
     "omnibox-everywhere";
 inline constexpr char kChromeUIProfilePickerUrl[] = "chrome://profile-picker/";
 inline constexpr char kChromeUIHistorySyncOptinHost[] = "history-sync-optin";
+inline constexpr char kChromeUIHistorySyncOptinLoadingPath[] = "loading";
 inline constexpr char kChromeUIHistorySyncOptinURL[] =
     "chrome://history-sync-optin/";
 inline constexpr char kChromeUIUpdaterHost[] = "updater";
@@ -544,6 +549,7 @@ inline constexpr char kChromeUITabStripInternalsHost[] = "tab-strip-internals";
 // chrome_autocomplete_provider_client.cc to be listed by the built-in
 // AutocompleteProvider.
 
+inline constexpr char kAccessibilitySubPage[] = "accessibility";
 inline constexpr char kAccountSubPage[] = "account";
 inline constexpr char kAddressesSubPage[] = "addresses";
 inline constexpr char kAdPrivacySubPage[] = "adPrivacy";
@@ -562,11 +568,13 @@ inline constexpr char kDownloadsSubPage[] = "downloads";
 inline constexpr char kExperimentalAISettingsSubPage[] = "ai";
 inline constexpr char kFileSystemSettingsSubpage[] =
     "content/filesystem/siteDetails";
+inline constexpr char kFontsSubPage[] = "fonts";
 inline constexpr char kGlicSettingsSubpage[] = "ai/gemini";
 inline constexpr char kGlicEnterpriseSettingsSubpage[] = "ai/geminienterprise";
 inline constexpr char kGlicLoginSettingsSubpage[] = "ai/gemini/login";
 inline constexpr char kGoogleServicesSubpage[] = "googleServices";
 inline constexpr char kHandlerSettingsSubPage[] = "handlers";
+inline constexpr char kHelpSubPage[] = "help";
 inline constexpr char kHistorySearchSubpage[] = "ai/historySearch";
 inline constexpr char kImportDataSubPage[] = "importData";
 inline constexpr char kLanguageOptionsSubPage[] = "languages";

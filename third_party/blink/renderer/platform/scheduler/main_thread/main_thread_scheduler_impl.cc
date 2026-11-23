@@ -61,7 +61,6 @@
 #include "third_party/blink/renderer/platform/scheduler/main_thread/main_thread_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/page_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/pending_user_input.h"
-#include "third_party/blink/renderer/platform/scheduler/main_thread/task_type_names.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/use_case.h"
 #include "third_party/blink/renderer/platform/scheduler/main_thread/widget_scheduler_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
@@ -2582,6 +2581,15 @@ void MainThreadSchedulerImpl::OnPageFrozen(
           // |memory_purge_manager_| is a member of |this|, and will be deleted
           // first, so a raw pointer is safe here.
           weak_factory_.GetWeakPtr()));
+  memory_purge_manager_.SetOnAllPagesFrozenCallback(base::BindRepeating(
+      [](MainThreadSchedulerImpl* s, bool is_frozen) {
+        if (s->isolate()) {
+          s->isolate()->Freeze(is_frozen);
+        }
+      },
+      // |memory_purge_manager_| is a member of |this|, and will be deleted
+      // first, so a raw pointer is safe here.
+      base::Unretained(this)));
 #endif
   memory_purge_manager_.OnPageFrozen(called_from);
   UpdatePolicy();

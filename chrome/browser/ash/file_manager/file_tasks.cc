@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "apps/launcher.h"
+#include "ash/constants/ash_extension_constants.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/web_app_id_constants.h"
@@ -23,6 +24,7 @@
 #include "base/barrier_callback.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/fixed_flat_set.h"
+#include "base/containers/span.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
@@ -38,8 +40,8 @@
 #include "base/time/time.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/apps/app_service/metrics/app_platform_metrics.h"
 #include "chrome/browser/apps/app_service/metrics/app_service_metrics.h"
+#include "chrome/browser/ash/cloud_upload/upload_office_to_cloud.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/drive_integration_service_factory.h"
 #include "chrome/browser/ash/drive/file_system_util.h"
@@ -62,9 +64,7 @@
 #include "chrome/browser/ash/file_system_provider/service.h"
 #include "chrome/browser/ash/fileapi/file_system_backend.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_files_utils.h"
-#include "chrome/browser/chromeos/upload_office_to_cloud/upload_office_to_cloud.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
-#include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
@@ -73,9 +73,8 @@
 #include "chrome/browser/ui/webui/ash/cloud_upload/cloud_upload_dialog.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/cloud_upload_util.h"
 #include "chrome/browser/ui/webui/extensions/extension_icon_source.h"
-#include "chrome/common/extensions/api/file_browser_handlers/file_browser_handler.h"
-#include "chrome/common/extensions/extension_constants.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
+#include "chromeos/ash/experiences/extensions/common/api/file_browser_handlers/file_browser_handler.h"
 #include "components/drive/drive_api_util.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
@@ -95,6 +94,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension_set.h"
 #include "net/base/mime_util.h"
 #include "pdf/buildflags.h"
@@ -148,12 +148,15 @@ void UpdateDebugBaseValue(const TaskDescriptor& task,
           .Set("urls", std::move(urls_list));
 }
 
-void RecordChangesInDefaultPdfApp(const std::string& new_default_app_id,
-                                  const std::set<std::string>& mime_types,
-                                  const std::set<std::string>& suffixes) {
-  bool hasPdfMimeType = mime_types.contains(kPdfMimeType);
-  bool hasPdfSuffix = suffixes.contains(kPdfFileExtension);
-  if (!hasPdfMimeType || !hasPdfSuffix) {
+void RecordChangesInDefaultPdfApp(std::string_view new_default_app_id,
+                                  base::span<const std::string_view> mime_types,
+                                  base::span<const std::string_view> suffixes) {
+  bool has_pdf_mime_type = std::ranges::contains(mime_types, kPdfMimeType);
+  bool has_pdf_suffix =
+      std::ranges::any_of(suffixes, [](std::string_view suffix) {
+        return base::EqualsCaseInsensitiveASCII(suffix, kPdfFileExtension);
+      });
+  if (!has_pdf_mime_type || !has_pdf_suffix) {
     return;
   }
 
@@ -184,15 +187,18 @@ void KeepOnlyFileManagerInternalTasks(std::vector<FullTaskDescriptor>* tasks) {
   });
 }
 
+#if !BUILDFLAG(ENABLE_PDF)
 // Removes task |actions| handled by file manager.
-void RemoveFileManagerInternalActions(const std::set<std::string>& actions,
-                                      std::vector<FullTaskDescriptor>* tasks) {
-  std::erase_if(*tasks, [&actions](const auto& task) {
+void RemoveFileManagerInternalActions(
+    const base::span<const std::string_view> actions,
+    std::vector<FullTaskDescriptor>* tasks) {
+  std::erase_if(*tasks, [actions](const auto& task) {
     const auto& td = task.task_descriptor;
     return IsFilesAppId(td.app_id) &&
-           actions.contains(ParseFilesAppActionId(td.action_id));
+           std::ranges::contains(actions, ParseFilesAppActionId(td.action_id));
   });
 }
+#endif  // !BUILDFLAG(ENABLE_PDF)
 
 // Removes tasks handled by |app_id|".
 void RemoveActionsForApp(const std::string& app_id,
@@ -257,7 +263,7 @@ bool IsFallbackFileHandler(const FullTaskDescriptor& task) {
       // clang-format off
       kFileManagerAppId,
       kFileManagerSwaAppId,
-      kTextEditorAppId,
+      extension_misc::kTextEditorAppId,
       extension_misc::kQuickOfficeComponentExtensionId,
       extension_misc::kQuickOfficeInternalExtensionId,
       extension_misc::kQuickOfficeExtensionId,
@@ -327,20 +333,14 @@ void PostProcessFoundTasks(Profile* profile,
     KeepOnlyFileManagerInternalTasks(&resulting_tasks->tasks);
   }
 
-  std::set<std::string> disabled_actions;
-
-#if !BUILDFLAG(ENABLE_PDF)
-  disabled_actions.emplace("view-pdf");
-#endif  // !BUILDFLAG(ENABLE_PDF)
-
-  if (chromeos::IsEligibleAndEnabledUploadOfficeToCloud(profile)) {
+  if (ash::IsEligibleAndEnabledUploadOfficeToCloud(profile)) {
     // Hide the MS365 PWA File Handler.
     RemoveActionsForApp(ash::kMicrosoft365AppId, &resulting_tasks->tasks);
   }
 
-  if (!disabled_actions.empty()) {
-    RemoveFileManagerInternalActions(disabled_actions, &resulting_tasks->tasks);
-  }
+#if !BUILDFLAG(ENABLE_PDF)
+  RemoveFileManagerInternalActions({"view-pdf"}, &resulting_tasks->tasks);
+#endif  // !BUILDFLAG(ENABLE_PDF)
 
   ChooseAndSetDefaultTask(profile, entries, resulting_tasks.get());
   std::move(callback).Run(std::move(resulting_tasks));
@@ -602,8 +602,8 @@ FullTaskDescriptor& FullTaskDescriptor::operator=(
 
 void UpdateDefaultTask(Profile* profile,
                        const TaskDescriptor& task_descriptor,
-                       const std::set<std::string>& suffixes,
-                       const std::set<std::string>& mime_types,
+                       base::span<const std::string_view> suffixes,
+                       base::span<const std::string_view> mime_types,
                        bool replace_existing) {
   PrefService* pref_service = profile->GetPrefs();
   if (!pref_service) {
@@ -629,37 +629,33 @@ void UpdateDefaultTask(Profile* profile,
           });
     }
     if (!package.empty()) {
-      std::string new_app_id = package + "/" + task_descriptor.action_id;
+      std::string new_app_id =
+          base::StrCat({package, "/", task_descriptor.action_id});
       task_id = MakeTaskID(new_app_id, TASK_TYPE_ARC_APP, kActionIdView);
     }
   }
 
-  std::set<std::string> mime_types_to_set = mime_types;
-  std::set<std::string> suffixes_to_set;
-  // Suffixes are case insensitive.
-  std::ranges::transform(
-      suffixes, std::inserter(suffixes_to_set, suffixes_to_set.begin()),
-      [](const std::string& suffix) { return base::ToLowerASCII(suffix); });
-
   // In the special case where we are setting the default for one type of Office
   // file only, set defaults for the entire group as well.
   if (mime_types.size() == 1 && suffixes.size() == 1) {
-    if (WordGroupExtensions().contains(*suffixes.begin())) {
-      suffixes_to_set = WordGroupExtensions();
-      mime_types_to_set = WordGroupMimeTypes();
-    } else if (ExcelGroupExtensions().contains(*suffixes.begin())) {
-      suffixes_to_set = ExcelGroupExtensions();
-      mime_types_to_set = ExcelGroupMimeTypes();
-    } else if (PowerPointGroupExtensions().contains(*suffixes.begin())) {
-      suffixes_to_set = PowerPointGroupExtensions();
-      mime_types_to_set = PowerPointGroupMimeTypes();
+    std::string lower_suffix = base::ToLowerASCII(suffixes.front());
+    if (std::ranges::contains(WordGroupExtensions(), lower_suffix)) {
+      suffixes = WordGroupExtensions();
+      mime_types = WordGroupMimeTypes();
+    } else if (std::ranges::contains(ExcelGroupExtensions(), lower_suffix)) {
+      suffixes = ExcelGroupExtensions();
+      mime_types = ExcelGroupMimeTypes();
+    } else if (std::ranges::contains(PowerPointGroupExtensions(),
+                                     lower_suffix)) {
+      suffixes = PowerPointGroupExtensions();
+      mime_types = PowerPointGroupMimeTypes();
     }
   }
 
-  if (!mime_types_to_set.empty()) {
+  if (!mime_types.empty()) {
     ScopedDictPrefUpdate mime_type_pref(pref_service,
                                         ash::prefs::kDefaultTasksByMimeType);
-    for (const std::string& mime_type : mime_types_to_set) {
+    for (std::string_view mime_type : mime_types) {
       if (!replace_existing && mime_type_pref->contains(mime_type)) {
         continue;
       }
@@ -670,34 +666,29 @@ void UpdateDefaultTask(Profile* profile,
   if (!suffixes.empty()) {
     ScopedDictPrefUpdate suffix_pref(pref_service,
                                      ash::prefs::kDefaultTasksBySuffix);
-    for (const std::string& suffix : suffixes_to_set) {
-      if (!replace_existing && suffix_pref->contains(suffix)) {
+    // Suffixes are case insensitive.
+    for (std::string_view suffix : suffixes) {
+      std::string lower_suffix = base::ToLowerASCII(suffix);
+      if (!replace_existing && suffix_pref->contains(lower_suffix)) {
         continue;
       }
-      suffix_pref->Set(suffix, task_id);
+      suffix_pref->Set(lower_suffix, task_id);
     }
   }
 
-  RecordChangesInDefaultPdfApp(task_descriptor.app_id, mime_types_to_set,
-                               suffixes_to_set);
+  RecordChangesInDefaultPdfApp(task_descriptor.app_id, mime_types, suffixes);
 }
 
 void RemoveDefaultTask(Profile* profile,
                        const TaskDescriptor& task_descriptor,
-                       const std::set<std::string>& suffixes,
-                       const std::set<std::string>& mime_types) {
+                       base::span<const std::string_view> suffixes,
+                       base::span<const std::string_view> mime_types) {
   PrefService* pref_service = profile->GetPrefs();
   std::string task_id = TaskDescriptorToId(task_descriptor);
 
-  std::set<std::string> suffixes_to_remove;
-  // Suffixes are case insensitive.
-  std::ranges::transform(
-      suffixes, std::inserter(suffixes_to_remove, suffixes_to_remove.begin()),
-      [](const std::string& suffix) { return base::ToLowerASCII(suffix); });
-
   ScopedDictPrefUpdate mime_type_pref(pref_service,
                                       ash::prefs::kDefaultTasksByMimeType);
-  for (const auto& mime_type : mime_types) {
+  for (std::string_view mime_type : mime_types) {
     std::string* pref_value = mime_type_pref->FindString(mime_type);
     if (pref_value && *pref_value == task_id) {
       mime_type_pref->Remove(mime_type);
@@ -706,18 +697,20 @@ void RemoveDefaultTask(Profile* profile,
 
   ScopedDictPrefUpdate suffix_pref(pref_service,
                                    ash::prefs::kDefaultTasksBySuffix);
-  for (const auto& suffix : suffixes_to_remove) {
-    std::string* pref_value = suffix_pref->FindString(suffix);
+  // Suffixes are case insensitive.
+  for (std::string_view suffix : suffixes) {
+    std::string lower_suffix = base::ToLowerASCII(suffix);
+    std::string* pref_value = suffix_pref->FindString(lower_suffix);
     if (pref_value && *pref_value == task_id) {
-      suffix_pref->Remove(suffix);
+      suffix_pref->Remove(lower_suffix);
     }
   }
 }
 
 std::optional<TaskDescriptor> GetDefaultTaskFromPrefs(
     const PrefService& pref_service,
-    const std::string& mime_type,
-    const std::string& suffix) {
+    std::string_view mime_type,
+    std::string_view suffix) {
   VLOG(1) << "Looking for default for MIME type: " << mime_type
           << " and suffix: " << suffix;
   if (!mime_type.empty()) {

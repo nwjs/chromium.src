@@ -261,6 +261,104 @@ const TestCase kDistillWebPageTestCases[] = {
         </main>
       <body>)HTML",
      {"Main", "Expanded"}},
+    /* ----------------------- */
+    {"simple_page_list_items",
+     R"HTML(<!doctype html>
+      <body>
+        <main>
+          <ul>
+            <li><b>Bold</b> lead-in</li>
+            <li>Item <i>italic</i> text</li>
+          </ul>
+        </main>
+      <body>)HTML",
+     {"\xE2\x80\xA2 Bold lead-in", "\xE2\x80\xA2 Item italic text"}},
+    /* ----------------------- */
+    // A list item is picked as a single content node, rather than each
+    // paragraph inside it.
+    {"simple_page_list_item_with_paragraphs",
+     R"HTML(<!doctype html>
+      <body>
+        <main>
+          <ul>
+            <li>
+              <p>P1</p>
+              <p>P2</p>
+            </li>
+          </ul>
+        </main>
+      <body>)HTML",
+     {"\xE2\x80\xA2 P1P2"}},
+    /* ----------------------- */
+    {"simple_page_aria_list_item_with_paragraphs",
+     R"HTML(<!doctype html>
+      <body>
+        <main>
+          <div role='list'>
+            <div role='listitem'>
+              <p>P1</p>
+              <p>P2</p>
+            </div>
+          </div>
+        </main>
+      <body>)HTML",
+     {"P1P2"}},
+    /* ----------------------- */
+    // A collapsed list item is not content itself, but its descendants are
+    // still searched.
+    {"simple_page_collapsed_list_item_with_paragraph",
+     R"HTML(<!doctype html>
+      <body>
+        <main>
+          <p>Main</p>
+          <div role='list'>
+            <div role='listitem' aria-expanded='false'>
+              <p>Inside collapsed</p>
+            </div>
+          </div>
+        </main>
+      <body>)HTML",
+     {"Main", "Inside collapsed"}},
+    /* ----------------------- */
+    {"simple_page_table",
+     R"HTML(<!doctype html>
+      <body>
+        <main>
+          <table>
+            <tr><th>H1</th><th>H2</th></tr>
+            <tr><td>C1</td><td>C2</td></tr>
+          </table>
+        </main>
+      <body>)HTML",
+     {"H1H2C1C2"}},
+    /* ----------------------- */
+    // A table is picked as a single content node, rather than each paragraph
+    // inside it.
+    {"simple_page_table_with_paragraphs",
+     R"HTML(<!doctype html>
+      <body>
+        <main>
+          <p>Main</p>
+          <table>
+            <tr><th>H1</th></tr>
+            <tr><td><p>P1</p><p>P2</p></td></tr>
+          </table>
+        </main>
+      <body>)HTML",
+     {"Main", "H1P1P2"}},
+    /* ----------------------- */
+    // Layout tables are not content themselves, but their descendants are
+    // still searched.
+    {"simple_page_layout_table_with_paragraphs",
+     R"HTML(<!doctype html>
+      <body>
+        <main>
+          <table>
+            <tr><td><p>P1</p><p>P2</p></td></tr>
+          </table>
+        </main>
+      <body>)HTML",
+     {"P1", "P2"}},
 };
 
 TEST_P(AXTreeDistillerTest, DistillsWebPage) {
@@ -318,4 +416,94 @@ TEST_F(AXTreeDistillerTestBase, DistillPdfRoot) {
 
   ui::AXTree tree(snapshot);
   DistillAXTree(tree, snapshot, {"Heading", "Paragraph"});
+}
+
+TEST_F(AXTreeDistillerTestBase, DistillPdfListItem) {
+  ui::AXTreeUpdate snapshot;
+  ui::AXNodeData pdf_root_node;
+  pdf_root_node.id = 1;
+  pdf_root_node.role = ax::mojom::Role::kPdfRoot;
+
+  ui::AXNodeData list_node;
+  list_node.id = 2;
+  list_node.role = ax::mojom::Role::kList;
+
+  ui::AXNodeData list_item_node;
+  list_item_node.id = 3;
+  list_item_node.role = ax::mojom::Role::kListItem;
+
+  // List items in PDFs have static text children directly, without a
+  // paragraph in between.
+  ui::AXNodeData bold_text_node;
+  bold_text_node.id = 4;
+  bold_text_node.role = ax::mojom::Role::kStaticText;
+  bold_text_node.SetName("Bold");
+  bold_text_node.SetNameFrom(ax::mojom::NameFrom::kContents);
+
+  ui::AXNodeData text_node;
+  text_node.id = 5;
+  text_node.role = ax::mojom::Role::kStaticText;
+  text_node.SetName(" lead-in");
+  text_node.SetNameFrom(ax::mojom::NameFrom::kContents);
+
+  list_item_node.child_ids = {bold_text_node.id, text_node.id};
+  list_node.child_ids = {list_item_node.id};
+  pdf_root_node.child_ids = {list_node.id};
+  snapshot.root_id = pdf_root_node.id;
+  snapshot.nodes = {pdf_root_node, list_node, list_item_node, bold_text_node,
+                    text_node};
+  snapshot.has_tree_data = true;
+  snapshot.tree_data.tree_id = ui::AXTreeID::CreateNewAXTreeID();
+
+  ui::AXTree tree(snapshot);
+  DistillAXTree(tree, snapshot, {"Bold lead-in"});
+}
+
+TEST_F(AXTreeDistillerTestBase, DistillPdfTable) {
+  ui::AXTreeUpdate snapshot;
+  ui::AXNodeData pdf_root_node;
+  pdf_root_node.id = 1;
+  pdf_root_node.role = ax::mojom::Role::kPdfRoot;
+
+  ui::AXNodeData table_node;
+  table_node.id = 2;
+  table_node.role = ax::mojom::Role::kTable;
+
+  ui::AXNodeData row_node;
+  row_node.id = 3;
+  row_node.role = ax::mojom::Role::kRow;
+
+  ui::AXNodeData cell_node_1;
+  cell_node_1.id = 4;
+  cell_node_1.role = ax::mojom::Role::kCell;
+
+  ui::AXNodeData cell_text_node_1;
+  cell_text_node_1.id = 5;
+  cell_text_node_1.role = ax::mojom::Role::kStaticText;
+  cell_text_node_1.SetName("Cell 1");
+  cell_text_node_1.SetNameFrom(ax::mojom::NameFrom::kContents);
+
+  ui::AXNodeData cell_node_2;
+  cell_node_2.id = 6;
+  cell_node_2.role = ax::mojom::Role::kCell;
+
+  ui::AXNodeData cell_text_node_2;
+  cell_text_node_2.id = 7;
+  cell_text_node_2.role = ax::mojom::Role::kStaticText;
+  cell_text_node_2.SetName("Cell 2");
+  cell_text_node_2.SetNameFrom(ax::mojom::NameFrom::kContents);
+
+  cell_node_1.child_ids = {cell_text_node_1.id};
+  cell_node_2.child_ids = {cell_text_node_2.id};
+  row_node.child_ids = {cell_node_1.id, cell_node_2.id};
+  table_node.child_ids = {row_node.id};
+  pdf_root_node.child_ids = {table_node.id};
+  snapshot.root_id = pdf_root_node.id;
+  snapshot.nodes = {pdf_root_node,    table_node,  row_node,        cell_node_1,
+                    cell_text_node_1, cell_node_2, cell_text_node_2};
+  snapshot.has_tree_data = true;
+  snapshot.tree_data.tree_id = ui::AXTreeID::CreateNewAXTreeID();
+
+  ui::AXTree tree(snapshot);
+  DistillAXTree(tree, snapshot, {"Cell 1Cell 2"});
 }

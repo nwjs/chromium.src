@@ -8,6 +8,9 @@
 
 #import <algorithm>
 #import <cmath>
+#import <string>
+#import <string_view>
+#import <utility>
 #import <vector>
 
 #import "base/apple/foundation_util.h"
@@ -16,12 +19,15 @@
 #import "base/functional/bind.h"
 #import "base/functional/callback.h"
 #import "base/functional/callback_helpers.h"
+#import "base/memory/weak_ptr.h"
 #import "base/sequence_checker.h"
+#import "base/strings/sys_string_conversions.h"
 #import "base/task/bind_post_task.h"
 #import "base/task/sequenced_task_runner.h"
 #import "ios/chrome/browser/ai_prototyping/ttc/model/audio/ttc_audio_engine.h"
 #import "ios/chrome/browser/ai_prototyping/ttc/model/audio/ttc_audio_session_manager.h"
 #import "ios/chrome/browser/ai_prototyping/ttc/model/audio/ttc_audio_session_manager_delegate.h"
+#import "ios/chrome/browser/ai_prototyping/ttc/model/ttc_journal.h"
 #import "ios/public/provider/chrome/browser/intelligence/ttc_audio_engine_protocol.h"
 
 NSString* const kTTCAudioSessionControllerErrorDomain =
@@ -95,12 +101,23 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
 
 @implementation TTCAudioSessionController {
   SEQUENCE_CHECKER(_sequenceChecker);
+  base::WeakPtr<TTCJournal> _journal;
 }
 
 @synthesize delegate = _delegate;
 @synthesize loopbackEnabled = _loopbackEnabled;
 
 #pragma mark - Properties
+
+- (TTCJournal*)journal {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
+  return _journal.get();
+}
+
+- (void)setJournal:(TTCJournal*)journal {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
+  _journal = journal ? journal->GetWeakPtr() : nullptr;
+}
 
 - (BOOL)isCapturing {
   DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
@@ -209,6 +226,7 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   }
 
   [self.audioEngine stopCapture];
+  [self logAudioEvent:"AudioCaptureStopped" summary:"Mic capture stopped"];
 
   if (!self.audioEngine.isPlaying && !self.isStartingPlaybackEngine &&
       self.pendingPlaybackChunks.count == 0 && self.audioEngine.isStarted) {
@@ -293,6 +311,7 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
 
   self.sessionManager.delegate = nil;
   [self.sessionManager disconnect];
+  _journal.reset();
 }
 
 #pragma mark - TTCAudioEngineDelegate
@@ -361,6 +380,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   if (self.isDisconnected) {
     return;
   }
+  [self logAudioError:"AudioPlaybackError"
+              summary:"Audio playback error"
+                error:error
+      fallbackMessage:"Player error"];
   if ([self.delegate
           respondsToSelector:@selector(audioController:didEncounterError:)]) {
     [self.delegate audioController:self didEncounterError:error];
@@ -376,6 +399,7 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   if (self.isDisconnected) {
     return;
   }
+  [self logAudioRouteChanged:routeDescription hasHardwareAEC:hasAEC];
   self.audioEngine.aecMode =
       hasAEC ? TTCAudioAECMode::kHardware : TTCAudioAECMode::kAdaptiveSoftware;
   if ([self.delegate
@@ -411,6 +435,7 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   if (self.isDisconnected) {
     return;
   }
+  [self logAudioEvent:"AudioInterruptionBegan" summary:"Audio interrupted"];
   [self stopPlaybackImmediately];
   [self stopCapture];
 }
@@ -454,6 +479,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
     return;
   }
   if (!started) {
+    [self logAudioError:"AudioEngineStartFailed"
+                summary:"Audio engine start failed"
+                  error:startError
+        fallbackMessage:"Engine restart after reconfiguration failed"];
     if (wasCapturing &&
         [self.delegate
             respondsToSelector:@selector(audioControllerDidStopCapture:)]) {
@@ -469,6 +498,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
 
   if (wasCapturing) {
     if (![self.audioEngine startCapture]) {
+      [self logAudioError:"AudioEngineStartFailed"
+                  summary:"Audio engine start failed"
+                    error:nil
+          fallbackMessage:"Failed to restart microphone capture"];
       if ([self.delegate
               respondsToSelector:@selector(audioControllerDidStopCapture:)]) {
         [self.delegate audioControllerDidStopCapture:self];
@@ -542,6 +575,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
 
   if (!granted) {
     self.isStartingCapture = NO;
+    [self logAudioError:"AudioMicPermissionDenied"
+                summary:"Microphone permission denied"
+                  error:nil
+        fallbackMessage:""];
     if (completion) {
       completion(NO, CreateControllerError(
                          TTCAudioSessionControllerErrorCode::kPermissionDenied,
@@ -579,6 +616,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
 
   if (error) {
     self.isStartingCapture = NO;
+    [self logAudioError:"AudioSessionConfigFailed"
+                summary:"Audio session configuration failed"
+                  error:error
+        fallbackMessage:""];
     [self.sessionManager restoreAudioSessionCategory];
     if (completion) {
       completion(NO, error);
@@ -630,6 +671,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   self.isStartingCapture = NO;
 
   if (!started) {
+    [self logAudioError:"AudioEngineStartFailed"
+                summary:"Audio engine start failed"
+                  error:startError
+        fallbackMessage:"Engine start failed"];
     [self.sessionManager restoreAudioSessionCategory];
     if (completion) {
       completion(
@@ -643,6 +688,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   }
 
   if (![self.audioEngine startCapture]) {
+    [self logAudioError:"AudioEngineStartFailed"
+                summary:"Audio engine start failed"
+                  error:nil
+        fallbackMessage:"Failed to start microphone capture"];
     if (!self.audioEngine.isPlaying && self.pendingPlaybackChunks.count == 0) {
       [self.audioEngine stopWithCompletion:nil];
       [self.sessionManager restoreAudioSessionCategory];
@@ -655,6 +704,8 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
     }
     return;
   }
+
+  [self logAudioEvent:"AudioCaptureStarted" summary:"Mic capture started"];
 
   [self flushPendingPlaybackChunks];
 
@@ -677,6 +728,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
 
   NSError* sessionError = [self.sessionManager configureAudioSession];
   if (sessionError) {
+    [self logAudioError:"AudioSessionConfigFailed"
+                summary:"Audio session configuration failed"
+                  error:sessionError
+        fallbackMessage:""];
     [self.pendingPlaybackChunks removeAllObjects];
     if ([self.delegate
             respondsToSelector:@selector(audioController:didEncounterError:)]) {
@@ -708,6 +763,10 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   self.isStartingPlaybackEngine = NO;
 
   if (!started) {
+    [self logAudioError:"AudioEngineStartFailed"
+                summary:"Audio engine start failed"
+                  error:startError
+        fallbackMessage:"Playback engine start failed"];
     [self.pendingPlaybackChunks removeAllObjects];
     if (!self.isStartingCapture && !self.audioEngine.isCapturing) {
       [self.sessionManager restoreAudioSessionCategory];
@@ -742,6 +801,64 @@ NSError* CreateControllerError(TTCAudioSessionControllerErrorCode code,
   for (NSData* chunk in chunks) {
     [self.audioEngine schedulePlaybackData:chunk];
   }
+}
+
+#pragma mark - Journal Logging
+
+// Logs a `kAudio` journal entry for `event` with `summary`.
+- (void)logAudioEvent:(std::string_view)event
+              summary:(std::string_view)summary {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
+  if (!_journal) {
+    return;
+  }
+  _journal->Log(TTCJournalComponent::kAudio, event,
+                TTCJournalDetailsBuilder().SetSummary(summary).Build());
+}
+
+// Logs an `AudioRouteChanged` entry with the current route and hardware AEC
+// availability.
+- (void)logAudioRouteChanged:(NSString*)routeDescription
+              hasHardwareAEC:(BOOL)hasAEC {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
+  if (!_journal) {
+    return;
+  }
+  std::string route = base::SysNSStringToUTF8(routeDescription ?: @"");
+  _journal->Log(TTCJournalComponent::kAudio, "AudioRouteChanged",
+                TTCJournalDetailsBuilder()
+                    .SetSummary("Audio route changed to " + route)
+                    .Add("route", route)
+                    .Add("aec", static_cast<bool>(hasAEC))
+                    .Build());
+}
+
+// Logs a `kAudio` error entry for `event` with `summary`, adding `error`
+// domain/code and a descriptive error message when available.
+- (void)logAudioError:(std::string_view)event
+              summary:(std::string_view)summary
+                error:(NSError*)error
+      fallbackMessage:(std::string_view)fallbackMessage {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(_sequenceChecker);
+  if (!_journal) {
+    return;
+  }
+  TTCJournalDetailsBuilder details;
+  details.SetSummary(summary);
+  if (error) {
+    details.Add("domain", base::SysNSStringToUTF8(error.domain))
+        .Add("code", static_cast<int64_t>(error.code));
+    std::string desc = base::SysNSStringToUTF8(error.localizedDescription);
+    if (!desc.empty()) {
+      details.AddError(desc);
+    } else if (!fallbackMessage.empty()) {
+      details.AddError(fallbackMessage);
+    }
+  } else if (!fallbackMessage.empty()) {
+    details.AddError(fallbackMessage);
+  }
+  _journal->LogError(TTCJournalComponent::kAudio, event,
+                     std::move(details).Build());
 }
 
 @end

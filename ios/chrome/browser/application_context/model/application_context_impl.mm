@@ -35,7 +35,6 @@
 #import "components/gcm_driver/gcm_desktop_utils.h"
 #import "components/gcm_driver/gcm_driver.h"
 #import "components/history/core/browser/history_service.h"
-#import "components/keyed_service/core/service_access_type.h"
 #import "components/metrics/metrics_features.h"
 #import "components/metrics/metrics_service.h"
 #import "components/metrics_services_manager/metrics_services_manager.h"
@@ -221,6 +220,7 @@ void ApplicationContextImpl::StartTearDown() {
   CHECK_EQ(profile_manager_->GetLoadedProfiles().size(), 0u);
 
   account_profile_mapper_.reset();
+  push_notification_service_.reset();
   profile_manager_.reset();
 
   // The policy providers managed by `browser_policy_connector_` need to shut
@@ -751,8 +751,7 @@ void ApplicationContextImpl::OnAppEnterState(AppState app_state) {
 
         case AppState::kBackgroundFromActive:
           if (history::HistoryService* history_service =
-                  ios::HistoryServiceFactory::GetForProfile(
-                      profile, ServiceAccessType::EXPLICIT_ACCESS)) {
+                  ios::HistoryServiceFactory::GetForProfile(profile)) {
             history_service->HandleBackgrounding();
           }
           break;

@@ -2,12 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <memory>
+
+#include "base/command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/web_ui_mocha_browser_test.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/scoped_page_focus_override.h"
+#include "ui/gfx/switches.h"
 
 class OmniboxEverywhereWebUITest : public WebUIMochaBrowserTest {
  protected:
@@ -16,7 +21,27 @@ class OmniboxEverywhereWebUITest : public WebUIMochaBrowserTest {
     scoped_feature_list_.InitAndEnableFeature(omnibox::kOmniboxEverywhere);
   }
 
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    WebUIMochaBrowserTest::SetUpCommandLine(command_line);
+    // WebUI Mocha tests assert expand/collapse CSS animation names and states,
+    // which are otherwise suppressed when the host OS enables reduced motion.
+    command_line->AppendSwitch(switches::kForcePrefersNoReducedMotion);
+  }
+
+  // Emulates page focus so OS window activation changes from parallel browser
+  // tests do not dispatch spurious focusout/blur events mid-test.
+  void OnWebContentsAvailable(content::WebContents* web_contents) override {
+    focus_override_ =
+        std::make_unique<content::ScopedPageFocusOverride>(web_contents);
+  }
+
+  void TearDownOnMainThread() override {
+    focus_override_.reset();
+    WebUIMochaBrowserTest::TearDownOnMainThread();
+  }
+
  private:
+  std::unique_ptr<content::ScopedPageFocusOverride> focus_override_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 

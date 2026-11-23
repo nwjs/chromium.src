@@ -131,8 +131,10 @@
 #endif
 
 #if BUILDFLAG(IS_IOS)
+#include "components/application_locale_storage/application_locale_storage.h"  // nogncheck
 #include "components/permissions/bluetooth_delegate_impl.h"
 #include "content/shell/browser/bluetooth/shell_bluetooth_delegate_impl_client.h"
+#include "ui/base/l10n/l10n_util_mac.h"
 #endif
 
 #if BUILDFLAG(IS_WIN)
@@ -556,7 +558,7 @@ ShellContentBrowserClient::GetGeneratedCodeCacheSettings(
 
 base::OnceClosure ShellContentBrowserClient::SelectClientCertificate(
     BrowserContext* browser_context,
-    int process_id,
+    ChildProcessId process_id,
     WebContents* web_contents,
     net::SSLCertRequestInfo* cert_request_info,
     net::ClientCertIdentityList client_certs,
@@ -825,6 +827,15 @@ ShellContentBrowserClient::GetNetworkContextsParentDirectory() {
 }
 
 #if BUILDFLAG(IS_IOS)
+std::string ShellContentBrowserClient::GetApplicationLocale() {
+  if (!application_locale_storage_) {
+    application_locale_storage_ = std::make_unique<ApplicationLocaleStorage>();
+    application_locale_storage_->Set(l10n_util::GetLocaleOverride());
+  }
+
+  return application_locale_storage_->Get();
+}
+
 BluetoothDelegate* ShellContentBrowserClient::GetBluetoothDelegate() {
   if (!bluetooth_delegate_) {
     bluetooth_delegate_ = std::make_unique<permissions::BluetoothDelegateImpl>(

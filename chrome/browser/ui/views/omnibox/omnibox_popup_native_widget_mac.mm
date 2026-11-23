@@ -52,6 +52,13 @@ class OmniboxPopupNativeWidgetMac : public views::NativeWidgetMac {
 
 @implementation OmniboxPopupNSWindow
 
+// The popup stays open with an unfocused draft, which shouldn't keep the
+// toolbar revealed in immersive fullscreen. While it isn't key, it moves
+// offscreen along with its parent, the overlay window, when the toolbar hides.
+- (BOOL)immersiveRevealLockRequiresKey {
+  return YES;
+}
+
 // The root parent: in immersive fullscreen the direct parent is an overlay.
 - (NSWindow*)windowManagementTarget {
   NSWindow* target = self;
@@ -59,6 +66,20 @@ class OmniboxPopupNativeWidgetMac : public views::NativeWidgetMac {
     target = target.parentWindow;
   }
   return target;
+}
+
+// AppKit sends the View > Full Screen menu action (e.g. Ctrl+Cmd+F) to the key
+// window, and the borderless popup can't go fullscreen.
+- (void)toggleFullScreen:(id)sender {
+  NSWindow<CommandDispatchingWindow>* target = self;
+  while (target.commandDispatchParent) {
+    target = target.commandDispatchParent;
+  }
+  if (target == self) {
+    [super toggleFullScreen:sender];
+  } else {
+    [target toggleFullScreen:sender];
+  }
 }
 
 #pragma clang diagnostic push

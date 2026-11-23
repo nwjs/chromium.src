@@ -124,7 +124,8 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "linux",
             "x64",
@@ -712,7 +713,6 @@ ci.builder(
             "12-x64-emulator",
             "emulator-8-cores",
             "linux-jammy",
-            "x86-64",
         ],
     ),
     targets_settings = targets.settings(
@@ -1456,7 +1456,8 @@ fyi_ios_builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder_blink",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "ios_simulator",
             "arm64",
@@ -1514,7 +1515,8 @@ fyi_ios_builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder_blink",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "ios_simulator",
             "arm64",
@@ -2030,7 +2032,8 @@ ci.builder(
     gn_args = gn_args.config(
         configs = [
             "release_builder",
-            "try_builder",
+            "dcheck_always_on",
+            "minimal_symbols",
             "remoteexec",
             "win",
             "x64",
@@ -2565,14 +2568,9 @@ ci.builder(
             "emulator-8-cores",
             "has_native_resultdb_integration",
             "linux-jammy",
-            "x86-64",
         ],
         per_test_modifications = {
             "android_browsertests": targets.mixin(
-                args = [
-                    # https://crbug.com/361042311
-                    "--gtest_filter=-All/SharedStorageChromeBrowserTest.CrossOriginWorklet_SelectURL_Success/*",
-                ],
                 swarming = targets.swarming(
                     shards = 12,
                 ),
@@ -2674,98 +2672,6 @@ ci.builder(
         ),
     ],
     contact_team_email = "chrome-gpu-team@google.com",
-)
-
-ci.builder(
-    name = "linux-webdriver-bidi-rel",
-    description_html = "Builder for WebDriver BiDi implementation",
-    schedule = "triggered",
-    triggered_by = [],
-    builder_spec = builder_config.copy_from("ci/Linux Builder"),
-    gn_args = "ci/Linux Builder",
-    targets = targets.bundle(
-        targets = [
-            "webdriver_bidi_e2e_tests",
-            "webdriver_bidi_unittests",
-        ],
-        mixins = [
-            "linux-jammy",
-        ],
-        per_test_modifications = {
-            "webdriver_bidi_e2e_tests": targets.mixin(
-                swarming = targets.swarming(
-                    shards = 8,
-                ),
-            ),
-        },
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "webdriver",
-    ),
-    contact_team_email = "chrome-devtools@google.com",
-)
-
-ci.builder(
-    name = "mac-webdriver-bidi-rel",
-    description_html = "Builder for WebDriver BiDi implementation",
-    schedule = "triggered",
-    triggered_by = [],
-    builder_spec = builder_config.copy_from("ci/mac-arm64-rel"),
-    gn_args = "ci/mac-arm64-rel",
-    targets = targets.bundle(
-        targets = [
-            "webdriver_bidi_e2e_tests",
-            "webdriver_bidi_unittests",
-        ],
-        mixins = [
-            "mac_default_arm64",
-        ],
-        per_test_modifications = {
-            "webdriver_bidi_e2e_tests": targets.mixin(
-                swarming = targets.swarming(
-                    shards = 8,
-                ),
-            ),
-        },
-    ),
-    cores = None,
-    os = os.MAC_DEFAULT,
-    cpu = cpu.ARM64,
-    console_view_entry = consoles.console_view_entry(
-        category = "webdriver",
-    ),
-    contact_team_email = "chrome-devtools@google.com",
-)
-
-ci.builder(
-    name = "win-webdriver-bidi-rel",
-    description_html = "Builder for WebDriver BiDi implementation",
-    schedule = "triggered",
-    triggered_by = [],
-    builder_spec = builder_config.copy_from("ci/Win x64 Builder"),
-    gn_args = "ci/Win x64 Builder",
-    targets = targets.bundle(
-        targets = [
-            "webdriver_bidi_e2e_tests",
-            "webdriver_bidi_unittests",
-        ],
-        mixins = [
-            "win10",
-        ],
-        per_test_modifications = {
-            "webdriver_bidi_e2e_tests": targets.mixin(
-                swarming = targets.swarming(
-                    shards = 8,
-                ),
-            ),
-        },
-    ),
-    os = os.WINDOWS_DEFAULT,
-    ssd = None,
-    console_view_entry = consoles.console_view_entry(
-        category = "webdriver",
-    ),
-    contact_team_email = "chrome-devtools@google.com",
 )
 
 ci.builder(

@@ -3,14 +3,20 @@
 // found in the LICENSE file.
 
 import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
+import {MojoPluralStringProxy} from 'chrome://resources/cr_components/search/mojo_plural_string_proxy.js';
 import {TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {PageCallbackRouter as SearchboxPageCallbackRouter, TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 
 export interface TabPickerBrowserProxy {
   getRecentTabs(): Promise<{tabs: TabInfo[]}>;
+  getInputState(): Promise<{state: InputState|null}>;
+  getSearchboxCallbackRouter(): SearchboxPageCallbackRouter;
   getPluralString(messageName: string, count: number): Promise<string>;
   addTabContext(tabId: number): void;
   deleteTabContext(tabId: number): void;
+  setSmartTabSharingActive(active: boolean): void;
+  getSmartTabSharingActive(): Promise<{active: boolean}>;
 }
 
 let instance: TabPickerBrowserProxy|null = null;
@@ -20,12 +26,17 @@ export class TabPickerBrowserProxyImpl implements TabPickerBrowserProxy {
     return ComposeboxProxyImpl.getInstance().searchboxHandler.getRecentTabs();
   }
 
+  getInputState(): Promise<{state: InputState|null}> {
+    return ComposeboxProxyImpl.getInstance().searchboxHandler.getInputState();
+  }
+
+  getSearchboxCallbackRouter(): SearchboxPageCallbackRouter {
+    return ComposeboxProxyImpl.getInstance().searchboxCallbackRouter;
+  }
+
   getPluralString(messageName: string, count: number): Promise<string> {
-    if (messageName === 'sharingTabs') {
-      return Promise.resolve(
-          count === 1 ? 'Sharing 1 tab' : `Sharing ${count} tabs`);
-    }
-    return Promise.resolve('');
+    return MojoPluralStringProxy.getInstance().getPluralString(
+        messageName, count);
   }
 
   addTabContext(tabId: number): void {
@@ -38,6 +49,14 @@ export class TabPickerBrowserProxyImpl implements TabPickerBrowserProxy {
 
   deleteTabContext(tabId: number): void {
     ComposeboxProxyImpl.getInstance().searchboxHandler.deleteTabContext(tabId);
+  }
+
+  setSmartTabSharingActive(active: boolean): void {
+    ComposeboxProxyImpl.getInstance().handler.setSmartTabSharingActive(active);
+  }
+
+  getSmartTabSharingActive(): Promise<{active: boolean}> {
+    return ComposeboxProxyImpl.getInstance().handler.getSmartTabSharingActive();
   }
 
   static getInstance(): TabPickerBrowserProxy {

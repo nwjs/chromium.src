@@ -7,6 +7,7 @@
 
 #include "base/callback_list.h"
 #include "base/scoped_observation.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/prefs/pref_member.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
@@ -40,6 +41,11 @@ class EntryPointEligibilityManager {
   // profile. Returns false otherwise.
   static bool IsPinningEligible(Profile* profile);
 
+  // Returns true if the user can pin or unpin the contextual tasks button for
+  // the given profile. Unlike `IsPinningEligible()`, this also requires a
+  // regular profile, matching the generic toolbar pin/unpin menu.
+  static bool CanPinOrUnpin(Profile* profile);
+
   // Runs callback when the entry point eligibility changes
   using EntryPointEligibilityChangeCallbackList =
       base::RepeatingCallbackList<void(bool)>;
@@ -54,6 +60,7 @@ class EntryPointEligibilityManager {
   bool entry_points_are_eligible_ = false;
   bool is_pinning_eligible_ = false;
   raw_ptr<Profile> profile_ = nullptr;
+  PrefChangeRegistrar pref_change_registrar_;
   ui::ScopedUnownedUserData<EntryPointEligibilityManager>
       scoped_unowned_user_data_;
   base::CallbackListSubscription eligibility_subscription_;

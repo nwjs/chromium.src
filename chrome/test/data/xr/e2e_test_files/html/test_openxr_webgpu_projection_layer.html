@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+Tests WebXR WebGPU projection layer rendering.
+-->
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="../resources/webxr_e2e.css">
+  </head>
+  <body>
+    <canvas id="webgl-canvas"></canvas>
+    <script src="../../../../../../third_party/blink/web_tests/resources/testharness.js"></script>
+    <script src="../resources/webxr_e2e.js"></script>
+    <script>
+      var shouldAutoCreateNonImmersiveSession = false;
+      initializationSteps['webgpuDeviceReady'] = false;
+    </script>
+    <script src="../resources/webxr_boilerplate.js"></script>
+    <script>
+      immersiveSessionInit = {
+        requiredFeatures: ['webgpu'],
+      };
+
+      let gpuDevice = null;
+      let gpuBinding = null;
+      let projectionLayer = null;
+      let frameCount = 0;
+
+      navigator.gpu.requestAdapter({xrCompatible: true})
+          .then((adapter) => {
+            assert_not_equals(
+                adapter, null, 'Failed to get XR-compatible WebGPU adapter');
+            return adapter.requestDevice();
+          })
+          .then((device) => {
+            assert_not_equals(device, null, 'Failed to get WebGPU device');
+            gpuDevice = device;
+            initializationSteps['webgpuDeviceReady'] = true;
+          });
+
+      updateRenderStateCallback = function(session, gl) {
+        gpuBinding = new XRGPUBinding(session, gpuDevice);
+        projectionLayer = gpuBinding.createProjectionLayer({
+          colorFormat: gpuBinding.getPreferredColorFormat(),
+        });
+        session.updateRenderState({layers: [projectionLayer]});
+      };
+
+      onImmersiveXRFrameCallback = function(session, frame, gl) {
+        ++frameCount;
+        if (frameCount === 1) {
+          // Verify that a scaleFactor producing a half-pixel per-eye width
+          // floors the per-eye width before multiplying by the layer count.
+          const halfPixelScale =
+              (projectionLayer.textureWidth - 0.5) /
+              projectionLayer.textureWidth;
+          const scaledLayer = gpuBinding.createProjectionLayer({
+            colorFormat: gpuBinding.getPreferredColorFormat(),
+            scaleFactor: halfPixelScale,
+          });
+          assert_equals(
+              scaledLayer.textureWidth, projectionLayer.textureWidth - 1,
+              'Per-eye width should be floored before multiplying by layers');
+        }
+
+        // Render blue on frame 1, skip rendering on frame 2, render red on
+        // frame 3, and skip rendering on frame 4+ to verify that unrendered
+        // frames do not submit cleared textures and that subsequent frames can
+        // reuse the active swapchain image.
+        if (frameCount === 1 || frameCount === 3) {
+          const clearColor = frameCount === 1 ?
+              {r: 0.0, g: 0.0, b: 1.0, a: 1.0} :  // Blue
+              {r: 1.0, g: 0.0, b: 0.0, a: 1.0};   // Red
+          const commandEncoder = gpuDevice.createCommandEncoder();
+          const pose = frame.getViewerPose(
+              sessionInfos[getSessionType(session)].currentRefSpace);
+          for (const view of pose.views) {
+            const subImage = gpuBinding.getViewSubImage(projectionLayer, view);
+            const renderPass = commandEncoder.beginRenderPass({
+              colorAttachments: [{
+                view: subImage.colorTexture.createView(
+                    subImage.getViewDescriptor()),
+                loadOp: 'clear',
+                storeOp: 'store',
+                clearValue: clearColor,
+              }],
+            });
+            renderPass.end();
+          }
+          gpuDevice.queue.submit([commandEncoder.finish()]);
+        } else if (frameCount === 4) {
+          done();
+        }
+      };
+    </script>
+  </body>
+</html>

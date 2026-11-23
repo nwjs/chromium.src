@@ -1,0 +1,22 @@
+upstream {
+  version: "v3.0.0"
+  artifacts {
+    git {
+      repository: "https://github.com/AOMediaCodec/iamf-tools"
+      commit: "5ad3728679495d0037c9be7334338f2859d2a3fa"
+    }
+  }
+}
+stages {
+  input {
+    patch { copybara {} }
+  }
+  publish { git {} }
+}
+latest {
+  semver {}
+  git {
+    repository: "https://github.com/AOMediaCodec/iamf-tools"
+    tags {}
+  }
+}

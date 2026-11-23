@@ -26,7 +26,6 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/bubble/webui_bubble_reopen_suppressor.h"
 #include "chrome/browser/ui/views/page_action/anchored_message_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_util.h"
 #include "chrome/browser/ui/views/page_action/webui_page_action_view.h"
@@ -41,6 +40,7 @@
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/color/color_id.h"
+#include "ui/color/color_variant.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/widget/widget.h"
@@ -53,6 +53,73 @@ namespace {
 
 using Code = mojo_base::mojom::Code;
 using Error = mojo_base::mojom::Error;
+
+// Applies `icon_color` to `image` if it is a vector icon; non-vector images
+// (or a null `icon_color`, which only happens when no ColorProvider is
+// available) are returned untouched.
+ui::ImageModel ApplyIconColor(ui::ImageModel image,
+                              std::optional<ui::ColorVariant> icon_color) {
+  if (!icon_color.has_value() || !image.IsVectorIcon()) {
+    return image;
+  }
+  const auto& vector_icon_model = image.GetVectorIcon();
+  return ui::ImageModel::FromVectorIcon(
+      *vector_icon_model.vector_icon(), *icon_color,
+      vector_icon_model.icon_size(), vector_icon_model.badge_icon());
+}
+
+// Resolves the color applied to the page action's vector icons. Mirrors
+// `PageActionView::UpdateIconImage()`, which always recolors vector icons
+// (ignoring any color baked into the ActionItem's image) and uses the same
+// color for both the primary icon and the trailing icon.
+//
+// Returns a logical `ui::ColorId` wherever possible so that the registered
+// `ImageModel` is re-resolved against the current theme when
+// `IconTable::OnThemeChanged()` re-rasterizes it; `GetState()` is not re-run
+// on a same-tab theme change, so a baked-in `SkColor` would otherwise go stale.
+// Only the blended `kCascadingAccent` color is physical, since it is derived
+// from two theme colors.
+ui::ColorVariant ResolveIconColor(
+    const page_actions::PageActionModelInterface& model,
+    const ui::ColorProvider& color_provider) {
+  switch (model.GetColorSource()) {
+    case page_actions::PageActionColorSource::kCascadingAccent: {
+      const SkColor default_color =
+          color_provider.GetColor(ui::kColorFocusableBorderFocused);
+      // Page actions are displayed on the toolbar, so `kColorToolbar` is used
+      // as the background color for contrast calculations (matching what
+      // `views::GetCascadingBackgroundColor()` resolves in native Views via
+      // `ToolbarView`).
+      const SkColor background_color = color_provider.GetColor(kColorToolbar);
+      return color_utils::BlendForMinContrast(
+                 default_color, background_color,
+                 /*high_contrast_foreground=*/std::nullopt,
+                 color_utils::kMinimumVisibleContrastRatio)
+          .color;
+    }
+    case page_actions::PageActionColorSource::kForeground:
+      // Mirrors `PageActionView::GetForegroundColor()`: an explicit foreground
+      // color override takes precedence.
+      if (const std::optional<ui::ColorId> override_fg_color_id =
+              model.GetOverrideForegroundColorId();
+          override_fg_color_id.has_value()) {
+        return *override_fg_color_id;
+      }
+      // Otherwise, `IconLabelBubbleView::GetForegroundColor()` uses the tonal
+      // color while painted on a solid background, which for `PageActionView`
+      // (`PaintedOnSolidBackground()`) means the suggestion chip is showing.
+      // TODO(crbug.com/572793227): Match Views' tonal styling while the
+      // anchored message is visible: render the tonal pill background in the
+      // WebUI, use the tonal icon color, and re-notify from
+      // OnAnchoredMessageWidgetClose().
+      if (model.ShouldShowSuggestionChip()) {
+        return kColorOmniboxIconForegroundTonal;
+      }
+      // Finally, fall back to the surrounding location bar foreground color
+      // (`LocationBarView::GetIconLabelBubbleSurroundingForegroundColor()`).
+      return kColorOmniboxActionIcon;
+  }
+}
 
 }  // namespace
 
@@ -131,7 +198,6 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   // Returns the current mojo state for this page action to be sent to WebUI, or
   // nullptr if the action is not visible.
   toolbar_ui_api::mojom::PageActionStatePtr GetState();
-  void OnPointerDown();
 
   // Handles a user click on the page action from WebUI, triggering registered
   // click callbacks and invoking the underlying ActionItem.
@@ -140,11 +206,6 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   // Routes a suggestion chip visibility state change notification from WebUI to
   // the controller callback.
   void NotifyChipShowingChanged(bool is_showing);
-
-  void SetSuppressionThresholdForTesting(base::TimeDelta threshold) {
-    bubble_reopen_suppressor_.SetSuppressionThresholdForTesting(  // IN-TEST
-        threshold);
-  }
 
   // Returns the currently observed PageActionModel, or nullptr if not
   // observing.
@@ -225,10 +286,7 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   // The last state sent to the WebUI. Null if the action was not visible.
   toolbar_ui_api::mojom::PageActionStatePtr old_state_;
   bool was_chip_visible_ = false;
-  bool was_showing_bubble_ = false;
   bool was_anchored_message_showing_ = false;
-
-  WebUIBubbleReopenSuppressor bubble_reopen_suppressor_;
 
   toolbar_ui_api::IconHandle cached_icon_;
   toolbar_ui_api::IconHandle cached_trailing_icon_;
@@ -265,7 +323,6 @@ void WebUIPageActionControl::WebUIPageActionDelegate::SetController(
   action_item_subscription_ = {};
   controller_ = controller;
   was_chip_visible_ = false;
-  was_showing_bubble_ = false;
   was_anchored_message_showing_ = false;
 
   if (controller_) {
@@ -305,12 +362,6 @@ void WebUIPageActionControl::WebUIPageActionDelegate::UpdateStateAndNotify() {
 void WebUIPageActionControl::WebUIPageActionDelegate::OnPageActionModelChanged(
     const page_actions::PageActionModelInterface& model) {
   const bool visible = model.GetVisible();
-  const bool is_showing_bubble = model.GetActionItemIsShowingBubble();
-  if (was_showing_bubble_ && !is_showing_bubble) {
-    bubble_reopen_suppressor_.RecordBubbleClosed();
-  }
-  was_showing_bubble_ = is_showing_bubble;
-
   const bool is_chip_visible = visible && model.ShouldShowSuggestionChip();
 
   if (model.GetShouldAnnounceChip() && !was_chip_visible_ && is_chip_visible) {
@@ -345,7 +396,7 @@ void WebUIPageActionControl::WebUIPageActionDelegate::OnPageActionModelChanged(
     element_shown_subscription_ = {};
 
     // Then, close the active bubble widget if it is currently open.
-    // TODO(b/571160141): Animate out like PageActionView.
+    // TODO(crbug.com/571160141): Animate out like PageActionView.
     if (anchored_message_widget_ && !anchored_message_widget_->IsClosed()) {
       anchored_message_widget_->CloseWithReason(
           views::Widget::ClosedReason::kUnspecified);
@@ -363,7 +414,6 @@ void WebUIPageActionControl::WebUIPageActionDelegate::
   action_item_subscription_ = {};
   controller_ = nullptr;
   was_chip_visible_ = false;
-  was_showing_bubble_ = false;
   was_anchored_message_showing_ = false;
   ResetCachedState();
 }
@@ -393,36 +443,13 @@ WebUIPageActionControl::WebUIPageActionDelegate::GetState() {
   auto* view = owner_->webui_delegate_->GetView();
   const ui::ColorProvider* color_provider =
       view ? view->GetColorProvider() : nullptr;
-  if (color_provider && image_model.IsVectorIcon()) {
-    if (model->GetColorSource() ==
-        page_actions::PageActionColorSource::kCascadingAccent) {
-      const auto& vector_icon_model = image_model.GetVectorIcon();
-      const SkColor default_color =
-          color_provider->GetColor(ui::kColorFocusableBorderFocused);
-      // Page actions are displayed on the toolbar, so `kColorToolbar` is used
-      // as the background color for contrast calculations (matching what
-      // `views::GetCascadingBackgroundColor()` resolves in native Views via
-      // `ToolbarView`).
-      const SkColor background_color = color_provider->GetColor(kColorToolbar);
-      const SkColor blended_color =
-          color_utils::BlendForMinContrast(
-              default_color, background_color, std::nullopt,
-              color_utils::kMinimumVisibleContrastRatio)
-              .color;
-      image_model = ui::ImageModel::FromVectorIcon(
-          *vector_icon_model.vector_icon(), blended_color,
-          vector_icon_model.icon_size(), vector_icon_model.badge_icon());
-    } else if (model->GetColorSource() ==
-                   page_actions::PageActionColorSource::kForeground &&
-               model->ShouldShowSuggestionChip()) {
-      const auto& vector_icon_model = image_model.GetVectorIcon();
-      const SkColor tonal_color =
-          color_provider->GetColor(kColorOmniboxIconForegroundTonal);
-      image_model = ui::ImageModel::FromVectorIcon(
-          *vector_icon_model.vector_icon(), tonal_color,
-          vector_icon_model.icon_size(), vector_icon_model.badge_icon());
-    }
+
+  std::optional<ui::ColorVariant> icon_color;
+  if (color_provider) {
+    icon_color = ResolveIconColor(*model, *color_provider);
   }
+
+  image_model = ApplyIconColor(std::move(image_model), icon_color);
   state->icon = cached_icon_ =
       owner_->webui_delegate_->GetIconTable().RegisterImageModelTryReuse(
           image_model, cached_icon_);
@@ -431,11 +458,19 @@ WebUIPageActionControl::WebUIPageActionDelegate::GetState() {
   state->should_animate_chip_in = model->GetShouldAnimateChipIn();
   state->should_animate_chip_out = model->GetShouldAnimateChipOut();
 
-  std::optional<ui::ColorId> override_color_id =
-      model->GetOverrideBackgroundColorId();
-  if (override_color_id.has_value()) {
-    state->background_color_override =
-        color_provider->GetColor(*override_color_id);
+  if (color_provider) {
+    if (const std::optional<ui::ColorId> override_bg_color_id =
+            model->GetOverrideBackgroundColorId();
+        override_bg_color_id.has_value()) {
+      state->background_color_override =
+          color_provider->GetColor(*override_bg_color_id);
+    }
+    if (const std::optional<ui::ColorId> override_fg_color_id =
+            model->GetOverrideForegroundColorId();
+        override_fg_color_id.has_value()) {
+      state->foreground_color_override =
+          color_provider->GetColor(*override_fg_color_id);
+    }
   }
   std::string identifier_name;
   page_actions::PageActionPropertiesProvider provider;
@@ -471,7 +506,8 @@ WebUIPageActionControl::WebUIPageActionDelegate::GetState() {
   if (model->GetTrailingImage().has_value()) {
     state->trailing_icon = cached_trailing_icon_ =
         owner_->webui_delegate_->GetIconTable().RegisterImageModelTryReuse(
-            *model->GetTrailingImage(), cached_trailing_icon_);
+            ApplyIconColor(*model->GetTrailingImage(), icon_color),
+            cached_trailing_icon_);
   } else {
     state->trailing_icon = std::nullopt;
     cached_trailing_icon_ = {};
@@ -479,24 +515,10 @@ WebUIPageActionControl::WebUIPageActionDelegate::GetState() {
   return state;
 }
 
-void WebUIPageActionControl::WebUIPageActionDelegate::OnPointerDown() {
-  const bool is_showing_bubble =
-      observation_.IsObserving() &&
-      observation_.GetSource()->GetActionItemIsShowingBubble();
-  bubble_reopen_suppressor_.OnMousePressed(is_showing_bubble);
-}
-
 void WebUIPageActionControl::WebUIPageActionDelegate::NotifyClick(
     PageActionTrigger trigger) {
   // Ignore clicks received during shutdown.
   if (!observation_.IsObserving() || !observation_.GetSource()->GetVisible()) {
-    return;
-  }
-
-  const bool is_pointer_interaction = (trigger == PageActionTrigger::kMouse ||
-                                       trigger == PageActionTrigger::kGesture);
-  if (bubble_reopen_suppressor_.ShouldSuppressBubbleShow(
-          is_pointer_interaction)) {
     return;
   }
 
@@ -781,6 +803,14 @@ void WebUIPageActionControl::SetShouldHidePageActions(
   }
 }
 
+void WebUIPageActionControl::OnThemeChanged() {
+  // `UpdateStateAndNotify()` diffs against the last pushed state, so only page
+  // actions whose resolved colors actually changed notify the WebUI.
+  for (auto& [action_id, delegate] : delegates_) {
+    delegate->UpdateStateAndNotify();
+  }
+}
+
 std::vector<toolbar_ui_api::mojom::PageActionStatePtr>
 WebUIPageActionControl::GetPageActionStates() {
   // Three possible states of page actions: anchored message, chip, icon.
@@ -826,15 +856,6 @@ WebUIPageActionControl::GetPageActionStates() {
   return states;
 }
 
-void WebUIPageActionControl::OnPageActionPointerDown(
-    toolbar_ui_api::mojom::PageActionId action_id) {
-  auto it =
-      delegates_.find(webui_toolbar::MojomPageActionIdToActionId(action_id));
-  if (it != delegates_.end()) {
-    it->second->OnPointerDown();
-  }
-}
-
 void WebUIPageActionControl::OnPageActionClick(
     toolbar_ui_api::mojom::PageActionId action_id,
     PageActionTrigger trigger,
@@ -850,13 +871,6 @@ void WebUIPageActionControl::OnPageActionClick(
 
   it->second->NotifyClick(trigger);
   std::move(callback).Run(std::monostate());
-}
-
-void WebUIPageActionControl::SetSuppressionThresholdForTesting(
-    base::TimeDelta threshold) {
-  for (auto& [action_id, delegate] : delegates_) {
-    delegate->SetSuppressionThresholdForTesting(threshold);  // IN-TEST
-  }
 }
 
 void WebUIPageActionControl::OnPageActionChipShowingChanged(

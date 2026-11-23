@@ -7,16 +7,23 @@
 
 #import <UIKit/UIKit.h>
 
+#import <memory>
 #import <set>
 
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/public/composebox_mode.h"
-#import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_image_result.h"
 #import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
 #import "ios/web/public/web_state_id.h"
+#import "third_party/omnibox_proto/model_mode.pb.h"
 
+namespace contextual_search {
+class ContextualSearchSessionHandle;
+}  // namespace contextual_search
+
+@class AssistantAIMMetricsRecorder;
 @class ComposeboxAttachmentSelection;
+@class ComposeboxInputItem;
 
 // Parameters used to focus and initialize the composebox with specific state.
 @interface ComposeboxFocusParams : NSObject
@@ -30,11 +37,29 @@
 // The initial tool mode.
 @property(nonatomic, readonly) ComposeboxMode toolMode;
 
-// The initial model mode.
-@property(nonatomic, readonly) ComposeboxModelOption modelMode;
+// The initial model mode, or `MODEL_MODE_UNSPECIFIED` to use the default model.
+@property(nonatomic, readonly) omnibox::ModelMode modelMode;
 
 // The initial attachments to preload.
 @property(nonatomic, readonly) ComposeboxAttachmentSelection* attachmentList;
+
+// Pre-attached and already-uploaded tab items transferred from a previous
+// composebox session (e.g., when transitioning into Cobrowse).
+@property(nonatomic, copy) NSArray<ComposeboxInputItem*>* attachedTabItems;
+
+// Returns whether this focus params instance holds a transferable contextual
+// search session handle.
+@property(nonatomic, assign, readonly) BOOL hasContextualSearchSession;
+
+// Sets the contextual search session handle transferred from a previous
+// composebox session.
+- (void)setContextualSearchSession:
+    (std::unique_ptr<contextual_search::ContextualSearchSessionHandle>)session;
+
+// Transfers ownership of the stored contextual search session handle to the
+// caller, leaving the stored handle empty.
+- (std::unique_ptr<contextual_search::ContextualSearchSessionHandle>)
+    takeContextualSearchSession;
 
 /// Initial tab identifiers to attach.
 @property(nonatomic, assign) std::set<web::WebStateID>
@@ -50,14 +75,17 @@
 // The optional shared metrics recorder.
 @property(nonatomic, strong) ComposeboxMetricsRecorder* metricsRecorder;
 
-/// The initial model option to force the composebox into.
-@property(nonatomic, assign) ComposeboxModelOption initialModelOption;
+// The optional metrics recorder for the Assistant AIM bottom sheet session.
+@property(nonatomic, strong)
+    AssistantAIMMetricsRecorder* assistantMetricsRecorder;
 
-/// Initializes a new instance with the given entrypoint.
+// Initializes a new instance with the given `entrypoint`, `query`, `toolMode`,
+// `modelMode` (or `MODEL_MODE_UNSPECIFIED` to use the default model), and
+// `attachmentList`.
 - (instancetype)initWithEntrypoint:(ComposeboxEntrypoint)entrypoint
                              query:(NSString*)query
                           toolMode:(ComposeboxMode)toolMode
-                         modelMode:(ComposeboxModelOption)modelMode
+                         modelMode:(omnibox::ModelMode)modelMode
                     attachmentList:
                         (ComposeboxAttachmentSelection*)attachmentList
     NS_DESIGNATED_INITIALIZER;

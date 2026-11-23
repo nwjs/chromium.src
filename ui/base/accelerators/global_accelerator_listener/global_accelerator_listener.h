@@ -6,9 +6,13 @@
 #define UI_BASE_ACCELERATORS_GLOBAL_ACCELERATOR_LISTENER_GLOBAL_ACCELERATOR_LISTENER_H_
 
 #include <map>
+#include <memory>
+#include <string>
 
+#include "base/component_export.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/values.h"
 #include "ui/base/accelerators/command.h"
 #include "ui/gfx/native_ui_types.h"
 
@@ -19,7 +23,7 @@ class Accelerator;
 // Platform-neutral implementation of a class that keeps track of observers and
 // monitors keystrokes. It relays messages to the appropriate observer when a
 // global accelerator has been struck by the user.
-class GlobalAcceleratorListener {
+class COMPONENT_EXPORT(GLOBAL_ACCELERATOR_LISTENER) GlobalAcceleratorListener {
  public:
   class Observer {
    public:
@@ -83,6 +87,20 @@ class GlobalAcceleratorListener {
 
   // Removes command map entries whose execute_command callbacks are cancelled.
   virtual void PruneStaleCommands() {}
+
+  // Storage for listener state that must persist across browser restarts.
+  class StateStore {
+   public:
+    virtual ~StateStore() = default;
+
+    virtual base::DictValue Load() = 0;
+    virtual void Save(base::DictValue state) = 0;
+  };
+
+  // Sets the store used to persist state. Only meaningful for implementations
+  // where registration is handled externally. Only the first store set is used,
+  // and it must be set before the first call to OnCommandsChanged().
+  virtual void SetStateStore(std::unique_ptr<StateStore> store) {}
 
   virtual bool IsRegistrationHandledExternally() const;
 

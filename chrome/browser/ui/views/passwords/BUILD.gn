@@ -209,8 +209,6 @@ source_set("browser_tests") {
     "password_generation_popup_view_views_browsertest.cc",
   ]
 
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
   deps = [
     ":passwords",
     ":test_support",
@@ -244,8 +242,6 @@ if (!is_chromeos_device) {
       "manage_passwords_page_action_controller_interactive_uitest.cc",
       "password_bubble_interactive_uitest.cc",
     ]
-
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 
     deps = [
       ":passwords",

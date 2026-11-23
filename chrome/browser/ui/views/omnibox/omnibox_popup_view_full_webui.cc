@@ -11,7 +11,7 @@
 
 #include "base/auto_reset.h"
 #include "base/trace_event/trace_event.h"
-#include "chrome/browser/search/search.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -31,11 +31,8 @@
 #include "chrome/browser/ui/webui/searchbox/webui_omnibox_handler.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/url_constants.h"
-#include "chrome/common/webui_url_constants.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/strings/grit/components_strings.h"
-#include "content/public/browser/navigation_controller.h"
-#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -65,26 +62,6 @@ searchbox::mojom::InputKeywordModelPtr CreateInputKeywordModel(
   keyword_model->display_text = base::UTF16ToUTF8(names.full_name);
   keyword_model->placeholder = base::UTF16ToUTF8(placeholder);
   return keyword_model;
-}
-
-// Returns true if `contents` should automatically focus the location bar by
-// default (e.g. New Tab Page), verifying both the visible and pending URLs to
-// avoid false-positives from stale navigation entries during tab creation.
-bool ShouldFocusLocationBarForTab(content::WebContents* contents) {
-  if (!contents || !contents->FocusLocationBarByDefault()) {
-    return false;
-  }
-  const GURL& visible_url = contents->GetVisibleURL();
-  content::NavigationEntry* pending_entry =
-      contents->GetController().GetPendingEntry();
-  const GURL& pending_url = pending_entry ? pending_entry->GetURL() : GURL();
-
-  auto is_ntp_url = [](const GURL& url) {
-    return search::IsNTPURL(url) ||
-           url.spec() == chrome::kChromeUISplitViewNewTabPageURL;
-  };
-
-  return is_ntp_url(visible_url) || is_ntp_url(pending_url);
 }
 
 }  // namespace
@@ -238,7 +215,7 @@ void OmniboxPopupViewFullWebUI::SyncNativeStateToWebUIImpl(
 }
 
 void OmniboxPopupViewFullWebUI::SaveStateToTab(content::WebContents* tab) {
-  DCHECK(tab);
+  CHECK(tab, base::NotFatalUntil::M162);
   TRACE_EVENT("omnibox", "OmniboxPopupViewFullWebUI::SaveStateToTab");
 
   auto* edit_model = controller()->edit_model();
@@ -365,7 +342,7 @@ void OmniboxPopupViewFullWebUI::OnTabChanged(content::WebContents* contents) {
     controller()->edit_model()->Revert();
     controller()->edit_model()->OnChanged();
     should_focus_popup =
-        can_show_popup && ShouldFocusLocationBarForTab(contents);
+        can_show_popup && contents->FocusLocationBarByDefault();
     // Only transition to `kFull` if the popup is initialized and ready.
     // Otherwise, maintain `kNone` until `OnPopupHandlerReady()` is called.
     target_popup_state = IsPopupHandlerReady() && should_focus_popup
@@ -590,6 +567,26 @@ bool OmniboxPopupViewFullWebUI::IsReverting() const {
 
 void OmniboxPopupViewFullWebUI::SetIsReverting(bool reverting) {
   is_reverting_ = reverting;
+}
+
+// TODO(crbug.com/582852137): Handle ChromeOS in
+// `OnFullscreenTransitionStarting` too, instead of in
+// `BrowserView::PrepareFullscreen()` (crrev.com/c/8717429).
+void OmniboxPopupViewFullWebUI::OnFullscreenTransitionStarting() {
+#if BUILDFLAG(IS_MAC)
+  // This popup is a child window, so AppKit doesn't animate it with the
+  // browser window, and `LocationBarView` doesn't close it for fullscreen on
+  // macOS, where the location bar stays drawn. Close it for the transition
+  // while the omnibox is unfocused, keeping any draft. `BrowserView` reopens
+  // it with `ReshowPopup()` once the transition completes. A focused popup
+  // holds activation, see crbug.com/582521205.
+  if (!controller()->edit_model()->has_focus() &&
+      controller()->popup_state_manager()->popup_state() ==
+          OmniboxPopupState::kFull) {
+    controller()->popup_state_manager()->SetPopupState(
+        OmniboxPopupState::kNone);
+  }
+#endif  // BUILDFLAG(IS_MAC)
 }
 
 void OmniboxPopupViewFullWebUI::DidFinishNavigation(

@@ -45,9 +45,9 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.omnibox.SearchEngineService.SearchEngineNameObserver;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxState;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
@@ -154,8 +154,8 @@ public class HintTextUpdaterUnitTest {
                 .when(mSearchEngineService.getAiModeButtonUiConfigSupplier())
                 .thenReturn(mAiModeButtonUiConfigSupplier);
         lenient()
-                .when(mSearchEngineService.getOmniboxHintString())
-                .thenReturn("Search Google or type URL");
+                .when(mSearchEngineService.getOmniboxHintStringRes())
+                .thenReturn(R.string.omnibox_empty_hint_with_dse_name);
         mSearchEngineServiceSupplier.set(mSearchEngineService);
 
         verify(mSearchEngineService)
@@ -224,18 +224,6 @@ public class HintTextUpdaterUnitTest {
         mAutocompleteInput.setSiteSearchData(new SiteSearchData("keyword", "Search keyword"));
 
         verify(mUpdateHintTextCallback).onResult(eq(""));
-    }
-
-    @Test
-    public void testGetOmniboxHintText_ContextualTasks() {
-        GURL aiUrl = new GURL("chrome://contextual-tasks");
-        String aiTitle = "My AI Page";
-        when(mLocationBarDataProvider.getCurrentGurl()).thenReturn(aiUrl);
-        when(mLocationBarDataProvider.getTitle()).thenReturn(aiTitle);
-
-        mUpdater.onTitleChanged();
-
-        verify(mUpdateHintTextCallback).onResult(eq(aiTitle));
     }
 
     @Test
@@ -362,7 +350,8 @@ public class HintTextUpdaterUnitTest {
     @Test
     public void testGetOmniboxHintText_DefaultSearchEngine() {
         when(mSearchEngineService.getSearchEngineName()).thenReturn("Google");
-        when(mSearchEngineService.getOmniboxHintString()).thenReturn("Search Google or type URL");
+        when(mSearchEngineService.getOmniboxHintStringRes())
+                .thenReturn(R.string.omnibox_empty_hint_with_dse_name);
 
         clearInvocations(mUpdateHintTextCallback);
         mUpdater.onTitleChanged();
@@ -370,7 +359,8 @@ public class HintTextUpdaterUnitTest {
 
         clearInvocations(mUpdateHintTextCallback);
         when(mSearchEngineService.getSearchEngineName()).thenReturn("Yahoo");
-        when(mSearchEngineService.getOmniboxHintString()).thenReturn("Search Yahoo or type URL");
+        when(mSearchEngineService.getOmniboxHintStringRes())
+                .thenReturn(R.string.omnibox_empty_hint_with_dse_name);
         mSearchEngineNameObserver.onSearchEngineNameChanged();
         verify(mUpdateHintTextCallback).onResult(eq("Search Yahoo or type URL"));
     }
@@ -508,7 +498,8 @@ public class HintTextUpdaterUnitTest {
     public void testAimActivationHint_ChipSelectedInDrafting_ShowsDefaultHint() {
         setupAimActivationHintEligible();
         when(mSearchEngineService.getSearchEngineName()).thenReturn(SEARCH_ENGINE_NAME);
-        when(mSearchEngineService.getOmniboxHintString()).thenReturn(SEARCH_ENGINE_HINT);
+        when(mSearchEngineService.getOmniboxHintStringRes())
+                .thenReturn(R.string.omnibox_empty_hint_with_dse_name);
 
         // Selecting the activation chip in SUGGESTIONS clears the hint.
         mActivationChipSelectedSupplier.set(true);
@@ -533,7 +524,8 @@ public class HintTextUpdaterUnitTest {
     public void testAimActivationHint_ChipSelectedInDrafting_NonEmptyUserText_HidesHint() {
         setupAimActivationHintEligible();
         when(mSearchEngineService.getSearchEngineName()).thenReturn(SEARCH_ENGINE_NAME);
-        when(mSearchEngineService.getOmniboxHintString()).thenReturn(SEARCH_ENGINE_HINT);
+        when(mSearchEngineService.getOmniboxHintStringRes())
+                .thenReturn(R.string.omnibox_empty_hint_with_dse_name);
 
         mActivationChipSelectedSupplier.set(true);
         mAutocompleteInput.setDisplayState(DisplayState.DRAFTING);

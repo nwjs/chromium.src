@@ -58,6 +58,8 @@
 #include "chrome/browser/active_use_util.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/device_reauth/win/authenticator_win.h"
+#include "chrome/browser/device_reauth/win/device_auth_availability_checker_win.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/first_run/upgrade_util.h"
 #include "chrome/browser/first_run/upgrade_util_win.h"
@@ -108,6 +110,7 @@
 #include "components/crash/core/app/dump_hung_process_with_ptype.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/os_crypt/async/browser/os_crypt_win.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/variations/hashing.h"
 #include "components/version_info/channel.h"
@@ -139,6 +142,8 @@
 
 namespace {
 
+constexpr base::TimeDelta kCacheBiometricsAvailabilityDelay = base::Seconds(30);
+
 typedef HRESULT (STDAPICALLTYPE* RegisterApplicationRestartProc)(
     const wchar_t* command_line,
     DWORD flags);
@@ -146,7 +151,7 @@ typedef HRESULT (STDAPICALLTYPE* RegisterApplicationRestartProc)(
 void InitializeWindowProcExceptions() {
   base::win::WinProcExceptionFilter exception_filter =
       base::win::SetWinProcExceptionFilter(&CrashForException_ExportThunk);
-  DCHECK(!exception_filter);
+  CHECK(!exception_filter, base::NotFatalUntil::M162);
 }
 
 // TODO(siggi): Remove once https://crbug.com/41367502 is resolved.
@@ -178,7 +183,8 @@ void DelayedRecordProcessorMetrics() {
 // Initializes the ModuleDatabase on its owning sequence. Also starts the
 // enumeration of registered modules in the Windows Registry.
 void InitializeModuleDatabase() {
-  DCHECK(ModuleDatabase::GetTaskRunner()->RunsTasksInCurrentSequence());
+  CHECK(ModuleDatabase::GetTaskRunner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   ModuleDatabase::SetInstance(std::make_unique<ModuleDatabase>());
 
@@ -342,7 +348,7 @@ void ShowCloseBrowserFirstMessageBox() {
 // Updates all Progressive Web App launchers in |profile_dir| to the latest
 // version.
 void UpdatePwaLaunchersForProfile(const base::FilePath& profile_dir) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   Profile* profile =
       g_browser_process->profile_manager()->GetProfileByPath(profile_dir);
   if (!profile) {
@@ -657,7 +663,8 @@ int ChromeBrowserMainPartsWin::PreEarlyInitialization() {
 }
 
 void ChromeBrowserMainPartsWin::ToolkitInitialized() {
-  DCHECK_NE(base::PlatformThread::CurrentId(), base::kInvalidThreadId);
+  CHECK_NE(base::PlatformThread::CurrentId(), base::kInvalidThreadId,
+           base::NotFatalUntil::M162);
   gfx::CrashIdHelper::RegisterMainThread(base::PlatformThread::CurrentId());
   ChromeBrowserMainParts::ToolkitInitialized();
   gfx::win::SetAdjustFontCallback(&l10n_util::AdjustUiFont);
@@ -670,10 +677,12 @@ void ChromeBrowserMainPartsWin::PreCreateMainMessageLoop() {
   SetupInstallerUtilStrings();
 
   PrefService* local_state = g_browser_process->local_state();
-  DCHECK(local_state);
+  CHECK(local_state, base::NotFatalUntil::M162);
 
   // Initialize the OSCrypt.
   bool os_crypt_init = os_crypt_async::Init(local_state);
+  // TODO(crbug.com/574803658): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(os_crypt_init);
 
   base::SetExtraNoExecuteAllowedPath(chrome::DIR_USER_DATA);
@@ -785,7 +794,7 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
 
   // Verify that the delay load helper hooks are in place. This cannot be tested
   // from unit tests, so rely on this failing here.
-  DCHECK(__pfnDliFailureHook2);
+  CHECK(__pfnDliFailureHook2, base::NotFatalUntil::M162);
 
   InitializeChromeElf();
 
@@ -873,6 +882,17 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
       ->PostTask(FROM_HERE,
                  base::BindOnce(&MaybeUpdateIsolationStateFromFieldTrial));
+
+  if (base::FeatureList::IsEnabled(
+          password_manager::features::kDeviceReauthRefactor)) {
+    content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
+        ->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(
+                &DeviceAuthAvailabilityCheckerWin::CacheIfBiometricsAvailable,
+                std::make_unique<AuthenticatorWin>()),
+            kCacheBiometricsAvailabilityDelay);
+  }
 
   base::ImportantFileWriterCleaner::GetInstance().Start();
 }
@@ -1013,6 +1033,10 @@ base::CommandLine ChromeBrowserMainPartsWin::GetRestartCommandLine(
 
   // Remove switches that should never be conveyed to the restart.
   switches.erase(switches::kFromInstaller);
+  // The `--isolated` switch should only be appended by the elevation service
+  // when launching an isolated child browser process, and never when launching
+  // directly from the shell.
+  switches.erase(switches::kIsolated);
 
   // Add remaining switches, but not non-switch arguments.
   for (const auto& it : switches)
@@ -1079,8 +1103,8 @@ void ChromeBrowserMainPartsWin::OnModuleEvent(
 // the provided |module_watcher|.
 void ChromeBrowserMainPartsWin::SetupModuleDatabase(
     std::unique_ptr<ModuleWatcher>* module_watcher) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(module_watcher);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
+  CHECK(module_watcher, base::NotFatalUntil::M162);
 
   ModuleDatabase::GetTaskRunner()->PostTask(
       FROM_HERE, base::BindOnce(&InitializeModuleDatabase));

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/check.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -103,7 +104,7 @@ MediaRouteStarter::MediaRouteStarter(MediaRouterUIParameters params)
 }
 
 MediaRouteStarter::~MediaRouteStarter() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (presentation_manager_) {
     presentation_manager_->RemoveObserver(this);
   }
@@ -133,15 +134,15 @@ MediaRouteStarter::~MediaRouteStarter() {
 
 void MediaRouteStarter::AddPresentationRequestSourceObserver(
     PresentationRequestSourceObserver* observer) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(observer);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
+  CHECK(observer, base::NotFatalUntil::M162);
   observers_.AddObserver(observer);
 }
 
 void MediaRouteStarter::RemovePresentationRequestSourceObserver(
     PresentationRequestSourceObserver* observer) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(observer);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
+  CHECK(observer, base::NotFatalUntil::M162);
   observers_.RemoveObserver(observer);
 }
 
@@ -378,8 +379,8 @@ void MediaRouteStarter::InitRemotePlaybackSources(
   if (!IsCastModeAvailable(initial_modes, MediaCastMode::REMOTE_PLAYBACK)) {
     return;
   }
-  DCHECK(video_codec != media::VideoCodec::kUnknown) << "Unknown video codec.";
-  DCHECK(audio_codec != media::AudioCodec::kUnknown) << "Unknown audio codec.";
+  CHECK(video_codec != media::VideoCodec::kUnknown) << "Unknown video codec.";
+  CHECK(audio_codec != media::AudioCodec::kUnknown) << "Unknown audio codec.";
 
   // Use a placeholder URL as origin for Remote Playback.
   url::Origin origin = url::Origin::Create(GURL());

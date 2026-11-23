@@ -9,6 +9,7 @@
 
 #import "base/strings/sys_string_conversions.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/constants.h"
+#import "components/segmentation_platform/public/features.h"
 #import "ios/chrome/browser/content_suggestions/public/content_suggestions_constants.h"
 #import "ios/chrome/browser/content_suggestions/tips/ui/tips_module_audience.h"
 #import "ios/chrome/browser/content_suggestions/ui/cells/icon_view_configuration.h"
@@ -82,6 +83,12 @@ const CGFloat kProductImageBadgeBottomRightRadius = 8;
 // Constant for the symbol width.
 const CGFloat kSymbolWidth = 22;
 
+// Constant for the NTP theme tip icon width.
+constexpr CGFloat kNTPThemeIconWidth = 46;
+
+// Name of the image resource for the NTP theme tip icon.
+NSString* const kNTPThemeTipIconImageName = @"ntp_theme_tip";
+
 // Returns the `Symbol` for the given `tip`.
 Symbol SymbolForTip(TipIdentifier tip) {
   switch (tip) {
@@ -103,8 +110,7 @@ Symbol SymbolForTip(TipIdentifier tip) {
     case TipIdentifier::kEnhancedSafeBrowsing:
       return SymbolPrivacy;
     case TipIdentifier::kNTPTheme:
-      // TODO(crbug.com/566958827): Add the correct `NTPTheme` symbol.
-      return SymbolListBulletClipboard;
+      return SymbolNone;
     case TipIdentifier::kTipsNotifications:
       return SymbolBellBadge;
     case TipIdentifier::kNTPCustomization:
@@ -280,15 +286,30 @@ std::optional<Symbol> GetBadgeSymbolConfigForTip(TipIdentifier tip,
   return SymbolForTip(self.identifier);
 }
 
+- (NSString*)iconName {
+  if (self.identifier == TipIdentifier::kNTPTheme) {
+    return kNTPThemeTipIconImageName;
+  }
+  return nil;
+}
+
 - (IconViewSourceType)iconSource {
+  if (self.identifier == TipIdentifier::kNTPTheme) {
+    return IconViewSourceType::kImage;
+  }
   return IconViewSourceType::kSymbol;
 }
 
 - (NSArray<UIColor*>*)symbolColorPalette {
   switch (self.identifier) {
+    case TipIdentifier::kTipsNotifications:
+      if (segmentation_platform::features::
+              IsMagicStackTipsNotificationTipIosActionableEnabled()) {
+        return @[ [UIColor colorNamed:kBlue600Color] ];
+      }
+      return @[ [UIColor whiteColor] ];
     case TipIdentifier::kAddressBarPosition:
     case TipIdentifier::kEnhancedSafeBrowsing:
-    case TipIdentifier::kTipsNotifications:
     case TipIdentifier::kNTPCustomization:
       return @[ [UIColor whiteColor] ];
     case TipIdentifier::kSavePasswords:
@@ -318,15 +339,24 @@ std::optional<Symbol> GetBadgeSymbolConfigForTip(TipIdentifier tip,
     case TipIdentifier::kEnhancedSafeBrowsing:
       return [UIColor colorNamed:kBlue500Color];
     case TipIdentifier::kTipsNotifications:
+      if (segmentation_platform::features::
+              IsMagicStackTipsNotificationTipIosActionableEnabled()) {
+        return nil;
+      }
       return [UIColor colorNamed:kPink500Color];
     case TipIdentifier::kNTPCustomization:
       return [UIColor colorNamed:kPurple500Color];
+    case TipIdentifier::kNTPTheme:
+      return nil;
     default:
       return [UIColor colorNamed:kBackgroundColor];
   }
 }
 
 - (CGFloat)iconWidth {
+  if (self.identifier == TipIdentifier::kNTPTheme) {
+    return kNTPThemeIconWidth;
+  }
   return kSymbolWidth;
 }
 
@@ -374,6 +404,12 @@ std::optional<Symbol> GetBadgeSymbolConfigForTip(TipIdentifier tip,
   }
 }
 
+- (BOOL)showSwitch {
+  return self.identifier == TipIdentifier::kTipsNotifications &&
+         segmentation_platform::features::
+             IsMagicStackTipsNotificationTipIosActionableEnabled();
+}
+
 #pragma mark - IconDetailViewTapDelegate
 
 - (void)didTapIconDetailView:(IconDetailView*)view {
@@ -385,6 +421,10 @@ std::optional<Symbol> GetBadgeSymbolConfigForTip(TipIdentifier tip,
   CHECK_NE(tip, TipIdentifier::kUnknown);
 
   [self.audience didSelectTip:tip];
+}
+
+- (void)didToggleSwitchInIconDetailView:(IconDetailView*)view isOn:(BOOL)isOn {
+  [self.audience didToggleTipsNotificationsSwitch:isOn];
 }
 
 #pragma mark - Private

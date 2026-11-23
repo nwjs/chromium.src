@@ -7,32 +7,23 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class InProcessCategoryClassificationService;
-class ProfileIOS;
+#import "ios/chrome/browser/intelligence/on_device_category_classifier/in_process_category_classification_service.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all InProcessCategoryClassificationServices and
 // associates them with ProfileIOS.
-class InProcessCategoryClassificationServiceFactory
-    : public ProfileKeyedServiceFactoryIOS {
+class InProcessCategoryClassificationServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          InProcessCategoryClassificationServiceFactory,
+          InProcessCategoryClassificationService> {
  public:
-  static InProcessCategoryClassificationService* GetForProfile(
-      ProfileIOS* profile);
-  static InProcessCategoryClassificationServiceFactory* GetInstance();
+  explicit InProcessCategoryClassificationServiceFactory(PassKey key);
   static TestingFactory GetDefaultFactory();
 
  private:
-  friend class base::NoDestructor<
-      InProcessCategoryClassificationServiceFactory>;
-
-  InProcessCategoryClassificationServiceFactory();
-  ~InProcessCategoryClassificationServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_ON_DEVICE_CATEGORY_CLASSIFIER_IN_PROCESS_CATEGORY_CLASSIFICATION_SERVICE_FACTORY_H_

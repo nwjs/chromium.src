@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/background_cloud_scanner_manager_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/background_cloud_scanner_manager.h"
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_cloud_binary_upload_service_factory.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
@@ -12,30 +14,16 @@
 
 namespace enterprise_connectors {
 
-// static
-BackgroundCloudScannerManagerFactory*
-BackgroundCloudScannerManagerFactory::GetInstance() {
-  static base::NoDestructor<BackgroundCloudScannerManagerFactory> instance;
-  return instance.get();
-}
-
-// static
-BackgroundCloudScannerManager*
-BackgroundCloudScannerManagerFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<BackgroundCloudScannerManager>(
-      profile, /*create=*/true);
-}
-
-BackgroundCloudScannerManagerFactory::BackgroundCloudScannerManagerFactory()
-    : ProfileKeyedServiceFactoryIOS("BackgroundCloudScannerManager",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
+BackgroundCloudScannerManagerFactory::BackgroundCloudScannerManagerFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "BackgroundCloudScannerManager",
+          ProfileSelection::kOwnInstanceInIncognito) {
   DependsOn(IOSCloudBinaryUploadServiceFactory::GetInstance());
   DependsOn(ConnectorsServiceFactory::GetInstance());
   DependsOn(IOSReportingEventRouterFactory::GetInstance());
 }
-
-BackgroundCloudScannerManagerFactory::~BackgroundCloudScannerManagerFactory() =
-    default;
 
 std::unique_ptr<KeyedService>
 BackgroundCloudScannerManagerFactory::BuildServiceInstanceFor(

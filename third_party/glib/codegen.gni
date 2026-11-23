@@ -1,0 +1,163 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Templates that run glib's code generators from the in-tree glib at build time,
+# so that generated code always matches the DEPS revisions of glib and of the
+# project being generated for, and doesn't need to be checked in.
+
+_glib_codegen_common_inputs = [
+  "//third_party/glib/glib_version.py",
+  "//third_party/glib/src/meson.build",
+]
+
+# Runs glib-mkenums with a template.
+#
+# Parameters:
+#   input_headers: Headers to scan, in the same order as in upstream's
+#     meson.build, since the generated code follows the input order. (Not
+#     named "sources" so that "gn format" doesn't reorder them. Mark lists
+#     defined elsewhere with "# NOSORT" to make the ordering intent explicit.)
+#   template: The .template file.
+#   output: The generated file.
+#   input_base_dir (optional): Directory to run glib-mkenums in. Input paths
+#     relative to it are used in the generated code (e.g. in #include
+#     directives), so set this to match upstream's include paths.
+template("glib_mkenums") {
+  action(target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "deps",
+                             "public_deps",
+                             "testonly",
+                             "visibility",
+                           ])
+    script = "//third_party/glib/glib_mkenums.py"
+    inputs = _glib_codegen_common_inputs + invoker.input_headers + [
+               invoker.template,
+               "//third_party/glib/src/gobject/glib-mkenums.in",
+             ]
+    outputs = [ invoker.output ]
+    if (defined(invoker.input_base_dir)) {
+      _base_dir = invoker.input_base_dir
+      args = [
+        "--chdir",
+        rebase_path(_base_dir, root_build_dir),
+      ]
+    } else {
+      _base_dir = root_build_dir
+      args = []
+    }
+    args += [
+              "--template",
+              rebase_path(invoker.template, _base_dir),
+              "--output",
+              rebase_path(invoker.output, _base_dir),
+            ] + rebase_path(invoker.input_headers, _base_dir)
+  }
+}
+
+# Runs glib-genmarshal on a marshaller list, producing either the body or the
+# header.
+#
+# Parameters:
+#   source: The .list file.
+#   output: The generated file.
+#   mode: "body" or "header".
+#   input_base_dir (optional): Directory to run glib-genmarshal in, as for
+#     glib_mkenums. The list file's path relative to it appears in comments.
+#   extra_args (optional): Additional glib-genmarshal arguments, e.g.
+#     "--prefix".
+template("glib_genmarshal") {
+  assert(invoker.mode == "body" || invoker.mode == "header")
+
+  action(target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "deps",
+                             "public_deps",
+                             "testonly",
+                             "visibility",
+                           ])
+    script = "//third_party/glib/glib_genmarshal.py"
+    inputs = _glib_codegen_common_inputs + [
+               invoker.source,
+               "//third_party/glib/src/gobject/glib-genmarshal.in",
+             ]
+    outputs = [ invoker.output ]
+    if (defined(invoker.input_base_dir)) {
+      _base_dir = invoker.input_base_dir
+      args = [
+        "--chdir",
+        rebase_path(_base_dir, root_build_dir),
+      ]
+    } else {
+      _base_dir = root_build_dir
+      args = []
+    }
+    args += [
+      "--output",
+      rebase_path(invoker.output, _base_dir),
+      "--${invoker.mode}",
+      rebase_path(invoker.source, _base_dir),
+    ]
+    if (defined(invoker.extra_args)) {
+      args += invoker.extra_args
+    }
+  }
+}
+
+# Runs gdbus-codegen --generate-c-code, producing $output_name.{c,h} in
+# $output_dir.
+#
+# Parameters:
+#   sources: D-Bus introspection XML files.
+#   output_name: Base name of the generated files.
+#   output_dir (optional): Defaults to $target_gen_dir.
+#   interface_prefix (optional), c_namespace (optional): As in meson.build.
+#   extra_args (optional): Additional gdbus-codegen arguments, e.g.
+#     annotations.
+template("gdbus_codegen") {
+  action(target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "deps",
+                             "public_deps",
+                             "sources",
+                             "testonly",
+                             "visibility",
+                           ])
+    _output_dir = target_gen_dir
+    if (defined(invoker.output_dir)) {
+      _output_dir = invoker.output_dir
+    }
+    script = "//third_party/glib/gdbus_codegen.py"
+    inputs = _glib_codegen_common_inputs
+    outputs = [
+      "$_output_dir/${invoker.output_name}.c",
+      "$_output_dir/${invoker.output_name}.h",
+    ]
+    args = [
+      "--output-directory",
+      rebase_path(_output_dir, root_build_dir),
+      "--generate-c-code",
+      invoker.output_name,
+    ]
+    if (defined(invoker.interface_prefix)) {
+      args += [
+        "--interface-prefix",
+        invoker.interface_prefix,
+      ]
+    }
+    if (defined(invoker.c_namespace)) {
+      args += [
+        "--c-namespace",
+        invoker.c_namespace,
+      ]
+    }
+    if (defined(invoker.extra_args)) {
+      args += invoker.extra_args
+    }
+    args += rebase_path(sources, root_build_dir)
+  }
+}

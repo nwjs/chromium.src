@@ -8,7 +8,6 @@
 #import "base/feature_list.h"
 #import "components/breadcrumbs/core/breadcrumbs_status.h"
 #import "components/data_sharing/public/features.h"
-#import "components/send_tab_to_self/features.h"
 #import "ios/chrome/browser/app_launcher/model/app_launcher_browser_agent.h"
 #import "ios/chrome/browser/autocomplete/model/autocomplete_browser_agent.h"
 #import "ios/chrome/browser/browser_view/model/browser_view_visibility_notifier_browser_agent.h"
@@ -21,6 +20,8 @@
 #import "ios/chrome/browser/device_sharing/model/device_sharing_browser_agent.h"
 #import "ios/chrome/browser/device_sharing/model/device_sharing_manager_factory.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_visibility_browser_agent.h"
+#import "ios/chrome/browser/enterprise/data_protection/model/data_protection_browser_agent.h"
+#import "ios/chrome/browser/enterprise/data_protection/public/features.h"
 #import "ios/chrome/browser/favicon/model/favicon_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
@@ -160,15 +161,8 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
     PolicyWatcherBrowserAgent::CreateForBrowser(browser);
   }
 
-  // Send Tab To Self is non-OTR only.
-  bool should_create_send_tab_to_self = !browser_is_off_record;
-  if (base::FeatureList::IsEnabled(
-          send_tab_to_self::kSendTabToSelfIOSLimitToRegularBrowsers)) {
-    should_create_send_tab_to_self = should_create_send_tab_to_self &&
-                                     !browser_is_inactive &&
-                                     !browser_is_temporary;
-  }
-  if (should_create_send_tab_to_self) {
+  // Send Tab To Self is for regular Browsers only.
+  if (!browser_is_off_record && !browser_is_inactive && !browser_is_temporary) {
     SendTabToSelfBrowserAgent::CreateForBrowser(browser);
   }
 
@@ -211,6 +205,10 @@ void AttachBrowserAgentsForActiveBrowser(Browser* browser) {
 
   if (!browser_is_off_record && !browser_is_inactive) {
     DiscoverFeedVisibilityBrowserAgent::CreateForBrowser(browser);
+  }
+
+  if (!browser_is_off_record && IsEnableEnterpriseWatermarkingIOS()) {
+    DataProtectionBrowserAgent::CreateForBrowser(browser);
   }
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)

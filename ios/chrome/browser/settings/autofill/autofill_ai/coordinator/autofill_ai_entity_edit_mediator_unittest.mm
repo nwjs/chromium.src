@@ -498,7 +498,7 @@ TEST_F(AutofillAIEntityEditMediatorTest,
   autofill::EntityInstance::EntityId guid = wallet_instance.guid();
 
   autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse response;
-  response.context_token = "test_context_token";
+  response.legal_message_token = "test_legal_message_token";
   response.legal_message_lines.push_back(
       autofill::TestLegalMessageLine("Test Legal Message"));
   response.user_eligibility =
@@ -540,7 +540,7 @@ TEST_F(
                .management_url = GURL()}});
 
   autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse response;
-  response.context_token = "test_context_token";
+  response.legal_message_token = "test_legal_message_token";
   response.legal_message_lines.push_back(
       autofill::TestLegalMessageLine("Test Legal Message"));
   response.user_eligibility =
@@ -572,7 +572,7 @@ TEST_F(AutofillAIEntityEditMediatorTest,
   autofill::EntityInstance::EntityId guid = wallet_instance.guid();
 
   autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse response;
-  response.context_token = "test_context_token";
+  response.legal_message_token = "test_legal_message_token";
   response.legal_message_lines.push_back(
       autofill::TestLegalMessageLine("Test Legal Message"));
   response.user_eligibility =
@@ -614,7 +614,7 @@ TEST_F(AutofillAIEntityEditMediatorTest,
   autofill::EntityInstance::EntityId guid = wallet_instance.guid();
 
   autofill::WalletPassAccessManager::GetDetailsForUpsertPassResponse response;
-  response.context_token = "test_context_token";
+  response.legal_message_token = "test_legal_message_token";
   response.user_eligibility =
       autofill::WalletPassAccessManager::UserEligibility::kEligible;
 
@@ -644,10 +644,10 @@ TEST_F(AutofillAIEntityEditMediatorTest,
             autofill::EntityInstance::RecordType::kLocal);
 }
 
-// Tests that an eligible user's response without a context token cannot back
-// the disclosure notice, so the public pass falls back to local storage.
+// Tests that an eligible user's response without a legal message token cannot
+// back the disclosure notice, so the public pass falls back to local storage.
 TEST_F(AutofillAIEntityEditMediatorTest,
-       PublicPass_EligibleUserWithoutContextToken_FallsBackToLocal) {
+       PublicPass_EligibleUserWithoutLegalMessageToken_FallsBackToLocal) {
   autofill::EntityInstance wallet_instance =
       autofill::test::GetVehicleEntityInstance(
           {.record_type = autofill::EntityInstance::WalletRecordTypePayload{

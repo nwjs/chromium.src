@@ -13,12 +13,13 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
+#include "base/rand_util.h"
 #include "base/task/common/task_annotator.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
+#include "base/trace_event/trace_event.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
 #include "build/build_config.h"
 #include "components/viz/common/features.h"
@@ -27,6 +28,7 @@
 #include "components/viz/service/display/output_surface.h"
 #include "components/viz/service/display_embedder/output_surface_provider.h"
 #include "components/viz/service/display_embedder/vsync_parameter_listener.h"
+#include "components/viz/service/frame_sinks/compositor_frame_sink_support.h"
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
 #include "components/viz/service/hit_test/hit_test_aggregator.h"
 #include "services/viz/public/mojom/compositing/layer_context.mojom.h"
@@ -283,6 +285,14 @@ RootCompositorFrameSinkImpl::Create(
       std::move(external_begin_frame_source), std::move(display),
       hw_support_for_multiple_refresh_rates,
       params->enable_video_conference_matcher));
+
+  if (hint_session_factory &&
+      base::FeatureList::IsEnabled(features::kEnableADPFPendingRendererMain)) {
+    // |impl| owns and outlives display, so unretained is safe.
+    impl->display_->SetPendingRendererMainThreadsCallback(base::BindRepeating(
+        &RootCompositorFrameSinkImpl::GetPendingRendererMainThreads,
+        base::Unretained(impl.get())));
+  }
 
   // Set up the callback for updating VSyncParameters.
 #if !BUILDFLAG(IS_APPLE)
@@ -626,6 +636,30 @@ void RootCompositorFrameSinkImpl::SetThreads(
 }
 #endif
 
+base::flat_set<base::PlatformThreadId>
+RootCompositorFrameSinkImpl::GetPendingRendererMainThreads() const {
+  base::flat_set<base::PlatformThreadId> thread_ids;
+  FrameSinkManagerImpl* frame_sink_manager = support_->frame_sink_manager();
+  for (const FrameSinkId& child_id :
+       frame_sink_manager->GetChildrenByParent(support_->frame_sink_id())) {
+    CompositorFrameSinkSupport* child =
+        frame_sink_manager->GetFrameSinkForId(child_id);
+    // A child that has activated a surface is embedded in the drawn frame and
+    // picked up by Display through the regular per-surface path.
+    if (!child || child->last_activated_surface_id().is_valid()) {
+      continue;
+    }
+    for (const Thread& thread : child->GetThreads()) {
+      if (thread.type == Thread::Type::kMain) {
+        thread_ids.insert(thread.id);
+      }
+    }
+  }
+  TRACE_EVENT_INSTANT("android.adpf", "PendingRendererMainThreads", "count",
+                      thread_ids.size());
+  return thread_ids;
+}
+
 RootCompositorFrameSinkImpl::RootCompositorFrameSinkImpl(
     FrameSinkManagerImpl* frame_sink_manager,
     const FrameSinkId& frame_sink_id,
@@ -709,9 +743,16 @@ void RootCompositorFrameSinkImpl::UpdateFrameIntervalDeciderSettings() {
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-  matchers.push_back(std::make_unique<OnlyVideoMatcher>());
+  const bool use_mixed_fixed_interval_matcher =
+      features::IsMixedFixedIntervalMatcherEnabled();
+  // MixedFixedIntervalMatcher, registered below, also covers these.
+  if (!use_mixed_fixed_interval_matcher) {
+    matchers.push_back(std::make_unique<OnlyVideoMatcher>());
+    if (supports_adaptive_refresh_rate_) {
+      matchers.push_back(std::make_unique<OnlyAnimatingImageMatcher>());
+    }
+  }
   if (supports_adaptive_refresh_rate_) {
-    matchers.push_back(std::make_unique<OnlyAnimatingImageMatcher>());
     matchers.push_back(
         std::make_unique<OnlyScrollBarFadeOutAnimationMatcher>());
   }
@@ -727,6 +768,15 @@ void RootCompositorFrameSinkImpl::UpdateFrameIntervalDeciderSettings() {
   if (enable_video_conference_matcher_) {
     matchers.push_back(std::make_unique<VideoConferenceMatcher>());
   }
+
+#if BUILDFLAG(IS_ANDROID)
+  // After VideoConferenceMatcher, so frames with multiple videos keep its
+  // vote (the fastest video's interval) instead of a common cadence of all
+  // streams, which can be a much higher refresh rate.
+  if (use_mixed_fixed_interval_matcher) {
+    matchers.push_back(std::make_unique<MixedFixedIntervalMatcher>());
+  }
+#endif
 
   FrameIntervalDecider::Settings settings = decider->settings();
   if (interval_decider_use_fixed_intervals_) {
@@ -867,43 +917,9 @@ void RootCompositorFrameSinkImpl::DisplayWillDrawAndSwap(
   if (external_begin_frame_source_ &&
       external_begin_frame_source_->last_begin_frame_args().IsValid() &&
       base::ShouldRecordSubsampledMetric(0.001)) {
-    const BeginFrameArgs& begin_frame_args =
-        external_begin_frame_source_->last_begin_frame_args();
-    constexpr base::TimeDelta kEpsilonTimeDelta = base::Milliseconds(0.5);
-    if (decided_display_interval_.is_zero()) {
-      base::UmaHistogramCustomTimes(
-          "Viz.FrameIntervalDecider.ActualIntervalDefault",
-          begin_frame_args.interval, base::Milliseconds(0),
-          base::Milliseconds(500), 50);
-    }
-    if ((decided_display_interval_ - base::Hertz(30)).magnitude() <
-        kEpsilonTimeDelta) {
-      base::UmaHistogramCustomTimes(
-          "Viz.FrameIntervalDecider.ActualIntervalFor30hz",
-          begin_frame_args.interval, base::Milliseconds(0),
-          base::Milliseconds(500), 50);
-    }
-    if ((decided_display_interval_ - base::Hertz(25)).magnitude() <
-        kEpsilonTimeDelta) {
-      base::UmaHistogramCustomTimes(
-          "Viz.FrameIntervalDecider.ActualIntervalFor25hz",
-          begin_frame_args.interval, base::Milliseconds(0),
-          base::Milliseconds(500), 50);
-    }
-    if ((decided_display_interval_ - base::Hertz(24)).magnitude() <
-        kEpsilonTimeDelta) {
-      base::UmaHistogramCustomTimes(
-          "Viz.FrameIntervalDecider.ActualIntervalFor24hz",
-          begin_frame_args.interval, base::Milliseconds(0),
-          base::Milliseconds(500), 50);
-    }
-    if ((decided_display_interval_ - base::Hertz(20)).magnitude() <
-        kEpsilonTimeDelta) {
-      base::UmaHistogramCustomTimes(
-          "Viz.FrameIntervalDecider.ActualIntervalFor20hz",
-          begin_frame_args.interval, base::Milliseconds(0),
-          base::Milliseconds(500), 50);
-    }
+    FrameIntervalDecider::RecordActualFrameInterval(
+        decided_display_interval_,
+        external_begin_frame_source_->last_begin_frame_args().interval);
   }
 }
 

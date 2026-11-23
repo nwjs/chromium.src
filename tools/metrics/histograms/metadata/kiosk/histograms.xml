@@ -71,6 +71,19 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Kiosk.Launch.WatchdogAction" enum="KioskLaunchWatchdogAction"
+    expires_after="2027-09-30">
+  <owner>ntsirakis@google.com</owner>
+  <owner>kdgwill@google.com</owner>
+  <owner>core-devices@google.com</owner>
+  <summary>
+    ChromeOS only. Recorded when the Kiosk app launch watchdog fires because the
+    Kiosk app did not create its window within the timeout after being launched,
+    i.e. the app is assumed to be hung. The value is the recovery action taken
+    (device reboot or reboots exhausted / no action).
+  </summary>
+</histogram>
+
 <histogram name="Kiosk.LaunchDuration.{KioskType}" units="ms"
     expires_after="2027-03-07">
   <owner>yixie@chromium.org</owner>
@@ -174,7 +187,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Kiosk.SessionDuration.Normal" units="ms"
-    expires_after="2026-09-13">
+    expires_after="2027-05-01">
   <owner>pbond@chromium.org</owner>
   <owner>chromeos-kiosk-eng@chromium.org</owner>
   <summary>

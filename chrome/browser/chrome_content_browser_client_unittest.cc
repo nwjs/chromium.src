@@ -51,6 +51,8 @@
 #include "chrome/browser/media/prefs/capture_device_ranking.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/shell_integration.h"
+#include "chrome/browser/signin/chrome_signin_client_factory.h"
+#include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/ui/startup/google_chrome_scheme_util.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -92,6 +94,7 @@
 #include "components/search_engines/search_engines_switches.h"
 #include "components/site_isolation/features.h"
 #include "components/site_isolation/site_isolation_policy.h"
+#include "components/variations/scoped_variations_ids_provider.h"
 #include "components/variations/variations_associated_data.h"
 #include "components/version_info/version_info.h"
 #include "components/webui/chrome_urls/pref_names.h"
@@ -124,6 +127,7 @@
 #include "crypto/crypto_buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_id.h"
+#include "media/base/media_switches.h"
 #include "media/media_buildflags.h"
 #include "net/base/url_util.h"
 #include "net/log/net_log.h"
@@ -138,6 +142,7 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/network/test/test_network_context.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
@@ -152,9 +157,12 @@
 #include "base/files/file_util.h"
 #include "base/version.h"
 #include "chrome/browser/child_module/child_module_manager.h"
+#include "chrome/browser/child_module/child_module_paths.h"
 #include "chrome/browser/child_module/features.h"
 #include "chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_profile.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_user_profile.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_test_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -166,6 +174,7 @@
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/child_process_host.h"
+#include "content/public/test/test_web_contents_factory.h"
 #include "media/base/picture_in_picture_events_info.h"
 #include "third_party/blink/public/mojom/installedapp/related_application.mojom.h"
 #include "ui/base/page_transition_types.h"
@@ -250,7 +259,6 @@ using ::testing::_;
 using ::testing::IsFalse;
 using ::testing::IsTrue;
 using ::testing::NotNull;
-using ::testing::Optional;
 
 #if BUILDFLAG(ENABLE_PDF)
 using ::testing::NiceMock;
@@ -1319,7 +1327,10 @@ TEST_F(ChromeContentSettingsRedirectTest, RedirectGalleryURL) {
 
 TEST_F(ChromeContentSettingsRedirectTest, RedirectGuestGalleryURL) {
   content::ScopedWebUIConfigRegistration registration(
-      std::make_unique<MediaAppGuestUIConfig>());
+      std::make_unique<MediaAppGuestUIConfig>(
+          TestingBrowserProcess::GetGlobal()
+              ->GetFeatures()
+              ->application_locale_storage()));
   TestChromeContentBrowserClient test_content_browser_client;
   const GURL gallery_url(ash::kChromeUIMediaAppGuestURL);
   GURL dest_url = gallery_url;
@@ -2245,6 +2256,20 @@ TEST_F(ChromeContentBrowserClientTest, ShouldUseSpareRenderProcessHost) {
 
 #if !BUILDFLAG(IS_ANDROID)
   {
+    webui::ScopedTopChromeWebUIProfileForTesting scoped_profile;
+    Profile* top_chrome_webui_profile = webui::GetTopChromeWebUIProfile();
+    ASSERT_TRUE(top_chrome_webui_profile);
+    ASSERT_TRUE(top_chrome_webui_profile->IsTopChromeWebUIProfile());
+    EXPECT_FALSE(browser_client.ShouldUseSpareRenderProcessHost(
+        top_chrome_webui_profile, GURL("https://www.example.com"),
+        refused_reason));
+    EXPECT_EQ(SpareProcessRefusedByEmbedderReason::TopFrameChromeWebUI,
+              refused_reason);
+  }
+#endif  // !BUILDFLAG(IS_ANDROID)
+
+#if !BUILDFLAG(IS_ANDROID)
+  {
     // Disable kInstantUsesSpareRenderer flag to verify
     // that Chrome-search URLs are not using the spare renderer.
     base::test::ScopedFeatureList scoped_feature_list;
@@ -2277,6 +2302,108 @@ TEST_F(ChromeContentBrowserClientTest, ShouldUseSpareRenderProcessHost) {
             refused_reason);
 #endif
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+// Tests that WebPreferences of a WebContents in the Top Chrome WebUI profile
+// are computed from the user profile set for it.
+TEST_F(ChromeContentBrowserClientTest,
+       TopChromeWebUIProfileWebPreferencesUseUserProfile) {
+  webui::ScopedTopChromeWebUIProfileForTesting scoped_profile;
+  Profile* top_chrome_webui_profile = webui::GetTopChromeWebUIProfile();
+  ASSERT_TRUE(top_chrome_webui_profile);
+
+  content::TestWebContentsFactory web_contents_factory;
+  content::WebContents* web_contents =
+      web_contents_factory.CreateWebContents(top_chrome_webui_profile);
+  webui::SetUserProfile(web_contents, profile());
+  profile()->GetPrefs()->SetInteger(prefs::kWebKitDefaultFontSize, 22);
+
+  ChromeContentBrowserClient client;
+  blink::web_pref::WebPreferences web_prefs;
+  client.OverrideWebPreferences(web_contents, *web_contents->GetSiteInstance(),
+                                &web_prefs);
+  EXPECT_EQ(22, web_prefs.default_font_size);
+}
+
+// Tests that WebPreferences of a WebContents in the Top Chrome WebUI profile
+// are computed from the user profile set for it after a navigation to a non
+// WebUI URL.
+TEST_F(ChromeContentBrowserClientTest,
+       TopChromeWebUIProfileWebPreferencesAfterNavigationUseUserProfile) {
+  webui::ScopedTopChromeWebUIProfileForTesting scoped_profile;
+  Profile* top_chrome_webui_profile = webui::GetTopChromeWebUIProfile();
+  ASSERT_TRUE(top_chrome_webui_profile);
+
+  content::TestWebContentsFactory web_contents_factory;
+  content::WebContents* web_contents =
+      web_contents_factory.CreateWebContents(top_chrome_webui_profile);
+  webui::SetUserProfile(web_contents, profile());
+  profile()->GetPrefs()->SetInteger(prefs::kWebKitDefaultFontSize, 22);
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents, GURL(url::kAboutBlankURL));
+
+  ChromeContentBrowserClient client;
+  blink::web_pref::WebPreferences web_prefs;
+  client.OverrideWebPreferencesAfterNavigation(
+      web_contents, *web_contents->GetSiteInstance(), &web_prefs);
+  EXPECT_EQ(22, web_prefs.default_font_size);
+}
+
+// Tests that the autoplay policy of a WebContents in the Top Chrome WebUI
+// profile is computed from the user profile set for it.
+TEST_F(ChromeContentBrowserClientTest,
+       TopChromeWebUIProfileAutoplayPolicyUsesUserProfile) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      media::kAutoplayDisableSettings);
+  base::test::ScopedCommandLine scoped_command_line;
+  scoped_command_line.GetProcessCommandLine()->AppendSwitchASCII(
+      switches::kAutoplayPolicy,
+      switches::autoplay::kDocumentUserActivationRequiredPolicy);
+  webui::ScopedTopChromeWebUIProfileForTesting scoped_profile;
+
+  content::TestWebContentsFactory web_contents_factory;
+  content::WebContents* web_contents =
+      web_contents_factory.CreateWebContents(webui::GetTopChromeWebUIProfile());
+  webui::SetUserProfile(web_contents, profile());
+  // The user profile allows autoplay without a user gesture.
+  profile()->GetPrefs()->SetBoolean(prefs::kBlockAutoplayEnabled, false);
+
+  ChromeContentBrowserClient client;
+  blink::web_pref::WebPreferences web_prefs;
+  client.OverrideWebPreferences(web_contents, *web_contents->GetSiteInstance(),
+                                &web_prefs);
+  EXPECT_EQ(blink::mojom::AutoplayPolicy::kNoUserGestureRequired,
+            web_prefs.autoplay_policy);
+}
+
+// Tests that the user BrowserContext of a WebContents in the Top Chrome WebUI
+// profile is the user profile set for it.
+TEST_F(ChromeContentBrowserClientTest,
+       TopChromeWebUIProfileUserBrowserContext) {
+  webui::ScopedTopChromeWebUIProfileForTesting scoped_profile;
+  Profile* top_chrome_webui_profile = webui::GetTopChromeWebUIProfile();
+  ASSERT_TRUE(top_chrome_webui_profile);
+
+  content::TestWebContentsFactory web_contents_factory;
+  content::WebContents* web_contents =
+      web_contents_factory.CreateWebContents(top_chrome_webui_profile);
+  content::RenderFrameHost& rfh = *web_contents->GetPrimaryMainFrame();
+  ChromeContentBrowserClient client;
+
+  // Without a user profile, the BrowserContext of the frame is used.
+  EXPECT_EQ(top_chrome_webui_profile, client.GetUserBrowserContext(rfh));
+
+  // With a user profile, the user profile is used.
+  webui::SetUserProfile(web_contents, profile());
+  EXPECT_EQ(profile(), client.GetUserBrowserContext(rfh));
+
+  // A frame in another profile uses its own BrowserContext.
+  content::WebContents* other_web_contents =
+      web_contents_factory.CreateWebContents(profile());
+  EXPECT_EQ(profile(), client.GetUserBrowserContext(
+                           *other_web_contents->GetPrimaryMainFrame()));
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 class WillComputeSiteForNavigationTest : public ChromeContentBrowserClientTest {
  public:
@@ -2596,6 +2723,13 @@ class ChromeContentBrowserClientAIPrefsTest
  protected:
   void SetUp() override { ChromeRenderViewHostTestHarness::SetUp(); }
 
+  TestingProfile::TestingFactories GetTestingFactories() const override {
+    return {TestingProfile::TestingFactory{
+        ChromeSigninClientFactory::GetInstance(),
+        base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
+                            base::Unretained(&test_url_loader_factory_))}};
+  }
+
   void RunOverrideWebPreferences(
       content::WebContents* web_contents,
       blink::web_pref::WebPreferences* web_preferences) {
@@ -2604,8 +2738,11 @@ class ChromeContentBrowserClientAIPrefsTest
                                    web_preferences);
   }
 
+  mutable network::TestURLLoaderFactory test_url_loader_factory_;
   ChromeContentBrowserClient client_;
   base::test::ScopedFeatureList feature_list_;
+  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+      variations::VariationsIdsProvider::Mode::kUseSignedInState};
 };
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
@@ -2984,6 +3121,24 @@ TEST_F(ChromeContentBrowserClientUnboundedElementTest,
       ->RegisterConfigProvider(
           std::make_unique<TestUnboundedConfigProvider>(kExtensionId));
   EXPECT_TRUE(client.IsUnboundedElementAllowed(extension_rfh));
+  EXPECT_FALSE(
+      client.IsUnboundedElementEscapingAllowed(extension_rfh, main_rfh()));
+
+  NavigateAndCommit(GURL("https://www.google.com/search?q=test"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  content::RenderFrameHost* google_extension_rfh =
+      content::RenderFrameHostTester::For(main_rfh())->AppendChild("extension");
+  content::RenderFrameHostTester::For(google_extension_rfh)
+      ->InitializeRenderFrameIfNeeded();
+  content::OverrideLastCommittedOrigin(
+      google_extension_rfh,
+      url::Origin::Create(
+          component_extension->ResolveExtensionURL("index.html")));
+  EXPECT_TRUE(client.IsUnboundedElementEscapingAllowed(google_extension_rfh,
+                                                       main_rfh()));
+  EXPECT_FALSE(
+      client.IsUnboundedElementEscapingAllowed(main_rfh(), main_rfh()));
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
@@ -3069,6 +3224,10 @@ TEST_F(ChromeContentBrowserClientHandleExternalProtocolTest,
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+// TODO(crbug.com/558598893): Build end-to-end browser test infrastructure that
+// stages a dynamic patch and launches a real renderer process (including full
+// Windows sandbox policy generation and extra DLL loading) to cover dynamic
+// patching scenarios end-to-end.
 class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
  public:
   void SetUp() override {
@@ -3078,7 +3237,9 @@ class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
     scoped_command_line_.GetProcessCommandLine()->AppendSwitch(
         switches::kNoZygote);
 #endif
-    ASSERT_TRUE(base::CreateDirectory(child_module::GetModulesDir()));
+    // Set chrome::DIR_CHILD_MODULE_ROOT as the browser does at startup.
+    ASSERT_TRUE(child_module::InitializeChildModuleRoot());
+    modules_dir_ = base::PathService::CheckedGet(chrome::DIR_CHILD_MODULE_ROOT);
     TestingBrowserProcess::GetGlobal()->GetFeatures()->PreMainMessageLoopRun();
     auto* manager = TestingBrowserProcess::GetGlobal()
                         ->GetFeatures()
@@ -3092,10 +3253,9 @@ class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
   }
 
   // Writes the directory and manifest sentinel file for `version` under
-  // `GetModulesDir()`.
+  // `modules_dir_`.
   void WritePatchFiles(const base::Version& version) {
-    base::FilePath version_dir =
-        child_module::GetModulesDir().AppendASCII(version.GetString());
+    base::FilePath version_dir = modules_dir_.AppendASCII(version.GetString());
     EXPECT_TRUE(base::CreateDirectory(version_dir));
     EXPECT_TRUE(
         base::WriteFile(child_module::GetManifestPath(version_dir), ""));
@@ -3106,20 +3266,19 @@ class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
   // `version` synchronously as the latest available version, and returns the
   // expected renderer binary path.
   base::FilePath StagePatch(const base::Version& version) {
-    const child_module::ChildModuleManager::Module expected = {
-        .version = version,
-        .renderer_binary_path = child_module::GetRendererBinaryPath(version)};
-    auto* features = TestingBrowserProcess::GetGlobal()->GetFeatures();
+    GlobalFeatures* features =
+        TestingBrowserProcess::GetGlobal()->GetFeatures();
     features->PostMainMessageLoopRun();
     WritePatchFiles(version);
     features->PreMainMessageLoopRun();
-    auto* manager = features->child_module_manager();
+    child_module::ChildModuleManager* manager =
+        features->child_module_manager();
     EXPECT_NE(manager, nullptr);
     if (manager) {
       manager->WaitForInitialScanForTesting();
-      EXPECT_EQ(manager->GetLatestModule(), expected);
+      EXPECT_TRUE(manager->GetAvailableVersionsForTesting().contains(version));
     }
-    return expected.renderer_binary_path;
+    return child_module::GetRendererBinaryPath(modules_dir_, version);
   }
 
   // TODO(crbug.com/558598893): Enable GetChildProcessPath tests on macOS once
@@ -3138,17 +3297,19 @@ class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
 #endif  // BUILDFLAG(IS_LINUX)
 
  protected:
-  base::ScopedPathOverride path_override_{
 #if BUILDFLAG(IS_WIN)
-      base::DIR_EXE
-#else
-      chrome::DIR_USER_DATA
+  base::ScopedPathOverride path_override_{base::DIR_EXE};
 #endif
-  };
+  base::ScopedPathOverride user_data_dir_override_{chrome::DIR_USER_DATA};
+  base::ScopedPathOverride child_module_root_override_{
+      chrome::DIR_CHILD_MODULE_ROOT};
   base::test::ScopedCommandLine scoped_command_line_;
   base::test::ScopedFeatureList scoped_feature_list_{
       child_module::features::kDynamicPatching};
   content::BrowserTaskEnvironment task_environment_;
+  TestingProfile profile_;
+  // The directory in which the manager looks for patches.
+  base::FilePath modules_dir_;
 };
 
 // TODO(crbug.com/558598893): Enable GetChildProcessPath tests on macOS once
@@ -3157,17 +3318,30 @@ class ChromeContentBrowserClientDynamicPatchTest : public testing::Test {
 TEST_F(ChromeContentBrowserClientDynamicPatchTest,
        GetChildProcessPathReturnsPatchedBinary) {
   ChromeContentBrowserClient client;
-  EXPECT_EQ(
-      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
-      GetUnpatchedRendererPath());
+  content::MockRenderProcessHost host1(&profile_);
+  EXPECT_EQ(client.GetChildProcessPath(
+                content::ChildProcessHost::CHILD_RENDERER, host1.GetID()),
+            GetUnpatchedRendererPath());
 
-  base::FilePath patched_binary = StagePatch(base::Version("9999.0.0.1"));
-  EXPECT_EQ(
-      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
-      patched_binary);
+  const base::Version kVersion("9999.0.0.1");
+  base::FilePath patched_binary = StagePatch(kVersion);
+  content::MockRenderProcessHost host2(&profile_);
+  EXPECT_EQ(client.GetChildProcessPath(
+                content::ChildProcessHost::CHILD_RENDERER, host2.GetID()),
+            patched_binary);
+  child_module::ChildModuleManager* manager =
+      TestingBrowserProcess::GetGlobal()->GetFeatures()->child_module_manager();
+  ASSERT_NE(manager, nullptr);
+  EXPECT_THAT(
+      manager->GetModuleForProcess(host2.GetID()).CopyAsOptional(),
+      ::testing::Optional(child_module::ChildModuleManager::Module{
+          .version = kVersion, .renderer_binary_path = patched_binary}));
+
+  content::MockRenderProcessHost host3(&profile_);
   EXPECT_EQ(
       client.GetChildProcessPath(content::ChildProcessHost::CHILD_ALLOW_SELF |
-                                 content::ChildProcessHost::CHILD_RENDERER),
+                                     content::ChildProcessHost::CHILD_RENDERER,
+                                 host3.GetID()),
       patched_binary);
 }
 
@@ -3176,10 +3350,12 @@ TEST_F(ChromeContentBrowserClientDynamicPatchTest,
   ChromeContentBrowserClient client;
   StagePatch(base::Version("9999.0.0.1"));
 
-  EXPECT_EQ(client.GetChildProcessPath(content::ChildProcessHost::CHILD_NORMAL),
+  EXPECT_EQ(client.GetChildProcessPath(content::ChildProcessHost::CHILD_NORMAL,
+                                       content::ChildProcessId()),
             base::FilePath());
   EXPECT_EQ(
-      client.GetChildProcessPath(content::ChildProcessHost::CHILD_ALLOW_SELF),
+      client.GetChildProcessPath(content::ChildProcessHost::CHILD_ALLOW_SELF,
+                                 content::ChildProcessId()),
       base::FilePath());
 }
 
@@ -3187,13 +3363,14 @@ TEST_F(ChromeContentBrowserClientDynamicPatchTest,
 TEST_F(ChromeContentBrowserClientDynamicPatchTest,
        GetChildProcessPathRequiresNoZygote) {
   ChromeContentBrowserClient client;
+  content::MockRenderProcessHost host(&profile_);
   StagePatch(base::Version("9999.0.0.1"));
   scoped_command_line_.GetProcessCommandLine()->RemoveSwitch(
       switches::kNoZygote);
 
-  EXPECT_EQ(
-      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
-      base::FilePath());
+  EXPECT_EQ(client.GetChildProcessPath(
+                content::ChildProcessHost::CHILD_RENDERER, host.GetID()),
+            base::FilePath());
 }
 #endif  // !BUILDFLAG(ENABLE_SEPARATE_RENDERER_BINARY)
 #endif  // BUILDFLAG(IS_LINUX)
@@ -3202,41 +3379,95 @@ TEST_F(ChromeContentBrowserClientDynamicPatchTest,
 TEST_F(ChromeContentBrowserClientDynamicPatchTest,
        AppendChildModuleVersionSwitch) {
   ChromeContentBrowserClient client;
+  content::MockRenderProcessHost process_host(&profile_);
   base::CommandLine cmd(base::CommandLine::NO_PROGRAM);
   cmd.AppendSwitchASCII(switches::kProcessType, switches::kRendererProcess);
 
-  client.AppendExtraCommandLineSwitches(&cmd, /*child_process_id=*/1);
+  client.AppendExtraCommandLineSwitches(&cmd, process_host.GetDeprecatedID());
   EXPECT_FALSE(cmd.HasSwitch(switches::kChildModuleVersion));
+  EXPECT_FALSE(cmd.HasSwitch(switches::kChildModuleUserPathComponent));
 
-  StagePatch(base::Version("9999.0.0.1"));
+  const base::FilePath patched_binary = StagePatch(base::Version("9999.0.0.1"));
   base::CommandLine patched_cmd(base::CommandLine::NO_PROGRAM);
   patched_cmd.AppendSwitchASCII(switches::kProcessType,
                                 switches::kRendererProcess);
-  client.AppendExtraCommandLineSwitches(&patched_cmd, /*child_process_id=*/1);
+  client.AppendExtraCommandLineSwitches(&patched_cmd,
+                                        process_host.GetDeprecatedID());
   EXPECT_EQ(patched_cmd.GetSwitchValueASCII(switches::kChildModuleVersion),
             "9999.0.0.1");
+  // The renderer loads the patched binary that the browser allows it to load.
+  EXPECT_EQ(
+      child_module::GetRendererBinaryPath(
+          child_module::GetModulesDirForUser(patched_cmd.GetSwitchValuePath(
+              switches::kChildModuleUserPathComponent)),
+          base::Version(
+              patched_cmd.GetSwitchValueASCII(switches::kChildModuleVersion))),
+      patched_binary);
 }
 
 TEST_F(ChromeContentBrowserClientDynamicPatchTest,
        DoNotAppendSwitchForNonRendererProcess) {
   ChromeContentBrowserClient client;
+  content::MockRenderProcessHost process_host(&profile_);
   StagePatch(base::Version("9999.0.0.1"));
 
   base::CommandLine cmd(base::CommandLine::NO_PROGRAM);
   cmd.AppendSwitchASCII(switches::kProcessType, switches::kUtilityProcess);
-  client.AppendExtraCommandLineSwitches(&cmd, /*child_process_id=*/1);
+  client.AppendExtraCommandLineSwitches(&cmd, process_host.GetDeprecatedID());
   EXPECT_FALSE(cmd.HasSwitch(switches::kChildModuleVersion));
+  EXPECT_FALSE(cmd.HasSwitch(switches::kChildModuleUserPathComponent));
 }
 
-TEST_F(ChromeContentBrowserClientDynamicPatchTest, GetChildModule) {
+TEST_F(ChromeContentBrowserClientDynamicPatchTest,
+       GetRendererSandboxPolicyExtension) {
+  base::ScopedPathOverride exe_override(
+      base::FILE_EXE,
+      base::PathService::CheckedGet(base::DIR_EXE)
+          .Append(chrome::kBrowserProcessExecutableName),
+      /*is_absolute=*/true, /*create=*/false);
   ChromeContentBrowserClient client;
-  EXPECT_EQ(client.GetChildModule(), std::nullopt);
+  content::MockRenderProcessHost process_host(&profile_);
+#if defined(COMPONENT_BUILD) || defined(ADDRESS_SANITIZER)
+  EXPECT_EQ(client.GetRendererSandboxPolicyExtension(process_host.GetID()),
+            std::nullopt);
+#else
+#if BUILDFLAG(ENABLE_SEPARATE_RENDERER_BINARY)
+  const base::FilePath default_dll =
+      base::PathService::CheckedGet(base::DIR_MODULE)
+          .Append(chrome::kRendererDll);
+#else
+  const base::FilePath default_dll =
+      base::PathService::CheckedGet(base::DIR_MODULE)
+          .Append(chrome::kBrowserResourcesDll);
+#endif
+  EXPECT_THAT(client.GetRendererSandboxPolicyExtension(process_host.GetID()),
+              ::testing::Optional(
+                  content::ContentBrowserClient::RendererSandboxPolicyExtension{
+                      .extra_dll = default_dll}));
 
   const base::Version version("9999.0.0.1");
   base::FilePath patched_binary = StagePatch(version);
-  EXPECT_THAT(client.GetChildModule(),
-              Optional(content::ContentBrowserClient::ChildModule{
-                  .version = version, .path = patched_binary}));
+  base::CommandLine cmd(base::CommandLine::NO_PROGRAM);
+  cmd.AppendSwitchASCII(switches::kProcessType, switches::kRendererProcess);
+  client.AppendExtraCommandLineSwitches(&cmd, process_host.GetDeprecatedID());
+  EXPECT_THAT(
+      client.GetRendererSandboxPolicyExtension(process_host.GetID()),
+      ::testing::Optional(
+          content::ContentBrowserClient::RendererSandboxPolicyExtension{
+              .tag_suffix = version.GetString(), .extra_dll = patched_binary}));
+#endif  // defined(COMPONENT_BUILD) || defined(ADDRESS_SANITIZER)
+}
+
+TEST_F(ChromeContentBrowserClientDynamicPatchTest,
+       GetRendererSandboxPolicyExtensionReturnsNulloptForNonChromeExe) {
+  ChromeContentBrowserClient client;
+  content::MockRenderProcessHost process_host(&profile_);
+  StagePatch(base::Version("9999.0.0.1"));
+  base::CommandLine cmd(base::CommandLine::NO_PROGRAM);
+  cmd.AppendSwitchASCII(switches::kProcessType, switches::kRendererProcess);
+  client.AppendExtraCommandLineSwitches(&cmd, process_host.GetDeprecatedID());
+  EXPECT_EQ(client.GetRendererSandboxPolicyExtension(process_host.GetID()),
+            std::nullopt);
 }
 #endif  // BUILDFLAG(IS_WIN)
 
@@ -3258,46 +3489,54 @@ TEST_F(ChromeContentBrowserClientDynamicPatchTest,
   // launcher is implemented.
 #if BUILDFLAG(IS_LINUX)
   ChromeContentBrowserClient client;
+  content::MockRenderProcessHost process_host(&profile_);
   EXPECT_EQ(
-      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
+      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER,
+                                 process_host.GetID()),
       GetUnpatchedRendererPath());
 #elif BUILDFLAG(IS_WIN)
   ChromeContentBrowserClient client;
+  content::MockRenderProcessHost process_host(&profile_);
   base::CommandLine cmd(base::CommandLine::NO_PROGRAM);
   cmd.AppendSwitchASCII(switches::kProcessType, switches::kRendererProcess);
-  client.AppendExtraCommandLineSwitches(&cmd, /*child_process_id=*/1);
+  client.AppendExtraCommandLineSwitches(&cmd, process_host.GetDeprecatedID());
   EXPECT_FALSE(cmd.HasSwitch(switches::kChildModuleVersion));
 #endif
 }
 
 TEST_F(ChromeContentBrowserClientDynamicPatchTest, DynamicallyToggledByPolicy) {
   ChromeContentBrowserClient client;
+  content::MockRenderProcessHost process_host(&profile_);
   base::FilePath patched_binary = StagePatch(base::Version("9999.0.0.1"));
   PrefService* local_state = TestingBrowserProcess::GetGlobal()->local_state();
 
   local_state->SetBoolean(prefs::kDynamicPatchingEnabled, false);
 #if BUILDFLAG(IS_LINUX)
   EXPECT_EQ(
-      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
+      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER,
+                                 process_host.GetID()),
       GetUnpatchedRendererPath());
 #elif BUILDFLAG(IS_WIN)
   base::CommandLine disabled_cmd(base::CommandLine::NO_PROGRAM);
   disabled_cmd.AppendSwitchASCII(switches::kProcessType,
                                  switches::kRendererProcess);
-  client.AppendExtraCommandLineSwitches(&disabled_cmd, /*child_process_id=*/1);
+  client.AppendExtraCommandLineSwitches(&disabled_cmd,
+                                        process_host.GetDeprecatedID());
   EXPECT_FALSE(disabled_cmd.HasSwitch(switches::kChildModuleVersion));
 #endif
 
   local_state->SetBoolean(prefs::kDynamicPatchingEnabled, true);
 #if BUILDFLAG(IS_LINUX)
   EXPECT_EQ(
-      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER),
+      client.GetChildProcessPath(content::ChildProcessHost::CHILD_RENDERER,
+                                 process_host.GetID()),
       patched_binary);
 #elif BUILDFLAG(IS_WIN)
   base::CommandLine enabled_cmd(base::CommandLine::NO_PROGRAM);
   enabled_cmd.AppendSwitchASCII(switches::kProcessType,
                                 switches::kRendererProcess);
-  client.AppendExtraCommandLineSwitches(&enabled_cmd, /*child_process_id=*/1);
+  client.AppendExtraCommandLineSwitches(&enabled_cmd,
+                                        process_host.GetDeprecatedID());
   EXPECT_EQ(enabled_cmd.GetSwitchValueASCII(switches::kChildModuleVersion),
             "9999.0.0.1");
 #endif

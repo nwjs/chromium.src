@@ -5,6 +5,8 @@
 
 #import <WebKit/WebKit.h>
 
+#import "ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_constants.h"
+#import "ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_recorder.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_header_view.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_history_item.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_history_view_controller.h"
@@ -309,6 +311,11 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
                       object:nil];
 
   [defaultCenter addObserver:self
+                    selector:@selector(keyboardDidShow:)
+                        name:UIKeyboardDidShowNotification
+                      object:nil];
+
+  [defaultCenter addObserver:self
                     selector:@selector(keyboardDidHide:)
                         name:UIKeyboardDidHideNotification
                       object:nil];
@@ -600,6 +607,11 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   }
 }
 
+// Called when the keyboard has finished showing.
+- (void)keyboardDidShow:(NSNotification*)notification {
+  [self.delegate assistantAIMViewControllerDidShowKeyboard:self];
+}
+
 // Called when the keyboard is hidden.
 - (void)keyboardDidHide:(NSNotification*)notification {
   _keyboardFrameInWindow = CGRectZero;
@@ -769,6 +781,8 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
 
 - (void)assistantAIMHeaderViewDidPressClose:
     (AssistantAIMHeaderView*)headerView {
+  [self.metricsRecorder
+      recordHeaderAction:AssistantAimHeaderAction::kCloseButtonTapped];
   [self.delegate assistantAIMViewControllerDidTapClose:self];
 }
 
@@ -787,8 +801,15 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   [self.delegate assistantAIMViewControllerDidRequestLoadedURL:self];
 }
 
+- (void)assistantAIMHeaderViewDidRequestComposeboxLogs:
+    (AssistantAIMHeaderView*)headerView {
+  [self.delegate assistantAIMViewControllerDidRequestComposeboxLogs:self];
+}
+
 - (void)assistantAIMHeaderViewDidTapStartNewThread:
     (AssistantAIMHeaderView*)headerView {
+  [self.metricsRecorder
+      recordHeaderAction:AssistantAimHeaderAction::kNewThreadTapped];
   [UIView performWithoutAnimation:^{
     [self setAssistantAIMState:AssistantAIMState::kZeroState];
     [self.view layoutIfNeeded];
@@ -798,6 +819,8 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
 
 - (void)assistantAIMHeaderViewDidTapHistory:
     (AssistantAIMHeaderView*)headerView {
+  [self.metricsRecorder
+      recordHeaderAction:AssistantAimHeaderAction::kThreadHistoryTapped];
   [UIView performWithoutAnimation:^{
     [self setAssistantAIMState:AssistantAIMState::kHistory];
     [self.view layoutIfNeeded];
@@ -808,10 +831,14 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
 
 - (void)assistantAIMHeaderViewDidTapMyActivity:
     (AssistantAIMHeaderView*)headerView {
+  [self.metricsRecorder
+      recordHeaderAction:AssistantAimHeaderAction::kMyActivityTapped];
   [self.delegate assistantAIMViewControllerDidTapMyActivity:self];
 }
 
 - (void)assistantAIMHeaderViewDidTapHelp:(AssistantAIMHeaderView*)headerView {
+  [self.metricsRecorder
+      recordHeaderAction:AssistantAimHeaderAction::kHelpTapped];
   [self.delegate assistantAIMViewControllerDidTapHelp:self];
 }
 

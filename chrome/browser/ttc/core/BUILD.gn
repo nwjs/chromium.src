@@ -2,7 +2,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/buildflag_header.gni")
 import("//build/config/ozone.gni")
+import("//chrome/browser/ttc/core/buildflags.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+
+buildflag_header("buildflags") {
+  header = "buildflags.h"
+  flags = [ "ENABLE_TTC_WEBUI=$enable_ttc_webui" ]
+}
 
 if (is_android) {
   import("//build/config/android/rules.gni")
@@ -16,24 +24,43 @@ if (is_android) {
 source_set("features") {
   public = [ "features.h" ]
   sources = [ "features.cc" ]
-  public_deps = [ "//base" ]
+  public_deps = [
+    "//base",
+    "//components/ttc:features",
+  ]
+}
+
+source_set("prefs") {
+  public = [ "prefs.h" ]
+  sources = [ "prefs.cc" ]
+  deps = [ "//components/prefs" ]
+}
+
+if (enable_ttc_webui) {
+  mojom("mojo_bindings") {
+    sources = [ "eval_harness.mojom" ]
+    public_deps = [ "//mojo/public/mojom/base" ]
+    webui_module_path = "/"
+  }
 }
 
 source_set("core") {
   public = [
     "entrypoint_controller.h",
+    "eval_audio_controller.h",
     "page_context.h",
     "session_controller.h",
-    "session_journal.h",
     "session_view.h",
     "session_view_delegate.h",
     "states.h",
+    "switches.h",
     "ttc_keyed_service.h",
     "ttc_keyed_service_factory.h",
     "ttc_page_context_monitor.h",
     "voice_focused_contents_tracker.h",
   ]
   public_deps = [
+    ":buildflags",
     ":features",
     "//base",
     "//chrome/browser/optimization_guide",
@@ -50,9 +77,17 @@ source_set("core") {
     "//components/page_content_annotations/content",
     "//components/ttc/app/public",
     "//content/public/browser",
+    "//media",
     "//ui/base/unowned_user_data",
     "//url",
   ]
+  if (enable_ttc_webui) {
+    public += [
+      "harness_page_handler.h",
+      "ttc_eval_harness.h",
+    ]
+    public_deps += [ ":mojo_bindings" ]
+  }
 }
 
 source_set("impl") {
@@ -60,12 +95,15 @@ source_set("impl") {
     "actor_task_holder.cc",
     "actor_task_holder.h",
     "entrypoint_controller.cc",
+    "eval_audio_controller.cc",
+    "eval_audio_controller.h",
     "page_context.cc",
     "page_context_util.cc",
     "page_context_util.h",
     "session_controller_impl.cc",
     "session_controller_impl.h",
-    "session_journal.cc",
+    "session_journal_impl.cc",
+    "session_journal_impl.h",
     "states.cc",
     "tool_controller.cc",
     "tool_controller.h",
@@ -76,13 +114,23 @@ source_set("impl") {
     "ttc_page_context_monitor.cc",
     "voice_focused_contents_tracker.cc",
   ]
+  if (enable_ttc_webui) {
+    sources += [
+      "harness_page_handler.cc",
+      "harness_page_handler.h",
+      "ttc_eval_harness.cc",
+      "ttc_eval_harness.h",
+    ]
+  }
   public_deps = [
     ":core",
     "//chrome/browser/actor",
   ]
   deps = [
     "//base",
+    "//chrome/browser/actor/tools/registry",
     "//chrome/browser/actor/ui",
+    "//chrome/browser/glic",
     "//chrome/browser/page_content_annotations:extraction_service",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ttc/app:impl",
@@ -159,9 +207,13 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "page_context_util_unittest.cc",
-    "session_journal_unittest.cc",
+    "session_controller_impl_unittest.cc",
+    "session_journal_impl_unittest.cc",
     "ttc_keyed_service_unittest.cc",
   ]
+  if (enable_ttc_webui) {
+    sources += [ "harness_page_handler_unittest.cc" ]
+  }
   deps = [
     ":core",
     ":impl",
@@ -188,6 +240,8 @@ source_set("unit_tests") {
       "//chrome/browser/flags:flags_android",
       "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/android/tab_model:test_support",
+      "//chrome/browser/ui/browser_window/test:test_support",
+      "//components/sessions:session_id",
       "//components/tabs:public",
     ]
   } else {
@@ -215,6 +269,7 @@ if (!is_android) {
       ":impl",
       "//base/test:test_support",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/profiles/keep_alive",
       "//components/keyed_service/core",
       "//net:test_support",
       "//testing/gtest",
@@ -226,7 +281,7 @@ if (!is_android) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
     sources = [
       "page_context_monitor_browsertest.cc",
-      "session_journal_browsertest.cc",
+      "session_journal_impl_browsertest.cc",
       "tool_controller_browsertest.cc",
       "ttc_keyed_service_browsertest.cc",
       "voice_focused_contents_tracker_browsertest.cc",
@@ -239,8 +294,11 @@ if (!is_android) {
       "//base",
       "//base/test:test_support",
       "//chrome/browser/actor",
+      "//chrome/browser/actor/tools/registry",
       "//chrome/browser/actor/ui",
       "//chrome/browser/bookmarks",
+      "//chrome/browser/glic",
+      "//chrome/browser/glic/test_support",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/translate",
       "//chrome/browser/ttc/app:browser_tests",
@@ -252,6 +310,7 @@ if (!is_android) {
       "//components/actor/core:task_id",
       "//components/bookmarks/browser",
       "//components/bookmarks/test",
+      "//components/keep_alive_registry",
       "//components/optimization_guide/proto:optimization_guide_proto",
       "//components/page_content_annotations/content",
       "//components/search_engines",
@@ -262,10 +321,12 @@ if (!is_android) {
       "//content/test:browsertest_support",
       "//content/test:test_support",
       "//net:test_support",
+      "//skia",
       "//testing/gmock",
       "//testing/gtest",
       "//third_party/blink/public/common",
       "//ui/base",
+      "//ui/gfx/codec",
       "//url",
     ]
     if (use_ozone) {

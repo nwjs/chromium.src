@@ -1,0 +1,22 @@
+upstream {
+  version: "v0.20"
+  artifacts {
+    git {
+      repository: "https://gitlab.freedesktop.org/xdg/xdg-user-dirs"
+      commit: "cd05b6d29da1abdb3cd253ef496ae7fd1593e4bb"
+    }
+  }
+}
+stages {
+  input {
+    patch { copybara {} }
+  }
+  publish { git {} }
+}
+latest {
+  semver {}
+  git {
+    repository: "https://gitlab.freedesktop.org/xdg/xdg-user-dirs"
+    tags {}
+  }
+}

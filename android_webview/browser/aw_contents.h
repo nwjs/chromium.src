@@ -16,6 +16,7 @@
 #include "android_webview/browser/find_helper.h"
 #include "android_webview/browser/gfx/browser_view_renderer.h"
 #include "android_webview/browser/gfx/browser_view_renderer_client.h"
+#include "android_webview/browser/http_headers/aw_header_interceptor_store.h"
 #include "android_webview/browser/icon_helper.h"
 #include "android_webview/browser/metrics/visibility_metrics_logger.h"
 #include "android_webview/browser/permission/permission_callback.h"
@@ -23,6 +24,7 @@
 #include "android_webview/browser/renderer_host/aw_render_view_host_ext.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_allowlist_manager.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_ui_manager.h"
+#include "android_webview/browser/signin/aw_google_accounts_delegate.h"
 #include "base/android/jni_weak_ref.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/containers/circular_deque.h"
@@ -35,12 +37,17 @@
 #include "content/public/browser/prerender_handle.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/child_process_id.h"
+#include "third_party/jni_zero/jni_raw_ptr.h"
 
 class SkBitmap;
 
 namespace content {
 class WebContents;
 }  // namespace content
+
+namespace signin {
+struct ManageAccountsParams;
+}
 
 namespace android_webview {
 
@@ -71,7 +78,8 @@ class AwContents : public FindHelper::Listener,
                    public content::WebContentsObserver,
                    public AwSafeBrowsingUIManager::UIManagerClient,
                    public VisibilityMetricsLogger::Client,
-                   public AwSafeBrowsingAllowlistSetObserver {
+                   public AwSafeBrowsingAllowlistSetObserver,
+                   public AwGoogleAccountsDelegate {
  public:
   // Returns the AwContents instance associated with |web_contents|, or NULL.
   static AwContents* FromWebContents(content::WebContents* web_contents);
@@ -80,7 +88,7 @@ class AwContents : public FindHelper::Listener,
 
   static std::string GetLocaleList();
 
-  AwContents(std::unique_ptr<content::WebContents> web_contents);
+  explicit AwContents(std::unique_ptr<content::WebContents> web_contents);
 
   AwContents(const AwContents&) = delete;
   AwContents& operator=(const AwContents&) = delete;
@@ -90,6 +98,18 @@ class AwContents : public FindHelper::Listener,
   AwRenderViewHostExt* render_view_host_ext() {
     return render_view_host_ext_.get();
   }
+
+  AwGoogleAccountsDelegate* maybe_google_accounts_delegate() {
+    return google_account_mirroring_enabled_ ? this : nullptr;
+  }
+  void SetGoogleAccountMirroringEnabled(bool enabled,
+                                        const std::string& gaia_id);
+
+  // AwGoogleAccountsDelegate:
+  void OnGoogleAccountsRequest(const signin::ManageAccountsParams& params,
+                               bool is_outermost_main_frame,
+                               bool is_navigation_request) override;
+  std::string GetGaiaId() override;
 
   // |handler| is an instance of
   // org.chromium.android_webview.AwHttpAuthHandler.
@@ -255,6 +275,12 @@ class AwContents : public FindHelper::Listener,
                                   PermissionCallback callback) override;
   void CancelMIDISysexPermissionRequests(const GURL& origin) override;
 
+  AwHeaderInterceptorStore& GetHeaderInterceptorStore() {
+    return header_interceptor_store_;
+  }
+  jni_zero::JniRawPtr<AwHeaderInterceptorStore>
+  GetHeaderInterceptorStoreFromJava(JNIEnv* env);
+
   // Find-in-page API and related methods.
   void FindAllAsync(const std::u16string& search_string);
   void FindNext(JNIEnv* env, bool forward);
@@ -377,6 +403,9 @@ class AwContents : public FindHelper::Listener,
   std::unique_ptr<AwPdfExporter> pdf_exporter_;
   std::unique_ptr<PermissionRequestHandler> permission_request_handler_;
   std::unique_ptr<js_injection::JsCommunicationHost> js_communication_host_;
+  AwHeaderInterceptorStore header_interceptor_store_;
+  bool google_account_mirroring_enabled_ = false;
+  std::string gaia_id_;
 
   struct PrerenderInfo : public content::PrerenderHandle::Observer {
     PrerenderInfo(std::unique_ptr<content::PrerenderHandle> prerender_handle,

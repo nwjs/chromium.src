@@ -6,16 +6,20 @@
 
 #include <memory>
 
+#include "base/auto_reset.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_webui_creation.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/site_engagement/content/engagement_type.h"
 #include "components/site_engagement/content/site_engagement_metrics.h"
 #include "components/site_engagement/content/site_engagement_observer.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
@@ -106,6 +110,11 @@ class SiteEngagementHelperBrowserTest : public InProcessBrowserTest {
   base::HistogramTester* histogram_tester() { return histogram_tester_.get(); }
 
  private:
+  // The omnibox popups' navigations record site engagement. Keep them from
+  // loading so that they don't add samples to the histograms checked below.
+  // The test never shows a popup.
+  base::AutoReset<bool> on_demand_creation_ =
+      omnibox::SetCreatePopupWebUIOnDemandForTesting(true);
   content::test::PrerenderTestHelper prerender_helper_;
   net::test_server::EmbeddedTestServerHandle test_server_handle_;
   std::unique_ptr<base::HistogramTester> histogram_tester_;
@@ -118,7 +127,9 @@ class SiteEngagementHelperBrowserTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(SiteEngagementHelperBrowserTest,
                        SiteEngagementHelperInPrerendering) {
   SiteEngagementService::Helper* helper =
-      SiteEngagementService::Helper::FromWebContents(web_contents());
+      tabs::TabInterface::GetFromContents(web_contents())
+          ->GetTabFeatures()
+          ->site_engagement_helper();
   SetInputTrackerPauseTimer(helper);
 
   GURL url = embedded_test_server()->GetURL("/empty.html");
@@ -209,7 +220,9 @@ IN_PROC_BROWSER_TEST_F(SiteEngagementHelperBrowserTest,
   ObserverTester tester(service);
 
   SiteEngagementService::Helper* helper =
-      SiteEngagementService::Helper::FromWebContents(web_contents());
+      tabs::TabInterface::GetFromContents(web_contents())
+          ->GetTabFeatures()
+          ->site_engagement_helper();
   SetMediaTrackerPauseTimer(helper);
 
   GURL url = embedded_test_server()->GetURL("/empty.html");

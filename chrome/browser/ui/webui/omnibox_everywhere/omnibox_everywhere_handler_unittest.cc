@@ -6,24 +6,29 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
+#include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/test/bind.h"
 #include "base/test/icu_test_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/autocomplete/chrome_aim_eligibility_service.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_fre_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_prefs.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service_factory.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/composebox_everywhere_handler.h"
+#include "chrome/browser/ui/webui/omnibox_everywhere/debug/omnibox_everywhere_debug.mojom.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/mojom/omnibox_everywhere.mojom.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_page_handler.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_ui.h"
@@ -32,15 +37,20 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/contextual_search/contextual_search_service.h"
+#include "components/keyed_service/content/browser_context_keyed_service_factory.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/common/input_state.h"
 #include "components/prefs/pref_service.h"
+#include "components/search/search.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/variations/scoped_variations_ids_provider.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/test_web_ui.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/url_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -52,6 +62,12 @@ namespace {
 
 constexpr char kVoiceSearchQueryParameterKey[] = "gs_ivs";
 constexpr char kVoiceSearchQueryParameterValue[] = "1";
+// Used by these tests as a proxy for "the query was routed to AI Mode". It is
+// emitted by `ContextualSearchboxHandler::ContextualizeQueryAndOpenUrl()`,
+// which `ContextualSearchboxHandler::SubmitQuery()` calls to send a query to
+// AI Mode.
+constexpr char kAiModeQuerySubmittedHistogram[] =
+    "ContextualSearch.SmartTabSharing.ThreadWithTabsSubmitted";
 
 class TestingAimEligibilityService : public ChromeAimEligibilityService {
  public:
@@ -87,10 +103,34 @@ class TestingAimEligibilityService : public ChromeAimEligibilityService {
   base::RepeatingClosureList callback_list_;
 };
 
+// An AimEligibilityService that computes AI Mode eligibility from the real
+// default search engine. Only the server and feature/policy inputs are fixed,
+// so eligibility follows `IsAimAllowedByDse()`.
+class DseDrivenAimEligibilityService : public ChromeAimEligibilityService {
+ public:
+  DseDrivenAimEligibilityService(Profile* profile,
+                                 TemplateURLService* template_url_service)
+      : ChromeAimEligibilityService(*profile->GetPrefs(),
+                                    template_url_service,
+                                    // Null, so no server request is sent.
+                                    /*url_loader_factory=*/nullptr,
+                                    /*identity_manager=*/nullptr,
+                                    /*configuration=*/{}) {}
+
+  variations::VariationsService* GetVariationsService() const override {
+    return nullptr;
+  }
+  bool IsServerEligibilityEnabled() const override { return false; }
+  bool IsAimAllowedByFeatureAndPolicy() const override { return true; }
+};
+
 class MockOmniboxEverywhereService : public OmniboxEverywhereService {
  public:
   explicit MockOmniboxEverywhereService(Profile* profile)
-      : OmniboxEverywhereService(profile) {}
+      : OmniboxEverywhereService(profile) {
+    ON_CALL(*this, IsPopupVisibleForProfile)
+        .WillByDefault(testing::Return(true));
+  }
   ~MockOmniboxEverywhereService() override = default;
 
   MOCK_METHOD(void,
@@ -110,6 +150,7 @@ class MockOmniboxEverywhereService : public OmniboxEverywhereService {
               (override));
   MOCK_METHOD(void, ShowProfilePicker, (), (override));
   MOCK_METHOD(void, HidePopup, (), (override));
+  MOCK_METHOD(bool, IsPopupVisibleForProfile, (), (const, override));
   MOCK_METHOD(void, OnDrivePickerOpened, (), (override));
   MOCK_METHOD(void, OnDrivePickerClosed, (), (override));
   MOCK_METHOD(void, OnHotkeyDropdownOpened, (), (override));
@@ -150,6 +191,13 @@ class OmniboxEverywhereHandlerTest
     factories.push_back(TestingProfile::TestingFactory{
         BookmarkModelFactory::GetInstance(),
         BookmarkModelFactory::GetDefaultFactory()});
+    // Prevent the profile from creating its own OmniboxEverywhereService (and
+    // therefore a second OmniboxEverywhereFreController observing the same
+    // prefs). Tests use the standalone `mock_service_` instead, or install a
+    // service explicitly via `SetTestingFactoryAndUse()`.
+    factories.push_back(TestingProfile::TestingFactory{
+        OmniboxEverywhereServiceFactory::GetInstance(),
+        BrowserContextKeyedServiceFactory::TestingFactory()});
     return factories;
   }
 
@@ -178,7 +226,9 @@ class OmniboxEverywhereHandlerTest
         profile()->GetPrefs());
 
     web_ui_.set_web_contents(web_contents());
-    mock_service_ = std::make_unique<MockOmniboxEverywhereService>(profile());
+    mock_service_ =
+        std::make_unique<testing::NiceMock<MockOmniboxEverywhereService>>(
+            profile());
 
     handler_ = std::make_unique<OmniboxEverywhereHandlerPublic>(
         handler_remote_.BindNewPipeAndPassReceiver(), page_.BindAndGetRemote(),
@@ -202,9 +252,25 @@ class OmniboxEverywhereHandlerTest
   }
 
  protected:
+  std::unique_ptr<OmniboxEverywhereHandler> CreateHandlerWithPage(
+      MockSearchboxPage& mock_page,
+      mojo::Remote<searchbox::mojom::PageHandler>& handler_remote) {
+    return std::make_unique<OmniboxEverywhereHandler>(
+        handler_remote.BindNewPipeAndPassReceiver(),
+        mock_page.BindAndGetRemote(), /*metrics_reporter=*/nullptr, &web_ui_,
+        mock_service_.get(),
+        base::BindRepeating(
+            []() -> contextual_search::ContextualSearchSessionHandle* {
+              return nullptr;
+            }));
+  }
+
+  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+      variations::VariationsIdsProvider::Mode::kUseSignedInState};
   base::test::ScopedFeatureList feature_list_;
   content::TestWebUI web_ui_;
-  std::unique_ptr<MockOmniboxEverywhereService> mock_service_;
+  std::unique_ptr<testing::NiceMock<MockOmniboxEverywhereService>>
+      mock_service_;
   testing::NiceMock<MockSearchboxPage> page_;
   mojo::Remote<searchbox::mojom::PageHandler> handler_remote_;
   raw_ptr<MockQueryController> query_controller_ = nullptr;
@@ -235,7 +301,7 @@ TEST_F(OmniboxEverywhereHandlerTest,
                         /*shift_key=*/false, /*is_voice_search=*/true);
 
   EXPECT_TRUE(captured_url.is_valid());
-  EXPECT_EQ(WindowOpenDisposition::CURRENT_TAB, captured_disposition);
+  EXPECT_EQ(WindowOpenDisposition::kCurrentTab, captured_disposition);
   EXPECT_TRUE(ui::PageTransitionCoreTypeIs(captured_transition,
                                            ui::PAGE_TRANSITION_GENERATED));
 
@@ -284,7 +350,7 @@ TEST_F(OmniboxEverywhereHandlerTest,
                         /*shift_key=*/false, /*is_voice_search=*/true);
 
   EXPECT_TRUE(captured_url.is_valid());
-  EXPECT_EQ(WindowOpenDisposition::CURRENT_TAB, captured_disposition);
+  EXPECT_EQ(WindowOpenDisposition::kCurrentTab, captured_disposition);
   EXPECT_TRUE(ui::PageTransitionCoreTypeIs(captured_transition,
                                            ui::PAGE_TRANSITION_GENERATED));
 
@@ -295,6 +361,71 @@ TEST_F(OmniboxEverywhereHandlerTest,
   std::string voice_param;
   EXPECT_FALSE(net::GetValueForKeyInQuery(
       captured_url, kVoiceSearchQueryParameterKey, &voice_param));
+}
+
+TEST_F(OmniboxEverywhereHandlerTest,
+       SubmitQueryRoutesToAiModeOnlyWhenAvailable) {
+  AimEligibilityServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(),
+      base::BindLambdaForTesting([&](content::BrowserContext* context)
+                                     -> std::unique_ptr<KeyedService> {
+        return std::make_unique<DseDrivenAimEligibilityService>(
+            Profile::FromBrowserContext(context), template_url_service());
+      }));
+  profile()->GetPrefs()->SetBoolean(
+      omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode, true);
+  ASSERT_TRUE(search::DefaultSearchProviderIsGoogle(template_url_service()));
+  base::HistogramTester histogram_tester;
+
+  // 1. With Google DSE and the pref enabled, a typed query goes to AI Mode.
+  EXPECT_CALL(*mock_service_,
+              OpenUrl(testing::_, testing::_, testing::_, testing::_))
+      .Times(testing::AnyNumber());
+  handler_->SubmitQuery("weather today", /*mouse_button=*/0, /*alt_key=*/false,
+                        /*ctrl_key=*/false, /*meta_key=*/false,
+                        /*shift_key=*/false, /*is_voice_search=*/false);
+  histogram_tester.ExpectTotalCount(kAiModeQuerySubmittedHistogram, 1);
+  testing::Mock::VerifyAndClearExpectations(mock_service_.get());
+
+  // 2. With the "Show AI Mode" pref off, the query goes to the DSE instead.
+  profile()->GetPrefs()->SetBoolean(
+      omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode, false);
+  EXPECT_CALL(*mock_service_,
+              OpenUrl(testing::_, testing::_, testing::_, testing::_))
+      .Times(1);
+  handler_->SubmitQuery("weather today", /*mouse_button=*/0, /*alt_key=*/false,
+                        /*ctrl_key=*/false, /*meta_key=*/false,
+                        /*shift_key=*/false, /*is_voice_search=*/false);
+  histogram_tester.ExpectTotalCount(kAiModeQuerySubmittedHistogram, 1);
+  testing::Mock::VerifyAndClearExpectations(mock_service_.get());
+
+  // 3. With the pref re-enabled but a non-Google DSE, the query goes to that
+  // engine instead of AI Mode.
+  profile()->GetPrefs()->SetBoolean(
+      omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode, true);
+  TemplateURLData data;
+  data.SetShortName(u"example");
+  data.SetKeyword(u"example");
+  data.SetURL("https://example.com/search?q={searchTerms}");
+  template_url_service()->SetUserSelectedDefaultSearchProvider(
+      template_url_service()->Add(std::make_unique<TemplateURL>(data)));
+
+  GURL captured_url;
+  EXPECT_CALL(*mock_service_,
+              OpenUrl(testing::_, testing::_, testing::_, testing::_))
+      .WillOnce([&](const GURL& url, WindowOpenDisposition, ui::PageTransition,
+                    base::OnceCallback<void(content::NavigationHandle&)>) {
+        captured_url = url;
+      });
+  handler_->SubmitQuery("weather today", /*mouse_button=*/0, /*alt_key=*/false,
+                        /*ctrl_key=*/false, /*meta_key=*/false,
+                        /*shift_key=*/false, /*is_voice_search=*/false);
+
+  ASSERT_TRUE(captured_url.is_valid());
+  EXPECT_EQ("example.com", captured_url.GetHost());
+  std::string udm_param;
+  EXPECT_FALSE(net::GetValueForKeyInQuery(captured_url, "udm", &udm_param));
+  histogram_tester.ExpectTotalCount(kAiModeQuerySubmittedHistogram, 1);
 }
 
 TEST_F(OmniboxEverywhereHandlerTest, OpenProfilePickerCallsService) {
@@ -344,7 +475,7 @@ TEST_F(OmniboxEverywhereHandlerTest, ActivateKeywordDoesNotCrash) {
 TEST_F(OmniboxEverywhereHandlerTest, OpenUrlForwardsToService) {
   GURL test_url("https://www.google.com");
   EXPECT_CALL(*mock_service_,
-              OpenUrl(test_url, WindowOpenDisposition::CURRENT_TAB, testing::_,
+              OpenUrl(test_url, WindowOpenDisposition::kCurrentTab, testing::_,
                       testing::_))
       .WillOnce(
           [&](const GURL& url, WindowOpenDisposition disposition,
@@ -354,7 +485,7 @@ TEST_F(OmniboxEverywhereHandlerTest, OpenUrlForwardsToService) {
                 transition, ui::PAGE_TRANSITION_GENERATED));
           });
 
-  handler_->OpenUrl(test_url, WindowOpenDisposition::CURRENT_TAB,
+  handler_->OpenUrl(test_url, WindowOpenDisposition::kCurrentTab,
                     base::NullCallback());
 }
 
@@ -387,6 +518,12 @@ TEST_F(OmniboxEverywhereHandlerTest,
 
 TEST_F(OmniboxEverywhereHandlerTest,
        DismissShortcutSetupWithHotkeySkipsReminder) {
+  // Open a Stage 2 (ShortcutSetupChin) session, then select a hotkey from the
+  // chin. Stage 2 stays latched for the open session, so it is not marked
+  // dismissed yet.
+  mock_service_->fre_controller()->OnStageDismissed(
+      omnibox_everywhere::FreStage::kIntroModal);
+  handler_->RecordFreImpression(searchbox::mojom::FreStage::kShortcutSetupChin);
   handler_->SetHotkey("Ctrl+Shift+Space");
   EXPECT_FALSE(profile()->GetPrefs()->GetBoolean(
       omnibox_everywhere::prefs::kFreShortcutSetupDismissed));
@@ -412,14 +549,7 @@ TEST_F(OmniboxEverywhereHandlerTest, FrePromoStateGatedByImpressionCount) {
       });
 
   mojo::Remote<searchbox::mojom::PageHandler> test_handler_remote;
-  auto handler = std::make_unique<OmniboxEverywhereHandler>(
-      test_handler_remote.BindNewPipeAndPassReceiver(),
-      mock_page.BindAndGetRemote(), /*metrics_reporter=*/nullptr, &web_ui_,
-      mock_service_.get(),
-      base::BindRepeating(
-          []() -> contextual_search::ContextualSearchSessionHandle* {
-            return nullptr;
-          }));
+  auto handler = CreateHandlerWithPage(mock_page, test_handler_remote);
   mock_page.FlushForTesting();
 
   EXPECT_CALL(mock_page, SetFreState(testing::_))
@@ -429,6 +559,118 @@ TEST_F(OmniboxEverywhereHandlerTest, FrePromoStateGatedByImpressionCount) {
   profile()->GetPrefs()->SetInteger(
       omnibox_everywhere::prefs::kFreIntroImpressionCount,
       omnibox::kOmniboxEverywhereFreMaxIntroImpressionsParam.Get());
+  mock_page.FlushForTesting();
+}
+
+TEST_F(OmniboxEverywhereHandlerTest,
+       RecordFreImpressionLatchesStageUntilSessionEnds) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kOmniboxEverywhereFre,
+      {{omnibox::kOmniboxEverywhereFreMaxIntroImpressionsParam.name, "1"}});
+
+  testing::NiceMock<MockSearchboxPage> mock_page;
+  EXPECT_CALL(mock_page, SetFreState(testing::_))
+      .WillOnce([](searchbox::mojom::FreStatePtr state) {
+        EXPECT_EQ(state->stage, searchbox::mojom::FreStage::kIntroModal);
+      });
+
+  mojo::Remote<searchbox::mojom::PageHandler> test_handler_remote;
+  auto handler = CreateHandlerWithPage(mock_page, test_handler_remote);
+  mock_page.FlushForTesting();
+
+  // Recording an impression while hidden, occluded, or when the popup is not
+  // visibly shown (e.g. closing or demoted) is ignored without latching.
+  EXPECT_CALL(mock_page, SetFreState(testing::_)).Times(0);
+  web_contents()->WasHidden();
+  handler->RecordFreImpression(searchbox::mojom::FreStage::kIntroModal);
+  web_contents()->WasOccluded();
+  handler->RecordFreImpression(searchbox::mojom::FreStage::kIntroModal);
+  web_contents()->WasShown();
+  ON_CALL(*mock_service_, IsPopupVisibleForProfile)
+      .WillByDefault(testing::Return(false));
+  handler->RecordFreImpression(searchbox::mojom::FreStage::kIntroModal);
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                omnibox_everywhere::prefs::kFreIntroImpressionCount),
+            0);
+
+  // Once visibly shown, a mismatched stage is ignored, while the active stage
+  // persists immediately to prefs, ignores duplicate calls in the same session,
+  // and keeps the stage latched.
+  ON_CALL(*mock_service_, IsPopupVisibleForProfile)
+      .WillByDefault(testing::Return(true));
+  handler->RecordFreImpression(searchbox::mojom::FreStage::kShortcutSetupChin);
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                omnibox_everywhere::prefs::kFreIntroImpressionCount),
+            0);
+  handler->RecordFreImpression(searchbox::mojom::FreStage::kIntroModal);
+  handler->RecordFreImpression(searchbox::mojom::FreStage::kIntroModal);
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                omnibox_everywhere::prefs::kFreIntroImpressionCount),
+            1);
+  mock_page.FlushForTesting();
+
+  // Ending the session unlatches the stage and pushes the next stage to WebUI.
+  EXPECT_CALL(mock_page, SetFreState(testing::_))
+      .WillOnce([](searchbox::mojom::FreStatePtr state) {
+        EXPECT_EQ(state->stage, searchbox::mojom::FreStage::kShortcutSetupChin);
+      });
+  mock_service_->fre_controller()->EndSession();
+  mock_page.FlushForTesting();
+}
+
+TEST_F(OmniboxEverywhereHandlerTest,
+       SetHotkeyDuringSetupStageRecordsImpressionAndKeepsStageLatched) {
+  // Start in Stage 2 (ShortcutSetupChin) with no hotkey configured.
+  mock_service_->fre_controller()->OnStageDismissed(
+      omnibox_everywhere::FreStage::kIntroModal);
+
+  testing::NiceMock<MockSearchboxPage> mock_page;
+  EXPECT_CALL(mock_page, SetFreState(testing::_))
+      .WillOnce([](searchbox::mojom::FreStatePtr state) {
+        EXPECT_EQ(state->stage, searchbox::mojom::FreStage::kShortcutSetupChin);
+        EXPECT_TRUE(state->current_hotkey_tokens.empty());
+      });
+
+  mojo::Remote<searchbox::mojom::PageHandler> test_handler_remote;
+  auto handler = CreateHandlerWithPage(mock_page, test_handler_remote);
+  mock_page.FlushForTesting();
+
+  // Showing Stage 2 with no hotkey does not increment the setup impression
+  // count or push a state change.
+  EXPECT_CALL(mock_page, SetFreState(testing::_)).Times(0);
+  handler->RecordFreImpression(searchbox::mojom::FreStage::kShortcutSetupChin);
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                omnibox_everywhere::prefs::kFreShortcutSetupImpressionCount),
+            0);
+  mock_page.FlushForTesting();
+
+  // Selecting a hotkey from the Stage 2 dropdown records the impression, keeps
+  // Stage 2 latched for the open session, and pushes the updated hotkey tokens.
+  // `SetOmniboxEverywhereHotkey()` writes both `kOmniboxEverywhereHotkey` and
+  // `kHotkeyEnabled`, so more than one push may occur; every push must keep
+  // Stage 2 latched.
+  EXPECT_CALL(mock_page, SetFreState(testing::_))
+      .Times(testing::AtLeast(1))
+      .WillRepeatedly([](searchbox::mojom::FreStatePtr state) {
+        EXPECT_EQ(state->stage, searchbox::mojom::FreStage::kShortcutSetupChin);
+        EXPECT_FALSE(state->current_hotkey_tokens.empty());
+      });
+  handler->SetHotkey("Ctrl+Shift+Space");
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                omnibox_everywhere::prefs::kFreShortcutSetupImpressionCount),
+            1);
+  mock_page.FlushForTesting();
+
+  // Ending the session unlatches Stage 2 and advances to Stage 3
+  // (ShortcutReminderChin).
+  EXPECT_CALL(mock_page, SetFreState(testing::_))
+      .WillOnce([](searchbox::mojom::FreStatePtr state) {
+        EXPECT_EQ(state->stage,
+                  searchbox::mojom::FreStage::kShortcutReminderChin);
+        EXPECT_FALSE(state->current_hotkey_tokens.empty());
+      });
+  mock_service_->fre_controller()->EndSession();
   mock_page.FlushForTesting();
 }
 
@@ -443,14 +685,7 @@ TEST_F(OmniboxEverywhereHandlerTest, FreDisabledFeatureFlagEmitsNoneStage) {
       });
 
   mojo::Remote<searchbox::mojom::PageHandler> test_handler_remote;
-  auto handler = std::make_unique<OmniboxEverywhereHandler>(
-      test_handler_remote.BindNewPipeAndPassReceiver(),
-      mock_page.BindAndGetRemote(), /*metrics_reporter=*/nullptr, &web_ui_,
-      mock_service_.get(),
-      base::BindRepeating(
-          []() -> contextual_search::ContextualSearchSessionHandle* {
-            return nullptr;
-          }));
+  auto handler = CreateHandlerWithPage(mock_page, test_handler_remote);
   mock_page.FlushForTesting();
 }
 
@@ -526,14 +761,7 @@ TEST_F(OmniboxEverywhereHandlerTest,
   EXPECT_CALL(mock_page, SetFreState(testing::_)).Times(testing::AtLeast(1));
 
   mojo::Remote<searchbox::mojom::PageHandler> test_handler_remote;
-  auto handler = std::make_unique<OmniboxEverywhereHandler>(
-      test_handler_remote.BindNewPipeAndPassReceiver(),
-      mock_page.BindAndGetRemote(), /*metrics_reporter=*/nullptr, &web_ui_,
-      mock_service_.get(),
-      base::BindRepeating(
-          []() -> contextual_search::ContextualSearchSessionHandle* {
-            return nullptr;
-          }));
+  auto handler = CreateHandlerWithPage(mock_page, test_handler_remote);
 
   local_state->SetBoolean(omnibox_everywhere::prefs::kHotkeyEnabled, false);
   handler->SetHotkey("Space+Alt+Shift");
@@ -542,6 +770,8 @@ TEST_F(OmniboxEverywhereHandlerTest,
             "Space+Alt+Shift");
   EXPECT_TRUE(
       local_state->GetBoolean(omnibox_everywhere::prefs::kHotkeyEnabled));
+  // Because the profile is still in Stage 1 (kIntroModal), setting a hotkey
+  // does not prematurely mark Stage 2 dismissed before Stage 1 completes.
   EXPECT_FALSE(profile()->GetPrefs()->GetBoolean(
       omnibox_everywhere::prefs::kFreShortcutSetupDismissed));
   mock_page.FlushForTesting();
@@ -553,15 +783,7 @@ TEST_F(OmniboxEverywhereHandlerTest,
 
   testing::NiceMock<MockSearchboxPage> mock_page;
   mojo::Remote<searchbox::mojom::PageHandler> test_handler_remote;
-
-  auto handler = std::make_unique<OmniboxEverywhereHandler>(
-      test_handler_remote.BindNewPipeAndPassReceiver(),
-      mock_page.BindAndGetRemote(), /*metrics_reporter=*/nullptr, &web_ui_,
-      mock_service_.get(),
-      base::BindRepeating(
-          []() -> contextual_search::ContextualSearchSessionHandle* {
-            return nullptr;
-          }));
+  auto handler = CreateHandlerWithPage(mock_page, test_handler_remote);
 
   // Disabling pref should push UpdateAimPopupEligibility(false).
   EXPECT_CALL(mock_page, UpdateAimPopupEligibility(false)).Times(1);
@@ -582,15 +804,7 @@ TEST_F(OmniboxEverywhereHandlerTest,
 
   testing::NiceMock<MockSearchboxPage> mock_page;
   mojo::Remote<searchbox::mojom::PageHandler> test_handler_remote;
-
-  auto handler = std::make_unique<OmniboxEverywhereHandler>(
-      test_handler_remote.BindNewPipeAndPassReceiver(),
-      mock_page.BindAndGetRemote(), /*metrics_reporter=*/nullptr, &web_ui_,
-      mock_service_.get(),
-      base::BindRepeating(
-          []() -> contextual_search::ContextualSearchSessionHandle* {
-            return nullptr;
-          }));
+  auto handler = CreateHandlerWithPage(mock_page, test_handler_remote);
 
   // Becoming ineligible via AimEligibilityService callback should push
   // UpdateAimPopupEligibility(false).
@@ -613,6 +827,62 @@ TEST_F(OmniboxEverywhereHandlerTest,
 
   page_handler.SetIsComposebox(true);
   page_handler.SetIsComposebox(false);
+}
+
+TEST_F(OmniboxEverywhereHandlerTest,
+       OnDismissMostVisitedDoesNotCrashWithNullController) {
+  mojo::Remote<omnibox_everywhere::mojom::PageHandler> page_handler_remote;
+  OmniboxEverywherePageHandler page_handler(
+      page_handler_remote.BindNewPipeAndPassReceiver(), mojo::NullRemote(),
+      /*web_ui_controller=*/nullptr);
+
+  page_handler.OnDismissMostVisited();
+}
+
+TEST_F(OmniboxEverywhereHandlerTest,
+       OnDismissMostVisitedUpdatesShowShortcutsPrefToDisabled) {
+  OmniboxEverywhereUI ui(&web_ui_);
+  mojo::Remote<omnibox_everywhere::mojom::PageHandler> page_handler_remote;
+  OmniboxEverywherePageHandler page_handler(
+      page_handler_remote.BindNewPipeAndPassReceiver(), mojo::NullRemote(),
+      &ui);
+
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                omnibox_everywhere::prefs::kOmniboxEverywhereShowShortcuts),
+            static_cast<int>(
+                omnibox_everywhere::prefs::ShowShortcutsPrefValue::kUnset));
+  EXPECT_TRUE(
+      omnibox_everywhere::prefs::IsOmniboxEverywhereShortcutsVisible(
+          profile()));
+
+  page_handler.OnDismissMostVisited();
+
+  EXPECT_EQ(profile()->GetPrefs()->GetInteger(
+                omnibox_everywhere::prefs::kOmniboxEverywhereShowShortcuts),
+            static_cast<int>(
+                omnibox_everywhere::prefs::ShowShortcutsPrefValue::kDisabled));
+  EXPECT_FALSE(
+      omnibox_everywhere::prefs::IsOmniboxEverywhereShortcutsVisible(
+          profile()));
+}
+
+// Regression test for crbug.com/579037685: `OmniboxEverywhereUI::BindInterface`
+// must reject `omnibox_everywhere_debug::mojom::PageHandlerFactory` bindings
+// when hosted in a standalone non-tab WebContents (such as the floating popup).
+TEST_F(OmniboxEverywhereHandlerTest,
+       BindDebugPageHandlerFactoryRejectedForNonTabWebContents) {
+  OmniboxEverywhereUI ui(&web_ui_);
+  mojo::Remote<omnibox_everywhere_debug::mojom::PageHandlerFactory>
+      factory_remote;
+  mojo::PendingReceiver<omnibox_everywhere_debug::mojom::PageHandlerFactory>
+      factory_receiver = factory_remote.BindNewPipeAndPassReceiver();
+  base::RunLoop disconnect_loop;
+  factory_remote.set_disconnect_handler(disconnect_loop.QuitClosure());
+
+  ui.BindInterface(std::move(factory_receiver));
+  disconnect_loop.Run();
+
+  EXPECT_FALSE(factory_remote.is_connected());
 }
 
 TEST_F(OmniboxEverywhereHandlerTest, CalculateContextMenuAnchorPoint_LTR) {
@@ -716,11 +986,11 @@ TEST_F(OmniboxEverywhereHandlerTest,
             captured_transition = transition;
           });
 
-  composebox_handler.OpenUrl(kTestUrl, WindowOpenDisposition::CURRENT_TAB,
+  composebox_handler.OpenUrl(kTestUrl, WindowOpenDisposition::kCurrentTab,
                              base::NullCallback());
 
   EXPECT_EQ(kTestUrl, captured_url);
-  EXPECT_EQ(WindowOpenDisposition::CURRENT_TAB, captured_disposition);
+  EXPECT_EQ(WindowOpenDisposition::kCurrentTab, captured_disposition);
   EXPECT_TRUE(ui::PageTransitionCoreTypeIs(captured_transition,
                                            ui::PAGE_TRANSITION_GENERATED));
 }
@@ -763,11 +1033,11 @@ TEST_F(OmniboxEverywhereHandlerTest,
               OpenUrlWithInPlaceWindow(testing::_, testing::_, testing::_))
       .Times(0);
   EXPECT_CALL(*factory_service,
-              OpenUrl(kUploadedImageUrl, WindowOpenDisposition::CURRENT_TAB,
+              OpenUrl(kUploadedImageUrl, WindowOpenDisposition::kCurrentTab,
                       testing::_, testing::_))
       .Times(1);
   composebox_handler.ProcessContextAndOpenUrl(
-      kUploadedImageUrl, WindowOpenDisposition::CURRENT_TAB);
+      kUploadedImageUrl, WindowOpenDisposition::kCurrentTab);
   testing::Mock::VerifyAndClearExpectations(factory_service);
 
   // Screenshots (added via AddFileContextToPage) should open with an in-place
@@ -796,7 +1066,7 @@ TEST_F(OmniboxEverywhereHandlerTest,
           });
 
   composebox_handler.ProcessContextAndOpenUrl(
-      kScreenshotUrl, WindowOpenDisposition::CURRENT_TAB);
+      kScreenshotUrl, WindowOpenDisposition::kCurrentTab);
 
   EXPECT_EQ(kScreenshotUrl, captured_url);
   EXPECT_TRUE(ui::PageTransitionCoreTypeIs(captured_transition,

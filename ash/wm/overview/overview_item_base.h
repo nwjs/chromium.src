@@ -10,7 +10,7 @@
 #include <vector>
 
 #include "ash/ash_export.h"
-#include "ash/style/system_shadow.h"
+#include "ash/style/system_decoration.h"
 #include "ash/wm/overview/event_handler_delegate.h"
 #include "ash/wm/overview/overview_types.h"
 #include "base/cancelable_callback.h"
@@ -40,7 +40,7 @@ class OverviewGrid;
 class OverviewItem;
 class OverviewSession;
 class RoundedLabelWidget;
-class SystemShadow;
+class SystemDecoration;
 
 // Defines the interface for the overview item which will be implemented by
 // `OverviewItem`, `OverviewGroupItem` or `OverviewDropTarget`. The
@@ -198,10 +198,6 @@ class ASH_EXPORT OverviewItemBase : public EventHandlerDelegate {
   virtual void SetBounds(const gfx::RectF& target_bounds,
                          OverviewAnimationType animation_type) = 0;
 
-  // TODO(http://b/297923747): Integrate continuous animation with snap groups.
-  virtual gfx::Transform ComputeTargetTransform(
-      const gfx::RectF& target_bounds) = 0;
-
   // Returns the union of the original target bounds of all transformed windows
   // represented by `this`, i.e. all regular (normal or transient descendants of
   // the windows returned by `GetWindows()`).
@@ -258,12 +254,6 @@ class ASH_EXPORT OverviewItemBase : public EventHandlerDelegate {
   virtual void OnOverviewItemDragStarted() = 0;
   virtual void OnOverviewItemDragEnded(bool snap) = 0;
 
-  // Called when performing the continuous scroll on overview item to set
-  // transform and opacity with pre-calculated `target_transform`.
-  virtual void OnOverviewItemContinuousScroll(
-      const gfx::Transform& target_transform,
-      float scroll_ratio) = 0;
-
   // Shows the cannot snap warning if currently in splitview, and the associated
   // item cannot be snapped.
   virtual void UpdateCannotSnapWarningVisibility(bool animate) = 0;
@@ -305,7 +295,7 @@ class ASH_EXPORT OverviewItemBase : public EventHandlerDelegate {
     target_bounds_ = target_bounds;
   }
 
-  SystemShadow* shadow_for_testing() { return shadow_.get(); }
+  SystemDecoration* shadow_for_testing() { return shadow_.get(); }
 
   gfx::Rect get_shadow_content_bounds_for_testing() const {
     return shadow_ ? shadow_.get()->GetContentBounds() : gfx::Rect();
@@ -363,7 +353,7 @@ class ASH_EXPORT OverviewItemBase : public EventHandlerDelegate {
   gfx::RectF target_bounds_;
 
   // The shadow around `this`.
-  std::unique_ptr<SystemShadow> shadow_;
+  std::unique_ptr<SystemDecoration> shadow_;
 
   // True when `this` is dragged and dropped on another desk's mini view and the
   // transform needs to be restored immediately without any animations.

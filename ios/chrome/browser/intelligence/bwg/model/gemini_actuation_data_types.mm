@@ -21,12 +21,10 @@ NSData* SerializeProtoToNSData(const ProtoMessage& message) {
 
 @implementation GeminiYieldAction
 
-- (instancetype)initWithReason:(GeminiYieldReason)reason
-                 messageToUser:(NSString*)messageToUser {
+- (instancetype)initWithReason:(GeminiYieldReason)reason {
   self = [super init];
   if (self) {
     _reason = reason;
-    _messageToUser = [messageToUser copy];
   }
   return self;
 }

@@ -25,8 +25,8 @@
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/manifest_component_directory.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/test_manifest_asset_manager_component_state.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_names.h"
+#include "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #include "components/optimization_guide/core/model_execution/test/mock_download_progress_observer.h"
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
@@ -113,7 +113,7 @@ class DummyManifest {
                           proto::BaseModelRecipe::PERFORMANCE_HINT_UNSPECIFIED,
                           {}, 100)));
       builder.Add(asset.asset_id + "_solution",
-                  SolutionRecipe(asset.asset_id + "_base_model", "",
+                  SolutionRecipe(asset.asset_id + "_base_model",
                                  FileReference("manifest", "config.pb")));
       builder.Add(DeviceUseCase{DeviceCategory::kGpuHighTier, asset.use_case},
                   asset.asset_id + "_solution");
@@ -365,26 +365,6 @@ TEST_F(ManifestAssetManagerTest, RegistersComponentsForActiveUseCases) {
   EXPECT_FALSE(component_state_.IsRegistered(test_asset.public_key));
   EXPECT_FALSE(
       component_state_.WasOnDemandUpdateRequested(test_asset.public_key));
-}
-
-// TODO(crbug.com/489511499): Remove RegistersComponentsForLegacyFeatureUsage
-// once legacy integer keys are no longer supported.
-// Test that the manager registers components for feature usage keyed on
-// mojom::OnDeviceFeature without triggering on-demand downloads.
-TEST_F(ManifestAssetManagerTest, RegistersComponentsForLegacyFeatureUsage) {
-  DummyAsset asset = DummyAsset::For("test");
-  ::prefs::ScopedDictionaryPrefUpdate update(
-      &local_state_.local_state(),
-      model_execution::prefs::localstate::kLastUsageByFeature);
-  update->Set(base::NumberToString(static_cast<uint64_t>(
-                  ToModelExecutionFeatureProto(mojom::OnDeviceFeature::kTest))),
-              base::TimeToValue(base::Time::Now()));
-
-  UpdateManifest(DummyManifest().Add(asset));
-  Startup();
-
-  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
-  EXPECT_FALSE(component_state_.WasOnDemandUpdateRequested(asset.public_key));
 }
 
 TEST_F(ManifestAssetManagerTest,
@@ -942,10 +922,10 @@ TEST_F(ManifestAssetManagerTest, AssetRemainsInstalledAfterRetentionPeriod) {
   Startup();
   EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
 
-  // Within the 90-day retention period, the asset should remain installed.
+  // Within the 30-day retention period, the asset should remain installed.
   {
     base::HistogramTester histogram_tester;
-    task_environment_.FastForwardBy(base::Days(31));
+    task_environment_.FastForwardBy(base::Days(29));
     UpdateManifest(DummyManifest().Add(asset));
     task_environment_.RunUntilIdle();
     EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
@@ -959,7 +939,7 @@ TEST_F(ManifestAssetManagerTest, AssetRemainsInstalledAfterRetentionPeriod) {
   // evictable.
   {
     base::HistogramTester histogram_tester;
-    task_environment_.FastForwardBy(base::Days(60));
+    task_environment_.FastForwardBy(base::Days(2));
     UpdateManifest(DummyManifest().Add(asset));
     task_environment_.RunUntilIdle();
     EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
@@ -981,10 +961,10 @@ TEST_F(ManifestAssetManagerTest,
   Startup();
   EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
 
-  // Within the 90-day retention period, the asset should remain installed.
+  // Within the 30-day retention period, the asset should remain installed.
   {
     base::HistogramTester histogram_tester;
-    task_environment_.FastForwardBy(base::Days(31));
+    task_environment_.FastForwardBy(base::Days(29));
     UpdateManifest(DummyManifest().Add(asset));
     task_environment_.RunUntilIdle();
     EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
@@ -993,10 +973,10 @@ TEST_F(ManifestAssetManagerTest,
         1);
   }
 
-  // After the 90-day retention period expires, the asset should be uninstalled.
+  // After the 30-day retention period expires, the asset should be uninstalled.
   {
     base::HistogramTester histogram_tester;
-    task_environment_.FastForwardBy(base::Days(60));
+    task_environment_.FastForwardBy(base::Days(2));
     UpdateManifest(DummyManifest().Add(asset));
     EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
     histogram_tester.ExpectBucketCount(
@@ -1006,6 +986,48 @@ TEST_F(ManifestAssetManagerTest,
         "OptimizationGuide.ModelExecution.OnDeviceModelUninstallReason.Unknown",
         Manifest::UninstallReason::kEvicted, 1);
   }
+}
+
+TEST_F(ManifestAssetManagerTest, AutoRemoveUnusedModelsPrefControlsEviction) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOnDeviceModelEviction);
+
+  // Disable auto-remove initially.
+  local_state_.local_state().SetBoolean(
+      model_execution::prefs::localstate::
+          kOnDeviceAiAutoRemoveUnusedModelsEnabled,
+      false);
+
+  DummyAsset asset = DummyAsset::For("compose");
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+  Startup();
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+
+  // Advance past the 30-day retention period. Because auto-remove is false, the
+  // asset should remain installed.
+  {
+    base::HistogramTester histogram_tester;
+    task_environment_.FastForwardBy(base::Days(31));
+    UpdateManifest(DummyManifest().Add(asset));
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return histogram_tester
+                 .GetAllSamples(
+                     "OptimizationGuide.ModelExecution."
+                     "OnDeviceModelEvictableAssetsCount")
+                 .size() == 1;
+    }));
+    EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
+  }
+
+  // Enabling the auto-remove pref immediately triggers registration updates and
+  // uninstalls the expired asset.
+  local_state_.local_state().SetBoolean(
+      model_execution::prefs::localstate::
+          kOnDeviceAiAutoRemoveUnusedModelsEnabled,
+      true);
+  EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
 }
 
 TEST_F(ManifestAssetManagerTest, DoesNotInstallWhenNoEligibleUseCaseUse) {
@@ -1022,6 +1044,15 @@ TEST_F(ManifestAssetManagerTest, DoesNotInstallWhenNoEligibleUseCaseUse) {
 }
 
 TEST_F(ManifestAssetManagerTest, UninstallModels) {
+  // Disable auto-remove to verify manual UninstallModels() still uninstalls
+  // assets and does not permanently enable background eviction afterwards.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOnDeviceModelEviction);
+  local_state_.local_state().SetBoolean(
+      model_execution::prefs::localstate::
+          kOnDeviceAiAutoRemoveUnusedModelsEnabled,
+      false);
+
   DummyAsset asset = DummyAsset::For("compose");
   usage_tracker_.RaisePriority(asset.use_case,
                                UsageTracker::Priority::kUserBlocking);
@@ -1030,9 +1061,208 @@ TEST_F(ManifestAssetManagerTest, UninstallModels) {
 
   EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
 
+  base::HistogramTester histogram_tester;
   manifest_broker_state_->UninstallModels();
 
   EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelUninstallReason.Unknown",
+      Manifest::UninstallReason::kUserRequested, 1);
+
+  // Re-install the asset and advance past the 30-day retention period. Because
+  // auto-remove is still false, background eviction must remain disabled.
+  task_environment_.FastForwardBy(base::Seconds(2));
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+  manifest_broker_state_->SetUseCaseRequested(asset.use_case, true);
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+  EXPECT_EQ(component_state_.GetRegistrationCount(asset.public_key), 2);
+  task_environment_.FastForwardBy(base::Days(31));
+  UpdateManifest(DummyManifest().Add(asset));
+  task_environment_.RunUntilIdle();
+  EXPECT_FALSE(component_state_.WasUninstallRequested(asset.public_key));
+}
+
+TEST_F(ManifestAssetManagerTest,
+       UninstallCapabilityRetainsOtherExpiredModelsWhenAutoRemoveDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kOnDeviceModelEviction);
+  local_state_.local_state().SetBoolean(
+      model_execution::prefs::localstate::
+          kOnDeviceAiAutoRemoveUnusedModelsEnabled,
+      false);
+
+  DummyAsset compose_asset = DummyAsset::For("compose");
+  DummyAsset test_asset = DummyAsset::For("test");
+  usage_tracker_.RaisePriority(compose_asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  usage_tracker_.RaisePriority(test_asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(compose_asset).Add(test_asset));
+  Startup();
+
+  EXPECT_TRUE(
+      component_state_.WaitForRegistration(compose_asset.ToInstallTarget()));
+  EXPECT_TRUE(
+      component_state_.WaitForRegistration(test_asset.ToInstallTarget()));
+
+  // Advance past the 30-day retention period so `test_asset` is kEvictable,
+  // but retained because auto-remove is disabled.
+  task_environment_.FastForwardBy(base::Days(31));
+
+  base::HistogramTester histogram_tester;
+  manifest_broker_state_->UninstallCapability(compose_asset.asset_id);
+
+  EXPECT_TRUE(component_state_.WaitForUninstall(compose_asset.public_key));
+  EXPECT_FALSE(component_state_.WasUninstallRequested(test_asset.public_key));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.OnDeviceModelUninstallReason.Unknown",
+      Manifest::UninstallReason::kUserRequested, 1);
+}
+
+TEST_F(ManifestAssetManagerTest, SetUseCaseRequestedFalseUninstallsUseCase) {
+  DummyAsset asset_compose = DummyAsset::For("compose");
+  DummyAsset asset_test = DummyAsset::For("test");
+  usage_tracker_.RaisePriority(asset_compose.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  usage_tracker_.RaisePriority(asset_test.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset_compose).Add(asset_test));
+  Startup();
+
+  EXPECT_TRUE(
+      component_state_.WaitForRegistration(asset_compose.ToInstallTarget()));
+  EXPECT_TRUE(
+      component_state_.WaitForRegistration(asset_test.ToInstallTarget()));
+
+  manifest_broker_state_->SetUseCaseRequested(asset_compose.use_case, false);
+
+  EXPECT_TRUE(component_state_.WaitForUninstall(asset_compose.public_key));
+  EXPECT_FALSE(component_state_.WasUninstallRequested(asset_test.public_key));
+  EXPECT_TRUE(component_state_.IsInstalled(asset_test.ToInstallTarget()));
+}
+
+TEST_F(ManifestAssetManagerTest,
+       SetUseCaseRequestedFalsePreservesSharedAssets) {
+  std::string key = "shared_key";
+  key.resize(32, '0');
+  std::string public_key = base::HexEncode(base::as_byte_span(key));
+
+  DummyAsset asset_compose =
+      DummyAsset::For("compose").WithAssetId("asset_1").WithPublicKey(
+          public_key);
+  DummyAsset asset_test =
+      DummyAsset::For("test").WithAssetId("asset_1").WithPublicKey(public_key);
+
+  usage_tracker_.RaisePriority(asset_compose.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  usage_tracker_.RaisePriority(asset_test.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset_compose).Add(asset_test));
+  Startup();
+
+  EXPECT_TRUE(
+      component_state_.WaitForRegistration(asset_compose.ToInstallTarget()));
+
+  // Clearing compose should not uninstall asset_1 because test still uses it.
+  manifest_broker_state_->SetUseCaseRequested(asset_compose.use_case, false);
+  task_environment_.FastForwardBy(base::Seconds(2));
+  EXPECT_FALSE(
+      component_state_.WasUninstallRequested(asset_compose.public_key));
+  EXPECT_TRUE(component_state_.IsInstalled(asset_compose.ToInstallTarget()));
+
+  // Now clearing test should uninstall asset_1.
+  manifest_broker_state_->SetUseCaseRequested(asset_test.use_case, false);
+  EXPECT_TRUE(component_state_.WaitForUninstall(asset_compose.public_key));
+}
+
+TEST_F(ManifestAssetManagerTest, SetUseCaseRequestedFalseWhileRegistering) {
+  DummyAsset asset = DummyAsset::For("compose");
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+
+  // Defer registration callbacks so the component stays in kRegistering state.
+  component_state_.SetDeferRegistrationCallbacks(true);
+  Startup();
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+
+  // Request uninstallation while registration is still in-flight.
+  manifest_broker_state_->SetUseCaseRequested(asset.use_case, false);
+
+  // Now let the registration callback run; it should proceed to uninstall.
+  component_state_.SetDeferRegistrationCallbacks(false);
+  component_state_.RunPendingRegistrations();
+  EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
+  EXPECT_TRUE(component_state_.IsUninstalled(asset.public_key));
+}
+
+TEST_F(ManifestAssetManagerTest,
+       SetUseCaseRequestedFalseWhileRegisteringAlreadyInstalled) {
+  DummyAsset asset = DummyAsset::For("compose");
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+  component_state_.SetInstalled(asset.ToInstallTarget());
+
+  // Defer registration callbacks so the component stays in kRegistering state.
+  component_state_.SetDeferRegistrationCallbacks(true);
+  Startup();
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+
+  // Request uninstallation while registration is still in-flight.
+  manifest_broker_state_->SetUseCaseRequested(asset.use_case, false);
+
+  // Now let the registration and OnAssetReady callbacks run; they should not
+  // crash and the component should be uninstalled.
+  component_state_.SetDeferRegistrationCallbacks(false);
+  component_state_.RunPendingRegistrations();
+  EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
+  EXPECT_TRUE(component_state_.IsUninstalled(asset.public_key));
+}
+
+TEST_F(ManifestAssetManagerTest, UninstallModelsWhileRegistering) {
+  DummyAsset asset = DummyAsset::For("compose");
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+
+  // Defer registration callbacks so the component stays in kRegistering state.
+  component_state_.SetDeferRegistrationCallbacks(true);
+  Startup();
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+
+  // Request uninstallation of all models while registration is in-flight.
+  manifest_broker_state_->UninstallModels();
+
+  // Now let the registration callback run; it should proceed to uninstall.
+  component_state_.SetDeferRegistrationCallbacks(false);
+  component_state_.RunPendingRegistrations();
+  EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
+  EXPECT_TRUE(component_state_.IsUninstalled(asset.public_key));
+}
+
+TEST_F(ManifestAssetManagerTest,
+       UninstallModelsWhileRegisteringAlreadyInstalled) {
+  DummyAsset asset = DummyAsset::For("compose");
+  usage_tracker_.RaisePriority(asset.use_case,
+                               UsageTracker::Priority::kUserBlocking);
+  MakeAssetsInstallable(DummyManifest().Add(asset));
+  component_state_.SetInstalled(asset.ToInstallTarget());
+
+  // Defer registration callbacks so the component stays in kRegistering state.
+  component_state_.SetDeferRegistrationCallbacks(true);
+  Startup();
+  EXPECT_TRUE(component_state_.WaitForRegistration(asset.ToInstallTarget()));
+
+  // Request uninstallation of all models while registration is in-flight.
+  manifest_broker_state_->UninstallModels();
+
+  // Now let the registration and OnAssetReady callbacks run; they should not
+  // crash and the component should be uninstalled.
+  component_state_.SetDeferRegistrationCallbacks(false);
+  component_state_.RunPendingRegistrations();
+  EXPECT_TRUE(component_state_.WaitForUninstall(asset.public_key));
+  EXPECT_TRUE(component_state_.IsUninstalled(asset.public_key));
 }
 
 TEST_F(ManifestAssetManagerTest, AssetAvailableAfterManifestUpdate) {
@@ -1168,14 +1398,19 @@ TEST_F(ManifestAssetManagerTest,
 
 TEST_F(ManifestAssetManagerTest, OrphanedAssetInManifestRetainedAndUsed) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(kOnDeviceModelEviction);
+  feature_list.InitWithFeaturesAndParameters(
+      {{kOnDeviceModelEviction, {}},
+       {kOnDeviceModelUsageTracking,
+        {{"recent_use_period", "15d"}, {"retention_period", "30d"}}}},
+      {});
 
   DummyAsset asset = DummyAsset::For("compose");
   usage_tracker_.RaisePriority(asset.use_case,
                                UsageTracker::Priority::kUserBlocking);
-  // Advance 40 days so priority drops to kRetain (not eligible for new
-  // download, but eligible to be retained if already on disk).
-  task_environment_.FastForwardBy(base::Days(40));
+  // Advance 16 days (>15 days recent use window, <=30 days retention period)
+  // so priority drops to kRetain (not eligible for new download, but eligible
+  // to be retained if already on disk).
+  task_environment_.FastForwardBy(base::Days(16));
 
   MakeAssetsInstallable(DummyManifest().Add(asset));
   component_state_.SetInstalled(asset.ToInstallTarget());
@@ -1223,14 +1458,20 @@ TEST_F(ManifestAssetManagerTest, OrphanedScanDoesNotOverwriteTrackedAsset) {
 
 TEST_F(ManifestAssetManagerTest,
        OrphanedAssetWithMismatchedVersionIsUninstalled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{kOnDeviceModelUsageTracking,
+        {{"recent_use_period", "15d"}, {"retention_period", "30d"}}}},
+      {});
+
   DummyAsset orphan_v1 = DummyAsset::For("compose").WithVersion("1.0.0.0");
   DummyAsset target_v2 = DummyAsset::For("compose").WithVersion("2.0.0.0");
   usage_tracker_.RaisePriority(target_v2.use_case,
                                UsageTracker::Priority::kUserBlocking);
-  // Advance 40 days so priority drops to kRetain (eligible to be retained if
-  // the target version were already installed, but not eligible for a new
-  // download).
-  task_environment_.FastForwardBy(base::Days(40));
+  // Advance 16 days (>15 days recent use window, <=30 days retention period)
+  // so priority drops to kRetain (eligible to be retained if the target version
+  // were already installed, but not eligible for a new download).
+  task_environment_.FastForwardBy(base::Days(16));
 
   MakeAssetInstallable(orphan_v1);
   component_state_.SetInstalled(orphan_v1.ToInstallTarget());
@@ -1252,11 +1493,18 @@ TEST_F(ManifestAssetManagerTest,
 
 TEST_F(ManifestAssetManagerTest,
        OrphanedAssetWithNoUsableVersionIsUninstalled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{kOnDeviceModelUsageTracking,
+        {{"recent_use_period", "15d"}, {"retention_period", "30d"}}}},
+      {});
+
   DummyAsset target = DummyAsset::For("compose").WithVersion("1.0.0.0");
   usage_tracker_.RaisePriority(target.use_case,
                                UsageTracker::Priority::kUserBlocking);
-  // Advance 40 days so priority drops to kRetain.
-  task_environment_.FastForwardBy(base::Days(40));
+  // Advance 16 days (>15 days recent use window, <=30 days retention period)
+  // so priority drops to kRetain.
+  task_environment_.FastForwardBy(base::Days(16));
 
   component_state_.SetInstalled({target.public_key, std::nullopt});
   MakeAssetsInstallable(DummyManifest().Add(target));
@@ -1300,88 +1548,6 @@ TEST_F(ManifestAssetManagerTest, OrphanedAssetScanDisabledByFeature) {
 // SessionBeforeAndAfterModelUpdate
 // UpdatingSafetyModelEnablesModels
 // SessionRequiresSafetyModel
-
-TEST(AssetPrioritiesTest, RaiseAndIsAtLeast) {
-  AssetPriorities priorities;
-
-  priorities.Raise(AssetPriority::kEvictable, {"evictable_asset"});
-  priorities.Raise(AssetPriority::kRetain, {"retain_asset"});
-  priorities.Raise(AssetPriority::kSpeculative, {"speculative_asset"});
-  priorities.Raise(AssetPriority::kBestEffort, {"best_effort_asset"});
-  priorities.Raise(AssetPriority::kUserBlocking, {"user_blocking_asset"});
-
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kEvictable, "evictable_asset"));
-  EXPECT_FALSE(priorities.IsAtLeast(AssetPriority::kRetain, "evictable_asset"));
-
-  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kEvictable, "retain_asset"));
-  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kRetain, "retain_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kSpeculative, "retain_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kBestEffort, "retain_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kUserBlocking, "retain_asset"));
-
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kEvictable, "speculative_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kRetain, "speculative_asset"));
-  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kSpeculative,
-                                   "speculative_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kBestEffort, "speculative_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kUserBlocking, "speculative_asset"));
-
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kEvictable, "best_effort_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kRetain, "best_effort_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kSpeculative, "best_effort_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kBestEffort, "best_effort_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kUserBlocking, "best_effort_asset"));
-
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kEvictable, "user_blocking_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kRetain, "user_blocking_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kSpeculative, "user_blocking_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kBestEffort, "user_blocking_asset"));
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kUserBlocking, "user_blocking_asset"));
-
-  // Unknown assets default to kEvictable.
-  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kEvictable, "unknown_asset"));
-  EXPECT_FALSE(priorities.IsAtLeast(AssetPriority::kRetain, "unknown_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kSpeculative, "unknown_asset"));
-
-  // Raising to a lower priority does not decrease existing priority.
-  priorities.Raise(AssetPriority::kSpeculative, {"user_blocking_asset"});
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kUserBlocking, "user_blocking_asset"));
-
-  // Raising to a higher priority increases priority.
-  priorities.Raise(AssetPriority::kUserBlocking, {"best_effort_asset"});
-  EXPECT_TRUE(
-      priorities.IsAtLeast(AssetPriority::kUserBlocking, "best_effort_asset"));
-
-  priorities.Clear();
-  EXPECT_TRUE(priorities.IsAtLeast(AssetPriority::kEvictable, "retain_asset"));
-  EXPECT_FALSE(priorities.IsAtLeast(AssetPriority::kRetain, "retain_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kSpeculative, "speculative_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kSpeculative, "best_effort_asset"));
-  EXPECT_FALSE(
-      priorities.IsAtLeast(AssetPriority::kSpeculative, "user_blocking_asset"));
-}
 
 TEST_F(ManifestAssetManagerTest, DeferPendingAssetsUntilRegistered) {
   DummyAsset asset = DummyAsset::For("compose");

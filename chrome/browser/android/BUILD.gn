@@ -28,6 +28,7 @@ source_set("tabs_public") {
     "//components/favicon/core",
     "//components/safe_browsing:buildflags",
     "//components/sessions:session_id",
+    "//components/site_engagement/content",
     "//components/split_tabs",
     "//components/tab_groups",
     "//components/tabs:public",
@@ -208,6 +209,7 @@ source_set("tabs_impl") {
     "//chrome/browser/resource_coordinator",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/search_engines",
+    "//chrome/browser/sessions",
     "//chrome/browser/site_protection",
     "//chrome/browser/ssl",
     "//chrome/browser/storage_access_api",
@@ -217,6 +219,7 @@ source_set("tabs_impl") {
     "//chrome/browser/sync_tab_context",
     "//chrome/browser/tab_contents",
     "//chrome/browser/task_manager",
+    "//chrome/browser/task_manager/common",
     "//chrome/browser/translate",
     "//chrome/browser/trusted_vault",
     "//chrome/browser/ui:recently_audible_helper",
@@ -275,6 +278,7 @@ source_set("tabs_impl") {
     "//components/tabs:public",
     "//components/ukm/content",
     "//components/webapps/browser",
+    "//components/zoom",
     "//content/public/browser",
     "//extensions/buildflags",
     "//media",
@@ -637,6 +641,7 @@ if (is_android) {
       "tab_web_contents_destroyer.cc",
       "tab_web_contents_destroyer.h",
       "tabbed_startup_window_policy_delegate_bridge.cc",
+      "tabbed_startup_window_policy_delegate_bridge.h",
       "trusted_cdn.cc",
       "trusted_cdn.h",
       "usage_stats/usage_stats_bridge.cc",
@@ -808,7 +813,6 @@ if (is_android) {
       "//chrome/browser/translate/android:android_impl",
       "//chrome/browser/translate/android:jni_headers",
       "//chrome/browser/ui:recently_audible_helper",
-      "//chrome/browser/ui:tab_helpers",
       "//chrome/browser/ui/android",
       "//chrome/browser/ui/android:context_menu_helper",
       "//chrome/browser/ui/android/autofill",
@@ -978,6 +982,7 @@ if (is_android) {
       "//ui/accessibility",
       "//ui/base/unowned_user_data",
       "//ui/menus",
+      "//ui/webui:buildflags",
       "//url",
 
       # TODO(crbug.com/372647115): When c/b/android/oom_intervention gets
@@ -1194,6 +1199,20 @@ if (is_android) {
         ]
       }
     }
+
+    if (enable_webui_tabstrip_ntb) {
+      sources += [
+        "compositor/tab_strip_ntb_webui_host.cc",
+        "compositor/tab_strip_ntb_webui_host.h",
+      ]
+      deps += [
+        "//chrome/browser/ui/tabs/tab_strip_api/android_tab_model_impl",
+        "//chrome/browser/ui/webui/tabstrip_ntb",
+        "//components/browser_apis/tab_strip:service",
+      ]
+    } else {
+      sources += [ "compositor/tab_strip_ntb_webui_host_stub.cc" ]
+    }
   }
 }
 
@@ -1216,6 +1235,7 @@ source_set("unit_tests") {
     "customtabs/tab_interaction_recorder_android_unittest.cc",
     "foreign_session_helper_unittest.cc",
     "framebust_intervention/framebust_blocked_delegate_android_unittest.cc",
+    "history/browsing_history_bridge_unittest.cc",
     "history/history_deletion_bridge_unittest.cc",
     "metrics/android_atoms_logger_unittest.cc",
     "metrics/android_session_durations_service_unittest.cc",
@@ -1232,6 +1252,7 @@ source_set("unit_tests") {
     "selection/chrome_selection_dropdown_menu_delegate_unittest.cc",
     "tab_android_unittest.cc",
     "tab_web_contents_destroyer_unittest.cc",
+    "tabbed_startup_window_policy_delegate_bridge_unittest.cc",
     "usage_stats/usage_stats_database_unittest.cc",
     "webapps/twa_launch_queue_delegate_unittest.cc",
     "webapps/twa_launch_queue_tab_helper_unittest.cc",
@@ -1255,12 +1276,15 @@ source_set("unit_tests") {
     "//chrome/browser/autocomplete",
     "//chrome/browser/content_settings:content_settings_factory",
     "//chrome/browser/flags:flags_android",
+    "//chrome/browser/history",
+    "//chrome/browser/keyboard_accessory/android:impl",
+    "//chrome/browser/password_manager/factories",
     "//chrome/browser/permissions",
     "//chrome/browser/persisted_state_db",
+    "//chrome/browser/prefs:util",
     "//chrome/browser/renderer_host",
     "//chrome/browser/search_engines",
     "//chrome/browser/sessions",
-    "//chrome/browser/ui:tab_helpers",
     "//chrome/browser/ui/android/tab_model",
     "//chrome/browser/ui/contextual_search",
     "//chrome/browser/ui/javascript_dialogs",
@@ -1277,6 +1301,7 @@ source_set("unit_tests") {
     "//components/blocked_content",
     "//components/content_settings/browser",
     "//components/content_settings/browser:test_support",
+    "//components/history/core/browser",
     "//components/javascript_dialogs",
     "//components/lens",
     "//components/leveldb_proto:test_support",
@@ -1286,6 +1311,9 @@ source_set("unit_tests") {
     "//components/omnibox/common",
     "//components/os_crypt/async/browser",
     "//components/os_crypt/async/browser:test_support",
+    "//components/password_manager/content/browser",
+    "//components/password_manager/core/browser:test_support",
+    "//components/password_manager/core/browser/password_store:test_support",
     "//components/pdf/common:constants",
     "//components/search_engines",
     "//components/sessions",
@@ -1310,6 +1338,14 @@ source_set("unit_tests") {
     "//ui/menus",
     "//url",
   ]
+
+  if (enable_webui_tabstrip_ntb) {
+    sources += [ "compositor/tab_strip_ntb_webui_host_unittest.cc" ]
+    deps += [
+      "//chrome/browser/profiles:profile_manager",
+      "//chrome/browser/ui/android/tab_model:test_support",
+    ]
+  }
 }
 
 source_set("android_browsertests") {

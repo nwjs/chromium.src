@@ -6,6 +6,7 @@
 
 #include <algorithm>
 
+#include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
@@ -28,6 +29,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_webui_creation.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
@@ -289,7 +291,7 @@ IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, ScriptBlockedIcon) {
       ->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT,
                                  CONTENT_SETTING_BLOCK);
   // Reload the page
-  chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
+  chrome::Reload(browser(), WindowOpenDisposition::kCurrentTab);
 
   // Waits until the script blocked icon is visible, or aborts the tests
   // otherwise.
@@ -686,6 +688,14 @@ class LocationBarViewAddContextButtonBrowserTest
 
  private:
   base::test::ScopedFeatureList feature_list_;
+  // The inline add-context button reads the AI Mode popup's page while the
+  // classic popup is shown, so it needs that page to exist before the AI Mode
+  // popup is shown. Browser tests otherwise create it only when shown (see
+  // `InProcessBrowserTest`).
+  // TODO(crbug.com/542347163): Remove the inline add-context button variant,
+  // which is not planned to launch, along with these tests and this override.
+  base::AutoReset<bool> create_popup_webui_on_demand_ =
+      omnibox::SetCreatePopupWebUIOnDemandForTesting(false);
 };
 
 // TODO(crbug.com/459561205): This test is flaky on Linux.
@@ -773,46 +783,6 @@ IN_PROC_BROWSER_TEST_F(LocationBarViewAddContextButtonBrowserTest,
   prefs->SetBoolean(omnibox::kShowAiModeOmniboxButton, true);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return location_bar_view->ShouldShowAddContextButton(); }));
-}
-
-IN_PROC_BROWSER_TEST_F(LocationBarViewBrowserTest, OmniboxActionsRegistered) {
-  LocationBarView* location_bar_view = GetLocationBarView();
-  ASSERT_TRUE(location_bar_view);
-
-  auto* action_manager = &actions::ActionManager::Get();
-  ASSERT_TRUE(action_manager);
-  auto* const root_action_item =
-      BrowserActions::From(browser())->root_action_item();
-
-  struct ExpectedAction {
-    actions::ActionId action_id;
-    int string_id;
-  };
-
-  std::vector<ExpectedAction> expected_actions = {
-      {kActionOmniboxContextAddImage, IDS_NTP_COMPOSE_ADD_IMAGE},
-      {kActionOmniboxContextAddFile, IDS_NTP_COMPOSE_ADD_FILE},
-      {kActionOmniboxContextCreateImages, IDS_NTP_COMPOSE_CREATE_IMAGES},
-      {kActionOmniboxContextDeepResearch, IDS_NTP_COMPOSE_DEEP_SEARCH},
-      {kActionOmniboxContextCanvas, IDS_NTP_COMPOSE_CANVAS},
-      {kActionOmniboxContextSetModelAuto, IDS_NTP_COMPOSE_AUTO_MODEL},
-      {kActionOmniboxContextSetModelThinking, IDS_NTP_COMPOSE_THINKING_3_PRO},
-  };
-
-  for (const auto& expected : expected_actions) {
-    auto* action =
-        action_manager->FindAction(expected.action_id, root_action_item);
-    ASSERT_TRUE(action) << "Action not found: " << expected.action_id;
-    EXPECT_EQ(action->GetText(), l10n_util::GetStringUTF16(expected.string_id));
-    EXPECT_FALSE(action->GetImage().IsEmpty());
-  }
-
-  // kActionOmniboxContextSetModelRegular has no text (only icon).
-  auto* regular_model_action = action_manager->FindAction(
-      kActionOmniboxContextSetModelRegular, root_action_item);
-  ASSERT_TRUE(regular_model_action);
-  EXPECT_TRUE(regular_model_action->GetText().empty());
-  EXPECT_FALSE(regular_model_action->GetImage().IsEmpty());
 }
 
 // Tests that unsafe schemes are not allowed to be opened from middle clicks.

@@ -29,6 +29,9 @@ cr-icon-button {
   --cr-icon-button-size: var(--toolbar-button-height);
   --cr-icon-button-icon-size: var(--toolbar-button-icon-size);
   --cr-icon-button-fill-color: var(--color-toolbar-button-icon);
+  /* Pressed color painted in the IPH pulse; see help_bubble_anchor.css.
+   * Matches the ripple of native ConfigureInkDrop(). */
+  --iph-pressed-color: var(--color-toolbar-ink-drop-ripple);
 }
 
 cr-button {
@@ -40,6 +43,9 @@ cr-button {
   font-size: 0;
   line-height: 0;
   margin: 0;
+  /* cr-button would normally paint the focus ring outset, but that would clip
+   * against the toolbar bounds, so we paint it inset instead. */
+  outline-offset: -2px;
   padding: 0;
   min-width: var(--toolbar-button-height);
   --cr-button-size: var(--toolbar-button-height);
@@ -49,6 +55,15 @@ cr-button {
   --cr-button-background-color: transparent;
   --cr-button-border-color: transparent;
   --cr-button-border: 0;
+  /* Pressed color painted in the IPH pulse; see help_bubble_anchor.css.
+   * Matches the ripple of native ConfigureInkDrop(). */
+  --iph-pressed-color: var(--color-toolbar-ink-drop-ripple);
+}
+
+/* Like native toolbar buttons, use the inactive icon color while the browser
+ * window is inactive on Mac. The browser sets controls-appear-inactive. */
+:host-context(toolbar-app[controls-appear-inactive]) cr-icon-button {
+  --cr-icon-button-fill-color: var(--color-toolbar-button-icon-inactive);
 }
 
 cr-icon-button[is-menu-open],
@@ -88,6 +103,20 @@ cr-icon-button[is-activated] {
 cr-button[is-activated] {
   --cr-button-fill-color: var(--color-toolbar-action-item-engaged,
       var(--google-blue-600));
+}
+
+/* While an IPH is anchored to the button, paint the icon in the feature promo
+ * highlight color, matching native ToolbarButton::GetForegroundColor().
+ * Engaged buttons keep the engaged color, as native SplitTabsToolbarButton and
+ * PinnedActionToolbarButton do. Buttons that pick their own icon color in
+ * native (e.g. the performance intervention button) keep it through their
+ * more specific #button rules. cr-button (extensions) is not included:
+ * native extension action buttons (ToolbarActionView) are not ToolbarButtons,
+ * and the extensions menu button draws its icon through icon-from-table, whose
+ * color is set inline from the icon table, so CSS cannot recolor it. */
+:host(.help-anchor-highlight)
+    cr-icon-button.iph-visual-target:not([is-activated]) {
+  --cr-icon-button-fill-color: var(--color-toolbar-feature-promo-highlight);
 }
 
 icon-from-table {

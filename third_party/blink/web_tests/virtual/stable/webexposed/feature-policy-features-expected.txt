@@ -41,6 +41,7 @@ digital-credentials-create
 digital-credentials-get
 display-capture
 encrypted-media
+focus-without-user-activation
 fullscreen
 gamepad
 geolocation
@@ -77,6 +78,7 @@ sync-xhr
 translator
 unload
 usb
+web-app-installation
 window-management
 xr-spatial-tracking
 

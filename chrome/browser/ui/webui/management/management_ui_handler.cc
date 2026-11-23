@@ -30,7 +30,6 @@
 #include "chrome/browser/enterprise/browser_management/management_identity.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/enterprise/identifiers/profile_id_service_factory.h"
-#include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/policy/policy_ui_utils.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -43,7 +42,9 @@
 #include "components/enterprise/browser/identifiers/profile_id_service.h"
 #include "components/enterprise/browser/reporting/common_pref_names.h"
 #include "components/enterprise/browser/reporting/prefs.h"
+#include "components/enterprise/browser/reporting/reporting_features.h"
 #include "components/enterprise/buildflags/buildflags.h"
+#include "components/enterprise/net/core/utils.h"
 #include "components/policy/core/common/cloud/enterprise_metrics.h"
 #include "components/policy/core/common/cloud/user_cloud_policy_manager.h"
 #include "components/policy/core/common/management/management_service.h"
@@ -76,16 +77,11 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/media/webrtc/multi_capture/multi_capture_data_service.h"
 #include "chrome/browser/media/webrtc/multi_capture/multi_capture_data_service_factory.h"
-#endif
-
-#if !BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ui/managed_ui.h"  // nogncheck crbug.com/40147906
-#endif
-
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#else
 #include "chrome/browser/enterprise/signals/user_permission_service_factory.h"
+#include "chrome/browser/ui/managed_ui.h"  // nogncheck crbug.com/40147906
 #include "components/device_signals/core/browser/user_permission_service.h"  // nogncheck
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/extensions/extension_util.h"
@@ -98,14 +94,13 @@
 #include "extensions/common/permissions/permissions_data.h"
 #endif
 
+#include "chrome/browser/enterprise/connectors/common.h"
+#include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_namespace.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/policy/policy_constants.h"
 #include "components/policy/proto/device_management_backend.pb.h"
-
-#include "chrome/browser/enterprise/connectors/common.h"
-#include "chrome/browser/enterprise/connectors/connectors_service.h"
 
 enum class ReportingType {
   kDevice,
@@ -206,7 +201,11 @@ void AddThreatProtectionPermission(const char* title,
 }
 
 bool IsSaasReportingEnabled(content::WebUI* web_ui) {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if !BUILDFLAG(IS_CHROMEOS)
+  if (!base::FeatureList::IsEnabled(
+          enterprise_reporting::kSaasUsageReporting)) {
+    return false;
+  }
   return !Profile::FromWebUI(web_ui)
               ->GetPrefs()
               ->GetList(enterprise_reporting::kSaasUsageDomainUrlsForProfile)
@@ -216,7 +215,7 @@ bool IsSaasReportingEnabled(content::WebUI* web_ui) {
               .empty();
 #else
   return false;
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 }
 
 }  // namespace
@@ -410,12 +409,12 @@ void ManagementUIHandler::AddBrowserReportingInfo(
     report_sources->Append(std::move(data));
   }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if !BUILDFLAG(IS_CHROMEOS)
   auto device_signal_data = GetDeviceSignalGrantedMessage();
   if (!device_signal_data.empty()) {
     report_sources->Append(std::move(device_signal_data));
   }
-#endif
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 }
 
 void ManagementUIHandler::AddProfileReportingInfo(
@@ -432,25 +431,25 @@ void ManagementUIHandler::AddProfileReportingInfo(
     return;
   }
 
-  const std::string messages[] = {
-      kProfileReportingOverview, kProfileReportingUsername,
-      kProfileReportingBrowser,
+  const std::string messages[] = {kProfileReportingOverview,
+                                  kProfileReportingUsername,
+                                  kProfileReportingBrowser,
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-      kProfileReportingExtension,
+                                  kProfileReportingExtension,
 #endif
-      kProfileReportingPolicy};
+                                  kProfileReportingPolicy};
   for (const auto& message : messages) {
     base::DictValue data;
     data.Set("messageId", message);
     report_sources->Append(std::move(data));
   }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if !BUILDFLAG(IS_CHROMEOS)
   auto device_signal_data = GetDeviceSignalGrantedMessage();
   if (!device_signal_data.empty()) {
     report_sources->Append(std::move(device_signal_data));
   }
-#endif
+#endif  // !BUILDFLAG(IS_CHROMEOS)
   base::DictValue learn_more_data;
   learn_more_data.Set("messageId", kProfileReportingLearnMore);
   report_sources->Append(std::move(learn_more_data));
@@ -571,7 +570,7 @@ base::DictValue ManagementUIHandler::GetThreatProtectionInfo(Profile* profile) {
                        base::UTF8ToUTF16(enterprise_manager)));
   result.Set("info", std::move(info));
   result.Set("showSecureGatewayDisclosure",
-             enterprise_util::IsSecureGatewayDisclosureRequired(profile));
+             enterprise_net::IsSecureGatewayEnabled(profile->GetPrefs()));
   return result;
 }
 
@@ -637,7 +636,7 @@ policy::PolicyService* ManagementUIHandler::GetPolicyService() {
       ->policy_service();
 }
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if !BUILDFLAG(IS_CHROMEOS)
 device_signals::UserPermissionService*
 ManagementUIHandler::GetUserPermissionService() {
   return enterprise_signals::UserPermissionServiceFactory::GetForProfile(
@@ -657,7 +656,7 @@ base::DictValue ManagementUIHandler::GetDeviceSignalGrantedMessage() {
   }
   return base::DictValue();
 }
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 bool ManagementUIHandler::managed() const {
   return account_managed() || browser_managed_;

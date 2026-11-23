@@ -9,12 +9,16 @@
 
 import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
+import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
+import 'chrome://resources/cr_elements/cr_expand_button/cr_expand_button.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import 'chrome://resources/cr_elements/cr_toggle/cr_toggle.js';
+import 'chrome://resources/cr_elements/icons.html.js';
 import '/shared/settings/controls/extension_controlled_indicator.js';
 import '../../controls/settings_toggle_button.js';
+import '../../icons.html.js';
 import '../../settings_page/settings_subpage.js';
 import '../../simple_confirmation_dialog.js';
 import '../../site_favicon.js';
@@ -70,6 +74,11 @@ export const AUTOFILL_GMAIL_OTP_FILLING_ENABLED_PREF =
 
 export const AUTOFILL_GMAIL_OTP_OPT_IN_SETTINGS_CHANGE_METRIC =
     'Autofill.GmailOtpOptIn.SettingsChange';
+
+const PROFILE_ENABLED_SYNTHETIC_PREF_KEY =
+    'synthetic.settings.autofill.profile_enabled';
+const OTP_FILLING_SYNTHETIC_PREF_KEY =
+    'synthetic.settings.autofill.otp_filling';
 
 declare global {
   interface HTMLElementEventMap {
@@ -128,6 +137,7 @@ export class SettingsContactInfoPageElement extends
       isEmailVerificationProtocolEnabled_: {type: Boolean},
       emailVerificationStatePref_: {type: Object},
       emailVerificationAddresses_: {type: Array},
+      emailVerificationExpanded_: {type: Boolean},
 
       /**
        * Computed field that determines if the Gmail OTP filling toggle should
@@ -138,13 +148,6 @@ export class SettingsContactInfoPageElement extends
       gmailOtpFillingEnabledPref_: {type: Object},
       profileEnabledSyntheticPref_: {type: Object},
       isOtpConsentLoading_: {type: Boolean},
-
-      /**
-       * A fake preference object that reflects the UI state of the Gmail OTP
-       * filling toggle based on both the backend preference and the iUDP/gUDP
-       * consent status.
-       */
-      otpFillingTogglePref_: {type: Object},
     };
   }
 
@@ -162,22 +165,13 @@ export class SettingsContactInfoPageElement extends
       chrome.settingsPrivate.PrefObject<Record<string, {issuer_site?: string}>>|
       undefined;
   protected accessor emailVerificationAddresses_: string[] = [];
+  protected accessor emailVerificationExpanded_: boolean = false;
   private accessor showGmailOtpFillingToggle_: boolean = false;
   private accessor gmailOtpFillingEnabledPref_:
       chrome.settingsPrivate.PrefObject<boolean>|undefined;
   protected accessor profileEnabledSyntheticPref_:
-      chrome.settingsPrivate.PrefObject<boolean>|undefined = {
-    key: 'autofill.profile_enabled',
-    type: chrome.settingsPrivate.PrefType.BOOLEAN,
-    value: false,
-  };
+      chrome.settingsPrivate.PrefObject<boolean>|undefined;
   private accessor isOtpConsentLoading_: boolean = false;
-  protected accessor otpFillingTogglePref_:
-      chrome.settingsPrivate.PrefObject<boolean> = {
-    key: '',
-    type: chrome.settingsPrivate.PrefType.BOOLEAN,
-    value: false,
-  };
   private lastCheckedAccountEmail_: string|null = null;
   minOtpConsentSpinnerDurationMs: number = 200;
   private emailSharedMenuModel_: string = '';
@@ -188,11 +182,15 @@ export class SettingsContactInfoPageElement extends
    * `autofill.profile_enabled` preference.
    */
   private updateProfileEnabledSyntheticPref_() {
-    this.profileEnabledSyntheticPref_ = computeEffectiveAutofillPref(
+    const effectivePref = computeEffectiveAutofillPref(
         PrefService.getInstance().getPref<boolean>('autofill.profile_enabled'),
         PrefService.getInstance().getPref<TypesBlockedEntry[]>(
             'autofill.types_blocked'),
         AutofillPolicyDataCategory.CONTACT_INFO);
+    PrefService.getInstance().setSyntheticPref({
+      ...effectivePref,
+      key: PROFILE_ENABLED_SYNTHETIC_PREF_KEY,
+    });
   }
 
   /**
@@ -235,6 +233,7 @@ export class SettingsContactInfoPageElement extends
     this.mirrorPrefs({
       'autofill.email_verification_state': 'emailVerificationStatePref_',
       [AUTOFILL_GMAIL_OTP_FILLING_ENABLED_PREF]: 'gmailOtpFillingEnabledPref_',
+      [PROFILE_ENABLED_SYNTHETIC_PREF_KEY]: 'profileEnabledSyntheticPref_',
     });
 
     // Create listener functions.
@@ -449,6 +448,15 @@ export class SettingsContactInfoPageElement extends
 
   private computeEmailVerificationAddresses_(): string[] {
     return Object.keys(this.emailVerificationStatePref_?.value || {});
+  }
+
+  protected onEmailVerificationExpandClick_() {
+    this.emailVerificationExpanded_ = !this.emailVerificationExpanded_;
+  }
+
+  protected onEmailVerificationExpandedChanged_(
+      e: CustomEvent<{value: boolean}>) {
+    this.emailVerificationExpanded_ = e.detail.value;
   }
 
   private onAccountHomeAddressClick_() {
@@ -684,10 +692,8 @@ export class SettingsContactInfoPageElement extends
   }
 
   private setOtpFillingToggleChecked_(checked: boolean) {
-    this.otpFillingTogglePref_ = {
-      ...this.otpFillingTogglePref_,
-      value: checked,
-    };
+    PrefService.getInstance().setPrefValue(
+        OTP_FILLING_SYNTHETIC_PREF_KEY, checked);
     this.$.autofillOtpFillingToggle.checked = checked;
   }
 
@@ -723,21 +729,19 @@ export class SettingsContactInfoPageElement extends
   }
 
   private async onGmailOtpFillingPrefOrAccountChange_() {
+    // Early return to avoid setting a pref when PrefService is not
+    // yet initialized.
+    if (!this.gmailOtpFillingEnabledPref_) {
+      return;
+    }
+
     const currentEmail =
         (this.showGmailOtpFillingToggle_ && this.accountInfo_) ?
         this.accountInfo_.email :
         null;
 
-    if (!this.showGmailOtpFillingToggle_ || !currentEmail) {
-      this.resetOtpFillingState_();
-      return;
-    }
-
-    if (!this.gmailOtpFillingEnabledPref_) {
-      return;
-    }
-
-    if (!this.gmailOtpFillingEnabledPref_.value) {
+    if (!this.showGmailOtpFillingToggle_ || !currentEmail ||
+        !this.gmailOtpFillingEnabledPref_.value) {
       this.resetOtpFillingState_();
       return;
     }

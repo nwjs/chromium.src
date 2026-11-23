@@ -22,7 +22,6 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/platform/mediastream/media_stream_audio_track.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
@@ -199,7 +198,7 @@ TrackAudioRenderer::TrackAudioRenderer(
 
 TrackAudioRenderer::~TrackAudioRenderer() {
   DCHECK(task_runner_->BelongsToCurrentThread());
-  DCHECK(!sink_);
+  Stop();
   DVLOG(1) << "TrackAudioRenderer::~TrackAudioRenderer()";
 }
 

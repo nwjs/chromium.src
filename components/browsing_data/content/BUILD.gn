@@ -40,8 +40,6 @@ static_library("content") {
     "//content/public/browser",
     "//net",
   ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("unit_tests") {
@@ -58,6 +56,7 @@ source_set("unit_tests") {
     ":test_support",
     "//base",
     "//base/test:test_support",
+    "//components/browsing_data/core",
     "//content/test:test_support",
     "//extensions/buildflags",
     "//services/network:test_support",

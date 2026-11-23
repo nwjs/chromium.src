@@ -14,6 +14,7 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
@@ -111,8 +112,8 @@ gfx::Rect BrowserFrameView::BoundsAndMargins::ToEnclosingRect() const {
 BrowserFrameView::BrowserFrameView(BrowserWidget* browser_widget,
                                    BrowserView* browser_view)
     : browser_widget_(browser_widget), browser_view_(browser_view) {
-  DCHECK(browser_widget_);
-  DCHECK(browser_view_);
+  CHECK(browser_widget_, base::NotFatalUntil::M162);
+  CHECK(browser_view_, base::NotFatalUntil::M162);
   paint_as_active_subscription_ =
       browser_widget_->RegisterPaintAsActiveChangedCallback(base::BindRepeating(
           &BrowserFrameView::PaintAsActiveChanged, base::Unretained(this)));
@@ -184,6 +185,10 @@ gfx::RoundedCornersF BrowserFrameView::GetWindowRoundedCorners() const {
   return gfx::RoundedCornersF();
 }
 
+int BrowserFrameView::GetRestoredWindowCornerRadius() const {
+  return GetLayoutConstant(LayoutConstant::kToolbarCornerRadius);
+}
+
 void BrowserFrameView::UpdateFullscreenTopUI() {}
 
 bool BrowserFrameView::ShouldHideTopUIInFullscreen() const {
@@ -203,7 +208,7 @@ bool BrowserFrameView::IsFrameCondensed() const {
 
 bool BrowserFrameView::HasVisibleBackgroundTabShapes(
     BrowserFrameActiveState active_state) const {
-  DCHECK(GetBrowserView()->GetSupportsTabStrip());
+  CHECK(GetBrowserView()->GetSupportsTabStrip(), base::NotFatalUntil::M162);
 
   const bool active = ShouldPaintAsActiveForState(active_state);
   const std::optional<int> bg_id = GetCustomBackgroundId(active_state);

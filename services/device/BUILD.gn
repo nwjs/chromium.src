@@ -34,8 +34,6 @@ source_set("lib") {
     "device_service.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     ":binder_overrides",
     "//services/device/fingerprint",
@@ -98,7 +96,6 @@ component("binder_overrides") {
     "binder_overrides.cc",
     "binder_overrides.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   public_deps = [
     "//base",
     "//mojo/public/cpp/bindings",
@@ -394,6 +391,10 @@ source_set("tests") {
 
     if (is_android || is_linux) {
       sources += [ "usb/usb_interface_detach_allowlist_unittest.cc" ]
+    }
+
+    if (is_win) {
+      sources += [ "usb/usb_device_handle_win_unittest.cc" ]
     }
   }
 

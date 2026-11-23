@@ -414,12 +414,6 @@ FilterOperations StyleBuilderConverter::ConvertFilterOperations(
                                                          property_id);
 }
 
-FilterOperations StyleBuilderConverter::ConvertOffscreenFilterOperations(
-    const CSSValue& value,
-    const Font* font) {
-  return FilterOperationResolver::CreateOffscreenFilterOperations(value, font);
-}
-
 StyleFlexWrapData StyleBuilderConverter::ConvertFlexWrapData(
     StyleResolverState& state,
     const CSSValue& value) {
@@ -1849,15 +1843,15 @@ ComputedGridTrackList* StyleBuilderConverter::ConvertGridTrackList(
   return computed_grid_track_list;
 }
 
-FlowTolerance StyleBuilderConverter::ConvertFlowTolerance(
+FitTolerance StyleBuilderConverter::ConvertFitTolerance(
     const StyleResolverState& state,
     const CSSValue& value) {
   auto* identifier_value = DynamicTo<CSSIdentifierValue>(value);
   if (identifier_value) {
-    return FlowTolerance(identifier_value->GetValueID());
+    return FitTolerance(identifier_value->GetValueID());
   }
 
-  return FlowTolerance(ConvertLength(state, value));
+  return FitTolerance(ConvertLength(state, value));
 }
 
 GridLanesDirection StyleBuilderConverter::ConvertGridLanesDirection(
@@ -2285,17 +2279,6 @@ ScopedCSSName* StyleBuilderConverter::ConvertNoneOrCustomIdent(
   DCHECK(value.IsScopedValue());
   if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
     DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
-    return nullptr;
-  }
-  return ConvertCustomIdent(state, value);
-}
-
-ScopedCSSName* StyleBuilderConverter::ConvertNormalOrCustomIdent(
-    StyleResolverState& state,
-    const CSSValue& value) {
-  DCHECK(value.IsScopedValue());
-  if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
-    DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNormal);
     return nullptr;
   }
   return ConvertCustomIdent(state, value);
@@ -2890,33 +2873,6 @@ ScopedCSSNameList* StyleBuilderConverter::ConvertViewTransitionClass(
   return ConvertNoneOrCustomIdentList(state, value);
 }
 
-ScopedCSSNameList* StyleBuilderConverter::ConvertOverscrollArea(
-    StyleResolverState& state,
-    const CSSValue& value) {
-  DCHECK(value.IsScopedValue());
-  if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
-    DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
-    return nullptr;
-  }
-  DCHECK(value.IsBaseValueList());
-  HeapVector<Member<const ScopedCSSName>> names;
-  for (const Member<const CSSValue>& item : To<CSSValueList>(value)) {
-    names.push_back(ConvertCustomIdent(state, *item));
-  }
-  return MakeGarbageCollected<ScopedCSSNameList>(std::move(names));
-}
-
-ScopedCSSName* StyleBuilderConverter::ConvertOverscrollPosition(
-    StyleResolverState& state,
-    const CSSValue& value) {
-  DCHECK(value.IsScopedValue());
-  if (const auto* identifier_value = DynamicTo<CSSIdentifierValue>(value)) {
-    DCHECK_EQ(identifier_value->GetValueID(), CSSValueID::kNone);
-    return nullptr;
-  }
-  return ConvertCustomIdent(state, value);
-}
-
 namespace {
 
 const CSSValue& ResolveLightDarkPair(const CSSLightDarkValuePair& value,
@@ -2937,12 +2893,10 @@ StyleColor ResolveColorValueImpl(const CSSValue& value,
     }
     if (IsQuirkOrLinkOrFocusRingColor(value_id)) {
       return StyleColor(ResolveQuirkOrLinkOrFocusRingColor(
-          value_id, context.text_link_colors, context.used_color_scheme,
+          value_id, context.text_link_colors, context.theme_info.color_scheme,
           context.for_visited_link));
     }
-    Color color = StyleColor::ColorFromKeyword(
-        value_id, context.used_color_scheme, context.color_provider,
-        context.can_expose_accent_color);
+    Color color = StyleColor::ColorFromKeyword(value_id, context.theme_info);
     // Preserve the identifier for system colors since this is needed by
     // 'forced colors mode'.
     if (StyleColor::IsSystemColorIncludingDeprecated(value_id)) {
@@ -3037,7 +2991,7 @@ StyleColor ResolveColorValueImpl(const CSSValue& value,
 const CSSValue& ResolveLightDarkPair(
     const CSSLightDarkValuePair& light_dark_pair,
     const ResolveColorValueContext& context) {
-  return context.used_color_scheme == mojom::blink::ColorScheme::kLight
+  return context.theme_info.color_scheme == mojom::blink::ColorScheme::kLight
              ? light_dark_pair.First()
              : light_dark_pair.Second();
 }
@@ -3087,11 +3041,14 @@ StyleColor StyleBuilderConverter::ConvertStyleColor(
   const ResolveColorValueContext context{
       .length_resolver = state.CssToLengthConversionData(),
       .text_link_colors = document.GetTextLinkColors(),
-      .used_color_scheme = color_scheme,
-      .color_provider = document.GetColorProviderForPainting(color_scheme),
-      .can_expose_accent_color =
-          document.IsInWebAppScope() && document.IsInitialProfile(),
-      .for_visited_link = for_visited_link};
+      .theme_info = {.color_provider =
+                         document.GetColorProviderForPainting(color_scheme),
+                     .color_scheme = color_scheme,
+                     .can_expose_system_accent_color =
+                         document.IsInWebAppScope() &&
+                         document.IsInitialProfile()},
+      .for_visited_link = for_visited_link,
+  };
   return ResolveColorValue(value, context);
 }
 
@@ -3375,6 +3332,11 @@ cc::ScrollSnapAlign StyleBuilderConverter::ConvertSnapAlign(
   return snapAlign;
 }
 
+cc::SnapStop StyleBuilderConverter::ConvertSnapStop(StyleResolverState&,
+                                                    const CSSValue& value) {
+  return To<CSSIdentifierValue>(value).ConvertTo<cc::SnapStop>();
+}
+
 TranslateTransformOperation* StyleBuilderConverter::ConvertTranslate(
     StyleResolverState& state,
     const CSSValue& value) {
@@ -3542,10 +3504,12 @@ static const CSSValue& ComputeColorValue(
   const ResolveColorValueContext context{
       .length_resolver = conversion_data,
       .text_link_colors = document.GetTextLinkColors(),
-      .used_color_scheme = color_scheme,
-      .color_provider = document.GetColorProviderForPainting(color_scheme),
-      .can_expose_accent_color =
-          document.IsInWebAppScope() && document.IsInitialProfile(),
+      .theme_info = {.color_provider =
+                         document.GetColorProviderForPainting(color_scheme),
+                     .color_scheme = color_scheme,
+                     .can_expose_system_accent_color =
+                         document.IsInWebAppScope() &&
+                         document.IsInitialProfile()},
       .for_visited_link = false};
   const StyleColor style_color = ResolveColorValue(color_value, context);
   return *style_color.ToCSSValue();

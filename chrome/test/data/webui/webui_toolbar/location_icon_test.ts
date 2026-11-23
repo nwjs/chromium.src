@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-toolbar.top-chrome/app.js';
+import 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import {isMac} from 'chrome://resources/js/platform.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {hasStyle, microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {BrowserProxyImpl, IconTable, IconType, LhsChipIdentifier, PointerProxyImpl, SecurityChipRole} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {IconFromTableElement, LocationIconElement, PointerProxy} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {BrowserProxyImpl, IconTable, IconType, LhsChipIdentifier, PointerProxyImpl, SecurityChipRole} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+import type {IconFromTableElement, LocationIconElement, PointerProxy} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import {TestToolbarUiHandler} from './test_toolbar_browser_proxy.js';
 
@@ -42,6 +42,14 @@ suite('LocationIconTest', function() {
 
     locationIcon = document.createElement('location-icon');
     document.body.appendChild(locationIcon);
+  });
+
+  teardown(function() {
+    // Fake colors set by the IPH pulse test.
+    const rootStyle = document.documentElement.style;
+    rootStyle.removeProperty('--color-omnibox-icon-pressed');
+    rootStyle.removeProperty('--color-omnibox-security-chip-ink-drop-ripple');
+    rootStyle.removeProperty('--color-button-feature-attention-highlight');
   });
 
   test('Render text', async function() {
@@ -93,8 +101,8 @@ suite('LocationIconTest', function() {
     };
     await microtasksFinished();
 
-    const container = locationIcon.$.button;
-    assertEquals('View site information', container.title);
+    const innerButton = locationIcon.$.button.$.button;
+    assertEquals('View site information', innerButton.title);
   });
 
   test('Dangerous text', async function() {
@@ -123,9 +131,9 @@ suite('LocationIconTest', function() {
     assertTrue(locationIcon.hasAttribute('is-text-dangerous'));
     assertTrue(locationIcon.hasAttribute('is-dangerous'));
 
-    const container = locationIcon.$.button;
-    assertTrue(hasStyle(container, 'background-color', 'rgb(0, 0, 255)'));
-    assertTrue(hasStyle(container, 'color', 'rgb(0, 255, 0)'));
+    const innerButton = locationIcon.$.button.$.button;
+    assertTrue(hasStyle(innerButton, 'background-color', 'rgb(0, 0, 255)'));
+    assertTrue(hasStyle(innerButton, 'color', 'rgb(0, 255, 0)'));
   });
 
   test('Dangerous level, Not secure text', async function() {
@@ -152,8 +160,8 @@ suite('LocationIconTest', function() {
     assertFalse(locationIcon.hasAttribute('is-text-dangerous'));
     assertTrue(locationIcon.hasAttribute('is-dangerous'));
 
-    const container = locationIcon.$.button;
-    assertTrue(hasStyle(container, 'color', 'rgb(255, 0, 0)'));
+    const innerButton = locationIcon.$.button.$.button;
+    assertTrue(hasStyle(innerButton, 'color', 'rgb(255, 0, 0)'));
   });
 
   test('Warning text', async function() {
@@ -199,6 +207,9 @@ suite('LocationIconTest', function() {
     assertFalse(locationIcon.hasAttribute('clickable'));
 
     const container = locationIcon.$.button;
+    assertTrue(container.hasAttribute('disable-hover-highlight'));
+    assertTrue(container.hasAttribute('disable-pressed-highlight'));
+    assertEquals(-1, container.$.button.tabIndex);
     container.dispatchEvent(new PointerEvent('pointerdown'));
     assertEquals(0, toolbarUiHandler.getCallCount('onLhsChipMousePressed'));
 
@@ -229,6 +240,10 @@ suite('LocationIconTest', function() {
     await microtasksFinished();
 
     const container = locationIcon.$.button;
+    assertEquals('TOOLBAR-CHIP-BUTTON', container.tagName);
+    assertFalse(container.hasAttribute('disable-hover-highlight'));
+    assertFalse(container.hasAttribute('disable-pressed-highlight'));
+    assertEquals(0, container.$.button.tabIndex);
 
     // Simulate normal click pointerdown
     container.dispatchEvent(new PointerEvent('pointerdown', {button: 0}));
@@ -478,6 +493,10 @@ suite('LocationIconTest', function() {
     assertEquals(
         'webui-toolbar:info_glow_up_forward', crIcon.getAttribute('icon'));
     assertTrue(locationIcon.hasAttribute('glow-up-active'));
+    // The pressed ripple is suppressed while GlowUp animates the icon, but the
+    // hover highlight is still allowed.
+    assertTrue(locationIcon.$.button.hasAttribute('disable-pressed-highlight'));
+    assertFalse(locationIcon.$.button.hasAttribute('disable-hover-highlight'));
 
     // Trigger the timeout to finish opening animation
     assertTrue(!!timeoutCallback);
@@ -584,11 +603,11 @@ suite('LocationIconTest', function() {
     };
     await microtasksFinished();
 
-    const container = locationIcon.$.button;
-    assertEquals('img', container.getAttribute('role'));
-    assertEquals('Search icon', container.getAttribute('aria-label'));
+    const innerButton = locationIcon.$.button.$.button;
+    assertEquals('img', innerButton.getAttribute('role'));
+    assertEquals('Search icon', innerButton.getAttribute('aria-label'));
     assertEquals(
-        'Context description', container.getAttribute('aria-description'));
+        'Context description', innerButton.getAttribute('aria-description'));
 
     // Verify the default button role updates correctly.
     locationIcon.state = Object.assign({}, locationIcon.state, {
@@ -599,6 +618,86 @@ suite('LocationIconTest', function() {
       },
     });
     await microtasksFinished();
-    assertEquals('button', container.getAttribute('role'));
+    assertEquals('button', innerButton.getAttribute('role'));
   });
+
+  test('Help bubble highlight is forwarded to the chip', async function() {
+    const chip = locationIcon.$.button;
+    assertFalse(chip.classList.contains('help-anchor-highlight'));
+
+    locationIcon.hasHelpBubble = true;
+    await microtasksFinished();
+    assertTrue(chip.classList.contains('help-anchor-highlight'));
+
+    locationIcon.hasHelpBubble = false;
+    await microtasksFinished();
+    assertFalse(chip.classList.contains('help-anchor-highlight'));
+  });
+
+  test(
+      'IPH pulse paints the pressed color over the attention color',
+      async function() {
+        const PRESSED_COLOR = 'rgb(1, 2, 3)';
+        const DANGEROUS_PRESSED_COLOR = 'rgb(4, 5, 6)';
+        const ATTENTION_COLOR = 'rgb(7, 8, 9)';
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--color-omnibox-icon-pressed', PRESSED_COLOR);
+        rootStyle.setProperty(
+            '--color-omnibox-security-chip-ink-drop-ripple',
+            DANGEROUS_PRESSED_COLOR);
+        rootStyle.setProperty(
+            '--color-button-feature-attention-highlight', ATTENTION_COLOR);
+
+        const setState =
+            async (isClickable: boolean, isTextDangerous: boolean) => {
+          locationIcon.state = {
+            icon: {handleId: 0n},
+            securityLevel: 0,
+            text: isTextDangerous ? 'Dangerous' : '',
+            tooltip: '',
+            isClickable,
+            isTextDangerous,
+            isVisible: true,
+            isContextMenuVisible: false,
+            accessibilityState: {
+              role: SecurityChipRole.kButton,
+              label: '',
+              description: '',
+            },
+          };
+          await microtasksFinished();
+        };
+        const innerButton = locationIcon.$.button.$.button;
+        const getPulseStyle = () =>
+            window.getComputedStyle(innerButton, '::before');
+
+        locationIcon.hasHelpBubble = true;
+        const pressedGradient = (color: string) => `linear-gradient(${color})`;
+
+        await setState(/*isClickable=*/ true, /*isTextDangerous=*/ false);
+        assertEquals('pulse', getPulseStyle().animationName);
+        assertEquals(ATTENTION_COLOR, getPulseStyle().backgroundColor);
+        assertEquals(
+            pressedGradient(PRESSED_COLOR), getPulseStyle().backgroundImage);
+
+        // The pulse already paints the pressed color, so the chip's own pressed
+        // layer stays hidden during the IPH (e.g. while the anchor is
+        // highlighted).
+        locationIcon.$.button.toggleAttribute('is-menu-open', true);
+        assertEquals(
+            '0', window.getComputedStyle(innerButton, '::after').opacity);
+        locationIcon.$.button.toggleAttribute('is-menu-open', false);
+
+        await setState(/*isClickable=*/ true, /*isTextDangerous=*/ true);
+        assertEquals(
+            pressedGradient(DANGEROUS_PRESSED_COLOR),
+            getPulseStyle().backgroundImage);
+
+        // Like the pressed layer, there is no pressed color when the icon is
+        // not clickable.
+        await setState(/*isClickable=*/ false, /*isTextDangerous=*/ false);
+        assertEquals(
+            pressedGradient('rgba(0, 0, 0, 0)'),
+            getPulseStyle().backgroundImage);
+      });
 });

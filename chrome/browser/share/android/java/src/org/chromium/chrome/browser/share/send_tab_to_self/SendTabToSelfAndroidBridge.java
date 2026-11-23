@@ -52,6 +52,7 @@ import org.chromium.components.messages.MessageScopeType;
 import org.chromium.components.messages.PrimaryActionClickBehavior;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.sync_device_info.RemoteDeviceInfo;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -133,10 +134,6 @@ public class SendTabToSelfAndroidBridge {
             @Nullable WebContents webContents,
             @SendTabToSelfResult int result,
             String targetDeviceName) {
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)) {
-            return;
-        }
-
         String userEmail = getUserEmail(profile);
 
         if (!maybeShowPostSendSnackbar(webContents, result, targetDeviceName, userEmail)) {
@@ -284,9 +281,9 @@ public class SendTabToSelfAndroidBridge {
 
     /**
      * @param profile Profile of the user for whom to retrieve the targetDeviceInfos.
-     * @return All {@link TargetDeviceInfo} for the user, or an empty list if the model isn't ready.
+     * @return All {@link RemoteDeviceInfo} for the user, or an empty list if the model isn't ready.
      */
-    public static List<TargetDeviceInfo> getAllTargetDeviceInfos(Profile profile) {
+    public static List<RemoteDeviceInfo> getAllTargetDeviceInfos(Profile profile) {
         return SendTabToSelfAndroidBridgeJni.get().getAllTargetDeviceInfos(profile);
     }
 
@@ -562,21 +559,19 @@ public class SendTabToSelfAndroidBridge {
         // native app if available.
         if (newestNewTabIndex != TabModel.INVALID_TAB_INDEX) {
             assert newestTab != null;
-            if (ChromeFeatureList.sSendTabToSelfRecordSnackbarActivation.isEnabled()) {
-                assert newestLabelData != null;
+            assert newestLabelData != null;
 
-                // The entry is going to be activated, so drop any label data. This also prevents
-                // the entry from being marked activated again upon tab activation.
-                newestLabelData.removeAndDestroy();
+            // The entry is going to be activated, so drop any label data. This also prevents
+            // the entry from being marked activated again upon tab activation.
+            newestLabelData.removeAndDestroy();
 
-                // Mark the entry as activated.
-                Profile profile = normalTabModel.getProfile();
-                if (profile != null) {
-                    SendTabToSelfAndroidBridge.markEntryActivated(
-                            profile,
-                            newestLabelData.getGuid(),
-                            ShareActivatedEntryPoint.MOBILE_MESSAGE_BANNER);
-                }
+            // Mark the entry as activated.
+            Profile profile = normalTabModel.getProfile();
+            if (profile != null) {
+                SendTabToSelfAndroidBridge.markEntryActivated(
+                        profile,
+                        newestLabelData.getGuid(),
+                        ShareActivatedEntryPoint.MOBILE_MESSAGE_BANNER);
             }
 
             // In the single-tab case, open the matching native app directly if available.
@@ -746,8 +741,8 @@ public class SendTabToSelfAndroidBridge {
                 @JniType("std::vector<uint8_t>") byte @Nullable [] pageContext,
                 @JniType("GURL") GURL url);
 
-        @JniType("std::vector")
-        List<TargetDeviceInfo> getAllTargetDeviceInfos(@JniType("Profile*") Profile profile);
+        @JniType("std::vector<syncer::RemoteDeviceInfo>")
+        List<RemoteDeviceInfo> getAllTargetDeviceInfos(@JniType("Profile*") Profile profile);
 
         @Nullable
         @EntryPointDisplayReason

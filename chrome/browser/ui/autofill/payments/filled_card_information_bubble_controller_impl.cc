@@ -91,6 +91,8 @@ void FilledCardInformationBubbleControllerImpl::SetupAndShowBubble(
 void FilledCardInformationBubbleControllerImpl::SetupBubbleState(
     FilledCardInformationBubbleOptions options) {
   was_bubble_shown_ = false;
+  // TODO(crbug.com/578555608): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(options.IsValid());
   options_ = std::move(options);
   is_user_gesture_ = false;
@@ -229,7 +231,7 @@ bool FilledCardInformationBubbleControllerImpl::ShouldIconBeVisible() const {
 void FilledCardInformationBubbleControllerImpl::OnLinkClicked() {
   web_contents()->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
-          GetLearnMoreUrl(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          GetLearnMoreUrl(), WindowOpenDisposition::kNewForegroundTab,
           ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
@@ -428,7 +430,7 @@ void FilledCardInformationBubbleControllerImpl::DoShowBubble() {
                      ->GetAutofillBubbleHandler()
                      ->ShowFilledCardInformationBubble(web_contents(), this,
                                                        is_user_gesture_));
-  DCHECK(bubble_view());
+  CHECK(bubble_view(), base::NotFatalUntil::M162);
   bubble_has_been_shown_ = true;
 
   autofill_metrics::LogFilledCardInformationBubbleShown(is_user_gesture_);

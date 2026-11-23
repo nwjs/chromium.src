@@ -42,6 +42,27 @@ def __disable_remote(ctx, step_config):
         rule["remote"] = False
     return step_config
 
+def __disable_remote_host_tools_for_msan(ctx, step_config):
+    # In MSan builds, host tools (protoc, compiled_action targets) are run
+    # with MSan-instrumented shared libraries from
+    # //third_party/instrumented_libs. Only a small set of those libraries is
+    # declared as an input of the action, so when the tool runs remotely the
+    # dynamic loader silently falls back to the worker's uninstrumented system
+    # libraries for everything else (e.g. glib for tools that depend on //base
+    # in component builds), and MSan reports false positives.
+    # Run such steps locally in MSan builds.
+    if gn.args(ctx).get("is_msan") != "true":
+        return step_config
+    for rule in step_config["rules"]:
+        if not rule.get("remote"):
+            continue
+        prefix = rule.get("command_prefix", "")
+        if "/build/gn_run_binary.py" in prefix or \
+           "/tools/protoc_wrapper/protoc_wrapper.py" in prefix or \
+           rule.get("name") in ("default", "default-python"):
+            rule["remote"] = False
+    return step_config
+
 def __unset_timeout(ctx, step_config):
     if not config.get(ctx, "no-remote-timeout"):
         return step_config
@@ -92,26 +113,13 @@ def init(ctx):
         # Outputs with known missing deps. They don't fail the build with
         # -missing_deps=error/fatal.
         "missing_deps": {
-            "./gen/third_party/devtools-frontend/src/front_end/panels/application/application.js": "crbug.com/556413211",
-            "./gen/third_party/devtools-frontend/src/front_end/panels/sources/sources.js": "crbug.com/556926446",
-            "./gen/third_party/devtools-frontend/src/front_end/panels/timeline/timeline.js": "crbug.com/556600964",
-            "./gen/third_party/devtools-frontend/src/front_end/ui/legacy/components/cookie_table/cookie_table.js": "crbug.com/556881890",
+            "./android_clang_arm/obj/chrome/browser/offline_pages/impl/offline_page_utils_android.o": "crbug.com/572931511",
+            "./android_clang_arm/obj/chrome/browser/webapps/android_impl/webapps_client_android.o": "crbug.com/572931511",
             "./obj/ash/quick_pair/repository/repository/device_address_map.o": "crbug.com/546524333",
             "./obj/ash/quick_pair/repository/repository/device_image_store.o": "crbug.com/546524333",
             "./obj/chrome/browser/ash/guest_os/public/public/guest_os_mount_provider.o": "crbug.com/565544340",
-            "./obj/chrome/browser/ui/views/upgrade_notification_controller/upgrade_notification_controller.o": "crbug.com/555387059",
-            "./obj/chrome/common/apps/platform_apps/api/api_features/api_features.o": "crbug.com/570385211",
-            "./obj/chrome/common/apps/platform_apps/api/permission_features/permission_features.o": "crbug.com/570385211",
-            "./obj/chrome/common/controlled_frame/api/api_features/api_features.o": "crbug.com/570385211",
-            "./obj/chrome/common/extensions/api/api_features/api_features.o": "crbug.com/570385211",
-            "./obj/chrome/common/extensions/api/manifest_features/manifest_features.o": "crbug.com/570385211",
-            "./obj/chrome/common/extensions/api/permission_features/permission_features.o": "crbug.com/570385211",
-            "./obj/chrome/common/extensions/extension_features_unittest/extension_features_unittest.o": "crbug.com/570385211",
-            "./obj/extensions/common/api/api_features/api_features.o": "crbug.com/570385211",
-            "./obj/extensions/common/api/behavior_features/behavior_features.o": "crbug.com/570385211",
-            "./obj/extensions/common/api/manifest_features/manifest_features.o": "crbug.com/570385211",
-            "./obj/extensions/common/api/permission_features/permission_features.o": "crbug.com/570385211",
-            "./obj/tools/json_schema_compiler/test/features_compiler_test/features_compiler_test.o": "crbug.com/570385211",
+            "./obj/chrome/browser/offline_pages/impl/offline_page_utils_android.o": "crbug.com/572931511",
+            "./obj/chrome/browser/webapps/android_impl/webapps_client_android.o": "crbug.com/572931511",
         },
         # Executables sent from Windows host to Linux workers need to set executable bit explicitly.
         # This is necessary for cross platform build actions. e.g. node binary for typescript
@@ -135,6 +143,7 @@ def init(ctx):
 
     step_config = __setup_python(ctx, step_config)
     step_config = __disable_remote(ctx, step_config)
+    step_config = __disable_remote_host_tools_for_msan(ctx, step_config)
     step_config = __unset_timeout(ctx, step_config)
 
     filegroups = {}

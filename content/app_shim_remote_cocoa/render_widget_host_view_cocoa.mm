@@ -515,10 +515,10 @@ static NSWindow* __weak _deferredResignKeyWindow;
   for (NSTextCheckingResult* result in textCheckingResults) {
     NSTextCheckingResult* adjustedResult =
         [result resultByAdjustingRangesWithOffset:_availableTextOffset];
-    if (!NSLocationInRange(cursorLocation,
-                           NSMakeRange(adjustedResult.range.location,
-                                       adjustedResult.range.length + 1)))
+    if (cursorLocation != NSMaxRange(adjustedResult.range)) {
       continue;
+    }
+
     constexpr NSTextCheckingType textCheckingTypesToReplaceImmediately =
         NSTextCheckingTypeQuote | NSTextCheckingTypeDash;
     if (adjustedResult.resultType & textCheckingTypesToReplaceImmediately) {
@@ -528,8 +528,10 @@ static NSWindow* __weak _deferredResignKeyWindow;
     }
     candidateResult = adjustedResult;
   }
-  if (!candidateResult)
+
+  if (!candidateResult) {
     return;
+  }
 
   NSRect textRectInScreenCoordinates =
       [self firstRectForCharacterRange:candidateResult.range
@@ -3064,21 +3066,24 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   return [super validRequestorForSendType:sendType returnType:returnType];
 }
 
+- (BOOL)canChangeCurrentCursor {
+  if (![self isKeyTrackingWindowKey] || _cursorHidden || _showingContextMenu) {
+    return NO;
+  }
+  return YES;
+}
+
 - (BOOL)shouldChangeCurrentCursor {
   // |updateCursor:| might be called outside the view bounds. Check the mouse
   // location before setting the cursor. Also, do not set cursor if it's not a
   // key window.
   NSPoint location = [self.window convertPointFromScreen:NSEvent.mouseLocation];
   location = [self convertPoint:location fromView:nil];
-  if (![self mouse:location inRect:[self bounds]] ||
-      ![self isKeyTrackingWindowKey]) {
+  if (![self mouse:location inRect:[self bounds]]) {
     return NO;
   }
 
-  if (_cursorHidden || _showingContextMenu)
-    return NO;
-
-  return YES;
+  return [self canChangeCurrentCursor];
 }
 
 - (void)updateCursor:(NSCursor*)cursor {

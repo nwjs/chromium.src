@@ -188,6 +188,27 @@ suite('ComposeboxInputTest', () => {
 
     assertEquals('', input.style.minHeight);
   });
+
+  test(
+      'enabling caret animation while input is focused shows caret',
+      async () => {
+        inputElement.disableCaretColorAnimation = true;
+        await inputElement.updateComplete;
+
+        assertEquals(null, inputElement.shadowRoot.querySelector('#caret'));
+
+        const input =
+            inputElement.shadowRoot.querySelector<HTMLElement>('#input')!;
+        input.focus();
+
+        inputElement.disableCaretColorAnimation = false;
+        await inputElement.updateComplete;
+
+        const caret =
+            inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
+        assertTrue(!!caret);
+        assertTrue(caret.classList.contains('caret-visible'));
+      });
 });
 
 suite('ComposeboxScrollCaret', () => {
@@ -388,6 +409,165 @@ suite('ComposeboxScrollCaret', () => {
 
         // Verify minHeight is still locked to the larger height.
         assertEquals(initialMinHeight, wrapper.style.minHeight);
+      });
+
+  // The ResizeObserver dispatches on frame 1 and its lock runs in a rAF on
+  // frame 2, so two frames are not enough to prove the height stayed unlocked.
+  async function waitFrames(count: number): Promise<void> {
+    for (let i = 0; i < count; i++) {
+      await new Promise<void>(
+          resolve => requestAnimationFrame(() => resolve()));
+    }
+  }
+
+  test(
+      'inputWrapper does not lock minHeight while input is empty', async () => {
+        inputElement.skipEmptyHeightLock = true;
+        document.body.style.width = '800px';
+        document.body.style.height = '600px';
+
+        const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
+
+        inputElement.inputPlaceholder = 'line 1';
+        await inputElement.updateComplete;
+        await waitFrames(3);
+        const oneLineHeight = wrapper.clientHeight;
+        assertEquals('', wrapper.style.minHeight);
+
+        inputElement.inputPlaceholder = 'line 1\nline 2\nline 3';
+        await inputElement.updateComplete;
+        await waitFrames(3);
+        assertTrue(wrapper.clientHeight > oneLineHeight);
+        assertEquals('', wrapper.style.minHeight);
+
+        inputElement.inputPlaceholder = 'line 1';
+        await inputElement.updateComplete;
+        await waitFrames(3);
+        assertEquals(oneLineHeight, wrapper.clientHeight);
+        assertEquals('', wrapper.style.minHeight);
+      });
+
+  test('first keystroke locks minHeight to the typed text height', async () => {
+    inputElement.skipEmptyHeightLock = true;
+    document.body.style.width = '800px';
+    document.body.style.height = '600px';
+
+    const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
+
+    inputElement.inputPlaceholder = 'line 1';
+    await inputElement.updateComplete;
+    await waitFrames(3);
+    const oneLineHeight = wrapper.clientHeight;
+
+    inputElement.inputPlaceholder = 'line 1\nline 2\nline 3';
+    await inputElement.updateComplete;
+    await waitFrames(3);
+    assertTrue(wrapper.clientHeight > oneLineHeight);
+    assertEquals('', wrapper.style.minHeight);
+
+    input.value = 'a';
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    await inputElement.updateComplete;
+
+    assertEquals(oneLineHeight, wrapper.clientHeight);
+    assertEquals(`${oneLineHeight}px`, wrapper.style.minHeight);
+  });
+
+  test(
+      'inputWrapper minHeight locks on first input and survives partial delete',
+      async () => {
+        inputElement.skipEmptyHeightLock = true;
+        document.body.style.width = '800px';
+        document.body.style.height = '600px';
+
+        const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
+        const input =
+            inputElement.shadowRoot.querySelector<HTMLTextAreaElement>(
+                '#input')!;
+
+        inputElement.inputPlaceholder = 'line 1\nline 2\nline 3';
+        await inputElement.updateComplete;
+        await waitFrames(3);
+        const threeLineHeight = wrapper.clientHeight;
+        assertEquals('', wrapper.style.minHeight);
+
+        input.value = 'line 1\nline 2\nline 3';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        await inputElement.updateComplete;
+
+        // The first input locks synchronously, before the ResizeObserver runs.
+        assertEquals(threeLineHeight, wrapper.clientHeight);
+        assertEquals(`${threeLineHeight}px`, wrapper.style.minHeight);
+
+        input.value = 'line 1';
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        await inputElement.updateComplete;
+        await waitFrames(3);
+
+        assertEquals(threeLineHeight, wrapper.clientHeight);
+        assertEquals(`${threeLineHeight}px`, wrapper.style.minHeight);
+      });
+
+  test('resetHeight then same-height text relocks minHeight', async () => {
+    inputElement.skipEmptyHeightLock = true;
+    document.body.style.width = '800px';
+    document.body.style.height = '600px';
+
+    const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
+
+    input.value = 'line 1\nline 2\nline 3';
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    await inputElement.updateComplete;
+    await waitFrames(3);
+    const threeLineHeight = wrapper.clientHeight;
+    assertEquals(`${threeLineHeight}px`, wrapper.style.minHeight);
+
+    inputElement.resetHeight();
+    assertEquals('', wrapper.style.minHeight);
+
+    inputElement.input = 'line a\nline b\nline c';
+    await inputElement.updateComplete;
+    assertEquals(threeLineHeight, wrapper.clientHeight);
+    assertEquals(`${threeLineHeight}px`, wrapper.style.minHeight);
+
+    input.value = 'line 1';
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+    await inputElement.updateComplete;
+    await waitFrames(3);
+    assertEquals(threeLineHeight, wrapper.clientHeight);
+    assertEquals(`${threeLineHeight}px`, wrapper.style.minHeight);
+  });
+
+  test(
+      'inputWrapper keeps the placeholder height lock by default', async () => {
+        document.body.style.width = '800px';
+        document.body.style.height = '600px';
+
+        const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
+        assertFalse(inputElement.skipEmptyHeightLock);
+
+        inputElement.inputPlaceholder = 'line 1';
+        await inputElement.updateComplete;
+        await waitFrames(3);
+        const oneLineHeight = wrapper.clientHeight;
+        assertEquals(`${oneLineHeight}px`, wrapper.style.minHeight);
+
+        inputElement.inputPlaceholder = 'line 1\nline 2\nline 3';
+        await inputElement.updateComplete;
+        await waitFrames(3);
+        const threeLineHeight = wrapper.clientHeight;
+        assertTrue(threeLineHeight > oneLineHeight);
+        assertEquals(`${threeLineHeight}px`, wrapper.style.minHeight);
+
+        inputElement.inputPlaceholder = 'line 1';
+        await inputElement.updateComplete;
+        await waitFrames(3);
+        assertEquals(threeLineHeight, wrapper.clientHeight);
+        assertEquals(`${threeLineHeight}px`, wrapper.style.minHeight);
       });
 
   test('inputWrapper minHeight resets when all text is cleared', async () => {
@@ -782,6 +962,58 @@ suite('ComposeboxCaretGeometry', () => {
 
     // The last space span should wrap to a line below the first span.
     assertTrue(lastSpanRect.top > firstSpanRect.top);
+  });
+
+  test('PerInputDirOverrideUpdatesCaretAndClearsCancelIcon', async () => {
+    setDirection('ltr');
+    inputElement.style.position = 'relative';
+    inputElement.style.width = '400px';
+    inputElement.style.setProperty('--text-input-inline-end-spacing', '80px');
+    const input =
+        inputElement.shadowRoot.querySelector<HTMLTextAreaElement>('#input')!;
+    const inputWrapper =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#inputWrapper')!;
+    const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret')!;
+    const cancelIcon =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#cancelIcon')!;
+
+    input.focus();
+    input.dispatchEvent(new FocusEvent('focus'));
+    await inputElement.updateComplete;
+    await microtasksFinished();
+
+    assertFalse(inputWrapper.hasAttribute('dir'));
+    const ltrCaretLeft = caret.getBoundingClientRect().left;
+
+    input.dir = 'rtl';
+    await microtasksFinished();
+    assertEquals('rtl', inputWrapper.getAttribute('dir'));
+    const rtlCaretRect = caret.getBoundingClientRect();
+    assertTrue(rtlCaretRect.left > ltrCaretLeft);
+    assertTrue(rtlCaretRect.right <= cancelIcon.getBoundingClientRect().left);
+    assertTrue(
+        input.getBoundingClientRect().right <=
+        cancelIcon.getBoundingClientRect().left);
+
+    input.removeAttribute('dir');
+    await microtasksFinished();
+    assertFalse(inputWrapper.hasAttribute('dir'));
+    assertTrue(Math.abs(caret.getBoundingClientRect().left - ltrCaretLeft) < 2);
+
+    // Reverse case: RTL UI (<html dir="rtl">) with per-input dir="ltr"
+    // override. In RTL UI, #cancelIcon sits on the physical left
+    // (inset-inline-end).
+    setDirection('rtl');
+    await microtasksFinished();
+    input.dir = 'ltr';
+    await microtasksFinished();
+    assertEquals('ltr', inputWrapper.getAttribute('dir'));
+    assertTrue(
+        caret.getBoundingClientRect().left >=
+        cancelIcon.getBoundingClientRect().right);
+    assertTrue(
+        input.getBoundingClientRect().left >=
+        cancelIcon.getBoundingClientRect().right);
   });
 });
 

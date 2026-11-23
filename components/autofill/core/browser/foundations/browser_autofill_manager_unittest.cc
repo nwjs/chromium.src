@@ -102,6 +102,7 @@
 #include "components/autofill/core/browser/integrators/password_manager/mock_password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/password_manager/password_manager_delegate.h"
 #include "components/autofill/core/browser/integrators/touch_to_fill/touch_to_fill_autofill_delegate.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics_util.h"
 #include "components/autofill/core/browser/metrics/form_events/form_events.h"
 #include "components/autofill/core/browser/metrics/form_interactions_ukm_logger.h"
 #include "components/autofill/core/browser/metrics/log_event.h"
@@ -135,6 +136,7 @@
 #include "components/autofill/core/browser/test_utils/vote_uploads_test_matchers.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/test_autofill_external_delegate.h"
+#include "components/autofill/core/browser/webdata/autocomplete/autocomplete_table_label_sensitive.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
 #include "components/autofill/core/browser/webdata/mock_autofill_webdata_service.h"
@@ -153,8 +155,8 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/optimization_guide/core/feature_registry/enterprise_policy_registry.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
@@ -587,7 +589,7 @@ class MockAutofillClient : public TestAutofillClient {
 
   void Init(syncer::TestSyncService* sync_service) {
     auto create_payments_autofill_client = [this] {
-      auto x = std::make_unique<MockPaymentsAutofillClient>(this);
+      auto x = std::make_unique<NiceMock<MockPaymentsAutofillClient>>(this);
       x->set_payments_network_interface(
           std::make_unique<payments::TestPaymentsNetworkInterface>(
               GetURLLoaderFactory(), GetIdentityManager(),
@@ -994,12 +996,12 @@ auto FormHasRendererId(FormRendererId form_renderer_id) {
                   Field(&FormGlobalId::renderer_id, form_renderer_id));
 }
 
-class BrowserAutofillManagerTest
-    : public testing::Test,
-      public WithTestAutofillClientDriverManager<NiceMock<MockAutofillClient>,
-                                                 MockAutofillDriver,
-                                                 TestBrowserAutofillManager,
-                                                 MockPaymentsAutofillClient> {
+class BrowserAutofillManagerTest : public testing::Test,
+                                   public WithTestAutofillClientDriverManager<
+                                       NiceMock<MockAutofillClient>,
+                                       NiceMock<MockAutofillDriver>,
+                                       TestBrowserAutofillManager,
+                                       NiceMock<MockPaymentsAutofillClient>> {
  public:
   void SetUp() override {
     // Advance the mock clock to a fixed, arbitrary, somewhat recent date.
@@ -1405,8 +1407,7 @@ class BrowserAutofillManagerAtMemoryTest : public BrowserAutofillManagerTest {
 
     autofill_client().GetPrefs()->registry()->RegisterIntegerPref(
         optimization_guide::prefs::kFindAndFillWithGeminiSettings,
-        std::to_underlying(optimization_guide::model_execution::prefs::
-                               ModelExecutionEnterprisePolicyValue::kAllow));
+        std::to_underlying(optimization_guide::EnterprisePolicyValue::kAllow));
     autofill_client().GetPrefs()->SetBoolean(
         personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus,
         true);
@@ -5550,6 +5551,128 @@ TEST_F(BrowserAutofillManagerTest, AutocompleteMetrics) {
   }
 }
 
+// Tests that Autocomplete.KeyMetrics.FillingAcceptance and FillingCorrectness
+// are emitted correctly on form submission.
+TEST_F(BrowserAutofillManagerTest, AutocompleteKeyMetrics) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillLabelSensitiveAutocomplete};
+
+  FormData form = test::GetFormData({
+      .fields = {{.role = NAME_FIRST},
+                 {.role = NAME_LAST},
+                 {.role = EMAIL_ADDRESS}},
+  });
+  FormsSeen({form});
+  ASSERT_GE(form.fields().size(), 3u);
+
+  auto create_suggestion = [](const std::u16string& value,
+                              MatchingType matching_type) {
+    Suggestion suggestion(value, SuggestionType::kAutocompleteEntry);
+    suggestion.payload = AutocompleteSearchResultLabelSensitive(
+        value, matching_type, /*query_name=*/u"name", /*query_label=*/u"label",
+        /*count=*/1, /*date_last_used=*/base::Time::Now());
+    return suggestion;
+  };
+
+  // Field 0: Shown Name and Label suggestions. Select Name ("Alice").
+  std::vector<Suggestion> field0_suggestions = {
+      create_suggestion(u"Alice", MatchingType::kName),
+      create_suggestion(u"Alison", MatchingType::kLabel),
+  };
+  autofill_manager().DidShowSuggestions(field0_suggestions, /*metadata=*/{},
+                                        form.global_id(),
+                                        form.fields()[0].global_id(), {});
+  autofill_manager().OnSingleFieldSuggestionSelected(
+      field0_suggestions[0], form.global_id(), form.fields()[0].global_id());
+
+  // Field 1: Shown Label suggestion. User does not select it.
+  std::vector<Suggestion> field1_suggestions = {
+      create_suggestion(u"Smith", MatchingType::kLabel),
+  };
+  autofill_manager().DidShowSuggestions(field1_suggestions, /*metadata=*/{},
+                                        form.global_id(),
+                                        form.fields()[1].global_id(), {});
+
+  // Field 0 is submitted without edits ("Alice").
+  test_api(form).field(0).set_value(u"Alice");
+  test_api(form).field(1).set_value(u"Jones");
+
+  base::HistogramTester histogram_tester;
+  FormSubmitted(form);
+
+  // Field 0 accepted (true), Field 1 ignored (false) -> total has 1 true, 1
+  // false.
+  EXPECT_THAT(histogram_tester.GetAllSamples(
+                  "Autocomplete.KeyMetrics.FillingAcceptance"),
+              BucketsAre(Bucket(false, 1), Bucket(true, 1)));
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autocomplete.KeyMetrics.FillingAcceptance.ByFieldType"),
+      BucketsAre(
+          Bucket(
+              autofill_metrics::GetBucketForAcceptanceMetricsGroupedByFieldType(
+                  NAME_FIRST, /*suggestion_accepted=*/true),
+              1),
+          Bucket(
+              autofill_metrics::GetBucketForAcceptanceMetricsGroupedByFieldType(
+                  NAME_LAST, /*suggestion_accepted=*/false),
+              1)));
+
+  // Name was shown on Field 0 and accepted -> 1 true.
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingAcceptance.Name", true, 1);
+
+  // Label was shown on Field 0 (not accepted) and Field 1 (not accepted) -> 2
+  // false.
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingAcceptance.Label", false, 2);
+
+  // Field 0 was accepted and submitted without edits -> Correctness is true.
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingCorrectness", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingCorrectness.Name", true, 1);
+  histogram_tester.ExpectTotalCount(
+      "Autocomplete.KeyMetrics.FillingCorrectness.Label", 0);
+}
+
+// Tests that Autocomplete.KeyMetrics are emitted even when the submitted form
+// was not parsed into a cached FormStructure.
+TEST_F(BrowserAutofillManagerTest,
+       AutocompleteKeyMetrics_WithoutFormStructure) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillLabelSensitiveAutocomplete};
+
+  // Single-field form where FormsSeen() is not called, so there is no cached
+  // FormStructure and ValidateSubmittedForm() returns nullptr.
+  FormData form = test::GetFormData({.fields = {{}}});
+  Suggestion suggestion(u"Alice", SuggestionType::kAutocompleteEntry);
+  suggestion.payload = AutocompleteSearchResultLabelSensitive(
+      u"Alice", MatchingType::kName, /*query_name=*/u"name",
+      /*query_label=*/u"label", /*count=*/1,
+      /*date_last_used=*/base::Time::Now());
+
+  base::HistogramTester histogram_tester;
+  autofill_manager().DidShowSuggestions({suggestion}, /*metadata=*/{},
+                                        form.global_id(),
+                                        form.fields()[0].global_id(), {});
+  autofill_manager().OnSingleFieldSuggestionSelected(
+      suggestion, form.global_id(), form.fields()[0].global_id());
+  test_api(form).field(0).set_value(u"Alice");
+  FormSubmitted(form);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingAcceptance", true, 1);
+  histogram_tester.ExpectTotalCount(
+      "Autocomplete.KeyMetrics.FillingAcceptance.ByFieldType", 0);
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingAcceptance.Name", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingCorrectness", true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autocomplete.KeyMetrics.FillingCorrectness.Name", true, 1);
+}
+
 // Test that we don't treat javascript scheme target URLs as mixed forms.
 // Regression test for crbug.com/1135173
 TEST_F(BrowserAutofillManagerTest, GetSuggestions_JavascriptUrlTarget) {
@@ -5819,6 +5942,50 @@ TEST_F(BrowserAutofillManagerTest, NoComposeSuggestionsByDefault) {
        Suggestion(SuggestionType::kSeparator),
        CreateManageAddressesSuggestion()});
 }
+
+#if BUILDFLAG(IS_ANDROID)
+// Parametrized over `kAutofillNewSuggestionGeneration`: the textarea
+// suppression must apply on both the legacy and the new generation path.
+class BrowserAutofillManagerTextAreaTest
+    : public BrowserAutofillManagerTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  BrowserAutofillManagerTextAreaTest() {
+    feature_list_.InitWithFeatureState(
+        features::kAutofillNewSuggestionGeneration, GetParam());
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         BrowserAutofillManagerTextAreaTest,
+                         testing::Bool());
+
+// Tests that with `kAutofillAtMemorySupportTextAreaOnAndroid`, no Autofill
+// suggestions are generated for a <textarea> on Android, even if the field is
+// classified: textareas only offer the AtMemory entry point in the keyboard
+// accessory.
+TEST_P(BrowserAutofillManagerTextAreaTest, NoSuggestionsForTextAreaOnAndroid) {
+  FormData form = CreateTestAddressFormData();
+  test_api(form).field(3).set_form_control_type(FormControlType::kTextArea);
+  FormsSeen({form});
+
+  // Without the feature, the classified textarea yields address suggestions
+  // (two entries, a separator and "Manage addresses").
+  OnAskForValuesToFill(form, form.fields()[3]);
+  external_delegate()->CheckSuggestionCount(form.fields()[3].global_id(), 4);
+
+  // With the feature, it yields none.
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillAtMemorySupportTextAreaOnAndroid};
+  EXPECT_CALL(autocomplete_history_manager(), OnGetSingleFieldSuggestions)
+      .Times(0);
+  OnAskForValuesToFill(form, form.fields()[3]);
+  external_delegate()->CheckNoSuggestions(form.fields()[3].global_id());
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // Tests that Compose suggestions are queried if the trigger source indicates
 // that the focus change happened without click/tap interaction. It also
@@ -7129,7 +7296,7 @@ TEST_F(BrowserAutofillManagerOtpSuggestionsTest, GmailOtpSuggestions) {
               ElementsAre(EqualsSuggestion(
                               SuggestionType::kGmailOneTimePasswordEntry,
                               u"123456", Suggestion::Icon::kMailAsterisk,
-                              {{Suggestion::Text(u"From sender@example.com")}}),
+                              {{Suggestion::Text(u"sender@example.com")}}),
                           EqualsSuggestion(SuggestionType::kSeparator),
                           EqualsSuggestion(SuggestionType::kOpenGmailForOtps)));
 }

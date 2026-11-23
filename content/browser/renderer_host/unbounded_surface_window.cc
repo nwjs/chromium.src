@@ -5,9 +5,10 @@
 #include "content/browser/renderer_host/unbounded_surface_window.h"
 
 #include <type_traits>
+#include <utility>
 
 #include "base/task/single_thread_task_runner.h"
-#include "base/time/time.h"
+#include "components/input/cursor_manager.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
@@ -16,13 +17,6 @@
 
 namespace content {
 
-namespace {
-
-// Fallback timer duration to ensure the unbounded surface is destroyed if the
-// renderer fails to respond.
-constexpr base::TimeDelta kDismissFallbackTimeout = base::Seconds(10);
-
-}  // namespace
 
 // static
 std::optional<gfx::PointF>
@@ -67,7 +61,38 @@ UnboundedSurfaceWindow::UnboundedSurfaceWindow(
     : parent_view_(std::move(parent_view)),
       subframe_view_(std::move(subframe_view)) {}
 
-UnboundedSurfaceWindow::~UnboundedSurfaceWindow() = default;
+UnboundedSurfaceWindow::~UnboundedSurfaceWindow() {
+  ClearViewUnderCursorOverride();
+  NotifyWindowDestroyed();
+}
+
+void UnboundedSurfaceWindow::SetViewUnderCursorOverride(
+    RenderWidgetHostViewBase* target_view) {
+  if (!parent_view_ || parent_view_->IsPointerLocked()) {
+    return;
+  }
+  if (input::CursorManager* cursor_manager = parent_view_->GetCursorManager()) {
+    cursor_manager->SetViewUnderCursorOverride(target_view);
+  }
+}
+
+void UnboundedSurfaceWindow::ClearViewUnderCursorOverride() {
+  // Skip this while `parent_view_` is itself inside DestroyOrDefer(): its weak
+  // pointer is still valid at that point, but its platform widget may already
+  // be gone (e.g. `ns_view_` on macOS), and the CursorManager dies with it.
+  if (!parent_view_ || parent_view_->destroy_pending()) {
+    return;
+  }
+  if (input::CursorManager* cursor_manager = parent_view_->GetCursorManager()) {
+    cursor_manager->SetViewUnderCursorOverride(nullptr);
+  }
+}
+
+void UnboundedSurfaceWindow::NotifyWindowDestroyed() {
+  if (Delegate* delegate = std::exchange(delegate_, nullptr)) {
+    delegate->OnWindowDestroyed();
+  }
+}
 
 RenderWidgetHostViewBase* UnboundedSurfaceWindow::GetTargetView() const {
   return subframe_view_ ? subframe_view_.get() : parent_view_.get();
@@ -88,9 +113,15 @@ RenderWidgetHostViewBase* UnboundedSurfaceWindow::PrepareEventForTargetView(
 
 void UnboundedSurfaceWindow::RouteMouseEvent(
     const blink::WebMouseEvent& event) {
+  if (event.GetType() == blink::WebInputEvent::Type::kMouseLeave) {
+    ClearViewUnderCursorOverride();
+  }
   blink::WebMouseEvent web_event = event;
   if (RenderWidgetHostViewBase* target_view =
           PrepareEventForTargetView(web_event)) {
+    if (web_event.GetType() == blink::WebInputEvent::Type::kMouseMove) {
+      SetViewUnderCursorOverride(target_view);
+    }
     target_view->ProcessMouseEvent(web_event, ui::LatencyInfo());
   }
 }
@@ -105,35 +136,14 @@ void UnboundedSurfaceWindow::RouteMouseWheelEvent(
 }
 
 void UnboundedSurfaceWindow::Dismiss() {
-  if (!IsValid() || dismiss_pending_) {
+  if (!IsValid()) {
     return;
   }
-  dismiss_pending_ = true;
-
-  if (client_remote_.is_bound()) {
-    client_remote_->OnDismissed();
-  }
-
-  dismiss_fallback_timer_.Start(
-      FROM_HERE, kDismissFallbackTimeout,
-      base::BindOnce(&UnboundedSurfaceWindow::ScheduleDeferredDestroy,
-                     base::Unretained(this)));
-}
-
-void UnboundedSurfaceWindow::DidPresentFrameAfterDismissal() {
-  if (!dismiss_pending_) {
+  if (delegate_) {
+    delegate_->OnDismissRequested();
     return;
   }
-  dismiss_fallback_timer_.Stop();
   ScheduleDeferredDestroy();
-}
-
-void UnboundedSurfaceWindow::DidCancelDismissal() {
-  if (!dismiss_pending_) {
-    return;
-  }
-  dismiss_pending_ = false;
-  dismiss_fallback_timer_.Stop();
 }
 
 void UnboundedSurfaceWindow::ScheduleDeferredDestroy() {
@@ -146,10 +156,6 @@ void UnboundedSurfaceWindow::ScheduleDeferredDestroy() {
 }
 
 void UnboundedSurfaceWindow::DestroyInternal() {
-  if (!dismiss_pending_) {
-    return;
-  }
-  client_remote_.reset();
   TeardownAndDestroy();
 }
 

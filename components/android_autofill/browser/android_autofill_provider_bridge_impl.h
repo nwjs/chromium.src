@@ -43,6 +43,7 @@ class AndroidAutofillProviderBridgeImpl : public AndroidAutofillProviderBridge {
   void OnDidAutofillForm() override;
   void CancelSession() override;
   void Reset() override;
+  bool IsAutofillDisabled() const override;
 
   // Called by Java:
 
@@ -80,6 +81,10 @@ class AndroidAutofillProviderBridgeImpl : public AndroidAutofillProviderBridge {
   void OnShowBottomSheetResult(JNIEnv* env,
                                bool is_shown,
                                bool provided_autofill_structure);
+
+  // Informs the `Delegate` that the platform Autofill input UI (e.g., dropdown
+  // or keyboard inline suggestions) was displayed for the active session.
+  void OnDidShowSuggestions(JNIEnv* env);
 
   // Informs the `Delegate` that the user explicitly requested passkeys options.
   void OnTriggerPasskeyRequest(JNIEnv* env);

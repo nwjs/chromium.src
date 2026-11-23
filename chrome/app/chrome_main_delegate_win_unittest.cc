@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/app/chrome_main_delegate.h"
+
 #include <windows.h>
 
 #include <string>
@@ -14,6 +16,8 @@
 #include "base/process/launch.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
+#include "base/test/gtest_util.h"
+#include "base/test/scoped_command_line.h"
 #include "base/test/test_timeouts.h"
 #include "base/win/scoped_handle.h"
 #include "chrome/common/chrome_constants.h"
@@ -80,6 +84,31 @@ TEST_F(ChromeVersionSwitchesWinTest, Version) {
   EXPECT_THAT(output, ::testing::StartsWith(
                           base::StrCat({version_info::GetProductName(), " ",
                                         version_info::GetVersionNumber()})));
+}
+
+class ChromeMainDelegateWinDeathTest : public ::testing::Test {
+ protected:
+  class TestChromeMainDelegate : public ChromeMainDelegate {
+   public:
+    TestChromeMainDelegate() = default;
+
+    using ChromeMainDelegate::BasicStartupComplete;
+  };
+
+  base::test::ScopedCommandLine scoped_command_line_;
+  TestChromeMainDelegate chrome_main_delegate_;
+};
+
+TEST_F(ChromeMainDelegateWinDeathTest, ChildModuleVersion) {
+  scoped_command_line_.GetProcessCommandLine()->AppendSwitch(
+      switches::kChildModuleVersion);
+  EXPECT_CHECK_DEATH((void)chrome_main_delegate_.BasicStartupComplete());
+}
+
+TEST_F(ChromeMainDelegateWinDeathTest, ChildModuleUserPathComponent) {
+  scoped_command_line_.GetProcessCommandLine()->AppendSwitch(
+      switches::kChildModuleUserPathComponent);
+  EXPECT_CHECK_DEATH((void)chrome_main_delegate_.BasicStartupComplete());
 }
 
 }  // namespace

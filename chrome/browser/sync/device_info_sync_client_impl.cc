@@ -31,8 +31,6 @@
 #include "chrome/browser/webauthn/android/cable_module_android.h"
 #endif
 
-namespace browser_sync {
-
 DeviceInfoSyncClientImpl::DeviceInfoSyncClientImpl(Profile* profile)
     : profile_(profile) {}
 
@@ -50,11 +48,6 @@ std::string DeviceInfoSyncClientImpl::GetSigninScopedDeviceId() const {
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
   return GetSigninScopedDeviceIdForProfile(profile_);
-}
-
-// syncer::DeviceInfoSyncClient:
-bool DeviceInfoSyncClientImpl::GetSendTabToSelfReceivingEnabled() const {
-  return true;
 }
 
 // syncer::DeviceInfoSyncClient:
@@ -151,5 +144,3 @@ DeviceInfoSyncClientImpl::GetLocalPersonalContextInfo() const {
   return personal_context::PersonalContextKeyManager::
       GetLocalPersonalContextInfo(profile_->GetPrefs(), eligibility_service);
 }
-
-}  // namespace browser_sync

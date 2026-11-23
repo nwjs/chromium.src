@@ -223,6 +223,16 @@ BASE_DECLARE_FEATURE(kCSPScriptSrcV2);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kCSPScriptSrcHashesInV1);
 
+// When enabled, CSP:EE subsumption (network::Subsumes()) includes the
+// 'require-trusted-types-for' and 'trusted-types' directives, in addition to
+// the existing source-list directives. See
+// https://github.com/w3c/webappsec-csp/issues/628 and
+// https://github.com/w3c/webappsec-cspee/pull/36. When disabled, Trusted
+// Types directives are ignored by CSP:EE subsumption, preserving the
+// source-list-only behavior.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kCSPEmbeddedEnforcementTrustedTypes);
+
 // When enabled, fetches for "pervasive" resources that match one of the
 // configured patterns will use a shared, single-keyed cache.
 // See https://chromestatus.com/feature/5202380930678784
@@ -400,6 +410,14 @@ BASE_DECLARE_FEATURE(kEnforceIsolatedWorldOriginLock);
 // always cancelled.
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kForwardProxyAuthWithoutPrompt);
+
+// Pre-warms `cryptbase.dll` on a background thread during NetworkService
+// startup on Windows so that subsequent `CryptProtectMemory` /
+// `CryptUnprotectMemory` calls by `os_crypt_async` and
+// `crypto::ProcessBoundString` do not block the Network IO thread on
+// synchronous delay-loading of `cryptbase.dll` (via `dpapi.dll`).
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kPrewarmCryptbase);
 
 }  // namespace network::features
 

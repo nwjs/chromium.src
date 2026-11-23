@@ -8,6 +8,7 @@
 #include <sstream>
 #include <utility>
 
+#include "base/check.h"
 #include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
@@ -38,6 +39,7 @@
 #include "components/sync/service/glue/sync_transport_data_prefs.h"
 #include "components/sync/service/local_data_description.h"
 #include "components/sync/service/sync_internals_util.h"
+#include "components/sync/service/sync_prefs.h"
 #include "content/public/browser/browser_context.h"
 #include "google_apis/google_api_keys.h"
 #include "net/base/net_errors.h"
@@ -362,11 +364,10 @@ bool SyncServiceImplHarness::SetupSyncWithCustomSettingsNoWaitForCompletion(
 
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(profile_.get());
-  // Note that `ConsentLevel::kSync` is not actually guaranteed at this stage.
-  // Namely, live tests require closing the sync confirmation dialog before
-  // `ConsentLevel::kSync` is granted. This is achieved later below with
-  // `ConfirmSyncUI()`.
-  CHECK(identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+  CHECK(identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
+  CHECK(identity_manager->HasPrimaryAccountWithRefreshToken(
+      signin::ConsentLevel::kSync));
+  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   if (!AwaitEngineInitialization()) {
     return false;
@@ -379,15 +380,6 @@ bool SyncServiceImplHarness::SetupSyncWithCustomSettingsNoWaitForCompletion(
 
   // Notify SyncServiceImpl that we are done with configuration.
   sync_blocker_.reset();
-
-  if (!signin_delegate_->ConfirmSync()) {
-    return false;
-  }
-
-  CHECK(identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSync));
-  CHECK(identity_manager->HasPrimaryAccountWithRefreshToken(
-      signin::ConsentLevel::kSync));
-  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   return true;
 }
@@ -484,6 +476,7 @@ bool SyncServiceImplHarness::EnableHistorySyncNoWaitForCompletion() {
     LOG(ERROR) << "EnableHistorySync(): service() is null.";
     return false;
   }
+  CHECK(!service()->GetAccountInfo().IsEmpty());
   service()->GetUserSettings()->SetSelectedType(
       syncer::UserSelectableType::kHistory, true);
   // Tabs and history are bundled together in the same toggle.
@@ -504,6 +497,7 @@ bool SyncServiceImplHarness::EnableSelectableType(
     LOG(ERROR) << "EnableSelectableType(): service() is null.";
     return false;
   }
+  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   syncer::UserSelectableTypeSet selected_types =
       service()->GetUserSettings()->GetSelectedTypes();
@@ -514,8 +508,7 @@ bool SyncServiceImplHarness::EnableSelectableType(
     return true;
   }
 
-  selected_types.Put(type);
-  service()->GetUserSettings()->SetSelectedTypes(false, selected_types);
+  service()->GetUserSettings()->SetSelectedType(type, true);
   if (AwaitSyncTransportActive()) {
     DVLOG(1) << "EnableSelectableType(): Enabled sync for type "
              << syncer::GetUserSelectableTypeName(type) << " on "
@@ -537,6 +530,7 @@ bool SyncServiceImplHarness::DisableSelectableType(
     LOG(ERROR) << "DisableSelectableType(): service() is null.";
     return false;
   }
+  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   syncer::UserSelectableTypeSet selected_types =
       service()->GetUserSettings()->GetSelectedTypes();
@@ -547,8 +541,17 @@ bool SyncServiceImplHarness::DisableSelectableType(
     return true;
   }
 
-  selected_types.Remove(type);
-  service()->GetUserSettings()->SetSelectedTypes(false, selected_types);
+  if (service()->GetSyncAccountStateForPrefs() ==
+          syncer::SyncPrefs::SyncAccountState::kSyncing &&
+      service()->GetUserSettings()->IsSyncEverythingEnabled()) {
+    // `SyncUserSettings::SetSelectedType()` requires sync-everything to be
+    // disabled when Sync-the-feature is enabled.
+    selected_types.Remove(type);
+    service()->GetUserSettings()->SetSelectedTypes(/*sync_everything=*/false,
+                                                   selected_types);
+  } else {
+    service()->GetUserSettings()->SetSelectedType(type, false);
+  }
   if (AwaitSyncTransportActive()) {
     DVLOG(1) << "DisableSelectableType(): Disabled "
              << syncer::GetUserSelectableTypeName(type) << " on "
@@ -567,6 +570,7 @@ bool SyncServiceImplHarness::EnableSelectableOsType(
     LOG(ERROR) << "EnableSelectableOsType(): service() is null.";
     return false;
   }
+  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   syncer::UserSelectableOsTypeSet selected_os_types =
       service()->GetUserSettings()->GetSelectedOsTypes();
@@ -596,6 +600,7 @@ bool SyncServiceImplHarness::EnableAllSelectableTypes() {
     LOG(ERROR) << "EnableAllSelectableTypes(): service() is null.";
     return false;
   }
+  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   service()->GetUserSettings()->SetSelectedTypes(/*sync_everything=*/true, {});
 
@@ -616,6 +621,7 @@ bool SyncServiceImplHarness::DisableAllSelectableTypes() {
     LOG(ERROR) << "DisableAllSelectableTypes(): service() is null.";
     return false;
   }
+  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   service()->GetUserSettings()->SetSelectedTypes(
       /*sync_everything=*/false, syncer::UserSelectableTypeSet());
@@ -633,6 +639,7 @@ bool SyncServiceImplHarness::DisableAllSelectableOsTypes() {
     LOG(ERROR) << "DisableAllSelectableOsTypes(): service() is null.";
     return false;
   }
+  CHECK(!service()->GetAccountInfo().IsEmpty());
 
   service()->GetUserSettings()->SetSelectedOsTypes(
       /*sync_everything=*/false, syncer::UserSelectableOsTypeSet());

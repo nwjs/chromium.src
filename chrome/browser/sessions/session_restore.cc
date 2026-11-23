@@ -472,7 +472,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
         0,
         std::min(selected_index, static_cast<int>(tab.navigations.size() - 1)));
 
-    bool use_new_window = disposition == WindowOpenDisposition::NEW_WINDOW;
+    bool use_new_window = disposition == WindowOpenDisposition::kNewWindow;
 
     BrowserWindowInterface* browser =
         use_new_window ? CreateBrowserWindow(BrowserWindowCreateParams(
@@ -482,7 +482,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
     RecordAppLaunchForTab(browser, tab, selected_index);
 
     WebContents* web_contents;
-    if (disposition == WindowOpenDisposition::CURRENT_TAB) {
+    if (disposition == WindowOpenDisposition::kCurrentTab) {
       DCHECK(!use_new_window);
       web_contents = chrome::ReplaceRestoredTab(
           browser, tab.navigations, selected_index, tab.extension_app_id,
@@ -494,7 +494,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       web_contents = chrome::AddRestoredTab(
           browser, tab.navigations, tab_index, selected_index,
           tab.extension_app_id, std::nullopt,
-          disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB,  // selected
+          disposition == WindowOpenDisposition::kNewForegroundTab,  // selected
           tab.pinned, base::TimeTicks(), base::Time(), nullptr,
           tab.user_agent_override, tab.extra_data,
           true /* from_session_restore */, std::nullopt);
@@ -581,7 +581,7 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       browser = CreateBrowserWindow(BrowserWindowCreateParams(profile_, false));
       if (auto* manager = InitialWebUIWindowMetricsManager::From(browser)) {
         manager->SetWindowCreationInfo(
-            waap::NewWindowCreationSource::kBrowserInitiated, now);
+            waap::NewWindowCreationSource::kSessionRestoreFallback, now);
       }
       if (startup_tabs_.empty() ||
           (startup_tabs_.size() == 1 && whats_new::IsEnabled() &&
@@ -862,6 +862,13 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       const bool is_app_window =
           window->type == sessions::SessionWindow::TYPE_APP;
 
+      // Record restored normal (`TYPE_NORMAL`) and app (`TYPE_APP`) window
+      // counts in `counts`. This window-type classification must match
+      // SavePreRestartTabWindowCounts() in
+      // chrome/browser/lifetime/application_lifetime_desktop.cc, which saves
+      // the pre-restart baseline counts. If the two diverge,
+      // SessionRestore.{Tab,Window,Profile}DiffAfterRestart.{Normal,App} will
+      // compare mismatched window sets and report false gains or losses.
       if (is_normal_window) {
         counts->normal_windows++;
       } else if (is_app_window) {
@@ -1435,8 +1442,8 @@ class SessionRestoreImpl : public BrowserCollectionObserver {
       }
       NavigateParams params(browser, url, ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
       params.disposition = is_first_tab
-                               ? WindowOpenDisposition::NEW_FOREGROUND_TAB
-                               : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+                               ? WindowOpenDisposition::kNewForegroundTab
+                               : WindowOpenDisposition::kNewBackgroundTab;
       params.tabstrip_add_types = add_types;
       is_first_tab = false;
       Navigate(&params);

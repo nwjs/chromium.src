@@ -371,26 +371,35 @@ bool ChromeMetricsServicesManagerClient::IsOffTheRecordSessionActive() {
 #endif
 }
 
+void ChromeMetricsServicesManagerClient::OnFieldTrialsInitialized() {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+#if BUILDFLAG(IS_WIN)
+  // Set the registry value so that Crashpad will have the sampling state now
+  // and for subsequent runs. Note that Crashpad uses *both* the registry value
+  // and the value sent from SetUploadConsent() below.
+  // We use IsClientInSampleForCrashes() which checks the feature for whether
+  // crash reports should be sent.
+  install_static::SetCollectStatsInSample(IsClientInSampleForCrashes());
+#endif  // BUILDFLAG(IS_WIN)
+}
+
 #if BUILDFLAG(IS_WIN)
 void ChromeMetricsServicesManagerClient::UpdateRunningServices(
-    bool may_record,
-    bool may_upload) {
-  // First, set the registry value so that Crashpad will have the sampling state
-  // now and for subsequent runs. Note that Crashpad uses *both* the registry
-  // value and the value sent from SetUploadConsent below.
-  // We use IsClientInSampleForCrash() which checks the feature for if crashes
-  // are allowed.
-  install_static::SetCollectStatsInSample(IsClientInSampleForCrashes());
+    bool may_record_and_upload) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  // Crashpad only tracks consent-to-upload, so tell it this if metrics services
+  // are both recording and uploading. The "MetricsReportingEnabled" enterprise
+  // policy takes precedence over any value provided here. Furthermore, the
+  // "disable_crashes" param of the "MetricsReporting" feature will suppress
+  // crash reporting for this client when set; see IsClientInSampleForCrashes.
+  if (base::FeatureList::IsEnabled(
+          metrics_services_manager::kOffloadUpdateRunningServicesWin)) {
+    GoogleUpdateSettings::CollectStatsConsentTaskRunner()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&SetUploadConsent_ExportThunk, may_record_and_upload));
+    return;
+  }
 
-  // The intent here is to set the value of the consent. However, since right
-  // now we have may_record which is based off both consent and the Feature
-  // state, this is redundant with the above value. This is pretty confusing
-  // right now, and we may want to rethink this. One extra complexity here is we
-  // currently check the disable_crashes parameter, which does not go
-  // into may_record. This is because this is specifically intending to test for
-  // consent, and as mentioned, on the crashpad side we check both. See
-  // SetUploadConsent() in components/crash/core/app/crashpad.cc for how this
-  // gets used.
-  SetUploadConsent_ExportThunk(may_record && may_upload);
+  SetUploadConsent_ExportThunk(may_record_and_upload);
 }
 #endif  // BUILDFLAG(IS_WIN)

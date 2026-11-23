@@ -20,9 +20,7 @@
 #import "ios/chrome/browser/intelligence/bwg/first_run/coordinator/gemini_first_run_mediator_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/first_run/ui/gemini_consent_view_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/first_run/ui/gemini_first_run_page_view_controller.h"
-#import "ios/chrome/browser/intelligence/bwg/first_run/ui/gemini_first_run_wrapper_view_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/first_run/ui/gemini_lightweight_view_controller.h"
-#import "ios/chrome/browser/intelligence/bwg/first_run/ui/gemini_promo_view_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/first_run/ui/gemini_visual_rich_view_controller.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent.h"
@@ -53,8 +51,6 @@
 
 namespace {
 
-const std::string kFirstProfileName = "FirstProfile";
-
 constexpr char kGeminiLiveFREOutcomeHistogram[] = "IOS.Gemini.Live.FREOutcome";
 
 std::unique_ptr<KeyedService> CreateTestTracker(ProfileIOS* context) {
@@ -77,15 +73,14 @@ class GeminiFirstRunCoordinatorTest : public PlatformTest {
     builder.AddTestingFactory(
         OptimizationGuideServiceFactory::GetInstance(),
         OptimizationGuideServiceFactory::GetDefaultFactory());
-    builder.SetName(kFirstProfileName);
 
     // Set a default country for the variations service.
     scoped_variations_service_.Get()->OverrideStoredPermanentCountry("us");
-    ProfileIOS* profile =
+    ProfileIOS* personal_profile =
         profile_manager_.AddProfileWithBuilder(std::move(builder));
 
-    browser_ = std::make_unique<TestBrowser>(profile);
-    browser_list_ = BrowserListFactory::GetForProfile(profile);
+    browser_ = std::make_unique<TestBrowser>(personal_profile);
+    browser_list_ = BrowserListFactory::GetForProfile(personal_profile);
     browser_list_->AddBrowser(browser_.get());
     TestFullscreenController::CreateForBrowser(browser_.get());
     GeminiBrowserAgent::CreateForBrowser(browser_.get());
@@ -141,7 +136,7 @@ class GeminiFirstRunCoordinatorTest : public PlatformTest {
 TEST_F(GeminiFirstRunCoordinatorTest, FullscreenNotExitedOnAIHubEntryPoint) {
   auto* tracker = static_cast<feature_engagement::test::MockTracker*>(
       feature_engagement::TrackerFactory::GetForProfile(
-          profile_manager_.GetProfileWithName(kFirstProfileName)));
+          browser_->GetProfile()));
 
   TestFullscreenController* controller =
       TestFullscreenController::FromBrowser(browser_.get());
@@ -151,9 +146,6 @@ TEST_F(GeminiFirstRunCoordinatorTest, FullscreenNotExitedOnAIHubEntryPoint) {
   EXPECT_CALL(
       *tracker,
       NotifyEvent(feature_engagement::events::kIOSPageActionMenuIPHUsed));
-  EXPECT_CALL(
-      *tracker,
-      NotifyEvent(feature_engagement::events::kIOSGeminiPromoFirstCompletion));
 
   StartCoordinatorWithEntryPoint(gemini::EntryPoint::AIHub);
 
@@ -198,35 +190,9 @@ TEST_F(GeminiFirstRunCoordinatorTest, ExternalAppStoreEventIPHWasTriggered) {
   EXPECT_OCMOCK_VERIFY(mock_help_command_handler_);
 }
 
-// Tests that starting the coordinator with kLive starts the Live FRE.
-TEST_F(GeminiFirstRunCoordinatorTest, TestLiveFirstRunStarts) {
-  base_view_controller_ = [[UIViewController alloc] init];
-  scoped_window_ = std::make_unique<ScopedKeyWindow>();
-  [scoped_window_->Get() setRootViewController:base_view_controller_];
-  [scoped_window_->Get() makeKeyAndVisible];
-
-  coordinator_ = [[GeminiFirstRunCoordinator alloc]
-      initWithBaseViewController:base_view_controller_
-                         browser:browser_.get()
-                  fromEntryPoint:gemini::EntryPoint::AIHub
-                    firstRunType:GeminiFirstRunType::kLive
-               completionHandler:nil];
-  coordinator_.animatedPresentation = NO;
-  [coordinator_ start];
-
-  EXPECT_NE(base_view_controller_.presentedViewController, nil);
-
-  UIViewController* presented = base_view_controller_.presentedViewController;
-  EXPECT_TRUE(
-      [presented isKindOfClass:[GeminiFirstRunWrapperViewController class]]);
-
-  [coordinator_ stop];
-}
-
-// Tests that starting the coordinator with kLive starts the refactored Live
-// FRE when the refactor flag is enabled, showing only the consent step.
+// Tests that starting the coordinator with kLive starts the Live FRE, showing
+// only the consent step.
 TEST_F(GeminiFirstRunCoordinatorTest, TestLiveFirstRunStarts_RefactorEnabled) {
-  feature_list_.InitAndEnableFeature(kGeminiFRERefactor);
   base_view_controller_ = [[UIViewController alloc] init];
   scoped_window_ = std::make_unique<ScopedKeyWindow>();
   [scoped_window_->Get() setRootViewController:base_view_controller_];
@@ -254,50 +220,13 @@ TEST_F(GeminiFirstRunCoordinatorTest, TestLiveFirstRunStarts_RefactorEnabled) {
   [coordinator_ stop];
 }
 
-// Tests that starting the coordinator with kNewUser starts the refactored
-// NewUser FRE when the refactor flag is enabled, showing promo and consent
-// steps.
-TEST_F(GeminiFirstRunCoordinatorTest,
-       TestNewUserFirstRunStarts_RefactorEnabled) {
-  feature_list_.InitAndEnableFeature(kGeminiFRERefactor);
-  base_view_controller_ = [[UIViewController alloc] init];
-  scoped_window_ = std::make_unique<ScopedKeyWindow>();
-  [scoped_window_->Get() setRootViewController:base_view_controller_];
-  [scoped_window_->Get() makeKeyAndVisible];
-
-  coordinator_ = [[GeminiFirstRunCoordinator alloc]
-      initWithBaseViewController:base_view_controller_
-                         browser:browser_.get()
-                  fromEntryPoint:gemini::EntryPoint::AIHub
-                    firstRunType:GeminiFirstRunType::kNewUser
-               completionHandler:nil];
-  coordinator_.animatedPresentation = NO;
-  [coordinator_ start];
-
-  EXPECT_NE(base_view_controller_.presentedViewController, nil);
-
-  GeminiFirstRunPageViewController* pageVC =
-      base::apple::ObjCCast<GeminiFirstRunPageViewController>(
-          base_view_controller_.presentedViewController);
-  ASSERT_NE(pageVC, nil);
-  EXPECT_EQ(2u, pageVC.childViewControllers.count);
-  EXPECT_TRUE([pageVC.childViewControllers[0]
-      isKindOfClass:[GeminiPromoViewController class]]);
-  EXPECT_TRUE([pageVC.childViewControllers[1]
-      isKindOfClass:[GeminiConsentViewController class]]);
-
-  [coordinator_ stop];
-}
-
 // Tests that starting the coordinator with VisualRich experiment enabled
 // creates a GeminiVisualRichViewController step.
 TEST_F(GeminiFirstRunCoordinatorTest,
        TestVisualRichFirstRunStarts_RefactorEnabled) {
-  feature_list_.InitWithFeaturesAndParameters(
-      {{kGeminiFRERefactor, {}},
-       {kGeminiFREExperiment,
-        {{kGeminiFREExperimentParam, kGeminiFREExperimentParamVisualRich}}}},
-      {});
+  feature_list_.InitAndEnableFeatureWithParameters(
+      kGeminiFREExperiment,
+      {{kGeminiFREExperimentParam, kGeminiFREExperimentParamVisualRich}});
 
   StartCoordinatorWithEntryPoint(gemini::EntryPoint::AIHub);
 
@@ -312,17 +241,10 @@ TEST_F(GeminiFirstRunCoordinatorTest,
   [coordinator_ stop];
 }
 
-// Tests that starting the coordinator with Lightweight experiment enabled
+// Tests that starting the coordinator with default NewUser configuration
 // creates a GeminiLightweightViewController step.
 TEST_F(GeminiFirstRunCoordinatorTest,
        TestLightweightFirstRunStarts_RefactorEnabled) {
-  feature_list_.InitWithFeaturesAndParameters(
-      {{kGeminiFRERefactor, {}},
-       {kGeminiFREExperiment,
-        {{kGeminiFREExperimentParam,
-          kGeminiFREExperimentParamLightweightConvenience}}}},
-      {});
-
   StartCoordinatorWithEntryPoint(gemini::EntryPoint::AIHub);
 
   GeminiFirstRunPageViewController* pageVC =
@@ -382,7 +304,7 @@ TEST_F(GeminiFirstRunCoordinatorTest, TestChromeNextIaSkipsIPH) {
 TEST_F(GeminiFirstRunCoordinatorTest,
        TestDismissGeminiConsentUI_LiveConsented_MicGranted) {
   base::HistogramTester histogram_tester;
-  ProfileIOS* profile = profile_manager_.GetProfileWithName(kFirstProfileName);
+  ProfileIOS* profile = browser_->GetProfile();
   profile->GetPrefs()->SetBoolean(prefs::kIOSGeminiLiveConsent, true);
   profile->GetPrefs()->SetBoolean(prefs::kIOSGeminiLiveMicrophoneSetting, true);
 

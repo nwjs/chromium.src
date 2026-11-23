@@ -135,6 +135,7 @@ source_set("coordinator") {
     ":constants",
     ":feature_flags",
     ":ntp_internal",
+    ":shortcuts_handler",
     ":theme",
     ":ui_bundled",
     "//base",
@@ -158,6 +159,7 @@ source_set("coordinator") {
     "//components/signin/public/base",
     "//components/signin/public/identity_manager/objc",
     "//components/supervised_user/core/common:features",
+    "//ios/chrome/app",
     "//ios/chrome/app/profile",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/aim/model:aim_availability",
@@ -167,6 +169,8 @@ source_set("coordinator") {
     "//ios/chrome/browser/authentication/ui_bundled:continuation",
     "//ios/chrome/browser/authentication/ui_bundled/enterprise:enterprise_utils",
     "//ios/chrome/browser/authentication/ui_bundled/signin:signin_headers",
+    "//ios/chrome/browser/browser_view/model",
+    "//ios/chrome/browser/browser_view/public",
     "//ios/chrome/browser/bubble/ui_bundled",
     "//ios/chrome/browser/composebox/coordinator",
     "//ios/chrome/browser/composebox/coordinator:input_state_manager",
@@ -180,6 +184,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/content_suggestions/magic_stack/ui",
     "//ios/chrome/browser/content_suggestions/magic_stack/ui:cells",
     "//ios/chrome/browser/content_suggestions/most_visited_tiles/coordinator",
+    "//ios/chrome/browser/content_suggestions/tips/model",
     "//ios/chrome/browser/content_suggestions/ui:commands",
     "//ios/chrome/browser/content_suggestions/ui:ui_util",
     "//ios/chrome/browser/context_menu/ui_bundled/link_preview",
@@ -187,6 +192,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/discover_feed/model",
     "//ios/chrome/browser/discover_feed/model:constants",
     "//ios/chrome/browser/discover_feed/model:discover_feed_factory",
+    "//ios/chrome/browser/discover_feed/model:discover_feed_visibility_browser_agent",
     "//ios/chrome/browser/favicon/model",
     "//ios/chrome/browser/feature_engagement/model",
     "//ios/chrome/browser/google/model:google_logo",
@@ -207,6 +213,7 @@ source_set("coordinator") {
     "//ios/chrome/browser/ntp/ui_bundled/feed_top_section",
     "//ios/chrome/browser/ntp/ui_bundled/incognito",
     "//ios/chrome/browser/ntp_tiles/model",
+    "//ios/chrome/browser/omnibox/model/omnibox_focus",
     "//ios/chrome/browser/omnibox/model/placeholder_service",
     "//ios/chrome/browser/overscroll_actions/ui_bundled",
     "//ios/chrome/browser/policy/model:policy_util",
@@ -252,6 +259,11 @@ source_set("coordinator") {
   ]
 }
 
+source_set("shortcuts_handler") {
+  sources = [ "new_tab_page_shortcuts_handler.h" ]
+  frameworks = [ "UIKit.framework" ]
+}
+
 source_set("ntp_internal") {
   sources = [
     "fake_location_bar_view.h",
@@ -277,7 +289,6 @@ source_set("ntp_internal") {
     "new_tab_page_quick_actions_view_controller.mm",
     "new_tab_page_redesign_view_controller.h",
     "new_tab_page_redesign_view_controller.mm",
-    "new_tab_page_shortcuts_handler.h",
     "new_tab_page_view_controller.h",
     "new_tab_page_view_controller.mm",
     "ntp_identity_disc_button.h",
@@ -290,6 +301,7 @@ source_set("ntp_internal") {
   deps = [
     ":constants",
     ":feature_flags",
+    ":shortcuts_handler",
     ":theme",
     ":ui_bundled",
     ":utils",
@@ -312,6 +324,10 @@ source_set("ntp_internal") {
     "//ios/chrome/browser/alert_view/ui_bundled",
     "//ios/chrome/browser/browser_view/model",
     "//ios/chrome/browser/bubble/ui_bundled",
+    "//ios/chrome/browser/composebox/coordinator:input_state_manager",
+    "//ios/chrome/browser/composebox/public:attachment_options",
+    "//ios/chrome/browser/composebox/public:composebox_mode",
+    "//ios/chrome/browser/composebox/ui:state",
     "//ios/chrome/browser/content_suggestions/coordinator",
     "//ios/chrome/browser/content_suggestions/magic_stack/public:constants",
     "//ios/chrome/browser/content_suggestions/magic_stack/public:utils",
@@ -388,6 +404,7 @@ source_set("ntp_internal") {
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/common:string_conversions",
     "//ios/chrome/common:timing",
+    "//ios/chrome/common/ui/animations:radial_wipe_animation",
     "//ios/chrome/common/ui/colors",
     "//ios/chrome/common/ui/elements",
     "//ios/chrome/common/ui/favicon",
@@ -425,6 +442,7 @@ source_set("unit_tests") {
     ":coordinator",
     ":feature_flags",
     ":ntp_internal",
+    ":shortcuts_handler",
     ":theme",
     ":ui_bundled",
     ":utils",
@@ -445,6 +463,7 @@ source_set("unit_tests") {
     "//components/subscription_eligibility",
     "//components/sync:test_support",
     "//components/variations:test_support",
+    "//ios/chrome/app",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/aim/model:aim_availability",
     "//ios/chrome/browser/aim/model:aim_button_service",
@@ -480,6 +499,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/ntp/shared/metrics:constants",
     "//ios/chrome/browser/ntp/shared/metrics:home_metrics",
     "//ios/chrome/browser/ntp/ui_bundled/incognito",
+    "//ios/chrome/browser/omnibox/model/omnibox_focus",
     "//ios/chrome/browser/regional_capabilities/model",
     "//ios/chrome/browser/safety_check/model:factory",
     "//ios/chrome/browser/saved_tab_groups/model",
@@ -574,7 +594,6 @@ source_set("feature_flags") {
     "new_tab_page_feature.mm",
   ]
   deps = [
-    "//components/ntp_tiles",
     "//components/prefs",
     "//components/variations/service",
     "//ios/chrome/browser/authentication/ui_bundled/cells:constants",

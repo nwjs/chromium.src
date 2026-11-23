@@ -11,10 +11,11 @@ import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-import androidx.annotation.Nullable;
+import androidx.annotation.NonNull;
 
 import com.android.webview.chromium.CallbackConverter;
 import com.android.webview.chromium.SharedWebViewChromium;
@@ -25,7 +26,9 @@ import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.js_injection.mojom.DocumentInjectionTime;
+import org.chromium.support_lib_boundary.RequestMatcherConfig;
 import org.chromium.support_lib_boundary.SpeculativeLoadingParametersBoundaryInterface;
 import org.chromium.support_lib_boundary.VisualStateCallbackBoundaryInterface;
 import org.chromium.support_lib_boundary.WebMessageBoundaryInterface;
@@ -35,7 +38,11 @@ import org.chromium.support_lib_glue.SupportLibWebViewChromiumFactory.ApiCall;
 
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationHandler;
+import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Support library glue version of WebViewChromium.
@@ -49,11 +56,9 @@ import java.util.concurrent.Executor;
 class SupportLibWebViewChromium implements WebViewProviderBoundaryInterface {
     // Use weak references to ensure that caching this object on the client side doesn’t prevent the
     // WebView from being garbage collected.
-    private final WeakReference<WebView> mWebView;
     private final WeakReference<SharedWebViewChromium> mSharedWebViewChromium;
 
     public SupportLibWebViewChromium(WebView webView) {
-        mWebView = new WeakReference<>(webView);
         var sharedWebViewChromium = WebkitToSharedGlueConverter.getSharedWebViewChromium(webView);
         mSharedWebViewChromium = new WeakReference<>(sharedWebViewChromium);
         // SupportLibWebViewChromium is created lazily, so its construction implies the use of an
@@ -133,15 +138,15 @@ class SupportLibWebViewChromium implements WebViewProviderBoundaryInterface {
                 TraceEvent.scoped("WebView.APICall.AndroidX.ADD_WEB_MESSAGE_LISTENER")) {
             recordApiCall(ApiCall.ADD_WEB_MESSAGE_LISTENER);
             SharedWebViewChromium sharedWebViewChromium = mSharedWebViewChromium.get();
-            WebView webView = mWebView.get();
-            if (sharedWebViewChromium == null || webView == null) {
+            if (sharedWebViewChromium == null) {
                 throw new IllegalStateException(
                         "Support lib method called on WebView that no longer exists.");
             }
             sharedWebViewChromium.addWebMessageListener(
                     jsObjectName,
                     allowedOriginRules,
-                    new SupportLibWebMessageListenerAdapter(webView, listener));
+                    new SupportLibWebMessageListenerAdapter(
+                            sharedWebViewChromium.getAwContents(), listener));
         }
     }
 
@@ -169,15 +174,15 @@ class SupportLibWebViewChromium implements WebViewProviderBoundaryInterface {
                 TraceEvent.scoped("WebView.APICall.AndroidX.ADD_WEB_MESSAGE_LISTENER_WITH_WORLD")) {
             recordApiCall(ApiCall.ADD_WEB_MESSAGE_LISTENER_WITH_WORLD);
             SharedWebViewChromium sharedWebViewChromium = mSharedWebViewChromium.get();
-            WebView webView = mWebView.get();
-            if (sharedWebViewChromium == null || webView == null) {
+            if (sharedWebViewChromium == null) {
                 throw new IllegalStateException(
                         "Support lib method called on WebView that no longer exists.");
             }
             sharedWebViewChromium.addWebMessageListener(
                     jsObjectName,
                     allowedOriginRules,
-                    new SupportLibWebMessageListenerAdapter(webView, listener),
+                    new SupportLibWebMessageListenerAdapter(
+                            sharedWebViewChromium.getAwContents(), listener),
                     worldName);
         }
     }
@@ -598,6 +603,84 @@ class SupportLibWebViewChromium implements WebViewProviderBoundaryInterface {
                     .getNavigationClient()
                     .clearAndSetListener(
                             new SupportLibWebViewNavigationClientAdapter(webViewNavigationClient));
+        }
+    }
+
+    @Override
+    public Runnable addHeaderInterceptor(
+            Consumer<BiConsumer<@RequestMatcherConfig Integer, Object>> buildRequestMatcherConfig,
+            Function<WebResourceRequest, Map<String, @Nullable String>> headerInterceptor) {
+        recordApiCall(ApiCall.WEBVIEW_ADD_HEADER_INTERCEPTOR);
+        try (TraceEvent event =
+                TraceEvent.scoped("WebView.APICall.AndroidX.WEBVIEW_ADD_HEADER_INTERCEPTOR")) {
+            SharedWebViewChromium sharedWebViewChromium = mSharedWebViewChromium.get();
+            if (sharedWebViewChromium == null) {
+                throw new IllegalStateException(
+                        "Support lib method called on WebView that no longer exists.");
+            }
+
+            if (headerInterceptor == null) {
+                throw new NullPointerException("The HeaderInterceptor shouldn't be null");
+            }
+
+            RequestMatcherBuilder requestMatcherBuilder = new RequestMatcherBuilder();
+            buildRequestMatcherConfig.accept(requestMatcherBuilder);
+
+            int id =
+                    sharedWebViewChromium
+                            .getAwContents()
+                            .getHeaderInterceptorStore()
+                            .addInterceptor(
+                                    new SupportLibHeaderInterceptorAdapter(headerInterceptor),
+                                    requestMatcherBuilder.getUrlPatterns());
+
+            return new SupportLibWebViewHeaderInterceptorHandle(mSharedWebViewChromium, id);
+        }
+    }
+
+    @Override
+    public void setGoogleAccountsCallback(
+            @NonNull String accountId,
+            Executor executor,
+            Consumer</* GoogleAccountsEvent */ InvocationHandler> consumer) {
+        ThreadUtils.checkUiThread();
+        if (executor == null || consumer == null) {
+            throw new IllegalArgumentException("Executor and consumer must not be null");
+        }
+        try (TraceEvent event =
+                TraceEvent.scoped("WebView.APICall.AndroidX.SET_GOOGLE_ACCOUNTS_CALLBACK")) {
+            recordApiCall(ApiCall.SET_GOOGLE_ACCOUNTS_CALLBACK);
+            SharedWebViewChromium sharedWebViewChromium = mSharedWebViewChromium.get();
+            if (sharedWebViewChromium == null) {
+                throw new IllegalStateException(
+                        "Support lib method called on WebView that no longer exists.");
+            }
+            sharedWebViewChromium
+                    .getAwContents()
+                    .configureGoogleAccountMirroring(
+                            accountId,
+                            googleAccountsEvent -> {
+                                /* GoogleAccountsEvent */ InvocationHandler handler =
+                                        BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(
+                                                new SupportLibGoogleAccountsEventAdapter(
+                                                        googleAccountsEvent));
+                                executor.execute(() -> consumer.accept(handler));
+                            });
+        }
+    }
+
+    @Override
+    public void clearGoogleAccountsCallback() {
+        ThreadUtils.checkUiThread();
+        try (TraceEvent event =
+                TraceEvent.scoped("WebView.APICall.AndroidX.CLEAR_GOOGLE_ACCOUNTS_CALLBACK")) {
+            recordApiCall(ApiCall.CLEAR_GOOGLE_ACCOUNTS_CALLBACK);
+            SharedWebViewChromium sharedWebViewChromium = mSharedWebViewChromium.get();
+            if (sharedWebViewChromium == null) {
+                throw new IllegalStateException(
+                        "Support lib method called on WebView that no longer exists.");
+            }
+            sharedWebViewChromium.getAwContents().configureGoogleAccountMirroring("", null);
         }
     }
 }

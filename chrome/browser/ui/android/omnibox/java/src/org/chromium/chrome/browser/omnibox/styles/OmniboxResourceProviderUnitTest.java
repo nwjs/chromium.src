@@ -40,6 +40,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.IncognitoColors;
@@ -72,18 +73,14 @@ public class OmniboxResourceProviderUnitTest {
 
     @Test
     public void resolveAttributeToDrawable() {
+        mProvider.setBrandedColorScheme(BrandedColorScheme.LIGHT_BRANDED_THEME);
         Drawable drawableLight =
-                OmniboxResourceProvider.resolveAttributeToDrawable(
-                        mContext,
-                        BrandedColorScheme.LIGHT_BRANDED_THEME,
-                        R.attr.selectableItemBackground);
+                mProvider.resolveAttributeToDrawable(R.attr.selectableItemBackground);
         assertNotNull(drawableLight);
 
+        mProvider.setBrandedColorScheme(BrandedColorScheme.DARK_BRANDED_THEME);
         Drawable drawableDark =
-                OmniboxResourceProvider.resolveAttributeToDrawable(
-                        mContext,
-                        BrandedColorScheme.DARK_BRANDED_THEME,
-                        R.attr.selectableItemBackground);
+                mProvider.resolveAttributeToDrawable(R.attr.selectableItemBackground);
         assertNotNull(drawableDark);
     }
 
@@ -234,26 +231,26 @@ public class OmniboxResourceProviderUnitTest {
         final int incognitoColor = mContext.getColor(R.color.default_text_color_light);
         final int defaultColor = MaterialColors.getColor(mContext, R.attr.colorOnSurface, TAG);
 
+        mProvider.setBrandedColorScheme(BrandedColorScheme.LIGHT_BRANDED_THEME);
         assertEquals(
                 "Wrong suggestion primary text color for LIGHT_THEME.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionPrimaryTextColor(
-                        mContext, BrandedColorScheme.LIGHT_BRANDED_THEME));
+                mProvider.getSuggestionPrimaryTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.DARK_BRANDED_THEME);
         assertEquals(
                 "Wrong suggestion primary text color for DARK_THEME.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionPrimaryTextColor(
-                        mContext, BrandedColorScheme.DARK_BRANDED_THEME));
+                mProvider.getSuggestionPrimaryTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
         assertEquals(
                 "Wrong suggestion primary text color for INCOGNITO.",
                 incognitoColor,
-                OmniboxResourceProvider.getSuggestionPrimaryTextColor(
-                        mContext, BrandedColorScheme.INCOGNITO));
+                mProvider.getSuggestionPrimaryTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
         assertEquals(
                 "Wrong suggestion primary text color for DEFAULT.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionPrimaryTextColor(
-                        mContext, BrandedColorScheme.APP_DEFAULT));
+                mProvider.getSuggestionPrimaryTextColor());
     }
 
     @Test
@@ -262,26 +259,26 @@ public class OmniboxResourceProviderUnitTest {
         final int defaultColor =
                 MaterialColors.getColor(mContext, R.attr.colorOnSurfaceVariant, TAG);
 
+        mProvider.setBrandedColorScheme(BrandedColorScheme.LIGHT_BRANDED_THEME);
         assertEquals(
                 "Wrong suggestion secondary text color for LIGHT_THEME.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionSecondaryTextColor(
-                        mContext, BrandedColorScheme.LIGHT_BRANDED_THEME));
+                mProvider.getSuggestionSecondaryTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.DARK_BRANDED_THEME);
         assertEquals(
                 "Wrong suggestion secondary text color for DARK_THEME.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionSecondaryTextColor(
-                        mContext, BrandedColorScheme.DARK_BRANDED_THEME));
+                mProvider.getSuggestionSecondaryTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
         assertEquals(
                 "Wrong suggestion secondary text color for INCOGNITO.",
                 incognitoColor,
-                OmniboxResourceProvider.getSuggestionSecondaryTextColor(
-                        mContext, BrandedColorScheme.INCOGNITO));
+                mProvider.getSuggestionSecondaryTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
         assertEquals(
                 "Wrong suggestion secondary text color for DEFAULT.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionSecondaryTextColor(
-                        mContext, BrandedColorScheme.APP_DEFAULT));
+                mProvider.getSuggestionSecondaryTextColor());
     }
 
     @Test
@@ -289,26 +286,26 @@ public class OmniboxResourceProviderUnitTest {
         final int incognitoColor = mContext.getColor(R.color.suggestion_url_color_incognito);
         final int defaultColor = SemanticColorUtils.getDefaultTextColorLink(mContext);
 
+        mProvider.setBrandedColorScheme(BrandedColorScheme.LIGHT_BRANDED_THEME);
         assertEquals(
                 "Wrong suggestion url text color for LIGHT_THEME.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionUrlTextColor(
-                        mContext, BrandedColorScheme.LIGHT_BRANDED_THEME));
+                mProvider.getSuggestionUrlTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.DARK_BRANDED_THEME);
         assertEquals(
                 "Wrong suggestion url text color for DARK_THEME.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionUrlTextColor(
-                        mContext, BrandedColorScheme.DARK_BRANDED_THEME));
+                mProvider.getSuggestionUrlTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
         assertEquals(
                 "Wrong suggestion url text color for INCOGNITO.",
                 incognitoColor,
-                OmniboxResourceProvider.getSuggestionUrlTextColor(
-                        mContext, BrandedColorScheme.INCOGNITO));
+                mProvider.getSuggestionUrlTextColor());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
         assertEquals(
                 "Wrong suggestion url text color for DEFAULT.",
                 defaultColor,
-                OmniboxResourceProvider.getSuggestionUrlTextColor(
-                        mContext, BrandedColorScheme.APP_DEFAULT));
+                mProvider.getSuggestionUrlTextColor());
     }
 
     @Test
@@ -408,21 +405,20 @@ public class OmniboxResourceProviderUnitTest {
                 mContext.getColorStateList(R.color.default_icon_color_secondary_tint_list);
         ColorStateList incognitoSecondary =
                 mContext.getColorStateList(R.color.default_icon_color_secondary_light_tint_list);
-        OmniboxResourceProvider provider =
-                new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
-        assertEquals(adaptiveSecondary, provider.getSecondaryIconTintList());
-        provider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
-        assertEquals(incognitoSecondary, provider.getSecondaryIconTintList());
+        assertEquals(adaptiveSecondary, mProvider.getSecondaryIconTintList());
+        assertSame(mProvider.getSecondaryIconTintList(), mProvider.getSecondaryIconTintList());
+        assertSame(mProvider.getPrimaryIconTintList(), mProvider.getPrimaryIconTintList());
+        mProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
+        assertEquals(incognitoSecondary, mProvider.getSecondaryIconTintList());
+        assertSame(mProvider.getSecondaryIconTintList(), mProvider.getSecondaryIconTintList());
     }
 
     @Test
     public void getFuseboxPopupIconTintList() {
         ColorStateList primaryTint =
-                OmniboxResourceProvider.getPrimaryIconTintList(
-                        mContext, BrandedColorScheme.APP_DEFAULT);
+                ChromeColors.getPrimaryIconTint(mContext, /* isIncognito= */ false);
         ColorStateList secondaryTint =
-                OmniboxResourceProvider.getSecondaryIconTintList(
-                        mContext, BrandedColorScheme.APP_DEFAULT);
+                ChromeColors.getSecondaryIconTint(mContext, /* forceLightIconTint= */ false);
         OmniboxResourceProvider provider =
                 new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
 
@@ -434,8 +430,8 @@ public class OmniboxResourceProviderUnitTest {
     @Test
     public void getFuseboxPopupIconBackgroundTintList() {
         ColorStateList primaryBgTint =
-                OmniboxResourceProvider.getPrimaryIconBackgroundTintList(
-                        mContext, BrandedColorScheme.APP_DEFAULT);
+                IncognitoColors.getColorSurfaceContainerTintList(
+                        mContext, /* isIncognito= */ false);
         OmniboxResourceProvider provider =
                 new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
 
@@ -455,12 +451,10 @@ public class OmniboxResourceProviderUnitTest {
 
         assertEquals(
                 expectedBottomSheetSize,
-                OmniboxResourceProvider.getFuseboxPopupIconSize(
-                        mContext, /* isBottomSheet= */ true));
+                mProvider.getFuseboxPopupIconSize(/* isBottomSheet= */ true));
         assertEquals(
                 expectedPlusMenuSize,
-                OmniboxResourceProvider.getFuseboxPopupIconSize(
-                        mContext, /* isBottomSheet= */ false));
+                mProvider.getFuseboxPopupIconSize(/* isBottomSheet= */ false));
     }
 
     @Test
@@ -474,12 +468,10 @@ public class OmniboxResourceProviderUnitTest {
 
         assertEquals(
                 expectedBottomSheetSize,
-                OmniboxResourceProvider.getFuseboxPopupIconSize(
-                        mContext, /* isBottomSheet= */ true));
+                mProvider.getFuseboxPopupIconSize(/* isBottomSheet= */ true));
         assertEquals(
                 expectedPlusMenuSize,
-                OmniboxResourceProvider.getFuseboxPopupIconSize(
-                        mContext, /* isBottomSheet= */ false));
+                mProvider.getFuseboxPopupIconSize(/* isBottomSheet= */ false));
     }
 
     @Test
@@ -505,12 +497,8 @@ public class OmniboxResourceProviderUnitTest {
     public void getPopupItemTextRes_variationsDisabled() {
         int expected = IncognitoColors.getTextMediumPrimary(/* isIncognito= */ false);
 
-        assertEquals(
-                expected,
-                OmniboxResourceProvider.getPopupButtonTextRes(BrandedColorScheme.APP_DEFAULT));
-        assertEquals(
-                expected,
-                OmniboxResourceProvider.getAttachmentButtonTextRes(BrandedColorScheme.APP_DEFAULT));
+        assertEquals(expected, mProvider.getPopupButtonTextRes());
+        assertEquals(expected, mProvider.getAttachmentButtonTextRes());
     }
 
     @Test
@@ -518,13 +506,15 @@ public class OmniboxResourceProviderUnitTest {
     public void getPopupItemTextRes_variationsEnabled() {
         assertEquals(
                 IncognitoColors.getTextLargePrimary(/* isIncognito= */ false),
-                OmniboxResourceProvider.getPopupButtonTextRes(BrandedColorScheme.APP_DEFAULT));
+                mProvider.getPopupButtonTextRes());
         assertEquals(
                 IncognitoColors.getTextMediumPrimary(/* isIncognito= */ false),
-                OmniboxResourceProvider.getAttachmentButtonTextRes(BrandedColorScheme.APP_DEFAULT));
+                mProvider.getAttachmentButtonTextRes());
+
+        mProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
         assertEquals(
                 IncognitoColors.getTextLargePrimary(/* isIncognito= */ true),
-                OmniboxResourceProvider.getPopupButtonTextRes(BrandedColorScheme.INCOGNITO));
+                mProvider.getPopupButtonTextRes());
     }
 
     @Test
@@ -551,60 +541,22 @@ public class OmniboxResourceProviderUnitTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.OMNIBOX_CACHE_SUGGESTION_RESOURCES)
-    public void getStringCached() {
-        String refineString =
-                OmniboxResourceProvider.getString(
-                        mContext, R.string.accessibility_omnibox_btn_refine, "foobar");
-
-        assertEquals(
-                mContext.getString(R.string.accessibility_omnibox_btn_refine, "foobar"),
-                refineString);
-        assertEquals(
-                mContext.getString(R.string.accessibility_omnibox_btn_refine),
-                OmniboxResourceProvider.getStringCacheForTesting()
-                        .get(R.string.accessibility_omnibox_btn_refine));
-
-        String copyString = OmniboxResourceProvider.getString(mContext, R.string.copy_link);
-        assertEquals(mContext.getString(R.string.copy_link, "foobar"), copyString);
-        assertEquals(
-                copyString,
-                OmniboxResourceProvider.getStringCacheForTesting().get(R.string.copy_link));
-    }
-
-    @Test
     public void getString_convertGritPlaceholders() {
         doReturn("Hello, $1!").when(mContext).getString(1234);
-        assertEquals("Hello, world!", OmniboxResourceProvider.getString(mContext, 1234, "world"));
+        assertEquals("Hello, world!", mProvider.getString(1234, "world"));
 
         doReturn("$2, $1 $2").when(mContext).getString(1235);
-        assertEquals(
-                "Bond, James Bond",
-                OmniboxResourceProvider.getString(mContext, 1235, "James", "Bond"));
+        assertEquals("Bond, James Bond", mProvider.getString(1235, "James", "Bond"));
 
         doReturn("$1s and $2s").when(mContext).getString(1236);
         assertEquals(
-                "Burritos and Chimichangas",
-                OmniboxResourceProvider.getString(mContext, 1236, "Burrito", "Chimichanga"));
+                "Burritos and Chimichangas", mProvider.getString(1236, "Burrito", "Chimichanga"));
 
         doReturn("$s and $d").when(mContext).getString(1237);
-        assertEquals(
-                "$s and $d", OmniboxResourceProvider.getString(mContext, 1237, "Bad", "Broken"));
+        assertEquals("$s and $d", mProvider.getString(1237, "Bad", "Broken"));
 
         doReturn("$1$1$1$1$1$1 $2!!!").when(mContext).getString(1238);
-        assertEquals(
-                "NaNaNaNaNaNa BATMAN!!!",
-                OmniboxResourceProvider.getString(mContext, 1238, "Na", "BATMAN"));
-    }
-
-    @Test
-    public void getAdditionalTextColor() {
-        final int defaultTextColorSecondary =
-                MaterialColors.getColor(mContext, R.attr.colorOnSurfaceVariant, TAG);
-        assertEquals(
-                "Wrong additional text color.",
-                defaultTextColorSecondary,
-                OmniboxResourceProvider.getAdditionalTextColor(mContext));
+        assertEquals("NaNaNaNaNaNa BATMAN!!!", mProvider.getString(1238, "Na", "BATMAN"));
     }
 
     @Test
@@ -642,8 +594,7 @@ public class OmniboxResourceProviderUnitTest {
                 provider.getUrlBarPrimaryTextColor());
 
         assertEquals(
-                OmniboxResourceProvider.getSuggestionPrimaryTextColor(
-                        mContext, BrandedColorScheme.LIGHT_BRANDED_THEME),
+                MaterialColors.getColor(mContext, R.attr.colorOnSurface, TAG),
                 provider.getSuggestionPrimaryTextColor());
 
         // Test dynamic update (setter).
@@ -652,33 +603,24 @@ public class OmniboxResourceProviderUnitTest {
                 OmniboxResourceProvider.getUrlBarPrimaryTextColor(
                         mContext, BrandedColorScheme.INCOGNITO),
                 provider.getUrlBarPrimaryTextColor());
-
-        // Test constructor that resolves scheme.
-        OmniboxResourceProvider provider2 =
-                new OmniboxResourceProvider(mContext, /* isIncognitoBranded= */ false, Color.WHITE);
-        @BrandedColorScheme
-        int expectedScheme =
-                OmniboxResourceProvider.getBrandedColorScheme(mContext, false, Color.WHITE);
-        assertEquals(
-                OmniboxResourceProvider.getUrlBarPrimaryTextColor(mContext, expectedScheme),
-                provider2.getUrlBarPrimaryTextColor());
     }
 
     @Test
     public void getPopoverSuggestionBackgroundColor_incognito() {
         final int incognitoColor = mContext.getColor(R.color.gm3_baseline_surface_container_dark);
+        mProvider.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
         assertEquals(
                 incognitoColor,
-                OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
-                        mContext, BrandedColorScheme.INCOGNITO));
+                mProvider.getSuggestionBackgroundColor(
+                        FuseboxLayoutMode.SUGGESTIONS_POPOVER, /* isDropdownContainer= */ false));
     }
 
     @Test
     public void getPopoverSuggestionBackgroundColor_light() {
         assertEquals(
                 MaterialColors.getColor(mContext, R.attr.colorSurface, TAG),
-                OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
-                        mContext, BrandedColorScheme.APP_DEFAULT));
+                mProvider.getSuggestionBackgroundColor(
+                        FuseboxLayoutMode.SUGGESTIONS_POPOVER, /* isDropdownContainer= */ false));
     }
 
     @Test
@@ -686,8 +628,8 @@ public class OmniboxResourceProviderUnitTest {
     public void getPopoverSuggestionBackgroundColor_dark() {
         assertEquals(
                 SemanticColorUtils.getColorSurfaceContainer(mContext),
-                OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
-                        mContext, BrandedColorScheme.APP_DEFAULT));
+                mProvider.getSuggestionBackgroundColor(
+                        FuseboxLayoutMode.SUGGESTIONS_POPOVER, /* isDropdownContainer= */ false));
     }
 
     @Test
@@ -709,6 +651,33 @@ public class OmniboxResourceProviderUnitTest {
         provider.onConfigurationChanged(config);
         ResourceCache cache2 = provider.getCacheForTesting();
         assertNotSame(cache1, cache2);
+    }
+
+    @Test
+    public void testConfigurationChange_densityInvalidatesCache() {
+        OmniboxResourceProvider provider =
+                new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
+        ResourceCache cache1 = provider.getCacheForTesting();
+
+        Configuration config = new Configuration(mContext.getResources().getConfiguration());
+        provider.onConfigurationChanged(config);
+        assertSame(cache1, provider.getCacheForTesting());
+
+        config.densityDpi = config.densityDpi * 2;
+        provider.onConfigurationChanged(config);
+        assertNotSame(cache1, provider.getCacheForTesting());
+    }
+
+    @Test
+    public void testConfigurationChange_fontScaleInvalidatesCache() {
+        OmniboxResourceProvider provider =
+                new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
+        ResourceCache cache1 = provider.getCacheForTesting();
+
+        Configuration config = new Configuration(mContext.getResources().getConfiguration());
+        config.fontScale = config.fontScale * 1.5f;
+        provider.onConfigurationChanged(config);
+        assertNotSame(cache1, provider.getCacheForTesting());
     }
 
     @Test

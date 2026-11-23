@@ -6,11 +6,13 @@
 #define CHROME_BROWSER_ACTOR_TOOLS_WAIT_TOOL_REQUEST_H_
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 
 #include "base/time/time.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/tools/tool_request.h"
-#include "components/tabs/public/tab_interface.h"
 
 namespace actor {
 class ToolRequestVisitorFunctor;
@@ -18,11 +20,16 @@ class ToolRequestVisitorFunctor;
 class WaitToolRequest : public ToolRequest {
  public:
   static constexpr char kName[] = "Wait";
+  static constexpr std::string_view kModelFacingName = "wait";
+  static constexpr std::string_view kWaitTimeMsParam = "wait_time_ms";
 
-  explicit WaitToolRequest(
-      base::TimeDelta wait_duration,
-      tabs::TabHandle observe_tab_handle = tabs::TabHandle::Null());
+  explicit WaitToolRequest(base::TimeDelta wait_duration,
+                           ActorSurfaceHandle observe_actor_surface_handle =
+                               ActorSurfaceHandle::Null());
   ~WaitToolRequest() override;
+
+  // Returns the `ToolId::kWait` tool schema definition.
+  static std::optional<ToolDefinition> GetToolDefinition();
 
   void Apply(ToolRequestVisitorFunctor& f) const override;
 
@@ -31,15 +38,15 @@ class WaitToolRequest : public ToolRequest {
                               ToolDelegate& tool_delegate) const override;
   std::string_view Name() const override;
   bool RequiresUrlCheckInCurrentTab() const override;
-  tabs::TabHandle GetTabForValidation() const override;
+  ActorSurfaceHandle GetActorSurfaceForValidation() const override;
 
  private:
   base::TimeDelta wait_duration_;
 
-  // Optional. If provided, an observation from this tab will be included in the
-  // result observations. However, this tab is not added to the tab set in
-  // ActorTask.
-  tabs::TabHandle observe_tab_handle_;
+  // Optional. If provided, an observation from this actor surface will be
+  // included in the result observations. However, this actor surface is not
+  // added to the actor surface set in ActorTask.
+  ActorSurfaceHandle observe_actor_surface_handle_;
 };
 
 }  // namespace actor

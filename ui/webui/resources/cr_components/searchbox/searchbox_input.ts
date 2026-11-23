@@ -117,6 +117,9 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   private lastUserInput_: string = '';
   private isDeletingInput_: boolean = false;
   private pastedInInput_: boolean = false;
+  // Whether `#input` lost focus since it last gained it, or `blur()` is
+  // blurring it.
+  private inputBlurred_: boolean = false;
   private resizeObserver_: ResizeObserver|null = null;
   private onDocumentSelectionChangeBound_ = () => this.updateEllipsisState_();
   // Bumped by each `setSelectionA11yLabel()` call, so that a deferred
@@ -208,6 +211,8 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
         this.shadowRoot.querySelector<HTMLInputElement|HTMLTextAreaElement>(
             '#input');
     assert(input);
+    // Set before blurring, since Blink ends any composition before 'blur'.
+    this.inputBlurred_ = true;
     input.blur();
   }
 
@@ -338,12 +343,31 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   //============================================================================
 
   protected onInputFocus_() {
+    this.inputBlurred_ = false;
     this.updateEllipsisState_();
   }
 
   protected onInputBlur_() {
+    this.inputBlurred_ = true;
     this.setSelectionA11yLabel('');
     this.updateEllipsisState_();
+  }
+
+  protected onInputCompositionend_(e: CompositionEvent) {
+    // A composition that ends because the input loses focus isn't committed by
+    // the user.
+    if (this.inputBlurred_) {
+      return;
+    }
+    // Report the committed text again, as typed, e.g. so that it's inline
+    // autocompleted: a composition's last 'input' event is still marked as
+    // composing, and one that the browser ends (e.g. on a mouse press) has
+    // none.
+    this.fire('searchbox-input-text-updated', {
+      value: this.inputElement.value,
+      isComposing: false,
+      event: e,
+    });
   }
 
   protected onInputCopy_(e: ClipboardEvent) {
@@ -590,9 +614,18 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
     if (newInputValue !== lastInputValue) {
       this.urlEmphasis = null;
     }
-    this.lastInput_ = newInput;
+    this.setLastInput_(newInput);
     this.updateEllipsisState_();
     this.updateMirror_();
+  }
+
+  private setLastInput_(newInput: Input) {
+    const wasInputEmpty = !this.lastInput_.text.trim();
+    this.lastInput_ = newInput;
+    const isInputEmpty = !this.lastInput_.text.trim();
+    if (wasInputEmpty !== isInputEmpty) {
+      this.fire('searchbox-input-empty-changed', {value: isInputEmpty});
+    }
   }
 
   /**
@@ -763,7 +796,7 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
         input.selectionStart !== input.selectionEnd;
 
     if (hasInlineAutocomplete && !hasInlineSelection) {
-      this.lastInput_ = {text: input.value, inline: ''};
+      this.setLastInput_({text: input.value, inline: ''});
       this.forceSingleLine_ = false;
     } else if (
         // If the user clicks into or moves the cursor within preview text,

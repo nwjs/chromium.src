@@ -258,11 +258,21 @@ void SaveCardBubbleControllerImpl::ShowConfirmationBubbleView(
   is_reshow_ = false;
   is_triggered_by_user_gesture_ = false;
   current_bubble_type_ = PaymentsBubbleType::kUploadComplete;
-  confirmation_ui_params_ =
-      card_saved ? SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams::
-                       CreateForSaveCardSuccess(is_for_save_and_fill)
-                 : SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams::
-                       CreateForSaveCardFailure(is_for_save_and_fill);
+  if (options_.card_save_type ==
+      payments::PaymentsAutofillClient::CardSaveType::
+          kCardholderNameUpdateOnly) {
+    confirmation_ui_params_ =
+        card_saved ? SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams::
+                         CreateForSaveCardholderNameSuccess()
+                   : SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams::
+                         CreateForSaveCardholderNameFailure();
+  } else {
+    confirmation_ui_params_ =
+        card_saved ? SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams::
+                         CreateForSaveCardSuccess(is_for_save_and_fill)
+                   : SavePaymentMethodAndVirtualCardEnrollConfirmationUiParams::
+                         CreateForSaveCardFailure(is_for_save_and_fill);
+  }
   on_confirmation_closed_callback_ = std::move(on_confirmation_closed_callback);
 
   // Show upload confirmation bubble.
@@ -641,6 +651,13 @@ void SaveCardBubbleControllerImpl::LogBubbleCloseMetrics(
           legacy_metric);
       break;
     case PaymentsBubbleType::kUploadComplete:
+      if (options_.card_save_type ==
+          payments::PaymentsAutofillClient::CardSaveType::
+              kCardholderNameUpdateOnly) {
+        // TODO(crbug.com/564568880): Log confirmation view result metrics for
+        // the cardholder name fix flow.
+        break;
+      }
       autofill_metrics::LogCreditCardUploadConfirmationViewResultMetric(
           legacy_metric, confirmation_ui_params_->is_success);
       break;
@@ -935,6 +952,13 @@ void SaveCardBubbleControllerImpl::DoShowBubble() {
       LogManageCardsPromptMetric(ManageCardsPromptMetric::kManageCardsShown);
       break;
     case PaymentsBubbleType::kUploadComplete:
+      if (options_.card_save_type ==
+          payments::PaymentsAutofillClient::CardSaveType::
+              kCardholderNameUpdateOnly) {
+        // TODO(crbug.com/564568880): Log confirmation view shown metrics for
+        // the cardholder name fix flow.
+        break;
+      }
       autofill_metrics::LogCreditCardUploadConfirmationViewShownMetric(
           /*is_shown=*/true, confirmation_ui_params_->is_success);
       break;
@@ -1045,7 +1069,7 @@ void SaveCardBubbleControllerImpl::OpenUrl(const GURL& url) {
   was_url_opened_ = true;
 
   web_contents()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
-                              url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                              url, WindowOpenDisposition::kNewForegroundTab,
                               ui::PAGE_TRANSITION_LINK),
                           /*navigation_handle_callback=*/{});
 }

@@ -14,6 +14,8 @@
 #include "base/run_loop.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -47,6 +49,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -382,12 +385,14 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, NoAudibleAlertOnNavigation) {
   GURL url = GetURL(kFramePage);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
 
+  base::HistogramTester histogram_tester;
   int ordinal = 0;
   WebContents* web_contents =
       browser()->GetTabStripModel()->GetActiveWebContents();
   EXPECT_EQ(0u, GetFindBarAudibleAlertsForBrowser(browser()));
 
   // Search for a string in the page.
+  EnsureFindBoxOpen();
   EXPECT_EQ(
       1, FindInPageASCII(web_contents, "google", kFwd, kIgnoreCase, &ordinal));
   EXPECT_EQ(1, ordinal);
@@ -397,8 +402,13 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, NoAudibleAlertOnNavigation) {
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(browser(), GetURL("specialchar.html")));
 
-  // Ensure that there was no audible alert.
+  // Ensure that there was no audible alert, and that the session was recorded
+  // as matching without seeing a zero-match despite frame teardown on
+  // navigation.
   EXPECT_EQ(0u, GetFindBarAudibleAlertsForBrowser(browser()));
+  histogram_tester.ExpectUniqueSample(
+      "FindInPage.SessionOutcome",
+      find_in_page::FindSessionOutcome::kMatchedWithoutSeeingZeroMatch, 1);
 }
 
 // See http://crbug.com/40721569
@@ -433,6 +443,114 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   observer2.Wait();
   EXPECT_EQ(0, observer2.number_of_matches());
   EXPECT_EQ(2u, GetFindBarAudibleAlertsForBrowser(browser()));
+}
+
+IN_PROC_BROWSER_TEST_F(FindInPageControllerTest, SessionOutcomeMetrics) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetURL(kSimple)));
+  WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  FindBarController* find_bar_controller = FindBarController::From(browser());
+
+  // 1. Session that ends with zero matches.
+  {
+    base::HistogramTester histogram_tester;
+    EXPECT_EQ(0,
+              FindInPageASCII(web_contents, "zzz", kFwd, kIgnoreCase, nullptr));
+    find_bar_controller->EndFindSession(find_in_page::SelectionAction::kKeep,
+                                        find_in_page::ResultAction::kKeep);
+    histogram_tester.ExpectUniqueSample(
+        "FindInPage.SessionOutcome",
+        find_in_page::FindSessionOutcome::kEndedWithZeroMatches, 1);
+  }
+
+  // 2. Passively opening and closing the find bar with prepopulated text
+  // ("zzz") without searching should not record a session outcome.
+  {
+    base::HistogramTester histogram_tester;
+    find_bar_controller->Show(/*find_next=*/false);
+    EXPECT_EQ(u"zzz", GetFindBarText());
+    ui_test_utils::FindResultWaiter observer(web_contents);
+    observer.Wait();
+    find_bar_controller->EndFindSession(find_in_page::SelectionAction::kKeep,
+                                        find_in_page::ResultAction::kKeep);
+    histogram_tester.ExpectTotalCount("FindInPage.SessionOutcome", 0);
+  }
+
+  // 3. Session that hits zero matches, then recovers by finding a match.
+  {
+    base::HistogramTester histogram_tester;
+    EXPECT_EQ(0,
+              FindInPageASCII(web_contents, "zzz", kFwd, kIgnoreCase, nullptr));
+    EXPECT_EQ(
+        1, FindInPageASCII(web_contents, "page", kFwd, kIgnoreCase, nullptr));
+    find_bar_controller->EndFindSession(find_in_page::SelectionAction::kKeep,
+                                        find_in_page::ResultAction::kKeep);
+    histogram_tester.ExpectUniqueSample(
+        "FindInPage.SessionOutcome",
+        find_in_page::FindSessionOutcome::kMatchedAfterSeeingZeroMatch, 1);
+  }
+
+  // 4. Session that hits zero matches, recovers to matching "a", then
+  // backspaces to empty before ending the session.
+  {
+    base::HistogramTester histogram_tester;
+    EXPECT_EQ(0, FindInPageASCII(web_contents, "nonexistent", kFwd, kIgnoreCase,
+                                 nullptr));
+    EXPECT_EQ(3,
+              FindInPageASCII(web_contents, "a", kFwd, kIgnoreCase, nullptr));
+    find_in_page::FindTabHelper* find_tab_helper =
+        find_in_page::FindTabHelper::FromWebContents(web_contents);
+    find_tab_helper->StartFinding(u"", kFwd, kIgnoreCase, /*find_match=*/true);
+    find_bar_controller->EndFindSession(find_in_page::SelectionAction::kKeep,
+                                        find_in_page::ResultAction::kKeep);
+    histogram_tester.ExpectUniqueSample(
+        "FindInPage.SessionOutcome",
+        find_in_page::FindSessionOutcome::
+            kEndedWithEmptyQueryAfterSeeingZeroMatch,
+        1);
+  }
+
+  // 5. Pre-populating the find bar from page selection does not count as an
+  // active search and records no outcome when closed. However, explicitly
+  // stepping to next match (Show(/*find_next=*/true)) does count as an active
+  // search.
+  {
+    base::HistogramTester histogram_tester;
+    web_contents->Focus();
+    web_contents->SelectAll();
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      content::RenderWidgetHostView* view =
+          web_contents->GetRenderWidgetHostView();
+      return view && !view->GetSelectedText().empty();
+    }));
+    find_bar_controller->Show(/*find_next=*/false);
+    ui_test_utils::FindResultWaiter observer(web_contents);
+    observer.Wait();
+    find_bar_controller->EndFindSession(find_in_page::SelectionAction::kKeep,
+                                        find_in_page::ResultAction::kKeep);
+    histogram_tester.ExpectTotalCount("FindInPage.SessionOutcome", 0);
+
+    // Re-open with selection pre-fill, then step through matches with Find
+    // Next.
+    web_contents->Focus();
+    web_contents->SelectAll();
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      content::RenderWidgetHostView* view =
+          web_contents->GetRenderWidgetHostView();
+      return view && !view->GetSelectedText().empty();
+    }));
+    find_bar_controller->Show(/*find_next=*/false);
+    ui_test_utils::FindResultWaiter observer2(web_contents);
+    observer2.Wait();
+    find_bar_controller->Show(/*find_next=*/true);
+    ui_test_utils::FindResultWaiter observer3(web_contents);
+    observer3.Wait();
+    find_bar_controller->EndFindSession(find_in_page::SelectionAction::kKeep,
+                                        find_in_page::ResultAction::kKeep);
+    histogram_tester.ExpectUniqueSample(
+        "FindInPage.SessionOutcome",
+        find_in_page::FindSessionOutcome::kMatchedWithoutSeeingZeroMatch, 1);
+  }
 }
 
 // Verify search selection coordinates. The data file used is set-up such that
@@ -886,9 +1004,10 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   // navigation starts, it will miss the DidStartNavigation callback.
   FindBarController::From(browser())->find_bar();
 
-  // Start a navigation but don't wait for it to complete.
+  // Start a navigation and pause it at WillStartRequest so it cannot commit
+  // before the find bar is opened.
   url = GetURL(kLinkPage);
-  content::TestNavigationObserver observer(web_contents, 1);
+  content::TestNavigationManager navigation_manager(web_contents, url);
   ASSERT_TRUE(content::BeginNavigateToURLFromRenderer(web_contents, url));
 
   // Now open the find bar after the current navigation.
@@ -901,8 +1020,9 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   EXPECT_TRUE(GetFindBarWindowInfo(&position, &fully_visible));
   EXPECT_TRUE(fully_visible);
 
-  // Wait for the navigation to complete.
-  observer.Wait();
+  // Resume and wait for the navigation to complete.
+  ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
+  EXPECT_TRUE(navigation_manager.was_successful());
 
   // The find bar should still be visible because it was opened after
   // navigation started - user intends to search the new page.
@@ -929,9 +1049,10 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   // we start the navigation.
   FindBarController::From(browser())->find_bar();
 
-  // Start a navigation but don't wait for it to complete.
+  // Start a navigation and pause it at WillStartRequest so it cannot commit
+  // while FindInPageASCII is waiting for find results on the old page.
   url = GetURL(kLinkPage);
-  content::TestNavigationObserver observer(web_contents, 1);
+  content::TestNavigationManager navigation_manager(web_contents, url);
   ASSERT_TRUE(content::BeginNavigateToURLFromRenderer(web_contents, url));
 
   // Open the find bar after the navigation and search for text.
@@ -941,8 +1062,9 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   FindInPageASCII(web_contents, "test", kFwd, kIgnoreCase, &ordinal);
   EXPECT_GT(ordinal, 0);
 
-  // Wait for the navigation to complete.
-  observer.Wait();
+  // Resume and wait for the navigation to complete.
+  ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
+  EXPECT_TRUE(navigation_manager.was_successful());
 
   // The find bar should still be visible.
   gfx::Point position;
@@ -1107,7 +1229,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   // Reload and make sure the find window goes away.
   content::LoadStopObserver observer(
       browser()->GetTabStripModel()->GetActiveWebContents());
-  chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
+  chrome::Reload(browser(), WindowOpenDisposition::kCurrentTab);
   observer.Wait();
   EXPECT_TRUE(GetFindBarWindowInfo(&position, &fully_visible));
   EXPECT_FALSE(fully_visible);
@@ -1629,7 +1751,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   // Open another tab.
   GURL url = GetURL(kSimple);
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Close it.
@@ -1647,7 +1769,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   chrome::ToggleBookmarkBar(browser());
 
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   EnsureFindBoxOpen();
@@ -1655,7 +1777,7 @@ IN_PROC_BROWSER_TEST_F(FindInPageControllerTest,
   EXPECT_TRUE(GetFindBarWindowInfo(&position, nullptr));
 
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   chrome::CloseTab(browser());
   EXPECT_TRUE(GetFindBarWindowInfo(&position2, nullptr));

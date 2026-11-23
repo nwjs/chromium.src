@@ -5,11 +5,11 @@
 #include "third_party/blink/renderer/platform/graphics/offscreen_canvas_placeholder.h"
 
 #include "base/task/single_thread_task_runner.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/exported_canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/resource_id_traits.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
@@ -160,13 +160,30 @@ void OffscreenCanvasPlaceholder::SetClient(
   client_ = std::move(client);
   client_task_runner_ = std::move(task_runner);
 
-  if (deferred_animation_state_ &&
-      current_animation_state_ != *deferred_animation_state_) {
-    bool success = PostSetAnimationStateToOffscreenCanvasThread(
-        *deferred_animation_state_);
-    DCHECK(success);
+  if (!base::FeatureList::IsEnabled(
+          features::kOffscreenCanvasSyncAnimationState)) {
+    if (deferred_animation_state_ &&
+        current_animation_state_ != *deferred_animation_state_) {
+      bool success = PostSetAnimationStateToOffscreenCanvasThread(
+          *deferred_animation_state_);
+      DCHECK(success);
+      current_animation_state_ = *deferred_animation_state_;
+      deferred_animation_state_.reset();
+    }
+    return;
+  }
+
+  if (deferred_animation_state_) {
     current_animation_state_ = *deferred_animation_state_;
     deferred_animation_state_.reset();
+  }
+  // A new Client (e.g. one recreated after a GPU context loss) starts in
+  // kActive, so it must be told about any other state, even if it was already
+  // sent to a previous Client.
+  if (current_animation_state_ != AnimationState::kActive) {
+    bool success =
+        PostSetAnimationStateToOffscreenCanvasThread(current_animation_state_);
+    DCHECK(success);
   }
 }
 

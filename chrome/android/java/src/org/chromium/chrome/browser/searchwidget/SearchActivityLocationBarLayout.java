@@ -49,13 +49,15 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
             UrlBarCoordinator urlCoordinator,
             StatusCoordinator statusCoordinator,
             LocationBarDataProvider locationBarDataProvider,
-            WindowAndroid windowAndroid) {
+            WindowAndroid windowAndroid,
+            OmniboxResourceProvider resourceProvider) {
         super.initialize(
                 autocompleteCoordinator,
                 urlCoordinator,
                 statusCoordinator,
                 locationBarDataProvider,
-                windowAndroid);
+                windowAndroid,
+                resourceProvider);
         mPendingSearchPromoDecision = LocaleManager.getInstance().needToCheckForSearchEnginePromo();
         mAutocompleteCoordinator.setShouldPreventOmniboxAutocomplete(mPendingSearchPromoDecision);
 
@@ -69,9 +71,7 @@ public class SearchActivityLocationBarLayout extends LocationBarLayout {
         // Replicate LocationBarBackground bounds from ToolbarPhone.
         int verticalInsets =
                 getResources().getDimensionPixelSize(R.dimen.location_bar_vertical_margin)
-                        - OmniboxResourceProvider.getLocationBarBackgroundOnFocusHeightIncrease(
-                                        getContext())
-                                / 2;
+                        - resourceProvider.getLocationBarBackgroundOnFocusHeightIncrease() / 2;
         backgroundDrawable.setInsets(0, verticalInsets, 0, verticalInsets);
 
         setBackground(backgroundDrawable);

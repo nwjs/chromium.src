@@ -517,6 +517,110 @@ TEST_F(AV1DecoderTest, DecodeSVCStream) {
   EXPECT_EQ(Decode(buffers[1]), expected);
 }
 
+// Verifies that single-spatial-layer streams whose sequence header uses the
+// AV1 RTP payload specification wildcard (operating_points_cnt_minus_1 = 0,
+// operating_point_idc[0] = 0xfff, seq_level_idx[0] = 0) are accepted and
+// decoded even when the frame resolution exceeds Level 2.0 (147,456 pixels).
+TEST_F(AV1DecoderTest, DecodeRtpWildcardOperatingPointSingleLayerStream) {
+  constexpr gfx::Size kFrameSize(640, 360);
+  constexpr gfx::Size kRenderSize(640, 360);
+  constexpr libgav1::BitstreamProfile kProfile =
+      libgav1::BitstreamProfile::kProfile0;
+  constexpr uint16_t kRtpWildcardOperatingPointIdc = 0b1111'1111'1111;
+  std::vector<scoped_refptr<DecoderBuffer>> buffers =
+      ReadIVF("av1-svc-L1T2.ivf");
+  ASSERT_FALSE(buffers.empty());
+  buffers[0] = RewriteAv1SequenceHeaderOperatingPoint(
+      *buffers[0], kRtpWildcardOperatingPointIdc, /*seq_level_idx=*/0);
+
+  std::vector<DecodeResult> expected = {DecodeResult::kConfigChange};
+  std::vector<DecodeResult> results;
+  for (const scoped_refptr<DecoderBuffer>& buffer : buffers) {
+    ::testing::InSequence sequence;
+    auto av1_picture = base::MakeRefCounted<AV1Picture>();
+    EXPECT_CALL(*mock_accelerator_, CreateAV1Picture(/*apply_grain=*/false))
+        .WillOnce(Return(av1_picture));
+    EXPECT_CALL(
+        *mock_accelerator_,
+        SubmitDecode(
+            MatchesFrameHeader(kFrameSize, kRenderSize,
+                               /*show_existing_frame=*/false,
+                               /*show_frame=*/true),
+            MatchesYUV420SequenceHeader(kProfile, /*bitdepth=*/8, kFrameSize,
+                                        /*film_grain_params_present=*/false),
+            _, NonEmptyTileBuffers(), MatchesFrameData(buffer)))
+        .WillOnce(Return(AV1Decoder::AV1Accelerator::Status::kOk));
+    EXPECT_CALL(*mock_accelerator_,
+                OutputPicture(SameAV1PictureInstance(av1_picture)))
+        .WillOnce(Return(true));
+    for (DecodeResult r : Decode(buffer)) {
+      results.push_back(r);
+    }
+    expected.push_back(DecodeResult::kRanOutOfStreamData);
+    testing::Mock::VerifyAndClearExpectations(mock_accelerator_);
+  }
+  EXPECT_EQ(results, expected);
+}
+
+TEST_F(AV1DecoderTest, DecodeNonWildcardLevel20ExceedingMaxPicSizeFails) {
+  constexpr uint16_t kL1T2OperatingPointIdc = 0b0001'0000'0011;
+  std::vector<scoped_refptr<DecoderBuffer>> buffers =
+      ReadIVF("av1-svc-L1T2.ivf");
+  ASSERT_FALSE(buffers.empty());
+  // operating_point_idc[0] = 0b0001'0000'0011 (non-wildcard) with
+  // seq_level_idx[0] = 0 (Level 2.0, max_pic_size = 147,456) must still fail
+  // level conformance for a 640x360 (230,400 pixels) frame.
+  buffers[0] = RewriteAv1SequenceHeaderOperatingPoint(
+      *buffers[0], kL1T2OperatingPointIdc, /*seq_level_idx=*/0);
+  std::vector<DecodeResult> expected = {DecodeResult::kDecodeError};
+  EXPECT_EQ(Decode(buffers[0]), expected);
+}
+
+TEST_F(AV1DecoderTest, DecodeSVCStreamWithRtpWildcardOperatingPoint) {
+  constexpr uint16_t kRtpWildcardOperatingPointIdc = 0b1111'1111'1111;
+  std::vector<scoped_refptr<DecoderBuffer>> buffers =
+      ReadIVF("av1-svc-L2T2.ivf");
+  ASSERT_FALSE(buffers.empty());
+  buffers[0] = RewriteAv1SequenceHeaderOperatingPoint(
+      *buffers[0], kRtpWildcardOperatingPointIdc, /*seq_level_idx=*/0);
+  EXPECT_CALL(*mock_accelerator_, CreateAV1Picture(_))
+      .WillOnce(Return(base::MakeRefCounted<FakeAV1Picture>()));
+  EXPECT_CALL(*mock_accelerator_, SubmitDecode(_, _, _, _, _))
+      .WillOnce(Return(AV1Decoder::AV1Accelerator::Status::kOk));
+  EXPECT_CALL(*mock_accelerator_, OutputPicture(_)).WillOnce(Return(true));
+  std::vector<DecodeResult> expected = {DecodeResult::kConfigChange,
+                                        DecodeResult::kDecodeError};
+  EXPECT_EQ(Decode(buffers[0]), expected);
+}
+
+TEST_F(AV1DecoderTest, DecodeSVCStreamWithZeroOperatingPointIdc) {
+  std::vector<scoped_refptr<DecoderBuffer>> buffers =
+      ReadIVF("av1-svc-L2T2.ivf");
+  ASSERT_FALSE(buffers.empty());
+  buffers[0] = RewriteAv1SequenceHeaderOperatingPoint(
+      *buffers[0], /*operating_point_idc=*/0, /*seq_level_idx=*/8);
+  EXPECT_CALL(*mock_accelerator_, CreateAV1Picture(_))
+      .WillOnce(Return(base::MakeRefCounted<FakeAV1Picture>()));
+  EXPECT_CALL(*mock_accelerator_, SubmitDecode(_, _, _, _, _))
+      .WillOnce(Return(AV1Decoder::AV1Accelerator::Status::kOk));
+  EXPECT_CALL(*mock_accelerator_, OutputPicture(_)).WillOnce(Return(true));
+  std::vector<DecodeResult> expected = {DecodeResult::kConfigChange,
+                                        DecodeResult::kDecodeError};
+  EXPECT_EQ(Decode(buffers[0]), expected);
+}
+
+TEST_F(AV1DecoderTest, DecodeStreamWithSpatialLayersSideData) {
+  scoped_refptr<DecoderBuffer> i_frame_buffer =
+      ReadDecoderBuffer("av1-I-frame-320x240");
+  ASSERT_TRUE(!!i_frame_buffer);
+  i_frame_buffer->WritableSideData().spatial_layers = {1, 2};
+  EXPECT_CALL(*mock_accelerator_, CreateAV1Picture(_)).Times(0);
+  EXPECT_CALL(*mock_accelerator_, SubmitDecode(_, _, _, _, _)).Times(0);
+  EXPECT_CALL(*mock_accelerator_, OutputPicture(_)).Times(0);
+  std::vector<DecodeResult> expected = {DecodeResult::kDecodeError};
+  EXPECT_EQ(Decode(i_frame_buffer), expected);
+}
+
 TEST_F(AV1DecoderTest, Decode8bProfile1) {
   const std::string kYUV444Stream("bear_av1_720p_444_8bit.ivf");
   std::vector<scoped_refptr<DecoderBuffer>> buffers = ReadIVF(kYUV444Stream);
@@ -735,6 +839,86 @@ TEST_F(AV1DecoderTest, ConfigChangeOnSequenceHeaderToolFlags) {
   EXPECT_EQ(seq_header_a.max_frame_height, seq_header_b.max_frame_height);
   EXPECT_EQ(seq_header_a.use_128x128_superblock,
             seq_header_b.use_128x128_superblock);
+}
+
+// Same as ConfigChangeOnSequenceHeaderToolFlags, but the new coded video
+// sequence arrives right after a Reset() (e.g. on seek or Flush()). Reset()
+// does not destroy the accelerator's hardware context, so a coding-tool flag
+// change in sequence B must still emit kConfigChange before any frame of B is
+// submitted.
+TEST_F(AV1DecoderTest, ResetThenConfigChangeOnSequenceHeaderToolFlags) {
+  constexpr uint8_t kSequenceA[] = {0x12, 0x00, 0x0a, 0x0c, 0x00, 0x00, 0x00,
+                                    0x63, 0xfc, 0x13, 0xfc, 0x0b, 0x3c, 0x01,
+                                    0x00, 0x14, 0x32, 0x08, 0x10, 0x46, 0x40,
+                                    0x00, 0x00, 0x18, 0x00, 0x80};
+  constexpr uint8_t kSequenceB[] = {0x12, 0x00, 0x0a, 0x0d, 0x00, 0x00, 0x00,
+                                    0x63, 0xfc, 0x13, 0xfc, 0x0b, 0x3c, 0xff,
+                                    0xcc, 0x00, 0xa0, 0x32, 0x09, 0x10, 0x00,
+                                    0x8c, 0x80, 0x00, 0x00, 0x30, 0x00, 0x80};
+  constexpr gfx::Size kFrameSize(1280, 720);
+
+  const std::vector<DecodeResult> expected = {
+      DecodeResult::kConfigChange, DecodeResult::kRanOutOfStreamData};
+
+  // Use a non-zero stream id so that the Reset() helper's sanity checks apply.
+  bitstream_id_ = 1;
+
+  libgav1::ObuSequenceHeader seq_header_a = {};
+  {
+    ::testing::InSequence sequence;
+    EXPECT_CALL(*mock_accelerator_, CreateAV1Picture(_))
+        .WillOnce(Return(base::MakeRefCounted<FakeAV1Picture>()));
+    EXPECT_CALL(*mock_accelerator_, SubmitDecode(_, _, _, _, _))
+        .WillOnce(DoAll(SaveArg<1>(&seq_header_a),
+                        Return(AV1Decoder::AV1Accelerator::Status::kOk)));
+    EXPECT_CALL(*mock_accelerator_, OutputPicture(_)).WillOnce(Return(true));
+    auto buffer = DecoderBuffer::CopyFrom(kSequenceA);
+    ASSERT_EQ(Decode(buffer), expected);
+    testing::Mock::VerifyAndClearExpectations(mock_accelerator_);
+  }
+  ASSERT_FALSE(seq_header_a.enable_order_hint);
+  ASSERT_FALSE(seq_header_a.enable_ref_frame_mvs);
+  ASSERT_EQ(decoder_->GetPicSize(), kFrameSize);
+
+  Reset();
+  EXPECT_EQ(decoder_->GetPicSize(), kFrameSize);
+  EXPECT_EQ(decoder_->GetProfile(), AV1PROFILE_PROFILE_MAIN);
+  EXPECT_EQ(decoder_->GetBitDepth(), 8u);
+
+  // A frame OBU without a preceding sequence header OBU after Reset() must not
+  // be decoded using the retained pre-reset sequence header. Bytes 16..26 of
+  // kSequenceA are the standalone OBU_FRAME (key frame) without the leading
+  // temporal delimiter and sequence header OBUs.
+  {
+    EXPECT_CALL(*mock_accelerator_, CreateAV1Picture(_)).Times(0);
+    EXPECT_CALL(*mock_accelerator_, SubmitDecode(_, _, _, _, _)).Times(0);
+    auto headerless_frame =
+        DecoderBuffer::CopyFrom(base::span(kSequenceA).subspan(16u));
+    EXPECT_EQ(Decode(headerless_frame),
+              std::vector<DecodeResult>{DecodeResult::kDecodeError});
+    testing::Mock::VerifyAndClearExpectations(mock_accelerator_);
+  }
+
+  decoder_->Reset();
+
+  libgav1::ObuSequenceHeader seq_header_b = {};
+  {
+    ::testing::InSequence sequence;
+    EXPECT_CALL(*mock_accelerator_, CreateAV1Picture(_))
+        .WillOnce(Return(base::MakeRefCounted<FakeAV1Picture>()));
+    EXPECT_CALL(*mock_accelerator_, SubmitDecode(_, _, _, _, _))
+        .WillOnce(DoAll(SaveArg<1>(&seq_header_b),
+                        Return(AV1Decoder::AV1Accelerator::Status::kOk)));
+    EXPECT_CALL(*mock_accelerator_, OutputPicture(_)).WillOnce(Return(true));
+    auto buffer = DecoderBuffer::CopyFrom(kSequenceB);
+    EXPECT_EQ(Decode(buffer), expected);
+    testing::Mock::VerifyAndClearExpectations(mock_accelerator_);
+  }
+  EXPECT_TRUE(seq_header_b.enable_order_hint);
+  EXPECT_TRUE(seq_header_b.enable_ref_frame_mvs);
+  EXPECT_NE(seq_header_a.order_hint_bits, seq_header_b.order_hint_bits);
+  EXPECT_EQ(seq_header_a.max_frame_width, seq_header_b.max_frame_width);
+  EXPECT_EQ(seq_header_a.max_frame_height, seq_header_b.max_frame_height);
 }
 
 TEST_F(AV1DecoderTest, Reset) {

@@ -4,7 +4,7 @@
 
 #include "chrome/browser/ui/webui/extensions/extensions_internals_source.h"
 
-#include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -15,6 +15,8 @@
 #include "base/memory/ref_counted_memory.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
+#include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/profile.h"
@@ -484,20 +486,32 @@ base::DictValue FormatServiceWorkerKeepaliveData(
   return keepalive_data;
 }
 
-// Formats API and Manifest permissions, which can have details that we add as a
-// dictionary rather than just the string name
-template <typename T>
-base::ListValue FormatDetailedPermissionSet(const T& permissions) {
+// Formats API permissions. Permissions with details are added as a
+// {name: details} dictionary rather than just the string name.
+base::ListValue FormatDetailedAPIPermissionSet(
+    const extensions::APIPermissionSet& permissions) {
   base::ListValue value_list;
-  for (const auto& permission : permissions) {
-    if (auto detail = permission->ToValue()) {
+  for (const auto* permission : permissions) {
+    if (std::optional<base::Value> detail = permission->ToValue()) {
       base::DictValue tmp;
-      tmp.Set(permission->name(),
-              base::Value::FromUniquePtrValue(std::move(detail)));
+      tmp.Set(permission->name(), *std::move(detail));
       value_list.Append(std::move(tmp));
     } else {
       value_list.Append(permission->name());
     }
+  }
+  return value_list;
+}
+
+// Formats manifest permissions, which always have details, as
+// {name: details} dictionaries.
+base::ListValue FormatDetailedManifestPermissionSet(
+    const extensions::ManifestPermissionSet& permissions) {
+  base::ListValue value_list;
+  for (const auto* permission : permissions) {
+    base::DictValue tmp;
+    tmp.Set(permission->name(), permission->ToValue());
+    value_list.Append(std::move(tmp));
   }
   return value_list;
 }
@@ -511,9 +525,10 @@ base::DictValue FormatPermissionSet(
   value.Set(kPermissionsScriptableHostsKey,
             permission_set.scriptable_hosts().ToValue());
   value.Set(kPermissionsManifestKey,
-            FormatDetailedPermissionSet(permission_set.manifest_permissions()));
+            FormatDetailedManifestPermissionSet(
+                permission_set.manifest_permissions()));
   value.Set(kPermissionsApiKey,
-            FormatDetailedPermissionSet(permission_set.apis()));
+            FormatDetailedAPIPermissionSet(permission_set.apis()));
 
   return value;
 }
@@ -595,6 +610,22 @@ void AddEventListenerData(extensions::EventRouter* event_router,
   }
 }
 
+constexpr std::string_view kHtmlPath = "/";
+constexpr std::string_view kJsonPath = "/extensions.json";
+
+constexpr std::string_view kHtmlPrefix = R"html(<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Extensions Internals</title>
+</head>
+<body>
+  <pre id="json">)html";
+
+constexpr std::string_view kHtmlSuffix = R"html(</pre>
+</body>
+</html>)html";
+
 }  // namespace
 
 ExtensionsInternalsSource::ExtensionsInternalsSource(Profile* profile)
@@ -607,20 +638,37 @@ std::string ExtensionsInternalsSource::GetSource() {
 }
 
 std::string ExtensionsInternalsSource::GetMimeType(const GURL& url) {
-  return "text/plain";
+  if (url.path() == kJsonPath) {
+    return "application/json";
+  }
+  return "text/html";
 }
 
 void ExtensionsInternalsSource::StartDataRequest(
     const GURL& url,
     const content::WebContents::Getter& wc_getter,
     content::URLDataSource::GotDataCallback callback) {
-  std::string json = WriteToString();
+  std::string_view path = url.path();
+  std::string data;
+  if (path == kJsonPath) {
+    data = WriteToString();
+  } else if (path == kHtmlPath) {
+    data = GetHtml();
+  } else {
+    std::move(callback).Run(nullptr);
+    return;
+  }
   std::move(callback).Run(
-      base::MakeRefCounted<base::RefCountedString>(std::move(json)));
+      base::MakeRefCounted<base::RefCountedString>(std::move(data)));
+}
+
+std::string ExtensionsInternalsSource::GetHtml() const {
+  std::string json_escaped = base::EscapeForHTML(WriteToString());
+  return base::StrCat({kHtmlPrefix, json_escaped, kHtmlSuffix});
 }
 
 std::string ExtensionsInternalsSource::WriteToString() const {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   using ExtensionStatusMap =
       std::map<extensions::ExtensionRegistry::IncludeFlag,
                extensions::ExtensionSet>;

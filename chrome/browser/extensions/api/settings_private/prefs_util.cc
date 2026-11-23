@@ -53,8 +53,8 @@
 #include "components/live_caption/pref_names.h"
 #include "components/media_router/common/pref_names.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/payments/core/payment_prefs.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
@@ -100,6 +100,7 @@
 #include "chrome/browser/ash/settings/supervised_user_cros_settings_provider.h"
 #include "chrome/browser/extensions/api/settings_private/chromeos_resolve_time_zone_by_geolocation_method_short.h"
 #include "chrome/browser/extensions/api/settings_private/chromeos_resolve_time_zone_by_geolocation_on_off.h"
+#include "chrome/browser/extensions/api/settings_private/generated_time_zone_pref_base.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
@@ -108,7 +109,7 @@
 #include "chromeos/ash/components/timezone/timezone_util.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/components/quick_answers/public/cpp/quick_answers_prefs.h"
-#include "components/account_manager_core/pref_names.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user.h"
@@ -465,6 +466,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[::prefs::kSafeBrowsingScoutReportingEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[::prefs::kSafeBrowsingNoProtectionDisabledPermanently] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[::safe_browsing::kGeneratedSafeBrowsingPref] =
       settings_api::PrefType::kNumber;
   (*s_allowlist)[::prefs::kHttpsOnlyModeEnabled] =
@@ -672,6 +675,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
 #endif
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
   (*s_allowlist)[::prefs::kToastAlertLevel] = settings_api::PrefType::kNumber;
+  (*s_allowlist)[::prefs::kRequestedPageColors] =
+      settings_api::PrefType::kNumber;
+  (*s_allowlist)[::prefs::kApplyPageColorsOnlyOnIncreasedContrast] =
+      settings_api::PrefType::kBoolean;
 #endif
 
   (*s_allowlist)[::prefs::kCaretBrowsingEnabled] =
@@ -686,9 +693,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[ash::kAccountsPrefAllowNewUser] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::kAccountsPrefUsers] = settings_api::PrefType::kList;
-  (*s_allowlist)
-      [::account_manager::prefs::kSecondaryGoogleAccountSigninAllowed] =
-          settings_api::PrefType::kBoolean;
+  (*s_allowlist)[policy::policy_prefs::kSecondaryGoogleAccountSigninAllowed] =
+      settings_api::PrefType::kBoolean;
   // kEnableAutoScreenLock is read-only.
   (*s_allowlist)[ash::prefs::kEnableAutoScreenLock] =
       settings_api::PrefType::kBoolean;
@@ -1286,6 +1292,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilitySelectToSpeakEnabled] =
       settings_api::PrefType::kBoolean;
+  (*s_allowlist)[ash::prefs::kAccessibilityShakeToLocateEnabled] =
+      settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilitySpokenFeedbackEnabled] =
       settings_api::PrefType::kBoolean;
   (*s_allowlist)[ash::prefs::kAccessibilityStickyKeysEnabled] =
@@ -1676,6 +1684,9 @@ settings_private::SetPrefResult PrefsUtil::SetCrosSettingsPref(
     if (!string_value) {
       return settings_private::SetPrefResult::PREF_TYPE_MISMATCH;
     }
+    if (!settings_private::IsTimezoneChangeAllowed(profile_)) {
+      return settings_private::SetPrefResult::PREF_NOT_MODIFIABLE;
+    }
     const user_manager::User* user =
         ash::ProfileHelper::Get()->GetUserByProfile(profile_);
     if (user && ash::system::SetSystemTimezone(
@@ -1799,6 +1810,13 @@ bool PrefsUtil::IsPrefUserModifiable(const std::string& pref_name) {
   if (IsSettingReadOnly(pref_name)) {
     return false;
   }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  if (pref_name == ash::prefs::kUserTimezone &&
+      !settings_private::IsTimezoneChangeAllowed(profile_)) {
+    return false;
+  }
+#endif
 
   const PrefService::Preference* profile_pref =
       profile_->GetPrefs()->FindPreference(pref_name);

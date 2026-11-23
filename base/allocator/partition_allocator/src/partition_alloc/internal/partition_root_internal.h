@@ -51,11 +51,16 @@
 // When a memory tool is replacing malloc to keep aligned behaviour working we
 // use window's aligned_malloc and aligned_free, but otherwise we need memalign.
 #if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
-#if PA_BUILDFLAG(PA_COMPILER_MSVC)
-#include <malloc.h>
+// <malloc/malloc.h> and <malloc.h> are required for `malloc_size()`,
+// `malloc_usable_size()` or `_msize()` used by `ReallocInPlaceOrMove()`.
+#if PA_BUILDFLAG(IS_APPLE)
+#include <malloc/malloc.h>
 #else
+#include <malloc.h>
+#endif  // PA_BUILDFLAG(IS_APPLE)
+#if !PA_BUILDFLAG(PA_COMPILER_MSVC)
 #include <stdlib.h>
-#endif  // PA_BUILDFLAG(PA_COMPILER_MSVC)
+#endif  // !PA_BUILDFLAG(PA_COMPILER_MSVC)
 #endif  // PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
 
 #if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
@@ -444,6 +449,9 @@ AllocationNotificationData PartitionRoot::CreateAllocationNotificationData(
     notification_data.SetMteReportingMode(memory_tagging_reporting_mode());
 #endif
   }
+#if PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
+  notification_data.set_brp_enabled(brp_enabled());
+#endif
 
   return notification_data;
 }
@@ -578,12 +586,14 @@ PartitionRoot::GetSlotStartAndSlotSpanFromAddress(void* object) {
   PA_CHECK(IsManagedByPartitionAlloc(object_addr));
 #endif
 
+#if PA_BUILDFLAG(EXPENSIVE_DCHECKS_ARE_ON)
   SlotStart slot_start = SlotStart::Checked(object, this);
+#else
+  SlotStart slot_start = SlotStart::Unchecked(object);
+#endif
   SlotSpanMetadata* slot_span =
-      SlotSpanMetadata::FromSlotStart(slot_start.Untag(), this);
+      SlotSpanMetadata::FromAddr(slot_start.Untag().value(), this);
   PA_DCHECK(PartitionRoot::FromSlotSpanMetadata(slot_span) == this);
-  PA_DCHECK(slot_span ==
-            SlotSpanMetadata::FromSlotStart(slot_start.Untag(), this));
 
   return {slot_start, slot_span};
 }
@@ -635,7 +645,9 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeNoHooksImmediateInternal(
   //   b. Otherwise, call the "raw" allocator <-- Locking
   PA_DCHECK(slot_start);
   PA_DCHECK(slot_span);
+#if PA_BUILDFLAG(EXPENSIVE_DCHECKS_ARE_ON)
   PA_DCHECK(DeducedRootIsValid(slot_span));
+#endif
 
   // Layout inside the slot:
   //   |...object...|[empty]|[cookie]|[unused]|[metadata]|
@@ -1470,7 +1482,7 @@ PartitionRoot::AllocInternalNoHooks(size_t requested_size,
           .usable_size = AdjustSizeForExtrasSubtract(maybe_slot_and_size->size),
       };
 
-#if PA_BUILDFLAG(DCHECKS_ARE_ON)
+#if PA_BUILDFLAG(EXPENSIVE_DCHECKS_ARE_ON)
       // Make sure that the allocated pointer comes from the same place it would
       // for a non-thread cache allocation.
       SlotSpanMetadata* slot_span = SlotSpanMetadata::FromSlotStart(
@@ -1764,17 +1776,7 @@ void* PartitionRoot::ReallocInline(void* ptr,
                                    size_t new_size,
                                    const char* type_name) {
   static_assert(!ContainsFlags(alloc_flags, AllocFlags::kAlignedAlloc));
-#if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
-  if (!AllocWithMemoryToolProlog<alloc_flags>(new_size)) {
-    // Early return if AllocWithMemoryToolProlog returns false
-    return nullptr;
-  }
-  void* result = realloc(ptr, new_size);
-  if constexpr (!ContainsFlags(alloc_flags, AllocFlags::kReturnNull)) {
-    PA_CHECK(result);
-  }
-  return result;
-#else
+
   if (!ptr) [[unlikely]] {
     return AllocInternal<alloc_flags>(new_size, internal::PartitionPageSize(),
                                       type_name)
@@ -1795,7 +1797,6 @@ void* PartitionRoot::ReallocInline(void* ptr,
 
   return ReallocInPlaceOrMove<alloc_flags, free_flags>(ptr, new_size,
                                                        type_name);
-#endif  // PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
 }
 
 template <AllocFlags alloc_flags, FreeFlags free_flags>
@@ -1811,6 +1812,8 @@ PA_ALWAYS_INLINE void* PartitionRoot::ReallocInPlaceOrMove(
     overridden = PartitionAllocHooks::ReallocOverrideHookIfEnabled(
         &old_usable_size, ptr);
   }
+
+#if !PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
   if (!overridden) [[likely]] {
     // |ptr| may have been allocated in another root.
     SlotSpanMetadata* slot_span =
@@ -1864,6 +1867,7 @@ PA_ALWAYS_INLINE void* PartitionRoot::ReallocInPlaceOrMove(
     new_size = std::max(new_size, old_usable_size * 3 / 2);
   }
 #endif
+#endif  // !PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
 
   // This realloc cannot be resized in-place. Sadness.
   void* ret = AllocForRealloc<alloc_flags>(this, new_size, type_name);
@@ -1871,6 +1875,17 @@ PA_ALWAYS_INLINE void* PartitionRoot::ReallocInPlaceOrMove(
     return nullptr;
   }
 
+#if PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
+  if (!overridden) {
+#if PA_BUILDFLAG(IS_WIN)
+    old_usable_size = _msize(ptr);
+#elif PA_BUILDFLAG(IS_APPLE)
+    old_usable_size = malloc_size(ptr);
+#else
+    old_usable_size = malloc_usable_size(ptr);
+#endif  // PA_BUILDFLAG(IS_WIN)
+  }
+#endif  // PA_BUILDFLAG(MEMORY_TOOL_REPLACES_ALLOCATOR)
   PA_UNSAFE_TODO(memcpy(ret, ptr, std::min(old_usable_size, new_size)));
   FreeInUnknownRoot<free_flags>(
       ptr);  // Implicitly protects the old ptr on MTE systems.

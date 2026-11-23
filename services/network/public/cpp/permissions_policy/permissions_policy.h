@@ -219,6 +219,12 @@ class COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM) PermissionsPolicy {
       const network::ParsedPermissionsPolicy& parsed_policy,
       const url::Origin& origin);
 
+  // Creates a PermissionsPolicy from an explicit set of inherited policies.
+  static std::unique_ptr<PermissionsPolicy> CreateFromInheritedPolicy(
+      const network::PermissionsPolicyFeaturesBitset& inherited_policies,
+      const network::ParsedPermissionsPolicy& header_policy,
+      const url::Origin& origin);
+
   // Returns the inherited policy of the given feature.
   static bool InheritedValueForFeature(
       const url::Origin& origin,
@@ -247,6 +253,18 @@ class COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM) PermissionsPolicy {
       const url::Origin& origin,
       bool override_default_policy_to_all = false) const;
 
+  // Returns whether the document with this policy can delegate the given
+  // feature to `origin`, e.g. via an iframe's `allow` attribute or a worker's
+  // `allow` option. Implements Permissions Policy 9.8 ("Get feature value for
+  // origin"), which is also used when computing the inherited policy of a child
+  // frame: the feature must be enabled by inherited policy, and if there is a
+  // declared policy for the feature, its allowlist must match `origin`;
+  // otherwise, the feature can be delegated if its default allowlist is '*' or
+  // 'self'.
+  bool CanDelegateFeatureToOrigin(
+      network::mojom::PermissionsPolicyFeature feature,
+      const url::Origin& origin) const;
+
   const Allowlist GetAllowlistForDevTools(
       network::mojom::PermissionsPolicyFeature feature) const;
 
@@ -260,6 +278,12 @@ class COMPONENT_EXPORT(NETWORK_CPP_WEB_PLATFORM) PermissionsPolicy {
   // Returns the allowlist of a given feature if it already exists. Doesn't
   // build a default allow list based on the policy if not.
   std::optional<const Allowlist> GetAllowlistForFeatureIfExists(
+      network::mojom::PermissionsPolicyFeature feature) const;
+
+  // Returns the header allowlist of a given feature if explicitly declared in
+  // the document's HTTP Permissions-Policy header, regardless of inherited
+  // policy.
+  std::optional<Allowlist> GetHeaderAllowlistForFeatureIfExists(
       network::mojom::PermissionsPolicyFeature feature) const;
 
   // Returns empty string when there is no reporting endpoint.

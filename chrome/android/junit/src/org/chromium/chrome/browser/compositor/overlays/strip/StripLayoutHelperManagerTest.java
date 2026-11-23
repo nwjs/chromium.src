@@ -14,6 +14,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
@@ -52,6 +53,7 @@ import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.DeviceInfo;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -60,6 +62,7 @@ import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.actor.ActorKeyedService;
 import org.chromium.chrome.browser.actor.ActorKeyedServiceFactory;
@@ -95,17 +98,22 @@ import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabCreationState;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
+import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabstrip.StripVisibilityState;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
 import org.chromium.chrome.browser.toolbar.ToolbarManager;
+import org.chromium.chrome.browser.toolbar.top.ToolbarControlContainer;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
@@ -125,8 +133,11 @@ import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tabs.TabAlert;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.ui.base.EventForwarder;
+import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.dragdrop.DragAndDropDelegate;
 import org.chromium.ui.resources.ResourceManager;
 
@@ -140,6 +151,7 @@ import java.util.List;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(qualifiers = "sw600dp")
 @DisableFeatures({
+    ChromeFeatureList.ANDROID_NEW_TAB_BUTTON_TABSTRIP_WEB_UI,
     ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW,
     ChromeFeatureList.DATA_SHARING,
     ChromeFeatureList.GLIC,
@@ -191,6 +203,9 @@ public class StripLayoutHelperManagerTest {
     @Mock private PrefService mPrefService;
     @Mock private UserPrefs.Natives mUserPrefsJniMock;
     @Mock private PrefChangeRegistrar.Natives mPrefChangeRegistrarJniMock;
+    @Mock private NtbWebUiCoordinator.Natives mNtbWebUiCoordinatorJniMock;
+    @Mock private WebContents mWebContents;
+    @Mock private EventForwarder mEventForwarder;
     @Mock private MenuOrKeyboardActionController mMenuOrKeyboardActionController;
     private final OneshotSupplierImpl<SideUiStateProvider> mSideUiStateProviderSupplier =
             new OneshotSupplierImpl<>();
@@ -203,7 +218,7 @@ public class StripLayoutHelperManagerTest {
             mTabContentManagerSupplier = ObservableSuppliers.createMonotonic();
     private StripLayoutHelperManager mStripLayoutHelperManager;
     private Activity mActivity;
-    private View mControlContainer;
+    private ToolbarControlContainer mControlContainer;
     private ViewStub mTabHoverCardViewStub;
     private SettableMonotonicObservableSupplier<TabModelStartupInfo> mTabModelStartupInfoSupplier;
     private SettableNonNullObservableSupplier<Integer> mTabStripHeightSupplier;
@@ -234,12 +249,16 @@ public class StripLayoutHelperManagerTest {
         when(mUserPrefsJniMock.get(mProfile)).thenReturn(mPrefService);
         PrefChangeRegistrarJni.setInstanceForTesting(mPrefChangeRegistrarJniMock);
         when(mPrefChangeRegistrarJniMock.init(any(), any())).thenReturn(1L);
+        NtbWebUiCoordinatorJni.setInstanceForTesting(mNtbWebUiCoordinatorJniMock);
+        when(mNtbWebUiCoordinatorJniMock.init(any(), anyInt(), anyLong())).thenReturn(1L);
+        when(mNtbWebUiCoordinatorJniMock.getWebContents(1L)).thenReturn(mWebContents);
+        when(mWebContents.getEventForwarder()).thenReturn(mEventForwarder);
 
         mLayerTitleCacheSupplier.set(mLayerTitleCache);
         mTabContentManagerSupplier.set(mTabContentManager);
         mTabModelSupplier.set(mStandardTabModel);
 
-        mControlContainer = new View(mActivity);
+        mControlContainer = new ToolbarControlContainer(mActivity, null);
         mTabHoverCardViewStub = new ViewStub(mActivity);
         when(mToolbarManager.getStatusBarColorController()).thenReturn(mStatusBarColorController);
         when(mDesktopWindowStateManager.isInUnfocusedDesktopWindow()).thenReturn(false);
@@ -272,6 +291,7 @@ public class StripLayoutHelperManagerTest {
         when(mTabModelSelector.getCurrentModel()).thenReturn(mStandardTabModel);
         when(mTabModelSelector.getCurrentTabModelSupplier()).thenReturn(mTabModelSupplier);
         when(mStandardTabModel.getProfile()).thenReturn(mProfile);
+        when(mStandardTabModel.getNativeSessionId()).thenReturn(1);
 
         mTabModelStartupInfoSupplier = ObservableSuppliers.createMonotonic();
 
@@ -314,7 +334,8 @@ public class StripLayoutHelperManagerTest {
                         mSideUiStateProviderSupplier,
                         mTabObscuringHandler,
                         /* canActivateTabLayoutToggleMenuSupplier= */ null,
-                        mMenuOrKeyboardActionController);
+                        mMenuOrKeyboardActionController,
+                        /* activityCreationUptimeMs= */ 0L);
         ShadowLooper.idleMainLooper();
         mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
         mStripLayoutHelperManager.setTabModelSelector(mTabModelSelector, mTabCreatorManager);
@@ -1556,5 +1577,162 @@ public class StripLayoutHelperManagerTest {
         verify(mMenuOrKeyboardActionController)
                 .unregisterMenuOrKeyboardActionHandler(mStripLayoutHelperManager);
         mStripLayoutHelperManager = null;
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_NEW_TAB_BUTTON_TABSTRIP_WEB_UI,
+        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
+    })
+    public void testNtbWebUiCoordinator_Lifecycle() {
+        mStripLayoutHelperManager.destroy();
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
+        initializeTest();
+
+        verify(mNtbWebUiCoordinatorJniMock)
+                .init(
+                        eq(mStripLayoutHelperManager.getNtbWebUiCoordinatorForTesting()),
+                        eq(1),
+                        eq(0L));
+        assertEquals(1L, mStripLayoutHelperManager.getNtbWebUiNativePtr());
+        assertEquals(1, mControlContainer.getChildCount());
+
+        mStripLayoutHelperManager.destroy();
+        verify(mNtbWebUiCoordinatorJniMock).destroy(1L);
+        assertEquals(0L, mStripLayoutHelperManager.getNtbWebUiNativePtr());
+        assertEquals(0, mControlContainer.getChildCount());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_NEW_TAB_BUTTON_TABSTRIP_WEB_UI,
+        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
+    })
+    public void testNtbWebUiCoordinator_UpdateBounds() {
+        mStripLayoutHelperManager.destroy();
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
+        initializeTest();
+
+        assertEquals(1, mControlContainer.getChildCount());
+        View inputView = mControlContainer.getChildAt(0);
+        assertEquals(View.GONE, inputView.getVisibility());
+
+        mStripLayoutHelperManager.onSizeChanged(
+                SCREEN_WIDTH, SCREEN_HEIGHT, VISIBLE_VIEWPORT_Y, ORIENTATION);
+        mStripLayoutHelperManager.getUpdatedSceneOverlayTree(
+                new RectF(), new RectF(), mResourceManager);
+
+        // Compare the native compositor new tab button's bounds (converted from dp to px) against
+        // the WebUI inputView's location and dimensions, as well as the origin and size forwarded
+        // to EventForwarder and the native WebUI host.
+        var newTabButton = mStripLayoutHelperManager.getNewTabButton();
+        var metrics = inputView.getResources().getDisplayMetrics();
+        int expectedXPx = ViewUtils.dpToPx(metrics, newTabButton.getDrawX());
+        int expectedYPx = ViewUtils.dpToPx(metrics, newTabButton.getDrawY());
+        int expectedWidthPx = ViewUtils.dpToPx(metrics, newTabButton.getWidth());
+        int expectedHeightPx = ViewUtils.dpToPx(metrics, newTabButton.getHeight());
+
+        assertEquals(View.VISIBLE, inputView.getVisibility());
+        assertEquals(expectedXPx, inputView.getTranslationX(), 0f);
+        assertEquals(expectedYPx, inputView.getTranslationY(), 0f);
+        assertEquals(expectedWidthPx, inputView.getLayoutParams().width);
+        assertEquals(expectedHeightPx, inputView.getLayoutParams().height);
+        verify(mEventForwarder).setContainerViewOriginInCompositorSurface(expectedXPx, expectedYPx);
+        verify(mNtbWebUiCoordinatorJniMock).resize(1L, expectedWidthPx, expectedHeightPx);
+
+        // Updating the scene tree again without changing button dimensions should not re-trigger
+        // native resize.
+        mStripLayoutHelperManager.getUpdatedSceneOverlayTree(
+                new RectF(), new RectF(), mResourceManager);
+        verify(mNtbWebUiCoordinatorJniMock, times(1)).resize(eq(1L), anyInt(), anyInt());
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_NEW_TAB_BUTTON_TABSTRIP_WEB_UI,
+        ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW
+    })
+    public void testNtbWebUiCoordinator_RecordsInteractionToNewTab() {
+        mStripLayoutHelperManager.destroy();
+        clearInvocations(mTabModelSelector);
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
+        initializeTest();
+
+        ArgumentCaptor<TabModelObserver> observerCaptor =
+                ArgumentCaptor.forClass(TabModelObserver.class);
+        verify(mTabModelSelector).addObserverToAllModels(observerCaptor.capture());
+        TabModelObserver observer = observerCaptor.getValue();
+
+        NtbWebUiCoordinator coordinator =
+                mStripLayoutHelperManager.getNtbWebUiCoordinatorForTesting();
+        assertNotNull(coordinator);
+        coordinator.onInputInteraction(TimeUtils.uptimeMillis());
+
+        // Non-UI tab creations do not consume the interaction timestamp or record the metric.
+        try (HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.TabStrip.NewTabButton.InteractionToNewTab")
+                        .build()) {
+            observer.didAddTab(
+                    mSelectedTab,
+                    TabLaunchType.FROM_LINK,
+                    TabCreationState.LIVE_IN_FOREGROUND,
+                    /* markedForSelection= */ true);
+        }
+
+        // FROM_CHROME_UI consumes the interaction timestamp and records the metric once.
+        try (HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.TabStrip.NewTabButton.InteractionToNewTab")) {
+            observer.didAddTab(
+                    mSelectedTab,
+                    TabLaunchType.FROM_CHROME_UI,
+                    TabCreationState.LIVE_IN_FOREGROUND,
+                    /* markedForSelection= */ true);
+        }
+
+        // Subsequent FROM_CHROME_UI tab creations without a new interaction do not record again.
+        try (HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.TabStrip.NewTabButton.InteractionToNewTab")
+                        .build()) {
+            observer.didAddTab(
+                    mSelectedTab,
+                    TabLaunchType.FROM_CHROME_UI,
+                    TabCreationState.LIVE_IN_FOREGROUND,
+                    /* markedForSelection= */ true);
+        }
+    }
+
+    @Test
+    public void testNativeNewTabButton_RecordsInteractionToNewTab() {
+        mStripLayoutHelperManager.destroy();
+        clearInvocations(mTabModelSelector);
+        TabCreator tabCreator = mock(TabCreator.class);
+        when(mTabCreatorManager.getTabCreator(false)).thenReturn(tabCreator);
+        initializeTest();
+
+        ArgumentCaptor<TabModelObserver> observerCaptor =
+                ArgumentCaptor.forClass(TabModelObserver.class);
+        verify(mTabModelSelector).addObserverToAllModels(observerCaptor.capture());
+        TabModelObserver observer = observerCaptor.getValue();
+
+        mStripLayoutHelperManager
+                .getActiveStripLayoutHelper()
+                .onClick(
+                        TimeUtils.uptimeMillis(),
+                        mStripLayoutHelperManager.getNewTabButton(),
+                        /* motionEventButtonState= */ 0,
+                        /* modifiers= */ 0);
+
+        try (HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.TabStrip.NewTabButton.InteractionToNewTab")) {
+            observer.didAddTab(
+                    mSelectedTab,
+                    TabLaunchType.FROM_CHROME_UI,
+                    TabCreationState.LIVE_IN_FOREGROUND,
+                    /* markedForSelection= */ true);
+        }
     }
 }

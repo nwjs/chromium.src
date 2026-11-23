@@ -51,8 +51,8 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable.HairlineBehavior;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxState;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
@@ -67,6 +67,8 @@ import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.display.DisplayUtil;
 import org.chromium.ui.widget.ToastManager;
 import org.chromium.url.JUnitTestGURLs;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Unit tests for LocationBarTablet. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -135,6 +137,7 @@ public class LocationBarTabletUnitTest {
 
     private Activity mActivity;
     private TestLocationBarTablet mLocationBarTablet;
+    private OmniboxResourceProvider mResourceProvider;
     private FrameLayout mHolderView;
     private View mContainerView;
 
@@ -162,12 +165,19 @@ public class LocationBarTabletUnitTest {
                 .when(mLocationBarDataProvider)
                 .getPrimaryColor();
         mLocationBarTablet.setHolderAndContainer(mHolderView, null);
+        mResourceProvider = new OmniboxResourceProvider(mActivity, BrandedColorScheme.APP_DEFAULT);
         mLocationBarTablet.initialize(
                 mAutocompleteCoordinator,
                 mUrlBarCoordinator,
                 mStatusCoordinator,
                 mLocationBarDataProvider,
-                mWindowAndroid);
+                mWindowAndroid,
+                mResourceProvider);
+    }
+
+    private void updateVisualsForState(@BrandedColorScheme int brandedColorScheme) {
+        mResourceProvider.setBrandedColorScheme(brandedColorScheme);
+        mLocationBarTablet.updateVisualsForState();
     }
 
     @Test
@@ -508,8 +518,8 @@ public class LocationBarTabletUnitTest {
                                 .findDrawableByLayerId(R.id.focused_popup_inner_bg);
         @ColorInt
         int expectedOuterRectColor =
-                OmniboxResourceProvider.getPopoverSuggestionBackgroundColor(
-                        mActivity, BrandedColorScheme.APP_DEFAULT);
+                mResourceProvider.getSuggestionBackgroundColor(
+                        FuseboxLayoutMode.SUGGESTIONS_POPOVER, /* isDropdownContainer= */ true);
         assertEquals(expectedOuterRectColor, outerRect.getColor().getDefaultColor());
         assertEquals(expectedOuterRectColor, innerRect.getColor().getDefaultColor());
         assertNull(mLocationBarTablet.getForeground());
@@ -810,25 +820,21 @@ public class LocationBarTabletUnitTest {
     @Test
     public void testUpdateVisualsForState_unfocused() {
         // TODO(https://crbug.com/495794043): Replace with a render test.
-        mLocationBarTablet.updateVisualsForState(BrandedColorScheme.INCOGNITO);
+        updateVisualsForState(BrandedColorScheme.INCOGNITO);
 
         LocationBarBackgroundDrawable background =
                 (LocationBarBackgroundDrawable) mLocationBarTablet.getBackground();
         GradientDrawable unfocusedRect = background.getBackgroundGradient();
 
         @ColorInt
-        int expectedIncognitoColor =
-                OmniboxResourceProvider.getTabletToolbarTextBoxBackgroundColor(
-                        mActivity, BrandedColorScheme.INCOGNITO);
+        int expectedIncognitoColor = mResourceProvider.getTabletToolbarTextBoxBackgroundColor();
         assertEquals(expectedIncognitoColor, unfocusedRect.getColor().getDefaultColor());
 
-        mLocationBarTablet.updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
+        updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
         background = (LocationBarBackgroundDrawable) mLocationBarTablet.getBackground();
         unfocusedRect = background.getBackgroundGradient();
         @ColorInt
-        int expectedAppDefaultColor =
-                OmniboxResourceProvider.getTabletToolbarTextBoxBackgroundColor(
-                        mActivity, BrandedColorScheme.APP_DEFAULT);
+        int expectedAppDefaultColor = mResourceProvider.getTabletToolbarTextBoxBackgroundColor();
         assertEquals(expectedAppDefaultColor, unfocusedRect.getColor().getDefaultColor());
     }
 
@@ -837,7 +843,7 @@ public class LocationBarTabletUnitTest {
     public void testUpdateVisualsForState_focused() {
         // TODO(https://crbug.com/495794043): Replace with a render test.
         mLocationBarTablet.onFuseboxStateChanged(FuseboxState.EXPANDED);
-        mLocationBarTablet.updateVisualsForState(BrandedColorScheme.INCOGNITO);
+        updateVisualsForState(BrandedColorScheme.INCOGNITO);
 
         LayerDrawable background = (LayerDrawable) mLocationBarTablet.getBackground();
         GradientDrawable outerRect =
@@ -857,7 +863,7 @@ public class LocationBarTabletUnitTest {
                         mActivity, BrandedColorScheme.INCOGNITO);
         assertEquals(expectedIncognitoInnerColor, innerRect.getColor().getDefaultColor());
 
-        mLocationBarTablet.updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
+        updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
 
         @ColorInt
         int expectedAppDefaultOuterColor =
@@ -875,7 +881,7 @@ public class LocationBarTabletUnitTest {
     @Test
     public void testSetIsInStandby() {
         assertNull(mLocationBarTablet.getForeground());
-        mLocationBarTablet.updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
+        updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
         LocationBarBackgroundDrawable background =
                 (LocationBarBackgroundDrawable) mLocationBarTablet.getBackground();
         GradientDrawable unfocusedRect = background.getBackgroundGradient();
@@ -888,19 +894,17 @@ public class LocationBarTabletUnitTest {
 
         @ColorInt
         int expectedStandbyColor =
-                OmniboxResourceProvider.getTabletToolbarTextBoxStandbyBackgroundColor(
-                        mActivity, BrandedColorScheme.APP_DEFAULT);
+                mResourceProvider.getTabletToolbarTextBoxStandbyBackgroundColor();
         assertEquals(expectedStandbyColor, unfocusedRect.getColor().getDefaultColor());
 
         mLocationBarTablet.setShowFocusRing(false);
         assertEquals(HairlineBehavior.NONE, background.getHairlineBehaviorForTesting());
-        mLocationBarTablet.updateVisualsForState(BrandedColorScheme.INCOGNITO);
+        updateVisualsForState(BrandedColorScheme.INCOGNITO);
         mLocationBarTablet.setShowFocusRing(true);
         assertEquals(HairlineBehavior.SOLID, background.getHairlineBehaviorForTesting());
         @ColorInt
         int expectedIncognitoStandbyColor =
-                OmniboxResourceProvider.getTabletToolbarTextBoxStandbyBackgroundColor(
-                        mActivity, BrandedColorScheme.INCOGNITO);
+                mResourceProvider.getTabletToolbarTextBoxStandbyBackgroundColor();
         assertEquals(expectedIncognitoStandbyColor, unfocusedRect.getColor().getDefaultColor());
 
         mLocationBarTablet.onFuseboxStateChanged(FuseboxState.COMPACT);
@@ -924,9 +928,7 @@ public class LocationBarTabletUnitTest {
         mLocationBarTablet.setShowFocusRing(false);
         assertNull(mLocationBarTablet.getForeground());
         @ColorInt
-        int expectedNormalColor =
-                OmniboxResourceProvider.getTabletToolbarTextBoxBackgroundColor(
-                        mActivity, BrandedColorScheme.INCOGNITO);
+        int expectedNormalColor = mResourceProvider.getTabletToolbarTextBoxBackgroundColor();
         assertEquals(expectedNormalColor, unfocusedRect.getColor().getDefaultColor());
     }
 
@@ -1076,6 +1078,103 @@ public class LocationBarTabletUnitTest {
 
         assertEquals(0, ((MarginLayoutParams) urlBar.getLayoutParams()).getMarginStart());
         assertEquals(0f, urlBar.getTranslationX(), MathUtils.EPSILON);
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-xhdpi")
+    public void testOnTouchEvent_routesToClosestVisibleActionButton() {
+        mLocationBarTablet.setLayoutParams(new FrameLayout.LayoutParams(1000, 300));
+        mActivity
+                .getWindowManager()
+                .addView(
+                        mActivity.getWindow().getDecorView(),
+                        mActivity.getWindow().getAttributes());
+        View deleteButton = mLocationBarTablet.findViewById(R.id.delete_button);
+        View micButton = mLocationBarTablet.findViewById(R.id.mic_button);
+
+        mLocationBarTablet.setDeleteButtonVisibility(true);
+        mLocationBarTablet.setMicButtonVisibility(true);
+        ShadowLooper.idleMainLooper();
+
+        deleteButton.layout(910, 10, 950, 50);
+        micButton.layout(910, 240, 950, 280);
+
+        AtomicBoolean deleteClicked = new AtomicBoolean();
+        AtomicBoolean micClicked = new AtomicBoolean();
+        deleteButton.setOnClickListener(_ -> deleteClicked.set(true));
+        micButton.setOnClickListener(_ -> micClicked.set(true));
+
+        // Include ACTION_MOVE so View#pointInView verifies target-local coordinates.
+        MotionEvent downEvent = obtainDownEvent(/* x= */ 930f, /* y= */ 285f);
+        MotionEvent moveEvent = obtainMoveEvent(/* x= */ 930f, /* y= */ 285f);
+        MotionEvent upEvent = obtainUpEvent(/* x= */ 930f, /* y= */ 285f);
+        assertTrue(mLocationBarTablet.onTouchEvent(downEvent));
+        assertTrue(mLocationBarTablet.onTouchEvent(moveEvent));
+        assertEquals(20f, moveEvent.getX(), MathUtils.EPSILON);
+        assertEquals(40f, moveEvent.getY(), MathUtils.EPSILON);
+        assertTrue(mLocationBarTablet.onTouchEvent(upEvent));
+        ShadowLooper.idleMainLooper();
+        downEvent.recycle();
+        moveEvent.recycle();
+        upEvent.recycle();
+
+        assertTrue(micClicked.get());
+        assertFalse(deleteClicked.get());
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-xhdpi")
+    public void testOnTouchEvent_ignoresDistantActionButtonsInEmptySpace() {
+        mLocationBarTablet.setLayoutParams(new FrameLayout.LayoutParams(1000, 300));
+        mActivity
+                .getWindowManager()
+                .addView(
+                        mActivity.getWindow().getDecorView(),
+                        mActivity.getWindow().getAttributes());
+        View deleteButton = mLocationBarTablet.findViewById(R.id.delete_button);
+        View micButton = mLocationBarTablet.findViewById(R.id.mic_button);
+
+        mLocationBarTablet.setDeleteButtonVisibility(true);
+        mLocationBarTablet.setMicButtonVisibility(true);
+        ShadowLooper.idleMainLooper();
+
+        deleteButton.layout(910, 10, 950, 50);
+        micButton.layout(910, 240, 950, 280);
+
+        AtomicBoolean deleteClicked = new AtomicBoolean();
+        AtomicBoolean micClicked = new AtomicBoolean();
+        deleteButton.setOnClickListener(_ -> deleteClicked.set(true));
+        micButton.setOnClickListener(_ -> micClicked.set(true));
+
+        // Touch at (750, 260) in the empty middle of the bottom bar is outside the 48dp minimum
+        // touch target bounds of micButton and deleteButton and must not trigger either button.
+        MotionEvent downEvent = obtainDownEvent(/* x= */ 750f, /* y= */ 260f);
+        MotionEvent upEvent = obtainUpEvent(/* x= */ 750f, /* y= */ 260f);
+        assertFalse(mLocationBarTablet.onTouchEvent(downEvent));
+        assertFalse(mLocationBarTablet.onTouchEvent(upEvent));
+        ShadowLooper.idleMainLooper();
+        downEvent.recycle();
+        upEvent.recycle();
+
+        assertFalse(micClicked.get());
+        assertFalse(deleteClicked.get());
+    }
+
+    private static MotionEvent obtainDownEvent(float x, float y) {
+        return obtainMotionEvent(MotionEvent.ACTION_DOWN, x, y);
+    }
+
+    private static MotionEvent obtainMoveEvent(float x, float y) {
+        return obtainMotionEvent(MotionEvent.ACTION_MOVE, x, y);
+    }
+
+    private static MotionEvent obtainUpEvent(float x, float y) {
+        return obtainMotionEvent(MotionEvent.ACTION_UP, x, y);
+    }
+
+    private static MotionEvent obtainMotionEvent(int action, float x, float y) {
+        return MotionEvent.obtain(
+                /* downTime= */ 0L, /* eventTime= */ 0L, action, x, y, /* metaState= */ 0);
     }
 
     private void setupContainerAndMeasure(int containerWidth, int prefocusWidth, int leftPosition) {

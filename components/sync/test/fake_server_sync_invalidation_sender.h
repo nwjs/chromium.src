@@ -9,8 +9,10 @@
 #include <vector>
 
 #include "base/containers/flat_map.h"
+#include "base/files/file_path.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "components/gcm_driver/gcm_connection_observer.h"
 #include "components/sync/base/data_type.h"
@@ -39,7 +41,9 @@ class FakeServerSyncInvalidationSender : public FakeServer::Observer,
       "com.google.chrome.sync.invalidations";
 
   // `fake_server` must not be nullptr, and must outlive this object.
-  explicit FakeServerSyncInvalidationSender(FakeServer* fake_server);
+  // Persists undelivered invalidations to `storage_dir` across PRE_ tests.
+  FakeServerSyncInvalidationSender(FakeServer* fake_server,
+                                   const base::FilePath& storage_dir);
   ~FakeServerSyncInvalidationSender() override;
   FakeServerSyncInvalidationSender(const FakeServerSyncInvalidationSender&) =
       delete;
@@ -53,6 +57,14 @@ class FakeServerSyncInvalidationSender : public FakeServer::Observer,
   // Remove `fake_gcm_driver` to stop sending invalidations.
   void RemoveFakeGCMDriver(
       instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver);
+
+  // Simulates going offline/online for all clients. While offline,
+  // invalidations are queued in `invalidations_to_deliver_` and persisted to
+  // disk instead of being delivered to handlers. Going back online delivers
+  // any queued invalidations immediately.
+  void SetOfflineAllClients(bool offline);
+
+  base::WeakPtr<FakeServerSyncInvalidationSender> GetWeakPtr();
 
   // FakeServer::Observer implementation.
   void OnWillCommit() override;
@@ -72,7 +84,12 @@ class FakeServerSyncInvalidationSender : public FakeServer::Observer,
   // Updates `token_to_interested_data_types_` from DeviceInfo data type.
   void UpdateTokenToInterestedDataTypesMap();
 
+  void LoadFakeStateFromDisk();
+  void WriteFakeStateToDisk() const;
+
   const base::raw_ref<FakeServer> fake_server_;
+  const base::FilePath fake_state_file_path_;
+  bool offline_ = false;
 
   base::ScopedObservation<FakeServer, FakeServer::Observer>
       fake_server_observation_{this};
@@ -91,6 +108,9 @@ class FakeServerSyncInvalidationSender : public FakeServer::Observer,
 
   std::vector<raw_ptr<instance_id::FakeGCMDriverForInstanceID>>
       fake_gcm_drivers_;
+
+  base::WeakPtrFactory<FakeServerSyncInvalidationSender> weak_ptr_factory_{
+      this};
 };
 
 }  // namespace fake_server

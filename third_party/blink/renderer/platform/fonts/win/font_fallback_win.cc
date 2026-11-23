@@ -40,6 +40,7 @@
 #include "base/no_destructor.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
 #include "third_party/blink/renderer/platform/fonts/font_fallback_priority.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/icu_error.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_hash.h"
@@ -97,7 +98,7 @@ class ScriptToFontMap {
  public:
   static constexpr UScriptCode kSize = USCRIPT_CODE_LIMIT;
 
-  ScriptToFontMap() : mappings_(kSize) {}
+  ScriptToFontMap() = default;
 
   FontMapping& operator[](UScriptCode script) { return mappings_[script]; }
 
@@ -108,11 +109,12 @@ class ScriptToFontMap {
   }
 
  private:
-  Vector<FontMapping> mappings_;
+  Vector<FontMapping> mappings_ = Vector<FontMapping>(kSize);
 };
 
 const AtomicString& FindMonospaceFontForScript(UScriptCode script) {
-  if (script == USCRIPT_ARABIC || script == USCRIPT_HEBREW) {
+  if (script == USCRIPT_ARABIC || script == USCRIPT_ARABIC_NASTALIQ ||
+      script == USCRIPT_HEBREW) {
     DEFINE_THREAD_SAFE_STATIC_LOCAL(AtomicString, kCourierNew, ("courier new"));
     return kCourierNew;
   }
@@ -131,6 +133,9 @@ void InitializeScriptFontMap(ScriptToFontMap& script_font_map) {
   // with overrides and additional fallbacks as needed.
   // 1: https://msdn.microsoft.com/en-us/goglobal/bb688099.aspx
   static const char* const kArabicFonts[] = {"Tahoma", "Segoe UI"};
+  static const char* const kArabicNastaliqFonts[] = {
+      "Noto Nastaliq Urdu", "Aldhabi", "Urdu Typesetting", "Tahoma",
+      "Segoe UI"};
   static const char* const kArmenianFonts[] = {"Segoe UI", "Sylfaen"};
   static const char* const kBengaliFonts[] = {"Nirmala UI", "Vrinda"};
   static const char* const kBrahmiFonts[] = {"Segoe UI Historic"};
@@ -237,6 +242,7 @@ void InitializeScriptFontMap(ScriptToFontMap& script_font_map) {
 
   static const ScriptToFontFamilies kScriptToFontFamilies[] = {
       {USCRIPT_ARABIC, kArabicFonts},
+      {USCRIPT_ARABIC_NASTALIQ, kArabicNastaliqFonts},
       {USCRIPT_ARMENIAN, kArmenianFonts},
       {USCRIPT_BENGALI, kBengaliFonts},
       {USCRIPT_BRAHMI, kBrahmiFonts},
@@ -328,7 +334,7 @@ UScriptCode GetScript(int ucs4) {
   // If script is invalid, common or inherited or there's an error,
   // infer a script based on the unicode block of a character.
   if (script <= USCRIPT_INHERITED || U_FAILURE(err))
-    script = Character::GetScriptBasedOnUnicodeBlock(ucs4);
+    script = unicode::GetScriptBasedOnUnicodeBlock(ucs4);
   return script;
 }
 
@@ -413,7 +419,7 @@ const AtomicString& GetFontBasedOnUnicodeBlock(UBlockCode block_code,
     case UBLOCK_EMOTICONS:
     case UBLOCK_ENCLOSED_ALPHANUMERIC_SUPPLEMENT:
       // We call this function only when FallbackPriority is not kEmojiEmoji or
-      // kEmojiEmojiWithVS, so we need a text presentation of emoji.
+      // kEmojiEmojiWithVs, so we need a text presentation of emoji.
       return GetMonoEmojiFont(font_manager);
     case UBLOCK_PLAYING_CARDS:
     case UBLOCK_MISCELLANEOUS_SYMBOLS:
@@ -479,8 +485,8 @@ const AtomicString& GetFontFamilyForScript(
   // Try the `AtomicString` cache first. `AtomicString` must be per thread, and
   // thus it can't be added to `ScriptToFontMap`.
   struct AtomicFamilies {
-    AtomicFamilies() : families(ScriptToFontMap::kSize) {}
-    Vector<std::optional<AtomicString>> families;
+    Vector<std::optional<AtomicString>> families =
+        Vector<std::optional<AtomicString>>(ScriptToFontMap::kSize);
   };
   DEFINE_THREAD_SAFE_STATIC_LOCAL(ThreadSpecific<AtomicFamilies>, families, ());
   std::optional<AtomicString>& family = (*families).families[script];
@@ -540,7 +546,7 @@ const AtomicString& GetFallbackFamily(
     script = USCRIPT_HAN;
 
   if (script == USCRIPT_COMMON)
-    script = Character::GetScriptBasedOnUnicodeBlock(character);
+    script = unicode::GetScriptBasedOnUnicodeBlock(character);
 
   // For unified-Han scripts, try the lang attribute, system, or
   // accept-languages.
@@ -550,6 +556,10 @@ const AtomicString& GetFallbackFamily(
       script = locale_for_han->GetScriptForHan();
     // If still unknown, USCRIPT_HAN uses UI locale.
     // See initializeScriptFontMap().
+  } else if (script == USCRIPT_ARABIC && content_locale &&
+             content_locale->GetScriptForFont() == USCRIPT_ARABIC_NASTALIQ &&
+             RuntimeEnabledFeatures::NastaliqScriptEnabled()) [[unlikely]] {
+    script = USCRIPT_ARABIC_NASTALIQ;
   }
 
   script_out = script;

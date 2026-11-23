@@ -936,7 +936,7 @@ ExtensionFunction::ResponseAction SessionsRestoreFunction::RestoreLocalSession(
   std::optional<std::vector<sessions::LiveTab*>> restored_tabs =
       tab_restore_service->RestoreEntryById(
           context, SessionID::FromSerializedValue(session_id.id()),
-          WindowOpenDisposition::UNKNOWN);
+          WindowOpenDisposition::kUnknown);
   if (!restored_tabs.has_value()) {
     return RespondNow(Error(kInvalidSessionIdError, session_id.ToString()));
   }
@@ -983,7 +983,7 @@ SessionsRestoreFunction::RestoreForeignSession(
 
     content::WebContents* tab_contents =
         SessionRestore::RestoreForeignSessionTab(
-            contents, *tab, WindowOpenDisposition::NEW_FOREGROUND_TAB);
+            contents, *tab, WindowOpenDisposition::kNewForegroundTab);
     return RespondNow(GetRestoredTabResult(tab_contents));
   }
 
@@ -1124,9 +1124,9 @@ void SessionsEventRouter::OnRecentlyClosedUpdated(int64_t j_browser_context) {
 // static
 void SessionsEventRouter::BroadcastOnChangedEvent(Profile* profile) {
   CHECK(profile);
-  EventRouter::Get(profile)->BroadcastEvent(std::make_unique<Event>(
-      events::SESSIONS_ON_CHANGED, api::sessions::OnChanged::kEventName,
-      base::ListValue()));
+  EventRouter::Get(profile)->BroadcastEvent(
+      std::make_unique<Event>(events::SESSIONS_ON_CHANGED,
+                              api::sessions::OnChanged::kEventName, nullptr));
 }
 
 SessionsAPI::SessionsAPI(content::BrowserContext* context)

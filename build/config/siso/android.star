@@ -64,6 +64,7 @@ def __step_config(ctx, step_config):
             "command_prefix": platform.python_bin + " ../../build/android/gyp/write_build_config.py",
             "handler": "android_write_build_config",
             "remote": remote_run,
+            "restat_content": True,
             "timeout": "2m",
             "remote_command": platform.remote_python_bin,
         },
@@ -71,6 +72,7 @@ def __step_config(ctx, step_config):
             "name": "android/ijar",
             "command_prefix": platform.python_bin + " ../../build/android/gyp/ijar.py",
             "remote": remote_run,
+            "restat_content": True,
             "timeout": "2m",
             "remote_command": platform.remote_python_bin,
         },
@@ -98,6 +100,7 @@ def __step_config(ctx, step_config):
                 "*.xml",
             ],
             "remote": remote_run and not config.get(ctx, "no-remote-javac"),
+            "restat_content": True,
             "platform_ref": "large",
             "timeout": "2m",
             "remote_command": platform.remote_python_bin,
@@ -117,6 +120,7 @@ def __step_config(ctx, step_config):
                 "*.sql",
             ],
             "remote": remote_run,
+            "restat_content": True,
             "timeout": "5m",
             "remote_command": platform.remote_python_bin,
         },
@@ -140,6 +144,7 @@ def __step_config(ctx, step_config):
             "ignore_extra_input_pattern": ".*srcjars.*\\.java",
             "ignore_extra_output_pattern": ".*srcjars.*\\.java",
             "remote": remote_run and not config.get(ctx, "no-remote-javac"),
+            "restat_content": True,
             "platform_ref": "large",
             "timeout": "2m",
             "remote_command": platform.remote_python_bin,
@@ -185,6 +190,7 @@ def __step_config(ctx, step_config):
             "ignore_extra_input_pattern": ".*srcjars.*\\.java",
             "ignore_extra_output_pattern": ".*srcjars.*\\.java",
             "remote": remote_run,
+            "restat_content": True,
             "platform_ref": "large",
             "timeout": "2m",
             "remote_command": platform.remote_python_bin,
@@ -203,11 +209,12 @@ def __step_config(ctx, step_config):
                 "*.pak",
                 "*.sql",
             ],
-            # *.dex files are intermediate files used in incremental builds.
+            # *.dex and intermediate.dex.jar files are intermediate files used in incremental builds.
             # Fo remote actions, let's ignore them, assuming remote cache hits compensate.
-            "ignore_extra_input_pattern": ".*\\.dex",
-            "ignore_extra_output_pattern": ".*\\.dex",
+            "ignore_extra_input_pattern": ".*\\.dex(\\.jar)?",
+            "ignore_extra_output_pattern": ".*\\.dex(\\.jar)?",
             "remote": remote_run,
+            "restat_content": True,
             "platform_ref": "large",
             "timeout": "2m",
             "remote_command": platform.remote_python_bin,
@@ -216,6 +223,7 @@ def __step_config(ctx, step_config):
             "name": "android/filter_zip",
             "command_prefix": platform.python_bin + " ../../build/android/gyp/filter_zip.py",
             "remote": remote_run,
+            "restat_content": True,
             "timeout": "2m",
             "remote_command": platform.remote_python_bin,
         },
@@ -228,12 +236,16 @@ def __step_config(ctx, step_config):
             # Downloading all .o, .a to remote worker is slower than doing that
             # on the host machine.
             "remote": False,
+            "restat_content": True,
         },
         {
             "name": "android/trace_event_bytecode_rewriter",
             "command_prefix": platform.python_bin + " ../../build/android/gyp/trace_event_bytecode_rewriter.py",
             "handler": "android_trace_event_bytecode_rewriter",
             "remote": remote_run,
+            # The GN action declares only an empty .stamp output that
+            # downstream proguard steps depend on.
+            "restat_content": False,
             "platform_ref": "large",
             "timeout": "10m",
             "remote_command": platform.remote_python_bin,
@@ -247,6 +259,7 @@ def __step_config(ctx, step_config):
                 "./obj/chrome/test/android_browsertests__apk/android_browsertests__apk.r8dex.jar",
             ],
             "remote": False,
+            "restat_content": True,
         },
         {
             "name": "android/proguard",
@@ -263,6 +276,7 @@ def __step_config(ctx, step_config):
                 "*.sql",
             ],
             "remote": remote_run,
+            "restat_content": True,
             "platform_ref": "large",
             "timeout": "10m",
             "remote_command": platform.remote_python_bin,
@@ -291,6 +305,7 @@ def __step_config(ctx, step_config):
             "command_prefix": platform.python_bin + " ../../build/android/gyp/apkbuilder.py",
             "handler": "android_apkbuilder",
             "remote": config.get(ctx, "remote-link") or config.get(ctx, "default-remote") or config.get(ctx, "builder"),
+            "restat_content": True,
             "platform_ref": "large",
             "timeout": "5m",
             "exclude_input_patterns": [
@@ -305,6 +320,7 @@ def __step_config(ctx, step_config):
             "command_prefix": platform.python_bin + " ../../build/android/gyp/create_size_info_files.py",
             "handler": "android_create_size_info_files",
             "remote": remote_run,
+            "restat_content": True,
             "platform_ref": "large",
             "exclude_input_patterns": [
                 "*.o",

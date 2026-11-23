@@ -76,12 +76,6 @@ void AccessibilityStateProvider::ProvideSystemProfileMetrics(
   if (mode.is_mode_off()) {
     return;
   }
-  if (content::BrowserAccessibilityState::GetInstance()
-          ->IsAccessibilityPerformanceMeasurementExperimentActive()) {
-    // An active experiment means that the existing AXMode were not user
-    // initiated. We don't want to record those AXModes in the UMA.
-    return;
-  }
 
   auto* state = system_profile->mutable_accessibility_state();
 
@@ -101,6 +95,14 @@ void AccessibilityStateProvider::ProvideSystemProfileMetrics(
   // process-wide collections and is therefore never present in 'mode'.
   CHECK(!mode.has_mode(ui::AXMode::kNativeAdaptedWebContents));
   MaybeAddAccessibilityModeFlags(mode, ui::AXMode::kScreenReader, state);
+  if (mode.HasFilterFlags(ui::AXMode::kFormsAndLabelsOnly)) {
+    state->add_enabled_modes(
+        metrics::SystemProfileProto::AccessibilityState::FORMS_AND_LABELS_ONLY);
+  }
+  if (mode.HasFilterFlags(ui::AXMode::kOnScreenOnly)) {
+    state->add_enabled_modes(
+        metrics::SystemProfileProto::AccessibilityState::ON_SCREEN_ONLY);
+  }
 
 #if BUILDFLAG(IS_WIN)
   if (mode.has_mode(ui::AXMode::kNativeAPIs)) {

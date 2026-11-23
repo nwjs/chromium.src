@@ -198,7 +198,6 @@ class DocumentType;
 class Element;
 class ElementDataCache;
 class ElementIntersectionObserverData;
-class ElementRegistrationOptions;
 class Event;
 class EventFactoryBase;
 class EventListener;
@@ -672,8 +671,6 @@ class CORE_EXPORT Document : public ContainerNode,
     return document_classes_.Has(DocumentClass::kText);
   }
 
-  bool HasSVGRootNode() const;
-
   bool IsFrameSet() const;
 
   bool IsSrcdocDocument() const { return is_srcdoc_document_; }
@@ -1060,6 +1057,9 @@ class CORE_EXPORT Document : public ContainerNode,
   static bool ShouldInheritSecurityOriginFromOwner(const KURL&);
 
   CSSStyleSheet& ElementSheet();
+  // Called when the document's referrer policy changes (e.g. via
+  // <meta name="referrer">) to drop cached parser state that snapshots it.
+  void ReferrerPolicyChanged();
 
   virtual DocumentParser* CreateParser();
   DocumentParser* Parser() const { return parser_.Get(); }
@@ -1599,8 +1599,6 @@ class CORE_EXPORT Document : public ContainerNode,
                                const String& context_url,
                                const TextPosition& context_position);
 
-  void StatePopped(scoped_refptr<SerializedScriptValue>);
-
   enum LoadEventProgress {
     kLoadEventNotRun,
     kLoadEventInProgress,
@@ -1649,7 +1647,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void EnqueueResizeEvent();
   void EnqueueScrollEventForNode(Node*);
   void EnqueueScrollEndEventForNode(Node*);
-  void EnqueueDisplayLockActivationTask(base::OnceClosure);
   void EnqueueAnimationFrameTask(base::OnceClosure);
   void EnqueueAnimationFrameEvent(Event*);
   // Only one event for a target/event type combination will be dispatched per
@@ -1710,10 +1707,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void InitDNSPrefetch();
 
   bool IsInDocumentWrite() const { return write_recursion_depth_ > 0; }
-  ScriptValue registerElement(ScriptState*,
-                              const AtomicString& name,
-                              const ElementRegistrationOptions*,
-                              ExceptionState&);
 
   void AdjustQuadsForScrollAndAbsoluteZoom(Vector<gfx::QuadF>&,
                                            const LayoutObject&) const;
@@ -1796,9 +1789,6 @@ class CORE_EXPORT Document : public ContainerNode,
     return all_open_popovers_;
   }
   HTMLElement* TopmostPopoverOrHint() const;
-  HeapHashSet<Member<HTMLElement>>& PopoversWaitingToHide() {
-    return popovers_waiting_to_hide_;
-  }
   // PopoverPointerdownTarget is used by the popover light dismiss system, to
   // track pointer events that might light-dismiss popovers.
   const HTMLElement* PopoverPointerdownTarget() const {
@@ -2168,9 +2158,6 @@ class CORE_EXPORT Document : public ContainerNode,
   bool RenderingHadBegunForLastStyleUpdate() const {
     return rendering_had_begun_for_last_style_update_;
   }
-
-  void IncrementImmediateChildFrameCreationCount();
-  int GetImmediateChildFrameCreationCount() const;
 
   enum class DeclarativeShadowRootAllowState : uint8_t {
     kNotSet,
@@ -3095,9 +3082,6 @@ class CORE_EXPORT Document : public ContainerNode,
   Member<const HTMLDialogElement> dialog_pointerdown_target_;
   // The mouse target information for the event that opened the picker, if any.
   PopoverPickerPointerdownInfo popover_picker_pointerdown_info_;
-  // A set of popovers for which hidePopover() has been called, but animations
-  // are still running.
-  HeapHashSet<Member<HTMLElement>> popovers_waiting_to_hide_;
   // A set of all open popovers, of all types.
   HeapHashSet<Member<HTMLElement>> all_open_popovers_;
 

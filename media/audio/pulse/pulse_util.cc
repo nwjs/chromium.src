@@ -29,9 +29,7 @@ using media_audio_pulse::InitializeStubs;
 using media_audio_pulse::StubPathMap;
 #endif  // defined(DLOPEN_PULSEAUDIO)
 
-namespace media {
-
-namespace pulse {
+namespace media::pulse {
 
 namespace {
 
@@ -44,7 +42,7 @@ constexpr char kBrowserDisplayName[] = "chromium-browser";
 #endif
 
 #if defined(DLOPEN_PULSEAUDIO)
-static const base::FilePath::CharType kPulseLib[] =
+constexpr base::FilePath::CharType kPulseLib[] =
     FILE_PATH_LITERAL("libpulse.so.0");
 #endif
 
@@ -773,6 +771,4 @@ std::string GetMonitorSourceNameForSink(pa_threaded_mainloop* mainloop,
 
 #undef RETURN_ON_FAILURE
 
-}  // namespace pulse
-
-}  // namespace media
+}  // namespace media::pulse

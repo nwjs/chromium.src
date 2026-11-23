@@ -5,9 +5,9 @@
 #ifndef CHROME_SERVICES_MAC_NOTIFICATIONS_MAC_NOTIFICATION_SERVICE_UN_H_
 #define CHROME_SERVICES_MAC_NOTIFICATIONS_MAC_NOTIFICATION_SERVICE_UN_H_
 
-#include <vector>
-
 #import <UserNotifications/UserNotifications.h>
+
+#include <vector>
 
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
@@ -47,11 +47,18 @@ class MacNotificationServiceUN : public mojom::MacNotificationService {
   void Bind(mojo::PendingReceiver<mojom::MacNotificationService> service);
 
   // Requests notification permissions from the system. This will ask the user
-  // to accept permissions if not granted or denied already. If a permission
-  // request is already pending, this does nothing.
+  // to accept permissions if not granted or denied already, and open macOS
+  // System Settings to the app's notification settings pane if permissions are
+  // not already granted. If a permission request is already pending, the
+  // `callback` is run when that request completes.
   using RequestPermissionCallback =
       base::OnceCallback<void(mojom::RequestPermissionResult)>;
   void RequestPermission(RequestPermissionCallback callback);
+
+  // Overrides the default behavior of opening macOS System Settings during
+  // `RequestPermission()` in tests.
+  static void SetOpenSystemSettingsCallbackForTesting(
+      base::RepeatingClosure callback);
 
   // mojom::MacNotificationService:
   void DisplayNotification(mojom::NotificationPtr notification) override;
@@ -71,10 +78,35 @@ class MacNotificationServiceUN : public mojom::MacNotificationService {
   bool DidRecentlyHandleClickAction() const;
 
  private:
+  // Holds state for an in-flight notification delivery request (including its
+  // temporary icon file and attachment-retry state) across asynchronous
+  // `UNUserNotificationCenter` completion callbacks.
+  struct PendingDelivery;
+
+  struct DeliveredNotification {
+    mojom::NotificationMetadataPtr meta;
+    // Non-nil while `addNotificationRequest:` or
+    // `replaceContentForRequestWithIdentifier:` (including any attachment-free
+    // retry) is in flight for this notification. Used both to prevent a
+    // concurrent `SynchronizeNotifications()` from treating an in-flight
+    // notification as closed, and to ignore stale completion callbacks if the
+    // same notification ID is re-displayed while an earlier delivery is still
+    // in flight.
+    UNMutableNotificationContent* __strong pending_content;
+    // Set when a `renotify = false` replacement is waiting for
+    // `SynchronizeNotifications` to finish before `DoDisplayNotification` runs,
+    // so `DoSynchronizeNotifications` removes a missing previous entry without
+    // emitting a `kClose` action.
+    bool is_being_replaced = false;
+  };
+
   void DoDisplayNotification(mojom::NotificationPtr notification);
+  void DeliverNotificationContent(PendingDelivery delivery);
+  void OnNotificationDelivered(PendingDelivery delivery, NSError* error);
 
   void ReportRequestPermissionResult(mojom::RequestPermissionResult result);
   void DoRequestPermission();
+  void OpenSystemSettings();
 
   // Initializes the |delivered_notifications_| with notifications currently
   // shown in the macOS notification center.
@@ -92,6 +124,11 @@ class MacNotificationServiceUN : public mojom::MacNotificationService {
 
   void SynchronizePermissionStatus(bool log_result);
 
+  // Called when the application becomes active. macOS doesn't notify apps when
+  // their notification permission changes, so this is a good moment to poll
+  // for changes the user might have made in System Settings.
+  void OnApplicationDidBecomeActive();
+
   // Called by |delegate_| when a user interacts with a notification.
   void OnNotificationAction(mojom::NotificationActionInfoPtr action);
 
@@ -105,6 +142,8 @@ class MacNotificationServiceUN : public mojom::MacNotificationService {
   mojo::Remote<mojom::MacNotificationActionHandler> action_handler_;
   AlertUNNotificationCenterDelegate* __strong delegate_;
   UNUserNotificationCenter* __strong notification_center_;
+  // Observer token for NSApplicationDidBecomeActiveNotification.
+  id<NSObject> __strong did_become_active_observer_;
 
   // Set to true when initialization has finished, and this service is ready
   // to receive mojo calls. `binding_` will not be bound until this happens.
@@ -117,8 +156,8 @@ class MacNotificationServiceUN : public mojom::MacNotificationService {
   NotificationCategoryManager category_manager_;
 
   // Keeps track of delivered notifications to detect closed notifications.
-  base::flat_map<std::string, mojom::NotificationMetadataPtr>
-      delivered_notifications_ GUARDED_BY_CONTEXT(sequence_checker_);
+  base::flat_map<std::string, DeliveredNotification> delivered_notifications_
+      GUARDED_BY_CONTEXT(sequence_checker_);
   base::RepeatingTimer synchronize_displayed_notifications_timer_;
   bool is_synchronizing_notifications_ = false;
   std::vector<base::OnceClosure> synchronize_notifications_done_callbacks_
@@ -130,6 +169,11 @@ class MacNotificationServiceUN : public mojom::MacNotificationService {
   // requests.
   std::vector<RequestPermissionCallback> pending_permission_requests_
       GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // True while an OS notification permission prompt is being requested via
+  // `DoRequestPermission()`.
+  bool is_permission_prompt_pending_ GUARDED_BY_CONTEXT(sequence_checker_) =
+      false;
 
   // Callback to be called any time the system level permission status changes.
   base::RepeatingCallback<void(mojom::PermissionStatus)>

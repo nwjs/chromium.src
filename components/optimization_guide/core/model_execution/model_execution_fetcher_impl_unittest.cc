@@ -14,7 +14,7 @@
 #include "base/test/scoped_command_line.h"
 #include "base/test/task_environment.h"
 #include "base/test/test.pb.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/remote_model_execution_common.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
@@ -208,7 +208,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestSuccessfulResponseNoTimeout) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kSuccess, 1);
+      ModelExecutionFetcherRequestStatus::kSuccess, 1);
 }
 
 TEST_F(ModelExecutionFetcherImplTest, TestSuccessfulResponseWithTimeout) {
@@ -246,7 +246,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestSuccessfulResponseWithTimeout) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kSuccess, 1);
+      ModelExecutionFetcherRequestStatus::kSuccess, 1);
 }
 
 TEST_F(ModelExecutionFetcherImplTest, TestNetErrorResponse) {
@@ -268,7 +268,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestNetErrorResponse) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kResponseError, 1);
+      ModelExecutionFetcherRequestStatus::kResponseError, 1);
   EXPECT_EQ(ModelExecutionError::kGenericFailure,
             last_execute_response_->error().error());
 }
@@ -292,7 +292,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestBadResponse) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kResponseError, 1);
+      ModelExecutionFetcherRequestStatus::kResponseError, 1);
   EXPECT_EQ(ModelExecutionError::kGenericFailure,
             last_execute_response_->error().error());
 }
@@ -310,7 +310,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestRequestCanceled) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kRequestCanceled, 1);
+      ModelExecutionFetcherRequestStatus::kRequestCanceled, 1);
   EXPECT_EQ(ModelExecutionError::kCancelled,
             last_execute_response_->error().error());
 }
@@ -329,7 +329,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestMultipleParallelRequests) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "Compose",
-      FetcherRequestStatus::kFetcherBusy, 1);
+      ModelExecutionFetcherRequestStatus::kFetcherBusy, 1);
   EXPECT_EQ(ModelExecutionError::kGenericFailure,
             last_execute_response_->error().error());
 
@@ -341,7 +341,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestMultipleParallelRequests) {
   histogram_tester_.ExpectBucketCount(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kSuccess, 1);
+      ModelExecutionFetcherRequestStatus::kSuccess, 1);
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.Status", net::HTTP_OK, 1);
 }
@@ -381,7 +381,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestSuccessfulResponseWithLogin) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kSuccess, 1);
+      ModelExecutionFetcherRequestStatus::kSuccess, 1);
 }
 
 TEST_F(ModelExecutionFetcherImplTest, TestAccessTokenFailureWithLogin) {
@@ -397,7 +397,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestAccessTokenFailureWithLogin) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kUserNotSignedIn, 1);
+      ModelExecutionFetcherRequestStatus::kUserNotSignedIn, 1);
   EXPECT_EQ(ModelExecutionError::kPermissionDenied,
             last_execute_response_->error().error());
 }
@@ -410,7 +410,7 @@ TEST_F(ModelExecutionFetcherImplTest, TestNoUserSignIn) {
   histogram_tester_.ExpectUniqueSample(
       "OptimizationGuide.ModelExecutionFetcher.RequestStatus."
       "WallpaperSearch",
-      FetcherRequestStatus::kUserNotSignedIn, 1);
+      ModelExecutionFetcherRequestStatus::kUserNotSignedIn, 1);
   EXPECT_EQ(ModelExecutionError::kPermissionDenied,
             last_execute_response_->error().error());
 }

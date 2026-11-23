@@ -243,7 +243,8 @@ TEST(EntitySyncUtilTest, CreateEntityDataFromEntityInstance) {
   EntityInstance vehicle_entity = test::GetVehicleEntityInstance();
   std::unique_ptr<syncer::EntityData> entity_data =
       CreateEntityDataFromEntityInstance(vehicle_entity,
-                                         /*base_specifics=*/{});
+                                         /*base_specifics=*/{},
+                                         /*legal_message_token=*/{});
 
   sync_pb::AutofillValuableSpecifics specifics =
       entity_data->specifics.autofill_valuable();
@@ -1176,7 +1177,7 @@ TEST(EntitySyncUtilTest,
   sync_pb::AutofillValuableSpecifics specifics_empty_token =
       CreateSpecificsFromEntityInstance(vehicle_entity,
                                         /*base_specifics=*/{},
-                                        /*context_token=*/"");
+                                        /*legal_message_token=*/"");
   EXPECT_FALSE(specifics_empty_token.has_legal_message_token());
 }
 
@@ -1198,8 +1199,6 @@ TEST(EntitySyncUtilTest,
 
 // Tests that the pass_view_url is used as management URL.
 TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_WithManagementUrl) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillAiWalletServerProvidedDeepLink};
   sync_pb::AutofillValuableSpecifics specifics =
       TestFlightReservationSpecifics();
   specifics.set_pass_view_url("https://wallet.google.com/wallet/passes/123");
@@ -1214,30 +1213,8 @@ TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_WithManagementUrl) {
             GURL("https://wallet.google.com/wallet/passes/123"));
 }
 
-// Tests that the pass_view_url is ignored when the feature flag is not set.
-TEST(EntitySyncUtilTest,
-     CreateEntityInstanceFromSpecifics_WithManagementUrl_FeatureDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      features::kAutofillAiWalletServerProvidedDeepLink);
-  sync_pb::AutofillValuableSpecifics specifics =
-      TestFlightReservationSpecifics();
-  specifics.set_pass_view_url("https://wallet.google.com/wallet/passes/123");
-
-  std::optional<EntityInstance> flight_reservation =
-      CreateEntityInstanceFromSpecifics(specifics);
-  ASSERT_TRUE(flight_reservation.has_value());
-
-  EXPECT_EQ(std::get<EntityInstance::WalletRecordTypePayload>(
-                flight_reservation->record_type_data())
-                .management_url,
-            "");
-}
-
 // Tests that the management URL is added to the specifics.
 TEST(EntitySyncUtilTest, CreateSpecificsFromEntityInstance_WithManagementUrl) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillAiWalletServerProvidedDeepLink};
   sync_pb::AutofillValuableSpecifics specifics =
       CreateSpecificsFromEntityInstance(
           test::GetFlightReservationEntityInstance(
@@ -1248,23 +1225,6 @@ TEST(EntitySyncUtilTest, CreateSpecificsFromEntityInstance_WithManagementUrl) {
           /*base_specifics=*/{});
   EXPECT_EQ(specifics.pass_view_url(),
             "https://wallet.google.com/wallet/passes/123");
-}
-
-// Tests that the management URL is ignored when the feature flag is not set.
-TEST(EntitySyncUtilTest,
-     CreateSpecificsFromEntityInstance_WithManagementUrl_IfFeatureDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      features::kAutofillAiWalletServerProvidedDeepLink);
-  sync_pb::AutofillValuableSpecifics specifics =
-      CreateSpecificsFromEntityInstance(
-          test::GetFlightReservationEntityInstance(
-              {.record_type =
-                   EntityInstance::WalletRecordTypePayload{
-                       .management_url = GURL(
-                           "https://wallet.google.com/wallet/passes/123")}}),
-          /*base_specifics=*/{});
-  EXPECT_EQ(specifics.pass_view_url(), "");
 }
 
 }  // namespace

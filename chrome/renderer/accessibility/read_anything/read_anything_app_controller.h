@@ -15,6 +15,7 @@
 #include "base/functional/callback.h"
 #include "base/scoped_observation.h"
 #include "base/threading/sequence_bound.h"
+#include "base/timer/timer.h"
 #include "base/values.h"
 #include "chrome/common/read_anything/read_anything.mojom.h"
 #include "chrome/renderer/accessibility/read_anything/read_aloud_app_model.h"
@@ -185,6 +186,7 @@ class ReadAnythingAppController
       read_anything::mojom::ReadAnythingDistillationState new_state) override;
   void OnMainFrameSameDocumentNavigation(const GURL& url) override;
   void OnTranslationStateChanged(bool is_translated) override;
+  void OnTranslationFailed() override;
 
 #if BUILDFLAG(IS_CHROMEOS)
   void OnDeviceLocked() override;
@@ -272,6 +274,7 @@ class ReadAnythingAppController
   int InImmersiveOverlayPresentationState() const;
   int DistillationTypeScreen2x() const;
   int DistillationTypeReadability() const;
+  bool IsInSelectionMode() const;
   std::string GetStoredVoice() const;
   std::vector<std::string> GetLanguagesEnabledInPref() const;
   std::vector<ui::AXNodeID> GetChildren(ui::AXNodeID ax_node_id) const;
@@ -303,7 +306,6 @@ class ReadAnythingAppController
   bool IsSuperscript(ui::AXNodeID ax_node_id) const;
   bool IsSubscript(ui::AXNodeID ax_node_id) const;
   bool IsLeafNode(ui::AXNodeID ax_node_id) const;
-  bool IsReadAnythingPinned() const;
   void OnConnected();
   void OnCopy() const;
   void OnScroll(bool on_selection) const;
@@ -322,14 +324,15 @@ class ReadAnythingAppController
   bool IsGoogleDocs() const;
   bool IsPdf() const;
   bool IsContentTranslated() const;
+  bool IsAwaitingTranslation() const;
   bool IsImprovedReadAloudEnabled() const;
   bool IsReadAnythingImprovedUiEnabled() const;
   bool IsReadAnythingTranslateEntryPointEnabled() const;
+  bool IsReadAnythingSendFeedbackEnabled() const;
   bool IsTranslatePdfEnabled() const;
   bool IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() const;
   bool IsTsTextSegmentationEnabled() const;
   bool IsReadabilityEnabled() const;
-  bool IsReadabilitySelectTextEnabled() const;
   bool IsLineFocusEnabled() const;
   bool IsReadabilityWithLinksEnabled() const;
   bool IsPhraseHighlightingEnabled() const;
@@ -469,6 +472,7 @@ class ReadAnythingAppController
 
   void DrawSelection();
   void DrawEmptyState();
+  void DrawReadabilityContent();
 
   // Helper function that restarts the distillation logging timer and triggers a
   // new distillation if the tree is ready.
@@ -483,6 +487,10 @@ class ReadAnythingAppController
   ReadAnythingAppModel::DistillationMethod GetInitialDistillationMethod() const;
 
   void ExecuteJavaScript(const std::string& script);
+
+  // Updates the model's awaiting-translation state and notifies the WebUI if
+  // it changed.
+  void SetAwaitingTranslation(bool awaiting);
 
   // Returns true if a draw occurred.
   bool PostProcessSelection();
@@ -509,8 +517,7 @@ class ReadAnythingAppController
       const std::vector<ui::AXEvent>& events);
 
   // Triggers the text mapping algorithm if both the accessibility tree and the
-  // rendered text blocks from the WebUI are ready if
-  // IsReadabilitySelectTextEnabled.
+  // rendered text blocks from the WebUI are ready if IsReadabilityEnabled.
   void MaybeMapRenderedTextToTree();
 
   // Helper for forwarding reading mode hide events to the webui so we can

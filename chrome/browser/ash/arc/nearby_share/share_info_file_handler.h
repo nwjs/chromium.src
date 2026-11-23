@@ -16,6 +16,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/ash/arc/nearby_share/share_info_file_stream_adapter.h"
 #include "chromeos/ash/experiences/arc/mojom/nearby_share.mojom.h"
 #include "content/public/browser/browser_thread.h"
@@ -105,7 +106,6 @@ class ShareInfoFileHandler {
   void OnFileStreamReadCompleted(
       const std::string& url_str,
       std::list<scoped_refptr<ShareInfoFileStreamAdapter>>::iterator it_adapter,
-      const std::string& file_system_id,
       const int64_t bytes_read,
       bool result);
 

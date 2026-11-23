@@ -52,6 +52,8 @@ class ContextualTasksPageHandler
 
   // contextual_tasks::mojom::PageHandler:
   void GetThreadUrl(GetThreadUrlCallback callback) override;
+  void MoveActiveTabToNewThreadIfShared(
+      MoveActiveTabToNewThreadIfSharedCallback callback) override;
   void GetUrlForTask(const base::Uuid& uuid,
                      GetUrlForTaskCallback callback) override;
   void SetTaskId(const base::Uuid& uuid) override;
@@ -95,6 +97,9 @@ class ContextualTasksPageHandler
   void UpdateContextForTask(const base::Uuid& task_id);
   void OnReceivedUpdatedThreadContextLibrary(
       const lens::UpdateThreadContextLibrary& message);
+  void OnContextFetchedForTabs(
+      bool is_history_loading,
+      std::unique_ptr<contextual_tasks::ContextualTaskContext> context);
   void OnReceivedInjectInput(const lens::InjectInput& inject_input);
   void OnReceivedRemoveInjectedInput(const std::string& id);
 

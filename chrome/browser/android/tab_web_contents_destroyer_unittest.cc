@@ -135,6 +135,31 @@ TEST_F(TabWebContentsDestroyerTest, CloseContentsTriggersDeferredDestruction) {
   EXPECT_TRUE(watcher.IsDestroyed());
 }
 
+// A closed tab must not receive input while it is shutting down. Input is
+// suppressed for the whole graceful-shutdown period, and suppression is
+// released before the WebContents is destroyed.
+TEST_F(TabWebContentsDestroyerTest, InputIgnoredDuringGracefulShutdown) {
+  std::unique_ptr<content::WebContents> web_contents = CreateTestWebContents();
+  content::WebContents* raw_web_contents = web_contents.get();
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      raw_web_contents, GURL("https://example.com"));
+  content::WebContentsDestroyedWatcher watcher(raw_web_contents);
+  ASSERT_FALSE(raw_web_contents->ShouldIgnoreInputEventsForTesting());
+
+  TabWebContentsDestroyer::DestroyWebContents(std::move(web_contents));
+  EXPECT_FALSE(watcher.IsDestroyed());
+  EXPECT_TRUE(raw_web_contents->ShouldIgnoreInputEventsForTesting());
+
+  // Still suppressed partway through the shutdown period.
+  task_environment()->FastForwardBy(base::Milliseconds(250));
+  ASSERT_FALSE(watcher.IsDestroyed());
+  EXPECT_TRUE(raw_web_contents->ShouldIgnoreInputEventsForTesting());
+
+  // Destruction completes cleanly with suppression held until the end.
+  task_environment()->FastForwardBy(base::Seconds(2));
+  EXPECT_TRUE(watcher.IsDestroyed());
+}
+
 TEST_F(TabWebContentsDestroyerTest, RenderProcessCrash) {
   std::unique_ptr<content::WebContents> web_contents = CreateTestWebContents();
   content::WebContents* raw_web_contents = web_contents.get();
@@ -223,7 +248,7 @@ TEST_F(TabWebContentsDestroyerTest, NavigationSuppressionAndInterception) {
   // OpenURLFromTab should be suppressed (return nullptr).
   content::OpenURLParams params =
       content::OpenURLParams::CreateRendererInitiated(
-          GURL("https://example.com"), WindowOpenDisposition::CURRENT_TAB,
+          GURL("https://example.com"), WindowOpenDisposition::kCurrentTab,
           ui::PAGE_TRANSITION_LINK, content::Referrer(),
           raw_web_contents->GetPrimaryMainFrame()
               ->GetCurrentInitiatorNavigationState());
@@ -271,7 +296,7 @@ TEST_F(TabWebContentsDestroyerTest, WindowCreationSuppression) {
                 raw_web_contents->GetPrimaryMainFrame()->GetSiteInstance(),
                 /*is_new_browsing_instance=*/true, GURL("https://example.com"),
                 "test_frame", GURL("https://target.example.com"),
-                WindowOpenDisposition::NEW_POPUP, window_features,
+                WindowOpenDisposition::kNewPopup, window_features,
                 partition_config, /*session_storage_namespace=*/nullptr));
 
   task_environment()->FastForwardBy(base::Seconds(2));

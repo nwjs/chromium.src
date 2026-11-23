@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-toolbar.top-chrome/app.js';
+import 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
 import {browserProxyFactory} from 'chrome://resources/cr_components/help_bubble/help_bubble.mojom-webui.js';
 import type {HelpBubbleHandlerInterface} from 'chrome://resources/cr_components/help_bubble/help_bubble.mojom-webui.js';
@@ -12,10 +12,10 @@ import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_as
 import {TestSearchboxBrowserProxy} from 'chrome://webui-test/cr_components/searchbox/test_searchbox_browser_proxy.js';
 import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {AppMenuIconType, AppMenuSeverity, AvatarToolbarButtonState, BrowserProxyImpl, createDefaultLocationBarState, INVALID_FOCUS_REQUEST_HANDLE, resetInitialStateForTesting, SearchboxBrowserProxy, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {BrowserProxy, FocusRequestListener, LhsChipIdentifier, ToolbarAppElement, ToolbarStateListener} from 'chrome://webui-toolbar.top-chrome/app.js';
+import {AppMenuIconType, AppMenuSeverity, AvatarToolbarButtonState, BrowserProxyImpl, ContentSettingImageType, createDefaultLocationBarState, INVALID_FOCUS_REQUEST_HANDLE, PageActionAnimationStyle, PageActionId, SearchboxBrowserProxy, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
+import type {FocusRequestListener, ToolbarAppElement, ToolbarStateListener} from 'chrome://webui-toolbar.top-chrome/webui_toolbar.js';
 
-import {TestToolbarUiHandler} from './test_toolbar_browser_proxy.js';
+import {TestToolbarBrowserProxy as BaseTestToolbarBrowserProxy} from './test_toolbar_browser_proxy.js';
 
 class TestBrowserControlsHandler extends TestBrowserProxy {
   constructor() {
@@ -27,63 +27,33 @@ class TestBrowserControlsHandler extends TestBrowserProxy {
   }
 }
 
-class TestToolbarBrowserProxy extends TestBrowserProxy implements BrowserProxy {
-  toolbarUIHandler: TestToolbarUiHandler;
-  browserControlsHandler: any;
+class TestToolbarBrowserProxy extends BaseTestToolbarBrowserProxy {
   private listener_: ToolbarStateListener|null = null;
 
   constructor() {
-    super([
-      'recordInHistogram',
-      'addToolbarStateListener',
-      'addFocusRequestListener',
-      'removeToolbarStateListener',
-      'removeFocusRequestListener',
-    ]);
-    this.toolbarUIHandler = new TestToolbarUiHandler();
+    super();
     this.browserControlsHandler = new TestBrowserControlsHandler();
   }
 
-  recordInHistogram() {}
-
-  addToolbarStateListener(listener: ToolbarStateListener) {
+  override addToolbarStateListener(listener: ToolbarStateListener) {
     this.methodCalled('addToolbarStateListener', listener);
     this.listener_ = listener;
     return 1;
   }
 
-  addFocusRequestListener(listener: FocusRequestListener) {
+  override addFocusRequestListener(listener: FocusRequestListener) {
     this.methodCalled('addFocusRequestListener', listener);
     return INVALID_FOCUS_REQUEST_HANDLE;
   }
 
-  addShowSplitTabsContextMenuListener() {
-    return 0;
-  }
-
-  removeToolbarStateListener(handle: number) {
+  override removeToolbarStateListener(handle: number) {
     this.methodCalled('removeToolbarStateListener', handle);
     this.listener_ = null;
   }
 
-  removeFocusRequestListener(handle: number) {
+  override removeFocusRequestListener(handle: number) {
     this.methodCalled('removeFocusRequestListener', handle);
   }
-
-  removeShowSplitTabsContextMenuListener() {}
-
-  flushToolbarUiHandlerForTesting() {
-    return Promise.resolve();
-  }
-
-  onChipClicked(
-      _chip: LhsChipIdentifier, _isPointerClick: boolean, _stateToken: number) {
-  }
-  onChipPointerEntered(_chip: LhsChipIdentifier) {}
-  onChipPointerExited(_chip: LhsChipIdentifier) {}
-  onChipMousePressed(_chip: LhsChipIdentifier) {}
-  onChipExpandAnimationEnded(_chip: LhsChipIdentifier) {}
-  onChipCollapseAnimationEnded(_chip: LhsChipIdentifier) {}
 
   fireToolbarStateListener(iconUpdates: any[], state: any) {
     if (this.listener_) {
@@ -165,6 +135,8 @@ function createMockToolbarState() {
       open: false,
       shouldShow: false,
       isContextMenuVisible: false,
+      shouldMatchToolbarStyle: false,
+      useCustomThemeFallback: false,
       nudgeLabel: null as string | null,
     },
     overflowButtonControlState: {
@@ -172,13 +144,13 @@ function createMockToolbarState() {
     },
     layoutConstantsVersion: 0,
     pinnedToolbarActionsState: [],
+    controlsAppearInactive: false,
   };
 }
 
 suite('ToolbarAppTest', () => {
   let app: ToolbarAppElement;
   let browserProxy: TestToolbarBrowserProxy;
-  let originalGetVariableValue: any;
 
   let startTrackingCalls: Array<[HTMLElement, string]> = [];
   let stopTrackingCalls: HTMLElement[] = [];
@@ -215,20 +187,6 @@ suite('ToolbarAppTest', () => {
     BrowserProxyImpl.setInstance(browserProxy);
     SearchboxBrowserProxy.setInstance(new TestSearchboxBrowserProxy());
 
-    // Reset C++ injected values to ensure tests start in a clean state.
-    const loadTimeDataData = (loadTimeData as any).data_;
-    if (loadTimeDataData) {
-      delete loadTimeDataData['isNavigationLoading'];
-      delete loadTimeDataData['reloadCanShowMenu'];
-      delete loadTimeDataData['backButtonEnabled'];
-      delete loadTimeDataData['forwardButtonEnabled'];
-      delete loadTimeDataData['homeButtonShouldBeShown'];
-      delete loadTimeDataData['batterySaverButtonVisible'];
-      delete loadTimeDataData['layoutConstantsVersion'];
-      delete loadTimeDataData['touchUi'];
-      delete loadTimeDataData['isFallbackPrewarming'];
-    }
-
     loadTimeData.overrideValues({
       enableReloadButton: true,
       enableSplitTabsButton: true,
@@ -243,43 +201,10 @@ suite('ToolbarAppTest', () => {
       splitTabsIndicatorHeight: 10,
       splitTabsIndicatorSpacing: 10,
     });
-
-    originalGetVariableValue = chrome.getVariableValue;
-    chrome.getVariableValue = (key: string) => {
-      if (key === 'initialState') {
-        const state: Record<string, any> = {};
-        const keys = [
-          'isNavigationLoading',
-          'backButtonEnabled',
-          'forwardButtonEnabled',
-          'initialWebUISurfaceSyncEnabled',
-          'isFallbackPrewarming',
-          'reloadCanShowMenu',
-          'homeButtonShouldBeShown',
-          'batterySaverButtonVisible',
-          'layoutConstantsVersion',
-          'touchUi',
-        ];
-        for (const k of keys) {
-          if (loadTimeData.valueExists(k)) {
-            state[k] = loadTimeData.getValue(k);
-          }
-        }
-        return JSON.stringify(state);
-      }
-      return originalGetVariableValue(key);
-    };
-
-    resetInitialStateForTesting();
-  });
-
-  teardown(() => {
-    chrome.getVariableValue = originalGetVariableValue;
-    resetInitialStateForTesting();
   });
 
   test('Sync Disabled (Initial Sync Feature is False)', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: false,
     });
 
@@ -294,7 +219,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('Sync Enabled (Initial Sync Feature is True)', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: true,
     });
@@ -323,7 +248,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('Sync Enabled - Synchronous Boot (Initial State Present)', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: false,
       isNavigationLoading: false,
@@ -350,7 +275,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('Sync Enabled - Synchronous Mojo Update', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: true,
     });
@@ -369,7 +294,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('Sync Enabled - Multiple Rapid Mojo Updates', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: true,
     });
@@ -389,7 +314,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('Sync Enabled - Synchronous Detach Reattach', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: true,
     });
@@ -415,7 +340,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('Sync Enabled - Asynchronous Detach Reattach', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: true,
     });
@@ -457,7 +382,7 @@ suite('ToolbarAppTest', () => {
   test(
       'Sync Enabled - Detach Before Child Elements Update Complete',
       async () => {
-        loadTimeData.overrideValues({
+        browserProxy.setInitialState({
           initialWebUISurfaceSyncEnabled: true,
           isFallbackPrewarming: true,
         });
@@ -485,7 +410,7 @@ suite('ToolbarAppTest', () => {
       });
 
   test('Event Listener Clean Up on Detach', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: true,
     });
@@ -538,7 +463,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('Sync Enabled - Multiple Rapid Reconnects and Updates', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: true,
       isFallbackPrewarming: true,
     });
@@ -570,7 +495,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('AvatarButtonHighlightClasses', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: false,
     });
     const highlightClasses = [
@@ -585,7 +510,7 @@ suite('ToolbarAppTest', () => {
     await microtasksFinished();
 
     const avatarButton = app.shadowRoot.querySelector('avatar-button')!;
-    const innerButton = avatarButton.shadowRoot.querySelector('#button')!;
+    const innerButton = avatarButton.$.button;
 
     // Helper to update state and check class
     const checkClass = async (state: any, expectedClass: string) => {
@@ -677,7 +602,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('AvatarButtonLinearGradientRing', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: false,
     });
 
@@ -686,7 +611,7 @@ suite('ToolbarAppTest', () => {
     await microtasksFinished();
 
     const avatarButton = app.shadowRoot.querySelector('avatar-button')!;
-    const innerButton = avatarButton.shadowRoot.querySelector('#button')!;
+    const innerButton = avatarButton.$.button;
 
     // Helper to update state and check attribute
     const checkLinearGradientRing = async (hasLinearGradientRing: boolean) => {
@@ -705,7 +630,7 @@ suite('ToolbarAppTest', () => {
       await microtasksFinished();
       const icon = avatarButton.shadowRoot.querySelector('#icon')!;
       const iconStyle = window.getComputedStyle(icon);
-      const actualButton = innerButton.shadowRoot!.querySelector('#button')!;
+      const actualButton = innerButton.$.button;
       const buttonStyle = window.getComputedStyle(actualButton);
 
       if (hasLinearGradientRing) {
@@ -741,9 +666,9 @@ suite('ToolbarAppTest', () => {
     await microtasksFinished();
 
     const avatarButton = app.shadowRoot.querySelector('avatar-button')!;
-    const innerChip = avatarButton.shadowRoot.querySelector('#button')!;
+    const innerChip = avatarButton.$.button;
     const visualTarget =
-        innerChip.shadowRoot!.querySelector('.iph-visual-target')!;
+        innerChip.shadowRoot.querySelector('.iph-visual-target')!;
     assertTrue(!!visualTarget);
 
     avatarButton.classList.add('anchor-highlight');
@@ -767,9 +692,9 @@ suite('ToolbarAppTest', () => {
     await microtasksFinished();
 
     const avatarButton = app.shadowRoot.querySelector('avatar-button')!;
-    const innerChip = avatarButton.shadowRoot.querySelector('#button')!;
+    const innerChip = avatarButton.$.button;
     const visualTarget =
-        innerChip.shadowRoot!.querySelector('.iph-visual-target')!;
+        innerChip.shadowRoot.querySelector('.iph-visual-target')!;
     assertTrue(!!visualTarget);
 
     avatarButton.hasHelpBubble = true;
@@ -794,7 +719,7 @@ suite('ToolbarAppTest', () => {
     await microtasksFinished();
 
     const avatarButton = app.shadowRoot.querySelector('avatar-button')!;
-    const innerChip = avatarButton.shadowRoot.querySelector('#button')!;
+    const innerChip = avatarButton.$.button;
     const setHighlighted =
         highlightCallbacks.get('kToolbarAvatarButtonElementId')!;
     assertTrue(!!setHighlighted);
@@ -836,7 +761,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('AvatarButtonDoesNotAnimateOnNewWindow', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: false,
     });
 
@@ -886,7 +811,7 @@ suite('ToolbarAppTest', () => {
   });
 
   test('AvatarButtonAnimatesOnSubsequentTextChanges', async () => {
-    loadTimeData.overrideValues({
+    browserProxy.setInitialState({
       initialWebUISurfaceSyncEnabled: false,
     });
 
@@ -1125,5 +1050,159 @@ suite('ToolbarAppTest', () => {
     assertFalse(
         controlIds.includes('glic-button'),
         'Glic button should be excluded from responsive controls when resizing flag is disabled');
+  });
+
+  test('ControlsAppearInactive', async () => {
+    loadTimeData.overrideValues({enableAppMenuButton: true});
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty('--color-toolbar-button-icon', 'rgb(1, 2, 3)');
+    rootStyle.setProperty(
+        '--color-toolbar-button-icon-inactive', 'rgb(4, 5, 6)');
+
+    app = document.createElement('toolbar-app');
+    document.body.appendChild(app);
+    const state = createMockToolbarState();
+    browserProxy.fireToolbarStateListener([], state);
+    await microtasksFinished();
+
+    const reloadIconButton =
+        app.shadowRoot.querySelector('reload-button')!.$.button;
+    const appMenuChip = app.shadowRoot.querySelector('app-menu-button')!
+                            .shadowRoot.querySelector('toolbar-chip-button')!;
+    function getFillColor(): string {
+      return getComputedStyle(reloadIconButton)
+          .getPropertyValue('--cr-icon-button-fill-color')
+          .trim();
+    }
+    assertFalse(app.hasAttribute('controls-appear-inactive'));
+    assertEquals('rgb(1, 2, 3)', getFillColor());
+    assertEquals('rgb(1, 2, 3)', getComputedStyle(appMenuChip).color);
+
+    state.controlsAppearInactive = true;
+    browserProxy.fireToolbarStateListener([], {...state});
+    await microtasksFinished();
+    assertTrue(app.hasAttribute('controls-appear-inactive'));
+    assertEquals('rgb(4, 5, 6)', getFillColor());
+    assertEquals('rgb(4, 5, 6)', getComputedStyle(appMenuChip).color);
+
+    state.controlsAppearInactive = false;
+    browserProxy.fireToolbarStateListener([], {...state});
+    await microtasksFinished();
+    assertFalse(app.hasAttribute('controls-appear-inactive'));
+    assertEquals('rgb(1, 2, 3)', getFillColor());
+    assertEquals('rgb(1, 2, 3)', getComputedStyle(appMenuChip).color);
+
+    rootStyle.removeProperty('--color-toolbar-button-icon');
+    rootStyle.removeProperty('--color-toolbar-button-icon-inactive');
+  });
+
+  test('ControlsAppearInactiveLabels', async () => {
+    loadTimeData.overrideValues({
+      enableAvatarButton: true,
+      enableAppMenuButton: true,
+    });
+    const disabledLabelColor = 'rgb(7, 8, 9)';
+    const rootStyle = document.documentElement.style;
+    rootStyle.setProperty(
+        '--color-label-foreground-disabled', disabledLabelColor);
+
+    app = document.createElement('toolbar-app');
+    document.body.appendChild(app);
+    const state = createMockToolbarState();
+    state.avatarControlState.text = 'Paused';
+    state.appMenuControlState.labelText = 'Update';
+    state.locationBarState.selectedKeyword = {
+      shortName: 'Bookmarks',
+      fullName: 'Search Bookmarks',
+      icon: {handleId: 0n},
+    };
+    state.locationBarState.contentSettingImageStates = [{
+      type: ContentSettingImageType.kPopups,
+      isBlocked: true,
+      tooltip: '',
+      accessibilityString: '',
+      shouldRunAnimation: false,
+      explanatoryString: 'Pop-up blocked',
+      identifier: {nativeIdentifier: '', secondaryIdentifier: ''},
+    }];
+    state.locationBarState.pageActionStates = [{
+      pageActionId: PageActionId.kActionShowTranslate,
+      accessibleName: '',
+      tooltipText: '',
+      icon: {handleId: 0n},
+      text: 'Translate',
+      shouldShowChip: true,
+      shouldAnimateChipIn: false,
+      shouldAnimateChipOut: false,
+      backgroundColorOverride: null,
+      foregroundColorOverride: null,
+      identifier: {nativeIdentifier: '', secondaryIdentifier: ''},
+      isActive: false,
+      tabSwitchToken: 0,
+      animationStyle: PageActionAnimationStyle.kStandard,
+      trailingIcon: null,
+      showTrailingIcon: false,
+    }];
+    browserProxy.fireToolbarStateListener([], state);
+    await microtasksFinished();
+
+    const root = app.shadowRoot;
+    const locationBar = root.querySelector('location-bar')!.shadowRoot;
+    const labels = [
+      root.querySelector('avatar-button')!.shadowRoot.querySelector('#text')!,
+      root.querySelector('app-menu-button')!.shadowRoot.querySelector('#text')!,
+      locationBar.querySelector('selected-keyword')!.shadowRoot.querySelector(
+          '#text-wrap')!,
+      locationBar.querySelector('content-settings-icons')!.shadowRoot
+          .querySelector('content-setting-icon')!.$.label,
+      locationBar.querySelector('page-action-icons')!.shadowRoot
+          .querySelector('page-action-icon')!.shadowRoot.querySelector('#text')!
+      ,
+    ];
+    const activeColors = labels.map(label => getComputedStyle(label).color);
+    assertFalse(activeColors.includes(disabledLabelColor));
+
+    // Labels use the disabled label color while the window is inactive.
+    state.controlsAppearInactive = true;
+    browserProxy.fireToolbarStateListener([], {...state});
+    await microtasksFinished();
+    for (const label of labels) {
+      assertEquals(disabledLabelColor, getComputedStyle(label).color);
+    }
+
+    state.controlsAppearInactive = false;
+    browserProxy.fireToolbarStateListener([], {...state});
+    await microtasksFinished();
+    labels.forEach((label, i) => {
+      assertEquals(activeColors[i], getComputedStyle(label).color);
+    });
+
+    rootStyle.removeProperty('--color-label-foreground-disabled');
+  });
+
+  test('GlicButtonNotRenderedWhenProfileIsNotEligible', async () => {
+    loadTimeData.overrideValues({enableGlicButton: true});
+    browserProxy.setInitialState({isProfileEligibleForGlic: false});
+
+    app = document.createElement('toolbar-app');
+    document.body.appendChild(app);
+    const state = createMockToolbarState();
+    state.glicButtonState.shouldShow = true;
+    browserProxy.fireToolbarStateListener([], state);
+    await microtasksFinished();
+
+    assertFalse(!!app.shadowRoot.querySelector('glic-button'));
+  });
+
+  test('AvatarButtonNotRenderedWhenProfileCannotShowIt', async () => {
+    loadTimeData.overrideValues({enableAvatarButton: true});
+    browserProxy.setInitialState({canShowAvatarForProfile: false});
+
+    app = document.createElement('toolbar-app');
+    document.body.appendChild(app);
+    browserProxy.fireToolbarStateListener([], createMockToolbarState());
+    await microtasksFinished();
+
+    assertFalse(!!app.shadowRoot.querySelector('avatar-button'));
   });
 });

@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_util.h"
+#import "ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_constants.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -171,6 +172,7 @@ CobrowseBrowserAgent::CobrowseBrowserAgent(Browser* browser)
   url = net::AppendOrReplaceQueryParameter(url, kTurnIDParam, *turn_id);
   url = net::AppendOrReplaceQueryParameter(url, kServerIDParam, *server_id);
   context_ = [[CobrowseContext alloc] initWithURL:url];
+  context_.entrypoint = AssistantAimEntrypoint::kSessionRestore;
 }
 
 CobrowseBrowserAgent::~CobrowseBrowserAgent() {
@@ -205,7 +207,7 @@ bool CobrowseBrowserAgent::ShouldAcceptContextUpdate(
   }
 
   // Allow contexts that have attached items in memory.
-  if (context.attachedItems.count > 0) {
+  if (context.attachedTabItems.count > 0) {
     return true;
   }
 
@@ -214,7 +216,7 @@ bool CobrowseBrowserAgent::ShouldAcceptContextUpdate(
   // an empty query and no attachments, but the current context had a valid
   // query.
   if ((!context.searchQuery || context.searchQuery.length == 0) &&
-      context.attachedItems.count == 0 && context_ &&
+      context.attachedTabItems.count == 0 && context_ &&
       context_.searchQuery.length > 0) {
     return false;
   }
@@ -325,6 +327,7 @@ void CobrowseBrowserAgent::ConfigureAssistantContextForWebState(
         }
       }
 
+      new_context.entrypoint = AssistantAimEntrypoint::kAimSrpLinkTap;
       SetCobrowseContext(new_context);
     }
   }

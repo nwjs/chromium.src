@@ -408,8 +408,12 @@ bool ChromeDevToolsManagerDelegate::AllowInspectingRenderFrameHost(
     content::RenderFrameHost* rfh) {
   Profile* profile =
       Profile::FromBrowserContext(rfh->GetProcess()->GetBrowserContext());
-  return IsInspectionAllowed(profile,
-                             content::WebContents::FromRenderFrameHost(rfh));
+  if (!profile) {
+    return true;
+  }
+  // Evaluate policy for the specific RenderFrameHost so target-level URL
+  // restrictions apply to both main frames and subframes.
+  return IsInspectionAllowed(profile, rfh);
 }
 
 bool ChromeDevToolsManagerDelegate::AllowInspectingTarget(
@@ -439,9 +443,13 @@ scoped_refptr<DevToolsAgentHost> ChromeDevToolsManagerDelegate::CreateNewTarget(
     const GURL& url,
     DevToolsManagerDelegate::TargetType target_type,
     bool new_window) {
-  NavigateParams params(ProfileManager::GetLastUsedProfile(), url,
-                        ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  Profile* profile = ProfileManager::GetLastUsedProfile();
+  if (!profile) {
+    // The last used profile can't be loaded.
+    return nullptr;
+  }
+  NavigateParams params(profile, url, ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   Navigate(&params);
   if (!params.navigated_or_inserted_contents)
     return nullptr;

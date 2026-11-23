@@ -9,13 +9,15 @@ import type {SettingsContactInfoPageElement} from './contact_info_page.js';
 export function getHtml(this: SettingsContactInfoPageElement) {
   return html`<!--_html_template_start_-->
   <settings-subpage page-title="$i18n{contactInfoTitle}"
+      route-path="${this.routePath}"
       learn-more-url="$i18n{addressesAndPaymentMethodsLearnMoreURL}"
       class="multi-card">
     <div class="card">
       <settings-toggle-button id="autofillProfileToggle"
           no-extension-indicator label="$i18n{enableProfilesLabel}"
           sub-label="$i18n{enableProfilesSublabel}"
-          .pref="${this.profileEnabledSyntheticPref_}"
+          pref-key="synthetic.settings.autofill.profile_enabled"
+          no-set-pref
           @settings-boolean-control-change="${
               this.onAutofillProfileToggleSettingsBooleanControlChange_}">
       </settings-toggle-button>
@@ -36,13 +38,13 @@ export function getHtml(this: SettingsContactInfoPageElement) {
       </div>
       <settings-toggle-button id="autofillOtpFillingToggle" class="hr"
           ?hidden="${!this.shouldShowOtpFillingToggle_()}"
-          label="$i18n{enableGmailOtpFillingTitle}"
-          sub-label-with-link="$i18n{enableGmailOtpFillingDescription}"
+          label="$i18n{enableGmailOtpFillingTitle}" sub-label-with-link="${
+              this.getGmailOtpFillingDescription_().toString()}"
           @sub-label-link-clicked="${
               this.onGmailOtpFillingSubLabelLinkClicked_}"
           @settings-boolean-control-change="${
               this.onAutofillOtpFillingToggleSettingsBooleanControlChange_}"
-          .pref="${this.otpFillingTogglePref_}"
+          pref-key="synthetic.settings.autofill.otp_filling"
           no-set-pref>
       </settings-toggle-button>
       ${this.profileEnabledSyntheticPref_?.extensionId ? html`
@@ -164,9 +166,62 @@ export function getHtml(this: SettingsContactInfoPageElement) {
       ${this.isEmailVerificationProtocolEnabled_ ? html`
         <settings-toggle-button id="autofillEmailVerificationToggle"
             no-extension-indicator label="$i18n{emailVerificationLabel}"
-            pref-key="autofill.email_verification_enabled">
+            pref-key="autofill.email_verification_enabled"
+            no-toggle-on-host-click
+            @click="${this.onEmailVerificationExpandClick_}">
+          <div class="toggle-actions-container" slot="more-actions">
+            <cr-expand-button id="emailVerificationExpandButton" no-hover
+                ?expanded="${this.emailVerificationExpanded_}"
+                @expanded-changed="${
+                    this.onEmailVerificationExpandedChanged_}"
+                aria-label="$i18n{emailVerificationLabel}">
+            </cr-expand-button>
+            <div class="separator"></div>
+          </div>
         </settings-toggle-button>
-        <div class="vertical-list">
+        <cr-collapse id="emailVerificationInfoCollapse"
+            ?opened="${this.emailVerificationExpanded_}">
+          <div class="settings-columned-section">
+            <div class="column">
+              <h3 class="description-header">$i18n{columnHeadingWhenOn}</h3>
+              <ul class="icon-bulleted-list">
+                <li>
+                  <cr-icon aria-hidden="true" icon="settings20:mark-email-read">
+                  </cr-icon>
+                  <div class="cr-secondary-text">
+                    $i18n{emailVerificationWhenOnConfirm}
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div class="column">
+              <h3 class="description-header">$i18n{columnHeadingConsider}</h3>
+              <ul class="icon-bulleted-list">
+                <li>
+                  <cr-icon aria-hidden="true" icon="settings20:globe">
+                  </cr-icon>
+                  <div class="cr-secondary-text">
+                    $i18n{emailVerificationConsiderSupportedSites}
+                  </div>
+                </li>
+                <li>
+                  <cr-icon aria-hidden="true" icon="settings20:stacked-email">
+                  </cr-icon>
+                  <div class="cr-secondary-text">
+                    $i18n{emailVerificationConsiderPerEmail}
+                  </div>
+                </li>
+                <li>
+                  <cr-icon aria-hidden="true" icon="cr:person"></cr-icon>
+                  <div class="cr-secondary-text">
+                    $i18n{emailVerificationConsiderSignedIn}
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </cr-collapse>
+        <div id="emailList" class="vertical-list">
           ${this.emailVerificationAddresses_.map((item, index) => html`
             <div class="list-item">
               <site-favicon

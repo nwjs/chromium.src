@@ -16,6 +16,21 @@ import java.util.Map;
 /**
  * Interface implemented by feature teams to supply UI data and user action handling for the Tips
  * bottom sheet promo on Android.
+ *
+ * <p>Handlers are constructed without arguments at process scope and may be shared across windows,
+ * so they must not hold activity-scoped state. Obtain dependencies when a method is invoked, in
+ * order of preference:
+ *
+ * <ol>
+ *   <li>Process-scoped APIs (singletons, static utilities, factories).
+ *   <li>{@code UnownedUserData} providers keyed on the {@link WindowAndroid} passed to the method
+ *       (e.g. {@code TabModelSelectorSupplier.from(window)}).
+ *   <li>If no provider exists for an activity-owned component, have the owning activity attach one
+ *       to its window rather than reaching into the activity.
+ * </ol>
+ *
+ * <p>Do not cast the window's activity to {@code ChromeActivity} (or a subclass) to access its
+ * members, and do not cache activity-scoped objects in static or instance fields.
  */
 @NullMarked
 public interface TipsPromoHandler {
@@ -29,10 +44,14 @@ public interface TipsPromoHandler {
     /**
      * Called when the user clicks the positive action button on the promo bottom sheet.
      *
-     * @param context The current Android {@link Context}, typically the hosting activity, which can
-     *     be used to launch the feature's UI (e.g. a settings page).
+     * <p>The {@link WindowAndroid} is the single entry point for activity-scoped dependencies: the
+     * hosting activity {@link Context} is available via {@link WindowAndroid#getContext()}, and
+     * other components (tab model, layout manager, snackbar manager, etc.) via their {@code
+     * UnownedUserData} providers keyed on the window.
+     *
+     * @param windowAndroid The current {@link WindowAndroid}.
      */
-    void onPromoAccepted(Context context);
+    void onPromoAccepted(WindowAndroid windowAndroid);
 
     /**
      * Called when the promo bottom sheet is displayed. Handlers can use the provided {@link
@@ -48,13 +67,11 @@ public interface TipsPromoHandler {
      * this feature's native {@code TipsFeature} consumes when determining eligibility. Signals
      * retrievable natively (prefs, UMA, etc.) should instead be declared on the native side.
      *
-     * <p>Keys must match the signal names expected by the native {@code TipsFeature::IsEligible}
-     * implementation. The returned map is merged with those of all other registered handlers and
-     * passed across JNI as a single map, so keys should be unique per feature.
-     *
-     * <p>TODO(crbug.com/559732659): Define signal keys once in a shared native header (e.g.
-     * //chrome/browser/tips/core/tips_signal_keys.h) and generate the Java constants via
-     * java_cpp_strings, rather than borrowing SegmentationPlatformConstants.
+     * <p>Keys must be constants from {@link TipsSignalKeys}, which is generated from
+     * //chrome/browser/tips/core/tips_signal_keys.h so that Java and the native {@code
+     * TipsFeature::IsEligible} implementation share a single definition. The returned map is merged
+     * with those of all other registered handlers and passed across JNI as a single map, so keys
+     * must be unique per feature.
      *
      * <p>This is invoked at notification scheduling time (on startup and periodically while Chrome
      * is in the foreground), not when the promo is shown, so implementations must be cheap and free

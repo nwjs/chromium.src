@@ -2,39 +2,44 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import '//resources/cr_elements/cr_button/cr_button.js';
+import './toolbar_chip_button.js';
 import '/shared/icon_from_table.js';
 
-import type {CrButtonElement} from '//resources/cr_elements/cr_button/cr_button.js';
 import {TrackedElementManager} from '//resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {ExtensionActionInfo} from '/shared/extensions_bar_data_model.mojom-webui.js';
 import {getContextMenuSourceType, setHasHelpBubble} from '/shared/toolbar_button.js';
+import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
 
 import {BrowserProxyImpl} from './browser_proxy.js';
+import {getCss} from './extension.css.js';
 import {getHtml} from './extension.html.js';
+import {OverflowableToolbarActionMixin} from './overflowable_toolbar_action_mixin.js';
 import {ToolbarActionMixin} from './toolbar_action_mixin.js';
-import {getCss} from './toolbar_button.css.js';
+import type {ToolbarChipButtonElement} from './toolbar_chip_button.js';
 
 const initialState: ExtensionActionInfo = {
   id: '',
   accessibleName: '',
   tooltip: '',
   isVisible: false,
+  forceVisible: false,
   icon: {handleId: 0n},
   isPinnedByDefaultIphAnchor: false,
+  highlighted: false,
 };
 
 // Help bubble anchor for the "extension pinned by default" IPH. Registered in
 // addition to the primary element ID, only while the browser requests it.
 const PINNED_BY_DEFAULT_IPH_ELEMENT_ID = 'kExtensionsPinnedByDefaultElementId';
 
-const ExtensionElementBase = ToolbarActionMixin(CrLitElement, initialState);
+const ExtensionElementBase = OverflowableToolbarActionMixin(
+    ToolbarActionMixin(CrLitElement, initialState));
 
 export interface ExtensionElement {
   $: {
-    button: CrButtonElement,
+    button: ToolbarChipButtonElement,
   };
 }
 
@@ -70,6 +75,22 @@ export class ExtensionElement extends ExtensionElementBase {
     this.isPinnedByDefaultIphAnchorRegistered_ = false;
   }
 
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if (changedProperties.has('state') ||
+        changedProperties.has('trackedHighlighted')) {
+      // Actions the browser forces to be visible (see
+      // ExtensionActionInfo::force_visible), e.g., the extensions menu button,
+      // popped out actions, the pinned-by-default IPH anchor, and actions with
+      // open context menus or anchored bubbles, must not be hidden due to
+      // overflow, since the browser may be waiting for them to be shown so it
+      // can anchor something to them. Highlighted actions (e.g., for an IPH
+      // anchored to the button itself) also shouldn't be hidden.
+      this.preventOverflow = this.state.forceVisible || this.trackedHighlighted;
+    }
+  }
+
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
     if (changedProperties.has('state')) {
@@ -103,6 +124,11 @@ export class ExtensionElement extends ExtensionElementBase {
       this.unregisterHelpBubble(PINNED_BY_DEFAULT_IPH_ELEMENT_ID);
     }
     this.isPinnedByDefaultIphAnchorRegistered_ = shouldRegister;
+  }
+
+  // Extensions are hidden on overflow, but not added to the overflow menu.
+  override getOverflowMenuItem(): OverflowMenuItem|null {
+    return null;
   }
 
   override getElementId(state: ExtensionActionInfo): string {

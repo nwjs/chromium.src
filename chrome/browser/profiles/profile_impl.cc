@@ -62,6 +62,12 @@
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_manager_utils.h"
+#include "chrome/browser/enterprise/client_certificates/certificate_provisioning_service_factory.h"
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/api/autofill_private/autofill_private_event_router_factory.h"
+#endif
+#include "chrome/browser/safe_browsing/chrome_ping_manager_factory.h"
+#include "chrome/browser/send_tab_to_self/send_tab_to_self_client_service_factory.h"
 #include "chrome/browser/file_system_access/chrome_file_system_access_permission_context.h"
 #include "chrome/browser/file_system_access/file_system_access_permission_context_factory.h"
 #include "chrome/browser/heavy_ad_intervention/heavy_ad_service_factory.h"
@@ -379,7 +385,7 @@ std::unique_ptr<Profile> Profile::CreateProfile(const base::FilePath& path,
   base::Time creation_time = base::Time::Now();
   switch (create_mode) {
     case CreateMode::kAsynchronous:
-      DCHECK(delegate);
+      CHECK(delegate, base::NotFatalUntil::M162);
       creation_time = CreateProfileDirectory(io_task_runner.get(), path, true);
       break;
     case CreateMode::kSynchronous:
@@ -531,7 +537,8 @@ ProfileImpl::ProfileImpl(
 
 #if BUILDFLAG(IS_ANDROID)
   auto* startup_data = g_browser_process->startup_data();
-  DCHECK(startup_data && startup_data->GetProfileKey());
+  CHECK(startup_data && startup_data->GetProfileKey(),
+        base::NotFatalUntil::M162);
   TakePrefsFromStartupData();
   async_prefs = false;
 #else
@@ -583,7 +590,7 @@ ProfileImpl::ProfileImpl(
 #if !BUILDFLAG(IS_ANDROID)
   if (IsGuestSession()) {
     PrefService* local_state = g_browser_process->local_state();
-    DCHECK(local_state);
+    CHECK(local_state, base::NotFatalUntil::M162);
     base::UmaHistogramBoolean(
         "Profile.Guest.ForcedByPolicy",
         local_state->GetBoolean(prefs::kBrowserGuestModeEnforced));
@@ -956,6 +963,49 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
             GetWeakPtr()));
   }
 
+  if (features::IsLazyAfterStartupKeyedServicesEnabled() &&
+      IsRegularProfile()) {
+    AfterStartupTaskUtils::PostTask(
+        FROM_HERE,
+        content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT}),
+        base::BindOnce(
+            [](base::WeakPtr<Profile> profile) {
+              if (!profile || profile->ShutdownStarted()) {
+                return;
+              }
+              safe_browsing::ChromePingManagerFactory::GetForBrowserContext(
+                  profile.get());
+              send_tab_to_self::SendTabToSelfClientServiceFactory::
+                  GetForProfile(profile.get());
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+              extensions::AutofillPrivateEventRouterFactory::GetForProfile(
+                  profile.get());
+#endif
+            },
+            GetWeakPtr()));
+  }
+
+  if (base::FeatureList::IsEnabled(features::kLazyKeyedServiceInstantiation) &&
+      features::kLazyKeyedServiceInstantiationCertificateProvisioning.Get() &&
+      IsRegularProfile()) {
+    // CertificateProvisioningService only needs to start background cert
+    // provisioning for managed profiles, while creating it synchronously during
+    // profile init forces the default StoragePartition and LevelDB
+    // CertificateStore onto the startup critical path.
+    AfterStartupTaskUtils::PostTask(
+        FROM_HERE,
+        content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT}),
+        base::BindOnce(
+            [](base::WeakPtr<Profile> profile) {
+              if (!profile || profile->ShutdownStarted()) {
+                return;
+              }
+              client_certificates::CertificateProvisioningServiceFactory::
+                  GetForProfile(profile.get());
+            },
+            GetWeakPtr()));
+  }
+
   // The announcement notification  service might not be available for some
   // irregular profiles, like the System Profile.
   if (AnnouncementNotificationService* announcement_notification =
@@ -1021,7 +1071,7 @@ ProfileImpl::~ProfileImpl() {
           AreExtensionsDisabledForProfile(this)) {
     ExtensionPrefValueMap* pref_value_map =
         ExtensionPrefValueMapFactory::GetForBrowserContext(this);
-    DCHECK(pref_value_map);
+    CHECK(pref_value_map, base::NotFatalUntil::M162);
     pref_value_map->ClearAllIncognitoSessionOnlyPreferences();
   }
 #endif
@@ -1120,7 +1170,7 @@ std::vector<Profile*> ProfileImpl::GetAllOffTheRecordProfiles() {
 void ProfileImpl::DestroyOffTheRecordProfile(Profile* otr_profile) {
   CHECK(otr_profile);
   OTRProfileID profile_id = otr_profile->GetOTRProfileID();
-  DCHECK(HasOffTheRecordProfile(profile_id));
+  CHECK(HasOffTheRecordProfile(profile_id), base::NotFatalUntil::M162);
   otr_profiles_.erase(profile_id);
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // Extensions are only supported on primary OTR profile.
@@ -1129,7 +1179,7 @@ void ProfileImpl::DestroyOffTheRecordProfile(Profile* otr_profile) {
           AreExtensionsDisabledForProfile(this)) {
     ExtensionPrefValueMap* pref_value_map =
         ExtensionPrefValueMapFactory::GetForBrowserContext(this);
-    DCHECK(pref_value_map);
+    CHECK(pref_value_map, base::NotFatalUntil::M162);
     pref_value_map->ClearAllIncognitoSessionOnlyPreferences();
   }
 #endif
@@ -1183,7 +1233,7 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
           AreExtensionsDisabledForProfile(this)) {
     extensions::ExtensionPrefs* extension_prefs =
         extensions::ExtensionPrefs::Get(this);
-    DCHECK(extension_prefs);
+    CHECK(extension_prefs, base::NotFatalUntil::M162);
     extension_prefs->MigrateObsoleteExtensionPrefs();
   }
 #endif
@@ -1341,7 +1391,8 @@ PrefService* ProfileImpl::GetPrefs() {
 }
 
 const PrefService* ProfileImpl::GetPrefs() const {
-  DCHECK(prefs_);  // Should explicitly be initialized.
+  CHECK(prefs_,
+        base::NotFatalUntil::M162);  // Should explicitly be initialized.
   return prefs_.get();
 }
 
@@ -1438,7 +1489,7 @@ storage::SpecialStoragePolicy* ProfileImpl::GetSpecialStoragePolicy() {
 
 content::PlatformNotificationService*
 ProfileImpl::GetPlatformNotificationService() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   return PlatformNotificationServiceFactory::GetForProfile(this);
 }
 
@@ -1544,7 +1595,7 @@ base::Time ProfileImpl::GetStartTime() const {
 }
 
 ProfileKey* ProfileImpl::GetProfileKey() const {
-  DCHECK(key_);
+  CHECK(key_, base::NotFatalUntil::M162);
   return key_.get();
 }
 
@@ -1565,7 +1616,7 @@ void ProfileImpl::ChangeAppLocale(const std::string& new_locale,
     NOTREACHED();
   }
   PrefService* local_state = g_browser_process->local_state();
-  DCHECK(local_state);
+  CHECK(local_state, base::NotFatalUntil::M162);
   if (local_state->IsManagedPreference(language::prefs::kApplicationLocale))
     return;
   std::string pref_locale =
@@ -1589,7 +1640,8 @@ void ProfileImpl::ChangeAppLocale(const std::string& new_locale,
     case APP_LOCALE_CHANGED_VIA_LOGIN:
     case APP_LOCALE_CHANGED_VIA_PUBLIC_SESSION_LOGIN: {
       if (!pref_locale.empty()) {
-        DCHECK(LocaleNotChanged(pref_locale, new_locale));
+        CHECK(LocaleNotChanged(pref_locale, new_locale),
+              base::NotFatalUntil::M162);
 
         if (!locale_change_guard_) {
           locale_change_guard_ = std::make_unique<ash::LocaleChangeGuard>(
@@ -1674,8 +1726,8 @@ void ProfileImpl::InitChromeOSPreferences() {
       g_browser_process->local_state(),
       g_browser_process->GetFeatures()->application_locale_storage(),
       g_browser_process->platform_part()->GetTimezoneResolverManager());
-  chromeos_preferences_->Init(
-      this, ash::ProfileHelper::Get()->GetUserByProfile(this));
+  chromeos_preferences_->Init(ash::ProfileHelper::Get()->GetUserByProfile(this),
+                              this, PrefServiceSyncableFromProfile(this));
 }
 
 #endif  // BUILDFLAG(IS_CHROMEOS)

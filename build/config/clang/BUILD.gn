@@ -145,6 +145,9 @@ clang_plugin("unsafe_buffers") {
       "-DUNSAFE_BUFFERS_BUILD",
       "-Wunsafe-buffer-usage",
       "-Wno-error=unsafe-buffer-usage",
+
+      # TODO(crbug.com/571648529): Fix and re-enable.
+      "-Wno-unsafe-buffer-usage-main-argv",
     ]
     inputs = [ clang_unsafe_buffers_paths ]
     plugin = "unsafe-buffers"

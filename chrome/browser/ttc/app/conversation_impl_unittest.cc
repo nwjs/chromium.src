@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ttc/app/conversation_impl.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -11,18 +12,17 @@
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
-#include "chrome/browser/ttc/app/audio_controller.h"
+#include "chrome/browser/ttc/app/audio_controller_impl.h"
 #include "chrome/browser/ttc/core/session_controller.h"
-#include "chrome/browser/ttc/core/session_journal.h"
 #include "chrome/browser/ttc/core/states.h"
 #include "chrome/test/base/testing_profile.h"
-#include "components/actor/core/aggregated_journal.h"
-#include "components/actor/core/task_id.h"
 #include "components/ttc/app/public/error_codes.h"
+#include "components/ttc/app/public/session_journal.h"
 #include "components/ttc/app/test_utils.h"
 #include "components/ttc/app/ttc_backend.h"
 #include "content/public/test/browser_task_environment.h"
@@ -41,6 +41,14 @@ namespace ttc {
 
 namespace {
 
+class FakeSessionJournal : public SessionJournal {
+ public:
+  void Log(std::string_view event_name,
+           std::vector<actor::mojom::JournalDetailsPtr> details,
+           Track track) override {}
+  void HandleServerJournalEvent(const ServerJournalEvent& event) override {}
+};
+
 class FakeSessionController : public SessionController {
  public:
   explicit FakeSessionController(Profile* profile) : profile_(profile) {}
@@ -49,6 +57,7 @@ class FakeSessionController : public SessionController {
   // SessionController overrides:
   Profile* GetProfile() override { return profile_; }
   SessionJournal& GetJournal() override { return session_journal_; }
+  DebugSink* GetDebugSink() override { return debug_sink_; }
   SessionLifecycle GetSessionLifecycle() const override {
     return session_lifecycle_;
   }
@@ -68,8 +77,23 @@ class FakeSessionController : public SessionController {
     }
     return tools;
   }
-  void UserAudioLevelUpdate(float audio_level) override {}
-  void OnSessionInitialized() override {}
+  void UserAudioLevelUpdate(float audio_level) override {
+    last_audio_level_ = audio_level;
+  }
+  void AddObserver(Observer* observer) override {}
+  void RemoveObserver(Observer* observer) override {}
+  void SendTextInput(const std::string& text) override {}
+  void OnModelTurnStarted() override { ++turn_started_count_; }
+  void OnModelTurnComplete() override { ++turn_complete_count_; }
+  void OnModelInterrupted() override { ++interrupted_count_; }
+  void OnInputTranscription(const std::string& text) override {
+    last_input_transcription_ = text;
+  }
+  void OnOutputTranscription(const std::string& text) override {
+    last_output_transcription_ = text;
+  }
+  void OnModelAudioEnvelopeReady(const AudioEnvelope& envelope) override {}
+  void OnSessionInitialized() override { ++session_initialized_count_; }
   void OnError(ErrorCode error) override {
     last_error_ = error;
     ++error_count_;
@@ -77,9 +101,20 @@ class FakeSessionController : public SessionController {
   void EndSessionAsync() override { ++end_session_count_; }
 
   const ToolRequest& last_request() const { return last_request_; }
+  std::optional<float> last_audio_level() const { return last_audio_level_; }
   std::optional<ErrorCode> last_error() const { return last_error_; }
   int error_count() const { return error_count_; }
   int end_session_count() const { return end_session_count_; }
+  int session_initialized_count() const { return session_initialized_count_; }
+  int turn_started_count() const { return turn_started_count_; }
+  int turn_complete_count() const { return turn_complete_count_; }
+  int interrupted_count() const { return interrupted_count_; }
+  const std::string& last_input_transcription() const {
+    return last_input_transcription_;
+  }
+  const std::string& last_output_transcription() const {
+    return last_output_transcription_;
+  }
 
   void AddToolDefinition(const std::string& name) {
     ToolDefinition tool;
@@ -90,13 +125,21 @@ class FakeSessionController : public SessionController {
  private:
   raw_ptr<Profile> profile_;
   ToolRequest last_request_;
+  std::optional<float> last_audio_level_;
   std::optional<ErrorCode> last_error_;
   int error_count_ = 0;
   int end_session_count_ = 0;
+  int session_initialized_count_ = 0;
+  int turn_started_count_ = 0;
+  int turn_complete_count_ = 0;
+  int interrupted_count_ = 0;
+  std::string last_input_transcription_;
+  std::string last_output_transcription_;
   std::vector<ToolDefinition> tools_;
   SessionLifecycle session_lifecycle_ = SessionLifecycle::kInitializing;
-  actor::AggregatedJournal journal_;
-  SessionJournal session_journal_{journal_, actor::TaskId()};
+  FakeSessionJournal session_journal_;
+  // Null, as in production while the debug tools are off.
+  raw_ptr<DebugSink> debug_sink_ = nullptr;
 };
 
 }  // namespace
@@ -127,8 +170,8 @@ class ConversationImplTest : public testing::Test {
   ConversationImpl& CreateConversation() {
     conversation_ = std::make_unique<ConversationImpl>(
         std::make_unique<MockTtcBackend>(),
-        std::make_unique<AudioController>(GetAudioStreamFactoryBinder(),
-                                          GetAudioSystemFactory()),
+        std::make_unique<AudioControllerImpl>(GetAudioStreamFactoryBinder(),
+                                              GetAudioSystemFactory()),
         session_controller_);
     return *conversation_;
   }
@@ -137,19 +180,20 @@ class ConversationImplTest : public testing::Test {
     return static_cast<MockTtcBackend&>(*conversation_->backend());
   }
 
-  AudioController& audio_controller() {
-    return *conversation_->audio_controller();
+  AudioControllerImpl& audio_controller() {
+    return static_cast<AudioControllerImpl&>(
+        *conversation_->audio_controller());
   }
 
   // Returns a binder dropping the audio stream factory receiver, so that no
   // real audio service is reached.
-  AudioController::AudioStreamFactoryBinder GetAudioStreamFactoryBinder() {
+  AudioControllerImpl::AudioStreamFactoryBinder GetAudioStreamFactoryBinder() {
     return base::BindLambdaForTesting(
         [](mojo::PendingReceiver<media::mojom::AudioStreamFactory>) {});
   }
 
   // Returns a factory handing out AudioSystems backed by `audio_manager_`.
-  AudioController::AudioSystemFactory GetAudioSystemFactory() {
+  AudioControllerImpl::AudioSystemFactory GetAudioSystemFactory() {
     return base::BindLambdaForTesting(
         [this]() -> std::unique_ptr<media::AudioSystem> {
           return std::make_unique<media::AudioSystemImpl>(&audio_manager_);
@@ -249,6 +293,9 @@ TEST_F(ConversationImplTest, StartAndStopWiring) {
 
   EXPECT_CALL(backend(), Connect(&conversation)).Times(1);
   conversation.Start();
+  EXPECT_FALSE(audio_controller().is_capturing());
+
+  conversation.OnBackendInitialized();
   EXPECT_TRUE(audio_controller().is_capturing());
 
   EXPECT_CALL(backend(), Close()).Times(1);
@@ -280,6 +327,25 @@ TEST_F(ConversationImplTest, CapturedAudioRoutedToBackend) {
   }
   audio_controller().Capture(bus.get(), base::TimeTicks::Now(), {}, 1.0);
   run_loop.Run();
+}
+
+TEST_F(ConversationImplTest, CapturedAudioLevelReportedToSession) {
+  ConversationImpl& conversation = CreateConversation();
+  conversation.Start();
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(backend(), SendAudioChunk(testing::_)).WillOnce([&run_loop] {
+    run_loop.Quit();
+  });
+
+  auto bus = media::AudioBus::Create(1, 1600);
+  constexpr float kAmplitude = 0.25f;
+  std::ranges::fill(bus->channel(0), kAmplitude);
+  audio_controller().Capture(bus.get(), base::TimeTicks::Now(), {}, 1.0);
+  run_loop.Run();
+
+  ASSERT_TRUE(session_controller_.last_audio_level().has_value());
+  EXPECT_FLOAT_EQ(*session_controller_.last_audio_level(), kAmplitude);
 }
 
 TEST_F(ConversationImplTest, OnPlaybackCompletedReportsStatus) {
@@ -348,6 +414,7 @@ TEST_F(ConversationImplTest, AudioCaptureErrorIsReported) {
   ConversationImpl& conversation = CreateConversation();
 
   conversation.Start();
+  conversation.OnBackendInitialized();
   ASSERT_TRUE(base::test::RunUntil(
       [&] { return session_controller_.error_count() > 0; }));
 
@@ -371,6 +438,44 @@ TEST_F(ConversationImplTest, AudioCaptureErrorAfterStopIsIgnored) {
   run_loop.Run();
 
   EXPECT_EQ(session_controller_.error_count(), 0);
+}
+
+TEST_F(ConversationImplTest,
+       SessionControllerNotifiedOfTurnAndTranscriptionEvents) {
+  ConversationImpl& conversation = CreateConversation();
+
+  conversation.OnTranscriptions("user said hello", "agent said hi");
+  EXPECT_EQ(session_controller_.last_input_transcription(), "user said hello");
+  EXPECT_EQ(session_controller_.last_output_transcription(), "agent said hi");
+
+  conversation.OnGenerationStateChanged(/*started=*/true, /*completed=*/false,
+                                        /*interrupted=*/false);
+  EXPECT_EQ(session_controller_.turn_started_count(), 1);
+
+  conversation.OnGenerationStateChanged(/*started=*/false, /*completed=*/false,
+                                        /*interrupted=*/true);
+  EXPECT_EQ(session_controller_.interrupted_count(), 1);
+
+  conversation.OnGenerationStateChanged(/*started=*/false, /*completed=*/true,
+                                        /*interrupted=*/false);
+  EXPECT_EQ(session_controller_.turn_complete_count(), 1);
+}
+
+TEST_F(ConversationImplTest, SessionGoesLiveOnlyOnceBackendInitialized) {
+  ConversationImpl& conversation = CreateConversation();
+
+  EXPECT_CALL(backend(), Connect(&conversation)).WillOnce([&] {
+    EXPECT_EQ(session_controller_.GetSessionLifecycle(),
+              SessionLifecycle::kInitializing);
+  });
+  conversation.Start();
+  EXPECT_EQ(session_controller_.GetSessionLifecycle(),
+            SessionLifecycle::kInitializing);
+  EXPECT_EQ(session_controller_.session_initialized_count(), 0);
+
+  conversation.OnBackendInitialized();
+  EXPECT_EQ(session_controller_.GetSessionLifecycle(), SessionLifecycle::kLive);
+  EXPECT_EQ(session_controller_.session_initialized_count(), 1);
 }
 
 }  // namespace ttc

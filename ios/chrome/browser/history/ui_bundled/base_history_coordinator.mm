@@ -5,7 +5,6 @@
 #import "base/check.h"
 #import "base/ios/ios_util.h"
 #import "components/history/core/browser/browsing_history_service.h"
-#import "components/keyed_service/core/service_access_type.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync_device_info/device_info_sync_service.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
@@ -27,17 +26,6 @@
 #import "ios/chrome/browser/sharing/ui_bundled/sharing_params.h"
 #import "ios/chrome/browser/sync/model/device_info_sync_service_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
-
-namespace {
-
-history::WebHistoryService* WebHistoryServiceGetter(
-    base::WeakPtr<ProfileIOS> weak_profile) {
-  DCHECK(weak_profile.get())
-      << "Getter should not be called after ProfileIOS destruction.";
-  return ios::WebHistoryServiceFactory::GetForProfile(weak_profile.get());
-}
-
-}  // anonymous namespace
 
 @interface BaseHistoryCoordinator () {
   // Provides delegate bridge instance for `_browsingHistoryDriver`.
@@ -79,14 +67,13 @@ history::WebHistoryService* WebHistoryServiceGetter(
       std::make_unique<IOSBrowsingHistoryDriverDelegateBridge>(
           self.viewController);
   _browsingHistoryDriver = std::make_unique<IOSBrowsingHistoryDriver>(
-      base::BindRepeating(&WebHistoryServiceGetter, self.profile->AsWeakPtr()),
       _browsingHistoryDriverDelegate.get());
   auto* device_info_service =
       DeviceInfoSyncServiceFactory::GetForProfile(self.profile);
   _browsingHistoryService = std::make_unique<history::BrowsingHistoryService>(
       _browsingHistoryDriver.get(),
-      ios::HistoryServiceFactory::GetForProfile(
-          self.profile, ServiceAccessType::EXPLICIT_ACCESS),
+      ios::HistoryServiceFactory::GetForProfile(self.profile),
+      ios::WebHistoryServiceFactory::GetForProfile(self.profile),
       SyncServiceFactory::GetForProfile(self.profile),
       device_info_service ? device_info_service->GetDeviceInfoTracker()
                           : nullptr);

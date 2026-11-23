@@ -49,6 +49,7 @@
 #include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_service.h"
 #include "content/browser/preloading/prefetch/prefetch_test_util_internal.h"
+#include "content/browser/preloading/preload_activation_report_utils.h"
 #include "content/browser/preloading/preloading.h"
 #include "content/browser/preloading/preloading_attempt_impl.h"
 #include "content/browser/preloading/preloading_data_impl.h"
@@ -1353,9 +1354,6 @@ IN_PROC_BROWSER_TEST_P(
   histogram_tester().ExpectUniqueSample(
       "Prerender.Experimental.WaitingForHeadersFinishedReason.SpeculationRule",
       FinishedReason::kNoVarySearchHeaderReceivedAndMatched, 1);
-
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.MatchableHostCountOnActivation", 1, 1);
 }
 
 // Tests the case where prerendering navigation fails while a potential
@@ -1581,9 +1579,6 @@ IN_PROC_BROWSER_TEST_P(
   histogram_tester().ExpectUniqueSample(
       "Prerender.Experimental.WaitingForHeadersFinishedReason.SpeculationRule",
       FinishedReason::kTimeoutElapsed, 1);
-
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.MatchableHostCountOnActivation", 1, 1);
 }
 
 // Helper function to test cases where `no_vary_search_header` that does not
@@ -1676,9 +1671,6 @@ void NoVarySearchPrerenderBrowserTest::TestNoVarySearchHeaderFailure(
   histogram_tester().ExpectUniqueSample(
       "Prerender.Experimental.WaitingForHeadersFinishedReason.SpeculationRule",
       expected_finished_reason, 1);
-
-  histogram_tester().ExpectTotalCount(
-      "Prerender.Experimental.MatchableHostCountOnActivation", 1);
 }
 
 // Test that a No-Vary-Search header is malformed.
@@ -1844,9 +1836,6 @@ IN_PROC_BROWSER_TEST_P(NoVarySearchPrerenderBrowserTest,
         /*ready_time=*/kMockElapsedTime,
         blink::mojom::SpeculationEagerness::kImmediate)});
   }
-
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.MatchableHostCountOnActivation", 1, 1);
 }
 
 // Test that activation is not successful when navigating to an inexact URL
@@ -1943,9 +1932,6 @@ IN_PROC_BROWSER_TEST_P(NoVarySearchPrerenderBrowserTest,
   nav_observer->Wait();
   // The navigation should issue a request.
   ASSERT_EQ(web_contents()->GetLastCommittedURL(), navigation_url);
-
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.MatchableHostCountOnActivation", 1, 1);
 }
 
 // Test that activation is successful when navigating to an exact URL before
@@ -2043,9 +2029,6 @@ IN_PROC_BROWSER_TEST_P(NoVarySearchPrerenderBrowserTest,
   histogram_tester().ExpectTotalCount(
       "Prerender.Experimental.WaitingForHeadersFinishedReason.SpeculationRule",
       0);
-
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.MatchableHostCountOnActivation", 1, 1);
 }
 
 // Test that activation is successful when 2 matchable PrerenderHosts exist.
@@ -2153,9 +2136,6 @@ IN_PROC_BROWSER_TEST_P(NoVarySearchPrerenderBrowserTest,
   histogram_tester().ExpectTotalCount(
       "Prerender.Experimental.WaitingForHeadersFinishedReason.SpeculationRule",
       1);
-
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.MatchableHostCountOnActivation", 2, 1);
 }
 
 // Tests that the speculationrules No-Vary-Search hint is populated for the
@@ -5830,7 +5810,7 @@ IN_PROC_BROWSER_TEST_F(
           GetUrl("/empty.html?same_origin_iframe3");
       shell()->web_contents()->OpenURL(
           OpenURLParams::CreateBrowserInitiated(
-              same_origin_subframe_url3, WindowOpenDisposition::CURRENT_TAB,
+              same_origin_subframe_url3, WindowOpenDisposition::kCurrentTab,
               ui::PAGE_TRANSITION_AUTO_SUBFRAME, Referrer(),
               /*started_from_context_menu=*/false,
               child_frame->GetFrameTreeNodeId()),
@@ -7104,7 +7084,7 @@ IN_PROC_BROWSER_TEST_P(PrerenderTargetAgnosticBrowserTest, SuppressOpenURL) {
           *prerender_web_contents, host_id);
   EXPECT_EQ(GetRequestCount(prerendering_url), 1);
   OpenURLParams params = OpenURLParams::CreateRendererInitiated(
-      second_url, WindowOpenDisposition::NEW_WINDOW, ui::PAGE_TRANSITION_LINK,
+      second_url, WindowOpenDisposition::kNewWindow, ui::PAGE_TRANSITION_LINK,
       Referrer(),
       prerendered_render_frame_host->GetCurrentInitiatorNavigationState(),
       /*started_from_context_menu=*/false,
@@ -10701,7 +10681,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, OpenURLFromPrerenderingMainFrame) {
         }));
     auto params = blink::mojom::OpenURLParams::New();
     params->url = GetUrl("/title3.html");
-    params->disposition = WindowOpenDisposition::CURRENT_TAB;
+    params->disposition = WindowOpenDisposition::kCurrentTab;
     params->should_replace_current_entry = false;
     params->user_gesture = true;
     params->initiator_state_token =
@@ -10747,7 +10727,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest, OpenURLInPrerenderingFrame) {
                                         new_iframe_url);
   shell()->web_contents()->OpenURL(
       OpenURLParams::CreateBrowserInitiated(
-          new_iframe_url, WindowOpenDisposition::CURRENT_TAB,
+          new_iframe_url, WindowOpenDisposition::kCurrentTab,
           ui::PAGE_TRANSITION_AUTO_SUBFRAME, Referrer(),
           /*started_from_context_menu=*/false,
           child_frame->GetFrameTreeNodeId()),
@@ -10893,7 +10873,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
   {
     shell()->web_contents()->OpenURL(
         OpenURLParams::CreateBrowserInitiated(
-            new_iframe_url, WindowOpenDisposition::CURRENT_TAB,
+            new_iframe_url, WindowOpenDisposition::kCurrentTab,
             ui::PAGE_TRANSITION_AUTO_SUBFRAME, Referrer(),
             /*started_from_context_menu=*/false,
             child_frame->GetFrameTreeNodeId()),
@@ -11767,7 +11747,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
                                           new_iframe_url);
     shell()->web_contents()->OpenURL(
         OpenURLParams::CreateBrowserInitiated(
-            new_iframe_url, WindowOpenDisposition::CURRENT_TAB,
+            new_iframe_url, WindowOpenDisposition::kCurrentTab,
             ui::PAGE_TRANSITION_AUTO_SUBFRAME, Referrer(),
             /*started_from_context_menu=*/false,
             child_frame->GetFrameTreeNodeId()),
@@ -15862,7 +15842,7 @@ IN_PROC_BROWSER_TEST_F(PrerenderClientHintsBrowserTest,
   // Open a new tab, and the new page clears all settings.
   GURL new_tab_url = GetUrl("/image.html?acceptch-no-value");
   OpenURLParams params = OpenURLParams::CreateBrowserInitiated(
-      new_tab_url, WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      new_tab_url, WindowOpenDisposition::kNewBackgroundTab,
       ui::PAGE_TRANSITION_LINK);
   auto* new_web_contents =
       web_contents_impl()->OpenURL(params, /*navigation_handle_callback=*/{});
@@ -18696,6 +18676,9 @@ IN_PROC_BROWSER_TEST_P(PrerenderActivationBeaconBrowserTest,
   beacon_run_loop.Run();
 
   EXPECT_TRUE(WasBeaconSeen(beacon_url));
+  histogram_tester().ExpectUniqueSample(
+      "Preloading.ActivationBeacon.StatusOnResponseStarted",
+      PreloadActivationBeaconStatus::kHandledByPrerender, 1);
 }
 
 IN_PROC_BROWSER_TEST_P(PrerenderActivationBeaconBrowserTest,
@@ -18722,6 +18705,9 @@ IN_PROC_BROWSER_TEST_P(PrerenderActivationBeaconBrowserTest,
   run_loop.Run();
 
   EXPECT_FALSE(WasBeaconSeen(cross_origin_beacon_url));
+  histogram_tester().ExpectUniqueSample(
+      "Preloading.ActivationBeacon.StatusOnResponseStarted",
+      PreloadActivationBeaconStatus::kCrossOrigin, 1);
 }
 
 class PrerenderActivationBeaconRedirectBrowserTest
@@ -19057,6 +19043,9 @@ IN_PROC_BROWSER_TEST_P(
   beacon_run_loop.Run();
 
   EXPECT_TRUE(beacon_seen());
+  histogram_tester().ExpectUniqueSample(
+      "Preloading.ActivationBeacon.StatusOnResponseStarted",
+      PreloadActivationBeaconStatus::kHandledByPrerender, 1);
 }
 
 IN_PROC_BROWSER_TEST_P(

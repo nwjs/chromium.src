@@ -69,7 +69,17 @@ int AndroidGetAddrInfoForNetwork(net_handle_t network,
   return getaddrinfofornetwork(network, node, service, hints, res);
 }
 
-scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner() {
+proxy_resolver::ProxyResolverV8TracingFactory* GetProxyResolverFactory() {
+  static std::unique_ptr<proxy_resolver::ProxyResolverV8TracingFactory>
+      factory = proxy_resolver::ProxyResolverV8TracingFactory::Create();
+
+  return factory.get();
+}
+
+}  // namespace
+
+// static
+scoped_refptr<base::SingleThreadTaskRunner> AwPacProcessor::GetTaskRunner() {
   struct ThreadHolder {
     base::Thread thread_;
     scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
@@ -83,15 +93,6 @@ scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner() {
 
   return thread_holder.task_runner_;
 }
-
-proxy_resolver::ProxyResolverV8TracingFactory* GetProxyResolverFactory() {
-  static std::unique_ptr<proxy_resolver::ProxyResolverV8TracingFactory>
-      factory = proxy_resolver::ProxyResolverV8TracingFactory::Create();
-
-  return factory.get();
-}
-
-}  // namespace
 
 // TODO(amalova): We could use a separate thread or thread pool for executing
 // blocking DNS queries, to get better performance.
@@ -296,13 +297,17 @@ class Job {
   virtual ~Job() = default;
 
   bool ExecSync() {
-    GetTaskRunner()->PostTask(
+    AwPacProcessor::GetTaskRunner()->PostTask(
         FROM_HERE, base::BindOnce(&Job::Exec, base::Unretained(this)));
     event_.Wait();
     return net_error_ == net::OK;
   }
 
   void Exec() {
+    if (processor_->jobs_cancelled_) {
+      event_.Signal();
+      return;
+    }
     processor_->jobs_.insert(this);
     std::move(task_).Run();
   }
@@ -374,27 +379,30 @@ AwPacProcessor::AwPacProcessor() {
 }
 
 AwPacProcessor::~AwPacProcessor() {
-  base::WaitableEvent event;
   // |proxy_resolver_| must be destroyed on the same thread it is created.
-  GetTaskRunner()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&AwPacProcessor::Destroy, base::Unretained(this),
-                     base::Unretained(&event)));
-  event.Wait();
-}
-
-void AwPacProcessor::Destroy(base::WaitableEvent* event) {
-  // Cancel all unfinished jobs to unblock calling thread.
-  for (Job* job : jobs_) {
-    job->Cancel();
-  }
-
-  proxy_resolver_.reset();
-  event->Signal();
+  DCHECK(GetTaskRunner()->BelongsToCurrentThread());
+  CancelJobsOnPacThread();
 }
 
 void AwPacProcessor::DestroyNative() {
-  delete this;
+  // Delete on the PAC thread, after the tasks already posted there, without
+  // making the caller wait.
+  GetTaskRunner()->DeleteSoon(FROM_HERE, this);
+}
+
+void AwPacProcessor::CancelJobs() {
+  GetTaskRunner()->PostTask(
+      FROM_HERE, base::BindOnce(&AwPacProcessor::CancelJobsOnPacThread,
+                                base::Unretained(this)));
+}
+
+void AwPacProcessor::CancelJobsOnPacThread() {
+  DCHECK(GetTaskRunner()->BelongsToCurrentThread());
+  jobs_cancelled_ = true;
+  // Job::Cancel() removes the job from |jobs_|.
+  while (!jobs_.empty()) {
+    (*jobs_.begin())->Cancel();
+  }
 }
 
 void AwPacProcessor::SetProxyScriptNative(

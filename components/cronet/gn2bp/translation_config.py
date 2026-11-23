@@ -4,7 +4,7 @@
 
 import gn_utils
 
-import build.gn_helpers
+import build.gn_helpers  # noqa: F401
 
 CRONET_LICENSE_NAME = "external_cronet_license"
 
@@ -14,7 +14,6 @@ LIBCRYPTO_STRIPPED = "libcrypto"
 LIBCRYPTO_UNSTRIPPED = "libcrypto_unstripped"
 
 
-# pylint: disable=unused-argument
 def always_disable(module, arch, context):
     return None
 
@@ -25,9 +24,6 @@ def enable_zlib(module, arch, context):
         module.shared_libs.add('libz')
     else:
         module.target[arch].shared_libs.add('libz')
-
-
-# pylint: enable=unused-argument
 
 
 def enable_boringssl(module, arch, context):
@@ -53,7 +49,6 @@ def enable_boringssl(module, arch, context):
         static_libs.add(f'{context.module_prefix}ssl_and_pki')
 
 
-# pylint: disable=unused-argument
 def add_androidx_experimental_java_deps(module, arch, context):
     module.libs.add("androidx.annotation_annotation-experimental")
 
@@ -161,8 +156,6 @@ def add_rustversion_deps(module, arch, context):
     module.proc_macros.add("librustversion")
 
 
-# pylint: enable=unused-argument
-
 _builtin_deps = {
     '//buildtools/third_party/libunwind:libunwind': always_disable,
     # rustc_print_cfg is used to print rustc compiler default assumption
@@ -171,8 +164,8 @@ _builtin_deps = {
     # when generating the cxxbindings and build scripts (build scripts is a
     # rust concept, it's an rust binary that generates flags used to compile
     # other rust binaries).
-    # For CXXBindings, we use AOSP's binary which already have the configuration
-    # specified depending on which arch it's building for.
+    # For CXXBindings, create_rust_cxx_modules in translators.py invokes
+    # cxxbridge directly and passes the required --cfg flags explicitly.
     # For build scripts, we generate those on Chromium side in a JSON file and
     # inject them in the pipeline.
     #
@@ -222,6 +215,15 @@ _builtin_deps = {
     # instead use the library from AOSP which has a workaround for it. See
     # https://crbug.com/394303030.
     '//third_party/rust/rustversion/v1:lib__proc_macro': add_rustversion_deps,
+    # Crubit GN helper and stdlib binding targets. In Soong, `crubit_cpp_from_rust`
+    # natively links `libcrubit_support_cc`, `libcrubit_bridge_rust`, and the
+    # prebuilt toolchain's stdlib Crubit bindings (`libcore_crubit`,
+    # `liballoc_crubit`, `libstd_crubit`), so Chromium's GN targets for these
+    # are not needed.
+    '//build/rust/crubit:crubit': always_disable,
+    '//build/rust/crubit:cpp_api_from_rust_bindings_cpp_deps': always_disable,
+    '//build/rust/crubit:cpp_api_from_rust_bindings_rs_deps': always_disable,
+    '//build/rust/std:std_bindings': always_disable,
 }
 
 builtin_deps = {

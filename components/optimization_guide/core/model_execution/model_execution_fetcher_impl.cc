@@ -11,7 +11,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/types/expected.h"
 #include "components/optimization_guide/core/access_token_helper.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/remote_model_execution_common.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
@@ -58,8 +58,9 @@ ModelExecutionFetcherImpl::ModelExecutionFetcherImpl(
 ModelExecutionFetcherImpl::~ModelExecutionFetcherImpl() {
   if (model_execution_callback_) {
     DCHECK(model_execution_feature_);
-    RecordRequestStatusHistogram(*model_execution_feature_,
-                                 FetcherRequestStatus::kRequestCanceled);
+    RecordRequestStatusHistogram(
+        *model_execution_feature_,
+        ModelExecutionFetcherRequestStatus::kRequestCanceled);
     std::move(model_execution_callback_)
         .Run(base::unexpected(
             OptimizationGuideModelExecutionError::FromModelExecutionError(
@@ -76,7 +77,8 @@ void ModelExecutionFetcherImpl::ExecuteModel(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (model_execution_callback_) {
-    RecordRequestStatusHistogram(feature, FetcherRequestStatus::kFetcherBusy);
+    RecordRequestStatusHistogram(
+        feature, ModelExecutionFetcherRequestStatus::kFetcherBusy);
     std::move(callback).Run(base::unexpected(
         OptimizationGuideModelExecutionError::FromModelExecutionError(
             ModelExecutionError::kGenericFailure)));
@@ -106,8 +108,9 @@ void ModelExecutionFetcherImpl::OnAccessTokenReceived(
     std::optional<base::TimeDelta> timeout,
     const std::string& access_token) {
   if (IsAccessTokenRequiredForFeature(feature) && access_token.empty()) {
-    RecordRequestStatusHistogram(*model_execution_feature_,
-                                 FetcherRequestStatus::kUserNotSignedIn);
+    RecordRequestStatusHistogram(
+        *model_execution_feature_,
+        ModelExecutionFetcherRequestStatus::kUserNotSignedIn);
     std::move(model_execution_callback_)
         .Run(base::unexpected(
             OptimizationGuideModelExecutionError::FromModelExecutionError(
@@ -175,8 +178,9 @@ void ModelExecutionFetcherImpl::OnURLLoadComplete(
   proto::ExecuteResponse execute_response;
 
   if (net_error != net::OK || response_code != net::HTTP_OK) {
-    RecordRequestStatusHistogram(*model_execution_feature_,
-                                 FetcherRequestStatus::kResponseError);
+    RecordRequestStatusHistogram(
+        *model_execution_feature_,
+        ModelExecutionFetcherRequestStatus::kResponseError);
     std::move(model_execution_callback_)
         .Run(base::unexpected(
             OptimizationGuideModelExecutionError::FromHttpStatusCode(
@@ -184,8 +188,9 @@ void ModelExecutionFetcherImpl::OnURLLoadComplete(
     return;
   }
   if (!response_body || !execute_response.ParseFromString(*response_body)) {
-    RecordRequestStatusHistogram(*model_execution_feature_,
-                                 FetcherRequestStatus::kResponseError);
+    RecordRequestStatusHistogram(
+        *model_execution_feature_,
+        ModelExecutionFetcherRequestStatus::kResponseError);
     std::move(model_execution_callback_)
         .Run(base::unexpected(
             OptimizationGuideModelExecutionError::FromModelExecutionError(
@@ -194,7 +199,7 @@ void ModelExecutionFetcherImpl::OnURLLoadComplete(
   }
 
   RecordRequestStatusHistogram(*model_execution_feature_,
-                               FetcherRequestStatus::kSuccess);
+                               ModelExecutionFetcherRequestStatus::kSuccess);
   // This should be the last call, since the callback could be deleting `this`.
   std::move(model_execution_callback_).Run(base::ok(execute_response));
 }

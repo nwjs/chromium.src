@@ -139,8 +139,8 @@ import java.util.concurrent.TimeUnit;
 @EnableFeatures(
         ChromeFeatureList.HOME_BUTTON_REMOVAL
                 + ":set_default_to_false_on_homepage_on_desktop/false")
-// TODO(b/555414915): Update Android tests with WebUI NTP enabled on AL.
-@DisableFeatures(ChromeFeatureList.USE_WEB_UI_NTP_ANDROID)
+// Tests the Java native NTP, which is not used on desktop (it uses the WebUI NTP).
+@Restriction(DeviceFormFactor.PHONE_OR_TABLET)
 public class NewTabPageTest {
     private static final int RENDER_TEST_REVISION = 9;
 
@@ -376,22 +376,6 @@ public class NewTabPageTest {
 
         Assert.assertEquals(mSiteSuggestions.get(0).url, ChromeTabUtils.getUrlOnUiThread(mTab));
         histogramWatcher.assertExpected();
-    }
-
-    /** Tests opening a most visited item in a new tab. */
-    @Test
-    @SmallTest
-    @Feature({"NewTabPage", "FeedNewTabPage"})
-    @DisabledTest(message = "Flaky - crbug.com/40440132")
-    public void testOpenMostVisitedItemInNewTab() throws ExecutionException {
-        ensureTestServerStarted();
-        Assert.assertNotNull(mMvTilesLayout);
-        ChromeTabUtils.invokeContextMenuAndOpenInANewTab(
-                mActivityTestRule.getActivity(),
-                mMvTilesLayout.getTileAt(0),
-                ContextMenuManager.ContextMenuItemId.OPEN_IN_NEW_TAB,
-                false,
-                mSiteSuggestions.get(0).url.getSpec());
     }
 
     /** Tests deleting a most visited item. */

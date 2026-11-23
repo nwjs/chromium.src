@@ -117,6 +117,13 @@ IN_PROC_BROWSER_TEST_F(HistoryTest, WebuiRefresh2026) {
   RunTest("history/history_app_test.js", "runMochaSuite('WebuiRefresh2026')");
 }
 
+#if BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(HistoryTest, HistoryAppTestAndroid) {
+  RunTest("history/history_app_test.js",
+          "runMochaSuite('HistoryAppTestAndroid')");
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
 class HistoryListTest : public HistoryUIBrowserTest {
  protected:
   void RunTestCase(const std::string& testCase) {
@@ -166,8 +173,18 @@ IN_PROC_BROWSER_TEST_F(HistoryListTest,
 }
 
 IN_PROC_BROWSER_TEST_F(HistoryListTest,
-                       CorrectDisplayMessageWhenNoHistoryAvailable) {
-  RunTestCase("CorrectDisplayMessageWhenNoHistoryAvailable");
+                       CorrectElementDisplayedWithAndWithoutResults) {
+  RunTestCase("CorrectElementDisplayedWithAndWithoutResults");
+}
+
+IN_PROC_BROWSER_TEST_F(HistoryListTest,
+                       CorrectNoResultsMessageWhenFilteringDisabled) {
+  RunTestCase("CorrectNoResultsMessageWhenFilteringDisabled");
+}
+
+IN_PROC_BROWSER_TEST_F(HistoryListTest,
+                       CorrectNoResultsMessageWhenFilteringEnabled) {
+  RunTestCase("CorrectNoResultsMessageWhenFilteringEnabled");
 }
 
 IN_PROC_BROWSER_TEST_F(HistoryListTest,
@@ -235,6 +252,17 @@ IN_PROC_BROWSER_TEST_F(HistoryListTest, ScrollingLoadsMore) {
 
 IN_PROC_BROWSER_TEST_F(HistoryListTest, ResizingLoadsMore) {
   RunTestCase("ResizingLoadsMore");
+}
+
+IN_PROC_BROWSER_TEST_F(HistoryListTest,
+                       LoadsMoreResultsWithoutScrollingWhenListIsShort) {
+  RunTestCase("LoadsMoreResultsWithoutScrollingWhenListIsShort");
+}
+
+IN_PROC_BROWSER_TEST_F(
+    HistoryListTest,
+    DoesNotLoadMoreResultsWithoutScrollingWhenListOverflows) {
+  RunTestCase("DoesNotLoadMoreResultsWithoutScrollingWhenListOverflows");
 }
 
 IN_PROC_BROWSER_TEST_F(HistoryListTest, SharedMenuClosesOnFocusout) {

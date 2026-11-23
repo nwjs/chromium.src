@@ -26,7 +26,6 @@ source_set("form_util") {
     "//ios/web/public",
     "//ios/web/public/js_messaging",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("form_handler_feature") {
@@ -47,7 +46,6 @@ source_set("form_handler_feature") {
     "//components/autofill/ios/common:autofill_optimization_features",
     "//ios/web/public/js_messaging",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("renderer_id_test_util") {
@@ -169,7 +167,9 @@ optimize_ts("form_util_test_js") {
   sources = [ "resources/form_util_tests.ts" ]
 
   deps = [
+    ":autofill_renderer_id_js",
     ":fill_js_dependencies",
+    ":unique_node_id_ts",
     "//ios/web/public/js_messaging:gcrweb",
   ]
 }
@@ -195,10 +195,19 @@ optimize_ts("register_remote_frame_token_js") {
   ]
 }
 
+compile_ts("unique_node_id_ts") {
+  sources = [ "resources/unique_node_id.ts" ]
+
+  deps = [ ":fill_js_constants" ]
+}
+
 compile_ts("autofill_renderer_id_js") {
   sources = [ "resources/renderer_id.ts" ]
 
-  deps = [ ":fill_js_constants" ]
+  deps = [
+    ":fill_js_constants",
+    ":unique_node_id_ts",
+  ]
 }
 
 optimize_ts("renderer_id_test") {
@@ -223,7 +232,6 @@ source_set("programmatic_form_submission_handler_feature") {
     "//ios/web/public/js_messaging",
     "//ios/web/public/js_messaging:content_world_header",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 optimize_ts("programatic_form_submission_js") {
@@ -286,7 +294,6 @@ source_set("autofill_form_features") {
     "//components/autofill/ios/common",
     "//ios/web/public/js_messaging",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("unit_tests") {

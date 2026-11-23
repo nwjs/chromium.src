@@ -219,7 +219,7 @@ void PolicyUIHandler::RegisterMessages() {
 
   web_ui()->RegisterMessageCallback(
       "listenPoliciesUpdates",
-      base::BindRepeating(&PolicyUIHandler::HandleListenPoliciesUpdates,
+      base::BindRepeating(&PolicyUIHandler::SendInitialState,
                           base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "reloadPolicies",
@@ -299,11 +299,10 @@ void PolicyUIHandler::SendSchema() {
   FireWebUIListener("schema-updated", PolicyUI::GetSchema(&profile_.get()));
 }
 
-// TODO(crbug.com/40897784): Delete this function once schema, policies and
-// status are supported in the mojo version.
-void PolicyUIHandler::HandleListenPoliciesUpdates(const base::ListValue& args) {
-  // Send initial policy values and status to UI page.
-  AllowJavascript();
+void PolicyUIHandler::SendInitialState(const base::ListValue&) {
+  if (!IsMojoMigrationEnabled()) {
+    AllowJavascript();
+  }
   SendSchema();
   SendPolicies();
   SendStatus();
@@ -479,7 +478,7 @@ void PolicyUIHandler::GetPolicyLogs(GetPolicyLogsCallback callback) {
 #if !BUILDFLAG(IS_CHROMEOS)
 void PolicyUIHandler::HandleUploadReport(const base::ListValue& args) {
   upload_report_count_ += 1;
-  DCHECK_EQ(1u, args.size());
+  CHECK_EQ(1u, args.size(), base::NotFatalUntil::M162);
   const std::string& callback_id = args[0].GetString();
 
   auto* browser_controller = g_browser_process->browser_policy_connector()

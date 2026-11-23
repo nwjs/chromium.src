@@ -11,9 +11,9 @@
 #import "base/metrics/user_metrics.h"
 #import "base/notreached.h"
 #import "components/contextual_search/contextual_search_metrics_recorder.h"
-#import "components/ntp_tiles/features.h"
 #import "components/omnibox/browser/searchbox_utils.h"
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 
 namespace {
 
@@ -129,38 +129,15 @@ omnibox::ToolMode ToolModeFromComposeboxMode(ComposeboxMode tool) {
   }
 }
 
-/// Converts ComposeboxModelOption to omnibox::ModelMode.
-omnibox::ModelMode ModelModeFromComposeboxModelOption(
-    ComposeboxModelOption model) {
-  switch (model) {
-    case ComposeboxModelOption::kNone:
-      return omnibox::ModelMode::MODEL_MODE_UNSPECIFIED;
-    case ComposeboxModelOption::kRegular:
-      return omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR;
-    case ComposeboxModelOption::kAuto:
-      return omnibox::ModelMode::MODEL_MODE_GEMINI_PRO_AUTOROUTE;
-    case ComposeboxModelOption::kThinking:
-      return omnibox::ModelMode::MODEL_MODE_GEMINI_PRO;
-    case ComposeboxModelOption::kThinkingNoGenUI:
-      return omnibox::ModelMode::MODEL_MODE_GEMINI_PRO_NO_GEN_UI;
-    case ComposeboxModelOption::kFlash:
-      return omnibox::ModelMode::MODEL_MODE_GEMINI_FLASH_LATEST;
-    case ComposeboxModelOption::kProLatest:
-      return omnibox::ModelMode::MODEL_MODE_GEMINI_PRO_LATEST;
-  }
-}
-
 /// Returns the string suffix associated with the entrypoint.
 std::string GetStringForEntrypoint(ComposeboxEntrypoint entrypoint) {
   switch (entrypoint) {
     case ComposeboxEntrypoint::kNTPAIMButton:
       return ".NTPAIMButton";
     case ComposeboxEntrypoint::kNTPAttachImageButton: {
-      ntp_tiles::AimButtonRefactorArm arm =
-          ntp_tiles::GetAimButtonRefactorArm();
-      CHECK(arm == ntp_tiles::AimButtonRefactorArm::kAttachImageQuickAction ||
-            arm ==
-                ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction);
+      AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+      CHECK(arm == AimButtonRefactorArm::kAttachImageQuickAction ||
+            arm == AimButtonRefactorArm::kImageGenerationQuickAction);
       return ".NTPAttachImageButton";
     }
     case ComposeboxEntrypoint::kNTPImageGenerationButton:
@@ -409,10 +386,9 @@ std::string GetStringForPickerAttachmentType(
   }
 }
 
-- (void)recordModelModeShown:(ComposeboxModelOption)model {
+- (void)recordModelModeShown:(omnibox::ModelMode)model {
   if (_contextualSearchMetricsRecorder) {
-    _contextualSearchMetricsRecorder->RecordModelModeShown(
-        ModelModeFromComposeboxModelOption(model));
+    _contextualSearchMetricsRecorder->RecordModelModeShown(model);
   }
 }
 
@@ -423,10 +399,9 @@ std::string GetStringForPickerAttachmentType(
   }
 }
 
-- (void)recordModelSelected:(ComposeboxModelOption)model {
+- (void)recordModelSelected:(omnibox::ModelMode)model {
   if (_contextualSearchMetricsRecorder) {
-    _contextualSearchMetricsRecorder->RecordModelSelected(
-        ModelModeFromComposeboxModelOption(model));
+    _contextualSearchMetricsRecorder->RecordModelSelected(model);
   }
 }
 

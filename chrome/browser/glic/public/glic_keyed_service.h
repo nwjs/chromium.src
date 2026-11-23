@@ -52,6 +52,7 @@ namespace glic {
 
 class AuthController;
 class ContextualCueingService;
+class GlicActivityManager;
 class LegacyGlicActivityManager;
 class GlicActorPolicyChecker;
 class GlicEnabling;
@@ -92,7 +93,7 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   // Returns this profile's provider spec. Its values don't change for the
   // lifetime of the profile.
-  const GlicProviderSpec& provider_spec();
+  const GlicProviderSpec& provider_spec() const;
 
 #if BUILDFLAG(IS_ANDROID)
   // Returns a Java object of the type GlicKeyedService for the given
@@ -113,6 +114,10 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   // Convenience method, may return nullptr.
   static GlicKeyedService* Get(content::BrowserContext* context);
+
+  // Returns whether NoWebview mode is enabled for `context`. Returns false if
+  // `context` is null, ineligible for Glic, or has NoWebview disabled.
+  static bool IsNoWebviewEnabled(content::BrowserContext* context);
 
   // KeyedService
   void Shutdown() override;
@@ -228,7 +233,10 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
                          content::RenderFrameHost* frame,
                          const ::GURL& src_url);
 
-  // Null when IsGlicNoWebviewEnabled() is true.
+  // Returns whether NoWebview mode is enabled for this profile.
+  bool IsNoWebviewEnabled() const;
+
+  // Null when IsNoWebviewEnabled() is true.
   AuthController* GetAuthController() { return auth_controller_.get(); }
 
   void AddPreloadCallback(base::OnceCallback<void()> callback);
@@ -276,6 +284,7 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   bool HasActorPolicyChecker() const { return !!actor_policy_checker_; }
 
+  GlicActivityManager& activity_manager();
   LegacyGlicActivityManager& legacy_activity_manager();
 
  private:
@@ -294,6 +303,10 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   void OnExperimentalTriggeringStateChanged();
 
+#if BUILDFLAG(IS_ANDROID)
+  void OnBrowserWindowClosed(BrowserWindowInterface* browser);
+#endif
+
   // List of callbacks to be notified when the client requests a change to the
   // context access indicator status.
   base::RepeatingCallbackList<void(bool)>
@@ -311,15 +324,16 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   std::unique_ptr<GlicActorPolicyChecker> actor_policy_checker_;
 
   std::unique_ptr<GlicEnabling> enabling_;
-  std::unique_ptr<GlicProviderSpec> provider_spec_;
   std::unique_ptr<GlicMetrics> metrics_;
   std::unique_ptr<GlicExperimentalOptInController> opt_in_controller_;
   std::unique_ptr<GlicClientDataStorage> client_data_storage_;
   // Is a GlicInstanceCoordinatorImpl.
   std::unique_ptr<GlicInstanceCoordinator> instance_coordinator_;
+  std::unique_ptr<GlicActivityManager> activity_manager_;
   std::unique_ptr<LegacyGlicActivityManager> legacy_activity_manager_;
   std::unique_ptr<GlicShareImageHandler> share_image_handler_;
 
+  const bool is_no_webview_enabled_;
   std::unique_ptr<AuthController> auth_controller_;
 
   GlicWarmingScheduler cold_warming_scheduler_;
@@ -334,8 +348,6 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   base::CallbackListSubscription experimental_triggering_state_subscription_;
 
 #if BUILDFLAG(IS_ANDROID)
-  void OnBrowserWindowClosed(BrowserWindowInterface* browser);
-
   base::flat_map<BrowserWindowInterface*,
                  std::unique_ptr<class GlicSplitButtonController>>
       button_controllers_;

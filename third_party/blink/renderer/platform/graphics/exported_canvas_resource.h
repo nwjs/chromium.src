@@ -27,6 +27,7 @@ class PLATFORM_EXPORT ExportedCanvasResource
 
   gfx::Size Size() const;
   bool OriginClean() const;
+  void SetOriginClean(bool clean);
   scoped_refptr<StaticBitmapImage> Bitmap();
   void EndDisplayCompositorAccess(gpu::SharedImageExportResult export_result,
                                   bool is_lost);
@@ -34,6 +35,9 @@ class PLATFORM_EXPORT ExportedCanvasResource
   viz::TransferableResource PrepareTransferableResource();
 
   CanvasResource* GetResourceForTesting() const { return resource_.get(); }
+  scoped_refptr<gpu::ClientSharedImage> GetSharedImageForTesting() {
+    return GetResourceForTesting()->GetSharedImage();
+  }
 
  private:
   scoped_refptr<CanvasResource> resource_;

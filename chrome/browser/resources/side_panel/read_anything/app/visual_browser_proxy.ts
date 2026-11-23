@@ -17,6 +17,7 @@ export interface OriginalPageMetrics {
 export interface VisualBrowserProxy {
   onPinStateReceived: ChromeEvent<(pinState: boolean) => void>;
   onPresentationStateReceived: ChromeEvent<(presentationState: number) => void>;
+  onAwaitingTranslationChanged: ChromeEvent<(awaiting: boolean) => void>;
   restoreSettingsFromPrefs: ChromeEvent<() => void>;
 
   getInSidePanelPresentationState(): number;
@@ -26,9 +27,11 @@ export interface VisualBrowserProxy {
   isReadAnythingImprovedUiEnabled(): boolean;
   isReadAnythingReadAloudExperimentalPlaybackUiEnabled(): boolean;
   isReadAnythingTranslateEntryPointEnabled(): boolean;
+  isReadAnythingSendFeedbackEnabled(): boolean;
   isImagesEnabled(): boolean;
   isLinksEnabled(): boolean;
   isPdf(): boolean;
+  isAwaitingTranslation(): boolean;
   shouldShowUi(): boolean;
 
   getMaxLineWidth(): number;
@@ -43,6 +46,8 @@ export interface VisualBrowserProxy {
   getVeryLooseLineSpacing(): number;
   getLineSpacing(): number;
   getLineSpacingValue(lineSpacing: number): number;
+  getMinFontSize(): number;
+  getMaxFontSize(): number;
   getDefaultFontSize(): number;
   getFontSize(): number;
 
@@ -102,6 +107,8 @@ export class VisualBrowserProxyImpl implements VisualBrowserProxy {
   onPinStateReceived = new EventForwarder<(pinState: boolean) => void>();
   onPresentationStateReceived =
       new EventForwarder<(presentationState: number) => void>();
+  onAwaitingTranslationChanged =
+      new EventForwarder<(awaiting: boolean) => void>();
   restoreSettingsFromPrefs = new EventForwarder<() => void>();
 
   constructor() {
@@ -113,6 +120,10 @@ export class VisualBrowserProxyImpl implements VisualBrowserProxy {
         (presentationState: number) => {
           this.onPresentationStateReceived.forward(presentationState);
         };
+
+    chrome.readingMode.onAwaitingTranslationChanged = (awaiting: boolean) => {
+      this.onAwaitingTranslationChanged.forward(awaiting);
+    };
 
     chrome.readingMode.restoreSettingsFromPrefs = () => {
       this.restoreSettingsFromPrefs.forward();
@@ -150,6 +161,10 @@ export class VisualBrowserProxyImpl implements VisualBrowserProxy {
 
   isPdf(): boolean {
     return chrome.readingMode.isPdf;
+  }
+
+  isAwaitingTranslation(): boolean {
+    return chrome.readingMode.isAwaitingTranslation;
   }
 
   getMaxLineWidth(): number {
@@ -191,6 +206,16 @@ export class VisualBrowserProxyImpl implements VisualBrowserProxy {
   getLineSpacingValue(lineSpacing: number): number {
     return chrome.readingMode.getLineSpacingValue(lineSpacing);
   }
+
+  // LINT.IfChange(FontScale)
+  getMinFontSize(): number {
+    return 0.5;
+  }
+
+  getMaxFontSize(): number {
+    return 4.5;
+  }
+  // LINT.ThenChange(/chrome/common/read_anything/read_anything_util.cc:FontScale)
 
   getDefaultFontSize(): number {
     return 2.0;
@@ -342,6 +367,10 @@ export class VisualBrowserProxyImpl implements VisualBrowserProxy {
 
   onTranslationRequested(): void {
     chrome.readingMode.onTranslationRequested();
+  }
+
+  isReadAnythingSendFeedbackEnabled(): boolean {
+    return chrome.readingMode.isReadAnythingSendFeedbackEnabled;
   }
 
   togglePresentation(): void {

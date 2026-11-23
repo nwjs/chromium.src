@@ -7,7 +7,10 @@
 #include <stdint.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <string>
+#include <string_view>
 
 #include "base/notimplemented.h"
 #include "base/numerics/safe_conversions.h"
@@ -20,25 +23,26 @@
 namespace content {
 namespace {
 
-bool ParseHslColorString(const std::string& color_string, SkColor* result) {
+bool ParseHslColorString(std::string_view color_string, SkColor* result) {
   // http://www.w3.org/wiki/CSS/Properties/color/HSL#The_format_of_the_HSL_Value
   // The CSS3 specification defines the format of a HSL color as
   // hsl(<number>, <percent>, <percent>)
   // and with alpha, the format is
   // hsla(<number>, <percent>, <percent>, <number>)
   // e.g.: hsl(120, 100%, 50%), hsla(120, 100%, 50%, 0.5);
+  static constexpr re2::LazyRE2 hsl_regex = {
+      "hsl\\((-?[\\d.]+),\\s*([\\d.]+)%,\\s*([\\d.]+)%\\)"};
+  static constexpr re2::LazyRE2 hsla_regex = {
+      "hsla\\((-?[\\d.]+),\\s*([\\d.]+)%,\\s*([\\d.]+)%,\\s*([\\d.]+)\\)"};
   double hue = 0.0;
   double saturation = 0.0;
   double lightness = 0.0;
   // 'hsl()' has '1' alpha value implicitly.
   double alpha = 1.0;
-  if (!re2::RE2::FullMatch(color_string,
-                           "hsl\\((-?[\\d.]+),\\s*([\\d.]+)%,\\s*([\\d.]+)%\\)",
-                           &hue, &saturation, &lightness) &&
-      !re2::RE2::FullMatch(
-          color_string,
-          "hsla\\((-?[\\d.]+),\\s*([\\d.]+)%,\\s*([\\d.]+)%,\\s*([\\d.]+)\\)",
-          &hue, &saturation, &lightness, &alpha)) {
+  if (!re2::RE2::FullMatch(color_string, *hsl_regex, &hue, &saturation,
+                           &lightness) &&
+      !re2::RE2::FullMatch(color_string, *hsla_regex, &hue, &saturation,
+                           &lightness, &alpha)) {
     return false;
   }
 
@@ -56,17 +60,20 @@ bool ParseHslColorString(const std::string& color_string, SkColor* result) {
 
 }  // anonymous namespace
 
-bool ParseCssColorString(const std::string& color_string, SkColor* result) {
-  if (color_string.empty())
+bool ParseCssColorString(std::string_view color_string, SkColor* result) {
+  if (color_string.empty()) {
     return false;
-  if (color_string[0] == '#')
+  }
+  if (color_string[0] == '#') {
     return ParseHexColorString(color_string, result);
-  if (base::StartsWith(color_string, "hsl", base::CompareCase::SENSITIVE))
+  }
+  if (base::StartsWith(color_string, "hsl", base::CompareCase::SENSITIVE)) {
     return ParseHslColorString(color_string, result);
+  }
   if (base::StartsWith(color_string, "rgb", base::CompareCase::SENSITIVE)) {
     return ParseRgbColorString(color_string, result);
   }
-  if (SkParse::FindNamedColor(color_string.c_str(), color_string.size(),
+  if (SkParse::FindNamedColor(color_string.data(), color_string.size(),
                               result) != nullptr) {
     return true;
   }
@@ -74,14 +81,15 @@ bool ParseCssColorString(const std::string& color_string, SkColor* result) {
   return false;
 }
 
-bool ParseHexColorString(const std::string& color_string, SkColor* result) {
+bool ParseHexColorString(std::string_view color_string, SkColor* result) {
   std::string formatted_color;
   // Save a memory allocation -- we never need more than 8 chars.
   formatted_color.reserve(8);
 
   // Check the string for incorrect formatting.
-  if (color_string.empty() || color_string[0] != '#')
+  if (color_string.empty() || color_string[0] != '#') {
     return false;
+  }
 
   // Convert the string from #FFF format to #FFFFFF format.
   if (color_string.length() == 4 || color_string.length() == 5) {
@@ -104,15 +112,16 @@ bool ParseHexColorString(const std::string& color_string, SkColor* result) {
 
   // Convert the hex string to an integer.
   std::array<uint8_t, 4> color_bytes;
-  if (!base::HexStringToSpan(formatted_color, color_bytes))
+  if (!base::HexStringToSpan(formatted_color, color_bytes)) {
     return false;
+  }
 
   *result = SkColorSetARGB(color_bytes[3], color_bytes[0], color_bytes[1],
                            color_bytes[2]);
   return true;
 }
 
-bool ParseRgbColorString(const std::string& color_string, SkColor* result) {
+bool ParseRgbColorString(std::string_view color_string, SkColor* result) {
   // https://www.w3.org/wiki/CSS/Properties/color/RGB#The_format_of_the_RGB_Value
   // The CSS3 specification defines the format of a RGB color as
   // rgb(<number>, <number>, <number>) or
@@ -122,6 +131,10 @@ bool ParseRgbColorString(const std::string& color_string, SkColor* result) {
   // rgba(<percent>, <percent>, <percent>, <alphavalue>)
   // Whitespace is arbitrary.
   // e.g.: rgb(120, 100, 50), rgba(120, 100, 50, 0.5);
+  static constexpr re2::LazyRE2 rgb_regex = {
+      "rgb\\(([\\d]+),\\s*([\\d]+),\\s*([\\d]+)\\)"};
+  static constexpr re2::LazyRE2 rgba_regex = {
+      "rgba\\(([\\d]+),\\s*([\\d]+),\\s*([\\d]+),\\s*([\\d.]+)\\)"};
   int r = 0;
   int g = 0;
   int b = 0;
@@ -134,13 +147,8 @@ bool ParseRgbColorString(const std::string& color_string, SkColor* result) {
     return false;
   }
 
-  if (!re2::RE2::FullMatch(color_string,
-                           "rgb\\(([\\d]+),\\s*([\\d]+),\\s*([\\d]+)\\)", &r,
-                           &g, &b) &&
-      !re2::RE2::FullMatch(
-          color_string,
-          "rgba\\(([\\d]+),\\s*([\\d]+),\\s*([\\d]+),\\s*([\\d.]+)\\)", &r, &g,
-          &b, &alpha)) {
+  if (!re2::RE2::FullMatch(color_string, *rgb_regex, &r, &g, &b) &&
+      !re2::RE2::FullMatch(color_string, *rgba_regex, &r, &g, &b, &alpha)) {
     return false;
   }
 

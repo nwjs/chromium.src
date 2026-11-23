@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -44,7 +45,6 @@ import org.chromium.base.MathUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.omnibox.R;
@@ -73,7 +73,7 @@ public class OmniboxSuggestionsDropdownUnitTest {
     private Context mContext;
     private View mView;
     private OmniboxSuggestionsDropdown mDropdown;
-    private OmniboxSuggestionsDropdown.SuggestionLayoutScrollListener mListener;
+    private SuggestionLayoutScrollListener mListener;
     private FrameLayout.LayoutParams mLayoutParams;
     private final SettableNonNullObservableSupplier<Boolean> mChipVisibilitySupplier =
             ObservableSuppliers.createNonNull(false);
@@ -406,8 +406,6 @@ public class OmniboxSuggestionsDropdownUnitTest {
         // Setting model list initializes the real adapter and view pool.
         dropdown.setModelList(listItems);
 
-        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
-
         PreWarmingRecycledViewPool pool =
                 (PreWarmingRecycledViewPool) dropdown.getRecycledViewPool();
 
@@ -429,5 +427,24 @@ public class OmniboxSuggestionsDropdownUnitTest {
         assertEquals(
                 PreWarmingRecycledViewPool.PRE_WARMED_DEFAULT_VIEW_COUNT - 1,
                 pool.getRecycledViewCount(OmniboxSuggestionUiType.DEFAULT));
+    }
+
+    @Test
+    public void testDestroy_cleansUpOmtOverlayView() throws Exception {
+        var dropdown =
+                new OmniboxSuggestionsDropdown(
+                        mContext, null, new SuggestionLayoutScrollListener(mContext));
+        assertNull(dropdown.getOmtOverlayViewForTesting());
+
+        var overlay = new SuggestionsOmtOverlayView(mContext, dropdown);
+        dropdown.setOmtOverlayView(overlay);
+        assertEquals(overlay, dropdown.getOmtOverlayViewForTesting());
+        assertTrue(overlay.getInputThreadForTesting().isAlive());
+
+        dropdown.destroy();
+
+        assertNull(dropdown.getOmtOverlayViewForTesting());
+        overlay.getInputThreadForTesting().join();
+        assertFalse(overlay.getInputThreadForTesting().isAlive());
     }
 }

@@ -14,6 +14,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "components/sessions/core/session_id.h"
 #include "components/web_modal/web_contents_modal_dialog_manager_delegate.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -50,6 +51,7 @@ namespace extensions {
 class AppDelegate;
 class AppWebContentsHelper;
 class Extension;
+class ExtensionRegistry;
 class PlatformAppBrowserTest;
 
 // Manages the web contents for app windows. The implementation for this
@@ -58,12 +60,12 @@ class PlatformAppBrowserTest;
 // native window.
 class AppWindowContents {
  public:
-  AppWindowContents() {}
+  AppWindowContents() = default;
 
   AppWindowContents(const AppWindowContents&) = delete;
   AppWindowContents& operator=(const AppWindowContents&) = delete;
 
-  virtual ~AppWindowContents() {}
+  virtual ~AppWindowContents() = default;
 
   // Called to initialize the WebContents, before the app window is created.
   virtual void Initialize(content::BrowserContext* context,
@@ -365,10 +367,16 @@ class AppWindow : public content::WebContentsDelegate,
 
   // Shows the window if its contents have been painted; otherwise flags the
   // window to be shown as soon as its contents are painted for the first time.
+  // Note: May synchronously close the native window and destroy `this`.
+  // Callers that access the AppWindow after this call must check liveness via
+  // GetWeakPtr().
   void Show(ShowType show_type);
 
   // Hides the window. If the window was previously flagged to be shown on
   // first paint, it will be unflagged.
+  // Note: May synchronously close the native window and destroy `this`.
+  // Callers that access the AppWindow after this call must check liveness via
+  // GetWeakPtr().
   void Hide();
 
   AppWindowContents* app_window_contents_for_test() {
@@ -629,6 +637,9 @@ class AppWindow : public content::WebContentsDelegate,
 
   // Allows tests to wait for draggable regions to be sent from the renderer.
   base::OnceClosure on_update_draggable_regions_callback_for_testing_;
+
+  base::ScopedObservation<ExtensionRegistry, ExtensionRegistryObserver>
+      extension_registry_observation_{this};
 
   base::WeakPtrFactory<AppWindow> image_loader_ptr_factory_{this};
   base::WeakPtrFactory<AppWindow> weak_ptr_factory_{this};

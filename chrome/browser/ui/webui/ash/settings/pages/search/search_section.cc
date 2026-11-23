@@ -19,7 +19,6 @@
 #include "chrome/browser/ash/input_method/editor_mediator_factory.h"
 #include "chrome/browser/ash/lobster/lobster_service.h"
 #include "chrome/browser/ash/lobster/lobster_service_provider.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webui/ash/settings/search/search_concept.h"
 #include "chrome/browser/ui/webui/ash/settings/search/search_tag_registry.h"
 #include "chrome/browser/ui/webui/settings/search_engines_handler.h"
@@ -463,7 +462,7 @@ void SearchSection::OnIsDeleting() {
 }
 
 void SearchSection::UpdateQuickAnswersSearchTags() {
-  DCHECK(QuickAnswersState::Get());
+  CHECK(QuickAnswersState::Get(), base::NotFatalUntil::M162);
 
   SearchTagRegistry::ScopedTagUpdater updater = registry()->StartUpdate();
 
@@ -485,7 +484,7 @@ void SearchSection::UpdateQuickAnswersSearchTags() {
 
 void SearchSection::UpdateMagicBoostSearchTags(bool is_magic_boost_available) {
   auto* magic_boost_state = chromeos::MagicBoostState::Get();
-  DCHECK(magic_boost_state);
+  CHECK(magic_boost_state, base::NotFatalUntil::M162);
 
   SearchTagRegistry::ScopedTagUpdater updater = registry()->StartUpdate();
 

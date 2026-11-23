@@ -14,7 +14,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/types/expected.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/model_execution/model_execution_fetcher_impl.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
@@ -22,8 +22,6 @@
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
-#include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/common_types.pb.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -31,11 +29,6 @@
 namespace optimization_guide {
 
 namespace {
-
-const std::string& ProtoName(ModelBasedCapabilityKey feature) {
-  return proto::ModelExecutionFeature_Name(
-      ToModelExecutionFeatureProto(feature));
-}
 
 class ScopedModelExecutionResponseLogger {
  public:
@@ -52,7 +45,7 @@ class ScopedModelExecutionResponseLogger {
     OPTIMIZATION_GUIDE_LOGGER(
         optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
         optimization_guide_logger_)
-        << "OnModelExecutionResponse - Feature : " << ProtoName(feature_) << " "
+        << "OnModelExecutionResponse - Feature : " << feature_ << " "
         << message_;
   }
 
@@ -202,7 +195,7 @@ void ModelExecutionManager::ExecuteModel(
     OPTIMIZATION_GUIDE_LOGGER(
         optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
         optimization_guide_logger_)
-        << "ExecuteModel: " << ProtoName(feature);
+        << "ExecuteModel: " << feature;
   }
 
   // Create log request if not already provided.
@@ -354,7 +347,7 @@ void ModelExecutionManager::OnModelExecuteResponse(
     OPTIMIZATION_GUIDE_LOGGER(
         optimization_guide_common::mojom::LogSource::MODEL_EXECUTION,
         optimization_guide_logger_)
-        << "ExecuteModel Response: " << ProtoName(feature);
+        << "ExecuteModel Response: " << feature;
   }
 
   RecordModelExecutionResultHistogram(feature, true);

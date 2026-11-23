@@ -317,10 +317,12 @@ SharedContextState::SharedContextState(
     use_virtualized_gl_contexts_ = false;
   }
 
-  DCHECK(context_ && surface && context_->default_surface());
-  // |this| no longer stores the |surface| as that one must be stored by the
-  // context. Do a sanity check that it is true.
-  DCHECK(context_->default_surface() == surface);
+  if (context_) {
+    DCHECK(surface && context_->default_surface());
+    // |this| no longer stores the |surface| as that one must be stored by the
+    // context. Do a sanity check that it is true.
+    DCHECK(context_->default_surface() == surface);
+  }
 
   if (base::SingleThreadTaskRunner::HasCurrentDefault()) {
     base::trace_event::MemoryDumpManager::GetInstance()->RegisterDumpProvider(
@@ -339,10 +341,10 @@ SharedContextState::~SharedContextState() {
   // The context should be current so that texture deletes that result from
   // destroying the cache happen in the right context (unless the context is
   // lost in which case we don't delete the textures).
-  DCHECK(IsCurrent(nullptr) || context_lost());
+  CHECK(IsCurrent(nullptr) || context_lost());
   transfer_cache_.reset();
 
-  if (IsCurrent(nullptr, true) && feature_info_) {
+  if (feature_info_ && IsCurrent(nullptr, true)) {
     UnbindGLContextFromShaderCache(feature_info_);
     UnbindCacheFromCurrentOpenGLContext();
   }
@@ -373,8 +375,9 @@ SharedContextState::~SharedContextState() {
 
   last_current_surface_ = nullptr;
 
-  if (context_->IsCurrent(nullptr))
+  if (context_ && context_->IsCurrent(nullptr)) {
     context_->ReleaseCurrent(nullptr);
+  }
 
   // Thread-local pointer must be explicitly cleared by the caller before
   // destruction.
@@ -609,7 +612,8 @@ bool SharedContextState::InitializeGanesh(
   transfer_cache_ = std::make_unique<ServiceTransferCache>(
       gpu_preferences,
       base::BindRepeating(&SharedContextState::ScheduleSkiaCleanup,
-                          base::Unretained(this)));
+                          base::Unretained(this)),
+      this);
   gr_cache_controller_ = std::make_unique<raster::GrCacheController>(this);
   return true;
 }
@@ -701,7 +705,8 @@ bool SharedContextState::InitializeGraphite(
   transfer_cache_ = std::make_unique<ServiceTransferCache>(
       gpu_preferences,
       base::BindRepeating(&SharedContextState::ScheduleSkiaCleanup,
-                          base::Unretained(this)));
+                          base::Unretained(this)),
+      this);
   return true;
 }
 
@@ -900,6 +905,7 @@ bool SharedContextState::FlushWriteAccess(
     // access since we want the Dawn texture to be alive on submit, but that's
     // handled in SubmitIfNecessary.
     success = FlushGraphiteRecorder();
+    access->ApplyBackendSurfaceEndState();
   } else {
     if (access->HasBackendSurfaceEndState()) {
       access->ApplyBackendSurfaceEndState();
@@ -1501,6 +1507,53 @@ int32_t SharedContextState::GetMaxTextureSize() {
   DCHECK_GT(max_texture_size, 0);
   max_texture_size_ = max_texture_size;
   return max_texture_size;
+}
+
+int32_t SharedContextState::GetMaxArrayTextureLayers() {
+  if (max_array_texture_layers_.has_value()) {
+    return max_array_texture_layers_.value();
+  }
+  int32_t max_array_texture_layers = 1;
+  if (IsUsingGL()) {
+    gl::GLApi* const api = gl::g_current_gl_context;
+    const bool has_egl_image_array =
+        gl::g_current_gl_driver &&
+        gl::g_current_gl_driver->ext.b_GL_EXT_EGL_image_array &&
+        gl::g_current_gl_driver->fn.glEGLImageTargetTexture2DOESFn;
+    const bool has_egl_image_storage =
+        gl::g_current_gl_driver &&
+        gl::g_current_gl_driver->ext.b_GL_EXT_EGL_image_storage &&
+        gl::g_current_gl_driver->fn.glEGLImageTargetTexStorageEXTFn;
+    if (has_egl_image_array || has_egl_image_storage) {
+      api->glGetIntegervFn(GL_MAX_ARRAY_TEXTURE_LAYERS,
+                           &max_array_texture_layers);
+      max_array_texture_layers = std::max(1, max_array_texture_layers);
+      DCHECK_GT(max_array_texture_layers, 0);
+    }
+  } else if (GrContextIsVulkan() || IsGraphiteVulkan()) {
+#if BUILDFLAG(ENABLE_VULKAN)
+    max_array_texture_layers = vk_context_provider()
+                                   ->GetDeviceQueue()
+                                   ->vk_physical_device_properties()
+                                   .limits.maxImageArrayLayers;
+    DCHECK_GT(max_array_texture_layers, 0);
+#else
+    NOTREACHED();
+#endif
+  } else {
+#if BUILDFLAG(SKIA_USE_DAWN)
+    if (dawn_context_provider()) {
+      wgpu::Limits limits = {};
+      auto succeded = dawn_context_provider()->GetDevice().GetLimits(&limits);
+      CHECK(succeded == wgpu::Status::Success);
+      max_array_texture_layers = limits.maxTextureArrayLayers;
+      DCHECK_GT(max_array_texture_layers, 0);
+    }
+#endif  // BUILDFLAG(SKIA_USE_DAWN)
+  }
+  DCHECK_GT(max_array_texture_layers, 0);
+  max_array_texture_layers_ = max_array_texture_layers;
+  return max_array_texture_layers;
 }
 
 #if BUILDFLAG(IS_WIN)

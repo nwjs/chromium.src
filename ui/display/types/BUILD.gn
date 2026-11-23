@@ -19,6 +19,7 @@ component("types") {
     "display_snapshot.cc",
     "display_snapshot.h",
     "display_types_export.h",
+    "drm_formats_and_modifiers.h",
     "fake_display_controller.h",
     "gamma_ramp_rgb_entry.h",
     "native_display_delegate.cc",
@@ -27,8 +28,6 @@ component("types") {
   ]
 
   defines = [ "DISPLAY_TYPES_IMPLEMENTATION" ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     "//base",

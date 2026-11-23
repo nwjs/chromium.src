@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/platform/image-decoders/jxl/jxl_image_decoder.h"
 
 #include <cstdint>
+#include <limits>
 
 #include "base/check_op.h"
 #include "base/containers/span.h"
@@ -16,13 +17,14 @@
 #include "third_party/blink/renderer/platform/image-decoders/image_frame.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
-#include "third_party/rust/jxl/v0_7/wrapper/lib.rs.h"
+#include "third_party/rust/jxl/v0_8/wrapper/lib.rs.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkTypes.h"
 
 namespace blink {
 
 using jxl_rs::jxl_rs_decoder_create;
+using jxl_rs::jxl_rs_probe_decode_start;
 using jxl_rs::jxl_rs_scan_decoder_create;
 using jxl_rs::jxl_rs_seek_decoder_to_frame;
 using jxl_rs::jxl_rs_signature_check;
@@ -45,13 +47,10 @@ constexpr uint64_t kMaxDecodedSamples = 64ULL * 1024 * 1024;
 constexpr uint64_t kMaxDecodedSamples = 1024ULL * 1024 * 1024;
 #endif
 
-// Content light level metadata is only consumed when tone mapping these
-// transfer functions.
-bool IsToneMappedTransferFunction(const skia::ColorProfile& profile) {
+skcms_TFType TransferFunctionType(const skia::ColorProfile& profile) {
   skcms_TransferFunction trfn;
   profile.GetSkColorSpace()->transferFn(&trfn);
-  const skcms_TFType type = skcms_TransferFunction_getType(&trfn);
-  return type == skcms_TFType_PQ || type == skcms_TFType_HLG;
+  return skcms_TransferFunction_getType(&trfn);
 }
 
 }  // namespace
@@ -171,9 +170,21 @@ bool JXLImageDecoder::SetBasicInfo() {
     cmyk_color_profile_ = profile;
   }
   // intensity_target is a JPEG XL codestream's only statement of its peak
-  // luminance, which is what CLLI MaxCLL states in other formats.
-  if (profile && IsToneMappedTransferFunction(*profile)) {
-    hdr_metadata_.SetCLLI({.fMaxCLL = basic_info_->intensity_target});
+  // luminance, which is what CLLI MaxCLL states in other formats. Content
+  // light level metadata is only consumed when tone mapping PQ or HLG. 255 is
+  // the codestream default when the field is absent, and 10000 cd/m2 is PQ's
+  // own peak, which encoders write for PQ regardless of the content; neither
+  // states the content's peak.
+  const skcms_TFType tf_type =
+      profile ? TransferFunctionType(*profile) : skcms_TFType_Invalid;
+  if (tf_type == skcms_TFType_PQ || tf_type == skcms_TFType_HLG) {
+    const float intensity_target = basic_info_->intensity_target;
+    const bool states_no_content_peak =
+        intensity_target == 255.0f ||
+        (tf_type == skcms_TFType_PQ && intensity_target == 10000.0f);
+    if (!states_no_content_peak) {
+      hdr_metadata_.SetCLLI({.fMaxCLL = intensity_target});
+    }
   }
   if (!IgnoresColorSpace() && profile) {
     SetEmbeddedColorProfile(std::move(profile));
@@ -198,6 +209,11 @@ bool JXLImageDecoder::SetBasicInfo() {
 void JXLImageDecoder::ScanFrames() {
   if (scanner_done_ || Failed()) {
     return;
+  }
+
+  if (scanner_needs_replay_) {
+    scanner_needs_replay_ = false;
+    scanner_.reset();
   }
 
   if (!scanner_.has_value()) {
@@ -282,6 +298,7 @@ void JXLImageDecoder::ScanFrames() {
 
   for (size_t i = frame_infos_.size(); i < scanned_count; i++) {
     frame_infos_.push_back((*scanner_)->get_frame_info(i));
+    frame_decode_start_offsets_.emplace_back(std::nullopt);
 
     FrameTiming timing;
     timing.duration = base::Milliseconds(frame_infos_.back().duration_ms);
@@ -371,12 +388,10 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
     }
   }
 
-  // If we want to decode a frame that is *not* the next frame, seek to that
-  // frame, unless decoding forward from where the decoder is gets there with
-  // less work (see CanDecodeForwardTo()).
-  if (basic_info_->have_animation && index != next_frame_to_decode_ &&
-      !CanDecodeForwardTo(index)) {
-    CHECK_GE(decoder_state_, DecoderState::kHaveBasicInfo);
+  // A new decoder must process the image header before it can seek.
+  if (basic_info_->have_animation &&
+      decoder_state_ >= DecoderState::kHaveBasicInfo &&
+      index != next_frame_to_decode_ && !CanDecodeForwardTo(index)) {
     SeekToFrame(index);
   }
 
@@ -614,19 +629,43 @@ void JXLImageDecoder::Decode(wtf_size_t index, bool only_size) {
 void JXLImageDecoder::SeekToFrame(wtf_size_t index) {
   CHECK_LT(index, frame_infos_.size());
   CHECK(scanner_.has_value());
+  CHECK(decoder_.has_value());
 
   // Position the decoder at the start of the frame group containing
   // the target frame. The full seek target (including internal jxl-rs
   // state) is looked up from the scanner. Visible frame skipping (for
-  // non-keyframes) is handled automatically by jxl-rs.
-  jxl_rs_seek_decoder_to_frame(**scanner_, **decoder_, index);
-  decoder_input_offset_ = frame_infos_[index].decode_start_file_offset;
+  // non-keyframes) is handled automatically by jxl-rs. The seek returns the
+  // file offset to feed input from.
+  const uint64_t feed_offset =
+      jxl_rs_seek_decoder_to_frame(**scanner_, **decoder_, index);
+  // u64::MAX signals a failed seek; cannot happen for a scanned frame index.
+  CHECK_NE(feed_offset, std::numeric_limits<uint64_t>::max());
+  decoder_input_offset_ = feed_offset;
 
   decoder_state_ = DecoderState::kHaveBasicInfo;
   next_frame_to_decode_ = index;
 }
 
-bool JXLImageDecoder::CanDecodeForwardTo(wtf_size_t index) const {
+bool JXLImageDecoder::CanDecodeForwardTo(wtf_size_t index) {
+  if (!decoder_.has_value() || decoder_state_ != DecoderState::kHaveBasicInfo ||
+      index <= next_frame_to_decode_ || index >= frame_infos_.size()) {
+    return false;
+  }
+
+  if (!frame_decode_start_offsets_[index].has_value()) {
+    CHECK(scanner_.has_value());
+    const uint64_t decode_start = jxl_rs_probe_decode_start(**scanner_, index);
+    CHECK_NE(decode_start, std::numeric_limits<uint64_t>::max());
+    frame_decode_start_offsets_[index] = decode_start;
+    if (!scanner_done_) {
+      // The probe rewound the scanner's parser state. Its frame list is
+      // intact, but it must be replayed from the start before it can
+      // process new data.
+      scanner_needs_replay_ = true;
+      scanner_input_offset_ = 0;
+    }
+  }
+
   // A seek restarts the decode at the target's decode start (the earliest frame
   // that the target's reference frames depend on) and decodes forward from
   // there. If that is at or before where the decoder is now, between two
@@ -637,10 +676,7 @@ bool JXLImageDecoder::CanDecodeForwardTo(wtf_size_t index) const {
   // file (e.g. sprite sheets drawn with patches), every decode start is the
   // first frame, so a seek would decode the whole file up to the target, and
   // each late frame would make the next one later.
-  return decoder_.has_value() &&
-         decoder_state_ == DecoderState::kHaveBasicInfo &&
-         index > next_frame_to_decode_ && index < frame_infos_.size() &&
-         frame_infos_[index].decode_start_file_offset <= decoder_input_offset_;
+  return *frame_decode_start_offsets_[index] <= decoder_input_offset_;
 }
 
 bool JXLImageDecoder::CanReusePreviousFrameBuffer(

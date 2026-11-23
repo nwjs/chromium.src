@@ -3,6 +3,7 @@
 # found in the LICENSE file.
 
 import("//chromeos/ash/experiences/extensions/common/api/api_sources.gni")
+import("//printing/buildflags/buildflags.gni")
 import("//tools/json_schema_compiler/json_schema_api.gni")
 
 assert(is_chromeos)
@@ -19,6 +20,7 @@ function_registration("api_registration") {
     "accessibility_private",
     "certificate_provider",
     "certificate_provider_internal",
+    "echo_private",
     "file_manager_private",
     "file_manager_private_internal",
     "file_system_provider",
@@ -26,8 +28,14 @@ function_registration("api_registration") {
     "image_loader_private",
     "input_method_private",
     "login_screen_ui",
+    "odfs_config_private",
+    "smart_card_provider_private",
     "speech_recognition_private",
+    "system_log",
     "users_private",
+    "vpn_provider",
+    "wallpaper",
+    "wm_desks_private",
   ]
 
   inputs = [
@@ -38,8 +46,15 @@ function_registration("api_registration") {
     "//chrome/browser/ash/extensions/login_screen_ui/login_screen_ui_api.h",
     "//chrome/browser/ash/extensions/speech/speech_recognition_private_api.h",
     "//chrome/browser/ash/extensions/users_private/users_private_api.h",
+    "//chrome/browser/chromeos/extensions/echo_private/echo_private_api.h",
     "//chrome/browser/chromeos/extensions/file_system_provider/file_system_provider_api.h",
     "//chrome/browser/chromeos/extensions/file_system_provider/file_system_provider_api.h",
+    "//chrome/browser/chromeos/extensions/odfs_config_private/odfs_config_private_api.h",
+    "//chrome/browser/chromeos/extensions/smart_card_provider_private/smart_card_provider_private_api.h",
+    "//chrome/browser/chromeos/extensions/system_log/system_log_api.h",
+    "//chrome/browser/chromeos/extensions/vpn_provider/vpn_provider_api.h",
+    "//chrome/browser/chromeos/extensions/wallpaper/wallpaper_api.h",
+    "//chrome/browser/chromeos/extensions/wm/wm_desks_private_api.h",
     "//chrome/browser/extensions/api/certificate_provider/certificate_provider_api.h",
   ]
 
@@ -51,5 +66,24 @@ function_registration("api_registration") {
     "//chrome/browser/ash/extensions/login_screen_ui",
     "//chrome/browser/ash/extensions/speech",
     "//chrome/browser/ash/extensions/users_private",
+    "//chrome/browser/chromeos/extensions/echo_private",
+    "//chrome/browser/chromeos/extensions/odfs_config_private",
+    "//chrome/browser/chromeos/extensions/smart_card_provider_private",
+    "//chrome/browser/chromeos/extensions/system_log",
+    "//chrome/browser/chromeos/extensions/vpn_provider",
+    "//chrome/browser/chromeos/extensions/wallpaper",
+    "//chrome/browser/chromeos/extensions/wm",
   ]
+
+  if (use_cups) {
+    custom_impl_schemas += [
+      "printing",
+      "printing_metrics",
+    ]
+    inputs += [
+      "//chrome/browser/chromeos/extensions/printing_metrics/printing_metrics_api.h",
+      "//chrome/browser/extensions/api/printing/printing_api.h",
+    ]
+    deps += [ "//chrome/browser/chromeos/extensions/printing_metrics" ]
+  }
 }

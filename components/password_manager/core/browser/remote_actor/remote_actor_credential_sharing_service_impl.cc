@@ -1,0 +1,104 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "components/password_manager/core/browser/remote_actor/remote_actor_credential_sharing_service_impl.h"
+
+#include <utility>
+
+#include "base/check.h"
+#include "base/functional/bind.h"
+#include "base/functional/callback.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/task/sequenced_task_runner.h"
+#include "components/password_manager/core/browser/remote_actor/remote_actor_credential_permission_client.h"
+#include "components/password_manager/core/browser/remote_actor/remote_actor_credential_store_client.h"
+#include "components/signin/public/identity_manager/identity_manager.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
+
+namespace password_manager {
+
+namespace {
+
+void LogSharingFailureReason(
+    RemoteActorCredentialSharingFailureReason failure_reason) {
+  base::UmaHistogramEnumeration(
+      "PasswordManager.RemoteActorCredentialSharing.SharingFailureReason",
+      failure_reason);
+}
+
+}  // namespace
+
+RemoteActorCredentialSharingServiceImpl::
+    RemoteActorCredentialSharingServiceImpl(
+        signin::IdentityManager* identity_manager,
+        scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
+    : identity_manager_(identity_manager),
+      url_loader_factory_(url_loader_factory),
+      credential_store_(std::make_unique<RemoteActorCredentialStoreClient>(
+          identity_manager,
+          url_loader_factory)),
+      permission_client_(
+          std::make_unique<RemoteActorCredentialPermissionClient>(
+              identity_manager,
+              std::move(url_loader_factory))) {}
+
+RemoteActorCredentialSharingServiceImpl::
+    ~RemoteActorCredentialSharingServiceImpl() = default;
+
+void RemoteActorCredentialSharingServiceImpl::SharePassword(
+    const ShareParameters& params,
+    SharePasswordCallback callback) {
+  CHECK(!callback.is_null());
+
+  if (params.task_id.empty() || params.web_origin.empty() ||
+      params.obfuscated_gaia_id.empty()) {
+    LogSharingFailureReason(
+        RemoteActorCredentialSharingFailureReason::kInvalidParameters);
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), false));
+    return;
+  }
+
+  credential_store_->UpdateCredential(
+      params.obfuscated_gaia_id, params.web_origin, params.password_data,
+      params.time_to_live,
+      base::BindOnce(
+          &RemoteActorCredentialSharingServiceImpl::OnPassboxCompleted,
+          weak_ptr_factory_.GetWeakPtr(), params, std::move(callback)));
+}
+
+void RemoteActorCredentialSharingServiceImpl::OnPassboxCompleted(
+    const ShareParameters& params,
+    SharePasswordCallback callback,
+    bool success) {
+  if (!success) {
+    LogSharingFailureReason(
+        RemoteActorCredentialSharingFailureReason::kPassboxUploadFailed);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  RemoteActorCredentialPermissionClient::PasswordPermission permission;
+  permission.task_id = params.task_id;
+  permission.web_origin = params.web_origin;
+  permission.password_client_tag_hash = params.password_client_tag_hash();
+
+  permission_client_->GrantPasswordPermission(
+      permission,
+      base::BindOnce(
+          &RemoteActorCredentialSharingServiceImpl::OnPermissionGrantCompleted,
+          weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void RemoteActorCredentialSharingServiceImpl::OnPermissionGrantCompleted(
+    SharePasswordCallback callback,
+    bool success) {
+  if (!success) {
+    LogSharingFailureReason(
+        RemoteActorCredentialSharingFailureReason::kPermissionGrantFailed);
+  }
+  std::move(callback).Run(success);
+}
+
+}  // namespace password_manager

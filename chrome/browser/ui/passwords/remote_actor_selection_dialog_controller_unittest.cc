@@ -10,9 +10,11 @@
 
 #include "base/functional/callback.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_string.h"
+#include "components/password_manager/core/common/password_manager_features.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -81,6 +83,37 @@ TEST_F(RemoteActorSelectionDialogControllerTest, Properties) {
   EXPECT_EQ(controller.GetOkButtonLabel(), u"Allow this time");
 
   EXPECT_THAT(controller.GetLocalForms(), ElementsAre(Pointee(GetLocalForm())));
+}
+
+TEST_F(RemoteActorSelectionDialogControllerTest,
+       PropertiesWithCustomActorNameForTesting) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kRemoteActorCredentialSharing,
+      {{"actor_name_for_testing", "Search Agent"}});
+
+  std::vector<std::unique_ptr<PasswordForm>> credentials;
+  credentials.push_back(std::make_unique<PasswordForm>(GetLocalForm()));
+
+  base::MockCallback<RemoteActorSelectionDialogController::OnResultCallback>
+      callback;
+
+  EXPECT_CALL(callback, Run(Eq(std::nullopt)));
+
+  RemoteActorSelectionDialogController controller(
+      web_contents(), std::move(credentials), credential_domain_,
+      callback.Get());
+
+  EXPECT_EQ(controller.GetTitle(),
+            u"Allow Search Agent to sign in to example.com for you?");
+  EXPECT_EQ(controller.GetSubtitle(),
+            u"Search Agent can use Google Password Manager to sign in for you. "
+            u"Learn how Search Agent handles your data");
+  gfx::Range link_range = controller.GetSubtitleLinkRange();
+  ASSERT_FALSE(link_range.is_empty());
+  EXPECT_EQ(controller.GetSubtitle().substr(link_range.start(),
+                                            link_range.length()),
+            u"Learn how Search Agent handles your data");
 }
 
 TEST_F(RemoteActorSelectionDialogControllerTest,

@@ -35,8 +35,6 @@ import './network_proxy_section.js';
 import './passpoint_remove_dialog.js';
 import './tether_connection_dialog.js';
 
-import type {PrefsMixinInterface} from '/shared/settings/prefs/prefs_mixin.js';
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {MojoConnectivityProvider} from 'chrome://resources/ash/common/connectivity/mojo_connectivity_provider.js';
 import type {PasspointSubscription} from 'chrome://resources/ash/common/connectivity/passpoint.mojom-webui.js';
 import type {CrToggleElement} from 'chrome://resources/ash/common/cr_elements/cr_toggle/cr_toggle.js';
@@ -68,7 +66,9 @@ import {Setting} from '../mojom-webui/setting.mojom-webui.js';
 import type {OsSyncBrowserProxy, OsSyncPrefs} from '../os_people_page/os_sync_browser_proxy.js';
 import {OsSyncBrowserProxyImpl} from '../os_people_page/os_sync_browser_proxy.js';
 import type {OsSettingsSubpageElement} from '../os_settings_page/os_settings_subpage.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import type {PrefsMixinInterface} from '../prefs/prefs_mixin.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {Router, routes} from '../router.js';
 
 import {getTemplate} from './internet_detail_subpage.html.js';
@@ -279,14 +279,6 @@ export class SettingsInternetDetailPageElement extends
         computed: 'computeDisabled_(deviceState_.*)',
       },
 
-      isApnRevampEnabled_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.valueExists('isApnRevampEnabled') &&
-              loadTimeData.getBoolean('isApnRevampEnabled');
-        },
-      },
-
       isApnRevampAndAllowApnModificationPolicyEnabled_: {
         type: Boolean,
         value() {
@@ -307,6 +299,11 @@ export class SettingsInternetDetailPageElement extends
       networkExpanded_: Boolean,
 
       proxyExpanded_: Boolean,
+
+      propertiesReceived_: {
+        type: Boolean,
+        value: false,
+      },
     };
   }
 
@@ -368,7 +365,6 @@ export class SettingsInternetDetailPageElement extends
   declare private disabled_: boolean;
   declare private hiddenPref_: chrome.settingsPrivate.PrefObject<boolean>;
   declare private ipAddress_: string;
-  declare private isApnRevampEnabled_: boolean;
   declare private isApnRevampAndAllowApnModificationPolicyEnabled_: boolean;
   declare private isSecondaryUser_: boolean;
   declare private isWifiSyncEnabled_: boolean;
@@ -395,7 +391,7 @@ export class SettingsInternetDetailPageElement extends
    * Set to true to once the initial properties have been received. This
    * prevents setProperties from being called when setting default properties.
    */
-  private propertiesReceived_: boolean = false;
+  declare private propertiesReceived_: boolean;
   declare private proxyExpanded_: boolean;
   /**
    * Set in currentRouteChanged() if the showConfigure URL query
@@ -1218,8 +1214,7 @@ export class SettingsInternetDetailPageElement extends
   }
 
   private shouldShowApnRow_(): boolean {
-    return this.isApnRevampEnabled_ &&
-        this.isCellular_(this.managedProperties_);
+    return this.isCellular_(this.managedProperties_);
   }
 
   private isApnManaged_(globalPolicy: GlobalPolicy|undefined): boolean {
@@ -1230,11 +1225,6 @@ export class SettingsInternetDetailPageElement extends
       return false;
     }
     return !globalPolicy.allowApnModification;
-  }
-
-  private shouldShowApnList_(): boolean {
-    return !this.isApnRevampEnabled_ &&
-        this.isCellular_(this.managedProperties_);
   }
 
   private shouldShowSuppressTextMessagesToggle_(): boolean {

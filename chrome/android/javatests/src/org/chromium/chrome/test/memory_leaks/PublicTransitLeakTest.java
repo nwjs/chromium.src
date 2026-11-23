@@ -6,8 +6,10 @@ package org.chromium.chrome.test.memory_leaks;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 
 import androidx.browser.customtabs.CustomTabsSessionToken;
+import androidx.browser.customtabs.EngagementSignalsCallback;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
 
@@ -17,23 +19,32 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.ServiceLoaderUtil;
+import org.chromium.base.test.transit.TripBuilder;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.EnableLeakChecks;
-import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.ImportantFormFactors;
+import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchControllerFactory;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchHooks;
 import org.chromium.chrome.browser.customtabs.CustomTabsConnection;
 import org.chromium.chrome.browser.customtabs.CustomTabsIntentTestUtils;
 import org.chromium.chrome.browser.customtabs.CustomTabsTestUtils;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
+import org.chromium.chrome.browser.settings.SettingsInTab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.CctTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
+import org.chromium.chrome.test.transit.ChromeTriggers;
 import org.chromium.chrome.test.transit.FreshCtaTransitTestRule;
 import org.chromium.chrome.test.transit.page.WebPageStation;
+import org.chromium.chrome.test.transit.settings.SettingsStation;
 import org.chromium.ui.base.DeviceFormFactor;
 
 import java.util.concurrent.TimeoutException;
@@ -64,16 +75,17 @@ public class PublicTransitLeakTest {
 
     @Test
     @LargeTest
-    @DisableFeatures({
-        ChromeFeatureList.SETTINGS_IN_TAB, // crbug.com/521895796
-        ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP // crbug.com/556881398
-    })
     public void settingsActivityTest() {
         WebPageStation page = mChromeTabbedActivityTestRule.startOnBlankPage();
-        page.openRegularTabAppMenu()
-                .openSettings()
-                .pressBackTo()
-                .arriveAt(WebPageStation.newBuilder().initFrom(page).build());
+        SettingsStation settings = page.openRegularTabAppMenu().openSettings();
+        // On desktop, back at the task root is handled by the system and does not close the
+        // settings tab, so close it programmatically instead.
+        TripBuilder exitSettings =
+                SettingsInTab.shouldOpenSettingsInTab()
+                        ? ChromeTriggers.closeCurrentTabProgrammaticallyTo(
+                                settings, mChromeTabbedActivityTestRule.getActivity())
+                        : settings.pressBackTo();
+        exitSettings.arriveAt(WebPageStation.newBuilder().initFrom(page).build());
     }
 
     @Test
@@ -112,6 +124,30 @@ public class PublicTransitLeakTest {
 
     @Test
     @LargeTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.S)
+    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void chromeTabbedActivityWithAuxiliarySearchTest() {
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, () -> true);
+        AuxiliarySearchControllerFactory.getInstance().setSupportMultiDataSourceForTesting(true);
+        mChromeTabbedActivityTestRule.startOnBlankPage();
+    }
+
+    @Test
+    @LargeTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.S)
+    @EnableFeatures({ChromeFeatureList.ANDROID_APP_INTEGRATION_MULTI_DATA_SOURCE})
+    public void customTabActivityWithAuxiliarySearchTest() throws TimeoutException {
+        ServiceLoaderUtil.setInstanceForTesting(AuxiliarySearchHooks.class, () -> true);
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(
+                CustomTabsIntentTestUtils.createMinimalCustomTabIntent(
+                        ApplicationProvider.getApplicationContext(),
+                        mChromeTabbedActivityTestRule
+                                .getTestServer()
+                                .getURL("/chrome/test/data/android/google.html")));
+    }
+
+    @Test
+    @LargeTest
     public void customTabActivityWithSessionTest() throws TimeoutException {
         final CustomTabsConnection connection = CustomTabsTestUtils.warmUpAndWait();
         Context context = ApplicationProvider.getApplicationContext();
@@ -124,6 +160,11 @@ public class PublicTransitLeakTest {
         final CustomTabsSessionToken token =
                 CustomTabsSessionToken.getSessionTokenFromIntent(intent);
         Assert.assertTrue(connection.newSession(token));
+        org.chromium.base.ThreadUtils.runOnUiThreadBlocking(
+                () -> PrivacyPreferencesManagerImpl.getInstance().setUsageAndCrashReporting(true));
+        Assert.assertTrue(
+                connection.setEngagementSignalsCallback(
+                        token, new EngagementSignalsCallback() {}, android.os.Bundle.EMPTY));
 
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
     }

@@ -70,6 +70,7 @@
 #include "third_party/blink/renderer/core/dom/node.h"
 #include "third_party/blink/renderer/core/events/web_input_event_conversion.h"
 #include "third_party/blink/renderer/core/exported/web_dev_tools_agent_impl.h"
+#include "third_party/blink/renderer/core/exported/web_page_popup_impl.h"
 #include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 #include "third_party/blink/renderer/core/exported/web_settings_impl.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
@@ -92,6 +93,7 @@
 #include "third_party/blink/renderer/core/html/forms/external_date_time_chooser.h"
 #include "third_party/blink/renderer/core/html/forms/external_popup_menu.h"
 #include "third_party/blink/renderer/core/html/forms/file_chooser.h"
+#include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/internal_popup_menu.h"
@@ -1288,10 +1290,20 @@ void ChromeClientImpl::DidChangeFormRelatedElementDynamically(
     LocalFrame* frame,
     HTMLElement* element,
     WebFormRelatedChangeType form_related_change) {
-  if (auto* fill_client = AutofillClientFromFrame(frame)) {
-    fill_client->DidChangeFormRelatedElementDynamically(element,
-                                                        form_related_change);
+  auto* fill_client = AutofillClientFromFrame(frame);
+  if (!fill_client) {
+    return;
   }
+  std::optional<mojom::blink::FormControlType> form_control_type;
+  if (auto* form_control = DynamicTo<HTMLFormControlElement>(element)) {
+    form_control_type = form_control->FormControlTypeForAutofill();
+  }
+  // This is called for every form-related element that is inserted into or
+  // removed from the document, so the WebElement (a Persistent) is only made
+  // if the client asks for it.
+  fill_client->DidChangeFormRelatedElementDynamically(
+      form_related_change, form_control_type,
+      [element] { return WebElement(element); });
 }
 
 void ChromeClientImpl::ShowVirtualKeyboardOnElementFocus(LocalFrame& frame) {
@@ -1513,6 +1525,13 @@ void ChromeClientImpl::DocumentDetached(Document& document) {
   for (auto& it : file_chooser_queue_) {
     if (it->FrameOrNull() == document.GetFrame())
       it->DisconnectClient();
+  }
+  // Close any open popup owned by `document`, including popups opened via
+  // HTMLInputElement::showPicker() on disconnected elements that are not
+  // visited by Document::DetachLayoutTree().
+  if (web_view_ && web_view_->GetPagePopup() &&
+      web_view_->GetPagePopup()->OwnerElement().GetDocument() == document) {
+    web_view_->ClosePagePopup(web_view_->GetPagePopup());
   }
 }
 

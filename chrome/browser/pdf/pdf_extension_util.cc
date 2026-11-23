@@ -200,6 +200,7 @@ base::DictValue GetPdfViewerStrings() {
       {"ink2BrushSizeThin", IDS_PDF_INK2_ANNOTATION_SIZE_THIN},
       {"ink2Color", IDS_PDF_INK2_ANNOTATION_COLOR},
       {"ink2Draw", IDS_PDF_INK2_DRAW},
+      {"ink2Signature", IDS_PDF_INK2_SIGNATURE},
       {"ink2Size", IDS_PDF_INK2_ANNOTATION_SIZE},
       {"ink2TextAnnotationsAxLabel", IDS_PDF_INK2_TEXT_ANNOTATIONS_AX_LABEL},
       {"ink2TextAlignCenter", IDS_PDF_INK2_TEXT_ALIGN_CENTER},
@@ -488,8 +489,8 @@ bool MaybeDispatchSaveEvent(content::RenderFrameHost* embedder_host) {
   base::WeakPtr<extensions::StreamContainer> stream =
       mime_handler_stream_manager->GetStreamContainer(embedder_host);
 
-  base::ListValue args;
-  args.Append(stream->stream_url().spec());
+  auto args = base::MakeRefCounted<extensions::EventArgs>();
+  args->data.Append(stream->stream_url().spec());
 
   content::BrowserContext* context = embedder_host->GetBrowserContext();
   auto event = std::make_unique<extensions::Event>(
@@ -512,9 +513,9 @@ void DispatchShouldUpdateViewportEvent(content::RenderFrameHost* embedder_host,
     return;
   }
 
-  base::ListValue args;
-  args.Append(stream->stream_url().spec());
-  args.Append(new_pdf_url.spec());
+  auto args = base::MakeRefCounted<extensions::EventArgs>();
+  args->data.Append(stream->stream_url().spec());
+  args->data.Append(new_pdf_url.spec());
 
   content::BrowserContext* context = embedder_host->GetBrowserContext();
   auto event = std::make_unique<extensions::Event>(

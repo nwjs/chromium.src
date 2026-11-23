@@ -11,13 +11,15 @@ source_set("core") {
     "password_generator.cc",
     "password_generator.h",
   ]
-  public_deps = [ "//components/autofill/core/browser/proto" ]
+  public_deps = [
+    "//components/autofill/core/browser/proto",
+    "//components/password_manager/core/browser:password_string",
+  ]
   deps = [
     "//base",
     "//components/password_manager/core/browser/features:password_features",
     "//components/password_manager/core/common:constants",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("generation") {
@@ -34,7 +36,6 @@ source_set("generation") {
     "//services/network/public/cpp",
     "//url",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("unit_tests") {

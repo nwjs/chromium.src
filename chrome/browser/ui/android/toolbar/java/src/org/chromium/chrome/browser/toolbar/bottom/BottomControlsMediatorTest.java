@@ -12,8 +12,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -35,7 +37,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
@@ -199,12 +200,12 @@ public class BottomControlsMediatorTest {
     @Test
     @EnableFeatures({ChromeFeatureList.ANDROID_BOTTOM_BAR})
     public void testEdgeToEdge_NtpOnly() {
-        Tab tab = Mockito.mock(Tab.class);
+        Tab tab = mock(Tab.class);
         Activity activity = Robolectric.buildActivity(TestActivity.class).setup().get();
         when(mWindowAndroid.getContext()).thenReturn(new java.lang.ref.WeakReference<>(activity));
 
         when(tab.isIncognito()).thenReturn(false);
-        NativePage ntp = Mockito.mock(NativePage.class);
+        NativePage ntp = mock(NativePage.class);
         when(ntp.getHost()).thenReturn("newtab");
         when(tab.getNativePage()).thenReturn(ntp);
 
@@ -221,7 +222,7 @@ public class BottomControlsMediatorTest {
         assertEquals(0, mModel.get(BOTTOM_PADDING));
 
         // Transition to standard web page
-        Tab webTab = Mockito.mock(Tab.class);
+        Tab webTab = mock(Tab.class);
         when(webTab.isIncognito()).thenReturn(false);
         when(webTab.getNativePage()).thenReturn(null);
         mTabObservableSupplier.set(webTab);
@@ -230,7 +231,7 @@ public class BottomControlsMediatorTest {
         assertEquals(0, mModel.get(BOTTOM_PADDING));
 
         // Transition to Incognito NTP
-        Tab incognitoNtpTab = Mockito.mock(Tab.class);
+        Tab incognitoNtpTab = mock(Tab.class);
         when(incognitoNtpTab.isIncognito()).thenReturn(true);
         when(incognitoNtpTab.getNativePage()).thenReturn(ntp);
         mTabObservableSupplier.set(incognitoNtpTab);
@@ -242,12 +243,12 @@ public class BottomControlsMediatorTest {
     @Test
     @EnableFeatures({ChromeFeatureList.ANDROID_BOTTOM_BAR})
     public void testEdgeToEdge_NtpYTranslation() {
-        Tab tab = Mockito.mock(Tab.class);
+        Tab tab = mock(Tab.class);
         Activity activity = Robolectric.buildActivity(TestActivity.class).setup().get();
         when(mWindowAndroid.getContext()).thenReturn(new java.lang.ref.WeakReference<>(activity));
 
         when(tab.isIncognito()).thenReturn(false);
-        NativePage ntp = Mockito.mock(NativePage.class);
+        NativePage ntp = mock(NativePage.class);
         when(ntp.getHost()).thenReturn("newtab");
         when(tab.getNativePage()).thenReturn(ntp);
 
@@ -434,8 +435,8 @@ public class BottomControlsMediatorTest {
         verify(mFullscreenManager).addObserver(fullscreenObserverCaptor.capture());
         FullscreenManager.Observer observer = fullscreenObserverCaptor.getValue();
 
-        Tab tab = Mockito.mock(Tab.class);
-        FullscreenOptions options = Mockito.mock(FullscreenOptions.class);
+        Tab tab = mock(Tab.class);
+        FullscreenOptions options = mock(FullscreenOptions.class);
 
         mMediator.setBottomControlsVisible(true);
         assertTrue("Compositor view should be visible.", mModel.get(COMPOSITED_VIEW_VISIBLE));
@@ -550,9 +551,9 @@ public class BottomControlsMediatorTest {
         Activity activity = Robolectric.buildActivity(TestActivity.class).setup().get();
         when(mWindowAndroid.getContext()).thenReturn(new WeakReference<>(activity));
 
-        Tab tab = Mockito.mock(Tab.class);
+        Tab tab = mock(Tab.class);
         when(tab.isIncognito()).thenReturn(false);
-        NativePage ntp = Mockito.mock(NativePage.class);
+        NativePage ntp = mock(NativePage.class);
         when(ntp.getHost()).thenReturn("newtab");
         when(tab.getNativePage()).thenReturn(ntp);
         mTabObservableSupplier.set(tab);
@@ -746,5 +747,21 @@ public class BottomControlsMediatorTest {
         mMediator.onBrowserControlsOffsetUpdate(DEFAULT_HEIGHT);
         mMediator.onBrowserControlsOffsetUpdate(DEFAULT_HEIGHT);
         verify(mRequestRenderRunnable, never()).run();
+    }
+
+    @Test
+    public void testSetBottomControlsHeight() {
+        assertEquals(DEFAULT_HEIGHT, mMediator.getHeight());
+        clearInvocations(mBottomControlsStacker);
+
+        mMediator.setBottomControlsHeight(50);
+        assertEquals(50, mMediator.getHeight());
+        assertEquals(50, mModel.get(ANDROID_VIEW_HEIGHT_NO_PADDING));
+        verify(mBottomControlsStacker).requestLayerUpdate(false);
+
+        // Setting the same height again should be a no-op.
+        clearInvocations(mBottomControlsStacker);
+        mMediator.setBottomControlsHeight(50);
+        verify(mBottomControlsStacker, never()).requestLayerUpdate(anyBoolean());
     }
 }

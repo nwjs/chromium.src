@@ -12,10 +12,10 @@
 #include "base/strings/strcat.h"
 #include "chrome/browser/ash/app_mode/kiosk_chrome_app_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_controller.h"
+#include "chrome/browser/ash/app_mode/kiosk_settings_navigation_throttle.h"
 #include "chrome/browser/ash/app_mode/kiosk_system_session.h"
 #include "chrome/browser/ash/app_mode/test/kiosk_mixin.h"
 #include "chrome/browser/ash/app_mode/test/kiosk_test_utils.h"
-#include "chrome/browser/chromeos/app_mode/kiosk_settings_navigation_throttle.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
@@ -66,14 +66,14 @@ NavigateParams NavigateAndReturnParams(const GURL& url,
 
 // Opens a popup at `url` and returns true if the window wasn't force closed.
 bool OpenPopup(const GURL& url) {
-  NavigateAndReturnParams(url, WindowOpenDisposition::NEW_POPUP);
+  NavigateAndReturnParams(url, WindowOpenDisposition::kNewPopup);
   return !DidKioskCloseNewWindow();
 }
 
 // Navigates to `url` in the current tab, and returns the browser.
 BrowserWindowInterface& NavigateInCurrentTab(const GURL& url) {
   auto params =
-      NavigateAndReturnParams(url, WindowOpenDisposition::CURRENT_TAB);
+      NavigateAndReturnParams(url, WindowOpenDisposition::kCurrentTab);
   CHECK(params.browser);
   return *params.browser;
 }

@@ -76,11 +76,9 @@ import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
-import org.chromium.base.test.util.ScalableTimeout;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
-import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
 import org.chromium.chrome.browser.customtabs.CustomTabsIntentTestUtils;
@@ -101,6 +99,7 @@ import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.signin.SigninFirstRunFragment;
 import org.chromium.chrome.browser.ui.signin.DialogWhenLargeContentLayout;
 import org.chromium.chrome.browser.ui.signin.fullscreen_signin.FullscreenSigninMediator;
+import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.chrome.test.util.browser.sync.SyncTestUtil;
@@ -113,6 +112,7 @@ import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.metrics.SigninFunnelEvent;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.edge_to_edge.EdgeToEdgeSystemBarColorHelper;
@@ -690,6 +690,9 @@ public class FirstRunIntegrationTest {
         HistogramWatcher signinStartedWatcher =
                 HistogramWatcher.newBuilder()
                         .expectIntRecord("Signin.SignIn.Started", SigninAccessPoint.START_PAGE)
+                        .expectIntRecord(
+                                "Signin.SigninFunnel.StartPage",
+                                SigninFunnelEvent.PROMO_SHOWN_NO_ACCOUNT)
                         .build();
 
         initializePreferences(new FirstRunPagesTestCase().setShouldShowHistorySyncPromo(true));
@@ -730,6 +733,33 @@ public class FirstRunIntegrationTest {
         new FirstRunNavigationHelper(firstRunActivity)
                 .continueAndSignIn(TestAccounts.AADC_ADULT_ACCOUNT)
                 .ensureHistorySyncIsCurrentPage();
+    }
+
+    @Test
+    @MediumTest
+    @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
+    public void signinFunnelPromoShownRecordedAgainWhenGoingBackFromHistorySync() throws Exception {
+        mSigninTestRule.addAccount(TestAccounts.AADC_ADULT_ACCOUNT);
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        // Signin.SignIn.Started is recorded only once for the whole FRE.
+                        .expectIntRecord("Signin.SignIn.Started", SigninAccessPoint.START_PAGE)
+                        // The promo shown event is recorded every time the promo is shown.
+                        .expectIntRecordTimes(
+                                "Signin.SigninFunnel.StartPage",
+                                SigninFunnelEvent.PROMO_SHOWN_WITH_ACCOUNT,
+                                /* times= */ 2)
+                        .build();
+        initializePreferences(new FirstRunPagesTestCase().setShouldShowHistorySyncPromo(true));
+        FirstRunActivity firstRunActivity = launchFirstRunActivityAndWaitForNativeInitialization();
+
+        new FirstRunNavigationHelper(firstRunActivity)
+                .continueAndSignIn(TestAccounts.AADC_ADULT_ACCOUNT)
+                .ensureHistorySyncIsCurrentPage()
+                .goBackToPreviousPage()
+                .ensureWelcomePageIsCurrentPage();
+
+        histogramWatcher.assertExpected();
     }
 
     @Test
@@ -923,13 +953,9 @@ public class FirstRunIntegrationTest {
         CriteriaHelper.pollUiThreadLongTimeout(
                 "Native init never completed", activity::didFinishNativeInitialization);
 
-        // DeferredStartupHandler could not finish with CriteriaHelper#DEFAULT_MAX_TIME_TO_POLL.
-        // Use longer timeout here to avoid flakiness. See https://crbug.com/40736538.
-        CriteriaHelper.pollUiThread(activity::deferredStartupPostedForTesting);
         Assert.assertTrue(
                 "Deferred startup never completed",
-                DeferredStartupHandler.waitForDeferredStartupCompleteForTesting(
-                        ScalableTimeout.scaleTimeout(ACTIVITY_WAIT_LONG_MS)));
+                ChromeActivityTestRule.waitForDeferredStartup(activity));
 
         // FirstRun status should be refreshed by TosDialogBehaviorSharedPrefInvalidator in deferred
         // start up task.

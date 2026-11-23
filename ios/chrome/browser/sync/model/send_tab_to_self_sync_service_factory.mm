@@ -4,8 +4,8 @@
 
 #import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
 
-#import "base/no_destructor.h"
-#import "components/keyed_service/core/service_access_type.h"
+#import <utility>
+
 #import "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #import "components/sync_device_info/device_info_sync_service.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
@@ -24,8 +24,7 @@ std::unique_ptr<KeyedService> BuildSendTabToSelfService(ProfileIOS* profile) {
       DataTypeStoreServiceFactory::GetForProfile(profile)->GetStoreFactory();
 
   history::HistoryService* history_service =
-      ios::HistoryServiceFactory::GetForProfile(
-          profile, ServiceAccessType::EXPLICIT_ACCESS);
+      ios::HistoryServiceFactory::GetForProfile(profile);
 
   syncer::DeviceInfoTracker* device_info_tracker =
       DeviceInfoSyncServiceFactory::GetForProfile(profile)
@@ -42,34 +41,19 @@ std::unique_ptr<KeyedService> BuildSendTabToSelfService(ProfileIOS* profile) {
 }  // anonymous namespace
 
 // static
-SendTabToSelfSyncServiceFactory*
-SendTabToSelfSyncServiceFactory::GetInstance() {
-  static base::NoDestructor<SendTabToSelfSyncServiceFactory> instance;
-  return instance.get();
-}
-
-// static
-SendTabToSelfSyncService* SendTabToSelfSyncServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<SendTabToSelfSyncService>(
-      profile, /*create=*/true);
-}
-
-// static
 SendTabToSelfSyncServiceFactory::TestingFactory
 SendTabToSelfSyncServiceFactory::GetDefaultFactory() {
   return base::BindOnce(&BuildSendTabToSelfService);
 }
 
-SendTabToSelfSyncServiceFactory::SendTabToSelfSyncServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("SendTabToSelfSyncService") {
+SendTabToSelfSyncServiceFactory::SendTabToSelfSyncServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "SendTabToSelfSyncService") {
   DependsOn(DataTypeStoreServiceFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(ios::HistoryServiceFactory::GetInstance());
   DependsOn(SessionSyncServiceFactory::GetInstance());
 }
-
-SendTabToSelfSyncServiceFactory::~SendTabToSelfSyncServiceFactory() {}
 
 std::unique_ptr<KeyedService>
 SendTabToSelfSyncServiceFactory::BuildServiceInstanceFor(

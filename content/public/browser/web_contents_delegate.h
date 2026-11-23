@@ -533,8 +533,8 @@ class CONTENT_EXPORT WebContentsDelegate {
   // both the value set by the AWC API and browser's "native" resizability.
   virtual bool GetCanResize();
 
-  // Returns whether the window is pinned always-on-top.
-  virtual bool GetIsAlwaysOnTop();
+  // Returns whether the window is an always-on-top popup.
+  virtual bool GetIsAlwaysOnTopPopup();
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Returns whether the RFH can use Additional Windowing Controls (AWC) APIs.
@@ -915,15 +915,6 @@ class CONTENT_EXPORT WebContentsDelegate {
   virtual bool MaybeCopyContentAreaAsBitmap(
       base::OnceCallback<void(const SkBitmap&)> callback);
 
-  // Gets the page content annotations for the given WebContents.
-  // The callback gets a serialized AnnotatedPageContent proto or an error
-  // message string if extraction failed or is unsupported by the embedder.
-  virtual void GetAIPageContent(
-      WebContents* web_contents,
-      bool include_actionable_elements,
-      base::OnceCallback<void(base::expected<std::string, std::string>)>
-          callback);
-
 #if BUILDFLAG(IS_ANDROID)
   // Allow delegate to override how to take a snapshot of this WebContents into
   // a HardwareBuffer. Return true if the delegate will execute callback with a
@@ -987,6 +978,9 @@ class CONTENT_EXPORT WebContentsDelegate {
 
  protected:
   virtual ~WebContentsDelegate();
+
+  virtual void OnAttached(WebContents* source);
+  virtual void OnDetaching(WebContents* source);
 
   std::string manifest_;
 

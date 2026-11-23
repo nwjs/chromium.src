@@ -399,10 +399,6 @@ if (!is_android) {
     if (is_linux && use_dbus) {
       deps += [ "//components/dbus" ]
     }
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 
   source_set("browser_tests") {
@@ -482,7 +478,11 @@ if (!is_android) {
       ]
     }
     if (is_win || is_mac || is_linux) {
-      deps += [ "//chrome/browser/ui/startup/default_browser_prompt" ]
+      deps += [
+        "//chrome/browser:global_features",
+        "//chrome/browser/lifetime",
+        "//chrome/browser/ui/startup/default_browser_prompt",
+      ]
     }
   }
 

@@ -55,6 +55,7 @@ source_set("impl") {
     "markdown_builder.cc",
     "page_context_monitor.cc",
     "tools/tools.cc",
+    "tools/tools_workspace.cc",
   ]
   public_deps = [ ":ai_overlay_dialog" ]
   deps = [
@@ -63,16 +64,19 @@ source_set("impl") {
     "//chrome/browser/bookmarks",
     "//chrome/browser/glic",
     "//chrome/browser/history",
+    "//chrome/browser/page_content_annotations:extraction_service",
     "//chrome/browser/page_content_annotations:fetcher",
     "//chrome/browser/page_content_annotations:screenshot_service",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search_engines",
+    "//chrome/browser/tab_group_sync:factories",
     "//chrome/browser/tab_list",
     "//chrome/browser/translate",
     "//chrome/browser/ttc/core",
     "//chrome/browser/ttc/resources",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/ai_overlay_dialog/tools:generate_tool_definitions",
     "//chrome/common",
@@ -81,8 +85,11 @@ source_set("impl") {
     "//components/input",
     "//components/optimization_guide/content/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/page_content_annotations/core",
+    "//components/saved_tab_groups/public",
     "//components/search_engines",
     "//components/sessions",
+    "//components/tab_groups",
     "//components/tabs:public",
     "//components/ttc/app:impl",
     "//components/vector_icons",
@@ -94,6 +101,8 @@ source_set("impl") {
   ]
   if (!is_android) {
     sources += [
+      "page_context_monitor_views.cc",
+      "page_context_monitor_views.h",
       "tools/tools_views.cc",
       "tools/tools_views.h",
     ]
@@ -105,10 +114,15 @@ source_set("impl") {
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui:browser_window_header",
+      "//chrome/browser/ui/performance_controls",
+      "//chrome/browser/ui/tabs:tab_group",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/tabs/saved_tab_groups",
     ]
   } else {
     sources += [
+      "page_context_monitor_android.cc",
+      "page_context_monitor_android.h",
       "tools/tools_android.cc",
       "tools/tools_android.h",
     ]
@@ -144,8 +158,13 @@ source_set("unit_tests") {
   if (!is_android) {
     sources += [ "ai_overlay_dialog_page_handler_unittest.cc" ]
     deps += [
+      "//chrome/browser/metrics",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:test_support",
+      "//components/prefs",
+      "//components/prefs:test_support",
+      "//components/variations",
+      "//components/variations/service",
     ]
   }
 }
@@ -182,6 +201,7 @@ source_set("browser_tests") {
       "//chrome/browser/translate",
       "//components/optimization_guide/content/browser",
       "//components/optimization_guide/proto:optimization_guide_proto",
+      "//components/sessions",
       "//content/test:browsertest_support",
     ]
   }

@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/download/model/browser_download_service_factory.h"
 
+#import <utility>
+
 #import "base/functional/bind.h"
 #import "ios/chrome/browser/download/model/browser_download_service.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -20,31 +22,18 @@ std::unique_ptr<KeyedService> BuildBrowserDownloadService(ProfileIOS* profile) {
 }  // namespace
 
 // static
-BrowserDownloadService* BrowserDownloadServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<BrowserDownloadService>(
-      profile, /*create=*/true);
-}
-
-// static
-BrowserDownloadServiceFactory* BrowserDownloadServiceFactory::GetInstance() {
-  static base::NoDestructor<BrowserDownloadServiceFactory> instance;
-  return instance.get();
-}
-
-// static
 BrowserDownloadServiceFactory::TestingFactory
 BrowserDownloadServiceFactory::GetDefaultFactory() {
   return base::BindOnce(&BuildBrowserDownloadService);
 }
 
-BrowserDownloadServiceFactory::BrowserDownloadServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("BrowserDownloadService",
-                                    ProfileSelection::kOwnInstanceInIncognito,
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {}
-
-BrowserDownloadServiceFactory::~BrowserDownloadServiceFactory() = default;
+BrowserDownloadServiceFactory::BrowserDownloadServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "BrowserDownloadService",
+          ProfileSelection::kOwnInstanceInIncognito,
+          ServiceCreation::kCreateWithProfile,
+          TestingCreation::kNoServiceForTests) {}
 
 std::unique_ptr<KeyedService>
 BrowserDownloadServiceFactory::BuildServiceInstanceFor(

@@ -3,12 +3,20 @@
 <head>
   <meta charset="utf-8">
   <title>Lens Button</title>
+  <script src="color_scheme.js"></script>
   <style>
+    html {
+      color-scheme: light;
+    }
+
+    html[dark-mode] {
+      color-scheme: light dark;
+    }
+
     html,
     body {
       align-items: center;
       background-color: transparent;
-      color-scheme: light dark;
       display: flex;
       height: 100%;
       justify-content: center;
@@ -24,6 +32,5 @@
   <lens-button-app></lens-button-app>
   <script type="module" src="strings.m.js"></script>
   <script type="module" src="lens_button_app.js"></script>
-  <script type="module" src="post_message_entrypoint.js"></script>
 </body>
 </html>

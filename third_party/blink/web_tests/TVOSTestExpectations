@@ -172,7 +172,6 @@ crbug.com/1421239 [ tvOS26-simulator ] wpt_internal/webcodecs/annexb_decoding.ht
 crbug.com/1421239 [ tvOS26-simulator ] wpt_internal/webcodecs/annexb_decoding.https.any.worker.html [ Skip Timeout ]
 
 # Expected to crash.
-crbug.com/1421239 [ tvOS26-simulator ] external/wpt/encoding/unsupported-labels.window.html [ Skip Crash ]
 crbug.com/1421239 [ tvOS26-simulator ] external/wpt/html/browsers/browsing-the-web/navigating-across-documents/navigate-to-unparseable-url.html [ Skip Crash ]
 crbug.com/1421239 [ tvOS26-simulator ] external/wpt/media-capabilities/encodingInfo.any.worker.html [ Skip Crash ]
 crbug.com/1421239 [ tvOS26-simulator ] external/wpt/html/semantics/embedded-content/the-object-element/object-events.html [ Skip Crash ]
@@ -2114,12 +2113,10 @@ crbug.com/554992299 [ tvOS26-simulator ] http/tests/misc/synthetic-gesture-initi
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/misc/video-poster-image-load-outlives-gc-without-crashing.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/navigation/start-load-during-provisional-loader-detach.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/origin_trials/sample-api-script-added-after-css-declaration.html [ Failure ]
-crbug.com/554992299 [ tvOS26-simulator ] http/tests/payments/payment-request-app-store-billing-mandatory-total.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/preload/meta-viewport-link-headers.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/printing/cross-site-frame-scrolled.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/printing/cross-site-frame.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/priorities/resource-load-priorities-media-preload.html [ Skip Timeout ]
-crbug.com/554992299 [ tvOS26-simulator ] http/tests/security/XFrameOptions/x-frame-options-deny-multiple-clients.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/security/canvas-remote-read-remote-image-document-domain.html [ Failure ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/security/contentSecurityPolicy/source-list-parsing-04.html [ Skip Timeout ]
 crbug.com/554992299 [ tvOS26-simulator ] http/tests/security/cookies/third-party-cookie-blocking-worker.https.html [ Failure ]

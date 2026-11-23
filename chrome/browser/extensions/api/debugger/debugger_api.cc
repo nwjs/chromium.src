@@ -16,6 +16,7 @@
 
 #include "base/check.h"
 #include "base/command_line.h"
+#include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
@@ -44,6 +45,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/security_principal.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
 #include "extensions/browser/event_router.h"
@@ -289,43 +291,87 @@ bool ExtensionIsTrusted(const Extension& extension) {
              ::switches::kAllowUnpackedPerfettoExtension);
 }
 
+// Returns whether the extension may attach to an embedder frame.
+bool ExtensionMayAttachToEmbedderFrame(const Extension& extension,
+                                       Profile* extension_profile,
+                                       content::RenderFrameHost* embedder_frame,
+                                       const GURL& page_url,
+                                       std::string* error) {
+  CHECK(embedder_frame);
+  if (embedder_frame->GetWebUI()) {
+    *error = manifest_errors::kCannotAccessChromeUrl;
+    return false;
+  }
+  if (content::WebContents::FromRenderFrameHost(embedder_frame)
+          ->IsPrivileged()) {
+    *error = manifest_errors::kCannotAccessPage;
+    return false;
+  }
+  return ExtensionMayAttachToURLOrInnerURL(
+             extension, extension_profile,
+             embedder_frame->GetLastCommittedURL(), &page_url, error) &&
+         ExtensionMayAttachToURLOrInnerURL(extension, extension_profile,
+                                           embedder_frame->GetSiteInstance()
+                                               ->GetSecurityPrincipal()
+                                               .GetDeprecatedSiteURL(),
+                                           &page_url, error);
+}
+
 bool ExtensionMayAttachToRenderFrameHost(
     const Extension& extension,
     Profile* extension_profile,
     content::RenderFrameHost* render_frame_host,
     std::string* error) {
+  const GURL& page_url = render_frame_host->GetOutermostMainFrameOrEmbedder()
+                             ->GetLastCommittedURL();
+  for (content::RenderFrameHost* frame =
+           render_frame_host->GetParentOrOuterDocumentOrEmbedder();
+       frame; frame = frame->GetParentOrOuterDocumentOrEmbedder()) {
+    if (!ExtensionMayAttachToEmbedderFrame(extension, extension_profile, frame,
+                                           page_url, error)) {
+      return false;
+    }
+  }
   bool result = true;
-  const GURL& page_url = render_frame_host->GetLastCommittedURL();
   render_frame_host->ForEachRenderFrameHostWithAction(
-      [&page_url, &extension, extension_profile, error,
-       &result](content::RenderFrameHost* render_frame_host) {
+      [&](content::RenderFrameHost* rfh) {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-        // If |render_frame_host| is attached to an inner MimeHandlerViewGuest
-        // skip it. This is done to fix crbug.com/40213673 because an extension
-        // cannot inspect another extension.
-        if (MimeHandlerViewGuest::FromRenderFrameHost(render_frame_host)) {
+        // If `rfh` is attached to an inner MimeHandlerViewGuest, skip it when
+        // checking an ancestor frame. This is done to fix crbug.com/40213673
+        // because an extension cannot inspect another extension. Do not skip if
+        // `rfh` is the target `render_frame_host` itself so that extensions
+        // cannot attach directly to the guest frame.
+        if (rfh != render_frame_host &&
+            MimeHandlerViewGuest::FromRenderFrameHost(rfh)) {
           return content::RenderFrameHost::FrameIterationAction::kSkipChildren;
         }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 #if BUILDFLAG(ENABLE_PDF)
         // The PDF extension frame would normally prevent all other frames in
-        // the frame tree from being attachable. Skip it so this doesn't occur.
-        // This should be okay, since the PDF extension frame and PDF content
-        // frame aren't listed in chrome.debugger.getTargets(). Check both the
-        // last committed origin and the SiteURL for the PDF extension frame,
+        // the frame tree from being attachable. Skip it and its children when
+        // checking an ancestor frame so this doesn't occur. Do not skip if
+        // `rfh` is the target `render_frame_host` itself, and disallow direct
+        // attachment to the PDF content frame. Check both the last committed
+        // origin and the SecurityPrincipal for the PDF extension frame,
         // because this method may be called in the middle of a navigation where
-        // the SiteURL has been updated but navigation hasn't committed yet.
+        // the SecurityPrincipal has been updated but navigation hasn't
+        // committed yet.
         if (chrome_pdf::features::IsOopifPdfEnabled() &&
-            (IsPdfExtensionOrigin(
-                 render_frame_host->GetLastCommittedOrigin()) ||
-             IsPdfExtensionPrincipal(render_frame_host->GetSiteInstance()
-                                         ->GetSecurityPrincipal()))) {
-          return content::RenderFrameHost::FrameIterationAction::kContinue;
+            rfh != render_frame_host &&
+            (IsPdfExtensionOrigin(rfh->GetLastCommittedOrigin()) ||
+             IsPdfExtensionPrincipal(
+                 rfh->GetSiteInstance()->GetSecurityPrincipal()))) {
+          return content::RenderFrameHost::FrameIterationAction::kSkipChildren;
+        }
+        if (rfh->GetProcess()->IsPdf()) {
+          *error = kRestrictedError;
+          result = false;
+          return content::RenderFrameHost::FrameIterationAction::kStop;
         }
 #endif  // BUILDFLAG(ENABLE_PDF)
 
-        if (render_frame_host->GetWebUI()) {
+        if (rfh->GetWebUI()) {
           *error = manifest_errors::kCannotAccessChromeUrl;
           result = false;
           return content::RenderFrameHost::FrameIterationAction::kStop;
@@ -336,7 +382,7 @@ bool ExtensionMayAttachToRenderFrameHost(
         // extension with the "debugger" permission can neither inspect it nor
         // run script in it.
         if (content::WebContents* web_contents =
-                content::WebContents::FromRenderFrameHost(render_frame_host);
+                content::WebContents::FromRenderFrameHost(rfh);
             web_contents && web_contents->IsPrivileged()) {
           *error = manifest_errors::kCannotAccessPage;
           result = false;
@@ -346,15 +392,14 @@ bool ExtensionMayAttachToRenderFrameHost(
         // We check both the last committed URL and the SiteURL because this
         // method may be called in the middle of a navigation where the SiteURL
         // has been updated but navigation hasn't committed yet.
-        if (!ExtensionMayAttachToURLOrInnerURL(
-                extension, extension_profile,
-                render_frame_host->GetLastCommittedURL(), &page_url, error) ||
-            !ExtensionMayAttachToURLOrInnerURL(
-                extension, extension_profile,
-                render_frame_host->GetSiteInstance()
-                    ->GetSecurityPrincipal()
-                    .GetDeprecatedSiteURL(),
-                &page_url, error)) {
+        if (!ExtensionMayAttachToURLOrInnerURL(extension, extension_profile,
+                                               rfh->GetLastCommittedURL(),
+                                               &page_url, error) ||
+            !ExtensionMayAttachToURLOrInnerURL(extension, extension_profile,
+                                               rfh->GetSiteInstance()
+                                                   ->GetSecurityPrincipal()
+                                                   .GetDeprecatedSiteURL(),
+                                               &page_url, error)) {
           result = false;
           return content::RenderFrameHost::FrameIterationAction::kStop;
         }
@@ -368,6 +413,28 @@ bool ExtensionMayAttachToWebContents(const Extension& extension,
                                      Profile* extension_profile,
                                      WebContents& web_contents,
                                      std::string* error) {
+  content::RenderFrameHost* main = web_contents.GetPrimaryMainFrame();
+  content::RenderFrameHost* outer = main->GetOutermostMainFrameOrEmbedder();
+  if (outer != main) {
+    content::WebContents* outer_wc =
+        content::WebContents::FromRenderFrameHost(outer);
+    if (auto* helper = security_interstitials::SecurityInterstitialTabHelper::
+            FromWebContents(outer_wc);
+        helper && helper->IsDisplayingInterstitial()) {
+      *error = kRestrictedError;
+      return false;
+    }
+    if (!ExtensionMayAttachToURL(extension, extension_profile,
+                                 outer_wc->GetLastCommittedURL(), error)) {
+      return false;
+    }
+    if (outer_wc->GetController().GetPendingEntry() &&
+        !ExtensionMayAttachToURL(
+            extension, extension_profile,
+            outer_wc->GetController().GetPendingEntry()->GetURL(), error)) {
+      return false;
+    }
+  }
   security_interstitials::SecurityInterstitialTabHelper*
       security_interstitial_tab_helper = security_interstitials::
           SecurityInterstitialTabHelper::FromWebContents(&web_contents);
@@ -395,6 +462,41 @@ bool ExtensionMayAttachToWebContents(const Extension& extension,
       extension, extension_profile, web_contents.GetPrimaryMainFrame(), error);
 }
 
+// Returns whether `extension` may attach to non-WebContents targets (such as
+// service workers or shared workers) running in a guest `StoragePartition`.
+// Because worker `DevToolsAgentHost`s have no `WebContents` (and shared/service
+// workers have no parent host ID), we locate the `kTypeGuest` host(s) in the
+// same `StoragePartition` to check their embedder `WebContents`, failing closed
+// if no live guest `WebContents` exists in `partition`.
+bool ExtensionMayAttachToGuestPartition(const Extension& extension,
+                                        Profile* extension_profile,
+                                        content::StoragePartition& partition,
+                                        std::string* error) {
+  bool found_guest = false;
+  for (const auto& host : DevToolsAgentHost::GetOrCreateAll()) {
+    if (host->GetType() != DevToolsAgentHost::kTypeGuest) {
+      continue;
+    }
+    content::RenderProcessHost* rph = host->GetProcessHost();
+    if (!rph || rph->GetStoragePartition() != &partition) {
+      continue;
+    }
+    CHECK(rph->IsForGuestsOnly());
+    if (content::WebContents* wc = host->GetWebContents()) {
+      found_guest = true;
+      if (!ExtensionMayAttachToWebContents(extension, extension_profile, *wc,
+                                           error)) {
+        return false;
+      }
+    }
+  }
+  if (!found_guest) {
+    *error = kRestrictedError;
+    return false;
+  }
+  return true;
+}
+
 bool ExtensionMayAttachToAgentHost(const Extension& extension,
                                    bool allow_incognito_access,
                                    Profile* extension_profile,
@@ -408,6 +510,14 @@ bool ExtensionMayAttachToAgentHost(const Extension& extension,
   if (WebContents* wc = agent_host.GetWebContents()) {
     return ExtensionMayAttachToWebContents(extension, extension_profile, *wc,
                                            error);
+  }
+  if (RenderProcessHost* rph = agent_host.GetProcessHost();
+      rph && rph->IsForGuestsOnly()) {
+    CHECK(rph->GetStoragePartition());
+    if (!ExtensionMayAttachToGuestPartition(
+            extension, extension_profile, *rph->GetStoragePartition(), error)) {
+      return false;
+    }
   }
 
   const GURL& url = agent_host.GetURL();
@@ -561,7 +671,12 @@ class ExtensionDevToolsClientHost : public content::DevToolsAgentHostClient,
   // Listen to extension unloaded notification.
   base::ScopedObservation<ExtensionRegistry, ExtensionRegistryObserver>
       extension_registry_observation_{this};
+  // Set of child session IDs and target IDs suppressed from the extension.
+  std::set<std::string> suppressed_session_ids_;
+  std::set<std::string> suppressed_target_ids_;
+
   base::ScopedObservation<Profile, ProfileObserver> profile_observation_{this};
+  base::WeakPtrFactory<ExtensionDevToolsClientHost> weak_factory_{this};
 };
 
 ExtensionDevToolsClientHost::ExtensionDevToolsClientHost(
@@ -710,6 +825,30 @@ void ExtensionDevToolsClientHost::SendMessageToBackend(
     const std::string& method,
     SendCommand::Params::CommandParams* command_params,
     std::optional<std::string> session_id) {
+  if (method == "Target.attachToTarget" ||
+      method == "Target.autoAttachRelated") {
+    if (command_params) {
+      if (const std::string* target_id =
+              command_params->additional_properties.FindString("targetId")) {
+        if (scoped_refptr<DevToolsAgentHost> target_host =
+                DevToolsAgentHost::GetForId(*target_id)) {
+          std::string error;
+          if (!ExtensionMayAttachToAgentHost(
+                  *extension_,
+                  util::IsIncognitoEnabled(extension_->id(), profile_),
+                  profile_, *target_host, &error)) {
+            base::DictValue error_dict;
+            base::DictValue inner_error;
+            inner_error.Set("code", -32000);
+            inner_error.Set("message", "Not allowed");
+            error_dict.Set("error", std::move(inner_error));
+            function->SendResponseBody(base::Value(std::move(error_dict)));
+            return;
+          }
+        }
+      }
+    }
+  }
   base::DictValue protocol_request;
   int request_id = ++last_request_id_;
   pending_requests_[request_id] = function;
@@ -746,10 +885,11 @@ void ExtensionDevToolsClientHost::SendDetachedEvent() {
     return;
   }
 
-  auto args(OnDetach::Create(debuggee_, detach_reason_));
+  auto event_args = base::MakeRefCounted<EventArgs>(
+      OnDetach::Create(debuggee_, detach_reason_));
   auto event =
       std::make_unique<Event>(events::DEBUGGER_ON_DETACH, OnDetach::kEventName,
-                              std::move(args), profile_);
+                              std::move(event_args), profile_);
   EventRouter::Get(profile_)->DispatchEventToExtension(extension_id(),
                                                        std::move(event));
 }
@@ -792,9 +932,145 @@ void ExtensionDevToolsClientHost::DispatchProtocolMessage(
 
   std::optional<int> id = dictionary.FindInt("id");
   if (!id) {
+    if (const std::string* session_id = dictionary.FindString("sessionId");
+        session_id && suppressed_session_ids_.contains(*session_id)) {
+      return;
+    }
     std::string* method_name = dictionary.FindString("method");
     if (!method_name) {
       return;
+    }
+    base::DictValue* params_dict = dictionary.FindDict("params");
+    if (*method_name == "Target.detachedFromTarget") {
+      if (params_dict) {
+        if (const std::string* session_id = params_dict->FindString("sessionId");
+            session_id && suppressed_session_ids_.erase(*session_id) > 0) {
+          return;
+        }
+      }
+    } else if (*method_name == "Target.receivedMessageFromTarget") {
+      if (params_dict) {
+        if (const std::string* session_id = params_dict->FindString("sessionId");
+            session_id && suppressed_session_ids_.contains(*session_id)) {
+          return;
+        }
+      }
+    } else if (*method_name == "Target.targetDestroyed") {
+      if (params_dict) {
+        if (const std::string* target_id = params_dict->FindString("targetId");
+            target_id && suppressed_target_ids_.erase(*target_id) > 0) {
+          return;
+        }
+      }
+    } else if (*method_name == "Target.targetCrashed") {
+      if (params_dict) {
+        if (const std::string* target_id = params_dict->FindString("targetId");
+            target_id && suppressed_target_ids_.contains(*target_id)) {
+          return;
+        }
+      }
+    } else if (*method_name == "Target.attachedToTarget" ||
+               *method_name == "Target.targetCreated" ||
+               *method_name == "Target.targetInfoChanged") {
+      if (params_dict) {
+        if (base::DictValue* target_info =
+                params_dict->FindDict("targetInfo")) {
+          if (const std::string* target_id =
+                  target_info->FindString("targetId")) {
+            bool suppressed = suppressed_target_ids_.contains(*target_id);
+            bool allowed = !suppressed;
+            if (scoped_refptr<DevToolsAgentHost> target_host =
+                    DevToolsAgentHost::GetForId(*target_id)) {
+              std::string error;
+              allowed = ExtensionMayAttachToAgentHost(
+                  *extension_,
+                  util::IsIncognitoEnabled(extension_->id(), profile_),
+                  profile_, *target_host, &error);
+            }
+            if (*method_name == "Target.attachedToTarget") {
+              if (!allowed) {
+                suppressed_target_ids_.insert(*target_id);
+                if (const std::string* session_id =
+                        params_dict->FindString("sessionId")) {
+                  suppressed_session_ids_.insert(*session_id);
+                  std::string parent_session_id;
+                  if (const std::string* top_session_id =
+                          dictionary.FindString("sessionId")) {
+                    parent_session_id = *top_session_id;
+                  }
+                  bool waiting =
+                      params_dict->FindBool("waitingForDebugger")
+                          .value_or(false);
+                  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+                      FROM_HERE,
+                      base::BindOnce(
+                          [](base::WeakPtr<ExtensionDevToolsClientHost> self,
+                             std::string child_session_id,
+                             std::string outer_session_id, bool resume_first) {
+                            if (!self || !self->agent_host_) {
+                              return;
+                            }
+                            if (resume_first) {
+                              base::DictValue resume_request;
+                              resume_request.Set("id",
+                                                 ++self->last_request_id_);
+                              resume_request.Set(
+                                  "method", "Runtime.runIfWaitingForDebugger");
+                              resume_request.Set("sessionId", child_session_id);
+                              std::string resume_json =
+                                  base::WriteJson(resume_request).value_or("");
+                              self->agent_host_->DispatchProtocolMessage(
+                                  self.get(), base::as_byte_span(resume_json));
+                            }
+                            base::DictValue detach_request;
+                            detach_request.Set("id", ++self->last_request_id_);
+                            detach_request.Set("method",
+                                               "Target.detachFromTarget");
+                            if (!outer_session_id.empty()) {
+                              detach_request.Set("sessionId",
+                                                 std::move(outer_session_id));
+                            }
+                            base::DictValue detach_params;
+                            detach_params.Set("sessionId",
+                                              std::move(child_session_id));
+                            detach_request.Set("params",
+                                               std::move(detach_params));
+                            std::string json =
+                                base::WriteJson(detach_request).value_or("");
+                            self->agent_host_->DispatchProtocolMessage(
+                                self.get(), base::as_byte_span(json));
+                          },
+                          weak_factory_.GetWeakPtr(), *session_id,
+                          std::move(parent_session_id), waiting));
+                }
+                return;
+              }
+            } else if (*method_name == "Target.targetCreated") {
+              if (!allowed) {
+                suppressed_target_ids_.insert(*target_id);
+                return;
+              }
+              suppressed_target_ids_.erase(*target_id);
+            } else if (*method_name == "Target.targetInfoChanged") {
+              if (allowed && suppressed) {
+                // Restricted -> Allowed: synthesize Target.targetCreated.
+                suppressed_target_ids_.erase(*target_id);
+                *method_name = "Target.targetCreated";
+              } else if (!allowed && !suppressed) {
+                // Allowed -> Restricted: synthesize Target.targetDestroyed.
+                std::string target_id_copy = *target_id;
+                suppressed_target_ids_.insert(target_id_copy);
+                *method_name = "Target.targetDestroyed";
+                params_dict->clear();
+                params_dict->Set("targetId", std::move(target_id_copy));
+              } else if (!allowed && suppressed) {
+                // Restricted -> Restricted: drop.
+                return;
+              }
+            }
+          }
+        }
+      }
     }
 
     OnEvent::Params params;
@@ -806,10 +1082,11 @@ void ExtensionDevToolsClientHost::DispatchProtocolMessage(
     DebuggerSessionFromDebugee(session, debuggee_,
                                dictionary.FindString("sessionId"));
 
-    auto args(OnEvent::Create(session, *method_name, params));
+    auto event_args = base::MakeRefCounted<EventArgs>(
+        OnEvent::Create(session, *method_name, params));
     auto event =
         std::make_unique<Event>(events::DEBUGGER_ON_EVENT, OnEvent::kEventName,
-                                std::move(args), profile_);
+                                std::move(event_args), profile_);
     EventRouter::Get(profile_)->DispatchEventToExtension(extension_id(),
                                                          std::move(event));
   } else {
@@ -1290,6 +1567,7 @@ ExtensionFunction::ResponseAction DebuggerGetTargetsFunction::Run() {
   content::DevToolsAgentHost::List list = DevToolsAgentHost::GetOrCreateAll();
   base::ListValue result;
   Profile* profile = Profile::FromBrowserContext(browser_context());
+  base::flat_map<content::StoragePartition*, bool> allowed_guest_partitions;
   for (auto& host : list) {
     // TODO(crbug.com/40233332): hide all Tab targets for now to avoid
     // compatibility problems. Consider exposing them later when they're fully
@@ -1307,6 +1585,28 @@ ExtensionFunction::ResponseAction DebuggerGetTargetsFunction::Run() {
     if (content::WebContents* web_contents = host->GetWebContents();
         web_contents && web_contents->IsPrivileged()) {
       continue;
+    }
+    if (host->GetType() == DevToolsAgentHost::kTypeGuest && extension()) {
+      std::string error;
+      if (auto* wc = host->GetWebContents();
+          wc && !ExtensionMayAttachToWebContents(*extension(), profile, *wc,
+                                                 &error)) {
+        continue;
+      }
+    } else if (RenderProcessHost* rph = host->GetProcessHost();
+               rph && rph->IsForGuestsOnly() && extension()) {
+      content::StoragePartition* partition = rph->GetStoragePartition();
+      CHECK(partition);
+      auto [it, inserted] =
+          allowed_guest_partitions.insert({partition, false});
+      if (inserted) {
+        std::string error;
+        it->second = ExtensionMayAttachToGuestPartition(
+            *extension(), profile, *partition, &error);
+      }
+      if (!it->second) {
+        continue;
+      }
     }
 #if BUILDFLAG(ENABLE_PDF)
     // OOPIF PDF viewer only. Don't list the `content::DevToolsAgentHost`s for

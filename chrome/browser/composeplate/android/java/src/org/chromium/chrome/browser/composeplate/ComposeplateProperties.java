@@ -12,7 +12,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.components.search_engines.AiModeButtonUiConfig;
 import org.chromium.ui.modelutil.PropertyKey;
-import org.chromium.ui.modelutil.PropertyModel.ReadableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableObjectPropertyKey;
@@ -71,11 +70,15 @@ interface ComposeplateProperties {
     WritableObjectPropertyKey<View.@Nullable OnClickListener> OPTIONAL_BUTTON_CLICK_LISTENER =
             new WritableObjectPropertyKey<>();
 
-    /**
-     * The text of the optional button. It is shown on large form factors, and is always used as the
-     * content description of the button.
-     */
+    /** The text of the optional button. It is only shown with the large form factor layout. */
     WritableObjectPropertyKey<@Nullable String> OPTIONAL_BUTTON_TEXT =
+            new WritableObjectPropertyKey<>();
+
+    /**
+     * The content description of the optional button, also used as its tooltip. It is more
+     * descriptive than {@link #OPTIONAL_BUTTON_TEXT}, since the button is icon-only on mobiles.
+     */
+    WritableObjectPropertyKey<@Nullable String> OPTIONAL_BUTTON_CONTENT_DESCRIPTION =
             new WritableObjectPropertyKey<>();
 
     /** The lateral (start and end) padding of the optional and incognito buttons, in pixels. */
@@ -87,11 +90,20 @@ interface ComposeplateProperties {
     /** Whether the text of the incognito button is visible. */
     WritableBooleanPropertyKey IS_INCOGNITO_BUTTON_TEXT_VISIBLE = new WritableBooleanPropertyKey();
 
+    /** Whether the text of the optional button is visible. */
+    WritableBooleanPropertyKey IS_OPTIONAL_BUTTON_TEXT_VISIBLE = new WritableBooleanPropertyKey();
+
     /**
-     * Whether the device is a large form factor, which changes the layout of the buttons when the
-     * optional button is visible.
+     * Whether the optional button wraps its content. Otherwise, it shares the width equally with
+     * the other weighted buttons.
      */
-    ReadableBooleanPropertyKey IS_LFF = new ReadableBooleanPropertyKey();
+    WritableBooleanPropertyKey IS_OPTIONAL_BUTTON_WRAP_CONTENT = new WritableBooleanPropertyKey();
+
+    /**
+     * Whether the incognito button wraps its content. Otherwise, it shares the width equally with
+     * the other weighted buttons.
+     */
+    WritableBooleanPropertyKey IS_INCOGNITO_BUTTON_WRAP_CONTENT = new WritableBooleanPropertyKey();
 
     PropertyKey[] ALL_KEYS =
             new PropertyKey[] {
@@ -107,9 +119,12 @@ interface ComposeplateProperties {
                 OPTIONAL_BUTTON_ICON_RES_ID,
                 OPTIONAL_BUTTON_CLICK_LISTENER,
                 OPTIONAL_BUTTON_TEXT,
+                OPTIONAL_BUTTON_CONTENT_DESCRIPTION,
                 OPTIONAL_BUTTON_LATERAL_PADDING,
                 OPTIONAL_BUTTON_MARGIN_END,
                 IS_INCOGNITO_BUTTON_TEXT_VISIBLE,
-                IS_LFF,
+                IS_INCOGNITO_BUTTON_WRAP_CONTENT,
+                IS_OPTIONAL_BUTTON_TEXT_VISIBLE,
+                IS_OPTIONAL_BUTTON_WRAP_CONTENT,
             };
 }

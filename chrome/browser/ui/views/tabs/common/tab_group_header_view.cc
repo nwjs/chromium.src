@@ -141,6 +141,8 @@ TabGroupHeaderView::TabGroupHeaderView(
     tabs::VerticalTabStripStateController* state_controller,
     const tab_groups::TabGroupVisualData* tab_group_visual_data)
     : HoverCardAnchorTarget(this),
+      delegate_(delegate),
+      orientation_(orientation),
       tab_group_visual_data_(*tab_group_visual_data),
       sync_icon_(AddChildView(std::make_unique<views::ImageView>())),
       group_header_label_(
@@ -155,8 +157,6 @@ TabGroupHeaderView::TabGroupHeaderView(
       collapse_icon_(orientation == TabStripOrientation::kVertical
                          ? AddChildView(std::make_unique<views::ImageView>())
                          : nullptr),
-      delegate_(delegate),
-      orientation_(orientation),
       editor_bubble_tracker_(state_controller) {
   SetProperty(views::kElementIdentifierKey, kTabGroupHeaderElementId);
   attention_indicator_->SetProperty(views::kElementIdentifierKey,
@@ -171,7 +171,7 @@ TabGroupHeaderView::TabGroupHeaderView(
 
   if (editor_bubble_button_) {
     ConfigureEditorBubbleButton(editor_bubble_button_);
-    SetEditorBubbleButtonVisibilityOnHover(/*is_hovered=*/false);
+    UpdateEditorBubbleButtonVisibility(/*hovered=*/false);
   }
   editor_bubble_opened_subscription_ =
       editor_bubble_tracker_.RegisterOnBubbleOpened(base::BindRepeating(
@@ -419,13 +419,19 @@ void TabGroupHeaderView::OnMouseEntered(const ui::MouseEvent& event) {
 }
 
 void TabGroupHeaderView::OnMouseExited(const ui::MouseEvent& event) {
+  UpdateEditorBubbleButtonVisibility(
 #if BUILDFLAG(IS_LINUX)
-  // Bypasses the synchronous IsMouseHovered() check which can be stale on Linux
-  // Wayland/X11 due to asynchronous cursor updates during mouse exit events.
-  SetEditorBubbleButtonVisibilityOnHover(/*is_hovered=*/false);
+      // Bypasses the synchronous IsMouseHovered() check which can be stale on
+      // Linux Wayland/X11 due to asynchronous cursor updates during mouse exit
+      // events.
+      /*hovered=*/false
 #else
-  UpdateEditorBubbleButtonVisibility();
+      std::nullopt
 #endif
+  );
+  if (delegate_->IsGroupFocused()) {
+    delegate_->HideHoverCard(TabSlotController::HoverCardUpdateType::kHover);
+  }
 }
 
 void TabGroupHeaderView::OnFocus() {
@@ -435,7 +441,7 @@ void TabGroupHeaderView::OnFocus() {
 
 void TabGroupHeaderView::OnBlur() {
   UpdateEditorBubbleButtonVisibility();
-  if (!delegate_->IsFocusInTabStrip()) {
+  if (!delegate_->IsFocusInTabStrip() || delegate_->IsUnfocusButtonFocused()) {
     delegate_->HideHoverCard(TabSlotController::HoverCardUpdateType::kFocus);
   }
 }
@@ -458,7 +464,8 @@ void TabGroupHeaderView::OnWillChangeFocus(views::View* focused_before,
     // If navigating upward from below, the button is initially hidden and gets
     // skipped. We detect reverse focus traversal (from a view physically below
     // this one) and manually forward the focus to the button.
-    if (focused_now == this && focused_before &&
+    if (focused_now == this && delegate_->CanShowEditorBubbleButton() &&
+        focused_before &&
         focused_before->GetBoundsInScreen().y() > GetBoundsInScreen().y()) {
       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE,
@@ -694,46 +701,16 @@ void TabGroupHeaderView::UpdateColors() {
       views::CreateRoundedRectBackground(background_color, GetCornerRadii()));
 }
 
-void TabGroupHeaderView::UpdateEditorBubbleButtonVisibility() {
+void TabGroupHeaderView::UpdateEditorBubbleButtonVisibility(
+    std::optional<bool> hovered) {
   // The editor bubble button only exists in the vertical orientation.
   if (!editor_bubble_button_) {
     return;
   }
-  views::FocusManager* focus_manager = GetFocusManager();
-  if (!focus_manager) {
-    return;
-  }
 
-  SetEditorBubbleButtonVisibilityOnHover(
-      IsMouseHovered() || Contains(focus_manager->GetFocusedView()));
-}
-
-void TabGroupHeaderView::OnBubbleOpened() {
-  if (!expand_on_hover_lock_) {
-    expand_on_hover_lock_ = delegate_->AcquireExpandOnHoverLock();
-  }
-  if (auto* closing_helper = delegate_->GetTabClosingHelper()) {
-    closing_helper->PauseMouseWatcher();
-  }
-
-  UpdateEditorBubbleButtonVisibility();
-  UpdateColors();
-}
-
-void TabGroupHeaderView::OnBubbleClosed() {
-  expand_on_hover_lock_.reset();
-  if (auto* closing_helper = delegate_->GetTabClosingHelper()) {
-    closing_helper->ResumeMouseWatcher();
-  }
-  UpdateEditorBubbleButtonVisibility();
-  UpdateColors();
-}
-
-void TabGroupHeaderView::SetEditorBubbleButtonVisibilityOnHover(
-    bool is_hovered) {
-  if (!editor_bubble_button_) {
-    return;
-  }
+  const bool is_hovered_or_focused =
+      hovered.value_or(IsMouseHovered()) ||
+      (GetFocusManager() && Contains(GetFocusManager()->GetFocusedView()));
   const bool is_focused = delegate_->IsGroupFocused();
   editor_bubble_button_->SetBorder(
       is_focused ? views::CreateEmptyBorder(gfx::Insets())
@@ -747,8 +724,38 @@ void TabGroupHeaderView::SetEditorBubbleButtonVisibilityOnHover(
           is_focused ? views::MaximumFlexSizeRule::kUnbounded
                      : views::MaximumFlexSizeRule::kPreferred)
           .WithAlignment(views::LayoutAlignment::kEnd));
+  // In focus mode, the button is always visible. It should never be visible in
+  // the collapsed state. Otherwise it is visible on hover or when the editor
+  // bubble is open.
   editor_bubble_button_->SetVisible(
-      is_focused || editor_bubble_tracker_.is_open() || is_hovered);
+      is_focused ||
+      (delegate_->CanShowEditorBubbleButton() &&
+       (editor_bubble_tracker_.is_open() || is_hovered_or_focused)));
+}
+
+void TabGroupHeaderView::OnBubbleOpened() {
+  if (!expand_on_hover_lock_) {
+    expand_on_hover_lock_ = delegate_->AcquireExpandOnHoverLock();
+  }
+  if (!hover_card_hide_lock_) {
+    hover_card_hide_lock_ = delegate_->AcquireHoverCardHideLock();
+  }
+  if (auto* closing_helper = delegate_->GetTabClosingHelper()) {
+    closing_helper->PauseMouseWatcher();
+  }
+
+  UpdateEditorBubbleButtonVisibility();
+  UpdateColors();
+}
+
+void TabGroupHeaderView::OnBubbleClosed() {
+  expand_on_hover_lock_.reset();
+  hover_card_hide_lock_.reset();
+  if (auto* closing_helper = delegate_->GetTabClosingHelper()) {
+    closing_helper->ResumeMouseWatcher();
+  }
+  UpdateEditorBubbleButtonVisibility();
+  UpdateColors();
 }
 
 void TabGroupHeaderView::ShowEditorBubble() {
@@ -764,7 +771,9 @@ void TabGroupHeaderView::ShowEditorBubble() {
 }
 
 int TabGroupHeaderView::GetCornerRadius() const {
-  return TabGroupStyle::GetChipCornerRadius(orientation_);
+  return delegate_->IsGroupFocused()
+             ? TabGroupStyle::GetFocusedChipCornerRadius(orientation_)
+             : TabGroupStyle::GetChipCornerRadius(orientation_);
 }
 
 gfx::RoundedCornersF TabGroupHeaderView::GetCornerRadii() const {

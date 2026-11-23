@@ -42,6 +42,7 @@ const initialState: PageActionState = {
   shouldAnimateChipIn: false,
   shouldAnimateChipOut: false,
   backgroundColorOverride: null,
+  foregroundColorOverride: null,
   identifier: {
     nativeIdentifier: '',
     secondaryIdentifier: '',
@@ -138,12 +139,17 @@ export class PageActionIconElement extends PageActionIconElementBase {
         this.cleanupAnimationListener_();
         this.activeIconAnimation_ = 'none';
       }
+      const styleOverrides: string[] = [];
       if (this.state.backgroundColorOverride) {
-        this.chipStyleOverride_ = `--toolbar-chip-bg-color: ${
-            skColorToRgba(this.state.backgroundColorOverride)};`;
-      } else {
-        this.chipStyleOverride_ = null;
+        styleOverrides.push(`--toolbar-chip-bg-color: ${
+            skColorToRgba(this.state.backgroundColorOverride)};`);
       }
+      if (this.state.foregroundColorOverride) {
+        styleOverrides.push(`--toolbar-chip-fg-color: ${
+            skColorToRgba(this.state.foregroundColorOverride)};`);
+      }
+      this.chipStyleOverride_ =
+          styleOverrides.length > 0 ? styleOverrides.join(' ') : null;
 
       this.updateIconAnimationState_(isTabSwitch);
     }
@@ -314,7 +320,10 @@ export class PageActionIconElement extends PageActionIconElementBase {
     return this.state.accessibleName;
   }
 
-  protected onClick_(e: Event) {
+  protected onClick_(e: PointerEvent) {
+    if (this.highlightTracker.shouldSkipClick(e)) {
+      return;
+    }
     TrackedElementManager.getInstance().notifyElementActivated(this);
     this.browserProxy_.toolbarUIHandler.onPageActionClick(
         this.state.pageActionId, this.getPageActionTrigger_(e));
@@ -334,9 +343,8 @@ export class PageActionIconElement extends PageActionIconElementBase {
     }
   }
 
-  protected onPointerdown_(e: Event) {
-    this.browserProxy_.toolbarUIHandler.onPageActionPointerDown(
-        this.state.pageActionId);
+  protected onPointerdown_(e: PointerEvent) {
+    this.highlightTracker.onPointerdown(e);
     // Prevent us from taking focus, since that may cause the omnibox popup
     // to close, and disable the AIM button in turn.
     e.preventDefault();
@@ -345,7 +353,6 @@ export class PageActionIconElement extends PageActionIconElementBase {
   protected getTooltip_(): string {
     return this.adjustTooltipForHelpBubble(this.state.tooltipText);
   }
-
   protected onPointerenter_() {
     this.fire('chip-pointerenter');
   }

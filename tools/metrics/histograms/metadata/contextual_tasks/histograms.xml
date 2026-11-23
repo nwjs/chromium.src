@@ -55,6 +55,19 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="ContextualTasks.AiResponse.UserAction.LinkClicked.Panel.OpenDisposition"
+    enum="ContextualTasksLinkOpenDisposition" expires_after="2027-06-18">
+  <owner>juanmojica@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded every time a user clicks on a link in the contextual tasks side
+    panel. Records the requested window open disposition of the click (e.g.
+    plain click in current/foreground tab vs. explicit open in new background
+    tab or window via modifier keys or context menu).
+  </summary>
+</histogram>
+
+<histogram
     name="ContextualTasks.AiResponse.UserAction.LinkClicked.{ContextualTasksUiSurface}"
     enum="Boolean" expires_after="2027-03-07">
   <owner>sophiechang@chromium.org</owner>
@@ -80,8 +93,7 @@ chromium-metrics-reviews@google.com.
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
     Recorded when the user invokes 'Ask Google about this page' via any of the
-    updated entry points (context menu, app menu, pinned toolbar button, or
-    homework action chip).
+    updated entry points (context menu, app menu, or homework action chip).
   </summary>
 </histogram>
 
@@ -93,6 +105,28 @@ chromium-metrics-reviews@google.com.
   <summary>
     Recorded every time a user navigates from side panel to full tab using the
     back button in the browser. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ClusterInfo.HttpStatus"
+    enum="HttpResponseCode" expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when an HTTP response is received for a contextual cluster info
+    fetch request. Records the HTTP status code of the response.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ClusterInfo.NetError" enum="NetErrorCodes"
+    expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a contextual cluster info fetch request completes at the
+    network layer (either successfully or with an error). Records the network
+    error code. Not recorded if the fetch failed before a network request was
+    made, e.g. due to an authentication failure.
   </summary>
 </histogram>
 
@@ -118,7 +152,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.Context.CandidateTabHasEmbeddings"
-    enum="Boolean" expires_after="2027-02-07">
+    enum="Boolean" expires_after="2027-04-18">
   <owner>sophiechang@chromium.org</owner>
   <owner>abhayprakash@google.com</owner>
   <summary>
@@ -328,15 +362,84 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="ContextualTasks.EphemeralToolbarButton.Shown" enum="Boolean"
-    expires_after="2027-03-07">
+<histogram
+    name="ContextualTasks.EphemeralToolbarButton.ShownDuration{EndReason}"
+    units="ms" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Measures the time elapsed from when the ephemeral (unpinned) contextual
+    tasks toolbar button became visible until it was clicked or removed.
+    {EndReason}
+  </summary>
+  <token key="EndReason">
+    <variant name=""
+        summary="Recorded for all click and removal events combined."/>
+    <variant name=".AutoDismissed"
+        summary="Recorded when the button is automatically dismissed after
+                 its auto-dismiss timeout expires."/>
+    <variant name=".Clicked"
+        summary="Recorded when the user clicks the button to open the side
+                 panel."/>
+    <variant name=".RemovedByContextMenu"
+        summary="Recorded when the user removes the button for the current
+                 task via its context menu."/>
+    <variant name=".TaskDisassociated"
+        summary="Recorded when the active tab is disassociated from its task
+                 or the task is removed."/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.EphemeralToolbarButton.Shown{PanelState}"
+    enum="Boolean" expires_after="2027-03-07">
   <owner>dianaou@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
     Recorded every time the ephemeral (unpinned) contextual tasks toolbar button
-    becomes visible in the browser toolbar. This occurs when an eligible
-    contextual task is active or suggested and the toolbar button transitions
-    from hidden to shown. Always recorded as true.
+    becomes visible in the browser toolbar or transitions between its active
+    panel-open and collapsed panel-closed states. {PanelState} Always recorded
+    as true.
+  </summary>
+  <token key="PanelState">
+    <variant name="" summary="Recorded for all states combined."/>
+    <variant name=".ActivePanelCollapsed"
+        summary="Recorded when the button is shown in its collapsed
+                 (ephemeral thread) state while the side panel is closed."/>
+    <variant name=".ActivePanelOpen"
+        summary="Recorded when the button is shown in its active state while
+                 the side panel is open."/>
+  </token>
+</histogram>
+
+<histogram
+    name="ContextualTasks.EphemeralToolbarButton.UserAction.OpenContextMenu{CloseSidePanelOptionState}"
+    enum="Boolean" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user opens the context menu on the ephemeral (unpinned)
+    contextual tasks toolbar button. {CloseSidePanelOptionState} Always recorded
+    as true.
+  </summary>
+  <token key="CloseSidePanelOptionState">
+    <variant name="" summary="Recorded for all context menu opens combined."/>
+    <variant name=".CloseSidePanelOptionHidden"
+        summary="Recorded when the Close/Hide side panel (or Remove) option
+                 is not visible in the context menu."/>
+    <variant name=".CloseSidePanelOptionVisible"
+        summary="Recorded when the Close/Hide side panel (or Remove) option
+                 is visible in the context menu."/>
+  </token>
+</histogram>
+
+<histogram
+    name="ContextualTasks.EphemeralToolbarButton.UserAction.PinByContextMenu"
+    enum="Boolean" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user pins the ephemeral (unpinned) contextual tasks
+    toolbar button to the toolbar via its context menu. Always recorded as true.
   </summary>
 </histogram>
 
@@ -349,6 +452,71 @@ chromium-metrics-reviews@google.com.
     Recorded when the user removes the ephemeral (unpinned) contextual tasks
     toolbar button for the current task via its context menu. Always recorded as
     true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ExtensionHandshake.Latency" units="ms"
+    expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Time from when a Search Web document connects to the Contextual Tasks
+    component extension Service Worker port until the page acknowledges
+    readiness (HandshakeResponse). Recorded once per connection attempt, and
+    only when the handshake succeeds, so this measures the latency of successful
+    handshakes rather than overall health; pair it with
+    ContextualTasks.ExtensionHandshake.Status to see the failure mix.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ExtensionHandshake.Status"
+    enum="ContextualTasksExtensionHandshakeStatus" expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Outcome of a Contextual Tasks component extension Service Worker port
+    handshake with the Search Web page. Normally recorded once per connection
+    attempt; if the getHandshakeMessage() Mojo reply drops after the browser
+    registers the connection, both 'Mojo request failed' (from the Service
+    Worker) and 'Frame detached' (when the browser page state tears down) may be
+    recorded for the same attempt.
+
+    'Host origin rejected' means the connecting origin was not on the allow
+    list. 'Invalid document ID' means the connecting document could not be
+    validated in the browser process. 'Mojo request failed' means the Service
+    Worker's getHandshakeMessage() call failed. 'Frame detached' means the page
+    navigated away, reconnected, or was destroyed before the handshake
+    completed.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ExtensionPostMessage.Error"
+    enum="ContextualTasksExtensionPostMessageError" expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded each time a search message between the Contextual Tasks component
+    extension Service Worker port and the Search Web page is dropped. Emitted
+    once per dropped message, so a single session may contribute many samples
+    and this cannot be read as a per-page rate.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.ExtensionPostMessage.QueuedSearchMessagesDropped"
+    units="messages" expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Number of browser-originated search messages that a Contextual Tasks page
+    search state was still holding (or dropped due to queue overflow) when the
+    page navigated, reconnected, or was torn down. Search messages that arrive
+    before the handshake completes are queued and flushed once ready; this
+    counts the ones that were never sent. Recorded once per page connection,
+    including when the count is zero, so the share of sessions that lost
+    messages can be read directly from the zero bucket. Queuing itself is
+    expected, so this is reported separately from
+    ContextualTasks.ExtensionPostMessage.Error.
   </summary>
 </histogram>
 
@@ -447,6 +615,40 @@ chromium-metrics-reviews@google.com.
   <summary>
     Recorded when the Lens region chip is shown in the Contextual Tasks
     composebox plate. Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Navigation.HttpResponseCode"
+    enum="HttpResponseCode" expires_after="2027-03-21">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded every time a primary main-frame navigation in the Contextual Tasks
+    side panel finishes with HTTP response headers available. Records the HTTP
+    status code of the response.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.Navigation.HttpResponseCode.ExcludeZeroStateLoads"
+    enum="HttpResponseCode" expires_after="2027-03-21">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded every time a primary main-frame navigation in the Contextual Tasks
+    side panel finishes with HTTP response headers available, excluding zero
+    state loads. Records the HTTP status code of the response.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Navigation.NetErrorCode" enum="NetErrorCodes"
+    expires_after="2027-03-21">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a primary main-frame navigation in the Contextual Tasks side
+    panel commits or fails with a non-aborted network error. Records the
+    net::Error code as a positive integer (where 0 is net::OK).
   </summary>
 </histogram>
 
@@ -589,6 +791,57 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram
+    name="ContextualTasks.PermanentToolbarButton.UserAction.OpenSidePanel.ThreadAction"
+    enum="ContextualTasksPermanentToolbarButtonThreadAction"
+    expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the permanently pinned contextual tasks
+    toolbar button to open the side panel under Pinning v2. Records whether
+    clicking the button continues an existing thread associated with the active
+    tab or starts a new thread.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.RemovedContext.CountPerQuery" units="count"
+    expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded upon query submission (in TakeRemovedContexts when constructing a
+    ClientToAimRequest or search URL). Records the number of unique previously
+    submitted tab contexts removed since the last query turn and sent to the
+    server in the query request's removed_contexts list (including 0 when no
+    contexts were removed).
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.RemovedContext.Reason"
+    enum="ContextualTasksRemovedContextReason" expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded upon query submission once for each unique removed tab context sent
+    to the server in removed_contexts, indicating the reason the persisted tab
+    context was removed (user deselected, browser tab closed, browser tab
+    navigated, or Smart Tab Sharing disabled).
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.RemovedContext.RemainingTabsCount"
+    units="count" expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded upon every query submission (in MarkQuerySubmitted, after
+    TakeRemovedContexts prunes removed tabs and ClearFiles promotes newly
+    submitted tabs). Records the total number of persisted tabs attached to the
+    session for that turn.
+  </summary>
+</histogram>
+
 <histogram name="ContextualTasks.Session.Completed" enum="Boolean"
     expires_after="2027-03-07">
   <owner>sophiechang@chromium.org</owner>
@@ -626,8 +879,32 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="ContextualTasks.Session.Duration.PermanentToolbarButton"
+    units="ms" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a contextual tasks side panel session resumed via the
+    permanently pinned toolbar button (functioning ephemerally under Pinning v2)
+    is closed or ended. Measures the time elapsed from when the side panel was
+    reopened via the permanent toolbar button until it was closed.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.Session.LinkClickCount" units="clicks"
+    expires_after="2027-06-18">
+  <owner>juanmojica@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a contextual tasks side panel session ends (when the side
+    panel is closed, its associated tabs are closed or expire from the cache, or
+    the browser window is closed). Records the number of links clicked inside
+    the side panel during that open session.
+  </summary>
+</histogram>
+
 <histogram name="ContextualTasks.SidePanel.TimeToFirstContentfulPaint"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-04-11">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -639,7 +916,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.SidePanel.TimeToHandshakeComplete" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-04-11">
   <owner>hujasonx@google.com</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -716,16 +993,54 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="ContextualTasks.Tab.ClosedWithSidePanelOpenState"
+<histogram
+    name="ContextualTasks.SidePanel.UserAction.Close.PermanentToolbarButton"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user closes the side panel (e.g. via the side panel close
+    button), for sessions that were resumed via the permanently pinned toolbar
+    button (functioning ephemerally under Pinning v2). Unlike
+    ContextualTasks.PermanentToolbarButton.UserAction.CloseSidePanel (which
+    records clicking the toolbar button itself to toggle any open side panel
+    closed), this slices side panel closures by the session's entry source.
+    Always recorded as true.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.SidePanel.UserAction.CloseHadLinkClick"
+    enum="Boolean" expires_after="2027-06-18">
+  <owner>juanmojica@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the user clicks the side panel close button. Records true if
+    at least one link was clicked inside the side panel during the open session,
+    or false if no links were clicked.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.Tab.ClosedWithSidePanelOpenState{LinkClickSlice}"
     enum="ContextualTasksTabCloseState" expires_after="2027-06-18">
   <owner>nguyenbryan@google.com</owner>
+  <owner>juanmojica@google.com</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
     Recorded when a user closes a content tab that had an associated contextual
     task and had the side panel open (either currently active, or logically open
-    before the tab was backgrounded). The value indicates whether the closed tab
-    was the active tab or a background tab.
+    before the tab was backgrounded), across {LinkClickSlice}. The value
+    indicates whether the closed tab was the active tab or a background tab.
   </summary>
+  <token key="LinkClickSlice">
+    <variant name="" summary="all open side panel sessions"/>
+    <variant name=".WithLinkClick"
+        summary="sessions where at least one link was clicked inside the side
+                 panel during the open session"/>
+    <variant name=".WithoutLinkClick"
+        summary="sessions where no links were clicked inside the side panel
+                 during the open session"/>
+  </token>
 </histogram>
 
 <histogram name="ContextualTasks.TabAffiliationCount" units="count"
@@ -740,7 +1055,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextualTasks.TabChange.UserAction{ActionType}"
-    enum="Boolean" expires_after="2027-02-07">
+    enum="Boolean" expires_after="2027-04-11">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>
@@ -764,6 +1079,151 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="ContextualTasks.TabCoins.AttachedCountAtSubmission{UploadType}"
+    units="tabs" expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Number of {UploadType} tab contexts added to the OnSubmitQueryResponse proto
+    when a query is submitted in Contextual Tasks. Recorded once per submitted
+    query turn, including 0 when no matching tabs were added.
+  </summary>
+  <token key="UploadType">
+    <variant name="" summary="all (explicit and implicit)"/>
+    <variant name=".Explicit" summary="explicitly user-attached"/>
+    <variant name=".Implicit" summary="implicitly attached"/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.TabPicker.IframeRenderLatencyMs" units="ms"
+    expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Time from the tab picker iframe navigation start (performance.timeOrigin) in
+    the Contextual Tasks component extension until the tab picker element
+    completes its initial DOM render (firstUpdated) of the trigger button.
+    Recorded once per tab picker iframe load.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.TabPicker.MenuOpenLatencyMs" units="ms"
+    expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Time from when the user triggers opening the tab picker flyout in the
+    Contextual Tasks component extension (via hover, click, or keyboard) until
+    the menu is positioned and presented to the user. Recorded each time the
+    menu successfully finishes opening in either unbounded mode or fallback
+    bounded mode.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.TabPicker.SuggestionsLoadLatencyMs" units="ms"
+    expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Time from the tab picker iframe navigation start (performance.timeOrigin) in
+    the Contextual Tasks component extension until recent tab suggestions are
+    fetched from the browser and rendered into the flyout menu. Recorded once
+    per tab picker iframe load when getRecentTabs() succeeds.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.TabPicker.UnboundedPresentationResult"
+    enum="ContextualTasksTabPickerUnboundedPresentationResult"
+    expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records the presentation outcome when opening the tab picker flyout in the
+    Contextual Tasks component extension. Differentiates successful presentation
+    via the Unbounded Element API from fallbacks when the API is unsupported by
+    the platform and runtime presentation failures.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.TabPicker.UserAction{ActionType}"
+    enum="Boolean" expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded every time the user clicks on a tab item in the Contextual Tasks
+    tab picker flyout menu. {ActionType} Always recorded as true.
+  </summary>
+  <token key="ActionType">
+    <variant name=".TabDeselected"
+        summary="The user clicked a selected tab to remove it from context."/>
+    <variant name=".TabSelected"
+        summary="The user clicked an unselected tab to attach it as context."/>
+  </token>
+</histogram>
+
+<histogram name="ContextualTasks.ThreadContextLibrary.CommittedContextCount"
+    units="contexts" expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Number of URL resources converted from an UpdateThreadContextLibrary message
+    received from AI Mode. Recorded each time an UpdateThreadContextLibrary
+    message is successfully processed (with at least one converted resource).
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ThreadContextLibrary.CommittedTabContextCount"
+    units="tabs" expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Number of tab-derived URL resources (has_chrome_tab_data is true) in an
+    UpdateThreadContextLibrary message received from AI Mode. Recorded each time
+    an UpdateThreadContextLibrary message is successfully processed (with at
+    least one converted resource), including 0 when none of the resources are
+    tab-derived.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ThreadContextLibrary.RestoredTabCount"
+    units="tabs" expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Number of tab-derived URL resources from an UpdateThreadContextLibrary
+    message that resolved to currently open tabs in the browser window and were
+    saved to the session's restored tabs tracker. Recorded each time an
+    UpdateThreadContextLibrary message is successfully processed (with at least
+    one converted resource), including 0 when no open tabs matched.
+  </summary>
+</histogram>
+
+<histogram
+    name="ContextualTasks.ThreadContextLibrary.TimeFromHandshakeToFirstUpdate"
+    units="ms" expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Elapsed time from when the page completes its postMessage handshake (or
+    transitions via OnPageChanged while connected) until the first
+    UpdateThreadContextLibrary message is received from AI Mode for that page
+    state. Recorded at most once per handshake or page transition.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.ThreadContextLibrary.UpdateOutcome"
+    enum="ContextualTasksThreadContextLibraryUpdateOutcome"
+    expires_after="2027-04-15">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Records the outcome of browser-side handling when an
+    UpdateThreadContextLibrary message is received from AI Mode in Contextual
+    Tasks. Recorded once per received UpdateThreadContextLibrary message.
+  </summary>
+</histogram>
+
+<histogram
     name="ContextualTasks.ToolbarCloseTabButton.UserAction.CloseTabAndExpandSidePanel"
     enum="Boolean" expires_after="2027-06-18">
   <owner>yuhengh@chromium.org</owner>
@@ -775,6 +1235,28 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="ContextualTasks.UploadChunk.HttpStatus"
+    enum="HttpResponseCode" expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when an HTTP response is received for a contextual upload chunk
+    request. Records the HTTP status code of the response.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.UploadChunk.NetError" enum="NetErrorCodes"
+    expires_after="2027-03-07">
+  <owner>hujasonx@google.com</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a contextual upload chunk request completes at the network
+    layer (either successfully or with an error). Records the network error
+    code. Not recorded if the upload chunk failed before a network request was
+    made, e.g. due to an authentication failure.
+  </summary>
+</histogram>
+
 <histogram name="ContextualTasks.VoiceSearch.StateV2" enum="VoiceSearchState"
     expires_after="2027-03-14">
   <owner>jamesleung@google.com</owner>
@@ -782,6 +1264,16 @@ chromium-metrics-reviews@google.com.
   <summary>
     Tracks user interactions with the voice search feature on the Contextual
     Tasks composebox.
+  </summary>
+</histogram>
+
+<histogram name="ContextualTasks.WebUI.AccountMenuButton.Shown" enum="Boolean"
+    expires_after="2027-06-18">
+  <owner>mercerd@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when the account avatar button that opens the account menu becomes
+    visible in the contextual tasks top toolbar. Always recorded as true.
   </summary>
 </histogram>
 
@@ -806,6 +1298,15 @@ chromium-metrics-reviews@google.com.
   </summary>
   <token key="ActionType">
     <variant name=".CloseSidePanel" summary="The user closed the side panel."/>
+    <variant name=".HoverAccountMenuButton"
+        summary="The user hovered over the account avatar button that opens
+                 the account menu."/>
+    <variant name=".ManageAccountFromAccountMenu"
+        summary="The user clicked the manage account item in the account
+                 menu."/>
+    <variant name=".OpenAccountMenu"
+        summary="The user opened the account menu by clicking the account
+                 avatar button."/>
     <variant name=".OpenFeedback" summary="The user opened the feedback page."/>
     <variant name=".OpenHelp" summary="The user opened the help page."/>
     <variant name=".OpenInNewTab"
@@ -820,15 +1321,59 @@ chromium-metrics-reviews@google.com.
     <variant name=".OpenThreadHistory"
         summary="The user opened the thread history."/>
     <variant name=".PinSidePanel" summary="The user pinned the side panel."/>
+    <variant name=".PinSidePanel.AiPage"
+        summary="The user pinned the side panel while on the AI page."/>
+    <variant name=".PinSidePanel.Srp"
+        summary="The user pinned the side panel while on the SRP."/>
+    <variant name=".SignOutFromAccountMenu"
+        summary="The user clicked the sign out item in the account menu."/>
     <variant name=".TabFromSourcesMenuClicked"
         summary="The user clicked on a tab from the sources menu."/>
     <variant name=".UnpinSidePanel"
         summary="The user unpinned the side panel."/>
+    <variant name=".UnpinSidePanel.AiPage"
+        summary="The user unpinned the side panel while on the AI page."/>
+    <variant name=".UnpinSidePanel.Srp"
+        summary="The user unpinned the side panel while on the SRP."/>
+  </token>
+</histogram>
+
+<histogram
+    name="ContextualTasks.{EntrypointType}.OpenSidePanelCountPerSession{ToggleDuration}"
+    units="count" expires_after="2027-04-15">
+  <owner>dianaou@chromium.org</owner>
+  <owner>chrome-contextual-tasks-eng@google.com</owner>
+  <summary>
+    Recorded when a contextual task session whose side panel was closed with
+    results (making the task eligible to be reopened from {EntrypointType}) ends
+    (when the task is no longer eligible or when the browser window is closed).
+    Records the number of times the user clicked {EntrypointType} to reopen the
+    side panel during that task session (0 if the side panel was closed with
+    results while {EntrypointType} was available to reopen it, but never clicked
+    to reopen before the session ended). {ToggleDuration}
+  </summary>
+  <token key="EntrypointType">
+    <variant name="EphemeralToolbarButton"
+        summary="the ephemeral (unpinned) contextual tasks toolbar button"/>
+    <variant name="PermanentToolbarButton"
+        summary="the permanently pinned contextual tasks toolbar button"/>
+    <variant name="ToolbarButton"
+        summary="any contextual tasks toolbar button"/>
+  </token>
+  <token key="ToggleDuration">
+    <variant name="" summary="Counts all reopen clicks combined."/>
+    <variant name=".RapidToggle"
+        summary="Counts only reopen clicks where the side panel was closed by
+                 the user within 3 seconds."/>
+    <variant name=".SustainedOpen"
+        summary="Counts only reopen clicks where the side panel remained open
+                 for at least 3 seconds (or until the session ended or was
+                 backgrounded)."/>
   </token>
 </histogram>
 
 <histogram name="ContextualTasks.{EntrypointType}.UserAction{ActionType}"
-    enum="Boolean" expires_after="2027-02-07">
+    enum="Boolean" expires_after="2027-04-11">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-contextual-tasks-eng@google.com</owner>
   <summary>

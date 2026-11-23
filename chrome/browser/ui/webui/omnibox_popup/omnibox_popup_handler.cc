@@ -26,6 +26,8 @@
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_dogfood_feedback.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_web_contents_helper.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/omnibox/browser/omnibox_logging_utils.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/suggest_template_info_mojo_utils.h"
 #include "components/search/search.h"
@@ -33,20 +35,9 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
-#include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/ui_base_features.h"
-
-namespace {
-
-void LogHistogramMediumTimes(const std::string& histogram_name,
-                             base::TimeDelta elapsed) {
-  base::UmaHistogramCustomTimes(histogram_name, elapsed, base::Milliseconds(10),
-                                base::Minutes(3), 50);
-}
-
-}  // namespace
 
 OmniboxPopupHandler::OmniboxPopupHandler(
     mojo::PendingReceiver<omnibox_popup::mojom::PageHandler> receiver,
@@ -255,6 +246,20 @@ void OmniboxPopupHandler::SetInputState(
     mojom_match->allowed_to_be_default_match =
         current_match.allowed_to_be_default_match;
     mojom_match->icon_url = current_match.icon_url;
+    const bookmarks::BookmarkModel* bookmark_model =
+        controller_->client()->GetBookmarkModel();
+    const bool is_bookmarked =
+        bookmark_model &&
+        bookmark_model->IsBookmarked(current_match.destination_url);
+    const TemplateURLService* turl_service =
+        controller_->client()->GetTemplateURLService();
+    const TemplateURL* associated_keyword_turl =
+        (turl_service && !current_match.associated_keyword.empty())
+            ? turl_service->GetTemplateURLForKeyword(
+                  current_match.associated_keyword)
+            : nullptr;
+    mojom_match->icon_path = SearchboxHandler::VectorIconToResourceName(
+        current_match.GetVectorIcon(is_bookmarked, associated_keyword_turl));
     state->current_match = std::move(mojom_match);
   }
   // Extract active tab ID if in a Chrome browser window context.
@@ -388,41 +393,11 @@ void OmniboxPopupHandler::OnCutOrCopy(uint32_t sequence_number,
     const auto last_omnibox_focus =
         controller_->edit_model()->last_omnibox_focus();
     if (!last_omnibox_focus.is_null()) {
-      const base::TimeDelta elapsed =
-          base::TimeTicks::Now() - last_omnibox_focus;
-      bool is_zero_suggest =
+      omnibox::LogFocusToCutOrCopyAllTextTime(
+          base::TimeTicks::Now() - last_omnibox_focus,
           controller_->autocomplete_controller() &&
-          controller_->autocomplete_controller()->input().IsZeroSuggest();
-      auto page_classification =
-          controller_->edit_model()->GetPageClassification();
-
-      LogHistogramMediumTimes("Omnibox.FocusToCutOrCopyAllTextTime", elapsed);
-
-      const std::string page_context =
-          metrics::OmniboxEventProto::PageClassification_Name(
-              page_classification);
-      LogHistogramMediumTimes(
-          base::StrCat({"Omnibox.FocusToCutOrCopyAllTextTime.ByPageContext.",
-                        page_context}),
-          elapsed);
-
-      if (is_zero_suggest) {
-        LogHistogramMediumTimes(
-            "Omnibox.FocusToCutOrCopyAllTextTime.ZeroSuggest", elapsed);
-        LogHistogramMediumTimes(
-            base::StrCat({"Omnibox.FocusToCutOrCopyAllTextTime.ZeroSuggest."
-                          "ByPageContext.",
-                          page_context}),
-            elapsed);
-      } else {
-        LogHistogramMediumTimes(
-            "Omnibox.FocusToCutOrCopyAllTextTime.TypedSuggest", elapsed);
-        LogHistogramMediumTimes(
-            base::StrCat({"Omnibox.FocusToCutOrCopyAllTextTime.TypedSuggest."
-                          "ByPageContext.",
-                          page_context}),
-            elapsed);
-      }
+              controller_->autocomplete_controller()->input().IsZeroSuggest(),
+          controller_->edit_model()->GetPageClassification());
     }
 
     if (web_contents_) {

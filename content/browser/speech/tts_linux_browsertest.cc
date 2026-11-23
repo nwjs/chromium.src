@@ -25,7 +25,7 @@
 #include "content/public/test/content_browser_test_utils.h"
 #include "content/shell/browser/shell.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/speech-dispatcher/speechd_types.h"
+#include "third_party/speech-dispatcher/src/speechd_types.h"
 
 namespace content {
 namespace {
@@ -182,6 +182,37 @@ IN_PROC_BROWSER_TEST_F(TtsLinuxBrowserTest, PauseResumeAndCancel) {
             EvalJs(shell(), "ttsEvents.join(',')"));
   EXPECT_FALSE(platform_->IsSpeaking());
 }
+
+#if defined(MEMORY_SANITIZER)
+class TtsLinuxDefaultLibraryMsanBrowserTest : public ContentBrowserTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ContentBrowserTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(switches::kEnableSpeechDispatcher);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(TtsLinuxDefaultLibraryMsanBrowserTest,
+                       SkipsUninstrumentedSystemLibrary) {
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
+  TtsPlatform* platform = TtsPlatform::GetInstance();
+  ASSERT_TRUE(platform->PlatformImplSupported());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&] { return platform->PlatformImplInitialized(); }));
+  EXPECT_EQ(0, EvalJs(shell(), "speechSynthesis.getVoices().length"));
+  EXPECT_EQ("synthesis-failed", EvalJs(shell(), R"(
+    new Promise(resolve => {
+      const utterance = new SpeechSynthesisUtterance('Test utterance.');
+      utterance.onend = () => resolve('end');
+      utterance.onerror = event => resolve(event.error);
+      speechSynthesis.speak(utterance);
+    })
+  )"));
+  TtsController::GetInstance()->Stop();
+  platform->Shutdown();
+  base::ThreadPoolInstance::Get()->FlushForTesting();
+}
+#endif  // defined(MEMORY_SANITIZER)
 
 }  // namespace
 }  // namespace content

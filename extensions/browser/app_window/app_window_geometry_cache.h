@@ -64,7 +64,7 @@ class AppWindowGeometryCache : public KeyedService,
                                         const gfx::Rect& bounds) = 0;
 
    protected:
-    virtual ~Observer() {}
+    virtual ~Observer() = default;
   };
 
   AppWindowGeometryCache(content::BrowserContext* context,
@@ -120,7 +120,7 @@ class AppWindowGeometryCache : public KeyedService,
   };
 
   // Data stored for each extension.
-  typedef std::map<std::string, WindowData> ExtensionData;
+  using ExtensionData = std::map<std::string, WindowData>;
 
   // ExtensionRegistryObserver implementation.
   void OnExtensionLoaded(content::BrowserContext* browser_context,

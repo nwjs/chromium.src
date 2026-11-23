@@ -17,16 +17,12 @@
 
 namespace {
 
-// Tool call dictionary and argument keys.
-constexpr char kNameKey[] = "name";
-constexpr char kIdKey[] = "id";
-constexpr char kArgsKey[] = "args";
-constexpr char kUrlKey[] = "url";
+// Tool argument keys.
 constexpr char kNewTabKey[] = "new_tab";
+constexpr char kUrlKey[] = "url";
 
-// Task update strings.
+// Task update string.
 constexpr char kSingleToolTaskUpdate[] = "Executing TTC tool";
-constexpr char kBatchToolTaskUpdate[] = "Executing TTC tools";
 
 // Converts a boolean-like `base::Value` into an optional bool.
 std::optional<bool> ParseBooleanValue(const base::Value& value) {
@@ -83,10 +79,10 @@ std::string SerializeActionProto(
 
 // static
 base::expected<void, std::string> TtcToolValidator::ValidateToolCall(
-    const std::string& name,
-    const base::DictValue& arguments,
-    const std::string& call_id) {
-  if (name.empty() || call_id.empty()) {
+    const ttc::ToolRequest& tool_request) {
+  const std::string& name = tool_request.name;
+  const base::DictValue& arguments = tool_request.arguments;
+  if (name.empty()) {
     return base::unexpected(ttc::kErrorMessageInvalidToolCall);
   }
 
@@ -121,68 +117,15 @@ base::expected<void, std::string> TtcToolValidator::ValidateToolCall(
 
 // static
 base::expected<TtcActuationRequest, std::string>
-TtcToolValidator::CreateActuationRequest(const std::string& name,
-                                         const base::DictValue& arguments,
-                                         const std::string& call_id) {
-  base::expected<void, std::string> validation =
-      ValidateToolCall(name, arguments, call_id);
+TtcToolValidator::CreateActuationRequest(const ttc::ToolRequest& tool_request) {
+  base::expected<void, std::string> validation = ValidateToolCall(tool_request);
   if (!validation.has_value()) {
     return base::unexpected(validation.error());
   }
 
   std::vector<std::string> action_protos = {
-      SerializeActionProto(BuildActionProto(name, arguments)),
+      SerializeActionProto(
+          BuildActionProto(tool_request.name, tool_request.arguments)),
   };
-  return TtcActuationRequest(std::move(action_protos), kSingleToolTaskUpdate,
-                             call_id);
-}
-
-// static
-base::expected<TtcActuationRequest, std::string>
-TtcToolValidator::CreateActuationRequestWithToolCalls(
-    const base::ListValue& tool_calls) {
-  if (tool_calls.empty()) {
-    return base::unexpected(ttc::kErrorMessageEmptyToolCalls);
-  }
-
-  std::vector<std::string> action_protos;
-  std::vector<std::string> call_ids;
-  action_protos.reserve(tool_calls.size());
-  call_ids.reserve(tool_calls.size());
-  const base::DictValue empty_args;
-
-  for (const base::Value& item : tool_calls) {
-    const base::DictValue* tool_call = item.GetIfDict();
-    if (!tool_call) {
-      return base::unexpected(ttc::kErrorMessageInvalidToolCall);
-    }
-
-    const std::string* name = tool_call->FindString(kNameKey);
-    const std::string* call_id = tool_call->FindString(kIdKey);
-    if (!name || !call_id) {
-      return base::unexpected(ttc::kErrorMessageInvalidToolCall);
-    }
-
-    const base::Value* args_value = tool_call->Find(kArgsKey);
-    const base::DictValue* args = &empty_args;
-    if (args_value) {
-      args = args_value->GetIfDict();
-      if (!args) {
-        return base::unexpected(ttc::kErrorMessageInvalidArguments);
-      }
-    }
-
-    base::expected<void, std::string> validation =
-        ValidateToolCall(*name, *args, *call_id);
-    if (!validation.has_value()) {
-      return base::unexpected(validation.error());
-    }
-
-    call_ids.push_back(*call_id);
-    action_protos.push_back(
-        SerializeActionProto(BuildActionProto(*name, *args)));
-  }
-
-  return TtcActuationRequest(std::move(action_protos), kBatchToolTaskUpdate,
-                             std::move(call_ids));
+  return TtcActuationRequest(std::move(action_protos), kSingleToolTaskUpdate);
 }

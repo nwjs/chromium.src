@@ -104,8 +104,6 @@
 #include "third_party/blink/renderer/platform/scheduler/public/worker_pool.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -2396,11 +2394,8 @@ void WebMediaPlayerImpl::OnBufferingStateChangeInternal(
     SetReadyState(CanPlayThrough() ? WebMediaPlayer::kReadyStateHaveEnoughData
                                    : WebMediaPlayer::kReadyStateHaveFutureData);
 
-    // Let the DataSource know we have enough data -- this is the only function
-    // during which we advance to (or past) the kReadyStateHaveEnoughData state.
-    // It may use this information to update buffer sizes or release unused
-    // network connections.
-    MaybeUpdateBufferSizesForPlayback();
+    // Let the DataSource know we have enough data. It may use this information
+    // to release unused network connections.
     if (demuxer_manager_->HasDataSource() && !CouldPlayIfEnoughData()) {
       // For LazyLoad this will be handled during OnPipelineSuspended().
       if (for_suspended_start && did_lazy_load_) {
@@ -3118,6 +3113,8 @@ void WebMediaPlayerImpl::SetReadyState(WebMediaPlayer::ReadyState state) {
 
   ready_state_ = state;
   highest_ready_state_ = std::max(highest_ready_state_, ready_state_);
+
+  MaybeUpdateBufferSizesForPlayback();
 
   // Always notify to ensure client has the latest value.
   client_->ReadyStateChanged();

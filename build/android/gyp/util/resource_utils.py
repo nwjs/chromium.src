@@ -14,7 +14,6 @@ import tempfile
 import zipfile
 
 from util import build_utils
-from util import parallel
 import action_helpers
 import zip_helpers
 
@@ -85,6 +84,26 @@ AAPT_IGNORE_PATTERN = ':'.join(
         '*.backup',  # Some tools create temporary backup files.
     ]
 )
+
+
+def Aapt2Env():
+    """Returns the environment to use when running aapt2."""
+    # aapt2 makes a huge number of small allocations. Using a larger tcache and
+    # avoiding repeatedly growing / trimming the heap makes "aapt2 link" ~18%
+    # faster for chrome_apk. Unknown tunables are ignored, and non-glibc hosts
+    # ignore the variable altogether.
+    tunables = [
+        'glibc.malloc.tcache_count=65535',
+        'glibc.malloc.top_pad=67108864',
+        'glibc.malloc.trim_threshold=1073741824',
+        'glibc.malloc.hugetlb=1',
+    ]
+    env = os.environ.copy()
+    existing = env.get('GLIBC_TUNABLES')
+    if existing:
+        tunables.append(existing)
+    env['GLIBC_TUNABLES'] = ':'.join(tunables)
+    return env
 
 
 def ToAndroidLocaleName(chromium_locale):
@@ -249,23 +268,6 @@ All resource files must follow a structure of "$ROOT/$SUBDIR/$FILE"."""
                 raise Exception(msg.format('\n  '.join(bad_sources)))
 
     return list(resource_dirs)
-
-
-def IterResourceFilesInDirectories(
-    directories, ignore_pattern=AAPT_IGNORE_PATTERN
-):
-    globs = GenerateGlobs(ignore_pattern)
-    for d in directories:
-        for root, _, files in os.walk(d):
-            for f in files:
-                archive_path = f
-                parent_dir = os.path.relpath(root, d)
-                if parent_dir != '.':
-                    archive_path = os.path.join(parent_dir, f)
-                path = os.path.join(root, f)
-                if build_utils.MatchesGlob(archive_path, globs):
-                    continue
-                yield path, archive_path
 
 
 class ResourceInfoFile:
@@ -874,39 +876,6 @@ def ExtractBinaryManifestValues(aapt2_path, apk_path):
     version_name = re.search(r'versionName.*?="(.*?)"', output).group(1)
     package_name = re.search(r'package.*?="(.*?)"', output).group(1)
     return version_code, version_name, package_name
-
-
-def _ExtractSingleDep(z, deps_dir):
-    subdirname = z.replace(os.path.sep, '_')
-    subdir = os.path.join(deps_dir, subdirname)
-    build_utils.ExtractAll(z, path=subdir)
-    return subdir
-
-
-def ExtractDeps(dep_zips, deps_dir):
-    """Extract a list of resource dependency zip files.
-
-    Args:
-       dep_zips: A list of zip file paths, each one will be extracted to
-         a subdirectory of |deps_dir|, named after the zip file's path (e.g.
-         '/some/path/foo.zip' -> '{deps_dir}/some_path_foo/').
-      deps_dir: Top-level extraction directory.
-    Returns:
-      The list of all sub-directory paths, relative to |deps_dir|.
-    Raises:
-      Exception: If a sub-directory already exists with the same name before
-        extraction.
-    """
-    seen_subdirs = set()
-    for z in dep_zips:
-        subdirname = z.replace(os.path.sep, '_')
-        subdir = os.path.join(deps_dir, subdirname)
-        if subdirname in seen_subdirs or os.path.exists(subdir):
-            raise Exception('Resource zip name conflict: ' + subdirname)
-        seen_subdirs.add(subdirname)
-
-    arg_tuples = [(z, deps_dir) for z in dep_zips]
-    return list(parallel.BulkForkAndCall(_ExtractSingleDep, arg_tuples))
 
 
 class _ResourceBuildContext:

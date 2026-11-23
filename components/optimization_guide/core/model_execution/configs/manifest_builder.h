@@ -15,9 +15,6 @@
 
 namespace optimization_guide {
 
-inline constexpr std::string kNoSafetyModel = "";
-inline constexpr std::string kNoPostprocessorModel = "";
-
 // Well-known use case names.
 inline constexpr char kLanguageModelUseCase[] = "language_model";
 inline constexpr char kProofreaderUseCase[] = "proofreader";
@@ -56,15 +53,12 @@ proto::BaseModelRecipe BaseModelRecipe(proto::FileReference weights_file,
 proto::AdaptationRecipe AdaptationRecipe(const std::string& base_model_id,
                                          proto::FileReference weights_file);
 
-proto::SafetyModelRecipe SafetyModelRecipe(
-    proto::FileReference weights_file,
-    proto::FileReference language_detection_model_file);
+proto::PostprocessedModelRecipe PostprocessedModelRecipe(
+    const std::string& base_model_id,
+    const std::string& postprocessor_model_id);
 
-proto::SolutionRecipe SolutionRecipe(
-    const std::string& model_recipe_id,
-    const std::string& safety_model_recipe_id,
-    proto::FileReference config_file,
-    const std::string& postprocessor_model_recipe_id = kNoPostprocessorModel);
+proto::SolutionRecipe SolutionRecipe(const std::string& model_recipe_id,
+                                     proto::FileReference config_file);
 
 // Declares a 'use_case' on 'device'.
 struct DeviceUseCase {
@@ -86,7 +80,7 @@ class ManifestBuilder {
   ManifestBuilder& Add(const std::string& name, proto::AdaptationRecipe recipe);
 
   ManifestBuilder& Add(const std::string& name,
-                       proto::SafetyModelRecipe recipe);
+                       proto::PostprocessedModelRecipe recipe);
 
   ManifestBuilder& Add(const std::string& name, proto::SolutionRecipe recipe);
 

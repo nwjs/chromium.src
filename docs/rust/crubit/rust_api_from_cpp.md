@@ -62,7 +62,7 @@ rust_api_from_cpp("self_contained_target_rs_api") {
   ]
 }
 
-rust_static_library("test_rust_api_from_cpp") {
+rust_static_library("rust_api_from_cpp_unittests") {
   crate_root = "tests.rs"
   sources = [ crate_root ]
   deps = [ ":self_contained_target_rs_api" ]
@@ -105,8 +105,8 @@ $ head -3 out/rel/gen/build/rust/tests/test_rust_api_from_cpp/self_contained_tar
 ## Specifying binding dependencies
 
 If public APIs from `public_headers` use types from another C++ target, then
-the bindings for that other target need to be listed in the `deps` attribute
-of `rust_api_from_cpp`.
+the bindings for that other target need to be listed in the `bindings_deps`
+attribute of `rust_api_from_cpp`.
 
 Example (`CreateCcPodStructFromValue` below returns `CcPodStruct` from the
 `self_contained_target` used in the earlier examples):
@@ -134,10 +134,10 @@ rust_api_from_cpp("target_depending_on_another_rs_api") {
   public_headers = [ "target_depending_on_another.h" ]
 
   # Parallels `public_deps` of `target_depending_on_another`.
-  deps = [ ":self_contained_target_rs_api" ]
+  bindings_deps = [ ":self_contained_target_rs_api" ]
 }
 
-rust_static_library("test_rust_api_from_cpp") {
+rust_static_library("rust_api_from_cpp_unittests") {
   crate_root = "tests.rs"
   sources = [ crate_root ]
   deps = [
@@ -163,12 +163,20 @@ fn foo() {
 
 Notes:
 
-* `deps` of `rust_api_from_cpp` list other `rust_api_from_cpp` targets (e.g.
-  `self_contained_target_rs_api` above) - not the C++ targets (e.g. not
+* `bindings_deps` of `rust_api_from_cpp` list other `rust_api_from_cpp` targets
+  (e.g. `self_contained_target_rs_api` above) - not the C++ targets (e.g. not
   `self_contained_target`).
-* `deps` only need to cover the C++ targets whose types appear in the public
-  APIs from `public_headers`.  Other `deps` of the `bindings_target` (e.g.
-  ones used only by its `.cc` files) do not need Rust bindings.
+* `bindings_deps` only need to cover the C++ targets whose types appear in the
+  public APIs from `public_headers`.  Other `deps` of the `bindings_target`
+  (e.g. ones used only by its `.cc` files) do not need Rust bindings.
+
+### Types from Rust crates
+
+If public APIs from `public_headers` use Rust types (from a `.h` file generated
+by [`cpp_api_from_rust`](cpp_api_from_rust.md)), then `bindings_deps` should
+list the `cpp_api_from_rust` target.  The Rust bindings will then refer to the
+original Rust types.  See `cpp_lib_using_rust_type_rs_api` in
+`build/rust/tests/test_rust_api_from_cpp/round_trip/BUILD.gn` for an example.
 
 ## References and lifetimes
 
@@ -197,6 +205,93 @@ for more details and examples.
 See also https://crbug.com/572054453 and https://crbug.com/572056816 which track
 enabling additional lifetime-related warnings in Chromium's C++ targets.
 
+## Adding hand-written Rust code to the bindings
+
+The `extra_rust_sources` attribute of `rust_api_from_cpp` merges hand-written
+`.rs` files into the generated bindings crate.  This is mostly useful for
+implementing traits (e.g. `TryFrom`, `Display`, `Iterator`) for the types from
+the generated bindings.  Rust's
+[orphan rule](https://doc.rust-lang.org/reference/items/implementations.html#r-items.impl.trait.orphan-rule)
+prevents such trait impls in other crates (see also the "Troubleshooting"
+section below).
+
+Example:
+
+```cpp
+// build/rust/tests/test_rust_api_from_cpp/test_time_delta.h:
+
+namespace test_base {
+
+class TestTimeDelta {
+ public:
+  static constexpr TestTimeDelta FromMicroseconds(int64_t us);
+  constexpr int64_t InMicroseconds() const;
+  ...
+};
+
+}  // namespace test_base
+```
+
+```rust
+// build/rust/tests/test_rust_api_from_cpp/test_time_delta.rs:
+
+use crate::test_base::TestTimeDelta;
+use core::num::TryFromIntError;
+use core::time::Duration;
+
+impl TryFrom<TestTimeDelta> for Duration {
+    type Error = TryFromIntError;
+
+    fn try_from(delta: TestTimeDelta) -> Result<Self, Self::Error> {
+        let us = u64::try_from(delta.InMicroseconds())?;
+        Ok(Duration::from_micros(us))
+    }
+}
+```
+
+```gn
+# build/rust/tests/test_rust_api_from_cpp/BUILD.gn
+
+rust_api_from_cpp("test_time_delta_rs_api") {
+  bindings_target = ":test_time_delta"
+  public_headers = [ "test_time_delta.h" ]
+  extra_rust_sources = [ "test_time_delta.rs" ]
+}
+```
+
+```rust
+// build/rust/tests/test_rust_api_from_cpp/tests.rs:
+
+chromium::import! {
+    "//build/rust/tests/test_rust_api_from_cpp:test_time_delta_rs_api"
+        as test_time_delta;
+}
+
+fn foo() {
+    let delta = ::test_time_delta::test_base::TestTimeDelta::FromMicroseconds(123);
+    let duration = std::time::Duration::try_from(delta).unwrap();
+}
+```
+
+Notes:
+
+* Each file from `extra_rust_sources` becomes a private module at the root of
+  the crate.  All items of this module are re-exported (via `pub use`) from the
+  root of the crate.
+* Prefer to keep `extra_rust_sources` limited to Rust-specific glue (e.g. trait
+  impls or conversions to Rust standard library types).  If an API would also be
+  useful to C++ callers, then add it to the C++ header instead - Crubit will
+  generate Rust bindings for it, and both languages will share one
+  implementation.
+* Injecting Rust sources into a _nested module_ of the generated bindings is
+  supported via the `extra_rust_source_groups` attribute.  Each group lists
+  `sources` and a Rust module path in `mod` (e.g. `"foo::bar"`) - the sources
+  are placed into that module.  Reaching for this attribute should be
+  needed quite rarely - usually only for `cc_std` or `base` bindings.  See
+  `test_extra_rust_source_groups_rs_api` in
+  [`build/rust/tests/test_rust_api_from_cpp/BUILD.gn`](../../../build/rust/tests/test_rust_api_from_cpp/BUILD.gn)
+  for an example.
+
 ## Troubleshooting
 
 The sections below should help diagnose and fix some issues you may encounter.
@@ -224,6 +319,75 @@ $ cat out/rel/gen/build/rust/tests/test_rust_api_from_cpp/target_depending_on_an
 ```
 
 Then you want to read the "Specifying binding dependencies" section above.
+
+### Can't implement a trait for a type from the generated bindings
+
+Rust's
+[orphan rule](https://doc.rust-lang.org/reference/items/implementations.html#r-items.impl.trait.orphan-rule)
+prevents implementing a foreign trait for foreign types.  For example, if
+`tests.rs` tries to implement `TryFrom` for a type from `rust_api_from_cpp`
+bindings, then the build fails with an error like:
+
+```
+error[E0117]: only traits defined in the current crate can be implemented for types defined outside of the crate
+  --> ../../build/rust/tests/test_rust_api_from_cpp/tests.rs:47:1
+   |
+47 | impl TryFrom<::test_time_delta::test_base::TestTimeDelta> for std::time::Duration {
+   | ^^^^^----------------------------------------------------^^^^^-------------------
+   |      |                                                        |
+   |      |                                                        `Duration` is not defined in the current crate
+   |      this is not defined in the current crate because this is a foreign trait
+```
+
+To fix this, move the trait impl into the generated bindings crate by using
+`extra_rust_sources` (see the "Adding hand-written Rust code to the bindings"
+section above).
+
+### Dependency cycles and missing dependencies
+
+`rust_api_from_cpp` parses `public_headers` (and all headers that they
+`#include`, directly or transitively) when it generates the bindings.  Therefore
+GN dependencies need to be declared correctly and completely: all these headers
+need to be (transitively) provided by `bindings_target`.
+
+This is stricter than what Chromium needed in the past:
+
+* Many Chromium targets are big and monolithic (e.g. `//chrome/browser` or
+  `//content/browser`).
+* GN does not enforce correct dependencies as strictly as some other build
+  systems:
+  * `gn check` ignores generated files by default (see `--check-generated` in
+    the [GN reference for `gn check`](https://gn.googlesource.com/gn/+/main/docs/reference.md#cmd_check)).
+    https://crbug.com/558554239 tracks fixing the violations in generated
+    files (see `no_check_generated_targets` in [`//.gn`](../../../.gn)).
+  * By default `gn check` allows public headers to `#include` headers from
+    private `deps`.  Targets can opt into stricter checks with
+    `check_includes_strict = true` (see
+    [`build_performance.md`](./build_performance.md)).
+
+[`cxx`](https://cxx.rs) does not read C++ headers when it generates its
+bindings.  The headers are used only later, when the generated `.cc` file is
+compiled.  Therefore `cxx` bindings may compile even if their dependencies are
+missing (e.g. because a generated header was already generated for another
+target).  This can cause flaky builds.  For example,
+`no_check_generated_targets` (see above) has several `..._cxx_generated`
+entries, because `gn check --check-generated` reports missing dependencies in
+the C++ files generated by `cxx`.  When you replace `cxx` with
+`rust_api_from_cpp`, you may have to add the missing dependencies.
+
+This is mostly a problem when Rust is added in the middle of a big target.  For
+example, if C++ code in `//content/browser` calls Rust, and this Rust code calls
+other C++ APIs from `//content/browser`, then GN reports a dependency cycle.
+To fix this, move the C++ APIs that Rust calls into a separate, smaller target
+(see also the "Modularity" section in
+[`chrome_browser_design_principles.md`](../../chrome_browser_design_principles.md#modularity)).
+There is no such problem when Rust only calls C++ APIs from lower layers (e.g.
+from `//base`), unless the bindings of these APIs are also used by Rust code
+inside the lower layer.
+
+Smaller targets with correct dependencies are good for Chromium even without
+Rust.  They make API boundaries clearer, and they can make builds faster and
+more reliable.
 
 ### Different bindings on different target platforms
 

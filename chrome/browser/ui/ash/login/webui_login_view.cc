@@ -150,19 +150,19 @@ WebUILoginView::~WebUILoginView() {
 
 void WebUILoginView::Init() {
   // Init() should only be called once.
-  DCHECK(!web_view_);
+  CHECK(!web_view_, base::NotFatalUntil::M162);
   auto web_view =
       std::make_unique<views::WebView>(ProfileHelper::GetSigninProfile());
   WebContents* web_contents = web_view->GetWebContents();
 
   InitializeWebView(web_view.get());
-  web_view->set_allow_accelerators(true);
 
   web_view_ = AddChildView(std::move(web_view));
 
   WebContentsModalDialogManager::FromWebContents(web_contents)
       ->SetDelegate(this);
   web_contents->SetDelegate(this);
+  SetAcceleratorHandling(views::WebContentsAcceleratorHandling::kEnabled);
   content::WebContentsObserver::Observe(web_contents);
 }
 
@@ -259,7 +259,7 @@ void WebUILoginView::SetKeyboardEventsAndSystemTrayEnabled(bool enabled) {
 // WebUILoginView protected: ---------------------------------------------------
 
 void WebUILoginView::Layout(PassKey) {
-  DCHECK(web_view_);
+  CHECK(web_view_, base::NotFatalUntil::M162);
   web_view_->SetBoundsRect(bounds());
 
   for (auto& observer : observer_list_) {
@@ -314,9 +314,7 @@ bool WebUILoginView::HandleKeyboardEvent(content::WebContents* source,
     // Disable arrow key traversal because arrow keys are handled via
     // accelerator when this view has focus.
     ScopedArrowKeyTraversalDisabler disabler;
-
-    handled = unhandled_keyboard_event_handler_.HandleKeyboardEvent(
-        event, GetFocusManager());
+    handled = WebContentsDelegateViews::HandleKeyboardEvent(source, event);
   }
 
   return handled;

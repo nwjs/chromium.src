@@ -570,7 +570,12 @@ double PageActionTestAccessor::GetSlideAnimationValue() const {
         };
         const anims = getAllAnims(el);
         const running = anims.find(a => a.playState === 'running');
-        const isExpandedTarget = el.hasAttribute('slide-and-crossfade')
+        // For slide-and-crossfade chips, the native slide animation tracks
+        // the leading/trailing icon crossfade (see
+        // PageActionView::HandleSlideAndCrossfadeTransition()), so the
+        // expanded state is `showTrailingIcon` rather than `shouldShowChip`.
+        const isSlideAndCrossfade = el.hasAttribute('slide-and-crossfade');
+        const isExpandedTarget = isSlideAndCrossfade
             ? Boolean(el.state?.showTrailingIcon)
             : Boolean(el.state?.shouldShowChip);
         if (running) {
@@ -711,8 +716,11 @@ void PageActionTestAccessor::Click(page_actions::PageActionTrigger trigger) {
 
 void PageActionTestAccessor::SetSuppressionThreshold(
     base::TimeDelta threshold) {
-  if (auto* const control = GetWebUIPageActionControl()) {
-    control->SetSuppressionThresholdForTesting(threshold);
+  // Click suppression for page actions is only implemented by the WebUI
+  // toolbar (HighlightTracker in toolbar_button.ts); there is nothing to
+  // configure for the Views implementation.
+  if (GetWebUIPageActionControl()) {
+    EXPECT_TRUE(SetWebUIToolbarClickSuppressionThreshold(browser_, threshold));
   }
 }
 

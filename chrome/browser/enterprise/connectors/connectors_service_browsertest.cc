@@ -412,8 +412,7 @@ class ConnectorsServiceAnalysisProfileBrowserTest
       ASSERT_EQ(metadata.device().name(),
                 *reporting_metadata.FindStringByDottedPath("device.name"));
 
-      if (enhanced_fields_enabled() &&
-          policy::features::IsEnhancedSecurityEventFieldsEnabled()) {
+      if (enhanced_fields_enabled()) {
         ASSERT_TRUE(metadata.device().has_device_fqdn());
         ASSERT_EQ(
             metadata.device().device_fqdn(),
@@ -423,15 +422,6 @@ class ConnectorsServiceAnalysisProfileBrowserTest
         ASSERT_EQ(
             metadata.device().network_name(),
             *reporting_metadata.FindStringByDottedPath("device.networkName"));
-      } else {
-        ASSERT_FALSE(
-            reporting_metadata.FindStringByDottedPath("device.deviceFqdn"));
-        ASSERT_FALSE(
-            reporting_metadata.FindStringByDottedPath("device.networkName"));
-        if (!enhanced_fields_enabled()) {
-          ASSERT_FALSE(metadata.device().has_device_fqdn());
-          ASSERT_FALSE(metadata.device().has_network_name());
-        }
       }
     }
 

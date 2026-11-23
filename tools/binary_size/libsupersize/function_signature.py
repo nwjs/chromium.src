@@ -20,27 +20,27 @@ def _FindParameterListParen(name):
     idx = name.find('(', start_idx)
     if idx == -1:
       return -1
-    template_balance_count += name.count('<', start_idx, idx) - name.count(
-      '>', start_idx, idx
-    )
-    # Special: operators with angle brackets.
-    operator_idx = name.find('operator<', start_idx, idx)
-    if operator_idx != -1:
-      if name[operator_idx + 9] == '<':
-        template_balance_count -= 2
-      else:
-        template_balance_count -= 1
-    else:
-      operator_idx = name.find('operator>', start_idx, idx)
+    lt_count = name.count('<', start_idx, idx)
+    gt_count = name.count('>', start_idx, idx)
+    if lt_count or gt_count:
+      template_balance_count += lt_count - gt_count
+      # Special: operators with angle brackets.
+      operator_idx = name.find('operator<', start_idx, idx) if lt_count else -1
       if operator_idx != -1:
-        if name[operator_idx + 9] == '>':
-          template_balance_count += 2
+        if name[operator_idx + 9] == '<':
+          template_balance_count -= 2
         else:
-          template_balance_count += 1
+          template_balance_count -= 1
+      elif gt_count:
+        operator_idx = name.find('operator>', start_idx, idx)
+        if operator_idx != -1:
+          if name[operator_idx + 9] == '>':
+            template_balance_count += 2
+          else:
+            template_balance_count += 1
 
-    paren_balance_count += name.count('(', start_idx, idx) - name.count(
-      ')', start_idx, idx
-    )
+    # No need to count "(" since |idx| is the first one after |start_idx|.
+    paren_balance_count -= name.count(')', start_idx, idx)
     if template_balance_count == 0 and paren_balance_count == 0:
       # Special case: skip "(anonymous namespace)".
       if -1 != name.find('(anonymous namespace)', idx, idx + 21):
@@ -58,18 +58,24 @@ def _FindLastCharOutsideOfBrackets(name, target_char, prev_idx=None):
   """Returns the last index of |target_char| that is not within ()s nor <>s."""
   paren_balance_count = 0
   template_balance_count = 0
+  has_parens = ')' in name
+  is_lt = target_char == '<'
   while True:
     idx = name.rfind(target_char, 0, prev_idx)
     if idx == -1:
       return -1
     # It is much faster to use.find() and.count() than to loop over each
     # character.
-    template_balance_count += name.count('<', idx, prev_idx) - name.count(
-      '>', idx, prev_idx
-    )
-    paren_balance_count += name.count('(', idx, prev_idx) - name.count(
-      ')', idx, prev_idx
-    )
+    if is_lt:
+      template_balance_count += 1 - name.count('>', idx, prev_idx)
+    else:
+      template_balance_count += name.count('<', idx, prev_idx) - name.count(
+        '>', idx, prev_idx
+      )
+    if has_parens:
+      paren_balance_count += name.count('(', idx, prev_idx) - name.count(
+        ')', idx, prev_idx
+      )
     if template_balance_count == 0 and paren_balance_count == 0:
       return idx
     prev_idx = idx

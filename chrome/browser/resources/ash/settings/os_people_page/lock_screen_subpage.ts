@@ -28,7 +28,6 @@ import '../multidevice_page/multidevice_smartlock_item.js';
 import './password_settings.js';
 import './pin_settings.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {fireAuthTokenInvalidEvent} from 'chrome://resources/ash/common/quick_unlock/utils.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
@@ -44,7 +43,8 @@ import {RouteObserverMixin} from '../common/route_observer_mixin.js';
 import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 import {LockStateMixin} from '../lock_state_mixin.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {Router, routes} from '../router.js';
 
 import type {FingerprintBrowserProxy} from './fingerprint_browser_proxy.js';
@@ -148,15 +148,12 @@ export class SettingsLockScreenElement extends SettingsLockScreenElementBase {
   override supportedSettingIds = new Set<Setting>([
     Setting.kLockScreenV2,
     Setting.kChangeAuthPinV2,
-    Setting.kLockScreenNotification,
     Setting.kDataRecovery,
   ]);
 
   declare private fingerprintUnlockEnabled_: boolean;
   declare private numFingerprints_: number;
   declare private numFingerprintDescription_: string;
-  private lockScreenNotificationsEnabled_: boolean = false;
-  private lockScreenHideSensitiveNotificationSupported_: boolean = false;
   declare private recovery_: chrome.settingsPrivate.PrefObject|null;
   declare private noRecoveryVirtualPref_: chrome.settingsPrivate.PrefObject;
   declare private recoveryChangeInProcess_: boolean;

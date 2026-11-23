@@ -334,9 +334,9 @@ class SurfaceAggregatorTest : public testing::Test, public DisplayTimeSource {
                         std::vector<SurfaceRange>* referenced_surfaces) {
     gfx::Transform root_transform;
     for (auto& pass : passes) {
-      CompositorRenderPass* test_pass = AddRenderPassWithDamage(
-          pass_list, pass.id, pass.output_rect, pass.damage_rect,
-          root_transform, cc::FilterOperations());
+      CompositorRenderPass* test_pass =
+          cc::AddRenderPassWithDamage(pass_list, pass.id, pass.output_rect,
+                                      pass.damage_rect, root_transform);
       test_pass->has_transparent_background = pass.has_transparent_background;
       test_pass->has_damage_from_contributing_content =
           pass.has_damage_from_contributing_content;
@@ -450,7 +450,8 @@ class SurfaceAggregatorTest : public testing::Test, public DisplayTimeSource {
                  gfx::RectF(), gfx::Size(), gfx::Vector2dF(1.0f, 1.0f),
                  gfx::PointF(),
                  /*force_anti_aliasing_off=*/false,
-                 /*backdrop_filter_quality=*/1.0f, intersects_damage_under);
+                 /*backdrop_filter_quality=*/1.0f, intersects_damage_under,
+                 cc::FilterOperations(), cc::FilterOperations(), std::nullopt);
   }
 
   static void AddTextureDrawQuad(CompositorRenderPass* pass,
@@ -573,18 +574,20 @@ class SurfaceAggregatorValidSurfaceTest : public SurfaceAggregatorTest {
     }
   }
 
-  void SubmitPassListAsFrame(CompositorFrameSinkSupport* support,
-                             const LocalSurfaceId& local_surface_id,
-                             CompositorRenderPassList* pass_list,
-                             std::vector<SurfaceRange> referenced_surfaces,
-                             float device_scale_factor) {
+  void SubmitPassListAsFrame(
+      CompositorFrameSinkSupport* support,
+      const LocalSurfaceId& local_surface_id,
+      CompositorRenderPassList* pass_list,
+      std::vector<SurfaceRange> referenced_surfaces,
+      float device_scale_factor,
+      std::vector<TransferableResource> resource_list = {}) {
     CompositorFrame frame =
         CompositorFrameBuilder()
             .SetRenderPassList(std::move(*pass_list))
             .SetDeviceScaleFactor(device_scale_factor)
             .SetReferencedSurfaces(std::move(referenced_surfaces))
+            .SetTransferableResources(std::move(resource_list))
             .Build();
-    frame.metadata.content_color_usage = gfx::ContentColorUsage::kHDR;
     pass_list->clear();
 
     support->SubmitCompositorFrame(local_surface_id, std::move(frame));
@@ -598,15 +601,18 @@ class SurfaceAggregatorValidSurfaceTest : public SurfaceAggregatorTest {
     return pass_list;
   }
 
-  void SubmitCompositorFrame(CompositorFrameSinkSupport* support,
-                             const std::vector<Pass>& passes,
-                             const LocalSurfaceId& local_surface_id,
-                             float device_scale_factor) {
+  void SubmitCompositorFrame(
+      CompositorFrameSinkSupport* support,
+      const std::vector<Pass>& passes,
+      const LocalSurfaceId& local_surface_id,
+      float device_scale_factor,
+      std::vector<TransferableResource> resource_list = {}) {
     std::vector<SurfaceRange> referenced_surfaces;
     CompositorRenderPassList pass_list =
         GenerateRenderPassList(passes, &referenced_surfaces);
     SubmitPassListAsFrame(support, local_surface_id, &pass_list,
-                          std::move(referenced_surfaces), device_scale_factor);
+                          std::move(referenced_surfaces), device_scale_factor,
+                          std::move(resource_list));
   }
 
   void QueuePassAsFrame(std::unique_ptr<CompositorRenderPass> pass,
@@ -5655,12 +5661,13 @@ TEST_P(SurfaceAggregatorValidSurfaceWithMergingPassesTest,
           .AddRenderPass(
               RenderPassBuilder(CompositorRenderPassId{2}, child_surface_size)
                   .AddRenderPassQuad(gfx::Rect(child_surface_size),
-                                     CompositorRenderPassId{1})
-                  .AddBackdropFilter(cc::FilterOperation::CreateBlurFilter(5)))
+                                     CompositorRenderPassId{1}))
           .AddRenderPass(
               RenderPassBuilder(CompositorRenderPassId{3}, child_surface_size)
-                  .AddRenderPassQuad(gfx::Rect(child_surface_size),
-                                     CompositorRenderPassId{2})
+                  .AddRenderPassQuad(
+                      gfx::Rect(child_surface_size), CompositorRenderPassId{2},
+                      {.backdrop_filters = cc::FilterOperations(
+                           {cc::FilterOperation::CreateBlurFilter(5)})})
                   .SetQuadToTargetTranslation(20, 30))
           .Build();
 
@@ -5764,12 +5771,13 @@ TEST_P(SurfaceAggregatorValidSurfaceWithMergingPassesTest,
           .AddRenderPass(
               RenderPassBuilder(CompositorRenderPassId{2}, child_surface_size)
                   .AddRenderPassQuad(gfx::Rect(child_surface_size),
-                                     CompositorRenderPassId{1})
-                  .AddBackdropFilter(cc::FilterOperation::CreateBlurFilter(5)))
+                                     CompositorRenderPassId{1}))
           .AddRenderPass(
               RenderPassBuilder(CompositorRenderPassId{3}, child_surface_size)
-                  .AddRenderPassQuad(gfx::Rect(child_surface_size),
-                                     CompositorRenderPassId{2})
+                  .AddRenderPassQuad(
+                      gfx::Rect(child_surface_size), CompositorRenderPassId{2},
+                      {.backdrop_filters = cc::FilterOperations(
+                           {cc::FilterOperation::CreateBlurFilter(5)})})
                   .SetQuadToTargetTranslation(20, 30))
           .Build();
 
@@ -6419,10 +6427,20 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
   const gfx::Rect full_damage_rect(kSurfaceSize);
   const gfx::Rect partial_damage_rect(45, 45, 10, 10);
 
+  auto hdr_shared_image =
+      shared_image_interface()->CreateSharedImageForSoftwareCompositor(
+          {SinglePlaneFormat::kBGRA_8888, gfx::Size(1, 1),
+           gfx::ColorSpace::CreateHDR10(),
+           gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY, "ColorSpaceTestWin"});
+  TransferableResource hdr_resource = TransferableResource::Make(
+      hdr_shared_image, TransferableResource::ResourceSource::kTest,
+      hdr_shared_image->creation_sync_token());
+  hdr_resource.id = ResourceId(1);
+
   std::array<std::vector<Quad>, 2> quads = {
-      {{Quad::SolidColorQuad(SkColors::kWhite, gfx::Rect(5, 5)),
+      {{Quad::TextureQuad(gfx::Rect(5, 5)),
         Quad::SolidColorQuad(SkColors::kLtGray, gfx::Rect(5, 5))},
-       {Quad::SolidColorQuad(SkColors::kGray, gfx::Rect(5, 5)),
+       {Quad::TextureQuad(gfx::Rect(5, 5)),
         Quad::TransparentSolidColorQuad(SkColors::kDkGray, gfx::Rect(5, 5),
                                         0.5)}}};
 
@@ -6456,7 +6474,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
   {
     SubmitCompositorFrame(root_sink_.get(), passes,
                           root_surface_id_.local_surface_id(),
-                          device_scale_factor);
+                          device_scale_factor, {hdr_resource});
     SurfaceId surface_id(root_sink_->frame_sink_id(),
                          root_surface_id_.local_surface_id());
 
@@ -6483,7 +6501,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
   {
     SubmitCompositorFrame(root_sink_.get(), passes,
                           root_surface_id_.local_surface_id(),
-                          device_scale_factor);
+                          device_scale_factor, {hdr_resource});
     SurfaceId surface_id(root_sink_->frame_sink_id(),
                          root_surface_id_.local_surface_id());
 
@@ -6509,7 +6527,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
   {
     SubmitCompositorFrame(root_sink_.get(), passes,
                           root_surface_id_.local_surface_id(),
-                          device_scale_factor);
+                          device_scale_factor, {hdr_resource});
     SurfaceId surface_id(root_sink_->frame_sink_id(),
                          root_surface_id_.local_surface_id());
 
@@ -6544,7 +6562,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
   {
     SubmitCompositorFrame(root_sink_.get(), passes,
                           root_surface_id_.local_surface_id(),
-                          device_scale_factor);
+                          device_scale_factor, {hdr_resource});
     SurfaceId surface_id(root_sink_->frame_sink_id(),
                          root_surface_id_.local_surface_id());
 
@@ -6571,7 +6589,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
   {
     SubmitCompositorFrame(root_sink_.get(), passes,
                           root_surface_id_.local_surface_id(),
-                          device_scale_factor);
+                          device_scale_factor, {hdr_resource});
     SurfaceId surface_id(root_sink_->frame_sink_id(),
                          root_surface_id_.local_surface_id());
 
@@ -6591,7 +6609,8 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorSpaceTestWin) {
 // Ensure that the render passes have correct color spaces.
 TEST_F(SurfaceAggregatorValidSurfaceTest, MetadataContentColorUsageTest) {
   auto test_content_color_usage_aggregation =
-      [this](gfx::ContentColorUsage content_color_usage) {
+      [this](const gfx::ColorSpace& color_space,
+             gfx::ContentColorUsage content_color_usage) {
         std::vector<Quad> child_quads = {
             Quad::SolidColorQuad(SkColors::kGreen, gfx::Rect(5, 5))};
         std::vector<Pass> child_passes = {
@@ -6599,7 +6618,16 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MetadataContentColorUsageTest) {
 
         CompositorFrame child_frame = MakeEmptyCompositorFrame();
         // Set the child's color space
-        child_frame.metadata.content_color_usage = content_color_usage;
+        auto shared_image =
+            shared_image_interface()->CreateSharedImageForSoftwareCompositor(
+                {SinglePlaneFormat::kBGRA_8888, gfx::Size(1, 1), color_space,
+                 gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
+                 "MetadataContentColorUsageTest"});
+        TransferableResource resource = TransferableResource::Make(
+            shared_image, TransferableResource::ResourceSource::kTest,
+            shared_image->creation_sync_token());
+        resource.id = ResourceId(1);
+        child_frame.resource_list.push_back(resource);
         AddPasses(&child_frame.render_pass_list, child_passes,
                   &child_frame.metadata.referenced_surfaces);
 
@@ -6613,7 +6641,6 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MetadataContentColorUsageTest) {
         std::vector<Pass> root_passes = {Pass(root_quads, kSurfaceSize)};
 
         CompositorFrame root_frame = MakeEmptyCompositorFrame();
-        root_frame.metadata.content_color_usage = content_color_usage;
         AddPasses(&root_frame.render_pass_list, root_passes,
                   &root_frame.metadata.referenced_surfaces);
 
@@ -6630,9 +6657,12 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, MetadataContentColorUsageTest) {
                   content_color_usage);
       };
 
-  test_content_color_usage_aggregation(gfx::ContentColorUsage::kSRGB);
-  test_content_color_usage_aggregation(gfx::ContentColorUsage::kWideColorGamut);
-  test_content_color_usage_aggregation(gfx::ContentColorUsage::kHDR);
+  test_content_color_usage_aggregation(gfx::ColorSpace::CreateSRGB(),
+                                       gfx::ContentColorUsage::kSRGB);
+  test_content_color_usage_aggregation(gfx::ColorSpace::CreateDisplayP3D65(),
+                                       gfx::ContentColorUsage::kWideColorGamut);
+  test_content_color_usage_aggregation(gfx::ColorSpace::CreateHDR10(),
+                                       gfx::ContentColorUsage::kHDR);
 }
 
 // Tests that has_damage_from_contributing_content is aggregated correctly from
@@ -9407,18 +9437,29 @@ TEST_P(SurfaceAggregatorValidSurfaceWithMergingPassesTest,
       root_pass_list.push_back(
           RenderPassBuilder(CompositorRenderPassId{i}, render_pass_rect)
               .AddSolidColorQuad(render_pass_rect, SkColors::kGreen)
-              .AddBackdropFilter(cc::FilterOperation::CreateBlurFilter(5))
               .Build());
     }
     root_pass_list.push_back(
         RenderPassBuilder(CompositorRenderPassId{5}, gfx::Rect(kSurfaceSize))
-            .AddRenderPassQuad(render_pass_rect, CompositorRenderPassId{1})
+            .AddRenderPassQuad(
+                render_pass_rect, CompositorRenderPassId{1},
+                {.backdrop_filters = cc::FilterOperations(
+                     {cc::FilterOperation::CreateBlurFilter(5)})})
             .SetQuadToTargetTranslation(70, 0)
-            .AddRenderPassQuad(render_pass_rect, CompositorRenderPassId{2})
+            .AddRenderPassQuad(
+                render_pass_rect, CompositorRenderPassId{2},
+                {.backdrop_filters = cc::FilterOperations(
+                     {cc::FilterOperation::CreateBlurFilter(5)})})
             .SetQuadToTargetTranslation(30, 30)
-            .AddRenderPassQuad(render_pass_rect, CompositorRenderPassId{3})
+            .AddRenderPassQuad(
+                render_pass_rect, CompositorRenderPassId{3},
+                {.backdrop_filters = cc::FilterOperations(
+                     {cc::FilterOperation::CreateBlurFilter(5)})})
             .SetQuadToTargetTranslation(10, 50)
-            .AddRenderPassQuad(render_pass_rect, CompositorRenderPassId{4})
+            .AddRenderPassQuad(
+                render_pass_rect, CompositorRenderPassId{4},
+                {.backdrop_filters = cc::FilterOperations(
+                     {cc::FilterOperation::CreateBlurFilter(5)})})
             .SetQuadToTargetTranslation(70, 70)
             .AddSurfaceQuad(gfx::Rect(100, 100), SurfaceRange(child_surface_id),
                             {.allow_merge = AllowMerge()})
@@ -10291,12 +10332,14 @@ TEST_F(SurfaceAggregatorValidSurfaceTest,
         CompositorFrameBuilder()
             .AddRenderPass(
                 RenderPassBuilder(CompositorRenderPassId{1}, gfx::Size(50, 50))
-                    .AddSolidColorQuad(gfx::Rect(50, 50), SkColors::kGreen)
-                    .AddFilter(cc::FilterOperation::CreateBlurFilter(5.0f)))
-            .AddRenderPass(RenderPassBuilder(CompositorRenderPassId{2},
-                                             gfx::Size(100, 100))
-                               .AddRenderPassQuad(gfx::Rect(50, 50),
-                                                  CompositorRenderPassId{1}))
+                    .AddSolidColorQuad(gfx::Rect(50, 50), SkColors::kGreen))
+            .AddRenderPass(
+                RenderPassBuilder(CompositorRenderPassId{2},
+                                  gfx::Size(100, 100))
+                    .AddRenderPassQuad(
+                        gfx::Rect(50, 50), CompositorRenderPassId{1},
+                        {.filters = cc::FilterOperations(
+                             {cc::FilterOperation::CreateBlurFilter(5.0f)})}))
             .AddTrackedElementRect(feature, element_rect)
             .Build();
     child_sink_->SubmitCompositorFrame(child_surface_id.local_surface_id(),
@@ -10619,7 +10662,7 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorUsageChangeFullFrameDamage) {
                           device_scale_factor);
     auto aggregated_frame = AggregateFrame(root_surface_id_);
 
-    EXPECT_EQ(gfx::ContentColorUsage::kHDR,
+    EXPECT_EQ(gfx::ContentColorUsage::kSRGB,
               aggregated_frame.render_pass_list[0]->content_color_usage);
     EXPECT_EQ(full_damage_rect,
               aggregated_frame.render_pass_list[0]->damage_rect);
@@ -10631,24 +10674,30 @@ TEST_F(SurfaceAggregatorValidSurfaceTest, ColorUsageChangeFullFrameDamage) {
                           device_scale_factor);
     auto aggregated_frame = AggregateFrame(root_surface_id_);
 
-    EXPECT_EQ(gfx::ContentColorUsage::kHDR,
+    EXPECT_EQ(gfx::ContentColorUsage::kSRGB,
               aggregated_frame.render_pass_list[0]->content_color_usage);
     EXPECT_EQ(partial_damage_rect,
               aggregated_frame.render_pass_list[0]->damage_rect);
   }
-  // Finally, change the content_color_usage from HDR to sRGB. The resulting
+  // Finally, change the content_color_usage from sRGB to HDR. The resulting
   // frame should have full damage.
   {
-    CompositorFrame compositor_frame = MakeEmptyCompositorFrame();
-    compositor_frame.metadata.content_color_usage =
-        gfx::ContentColorUsage::kSRGB;
-    AddPasses(&compositor_frame.render_pass_list, passes,
-              &compositor_frame.metadata.referenced_surfaces);
-    root_sink_->SubmitCompositorFrame(root_surface_id_.local_surface_id(),
-                                      std::move(compositor_frame));
+    auto shared_image =
+        shared_image_interface()->CreateSharedImageForSoftwareCompositor(
+            {SinglePlaneFormat::kBGRA_8888, gfx::Size(1, 1),
+             gfx::ColorSpace::CreateHDR10(),
+             gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY,
+             "ColorUsageChangeFullFrameDamage"});
+    TransferableResource resource = TransferableResource::Make(
+        shared_image, TransferableResource::ResourceSource::kTest,
+        shared_image->creation_sync_token());
+    resource.id = ResourceId(1);
+    SubmitCompositorFrame(root_sink_.get(), passes,
+                          root_surface_id_.local_surface_id(),
+                          device_scale_factor, {resource});
     auto aggregated_frame = AggregateFrame(root_surface_id_);
 
-    EXPECT_EQ(gfx::ContentColorUsage::kSRGB,
+    EXPECT_EQ(gfx::ContentColorUsage::kHDR,
               aggregated_frame.render_pass_list[0]->content_color_usage);
     EXPECT_EQ(full_damage_rect,
               aggregated_frame.render_pass_list[0]->damage_rect);
@@ -10851,12 +10900,13 @@ TEST_F(SurfaceAggregatorVulkanSecondaryCB, AppendPassForFrameWithFilter) {
       CompositorFrameBuilder()
           .AddRenderPass(
               RenderPassBuilder(CompositorRenderPassId{1}, kSurfaceSize)
-                  .AddSolidColorQuad(gfx::Rect(5, 5), SkColors ::kGreen)
-                  .AddBackdropFilter(cc::FilterOperation::CreateBlurFilter(5)))
+                  .AddSolidColorQuad(gfx::Rect(5, 5), SkColors::kGreen))
           .AddRenderPass(
               RenderPassBuilder(CompositorRenderPassId{2}, kSurfaceSize)
-                  .AddRenderPassQuad(gfx::Rect(kSurfaceSize),
-                                     CompositorRenderPassId{1}))
+                  .AddRenderPassQuad(
+                      gfx::Rect(kSurfaceSize), CompositorRenderPassId{1},
+                      {.backdrop_filters = cc::FilterOperations(
+                           {cc::FilterOperation::CreateBlurFilter(5)})}))
           .Build();
 
   root_sink_->SubmitCompositorFrame(root_surface_id_.local_surface_id(),

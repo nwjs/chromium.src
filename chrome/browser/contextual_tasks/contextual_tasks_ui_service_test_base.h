@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 
+#include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/uuid.h"
@@ -28,6 +29,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/variations/scoped_variations_ids_provider.h"
 #include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -35,11 +37,12 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_renderer_host.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/page_transition_types.h"
-#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -146,10 +149,17 @@ class MockUiServiceForUrlIntercept : public ContextualTasksUiService {
 
   bool IsWebContentsInSidePanel(
       content::WebContents* web_contents) const override {
+    if (side_panel_web_contents_.contains(web_contents)) {
+      return true;
+    }
     if (is_web_contents_in_side_panel_override_.has_value()) {
       return *is_web_contents_in_side_panel_override_;
     }
     return ContextualTasksUiService::IsWebContentsInSidePanel(web_contents);
+  }
+
+  void SetSidePanelWebContentsForTesting(content::WebContents* web_contents) {
+    side_panel_web_contents_.insert(web_contents);
   }
 
   void SetIsWebContentsInSidePanelForTesting(
@@ -163,6 +173,7 @@ class MockUiServiceForUrlIntercept : public ContextualTasksUiService {
   using ContextualTasksUiService::HandleSidePanelExternalNavigation;
   using ContextualTasksUiService::IsAllowedSidePanelUrl;
   using ContextualTasksUiService::IsWebContentsInSidePanel;
+  using ContextualTasksUiService::ShouldAddRequiredSidePanelUrlChanges;
   using ContextualTasksUiService::ShouldHandleCitationClick;
   using ContextualTasksUiService::ShouldHandleLensNavigation;
   using ContextualTasksUiService::ShouldHandleSidePanelExternalNavigation;
@@ -185,6 +196,8 @@ class MockUiServiceForUrlIntercept : public ContextualTasksUiService {
 
  private:
   std::optional<bool> is_web_contents_in_side_panel_override_;
+  base::flat_set<raw_ptr<content::WebContents, CtnExperimental>>
+      side_panel_web_contents_;
 };
 
 inline content::OpenURLParams CreateOpenUrlParams(
@@ -195,10 +208,11 @@ inline content::OpenURLParams CreateOpenUrlParams(
   content::Referrer referrer;
   if (!is_renderer_initiated) {
     return content::OpenURLParams::CreateBrowserInitiated(
-        url, WindowOpenDisposition::CURRENT_TAB, page_transition, referrer);
+        url, ui::mojom::WindowOpenDisposition::kCurrentTab, page_transition,
+        referrer);
   }
   return content::OpenURLParams(url, referrer,
-                                WindowOpenDisposition::CURRENT_TAB,
+                                ui::mojom::WindowOpenDisposition::kCurrentTab,
                                 page_transition, is_renderer_initiated);
 }
 
@@ -220,6 +234,7 @@ class ContextualTasksUiServiceTestBase
   std::unique_ptr<content::BrowserContext> CreateBrowserContext() override;
 
  protected:
+  network::TestURLLoaderFactory test_url_loader_factory_;
   TestingPrefServiceSimple prefs_;
   std::unique_ptr<TestingProfile> profile_;
   std::unique_ptr<signin::IdentityTestEnvironment> identity_test_env_;
@@ -230,6 +245,8 @@ class ContextualTasksUiServiceTestBase
   raw_ptr<MockUiServiceForUrlIntercept> service_for_nav_ = nullptr;
   std::unique_ptr<ContextualTasksUiService> real_service_;
   std::unique_ptr<MockContextualTasksService> contextual_tasks_service_;
+  variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
+      variations::VariationsIdsProvider::Mode::kUseSignedInState};
 };
 
 }  // namespace contextual_tasks

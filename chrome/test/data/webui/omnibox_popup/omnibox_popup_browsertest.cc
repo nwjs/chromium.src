@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <memory>
+
 #include "base/command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -13,6 +15,7 @@
 #include "components/omnibox/browser/aim_eligibility_service_features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/scoped_page_focus_override.h"
 
 class OmniboxPopupTest : public WebUIMochaBrowserTest {
  protected:
@@ -32,17 +35,27 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupTest, App) {
   RunTest("omnibox_popup/app_test.js", "mocha.run();");
 }
 
-IN_PROC_BROWSER_TEST_F(OmniboxPopupTest, TextfieldModel) {
-  RunTest("omnibox_popup/textfield_model_test.js", "mocha.run();");
-}
-
 class OmniboxPopupFullTest : public WebUIMochaBrowserTest {
  protected:
   OmniboxPopupFullTest() {
     set_test_loader_host(chrome::kChromeUIOmniboxPopupHost);
   }
 
+  // Emulates page focus so the page doesn't see its window's activation flip
+  // as other test browsers come and go on the same display, which would run
+  // Blink's selection invalidation at arbitrary points in the tests.
+  void OnWebContentsAvailable(content::WebContents* web_contents) override {
+    focus_override_ =
+        std::make_unique<content::ScopedPageFocusOverride>(web_contents);
+  }
+
+  void TearDownOnMainThread() override {
+    focus_override_.reset();
+    WebUIMochaBrowserTest::TearDownOnMainThread();
+  }
+
  private:
+  std::unique_ptr<content::ScopedPageFocusOverride> focus_override_;
   base::test::ScopedFeatureList scoped_feature_list_{
       /*enable_feature=*/omnibox::internal::kWebUIOmniboxFullPopup};
 };
@@ -53,6 +66,10 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFullTest, App) {
 
 IN_PROC_BROWSER_TEST_F(OmniboxPopupFullTest, Searchbox) {
   RunTest("omnibox_popup/omnibox_popup_searchbox_test.js", "mocha.run();");
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxPopupFullTest, TextfieldModel) {
+  RunTest("omnibox_popup/textfield_model_test.js", "mocha.run();");
 }
 
 class OmniboxPopupAimTest : public WebUIMochaBrowserTest {

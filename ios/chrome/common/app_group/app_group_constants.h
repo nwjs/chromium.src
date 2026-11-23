@@ -56,6 +56,10 @@ extern NSString* const kChromeUserIsEligibleForGeminiCapability;
 // links in chrome.
 extern NSString* const kChromeSupportOpenLinksParametersFromCapability;
 
+// Capability declaring whether the current version of Chrome supports remote
+// actor credential sharing.
+extern NSString* const kChromeSupportsRemoteActorCredentialSharingCapability;
+
 // Share default browser promo status capability.
 extern NSString* const kChromeSupportShareDefaultBrowserStatusCapability;
 
@@ -232,6 +236,10 @@ extern NSString* const kYoutubeBundleID;
 // Stores in NSUserDefaults info about the latest changed primary account for
 // all profiles. Empty if last operation was a sign-out.
 extern NSString* const kPrimaryAccount;
+
+// Key used to store all signed-in profiles' hashed GAIA IDs
+// (Base64-encoded SHA-256) in the common App Group NSUserDefaults.
+extern NSString* const kChromeActiveGaiaIDHashesPreference;
 
 // Key used to store whether Chrome is likely the default browser.
 extern NSString* const kChromeLikelyDefaultBrowser;

@@ -23,6 +23,7 @@
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/common/shared_image_capabilities.h"
+#include "gpu/ipc/client/gpu_channel_observer.h"
 #include "gpu/ipc/common/command_buffer_id.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/gfx/gpu_fence.h"
@@ -329,8 +330,11 @@ scoped_refptr<ClientSharedImage> TestSharedImageInterface::ImportSharedImage(
     ExportedSharedImage exported_shared_image) {
   shared_images_.insert(exported_shared_image.mailbox_);
 
+  // No pool: this interface has no readback implementation to back one, so an
+  // imported image here serves premapped mappings only.
   return base::WrapRefCounted<ClientSharedImage>(
-      new ClientSharedImage(std::move(exported_shared_image), holder_));
+      new ClientSharedImage(std::move(exported_shared_image), holder_,
+                            /*shared_memory_pool=*/nullptr));
 }
 
 void TestSharedImageInterface::DestroySharedImage(
@@ -348,13 +352,6 @@ void TestSharedImageInterface::DestroySharedImage(
   if (test_client_) {
     test_client_->DidDestroySharedImage();
   }
-}
-
-void TestSharedImageInterface::DestroySharedImage(
-    const SyncToken& sync_token,
-    scoped_refptr<ClientSharedImage> client_shared_image) {
-  CHECK(client_shared_image->HasOneRef());
-  client_shared_image->UpdateDestructionSyncToken(sync_token);
 }
 
 #if BUILDFLAG(IS_FUCHSIA)
@@ -485,6 +482,38 @@ TestSharedImageInterface::GetCapabilities() {
 void TestSharedImageInterface::SetCapabilities(
     const SharedImageCapabilities& caps) {
   shared_image_capabilities_ = caps;
+}
+
+bool TestSharedImageInterface::IsLost() const {
+  base::AutoLock locked(lock_);
+  return is_lost_;
+}
+
+bool TestSharedImageInterface::AddGpuChannelLostObserver(
+    GpuChannelLostObserver* observer) {
+  base::AutoLock locked(lock_);
+
+  if (is_lost_) {
+    return false;
+  }
+  observer_list_.push_back(observer);
+  return true;
+}
+void TestSharedImageInterface::RemoveGpuChannelLostObserver(
+    GpuChannelLostObserver* observer) {
+  base::AutoLock locked(lock_);
+
+  std::erase(observer_list_, observer);
+}
+
+void TestSharedImageInterface::MarkAsLost() {
+  base::AutoLock locked(lock_);
+
+  is_lost_ = true;
+  for (GpuChannelLostObserver* observer : observer_list_) {
+    observer->OnGpuChannelLost();
+  }
+  observer_list_.clear();
 }
 
 }  // namespace gpu

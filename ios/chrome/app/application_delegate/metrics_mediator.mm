@@ -18,6 +18,7 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics_action.h"
+#import "base/notreached.h"
 #import "base/strings/strcat.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/thread_pool.h"
@@ -44,6 +45,7 @@
 #import "ios/chrome/browser/crash_report/model/features.h"
 #import "ios/chrome/browser/default_browser/model/default_browser_interest_signals.h"
 #import "ios/chrome/browser/metrics/model/first_user_action_recorder.h"
+#import "ios/chrome/browser/metrics/model/startup_metrics.h"
 #import "ios/chrome/browser/safe_mode/ui_bundled/safe_mode_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/connection_information.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -84,33 +86,6 @@ NSString* const kAppStartupCounterKey = @"LoadTimePreferenceKey";
 
 // The amount of time (in seconds) to wait for the user to start a new task.
 const NSTimeInterval kFirstUserActionTimeout = 30.0;
-
-// The timeout delay before marking the launch reason as suspicious if no
-// launch reason has been determined. At the time of writing this code,
-// 99.9% of launches finish in less than 30s.
-constexpr base::TimeDelta kLaunchReasonTimeout = base::Seconds(30);
-
-// LINT.IfChange(ColdStartType)
-// Enum values for Startup.IOSColdStartType histogram.
-// Entries should not be renumbered and numeric values should never be reused.
-enum class ColdStartType : int {
-  // Regular cold start.
-  kRegular = 0,
-  // Cold start with FRE.
-  kFirstRun = 1,
-  // Cold start after a device restore.
-  kAfterDeviceRestore = 2,
-  // Cold start after a Chrome upgrade.
-  kAfterChromeUpgrade = 3,
-  // Cold start after a device restore and Chrome upgrade.
-  kAfterDeviceRestoreAndChromeUpgrade = 4,
-  // Unknown device restore.
-  kUnknownDeviceRestore = 5,
-  // Unknown device restore and Chrome upgrade.
-  kUnknownDeviceRestoreAndChromeUpgrade = 6,
-  kMaxValue = kUnknownDeviceRestoreAndChromeUpgrade,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/startup/histograms.xml:IOSColdStartType)
 
 // Enum representing the existing set of all open tabs age scenarios. Current
 // values should not be renumbered. Please keep in sync with
@@ -234,100 +209,6 @@ const char kHistogramPrefix[] = "IOS.";
 std::string WarmStartHistogramPrefix(bool version_mismatch) {
   return version_mismatch ? kHistogramPrefixIncludingMismatch
                           : kHistogramPrefix;
-}
-
-// LINT.IfChange(IOSStartupTemperature)
-// Startup temperature variants corresponding to the IOSStartupTemperature
-// token.
-enum class IOSStartupTemperature {
-  kNotPrewarmed,
-  kActivePrewarm,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/startup/histograms.xml:IOSStartupTemperature)
-
-// Converts the startup temperature to a string suffix corresponding to the
-// IOSStartupTemperature histogram token variant.
-std::string_view IOSStartupTemperatureToString(
-    IOSStartupTemperature temperature) {
-  switch (temperature) {
-    case IOSStartupTemperature::kNotPrewarmed:
-      return ".NotPrewarmed";
-    case IOSStartupTemperature::kActivePrewarm:
-      return ".ActivePrewarm";
-  }
-}
-
-// Returns the startup temperature classification for the current cold start.
-IOSStartupTemperature GetStartupTemperature(
-    id<StartupInformation> startup_information) {
-  return startup_information.launchReason == IOSLaunchReason::kPreWarming
-             ? IOSStartupTemperature::kActivePrewarm
-             : IOSStartupTemperature::kNotPrewarmed;
-}
-
-// Converts the cold start type to a string suffix corresponding to the
-// IOSColdStartType histogram token variant.
-std::string_view IOSColdStartTypeToString(ColdStartType type) {
-  switch (type) {
-    case ColdStartType::kRegular:
-      return ".Regular";
-    case ColdStartType::kFirstRun:
-      return ".FirstRun";
-    case ColdStartType::kAfterDeviceRestore:
-      return ".AfterDeviceRestore";
-    case ColdStartType::kAfterChromeUpgrade:
-      return ".AfterChromeUpgrade";
-    case ColdStartType::kAfterDeviceRestoreAndChromeUpgrade:
-      return ".AfterDeviceRestoreAndChromeUpgrade";
-    case ColdStartType::kUnknownDeviceRestore:
-      return ".UnknownDeviceRestore";
-    case ColdStartType::kUnknownDeviceRestoreAndChromeUpgrade:
-      return ".UnknownDeviceRestoreAndChromeUpgrade";
-  }
-}
-
-// Returns the cold start type for the current session.
-ColdStartType GetColdStartType(id<StartupInformation> startup_information) {
-  if (startup_information.isFirstRun) {
-    return ColdStartType::kFirstRun;
-  }
-  const bool after_upgrade =
-      [PreviousSessionInfo sharedInstance].isFirstSessionAfterUpgrade;
-  const signin::Tribool device_restore = IsFirstSessionAfterDeviceRestore();
-  switch (device_restore) {
-    case signin::Tribool::kUnknown:
-      return after_upgrade
-                 ? ColdStartType::kUnknownDeviceRestoreAndChromeUpgrade
-                 : ColdStartType::kUnknownDeviceRestore;
-    case signin::Tribool::kTrue:
-      return after_upgrade ? ColdStartType::kAfterDeviceRestoreAndChromeUpgrade
-                           : ColdStartType::kAfterDeviceRestore;
-    case signin::Tribool::kFalse:
-      return after_upgrade ? ColdStartType::kAfterChromeUpgrade
-                           : ColdStartType::kRegular;
-  }
-}
-
-// Logs the base, temperature variant (if specified), and temperature + cold
-// start type (or just cold start type if temperature is not specified)
-// sub-variant histograms for a startup duration metric.
-void LogStartupDurationWithTemperatureAndType(
-    std::string_view histogram_name,
-    base::TimeDelta duration,
-    std::optional<IOSStartupTemperature> temperature,
-    ColdStartType cold_start_type) {
-  const std::string_view temp_str =
-      temperature ? IOSStartupTemperatureToString(*temperature)
-                  : std::string_view();
-  const std::string_view type_str = IOSColdStartTypeToString(cold_start_type);
-  base::UmaHistogramTimes(histogram_name, duration);
-  if (temperature.has_value()) {
-    base::UmaHistogramTimes(base::StrCat({histogram_name, temp_str}), duration);
-    base::UmaHistogramTimes(base::StrCat({histogram_name, temp_str, type_str}),
-                            duration);
-  } else {
-    base::UmaHistogramTimes(base::StrCat({histogram_name, type_str}), duration);
-  }
 }
 
 }  // namespace
@@ -469,41 +350,69 @@ BOOL _credentialExtensionWasUsed = NO;
 // Use Case Analysis:
 // - Direct Foreground Cold Launch: Neither pre-warmed nor launched in the
 //   background (`ActivePrewarm` is unset and `isLaunchedInBackground` is
-//   `false`).
-//   Recorded under base and `.NotPrewarmed`.
+//   `false`). The following metrics are recorded:
+//   - `Startup.FirstPaintLatency` under base and `.NotPrewarmed` (measuring
+//     from kernel process creation to initial UI).
+//   - `Startup.ColdStartFromMain` under base and `.NotPrewarmed` (measuring
+//     from `main()` to initial UI).
+//   - `Startup.ColdStartPreMain` under base.
+//   - `Startup.IOSColdStartType.ForegroundLaunchesOnly`
+//   - `Startup.TimeFromMainToDidFinishLaunchingCall`
+//   - `Startup.TimeFromMainToSceneConnection`
 // - ActivePrewarm Launch: The OS pre-warms the process by initializing it and
 //   suspending it before entering `main()` (`ActivePrewarm` is set in the
 //   environment). Because the process may remain suspended before `main()`,
 //   `Startup.ColdStartPreMain` is omitted for pre-warmed launches. When the
-//   user subsequently launches the app, `Startup.ColdStartFromMain` is recorded
-//   under base and `.ActivePrewarm`.
-// - Background or Suspicious Launch: When Chrome is launched or woken up in the
+//   user subsequently launches the app, the following metrics are recorded:
+//   - `Startup.FirstPaintLatency` under base and `.ActivePrewarm` (measuring
+//     from the call to `main()` upon user resumption to initial UI).
+//   - `Startup.ColdStartFromMain` under base and `.ActivePrewarm`.
+//   - `Startup.IOSColdStartType.ForegroundLaunchesOnly`
+//   - `Startup.TimeFromMainToDidFinishLaunchingCall`
+//   - `Startup.TimeFromMainToSceneConnection`
+// - Background Launch: When Chrome is launched or woken up in the
 //   background (e.g., background fetch, notification, or background URL
-//   session), or when the launch reason is suspicious (e.g. timeout expired
-//   before a launch reason could be determined), `isColdStart` remains `YES`
-//   until the first scene renders because the app never transitioned from
-//   foreground to background. The metrics `Startup.ColdStartFromMain`,
-//   `Startup.ColdStartPreMain`,
-//   `Startup.TimeFromMainToDidFinishLaunchingCall`, and
-//   `Startup.TimeFromMainToSceneConnection` are omitted, preventing long
-//   suspension durations (minutes to days) or anomalous launches from
-//   contaminating the metrics.
+//   session), `isColdStart` remains `YES` until the first scene renders
+//   because the app never transitioned from foreground to background.
+//   - `Startup.FirstPaintLatency` is recorded under base and
+//     `.LaunchedInBackground` (measuring from the first scene connection to
+//     initial UI).
+//   - The following `main()`-relative metrics are omitted, preventing long
+//     suspension durations (minutes to days) from contaminating the metrics:
+//     - `Startup.ColdStartFromMain`
+//     - `Startup.ColdStartPreMain`
+//     - `Startup.IOSColdStartType.ForegroundLaunchesOnly`
+//     - `Startup.TimeFromMainToDidFinishLaunchingCall`
+//     - `Startup.TimeFromMainToSceneConnection`
+// - Suspicious Launch: When the launch reason is suspicious (e.g. timeout
+//   expired before a launch reason could be determined), the following metrics
+//   are omitted because the timing of user intent cannot be reliably
+//   determined, preventing anomalous launches from contaminating the metrics:
+//   - `Startup.FirstPaintLatency`
+//   - `Startup.ColdStartFromMain`
+//   - `Startup.ColdStartPreMain`
+//   - `Startup.IOSColdStartType.ForegroundLaunchesOnly`
+//   - `Startup.TimeFromMainToDidFinishLaunchingCall`
+//   - `Startup.TimeFromMainToSceneConnection`
 // - System Sleep During Pre-Warming: If the system sleeps while the process is
 //   pre-warming or suspended before entering `main()`, `appLaunchTimer` has not
 //   yet started. When the user subsequently launches the app, `appLaunchTimer`
 //   begins at `main()`, accurately measuring duration from user intent to
 //   initial UI. Because no sleep occurred during the measured interval
-//   (`main()` to first paint), `Startup.ColdStartFromMain` is recorded under
-//   `.ActivePrewarm` (while `Startup.ColdStartPreMain` is omitted as usual for
-//   pre-warmed launches).
+//   (`main()` to first paint), `Startup.FirstPaintLatency` and
+//   `Startup.ColdStartFromMain` are recorded under `.ActivePrewarm` (while
+//   `Startup.ColdStartPreMain` is omitted as usual for pre-warmed launches).
 // - System Sleep After Main, Before UIScene Connection: If the system sleeps
 //   after `main()` but before UIScene connection, `appLaunchTimer` detects the
 //   suspension (`Elapsed()` returns `std::nullopt`). For foreground launches,
 //   `launchReason` is classified as
-//   `IOSLaunchReason::kForegroundWithSystemSuspension`. Because a sleep
-//   occurred during the measured interval, `Startup.ColdStartFromMain` and all
-//   other `main()`-relative metrics are discarded to avoid contaminating
-//   metrics.
+//   `IOSLaunchReason::kForegroundWithSystemSuspension`.
+//   Because a sleep occurred during the measured interval,
+//   `Startup.FirstPaintLatency`, `Startup.ColdStartFromMain`, and all other
+//   `main()`-relative metrics are discarded to avoid contaminating metrics.
+//   (For background launches, `Startup.FirstPaintLatency` measures from scene
+//   connection to initial UI, so a sleep occurring before scene connection does
+//   not contaminate that measurement).
 // - System Sleep After UIScene Connection and First Paint: At the time of first
 //   paint, `+logStartupDuration:` has already executed and recorded all cold
 //   start metrics. A subsequent system sleep has no impact on cold startup
@@ -511,8 +420,12 @@ BOOL _credentialExtensionWasUsed = NO;
 //   reset to `NO`, ensuring metrics are not re-recorded when resumed.
 // - System Sleep Between UIScene Connection and First Paint: If a sleep occurs
 //   after UIScene connection but before first paint, `appLaunchTimer` detects
-//   the suspension for foreground launches, causing `Startup.ColdStartFromMain`
-//   and `main()`-relative metrics to be discarded.
+//   the suspension for foreground launches, causing
+//   `Startup.FirstPaintLatency`, `Startup.ColdStartFromMain`, and other
+//   `main()`-relative metrics to be discarded. In the specific case of a
+//   background launches, `Startup.FirstPaintLatency` is still recorded even
+//   when the OS suspends, but the suspension time is excluded from the
+//   measurement (because it is based on `LiveTicks`).
 // - Interrupted Launch Before UI: If the user backgrounds the app before the
 //   first scene finishes connecting and rendering,
 //   `-applicationWillResignActive:` resets `isColdStart` to `NO`, causing this
@@ -523,9 +436,8 @@ BOOL _credentialExtensionWasUsed = NO;
 //   app previously lost focus. Since `isColdStart` is never reset to `YES`
 //   during the process lifetime, this method returns early without recording
 //   cold startup metrics.
-// - Pre-Main Duration Unavailable: If `preMainDuration` is zero or
-//   non-positive, or if the app was pre-warmed, `Startup.ColdStartPreMain*`
-//   metrics are skipped.
+// - Pre-Main Duration Unavailable: If `preMainDuration` is std::nullopt, or if
+//   the app was pre-warmed, `Startup.ColdStartPreMain*` metrics are skipped.
 + (void)logStartupDuration:(id<StartupInformation>)startupInformation {
   if (![startupInformation isColdStart]) {
     return;
@@ -569,32 +481,61 @@ BOOL _credentialExtensionWasUsed = NO;
   int consecutiveDidFinishLaunching =
       [defaults integerForKey:kAppDidFinishLaunchingConsecutiveCallsKey];
   [defaults removeObjectForKey:kAppDidFinishLaunchingConsecutiveCallsKey];
+  const std::optional<base::TimeDelta> preMainDuration =
+      [startupInformation preMainDuration];
 
-  if (![startupInformation isLaunchedInBackground] &&
-      [startupInformation launchReason] != IOSLaunchReason::kSuspicious &&
-      [startupInformation launchReason] !=
-          IOSLaunchReason::kForegroundWithSystemSuspension &&
-      mainToNowTime.has_value()) {
+  if ([startupInformation launchReason] !=
+      IOSLaunchReason::kForegroundWithSystemSuspension) {
     const IOSStartupTemperature temperature =
         GetStartupTemperature(startupInformation);
-    const ColdStartType coldStartType = GetColdStartType(startupInformation);
-    base::UmaHistogramEnumeration(
-        "Startup.IOSColdStartType.ForegroundLaunchesOnly", coldStartType);
-    startupInformation.coldStartFromMainDuration = *mainToNowTime;
-    LogStartupDurationWithTemperatureAndType("Startup.ColdStartFromMain",
-                                             *mainToNowTime, temperature,
-                                             coldStartType);
-    base::UmaHistogramTimes("Startup.TimeFromMainToDidFinishLaunchingCall",
-                            *mainToNowTime - didFinishLaunchingToNowTime);
-    base::UmaHistogramTimes("Startup.TimeFromMainToSceneConnection",
-                            *mainToNowTime - sceneConnectionToNowTime);
+    std::optional<base::TimeDelta> firstPaintLatency;
+    switch (temperature) {
+      case IOSStartupTemperature::kNotPrewarmed: {
+        if (mainToNowTime.has_value() && preMainDuration.has_value()) {
+          firstPaintLatency = *mainToNowTime + *preMainDuration;
+        }
+        break;
+      }
+      case IOSStartupTemperature::kActivePrewarm: {
+        firstPaintLatency = mainToNowTime;
+        break;
+      }
+      case IOSStartupTemperature::kLaunchedInBackground: {
+        firstPaintLatency = sceneConnectionToNowTime;
+        break;
+      }
+      case IOSStartupTemperature::kSuspicious: {
+        break;
+      }
+    }
 
-    if (temperature == IOSStartupTemperature::kNotPrewarmed &&
-        [startupInformation preMainDuration].is_positive() &&
-        [startupInformation preMainDuration] <= kLaunchReasonTimeout) {
-      LogStartupDurationWithTemperatureAndType(
-          "Startup.ColdStartPreMain", [startupInformation preMainDuration],
-          std::nullopt, coldStartType);
+    const ColdStartType coldStartType = GetColdStartType(startupInformation);
+    if (firstPaintLatency.has_value()) {
+      LogStartupDurationWithTemperatureAndType("Startup.FirstPaintLatency",
+                                               *firstPaintLatency, temperature,
+                                               coldStartType);
+    }
+
+    if (![startupInformation isLaunchedInBackground] &&
+        [startupInformation launchReason] != IOSLaunchReason::kSuspicious &&
+        mainToNowTime.has_value()) {
+      startupInformation.coldStartFromMainDuration = *mainToNowTime;
+      base::UmaHistogramEnumeration(
+          "Startup.IOSColdStartType.ForegroundLaunchesOnly", coldStartType);
+      LogStartupDurationWithTemperatureAndType("Startup.ColdStartFromMain",
+                                               *mainToNowTime, temperature,
+                                               coldStartType);
+      base::UmaHistogramTimes("Startup.TimeFromMainToDidFinishLaunchingCall",
+                              *mainToNowTime - didFinishLaunchingToNowTime);
+      base::UmaHistogramTimes("Startup.TimeFromMainToSceneConnection",
+                              *mainToNowTime - sceneConnectionToNowTime);
+
+      if (temperature == IOSStartupTemperature::kNotPrewarmed &&
+          preMainDuration.has_value()) {
+        LogStartupDurationWithTemperatureAndType("Startup.ColdStartPreMain",
+                                                 *preMainDuration, std::nullopt,
+                                                 coldStartType);
+      }
     }
   }
   base::UmaHistogramCounts100("Startup.ConsecutiveLoadsWithoutLaunch",
@@ -943,14 +884,16 @@ BOOL _credentialExtensionWasUsed = NO;
   [self logMemoryToUMA:"Memory.Browser.MemoryFootprint.OnBackground"];
 }
 
-+ (void)logMemoryToUMA:(const std::string&)histogramName {
++ (uint64_t)logMemoryToUMA:(const std::string&)histogramName {
   auto result = ios::device_util::GetTaskVMInfo();
   if (result.has_value()) {
     task_vm_info task_vm_info_data = result.value();
     mach_vm_size_t footprint_mb =
         task_vm_info_data.phys_footprint / 1024 / 1024;
     base::UmaHistogramMemoryLargeMB(histogramName, footprint_mb);
+    return task_vm_info_data.phys_footprint;
   }
+  return 0;
 }
 
 - (void)saveCredentialExtensionWasUsed {

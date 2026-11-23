@@ -141,7 +141,7 @@ class BrowserController {
     // Where to open the URL, e.g. in a new foreground tab (default), in a new
     // window (`NEW_WINDOW`), or in an incognito window (`OFF_THE_RECORD`).
     WindowOpenDisposition disposition =
-        WindowOpenDisposition::NEW_FOREGROUND_TAB;
+        WindowOpenDisposition::kNewForegroundTab;
     // The page transition type. Web apps can capture navigations whose
     // transition is `PAGE_TRANSITION_LINK` (the default) without qualifiers;
     // add a qualifier such as `PAGE_TRANSITION_FROM_API` to prevent that.
@@ -153,6 +153,30 @@ class BrowserController {
     // If set, the navigation is treated as renderer-initiated, with this
     // origin as its initiator. Otherwise, it is browser-initiated.
     std::optional<url::Origin> initiating_origin;
+    // Whether the created popup window (`BrowserType::kPopup`) is for a
+    // trusted UI surface rather than an untrusted web popup. When true, the
+    // popup hides the location bar, title bar, and window icon, uses
+    // app-style header rendering, and uses saved or default window bounds
+    // instead of inheriting bounds from the last active browser.
+    // Only allowed when `disposition` is `kNewPopup`.
+    bool popup_has_trusted_source = false;
+    // Whether existing-tab matching should ignore the URL path and query (in
+    // addition to the ref) and navigate the matched tab to `url` if its current
+    // URL differs.
+    // Only allowed when `disposition` is `kSingletonTab` or `kSwitchToTab`.
+    bool ignore_path_for_tab_reuse = false;
+  };
+
+  // See OpenCaptivePortalSignin below.
+  enum class CaptivePortalWindowMode {
+    // Opens the URL in a new off-the-record popup window isolated from
+    // regular and incognito browsing (with proxies and secure DNS disabled,
+    // and navigation/window commands restricted).
+    kPopup,
+    // Opens the URL in a new foreground tab in the user's most recently
+    // active non-incognito tabbed browser on the current workspace, or in a
+    // new non-incognito tabbed browser if none exists.
+    kTab,
   };
 
   // See ForEachBrowser below.
@@ -225,6 +249,16 @@ class BrowserController {
   virtual content::WebContents* OpenUrl(const AccountId& account_id,
                                         const GURL& url,
                                         const OpenUrlParams& params) = 0;
+
+  // Opens `url` in a new browser window or tab configured for captive portal
+  // sign-in (e.g. with HTTPS upgrades disabled) for the user identified by
+  // `account_id` according to `mode`, and shows the window.
+  // Returns the WebContents that `url` was opened in, or nullptr if none could
+  // be created.
+  virtual content::WebContents* OpenCaptivePortalSignin(
+      const AccountId& account_id,
+      const GURL& url,
+      CaptivePortalWindowMode mode) = 0;
 
   // Makes a POST request in a new tab in the last active tabbed browser. If no
   // such browser exists, a new one is created. Returns nullptr if the creation

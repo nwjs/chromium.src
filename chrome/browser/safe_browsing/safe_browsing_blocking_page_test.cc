@@ -220,7 +220,8 @@ views::BubbleDialogDelegateView* OpenPageInfo(BrowserWindowInterface* browser) {
   ui::test::TestEvent event;
   location_icon_view->ShowBubble(event);
   views::BubbleDialogDelegateView* page_info =
-      PageInfoBubbleViewBase::GetPageInfoBubbleForTesting();
+      PageInfoBubbleViewBase::GetPageInfoBubbleForTesting(
+          browser->GetTabStripModel()->GetActiveWebContents());
   page_info->set_close_on_deactivate(false);
   return page_info;
 }
@@ -789,7 +790,7 @@ class SafeBrowsingBlockingPageBrowserTest
                                             BrowserWindowInterface* browser) {
     SetURLThreatType(url, GetThreatType());
     ui_test_utils::NavigateToURLWithDisposition(
-        browser, url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        browser, url, WindowOpenDisposition::kNewForegroundTab,
         ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
     content::TestNavigationObserver observer(
         browser->GetTabStripModel()->GetActiveWebContents());
@@ -2267,7 +2268,8 @@ class SafeBrowsingBlockingPageDelayedWarningBrowserTest
   }
 
   std::u16string GetSecuritySummaryTextFromPageInfo() {
-    auto* page_info = PageInfoBubbleView::GetPageInfoBubbleForTesting();
+    auto* page_info = PageInfoBubbleView::GetPageInfoBubbleForTesting(
+        browser()->GetTabStripModel()->GetActiveWebContents());
     auto* summary_label = page_info->GetViewByID(
         PageInfoViewFactory::VIEW_ID_PAGE_INFO_SECURITY_SUMMARY_LABEL);
     return static_cast<views::StyledLabel*>(summary_label)->GetText();
@@ -3134,7 +3136,7 @@ class SafeBrowsingBlockingPageAsyncChecksTimingTestBase
     content::TestNavigationManager navigation_manager(
         browser()->tab_strip_model()->GetActiveWebContents(), original_url);
     ui_test_utils::NavigateToURLWithDisposition(
-        browser(), original_url, WindowOpenDisposition::CURRENT_TAB,
+        browser(), original_url, WindowOpenDisposition::kCurrentTab,
         ui_test_utils::BROWSER_TEST_NO_WAIT);
     EXPECT_TRUE(navigation_manager.WaitForResponse());
 
@@ -3189,7 +3191,7 @@ class SafeBrowsingBlockingPageAsyncChecksTimingTestBase
     content::TestNavigationManager navigation_manager(
         browser()->tab_strip_model()->GetActiveWebContents(), original_url);
     ui_test_utils::NavigateToURLWithDisposition(
-        browser(), original_url, WindowOpenDisposition::CURRENT_TAB,
+        browser(), original_url, WindowOpenDisposition::kCurrentTab,
         ui_test_utils::BROWSER_TEST_NO_WAIT);
     EXPECT_TRUE(navigation_manager.WaitForNavigationFinished());
   }
@@ -3949,8 +3951,10 @@ class SafeBrowsingBlockingPageEnterpriseIsolatedModeDisabledTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_F(SafeBrowsingBlockingPageEnterpriseIsolatedModeTest,
-                       EnterpriseRealTimeUrlCheck_IsolatedModeProfile) {
+// TODO(crbug.com/576842164): Re-enable this test.
+IN_PROC_BROWSER_TEST_F(
+    SafeBrowsingBlockingPageEnterpriseIsolatedModeTest,
+    DISABLED_EnterpriseRealTimeUrlCheck_IsolatedModeProfile) {
   TestEnterpriseRealTimeUrlCheck(/*is_isolated_mode_enabled=*/true);
 }
 

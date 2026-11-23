@@ -40,8 +40,26 @@
 # https://crbug.com/538266717
 -org.chromium.chrome.browser.popups.PopupMultiwindowPTTest*
 
+# https://crbug.com/544822220
+-GlobalBrowserCollectionTestWithOrder.*
+-ProfileBrowserCollectionTest.*
+-UkmBrowserTest.IncognitoPlusRegularCheck
+-WebAccessibleResourcesBrowserTest.DNRRedirect
+
 # https://crbug.com/571584010
 -CrComponentsComposeboxTest.ComposeboxFaviconGroup
 -ExtensionApiTabTest.Query
+-ExtensionCspApiTest.ServiceWorkerIsConstrainedByMV3CSPEvenIfSandboxed
 -HistoryWithHistoryEmbeddingsTest.HistoryAppTest
 -PasswordGenerationAgentTest.*
+
+# https://crbug.com/544822220
+-DwaBrowserTest.IncognitoPlusRegularBrowserCheck
+-ExtensionContentSettingsApiTest.IncognitoIsolation
+-ExtensionOverrideTest.OverrideBookmarks
+-ExtensionTabsTest.TabsGroupAcrossWindows
+-GlicTabObserverBrowserTest.ObservesTabStripMerge
+-NavigateAndroidBrowserTest.Async_Disposition_OffTheRecord_FromIncognitoProfile
+-NavigateAndroidBrowserTest.Async_Navigate_WithWebContents_NewPopup
+-RuntimeGetContextsApiTest.RetrievingIncognitoContexts_SplitMode
+-SidePanelCoordinatorAndroidBrowserTest.ReparentTabWithTabScopedEntry_SrcWindowClosedPostReparenting

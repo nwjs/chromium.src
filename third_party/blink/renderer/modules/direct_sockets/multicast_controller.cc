@@ -16,8 +16,10 @@
 #include "third_party/blink/renderer/core/core_probes_inl.h"
 #include "third_party/blink/renderer/core/dom/dom_exception.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/modules/direct_sockets/socket.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
@@ -83,6 +85,12 @@ std::optional<net::IPAddress> ParseAndValidateUnicastAddress(
   if (parsed_ip->IsZero()) {
     exception_state.ThrowTypeError(
         StrCat({param_name, " must not be the zero address (0.0.0.0 or ::)"}));
+    return std::nullopt;
+  }
+
+  if (parsed_ip->IsLoopback()) {
+    exception_state.ThrowTypeError(
+        StrCat({param_name, " must not be a loopback address"}));
     return std::nullopt;
   }
 
@@ -166,6 +174,12 @@ ScriptPromise<IDLUndefined> MulticastController::joinGroup(
     const String& ip_address,
     const MulticastGroupOptions* options,
     ExceptionState& exception_state) {
+  UseCounter::Count(
+      GetExecutionContext(),
+      options && options->hasSourceAddress()
+          ? WebFeature::kMulticastControllerJoinGroupWithSourceAddress
+          : WebFeature::kMulticastControllerJoinGroupFunction);
+
   if (state_ != State::kOpen) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
@@ -333,8 +347,10 @@ void MulticastController::OnJoinedGroup(
 
   if (net_error == net::OK) {
     membership_iter->value.state = Membership::State::kJoined;
-    probe::DirectUDPSocketJoinedMulticastGroup(GetExecutionContext(),
-                                               inspector_id_, key);
+    const MembershipKey& membership_key = membership_iter->value.key;
+    probe::DirectUDPSocketJoinedMulticastGroup(
+        GetExecutionContext(), inspector_id_, membership_key.GroupString(),
+        membership_key.SourceString());
     resolver->Resolve();
   } else {
     memberships_.erase(membership_iter);
@@ -354,9 +370,13 @@ void MulticastController::OnLeftGroup(
   leave_group_promises_.erase(iter);
 
   if (net_error == net::OK) {
-    memberships_.erase(key);
-    probe::DirectUDPSocketLeftMulticastGroup(GetExecutionContext(),
-                                             inspector_id_, key);
+    auto membership_iter = memberships_.find(key);
+    CHECK(membership_iter != memberships_.end());
+    const MembershipKey& membership_key = membership_iter->value.key;
+    probe::DirectUDPSocketLeftMulticastGroup(
+        GetExecutionContext(), inspector_id_, membership_key.GroupString(),
+        membership_key.SourceString());
+    memberships_.erase(membership_iter);
     resolver->Resolve();
   } else {
     resolver->Reject(Socket::CreateDOMExceptionFromNetErrorCode(net_error));
@@ -372,16 +392,14 @@ MulticastController::joinedGroups() const {
     if (membership.state != Membership::State::kJoined) {
       continue;
     }
-    const String group_string =
-        String::FromUtf8(membership.key.group.ToString());
+    const String group_string = membership.key.GroupString();
     if (!membership.key.source.has_value()) {
       result.push_back(MakeGarbageCollected<V8UnionMulticastMembershipOrString>(
           group_string));
     } else {
       auto* v8_membership = MulticastMembership::Create();
       v8_membership->setGroupAddress(group_string);
-      v8_membership->setSourceAddress(
-          String::FromUtf8(membership.key.source->ToString()));
+      v8_membership->setSourceAddress(membership.key.SourceString());
 
       result.push_back(MakeGarbageCollected<V8UnionMulticastMembershipOrString>(
           v8_membership));

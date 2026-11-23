@@ -10,7 +10,7 @@ import type {CrRadioButtonElement} from '//resources/cr_elements/cr_radio_button
 import type {CrRadioGroupElement} from '//resources/cr_elements/cr_radio_group/cr_radio_group.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {VoiceSelectionDialogElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import {AudioBrowserProxyImpl, getVoiceNatureNaming, ReadAloudSettingsChange, spinnerDebounceTimeout, stringToHtmlTestId, ToolbarEvent, VoiceClientSideStatusCode, VoiceNotificationManager} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {AudioBrowserProxyImpl, getVoiceNatureNaming, spinnerDebounceTimeout, stringToHtmlTestId, ToolbarEvent, VoiceClientSideStatusCode, VoiceNotificationManager} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome-untrusted://webui-test/mock_timer.js';
 import {eventToPromise, microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
@@ -460,24 +460,6 @@ suite('VoiceSelectionDialog', () => {
     assertEquals(null, event.detail.previewVoice);
   });
 
-  test('clicking Save logs UMA speech settings change metric', async () => {
-    await drawDialog();
-
-    const standardVoiceItem = getDropdownItemForVoice(googleStandardVoice);
-    standardVoiceItem.click();
-    await microtasksFinished();
-
-    const saveBtn =
-        dialog.$.voiceSelectionDialog.querySelector<CrButtonElement>(
-            '#saveButton')!;
-    saveBtn.click();
-    await microtasksFinished();
-
-    assertEquals(
-        ReadAloudSettingsChange.VOICE_NAME_CHANGE,
-        await metrics.whenCalled('recordSpeechSettingsChange'));
-  });
-
   test(
       'displays download notifications from notification manager', async () => {
         await drawDialog();
@@ -643,8 +625,66 @@ suite('VoiceSelectionDialog', () => {
 
     // The display name is the nature name; the identity is not.
     assertEquals(mappedVoice.name, event.detail.selectedVoice.name);
-    assertEquals(
-        ReadAloudSettingsChange.VOICE_NAME_CHANGE,
-        await metrics.whenCalled('recordSpeechSettingsChange'));
   });
+
+  test('Tab on Save button wraps focus to active preview button', async () => {
+    await drawDialog();
+    const saveButton =
+        dialog.$.voiceSelectionDialog.querySelector<CrButtonElement>(
+            '#saveButton')!;
+    const activePreview = getPreviewButtonForVoice(googleNaturalVoice);
+
+    saveButton.focus();
+    assertEquals(saveButton, dialog.shadowRoot.activeElement);
+
+    const tabEvent = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    saveButton.dispatchEvent(tabEvent);
+
+    assertTrue(tabEvent.defaultPrevented);
+    assertEquals(activePreview, dialog.shadowRoot.activeElement);
+  });
+
+  test(
+      'Shift+Tab on active preview button wraps focus to Save button',
+      async () => {
+        await drawDialog();
+        const saveButton =
+            dialog.$.voiceSelectionDialog.querySelector<CrButtonElement>(
+                '#saveButton')!;
+        const activePreview = getPreviewButtonForVoice(googleNaturalVoice);
+
+        assertEquals(
+            dialog.$.voiceSelectionDialog, dialog.shadowRoot.activeElement);
+        const initialShiftTab = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+        });
+        dialog.$.voiceSelectionDialog.dispatchEvent(initialShiftTab);
+
+        assertTrue(initialShiftTab.defaultPrevented);
+        assertEquals(saveButton, dialog.shadowRoot.activeElement);
+
+        activePreview.focus();
+        assertEquals(activePreview, dialog.shadowRoot.activeElement);
+
+        const previewShiftTab = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+        });
+        activePreview.dispatchEvent(previewShiftTab);
+
+        assertTrue(previewShiftTab.defaultPrevented);
+        assertEquals(saveButton, dialog.shadowRoot.activeElement);
+      });
 });

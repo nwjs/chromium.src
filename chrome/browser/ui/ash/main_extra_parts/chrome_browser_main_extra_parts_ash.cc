@@ -91,7 +91,6 @@
 #include "chrome/browser/ui/ash/session/session_controller_client_impl.h"
 #include "chrome/browser/ui/ash/shelf/app_service/exo_app_type_resolver.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
-#include "chrome/browser/ui/ash/shell_delegate/tab_scrubber.h"
 #include "chrome/browser/ui/ash/shell_init/ash_shell_init.h"
 #include "chrome/browser/ui/ash/system/system_tray_client_impl.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
@@ -100,6 +99,7 @@
 #include "chrome/browser/ui/ash/web_view/ash_web_view_factory_impl.h"
 #include "chrome/browser/ui/ash/wm/tab_cluster_ui_client.h"
 #include "chrome/browser/ui/chromeos/screen_orientation/screen_orientation_delegate.h"
+#include "chrome/browser/ui/chromeos/tab_scrubber/tab_scrubber.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension.h"
 #include "chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension_factory.h"
@@ -166,8 +166,8 @@ class ChromeShelfControllerInitializer
   void OnSessionStateChanged() override {
     TRACE_EVENT0("ui",
                  "ChromeShelfControllerInitializer::OnSessionStateChanged");
-    DCHECK(!chrome_shelf_controller_);
-    DCHECK(!ChromeShelfController::instance());
+    CHECK(!chrome_shelf_controller_, base::NotFatalUntil::M162);
+    CHECK(!ChromeShelfController::instance(), base::NotFatalUntil::M162);
 
     if (session_manager::SessionManager::Get()->session_state() ==
         session_manager::SessionState::ACTIVE) {
@@ -376,7 +376,7 @@ void ChromeBrowserMainExtraPartsAsh::PreProfileInit() {
   if (ash::features::IsCoralFeatureEnabled()) {
     ash::TabClusterUIController* tab_cluster_ui_controller =
         ash::Shell::Get()->tab_cluster_ui_controller();
-    DCHECK(tab_cluster_ui_controller);
+    CHECK(tab_cluster_ui_controller, base::NotFatalUntil::M162);
     tab_cluster_ui_client_ =
         std::make_unique<TabClusterUIClient>(tab_cluster_ui_controller);
   }
@@ -483,9 +483,6 @@ void ChromeBrowserMainExtraPartsAsh::PostProfileInit(Profile* profile,
 
   media_client_ = std::make_unique<MediaClientImpl>();
   media_client_->Init();
-
-  // Passes (and continues passing) the current camera count to the PrivacyHub.
-  ash::privacy_hub_util::SetUpCameraCountObserver();
 
   app_access_notifier_ = std::make_unique<AppAccessNotifier>();
   ash::privacy_hub_util::SetAppAccessNotifier(app_access_notifier_.get());

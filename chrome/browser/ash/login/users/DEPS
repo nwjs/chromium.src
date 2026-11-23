@@ -19,19 +19,17 @@ include_rules = [
   "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/settings",
   "+chrome/browser/browser_process.h",
-  "+chrome/browser/browser_process_platform_part.h",
-  "+chrome/browser/policy/networking",
   "+chrome/browser/profiles",
   "+chrome/browser/ui/ash/login",
   "+chrome/browser/ui/select_file_policy/chrome_select_file_policy.h",
   "+chrome/browser/ui/webui/ash/login",
-  "+chrome/common/chrome_paths.h",
   "+chrome/grit",
 ]
 
 specific_include_rules = {
-  # Only tests need //chrome/browser/prefs here.
+  # Only tests need these //chrome dependencies here.
   "multi_user_sign_in_policy_controller_unittest\\.cc": [
+    "+chrome/browser/policy/networking",
     "+chrome/browser/prefs/browser_prefs.h",
   ],
   # PrefServiceSyncableFromProfile() narrows the profile PrefService to the

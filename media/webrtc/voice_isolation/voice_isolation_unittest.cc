@@ -11,12 +11,17 @@
 #include <numbers>
 #include <numeric>
 #include <utility>
+#include <vector>
 
+#include "base/check_op.h"
+#include "base/containers/span.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/gtest_util.h"
 #include "base/time/time.h"
 #include "media/base/audio_bus.h"
 #include "media/base/audio_parameters.h"
+#include "media/base/audio_timestamp_helper.h"
 #include "media/base/channel_layout.h"
 #include "media/base/channel_mixer.h"
 #include "media/webrtc/voice_isolation/buffered_voice_isolation.h"
@@ -88,6 +93,58 @@ CreateMockComponent() {
   return mock_component;
 }
 
+// Returns a signal of `total_samples` samples containing a Hann^2-windowed
+// cosine pulse of length `pulse_length` and frequency `carrier_frequency_hz`
+// starting at `pulse_start_index` (peaking at `pulse_start_index +
+// pulse_length / 2`).
+std::vector<float> MakeTonePulse(size_t total_samples,
+                                 size_t pulse_start_index,
+                                 size_t pulse_length,
+                                 float carrier_frequency_hz) {
+  CHECK_LE(pulse_start_index + pulse_length, total_samples);
+  std::vector<float> signal(total_samples, 0.0f);
+  for (size_t i = 0; i < pulse_length; ++i) {
+    const float sine =
+        std::sin(std::numbers::pi_v<float> * static_cast<float>(i) /
+                 static_cast<float>(pulse_length));
+    const float hann = sine * sine;
+    const float envelope = hann * hann;
+    const float phase =
+        2.0f * std::numbers::pi_v<float> * carrier_frequency_hz *
+        (static_cast<float>(i) - static_cast<float>(pulse_length / 2)) /
+        static_cast<float>(kSampleRateHz);
+    signal[pulse_start_index + i] = envelope * std::cos(phase);
+  }
+  return signal;
+}
+
+// Streams a mono `input` signal (whose length must be a multiple of
+// `kComponentFrameSize`) block by block through `voice_isolation` and returns
+// the concatenated mono output.
+std::vector<float> ProcessInBlocks(VoiceIsolation& voice_isolation,
+                                   base::span<const float> input) {
+  CHECK_EQ(input.size() % kComponentFrameSize, 0u);
+  const size_t num_blocks = input.size() / kComponentFrameSize;
+  std::unique_ptr<AudioBus> input_bus =
+      AudioBus::Create(1, kComponentFrameSize);
+  std::unique_ptr<AudioBus> output_bus =
+      AudioBus::Create(1, kComponentFrameSize);
+  std::vector<float> output(input.size(), 0.0f);
+
+  for (size_t block = 0; block < num_blocks; ++block) {
+    const size_t offset = block * kComponentFrameSize;
+    input_bus->channel(0).copy_from_nonoverlapping(
+        input.subspan(offset, kComponentFrameSize));
+
+    voice_isolation.ProcessAudio(*input_bus, *output_bus);
+
+    base::span(output)
+        .subspan(offset, kComponentFrameSize)
+        .copy_from_nonoverlapping(output_bus->channel(0));
+  }
+  return output;
+}
+
 }  // namespace
 
 TEST(VoiceIsolationTest, CreateComponentProcesses10MsFrames) {
@@ -108,15 +165,13 @@ TEST(VoiceIsolationTest, CreateComponentProcesses10MsFrames) {
   EXPECT_EQ(component->AlgorithmicDelay(), kStftDelay + kBufferingDelay);
 }
 
-// TODO(barrerap): Enable once TfLiteVoiceIsolation stops advancing the model
-// state when it computes the bias.
-TEST(VoiceIsolationTest, DISABLED_VoiceIsolationCanAdaptToAudioParameters) {
+TEST(VoiceIsolationTest, VoiceIsolationCanAdaptToAudioParameters) {
   AudioParameters params(AudioParameters::AUDIO_PCM_LINEAR,
                          ChannelLayoutConfig::Stereo(), kSampleRateHz,
                          kComponentFrameSize);
 
   std::unique_ptr<tflite::FlatBufferModel> model =
-      LoadVoiceIsolationTestModel();
+      LoadStatefulVoiceIsolationTestModel();
   std::unique_ptr<VoiceIsolation> voice_isolation =
       VoiceIsolation::Create(model.get(), params);
   ASSERT_NE(voice_isolation, nullptr);
@@ -127,17 +182,31 @@ TEST(VoiceIsolationTest, DISABLED_VoiceIsolationCanAdaptToAudioParameters) {
   std::unique_ptr<AudioBus> output_bus =
       AudioBus::Create(2, kComponentFrameSize);
 
-  // Fill input bus with dummy data.
-  std::fill(input_bus->channel(0).begin(), input_bus->channel(0).end(), 42.f);
-  std::fill(input_bus->channel(1).begin(), input_bus->channel(1).end(), -1.0f);
+  // Fill the input bus with a Hann-windowed 1 kHz stereo tone so that the
+  // signal lies inside the 50..7500 Hz model passband. A step or DC input
+  // would straddle the bypassed DC bin (gain 1.0) and the model passband
+  // (gain 1.1 from the 0.9 / 0.1 mix of the stateful test model's outputs),
+  // dispersing energy into the zero-padded start of the first STFT window.
+  constexpr float kToneFrequencyHz = 1000.0f;
+  constexpr float kTwoPi = 2.0f * std::numbers::pi_v<float>;
+  for (size_t i = 0; i < kComponentFrameSize; ++i) {
+    const float window_sine =
+        std::sin(std::numbers::pi_v<float> * static_cast<float>(i) /
+                 static_cast<float>(kComponentFrameSize));
+    const float window = window_sine * window_sine;
+    const float time_s = static_cast<float>(i) / kSampleRateHz;
+    const float sample = window * std::sin(kTwoPi * kToneFrequencyHz * time_s);
+    input_bus->channel(0)[i] = kLeftLevel * sample;
+    input_bus->channel(1)[i] = kRightLevel * sample;
+  }
 
   // Clear output bus to verify changes.
   output_bus->Zero();
 
   // BufferedVoiceIsolation and the STFT introduce a delay of two 10 ms frames.
-  // The third frame holds the zero-padded start of the first STFT output,
+  // The second frame holds the zero-padded start of the first STFT output,
   // which stays silent only if the model starts from its initial state.
-  constexpr int kNumLatencyFrames = 3;
+  constexpr int kNumLatencyFrames = 2;
   for (int j = 0; j < kNumLatencyFrames; ++j) {
     voice_isolation->ProcessAudio(*input_bus, *output_bus);
     float output_energy = std::inner_product(
@@ -329,15 +398,13 @@ TEST(VoiceIsolationTest, ClearBuffersPurgesStaleLookaheadAudio) {
   }
 }
 
-// TODO(barrerap): Enable once TfLiteVoiceIsolation::ClearBuffers() resets the
-// model resource variables.
-TEST(VoiceIsolationTest, DISABLED_ClearBuffersMatchesFreshInstance) {
+TEST(VoiceIsolationTest, ClearBuffersMatchesFreshInstance) {
   AudioParameters params(AudioParameters::AUDIO_PCM_LINEAR,
                          ChannelLayoutConfig::Stereo(), kSampleRateHz,
                          kComponentFrameSize);
 
   std::unique_ptr<tflite::FlatBufferModel> model =
-      LoadVoiceIsolationTestModel();
+      LoadStatefulVoiceIsolationTestModel();
   std::unique_ptr<VoiceIsolation> voice_isolation =
       VoiceIsolation::Create(model.get(), params);
   ASSERT_NE(voice_isolation, nullptr);
@@ -640,6 +707,66 @@ TEST(VoiceIsolationTest, AlgorithmicDelay) {
       VoiceIsolation::Create(model.get(), params);
   ASSERT_NE(vi_model, nullptr);
   EXPECT_EQ(vi_model->AlgorithmicDelay(), base::Milliseconds(20));
+}
+
+// The identity test model passes content below 7.5 kHz unchanged, so a
+// low-band pulse sent through the full VoiceIsolation pipeline comes out as
+// the input waveform delayed by the exact number of frames advertised by
+// AlgorithmicDelay().
+TEST(VoiceIsolationTest,
+     OutputIsInputDelayedByAlgorithmicDelayWithIdentityModel) {
+  AudioParameters params(AudioParameters::AUDIO_PCM_LINEAR,
+                         ChannelLayoutConfig::Mono(), kSampleRateHz,
+                         kComponentFrameSize);
+  std::unique_ptr<tflite::FlatBufferModel> model =
+      LoadVoiceIsolationTestModel();
+  std::unique_ptr<VoiceIsolation> voice_isolation =
+      VoiceIsolation::Create(model.get(), params);
+  ASSERT_NE(voice_isolation, nullptr);
+
+  // Use a smooth 10 ms low-band pulse (1 kHz under a Hann^2 window) rather
+  // than a single-sample delta: in BandSplitVoiceIsolation,
+  // ComputeHighBandGains() derives both high-band gains of a 20 ms call from
+  // its first DFT, so when that first DFT is silent both gains are 0 and a
+  // broadband transient loses its high band in the DFT where it starts. A
+  // Hann^2-windowed pulse keeps its energy inside the < 7.5 kHz passband of
+  // the identity model (the test passes for carrier frequencies up to ~6.2 kHz
+  // and fails from ~6.5 kHz as sidebands reach the 7.5 kHz crossfade).
+  constexpr size_t kNumBlocks = 8;
+  constexpr size_t kTotalSamples = kNumBlocks * kComponentFrameSize;
+  // 600 makes the pulse straddle the 960-sample boundary between STFT frames
+  // without lining up with the 10 ms blocks.
+  constexpr size_t kPulseStartIndex = 600;
+  constexpr size_t kPulseLength = kSampleRateHz / 100;  // 10 ms.
+  constexpr size_t kPulsePeakIndex = kPulseStartIndex + kPulseLength / 2;
+  constexpr float kCarrierFrequencyHz = 1000.0f;
+
+  // Convert the advertised algorithmic delay into a sample offset at 48 kHz.
+  const size_t delay_frames =
+      base::checked_cast<size_t>(AudioTimestampHelper::TimeToFrames(
+          voice_isolation->AlgorithmicDelay(), kSampleRateHz));
+  ASSERT_GT(delay_frames, 0u);
+  ASSERT_LT(kPulseStartIndex + kPulseLength + delay_frames, kTotalSamples);
+
+  const std::vector<float> input = MakeTonePulse(
+      kTotalSamples, kPulseStartIndex, kPulseLength, kCarrierFrequencyHz);
+  const std::vector<float> output = ProcessInBlocks(*voice_isolation, input);
+
+  // The output peak must appear at `kPulsePeakIndex + delay_frames`.
+  const size_t output_peak_index =
+      static_cast<size_t>(std::ranges::max_element(output) - output.begin());
+  ASSERT_EQ(output_peak_index, kPulsePeakIndex + delay_frames);
+
+  // Every output sample must match the input delayed by `delay_frames`.
+  std::vector<float> expected(kTotalSamples, 0.0f);
+  base::span(expected)
+      .subspan(delay_frames)
+      .copy_from_nonoverlapping(
+          base::span(input).first(kTotalSamples - delay_frames));
+  // 1e-6 covers float rounding through two STFT round trips.
+  constexpr float kTolerance = 1e-6f;
+  EXPECT_THAT(output,
+              testing::Pointwise(testing::FloatNear(kTolerance), expected));
 }
 
 }  // namespace media

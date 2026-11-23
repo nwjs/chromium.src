@@ -11,10 +11,11 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {MockInputState} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {ADD_TAB_CONTEXT_FN, createComposeboxElement, FAKE_TOKEN_STRING, MockInputState, setupComposeboxTest} from './test_support.js';
+import {ADD_TAB_CONTEXT_FN, createComposeboxElement, FAKE_TOKEN_STRING, setupComposeboxTest} from './test_support.js';
 
 // Browser tests don't guarantee window focus, and an OS-generated window blur
 // or resize closes the context menu mid-test. Drop those events; synthetic
@@ -295,10 +296,8 @@ suite('NewTabPageComposeboxContextMenuTest', () => {
 
       try {
         // Access the dialog.
-        const crActionMenu =
-            contextActionMenu.shadowRoot.querySelector('#menu');
-        assertTrue(!!crActionMenu);
-        const dialog = crActionMenu.shadowRoot!.querySelector('dialog');
+        const crActionMenu = contextActionMenu.$.menu;
+        const dialog = crActionMenu.shadowRoot.querySelector('dialog');
         assertTrue(!!dialog);
         assertTrue(dialog.open);
 
@@ -353,10 +352,8 @@ suite('NewTabPageComposeboxContextMenuTest', () => {
 
       try {
         // Access the dialog.
-        const crActionMenu =
-            contextActionMenu.shadowRoot.querySelector('#menu');
-        assertTrue(!!crActionMenu);
-        const dialog = crActionMenu.shadowRoot!.querySelector('dialog');
+        const crActionMenu = contextActionMenu.$.menu;
+        const dialog = crActionMenu.shadowRoot.querySelector('dialog');
         assertTrue(!!dialog);
         assertTrue(dialog.open);
 
@@ -1053,6 +1050,30 @@ suite('NewTabPageComposeboxContextMenuTest', () => {
               smartTabSharingItemFlyout.disabled,
               'smartTabSharingItemFlyout should be disabled');
         });
+
+    // TODO(crbug.com/570702014): Smart Tab Sharing is desktop-only.
+    // <if expr="not is_android">
+    test(
+        'smartTabSharingActive causes hasTabs true and input has has-tabs ' +
+            'class',
+        async () => {
+          testProxy.searchboxHandler.setPromiseResolveFor(
+              'getSmartTabSharingActive', {active: true});
+          createComposeboxElement(testProxy, {
+            searchboxNextEnabled: true,
+            smartTabSharingActive: true,
+            smartTabSharingVisible: true,
+          });
+          await microtasksFinished();
+          await testProxy.element.updateComplete;
+
+          assertTrue(testProxy.element.hasTabs());
+          assertFalse(testProxy.element.hasAttribute('should-remain-folded_'));
+
+          const inputElement = testProxy.element.getInputElement();
+          assertTrue(inputElement.classList.contains('has-tabs'));
+        });
+    // </if>
   });
 
   suite('Context menu mouse events', () => {

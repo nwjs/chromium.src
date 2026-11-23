@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
@@ -24,7 +24,6 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/content_settings/core/common/content_settings_types.h"
-#include "components/content_settings/core/common/features.h"
 #include "components/omnibox/browser/test_location_bar_model.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/test/browser_test.h"
@@ -42,8 +41,6 @@ class DashboardKombuchaInteractiveUITest : public InteractiveBrowserTest {
   DashboardKombuchaInteractiveUITest() {
     https_server_ = std::make_unique<net::EmbeddedTestServer>(
         net::EmbeddedTestServer::TYPE_HTTPS);
-    feature_list_.InitWithFeatures(
-        {content_settings::features::kLeftHandSideActivityIndicators}, {});
   }
 
   ~DashboardKombuchaInteractiveUITest() override = default;
@@ -105,7 +102,8 @@ class DashboardKombuchaInteractiveUITest : public InteractiveBrowserTest {
   // Set static site name to prevent flakes caused by changing port.
   void SetStaticSiteName(std::u16string site_name) {
     auto* bubble_view = static_cast<PageInfoBubbleView*>(
-        PageInfoBubbleView::GetPageInfoBubbleForTesting());
+        PageInfoBubbleView::GetPageInfoBubbleForTesting(
+            browser()->GetTabStripModel()->GetActiveWebContents()));
     bubble_view->presenter_for_testing()->SetSiteNameForTesting(site_name);
     ASSERT_EQ(bubble_view->presenter_for_testing()->GetSubjectNameForDisplay(),
               site_name);
@@ -179,7 +177,6 @@ class DashboardKombuchaInteractiveUITest : public InteractiveBrowserTest {
 
  private:
   std::unique_ptr<net::EmbeddedTestServer> https_server_;
-  base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<TestLocationBarModel> test_location_bar_model_;
 };
 

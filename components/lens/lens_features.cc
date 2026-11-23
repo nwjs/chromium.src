@@ -116,7 +116,7 @@ BASE_FEATURE(kLensVideoCitations, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensUpdatedFeedbackEntrypoint, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kLensSidePanelUnification, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kLensSidePanelUnification, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOverlayNonBlockingPrivacyNotice,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -143,6 +143,9 @@ BASE_FEATURE(kLensSendUrlsInComposeboxes,
              base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 );
+
+BASE_FEATURE(kLensSendDriveTabUrlsInComposeboxes,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLensOnlySendAaiForModalityChips,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1299,6 +1302,10 @@ bool IsLensSendRawFileMediaTypesEnabled() {
 
 bool IsLensSendUrlsInComposeboxesEnabled() {
   return base::FeatureList::IsEnabled(kLensSendUrlsInComposeboxes);
+}
+
+bool IsLensSendDriveTabUrlsInComposeboxesEnabled() {
+  return base::FeatureList::IsEnabled(kLensSendDriveTabUrlsInComposeboxes);
 }
 
 bool IsLensOnlySendAaiForModalityChipsEnabled() {

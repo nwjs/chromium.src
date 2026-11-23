@@ -15,6 +15,7 @@
 #include "chrome/browser/glic/gemini_enterprise/geic_enabling.h"
 #include "chrome/browser/glic/gemini_enterprise/gemini_enterprise.mojom.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/testing_profile.h"
 #include "content/public/test/browser_task_environment.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -62,12 +63,6 @@ class GlicGeminiEnterpriseManagerUnitTest : public testing::Test {
   }
 
  protected:
-  content::BrowserTaskEnvironment task_environment_;
-  base::test::ScopedFeatureList feature_list_;
-  std::unique_ptr<TestingProfile> profile_;
-  std::unique_ptr<GlicGeminiEnterpriseManager> manager_;
-  mojo::Remote<mojom::GeminiEnterpriseHandler> handler_remote_;
-
   mojom::OpenAuthTabResult OpenAuthTab(mojom::AuthTabPurpose purpose,
                                        const GURL& url) {
     base::test::TestFuture<mojom::OpenAuthTabResponsePtr> future;
@@ -75,6 +70,12 @@ class GlicGeminiEnterpriseManagerUnitTest : public testing::Test {
                                  future.GetCallback());
     return future.Take()->result;
   }
+
+  content::BrowserTaskEnvironment task_environment_;
+  base::test::ScopedFeatureList feature_list_;
+  std::unique_ptr<TestingProfile> profile_;
+  std::unique_ptr<GlicGeminiEnterpriseManager> manager_;
+  mojo::Remote<mojom::GeminiEnterpriseHandler> handler_remote_;
 };
 
 TEST_F(GlicGeminiEnterpriseManagerUnitTest, BindDropsReceiverWhenGeicDisabled) {
@@ -99,11 +100,69 @@ TEST_F(GlicGeminiEnterpriseManagerUnitTest,
       OpenAuthTab(kSignIn, GURL("https://accounts.google.com/o/oauth2/auth")),
       mojom::OpenAuthTabResult::kErrorFailure);
 
-  // Disallowed HTTP scheme (must be HTTPS):
+  // Valid HTTPS Google Cloud Workforce Identity (BYOID) origins
+  // (`https://auth.<domain>.google`) pass URL validation:
+  EXPECT_EQ(
+      OpenAuthTab(kSignIn,
+                  GURL("https://auth.cloud.google/select-session?continueUrl="
+                       "https%3A%2F%2Fbusiness.gemini.google%2Fside-panel")),
+      mojom::OpenAuthTabResult::kErrorFailure);
+  EXPECT_EQ(
+      OpenAuthTab(kSignIn, GURL("https://auth.cloud.google/signin/continue")),
+      mojom::OpenAuthTabResult::kErrorFailure);
+  EXPECT_EQ(
+      OpenAuthTab(
+          kSignIn,
+          GURL("https://auth.business.gemini.google/select-session?continueUrl="
+               "https%3A%2F%2Fbusiness.gemini.google%2Fside-panel")),
+      mojom::OpenAuthTabResult::kErrorFailure);
+  EXPECT_EQ(OpenAuthTab(kSignIn,
+                        GURL("https://auth.gemini-us.google/select-session")),
+            mojom::OpenAuthTabResult::kErrorFailure);
+  EXPECT_EQ(OpenAuthTab(kSignIn,
+                        GURL("https://auth.agentspace.google/select-session")),
+            mojom::OpenAuthTabResult::kErrorFailure);
+
+  // Non-prod Workforce Identity origins require --glic-dev:
+  EXPECT_EQ(
+      OpenAuthTab(kSignIn,
+                  GURL("https://auth-staging.business-staging.gemini.google/"
+                       "select-session")),
+      mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  EXPECT_EQ(OpenAuthTab(kSignIn, GURL("https://auth-autopush.corp.cloud.google/"
+                                      "select-session")),
+            mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  {
+    base::test::ScopedCommandLine scoped_command_line;
+    scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+        ::switches::kGlicDev);
+    EXPECT_EQ(
+        OpenAuthTab(kSignIn,
+                    GURL("https://auth-staging.business-staging.gemini.google/"
+                         "select-session")),
+        mojom::OpenAuthTabResult::kErrorFailure);
+    EXPECT_EQ(
+        OpenAuthTab(kSignIn, GURL("https://auth-autopush.corp.cloud.google/"
+                                  "select-session")),
+        mojom::OpenAuthTabResult::kErrorFailure);
+  }
+
+  // Disallowed HTTP scheme, non-default port, or bare `auth.google` host:
   EXPECT_EQ(OpenAuthTab(kSignIn, GURL("http://accounts.google.com/signin")),
             mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  EXPECT_EQ(
+      OpenAuthTab(kSignIn, GURL("http://auth.cloud.google/select-session")),
+      mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  EXPECT_EQ(OpenAuthTab(kSignIn,
+                        GURL("https://auth.cloud.google:8443/select-session")),
+            mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  EXPECT_EQ(OpenAuthTab(kSignIn, GURL("https://auth.google/select-session")),
+            mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  EXPECT_EQ(
+      OpenAuthTab(kSignIn, GURL("https://auth.cloud.google.evil.com/signin")),
+      mojom::OpenAuthTabResult::kErrorDisallowedUrl);
 
-  // Disallowed non-Gaia, non-guest HTTPS origin:
+  // Disallowed non-Gaia, non-Workforce, non-guest HTTPS origin:
   EXPECT_EQ(OpenAuthTab(kSignIn, GURL("https://evil.com/signin")),
             mojom::OpenAuthTabResult::kErrorDisallowedUrl);
   EXPECT_EQ(OpenAuthTab(kSignIn, GURL("https://example.com/login")),
@@ -115,6 +174,10 @@ TEST_F(GlicGeminiEnterpriseManagerUnitTest,
             mojom::OpenAuthTabResult::kErrorDisallowedUrl);
   EXPECT_EQ(
       OpenAuthTab(kSignIn, GURL("https://user@accounts.google.com/signin")),
+      mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  EXPECT_EQ(
+      OpenAuthTab(kSignIn,
+                  GURL("https://user:pass@auth.cloud.google/select-session")),
       mojom::OpenAuthTabResult::kErrorDisallowedUrl);
 
   // Disallowed URLs exceeding maximum allowed length (64KB):
@@ -139,9 +202,12 @@ TEST_F(GlicGeminiEnterpriseManagerUnitTest,
 }
 
 TEST_F(GlicGeminiEnterpriseManagerUnitTest, AllowsConfiguredGuestOrigin) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+  base::test::ScopedCommandLine scoped_command_line;
+  scoped_command_line.GetProcessCommandLine()->AppendSwitchASCII(
       geic::kGeicGuestURLSwitch,
       "https://localhost.corp.google.com:10443/side-panel");
+  scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+      ::switches::kGlicDev);
   TestingProfile custom_profile;
   GlicGeminiEnterpriseManager manager(&custom_profile);
   mojo::Remote<mojom::GeminiEnterpriseHandler> remote;
@@ -194,16 +260,18 @@ TEST_F(GlicGeminiEnterpriseManagerUnitTest, RejectsOffTheRecordProfile) {
   GlicGeminiEnterpriseManager otr_manager(otr_profile);
   mojo::Remote<mojom::GeminiEnterpriseHandler> otr_remote;
   otr_manager.Bind(otr_remote.BindNewPipeAndPassReceiver());
+  otr_remote.FlushForTesting();
+  EXPECT_FALSE(otr_remote.is_connected());
 
   // Calling OpenSignInTab on OTR manager should immediately fail.
   base::test::TestFuture<mojom::OpenSignInTabResult> open_future;
   auto options = mojom::OpenSignInTabOptions::New();
   options->signin_url = GURL("https://accounts.google.com/signin");
-  otr_remote->OpenSignInTab(std::move(options), open_future.GetCallback());
+  otr_manager.OpenSignInTab(std::move(options), open_future.GetCallback());
   EXPECT_EQ(open_future.Take(), mojom::OpenSignInTabResult::kErrorFailure);
 
   base::test::TestFuture<mojom::CloseSignInTabResult> close_future;
-  otr_remote->CloseSignInTab(nullptr, close_future.GetCallback());
+  otr_manager.CloseSignInTab(nullptr, close_future.GetCallback());
   EXPECT_EQ(close_future.Take(), mojom::CloseSignInTabResult::kNoSignInTab);
 }
 
@@ -258,9 +326,13 @@ TEST_F(GlicGeminiEnterpriseManagerUnitTest,
       OpenAuthTab(kConnectorOauth, GURL("https://evil.com/oauth-redirect")),
       mojom::OpenAuthTabResult::kErrorDisallowedUrl);
 
-  // Gaia is allowed for sign-in, but not as a connector auth start URL:
+  // Gaia and Workforce Identity are allowed for sign-in, but not as a
+  // connector auth start URL:
   EXPECT_EQ(OpenAuthTab(kConnectorOauth,
                         GURL("https://accounts.google.com/oauth-redirect")),
+            mojom::OpenAuthTabResult::kErrorDisallowedUrl);
+  EXPECT_EQ(OpenAuthTab(kConnectorOauth,
+                        GURL("https://auth.cloud.google/oauth-redirect")),
             mojom::OpenAuthTabResult::kErrorDisallowedUrl);
 
   // Basic shape checks:
@@ -294,6 +366,8 @@ TEST_F(GlicGeminiEnterpriseManagerUnitTest,
   scoped_command_line.GetProcessCommandLine()->AppendSwitchASCII(
       geic::kGeicGuestURLSwitch,
       "https://localhost.corp.google.com:10443/side-panel");
+  scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+      ::switches::kGlicDev);
   TestingProfile custom_profile;
   GlicGeminiEnterpriseManager manager(&custom_profile);
   mojo::Remote<mojom::GeminiEnterpriseHandler> remote;
@@ -416,9 +490,11 @@ TEST_F(GlicGeminiEnterpriseManagerUnitTest,
   GlicGeminiEnterpriseManager otr_manager(otr_profile);
   mojo::Remote<mojom::GeminiEnterpriseHandler> otr_remote;
   otr_manager.Bind(otr_remote.BindNewPipeAndPassReceiver());
+  otr_remote.FlushForTesting();
+  EXPECT_FALSE(otr_remote.is_connected());
 
   base::test::TestFuture<mojom::OpenAuthTabResponsePtr> open_future;
-  otr_remote->OpenAuthTab(
+  otr_manager.OpenAuthTab(
       MakeOpenOptions(
           kConnectorOauth,
           GURL("https://vertexaisearch.cloud.google.com/oauth-redirect")),

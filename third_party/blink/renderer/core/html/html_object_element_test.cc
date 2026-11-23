@@ -64,8 +64,7 @@ TEST_F(HTMLObjectElementSimTest, NoLoadOnEnsureComputedStyle) {
      </div>
   )HTML");
 
-  auto* object =
-      To<HTMLObjectElement>(GetDocument().getElementById(AtomicString("obj")));
+  Element* object = GetElementById("obj");
   ASSERT_TRUE(object);
   EXPECT_FALSE(object->GetComputedStyle());
   object->EnsureComputedStyle();

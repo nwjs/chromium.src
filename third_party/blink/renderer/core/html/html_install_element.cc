@@ -70,7 +70,7 @@ HTMLInstallElement::HTMLInstallElement(Document& document)
   auto descriptor = mojom::blink::PermissionDescriptor::New();
   descriptor->name = mojom::blink::PermissionName::WEB_APP_INSTALLATION;
   permission_descriptors_.push_back(std::move(descriptor));
-  UseCounter::CountWebDXFeature(document, WebDXFeature::kDRAFT_InstallElement);
+  UseCounter::CountWebDXFeature(document, WebDXFeature::kInstall);
 }
 
 void HTMLInstallElement::Trace(Visitor* visitor) const {
@@ -161,8 +161,9 @@ bool HTMLInstallElement::IsURLAttribute(const Attribute& attr) const {
          HTMLElement::IsURLAttribute(attr);
 }
 
-void HTMLInstallElement::DidChangeIsInCanvasSubtree() {
-  HTMLCapabilityElementBase::DidChangeIsInCanvasSubtree();
+void HTMLInstallElement::DidChangeIsInCanvasSubtree(
+    CanvasSubtreePropagation propagation_behavior) {
+  HTMLCapabilityElementBase::DidChangeIsInCanvasSubtree(propagation_behavior);
   UpdateAppearance();
 }
 

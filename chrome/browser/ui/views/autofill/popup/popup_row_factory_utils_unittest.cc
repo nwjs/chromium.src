@@ -8,8 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/command_line.h"
-#include "base/i18n/base_i18n_switches.h"
 #include "base/i18n/rtl.h"
 #include "base/test/icu_test_util.h"
 #include "base/test/scoped_feature_list.h"
@@ -32,6 +30,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/range/range.h"
+#include "ui/gfx/text_constants.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/image_view.h"
@@ -49,19 +48,33 @@ using ::testing::Return;
 namespace autofill {
 
 namespace {
+
+using ::views::AsViewClass;
+using ::views::Label;
+
 constexpr float kDisabledBnplOpacity = 0.38f;
 
 // Helper function to recursively find a `views::Label` with matching text
 // inside `view`.
-views::Label* FindLabelWithText(views::View* view, const std::u16string& text) {
+Label* FindLabelWithText(views::View* view, const std::u16string& text) {
   for (views::View* child : view->children()) {
-    if (auto* label = views::AsViewClass<views::Label>(child)) {
+    if (auto* label = AsViewClass<Label>(child)) {
       if (label->GetText() == text) {
         return label;
       }
     }
     if (auto* found = FindLabelWithText(child, text)) {
       return found;
+    }
+  }
+  return nullptr;
+}
+
+// Helper function to find a direct `views::StyledLabel` child inside `view`.
+views::StyledLabel* FindStyledLabel(views::View* view) {
+  for (views::View* child : view->children()) {
+    if (auto* styled_label = AsViewClass<views::StyledLabel>(child)) {
+      return styled_label;
     }
   }
   return nullptr;
@@ -470,7 +483,7 @@ TEST_F(PopupRowFactoryUtilsTest, AutofillAiSourceAttributionRowView) {
                         SuggestionType::kAutofillAiSourceAttribution);
   suggestion.icon = Suggestion::Icon::kSpark;
   suggestion.payload = Suggestion::AutofillAiPayload(
-      autofill::EntityInstance::EntityId("test-guid"),
+      EntityInstance::EntityId("test-guid"),
       {Suggestion::PersonalContextSourceCitation(
           GURL("https://photos.google.com/test"), gfx::Range(40, 43))});
   ShowSuggestion(suggestion);
@@ -481,14 +494,8 @@ TEST_F(PopupRowFactoryUtilsTest, AutofillAiSourceAttributionRowView) {
       row_view().GetContentView().children().front()));
 
   // Verify StyledLabel is created with the citation link.
-  views::StyledLabel* styled_label = nullptr;
-  for (views::View* child : row_view().GetContentView().children()) {
-    if (views::StyledLabel* sl =
-            views::AsViewClass<views::StyledLabel>(child)) {
-      styled_label = sl;
-      break;
-    }
-  }
+  views::StyledLabel* styled_label =
+      FindStyledLabel(&row_view().GetContentView());
   ASSERT_THAT(styled_label, NotNull());
   EXPECT_EQ(styled_label->GetText(),
             u"From Gemini and connected apps · Photos\u00A0[1]");
@@ -503,7 +510,7 @@ TEST_F(PopupRowFactoryUtilsTest,
   // Out-of-bounds, invalid, empty, and reversed ranges should be safely
   // ignored.
   suggestion.payload = Suggestion::AutofillAiPayload(
-      autofill::EntityInstance::EntityId("test-guid"),
+      EntityInstance::EntityId("test-guid"),
       {Suggestion::PersonalContextSourceCitation(
            GURL("https://photos.google.com/test"), gfx::Range(100, 150)),
        Suggestion::PersonalContextSourceCitation(
@@ -514,14 +521,8 @@ TEST_F(PopupRowFactoryUtilsTest,
            GURL("https://photos.google.com/test4"), gfx::Range(43, 40))});
   ShowSuggestion(suggestion);
 
-  views::StyledLabel* styled_label = nullptr;
-  for (views::View* child : row_view().GetContentView().children()) {
-    if (views::StyledLabel* sl =
-            views::AsViewClass<views::StyledLabel>(child)) {
-      styled_label = sl;
-      break;
-    }
-  }
+  views::StyledLabel* styled_label =
+      FindStyledLabel(&row_view().GetContentView());
   ASSERT_THAT(styled_label, NotNull());
   EXPECT_EQ(styled_label->GetText(),
             u"From Gemini and connected apps · Photos\u00A0[1]");
@@ -530,26 +531,19 @@ TEST_F(PopupRowFactoryUtilsTest,
 
 TEST_F(PopupRowFactoryUtilsTest, AutofillAiSourceAttributionRowView_RtlLayout) {
   base::test::ScopedRestoreICUDefaultLocale scoped_locale("ar");
-  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kForceUIDirection, switches::kForceDirectionRTL);
+  ASSERT_TRUE(base::i18n::IsRTL());
 
   Suggestion suggestion(u"From Gemini and connected apps · Photos\u00A0[1]",
                         SuggestionType::kAutofillAiSourceAttribution);
   suggestion.icon = Suggestion::Icon::kSpark;
   suggestion.payload = Suggestion::AutofillAiPayload(
-      autofill::EntityInstance::EntityId("test-guid"),
+      EntityInstance::EntityId("test-guid"),
       {Suggestion::PersonalContextSourceCitation(
           GURL("https://photos.google.com/test"), gfx::Range(40, 43))});
   ShowSuggestion(suggestion);
 
-  views::StyledLabel* styled_label = nullptr;
-  for (views::View* child : row_view().GetContentView().children()) {
-    if (views::StyledLabel* sl =
-            views::AsViewClass<views::StyledLabel>(child)) {
-      styled_label = sl;
-      break;
-    }
-  }
+  views::StyledLabel* styled_label =
+      FindStyledLabel(&row_view().GetContentView());
   ASSERT_THAT(styled_label, NotNull());
   styled_label->SizeToFit(1000);
 
@@ -569,6 +563,47 @@ TEST_F(PopupRowFactoryUtilsTest, AutofillAiSourceAttributionRowView_RtlLayout) {
   EXPECT_EQ(link_view->bounds().x(), space_view->bounds().right());
 }
 
+TEST_F(PopupRowFactoryUtilsTest,
+       AutofillAiSourceAttributionRowView_RtlLayoutWithMoreSourcesSuffix) {
+  base::test::ScopedRestoreICUDefaultLocale scoped_locale("ar");
+  ASSERT_TRUE(base::i18n::IsRTL());
+
+  Suggestion suggestion(
+      u"Suggested by Gemini · Photos\u00A0[1] + 2 other sources",
+      SuggestionType::kAutofillAiSourceAttribution);
+  suggestion.icon = Suggestion::Icon::kSpark;
+  suggestion.payload = Suggestion::AutofillAiPayload(
+      EntityInstance::EntityId("test-guid"),
+      {Suggestion::PersonalContextSourceCitation(
+          GURL("https://photos.google.com/test"), gfx::Range(29, 32))});
+  ShowSuggestion(suggestion);
+
+  views::StyledLabel* styled_label =
+      FindStyledLabel(&row_view().GetContentView());
+  ASSERT_THAT(styled_label, NotNull());
+  styled_label->SizeToFit(1000);
+
+  // In RTL, child views are ordered from right to left (origin 0 on right).
+  // The "+ 2 other sources" suffix (child 6) is separated from "[1]" (child 4)
+  // by an isolated space view (child 5) and stays trailing after "[1]" in RTL
+  // x-coordinates.
+  ASSERT_EQ(styled_label->children().size(), 7u);
+  const auto* link_view = AsViewClass<Label>(styled_label->children()[4]);
+  const auto* suffix_space_view =
+      AsViewClass<Label>(styled_label->children()[5]);
+  const auto* suffix_view = AsViewClass<Label>(styled_label->children()[6]);
+  ASSERT_THAT(link_view, NotNull());
+  ASSERT_THAT(suffix_space_view, NotNull());
+  ASSERT_THAT(suffix_view, NotNull());
+  EXPECT_EQ(link_view->GetText(), u"[1]");
+  EXPECT_EQ(suffix_space_view->GetText(), u" ");
+  EXPECT_EQ(suffix_view->GetText(), u"+ 2 other sources");
+
+  EXPECT_GT(suffix_space_view->bounds().width(), 0);
+  EXPECT_EQ(suffix_space_view->bounds().x(), link_view->bounds().right());
+  EXPECT_EQ(suffix_view->bounds().x(), suffix_space_view->bounds().right());
+}
+
 TEST_F(
     PopupRowFactoryUtilsTest,
     AutofillAiSourceAttributionRowView_AppAndBadgeWrapTogetherOnNarrowWidth) {
@@ -576,19 +611,13 @@ TEST_F(
                         SuggestionType::kAutofillAiSourceAttribution);
   suggestion.icon = Suggestion::Icon::kSpark;
   suggestion.payload = Suggestion::AutofillAiPayload(
-      autofill::EntityInstance::EntityId("test-guid"),
+      EntityInstance::EntityId("test-guid"),
       {Suggestion::PersonalContextSourceCitation(
           GURL("https://photos.google.com/test"), gfx::Range(40, 43))});
   ShowSuggestion(suggestion);
 
-  views::StyledLabel* styled_label = nullptr;
-  for (views::View* child : row_view().GetContentView().children()) {
-    if (views::StyledLabel* sl =
-            views::AsViewClass<views::StyledLabel>(child)) {
-      styled_label = sl;
-      break;
-    }
-  }
+  views::StyledLabel* styled_label =
+      FindStyledLabel(&row_view().GetContentView());
   ASSERT_THAT(styled_label, NotNull());
 
   // Size to fit a width where "From Gemini and connected apps ·" fits on line
@@ -608,7 +637,7 @@ TEST_F(
   const views::View* app_view = nullptr;
   const views::View* link_view = nullptr;
   for (views::View* child : styled_label->children()) {
-    if (const auto* label = views::AsViewClass<views::Label>(child)) {
+    if (const auto* label = AsViewClass<Label>(child)) {
       if (label->GetText() == u"From Gemini and connected apps") {
         prefix_view = label;
       } else if (label->GetText() == u"Photos") {
@@ -639,7 +668,7 @@ TEST_F(PopupRowFactoryUtilsTest,
       SuggestionType::kAutofillAiSourceAttribution);
   suggestion.icon = Suggestion::Icon::kSpark;
   suggestion.payload = Suggestion::AutofillAiPayload(
-      autofill::EntityInstance::EntityId("test-guid"),
+      EntityInstance::EntityId("test-guid"),
       {Suggestion::PersonalContextSourceCitation(
            GURL("https://mail.google.com/1"), gfx::Range(39, 42)),
        Suggestion::PersonalContextSourceCitation(
@@ -648,14 +677,8 @@ TEST_F(PopupRowFactoryUtilsTest,
            GURL("https://photos.google.com/1"), gfx::Range(56, 59))});
   ShowSuggestion(suggestion);
 
-  views::StyledLabel* styled_label = nullptr;
-  for (views::View* child : row_view().GetContentView().children()) {
-    if (views::StyledLabel* sl =
-            views::AsViewClass<views::StyledLabel>(child)) {
-      styled_label = sl;
-      break;
-    }
-  }
+  views::StyledLabel* styled_label =
+      FindStyledLabel(&row_view().GetContentView());
   ASSERT_THAT(styled_label, NotNull());
   styled_label->SizeToFit(1000);
 
@@ -665,7 +688,7 @@ TEST_F(PopupRowFactoryUtilsTest,
 
   std::vector<const views::Link*> link_views;
   for (views::View* child : styled_label->children()) {
-    if (const auto* link = views::AsViewClass<views::Link>(child)) {
+    if (const auto* link = AsViewClass<views::Link>(child)) {
       link_views.push_back(link);
     }
   }
@@ -681,19 +704,13 @@ TEST_F(PopupRowFactoryUtilsTest,
                         SuggestionType::kAutofillAiSourceAttribution);
   suggestion.icon = Suggestion::Icon::kSpark;
   suggestion.payload = Suggestion::AutofillAiPayload(
-      autofill::EntityInstance::EntityId("test-guid"),
+      EntityInstance::EntityId("test-guid"),
       {Suggestion::PersonalContextSourceCitation(
           GURL("https://photos.google.com/test"), gfx::Range(40, 43))});
   ShowSuggestion(suggestion);
 
-  views::StyledLabel* styled_label = nullptr;
-  for (views::View* child : row_view().GetContentView().children()) {
-    if (views::StyledLabel* sl =
-            views::AsViewClass<views::StyledLabel>(child)) {
-      styled_label = sl;
-      break;
-    }
-  }
+  views::StyledLabel* styled_label =
+      FindStyledLabel(&row_view().GetContentView());
   ASSERT_THAT(styled_label, NotNull());
   ASSERT_THAT(styled_label->GetFirstLinkForTesting(), NotNull());
 
@@ -776,6 +793,26 @@ TEST_F(PopupRowFactoryUtilsTest, WalletDirectOfferShortTextNoExtraPadding) {
   gfx::Insets insets = row_view().GetContentView().GetInsideBorderInsets();
   EXPECT_EQ(insets.top(), 0);
   EXPECT_EQ(insets.bottom(), 0);
+}
+
+TEST_F(PopupRowFactoryUtilsTest,
+       GmailOneTimePasswordSenderAddressElideBehavior) {
+  ON_CALL(controller(), GetMainFillingProduct())
+      .WillByDefault(Return(FillingProduct::kOneTimePassword));
+
+  Suggestion suggestion(u"123456", SuggestionType::kGmailOneTimePasswordEntry);
+  suggestion.labels = {{Suggestion::Text(u"sender@example.com")}};
+  ShowSuggestion(suggestion);
+
+  views::Label* main_label =
+      FindLabelWithText(&row_view().GetContentView(), u"123456");
+  ASSERT_THAT(main_label, NotNull());
+  EXPECT_EQ(main_label->GetElideBehavior(), gfx::ELIDE_TAIL);
+
+  views::Label* sender_label =
+      FindLabelWithText(&row_view().GetContentView(), u"sender@example.com");
+  ASSERT_THAT(sender_label, NotNull());
+  EXPECT_EQ(sender_label->GetElideBehavior(), gfx::ELIDE_EMAIL);
 }
 
 }  // namespace autofill

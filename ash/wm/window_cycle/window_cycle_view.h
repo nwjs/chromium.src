@@ -33,7 +33,7 @@ class View;
 namespace ash {
 class WindowMiniViewBase;
 class LabelSliderButton;
-class SystemShadow;
+class SystemDecoration;
 class TabSlider;
 class WindowCycleItemView;
 
@@ -50,9 +50,7 @@ class ASH_EXPORT WindowCycleView : public views::WidgetDelegateView,
   // previews.
   static constexpr int kInsideBorderHorizontalPaddingDp = 64;
 
-  WindowCycleView(aura::Window* root_window,
-                  const WindowList& windows,
-                  const bool same_app_only);
+  WindowCycleView(aura::Window* root_window, const WindowList& windows);
   WindowCycleView(const WindowCycleView&) = delete;
   WindowCycleView& operator=(const WindowCycleView&) = delete;
   ~WindowCycleView() override;
@@ -166,9 +164,6 @@ class ASH_EXPORT WindowCycleView : public views::WidgetDelegateView,
   // The root window that `this` resides on.
   const raw_ptr<aura::Window> root_window_;
 
-  // True if the `this` is built for same app cycling.
-  const bool same_app_only_;
-
   // Constructed as the child views of `mirror_container` and used for window
   // cycling.
   std::vector<raw_ptr<WindowMiniViewBase, VectorExperimental>> cycle_views_;
@@ -216,7 +211,7 @@ class ASH_EXPORT WindowCycleView : public views::WidgetDelegateView,
   // active.
   std::unique_ptr<WmFlingHandler> fling_handler_;
 
-  std::unique_ptr<SystemShadow> shadow_;
+  std::unique_ptr<SystemDecoration> shadow_;
 
   // Indicates whether the selector view on `tab_slider_` is focused or not. We
   // need to manually schedule paint for the focus ring since the tab slider

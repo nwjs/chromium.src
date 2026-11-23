@@ -20,11 +20,18 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    &kDomStorageSqliteMigration,
                    kDomStorageSqliteMigrationInactivityTimeout);
 
+BASE_FEATURE_PARAM(bool,
+                   kDomStorageSqliteMigrationVerification,
+                   &kDomStorageSqliteMigration,
+                   /*default=*/false);
+
 BASE_FEATURE(kDomStorageSqliteNewDatabases, base::FEATURE_DISABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<DomStorageSqliteRolloutStage>::Option
     kDomStorageSqliteNewDatabasesStages[] = {
         {DomStorageSqliteRolloutStage::kUseLevelDbOnly, "UseLevelDbOnly"},
+        {DomStorageSqliteRolloutStage::kUseLevelDbForNewDatabases,
+         "UseLevelDbForNewDatabases"},
         {DomStorageSqliteRolloutStage::kUseLevelDbAsControl,
          "UseLevelDbAsControl"},
         {DomStorageSqliteRolloutStage::kUseSqliteForNewDatabases,
@@ -32,11 +39,12 @@ constexpr base::FeatureParam<DomStorageSqliteRolloutStage>::Option
         {DomStorageSqliteRolloutStage::kUseSqliteOnly, "UseSqliteOnly"},
 };
 
-BASE_FEATURE_ENUM_PARAM(DomStorageSqliteRolloutStage,
-                        kDomStorageSqliteNewDatabasesStage,
-                        &kDomStorageSqliteNewDatabases,
-                        DomStorageSqliteRolloutStage::kUseLevelDbOnly,
-                        &kDomStorageSqliteNewDatabasesStages);
+BASE_FEATURE_ENUM_PARAM(
+    DomStorageSqliteRolloutStage,
+    kDomStorageSqliteNewDatabasesStage,
+    &kDomStorageSqliteNewDatabases,
+    DomStorageSqliteRolloutStage::kUseLevelDbForNewDatabases,
+    &kDomStorageSqliteNewDatabasesStages);
 
 DomStorageSqliteRolloutStage GetSqliteRolloutStage(bool in_memory) {
   if (base::FeatureList::IsEnabled(kDomStorageSqlite)) {
@@ -67,6 +75,9 @@ bool ShouldUseSqlite(DomStorageSqliteRolloutStage stage, bool leveldb_exists) {
       return !leveldb_exists;
     case DomStorageSqliteRolloutStage::kUseSqliteOnly:
       return true;
+    case DomStorageSqliteRolloutStage::kUseLevelDbForNewDatabases:
+      // This stage must check if the SQLite database exists.
+      NOTREACHED();
   }
   NOTREACHED();
 }

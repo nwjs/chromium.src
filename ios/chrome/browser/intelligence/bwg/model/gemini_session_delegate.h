@@ -106,6 +106,16 @@ typedef NS_ENUM(NSInteger, GeminiCancelType) {
                    sessionID:(NSString*)sessionID
               conversationID:(NSString*)conversationID;
 @optional
+// Called when the processing status changes with a dormant reason and optional
+// error details.
+- (void)didUpdateProcessingStatus:(ios::provider::GeminiClientMode)processStatus
+                    dormantReason:
+                        (ios::provider::GeminiDormantReason)dormantReason
+                            error:(NSError*)error
+                        errorCode:(ios::provider::GeminiErrorCode)errorCode
+                        sessionID:(NSString*)sessionID
+                   conversationID:(NSString*)conversationID;
+
 // Called when the processing status changes with a dormant reason.
 - (void)didUpdateProcessingStatus:(ios::provider::GeminiClientMode)processStatus
                     dormantReason:
@@ -200,6 +210,12 @@ typedef NS_ENUM(NSInteger, GeminiCancelType) {
 // Called when loading a previous conversation finishes.
 - (void)didFinishLoadingConversationWithID:(NSString*)conversationID
                                      error:(NSError*)error;
+
+// Called when the page context attachment state in the input plate changes.
+- (void)inputPlateDidChangePageContextAttachment:(BOOL)isAttached;
+
+// Called when the Nano Banana attachment selection in the input plate changes.
+- (void)inputPlateDidChangeNanoBananaAttachment:(BOOL)isSelected;
 
 #pragma mark - Chat Message Interception
 

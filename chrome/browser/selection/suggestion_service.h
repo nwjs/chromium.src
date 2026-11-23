@@ -15,6 +15,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/time/time.h"
 #include "chrome/browser/selection/suggestion.h"
 #include "chrome/browser/selection/suggestion_tool.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
@@ -79,22 +80,33 @@ class SuggestionService {
                                   SuggestionsCallback callback);
 
  private:
+  struct EncodedImage;
+
   // Returns whether `feature` is enabled for the profile, falling back to
   // `base::FeatureList::IsEnabled` if `google_groups_manager_` is null.
   bool IsFeatureGroupEnabled(const base::Feature& feature) const;
 
-  // Attaches `png_bytes` (if any) to `request` and sends it to MES.
+  // Attaches `image` (if any) to `request` and sends it to MES.
   void SendServerSuggestionsRequest(
       AreaOfInterest processed_area,
       SuggestionsCallback callback,
+      base::TimeTicks request_start_time,
       optimization_guide::proto::SmartSelectionSuggestionsRequest request,
-      std::optional<std::vector<uint8_t>> png_bytes);
+      std::optional<EncodedImage> image);
+
+  // Encodes `screenshot` as PNG or JPEG.
+  static std::optional<EncodedImage> EncodeScreenshot(
+      const SkBitmap& screenshot);
 
   // Processes the server response by calling tools to convert the response into
   // `Suggestion`s and calling the initial `callback` with them.
   void OnServerSuggestions(
       AreaOfInterest processed_area,
       SuggestionsCallback callback,
+      base::TimeTicks request_start_time,
+      base::TimeTicks mes_request_start_time,
+      size_t num_image_bytes,
+      size_t num_apc_bytes,
       optimization_guide::OptimizationGuideModelExecutionResult result,
       std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry);
 
@@ -111,4 +123,3 @@ class SuggestionService {
 }  // namespace selection
 
 #endif  // CHROME_BROWSER_SELECTION_SUGGESTION_SERVICE_H_
-

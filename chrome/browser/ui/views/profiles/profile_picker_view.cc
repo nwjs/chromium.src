@@ -282,8 +282,9 @@ views::View* ProfilePicker::GetViewForTesting() {
 // static
 void ProfilePicker::AddOnProfilePickerOpenedCallbackForTesting(
     base::OnceClosure callback) {
-  DCHECK(!g_profile_picker_opened_callback_for_testing);
-  DCHECK(!callback.is_null());
+  CHECK(!g_profile_picker_opened_callback_for_testing,
+        base::NotFatalUntil::M162);
+  CHECK(!callback.is_null(), base::NotFatalUntil::M162);
   g_profile_picker_opened_callback_for_testing =
       new base::OnceClosure(std::move(callback));
 }
@@ -334,7 +335,7 @@ void ProfilePickerView::NavigationFinishedObserver::DidFinishNavigation(
 // ProfilePickerView ----------------------------------------------------------
 
 void ProfilePickerView::UpdateParams(ProfilePicker::Params&& params) {
-  DCHECK(params_.CanReusePickerWindow(params));
+  CHECK(params_.CanReusePickerWindow(params), base::NotFatalUntil::M162);
   params_ = std::move(params);
 }
 
@@ -507,15 +508,6 @@ bool ProfilePickerView::CanNavigateBack() const {
   return flow_controller_ && flow_controller_->CanNavigateBack();
 }
 
-bool ProfilePickerView::HandleKeyboardEvent(
-    content::WebContents* source,
-    const input::NativeWebKeyboardEvent& event) {
-  // Forward the keyboard event to AcceleratorPressed() through the
-  // FocusManager.
-  return unhandled_keyboard_event_handler_.HandleKeyboardEvent(
-      event, GetFocusManager());
-}
-
 bool ProfilePickerView::HandleContextMenu(
     content::RenderFrameHost& render_frame_host,
     const content::ContextMenuParams& params) {
@@ -602,7 +594,7 @@ bool ProfilePickerView::MaybeReopen(ProfilePicker::Params& params) {
 }
 
 void ProfilePickerView::Display() {
-  DCHECK_NE(state_, kClosing);
+  CHECK_NE(state_, kClosing, base::NotFatalUntil::M162);
   TRACE_EVENT2("browser,startup", "ProfilePickerView::Display", "entry_point",
                params_.entry_point(), "state", state_);
 
@@ -630,20 +622,22 @@ void ProfilePickerView::OnPickerProfileCreated(Profile* picker_profile) {
       "browser,startup", "ProfilePickerView::OnPickerProfileCreated",
       "profile_path",
       (picker_profile ? picker_profile->GetPath().AsUTF8Unsafe() : ""));
-  DCHECK(picker_profile);
+  CHECK(picker_profile, base::NotFatalUntil::M162);
   Init(picker_profile);
 
   InitializeFeaturePromo(picker_profile);
 }
 
 void ProfilePickerView::Init(Profile* picker_profile) {
-  DCHECK_EQ(state_, kInitializing);
+  CHECK_EQ(state_, kInitializing, base::NotFatalUntil::M162);
   TRACE_EVENT1(
       "browser,startup", "ProfilePickerView::Init", "profile_path",
       (picker_profile ? picker_profile->GetPath().AsUTF8Unsafe() : ""));
   contents_ = content::WebContents::Create(
       content::WebContents::CreateParams(picker_profile));
   contents_->SetDelegate(this);
+  SetAcceleratorHandling(
+      views::WebContentsAcceleratorHandling::kProcessBeforeRenderer);
   web_modal::WebContentsModalDialogManager::CreateForWebContents(
       contents_.get());
   web_modal::WebContentsModalDialogManager::FromWebContents(contents_.get())
@@ -688,12 +682,12 @@ void ProfilePickerView::Init(Profile* picker_profile) {
       views::HWNDForWidget(GetWidget()));
 #endif
 
-  DCHECK(flow_controller_);
+  CHECK(flow_controller_, base::NotFatalUntil::M162);
   flow_controller_->Init();
 }
 
 void ProfilePickerView::FinishInit() {
-  DCHECK_EQ(kInitializing, state_);
+  CHECK_EQ(kInitializing, state_, base::NotFatalUntil::M162);
   state_ = kDisplayed;
 
   if (IsClassicProfilePickerFlow(params_)) {
@@ -742,7 +736,7 @@ ProfilePickerView::CreateFlowController(Profile* picker_profile,
         std::move(profile_picked_callback));
   }
 
-  DCHECK(IsClassicProfilePickerFlow(params_));
+  CHECK(IsClassicProfilePickerFlow(params_), base::NotFatalUntil::M162);
   return std::make_unique<ProfilePickerFlowController>(
       /*host=*/this, std::move(clear_host_callback), params_.entry_point(),
       params_.on_select_profile_target_url(), params_.initial_email());
@@ -902,7 +896,6 @@ void ProfilePickerView::BuildLayout() {
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
   auto web_view = std::make_unique<views::WebView>();
-  web_view->set_allow_accelerators(true);
   web_view_ = AddChildView(std::move(web_view));
 
   web_contents_attached_subscription_ =
@@ -968,7 +961,7 @@ void ProfilePickerView::InitializeFeaturePromo(Profile* system_profile) {
 
 ProfilePickerFlowController* ProfilePickerView::GetProfilePickerFlowController()
     const {
-  DCHECK(IsClassicProfilePickerFlow(params_));
+  CHECK(IsClassicProfilePickerFlow(params_), base::NotFatalUntil::M162);
   return static_cast<ProfilePickerFlowController*>(flow_controller_.get());
 }
 

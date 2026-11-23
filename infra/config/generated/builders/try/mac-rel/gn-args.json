@@ -5,6 +5,7 @@
     "enable_backup_ref_ptr_feature_flag": true,
     "enable_dangling_raw_ptr_checks": true,
     "enable_dangling_raw_ptr_feature_flag": true,
+    "enable_expensive_dchecks": false,
     "enable_rust_clippy": true,
     "ffmpeg_branding": "Chrome",
     "is_component_build": false,
@@ -14,7 +15,6 @@
     "target_cpu": "arm64",
     "target_os": "mac",
     "use_clang_coverage": true,
-    "use_reclient": false,
     "use_remoteexec": true,
     "use_siso": true
   }

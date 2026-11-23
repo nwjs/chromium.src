@@ -40,6 +40,7 @@ class WebState;
 
 namespace actor {
 
+class ActorEnterprisePolicyCheckerIOS;
 class ActorToolFactory;
 class ActorToolRequest;
 class AggregatedJournal;
@@ -69,7 +70,8 @@ class ActorTask : public web::WebStateObserver,
             bool allow_incognito_web_states,
             AggregatedJournal* journal,
             ActorToolFactory* tool_factory,
-            BrowserList* browser_list);
+            BrowserList* browser_list,
+            const ActorEnterprisePolicyCheckerIOS* policy_checker);
   ~ActorTask() override;
 
   ActorTask(const ActorTask&) = delete;
@@ -92,6 +94,11 @@ class ActorTask : public web::WebStateObserver,
 
   // Returns the unique identifier of the task.
   ActorTaskId task_id() const { return task_id_; }
+
+  // Returns the enterprise policy checker associated with this task
+  const ActorEnterprisePolicyCheckerIOS* policy_checker() const {
+    return policy_checker_;
+  }
 
   // Returns the execution engine associated with this task.
   ActorEngine& engine() const;
@@ -234,7 +241,6 @@ class ActorTask : public web::WebStateObserver,
                          web::WebStateID web_state_id) override;
 
   // ActorTaskBackgroundWorker::TaskStateDelegate.
-  std::vector<web::WebState*> GetControlledWebStates() override;
   ActorTaskState GetTaskState() const override;
   const std::string& GetTaskTitle() const override;
   const std::string& GetLastTaskUpdate() const override;
@@ -242,9 +248,9 @@ class ActorTask : public web::WebStateObserver,
   // Returns the Browser associated with the given `window_id`.
   Browser* GetBrowserForWindowId(int32_t window_id) const;
 
-  // Prunes destroyed or null WebStates from `controlled_web_states_`. If
-  // `destroying_web_state` is provided, also prunes the matching entry.
-  void PruneDestroyedWebStates(web::WebState* destroying_web_state = nullptr);
+  // Prunes destroyed or null WebStates from `controlled_web_states_`, including
+  // the matching `destroying_web_state`.
+  void PruneDestroyedWebStates(web::WebState* destroying_web_state);
 
   // Handles an implicit navigation on a controlled WebState being
   // blocked by origin gating policy.
@@ -295,6 +301,9 @@ class ActorTask : public web::WebStateObserver,
   // The tool factory used for creating tools under this task. Owned by the
   // ActorService, which is guaranteed to outlive this ActorTask.
   raw_ptr<ActorToolFactory> tool_factory_;
+
+  // Enterprise policy checker owned by `ActorService`.
+  raw_ptr<const ActorEnterprisePolicyCheckerIOS> policy_checker_;
 
   // Set of web states actively controlled (observed and/or being actuated on)
   // by this task.

@@ -347,6 +347,7 @@ class CC_PAINT_EXPORT PaintImage {
   }
   bool GetReinterpretAsSRGB() const { return reinterpret_as_srgb_; }
 
+  void UnionColorVolumeInto(gfx::ContentColorVolume& color_volume) const;
   gfx::ContentColorUsage GetContentColorUsage() const;
 
   // Returns whether this image will be decoded and rendered from YUV data
@@ -408,6 +409,12 @@ class CC_PAINT_EXPORT PaintImage {
   // 0.5f corresponds to 2^0.5 ~= 1.41x SDR white).
   float GetMaximumRenderedHdrHeadroom() const;
 
+  // Returns true if converting this image to the target color space in a
+  // decode cache would clamp values above white, destroying HDR content (from
+  // a gainmap or HDR color space) or content that is white-scaled at draw time.
+  // Decode caches must keep such images in their original color space.
+  bool DecodeCacheColorConversionIsDestructive() const;
+
   std::string ToString() const;
 
  private:
@@ -423,7 +430,6 @@ class CC_PAINT_EXPORT PaintImage {
   friend class DrawImageRectOp;
   friend class DrawImageOp;
   friend class DrawSkottieOp;
-  friend class ToneMapUtil;
 
   // TODO(crbug.com/40110279): Remove these once GetSkImage()
   // is fully removed.

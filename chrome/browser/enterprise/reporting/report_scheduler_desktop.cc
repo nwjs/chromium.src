@@ -12,15 +12,16 @@
 #include "base/notreached.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
-#include "components/enterprise/browser/reporting/prefs.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/reporting_util.h"
 #include "chrome/browser/upgrade_detector/build_state.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
-#include "components/device_signals/core/common/signals_features.h"
+#include "components/enterprise/browser/reporting/prefs.h"
 #include "components/enterprise/browser/reporting/report_scheduler.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/policy/core/common/cloud/dm_token.h"
 #include "components/policy/core/common/policy_service.h"
 #include "components/prefs/pref_service.h"
@@ -56,12 +57,12 @@ ReportSchedulerDesktop::ReportSchedulerDesktop()
 ReportSchedulerDesktop::ReportSchedulerDesktop(Profile* profile)
     : profile_(profile), prefs_(profile->GetPrefs()) {
   if (profile) {
-    if (enterprise_signals::features::IsProfileSignalsReportingEnabled()) {
-      user_security_signals_service_ =
-          std::make_unique<UserSecuritySignalsService>(
-              prefs_, this,
-              profile->GetProfilePolicyConnector()->policy_service());
-    }
+    user_security_signals_service_ =
+        std::make_unique<UserSecuritySignalsService>(
+            prefs_, this,
+            profile->GetProfilePolicyConnector()->policy_service(),
+            enterprise_isolated_mode::IsCaaEnabledInIsolatedMode() &&
+                profile->IsEnterpriseIsolatedModeProfile());
   }
 }
 

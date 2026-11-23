@@ -46,11 +46,12 @@ namespace net {
 //
 // The job holds a primary and a secondary connector slot. The slot a
 // connector occupies decides which address families the job hands it. While
-// the secondary slot is empty the primary connector may use both families and
-// prefers IPv6. The secondary slot is filled when the slow timer fires, and
-// from then on the primary takes IPv6 and the secondary takes IPv4 while DNS
-// is resolving. Once DNS resolution completes, connectors may attempt the
-// other family's remaining candidates when their preferred family is exhausted.
+// the secondary slot is empty the primary connector may use both families,
+// starting with IPv6 and alternating families on each failed attempt. The
+// secondary slot is filled when the slow timer fires, and from then on the
+// primary takes IPv6 and the secondary takes IPv4 while DNS is resolving. Once
+// DNS resolution completes, connectors may attempt the other family's remaining
+// candidates when their preferred family is exhausted.
 // The first connector to succeed settles the job, and the other one is
 // destroyed together with the attempt it had in flight.
 //
@@ -83,10 +84,13 @@ class QuicSessionPool::AsyncDnsJob
 
   // One candidate of the job's usable results, with everything an attempt to
   // it needs. Copied out of the results so that it stays valid across the
-  // calls made while starting the attempt. Two candidates are the same only
-  // when all three fields match.
+  // calls made while starting the attempt. Two candidates are the same when
+  // they produce an identical QUIC handshake (`ip_endpoint`, `quic_version`,
+  // `metadata.ech_config_list`, and `metadata.trust_anchor_ids` match;
+  // `metadata.supported_protocol_alpns` and `metadata.target_name` only
+  // participate in `GetUsableEndpoints()` version selection).
   struct Candidate {
-    bool operator==(const Candidate& other) const = default;
+    bool operator==(const Candidate& other) const;
 
     IPEndPoint ip_endpoint;
     ConnectionEndpointMetadata metadata;
@@ -197,17 +201,23 @@ class QuicSessionPool::AsyncDnsJob
   // connector falls back to the other family once resolution finishes and its
   // preferred family is exhausted. Each candidate is handed out at most once
   // per job. The same IP listed under two ServiceEndpoints with different
-  // metadata is two candidates, because the metadata can decide whether the
-  // handshake succeeds. An attempt with a stale ECH config can fail where a
-  // plain A/AAAA endpoint to the same IP works.
+  // handshake-relevant parameters (e.g., ECH config, trust anchor IDs, or
+  // selected QUIC version) is two candidates, because those parameters can
+  // decide whether the handshake succeeds (for example, an attempt with a
+  // stale ECH config can fail where a plain A/AAAA endpoint to the same IP
+  // works). Endpoints that differ only in ALPN list or target name after QUIC
+  // version selection map to the same candidate.
   std::optional<Candidate> TakeNextCandidate(
       const EndpointConnector& connector);
 
-  // Called by a connector every time one of its attempts failed. The job
-  // keeps the most recent failure and reports it when it runs out of
-  // candidates. The two connectors do not complete in the order their
-  // attempts failed, so the job records the failures itself.
-  void OnAttemptFailed(int rv, const NetErrorDetails& details);
+  // Called by a connector every time one of its attempts failed. Updates the
+  // state's preferred address family to alternate families while only one
+  // connector exists, and keeps the most recent failure to report when the job
+  // runs out of candidates. The two connectors do not complete in the order
+  // their attempts failed, so the job records the failures itself.
+  void OnAttemptFailed(const EndpointConnector& connector,
+                       int rv,
+                       const NetErrorDetails& details);
 
   // Called by `connector` when its attempt finished creating its session.
   // ERR_IO_PENDING means the session was created and its crypto handshake
@@ -250,6 +260,10 @@ class QuicSessionPool::AsyncDnsJob
     // Set once the slow timer was armed. The timer is armed at most once per
     // connection state.
     bool slow_timer_started = false;
+    // Whether the primary connector prefers IPv6 while the secondary slot is
+    // empty. Flipped to the opposite of the failed attempt's family on each
+    // failure so that a single connector alternates between IPv6 and IPv4.
+    bool prefer_ipv6 = true;
     // The connector that may use IPv6 once both slots are filled, and both
     // families while the secondary slot is empty. Created when the job first
     // has something to attempt.
@@ -313,6 +327,20 @@ class QuicSessionPool::AsyncDnsJob
   // True when a connector has an attempt in flight.
   bool HasAttemptInFlight() const;
 
+  // True when `require_dns_https_alpn_` is set and fresh crypto-ready DNS
+  // results are present but contain no usable QUIC endpoints. Once the HTTPS
+  // record has been evaluated without a matching ALPN, remaining A/AAAA
+  // queries cannot make any endpoint usable.
+  bool FreshEndpointsLackRequiredAlpn() const;
+
+  // Called when FreshEndpointsLackRequiredAlpn() is true and nothing is in
+  // flight while DNS is still resolving. Fires the pending host resolution and
+  // session creation signals with ERR_DNS_NO_MATCHING_SUPPORTED_ALPN so that
+  // callers stop waiting on this job, but does not complete the job. The job
+  // and its resolver request stay alive until DNS finishes, so that non-QUIC
+  // connection attempts can join the in-flight resolution. Only the first call
+  // has an effect.
+  void SignalNoMatchingAlpn();
 
   // Returns the result of the most recently failed attempt, or nothing while
   // no attempt failed.
@@ -368,6 +396,8 @@ class QuicSessionPool::AsyncDnsJob
   // Set when the one-shot session creation signal fired. Later creation
   // results are dropped.
   bool session_creation_notified_ = false;
+  // Set by SignalNoMatchingAlpn().
+  bool no_matching_alpn_signaled_ = false;
   // Cleared after the first IP pooling check that saw endpoints. Later
   // checks do not record negative metric entries.
   bool log_negative_ip_pool_result_ = true;

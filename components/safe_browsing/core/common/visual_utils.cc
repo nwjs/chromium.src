@@ -5,13 +5,13 @@
 #include "components/safe_browsing/core/common/visual_utils.h"
 
 #include <algorithm>
+#include <array>
 #include <unordered_map>
 #include <vector>
 
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/numerics/checked_math.h"
-#include "base/numerics/safe_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
 #include "components/safe_browsing/buildflags.h"
@@ -25,11 +25,6 @@
 #include "third_party/skia/include/private/chromium/SkPMColor.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/gfx/image/image.h"
-
-#if BUILDFLAG(IS_IOS)
-#include "ui/base/resource/resource_scale_factor.h"
-#include "ui/gfx/image/image_util.h"
-#endif
 
 namespace safe_browsing::visual_utils {
 
@@ -91,6 +86,36 @@ int GetMinHeightForVisualFeatures() {
   return kMinHeightForVisualFeatures;
 }
 
+// Fraction of pixels trimmed from both the minimum and maximum tails of each
+// RGB channel when computing the color range in `IsUniformImage`. A 0.5% tail
+// trim compares the 99.5th and 0.5th percentiles (central 99% of pixels).
+constexpr double kUniformImageOutlierTailRatio = 0.005;
+
+int GetTrimmedChannelRange(const std::array<size_t, 256>& histogram,
+                           size_t tail_trim_count) {
+  size_t low_cumulative = 0;
+  int low_value = 0;
+  for (int value = 0; value < 256; ++value) {
+    low_cumulative += histogram[value];
+    if (low_cumulative > tail_trim_count) {
+      low_value = value;
+      break;
+    }
+  }
+
+  size_t high_cumulative = 0;
+  int high_value = 255;
+  for (int value = 255; value >= 0; --value) {
+    high_cumulative += histogram[value];
+    if (high_cumulative > tail_trim_count) {
+      high_value = value;
+      break;
+    }
+  }
+
+  return std::max(0, high_value - low_value);
+}
+
 }  // namespace
 
 bool GetBlurredImage(const SkBitmap& image,
@@ -118,10 +143,9 @@ bool GetBlurredImage(const SkBitmap& image,
     // overhead.
     downsampled = image;
   } else {
-    // If dimensions do not match exactly (e.g. on non-iOS platforms, or
-    // if Finch feature parameters like `kVisualFeaturesSizes` configure
-    // dimensions that are not cleanly divisible by the display scale), fall
-    // back to resizing here.
+    // If the dimensions do not match exactly (e.g. on non-iOS platforms, where
+    // the caller passes through the full-resolution bitmap), fall back to
+    // resizing here.
     downsampled = skia::ImageOperations::Resize(
         image, skia::ImageOperations::RESIZE_GOOD, GetPHashDownsampleWidth(),
         GetPHashDownsampleHeight());
@@ -146,6 +170,43 @@ bool GetBlurredImage(const SkBitmap& image,
   }
 
   return true;
+}
+
+bool IsUniformImage(const VisualFeatures::BlurredImage& blurred_image,
+                    int max_color_range) {
+  if (blurred_image.width() <= 0 || blurred_image.height() <= 0 ||
+      max_color_range < 0) {
+    return false;
+  }
+  size_t num_pixels = 0;
+  size_t expected_size = 0;
+  if (!base::CheckMul<size_t>(blurred_image.width(), blurred_image.height())
+           .AssignIfValid(&num_pixels) ||
+      !base::CheckMul<size_t>(num_pixels, 3).AssignIfValid(&expected_size)) {
+    return false;
+  }
+  const std::string& data = blurred_image.data();
+  if (data.size() != expected_size || data.empty()) {
+    return false;
+  }
+
+  std::array<size_t, 256> r_histogram = {};
+  std::array<size_t, 256> g_histogram = {};
+  std::array<size_t, 256> b_histogram = {};
+  for (size_t i = 0; i < expected_size; i += 3) {
+    ++r_histogram[static_cast<uint8_t>(data[i])];
+    ++g_histogram[static_cast<uint8_t>(data[i + 1])];
+    ++b_histogram[static_cast<uint8_t>(data[i + 2])];
+  }
+
+  const size_t tail_trim_count =
+      static_cast<size_t>(num_pixels * kUniformImageOutlierTailRatio);
+  return GetTrimmedChannelRange(r_histogram, tail_trim_count) <=
+             max_color_range &&
+         GetTrimmedChannelRange(g_histogram, tail_trim_count) <=
+             max_color_range &&
+         GetTrimmedChannelRange(b_histogram, tail_trim_count) <=
+             max_color_range;
 }
 
 void EncodeScreenshot(const SkBitmap& screenshot,
@@ -261,24 +322,16 @@ SkBitmap GetBitmapForVisualFeatures(const gfx::Image& image) {
     return SkBitmap();
   }
 
-  // `gfx::ResizedImage()` on iOS accepts dimensions in DIPs, while
-  // `AsBitmap()` multiplies DIPs by the maximum supported resource scale
-  // factor (e.g. 2x/3x) when converting back to an `SkBitmap`. Divide target
-  // pixel dimensions by the scale factor so the resulting `SkBitmap` matches
-  // the exact target pHash pixel dimensions.
-  // Note: If Finch feature parameters (e.g. `kVisualFeaturesSizes`) configure
-  // pixel dimensions that are not cleanly divisible by `scale`, integer
-  // rounding in `base::ClampRound()` may produce pixel dimensions that differ
-  // slightly from the target pHash dimensions. `GetBlurredImage()` handles
-  // this gracefully by falling back to `skia::ImageOperations::Resize()` if
-  // dimensions do not match exactly.
-  const float scale =
-      std::max(1.0f, ui::GetScaleForMaxSupportedResourceScaleFactor());
-  gfx::Size target_size_dips(
-      std::max(1, base::ClampRound(GetPHashDownsampleWidth() / scale)),
-      std::max(1, base::ClampRound(GetPHashDownsampleHeight() / scale)));
-  gfx::Image downsampled_image = gfx::ResizedImage(image, target_size_dips);
-  return downsampled_image.AsBitmap();
+  // Resize the image directly to the target pHash pixel dimensions.
+  //
+  // `gfx::ResizedImage(...).AsBitmap()` is deliberately not used here:
+  // `AsBitmap()` upsamples by the maximum supported resource scale factor, so
+  // that pattern requires pre-dividing the target dimensions by the same
+  // factor. The shrink and the upsample cancel out dimensionally, but the image
+  // ends up rendered at only 1/scale of the pHash resolution and the
+  // interpolated upsample bleeds detail across `kPHashBlockSize` boundaries.
+  return GetResizedImageAsSkBitmap(
+      image, gfx::Size(GetPHashDownsampleWidth(), GetPHashDownsampleHeight()));
 #else
   return image.AsBitmap();
 #endif

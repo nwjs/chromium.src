@@ -4,9 +4,11 @@
 
 #include "chrome/browser/ui/passwords/remote_actor_selection_dialog_controller.h"
 
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/ui/passwords/password_dialog_prompts.h"
-#include "chrome/grit/generated_resources.h"
+#include "components/password_manager/core/common/password_manager_features.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/elide_url.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/web_contents.h"
@@ -20,6 +22,12 @@ namespace {
 
 constexpr char kRemoteActorDataHandlingHelpUrl[] =
     "https://support.google.com/gemini?p=lm_gpm_data";
+
+std::u16string GetActorName() {
+  std::string actor_name =
+      features::kRemoteActorCredentialSharingActorNameForTesting.Get();
+  return base::UTF8ToUTF16(actor_name.empty() ? "Gemini" : actor_name);
+}
 
 }  // namespace
 
@@ -62,14 +70,14 @@ std::u16string RemoteActorSelectionDialogController::GetTitle() const {
       GURL(credential_domain_),
       url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
   return l10n_util::GetStringFUTF16(IDS_REMOTE_ACTOR_SHARING_DIALOG_TITLE,
-                                    formatted_domain);
+                                    GetActorName(), formatted_domain);
 }
 
 std::u16string RemoteActorSelectionDialogController::GetSubtitle() const {
   std::vector<size_t> offsets;
   std::u16string subtitle = l10n_util::GetStringFUTF16(
       IDS_REMOTE_ACTOR_SHARING_DIALOG_SUBTITLE,
-      {std::u16string(), std::u16string()}, &offsets);
+      {std::u16string(), std::u16string(), GetActorName()}, &offsets);
   if (offsets.size() >= 2) {
     subtitle_link_range_ = gfx::Range(offsets[0], offsets[1]);
   }
@@ -89,7 +97,7 @@ void RemoteActorSelectionDialogController::OnSubtitleLinkClicked() {
   }
   content::OpenURLParams params(
       GURL(kRemoteActorDataHandlingHelpUrl), content::Referrer(),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK,
+      WindowOpenDisposition::kNewForegroundTab, ui::PAGE_TRANSITION_LINK,
       /*is_renderer_initiated=*/false);
   web_contents_->OpenURL(params, /*navigation_handle_callback=*/{});
 }

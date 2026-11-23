@@ -14,27 +14,63 @@
 #include "components/autofill/core/browser/form_structure.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/autofill_driver.h"
+#include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 
 namespace autofill {
 
+namespace {
+
+bool IsSameDomainOrHostAsMainFrame(const FormStructure& form,
+                                   const FormFieldData& field) {
+  return net::registry_controlled_domains::SameDomainOrHost(
+      field.origin(), form.main_frame_origin(),
+      net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+}
+
+bool HasEligibleOtpFieldProperties(const FormStructure& form,
+                                   const FormFieldData& field) {
+  return field.is_focusable() && !field.IsPasswordInputElement() &&
+         IsSameDomainOrHostAsMainFrame(form, field);
+}
+
+}  // namespace
+
+// static
+bool OtpFieldDetector::IsOtpField(const FormStructure& form,
+                                  const AutofillField& field) {
+  return field.Type().GetTypes().contains(ONE_TIME_CODE) &&
+         HasEligibleOtpFieldProperties(form, field);
+}
+
+// static
+bool OtpFieldDetector::IsOtpField(const FormStructure& form,
+                                  const FormFieldData& field) {
+  const AutofillField* autofill_field = form.GetFieldById(field.global_id());
+  if (!autofill_field || !IsOtpField(form, *autofill_field)) {
+    return false;
+  }
+  return field.is_focusable() && !field.IsPasswordInputElement() &&
+         (field.origin() == autofill_field->origin() ||
+          IsSameDomainOrHostAsMainFrame(form, field));
+}
+
+// static
 bool OtpFieldDetector::IsOtpForm(const FormStructure& form) {
   bool has_otp_field = false;
   for (const std::unique_ptr<AutofillField>& f : form.fields()) {
-    if (!f->Type().GetTypes().contains(ONE_TIME_CODE) || !f->is_focusable() ||
-        f->IsPasswordInputElement()) {
+    if (!f->Type().GetTypes().contains(ONE_TIME_CODE)) {
       continue;
     }
-    has_otp_field = true;
-
-    if (!net::registry_controlled_domains::SameDomainOrHost(
-            f->origin(), form.main_frame_origin(),
-            net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES)) {
+    if (!IsSameDomainOrHostAsMainFrame(form, *f)) {
       // TODO(crbug.com/441433533): Consider making this less strict by
       // introducing a field-level check in the manager instead of dropping
       // the entire form.
       return false;
+    }
+    if (!has_otp_field && IsOtpField(form, *f)) {
+      has_otp_field = true;
     }
   }
 
@@ -112,7 +148,7 @@ void OtpFieldDetector::OnAfterFormSubmitted(AutofillManager& manager,
 void OtpFieldDetector::AddFormAndNotifyIfNecessary(FormGlobalId form_id) {
   // Memorize the state of `forms_with_otps_` before the update, then perform
   // the update and only then notify the callbacks to ensure that
-  // `IsOneTimeTokenFieldPresent()` returns the correct answer when called by
+  // `IsOtpFieldPresent()` returns the correct answer when called by
   // a notified callback.
   const bool was_empty = forms_with_otps_.empty();
   forms_with_otps_.insert(form_id);

@@ -164,7 +164,7 @@ void BackForwardButton::OnMouseEntered(const ui::MouseEvent& event) {
     // Record this before the event triggers `StateChanged` via
     // `ToolbarButton::OnMouseEntered`.
     last_back_assumed_disposition_ = ui::DispositionFromEventFlags(
-        event.flags(), WindowOpenDisposition::CURRENT_TAB);
+        event.flags(), WindowOpenDisposition::kCurrentTab);
   }
 
   ToolbarButton::OnMouseEntered(event);
@@ -172,10 +172,6 @@ void BackForwardButton::OnMouseEntered(const ui::MouseEvent& event) {
 
 bool BackForwardButton::OnMousePressed(const ui::MouseEvent& event) {
   return ToolbarButton::OnMousePressed(event);
-}
-
-bool BackForwardButton::ShouldShowInkdropAfterIphInteraction() {
-  return false;
 }
 
 BEGIN_METADATA(BackForwardButton)

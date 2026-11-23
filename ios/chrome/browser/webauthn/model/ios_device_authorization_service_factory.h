@@ -7,33 +7,21 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
 #import "components/webauthn/core/browser/device_authorization/device_authorization_service.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class ProfileIOS;
-
-namespace webauthn {
-class DeviceAuthorizationService;
-}  // namespace webauthn
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that associates `DeviceAuthorizationService` to Profiles.
-class IOSDeviceAuthorizationServiceFactory
-    : public ProfileKeyedServiceFactoryIOS {
+class IOSDeviceAuthorizationServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          IOSDeviceAuthorizationServiceFactory,
+          webauthn::DeviceAuthorizationService> {
  public:
-  static webauthn::DeviceAuthorizationService* GetForProfile(
-      ProfileIOS* profile);
-  static IOSDeviceAuthorizationServiceFactory* GetInstance();
+  explicit IOSDeviceAuthorizationServiceFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<IOSDeviceAuthorizationServiceFactory>;
-
-  IOSDeviceAuthorizationServiceFactory();
-  ~IOSDeviceAuthorizationServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_WEBAUTHN_MODEL_IOS_DEVICE_AUTHORIZATION_SERVICE_FACTORY_H_

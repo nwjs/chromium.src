@@ -18,7 +18,6 @@
 #include "chrome/browser/apps/platform_apps/audio_focus_web_contents_observer.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/file_select_helper.h"
-#include "chrome/browser/file_system_access/file_system_access_permission_request_manager.h"
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
@@ -78,16 +77,16 @@ content::WebContents* OpenURLFromTabInternal(
 
   // Force all links to open in a new tab, even if they were trying to open a
   // window.
-  if (params.disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB) {
-    new_tab_params.disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
-  } else if (params.disposition == WindowOpenDisposition::OFF_THE_RECORD) {
+  if (params.disposition == WindowOpenDisposition::kNewBackgroundTab) {
+    new_tab_params.disposition = WindowOpenDisposition::kNewBackgroundTab;
+  } else if (params.disposition == WindowOpenDisposition::kOffTheRecord) {
     // Don't force this behaviour for requests for an incognito window, where
     // it would not be acceptable to open in a new tab of a non-incognito
     // window.
-    new_tab_params.disposition = WindowOpenDisposition::OFF_THE_RECORD;
+    new_tab_params.disposition = WindowOpenDisposition::kOffTheRecord;
     new_tab_params.window_action = NavigateParams::WindowAction::kShowWindow;
   } else {
-    new_tab_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    new_tab_params.disposition = WindowOpenDisposition::kNewForegroundTab;
     new_tab_params.window_action = NavigateParams::WindowAction::kShowWindow;
   }
 
@@ -112,7 +111,7 @@ void OpenURLAfterCheckIsDefaultBrowser(
   // If it is the default, open the URL directly instead of asking the system to
   // open it.
   Profile* profile = Profile::FromBrowserContext(source->GetBrowserContext());
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M162);
   if (!profile) {
     return;
   }
@@ -200,7 +199,7 @@ ChromeAppDelegate::NewWindowContentsDelegate::OpenURLFromTab(
         break;
       }
     }
-    DCHECK(owned_source);
+    CHECK(owned_source, base::NotFatalUntil::M162);
 
     // Object lifetime notes: StartCheckIsDefault() takes lifetime ownership of
     // check_if_default_browser_worker and will clean up after the asynchronous
@@ -259,10 +258,10 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
   apps::AudioFocusWebContentsObserver::CreateForWebContents(web_contents);
 
 #if BUILDFLAG(IS_CHROMEOS)
-  policy::DlpContentTabHelper::MaybeCreateForWebContents(web_contents);
+  dlp_content_tab_helper_ =
+      policy::DlpContentTabHelper::MaybeCreate(web_contents);
 #endif
 
-  FileSystemAccessPermissionRequestManager::CreateForWebContents(web_contents);
 }
 
 void ChromeAppDelegate::RenderFrameCreated(
@@ -276,10 +275,10 @@ void ChromeAppDelegate::RenderFrameCreated(
     // See http://crbug.com/40400194 for more details.
     content::WebContents* web_contents =
         content::WebContents::FromRenderFrameHost(frame_host);
-    DCHECK(web_contents);
+    CHECK(web_contents, base::NotFatalUntil::M162);
     content::HostZoomMap* zoom_map =
         content::HostZoomMap::GetForWebContents(web_contents);
-    DCHECK(zoom_map);
+    CHECK(zoom_map, base::NotFatalUntil::M162);
     zoom_map->SetZoomLevelForHost(web_contents->GetURL().GetHost(), 0);
   }
 }
@@ -320,9 +319,9 @@ void ChromeAppDelegate::AddNewContents(
       Profile::FromBrowserContext(context));
   // Force all links to open in a new tab, even if they were trying to open a
   // new window.
-  disposition = disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB
+  disposition = disposition == WindowOpenDisposition::kNewBackgroundTab
                     ? disposition
-                    : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+                    : WindowOpenDisposition::kNewForegroundTab;
   chrome::AddWebContents(displayer.browser_window_interface(), nullptr,
                          std::move(new_contents), target_url, disposition,
                          window_features);

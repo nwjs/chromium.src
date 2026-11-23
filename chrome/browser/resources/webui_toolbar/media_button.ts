@@ -11,11 +11,13 @@ import {TrackedElementManager} from '//resources/js/tracked_element/tracked_elem
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
 import {getContextMenuPosition, HelpBubbleAnchorMixin, HighlightTracker, PressHandler} from '/shared/toolbar_button.js';
+import {ContextMenuType} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import type {MediaControlState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
-import {BrowserProxyImpl, ContextMenuType} from './browser_proxy.js';
+import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {getHtml} from './media_button.html.js';
+import type {OverflowableButtonState} from './overflowable_button.js';
 import {OverflowableButtonMixin} from './overflowable_button.js';
 import {getCss} from './toolbar_button.css.js';
 
@@ -42,8 +44,11 @@ export class MediaButtonElement extends MediaButtonElementBase {
     };
   }
 
-  override accessor state: MediaControlState = {
+  override accessor state: MediaControlState&OverflowableButtonState = {
     enabled: true,
+
+    // These fields are from OverflowableButtonState (in addition to
+    // MediaControlState), and are used by OverflowableButtonMixin.
     shouldBeShown: false,
     isContextMenuVisible: false,
     preventOverflow: false,

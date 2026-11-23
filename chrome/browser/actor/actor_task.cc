@@ -20,6 +20,7 @@
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_metrics.h"
 #include "chrome/browser/actor/actor_surface.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/actor_surface_registry.h"
 #include "chrome/browser/actor/enterprise_policy_checker.h"
 #include "chrome/browser/actor/execution_engine.h"
@@ -394,34 +395,20 @@ void ActorTask::Act(std::vector<std::unique_ptr<ToolRequest>>&& actions,
   callback_for_act_ = std::move(callback);
 
   // TODO(b/474410401): ActorTask tabs should be explicitly added by the client.
-  if (base::FeatureList::IsEnabled(kGlicEarlyAddTaskTabs)) {
-    absl::flat_hash_set<tabs::TabHandle> tabs_to_add;
-    for (const std::unique_ptr<ToolRequest>& request : actions) {
-      CHECK(request);
-      tabs::TabHandle tab = request->GetTabHandle();
-      if (tab != tabs::TabHandle::Null()) {
-        tabs_to_add.insert(tab);
-      }
+  ActorSurfaceHandleSet actor_surfaces_to_add;
+  for (const std::unique_ptr<ToolRequest>& request : actions) {
+    if (request->GetActorSurfaceHandle() != ActorSurfaceHandle::Null()) {
+      actor_surfaces_to_add.insert(request->GetActorSurfaceHandle());
     }
+  }
 
-    did_add_tabs_callback_.Reset(base::BindOnce(
-        &ActorTask::DidEarlyAddTabs, GetWeakPtr(), std::move(actions)));
-    auto add_tabs_barrier = base::BarrierCallback<mojom::ActionResultPtr>(
-        tabs_to_add.size(), did_add_tabs_callback_.callback());
-    for (const tabs::TabHandle& tab : tabs_to_add) {
-      AddTab(tab, /*stop_task_on_detach=*/true, add_tabs_barrier);
-    }
-  } else {
-    SetState(State::kActing);
-
-    actions_in_current_state_ += actions.size();
-    total_number_of_actions_ += actions.size();
-
-    action_tracker_for_metrics_->WillAct(actions);
-
-    execution_engine_->Act(std::move(actions),
-                           base::BindOnce(&ActorTask::OnFinishedAct,
-                                          weak_ptr_factory_.GetWeakPtr()));
+  did_add_tabs_callback_.Reset(base::BindOnce(
+      &ActorTask::DidEarlyAddTabs, GetWeakPtr(), std::move(actions)));
+  auto add_tabs_barrier = base::BarrierCallback<mojom::ActionResultPtr>(
+      actor_surfaces_to_add.size(), did_add_tabs_callback_.callback());
+  for (const ActorSurfaceHandle& actor_surface_handle : actor_surfaces_to_add) {
+    AddActorSurface(actor_surface_handle, /*stop_task_on_detach=*/true,
+                    add_tabs_barrier);
   }
 }
 
@@ -486,8 +473,7 @@ void ActorTask::Stop(StoppedReason stop_reason) {
 
   if (callback_for_act_) {
     // A task can be stopped while still in `kCreated` if an Act request is
-    // waiting on asynchronous tab addition (e.g. via `kGlicEarlyAddTaskTabs`)
-    // before transitioning to `kActing`.
+    // waiting on asynchronous tab addition before transitioning to `kActing`.
     CHECK(state_ == State::kActing || state_ == State::kWaitingOnUser ||
               state_ == State::kCreated,
           base::NotFatalUntil::M161);
@@ -529,8 +515,7 @@ void ActorTask::Pause(bool from_actor) {
   // result before seeing the state transition.
   if (callback_for_act_) {
     // A task can be paused while still in `kCreated` if an Act request is
-    // waiting on asynchronous tab addition (e.g. via `kGlicEarlyAddTaskTabs`)
-    // before transitioning to `kActing`.
+    // waiting on asynchronous tab addition before transitioning to `kActing`.
     CHECK(state_ == State::kActing || state_ == State::kWaitingOnUser ||
               state_ == State::kCreated,
           base::NotFatalUntil::M161);
@@ -634,24 +619,6 @@ base::Time ActorTask::GetEndTime() const {
 void ActorTask::AddTab(tabs::TabHandle tab_handle,
                        bool stop_task_on_detach,
                        AddTabCallback callback) {
-  // A tab in a profile without an ActorKeyedService (e.g. incognito) has no
-  // surface, so only the tab can tell "gone" from "cross-profile". When not
-  // under actor control, AddActorSurface() reports that error first.
-  // TODO(b/567721071): Remove once callers pass surface handles, or such tabs
-  // get surfaces, so AddActorSurface() alone can report it.
-  if (IsUnderActorControl()) {
-    tabs::TabInterface* tab = tab_handle.Get();
-    if (CheckCrossProfileAndLog(tab, tab_handle, "ActorTask::AddTab")) {
-      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE,
-          base::BindOnce(
-              std::move(callback),
-              MakeResult(
-                  tab ? mojom::ActionResultCode::kActionTargetCrossProfile
-                      : mojom::ActionResultCode::kTabWentAway)));
-      return;
-    }
-  }
   AddActorSurface(ActorSurfaceHandle::From(tab_handle), stop_task_on_detach,
                   std::move(callback));
 }
@@ -704,13 +671,21 @@ void ActorTask::AddActorSurface(ActorSurfaceHandle actor_surface_handle,
 
   DidTabEnterActorControl(actor_surface_handle);
 
-  // Notify the UI of the new tab.
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&ui::UiEventDispatcher::OnActorTaskAsyncChange,
-                                ui_weak_ptr_factory_.GetWeakPtr(),
-                                ui::UiEventDispatcher::AddTab{
-                                    .task_id = id_, .handle = tab_handle},
-                                std::move(callback)));
+  // TODO(b/567721071): UI actually cares about visible tabs - determine how UI
+  // events should be sent when in headless.
+  if (actor_surface->IsTab()) {
+    // Notify the UI of the new tab.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(
+            &ui::UiEventDispatcher::OnActorTaskAsyncChange,
+            ui_weak_ptr_factory_.GetWeakPtr(),
+            ui::UiEventDispatcher::AddTab{.task_id = id_, .handle = tab_handle},
+            std::move(callback)));
+  } else {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(std::move(callback), MakeOkResult()));
+  }
 
   // Post-task this delegate call to avoid any performance issues.
   if (delegate_) {
@@ -765,12 +740,6 @@ void ActorTask::RemoveActorSurface(ActorSurfaceHandle actor_surface_handle) {
 }
 
 void ActorTask::ObserveTabOnce(tabs::TabHandle tab_handle) {
-  CHECK(IsUnderActorControl());
-
-  tabs::TabInterface* tab = tab_handle.Get();
-  if (CheckCrossProfileAndLog(tab, tab_handle, "ObserveTabOnce")) {
-    return;
-  }
   ObserveActorSurfaceOnce(ActorSurfaceHandle::From(tab_handle));
 }
 
@@ -837,8 +806,6 @@ void ActorTask::OnActorSurfaceWillDetach(
 void ActorTask::DidEarlyAddTabs(
     std::vector<std::unique_ptr<ToolRequest>>&& actions,
     std::vector<mojom::ActionResultPtr> add_tab_results) {
-  CHECK(base::FeatureList::IsEnabled(kGlicEarlyAddTaskTabs));
-
   // If any tabs failed to be added, return the first failing result and respond
   // with failure.
   for (mojom::ActionResultPtr& result : add_tab_results) {
@@ -875,6 +842,11 @@ void ActorTask::RecomputeHasVisibleTab() {
   // window occlusion in addition to WebContents visibility.
   bool has_any_visible_tab = false;
   for (const auto& [handle, controlled_state] : controlled_tabs_) {
+    // We don't want to show a surface without a tab to the user.
+    if (ActorSurface* actor_surface = handle.Get();
+        actor_surface && !actor_surface->IsTab()) {
+      continue;
+    }
     if (controlled_state->web_contents() &&
         controlled_state->web_contents()->GetVisibility() ==
             content::Visibility::VISIBLE) {
@@ -980,16 +952,19 @@ void ActorTask::DidTabEnterActorControl(
     // guarantees that.
     contents = actor_surface->GetWebContents();
   }
-  if (!tab || !contents) {
-    // A missing tab happens in unittests.
+  if (!contents) {
+    // Missing contents happens in unittests.
     return;
   }
   ActorControlledTabState* state = controlled_tabs_[actor_surface_handle].get();
 
-  // TODO(crbug.com/450524344)): Add a test for discarded content.
-  state->content_discarded_subscription =
-      tab->RegisterWillDiscardContents(base::BindRepeating(
-          &ActorTask::HandleDiscardContents, weak_ptr_factory_.GetWeakPtr()));
+  // Only tabs discard their contents.
+  if (tab) {
+    // TODO(crbug.com/450524344): Add a test for discarded content.
+    state->content_discarded_subscription =
+        tab->RegisterWillDiscardContents(base::BindRepeating(
+            &ActorTask::HandleDiscardContents, weak_ptr_factory_.GetWeakPtr()));
+  }
   DidContentsEnterActorControl(state, contents);
 
   RecomputeHasVisibleTab();
@@ -1072,21 +1047,6 @@ bool ActorTask::CheckCrossProfileAndLog(ActorSurface* actor_surface,
   return false;
 }
 
-bool ActorTask::CheckCrossProfileAndLog(tabs::TabInterface* tab,
-                                        tabs::TabHandle tab_handle,
-                                        std::string_view method_name) {
-  if (!tab || tab->GetProfile() != GetProfile()) {
-    journal_->Log(GURL(), id(), method_name,
-                  JournalDetailsBuilder()
-                      .Add("tab_id", tab_handle.raw_value())
-                      .AddError(!tab ? "Tab does not exist"
-                                     : "Cross-profile access denied")
-                      .Build());
-    return true;
-  }
-  return false;
-}
-
 void ActorTask::AddAdditionalTabObservations(
     std::vector<optimization_guide::proto::TabObservation> tab_observations) {
   // This is currently only used by the load and extract content tool.
@@ -1125,11 +1085,17 @@ std::ostream& operator<<(std::ostream& os, const ActorTask::State& state) {
 }
 
 void ActorTask::SetStepProgress(std::string step_progress) {
-  if (step_progress_ == step_progress) {
-    return;
-  }
+  const bool changed = step_progress_ != step_progress;
   step_progress_ = std::move(step_progress);
-  service_->NotifyTaskStepProgressChanged(*this, step_progress_);
+  // The UI gets every update, even a repeat, because the cursor chip
+  // clears after each action and the next one may reuse the same text.
+  // Observers get changes only.
+  ui_event_dispatcher_->OnActorTaskSyncChange(
+      ui::UiEventDispatcher::UpdateTaskStepProgress{
+          .task_id = id_, .step_progress = step_progress_});
+  if (changed) {
+    service_->NotifyTaskStepProgressChanged(*this, step_progress_);
+  }
 }
 
 // static
@@ -1151,6 +1117,7 @@ ActorTask::State ActorTask::GetTaskStateFromStoppedReason(
       break;
     case StoppedReason::kModelError:
     case StoppedReason::kChromeFailure:
+    case StoppedReason::kAbortedByPolicy:
       final_state = State::kFailed;
       break;
   }

@@ -64,7 +64,14 @@ BASE_FEATURE(kPrerenderCancelOnCrossDocumentRestart,
 
 constexpr base::MemoryConsumerTraits kPrerenderHostRegistryTraits(
     base::MemoryConsumerTraits::EstimatedMemoryUsage::kLarge,
-    base::MemoryConsumerTraits::ReleaseMemoryCost::kRequiresTraversal,
+    // The released memory is mostly the prerendered page's renderer, freed by
+    // the OS when the process exits.
+    // TODO(crbug.com/441951621): When the renderer is shared (e.g.
+    // prerender-until-script reuses the initiator's process), cancelling
+    // doesn't end the process. The renderer tears down the Document instead,
+    // reading memory that may be swapped out, which kNone doesn't account for.
+    // Find a way to always release this memory by ending the process.
+    base::MemoryConsumerTraits::ReleaseMemoryDataAccess::kNone,
     base::MemoryConsumerTraits::InformationRetention::kLossy,
     base::MemoryConsumerTraits::ExecutionType::kAsynchronous,
     base::MemoryConsumerTraits::IsStateful::kNo);
@@ -321,6 +328,7 @@ PreloadingEligibility ToEligibility(PrerenderFinalStatus status) {
       NOTREACHED();
     case PrerenderFinalStatus::kPrerenderHostReused:
     case PrerenderFinalStatus::kFormSubmitWhenPrerendering:
+    case PrerenderFinalStatus::kPrefetchFailedCrossOriginSubframe:
       NOTREACHED();
   }
 
@@ -1171,33 +1179,32 @@ PrerenderHostId PrerenderHostRegistry::FindPotentialHostToActivate(
     return PrerenderHostId();
   }
 
-  // Collect hosts that can match the navigation request.
-  std::vector<PrerenderHost*> matchable_hosts;
-  // First, collect hosts that can exactly match or match with the
-  // No-Vary-Search header.
-  for (const auto& [host_id, host] : prerender_host_by_id_) {
-    if (host->IsUrlMatch(navigation_request.GetURL())) {
-      matchable_hosts.push_back(host.get());
+  // Find an available host for the navigation request.
+  PrerenderHost* host = nullptr;
+  // First, find a host that can exactly match or match with the No-Vary-Search
+  // header.
+  for (const auto& [host_id, it_prerender_host] : prerender_host_by_id_) {
+    if (it_prerender_host->IsUrlMatch(navigation_request.GetURL())) {
+      host = it_prerender_host.get();
+      break;
     }
   }
-  // Then, collect hosts that can match with the No-Vary-Search hint.
-  for (const auto& [host_id, host] : prerender_host_by_id_) {
-    if (host->IsNoVarySearchHintUrlMatch(navigation_request.GetURL())) {
-      matchable_hosts.push_back(host.get());
+  // If the host is not found, then find a host that can match with the
+  // No-Vary-Search hint.
+  if (!host) {
+    for (const auto& [host_id, it_prerender_host] : prerender_host_by_id_) {
+      if (it_prerender_host->IsNoVarySearchHintUrlMatch(
+              navigation_request.GetURL())) {
+        host = it_prerender_host.get();
+        break;
+      }
     }
   }
-  RecordPotentialPrerenderProcessReuse(!matchable_hosts.empty(),
+  RecordPotentialPrerenderProcessReuse(host != nullptr,
                                        navigation_request.GetURL());
-  if (matchable_hosts.empty()) {
+  if (!host) {
     return PrerenderHostId();
   }
-  // Use the first match. This prioritizes the exact match or No-Vary-Search
-  // header match than No-Vary-Search hint match.
-  PrerenderHost* host = *matchable_hosts.begin();
-
-  base::UmaHistogramCounts100(
-      "Prerender.Experimental.MatchableHostCountOnActivation",
-      matchable_hosts.size());
   // Cannot activate if prerendering navigation has not started yet.
   if (!host->GetInitialNavigationId().has_value()) {
     CancelHost(host->prerender_host_id(),
@@ -1617,19 +1624,17 @@ PrerenderHostId PrerenderHostRegistry::GetPrerenderHostIdForNavigation(
 
 void PrerenderHostRegistry::DidStartNavigation(
     NavigationHandle* navigation_handle) {
-  // DidStartNavigation is used for monitoring the main frame navigation in a
-  // prerendered page so do nothing for other navigations.
   auto* navigation_request = NavigationRequest::From(navigation_handle);
-  if (!navigation_request->IsInPrerenderedMainFrame() ||
-      navigation_request->IsSameDocument()) {
+  if (navigation_request->IsSameDocument()) {
     return;
   }
 
-  // This navigation is running on the main frame in the prerendered page, so
-  // its FrameTree::Delegate should be PrerenderHost.
-  auto& prerender_host = PrerenderHost::GetFromFrameTreeNode(
+  auto* prerender_host = PrerenderHost::GetFromFrameTreeNodeIfPrerendering(
       *navigation_request->frame_tree_node());
-  prerender_host.DidStartNavigation(navigation_handle);
+  if (!prerender_host) {
+    return;
+  }
+  prerender_host->DidStartNavigation(navigation_handle);
 }
 
 void PrerenderHostRegistry::ReadyToCommitNavigation(

@@ -16,19 +16,19 @@ extension ILType {
         withMethods: [
           "close",
           "isBound",
-          {%- if remote|uses_non_associated_endpoints %}
+          {%- if remote in interface_pending_receivers %}
           "bindNewPipeAndPassReceiver",
           {%- endif %}
-          {%- if remote|uses_associated_endpoints %}
+          {%- if remote in interface_associated_pending_receivers %}
           "associateAndPassReceiver",
           {%- endif %}
         ])
 
-    {%- if remote|uses_non_associated_endpoints %}
+    {%- if remote in interface_pending_receivers %}
     fileprivate static let js{{remote|format_unique_name}}PendingReceiver: ILType = .object(
         ofGroup: "{{remote|fully_qualified_name}}PendingReceiver")
     {%- endif %}
-    {%- if remote|uses_associated_endpoints %}
+    {%- if remote in interface_associated_pending_receivers %}
     fileprivate static let js{{remote|format_unique_name}}PendingAssociatedReceiver: ILType = .object(
         ofGroup: "{{remote|fully_qualified_name}}PendingAssociatedReceiver")
     {%- endif %}
@@ -46,45 +46,68 @@ extension ILType {
     fileprivate static let js{{receiver|format_unique_name}}CallbackRouterReceiverHelper: ILType = .object(
         ofGroup: "{{receiver|fully_qualified_name}}CallbackRouterReceiverHelper",
         withMethods: [
-          "closeBindings",
-          {%- if receiver|uses_non_associated_endpoints %}
+          "close",
+          {%- if receiver in interface_pending_receivers or
+                 receiver in interface_associated_pending_receivers %}
+          "bindHandle",
+          {%- endif %}
+          {%- if receiver in interface_pending_remotes %}
           "bindNewPipeAndPassRemote",
           {%- endif %}
-          {%- if receiver|uses_associated_endpoints %}
+          {%- if receiver in interface_associated_pending_remotes %}
           "associateAndPassRemote",
           {%- endif %}
         ])
-    {%- if receiver|uses_non_associated_endpoints %}
+    {%- if receiver in interface_pending_receivers or
+           receiver in interface_associated_pending_receivers %}
+    fileprivate static let js{{receiver|format_unique_name}}ReceiverEndpoint: ILType = .object(
+        ofGroup: "{{receiver|fully_qualified_name}}ReceiverEndpoint")
+    {%- endif %}
+    {#- When JS creates a pending remote, its `RemoteWrapper` can, in turn,
+        create a pending receiver. #}
+    {%- if receiver in interface_pending_receivers or
+           receiver in interface_pending_remotes %}
+    fileprivate static let js{{receiver|format_unique_name}}PendingReceiver: ILType = .object(
+        ofGroup: "{{receiver|fully_qualified_name}}PendingReceiver"
+        {%- if receiver in interface_pending_receivers or
+               receiver in interface_associated_pending_receivers %},
+        withProperties: ["handle"]
+        {%- endif %})
+    {%- endif %}
+    {%- if receiver in interface_pending_remotes %}
     fileprivate static let js{{receiver|format_unique_name}}PendingRemote: ILType = .object(
         ofGroup: "{{receiver|fully_qualified_name}}PendingRemote",
         withProperties: ["$"])
     {%- endif %}
-    {%- if receiver|uses_associated_endpoints %}
+    {%- if receiver in interface_associated_pending_receivers or
+           receiver in interface_associated_pending_remotes %}
+    fileprivate static let js{{receiver|format_unique_name}}PendingAssociatedReceiver: ILType = .object(
+        ofGroup: "{{receiver|fully_qualified_name}}PendingAssociatedReceiver"
+        {%- if receiver in interface_pending_receivers or
+               receiver in interface_associated_pending_receivers %},
+        withProperties: ["handle"]
+        {%- endif %})
+    {%- endif %}
+    {%- if receiver in interface_associated_pending_remotes %}
     fileprivate static let js{{receiver|format_unique_name}}PendingAssociatedRemote: ILType = .object(
         ofGroup: "{{receiver|fully_qualified_name}}PendingAssociatedRemote",
         withProperties: ["$"])
     {%- endif %}
+    {%- if receiver in interface_pending_remotes or
+           receiver in interface_associated_pending_remotes %}
     fileprivate static let js{{receiver|format_unique_name}}RemoteWrapper: ILType = .object(
         ofGroup: "{{receiver|fully_qualified_name}}RemoteWrapper",
         withMethods: [
           "close",
           "isBound",
-          {%- if receiver|uses_non_associated_endpoints %}
+          {%- if receiver in interface_pending_remotes %}
           "bindNewPipeAndPassReceiver",
           {%- endif %}
-          {%- if receiver|uses_associated_endpoints %}
+          {%- if receiver in interface_associated_pending_remotes %}
           "associateAndPassReceiver",
           {%- endif %}
         ])
-    {%- if receiver|uses_non_associated_endpoints %}
-    fileprivate static let js{{receiver|format_unique_name}}PendingReceiver: ILType = .object(
-        ofGroup: "{{receiver|fully_qualified_name}}PendingReceiver")
     {%- endif %}
-    {%- if receiver|uses_associated_endpoints %}
-    fileprivate static let js{{receiver|format_unique_name}}PendingAssociatedReceiver: ILType = .object(
-        ofGroup: "{{receiver|fully_qualified_name}}PendingAssociatedReceiver")
-    {%- endif %}
-
     {%- for method in receiver.methods %}
     fileprivate static let js{{method|callback_receiver_name}}: ILType = .object(
         ofGroup: "{{method|callback_receiver_name}}",
@@ -113,11 +136,7 @@ extension ObjectGroup {
             #}
             ] => {{ "" }}
             {%- if method.response_param_struct -%}
-                {%- if method|is_synchronous_method -%}
-                .{{method.response_param_struct|format_il_type}}
-                {%- else -%}
                 .jsPromise(resolvingTo: .{{method.response_param_struct|format_il_type}})
-                {%- endif -%}
             {%- else -%}
                 .undefined
             {%- endif %},
@@ -135,15 +154,15 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            {%- if remote|uses_non_associated_endpoints %}
+            {%- if remote in interface_pending_receivers %}
             "bindNewPipeAndPassReceiver": [] => .js{{remote|format_unique_name}}PendingReceiver,
             {%- endif %}
-            {%- if remote|uses_associated_endpoints %}
+            {%- if remote in interface_associated_pending_receivers %}
             "associateAndPassReceiver": [] => .js{{remote|format_unique_name}}PendingAssociatedReceiver,
             {%- endif %}
         ])
 
-    {%- if remote|uses_non_associated_endpoints %}
+    {%- if remote in interface_pending_receivers %}
     fileprivate static let {{remote|format_unique_name|to_camel(True)}}PendingReceiver = ObjectGroup(
         name: "{{remote|fully_qualified_name}}PendingReceiver",
         instanceType: .js{{remote|format_unique_name}}PendingReceiver,
@@ -151,7 +170,7 @@ extension ObjectGroup {
         methods: [:]
     )
     {%- endif %}
-    {%- if remote|uses_associated_endpoints %}
+    {%- if remote in interface_associated_pending_receivers %}
     fileprivate static let {{remote|format_unique_name|to_camel(True)}}PendingAssociatedReceiver = ObjectGroup(
         name: "{{remote|fully_qualified_name}}PendingAssociatedReceiver",
         instanceType: .js{{remote|format_unique_name}}PendingAssociatedReceiver,
@@ -173,21 +192,23 @@ extension ObjectGroup {
         ],
         methods: [:]
     )
-
     fileprivate static let {{receiver|format_unique_name|to_camel(True)}}CallbackRouterReceiverHelper = ObjectGroup(
         name: "{{receiver|fully_qualified_name}}CallbackRouterReceiverHelper",
         instanceType: .js{{receiver|format_unique_name}}CallbackRouterReceiverHelper,
         properties: [:],
         methods: [
-            "closeBindings": [] => .undefined,
-            {%- if receiver|uses_non_associated_endpoints %}
+            "close": [] => .undefined,
+            {%- if receiver in interface_pending_receivers or
+                   receiver in interface_associated_pending_receivers %}
+            "bindHandle": [.plain(.js{{receiver|format_unique_name}}ReceiverEndpoint)] => .undefined,
+            {%- endif %}
+            {%- if receiver in interface_pending_remotes %}
             "bindNewPipeAndPassRemote": [] => .js{{receiver|format_unique_name}}PendingRemote,
             {%- endif %}
-            {%- if receiver|uses_associated_endpoints %}
+            {%- if receiver in interface_associated_pending_remotes %}
             "associateAndPassRemote": [] => .js{{receiver|format_unique_name}}PendingAssociatedRemote,
             {%- endif %}
         ])
-
     {%- for method in receiver.methods %}
 
     fileprivate static let {{method|callback_receiver_name|to_camel(True)}} = ObjectGroup(
@@ -206,8 +227,32 @@ extension ObjectGroup {
             ] => .integer,
         ])
     {%- endfor %}
-    {%- if receiver|uses_non_associated_endpoints %}
-
+    {%- if receiver in interface_pending_receivers or
+           receiver in interface_associated_pending_receivers %}
+    fileprivate static let {{receiver|format_unique_name|to_camel(True)}}ReceiverEndpoint = ObjectGroup(
+        name: "{{receiver|fully_qualified_name}}ReceiverEndpoint",
+        instanceType: .js{{receiver|format_unique_name}}ReceiverEndpoint,
+        properties: [:],
+        methods: [:]
+    )
+    {%- endif %}
+    {#- When JS creates a pending remote, its `RemoteWrapper` can, in turn,
+        create a pending receiver. #}
+    {%- if receiver in interface_pending_receivers or
+           receiver in interface_pending_remotes %}
+    fileprivate static let {{receiver|format_unique_name|to_camel(True)}}PendingReceiver = ObjectGroup(
+        name: "{{receiver|fully_qualified_name}}PendingReceiver",
+        instanceType: .js{{receiver|format_unique_name}}PendingReceiver,
+        {%- if receiver in interface_pending_receivers or
+               receiver in interface_associated_pending_receivers %}
+        properties: ["handle": .js{{receiver|format_unique_name}}ReceiverEndpoint],
+        {%- else %}
+        properties: [:],
+        {%- endif %}
+        methods: [:]
+    )
+    {%- endif %}
+    {%- if receiver in interface_pending_remotes %}
     fileprivate static let {{receiver|format_unique_name|to_camel(True)}}PendingRemote = ObjectGroup(
         name: "{{receiver|fully_qualified_name}}PendingRemote",
         instanceType: .js{{receiver|format_unique_name}}PendingRemote,
@@ -215,8 +260,21 @@ extension ObjectGroup {
         methods: [:]
     )
     {%- endif %}
-    {%- if receiver|uses_associated_endpoints %}
-
+    {%- if receiver in interface_associated_pending_receivers or
+           receiver in interface_associated_pending_remotes %}
+    fileprivate static let {{receiver|format_unique_name|to_camel(True)}}PendingAssociatedReceiver = ObjectGroup(
+        name: "{{receiver|fully_qualified_name}}PendingAssociatedReceiver",
+        instanceType: .js{{receiver|format_unique_name}}PendingAssociatedReceiver,
+        {%- if receiver in interface_pending_receivers or
+               receiver in interface_associated_pending_receivers %}
+        properties: ["handle": .js{{receiver|format_unique_name}}ReceiverEndpoint],
+        {%- else %}
+        properties: [:],
+        {%- endif %}
+        methods: [:]
+    )
+    {%- endif %}
+    {%- if receiver in interface_associated_pending_remotes %}
     fileprivate static let {{receiver|format_unique_name|to_camel(True)}}PendingAssociatedRemote = ObjectGroup(
         name: "{{receiver|fully_qualified_name}}PendingAssociatedRemote",
         instanceType: .js{{receiver|format_unique_name}}PendingAssociatedRemote,
@@ -224,7 +282,8 @@ extension ObjectGroup {
         methods: [:]
     )
     {%- endif %}
-
+    {%- if receiver in interface_pending_remotes or
+           receiver in interface_associated_pending_remotes %}
     fileprivate static let {{receiver|format_unique_name|to_camel(True)}}RemoteWrapper = ObjectGroup(
         name: "{{receiver|fully_qualified_name}}RemoteWrapper",
         instanceType: .js{{receiver|format_unique_name}}RemoteWrapper,
@@ -232,31 +291,14 @@ extension ObjectGroup {
         methods: [
             "close": [] => .undefined,
             "isBound": [] => .boolean,
-            {%- if receiver|uses_non_associated_endpoints %}
+            {%- if receiver in interface_pending_remotes %}
             "bindNewPipeAndPassReceiver": [] => .js{{receiver|format_unique_name}}PendingReceiver,
             {%- endif %}
-            {%- if receiver|uses_associated_endpoints %}
+            {%- if receiver in interface_associated_pending_remotes %}
             {#- TODO(crbug.com/532195391): Investigate associateAndPassReceiver impact on correctness #}
             "associateAndPassReceiver": [] => .js{{receiver|format_unique_name}}PendingAssociatedReceiver,
             {%- endif %}
         ])
-    {%- if receiver|uses_non_associated_endpoints %}
-
-    fileprivate static let {{receiver|format_unique_name|to_camel(True)}}PendingReceiver = ObjectGroup(
-        name: "{{receiver|fully_qualified_name}}PendingReceiver",
-        instanceType: .js{{receiver|format_unique_name}}PendingReceiver,
-        properties: [:],
-        methods: [:]
-    )
-    {%- endif %}
-    {%- if receiver|uses_associated_endpoints %}
-
-    fileprivate static let {{receiver|format_unique_name|to_camel(True)}}PendingAssociatedReceiver = ObjectGroup(
-        name: "{{receiver|fully_qualified_name}}PendingAssociatedReceiver",
-        instanceType: .js{{receiver|format_unique_name}}PendingAssociatedReceiver,
-        properties: [:],
-        methods: [:]
-    )
     {%- endif %}
 {% endfor -%}
 }

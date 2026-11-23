@@ -188,7 +188,7 @@ inline bool IsBreakableSpace(UChar c) {
 }
 
 inline bool IsBreakableSpaceOrOtherSeparator(UChar c) {
-  return IsBreakableSpace(c) || Character::IsOtherSpaceSeparator(c);
+  return IsBreakableSpace(c) || unicode::IsOtherSpaceSeparator(c);
 }
 
 inline bool IsAllBreakableSpaces(const String& string,
@@ -672,7 +672,7 @@ void LineBreaker::ComputeBaseDirection() {
       StringView(text, start_offset),
       // For CSS processing, line feed (U+000A) is treated as a segment break.
       // https://w3c.github.io/csswg-drafts/css-text-3/#segment-break
-      Character::IsLineFeed);
+      unicode::IsLineFeed);
 }
 
 inline LayoutUnit LineBreaker::ComputeFloatOffset() const {
@@ -2459,7 +2459,7 @@ void LineBreaker::HandleTrailingSpaces(const InlineItem& item,
   DCHECK(!is_text_combine_);
 
   if (style.ShouldCollapseWhiteSpaces() &&
-      !Character::IsOtherSpaceSeparator(text[current_.text_offset])) {
+      !unicode::IsOtherSpaceSeparator(text[current_.text_offset])) {
     if (text[current_.text_offset] != uchar::kSpace) {
       if (current_.text_offset > 0 &&
           IsBreakableSpace(text[current_.text_offset - 1])) {
@@ -2486,7 +2486,7 @@ void LineBreaker::HandleTrailingSpaces(const InlineItem& item,
     // Find the end of the run of space characters in this item.
     // Other white space characters (e.g., tab) are not included in this item.
     DCHECK(style.ShouldBreakOnlyAfterWhiteSpace() ||
-           Character::IsOtherSpaceSeparator(text[current_.text_offset]));
+           unicode::IsOtherSpaceSeparator(text[current_.text_offset]));
     unsigned end = current_.text_offset;
     while (end < item.EndOffset() &&
            IsBreakableSpaceOrOtherSeparator(text[end]))
@@ -2708,7 +2708,7 @@ bool LineBreaker::ComputeTrailingCollapsibleSpaceHelper(LineInfo& line_info) {
       }
       DCHECK_GT(item_result.EndOffset(), 0u);
       DCHECK(item.Style());
-      if (Character::IsOtherSpaceSeparator(text[item_result.EndOffset() - 1])) {
+      if (unicode::IsOtherSpaceSeparator(text[item_result.EndOffset() - 1])) {
         trailing_whitespace_ = WhitespaceState::kPreserved;
         trailing_collapsible_space_.reset();
         return true;
@@ -3268,9 +3268,13 @@ void LineBreaker::HandleBlockInInline(const InlineItem& item,
         constraint_space_.CloneForBlockInInlineIfNeeded(modified_space);
     const ColumnSpannerPath* spanner_path_for_child =
         FollowColumnSpannerPath(column_spanner_path_, block_node);
+    // TODO(crbug.com/40267498): Should use
+    // GetFragmentationLayoutInputForChild() here.
+    FragmentationLayoutInput fragmentation;
+    fragmentation.break_token = block_break_token;
+    fragmentation.column_spanner_path = spanner_path_for_child;
     const LayoutResult* layout_result =
-        block_node.Layout(child_space, block_break_token,
-                          /* early_break */ nullptr, spanner_path_for_child);
+        block_node.Layout(child_space, fragmentation);
     // Ensure `NeedsCollectInlines` isn't set, or it may cause security risks.
     CHECK(!node_.GetLayoutBox()->NeedsCollectInlines());
     line_info->SetBlockInInlineLayoutResult(layout_result);
@@ -3702,7 +3706,7 @@ bool LineBreaker::CanBreakAfterRubyColumn(
 bool LineBreaker::ShouldPushFloatAfterLine(
     UnpositionedFloat* unpositioned_float,
     LineInfo* line_info) {
-  if (unpositioned_float->token) {
+  if (unpositioned_float->fragmentation.break_token) {
     return false;
   }
 
@@ -3780,7 +3784,7 @@ void LineBreaker::HandleFloat(const InlineItem& item,
 
   // If we are currently computing our min/max-content size, simply append the
   // unpositioned floats to |LineInfo| and abort.
-  if (mode_ != LineBreakerMode::kContent) {
+  if (IsComputingContentSize() || mode_ != LineBreakerMode::kContent) {
     return;
   }
 
@@ -3810,8 +3814,11 @@ void LineBreaker::HandleFloat(const InlineItem& item,
       constraint_space_.GetLineClampData().FloatState();
 
   const BlockNode float_node(To<LayoutBox>(item.GetLayoutObject()));
+  // TODO(crbug.com/40267498): Should use GetFragmentationLayoutInputForChild()
+  // here.
+  FragmentationLayoutInput fragmentation(float_break_token);
   UnpositionedFloat unpositioned_float(
-      float_node, float_break_token, constraint_space_.AvailableSize(),
+      float_node, fragmentation, constraint_space_.AvailableSize(),
       float_node.IsReplaced()
           ? constraint_space_.ReplacedChildPercentageResolutionSize()
           : constraint_space_.PercentageResolutionSize(),

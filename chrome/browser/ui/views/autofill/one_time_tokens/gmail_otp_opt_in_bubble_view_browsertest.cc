@@ -9,21 +9,24 @@
 #include <tuple>
 #include <utility>
 
+#include "base/functional/callback_helpers.h"
 #include "base/i18n/rtl.h"
 #include "base/i18n/test/scoped_rtl_for_testing.h"
 #include "base/strings/strcat.h"
+#include "base/test/run_until.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/autofill/one_time_tokens/gmail_otp_opt_in_bubble_controller.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
-#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ui_base_switches.h"
-#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/widget/widget.h"
 
 namespace autofill {
@@ -58,9 +61,18 @@ class GmailOtpOptInBubbleViewBrowsertest
   }
 
   void DismissUi() override {
-    if (bubble_) {
-      bubble_.ExtractAsDangling()->GetWidget()->CloseWithReason(
-          views::Widget::ClosedReason::kUnspecified);
+    GmailOtpOptInBubbleController* controller =
+        GmailOtpOptInBubbleController::From(
+            *browser()->GetActiveTabInterface());
+    if (controller && controller->bubble_view()) {
+      static_cast<GmailOtpOptInBubbleView*>(controller->bubble_view())
+          ->GetWidget()
+          ->CloseNow();
+      EXPECT_FALSE(controller->IsShowingBubble());
+      EXPECT_TRUE(base::test::RunUntil([this]() {
+        return !BrowserElements::From(browser())->GetElement(
+            kPageActionGmailOtpOptInElementId);
+      }));
     }
   }
 
@@ -78,28 +90,35 @@ class GmailOtpOptInBubbleViewBrowsertest
   }
 
   void ShowUi(const std::string& name) override {
-    auto bubble = std::make_unique<GmailOtpOptInBubbleView>(
-        views::BubbleAnchor(BrowserView::GetBrowserViewForBrowser(browser())),
-        browser()->GetActiveTabInterface()->GetContents(),
-        u"elisa.g.beckett@gmail.com");
-    bubble_ = bubble.get();
-    views::BubbleDialogDelegateView::CreateBubble(std::move(bubble))->Show();
+    GmailOtpOptInBubbleController::From(*browser()->GetActiveTabInterface())
+        ->SetUpAndShowBubble(u"elisa.g.beckett@gmail.com", base::DoNothing());
   }
 
   bool VerifyUi() override {
-    if (!bubble_) {
+    GmailOtpOptInBubbleController* controller =
+        GmailOtpOptInBubbleController::From(
+            *browser()->GetActiveTabInterface());
+    if (!controller || !controller->bubble_view()) {
       return false;
     }
 
+    if (!base::test::RunUntil([this]() {
+          return BrowserElements::From(browser())->GetElement(
+                     kPageActionGmailOtpOptInElementId) != nullptr;
+        })) {
+      return false;
+    }
+
+    auto* bubble_view =
+        static_cast<GmailOtpOptInBubbleView*>(controller->bubble_view());
     auto* test_info = testing::UnitTest::GetInstance()->current_test_info();
-    return VerifyPixelUi(bubble_->GetWidget(), test_info->test_suite_name(),
+    return VerifyPixelUi(bubble_view->GetWidget(), test_info->test_suite_name(),
                          test_info->name()) != ui::test::ActionResult::kFailed;
   }
 
   void WaitForUserDismissal() override {}
 
  private:
-  raw_ptr<GmailOtpOptInBubbleView> bubble_ = nullptr;
   std::unique_ptr<base::i18n::ScopedRTLForTesting> scoped_rtl_;
 };
 

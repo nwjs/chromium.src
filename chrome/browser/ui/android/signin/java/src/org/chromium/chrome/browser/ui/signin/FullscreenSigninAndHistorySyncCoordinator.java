@@ -22,6 +22,7 @@ import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
@@ -38,10 +39,12 @@ import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncView;
 import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
+import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.metrics.AccountConsistencyPromoAction;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.signin.metrics.SigninFunnelEvent;
 import org.chromium.components.signin.metrics.SignoutReason;
 import org.chromium.google_apis.gaia.CoreAccountId;
 import org.chromium.ui.base.WindowAndroid;
@@ -181,6 +184,12 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
             mHistorySyncCoordinator.destroy();
             mHistorySyncCoordinator = null;
         }
+
+        if (mConfig.shouldCallTrackerDismissed) {
+            Profile profile = assumeNonNull(mProfileSupplier.get()).getOriginalProfile();
+            TrackerFactory.getTrackerForProfile(profile)
+                    .dismissed(FeatureConstants.FULLSCREEN_SIGNIN_PROMO_FEATURE);
+        }
     }
 
     /** Implements {@link SigninAndHistorySyncCoordinator}. */
@@ -304,6 +313,14 @@ public final class FullscreenSigninAndHistorySyncCoordinator extends SigninAndHi
         RecordHistogram.recordTimesHistogram(
                 "Signin.Timestamps.Android.Fullscreen.NativeInitialized",
                 SystemClock.elapsedRealtime() - mActivityStartTime);
+    }
+
+    /** Implements {@link FullscreenSigninCoordinator.Delegate} */
+    @Override
+    public void logPromoShownFunnelEventOnBackPress(
+            @SigninAccessPoint int accessPoint, @SigninFunnelEvent int event) {
+        // No-op: showChildView() recreates the sign-in coordinator on back press, and the new
+        // coordinator already logs the promo shown event once its initial load completes.
     }
 
     /** Implements {@link FullscreenSigninCoordinator.Delegate} */

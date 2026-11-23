@@ -29,9 +29,7 @@ namespace {
 
 class OptimizationGuideFeaturesTest : public testing::Test {
  public:
-  void SetUp() override {
-    model_execution::prefs::RegisterProfilePrefs(prefs_.registry());
-  }
+  void SetUp() override { RegisterGenAiFeatures(prefs_.registry()); }
 
  private:
   TestingPrefServiceSimple prefs_;

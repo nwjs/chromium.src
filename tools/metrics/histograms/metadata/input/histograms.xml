@@ -124,7 +124,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Input.FirstGestureScrollUpdate.DeltaY" units="pixels"
-    expires_after="2027-02-10">
+    expires_after="2027-04-11">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <owner>input-dev@chromium.org</owner>
@@ -288,7 +288,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InputMethod.Assistive.AutocorrectV2.Distance.SuggestedLength.{Keyboard}{Interaction}"
-    units="chars" expires_after="2027-02-07">
+    units="chars" expires_after="2027-04-11">
   <owner>zacpartridge@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -929,7 +929,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Commit.Type2" enum="IMECommitType2"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>dvallet@chromium.org</owner>
   <owner>shuchen@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1077,7 +1077,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.ImeSwitch" enum="IMESwitchType"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>dvallet@chromium.org</owner>
   <owner>timloh@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1085,14 +1085,55 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.KeyEventLatency" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>Time taken by the engine to handle a key event.</summary>
 </histogram>
 
+<histogram name="InputMethod.Mac.DeferredActivation.Duration" units="ms"
+    expires_after="2027-04-01">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    Mac only. Records how long the browser main thread is blocked when a new
+    browser window ends its input context deferral
+    (MacDeferInputContextUntilFirstPaint) and activates the input method for its
+    focused text field. This is the wall time of the synchronous -[NSApp
+    updateWindows] call that Chrome makes to activate the input method, which
+    with an input method such as Japanese waits on the input method process.
+    With a keyboard layout it is short.
+
+    Recorded once per browser window, when the deferral ends after the first
+    frame is presented or on the first key press, and only if the window is key
+    and its focused text field has an input context then. Not recorded when the
+    feature is disabled.
+  </summary>
+</histogram>
+
+<histogram name="InputMethod.Mac.DeferredActivation.KeyDelay" units="ms"
+    expires_after="2027-04-01">
+  <owner>mych@chromium.org</owner>
+  <owner>chrome-webium-product-eng@google.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    Mac only. Records how long a key press in a new browser window waited for
+    the input method activation that ends the window's input context deferral
+    (MacDeferInputContextUntilFirstPaint). The delay runs from the later of the
+    key event's timestamp and the start of the activation until the activation
+    returns, so it counts only the wait the activation caused. A key that ends
+    the deferral itself waits for the whole activation.
+
+    Recorded for each key press whose timestamp is before the end of that
+    activation; keys typed after it are not recorded. Compare the count with
+    InputMethod.Mac.DeferredActivation.Duration to see how often a typist is
+    affected. Not recorded when the feature is disabled.
+  </summary>
+</histogram>
+
 <histogram name="InputMethod.Manta.Orca.CharactersInserted.{Mode}"
-    units="characters" expires_after="2026-12-01">
+    units="characters" expires_after="2027-12-01">
   <owner>hdchuong@google.com</owner>
   <owner>zacpartridge@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1134,7 +1175,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Manta.Orca.CharactersSelectedForInsert.{Mode}"
-    units="characters" expires_after="2026-12-01">
+    units="characters" expires_after="2027-12-01">
   <owner>hdchuong@google.com</owner>
   <owner>zacpartridge@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1176,7 +1217,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Manta.Orca.FreeFormCharactersForInsert.{Mode}"
-    units="characters" expires_after="2026-12-01">
+    units="characters" expires_after="2027-12-01">
   <owner>hdchuong@google.com</owner>
   <owner>zacpartridge@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1193,7 +1234,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Manta.Orca.IndexOfInsertedResponse.{Mode}"
-    units="units" expires_after="2026-12-01">
+    units="units" expires_after="2027-12-01">
   <owner>hdchuong@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -1228,7 +1269,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Manta.Orca.LengthOfLongestResponse.{Mode}"
-    units="characters" expires_after="2026-12-01">
+    units="characters" expires_after="2027-12-01">
   <owner>hdchuong@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -1270,7 +1311,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Manta.Orca.NumResponses.{Mode}" units="units"
-    expires_after="2026-12-01">
+    expires_after="2027-12-01">
   <owner>hdchuong@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -1463,7 +1504,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Manta.Orca.{Language}.States.{Mode}"
-    enum="IMEEditorStates" expires_after="2027-02-07">
+    enum="IMEEditorStates" expires_after="2027-04-11">
   <owner>curtismcmullan@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>

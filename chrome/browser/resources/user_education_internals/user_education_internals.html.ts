@@ -79,8 +79,8 @@ export function getHtml(this: UserEducationInternalsElement) {
         </p>
       </div>
       <cr-page-selector ?hidden="${!this.initialized_}"
-                        .selected="${this.selectedTabIndex}" show-all="true"
-                        id="selector">
+          .selected="${this.selectedTabIndex.toString()}" show-all
+          id="selector">
         <div id="iph" class="promo-list">
           <h2>Feature Promos</h2>
           ${this.featurePromos_.map(item => html`
@@ -215,6 +215,15 @@ export function getHtml(this: UserEducationInternalsElement) {
                   staging environment for the duration of the browser session.
                 </p>
               </div>
+              <h3>Reset Data</h3>
+              <p>
+                Clicking the button below will reset all What's New preference
+                data (module order, edition usage, and version history).
+              </p>
+              <cr-button id="clearWhatsNewData"
+                  @click="${this.onClearWhatsNewDataClick_}">
+                Clear All What's New Data
+              </cr-button>
               <h3>Debug Info</h3>
               <p>
                 To view debug information for What's New, open the page and run
@@ -242,7 +251,7 @@ export function getHtml(this: UserEducationInternalsElement) {
                 ?hidden="${!this.whatsNewFilter_(item)}"
                 .item="${item}"
                 type="module"
-                @clear-whats-new-data="${this.onClearWhatsNewData_}">
+                @clear-whats-new-data="${this.onModuleClearWhatsNewData_}">
             </user-education-whats-new-internals-card>`)}
           ${this.whatsNewEditions_.length > 0 ? html`
             <h3 class="whats-new-section">Editions</h3>` :
@@ -253,7 +262,7 @@ export function getHtml(this: UserEducationInternalsElement) {
                 ?hidden="${!this.whatsNewFilter_(item)}"
                 .item="${item}"
                 type="edition"
-                @clear-whats-new-data="${this.onClearWhatsNewData_}">
+                @clear-whats-new-data="${this.onEditionClearWhatsNewData_}">
             </user-education-whats-new-internals-card>`)}
           <p class="if-empty">
             No What's New Editions match the search filter.

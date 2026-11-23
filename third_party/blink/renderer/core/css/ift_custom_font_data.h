@@ -5,8 +5,12 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_CSS_IFT_CUSTOM_FONT_DATA_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_IFT_CUSTOM_FONT_DATA_H_
 
+#include <stdint.h>
+
 #include <memory>
 
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
 #include "base/types/pass_key.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/fonts/custom_font_data.h"
@@ -16,6 +20,7 @@
 
 namespace blink {
 
+class DOMWrapperWorld;
 class FontResource;
 class IftPatcher;
 class IftSubsetDefinition;
@@ -34,6 +39,7 @@ class CORE_EXPORT IftCustomFontData final : public CustomFontData {
   IftCustomFontData(base::PassKey<IftCustomFontData>,
                     RemoteFontFaceSource* font_face_source,
                     const KURL& font_url,
+                    const DOMWrapperWorld* world_for_csp,
                     std::unique_ptr<IftPatcher> patcher);
   ~IftCustomFontData() override;
 
@@ -52,22 +58,25 @@ class CORE_EXPORT IftCustomFontData final : public CustomFontData {
     kCollecting,
     // The font is fetching the patches required for `fetched_subset_`.
     kFetching,
-    // All patches required for `fetched_subset_` have been fetched.
-    kFetched,
     // The font has failed in some way and is no longer usable.
     kFailed,
   };
 
   State GetStateForTesting() const { return state_; }
+  // Returns the font data with all patches applied so far. The returned span is
+  // invalidated when more patches are applied.
+  base::span<const uint8_t> GetFontDataForTesting() const LIFETIME_BOUND;
 
  private:
   // Fetches a single patch and notifies its owner when done.
   class PatchLoader;
 
+  void BeginIdle() const;
   void BeginCollecting() const;
   void BeginFetching() const;
-  void BeginFetched() const;
   void BeginFailed() const;
+  // Applies the fetched patches. Called once all patch fetches have finished.
+  void ApplyPatches() const;
   // Called by `loader` when its fetch of `resource` has finished.
   void OnPatchLoaded(PatchLoader* loader, const Resource* resource) const;
 
@@ -75,6 +84,7 @@ class CORE_EXPORT IftCustomFontData final : public CustomFontData {
   Member<RemoteFontFaceSource> font_face_source_;
   // The URL of the font. Patch URLs are resolved relative to this.
   const KURL font_url_;
+  Member<const DOMWrapperWorld> world_for_csp_;
   std::unique_ptr<IftPatcher> patcher_;
   // The codepoints requested through `IftRequireSubset()`. Heap allocated so
   // this header does not need the complete type, which would pull
@@ -82,6 +92,8 @@ class CORE_EXPORT IftCustomFontData final : public CustomFontData {
   const std::unique_ptr<IftSubsetDefinition> requested_subset_;
   // The union of all subsets whose patches have been requested.
   const std::unique_ptr<IftSubsetDefinition> fetched_subset_;
+  // Scratch subset reused across `IftRequireSubset()` calls.
+  const std::unique_ptr<IftSubsetDefinition> scratch_subset_;
   // The in-flight patch fetches.
   mutable HeapHashSet<Member<PatchLoader>> patch_loaders_;
 };

@@ -22,6 +22,8 @@
 
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
@@ -967,7 +969,7 @@ base::CancelableTaskTracker::TaskId HistoryService::GetFaviconsForURL(
 
 base::CancelableTaskTracker::TaskId HistoryService::GetLargestFaviconForURL(
     const GURL& page_url,
-    const std::vector<favicon_base::IconTypeSet>& icon_types,
+    base::span<const favicon_base::IconTypeSet> icon_types,
     int minimum_size_in_pixels,
     favicon_base::FaviconRawBitmapCallback callback,
     base::CancelableTaskTracker* tracker) {
@@ -976,7 +978,8 @@ base::CancelableTaskTracker::TaskId HistoryService::GetLargestFaviconForURL(
   return tracker->PostTaskAndReplyWithResult(
       GetBackendTaskRunner(), FROM_HERE,
       base::BindOnce(&HistoryBackend::GetLargestFaviconForURL, history_backend_,
-                     page_url, icon_types, minimum_size_in_pixels),
+                     page_url, base::ToVector(icon_types),
+                     minimum_size_in_pixels),
       std::move(callback));
 }
 
@@ -1756,7 +1759,7 @@ void HistoryService::DeleteLocalAndRemoteHistoryBetween(
     base::CancelableTaskTracker* tracker) {
   // TODO(crbug.com/41439580): This should be factored out into a separate class
   // that dispatches deletions to the proper places.
-  if (web_history) {
+  if (web_history && web_history->IsEnabled()) {
     delete_directive_handler_->CreateTimeRangeDeleteDirective(begin_time,
                                                               end_time);
 
@@ -1802,7 +1805,7 @@ void HistoryService::DeleteLocalAndRemoteUrl(WebHistoryService* web_history,
   DCHECK(url.is_valid());
   // TODO(crbug.com/41439580): This should be factored out into a separate class
   // that dispatches deletions to the proper places.
-  if (web_history) {
+  if (web_history && web_history->IsEnabled()) {
     delete_directive_handler_->CreateUrlDeleteDirective(url);
 
     // Attempt online deletion from the history server, but ignore the result.

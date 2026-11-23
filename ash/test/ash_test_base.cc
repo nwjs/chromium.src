@@ -438,12 +438,9 @@ AmbientAshTestHelper* AshTestBase::GetAmbientAshTestHelper() {
   return ash_test_helper_->ambient_ash_test_helper();
 }
 
-AccountId AshTestBase::SimulateUserLogin(
-    LoginInfo info,
-    std::optional<AccountId> opt_account_id,
-    std::unique_ptr<PrefService> pref_service) {
-  auto account_id = ash_test_helper_->SimulateUserLogin(
-      std::move(info), std::move(opt_account_id), std::move(pref_service));
+AccountId AshTestBase::SimulateUserLogin(const LoginInfo& info,
+                                         bool activate_session) {
+  auto account_id = ash_test_helper_->SimulateUserLogin(info, activate_session);
   if (pixel_test_helper_) {
     pixel_test_helper_->StabilizeUi();
   }
@@ -451,7 +448,7 @@ AccountId AshTestBase::SimulateUserLogin(
 }
 
 void AshTestBase::SimulateUserLogin(const AccountId& account_id) {
-  ash_test_helper_->SimulateUserLogin({}, std::move(account_id), nullptr);
+  ash_test_helper_->SimulateUserLogin({.account_id = account_id});
   if (pixel_test_helper_) {
     pixel_test_helper_->StabilizeUi();
   }
@@ -460,7 +457,8 @@ void AshTestBase::SimulateUserLogin(const AccountId& account_id) {
 AccountId AshTestBase::SimulateNewUserFirstLogin(
     const std::string& user_email) {
   auto account_id = ash_test_helper_->SimulateUserLogin(
-      {.display_email = user_email, .is_new_profile = true}, std::nullopt);
+      {.account_id = AccountId::FromUserEmail(user_email),
+       .is_new_profile = true});
 
   if (pixel_test_helper_) {
     pixel_test_helper_->StabilizeUi();
@@ -470,7 +468,8 @@ AccountId AshTestBase::SimulateNewUserFirstLogin(
 
 AccountId AshTestBase::SimulateGuestLogin() {
   return SimulateUserLogin(
-      {user_manager::kGuestUserName, user_manager::UserType::kGuest});
+      {.account_id = AccountId::FromUserEmail(user_manager::kGuestUserName),
+       .user_type = user_manager::UserType::kGuest});
 }
 
 AccountId AshTestBase::SimulateKioskMode(user_manager::UserType user_type) {
@@ -478,7 +477,9 @@ AccountId AshTestBase::SimulateKioskMode(user_manager::UserType user_type) {
          user_type == user_manager::UserType::kKioskWebApp);
 
   GetSessionControllerClient()->SetIsRunningInAppMode(true);
-  return SimulateUserLogin({kKioskUserEmail, user_type});
+  return SimulateUserLogin(
+      {.account_id = AccountId::FromUserEmail(kKioskUserEmail),
+       .user_type = user_type});
 }
 
 void AshTestBase::SwitchActiveUser(const AccountId& account_id) {

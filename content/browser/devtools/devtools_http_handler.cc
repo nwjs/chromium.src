@@ -347,11 +347,13 @@ class DevToolsAgentHostClientImpl : public DevToolsAgentHostClient {
       scoped_refptr<base::SingleThreadTaskRunner> task_runner,
       ServerWrapper* server_wrapper,
       int connection_id,
-      scoped_refptr<DevToolsAgentHost> agent_host)
+      scoped_refptr<DevToolsAgentHost> agent_host,
+      const net::IPEndPoint& peer_address)
       : task_runner_(std::move(task_runner)),
         server_wrapper_(server_wrapper),
         connection_id_(connection_id),
-        agent_host_(agent_host) {
+        agent_host_(agent_host),
+        peer_address_(peer_address) {
     CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
     // TODO(dgozman): handle return value of AttachClient.
     agent_host_->AttachClient(this);
@@ -364,6 +366,11 @@ class DevToolsAgentHostClientImpl : public DevToolsAgentHostClient {
   }
 
   std::string GetTypeForMetrics() override { return "RemoteDebugger"; }
+
+  PeerMetadata GetPeerMetadata() override {
+    return {.transport_type = PeerMetadata::TransportType::kWebSocket,
+            .peer_address = peer_address_};
+  }
 
   void AgentHostClosed(DevToolsAgentHost* agent_host) override {
     CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
@@ -403,6 +410,7 @@ class DevToolsAgentHostClientImpl : public DevToolsAgentHostClient {
   const raw_ptr<ServerWrapper> server_wrapper_;
   const int connection_id_;
   scoped_refptr<DevToolsAgentHost> agent_host_;
+  const net::IPEndPoint peer_address_;
 };
 
 static bool TimeComparator(scoped_refptr<DevToolsAgentHost> host1,
@@ -833,7 +841,7 @@ void DevToolsHttpHandler::HandleDebuggingApproval(
     connection_to_client_[connection_id] =
         std::make_unique<DevToolsAgentHostClientImpl>(
             thread_->task_runner(), server_wrapper_.get(), connection_id,
-            browser_agent);
+            browser_agent, request.peer);
     AcceptWebSocket(connection_id, request);
   } else {
     Send403(connection_id, "Connection rejected");
@@ -894,7 +902,7 @@ void DevToolsHttpHandler::OnWebSocketRequest(
     connection_to_client_[connection_id] =
         std::make_unique<DevToolsAgentHostClientImpl>(
             thread_->task_runner(), server_wrapper_.get(), connection_id,
-            browser_agent);
+            browser_agent, request.peer);
     AcceptWebSocket(connection_id, request);
     return;
   }
@@ -922,7 +930,8 @@ void DevToolsHttpHandler::OnWebSocketRequest(
 
   connection_to_client_[connection_id] =
       std::make_unique<DevToolsAgentHostClientImpl>(
-          thread_->task_runner(), server_wrapper_.get(), connection_id, agent);
+          thread_->task_runner(), server_wrapper_.get(), connection_id, agent,
+          request.peer);
 
   AcceptWebSocket(connection_id, request);
 }

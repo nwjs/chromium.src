@@ -14,12 +14,12 @@ namespace ios {
 
 // Singleton that owns all ShortcutsBackends and associates them with
 // ProfileIOS.
-class ShortcutsBackendFactory
+class ShortcutsBackendFactory final
     : public TypedRefcountedProfileKeyedServiceFactoryIOS<
           ShortcutsBackendFactory,
           ShortcutsBackend> {
  public:
-  ShortcutsBackendFactory(PassKey key);
+  explicit ShortcutsBackendFactory(PassKey key);
 
   // Returns the default factory, useful in tests where it's null by default.
   static TestingFactory GetDefaultFactory();
@@ -27,7 +27,7 @@ class ShortcutsBackendFactory
  private:
   // RefcountedProfileKeyedServiceFactoryIOS implementation.
   scoped_refptr<RefcountedKeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 }  // namespace ios

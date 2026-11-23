@@ -19,6 +19,7 @@
 #include "base/strings/escape.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "chrome/browser/chromeos/reporting/metric_reporting_prefs.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
@@ -34,6 +35,7 @@
 #include "components/enterprise/browser/reporting/common_pref_names.h"
 #include "components/enterprise/browser/reporting/prefs.h"
 #include "components/enterprise/browser/reporting/real_time_report_type.h"
+#include "components/enterprise/browser/reporting/reporting_features.h"
 #include "components/enterprise/common/proto/connectors.pb.h"
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/connectors_prefs.h"
@@ -1738,12 +1740,12 @@ TEST_F(ManagementUIHandlerTests, CloudProfileReportingPolicy) {
       std::make_unique<base::Value>(true));
 
   std::set<std::string> expected_messages = {
-      kProfileReportingOverview, kProfileReportingUsername,
+      kProfileReportingOverview,  kProfileReportingUsername,
       kProfileReportingBrowser,
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
       kProfileReportingExtension,
 #endif
-      kProfileReportingPolicy,   kProfileReportingLearnMore};
+      kProfileReportingPolicy,    kProfileReportingLearnMore};
 
   ASSERT_PRED_FORMAT2(MessagesToBeEQ,
                       handler_.GetReportingInfo(/*can_collect_signals=*/false,
@@ -1924,8 +1926,8 @@ TEST_F(ManagementUIHandlerTests, ThreatReportingInfo) {
 #if !BUILDFLAG(IS_ANDROID)
   SetConnectorPolicyValue(policy::key::kOnBulkDataEntryEnterpriseConnector,
                           "[]", chrome_policies);
-  SetConnectorPolicyValue(policy::key::kOnDataCopiedEnterpriseConnector,
-                          "[]", chrome_policies);
+  SetConnectorPolicyValue(policy::key::kOnDataCopiedEnterpriseConnector, "[]",
+                          chrome_policies);
   SetConnectorPolicyValue(policy::key::kOnPrintEnterpriseConnector, "[]",
                           chrome_policies);
 #endif
@@ -2079,24 +2081,24 @@ TEST_F(ManagementUIHandlerTests, ThreatReportingInfo_SecureGateway) {
   auto info = handler_.GetThreatProtectionInfo(profile_);
   EXPECT_FALSE(info.FindBool("showSecureGatewayDisclosure").value_or(false));
 
-  // When kProxyProvisioningDomains is set, but the feature is disabled,
-  // showSecureGatewayDisclosure remains false.
+  // When kProxyProvisioningDomains is set and the feature is enabled by
+  // default, showSecureGatewayDisclosure is true.
   base::ListValue domains;
   domains.Append("example.com");
   profile_->GetPrefs()->SetList(enterprise_net::kProxyProvisioningDomains,
                                 std::move(domains));
 
   info = handler_.GetThreatProtectionInfo(profile_);
-  EXPECT_FALSE(info.FindBool("showSecureGatewayDisclosure").value_or(false));
+  EXPECT_TRUE(info.FindBool("showSecureGatewayDisclosure").value_or(false));
 
-  // When the feature is enabled and kProxyProvisioningDomains is set,
-  // showSecureGatewayDisclosure is true.
+  // When the feature is disabled, showSecureGatewayDisclosure is false even
+  // if kProxyProvisioningDomains is set.
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
+  scoped_feature_list.InitAndDisableFeature(
       enterprise_net::kEnableDynamicRouteFetching);
 
   info = handler_.GetThreatProtectionInfo(profile_);
-  EXPECT_TRUE(info.FindBool("showSecureGatewayDisclosure").value_or(false));
+  EXPECT_FALSE(info.FindBool("showSecureGatewayDisclosure").value_or(false));
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -2114,8 +2116,10 @@ TEST_F(ManagementUIHandlerTests, GetFilesUploadToCloud) {
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if !BUILDFLAG(IS_CHROMEOS)
 TEST_F(ManagementUIHandlerTests, SaasReportingBrowserPolicyEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      enterprise_reporting::kSaasUsageReporting);
   ResetTestConfig(false);
   GetTestConfig().saas_reporting_browser_enabled = true;
   ASSERT_TRUE(SetUpProfileAndHandler());
@@ -2127,6 +2131,8 @@ TEST_F(ManagementUIHandlerTests, SaasReportingBrowserPolicyEnabled) {
 }
 
 TEST_F(ManagementUIHandlerTests, SaasReportingProfilePolicyEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      enterprise_reporting::kSaasUsageReporting);
   ResetTestConfig(false);
   GetTestConfig().saas_reporting_profile_enabled = true;
   ASSERT_TRUE(SetUpProfileAndHandler());
@@ -2136,4 +2142,18 @@ TEST_F(ManagementUIHandlerTests, SaasReportingProfilePolicyEnabled) {
   EXPECT_TRUE(MessagesToBeEQ("browser_reports", "expected", reports,
                              {kManagementExtensionReportVisitedUrl}));
 }
-#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
+TEST_F(ManagementUIHandlerTests, SaasReportingFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      enterprise_reporting::kSaasUsageReporting);
+  ResetTestConfig(false);
+  GetTestConfig().saas_reporting_browser_enabled = true;
+  GetTestConfig().saas_reporting_profile_enabled = true;
+  ASSERT_TRUE(SetUpProfileAndHandler());
+
+  base::ListValue reports = handler_.GetReportingInfo(
+      /*can_collect_signals=*/false, /*is_browser=*/true);
+  EXPECT_TRUE(MessagesToBeEQ("browser_reports", "expected", reports, {}));
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)

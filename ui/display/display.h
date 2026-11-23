@@ -8,18 +8,24 @@
 #include <stdint.h>
 
 #include <optional>
+#include <string>
 
 #include "base/memory/scoped_refptr.h"
 #include "mojo/public/cpp/bindings/struct_traits.h"
 #include "ui/display/display_export.h"
 #include "ui/display/types/display_constants.h"
-#include "ui/gfx/display_color_spaces.h"
 #include "ui/gfx/geometry/rect.h"
 
+namespace gfx {
+class ColorSpace;
+class DisplayColorSpaces;
+class DisplayColorSpacesRef;
+}  // namespace gfx
+
 namespace content {
-  DISPLAY_EXPORT extern bool g_support_transparency;
-  DISPLAY_EXPORT extern bool g_force_cpu_draw;
-}
+DISPLAY_EXPORT extern bool g_support_transparency;
+DISPLAY_EXPORT extern bool g_force_cpu_draw;
+}  // namespace content
 
 namespace display {
 

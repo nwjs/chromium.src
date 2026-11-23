@@ -4,28 +4,16 @@
 
 #import "ios/chrome/browser/autocomplete/model/provider_state_service_factory.h"
 
+#import <utility>
+
 #import "components/omnibox/browser/provider_state_service.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
 namespace ios {
 
-// static
-ProviderStateService* ProviderStateServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<ProviderStateService>(
-      profile, /*create=*/true);
-}
-
-// static
-ProviderStateServiceFactory* ProviderStateServiceFactory::GetInstance() {
-  static base::NoDestructor<ProviderStateServiceFactory> instance;
-  return instance.get();
-}
-
-ProviderStateServiceFactory::ProviderStateServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("ProviderStateService") {}
-
-ProviderStateServiceFactory::~ProviderStateServiceFactory() = default;
+ProviderStateServiceFactory::ProviderStateServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "ProviderStateService") {}
 
 std::unique_ptr<KeyedService>
 ProviderStateServiceFactory::BuildServiceInstanceFor(

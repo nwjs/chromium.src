@@ -26,9 +26,8 @@ from selenium.webdriver.support import expected_conditions as ec
 
 import common
 
-# pylint: disable=import-error, wrong-import-position
+# Must follow common, which puts these modules on sys.path.
 from repeating_log import RepeatingLog
-# pylint: enable=import-error, wrong-import-position
 
 CHROME_OPTIONS = [
     # Redirects logging output to stderr to better catch automation issues.
@@ -42,27 +41,6 @@ CHROME_OPTIONS = [
     # Launches Chrome in fullscreen mode to prevent scrollbar clipping.
     "--start-fullscreen",
 ]
-
-
-def connect_to_remote_driver(chrome_options, binary_location):
-    """Attempts to connect to the remote chromedriver via the tunnel."""
-    logging.info("Attempting connection to %s.", common.REMOTE_URL)
-
-    # Set the binary location directly on the options object.
-    if binary_location:
-        chrome_options.binary_location = binary_location
-
-    for _ in range(20):
-        try:
-            driver = webdriver.Remote(
-                command_executor=common.REMOTE_URL, options=chrome_options
-            )
-            logging.info("Successfully connected!")
-            return driver
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logging.info("Tunnel not yet up. Sleeping ... Error: %s", e)
-            time.sleep(2)
-    raise RuntimeError("Could not connect to the remote chromedriver.")
 
 
 def setup_test_environment(args, chrome_version):
@@ -95,12 +73,11 @@ def setup_test_environment(args, chrome_version):
     binary_path = sender.chrome_binary_path(remote_app_path)
     logging.info("Setting binary_location to: %s", binary_path)
     chrome_options.binary_location = binary_path
-    driver = connect_to_remote_driver(chrome_options, binary_path)
+    driver = common.connect_to_remote_driver(chrome_options)
 
     return driver, tunnel_proc, actual_version
 
 
-# pylint: disable=too-many-locals
 def run_performance_test(video_file: str, driver: webdriver, args):
     """
     Runs a single video performance test by playing and recording the video.
@@ -181,7 +158,8 @@ def run_performance_test(video_file: str, driver: webdriver, args):
     try:
         glances_proc = common.start_glances_monitoring(args, csv_remote_path)
 
-        # pylint: disable=consider-using-with
+        # Returned to the caller, which stops it after recording.
+        # pylint: disable-next=consider-using-with
         rec_proc_local = subprocess.Popen(
             host_recording_cmd,
             stdout=subprocess.PIPE,
@@ -274,7 +252,7 @@ def run_performance_test(video_file: str, driver: webdriver, args):
                 common.parse_glances_csv_and_record(
                     video_file, csv_local_path, args.sender_os
                 )
-            except Exception as e:
+            except (subprocess.SubprocessError, OSError) as e:
                 logging.error(
                     "Failed to stop or parse glances monitoring: %s", e
                 )
@@ -336,14 +314,15 @@ def main():
             rec_proc = None
             try:
                 rec_proc = run_performance_test(video['name'], driver, args)
-            except Exception:  # pylint: disable=broad-exception-caught
+            except Exception:
                 logging.exception("Error during video %s test", video['name'])
                 raise
             finally:
                 common.teardown_recording_process(rec_proc)
     finally:
-        common.finalize_results(actual_version)
         common.teardown_test_environment(driver, tunnel_proc, args)
+        # Last, since it raises if the upload fails.
+        common.finalize_results(actual_version)
 
 
 if __name__ == '__main__':

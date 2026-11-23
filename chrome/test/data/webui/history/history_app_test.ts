@@ -5,7 +5,7 @@
 // clang-format off
 import 'chrome://history/history.js';
 
-import type {HistoryAppElement} from 'chrome://history/history.js';
+import type {HistoryAppElement, HistoryFilterChipsElement} from 'chrome://history/history.js';
 import {BrowserProxyImpl, CrRouter, historyEmbeddingsBrowserProxyFactory, HistoryEmbeddingsPageHandlerRemote, userEducationProxyFactory} from 'chrome://history/history.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -13,6 +13,7 @@ import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, isChildVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 import {TestUserEducationMixedTrustHandler} from 'chrome://webui-test/test_user_education_mixed_trust_handler.js';
 import {COLORS_CSS_SELECTOR} from 'chrome://resources/cr_components/color_change_listener/colors_css_updater.js';
+import {TimePeriodOptionId} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
 // <if expr="not is_chromeos">
 import {AccessPoint} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
@@ -352,6 +353,13 @@ suite('HistoryAppTest', function() {
     await microtasksFinished();
     assertFalse(historyEmbeddingsElement.showRelativeTimes);
   });
+
+  // <if expr="not is_android">
+  test('AndroidStylesNotApplied', () => {
+    assertFalse(
+        getComputedStyle(element).fontFamily.includes('Google Sans Text'));
+  });
+  // </if>
 });
 
 // <if expr="not is_chromeos">
@@ -569,9 +577,10 @@ suite('HistoryAppUnoPhase2FollowUpTest', () => {
 
 suite('HistoryFilterChipsVisibility', function() {
   let element: HistoryAppElement;
+  let browserProxy: TestHistoryBrowserProxy;
 
   setup(() => {
-    const browserProxy = new TestHistoryBrowserProxy();
+    browserProxy = new TestHistoryBrowserProxy();
     BrowserProxyImpl.setInstance(browserProxy);
 
     // Some of the tests below assume the query state is fully reset to empty
@@ -584,11 +593,8 @@ suite('HistoryFilterChipsVisibility', function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
   });
 
-  function createPage(devices?: Array<{name: string}>) {
+  function createPage() {
     element = document.createElement('history-app');
-    if (devices) {
-      element.setDevicesForTesting(devices);
-    }
     document.body.appendChild(element);
     return microtasksFinished();
   }
@@ -597,9 +603,17 @@ suite('HistoryFilterChipsVisibility', function() {
     loadTimeData.overrideValues({
       isGlicWebActuationAvailable: false,
       isBrowsingHistoryFilterByDeviceEnabled: false,
+      isBrowsingHistoryFilterByTimePeriodEnabled: false,
     });
+    browserProxy.handler.setResultFor(
+        'getSyncedDevicesForFiltering', Promise.resolve({
+          devices: [
+            {name: 'Device 1', isLocalDevice: true, ids: ['id1']},
+            {name: 'Device 2', isLocalDevice: false, ids: ['id2']},
+          ],
+        }));
     // Re-create the element to pick up the new loadTimeData.
-    await createPage([{name: 'Device 1'}, {name: 'Device 2'}]);
+    await createPage();
     assertFalse(isChildVisible(element, '#historyFilterChips'));
   });
 
@@ -607,6 +621,7 @@ suite('HistoryFilterChipsVisibility', function() {
     loadTimeData.overrideValues({
       isGlicWebActuationAvailable: true,
       isBrowsingHistoryFilterByDeviceEnabled: false,
+      isBrowsingHistoryFilterByTimePeriodEnabled: false,
     });
     // Re-create the element to pick up the new loadTimeData.
     await createPage();
@@ -617,9 +632,19 @@ suite('HistoryFilterChipsVisibility', function() {
     loadTimeData.overrideValues({
       isGlicWebActuationAvailable: false,
       isBrowsingHistoryFilterByDeviceEnabled: true,
+      isBrowsingHistoryFilterByTimePeriodEnabled: false,
     });
+    browserProxy.handler.setResultFor(
+        'getSyncedDevicesForFiltering', Promise.resolve({
+          devices: [
+            {name: 'Device 1', isLocalDevice: true, ids: ['id1']},
+            {name: 'Device 2', isLocalDevice: false, ids: ['id2']},
+          ],
+        }));
     // Re-create the element to pick up the new loadTimeData.
-    await createPage([{name: 'Device 1'}, {name: 'Device 2'}]);
+    await createPage();
+    assertEquals(
+        1, browserProxy.handler.getCallCount('getSyncedDevicesForFiltering'));
     assertTrue(isChildVisible(element, '#historyFilterChips'));
   });
 
@@ -627,16 +652,65 @@ suite('HistoryFilterChipsVisibility', function() {
     loadTimeData.overrideValues({
       isGlicWebActuationAvailable: false,
       isBrowsingHistoryFilterByDeviceEnabled: true,
+      isBrowsingHistoryFilterByTimePeriodEnabled: false,
     });
+    browserProxy.handler.setResultFor(
+        'getSyncedDevicesForFiltering', Promise.resolve({
+          devices: [{name: 'Device 1', isLocalDevice: true, ids: ['id1']}],
+        }));
     // Re-create the element to pick up the new loadTimeData.
-    await createPage([{name: 'Device 1'}]);
+    await createPage();
+    assertEquals(
+        1, browserProxy.handler.getCallCount('getSyncedDevicesForFiltering'));
+    assertFalse(isChildVisible(element, '#historyFilterChips'));
+  });
+
+  test('FilterChipsVisible_TimePeriodFilterOnly', async () => {
+    loadTimeData.overrideValues({
+      isGlicWebActuationAvailable: false,
+      isBrowsingHistoryFilterByDeviceEnabled: false,
+      isBrowsingHistoryFilterByTimePeriodEnabled: true,
+    });
+    browserProxy.handler.setResultFor('getTimePeriodOptions', Promise.resolve({
+      options: [{
+        id: TimePeriodOptionId.kYesterday,
+        label: 'Yesterday',
+        beginTime: 0,
+        endTime: 1,
+      }],
+    }));
+    // Re-create the element to pick up the new loadTimeData.
+    await createPage();
+    await browserProxy.handler.whenCalled('getTimePeriodOptions');
+    await microtasksFinished();
+    assertTrue(isChildVisible(element, '#historyFilterChips'));
+  });
+
+  test('FilterChipsNotVisible_TimePeriodFilterDisabled', async () => {
+    loadTimeData.overrideValues({
+      isGlicWebActuationAvailable: false,
+      isBrowsingHistoryFilterByDeviceEnabled: false,
+      isBrowsingHistoryFilterByTimePeriodEnabled: false,
+    });
+    browserProxy.handler.setResultFor('getTimePeriodOptions', Promise.resolve({
+      options: [{
+        id: TimePeriodOptionId.kYesterday,
+        label: 'Yesterday',
+        beginTime: 0,
+        endTime: 1,
+      }],
+    }));
+    await createPage();
+    await browserProxy.handler.whenCalled('getTimePeriodOptions');
+    await microtasksFinished();
     assertFalse(isChildVisible(element, '#historyFilterChips'));
   });
 
   test('PropagatesFilterChanges', async () => {
     loadTimeData.overrideValues({
       isGlicWebActuationAvailable: true,
-      isBrowsingHistoryFilterByDeviceEnabled: false,
+      isBrowsingHistoryFilterByDeviceEnabled: true,
+      isBrowsingHistoryFilterByTimePeriodEnabled: false,
     });
     await createPage();
 
@@ -648,12 +722,14 @@ suite('HistoryFilterChipsVisibility', function() {
       search: string,
       includeUserVisits: boolean,
       includeActorVisits: boolean,
+      clientIds: string[],
     }>>('change-query', element);
 
     filterChips.dispatchEvent(new CustomEvent('filter-changed', {
       detail: {
         userVisits: false,
         actorVisits: true,
+        clientIds: ['device_1', 'device_2'],
       },
       bubbles: true,
       composed: true,
@@ -664,6 +740,7 @@ suite('HistoryFilterChipsVisibility', function() {
     // The query sent to the manager includes the new filters.
     assertFalse(event.detail.includeUserVisits);
     assertTrue(event.detail.includeActorVisits);
+    assertDeepEquals(['device_1', 'device_2'], event.detail.clientIds);
     assertEquals('', event.detail.search);
   });
 
@@ -671,8 +748,16 @@ suite('HistoryFilterChipsVisibility', function() {
     loadTimeData.overrideValues({
       isGlicWebActuationAvailable: true,
       isBrowsingHistoryFilterByDeviceEnabled: true,
+      isBrowsingHistoryFilterByTimePeriodEnabled: true,
     });
-    await createPage([{name: 'Device 1'}, {name: 'Device 2'}]);
+    browserProxy.handler.setResultFor(
+        'getSyncedDevicesForFiltering', Promise.resolve({
+          devices: [
+            {name: 'Device 1', isLocalDevice: true, ids: ['id1']},
+            {name: 'Device 2', isLocalDevice: false, ids: ['id2']},
+          ],
+        }));
+    await createPage();
 
     assertTrue(isChildVisible(element, '#historyFilterChips'));
 
@@ -685,6 +770,45 @@ suite('HistoryFilterChipsVisibility', function() {
     element.$.router.selectedPage = 'history';
     await microtasksFinished();
     assertTrue(isChildVisible(element, '#historyFilterChips'));
+  });
+
+  test('PreservesFilterChipsStateAfterGroupedView', async () => {
+    loadTimeData.overrideValues({
+      isGlicWebActuationAvailable: true,
+      isBrowsingHistoryFilterByDeviceEnabled: true,
+    });
+    browserProxy.handler.setResultFor(
+        'getSyncedDevicesForFiltering', Promise.resolve({
+          devices: [
+            {name: 'Device 1', isLocalDevice: true, ids: ['id1']},
+            {name: 'Device 2', isLocalDevice: false, ids: ['id2', 'id3']},
+          ],
+        }));
+    await createPage();
+
+    let filterChips =
+        element.shadowRoot.querySelector<HistoryFilterChipsElement>(
+            '#historyFilterChips');
+    assertTrue(!!filterChips);
+    filterChips.fire('filter-changed', {
+      userVisits: false,
+      actorVisits: true,
+      clientIds: ['id2', 'id3'],
+    });
+    await microtasksFinished();
+
+    element.$.router.selectedPage = 'grouped';
+    await microtasksFinished();
+
+    element.$.router.selectedPage = 'history';
+    await microtasksFinished();
+
+    filterChips = element.shadowRoot.querySelector<HistoryFilterChipsElement>(
+        '#historyFilterChips');
+    assertTrue(!!filterChips);
+    assertFalse(filterChips.userVisits);
+    assertTrue(filterChips.actorVisits);
+    assertDeepEquals(['id2', 'id3'], filterChips.clientIds);
   });
 });
 
@@ -730,10 +854,73 @@ suite('WebuiRefresh2026', function() {
     assertNotEquals(null, document.body.querySelector(COLORS_CSS_SELECTOR));
   });
 
+  // Android links colors.css whether or not the refresh is enabled.
+  // <if expr="not is_android">
   test('Disabled', async () => {
     loadTimeData.overrideValues({webuiRefresh2026: ''});
     await createPage();
 
     assertEquals(null, document.body.querySelector(COLORS_CSS_SELECTOR));
   });
+  // </if>
 });
+
+// <if expr="is_android">
+suite('HistoryAppTestAndroid', function() {
+  setup(() => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    loadTimeData.overrideValues({
+      historyEmbeddingsSearchMinimumWordCount: 2,
+      enableHistoryEmbeddings: true,
+      maybeShowEmbeddingsIph: false,
+      webuiRefresh2026: 'webui-refresh-2026',
+    });
+
+    BrowserProxyImpl.setInstance(new TestHistoryBrowserProxy());
+    const embeddingsHandler =
+        TestMock.fromClass(HistoryEmbeddingsPageHandlerRemote);
+    const {instance} =
+        historyEmbeddingsBrowserProxyFactory.createForTest(embeddingsHandler);
+    historyEmbeddingsBrowserProxyFactory.setInstance(instance);
+    embeddingsHandler.setResultFor(
+        'search', Promise.resolve({result: {items: []}}));
+
+    window.history.replaceState({}, '', '/');
+    CrRouter.resetForTesting();
+  });
+
+  test('ColorsCssLinkedOnce', async () => {
+    loadTimeData.overrideValues({webuiRefresh2026: ''});
+    // Count the page's insertions. ColorChangeUpdater can replace the link
+    // with one that has a version parameter, so those are not counted.
+    let added = 0;
+    const count = (records: MutationRecord[]) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node instanceof Element && node.matches(COLORS_CSS_SELECTOR) &&
+              !new URL(node.getAttribute('href')!, location.href)
+                   .searchParams.has('version')) {
+            added++;
+          }
+        }
+      }
+    };
+    const observer = new MutationObserver(count);
+    observer.observe(document.body, {childList: true});
+    document.body.appendChild(document.createElement('history-app'));
+    await microtasksFinished();
+    count(observer.takeRecords());
+    observer.disconnect();
+
+    assertEquals(1, added);
+  });
+
+  test('FontFamily', async () => {
+    const app = document.createElement('history-app');
+    document.body.appendChild(app);
+    await microtasksFinished();
+    assertTrue(getComputedStyle(app).fontFamily.includes('Google Sans Text'));
+  });
+});
+// </if>

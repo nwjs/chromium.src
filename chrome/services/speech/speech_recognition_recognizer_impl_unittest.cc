@@ -11,8 +11,10 @@
 #include "base/functional/bind.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/thread_pool.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "chrome/services/speech/soda/mock_soda_client.h"
+#include "media/base/media_switches.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using ::testing::_;
@@ -132,6 +134,29 @@ TEST_F(SpeechRecognitionRecognizerImplTest, OnLanguagePackInstalledTest) {
             config->recognition_mode());
   EXPECT_FALSE(config->enable_formatting());
   EXPECT_TRUE(config->mask_offensive_words());
+}
+
+TEST_F(SpeechRecognitionRecognizerImplTest, XnnpackDelegateFeatureEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(media::kSodaXnnpackDelegate);
+  CreateRecognizer(CreateOptions(), kPrimaryLanguageName);
+  EXPECT_CALL(*soda_client_, Reset(_, _, _));
+  recognizer_->OnLanguagePackInstalled(config_paths());
+
+  EXPECT_TRUE(recognizer_->GetExtendedSodaConfigMsgForTesting()
+                  ->enable_xnnpack_delegate());
+}
+
+TEST_F(SpeechRecognitionRecognizerImplTest, XnnpackDelegateFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(media::kSodaXnnpackDelegate);
+  CreateRecognizer(CreateOptions(), kPrimaryLanguageName);
+  EXPECT_CALL(*soda_client_, Reset(_, _, _));
+  recognizer_->OnLanguagePackInstalled(config_paths());
+
+  // The field must stay unset so the serialized config is unchanged.
+  EXPECT_FALSE(recognizer_->GetExtendedSodaConfigMsgForTesting()
+                   ->has_enable_xnnpack_delegate());
 }
 
 TEST_F(SpeechRecognitionRecognizerImplTest,

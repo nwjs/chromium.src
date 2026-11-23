@@ -36,19 +36,6 @@ source_set("payments_view_util") {
   ]
 }
 
-source_set("promo_code_label_button") {
-  public = [ "promo_code_label_button.h" ]
-  sources = [ "promo_code_label_button.cc" ]
-  public_deps = [ "//ui/views" ]
-  deps = [
-    "//base",
-    "//chrome/browser/ui/color:color_headers",
-    "//chrome/browser/ui/views:layout_provider",
-    "//components/vector_icons",
-    "//ui/base",
-  ]
-}
-
 source_set("bnpl_dialog_footnote") {
   public = [ "bnpl_dialog_footnote.h" ]
   sources = [ "bnpl_dialog_footnote.cc" ]
@@ -328,6 +315,7 @@ source_set("card_unmask_prompt_views") {
   ]
   deps = [
     ":payments_view_util",
+    "//chrome/app/vector_icons",
     "//chrome/browser/ui/views:layout_provider",
     "//components/constrained_window",
     "//components/strings:components_strings",
@@ -406,6 +394,7 @@ source_set("offer_notification_bubble_views") {
     "//components/strings:components_strings",
     "//net",
     "//ui/base/mojom:ui_base_types",
+    "//ui/strings",
   ]
 }
 
@@ -685,6 +674,48 @@ source_set("omnibox_autofill_bubble_view") {
     "//content/public/browser",
     "//ui/base/mojom:ui_base_types",
     "//ui/display",
+    "//ui/views",
+  ]
+}
+
+source_set("test_support_ui") {
+  testonly = true
+  public = [
+    "card_unmask_prompt_view_tester_views.h",
+    "offer_notification_bubble_views_test_base.h",
+  ]
+  sources = [
+    "card_unmask_prompt_view_tester_views.cc",
+    "offer_notification_bubble_views_test_base.cc",
+  ]
+  public_deps = [
+    ":offer_notification_bubble_views",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/ui/autofill/payments:test_support_ui",
+    "//chrome/test/base:in_process_browser_test",
+    "//components/autofill/content/browser",
+    "//components/autofill/content/browser:test_support",
+    "//components/autofill/core/browser",
+    "//components/autofill/core/browser:test_support",
+    "//content/test:test_support",
+    "//net:test_support",
+  ]
+  deps = [
+    ":card_unmask_prompt_views",
+    "//chrome/browser/autofill",
+    "//chrome/browser/autofill:test_support",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/views/frame:browser_view_header",
+    "//chrome/browser/ui/views/frame:toolbar_button_provider",
+    "//chrome/browser/ui/views/page_action:page_action_test_support",
+    "//chrome/browser/ui/views/toolbar",
+    "//chrome/test/base:ui_test_utils",
+    "//components/autofill/core/common",
+    "//components/autofill/core/common:features",
     "//ui/views",
   ]
 }

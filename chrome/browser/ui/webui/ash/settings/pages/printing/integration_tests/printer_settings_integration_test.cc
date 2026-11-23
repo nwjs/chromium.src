@@ -15,7 +15,6 @@
 #include "base/strings/pattern.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/ash/login/test/session_manager_state_waiter.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -251,7 +250,7 @@ class PrinterSettingsIntegrationTest : public AshIntegrationTest {
         Do([]() {
           ASSERT_FALSE(GlobalBrowserCollection::GetInstance()->IsEmpty());
           chrome::Reload(GetLastActiveBrowserWindowInterfaceWithAnyProfile(),
-                         WindowOpenDisposition::CURRENT_TAB);
+                         WindowOpenDisposition::kCurrentTab);
         }),
         WaitForHide(kSettingsWebContentsId),
         WaitForShow(kSettingsWebContentsId),

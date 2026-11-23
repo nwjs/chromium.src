@@ -7,7 +7,6 @@
 #include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_pref_names.h"
 #include "base/metrics/histogram_functions.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/webui/ash/settings/services/metrics/settings_user_action_tracker.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
@@ -55,7 +54,7 @@ void OsSettingsMetricsProvider::MaybeLogTotalUniqueSettingsChanged() {
   // Log total unique Settings changed over the device's lifetime if allowed.
   PrefService* profile_pref_service =
       ProfileManager::GetActiveUserProfile()->GetPrefs();
-  DCHECK(profile_pref_service);
+  CHECK(profile_pref_service, base::NotFatalUntil::M162);
 
   // We do not have consent to record the metrics.
   if (!ShouldRecordMetrics(profile_pref_service)) {
@@ -108,7 +107,8 @@ bool OsSettingsMetricsProvider::IsTodayInFirst7Days(
   // The pref kOobeOnboardingTime does not get set for users in guest mode.
   // Because we are accessing the value of the pref, we must ensure that it does
   // exist.
-  DCHECK(profile_pref_service->HasPrefPath(prefs::kOobeOnboardingTime));
+  CHECK(profile_pref_service->HasPrefPath(prefs::kOobeOnboardingTime),
+        base::NotFatalUntil::M162);
   return base::Time::Now() -
              profile_pref_service->GetTime(::ash::prefs::kOobeOnboardingTime) <=
          kOneWeek;

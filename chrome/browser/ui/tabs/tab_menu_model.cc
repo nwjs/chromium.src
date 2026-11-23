@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_sub_menu_model.h"
+#include "chrome/browser/ui/tabs/contextual_tasks_tab_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/existing_tab_group_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/existing_window_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/features.h"
@@ -53,7 +54,6 @@
 #include "components/commerce/core/commerce_constants.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/feed/feed_feature_list.h"
-#include "components/send_tab_to_self/features.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_context_menu_command.h"
@@ -216,59 +216,26 @@ void TabMenuModel::BuildSendTabToSelfItem(int index,
       send_tab_to_self::SendTabToSelfSubMenuModel::MaybeCreateForMultipleTabs(
           tab_strip_->GetWebContentsAt(index), web_contents_list,
           send_tab_to_self::ShareEntryPoint::kTabMenu);
-  if (!send_tab_to_self_submenu_) {
-#if BUILDFLAG(IS_MAC)
-    if (features::IsMenuSimplificationEnabled()) {
-      AddItemWithIcon(
-          TabStripModel::CommandSendTabToSelf,
-          l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
-          ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
-                                             ? kDevicesIcon
-                                             : kDevicesOldIcon));
-    } else {
-      AddItem(TabStripModel::CommandSendTabToSelf,
-              l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF));
-    }
-#else
-    AddItemWithIcon(
-        TabStripModel::CommandSendTabToSelf,
-        l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
-        ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
-                                           ? kDevicesIcon
-                                           : kDevicesOldIcon));
-#endif
-    return;
-  }
-
-#if BUILDFLAG(IS_MAC)
-  if (features::IsMenuSimplificationEnabled()) {
-    AddSubMenuWithStringIdAndIcon(
-        TabStripModel::CommandSendTabToSelf, IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
-        send_tab_to_self_submenu_.get(),
-        ui::ImageModel::FromVectorIcon(
-            features::IsRoundedIconsEnabled() ? kDevicesIcon : kDevicesOldIcon,
-            ui::kColorMenuIcon, kTabMenuIconSize));
-  } else {
+  if (send_tab_to_self_submenu_) {
     AddSubMenuWithStringId(TabStripModel::CommandSendTabToSelf,
                            IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
                            send_tab_to_self_submenu_.get());
+    SetElementIdentifierAt(GetItemCount() - 1, kTabSendTabToSelfMenuItem);
+  } else {
+    AddItemWithStringId(TabStripModel::CommandSendTabToSelf,
+                        IDS_CONTEXT_MENU_SEND_TAB_TO_SELF);
   }
-#else
-  AddSubMenuWithStringIdAndIcon(
-      TabStripModel::CommandSendTabToSelf, IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
-      send_tab_to_self_submenu_.get(),
+
+#if BUILDFLAG(IS_MAC)
+  if (!features::IsMenuSimplificationEnabled()) {
+    return;
+  }
+#endif
+  SetIconForCommandId(
+      TabStripModel::CommandSendTabToSelf,
       ui::ImageModel::FromVectorIcon(
           features::IsRoundedIconsEnabled() ? kDevicesIcon : kDevicesOldIcon,
           ui::kColorMenuIcon, kTabMenuIconSize));
-#endif
-
-  SetElementIdentifierAt(GetItemCount() - 1, kTabSendTabToSelfMenuItem);
-
-  // TODO(crbug.com/516708776): Remove new feature tag when no longer new.
-  SetIsNewFeatureAt(GetItemCount() - 1,
-                    UserEducationService::MaybeShowNewBadge(
-                        tab_strip_->profile(),
-                        send_tab_to_self::kSendTabToSelfEnhancedDesktopUI));
 }
 
 void TabMenuModel::AppendGlicItems(int index,
@@ -305,6 +272,36 @@ void TabMenuModel::AppendGlicItems(int index,
   }
 }
 
+void TabMenuModel::AppendAiModeItems(int index,
+                                     int num_tabs,
+                                     bool show_share,
+                                     bool show_unshare) {
+  if (!show_share && !show_unshare) {
+    return;
+  }
+
+  const ui::ImageModel ai_mode_icon = ui::ImageModel::FromVectorIcon(
+      glic::GlicVectorIconManager::GetVectorIcon(IDR_GLIC_BUTTON_VECTOR_ICON),
+      ui::kColorMenuIcon, kTabMenuIconSize);
+
+  if (show_share) {
+    contextual_tasks_tab_sub_menu_model_ =
+        std::make_unique<contextual_tasks::ContextualTasksTabSubMenuModel>(
+            tab_strip_, index);
+    AddSubMenuWithIcon(TabStripModel::CommandAiModeShare,
+                       l10n_util::GetPluralStringFUTF16(
+                           IDS_TAB_CXMENU_AI_MODE_SHARE, num_tabs),
+                       contextual_tasks_tab_sub_menu_model_.get(),
+                       ai_mode_icon);
+  }
+
+  if (show_unshare) {
+    AddItemWithIcon(TabStripModel::CommandAiModeUnshare,
+                    l10n_util::GetStringUTF16(IDS_TAB_CXMENU_AI_MODE_UNSHARE),
+                    ai_mode_icon);
+  }
+}
+
 // Capitalization Policy (go/chrome-capitalization):
 // Native right-click tab context menus on macOS use Title Case (`_MAC` string
 // variants) to follow Apple Human Interface Guidelines (HIG), while other
@@ -322,6 +319,13 @@ void TabMenuModel::Build(int index) {
   }
 
   int num_tabs = indices.size();
+  const std::vector<tabs::TabInterface*> tabs =
+      tab_strip_->GetTabsAtIndices(indices);
+  std::vector<tabs::TabHandle> tab_handles;
+  tab_handles.reserve(tabs.size());
+  for (tabs::TabInterface* tab : tabs) {
+    tab_handles.push_back(tab->GetHandle());
+  }
 
   auto* controller = tabs::VerticalTabStripStateController::From(
       tab_strip_->delegate()->GetBrowserWindowInterface());
@@ -411,7 +415,7 @@ void TabMenuModel::Build(int index) {
       std::ranges::none_of(
           indices, [&](int idx) { return tab_strip_->IsTabPinned(idx); })) {
     if (std::optional<tab_groups::TabGroupId> group =
-            tab_strip_->GetCommonGroupForIndices(indices)) {
+            tab_strip_->GetCommonGroupForTabs(tab_handles)) {
       const bool is_focused = tab_strip_->GetFocusedGroup() == group;
       if (tab_strip_->IsEphemeralTabGroup(*group)) {
         const size_t group_tab_count =
@@ -425,14 +429,28 @@ void TabMenuModel::Build(int index) {
         AddItemWithStringId(TabStripModel::CommandToggleFocusGroup,
                             is_focused ? IDS_TAB_CXMENU_UNFOCUS_TAB_GROUP
                                        : IDS_TAB_CXMENU_FOCUS_TAB_GROUP);
+        if (!is_focused) {
+          const user_education::DisplayNewBadge show_badge =
+              UserEducationService::MaybeShowNewBadge(
+                  tab_strip_->profile(), features::kTabGroupsFocusing);
+          SetIsNewFeatureAt(GetItemCount() - 1, show_badge);
+        }
       }
-      SetElementIdentifierAt(GetItemCount() - 1, kFocusSelectionMenuItem);
     } else if (base::FeatureList::IsEnabled(features::kNonGroupFocus) &&
-               tab_strip_->AreAllUngrouped(indices)) {
+               tab_strip_->AreAllUngrouped(tab_handles)) {
       AddItem(TabStripModel::CommandToggleFocusGroup,
               l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_FOCUS_TABS,
                                                num_tabs));
-      SetElementIdentifierAt(GetItemCount() - 1, kFocusSelectionMenuItem);
+    }
+
+    if (std::optional<size_t> focus_index =
+            GetIndexOfCommandId(TabStripModel::CommandToggleFocusGroup)) {
+      SetElementIdentifierAt(*focus_index, kFocusSelectionMenuItem);
+      if (features::IsMenuSimplificationEnabled()) {
+        SetIcon(*focus_index, ui::ImageModel::FromVectorIcon(
+                                  kFilterTiltShiftIcon, ui::kColorMenuIcon,
+                                  ui::SimpleMenuModel::kDefaultIconSize));
+      }
     }
   }
 
@@ -576,10 +594,22 @@ void TabMenuModel::Build(int index) {
 
   const bool show_glic_items =
       glic::GlicEnabling::IsReadyForProfile(tab_strip_->profile());
+  const bool show_ai_mode_share = tab_strip_->IsContextMenuCommandEnabled(
+      index, TabStripModel::CommandAiModeShare);
+  const bool show_ai_mode_unshare = tab_strip_->IsContextMenuCommandEnabled(
+      index, TabStripModel::CommandAiModeUnshare);
+  const bool show_ai_mode_items = show_ai_mode_share || show_ai_mode_unshare;
   bool glic_displayed = false;
-  if (features::IsMenuSimplificationEnabled() && show_glic_items) {
+  if (features::IsMenuSimplificationEnabled() &&
+      (show_glic_items || show_ai_mode_items)) {
     AddSeparator(ui::NORMAL_SEPARATOR);
-    AppendGlicItems(index, num_tabs, indices);
+    if (show_glic_items) {
+      AppendGlicItems(index, num_tabs, indices);
+    }
+    if (show_ai_mode_items) {
+      AppendAiModeItems(index, num_tabs, show_ai_mode_share,
+                        show_ai_mode_unshare);
+    }
     AddSeparator(ui::NORMAL_SEPARATOR);
     glic_displayed = true;
   }
@@ -607,6 +637,10 @@ void TabMenuModel::Build(int index) {
 
   if (show_glic_items && !glic_displayed) {
     AppendGlicItems(index, num_tabs, indices);
+  }
+  if (show_ai_mode_items && !glic_displayed) {
+    AppendAiModeItems(index, num_tabs, show_ai_mode_share,
+                      show_ai_mode_unshare);
   }
 
   if (display_send_to_self) {

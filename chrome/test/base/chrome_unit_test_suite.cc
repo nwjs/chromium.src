@@ -32,6 +32,8 @@
 #include "gpu/ipc/service/image_transport_surface.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/ax_mode.h"
+#include "ui/base/idle/idle.h"
+#include "ui/base/idle/scoped_set_idle_state.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/resource_handle.h"
 #include "ui/base/ui_base_paths.h"
@@ -45,13 +47,15 @@
 #include "crypto/nss_util_internal.h"
 #endif
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+#include "ui/base/resource/resource_bundle_android.h"
+#else
 #include "base/auto_reset.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/publishers/publisher_host_factory_impl.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_trust_checker.h"
 #include "components/web_package/signed_web_bundles/signed_web_bundle_id.h"
-#endif  // !BUILDFLAG(IS_ANDROID)
+#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/common/scoped_chrome_extensions_client.h"
@@ -76,6 +80,14 @@ class ChromeUnitTestSuiteInitializer : public testing::EmptyTestEventListener {
   ~ChromeUnitTestSuiteInitializer() override = default;
 
   void OnTestStart(const testing::TestInfo& test_info) override {
+    // Report the user as active by default so that unit tests never query the
+    // host's real idle or screen lock state. Without this, on Linux,
+    // global features such as SmartRestartMetricsObserver start
+    // DBusScreenSaverWatcher, whose async session bus calls can reply after
+    // the task environment's final RunUntilIdle() and leave a task pending at
+    // teardown, causing flaky MainThreadIsIdle() failures. Tests that need a
+    // specific state can nest their own ui::ScopedSetIdleState.
+    idle_state_override_.emplace(ui::IDLE_STATE_ACTIVE);
     TestingBrowserProcess::CreateInstance();
 #if !BUILDFLAG(IS_ANDROID)
     // Injects global publisher factory for unit_tests.
@@ -126,12 +138,14 @@ class ChromeUnitTestSuiteInitializer : public testing::EmptyTestEventListener {
 #if !BUILDFLAG(IS_ANDROID)
     publisher_host_factory_resetter_.reset();
 #endif
+    idle_state_override_.reset();
   }
 
 #if !BUILDFLAG(IS_ANDROID)
   std::optional<base::AutoReset<std::unique_ptr<apps::PublisherHostFactory>>>
       publisher_host_factory_resetter_;
 #endif  // !BUILDFLAG(IS_ANDROID)
+  std::optional<ui::ScopedSetIdleState> idle_state_override_;
 };
 
 }  // namespace
@@ -223,8 +237,12 @@ void ChromeUnitTestSuite::InitializeResourceBundle() {
   // output, it'll pass regardless of the system language.
   ui::ResourceBundle::InitSharedInstanceWithLocale(
       kDefaultLocale, nullptr, ui::ResourceBundle::LOAD_COMMON_RESOURCES);
+#if BUILDFLAG(IS_ANDROID)
+  ui::LoadMainAndroidPackFile("assets/resources.pak", base::FilePath());
+#else
   base::FilePath resources_pack_path;
   base::PathService::Get(chrome::FILE_RESOURCES_PACK, &resources_pack_path);
   ui::ResourceBundle::GetSharedInstance().AddDataPackFromPath(
       resources_pack_path, ui::kScaleFactorNone);
+#endif  // BUILDFLAG(IS_ANDROID)
 }

@@ -4,6 +4,7 @@
 
 #include "components/page_content_annotations/content/renderer/paint_stability_monitor.h"
 
+#include "base/feature_list.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/task/sequenced_task_runner.h"
@@ -33,7 +34,8 @@ PaintStabilityMonitor::PaintStabilityMonitor(
 
 PaintStabilityMonitor::~PaintStabilityMonitor() = default;
 
-void PaintStabilityMonitor::Start() {
+void PaintStabilityMonitor::Start(
+    base::OnceClosure first_contentful_paint_callback) {
   CHECK(!is_stable_callback_);
 
   is_started_ = true;
@@ -42,6 +44,13 @@ void PaintStabilityMonitor::Start() {
     delegate_->OnEvent(PaintStabilityMonitorStartedEvent{
         .initial_painted_area =
             interaction_effects_monitor_->TotalPaintedArea()});
+  }
+
+  first_contentful_paint_callback_ = std::move(first_contentful_paint_callback);
+
+  if (base::FeatureList::IsEnabled(
+          features::kPaintStabilityDeferInitialPaintTimeout)) {
+    return;
   }
 
   // There won't be any interactions if the underlying frame does not support
@@ -60,9 +69,28 @@ void PaintStabilityMonitor::WaitForStable(base::OnceClosure callback) {
   CHECK(!is_stable_callback_);
   is_stable_callback_ = std::move(callback);
   is_wait_for_stable_started_ = true;
+  first_contentful_paint_callback_.Reset();
+
   // Paint stability might have been reached between `Start()` and now.
   if (is_stability_reached_) {
     OnPaintStabilityDetected();
+    return;
+  }
+
+  // Defer the initial contentful paint timeout until `WaitForStable()` is
+  // called so it does not expire prematurely during `monitoring_start_delay_`.
+  // If a contentful paint already occurred between `Start()` and now,
+  // `OnContentfulPaint()` has already scheduled the subsequent paint timeout.
+  if (base::FeatureList::IsEnabled(
+          features::kPaintStabilityDeferInitialPaintTimeout) &&
+      !contentful_paint_timer_.IsRunning()) {
+    // There won't be any interactions if the underlying frame does not support
+    // monitoring, which is the case for iframes. Avoid invoking the
+    // `is_stable_callback_` in that case.
+    if (interaction_effects_monitor_->InteractionCount() == 0) {
+      return;
+    }
+    ScheduleContentfulPaintTimeoutTask(FROM_HERE, GetInitialPaintTimeout());
   }
 }
 
@@ -94,6 +122,10 @@ void PaintStabilityMonitor::OnContentfulPaint(uint64_t new_painted_area) {
 
   is_stability_reached_ = false;
   ScheduleContentfulPaintTimeoutTask(FROM_HERE, GetSubsequentPaintTimeout());
+
+  if (first_contentful_paint_callback_) {
+    std::move(first_contentful_paint_callback_).Run();
+  }
 }
 
 void PaintStabilityMonitor::OnPaintStabilityDetected() {

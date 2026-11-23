@@ -160,6 +160,9 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
     <!-- TODO(crbug.com/571546748): Remove temporarily suppress Glic native FRE strings. -->
     <ignore regexp="The resource `R.string.glic_fre_dialog_.*` appears to be unused"/>
 
+    <!-- TODO(b/577140928): Remove once the Glic experimental opt-in notification uses these strings. -->
+    <ignore regexp="The resource `R.string.glic_experimental_opt_in_notification_.*` appears to be unused"/>
+
     <!-- TODO(crbug.com/554115227): Remove temporarily suppress Actor notification prompt strings. -->
     <ignore regexp="The resource `R.string.actor_notification_prompt_toast_title` appears to be unused"/>
     <ignore regexp="The resource `R.string.actor_notification_prompt_toast_body` appears to be unused"/>
@@ -284,9 +287,6 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
     <!--TODO(crbug.com/408284509): Remove unused shopping string resources. -->
     <ignore regexp="The resource `R.string.price_tracking_title` appears to be unused"/>
     <ignore regexp="The resource `R.string.discount_icon_expanded_text` appears to be unused"/>
-
-    <!-- TODO(crbug.com/40227734): Remove unused resources when UX is finalized. -->
-    <ignore regexp="The resource `R.string.search_resumption_module_title_short` appears to be unused"/>
 
     <!-- TODO(crbug.com/40225008): Remove the following 2 lines after the bug is resolved. -->
     <ignore regexp="The resource `R.string.iph_translate_message_dismissed_text` appears to be unused"/>

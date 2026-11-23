@@ -276,7 +276,7 @@ TEST_F(ConnectorsInternalsPageHandlerTest,
   EXPECT_EQ(state->error_info, "Profile reporting service unavailable");
   EXPECT_FALSE(state->status_report_enabled);
   EXPECT_FALSE(state->signals_report_enabled);
-  EXPECT_TRUE(state->can_collect_all_fields);
+  EXPECT_FALSE(state->can_collect_all_fields);
 }
 
 // Tests that GetSignalsReportingState returns an error when the reporting
@@ -300,7 +300,8 @@ TEST_F(ConnectorsInternalsPageHandlerTest,
             /*profile_name=*/"",
             /*report_scheduler_delegate=*/nullptr,
             /*signals_aggregator=*/nullptr,
-            /*saas_usage_report_scheduler=*/nullptr);
+            /*saas_usage_report_scheduler=*/nullptr,
+            /*user_cloud_policy_manager=*/nullptr);
       }));
   std::unique_ptr<TestProfileIOS> test_profile = std::move(builder).Build();
 
@@ -317,7 +318,7 @@ TEST_F(ConnectorsInternalsPageHandlerTest,
   EXPECT_EQ(state->error_info, "Profile report scheduler unavailable");
   EXPECT_FALSE(state->status_report_enabled);
   EXPECT_FALSE(state->signals_report_enabled);
-  EXPECT_TRUE(state->can_collect_all_fields);
+  EXPECT_FALSE(state->can_collect_all_fields);
 }
 
 // Tests that GetSignalsReportingState correctly retrieves and formats upload
@@ -346,7 +347,7 @@ TEST_F(ConnectorsInternalsPageHandlerTest,
   EXPECT_FALSE(state->last_upload_attempt_timestamp.empty());
   EXPECT_FALSE(state->last_upload_success_timestamp.empty());
   EXPECT_EQ(state->last_signals_upload_config, "test_config");
-  EXPECT_TRUE(state->can_collect_all_fields);
+  EXPECT_FALSE(state->can_collect_all_fields);
 }
 
 // Tests that GetDeviceTrustState returns unsupported state when the

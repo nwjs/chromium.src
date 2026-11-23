@@ -12,6 +12,8 @@
 #include <tuple>
 #include <vector>
 
+#include "base/component_export.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -37,7 +39,16 @@ namespace ui {
 // Linux-specific implementation of the GlobalShortcutListener class that
 // listens for global shortcuts using the org.freedesktop.portal.GlobalShortcuts
 // interface.
-class GlobalAcceleratorListenerLinux : public GlobalAcceleratorListener {
+//
+// Portal backends differ in behavior: some only report shortcuts bound in the
+// current session from ListShortcuts, most require BindShortcuts in every
+// session to activate shortcuts, and every BindShortcuts call replaces the set
+// of shortcuts stored for the app. To avoid showing a dialog on every browser
+// start, this class binds the complete, stable set of every global shortcut
+// that has been offered (persisted with a StateStore), and doesn't offer
+// shortcuts again after the user declines them.
+class COMPONENT_EXPORT(GLOBAL_ACCELERATOR_LISTENER)
+    GlobalAcceleratorListenerLinux : public GlobalAcceleratorListener {
  public:
   GlobalAcceleratorListenerLinux(scoped_refptr<dbus::Bus> bus,
                                  const std::string& session_token);
@@ -53,11 +64,10 @@ class GlobalAcceleratorListenerLinux : public GlobalAcceleratorListener {
   FRIEND_TEST_ALL_PREFIXES(GlobalAcceleratorListenerLinuxTest,
                            OnCommandsChanged);
   FRIEND_TEST_ALL_PREFIXES(GlobalAcceleratorListenerLinuxTest,
-                           OnCommandsChangedPendingSessionCreation);
-  FRIEND_TEST_ALL_PREFIXES(GlobalAcceleratorListenerLinuxTest,
                            PruneStaleCommands);
   FRIEND_TEST_ALL_PREFIXES(GlobalAcceleratorListenerLinuxTest,
                            BindsCommandAddedAfterUpToDateList);
+  friend class GlobalAcceleratorListenerLinuxBindTest;
 
   using DbusShortcut = std::tuple<std::string, dbus_xdg::Dictionary>;
   using DbusShortcuts = std::vector<DbusShortcut>;
@@ -80,6 +90,30 @@ class GlobalAcceleratorListenerLinux : public GlobalAcceleratorListener {
     kBindCalled,
     kNeedsRebind,
     kBound,
+  };
+
+  // The state of a shortcut that has been offered to the portal. The integer
+  // values are persisted, so they must not be changed.
+  enum class OfferState {
+    // Not yet accepted by the portal. Binding it may show a dialog.
+    kNew = 0,
+    // Successfully bound in this or a previous session, or reported by
+    // ListShortcuts. Binding it again should not show a dialog.
+    kKnown = 1,
+    // Binding was cancelled or failed. Not offered again until the user
+    // explicitly changes the command.
+    // TODO(crbug.com/404298968): Add an explicit way to offer declined
+    // shortcuts again.
+    kDeclined = 2,
+  };
+
+  struct OfferedShortcut {
+    std::string description;
+    // The preferred trigger of the command when it was last offered, in the
+    // format of AcceleratorToXdgShortcut(). Used to detect that the user
+    // changed the accelerator of a declined shortcut.
+    std::string trigger;
+    OfferState state = OfferState::kNew;
   };
 
   struct BoundCommand {
@@ -112,6 +146,7 @@ class GlobalAcceleratorListenerLinux : public GlobalAcceleratorListener {
       base::RepeatingCallback<void(const std::string&, const std::string&)>
           execute_command) override;
   void PruneStaleCommands() override;
+  void SetStateStore(std::unique_ptr<StateStore> store) override;
 
   void OnCreateSessionResponse(dbus_xdg::Session* session);
   void OnListShortcuts(
@@ -131,24 +166,73 @@ class GlobalAcceleratorListenerLinux : public GlobalAcceleratorListener {
 
   void CreateSession();
 
-  void BindShortcuts(DbusShortcuts old_shortcuts, std::string parent_handle);
+  void BindShortcuts(std::string parent_handle);
 
   void CloseSession();
 
-  bool HasGlobalShortcuts() const;
+  // Creates, re-creates or closes the portal session as needed so that the
+  // shortcuts returned by GetIdsToBind() are bound.
+  void MaybeBind();
+
+  // Returns the IDs of the shortcuts that should be bound to the portal. This
+  // includes shortcuts whose owner isn't currently loaded (e.g. another
+  // profile), since every BindShortcuts call replaces the set of shortcuts that
+  // the portal has stored for the app.
+  base::flat_set<std::string> GetIdsToBind() const;
+
+  // Returns true if GetIdsToBind() contains an ID that isn't in `ids`.
+  bool HasIdsToBindNotIn(const base::flat_set<std::string>& ids) const;
+
+  // Returns true if `id` belongs to an accelerator group that has been loaded
+  // in this session.
+  bool IsIdOfLoadedGroup(const std::string& id) const;
+
+  // Loads `offered_shortcuts_` from `state_store_`. Must be called before any
+  // commands are loaded.
+  void LoadState();
+  void SaveState();
 
   // DBus components.
   scoped_refptr<dbus::Bus> bus_;
   raw_ptr<dbus::ObjectProxy> global_shortcuts_proxy_ = nullptr;
   std::unique_ptr<dbus_xdg::Session> session_;
   std::optional<bool> service_started_;
+  uint32_t portal_version_ = 0;
   std::unique_ptr<dbus_xdg::Request> request_;
   BindState bind_state_ = BindState::kNotBound;
   const std::string session_token_;
   const bool set_preferred_trigger_;
 
   gfx::AcceleratedWidget context_window_ = gfx::kNullAcceleratedWidget;
+
+  // Global commands of the accelerator groups that are currently loaded, keyed
+  // by shortcut ID.
   std::map<std::string, BoundCommand> bound_commands_;
+
+  // Every global shortcut that has been offered to the portal, keyed by
+  // shortcut ID. This is persisted with `state_store_` so that shortcuts whose
+  // owner isn't loaded are still included in BindShortcuts calls.
+  std::map<std::string, OfferedShortcut> offered_shortcuts_;
+
+  // Shortcuts reported by ListShortcuts that aren't tracked in
+  // `offered_shortcuts_`, e.g. shortcuts registered before
+  // `offered_shortcuts_` was persisted. Maps ID to description. These are
+  // passed through to BindShortcuts so they aren't dropped by the portal.
+  std::map<std::string, std::string> untracked_shortcuts_;
+
+  // Shortcut ID prefixes (including the trailing "-") of the accelerator
+  // groups that have been loaded in this session.
+  base::flat_set<std::string> loaded_prefixes_;
+
+  // IDs that have been bound, or attempted to be bound, in the current
+  // session. Failed binds are included so that MaybeBind() doesn't immediately
+  // retry binding the same set of IDs.
+  base::flat_set<std::string> session_ids_;
+
+  // IDs sent in the in-flight BindShortcuts call.
+  base::flat_set<std::string> pending_bind_ids_;
+
+  std::unique_ptr<StateStore> state_store_;
 
   base::WeakPtrFactory<GlobalAcceleratorListenerLinux> weak_ptr_factory_{this};
 };

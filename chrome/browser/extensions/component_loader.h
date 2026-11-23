@@ -161,6 +161,9 @@ class ComponentLoader : public KeyedService {
                            base::OnceClosure done_cb);
 
   void AddChromeOsSpeechSynthesisExtensions();
+
+  // Adds the Image Loader component extension.
+  void AddImageLoaderExtension();
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   void set_ignore_allowlist_for_testing(bool value) {
@@ -217,13 +220,12 @@ class ComponentLoader : public KeyedService {
   // Loads a registered component extension.
   void Load(const ComponentExtensionInfo& info);
 
-  // Loads a staged component extension from disk if `local_state` has a staged
+  // Loads a staged component extension from disk if Local State has a staged
   // manifest and relative install path for `extension_id`, its public key
   // matches `extension_id`, and its version is strictly newer than the bundled
   // version. Returns true on success, otherwise clears any staged preferences
   // and returns false.
-  bool MaybeLoadStagedExtension(PrefService& local_state,
-                                const ExtensionId& extension_id,
+  bool MaybeLoadStagedExtension(const ExtensionId& extension_id,
                                 int manifest_resource_id);
 
   void AddDefaultComponentExtensionsWithBackgroundPages(
@@ -237,6 +239,8 @@ class ComponentLoader : public KeyedService {
   void AddNetworkSpeechSynthesisExtension();
 
   void AddAimEligibilityExtension();
+
+  void AddNewTabPageExtension();
 
   void AddGlicExtension();
 
@@ -252,7 +256,6 @@ class ComponentLoader : public KeyedService {
   void AddChromeApp();
   void AddFileManagerExtension();
   void AddGalleryExtension();
-  void AddImageLoaderExtension();
   void AddGuestModeTestExtension(const base::FilePath& path);
   void AddKeyboardApp();
 

@@ -22,6 +22,7 @@ source_set("ui") {
     "//ios/chrome/browser/drag_and_drop/model",
     "//ios/chrome/browser/ntp/ui_bundled:constants",
     "//ios/chrome/browser/ntp/ui_bundled:feature_flags",
+    "//ios/chrome/browser/ntp/ui_bundled:shortcuts_handler",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/url_loading/model",
     "//ios/chrome/common/ui/util",
@@ -48,7 +49,6 @@ source_set("ui_util") {
   deps = [
     "//base",
     "//base:i18n",
-    "//components/ntp_tiles",
     "//components/strings",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/content_suggestions/most_visited_tiles/public",

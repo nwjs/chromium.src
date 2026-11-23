@@ -84,7 +84,6 @@
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_public.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 
@@ -247,7 +246,8 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
         coep_reporting_observer,
     CrossVariantMojoReceiver<mojom::blink::ReportingObserverInterfaceBase>
         dip_reporting_observer,
-    bool is_cross_origin_isolated) {
+    bool is_cross_origin_isolated,
+    const network::PermissionsPolicyFeaturesBitset& permissions_policy) {
   DCHECK(IsMainThread());
   DCHECK(web_worker_fetch_context);
   CHECK(constructor_origin.Get()->CanAccessSharedWorkers() ||
@@ -323,6 +323,19 @@ void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& 
       blink::SecurityOrigin::CreateFromUrlOrigin(
           url::Origin(origin_from_browser)),
       std::move(coep_reporting_observer), std::move(dip_reporting_observer));
+
+  if (RuntimeEnabledFeatures::PermissionsPolicyForSharedWorkersEnabled()) {
+    const url::Origin worker_origin =
+        (creation_params->origin_to_use
+             ? creation_params->origin_to_use.get()
+             : outside_settings_object->GetSecurityOrigin())
+            ->ToUrlOrigin();
+    creation_params->worker_permissions_policy =
+        network::PermissionsPolicy::CreateFromInheritedPolicy(
+            // TODO(https://crbug.com/562705553): Parse the Permissions-Policy
+            // header and take header_policy into account.
+            permissions_policy, /*header_policy=*/{}, worker_origin);
+  }
 
   auto thread_startup_data = WorkerBackingThreadStartupData::CreateDefault();
   thread_startup_data.atomics_wait_mode =
@@ -411,7 +424,8 @@ std::unique_ptr<WebSharedWorker> WebSharedWorker::CreateAndStart(
         coep_reporting_observer,
     CrossVariantMojoReceiver<mojom::blink::ReportingObserverInterfaceBase>
         dip_reporting_observer,
-    bool is_cross_origin_isolated) {
+    bool is_cross_origin_isolated,
+    const network::PermissionsPolicyFeaturesBitset& permissions_policy) {
   auto worker =
       base::WrapUnique(new WebSharedWorkerImpl(token, std::move(host), client));
   worker->StartWorkerContext(nodejs, main_script,
@@ -424,7 +438,7 @@ std::unique_ptr<WebSharedWorker> WebSharedWorker::CreateAndStart(
       std::move(policy_container), std::move(web_worker_fetch_context),
       ukm_source_id, require_cross_site_request_for_cookies,
       std::move(coep_reporting_observer), std::move(dip_reporting_observer),
-      is_cross_origin_isolated);
+      is_cross_origin_isolated, permissions_policy);
   return worker;
 }
 

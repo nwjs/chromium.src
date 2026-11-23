@@ -109,6 +109,10 @@ component("browser") {
     "file_system/file_system_usage_cache.h",
     "file_system/file_writer_delegate.cc",
     "file_system/file_writer_delegate.h",
+    "file_system/in_memory_file_registry.cc",
+    "file_system/in_memory_file_registry.h",
+    "file_system/in_memory_file_system_backend.cc",
+    "file_system/in_memory_file_system_backend.h",
     "file_system/isolated_context.cc",
     "file_system/isolated_context.h",
     "file_system/isolated_file_system_backend.cc",
@@ -169,8 +173,6 @@ component("browser") {
     "file_system/sandbox_quota_observer.cc",
     "file_system/sandbox_quota_observer.h",
     "file_system/task_runner_bound_observer_list.h",
-    "file_system/transient_file_util.cc",
-    "file_system/transient_file_util.h",
     "file_system/watcher_manager.h",
     "quota/client_usage_tracker.cc",
     "quota/client_usage_tracker.h",
@@ -213,10 +215,7 @@ component("browser") {
   ]
 
   defines = [ "IS_STORAGE_BROWSER_IMPL" ]
-  configs += [
-    "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config:precompiled_headers" ]
 
   public_deps = [
     "//components/services/filesystem/public/mojom",
@@ -292,6 +291,8 @@ source_set("unittests") {
     "file_system/file_system_url_unittest.cc",
     "file_system/file_system_usage_cache_unittest.cc",
     "file_system/file_writer_delegate_unittest.cc",
+    "file_system/in_memory_file_registry_unittest.cc",
+    "file_system/in_memory_file_system_backend_unittest.cc",
     "file_system/isolated_context_unittest.cc",
     "file_system/local_file_stream_reader_unittest.cc",
     "file_system/local_file_stream_writer_unittest.cc",
@@ -310,7 +311,6 @@ source_set("unittests") {
     "file_system/sandbox_file_system_backend_delegate_unittest.cc",
     "file_system/sandbox_file_system_backend_unittest.cc",
     "file_system/sandbox_origin_database_unittest.cc",
-    "file_system/transient_file_util_unittest.cc",
     "quota/quota_database_migrations_unittest.cc",
     "quota/quota_database_unittest.cc",
     "quota/quota_manager_proxy_unittest.cc",

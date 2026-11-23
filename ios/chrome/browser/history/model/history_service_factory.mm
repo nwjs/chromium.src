@@ -11,7 +11,6 @@
 #import "components/history/core/browser/visit_delegate.h"
 #import "components/history/core/common/pref_names.h"
 #import "components/history/ios/browser/history_database_helper.h"
-#import "components/keyed_service/core/service_access_type.h"
 #import "components/prefs/pref_service.h"
 #import "components/sync_device_info/device_info_sync_service.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
@@ -64,40 +63,20 @@ std::unique_ptr<KeyedService> BuildHistoryService(ProfileIOS* profile) {
 }  // namespace
 
 // static
-history::HistoryService* HistoryServiceFactory::GetForProfile(
-    ProfileIOS* profile,
-    ServiceAccessType access_type) {
-  // If saving history is disabled, only allow explicit access.
-  if (access_type != ServiceAccessType::EXPLICIT_ACCESS &&
-      profile->GetPrefs()->GetBoolean(prefs::kSavingBrowserHistoryDisabled)) {
-    return nullptr;
-  }
-
-  return GetInstance()->GetServiceForProfileAs<history::HistoryService>(
-      profile, /*create=*/true);
-}
-
-// static
-HistoryServiceFactory* HistoryServiceFactory::GetInstance() {
-  static base::NoDestructor<HistoryServiceFactory> instance;
-  return instance.get();
-}
-
-// static
 HistoryServiceFactory::TestingFactory
 HistoryServiceFactory::GetDefaultFactory() {
   return base::BindOnce(&BuildHistoryService);
 }
 
-HistoryServiceFactory::HistoryServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("HistoryService",
-                                    ProfileSelection::kRedirectedInIncognito,
-                                    TestingCreation::kNoServiceForTests) {
+HistoryServiceFactory::HistoryServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "HistoryService",
+          ProfileSelection::kRedirectedInIncognito,
+          TestingCreation::kNoServiceForTests) {
   DependsOn(BookmarkModelFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
 }
-
-HistoryServiceFactory::~HistoryServiceFactory() = default;
 
 std::unique_ptr<KeyedService> HistoryServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

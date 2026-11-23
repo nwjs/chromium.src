@@ -1351,11 +1351,14 @@ void HTMLInputElement::SetSuggestedValue(const String& value) {
   input_type_view_->UpdateView();
 }
 
-void HTMLInputElement::DidChangeIsInCanvasSubtree() {
-  TextControlElement::DidChangeIsInCanvasSubtree();
-  if (IsInCanvasSubtree()) {
-    // Hide suggested values when under canvas, to prevent leaking this
-    // information to javascript.
+void HTMLInputElement::DidChangeIsInCanvasSubtree(
+    CanvasSubtreePropagation propagation_behavior) {
+  TextControlElement::DidChangeIsInCanvasSubtree(propagation_behavior);
+  // Hide suggested values when under canvas, to prevent leaking this
+  // information to javascript. Skip when there is nothing to hide:
+  // SetSuggestedValue() always rebuilds the view, which can move focus and run
+  // script during slot assignment recalc (crbug.com/574469802).
+  if (IsInCanvasSubtree() && !SuggestedValue().IsNull()) {
     SetSuggestedValue(String());
   }
 }
@@ -1916,10 +1919,6 @@ void HTMLInputElement::OnSearch() {
   input_type_->DispatchSearchEvent();
 }
 
-void HTMLInputElement::UpdateClearButtonVisibility() {
-  input_type_view_->UpdateClearButtonVisibility();
-}
-
 bool HTMLInputElement::IsInnerEditorValueEmpty() const {
   return input_type_view_->IsInnerEditorValueEmpty();
 }
@@ -2359,13 +2358,6 @@ RadioButtonGroupScope* HTMLInputElement::GetRadioButtonGroupScope() const {
   return nullptr;
 }
 
-unsigned HTMLInputElement::SizeOfRadioGroup() const {
-  RadioButtonGroupScope* scope = GetRadioButtonGroupScope();
-  if (!scope)
-    return 0;
-  return scope->GroupSizeFor(this);
-}
-
 inline void HTMLInputElement::AddToRadioButtonGroup() {
   if (RadioButtonGroupScope* scope = GetRadioButtonGroupScope())
     scope->AddButton(this);
@@ -2454,6 +2446,12 @@ OpaqueRange* HTMLInputElement::createValueRange(
   }
   return TextControlElement::createValueRange(start_offset, end_offset,
                                               exception_state);
+}
+
+void HTMLInputElement::ClosePopupView() {
+  if (input_type_view_) {
+    input_type_view_->ClosePopupView();
+  }
 }
 
 bool HTMLInputElement::SetupDateTimeChooserParameters(
@@ -2759,6 +2757,19 @@ void HTMLInputElement::SetFocused(bool is_focused,
   if (RadioButtonGroupScope* scope = GetRadioButtonGroupScope()) {
     scope->UpdateLastFocusedState(this);
   }
+
+  if (focus_type != mojom::blink::FocusType::kPage && IsTextField()) {
+    if (HTMLSelectElement* select = FilterTarget()) {
+      // TODO(crbug.com/453705243): Track the target select element like we are
+      // already doing for the list attribute in order to remove the
+      // :active-option pseudo.
+      if (is_focused) {
+        select->StartFiltering();
+      } else {
+        select->StopFiltering();
+      }
+    }
+  }
 }
 
 bool HTMLInputElement::SupportsBaseAppearanceInternal(
@@ -2777,7 +2788,7 @@ bool HTMLInputElement::IsBaseAppearanceCombobox() const {
 }
 
 HTMLSelectElement* HTMLInputElement::FilterTarget() const {
-  if (!RuntimeEnabledFeatures::FilterableSelectEnabled()) {
+  if (!RuntimeEnabledFeatures::FilterableSelectEnabled() || !IsTextField()) {
     return nullptr;
   }
   if (nearest_ancestor_select_) {

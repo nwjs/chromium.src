@@ -29,6 +29,7 @@
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_drive_result.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_presenter.h"
 #import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
+#import "ios/chrome/browser/composebox/ui/composebox_model_item.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -261,7 +262,7 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
         initWithEntrypoint:_entrypoint
                      query:nil
                   toolMode:toolMode
-                 modelMode:ComposeboxModelOption::kNone
+                 modelMode:omnibox::ModelMode::MODEL_MODE_UNSPECIFIED
             attachmentList:nil];
 
     [self dismissUIWithCompletion:^{
@@ -277,24 +278,23 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
 }
 
 - (void)composeboxMenuMediator:(ComposeboxMenuMediator*)mediator
-                   didTapModel:(ComposeboxModelOption)modelMode {
+                   didTapModel:(omnibox::ModelMode)model {
   _successfulActionPerformed = YES;
 
   __weak __typeof(self) weakSelf = self;
   if (_isStandaloneMenu) {
-    [_metricsRecorder recordModelSelected:modelMode];
+    [_metricsRecorder recordModelSelected:model];
     ComposeboxFocusParams* focusParams = [[ComposeboxFocusParams alloc]
         initWithEntrypoint:_entrypoint
                      query:nil
                   toolMode:ComposeboxMode::kRegularSearch
-                 modelMode:modelMode
+                 modelMode:model
             attachmentList:nil];
     [self dismissUIWithCompletion:^{
       [weakSelf showComposeboxWithParams:focusParams];
     }];
   } else {
-    [self.inputPlateDelegate composeboxMenuCoordinator:self
-                                           didTapModel:modelMode];
+    [self.inputPlateDelegate composeboxMenuCoordinator:self didTapModel:model];
     [self dismissUIWithCompletion:^{
       [weakSelf requestMenuDismissal];
     }];
@@ -310,7 +310,7 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
         initWithEntrypoint:_entrypoint
                      query:nil
                   toolMode:ComposeboxMode::kRegularSearch
-                 modelMode:ComposeboxModelOption::kNone
+                 modelMode:omnibox::ModelMode::MODEL_MODE_UNSPECIFIED
             attachmentList:attachments];
     [self dismissUIWithCompletion:^{
       [weakSelf showComposeboxWithParams:focusParams];
@@ -377,6 +377,13 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
 
 - (void)composeboxMenuMediatorDidRequestDriveFileSelection:
     (ComposeboxMenuMediator*)mediator {
+  [_metricsRecorder
+      recordAttachmentButtonUsed:FuseboxAttachmentButtonType::kDriveFiles];
+
+  if (![_mediator canAddMoreAttachments]) {
+    [self showMaxAttachmentSnackbarError];
+    return;
+  }
   [_pickerPresenter presentDriveFilePicker];
 }
 
@@ -454,21 +461,17 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
 }
 
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
-    handleSelectedTabsWithWebStateIDs:
-        (std::set<web::WebStateID>)selectedWebStateIDs
-                    cachedWebStateIDs:
-                        (std::set<web::WebStateID>)cachedWebStateIDs {
+                      didPickTabs:(const ComposeboxTabSelection&)selection {
   std::set<web::WebStateID> alreadyProcessedIDs =
       [_mediator allAttachedWebStateIDs];
   composebox::TabDiff diff =
-      composebox::ComputeTabDiff(alreadyProcessedIDs, selectedWebStateIDs);
+      composebox::ComputeTabDiff(alreadyProcessedIDs, selection.selected_ids);
 
   if (diff.added.size() > 0) {
     [_metricsRecorder recordTabPickerTabsAttached:diff.added.size()];
   }
 
-  [_mediator processWebStateIDs:selectedWebStateIDs
-              cachedWebStateIDs:cachedWebStateIDs];
+  [_mediator processTabSelection:selection];
 }
 
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
@@ -548,8 +551,8 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
     [_metricsRecorder recordToolModeShown:tool];
   }
 
-  for (const auto& model : _inputState.allowedModels) {
-    [_metricsRecorder recordModelModeShown:model];
+  for (ComposeboxModelItem* modelItem in _inputState.modelItems) {
+    [_metricsRecorder recordModelModeShown:modelItem.modelMode];
   }
 
   [_metricsRecorder
@@ -592,11 +595,8 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
       .prefersEdgeAttachedInCompactHeight = YES;
   _viewController.sheetPresentationController.preferredCornerRadius =
       kSheetPresentationCornerRadius;
-
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
-    _viewController.sheetPresentationController
-        .widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
-  }
+  _viewController.sheetPresentationController
+      .widthFollowsPreferredContentSizeWhenEdgeAttached = YES;
 
   __weak UIViewController* weakVC = _viewController;
   auto detentResolver = ^CGFloat(
@@ -609,6 +609,10 @@ CGFloat const kSheetPresentationCornerRadius = 38.0f;
       @[ [UISheetPresentationControllerDetent
           customDetentWithIdentifier:kCustomFittingDetentIdentifier
                             resolver:detentResolver] ];
+
+  if (self.isOffTheRecord) {
+    _viewController.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
+  }
 
   _viewController.mutator = _mediator;
   _mediator.consumer = _viewController;

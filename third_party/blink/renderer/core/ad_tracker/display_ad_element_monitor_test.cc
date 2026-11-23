@@ -14,6 +14,7 @@
 #include "third_party/blink/renderer/core/paint/timing/paint_timing.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 
 namespace blink {
 
@@ -597,6 +598,73 @@ TEST_F(DisplayAdElementMonitorTest, VideoAdMediaControlsAttributedToVideo) {
   testing::Mock::VerifyAndClearExpectations(&MockClient());
 }
 
+TEST_F(DisplayAdElementMonitorTest,
+       VideoAdNotObscuredByTransparentControlsOverlay) {
+  // A video player hosts the video ad in an ad <iframe>, and covers it with a
+  // transparent overlay that hosts its controls along the bottom edge. The
+  // overlay is front-most at the sample point (the ad's center), but paints
+  // nothing there.
+  frame_test_helpers::LoadHTMLString(helper_.LocalMainFrame(), R"(
+    <div style="position:absolute; left:100px; top:50px; width:300px; height:250px;">
+      <iframe id="ad" style="display:block; border:none; width:300px; height:250px;"></iframe>
+      <div id="overlay" style="position:absolute; left:0px; top:0px; width:300px; height:250px;">
+        <div style="position:absolute; left:0px; bottom:0px; width:300px; height:40px; background-color:black;"></div>
+      </div>
+    </div>
+  )",
+                                     WebURL(KURL("https://example.com")));
+  MarkFirstContentfulPaint();
+  UpdateLifecycle();
+
+  auto* ad_element = GetDocument().getElementById(AtomicString("ad"));
+  auto* overlay_element = GetDocument().getElementById(AtomicString("overlay"));
+
+  // The video ad shows through the overlay, so it is reported.
+  EXPECT_CALL(MockClient(),
+              OnMainFrameAdRectangleChanged(ad_element->GetDomNodeId(),
+                                            gfx::Rect(100, 50, 300, 250)));
+  ad_element->SetIsAdRelated(NoProvenance{});
+  UpdateLifecycle();
+  testing::Mock::VerifyAndClearExpectations(&MockClient());
+
+  // Once the overlay paints a background, it does hide the video ad.
+  EXPECT_CALL(MockClient(), OnMainFrameAdRectangleChanged(
+                                ad_element->GetDomNodeId(), gfx::Rect()));
+  overlay_element->setAttribute(
+      html_names::kStyleAttr,
+      AtomicString("position:absolute; left:0px; top:0px; width:300px; "
+                   "height:250px; background-color:white;"));
+  task_environment_.FastForwardBy(base::Seconds(1));
+  UpdateLifecycle();
+  testing::Mock::VerifyAndClearExpectations(&MockClient());
+}
+
+TEST_F(DisplayAdElementMonitorTest,
+       ContainerAdNotObscuredByTransparentDescendants) {
+  // Unlike in `ContainerAdObscuredByNonAdContent`, the content inside the ad
+  // container is transparent (e.g., page wrappers inside a <body> whose
+  // background image is an ad), so the ad shows through it and is reported.
+  frame_test_helpers::LoadHTMLString(helper_.LocalMainFrame(), R"(
+    <div id="ad" style="position:absolute; left:100px; top:50px; width:300px; height:250px; background-color:yellow;">
+      <div style="height:100%;">
+        <div style="height:100%;"></div>
+      </div>
+    </div>
+  )",
+                                     WebURL(KURL("https://example.com")));
+  MarkFirstContentfulPaint();
+  UpdateLifecycle();
+
+  auto* ad_element = GetDocument().getElementById(AtomicString("ad"));
+
+  EXPECT_CALL(MockClient(),
+              OnMainFrameAdRectangleChanged(ad_element->GetDomNodeId(),
+                                            gfx::Rect(100, 50, 300, 250)));
+  ad_element->SetIsAdRelated(NoProvenance{});
+  UpdateLifecycle();
+  testing::Mock::VerifyAndClearExpectations(&MockClient());
+}
+
 TEST_F(DisplayAdElementMonitorTest, LargeStickyAdDetected) {
   // Add a large div to make the body scrollable.
   // Viewport is 800x600. Threshold is 0.3 * 480000 = 144000.
@@ -1076,10 +1144,11 @@ TEST_F(DisplayAdElementMonitorTest, LargeStickyAdDetectedWithJitter) {
     UpdateLifecycle();
 
     // JS repositioning brings it back to the bottom.
-    ad_element->setAttribute(html_names::kStyleAttr,
-                             AtomicString("position:absolute; left:0px; top:" +
-                                          String::Number(400 + current_scroll) +
-                                          "px; width:800px; height:200px;"));
+    ad_element->setAttribute(
+        html_names::kStyleAttr,
+        AtomicString(Format(
+            "position:absolute; left:0px; top:{}px; width:800px; height:200px;",
+            400 + current_scroll)));
     UpdateLifecycle();
   }
 
@@ -1129,10 +1198,11 @@ TEST_F(DisplayAdElementMonitorTest, LargeStickyAdNotDetectedWithLargeJitter) {
     // JS repositioning brings it back to the bottom.
     // A new anchor is established, but the scroll distance from the new anchor
     // is 0, so the sticky condition is never met.
-    ad_element->setAttribute(html_names::kStyleAttr,
-                             AtomicString("position:absolute; left:0px; top:" +
-                                          String::Number(400 + current_scroll) +
-                                          "px; width:800px; height:200px;"));
+    ad_element->setAttribute(
+        html_names::kStyleAttr,
+        AtomicString(Format(
+            "position:absolute; left:0px; top:{}px; width:800px; height:200px;",
+            400 + current_scroll)));
     UpdateLifecycle();
   }
 

@@ -6,8 +6,10 @@
 #include <string>
 
 #include "base/base_switches.h"
+#include "base/check_op.h"
 #include "base/process/kill.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -18,9 +20,6 @@
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
 #include "chrome/browser/task_manager/task_manager_tester.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/navigator/browser_navigator.h"
-#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -29,20 +28,18 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/content_switches.h"
 #include "content/public/common/result_codes.h"
-#include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/prerender_test_util.h"
-#include "content/public/test/test_navigation_observer.h"
 #include "net/base/features.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/reporting/reporting_policy.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
-#include "partition_alloc/page_allocator.h"
 #include "sandbox/policy/switches.h"
 #include "services/network/public/cpp/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -55,6 +52,21 @@ namespace {
 
 const char kReportingHost[] = "example.test";
 const char kCrossOriginHost[] = "cross-origin.test";
+
+base::ListValue ParseReportUpload(const std::string& payload) {
+  base::ListValue parsed_payload = base::test::ParseJsonList(payload);
+
+  // Clear out any non-reproducible fields.
+  for (auto& report_value : parsed_payload) {
+    base::DictValue& report = report_value.GetDict();
+    report.Remove("age");
+    report.RemoveByDottedPath("body.elapsed_time");
+    if (report.FindString("user_agent")) {
+      report.Set("user_agent", "Mozilla/1.0");
+    }
+  }
+  return parsed_payload;
+}
 
 class BaseReportingBrowserTest : public CertVerifierBrowserTest,
                                  public ::testing::WithParamInterface<bool> {
@@ -76,16 +88,13 @@ class BaseReportingBrowserTest : public CertVerifierBrowserTest,
   ~BaseReportingBrowserTest() override = default;
 
   void SetUp() override;
+  void SetUpCommandLine(base::CommandLine* command_line) override;
   void SetUpOnMainThread() override;
 
   net::EmbeddedTestServer* server() { return &https_server_; }
 
   net::test_server::ControllableHttpResponse* upload_response() {
     return upload_response_.get();
-  }
-
-  GURL GetReportingEnabledURL() const {
-    return https_server_.GetURL(kReportingHost, "/original");
   }
 
   GURL GetCollectorURL() const {
@@ -100,12 +109,13 @@ class BaseReportingBrowserTest : public CertVerifierBrowserTest,
   }
 
   virtual std::string GetReportingEndpointsHeader() const {
-    return "Reporting-Endpoints: default=\"" + GetCollectorURL().spec() + "\"";
+    return base::StrCat(
+        {"Reporting-Endpoints: default=\"", GetCollectorURL().spec(), "\""});
   }
 
   std::string GetReportToHeader() const {
-    return "Report-To: {\"endpoints\":[{\"url\":\"" + GetCollectorURL().spec() +
-           "\"}],\"max_age\":86400}";
+    return base::StrCat({"Report-To: {\"endpoints\":[{\"url\":\"",
+                         GetCollectorURL().spec(), "\"}],\"max_age\":86400}"});
   }
 
   std::string GetNELHeader() const {
@@ -133,22 +143,45 @@ class BaseReportingBrowserTest : public CertVerifierBrowserTest,
 
   void ExecuteInfiniteLoopScriptAsync(content::RenderFrameHost* frame) {
     content::ExecuteScriptAsync(frame, R"(
-    function infiniteLoop() {
-      let cnt = 0;
-      while (true) {
-        if (cnt++ == 0) {
-          console.log('infiniteLoop');
+      function infiniteLoop() {
+        let cnt = 0;
+        while (true) {
+          if (cnt++ == 0) {
+            console.log('infiniteLoop');
+          }
         }
       }
+      infiniteLoop();
+    )");
+  }
+
+  base::ListValue WaitForReportUploads(size_t expected_report_count) {
+    base::ListValue all_reports;
+    net::test_server::ControllableHttpResponse* responses[] = {
+        upload_response_.get(), upload_response2_.get()};
+    CHECK_LE(expected_report_count, std::size(responses));
+    for (auto* response : responses) {
+      if (all_reports.size() >= expected_report_count) {
+        break;
+      }
+      response->WaitForRequest();
+      base::ListValue batch =
+          ParseReportUpload(response->http_request()->content);
+      response->Send("HTTP/1.1 200 OK\r\n");
+      response->Send("\r\n");
+      response->Done();
+      for (auto& item : batch) {
+        all_reports.Append(std::move(item));
+      }
     }
-    infiniteLoop();
-  )");
+    return all_reports;
   }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   net::EmbeddedTestServer https_server_;
   std::unique_ptr<net::test_server::ControllableHttpResponse> upload_response_;
+  std::unique_ptr<net::test_server::ControllableHttpResponse> upload_response2_;
 };
 
 void BaseReportingBrowserTest::SetUp() {
@@ -160,12 +193,51 @@ void BaseReportingBrowserTest::SetUp() {
   net::ReportingPolicy::UsePolicyForTesting(policy);
 }
 
+void BaseReportingBrowserTest::SetUpCommandLine(
+    base::CommandLine* command_line) {
+  CertVerifierBrowserTest::SetUpCommandLine(command_line);
+#if BUILDFLAG(IS_LINUX)
+  // Disable the sandbox so that renderers do not run as PID 1 inside a Linux
+  // PID namespace (where the kernel marks the process with SIGNAL_UNKILLABLE)
+  // and without seccomp-bpf restrictions during crash handling.
+  //
+  // When simulating an in-renderer crash (e.g. via OOM_CRASH(0) /
+  // PA_IMMEDIATE_CRASH(), which executes `int3` followed by `ud2`), Crashpad
+  // catches `SIGTRAP` (`int3`), records the dump, restores `SIG_DFL`, and
+  // re-raises `SIGTRAP` via `raise(SIGTRAP)` in
+  // `Signals::RestoreHandlerAndReraiseSignalOnReturn()`. When the renderer is
+  // PID 1 of its PID namespace, `SIGNAL_UNKILLABLE` causes the kernel to
+  // ignore `raise(SIGTRAP)` with `SIG_DFL`, allowing execution to continue to
+  // `ud2` (`SIGILL`). `SIGILL` then enters `StackDumpSignalHandler`, which
+  // calls `alarm()` (triggering a seccomp-bpf `SIGSYS` violation) and fails
+  // to terminate the `SIGNAL_UNKILLABLE` process after restoring `SIG_DFL`,
+  // causing `RenderProcessHostWatcher::Wait()` to time out.
+  command_line->AppendSwitch(sandbox::policy::switches::kNoSandbox);
+#elif BUILDFLAG(IS_WIN)
+  // Disable in-process stack traces in child processes on Windows. In
+  // non-official test builds, `ContentMainRunnerImpl::Initialize()` calls
+  // `base::debug::EnableInProcessStackDumping()` in child processes unless
+  // `kDisableInProcessStackTraces` is set, installing
+  // `StackDumpExceptionFilter` with `SYMOPT_DEFERRED_LOADS`. When simulating
+  // an in-renderer crash (e.g. via `chrome://crash` or `OOM_CRASH(0)`),
+  // `StackDumpExceptionFilter` invokes DbgHelp / DIA (`dbghelp.dll` /
+  // `msdia140.dll`) inside the sandboxed renderer process to lazily load and
+  // parse `browser_tests.exe.pdb` and symbolize the stack trace before the
+  // process can terminate, which can cause `RenderProcessHostWatcher::Wait()`
+  // to time out under load.
+  command_line->AppendSwitch(switches::kDisableInProcessStackTraces);
+#endif
+}
+
 void BaseReportingBrowserTest::SetUpOnMainThread() {
   CertVerifierBrowserTest::SetUpOnMainThread();
 
   host_resolver()->AddRule("*", "127.0.0.1");
 
   upload_response_ =
+      std::make_unique<net::test_server::ControllableHttpResponse>(server(),
+                                                                   "/upload");
+  upload_response2_ =
       std::make_unique<net::test_server::ControllableHttpResponse>(server(),
                                                                    "/upload");
 
@@ -207,28 +279,6 @@ class CrashReportingBrowserTest : public ReportingBrowserTest {
 
   ~CrashReportingBrowserTest() override = default;
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    ReportingBrowserTest::SetUpCommandLine(command_line);
-#if BUILDFLAG(IS_LINUX)
-    // Disable the sandbox so that renderers do not run as PID 1 inside a Linux
-    // PID namespace (where the kernel marks the process with SIGNAL_UNKILLABLE)
-    // and without seccomp-bpf restrictions during crash handling.
-    //
-    // When simulating an in-renderer crash (e.g. via OOM_CRASH(0) /
-    // PA_IMMEDIATE_CRASH(), which executes `int3` followed by `ud2`), Crashpad
-    // catches `SIGTRAP` (`int3`), records the dump, restores `SIG_DFL`, and
-    // re-raises `SIGTRAP` via `raise(SIGTRAP)` in
-    // `Signals::RestoreHandlerAndReraiseSignalOnReturn()`. When the renderer is
-    // PID 1 of its PID namespace, `SIGNAL_UNKILLABLE` causes the kernel to
-    // ignore `raise(SIGTRAP)` with `SIG_DFL`, allowing execution to continue to
-    // `ud2` (`SIGILL`). `SIGILL` then enters `StackDumpSignalHandler`, which
-    // calls `alarm()` (triggering a seccomp-bpf `SIGSYS` violation) and fails
-    // to terminate the `SIGNAL_UNKILLABLE` process after restoring `SIG_DFL`,
-    // causing `RenderProcessHostWatcher::Wait()` to time out.
-    command_line->AppendSwitch(sandbox::policy::switches::kNoSandbox);
-#endif  // BUILDFLAG(IS_LINUX)
-  }
-
   content::WebContents* web_contents() {
     return browser()->tab_strip_model()->GetActiveWebContents();
   }
@@ -264,7 +314,11 @@ class NonIsolatedReportingBrowserTest : public BaseReportingBrowserTest {
 // each `CrashReportBody`. See https://crbug.com/400432195.
 class ReportingBrowserTestMoreContextData : public BaseReportingBrowserTest {
  public:
-  ReportingBrowserTestMoreContextData() = default;
+  ReportingBrowserTestMoreContextData() {
+    scoped_feature_list_.InitWithFeatureState(
+        blink::features::kCrashReportingAPIMoreContextData,
+        /*enabled=*/GetParam());
+  }
 
   ReportingBrowserTestMoreContextData(
       const ReportingBrowserTestMoreContextData&) = delete;
@@ -272,17 +326,6 @@ class ReportingBrowserTestMoreContextData : public BaseReportingBrowserTest {
       const ReportingBrowserTestMoreContextData&) = delete;
 
   ~ReportingBrowserTestMoreContextData() override = default;
-
-  void SetUp() override {
-    scoped_feature_list_.InitWithFeatureState(
-        blink::features::kCrashReportingAPIMoreContextData,
-        /*enabled=*/GetParam());
-    BaseReportingBrowserTest::SetUp();
-  }
-
-  void SetUpOnMainThread() override {
-    BaseReportingBrowserTest::SetUpOnMainThread();
-  }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -326,8 +369,8 @@ class ReportingBrowserTestSpecifyCrashEndpoint
 
   std::string GetReportingEndpointsHeader() const override {
     // Override the endpoint name of crash reporting.
-    return "Reporting-Endpoints: crash-reporting=\"" +
-           GetCollectorURL().spec() + "\"";
+    return base::StrCat({"Reporting-Endpoints: crash-reporting=\"",
+                         GetCollectorURL().spec(), "\""});
   }
 
  private:
@@ -336,7 +379,11 @@ class ReportingBrowserTestSpecifyCrashEndpoint
 
 class JSCallStackReportingBrowserTest : public BaseReportingBrowserTest {
  public:
-  JSCallStackReportingBrowserTest() = default;
+  JSCallStackReportingBrowserTest() {
+    scoped_feature_list_.InitWithFeatureState(
+        blink::features::kDocumentPolicyIncludeJSCallStacksInCrashReports,
+        /*enabled=*/GetParam());
+  }
 
   JSCallStackReportingBrowserTest(const JSCallStackReportingBrowserTest&) =
       delete;
@@ -344,21 +391,6 @@ class JSCallStackReportingBrowserTest : public BaseReportingBrowserTest {
       const JSCallStackReportingBrowserTest&) = delete;
 
   ~JSCallStackReportingBrowserTest() override = default;
-
-  void SetUp() override {
-    if (GetParam()) {
-      scoped_feature_list_.InitAndEnableFeature(
-          blink::features::kDocumentPolicyIncludeJSCallStacksInCrashReports);
-    } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          blink::features::kDocumentPolicyIncludeJSCallStacksInCrashReports);
-    }
-    BaseReportingBrowserTest::SetUp();
-  }
-
-  void SetUpOnMainThread() override {
-    BaseReportingBrowserTest::SetUpOnMainThread();
-  }
 
   std::string GetDocumentPolicyHeader() const {
     return "Document-Policy: include-js-call-stacks-in-crash-reports";
@@ -384,26 +416,7 @@ class HistogramReportingBrowserTest : public BaseReportingBrowserTest {
     }
     BaseReportingBrowserTest::SetUpCommandLine(command_line);
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
-
-base::ListValue ParseReportUpload(const std::string& payload) {
-  base::ListValue parsed_payload = base::test::ParseJsonList(payload);
-
-  // Clear out any non-reproducible fields.
-  for (auto& report_value : parsed_payload) {
-    base::DictValue& report = report_value.GetDict();
-    report.Remove("age");
-    report.RemoveByDottedPath("body.elapsed_time");
-    std::string* user_agent = report.FindString("user_agent");
-    if (user_agent) {
-      *user_agent = "Mozilla/1.0";
-    }
-  }
-  return parsed_payload;
-}
 
 }  // namespace
 
@@ -413,8 +426,8 @@ base::ListValue ParseReportUpload(const std::string& payload) {
 // completely removed.
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, TestNELHeadersProcessed) {
   GURL main_url = server()->GetURL(
-      kReportingHost, base::StringPrintf("/set-header?%s&%s",
-                                         GetReportToHeader(), GetNELHeader()));
+      kReportingHost,
+      base::StrCat({"/set-header?", GetReportToHeader(), "&", GetNELHeader()}));
   EXPECT_TRUE(NavigateToURL(
       browser()->tab_strip_model()->GetActiveWebContents(), main_url));
 
@@ -447,7 +460,7 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, TestNELHeadersProcessed) {
         ]
       )json",
       main_url.spec().c_str()));
-  EXPECT_EQ(expected, actual);
+  EXPECT_EQ(actual, expected);
 }
 
 // Tests that CSP reports are delivered properly whether configured with the
@@ -456,9 +469,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, TestReportingHeadersProcessed) {
   // Navigate to reporting-enabled page.
   GURL main_url = server()->GetURL(
       kReportingHost,
-      base::StringPrintf(
-          "/set-header-with-file/chrome/test/data/simple_alert.html?%s&%s",
-          GetAppropriateReportingHeader(), GetCSPHeader()));
+      base::StrCat({"/set-header-with-file/chrome/test/data/simple_alert.html?",
+                    GetAppropriateReportingHeader(), "&", GetCSPHeader()}));
   EXPECT_TRUE(NavigateToURL(
       browser()->tab_strip_model()->GetActiveWebContents(), main_url));
 
@@ -495,7 +507,7 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, TestReportingHeadersProcessed) {
       // Full document URL without the query parameters.
       main_url.spec().substr(0, main_url.spec().find('?')),
       main_url.spec().c_str()));
-  EXPECT_EQ(expected, actual);
+  EXPECT_EQ(actual, expected);
 }
 
 // Tests that CSP reports are delivered properly whether configured with the
@@ -507,9 +519,8 @@ IN_PROC_BROWSER_TEST_P(NonIsolatedReportingBrowserTest,
   // Navigate to reporting-enabled page.
   GURL main_url = server()->GetURL(
       kReportingHost,
-      base::StringPrintf(
-          "/set-header-with-file/chrome/test/data/simple_alert.html?%s&%s",
-          GetAppropriateReportingHeader(), GetCSPHeader()));
+      base::StrCat({"/set-header-with-file/chrome/test/data/simple_alert.html?",
+                    GetAppropriateReportingHeader(), "&", GetCSPHeader()}));
   EXPECT_TRUE(NavigateToURL(
       browser()->tab_strip_model()->GetActiveWebContents(), main_url));
 
@@ -548,7 +559,7 @@ IN_PROC_BROWSER_TEST_P(NonIsolatedReportingBrowserTest,
       // Full document URL without the query parameters.
       main_url.spec().substr(0, main_url.spec().find('?')),
       main_url.spec().c_str()));
-  EXPECT_EQ(expected, actual);
+  EXPECT_EQ(actual, expected);
 }
 
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTest,
@@ -558,11 +569,11 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest,
   // trigger a NEL report for the wrong reason.
   GURL main_url = server()->GetURL(
       kReportingHost,
-      base::StringPrintf("/set-header-with-file/chrome/test/data/favicon/"
-                         "page_with_favicon.html?%s&%s",
-                         GetReportToHeader(),
-                         "NEL: {\"report_to\":\"default\", \"max_age\":86400, "
-                         "\"failure_fraction\":1.0}"));
+      base::StrCat({"/set-header-with-file/chrome/test/data/favicon/"
+                    "page_with_favicon.html?",
+                    GetReportToHeader(),
+                    "&NEL: {\"report_to\":\"default\", \"max_age\":86400, "
+                    "\"failure_fraction\":1.0}"}));
   EXPECT_TRUE(NavigateToURL(
       browser()->tab_strip_model()->GetActiveWebContents(), main_url));
 
@@ -606,7 +617,7 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest,
         ]
       )json",
       expect_reported_url.spec().c_str()));
-  EXPECT_EQ(expected, actual);
+  EXPECT_EQ(actual, expected);
 }
 
 // These tests intentionally crash a render process, and so fail ASan tests.
@@ -621,7 +632,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, DISABLED_ON_ASAN(CrashReport)) {
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   // Simulate a crash on the page.
@@ -640,11 +652,15 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, DISABLED_ON_ASAN(CrashReport)) {
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
 
-  EXPECT_EQ("crash", *type);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+
+  ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 }
 
@@ -654,7 +670,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -670,15 +687,22 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest,
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
 
-  EXPECT_EQ("crash", *type);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+
+  ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
-  EXPECT_EQ("unresponsive", *reason);
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ(*reason, "unresponsive");
 }
 
 IN_PROC_BROWSER_TEST_P(
@@ -688,7 +712,8 @@ IN_PROC_BROWSER_TEST_P(
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -715,7 +740,6 @@ IN_PROC_BROWSER_TEST_P(
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
@@ -723,6 +747,7 @@ IN_PROC_BROWSER_TEST_P(
   // Verify that the crash report was still generated with reason:
   // "unresponsive" because the browser detected that the renderer was
   // unresponsive.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -731,13 +756,13 @@ IN_PROC_BROWSER_TEST_P(
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("unresponsive", *reason);
+  EXPECT_EQ(*reason, "unresponsive");
 }
 
 IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
@@ -746,7 +771,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -757,12 +783,12 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that the crash report was generated with reason: "oom".
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -771,13 +797,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("oom", *reason);
+  EXPECT_EQ(*reason, "oom");
 }
 
 // This test is Windows-only because Windows is the only platform that has the
@@ -789,7 +815,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -808,12 +835,12 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that the crash report was generated with no reason.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -822,7 +849,7 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
@@ -837,7 +864,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -856,12 +884,12 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that the crash report was generated with no reason.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -870,7 +898,7 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
@@ -885,7 +913,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -896,7 +925,7 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       rph, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
 
   content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
-  ASSERT_EQ(0, kill(rph->GetProcess().Pid(), SIGKILL));
+  ASSERT_EQ(kill(rph->GetProcess().Pid(), SIGKILL), 0);
   watcher.Wait();
   EXPECT_FALSE(watcher.did_exit_normally());
   EXPECT_TRUE(contents->IsCrashed());
@@ -904,11 +933,11 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -917,7 +946,7 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
@@ -926,7 +955,7 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   // On ChromeOS, an external SIGKILL on a responsive renderer is mapped to
   // TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM and reported as "oom".
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("oom", *reason);
+  EXPECT_EQ(*reason, "oom");
 #else
   EXPECT_EQ(reason, nullptr);
 #endif
@@ -939,7 +968,8 @@ IN_PROC_BROWSER_TEST_P(
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -958,7 +988,7 @@ IN_PROC_BROWSER_TEST_P(
   content::SimulateUnresponsiveRenderer(contents, frame->GetRenderWidgetHost());
 
   content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
-  ASSERT_EQ(0, kill(rph->GetProcess().Pid(), SIGKILL));
+  ASSERT_EQ(kill(rph->GetProcess().Pid(), SIGKILL), 0);
   watcher.Wait();
   EXPECT_FALSE(watcher.did_exit_normally());
   EXPECT_TRUE(contents->IsCrashed());
@@ -966,7 +996,6 @@ IN_PROC_BROWSER_TEST_P(
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
@@ -974,6 +1003,7 @@ IN_PROC_BROWSER_TEST_P(
   // Verify that even when terminated with SIGKILL (which maps to
   // TERMINATION_STATUS_PROCESS_WAS_KILLED_BY_OOM on ChromeOS), an unresponsive
   // renderer is reported with reason: "unresponsive" rather than "oom".
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -982,13 +1012,13 @@ IN_PROC_BROWSER_TEST_P(
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("unresponsive", *reason);
+  EXPECT_EQ(*reason, "unresponsive");
 }
 #endif  // BUILDFLAG(IS_POSIX)
 
@@ -999,7 +1029,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
 
   GURL killed_url = server()->GetURL(
       kReportingHost,
-      "/set-header?" + GetAppropriateReportingHeader() + "&killed");
+      base::StrCat(
+          {"/set-header?", GetAppropriateReportingHeader(), "&killed"}));
   EXPECT_TRUE(NavigateToURL(contents, killed_url));
 
   auto tester =
@@ -1042,7 +1073,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   // payload.
   GURL crashed_url = server()->GetURL(
       kReportingHost,
-      "/set-header?" + GetAppropriateReportingHeader() + "&crashed");
+      base::StrCat(
+          {"/set-header?", GetAppropriateReportingHeader(), "&crashed"}));
   EXPECT_TRUE(NavigateToURL(contents, crashed_url));
 
   content::SimulateOOMPrimaryMainFrameAndWaitForExit(contents);
@@ -1050,20 +1082,20 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_EQ(1u, response.size());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
+  ASSERT_EQ(response.size(), 1u);
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
-  EXPECT_EQ(crashed_url.spec(), *url);
+  EXPECT_EQ(*url, crashed_url.spec());
 }
 
 IN_PROC_BROWSER_TEST_P(
@@ -1073,7 +1105,8 @@ IN_PROC_BROWSER_TEST_P(
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -1088,13 +1121,13 @@ IN_PROC_BROWSER_TEST_P(
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that the crash report was generated with reason: "oom" rather than
   // "unresponsive".
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -1103,13 +1136,13 @@ IN_PROC_BROWSER_TEST_P(
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("oom", *reason);
+  EXPECT_EQ(*reason, "oom");
 }
 
 IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
@@ -1118,7 +1151,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -1135,13 +1169,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that the crash report was generated with reason: "oom" from Blink's
   // OOM callback.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -1150,13 +1184,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("oom", *reason);
+  EXPECT_EQ(*reason, "oom");
 }
 
 IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
@@ -1165,7 +1199,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -1182,13 +1217,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that the crash report was generated with reason: "oom" from Blink's
   // OOM callback on the worker thread.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -1197,13 +1232,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("oom", *reason);
+  EXPECT_EQ(*reason, "oom");
 }
 
 IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
@@ -1212,7 +1247,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -1229,13 +1265,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_FALSE(response.empty());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that the crash report was generated with reason: "oom" from Blink's
   // OOM callback when V8 triggers FatalProcessOutOfMemory.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
@@ -1244,13 +1280,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   const std::string* reason = body->FindString("reason");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 
   ASSERT_NE(reason, nullptr);
-  EXPECT_EQ("oom", *reason);
+  EXPECT_EQ(*reason, "oom");
 }
 
 IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
@@ -1264,7 +1300,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
 
   GURL bfcached_url = server()->GetURL(
       kReportingHost,
-      "/set-header?" + GetAppropriateReportingHeader() + "&bfcached");
+      base::StrCat(
+          {"/set-header?", GetAppropriateReportingHeader(), "&bfcached"}));
   EXPECT_TRUE(NavigateToURL(contents, bfcached_url));
 
   content::RenderFrameHostWrapper rfh_bfcached(contents->GetPrimaryMainFrame());
@@ -1274,7 +1311,8 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   // BackForwardCache.
   GURL active_url = server()->GetURL(
       kReportingHost,
-      "/set-header?" + GetAppropriateReportingHeader() + "&active");
+      base::StrCat(
+          {"/set-header?", GetAppropriateReportingHeader(), "&active"}));
   EXPECT_TRUE(NavigateToURL(contents, active_url));
 
   ASSERT_FALSE(rfh_bfcached.IsDestroyed());
@@ -1300,22 +1338,22 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_EQ(1u, response.size());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that only the active page generated a crash report, and not the
   // BFCached page.
+  ASSERT_EQ(response.size(), 1u);
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
-  EXPECT_EQ(active_url.spec(), *url);
+  EXPECT_EQ(*url, active_url.spec());
 }
 
 IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
@@ -1325,12 +1363,13 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
 
   GURL main_url = server()->GetURL(
       kReportingHost,
-      "/set-header?" + GetAppropriateReportingHeader() + "&main");
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader(), "&main"}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   GURL prerender_url = server()->GetURL(
       kReportingHost,
-      "/set-header?" + GetAppropriateReportingHeader() + "&prerender");
+      base::StrCat(
+          {"/set-header?", GetAppropriateReportingHeader(), "&prerender"}));
   content::PrerenderHostId host_id =
       prerender_helper().AddPrerender(prerender_url);
   content::RenderFrameHost* rfh_prerender =
@@ -1358,22 +1397,22 @@ IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
   upload_response()->WaitForRequest();
   base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
-  ASSERT_EQ(1u, response.size());
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify that only the active page generated a crash report, and not the
   // prerendered page.
+  ASSERT_EQ(response.size(), 1u);
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
 
   ASSERT_NE(type, nullptr);
-  EXPECT_EQ("crash", *type);
+  EXPECT_EQ(*type, "crash");
 
   ASSERT_NE(url, nullptr);
-  EXPECT_EQ(main_url.spec(), *url);
+  EXPECT_EQ(*url, main_url.spec());
 }
 
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
@@ -1383,7 +1422,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
 
   // Navigate to reporting-enabled page.
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   // Use the crash reporting storage API, to collect some data about the current
@@ -1406,31 +1446,39 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
       content::RESULT_CODE_HUNG);
 
   upload_response()->WaitForRequest();
-  base::ListValue request =
+  base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
-  const base::DictValue& report = request.begin()->GetDict();
+  ASSERT_FALSE(response.empty());
+  const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
   const base::DictValue* crash_report_api_body =
       body->FindDict("crash_report_api");
+  ASSERT_NE(crash_report_api_body, nullptr);
   const std::string* self_origin =
       crash_report_api_body->FindString("self.origin");
   const std::string* custom_key =
       crash_report_api_body->FindString("custom_key");
 
-  EXPECT_EQ("crash", *type);
-  EXPECT_EQ(main_url, *url);
-  EXPECT_EQ("unresponsive", *reason);
-  EXPECT_EQ(
-      contents->GetPrimaryMainFrame()->GetLastCommittedOrigin().GetURL().spec(),
-      *self_origin);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ(*reason, "unresponsive");
+  ASSERT_NE(self_origin, nullptr);
+  EXPECT_EQ(*self_origin, contents->GetPrimaryMainFrame()
+                              ->GetLastCommittedOrigin()
+                              .GetURL()
+                              .spec());
   // Because `crashReport.delete('custom_key')` was called before the process
   // crashed, this value is not present in the report body.
   EXPECT_EQ(custom_key, nullptr);
@@ -1443,7 +1491,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
 
   // Navigate to reporting-enabled page.
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   // Use the crash reporting storage API, to collect some data about the current
@@ -1465,27 +1514,34 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
       content::RESULT_CODE_HUNG);
 
   upload_response()->WaitForRequest();
-  base::ListValue request =
+  base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
-  const base::DictValue& report = request.begin()->GetDict();
+  ASSERT_FALSE(response.empty());
+  const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
   const base::DictValue* crash_report_api_body =
       body->FindDict("crash_report_api");
+  ASSERT_NE(crash_report_api_body, nullptr);
   const std::string* custom_key =
       crash_report_api_body->FindString("custom_key");
 
-  EXPECT_EQ("crash", *type);
-  EXPECT_EQ(main_url, *url);
-  EXPECT_EQ("unresponsive", *reason);
-  EXPECT_EQ("value_2", *custom_key);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ(*reason, "unresponsive");
+  ASSERT_NE(custom_key, nullptr);
+  EXPECT_EQ(*custom_key, "value_2");
 }
 
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
@@ -1495,7 +1551,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
 
   // Navigate to reporting-enabled page.
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   // It takes exactly 29 bytes to write the JSON stringified data containing
@@ -1523,26 +1580,33 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
       content::RESULT_CODE_HUNG);
 
   upload_response()->WaitForRequest();
-  base::ListValue request =
+  base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
-  const base::DictValue& report = request.begin()->GetDict();
+  ASSERT_FALSE(response.empty());
+  const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
   const base::DictValue* crash_report_api_body =
       body->FindDict("crash_report_api");
+  ASSERT_NE(crash_report_api_body, nullptr);
   const std::string* custom_key =
       crash_report_api_body->FindString("custom_key");
 
+  ASSERT_NE(type, nullptr);
   EXPECT_EQ(*type, "crash");
-  EXPECT_EQ(*url, main_url);
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+  ASSERT_NE(reason, nullptr);
   EXPECT_EQ(*reason, "unresponsive");
+  ASSERT_NE(custom_key, nullptr);
   EXPECT_EQ(*custom_key, "custom_value");
 }
 
@@ -1553,7 +1617,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
 
   // Navigate to reporting-enabled page.
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   // Simulate the page being killed due to being unresponsive.
@@ -1562,32 +1627,39 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
       content::RESULT_CODE_HUNG);
 
   upload_response()->WaitForRequest();
-  base::ListValue request =
+  base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
-  const base::DictValue& report = request.begin()->GetDict();
+  ASSERT_FALSE(response.empty());
+  const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
   const std::optional<bool> is_top_level = body->FindBool("is_top_level");
   const std::string* visibility_state = body->FindString("visibility_state");
 
-  EXPECT_EQ("crash", *type);
-  EXPECT_EQ(*url, main_url);
-  EXPECT_EQ("unresponsive", *reason);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ(*reason, "unresponsive");
   // When the `kCrashReportingAPIMoreContextData` flag is enabled, expect the
   // extra CrashReportBody context bits to be present.
   if (GetParam()) {
+    ASSERT_TRUE(is_top_level.has_value());
     EXPECT_TRUE(*is_top_level);
-    EXPECT_EQ("visible", *visibility_state);
+    ASSERT_NE(visibility_state, nullptr);
+    EXPECT_EQ(*visibility_state, "visible");
   } else {
-    EXPECT_EQ(std::nullopt, is_top_level);
-    EXPECT_EQ(nullptr, visibility_state);
+    EXPECT_EQ(is_top_level, std::nullopt);
+    EXPECT_EQ(visibility_state, nullptr);
   }
 }
 
@@ -1598,7 +1670,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
 
   // Navigate to reporting-enabled page.
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   // Hide the page.
@@ -1612,20 +1685,23 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
       content::RESULT_CODE_HUNG);
 
   upload_response()->WaitForRequest();
-  base::ListValue request =
+  base::ListValue response =
       ParseReportUpload(upload_response()->http_request()->content);
   upload_response()->Send("HTTP/1.1 200 OK\r\n");
   upload_response()->Send("\r\n");
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
-  const base::DictValue& report = request.begin()->GetDict();
+  ASSERT_FALSE(response.empty());
+  const base::DictValue& report = response.begin()->GetDict();
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* visibility_state = body->FindString("visibility_state");
 
   // When the `kCrashReportingAPIMoreContextData` flag is enabled, expect the
   // extra CrashReportBody context bits to be present.
   if (GetParam()) {
+    ASSERT_NE(visibility_state, nullptr);
     EXPECT_EQ(*visibility_state, "hidden");
   } else {
     EXPECT_EQ(visibility_state, nullptr);
@@ -1641,8 +1717,9 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_TRUE(NavigateToURL(
       contents, server()->GetURL(kCrossOriginHost, "/iframe.html")));
 
-  GURL iframe_url(server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader()));
+  GURL iframe_url = server()->GetURL(
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   ASSERT_TRUE(NavigateIframeToURL(contents, "test", iframe_url));
 
   content::RenderFrameHost* subframe = ChildFrameAt(contents, 0);
@@ -1663,21 +1740,295 @@ IN_PROC_BROWSER_TEST_P(
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
   const std::optional<bool> is_top_level = body->FindBool("is_top_level");
+  const std::string* visibility_state = body->FindString("visibility_state");
 
-  EXPECT_EQ("crash", *type);
-  EXPECT_EQ(*url, iframe_url);
-  EXPECT_EQ("unresponsive", *reason);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, iframe_url.spec());
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ(*reason, "unresponsive");
   if (GetParam()) {
+    ASSERT_TRUE(is_top_level.has_value());
     EXPECT_FALSE(*is_top_level);
+    ASSERT_NE(visibility_state, nullptr);
+    EXPECT_EQ(*visibility_state, "visible");
   } else {
-    EXPECT_EQ(std::nullopt, is_top_level);
+    EXPECT_EQ(is_top_level, std::nullopt);
+    EXPECT_EQ(visibility_state, nullptr);
   }
+}
+
+IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
+                       DISABLED_ON_ASAN(CrashReportHiddenCrossOriginIframe)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  EXPECT_TRUE(NavigateToURL(
+      contents, server()->GetURL(kCrossOriginHost, "/iframe.html")));
+
+  GURL iframe_url = server()->GetURL(
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
+  ASSERT_TRUE(NavigateIframeToURL(contents, "test", iframe_url));
+
+  content::RenderFrameHost* subframe = ChildFrameAt(contents, 0);
+  ASSERT_TRUE(subframe);
+
+  // Hide the page before the cross-origin iframe crashes.
+  contents->WasHidden();
+  EXPECT_EQ(contents->GetPrimaryMainFrame()->GetVisibilityState(),
+            content::PageVisibilityState::kHidden);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(
+      subframe->GetProcess());
+  subframe->GetProcess()->Shutdown(content::RESULT_CODE_HUNG);
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  ASSERT_FALSE(response.empty());
+  const base::DictValue& report = response.begin()->GetDict();
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::optional<bool> is_top_level = body->FindBool("is_top_level");
+  const std::string* visibility_state = body->FindString("visibility_state");
+
+  if (GetParam()) {
+    ASSERT_TRUE(is_top_level.has_value());
+    EXPECT_FALSE(*is_top_level);
+    ASSERT_NE(visibility_state, nullptr);
+    EXPECT_EQ(*visibility_state, "hidden");
+  } else {
+    EXPECT_EQ(is_top_level, std::nullopt);
+    EXPECT_EQ(visibility_state, nullptr);
+  }
+}
+
+IN_PROC_BROWSER_TEST_P(
+    ReportingBrowserTestMoreContextData,
+    DISABLED_ON_ASAN(CrashReportUnresponsiveSameOriginIframe)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost,
+      base::StrCat({"/set-header-with-file/chrome/test/data/iframe.html?",
+                    GetAppropriateReportingHeader()}));
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  GURL iframe_url = server()->GetURL(
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
+  ASSERT_TRUE(NavigateIframeToURL(contents, "test", iframe_url));
+
+  content::RenderFrameHost* main_rfh = contents->GetPrimaryMainFrame();
+  content::RenderFrameHost* subframe = ChildFrameAt(contents, 0);
+  ASSERT_TRUE(subframe);
+  ASSERT_EQ(subframe->GetProcess(), main_rfh->GetProcess());
+
+  constexpr char kScript[] = R"(
+    (async () => {
+      await crashReport.initialize(100);
+      crashReport.set('subframe_key', 'subframe_value');
+    })();
+  )";
+  EXPECT_TRUE(content::EvalJs(subframe, kScript).is_ok());
+
+  // Simulate the shared process being killed due to being unresponsive.
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  main_rfh->GetProcess()->Shutdown(content::RESULT_CODE_HUNG);
+
+  base::ListValue reports = WaitForReportUploads(/*expected_report_count=*/2);
+  ASSERT_EQ(reports.size(), 2u);
+
+  // Verify the main frame report.
+  const base::DictValue& main_report = reports[0].GetDict();
+  const std::string* main_type = main_report.FindString("type");
+  ASSERT_NE(main_type, nullptr);
+  EXPECT_EQ(*main_type, "crash");
+
+  const std::string* main_report_url = main_report.FindString("url");
+  ASSERT_NE(main_report_url, nullptr);
+  EXPECT_EQ(*main_report_url, main_url.spec());
+
+  const base::DictValue* main_body = main_report.FindDict("body");
+  ASSERT_NE(main_body, nullptr);
+
+  const std::string* main_reason = main_body->FindString("reason");
+  ASSERT_NE(main_reason, nullptr);
+  EXPECT_EQ(*main_reason, "unresponsive");
+
+  const base::DictValue* main_crash_report_api_body =
+      main_body->FindDict("crash_report_api");
+  ASSERT_NE(main_crash_report_api_body, nullptr);
+  EXPECT_TRUE(main_crash_report_api_body->empty());
+
+  if (GetParam()) {
+    const std::optional<bool> main_is_top_level =
+        main_body->FindBool("is_top_level");
+    ASSERT_TRUE(main_is_top_level.has_value());
+    EXPECT_TRUE(*main_is_top_level);
+
+    const std::string* main_visibility_state =
+        main_body->FindString("visibility_state");
+    ASSERT_NE(main_visibility_state, nullptr);
+    EXPECT_EQ(*main_visibility_state, "visible");
+  } else {
+    EXPECT_EQ(main_body->FindBool("is_top_level"), std::nullopt);
+    EXPECT_EQ(main_body->FindString("visibility_state"), nullptr);
+  }
+
+  // Verify the report generated by the same-process iframe.
+  const base::DictValue& iframe_report = reports[1].GetDict();
+
+  const std::string* iframe_type = iframe_report.FindString("type");
+  ASSERT_NE(iframe_type, nullptr);
+  EXPECT_EQ(*iframe_type, "crash");
+
+  const std::string* iframe_report_url = iframe_report.FindString("url");
+  ASSERT_NE(iframe_report_url, nullptr);
+  EXPECT_EQ(*iframe_report_url, iframe_url.spec());
+
+  const base::DictValue* iframe_body = iframe_report.FindDict("body");
+  ASSERT_NE(iframe_body, nullptr);
+
+  const std::string* iframe_reason = iframe_body->FindString("reason");
+  ASSERT_NE(iframe_reason, nullptr);
+  EXPECT_EQ(*iframe_reason, "unresponsive");
+
+  const base::DictValue* crash_report_api_body =
+      iframe_body->FindDict("crash_report_api");
+  ASSERT_NE(crash_report_api_body, nullptr);
+
+  const std::string* subframe_key =
+      crash_report_api_body->FindString("subframe_key");
+  ASSERT_NE(subframe_key, nullptr);
+  EXPECT_EQ(*subframe_key, "subframe_value");
+
+  if (GetParam()) {
+    const std::optional<bool> iframe_is_top_level =
+        iframe_body->FindBool("is_top_level");
+    ASSERT_TRUE(iframe_is_top_level.has_value());
+    EXPECT_FALSE(*iframe_is_top_level);
+
+    const std::string* iframe_visibility_state =
+        iframe_body->FindString("visibility_state");
+    ASSERT_NE(iframe_visibility_state, nullptr);
+    EXPECT_EQ(*iframe_visibility_state, "visible");
+  } else {
+    EXPECT_EQ(iframe_body->FindBool("is_top_level"), std::nullopt);
+    EXPECT_EQ(iframe_body->FindString("visibility_state"), nullptr);
+  }
+}
+
+IN_PROC_BROWSER_TEST_P(
+    CrashReportingBrowserTest,
+    DISABLED_ON_ASAN(CrashReportMainFrameAndSameOriginIframe)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost,
+      base::StrCat({"/set-header-with-file/chrome/test/data/iframe.html?",
+                    GetAppropriateReportingHeader()}));
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  GURL iframe_url = server()->GetURL(
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
+  ASSERT_TRUE(NavigateIframeToURL(contents, "test", iframe_url));
+
+  content::RenderFrameHost* main_rfh = contents->GetPrimaryMainFrame();
+  content::RenderFrameHost* subframe = ChildFrameAt(contents, 0);
+  ASSERT_TRUE(subframe);
+  ASSERT_EQ(subframe->GetProcess(), main_rfh->GetProcess());
+
+  constexpr char kMainScript[] = R"(
+    (async () => {
+      await crashReport.initialize(100);
+      crashReport.set('frame', 'main');
+    })();
+  )";
+  EXPECT_TRUE(content::EvalJs(main_rfh, kMainScript).is_ok());
+
+  constexpr char kSubframeScript[] = R"(
+    (async () => {
+      await crashReport.initialize(100);
+      crashReport.set('frame', 'subframe');
+    })();
+  )";
+  EXPECT_TRUE(content::EvalJs(subframe, kSubframeScript).is_ok());
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  content::SimulateOOMPrimaryMainFrameAndWaitForExit(contents);
+
+  base::ListValue reports = WaitForReportUploads(/*expected_report_count=*/2);
+  ASSERT_EQ(reports.size(), 2u);
+
+  const base::DictValue& main_report = reports[0].GetDict();
+
+  const std::string* main_type = main_report.FindString("type");
+  ASSERT_NE(main_type, nullptr);
+  EXPECT_EQ(*main_type, "crash");
+
+  const std::string* main_report_url = main_report.FindString("url");
+  ASSERT_NE(main_report_url, nullptr);
+  EXPECT_EQ(*main_report_url, main_url.spec());
+
+  const base::DictValue* main_body = main_report.FindDict("body");
+  ASSERT_NE(main_body, nullptr);
+
+  const std::string* main_reason = main_body->FindString("reason");
+  ASSERT_NE(main_reason, nullptr);
+  EXPECT_EQ(*main_reason, "oom");
+
+  const base::DictValue* main_crash_report_api =
+      main_body->FindDict("crash_report_api");
+  ASSERT_NE(main_crash_report_api, nullptr);
+
+  const std::string* main_frame_value =
+      main_crash_report_api->FindString("frame");
+  ASSERT_NE(main_frame_value, nullptr);
+  EXPECT_EQ(*main_frame_value, "main");
+
+  const base::DictValue& iframe_report = reports[1].GetDict();
+
+  const std::string* iframe_type = iframe_report.FindString("type");
+  ASSERT_NE(iframe_type, nullptr);
+  EXPECT_EQ(*iframe_type, "crash");
+
+  const std::string* iframe_report_url = iframe_report.FindString("url");
+  ASSERT_NE(iframe_report_url, nullptr);
+  EXPECT_EQ(*iframe_report_url, iframe_url.spec());
+
+  const base::DictValue* iframe_body = iframe_report.FindDict("body");
+  ASSERT_NE(iframe_body, nullptr);
+
+  const std::string* iframe_reason = iframe_body->FindString("reason");
+  ASSERT_NE(iframe_reason, nullptr);
+  EXPECT_EQ(*iframe_reason, "oom");
+
+  const base::DictValue* iframe_crash_report_api =
+      iframe_body->FindDict("crash_report_api");
+  ASSERT_NE(iframe_crash_report_api, nullptr);
+
+  const std::string* iframe_frame_value =
+      iframe_crash_report_api->FindString("frame");
+  ASSERT_NE(iframe_frame_value, nullptr);
+  EXPECT_EQ(*iframe_frame_value, "subframe");
 }
 
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTestSpecifyCrashEndpoint,
@@ -1686,7 +2037,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestSpecifyCrashEndpoint,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   // Simulate a crash on the page.
@@ -1705,11 +2057,14 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestSpecifyCrashEndpoint,
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
 
-  EXPECT_EQ("crash", *type);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+  ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
 }
 
@@ -1720,8 +2075,8 @@ IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
 
   GURL main_url = server()->GetURL(
       kReportingHost,
-      base::StringPrintf("/set-header?%s&%s", GetAppropriateReportingHeader(),
-                         GetDocumentPolicyHeader()));
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader(), "&",
+                    GetDocumentPolicyHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -1742,21 +2097,26 @@ IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
   const std::string* call_stack = body->FindString("stack");
 
-  EXPECT_EQ("crash", *type);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+  ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
-  EXPECT_EQ("unresponsive", *reason);
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ(*reason, "unresponsive");
   // TODO(crbug.com/407473725): Improve JS call stack collection test coverage.
   if (GetParam() && call_stack) {
     EXPECT_TRUE(call_stack->find("infiniteLoop") != std::string::npos);
   } else {
-    EXPECT_EQ(nullptr, call_stack);
+    EXPECT_EQ(call_stack, nullptr);
   }
 }
 
@@ -1766,7 +2126,8 @@ IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
       browser()->tab_strip_model()->GetActiveWebContents();
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
@@ -1788,23 +2149,28 @@ IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
   upload_response()->Done();
 
   // Verify the contents of the report that we received.
+  ASSERT_FALSE(response.empty());
   const base::DictValue& report = response.begin()->GetDict();
   const std::string* type = report.FindString("type");
   const std::string* url = report.FindString("url");
   const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
   const std::string* reason = body->FindString("reason");
   const std::string* call_stack = body->FindString("stack");
 
-  EXPECT_EQ("crash", *type);
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ(*type, "crash");
+  ASSERT_NE(url, nullptr);
   EXPECT_EQ(*url, main_url.spec());
-  EXPECT_EQ("unresponsive", *reason);
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ(*reason, "unresponsive");
   // TODO(crbug.com/407473725): Improve JS call stack collection test coverage.
   if (GetParam() && call_stack) {
     EXPECT_EQ(
-        "Website owner has not opted in for JS call stacks in crash reports.",
-        *call_stack);
+        *call_stack,
+        "Website owner has not opted in for JS call stacks in crash reports.");
   } else {
-    EXPECT_EQ(nullptr, call_stack);
+    EXPECT_EQ(call_stack, nullptr);
   }
 }
 
@@ -1816,15 +2182,15 @@ IN_PROC_BROWSER_TEST_P(
 
   GURL main_url = server()->GetURL(
       kReportingHost,
-      base::StringPrintf(
-          "/set-header-with-file/chrome/test/data/iframe.html?%s&%s",
-          GetAppropriateReportingHeader(), GetDocumentPolicyHeader()));
+      base::StrCat({"/set-header-with-file/chrome/test/data/iframe.html?",
+                    GetAppropriateReportingHeader(), "&",
+                    GetDocumentPolicyHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
-  GURL iframe_url(server()->GetURL(
+  GURL iframe_url = server()->GetURL(
       kReportingHost,
-      base::StringPrintf("/set-header?%s&%s", GetAppropriateReportingHeader(),
-                         GetDocumentPolicyHeader())));
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader(), "&",
+                    GetDocumentPolicyHeader()}));
   ASSERT_TRUE(NavigateIframeToURL(contents, "test", iframe_url));
   content::RenderFrameHost* subframe = ChildFrameAt(contents, 0);
   ASSERT_TRUE(subframe);
@@ -1836,29 +2202,57 @@ IN_PROC_BROWSER_TEST_P(
 
   content::SimulateUnresponsivePrimaryMainFrameAndWaitForExit(contents);
 
-  upload_response()->WaitForRequest();
-  base::ListValue response =
-      ParseReportUpload(upload_response()->http_request()->content);
-  upload_response()->Send("HTTP/1.1 200 OK\r\n");
-  upload_response()->Send("\r\n");
-  upload_response()->Done();
+  base::ListValue reports = WaitForReportUploads(/*expected_report_count=*/2);
+  ASSERT_EQ(reports.size(), 2u);
 
-  // Verify the contents of the report that we received.
-  const base::DictValue& report = response.begin()->GetDict();
-  const std::string* type = report.FindString("type");
-  const std::string* url = report.FindString("url");
-  const base::DictValue* body = report.FindDict("body");
-  const std::string* reason = body->FindString("reason");
-  const std::string* call_stack = body->FindString("stack");
+  // Verify the main frame report.
+  const base::DictValue& main_report = reports[0].GetDict();
 
-  EXPECT_EQ("crash", *type);
-  EXPECT_EQ(*url, main_url.spec());
-  EXPECT_EQ("unresponsive", *reason);
-  // TODO(crbug.com/407473725): Improve JS call stack collection test coverage.
-  if (GetParam() && call_stack) {
-    EXPECT_EQ("Unable to collect JS call stack.", *call_stack);
+  const std::string* main_type = main_report.FindString("type");
+  ASSERT_NE(main_type, nullptr);
+  EXPECT_EQ(*main_type, "crash");
+
+  const std::string* main_report_url = main_report.FindString("url");
+  ASSERT_NE(main_report_url, nullptr);
+  EXPECT_EQ(*main_report_url, main_url.spec());
+
+  const base::DictValue* main_body = main_report.FindDict("body");
+  ASSERT_NE(main_body, nullptr);
+
+  const std::string* main_reason = main_body->FindString("reason");
+  ASSERT_NE(main_reason, nullptr);
+  EXPECT_EQ(*main_reason, "unresponsive");
+
+  const std::string* main_call_stack = main_body->FindString("stack");
+  if (GetParam() && main_call_stack) {
+    EXPECT_EQ(*main_call_stack, "Unable to collect JS call stack.");
   } else {
-    EXPECT_EQ(nullptr, call_stack);
+    EXPECT_EQ(main_call_stack, nullptr);
+  }
+
+  // Verify the same-process iframe report includes the JS call stack.
+  const base::DictValue& iframe_report = reports[1].GetDict();
+
+  const std::string* iframe_type = iframe_report.FindString("type");
+  ASSERT_NE(iframe_type, nullptr);
+  EXPECT_EQ(*iframe_type, "crash");
+
+  const std::string* iframe_report_url = iframe_report.FindString("url");
+  ASSERT_NE(iframe_report_url, nullptr);
+  EXPECT_EQ(*iframe_report_url, iframe_url.spec());
+
+  const base::DictValue* iframe_body = iframe_report.FindDict("body");
+  ASSERT_NE(iframe_body, nullptr);
+
+  const std::string* iframe_reason = iframe_body->FindString("reason");
+  ASSERT_NE(iframe_reason, nullptr);
+  EXPECT_EQ(*iframe_reason, "unresponsive");
+
+  const std::string* iframe_call_stack = iframe_body->FindString("stack");
+  if (GetParam() && iframe_call_stack) {
+    EXPECT_TRUE(iframe_call_stack->find("infiniteLoop") != std::string::npos);
+  } else {
+    EXPECT_EQ(iframe_call_stack, nullptr);
   }
 }
 
@@ -1870,13 +2264,14 @@ IN_PROC_BROWSER_TEST_P(
 
   GURL main_url = server()->GetURL(
       kReportingHost,
-      base::StringPrintf(
-          "/set-header-with-file/chrome/test/data/iframe.html?%s&%s",
-          GetAppropriateReportingHeader(), GetDocumentPolicyHeader()));
+      base::StrCat({"/set-header-with-file/chrome/test/data/iframe.html?",
+                    GetAppropriateReportingHeader(), "&",
+                    GetDocumentPolicyHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
-  GURL iframe_url(server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader()));
+  GURL iframe_url = server()->GetURL(
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   ASSERT_TRUE(NavigateIframeToURL(contents, "test", iframe_url));
   content::RenderFrameHost* subframe = ChildFrameAt(contents, 0);
   ASSERT_TRUE(subframe);
@@ -1888,29 +2283,60 @@ IN_PROC_BROWSER_TEST_P(
 
   content::SimulateUnresponsivePrimaryMainFrameAndWaitForExit(contents);
 
-  upload_response()->WaitForRequest();
-  base::ListValue response =
-      ParseReportUpload(upload_response()->http_request()->content);
-  upload_response()->Send("HTTP/1.1 200 OK\r\n");
-  upload_response()->Send("\r\n");
-  upload_response()->Done();
+  base::ListValue reports = WaitForReportUploads(/*expected_report_count=*/2);
+  ASSERT_EQ(reports.size(), 2u);
 
-  // Verify the contents of the report that we received.
-  const base::DictValue& report = response.begin()->GetDict();
-  const std::string* type = report.FindString("type");
-  const std::string* url = report.FindString("url");
-  const base::DictValue* body = report.FindDict("body");
-  const std::string* reason = body->FindString("reason");
-  const std::string* call_stack = body->FindString("stack");
+  // Verify the main frame report.
+  const base::DictValue& main_report = reports[0].GetDict();
 
-  EXPECT_EQ("crash", *type);
-  EXPECT_EQ(*url, main_url.spec());
-  EXPECT_EQ("unresponsive", *reason);
-  // TODO(crbug.com/407473725): Improve JS call stack collection test coverage.
-  if (GetParam() && call_stack) {
-    EXPECT_EQ("Unable to collect JS call stack.", *call_stack);
+  const std::string* main_type = main_report.FindString("type");
+  ASSERT_NE(main_type, nullptr);
+  EXPECT_EQ(*main_type, "crash");
+
+  const std::string* main_report_url = main_report.FindString("url");
+  ASSERT_NE(main_report_url, nullptr);
+  EXPECT_EQ(*main_report_url, main_url.spec());
+
+  const base::DictValue* main_body = main_report.FindDict("body");
+  ASSERT_NE(main_body, nullptr);
+
+  const std::string* main_reason = main_body->FindString("reason");
+  ASSERT_NE(main_reason, nullptr);
+  EXPECT_EQ(*main_reason, "unresponsive");
+
+  const std::string* main_call_stack = main_body->FindString("stack");
+  if (GetParam() && main_call_stack) {
+    EXPECT_EQ(*main_call_stack, "Unable to collect JS call stack.");
   } else {
-    EXPECT_EQ(nullptr, call_stack);
+    EXPECT_EQ(main_call_stack, nullptr);
+  }
+
+  // Verify the same-process iframe report omits the JS call stack since the
+  // iframe did not opt in.
+  const base::DictValue& iframe_report = reports[1].GetDict();
+
+  const std::string* iframe_type = iframe_report.FindString("type");
+  ASSERT_NE(iframe_type, nullptr);
+  EXPECT_EQ(*iframe_type, "crash");
+
+  const std::string* iframe_report_url = iframe_report.FindString("url");
+  ASSERT_NE(iframe_report_url, nullptr);
+  EXPECT_EQ(*iframe_report_url, iframe_url.spec());
+
+  const base::DictValue* iframe_body = iframe_report.FindDict("body");
+  ASSERT_NE(iframe_body, nullptr);
+
+  const std::string* iframe_reason = iframe_body->FindString("reason");
+  ASSERT_NE(iframe_reason, nullptr);
+  EXPECT_EQ(*iframe_reason, "unresponsive");
+
+  const std::string* iframe_call_stack = iframe_body->FindString("stack");
+  if (GetParam() && iframe_call_stack) {
+    EXPECT_EQ(
+        *iframe_call_stack,
+        "Website owner has not opted in for JS call stacks in crash reports.");
+  } else {
+    EXPECT_EQ(iframe_call_stack, nullptr);
   }
 }
 
@@ -1922,7 +2348,8 @@ IN_PROC_BROWSER_TEST_P(HistogramReportingBrowserTest,
   base::HistogramTester histogram_tester;
 
   GURL main_url = server()->GetURL(
-      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+      kReportingHost,
+      base::StrCat({"/set-header?", GetAppropriateReportingHeader()}));
   EXPECT_TRUE(NavigateToURL(contents, main_url));
 
   content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();

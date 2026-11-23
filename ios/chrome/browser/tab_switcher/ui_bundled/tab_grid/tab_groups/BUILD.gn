@@ -91,6 +91,7 @@ source_set("tab_groups") {
     "//ios/chrome/common/ui/colors",
     "//ios/chrome/common/ui/confirmation_alert",
     "//ios/chrome/common/ui/favicon",
+    "//ios/chrome/common/ui/util",
     "//ios/public/provider/chrome/browser/share_kit",
     "//ios/web/public",
   ]
@@ -426,6 +427,7 @@ source_set("eg2_tests") {
     "//ios/chrome/test:eg_test_support+eg2",
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
     "//ios/chrome/test/earl_grey:switches",
+    "//ios/testing:test_tag_registry",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//ios/testing/earl_grey:launch_configuration",
     "//net:test_support",

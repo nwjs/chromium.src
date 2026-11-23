@@ -387,6 +387,12 @@ base::DictValue LocalPrinterHandlerChromeos::ManagedPrintOptionsToValue(
       PrintOptionToValue(managed_print_options.print_as_image,
                          [](const bool& value) -> bool { return value; }));
 
+  result.Set(kManagedPrintOptions_Layout,
+             PrintOptionToValue(managed_print_options.layout,
+                                [](const chromeos::Printer::LayoutType& value) {
+                                  return static_cast<int>(value);
+                                }));
+
   return result;
 }
 
@@ -394,7 +400,7 @@ void LocalPrinterHandlerChromeos::Reset() {}
 
 void LocalPrinterHandlerChromeos::GetDefaultPrinter(
     DefaultPrinterCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   // TODO(b/172229329): Add default printers to ChromeOS.
   std::move(callback).Run(std::string());
 }
@@ -402,7 +408,7 @@ void LocalPrinterHandlerChromeos::GetDefaultPrinter(
 void LocalPrinterHandlerChromeos::StartGetPrinters(
     AddedPrintersCallback callback,
     GetPrintersDoneCallback done_callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (!local_printer_) {
     PRINTER_LOG(ERROR) << "Local printer not available (StartGetPrinters)";
     std::move(done_callback).Run();
@@ -420,7 +426,7 @@ void LocalPrinterHandlerChromeos::StartGetPrinters(
 void LocalPrinterHandlerChromeos::StartGetCapability(
     const std::string& device_name,
     GetCapabilityCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (!local_printer_) {
     PRINTER_LOG(ERROR) << "Local printer not available (StartGetCapability)";
     std::move(callback).Run(base::DictValue());
@@ -439,7 +445,7 @@ void LocalPrinterHandlerChromeos::StartPrint(
     base::DictValue settings,
     scoped_refptr<base::RefCountedMemory> print_data,
     PrintCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   size_t size_in_kb = print_data->size() / 1024;
   base::UmaHistogramMemoryKB("Printing.CUPS.PrintDocumentSize", size_in_kb);
 
@@ -576,7 +582,7 @@ void LocalPrinterHandlerChromeos::CallStartLocalPrint(
 void LocalPrinterHandlerChromeos::StartGetEulaUrl(
     const std::string& destination_id,
     GetEulaUrlCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (!local_printer_) {
     PRINTER_LOG(ERROR) << "Local printer not available (StartGetEulaUrl)";
     std::move(callback).Run("");
@@ -595,7 +601,7 @@ void LocalPrinterHandlerChromeos::StartGetEulaUrl(
 void LocalPrinterHandlerChromeos::StartPrinterStatusRequest(
     const std::string& printer_id,
     PrinterStatusRequestCallback callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (!local_printer_) {
     PRINTER_LOG(ERROR)
         << "Local printer not available (StartPrinterStatusRequest)";

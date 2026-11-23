@@ -92,9 +92,6 @@ class GURL;
 // If there is no signed-in account returns an empty string.
 - (GaiaId)primaryAccountGaiaID;
 
-// Returns the gaia IDs of all accounts in the current profile.
-- (const base::flat_set<GaiaId>)accountsInProfileGaiaIDs;
-
 // Checks that no identity is signed in.
 - (BOOL)isSignedOut;
 
@@ -184,9 +181,10 @@ class GURL;
 // if User Policy is enabled.
 - (void)closeManagedAccountSignInDialogIfAny:(FakeSystemIdentity*)fakeIdentity;
 
-// Sets the preferred account in `TestAccountPreviewDataService` for sign-in
-// promos. If `fakeIdentity` is nil, clears the preferred account.
-- (void)setPreferredAccountForPromo:(FakeSystemIdentity*)fakeIdentity;
+// Sets the preferred account in `TestAccountPreviewDataService` when offering
+// signed-out users to sign in. If `fakeIdentity` is nil, clears the preferred
+// account.
+- (void)setPreferredAccountForSignin:(FakeSystemIdentity*)fakeIdentity;
 
 @end
 

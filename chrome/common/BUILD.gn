@@ -221,6 +221,7 @@ static_library("common_lib") {
     "//components/omnibox/common",
     "//components/page_load_metrics/common:page_load_metrics_mojom",
     "//components/password_manager/core/common",
+    "//components/password_manager/core/common:features",
     "//components/policy:generated",
     "//components/policy/core/common",
     "//components/prefs",
@@ -574,6 +575,7 @@ static_library("constants") {
     "//pdf:buildflags",
     "//rlz/buildflags",
     "//third_party/widevine/cdm:buildflags",
+    "//ui/webui:buildflags",
   ]
 
   deps = [
@@ -693,7 +695,10 @@ mojom("mojo_bindings") {
     "trusted_vault_encryption_keys_extension.mojom",
   ]
 
-  deps = [ "//components/lens:lens_mojo" ]
+  deps = [
+    "//components/lens:lens_mojo",
+    "//ui/events/mojom",
+  ]
 
   if (is_android) {
     sources += [ "sandbox_status_extension_android.mojom" ]

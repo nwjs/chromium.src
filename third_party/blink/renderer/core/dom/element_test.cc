@@ -22,6 +22,7 @@
 #include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
 #include "third_party/blink/renderer/core/dom/scroll_marker_group_pseudo_element.h"
+#include "third_party/blink/renderer/core/dom/scroll_marker_pseudo_element.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/editing/testing/editing_test_base.h"
 #include "third_party/blink/renderer/core/event_type_names.h"
@@ -51,6 +52,86 @@ class ElementTest : public EditingTestBase {
  private:
   ScopedFocusgroupForTest focusgroup_enabled{true};
 };
+
+TEST_F(ElementTest, ParserClassDataReuse) {
+  GetDocument().SetParsingState(Document::kParsing);
+  Vector<Attribute, kAttributePrealloc> attributes;
+  attributes.emplace_back(html_names::kClassAttr,
+                          AtomicString("alpha beta alpha"));
+  Element* first = GetDocument().CreateElementForBinding(AtomicString("div"));
+  Element* second = GetDocument().CreateElementForBinding(AtomicString("div"));
+  first->ParserSetAttributes(attributes);
+  second->ParserSetAttributes(attributes);
+  ASSERT_TRUE(first->SharesSameElementData(*second));
+  EXPECT_EQ(2u, second->ClassNames().size());
+  EXPECT_EQ(AtomicString("alpha"), second->ClassNames()[0]);
+  EXPECT_EQ(AtomicString("beta"), second->ClassNames()[1]);
+  EXPECT_TRUE(second->CouldHaveClass(AtomicString("alpha")));
+  EXPECT_TRUE(second->CouldHaveClass(AtomicString("beta")));
+  EXPECT_TRUE(second->classList().contains(AtomicString("alpha")));
+
+  GetDocument().body()->AppendChild(first);
+  GetDocument().body()->AppendChild(second);
+  second->setAttribute(html_names::kClassAttr, AtomicString("gamma"));
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(first->SharesSameElementData(*second));
+  EXPECT_TRUE(second->ClassNames().Contains(AtomicString("gamma")));
+  EXPECT_FALSE(second->ClassNames().Contains(AtomicString("alpha")));
+  EXPECT_TRUE(first->ClassNames().Contains(AtomicString("alpha")));
+  EXPECT_TRUE(GetDocument().body()->CouldHaveClass(AtomicString("gamma")));
+  EXPECT_EQ(second,
+            GetDocument().body()->QuerySelector(AtomicString(".gamma")));
+}
+
+TEST_F(ElementTest, ParserClassDataAfterCompatibilityModeChange) {
+  GetDocument().SetCompatibilityMode(Document::kQuirksMode);
+  GetDocument().SetParsingState(Document::kParsing);
+  Vector<Attribute, kAttributePrealloc> attributes;
+  attributes.emplace_back(html_names::kClassAttr, AtomicString("Alpha"));
+  Element* first = GetDocument().CreateElementForBinding(AtomicString("div"));
+  Element* second = GetDocument().CreateElementForBinding(AtomicString("div"));
+  first->ParserSetAttributes(attributes);
+  second->ParserSetAttributes(attributes);
+  ASSERT_TRUE(first->SharesSameElementData(*second));
+  ASSERT_TRUE(second->ClassNames().Contains(AtomicString("alpha")));
+  EXPECT_TRUE(second->classList().contains(AtomicString("Alpha")));
+
+  GetDocument().SetCompatibilityMode(Document::kNoQuirksMode);
+  GetDocument().SetParsingState(Document::kParsing);
+  Element* third = GetDocument().CreateElementForBinding(AtomicString("div"));
+  third->ParserSetAttributes(attributes);
+  ASSERT_TRUE(first->SharesSameElementData(*third));
+  EXPECT_TRUE(third->ClassNames().Contains(AtomicString("Alpha")));
+  EXPECT_FALSE(third->ClassNames().Contains(AtomicString("alpha")));
+}
+
+TEST_F(ElementTest, ClonedClassDataReuse) {
+  Element* source = GetDocument().CreateElementForBinding(AtomicString("div"));
+  source->setAttribute(html_names::kClassAttr, AtomicString("alpha beta"));
+  Element* clone = To<Element>(source->cloneNode(false));
+  ASSERT_TRUE(source->SharesSameElementData(*clone));
+  EXPECT_TRUE(clone->ClassNames().Contains(AtomicString("alpha")));
+  EXPECT_TRUE(clone->CouldHaveClass(AtomicString("alpha")));
+  EXPECT_TRUE(clone->classList().contains(AtomicString("alpha")));
+  clone->setAttribute(html_names::kClassAttr, AtomicString("gamma"));
+  EXPECT_TRUE(source->ClassNames().Contains(AtomicString("alpha")));
+  EXPECT_TRUE(clone->ClassNames().Contains(AtomicString("gamma")));
+}
+
+TEST_F(ElementTest, ClonedClassDataAfterCompatibilityModeChange) {
+  Element* source = GetDocument().CreateElementForBinding(AtomicString("div"));
+  source->setAttribute(html_names::kClassAttr, AtomicString("Alpha"));
+  GetDocument().SetCompatibilityMode(Document::kQuirksMode);
+  Element* clone = To<Element>(source->cloneNode(false));
+  EXPECT_TRUE(clone->ClassNames().Contains(AtomicString("alpha")));
+  EXPECT_FALSE(clone->ClassNames().Contains(AtomicString("Alpha")));
+  EXPECT_TRUE(clone->CouldHaveClass(AtomicString("alpha")));
+
+  GetDocument().SetCompatibilityMode(Document::kNoQuirksMode);
+  Element* second_clone = To<Element>(clone->cloneNode(false));
+  EXPECT_TRUE(second_clone->ClassNames().Contains(AtomicString("Alpha")));
+  EXPECT_FALSE(second_clone->ClassNames().Contains(AtomicString("alpha")));
+}
 
 TEST_F(ElementTest, BloomFilterRemovalScansNonElementChildren) {
   SetBodyContent(R"HTML(
@@ -1718,6 +1799,100 @@ TEST_F(ElementTest, ChangeScrollMarkerGroupMode) {
   EXPECT_NE(old_layout_object, group->GetLayoutObject());
 }
 
+TEST_F(ElementTest, ChangeScrollMarkerGroupScrollContainer) {
+  SetBodyContent(R"HTML(
+    <style>
+      #scroller {
+        scroll-marker-group: before;
+        overflow: visible;
+      }
+      #item::scroll-marker {
+        content: 'a';
+      }
+    </style>
+    <div id="scroller"><div id="item"></div></div>
+  )HTML");
+
+  Element* scroller = GetElementById("scroller");
+  Element* item = GetElementById("item");
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_FALSE(scroller->GetPseudoElement(kPseudoIdScrollMarkerGroupBefore));
+  EXPECT_FALSE(item->GetPseudoElement(kPseudoIdScrollMarker));
+
+  // Make #scroller a scroll container.
+  scroller->SetInlineStyleProperty(CSSPropertyID::kOverflow, CSSValueID::kAuto);
+  UpdateAllLifecyclePhasesForTest();
+
+  PseudoElement* group =
+      scroller->GetPseudoElement(kPseudoIdScrollMarkerGroupBefore);
+  PseudoElement* marker = item->GetPseudoElement(kPseudoIdScrollMarker);
+  ASSERT_TRUE(group);
+  ASSERT_TRUE(marker);
+  ASSERT_TRUE(group->GetLayoutObject());
+  ASSERT_TRUE(marker->GetLayoutObject());
+  EXPECT_TRUE(
+      marker->GetLayoutObject()->IsDescendantOf(group->GetLayoutObject()));
+
+  // Make #scroller no longer a scroll container.
+  scroller->SetInlineStyleProperty(CSSPropertyID::kOverflow,
+                                   CSSValueID::kVisible);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_FALSE(scroller->GetPseudoElement(kPseudoIdScrollMarkerGroupBefore));
+  EXPECT_FALSE(item->GetPseudoElement(kPseudoIdScrollMarker));
+}
+
+TEST_F(ElementTest, TransferScrollMarkerBetweenNestedGroups) {
+  SetBodyContent(R"HTML(
+    <style>
+      #outer {
+        scroll-marker-group: before;
+        overflow: auto;
+      }
+      #inner {
+        scroll-marker-group: before;
+        overflow: visible;
+      }
+      #item::scroll-marker {
+        content: 'a';
+      }
+    </style>
+    <div id="outer"><div id="inner"><div id="item"></div></div></div>
+  )HTML");
+
+  Element* outer = GetElementById("outer");
+  Element* inner = GetElementById("inner");
+  Element* item = GetElementById("item");
+
+  auto expect_marker_in = [&](Element* scroller) {
+    auto* group = DynamicTo<ScrollMarkerGroupPseudoElement>(
+        scroller->GetPseudoElement(kPseudoIdScrollMarkerGroupBefore));
+    auto* marker = DynamicTo<ScrollMarkerPseudoElement>(
+        item->GetPseudoElement(kPseudoIdScrollMarker));
+    ASSERT_TRUE(group);
+    ASSERT_TRUE(marker);
+    ASSERT_TRUE(group->GetLayoutObject());
+    ASSERT_TRUE(marker->GetLayoutObject());
+    EXPECT_EQ(group, marker->ScrollMarkerGroup());
+    EXPECT_TRUE(
+        marker->GetLayoutObject()->IsDescendantOf(group->GetLayoutObject()));
+  };
+
+  UpdateAllLifecyclePhasesForTest();
+  expect_marker_in(outer);
+
+  // Make #inner a scroll container. #item's marker moves to #inner's group.
+  inner->SetInlineStyleProperty(CSSPropertyID::kOverflow, CSSValueID::kAuto);
+  UpdateAllLifecyclePhasesForTest();
+  expect_marker_in(inner);
+
+  // Make #inner no longer a scroll container. #item's marker moves back.
+  inner->SetInlineStyleProperty(CSSPropertyID::kOverflow, CSSValueID::kVisible);
+  UpdateAllLifecyclePhasesForTest();
+  expect_marker_in(outer);
+}
+
 TEST_F(ElementTest, NestedMarkerInheritsFromPseudoParent) {
   ScopedCSSNestedPseudoElementsForTest feature(false);
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
@@ -1940,7 +2115,7 @@ TEST_F(ElementTest, TrackPasswordTrackingElementRectCSSHeuristic) {
 
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
       "<div id=test>abc</div>");
-  auto* div = To<Element>(GetDocument().getElementById(AtomicString("test")));
+  auto* div = To<Element>(GetElementById("test"));
   GetDocument().UpdateStyleAndLayoutTree();
   EXPECT_FALSE(div->GetTrackedElementSubRect(tracking_feature));
 
@@ -2092,8 +2267,7 @@ TEST_F(ElementTest, DelegatesFocusWasLastFocusFromUserGesture) {
 
 TEST_F(ElementTest, FreezeHoverForOpenPopup) {
   SetBodyContent("<select id=owner><option>One</option></select>");
-  auto* owner = To<HTMLSelectElement>(
-      GetDocument().getElementById(AtomicString("owner")));
+  auto* owner = To<HTMLSelectElement>(GetElementById("owner"));
   ASSERT_NE(owner, nullptr);
 
   GetDocument().UpdateHoverActiveState(/*is_active=*/false,
@@ -2119,8 +2293,7 @@ TEST_F(ElementTest, FreezeHoverForOpenPopup) {
 // must be preserved rather than cleared by the re-sync.
 TEST_F(ElementTest, FreezeHoverForOpenPopupKeepsHoverWhenStillHovered) {
   SetBodyContent("<input id=owner type=color>");
-  auto* owner = To<HTMLFormControlElement>(
-      GetDocument().getElementById(AtomicString("owner")));
+  auto* owner = To<HTMLFormControlElement>(GetElementById("owner"));
   ASSERT_NE(owner, nullptr);
 
   GetDocument().UpdateHoverActiveState(/*is_active=*/false,
@@ -2133,8 +2306,7 @@ TEST_F(ElementTest, FreezeHoverForOpenPopupKeepsHoverWhenStillHovered) {
 TEST_F(ElementTest,
        FreezeHoverForOpenPopupKeepsHoverWhenStillHoveredDateInput) {
   SetBodyContent("<input id=owner type=date>");
-  auto* owner = To<HTMLFormControlElement>(
-      GetDocument().getElementById(AtomicString("owner")));
+  auto* owner = To<HTMLFormControlElement>(GetElementById("owner"));
   ASSERT_NE(owner, nullptr);
 
   GetDocument().UpdateHoverActiveState(/*is_active=*/false,

@@ -40,7 +40,7 @@
 
 namespace features {
 BASE_FEATURE(kManagedConfigurationRecoverFromFailedFetches,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 }  // namespace features
 
 namespace {
@@ -55,11 +55,8 @@ constexpr char kManagedConfigurationDirectoryName[] = "Managed Configuration";
 constexpr int kMaxConfigurationFileSize = 5 * 1024 * 1024;
 // Per-attempt download timeout. SimpleURLLoader restarts it for each internal
 // retry and it covers the whole body, so it is sized for a 5 MB configuration
-// at ~0.7 Mbit/s. Without it, a stalled server blocks reads and all recovery.
+// at ~0.7 Mbit/s. Without it, a stalled server blocks all recovery.
 constexpr base::TimeDelta kDownloadAttemptTimeout = base::Seconds(60);
-// Backstop for how long a read waits for an in-flight sync before it is
-// answered from the (possibly stale) store.
-constexpr base::TimeDelta kMaxPendingReadDelay = base::Seconds(30);
 constexpr net::BackoffEntry::Policy kRetryBackoffPolicy = {
     0,          // Number of initial errors to ignore.
     1000,       // Initial delay in ms (1 second).
@@ -173,11 +170,7 @@ class ManagedConfigurationAPI::OriginConfiguration {
         store_path_(std::move(store_path)),
         retry_policy_(MakeRetryPolicy(*api)) {}
 
-  ~OriginConfiguration() {
-    for (auto& [keys, callback] : pending_reads_) {
-      std::move(callback).Run(std::nullopt);
-    }
-  }
+  ~OriginConfiguration() = default;
 
   OriginConfiguration(const OriginConfiguration&) = delete;
   OriginConfiguration& operator=(const OriginConfiguration&) = delete;
@@ -196,10 +189,6 @@ class ManagedConfigurationAPI::OriginConfiguration {
     }
 
     EnsureSynced();
-    if (IsSyncInProgress()) {
-      QueueRead(keys, std::move(callback));
-      return;
-    }
     EnsureStoreCreated();
     store_.AsyncCall(&ManagedConfigurationStore::Get)
         .WithArgs(keys)
@@ -215,42 +204,36 @@ class ManagedConfigurationAPI::OriginConfiguration {
     }
 
     EnsureSynced();
-    if (IsSyncInProgress()) {
-      QueueRead(std::nullopt, std::move(callback));
-      return;
-    }
     EnsureStoreCreated();
     store_.AsyncCall(&ManagedConfigurationStore::GetAll)
         .Then(std::move(callback));
   }
 
   void SetConfigurationForTesting(base::DictValue configuration) {
-    PostStoreConfiguration(/*url_hash=*/std::string(),
+    PostStoreConfiguration(/*hash_to_commit=*/std::nullopt,
                            std::move(configuration));
   }
 
   void UpdateConfiguration(const std::string& configuration_url,
                            const std::string& configuration_hash) {
-    if (desired_url_ != configuration_url ||
-        desired_hash_ != configuration_hash) {
+    DesiredConfiguration desired{configuration_url, configuration_hash};
+    if (desired_ != desired) {
       retry_timer_.Stop();
       retry_backoff_.Reset();
     }
-    desired_url_ = configuration_url;
-    desired_hash_ = configuration_hash;
+    desired_ = std::move(desired);
     SyncStoreWithDesiredConfiguration();
   }
 
   void ClearConfiguration() {
-    desired_url_.clear();
-    desired_hash_.clear();
+    desired_.reset();
     downloader_.reset();
     retry_timer_.Stop();
     retry_backoff_.Reset();
     ScopedDictPrefUpdate update(api_->profile_->GetPrefs(),
                                 prefs::kLastManagedConfigurationHashForOrigin);
     update->Remove(GetOriginEncoded(origin_));
-    PostStoreConfiguration(/*url_hash=*/std::string(), base::DictValue());
+    PostStoreConfiguration(/*hash_to_commit=*/std::nullopt, base::DictValue());
   }
 
   void EnsureSynced() {
@@ -258,7 +241,7 @@ class ManagedConfigurationAPI::OriginConfiguration {
     if (!IsRecoveryEnabled()) {
       return;
     }
-    if (desired_url_.empty() && desired_hash_.empty()) {
+    if (!desired_) {
       return;
     }
     SyncStoreWithDesiredConfiguration();
@@ -274,14 +257,16 @@ class ManagedConfigurationAPI::OriginConfiguration {
   }
 
   bool HasStore() const { return static_cast<bool>(store_); }
+  bool IsFetchInProgress() const { return downloader_ != nullptr; }
 
  private:
-  using PendingRead =
-      std::pair<std::optional<std::vector<std::string>>, ConfigurationCallback>;
-
-  bool IsSyncInProgress() const {
-    return downloader_ != nullptr || in_flight_store_writes_ > 0;
-  }
+  // Configuration URL and hash requested by policy.
+  struct DesiredConfiguration {
+    std::string url;
+    std::string hash;
+    friend bool operator==(const DesiredConfiguration&,
+                           const DesiredConfiguration&) = default;
+  };
 
   static net::BackoffEntry::Policy MakeRetryPolicy(
       const ManagedConfigurationAPI& api) {
@@ -292,22 +277,6 @@ class ManagedConfigurationAPI::OriginConfiguration {
       policy.multiply_factor = api.retry_multiply_factor_for_testing_;
     }
     return policy;
-  }
-
-  // Queues a read until the in-flight sync finishes, but never for longer than
-  // `kMaxPendingReadDelay`; after that the read is answered from the store and
-  // observers are notified once the fresh configuration has been stored.
-  void QueueRead(std::optional<std::vector<std::string>> keys,
-                 ConfigurationCallback callback) {
-    pending_reads_.emplace_back(std::move(keys), std::move(callback));
-    if (!pending_reads_timer_.IsRunning()) {
-      pending_reads_timer_.Start(
-          FROM_HERE,
-          api_->max_pending_read_delay_for_testing_.value_or(
-              kMaxPendingReadDelay),
-          base::BindOnce(&OriginConfiguration::FlushPendingReads,
-                         weak_ptr_factory_.GetWeakPtr()));
-    }
   }
 
   void ScheduleRetry() {
@@ -342,26 +311,23 @@ class ManagedConfigurationAPI::OriginConfiguration {
   }
 
   void SyncStoreWithDesiredConfiguration() {
+    CHECK(desired_);
     const std::string* last_hash_value =
         api_->profile_->GetPrefs()
             ->GetDict(prefs::kLastManagedConfigurationHashForOrigin)
             .FindString(GetOriginEncoded(origin_));
 
     // Nothing to be stored here, the hash value is the same.
-    if (last_hash_value && *last_hash_value == desired_hash_) {
+    if (last_hash_value && *last_hash_value == desired_->hash) {
       if (IsRecoveryEnabled()) {
         downloader_.reset();
         retry_timer_.Stop();
         retry_backoff_.Reset();
-        EnsureStoreCreated();
-        if (!IsSyncInProgress()) {
-          FlushPendingReads();
-        }
       }
       return;
     }
 
-    if (desired_url_.empty()) {
+    if (desired_->url.empty()) {
       ClearConfiguration();
       return;
     }
@@ -369,7 +335,7 @@ class ManagedConfigurationAPI::OriginConfiguration {
     // Check whether there is already a downloader.
     if (downloader_) {
       // If it downloads the same data already, do nothing.
-      if (downloader_->hash() == desired_hash_) {
+      if (downloader_->hash() == desired_->hash) {
         return;
       }
       // Cancel it otherwise.
@@ -378,8 +344,7 @@ class ManagedConfigurationAPI::OriginConfiguration {
 
     // A queued write will commit exactly the desired hash (or schedule a retry
     // if it fails), so downloading it again would be redundant.
-    if (IsRecoveryEnabled() && !desired_hash_.empty() &&
-        in_flight_write_hash_ == desired_hash_) {
+    if (IsRecoveryEnabled() && in_flight_write_hash_ == desired_->hash) {
       return;
     }
 
@@ -390,20 +355,17 @@ class ManagedConfigurationAPI::OriginConfiguration {
     }
 
     downloader_ =
-        std::make_unique<ManagedConfigurationDownloader>(desired_hash_);
+        std::make_unique<ManagedConfigurationDownloader>(desired_->hash);
     downloader_->Fetch(
-        desired_url_,
+        desired_->url,
         base::BindOnce(&OriginConfiguration::DecodeData,
-                       weak_ptr_factory_.GetWeakPtr(), desired_hash_));
+                       weak_ptr_factory_.GetWeakPtr(), desired_->hash));
   }
 
   void DecodeData(const std::string& url_hash,
                   std::optional<std::string> data) {
     downloader_.reset();
     if (!data) {
-      if (IsRecoveryEnabled() && !IsSyncInProgress()) {
-        FlushPendingReads();
-      }
       ScheduleRetry();
       return;
     }
@@ -413,7 +375,8 @@ class ManagedConfigurationAPI::OriginConfiguration {
     if (!decoding_result.has_value()) {
       VLOG(1) << "Could not fetch managed configuration for app with origin = "
               << origin_.Serialize();
-      PostStoreConfiguration(/*url_hash=*/std::string(), base::DictValue());
+      PostStoreConfiguration(/*hash_to_commit=*/std::nullopt,
+                             base::DictValue());
       ScheduleRetry();
       return;
     }
@@ -442,12 +405,15 @@ class ManagedConfigurationAPI::OriginConfiguration {
     PostStoreConfiguration(url_hash, std::move(result_dict));
   }
 
-  void PostStoreConfiguration(const std::string& url_hash,
+  // `hash_to_commit` is committed once this write succeeds and no later write
+  // is queued, or std::nullopt for writes that must never be committed (clears
+  // and test writes). An empty hash is a valid policy hash.
+  void PostStoreConfiguration(std::optional<std::string> hash_to_commit,
                               base::DictValue configuration) {
     EnsureStoreCreated();
     if (IsRecoveryEnabled()) {
       // Drop the committed hash before the store diverges from it; it is
-      // re-committed in OnStoreConfigurationCompleted() once this write
+      // re-committed in OnStoreConfigurationCompleted() once the latest write
       // succeeded. Otherwise a superseded or failed write could leave a hash
       // that does not match the store (e.g. policy A -> B -> A while B's write
       // is queued).
@@ -459,75 +425,47 @@ class ManagedConfigurationAPI::OriginConfiguration {
     ++in_flight_store_writes_;
     // Writes complete in order, so the latest queued write determines what the
     // store will contain.
-    in_flight_write_hash_ = url_hash;
+    in_flight_write_hash_ = hash_to_commit;
     store_.AsyncCall(&ManagedConfigurationStore::SetCurrentPolicy)
         .WithArgs(std::move(configuration))
-        .Then(
-            base::BindOnce(&OriginConfiguration::OnStoreConfigurationCompleted,
-                           weak_ptr_factory_.GetWeakPtr(), url_hash));
+        .Then(base::BindOnce(
+            &OriginConfiguration::OnStoreConfigurationCompleted,
+            weak_ptr_factory_.GetWeakPtr(), std::move(hash_to_commit)));
   }
 
   void OnStoreConfigurationCompleted(
-      const std::string& url_hash,
+      std::optional<std::string> hash_to_commit,
       base::expected<bool, std::monostate> changed) {
     CHECK_GT(in_flight_store_writes_, 0);
     if (--in_flight_store_writes_ == 0) {
-      in_flight_write_hash_.clear();
+      in_flight_write_hash_.reset();
     }
     if (!IsRecoveryEnabled()) {
       api_->InformObserversIfConfigurationChanged(origin_,
                                                   changed.value_or(false));
       return;
     }
+    // Writes complete in order, so a write with later writes queued behind it
+    // does not determine what the store contains. Only the latest write may
+    // commit its hash or schedule a retry.
+    const bool is_desired_write = in_flight_store_writes_ == 0 && desired_ &&
+                                  hash_to_commit == desired_->hash;
     if (!changed.has_value()) {
-      if (!IsSyncInProgress()) {
-        FlushPendingReads();
-      }
-      if (!url_hash.empty() && desired_hash_ == url_hash) {
+      if (is_desired_write) {
         ScheduleRetry();
       }
       return;
     }
-    if (!url_hash.empty() && desired_hash_ == url_hash) {
+    if (is_desired_write) {
       ScopedDictPrefUpdate update(
           api_->profile_->GetPrefs(),
           prefs::kLastManagedConfigurationHashForOrigin);
-      update->Set(GetOriginEncoded(origin_), url_hash);
+      update->Set(GetOriginEncoded(origin_), *hash_to_commit);
       // Only a durably committed configuration counts as success; resetting
       // earlier would keep the backoff from growing while writes keep failing.
       retry_backoff_.Reset();
     }
-    if (!IsSyncInProgress()) {
-      FlushPendingReads();
-    }
     api_->InformObserversIfConfigurationChanged(origin_, *changed);
-  }
-
-  void FlushPendingReads() {
-    pending_reads_timer_.Stop();
-    if (pending_reads_.empty()) {
-      return;
-    }
-    std::vector<PendingRead> reads = std::exchange(pending_reads_, {});
-
-    if (!api_->CanHaveManagedStore(origin_)) {
-      for (auto& [keys, callback] : reads) {
-        std::move(callback).Run(std::nullopt);
-      }
-      return;
-    }
-
-    EnsureStoreCreated();
-    for (auto& [keys, callback] : reads) {
-      if (keys.has_value()) {
-        store_.AsyncCall(&ManagedConfigurationStore::Get)
-            .WithArgs(std::move(*keys))
-            .Then(std::move(callback));
-      } else {
-        store_.AsyncCall(&ManagedConfigurationStore::GetAll)
-            .Then(std::move(callback));
-      }
-    }
   }
 
   const raw_ptr<ManagedConfigurationAPI> api_;
@@ -535,18 +473,17 @@ class ManagedConfigurationAPI::OriginConfiguration {
   const base::FilePath store_path_;
   const net::BackoffEntry::Policy retry_policy_;
 
-  std::string desired_url_;
-  std::string desired_hash_;
+  // Configuration requested by policy, or std::nullopt if there is none (e.g.
+  // after ClearConfiguration()). Empty strings are valid policy values.
+  std::optional<DesiredConfiguration> desired_;
   base::SequenceBound<ManagedConfigurationStore> store_;
   std::unique_ptr<ManagedConfigurationDownloader> downloader_;
   net::BackoffEntry retry_backoff_{&retry_policy_};
   base::OneShotTimer retry_timer_;
   int in_flight_store_writes_ = 0;
   // Hash the most recently queued store write will commit, while any write is
-  // in flight. Empty for clears and test writes.
-  std::string in_flight_write_hash_;
-  std::vector<PendingRead> pending_reads_;
-  base::OneShotTimer pending_reads_timer_;
+  // in flight. std::nullopt for clears and test writes.
+  std::optional<std::string> in_flight_write_hash_;
 
   base::WeakPtrFactory<OriginConfiguration> weak_ptr_factory_{this};
 };
@@ -659,14 +596,15 @@ void ManagedConfigurationAPI::SetRetryBackoffForTesting(
   retry_multiply_factor_for_testing_ = multiply_factor;
 }
 
-void ManagedConfigurationAPI::SetMaxPendingReadDelayForTesting(
-    base::TimeDelta delay) {
-  max_pending_read_delay_for_testing_ = delay;
-}
-
 void ManagedConfigurationAPI::SetStoreTaskRunnerForTesting(
     scoped_refptr<base::SequencedTaskRunner> task_runner) {
   store_task_runner_for_testing_ = std::move(task_runner);
+}
+
+bool ManagedConfigurationAPI::IsFetchInProgressForTesting(
+    const url::Origin& origin) const {
+  auto it = origins_.find(origin);
+  return it != origins_.end() && it->second->IsFetchInProgress();
 }
 
 void ManagedConfigurationAPI::OnConnectionChanged(

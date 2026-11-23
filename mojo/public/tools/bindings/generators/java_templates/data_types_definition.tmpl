@@ -132,12 +132,15 @@ if ({{variable}} != null) {
 {{'static' if inner_class else 'public'}} final class {{struct|name}} extends org.chromium.mojo.bindings.Struct {
 
     private static final int STRUCT_SIZE = {{struct.versions[-1].num_bytes}};
-    private static final org.chromium.mojo.bindings.DataHeader[] VERSION_ARRAY = new org.chromium.mojo.bindings.DataHeader[] {
+    private static final int STRUCT_VERSION = {{struct.versions[-1].version}};
+{%- if struct.versions|length > 1 %}
+    // Flattened (size, version) pairs.
+    private static final int[] VERSION_ARRAY = new int[] {
 {%-   for version in struct.versions -%}
-        new org.chromium.mojo.bindings.DataHeader({{version.num_bytes}}, {{version.version}}){%- if not loop.last %}, {%- endif -%}
+        {{version.num_bytes}}, {{version.version}}{{', ' if not loop.last}}
 {%-   endfor -%}
     };
-    private static final org.chromium.mojo.bindings.DataHeader DEFAULT_STRUCT_INFO = VERSION_ARRAY[{{struct.versions|length - 1}}];
+{%- endif %}
 {%-  for constant in struct.constants %}
 
     {{constant_def(constant)|indent(4)}}
@@ -165,7 +168,7 @@ if ({{variable}} != null) {
     }
 
     public {{struct|name}}() {
-        this({{struct.versions[-1].version}});
+        this(STRUCT_VERSION);
     }
 
     public static {{struct|name}} deserialize(org.chromium.mojo.bindings.Message message) {
@@ -187,12 +190,9 @@ if ({{variable}} != null) {
         if (decoder0 == null) {
             return null;
         }
-        decoder0.increaseStackDepth();
-        {{struct|name}} result;
-        try {
-            org.chromium.mojo.bindings.DataHeader mainDataHeader = decoder0.readAndValidateDataHeader(VERSION_ARRAY);
-            final int elementsOrVersion = mainDataHeader.elementsOrVersion;
-            result = new {{struct|name}}(elementsOrVersion);
+        {#- readAndValidateStructHeader() also increases the stack depth. #}
+        final int elementsOrVersion = decoder0.readAndValidateStructHeader({{'VERSION_ARRAY' if struct.versions|length > 1 else 'STRUCT_SIZE'}});
+        {{struct|name}} result = new {{struct|name}}(elementsOrVersion);
 
 {%- set prev_ver = [0] %}
 {%- for byte in struct.bytes %}
@@ -225,10 +225,7 @@ if ({{variable}} != null) {
 {%- if prev_ver[-1] != 0 %}
             }
 {%- endif %}
-
-        } finally {
-            decoder0.decreaseStackDepth();
-        }
+        decoder0.decreaseStackDepth();
         return result;
     }
 
@@ -236,9 +233,9 @@ if ({{variable}} != null) {
     @Override
     protected final void encode(org.chromium.mojo.bindings.Encoder encoder) {
 {%- if not struct.bytes %}
-        encoder.getEncoderAtDataOffset(DEFAULT_STRUCT_INFO);
+        encoder.getEncoderAtDataOffset(STRUCT_SIZE, STRUCT_VERSION);
 {%- else %}
-        org.chromium.mojo.bindings.Encoder encoder0 = encoder.getEncoderAtDataOffset(DEFAULT_STRUCT_INFO);
+        org.chromium.mojo.bindings.Encoder encoder0 = encoder.getEncoderAtDataOffset(STRUCT_SIZE, STRUCT_VERSION);
 {%- endif %}
 {%- for byte in struct.bytes %}
 {%-   for packed_field in byte.packed_fields %}

@@ -111,15 +111,6 @@ using base::test::ios::WaitUntilConditionOrTimeout;
   return GaiaId([SigninEarlGreyAppInterface primaryAccountGaiaIDString]);
 }
 
-- (const base::flat_set<GaiaId>)accountsInProfileGaiaIDs {
-  base::flat_set<GaiaId> set;
-  for (NSString* gaiaIDString :
-       [SigninEarlGreyAppInterface accountsInProfileGaiaIDs]) {
-    set.insert(GaiaId(gaiaIDString));
-  }
-  return set;
-}
-
 - (BOOL)isSignedOut {
   return [SigninEarlGreyAppInterface isSignedOut];
 }
@@ -343,8 +334,8 @@ using base::test::ios::WaitUntilConditionOrTimeout;
   }
 }
 
-- (void)setPreferredAccountForPromo:(FakeSystemIdentity*)fakeIdentity {
-  [SigninEarlGreyAppInterface setPreferredAccountForPromo:fakeIdentity];
+- (void)setPreferredAccountForSignin:(FakeSystemIdentity*)fakeIdentity {
+  [SigninEarlGreyAppInterface setPreferredAccountForSignin:fakeIdentity];
 }
 
 // Confirms "Switch and Delete" when the alert dialog that data will be cleared

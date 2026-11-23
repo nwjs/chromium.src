@@ -5,6 +5,7 @@
 #include "chrome/browser/glic/service/metrics/glic_invoke_metrics.h"
 
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -14,6 +15,8 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/values.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/glic_cui_tracker.h"
+#include "chrome/browser/glic/public/glic_window_invocation_tracker.h"
 #include "chrome/browser/glic/service/glic_invoke_task.h"
 #include "components/metrics/structured/buildflags/buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -311,7 +314,153 @@ TEST(GlicInvokeMetricsTest,
   EXPECT_EQ(GetIntMetric(*events[0], "ClientLoadStateAtStart"), std::nullopt);
 }
 
+// structured.xml GlicInvokeEntryPath wire values.
+constexpr int kEntryPathUnknownWireValue = 0;
+constexpr int kEntryPathToggleWireValue = 1;
+constexpr int kEntryPathInvokeWireValue = 2;
+constexpr int kEntryPathInvokeWithAutoSubmitWireValue = 3;
+
+TEST(GlicInvokeMetricsTest, StartedAndTerminatedHaveEntryPath) {
+  ScopedStructuredEventCapture capture;
+  GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+  metrics.SetEntryPath(GlicInvokeEntryPath::kToggle);
+  metrics.RecordStarted();
+  metrics.RecordSuccess();
+
+  for (std::string_view event_name : {"InvokeStarted", "InvokeTerminated"}) {
+    SCOPED_TRACE(event_name);
+    auto events = capture.GetEvents(event_name);
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(GetIntMetric(*events[0], "EntryPath"), kEntryPathToggleWireValue);
+  }
+}
+
+TEST(GlicInvokeMetricsTest, EntryPathWireValuesAreStable) {
+  const struct {
+    GlicInvokeEntryPath entry_path;
+    int wire_value;
+  } kCases[] = {
+      {GlicInvokeEntryPath::kUnknown, kEntryPathUnknownWireValue},
+      {GlicInvokeEntryPath::kToggle, kEntryPathToggleWireValue},
+      {GlicInvokeEntryPath::kInvoke, kEntryPathInvokeWireValue},
+      {GlicInvokeEntryPath::kInvokeWithAutoSubmit,
+       kEntryPathInvokeWithAutoSubmitWireValue},
+  };
+  for (const auto& c : kCases) {
+    SCOPED_TRACE(static_cast<int>(c.entry_path));
+    ScopedStructuredEventCapture capture;
+    GlicInvokeMetrics metrics(mojom::InvocationSource::kOsButton);
+    metrics.SetEntryPath(c.entry_path);
+    metrics.RecordError(GlicInvokeError::kInvalidTab);
+    auto events = capture.GetEvents("InvokeTerminated");
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(GetIntMetric(*events[0], "EntryPath"), c.wire_value);
+  }
+}
+
+// A rejected invocation only records InvokeTerminated, which must therefore
+// say which entry point it came from on its own.
+TEST(GlicInvokeMetricsTest, RejectedInvocationTerminatedHasEntryPath) {
+  ScopedStructuredEventCapture capture;
+  GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+  metrics.SetEntryPath(GlicInvokeEntryPath::kToggle);
+  metrics.RecordError(GlicInvokeError::kTabClosed);
+
+  EXPECT_TRUE(capture.GetEvents("InvokeStarted").empty());
+  auto events = capture.GetEvents("InvokeTerminated");
+  ASSERT_EQ(events.size(), 1u);
+  EXPECT_EQ(GetIntMetric(*events[0], "EntryPath"), kEntryPathToggleWireValue);
+}
+
+// structured.xml GlicCuiOutcome wire values.
+constexpr int kOutcomeAbandonedWireValue = 2;
+constexpr int kOutcomeFailedWireValue = 3;
+
+TEST(GlicInvokeMetricsTest, PanelClosedIsAbandoned) {
+  ScopedStructuredEventCapture capture;
+  GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+  metrics.RecordError(GlicInvokeError::kPanelClosed);
+
+  auto events = capture.GetEvents("InvokeTerminated");
+  ASSERT_EQ(events.size(), 1u);
+  EXPECT_EQ(GetIntMetric(*events[0], "Outcome"), kOutcomeAbandonedWireValue);
+  EXPECT_EQ(GetIntMetric(*events[0], "InvokeError"),
+            static_cast<int>(GlicInvokeError::kPanelClosed));
+}
+
+TEST(GlicInvokeMetricsTest, ClientLoadErrorIsFailed) {
+  ScopedStructuredEventCapture capture;
+  GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+  metrics.RecordError(GlicInvokeError::kClientLoadError);
+
+  auto events = capture.GetEvents("InvokeTerminated");
+  ASSERT_EQ(events.size(), 1u);
+  EXPECT_EQ(GetIntMetric(*events[0], "Outcome"), kOutcomeFailedWireValue);
+}
+
 #endif  // BUILDFLAG(STRUCTURED_METRICS_ENABLED)
+
+// The CUI tracker handed to the metrics resolves with the invocation's
+// outcome, so Glic.CUI.WindowEntryPointInvocation.Outcome always agrees with
+// InvokeTerminated.Outcome.
+class GlicInvokeMetricsCuiTrackerTest : public testing::Test {
+ protected:
+  static constexpr char kOutcome[] =
+      "Glic.CUI.WindowEntryPointInvocation.Outcome";
+  base::HistogramTester histogram_tester_;
+};
+
+TEST_F(GlicInvokeMetricsCuiTrackerTest, SuccessResolvesSuccess) {
+  GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+  metrics.SetCuiTracker(std::make_unique<GlicWindowInvocationTracker>());
+  metrics.RecordStarted();
+  metrics.RecordSuccess();
+  histogram_tester_.ExpectUniqueSample(kOutcome, GlicCuiOutcome::kSuccess, 1);
+  histogram_tester_.ExpectTotalCount(
+      "Glic.CUI.WindowEntryPointInvocation.Latency.Success", 1);
+}
+
+TEST_F(GlicInvokeMetricsCuiTrackerTest, ErrorsResolveTheMappedOutcome) {
+  const struct {
+    GlicInvokeError error;
+    GlicCuiOutcome outcome;
+  } kCases[] = {
+      {GlicInvokeError::kTimeout, GlicCuiOutcome::kFailedLatency},
+      {GlicInvokeError::kCancelled, GlicCuiOutcome::kUnknownCancel},
+      {GlicInvokeError::kPanelClosed, GlicCuiOutcome::kAbandoned},
+      {GlicInvokeError::kTabClosed, GlicCuiOutcome::kAbandoned},
+      {GlicInvokeError::kInstanceDestroyedBlankInstanceClosed,
+       GlicCuiOutcome::kAbandoned},
+      {GlicInvokeError::kSignInRequired, GlicCuiOutcome::kAbandoned},
+      {GlicInvokeError::kClientLoadError, GlicCuiOutcome::kFailed},
+      {GlicInvokeError::kProfileNotEnabled, GlicCuiOutcome::kFailed},
+  };
+  for (const auto& c : kCases) {
+    SCOPED_TRACE(GlicInvokeErrorToString(c.error));
+    base::HistogramTester histogram_tester;
+    GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+    metrics.SetCuiTracker(std::make_unique<GlicWindowInvocationTracker>());
+    metrics.RecordError(c.error);
+    histogram_tester.ExpectUniqueSample(kOutcome, c.outcome, 1);
+  }
+}
+
+// A rejected toggle (no InvokeStarted) still resolves the tracker, so it is
+// no longer counted as kUnknownCancel when the tracker is dropped.
+TEST_F(GlicInvokeMetricsCuiTrackerTest, RejectionResolvesBeforeDestruction) {
+  {
+    GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+    metrics.SetCuiTracker(std::make_unique<GlicWindowInvocationTracker>());
+    metrics.RecordError(GlicInvokeError::kInvalidTab);
+  }
+  histogram_tester_.ExpectUniqueSample(kOutcome, GlicCuiOutcome::kFailed, 1);
+}
+
+TEST_F(GlicInvokeMetricsCuiTrackerTest, NoTrackerRecordsNothing) {
+  GlicInvokeMetrics metrics(mojom::InvocationSource::kToolbarButton);
+  metrics.RecordSuccess();
+  histogram_tester_.ExpectTotalCount(kOutcome, 0);
+}
 
 }  // namespace
 }  // namespace glic

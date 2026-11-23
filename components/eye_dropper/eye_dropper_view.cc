@@ -6,7 +6,8 @@
 
 #include <utility>
 
-#include "base/compiler_specific.h"
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -19,6 +20,7 @@
 #include "content/public/browser/web_contents.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkPath.h"
+#include "third_party/skia/include/core/SkPixmap.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
@@ -155,12 +157,7 @@ void EyeDropperView::ScreenCapturer::OnCaptureResult(
     return;
   }
 
-  // TODO(crbug.com/352187279): Support other pixel formats.
-  CHECK_EQ(frame->pixel_format(), webrtc::FOURCC_ARGB);
-  frame_.allocN32Pixels(frame->size().width(), frame->size().height(), true);
-  UNSAFE_TODO(memcpy(frame_.getAddr32(0, 0), frame->data(),
-                     frame->size().height() * frame->stride()));
-  frame_.setImmutable();
+  frame_ = EyeDropperView::CreateBitmapFromFrame(*frame);
 
   // The captured frame is in full desktop coordinates. E.g. the top left
   // monitor should start from (0, 0), so we need to compute the correct
@@ -187,6 +184,19 @@ void EyeDropperView::ScreenCapturer::OnCaptureResult(
     }
   }
   owner_->OnScreenCaptured();
+}
+
+SkBitmap EyeDropperView::CreateBitmapFromFrame(
+    const webrtc::DesktopFrame& frame) {
+  // TODO(crbug.com/352187279): Support other pixel formats.
+  CHECK_EQ(frame.pixel_format(), webrtc::FOURCC_ARGB);
+  SkBitmap bitmap;
+  bitmap.allocN32Pixels(frame.size().width(), frame.size().height(), true);
+  const bool write_pixels_succeeded =
+      bitmap.writePixels(SkPixmap(bitmap.info(), frame.data(), frame.stride()));
+  CHECK(write_pixels_succeeded);
+  bitmap.setImmutable();
+  return bitmap;
 }
 
 SkBitmap EyeDropperView::ScreenCapturer::GetBitmap() const {
@@ -362,11 +372,6 @@ EyeDropperView::EyeDropperView(gfx::NativeView parent,
       views::Widget::InitParams::TYPE_POPUP);
 #endif
   params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
-  // Use software compositing to prevent situations when the widget is not
-  // translucent when moved fast.
-  // TODO(iopopesc): Investigate if this is a compositor bug or this is indeed
-  // an intentional limitation.
-  params.force_software_compositing = true;
   params.z_order = ui::ZOrderLevel::kFloatingWindow;
   params.name = "MagnifierHost";
   params.parent = parent;

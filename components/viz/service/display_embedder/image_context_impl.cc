@@ -17,7 +17,6 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_factory.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
 #include "gpu/command_buffer/service/skia_utils.h"
-#include "gpu/command_buffer/service/texture_manager.h"
 #include "skia/buildflags.h"
 #include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/skia/include/core/SkCanvas.h"
@@ -142,11 +141,6 @@ ImageContextImpl::~ImageContextImpl() {
 }
 
 void ImageContextImpl::OnContextLost() {
-  if (texture_passthrough_) {
-    texture_passthrough_->MarkContextLost();
-    texture_passthrough_.reset();
-  }
-
   if (representation_) {
     representation_->OnContextLost();
     representation_scoped_read_access_.reset();
@@ -406,6 +400,7 @@ bool ImageContextImpl::BeginAccessIfNecessaryInternal(
   graphite_ycbcr_info_mismatch_ = false;
   if (!ValidateYCbCrInfo(context_state)) {
     graphite_ycbcr_info_mismatch_ = true;
+    representation_scoped_read_access_->ApplyBackendSurfaceEndState();
     representation_scoped_read_access_.reset();
     return false;
   }

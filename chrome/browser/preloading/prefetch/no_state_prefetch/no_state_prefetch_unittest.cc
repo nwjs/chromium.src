@@ -23,7 +23,6 @@
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/with_feature_override.h"
 #include "base/time/time.h"
-#include "build/build_config.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/loading_test_util.h"
@@ -197,7 +196,8 @@ class NoStatePrefetchTest : public testing::Test {
     std::optional<int> link_trigger_id =
         no_state_prefetch_link_manager()->OnStartLinkTrigger(
             render_process_id, render_view_id, render_frame_id,
-            std::move(attributes), url::Origin::Create(initiator_url));
+            std::move(attributes), url::Origin::Create(initiator_url),
+            /*initiator_navigation_state=*/nullptr);
 
     // Check if the new prefetch request was added and running.
     return link_trigger_id && LastTriggerIsRunning();
@@ -300,8 +300,7 @@ TEST_F(NoStatePrefetchTest, LinkRelNextWithNSPDisabled) {
       "Prerender.FinalStatus", FINAL_STATUS_LINK_REL_NEXT_NOT_ALLOWED, 1);
 }
 
-// Flaky on Android and Mac, crbug.com/40695134.
-TEST_F(NoStatePrefetchTest, DISABLED_PrerenderDisabledOnLowEndDevice) {
+TEST_F(NoStatePrefetchTest, PrerenderDisabledOnLowEndDevice) {
   GURL url("http://www.google.com/");
   no_state_prefetch_manager()->SetIsLowEndDevice(true);
   EXPECT_FALSE(AddSimpleLinkTrigger(url));
@@ -344,12 +343,11 @@ TEST_F(NoStatePrefetchTest, FoundTest) {
       url, &prefetch_age, &final_status, &origin));
 }
 
-// Flaky on Android, crbug.com/40133399.
 // Make sure that if queue a request, and a second prerender request for the
 // same URL comes in, that the second request attaches to the first prerender,
 // and we don't use the second prerender contents.
 // This test is the same as the "DuplicateTest" above, but for NoStatePrefetch.
-TEST_F(NoStatePrefetchTest, DISABLED_DuplicateTest_NoStatePrefetch) {
+TEST_F(NoStatePrefetchTest, DuplicateTest_NoStatePrefetch) {
   SetConcurrency(2);
   GURL url("http://www.google.com/");
   FakeNoStatePrefetchContents* no_state_prefetch_contents =
@@ -531,7 +529,8 @@ TEST_F(NoStatePrefetchTest, NoStatePrefetchDuplicate) {
   EXPECT_TRUE(no_state_prefetch_manager()->StartPrefetchingFromLinkRelPrerender(
       /*process_id=*/-1, /*route_id=*/-1, kUrl,
       blink::mojom::PrerenderTriggerType::kLinkRelPrerender,
-      content::Referrer(), kOrigin, gfx::Size()));
+      content::Referrer(), kOrigin, /*initiator_navigation_state=*/nullptr,
+      gfx::Size()));
   // Cancel the prefetch so that it is not reused.
   no_state_prefetch_manager()->CancelAllPrerenders();
 
@@ -545,7 +544,8 @@ TEST_F(NoStatePrefetchTest, NoStatePrefetchDuplicate) {
       no_state_prefetch_manager()->StartPrefetchingFromLinkRelPrerender(
           /*process_id=*/-1, /*route_id=*/-1, kUrl,
           blink::mojom::PrerenderTriggerType::kLinkRelPrerender,
-          content::Referrer(), kOrigin, gfx::Size()));
+          content::Referrer(), kOrigin, /*initiator_navigation_state=*/nullptr,
+          gfx::Size()));
   histogram_tester().ExpectBucketCount("Prerender.FinalStatus",
                                        FINAL_STATUS_DUPLICATE, 1);
 
@@ -554,7 +554,8 @@ TEST_F(NoStatePrefetchTest, NoStatePrefetchDuplicate) {
   EXPECT_TRUE(no_state_prefetch_manager()->StartPrefetchingFromLinkRelPrerender(
       /*process_id=*/-1, /*route_id=*/-1, kUrl,
       blink::mojom::PrerenderTriggerType::kLinkRelPrerender,
-      content::Referrer(), kOrigin, gfx::Size()));
+      content::Referrer(), kOrigin, /*initiator_navigation_state=*/nullptr,
+      gfx::Size()));
 }
 
 // Make sure that if we prerender more requests than we support, that we launch
@@ -649,8 +650,7 @@ TEST_F(NoStatePrefetchTest, MaxConcurrencyTest) {
   }
 }
 
-// Flaky on Android: https://crbug.com/40706063
-TEST_F(NoStatePrefetchTest, DISABLED_AliasURLTest) {
+TEST_F(NoStatePrefetchTest, AliasURLTest) {
   SetConcurrency(7);
 
   GURL url("http://www.google.com/");
@@ -946,16 +946,7 @@ TEST_F(NoStatePrefetchTest, LinkManagerAbandonThenCancel) {
   ASSERT_FALSE(no_state_prefetch_manager()->FindEntry(url));
 }
 
-// Flaky on Android, crbug.com/40695134.
-// Flaky on Mac and Linux, crbug.com/40695035.
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_LinkManagerAddTwiceCancelTwice \
-  DISABLED_LinkManagerAddTwiceCancelTwice
-#else
-#define MAYBE_LinkManagerAddTwiceCancelTwice LinkManagerAddTwiceCancelTwice
-#endif
-TEST_F(NoStatePrefetchTest, MAYBE_LinkManagerAddTwiceCancelTwice) {
+TEST_F(NoStatePrefetchTest, LinkManagerAddTwiceCancelTwice) {
   SetConcurrency(2);
   EXPECT_TRUE(IsEmptyNoStatePrefetchLinkManager());
   GURL url("http://www.myexample.com");
@@ -989,8 +980,7 @@ TEST_F(NoStatePrefetchTest, MAYBE_LinkManagerAddTwiceCancelTwice) {
 
 // TODO(gavinp): Update this test after abandon has an effect on Prerenders,
 // like shortening the timeouts.
-// Flaky on Android and Linux, crbug.com/40695134 & crbug.com/40695036.
-TEST_F(NoStatePrefetchTest, DISABLED_LinkManagerAddTwiceAbandonTwiceUseTwice) {
+TEST_F(NoStatePrefetchTest, LinkManagerAddTwiceAbandonTwiceUseTwice) {
   SetConcurrency(2);
   EXPECT_TRUE(IsEmptyNoStatePrefetchLinkManager());
   GURL url("http://www.myexample.com");
@@ -1015,7 +1005,7 @@ TEST_F(NoStatePrefetchTest, DISABLED_LinkManagerAddTwiceAbandonTwiceUseTwice) {
   EXPECT_FALSE(no_state_prefetch_contents->prefetching_has_been_cancelled());
   ASSERT_EQ(no_state_prefetch_contents,
             no_state_prefetch_manager()->FindEntry(url));
-  AbandonFirstTrigger();
+  AbandonLastTrigger();
 
   EXPECT_FALSE(no_state_prefetch_contents->prefetching_has_been_cancelled());
   std::unique_ptr<NoStatePrefetchContents> entry =
@@ -1081,8 +1071,7 @@ TEST_F(NoStatePrefetchTest, LinkManagerExpireThenAddAgain) {
   ASSERT_EQ(second_no_state_prefetch_contents, entry.get());
 }
 
-// Flaky on Android, crbug.com/40695134.
-TEST_F(NoStatePrefetchTest, DISABLED_LinkManagerCancelThenAddAgain) {
+TEST_F(NoStatePrefetchTest, LinkManagerCancelThenAddAgain) {
   EXPECT_TRUE(IsEmptyNoStatePrefetchLinkManager());
   GURL url("http://www.myexample.com");
   FakeNoStatePrefetchContents* first_no_state_prefetch_contents =
@@ -1111,7 +1100,7 @@ TEST_F(NoStatePrefetchTest, DISABLED_LinkManagerCancelThenAddAgain) {
 // Creates two prerenders, one of which should be blocked by the
 // max_link_concurrency; abandons both of them and waits to make sure both
 // are cleared from the NoStatePrefetchLinkManager.
-TEST_F(NoStatePrefetchTest, DISABLED_LinkManagerAbandonInactivePrerender) {
+TEST_F(NoStatePrefetchTest, LinkManagerAbandonInactivePrerender) {
   no_state_prefetch_manager()->SetTickClockForTesting(tick_clock());
   SetConcurrency(1);
   ASSERT_LT(no_state_prefetch_manager()->config().abandon_time_to_live,
@@ -1132,7 +1121,7 @@ TEST_F(NoStatePrefetchTest, DISABLED_LinkManagerAbandonInactivePrerender) {
   EXPECT_FALSE(no_state_prefetch_manager()->FindEntry(second_url));
 
   AbandonFirstTrigger();
-  AbandonFirstTrigger();
+  AbandonLastTrigger();
 
   tick_clock()->Advance(
       no_state_prefetch_manager()->config().abandon_time_to_live +

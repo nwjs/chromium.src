@@ -15,6 +15,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/functional/callback_helpers.h"
+#include "base/functional/function_ref.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
@@ -100,6 +101,8 @@ class AutofillAgent : public content::RenderFrameObserver,
       base::StrongAlias<class UserGestureRequiredTag, bool>;
   using UsesKeyboardAccessoryForSuggestions =
       base::StrongAlias<class UsesKeyboardAccessoryForSuggestionsTag, bool>;
+  using KeyboardAccessoryUsesDynamicPositioning =
+      base::StrongAlias<class KeyboardAccessoryUsesDynamicPositioningTag, bool>;
 
   struct Config {
     // Controls whether or not all datalists shall be extracted into
@@ -131,6 +134,11 @@ class AutofillAgent : public content::RenderFrameObserver,
     // information in or near the keyboard instead.
     UsesKeyboardAccessoryForSuggestions uses_keyboard_accessory_for_suggestions{
         BUILDFLAG(IS_ANDROID)};
+
+    // Controls whether the keyboard accessory is dynamically positioned near
+    // the focused field rather than docked at the bottom of the screen.
+    KeyboardAccessoryUsesDynamicPositioning
+        keyboard_accessory_uses_dynamic_positioning{false};
   };
 
   // `PasswordAutofillAgent` and `PasswordGenerationAgent` may be `nullptr`. If
@@ -271,10 +279,10 @@ class AutofillAgent : public content::RenderFrameObserver,
 
   // TODO(crbug.com/376628389): Remove.
   void OnTextFieldValueChanged(const blink::WebFormControlElement& element,
-                               const SynchronousFormCache& form_cache);
+                               SynchronousFormCache& form_cache);
   void OnSelectControlSelectionChanged(
       const blink::WebFormControlElement& element,
-      const SynchronousFormCache& form_cache);
+      SynchronousFormCache& form_cache);
 
   bool IsPrerendering() const;
 
@@ -294,11 +302,13 @@ class AutofillAgent : public content::RenderFrameObserver,
   // blink::WebAutofillClient:
 
   // Signals from blink that a form related element changed dynamically,
-  // passing the changed element as well as the type of the change.
+  // passing the type of the change, the element's FormControlTypeForAutofill()
+  // if it is a form control, and a getter for the changed element.
   // TODO(crbug.com/40281981): Fire the signal for elements that become hidden.
   void DidChangeFormRelatedElementDynamically(
-      const blink::WebElement&,
-      blink::WebFormRelatedChangeType) override;
+      blink::WebFormRelatedChangeType,
+      std::optional<blink::mojom::FormControlType> form_control_type,
+      base::FunctionRef<blink::WebElement()> element) override;
 
   // content::RenderFrameObserver:
 
@@ -439,6 +449,8 @@ class AutofillAgent : public content::RenderFrameObserver,
 
   // Hides any currently showing Autofill popup.
   void HidePopup();
+
+  gfx::Rect GetCaretBounds() const;
 
   // Helpers for SelectFieldOptionsChanged() and
   // DataListOptionsChanged(), which get called after a timer that is restarted

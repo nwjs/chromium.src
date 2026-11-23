@@ -43,7 +43,6 @@
 #import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_coordinator_delegate.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_view_controller.h"
-#import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/test/block_cleanup_test.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/chrome/test/scoped_key_window.h"
@@ -120,18 +119,18 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
     browser_ = std::make_unique<TestBrowser>(profile_.get(), scene_state_);
 
     // Set up SceneCommands mock.
-    id mock_application_handler = OCMProtocolMock(@protocol(SceneCommands));
+    mock_application_handler_ = OCMProtocolMock(@protocol(SceneCommands));
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
-    [dispatcher startDispatchingToTarget:mock_application_handler
+    [dispatcher startDispatchingToTarget:mock_application_handler_
                              forProtocol:@protocol(SceneCommands)];
 
     // Set up GeminiCommands mock.
-    id mock_gemini_handler = OCMProtocolMock(@protocol(GeminiCommands));
-    [dispatcher startDispatchingToTarget:mock_gemini_handler
+    mock_gemini_handler_ = OCMProtocolMock(@protocol(GeminiCommands));
+    [dispatcher startDispatchingToTarget:mock_gemini_handler_
                              forProtocol:@protocol(GeminiCommands)];
 
     // Set up QuickDeleteCommands mock.
-    id mock_quick_delete_handler_ =
+    mock_quick_delete_handler_ =
         OCMStrictProtocolMock(@protocol(QuickDeleteCommands));
     [dispatcher startDispatchingToTarget:mock_quick_delete_handler_
                              forProtocol:@protocol(QuickDeleteCommands)];
@@ -143,17 +142,17 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
 
     AddAgentsToBrowser(incognito_browser_.get());
 
-    id mockSceneHandler = OCMProtocolMock(@protocol(SceneCommands));
+    mock_scene_handler_ = OCMProtocolMock(@protocol(SceneCommands));
     LayoutGuideSceneAgent* layout_guide_scene_agent =
         [[LayoutGuideSceneAgent alloc] init];
     [scene_state_ addAgent:layout_guide_scene_agent];
 
-    IncognitoReauthSceneAgent* reauth_agent = [[IncognitoReauthSceneAgent alloc]
-        initWithReauthModule:[[ReauthenticationModule alloc] init]];
+    IncognitoReauthSceneAgent* reauth_agent =
+        [[IncognitoReauthSceneAgent alloc] init];
     [scene_state_ addAgent:reauth_agent];
 
     coordinator_ = [[TabGridCoordinator alloc]
-        initWithSceneCommandsEndpoint:mockSceneHandler
+        initWithSceneCommandsEndpoint:mock_scene_handler_
                        regularBrowser:browser_.get()
                       inactiveBrowser:browser_->CreateInactiveBrowser()
                      incognitoBrowser:incognito_browser_.get()];
@@ -193,6 +192,14 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
 
   // Browser for the coordinator.
   std::unique_ptr<Browser> browser_;
+
+  // Command handler mocks. Kept alive by the fixture because the dispatcher
+  // only holds weak references to its targets.
+  id mock_application_handler_;
+  id mock_gemini_handler_;
+  id mock_quick_delete_handler_;
+  // `SceneCommands` endpoint registered on the coordinator's own dispatcher.
+  id mock_scene_handler_;
 
   // Incognito browser for the coordinator.
   std::unique_ptr<Browser> incognito_browser_;

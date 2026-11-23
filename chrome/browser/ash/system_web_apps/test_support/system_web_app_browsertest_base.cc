@@ -12,7 +12,6 @@
 #include "chrome/browser/apps/app_service/browser_app_launcher.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ash/system_web_apps/test_support/test_system_web_app_installation.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -64,7 +63,7 @@ apps::AppLaunchParams SystemWebAppBrowserTestBase::LaunchParamsForApp(
   CHECK(app_id.has_value());
   return apps::AppLaunchParams(
       *app_id, apps::LaunchContainer::kLaunchContainerWindow,
-      WindowOpenDisposition::CURRENT_TAB, apps::LaunchSource::kFromAppListGrid);
+      WindowOpenDisposition::kCurrentTab, apps::LaunchSource::kFromAppListGrid);
 }
 
 content::WebContents* SystemWebAppBrowserTestBase::LaunchApp(

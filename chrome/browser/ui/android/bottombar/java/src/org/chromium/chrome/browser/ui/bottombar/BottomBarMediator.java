@@ -9,6 +9,8 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.os.SystemClock;
 
+import androidx.annotation.Px;
+
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.TriState;
@@ -18,6 +20,7 @@ import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicKeyedService;
@@ -27,6 +30,7 @@ import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserv
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.actions.ActionProperties;
@@ -36,7 +40,6 @@ import org.chromium.chrome.browser.ui.bottombar.BottomBarHostManager.Host;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarMetrics.CandidateAction;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightParams;
-import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightShape;
 import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -64,6 +67,13 @@ public class BottomBarMediator
 
         /** Called when the background color of the bottom bar changes. */
         void onBackgroundColorChanged();
+
+        /**
+         * Called when the height of the bottom bar changes.
+         *
+         * @param height The new height of the bottom bar in pixels.
+         */
+        void onHeightChanged(@Px int height);
     }
 
     // Dependencies
@@ -75,13 +85,18 @@ public class BottomBarMediator
     private final BottomBarPromoDialogCoordinator mPromoDialogCoordinator;
     private final NonNullObservableSupplier<Boolean> mHomepageEnabledSupplier;
     private final NonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
+    private final NonNullObservableSupplier<@ControlsPosition Integer> mToolbarPositionSupplier;
     private final NullableObservableSupplier<Profile> mProfileSupplier;
     private final NullableObservableSupplier<PropertyModel> mGlicActionSupplier;
     private final NullableObservableSupplier<PropertyModel> mNewTabActionSupplier;
+    private final @Nullable BottomBarEducationCoordinator mEducationCoordinator;
+    private final NullableObservableSupplier<Tab> mTabSupplier;
 
     // Observers and Callbacks
     private final Callback<Boolean> mHomepageEnabledObserver = this::onHomepageEnabledChanged;
     private final Callback<Boolean> mOmniboxFocusObserver = this::onOmniboxFocusChanged;
+    private final Callback<@ControlsPosition Integer> mToolbarPositionObserver =
+            this::onToolbarPositionChanged;
     private final Callback<@Nullable Profile> mProfileObserver = this::onProfileChanged;
     private final GlicKeyedService.AllowedChangedObserver mAllowedChangedObserver =
             this::onGlicAllowedChanged;
@@ -95,6 +110,7 @@ public class BottomBarMediator
     private @Nullable @ActionId Integer mResolvedCandidateExtraAction;
 
     // Mutable State (Primitive / Non-null)
+    private boolean mEducationClaimedPromoSlot;
     private boolean mCandidateMetricsRecorded;
     private boolean mGlicWasVisible;
     private boolean mGlicTimeToAppearRecorded;
@@ -118,6 +134,11 @@ public class BottomBarMediator
      * @param promoDialogCoordinator The {@link BottomBarPromoDialogCoordinator} for the promo
      *     dialog.
      * @param actionRegistry The {@link ActionRegistry}.
+     * @param layoutStateProvider The {@link LayoutStateProvider} to observe layout state changes.
+     * @param toolbarPositionSupplier Supplier of the current toolbar position.
+     * @param educationCoordinator The {@link BottomBarEducationCoordinator} for the education
+     *     bubble.
+     * @param tabSupplier Supplier of the current tab.
      */
     public BottomBarMediator(
             Context context,
@@ -130,7 +151,10 @@ public class BottomBarMediator
             NonNullObservableSupplier<Boolean> omniboxFocusStateSupplier,
             BottomBarPromoDialogCoordinator promoDialogCoordinator,
             ActionRegistry actionRegistry,
-            LayoutStateProvider layoutStateProvider) {
+            LayoutStateProvider layoutStateProvider,
+            NonNullObservableSupplier<@ControlsPosition Integer> toolbarPositionSupplier,
+            @Nullable BottomBarEducationCoordinator educationCoordinator,
+            NullableObservableSupplier<Tab> tabSupplier) {
         mContext = context;
         mModel = model;
         mButtonManager = buttonManager;
@@ -140,6 +164,9 @@ public class BottomBarMediator
         mProfileSupplier = profileSupplier;
         mOmniboxFocusStateSupplier = omniboxFocusStateSupplier;
         mPromoDialogCoordinator = promoDialogCoordinator;
+        mToolbarPositionSupplier = toolbarPositionSupplier;
+        mEducationCoordinator = educationCoordinator;
+        mTabSupplier = tabSupplier;
         mGlicActionSupplier = actionRegistry.get(ActionId.GLIC);
         mNewTabActionSupplier = actionRegistry.get(ActionId.NEW_TAB);
         mGlicTimeToAppearRecorded = false;
@@ -156,6 +183,7 @@ public class BottomBarMediator
         updateExtraActionVisibility();
         mOmniboxFocusStateSupplier.addSyncObserver(mOmniboxFocusObserver);
         updateVisibility();
+        mToolbarPositionSupplier.addSyncObserverAndCallIfNonNull(mToolbarPositionObserver);
         mHomepageEnabledSupplier.addSyncObserverAndCallIfNonNull(mHomepageEnabledObserver);
 
         // Safe to set the listener after all observers are initialized to trigger the immediate
@@ -165,6 +193,24 @@ public class BottomBarMediator
 
     private void onOmniboxFocusChanged(boolean focused) {
         updateVisibility();
+    }
+
+    private void onToolbarPositionChanged(@ControlsPosition int position) {
+        updateTopPadding();
+    }
+
+    private void updateTopPadding() {
+        boolean hasBottomOmnibox = mToolbarPositionSupplier.get() == ControlsPosition.BOTTOM;
+        boolean removeTopPadding =
+                mHost == Host.TABBED
+                        && hasBottomOmnibox
+                        && BottomBarConfigUtils.shouldRemoveTopPaddingForBottomOmnibox();
+        mModel.set(BottomBarProperties.IS_TOP_PADDING_REMOVED, removeTopPadding);
+        // The delegate only sizes the tabbed host; the Hub sizes its own container. Keying the
+        // height off the omnibox position rather than the host avoids resizing the bottom controls
+        // when entering or leaving the Hub.
+        mVisibilityDelegate.onHeightChanged(
+                BottomBarUtils.getBottomBarHeight(mContext, hasBottomOmnibox));
     }
 
     @Override
@@ -195,6 +241,10 @@ public class BottomBarMediator
         mModel.set(BottomBarProperties.IS_VISIBLE, isVisible);
         mVisibilityDelegate.onVisibilityChanged(isVisible);
 
+        if (!isVisible && mEducationCoordinator != null) {
+            mEducationCoordinator.onBottomBarHidden();
+        }
+
         if (didBecomeVisible) {
             mBottomBarShownTimeMs = SystemClock.uptimeMillis();
             if (mGlicAppearedTimeMs != -1 && !mGlicTimeToAppearRecorded) {
@@ -217,14 +267,39 @@ public class BottomBarMediator
      */
     public void onStartupPromoFlowFinished(boolean promoShown) {
         mStartupPromoFlowFinished = true;
-        if (!promoShown) {
+        if (!promoShown || mEducationClaimedPromoSlot) {
             maybeShowIphs();
         }
+    }
+
+    /**
+     * Checks if the education flow should be shown and claims the startup promo slot if so.
+     *
+     * @param profile The current Profile.
+     * @return Whether the education promo slot was successfully claimed.
+     */
+    public boolean maybeClaimPromoSlotForEducation(Profile profile) {
+        if (mEducationCoordinator != null && mEducationCoordinator.wouldShow(profile)) {
+            mEducationClaimedPromoSlot = true;
+            return true;
+        }
+        return false;
     }
 
     private void maybeShowIphs() {
         if (!mStartupPromoFlowFinished) return;
         boolean isBottomBarVisible = mIsVisible == TriState.TRUE;
+
+        if (mEducationCoordinator != null
+                && (mEducationClaimedPromoSlot
+                        || mEducationCoordinator.wouldShowTooltips(mProfileSupplier.get()))) {
+            Tab currentTab = mTabSupplier.get();
+            if (isBottomBarVisible && currentTab != null && !currentTab.isOffTheRecord()) {
+                mEducationCoordinator.maybeShow();
+            }
+            return;
+        }
+
         boolean isExtraVisible = mModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE);
         if (isBottomBarVisible && isExtraVisible) {
             Profile profile = mProfileSupplier.get();
@@ -442,6 +517,7 @@ public class BottomBarMediator
     public void setParent(@Host int host) {
         if (mHost == host) return;
         mHost = host;
+        updateTopPadding();
         if (host == Host.TABBED) {
             updateColorSchemeFromThemeColorProvider();
         }
@@ -462,12 +538,9 @@ public class BottomBarMediator
         PropertyModel actionModel = mGlicActionSupplier.get();
         if (actionModel == null) return;
 
-        HighlightParams highlightParams = new HighlightParams(HighlightShape.RECTANGLE);
-        highlightParams.setBoundsRespectPadding(true);
-        int circleRadius =
-                mContext.getResources()
-                        .getDimensionPixelSize(R.dimen.bottom_bar_button_highlight_radius);
-        highlightParams.setCornerRadius(circleRadius);
+        HighlightParams highlightParams =
+                BottomBarUtils.createButtonHighlightParams(
+                        mContext, /* useNewTabBackgroundRadius= */ false);
 
         IphIntent iphIntent =
                 new IphIntent.Builder(FeatureConstants.ANDROID_BOTTOM_BAR_GLIC)
@@ -492,6 +565,8 @@ public class BottomBarMediator
     }
 
     private void triggerNewTabIph() {
+        if (BottomBarConfigUtils.isEducationEnabled()) return;
+
         PropertyModel newTabModel = mNewTabActionSupplier.get();
         if (newTabModel == null) return;
 
@@ -503,18 +578,9 @@ public class BottomBarMediator
                         .setStringResId(R.string.iph_android_bottom_bar_new_tab)
                         .setAccessibilityResId(R.string.iph_android_bottom_bar_new_tab);
 
-        HighlightParams newTabHighlightParams = new HighlightParams(HighlightShape.RECTANGLE);
-        newTabHighlightParams.setBoundsRespectPadding(true);
-        if (mButtonManager.hasCenteredButton()) {
-            newTabHighlightParams.setCornerRadius(
-                    mContext.getResources()
-                            .getDimensionPixelSize(R.dimen.bottom_bar_new_tab_background_radius));
-        } else {
-            int circleRadius =
-                    mContext.getResources()
-                            .getDimensionPixelSize(R.dimen.bottom_bar_button_highlight_radius);
-            newTabHighlightParams.setCornerRadius(circleRadius);
-        }
+        HighlightParams newTabHighlightParams =
+                BottomBarUtils.createButtonHighlightParams(
+                        mContext, mButtonManager.hasCenteredButton());
         newTabIphBuilder.setHighlightParams(newTabHighlightParams);
         IphIntent newTabIph =
                 newTabIphBuilder
@@ -561,6 +627,7 @@ public class BottomBarMediator
         mOriginalProfile = null;
 
         mOmniboxFocusStateSupplier.removeObserver(mOmniboxFocusObserver);
+        mToolbarPositionSupplier.removeObserver(mToolbarPositionObserver);
 
         if (mLayoutStateProvider != null) {
             mLayoutStateProvider.removeObserver(this);

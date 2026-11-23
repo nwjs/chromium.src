@@ -12,14 +12,11 @@ include_rules = [
   # directory basis. See //tools/chromeos/gen_deps.sh for details.
   "+chrome/browser/ash/app_mode",
   "+chrome/browser/ash/policy/core",
-  "+chrome/browser/chromeos/app_mode",
   "+chrome/browser/extensions/extension_special_storage_policy.h",
-  "+chrome/browser/profiles/profile.h",
   "+chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h",
   "+chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_cache_client.h",
   "+chrome/browser/web_applications/isolated_web_apps/policy/isolated_web_app_installer.h",
   "+chrome/browser/web_applications/model/web_app_icon_types.h",
-  "+chrome/browser/web_applications/web_app_helpers.h",
   "+chrome/browser/web_applications/web_app_provider.h",
   "+chrome/browser/web_applications/web_app_registrar.h",
 
@@ -30,6 +27,7 @@ include_rules = [
 specific_include_rules = {
   # Only tests need these //chrome dependencies.
   "kiosk_iwa_data_unittest\\.cc": [
+    "+chrome/browser/web_applications/web_app_helpers.h",
     "+chrome/common/chrome_paths.h",
   ],
   "kiosk_iwa_manager_unittest\\.cc": [

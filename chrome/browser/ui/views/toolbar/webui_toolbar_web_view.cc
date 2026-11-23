@@ -6,7 +6,10 @@
 
 #include <limits>
 #include <memory>
+#include <optional>
+#include <utility>
 
+#include "base/auto_reset.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -59,6 +62,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_extensions_container_wrapper.h"
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_profile.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/browser/ui/webui/webui_toolbar/adapters/browser_controls_adapter_impl.h"
 #include "chrome/browser/ui/webui/webui_toolbar/adapters/toolbar_state_fetcher_impl.h"
@@ -104,7 +108,6 @@
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
@@ -113,8 +116,10 @@
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/layout/layout_manager_base.h"
+#include "ui/views/style/platform_style.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view_util_mac.h"
@@ -155,6 +160,15 @@ WebUIToolbarUI* GetWebUIToolbarUIFromWebContents(
   return controller ? controller->GetAs<WebUIToolbarUI>() : nullptr;
 }
 
+// Mirrors LabelButton::GetVisualState(): on platforms where inactive widgets
+// make controls appear disabled (Mac), native toolbar buttons use
+// kColorToolbarButtonIconInactive while the window isn't painted as active.
+bool ShouldToolbarControlsAppearInactive(const views::Widget* widget) {
+  return views::PlatformStyle::kInactiveWidgetControlsAppearDisabled &&
+         widget && widget->ShouldViewsStyleFollowWidgetActivation() &&
+         !widget->ShouldPaintAsActive();
+}
+
 }  // namespace
 
 class WebUIToolbarInternalWebView : public views::WebView {
@@ -166,6 +180,7 @@ class WebUIToolbarInternalWebView : public views::WebView {
       : views::WebView(browser_context),
         webui_toolbar_web_view_(webui_toolbar_web_view) {
     SetBackground(nullptr);
+    SetAcceleratorHandling(views::WebContentsAcceleratorHandling::kEnabled);
 #if BUILDFLAG(IS_MAC)
     forwarder_ = std::make_unique<WebUIToolbarEventForwarder>(
         *webui_toolbar_web_view, *this);
@@ -254,15 +269,6 @@ class WebUIToolbarInternalWebView : public views::WebView {
                                          std::move(hang_monitor_restarter));
   }
 
-  bool HandleKeyboardEvent(
-      content::WebContents* source,
-      const input::NativeWebKeyboardEvent& event) override {
-    // Used to handle the focus event triggered by keyboard (e.g. cmd+L to focus
-    // on the omnibox from macOS). See crbug.com/491963415.
-    return unhandled_keyboard_event_handler_.HandleKeyboardEvent(
-        event, GetFocusManager());
-  }
-
   bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
                          const content::ContextMenuParams& params) override {
     gfx::Point point(params.x, params.y);
@@ -271,6 +277,11 @@ class WebUIToolbarInternalWebView : public views::WebView {
                                                       params);
     // We handled this.
     return true;
+  }
+
+  void OnFocus() override {
+    views::WebView::OnFocus();
+    webui_toolbar_web_view_->OnInternalWebViewFocused();
   }
 
   void OnBlur() override {
@@ -318,9 +329,6 @@ class WebUIToolbarInternalWebView : public views::WebView {
 #endif
   // owns `this` as a child view.
   raw_ptr<WebUIToolbarWebView> webui_toolbar_web_view_;
-  // A handler to handle unhandled keyboard messages coming back from the
-  // renderer process.
-  views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
   std::optional<base::FilePath> cached_dragged_file_path_;
   std::optional<gfx::PointF> cached_dragged_file_position_;
 };
@@ -411,7 +419,7 @@ WebUIToolbarWebView::WebUIToolbarWebView(
   SetLayoutManager(std::make_unique<views::FillLayout>());
 
   auto web_view = std::make_unique<WebUIToolbarInternalWebView>(
-      browser->GetProfile(), this);
+      &webui::GetProfileForTopChromeWebUIContents(browser->GetProfile()), this);
   std::unique_ptr<content::WebContents> pre_created_contents;
 
   if (auto* manager = InitialWebUIManager::From(browser)) {
@@ -508,6 +516,11 @@ int WebUIToolbarWebView::GetLocationBarWidthForTesting() const {
 void WebUIToolbarWebView::AddedToWidget() {
   CHECK(web_view_);
 
+  focus_manager_observation_.Reset();
+  if (views::FocusManager* focus_manager = GetFocusManager()) {
+    focus_manager_observation_.Observe(focus_manager);
+  }
+
   if (initialization_state_ == InitializationState::kUninitialized) {
     // If the WebUI is in uninitialized state, it must be from the non-preloaded
     // path, we move to the pending state and then load the initial URL.
@@ -564,17 +577,48 @@ void WebUIToolbarWebView::AddedToWidget() {
     // preloading.
     MaybeInitializePageDependentControls();
   }
+
+  if constexpr (views::PlatformStyle::kInactiveWidgetControlsAppearDisabled) {
+    paint_as_active_subscription_ =
+        GetWidget()->RegisterPaintAsActiveChangedCallback(
+            base::BindRepeating(&WebUIToolbarWebView::OnPaintAsActiveChanged,
+                                base::Unretained(this)));
+    OnPaintAsActiveChanged();
+  }
+}
+
+void WebUIToolbarWebView::OnPaintAsActiveChanged() {
+  const bool inactive = ShouldToolbarControlsAppearInactive(GetWidget());
+  if (last_queued_state_.controls_appear_inactive != inactive) {
+    last_queued_state_.controls_appear_inactive = inactive;
+    // These icons are rendered by the browser, so they need updating.
+    if (features::IsWebUIPinnedToolbarActionsEnabled()) {
+      pinned_toolbar_actions_.OnControlsAppearInactiveChanged();
+    }
+    avatar_control_.OnControlsAppearInactiveChanged();
+    PostPushToolbarState();
+  }
+}
+
+void WebUIToolbarWebView::RemovedFromWidget() {
+  focus_manager_observation_.Reset();
+  paint_as_active_subscription_ = {};
 }
 
 void WebUIToolbarWebView::OnThemeChanged() {
   views::View::OnThemeChanged();
-  UpdateProfileThemeColors(browser_, GetColorProvider());
-  avatar_control_.UpdateIcon();
+  if (features::IsWebUIAvatarButtonEnabled()) {
+    UpdateProfileThemeColors(browser_, GetColorProvider());
+    avatar_control_.UpdateIcon();
+  }
   if (location_bar_) {
     location_bar_->OnThemeChanged();
   }
   if (features::IsWebUIPinnedToolbarActionsEnabled()) {
     pinned_toolbar_actions_.OnThemeChanged();
+  }
+  if (features::IsWebUIGlicButtonEnabled()) {
+    glic_control_.OnThemeChanged();
   }
   extensions_container_.OnThemeChanged();
   icon_table_.OnThemeChanged();
@@ -603,8 +647,38 @@ void WebUIToolbarWebView::PreferredSizeChanged() {
 
 void WebUIToolbarWebView::OnBlur() {
   View::OnBlur();
+  // Note: a pending focus request is deliberately not touched here. Blur is
+  // often transient while the page is still initializing (focus cleared and
+  // restored around widget activation, or around native focus changes on
+  // Mac), so whether the request is stale is decided in `OnWillChangeFocus()`
+  // and `MaybeFlushPendingFocusRequest()`.
   if (location_bar_) {
     location_bar_->OnBlur();
+  }
+}
+
+void WebUIToolbarWebView::OnWillChangeFocus(views::View* focused_before,
+                                            views::View* focused_now) {
+  // Ignore `ClearFocus()` / `StoreFocusedView()` (`focused_now == nullptr`)
+  // and the focus change initiated by `OnFocusRequested()` itself. Otherwise:
+  // - If some other view is gaining focus (`focused_now != web_view_`), a
+  //   pending request for `web_view_` has been superseded.
+  // - If `web_view_` is gaining focus (`focused_now == web_view_`), it is only
+  //   fulfilling a pending request if `web_view_` was waiting as the stored
+  //   focus view. `OnWillChangeFocus()` runs before
+  //   `FocusManager::SetFocusedViewWithReason()` overwrites the stored focus
+  //   view with `focused_now`, so if `GetStoredFocusView() != web_view_` here,
+  //   something else replaced or cleared the stored focus view while
+  //   `web_view_` was unfocused (e.g. another view called `RequestFocus()` on
+  //   an inactive widget) and this is an unrelated later focus (such as a user
+  //   click). Drop the stale request before `OnInternalWebViewFocused()` runs.
+  if (!pending_focus_request_ || in_focus_request_ || !focused_now) {
+    return;
+  }
+  views::FocusManager* focus_manager = GetFocusManager();
+  if (focused_now != web_view_ || !focus_manager ||
+      focus_manager->GetStoredFocusView() != web_view_) {
+    pending_focus_request_.reset();
   }
 }
 
@@ -613,6 +687,7 @@ void WebUIToolbarWebView::HandleContextMenu(
     const gfx::RectF& bounds_in_css_pixels,
     ui::mojom::MenuSourceType source,
     std::optional<uint32_t> show_menu_token) {
+  EnsureWidgetActive();
   gfx::Rect screen_rect =
       ConvertBoundsFromCssPixelsToScreenCoords(bounds_in_css_pixels);
 
@@ -684,6 +759,13 @@ void WebUIToolbarWebView::HandleContextMenu(
         kPinnedActionSendSharedTabGroupFeedback:
     case toolbar_ui_api::mojom::ContextMenuType::
         kPinnedActionSidePanelShowComments:
+    case toolbar_ui_api::mojom::ContextMenuType::
+        kPinnedActionShowAiOverlayDialog:
+    case toolbar_ui_api::mojom::ContextMenuType::kPinnedActionTtcToolbar:
+    case toolbar_ui_api::mojom::ContextMenuType::
+        kPinnedActionSidePanelShowHistory:
+    case toolbar_ui_api::mojom::ContextMenuType::kPinnedActionShowChromeLabs:
+    case toolbar_ui_api::mojom::ContextMenuType::kPinnedActionSidePanelShowGlic:
       pinned_toolbar_actions_.HandleContextMenu(menu_type, screen_rect, source);
       break;
     case toolbar_ui_api::mojom::ContextMenuType::kAppMenu:
@@ -703,6 +785,7 @@ void WebUIToolbarWebView::ShowOverflowMenu(
     ui::mojom::MenuSourceType source,
     toolbar_ui_api::mojom::ToolbarUIService::ShowOverflowMenuCallback
         callback) {
+  EnsureWidgetActive();
   overflow_button_.ShowOverflowMenu(
       controls, ConvertBoundsFromCssPixelsToScreenCoords(bounds_in_css_pixels),
       source, std::move(callback));
@@ -733,12 +816,6 @@ void WebUIToolbarWebView::OnContentSettingImagePointerDown(
   }
 }
 
-void WebUIToolbarWebView::OnPageActionPointerDown(
-    ::toolbar_ui_api::mojom::PageActionId action_id) {
-  if (location_bar_) {
-    location_bar_->page_action_control().OnPageActionPointerDown(action_id);
-  }
-}
 
 void WebUIToolbarWebView::OnPageActionClick(
     ::toolbar_ui_api::mojom::PageActionId action_id,
@@ -794,12 +871,7 @@ void WebUIToolbarWebView::OnPageInitialized() {
   SetInitializationState(InitializationState::kInitialized);
   MaybeInitializePageDependentControls();
 
-  if (pending_focus_request_) {
-    if (WebUIToolbarUI* web_ui = GetWebUIToolbarUI()) {
-      web_ui->OnFocusRequested(*pending_focus_request_);
-    }
-    pending_focus_request_.reset();
-  }
+  MaybeFlushPendingFocusRequest();
 
   if (auto* manager = InitialWebUIManager::From(browser_)) {
     manager->OnWebUIToolbarLoaded();
@@ -879,6 +951,7 @@ void WebUIToolbarWebView::ExecuteExtensionAction(
 void WebUIToolbarWebView::ShowExtensionContextMenu(
     const std::string& extension_id,
     ui::mojom::MenuSourceType source) {
+  EnsureWidgetActive();
   extensions_container_.ShowContextMenu(source, extension_id);
 }
 
@@ -1247,10 +1320,10 @@ void WebUIToolbarWebView::OverflowButtonClicked(
   // For better or for worse, ignoring modifiers and instead doing everything in
   // the current tab matches the Views overflow menu behavior.
   if (identifier == kToolbarForwardButtonElementId) {
-    browser_controls_adapter_->Forward(WindowOpenDisposition::CURRENT_TAB);
+    browser_controls_adapter_->Forward(WindowOpenDisposition::kCurrentTab);
     return;
   } else if (identifier == kToolbarHomeButtonElementId) {
-    browser_controls_adapter_->NavigateHome(WindowOpenDisposition::CURRENT_TAB);
+    browser_controls_adapter_->NavigateHome(WindowOpenDisposition::kCurrentTab);
     return;
   } else if (identifier == kToolbarSplitTabsToolbarButtonElementId) {
     split_tabs_control_.HandleContextMenuOverflowClick();
@@ -1262,7 +1335,9 @@ void WebUIToolbarWebView::OverflowButtonClicked(
     media_control_.OnClicked();
     return;
   } else if (identifier == kToolbarAvatarButtonElementId) {
-    // TODO(crbug.com/556290451): Make buttons work with overflow menu clicks.
+    // ButtonPressed() makes the button visible before showing any bubble
+    // anchored to it.
+    avatar_control_.ButtonPressed(/*is_source_accelerator=*/false);
     return;
   }
   NOTREACHED();
@@ -1470,7 +1545,7 @@ void WebUIToolbarWebView::OnHomeButtonDropText(const std::string& text) {
 
 void WebUIToolbarWebView::OnToolbarDropFile(const gfx::PointF& drop_position) {
   if (std::optional<GURL> url = web_view_->ConsumeDroppedUrl(drop_position)) {
-    browser_->OpenGURL(*url, WindowOpenDisposition::CURRENT_TAB);
+    browser_->OpenGURL(*url, WindowOpenDisposition::kCurrentTab);
   }
 }
 
@@ -1700,14 +1775,79 @@ void WebUIToolbarWebView::OnGlicButtonStateChanged(
 }
 void WebUIToolbarWebView::OnFocusRequested(
     toolbar_ui_api::mojom::FocusRequestTarget target) {
-  // We need to focus the WebView as well, besides the JS focus.
-  web_view_->RequestFocus();
-  if (initialization_state_ == InitializationState::kInitialized) {
+  // Record the request before focusing the WebView: if `RequestFocus()` grants
+  // focus synchronously it re-enters `OnInternalWebViewFocused()`, which
+  // delivers the request right away (if the page is ready).
+  pending_focus_request_ = target;
+  {
+    base::AutoReset<bool> in_focus_request(&in_focus_request_, true);
+    // We need to focus the WebView as well, besides the JS focus.
+    web_view_->RequestFocus();
+  }
+  // Covers the case where the WebView already had focus, so that
+  // `RequestFocus()` was a no-op and `OnInternalWebViewFocused()` did not run.
+  // Otherwise this is a no-op too and the request stays pending until the
+  // page initializes and/or the WebView gains focus.
+  MaybeFlushPendingFocusRequest();
+}
+
+void WebUIToolbarWebView::OnInternalWebViewFocused() {
+  const bool had_pending_focus_request = pending_focus_request_.has_value();
+  MaybeFlushPendingFocusRequest();
+  // Only notify `location_bar_` when `web_view_` gains focus outside of an
+  // explicit `OnFocusRequested()` flow or pre-menu widget activation (e.g. when
+  // `FocusManager` restores focus to `web_view_` on browser widget activation).
+  if (!had_pending_focus_request && !in_focus_request_ &&
+      !activating_for_menu_ && location_bar_) {
+    location_bar_->OnToolbarFocused();
+  }
+}
+
+void WebUIToolbarWebView::MaybeFlushPendingFocusRequest() {
+  if (!pending_focus_request_ ||
+      initialization_state_ != InitializationState::kInitialized) {
+    // Nothing to do, or the page can't take the request yet. Keep it pending:
+    // focus may still be in flux while the page initializes (widget activation
+    // clears and restores focus; on Mac, native first responder changes such
+    // as `WebView::SetUpNewMainFrame()` re-focusing the native view when the
+    // WebUI page's frame is swapped in can briefly clear views focus too), so
+    // don't try to judge the request before the page is ready.
+    return;
+  }
+
+  // Only hand the request to the WebUI once the WebView actually holds views
+  // focus. `RequestFocus()` does not grant focus synchronously when the widget
+  // is inactive: the view is merely stored and focused once the widget gets
+  // activated (see `FocusManager::SetFocusedViewWithReason()`). If we told the
+  // WebUI to focus regardless, it would report back that the omnibox has focus
+  // even though views never focused the WebView; and since focus requests on
+  // an inactive widget just replace the stored view, no `Blur()` would ever
+  // arrive to undo that, leaving the edit model stuck in a focused state.
+  // Mirroring Views (where `OmniboxViewViews` only learns about focus via
+  // `OnFocus()`), wait for `OnInternalWebViewFocused()` instead.
+  if (web_view_->HasFocus()) {
+    const toolbar_ui_api::mojom::FocusRequestTarget target =
+        *std::exchange(pending_focus_request_, std::nullopt);
     if (WebUIToolbarUI* web_ui = GetWebUIToolbarUI()) {
       web_ui->OnFocusRequested(target);
     }
-  } else {
-    pending_focus_request_ = target;
+    return;
+  }
+
+  // The page is ready but the WebView doesn't hold views focus. Keep waiting
+  // only if focus is set to come back to the WebView on its own, i.e. it is
+  // the FocusManager's stored focus view: that's the case when the widget is
+  // inactive and focus is restored on activation, or when focus was merely
+  // cleared (`FocusManager::ClearFocus()` keeps the stored view). Otherwise
+  // focus has moved to some other view since the request was made (or the
+  // request never got focus to begin with, e.g. because the WebView wasn't
+  // focusable), so the request is stale: drop it rather than letting it fire
+  // on some unrelated later focus of the WebView. This mirrors
+  // `LocationBarView::FocusLocation()`, which gives up when `RequestFocus()`
+  // on the omnibox doesn't take.
+  views::FocusManager* focus_manager = GetFocusManager();
+  if (!focus_manager || focus_manager->GetStoredFocusView() != web_view_) {
+    pending_focus_request_.reset();
   }
 }
 
@@ -1715,8 +1855,27 @@ void WebUIToolbarWebView::HandleOmniboxContextMenu(
     const gfx::Point& point,
     ui::mojom::MenuSourceType source_type,
     content::ContextMenuParams params) {
+  EnsureWidgetActive();
   if (location_bar_) {
     location_bar_->HandleContextMenu(GetWidget(), point, source_type, params);
+  }
+}
+
+void WebUIToolbarWebView::EnsureWidgetActive() {
+  // Opening a toolbar menu via a WebUI click occurs asynchronously after an IPC
+  // round-trip. If the Omnibox popup widget reclaimed activation in the
+  // meantime, ensure the browser widget is active before running the menu so
+  // subsequent focus changes within the browser widget (e.g. opening the Find
+  // bar from the menu) do not trigger a widget activation change that cancels
+  // the menu prematurely. Check `ShouldPaintAsActive()` so an inactive browser
+  // window in the background is not pulled to the front.
+  views::Widget* widget = GetWidget();
+  if (widget && !widget->IsActive() && widget->ShouldPaintAsActive()) {
+    // Suppress `location_bar_->OnToolbarFocused()` if `Activate()`
+    // synchronously restores focus to `web_view_`, so the omnibox popup does
+    // not reclaim activation before the menu opens.
+    base::AutoReset<bool> activating_for_menu(&activating_for_menu_, true);
+    widget->Activate();
   }
 }
 

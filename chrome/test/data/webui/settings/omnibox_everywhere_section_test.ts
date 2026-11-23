@@ -70,7 +70,6 @@ suite('OmniboxEverywhereSectionTest', function() {
     const mainToggle = section.shadowRoot.querySelector('#mainToggle');
     const collapse =
         section.shadowRoot.querySelector<CrCollapseElement>('#expandedContent');
-    const shortcutInput = section.shadowRoot.querySelector('#shortcutInput');
     const showShortcutsToggle =
         section.shadowRoot.querySelector<SettingsToggleButtonElement>(
             '#showShortcutsToggle');
@@ -78,7 +77,6 @@ suite('OmniboxEverywhereSectionTest', function() {
     assertTrue(isVisible(mainToggle));
     assertTrue(!!collapse);
     assertFalse(collapse.opened);
-    assertTrue(!!shortcutInput);
     assertTrue(!!showShortcutsToggle);
 
     assertFalse(
@@ -87,7 +85,8 @@ suite('OmniboxEverywhereSectionTest', function() {
         0,
         prefService.getPref<number>('omnibox_everywhere.show_shortcuts').value);
     assertEquals(
-        'omnibox_everywhere.show_shortcuts', showShortcutsToggle.pref!.key);
+        'synthetic.settings.omnibox_everywhere.show_shortcuts',
+        showShortcutsToggle.pref!.key);
     assertTrue(showShortcutsToggle.checked);
   });
 
@@ -250,14 +249,9 @@ suite('OmniboxEverywhereSectionTest', function() {
   });
 
   test('ShortcutUpdated', async function() {
-    const shortcutInput = section.shadowRoot.querySelector('#shortcutInput');
-    assertTrue(!!shortcutInput);
+    const shortcutInput = section.$.shortcutInput;
 
-    shortcutInput.dispatchEvent(new CustomEvent('shortcut-updated', {
-      bubbles: true,
-      composed: true,
-      detail: 'Ctrl+Shift+Space',
-    }));
+    shortcutInput.fire('shortcut-updated', 'Ctrl+Shift+Space');
     await microtasksFinished();
 
     const updatedShortcut =
@@ -266,14 +260,9 @@ suite('OmniboxEverywhereSectionTest', function() {
   });
 
   test('InputCaptureChange', async function() {
-    const shortcutInput = section.shadowRoot.querySelector('#shortcutInput');
-    assertTrue(!!shortcutInput);
+    const shortcutInput = section.$.shortcutInput;
 
-    shortcutInput.dispatchEvent(new CustomEvent('input-capture-change', {
-      bubbles: true,
-      composed: true,
-      detail: true,
-    }));
+    shortcutInput.fire('input-capture-change', true);
     await microtasksFinished();
 
     const shouldSuspend = await browserProxy.whenCalled(

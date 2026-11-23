@@ -31,6 +31,18 @@ ScenarioBuilder& ScenarioBuilder::AddBaseModel(const std::string& name) {
   return *this;
 }
 
+ScenarioBuilder& ScenarioBuilder::AddBaseModel(
+    const std::string& name,
+    const FakeBaseModelAsset::Content& content) {
+  AddBaseModel(
+      name,
+      BaseModelRecipeArgs(
+          proto::BaseModelRecipe::BACKEND_TYPE_GPU,
+          proto::BaseModelRecipe::PERFORMANCE_HINT_HIGHEST_QUALITY, {}, 100),
+      content, "1.0.0.0");
+  return *this;
+}
+
 ScenarioBuilder& ScenarioBuilder::AddBaseModel(const std::string& name,
                                                BaseModelRecipeArgs args) {
   AddBaseModel(name, args,
@@ -60,24 +72,6 @@ ScenarioBuilder& ScenarioBuilder::AddBaseModel(
   return *this;
 }
 
-ScenarioBuilder& ScenarioBuilder::AddSafetyModel(const std::string& name) {
-  state_->UpdateSafetyModel(
-      name + "_key",
-      std::make_unique<FakeSafetyModelAsset>(FakeSafetyModelAsset::Content{
-          .model_info_version = 1,
-      }));
-  builder.Add(name + "_asset", OnDemandComponent(name + "_key", "1"));
-  state_->UpdateLanguageDetectionModel(
-      name + "_lang_key", std::make_unique<FakeLanguageModelAsset>());
-  builder.Add(name + "_lang_asset",
-              OnDemandComponent(name + "_lang_key", "123"));
-  builder.Add(name + "_recipe",
-              SafetyModelRecipe(
-                  FileReference(name + "_asset", "model.tflite"),
-                  FileReference(name + "_lang_asset", "weights.bin")));
-  return *this;
-}
-
 ScenarioBuilder& ScenarioBuilder::AddAdaptation(const std::string& name,
                                                 const std::string& base_model) {
   state_->UpdateModelAdaptation(
@@ -91,6 +85,16 @@ ScenarioBuilder& ScenarioBuilder::AddAdaptation(const std::string& name,
               AdaptationRecipe(
                   base_model + "_recipe",
                   FileReference(name + "_asset", "adaptation_weights.bin")));
+  return *this;
+}
+
+ScenarioBuilder& ScenarioBuilder::AddPostprocessedModel(
+    const std::string& name,
+    const std::string& base_model,
+    const std::string& postprocessor_model) {
+  builder.Add(name + "_recipe",
+              PostprocessedModelRecipe(base_model + "_recipe",
+                                       postprocessor_model + "_recipe"));
   return *this;
 }
 
@@ -108,26 +112,7 @@ ScenarioBuilder& ScenarioBuilder::AddUnsafeSolution(
   manifest_directory_->Add(use_case + "config.pb", std::move(config));
   builder.Add(
       use_case + "_solution",
-      SolutionRecipe(model + "_recipe", "",
-                     FileReference("manifest", use_case + "config.pb")));
-  builder.Add(DeviceUseCase{DeviceCategory::kGpuHighTier, use_case},
-              use_case + "_solution");
-  builder.Add(DeviceUseCase{DeviceCategory::kGpuLowTier, use_case},
-              use_case + "_solution");
-  builder.Add(DeviceUseCase{DeviceCategory::kCpu, use_case},
-              use_case + "_solution");
-  return *this;
-}
-
-ScenarioBuilder& ScenarioBuilder::AddSafeSolution(
-    const std::string& use_case,
-    const std::string& model,
-    const std::string& safety_model,
-    proto::SolutionConfig config) {
-  manifest_directory_->Add(use_case + "config.pb", std::move(config));
-  builder.Add(
-      use_case + "_solution",
-      SolutionRecipe(model + "_recipe", safety_model + "_recipe",
+      SolutionRecipe(model + "_recipe",
                      FileReference("manifest", use_case + "config.pb")));
   builder.Add(DeviceUseCase{DeviceCategory::kGpuHighTier, use_case},
               use_case + "_solution");

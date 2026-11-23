@@ -1,12 +1,16 @@
 // Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+import 'chrome://resources/cr_components/composebox/icons.html.js';
+import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import './icons.html.js';
 
 import {ToolMode} from '//resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {TabUpload} from 'chrome://resources/cr_components/composebox/common.js';
 import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
+import {getFaviconUrl} from 'chrome://resources/js/icon.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
@@ -20,7 +24,7 @@ import {WindowProxy} from '../window_proxy.js';
 
 import {getCss} from './action_chips.css.js';
 import {getHtml} from './action_chips.html.js';
-import {ActionChipsApiProxyImpl} from './action_chips_proxy.js';
+import {ActionChipsApiProxyImpl, ActionChipsRetrievalState} from './action_chips_proxy.js';
 
 export interface ActionChipClickDetail {
   suggestion: string;
@@ -37,22 +41,6 @@ function recordClick(iconType: IconType) {
 // Records a latency metric.
 function recordLatency(metricName: string, latency: number) {
   chrome.metricsPrivate.recordTime(metricName, Math.round(latency));
-}
-
-/**
- * The enum value sent as part of action-chips-retrieval-state-changed.
- * The handler of the event should expect to receive UPDATED multiple times.
- */
-export enum ActionChipsRetrievalState {
-  // The initial state. This is not sent as part of the event and can be used as
-  // the default value of a variable containing this enum.
-  INITIAL,
-  // The state used in an event firing when the first and only retrieval
-  // request is sent from this component.
-  REQUESTED,
-  // The state used in events firing when the action chips are updated by a call
-  // from the browser side.
-  UPDATED,
 }
 
 const kActionChipsRetrievalStateChangedEvent =
@@ -109,6 +97,8 @@ export class ActionChipsElement extends CrLitElement {
       loadTimeData.getBoolean('ntpNextDisablementContextMenuEnabled');
   protected accessor smallChipsEnabled_: boolean =
       loadTimeData.getBoolean('ntpSmallActionChipsEnabled');
+  private webuiRoundedIconsEnabled_: boolean =
+      loadTimeData.getBoolean('webuiRoundedIconsEnabled');
 
   private callbackRouter: PageCallbackRouter;
   private delayTabUploads_: boolean =
@@ -116,6 +106,43 @@ export class ActionChipsElement extends CrLitElement {
   private handler: ActionChipsHandlerInterface;
   private initialLoadStartTime_: number|null = null;
   private onActionChipChangedListenerId_: number|null = null;
+
+  // Returns the <cr-icon> icon for the chip, or an empty string if the chip
+  // has no icon or shows a favicon instead.
+  protected getIcon_(chip: ActionChip): string {
+    const oldSuffix = this.webuiRoundedIconsEnabled_ ? '' : '-old';
+    switch (chip.suggestTemplateInfo.typeIcon) {
+      case IconType.kBanana:
+        // Same image as the Nano Banana tool icon in the composebox.
+        return 'composebox:nanoBanana-custom';
+      case IconType.kGlobeWithSearchLoop:
+        return `ntp-action-chips:globe-with-search-loop${oldSuffix}`;
+      case IconType.kSubArrowRight:
+        return `ntp-action-chips:sub-arrow-right${oldSuffix}`;
+      case IconType.kDraftSpark:
+        return `ntp-action-chips:draft-spark${oldSuffix}`;
+      case IconType.kSearchLoopWithSparkle:
+        return 'ntp-action-chips:search-spark';
+      case IconType.kLightbulb:
+        return 'ntp-action-chips:lightbulb';
+      case IconType.kAttachFile:
+        return 'ntp-action-chips:attach-file';
+      case IconType.kSchool:
+        return 'ntp-action-chips:school';
+      case IconType.kInkPen:
+        return 'ntp-action-chips:ink-pen';
+      case IconType.kTab:
+        return 'ntp-action-chips:tab';
+      case IconType.kPhotoSpark:
+        return 'ntp-action-chips:photo-spark';
+      case IconType.kBolt:
+        return 'ntp-action-chips:bolt';
+      case IconType.kImageCreate:
+        return 'ntp-action-chips:image-create';
+      default:
+        return '';
+    }
+  }
 
   protected getAdditionalIconClasses_(chip: ActionChip): string {
     switch (chip.suggestTemplateInfo.typeIcon) {
@@ -259,12 +286,12 @@ export class ActionChipsElement extends CrLitElement {
   }
 
 
+  // Returns a chrome://favicon2 URL, or, if the element is hosted in an
+  // extension page, the extension's /_favicon/ URL.
   protected getFaviconUrl_(url: string): string {
-    const faviconUrl = new URL('chrome://favicon2/');
-    faviconUrl.searchParams.set('size', '24');
-    faviconUrl.searchParams.set('scaleFactor', '1x');
+    const faviconUrl =
+        new URL(getFaviconUrl(url, {size: 24, scaleFactor: '1x'}));
     faviconUrl.searchParams.set('showFallbackMonogram', '');
-    faviconUrl.searchParams.set('pageUrl', url);
     return faviconUrl.href;
   }
 
@@ -310,12 +337,12 @@ export class ActionChipsElement extends CrLitElement {
     }
     const url = new URL(chip.tab.url);
     const domain = url.hostname.replace(/^www\./, '');
-    return `${chip.suggestTemplateInfo.secondaryText.text} - ${domain}`;
+    return `${chip.suggestTemplateInfo.secondaryText?.text ?? ''} - ${domain}`;
   }
 
 
   protected getChipSubtitle_(chip: ActionChip): string {
-    return chip.suggestTemplateInfo.secondaryText.text;
+    return chip.suggestTemplateInfo.secondaryText?.text ?? '';
   }
 
   protected getChipTitle_(chip: ActionChip): string {
@@ -323,7 +350,7 @@ export class ActionChipsElement extends CrLitElement {
     const secondaryText = chip.suggestTemplateInfo.secondaryText;
 
     const primary = primaryText.a11yText || primaryText.text;
-    const secondary = secondaryText.a11yText || secondaryText.text;
+    const secondary = secondaryText?.a11yText || secondaryText?.text || '';
 
     if (primary && secondary) {
       return `${primary} ${secondary}`;

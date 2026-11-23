@@ -50,10 +50,10 @@
 #include "components/favicon/core/favicon_service.h"
 #include "components/google/core/common/google_util.h"
 #include "components/infobars/content/content_infobar_manager.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
 #include "components/optimization_guide/core/optimization_guide_common.mojom.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/features/contextual_cueing.pb.h"
 #include "components/pdf/common/constants.h"
@@ -169,6 +169,8 @@ class ContextualCueingPageActionObserver
 
 }  // namespace
 
+DEFINE_USER_DATA(ContextualCueingController);
+
 ContextualCueingController::ContextualCueingController(tabs::TabInterface* tab)
     : tab_(tab),
       contextual_cueing_service_(
@@ -186,7 +188,8 @@ ContextualCueingController::ContextualCueingController(tabs::TabInterface* tab)
           IdentityManagerFactory::GetForProfile(tab_->GetProfile())),
       favicon_service_(FaviconServiceFactory::GetForProfile(
           tab_->GetProfile(),
-          ServiceAccessType::EXPLICIT_ACCESS)) {
+          ServiceAccessType::EXPLICIT_ACCESS)),
+      scoped_unowned_user_data_(tab_->GetUnownedUserDataHost(), *this) {
 #if !BUILDFLAG(IS_ANDROID)
   page_action_observer_ = std::make_unique<ContextualCueingPageActionObserver>(
       base::BindRepeating(&ContextualCueingController::OnCueFormFactorShown,
@@ -250,16 +253,9 @@ void ContextualCueingController::OnActionInvoked() {
 }
 
 // static
-ContextualCueingController* ContextualCueingController::GetForWebContents(
-    content::WebContents& contents) {
-#if BUILDFLAG(IS_ANDROID)
-  NOTIMPLEMENTED();
-#else
-  if (auto* tab = tabs::TabInterface::GetFromContents(&contents)) {
-    return tab->GetTabFeatures()->contextual_cueing_controller();
-  }
-#endif
-  return nullptr;
+ContextualCueingController* ContextualCueingController::From(
+    tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
 }
 
 void ContextualCueingController::RegisterCueTarget(
@@ -1529,7 +1525,9 @@ void ContextualCueingController::MaybeLaunchDismissHatsSurvey(
   hats_service->LaunchSurveyForWebContents(
       kHatsSurveyTriggerContextualCueingDismissed, web_contents,
       /*product_specific_bits_data=*/{},
-      /*product_specific_string_data=*/{{"CUJ", GetSurveyCujName(cuj)}},
+      /*product_specific_string_data=*/
+      {{"CUJ", GetSurveyCujName(cuj)},
+       {"hostname", web_contents->GetLastCommittedURL().GetHost()}},
       /*success_callback=*/
       base::BindOnce(
           [](base::WeakPtr<Profile> weak_profile,

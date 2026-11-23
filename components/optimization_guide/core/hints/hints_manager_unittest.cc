@@ -26,12 +26,12 @@
 #include "components/optimization_guide/core/hints/hint_cache.h"
 #include "components/optimization_guide/core/hints/hints_fetcher.h"
 #include "components/optimization_guide/core/hints/hints_fetcher_factory.h"
+#include "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #include "components/optimization_guide/core/hints/optimization_guide_navigation_data.h"
 #include "components/optimization_guide/core/hints/optimization_guide_store.h"
 #include "components/optimization_guide/core/hints/prefs.h"
 #include "components/optimization_guide/core/hints/tab_url_provider.h"
 #include "components/optimization_guide/core/hints/top_host_provider.h"
-#include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_permissions_util.h"
@@ -3604,16 +3604,8 @@ class HintsManagerPersonalizedFetchingTest : public HintsManagerFetchingTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// TODO(crbug.com/41482478): test is failing on iPhone device.
-#if TARGET_OS_IOS && !TARGET_OS_SIMULATOR
-#define MAYBE_SuccessfulPersonalizedHintsFetching \
-  DISABLED_SuccessfulPersonalizedHintsFetching
-#else
-#define MAYBE_SuccessfulPersonalizedHintsFetching \
-  SuccessfulPersonalizedHintsFetching
-#endif
 TEST_F(HintsManagerPersonalizedFetchingTest,
-       MAYBE_SuccessfulPersonalizedHintsFetching) {
+       SuccessfulPersonalizedHintsFetching) {
   ASSERT_TRUE(identity_test_env()->identity_manager());
   AccountInfo account_info = identity_test_env()->MakePrimaryAccountAvailable(
       "test_email", signin::ConsentLevel::kSignin);

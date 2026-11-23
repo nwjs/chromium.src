@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/intelligence/actor/model/actor_task_background_worker.h"
 
+#import <algorithm>
 #import <string_view>
 
 #import "base/check.h"
@@ -16,11 +17,13 @@
 #import "ios/chrome/app/background_task/background_continued_processing_task_context.h"
 #import "ios/chrome/browser/intelligence/actor/tools/utils/logging_util.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/js_messaging/content_world.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_id.h"
+#import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
 namespace actor {
@@ -62,6 +65,26 @@ bool IsSuccessfulEndReason(ActorBackgroundTaskEndReason reason) {
   }
 }
 
+// Returns the message ID of the background task title describing why the task
+// is waiting on the user in `task_state`. Must only be called for non-terminal
+// states where `ShouldKeepBackgroundTaskAlive(task_state)` is false.
+int WaitingOnUserTitleMessageId(ActorTaskState task_state) {
+  switch (task_state) {
+    case ActorTaskState::kWaitingOnUser:
+      return IDS_IOS_ACTOR_BACKGROUND_TASK_INPUT_NEEDED;
+    case ActorTaskState::kPausedByActor:
+    case ActorTaskState::kPausedByUser:
+      return IDS_IOS_ACTOR_BACKGROUND_TASK_STOPPED;
+    case ActorTaskState::kInit:
+    case ActorTaskState::kActing:
+    case ActorTaskState::kReflecting:
+    case ActorTaskState::kCancelled:
+    case ActorTaskState::kFinished:
+    case ActorTaskState::kFailed:
+      NOTREACHED();
+  }
+}
+
 // Returns the journal name of `reason`.
 std::string_view EndReasonToString(ActorBackgroundTaskEndReason reason) {
   switch (reason) {
@@ -91,7 +114,7 @@ ActorTaskBackgroundWorker::ActorTaskBackgroundWorker(
 }
 
 ActorTaskBackgroundWorker::~ActorTaskBackgroundWorker() {
-  StopHeartbeatTimer();
+  heartbeat_timer_.Stop();
   FinalizeBackgroundTask(ActorBackgroundTaskEndReason::kDestroyed);
 }
 
@@ -124,26 +147,26 @@ void ActorTaskBackgroundWorker::SetContext(
   UpdateBackgroundTaskSubtitle(delegate_->GetLastTaskUpdate());
 }
 
-void ActorTaskBackgroundWorker::OnWebStateAdded() {
-  StartHeartbeatTimer();
+void ActorTaskBackgroundWorker::OnWebStateAdded(web::WebState* web_state) {
+  CHECK(web_state);
+  if (!web_state_observations_.IsObservingSource(web_state)) {
+    web_state_observations_.AddObservation(web_state);
+  }
+  UpdateHeartbeatTimer();
 }
 
-void ActorTaskBackgroundWorker::OnWebStateDestroyed() {
-  if (delegate_->GetControlledWebStates().empty()) {
-    StopHeartbeatTimer();
-  }
+void ActorTaskBackgroundWorker::SetAllScenesForegroundActive(
+    bool all_scenes_foreground_active) {
+  all_scenes_foreground_active_ = all_scenes_foreground_active;
+  UpdateHeartbeatTimer();
 }
 
 void ActorTaskBackgroundWorker::OnStateChanged(ActorTaskState new_state) {
-  if (IsTerminalState(new_state)) {
-    StopHeartbeatTimer();
-    return;
-  }
-
+  UpdateHeartbeatTimer();
   if (new_state == ActorTaskState::kActing) {
     UpdateBackgroundTaskSubtitle(delegate_->GetLastTaskUpdate());
-    StartHeartbeatTimer();
-  } else if (!ShouldKeepBackgroundTaskAlive(new_state)) {
+  } else if (!IsTerminalState(new_state) &&
+             !ShouldKeepBackgroundTaskAlive(new_state)) {
     // End the background task when waiting on the user (e.g., paused, yielded)
     // to avoid stalling system progress.
     FinalizeBackgroundTask(ActorBackgroundTaskEndReason::kWaitingOnUser);
@@ -155,9 +178,24 @@ void ActorTaskBackgroundWorker::OnWillExecuteTool() {
 }
 
 void ActorTaskBackgroundWorker::OnStopped(bool success) {
-  StopHeartbeatTimer();
+  heartbeat_timer_.Stop();
   FinalizeBackgroundTask(success ? ActorBackgroundTaskEndReason::kSucceeded
                                  : ActorBackgroundTaskEndReason::kFailed);
+}
+
+#pragma mark - web::WebStateObserver
+
+void ActorTaskBackgroundWorker::WasShown(web::WebState* web_state) {
+  UpdateHeartbeatTimer();
+}
+
+void ActorTaskBackgroundWorker::WasHidden(web::WebState* web_state) {
+  UpdateHeartbeatTimer();
+}
+
+void ActorTaskBackgroundWorker::WebStateDestroyed(web::WebState* web_state) {
+  web_state_observations_.RemoveObservation(web_state);
+  UpdateHeartbeatTimer();
 }
 
 #pragma mark - Private
@@ -220,6 +258,15 @@ void ActorTaskBackgroundWorker::FinalizeBackgroundTask(
     effective_reason = context.cancelled
                            ? ActorBackgroundTaskEndReason::kCancelled
                            : ActorBackgroundTaskEndReason::kExpired;
+  } else if (effective_reason == ActorBackgroundTaskEndReason::kWaitingOnUser) {
+    // Complete the background task to free up system resources without filling
+    // the progress bar. The title is intentionally swapped as subtitle.
+    NSString* title = l10n_util::GetNSString(
+        WaitingOnUserTitleMessageId(delegate_->GetTaskState()));
+    NSString* subtitle = base::SysUTF8ToNSString(delegate_->GetTaskTitle());
+    [context updateTitle:title subtitle:subtitle];
+    [context setTaskCompletedWithSuccess:IsSuccessfulEndReason(effective_reason)
+                            fillProgress:NO];
   } else {
     [context
         setTaskCompletedWithSuccess:IsSuccessfulEndReason(effective_reason)];
@@ -237,20 +284,38 @@ void ActorTaskBackgroundWorker::FinalizeBackgroundTask(
        {"progress", base::NumberToString(context.fractionCompleted)}});
 }
 
-void ActorTaskBackgroundWorker::StartHeartbeatTimer() {
+bool ActorTaskBackgroundWorker::ShouldRunHeartbeat() {
   if (!IsGeminiActorBackgroundingEnabled()) {
-    return;
+    return false;
   }
 
   if (IsTerminalState(delegate_->GetTaskState())) {
+    return false;
+  }
+
+  if (!web_state_observations_.IsObservingAnySource()) {
+    return false;
+  }
+
+  // Any of the WebStates may be in a scene that is not foreground active,
+  // start the heartbeat eagerly.
+  if (!all_scenes_foreground_active_) {
+    return true;
+  }
+
+  return std::ranges::any_of(web_state_observations_.sources(),
+                             [](const raw_ptr<web::WebState>& web_state) {
+                               return !web_state->IsVisible();
+                             });
+}
+
+void ActorTaskBackgroundWorker::UpdateHeartbeatTimer() {
+  if (!ShouldRunHeartbeat()) {
+    heartbeat_timer_.Stop();
     return;
   }
 
   if (heartbeat_timer_.IsRunning()) {
-    return;
-  }
-
-  if (delegate_->GetControlledWebStates().empty()) {
     return;
   }
 
@@ -260,23 +325,13 @@ void ActorTaskBackgroundWorker::StartHeartbeatTimer() {
                           weak_ptr_factory_.GetWeakPtr()));
 }
 
-void ActorTaskBackgroundWorker::StopHeartbeatTimer() {
-  heartbeat_timer_.Stop();
-}
-
 void ActorTaskBackgroundWorker::SendHeartbeatPing() {
-  const std::vector<web::WebState*> web_states =
-      delegate_->GetControlledWebStates();
-  if (web_states.empty()) {
-    StopHeartbeatTimer();
+  if (!ShouldRunHeartbeat()) {
+    heartbeat_timer_.Stop();
     return;
   }
 
-  for (web::WebState* web_state : web_states) {
-    if (!web_state) {
-      continue;
-    }
-
+  for (web::WebState* web_state : web_state_observations_.sources()) {
     web::WebFramesManager* frames_manager =
         web_state->GetWebFramesManager(web::ContentWorld::kIsolatedWorld);
     if (!frames_manager) {

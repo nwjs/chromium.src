@@ -32,6 +32,9 @@ BASE_FEATURE(kComposeboxPersistentAimButtonOmnibox,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kComposeboxPersistentAimButtonWithX,
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDynamicAimFulfillmentRealbox, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDynamicAimFulfillmentOmnibox, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDynamicAimFulfillment, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kComposeboxRealboxOutsideClick, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kSuggestRequestSendsMultifileCgiParam,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -60,6 +63,12 @@ const base::FeatureParam<bool> kContextManagementInComposeboxSingleTabMenuItem(
     "enable_single_tab_menu_item",
     false);
 
+const base::FeatureParam<bool>
+    kContextManagementInComposeboxTabStateUnification(
+        &kContextManagementInComposebox,
+        "enable_tab_state_unification",
+        true);
+
 const base::FeatureParam<int> kContextMenuAnimationDailyLimit(
     &kContextMenuAnimationLimiting,
     "ContextMenuAnimationDailyLimit",
@@ -69,6 +78,26 @@ const base::FeatureParam<int> kContextMenuAnimationLifetimeLimit(
     &kContextMenuAnimationLimiting,
     "ContextMenuAnimationLifetimeLimit",
     20);
+
+const base::FeatureParam<std::string> kDynamicAimFulfillmentSrpInputPhase(
+    &kDynamicAimFulfillment,
+    "srp_input_phase",
+    "single_image");
+
+const base::FeatureParam<bool> kDynamicAimFulfillmentUseServerInputRules(
+    &kDynamicAimFulfillment,
+    "use_server_input_rules",
+    false);
+
+bool IsDynamicAimFulfillmentEnabledForRealbox() {
+  return base::FeatureList::IsEnabled(kDynamicAimFulfillment) &&
+         base::FeatureList::IsEnabled(kDynamicAimFulfillmentRealbox);
+}
+
+bool IsDynamicAimFulfillmentEnabledForOmnibox() {
+  return base::FeatureList::IsEnabled(kDynamicAimFulfillment) &&
+         base::FeatureList::IsEnabled(kDynamicAimFulfillmentOmnibox);
+}
 
 bool IsTabDeselectionInComposeboxEnabled() {
   return base::FeatureList::IsEnabled(kContextManagementInComposebox) &&
@@ -83,6 +112,11 @@ bool IsContextMenuTooltipsInComposeboxEnabled() {
 bool IsSingleTabMenuItemInComposeboxEnabled() {
   return base::FeatureList::IsEnabled(kContextManagementInComposebox) &&
          kContextManagementInComposeboxSingleTabMenuItem.Get();
+}
+
+bool IsTabStateUnificationInComposeboxEnabled() {
+  return base::FeatureList::IsEnabled(kContextManagementInComposebox) &&
+         kContextManagementInComposeboxTabStateUnification.Get();
 }
 
 }  // namespace omnibox

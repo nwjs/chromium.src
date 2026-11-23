@@ -74,32 +74,13 @@ constexpr uint32_t kBlockCookieAllocated = 0xC8799269;
 constexpr uint32_t kFlagCorrupt = 1 << 0;
 constexpr uint32_t kFlagFull = 1 << 1;
 
-// Errors that are logged in "errors" histogram. These values are persisted to
-// logs. Entries should not be renumbered and numeric values should never be
-// reused.
-enum AllocatorError : int {
-  kMemoryIsCorrupt = 1,
-  kMaxValue = kMemoryIsCorrupt,
-};
-
 bool CheckFlag(const volatile std::atomic<uint32_t>* flags, uint32_t flag) {
   uint32_t loaded_flags = flags->load(std::memory_order_relaxed);
   return (loaded_flags & flag) != 0;
 }
 
 void SetFlag(volatile std::atomic<uint32_t>* flags, uint32_t flag) {
-  uint32_t loaded_flags = flags->load(std::memory_order_relaxed);
-  for (;;) {
-    uint32_t new_flags = (loaded_flags & ~flag) | flag;
-    // In the failue case, actual "flags" value stored in loaded_flags.
-    // These access are "relaxed" because they are completely independent
-    // of all other values.
-    if (flags->compare_exchange_weak(loaded_flags, new_flags,
-                                     std::memory_order_relaxed,
-                                     std::memory_order_relaxed)) {
-      break;
-    }
-  }
+  flags->fetch_or(flag, std::memory_order_relaxed);
 }
 
 }  // namespace
@@ -1131,7 +1112,7 @@ void LocalPersistentMemoryAllocator::DeallocateLocalMemory(void* memory,
 
   DCHECK_EQ(MEM_VIRTUAL, type);
 #if BUILDFLAG(IS_WIN)
-  BOOL success = ::VirtualFree(memory, 0, MEM_DECOMMIT);
+  BOOL success = ::VirtualFree(memory, 0, MEM_RELEASE);
   DCHECK(success);
 #elif BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)
   int result = ::munmap(memory, size);

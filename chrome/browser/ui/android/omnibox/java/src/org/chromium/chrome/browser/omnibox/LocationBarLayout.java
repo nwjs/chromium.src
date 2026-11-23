@@ -31,14 +31,13 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatures;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxState;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
 import org.chromium.chrome.browser.omnibox.status.StatusView;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteCoordinator;
 import org.chromium.chrome.browser.omnibox.voice.VoiceRecognitionIntentHandler;
-import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.util.BrowserUiUtils;
 import org.chromium.components.browser_ui.widget.CompositeTouchDelegate;
 import org.chromium.components.browser_ui.widget.chips.ChipView;
@@ -68,6 +67,7 @@ public class LocationBarLayout extends ConstraintLayout {
     protected AutocompleteCoordinator mAutocompleteCoordinator;
 
     protected LocationBarDataProvider mLocationBarDataProvider;
+    protected OmniboxResourceProvider mResourceProvider;
 
     protected StatusCoordinator mStatusCoordinator;
 
@@ -188,6 +188,7 @@ public class LocationBarLayout extends ConstraintLayout {
      * @param locationBarDataProvider Provider of LocationBar data, e.g. url and title.
      * @param windowAndroid WindowAndroid object for the window in which the LocationBarLayout is
      *     rendered.
+     * @param resourceProvider Shared provider of Omnibox resources.
      */
     @Initializer
     @CallSuper
@@ -196,11 +197,13 @@ public class LocationBarLayout extends ConstraintLayout {
             UrlBarCoordinator urlCoordinator,
             StatusCoordinator statusCoordinator,
             LocationBarDataProvider locationBarDataProvider,
-            WindowAndroid windowAndroid) {
+            WindowAndroid windowAndroid,
+            OmniboxResourceProvider resourceProvider) {
         mAutocompleteCoordinator = autocompleteCoordinator;
         mUrlCoordinator = urlCoordinator;
         mStatusCoordinator = statusCoordinator;
         mLocationBarDataProvider = locationBarDataProvider;
+        mResourceProvider = resourceProvider;
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
@@ -231,25 +234,18 @@ public class LocationBarLayout extends ConstraintLayout {
         mDeleteButton.setBackgroundResource(resourceId);
     }
 
-    /* package */ void updateVisualsForState(@BrandedColorScheme int brandedColorScheme) {
-        updateActivationChipVisuals(brandedColorScheme);
+    /* package */ void updateVisualsForState() {
+        updateActivationChipVisuals();
     }
 
-    private void updateActivationChipVisuals(@BrandedColorScheme int brandedColorScheme) {
-        Context context = getContext();
-        @ColorInt
-        int buttonColor =
-                OmniboxResourceProvider.getColorSurfaceContainerHigh(context, brandedColorScheme);
-        @ColorInt
-        int buttonColorHovered =
-                OmniboxResourceProvider.getColorSurfaceContainerHighest(
-                        context, brandedColorScheme);
+    private void updateActivationChipVisuals() {
+        @ColorInt int buttonColor = mResourceProvider.getColorSurfaceContainerHigh();
+        @ColorInt int buttonColorHovered = mResourceProvider.getColorSurfaceContainerHighest();
         int[] backgroundColors = new int[] {buttonColorHovered, buttonColor};
 
         mActivationChip.setBackgroundTintList(new ColorStateList(HOVER_STATES, backgroundColors));
 
-        @ColorInt
-        int colorOnSurface = OmniboxResourceProvider.getColorOnSurface(context, brandedColorScheme);
+        @ColorInt int colorOnSurface = mResourceProvider.getColorOnSurface();
         mActivationChip.setTextColor(colorOnSurface);
         boolean shouldTintIcon =
                 mSearchEngineService == null
@@ -258,8 +254,7 @@ public class LocationBarLayout extends ConstraintLayout {
         if (shouldTintIcon) {
             mActivationChip.setIconTint(ColorStateList.valueOf(colorOnSurface));
         }
-        @ColorInt
-        int focusRingColor = OmniboxResourceProvider.getColorPrimary(context, brandedColorScheme);
+        @ColorInt int focusRingColor = mResourceProvider.getColorPrimary();
         mActivationChip.setForegroundTintList(ColorStateList.valueOf(focusRingColor));
     }
 

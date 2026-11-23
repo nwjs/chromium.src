@@ -23,6 +23,7 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/permissions_manager.h"
 #include "third_party/jni_zero/default_conversions.h"
+#include "third_party/jni_zero/jni_zero.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/color/color_provider.h"
 #include "ui/events/android/key_event_android.h"
@@ -213,10 +214,6 @@ void ExtensionsToolbarAndroid::OnToolbarControlStateUpdated() {
       AttachCurrentThread(), java_object_);
 }
 
-void ExtensionsToolbarAndroid::Destroy() {
-  delete this;
-}
-
 jni_zero::ScopedJavaLocalRef<jobject> ExtensionsToolbarAndroid::GetAction(
     JNIEnv* env,
     const ToolbarActionsModel::ActionId& action_id,
@@ -250,7 +247,7 @@ SkBitmap ExtensionsToolbarAndroid::GetIcon(
 
   ToolbarActionViewModel* action =
       toolbar_view_model_->GetActionModelForId(action_id);
-  DCHECK(action);
+  CHECK(action, base::NotFatalUntil::M162);
   ui::ImageModel model = action->GetIcon(web_contents, size);
 
   if (model.IsEmpty() || !model.IsImage()) {
@@ -383,7 +380,7 @@ void ExtensionsToolbarAndroid::RegisterIconObserverForAction(
     const ToolbarActionsModel::ActionId& action_id) {
   ToolbarActionViewModel* action_model =
       toolbar_view_model_->GetActionModelForId(action_id);
-  DCHECK(action_model);
+  CHECK(action_model, base::NotFatalUntil::M162);
 
   icon_subscriptions_.insert_or_assign(
       action_id, action_model->RegisterIconUpdateObserver(base::BindRepeating(
@@ -403,13 +400,10 @@ void ExtensionsToolbarAndroid::MovePinnedAction(
   toolbar_view_model_->MovePinnedAction(action_id, target_index);
 }
 
-static int64_t JNI_ExtensionsToolbarBridge_Init(
-    const jni_zero::JavaRef<jobject>& java_object,
-    int64_t j_browser_window_interface) {
-  BrowserWindowInterface* browser =
-      reinterpret_cast<BrowserWindowInterface*>(j_browser_window_interface);
-  return reinterpret_cast<int64_t>(
-      new ExtensionsToolbarAndroid(browser, java_object));
+static jni_zero::JniUniquePtr<ExtensionsToolbarAndroid>
+JNI_ExtensionsToolbarBridge_Init(const jni_zero::JavaRef<jobject>& java_object,
+                                 BrowserWindowInterface* browser) {
+  return jni_zero::MakeUnique<ExtensionsToolbarAndroid>(browser, java_object);
 }
 
 }  // namespace extensions

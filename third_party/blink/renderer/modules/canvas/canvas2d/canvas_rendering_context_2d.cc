@@ -107,7 +107,6 @@
 #include "third_party/blink/renderer/platform/geometry/physical_offset.h"
 #include "third_party/blink/renderer/platform/geometry/stroke_data.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_2d_resource_provider.h"
-#include "third_party/blink/renderer/platform/graphics/canvas_deferred_paint_record.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_hibernation_handler.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
@@ -562,14 +561,6 @@ void CanvasRenderingContext2D::setFontForTesting(const String& new_font) {
   setFont(new_font);
 }
 
-void CanvasRenderingContext2D::fillTextForTesting(const String& text,
-                                                  double x,
-                                                  double y) {
-  // Dependency inversion to allow BaseRenderingContext2D::fillText
-  // to be invoked from core unit tests.
-  fillText(text, x, y);
-}
-
 bool CanvasRenderingContext2D::ResolveFont(const String& new_font) {
   HTMLCanvasElement* const element = canvas();
   Document& document = element->GetDocument();
@@ -729,24 +720,6 @@ int CanvasRenderingContext2D::Width() const {
 
 int CanvasRenderingContext2D::Height() const {
   return Host()->Size().height();
-}
-
-scoped_refptr<CanvasResource>
-CanvasRenderingContext2D::PaintRenderingResultsToResource(
-    SourceDrawingBuffer source_buffer,
-    FlushReason reason) {
-  if (!IsBackingValid()) {
-    return nullptr;
-  }
-
-  // Only CRPSI can produce CanvasResources.
-  auto* si_provider = GetSharedImageProvider();
-  if (!si_provider) {
-    return nullptr;
-  }
-
-  FlushCanvas(reason);
-  return si_provider->ProduceCanvasResource();
 }
 
 const std::optional<cc::PaintRecord>&
@@ -1059,10 +1032,28 @@ UniqueFontSelector* CanvasRenderingContext2D::GetFontSelector() const {
   return canvas()->GetFontSelector();
 }
 
-void CanvasRenderingContext2D::SizeChanged() {
-  ResetBacking();
-  ResetRecorder();
-  did_fail_to_create_backing_ = false;
+void CanvasRenderingContext2D::Reshape(gfx::Size old_size, gfx::Size new_size) {
+  if (IsHibernating()) {
+    CanvasHibernationHandler::ReportHibernationEvent(
+        CanvasHibernationHandler::HibernationEvent::kHibernationEndedOnReset);
+    GetHibernationHandler()->Clear();
+  }
+  ResetState();
+  ClearCanvas(old_size);
+  set_clear_frame(true);
+
+  if (old_size != new_size) {
+    ResetBacking();
+    ResetRecorder();
+    did_fail_to_create_backing_ = false;
+
+    canvas()->ResetLayer();
+    Host()->UpdateMemoryUsage();
+    Host()->ClearDirtyRect();
+    if (isContextLost()) {
+      RestoreFromInvalidSizeIfNeeded();
+    }
+  }
 }
 
 CanvasHibernationHandler* CanvasRenderingContext2D::GetHibernationHandler()
@@ -1321,20 +1312,6 @@ void CanvasRenderingContext2D::WakeUpFromHibernation() {
   canvas()->SetNeedsCompositingUpdate();
 }
 
-void CanvasRenderingContext2D::SetCanvas2DResourceProviderForTesting(
-    std::unique_ptr<Canvas2DResourceProvider> provider,
-    const gfx::Size& size) {
-  canvas()->DiscardResources();
-  canvas()->SetSize(size);
-  hibernation_handler_ = std::make_unique<CanvasHibernationHandler>(*this);
-  ResetBacking();
-  ResetRecorder();
-  SetSharedImageProviderForTesting(std::move(provider));
-  if (GetSharedImageProvider()) {
-    ConfigureRecorder(size, GetSharedImageProvider()->IsGraphite());
-  }
-}
-
 void CanvasRenderingContext2D::CreateSoftwareSurfaceForTesting() {
   canvas()->DiscardResources();
   hibernation_handler_ = std::make_unique<CanvasHibernationHandler>(*this);
@@ -1344,16 +1321,6 @@ void CanvasRenderingContext2D::CreateSoftwareSurfaceForTesting() {
   if (HasBacking()) {
     ConfigureRecorder(canvas()->Size(), /*is_graphite=*/false);
   }
-}
-
-void CanvasRenderingContext2D::SetCanvas2DResourceProviderForTesting(
-    std::nullptr_t provider,
-    const gfx::Size& size) {
-  canvas()->DiscardResources();
-  canvas()->SetSize(size);
-  hibernation_handler_ = std::make_unique<CanvasHibernationHandler>(*this);
-  ResetBacking();
-  ResetRecorder();
 }
 
 }  // namespace blink

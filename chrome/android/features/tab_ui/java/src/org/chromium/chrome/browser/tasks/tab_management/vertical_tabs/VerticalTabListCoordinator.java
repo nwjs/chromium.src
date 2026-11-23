@@ -146,6 +146,25 @@ import java.util.function.Supplier;
 @NullMarked
 public class VerticalTabListCoordinator {
     /**
+     * Observes external (i.e. OS-level) drags of tabs or tab groups started from this list. Drags
+     * started in other windows and internal (in-list) reorders are not reported.
+     */
+    interface ExternalDragObserver {
+        /**
+         * Called once an external drag started from this list has successfully started. Called in
+         * the same stack as the OS accepting the drag, before any later event can be processed.
+         */
+        void onExternalDragStarted();
+
+        /**
+         * Called once the external drag reported by {@link #onExternalDragStarted} has ended, or
+         * when this list is destroyed while that drag is in progress. Called from within the
+         * dispatch of the drag's {@code ACTION_DRAG_ENDED} event.
+         */
+        void onExternalDragEnded();
+    }
+
+    /**
      * Where on the rail a drop landed. The rail is not only its two lists: between and around them
      * sit the header, the new tab button and the rail's own margin, and a drop there is currently
      * accepted and reparented against the nearest item. This records how often that happens, which
@@ -191,6 +210,7 @@ public class VerticalTabListCoordinator {
     private final VerticalTabPinnedDropIndicatorDecoration mPinnedDropIndicatorDecoration;
     private final TabModelSelectorTabModelObserver mTabModelSelectorTabModelObserver;
     private final NonNullObservableSupplier<Boolean> mVerticalTabsActiveSupplier;
+    private final SettableNonNullObservableSupplier<Integer> mVerticalTabsWidthSupplier;
     private final VerticalTabRailCollapseController mCollapseController;
     private final VerticalTabRailHoverController mRailHoverController;
     private final Callback<Boolean> mActiveObserver = this::setActive;
@@ -224,6 +244,11 @@ public class VerticalTabListCoordinator {
 
     /** Decor view the drag-end relay is installed on while a rail-initiated drag is in flight. */
     private @Nullable View mDragEndRelayView;
+
+    private @Nullable ExternalDragObserver mExternalDragObserver;
+
+    /** Whether an external drag started from this list is in progress. */
+    private boolean mIsExternalDragInProgress;
 
     private boolean mIsActive;
 
@@ -391,6 +416,7 @@ public class VerticalTabListCoordinator {
             BackPressManager backPressManager) {
         mCanActivateTabLayoutToggleMenuSupplier = canActivateTabLayoutToggleMenuSupplier;
         mVerticalTabsActiveSupplier = verticalTabsActiveSupplier;
+        mVerticalTabsWidthSupplier = verticalTabsWidthSupplier;
         mTabModelSelector = tabModelSelector;
         mProfile = profile;
         mWindowAndroid = windowAndroid;
@@ -536,7 +562,12 @@ public class VerticalTabListCoordinator {
                 (v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
                     int width = right - left;
                     boolean isVisible = mContainerView.getVisibility() == View.VISIBLE;
-                    verticalTabsWidthSupplier.set(isVisible ? width : 0);
+                    if (mCollapseController.getEffectiveRailCollapseState()
+                                    != RailCollapseState.EXPANDED_FOR_HOVERING
+                            && mCollapseController.getRailCollapseStateSupplier().get()
+                                    != RailCollapseState.EXPANDED_FOR_HOVERING) {
+                        mVerticalTabsWidthSupplier.set(isVisible ? width : 0);
+                    }
                     if (isVisible && width > 0 && width != (oldRight - oldLeft)) {
                         updatePinnedLayoutSpanCount();
                     }
@@ -762,16 +793,16 @@ public class VerticalTabListCoordinator {
                     new AppHeaderObserver() {
                         @Override
                         public void onAppHeaderStateChanged(AppHeaderState newState) {
-                            updateSpacerVisibility(newState);
+                            updateSpacerHeight(newState);
                         }
 
                         @Override
                         public void onDesktopWindowingModeChanged(boolean isInDesktopWindow) {
-                            updateSpacerVisibility(mDesktopWindowStateManager.getAppHeaderState());
+                            updateSpacerHeight(mDesktopWindowStateManager.getAppHeaderState());
                         }
                     };
             mDesktopWindowStateManager.addObserver(mAppHeaderObserver);
-            updateSpacerVisibility(mDesktopWindowStateManager.getAppHeaderState());
+            updateSpacerHeight(mDesktopWindowStateManager.getAppHeaderState());
         } else {
             mAppHeaderObserver = null;
         }
@@ -951,6 +982,10 @@ public class VerticalTabListCoordinator {
             mBackPressManager.removeHandler(BackPressHandler.Type.CANCEL_TAB_SWITCHER_DRAG);
         }
         removeDragEndRelay();
+        // The drag handler is destroyed without ending an in-progress drag through its listener,
+        // so the drag's end would never be reported otherwise.
+        notifyExternalDragEnded();
+        mExternalDragObserver = null;
         mContainerView.setOnDragListener(null);
         mTabSwitcherDragHandler.destroy();
 
@@ -1004,6 +1039,32 @@ public class VerticalTabListCoordinator {
     }
 
     /**
+     * Sets the {@link ExternalDragObserver} to notify of external drags started from this list.
+     *
+     * @param observer The observer, or null to stop notifying.
+     */
+    void setExternalDragObserver(@Nullable ExternalDragObserver observer) {
+        mExternalDragObserver = observer;
+    }
+
+    /** Returns whether an external drag started from this list is in progress. */
+    boolean isExternalDragInProgress() {
+        return mIsExternalDragInProgress;
+    }
+
+    private void notifyExternalDragStarted() {
+        if (mIsExternalDragInProgress) return;
+        mIsExternalDragInProgress = true;
+        if (mExternalDragObserver != null) mExternalDragObserver.onExternalDragStarted();
+    }
+
+    private void notifyExternalDragEnded() {
+        if (!mIsExternalDragInProgress) return;
+        mIsExternalDragInProgress = false;
+        if (mExternalDragObserver != null) mExternalDragObserver.onExternalDragEnded();
+    }
+
+    /**
      * Applies the collapsed state of the vertical tab rail.
      *
      * <p>This updates the model properties and layouts for the rail container and all tab items to
@@ -1019,6 +1080,13 @@ public class VerticalTabListCoordinator {
         mContainerModel.set(VerticalTabListProperties.COLLAPSE_STATE, railCollapseState);
         updatePinnedLayoutSpanCount();
         updatePinnedTabsSeparatorVisibility();
+    }
+
+    /**
+     * Updates the reserved width of the vertical tab rail in {@code mVerticalTabsWidthSupplier}.
+     */
+    void setVerticalTabsReservedWidth(int widthPx) {
+        mVerticalTabsWidthSupplier.set(widthPx);
     }
 
     /**
@@ -1244,7 +1312,11 @@ public class VerticalTabListCoordinator {
 
                     return this::dismissActiveContextMenus;
                 });
-        touchHelperCallback.setOnDragStartCallback(this::dismissActiveContextMenus);
+        touchHelperCallback.setOnDragStartCallback(
+                () -> {
+                    dismissActiveContextMenus();
+                    mTabItemHoverController.resetHoverState();
+                });
 
         RecyclerView.OnItemTouchListener beforeTouchListener =
                 VerticalTabListItemTouchHelperCallback.createBeforeOnItemTouchListener(
@@ -1356,6 +1428,8 @@ public class VerticalTabListCoordinator {
                         itemTouchHelper.onExternalDragStop(/* recoverItem= */ true);
                         mTabSwitcherDragHandler.setDragHandlerDelegate(
                                 mNonOriginatingDragHandlerDelegate);
+                    } else {
+                        notifyExternalDragStarted();
                     }
                 });
 
@@ -1459,10 +1533,17 @@ public class VerticalTabListCoordinator {
      * <p>A view has a single {@code OnDragListener} slot. Nothing else in Chrome sets one on a
      * decor view; do not add a second one without merging it with this.
      *
+     * <p>Not installed with {@link ChromeFeatureList#SIDE_UI_ALLOW_PAUSE}: the rail's Side UI
+     * container is then frozen for the duration of a drag started from the rail (see {@link
+     * VerticalTabsSideUiCoordinator}), so the rail's listener is never detached mid-drag and {@code
+     * ACTION_DRAG_ENDED} reaches it on its normal path. TODO(crbug.com/556140903): Remove the relay
+     * once the flag ships.
+     *
      * @param dragHandler The drag handler to forward {@code ACTION_DRAG_ENDED} to.
      */
     private void installDragEndRelay(TabSwitcherDragHandler dragHandler) {
         removeDragEndRelay();
+        if (ChromeFeatureList.sSideUiAllowPause.isEnabled()) return;
 
         Activity activity = mWindowAndroid.getActivity().get();
         if (activity == null) return;
@@ -1983,6 +2064,7 @@ public class VerticalTabListCoordinator {
                 }
 
                 dragHandler.setDragHandlerDelegate(nonOriginatingDelegate);
+                notifyExternalDragEnded();
                 return true;
             }
 
@@ -2462,9 +2544,12 @@ public class VerticalTabListCoordinator {
                         && mCollapseButtonContextMenuCoordinator.isMenuShowing());
     }
 
-    private void updateSpacerVisibility(@Nullable AppHeaderState appHeaderState) {
-        boolean isInDesktopWindow = appHeaderState != null && appHeaderState.isInDesktopWindow();
-        mContainerView.setDesktopWindowSpacerVisible(isInDesktopWindow);
+    private void updateSpacerHeight(@Nullable AppHeaderState appHeaderState) {
+        int spacerHeight =
+                appHeaderState != null && appHeaderState.isInDesktopWindow()
+                        ? appHeaderState.getAppHeaderHeight()
+                        : 0;
+        mContainerView.setDesktopWindowSpacerHeight(spacerHeight);
     }
 
     // Only show the separator if 1. The rail uses collapsed positioning (collapsed or expanded for

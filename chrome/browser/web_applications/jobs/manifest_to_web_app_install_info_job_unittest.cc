@@ -12,7 +12,10 @@
 #include <utility>
 #include <vector>
 
+#include "base/check.h"
 #include "base/feature_list.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -762,6 +765,8 @@ TEST_F(ManifestToWebAppInstallInfoJobTest,
 
   // Generate expected data structure for |icons_with_size_any|.
   IconsWithSizeAny expected_icon_metadata;
+  expected_icon_metadata.manifest_icon_provided_sizes.emplace(kIconSize,
+                                                              kIconSize);
 
   const GURL manifest_icon_no_size_url(
       "https://www.example.com/manifest_image_no_size.svg");
@@ -1324,7 +1329,17 @@ TEST_F(ManifestToWebAppInstallInfoTrustedIconTest,
 class ManifestToWebAppInstallInfoLocalizationTest
     : public ManifestToWebAppInstallInfoJobTest {
  protected:
-  std::pair<icu::Locale, blink::mojom::ManifestLocalizedTextObjectPtr>
+  // Converts `locale` into a `base::i18n::LanguageTag`, failing the test if it
+  // is not a valid BCP47 language tag.
+  static base::i18n::LanguageTag ToLanguageTag(const std::string& locale) {
+    std::optional<base::i18n::LanguageTag> tag =
+        base::i18n::GetLanguageTagFromString(locale);
+    CHECK(tag.has_value()) << "Not a valid language tag: " << locale;
+    return *tag;
+  }
+
+  std::pair<base::i18n::LanguageTag,
+            blink::mojom::ManifestLocalizedTextObjectPtr>
   AddLocalizedText(const std::string& locale,
                    const std::u16string& value,
                    const std::optional<std::u16string>& lang = std::nullopt,
@@ -1334,14 +1349,16 @@ class ManifestToWebAppInstallInfoLocalizationTest
     localized_text->value = value;
     localized_text->lang = lang;
     localized_text->dir = dir;
-    return {icu::Locale(locale.c_str()), std::move(localized_text)};
+    return {ToLanguageTag(locale), std::move(localized_text)};
   }
 
   // Saves the current application locale and returns a ScopedClosureRunner
   // that restores it when destroyed.
   base::ScopedClosureRunner SaveAndRestoreLocale() {
-    std::string original_locale =
-        g_browser_process->GetFeatures()->application_locale_storage()->Get();
+    std::string original_locale(g_browser_process->GetFeatures()
+                                    ->application_locale_storage()
+                                    ->GetTag()
+                                    .tag_string());
     return base::ScopedClosureRunner(base::BindOnce(
         [](std::string locale) {
           g_browser_process->GetFeatures()->application_locale_storage()->Set(
@@ -1370,7 +1387,7 @@ class ManifestToWebAppInstallInfoLocalizationTest
         localized_text.lang = lang;
         localized_text.dir = dir;
         shortcut_item.name_localized->insert(
-            {icu::Locale(locale.c_str()), std::move(localized_text)});
+            {ToLanguageTag(locale), std::move(localized_text)});
       }
     }
     return shortcut_item;
@@ -1402,8 +1419,7 @@ class ManifestToWebAppInstallInfoLocalizationTest
         icon.sizes = {gfx::Size(kIconSize, kIconSize)};
         icon.purpose = {Purpose::ANY};
         icons.push_back(icon);
-        shortcut_item.icons_localized->insert(
-            {icu::Locale(locale.c_str()), icons});
+        shortcut_item.icons_localized->insert({ToLanguageTag(locale), icons});
         web_contents_manager().GetOrCreateIconState(icon_url).bitmaps = {
             GetBasicIconBitmap()};
       }
@@ -1732,7 +1748,8 @@ TEST_F(ManifestToWebAppInstallInfoLocalizationTest,
   manifest->icons_localized.emplace();
 
   std::vector<blink::Manifest::ImageResource> empty_icons;
-  manifest->icons_localized->insert({icu::Locale("en-US"), empty_icons});
+  manifest->icons_localized->insert(
+      {base::i18n::GetKnownLanguageTag("en-US"), empty_icons});
 
   g_browser_process->GetFeatures()->application_locale_storage()->Set("en-US");
 
@@ -1762,7 +1779,8 @@ TEST_F(ManifestToWebAppInstallInfoLocalizationTest,
   en_us_icon.sizes = {gfx::Size(kIconSize, kIconSize)};
   en_us_icon.purpose = {Purpose::ANY};
   en_us_icons.push_back(en_us_icon);
-  manifest->icons_localized->insert({icu::Locale("en-US"), en_us_icons});
+  manifest->icons_localized->insert(
+      {base::i18n::GetKnownLanguageTag("en-US"), en_us_icons});
   web_contents_manager().GetOrCreateIconState(en_us_icon_url).bitmaps = {
       GetBasicIconBitmap()};
 
@@ -1773,7 +1791,8 @@ TEST_F(ManifestToWebAppInstallInfoLocalizationTest,
   fr_fr_icon.sizes = {gfx::Size(kIconSize, kIconSize)};
   fr_fr_icon.purpose = {Purpose::ANY};
   fr_fr_icons.push_back(fr_fr_icon);
-  manifest->icons_localized->insert({icu::Locale("fr-FR"), fr_fr_icons});
+  manifest->icons_localized->insert(
+      {base::i18n::GetKnownLanguageTag("fr-FR"), fr_fr_icons});
   web_contents_manager().GetOrCreateIconState(fr_fr_icon_url).bitmaps = {
       GetBasicIconBitmap()};
 
@@ -1802,7 +1821,8 @@ TEST_F(ManifestToWebAppInstallInfoLocalizationTest,
   en_icon.sizes = {gfx::Size(kIconSize, kIconSize)};
   en_icon.purpose = {Purpose::ANY};
   en_icons.push_back(en_icon);
-  manifest->icons_localized->insert({icu::Locale("en"), en_icons});
+  manifest->icons_localized->insert(
+      {base::i18n::GetKnownLanguageTag("en"), en_icons});
   web_contents_manager().GetOrCreateIconState(en_icon_url).bitmaps = {
       GetBasicIconBitmap()};
 
@@ -1832,7 +1852,8 @@ TEST_F(ManifestToWebAppInstallInfoLocalizationTest,
   de_de_icon.sizes = {gfx::Size(kIconSize, kIconSize)};
   de_de_icon.purpose = {Purpose::ANY};
   de_de_icons.push_back(de_de_icon);
-  manifest->icons_localized->insert({icu::Locale("de-DE"), de_de_icons});
+  manifest->icons_localized->insert(
+      {base::i18n::GetKnownLanguageTag("de-DE"), de_de_icons});
   web_contents_manager().GetOrCreateIconState(de_de_icon_url).bitmaps = {
       GetBasicIconBitmap()};
 
@@ -1880,7 +1901,8 @@ TEST_F(ManifestToWebAppInstallInfoLocalizationTest,
   web_contents_manager().GetOrCreateIconState(en_us_icon_128_url).bitmaps = {
       icon_128_bitmap};
 
-  manifest->icons_localized->insert({icu::Locale("en-US"), en_us_icons});
+  manifest->icons_localized->insert(
+      {base::i18n::GetKnownLanguageTag("en-US"), en_us_icons});
 
   g_browser_process->GetFeatures()->application_locale_storage()->Set("en-US");
 
@@ -2194,6 +2216,159 @@ TEST_F(ManifestToWebAppInstallInfoJobTest,
 
   auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
   EXPECT_THAT(web_app_info->display_override, testing::IsEmpty());
+}
+
+TEST_F(ManifestToWebAppInstallInfoJobTest, PopulateAnyIconsWithSvgMimeType) {
+  SetupBasicPageState();
+  auto& manifest = GetPageManifest();
+  manifest->icons.clear();
+
+  const GURL svg_url_without_extension("https://www.example.com/icon?fmt=vec");
+  blink::Manifest::ImageResource manifest_icon;
+  manifest_icon.src = svg_url_without_extension;
+  manifest_icon.type = u"image/svg+xml";
+  manifest_icon.sizes = {{0, 0}};
+  manifest_icon.purpose = {Purpose::ANY};
+  manifest->icons.push_back(std::move(manifest_icon));
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+  EXPECT_EQ(web_app_info->icons_with_size_any.manifest_icons[IconPurpose::ANY],
+            svg_url_without_extension);
+}
+
+TEST_F(ManifestToWebAppInstallInfoJobTest, RecordsSvgIconUrls) {
+  SetupBasicPageState();
+  auto& manifest = GetPageManifest();
+  manifest->icons.clear();
+
+  const GURL svg_by_type("https://www.example.com/icon?fmt=vec");
+  const GURL svg_by_extension("https://www.example.com/dir.svg/icon.SVG");
+  const GURL untyped_raster("https://www.example.com/svg/icon.png");
+  auto add_icon = [&](const GURL& url, const std::u16string& type) {
+    blink::Manifest::ImageResource icon;
+    icon.src = url;
+    icon.type = type;
+    icon.sizes = {{192, 192}};
+    icon.purpose = {Purpose::ANY};
+    manifest->icons.push_back(std::move(icon));
+  };
+  add_icon(svg_by_type, u"image/svg+xml");
+  add_icon(svg_by_extension, u"");
+  add_icon(untyped_raster, u"");
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+  EXPECT_THAT(web_app_info->svg_icon_urls,
+              testing::UnorderedElementsAre(svg_by_type, svg_by_extension));
+}
+
+// Trusted icon selection scans all manifest icons, so SVG URLs are recorded
+// past the limit on stored icons.
+TEST_F(ManifestToWebAppInstallInfoJobTest, RecordsSvgIconUrlsBeyondIconLimit) {
+  SetupBasicPageState();
+  auto& manifest = GetPageManifest();
+  manifest->icons.clear();
+
+  for (int i = 0; i < 25; ++i) {
+    blink::Manifest::ImageResource icon;
+    icon.src =
+        GURL("https://www.example.com/icon" + base::NumberToString(i) + ".png");
+    icon.sizes = {{192, 192}};
+    icon.purpose = {Purpose::ANY};
+    manifest->icons.push_back(std::move(icon));
+  }
+  const GURL trailing_svg_url("https://www.example.com/trailing.svg");
+  blink::Manifest::ImageResource svg_icon;
+  svg_icon.src = trailing_svg_url;
+  svg_icon.sizes = {{256, 256}};
+  svg_icon.purpose = {Purpose::ANY};
+  manifest->icons.push_back(std::move(svg_icon));
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+  EXPECT_THAT(web_app_info->svg_icon_urls, testing::Contains(trailing_svg_url));
+}
+
+TEST_F(ManifestToWebAppInstallInfoJobTest,
+       ProvidedSizesIndependentOfDeclarationOrder) {
+  SetupBasicPageState();
+  auto& manifest = GetPageManifest();
+  manifest->icons.clear();
+
+  blink::Manifest::ImageResource raster_icon;
+  raster_icon.src = GURL("https://www.example.com/icon-192.png");
+  raster_icon.sizes = {{192, 192}};
+  raster_icon.purpose = {Purpose::ANY};
+  manifest->icons.push_back(std::move(raster_icon));
+
+  blink::Manifest::ImageResource svg_icon;
+  svg_icon.src = GURL("https://www.example.com/icon.svg");
+  svg_icon.sizes = {{0, 0}};
+  svg_icon.purpose = {Purpose::ANY};
+  manifest->icons.push_back(std::move(svg_icon));
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+  EXPECT_THAT(web_app_info->icons_with_size_any.manifest_icon_provided_sizes,
+              testing::ElementsAre(gfx::Size(192, 192)));
+}
+
+TEST_F(ManifestToWebAppInstallInfoJobTest, MultiSizeIconEntries) {
+  SetupBasicPageState();
+  auto& manifest = GetPageManifest();
+  manifest->icons.clear();
+
+  const GURL svg_url("https://www.example.com/icon.svg");
+  const GURL raster_url("https://www.example.com/icon.ico");
+  auto add_icon = [&](const GURL& url, std::vector<gfx::Size> sizes) {
+    blink::Manifest::ImageResource icon;
+    icon.src = url;
+    icon.sizes = std::move(sizes);
+    icon.purpose = {Purpose::ANY};
+    manifest->icons.push_back(std::move(icon));
+  };
+  add_icon(svg_url, {{0, 0}, {256, 256}});
+  add_icon(raster_url, {{48, 48}, {96, 96}});
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+
+  // Every declared square size of the SVG is requested, while the raster icon
+  // is requested once.
+  EXPECT_THAT(
+      web_app_info->manifest_icons,
+      testing::ElementsAre(
+          testing::AllOf(testing::Field(&apps::IconInfo::url, svg_url),
+                         testing::Field(&apps::IconInfo::square_size_px, 0)),
+          testing::AllOf(testing::Field(&apps::IconInfo::url, svg_url),
+                         testing::Field(&apps::IconInfo::square_size_px, 256)),
+          testing::AllOf(testing::Field(&apps::IconInfo::url, raster_url),
+                         testing::Field(&apps::IconInfo::square_size_px, 48))));
+
+  // The raster icon is only downloaded once, at its first declared size, so
+  // 96x96 is not provided and is still generated from the "sizes": "any" SVG.
+  EXPECT_THAT(
+      web_app_info->icons_with_size_any.manifest_icon_provided_sizes,
+      testing::UnorderedElementsAre(gfx::Size(256, 256), gfx::Size(48, 48)));
+}
+
+TEST_F(ManifestToWebAppInstallInfoJobTest,
+       NonSquareDownloadedIconBitmapsResizedToSquare) {
+  SetupBasicPageState();
+  auto& manifest = GetPageManifest();
+
+  SkBitmap non_square_bitmap;
+  non_square_bitmap.allocN32Pixels(128, 64);
+  non_square_bitmap.eraseColor(SK_ColorGREEN);
+  web_contents_manager().GetOrCreateIconState(icon_url_).bitmaps = {
+      non_square_bitmap};
+
+  auto web_app_info = GetWebAppInstallInfoFromJob(*manifest);
+  EXPECT_FALSE(web_app_info->is_generated_icon);
+  ASSERT_TRUE(web_app_info->icon_bitmaps.any.contains(kIconSize));
+  EXPECT_EQ(kIconSize, web_app_info->icon_bitmaps.any[kIconSize].width());
+  EXPECT_EQ(kIconSize, web_app_info->icon_bitmaps.any[kIconSize].height());
+  ASSERT_TRUE(web_app_info->trusted_icon_bitmaps.any.contains(kIconSize));
+  EXPECT_EQ(kIconSize,
+            web_app_info->trusted_icon_bitmaps.any[kIconSize].width());
+  EXPECT_EQ(kIconSize,
+            web_app_info->trusted_icon_bitmaps.any[kIconSize].height());
 }
 
 }  // namespace

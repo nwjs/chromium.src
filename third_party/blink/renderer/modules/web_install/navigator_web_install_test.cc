@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy.h"
@@ -65,6 +66,8 @@ class MockWebInstallService : public mojom::blink::WebInstallService {
 
   void WaitForManifestCall() { EXPECT_TRUE(manifest_called_.Wait()); }
 
+  bool manifest_called() const { return manifest_called_.IsReady(); }
+
   const mojom::blink::ManifestInstallOptions* manifest_options() const {
     return manifest_options_.get();
   }
@@ -117,6 +120,11 @@ class NavigatorWebInstallTest : public testing::Test {
 
  protected:
   void SetUp() override {
+    // WebAppInstallation is disabled by default on Android. This test-only
+    // override exercises implementation code without exposing the API on
+    // Android or weakening the production CHECK.
+    scoped_feature_list_.InitAndEnableFeature(features::kWebAppInstallation);
+
     GetFrame().Loader().CommitNavigation(
         WebNavigationParams::CreateWithEmptyHTMLForTesting(
             KURL("https://example.com")),
@@ -138,6 +146,7 @@ class NavigatorWebInstallTest : public testing::Test {
 
  private:
   test::TaskEnvironment task_environment_;
+  base::test::ScopedFeatureList scoped_feature_list_;
   MockWebInstallService mock_service_;
 
   std::unique_ptr<DummyPageHolder> holder_;
@@ -262,6 +271,22 @@ TEST_F(NavigatorWebInstallTest, BlockedWithoutUserActivation) {
   EXPECT_EQ(DOMExceptionCode::kNotAllowedError,
             exception_state.CodeAs<DOMExceptionCode>());
   EXPECT_TRUE(promise.IsEmpty());
+}
+
+TEST_F(NavigatorWebInstallTest, DetachedNavigator) {
+  ScriptState* script_state = GetScriptState();
+  Navigator* navigator = GetNavigator();
+  GetFrame().Detach(FrameDetachType::kRemove);
+
+  DummyExceptionStateForTesting exception_state;
+  auto promise =
+      NavigatorWebInstall::install(script_state, *navigator, exception_state);
+
+  EXPECT_TRUE(exception_state.HadException());
+  EXPECT_EQ(DOMExceptionCode::kInvalidStateError,
+            exception_state.CodeAs<DOMExceptionCode>());
+  EXPECT_TRUE(promise.IsEmpty());
+  EXPECT_FALSE(mock_service().manifest_called());
 }
 
 TEST_F(NavigatorWebInstallTest, InstallFromManifest_Success) {
@@ -614,6 +639,24 @@ TEST_F(NavigatorWebInstallTest,
   EXPECT_EQ(DOMExceptionCode::kNotAllowedError,
             exception_state.CodeAs<DOMExceptionCode>());
   EXPECT_TRUE(promise.IsEmpty());
+}
+
+TEST_F(NavigatorWebInstallTest, InstallFromManifest_DetachedNavigator) {
+  ScriptState* script_state = GetScriptState();
+  Navigator* navigator = GetNavigator();
+  GetFrame().Detach(FrameDetachType::kRemove);
+  auto* params = MakeGarbageCollected<InstallParams>();
+  params->setManifest("https://example.com/manifest.json");
+
+  DummyExceptionStateForTesting exception_state;
+  auto promise = NavigatorWebInstall::install(script_state, *navigator, params,
+                                              exception_state);
+
+  EXPECT_TRUE(exception_state.HadException());
+  EXPECT_EQ(DOMExceptionCode::kInvalidStateError,
+            exception_state.CodeAs<DOMExceptionCode>());
+  EXPECT_TRUE(promise.IsEmpty());
+  EXPECT_FALSE(mock_service().manifest_called());
 }
 
 TEST_F(NavigatorWebInstallTest, InstallFromManifest_BlockedInSandbox) {

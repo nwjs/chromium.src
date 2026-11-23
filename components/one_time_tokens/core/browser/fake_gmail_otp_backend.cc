@@ -14,24 +14,17 @@
 namespace one_time_tokens {
 
 FakeGmailOtpBackend::FakeGmailOtpBackend()
-    : one_time_token_cache_(kGmailTokenCacheDuration,
+    : notification_cache_(
+          kNotificationExpirationDuration,
+          &OneTimeTokenBackendNotification::notification_received_timeticks),
+      one_time_token_cache_(kGmailTokenCacheDuration,
                             &OneTimeToken::on_device_arrival_time,
                             OneTimeTokenCacheProjection()) {}
 
 FakeGmailOtpBackend::~FakeGmailOtpBackend() = default;
 
-void FakeGmailOtpBackend::SetLogSink(OneTimeTokenLogSink* log_sink) {
-  log_sink_ = log_sink;
-}
-
-OneTimeTokenLogSink* FakeGmailOtpBackend::GetLogSink() const {
-  return log_sink_;
-}
-
-ExpiringSubscription FakeGmailOtpBackend::Subscribe(base::Time expiration,
-                                                    Callback callback) {
-  return Subscribe(expiration, std::move(callback),
-                   /*expiration_callback=*/base::DoNothing());
+OneTimeTokenLogSink* FakeGmailOtpBackend::GetLogSink() {
+  return &log_sink_;
 }
 
 ExpiringSubscription FakeGmailOtpBackend::Subscribe(
@@ -51,13 +44,13 @@ ExpiringSubscription FakeGmailOtpBackend::Subscribe(
 ExpiringSubscription FakeGmailOtpBackend::SubscribeToTickles(
     base::Time expiration,
     TickleCallback callback) {
-  return tickle_subscription_manager_.Subscribe(
-      expiration, std::move(callback),
+  ExpiringSubscription subscription = tickle_subscription_manager_.Subscribe(
+      expiration, callback,
       /*expiration_callback=*/base::DoNothing());
-}
-
-std::vector<OneTimeToken> FakeGmailOtpBackend::GetCachedOneTimeTokens() const {
-  return base::ToVector(one_time_token_cache_.GetItems());
+  if (!notification_cache_.PurgeExpiredAndGetItems().empty()) {
+    callback.Run();
+  }
+  return subscription;
 }
 
 std::vector<OneTimeToken>
@@ -69,6 +62,7 @@ void FakeGmailOtpBackend::OnIncomingOneTimeTokenBackendNotification(
     const OneTimeTokenBackendNotification& notification) {
   incoming_notifications_.push_back(notification);
   tickle_subscription_manager_.Notify();
+  notification_cache_.PurgeExpiredAndAdd(notification);
 }
 
 void FakeGmailOtpBackend::FetchUserDataProcessingConsent(

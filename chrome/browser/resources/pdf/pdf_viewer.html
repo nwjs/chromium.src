@@ -89,6 +89,8 @@ import {AnnotationMode} from './constants.js';
           </viewer-bottom-toolbar>
           <viewer-text-bottom-toolbar toolbar-name="${AnnotationMode.TEXT}">
           </viewer-text-bottom-toolbar>
+          <viewer-signature-bottom-toolbar toolbar-name="${AnnotationMode.SIGNATURE}">
+          </viewer-signature-bottom-toolbar>
         </cr-page-selector>` : ''}
     </if>
   </div>
@@ -100,6 +102,8 @@ import {AnnotationMode} from './constants.js';
         </viewer-side-panel>
         <viewer-text-side-panel page-name="${AnnotationMode.TEXT}">
         </viewer-text-side-panel>
+        <viewer-signature-side-panel page-name="${AnnotationMode.SIGNATURE}">
+        </viewer-signature-side-panel>
       </cr-page-selector>
     ` : ''}
   </if>
@@ -133,4 +137,10 @@ ${this.pdfSaveToDriveEnabled_ ? html`<viewer-save-to-drive-bubble
     .state="${this.saveToDriveState_}"
     @save-to-drive-bubble-action="${this.onSaveToDriveBubbleAction_}">
 </viewer-save-to-drive-bubble>` : ''}
+</if>
+
+<if expr="enable_pdf_ink2">
+${this.showSignatureDialog_ ? html`<viewer-signature-dialog
+    @close="${this.onSignatureDialogClose_}">
+</viewer-signature-dialog>` : ''}
 </if>

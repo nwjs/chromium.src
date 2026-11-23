@@ -27,8 +27,6 @@ if (use_blink) {
       "tracing_service.h",
     ]
 
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
     public_deps = [
       ":privacy_check",
       "//base",
@@ -171,10 +169,6 @@ source_set("tests") {
 
   data_deps = [ "//third_party/perfetto/protos/perfetto/config:descriptor" ]
   data = [ "$root_gen_dir/third_party/perfetto/protos/perfetto/config/config.descriptor" ]
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (is_android) {

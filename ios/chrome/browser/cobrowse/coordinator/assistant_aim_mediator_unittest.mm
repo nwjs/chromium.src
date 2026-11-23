@@ -14,12 +14,15 @@
 #import "base/test/test_future.h"
 #import "components/contextual_tasks/public/features.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/aim/model/ios_chrome_aim_eligibility_service_factory.h"
+#import "ios/chrome/browser/aim/model/mock_ios_chrome_aim_eligibility_service.h"
 #import "ios/chrome/browser/assistant/coordinator/assistant_container_commands.h"
 #import "ios/chrome/browser/assistant/ui/assistant_container_detent.h"
 #import "ios/chrome/browser/cobrowse/model/aim_cobrowse_java_script_feature.h"
 #import "ios/chrome/browser/cobrowse/model/assistant_aim_tab_helper.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_browser_agent.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_context.h"
+#import "ios/chrome/browser/cobrowse/shared/metrics/assistant_aim_metrics_recorder.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_consumer.h"
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_ui_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -77,6 +80,14 @@ constexpr char kAimZeroStateURL[] =
     "https://www.google.com/"
     "search?udm=50&sourceid=chrome-mobile&gsas=4&csuir=1&cs=0";
 
+// Builds an AIM eligibility service that makes the profile eligible for AIM
+// Cobrowse, which AimCobrowseJavaScriptFeature requires to message the page.
+std::unique_ptr<KeyedService> BuildMockIOSChromeAimEligibilityService(
+    ProfileIOS* profile) {
+  return MockIOSChromeAimEligibilityService::CreateTestingProfileService(
+      profile);
+}
+
 }  // namespace
 
 class AssistantAIMMediatorTest : public PlatformTest {
@@ -86,6 +97,9 @@ class AssistantAIMMediatorTest : public PlatformTest {
     scoped_feature_list_.InitWithFeatures(
         {contextual_tasks::kContextualTasks, kAimCobrowse}, {});
     TestProfileIOS::Builder builder;
+    builder.AddTestingFactory(
+        IOSChromeAimEligibilityServiceFactory::GetInstance(),
+        base::BindRepeating(&BuildMockIOSChromeAimEligibilityService));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
         AuthenticationServiceFactory::GetDefaultFactory());
@@ -109,7 +123,10 @@ class AssistantAIMMediatorTest : public PlatformTest {
     auto manager = std::make_unique<web::FakeWebFramesManager>();
     fake_web_state->SetWebFramesManager(web::ContentWorld::kPageContentWorld,
                                         std::move(manager));
-    AssistantAimTabHelper::CreateForWebState(fake_web_state.get());
+    AssistantAimTabHelper::CreateForWebState(
+        fake_web_state.get(),
+        IOSChromeAimEligibilityServiceFactory::GetForProfile(profile_),
+        profile_->GetPrefs());
     web::test::OverrideJavaScriptFeatures(
         profile_, {AimCobrowseJavaScriptFeature::GetInstance()});
 
@@ -1011,4 +1028,102 @@ TEST_F(AssistantAIMMediatorTest, ForwardsProxyAuthToBrowserWebStateDelegate) {
   } else {
     GTEST_SKIP() << "Requires iOS 18.1+";
   }
+}
+// Tests that intercepting a third-party HTTP/HTTPS link in the main frame
+// records a link click on the metrics recorder.
+TEST_F(AssistantAIMMediatorTest, InterceptedThirdPartyLinkRecordsLinkClick) {
+  id mock_recorder = OCMClassMock([AssistantAIMMetricsRecorder class]);
+  mediator_.metricsRecorder = mock_recorder;
+
+  OCMExpect([mock_recorder recordLinkClicked]);
+
+  id<CRWWebStatePolicyDecider> policy_decider =
+      static_cast<id<CRWWebStatePolicyDecider>>(mediator_);
+  GURL third_party_url("https://example.com");
+  base::test::TestFuture<web::WebStatePolicyDecider::PolicyDecision> future;
+  [policy_decider
+      shouldAllowRequest:[NSURLRequest
+                             requestWithURL:net::NSURLWithGURL(third_party_url)]
+             requestInfo:web::WebStatePolicyDecider::RequestInfo(
+                             ui::PageTransition::PAGE_TRANSITION_LINK,
+                             /*target_frame_is_main=*/true,
+                             /*target_frame_is_cross_origin=*/true,
+                             /*target_window_is_cross_origin=*/false,
+                             /*is_user_initiated=*/true,
+                             /*user_tapped_recently=*/true)
+         decisionHandler:base::CallbackToBlock(future.GetCallback())];
+
+  EXPECT_TRUE(future.Get().ShouldCancelNavigation());
+  [mock_recorder verify];
+  [mock_recorder stopMocking];
+}
+
+// Tests that opening a new WebState via `CRWWebStateDelegate` records a link
+// click on the metrics recorder.
+TEST_F(AssistantAIMMediatorTest, CreateNewWebStateRecordsLinkClick) {
+  id mock_recorder = OCMClassMock([AssistantAIMMetricsRecorder class]);
+  mediator_.metricsRecorder = mock_recorder;
+
+  OCMExpect([mock_recorder recordLinkClicked]);
+
+  id<CRWWebStateDelegate> delegate =
+      static_cast<id<CRWWebStateDelegate>>(mediator_);
+  [delegate webState:fake_web_state_
+      createNewWebStateForURL:GURL("https://example.com")
+                    openerURL:GURL()
+              initiatedByUser:YES];
+
+  [mock_recorder verify];
+  [mock_recorder stopMocking];
+}
+
+// Tests that allowed inbound navigations (AIM search, AIM zero-state) do not
+// record a link click on the metrics recorder.
+TEST_F(AssistantAIMMediatorTest,
+       AllowedInboundNavigationsDoNotRecordLinkClick) {
+  id mock_recorder = OCMClassMock([AssistantAIMMetricsRecorder class]);
+  mediator_.metricsRecorder = mock_recorder;
+
+  OCMReject([mock_recorder recordLinkClicked]);
+
+  id<CRWWebStatePolicyDecider> policy_decider =
+      static_cast<id<CRWWebStatePolicyDecider>>(mediator_);
+
+  struct NavigationTestCase {
+    GURL url;
+    ui::PageTransition transition;
+    bool target_frame_is_main;
+  };
+
+  const NavigationTestCase test_cases[] = {
+      // 1. Standard AIM search URL in main frame.
+      {GURL("https://www.google.com/search?udm=50&q=test"),
+       ui::PageTransition::PAGE_TRANSITION_LINK,
+       /*target_frame_is_main=*/true},
+      // 2. AIM zero-state URL in main frame.
+      {GURL("https://www.google.com/search?udm=50&sourceid=chrome-mobile&"
+            "gsas=4"),
+       ui::PageTransition::PAGE_TRANSITION_LINK,
+       /*target_frame_is_main=*/true},
+  };
+
+  for (const NavigationTestCase& test_case : test_cases) {
+    SCOPED_TRACE(test_case.url.spec());
+    base::test::TestFuture<web::WebStatePolicyDecider::PolicyDecision> future;
+    [policy_decider
+        shouldAllowRequest:[NSURLRequest
+                               requestWithURL:net::NSURLWithGURL(test_case.url)]
+               requestInfo:web::WebStatePolicyDecider::RequestInfo(
+                               test_case.transition,
+                               test_case.target_frame_is_main,
+                               /*target_frame_is_cross_origin=*/false,
+                               /*target_window_is_cross_origin=*/false,
+                               /*is_user_initiated=*/true,
+                               /*user_tapped_recently=*/true)
+           decisionHandler:base::CallbackToBlock(future.GetCallback())];
+    EXPECT_TRUE(future.Get().ShouldAllowNavigation());
+  }
+
+  [mock_recorder verify];
+  [mock_recorder stopMocking];
 }

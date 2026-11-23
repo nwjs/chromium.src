@@ -64,9 +64,6 @@ public final class ProductionSupportedFlagList {
      * updating the "LoginCustomFlags" field in tools/metrics/histograms/enums.xml.
      */
     public static final Flag[] sFlagList = {
-        Flag.baseFeature(
-                "webviewprewarmdictionaryonpreconnect",
-                "Auto-generated flag for webviewprewarmdictionaryonpreconnect."),
         Flag.commandLine(
                 AwSwitches.HIGHLIGHT_ALL_WEBVIEWS,
                 "Highlight the contents (including web contents) of all WebViews with a yellow "
@@ -154,6 +151,7 @@ public final class ProductionSupportedFlagList {
                 "Override and enable features useful for BSA library testing/debugging."),
         Flag.baseFeature(
                 "DefaultPassthroughCommandDecoder", "Use the passthrough GLES2 command decoder."),
+        Flag.baseFeature("DefaultANGLEVulkan", "Use the Vulkan backend of ANGLE."),
         Flag.baseFeature(
                 GpuFeatures.GPU_PERSISTENT_CACHE,
                 "Use GpuPersistentCache for GPU blob caching in memory and on disk (if "
@@ -186,6 +184,9 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 GpuFeatures.USE_STRONG_REF_TO_SHARED_IMAGE_INTERFACE,
                 "Allows ClientSharedImage to store a strong reference to SharedImageInterface."),
+        Flag.baseFeature(
+                GpuFeatures.USE_AUTOMATIC_SYNC_TOKEN_MANAGEMENT,
+                "Lets ClientSharedImage handle all SyncToken management internally."),
         Flag.baseFeature(VizFeatures.WEBVIEW_VULKAN_INTERMEDIATE_BUFFER, "For debugging vulkan"),
         Flag.baseFeature(
                 VizFeatures.WEBVIEW_ENABLE_ADPF, "Pass WebView threads to HWUI ADPF session"),
@@ -199,11 +200,10 @@ public final class ProductionSupportedFlagList {
                         + " is an active scroll or a touch interaction). This effectively removes"
                         + " back-pressure in this case. This can result in wasted work and "
                         + " contention, but should regularize the timing of client rendering."),
-        Flag.baseFeature(NetFeatures.TRY_QUIC_BY_DEFAULT, "Allow sending QUIC connection options."),
         Flag.baseFeature(
-                "PqcCupSigning",
-                "Controls whether Client Update Protocol (CUP) signing uses the Post-Quantum "
-                        + "Cryptography (PQC) ML-DSA44 key instead of ECDSA."),
+                VizFeatures.SKIP_DISABLED_GL_CONTEXT_ON_DR_DC,
+                "Skip GL context on render thread when using vulkan"),
+        Flag.baseFeature(NetFeatures.TRY_QUIC_BY_DEFAULT, "Allow sending QUIC connection options."),
         Flag.baseFeature(
                 NetFeatures.USE_NEW_ALPS_CODEPOINT_QUIC,
                 "Enables using the new ALPS codepoint to negotiate application settings for QUIC."),
@@ -364,9 +364,6 @@ public final class ProductionSupportedFlagList {
                 "Enables GetUserMedia API will only resolve when the document calling it has"
                         + " focus"),
         Flag.baseFeature(
-                ContentFeatures.COMPOSITE_BG_COLOR_ANIMATION,
-                "When enabled, the background-color animation runs on the compositor thread."),
-        Flag.baseFeature(
                 BlinkFeatures.COMPOSITE_CLIP_PATH_ANIMATION,
                 "When enabled, clip-path animations run on the compositor thread."),
         Flag.baseFeature(
@@ -435,13 +432,9 @@ public final class ProductionSupportedFlagList {
                 "Enable the use of an increased parse slice size per command buffer before"
                         + " each forced context switch."),
         Flag.baseFeature(
-                CcFeatures.USE_DMSAA_FOR_TILES,
-                "Switches skia to use DMSAA instead of MSAA for tile raster"),
-        Flag.baseFeature(
                 BlinkFeatures.THREADED_BODY_LOADER,
                 "If enabled, reads and decodes navigation body data off the main thread."),
         Flag.baseFeature(BlinkFeatures.EXPAND_COMPOSITED_CULL_RECT),
-        Flag.baseFeature(BlinkFeatures.MERGE_STICKY_LAYERS),
         Flag.baseFeature(CcFeatures.NEW_CONTENT_FOR_CHECKERBOARDED_SCROLLS),
         Flag.baseFeature(CcFeatures.PRESERVE_DISCARDABLE_IMAGE_MAP_QUALITY),
         Flag.baseFeature(BlinkFeatures.SCROLLBAR_COLOR),
@@ -628,9 +621,6 @@ public final class ProductionSupportedFlagList {
                 BaseFeatures.PARTITION_ALLOC_TIGHTER_ALIGNED_ALLOC_BOUND,
                 "Allocates less memory for aligned allocations."),
         Flag.baseFeature(
-                "PartitionAllocUseSmallSingleSlotSpans",
-                "Uses a more nuanced heuristic to classify small single-slot spans."),
-        Flag.baseFeature(
                 "MemoryCoordinatorLastResortGC",
                 "Clears strong references in the MemoryCache in last resort GC."),
         Flag.baseFeature(
@@ -699,6 +689,9 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature("V8Flag_enforce_global_heap_limit"),
         Flag.baseFeature("V8Flag_turbolev"),
         Flag.baseFeature("V8Flag_sqrt_allocation_limits"),
+        Flag.baseFeature("V8Flag_freeze_forces_marking_finalization"),
+        Flag.baseFeature("V8Flag_memory_reducer_limit_based"),
+        Flag.baseFeature(ContentFeatures.FORWARD_MEMORY_PRESSURE_TO_BLINK_ISOLATES),
         Flag.baseFeature("V8FlushBaselineCode"),
         Flag.baseFeature("V8FlushCodeBasedOnTabVisibility"),
         Flag.baseFeature("V8FlushCodeBasedOnTime"),
@@ -737,14 +730,8 @@ public final class ProductionSupportedFlagList {
                 AwSwitches.WEBVIEW_PROFILE_STORE_NOT_TRIGGER_STARTUP,
                 "When enabled, profile store methods do not trigger startup."),
         Flag.baseFeature(
-                ContentFeatures.ACCESSIBILITY_EXTENDED_SELECTION,
-                "Register, un-register Accessibility extended selection."),
-        Flag.baseFeature(
                 ContentFeatures.ACCESSIBILITY_MANAGE_BROADCAST_RECEIVER_ON_BACKGROUND,
                 "Register, un-register Accessibility broadcast receiver on a background thread."),
-        Flag.baseFeature(
-                ContentFeatures.ACCESSIBILITY_SET_SELECTABLE_ON_ALL_NODES_WITH_TEXT,
-                "Register, un-register Accessibility selection on all nodes with text."),
         Flag.baseFeature(
                 "BatteryStatusManagerBroadcastReceiverInBackground",
                 "Register, unregister Battery Status Manager broadcast receiver on a background"
@@ -920,7 +907,7 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 "WebViewIgnoreDuplicateNavs",
                 "Ignore duplicate navigations, keeping the older navigations instead."),
-        Flag.baseFeature("OverrideAPIKey"),
+        Flag.baseFeature("OverrideAPIKeyFeature"),
         Flag.baseFeature("CacheStylusSettings", "Cache stylus related settings."),
         Flag.baseFeature("Prerender2FallbackPrefetchSpecRules"),
         Flag.baseFeature(
@@ -957,6 +944,9 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 MediaFeatures.MEDIA_CODEC_BLOCK_MODEL,
                 "Controls use of MediaCodec's LinearBlock mode."),
+        Flag.baseFeature(
+                MediaFeatures.MEDIA_CODEC_BLOCK_MODEL_ENCRYPTED,
+                "Controls use of MediaCodec's LinearBlock mode for encrypted playback."),
         Flag.baseFeature(BlinkFeatures.FETCH_LATER_API, "Enables FetchLater API."),
         Flag.baseFeature(
                 ContentFeatures.IO_THREAD_INTERACTIVE_THREAD_TYPE,
@@ -1053,9 +1043,6 @@ public final class ProductionSupportedFlagList {
                 AccessibilityFeatures.ACCESSIBILITY_MAGNIFICATION_FOLLOWS_FOCUS_NO_KEYBOARD,
                 "Enables Magnification and other views to keep the text cursor onscreen when no"
                         + " physical keyboard is attached."),
-        Flag.baseFeature(
-                AccessibilityFeatures.ACCESSIBILITY_TEXT_CHANGE_TYPES,
-                "Enables text change types for text changed events."),
         Flag.baseFeature(
                 AccessibilityFeatures.ACCESSIBILITY_TEXT_FORMATTING,
                 "Enables text formatting information to be surfaced as Spans on"
@@ -1172,9 +1159,6 @@ public final class ProductionSupportedFlagList {
                 "If true, ignore memory pressure for all network isolation partitions in the Quic"
                         + " session cache."),
         Flag.baseFeature(
-                "WebViewPersistentMetricsInNoBackupDir",
-                "Migrate the persistent metrics file to the nobackupfiles directory."),
-        Flag.baseFeature(
                 "ConnectionKeepAliveForHttp2",
                 "When enabled, WebView#preconnect will use a ConnectionKeepAliveConfig for"
                     + " NetworkContext::PreconnectSocket in HTTP2, and will be informed when the"
@@ -1209,10 +1193,6 @@ public final class ProductionSupportedFlagList {
                 ContentFeatureList.ANDROID_FORCE_TEXT_INPUT_STATE_UPDATE_UPON_FOCUS,
                 "When enabled, forces pushing active text input state update calculation "
                         + "whenever focus is gained on an editable text field."),
-        Flag.baseFeature(
-                ContentFeatures.ANDROID_BLOCK_MISSPELLING_SUGGESTION_SPAN_IN_COMPOSITION_MODE,
-                "When enabled, misspelling suggestion span will be blocked from showing in"
-                        + " composition mode."),
         Flag.baseFeature(
                 "LevelDBCacheSize",
                 "Reduces the size of the LevelDB cache to reduce memory usage at no expected speed"
@@ -1549,8 +1529,36 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_RELAX_DATA_DIR_LOCKING,
                 "Allow WebView initialization to continue in the case where an old instance of"
                         + " the same app process is stuck holding the lock."),
-        Flag.baseFeature("useicu4xnormalizer", "Auto-generated flag for useicu4xnormalizer."),
-        Flag.baseFeature("AwMetricsLogTrimming", "Auto-generated flag for AwMetricsLogTrimming."),
+        Flag.baseFeature(
+                "UseIcu4xNormalizer", "Enables using the ICU4X normalizer instead of ICU4C."),
+        Flag.baseFeature(
+                "AwMetricsLogTrimming",
+                "Controls WebView-specific trimming thresholds for metrics logs."),
+        Flag.baseFeature(
+                AccessibilityFeatures.ACCESSIBILITY_ANDROID_MATH,
+                "Enables exposing additional MathML information in"
+                        + " AccessibilityNodeInfoCompat.MathInfoCompat to screen readers."),
+        Flag.baseFeature(
+                AwFeatures.WEBVIEW_PREWARM_DICTIONARY_ON_PRECONNECT,
+                "When enabled, preconnect requests trigger compression dictionary prewarming."),
+        Flag.baseFeature(
+                GwpAsanFeatures.GWP_ASAN_MALLOC_SMART_SAMPLING,
+                "Enables GWP-ASan smart sampling, which prioritizes allocation types that have not"
+                        + " been sampled recently."),
+        Flag.baseFeature(
+                "AndroidSurfaceControlHdrOverlays",
+                "Enable the use of overlays on devices which support them for HDR content"
+                        + " playback."),
+        Flag.baseFeature(
+                ContentFeatures.CASE_INSENSITIVE_MHTML_MUST_DOWNLOAD,
+                "When enabled, MHTML responses with mixed-case MIME types (e.g."
+                        + " \"Multipart/Related\") for URLs other than file: and content: are"
+                        + " treated as downloads, matching lowercase MHTML MIME types."),
+        Flag.baseFeature(
+                NetFeatures.QUIC_PRECONNECT_INITIAL_RTT,
+                "When enabled, Profile#preconnect configures the client-side initial RTT on"
+                        + " uncached QUIC sessions to reduce the initial handshake Probe Timeout"
+                        + " (PTO) delay."),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

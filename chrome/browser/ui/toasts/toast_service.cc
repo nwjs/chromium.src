@@ -59,7 +59,6 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/menus/simple_menu_model.h"
-#include "ui/strings/grit/ui_strings.h"
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/analysis/copy_warning_delegate_tracker.h"
@@ -184,7 +183,7 @@ void ToastService::RegisterToasts() {
                   window->OpenGURL(
                       chrome::GetSettingsUrl(
                           chrome::kSafeBrowsingEnhancedProtectionSubPage),
-                      WindowOpenDisposition::NEW_FOREGROUND_TAB);
+                      WindowOpenDisposition::kNewForegroundTab);
                 }))
             .AddCloseButton()
             .Build());
@@ -375,7 +374,7 @@ void ToastService::RegisterToasts() {
               base::BindRepeating([](BrowserWindowInterface* window) {
                 window->OpenGURL(
                     chrome::GetSettingsUrl(chrome::kSecuritySubPage),
-                    WindowOpenDisposition::NEW_FOREGROUND_TAB);
+                    WindowOpenDisposition::kNewForegroundTab);
               }))
           .AddCloseButton()
           .AddGlobalScoped()
@@ -720,6 +719,15 @@ void ToastService::RegisterToasts() {
       ToastSpecification::Builder(vector_icons::kDomainIcon,
                                   IDS_ENTERPRISE_COPY_BLOCKED_TOAST_BODY)
           .Build());
+  // Shown when a copy scan couldn't complete and the policy fails closed. It
+  // reuses the fail-closed message of the content analysis dialog so the
+  // wording matches the other access points.
+  toast_registry_->RegisterToast(
+      ToastId::kEnterpriseCopyFailClosed,
+      ToastSpecification::Builder(
+          vector_icons::kDomainIcon,
+          IDS_DEEP_SCANNING_DIALOG_UPLOAD_FAIL_CLOSED_MESSAGE)
+          .Build());
 #endif
   if (base::FeatureList::IsEnabled(dictation::kDictation)) {
     toast_registry_->RegisterToast(
@@ -779,4 +787,11 @@ void ToastService::RegisterToasts() {
             .AddGlobalScoped()
             .Build());
   }
+
+  toast_registry_->RegisterToast(
+      ToastId::kTabGroupFocusExited,
+      ToastSpecification::Builder(kFilterTiltShiftIcon,
+                                  IDS_TAB_GROUP_FOCUS_EXITED_TOAST_BODY)
+          .AddGlobalScoped()
+          .Build());
 }  // RegisterToasts() end.

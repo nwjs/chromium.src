@@ -17,6 +17,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/json/json_writer.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
@@ -78,6 +79,7 @@
 #include "extensions/browser/renderer_startup_helper.h"
 #include "extensions/browser/scoped_database_manager_for_test.h"
 #include "extensions/browser/test_extension_registry_observer.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_features.h"
@@ -515,7 +517,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest,
 
   TestExtensionRegistryObserver registry_observer(extension_registry());
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url, WindowOpenDisposition::CURRENT_TAB,
+      browser(), url, WindowOpenDisposition::kCurrentTab,
       ui_test_utils::BROWSER_TEST_NO_WAIT);
 
   EXPECT_TRUE(registry_observer.WaitForExtensionInstalled());
@@ -593,6 +595,68 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, AllowOffStore) {
           << kTestData[i];
     }
   }
+}
+
+// Tests that self-hosted hosted app installation requires a matching download
+// host.
+IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest,
+                       HostedAppExtentRequiresDownloadHost) {
+  base::ScopedAllowBlockingForTesting allow_io;
+
+  TestExtensionDir app_dir;
+  app_dir.WriteManifest(
+      R"({
+           "name": "Hosted app",
+           "version": "1",
+           "manifest_version": 2,
+           "app": {
+             "urls": ["http://app.example.com/"],
+             "launch": {"web_url": "http://app.example.com/"}
+           }
+         })");
+  base::FilePath crx_path = app_dir.Pack();
+  ASSERT_FALSE(crx_path.empty());
+
+  auto run_installer =
+      [&](const GURL& download_url) -> std::optional<CrxInstallError> {
+    std::unique_ptr<MockPromptProxy> mock_prompt =
+        CreateMockPromptProxyForBrowser(browser());
+    scoped_refptr<CrxInstaller> installer(
+        CrxInstaller::Create(profile(), mock_prompt->CreatePrompt()));
+    installer->set_off_store_install_allow_reason(
+        CrxInstaller::OffStoreInstallAllowedInTest);
+    installer->set_original_mime_type(Extension::kMimeType);
+    installer->set_apps_require_extension_mime_type(true);
+    installer->set_download_url(download_url);
+
+    base::test::TestFuture<std::optional<CrxInstallError>>
+        installer_done_future;
+    installer->AddInstallerCallback(
+        installer_done_future
+            .GetCallback<const std::optional<CrxInstallError>&>());
+    installer->InstallCrx(crx_path);
+    return installer_done_future.Take();
+  };
+
+  // The download host does not cover the app's web extent, so the install
+  // must be rejected.
+  std::optional<CrxInstallError> result =
+      run_installer(GURL("http://other.example.com/app.crx"));
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(CrxInstallErrorDetail::INCORRECT_INSTALL_HOST, result->detail());
+
+  // No download URL is available (for example, the file was dropped from
+  // disk); there is no host to compare against, so the install must be
+  // rejected.
+  result = run_installer(GURL());
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(CrxInstallErrorDetail::INCORRECT_INSTALL_HOST, result->detail());
+
+  // The app's web extent is limited to the host (or a subdomain of the host)
+  // it was downloaded from, so the install is allowed.
+  EXPECT_EQ(std::nullopt,
+            run_installer(GURL("http://app.example.com/app.crx")));
+  EXPECT_EQ(std::nullopt, run_installer(GURL("http://example.com/app.crx")));
 }
 
 IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, HiDpiThemeTest) {
@@ -1244,6 +1308,53 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, InstallToSharedLocation) {
 
   EXPECT_FALSE(base::PathExists(extension_path));
 }
+
+IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest,
+                       SharedLocationManifestMismatchFallsBackToLocalInstall) {
+  base::ScopedAllowBlockingForTesting allow_io;
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ash::switches::kEnableExtensionAssetsSharing);
+  base::ScopedTempDir cache_dir;
+  ASSERT_TRUE(cache_dir.CreateUniqueTempDir());
+  ExtensionAssetsManagerChromeOS::SetSharedInstallDirForTesting(
+      cache_dir.GetPath());
+
+  base::FilePath crx_path = test_data_dir_.AppendASCII("crx_installer/v1.crx");
+  const Extension* shared_extension =
+      InstallExtension(crx_path, 1, mojom::ManifestLocation::kExternalPref);
+  ASSERT_TRUE(shared_extension);
+  const base::FilePath shared_version_dir = shared_extension->path();
+  ASSERT_TRUE(cache_dir.GetPath().IsParent(shared_version_dir));
+
+  // Modify the shared copy's manifest on disk (e.g. simulating a shared copy
+  // written with a different differential_fingerprint).
+  base::DictValue modified_manifest =
+      shared_extension->manifest()->value()->Clone();
+  modified_manifest.Set("description", "modified shared manifest");
+  std::optional<std::string> json = base::WriteJson(modified_manifest);
+  ASSERT_TRUE(json.has_value());
+  ASSERT_TRUE(
+      base::WriteFile(shared_version_dir.Append(kManifestFilename), *json));
+
+  // Re-installing the same CRX resolves to `shared_version_dir` first, detects
+  // the mismatch, and falls back to installing `unpacked_extension_root_` into
+  // the profile's local `install_directory()`.
+  base::HistogramTester histogram_tester;
+  const Extension* local_extension =
+      InstallExtension(crx_path, 0, mojom::ManifestLocation::kExternalPref);
+  ASSERT_TRUE(local_extension);
+  EXPECT_TRUE(ExtensionRegistrar::Get(profile())->install_directory().IsParent(
+      local_extension->path()));
+  EXPECT_TRUE(base::PathExists(shared_version_dir));
+  histogram_tester.ExpectBucketCount(
+      "Extensions.CrxInstaller.ReloadManifestMismatch",
+      CrxInstaller::ReloadManifestVerificationResult::
+          kSharedCopyMismatchFallback,
+      1);
+  histogram_tester.ExpectBucketCount(
+      "Extensions.CrxInstaller.ReloadManifestMismatch",
+      CrxInstaller::ReloadManifestVerificationResult::kMatch, 1);
+}
 #endif
 
 IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, DoNotSync) {
@@ -1455,6 +1566,10 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, NewInstallFromWebStore) {
   histogram_tester.ExpectBucketCount(
       "Extensions.ExtensionInstalled.NewFromWebstore", true,
       /*expected_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Extensions.CrxInstaller.ReloadManifestMismatch",
+      CrxInstaller::ReloadManifestVerificationResult::kMatch,
+      /*expected_bucket_count=*/1);
 
   // Install another webstore extension and confirm the histogram is not emitted
   // again.
@@ -1468,6 +1583,179 @@ IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest, NewInstallFromWebStore) {
   histogram_tester.ExpectBucketCount(
       "Extensions.ExtensionInstalled.NewFromWebstore", true,
       /*expected_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "Extensions.CrxInstaller.ReloadManifestMismatch",
+      CrxInstaller::ReloadManifestVerificationResult::kMatch,
+      /*expected_bucket_count=*/2);
+}
+
+namespace {
+
+class TamperingInstallPrompt : public ExtensionInstallPrompt {
+ public:
+  TamperingInstallPrompt(
+      content::WebContents* web_contents,
+      ExtensionId* out_extension_id,
+      std::string* out_version,
+      std::optional<std::string> raw_manifest_override = std::nullopt)
+      : ExtensionInstallPrompt(web_contents,
+                               std::make_unique<InstallPromptData>(
+                                   InstallPromptData::UNSET_PROMPT_TYPE)),
+        out_extension_id_(out_extension_id),
+        out_version_(out_version),
+        raw_manifest_override_(std::move(raw_manifest_override)) {}
+
+  void ConfirmInstall(DoneCallback install_callback,
+                      const Extension* extension) override {
+    *out_extension_id_ = extension->id();
+    *out_version_ = extension->version().GetString();
+    base::ScopedAllowBlockingForTesting allow_io;
+    std::optional<std::string> json = raw_manifest_override_;
+    if (!json.has_value()) {
+      base::DictValue tampered = extension->manifest()->value()->Clone();
+      tampered.Set("description", "tampered after unpack");
+      json = base::WriteJson(tampered);
+    }
+    EXPECT_TRUE(json.has_value());
+    if (!json.has_value()) {
+      std::move(install_callback).Run(DoneCallbackPayload(Result::ABORTED));
+      return;
+    }
+    const bool wrote_file =
+        base::WriteFile(extension->path().Append(kManifestFilename), *json);
+    EXPECT_TRUE(wrote_file);
+    std::move(install_callback)
+        .Run(DoneCallbackPayload(wrote_file ? Result::ACCEPTED
+                                            : Result::ABORTED));
+  }
+
+ private:
+  raw_ptr<ExtensionId> out_extension_id_;
+  raw_ptr<std::string> out_version_;
+  std::optional<std::string> raw_manifest_override_;
+};
+
+}  // namespace
+
+// Verifies that if `manifest.json` on disk is modified between unpacking and
+// the post-install reload in `CrxInstaller::ReloadExtensionAfterInstall`, the
+// installation fails with `MANIFEST_MISMATCH_AFTER_INSTALL` and cleans up the
+// installed version directory.
+IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest,
+                       ManifestModifiedBeforeReloadFailsInstall) {
+  base::HistogramTester histogram_tester;
+  ExtensionId extension_id;
+  std::string version;
+  auto prompt = std::make_unique<TamperingInstallPrompt>(
+      browser()->GetTabStripModel()->GetActiveWebContents(), &extension_id,
+      &version);
+
+  scoped_refptr<CrxInstaller> installer(
+      CrxInstaller::Create(profile(), std::move(prompt)));
+
+  base::test::TestFuture<std::optional<CrxInstallError>> install_result_future;
+  installer->AddInstallerCallback(
+      install_result_future
+          .GetCallback<const std::optional<CrxInstallError>&>());
+  installer->InstallCrx(test_data_dir_.AppendASCII("good.crx"));
+
+  std::optional<CrxInstallError> error = install_result_future.Get();
+  ASSERT_TRUE(error.has_value());
+  EXPECT_EQ(CrxInstallErrorType::OTHER, error->type());
+  EXPECT_EQ(CrxInstallErrorDetail::MANIFEST_MISMATCH_AFTER_INSTALL,
+            error->detail());
+  histogram_tester.ExpectUniqueSample(
+      "Extensions.CrxInstaller.ReloadManifestMismatch",
+      CrxInstaller::ReloadManifestVerificationResult::kMismatch,
+      /*expected_bucket_count=*/1);
+  ASSERT_FALSE(extension_id.empty());
+  EXPECT_FALSE(GetInstalledExtension(extension_id));
+
+  base::ScopedAllowBlockingForTesting allow_io;
+  base::FilePath version_dir = ExtensionRegistrar::Get(profile())
+                                   ->install_directory()
+                                   .AppendASCII(extension_id)
+                                   .AppendASCII(version + "_0");
+  EXPECT_FALSE(base::PathExists(version_dir));
+}
+
+// Verifies that if `file_util::LoadExtension` fails in
+// `CrxInstaller::ReloadExtensionAfterInstall` (`CANT_LOAD_EXTENSION`), the
+// installed `version_dir` under `install_directory_` is cleaned up.
+IN_PROC_BROWSER_TEST_F(ExtensionCrxInstallerTest,
+                       CantLoadExtensionAfterInstallCleansUpVersionDir) {
+  ExtensionId extension_id;
+  std::string version;
+  auto prompt = std::make_unique<TamperingInstallPrompt>(
+      browser()->GetTabStripModel()->GetActiveWebContents(), &extension_id,
+      &version, /*raw_manifest_override=*/"not valid json");
+
+  scoped_refptr<CrxInstaller> installer(
+      CrxInstaller::Create(profile(), std::move(prompt)));
+
+  base::test::TestFuture<std::optional<CrxInstallError>> install_result_future;
+  installer->AddInstallerCallback(
+      install_result_future
+          .GetCallback<const std::optional<CrxInstallError>&>());
+  installer->InstallCrx(test_data_dir_.AppendASCII("good.crx"));
+
+  std::optional<CrxInstallError> error = install_result_future.Get();
+  ASSERT_TRUE(error.has_value());
+  EXPECT_EQ(CrxInstallErrorType::OTHER, error->type());
+  EXPECT_EQ(CrxInstallErrorDetail::CANT_LOAD_EXTENSION, error->detail());
+  ASSERT_FALSE(extension_id.empty());
+  EXPECT_FALSE(GetInstalledExtension(extension_id));
+
+  base::ScopedAllowBlockingForTesting allow_io;
+  base::FilePath version_dir = ExtensionRegistrar::Get(profile())
+                                   ->install_directory()
+                                   .AppendASCII(extension_id)
+                                   .AppendASCII(version + "_0");
+  EXPECT_FALSE(base::PathExists(version_dir));
+}
+
+class ExtensionCrxInstallerTestWithoutVerifyReloadedManifest
+    : public ExtensionCrxInstallerTest {
+ public:
+  ExtensionCrxInstallerTestWithoutVerifyReloadedManifest() {
+    feature_list_.InitAndDisableFeature(
+        extensions_features::kCrxInstallerVerifyReloadedManifest);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+// Verifies that disabling `kCrxInstallerVerifyReloadedManifest` acts as a kill
+// switch and allows installation to succeed even if `manifest.json` is modified
+// before the post-install reload, while still recording the mismatch in UMA.
+IN_PROC_BROWSER_TEST_F(
+    ExtensionCrxInstallerTestWithoutVerifyReloadedManifest,
+    ManifestModifiedBeforeReloadAllowedWhenKillSwitchDisabled) {
+  base::HistogramTester histogram_tester;
+  ExtensionId extension_id;
+  std::string version;
+  auto prompt = std::make_unique<TamperingInstallPrompt>(
+      browser()->GetTabStripModel()->GetActiveWebContents(), &extension_id,
+      &version);
+
+  scoped_refptr<CrxInstaller> installer(
+      CrxInstaller::Create(profile(), std::move(prompt)));
+
+  base::test::TestFuture<std::optional<CrxInstallError>> install_result_future;
+  installer->AddInstallerCallback(
+      install_result_future
+          .GetCallback<const std::optional<CrxInstallError>&>());
+  installer->InstallCrx(test_data_dir_.AppendASCII("good.crx"));
+
+  std::optional<CrxInstallError> error = install_result_future.Get();
+  EXPECT_FALSE(error.has_value());
+  histogram_tester.ExpectUniqueSample(
+      "Extensions.CrxInstaller.ReloadManifestMismatch",
+      CrxInstaller::ReloadManifestVerificationResult::kMismatch,
+      /*expected_bucket_count=*/1);
+  ASSERT_FALSE(extension_id.empty());
+  EXPECT_TRUE(GetInstalledExtension(extension_id));
 }
 
 class ExtensionCrxInstallerTestWithWithholdingUI

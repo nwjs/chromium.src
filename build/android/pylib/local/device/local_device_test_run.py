@@ -44,6 +44,19 @@ class TestsTerminated(Exception):
     pass
 
 
+# Rough runtime estimates (seconds) used only for shard balancing; unrelated
+# to test timeouts.
+ESTIMATED_RUNTIME_PER_CLASS_DEFAULT = 8.0
+ESTIMATED_RUNTIME_PER_TEST_DEFAULT = 1.0
+
+# 0.05-0.10 best in offline sweep; eps=0.20 regressed.
+BOUNDED_LOAD_EPSILON = 0.05
+
+SHARDING_STRATEGY_HASH = 'hash'
+SHARDING_STRATEGY_BOUNDED_LOAD = 'bounded-load'
+SHARDING_STRATEGIES = (SHARDING_STRATEGY_HASH, SHARDING_STRATEGY_BOUNDED_LOAD)
+
+
 class LocalDeviceTestRun(test_run.TestRun):
     def __init__(self, env, test_instance):
         super().__init__(env, test_instance)
@@ -52,11 +65,12 @@ class LocalDeviceTestRun(test_run.TestRun):
         env.SetPreferredAbis(test_instance.GetPreferredAbis())
 
     @local_device_environment.handle_shard_failures
-    def _RunTestsOnDevice(self, dev, tests, results, exit_now):
+    def _RunTestsOnDevice(self, dev, tests, results, exit_now, num_tests=0):
         # This is performed here instead of during setup because restarting the
         # device clears app compatibility flags, which will happen if a device
         # needs to be recovered.
         SetAppCompatibilityFlagsIfNecessary(self._installed_packages, dev)
+        CompilePackages(self._installed_packages, dev, num_tests)
         consecutive_device_errors = 0
         for test in tests:
             if not test:
@@ -228,6 +242,7 @@ class LocalDeviceTestRun(test_run.TestRun):
                                 tc,
                                 try_results,
                                 exit_now,
+                                len(flatten_tests),
                             ).pGet(None)
                         else:
                             self._env.parallel_devices.pMap(
@@ -235,6 +250,7 @@ class LocalDeviceTestRun(test_run.TestRun):
                                 tests,
                                 try_results,
                                 exit_now,
+                                len(flatten_tests),
                             ).pGet(None)
                     except TestsTerminated:
                         for unknown_result in try_results.GetUnknown():
@@ -261,7 +277,15 @@ class LocalDeviceTestRun(test_run.TestRun):
             pass
 
     def _RecoverDevices(self):
-        self._env.parallel_devices.pMap(device_recovery.RecoverDevice, None)
+        def recover(device):
+            device_recovery.RecoverDevice(device, None)
+            # Recovery reboots the device, which brings HSUM devices back to
+            # the system user with the main user stopped and its storage
+            # locked ("Required key not available").
+            if self._env.force_main_user:
+                device.EnsureMainUser()
+
+        self._env.parallel_devices.pMap(recover)
 
     def _GetTestsToRetry(self, tests, try_results):
         """Get the tests to retry.
@@ -318,20 +342,73 @@ class LocalDeviceTestRun(test_run.TestRun):
             total_shards,
         )
 
-        if total_shards < 0 or shard_index < 0 or total_shards <= shard_index:
+        if total_shards <= 0 or shard_index < 0 or total_shards <= shard_index:
             raise test_exception.InvalidShardingSettings(
                 shard_index, total_shards
             )
 
-        sharded_tests = []
-
         grouped_tests = self._GroupTests(tests)
-        for test in grouped_tests:
-            test_name = self._GetUniqueTestName(test)
-            if self._DeterministicHash(test_name) % total_shards == shard_index:
-                sharded_tests.append(test)
+        groups = [(self._GetUniqueTestName(g), g) for g in grouped_tests]
+        # Placement order depends only on group names, never on other groups'
+        # weights.
+        groups.sort(
+            key=lambda item: (self._DeterministicHash(item[0]), item[0])
+        )
 
-        return sharded_tests
+        # Fingerprint so divergence between shards is detectable from logs: the
+        # partition is only valid if every shard computes it from the identical
+        # list.
+        fingerprint = hashlib.sha256(
+            '\n'.join(name for name, _ in groups).encode('utf-8')
+        ).hexdigest()[:12]
+        strategy = self._env.sharding_strategy
+        logging.info(
+            'Sharding %d test groups with strategy %s (input fingerprint %s)',
+            len(groups),
+            strategy,
+            fingerprint,
+        )
+
+        if strategy == SHARDING_STRATEGY_HASH:
+            return [
+                g
+                for name, g in groups
+                if self._DeterministicHash(name) % total_shards == shard_index
+            ]
+
+        # Bounded-load hashing: each group keeps its hash shard unless that
+        # would push the shard above (1 + eps) * mean estimated load, in which
+        # case it spills to the next shard with room. Only a small fraction of
+        # groups move when the test list changes, unlike LPT where a group's
+        # shard depends on every other group's weight.
+        weights = [self._EstimateTestGroupRuntime(g) for _, g in groups]
+        cap = (1 + BOUNDED_LOAD_EPSILON) * sum(weights) / total_shards
+        load = [0.0] * total_shards
+        shard_assigned = [[] for _ in range(total_shards)]
+
+        for (name, group), weight in zip(groups, weights):
+            preferred = self._DeterministicHash(name) % total_shards
+            for k in range(total_shards):
+                shard = (preferred + k) % total_shards
+                if load[shard] + weight <= cap or k == total_shards - 1:
+                    break
+            shard_assigned[shard].append(group)
+            load[shard] += weight
+
+        return shard_assigned[shard_index]
+
+    def _EstimateTestGroupRuntime(self, test):
+        """Returns a rough estimated runtime (seconds) for balancing shards.
+
+        This is NOT the test timeout; the numbers are coarse heuristics, not
+        measurements.
+        """
+        tests_in_group = test if isinstance(test, (list, tuple)) else [test]
+        assert tests_in_group, 'Empty test group'
+        return (
+            ESTIMATED_RUNTIME_PER_CLASS_DEFAULT
+            + len(tests_in_group) * ESTIMATED_RUNTIME_PER_TEST_DEFAULT
+        )
 
     def _DeterministicHash(self, test_name):
         """Return the deterministic hash for a test name, as an integer."""
@@ -340,17 +417,18 @@ class LocalDeviceTestRun(test_run.TestRun):
         # To speed thing up, only take the last 3 bytes
         return int.from_bytes(hash_bytes[-3:], byteorder='big')
 
-    # Sort by hash so we don't put all tests in a slow suite in the same shard.
-    def _SortTests(self, tests):
-        return sorted(
-            tests,
-            key=lambda t: self._DeterministicHash(self._GetUniqueTestName(t)),
-        )
-
     def _CreateShardsForDevices(self, tests):
         raise NotImplementedError
 
     def _GetUniqueTestName(self, test):
+        """Returns a string identifier for a single test.
+
+        Args:
+          test: A single test identifier. The base implementation only handles
+            str tests (e.g. gtests) and returns it unchanged; subclasses such as
+            LocalDeviceInstrumentationTestRun override this for dict tests.
+            Cannot be a test group or batch list.
+        """
         return test
 
     def _ShouldRetry(self, test, result):
@@ -441,6 +519,19 @@ def SetAppCompatibilityFlagsIfNecessary(packages, device):
         # See crbug.com/1173699 for more information.
         set_flag_for_packages('DEFAULT_SCOPED_STORAGE', False)
         set_flag_for_packages('FORCE_ENABLE_SCOPED_STORAGE', False)
+
+
+def CompilePackages(packages, device, num_tests):
+    """Ahead-of-time compiles test APKs with ART when worthwhile."""
+    if num_tests <= 20:
+        return
+    for p in dict.fromkeys(packages):
+        device.RunShellCommand(
+            ['cmd', 'package', 'compile', '-m', 'speed', p],
+            check_return=False,
+            timeout=180,
+            retries=0,
+        )
 
 
 class NoTestsError(Exception):

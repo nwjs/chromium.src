@@ -956,7 +956,7 @@ ci.thin_tester(
                     "--debug",
                 ],
                 swarming = targets.swarming(
-                    shards = 4,
+                    shards = 12,
                 ),
             ),
         },
@@ -1533,4 +1533,37 @@ ci.builder(
         category = "linux",
     ),
     cq_mirrors_console_view = "mirrors",
+)
+
+ci.builder(
+    name = "linux-webdriver-bidi-rel",
+    description_html = "Builder for WebDriver BiDi implementation",
+    builder_spec = builder_config.copy_from("ci/Linux Builder"),
+    gn_args = "ci/Linux Builder",
+    targets = targets.bundle(
+        targets = [
+            "webdriver_bidi_e2e_tests",
+            "webdriver_bidi_unittests",
+        ],
+        mixins = [
+            "linux-jammy",
+        ],
+        per_test_modifications = {
+            "webdriver_bidi_e2e_tests": [
+                targets.mixin(
+                    swarming = targets.swarming(
+                        shards = 8,
+                    ),
+                ),
+                # TODO(crbug.com/579036421): Remove once e4 failures are fixed.
+                "e2-standard-8",
+            ],
+        },
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "webdriver",
+        short_name = "bidi",
+    ),
+    cq_mirrors_console_view = "mirrors",
+    contact_team_email = "chrome-devtools@google.com",
 )

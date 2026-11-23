@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "base/component_export.h"
+#include "base/containers/span.h"
 #include "base/strings/string_split.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_clipping_behavior.h"
@@ -158,12 +159,12 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeDelegate {
       ax::mojom::StringAttribute attribute) const;
   const AXIntListAttributes& GetIntListAttributes() const;
   bool HasIntListAttribute(ax::mojom::IntListAttribute attribute) const;
-  const std::vector<int32_t>& GetIntListAttribute(
+  base::span<const int32_t> GetIntListAttribute(
       ax::mojom::IntListAttribute attribute) const;
   bool GetIntListAttribute(ax::mojom::IntListAttribute attribute,
                            std::vector<int32_t>* value) const;
   bool HasStringListAttribute(ax::mojom::StringListAttribute attribute) const;
-  const std::vector<std::string>& GetStringListAttribute(
+  base::span<const std::string> GetStringListAttribute(
       ax::mojom::StringListAttribute attribute) const;
   // TODO(accessibility): Deprecate this method in favor of separate calls to
   // Has and Get. This version forces a copy of the list, which is inefficient
@@ -659,8 +660,11 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeDelegate {
   std::string ToString() const { return GetData().ToString(); }
 
   // Returns a string representation of the subtree of delegates rooted at this
-  // delegate.
-  std::string SubtreeToString() { return SubtreeToStringHelper(0u); }
+  // delegate. If `stop_at_document` is true, include document nodes but omit
+  // their descendants.
+  std::string SubtreeToString(bool stop_at_document = false) {
+    return SubtreeToStringHelper(0u, stop_at_document);
+  }
 
   friend std::ostream& operator<<(std::ostream& stream,
                                   const AXPlatformNodeDelegate& delegate) {
@@ -672,7 +676,8 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeDelegate {
 
   explicit AXPlatformNodeDelegate(AXNode* node);
 
-  virtual std::string SubtreeToStringHelper(size_t level);
+  virtual std::string SubtreeToStringHelper(size_t level,
+                                            bool stop_at_document);
 
   virtual void NotifyAccessibilityApiUsage() const {}
 

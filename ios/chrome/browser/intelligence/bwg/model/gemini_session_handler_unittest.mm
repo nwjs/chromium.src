@@ -736,6 +736,54 @@ TEST_F(GeminiSessionHandlerTest, TestLiveSessionDormantReasonRecordsPrompt) {
   histogram_tester_.ExpectUniqueSample(kSessionFirstPromptHistogram, true, 1);
 }
 
+// Tests that the error-forwarding `didUpdateProcessingStatus:...` overload
+// forwards error details to `geminiViewStateDelegate` and records prompts on
+// transition to thinking.
+TEST_F(GeminiSessionHandlerTest, TestLiveSessionErrorOverloadRecordsPrompt) {
+  NSString* client_id = GetClientID();
+  id mock_delegate = OCMProtocolMock(@protocol(GeminiViewStateDelegate));
+  session_handler_.geminiViewStateDelegate = mock_delegate;
+  OCMExpect([mock_delegate geminiUIDidAppear]);
+  [session_handler_ UIDidAppearWithClientID:client_id serverID:kTestServerID];
+
+  static constexpr NSInteger kTestErrorCode = 1;
+  NSString* const kTestErrorDomain = @"TestDomain";
+  NSError* error = [NSError errorWithDomain:kTestErrorDomain
+                                       code:kTestErrorCode
+                                   userInfo:nil];
+  OCMExpect([mock_delegate
+      didUpdateProcessingStatus:ios::provider::GeminiClientMode::kThinking
+                  dormantReason:ios::provider::GeminiDormantReason::kUnknown
+                          error:error
+                      errorCode:ios::provider::GeminiErrorCode::kGenericError
+                      sessionID:client_id
+                 conversationID:kTestServerID]);
+  [session_handler_
+      didUpdateProcessingStatus:ios::provider::GeminiClientMode::kThinking
+                  dormantReason:ios::provider::GeminiDormantReason::kServerPause
+                          error:error
+                      errorCode:ios::provider::GeminiErrorCode::kGenericError
+                      sessionID:client_id
+                 conversationID:kTestServerID];
+  EXPECT_OCMOCK_VERIFY(mock_delegate);
+
+  histogram_tester_.ExpectUniqueSample(
+      kFirstPromptSubmissionMethodHistogram,
+      IOSGeminiFirstPromptSubmissionMethod::kLivePrompt, 1);
+  histogram_tester_.ExpectUniqueSample(
+      kPromptSubmissionMethodHistogram,
+      IOSGeminiFirstPromptSubmissionMethod::kLivePrompt, 1);
+
+  [session_handler_ UIDidDisappearWithClientID:client_id
+                                      serverID:kTestServerID];
+
+  histogram_tester_.ExpectTotalCount(kGeminiSessionLengthWithPromptHistogram,
+                                     1);
+  histogram_tester_.ExpectTotalCount(kGeminiSessionLengthAbandonedHistogram, 0);
+  histogram_tester_.ExpectUniqueSample(kSessionPromptCountHistogram, 1, 1);
+  histogram_tester_.ExpectUniqueSample(kSessionFirstPromptHistogram, true, 1);
+}
+
 // Tests that a session without prompts is classified as abandoned.
 TEST_F(GeminiSessionHandlerTest, TestAbandonedSessionWithoutPrompts) {
   NSString* client_id = GetClientID();
@@ -931,5 +979,62 @@ TEST_F(GeminiSessionHandlerTest,
 
   [session_handler_ didFinishLoadingConversationWithID:@"conv_123" error:error];
 
+  [mock_delegate verify];
+}
+
+// Tests that tab attachment and detachment events notify
+// `geminiViewStateDelegate`.
+TEST_F(GeminiSessionHandlerTest,
+       TestTabAttachmentEventsNotifyViewStateDelegate) {
+  id mock_delegate = OCMProtocolMock(@protocol(GeminiViewStateDelegate));
+  session_handler_.geminiViewStateDelegate = mock_delegate;
+
+  OCMExpect([mock_delegate didRequestToDetachTabWithID:@"tab_1"]);
+  [session_handler_ didRequestToDetachTabWithID:@"tab_1"];
+
+  OCMExpect([mock_delegate didAttachTabWithID:@"tab_2"]);
+  [session_handler_ didAttachTabWithID:@"tab_2"];
+
+  OCMExpect([mock_delegate didDetachTabWithID:@"tab_3"]);
+  [session_handler_ didDetachTabWithID:@"tab_3"];
+
+  [mock_delegate verify];
+}
+
+// Tests that input plate attachment events notify `geminiViewStateDelegate`.
+TEST_F(GeminiSessionHandlerTest,
+       TestInputPlateAttachmentEventsNotifyViewStateDelegate) {
+  id mock_delegate = OCMProtocolMock(@protocol(GeminiViewStateDelegate));
+  session_handler_.geminiViewStateDelegate = mock_delegate;
+
+  OCMExpect([mock_delegate inputPlateDidChangePageContextAttachment:YES]);
+  [session_handler_ inputPlateDidChangePageContextAttachment:YES];
+
+  OCMExpect([mock_delegate inputPlateDidChangeNanoBananaAttachment:YES]);
+  [session_handler_ inputPlateDidChangeNanoBananaAttachment:YES];
+
+  [mock_delegate verify];
+}
+
+// Tests that `didSendQueryWithInputType:` queries `attachedTabsCount` and
+// `isMultiTabUsed` from `geminiViewStateDelegate` when multi-tab context is
+// enabled.
+TEST_F(GeminiSessionHandlerTest, TestQueryMetricsRecorded_WithMultiTabContext) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({kGeminiMultiTabContext, kPageActionMenu}, {});
+
+  id mock_delegate = OCMProtocolMock(@protocol(GeminiViewStateDelegate));
+  session_handler_.geminiViewStateDelegate = mock_delegate;
+
+  OCMExpect([mock_delegate attachedTabsCount]).andReturn(3u);
+  OCMExpect([mock_delegate isMultiTabUsed]).andReturn(YES);
+
+  [session_handler_ didSendQueryWithInputType:gemini::InputType::kText
+                     isNanoBananaToolSelected:NO
+                          imagesAttachedCount:0
+                               longPressImage:NO
+                          pageContextAttached:YES];
+
+  histogram_tester_.ExpectUniqueSample(kPromptTabsAttachedCountHistogram, 3, 1);
   [mock_delegate verify];
 }

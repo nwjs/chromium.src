@@ -735,9 +735,13 @@ void IndigoPageActionController::UpdateEntryPointsState() {
   last_trigger_source_ = eval.source;
   const bool should_show = eval.source.has_value();
 
+  // Delegate chip and anchored message cueing to Contextual Cues whenever CCV2
+  // is enabled and doing so will leave at least one functioning entry point
+  // (either through CCV2 or alternate UI).
   const bool delegate_to_contextual_cues =
-      base::FeatureList::IsEnabled(features::kIndigoContextualCueingV2) &&
-      base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2);
+      base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2) &&
+      (base::FeatureList::IsEnabled(features::kIndigoContextualCueingV2) ||
+       base::FeatureList::IsEnabled(features::kIndigoContextMenu));
 
   if (should_show) {
     ResolvePendingEligibilityCallbacks(/*eligible=*/true);
@@ -970,6 +974,15 @@ void IndigoPageActionController::FrameSizeChanged(
   }
 
   if (frame_size.IsEmpty()) {
+    // When a replacement iframe is first created and navigated to the
+    // component extension, its LocalFrameView is initialized with a 0x0 size
+    // before its layout geometry is synchronized from the parent frame. Ignore
+    // this initial 0x0 size before the replacement has been rendered.
+    // TODO(b/576343115): Handle the case where the replacement iframe is
+    // genuinely 0x0 after it is ready to render.
+    if (frame_size.IsZero() && !replacement->rendering_replacement()) {
+      return;
+    }
     Reset(ResetType::kResetReplacementsAndContentScript);
     ShowInvocationErrorToast(
         IndigoTransformationResult::kEmptyPrimaryImageSize);

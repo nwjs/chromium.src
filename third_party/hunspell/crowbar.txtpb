@@ -1,0 +1,22 @@
+upstream {
+  version: "v1.7.5"
+  artifacts {
+    git {
+      repository: "https://github.com/hunspell/hunspell"
+      commit: "e8342700b4dde06130cdbba75f7e6500ffa58864"
+    }
+  }
+}
+stages {
+  input {
+    patch { copybara {} }
+  }
+  publish { git {} }
+}
+latest {
+  semver {}
+  git {
+    repository: "https://github.com/hunspell/hunspell"
+    tags {}
+  }
+}

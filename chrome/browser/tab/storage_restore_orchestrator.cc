@@ -95,6 +95,40 @@ void StorageRestoreOrchestrator::ObserverImpl::OnNodeRejected(StorageId node) {
   orchestrator_->OnNodeRejected(node);
 }
 
+// Post-order crawler for structural snapshots during restoration.
+class RestoreStructureSnapshotCrawler : public DirectChildWalker::Processor {
+ public:
+  RestoreStructureSnapshotCrawler(
+      TabStateStorageService* service,
+      RestoreEntityTracker* tracker,
+      base::PassKey<StorageRestoreOrchestrator> passkey)
+      : service_(service), tracker_(tracker), passkey_(passkey) {}
+
+  void ProcessTab(const TabInterface* tab) override {
+    if (!tracker_->AssociateTab(tab) && !tracker_->HasTabBeenAssociated(tab)) {
+      service_->Save(tab);
+    }
+  }
+
+  void ProcessCollection(const TabCollection* collection) override {
+    DirectChildWalker walker(collection, this);
+    walker.Walk();
+
+    if (!tracker_->AssociateCollection(collection) &&
+        !tracker_->HasCollectionBeenAssociated(collection->GetHandle())) {
+      service_->Save(collection);
+    } else {
+      service_->SavePayload(collection);
+      service_->SaveDivergentChildren(collection, passkey_);
+    }
+  }
+
+ private:
+  raw_ptr<TabStateStorageService> service_;
+  raw_ptr<RestoreEntityTracker> tracker_;
+  base::PassKey<StorageRestoreOrchestrator> passkey_;
+};
+
 // StorageRestoreOrchestrator implementation.
 StorageRestoreOrchestrator::StorageRestoreOrchestrator(
     TabStripCollection* collection,
@@ -111,8 +145,7 @@ StorageRestoreOrchestrator::StorageRestoreOrchestrator(
   // This is required to save the unique collections that do not emit observable
   // events on creation.
   if (tracker->HasNothingToAssociate()) {
-    StorageCollectionSynchronizer synchronizer(collection_, service_);
-    synchronizer.FullSave(base::NullCallback());
+    SaveStructureSnapshot(/*clear_unused_nodes=*/false);
   } else {
     tracker->AssociateCollection(collection_);
     PreRestoreChangesCrawler crawler(
@@ -138,63 +171,17 @@ StorageRestoreOrchestrator::~StorageRestoreOrchestrator() {
   }
 }
 
-void StorageRestoreOrchestrator::OnSaveChildTab(
-    const TabCollection::NodeHandle& handle,
-    bool was_inserted) {
-  if (!std::holds_alternative<TabHandle>(handle)) {
-    return;
-  }
-  const TabInterface* tab = std::get<TabHandle>(handle).Get();
-  const TabCollection* parent = tab->GetParentCollection();
-  if (!parent) {
-    return;
-  }
-
-  RestoreEntityTracker* tracker = loaded_data_->GetTracker();
-  bool was_associated = tracker->AssociateTab(tab);
-  if (was_inserted && was_associated) {
-    TabCollectionHandle parent_handle = parent->GetHandle();
-    DCHECK(tracker->HasCollectionBeenAssociated(parent_handle));
-  } else {
-    // Nodes not previously persisted will be marked as divergent.
-    service_->Save(tab);
-  }
-
-  service_->SaveDivergentChildren(parent,
-                                  base::PassKey<StorageRestoreOrchestrator>());
-}
-
-void StorageRestoreOrchestrator::OnSaveChildCollection(
-    const TabCollection::NodeHandle& handle,
-    bool was_inserted) {
-  if (!std::holds_alternative<TabCollection::Handle>(handle)) {
-    return;
-  }
-
-  TabCollection::Handle collection_handle =
-      std::get<TabCollection::Handle>(handle);
-  const TabCollection* collection = collection_handle.Get();
-  const TabCollection* parent = collection->GetParentCollection();
-  if (!parent) {
-    return;
-  }
-
-  RestoreEntityTracker* tracker = loaded_data_->GetTracker();
-  bool was_associated = tracker->AssociateCollection(collection);
-  if (was_inserted && was_associated) {
-    TabCollectionHandle parent_handle = parent->GetHandle();
-    DCHECK(tracker->HasCollectionBeenAssociated(parent_handle));
-  } else {
-    // Nodes not previously persisted will be marked as divergent.
-    service_->Save(collection);
-  }
-
-  service_->SaveDivergentChildren(parent,
-                                  base::PassKey<StorageRestoreOrchestrator>());
+void StorageRestoreOrchestrator::SetSynchronizer(
+    StorageCollectionSynchronizer* synchronizer) {
+  synchronizer_ = synchronizer;
 }
 
 void StorageRestoreOrchestrator::OnNodeRejected(StorageId node) {
   service_->Remove(node);
+  if (synchronizer_) {
+    synchronizer_->SaveStructureSnapshot(/*clear_unused_nodes=*/false,
+                                         base::NullCallback());
+  }
 }
 
 void StorageRestoreOrchestrator::OnRestoreCancelled() {
@@ -205,15 +192,9 @@ void StorageRestoreOrchestrator::OnChildrenAdded(
     const TabCollection::Position& position,
     const TabCollectionNodes& handles,
     bool insert_from_detached) {
-  // Associating a tab also associates its ancestors.
-  for (const auto& handle : handles) {
-    OnSaveChildTab(handle, /*was_inserted=*/true);
-  }
-
-  // Any collection not already associated by the tab-filtered pass is new and
-  // must be saved.
-  for (const auto& handle : handles) {
-    OnSaveChildCollection(handle, /*was_inserted=*/true);
+  if (synchronizer_) {
+    synchronizer_->SaveStructureSnapshot(/*clear_unused_nodes=*/false,
+                                         base::NullCallback());
   }
 }
 
@@ -221,36 +202,72 @@ void StorageRestoreOrchestrator::OnChildrenRemoved(
     const TabCollection::Position& position,
     const TabCollectionNodes& handles) {
   auto batch = service_->CreateScopedBatch();
-
-  // Cannot remove without adding first, so we can assume that these nodes are
-  // already associated.
+  RestoreEntityTracker* tracker = loaded_data_->GetTracker();
   for (const auto& handle : handles) {
     if (std::holds_alternative<TabCollection::Handle>(handle)) {
-      CollectionStorageObserver::ClearSubTree(
-          std::get<TabCollection::Handle>(handle).Get(), service_);
+      const TabCollection* collection =
+          std::get<TabCollection::Handle>(handle).Get();
+      tracker->AssociateCollection(collection);
+      CollectionStorageObserver::ClearSubTree(collection, service_);
     } else if (std::holds_alternative<TabHandle>(handle)) {
-      service_->Remove(std::get<TabHandle>(handle).Get());
+      const TabInterface* tab = std::get<TabHandle>(handle).Get();
+      tracker->AssociateTab(tab);
+      service_->Remove(tab);
     }
   }
-  service_->SaveDivergentChildren(position.parent_handle.Get(),
-                                  base::PassKey<StorageRestoreOrchestrator>());
+  if (synchronizer_) {
+    synchronizer_->SaveStructureSnapshot(/*clear_unused_nodes=*/false,
+                                         base::NullCallback());
+  }
 }
 
 void StorageRestoreOrchestrator::OnChildMoved(
     const TabCollection::Position& to_position,
     const NodeData& node_data) {
-  service_->SaveDivergentChildren(to_position.parent_handle.Get(),
-                                  base::PassKey<StorageRestoreOrchestrator>());
-  service_->SaveDivergentChildren(node_data.position.parent_handle.Get(),
-                                  base::PassKey<StorageRestoreOrchestrator>());
+  if (synchronizer_) {
+    synchronizer_->SaveStructureSnapshot(/*clear_unused_nodes=*/false,
+                                         base::NullCallback());
+  }
 }
 
-void StorageRestoreOrchestrator::SaveChildNodeOnly(TabCollectionNodeHandle handle) {
+void StorageRestoreOrchestrator::SaveChildNodeOnly(
+    TabCollectionNodeHandle handle) {
+  RestoreEntityTracker* tracker = loaded_data_->GetTracker();
   if (std::holds_alternative<TabHandle>(handle)) {
-    OnSaveChildTab(handle, /*was_inserted=*/false);
-  } else {
-    OnSaveChildCollection(handle, /*was_inserted=*/false);
+    const TabInterface* tab = std::get<TabHandle>(handle).Get();
+    if (tab->GetParentCollection()) {
+      tracker->AssociateTab(tab);
+      service_->Save(tab);
+    }
+  } else if (std::holds_alternative<TabCollection::Handle>(handle)) {
+    const TabCollection* collection =
+        std::get<TabCollection::Handle>(handle).Get();
+    if (collection->GetParentCollection()) {
+      if (!tracker->AssociateCollection(collection) &&
+          !tracker->HasCollectionBeenAssociated(collection->GetHandle())) {
+        service_->Save(collection);
+      } else {
+        service_->SavePayload(collection);
+      }
+    }
   }
+  if (synchronizer_) {
+    synchronizer_->SaveStructureSnapshot(/*clear_unused_nodes=*/false,
+                                         base::NullCallback());
+  }
+}
+
+void StorageRestoreOrchestrator::SaveStructureSnapshot(
+    bool clear_unused_nodes) {
+  DCHECK(!clear_unused_nodes);
+  if (is_restore_cancelled_) {
+    return;
+  }
+  auto batch = service_->CreateScopedBatch();
+  RestoreStructureSnapshotCrawler crawler(
+      service_, loaded_data_->GetTracker(),
+      base::PassKey<StorageRestoreOrchestrator>());
+  crawler.ProcessCollection(collection_);
 }
 
 }  // namespace tabs

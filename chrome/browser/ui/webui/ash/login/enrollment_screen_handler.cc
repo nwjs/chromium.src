@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-#include "ash/constants/ash_features.h"
 #include "ash/login/resources/grit/ash_login_strings.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "base/check_deref.h"
@@ -20,7 +19,6 @@
 #include "base/system/sys_info.h"
 #include "base/uuid.h"
 #include "base/values.h"
-#include "base/version_info/version_info.h"
 #include "build/build_config.h"
 #include "chrome/browser/ash/login/help_app_launcher.h"
 #include "chrome/browser/ash/login/oobe_screen.h"
@@ -644,7 +642,7 @@ void EnrollmentScreenHandler::HandleToggleFakeEnrollmentAndCompleteLogin(
 }
 
 void EnrollmentScreenHandler::HandleClose(const std::string& reason) {
-  DCHECK(controller_);
+  CHECK(controller_, base::NotFatalUntil::M162);
   if (reason == "cancel") {
     controller_->OnCancel();
   } else if (reason == "done") {
@@ -680,8 +678,8 @@ void EnrollmentScreenHandler::HandleCompleteLogin(const std::string& user,
   }
 
   // Validity check that partition did not change during enrollment flow.
-  DCHECK_EQ(signin_partition_manager->GetCurrentStoragePartitionName(),
-            signin_partition_name_);
+  CHECK_EQ(signin_partition_manager->GetCurrentStoragePartitionName(),
+           signin_partition_name_, base::NotFatalUntil::M162);
 
   login::OnlineSigninArtifacts signin_artifacts;
   signin_artifacts.email = user;
@@ -707,7 +705,7 @@ void EnrollmentScreenHandler::CompleteAuthWithCookies(
     login::OnlineSigninArtifacts signin_artifacts,
     int license_type,
     login::GaiaCookiesData cookies) {
-  DCHECK(controller_);
+  CHECK(controller_, base::NotFatalUntil::M162);
   signin_artifacts.email = gaia::SanitizeEmail(signin_artifacts.email);
   controller_->OnLoginDone(std::move(signin_artifacts), license_type,
                            cookies.auth_code);
@@ -725,12 +723,12 @@ void EnrollmentScreenHandler::OnCookieWaitTimeout() {
 
 void EnrollmentScreenHandler::HandleIdentifierEntered(
     const std::string& email) {
-  DCHECK(controller_);
+  CHECK(controller_, base::NotFatalUntil::M162);
   controller_->OnIdentifierEntered(email);
 }
 
 void EnrollmentScreenHandler::HandleRetry() {
-  DCHECK(controller_);
+  CHECK(controller_, base::NotFatalUntil::M162);
   controller_->OnRetry();
 }
 
@@ -875,10 +873,6 @@ base::DictValue EnrollmentScreenHandler::ScreenDataCommon() {
   // auto-enrollment.
   screen_data.Set("attestationBased", config_.is_automatic_enrollment());
   screen_data.Set("flow", GetFlowString(flow_type_));
-
-  if (ash::features::IsOobeAddUserDuringEnrollmentEnabled()) {
-    screen_data.Set("clientVersion", version_info::GetVersionNumber());
-  }
 
   if (ShouldSpecifyLicenseType(config_)) {
     screen_data.Set("license", GetLicenseString(config_.license_type));

@@ -16,7 +16,6 @@ import '../settings_shared.css.js';
 import './power_optimized_charging_dialog.js';
 
 import {CrPolicyPrefMixin} from '/shared/settings/controls/cr_policy_pref_mixin.js';
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import type {CrButtonElement} from 'chrome://resources/ash/common/cr_elements/cr_button/cr_button.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/ash/common/cr_elements/web_ui_listener_mixin.js';
@@ -32,7 +31,8 @@ import type {SettingsToggleButtonElement} from '../controls/settings_toggle_butt
 import type {SettingsToggleV2Element} from '../controls/v2/settings_toggle_v2.js';
 import {recordSettingChange} from '../metrics_recorder.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {routes} from '../router.js';
 
 import type {BatteryStatus, DevicePageBrowserProxy, PowerManagementSettings, PowerSource} from './device_page_browser_proxy.js';

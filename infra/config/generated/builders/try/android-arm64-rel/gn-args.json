@@ -5,6 +5,7 @@
     "dcheck_always_on": true,
     "debuggable_apks": false,
     "enable_android_secondary_abi": true,
+    "enable_expensive_dchecks": false,
     "enable_r8_tracerefs": true,
     "enable_rust_clippy": true,
     "fail_on_android_expectations": true,
@@ -17,7 +18,6 @@
     "target_cpu": "arm64",
     "target_os": "android",
     "use_clang_coverage": true,
-    "use_reclient": false,
     "use_remoteexec": true,
     "use_siso": true
   }

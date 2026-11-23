@@ -13,24 +13,32 @@
 
 namespace blink {
 
-using ItemIndexPath = Vector<wtf_size_t>;
-
 // Placement data shared by every lane entry for a single grid-lanes item.
 struct GridLanesItemPlacementData
     : public GarbageCollected<GridLanesItemPlacementData> {
   explicit GridLanesItemPlacementData(
       const GridItemPlacementData& placement_data,
+      LayoutUnit margin_block_start,
       LayoutUnit margin_block_end)
-      : placement_data(placement_data), margin_block_end(margin_block_end) {}
+      : placement_data(placement_data),
+        margin_block_start(margin_block_start),
+        margin_block_end(margin_block_end) {}
 
   void Trace(Visitor*) const {}
 
   GridItemPlacementData placement_data;
+  LayoutUnit margin_block_start;
   LayoutUnit margin_block_end;
 
-  // Space available for alignment in the stacking axis. Fragmentation may
-  // increase this if the track opening expands.
-  LayoutUnit available_stacking_axis_alignment_space;
+  // Originally set to the item's total border-box block size before
+  // fragmentation, then reduced by each fragment as the item is fragmented. A
+  // negative value means the item expanded as a result of fragmentation.
+  LayoutUnit total_remaining_block_size;
+
+  // Total border-box size for stacking-axis stretch during fragmentation.
+  // This size may expand as a result of fragmentation break rules. An unset
+  // value means no stretch, unlike a fixed size of zero.
+  std::optional<LayoutUnit> stretch_size_in_stacking_axis;
 
   // Start of the item's opening in forward stacking order. Self-alignment and
   // fill-reverse may move the item without changing this position.
@@ -57,8 +65,8 @@ struct GridLanesItemData : public GarbageCollected<GridLanesItemData> {
     return grid_lanes_placement_data->placement_data;
   }
 
-  LayoutUnit AvailableStackingAxisAlignmentSpace() const {
-    return grid_lanes_placement_data->available_stacking_axis_alignment_space;
+  std::optional<LayoutUnit> StretchSizeInStackingAxis() const {
+    return grid_lanes_placement_data->stretch_size_in_stacking_axis;
   }
 
   LayoutUnit ForwardStackingStart() const {
@@ -99,6 +107,12 @@ struct GridLaneData : public GarbageCollected<GridLaneData> {
   // Non-start spanner entries are owned by their start lane and do not affect
   // this state.
   bool has_unfinished_items = false;
+
+  // How far unstarted items in this lane are pushed down because earlier items
+  // in the lane expanded as a result of fragmentation. Only used by column
+  // grid-lanes containers.
+  LayoutUnit item_offset_adjustment;
+
   HeapVector<Member<GridLanesItemData>> item_data;
 };
 

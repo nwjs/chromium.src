@@ -174,6 +174,12 @@ export class
         loadTimeData.getBoolean('webUIOmniboxAskGAboutThisPageEnabled');
   }
 
+  private get contextualTasksUpdatedEntryPointsEnabled_(): boolean {
+    return loadTimeData.valueExists(
+               'contextualTasksUpdatedEntryPointsEnabled') &&
+        loadTimeData.getBoolean('contextualTasksUpdatedEntryPointsEnabled');
+  }
+
   override getPageHandler(): PageHandlerRemote {
     return this.pageHandler_;
   }
@@ -307,7 +313,7 @@ export class
 
   override onAutocompleteResultChanged(result: AutocompleteResult) {
     // Reuse the mixin's dropdown/selection logic, but notify the wrapper via
-    // `result-changed` only for accepted results (mirrors cr-composebox).
+    // `result-changed` only for accepted results.
     const isValidResult =
         !this.submitting && result.queryId === this.activeQueryId;
     if (isValidResult && this.composeboxNoFlickerSuggestionsFix &&
@@ -344,10 +350,16 @@ export class
       }
       return;
     }
-    // AutoSuggestedTabContext is routed differently for Omnibox Page Action.
-    // when it opens a side panel to cobrowse.
-    const askGAndPageAction = this.webUIOmniboxAskGAboutThisPageEnabled_ &&
-        invocationSource === 'OmniboxPageAction' && this.isSidePanel;
+    // AutoSuggestedTabContext is routed differently for Ask Google entry points
+    // (except homework action chip) when opening a side panel to cobrowse.
+    const isUpdatedEntryPoint =
+        this.contextualTasksUpdatedEntryPointsEnabled_ &&
+        (invocationSource === 'ContentAreaContextMenuPageAskGoogle' ||
+         invocationSource === 'AppMenuAskGoogle');
+    const isOmniboxAskG = this.webUIOmniboxAskGAboutThisPageEnabled_ &&
+        invocationSource === 'OmniboxPageAction';
+    const askGAndPageAction =
+        (isOmniboxAskG || isUpdatedEntryPoint) && this.isSidePanel;
 
     // We should delete the automatic active tab if it is different from the
     // current tab when webUIOmniboxAskGAboutThisPageEnabled_ is true. Make sure

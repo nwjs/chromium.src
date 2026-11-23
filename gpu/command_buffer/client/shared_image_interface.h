@@ -192,10 +192,10 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImageInterface
                                  const Mailbox& mailbox) = 0;
 
   // Update the GpuMemoryBuffer associated with the shared image |mailbox| after
-  // |sync_token| is released. This needed when the GpuMemoryBuffer is backed by
-  // shared memory on platforms like Windows where the renderer cannot create
-  // native GMBs.
-  virtual void CopyToGpuMemoryBuffer(const SyncToken& sync_token,
+  // all |sync_tokens| have been released. This is needed when the
+  // GpuMemoryBuffer is backed by shared memory on platforms like Windows where
+  // the renderer cannot create native GMBs.
+  virtual void CopyToGpuMemoryBuffer(std::vector<SyncToken> sync_tokens,
                                      const Mailbox& mailbox);
 
   // Update the GpuMemoryBuffer associated with the shared image |mailbox| after
@@ -225,12 +225,6 @@ class GPU_COMMAND_BUFFER_CLIENT_EXPORT SharedImageInterface
   // into other APIs, those may keep a reference to the underlying data.
   virtual void DestroySharedImage(std::vector<SyncToken> sync_tokens,
                                   const Mailbox& mailbox) = 0;
-
-  // Same behavior as the above, except that this version takes
-  // a |client_shared_image| parameter (which holds a mailbox).
-  virtual void DestroySharedImage(
-      const SyncToken& sync_token,
-      scoped_refptr<ClientSharedImage> client_shared_image) = 0;
 
   // Imports SharedImage to this interface and returns an owning reference. It
   // must be released via DestroySharedImage in the same way as for SharedImages

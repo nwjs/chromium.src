@@ -1,6 +1,7 @@
 {
   "gn_args": {
     "dcheck_always_on": true,
+    "enable_expensive_dchecks": false,
     "ffmpeg_branding": "Chrome",
     "is_component_build": false,
     "is_debug": false,
@@ -8,7 +9,6 @@
     "symbol_level": 0,
     "target_cpu": "arm64",
     "target_os": "mac",
-    "use_reclient": false,
     "use_remoteexec": true,
     "use_siso": true
   }

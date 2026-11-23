@@ -12,7 +12,6 @@
 #include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/notreached.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/webui/ash/system_web_dialog/system_web_dialog_delegate.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
 #include "components/session_manager/core/session.h"
@@ -45,7 +44,7 @@ KerberosInBrowserDialog::KerberosInBrowserDialog(
     : SystemWebDialogDelegate(GURL(ash::kChromeUIKerberosInBrowserURL),
                               /*title=*/std::u16string()),
       close_dialog_closure_(std::move(close_dialog_closure)) {
-  DCHECK(!g_dialog);
+  CHECK(!g_dialog, base::NotFatalUntil::M162);
   g_dialog = this;
 }
 
@@ -54,7 +53,7 @@ KerberosInBrowserDialog::~KerberosInBrowserDialog() {
     std::move(close_dialog_closure_).Run();
   }
 
-  DCHECK_EQ(this, g_dialog);
+  CHECK_EQ(this, g_dialog, base::NotFatalUntil::M162);
   g_dialog = nullptr;
 }
 

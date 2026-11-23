@@ -104,11 +104,15 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "base/functional/callback_helpers.h"
 #include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/devtools/chrome_devtools_manager_delegate.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
+#include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
 #include "chrome/browser/sessions/session_service_test_helper.h"
@@ -128,6 +132,7 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/devtools_agent_host_client.h"
+#include "content/public/browser/devtools_manager_delegate.h"
 #include "content/public/test/browser_test_utils.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -374,7 +379,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
       chrome_test_utils::GetActiveWebContents(this);
 
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), GURL("about:blank"), WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   content::WebContents* other_web_contents =
       chrome_test_utils::GetActiveWebContents(this);
@@ -483,6 +488,66 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, CreateTargetWithFocus) {
   EXPECT_EQ(4, browser()->tab_strip_model()->count());
 }
 
+#if !BUILDFLAG(IS_CHROMEOS)
+// `ProfileManager::GetLastUsedProfile()` returns nullptr if the last used
+// profile can't be loaded, in which case Chrome's UI falls back to the profile
+// picker. The Target domain must report an error rather than crash in this
+// situation (https://crbug.com/576322189). Not applicable to ChromeOS, where
+// `GetLastUsedProfile()` returns the active user's profile instead.
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
+                       TargetDomainHandlesUnloadableLastUsedProfile) {
+  AttachToBrowserTarget();
+  Profile* const profile = browser()->GetProfile();
+  const std::string default_context_id = profile->UniqueId();
+  EXPECT_EQ(1, browser()->tab_strip_model()->count());
+
+  // The `ProfileManager` refuses to load profiles that aren't direct children
+  // of the user data directory, so this makes the last used profile
+  // unloadable.
+  profiles::SetLastUsedProfile(base::FilePath(FILE_PATH_LITERAL("unloadable"))
+                                   .Append(FILE_PATH_LITERAL("profile")));
+  base::ScopedClosureRunner restore_last_used_profile(
+      base::BindOnce(&profiles::SetLastUsedProfile, profile->GetBaseName()));
+  ASSERT_FALSE(ProfileManager::GetLastUsedProfile());
+
+  SendCommandSync("Target.createTarget",
+                  base::DictValue().Set("url", "about:blank"));
+  ASSERT_TRUE(error());
+  EXPECT_EQ("Failed to load default browser context",
+            *error()->FindString("message"));
+
+  SendCommandSync("Target.createTarget",
+                  base::DictValue()
+                      .Set("url", "about:blank")
+                      .Set("browserContextId", default_context_id));
+  ASSERT_TRUE(error());
+  EXPECT_EQ("Failed to find browser context with id " + default_context_id,
+            *error()->FindString("message"));
+
+  SendCommandSync("Target.createBrowserContext");
+  ASSERT_TRUE(error());
+  EXPECT_EQ("Failed to create browser context.",
+            *error()->FindString("message"));
+
+  // Used to handle `/json/new` requests.
+  content::DevToolsManagerDelegate* const delegate =
+      ChromeDevToolsManagerDelegate::GetInstance();
+  ASSERT_TRUE(delegate);
+  EXPECT_FALSE(delegate->CreateNewTarget(
+      GURL("about:blank"), content::DevToolsManagerDelegate::kFrame,
+      /*new_window=*/false));
+
+  EXPECT_EQ(1, browser()->tab_strip_model()->count());
+
+  // Creating targets works again once the last used profile can be loaded.
+  restore_last_used_profile.RunAndReset();
+  SendCommandSync("Target.createTarget",
+                  base::DictValue().Set("url", "about:blank"));
+  EXPECT_FALSE(error());
+  EXPECT_EQ(2, browser()->tab_strip_model()->count());
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
+
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
 // On ChromeOS and MacOS, the tabs are not backgrounded and unloaded in the same way as
 // on other platforms.
@@ -499,7 +564,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, MAYBE_AutoAttachToUnloadedTab) {
   // 1. Create two tabs.
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url1));
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url2, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), url2, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ASSERT_EQ(2, browser()->tab_strip_model()->count());
   ASSERT_EQ(1, browser()->tab_strip_model()->active_index());
@@ -1130,7 +1195,7 @@ IN_PROC_BROWSER_TEST_F(
 
   content::WebContents* web_contents =
       browser()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
-                             url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                             url, WindowOpenDisposition::kNewForegroundTab,
                              ui::PAGE_TRANSITION_TYPED),
                          /*navigation_handle_callback=*/{});
   tab_added_waiter.Wait();
@@ -1282,7 +1347,7 @@ testing::AssertionResult SimulateBtmBounce(BrowserWindowInterface* browser,
                                            const GURL& bounce_url,
                                            const GURL& final_url) {
   if (!ui_test_utils::NavigateToURLWithDisposition(
-          browser, initial_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          browser, initial_url, WindowOpenDisposition::kNewForegroundTab,
           ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB |
               ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP)) {
     return testing::AssertionFailure()
@@ -1855,7 +1920,7 @@ class ExtensionProtocolTest : public DevToolsProtocolTest {
   void LaunchApp(const std::string& app_id) {
     apps::AppLaunchParams params(
         app_id, apps::LaunchContainer::kLaunchContainerNone,
-        WindowOpenDisposition::NEW_WINDOW, apps::LaunchSource::kFromTest);
+        WindowOpenDisposition::kNewWindow, apps::LaunchSource::kFromTest);
     apps::AppServiceProxyFactory::GetForProfile(
         chrome_test_utils::GetProfile(this))
         ->BrowserAppLauncher()
@@ -3450,6 +3515,55 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, GetAnnotatedPageContent) {
   optimization_guide::proto::AnnotatedPageContent apc;
   ASSERT_TRUE(apc.ParseFromString(decoded_proto));
   EXPECT_TRUE(apc.has_root_node());
+}
+
+class DevToolsProtocolPrerenderTest : public DevToolsProtocolTest {
+ public:
+  DevToolsProtocolPrerenderTest()
+      : prerender_helper_(base::BindRepeating(
+            &DevToolsProtocolPrerenderTest::GetActiveWebContents,
+            base::Unretained(this))) {}
+
+ protected:
+  void SetUp() override {
+    prerender_helper_.RegisterServerRequestMonitor(embedded_test_server());
+    DevToolsProtocolTest::SetUp();
+  }
+
+  content::test::PrerenderTestHelper* prerender_helper() {
+    return &prerender_helper_;
+  }
+
+  content::WebContents* GetActiveWebContents() {
+    return chrome_test_utils::GetActiveWebContents(this);
+  }
+
+ private:
+  content::test::PrerenderTestHelper prerender_helper_;
+};
+
+// Page.getAnnotatedPageContent must not return the primary page's content
+// when the session is attached to a prerendered page.
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolPrerenderTest,
+                       GetAnnotatedPageContentFailsForPrerenderedPage) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL initial_url = embedded_test_server()->GetURL("/empty.html");
+  const GURL prerendering_url =
+      embedded_test_server()->GetURL("/empty.html?prerender");
+
+  ASSERT_TRUE(content::NavigateToURL(GetActiveWebContents(), initial_url));
+  content::PrerenderHostId host_id =
+      prerender_helper()->AddPrerender(prerendering_url);
+  content::RenderFrameHost* prerender_rfh =
+      prerender_helper()->GetPrerenderedMainFrameHost(host_id);
+  ASSERT_TRUE(prerender_rfh);
+
+  AttachToFrameTreeHost(prerender_rfh);
+  const base::DictValue* result =
+      SendCommandSync("Page.getAnnotatedPageContent");
+  EXPECT_FALSE(result);
+  ASSERT_TRUE(error());
+  EXPECT_EQ(*error()->FindString("message"), "Not attached to an active page");
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)

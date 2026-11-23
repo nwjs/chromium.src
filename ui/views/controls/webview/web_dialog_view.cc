@@ -30,7 +30,6 @@
 #include "ui/web_dialogs/web_dialog_ui.h"
 
 using content::WebContents;
-using content::WebUIMessageHandler;
 using input::NativeWebKeyboardEvent;
 using ui::WebDialogDelegate;
 using ui::WebDialogUI;
@@ -72,43 +71,48 @@ WebDialogView::WebDialogView(content::BrowserContext* context,
                              std::unique_ptr<WebContentsHandler> handler,
                              content::WebContents* web_contents)
     : ClientView(nullptr, nullptr),
-      WebDialogWebContentsDelegate(context, std::move(handler)),
+      WebContentsDelegateViews(context, std::move(handler)),
       delegate_(delegate),
       web_view_(new ObservableWebView(context, delegate)) {
-  SetCanMinimize(!delegate_ || delegate_->can_minimize());
-  SetCanResize(!delegate_ || delegate_->can_resize());
-  SetModalType(GetDialogModalType());
-  web_view_->set_allow_accelerators(!delegate_ ||
-                                    delegate_->allow_accelerators());
+  CHECK(delegate);
+
+  SetCanMinimize(delegate_->can_minimize());
+  SetCanResize(delegate_->can_resize());
+  SetModalType(delegate_->GetDialogModalType());
+  // TODO(https://crbug.com/576327952): The name `allow_accelerators()` is
+  // inconsistent with how the class has always applied it; the logic below is
+  // consistent with what it was doing previously.
+  SetAcceleratorHandling(
+      delegate_->allow_accelerators()
+          ? WebContentsAcceleratorHandling::kProcessBeforeRenderer
+          : WebContentsAcceleratorHandling::kEnabled);
   AddChildViewRaw(web_view_.get());
   set_contents_view(web_view_);
   SetLayoutManager(std::make_unique<views::FillLayout>());
   // Pressing the Escape key will close the dialog.
   AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
 
-  if (delegate_) {
-    for (const auto& accelerator : delegate_->GetAccelerators()) {
-      AddAccelerator(accelerator);
-    }
-    RegisterWindowWillCloseCallback(
-        RegisterWillCloseCallbackPassKey(),
-        base::BindOnce(&WebDialogView::NotifyDialogWillClose,
-                       base::Unretained(this)));
+  for (const auto& accelerator : delegate_->GetAccelerators()) {
+    AddAccelerator(accelerator);
   }
-
-  if (web_contents) {
-    web_view_->SetWebContents(web_contents);
-  }
-  web_view_->SetProperty(
-      views::kElementIdentifierKey,
-      delegate_ ? delegate_->web_view_element_id() : ui::ElementIdentifier());
-
+  RegisterWindowWillCloseCallback(
+      RegisterWillCloseCallbackPassKey(),
+      base::BindOnce(&WebDialogView::NotifyDialogWillClose,
+                     base::Unretained(this)));
   delegate_->SetTitleChangedCallback(
       base::BindRepeating(&WebDialogView::UpdateAccessibleNameForRootView,
                           weak_ptr_factory_.GetWeakPtr()));
   delegate_->SetAccessibleTitleChangedCallback(
       base::BindRepeating(&WebDialogView::UpdateAccessibleNameForRootView,
                           weak_ptr_factory_.GetWeakPtr()));
+  delegate_->SetOnDialogCloseFromWebUICallback(base::BindRepeating(
+      &WebDialogView::OnDialogCloseFromWebUI, weak_ptr_factory_.GetWeakPtr()));
+
+  if (web_contents) {
+    web_view_->SetWebContents(web_contents);
+  }
+  web_view_->SetProperty(views::kElementIdentifierKey,
+                         delegate_->web_view_element_id());
 }
 
 WebDialogView::~WebDialogView() = default;
@@ -272,7 +276,11 @@ views::View* WebDialogView::GetInitiallyFocusedView() {
 }
 
 bool WebDialogView::ShouldShowWindowTitle() const {
-  return ShouldShowDialogTitle();
+  return delegate_ ? delegate_->ShouldShowDialogTitle() : true;
+}
+
+bool WebDialogView::ShouldShowCloseButton() const {
+  return delegate_ ? delegate_->ShouldShowCloseButton() : true;
 }
 
 views::Widget* WebDialogView::GetWidget() {
@@ -281,111 +289,6 @@ views::Widget* WebDialogView::GetWidget() {
 
 const views::Widget* WebDialogView::GetWidget() const {
   return View::GetWidget();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// WebDialogDelegate implementation:
-
-ui::mojom::ModalType WebDialogView::GetDialogModalType() const {
-  if (delegate_) {
-    return delegate_->GetDialogModalType();
-  }
-  return ui::mojom::ModalType::kNone;
-}
-
-std::u16string WebDialogView::GetDialogTitle() const {
-  return GetWindowTitle();
-}
-
-GURL WebDialogView::GetDialogContentURL() const {
-  if (delegate_) {
-    return delegate_->GetDialogContentURL();
-  }
-  return GURL();
-}
-
-void WebDialogView::GetWebUIMessageHandlers(
-    std::vector<WebUIMessageHandler*>* handlers) {
-  if (delegate_) {
-    delegate_->GetWebUIMessageHandlers(handlers);
-  }
-}
-
-void WebDialogView::GetDialogSize(gfx::Size* size) const {
-  if (delegate_) {
-    delegate_->GetDialogSize(size);
-  }
-}
-
-void WebDialogView::GetMinimumDialogSize(gfx::Size* size) const {
-  if (delegate_) {
-    delegate_->GetMinimumDialogSize(size);
-  }
-}
-
-std::string WebDialogView::GetDialogArgs() const {
-  if (delegate_) {
-    return delegate_->GetDialogArgs();
-  }
-  return std::string();
-}
-
-void WebDialogView::OnDialogShown(content::WebUI* webui) {
-  if (delegate_) {
-    delegate_->OnDialogShown(webui);
-  }
-}
-
-void WebDialogView::OnDialogClosed(const std::string& json_retval) {
-  Detach();
-
-  if (GetWidget()) {
-    GetWidget()->Close();
-  }
-
-  if (delegate_) {
-    delegate_->OnDialogClosed(json_retval);
-    delegate_ = nullptr;  // We will not communicate further with the delegate.
-    // Clear the copy of the delegate in |web_view_| too.
-    web_view_->ResetDelegate();
-  }
-}
-
-void WebDialogView::OnDialogCloseFromWebUI(const std::string& json_retval) {
-  closed_via_webui_ = true;
-  dialog_close_retval_ = json_retval;
-  if (GetWidget()) {
-    GetWidget()->Close();
-  }
-}
-
-void WebDialogView::OnCloseContents(WebContents* source,
-                                    bool* out_close_dialog) {
-  DCHECK(out_close_dialog);
-  if (delegate_) {
-    delegate_->OnCloseContents(source, out_close_dialog);
-  }
-}
-
-bool WebDialogView::ShouldShowDialogTitle() const {
-  if (delegate_) {
-    return delegate_->ShouldShowDialogTitle();
-  }
-  return true;
-}
-
-bool WebDialogView::ShouldCenterDialogTitleText() const {
-  if (delegate_) {
-    return delegate_->ShouldCenterDialogTitleText();
-  }
-  return false;
-}
-
-bool WebDialogView::ShouldShowCloseButton() const {
-  if (delegate_) {
-    return delegate_->ShouldShowCloseButton();
-  }
-  return true;
 }
 
 bool WebDialogView::HandleContextMenu(
@@ -402,8 +305,7 @@ WebDialogView::FrameKind WebDialogView::GetWebDialogFrameKind() const {
   if (delegate_) {
     return delegate_->GetWebDialogFrameKind();
   }
-
-  return WebDialogDelegate::GetWebDialogFrameKind();
+  return WebDialogDelegate::FrameKind::kNonClient;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -428,20 +330,12 @@ void WebDialogView::SetContentsBounds(WebContents* source,
   GetWidget()->SetBounds(bounds);
 }
 
-// A simplified version of BrowserView::HandleKeyboardEvent().
-// We don't handle global keyboard shortcuts here, but that's fine since
-// they're all browser-specific. (This may change in the future.)
-bool WebDialogView::HandleKeyboardEvent(
-    content::WebContents* source,
-    const input::NativeWebKeyboardEvent& event) {
-  return unhandled_keyboard_event_handler_.HandleKeyboardEvent(
-      event, GetFocusManager());
-}
-
 void WebDialogView::CloseContents(WebContents* source) {
   close_contents_called_ = true;
   bool close_dialog = false;
-  OnCloseContents(source, &close_dialog);
+  if (delegate_) {
+    delegate_->OnCloseContents(source, &close_dialog);
+  }
   if (close_dialog) {
     OnDialogClosed(closed_via_webui_ ? dialog_close_retval_ : std::string());
   }
@@ -547,13 +441,39 @@ void WebDialogView::InitDialog() {
   web_contents->SetIgnoreZoomGestures(true);
   // Set the delegate. This must be done before loading the page. See
   // the comment above WebDialogUI in its header file for why.
-  WebDialogUI::SetDelegate(web_contents, this);
+  WebDialogUI::SetDelegate(web_contents, delegate_);
 
   if (!disable_url_load_for_test_) {
     auto policy = (delegate_ && delegate_->ShouldDisableHttpsUpgrades())
                       ? views::WebView::HttpsUpgradePolicy::kNoUpgrade
                       : views::WebView::HttpsUpgradePolicy::kAllowUpgrade;
     web_view_->LoadInitialURL(delegate_->GetDialogContentURL(), policy);
+  }
+}
+
+void WebDialogView::OnDialogClosed(const std::string& json_retval) {
+  Detach();
+
+  if (GetWidget()) {
+    GetWidget()->Close();
+  }
+
+  if (delegate_) {
+    if (web_view_->web_contents()) {
+      WebDialogUI::SetDelegate(web_view_->web_contents(), nullptr);
+    }
+    delegate_->OnDialogClosed(json_retval);
+    delegate_ = nullptr;  // We will not communicate further with the delegate.
+    // Clear the copy of the delegate in |web_view_| too.
+    web_view_->ResetDelegate();
+  }
+}
+
+void WebDialogView::OnDialogCloseFromWebUI(const std::string& json_retval) {
+  closed_via_webui_ = true;
+  dialog_close_retval_ = json_retval;
+  if (GetWidget()) {
+    GetWidget()->Close();
   }
 }
 

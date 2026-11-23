@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_home_mediator.h"
 
+#import <utility>
+
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
 #import "base/check_op.h"
@@ -225,6 +227,7 @@ bool IsABookmarkNodeSectionForIdentifier(
   _prefObserverBridge.reset();
   _bookmarkModel.reset();
   _bookmarkModelBridge.reset();
+  _selectedNodesForEditMode.clear();
 }
 
 - (void)dealloc {
@@ -500,9 +503,9 @@ bool IsABookmarkNodeSectionForIdentifier(
          _bookmarkModel->IsLocalOnlyNode(*bookmarkNode);
 }
 
-- (void)signinDidCompleteWithResult:(SigninCoordinatorResult)result {
+- (void)signinDidCompleteWithResult:(SigninCoordinatorResultOrIdentity)result {
   [self.bookmarkPromoController.signinPromoViewMediator
-      signinDidCompleteWithResult:result];
+      signinDidCompleteWithResult:std::move(result)];
   [self.bookmarkPromoController updateShouldShowSigninPromo];
 }
 
@@ -518,6 +521,7 @@ bool IsABookmarkNodeSectionForIdentifier(
     [self.consumer displayRoot];
   }
   self.displayedNode = nullptr;
+  _selectedNodesForEditMode.clear();
 }
 
 // BookmarkModelBridgeObserver Callbacks

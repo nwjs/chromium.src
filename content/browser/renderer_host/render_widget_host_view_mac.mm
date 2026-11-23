@@ -737,7 +737,13 @@ void RenderWidgetHostViewMac::UpdateCursor(const ui::Cursor& cursor) {
 }
 
 void RenderWidgetHostViewMac::DisplayCursor(const ui::Cursor& cursor) {
+  last_displayed_cursor_ = cursor;
   ns_view_->DisplayCursor(cursor);
+  // The surface window shows the cursor itself while the pointer is over it;
+  // see UnboundedSurfaceWindowMac::DisplayCursor().
+  if (unbounded_surface_window_) {
+    unbounded_surface_window_->DisplayCursor(cursor);
+  }
 }
 
 input::CursorManager* RenderWidgetHostViewMac::GetCursorManager() {
@@ -2069,6 +2075,9 @@ void RenderWidgetHostViewMac::OnWindowIsKeyChanged(bool is_key) {
     return;
   is_window_key_ = is_key;
   accessibility_focus_overrider_.SetWindowIsKey(is_window_key_);
+  if (!is_window_key_) {
+    DismissUnboundedSurface();
+  }
   if (is_first_responder_)
     SetActive(is_key);
 }
@@ -2782,15 +2791,14 @@ RenderWidgetHostViewMac::MaybeUpdateScreenInfosForHiDPI() {
 }
 
 void RenderWidgetHostViewMac::CreateUnboundedSurface(
-    mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-    mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client,
-    const gfx::Rect& bounds_in_dips,
+    const gfx::Rect& bounds_in_screen,
     base::WeakPtr<RenderWidgetHostViewBase> subframe_view) {
-  gfx::Rect bounds_in_screen =
-      ConvertSubframeBoundsToScreen(bounds_in_dips, subframe_view.get());
   unbounded_surface_window_ = std::make_unique<UnboundedSurfaceWindowMac>(
-      this, std::move(host), std::move(client), bounds_in_screen,
-      std::move(subframe_view));
+      this, bounds_in_screen, std::move(subframe_view));
+  // Blink only sends cursor changes, so seed the new window with the cursor
+  // currently displayed; otherwise it would show the arrow until the cursor
+  // next changes. The window applies it once the pointer enters.
+  unbounded_surface_window_->DisplayCursor(last_displayed_cursor_);
 }
 
 bool RenderWidgetHostViewMac::IsHeadless() const {

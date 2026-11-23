@@ -75,6 +75,7 @@
 
 #include "affentry.hxx"
 #include "csutil.hxx"
+#include "hunspelltrace.hxx"
 
 AffEntry::~AffEntry() {
   if (opts & aeLONGCOND)
@@ -85,14 +86,21 @@ AffEntry::~AffEntry() {
     delete[] contclass;
 }
 
+std::string AffEntry::get_condition() const {
+  if (numconds == 0)
+    return ".";
+  if (opts & aeLONGCOND)
+    return std::string(c.l.conds1, MAXCONDLEN_1) + std::string(c.l.conds2);
+  return std::string(c.conds, strnlen(c.conds, MAXCONDLEN));
+}
+
 PfxEntry::PfxEntry(AffixMgr* pmgr)
     // register affix manager
-    : pmyMgr(pmgr),
-      next(NULL),
-      nexteq(NULL),
-      nextne(NULL),
-      flgnxt(NULL) {
-}
+    : pmyMgr(pmgr)
+    , next(nullptr)
+    , nexteq(nullptr)
+    , nextne(nullptr)
+    , flgnxt(nullptr) {}
 
 // add prefix to this word assuming conditions hold
 std::string PfxEntry::add(const char* word, size_t len) {
@@ -117,10 +125,10 @@ inline char* PfxEntry::nextchar(char* p) {
         return c.l.conds2;
       // end of the MAXCONDLEN length condition
     } else if (p == c.conds + MAXCONDLEN)
-      return NULL;
-    return *p ? p : NULL;
+      return nullptr;
+    return *p ? p : nullptr;
   }
-  return NULL;
+  return nullptr;
 }
 
 inline int PfxEntry::test_condition(const std::string& s) {
@@ -131,7 +139,7 @@ inline int PfxEntry::test_condition(const std::string& s) {
   if (numconds == 0)
     return 1;
   char* p = c.conds;
-  while (1) {
+  while (true) {
     switch (*p) {
       case '\0':
         return 1;
@@ -153,24 +161,19 @@ inline int PfxEntry::test_condition(const std::string& s) {
         pos = std::string::npos;
         p = nextchar(p);
         // skip the next character
-        if (!ingroup && st < s.size()) {
-          ++st;
-          while ((opts & aeUTF8) && st < s.size() && (s[st] & 0xc0) == 0x80)
-            ++st;
-        }
+        if (!ingroup && st < s.size())
+          st = (opts & aeUTF8) ? utf8_next(s, st) : st + 1;
         if (st == s.size() && p)
           return 0;  // word <= condition
         break;
       }
       case '.':
         if (pos == std::string::npos) {  // dots are not metacharacters in groups: [.]
+          if (st == s.size())
+            return 0;  // dot has no character to match
           p = nextchar(p);
           // skip the next character
-          ++st;
-          while ((opts & aeUTF8) && st < s.size() && (s[st] & 0xc0) == 0x80)
-            ++st;
-          if (st == s.size() && p)
-            return 0;  // word <= condition
+          st = (opts & aeUTF8) ? utf8_next(s, st) : st + 1;
           break;
         }
       /* FALLTHROUGH */
@@ -179,8 +182,8 @@ inline int PfxEntry::test_condition(const std::string& s) {
           ++st;
           p = nextchar(p);
           if ((opts & aeUTF8) && (s[st - 1] & 0x80)) {  // multibyte
-            while (p && (*p & 0xc0) == 0x80) {          // character
-              if (*p != s[st]) {
+            while (p && is_utf8_cont(*p)) {             // character
+              if (st >= s.size() || *p != s[st]) {
                 if (pos == std::string::npos)
                   return 0;
                 st = pos;
@@ -191,12 +194,12 @@ inline int PfxEntry::test_condition(const std::string& s) {
             }
             if (pos != std::string::npos && st != pos) {
               ingroup = true;
-              while (p && *p != ']' && ((p = nextchar(p)) != NULL)) {
+              while (p && *p != ']' && ((p = nextchar(p)) != nullptr)) {
               }
             }
           } else if (pos != std::string::npos) {
             ingroup = true;
-            while (p && *p != ']' && ((p = nextchar(p)) != NULL)) {
+            while (p && *p != ']' && ((p = nextchar(p)) != nullptr)) {
             }
           }
         } else if (pos != std::string::npos) {  // group
@@ -210,13 +213,72 @@ inline int PfxEntry::test_condition(const std::string& s) {
   }
 }
 
+// decide whether this prefix may be applied to a dictionary entry on its own
+bool PfxEntry::applies_to(const struct hentry* he,
+                          const FLAG needflag,
+                          const TraceCtx* t) const {
+  bool ok = TESTAFF(he->astr, aflag, he->alen);
+  if (t)
+    trace_test(*t, "pfx-aflag", pmyMgr, aflag, "dic", he->astr, he->alen,
+               ok ? "pass" : "fail");
+  if (!ok)
+    return false;
+
+  // forbid single prefixes with needaffix flag
+  FLAG needaffix = pmyMgr->get_needaffix();
+  ok = !TESTAFF(contclass, needaffix, contclasslen);
+  if (t && needaffix)
+    trace_test(*t, "needaffix", pmyMgr, needaffix, "pfx-cont", contclass,
+               contclasslen,
+               ok ? "pass" : "fail, this prefix needs a further affix");
+  if (!ok)
+    return false;
+
+  // a circumfix prefix needs a matching circumfix suffix, so it cannot stand
+  // on its own
+  FLAG circumfix = pmyMgr->get_circumfix();
+  ok = !TESTAFF(contclass, circumfix, contclasslen);
+  if (t && circumfix)
+    trace_test(*t, "circumfix", pmyMgr, circumfix, "pfx-cont", contclass,
+               contclasslen,
+               ok ? "pass, prefix may stand alone"
+                  : "fail, a circumfix prefix needs its suffix");
+  if (!ok)
+    return false;
+
+  // needflag
+  if (needflag) {
+    bool in_dic = TESTAFF(he->astr, needflag, he->alen);
+    bool in_cont = contclass && TESTAFF(contclass, needflag, contclasslen);
+    if (t) {
+      if (in_cont && !in_dic)
+        trace_test(*t, "needflag", pmyMgr, needflag, "pfx-cont", contclass,
+                   contclasslen, "pass");
+      else
+        trace_test(*t, "needflag", pmyMgr, needflag, "dic", he->astr, he->alen,
+                   in_dic ? "pass"
+                          : "fail, the stem lacks the flag the caller asked for");
+    }
+    if (!in_dic && !in_cont)
+      return false;
+  }
+
+  return true;
+}
+
 // check if this prefix entry matches
 struct hentry* PfxEntry::checkword(const std::string& word,
                                    int start,
                                    int len,
                                    char in_compound,
-                                   const FLAG needflag) {
+                                   const FLAG needflag,
+                                   AffixScratch& scratch) {
   struct hentry* he;  // hash entry of root word or NULL
+
+  TraceCtx* t = trace_on(scratch.trace);
+  if (t)
+    trace_affix(*t, "pfx", pmyMgr, *this);
+  TraceScope trace_depth(t);
 
   // on entry prefix is 0 length or already matches the beginning of the word.
   // So if the remaining root word has positive length
@@ -229,7 +291,8 @@ struct hentry* PfxEntry::checkword(const std::string& word,
     // generate new root word by removing prefix and adding
     // back any characters that would have been stripped
 
-    std::string tmpword(strip);
+    std::string& tmpword = scratch.pfx_check_word;
+    tmpword.assign(strip);
     tmpword.append(word, start + appnd.size(), tmpl);
 
     // now make sure all of the conditions on characters
@@ -240,19 +303,39 @@ struct hentry* PfxEntry::checkword(const std::string& word,
     // if all conditions are met then check if resulting
     // root word in the dictionary
 
-    if (test_condition(tmpword)) {
+    if (t)
+      trace(*t, "stem \"%s\"", tmpword.c_str());
+
+    bool passes = test_condition(tmpword);
+    if (t)
+      trace(*t, "test condition cond=\"%s\" on \"%s\" -> %s",
+            get_condition().c_str(),
+            tmpword.c_str(), passes ? "pass" : "fail");
+
+    if (passes) {
       tmpl += strip.size();
-      if ((he = pmyMgr->lookup(tmpword.c_str(), tmpword.size())) != NULL) {
+      if ((he = pmyMgr->lookup(tmpword.c_str(), tmpword.size())) != nullptr) {
+        if (t)
+          trace(*t, "lookup \"%s\" -> entry \"%s\" flags=%s", tmpword.c_str(),
+                he->word, trace_flags(pmyMgr, he->astr, he->alen).c_str());
         do {
-          if (TESTAFF(he->astr, aflag, he->alen) &&
-              // forbid single prefixes with needaffix flag
-              !TESTAFF(contclass, pmyMgr->get_needaffix(), contclasslen) &&
-              // needflag
-              ((!needflag) || TESTAFF(he->astr, needflag, he->alen) ||
-               (contclass && TESTAFF(contclass, needflag, contclasslen))))
+          if (applies_to(he, needflag, t)) {
+            if (t)
+              trace(*t, "accept");
             return he;
+          }
           he = he->next_homonym;  // check homonyms
+          if (t) {
+            if (he)
+              trace(*t, "lookup \"%s\" -> entry \"%s\" flags=%s",
+                    tmpword.c_str(), he->word,
+                    trace_flags(pmyMgr, he->astr, he->alen).c_str());
+            else
+              trace(*t, "lookup \"%s\" -> no more homonyms", tmpword.c_str());
+          }
         } while (he);
+      } else if (t) {
+        trace(*t, "lookup \"%s\" -> miss", tmpword.c_str());
       }
 
       // prefix matched but no root word was found
@@ -262,13 +345,16 @@ struct hentry* PfxEntry::checkword(const std::string& word,
       // if ((opts & aeXPRODUCT) && in_compound) {
       if ((opts & aeXPRODUCT)) {
         he = pmyMgr->suffix_check(tmpword, 0, tmpl, aeXPRODUCT, this,
-                                  FLAG_NULL, needflag, in_compound);
+                                  scratch, FLAG_NULL, needflag, in_compound);
         if (he)
           return he;
       }
     }
+  } else if (t) {
+    trace(*t, "test length have=%d -> fail, nothing would be left of the word",
+          tmpl);
   }
-  return NULL;
+  return nullptr;
 }
 
 // check if this prefix entry matches
@@ -276,7 +362,8 @@ struct hentry* PfxEntry::check_twosfx(const std::string& word,
                                       int start,
                                       int len,
                                       char in_compound,
-                                      const FLAG needflag) {
+                                      const FLAG needflag,
+                                      AffixScratch& scratch) {
   // on entry prefix is 0 length or already matches the beginning of the word.
   // So if the remaining root word has positive length
   // and if there are enough chars in root word and added back strip chars
@@ -289,7 +376,8 @@ struct hentry* PfxEntry::check_twosfx(const std::string& word,
     // generate new root word by removing prefix and adding
     // back any characters that would have been stripped
 
-    std::string tmpword(strip);
+    std::string& tmpword = scratch.pfx_check_twosfx;
+    tmpword.assign(strip);
     tmpword.append(word, start + appnd.size(), tmpl);
 
     // now make sure all of the conditions on characters
@@ -310,13 +398,13 @@ struct hentry* PfxEntry::check_twosfx(const std::string& word,
       if ((opts & aeXPRODUCT) && (in_compound != IN_CPD_BEGIN)) {
         // hash entry of root word or NULL
         struct hentry* he = pmyMgr->suffix_check_twosfx(tmpword, 0, tmpl, aeXPRODUCT, this,
-                                                        needflag);
+                                                        scratch, needflag);
         if (he)
           return he;
       }
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 // check if this prefix entry matches
@@ -324,7 +412,8 @@ std::string PfxEntry::check_twosfx_morph(const std::string& word,
                                          int start,
                                          int len,
                                          char in_compound,
-                                         const FLAG needflag) {
+                                         const FLAG needflag,
+                                         AffixScratch& scratch) {
   std::string result;
   // on entry prefix is 0 length or already matches the beginning of the word.
   // So if the remaining root word has positive length
@@ -337,7 +426,8 @@ std::string PfxEntry::check_twosfx_morph(const std::string& word,
     // generate new root word by removing prefix and adding
     // back any characters that would have been stripped
 
-    std::string tmpword(strip);
+    std::string& tmpword = scratch.pfx_check_twosfx;
+    tmpword.assign(strip);
     tmpword.append(word, start + appnd.size(), tmpl);
 
     // now make sure all of the conditions on characters
@@ -358,7 +448,7 @@ std::string PfxEntry::check_twosfx_morph(const std::string& word,
       if ((opts & aeXPRODUCT) && (in_compound != IN_CPD_BEGIN)) {
         result = pmyMgr->suffix_check_twosfx_morph(tmpword, 0, tmpl,
                                                    aeXPRODUCT,
-                                                   this, needflag);
+                                                   this, scratch, needflag);
       }
     }
   }
@@ -370,7 +460,8 @@ std::string PfxEntry::check_morph(const std::string& word,
                                   int start,
                                   int len,
                                   char in_compound,
-                                  const FLAG needflag) {
+                                  const FLAG needflag,
+                                  AffixScratch& scratch) {
   std::string result;
 
   // on entry prefix is 0 length or already matches the beginning of the word.
@@ -385,7 +476,8 @@ std::string PfxEntry::check_morph(const std::string& word,
     // generate new root word by removing prefix and adding
     // back any characters that would have been stripped
 
-    std::string tmpword(strip);
+    std::string& tmpword = scratch.pfx_check_word;
+    tmpword.assign(strip);
     tmpword.append(word, start + appnd.size(), tmpl);
 
     // now make sure all of the conditions on characters
@@ -399,14 +491,9 @@ std::string PfxEntry::check_morph(const std::string& word,
     if (test_condition(tmpword)) {
       tmpl += strip.size();
       struct hentry* he;  // hash entry of root word or NULL
-      if ((he = pmyMgr->lookup(tmpword.c_str(), tmpword.size())) != NULL) {
+      if ((he = pmyMgr->lookup(tmpword.c_str(), tmpword.size())) != nullptr) {
         do {
-          if (TESTAFF(he->astr, aflag, he->alen) &&
-              // forbid single prefixes with needaffix flag
-              !TESTAFF(contclass, pmyMgr->get_needaffix(), contclasslen) &&
-              // needflag
-              ((!needflag) || TESTAFF(he->astr, needflag, he->alen) ||
-               (contclass && TESTAFF(contclass, needflag, contclasslen)))) {
+          if (applies_to(he, needflag, nullptr)) {
             if (morphcode) {
               result.push_back(MSEP_FLD);
               result.append(morphcode);
@@ -440,7 +527,7 @@ std::string PfxEntry::check_morph(const std::string& word,
 
       if ((opts & aeXPRODUCT) && (in_compound != IN_CPD_BEGIN)) {
         std::string st = pmyMgr->suffix_check_morph(tmpword, 0, tmpl, aeXPRODUCT, this,
-                                                    FLAG_NULL, needflag);
+                                                    scratch, FLAG_NULL, needflag);
         if (!st.empty()) {
           result.append(st);
         }
@@ -453,14 +540,39 @@ std::string PfxEntry::check_morph(const std::string& word,
 
 SfxEntry::SfxEntry(AffixMgr* pmgr)
     : pmyMgr(pmgr)  // register affix manager
-      ,
-      next(NULL),
-      nexteq(NULL),
-      nextne(NULL),
-      flgnxt(NULL),
-      l_morph(NULL),
-      r_morph(NULL),
-      eq_morph(NULL) {
+    , next(nullptr)
+    , nexteq(nullptr)
+    , nextne(nullptr)
+    , flgnxt(nullptr)
+    , l_morph(nullptr)
+    , r_morph(nullptr)
+    , eq_morph(nullptr) {}
+
+std::string SfxEntry::get_condition() const {
+  std::string result = AffEntry::get_condition();
+  if (numconds == 0)
+    return result;
+
+  // a suffix condition is held back to front, so turn it around again
+  AffixMgr::reverse_condition(result);
+  reverseword(result);
+
+  // that leaves the negation of a group at the end of the group, so move it
+  // back in front of the characters it negates
+  size_t open = std::string::npos;
+  for (size_t k = 0; k < result.size(); ++k) {
+    if (result[k] == '[') {
+      open = k;
+    } else if (result[k] == ']' && open != std::string::npos) {
+      if (k > open + 1 && result[k - 1] == '^') {
+        result.erase(k - 1, 1);
+        result.insert(open + 1, 1, '^');
+      }
+      open = std::string::npos;
+    }
+  }
+
+  return result;
 }
 
 // add suffix to this word assuming conditions hold
@@ -487,14 +599,14 @@ inline char* SfxEntry::nextchar(char* p) {
         return c.l.conds2;
       // end of the MAXCONDLEN length condition
     } else if (p == c.conds + MAXCONDLEN)
-      return NULL;
-    return *p ? p : NULL;
+      return nullptr;
+    return *p ? p : nullptr;
   }
-  return NULL;
+  return nullptr;
 }
 
 inline int SfxEntry::test_condition(const char* st, const char* beg) {
-  const char* pos = NULL;  // group with pos input position
+  const char* pos = nullptr;  // group with pos input position
   bool neg = false;        // complementer
   bool ingroup = false;    // character in the group
   if (numconds == 0)
@@ -502,7 +614,7 @@ inline int SfxEntry::test_condition(const char* st, const char* beg) {
   char* p = c.conds;
   st--;
   int i = 1;
-  while (1) {
+  while (true) {
     switch (*p) {
       case '\0':
         return 1;
@@ -520,11 +632,11 @@ inline int SfxEntry::test_condition(const char* st, const char* beg) {
         i++;
         // skip the next character
         if (!ingroup) {
-          for (; (opts & aeUTF8) && (st >= beg) && (*st & 0xc0) == 0x80; st--)
+          for (; (opts & aeUTF8) && (st >= beg) && is_utf8_cont(*st); st--)
             ;
           st--;
         }
-        pos = NULL;
+        pos = nullptr;
         neg = false;
         ingroup = false;
         p = nextchar(p);
@@ -535,24 +647,18 @@ inline int SfxEntry::test_condition(const char* st, const char* beg) {
         if (!pos) {
           // dots are not metacharacters in groups: [.]
           p = nextchar(p);
-          // skip the next character
-          for (st--; (opts & aeUTF8) && (st >= beg) && (*st & 0xc0) == 0x80;
-               st--)
+          // skip one character to the left. Walk back over any UTF-8
+          // continuation bytes of that character to its leading byte first,
+          // then step past it, so a single-byte match preceded by a
+          // multibyte character does not consume the multibyte character.
+          for (; (opts & aeUTF8) && (st >= beg) && is_utf8_cont(*st); st--)
             ;
+          st--;
           if (st < beg) {  // word <= condition
             if (p)
               return 0;
             else
               return 1;
-          }
-          if ((opts & aeUTF8) && (*st & 0x80)) {  // head of the UTF-8 character
-            st--;
-            if (st < beg) {  // word <= condition
-              if (p)
-                return 0;
-              else
-                return 1;
-            }
           }
           break;
         }
@@ -570,7 +676,7 @@ inline int SfxEntry::test_condition(const char* st, const char* beg) {
                 break;
               }
               // first byte of the UTF-8 multibyte character
-              if ((*p & 0xc0) != 0x80)
+              if (!is_utf8_cont(*p))
                 break;
               p = nextchar(p);
               st--;
@@ -581,7 +687,7 @@ inline int SfxEntry::test_condition(const char* st, const char* beg) {
               else if (i == numconds)
                 return 1;
               ingroup = true;
-              while (p && *p != ']' && ((p = nextchar(p)) != NULL)) {
+              while (p && *p != ']' && ((p = nextchar(p)) != nullptr)) {
               }
               st--;
             }
@@ -593,9 +699,9 @@ inline int SfxEntry::test_condition(const char* st, const char* beg) {
             else if (i == numconds)
               return 1;
             ingroup = true;
-            while (p && *p != ']' && ((p = nextchar(p)) != NULL)) {
+            while (p && *p != ']' && ((p = nextchar(p)) != nullptr)) {
             }
-            //			if (p && *p != ']') p = nextchar(p);
+            // if (p && *p != ']') p = nextchar(p);
             st--;
           }
           if (!pos) {
@@ -615,6 +721,89 @@ inline int SfxEntry::test_condition(const char* st, const char* beg) {
   }
 }
 
+// decide whether this suffix may be applied to a dictionary entry
+bool SfxEntry::applies_to(const struct hentry* he,
+                          int optflags,
+                          PfxEntry* ep,
+                          const FLAG cclass,
+                          const FLAG needflag,
+                          const FLAG badflag,
+                          const TraceCtx* t) const {
+  // the suffix flag is either on the entry itself, or on a prefix that enables
+  // this suffix
+  bool in_dic = TESTAFF(he->astr, aflag, he->alen);
+  bool in_prefix = ep && ep->getCont() &&
+                   TESTAFF(ep->getCont(), aflag, ep->getContLen());
+  if (t) {
+    if (in_prefix && !in_dic)
+      trace_test(*t, "sfx-aflag", pmyMgr, aflag, "pfx-cont", ep->getCont(),
+                 ep->getContLen(), "pass, the prefix enables this suffix");
+    else
+      trace_test(*t, "sfx-aflag", pmyMgr, aflag, "dic", he->astr, he->alen,
+                 in_dic ? "pass" : "fail");
+  }
+  if (!in_dic && !in_prefix)
+    return false;
+
+  // the prefix and the suffix have to be allowed to meet
+  if ((optflags & aeXPRODUCT) != 0) {
+    FLAG pflag = ep ? ep->getFlag() : FLAG_NULL;
+    in_dic = ep && TESTAFF(he->astr, pflag, he->alen);
+    bool in_cont = contclass && ep && TESTAFF(contclass, pflag, contclasslen);
+    if (t) {
+      if (in_cont && !in_dic)
+        trace_test(*t, "xprod", pmyMgr, pflag, "sfx-cont", contclass,
+                   contclasslen, "pass, this suffix enables the prefix");
+      else
+        trace_test(*t, "xprod", pmyMgr, pflag, "dic", he->astr, he->alen,
+                   in_dic ? "pass"
+                          : "fail, the stem does not take the prefix as well");
+    }
+    if (!in_dic && !in_cont)
+      return false;
+  }
+
+  // handle cont. class
+  if (cclass) {
+    bool ok = contclass && TESTAFF(contclass, cclass, contclasslen);
+    if (t)
+      trace_test(*t, "cclass", pmyMgr, cclass, "sfx-cont", contclass,
+                 contclasslen,
+                 ok ? "pass" : "fail, this suffix does not continue the last one");
+    if (!ok)
+      return false;
+  }
+
+  // check only in compound homonyms (bad flags)
+  if (badflag) {
+    bool ok = !TESTAFF(he->astr, badflag, he->alen);
+    if (t)
+      trace_test(*t, "badflag", pmyMgr, badflag, "dic", he->astr, he->alen,
+                 ok ? "pass" : "fail, the stem has a flag this context forbids");
+    if (!ok)
+      return false;
+  }
+
+  // handle required flag
+  if (needflag) {
+    in_dic = TESTAFF(he->astr, needflag, he->alen);
+    bool in_cont = contclass && TESTAFF(contclass, needflag, contclasslen);
+    if (t) {
+      if (in_cont && !in_dic)
+        trace_test(*t, "needflag", pmyMgr, needflag, "sfx-cont", contclass,
+                   contclasslen, "pass");
+      else
+        trace_test(*t, "needflag", pmyMgr, needflag, "dic", he->astr, he->alen,
+                   in_dic ? "pass"
+                          : "fail, the stem lacks the flag the caller asked for");
+    }
+    if (!in_dic && !in_cont)
+      return false;
+  }
+
+  return true;
+}
+
 // see if this suffix is present in the word
 struct hentry* SfxEntry::checkword(const std::string& word,
                                    int start,
@@ -623,15 +812,25 @@ struct hentry* SfxEntry::checkword(const std::string& word,
                                    PfxEntry* ppfx,
                                    const FLAG cclass,
                                    const FLAG needflag,
-                                   const FLAG badflag) {
+                                   const FLAG badflag,
+                                   AffixScratch& scratch) {
   struct hentry* he;  // hash entry pointer
   PfxEntry* ep = ppfx;
+
+  TraceCtx* t = trace_on(scratch.trace);
+  if (t)
+    trace_affix(*t, "sfx", pmyMgr, *this);
+  TraceScope trace_depth(t);
 
   // if this suffix is being cross checked with a prefix
   // but it does not support cross products skip it
 
-  if (((optflags & aeXPRODUCT) != 0) && ((opts & aeXPRODUCT) == 0))
-    return NULL;
+  if (((optflags & aeXPRODUCT) != 0) && ((opts & aeXPRODUCT) == 0)) {
+    if (t)
+      trace(*t, "test xprod -> fail, this suffix class does not cross with a"
+                " prefix");
+    return nullptr;
+  }
 
   // upon entry suffix is 0 length or already matches the end of the word.
   // So if the remaining root word has positive length
@@ -648,13 +847,14 @@ struct hentry* SfxEntry::checkword(const std::string& word,
     // back any characters that would have been stripped or
     // or null terminating the shorter string
 
-    std::string tmpstring(word, start, tmpl);
+    std::string& tmpword = scratch.sfx_check_word;
+    tmpword.assign(word, start, tmpl);
     if (!strip.empty()) {
-      tmpstring.append(strip);
+      tmpword.append(strip);
     }
 
-    const char* tmpword = tmpstring.c_str();
-    const char* endword = tmpword + tmpstring.size();
+    const char* beg = tmpword.c_str();
+    const char* end = beg + tmpword.size();
 
     // now make sure all of the conditions on characters
     // are met.  Please see the appendix at the end of
@@ -664,37 +864,48 @@ struct hentry* SfxEntry::checkword(const std::string& word,
     // if all conditions are met then check if resulting
     // root word in the dictionary
 
-    if (test_condition(endword, tmpword)) {
+    if (t)
+      trace(*t, "stem \"%s\"", tmpword.c_str());
+
+    bool passes = test_condition(end, beg);
+    if (t)
+      trace(*t, "test condition cond=\"%s\" on \"%s\" -> %s",
+            get_condition().c_str(),
+            tmpword.c_str(), passes ? "pass" : "fail");
+
+    if (passes) {
 #ifdef SZOSZABLYA_POSSIBLE_ROOTS
-      fprintf(stdout, "%s %s %c\n", word.c_str() + start, tmpword, aflag);
+      fprintf(stdout, "%s %s %c\n", word.c_str() + start, beg, aflag);
 #endif
-      if ((he = pmyMgr->lookup(tmpstring.c_str(), tmpstring.size())) != NULL) {
+      if ((he = pmyMgr->lookup(tmpword.c_str(), tmpword.size())) != nullptr) {
+        if (t)
+          trace(*t, "lookup \"%s\" -> entry \"%s\" flags=%s", tmpword.c_str(),
+                he->word, trace_flags(pmyMgr, he->astr, he->alen).c_str());
         do {
-          // check conditional suffix (enabled by prefix)
-          if ((TESTAFF(he->astr, aflag, he->alen) ||
-               (ep && ep->getCont() &&
-                TESTAFF(ep->getCont(), aflag, ep->getContLen()))) &&
-              (((optflags & aeXPRODUCT) == 0) ||
-               (ep && TESTAFF(he->astr, ep->getFlag(), he->alen)) ||
-               // enabled by prefix
-               ((contclass) &&
-                (ep && TESTAFF(contclass, ep->getFlag(), contclasslen)))) &&
-              // handle cont. class
-              ((!cclass) ||
-               ((contclass) && TESTAFF(contclass, cclass, contclasslen))) &&
-              // check only in compound homonyms (bad flags)
-              (!badflag || !TESTAFF(he->astr, badflag, he->alen)) &&
-              // handle required flag
-              ((!needflag) ||
-               (TESTAFF(he->astr, needflag, he->alen) ||
-                ((contclass) && TESTAFF(contclass, needflag, contclasslen)))))
+          if (applies_to(he, optflags, ep, cclass, needflag, badflag, t)) {
+            if (t)
+              trace(*t, "accept");
             return he;
+          }
           he = he->next_homonym;  // check homonyms
+          if (t) {
+            if (he)
+              trace(*t, "lookup \"%s\" -> entry \"%s\" flags=%s",
+                    tmpword.c_str(), he->word,
+                    trace_flags(pmyMgr, he->astr, he->alen).c_str());
+            else
+              trace(*t, "lookup \"%s\" -> no more homonyms", tmpword.c_str());
+          }
         } while (he);
+      } else if (t) {
+        trace(*t, "lookup \"%s\" -> miss", tmpword.c_str());
       }
     }
+  } else if (t) {
+    trace(*t, "test length have=%d need=%d -> fail, too little is left of the"
+              " word to test", tmpl, (int)numconds);
   }
-  return NULL;
+  return nullptr;
 }
 
 // see if two-level suffix is present in the word
@@ -703,14 +914,15 @@ struct hentry* SfxEntry::check_twosfx(const std::string& word,
                                       int len,
                                       int optflags,
                                       PfxEntry* ppfx,
-                                      const FLAG needflag) {
+                                      const FLAG needflag,
+                                      AffixScratch& scratch) {
   PfxEntry* ep = ppfx;
 
   // if this suffix is being cross checked with a prefix
   // but it does not support cross products skip it
 
   if ((optflags & aeXPRODUCT) != 0 && (opts & aeXPRODUCT) == 0)
-    return NULL;
+    return nullptr;
 
   // upon entry suffix is 0 length or already matches the end of the word.
   // So if the remaining root word has positive length
@@ -725,7 +937,8 @@ struct hentry* SfxEntry::check_twosfx(const std::string& word,
     // back any characters that would have been stripped or
     // or null terminating the shorter string
 
-    std::string tmpword(word, start);
+    std::string& tmpword = scratch.sfx_check_twosfx;
+    tmpword.assign(word, start);
     tmpword.resize(tmpl);
     tmpword.append(strip);
     tmpl += strip.size();
@@ -745,20 +958,18 @@ struct hentry* SfxEntry::check_twosfx(const std::string& word,
       if (ppfx) {
         // handle conditional suffix
         if ((contclass) && TESTAFF(contclass, ep->getFlag(), contclasslen))
-          he = pmyMgr->suffix_check(tmpword, 0, tmpl, 0, NULL,
-                                    (FLAG)aflag, needflag, IN_CPD_NOT);
+          he = pmyMgr->suffix_check(tmpword, 0, tmpl, 0, nullptr, scratch, (FLAG)aflag, needflag, IN_CPD_NOT);
         else
           he = pmyMgr->suffix_check(tmpword, 0, tmpl, optflags, ppfx,
-                                    (FLAG)aflag, needflag, IN_CPD_NOT);
+                                    scratch, (FLAG)aflag, needflag, IN_CPD_NOT);
       } else {
-        he = pmyMgr->suffix_check(tmpword, 0, tmpl, 0, NULL,
-                                  (FLAG)aflag, needflag, IN_CPD_NOT);
+        he = pmyMgr->suffix_check(tmpword, 0, tmpl, 0, nullptr, scratch, (FLAG)aflag, needflag, IN_CPD_NOT);
       }
       if (he)
         return he;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 // see if two-level suffix is present in the word
@@ -767,7 +978,8 @@ std::string SfxEntry::check_twosfx_morph(const std::string& word,
                                          int len,
                                          int optflags,
                                          PfxEntry* ppfx,
-                                         const FLAG needflag) {
+                                         const FLAG needflag,
+                                         AffixScratch& scratch) {
   PfxEntry* ep = ppfx;
 
   std::string result;
@@ -791,7 +1003,8 @@ std::string SfxEntry::check_twosfx_morph(const std::string& word,
     // back any characters that would have been stripped or
     // or null terminating the shorter string
 
-    std::string tmpword(word, start);
+    std::string& tmpword = scratch.sfx_check_twosfx;
+    tmpword.assign(word, start);
     tmpword.resize(tmpl);
     tmpword.append(strip);
     tmpl += strip.size();
@@ -810,8 +1023,7 @@ std::string SfxEntry::check_twosfx_morph(const std::string& word,
       if (ppfx) {
         // handle conditional suffix
         if ((contclass) && TESTAFF(contclass, ep->getFlag(), contclasslen)) {
-          std::string st = pmyMgr->suffix_check_morph(tmpword, 0, tmpl, 0, NULL, aflag,
-                                                      needflag);
+          std::string st = pmyMgr->suffix_check_morph(tmpword, 0, tmpl, 0, nullptr, scratch, aflag, needflag);
           if (!st.empty()) {
             if (ppfx->getMorph()) {
               result.append(ppfx->getMorph());
@@ -821,7 +1033,7 @@ std::string SfxEntry::check_twosfx_morph(const std::string& word,
             mychomp(result);
           }
         } else {
-          std::string st = pmyMgr->suffix_check_morph(tmpword, 0, tmpl, optflags, ppfx, aflag,
+          std::string st = pmyMgr->suffix_check_morph(tmpword, 0, tmpl, optflags, ppfx, scratch, aflag,
                                                       needflag);
           if (!st.empty()) {
             result.append(st);
@@ -829,7 +1041,7 @@ std::string SfxEntry::check_twosfx_morph(const std::string& word,
           }
         }
       } else {
-        std::string st = pmyMgr->suffix_check_morph(tmpword, 0, tmpl, 0, NULL, aflag, needflag);
+        std::string st = pmyMgr->suffix_check_morph(tmpword, 0, tmpl, 0, nullptr, scratch, aflag, needflag);
         if (!st.empty()) {
           result.append(st);
           mychomp(result);
@@ -866,7 +1078,7 @@ struct hentry* SfxEntry::get_next_homonym(struct hentry* he,
           ((contclass) && TESTAFF(contclass, needflag, contclasslen)))))
       return he;
   }
-  return NULL;
+  return nullptr;
 }
 
 void SfxEntry::initReverseWord() {
@@ -879,12 +1091,12 @@ void SfxEntry::initReverseWord() {
 Appendix:  Understanding Affix Code
 
 
-An affix is either a  prefix or a suffix attached to root words to make 
+An affix is either a  prefix or a suffix attached to root words to make
 other words.
 
 Basically a Prefix or a Suffix is set of AffEntry objects
-which store information about the prefix or suffix along 
-with supporting routines to check if a word has a particular 
+which store information about the prefix or suffix along
+with supporting routines to check if a word has a particular
 prefix or suffix or a combination.
 
 The structure affentry is defined as follows:
@@ -895,15 +1107,15 @@ struct affentry
    std::string strip;       // string to strip before adding affix
    std::string appnd;       // the affix string to add
    char numconds;           // the number of conditions that must be met
-   char opts;               // flag: aeXPRODUCT- combine both prefix and suffix 
+   char opts;               // flag: aeXPRODUCT- combine both prefix and suffix
    char   conds[SETSIZE];   // array which encodes the conditions to be met
 };
 
 
-Here is a suffix borrowed from the en_US.aff file.  This file 
+Here is a suffix borrowed from the en_US.aff file.  This file
 is whitespace delimited.
 
-SFX D Y 4 
+SFX D Y 4
 SFX D   0     e          d
 SFX D   y     ied        [^aeiou]y
 SFX D   0     ed         [^ey]
@@ -921,7 +1133,7 @@ Field
 4     4   - indicates that sequence of 4 affentry structures are needed to
                properly store the affix information
 
-The remaining lines describe the unique information for the 4 SfxEntry 
+The remaining lines describe the unique information for the 4 SfxEntry
 objects that make up this affix.  Each line can be interpreted
 as follows: (note fields 1 and 2 are as a check against line 1 info)
 
@@ -936,57 +1148,57 @@ Field
                     can be applied
 
 Field 5 is interesting.  Since this is a suffix, field 5 tells us that
-there are 2 conditions that must be met.  The first condition is that 
-the next to the last character in the word must *NOT* be any of the 
+there are 2 conditions that must be met.  The first condition is that
+the next to the last character in the word must *NOT* be any of the
 following "a", "e", "i", "o" or "u".  The second condition is that
 the last character of the word must end in "y".
 
-So how can we encode this information concisely and be able to 
+So how can we encode this information concisely and be able to
 test for both conditions in a fast manner?  The answer is found
-but studying the wonderful ispell code of Geoff Kuenning, et.al. 
+but studying the wonderful ispell code of Geoff Kuenning, et.al.
 (now available under a normal BSD license).
 
 If we set up a conds array of 256 bytes indexed (0 to 255) and access it
 using a character (cast to an unsigned char) of a string, we have 8 bits
 of information we can store about that character.  Specifically we
-could use each bit to say if that character is allowed in any of the 
+could use each bit to say if that character is allowed in any of the
 last (or first for prefixes) 8 characters of the word.
 
-Basically, each character at one end of the word (up to the number 
-of conditions) is used to index into the conds array and the resulting 
-value found there says whether the that character is valid for a 
-specific character position in the word.  
+Basically, each character at one end of the word (up to the number
+of conditions) is used to index into the conds array and the resulting
+value found there says whether the that character is valid for a
+specific character position in the word.
 
-For prefixes, it does this by setting bit 0 if that char is valid 
-in the first position, bit 1 if valid in the second position, and so on. 
+For prefixes, it does this by setting bit 0 if that char is valid
+in the first position, bit 1 if valid in the second position, and so on.
 
 If a bit is not set, then that char is not valid for that postion in the
 word.
 
-If working with suffixes bit 0 is used for the character closest 
-to the front, bit 1 for the next character towards the end, ..., 
-with bit numconds-1 representing the last char at the end of the string. 
+If working with suffixes bit 0 is used for the character closest
+to the front, bit 1 for the next character towards the end, ...,
+with bit numconds-1 representing the last char at the end of the string.
 
-Note: since entries in the conds[] are 8 bits, only 8 conditions 
+Note: since entries in the conds[] are 8 bits, only 8 conditions
 (read that only 8 character positions) can be examined at one
 end of a word (the beginning for prefixes and the end for suffixes.
 
-So to make this clearer, lets encode the conds array values for the 
+So to make this clearer, lets encode the conds array values for the
 first two affentries for the suffix D described earlier.
 
 
-  For the first affentry:    
+  For the first affentry:
      numconds = 1             (only examine the last character)
 
      conds['e'] =  (1 << 0)   (the word must end in an E)
      all others are all 0
 
   For the second affentry:
-     numconds = 2             (only examine the last two characters)     
+     numconds = 2             (only examine the last two characters)
 
      conds[X] = conds[X] | (1 << 0)     (aeiou are not allowed)
          where X is all characters *but* a, e, i, o, or u
-         
+
 
      conds['y'] = (1 << 1)     (the last char must be a y)
      all other bits for all other entries in the conds array are zero

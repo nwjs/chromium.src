@@ -64,6 +64,13 @@ interface PageHandler {
   // Opens the overflow menu help page in a new tab.
   OpenOverflowMenuHelpUi();
 
+  // Opens the Google Account management page in a new foreground tab.
+  OpenManageAccountUi();
+
+  // Navigates a new foreground tab to the Google sign-out page, which signs
+  // the user out of their Google accounts on the web.
+  OpenLogOutFlow();
+
   // Opens the feedback UI.
   OpenFeedbackUi();
 
@@ -119,6 +126,12 @@ interface Page {
   // changes.
   OnSidePanelPinStateChanged(bool is_pinned);
 
+  // Called by the browser process (C++) when the user's eligibility to pin
+  // the side panel changes (e.g. the account becomes ineligible while the side
+  // panel is open). The UI hides the pin/unpin menu item when `is_eligible` is
+  // false.
+  OnPinButtonEligibilityChanged(bool is_eligible);
+
   // Called by the browser process (C++) to notify the UI when the AI page
   // status changes.
   OnAiPageStatusChanged(bool is_ai_page);
@@ -142,6 +155,12 @@ interface Page {
   // chrome://contextual-tasks/profile-avatar.png URL for the signed-in
   // account's avatar or the chrome://theme placeholder avatar URL).
   SetProfileAvatarUrl(url.mojom.Url avatar_url);
+
+  // Updates the Google account information shown in the toolbar account menu.
+  // Both strings are empty when there is no account to show (e.g. the user is
+  // signed in to Chrome or is signed out of Google on the web). `full_name`
+  // may also be empty if the account's name is not known yet.
+  SetAccountInfo(string full_name, string email);
 };
 // Observer interface (page) implemented by WebUI to receive push
 // updates from browser process.
@@ -176,8 +195,13 @@ interface ContextualTasksToolbarUIService {
   // Notifies the browser that a chip was clicked
   // or activated (mouse down then up). `is_mouse_interaction` distinguishes
   // between mouse clicks and keyboard/touch events.
+  // `state_token` is the chip's `PermissionChipState.state_token` that the
+  // WebUI rendered with. It is used as a best-effort staleness check to drop
+  // clicks queued before a task switch or navigation; it is not a security
+  // boundary against a compromised renderer.
   OnChipClicked(toolbar_ui_api.mojom.LhsChipIdentifier identifier,
-                bool is_mouse_interaction);
+                bool is_mouse_interaction,
+                uint32 state_token);
 
   // Notifies the browser that the pointer (mouse/stylus)
   // entered the bounds of a chip (e.g., to trigger hover

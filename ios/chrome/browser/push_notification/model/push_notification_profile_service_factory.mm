@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/push_notification/model/push_notification_profile_service_factory.h"
 
+#import <utility>
+
 #import "base/memory/scoped_refptr.h"
 #import "base/task/sequenced_task_runner.h"
 #import "ios/chrome/browser/commerce/model/price_alert_util.h"
@@ -33,29 +35,14 @@ std::unique_ptr<KeyedService> BuildInstance(ProfileIOS* profile) {
 }
 }  // namespace
 
-// static
-PushNotificationProfileServiceFactory*
-PushNotificationProfileServiceFactory::GetInstance() {
-  static base::NoDestructor<PushNotificationProfileServiceFactory> instance;
-  return instance.get();
-}
-
-// static
-PushNotificationProfileService*
-PushNotificationProfileServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<PushNotificationProfileService>(
-      profile, /*create=*/true);
-}
-
-PushNotificationProfileServiceFactory::PushNotificationProfileServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("PushNotificationProfileService",
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {
+PushNotificationProfileServiceFactory::PushNotificationProfileServiceFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "PushNotificationProfileService",
+                                         ServiceCreation::kCreateWithProfile,
+                                         TestingCreation::kNoServiceForTests) {
   DependsOn(IdentityManagerFactory::GetInstance());
 }
-
-PushNotificationProfileServiceFactory::
-    ~PushNotificationProfileServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 PushNotificationProfileServiceFactory::BuildServiceInstanceFor(

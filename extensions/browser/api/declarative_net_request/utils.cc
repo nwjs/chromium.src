@@ -5,12 +5,14 @@
 #include "extensions/browser/api/declarative_net_request/utils.h"
 
 #include <algorithm>
+#include <array>
 #include <memory>
 #include <set>
 #include <string_view>
 #include <utility>
 
 #include "base/auto_reset.h"
+#include "base/containers/fixed_flat_map.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -38,6 +40,7 @@
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/permissions/api_permission.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "services/network/public/cpp/cors/cors.h"
 #include "third_party/flatbuffers/src/include/flatbuffers/flatbuffers.h"
 
 namespace extensions::declarative_net_request {
@@ -51,7 +54,7 @@ namespace flat_rule = url_pattern_index::flat;
 // url_pattern_index.fbs. Whenever an extension with an indexed ruleset format
 // version different from the one currently used by Chrome is loaded, the
 // extension ruleset will be reindexed.
-constexpr int kIndexedRulesetFormatVersion = 36;
+constexpr int kIndexedRulesetFormatVersion = 37;
 
 // This static assert is meant to catch cases where
 // url_pattern_index::kUrlPatternIndexFormatVersion is incremented without
@@ -835,28 +838,34 @@ flat_rule::RequestMethod GetRequestMethod(bool http_or_https,
     return flat_rule::RequestMethod_NON_HTTP;
   }
 
-  using net::HttpRequestHeaders;
-  static const base::NoDestructor<
-      base::flat_map<std::string_view, flat_rule::RequestMethod>>
-      kRequestMethods(
-          {{HttpRequestHeaders::kDeleteMethod, flat_rule::RequestMethod_DELETE},
-           {HttpRequestHeaders::kGetMethod, flat_rule::RequestMethod_GET},
-           {HttpRequestHeaders::kHeadMethod, flat_rule::RequestMethod_HEAD},
-           {HttpRequestHeaders::kOptionsMethod,
-            flat_rule::RequestMethod_OPTIONS},
-           {HttpRequestHeaders::kPatchMethod, flat_rule::RequestMethod_PATCH},
-           {HttpRequestHeaders::kPostMethod, flat_rule::RequestMethod_POST},
-           {HttpRequestHeaders::kPutMethod, flat_rule::RequestMethod_PUT},
-           {HttpRequestHeaders::kConnectMethod,
-            flat_rule::RequestMethod_CONNECT}});
+  static const auto kRequestMethods = []() {
+    using net::HttpRequestHeaders;
+    const auto kRequestMethodsArray = std::to_array<
+        std::pair<const std::string_view, flat_rule::RequestMethod>>({
+        // keep-sorted start
+        {HttpRequestHeaders::kConnectMethod, flat_rule::RequestMethod_CONNECT},
+        {HttpRequestHeaders::kDeleteMethod, flat_rule::RequestMethod_DELETE},
+        {HttpRequestHeaders::kGetMethod, flat_rule::RequestMethod_GET},
+        {HttpRequestHeaders::kHeadMethod, flat_rule::RequestMethod_HEAD},
+        {HttpRequestHeaders::kOptionsMethod, flat_rule::RequestMethod_OPTIONS},
+        {HttpRequestHeaders::kPatchMethod, flat_rule::RequestMethod_PATCH},
+        {HttpRequestHeaders::kPostMethod, flat_rule::RequestMethod_POST},
+        {HttpRequestHeaders::kPutMethod, flat_rule::RequestMethod_PUT}
+        // keep-sorted end
+    });
 
-  DCHECK(std::ranges::all_of(*kRequestMethods, [](const auto& key_value) {
-    return std::ranges::none_of(key_value.first, base::IsAsciiLower<char>);
-  }));
+    DCHECK(std::ranges::all_of(kRequestMethodsArray, [](const auto& key_value) {
+      return std::ranges::none_of(key_value.first, base::IsAsciiLower<char>);
+    }));
+
+    return base::fixed_flat_map<std::string_view, flat_rule::RequestMethod,
+                                kRequestMethodsArray.size()>(
+        base::sorted_unique, kRequestMethodsArray);
+  }();
 
   std::string normalized_method = base::ToUpperASCII(method);
-  auto it = kRequestMethods->find(normalized_method);
-  if (it == kRequestMethods->end()) {
+  auto it = kRequestMethods.find(normalized_method);
+  if (it == kRequestMethods.end()) {
     return flat_rule::RequestMethod_OTHER_HTTP;
   }
   return it->second;
@@ -930,6 +939,15 @@ bool IsResponseHeaderMatchingEnabled() {
 bool IsHeaderSubstitutionEnabled() {
   return base::FeatureList::IsEnabled(
       extensions_features::kDeclarativeNetRequestHeaderSubstitution);
+}
+
+bool CanMatchResponseHeaderValuesWithoutHostPermissions(
+    std::string_view header_name) {
+  // Content-Encoding is not CORS-safelisted, but its values are determined by
+  // the server's configuration and the browser's Accept-Encoding header rather
+  // than the user.
+  return network::cors::IsCorsSafelistedResponseHeaderName(header_name) ||
+         base::EqualsCaseInsensitiveASCII(header_name, "content-encoding");
 }
 
 }  // namespace extensions::declarative_net_request

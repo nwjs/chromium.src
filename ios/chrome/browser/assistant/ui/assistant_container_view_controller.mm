@@ -62,6 +62,14 @@ inline LayoutStateAssistantPassKey PassKey() {
   return layout_state::AssistantContainerViewControllerPassKeyFactory::
       CreateKey();
 }
+
+// Returns the default poster block forwarding to
+// `UIAccessibilityPostNotification`.
+AccessibilityNotificationPoster DefaultAccessibilityNotificationPoster() {
+  return ^(UIAccessibilityNotifications notification, id argument) {
+    UIAccessibilityPostNotification(notification, argument);
+  };
+}
 }  // namespace
 
 @interface AssistantContainerViewController () <
@@ -102,6 +110,8 @@ inline LayoutStateAssistantPassKey PassKey() {
   BOOL _isDraggingContainer;
   // Whether the view has appeared.
   BOOL _hasAppeared;
+  // Whether the entry presentation animation has completed.
+  BOOL _hasCompletedPresentation;
 
   // Gesture recognizer for resizing the container.
   UIPanGestureRecognizer* _headerPanGesture;
@@ -119,6 +129,9 @@ inline LayoutStateAssistantPassKey PassKey() {
   CGFloat _bottomMargin;
   // Whether the grabber button is hidden.
   BOOL _grabberHidden;
+  // Whether VoiceOver focus should be restored to the grabber button once the
+  // active detent animation completes.
+  BOOL _shouldRefocusGrabber;
 }
 
 @synthesize isAnimating = _isAnimating;
@@ -134,6 +147,7 @@ inline LayoutStateAssistantPassKey PassKey() {
         AssistantContainerDetent::kLarge,
     };
     _largestUndimmedDetent = kDefaultLargestUndimmedDetent;
+    _accessibilityNotificationPoster = DefaultAccessibilityNotificationPoster();
   }
   return self;
 }
@@ -247,19 +261,6 @@ inline LayoutStateAssistantPassKey PassKey() {
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
   _hasAppeared = YES;
-
-  // Focus or announce the grabber button on entry.
-  if (_assistantContainerView.grabberButton && !_grabberHidden) {
-    if (self.announceArrivalOnly) {
-      NSString* message = l10n_util::GetNSString(
-          IDS_IOS_ASSISTANT_SHEET_GRABBER_ACCESSIBILITY_LABEL);
-      UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification,
-                                      message);
-      return;
-    }
-    UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification,
-                                    _assistantContainerView.grabberButton);
-  }
 }
 
 #pragma mark - Public
@@ -309,6 +310,10 @@ inline LayoutStateAssistantPassKey PassKey() {
   UIViewAnimationOptions options =
       curve << 16 | UIViewAnimationOptionBeginFromCurrentState;
 
+  if (!self.isAnimating) {
+    _shouldRefocusGrabber =
+        [_assistantContainerView.grabberButton accessibilityElementIsFocused];
+  }
   self.isAnimating = YES;
 
   if (duration <= 0) {
@@ -341,6 +346,24 @@ inline LayoutStateAssistantPassKey PassKey() {
                                                    passKey:PassKey()];
   [self.sceneLayoutState setAssistantContainerInvoked:isSheetPresented
                                               passKey:PassKey()];
+}
+
+- (void)completePresentationAnimation {
+  _hasCompletedPresentation = YES;
+  // Focus or announce the grabber button once the presentation animation
+  // completes so that concurrent dismissals (e.g. the omnibox) do not reclaim
+  // VoiceOver focus.
+  if (_assistantContainerView.grabberButton && !_grabberHidden) {
+    if (self.announceArrivalOnly) {
+      NSString* message = l10n_util::GetNSString(
+          IDS_IOS_ASSISTANT_SHEET_GRABBER_ACCESSIBILITY_LABEL);
+      _accessibilityNotificationPoster(UIAccessibilityAnnouncementNotification,
+                                       message);
+      return;
+    }
+    _accessibilityNotificationPoster(UIAccessibilityScreenChangedNotification,
+                                     _assistantContainerView.grabberButton);
+  }
 }
 
 - (BOOL)isGrabberHidden {
@@ -482,6 +505,18 @@ inline LayoutStateAssistantPassKey PassKey() {
   }
 }
 
+- (void)setMediumDetentPercentage:
+    (std::optional<NSInteger>)mediumDetentPercentage {
+  if (_mediumDetentPercentage == mediumDetentPercentage) {
+    return;
+  }
+  _mediumDetentPercentage = mediumDetentPercentage;
+  [self updateDetentHeights];
+  if (_activeDetent == AssistantContainerDetent::kMedium && _hasAppeared) {
+    [self animateToDetent:AssistantContainerDetent::kMedium];
+  }
+}
+
 - (void)setGuideName:(GuideName*)guideName {
   if ([_guideName isEqualToString:guideName]) {
     return;
@@ -492,6 +527,15 @@ inline LayoutStateAssistantPassKey PassKey() {
   UIView* parentView = self.view.superview;
   if (parentView) {
     [self layoutInParentView:parentView];
+  }
+}
+
+- (void)setAccessibilityNotificationPoster:
+    (AccessibilityNotificationPoster)accessibilityNotificationPoster {
+  if (accessibilityNotificationPoster) {
+    _accessibilityNotificationPoster = [accessibilityNotificationPoster copy];
+  } else {
+    _accessibilityNotificationPoster = DefaultAccessibilityNotificationPoster();
   }
 }
 
@@ -709,12 +753,12 @@ inline LayoutStateAssistantPassKey PassKey() {
         updateAccessibilityPropertiesWithCurrentDetent:newDetent
                                       availableDetents:self.detents];
 
-    if (!_grabberHidden) {
+    if (_hasCompletedPresentation && !_grabberHidden) {
       // Announce the new state without losing VoiceOver focus.
       NSString* valueString =
           _assistantContainerView.grabberButton.accessibilityValue;
-      UIAccessibilityPostNotification(UIAccessibilityAnnouncementNotification,
-                                      valueString);
+      _accessibilityNotificationPoster(UIAccessibilityAnnouncementNotification,
+                                       valueString);
     }
   }
 }
@@ -746,6 +790,12 @@ inline LayoutStateAssistantPassKey PassKey() {
 // Called when the animation to a detent completes.
 - (void)didCompleteDetentAnimationWithDetent:(AssistantContainerDetent)detent {
   self.isAnimating = NO;
+  if (_shouldRefocusGrabber && !_grabberHidden &&
+      self.presentationContext == AssistantPresentationContext::kSheet) {
+    _accessibilityNotificationPoster(UIAccessibilityLayoutChangedNotification,
+                                     _assistantContainerView.grabberButton);
+  }
+  _shouldRefocusGrabber = NO;
 }
 
 // Executes the layout pass and notifies the delegate of the transition.
@@ -1363,16 +1413,37 @@ inline LayoutStateAssistantPassKey PassKey() {
 }
 
 // Computes the height for the medium detent, taking into account optional
-// custom height and experimental setting percentage.
+// custom height, experimental setting percentage, and custom percentage.
+// Clamps the returned height strictly between `minimizedDetentHeight` and
+// `absoluteMaxHeight` so `kMedium` never collides with `kMinimized` or
+// `kLarge`.
 - (NSInteger)computeMediumDetentHeight {
   NSInteger absoluteMax = [self absoluteMaxHeight];
+  NSInteger height = 0;
   if (self.mediumDetentHeight.has_value()) {
-    return std::clamp(self.mediumDetentHeight.value(),
-                      self.minimizedDetentHeight, absoluteMax);
+    height = self.mediumDetentHeight.value();
+  } else {
+    // Prioritize the Finch / `chrome://flags` parameter override if set
+    // (`GetAssistantMediumDetentPercentage()` returns 0 when unset). Otherwise,
+    // fall back to the caller-provided `mediumDetentPercentage` (e.g. 60% for
+    // Cobrowse) or the container's default (50%).
+    NSInteger percentage = GetAssistantMediumDetentPercentage();
+    if (percentage <= 0) {
+      percentage =
+          self.mediumDetentPercentage.value_or(kDefaultMediumDetentPercentage);
+    }
+    height = absoluteMax * (percentage / 100.0);
   }
-  NSInteger percentage =
-      GetAssistantMediumDetentPercentage() ?: kDefaultMediumDetentPercentage;
-  return absoluteMax * (percentage / 100.0);
+  NSInteger minMediumHeight = self.minimizedDetentHeight + 1;
+  NSInteger maxMediumHeight = absoluteMax - 1;
+  // Before the view has been laid out (e.g. when properties are configured
+  // before presentation and `self.view.frame` is `CGRectZero`), `absoluteMax`
+  // can be smaller than `minimizedDetentHeight`. Guard against passing an
+  // inverted range to `std::clamp`, which asserts `lo <= hi` in libc++.
+  if (minMediumHeight > maxMediumHeight) {
+    return height;
+  }
+  return std::clamp(height, minMediumHeight, maxMediumHeight);
 }
 
 // Recomputes and caches the heights for all active detents.

@@ -10,6 +10,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
@@ -27,6 +28,7 @@
 #include "components/fcm/base/fcm_backoff_policy.h"
 #include "components/fcm/crypto/fcm_decryption_result.h"
 #include "google_apis/gcm/base/encryptor.h"
+#include "google_apis/gcm/base/gcm_features.h"
 #include "google_apis/gcm/base/mcs_message.h"
 #include "google_apis/gcm/base/mcs_util.h"
 #include "google_apis/gcm/engine/checkin_request.h"
@@ -81,6 +83,13 @@ const char kSendMessageFromValue[] = "gcm@chrome.com";
 const int64_t kDefaultUserSerialNumber = 0LL;
 const int kDestroyGCMStoreDelayMS = 5 * 60 * 1000;  // 5 minutes.
 constexpr base::TimeDelta kTokenInvalidationInterval = base::Days(7);
+
+// Previously, GCMAccountMapper registered with this app ID. Any persisted
+// registration for it in GCMStore is obsolete and removed on load.
+// Deprecated in October 2026.
+// TODO(crbug.com/384891711): Remove this constant and its cleanup logic after
+// October 2027.
+constexpr char kDeprecatedGCMAccountMapperAppId[] = "com.google.android.gms";
 
 GCMClient::Result ToGCMClientResult(MCSClient::MessageSendStatus status) {
   switch (status) {
@@ -200,9 +209,15 @@ void GCMClientImpl::Start(StartMode start_mode) {
   DCHECK_NE(UNINITIALIZED, state_);
   DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
 
+  // The delay start behavior will be abandoned when Start has been called
+  // once with IMMEDIATE_START behavior.
+  if (start_mode == IMMEDIATE_START) {
+    start_mode_ = IMMEDIATE_START;
+  }
+
   if (state_ == LOADED) {
     // Start the GCM if not yet.
-    if (start_mode == IMMEDIATE_START) {
+    if (start_mode_ == IMMEDIATE_START) {
       // Give up the scheduling to wipe out the store since now some one starts
       // to use GCM.
       destroying_gcm_store_ptr_factory_.InvalidateWeakPtrs();
@@ -212,11 +227,6 @@ void GCMClientImpl::Start(StartMode start_mode) {
     return;
   }
 
-  // The delay start behavior will be abandoned when Start has been called
-  // once with IMMEDIATE_START behavior.
-  if (start_mode == IMMEDIATE_START)
-    start_mode_ = IMMEDIATE_START;
-
   // Bail out if the loading is not started or completed.
   if (state_ != INITIALIZED)
     return;
@@ -224,8 +234,9 @@ void GCMClientImpl::Start(StartMode start_mode) {
   // Once the loading is completed, the check-in will be initiated.
   // If we're in lazy start mode, don't create a new store since none is really
   // using GCM functionality yet.
-  gcm_store_->Load((start_mode == IMMEDIATE_START) ? GCMStore::CREATE_IF_MISSING
-                                                   : GCMStore::DO_NOT_CREATE,
+  gcm_store_->Load((start_mode_ == IMMEDIATE_START)
+                       ? GCMStore::CREATE_IF_MISSING
+                       : GCMStore::DO_NOT_CREATE,
                    base::BindOnce(&GCMClientImpl::OnLoadCompleted,
                                   weak_ptr_factory_.GetWeakPtr()));
   state_ = LOADING;
@@ -260,9 +271,10 @@ void GCMClientImpl::OnLoadCompleted(
 
   device_checkin_info_.set_android_id(result->device_android_id);
   device_checkin_info_.set_secret(result->device_security_token);
-  device_checkin_info_.set_accounts_set(true);
   last_checkin_time_ = result->last_checkin_time;
   gservices_settings_.UpdateFromLoadResult(*result);
+
+  RemoveDeprecatedData(*result);
 
   for (const auto& [key, value] : result->registrations) {
     std::string registration_id;
@@ -306,20 +318,26 @@ void GCMClientImpl::OnLoadCompleted(
   StartGCM();
 }
 
+void GCMClientImpl::RemoveDeprecatedData(GCMStore::LoadResult& result) {
+  if (!base::FeatureList::IsEnabled(features::kGCMRemoveDeprecatedStoreData)) {
+    return;
+  }
+  if (result.registrations.erase(kDeprecatedGCMAccountMapperAppId)) {
+    gcm_store_->RemoveRegistration(
+        kDeprecatedGCMAccountMapperAppId,
+        base::BindOnce(&GCMClientImpl::UpdateRegistrationCallback,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
 void GCMClientImpl::StartGCM() {
   DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
-
-  // Taking over the value of account_mappings before passing the ownership of
-  // load result to InitializeMCSClient.
-  std::vector<AccountMapping> account_mappings;
-  account_mappings.swap(load_result_->account_mappings);
-  base::Time last_token_fetch_time = load_result_->last_token_fetch_time;
 
   InitializeMCSClient();
 
   if (device_checkin_info_.IsValid()) {
     SchedulePeriodicCheckin();
-    OnReady(account_mappings, last_token_fetch_time);
+    OnReady();
     return;
   }
 
@@ -361,23 +379,19 @@ void GCMClientImpl::OnFirstTimeDeviceCheckinCompleted(
 
   device_checkin_info_.set_android_id(checkin_info.android_id());
   device_checkin_info_.set_secret(checkin_info.secret());
-  // If accounts were not set by now, we can consider them set (to empty list)
-  // to make sure periodic checkins get scheduled after initial checkin.
-  device_checkin_info_.set_accounts_set(true);
   gcm_store_->SetDeviceCredentials(
       checkin_info.android_id(), checkin_info.secret(),
       base::BindOnce(&GCMClientImpl::SetDeviceCredentialsCallback,
                      weak_ptr_factory_.GetWeakPtr()));
 
-  OnReady(std::vector<AccountMapping>(), base::Time());
+  OnReady();
 }
 
-void GCMClientImpl::OnReady(const std::vector<AccountMapping>& account_mappings,
-                            const base::Time& last_token_fetch_time) {
+void GCMClientImpl::OnReady() {
   state_ = READY;
   StartMCSLogin();
 
-  delegate_->OnGCMReady(account_mappings, last_token_fetch_time);
+  delegate_->OnGCMReady();
 }
 
 void GCMClientImpl::StartMCSLogin() {
@@ -407,49 +421,6 @@ void GCMClientImpl::ResetStore() {
   // Destroy the GCM store to start over.
   gcm_store_->Destroy(base::BindOnce(&GCMClientImpl::ResetStoreCallback,
                                      weak_ptr_factory_.GetWeakPtr()));
-}
-
-void GCMClientImpl::SetAccountTokens(
-    const std::vector<AccountTokenInfo>& account_tokens) {
-  DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
-
-  bool accounts_set_before = device_checkin_info_.accounts_set();
-  device_checkin_info_.set_accounts_set(true);
-
-  DVLOG(1) << "Set account called with: " << account_tokens.size()
-           << " accounts.";
-
-  if (state_ != READY && state_ != INITIAL_DEVICE_CHECKIN)
-    return;
-
-  if (!accounts_set_before) {
-    SchedulePeriodicCheckin();
-    DVLOG(1) << "Accounts set for the first time. Scheduled periodic checkin.";
-  }
-}
-
-void GCMClientImpl::UpdateAccountMapping(
-    const AccountMapping& account_mapping) {
-  DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
-  gcm_store_->AddAccountMapping(
-      account_mapping, base::BindOnce(&GCMClientImpl::DefaultStoreCallback,
-                                      weak_ptr_factory_.GetWeakPtr()));
-}
-
-void GCMClientImpl::RemoveAccountMapping(const CoreAccountId& account_id) {
-  DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
-  gcm_store_->RemoveAccountMapping(
-      account_id, base::BindOnce(&GCMClientImpl::DefaultStoreCallback,
-                                 weak_ptr_factory_.GetWeakPtr()));
-}
-
-void GCMClientImpl::SetLastTokenFetchTime(const base::Time& time) {
-  DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
-  gcm_store_->SetLastTokenFetchTime(
-      time,
-      base::BindOnce(&GCMClientImpl::IgnoreWriteResultCallback,
-                     weak_ptr_factory_.GetWeakPtr(),
-                     /*operation_suffix_for_uma=*/"SetLastTokenFetchTime"));
 }
 
 void GCMClientImpl::UpdateHeartbeatTimer(
@@ -587,7 +558,7 @@ void GCMClientImpl::SchedulePeriodicCheckin() {
   DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
 
   // Make sure no checkin is in progress.
-  if (checkin_request_.get() || !device_checkin_info_.accounts_set()) {
+  if (checkin_request_.get()) {
     return;
   }
 
@@ -623,10 +594,6 @@ void GCMClientImpl::SetDeviceCredentialsCallback(bool success) {
 
 void GCMClientImpl::UpdateRegistrationCallback(bool success) {
   // TODO(fgorski): This is one of the signals that store needs a rebuild.
-  DCHECK(success);
-}
-
-void GCMClientImpl::DefaultStoreCallback(bool success) {
   DCHECK(success);
 }
 
@@ -683,6 +650,7 @@ void GCMClientImpl::ResetCache() {
 
   weak_ptr_factory_.InvalidateWeakPtrs();
   periodic_checkin_ptr_factory_.InvalidateWeakPtrs();
+  destroying_gcm_store_ptr_factory_.InvalidateWeakPtrs();
   device_checkin_info_.Reset();
   connection_factory_.reset();
   delegate_->OnDisconnected();

@@ -33,7 +33,6 @@ import org.chromium.chrome.browser.autofill.AutofillEditorBase;
 import org.chromium.chrome.browser.autofill.PersonalDataManager;
 import org.chromium.chrome.browser.autofill.PersonalDataManagerFactory;
 import org.chromium.chrome.browser.autofill.SaveUpdateAddressProfilePromptMode;
-import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
 import org.chromium.chrome.browser.autofill.editors.address.AddressEditorCoordinator;
 import org.chromium.chrome.browser.autofill.editors.address.AddressEditorCoordinator.Delegate;
 import org.chromium.chrome.browser.autofill.editors.address.EditorDialogView;
@@ -61,14 +60,16 @@ import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
+import org.chromium.components.url_formatter.SchemeDisplay;
+import org.chromium.components.url_formatter.UrlFormatter;
+import org.chromium.url.GURL;
 
 import java.util.List;
 
 /** Autofill profiles fragment, which allows the user to edit autofill profiles. */
 @NullMarked
 public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
-        implements PersonalDataManager.PersonalDataManagerObserver,
-                EntityDataManager.EntityDataManagerObserver {
+        implements PersonalDataManager.PersonalDataManagerObserver {
     private final Delegate mAddressEditorDelegate =
             new Delegate() {
                 // User has either created a new address, or edited an existing address.
@@ -78,7 +79,7 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                     PersonalDataManagerFactory.getForProfile(getProfile())
                             .setProfile(address.getProfile());
                     recordAddressEditDone();
-                    SettingsAutofillAndPaymentsObserver.getInstance()
+                    SettingsAutofillAndPaymentsObserver.getForProfile(getProfile())
                             .notifyOnAddressUpdated(address);
                     if (sObserverForTest != null) {
                         sObserverForTest.onEditorReadyToEdit();
@@ -100,7 +101,8 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                         return;
                     }
                     PersonalDataManagerFactory.getForProfile(getProfile()).deleteProfile(guid);
-                    SettingsAutofillAndPaymentsObserver.getInstance().notifyOnAddressDeleted(guid);
+                    SettingsAutofillAndPaymentsObserver.getForProfile(getProfile())
+                            .notifyOnAddressDeleted(guid);
                     if (sObserverForTest != null) {
                         sObserverForTest.onEditorReadyToEdit();
                     }
@@ -128,14 +130,13 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                 }
             };
 
-    private final AutofillAiDelegate mAutofillAiDelegate =
-            new AutofillAiDelegate(this, this, /* toggleConfig= */ null);
-
     private static @Nullable EditorObserverForTest sObserverForTest;
     static final String PREF_NEW_PROFILE = "new_profile";
     static final String SAVE_AND_FILL_ADDRESSES = "save_and_fill_addresses";
     public static final String PREF_EMAIL_VERIFICATION = "autofill_email_verification_enabled";
-    public static final String PREF_EMAIL_VERIFICATION_LIST = "autofill_email_verification_list";
+    public static final String PREF_EMAIL_VERIFICATION_SECTION =
+            "autofill_email_verification_section";
+    public static final String PREF_EMAIL_VERIFICATION_INFO = "autofill_email_verification_info";
     public static final String PREF_EMAIL_VERIFICATION_EMPTY = "autofill_email_verification_empty";
 
     public static final String GOOGLE_ACCOUNT_HOME_ADDRESS_EDIT_URL =
@@ -151,11 +152,7 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-            mPageTitle.set(getString(R.string.autofill_contact_info_title));
-        } else {
-            mPageTitle.set(getString(R.string.autofill_addresses_settings_title));
-        }
+        mPageTitle.set(getString(R.string.autofill_contact_info_title));
 
         requireActivity()
                 .addMenuProvider(new AutofillHelpMenuProvider(this), this, Lifecycle.State.RESUMED);
@@ -179,9 +176,6 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         if (mAddressEditor != null) {
             mAddressEditor.onConfigurationChanged();
         }
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-            mAutofillAiDelegate.onConfigurationChanged();
-        }
     }
 
     @Override
@@ -200,12 +194,8 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         screen.removeAll();
         screen.setOrderingAsAdded(true);
         // LINT.IfChange(RebuildProfileList)
-        mAutofillAiDelegate.maybeAddDisabledSettingsInfoCard(
-                screen, AutofillOptionsReferrer.AUTOFILL_PROFILES_FRAGMENT);
-
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-            mAutofillAiDelegate.maybeAddDisabledWalletDataSharingDataCard(screen);
-        }
+        AutofillAiDelegate.maybeAddDisabledSettingsInfoCard(
+                this, screen, AutofillOptionsReferrer.AUTOFILL_PROFILES_FRAGMENT);
 
         addAutofillSwitch(screen);
         addProfilePreferences(screen);
@@ -216,9 +206,6 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
             addEmailVerificationSection(screen);
         }
         // LINT.ThenChange(:DynamicPreferences)
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-            mAutofillAiDelegate.addAutofillAiEntities(screen, /* typeFilter= */ null);
-        }
         updateDynamicPreferences(getProfile());
     }
 
@@ -320,9 +307,19 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         }
     }
 
+    /**
+     * Adds the "Verified email" section: the toggle, an explanation of the feature and, if the
+     * feature is enabled, the list of verified email addresses. All items are grouped into a single
+     * category so that they are styled as one section.
+     */
     private void addEmailVerificationSection(PreferenceScreen screen) {
         PersonalDataManager personalDataManager =
                 PersonalDataManagerFactory.getForProfile(getProfile());
+
+        var category = new ChromeBasePreferenceCategory(getStyledContext());
+        category.setKey(PREF_EMAIL_VERIFICATION_SECTION);
+        category.setTitle(R.string.autofill_settings_email_verification_section_title);
+        screen.addPreference(category);
 
         ChromeSwitchPreference emailVerificationSwitch =
                 new ChromeSwitchPreference(getStyledContext(), null);
@@ -345,14 +342,17 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                         return personalDataManager.isEmailVerificationManaged();
                     }
                 });
-        screen.addPreference(emailVerificationSwitch);
+        category.addPreference(emailVerificationSwitch);
+
+        // Explains what the feature does ("When on" / "Things to consider"). Shown regardless of
+        // the toggle state so that users can make an informed decision before opting in.
+        Preference infoPref = new ChromeBasePreference(getStyledContext());
+        infoPref.setKey(PREF_EMAIL_VERIFICATION_INFO);
+        infoPref.setLayoutResource(R.layout.autofill_email_verification_info);
+        infoPref.setSelectable(false);
+        category.addPreference(infoPref);
 
         if (personalDataManager.isEmailVerificationEnabled()) {
-            var category = new ChromeBasePreferenceCategory(getStyledContext());
-            category.setKey("autofill_email_verification_list");
-            category.setTitle(R.string.autofill_settings_email_verification_section_title);
-            screen.addPreference(category);
-
             List<String> emails = personalDataManager.getEmailVerificationAddresses();
             if (emails == null || emails.isEmpty()) {
                 Preference emptyPref = new ChromeBasePreference(getStyledContext());
@@ -362,36 +362,44 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                 category.addPreference(emptyPref);
             } else {
                 for (String email : emails) {
-                    Preference emailPref = new ChromeBasePreference(getStyledContext());
-                    emailPref.setKey(email);
-                    emailPref.setTitle(email);
-                    String issuer = personalDataManager.getEmailVerificationIssuer(email);
-                    if (issuer != null && !issuer.isEmpty()) {
-                        emailPref.setSummary(
-                                getString(
-                                        R.string.autofill_settings_email_verification_summary,
-                                        issuer));
-                    }
-                    emailPref.setOnPreferenceClickListener(
-                            preference -> {
-                                new AlertDialog.Builder(getStyledContext())
-                                        .setTitle(R.string.autofill_remove_verified_email_title)
-                                        .setMessage(R.string.autofill_remove_verified_email_body)
-                                        .setPositiveButton(
-                                                R.string.delete,
-                                                (dialog, which) -> {
-                                                    personalDataManager
-                                                            .removeEmailVerificationAddress(email);
-                                                    rebuildProfileList();
-                                                })
-                                        .setNegativeButton(R.string.cancel, null)
-                                        .show();
-                                return true;
-                            });
+                    AutofillVerifiedEmailPreference emailPref =
+                            new AutofillVerifiedEmailPreference(getStyledContext(), email);
+                    emailPref.setOnRemovePermissionClicked(
+                            () -> showRemoveEmailPermissionDialog(email));
                     category.addPreference(emailPref);
                 }
             }
         }
+    }
+
+    /** Asks the user to confirm removing the permission for the verified {@code email}. */
+    private void showRemoveEmailPermissionDialog(String email) {
+        PersonalDataManager personalDataManager =
+                PersonalDataManagerFactory.getForProfile(getProfile());
+        // The issuer site is stored as an origin (e.g. "https://google.com"); show it formatted for
+        // security display (e.g. "google.com"), like the Desktop email verification popup.
+        String issuer = personalDataManager.getEmailVerificationIssuer(email);
+        String issuerForDisplay =
+                issuer == null || issuer.isEmpty()
+                        ? ""
+                        : UrlFormatter.formatUrlForSecurityDisplay(
+                                new GURL(issuer), SchemeDisplay.OMIT_HTTP_AND_HTTPS);
+        new AlertDialog.Builder(getStyledContext())
+                .setTitle(R.string.autofill_settings_remove_verified_email_permission_title)
+                .setMessage(
+                        getString(
+                                R.string.autofill_settings_remove_verified_email_permission_body,
+                                issuerForDisplay))
+                .setPositiveButton(
+                        R.string.remove,
+                        (dialog, which) -> {
+                            personalDataManager.removeEmailVerificationAddress(email);
+                            // The fragment may have been detached while the dialog was shown.
+                            if (!isAdded()) return;
+                            rebuildProfileList();
+                        })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 
     @Override
@@ -402,27 +410,14 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
     }
 
     @Override
-    public void onEntityInstancesChanged() {
-        rebuildProfileList();
-        notifyPreferencesUpdated();
-        if (sObserverForTest != null) sObserverForTest.onEditorDismiss();
-    }
-
-    @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         PersonalDataManagerFactory.getForProfile(getProfile()).registerDataObserver(this);
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-            mAutofillAiDelegate.onActivityCreated();
-        }
     }
 
     @Override
     public void onDestroyView() {
         PersonalDataManagerFactory.getForProfile(getProfile()).unregisterDataObserver(this);
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-            mAutofillAiDelegate.onDestroyView();
-        }
         super.onDestroyView();
     }
 
@@ -433,19 +428,12 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         ResettersForTesting.register(() -> sObserverForTest = null);
     }
 
-    void onOpenGoogleWalletForTesting(boolean isPrivateEntity) {
-        mAutofillAiDelegate.getEntityEditorDelegate().onOpenGoogleWallet(isPrivateEntity);
-    }
-
     @Override
     public void onDisplayPreferenceDialog(Preference preference) {
-        if (!(preference instanceof AutofillProfileEditorPreference)) {
+        if (!(preference instanceof AutofillProfileEditorPreference editorPreference)) {
             super.onDisplayPreferenceDialog(preference);
             return;
         }
-
-        AutofillProfileEditorPreference editorPreference =
-                (AutofillProfileEditorPreference) preference;
 
         AutofillAddress autofillAddress = getAutofillAddress(editorPreference);
         if (autofillAddress == null) {
@@ -512,12 +500,6 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
         return SettingsFragment.AnimationType.PROPERTY;
     }
 
-    // TODO(crbug.com/513493349): Remove this override after full launch of Autofill and Passwords.
-    @Override
-    public @Nullable String getMainMenuKey() {
-        return "autofill_addresses";
-    }
-
     public static final ChromeBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
             new ChromeBaseSearchIndexProvider(AutofillProfilesFragment.class.getName(), 0) {
                 @Override
@@ -530,13 +512,9 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
                         addAddAddressButton(indexData, profile, getPrefFragmentName());
                     }
 
-                    if (!ChromeFeatureList.isEnabled(
-                            ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-                        AutofillAiDelegate.maybeAddDisabledWalletDataSharingDataCard(
-                                indexData, profile, getPrefFragmentName());
-                    }
                     addAutofillSwitch(indexData);
-                    if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_PROTOCOL)) {
+                    if (ChromeFeatureList.isEnabled(
+                            ChromeFeatureList.EMAIL_VERIFICATION_PROTOCOL)) {
                         addEmailVerificationSwitch(indexData);
                     }
                     // LINT.ThenChange(:RebuildProfileList)
@@ -576,10 +554,6 @@ public class AutofillProfilesFragment extends ChromeBaseSettingsFragment
             }
         }
 
-        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID)) {
-            AutofillAiDelegate.maybeAddDisabledWalletDataSharingDataCard(
-                    indexData, profile, prefFragmentName);
-        }
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.EMAIL_VERIFICATION_PROTOCOL)) {
             if (indexData.getEntryForKey(prefFragmentName, PREF_EMAIL_VERIFICATION) == null) {
                 indexData.addEntryForKey(

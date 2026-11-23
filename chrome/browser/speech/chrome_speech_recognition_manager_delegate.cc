@@ -6,11 +6,14 @@
 
 #include <string>
 
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -24,12 +27,17 @@
 #include "extensions/buildflags/buildflags.h"
 #include "media/mojo/mojom/speech_recognition_error.mojom.h"
 #include "media/mojo/mojom/speech_recognition_result.mojom.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/extensions/extension_service.h"
 #include "extensions/browser/process_map.h"
 #include "extensions/browser/view_type_utils.h"
 #include "extensions/common/mojom/view_type.mojom.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "ash/accessibility/accessibility_controller.h"
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -96,14 +104,18 @@ void ChromeSpeechRecognitionManagerDelegate::OnRecognitionEnd(int session_id) {
 void ChromeSpeechRecognitionManagerDelegate::CheckRecognitionIsAllowed(
     int session_id,
     base::OnceCallback<void(bool ask_user, bool is_allowed)> callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  CHECK_CURRENTLY_ON(BrowserThread::IO, base::NotFatalUntil::M162);
 
   const content::SpeechRecognitionSessionContext& context =
       SpeechRecognitionManager::GetInstance()->GetSessionContext(session_id);
 
+#if !BUILDFLAG(IS_CHROMEOS)
   // Make sure that initiators (extensions/web pages) properly set the
   // |render_process_id| field, which is needed later to retrieve the profile.
-  DCHECK(context.global_id.child_id);
+  // On ChromeOS, `CheckRenderFrameType` verifies on the UI thread that a
+  // missing `child_id` is only allowed when ChromeOS Dictation is active.
+  CHECK(context.global_id.child_id, base::NotFatalUntil::M162);
+#endif
 
   content::GlobalRenderFrameHostId global_id = context.global_id;
   if (context.embedder_global_id.child_id) {
@@ -125,13 +137,29 @@ ChromeSpeechRecognitionManagerDelegate::GetEventListener() {
 }
 
 #if !BUILDFLAG(IS_ANDROID)
+base::flat_map<std::string, std::string>
+ChromeSpeechRecognitionManagerDelegate::GetRoutingParams(
+    const url::Origin& origin) {
+  // The new NTP Realbox voice search UI uses continuous recognition, which
+  // the speech service otherwise routes to its dictation recognizer. These
+  // parameters ask it to treat the requests as voice search.
+  if (base::FeatureList::IsEnabled(omnibox::kVoiceSearchCoherenceSearchbox) &&
+      origin.IsSameOriginWith(chrome::ChromeUINewTabPageURLAsGURL())) {
+    return {
+        {"client", "chrome-ntp"},
+        {"condition", "search"},
+    };
+  }
+  return {};
+}
+
 void ChromeSpeechRecognitionManagerDelegate::BindSpeechRecognitionContext(
     mojo::PendingReceiver<media::mojom::SpeechRecognitionContext>
         recognition_receiver,
     const std::string& language,
     const content::GlobalRenderFrameHostId& render_frame_host_id) {
 #if BUILDFLAG(ENABLE_SPEECH_SERVICE)
-  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  CHECK_CURRENTLY_ON(BrowserThread::IO, base::NotFatalUntil::M162);
   content::GetUIThreadTaskRunner({})->PostTask(
       FROM_HERE,
       base::BindOnce(
@@ -183,7 +211,7 @@ void ChromeSpeechRecognitionManagerDelegate::BindSpeechRecognitionContext(
 void ChromeSpeechRecognitionManagerDelegate::CheckRenderFrameType(
     base::OnceCallback<void(bool ask_user, bool is_allowed)> callback,
     content::GlobalRenderFrameHostId global_id) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   content::RenderFrameHost* render_frame_host =
       content::RenderFrameHost::FromID(global_id);
 
@@ -192,8 +220,12 @@ void ChromeSpeechRecognitionManagerDelegate::CheckRenderFrameType(
 
   if (!render_frame_host) {
     if (!global_id.child_id) {
-      // This happens for browser-initiated requests (e.g. Chrome OS Dictation).
-      allowed = true;
+#if BUILDFLAG(IS_CHROMEOS)
+      // Browser-initiated requests without a render process or frame are only
+      // allowed when ChromeOS Dictation is active.
+      allowed = ash::AccessibilityController::Get() &&
+                ash::AccessibilityController::Get()->dictation_active();
+#endif
     } else {
       bool is_extension = false;
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)

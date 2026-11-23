@@ -550,16 +550,27 @@ AppShimManager::LaunchNotificationProvider(const webapps::AppId& app_id) {
   auto bind_provider = base::BindOnce(
       [](mojo::PendingReceiver<
              mac_notifications::mojom::MacNotificationProvider> receiver,
-         base::WeakPtr<AppShimManager> manager, AppShimHost* host) {
+         base::WeakPtr<AppShimManager> manager, bool existing_app,
+         AppShimHost* host) {
+        NotificationProviderOutcome outcome;
         if (!host) {
           LOG(ERROR) << "Failed to launch app shim for notifications";
+          outcome =
+              (g_browser_process && g_browser_process->IsShuttingDown())
+                  ? NotificationProviderOutcome::kShuttingDown
+                  : NotificationProviderOutcome::kNoProfileForBackgroundLaunch;
           if (manager) {
             manager->dummy_notification_provider_receivers_.Add(
                 manager.get(), std::move(receiver));
           }
-          return;
+        } else {
+          outcome = existing_app
+                        ? NotificationProviderOutcome::kBoundToExistingHost
+                        : NotificationProviderOutcome::kLaunchedNewShim;
+          host->GetAppShim()->BindNotificationProvider(std::move(receiver));
         }
-        host->GetAppShim()->BindNotificationProvider(std::move(receiver));
+        base::UmaHistogramEnumeration(
+            "Apps.AppShim.NotificationProvider.Outcome", outcome);
       },
       remote.BindNewPipeAndPassReceiver(), weak_factory_.GetWeakPtr());
 
@@ -570,14 +581,15 @@ AppShimManager::LaunchNotificationProvider(const webapps::AppId& app_id) {
     // already have a running app shim, launch a new one, but launch it in
     // "background" mode, so to the user it isn't noticeable that this is
     // happening.
-    LaunchShimInBackgroundMode(app_id, std::move(bind_provider));
+    LaunchShimInBackgroundMode(app_id, base::BindOnce(std::move(bind_provider),
+                                                      /*existing_app=*/false));
     return remote;
   }
 
   AppState* app_state = found_app->second.get();
   CHECK(app_state->IsMultiProfile());
   AppShimHost* shim = app_state->multi_profile_host.get();
-  std::move(bind_provider).Run(shim);
+  std::move(bind_provider).Run(/*existing_app=*/true, shim);
   return remote;
 }
 
@@ -586,8 +598,9 @@ void AppShimManager::ShowNotificationPermissionRequest(
     RequestNotificationPermissionCallback callback) {
   CHECK(web_app::UseNotificationAttributionForWebAppShims());
 
-  if (notification_permission_result_for_testing_.has_value()) {
-    std::move(callback).Run(*notification_permission_result_for_testing_);
+  if (notification_permission_request_handler_for_testing_) {
+    notification_permission_request_handler_for_testing_.Run(
+        app_id, std::move(callback));
     return;
   }
 
@@ -635,7 +648,9 @@ Profile* AppShimManager::ProfileForBackgroundShimLaunch(
       if (!p->IsRegularProfile()) {
         continue;
       }
-      if (delegate_->AppIsInstalled(p, app_id)) {
+      if (delegate_->AppIsInstalled(p, app_id) &&
+          AppShimRegistry::Get()->IsAppInstalledInProfile(app_id,
+                                                          p->GetPath())) {
         return p;
       }
     }
@@ -646,6 +661,13 @@ Profile* AppShimManager::ProfileForBackgroundShimLaunch(
 void AppShimManager::LaunchShimInBackgroundMode(
     const webapps::AppId& app_id,
     base::OnceCallback<void(AppShimHost*)> callback) {
+  // Don't launch app shims once the browser has started shutting down (see
+  // OnShimLaunchRequested()).
+  if (g_browser_process->IsShuttingDown()) {
+    std::move(callback).Run(nullptr);
+    return;
+  }
+
   // A shim can only be launched through an active profile, so find a profile
   // through which to do the launch. This method should only be called for
   // multi-profile apps, for which an arbitrary profile is good enough.
@@ -761,6 +783,21 @@ void AppShimManager::OnShimLaunchRequested(
     web_app::ShimLaunchMode launch_mode,
     apps::ShimLaunchedCallback launched_callback,
     apps::ShimTerminatedCallback terminated_callback) {
+  // Note that launch failures below are reported asynchronously, as they would
+  // be for a real launch, since this can be called synchronously from
+  // AppShimHost::LaunchShim().
+
+  // Don't launch app shims once the browser has started shutting down. By then
+  // the AppShimListener may already have been destroyed and Chrome will exit
+  // soon, so a newly launched shim would likely never connect, and would
+  // instead crash in AppShimController::PollForChromeReady() once Chrome has
+  // exited.
+  if (g_browser_process->IsShuttingDown()) {
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, std::move(terminated_callback));
+    return;
+  }
+
   // A shim can only be launched through an active profile, so find a profile
   // through which to do the launch. For multi-profile apps, select one
   // arbitrarily. For non-multi-profile apps, select the specified profile.
@@ -777,7 +814,8 @@ void AppShimManager::OnShimLaunchRequested(
       if (app_state->profiles.empty()) {
         LOG(ERROR)
             << "Attempting to launch shim for which no profiles are loaded.";
-        std::move(terminated_callback).Run();
+        content::GetUIThreadTaskRunner({})->PostTask(
+            FROM_HERE, std::move(terminated_callback));
         return;
       }
       CHECK(!app_state->profiles.empty(), base::NotFatalUntil::M161);
@@ -798,7 +836,8 @@ void AppShimManager::OnShimLaunchRequested(
                                                         profile->GetPath()))) {
     LOG(ERROR)
         << "Attempting to launch shim for an app that is no longer installed.";
-    std::move(terminated_callback).Run();
+    content::GetUIThreadTaskRunner({})->PostTask(
+        FROM_HERE, std::move(terminated_callback));
     return;
   }
 
@@ -1476,7 +1515,7 @@ void AppShimManager::OpenAppURLInBrowserWindow(
   browser->GetWindow()->Show();
   NavigateParams params(browser, url, ui::PAGE_TRANSITION_AUTO_BOOKMARK);
   params.tabstrip_add_types = AddTabTypes::ADD_ACTIVE;
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   Navigate(&params);
 }
 
@@ -1541,6 +1580,13 @@ void AppShimManager::OnShimProcessDisconnected(AppShimHost* host) {
 void AppShimManager::OnShimFocus(AppShimHost* host) {
   // This path is only for legacy apps (which are perforce single-profile).
   if (host->UsesRemoteViews()) {
+    return;
+  }
+
+  auto found_app = apps_.find(host->GetAppId());
+  CHECK(found_app != apps_.end());
+  AppState* app_state = found_app->second.get();
+  if (app_state->IsMultiProfile()) {
     return;
   }
 
@@ -1667,9 +1713,43 @@ void AppShimManager::OnShimWillTerminate(AppShimHost* host) {
 
 void AppShimManager::OnNotificationPermissionStatusChanged(
     AppShimHost* host,
+    std::optional<mac_notifications::mojom::PermissionStatus> previous_status,
     mac_notifications::mojom::PermissionStatus status) {
+  using PermissionStatus = mac_notifications::mojom::PermissionStatus;
+  using RegistryStatus = AppShimRegistry::NotificationPermissionStatus;
+  RegistryStatus registry_status;
+  switch (status) {
+    case PermissionStatus::kNotDetermined:
+      registry_status = RegistryStatus::kNotDetermined;
+      break;
+    case PermissionStatus::kPromptPending:
+      registry_status = RegistryStatus::kPromptPending;
+      break;
+    case PermissionStatus::kDenied: {
+      // A denial is explicit if the user denied a permission prompt that was
+      // pending earlier in the current shim session, or if it follows a
+      // previous grant (i.e. the user turned off notifications in macOS System
+      // Settings). Explicit denials are preserved across subsequent status
+      // reports, such as when the shim is relaunched. A prompt that was still
+      // pending when the shim quit results in an implicit denial, since
+      // `previous_status` is reset when the shim reconnects.
+      const RegistryStatus old_registry_status =
+          AppShimRegistry::Get()->GetNotificationPermissionStatusForApp(
+              host->GetAppId());
+      const bool is_explicit =
+          previous_status == PermissionStatus::kPromptPending ||
+          old_registry_status == RegistryStatus::kGranted ||
+          old_registry_status == RegistryStatus::kExplicitlyDenied;
+      registry_status = is_explicit ? RegistryStatus::kExplicitlyDenied
+                                    : RegistryStatus::kImplicitlyDenied;
+      break;
+    }
+    case PermissionStatus::kGranted:
+      registry_status = RegistryStatus::kGranted;
+      break;
+  }
   AppShimRegistry::Get()->SaveNotificationPermissionStatusForApp(
-      host->GetAppId(), status);
+      host->GetAppId(), registry_status);
 }
 
 void AppShimManager::OnProfileAdded(Profile* profile) {

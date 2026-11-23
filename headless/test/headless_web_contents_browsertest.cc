@@ -29,13 +29,16 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/viz/common/switches.h"
+#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "headless/lib/browser/headless_web_contents_impl.h"
 #include "headless/public/headless_browser.h"
 #include "headless/test/headless_browser_test.h"
@@ -291,6 +294,49 @@ IN_PROC_BROWSER_TEST_F(HeadlessWebContentsTest, BrowserOpenInTab) {
               Not(DictHasKey("exceptionDetails")));
   // Check that we have a new tab.
   EXPECT_EQ(2u, browser_context->GetAllWebContents().size());
+}
+
+// Opening a link in a new tab should navigate the initial RenderFrameHost of
+// the new tab, which lives in the opener's SiteInstance, rather than go
+// through a throwaway about:blank navigation that would swap in a new
+// RenderFrameHost in a new process, only to replace it once again for the
+// actual navigation. See crbug.com/543471700.
+IN_PROC_BROWSER_TEST_F(HeadlessWebContentsTest,
+                       BrowserOpenInTabReusesInitialRenderFrameHost) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  HeadlessBrowserContext* browser_context = browser()->CreateBrowserContext();
+  ASSERT_TRUE(browser_context);
+
+  HeadlessWebContents* web_contents = browser_context->CreateWebContents(
+      embedded_test_server()->GetURL("/link.html"));
+  ASSERT_TRUE(web_contents);
+  ASSERT_TRUE(WaitForLoad(web_contents));
+
+  content::WebContents* opener_contents =
+      HeadlessWebContentsImpl::From(web_contents)->web_contents();
+
+  content::WebContentsAddedObserver new_contents_observer;
+  std::string script =
+      "var event = new MouseEvent('click', {'button': 1});"
+      "document.getElementsByTagName('a')[0].dispatchEvent(event);";
+  EXPECT_THAT(EvaluateScript(web_contents, script),
+              Not(DictHasKey("exceptionDetails")));
+
+  content::WebContents* new_contents = new_contents_observer.GetWebContents();
+  ASSERT_TRUE(new_contents);
+  content::RenderFrameHost* initial_rfh = new_contents->GetPrimaryMainFrame();
+  EXPECT_EQ(opener_contents->GetPrimaryMainFrame()->GetSiteInstance(),
+            initial_rfh->GetSiteInstance());
+  content::GlobalRenderFrameHostId initial_rfh_id = initial_rfh->GetGlobalId();
+
+  EXPECT_TRUE(content::WaitForLoadStop(new_contents));
+  EXPECT_EQ(embedded_test_server()->GetURL("/hello.html"),
+            new_contents->GetLastCommittedURL());
+  EXPECT_EQ(initial_rfh_id, new_contents->GetPrimaryMainFrame()->GetGlobalId());
+  EXPECT_EQ(opener_contents->GetPrimaryMainFrame()->GetProcess(),
+            new_contents->GetPrimaryMainFrame()->GetProcess());
+  EXPECT_TRUE(new_contents->GetRenderWidgetHostView()->HasFocus());
 }
 
 // BeginFrameControl is not supported on MacOS.
@@ -686,54 +732,44 @@ IN_PROC_BROWSER_TEST_F(HeadlessWebContentsAIPageContentTest, GetAIPageContent) {
   ASSERT_TRUE(web_contents);
   ASSERT_TRUE(WaitForLoad(web_contents));
 
-  content::WebContents* content_web_contents =
-      HeadlessWebContentsImpl::From(web_contents)->web_contents();
-  ASSERT_TRUE(content_web_contents);
+  SimpleDevToolsProtocolClient devtools_client;
+  devtools_client.AttachToWebContents(
+      HeadlessWebContentsImpl::From(web_contents)->web_contents());
 
-  content::WebContentsDelegate* delegate = content_web_contents->GetDelegate();
-  ASSERT_TRUE(delegate);
+  base::DictValue params;
+  params.Set("includeActionableInformation", true);
+  base::DictValue result = SendCommandSync(
+      devtools_client, "Page.getAnnotatedPageContent", std::move(params));
+  devtools_client.DetachClient();
 
-  base::RunLoop run_loop;
-  delegate->GetAIPageContent(
-      content_web_contents, true,
-      base::BindOnce(
-          [](base::RunLoop* run_loop,
-             base::expected<std::string, std::string> result) {
-            // Stop before reading the value when extraction returned an error.
-            if (!result.has_value()) {
-              ADD_FAILURE() << "GetAIPageContent failed: " << result.error();
-              run_loop->Quit();
-              return;
-            }
+  // Stop before reading the value when extraction returned an error.
+  ASSERT_FALSE(DictHas(result, "error"))
+      << "Page.getAnnotatedPageContent failed: "
+      << DictString(result, "error.message");
 
-            LOG(INFO) << "GetAIPageContent result size: " << result->size();
-            optimization_guide::proto::AnnotatedPageContent proto;
-            if (proto.ParseFromString(*result)) {
-              bool has_text = false;
-              std::vector<const optimization_guide::proto::ContentNode*> nodes;
-              nodes.push_back(&proto.root_node());
-              while (!nodes.empty()) {
-                const auto* node = nodes.back();
-                nodes.pop_back();
-                if (!node->content_attributes()
-                         .text_data()
-                         .text_content()
-                         .empty()) {
-                  has_text = true;
-                  break;
-                }
-                for (const auto& child : node->children_nodes()) {
-                  nodes.push_back(&child);
-                }
-              }
-              EXPECT_TRUE(has_text);
-            } else {
-              ADD_FAILURE() << "Failed to parse AnnotatedPageContent";
-            }
-            run_loop->Quit();
-          },
-          &run_loop));
-  run_loop.Run();
+  std::string content;
+  ASSERT_TRUE(
+      base::Base64Decode(DictString(result, "result.content"), &content));
+
+  optimization_guide::proto::AnnotatedPageContent proto;
+  ASSERT_TRUE(proto.ParseFromString(content))
+      << "Failed to parse AnnotatedPageContent";
+
+  bool has_text = false;
+  std::vector<const optimization_guide::proto::ContentNode*> nodes;
+  nodes.push_back(&proto.root_node());
+  while (!nodes.empty()) {
+    const auto* node = nodes.back();
+    nodes.pop_back();
+    if (!node->content_attributes().text_data().text_content().empty()) {
+      has_text = true;
+      break;
+    }
+    for (const auto& child : node->children_nodes()) {
+      nodes.push_back(&child);
+    }
+  }
+  EXPECT_TRUE(has_text);
 }
 
 }  // namespace headless

@@ -633,6 +633,9 @@ ci.thin_tester(
             ),
             "content_unittests": targets.mixin(
                 enable_rts_filtering = True,
+                swarming = targets.swarming(
+                    shards = 2,
+                ),
             ),
             # TODO(crbug.com/436628295): test fails on VM
             "headless_shell_wpt_tests": targets.per_test_modification(
@@ -645,7 +648,7 @@ ci.thin_tester(
                 mixins = [
                     targets.mixin(
                         swarming = targets.swarming(
-                            shards = 8,
+                            shards = 16,
                         ),
                     ),
                     "mac_26_arm64",
@@ -1473,4 +1476,39 @@ ios_builder(
             short_name = "non",
         ),
     ],
+)
+
+ci.builder(
+    name = "mac-webdriver-bidi-rel",
+    description_html = "Builder for WebDriver BiDi implementation",
+    builder_spec = builder_config.copy_from("ci/mac-arm64-rel"),
+    gn_args = "ci/mac-arm64-rel",
+    targets = targets.bundle(
+        targets = [
+            "webdriver_bidi_e2e_tests",
+            "webdriver_bidi_unittests",
+        ],
+        mixins = [
+            # crbug.com/574161395: The E2E tests start a new browser for each
+            # test. On Mac VMs the browser start stalls for minutes at a time,
+            # and the VMs have no GPU, which breaks screenshot tests. Run on
+            # bare metal only.
+            "mac_26_arm64",
+        ],
+        per_test_modifications = {
+            "webdriver_bidi_e2e_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 8,
+                ),
+            ),
+        },
+    ),
+    builderless = True,
+    cpu = cpu.ARM64,
+    console_view_entry = consoles.console_view_entry(
+        category = "webdriver",
+        short_name = "bidi",
+    ),
+    cq_mirrors_console_view = "mirrors",
+    contact_team_email = "chrome-devtools@google.com",
 )

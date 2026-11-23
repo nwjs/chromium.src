@@ -9,11 +9,13 @@
 #include <vector>
 
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/infobars/confirm_infobar.h"
 #include "chrome/browser/ui/views/infobars/infobar_view.h"
@@ -27,6 +29,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/gfx/animation/animation_test_api.h"
+#include "ui/views/controls/label.h"
 #include "ui/views/test/widget_activation_waiter.h"
 #include "ui/views/view_utils.h"
 #include "url/gurl.h"
@@ -36,8 +39,9 @@ namespace {
 class PriorityInfoBarDelegate : public ConfirmInfoBarDelegate {
  public:
   PriorityInfoBarDelegate(infobars::InfoBarDelegate::InfobarPriority priority,
-                          const std::u16string& message)
-      : priority_(priority), message_(message) {}
+                          const std::u16string& message,
+                          bool closeable = true)
+      : priority_(priority), message_(message), closeable_(closeable) {}
 
   infobars::InfoBarDelegate::InfoBarIdentifier GetIdentifier() const override {
     return infobars::InfoBarDelegate::TEST_INFOBAR;
@@ -49,6 +53,8 @@ class PriorityInfoBarDelegate : public ConfirmInfoBarDelegate {
 
   std::u16string GetMessageText() const override { return message_; }
 
+  bool IsCloseable() const override { return closeable_; }
+
   // Ensure each infobar is treated as unique.
   bool EqualsDelegate(infobars::InfoBarDelegate* delegate) const override {
     return false;
@@ -57,6 +63,7 @@ class PriorityInfoBarDelegate : public ConfirmInfoBarDelegate {
  private:
   const infobars::InfoBarDelegate::InfobarPriority priority_;
   const std::u16string message_;
+  const bool closeable_;
 };
 
 }  // namespace
@@ -82,11 +89,18 @@ class InfoBarContainerViewBrowserTest : public InProcessBrowserTest {
 
   infobars::InfoBar* AddInfoBar(
       infobars::InfoBarDelegate::InfobarPriority priority,
-      const std::string& message) {
+      const std::string& message,
+      bool closeable = true) {
     auto delegate = std::make_unique<PriorityInfoBarDelegate>(
-        priority, base::UTF8ToUTF16(message));
+        priority, base::UTF8ToUTF16(message), closeable);
     return GetInfoBarManager()->AddInfoBar(
         ConfirmInfoBar::Create(std::move(delegate)));
+  }
+
+  infobars::InfoBar* AddNonCloseableInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority priority,
+      const std::string& message) {
+    return AddInfoBar(priority, message, /*closeable=*/false);
   }
 
   // Returns the message text of all currently visible infobar views.
@@ -115,7 +129,9 @@ class InfoBarContainerViewBrowserTest : public InProcessBrowserTest {
 //
 class InfoBarContainerPriorityTest : public InfoBarContainerViewBrowserTest {
  protected:
-  InfoBarContainerPriorityTest() = default;
+  InfoBarContainerPriorityTest() {
+    feature_list_.InitAndEnableFeature(features::kInfoBarQueuedCountPill);
+  }
 
   // Helper to get the currently focused or stored view. On Wayland, the focused
   // view may be null. In that case, we return the stored view.
@@ -123,7 +139,256 @@ class InfoBarContainerPriorityTest : public InfoBarContainerViewBrowserTest {
     views::View* focused_view = focus_manager->GetFocusedView();
     return focused_view ? focused_view : focus_manager->GetStoredFocusView();
   }
+
+  // Returns the queued-count pill of `infobar`, or null if it was never
+  // created.
+  views::Label* GetQueuedCountPill(infobars::InfoBar* infobar) {
+    views::View* pill = static_cast<InfoBarView*>(infobar)->GetViewByElementId(
+        InfoBarView::kQueuedCountPillElementId);
+    return pill ? views::AsViewClass<views::Label>(pill) : nullptr;
+  }
+
+  // Returns true if `infobar` currently shows the queued-count pill.
+  bool IsPillVisibleOn(infobars::InfoBar* infobar) {
+    views::Label* pill = GetQueuedCountPill(infobar);
+    return pill && pill->GetVisible();
+  }
+
+  // Returns the pill's label text, e.g. u"+2". The pill must exist.
+  std::u16string PillTextOn(infobars::InfoBar* infobar) {
+    return std::u16string(GetQueuedCountPill(infobar)->GetText());
+  }
 };
+
+IN_PROC_BROWSER_TEST_F(InfoBarContainerPriorityTest,
+                       QueuedCountPillTracksQueue) {
+  infobars::InfoBar* visible_bar = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Default 1");
+  // Nothing queued: no pill.
+  EXPECT_FALSE(IsPillVisibleOn(visible_bar));
+
+  infobars::InfoBar* queued_bar =
+      AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kDefault,
+                 "Default 2 (Queued)");
+  EXPECT_TRUE(IsPillVisibleOn(visible_bar));
+  EXPECT_EQ(u"+1", PillTextOn(visible_bar));
+
+  AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kLow, "Low (Queued)");
+  EXPECT_EQ(u"+2", PillTextOn(visible_bar));
+
+  // Removing an infobar straight out of the queue updates the count.
+  GetInfoBarManager()->RemoveInfoBar(queued_bar);
+  EXPECT_TRUE(IsPillVisibleOn(visible_bar));
+  EXPECT_EQ(u"+1", PillTextOn(visible_bar));
+
+  // Dismissing the host promotes the queued infobar; with the queue drained,
+  // the promoted bar carries no pill.
+  GetInfoBarManager()->RemoveInfoBar(visible_bar);
+  ASSERT_EQ(1u, GetVisibleInfoBarMessages().size());
+  ASSERT_EQ("Low (Queued)", GetVisibleInfoBarMessages()[0]);
+  EXPECT_FALSE(IsPillVisibleOn(GetInfoBarManager()->infobars()[0]));
+}
+
+IN_PROC_BROWSER_TEST_F(InfoBarContainerPriorityTest,
+                       QueuedCountPillSuppressedOnCriticalInfoBars) {
+  infobars::InfoBar* critical_1 =
+      AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kCriticalSecurity,
+                 "Critical 1");
+  infobars::InfoBar* critical_2 =
+      AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kCriticalSecurity,
+                 "Critical 2");
+  AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kDefault,
+             "Default 1 (Queued)");
+  AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kDefault,
+             "Default 2 (Queued)");
+
+  // Both visible bars are security warnings: no pill anywhere, even though
+  // two infobars are queued.
+  EXPECT_FALSE(IsPillVisibleOn(critical_1));
+  EXPECT_FALSE(IsPillVisibleOn(critical_2));
+
+  // After the warnings drain, the promoted default still has one queued
+  // behind it and re-hosts the pill.
+  GetInfoBarManager()->RemoveInfoBar(critical_1);
+  GetInfoBarManager()->RemoveInfoBar(critical_2);
+  ASSERT_EQ(1u, GetVisibleInfoBarMessages().size());
+  ASSERT_EQ("Default 1 (Queued)", GetVisibleInfoBarMessages()[0]);
+  infobars::InfoBar* promoted = GetInfoBarManager()->infobars()[0];
+  EXPECT_TRUE(IsPillVisibleOn(promoted));
+  EXPECT_EQ(u"+1", PillTextOn(promoted));
+}
+
+IN_PROC_BROWSER_TEST_F(InfoBarContainerPriorityTest,
+                       QueuedCountPillSuppressedOnNonClosableInfoBars) {
+  infobars::InfoBar* default_1 = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Default 1");
+  AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kDefault,
+             "Default 2 (Queued)");
+  ASSERT_TRUE(IsPillVisibleOn(default_1));
+
+  infobars::InfoBar* non_closable_1 = AddNonCloseableInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Non closable 1");
+  infobars::InfoBar* non_closable_2 = AddNonCloseableInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Non closable 2");
+
+  // Non-closeable bars bypass the queue and sit at the bottom: no pill
+  // anywhere, even though an infobar is queued.
+  EXPECT_FALSE(IsPillVisibleOn(default_1));
+  EXPECT_FALSE(IsPillVisibleOn(non_closable_1));
+  EXPECT_FALSE(IsPillVisibleOn(non_closable_2));
+
+  // After the non-closeable bars are removed, the visible default still has
+  // one queued behind it and re-hosts the pill.
+  GetInfoBarManager()->RemoveInfoBar(non_closable_1);
+  GetInfoBarManager()->RemoveInfoBar(non_closable_2);
+  ASSERT_EQ(1u, GetVisibleInfoBarMessages().size());
+  ASSERT_EQ("Default 1", GetVisibleInfoBarMessages()[0]);
+  ASSERT_TRUE(IsPillVisibleOn(default_1));
+  EXPECT_EQ(u"+1", PillTextOn(default_1));
+}
+
+IN_PROC_BROWSER_TEST_F(InfoBarContainerPriorityTest,
+                       QueuedCountPillHidesWhenCriticalArrives) {
+  infobars::InfoBar* default_bar = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Default 1");
+  AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kLow, "Low (Queued)");
+  ASSERT_TRUE(IsPillVisibleOn(default_bar));
+
+  // A critical infobar is admitted below the pill's host. The bottom-most
+  // bar is now a warning, so the pill disappears entirely.
+  infobars::InfoBar* critical_bar =
+      AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kCriticalSecurity,
+                 "Critical");
+  EXPECT_EQ(2u, GetVisibleInfoBarMessages().size());
+  EXPECT_FALSE(IsPillVisibleOn(default_bar));
+
+  // Resolving the warning makes the default bar bottom-most again; the pill
+  // returns because an infobar is still queued behind it.
+  GetInfoBarManager()->RemoveInfoBar(critical_bar);
+  ASSERT_EQ(1u, GetVisibleInfoBarMessages().size());
+  EXPECT_TRUE(IsPillVisibleOn(default_bar));
+  EXPECT_EQ(u"+1", PillTextOn(default_bar));
+}
+
+IN_PROC_BROWSER_TEST_F(InfoBarContainerPriorityTest,
+                       QueuedCountPillSurvivesEqualQueueTabSwitch) {
+  // Tab 0: one visible default, one queued.
+  infobars::InfoBar* tab0_bar = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Tab0 Default");
+  AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kDefault,
+             "Tab0 Queued");
+  ASSERT_TRUE(IsPillVisibleOn(tab0_bar));
+
+  // Tab 1: the same shape. Equal pending counts across the switch must not
+  // suppress the pill on the newly attached tab.
+  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_TYPED));
+  browser()->GetTabStripModel()->ActivateTabAt(1);
+  infobars::InfoBar* tab1_bar = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Tab1 Default");
+  AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kDefault,
+             "Tab1 Queued");
+  EXPECT_TRUE(IsPillVisibleOn(tab1_bar));
+  EXPECT_EQ(u"+1", PillTextOn(tab1_bar));
+
+  // Switch back: tab 0's bar re-attaches with the same count as tab 1 had.
+  browser()->GetTabStripModel()->ActivateTabAt(0);
+  EXPECT_TRUE(IsPillVisibleOn(tab0_bar));
+  EXPECT_EQ(u"+1", PillTextOn(tab0_bar));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    InfoBarContainerPriorityTest,
+    ReplaceVisibleDefaultWithLowPromotesQueuedDefaultAndPreservesPillMetrics) {
+  base::HistogramTester histogram_tester;
+
+  infobars::InfoBar* default_1 = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Default 1");
+  infobars::InfoBar* default_2 = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Default 2");
+  ASSERT_TRUE(IsPillVisibleOn(default_1));
+  ASSERT_EQ(u"+1", PillTextOn(default_1));
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.Shown",
+                                      infobars::InfoBarDelegate::TEST_INFOBAR,
+                                      1);
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.CountAtShow", 1,
+                                      1);
+  histogram_tester.ExpectTotalCount("InfoBar.PendingIndicator.HostResolveTime",
+                                    0);
+
+  // Replacing the visible default with a low while a default is queued must
+  // promote the queued default and move the pill without a new Shown sample.
+  auto low_delegate = std::make_unique<PriorityInfoBarDelegate>(
+      infobars::InfoBarDelegate::InfobarPriority::kLow, u"Low 1");
+  infobars::InfoBar* low_1 = GetInfoBarManager()->ReplaceInfoBar(
+      default_1, ConfirmInfoBar::Create(std::move(low_delegate)));
+
+  EXPECT_EQ(std::vector<std::string>({"Default 2"}),
+            GetVisibleInfoBarMessages());
+  EXPECT_TRUE(IsPillVisibleOn(default_2));
+  EXPECT_EQ(u"+1", PillTextOn(default_2));
+  EXPECT_FALSE(IsPillVisibleOn(low_1));
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.Shown",
+                                      infobars::InfoBarDelegate::TEST_INFOBAR,
+                                      1);
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.CountAtShow", 1,
+                                      1);
+  histogram_tester.ExpectTotalCount("InfoBar.PendingIndicator.HostResolveTime",
+                                    0);
+
+  // HostResolveTime is recorded once, when the pill finally goes away.
+  GetInfoBarManager()->RemoveInfoBar(default_2);
+  EXPECT_EQ(std::vector<std::string>({"Low 1"}), GetVisibleInfoBarMessages());
+  EXPECT_FALSE(IsPillVisibleOn(low_1));
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.Shown",
+                                      infobars::InfoBarDelegate::TEST_INFOBAR,
+                                      1);
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.CountAtShow", 1,
+                                      1);
+  histogram_tester.ExpectTotalCount("InfoBar.PendingIndicator.HostResolveTime",
+                                    1);
+}
+
+IN_PROC_BROWSER_TEST_F(InfoBarContainerPriorityTest,
+                       ReplaceVisibleDefaultInPlacePreservesPillMetrics) {
+  base::HistogramTester histogram_tester;
+
+  infobars::InfoBar* default_1 = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Default 1");
+  infobars::InfoBar* default_2 = AddInfoBar(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault, "Default 2");
+  ASSERT_TRUE(IsPillVisibleOn(default_1));
+  ASSERT_EQ(u"+1", PillTextOn(default_1));
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.Shown",
+                                      infobars::InfoBarDelegate::TEST_INFOBAR,
+                                      1);
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.CountAtShow", 1,
+                                      1);
+
+  auto replacement_delegate = std::make_unique<PriorityInfoBarDelegate>(
+      infobars::InfoBarDelegate::InfobarPriority::kDefault,
+      u"Default Replacement");
+  infobars::InfoBar* replacement = GetInfoBarManager()->ReplaceInfoBar(
+      default_1, ConfirmInfoBar::Create(std::move(replacement_delegate)));
+
+  EXPECT_EQ(std::vector<std::string>({"Default Replacement"}),
+            GetVisibleInfoBarMessages());
+  EXPECT_TRUE(IsPillVisibleOn(replacement));
+  EXPECT_EQ(u"+1", PillTextOn(replacement));
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.Shown",
+                                      infobars::InfoBarDelegate::TEST_INFOBAR,
+                                      1);
+  histogram_tester.ExpectUniqueSample("InfoBar.PendingIndicator.CountAtShow", 1,
+                                      1);
+  histogram_tester.ExpectTotalCount("InfoBar.PendingIndicator.HostResolveTime",
+                                    0);
+
+  GetInfoBarManager()->RemoveInfoBar(replacement);
+  EXPECT_EQ(std::vector<std::string>({"Default 2"}),
+            GetVisibleInfoBarMessages());
+  EXPECT_FALSE(IsPillVisibleOn(default_2));
+  histogram_tester.ExpectTotalCount("InfoBar.PendingIndicator.HostResolveTime",
+                                    1);
+}
 
 IN_PROC_BROWSER_TEST_F(InfoBarContainerPriorityTest, CriticalStacksUpToCap) {
   AddInfoBar(infobars::InfoBarDelegate::InfobarPriority::kCriticalSecurity,

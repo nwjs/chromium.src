@@ -10,10 +10,10 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "components/optimization_guide/core/model_execution/configs/summarize_solution_config.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_adaptation_loader.h"
 #include "components/optimization_guide/core/model_execution/on_device_model_download_progress_manager.h"
+#include "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_broker_android.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
@@ -39,12 +39,10 @@ proto::OnDeviceBaseModelMetadata MatchingMetadata(
                                          {spec.selected_performance_hint});
 }
 
-// TODO: crbug.com/442914748 - Support text safety.
 proto::OnDeviceModelExecutionFeatureConfig UnsafeFeatureConfig(
     mojom::OnDeviceFeature feature) {
   proto::OnDeviceModelExecutionFeatureConfig cfg = SimpleTestFeatureConfig();
   cfg.set_feature(ToModelExecutionFeatureProto(feature));
-  cfg.set_can_skip_text_safety(true);
   return cfg;
 }
 

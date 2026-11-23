@@ -17,6 +17,7 @@
 #include "ash/color_enhancement/color_enhancement_controller.h"
 #include "ash/constants/ash_constants.h"
 #include "ash/constants/ash_extension_constants.h"
+#include "ash/constants/ash_paths.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/constants/url_constants.h"
@@ -35,6 +36,8 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -63,7 +66,6 @@
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/singleton_tabs.h"
-#include "chrome/common/chrome_paths.h"
 #include "chromeos/ash/components/audio/sounds.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
@@ -572,7 +574,7 @@ AccessibilityManager::AccessibilityManager(
   }
 
   base::FilePath resources_path;
-  if (!base::PathService::Get(chrome::DIR_RESOURCES, &resources_path)) {
+  if (!base::PathService::Get(ash::DIR_RESOURCES, &resources_path)) {
     NOTREACHED();
   }
 
@@ -912,7 +914,7 @@ void AccessibilityManager::OnTwoFingerTouchStart() {
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_TWO_FINGER_TOUCH_START,
       extensions::api::accessibility_private::OnTwoFingerTouchStart::kEventName,
-      base::ListValue());
+      nullptr);
   event_router->BroadcastEvent(std::move(event));
 }
 
@@ -927,7 +929,7 @@ void AccessibilityManager::OnTwoFingerTouchStop() {
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_TWO_FINGER_TOUCH_STOP,
       extensions::api::accessibility_private::OnTwoFingerTouchStop::kEventName,
-      base::ListValue());
+      nullptr);
   event_router->BroadcastEvent(std::move(event));
 }
 
@@ -950,10 +952,10 @@ void AccessibilityManager::HandleAccessibilityGesture(
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(profile_);
 
-  base::ListValue event_args;
-  event_args.Append(ui::ToString(gesture));
-  event_args.Append(location.x());
-  event_args.Append(location.y());
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>();
+  event_args->data.Append(ui::ToString(gesture));
+  event_args->data.Append(location.x());
+  event_args->data.Append(location.y());
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_ACCESSIBILITY_GESTURE,
       extensions::api::accessibility_private::OnAccessibilityGesture::
@@ -1072,9 +1074,9 @@ void AccessibilityManager::ToggleGestureInfoForSettings(bool enabled) const {
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(profile_);
 
-  auto event_args = extensions::api::accessibility_private::
-      OnToggleGestureInfoForSettings::Create(enabled);
-
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::accessibility_private::OnToggleGestureInfoForSettings::
+          Create(enabled));
   auto event = std::make_unique<extensions::Event>(
       extensions::events::
           ACCESSIBILITY_PRIVATE_ON_TOGGLE_GESTURE_INFO_FOR_SETTINGS,
@@ -1132,9 +1134,10 @@ void AccessibilityManager::RequestAutoclickScrollableBoundsForPoint(
 
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(profile_);
-  auto event_args = extensions::api::accessibility_private::
-      OnScrollableBoundsForPointRequested::Create(point_in_screen.x(),
-                                                  point_in_screen.y());
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::accessibility_private::
+          OnScrollableBoundsForPointRequested::Create(point_in_screen.x(),
+                                                      point_in_screen.y()));
   std::unique_ptr<extensions::Event> event =
       std::make_unique<extensions::Event>(
           extensions::events::
@@ -1161,10 +1164,9 @@ void AccessibilityManager::MagnifierBoundsChanged(
   magnifier_bounds->width = bounds_in_screen.width();
   magnifier_bounds->height = bounds_in_screen.height();
 
-  auto event_args =
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
       extensions::api::accessibility_private::OnMagnifierBoundsChanged::Create(
-          *magnifier_bounds.get());
-
+          *magnifier_bounds.get()));
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_MAGNIFIER_BOUNDS_CHANGED,
       extensions::api::accessibility_private::OnMagnifierBoundsChanged::
@@ -1302,14 +1304,16 @@ void AccessibilityManager::OnDictationChanged(bool triggered_by_user) {
     // this is an upgrade (Dictation was enabled at start-up and the toggle was
     // not triggered by a user) or a new user (Dictation was just enabled in
     // settings) and pick the language accordingly.
-    const std::string locale = Dictation::DetermineDefaultSupportedLocale(
-        profile_, /*new_user=*/triggered_by_user,
-        application_locale_storage_->Get());
+    const base::i18n::LanguageTag locale =
+        Dictation::DetermineDefaultSupportedLocale(
+            profile_, /*new_user=*/triggered_by_user,
+            application_locale_storage_->GetTag());
 
     // Ensure we don't trigger nudges, downloads or notifications for the locale
     // pref upgrade. If these need to occur they will occur below.
     ignore_dictation_locale_pref_change_ = true;
-    pref_service->SetString(prefs::kAccessibilityDictationLocale, locale);
+    pref_service->SetString(prefs::kAccessibilityDictationLocale,
+                            locale.tag_string());
     pref_service->CommitPendingWrite();
   }
 
@@ -1406,8 +1410,11 @@ void AccessibilityManager::ShowDictationLanguageUpgradedNudge(
     const std::string& dictation_locale) {
   // Show the nudge, then set the pref to indicate that it has been shown
   // for this particular locale.
-  AccessibilityController::Get()->ShowDictationLanguageUpgradedNudge(
-      dictation_locale, application_locale_storage_->Get());
+  if (std::optional<base::i18n::LanguageTag> dictation_locale_tag =
+          base::i18n::GetLanguageTagFromString(dictation_locale)) {
+    AccessibilityController::Get()->ShowDictationLanguageUpgradedNudge(
+        *dictation_locale_tag, application_locale_storage_->GetTag());
+  }
   ScopedDictPrefUpdate update(profile_->GetPrefs(),
                               prefs::kAccessibilityDictationLocaleOfflineNudge);
   update->Set(dictation_locale, true);
@@ -1463,12 +1470,12 @@ void AccessibilityManager::RequestSelectToSpeakStateChange() {
       extensions::EventRouter::Get(profile_);
 
   // Send an event to the Select-to-Speak extension requesting a state change.
-  std::unique_ptr<extensions::Event> event(new extensions::Event(
+  auto event = std::make_unique<extensions::Event>(
       extensions::events::
           ACCESSIBILITY_PRIVATE_ON_SELECT_TO_SPEAK_STATE_CHANGE_REQUESTED,
       extensions::api::accessibility_private::
           OnSelectToSpeakStateChangeRequested::kEventName,
-      base::ListValue()));
+      nullptr);
   event_router->DispatchEventWithLazyListener(
       extension_misc::kSelectToSpeakExtensionId, std::move(event));
 }
@@ -1523,12 +1530,12 @@ void AccessibilityManager::OnSelectToSpeakContextMenuClick() {
       extensions::EventRouter::Get(profile_);
 
   // Send an event to the Select-to-Speak extension requesting a state change.
-  std::unique_ptr<extensions::Event> event(new extensions::Event(
+  auto event = std::make_unique<extensions::Event>(
       extensions::events::
           ACCESSIBILITY_PRIVATE_ON_SELECT_TO_SPEAK_CONTEXT_MENU_CLICKED,
       extensions::api::accessibility_private::
           OnSelectToSpeakContextMenuClicked::kEventName,
-      base::ListValue()));
+      nullptr);
   event_router->DispatchEventWithLazyListener(
       extension_misc::kSelectToSpeakExtensionId, std::move(event));
 }
@@ -1981,6 +1988,13 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
       base::UmaHistogramSparse("Accessibility.CrosCursorColor.Value", color);
     }
 
+    if (::features::IsAccessibilityShakeToLocateEnabled()) {
+      bool shake_to_locate_enabled =
+          prefs->GetBoolean(prefs::kAccessibilityShakeToLocateEnabled);
+      base::UmaHistogramBoolean("Accessibility.CrosCursorShakeToLocate",
+                                shake_to_locate_enabled);
+    }
+
     bool color_correction_enabled = IsColorCorrectionEnabled();
     base::UmaHistogramBoolean("Accessibility.CrosColorCorrection",
                               color_correction_enabled);
@@ -2189,10 +2203,10 @@ void AccessibilityManager::PostLoadChromeVox() {
 
   const std::string& extension_id = extension_misc::kChromeVoxExtensionId;
 
-  std::unique_ptr<extensions::Event> event(new extensions::Event(
+  auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_INTRODUCE_CHROME_VOX,
       extensions::api::accessibility_private::OnIntroduceChromeVox::kEventName,
-      base::ListValue()));
+      nullptr);
   event_router->DispatchEventWithLazyListener(extension_id, std::move(event));
 
   if (!chromevox_panel_ && spoken_feedback_enabled()) {
@@ -2319,7 +2333,7 @@ void AccessibilityManager::LoadEnhancedNetworkTts() {
   }
 
   base::FilePath resources_path;
-  if (!base::PathService::Get(chrome::DIR_RESOURCES, &resources_path)) {
+  if (!base::PathService::Get(ash::DIR_RESOURCES, &resources_path)) {
     NOTREACHED();
   }
 
@@ -2400,8 +2414,8 @@ bool AccessibilityManager::ToggleDictation() {
   dictation_active_ = !dictation_active_;
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(profile_);
-  base::ListValue event_args;
-  event_args.Append(dictation_active_);
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>();
+  event_args->data.Append(dictation_active_);
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_TOGGLE_DICTATION,
       extensions::api::accessibility_private::OnToggleDictation::kEventName,
@@ -2412,10 +2426,11 @@ bool AccessibilityManager::ToggleDictation() {
   return dictation_active_;
 }
 
-std::string AccessibilityManager::GetDictationDefaultLocale(bool new_user) {
+base::i18n::LanguageTag AccessibilityManager::GetDictationDefaultLocale(
+    bool new_user) {
   return Dictation::DetermineDefaultSupportedLocale(
       ProfileManager::GetActiveUserProfile(), new_user,
-      application_locale_storage_->Get());
+      application_locale_storage_->GetTag());
 }
 
 void AccessibilityManager::OpenSettingsSubpage(const std::string& subpage) {
@@ -2630,10 +2645,10 @@ void AccessibilityManager::OnSelectToSpeakPanelAction(
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(profile_);
 
-  base::ListValue event_args;
-  event_args.Append(AccessibilityPrivateEnumForAction(action));
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>();
+  event_args->data.Append(AccessibilityPrivateEnumForAction(action));
   if (value != 0.0) {
-    event_args.Append(value);
+    event_args->data.Append(value);
   }
 
   auto event = std::make_unique<extensions::Event>(
@@ -2658,9 +2673,10 @@ void AccessibilityManager::SendKeysCurrentlyDownToSelectToSpeak(
   for (auto& key : pressed_keys) {
     key_codes.emplace_back(key);
   }
-  auto event_args(extensions::api::accessibility_private::
-                      OnSelectToSpeakKeysPressedChanged::Create(key_codes));
 
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::accessibility_private::
+          OnSelectToSpeakKeysPressedChanged::Create(key_codes));
   auto event = std::make_unique<extensions::Event>(
       extensions::events::
           ACCESSIBILITY_PRIVATE_ON_SELECT_TO_SPEAK_KEYS_PRESSED_CHANGED,
@@ -2709,10 +2725,9 @@ void AccessibilityManager::SendMouseEventToSelectToSpeak(
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(profile_);
 
-  auto event_args(
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
       extensions::api::accessibility_private::OnSelectToSpeakMouseChanged::
           Create(event_type, position.x(), position.y()));
-
   auto event = std::make_unique<extensions::Event>(
       extensions::events::
           ACCESSIBILITY_PRIVATE_ON_SELECT_TO_SPEAK_MOUSE_CHANGED,
@@ -2731,9 +2746,9 @@ void AccessibilityManager::ShowChromeVoxTutorial() {
   extensions::EventRouter* event_router =
       extensions::EventRouter::Get(profile_);
 
-  auto event_args =
-      extensions::api::accessibility_private::OnShowChromeVoxTutorial::Create();
-
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::accessibility_private::OnShowChromeVoxTutorial::
+          Create());
   auto event = std::make_unique<extensions::Event>(
       extensions::events::ACCESSIBILITY_PRIVATE_ON_SHOW_CHROMEVOX_TUTORIAL,
       extensions::api::accessibility_private::OnShowChromeVoxTutorial::
@@ -2920,11 +2935,15 @@ bool AccessibilityManager::ShouldShowSodaFailedNotificationForDictation(
 void AccessibilityManager::UpdateDictationNotification() {
   const std::string locale =
       profile_->GetPrefs()->GetString(prefs::kAccessibilityDictationLocale);
+  std::optional<base::i18n::LanguageTag> locale_tag =
+      base::i18n::GetLanguageTagFromString(locale);
   // Get the display name of |locale| in the application locale.
-  const std::u16string display_name = l10n_util::GetDisplayNameForLocale(
-      /*locale=*/locale,
-      /*display_locale=*/application_locale_storage_->Get(),
-      /*is_ui=*/true);
+  const std::u16string display_name =
+      locale_tag ? l10n_util::GetDisplayNameForLocale(
+                       /*locale=*/*locale_tag,
+                       /*display_locale=*/application_locale_storage_->GetTag(),
+                       /*is_for_ui=*/true)
+                 : std::u16string();
 
   bool soda_installed = false;
   if (::features::IsDictationOfflineAvailable()) {
@@ -3158,23 +3177,25 @@ void AccessibilityManager::GetTtsDlcContents(
     GetTtsDlcContentsCallback callback) {
   static constexpr auto kTtsDlcTypeToLocale =
       base::MakeFixedFlatMap<DlcType, const char*>(
-          {{DlcType::kTtsBnBd, "bn-bd"}, {DlcType::kTtsCsCz, "cs-cz"},
-           {DlcType::kTtsDaDk, "da-dk"}, {DlcType::kTtsDeDe, "de-de"},
-           {DlcType::kTtsElGr, "el-gr"}, {DlcType::kTtsEnAu, "en-au"},
-           {DlcType::kTtsEnGb, "en-gb"}, {DlcType::kTtsEnUs, "en-us"},
-           {DlcType::kTtsEsEs, "es-es"}, {DlcType::kTtsEsUs, "es-us"},
-           {DlcType::kTtsFiFi, "fi-fi"}, {DlcType::kTtsFilPh, "fil-ph"},
-           {DlcType::kTtsFrFr, "fr-fr"}, {DlcType::kTtsHiIn, "hi-in"},
-           {DlcType::kTtsHuHu, "hu-hu"}, {DlcType::kTtsIdId, "id-id"},
-           {DlcType::kTtsItIt, "it-it"}, {DlcType::kTtsJaJp, "ja-jp"},
-           {DlcType::kTtsKmKh, "km-kh"}, {DlcType::kTtsKoKr, "ko-kr"},
-           {DlcType::kTtsNbNo, "nb-no"}, {DlcType::kTtsNeNp, "ne-np"},
-           {DlcType::kTtsNlNl, "nl-nl"}, {DlcType::kTtsPlPl, "pl-pl"},
-           {DlcType::kTtsPtBr, "pt-br"}, {DlcType::kTtsPtPt, "pt-pt"},
-           {DlcType::kTtsSiLk, "si-lk"}, {DlcType::kTtsSkSk, "sk-sk"},
-           {DlcType::kTtsSvSe, "sv-se"}, {DlcType::kTtsThTh, "th-th"},
-           {DlcType::kTtsTrTr, "tr-tr"}, {DlcType::kTtsUkUa, "uk-ua"},
-           {DlcType::kTtsViVn, "vi-vn"}, {DlcType::kTtsYueHk, "yue-hk"}});
+          {{DlcType::kTtsBnBd, "bn-bd"},  {DlcType::kTtsBnIn, "bn-in"},
+           {DlcType::kTtsCsCz, "cs-cz"},  {DlcType::kTtsDaDk, "da-dk"},
+           {DlcType::kTtsDeDe, "de-de"},  {DlcType::kTtsElGr, "el-gr"},
+           {DlcType::kTtsEnAu, "en-au"},  {DlcType::kTtsEnGb, "en-gb"},
+           {DlcType::kTtsEnIn, "en-in"},  {DlcType::kTtsEnUs, "en-us"},
+           {DlcType::kTtsEsEs, "es-es"},  {DlcType::kTtsEsUs, "es-us"},
+           {DlcType::kTtsFiFi, "fi-fi"},  {DlcType::kTtsFilPh, "fil-ph"},
+           {DlcType::kTtsFrCa, "fr-ca"},  {DlcType::kTtsFrFr, "fr-fr"},
+           {DlcType::kTtsHiIn, "hi-in"},  {DlcType::kTtsHuHu, "hu-hu"},
+           {DlcType::kTtsIdId, "id-id"},  {DlcType::kTtsItIt, "it-it"},
+           {DlcType::kTtsJaJp, "ja-jp"},  {DlcType::kTtsKmKh, "km-kh"},
+           {DlcType::kTtsKoKr, "ko-kr"},  {DlcType::kTtsNbNo, "nb-no"},
+           {DlcType::kTtsNeNp, "ne-np"},  {DlcType::kTtsNlNl, "nl-nl"},
+           {DlcType::kTtsPlPl, "pl-pl"},  {DlcType::kTtsPtBr, "pt-br"},
+           {DlcType::kTtsPtPt, "pt-pt"},  {DlcType::kTtsSiLk, "si-lk"},
+           {DlcType::kTtsSkSk, "sk-sk"},  {DlcType::kTtsSvSe, "sv-se"},
+           {DlcType::kTtsThTh, "th-th"},  {DlcType::kTtsTrTr, "tr-tr"},
+           {DlcType::kTtsUkUa, "uk-ua"},  {DlcType::kTtsViVn, "vi-vn"},
+           {DlcType::kTtsYueHk, "yue-hk"}});
 
   // Use LanguagePackManager to get the path of the DLC.
   std::string locale = kTtsDlcTypeToLocale.find(dlc)->second;

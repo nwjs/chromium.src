@@ -8,7 +8,6 @@
  * under Site Settings.
  */
 import 'chrome://resources/cr_components/localized_link/localized_link.js';
-import 'chrome://resources/cr_elements/action_link.css.js';
 import 'chrome://resources/js/action_link.js';
 import 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
@@ -23,14 +22,15 @@ import '../icons.html.js';
 import '../privacy_icons.html.js';
 import '../settings_page/settings_subpage.js';
 import '../settings_shared.css.js';
+import './action_link.css.js';
 import './all_sites_icons.html.js';
 import './clear_storage_dialog_shared.css.js';
 import './site_details_permission.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
+import {PrefServiceObserverMixin} from '/shared/settings/prefs2/pref_service_observer_mixin.js';
+import {WebUiListenerMixin} from '/shared/settings/web_ui_listener_mixin.js';
 import type {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
-import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -66,8 +66,8 @@ export interface SiteDetailsElement {
 }
 
 const SiteDetailsElementBase =
-    RouteObserverMixin(SiteSettingsMixin(SettingsViewMixin(
-        WebUiListenerMixin(PrefsMixin(I18nMixin(PolymerElement))))));
+    RouteObserverMixin(SiteSettingsMixin(SettingsViewMixin(WebUiListenerMixin(
+        PrefServiceObserverMixin(I18nMixin(PolymerElement))))));
 
 export class SiteDetailsElement extends SiteDetailsElementBase {
   static get is() {
@@ -203,9 +203,7 @@ export class SiteDetailsElement extends SiteDetailsElementBase {
        */
       useBlockIfUnfamiliarLabelForV8OptimizerDefault_: {
         type: Boolean,
-        computed:
-            'computeShouldUseBlockIfUnfamiliarLabelForV8OptimizerDefault_(' +
-            'prefs.generated.javascript_optimizer.value)',
+        value: false,
       },
 
       /**
@@ -246,6 +244,12 @@ export class SiteDetailsElement extends SiteDetailsElementBase {
 
   override connectedCallback() {
     super.connectedCallback();
+
+    this.addPrefObserver<JavascriptOptimizerSetting>(
+        'generated.javascript_optimizer', pref => {
+          this.useBlockIfUnfamiliarLabelForV8OptimizerDefault_ = pref.value ===
+              JavascriptOptimizerSetting.BLOCKED_FOR_UNFAMILIAR_SITES;
+        });
 
     this.addWebUiListener(
         'usage-total-changed',
@@ -461,15 +465,6 @@ export class SiteDetailsElement extends SiteDetailsElementBase {
     return storage !== '' && cookies !== '';
   }
 
-  /**
-   * Returns whether the "Block if site is unfamiliar" label should be used for
-   * the default javascript-optimizer content setting.
-   */
-  private computeShouldUseBlockIfUnfamiliarLabelForV8OptimizerDefault_():
-      boolean {
-    const pref = this.getPref('generated.javascript_optimizer').value;
-    return pref === JavascriptOptimizerSetting.BLOCKED_FOR_UNFAMILIAR_SITES;
-  }
 
   private onResetSettingsDialogClosed_() {
     const toFocus =

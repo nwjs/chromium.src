@@ -45,6 +45,8 @@
 #include "components/permissions/permission_util.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
+#include "components/tabs/public/mock_tab_interface.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/fullscreen_types.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/site_instance.h"
@@ -81,7 +83,7 @@
 // conditional statements in BUILD.gn files that import this file. See
 // "gn help nogncheck" for more information.
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"  // nogncheck
-#include "chrome/browser/enterprise/connectors/test/fake_content_analysis_delegate.h"
+#include "chrome/browser/enterprise/connectors/test/fake_content_analysis_delegate.h"  // nogncheck
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "storage/browser/file_system/external_mount_points.h"
 #endif
@@ -342,8 +344,10 @@ class ChromeFileSystemAccessPermissionContextTest : public testing::Test {
 
     web_contents_ = content::WebContentsTester::CreateTestWebContents(
         profile_.get(), nullptr);
-    FileSystemAccessPermissionRequestManager::CreateForWebContents(
-        web_contents());
+    tabs::TabLookupFromWebContents::CreateForWebContents(web_contents(), &tab_);
+    ON_CALL(tab_, GetContents()).WillByDefault(testing::Return(web_contents()));
+    permission_request_manager_ =
+        std::make_unique<FileSystemAccessPermissionRequestManager>(tab_);
     content::WebContentsTester::For(web_contents())
         ->NavigateAndCommit(kTestOrigin.GetURL());
 
@@ -364,6 +368,7 @@ class ChromeFileSystemAccessPermissionContextTest : public testing::Test {
 #endif
     task_environment_.RunUntilIdle();
     ASSERT_TRUE(temp_dir_.Delete());
+    permission_request_manager_.reset();
     web_contents_.reset();
   }
 
@@ -559,6 +564,9 @@ class ChromeFileSystemAccessPermissionContextTest : public testing::Test {
   content::RenderViewHostTestEnabler render_view_host_test_enabler_;
   std::unique_ptr<TestingProfile> profile_;
   std::unique_ptr<WebContents> web_contents_;
+  tabs::MockTabInterface tab_;
+  std::unique_ptr<FileSystemAccessPermissionRequestManager>
+      permission_request_manager_;
   // `permission_context_` must be declared after `profile_` (and
   // `web_contents_`) so that it is destroyed BEFORE them. The base class
   // `ObjectPermissionContextBase` holds a raw pointer to
@@ -898,6 +906,109 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
       SensitiveDirectoryResult::kAbort);
 }
 
+// Tests that sensitive-path blocklist matching handles case-variant file and
+// directory names (e.g., `.BASHRC` or `.SSH` on case-insensitive filesystems).
+TEST_F(ChromeFileSystemAccessPermissionContextTest,
+       ConfirmSensitiveEntryAccess_CaseInsensitivePathBlock) {
+  base::FilePath parent_dir = temp_dir_.GetPath().AppendASCII("parent");
+  base::FilePath home_dir = parent_dir.AppendASCII("home");
+  ScopedHomeDirOverride home_override =
+      OverrideHomeDir(home_dir, /*should_skip_check=*/true);
+
+  // Case-variant top-level blocked files under `base::DIR_HOME` must be
+  // blocked across triggers.
+  base::FilePath upper_bashrc = home_dir.AppendASCII(".BASHRC");
+  for (AccessTrigger trigger :
+       {AccessTrigger::kOpen, AccessTrigger::kSave,
+        AccessTrigger::kProgrammaticRead, AccessTrigger::kProgrammaticWrite}) {
+    EXPECT_EQ(ConfirmSensitiveEntryAccessSync(permission_context(),
+                                              PathInfo(upper_bashrc),
+                                              HandleType::kFile, trigger),
+              SensitiveDirectoryResult::kAbort);
+  }
+  for (const char* file_name : {".Bashrc", ".PROFILE", ".ZSHRC"}) {
+    EXPECT_EQ(
+        ConfirmSensitiveEntryAccessSync(
+            permission_context(), PathInfo(home_dir.AppendASCII(file_name)),
+            HandleType::kFile, AccessTrigger::kSave),
+        SensitiveDirectoryResult::kAbort);
+  }
+
+  // Case-variant blocked directories under `base::DIR_HOME` and their
+  // descendants must also be blocked.
+  for (const char* dir_name : {".SSH", ".Ssh"}) {
+    base::FilePath blocked_dir = home_dir.AppendASCII(dir_name);
+    EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                  permission_context(), PathInfo(blocked_dir),
+                  HandleType::kDirectory, AccessTrigger::kOpen),
+              SensitiveDirectoryResult::kAbort);
+    EXPECT_EQ(
+        ConfirmSensitiveEntryAccessSync(
+            permission_context(), PathInfo(blocked_dir.AppendASCII("id_rsa")),
+            HandleType::kFile, AccessTrigger::kSave),
+        SensitiveDirectoryResult::kAbort);
+  }
+  for (const char* dir_name : {".CONFIG", ".Config"}) {
+    base::FilePath blocked_dir = home_dir.AppendASCII(dir_name);
+    EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                  permission_context(), PathInfo(blocked_dir),
+                  HandleType::kDirectory, AccessTrigger::kOpen),
+              SensitiveDirectoryResult::kAbort);
+    EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                  permission_context(),
+                  PathInfo(blocked_dir.AppendASCII("app").AppendASCII(
+                      "settings.json")),
+                  HandleType::kFile, AccessTrigger::kSave),
+              SensitiveDirectoryResult::kAbort);
+  }
+
+  // A strict parent of a blocked path accessed with different casing must
+  // also be blocked.
+  base::FilePath upper_parent_dir = temp_dir_.GetPath().AppendASCII("PARENT");
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(upper_parent_dir),
+                HandleType::kDirectory, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAbort);
+
+  // Case-variant `base::DIR_HOME` ancestor components must preserve
+  // `kDontBlockChildren` on `base::DIR_HOME`, `kBlockAllChildren` on its
+  // blocked children, and `kBlockWrite` on nested suffix rules.
+  base::FilePath upper_home_dir = parent_dir.AppendASCII("HOME");
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(upper_home_dir),
+                HandleType::kDirectory, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(
+          permission_context(), PathInfo(upper_home_dir.AppendASCII(".bashrc")),
+          HandleType::kFile, AccessTrigger::kSave),
+      SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(
+          permission_context(),
+          PathInfo(upper_home_dir.AppendASCII(".ssh").AppendASCII("id_rsa")),
+          HandleType::kFile, AccessTrigger::kSave),
+      SensitiveDirectoryResult::kAbort);
+  base::FilePath git_hook_in_upper_home = upper_home_dir.AppendASCII("project")
+                                              .AppendASCII(".git")
+                                              .AppendASCII("hooks")
+                                              .AppendASCII("pre-commit");
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_hook_in_upper_home),
+                HandleType::kFile, AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(git_hook_in_upper_home),
+                HandleType::kFile, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(upper_home_dir.AppendASCII("project").AppendASCII(
+                    "notes.txt")),
+                HandleType::kFile, AccessTrigger::kSave),
+            SensitiveDirectoryResult::kAllowed);
+}
+
 TEST_F(ChromeFileSystemAccessPermissionContextTest,
        ConfirmSensitiveEntryAccess_ExplicitPathBlock) {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) || \
@@ -925,6 +1036,29 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
                 permission_context(), PathInfo(FILE_PATH_LITERAL("/dev")),
                 HandleType::kDirectory, AccessTrigger::kProgrammaticWrite),
             SensitiveDirectoryResult::kAbort);
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
+  // /run and its children should be blocked across access triggers.
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(), PathInfo(FILE_PATH_LITERAL("/run")),
+                HandleType::kDirectory, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(
+          permission_context(), PathInfo(FILE_PATH_LITERAL("/run/user/1000")),
+          HandleType::kDirectory, AccessTrigger::kOpen),
+      SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(
+          permission_context(), PathInfo(FILE_PATH_LITERAL("/run/user/1000")),
+          HandleType::kDirectory, AccessTrigger::kProgrammaticWrite),
+      SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
+                permission_context(),
+                PathInfo(temp_dir_.GetPath().AppendASCII("run")),
+                HandleType::kDirectory, AccessTrigger::kOpen),
+            SensitiveDirectoryResult::kAllowed);
+#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) ||
+        // BUILDFLAG(IS_ANDROID)
 #elif BUILDFLAG(IS_WIN)
   EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
                 permission_context(),
@@ -2254,6 +2388,7 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
       {kNoBasePathKey, FILE_PATH_LITERAL("/sys"), true, false},
       {kNoBasePathKey, FILE_PATH_LITERAL("/boot"), true, false},
       {kNoBasePathKey, FILE_PATH_LITERAL("/etc"), true, false},
+      {kNoBasePathKey, FILE_PATH_LITERAL("/run"), true, false},
       {base::DIR_HOME, FILE_PATH_LITERAL(".dbus"), true, false},
       {base::DIR_HOME, FILE_PATH_LITERAL(".local/share"), true, false},
       {base::DIR_HOME, FILE_PATH_LITERAL(".fonts.conf"), true, false},

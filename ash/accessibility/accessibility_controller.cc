@@ -24,7 +24,9 @@
 #include "ash/accessibility/drag_event_rewriter.h"
 #include "ash/accessibility/filter_keys_event_rewriter.h"
 #include "ash/accessibility/flash_screen_controller.h"
+#include "ash/accessibility/hover_text_event_handler.h"
 #include "ash/accessibility/mouse_keys/mouse_keys_controller.h"
+#include "ash/accessibility/mouse_locator/mouse_shake_to_locate_controller.h"
 #include "ash/accessibility/sticky_keys/sticky_keys_controller.h"
 #include "ash/accessibility/switch_access/point_scan_controller.h"
 #include "ash/accessibility/ui/accessibility_confirmation_dialog.h"
@@ -61,6 +63,7 @@
 #include "ash/system/accessibility/dictation_button_tray.h"
 #include "ash/system/accessibility/facegaze_bubble_controller.h"
 #include "ash/system/accessibility/floating_accessibility_controller.h"
+#include "ash/system/accessibility/hover_text_bubble_controller.h"
 #include "ash/system/accessibility/select_to_speak/select_to_speak_menu_bubble_controller.h"
 #include "ash/system/accessibility/switch_access/switch_access_menu_bubble_controller.h"
 #include "ash/system/input_device_settings/input_device_settings_controller_impl.h"
@@ -77,6 +80,8 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -224,8 +229,8 @@ const FeatureData kFeatures[] = {
      /*toggleable_in_quicksettings=*/true},
     {FeatureType::kDisableTouchpad, prefs::kAccessibilityDisableTrackpadEnabled,
      nullptr, 0, /*toggleable_in_quicksettings=*/false},
-    {FeatureType::kHoverText, prefs::kAccessibilityHoverTextEnabled, nullptr,
-     IDS_ASH_STATUS_TRAY_ACCESSIBILITY_HOVER_TEXT,
+    {FeatureType::kHoverText, prefs::kAccessibilityHoverTextEnabled,
+     &kHoverTextIcon, IDS_ASH_STATUS_TRAY_ACCESSIBILITY_HOVER_TEXT,
      /*toggleable_in_quicksettings=*/true,
      /*conflicting_feature=*/FeatureType::kSpokenFeedback},
 };
@@ -967,6 +972,11 @@ void AccessibilityController::Feature::UpdateFromPref() {
     enabled = false;
   }
 
+  if (type_ == FeatureType::kHoverText &&
+      !::features::IsAccessibilityHoverTextEnabled()) {
+    enabled = false;
+  }
+
   if (enabled) {
     // If it was turned on and we are in a active logged in session,
     // prepare to record duration metrics.
@@ -1226,6 +1236,8 @@ void AccessibilityController::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kAccessibilityHoverTextEnabled, false);
   registry->RegisterBooleanPref(prefs::kAccessibilityMonoAudioEnabled, false);
   registry->RegisterBooleanPref(prefs::kAccessibilityMouseKeysEnabled, false);
+  registry->RegisterBooleanPref(prefs::kAccessibilityShakeToLocateEnabled,
+                                false);
   registry->RegisterBooleanPref(prefs::kAccessibilityShortcutsEnabled, true);
   registry->RegisterBooleanPref(prefs::kAccessibilitySlowKeysEnabled, false);
   registry->RegisterBooleanPref(prefs::kAccessibilitySpokenFeedbackEnabled,
@@ -1574,6 +1586,8 @@ void AccessibilityController::Shutdown() {
   // Clean up any child windows and widgets that might be animating out.
   dictation_bubble_controller_.reset();
   facegaze_bubble_controller_.reset();
+  hover_text_event_handler_.reset();
+  hover_text_bubble_controller_.reset();
 
   for (auto& observer : observers_) {
     observer.OnAccessibilityControllerShutdown();
@@ -2287,18 +2301,19 @@ void AccessibilityController::ShowDictationKeyboardDialog() {
 
   dictation_keyboard_dialog_showing_for_testing_ = true;
 
-  std::string dictation_locale;
-  if (active_user_prefs_->GetString(prefs::kAccessibilityDictationLocale)
-          .empty()) {
-    dictation_locale = client_->GetDictationDefaultLocale(/*new_user=*/true);
-  } else {
-    dictation_locale =
-        active_user_prefs_->GetString(prefs::kAccessibilityDictationLocale);
-  }
+  const std::string& dictation_locale_pref =
+      active_user_prefs_->GetString(prefs::kAccessibilityDictationLocale);
+  const std::optional<base::i18n::LanguageTag> dictation_locale =
+      dictation_locale_pref.empty()
+          ? client_->GetDictationDefaultLocale(/*new_user=*/true)
+          : base::i18n::GetLanguageTagFromString(dictation_locale_pref);
 
-  std::u16string display_locale = l10n_util::GetDisplayNameForLocale(
-      /*locale=*/dictation_locale, /*display_locale=*/dictation_locale,
-      /*is_for_ui=*/true);
+  std::u16string display_locale =
+      dictation_locale
+          ? l10n_util::GetDisplayNameForLocale(
+                /*locale=*/*dictation_locale,
+                /*display_locale=*/*dictation_locale, /*is_for_ui=*/true)
+          : std::u16string();
   std::vector<std::u16string> replacements{display_locale};
   std::u16string title =
       l10n_util::GetStringUTF16(IDS_ASH_DICTATION_KEYBOARD_DIALOG_TITLE);
@@ -2379,8 +2394,8 @@ void AccessibilityController::OnSelectToSpeakKeyboardDialogDismissed() {
 }
 
 void AccessibilityController::ShowDictationLanguageUpgradedNudge(
-    const std::string& dictation_locale,
-    const std::string& application_locale) {
+    const base::i18n::LanguageTag& dictation_locale,
+    const base::i18n::LanguageTag& application_locale) {
   const std::u16string language_name = l10n_util::GetDisplayNameForLocale(
       dictation_locale, application_locale, /*is_for_ui=*/true);
   const std::u16string body_text = l10n_util::GetStringFUTF16(
@@ -2736,6 +2751,11 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
       base::BindRepeating(&AccessibilityController::UpdateLargeCursorFromPref,
                           base::Unretained(this)));
   pref_change_registrar_->Add(
+      prefs::kAccessibilityShakeToLocateEnabled,
+      base::BindRepeating(
+          &AccessibilityController::UpdateMouseShakeToLocateFromPref,
+          base::Unretained(this)));
+  pref_change_registrar_->Add(
       prefs::kAccessibilityShortcutsEnabled,
       base::BindRepeating(
           &AccessibilityController::UpdateShortcutsEnabledFromPref,
@@ -2834,6 +2854,7 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
   UpdateMouseKeysDominantHandFromPref();
   UpdateFloatingMenuPositionFromPref();
   UpdateLargeCursorFromPref();
+  UpdateMouseShakeToLocateFromPref();
   UpdateCursorColorFromPrefs(/*notify=*/true);
   UpdateShortcutsEnabledFromPref();
   UpdateTabletModeShelfNavigationButtonsFromPref();
@@ -3048,8 +3069,26 @@ FloatingMenuPosition AccessibilityController::GetFloatingMenuPosition() {
       prefs::kAccessibilityFloatingMenuPosition));
 }
 
+void AccessibilityController::UpdateMouseShakeToLocateFromPref() {
+  DCHECK(active_user_prefs_);
+  if (auto* mouse_shake_to_locate =
+          Shell::Get()->mouse_shake_to_locate_controller()) {
+    mouse_shake_to_locate->SetEnabled(active_user_prefs_->GetBoolean(
+        prefs::kAccessibilityShakeToLocateEnabled));
+  }
+}
+
+void AccessibilityController::MaybeCancelMouseShakeToLocateEffect() {
+  if (auto* mouse_shake_to_locate =
+          Shell::Get()->mouse_shake_to_locate_controller()) {
+    mouse_shake_to_locate->CancelEffect();
+  }
+}
+
 void AccessibilityController::UpdateLargeCursorFromPref() {
   DCHECK(active_user_prefs_);
+  MaybeCancelMouseShakeToLocateEffect();
+
   const bool enabled = large_cursor().enabled();
   const int size = enabled ? active_user_prefs_->GetInteger(
                                  prefs::kAccessibilityLargeCursorDipSize)
@@ -3872,6 +3911,7 @@ void AccessibilityController::UpdateFeatureFromPref(FeatureType feature) {
           enabled);
       break;
     case FeatureType::kLargeCursor:
+      MaybeCancelMouseShakeToLocateEffect();
       Shell::Get()->cursor_manager()->SetCursorSize(
           large_cursor().enabled() ? ui::CursorSize::kLarge
                                    : ui::CursorSize::kNormal);
@@ -4008,12 +4048,66 @@ void AccessibilityController::UpdateFeatureFromPref(FeatureType feature) {
       UpdateFlashNotificationsFromPrefs();
       break;
     case FeatureType::kHoverText:
+      if (enabled && ::features::IsAccessibilityHoverTextEnabled()) {
+        if (!hover_text_bubble_controller_) {
+          hover_text_bubble_controller_ =
+              std::make_unique<HoverTextBubbleController>();
+        }
+        if (!hover_text_event_handler_) {
+          hover_text_event_handler_ =
+              std::make_unique<HoverTextEventHandler>(this);
+        }
+      } else {
+        hover_text_event_handler_.reset();
+        hover_text_bubble_controller_.reset();
+      }
       break;
     case FeatureType::kFeatureCount:
     case FeatureType::kNoConflictingFeature:
       NOTREACHED();
   }
   NotifyAccessibilityStatusChanged();
+}
+
+void AccessibilityController::UpdateHoverTextBubble(
+    const HoverTextBubbleProps& props) {
+  if (!hover_text_bubble_controller_) {
+    return;
+  }
+  if (props.visible && hover_text_event_handler_) {
+    hover_text_event_handler_->OnHoverTextBubbleShown();
+  }
+  hover_text_bubble_controller_->UpdateBubble(props);
+}
+
+void AccessibilityController::OnHoverTextPointUpdated(
+    const gfx::Point& point_in_screen,
+    HoverTextPointerType pointer_type) {
+  if (client_) {
+    client_->OnHoverTextPointUpdated(point_in_screen, pointer_type);
+  }
+}
+
+void AccessibilityController::OnHoverTextKeyEvent(bool is_active,
+                                                  bool stop_speech) {
+  if (client_) {
+    client_->OnHoverTextKeyEvent(is_active, stop_speech);
+  }
+}
+
+bool AccessibilityController::IsHoverTextActive() const {
+  return hover_text_event_handler_ && hover_text_event_handler_->IsActive();
+}
+
+void AccessibilityController::ToggleHoverTextActive() {
+  if (hover_text_event_handler_) {
+    hover_text_event_handler_->OnTrayToggled();
+  }
+}
+
+HoverTextBubbleController*
+AccessibilityController::GetHoverTextBubbleControllerForTest() {
+  return hover_text_bubble_controller_.get();
 }
 
 void AccessibilityController::UpdateDictationBubble(

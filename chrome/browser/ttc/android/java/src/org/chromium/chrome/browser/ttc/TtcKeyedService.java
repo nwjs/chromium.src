@@ -25,8 +25,11 @@ public class TtcKeyedService {
         /** The service's {@link ServiceState} changed, e.g. a session started or ended. */
         default void onServiceStateChanged(@ServiceState int state) {}
 
-        /** The backend is connected and microphone capture is live. */
-        default void onSessionInitialized() {}
+        /**
+         * The active session's {@link SessionLifecycle} changed, e.g. it went live once the backend
+         * connected.
+         */
+        default void onSessionLifecycleChanged(@SessionLifecycle int lifecycle) {}
 
         /** The user's microphone input level changed. {@code level} is in [0, 1]. */
         default void onAudioLevelChanged(float level) {}
@@ -40,6 +43,8 @@ public class TtcKeyedService {
 
     private long mNativePtr;
     private final ObserverList<Observer> mObservers = new ObserverList<>();
+    private final TtcSessionWindowTracker mWindowTracker =
+            new TtcSessionWindowTracker(this::endSession);
 
     @CalledByNative
     private static TtcKeyedService create(long nativePtr) {
@@ -62,6 +67,16 @@ public class TtcKeyedService {
         ThreadUtils.assertOnUiThread();
         if (mNativePtr == 0) return false;
         return TtcKeyedServiceJni.get().isSessionActive(mNativePtr);
+    }
+
+    /**
+     * Returns the active session's {@link SessionLifecycle}, or {@link SessionLifecycle#FINISHED}
+     * if no session is active.
+     */
+    public @SessionLifecycle int getSessionLifecycle() {
+        ThreadUtils.assertOnUiThread();
+        if (mNativePtr == 0) return SessionLifecycle.FINISHED;
+        return TtcKeyedServiceJni.get().getSessionLifecycle(mNativePtr);
     }
 
     /**
@@ -89,6 +104,14 @@ public class TtcKeyedService {
         mObservers.removeObserver(observer);
     }
 
+    /**
+     * Returns the tracker for the windows that are visible and hosting this profile's session UI.
+     * The session ends once none are left.
+     */
+    TtcSessionWindowTracker getWindowTracker() {
+        return mWindowTracker;
+    }
+
     @CalledByNative
     private void clearNativePtr() {
         mNativePtr = 0;
@@ -102,9 +125,9 @@ public class TtcKeyedService {
     }
 
     @CalledByNative
-    private void onSessionInitialized() {
+    private void onSessionLifecycleChanged(@SessionLifecycle int lifecycle) {
         for (Observer observer : mObservers) {
-            observer.onSessionInitialized();
+            observer.onSessionLifecycleChanged(lifecycle);
         }
     }
 
@@ -127,6 +150,8 @@ public class TtcKeyedService {
         boolean isEnabled(long nativeTtcKeyedServiceAndroid);
 
         boolean isSessionActive(long nativeTtcKeyedServiceAndroid);
+
+        int getSessionLifecycle(long nativeTtcKeyedServiceAndroid);
 
         void startSession(long nativeTtcKeyedServiceAndroid);
 

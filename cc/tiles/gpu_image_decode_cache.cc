@@ -2149,12 +2149,10 @@ void GpuImageDecodeCache::UploadImageIfNecessary(const DrawImage& draw_image,
                            decoded_color_space.get())) {
     target_color_space = nullptr;
   }
-  // Do not color convert images that are YUV or might be tone mapped.
+  // Do not color convert images that are YUV, or for which color conversion
+  // would be destructive.
   if (image_data->info.yuva.has_value() ||
-      draw_image.paint_image().HasGainmapInfo() ||
-      ToneMapUtil::UseGlobalToneMapFilter(
-          decoded_color_space.get(),
-          draw_image.paint_image().GetHDRMetadata())) {
+      draw_image.paint_image().DecodeCacheColorConversionIsDestructive()) {
     target_color_space = nullptr;
   }
 

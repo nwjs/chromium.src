@@ -70,10 +70,10 @@ class VoicePreviewController
 
   ~VoicePreviewController() override;
 
-  // Starts synthesizing and playing a short sample for `voice_id`, or resumes
+  // Starts synthesizing and playing `preview_text` for `voice_id`, or resumes
   // playback if `voice_id` is already the active preview. Cancels any
   // previously active preview session for a different voice.
-  void PlayPreview(std::string_view voice_id);
+  void PlayPreview(std::string_view voice_id, std::u16string_view preview_text);
 
   // Pauses the active voice preview playback without tearing down the session.
   void PausePreview();
@@ -95,9 +95,8 @@ class VoicePreviewController
   void OnPlaybackStateChanged(read_aloud::mojom::PlaybackState state) override;
   void OnPlaybackProgressChanged(base::TimeDelta elapsed,
                                  base::TimeDelta duration) override {}
-  void OnWordBoundaryReached(uint32_t segment_index,
-                             uint32_t character_offset,
-                             base::TimeDelta audio_timestamp) override {}
+  void OnWordBoundaryReached(uint32_t start_character_offset,
+                             uint32_t end_character_offset) override {}
   void OnTextChunked(const std::vector<std::u16string>& chunks) override {}
   void RequestSpeechSynthesis(const std::u16string& text_chunk,
                               read_aloud::mojom::Speaker speaker,

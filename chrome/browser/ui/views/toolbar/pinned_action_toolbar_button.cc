@@ -13,10 +13,12 @@
 #include "base/metrics/user_metrics.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
+#include "build/branding_buildflags.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/customize_chrome/side_panel_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
@@ -33,6 +35,8 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/contextual_tasks/public/features.h"
+#include "components/vector_icons/vector_icons.h"
 #include "ui/actions/action_id.h"
 #include "ui/actions/actions.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -152,11 +156,13 @@ void PinnedActionToolbarButton::SetIconVisibility(bool is_visible) {
 void PinnedActionToolbarButton::AddHighlight() {
   anchor_higlight_ = AddAnchorHighlight();
   GetViewAccessibility().SetCheckedState(ax::mojom::CheckedState::kTrue);
+  UpdateStatusIndicator();
 }
 
 void PinnedActionToolbarButton::ResetHighlight() {
   anchor_higlight_.reset();
   GetViewAccessibility().SetCheckedState(ax::mojom::CheckedState::kFalse);
+  UpdateStatusIndicator();
 }
 
 bool PinnedActionToolbarButton::IsHighlighted() const {
@@ -240,6 +246,28 @@ void PinnedActionToolbarButton::OnMouseReleased(const ui::MouseEvent& event) {
   skip_execution_ = false;
 }
 
+int PinnedActionToolbarButton::GetIconSize() const {
+  const std::optional<VectorIcons>& icons = GetVectorIcons();
+  if (icons.has_value()) {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    if (&icons->icon == &vector_icons::kGoogleGLogoIcon ||
+        &icons->icon == &vector_icons::kGoogleGLogoMonochromeIcon) {
+      return ToolbarButton::GetIconSize() - 2;
+    }
+#else
+    if (&icons->icon == &vector_icons::kGoogleColorIcon) {
+      return ToolbarButton::GetIconSize() - 2;
+    }
+#endif
+  }
+  if (action_id_ == kActionSidePanelShowContextualTasks &&
+      (contextual_tasks::ShouldUseSuperGIconForPinButtons() ||
+       contextual_tasks::ShouldUseGraySuperGIconForPinButtons())) {
+    return ToolbarButton::GetIconSize() - 2;
+  }
+  return ToolbarButton::GetIconSize();
+}
+
 void PinnedActionToolbarButton::UpdateIcon() {
   const std::optional<VectorIcons>& icons = GetVectorIcons();
   // If the button is a cached permanent button the color provider will not be
@@ -252,7 +280,9 @@ void PinnedActionToolbarButton::UpdateIcon() {
                                     ? icons->touch_icon
                                     : icons->icon;
 
-  if (is_icon_visible_ && action_engaged_) {
+  if (is_icon_visible_ && action_engaged_ &&
+      engaged_indicator_style_ ==
+          ActionItemEngagedIndicatorStyle::kUnderline) {
     UpdateIconsWithColors(
         icon, GetColorProvider()->GetColor(kColorToolbarActionItemEngaged),
         GetColorProvider()->GetColor(kColorToolbarActionItemEngaged),
@@ -270,6 +300,16 @@ bool PinnedActionToolbarButton::ShouldShowEphemerallyInToolbar() {
   return should_show_in_toolbar_ || has_anchor_;
 }
 
+void PinnedActionToolbarButton::SetEngagedIndicatorStyle(
+    ActionItemEngagedIndicatorStyle style) {
+  if (engaged_indicator_style_ == style) {
+    return;
+  }
+  engaged_indicator_style_ = style;
+  UpdateStatusIndicator();
+  UpdateIcon();
+}
+
 void PinnedActionToolbarButton::SetActionEngaged(bool action_engaged) {
   action_engaged_ = action_engaged;
   UpdateFlexPriority();
@@ -280,6 +320,20 @@ void PinnedActionToolbarButton::HideStatusIndicator() {
 }
 
 void PinnedActionToolbarButton::UpdateStatusIndicator() {
+  if (engaged_indicator_style_ ==
+      ActionItemEngagedIndicatorStyle::kCircleHighlight) {
+    status_indicator_->Hide();
+    SetDefaultBackgroundColorId(action_engaged_ && is_icon_visible_ &&
+                                        !IsActive()
+                                    ? kColorAvatarButtonHighlightDefault
+                                    : kChromeColorsStart);
+    UpdateColorsAndInsets();
+    return;
+  }
+  if (GetDefaultBackgroundColorId() != kChromeColorsStart) {
+    SetDefaultBackgroundColorId(kChromeColorsStart);
+    UpdateColorsAndInsets();
+  }
   if (action_engaged_ && is_icon_visible_) {
     status_indicator_->Show();
   } else {
@@ -346,6 +400,8 @@ void PinnedActionToolbarButtonActionViewInterface::ActionItemChangedImpl(
   }
 
   // Update whether the action is engaged before updating the view.
+  action_view_->SetEngagedIndicatorStyle(
+      action_item->GetProperty(kActionItemEngagedIndicatorStyleKey));
   action_view_->SetActionEngaged(
       action_item->GetProperty(kActionItemUnderlineIndicatorKey));
 

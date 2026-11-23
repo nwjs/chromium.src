@@ -73,7 +73,6 @@
 
 using ::testing::_;
 using ::testing::AtLeast;
-using ::testing::InvokeWithoutArgs;
 using ::testing::Return;
 
 using guest_view::GuestViewManager;
@@ -197,7 +196,7 @@ class InlineLoginUIBrowserTest : public InProcessBrowserTest {};
 // crbug.com/41136981
 IN_PROC_BROWSER_TEST_F(InlineLoginUIBrowserTest, DSABLED_DifferentStorageId) {
   ContentInfo info = NavigateAndGetInfo(browser(), GetSigninPromoURL(),
-                                        WindowOpenDisposition::CURRENT_TAB);
+                                        WindowOpenDisposition::kCurrentTab);
   WaitUntilUIReady(browser());
 
   // Make sure storage partition of embedded webview is different from
@@ -232,11 +231,11 @@ IN_PROC_BROWSER_TEST_F(InlineLoginUIBrowserTest, OneProcessLimit) {
   content::RenderProcessHost::SetMaxRendererProcessCount(1);
 
   ContentInfo info1 = NavigateAndGetInfo(browser(), test_url_1,
-                                         WindowOpenDisposition::CURRENT_TAB);
+                                         WindowOpenDisposition::kCurrentTab);
   ContentInfo info2 = NavigateAndGetInfo(browser(), test_url_2,
-                                         WindowOpenDisposition::CURRENT_TAB);
+                                         WindowOpenDisposition::kCurrentTab);
   ContentInfo info3 = NavigateAndGetInfo(browser(), GetSigninPromoURL(),
-                                         WindowOpenDisposition::CURRENT_TAB);
+                                         WindowOpenDisposition::kCurrentTab);
 
   ASSERT_EQ(info1.pid, info2.pid);
   ASSERT_NE(info1.pid, info3.pid);
@@ -357,8 +356,9 @@ IN_PROC_BROWSER_TEST_F(InlineLoginHelperBrowserTest, WithAuthCode) {
       "foo@gmail.com", GaiaId("gaiaid-12345"), "password", "auth_code",
       /*signin_scoped_device_id=*/std::string());
   base::RunLoop run_loop;
-  EXPECT_CALL(helper, OnClientOAuthSuccess(_))
-      .WillOnce(testing::InvokeWithoutArgs([&run_loop]() { run_loop.Quit(); }));
+  EXPECT_CALL(helper, OnClientOAuthSuccess(_)).WillOnce([&run_loop]() {
+    run_loop.Quit();
+  });
 
   SimulateStartAuthCodeForOAuth2TokenExchangeSuccess(
       R"({

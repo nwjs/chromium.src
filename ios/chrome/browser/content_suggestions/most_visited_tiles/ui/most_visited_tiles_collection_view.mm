@@ -32,6 +32,9 @@ NSString* const kSectionIdentifier =
 NSString* const kCellReuseIdentifier =
     @"MostVisitedTilesCollectionViewCellIdentifier";
 
+/// Maximum number of items that should be added to the collection view..
+NSUInteger const kMaximumItems = 8;
+
 /// Item identifier for the plus button.
 const int kPlusButtonIdentifier = -1;
 
@@ -188,11 +191,15 @@ const int kPlusButtonIdentifier = -1;
   [snapshot appendSectionsWithIdentifiers:@[ kSectionIdentifier ]];
   NSMutableArray* indices = [NSMutableArray array];
   NSUInteger count = _items.count;
+  NSUInteger regularCount = 0;
   for (NSUInteger i = 0; i < count; i++) {
     [indices addObject:@(i)];
+    if (_items[i].source != ntp_tiles::TileSource::AI_MODE) {
+      regularCount++;
+    }
   }
   /// Add the "+" button.
-  if (!_items.lastObject.isPinned || count < MaximumMostVisitedTilesCount()) {
+  if (!_items.lastObject.isPinned || regularCount < kMaximumItems) {
     [indices addObject:@(kPlusButtonIdentifier)];
   }
   [snapshot appendItemsWithIdentifiers:indices
@@ -216,12 +223,8 @@ const int kPlusButtonIdentifier = -1;
     plusButtonItem.mostVisitedTilesHandler = _mostVisitedTilesHandler;
     cell.contentConfiguration = plusButtonItem;
   } else {
-    CHECK_LT(identifier.unsignedIntValue, _items.count);
-    MostVisitedItem* item = _items[identifier.unsignedIntValue];
-    if (![item isAIMTile]) {
-      [self loadFaviconIfNeeded:identifier];
-    }
-    cell.contentConfiguration = item;
+    [self loadFaviconIfNeeded:identifier];
+    cell.contentConfiguration = _items[identifier.unsignedIntValue];
   }
   /// Mark the first item in the tiles for layout guide
   /// `kNTPFirstMostVisitedTileGuide`.
@@ -239,10 +242,8 @@ const int kPlusButtonIdentifier = -1;
 
 /// Loads the favicon for item with `identifier`.
 - (void)loadFaviconIfNeeded:(NSNumber*)identifier {
-  NSUInteger index = identifier.unsignedIntegerValue;
-  CHECK_LT(index, _items.count);
-  MostVisitedItem* item = _items[index];
-  if ([item isAIMTile]) {
+  MostVisitedItem* item = _items[identifier.unsignedIntValue];
+  if (item.source == ntp_tiles::TileSource::AI_MODE) {
     return;
   }
   if (!item.attributes) {

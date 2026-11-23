@@ -45,6 +45,7 @@ from pylib.base import output_manager
 from pylib.base import output_manager_factory
 from pylib.base import test_instance_factory
 from pylib.base import test_run_factory
+from pylib.local.device import local_device_test_run
 from pylib.results import json_results
 from pylib.results import report_results
 from pylib.results.presentation import test_results_presentation
@@ -116,6 +117,14 @@ def AddTestLauncherOptions(parser):
         help='Index of the external shard to run.',
     )
     parser.add_argument(
+        '--sharding-strategy',
+        choices=local_device_test_run.SHARDING_STRATEGIES,
+        default=local_device_test_run.SHARDING_STRATEGY_BOUNDED_LOAD,
+        help='How tests are assigned to external shards. "hash" is the legacy '
+        'name-hash assignment; "bounded-load" keeps the hash assignment '
+        'unless it would overload a shard (default: %(default)s).',
+    )
+    parser.add_argument(
         '--test-launcher-total-shards',
         type=int,
         default=os.environ.get('GTEST_TOTAL_SHARDS', 1),
@@ -177,6 +186,14 @@ def AddTracingOptions(parser):
 
 def AddCommonOptions(parser):
     """Adds all common options to |parser|."""
+    parser.add_argument(
+        '--test-location-for-bug-routing',
+        help=(
+            'Path to a DIR_METADATA file (or a file in the same directory) '
+            'to report to ResultDB for bug routing. If specified, this '
+            'overrides any class-to-file mapping from size-info.'
+        ),
+    )
     parser.add_argument(
         "-q", "--quiet", action="store_true", help="Minimize output."
     )
@@ -260,6 +277,7 @@ def AddCommonOptions(parser):
         def __call__(self, parser, namespace, values, option_string=None):
             namespace.enable_concurrent_adb = True
             namespace.enable_device_cache = True
+            namespace.enable_test_data_cache = True
             namespace.extract_test_list_from_filter = True
             namespace.local_output = True
             namespace.num_retries = 0
@@ -271,7 +289,7 @@ def AddCommonOptions(parser):
         nargs=0,
         action=FastLocalDevAction,
         help='Alias for: --num-retries=0 --enable-device-cache '
-        '--enable-concurrent-adb --skip-clear-data '
+        '--enable-test-data-cache --enable-concurrent-adb --skip-clear-data '
         '--extract-test-list-from-filter --local-output',
     )
 
@@ -403,9 +421,22 @@ def AddDeviceOptions(parser):
         help='Cache device state to disk between runs',
     )
     parser.add_argument(
+        '--enable-test-data-cache',
+        action='store_true',
+        help='Skip pushing gtest data dependencies when a stamp of the host '
+        'files matches the one recorded on the device by the last push',
+    )
+    parser.add_argument(
         '--list-data',
         action='store_true',
         help='List files pushed to device and exit.',
+    )
+    parser.add_argument(
+        '--device-data-filter',
+        action='append',
+        dest='device_data_filters',
+        default=[],
+        help='Device data filter (e.g. +//chrome/test/data/*)',
     )
     parser.add_argument(
         '--skip-clear-data',
@@ -419,6 +450,12 @@ def AddDeviceOptions(parser):
         action='store_true',
         help='Attempt to recover devices prior to the final retry. Warning: '
         'this will cause all devices to reboot.',
+    )
+    parser.add_argument(
+        '--device-retries',
+        type=int,
+        help='Default number of retries for device (adb) commands. Defaults '
+        'to the value of --num-retries.',
     )
 
     parser.add_argument(
@@ -723,13 +760,6 @@ def AddInstrumentationTestOptions(parser):
         dest='additional_locales',
         help='Specify locales in addition to the device locale to install splits '
         'for when --apk-under-test is an Android App Bundle.',
-    )
-    parser.add_argument(
-        '--device-data-filter',
-        action='append',
-        dest='device_data_filters',
-        default=[],
-        help='Device data filter (e.g. +//chrome/test/data/*)',
     )
     parser.add_argument(
         '--coverage-dir',
@@ -1196,13 +1226,13 @@ def AddPythonTestOptions(parser):
     )
 
 
-def _CreateClassToFileNameDict(test_apk):
-    """Creates a dict mapping classes to file names from size-info apk."""
+def _CreateClassToFileNameDict(suite_name_or_path):
+    """Creates a dict mapping classes to file names from size-info."""
     constants.CheckOutputDirectory()
     test_apk_size_info = os.path.join(
         constants.GetOutDirectory(),
         'size-info',
-        os.path.basename(test_apk) + '.jar.info',
+        os.path.basename(suite_name_or_path) + '.jar.info',
     )
 
     class_to_file_dict = {}
@@ -1210,7 +1240,7 @@ def _CreateClassToFileNameDict(test_apk):
     # tests. This means the apk may not have been built by the system and hence
     # no size info file exists.
     if not os.path.exists(test_apk_size_info):
-        logging.debug('Apk size file not found. %s', test_apk_size_info)
+        logging.debug('Size info file not found. %s', test_apk_size_info)
         return class_to_file_dict
 
     with open(test_apk_size_info, 'r') as f:
@@ -1223,6 +1253,19 @@ def _CreateClassToFileNameDict(test_apk):
                 )
 
     return class_to_file_dict
+
+
+def _GetTestFileName(test_name, class_to_file_dict):
+    """Returns the source file for |test_name|, or None if unknown.
+
+    Args:
+      test_name: e.g. org.chromium.chrome.page_info.PageInfoViewTest#testFoo
+      class_to_file_dict: Result of _CreateClassToFileNameDict().
+    """
+    test_class = test_name.split('#', 1)[0]
+    # .jar.info only lists top-level classes, so fall back to the outer class
+    # for tests defined in nested classes (Outer$Inner).
+    return class_to_file_dict.get(test_class.split('$', 1)[0])
 
 
 def _RunPythonTests(args):
@@ -1601,27 +1644,29 @@ def RunTestsInPlatformMode(args, result_sink_client=None):
                 )
 
             test_class_to_file_name_dict = {}
-            # Test Location is only supported for instrumentation tests as it
-            # requires the size-info file.
+            # Test Location requires the size-info file, which is generated
+            # for instrumentation and junit tests.
             if test_instance.TestType() == 'instrumentation':
                 test_class_to_file_name_dict = _CreateClassToFileNameDict(
                     args.test_apk
+                )
+            elif test_instance.TestType() == 'junit':
+                test_class_to_file_name_dict = _CreateClassToFileNameDict(
+                    test_instance.suite
                 )
 
             if result_sink_client:
                 for run in all_raw_results:
                     for results in run:
                         for r in results.GetAll():
-                            # Matches chrome.page_info.PageInfoViewTest#testChromePage
-                            match = re.search(r'^(.+\..+)#', r.GetName())
-                            test_file_name = (
-                                test_class_to_file_name_dict.get(match.group(1))
-                                if match
-                                else None
+                            test_file_name = _GetTestFileName(
+                                r.GetName(), test_class_to_file_name_dict
                             )
                             _SinkTestResult(
                                 r,
-                                test_file_name or r.GetTestFile(),
+                                args.test_location_for_bug_routing
+                                or test_file_name
+                                or r.GetTestFile(),
                                 test_instance,
                                 result_sink_client,
                             )

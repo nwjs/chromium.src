@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/policy/core/user_cloud_policy_manager_ash.h"
 
+#include <functional>
 #include <memory>
 #include <set>
 #include <utility>
@@ -36,7 +37,6 @@
 #include "chrome/browser/enterprise/reporting/report_scheduler_desktop.h"
 #include "chrome/browser/enterprise/reporting/reporting_delegate_factory_desktop.h"
 #include "chrome/browser/invalidation/profile_invalidation_provider_factory.h"
-#include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/policy/cloud/user_fm_registration_token_uploader_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_content_client.h"
@@ -217,7 +217,9 @@ void UserCloudPolicyManagerAsh::ConnectManagementService(
   std::unique_ptr<CloudPolicyClient> cloud_policy_client =
       std::make_unique<CloudPolicyClient>(
           device_management_service, shared_url_loader_factory_,
-          ash::GetDeviceDMTokenForUserPolicyGetter(account_id_));
+          base::BindRepeating(&ash::GetDeviceDMTokenIfAffiliated,
+                              std::cref(browser_policy_connector_ash_.get()),
+                              account_id_));
   CreateComponentCloudPolicyService(
       dm_protocol::kChromeExtensionPolicyType, component_policy_cache_path_,
       cloud_policy_client.get(), schema_registry());

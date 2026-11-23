@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/discover_feed/model/discover_feed_configuration.h"
 #import "ios/chrome/browser/discover_feed/model/discover_feed_service.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
@@ -16,35 +18,14 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/public/provider/chrome/browser/discover_feed/discover_feed_api.h"
 
-// static
-DiscoverFeedService* DiscoverFeedServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<DiscoverFeedService>(
-      profile, /*create=*/true);
-}
-
-// static
-DiscoverFeedService* DiscoverFeedServiceFactory::GetForProfileIfExists(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<DiscoverFeedService>(
-      profile, /*create=*/false);
-}
-
-// static
-DiscoverFeedServiceFactory* DiscoverFeedServiceFactory::GetInstance() {
-  static base::NoDestructor<DiscoverFeedServiceFactory> instance;
-  return instance.get();
-}
-
-DiscoverFeedServiceFactory::DiscoverFeedServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("DiscoverFeedService") {
+DiscoverFeedServiceFactory::DiscoverFeedServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "DiscoverFeedService") {
   DependsOn(AuthenticationServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(ios::TemplateURLServiceFactory::GetInstance());
   DependsOn(SyncServiceFactory::GetInstance());
 }
-
-DiscoverFeedServiceFactory::~DiscoverFeedServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 DiscoverFeedServiceFactory::BuildServiceInstanceFor(ProfileIOS* profile) const {

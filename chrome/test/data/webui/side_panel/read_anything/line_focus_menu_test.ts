@@ -5,32 +5,25 @@
 import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 
 import type {LineFocusMenuElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import {LINE_FOCUS_FEATURE_NAME, LineFocusMovement, LineFocusStyle, ReadAnythingSettingsChange, ToolbarEvent, userEducationProxyFactory} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {LINE_FOCUS_FEATURE_NAME, LineFocusMovement, LineFocusStyle, ToolbarEvent, userEducationProxyFactory} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {loadTimeData} from 'chrome-untrusted://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {TestUserEducationMixedTrustHandler} from 'chrome-untrusted://webui-test/test_user_education_mixed_trust_handler.js';
 import {microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
 
-import {assertCheckMarksForDropdown, setupTestEnvironment, stubAnimationFrame} from './common.js';
-import type {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+import {setupTestEnvironment, stubAnimationFrame} from './common.js';
 
 suite('LineFocusMenuElement', () => {
   let lineFocusMenu: LineFocusMenuElement;
-  let metrics: TestMetricsBrowserProxy;
   let userEducationHandler: TestUserEducationMixedTrustHandler;
 
   setup(() => {
-    const result = setupTestEnvironment();
-    metrics = result.metrics;
+    setupTestEnvironment();
     userEducationHandler = new TestUserEducationMixedTrustHandler();
     userEducationProxyFactory.setInstance({handler: userEducationHandler});
 
     lineFocusMenu = document.createElement('line-focus-menu');
     document.body.appendChild(lineFocusMenu);
-  });
-
-  test('has checkmarks', () => {
-    assertCheckMarksForDropdown(lineFocusMenu);
   });
 
   test('has header shortcut', () => {
@@ -77,7 +70,7 @@ suite('LineFocusMenuElement', () => {
     assertEquals(false, lineFocusMenu.$.menu.menuGroups[0]!.selectedValue);
   });
 
-  test('on line focus style change', async () => {
+  test('on line focus style change does not close menus', async () => {
     let closeAllMenusCount = 0;
     document.addEventListener(
         ToolbarEvent.CLOSE_ALL_MENUS, () => closeAllMenusCount += 1);
@@ -87,9 +80,6 @@ suite('LineFocusMenuElement', () => {
         {detail: {data: LineFocusStyle.LARGE_WINDOW}}));
     await microtasksFinished();
 
-    assertEquals(
-        ReadAnythingSettingsChange.LINE_FOCUS_STYLE_CHANGE,
-        await metrics.whenCalled('recordTextSettingsChange'));
     assertEquals(0, closeAllMenusCount);
   });
 
@@ -106,7 +96,7 @@ suite('LineFocusMenuElement', () => {
         staticMovement, lineFocusMenu.$.menu.menuGroups[2]!.selectedValue);
   });
 
-  test('on line focus movement change', async () => {
+  test('on line focus movement change does not close menus', async () => {
     let closeAllMenusCount = 0;
     document.addEventListener(
         ToolbarEvent.CLOSE_ALL_MENUS, () => closeAllMenusCount += 1);
@@ -116,13 +106,10 @@ suite('LineFocusMenuElement', () => {
         {detail: {data: LineFocusMovement.CURSOR}}));
     await microtasksFinished();
 
-    assertEquals(
-        ReadAnythingSettingsChange.LINE_FOCUS_MOVEMENT_CHANGE,
-        await metrics.whenCalled('recordTextSettingsChange'));
     assertEquals(0, closeAllMenusCount);
   });
 
-  test('on line focus toggle change', async () => {
+  test('on line focus toggle change does not close menus', async () => {
     let closeAllMenusCount = 0;
     document.addEventListener(
         ToolbarEvent.CLOSE_ALL_MENUS, () => closeAllMenusCount += 1);
@@ -131,9 +118,6 @@ suite('LineFocusMenuElement', () => {
         ToolbarEvent.LINE_FOCUS_TOGGLE, {detail: {data: true}}));
     await microtasksFinished();
 
-    assertEquals(
-        ReadAnythingSettingsChange.LINE_FOCUS_TOGGLE,
-        await metrics.whenCalled('recordTextSettingsChange'));
     assertEquals(0, closeAllMenusCount);
   });
 

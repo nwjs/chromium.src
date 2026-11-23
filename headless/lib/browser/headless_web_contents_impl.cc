@@ -19,12 +19,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/trace_event/trace_event.h"
-#include "base/types/expected.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "components/headless/console_message_logger/headless_console_message_logger.h"
-#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
-#include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_termination_info.h"
@@ -53,7 +50,6 @@
 #include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/common/peerconnection/webrtc_ip_handling_policy.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
-#include "third_party/blink/public/mojom/content_extraction/ai_page_content.mojom.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -136,30 +132,6 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
     headless_contents.Close();
   }
 
-  void GetAIPageContent(
-      content::WebContents* web_contents,
-      bool include_actionable_elements,
-      base::OnceCallback<void(base::expected<std::string, std::string>)>
-          callback) override {
-    auto options = include_actionable_elements
-                       ? optimization_guide::ActionableAIPageContentOptions(
-                             /*on_critical_path=*/false)
-                       : optimization_guide::DefaultAIPageContentOptions(
-                             /*on_critical_path=*/false);
-
-    optimization_guide::GetAIPageContent(
-        web_contents, std::move(options),
-        base::BindOnce([](optimization_guide::AIPageContentResultOrError result)
-                           -> base::expected<std::string, std::string> {
-          // Preserve the provider's error so DevTools callers can diagnose the
-          // extraction failure.
-          if (!result.has_value()) {
-            return base::unexpected(result.error());
-          }
-          return base::ok(result->proto.SerializeAsString());
-        }).Then(std::move(callback)));
-  }
-
   content::WebContents* AddNewContents(
       content::WebContents* source,
       std::unique_ptr<content::WebContents> new_contents,
@@ -185,7 +157,7 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
                                  : window_features.bounds;
     raw_child_contents->SetBounds(bounds);
 
-    if (disposition == WindowOpenDisposition::NEW_PICTURE_IN_PICTURE) {
+    if (disposition == WindowOpenDisposition::kNewPictureInPicture) {
       // Register the document Picture-in-Picture child contents so the
       // controller can manage the PiP window's lifetime.
       content::DocumentPictureInPictureWindowController* controller =
@@ -209,14 +181,14 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
     DCHECK_EQ(source, headless_web_contents_->web_contents());
     content::WebContents* target = nullptr;
     switch (params.disposition) {
-      case WindowOpenDisposition::CURRENT_TAB:
+      case WindowOpenDisposition::kCurrentTab:
         target = source;
         break;
 
-      case WindowOpenDisposition::NEW_POPUP:
-      case WindowOpenDisposition::NEW_WINDOW:
-      case WindowOpenDisposition::NEW_BACKGROUND_TAB:
-      case WindowOpenDisposition::NEW_FOREGROUND_TAB: {
+      case WindowOpenDisposition::kNewPopup:
+      case WindowOpenDisposition::kNewWindow:
+      case WindowOpenDisposition::kNewBackgroundTab:
+      case WindowOpenDisposition::kNewForegroundTab: {
         if (headless_web_contents_->browser_context()
                 ->options()
                 ->block_new_web_contents()) {
@@ -226,6 +198,9 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
             headless_web_contents_->browser_context());
         create_params.window_bounds = source->GetContainerBounds();
         create_params.source_site_instance = params.source_site_instance;
+        // Disable the initial about:blank navigation and the creation of a
+        // temporary RenderFrameHost. We will navigate below anyway.
+        create_params.initial_url = std::nullopt;
         HeadlessWebContentsImpl* child_contents = HeadlessWebContentsImpl::From(
             headless_web_contents_->browser_context()->CreateWebContents(
                 create_params));
@@ -234,10 +209,10 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
       }
 
       // TODO(veluca): add support for other disposition types.
-      case WindowOpenDisposition::SINGLETON_TAB:
-      case WindowOpenDisposition::OFF_THE_RECORD:
-      case WindowOpenDisposition::SAVE_TO_DISK:
-      case WindowOpenDisposition::IGNORE_ACTION:
+      case WindowOpenDisposition::kSingletonTab:
+      case WindowOpenDisposition::kOffTheRecord:
+      case WindowOpenDisposition::kSaveToDisk:
+      case WindowOpenDisposition::kIgnoreAction:
       default:
         return nullptr;
     }
@@ -250,6 +225,8 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
 
     base::WeakPtr<content::NavigationHandle> navigation =
         target->GetController().LoadURLWithParams(load_url_params);
+    ActivateContents(target);
+    target->Focus();
     if (navigation_handle_callback && navigation) {
       std::move(navigation_handle_callback).Run(*navigation);
     }
@@ -417,7 +394,8 @@ std::unique_ptr<HeadlessWebContentsImpl> HeadlessWebContentsImpl::Create(
       headless_web_contents->browser()->options()->enable_begin_frame_control;
   headless_web_contents->InitializeWindow(params.window_bounds,
                                           params.window_state);
-  if (!headless_web_contents->OpenURL(params.initial_url)) {
+  if (params.initial_url.has_value() &&
+      !headless_web_contents->OpenURL(*params.initial_url)) {
     return nullptr;
   }
   return headless_web_contents;

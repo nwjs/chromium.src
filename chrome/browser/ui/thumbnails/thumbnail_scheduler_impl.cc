@@ -21,7 +21,7 @@ struct ThumbnailSchedulerImpl::TabSchedulingData {
   TabCapturePriority priority = TabCapturePriority::kNone;
 };
 
-struct ThumbnailSchedulerImpl::TabNode : public base::LinkNode<TabNode> {
+struct ThumbnailSchedulerImpl::TabNode : public base::SafeLinkNode<TabNode> {
   raw_ptr<TabCapturer> capturer = nullptr;
   TabSchedulingData data;
   bool is_capturing = false;
@@ -31,11 +31,18 @@ ThumbnailSchedulerImpl::ThumbnailSchedulerImpl(int max_total_captures,
                                                int max_low_priority_captures)
     : max_total_captures_(max_total_captures),
       max_low_priority_captures_(max_low_priority_captures) {
-  DCHECK_GT(max_total_captures_, 0);
-  DCHECK_GE(max_total_captures_, max_low_priority_captures_);
+  CHECK_GT(max_total_captures_, 0, base::NotFatalUntil::M162);
+  CHECK_GE(max_total_captures_, max_low_priority_captures_,
+           base::NotFatalUntil::M162);
 }
 
-ThumbnailSchedulerImpl::~ThumbnailSchedulerImpl() = default;
+ThumbnailSchedulerImpl::~ThumbnailSchedulerImpl() {
+  // All nodes must be removed before destruction.
+  hi_prio_waiting_.clear();
+  lo_prio_waiting_.clear();
+  hi_prio_capturing_.clear();
+  lo_prio_capturing_.clear();
+}
 
 void ThumbnailSchedulerImpl::AddTab(TabCapturer* tab) {
   auto result = tabs_.emplace(tab, TabNode{});
@@ -44,12 +51,14 @@ void ThumbnailSchedulerImpl::AddTab(TabCapturer* tab) {
 }
 
 void ThumbnailSchedulerImpl::RemoveTab(TabCapturer* tab) {
+  CHECK(tabs_.contains(tab)) << "Removed a tab that was never added.";
   // Explicitly set the priority to `kNone` to ensure the corresponding
-  // `TabNode` is unlinked from `hi_prio_waiting_`, `lo_prio_waiting_`,
-  // `hi_prio_capturing_`, or `lo_prio_capturing_` as appropriate.
+  // `TabNode` is removed from any waiting or capturing lists and other nodes
+  // are reprioritized appropriately.
   SetTabCapturePriority(tab, TabCapturePriority::kNone);
-  int num_removed = tabs_.erase(tab);
-  DCHECK_EQ(1, num_removed) << "removed a tab that was never added";
+  const size_t num_removed = tabs_.erase(tab);
+  CHECK_EQ(1U, num_removed)
+      << "Tab was unexpectedly removed during deprioritization.";
 }
 
 void ThumbnailSchedulerImpl::SetTabCapturePriority(
@@ -145,7 +154,8 @@ void ThumbnailSchedulerImpl::Schedule(TabNode* tab_node,
 
   // A high priority tab may have been deprioritized, so the low
   // priority quota may be off by one.
-  DCHECK_LE(lo_prio_capture_count_, lo_prio_quota + 1);
+  CHECK_LE(lo_prio_capture_count_, lo_prio_quota + 1,
+           base::NotFatalUntil::M162);
 
   // A new high priority capture may preempt an existing low priority one. This
   // happens in two cases:
@@ -159,14 +169,14 @@ void ThumbnailSchedulerImpl::Schedule(TabNode* tab_node,
   // a new one if below the quota. Note the latter cannot happen if a
   // high priority tab was scheduled above.
   if (lo_prio_capture_count_ > lo_prio_quota) {
-    DCHECK_EQ(descheduled_tab, nullptr);
+    CHECK_EQ(descheduled_tab, nullptr, base::NotFatalUntil::M162);
     descheduled_tab = lo_prio_capturing_.tail()->value();
     descheduled_tab->RemoveFromList();
     lo_prio_waiting_.Append(descheduled_tab);
     lo_prio_capture_count_ -= 1;
   } else if (lo_prio_capture_count_ < lo_prio_quota &&
              !lo_prio_waiting_.empty()) {
-    DCHECK_EQ(scheduled_tab, nullptr);
+    CHECK_EQ(scheduled_tab, nullptr, base::NotFatalUntil::M162);
     scheduled_tab = lo_prio_waiting_.head()->value();
     scheduled_tab->RemoveFromList();
     lo_prio_capturing_.Append(scheduled_tab);

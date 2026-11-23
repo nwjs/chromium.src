@@ -83,7 +83,7 @@ const extensions::Extension* GetExtensionForOrigin(
   const extensions::Extension* extension =
       extensions::ExtensionRegistry::Get(profile)->enabled_extensions().GetByID(
           security_origin.GetHost());
-  DCHECK(extension);
+  CHECK(extension, base::NotFatalUntil::M162);
   return extension;
 #else
   return nullptr;
@@ -366,7 +366,7 @@ void DocumentPipHost::SetContentsBounds(content::WebContents* source,
                                         const gfx::Rect& bounds) {
   // Record feature usage for window.moveTo()/resizeTo() calls, aligned with
   // Browser::SetContentsBounds which records the same metrics for all
-  // non-normal browser types including TYPE_PICTURE_IN_PICTURE.
+  // non-normal browser types including TYPE_FLOATING.
   std::vector<blink::mojom::WebFeature> features = {
       blink::mojom::WebFeature::kMovedOrResizedPopup};
   if (creation_timer_.Elapsed() > base::Seconds(2)) {
@@ -451,7 +451,7 @@ content::WebContents* DocumentPipHost::OpenURLFromTab(
     const content::OpenURLParams& params,
     base::OnceCallback<void(content::NavigationHandle&)>
         navigation_handle_callback) {
-  if (params.disposition == WindowOpenDisposition::CURRENT_TAB) {
+  if (params.disposition == WindowOpenDisposition::kCurrentTab) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(&DocumentPipHost::ClosePipWindow,
                                   weak_factory_.GetWeakPtr()));
@@ -839,7 +839,7 @@ void DocumentPipHost::OnAnyBrowserEnteredFullscreen() {
 
 void DocumentPipHost::SetWebContentsBlocked(content::WebContents* web_contents,
                                             bool blocked) {
-  DCHECK_EQ(GetChildWebContents(), web_contents);
+  CHECK_EQ(GetChildWebContents(), web_contents, base::NotFatalUntil::M162);
   if (!blocked && widget_ && widget_->IsActive()) {
     FocusChildWebContents();
   }
@@ -848,12 +848,12 @@ void DocumentPipHost::SetWebContentsBlocked(content::WebContents* web_contents,
 web_modal::WebContentsModalDialogHost*
 DocumentPipHost::GetWebContentsModalDialogHost(
     content::WebContents* web_contents) {
-  DCHECK_EQ(GetChildWebContents(), web_contents);
+  CHECK_EQ(GetChildWebContents(), web_contents, base::NotFatalUntil::M162);
   return this;
 }
 
 bool DocumentPipHost::IsWebContentsVisible(content::WebContents* web_contents) {
-  DCHECK_EQ(GetChildWebContents(), web_contents);
+  CHECK_EQ(GetChildWebContents(), web_contents, base::NotFatalUntil::M162);
   return widget_ && !widget_->IsClosed() && widget_->IsVisible() &&
          !widget_->IsMinimized();
 }

@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/data_sharing/model/data_sharing_service_factory.h"
 
+#import <utility>
+
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "components/data_sharing/internal/data_sharing_service_impl.h"
@@ -42,27 +44,14 @@ std::unique_ptr<KeyedService> BuildDataSharingService(ProfileIOS* profile) {
 
 }  // namespace
 
-// static
-DataSharingService* DataSharingServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<DataSharingService>(
-      profile, /*create=*/true);
-}
-
-// static
-DataSharingServiceFactory* DataSharingServiceFactory::GetInstance() {
-  static base::NoDestructor<DataSharingServiceFactory> instance;
-  return instance.get();
-}
-
-DataSharingServiceFactory::DataSharingServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("DataSharingService",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
+DataSharingServiceFactory::DataSharingServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "DataSharingService",
+          ProfileSelection::kOwnInstanceInIncognito) {
   DependsOn(DataTypeStoreServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
 }
-
-DataSharingServiceFactory::~DataSharingServiceFactory() = default;
 
 // static
 DataSharingServiceFactory::TestingFactory

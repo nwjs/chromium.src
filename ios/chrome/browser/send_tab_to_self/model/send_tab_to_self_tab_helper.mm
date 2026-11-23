@@ -6,8 +6,6 @@
 
 #import <memory>
 
-#import "base/feature_list.h"
-#import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/send_tab_to_self_entry.h"
 #import "components/send_tab_to_self/send_tab_to_self_model.h"
 #import "components/send_tab_to_self/send_tab_to_self_sync_service.h"
@@ -44,16 +42,9 @@ const send_tab_to_self::SendTabToSelfEntry* GetEntry(web::WebState* web_state,
   return model ? model->GetEntryByGUID(std::string(guid)) : nullptr;
 }
 
-// Attempts to perform scroll restoration for the given `entry` if a text
-// fragment is present.
-void MaybeRestoreScrollPosition(
-    web::WebState* web_state,
-    const send_tab_to_self::SendTabToSelfEntry* entry) {
-  if (!base::FeatureList::IsEnabled(
-          send_tab_to_self::kSendTabToSelfPropagateScrollPosition)) {
-    return;
-  }
-
+// Restores the scroll position for `entry` if a text fragment is present.
+void RestoreScrollPosition(web::WebState* web_state,
+                           const send_tab_to_self::SendTabToSelfEntry* entry) {
   const send_tab_to_self::TextFragmentData& fragment_data =
       entry->GetPageContext().scroll_position.text_fragment;
   if (fragment_data.IsEmpty()) {
@@ -70,26 +61,9 @@ void MaybeRestoreScrollPosition(
   }
 }
 
-// Attempts to perform form filling for the given `entry` if it contains
-// form data and the feature is enabled.
-void MaybePerformFormFilling(
-    web::WebState* web_state,
-    const send_tab_to_self::SendTabToSelfEntry* entry) {
-  if (base::FeatureList::IsEnabled(
-          send_tab_to_self::kSendTabToSelfPropagateFormFields)) {
-    send_tab_to_self::FillWebState(web_state,
-                                   url::Origin::Create(entry->GetURL()),
-                                   entry->GetPageContext());
-  }
-}
-
 }  // namespace
 
 SendTabToSelfTabHelper::SendTabToSelfTabHelper(web::WebState* web_state) {
-  CHECK(base::FeatureList::IsEnabled(
-            send_tab_to_self::kSendTabToSelfPropagateScrollPosition) ||
-        base::FeatureList::IsEnabled(
-            send_tab_to_self::kSendTabToSelfPropagateFormFields));
   web_state_observation_.Observe(web_state);
 }
 
@@ -107,7 +81,7 @@ void SendTabToSelfTabHelper::WasShown(web::WebState* web_state) {
 
   const send_tab_to_self::SendTabToSelfEntry* entry = GetEntry(web_state, guid);
   if (entry) {
-    MaybeRestoreScrollPosition(web_state, entry);
+    RestoreScrollPosition(web_state, entry);
   }
 }
 
@@ -141,7 +115,8 @@ void SendTabToSelfTabHelper::PageLoaded(
     return;
   }
 
-  MaybePerformFormFilling(web_state, entry);
+  send_tab_to_self::FillWebState(
+      web_state, url::Origin::Create(entry->GetURL()), entry->GetPageContext());
 
   // Defer scroll restoration if the tab is hidden, as WKWebView lacks an
   // active visual geometry in the background and resets scroll offset upon
@@ -151,7 +126,7 @@ void SendTabToSelfTabHelper::PageLoaded(
     return;
   }
 
-  MaybeRestoreScrollPosition(web_state, entry);
+  RestoreScrollPosition(web_state, entry);
 }
 
 void SendTabToSelfTabHelper::WebStateDestroyed(web::WebState* web_state) {

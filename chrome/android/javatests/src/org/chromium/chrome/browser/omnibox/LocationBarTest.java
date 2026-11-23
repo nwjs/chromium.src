@@ -12,7 +12,9 @@ import static androidx.test.espresso.matcher.ViewMatchers.withId;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 
@@ -20,7 +22,6 @@ import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
 import static org.chromium.base.test.util.Criteria.checkThat;
 import static org.chromium.chrome.browser.url_constants.UrlConstantResolver.getOriginalNativeNtpUrl;
 
-import android.os.Build;
 import android.view.View;
 import android.view.ViewGroup;
 
@@ -31,7 +32,6 @@ import androidx.test.filters.SmallTest;
 
 import org.hamcrest.Matchers;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,7 +44,6 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
@@ -211,7 +210,7 @@ public class LocationBarTest {
             errorMsg.append(' ');
         }
         errorMsg.append(']');
-        Assert.assertEquals(errorMsg.toString(), expectedIds, actualIds);
+        assertEquals(errorMsg.toString(), expectedIds, actualIds);
     }
 
     @Test
@@ -521,7 +520,6 @@ public class LocationBarTest {
 
     @Test
     @MediumTest
-    @DisableIf.Build(sdk_equals = Build.VERSION_CODES.R, message = "https://crbug.com/565015956")
     public void testFocusLogic_keyboardVisibility() {
         startActivityNormally();
         assertFalse(mKeyboardDelegate.isKeyboardShowing(mUrlBar));
@@ -618,7 +616,7 @@ public class LocationBarTest {
         startActivityNormally();
         mActivityTestRule.loadUrl(UrlConstants.ABOUT_URL);
 
-        Assert.assertFalse(mLocationBarMediator.isUrlBarFocused());
+        assertFalse(mLocationBarMediator.isUrlBarFocused());
 
         // Set unfocused selection
         ThreadUtils.runOnUiThreadBlocking(() -> mUrlBar.setSelection(2, 5));
@@ -629,9 +627,9 @@ public class LocationBarTest {
         // Verify focus and that selection is preserved.
         CriteriaHelper.pollUiThread(
                 () -> {
-                    Assert.assertTrue(mLocationBarMediator.isUrlBarFocused());
-                    Assert.assertEquals(2, mUrlBar.getSelectionStart());
-                    Assert.assertEquals(5, mUrlBar.getSelectionEnd());
+                    assertTrue(mLocationBarMediator.isUrlBarFocused());
+                    assertEquals(2, mUrlBar.getSelectionStart());
+                    assertEquals(5, mUrlBar.getSelectionEnd());
                 });
     }
 }

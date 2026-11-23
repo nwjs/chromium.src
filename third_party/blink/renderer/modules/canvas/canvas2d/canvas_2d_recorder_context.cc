@@ -472,7 +472,9 @@ void Canvas2DRecorderContext::beginLayerImpl(ScriptState* script_state,
       FilterEffectBuilder filter_effect_builder(
           gfx::RectF(canvas_viewport), canvas_viewport,
           1.0f,  // Deliberately ignore zoom on the canvas element.
-          Color::kBlack, mojom::blink::ColorScheme::kLight);
+          Color::kBlack, mojom::blink::ColorScheme::kLight,
+          // 2D context filters rely on origin tainting, not subtree scoping.
+          /*is_in_canvas_subtree=*/false);
 
       FilterEffect* filter_effect = filter_effect_builder.BuildFilterEffect(
           std::move(filter_operations), !OriginClean());
@@ -483,6 +485,13 @@ void Canvas2DRecorderContext::beginLayerImpl(ScriptState* script_state,
       filter =
           paint_filter_builder::Build(filter_effect, kInterpolationSpaceSRGB);
     }
+  }
+
+  if (GetState().IsFilterUnresolved()) [[unlikely]] {
+    // Resolving a filter can synchronously execute script (via style and
+    // layout updates), which may reset the canvas recorder or state stack.
+    // Resolve the filter before acquiring `layer_canvas` and `state`.
+    StateGetFilter();
   }
 
   // Create the `PaintCanvas` AFTER parsing the filter. It's possible for
@@ -592,7 +601,8 @@ Canvas2DRecorderContext::SaveLayerForState(
 
   const int initial_save_count = canvas.getSaveCount();
   bool needs_compositing = state.GlobalComposite() != SkBlendMode::kSrcOver;
-  sk_sp<PaintFilter> context_filter = StateGetFilter();
+  sk_sp<PaintFilter> context_filter =
+      state.IsFilterResolved() ? StateGetFilter() : nullptr;
 
   // The "copy" globalCompositeOperation replaces everything that was in the
   // canvas. We therefore have to clear the canvas before proceeding. Since the
@@ -827,7 +837,7 @@ void Canvas2DRecorderContext::RestoreMatrixClipStack(cc::PaintCanvas* c) const {
   ValidateStateStack(c);
 }
 
-void Canvas2DRecorderContext::ResetInternal() {
+void Canvas2DRecorderContext::ResetState() {
   ValidateStateStack();
   state_stack_.resize(1);
   state_stack_.front() = MakeGarbageCollected<CanvasRenderingContext2DState>();
@@ -839,17 +849,24 @@ void Canvas2DRecorderContext::ResetInternal() {
     recorder->RestartRecording();
   }
 
-  // Clear the frame in case a flush previously drew to the canvas surface.
-  if (cc::PaintCanvas* c = GetPaintCanvas()) {
-    int width = Width();  // Keeping results to avoid repetitive virtual calls.
-    int height = Height();
-    WillDraw(gfx::Rect(width, height),
-             CanvasPerformanceMonitor::DrawType::kOther);
-    c->drawRect(SkRect::MakeXYWH(0.0f, 0.0f, width, height), GetClearFlags());
-  }
-
   ValidateStateStack();
   origin_tainted_by_content_ = false;
+}
+
+void Canvas2DRecorderContext::ClearCanvas(gfx::Size size) {
+  if (cc::PaintCanvas* c = GetPaintCanvas()) {
+    WillDraw(gfx::Rect(size), CanvasPerformanceMonitor::DrawType::kOther);
+    c->drawRect(SkRect::MakeWH(size.width(), size.height()), GetClearFlags());
+  }
+}
+
+void Canvas2DRecorderContext::ResetInternal() {
+  ResetState();
+
+  // Clear the frame in case a flush previously drew to the canvas surface.
+  if (GetPaintCanvas()) {
+    ClearCanvas(gfx::Size(Width(), Height()));
+  }
 }
 
 void Canvas2DRecorderContext::reset() {
@@ -986,8 +1003,11 @@ ColorParseResult Canvas2DRecorderContext::ParseColorOrCurrentColor(
     const String& color_string,
     Color& color) const {
   const ColorParseResult parse_result = ParseCanvasColorString(
-      color_string, color_scheme_, color, GetColorProvider(),
-      /*can_expose_accent_color=*/IsInWebAppScope(),
+      color_string, color,
+      /*theme_info=*/
+      {.color_provider = GetColorProvider(),
+       .color_scheme = color_scheme_,
+       .can_expose_system_accent_color = CanExposeSystemAccentColor()},
       /*has_style_context=*/HostAsHTMLCanvasElement() != nullptr);
   if (parse_result == ColorParseResult::kCurrentColor) {
     color = GetCurrentColor();
@@ -1010,9 +1030,10 @@ ColorParseResult Canvas2DRecorderContext::ParseColorOrCurrentColor(
     const ResolveColorValueContext context{
         .length_resolver = CSSToLengthConversionData(/*element=*/nullptr),
         .text_link_colors = text_link_colors,
-        .used_color_scheme = color_scheme_,
-        .color_provider = GetColorProvider(),
-        .can_expose_accent_color = IsInWebAppScope()};
+        .theme_info = {
+            .color_provider = GetColorProvider(),
+            .color_scheme = color_scheme_,
+            .can_expose_system_accent_color = CanExposeSystemAccentColor()}};
     const StyleColor style_color = ResolveColorValue(*color_value, context);
     color = style_color.Resolve(GetCurrentColor(), color_scheme_);
     return ColorParseResult::kColor;
@@ -1028,9 +1049,10 @@ const ui::ColorProvider* Canvas2DRecorderContext::GetColorProvider() const {
   return nullptr;
 }
 
-bool Canvas2DRecorderContext::IsInWebAppScope() const {
+bool Canvas2DRecorderContext::CanExposeSystemAccentColor() const {
   if (HTMLCanvasElement* canvas = HostAsHTMLCanvasElement()) {
-    return canvas->GetDocument().IsInWebAppScope();
+    const Document& document = canvas->GetDocument();
+    return document.IsInWebAppScope() && document.IsInitialProfile();
   }
   return false;
 }

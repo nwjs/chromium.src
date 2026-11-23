@@ -8,6 +8,7 @@
 #include "base/functional/callback_helpers.h"
 #include "build/build_config.h"
 #include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
+#include "chrome/browser/autofill/entity_suppression_manager_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/browsing_data/counters/browsing_data_counter_utils.h"
 #include "chrome/browser/browsing_data/counters/cache_counter.h"
@@ -51,14 +52,6 @@
 #include "device/fido/cros/credential_store.h"
 #endif
 
-namespace {
-
-history::WebHistoryService* GetUpdatedWebHistoryService(Profile* profile) {
-  return WebHistoryServiceFactory::GetForProfile(profile);
-}
-
-}  // namespace
-
 // static
 std::unique_ptr<browsing_data::BrowsingDataCounter>
 BrowsingDataCounterFactory::GetForProfileAndPref(Profile* profile,
@@ -67,8 +60,7 @@ BrowsingDataCounterFactory::GetForProfileAndPref(Profile* profile,
     return std::make_unique<browsing_data::HistoryCounter>(
         HistoryServiceFactory::GetForProfile(
             profile, ServiceAccessType::EXPLICIT_ACCESS),
-        base::BindRepeating(&GetUpdatedWebHistoryService,
-                            base::Unretained(profile)),
+        WebHistoryServiceFactory::GetForProfile(profile),
         SyncServiceFactory::GetForProfile(profile));
   }
 
@@ -103,6 +95,7 @@ BrowsingDataCounterFactory::GetForProfileAndPref(Profile* profile,
         WebDataServiceFactory::GetAutofillWebDataForProfile(
             profile, ServiceAccessType::EXPLICIT_ACCESS),
         autofill::AutofillEntityDataManagerFactory::GetForProfile(profile),
+        autofill::EntitySuppressionManagerFactory::GetForProfile(profile),
         SyncServiceFactory::GetForProfile(profile));
   }
 

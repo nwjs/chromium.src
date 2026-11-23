@@ -121,7 +121,7 @@ void ResumeAppleEventAndSendReply(NSAppleEventManagerSuspensionID suspension_id,
 }
 
 - (void)setWebContents:(content::WebContents*)webContents {
-  DCHECK(webContents);
+  CHECK(webContents, base::NotFatalUntil::M162);
   _webContents = webContents->GetWeakPtr();
 
   sessions::SessionTabHelper* session_tab_helper =
@@ -176,7 +176,7 @@ void ResumeAppleEventAndSendReply(NSAppleEventManagerSuspensionID suspension_id,
 
   _webContents->OpenURL(
       OpenURLParams::CreateBrowserInitiated(
-          gurl, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
+          gurl, WindowOpenDisposition::kCurrentTab, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
 }
 

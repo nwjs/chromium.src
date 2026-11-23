@@ -588,7 +588,6 @@ class TabStripModel {
   // features from showing tabstrip-modal UI.
   bool CanShowModalUI() const;
   std::unique_ptr<ScopedTabStripModalUI> ShowModalUI();
-  void ForceShowingModalUIForTesting(bool showing);
 
   // Command level API /////////////////////////////////////////////////////////
 
@@ -822,8 +821,7 @@ class TabStripModel {
   // deletes any saved groups that are closing. When false, groups will close
   // normally but continue to be saved.
   void ExecuteCloseTabsCommand(
-      base::RepeatingCallback<std::vector<tabs::TabInterface*>()>
-          get_tabs_to_close,
+      base::RepeatingCallback<std::vector<tabs::TabHandle>()> get_tabs_to_close,
       bool delete_groups);
 
   // Adds the tab at `context_index` to the given tab group `group`. If
@@ -856,13 +854,13 @@ class TabStripModel {
   // supplied to `ExecuteContextMenuCommand`.
   bool WillContextMenuGroup(int index);
 
-  // Returns the group ID if all tabs at `indices` belong to the same group,
+  // Returns the group ID if all `tabs` belong to the same group,
   // or std::nullopt if they belong to different groups or any are ungrouped.
-  std::optional<tab_groups::TabGroupId> GetCommonGroupForIndices(
-      const std::vector<int>& indices) const;
+  std::optional<tab_groups::TabGroupId> GetCommonGroupForTabs(
+      const std::vector<tabs::TabHandle>& tabs) const;
 
-  // Returns true if none of the tabs at `indices` belong to any tab group.
-  bool AreAllUngrouped(const std::vector<int>& indices) const;
+  // Returns true if none of the `tabs` belong to any tab group.
+  bool AreAllUngrouped(const std::vector<tabs::TabHandle>& tabs) const;
 
   // Convert a ContextMenuCommand into a browser command. Returns true if a
   // corresponding browser command exists, false otherwise.
@@ -926,7 +924,7 @@ class TabStripModel {
       const content::WebContents* contents) const;
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, HasIndicesClosedByCommand);
+  FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, HasTabsClosedByCommand);
   // Temporary private API.
   FRIEND_TEST_ALL_PREFIXES(TabStripModelTest, FindGroupIdFor);
 
@@ -1123,12 +1121,14 @@ class TabStripModel {
   std::vector<int> GetIndicesForCommand(int index) const;
 
   // Returns whether any tab would close when executing the command `id`
-  // (CommandCloseTabsToRight or CommandCloseOtherTabs) for the tab at `index`.
-  bool HasIndicesClosedByCommand(int index, ContextMenuCommand id) const;
+  // (CommandCloseTabsToRight or CommandCloseOtherTabs) for `context_tab`.
+  bool HasTabsClosedByCommand(tabs::TabHandle context_tab,
+                              ContextMenuCommand id) const;
 
-  std::vector<tabs::TabInterface*> GetTabsForCommand(int index) const;
-  std::vector<tabs::TabInterface*> GetTabsClosedByCommand(
-      int index,
+  std::vector<tabs::TabHandle> GetTabsForCommand(
+      tabs::TabHandle context_tab) const;
+  std::vector<tabs::TabHandle> GetTabsClosedByCommand(
+      tabs::TabHandle context_tab,
       ContextMenuCommand id) const;
   // Returns true if the specified WebContents is a New Tab at the end of
   // the tabstrip. We check for this because opener relationships are _not_
@@ -1165,8 +1165,7 @@ class TabStripModel {
   // bound by ExecuteCloseTabsCommand in order to properly
   // protect the stack from reentrancy.
   void ExecuteCloseTabs(
-      base::RepeatingCallback<std::vector<tabs::TabInterface*>()>
-          get_tabs_to_close,
+      base::RepeatingCallback<std::vector<tabs::TabHandle>()> get_tabs_to_close,
       uint32_t close_types);
 
   // `close_types` is a bitmask of the types in CloseTypes.
@@ -1218,10 +1217,6 @@ class TabStripModel {
   // creates movement slots into and out of groups. Treats split tabs as a
   // single slot.
   void MoveTabRelative(TabRelativeDirection direction);
-
-  // Implementation of MoveSelectedTabsTo. Moves `length` of the selected tabs
-  // starting at `start` to `index`. See MoveSelectedTabsTo for more details.
-  void MoveSelectedTabsToImpl(int index, size_t start, size_t length);
 
   std::vector<int> GetSelectedPinnedTabs();
   std::vector<int> GetSelectedUnpinnedTabs();
@@ -1443,6 +1438,10 @@ class TabStripModel {
   // tabs not in `indices`.
   void MaybeRemoveSplitsForUpdate(const std::vector<int>& indices);
 
+  // Exits focus mode if ungrouping `indices` would ungroup the entire focused
+  // group or remove the active tab from the focused group.
+  void MaybeExitFocusModeForUpdate(const std::vector<int>& indices);
+
   // Checks if both tabs of a split view are closing simultaneously and, if so,
   // creates a historical split entry in the tab restore service.
   void CreateHistoricalSplitIfClosing(
@@ -1465,9 +1464,6 @@ class TabStripModel {
 
   // Returns the tab in selection_model_ with the lowest index.
   tabs::TabInterface* GetFirstSelectedTab() const;
-
-  // Returns the tab in selection_model_ with the highest index.
-  tabs::TabInterface* GetLastSelectedTab() const;
 
   // Returns a TabStripModelSelectionState with the same active, anchor, and
   // selected tabs as the given ListSelectionModel.

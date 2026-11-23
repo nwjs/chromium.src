@@ -10,6 +10,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "build/blink_buildflags.h"
 #include "build/build_config.h"
@@ -25,8 +26,9 @@ namespace test {
 
 class MojoTestBase : public testing::Test {
  public:
-  // Mojo Core is configured with this message size limit in tests so that we
-  // can reliably exercise code paths for oversized messages.
+  // Legacy message size threshold. Neither Mojo Core nor the bindings enforce
+  // a message size limit any more; the only remaining user of this constant is
+  // the disabled RemoteTest.SendVeryLargeMessages test.
   static constexpr size_t kMaxMessageSizeInTests = 32 * 1024 * 1024;
 
   MojoTestBase();
@@ -101,8 +103,12 @@ class MojoTestBase : public testing::Test {
   // Writes a string to the pipe, transferring handles in the process.
   static void WriteMessageWithHandles(MojoHandle mp,
                                       const std::string& message,
-                                      const MojoHandle* handles,
-                                      uint32_t num_handles);
+                                      base::span<const MojoHandle> handles);
+
+  // Writes a string to the pipe, transferring a single handle in the process.
+  static void WriteMessageWithHandle(MojoHandle mp,
+                                     const std::string& message,
+                                     MojoHandle handle);
 
   // Writes a string to the pipe with no handles.
   static void WriteMessage(MojoHandle mp, const std::string& message);
@@ -110,8 +116,11 @@ class MojoTestBase : public testing::Test {
   // Reads a string from the pipe, expecting to read an exact number of handles
   // in the process. Returns the read string.
   static std::string ReadMessageWithHandles(MojoHandle mp,
-                                            MojoHandle* handles,
-                                            uint32_t expected_num_handles);
+                                            base::span<MojoHandle> handles);
+
+  // Reads a string from the pipe, expecting to read a single handle in the
+  // process. Returns the read string.
+  static std::string ReadMessageWithHandle(MojoHandle mp, MojoHandle* handle);
 
   // Reads a string from the pipe, expecting either zero or one handles.
   // If no handle is read, |handle| will be reset.

@@ -15,7 +15,6 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
-#include "chrome/browser/ui/qrcode_generator/qrcode_generator_bubble_controller.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/sharing_hub/sharing_hub_bubble_util.h"
 #include "chrome/grit/generated_resources.h"
@@ -84,7 +83,7 @@ QRCodeGeneratorBubble::QRCodeGeneratorBubble(
       on_closing_(std::move(on_closing)),
       on_back_button_pressed_(std::move(on_back_button_pressed)),
       web_contents_(web_contents) {
-  DCHECK(on_closing_);
+  CHECK(on_closing_, base::NotFatalUntil::M162);
 
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   SetTitle(IDS_BROWSER_SHARING_QR_CODE_DIALOG_TITLE);
@@ -365,7 +364,7 @@ void QRCodeGeneratorBubble::AddedToWidget() {
 void QRCodeGeneratorBubble::ContentsChanged(
     views::Textfield* sender,
     const std::u16string& new_contents) {
-  DCHECK_EQ(sender, textfield_url_);
+  CHECK_EQ(sender, textfield_url_, base::NotFatalUntil::M162);
   if (sender == textfield_url_) {
     url_ = GURL(base::UTF16ToUTF8(new_contents));
     UpdateQRContent();
@@ -467,7 +466,7 @@ void QRCodeGeneratorBubble::DownloadButtonPressed() {
 void QRCodeGeneratorBubble::BackButtonPressed() {
   Hide();
 
-  DCHECK(on_back_button_pressed_);
+  CHECK(on_back_button_pressed_, base::NotFatalUntil::M162);
   std::move(on_back_button_pressed_).Run();
 }
 

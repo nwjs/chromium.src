@@ -4,8 +4,9 @@
 
 #import "ios/chrome/browser/tabs_search/model/tabs_search_service_factory.h"
 
+#import <utility>
+
 #import "base/check.h"
-#import "components/keyed_service/core/service_access_type.h"
 #import "components/sync_device_info/device_info_sync_service.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/history/model/web_history_service_factory.h"
@@ -18,32 +19,11 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/tabs_search/model/tabs_search_service.h"
 
-namespace {
-
-history::WebHistoryService* WebHistoryServiceGetter(
-    base::WeakPtr<ProfileIOS> weak_profile) {
-  DCHECK(weak_profile.get())
-      << "Getter should not be called after ProfileIOS destruction.";
-  return ios::WebHistoryServiceFactory::GetForProfile(weak_profile.get());
-}
-
-}  // namespace
-
-// static
-TabsSearchService* TabsSearchServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<TabsSearchService>(
-      profile, /*create=*/true);
-}
-
-TabsSearchServiceFactory* TabsSearchServiceFactory::GetInstance() {
-  static base::NoDestructor<TabsSearchServiceFactory> instance;
-  return instance.get();
-}
-
-TabsSearchServiceFactory::TabsSearchServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("TabsSearchService",
-                                    ProfileSelection::kOwnInstanceInIncognito) {
+TabsSearchServiceFactory::TabsSearchServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "TabsSearchService",
+          ProfileSelection::kOwnInstanceInIncognito) {
   DependsOn(BrowserListFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(IOSChromeTabRestoreServiceFactory::GetInstance());
@@ -53,8 +33,6 @@ TabsSearchServiceFactory::TabsSearchServiceFactory()
   DependsOn(SessionSyncServiceFactory::GetInstance());
   DependsOn(SyncServiceFactory::GetInstance());
 }
-
-TabsSearchServiceFactory::~TabsSearchServiceFactory() = default;
 
 std::unique_ptr<KeyedService> TabsSearchServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {
@@ -68,11 +46,9 @@ std::unique_ptr<KeyedService> TabsSearchServiceFactory::BuildServiceInstanceFor(
       IOSChromeTabRestoreServiceFactory::GetForProfile(profile),
       SessionSyncServiceFactory::GetForProfile(profile),
       is_off_the_record ? nullptr
-                        : ios::HistoryServiceFactory::GetForProfile(
-                              profile, ServiceAccessType::EXPLICIT_ACCESS),
-      is_off_the_record
-          ? TabsSearchService::WebHistoryServiceGetter()
-          : base::BindRepeating(&WebHistoryServiceGetter, profile->AsWeakPtr()),
+                        : ios::HistoryServiceFactory::GetForProfile(profile),
+      is_off_the_record ? nullptr
+                        : ios::WebHistoryServiceFactory::GetForProfile(profile),
       device_info_service ? device_info_service->GetDeviceInfoTracker()
                           : nullptr);
 }

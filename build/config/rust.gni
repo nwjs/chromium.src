@@ -63,6 +63,21 @@ declare_args() {
   # the bindgen exectuable).
   rust_bindgen_root = "//third_party/rust-toolchain"
 
+  # Directory under which to find Crubit tools and support libraries:
+  # * `bin/cc_bindings_from_rs` and `bin/rs_bindings_from_cc`
+  # * `lib/third_party/crubit` (support libraries and their `BUILD.gn` files)
+  #
+  # Unlike `rust_bindgen_root` we don't set `rust_crubit_root` to
+  # `"//third_party/rust-toolchain"` by default, because `cc_bindings_from_rs`
+  # has to be built from the same Rust compiler sources as `rustc` (see
+  # https://github.com/google/crubit/blob/89417b58802e20a6a11db7fea7c31692fef25276/docs/design/design.md?plain=1#L599-L602).
+  # Because of the above `rust_crubit_root` has to be explicitly set when using
+  # a custom toolchain via `rust_sysroot_absolute`.  OTOH, when
+  # `use_chromium_rust_toolchain` is set then defaulting to
+  # `"//third_party/rust-toolchain"` is ok (see the `if (rust_crubit_root...
+  # use_chromium_rust_toolchain` code below).
+  rust_crubit_root = ""
+
   # If you're using a Rust toolchain as specified by rust_sysroot_absolute,
   # set this to the output of `rustc -V`. Changing this string will cause all
   # Rust targets to be rebuilt, which allows you to update your toolchain and
@@ -150,18 +165,6 @@ if (enable_rust) {
       _version_lines =
           read_file("//third_party/rust-toolchain/VERSION", "list lines")
       rustc_revision = _version_lines[0]
-
-      # Example:
-      # rustc 1.88.0 c8f94230282a8e8c1148f3e657f0199aad909228 (c8f94230282a8e8c1148f3e657f0199aad909228-1-llvmorg-21-init-9266-g09006611 chromium)
-      # Trim it down as much as we can using GN.
-      rustc_revision = string_replace(rustc_revision, "rustc ", "")
-      rustc_revision = string_replace(rustc_revision, " chromium", "")
-      rustc_revision = string_replace(rustc_revision, "init-", "")
-      rustc_revision = string_replace(rustc_revision, "llvmorg-", "")
-      rustc_revision = string_replace(rustc_revision, " ", "")
-      rustc_revision = string_replace(rustc_revision, ".", "")
-      rustc_revision = string_replace(rustc_revision, "(", "-")
-      rustc_revision = string_replace(rustc_revision, ")", "")
     }
 
     # The same as written in `config.toml.template`.
@@ -170,6 +173,19 @@ if (enable_rust) {
     toolchain_has_rust = custom_toolchain_supports_platform
     rustc_revision = rustc_version
   }
+
+  # Trim down `rustc_revision`.  This is partially done for aesthetics and
+  # brevity.  But more importantly, removing spaces avoids errors that would
+  # otherwise happen when passing `--cfg cr_rustc_revision=...` in `rustflags`.
+  # See also the `build/config/compiler:rustc_revision` config.
+  rustc_revision = string_replace(rustc_revision, "rustc ", "")
+  rustc_revision = string_replace(rustc_revision, " chromium", "")
+  rustc_revision = string_replace(rustc_revision, "init-", "")
+  rustc_revision = string_replace(rustc_revision, "llvmorg-", "")
+  rustc_revision = string_replace(rustc_revision, " ", "")
+  rustc_revision = string_replace(rustc_revision, ".", "")
+  rustc_revision = string_replace(rustc_revision, "(", "-")
+  rustc_revision = string_replace(rustc_revision, ")", "")
 }
 
 # TODO(crbug.com/40809974): To build unit tests for Android we need to build
@@ -187,6 +203,18 @@ if (enable_rust) {
     rust_sysroot = get_path_info(rust_sysroot_absolute, "abspath")
   }
 }
+
+if (rust_crubit_root == "" && use_chromium_rust_toolchain) {
+  rust_crubit_root = "//third_party/rust-toolchain"
+}
+
+# Message for `assert(rust_crubit_root != "", rust_crubit_root_missing_message)`
+# in places that need Crubit.
+rust_crubit_root_missing_message =
+    "Crubit is required, but `rust_crubit_root` GN arg is not set.  It has " +
+    "to be set when using a custom Rust toolchain via " +
+    "`rust_sysroot_absolute`.  See `rust_crubit_root` in " +
+    "//build/config/rust.gni for more details."
 
 # Figure out the Rust target triple (aka 'rust_abi_target')
 #
@@ -415,6 +443,10 @@ if (toolchain_for_rust_host_build_tools) {
 rust_prebuilt_stdlib =
     !use_chromium_rust_toolchain || toolchain_for_rust_host_build_tools
 
+# `rust_sysroot` is the toolchain root (and the default sysroot of rustc),
+# but the locally built stdlib uses a different sysroot.
+local_rustc_sysroot = "$root_out_dir/local_rustc_sysroot"
+
 # `cpp_api_from_rust` (aka `cc_bindings_from_rs`) is available when building
 # Chromium, but may be missing or can't be used in some other cases.
 # `enable_cpp_api_from_rust` is checked under `//build/rust/*.gni` (and may be
@@ -422,8 +454,7 @@ rust_prebuilt_stdlib =
 #
 # See the `assert` comments in `cpp_api_from_rust.gni` for explanation of
 # the conditions used here.
-enable_cpp_api_from_rust = enable_rust && use_chromium_rust_toolchain &&
-                           !rust_prebuilt_stdlib && build_with_chromium
+enable_cpp_api_from_rust = enable_rust && build_with_chromium
 
 declare_args() {
   # Whether it is okay to use `rust_api_from_cpp.gni`.  The default is `false`,
@@ -432,9 +463,8 @@ declare_args() {
   # `true` in `args.gn` for local experimentation.
   #
   # TODO(crbug.com/40226863): After officially supporting `rust_api_from_cpp`:
-  # * Introduce `_enable_crubit = enable_rust && use_chromium_rust_toolchain &&
-  #   build_with_chromium`
-  # * Set `enable_cpp_api_from_rust = _enable_crubit && !rust_prebuilt_stdlib`
+  # * Introduce `_enable_crubit = enable_rust && build_with_chromium`
+  # * Set `enable_cpp_api_from_rust = _enable_crubit`
   # * Set `enable_rust_api_from_cpp = _enable_crubit`
   #   (and it should just be a variable, not an `args.gn` setting / not in
   #   `declare_args`)
@@ -452,8 +482,13 @@ rustc_wrapper_inputs = [
   "//build/rust/gni_impl/rustc_wrapper.py",
 ]
 
-if (host_os == "win") {
-  rustc_wrapper_inputs += [ "//third_party/rust-toolchain/bin/rustc.exe" ]
-} else {
-  rustc_wrapper_inputs += [ "//third_party/rust-toolchain/bin/rustc" ]
+if (enable_rust) {
+  # Path to the `rustc` executable (from either the Chromium toolchain or
+  # from a custom toolchain specified via `rust_sysroot_absolute`).
+  rustc_exe_path = "$rust_sysroot/bin/rustc"
+  if (host_os == "win") {
+    rustc_exe_path += ".exe"
+  }
+
+  rustc_wrapper_inputs += [ rustc_exe_path ]
 }

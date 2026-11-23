@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <set>
 #include <string>
@@ -16,13 +17,17 @@
 
 #include "android_webview/js_sandbox/service/js_sandbox_array_buffer_allocator.h"
 #include "android_webview/js_sandbox/service/js_sandbox_isolate_callback.h"
+#include "base/allocator/partition_alloc_features.h"
+#include "base/allocator/partition_alloc_support.h"
 #include "base/android/callback_android.h"
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/check.h"
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/i18n/icu_util.h"
@@ -30,6 +35,8 @@
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/message_loop/message_pump_type.h"
+#include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_math.h"
 #include "base/strings/strcat.h"
@@ -37,6 +44,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/system/sys_info.h"
 #include "base/task/cancelable_task_tracker.h"
+#include "base/task/single_thread_task_executor.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
@@ -71,6 +79,11 @@ namespace {
 constexpr std::string_view resource_name = "<expression>";
 constexpr int64_t kUnknownAssetFileDescriptorLength = -1;
 constexpr int64_t kDefaultChunkSize = 1 << 16;
+// This is defined in content/public/common/content_switches.h, which
+// js_sandbox does not depend on. They must be kept in sync.
+constexpr char kProcessTypeSwitch[] = "type";
+// Value of kProcessTypeSwitch for this process.
+constexpr char kJsSandboxProcessType[] = "js-sandbox";
 
 size_t GetAllocatePageSize() {
   return gin::V8Platform::Get()->GetPageAllocator()->AllocatePageSize();
@@ -853,7 +866,7 @@ void JsSandboxIsolate::GetNamedPort(gin::Arguments* args) {
   }
 }
 
-// Called from isolate thread.
+// Called from the isolate thread or a V8 worker thread.
 [[noreturn]] void JsSandboxIsolate::OOMErrorCallback(
     const char* location,
     const v8::OOMDetails& details,
@@ -878,20 +891,18 @@ void JsSandboxIsolate::ExternalMemoryLimitExceeded() {
   isolate_holder_->isolate()->TerminateExecution();
 }
 
-// Called from isolate thread.
+// Called from the isolate thread or a V8 worker thread.
 [[noreturn]] void JsSandboxIsolate::MemoryLimitExceeded() {
   ReportOutOfMemory();
   FreezeThread();
 }
 
-// Called from isolate thread
+// Called from the isolate thread or a V8 worker thread.
 void JsSandboxIsolate::ReportOutOfMemory() {
   LOG(ERROR) << "Isolate has OOMed";
 
+  const bool on_isolate_thread = isolate_task_runner_->BelongsToCurrentThread();
   const uint64_t memory_limit = uint64_t{isolate_max_heap_size_bytes_};
-  v8::HeapStatistics heap_statistics;
-  isolate_holder_->isolate()->GetHeapStatistics(&heap_statistics);
-  const uint64_t v8_heap_usage = heap_statistics.used_heap_size();
   // Note that we use our own memory accounting, and not V8's external memory
   // accounting, for non-heap usage. These numbers can differ, particularly as
   // our own memory accounting considers whole pages rather than just bytes.
@@ -904,9 +915,17 @@ void JsSandboxIsolate::ReportOutOfMemory() {
   } else {
     details << "Memory limit not explicitly configured\n";
   }
-  details << "V8 heap usage: " << v8_heap_usage << " bytes\n";
+  if (on_isolate_thread) {
+    v8::HeapStatistics heap_statistics;
+    isolate_holder_->isolate()->GetHeapStatistics(&heap_statistics);
+    const uint64_t v8_heap_usage = heap_statistics.used_heap_size();
+    details << "V8 heap usage: " << v8_heap_usage << " bytes\n";
+  } else {
+    details << "Limit exceeded from a non-isolate thread\n";
+  }
   details << "Non-V8 heap usage: " << non_v8_heap_usage << " bytes\n";
   const std::string details_str = details.str();
+  LOG(ERROR) << details_str;
 
   JNIEnv* const env = base::android::AttachCurrentThread();
 
@@ -920,27 +939,31 @@ void JsSandboxIsolate::ReportOutOfMemory() {
     return;
   }
 
-  bool client_notified_via_evaluation = false;
-  if (ongoing_evaluation_callbacks_.size() > 0) {
-    // It is safe to erase items from a std::set while iterating through it.
-    auto callback_it = ongoing_evaluation_callbacks_.begin();
-    while (callback_it != ongoing_evaluation_callbacks_.end()) {
-      UseCallback(*callback_it)
-          ->ReportError(
-              JsSandboxIsolateCallback::ErrorType::kMemoryLimitExceeded,
-              details_str);
-      callback_it++;
-    }
-    client_notified_via_evaluation = true;
+  // Some pre-stable clients do not support termination notifications and only
+  // support signaling OOMs via evaluation callbacks. Ensure the client was or
+  // can be notified through at least one mechanism, or crash the sandbox.
+  if (!on_isolate_thread) {
+    // The current thread is not allowed to touch ongoing_evaluation_callbacks_.
+    LOG(ERROR) << "Isolate ran out of memory on a non-isolate thread and the "
+               << "client does not support termination notifications.";
+    base::ImmediateCrash();
   }
 
-  // Some pre-stable clients do not support termination notifications and only
-  // support signaling OOMs via evaluation callbacks. Ensure the client has been
-  // notified through at least one mechanism.
-  CHECK(client_notified_via_evaluation)
-      << "Isolate ran out of memory but the client does not support "
-      << "termination notifications and there are no ongoing evaluations "
-      << "through which to signal an error.";
+  if (ongoing_evaluation_callbacks_.size() == 0) {
+    LOG(ERROR) << "Isolate ran out of memory but the client does not support "
+               << "termination notifications and there are no ongoing "
+               << "evaluations through which to signal an error.";
+    base::ImmediateCrash();
+  }
+
+  // It is safe to erase items from a std::set while iterating through it,
+  // provided the iterator is advanced before erasing the element.
+  auto callback_it = ongoing_evaluation_callbacks_.begin();
+  while (callback_it != ongoing_evaluation_callbacks_.end()) {
+    UseCallback(*(callback_it++))
+        ->ReportError(JsSandboxIsolateCallback::ErrorType::kMemoryLimitExceeded,
+                      details_str);
+  }
 }
 
 // Halt thread until process dies.
@@ -954,7 +977,8 @@ void JsSandboxIsolate::ReportOutOfMemory() {
   // has accumulated up to this point. C++20's <stop_token> (not permitted in
   // Chromium at time of writing) may contribute to such a future solution.
 
-  base::ScopedAllowBaseSyncPrimitives allow_base_sync_primitives;
+  base::ScopedAllowBaseSyncPrimitivesOutsideBlockingScope
+      allow_base_sync_primitives;
   base::WaitableEvent().Wait();
   // Unreachable. Make sure the compiler understands that.
   base::ImmediateCrash();
@@ -1052,11 +1076,11 @@ void JsSandboxIsolate::SetConsoleEnabledOnIsolateThread(const bool enable) {
   EnableOrDisableInspectorAsNeeded();
 }
 
-const scoped_refptr<JsSandboxIsolateCallback>& JsSandboxIsolate::UseCallback(
+scoped_refptr<JsSandboxIsolateCallback> JsSandboxIsolate::UseCallback(
     const scoped_refptr<JsSandboxIsolateCallback>& callback) {
-  const size_t removed = ongoing_evaluation_callbacks_.erase(callback);
-  CHECK_EQ(removed, size_t{1});
-  return callback;
+  auto node = ongoing_evaluation_callbacks_.extract(callback);
+  CHECK(!node.empty());
+  return std::move(node.value());
 }
 
 // Called from isolate thread.
@@ -1118,8 +1142,43 @@ JsSandboxMemoryBudget* JsSandboxIsolate::GetMemoryBudget() {
   return memory_budget_.get();
 }
 
+// This method is called on the Android main looper once per process.
 static void JNI_JsSandboxIsolate_InitializeEnvironment() {
+  // This process does not initialize ContentMain, so PartitionAlloc has to be
+  // configured here. See crbug.com/570542820.
+  //
+  // PartitionAllocSupport CHECKs that the process type matches the --type
+  // switch, so give this process its own type.
+  base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+      kProcessTypeSwitch, kJsSandboxProcessType);
+  base::allocator::PartitionAllocSupport* partition_alloc_support =
+      base::allocator::PartitionAllocSupport::Get();
+  partition_alloc_support->ReconfigureEarlyish(kJsSandboxProcessType);
+
+  // FeatureList should be initialized before PartitionAlloc is reconfigured.
+  // All features keep their default state except for memory tagging.
+  // Memory tagging is kept OFF to maintain the same behavior as WebView.
+  base::FeatureList::InitInstance(
+      /*enable_features=*/"", /*disable_features=*/"",
+      {{std::cref(base::features::kPartitionAllocMemoryTagging),
+        base::FeatureList::OVERRIDE_DISABLE_FEATURE}});
+  // There is some special handling for known process types. Since this is not
+  // a process type known to the callee, it triggers the default configuration
+  // which is reasonable for this process. BackupRefPtr is enabled nevertheless.
+  partition_alloc_support->ReconfigureAfterFeatureListInit(
+      kJsSandboxProcessType);
+
+  // Bind a Chromium task runner to the service's main thread.
+  // ReconfigureAfterTaskRunnerInit() needs a task runner on the calling thread
+  // which in this case is the main thread.
+  static base::NoDestructor<base::SingleThreadTaskExecutor> main_task_executor(
+      base::MessagePumpType::JAVA);
+  // ReconfigureAfterTaskRunnerInit() posts to the ThreadPool, so the ThreadPool
+  // must be started before it.
   base::ThreadPoolInstance::CreateAndStartWithDefaultParams("JsSandboxIsolate");
+  partition_alloc_support->ReconfigureAfterTaskRunnerInit(
+      kJsSandboxProcessType);
+
 #if ICU_UTIL_DATA_IMPL == ICU_UTIL_DATA_FILE
   // Since we don't go through ContentMain, and we aren't a "browser" process,
   // we don't get ICU initialized for us, so we must do this ourselves.

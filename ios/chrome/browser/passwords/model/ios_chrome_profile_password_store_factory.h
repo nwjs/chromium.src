@@ -9,24 +9,20 @@
 #import "components/password_manager/core/browser/password_store/password_store_interface.h"
 #import "ios/chrome/browser/shared/model/profile/typed_refcounted_profile_keyed_service_factory_ios.h"
 
-namespace password_manager {
-class PasswordStoreInterface;
-}
-
 // Singleton that owns all PasswordStores and associates them with
 // ProfileIOS.
-class IOSChromeProfilePasswordStoreFactory
+class IOSChromeProfilePasswordStoreFactory final
     : public TypedRefcountedProfileKeyedServiceFactoryIOS<
           IOSChromeProfilePasswordStoreFactory,
           password_manager::PasswordStoreInterface,
-          UseServiceAccess> {
+          RejectImplicitAccessIfIncognito> {
  public:
-  IOSChromeProfilePasswordStoreFactory(PassKey key);
+  explicit IOSChromeProfilePasswordStoreFactory(PassKey key);
 
  private:
   // RefcountedProfileKeyedServiceFactoryIOS implementation.
   scoped_refptr<RefcountedKeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_PASSWORDS_MODEL_IOS_CHROME_PROFILE_PASSWORD_STORE_FACTORY_H_

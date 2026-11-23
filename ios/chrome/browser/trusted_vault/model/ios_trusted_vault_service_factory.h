@@ -7,28 +7,21 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-namespace trusted_vault {
-class TrustedVaultService;
-}  // namespace trusted_vault
+#import "components/trusted_vault/trusted_vault_service.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Owns all TrustedVaultService instances and associates them to profiles.
-class IOSTrustedVaultServiceFactory : public ProfileKeyedServiceFactoryIOS {
+class IOSTrustedVaultServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          IOSTrustedVaultServiceFactory,
+          trusted_vault::TrustedVaultService> {
  public:
-  static trusted_vault::TrustedVaultService* GetForProfile(ProfileIOS* profile);
-  static IOSTrustedVaultServiceFactory* GetInstance();
+  explicit IOSTrustedVaultServiceFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<IOSTrustedVaultServiceFactory>;
-
-  IOSTrustedVaultServiceFactory();
-  ~IOSTrustedVaultServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_TRUSTED_VAULT_MODEL_IOS_TRUSTED_VAULT_SERVICE_FACTORY_H_

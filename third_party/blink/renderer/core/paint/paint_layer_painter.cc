@@ -19,7 +19,8 @@
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/paint/box_fragment_painter.h"
 #include "third_party/blink/renderer/core/paint/clip_path_clipper.h"
-#include "third_party/blink/renderer/core/paint/fragment_data_iterator.h"
+#include "third_party/blink/renderer/core/paint/embedded_content_painter.h"
+#include "third_party/blink/renderer/core/paint/fragment_data.h"
 #include "third_party/blink/renderer/core/paint/inline_box_fragment_painter.h"
 #include "third_party/blink/renderer/core/paint/object_paint_properties.h"
 #include "third_party/blink/renderer/core/paint/object_painter.h"
@@ -596,7 +597,10 @@ void PaintLayerPainter::PaintTransitionScopeSnapshotIfNeeded(
   PropertyTreeStateOrAlias properties =
       controller.CurrentPaintChunkProperties();
   DCHECK(effect);
-  properties.SetEffect(*effect);
+  // The snapshot may contain cross-origin frames or plugins, so it must not be
+  // painted under SVG reference filters on ancestors of the scope.
+  properties.SetEffect(EmbeddedContentPainter::EffectForViewTransitionContent(
+      *effect, object.GetDocument()));
 
   RecordForeignLayer(context, paint_layer_,
                      DisplayItem::kForeignLayerViewTransitionContent,
@@ -753,7 +757,7 @@ void PaintLayerPainter::PaintFragmentWithPhase(
     BoxFragmentPainter(*physical_fragment).Paint(paint_info);
   } else if (const auto* layout_inline =
                  DynamicTo<LayoutInline>(&paint_layer_.GetLayoutObject())) {
-    InlineBoxFragmentPainter::PaintAllFragments(*layout_inline, fragment_data,
+    InlineBoxFragmentPainter::PaintAllFragments(*layout_inline,
                                                 fragment_data_idx, paint_info);
   } else {
     // We are about to enter legacy paint code. Set the right FragmentData
@@ -778,7 +782,7 @@ void PaintLayerPainter::PaintWithPhase(PaintPhase phase,
       CanPaintMultipleFragments(paint_layer_.GetLayoutObject());
 
   for (const FragmentData& fragment :
-       FragmentDataIterator(paint_layer_.GetLayoutObject())) {
+       paint_layer_.GetLayoutObject().FragmentList()) {
     const PhysicalBoxFragment* physical_fragment = nullptr;
     if (layout_box_with_fragments) {
       physical_fragment =

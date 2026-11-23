@@ -8,29 +8,36 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  // Runs a separate instance in each off-the-record profile, which binds to
+  // that profile's ContextualTasksExtensionBridge.
+  "incognito": "split",
   "permissions": [
     "contextualTasksPrivate",
     "metricsPrivate",
     "favicon"
   ],
+  "back_forward_cache": {
+    "supported": true
+  },
   "host_permissions": [
-    "chrome://resources/*",
-    "https://fonts.googleapis.com/*",
-    "https://fonts.gstatic.com/*"
+    "chrome://resources/*"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' chrome://resources; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+    "extension_pages": "script-src 'self' chrome://resources; object-src 'self';"
   },
   "externally_connectable": {
     // LINT.IfChange(AllowedOrigins)
     "matches": [
-      "https://google.com/search*",
-      "https://www.google.com/search*",
-      "https://*.borg.google.com/search*",
+      "https://*.google.com/search*",
       "https://*.corp.google.com/search*",
-      "https://*.prod.google.com/search*"
+      "https://*.prod.google.com/search*",
+      "https://*.googlers.com/search*"
+// <if expr="not is_official_build">
+      ,"http://localhost/*",
+      "file:///*"
+// </if>
     ]
-    // LINT.ThenChange(post_message_handler.ts:AllowedOrigins)
+    // LINT.ThenChange(background.ts:AllowedOrigins)
   },
   "web_accessible_resources": [
     {
@@ -62,7 +69,7 @@
         "file:///*"
 // </if>
       ]
-      // LINT.ThenChange(post_message_handler.ts:AllowedOrigins)
+      // LINT.ThenChange(background.ts:AllowedOrigins)
     }
   ]
 }

@@ -25,7 +25,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
 #include "chrome/browser/glic/common/glic_navigation.h"
-#include "chrome/browser/glic/gemini_enterprise/geic_enabling.h"
 #include "chrome/browser/glic/glic_hotkey.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/glic_client_data_storage.h"
@@ -40,11 +39,11 @@
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/glic_provider_spec.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
@@ -60,8 +59,6 @@
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/origin_matcher/origin_matcher.h"
 #include "components/prefs/pref_service.h"
-#include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/skills/features.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/clipboard_types.h"
@@ -261,47 +258,6 @@ void ConfigureGuestZoom(content::WebContents& guest_contents) {
 #endif
 }
 
-GURL MaybeAppendAuthUser(const GURL& guest_url,
-                         content::BrowserContext* browser_context) {
-  if (!base::FeatureList::IsEnabled(features::kGlicSetAuthUser) ||
-      !features::IsGlicNoWebviewEnabled()) {
-    return guest_url;
-  }
-  if (guest_url.is_empty() || !guest_url.is_valid()) {
-    return guest_url;
-  }
-  std::string unused_output;
-  if (net::GetValueForKeyInQuery(guest_url, "authuser", &unused_output)) {
-    return guest_url;
-  }
-  if (!browser_context) {
-    return guest_url;
-  }
-  Profile* profile = Profile::FromBrowserContext(browser_context);
-  if (!profile) {
-    return guest_url;
-  }
-  signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
-  if (!identity_manager) {
-    return guest_url;
-  }
-  std::string email =
-      identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
-          .email;
-  if (email.empty()) {
-    return guest_url;
-  }
-  if (identity_manager->GetAccountsInCookieJar().AreAccountsFresh()) {
-    std::optional<size_t> session_index =
-        identity_manager->GetSessionIndexForPrimaryAccount();
-    if (session_index && *session_index == 0) {
-      return guest_url;
-    }
-  }
-  return net::AppendQueryParameter(guest_url, "authuser", email);
-}
-
 }  // namespace
 
 void PrepareGlicGuestWebContents(content::WebContents& guest_contents,
@@ -320,7 +276,8 @@ void PrepareGlicGuestWebContents(content::WebContents& guest_contents,
   // In <webview> mode, WebViewGuest attaches printing helpers via
   // ChromeExtensionsAPIClient::AttachWebContentsHelpers. In NoWebview mode,
   // initialize printing explicitly on the guest WebContents.
-  if (features::IsGlicNoWebviewEnabled()) {
+  if (GlicKeyedService::IsNoWebviewEnabled(
+          guest_contents.GetBrowserContext())) {
     printing::InitializePrintingForWebContents(&guest_contents);
   }
 #endif
@@ -360,7 +317,7 @@ bool MaybeHandleGlicWindowCreation(
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
 
-  bool is_popup = (disposition == WindowOpenDisposition::NEW_POPUP) ||
+  bool is_popup = (disposition == WindowOpenDisposition::kNewPopup) ||
                   window_features.is_popup;
   if (base::FeatureList::IsEnabled(features::kGlicPopupWindowsEnabled) &&
       (is_popup || window_features.has_x || window_features.has_y ||
@@ -387,7 +344,7 @@ bool MaybeHandleGlicWindowCreation(
 
     std::unique_ptr<NavigateParams> params = std::make_unique<NavigateParams>(
         profile, target_url, ui::PAGE_TRANSITION_LINK);
-    params->disposition = WindowOpenDisposition::NEW_POPUP;
+    params->disposition = WindowOpenDisposition::kNewPopup;
     params->opened_by_another_window = true;
     params->window_features.bounds = gfx::Rect(x, y, popup_width, popup_height);
     glic::NavigateAsync(std::move(params), base::DoNothing());
@@ -398,9 +355,9 @@ bool MaybeHandleGlicWindowCreation(
   std::unique_ptr<NavigateParams> params = std::make_unique<NavigateParams>(
       profile, target_url, ui::PAGE_TRANSITION_LINK);
   params->disposition =
-      (disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB)
-          ? WindowOpenDisposition::NEW_BACKGROUND_TAB
-          : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+      (disposition == WindowOpenDisposition::kNewBackgroundTab)
+          ? WindowOpenDisposition::kNewBackgroundTab
+          : WindowOpenDisposition::kNewForegroundTab;
   glic::NavigateAsync(std::move(params), base::DoNothing());
   return true;
 }
@@ -455,32 +412,8 @@ GlicWebClientManager* GetWebClientManagerForWebContents(
 }
 
 GURL GetGuestURL(content::BrowserContext* browser_context) {
-  if (geic::IsGeicEnabled(browser_context)) {
-    GURL url = geic::GetGeicGuestUrl(browser_context);
-    if (url.is_empty()) {
-      VLOG(1) << "GEiC is enabled but no guest URL was provided.";
-      return GURL();
-    }
-    return GetLocalizedGuestURL(url);
-  }
-
-  auto* command_line = base::CommandLine::ForCurrentProcess();
-  bool has_glic_guest_url = command_line->HasSwitch(::switches::kGlicGuestURL);
-  GURL url =
-      GURL(has_glic_guest_url
-               ? command_line->GetSwitchValueASCII(::switches::kGlicGuestURL)
-               : features::kGlicGuestURL.Get());
-
-  // If a preset url is enabled, use it instead.
-  url = MaybeApplyPresetGuestUrl(std::move(url));
-
-  if (url.is_empty()) {
-    LOG(ERROR) << "No glic guest url";
-    return GURL();
-  }
-
-  url = MaybeAppendAuthUser(url, browser_context);
-  return GetLocalizedGuestURL(url);
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  return GetGlicProviderSpec(profile).GetGuestUrl(profile);
 }
 
 base::TimeDelta GetMaxLoadingTime() {
@@ -901,7 +834,7 @@ void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
     state->host_capabilities.push_back(mojom::HostCapability::kNoWebUiLoader);
   }
 
-  if (features::IsGlicNoWebviewEnabled()) {
+  if (GlicKeyedService::IsNoWebviewEnabled(profile)) {
     state->host_capabilities.push_back(mojom::HostCapability::kNoWebview);
   }
 
@@ -948,6 +881,9 @@ void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
   if (base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled)) {
     state->host_capabilities.push_back(mojom::HostCapability::kSkillsV2);
   }
+  if (base::FeatureList::IsEnabled(mojom::features::kGlicSendTabToSelf)) {
+    state->host_capabilities.push_back(mojom::HostCapability::kSendTabToSelf);
+  }
   state->enable_get_page_metadata =
       base::FeatureList::IsEnabled(blink::features::kFrameMetadataObserver);
   if (base::FeatureList::IsEnabled(
@@ -990,7 +926,7 @@ void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
       glic::prefs::GetFileUploadAllowedCapability(profile->GetPrefs());
 
   state->enable_client_storage =
-      features::IsGlicNoWebviewEnabled() &&
+      glic_service && glic_service->IsNoWebviewEnabled() &&
       base::FeatureList::IsEnabled(features::kGlicClientDataStorage);
   if (state->enable_client_storage && glic_service) {
     state->client_storage = glic_service->client_data_storage().GetAll();

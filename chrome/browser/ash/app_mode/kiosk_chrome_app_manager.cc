@@ -34,10 +34,13 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "base/version.h"
+#include "chrome/browser/ash/app_mode/chrome_kiosk_app_installer.h"
+#include "chrome/browser/ash/app_mode/chrome_kiosk_external_loader_broker.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_data.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_data_base.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_manager_observer.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_types.h"
+#include "chrome/browser/ash/app_mode/kiosk_browser_session.h"
 #include "chrome/browser/ash/app_mode/kiosk_cryptohome_remover.h"
 #include "chrome/browser/ash/app_mode/kiosk_external_updater.h"
 #include "chrome/browser/ash/app_mode/kiosk_system_session.h"
@@ -46,12 +49,7 @@
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/core/device_local_account.h"
-#include "chrome/browser/chromeos/app_mode/chrome_kiosk_app_installer.h"
-#include "chrome/browser/chromeos/app_mode/chrome_kiosk_external_loader_broker.h"
-#include "chrome/browser/chromeos/app_mode/kiosk_browser_session.h"
 #include "chrome/browser/extensions/external_provider_impl.h"
-#include "chrome/browser/net/system_network_context_manager.h"
-#include "chrome/common/chrome_paths.h"
 #include "chromeos/ash/components/policy/device_local_account/device_local_account_type.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
@@ -82,7 +80,7 @@ KioskChromeAppManager::Overrides* g_test_overrides = nullptr;
 
 base::FilePath GetCrxCacheDir() {
   base::FilePath user_data_dir;
-  CHECK(base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir));
+  CHECK(base::PathService::Get(ash::DIR_USER_DATA, &user_data_dir));
   return user_data_dir.AppendASCII(kCrxCacheDir);
 }
 

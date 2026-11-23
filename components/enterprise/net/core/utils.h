@@ -7,6 +7,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/values.h"
@@ -15,7 +16,13 @@
 #include "net/base/proxy_server.h"
 #include "net/http/http_request_headers.h"
 
+class PrefService;
+
 namespace enterprise_net {
+
+// Returns a string representation of a `ProvisioningDomainProxyConfig::State`.
+std::string_view ProvisioningDomainStateToString(
+    ProvisioningDomainProxyConfig::State state);
 
 // Parses a Provisioning Domain proxy protocol string (e.g., "socks5",
 // "http-connect", "https-connect") to the corresponding
@@ -94,6 +101,10 @@ base::DictValue ProvisioningDomainProxyConfigToDict(
 // crbug.com/567512841.
 std::optional<ProvisioningDomainProxyConfig::RoutingRule> ParseRoutingRule(
     const base::DictValue& match_dict);
+
+// Returns true if Secure Gateway is enabled and its privacy disclosure
+// should be displayed (currently applicable on Android and iOS).
+bool IsSecureGatewayEnabled(PrefService* prefs);
 
 }  // namespace enterprise_net
 

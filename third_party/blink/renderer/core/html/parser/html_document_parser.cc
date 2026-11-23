@@ -82,7 +82,6 @@
 #include "third_party/blink/renderer/platform/scheduler/public/non_main_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/thread_safe_ref_counted.h"
@@ -394,7 +393,8 @@ HTMLDocumentParser::HTMLDocumentParser(
   if (parser_content_policy == kAllowScriptingContentAndMarkAsParserInserted) {
     CHECK(RuntimeEnabledFeatures::NewHTMLSettingMethodsEnabled());
     script_runner_ = HTMLParserScriptRunner::Create(
-        ReentryPermit(), &fragment_target->GetDocument(), this);
+        ReentryPermit(), &fragment_target->GetDocument(), this,
+        /*is_parsing_fragment=*/true);
   }
 
   tree_builder_ = MakeGarbageCollected<HTMLTreeBuilder>(
@@ -488,6 +488,7 @@ unsigned HTMLDocumentParser::GetChunkCountForTesting() const {
 }
 
 void HTMLDocumentParser::Detach() {
+  CHECK(!fragment_parser_abort_requested_);
   // Deschedule any pending tokenizer pumps.
   task_runner_state_->SetState(
       HTMLDocumentParserState::DeferredParserState::kNotScheduled);
@@ -505,6 +506,13 @@ void HTMLDocumentParser::Detach() {
   background_script_scanner_.Reset();
   background_scanner_.reset();
   tokenizer_.Reset();
+  close_callback_.Reset();
+}
+
+void HTMLDocumentParser::SetCloseCallback(base::OnceClosure callback) {
+  CHECK(IsParsingFragment());
+  CHECK(!close_callback_);
+  close_callback_ = std::move(callback);
 }
 
 void HTMLDocumentParser::StopParsing() {
@@ -536,6 +544,28 @@ void HTMLDocumentParser::StopParsing() {
   }
   task_runner_state_->SetState(
       HTMLDocumentParserState::DeferredParserState::kNotScheduled);
+}
+
+void HTMLDocumentParser::AbortFragmentParser() {
+  if (IsDetached()) {
+    return;
+  }
+  CHECK(IsParsingFragment());
+  CHECK(task_runner_state_);
+  // <spec>If parser's fragment parser running is true, then set parser's
+  // fragment parser abort requested to true and return.</spec>
+  //
+  // The parser is running while a tokenizer pump is on the stack. This is the
+  // case when a streamed script or a custom element reaction aborts the stream
+  // while the parser resumes after a parser-blocking script, where there is no
+  // in-flight write() for the WritableStream to queue the abort behind.
+  if (task_runner_state_->InPumpSession()) {
+    fragment_parser_abort_requested_ = true;
+    return;
+  }
+  // <spec>Abort parser.</spec>
+  StopParsing();
+  Detach();
 }
 
 // This kicks off "Once the user agent stops parsing" as described by:
@@ -587,6 +617,10 @@ void HTMLDocumentParser::PrepareToStopParsing() {
 
   if (!IsParsingFragment()) {
     GetDocument()->OnPrepareToStopParsing();
+  }
+
+  if (close_callback_) {
+    std::move(close_callback_).Run();
   }
 
   AttemptToRunDeferredScriptsAndEnd();
@@ -662,6 +696,19 @@ void HTMLDocumentParser::PumpTokenizerIfPossible() {
   if (!IsStopped() &&
       (!IsPaused() || task_runner_state_->ShouldEndIfDelayed())) {
     yielded = PumpTokenizer();
+  }
+
+  // <spec href="https://html.spec.whatwg.org/C/#run-a-fragment-parser">If
+  // parser's fragment parser abort requested is true, then abort
+  // parser.</spec>
+  //
+  // Nested pumps leave this to the outermost one, so that the whole run of the
+  // parser has returned before the stack of open elements is popped.
+  if (fragment_parser_abort_requested_ &&
+      !task_runner_state_->InPumpSession()) {
+    fragment_parser_abort_requested_ = false;
+    AbortFragmentParser();
+    return;
   }
 
   if (yielded) {
@@ -1858,17 +1905,13 @@ bool HTMLDocumentParser::AllowPreloading() {
     }
 
     // Only allows preloads if all seen meta tags have been processed.
-    int processed_meta_policies = 0;
-    for (const auto& policy : csp->GetParsedPolicies()) {
-      if (policy->header->source ==
-          network::mojom::blink::ContentSecurityPolicySource::kMeta) {
-        ++processed_meta_policies;
-      }
-    }
-    return processed_meta_policies == seen_csp_meta_tags_;
-  } else {
-    return false;
+    return processed_csp_meta_tags_ == seen_csp_meta_tags_;
   }
+  return false;
+}
+
+void HTMLDocumentParser::DidProcessCSPMetaTagForPreload() {
+  ++processed_csp_meta_tags_;
 }
 
 }  // namespace blink

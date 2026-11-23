@@ -10,7 +10,7 @@ import {browserProxyFactory} from '../foreign_tabs.mojom-webui.js';
 import type {OrganizerListSectionClient, OrganizerListSectionDelegate} from '../organizer_list_section_delegate.js';
 import type {OrganizerListSectionItem} from '../organizer_list_section_item.js';
 
-export type {ForeignTab};
+import {getHostnameOrUrl} from './tab_delegate_utils.js';
 
 export class ForeignTabsDelegate implements
     OrganizerListSectionDelegate<ForeignTab> {
@@ -29,15 +29,17 @@ export class ForeignTabsDelegate implements
   async getItems(): Promise<Array<OrganizerListSectionItem<ForeignTab>>> {
     const {tabs} = await this.browserProxy_.handler.getForeignTabs();
 
-    return tabs.map(tab => ({
-                      title: [tab.title],
-                      description: [
-                        {text: tab.lastActiveElapsedText},
-                        {text: tab.deviceName},
-                      ],
-                      prefixIcon: tab.url ? {url: tab.url} : undefined,
-                      data: tab,
-                    }));
+    return tabs.map(
+        tab => ({
+          title: [tab.title],
+          description: [
+            {text: tab.lastActiveElapsedText, matchable: false},
+            {text: tab.deviceName},
+          ],
+          extraSearchTerms: tab.url ? [getHostnameOrUrl(tab.url)] : undefined,
+          prefixIcon: tab.url ? {url: tab.url} : undefined,
+          data: tab,
+        }));
   }
 
   onItemClick(item: OrganizerListSectionItem<ForeignTab>) {

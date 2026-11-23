@@ -67,11 +67,12 @@ source_set("settings") {
     "//chrome/browser/profile_resetter:profile_reset_report_proto",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/screen_ai:screen_ai_install_state",
+    "//chrome/browser/speech",
     "//chrome/browser/themes",
     "//chrome/browser/ui/safety_hub",
     "//chrome/browser/ui/search_engines",
     "//chrome/browser/ui/webui/help",
-    "//chrome/browser/ui/webui/signin:login_ui_service",
+    "//chrome/browser/ui/webui/settings/search/mojom",
     "//chrome/browser/upgrade_detector",
     "//chrome/browser/web_applications",
     "//chrome/common",
@@ -272,6 +273,7 @@ source_set("impl") {
     "//chrome/browser/ui/hats",
     "//chrome/browser/ui/interaction",
     "//chrome/browser/ui/omnibox",
+    "//chrome/browser/ui/omnibox/omnibox_everywhere",
     "//chrome/browser/ui/omnibox/omnibox_everywhere:prefs",
     "//chrome/browser/ui/page_info",
     "//chrome/browser/ui/passwords",
@@ -300,6 +302,7 @@ source_set("impl") {
     "//chrome/browser/ui/webui/cr_components/theme_color_picker:impl",
     "//chrome/browser/ui/webui/management",
     "//chrome/browser/ui/webui/sanitized_image:sanitized_image_source",
+    "//chrome/browser/ui/webui/settings/search",
     "//chrome/browser/ui/webui/version",
     "//chrome/browser/universal_optout",
     "//chrome/browser/usb",
@@ -484,6 +487,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/toasts",
     "//chrome/browser/ui/toolbar/pinned_toolbar",
+    "//chrome/browser/ui/webui/settings/search/mojom",
     "//chrome/common",
     "//chrome/test:test_support",
     "//components/browsing_data/core",
@@ -504,6 +508,8 @@ source_set("browser_tests") {
     "//content/public/browser",
     "//content/test:test_support",
     "//google_apis",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/test_support:test_utils",
     "//net:test_support",
     "//services/network:test_support",
     "//testing/gmock",
@@ -548,6 +554,7 @@ if (!is_android) {
       "safety_hub_handler_unittest.cc",
       "saved_info_handler_unittest.cc",
       "search_engines_handler_unittest.cc",
+      "settings_localized_strings_provider_unittest.cc",
       "settings_media_devices_selection_handler_unittest.cc",
       "settings_security_key_handler_unittest.cc",
       "settings_utils_unittest.cc",
@@ -711,7 +718,7 @@ if (!is_android) {
 
     if (is_chrome_branded) {
       sources += [ "on_device_ai_settings_handler_unittest.cc" ]
-      deps += [ "//components/optimization_guide/core:features" ]
+      deps += [ "//components/optimization_guide/core:ondevice" ]
     }
 
     if (toolkit_views && !is_chromeos) {

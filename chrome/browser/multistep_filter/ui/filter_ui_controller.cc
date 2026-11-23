@@ -236,7 +236,7 @@ void FilterUiController::NavigateTo(const UrlFilterSuggestion& suggestion) {
   }
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
-          suggestion.navigation_url, WindowOpenDisposition::CURRENT_TAB,
+          suggestion.navigation_url, WindowOpenDisposition::kCurrentTab,
           ui::PAGE_TRANSITION_GENERATED);
   web_contents->OpenURL(
       params, base::BindOnce(
@@ -283,7 +283,7 @@ void FilterUiController::OpenSettings() {
     content::OpenURLParams params =
         content::OpenURLParams::CreateBrowserInitiated(
             settings_url.Resolve(chrome::kSuggestionsSubPage),
-            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            WindowOpenDisposition::kNewForegroundTab,
             ui::PAGE_TRANSITION_GENERATED);
     web_contents->OpenURL(params,
                           base::BindOnce([](content::NavigationHandle&) {}));
@@ -298,7 +298,7 @@ void FilterUiController::OpenFeedback() {
   if (content::WebContents* web_contents = tab().GetContents()) {
     content::OpenURLParams params =
         content::OpenURLParams::CreateBrowserInitiated(
-            feedback_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            feedback_url, WindowOpenDisposition::kNewForegroundTab,
             ui::PAGE_TRANSITION_LINK);
     web_contents->OpenURL(params,
                           base::BindOnce([](content::NavigationHandle&) {}));
@@ -411,7 +411,8 @@ void FilterUiController::ShowSuggestionChip() {
 
 void FilterUiController::OnPageActionAnchoredMessageShown(
     const page_actions::PageActionState& page_action) {
-  DCHECK_EQ(page_action.action_id, kActionMultistepFilter);
+  CHECK_EQ(page_action.action_id, kActionMultistepFilter,
+           base::NotFatalUntil::M162);
   if (!suggestion_state_) {
     return;
   }
@@ -460,7 +461,8 @@ void FilterUiController::OnPageActionAnchoredMessageShown(
 
 void FilterUiController::OnPageActionAnchoredMessageHidden(
     const page_actions::PageActionState& page_action) {
-  DCHECK_EQ(page_action.action_id, kActionMultistepFilter);
+  CHECK_EQ(page_action.action_id, kActionMultistepFilter,
+           base::NotFatalUntil::M162);
   if (!suggestion_state_) {
     return;
   }

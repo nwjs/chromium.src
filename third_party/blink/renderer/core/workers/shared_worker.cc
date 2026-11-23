@@ -35,8 +35,10 @@
 #include <optional>
 
 #include "base/feature_list.h"
+#include "base/task/single_thread_task_runner.h"
 #include "build/buildflag.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
@@ -49,15 +51,19 @@
 #include "third_party/blink/renderer/core/fetch/request.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
+#include "third_party/blink/renderer/core/inspector/console_message.h"
 #include "third_party/blink/renderer/core/messaging/message_channel.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
+#include "third_party/blink/renderer/core/permissions_policy/permissions_policy_parser.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/core/workers/shared_worker_client_holder.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 
 namespace blink {
 
@@ -187,6 +193,7 @@ SharedWorker* SharedWorker::CreateImpl(
           ? mojom::blink::SharedWorkerSameSiteCookies::kAll
           : mojom::blink::SharedWorkerSameSiteCookies::kNone;
   bool extended_lifetime = false;
+  String allow_string = g_empty_string;
   switch (name_or_options->GetContentType()) {
     case V8UnionSharedWorkerOptionsOrString::ContentType::kString:
       options->name = name_or_options->GetAsString();
@@ -236,8 +243,19 @@ SharedWorker* SharedWorker::CreateImpl(
                             WebFeature::kSharedWorkerExtendedLifetimeIsTrue);
         }
       }
+      if (worker_options->hasAllow()) {
+        allow_string = worker_options->allow();
+      }
       break;
     }
+  }
+  std::optional<network::PermissionsPolicyFeaturesBitset>
+      parsed_permissions_policy =
+          worker->ParsePermissionsPolicy(script_url, allow_string);
+  if (!parsed_permissions_policy) {
+    // Return the unconnected worker. The port_ will be closed when remote_port
+    // goes out of scope after returning from this function.
+    return worker;
   }
   DCHECK(!options->name.IsNull());
   if (options->type == mojom::blink::ScriptType::kClassic)
@@ -248,12 +266,59 @@ SharedWorker* SharedWorker::CreateImpl(
   SharedWorkerClientHolder::From(*window)->Connect(
       worker, std::move(remote_port), script_url, std::move(blob_url_token),
       std::move(options), same_site_cookies, connector_override,
-      extended_lifetime, isNodeJS);
+      extended_lifetime, isNodeJS, *parsed_permissions_policy);
 
   return worker;
 }
 
 SharedWorker::~SharedWorker() = default;
+
+std::optional<network::PermissionsPolicyFeaturesBitset>
+SharedWorker::ParsePermissionsPolicy(const KURL& script_url,
+                                     const String& allow) {
+  if (!RuntimeEnabledFeatures::PermissionsPolicyForSharedWorkersEnabled()) {
+    return network::PermissionsPolicyFeaturesBitset();
+  }
+  const SecurityOrigin* self_origin =
+      GetExecutionContext()->GetSecurityOrigin();
+  scoped_refptr<const SecurityOrigin> src_origin =
+      SecurityOrigin::Create(script_url);
+  PolicyParserMessageBuffer logger;
+  network::PermissionsPolicyFeaturesBitset parsed_permissions_policy =
+      PermissionsPolicyParser::ParseAllowForWorkers(
+          allow, *self_origin, *src_origin, logger, GetExecutionContext());
+  for (const auto& message : logger.GetMessages()) {
+    GetExecutionContext()->AddConsoleMessage(
+        MakeGarbageCollected<ConsoleMessage>(
+            mojom::blink::ConsoleMessageSource::kOther, message.level,
+            message.content));
+  }
+  const network::PermissionsPolicy* permissions_policy =
+      GetExecutionContext()->GetSecurityContext().GetPermissionsPolicy();
+  CHECK(permissions_policy);
+  const url::Origin src_url_origin = src_origin->ToUrlOrigin();
+  for (const auto& entry :
+       GetDefaultFeatureNameMap(GetExecutionContext()->IsIsolatedContext())) {
+    if (parsed_permissions_policy.Contains(entry.value) &&
+        !permissions_policy->CanDelegateFeatureToOrigin(entry.value,
+                                                        src_url_origin)) {
+      GetExecutionContext()->AddConsoleMessage(
+          MakeGarbageCollected<ConsoleMessage>(
+              mojom::blink::ConsoleMessageSource::kSecurity,
+              mojom::blink::ConsoleMessageLevel::kError,
+              StrCat({"Permissions-Policy feature '", entry.key,
+                      "' specified in the 'allow' option cannot be delegated "
+                      "by the creating context to the worker script's "
+                      "origin."})));
+      GetExecutionContext()
+          ->GetTaskRunner(TaskType::kInternalLoading)
+          ->PostTask(FROM_HERE, BindOnce(&SharedWorker::DispatchErrorEvent,
+                                         WrapWeakPersistent(this)));
+      return std::nullopt;
+    }
+  }
+  return parsed_permissions_policy;
+}
 
 const AtomicString& SharedWorker::InterfaceName() const {
   return event_target_names::kSharedWorker;

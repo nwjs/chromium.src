@@ -39,10 +39,10 @@ int TabStyle::GetStandardWidth(const bool is_split) const {
   if (is_split) {
     // Split tabs appear as half width with one bottom extension. They also must
     // include half the tab overlap as the tabs fill the space between them.
-    return kTabWidth / 2 + GetBottomCornerRadius() + GetTabOverlap() / 2;
+    return kTabWidth / 2 + GetBottomExtensionWidth() + GetTabOverlap() / 2;
   } else {
-    // The full width includes two extensions with the bottom corner radius.
-    return kTabWidth + 2 * GetBottomCornerRadius();
+    // The full width includes two extensions widths.
+    return kTabWidth + 2 * GetBottomExtensionWidth();
   }
 }
 
@@ -102,11 +102,15 @@ int TabStyle::GetBottomCornerRadius() const {
   return 12;
 }
 
+int TabStyle::GetBottomExtensionWidth() const {
+  return GetBottomCornerRadius();
+}
+
 int TabStyle::GetTabOverlap() const {
   // The overlap removes the width and the margins of the separator.
   const float total_separator_width =
       GetSeparatorMargins().width() + GetSeparatorSize().width();
-  return 2 * GetBottomCornerRadius() - total_separator_width;
+  return 2 * GetBottomExtensionWidth() - total_separator_width;
 }
 
 gfx::Size TabStyle::GetPreviewImageSize() const {
@@ -164,7 +168,8 @@ std::tuple<float, float, float, SkColor> TabStyle::GetContrastRatioValues(
   float radial_highlight_opacity_ = get_hover_opacity(kRadialGradientContrast);
 
   const SkColor inactive_fg =
-      GetTabForegroundColor(false, frame_active, color_provider);
+      GetTabForegroundColor(/*apparently_active=*/false, /*hovered=*/false,
+                            frame_active, color_provider);
   // The contrast ratio for the separator between inactive tabs.
   constexpr float kTabSeparatorContrast = 2.5f;
   SkColor separator_color_ =
@@ -180,8 +185,8 @@ TabStyle::TabColors TabStyle::CalculateTargetColors(
     const bool hovered,
     const bool frame_active,
     const ui::ColorProvider* color_provider) const {
-  const SkColor foreground_color =
-      GetTabForegroundColor(apparently_active, frame_active, color_provider);
+  const SkColor foreground_color = GetTabForegroundColor(
+      apparently_active, hovered, frame_active, color_provider);
   const SkColor background_color =
       GetTabBackgroundColor(state, hovered, frame_active, color_provider);
   const ui::ColorId focus_ring_color =
@@ -195,19 +200,26 @@ TabStyle::TabColors TabStyle::CalculateTargetColors(
 
 SkColor TabStyle::GetTabForegroundColor(
     const bool apparently_active,
+    const bool hovered,
     const bool frame_active,
     const ui::ColorProvider* color_provider) const {
   if (!color_provider) {
     return gfx::kPlaceholderColor;
   }
 
-  static constexpr std::array<std::array<ChromeColorIds, 2>, 2> kColorIds = {
+  if (apparently_active) {
+    constexpr std::array<ChromeColorIds, 2> kActiveColorIds = {
+        kColorTabForegroundActiveFrameInactive,
+        kColorTabForegroundActiveFrameActive};
+    return color_provider->GetColor(kActiveColorIds[frame_active]);
+  }
+
+  constexpr std::array<std::array<ChromeColorIds, 2>, 2> kInactiveColorIds = {
       {{kColorTabForegroundInactiveFrameInactive,
         kColorTabForegroundInactiveFrameActive},
-       {kColorTabForegroundActiveFrameInactive,
-        kColorTabForegroundActiveFrameActive}}};
-
-  return color_provider->GetColor(kColorIds[apparently_active][frame_active]);
+       {kColorTabForegroundInactiveHoverFrameInactive,
+        kColorTabForegroundInactiveHoverFrameActive}}};
+  return color_provider->GetColor(kInactiveColorIds[hovered][frame_active]);
 }
 
 SkColor TabStyle::GetTabBackgroundColor(
@@ -320,11 +332,11 @@ gfx::Insets TabStyle::GetContentsInsets() const {
   return gfx::Insets::TLBR(
       GetLayoutConstant(LayoutConstant::kTabVerticalPadding) +
           GetLayoutConstant(LayoutConstant::kTabStripPadding),
-      GetBottomCornerRadius() +
+      GetBottomExtensionWidth() +
           GetLayoutConstant(LayoutConstant::kTabHorizontalPadding),
       GetLayoutConstant(LayoutConstant::kTabVerticalPadding) +
           GetLayoutConstant(LayoutConstant::kTabStripPadding),
-      GetBottomCornerRadius() +
+      GetBottomExtensionWidth() +
           GetLayoutConstant(LayoutConstant::kTabHorizontalPadding));
 }
 

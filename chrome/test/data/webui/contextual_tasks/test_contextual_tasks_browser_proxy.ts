@@ -191,6 +191,7 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
   private isAiPageResult_: boolean = false;
   private isPendingErrorPageMap_: {[key: string]: boolean} = {};
   private isInZeroState_: boolean = false;
+  private movedToNewThread_: boolean = false;
 
 
   constructor(url: string, page: MockPage) {
@@ -206,6 +207,7 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
       'isEmbeddedPageErrorDocument',
       'isShownInTab',
       'isZeroState',
+      'moveActiveTabToNewThreadIfShared',
       'onboardingTooltipDismissed',
       'askGTooltipDismissed',
       'onContextMenuOpened',
@@ -234,6 +236,15 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
   getThreadUrl() {
     this.methodCalled('getThreadUrl');
     return Promise.resolve({url: this.url_ as unknown as Url});
+  }
+
+  setMovedToNewThread(moved: boolean) {
+    this.movedToNewThread_ = moved;
+  }
+
+  moveActiveTabToNewThreadIfShared() {
+    this.methodCalled('moveActiveTabToNewThreadIfShared');
+    return Promise.resolve({moved: this.movedToNewThread_});
   }
 
   getUrlForTask(uuid: Uuid) {
@@ -512,6 +523,8 @@ export class TestToolbarPageHandler extends TestBrowserProxy implements
       'unpinSidePanel',
       'openMyActivityUi',
       'openOverflowMenuHelpUi',
+      'openManageAccountUi',
+      'openLogOutFlow',
       'openFeedbackUi',
       'moveTaskUiToNewTab',
       'showThreadHistory',
@@ -540,6 +553,14 @@ export class TestToolbarPageHandler extends TestBrowserProxy implements
 
   openOverflowMenuHelpUi() {
     this.methodCalled('openOverflowMenuHelpUi');
+  }
+
+  openManageAccountUi() {
+    this.methodCalled('openManageAccountUi');
+  }
+
+  openLogOutFlow() {
+    this.methodCalled('openLogOutFlow');
   }
 
   openFeedbackUi() {
@@ -627,8 +648,11 @@ export class TestContextualTasksToolbarUiService extends TestBrowserProxy
     this.methodCalled('onChipMousePressed', identifier);
   }
 
-  onChipClicked(identifier: LhsChipIdentifier, isMouseInteraction: boolean) {
-    this.methodCalled('onChipClicked', [identifier, isMouseInteraction]);
+  onChipClicked(
+      identifier: LhsChipIdentifier, isMouseInteraction: boolean,
+      stateToken: number) {
+    this.methodCalled(
+        'onChipClicked', [identifier, isMouseInteraction, stateToken]);
   }
 
   onChipPointerEntered(identifier: LhsChipIdentifier) {

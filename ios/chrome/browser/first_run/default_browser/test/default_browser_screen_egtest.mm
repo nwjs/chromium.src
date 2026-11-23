@@ -4,10 +4,11 @@
 
 #import "ios/chrome/browser/authentication/test/signin_earl_grey.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_constants.h"
+#import "ios/chrome/browser/first_run/public/features.h"
 #import "ios/chrome/browser/first_run/public/first_run_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
-#import "ios/chrome/common/ui/promo_style/constants.h"
+#import "ios/chrome/common/ui/button_stack/button_stack_constants.h"
 #import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
@@ -81,6 +82,18 @@ id<GREYMatcher> DefaultPromoSubtitle() {
   // screen's view that cause the test to fail.
   config.additional_args.push_back(
       "--disable-features=UpdatedFirstRunSequence");
+  // GCRGemini crashes on nil identity in this sign-in setup.
+  config.additional_args.push_back("--enable-features=GeminiKillSwitch");
+  config.features_disabled.push_back(
+      first_run::kSkipDefaultBrowserPromoInFirstRun);
+
+  if ([self isRunningTest:@selector(testAndroidSwitcherPromoDisplayed)]) {
+    config.features_enabled.push_back(
+        first_run::kAndroidSwitcherDefaultBrowserPromoInFRE);
+  } else {
+    config.features_disabled.push_back(
+        first_run::kAndroidSwitcherDefaultBrowserPromoInFRE);
+  }
 
   return config;
 }
@@ -104,10 +117,14 @@ id<GREYMatcher> DefaultPromoSubtitle() {
   [self tapPromoButton:chrome_test_util::ButtonStackPrimaryButton()];
   [ChromeEarlGrey
       waitForSyncTransportStateActiveWithTimeout:kSyncOperationTimeout];
+  NSString* expectedScreenAccessibilityID =
+      [self isRunningTest:@selector(testAndroidSwitcherPromoDisplayed)]
+          ? first_run::
+                kFirstRunDefaultBrowserAndroidSwitcherScreenAccessibilityIdentifier
+          : first_run::kFirstRunDefaultBrowserScreenAccessibilityIdentifier;
   [ChromeEarlGrey
-      waitForUIElementToAppearWithMatcher:
-          grey_accessibilityID(
-              first_run::kFirstRunDefaultBrowserScreenAccessibilityIdentifier)];
+      waitForUIElementToAppearWithMatcher:grey_accessibilityID(
+                                              expectedScreenAccessibilityID)];
 }
 
 // Signs out and clears sync data.
@@ -119,7 +136,7 @@ id<GREYMatcher> DefaultPromoSubtitle() {
 // Taps a promo button.
 - (void)tapPromoButton:(id<GREYMatcher>)buttonMatcher {
   id<GREYMatcher> scrollViewMatcher =
-      grey_accessibilityID(kPromoStyleScrollViewAccessibilityIdentifier);
+      grey_accessibilityID(kButtonStackScrollViewAccessibilityIdentifier);
   // Needs to scroll slowly to make sure to not miss a cell if it is not
   // currently on the screen. It should not be bigger than the visible part
   // of the collection view.
@@ -138,6 +155,40 @@ id<GREYMatcher> DefaultPromoSubtitle() {
   [[EarlGrey selectElementWithMatcher:DefaultPromoTitle()]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey selectElementWithMatcher:DefaultPromoSubtitle()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+}
+
+// Tests that the Android Switcher default browser promo is displayed when the
+// flag is enabled and the user is signed in.
+- (void)testAndroidSwitcherPromoDisplayed {
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(
+              first_run::
+                  kFirstRunDefaultBrowserAndroidSwitcherScreenAccessibilityIdentifier)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey selectElementWithMatcher:DefaultPromoSubtitle()]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  NSString* expectedSubtitle = GetNSString(
+      [ChromeEarlGrey isIPadIdiom]
+          ? IDS_IOS_FIRST_RUN_DEFAULT_BROWSER_SCREEN_SWITCHER_SUBTITLE_IPAD
+          : IDS_IOS_FIRST_RUN_DEFAULT_BROWSER_SCREEN_SWITCHER_SUBTITLE);
+  [[EarlGrey selectElementWithMatcher:grey_text(expectedSubtitle)]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_text(GetNSString(
+              IDS_IOS_FIRST_RUN_DEFAULT_BROWSER_SCREEN_SWITCHER_YOUTUBE_ROW))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_text(GetNSString(
+              IDS_IOS_FIRST_RUN_DEFAULT_BROWSER_SCREEN_SWITCHER_MAPS_ROW))]
+      assertWithMatcher:grey_sufficientlyVisible()];
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_text(GetNSString(
+              IDS_IOS_FIRST_RUN_DEFAULT_BROWSER_SCREEN_SWITCHER_DRIVE_PHOTOS_ROW))]
       assertWithMatcher:grey_sufficientlyVisible()];
 }
 

@@ -38,7 +38,7 @@ class D3DDecoderConfigurator;
 class D3DPictureBuffer;
 class D3DVideoDecoderWrapper;
 class MediaLog;
-class Texture2DWrapper;
+class D3DTextureWrapper;
 class TextureSelector;
 class VideoDecoderConfig;
 
@@ -63,7 +63,7 @@ class D3DVideoDecoderBackend {
 
   virtual void LogDecoderAdapterInfo(MediaLog* media_log) = 0;
 
-  virtual D3DStatus::Or<std::unique_ptr<D3DDecoderConfigurator>>
+  virtual base::expected<std::unique_ptr<D3DDecoderConfigurator>, D3DStatus>
   CreateDecoderConfigurator(uint8_t bit_depth,
                             const VideoDecoderConfig& config,
                             VideoChromaSampling chroma_sampling,
@@ -71,14 +71,14 @@ class D3DVideoDecoderBackend {
                             const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
                             MediaLog* media_log) = 0;
 
-  virtual D3DStatus::Or<std::unique_ptr<TextureSelector>> CreateTextureSelector(
-      D3DDecoderConfigurator* decoder_configurator,
-      const VideoDecoderConfig& config,
-      const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
-      bool use_shared_handle,
-      MediaLog* media_log) = 0;
+  virtual base::expected<std::unique_ptr<TextureSelector>, D3DStatus>
+  CreateTextureSelector(D3DDecoderConfigurator* decoder_configurator,
+                        const VideoDecoderConfig& config,
+                        const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
+                        bool use_shared_handle,
+                        MediaLog* media_log) = 0;
 
-  virtual D3DStatus::Or<std::unique_ptr<D3DVideoDecoderWrapper>>
+  virtual base::expected<std::unique_ptr<D3DVideoDecoderWrapper>, D3DStatus>
   CreateVideoDecoderWrapper(GetD3DDeviceCB get_d3d_device_cb,
                             D3DDecoderConfigurator* decoder_configurator,
                             const VideoDecoderConfig& config,
@@ -87,19 +87,19 @@ class D3DVideoDecoderBackend {
                             int max_decode_requests,
                             MediaLog* media_log) = 0;
 
-  virtual std::unique_ptr<Texture2DWrapper> CreateOutputTextureWrapper(
+  virtual std::unique_ptr<D3DTextureWrapper> CreateOutputTextureWrapper(
       TextureSelector* texture_selector,
       const gfx::ColorSpace& color_space,
       const gfx::Size& size) = 0;
 
-  virtual D3DStatus::Or<scoped_refptr<D3DPictureBuffer>>
+  virtual base::expected<scoped_refptr<D3DPictureBuffer>, D3DStatus>
   CreateAndInitPictureBuffer(
       const gfx::Size& size,
       uint32_t array_size,
       size_t array_slice,
       size_t picture_index,
       bool use_single_video_decoder_texture,
-      std::unique_ptr<Texture2DWrapper> texture_wrapper,
+      std::unique_ptr<D3DTextureWrapper> texture_wrapper,
       D3DDecoderConfigurator* decoder_configurator,
       TextureSelector* texture_selector,
       scoped_refptr<base::SequencedTaskRunner> decoder_task_runner,

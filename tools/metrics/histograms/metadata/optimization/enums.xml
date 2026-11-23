@@ -39,20 +39,21 @@ chromium-metrics-reviews@google.com.
 <!-- LINT.IfChange(AIPageContentExtractionStatus) -->
 
 <enum name="AIPageContentExtractionStatus">
-  <int value="0" label="Success"/>
-  <int value="1" label="Main frame not live"/>
-  <int value="2" label="Main frame timeout"/>
-  <int value="3" label="Main frame empty or disconnected renderer response"/>
-  <int value="4" label="Main frame redacted"/>
-  <int value="5" label="Main frame torn down"/>
-  <int value="6" label="Attribute type mismatch"/>
-  <int value="7" label="Missing iframe data"/>
-  <int value="8" label="Subframe torn down"/>
-  <int value="9" label="Iframe not child of current frame"/>
-  <int value="10" label="Remote frame has child nodes"/>
-  <int value="11" label="Remote frame has inline content"/>
-  <int value="12" label="Local frame missing content"/>
-  <int value="13" label="Unexpected iframe in popup"/>
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Success"/>
+  <int value="2" label="Main frame not live"/>
+  <int value="3" label="Main frame timeout"/>
+  <int value="4" label="Main frame empty or disconnected renderer response"/>
+  <int value="5" label="Main frame redacted"/>
+  <int value="6" label="Main frame torn down"/>
+  <int value="7" label="Attribute type mismatch"/>
+  <int value="8" label="Missing iframe data"/>
+  <int value="9" label="Subframe torn down"/>
+  <int value="10" label="Iframe not child of current frame"/>
+  <int value="11" label="Remote frame has child nodes"/>
+  <int value="12" label="Remote frame has inline content"/>
+  <int value="13" label="Local frame missing content"/>
+  <int value="14" label="Unexpected iframe in popup"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/optimization_guide/content/browser/page_content_proto_provider.h:AIPageContentExtractionStatus) -->
@@ -185,6 +186,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Not allowed by user setting"/>
   <int value="6" label="The installed component is obsolete"/>
   <int value="7" label="Evicted due to no recent usage"/>
+  <int value="8" label="User requested uninstall"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/optimization_guide/core/model_execution/manifest_broker/manifest.h:UninstallReason) -->
@@ -217,8 +219,17 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="ErrorCancelled"/>
 </enum>
 
-<enum name="OptimizationGuideFetcherRequestStatus">
-  <int value="0" label="Unknown"/>
+<enum name="OptimizationGuideHintCacheLevelDBStoreStatus">
+  <int value="0" label="Unitialized"/>
+  <int value="1" label="Initializing"/>
+  <int value="2" label="Available"/>
+  <int value="3" label="Failed"/>
+</enum>
+
+<!-- LINT.IfChange(OptimizationGuideHintsFetcherRequestStatus) -->
+
+<enum name="OptimizationGuideHintsFetcherRequestStatus">
+  <int value="0" label="DEPRECATED - Unknown"/>
   <int value="1" label="Success">Request sent and received response.</int>
   <int value="2" label="Response Error">
     Request sent but response not received.
@@ -238,17 +249,9 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Fetch was canceled">
     Fetch request was canceled before completion.
   </int>
-  <int value="8" label="User not signed-in">
-    Request was not started because user was not signed-in.
-  </int>
 </enum>
 
-<enum name="OptimizationGuideHintCacheLevelDBStoreStatus">
-  <int value="0" label="Unitialized"/>
-  <int value="1" label="Initializing"/>
-  <int value="2" label="Available"/>
-  <int value="3" label="Failed"/>
-</enum>
+<!-- LINT.ThenChange(//components/optimization_guide/core/hints/hints_fetcher.h:HintsFetcherRequestStatus) -->
 
 <enum name="OptimizationGuideModelDeliveryEvent">
   <int value="0" label="Unknown"/>
@@ -307,6 +310,27 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Response parsing failed"/>
   <int value="13" label="Failed to run safety checks"/>
 </enum>
+
+<!-- LINT.IfChange(OptimizationGuideModelExecutionFetcherRequestStatus) -->
+
+<enum name="OptimizationGuideModelExecutionFetcherRequestStatus">
+  <int value="0" label="DEPRECATED - Unknown"/>
+  <int value="1" label="Success">Request sent and received response.</int>
+  <int value="2" label="Response Error">
+    Request sent but response not received.
+  </int>
+  <int value="4" label="Fetcher Busy">
+    Request not sent because fetcher busy with another request.
+  </int>
+  <int value="7" label="Fetch was canceled">
+    Fetch request was canceled before completion.
+  </int>
+  <int value="8" label="User not signed-in">
+    Request was not started because user was not signed-in.
+  </int>
+</enum>
+
+<!-- LINT.ThenChange(//components/optimization_guide/core/model_execution/model_execution_fetcher.h:ModelExecutionFetcherRequestStatus) -->
 
 <enum name="OptimizationGuideModelQualityLogsUploadStatus">
   <int value="0" label="Unknown"/>
@@ -706,6 +730,32 @@ chromium-metrics-reviews@google.com.
     session.
   </int>
 </enum>
+
+<!-- LINT.IfChange(OptimizationGuideStreamingConnectionStatus) -->
+
+<enum name="OptimizationGuideStreamingConnectionStatus">
+  <int value="0" label="Connected"/>
+  <int value="1" label="Access token failure"/>
+  <int value="2" label="Handshake failed"/>
+  <int value="3" label="Client error during connect"/>
+  <int value="4" label="Mojo pipe disconnected during connect"/>
+  <int value="5" label="Cancelled by destruction"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/optimization_guide/core/model_execution/remote_model_execution_session_impl.h:StreamingConnectionStatus) -->
+
+<!-- LINT.IfChange(OptimizationGuideStreamingDisconnectReason) -->
+
+<enum name="OptimizationGuideStreamingDisconnectReason">
+  <int value="0" label="Session destroyed"/>
+  <int value="1" label="Idle timeout"/>
+  <int value="2" label="Server drop (clean)"/>
+  <int value="3" label="Server drop (unclean)"/>
+  <int value="4" label="Client error"/>
+  <int value="5" label="Mojo pipe disconnected"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/optimization_guide/core/model_execution/remote_model_execution_session_impl.h:StreamingDisconnectReason) -->
 
 <enum name="OptimizationGuideUserFeedback">
   <int value="0" label="Unknown"/>

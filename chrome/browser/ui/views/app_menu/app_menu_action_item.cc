@@ -32,6 +32,10 @@ DEFINE_UI_CLASS_PROPERTY_KEY(ui::ColorId,
                              kAppMenuContainerColorInternal,
                              ui::kColorMenuBackground)
 
+DEFINE_UI_CLASS_PROPERTY_KEY(ui::ColorId,
+                             kAppMenuForegroundColorInternal,
+                             ui::kColorMenuItemForeground)
+
 DEFINE_UI_CLASS_PROPERTY_KEY(ui::MenuSeparatorType,
                              kAppMenuSeparatorInternal,
                              ui::NORMAL_SEPARATOR)
@@ -63,6 +67,9 @@ const ui::ClassProperty<AppMenuActionItem::DisplayType>* const
 
 const ui::ClassProperty<ui::ColorId>* const
     AppMenuActionItem::kContainerColorKey = kAppMenuContainerColorInternal;
+
+const ui::ClassProperty<ui::ColorId>* const
+    AppMenuActionItem::kForegroundColorKey = kAppMenuForegroundColorInternal;
 
 const ui::ClassProperty<std::u16string*>* const
     AppMenuActionItem::kTextOverrideKey = kAppMenuTextOverrideInternal;
@@ -126,6 +133,10 @@ std::unique_ptr<actions::IndirectActionItem> AppMenuActionItem::CreateIndirect(
     item->SetProperty(kContainerColorKey, params.container_color.value());
   }
 
+  if (params.foreground_color.has_value()) {
+    item->SetProperty(kForegroundColorKey, params.foreground_color.value());
+  }
+
   if (params.is_checkable.has_value()) {
     item->SetProperty(kIsCheckableKey, params.is_checkable.value());
   }
@@ -141,6 +152,10 @@ std::unique_ptr<actions::IndirectActionItem> AppMenuActionItem::CreateIndirect(
 
   if (params.is_alerted.has_value()) {
     item->SetProperty(kIsAlertedKey, params.is_alerted.value());
+  }
+
+  if (params.is_submenu.has_value()) {
+    item->SetProperty(kIsSubmenuKey, params.is_submenu.value());
   }
 
   if (params.text_override.has_value()) {

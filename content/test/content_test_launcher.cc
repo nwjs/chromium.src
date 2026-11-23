@@ -7,7 +7,6 @@
 #include "base/i18n/icu_util.h"
 #include "base/process/memory.h"
 #include "base/system/sys_info.h"
-#include "base/test/launcher/test_launcher.h"
 #include "base/test/test_suite.h"
 #include "base/test/test_timeouts.h"
 #include "build/build_config.h"
@@ -83,7 +82,7 @@ class ContentTestLauncherDelegate : public TestLauncherDelegate {
 
 extern "C" int ContentTestMain(int argc, const char** argv) {
   base::CommandLine::Init(argc, argv);
-  size_t parallel_jobs = base::NumParallelJobs(/*cores_per_job=*/2);
+  size_t parallel_jobs = content::NumParallelJobsForBrowserTests();
   if (parallel_jobs == 0U)
     return 1;
 

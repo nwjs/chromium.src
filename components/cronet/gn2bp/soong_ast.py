@@ -2,12 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import copy
+import copy  # noqa: F401
 import enum
 import hashlib
-import os
+import os  # noqa: F401
 import re
-from typing import List, Dict, Set, Union
+from typing import List, Dict, Set, Union  # noqa: F401
 
 import gn_utils
 import targets as gn2bp_targets
@@ -476,7 +476,13 @@ class Module:
 
     def has_input_files(self):
         return (
-            self.type in ["java_library", "java_import", "rust_bindgen"]
+            self.type
+            in [
+                "java_library",
+                "java_import",
+                "rust_bindgen",
+                "crubit_cpp_from_rust",
+            ]
             or (self.srcs and len(self.srcs) > 0)
             or (
                 self.target
@@ -503,6 +509,7 @@ class CcModule(Module):
         'cflags',
         'include_dirs',
         'local_include_dirs',
+        'extra_include_dir_deps',
         'header_libs',
         'strip',
         'stl',
@@ -539,6 +546,7 @@ class CcModule(Module):
         self.cflags = list()
         self.include_dirs = set()
         self.local_include_dirs = set()
+        self.extra_include_dir_deps = set()
         self.header_libs = set()
         self.strip = dict()
         self.stl = None
@@ -695,6 +703,36 @@ class RustBindgenModule(Module):
         self.static_inline_library = ""
 
 
+class CrubitModule(Module):
+    """Represents a Soong `crubit_cpp_from_rust` module that generates C++
+    bindings for a Rust library (`rust_library`)."""
+
+    SUPPORTED_FIELDS = {
+        'rust_library',
+        'crate_name',
+        'namespace',
+        'stem',
+        'source_stem',
+        'source_subdir',
+        'rustlibs',
+        'min_sdk_version',
+    }
+
+    def __init__(
+        self, mod_type, name, gn_target, context, is_test=False, role=None
+    ):
+        super().__init__(mod_type, name, gn_target, context, is_test, role)
+        self.rust_library = None
+        self.crate_name = None
+        self.namespace = None
+        self.stem = None
+        self.source_stem = None
+        self.source_subdir = None
+        self.rustlibs = set()
+        self.min_sdk_version = None
+        self._initialize_targets(RustTarget)
+
+
 class GenruleModule(Module):
     SUPPORTED_FIELDS = {
         'srcs',
@@ -767,6 +805,8 @@ def create_module(mod_type, name, gn_target, context, is_test=False, role=None):
         return JavaModule(mod_type, name, gn_target, context, is_test, role)
     if mod_type in ('rust_ffi_static', 'rust_binary', 'rust_proc_macro'):
         return RustModule(mod_type, name, gn_target, context, is_test, role)
+    if mod_type == 'crubit_cpp_from_rust':
+        return CrubitModule(mod_type, name, gn_target, context, is_test, role)
     if mod_type == 'rust_bindgen':
         return RustBindgenModule(
             mod_type, name, gn_target, context, is_test, role

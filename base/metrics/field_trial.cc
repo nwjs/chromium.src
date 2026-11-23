@@ -439,11 +439,10 @@ FieldTrialList::FieldTrialList() {
 
 FieldTrialList::~FieldTrialList() {
   AutoLock auto_lock(lock_);
-  while (!registered_.empty()) {
-    auto it = registered_.begin();
-    it->second->Release();
-    registered_.erase(it->first);
+  for (auto& [_, trial] : registered_) {
+    trial->Release();
   }
+  registered_.clear();
   // Note: If this DCHECK fires in a test that uses ScopedFeatureList, it is
   // likely caused by nested ScopedFeatureLists being destroyed in a different
   // order than they are initialized.
@@ -530,6 +529,7 @@ std::vector<FieldTrial::State> FieldTrialList::GetAllFieldTrialStates(
     entry.activated = trial.activated;
     entry.trial_name = *trial.trial_name;
     entry.group_name = *trial.group_name;
+    entry.is_overridden = trial.is_overridden;
     states.push_back(std::move(entry));
   }
   return states;
@@ -1242,11 +1242,14 @@ void FieldTrialList::GetActiveFieldTrialGroupsInternal(
     for (const auto& [override_trial_name, runtime_override] :
          base::RuntimeFieldTrialOverrides::GetInstance()
              ->GetRuntimeOverrides()) {
-      // Runtime FieldTrial overrides are all considered active, so include them
-      // all.
-      active_groups->emplace_back(runtime_override->trial_name(),
-                                  runtime_override->group_name(),
-                                  /*is_overridden=*/false);
+      // Only active runtime overrides should be included. However, if an
+      // override is inactive but overrides a field trial, we should still stop
+      // reporting that field trial.
+      if (runtime_override->is_active()) {
+        active_groups->emplace_back(runtime_override->trial_name(),
+                                    runtime_override->group_name(),
+                                    /*is_overridden=*/false);
+      }
       if (runtime_override->overridden_trial()) {
         trials_to_ignore.insert(
             runtime_override->overridden_trial()->trial_name());

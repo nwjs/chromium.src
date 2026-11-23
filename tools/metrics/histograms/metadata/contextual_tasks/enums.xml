@@ -48,6 +48,70 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/contextual_tasks/contextual_tasks_ui_service.cc:EntrypointSource) -->
 
+<!-- LINT.IfChange(ContextualTasksExtensionHandshakeStatus) -->
+
+<enum name="ContextualTasksExtensionHandshakeStatus">
+  <int value="0" label="Success"/>
+  <int value="1" label="Host origin rejected"/>
+  <int value="2" label="Frame detached"/>
+  <int value="3" label="Mojo request failed"/>
+  <int value="4" label="Invalid document ID"/>
+</enum>
+
+<!-- LINT.ThenChange(
+  //chrome/browser/contextual_tasks/contextual_tasks_utils.h:ContextualTasksExtensionHandshakeStatus,
+  //chrome/browser/resources/contextual_tasks/extension/background.ts:ContextualTasksExtensionHandshakeStatus
+) -->
+
+<!-- LINT.IfChange(ContextualTasksExtensionPostMessageError) -->
+
+<enum name="ContextualTasksExtensionPostMessageError">
+  <int value="0" label="Untrusted origin"/>
+  <int value="1" label="Unexpected data type"/>
+  <int value="2" label="Message too large"/>
+  <int value="3" label="Invalid document ID"/>
+  <int value="4" label="Proto parse failed"/>
+  <int value="5" label="Mojo pipe closed"/>
+</enum>
+
+<!-- LINT.ThenChange(
+  //chrome/browser/contextual_tasks/contextual_tasks_utils.h:ContextualTasksExtensionPostMessageError,
+  //chrome/browser/resources/contextual_tasks/extension/background.ts:ContextualTasksExtensionPostMessageError
+) -->
+
+<!-- LINT.IfChange(ContextualTasksLinkOpenDisposition) -->
+
+<enum name="ContextualTasksLinkOpenDisposition">
+  <int value="0" label="Current tab"/>
+  <int value="1" label="New foreground tab"/>
+  <int value="2" label="New background tab"/>
+  <int value="3" label="New window"/>
+  <int value="4" label="Off the record"/>
+  <int value="5" label="Other"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/contextual_tasks/contextual_tasks_utils.h:ContextualTasksLinkOpenDisposition) -->
+
+<!-- LINT.IfChange(ContextualTasksPermanentToolbarButtonThreadAction) -->
+
+<enum name="ContextualTasksPermanentToolbarButtonThreadAction">
+  <int value="0" label="ContinueThread"/>
+  <int value="1" label="NewThread"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h:ContextualTasksPermanentToolbarButtonThreadAction) -->
+
+<!-- LINT.IfChange(ContextualTasksRemovedContextReason) -->
+
+<enum name="ContextualTasksRemovedContextReason">
+  <int value="0" label="User deselected"/>
+  <int value="1" label="Browser tab closed"/>
+  <int value="2" label="Browser tab navigated"/>
+  <int value="3" label="Smart Tab Sharing disabled"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/contextual_search/contextual_search_types.h:ContextualTasksRemovedContextReason) -->
+
 <!-- LINT.IfChange(ContextualTasksTabCloseState) -->
 
 <enum name="ContextualTasksTabCloseState">
@@ -56,6 +120,28 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h:ContextualTasksTabCloseState) -->
+
+<!-- LINT.IfChange(ContextualTasksTabPickerUnboundedPresentationResult) -->
+
+<enum name="ContextualTasksTabPickerUnboundedPresentationResult">
+  <int value="0" label="Shown Unbounded"/>
+  <int value="1" label="Fallback API Unsupported"/>
+  <int value="2" label="Show Unbounded Element Failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/resources/contextual_tasks/extension/tab_picker_app.ts:ContextualTasksTabPickerUnboundedPresentationResult) -->
+
+<!-- LINT.IfChange(ContextualTasksThreadContextLibraryUpdateOutcome) -->
+
+<enum name="ContextualTasksThreadContextLibraryUpdateOutcome">
+  <int value="0" label="Success (with task ID)"/>
+  <int value="1" label="Success (without task ID)"/>
+  <int value="2" label="Feature disabled"/>
+  <int value="3" label="No session handle"/>
+  <int value="4" label="Empty converted context"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/contextual_tasks/contextual_tasks_web_contents_user_data.h:ContextualTasksThreadContextLibraryUpdateOutcome) -->
 
 </enums>
 

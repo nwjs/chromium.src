@@ -247,6 +247,7 @@ namespace http://www.w3.org/1999/xhtml
     property onfullscreenerror
     property ongotpointercapture
     property oninput
+    property oninstallresult
     property oninvalid
     property onkeydown
     property onkeypress
@@ -668,7 +669,6 @@ html element embed
     property width
 html element fieldset
     property checkValidity
-    property checkable
     property disabled
     property elements
     property form
@@ -903,16 +903,11 @@ html element ins
     property cite
     property dateTime
 html element install
-    property initialPermissionStatus
     property invalidReason
     property isValid
     property manifest
     property manifestId
-    property oninstallresult
-    property onpromptaction
-    property onpromptdismiss
     property onvalidationstatuschange
-    property permissionStatus
 html element kbd
 html element label
     property control
@@ -973,9 +968,17 @@ html element menu
     property compact
 html element menubar
 html element menuitem
-    property checked
     property command
     property commandForElement
+    property disabled
+    property interestForElement
+html element menuitemcheckbox
+    property checked
+    property defaultChecked
+    property disabled
+    property interestForElement
+html element menuitemradio
+    property checked
     property defaultChecked
     property disabled
     property interestForElement
@@ -1625,6 +1628,7 @@ namespace http://www.w3.org/2000/svg
     property onfullscreenerror
     property ongotpointercapture
     property oninput
+    property oninstallresult
     property oninvalid
     property onkeydown
     property onkeypress
@@ -1775,19 +1779,29 @@ svg element a
     property getBBox
     property getCTM
     property getScreenCTM
+    property hash
+    property host
+    property hostname
     property href
     property hreflang
     property interestForElement
     property nearestViewportElement
+    property origin
+    property password
+    property pathname
     property ping
+    property port
+    property protocol
     property referrerPolicy
     property rel
     property relList
     property requiredExtensions
+    property search
     property systemLanguage
     property target
     property transform
     property type
+    property username
 svg element animate
     property beginElement
     property beginElementAt

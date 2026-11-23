@@ -28,6 +28,7 @@
 #include "chrome/browser/glic/host/glic_web_client_access.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
+#include "chrome/browser/glic/public/glic_cui_tracker.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_passkeys.h"
@@ -37,6 +38,7 @@
 #include "chrome/browser/glic/service/glic_invoke_handler.h"
 #include "chrome/browser/glic/service/glic_onboarding_tracker.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_coordinator_metrics.h"
+#include "chrome/browser/glic/service/metrics/glic_invoke_metrics.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -109,10 +111,13 @@ class GlicInstanceCoordinatorImpl
   // conversation. Used by the web client to get recent conversations.
   std::vector<glic::mojom::ConversationInfoPtr> GetRecentlyActiveConversations(
       size_t limit) override;
+  Profile* GetProfile() const override;
   void ContextAccessIndicatorChanged(GlicInstanceImpl& instance,
                                      bool enabled) override;
   bool IsInvoking(const GlicInstanceImpl* instance) const override;
   void CancelInvoke(GlicInstanceImpl* instance) override;
+  void CancelInvokesOnPanelClose(GlicInstanceImpl* instance,
+                                 GlicInvokeError error) override;
   // TODO(crbug.com/545714879): Remove OnInvoked, OnUserInputSubmitted, and
   // OnFreOptInShown delegate overrides when GlicOnboardingTracker is refactored
   // to free-standing profile helper functions.
@@ -231,13 +236,16 @@ class GlicInstanceCoordinatorImpl
   void RemoveAllInstances(InstanceRemovalReason reason);
   void TransferTabGroupBinding(GlicInstanceImpl& source_instance,
                                GlicInstanceImpl& target_instance);
-  // `bypass_in_progress_check` skips checking for a conflicting in-progress
-  // client invoke.
+  // `entry_path` says which public entry point this came from. It is
+  // recorded on the invocation's structured metrics, and the toggle path
+  // skips the check for a conflicting in-progress client invoke.
+  // `cui_tracker`, if any, is resolved with the invocation's outcome.
   base::WeakPtr<GlicInstanceImpl> InvokeInternal(
       std::optional<InvokeWithAutoSubmitPasskey> auto_submit_passkey,
       GlicInvokeOptions options,
       GlicInvokeWithAutoSubmitOptions auto_submit_options,
-      bool bypass_in_progress_check = false);
+      GlicInvokeEntryPath entry_path,
+      std::unique_ptr<GlicCuiTracker> cui_tracker = nullptr);
 
   void OnTabEvent(const GlicTabEvent& event);
   // Returns a pointer to an instance with the given conversation id or nullptr

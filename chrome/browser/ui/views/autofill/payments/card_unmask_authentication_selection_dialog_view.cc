@@ -109,7 +109,7 @@ void CardUnmaskAuthenticationSelectionDialogView::UpdateContent() {
 }
 
 bool CardUnmaskAuthenticationSelectionDialogView::Accept() {
-  DCHECK(!controller_->GetChallengeOptions().empty());
+  CHECK(!controller_->GetChallengeOptions().empty(), base::NotFatalUntil::M162);
   controller_->OnOkButtonClicked();
   return false;
 }
@@ -126,7 +126,7 @@ void CardUnmaskAuthenticationSelectionDialogView::AddedToWidget() {
 }
 
 void CardUnmaskAuthenticationSelectionDialogView::InitViews() {
-  DCHECK(children().empty());
+  CHECK(children().empty(), base::NotFatalUntil::M162);
   // Sets the layout manager for the top level view.
   auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical, gfx::Insets(),

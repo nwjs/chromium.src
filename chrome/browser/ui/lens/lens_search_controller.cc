@@ -213,9 +213,13 @@ void LensSearchController::OpenLensOverlay(
     bool should_show_csb) {
   CheckInitialized(initialized_);
 
-  // The overlay can only be reinvoked if the feature is enabled.
+  // The overlay can only be reinvoked if the feature is enabled or if invoked
+  // from the Contextual Tasks composebox.
   const bool allow_reinvoking_overlay =
-      lens::features::GetEnableLensButtonInSearchbox() || IsOff();
+      lens::features::GetEnableLensButtonInSearchbox() ||
+      invocation_source ==
+          lens::LensOverlayInvocationSource::kContextualTasksComposebox ||
+      IsOff();
   // If the eligibility checks fail, do not proceed with opening any UI.
   if (!allow_reinvoking_overlay ||
       !RunLensEligibilityChecks(
@@ -361,9 +365,11 @@ void LensSearchController::IssueContextualSearchRequest(
             lens::LensOverlayInvocationSource::kOmniboxPageAction ||
         invocation_source ==
             lens::LensOverlayInvocationSource::kContentAreaContextMenuPage ||
+        invocation_source == lens::LensOverlayInvocationSource::
+                                 kContentAreaContextMenuPageAskGoogle ||
         invocation_source == lens::LensOverlayInvocationSource::kAppMenu ||
         invocation_source ==
-            lens::LensOverlayInvocationSource::kCobrowsePinnedToolbarButton ||
+            lens::LensOverlayInvocationSource::kAppMenuAskGoogle ||
         invocation_source ==
             lens::LensOverlayInvocationSource::kHomeworkActionChip);
 
@@ -640,8 +646,9 @@ void LensSearchController::HideOverlay() {
   }
 
   // This method should only be called when the side panel is open.
-  DCHECK(lens_overlay_side_panel_coordinator_->state() !=
-         lens::LensOverlaySidePanelCoordinator::State::kOff);
+  CHECK(lens_overlay_side_panel_coordinator_->state() !=
+            lens::LensOverlaySidePanelCoordinator::State::kOff,
+        base::NotFatalUntil::M162);
 
   // If the overlay is showing, the overlay needs to fade out. Play the fade out
   // animation and then clean up the rest of the UI afterwards.
@@ -1135,7 +1142,7 @@ void LensSearchController::OnOverlayHidden(
     // TODO(crbug.com/440608864): Make this a CHECK once this is verified.
     if (!dismissal_source.has_value()) {
       // Exit early to avoid a crash.
-      DCHECK(dismissal_source.has_value());
+      CHECK(dismissal_source.has_value(), base::NotFatalUntil::M162);
       return;
     }
     CloseLensPart2(dismissal_source.value());

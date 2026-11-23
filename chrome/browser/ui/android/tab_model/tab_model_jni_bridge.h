@@ -22,6 +22,7 @@
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "url/gurl.h"
 
+class BrowserWindowInterface;
 class SessionID;
 class TabAndroid;
 class TabModelObserverJniBridge;
@@ -54,13 +55,13 @@ class TabModelJniBridge : public TabModel {
   void TabAddedToModel(TabAndroid* tab);
   TabAndroid* DuplicateTab(JNIEnv* env, TabAndroid* tab);
   void MoveTabToWindowForTesting(TabAndroid* tab,
-                                 int64_t native_browser_window_ptr,
+                                 BrowserWindowInterface* browser_window,
                                  int new_index);
   bool MoveTabGroupToWindowForTesting(const base::Token& group_id,
-                                      int64_t native_browser_window_ptr,
+                                      BrowserWindowInterface* browser_window,
                                       int new_index);
   void SetMuteSetting(const std::vector<TabAndroid*>& tabs, bool mute);
-  int32_t GetSessionIdForTesting();
+  int32_t GetNativeSessionId();
   chrome::android::ActivityType GetActivityTypeForTesting();
 
   // TabModel::
@@ -124,6 +125,9 @@ class TabModelJniBridge : public TabModel {
   tabs::TabInterface* OpenTab(const GURL& url,
                               int index,
                               bool foregrond) override;
+  tabs::TabInterface* OpenTab(const GURL& url,
+                              int index,
+                              TabLaunchType launch_type) override;
   void SetOpenerForTab(tabs::TabHandle target, tabs::TabHandle opener) override;
   tabs::TabInterface* GetOpenerForTab(tabs::TabHandle target) override;
   tabs::TabInterface* InsertWebContentsAt(
@@ -147,11 +151,14 @@ class TabModelJniBridge : public TabModel {
   std::set<split_tabs::SplitTabId> ListSplits() override;
   std::optional<tab_groups::TabGroupVisualData> GetTabGroupVisualData(
       tab_groups::TabGroupId group_id) override;
+  std::optional<split_tabs::SplitTabVisualData> GetSplitTabVisualData(
+      split_tabs::SplitTabId split_id) override;
   gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
   std::optional<tab_groups::TabGroupId> CreateTabGroup(
       const std::vector<tabs::TabHandle>& tabs) override;
   std::optional<split_tabs::SplitTabId> CreateSplit(
-      const std::vector<tabs::TabHandle>& tabs) override;
+      const std::vector<tabs::TabHandle>& tabs,
+      const split_tabs::SplitTabVisualData& visual_data) override;
   void SetTabGroupVisualData(
       tab_groups::TabGroupId group_id,
       const tab_groups::TabGroupVisualData& visual_data) override;

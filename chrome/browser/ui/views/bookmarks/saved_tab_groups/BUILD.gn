@@ -89,8 +89,6 @@ source_set("browser_tests") {
     "saved_tab_group_tabs_menu_model_browsertest.cc",
   ]
 
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
   deps = [
     ":saved_tab_groups",
     "//chrome/browser/bookmarks",
@@ -122,8 +120,6 @@ if (!is_chromeos_device) {
       "shared_tab_group_interactive_uitest.cc",
     ]
 
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
     deps = [
       ":saved_tab_groups",
       "//chrome/browser:chrome_content_browser_client",
@@ -139,6 +135,7 @@ if (!is_chromeos_device) {
       "//chrome/browser/ui:browser_commands",
       "//chrome/browser/ui/actions",
       "//chrome/browser/ui/tabs:tab_menu",
+      "//chrome/browser/ui/tabs/saved_tab_groups:test_support",
       "//chrome/browser/ui/views/bookmarks",
       "//chrome/browser/ui/views/bookmarks:test_support",
       "//chrome/browser/ui/views/commerce",

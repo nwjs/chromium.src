@@ -3,12 +3,20 @@
 <head>
   <meta charset="utf-8">
   <title>Lens Chip</title>
+  <script src="color_scheme.js"></script>
   <style>
+    html {
+      color-scheme: light;
+    }
+
+    html[dark-mode] {
+      color-scheme: light dark;
+    }
+
     html,
     body {
       background-color: transparent;
       box-sizing: border-box;
-      color-scheme: light dark;
       height: 100%;
       margin: 0;
       overflow: hidden;

@@ -30,6 +30,7 @@
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/glic_instance.h"
+#include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_window_invocation_tracker.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/glic_ui_embedder.h"
@@ -118,6 +119,13 @@ class GlicInstanceImpl : public GlicInstance,
 
     virtual bool IsInvoking(const GlicInstanceImpl* instance) const = 0;
     virtual void CancelInvoke(GlicInstanceImpl* instance) = 0;
+    // Ends the in-flight invocations on `instance` that cannot proceed once
+    // the panel is closed (show-only invocations while the client is still
+    // loading, or any invocation still waiting on FRE completion in the panel)
+    // with `error`. Invocations that will send something to a consented web
+    // client are left running, as the client may still act on them.
+    virtual void CancelInvokesOnPanelClose(GlicInstanceImpl* instance,
+                                           GlicInvokeError error) = 0;
 
     // TODO(crbug.com/545714879): Remove OnInvoked, OnUserInputSubmitted,
     // and OnFreOptInShown from InstanceCoordinatorDelegate when onboarding
@@ -191,7 +199,7 @@ class GlicInstanceImpl : public GlicInstance,
   bool IsDetached();
   bool IsActuating() const override;
   bool IsInvoking() const override;
-  bool IsLiveMode();
+  bool IsLiveMode() const override;
 
   glic::mojom::ConversationInfoPtr GetConversationInfo() const;
 
@@ -235,7 +243,7 @@ class GlicInstanceImpl : public GlicInstance,
   std::optional<int> task_id() const override;
   std::optional<mojom::InvocationSource> GetInitialInvocationSource()
       const override;
-  std::vector<tabs::TabInterface*> GetBoundTabs() const;
+  std::vector<raw_ptr<tabs::TabInterface>> GetBoundTabs() const;
 
   // If the key corresponds to a tab-associated embedder (such as a side panel),
   // returns the corresponding TabInterface pointer. Otherwise (e.g., a floating
@@ -365,6 +373,10 @@ class GlicInstanceImpl : public GlicInstance,
   void NotifyVisibilityChange();
   void NotifyInstanceChanged();
 
+  // Returns the active embedder if and only if `key` is currently the active
+  // embedder key. Useful for re-validating that the target embedder has not
+  // been deactivated or destroyed across synchronous observer notifications.
+  GlicUiEmbedder* GetActiveEmbedderForKey(EmbedderKey key);
   GlicUiEmbedder* GetEmbedderForKey(EmbedderKey key);
   EmbedderKey GetEmbedderKeyForTab(tabs::TabInterface* tab) const;
   EmbedderEntry* GetEmbedderEntry(EmbedderKey key);
@@ -384,7 +396,7 @@ class GlicInstanceImpl : public GlicInstance,
                      EmbedderEntry& entry,
                      const CloseOptions& options = {});
   void MaybeShowHostUi(
-      GlicUiEmbedder* embedder,
+      GlicUiEmbedder& embedder,
       mojom::InvocationSource source,
       std::optional<std::string> prompt_suggestion,
       mojom::FreOverride fre_override = mojom::FreOverride::kUnspecified);
@@ -439,12 +451,22 @@ class GlicInstanceImpl : public GlicInstance,
   // Updates the floating panel can attach state.
   void UpdateFloatingPanelCanAttach();
 
+  void OnEmbedderClosed(EmbedderKey key);
+
   mojom::PanelState ComputePanelState();
+
+  void OnActuatingChanged(bool actuating);
+  void UpdateOffscreenRenderingState();
+  void StopOffscreenRendering();
+  // Returns the WebContents to attach for offscreen rendering: the WebUI
+  // contents in webview mode, or the guest contents in NoWebview mode.
+  // TODO(b/534807813): Remove once webview is deleted; callers should use
+  // host_.web_client_contents() directly.
+  content::WebContents* GetOffscreenRenderingContents() const;
 
   using ConversationInfoChangedCallbackList =
       base::RepeatingCallbackList<void(const mojom::ConversationInfo&)>;
   ConversationInfoChangedCallbackList conversation_info_changed_callback_list_;
-
 
   base::OnceCallbackList<void(GlicInstance*)> will_be_destroyed_callbacks_;
 
@@ -517,10 +539,6 @@ class GlicInstanceImpl : public GlicInstance,
   bool suppress_show_on_tab_added_to_task_ = false;
 
   std::optional<TabGroupBinding> tab_group_binding_;
-
-  void OnActuatingChanged(bool actuating);
-  void UpdateOffscreenRenderingState();
-  void StopOffscreenRendering();
 
   bool is_hidden_initializing_ = false;
 #if BUILDFLAG(IS_ANDROID)

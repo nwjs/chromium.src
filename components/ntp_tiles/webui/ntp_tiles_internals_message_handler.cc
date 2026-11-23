@@ -19,7 +19,7 @@
 #include "components/favicon/core/favicon_service.h"
 #include "components/ntp_tiles/constants.h"
 #include "components/ntp_tiles/most_visited_sites.h"
-#include "components/ntp_tiles/pref_names.h"
+#include "components/ntp_tiles/popular_sites_pref_names.h"
 #include "components/ntp_tiles/webui/ntp_tiles_internals_message_handler_client.h"
 #include "components/prefs/pref_service.h"
 #include "components/url_formatter/url_fixer.h"
@@ -289,7 +289,7 @@ void NTPTilesInternalsMessageHandler::OnURLsAvailable(
   for (const NTPTile& tile : tiles) {
     for (const auto& entry : kIconTypesAndNames) {
       favicon_service_->GetLargestRawFaviconForPageURL(
-          tile.url, std::vector<favicon_base::IconTypeSet>({{entry.type_enum}}),
+          tile.url, {{entry.type_enum}},
           /*minimum_size_in_pixels=*/0,
           base::BindOnce(on_lookup_done, tile.url), &cancelable_task_tracker_);
     }

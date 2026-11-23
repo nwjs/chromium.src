@@ -78,7 +78,7 @@ void NavigateTool::Invoke(ToolCallback callback) {
   // NavigateUsingLoadURL path lands safely.
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
-          url_, WindowOpenDisposition::CURRENT_TAB,
+          url_, WindowOpenDisposition::kCurrentTab,
           ::ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL);
 
   // TODO(b/460113906): Alternate to the NavigateUsingLoadURL path to fix for
@@ -110,12 +110,6 @@ std::unique_ptr<ObservationDelayController> NavigateTool::GetObservationDelayer(
   return std::make_unique<ObservationDelayController>(
       *web_contents()->GetPrimaryMainFrame(), task_id(), journal(),
       page_stability_config);
-}
-
-void NavigateTool::UpdateTaskBeforeInvoke(ActorTask& task,
-                                          ToolCallback callback) const {
-  task.AddActorSurface(actor_surface_handle_, /*stop_task_on_detach=*/true,
-                       std::move(callback));
 }
 
 ActorSurfaceHandle NavigateTool::GetTargetActorSurface() const {

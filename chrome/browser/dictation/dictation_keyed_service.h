@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_DICTATION_DICTATION_KEYED_SERVICE_H_
 
 #include <memory>
+#include <optional>
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
@@ -13,7 +14,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/dictation/connector_component_extension.h"
 #include "chrome/browser/dictation/dictation_multiplexer.h"
-#include "chrome/browser/dictation/local_hotkey_manager.h"
+#include "chrome/browser/dictation/hotkey_manager.h"
 #include "chrome/browser/dictation/logging.h"
 #include "chrome/browser/dictation/metrics.h"
 #include "chrome/browser/dictation/onboarding_manager.h"
@@ -28,6 +29,7 @@ class Profile;
 
 namespace content {
 class BrowserContext;
+struct GlobalDOMNodeId;
 }
 
 namespace tabs {
@@ -60,6 +62,8 @@ class DictationKeyedService : public KeyedService,
       SessionController& controller) const override;
   std::unique_ptr<SessionUi> CreateUi(
       SessionController& controller) const override;
+  // Destroys the session. Only called by
+  // `SessionController::EndSessionSynchronously()`, once it is `kEnded`.
   void EndSession() override;
 
   // Returns true if the reviewing page status UI should be shown, and consumes
@@ -116,9 +120,7 @@ class DictationKeyedService : public KeyedService,
 
   bool IsEnabledAndReady() const;
 
-  LocalHotkeyManager* local_hotkey_manager_for_testing() {
-    return local_hotkey_manager_.get();
-  }
+  HotkeyManager* hotkey_manager_for_testing() { return hotkey_manager_.get(); }
 
   DictationLogBuffer& log_buffer() { return log_buffer_; }
   const DictationLogBuffer& log_buffer() const { return log_buffer_; }
@@ -132,6 +134,13 @@ class DictationKeyedService : public KeyedService,
   // Returns the tab currently displaying the Dictation session UI
   tabs::TabInterface* GetActiveDictationTab() const;
 
+  // Registers a callback invoked whenever a session ends, right before it and
+  // its UI are destroyed. `target` is the field the session's latest stream was
+  // started on; its page may be gone.
+  base::CallbackListSubscription AddSessionEndedCallback(
+      base::RepeatingCallback<void(const content::GlobalDOMNodeId& target)>
+          callback);
+
  private:
   // Starts a new session from the given target. It's the caller's
   // responsibility to ensure this never called while an existing session in
@@ -143,6 +152,21 @@ class DictationKeyedService : public KeyedService,
 
   void OnPrefChanged();
   void UpdateHotkeyManager();
+
+  // Ends the session, if any, through its controller, so that it enters
+  // `kEnded` like any other session end.
+  void EndActiveSession();
+
+  // Forwards session state changes to `hotkey_manager_`, and notifies
+  // `session_ended_callbacks_` when the session ends.
+  void OnSessionStateChanged(dictation::SessionState state);
+
+  // Tells User Education in `tab` that a session started from `entry_point`:
+  // closes the IPH the user no longer needs, and records the invocation that
+  // counts towards showing the hotkey IPH.
+  void UpdateUserEducationForStartSession(
+      tabs::TabInterface& tab,
+      DictationSessionEntryPoint entry_point);
 
   // Handles triggering a session, either starting a new one
   // or updating an existing session to start a new stream, possibly in a new
@@ -164,7 +188,7 @@ class DictationKeyedService : public KeyedService,
 
   ReviewingPageStatusUiController reviewing_page_status_ui_controller_;
 
-  std::unique_ptr<LocalHotkeyManager> local_hotkey_manager_;
+  std::unique_ptr<HotkeyManager> hotkey_manager_;
 
   struct SessionState {
     SessionState(SessionControllerDelegate& delegate, tabs::TabInterface& tab);
@@ -172,11 +196,18 @@ class DictationKeyedService : public KeyedService,
 
     SessionController controller_;
     base::WeakPtr<tabs::TabInterface> tab_;
+    // Subscription to `controller_`'s SessionState changes, used to register
+    // the global hotkey only while listening and to report the session ending.
+    // Declared after `controller_` so that it is destroyed first.
+    base::CallbackListSubscription session_state_subscription_;
   };
   std::optional<SessionState> session_;
 
   base::RepeatingCallbackList<void(tabs::TabInterface*)>
       dictation_tab_changed_callbacks_;
+
+  base::RepeatingCallbackList<void(const content::GlobalDOMNodeId&)>
+      session_ended_callbacks_;
 };
 
 }  // namespace dictation

@@ -83,6 +83,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"
 #include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/other_device_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/recent_tabs_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_metrics.h"
@@ -142,6 +143,7 @@
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/skills/features.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/base/features.h"
 #include "components/sync/service/sync_service.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/vector_icons/vector_icons.h"
@@ -195,6 +197,11 @@
 #include "content/public/browser/gpu_data_manager.h"
 #endif
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/global_features.h"
+#include "chrome/browser/lifetime/scheduled_restart_manager.h"
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+
 using base::UserMetricsAction;
 using content::WebContents;
 
@@ -204,6 +211,7 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kBookmarksMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kTabGroupsMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kDownloadsMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kHistoryMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kOtherDeviceTabsMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kExtensionsMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel,
                                       kSkillsAndExtensionsMenuItem);
@@ -227,6 +235,7 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kInstallAppItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kCreateShortcutItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel,
                                       kSetBrowserAsDefaultMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kScheduledRestartMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(AppMenuModel, kHelpMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ToolsMenuModel, kPerformanceMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ToolsMenuModel, kChromeLabsMenuItem);
@@ -1246,7 +1255,7 @@ AppMenuModel::AppMenuModel(ui::AcceleratorProvider* provider,
       browser_(browser),
       app_menu_icon_controller_(app_menu_icon_controller),
       alert_item_(alert_item) {
-  DCHECK(browser_);
+  CHECK(browser_, base::NotFatalUntil::M162);
 }
 
 AppMenuModel::~AppMenuModel() = default;
@@ -1329,6 +1338,15 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
       }
       LogMenuAction(MENU_ACTION_UPGRADE_DIALOG);
       break;
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+    case IDC_SCHEDULED_RESTART_DIALOG:
+      if (!uma_action_recorded_) {
+        base::UmaHistogramMediumTimes(
+            "WrenchMenu.TimeToAction.ScheduledRestartDialog", delta);
+      }
+      LogMenuAction(MENU_ACTION_SCHEDULED_RESTART_DIALOG);
+      break;
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     case IDC_NEW_TAB:
       if (!uma_action_recorded_) {
         base::UmaHistogramMediumTimes("WrenchMenu.TimeToAction.NewTab", delta);
@@ -1667,11 +1685,6 @@ void AppMenuModel::LogMenuMetrics(int command_id) {
             "WrenchMenu.TimeToAction.ShowReadingModeSidePanel", delta);
       }
       LogMenuAction(MENU_ACTION_SHOW_READING_MODE_SIDE_PANEL);
-      // Close IPH for side panel menu, if shown.
-      BrowserUserEducationInterface::From(browser())
-          ->NotifyFeaturePromoFeatureUsed(
-              feature_engagement::kIPHReadingModeSidePanelFeature,
-              FeaturePromoFeatureUsedAction::kIgnorePromoIfPresent);
       break;
     case IDC_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL:
       if (!uma_action_recorded_) {
@@ -2052,6 +2065,8 @@ bool AppMenuModel::IsCommandIdEnabled(int command_id) const {
       return IncognitoModePrefs::IsIncognitoTypeAllowed(
           browser_->GetProfile(),
           IncognitoModePrefs::IncognitoModeType::kStandard);
+    case kOtherDeviceTabsMenuPlaceholder:
+      return base::FeatureList::IsEnabled(syncer::kCrossDeviceTabsInAppMenu);
     default:
       return chrome::IsCommandEnabled(browser_, command_id);
   }
@@ -2110,8 +2125,9 @@ void AppMenuModel::LogMenuAction(AppMenuAction action_id) {
 // - Browser relaunch, quit.
 void AppMenuModel::Build() {
   // Build (and, by extension, Init) should only be called once.
-  DCHECK_EQ(0u, GetItemCount());
+  CHECK_EQ(0u, GetItemCount(), base::NotFatalUntil::M162);
 
+  bool has_scheduled_restart_item = false;
   if (app_menu_icon_controller_ &&
       app_menu_icon_controller_->GetTypeAndSeverity().type ==
           AppMenuIconController::IconType::kUpgradeNotification) {
@@ -2125,11 +2141,12 @@ void AppMenuModel::Build() {
       AddItemWithIcon(IDC_UPGRADE_DIALOG, GetUpgradeDialogTitleText(),
                       update_icon);
       AddSeparator(ui::SPACING_SEPARATOR);
+      has_scheduled_restart_item = AddScheduledRestartMenuItem();
     }
   }
 
   if (AddSafetyHubMenuItem() || AddGlobalErrorMenuItems() ||
-      AddDefaultBrowserMenuItems()) {
+      AddDefaultBrowserMenuItems() || has_scheduled_restart_item) {
     AddSeparator(ui::NORMAL_SEPARATOR);
   }
   int new_tab_string_id = IDS_NEW_TAB;
@@ -2218,6 +2235,18 @@ void AppMenuModel::Build() {
     SetElementIdentifierAt(
         GetIndexOfCommandId(kRecentTabsMenuPlaceholder).value(),
         kHistoryMenuItem);
+
+    if (base::FeatureList::IsEnabled(syncer::kCrossDeviceTabsInAppMenu)) {
+      sub_menus_.push_back(std::make_unique<OtherDeviceTabsSubMenuModel>());
+      AddSubMenuWithStringIdAndVectorIcon(
+          this, kOtherDeviceTabsMenuPlaceholder, IDS_OTHER_DEVICE_TABS_MENU,
+          sub_menus_.back().get(),
+          features::IsRoundedIconsEnabled() ? vector_icons::kDevicesIcon
+                                            : vector_icons::kDevicesOldIcon);
+      SetElementIdentifierAt(
+          GetIndexOfCommandId(kOtherDeviceTabsMenuPlaceholder).value(),
+          kOtherDeviceTabsMenuItem);
+    }
   }
   AddItemWithStringIdAndVectorIcon(
       this, IDC_SHOW_DOWNLOADS, IDS_SHOW_DOWNLOADS,
@@ -2531,6 +2560,28 @@ void AppMenuModel::CreateZoomMenu() {
       features::IsRoundedIconsEnabled() ? kZoomInIcon : kZoomInOldIcon);
 }
 
+bool AppMenuModel::AddScheduledRestartMenuItem() {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  if (!scheduled_restart::ScheduledRestartManager::IsAppMenuItemEnabled() ||
+      !g_browser_process || !g_browser_process->GetFeatures()) {
+    return false;
+  }
+  auto* srm = g_browser_process->GetFeatures()->scheduled_restart_manager();
+  if (!srm || !srm->IsUpgradeAvailableForScheduling()) {
+    return false;
+  }
+  AddItemWithStringIdAndVectorIcon(this, IDC_SCHEDULED_RESTART_DIALOG,
+                                   IDS_SCHEDULED_RESTART_MENU_ITEM,
+                                   kScheduleIcon);
+  SetElementIdentifierAt(
+      GetIndexOfCommandId(IDC_SCHEDULED_RESTART_DIALOG).value(),
+      kScheduledRestartMenuItem);
+  return true;
+#else
+  return false;
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+}
+
 bool AppMenuModel::AddGlobalErrorMenuItems() {
   // TODO(sail): Currently we only build the app menu once per browser
   // window. This means that if a new error is added after the menu is built
@@ -2541,7 +2592,7 @@ bool AppMenuModel::AddGlobalErrorMenuItems() {
           ->errors();
   bool menu_items_added = false;
   for (GlobalError* error : errors) {
-    DCHECK(error);
+    CHECK(error, base::NotFatalUntil::M162);
     if (error->HasMenuItem()) {
       AddItem(error->MenuItemCommandID(), error->MenuItemLabel());
       SetIconForCommandId(error->MenuItemCommandID(), error->MenuItemIcon());

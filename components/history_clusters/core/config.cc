@@ -4,14 +4,10 @@
 
 #include "components/history_clusters/core/config.h"
 
-#include <algorithm>
-
 #include "base/command_line.h"
 #include "base/feature_list.h"
-#include "base/i18n/legacy_language_tag_helpers.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/no_destructor.h"
-#include "base/strings/string_split.h"
 #include "build/build_config.h"
 #include "components/history_clusters/core/features.h"
 #include "components/history_clusters/core/on_device_clustering_features.h"
@@ -38,39 +34,6 @@ const char kShouldShowAllClustersOnProminentUiSurfaces[] =
 
 Config::Config() {
   // Override any parameters that may be provided by Finch.
-
-  // The `kJourneys` feature and child params.
-  {
-    is_journeys_enabled_no_locale_check =
-        base::FeatureList::IsEnabled(internal::kJourneys);
-
-    max_visits_to_cluster = base::GetFieldTrialParamByFeatureAsInt(
-        internal::kJourneys, "JourneysMaxVisitsToCluster",
-        max_visits_to_cluster);
-
-    max_keyword_phrases = base::GetFieldTrialParamByFeatureAsInt(
-        internal::kJourneys, "JourneysMaxKeywordPhrases", max_keyword_phrases);
-
-    min_score_to_always_show_above_the_fold =
-        base::GetFieldTrialParamByFeatureAsDouble(
-            internal::kJourneys, "JourneysMinScoreToAlwaysShowAboveTheFold",
-            min_score_to_always_show_above_the_fold);
-
-    num_visits_to_always_show_above_the_fold =
-        base::GetFieldTrialParamByFeatureAsInt(
-            internal::kJourneys, "JourneysNumVisitsToAlwaysShowAboveTheFold",
-            num_visits_to_always_show_above_the_fold);
-
-    rescore_visits_within_clusters_for_query =
-        base::GetFieldTrialParamByFeatureAsBool(
-            internal::kJourneys, "JourneysRescoreVisitsWithinClustersForQuery",
-            rescore_visits_within_clusters_for_query);
-
-    sort_clusters_within_batch_for_query =
-        base::GetFieldTrialParamByFeatureAsBool(
-            internal::kJourneys, "JourneysSortClustersWithinBatchForQuery",
-            sort_clusters_within_batch_for_query);
-  }
 
   // The `kJourneysImages` feature.
   {
@@ -179,37 +142,6 @@ Config::Config() {
         use_host_for_visit_deduping);
   }
 
-  // The `kOnDeviceClusteringVisitRanking` feature and child params.
-  {
-    visit_duration_ranking_weight = GetFieldTrialParamByFeatureAsDouble(
-        features::kOnDeviceClusteringVisitRanking,
-        "visit_duration_ranking_weight", visit_duration_ranking_weight);
-    DCHECK_GE(visit_duration_ranking_weight, 0.0f);
-
-    foreground_duration_ranking_weight = GetFieldTrialParamByFeatureAsDouble(
-        features::kOnDeviceClusteringVisitRanking,
-        "foreground_duration_ranking_weight",
-        foreground_duration_ranking_weight);
-    DCHECK_GE(foreground_duration_ranking_weight, 0.0f);
-
-    bookmark_ranking_weight = GetFieldTrialParamByFeatureAsDouble(
-        features::kOnDeviceClusteringVisitRanking, "bookmark_ranking_weight",
-        bookmark_ranking_weight);
-    DCHECK_GE(bookmark_ranking_weight, 0.0f);
-
-    search_results_page_ranking_weight = GetFieldTrialParamByFeatureAsDouble(
-        features::kOnDeviceClusteringVisitRanking,
-        "search_results_page_ranking_weight",
-        search_results_page_ranking_weight);
-    DCHECK_GE(search_results_page_ranking_weight, 0.0f);
-
-    has_url_keyed_image_ranking_weight = GetFieldTrialParamByFeatureAsDouble(
-        features::kOnDeviceClusteringVisitRanking,
-        "has_url_keyed_image_ranking_weight",
-        has_url_keyed_image_ranking_weight);
-    DCHECK_GE(has_url_keyed_image_ranking_weight, 0.0f);
-  }
-
   // The `kHistoryClustersNavigationContextClustering` feature and child params.
   {
     use_navigation_context_clusters = base::FeatureList::IsEnabled(
@@ -253,39 +185,6 @@ Config::~Config() = default;
 
 void SetConfigForTesting(const Config& config) {
   GetConfigInternal() = config;
-}
-
-bool IsApplicationLocaleSupportedByJourneys(
-    const std::string& application_locale) {
-  // Application locale support should be checked only if the Journeys feature
-  // is enabled.
-  DCHECK(GetConfig().is_journeys_enabled_no_locale_check);
-
-  // Note, we now set a default value for the allowlist, which means that when
-  // the feature parameter is undefined, the below allowlist is enabled.
-  const base::FeatureParam<std::string> kLocaleOrLanguageAllowlist{
-      &internal::kJourneys, "JourneysLocaleOrLanguageAllowlist",
-      "de:en:es:fr:it:nl:pt:tr"};
-
-  // To allow for using any locale, we also interpret the special '*' value.
-  auto allowlist_string = kLocaleOrLanguageAllowlist.Get();
-  if (allowlist_string == "*") {
-    return true;
-  }
-
-  // Allow comma and colon as delimiters to the language list.
-  auto allowlist = base::SplitString(
-      allowlist_string, ",:", base::WhitespaceHandling::TRIM_WHITESPACE,
-      base::SplitResult::SPLIT_WANT_NONEMPTY);
-
-  // Allow any exact locale matches, and also allow any users where the
-  // primary language subtag, e.g. "en" from "en-US" to match any element of
-  // the list.
-  return allowlist.empty() ||
-         std::ranges::contains(allowlist, application_locale) ||
-         std::ranges::contains(
-             allowlist,
-             base::i18n::GetLanguageSubtagUsingLanguageTag(application_locale));
 }
 
 const Config& GetConfig() {

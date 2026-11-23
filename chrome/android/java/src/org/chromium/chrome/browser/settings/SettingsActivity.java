@@ -647,7 +647,11 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                             ? getSupportFragmentManager()
                             : mMultiColumnSettings.getChildFragmentManager();
             if (fragmentManager.getBackStackEntryCount() <= mPendingPopBackCount) {
-                finish();
+                if (mMultiColumnSettings != null && mMultiColumnSettings.canBeBackToMain()) {
+                    mMultiColumnSettings.showMainSettings();
+                } else {
+                    finish();
+                }
             } else {
                 var entry =
                         fragmentManager.getBackStackEntryAt(
@@ -896,7 +900,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
 
     private void registerMainFragmentBackPressHandler() {
         Fragment activeFragment = getMainFragment();
-        if (activeFragment instanceof BackPressHandler) {
+        if (activeFragment instanceof BackPressHandler backPressHandler) {
             // We do not support embeddable fragments to implement BackPressHandler as it requires
             // keeping track of the main fragment while there is no real use case for it.
             assert mStandalone;
@@ -904,7 +908,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                     BackPressHelper.create(
                             activeFragment.getViewLifecycleOwner(),
                             getOnBackPressedDispatcher(),
-                            (BackPressHandler) activeFragment);
+                            backPressHandler);
         }
     }
 
@@ -1008,7 +1012,15 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                         ? getSupportFragmentManager()
                         : mMultiColumnSettings.getChildFragmentManager();
         if (fragmentManager.getBackStackEntryCount() == 0) {
-            finish();
+            if (mMultiColumnSettings != null && mMultiColumnSettings.canBeBackToMain()) {
+                if (fragmentManager.isStateSaved()) {
+                    ++mPendingPopBackCount;
+                } else {
+                    mMultiColumnSettings.showMainSettings();
+                }
+            } else {
+                finish();
+            }
         } else {
             if (fragmentManager.isStateSaved()) {
                 ++mPendingPopBackCount;

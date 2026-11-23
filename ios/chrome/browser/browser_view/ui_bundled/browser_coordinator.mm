@@ -6,6 +6,7 @@
 
 #import <memory>
 #import <optional>
+#import <utility>
 
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
@@ -39,7 +40,10 @@
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/constants.h"
 #import "components/segmentation_platform/embedder/home_modules/tips_manager/signal_constants.h"
 #import "components/send_tab_to_self/metrics_util.h"
+#import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
+#import "components/signin/public/base/signin_switches.h"
+#import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/sync/service/sync_service.h"
 #import "components/translate/core/browser/translate_manager.h"
 #import "components/trusted_vault/trusted_vault_server_constants.h"
@@ -48,6 +52,7 @@
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper_browser_presentation_provider.h"
 #import "ios/chrome/browser/app_store_rating/model/features.h"
+#import "ios/chrome/browser/authentication/signin/reauth/coordinator/signin_reauth_coordinator.h"
 #import "ios/chrome/browser/authentication/trusted_vault_reauthentication/coordinator/trusted_vault_reauthentication_coordinator.h"
 #import "ios/chrome/browser/authentication/trusted_vault_reauthentication/coordinator/trusted_vault_reauthentication_coordinator_delegate.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
@@ -231,6 +236,7 @@
 #import "ios/chrome/browser/signin/model/account_consistency_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/snackbar/ui_bundled/snackbar_coordinator.h"
 #import "ios/chrome/browser/snackbar/ui_bundled/snackbar_coordinator_delegate.h"
 #import "ios/chrome/browser/snapshots/model/model_swift.h"
@@ -285,7 +291,6 @@
 #import "ios/public/provider/chrome/browser/voice_search/voice_search_controller.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_id.h"
-#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
 
 #if BUILDFLAG(ENABLE_SWIFT_CXX_INTEROP)
@@ -325,7 +330,7 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
     RecentTabsCoordinatorDelegate,
     RepostFormCoordinatorDelegate,
     RepostFormTabHelperDelegate,
-
+    SigninReauthCoordinatorDelegate,
     SnackbarCoordinatorDelegate,
     SnapshotGeneratorDelegate,
     SyncPresenterCommands,
@@ -473,8 +478,13 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   raw_ptr<FullscreenController> _fullscreenController;
   BookmarksCoordinator* _bookmarksCoordinator;
   CredentialProviderPromoCoordinator* _credentialProviderPromoCoordinator;
-  // Used to display the Voice Search UI.  Nil if not visible.
+  // Used to display the legacy Voice Search UI.
+  // TODO(crbug.com/549858749): Remove once the legacy Voice Search UI is
+  // removed.
   id<VoiceSearchController> _voiceSearchController;
+  // Coordinator presenting the Voice Search UI. Nil if Voice Search isn't
+  // started.
+  ChromeCoordinator* _voiceSearchCoordinator;
   raw_ptr<UrlLoadingNotifierBrowserAgent> _urlLoadingNotifierBrowserAgent;
   id<OmniboxCommands> _omniboxCommandsHandler;
   LayoutGuideCenter* _layoutGuideCenter;
@@ -504,6 +514,8 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   PriceTrackingPromoCoordinator* _priceTrackingPromoCoordinator;
   TabGroupsPromoCoordinator* _tabGroupsPromoCoordinator;
   AutoDeletionCoordinator* _autoDeletionCoordinator;
+  SigninReauthCoordinator* _reauthCoordinator;
+  SyncPresenterCompletionCallback _reauthCoordinatorCompletion;
   TrustedVaultReauthenticationCoordinator*
       _trustedVaultReauthenticationCoordinator;
   SyncPresenterCompletionCallback
@@ -514,7 +526,6 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 
   // The coordinator for the notifications opt-in screen.
   NotificationsOptInCoordinator* _notificationsOptInCoordinator;
-
 }
 
 #pragma mark - SnackbarCoordinatorDelegate
@@ -705,6 +716,7 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   [super stop];
   self.active = NO;
   [self stopSigninCoordinator];
+  [self stopReauthCoordinator];
   [self uninstallDelegatesForBrowserState];
   [self uninstallDelegatesForBrowser];
   [self.tabEventsMediator disconnect];
@@ -805,6 +817,16 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 - (void)stopSigninCoordinator {
   [_signinCoordinator stop];
   _signinCoordinator = nil;
+}
+
+- (void)stopReauthCoordinator {
+  _reauthCoordinator.delegate = nil;
+  [_reauthCoordinator stop];
+  _reauthCoordinator = nil;
+
+  if (_reauthCoordinatorCompletion) {
+    std::exchange(_reauthCoordinatorCompletion, nil)();
+  }
 }
 
 - (void)stopTrustedVaultReauthentication {
@@ -1093,7 +1115,10 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 
   _safeAreaProvider = [[SafeAreaProvider alloc] initWithBrowser:browser];
 
-  _voiceSearchController = ios::provider::CreateVoiceSearchController(browser);
+  if (!IsVoiceSearchEvolutionPhase1Enabled()) {
+    _voiceSearchController =
+        ios::provider::CreateVoiceSearchController(browser);
+  }
 
   _viewControllerDependencies.toolbarAccessoryPresenter =
       _toolbarAccessoryPresenter;
@@ -1434,6 +1459,7 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   [self dismissNotificationsOptIn];
   [self hideComposeboxImmediately:YES completion:nil];
   [self dismissMultimodalActionsMenu];
+  [self stopVoiceSearchCoordinator];
 
   [_readerModeCoordinator stop];
   _readerModeCoordinator = nil;
@@ -1507,8 +1533,12 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 // Resets the composebox state provider and coordinator. The
 // composeboxCoordinator should have been stopped before calling this method.
 - (void)resetComposebox {
+  BOOL hadComposebox = _composeboxCoordinator != nil;
   _browserOmniboxStateProvider.composeboxStateProvider = nil;
   _composeboxCoordinator = nil;
+  if (hadComposebox) {
+    self.viewController.visibilityState = BrowserViewVisibilityState::kVisible;
+  }
 }
 
 // Hides the compose box. If `immediately` is NO, the operation stops on the
@@ -1739,14 +1769,15 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   const TabGroup* group = webStateList->GetGroupOfWebStateAt(active_index);
   if (groupService && groupService->ShouldDisplayLastTabCloseAlert(group)) {
     web::WebState* webState = webStateList->GetWebStateAt(active_index);
-    BOOL isTablet = ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET;
+    BOOL isRegularXRegular = IsRegularXRegularSizeClass(self.viewController);
     SharedTabGroupLastTabAlertCommand* command =
         [[SharedTabGroupLastTabAlertCommand alloc]
                  initWithTabID:webState->GetUniqueIdentifier()
                        browser:self.browser
                          group:group
             baseViewController:self.viewController
-                    sourceView:isTablet ? nil : self.viewController.view
+                    sourceView:isRegularXRegular ? nil
+                                                 : self.viewController.view
                        closing:YES];
 
     id<SharedTabGroupLastTabAlertCommands> lastTabAlertHandler =
@@ -1786,6 +1817,9 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 }
 
 - (void)preloadVoiceSearch {
+  if (IsVoiceSearchEvolutionPhase1Enabled()) {
+    return;
+  }
   // Preload VoiceSearchController and views and view controllers needed
   // for voice search.
   [_voiceSearchController prepareToAppear];
@@ -1795,10 +1829,31 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   id<SceneCommands> sceneHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
   [sceneHandler stopAllVoiceSearch];
-  [_viewController startVoiceSearch];
+
+  if (!IsVoiceSearchEvolutionPhase1Enabled()) {
+    [_viewController startVoiceSearch];
+    return;
+  }
+
+  [IntentDonationHelper donateIntent:IntentType::kOpenVoiceSearch];
+
+  // Voice Search shouldn't be covered by other UI. The composebox is dismissed
+  // asynchronously, so wait for it before presenting Voice Search.
+  [self closeFindInPage];
+  __weak __typeof(self) weakSelf = self;
+  [self hideComposeboxImmediately:NO
+                       completion:^{
+                         [weakSelf startVoiceSearchCoordinator];
+                       }];
 }
 
 - (void)stopVoiceSearch {
+  if (IsVoiceSearchEvolutionPhase1Enabled()) {
+    // TODO(crbug.com/571184218): Stop spoken result playback.
+    [self stopVoiceSearchCoordinator];
+    return;
+  }
+
   if (!_voiceSearchController.audioPlaying) {
     return;
   }
@@ -1812,7 +1867,6 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   [HandlerForProtocol(self.dispatcher, IOSPasskeyClientCommands)
       dismissPasskeySuggestions];
 }
-
 
 - (void)legacyDismissCardUnmaskAuthentication {
   // TODO(crbug.com/543382844): Remove this.
@@ -1945,10 +1999,12 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 
 - (void)showAddAccountWithAccessPoint:(signin_metrics::AccessPoint)accessPoint
                        prefilledEmail:(NSString*)email {
-  if (_signinCoordinator.viewWillPersist) {
+  if (_signinCoordinator.viewWillPersist ||
+      _reauthCoordinator.viewWillPersist) {
     return;
   }
-  [_signinCoordinator stop];
+  [self stopSigninCoordinator];
+  [self stopReauthCoordinator];
   SigninContextStyle contextStyle = SigninContextStyle::kDefault;
   _signinCoordinator = [SigninCoordinator
       addAccountCoordinatorWithBaseViewController:self.viewController
@@ -1998,6 +2054,8 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
          composeboxAnimationBase:_toolbarCoordinator];
   [_composeboxCoordinator start];
   _browserOmniboxStateProvider.composeboxStateProvider = _composeboxCoordinator;
+  self.viewController.visibilityState =
+      BrowserViewVisibilityState::kCoveredByOmniboxPopup;
 }
 
 - (void)hideComposebox {
@@ -2039,6 +2097,7 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
   [self cancelCollaborationFlows];
   [self.NTPCoordinator clearPresentedState];
   [self dismissMultimodalActionsMenu];
+  [self stopVoiceSearchCoordinator];
   // The composebox replaces the omnibox.
   if (dismissOmnibox) {
     [self hideComposebox];
@@ -2051,6 +2110,24 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
       clearPresentedStateWithCompletion:completion
                          dismissOmnibox:dismissOmnibox
          dismissPresentedViewController:dismissPresentedViewController];
+}
+
+#pragma mark - Voice Search helpers
+
+// Starts the Voice Search coordinator on the browser view.
+- (void)startVoiceSearchCoordinator {
+  [self stopVoiceSearchCoordinator];
+  // TODO(crbug.com/571184218): Implement `VoiceSearchCoordinatorDelegate` to
+  // load recognized queries and stop the coordinator on dismissal.
+  _voiceSearchCoordinator = ios::provider::CreateVoiceSearchCoordinator(
+      self.viewController, self.browser, /*delegate=*/nil);
+  [_voiceSearchCoordinator start];
+}
+
+// Stops the Voice Search coordinator, if any.
+- (void)stopVoiceSearchCoordinator {
+  [_voiceSearchCoordinator stop];
+  _voiceSearchCoordinator = nil;
 }
 
 #pragma mark - ReaderModeCommands
@@ -2509,10 +2586,42 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 
 - (void)showPrimaryAccountReauthWithDismissalCompletion:
     (SyncPresenterCompletionCallback)completion {
-  if (_signinCoordinator.viewWillPersist) {
+  if (_signinCoordinator.viewWillPersist ||
+      _reauthCoordinator.viewWillPersist) {
     return;
   }
-  [_signinCoordinator stop];
+  [self stopSigninCoordinator];
+  [self stopReauthCoordinator];
+
+  if (base::FeatureList::IsEnabled(
+          switches::kMigrateToSigninReauthCoordinator)) {
+    Browser* regularBrowser = signin::GetRegularBrowser(self.browser);
+    signin::IdentityManager* identityManager =
+        IdentityManagerFactory::GetForProfile(regularBrowser->GetProfile());
+    CoreAccountInfo account =
+        identityManager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
+    if (account.IsEmpty()) {
+      // A sign-out was triggered in the meantime, don't do anything.
+      if (completion) {
+        completion();
+      }
+      return;
+    }
+
+    _reauthCoordinator = [[SigninReauthCoordinator alloc]
+        initWithBaseViewController:self.viewController
+                           browser:regularBrowser
+                           account:account
+                 reauthAccessPoint:signin_metrics::ReauthAccessPoint::
+                                       kReauthInfoBar];
+    _reauthCoordinator.delegate = self;
+    _reauthCoordinatorCompletion = completion;
+    [_reauthCoordinator start];
+    return;
+  }
+
+  // TODO(crbug.com/471207686): Remove after MigrateToSigninReauthCoordinator
+  // is launched.
   signin_metrics::PromoAction promoAction =
       signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
   signin_metrics::AccessPoint accessPoint =
@@ -2632,10 +2741,12 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
 #pragma mark - ReSigninPresenter
 
 - (void)showReSignin {
-  if (_signinCoordinator.viewWillPersist) {
+  if (_signinCoordinator.viewWillPersist ||
+      _reauthCoordinator.viewWillPersist) {
     return;
   }
-  [_signinCoordinator stop];
+  [self stopSigninCoordinator];
+  [self stopReauthCoordinator];
   signin_metrics::AccessPoint accessPoint =
       signin_metrics::AccessPoint::kResigninInfobar;
   signin_metrics::PromoAction promoAction =
@@ -3151,13 +3262,19 @@ constexpr CGFloat kSnackbarFloatingBottomMargin = 10.0;
                     ->IsWebUsageEnabled();
 }
 
-
 #pragma mark - NotificationsOptInCoordinatorDelegate
 
 - (void)notificationsOptInScreenDidFinish:
     (NotificationsOptInCoordinator*)coordinator {
   CHECK_EQ(coordinator, _notificationsOptInCoordinator);
   [self dismissNotificationsOptIn];
+}
+
+#pragma mark - SigninReauthCoordinatorDelegate
+
+- (void)reauthFinishedWithResult:(ReauthResult)result
+                          gaiaID:(const GaiaId*)gaiaID {
+  [self stopReauthCoordinator];
 }
 
 #pragma mark - TrustedVaultReauthenticationCoordinatorDelegate

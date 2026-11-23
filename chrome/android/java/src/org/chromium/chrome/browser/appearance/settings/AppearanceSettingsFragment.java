@@ -25,6 +25,7 @@ import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarConstants;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -34,6 +35,7 @@ import org.chromium.chrome.browser.settings.ChromeBaseSettingsFragment;
 import org.chromium.chrome.browser.settings.ChromeManagedPreferenceDelegate;
 import org.chromium.chrome.browser.settings.search.ChromeBaseSearchIndexProvider;
 import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarStatePredictor;
+import org.chromium.chrome.browser.toolbar.settings.AddressBarPreference;
 import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.components.bookmarks.BookmarkBarVisibilityState;
@@ -48,11 +50,13 @@ import org.chromium.components.prefs.PrefChangeRegistrar.PrefObserver;
 /** Fragment to manage appearance settings. */
 @NullMarked
 public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
-        implements CustomDividerFragment {
+        implements CustomDividerFragment, HomepageManager.HomepageStateListener {
 
+    public static final String PREF_ADDRESS_BAR = "address_bar";
     public static final String PREF_BOOKMARK_BAR = "bookmark_bar";
     public static final String PREF_BOOKMARK_BAR_SWITCH = "bookmark_bar_switch";
     public static final String PREF_BOTTOM_BAR_SWITCH = "bottom_bar_switch";
+    public static final String PREF_HOMEPAGE = "homepage";
     public static final String PREF_TOOLBAR_SHORTCUT = "toolbar_shortcut";
     public static final String PREF_UI_THEME = "ui_theme";
     public static final String PREF_TAB_POSITION = "tab_position";
@@ -67,6 +71,7 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
     private @Nullable PrefChangeRegistrar mPrefChangeRegistrar;
     private @Nullable PrefObserver mPrefObserver;
     private @Nullable OnSharedPreferenceChangeListener mDevicePrefsListener;
+    private @Nullable OnSharedPreferenceChangeListener mAddressBarPreferenceListener;
     private @Nullable OnSharedPreferenceChangeListener mTabPositionListener;
 
     @Override
@@ -78,8 +83,10 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
         // UserPrefs. For tablets, we use the local device preference.
         mUseProfileUserPrefs = DeviceInfo.isDesktop();
         initBookmarkBarPref();
+        initAddressBarPref();
         initToolbarShortcutPref();
         initBottomBarPref();
+        initHomepagePref();
         initTabPositionPref();
     }
 
@@ -101,6 +108,11 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
                     .unregisterOnSharedPreferenceChangeListener(mDevicePrefsListener);
             mDevicePrefsListener = null;
         }
+        if (mAddressBarPreferenceListener != null) {
+            ContextUtils.getAppSharedPreferences()
+                    .unregisterOnSharedPreferenceChangeListener(mAddressBarPreferenceListener);
+            mAddressBarPreferenceListener = null;
+        }
         if (mTabPositionListener != null) {
             ContextUtils.getAppSharedPreferences()
                     .unregisterOnSharedPreferenceChangeListener(mTabPositionListener);
@@ -112,12 +124,28 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
     public void onStart() {
         super.onStart();
         updateBookmarkBarPref();
+        updateAddressBarPref();
         updateUiThemePref();
         updateBottomBarPref();
+        if (shouldShowHomepagePref(getContext())) {
+            HomepageManager.getInstance().addListener(this);
+            updateHomepagePref();
+        }
         updateTabPositionPref();
 
         TrackerFactory.getTrackerForProfile(getProfile())
                 .notifyEvent(EventConstants.SETTINGS_APPEARANCE_OPENED);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        HomepageManager.getInstance().removeListener(this);
+    }
+
+    @Override
+    public void onHomepageStateUpdated() {
+        updateHomepagePref();
     }
 
     @Override
@@ -280,13 +308,60 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
                         });
     }
 
+    @SuppressWarnings("UseSharedPreferencesManagerFromChromeCheck")
+    private void initAddressBarPref() {
+        if (!shouldShowAddressBarPref(getContext())) {
+            removePreference(PREF_ADDRESS_BAR);
+            return;
+        }
+        mAddressBarPreferenceListener =
+                (sharedPreferences, key) -> {
+                    if (ChromePreferenceKeys.TOOLBAR_TOP_ANCHORED.equals(key)) {
+                        updateAddressBarPref();
+                    }
+                };
+        ContextUtils.getAppSharedPreferences()
+                .registerOnSharedPreferenceChangeListener(mAddressBarPreferenceListener);
+    }
+
+    private void updateAddressBarPref() {
+        Preference addressBarPref = findPreference(PREF_ADDRESS_BAR);
+        if (addressBarPref == null) return;
+        addressBarPref.setSummary(
+                AddressBarPreference.isToolbarConfiguredToShowOnTop()
+                        ? R.string.address_bar_settings_top
+                        : R.string.address_bar_settings_bottom);
+    }
+
     private void initToolbarShortcutPref() {
+        Context context = getContext();
+        if (BottomBarConfigUtils.shouldMoveToolbarSettingsToAppearance(context)) {
+            Preference toolbarShortcutPref = findPreference(PREF_TOOLBAR_SHORTCUT);
+            if (toolbarShortcutPref != null) {
+                toolbarShortcutPref.setTitle(R.string.address_bar_shortcut);
+            }
+        }
         shouldShowToolbarShortcutPrefAsync(
-                getContext(),
+                context,
                 getProfile(),
                 (shouldShow) -> {
                     if (!shouldShow) removePreference(PREF_TOOLBAR_SHORTCUT);
                 });
+    }
+
+    private void initHomepagePref() {
+        if (!shouldShowHomepagePref(getContext())) {
+            removePreference(PREF_HOMEPAGE);
+        }
+    }
+
+    private void updateHomepagePref() {
+        Preference homepagePref = findPreference(PREF_HOMEPAGE);
+        if (homepagePref == null) return;
+        homepagePref.setSummary(
+                HomepageManager.getInstance().isHomepageEnabled()
+                        ? R.string.text_on
+                        : R.string.text_off);
     }
 
     /** Initializes the bottom bar switch, or removes it when it should not be offered. */
@@ -418,6 +493,15 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
         };
     }
 
+    static boolean shouldShowAddressBarPref(Context context) {
+        return BottomBarConfigUtils.shouldMoveToolbarSettingsToAppearance(context);
+    }
+
+    static boolean shouldShowHomepagePref(Context context) {
+        return BottomBarConfigUtils.shouldMoveToolbarSettingsToAppearance(context)
+                && HomepageManager.shouldShowHomepageSettings();
+    }
+
     static boolean shouldShowBookmarkPref(Context context) {
         return BookmarkBarUtils.isDeviceBookmarkBarCompatible(context);
     }
@@ -447,6 +531,10 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
                         Context context, SettingsIndexData indexData, Profile profile) {
                     String prefFragment = AppearanceSettingsFragment.class.getName();
 
+                    if (!shouldShowAddressBarPref(context)) {
+                        indexData.removeEntryForKey(prefFragment, PREF_ADDRESS_BAR);
+                    }
+
                     if (!shouldShowBookmarkPref(context)) {
                         indexData.removeEntryForKey(prefFragment, PREF_BOOKMARK_BAR);
                         indexData.removeEntryForKey(prefFragment, PREF_BOOKMARK_BAR_SWITCH);
@@ -460,12 +548,21 @@ public class AppearanceSettingsFragment extends ChromeBaseSettingsFragment
                         indexData.removeEntryForKey(prefFragment, PREF_BOOKMARK_BAR);
                     }
 
+                    if (!shouldShowHomepagePref(context)) {
+                        indexData.removeEntryForKey(prefFragment, PREF_HOMEPAGE);
+                    }
+
                     if (!VerticalTabUtils.isVerticalTabsEligible(context)) {
                         indexData.removeEntryForKey(prefFragment, PREF_TAB_POSITION);
                     }
 
                     if (!BottomBarConfigUtils.shouldShowSettingsToggle(context)) {
                         indexData.removeEntryForKey(prefFragment, PREF_BOTTOM_BAR_SWITCH);
+                    }
+
+                    if (BottomBarConfigUtils.shouldMoveToolbarSettingsToAppearance(context)) {
+                        indexData.updateEntryForKey(
+                                prefFragment, PREF_TOOLBAR_SHORTCUT, R.string.address_bar_shortcut);
                     }
 
                     shouldShowToolbarShortcutPrefAsync(

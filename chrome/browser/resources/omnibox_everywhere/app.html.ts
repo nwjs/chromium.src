@@ -16,7 +16,6 @@ export function getHtml(this: OmniboxEverywhereAppElement) {
         ?is-active="${this.isActive_}"
         .isPendingScreenshot="${this.isPendingScreenshot_}"
         searchbox-layout-mode="${this.searchboxLayoutMode_}"
-        .state="${this.composeboxState_}"
         .clearAllInputsWhenSubmittingQuery="${true}"
         @close-composebox="${this.onCloseComposebox_}"
         @composebox-submit="${this.onComposeboxSubmit_}"
@@ -44,6 +43,11 @@ export function getHtml(this: OmniboxEverywhereAppElement) {
       <cr-most-visited id="mostVisited" single-row non-editable
           ?hide-title="${this.hideTitle_}"
           .maxTiles="${this.getMaxMostVisitedTiles_()}"></cr-most-visited>
+      <button id="mostVisitedCloseButton"
+          aria-label="${this.i18n('close')}"
+          @click="${this.onMostVisitedCloseClick_}">
+        <cr-icon icon="cr:close" aria-hidden="true"></cr-icon>
+      </button>
     </div>
   ` : ''}
   ${

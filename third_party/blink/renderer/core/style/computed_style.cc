@@ -334,6 +334,10 @@ bool ComputedStyle::NeedsReattachLayoutTree(const Element& element,
   if (!old_style->ScrollMarkerGroupEqual(*new_style)) {
     return true;
   }
+  if (!old_style->ScrollMarkerGroupNone() &&
+      old_style->IsScrollContainer() != new_style->IsScrollContainer()) {
+    return true;
+  }
   if (old_style->EffectiveOverscrollContainerType() !=
       new_style->EffectiveOverscrollContainerType()) {
     return true;
@@ -448,6 +452,8 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
   if (old_style.Display() != new_style.Display() &&
       (old_style.BlockifiesChildren() != new_style.BlockifiesChildren() ||
        old_style.InlinifiesChildren() != new_style.InlinifiesChildren() ||
+       old_style.AllowsZIndexOnChildren() !=
+           new_style.AllowsZIndexOnChildren() ||
        (old_style.Display() == EDisplay::kContents &&
         old_style.IsContentDrawableCanvasChild()) !=
            (new_style.Display() == EDisplay::kContents &&
@@ -455,6 +461,10 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
     return Difference::kDescendantAffecting;
   }
   if (old_style.ScrollMarkerGroupNone() != new_style.ScrollMarkerGroupNone()) {
+    return Difference::kDescendantAffecting;
+  }
+  if (!old_style.ScrollMarkerGroupNone() &&
+      old_style.IsScrollContainer() != new_style.IsScrollContainer()) {
     return Difference::kDescendantAffecting;
   }
   if (!old_style.NonIndependentInheritedEqual(new_style)) {
@@ -1863,8 +1873,8 @@ static String DisableNewGeorgianCapitalLetters(const String& text) {
   // about surrogate handling.
   for (unsigned i = 0; i < length; ++i) {
     UChar character = UNSAFE_TODO(input[i]);
-    if (Character::IsModernGeorgianUppercase(character)) {
-      result.Append(Character::LowercaseModernGeorgianUppercase(character));
+    if (unicode::IsModernGeorgianUppercase(character)) {
+      result.Append(unicode::LowercaseModernGeorgianUppercase(character));
     } else {
       result.Append(character);
     }
@@ -2495,8 +2505,7 @@ bool ComputedStyle::HasBackground() const {
   // When background color animation is running on the compositor thread, we
   // need to trigger repaint even if the background is transparent to collect
   // artifacts in order to run the animation on the compositor.
-  if (RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
-      HasCurrentBackgroundColorAnimation()) {
+  if (HasCurrentBackgroundColorAnimation()) {
     return true;
   }
   return HasBackgroundImage();
@@ -3125,7 +3134,13 @@ void ComputedStyleBuilder::SetAnimatedSource(CSSPropertyID property,
   if (!tracked) {
     return;
   }
-  UpdateAnimatedSource(*tracked, CSSProperty::Get(property),
+  const CSSProperty& css_property = CSSProperty::Get(property);
+  if (css_property.IsInherited() &&
+      !RuntimeEnabledFeatures::
+          TrackAnimatedSourcesForInheritedPropertiesEnabled()) {
+    return;
+  }
+  UpdateAnimatedSource(*tracked, css_property,
                        AnimatedSource::ForElement(&animating_element));
 }
 

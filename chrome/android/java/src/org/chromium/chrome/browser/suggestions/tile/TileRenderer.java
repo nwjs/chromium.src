@@ -29,7 +29,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.suggestions.mostvisited.SuggestTileType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.suggestions.ImageFetcher;
@@ -200,23 +199,22 @@ public class TileRenderer {
             // to be added back in the correct order.
             parent.removeAllViews();
 
-            Tile prevTile = null;
+            SuggestionsTileView prevTileView = null;
             for (Tile tile : sectionTiles) {
                 SuggestionsTileView tileView = oldTileViews.remove(tile.getData());
                 if (tileView == null) {
                     tileView = buildTileView(tile, parent, setupDelegate);
                 }
-                // Add divider if sources change between CUSTOM_LINKS and any other type.
-                if (prevTile != null
-                        && (prevTile.getData().source == TileSource.CUSTOM_LINKS)
-                                != (tile.getData().source == TileSource.CUSTOM_LINKS)) {
+                // Add divider at the boundary between the customized section and organic tiles.
+                if (prevTileView != null
+                        && (prevTileView.isDraggable() != tileView.isDraggable())) {
                     parent.addDivider(buildDivider(parent));
                 }
                 parent.addTile(tileView);
                 if (focusedUrl != null && focusedUrl.equals(tile.getUrl().getSpec())) {
                     tileView.requestFocus();
                 }
-                prevTile = tile;
+                prevTileView = tileView;
             }
 
             // Restore parent's original focusability.
@@ -276,7 +274,7 @@ public class TileRenderer {
         // Note: It is important that the callbacks below don't keep a reference to the tile or
         // modify them as there is no guarantee that the same tile would be used to update the view.
         updateIcon(tile, setupDelegate);
-        updateContentDescription(tile, tileView);
+        updateContentDescription(tile, tileView, setupDelegate);
 
         TileGroup.TileInteractionDelegate delegate =
                 setupDelegate.createInteractionDelegate(tile, tileView);
@@ -331,10 +329,6 @@ public class TileRenderer {
     }
 
     boolean shouldShowAddNewButton(List<Tile> sectionTiles) {
-        if (!ChromeFeatureList.sMostVisitedTilesCustomization.isEnabled()) {
-            return false;
-        }
-
         if (sectionTiles.isEmpty()) {
             // Still show the Add Custom Link Button, even if no suggestions exist. We might make
             // this configurable.
@@ -406,17 +400,24 @@ public class TileRenderer {
      *
      * @param tile Tile data that carries information about the destination URL.
      * @param tileView The view that should receive updated content description.
+     * @param setupDelegate The delegate used to setup callbacks and listeners for the new view.
      */
-    private void updateContentDescription(Tile tile, SuggestionsTileView tileView) {
+    private void updateContentDescription(
+            Tile tile, SuggestionsTileView tileView, TileGroup.TileSetupDelegate setupDelegate) {
         String contentDescription;
         if (isSearchTile(tile)) {
             contentDescription =
                     mContext.getString(
                             R.string.accessibility_omnibox_most_visited_tile_search,
                             tile.getTitle());
+        } else if (tile.isAiMode()) {
+            contentDescription = setupDelegate.getAiModeTileContentDescription();
+            if (contentDescription == null) {
+                contentDescription = tile.getTitle();
+            }
         } else {
             String title = tile.getTitle();
-            if (tile.getData().source == TileSource.CUSTOM_LINKS) {
+            if (tile.isCustomLink()) {
                 title += ": " + mPinnedShortcutString;
             }
             contentDescription =
@@ -438,7 +439,9 @@ public class TileRenderer {
     public void updateIcon(final Tile tile, TileGroup.TileSetupDelegate setupDelegate) {
         if (isSearchTile(tile)) {
             setTileIconFromResAsync(tile, setupDelegate, R.drawable.ic_suggestion_magnifier);
-
+        } else if (tile.isAiMode()) {
+            setTileIconFromResAsync(
+                    tile, setupDelegate, setupDelegate.getAiModeTileIconDrawableId());
         } else if (mImageFetcher != null) {
             mImageFetcher.makeLargeIconRequest(
                     tile.getUrl(),

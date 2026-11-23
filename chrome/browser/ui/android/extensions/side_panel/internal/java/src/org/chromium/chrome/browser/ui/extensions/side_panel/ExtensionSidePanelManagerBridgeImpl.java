@@ -4,29 +4,34 @@
 
 package org.chromium.chrome.browser.ui.extensions.side_panel;
 
-import org.jni_zero.CalledByNative;
+import org.jni_zero.JniPtr;
+import org.jni_zero.JniType;
+import org.jni_zero.JniTypeToken;
+import org.jni_zero.JniUniquePtr;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask.NativeBrowserWindowInterface;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeature.InitInfo;
 
 /** Implements {@link ExtensionSidePanelManagerBridge}. */
 @NullMarked
 final class ExtensionSidePanelManagerBridgeImpl implements ExtensionSidePanelManagerBridge {
-    private long mNativeExtensionSidePanelManagerBridge;
+    @JniType("::ExtensionSidePanelManagerBridge")
+    interface NativeExtensionSidePanelManagerBridge extends JniTypeToken {}
+
+    private @Nullable JniUniquePtr<NativeExtensionSidePanelManagerBridge> mNative;
 
     ExtensionSidePanelManagerBridgeImpl() {}
 
     @Override
     public void onAddedToTask(InitInfo initInfo) {
         ThreadUtils.assertOnUiThread();
-        assert mNativeExtensionSidePanelManagerBridge == 0
-                : "ExtensionSidePanelManagerBridge is already added to a task.";
+        assert mNative == null : "ExtensionSidePanelManagerBridge is already added to a task.";
 
-        mNativeExtensionSidePanelManagerBridge =
-                ExtensionSidePanelManagerBridgeImplJni.get()
-                        .create(/* caller= */ this, initInfo.nativeBrowserWindowPtr);
+        mNative = ExtensionSidePanelManagerBridgeImplJni.get().create(initInfo.nativeBrowserWindow);
     }
 
     @Override
@@ -36,21 +41,15 @@ final class ExtensionSidePanelManagerBridgeImpl implements ExtensionSidePanelMan
     }
 
     private void destroyNativeExtensionSidePanelManagerBridge() {
-        if (mNativeExtensionSidePanelManagerBridge != 0) {
-            ExtensionSidePanelManagerBridgeImplJni.get()
-                    .destroy(mNativeExtensionSidePanelManagerBridge);
+        if (mNative != null) {
+            mNative.destroy();
+            mNative = null;
         }
-    }
-
-    @CalledByNative
-    private void clearNativePtr() {
-        mNativeExtensionSidePanelManagerBridge = 0;
     }
 
     @NativeMethods
     interface Natives {
-        long create(ExtensionSidePanelManagerBridgeImpl caller, long nativeBrowserWindowPtr);
-
-        void destroy(long nativeExtensionSidePanelManagerBridge);
+        JniUniquePtr<NativeExtensionSidePanelManagerBridge> create(
+                @Nullable JniPtr<NativeBrowserWindowInterface> browserWindow);
     }
 }

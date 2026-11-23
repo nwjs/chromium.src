@@ -6,6 +6,7 @@
 
 #include <array>
 #include <limits>
+#include <utility>
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
@@ -21,7 +22,6 @@
 #include "third_party/blink/renderer/platform/audio/vector_math.h"
 #include "third_party/blink/renderer/platform/bindings/enumeration_base.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
-#include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 
@@ -81,6 +81,8 @@ float DoInterpolation(double virtual_read_index,
     // Increment is fairly large, so we're doing no more than about 3
     // points between each wave table entry. Assume linear
     // interpolation between points is good enough.
+    double interpolation_factor =
+        static_cast<float>(virtual_read_index) - read_index_0;
     unsigned read_index2 = read_index_0 + 1;
 
     // Contain within valid range.
@@ -93,8 +95,6 @@ float DoInterpolation(double virtual_read_index,
     float sample2_higher = higher_wave_data[read_index2];
 
     // Linearly interpolate within each table (lower and higher).
-    double interpolation_factor =
-        static_cast<float>(virtual_read_index) - read_index_0;
     sample_higher = (1 - interpolation_factor) * sample1_higher +
                     interpolation_factor * sample2_higher;
     sample_lower = (1 - interpolation_factor) * sample1_lower +
@@ -188,9 +188,9 @@ bool OscillatorHandler::SetInitialType(const String& oscillator_type) {
 }
 
 void OscillatorHandler::SetInitialPeriodicWave(
-    const PeriodicWaveHandler* periodic_wave_handler) {
+    scoped_refptr<const PeriodicWaveHandler> periodic_wave_handler) {
   DCHECK(periodic_wave_handler);
-  SetPeriodicWave(periodic_wave_handler);
+  SetPeriodicWave(std::move(periodic_wave_handler));
 }
 
 scoped_refptr<OscillatorHandler> OscillatorHandler::Create(
@@ -294,7 +294,8 @@ bool OscillatorHandler::CalculateSampleAccuratePhaseIncrements(
 
   bool has_sample_accurate_values = false;
   bool has_frequency_changes = false;
-  base::span<float> phase_increments = phase_increments_.as_span();
+  base::span<float> phase_increments =
+      phase_increments_.as_span().first(frames_to_process);
 
   float final_scale = periodic_wave_->RateScale();
 
@@ -304,8 +305,7 @@ bool OscillatorHandler::CalculateSampleAccuratePhaseIncrements(
 
     // Get the sample-accurate frequency values and convert to phase increments.
     // They will be converted to phase increments below.
-    frequency_->CalculateSampleAccurateValues(
-        phase_increments_.as_span().first(frames_to_process));
+    frequency_->CalculateSampleAccurateValues(phase_increments);
   } else {
     // Handle ordinary parameter changes if there are no scheduled changes.
     float frequency = frequency_->FinalValue();
@@ -324,15 +324,14 @@ bool OscillatorHandler::CalculateSampleAccuratePhaseIncrements(
 
     // Convert from cents to rate scalar.
     float k = 1.0 / 1200;
-    vector_math::Vsmul(detune_values, k, detune_values, frames_to_process);
+    vector_math::Vsmul(detune_values, k, detune_values);
     for (unsigned i = 0; i < frames_to_process; ++i) {
       detune_values[i] = std::exp2(detune_values[i]);
     }
 
     if (has_frequency_changes) {
       // Multiply frequencies by detune scalings.
-      vector_math::Vmul(detune_values, phase_increments, phase_increments,
-                        frames_to_process);
+      vector_math::Vmul(detune_values, phase_increments, phase_increments);
     }
   } else {
     // Handle ordinary parameter changes if there are no scheduled
@@ -345,8 +344,7 @@ bool OscillatorHandler::CalculateSampleAccuratePhaseIncrements(
   if (has_sample_accurate_values) {
     ClampFrequency(phase_increments, Context()->sampleRate() / 2);
     // Convert from frequency to wavetable increment.
-    vector_math::Vsmul(phase_increments, final_scale, phase_increments,
-                       frames_to_process);
+    vector_math::Vsmul(phase_increments, final_scale, phase_increments);
   }
 
   return has_sample_accurate_values;
@@ -384,6 +382,8 @@ double OscillatorHandler::ProcessARateVectorKernel(
     // Increment is fairly large, so we're doing no more than about 3
     // points between each wave table entry. Assume linear
     // interpolation between points is good enough.
+    double interpolation_factor =
+        static_cast<float>(virtual_read_index) - read_index_0;
     unsigned read_index2 = read_index_0 + 1;
 
     // Contain within valid range.
@@ -396,8 +396,6 @@ double OscillatorHandler::ProcessARateVectorKernel(
     float sample2_higher = higher_wave_data[m][read_index2];
 
     // Linearly interpolate within each table (lower and higher).
-    double interpolation_factor =
-        static_cast<float>(virtual_read_index) - read_index_0;
     // Doing linear interpolation via x0 + f*(x1-x0) gives slightly
     // different results from (1-f)*x0 + f*x1, but requires fewer
     // operations.  This causes a very slight decrease in SNR (< 0.05 dB) in
@@ -448,8 +446,10 @@ double OscillatorHandler::ProcessKRateScalar(int start,
   for (int k = start; k < n; ++k) {
     // Get indices for the current and next sample, and contain them within the
     // valid range
-    const unsigned read_index_0 =
-        static_cast<unsigned>(virtual_read_index) & read_index_mask;
+    unsigned read_index_0 = static_cast<unsigned>(virtual_read_index);
+    const float interpolation_factor =
+        static_cast<float>(virtual_read_index) - read_index_0;
+    read_index_0 &= read_index_mask;
     const unsigned read_index_1 = (read_index_0 + 1) & read_index_mask;
 
     const float sample1_lower = lower_wave_data[read_index_0];
@@ -458,8 +458,6 @@ double OscillatorHandler::ProcessKRateScalar(int start,
     const float sample2_higher = higher_wave_data[read_index_1];
 
     // Linearly interpolate within each table (lower and higher).
-    const float interpolation_factor =
-        static_cast<float>(virtual_read_index) - read_index_0;
     const float sample_higher =
         sample1_higher +
         interpolation_factor * (sample2_higher - sample1_higher);
@@ -682,8 +680,8 @@ void OscillatorHandler::Process(uint32_t frames_to_process) {
     return;
   }
 
-  // We must access m_periodicWave only inside the lock.
-  if (!periodic_wave_.Get()) {
+  // We must access `periodic_wave_` only inside the lock.
+  if (!periodic_wave_) {
     output_bus->Zero();
     return;
   }
@@ -763,18 +761,20 @@ void OscillatorHandler::Process(uint32_t frames_to_process) {
 }
 
 void OscillatorHandler::SetPeriodicWave(
-    const PeriodicWaveHandler* periodic_wave) {
+    scoped_refptr<const PeriodicWaveHandler> periodic_wave) {
   DCHECK(IsMainThread());
   DCHECK(periodic_wave);
 
   // This synchronizes with process().
   base::AutoLock process_locker(process_lock_);
-  periodic_wave_ = periodic_wave;
+  // Swap so that any destruction of the previous `PeriodicWaveHandler` occurs
+  // outside `process_lock_` when `periodic_wave` goes out of scope.
+  std::swap(periodic_wave_, periodic_wave);
   type_ = CUSTOM;
 }
 
 bool OscillatorHandler::PropagatesSilence() const {
-  return !IsPlayingOrScheduled() || HasFinished() || !periodic_wave_;
+  return !IsPlayingOrScheduled() || HasFinished();
 }
 
 base::WeakPtr<AudioScheduledSourceHandler> OscillatorHandler::AsWeakPtr() {

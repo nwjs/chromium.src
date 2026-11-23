@@ -5,7 +5,9 @@
 #import "ios/chrome/browser/level_up/model/level_up_scene_agent.h"
 
 #import <map>
+#import <string>
 
+#import "base/check.h"
 #import "base/functional/bind.h"
 #import "base/logging.h"
 #import "base/memory/raw_ptr.h"
@@ -13,6 +15,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/time/time.h"
 #import "ios/chrome/app/profile/profile_state.h"
+#import "ios/chrome/browser/level_up/model/level_up_metrics.h"
 #import "ios/chrome/browser/level_up/model/level_up_service.h"
 #import "ios/chrome/browser/level_up/model/level_up_service_factory.h"
 #import "ios/chrome/browser/ntp/model/new_tab_page_util.h"
@@ -44,18 +47,30 @@
 
 - (void)setSceneState:(SceneState*)sceneState {
   [super setSceneState:sceneState];
-  if (sceneState.activationLevel >= SceneActivationLevelForegroundActive) {
-    [self startListening];
-  }
+  [self handleActivationLevel:sceneState.activationLevel];
 }
 
 - (void)sceneState:(SceneState*)sceneState
     transitionedToActivationLevel:(SceneActivationLevel)level {
+  [self handleActivationLevel:level];
+}
+
+// Handles scene activation level changes.
+- (void)handleActivationLevel:(SceneActivationLevel)level {
   if (level >= SceneActivationLevelForegroundActive) {
     [self startListening];
+    [self recordForegroundMetrics];
   } else {
     [self stopListening];
   }
+}
+
+// Records Level Up metrics when the scene becomes active in the foreground.
+- (void)recordForegroundMetrics {
+  if (!_levelUpService || !_levelUpService->IsOptedIn()) {
+    return;
+  }
+  RecordLevelUpCurrentLevel(_levelUpService->GetCurrentLevel());
 }
 
 - (void)startListening {
@@ -71,7 +86,9 @@
 
   _actionToTaskMap.clear();
   for (const auto& [type, info] : _levelUpService->GetTasks()) {
-    _actionToTaskMap[info->GetTriggerUserAction()] = type;
+    for (const std::string& action : info->GetTriggerUserActions()) {
+      _actionToTaskMap[action] = type;
+    }
   }
   _actionToStatMap = _levelUpService->GetStatTriggerUserActions();
 

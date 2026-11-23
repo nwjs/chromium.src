@@ -17,6 +17,7 @@
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "media/base/media_switches.h"
 #include "media/base/media_util.h"
@@ -1911,6 +1912,32 @@ TEST_F(MultiBufferDataSourceTest, ResponseTypeOpaque) {
   EXPECT_TRUE(loading());
 
   FinishLoading();
+}
+
+TEST_F(MultiBufferDataSourceTest, ResponseTypeOpaqueOnLaterRange) {
+  base::test::ScopedFeatureList feature_list(
+      media::kDisallowMixedOpaqueMediaResponses);
+  Initialize(kHttpUrl, true);
+  WebURLResponse response1 =
+      response_generator_->GeneratePartial206(0, kDataSize - 1);
+  response1.SetType(network::mojom::blink::FetchResponseType::kCors);
+  WebURLResponse response2 =
+      response_generator_->GeneratePartial206(kDataSize, kDataSize * 2 - 1);
+  response2.SetType(network::mojom::blink::FetchResponseType::kOpaque);
+  ExecuteMixedResponseFailureTest(response1, response2);
+}
+
+TEST_F(MultiBufferDataSourceTest, ResponseTypeNonOpaqueAfterOpaqueRange) {
+  base::test::ScopedFeatureList feature_list(
+      media::kDisallowMixedOpaqueMediaResponses);
+  Initialize(kHttpUrl, true);
+  WebURLResponse response1 =
+      response_generator_->GeneratePartial206(0, kDataSize - 1);
+  response1.SetType(network::mojom::blink::FetchResponseType::kOpaque);
+  WebURLResponse response2 =
+      response_generator_->GeneratePartial206(kDataSize, kDataSize * 2 - 1);
+  response2.SetType(network::mojom::blink::FetchResponseType::kCors);
+  ExecuteMixedResponseFailureTest(response1, response2);
 }
 
 TEST_F(MultiBufferDataSourceTest, ResponseTypeOpaqueRedirect) {

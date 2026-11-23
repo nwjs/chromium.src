@@ -378,6 +378,15 @@ aura::Window* GetHostWindow(aura::Window* window) {
   return window->parent();
 }
 
+// Returns whether drag-and-drop data from or to `web_contents` is
+// off-the-record.
+bool IsOffTheRecordForDragAndDrop(WebContents& web_contents) {
+  return GetContentClient()
+      ->browser()
+      ->GetUserBrowserContext(*web_contents.GetPrimaryMainFrame())
+      ->IsOffTheRecord();
+}
+
 }  // namespace
 
 WebContentsViewAura::DropMetadata::DropMetadata(
@@ -1268,8 +1277,7 @@ void WebContentsViewAura::StartDragging(
   data->SetSource(std::make_unique<ui::DataTransferEndpoint>(
       web_contents_->GetPrimaryMainFrame()->GetLastCommittedURL(),
       ui::DataTransferEndpointOptions{
-          .off_the_record =
-              web_contents_->GetBrowserContext()->IsOffTheRecord()}));
+          .off_the_record = IsOffTheRecordForDragAndDrop(*web_contents_)}));
   WebContentsDelegate* delegate = web_contents_->GetDelegate();
   if (delegate && delegate->IsPrivileged())
     data->MarkAsFromPrivileged();
@@ -1291,22 +1299,32 @@ void WebContentsViewAura::StartDragging(
     // touch event would reach `::SendInput` via
     // DesktopWindowTreeHostWin::StartTouchDrag and could redirect the
     // synthesized click to an overlapping HWND (e.g. a permission bubble).
-    // Require an in-flight touch or a left mouse button, depending on the
-    // event source, and refuse the drag if the requirement is not met.
-    gfx::Point trusted_location = event_info.location;
+    // Require a touch or a left mouse press on the web contents, depending on
+    // the event source, and refuse the drag if the requirement is not met.
+    gfx::Point trusted_location;
     aura::Env* env = aura::Env::GetInstance();
-    if ((event_info.source == ui::mojom::DragEventSource::kTouch &&
-         !env->is_touch_down()) ||
-        (event_info.source == ui::mojom::DragEventSource::kMouse &&
-         !env->IsLeftMouseButtonDown())) {
-      EndDrag(std::move(source_rwh_weak_ptr), result_op);
-      return;
-    }
     if (event_info.source == ui::mojom::DragEventSource::kTouch) {
-      trusted_location =
-          env->GetLastPointerPoint(event_info.source, content_native_view,
-                                   /*fallback=*/event_info.location);
+      // A touch elsewhere (e.g. holding the window caption to move the
+      // window), or a touch that already started a drag and whose release was
+      // consumed by the platform drag loop, must not satisfy this check.
+      std::optional<gfx::Point> touch_location =
+          env->ConsumeTouchForDrag(content_native_view);
+      if (!touch_location) {
+        EndDrag(std::move(source_rwh_weak_ptr), result_op);
+        return;
+      }
+      trusted_location = *touch_location;
     } else {
+      // Likewise, a left button held elsewhere (e.g. on the window caption or
+      // a draggable region of a frameless app window to move the window), or
+      // a press that already started a drag and whose release was consumed by
+      // the platform drag loop or the window manager, must not satisfy this
+      // check.
+      if (event_info.source == ui::mojom::DragEventSource::kMouse &&
+          !env->ConsumeLeftMousePressForDrag(content_native_view)) {
+        EndDrag(std::move(source_rwh_weak_ptr), result_op);
+        return;
+      }
       trusted_location = env->last_mouse_location();
     }
     // Make sure event is within the web contents, and the web contents are
@@ -1659,12 +1677,11 @@ aura::client::DragUpdateInfo WebContentsViewAura::OnDragUpdated(
   }
   aura::client::DragUpdateInfo drag_info;
   auto* focused_frame = web_contents_->GetFocusedFrame();
-  if (focused_frame && !web_contents_->GetBrowserContext()->IsOffTheRecord() &&
+  if (focused_frame && !IsOffTheRecordForDragAndDrop(*web_contents_) &&
       web_contents_->GetPrimaryMainFrame()->GetLastCommittedURL().is_valid()) {
     drag_info.data_endpoint = ui::DataTransferEndpoint(
         web_contents_->GetPrimaryMainFrame()->GetLastCommittedURL(),
-        {.off_the_record =
-             web_contents_->GetBrowserContext()->IsOffTheRecord()});
+        {.off_the_record = IsOffTheRecordForDragAndDrop(*web_contents_)});
   }
 
   std::unique_ptr<DropData> drop_data = std::make_unique<DropData>();

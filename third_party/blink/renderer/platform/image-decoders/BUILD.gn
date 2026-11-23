@@ -96,7 +96,7 @@ component("image_decoders") {
       "jxl/jxl_image_decoder.cc",
       "jxl/jxl_image_decoder.h",
     ]
-    deps += [ "//third_party/rust/jxl/v0_7/wrapper:jxl_rs" ]
+    deps += [ "//third_party/rust/jxl/v0_8/wrapper:jxl_rs" ]
   }
 }
 
@@ -140,8 +140,9 @@ source_set("unit_tests") {
   if (enable_jxl_decoder) {
     sources += [ "jxl/jxl_image_decoder_test.cc" ]
     deps += [
-      "//third_party/rust/jxl/v0_7/wrapper:jxl_rs",
-      "//third_party/rust/jxl/v0_7/wrapper:parallel_runner_unittests",
+      "//third_party/fuzztest",
+      "//third_party/rust/jxl/v0_8/wrapper:jxl_rs",
+      "//third_party/rust/jxl/v0_8/wrapper:parallel_runner_unittests",
     ]
   }
 

@@ -588,7 +588,8 @@ void SiteInstanceImpl::SetSiteInfo(const SiteInfo& site_info) {
 }
 
 void SiteInstanceImpl::SetSiteInfoToDefault(
-    const StoragePartitionConfig& storage_partition_config) {
+    const StoragePartitionConfig& storage_partition_config,
+    SiteShard shard) {
   TRACE_EVENT1("navigation", "SiteInstanceImpl::SetSiteInfoToDefault",
                "site id", id_.value());
   CHECK(!has_site_, base::NotFatalUntil::M158);
@@ -597,7 +598,7 @@ void SiteInstanceImpl::SetSiteInfoToDefault(
   SetSiteInfoInternal(SiteInfo::CreateForDefaultSiteInstance(
       GetIsolationContext(), storage_partition_config,
       GetWebExposedIsolationInfo(),
-      /*cross_origin_isolation_key=*/std::nullopt));
+      /*cross_origin_isolation_key=*/std::nullopt, shard));
 }
 
 void SiteInstanceImpl::SetSiteInfoInternal(const SiteInfo& site_info) {
@@ -615,6 +616,12 @@ void SiteInstanceImpl::SetSiteInfoInternal(const SiteInfo& site_info) {
   // URL is invalid.
   has_site_ = true;
   site_info_ = site_info;
+
+  // Default SiteInstances for every shard share the same default site URL;
+  // which shard a default SiteInstance is for is recorded in SiteInfo::shard().
+  if (IsDefaultSiteInstance()) {
+    CHECK_EQ(site_info_.site_url(), GetDefaultSiteURL());
+  }
 
   // Now that we have a site, register it with the BrowsingInstance.  This
   // ensures that we won't create another SiteInstance for this site within
@@ -690,33 +697,37 @@ void SiteInstanceImpl::SetSiteInfoInternal(const SiteInfo& site_info) {
 void SiteInstanceImpl::ConvertToDefaultOrSetSite(const UrlInfo& url_info) {
   CHECK(!has_site_, base::NotFatalUntil::M158);
 
-  if (!ShouldUseDefaultSiteInstanceGroup() &&
-      !browsing_instance_->has_default_site_instance()) {
-    // We want to set a SiteInfo in this SiteInstance, from information in a
-    // UrlInfo. The WebExposedIsolationInfo must be compatible for this
-    // function to not violate WebExposedIsolationInfo isolation invariant
-    // within a BrowsingInstance.
-    CHECK(
-        WebExposedIsolationInfo::AreCompatible(
-            url_info.web_exposed_isolation_info, GetWebExposedIsolationInfo()),
-        base::NotFatalUntil::M158);
-
+  if (!ShouldUseDefaultSiteInstanceGroup()) {
     // If |url_info| has a null WebExposedIsolationInfo, it is compatible with
     // any isolation state. We reuse the isolation state of the browsing
     // instance for the SiteInfo, to preserve the invariant.
     UrlInfo updated_url_info = url_info;
     updated_url_info.web_exposed_isolation_info = GetWebExposedIsolationInfo();
 
+    // Each shard has its own default SiteInstance, so the SiteInfo is needed
+    // to find out which shard's default SiteInstance to use.
     const SiteInfo site_info =
         SiteInfo::Create(GetIsolationContext(), updated_url_info);
-    if (CanBePlacedInDefaultSiteInstanceOrGroup(
-            GetIsolationContext(), updated_url_info.url, site_info)) {
-      SetSiteInfoToDefault(site_info.GetStoragePartitionConfig());
-      AddSiteInfoToDefault(site_info);
-
-      CHECK(browsing_instance_->has_default_site_instance(),
+    if (!browsing_instance_->HasDefaultSiteInstance(site_info.shard())) {
+      // We want to set a SiteInfo in this SiteInstance, from information in a
+      // UrlInfo. The WebExposedIsolationInfo must be compatible for this
+      // function to not violate WebExposedIsolationInfo isolation invariant
+      // within a BrowsingInstance.
+      CHECK(WebExposedIsolationInfo::AreCompatible(
+                url_info.web_exposed_isolation_info,
+                GetWebExposedIsolationInfo()),
             base::NotFatalUntil::M158);
-      return;
+
+      if (CanBePlacedInDefaultSiteInstanceOrGroup(
+              GetIsolationContext(), updated_url_info.url, site_info)) {
+        SetSiteInfoToDefault(site_info.GetStoragePartitionConfig(),
+                             site_info.shard());
+        AddSiteInfoToDefault(site_info);
+
+        CHECK(browsing_instance_->HasDefaultSiteInstance(site_info.shard()),
+              base::NotFatalUntil::M158);
+        return;
+      }
     }
   }
 
@@ -843,9 +854,6 @@ AgentSchedulingGroupHost& SiteInstanceImpl::GetOrCreateAgentSchedulingGroup() {
   // * From the RFH constructor created by InitChild, the child RFH is assumed
   //   to share the same process as the parent so the process will already be
   //   present.
-  // * In SharedStorageRenderThreadWorkletDriver::StartWorkletService, the
-  //   constructor of SharedStorageRenderThreadWorkletDriver will create
-  //   the process for the site instance.
   // Since this is called when SiteInstance already has a process in all these
   // cases, and since site_instance_group_ is created when the SiteInstance's
   // process is set, there should be no case here when there is no
@@ -962,8 +970,20 @@ bool SiteInstanceImpl::IsSuitableForUrlInfo(const UrlInfo& url_info) {
     // is safe to use this SiteInstance unless it is a guest. Guests are a
     // special case because we need to be consistent with the HasProcess() path
     // and the IsSuitableHost() call below always returns false for guests.
-    if (site_info_ == site_info)
+    if (site_info_ == site_info) {
       return !site_info_.IsGuest();
+    }
+
+    // Sites from different shards must never share a process. This must be
+    // checked before the RequiresDedicatedProcess() check below, which would
+    // otherwise allow this SiteInstance to be reused. Default SiteInstances
+    // are normally handled by the `site_info_ == site_info` check above, so
+    // this mainly matters for SiteInstances that aren't default SiteInstances
+    // but don't require a dedicated process either (e.g. for file: URLs or
+    // service workers on Android WebView).
+    if (site_info_.shard() != site_info.shard()) {
+      return false;
+    }
 
     // If the site URLs do not match, but neither this SiteInstance nor the
     // destination site_url require dedicated processes, then it is safe to use
@@ -1082,12 +1102,19 @@ bool SiteInstanceImpl::IsSameSiteWithURLInfo(const UrlInfo& url_info) {
     UrlInfo updated_url_info = url_info;
     updated_url_info.web_exposed_isolation_info = GetWebExposedIsolationInfo();
 
+    // Each shard has its own default SiteInstance, so `url` can only be
+    // handled by this one if it is in the same shard.
     auto site_info = SiteInfo::Create(GetIsolationContext(), updated_url_info);
-    return CanBePlacedInDefaultSiteInstanceOrGroup(GetIsolationContext(), url,
+    return site_info.shard() == site_info_.shard() &&
+           CanBePlacedInDefaultSiteInstanceOrGroup(GetIsolationContext(), url,
                                                    site_info) &&
            !browsing_instance_->HasSiteInstance(site_info);
   }
 
+  // Unlike the default SiteInstance case above, where `url` may be a different
+  // site (and so possibly in a different shard), no shard check is needed here:
+  // shards are assigned per site (see SiteInfo::GetShardForUrlInfo()), so
+  // same-site content is always in the same shard.
   return SiteInstanceImpl::IsSameSite(
       GetIsolationContext(), UrlInfo(UrlInfoInit(site_info_.site_url())),
       url_info, true /* should_compare_effective_urls */);
@@ -1406,7 +1433,8 @@ bool SiteInstanceImpl::DoesSiteInfoForURLMatch(const UrlInfo& url_info) {
     site_info = SiteInfo::CreateForDefaultSiteInstance(
         GetIsolationContext(), site_info.GetStoragePartitionConfig(),
         GetWebExposedIsolationInfo(),
-        site_info.agent_cluster_key().GetCrossOriginIsolationKey());
+        site_info.agent_cluster_key().GetCrossOriginIsolationKey(),
+        site_info.shard());
   }
 
   return site_info_.IsExactMatch(site_info);
@@ -1581,7 +1609,14 @@ void SiteInstanceImpl::LockProcessIfNeeded() {
   // We can get here either when we commit a URL into a SiteInstance that does
   // not yet have a site, or when we create a process for a SiteInstance with a
   // preassigned site.
-  process->SetIsUsed();
+  //
+  // This also records which shard the process belongs to on its ProcessLock
+  // (see ProcessLock::shard()), if the process has an allows-any-site lock and
+  // wasn't used yet. Processes must never host content from more than one
+  // shard, so this will crash if the process was already used for a different
+  // shard. This is equivalent to RenderProcessHost::SetIsUsed() apart from
+  // passing the shard.
+  policy->SetProcessIsUsed(process->GetID(), site_info_.shard());
 
   // Track which isolation contexts use the given process.  This lets
   // ChildProcessSecurityPolicyImpl (e.g. CanAccessDataForOrigin) determine
@@ -1712,14 +1747,16 @@ SiteInstanceImpl::GetCompatibleSandboxedSiteInstance(
   return result;
 }
 
-RenderProcessHost* SiteInstanceImpl::GetDefaultProcessForBrowsingInstance() {
+RenderProcessHost*
+SiteInstanceImpl::GetDefaultProcessForBrowsingInstanceForTesting(
+    SiteShard shard) {
   if (ShouldUseDefaultSiteInstanceGroup()) {
     return browsing_instance_->has_default_site_instance_group()
                ? browsing_instance_->default_site_instance_group()->process()
                : nullptr;
   } else {
     if (SiteInstanceImpl* default_instance =
-            browsing_instance_->default_site_instance()) {
+            browsing_instance_->GetDefaultSiteInstance(shard)) {
       return default_instance->HasProcess() ? default_instance->GetProcess()
                                             : nullptr;
     }

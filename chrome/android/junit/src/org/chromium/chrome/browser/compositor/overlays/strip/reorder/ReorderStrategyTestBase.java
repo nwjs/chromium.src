@@ -106,10 +106,10 @@ public abstract class ReorderStrategyTestBase {
 
     // Captors
     @Captor ArgumentCaptor<List<Tab>> mTabListCaptor;
-    @Captor ArgumentCaptor<Tab> mTabCaptor;
+    @Captor ArgumentCaptor<Token> mTokenCaptor;
 
     protected void setup() {
-        mActivity = Robolectric.setupActivity(Activity.class);
+        mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         // StripLayoutViews need styles during initializations.
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
         mModel = spy(new MockTabModel(mProfile, /* delegate= */ null));
@@ -237,10 +237,9 @@ public abstract class ReorderStrategyTestBase {
         List<Tab> tabList = List.of(tabs);
         for (Tab tab : tabList) {
             when(mModel.isTabInTabGroup(tab)).thenReturn(true);
-            when(mModel.getRelatedTabList(tab.getId())).thenReturn(tabList);
-            when(mModel.getTabsInGroup(groupId)).thenReturn(tabList);
             tab.setTabGroupId(groupId);
         }
+        when(mModel.getTabsInGroup(groupId)).thenReturn(tabList);
         when(mModel.getTabCountForGroup(groupId)).thenReturn(tabList.size());
     }
 

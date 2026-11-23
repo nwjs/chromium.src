@@ -51,9 +51,9 @@ TEST_F(HTMLImageElementTest, width) {
 TEST_F(HTMLImageElementTest, sourceSize) {
   auto* image = MakeGarbageCollected<HTMLImageElement>(GetDocument());
   image->setAttribute(html_names::kWidthAttr, AtomicString("400"));
-  EXPECT_EQ(kViewportWidth, image->SourceSize(*image));
+  EXPECT_EQ(kViewportWidth, image->SourceSize(*image).width);
   image->setAttribute(html_names::kSizesAttr, AtomicString("50vw"));
-  EXPECT_EQ(250, image->SourceSize(*image));
+  EXPECT_EQ(250, image->SourceSize(*image).width);
 }
 
 TEST_F(HTMLImageElementTest, ResourceWidthWithPicture) {
@@ -82,6 +82,73 @@ TEST_F(HTMLImageElementTest, ResourceWidthWithPictureContainingScripts) {
   HTMLImageElement* image = To<HTMLImageElement>(GetElementById("i"));
   ASSERT_NE(image, nullptr);
   EXPECT_EQ(*image->GetResourceWidth(), 5);
+}
+
+TEST_F(HTMLImageElementTest, DimensionAttributeChangeUpdatesSelectedSource) {
+  SetBodyInnerHTML(R"HTML(
+    <img id="i" style="width: 10px; height: 100px; object-fit: cover;"
+         loading="lazy" sizes="auto" width="1" height="100"
+         srcset="small.png 50w, large.png 200w">
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  HTMLImageElement* image = To<HTMLImageElement>(GetElementById("i"));
+  ASSERT_NE(image, nullptr);
+  EXPECT_EQ("small.png", image->ImageSourceURL());
+
+  image->setAttribute(html_names::kHeightAttr, AtomicString("1"));
+  EXPECT_EQ("large.png", image->ImageSourceURL());
+}
+
+TEST_F(HTMLImageElementTest,
+       PictureSourceDimensionAttributeChangeUpdatesSelectedSource) {
+  SetBodyInnerHTML(R"HTML(
+    <picture>
+      <source id="s" width="1" height="100"
+              srcset="small.png 50w, large.png 200w">
+      <img id="i" style="width: 10px; height: 100px; object-fit: cover;"
+           loading="lazy" sizes="auto">
+    </picture>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  HTMLImageElement* image = To<HTMLImageElement>(GetElementById("i"));
+  Element* source = GetElementById("s");
+  ASSERT_NE(image, nullptr);
+  ASSERT_NE(source, nullptr);
+  EXPECT_EQ("small.png", image->ImageSourceURL());
+
+  source->setAttribute(html_names::kHeightAttr, AtomicString("1"));
+  EXPECT_EQ("large.png", image->ImageSourceURL());
+}
+
+TEST_F(
+    HTMLImageElementTest,
+    DimensionAttributeChangeWithSameSelectedSourcePreservesLayoutDisposition) {
+  SetBodyInnerHTML(R"HTML(
+    <img id="i" width="100"
+         srcset="small.png 50w, large.png 200w" sizes="50px">
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  HTMLImageElement* image = To<HTMLImageElement>(GetElementById("i"));
+  ASSERT_NE(image, nullptr);
+  EXPECT_EQ("small.png", image->ImageSourceURL());
+  EXPECT_TRUE(image->IsPrimaryContent());
+  EXPECT_EQ(image->UserAgentShadowRoot(), nullptr);
+  EXPECT_EQ(100u, image->width());
+
+  // Changing `width` when `sizes` is a fixed length does not change the
+  // selected source URL (`best_fit_image_url_ == old_url`). This must not
+  // reset the layout disposition to fallback content or reattach the layout
+  // object.
+  image->setAttribute(html_names::kWidthAttr, AtomicString("200"));
+  EXPECT_EQ("small.png", image->ImageSourceURL());
+  EXPECT_FALSE(image->NeedsReattachLayoutTree());
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(image->IsPrimaryContent());
+  EXPECT_EQ(image->UserAgentShadowRoot(), nullptr);
+  EXPECT_EQ(200u, image->width());
 }
 
 using HTMLImageElementSimTest = SimTest;
@@ -148,8 +215,7 @@ TEST_F(HTMLImageElementSimTest, ResetAnimationForBitmapImage) {
   // Run pending tasks to let the image resource load and dirty layout.
   test::RunPendingTasks();
 
-  HTMLImageElement* image_element =
-      To<HTMLImageElement>(GetDocument().getElementById(AtomicString("gif")));
+  HTMLImageElement* image_element = To<HTMLImageElement>(GetElementById("gif"));
   ASSERT_NE(image_element, nullptr);
   ASSERT_TRUE(image_element->CachedImage());
   ASSERT_TRUE(image_element->CachedImage()->HasImage());

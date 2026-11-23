@@ -277,6 +277,11 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   void RemoveIncludedSubtree(AXObject* object, bool remove_root);
   // Remove all AXObjects in the layout subtree of node, and notify the parent.
   void RemoveAXObjectsInLayoutSubtree(LayoutObject* layout_object) override;
+  // Removes the AXObjects for an image's map children and marks the image and
+  // any ancestor caching them to update children. This doesn't notify or
+  // update relations, so it can run while other images still have stale map
+  // children.
+  void RemoveImageMapChildren(AXObject& image);
 
   // For any ancestor that could contain the passed-in AXObject* in their cached
   // children, clear their children and set needs to update children on them.
@@ -1204,8 +1209,6 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // If the presence of document markers changed for the given text node, then
   // call children changed.
   void HandleTextMarkerDataAddedWithCleanLayout(Node*);
-  void HandleUseMapAttributeChangedWithCleanLayout(Node*);
-  void HandleNameAttributeChanged(Node*);
 
   bool DoesEventListenerImpactIgnoredState(const AtomicString& event_type,
                                            const Node& node) const;
@@ -1366,6 +1369,13 @@ class MODULES_EXPORT AXObjectCacheImpl : public AXObjectCacheBase {
   // serialization. Populated by AriaRadioGroupChildrenChanged() and processed
   // by MarkAriaRadioGroupMembersDirty() before the tree is finalized.
   HashSet<AXID> aria_radiogroups_with_changed_membership_;
+
+  // HTML radio button peers whose group had a member removed during immediate
+  // tree updates. Deferred to `MarkAriaRadioGroupMembersDirty()` so peer
+  // invalidation does not mutate ancestor subtrees during `RemoveSubtree()`.
+  HashSet<AXID> dirty_radio_button_peers_;
+
+  bool in_remove_subtree_ = false;
 
   // Marks all radios in each radiogroup in
   // `aria_radiogroups_with_changed_membership_` dirty, then clears it.

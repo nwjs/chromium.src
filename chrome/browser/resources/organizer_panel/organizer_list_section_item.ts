@@ -11,7 +11,7 @@ import './stacked_favicons.js';
 
 import type {CrUrlListItemElement, CrUrlListItemSize} from '//resources/cr_elements/cr_url_list_item/cr_url_list_item.js';
 import {MouseHoverableMixinLit} from '//resources/cr_elements/mouse_hoverable_mixin_lit.js';
-import type {TemplateResult} from '//resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues, TemplateResult} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {Range} from '/tab_group_shared/search.js';
 
@@ -19,8 +19,6 @@ import {getCss} from './organizer_list_section_item.css.js';
 import {getHtml} from './organizer_list_section_item.html.js';
 import type {OrganizerListSectionItemDescriptionElement, OrganizerListSectionItemDescriptionPart} from './organizer_list_section_item_description.js';
 import type {OrganizerListSectionItemTitleElement} from './organizer_list_section_item_title.js';
-
-export type {OrganizerListSectionItemDescriptionPart};
 
 // Stacked favicons configuration for an organizer list section item.
 export interface OrganizerListSectionItemStackedFavicons {
@@ -51,6 +49,9 @@ export interface OrganizerListSectionItemActionButton {
 
   // Accessibility label.
   ariaLabel: string;
+
+  // Optional: Tooltip to display on hover.
+  tooltip?: string;
 }
 
 // Model for a single item in an organizer list section.
@@ -60,6 +61,10 @@ export interface OrganizerListSectionItem<T> {
 
   // Description (secondary line) of the item.
   description?: OrganizerListSectionItemDescriptionPart[];
+
+  // Optional: Terms that should match on search, but shouldn't be shown in the
+  // UI.
+  extraSearchTerms?: string[];
 
   // Icon displayed at the beginning of the item.
   prefixIcon?: OrganizerListSectionItemIcon;
@@ -71,6 +76,11 @@ export interface OrganizerListSectionItem<T> {
   // when the item is hovered. Clicking on the button will call
   // onItemActionButtonClicked on the delegate.
   hoveredActionButton?: OrganizerListSectionItemActionButton;
+
+  // Optional: Whether this item should be prioritized to be shown when the
+  // section is truncated. If at least one item has this set to true, the
+  // count of items shown is increased by 1 (up to 4). Defaults to false.
+  alwaysShow?: boolean;
 
   // The size to render. Defaults to medium.
   size?: CrUrlListItemSize;
@@ -134,6 +144,53 @@ export class OrganizerListSectionItemElement extends
       document.documentElement.lang || undefined,
       {style: 'narrow', type: 'conjunction'});
 
+  override firstUpdated(changedProperties: PropertyValues<this>) {
+    super.firstUpdated(changedProperties);
+    this.$.crUrlListItem.getFocusableElement().tabIndex = -1;
+  }
+
+  override focus() {
+    this.$.crUrlListItem.focus();
+  }
+
+  focusActionButton() {
+    const actionButton =
+        this.shadowRoot.querySelector<HTMLElement>('#actionButton');
+    if (actionButton) {
+      actionButton.focus();
+    }
+  }
+
+  protected onItemKeydown_(e: KeyboardEvent) {
+    if (e.key === 'Tab') {
+      if (!e.shiftKey) {
+        const actionButton =
+            this.shadowRoot.querySelector<HTMLElement>('#actionButton');
+        if (actionButton && this.hasActionButton_()) {
+          actionButton.focus();
+          e.preventDefault();
+          e.stopPropagation();
+        } else {
+          this.fire('focus-next-section', {sourceEvent: e});
+        }
+      } else {
+        this.fire('focus-current-section', {sourceEvent: e});
+      }
+    }
+  }
+
+  protected onActionButtonKeydown_(e: KeyboardEvent) {
+    if (e.key === 'Tab') {
+      if (!e.shiftKey) {
+        this.fire('focus-next-section', {sourceEvent: e});
+      } else {
+        this.focus();
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }
+  }
+
   protected getAriaLabel_(): string {
     return this.listFormatter_.format(this.item.title);
   }
@@ -187,7 +244,7 @@ export class OrganizerListSectionItemElement extends
   }
 
   resetActionButtonStateIfNeeded() {
-    this.shadowRoot.querySelector<HTMLElement>('#actionButton')!.blur();
+    this.shadowRoot.querySelector<HTMLElement>('#actionButton')?.blur();
   }
 }
 

@@ -62,7 +62,6 @@ class RenderWidgetHostViewBase;
 class RenderViewHostDelegateView;
 class TextInputManager;
 class VisibleTimeRequestTrigger;
-class WebContents;
 enum class KeyboardEventProcessingResult;
 
 //
@@ -261,8 +260,8 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   // desktopOSs and false for mobileOSs.
   virtual bool GetResizable();
 
-  // Returns whether the window is pinned always-on-top.
-  virtual bool GetIsAlwaysOnTop();
+  // Returns whether the window is an always-on-top popup.
+  virtual bool GetIsAlwaysOnTopPopup();
 
   // Returns the Window Control Overlay rectangle. Only applies to an
   // outermost main frame's widget. Other widgets always returns an empty rect.
@@ -342,9 +341,6 @@ class CONTENT_EXPORT RenderWidgetHostDelegate {
   virtual void OnStartDragging(
       DropData* drop_data,
       const GlobalRenderFrameHostToken& source_rfh_token) {}
-
-  // Notifies the delegate that a drag source has ended.
-  virtual void OnDragSourceEnded() {}
 
   // Returns the delegated ink point renderer associated with this WebContents
   // for dispatching delegated ink points to viz. This also attempts to setup

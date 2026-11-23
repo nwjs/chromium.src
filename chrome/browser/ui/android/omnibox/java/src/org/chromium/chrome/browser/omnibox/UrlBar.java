@@ -130,6 +130,7 @@ public class UrlBar extends AutocompleteEditText {
     private boolean mWrapDetectionScheduled;
     private @Nullable Runnable mManageSearchEnginesCallback;
     private boolean mShowAiMode;
+    private @Nullable String mShowAiModeLabel;
     private @Nullable Callback<Boolean> mShowAiModeCallback;
     private @Nullable UrlBarContextMenuHelper mContextMenuHelper;
 
@@ -255,19 +256,6 @@ public class UrlBar extends AutocompleteEditText {
          */
         default void shareText(String text) {}
 
-        /**
-         * Gets potential replacement text to be used instead of the current selected text for
-         * cut/copy actions. If null is returned, the existing text will be cut or copied.
-         *
-         * @param currentText The current displayed text.
-         * @param selection The current text selection range in the URL bar.
-         * @return The text to be cut/copied instead of the currently selected text.
-         */
-        default @Nullable String getReplacementCutCopyText(
-                String currentText, TextSelection selection) {
-            return null;
-        }
-
         /** Returns the UrlBarData representing the current input session. */
         default UrlBarData getUrlBarDataForCurrentInput() {
             return UrlBarData.EMPTY;
@@ -389,6 +377,7 @@ public class UrlBar extends AutocompleteEditText {
         mTextContextMenuDelegate = null;
         mTextChangeListener = null;
         mManageSearchEnginesCallback = null;
+        mShowAiModeLabel = null;
         mShowAiModeCallback = null;
         mLastMeasuredText = null;
         mLastMeasuredTextWidth = -1;
@@ -420,6 +409,11 @@ public class UrlBar extends AutocompleteEditText {
     /** Set the state of "Always Show AI Mode" option. */
     public void setShowAiMode(boolean showAiMode) {
         mShowAiMode = showAiMode;
+    }
+
+    /** Set the label of the "Always Show AI Mode" context menu option. */
+    public void setShowAiModeLabel(@Nullable String label) {
+        mShowAiModeLabel = label;
     }
 
     /** Set the callback when "Always Show AI Mode" is toggled. */
@@ -468,7 +462,11 @@ public class UrlBar extends AutocompleteEditText {
     @Override
     @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
     public void onFocusChanged(
-            boolean focused, @FocusDirection int direction, Rect previouslyFocusedRect) {
+            boolean focused, @FocusDirection int direction, @Nullable Rect previouslyFocusedRect) {
+        if (isReparenting()) {
+            super.onFocusChanged(focused, direction, previouslyFocusedRect);
+            return;
+        }
         boolean wasFocused = mFocused;
         mFocused = focused;
 
@@ -1149,14 +1147,14 @@ public class UrlBar extends AutocompleteEditText {
         // Restore backwards selection if necessary.
         if (start > end) setSelection(start, end);
 
-        if (mShowAiModeCallback != null) {
+        if (mShowAiModeCallback != null && !TextUtils.isEmpty(mShowAiModeLabel)) {
             if (menu.findItem(R.id.url_bar_always_show_ai_mode) == null) {
                 MenuItem alwaysShowItem =
                         menu.add(
                                 Menu.NONE,
                                 R.id.url_bar_always_show_ai_mode,
                                 Menu.CATEGORY_SECONDARY,
-                                getContext().getString(R.string.always_show_ai_mode));
+                                mShowAiModeLabel);
                 alwaysShowItem.setCheckable(true);
                 alwaysShowItem.setChecked(mShowAiMode);
                 alwaysShowItem.setOnMenuItemClickListener(
@@ -1408,13 +1406,7 @@ public class UrlBar extends AutocompleteEditText {
     }
 
     private void clearBoundsEllipsisSpans(Editable text) {
-        int textLength = text.length();
-        BoundsEllipsisSpan[] spans = text.getSpans(0, textLength, BoundsEllipsisSpan.class);
-        if (spans != null && spans.length > 0) {
-            for (BoundsEllipsisSpan span : spans) {
-                text.removeSpan(span);
-            }
-        }
+        text.removeSpan(BoundsEllipsisSpan.INSTANCE);
     }
 
     /**
@@ -1425,37 +1417,32 @@ public class UrlBar extends AutocompleteEditText {
         if (!shouldApplyBoundsEllipsis()) return;
 
         int textLength = text.length();
-        if (textLength == 0) return;
+        if (textLength == 0 || getLayout() == null) return;
 
-        Layout textLayout = getLayout();
-        if (textLayout != null) {
-            int ellipsisWidth = (int) textLayout.getPaint().measureText(EllipsisSpan.ELLIPSIS);
-            int cutoffWidth = Math.max(0, measuredWidth - ellipsisWidth);
-            int finalVisibleCharIndex =
-                    textLayout
-                            .getPaint()
-                            .getOffsetForAdvance(
-                                    text, 0, textLength, 0, textLength, false, cutoffWidth);
+        if (getTextWidth() <= measuredWidth) {
+            clearBoundsEllipsisSpans(text);
+            return;
+        }
 
-            BoundsEllipsisSpan[] spans = text.getSpans(0, textLength, BoundsEllipsisSpan.class);
-            if (finalVisibleCharIndex < textLength) {
-                if (spans != null
-                        && spans.length == 1
-                        && text.getSpanStart(spans[0]) == finalVisibleCharIndex
-                        && text.getSpanEnd(spans[0]) == textLength) {
-                    return;
-                }
-                clearBoundsEllipsisSpans(text);
-                text.setSpan(
-                        BoundsEllipsisSpan.INSTANCE,
-                        finalVisibleCharIndex,
-                        textLength,
-                        Editable.SPAN_INCLUSIVE_EXCLUSIVE);
-            } else {
-                if (spans != null && spans.length > 0) {
-                    clearBoundsEllipsisSpans(text);
-                }
-            }
+        CharSequence ellipsizedText =
+                TextUtils.ellipsize(
+                        assumeNonNull(mLastMeasuredText),
+                        getPaint(),
+                        measuredWidth,
+                        TextUtils.TruncateAt.END);
+        if (TextUtils.equals(mLastMeasuredText, ellipsizedText)) {
+            clearBoundsEllipsisSpans(text);
+            return;
+        }
+
+        int offset = Math.max(0, ellipsizedText.length() - 1);
+        if (text.getSpanStart(BoundsEllipsisSpan.INSTANCE) != offset
+                || text.getSpanEnd(BoundsEllipsisSpan.INSTANCE) != textLength) {
+            text.setSpan(
+                    BoundsEllipsisSpan.INSTANCE,
+                    offset,
+                    textLength,
+                    Editable.SPAN_INCLUSIVE_EXCLUSIVE);
         }
     }
 
@@ -1952,7 +1939,7 @@ public class UrlBar extends AutocompleteEditText {
      * get decent performance from TextView.
      */
     /* package */ static class EllipsisSpan extends ReplacementSpan {
-        static final String ELLIPSIS = "...";
+        static final String ELLIPSIS = "\u2026";
 
         public static final EllipsisSpan INSTANCE = new EllipsisSpan();
 
@@ -1963,7 +1950,7 @@ public class UrlBar extends AutocompleteEditText {
                 int start,
                 int end,
                 Paint.@Nullable FontMetricsInt fm) {
-            return (int) paint.measureText(ELLIPSIS);
+            return (int) Math.ceil(paint.measureText(ELLIPSIS));
         }
 
         @Override

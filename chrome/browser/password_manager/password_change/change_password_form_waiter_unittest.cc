@@ -12,7 +12,6 @@
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
-#include "chrome/browser/password_manager/password_change/features.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/autofill/content/browser/test_autofill_client_injector.h"
 #include "components/autofill/content/browser/test_content_autofill_client.h"
@@ -874,44 +873,7 @@ TEST_F(ChangePasswordFormWaiterTest, ModelNotAvailable_Timeout) {
       ChangePasswordFormWaiter::kChangePasswordFormWaitingTimeout);
 }
 
-TEST_F(ChangePasswordFormWaiterTest,
-       ModelNotAvailable_Timeout_FeatureDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      {password_manager::features::kPasswordFormClientsideClassifier},
-      {password_change::features::
-           kTimeoutLocalMLModelDownloadInChangePasswordFormWaiter});
-
-  model_handler()->SetModelAvailability(/*available=*/false);
-
-  base::MockOnceCallback<void(ChangePasswordFormWaiter::Result)>
-      completion_callback;
-  auto waiter = ChangePasswordFormWaiter::Builder(web_contents(), client(),
-                                                  completion_callback.Get())
-                    .EnableTimeout()
-                    .Build();
-
-  static_cast<content::WebContentsObserver*>(waiter.get())->DidStopLoading();
-
-  // Fast forward past model download timeout. Since feature is disabled, it
-  // should not time out.
-  EXPECT_CALL(completion_callback, Run).Times(0);
-  task_environment()->FastForwardBy(
-      ChangePasswordFormWaiter::kLocalMLModelDownloadTimeout * 2);
-
-  // Model becomes available.
-  model_handler()->NotifyAboutModelChange();
-
-  EXPECT_CALL(completion_callback, Run(ChangePasswordFormWaiter::Result()));
-  task_environment()->FastForwardBy(
-      ChangePasswordFormWaiter::kChangePasswordFormWaitingTimeout);
-}
-
-TEST_F(ChangePasswordFormWaiterTest, DisabledFieldIgnored_FeatureEnabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      password_change::features::kCheckFieldEnabledInChangePasswordFormWaiter);
-
+TEST_F(ChangePasswordFormWaiterTest, DisabledFieldIgnored) {
   base::MockOnceCallback<void(ChangePasswordFormWaiter::Result)>
       completion_callback;
 
@@ -940,47 +902,6 @@ TEST_F(ChangePasswordFormWaiterTest, DisabledFieldIgnored_FeatureEnabled) {
                     .Build();
 
   EXPECT_CALL(driver(), CheckViewAreaVisible).Times(0);
-  EXPECT_CALL(completion_callback, Run).Times(0);
-
-  static_cast<password_manager::PasswordFormManagerObserver*>(waiter.get())
-      ->OnPasswordFormParsed(form_managers.back().get());
-}
-
-TEST_F(ChangePasswordFormWaiterTest, DisabledFieldNotIgnored_FeatureDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      password_change::features::kCheckFieldEnabledInChangePasswordFormWaiter);
-
-  base::MockOnceCallback<void(ChangePasswordFormWaiter::Result)>
-      completion_callback;
-
-  std::vector<autofill::FormFieldData> fields;
-  fields.push_back(CreateTestFormField(
-      /*label=*/"Password:", /*name=*/"password",
-      /*value=*/"", autofill::FormControlType::kInputPassword));
-  fields.back().set_renderer_id(autofill::FieldRendererId(1));
-  fields.push_back(CreateDisabledTestFormField(
-      /*label=*/"New password:", /*name=*/"new_password_1",
-      /*value=*/"", autofill::FormControlType::kInputPassword));
-  fields.back().set_renderer_id(autofill::FieldRendererId(2));
-  fields.push_back(CreateTestFormField(
-      /*label=*/"Password confirmation:", /*name=*/"new_password_2",
-      /*value=*/"", autofill::FormControlType::kInputPassword));
-  fields.back().set_renderer_id(autofill::FieldRendererId(3));
-  autofill::FormData form;
-  form.set_url(GURL("https://www.foo.com"));
-  form.set_fields(std::move(fields));
-  std::vector<std::unique_ptr<password_manager::PasswordFormManager>>
-      form_managers;
-  form_managers.push_back(CreateFormManager(form));
-
-  auto waiter = ChangePasswordFormWaiter::Builder(web_contents(), client(),
-                                                  completion_callback.Get())
-                    .Build();
-
-  EXPECT_CALL(driver(),
-              CheckViewAreaVisible(autofill::FieldRendererId(2), testing::_))
-      .WillOnce(base::test::RunOnceCallback<1>(false));
   EXPECT_CALL(completion_callback, Run).Times(0);
 
   static_cast<password_manager::PasswordFormManagerObserver*>(waiter.get())

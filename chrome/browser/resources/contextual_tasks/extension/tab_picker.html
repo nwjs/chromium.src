@@ -2,18 +2,23 @@
 <html $i18n{webuiRoundedIconsAttribute}>
 <head>
   <meta charset="utf-8">
+  <meta name="responsive-embedded-sizing" content="allow-origins=*">
   <title>Tab Picker</title>
+  <script src="color_scheme.js"></script>
   <link rel="stylesheet" href="//resources/css/text_defaults_md.css">
-  <link rel="stylesheet" href="//theme/colors.css?sets=chrome">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    html {
+      color-scheme: light;
+    }
+
+    html[dark-mode] {
+      color-scheme: light dark;
+    }
+
     html,
     body {
       background: transparent;
-      color-scheme: light dark;
-      height: 100%;
+      height: max-content;
       margin: 0;
       overflow: hidden;
       padding: 0;
@@ -23,12 +28,7 @@
 </head>
 <body>
   <tab-picker-app></tab-picker-app>
-  <!-- Put tab picker first: attach listeners before post
-      message sends any tab events.
-      TODO(crbug.com/571638878) - Pull initial state or cache last state
-      so order of html does not matter here.
-  -->
+  <script type="module" src="strings.m.js"></script>
   <script type="module" src="tab_picker.js"></script>
-  <script type="module" src="post_message_entrypoint.js"></script>
 </body>
 </html>

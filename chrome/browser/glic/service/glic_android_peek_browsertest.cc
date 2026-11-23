@@ -2,14 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/run_loop.h"
-#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "chrome/browser/glic/public/widget/glic_side_panel_coordinator_android.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
+#include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "content/public/test/browser_test.h"
 
@@ -96,14 +95,14 @@ IN_PROC_BROWSER_TEST_F(GlicAndroidPeekBrowserTest,
 
   CreateAndActivateTab(GetSimpleTestUrl());
 
+  base::test::TestFuture<tabs::TabInterface*> focused_tab_future;
+  base::CallbackListSubscription subscription =
+      instance->GetSharingManagerInternal().AddFocusedTabChangedCallback(
+          base::BindLambdaForTesting([&](const FocusedTabData& data) {
+            focused_tab_future.SetValue(data.focus());
+          }));
   GetTabListInterface()->ActivateTab(tab1->GetHandle());
-  // The panel is already closed, so WaitForSidePanelState() would return
-  // immediately. Flush tasks posted by the tab switch so that an incorrect
-  // re-show has a chance to happen before checking the state.
-  base::RunLoop run_loop;
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, run_loop.QuitClosure());
-  run_loop.Run();
+  ASSERT_EQ(focused_tab_future.Get(), tab1);
 
   ASSERT_OK(
       WaitForSidePanelState(tab1, GlicSidePanelCoordinator::State::kClosed));
@@ -236,6 +235,7 @@ IN_PROC_BROWSER_TEST_F(GlicAndroidPeekBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(GlicAndroidPeekBrowserTest,
                        CloseFromPeekStateNotifiesVisibility) {
+  GlicHistogramTester histogram_tester;
   ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
   tabs::TabInterface* active_tab = GetTabListInterface()->GetActiveTab();
   auto* coordinator_android = GetSidePanelCoordinatorAndroid(active_tab);
@@ -246,6 +246,7 @@ IN_PROC_BROWSER_TEST_F(GlicAndroidPeekBrowserTest,
             GlicSidePanelCoordinator::State::kPeek);
   EXPECT_TRUE(instance->IsShowing());
   EXPECT_NE(instance->GetEmbedderForTab(active_tab), nullptr);
+  histogram_tester.ExpectTotalCount("Glic.PanelWebUiState.FinishState3", 0);
 
   int visibility_change_count = 0;
   auto subscription =
@@ -259,8 +260,9 @@ IN_PROC_BROWSER_TEST_F(GlicAndroidPeekBrowserTest,
   EXPECT_FALSE(instance->IsShowing());
 
   // Verify that closing from peek mode notified global visibility observers
-  // (such as Java's GlicButtonStateController).
+  // (such as Java's GlicButtonStateController) and recorded FinishState3.
   EXPECT_GT(visibility_change_count, 0);
+  histogram_tester.ExpectTotalCount("Glic.PanelWebUiState.FinishState3", 1);
 }
 
 }  // namespace glic

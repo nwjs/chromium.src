@@ -79,8 +79,6 @@ import org.chromium.ax.mojom.TextStyle;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.content_public.browser.ContentFeatureList;
-import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.ui.accessibility.AccessibilityFeatures;
 import org.chromium.ui.accessibility.AccessibilityFeaturesMap;
 
@@ -91,8 +89,8 @@ import java.util.Map;
 
 /**
  * Basic helper class to build AccessibilityNodeInfo objects for the WebContents in Chrome. This
- * class can be used by the Native-side code {@link web_contents_accessibility_android.cc} to
- * construct objects for the virtual view hierarchy to provide to the Android framework.
+ * class can be used by the Native-side code {@link web_contents_accessibility_base.cc} to construct
+ * objects for the virtual view hierarchy to provide to the Android framework.
  */
 @JNINamespace("content")
 @NullMarked
@@ -239,11 +237,7 @@ public class AccessibilityNodeInfoBuilder {
         node.setFieldRequired(isRequired);
         node.setContentInvalid(contentInvalid);
         node.setHeading(isHeading);
-
-        if (ContentFeatureMap.isEnabled(
-                ContentFeatureList.ACCESSIBILITY_SET_SELECTABLE_ON_ALL_NODES_WITH_TEXT)) {
-            node.setTextSelectable(textSelectable);
-        }
+        node.setTextSelectable(textSelectable);
 
         List<String> availableExtraData = new ArrayList<>();
         if (hasImage) {
@@ -848,16 +842,13 @@ public class AccessibilityNodeInfoBuilder {
                 spannable,
                 textStyles,
                 (textStyle) -> {
-                    if (textStyle == TextStyle.BOLD) {
-                        return new StyleSpan(Typeface.BOLD);
-                    } else if (textStyle == TextStyle.ITALIC) {
-                        return new StyleSpan(Typeface.ITALIC);
-                    } else if (textStyle == TextStyle.UNDERLINE) {
-                        return new UnderlineSpan();
-                    } else if (textStyle == TextStyle.LINE_THROUGH) {
-                        return new StrikethroughSpan();
-                    }
-                    return null;
+                    return switch (textStyle) {
+                        case TextStyle.BOLD -> new StyleSpan(Typeface.BOLD);
+                        case TextStyle.ITALIC -> new StyleSpan(Typeface.ITALIC);
+                        case TextStyle.UNDERLINE -> new UnderlineSpan();
+                        case TextStyle.LINE_THROUGH -> new StrikethroughSpan();
+                        default -> null;
+                    };
                 });
         addSpans(
                 spannable,

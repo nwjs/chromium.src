@@ -135,6 +135,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
+#include "url/origin.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/themes/theme_service.h"
@@ -257,8 +258,17 @@ void DefaultBindingsDelegate::ActivateWindow() {
 void DefaultBindingsDelegate::OpenInNewTab(const std::string& url) {
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
-          GURL(url), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          GURL(url), WindowOpenDisposition::kNewForegroundTab,
           ui::PAGE_TRANSITION_LINK);
+  // The URL typically originates from content that is controlled by the
+  // inspected target, which is not a local WebContents here (e.g. a remote
+  // page or a Node.js process). There is nothing to attribute the navigation
+  // to, but it must not look like a navigation typed into the omnibox either,
+  // or the request would carry SameSite=Strict cookies and `Sec-Fetch-Site:
+  // none`. An opaque initiator origin is never same-site with the destination,
+  // so the navigation is treated as cross-site. See
+  // DevToolsWindow::OpenInNewTab() and https://crbug.com/554558674.
+  params.initiator_origin = url::Origin();
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents_);
   // Check if the browser is still alive, as it might have been closed in the
@@ -284,7 +294,7 @@ void DefaultBindingsDelegate::OpenSearchResultsInNewTab(
       GetDefaultSearchURLForSearchTerms(url_service, base::UTF8ToUTF16(query));
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
-          GURL(url), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          GURL(url), WindowOpenDisposition::kNewForegroundTab,
           ui::PAGE_TRANSITION_LINK);
   browser->OpenURL(params, /*navigation_handle_callback=*/{});
 }
@@ -560,6 +570,7 @@ bool IsLocalDevToolsFrontendURL(const GURL& url) {
   if (!url.is_valid() || url.IsAboutBlank() ||
       !url.SchemeIs(content::kChromeDevToolsScheme) ||
       url.host() != chrome::kChromeUIDevToolsHost) {
+    // Host kChromeUIDevToolsRemoteHost immediately returns false here.
     return false;
   }
   std::string_view path = url.path();
@@ -740,8 +751,11 @@ DevToolsUIBindings::FrontendWebContentsObserver::
 
 // static
 GURL DevToolsUIBindings::SanitizeFrontendURL(const GURL& url) {
-  return ::SanitizeFrontendURL(url, content::kChromeDevToolsScheme,
-                               chrome::kChromeUIDevToolsHost,
+  std::string host = chrome::kChromeUIDevToolsHost;
+  if (url.GetHost() == chrome::kChromeUIDevToolsRemoteHost) {
+    host = chrome::kChromeUIDevToolsRemoteHost;
+  }
+  return ::SanitizeFrontendURL(url, content::kChromeDevToolsScheme, host,
                                SanitizeFrontendPath(url.GetPath()), true);
 }
 
@@ -872,6 +886,11 @@ DevToolsUIBindings::DevToolsUIBindings(content::WebContents* web_contents)
   ThemeServiceFactory::GetForProfile(profile_->GetOriginalProfile())
       ->AddObserver(this);
 #endif
+  if (auto* template_url_service =
+          TemplateURLServiceFactory::GetForProfile(
+              profile_->GetOriginalProfile())) {
+    template_url_service_observation_.Observe(template_url_service);
+  }
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (auto* registry = extensions::ExtensionRegistry::Get(profile_)) {
     extension_registry_observation_.Observe(registry);
@@ -879,11 +898,8 @@ DevToolsUIBindings::DevToolsUIBindings(content::WebContents* web_contents)
 #endif
   can_access_aida_ = IsAnyAidaPoweredFeatureEnabled();
   is_local_frontend_ =
-      previous_bindings
-          ? previous_bindings->is_local_frontend_
-          : IsLocalDevToolsFrontendURL(web_contents_->GetLastCommittedURL());
-  has_committed_non_local_frontend_ =
-      previous_bindings && previous_bindings->has_committed_non_local_frontend_;
+      (!previous_bindings || previous_bindings->is_local_frontend_) &&
+      !HasUntrustedOpenerChain(web_contents_);
   has_previous_frontend_host_ =
       previous_bindings && (previous_bindings->frontend_host_ ||
                             previous_bindings->has_previous_frontend_host_);
@@ -2930,23 +2946,12 @@ void DevToolsUIBindings::AddDevToolsExtensionsToClient() {
   }
 
   base::ListValue results;
-  base::ListValue forbidden_origins;
   extensions::ExtensionManagement* management =
       extensions::ExtensionManagementFactory::GetForBrowserContext(
           web_contents_->GetBrowserContext());
 
-  // NOTE: on Android, GetNewTabPageURL may return invalid URL. This is short
-  // work around.
-  // TODO(crbug.com/505013947): Fix the root cause.
-  auto origin = url::Origin::Create(search::GetNewTabPageURL(profile_));
-  if (!origin.opaque()) {
-    forbidden_origins.Append(origin.Serialize());
-  }
   for (const scoped_refptr<const extensions::Extension>& extension :
        registry->enabled_extensions()) {
-    if (extensions::Manifest::IsComponentLocation(extension->location())) {
-      forbidden_origins.Append(extension->origin().Serialize());
-    }
     if (extensions::chrome_manifest_urls::GetDevToolsPage(extension.get())
             .is_empty()) {
       continue;
@@ -2994,11 +2999,52 @@ void DevToolsUIBindings::AddDevToolsExtensionsToClient() {
     devtools_extension_ids_.insert(extension->id());
   }
 
-  CallClientMethod("DevToolsAPI", "setOriginsForbiddenForExtensions",
-                   base::Value(std::move(forbidden_origins)));
+  UpdateOriginsForbiddenForExtensions();
   CallClientMethod("DevToolsAPI", "addExtensions",
                    base::Value(std::move(results)));
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+}
+
+void DevToolsUIBindings::UpdateOriginsForbiddenForExtensions() {
+  if (!is_local_frontend_) {
+    return;
+  }
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  const extensions::ExtensionRegistry* registry =
+      extensions::ExtensionRegistry::Get(profile_->GetOriginalProfile());
+  if (!registry) {
+    return;
+  }
+
+  base::ListValue forbidden_origins;
+  // NOTE: on Android, GetNewTabPageURL may return invalid URL. This is short
+  // work around.
+  // TODO(crbug.com/505013947): Fix the root cause.
+  auto origin = url::Origin::Create(search::GetNewTabPageURL(profile_));
+  if (!origin.opaque()) {
+    forbidden_origins.Append(origin.Serialize());
+  }
+  for (const scoped_refptr<const extensions::Extension>& extension :
+       registry->enabled_extensions()) {
+    if (extensions::Manifest::IsComponentLocation(extension->location())) {
+      forbidden_origins.Append(extension->origin().Serialize());
+    }
+  }
+
+  CallClientMethod("DevToolsAPI", "setOriginsForbiddenForExtensions",
+                   base::Value(std::move(forbidden_origins)));
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+}
+
+void DevToolsUIBindings::OnTemplateURLServiceChanged() {
+  if (!frontend_loaded_ || !is_local_frontend_) {
+    return;
+  }
+  UpdateOriginsForbiddenForExtensions();
+}
+
+void DevToolsUIBindings::OnTemplateURLServiceShuttingDown() {
+  template_url_service_observation_.Reset();
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -3248,15 +3294,13 @@ void DevToolsUIBindings::ReadyToCommitNavigation(
     }
     if (frontend_host_) {
       if (!IsLocalDevToolsFrontendURL(navigation_handle->GetURL())) {
-        has_committed_non_local_frontend_ = true;
+        is_local_frontend_ = false;
       }
-      is_local_frontend_ =
-          !has_committed_non_local_frontend_ &&
-          IsLocalDevToolsFrontendURL(navigation_handle->GetURL());
       return;
     }
-    // If the window was opened by another window, ensure every live opener in
-    // the original opener chain is a *local* (trusted) DevTools frontend with
+    // If the window was opened by another window, `is_local_frontend_` is
+    // already cleared in the constructor unless every live opener in the
+    // original opener chain is a *local* (trusted) DevTools frontend with
     // active frontend bindings. A remote frontend must not be able to obtain
     // a frontend host for a popup that would be classified as local (e.g.
     // devtools://devtools/blank), because the opener can script the popup
@@ -3266,30 +3310,19 @@ void DevToolsUIBindings::ReadyToCommitNavigation(
     // the popup navigated), only allow renderer-initiated navigations when the
     // window already had active DevTools frontend bindings before a
     // RenderDocument swap, and never upgrade `is_local_frontend_` once the
-    // WebContents has loaded a non-local frontend.
-    if (web_contents_->HasLiveOriginalOpenerChain()) {
-      for (content::WebContents* opener_wc =
-               web_contents_->GetFirstWebContentsInLiveOriginalOpenerChain();
-           opener_wc;
-           opener_wc =
-               opener_wc->GetFirstWebContentsInLiveOriginalOpenerChain()) {
-        DevToolsUIBindings* opener_bindings =
-            DevToolsUIBindings::ForWebContents(opener_wc);
-        if (!opener_bindings || !opener_bindings->frontend_host_ ||
-            !opener_bindings->is_local_frontend_) {
-          return;
-        }
-      }
-    } else if (navigation_handle->IsRendererInitiated() &&
-               !has_previous_frontend_host_) {
+    // WebContents has loaded a non-local frontend or had an untrusted opener.
+    if (!has_previous_frontend_host_ &&
+        (!is_local_frontend_ ||
+         (!web_contents_->HasLiveOriginalOpenerChain() &&
+          (navigation_handle->IsRendererInitiated() ||
+           navigation_handle->GetInitiatorFrameToken().has_value() ||
+           navigation_handle->GetInitiatorOrigin().has_value())))) {
+      is_local_frontend_ = false;
       return;
     }
     if (!IsLocalDevToolsFrontendURL(navigation_handle->GetURL())) {
-      has_committed_non_local_frontend_ = true;
+      is_local_frontend_ = false;
     }
-    is_local_frontend_ =
-        !has_committed_non_local_frontend_ &&
-        IsLocalDevToolsFrontendURL(navigation_handle->GetURL());
     frontend_host_ = content::DevToolsFrontendHost::Create(
         navigation_handle->GetRenderFrameHost(),
         base::BindRepeating(
@@ -3322,11 +3355,8 @@ void DevToolsUIBindings::DocumentOnLoadCompletedInPrimaryMainFrame() {
 void DevToolsUIBindings::PrimaryPageChanged() {
   frontend_loaded_ = false;
   if (!IsLocalDevToolsFrontendURL(web_contents_->GetLastCommittedURL())) {
-    has_committed_non_local_frontend_ = true;
+    is_local_frontend_ = false;
   }
-  is_local_frontend_ =
-      !has_committed_non_local_frontend_ &&
-      IsLocalDevToolsFrontendURL(web_contents_->GetLastCommittedURL());
   if (!is_local_frontend_) {
     extensions_api_.clear();
     SetDevicesUpdatesEnabled(false);
@@ -3347,6 +3377,26 @@ void DevToolsUIBindings::FrontendLoaded() {
                      base::Value(initial_target_id_));
   }
   AddDevToolsExtensionsToClient();
+}
+
+// static
+bool DevToolsUIBindings::HasUntrustedOpenerChain(
+    content::WebContents* web_contents) {
+  if (!web_contents->HasLiveOriginalOpenerChain()) {
+    return false;
+  }
+  for (content::WebContents* opener_wc =
+           web_contents->GetFirstWebContentsInLiveOriginalOpenerChain();
+       opener_wc;
+       opener_wc =
+           opener_wc->GetFirstWebContentsInLiveOriginalOpenerChain()) {
+    DevToolsUIBindings* opener_bindings =
+        DevToolsUIBindings::ForWebContents(opener_wc);
+    if (!opener_bindings || !opener_bindings->IsTrustedLocalFrontend()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 DevToolsUIBindings::DevToolsUIBindingsList&

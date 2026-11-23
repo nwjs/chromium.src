@@ -11,6 +11,10 @@
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view.h"
 #include "ui/gfx/geometry/size.h"
 
+namespace content {
+class WebContents;
+}  // namespace content
+
 namespace payments {
 
 class PaymentRequestDialogViewTestApi {
@@ -29,10 +33,6 @@ class PaymentRequestDialogViewTestApi {
 
   void ConfirmPayment() { view_->ConfirmPaymentForTesting(); }
 
-  gfx::Size CalculatePreferredSize(const views::SizeBounds& available_size) {
-    return view_->CalculatePreferredSize(available_size);
-  }
-
   void ResizeToPaymentHandlerSize() { view_->ResizeToPaymentHandlerSize(); }
 
   ViewStack* view_stack() { return view_->view_stack_; }
@@ -41,6 +41,10 @@ class PaymentRequestDialogViewTestApi {
   PaymentAppLoadingView* loading_view_overlay() {
     return view_->loading_view_overlay_;
   }
+
+  // Returns the WebContents of the payment handler window, which must be the
+  // top view on the stack.
+  content::WebContents* GetPaymentHandlerWebContents();
 
   void RemoveLoadingView() { view_->RemoveLoadingView(); }
 

@@ -445,7 +445,7 @@ SkColor ChromeNativeAppWindowViews::InactiveFrameColor() const {
 void ChromeNativeAppWindowViews::InitializeWindow(
     AppWindow* app_window,
     const AppWindow::CreateParams& create_params) {
-  DCHECK(widget());
+  CHECK(widget(), base::NotFatalUntil::M162);
   has_frame_color_ = create_params.has_frame_color;
   active_frame_color_ = create_params.active_frame_color;
   inactive_frame_color_ = create_params.inactive_frame_color;
@@ -463,7 +463,7 @@ gfx::Image ChromeNativeAppWindowViews::GetCustomImage() {
 }
 
 gfx::Image ChromeNativeAppWindowViews::GetAppIconImage() {
-  DCHECK(app_icon_);
+  CHECK(app_icon_, base::NotFatalUntil::M162);
   return gfx::Image(app_icon_->image_skia());
 }
 
@@ -487,7 +487,7 @@ void ChromeNativeAppWindowViews::OnIconUpdated(
   if (!app_icon_) {
     return;
   }
-  DCHECK_EQ(app_icon_.get(), icon);
+  CHECK_EQ(app_icon_.get(), icon, base::NotFatalUntil::M162);
   UpdateWindowIcon();
 }
 

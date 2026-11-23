@@ -31,8 +31,8 @@ import org.chromium.ui.text.SpanApplier.SpanInfo;
  */
 @NullMarked
 class EnterpriseSignalsDisclaimerMediator implements ProfileDataCache.Observer {
-    // TODO(b/537182192): Replace with a p-link.
-    static final String LEARN_MORE_LINK = "https://support.google.com/chrome/a/answer/16191236";
+    static final String LEARN_MORE_LINK =
+            "https://support.google.com/chrome/a?p=managed_profile_signals";
 
     /** Delegate for the enterprise signals disclaimer mediator. */
     public interface Delegate {
@@ -87,7 +87,7 @@ class EnterpriseSignalsDisclaimerMediator implements ProfileDataCache.Observer {
                         context,
                         identityManager,
                         R.dimen.enterprise_signals_disclaimer_profile_picture_size);
-        mProfileDataCache.setBadge(badgeConfig);
+        mProfileDataCache.setBadge(account.getId(), badgeConfig);
 
         // The FRE uses dedicated strings, and moves the "Learn more" link from the description
         // into a footer below the buttons.

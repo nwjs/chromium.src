@@ -11,8 +11,6 @@
 #include "ash/public/cpp/login/login_utils.h"
 #include "ash/public/cpp/login_screen.h"
 #include "ash/public/cpp/login_screen_model.h"
-#include "ash/webui/settings/public/constants/routes.mojom.h"
-#include "ash/webui/settings/public/constants/setting.mojom-shared.h"
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "base/debug/dump_without_crashing.h"
@@ -20,8 +18,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/strings/strcat.h"
-#include "base/strings/string_number_conversions.h"
 #include "chrome/browser/ash/child_accounts/parent_access_code/parent_access_service.h"
 #include "chrome/browser/ash/login/existing_user_controller.h"
 #include "chrome/browser/ash/login/help_app_launcher.h"
@@ -29,7 +25,6 @@
 #include "chrome/browser/ash/login/login_auth_recorder.h"
 #include "chrome/browser/ash/login/reauth_stats.h"
 #include "chrome/browser/ash/login/startup_utils.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_metrics.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
 #include "chrome/browser/ui/ash/login/login_display_host_webui.h"
@@ -40,8 +35,6 @@
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_provider.h"
-#include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
-#include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_names.h"
@@ -62,7 +55,7 @@ LoginScreenClientImpl::LoginScreenClientImpl(PrefService* local_state)
   // Register this object as the client interface implementation.
   ash::LoginScreen::Get()->SetClient(this);
 
-  DCHECK(!g_login_screen_client_instance);
+  CHECK(!g_login_screen_client_instance, base::NotFatalUntil::M162);
   g_login_screen_client_instance = this;
 
   if (user_manager::UserManager::IsInitialized()) {
@@ -79,7 +72,7 @@ LoginScreenClientImpl::~LoginScreenClientImpl() {
     CHECK_IS_TEST();
   }
   ash::LoginScreen::Get()->SetClient(nullptr);
-  DCHECK_EQ(this, g_login_screen_client_instance);
+  CHECK_EQ(this, g_login_screen_client_instance, base::NotFatalUntil::M162);
   g_login_screen_client_instance = nullptr;
 }
 
@@ -90,7 +83,7 @@ bool LoginScreenClientImpl::HasInstance() {
 
 // static
 LoginScreenClientImpl* LoginScreenClientImpl::Get() {
-  DCHECK(g_login_screen_client_instance);
+  CHECK(g_login_screen_client_instance, base::NotFatalUntil::M162);
   return g_login_screen_client_instance;
 }
 
@@ -309,24 +302,6 @@ void LoginScreenClientImpl::ShowParentAccessHelpApp() {
       ->ShowHelpTopic(ash::HelpAppLauncher::HELP_PARENT_ACCESS_CODE);
 }
 
-void LoginScreenClientImpl::ShowLockScreenNotificationSettings() {
-  // TODO(crbug.com/447287122): Revisit here to pass the appropriate user
-  // context here.
-  auto* session = session_manager::SessionManager::Get()->GetActiveSession();
-  if (!session) {
-    return;
-  }
-  ash::SettingsAppManager::Get()->Open(
-      CHECK_DEREF(
-          user_manager::UserManager::Get()->FindUser(session->account_id())),
-      {.sub_page = base::StrCat(
-           {chromeos::settings::mojom::kSecurityAndSignInSubpagePathV2,
-            "?settingId=",
-            base::NumberToString(
-                std::to_underlying(chromeos::settings::mojom::Setting::
-                                       kLockScreenNotification))})});
-}
-
 void LoginScreenClientImpl::OnFocusLeavingSystemTray(bool reverse) {
   for (ash::SystemTrayObserver& observer : system_tray_observers_) {
     observer.OnFocusLeavingSystemTray(reverse);
@@ -350,7 +325,8 @@ void LoginScreenClientImpl::CancelAddUser() {
 }
 
 void LoginScreenClientImpl::LoginAsGuest() {
-  DCHECK(!ash::ScreenLockerController::Get().screen_locker());
+  CHECK(!ash::ScreenLockerController::Get().screen_locker(),
+        base::NotFatalUntil::M162);
   if (ash::LoginDisplayHost::default_host()) {
     ash::LoginDisplayHost::default_host()->GetExistingUserController()->Login(
         ash::UserContext(user_manager::UserType::kGuest,

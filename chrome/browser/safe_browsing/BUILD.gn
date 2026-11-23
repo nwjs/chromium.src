@@ -975,10 +975,13 @@ source_set("unit_tests") {
       "//chrome/browser/safe_browsing/suspicious_site_warnings",
       "//chrome/browser/search_engines",
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/hats:test_support",
       "//components/enterprise/common/proto:connectors_proto",
       "//components/enterprise/connectors/core",
       "//components/enterprise/obfuscation/core:enterprise_obfuscation",
       "//components/history/content/browser",
+      "//components/history/core/browser",
+      "//components/history/core/test",
       "//components/optimization_guide/core:test_support",
       "//components/safe_browsing/content/browser/password_protection",
       "//components/safe_browsing/content/browser/password_protection:mock_password_protection",
@@ -1063,6 +1066,10 @@ source_set("unit_tests") {
     if (is_chromeos) {
       deps += [ "//chromeos/ash/components/system" ]
     }
+  }
+  if (enable_extensions_core) {
+    # For extensions::DownloadedByExtension in the download_protection tests.
+    deps += [ "//chrome/browser/extensions" ]
   }
   if (is_win || is_mac || is_linux || is_chromeos) {
     sources += [
@@ -1331,6 +1338,8 @@ source_set("browser_tests") {
         "//components/optimization_guide/core:model_execution_test_support",
         "//components/safe_browsing/content/browser:client_side_detection",
         "//components/safe_browsing/content/browser:client_side_detection_service",
+        "//components/safe_browsing/content/common:file_type_policies_test_support",
+        "//components/safe_browsing/content/common/proto:download_file_types_proto",
         "//components/safe_browsing/content/renderer/phishing_classifier",
         "//components/safe_browsing/core/common/phishing_classifier",
       ]

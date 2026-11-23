@@ -144,6 +144,7 @@
 #include "third_party/blink/public/web/web_node.h"
 #include "third_party/blink/public/web/web_performance_metrics_for_nested_contexts.h"
 #include "third_party/blink/public/web/web_performance_metrics_for_reporting.h"
+#include "third_party/blink/public/web/web_performance_timings.h"
 #include "third_party/blink/public/web/web_plugin.h"
 #include "third_party/blink/public/web/web_print_client.h"
 #include "third_party/blink/public/web/web_print_page_description.h"
@@ -280,6 +281,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/url_loader_factory.h"
 #include "third_party/blink/renderer/platform/scheduler/public/frame_scheduler.h"
+#include "third_party/blink/renderer/platform/scheduler/public/page_scheduler.h"
 #include "third_party/blink/renderer/platform/scheduler/public/scheduling_policy.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/text/text_direction.h"
@@ -756,8 +758,8 @@ bool WebLocalFrameImpl::HasTransientUserActivation() {
 }
 
 bool WebLocalFrameImpl::ConsumeTransientUserActivation(
-    UserActivationUpdateSource update_source) {
-  return LocalFrame::ConsumeTransientUserActivation(GetFrame(), update_source);
+    UserActivationUpdateScope update_scope) {
+  return LocalFrame::ConsumeTransientUserActivation(GetFrame(), update_scope);
 }
 
 bool WebLocalFrameImpl::LastActivationWasRestricted() const {
@@ -1036,6 +1038,14 @@ WebLocalFrameImpl::PerformanceMetricsForNestedContexts() const {
   if (!GetFrame())
     return WebPerformanceMetricsForNestedContexts();
   return WebPerformanceMetricsForNestedContexts(
+      DOMWindowPerformance::performance(*(GetFrame()->DomWindow())));
+}
+
+WebPerformanceTimings WebLocalFrameImpl::PerformanceTimings() const {
+  if (!GetFrame()) {
+    return WebPerformanceTimings();
+  }
+  return WebPerformanceTimings(
       DOMWindowPerformance::performance(*(GetFrame()->DomWindow())));
 }
 
@@ -3503,6 +3513,10 @@ void WebLocalFrameImpl::SetLCPPHint(
 bool WebLocalFrameImpl::IsFeatureEnabled(
     const network::mojom::PermissionsPolicyFeature& feature) const {
   return GetFrame()->DomWindow()->IsFeatureEnabled(feature);
+}
+
+bool WebLocalFrameImpl::IsInBackForwardCache() const {
+  return GetFrame()->GetPage()->GetPageScheduler()->IsInBackForwardCache();
 }
 
 void WebLocalFrameImpl::AddHitTestOnTouchStartCallback(

@@ -2,13 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <map>
 #include <memory>
 #include <string>
 
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
-#include "base/run_loop.h"
-#include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -17,9 +15,10 @@
 #include "build/build_config.h"
 #include "chrome/browser/extensions/api/extension_action/extension_action_api.h"
 #include "chrome/browser/extensions/api/extension_action/test_icon_image_observer.h"
+#include "chrome/browser/extensions/extension_action_dispatcher.h"
 #include "chrome/browser/extensions/extension_apitest.h"
-#include "chrome/browser/extensions/test_extension_action_dispatcher_observer.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/extensions/extensions_container.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
@@ -41,7 +40,6 @@
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/script_executor.h"
 #include "extensions/browser/service_worker/service_worker_test_utils.h"
-#include "extensions/browser/state_store.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/api/extension_action/action_info.h"
 #include "extensions/common/api/extension_action/action_info_test_util.h"
@@ -99,40 +97,6 @@ void RunTestAndWaitForSuccess(content::WebContents* web_contents,
   content::ExecuteScriptAsync(web_contents, script);
   EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
 }
-
-// A helper class to track StateStore changes.
-class TestStateStoreObserver : public StateStore::TestObserver {
- public:
-  TestStateStoreObserver(content::BrowserContext* context,
-                         const ExtensionId& extension_id)
-      : extension_id_(extension_id) {
-    scoped_observation_.Observe(ExtensionSystem::Get(context)->state_store());
-  }
-
-  TestStateStoreObserver(const TestStateStoreObserver&) = delete;
-  TestStateStoreObserver& operator=(const TestStateStoreObserver&) = delete;
-
-  ~TestStateStoreObserver() override = default;
-
-  void WillSetExtensionValue(const ExtensionId& extension_id,
-                             const std::string& key) override {
-    if (extension_id == extension_id_) {
-      ++updated_values_[key];
-    }
-  }
-
-  int CountForKey(const std::string& key) const {
-    auto iter = updated_values_.find(key);
-    return iter == updated_values_.end() ? 0 : iter->second;
-  }
-
- private:
-  ExtensionId extension_id_;
-  std::map<std::string, int> updated_values_;
-
-  base::ScopedObservation<StateStore, StateStore::TestObserver>
-      scoped_observation_{this};
-};
 
 // A helper class to handle setting or getting the values for an action from JS.
 class ActionTestHelper {
@@ -219,14 +183,6 @@ class ActionTestHelper {
   const raw_ptr<content::WebContents> web_contents_;
 };
 
-// Forces a flush of the StateStore, where action state is persisted.
-void FlushStateStore(Profile* profile) {
-  base::RunLoop run_loop;
-  ExtensionSystem::Get(profile)->state_store()->FlushForTesting(
-      run_loop.QuitWhenIdleClosure());
-  run_loop.Run();
-}
-
 }  // namespace
 
 // Test that action.setBadgeText() rejects overly long inputs.
@@ -242,6 +198,12 @@ class ExtensionActionAPITest : public ExtensionApiTest {
     ExtensionApiTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(StartEmbeddedTestServer());
+  }
+
+  // Returns the action associated with `extension`.
+  ExtensionAction* GetExtensionAction(const Extension& extension) {
+    auto* action_manager = ExtensionActionManager::Get(profile());
+    return action_manager->GetExtensionAction(extension);
   }
 };
 
@@ -270,13 +232,6 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTest, ActionSetTitleLengthHistogram) {
   histogram.ExpectBucketCount("Extensions.Action.SetTitleLength",
                               /*sample=*/150, /*expected_count=*/1);
 }
-
-#if !BUILDFLAG(IS_ANDROID)
-// Alias these for readability, when a test only exercises one type of action.
-// These APIs are MV2-only, so will never be supported on Android.
-using BrowserActionAPITest = ExtensionActionAPITest;
-using PageActionAPITest = ExtensionActionAPITest;
-#endif
 
 // A class that runs tests exercising each type of possible toolbar action.
 class MultiActionAPITest
@@ -317,85 +272,7 @@ class MultiActionAPITest
     content::WebContents* web_contents = GetActiveWebContents();
     return sessions::SessionTabHelper::IdForTab(web_contents).id();
   }
-
-  // Returns the action associated with |extension|.
-  ExtensionAction* GetExtensionAction(const Extension& extension) {
-    auto* action_manager = ExtensionActionManager::Get(profile());
-    return action_manager->GetExtensionAction(extension);
-  }
 };
-
-#if !BUILDFLAG(IS_ANDROID)
-// Check that updating the browser action badge for a specific tab id does not
-// cause a disk write (since we only persist the defaults).
-// Only browser actions persist settings.
-// Not tested on Android because browserAction is MV2-only.
-IN_PROC_BROWSER_TEST_F(BrowserActionAPITest, TestNoUnnecessaryIO) {
-  ExtensionTestMessageListener ready_listener("ready");
-
-  TestExtensionDir test_dir;
-  test_dir.WriteManifest(
-      R"({
-           "name": "Extension",
-           "description": "An extension",
-           "manifest_version": 2,
-           "version": "0.1",
-           "browser_action": {},
-           "background": { "scripts": ["background.js"] }
-         })");
-  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"),
-                     "chrome.test.sendMessage('ready');");
-
-  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
-  ASSERT_TRUE(extension);
-  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
-
-  // The script template to update the browser action.
-  static constexpr char kUpdate[] =
-      R"(chrome.browserAction.setBadgeText(%s);
-         chrome.test.sendScriptResult('pass');)";
-  content::WebContents* web_contents = GetActiveWebContents();
-  SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents);
-  static constexpr char kBrowserActionKey[] = "browser_action";
-  TestStateStoreObserver test_state_store_observer(profile(), extension->id());
-
-  {
-    TestExtensionActionDispatcherObserver test_observer(profile(),
-                                                        extension->id());
-    // First, update a specific tab.
-    std::string update_options =
-        base::StringPrintf("{text: 'New Text', tabId: %d}", tab_id.id());
-    EXPECT_EQ("pass", ExecuteScriptInBackgroundPage(
-                          extension->id(),
-                          base::StringPrintf(kUpdate, update_options.c_str())));
-    test_observer.Wait();
-
-    // The action update should be associated with the specific tab.
-    EXPECT_EQ(web_contents, test_observer.last_web_contents());
-    // Since this was only updating a specific tab, this should *not* result in
-    // a StateStore write. We should only write to the StateStore with new
-    // default values.
-    EXPECT_EQ(0, test_state_store_observer.CountForKey(kBrowserActionKey));
-  }
-
-  {
-    TestExtensionActionDispatcherObserver test_observer(profile(),
-                                                        extension->id());
-    // Next, update the default badge text.
-    EXPECT_EQ("pass",
-              ExecuteScriptInBackgroundPage(
-                  extension->id(),
-                  base::StringPrintf(kUpdate, "{text: 'Default Text'}")));
-    test_observer.Wait();
-    // The action update should not be associated with a specific tab.
-    EXPECT_EQ(nullptr, test_observer.last_web_contents());
-
-    // This *should* result in a StateStore write, since we persist the default
-    // state of the extension action.
-    EXPECT_EQ(1, test_state_store_observer.CountForKey(kBrowserActionKey));
-  }
-}
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Verify that tab-specific values are cleared on navigation and on tab
 // removal. Regression test for https://crbug.com/41383956.
@@ -793,75 +670,6 @@ IN_PROC_BROWSER_TEST_P(MultiActionAPITest,
 
 using ActionAndBrowserActionAPITest = MultiActionAPITest;
 
-// Tests whether action values persist across sessions.
-// Note: Since pageActions are only applicable on a specific tab, this test
-// doesn't apply to them.
-IN_PROC_BROWSER_TEST_P(ActionAndBrowserActionAPITest, PRE_ValuesArePersisted) {
-  const char* dir_name = nullptr;
-  switch (GetParam()) {
-    case ActionInfo::Type::kAction:
-      dir_name = "extension_action/action_persistence";
-      break;
-    case ActionInfo::Type::kBrowser:
-      dir_name = "extension_action/browser_action_persistence";
-      break;
-    case ActionInfo::Type::kPage:
-      NOTREACHED();
-  }
-  // Load up an extension, which then modifies the popup, title, and badge text
-  // of the action. We need to use a "real" extension on disk here (rather than
-  // a TestExtensionDir owned by the test fixture), because it needs to persist
-  // to the next test.
-  ResultCatcher catcher;
-  const Extension* extension =
-      LoadExtension(test_data_dir_.AppendASCII(dir_name));
-  ASSERT_TRUE(extension);
-  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
-
-  // Verify the values were modified.
-  auto* action_manager = ExtensionActionManager::Get(profile());
-  ExtensionAction* action = action_manager->GetExtensionAction(*extension);
-  EXPECT_EQ(extension->GetResourceURL("modified_popup.html"),
-            action->GetPopupUrl(ExtensionAction::kDefaultTabId));
-  EXPECT_EQ("modified title", action->GetTitle(ExtensionAction::kDefaultTabId));
-  EXPECT_EQ("custom badge text",
-            action->GetExplicitlySetBadgeText(ExtensionAction::kDefaultTabId));
-
-  // We flush the state store to ensure the modified state is correctly stored
-  // on-disk (which could otherwise be potentially racy).
-  FlushStateStore(profile());
-}
-
-IN_PROC_BROWSER_TEST_P(ActionAndBrowserActionAPITest, ValuesArePersisted) {
-  const Extension* extension = GetSingleLoadedExtension();
-  ASSERT_TRUE(extension) << message_;
-  EXPECT_EQ("Action persistence check", extension->name());
-
-  // The previous action states are read from the state store on start-up.
-  // Flushing it ensures that any pending tasks have run, and the action
-  // should be up-to-date.
-  FlushStateStore(profile());
-
-  auto* action_manager = ExtensionActionManager::Get(profile());
-  ExtensionAction* action = action_manager->GetExtensionAction(*extension);
-
-  // Only browser actions - not generic actions - persist values.
-  bool expect_persisted_values = GetParam() == ActionInfo::Type::kBrowser;
-
-  std::string expected_badge_text =
-      expect_persisted_values ? "custom badge text" : "";
-
-  EXPECT_EQ(expected_badge_text,
-            action->GetExplicitlySetBadgeText(ExtensionAction::kDefaultTabId));
-
-  // Due to https://crbug.com/40708464, action values with defaults specified in
-  // the manifest - like popup and title - aren't persisted, even for browser
-  // actions.
-  EXPECT_EQ(extension->GetResourceURL("default_popup.html"),
-            action->GetPopupUrl(ExtensionAction::kDefaultTabId));
-  EXPECT_EQ("default title", action->GetTitle(ExtensionAction::kDefaultTabId));
-}
-
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 // Canvas tests rely on the harness producing pixel output in order to read back
 // pixels from a canvas element. So we have to override the setup function.
@@ -1019,6 +827,79 @@ IN_PROC_BROWSER_TEST_P(MultiActionAPICanvasTest, DynamicSetIcon) {
 
   // TODO(devlin): Add tests for setting icons as a dictionary of
   // { size -> image_data }.
+}
+
+// Tests that setting an invisible icon is not allowed and verifies an error is
+// returned when the error reporting flag is set.
+IN_PROC_BROWSER_TEST_P(MultiActionAPICanvasTest, InvisibleIcon) {
+  // Turn on error reporting for invisible icons.
+  ExtensionActionSetIconFunction::SetReportErrorForInvisibleIconForTesting(
+      true);
+  base::ScopedClosureRunner reset_error(base::BindOnce(
+      &ExtensionActionSetIconFunction::SetReportErrorForInvisibleIconForTesting,
+      false));
+
+  static constexpr char kManifestTemplate[] =
+      R"({
+           "name": "Invisible Icon Test",
+           "manifest_version": %d,
+           "version": "0.1",
+           "%s": {}
+         })";
+  static constexpr char kPageJsTemplate[] =
+      R"(const canvas = document.createElement('canvas');
+         canvas.width = 21;
+         canvas.height = 21;
+         const ctx = canvas.getContext('2d');
+         const invisibleImageData = ctx.getImageData(0, 0, 21, 21);
+
+         ctx.fillStyle = '#FF0000';
+         ctx.fillRect(0, 0, 21, 21);
+         const visibleImageData = ctx.getImageData(0, 0, 21, 21);
+
+         function setIcon(details) {
+           return new Promise((resolve) => {
+             chrome.%s.setIcon(details, () => {
+               resolve(chrome.runtime.lastError ?
+                           chrome.runtime.lastError.message :
+                           '<no error>');
+             });
+           });
+         }
+        )";
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(base::StringPrintf(
+      kManifestTemplate, GetManifestVersionForActionType(GetParam()),
+      ActionInfo::GetManifestKeyForActionType(GetParam())));
+  test_dir.WriteFile(FILE_PATH_LITERAL("page.html"), kPageHtmlTemplate);
+  test_dir.WriteFile(
+      FILE_PATH_LITERAL("page.js"),
+      base::StringPrintf(kPageJsTemplate, GetAPINameForActionType(GetParam())));
+
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+
+  content::WebContents* web_contents = GetActiveWebContents();
+  ASSERT_TRUE(
+      NavigateToURL(web_contents, extension->GetResourceURL("page.html")));
+
+  int tab_id = GetActiveTabId();
+  ExtensionAction* action = GetExtensionAction(*extension);
+  ASSERT_TRUE(action);
+  EnsureActionIsEnabledOnActiveTab(action);
+
+  // Attempting to set an invisible icon should fail.
+  static constexpr char kInvisibleScript[] =
+      "setIcon({tabId: %d, imageData: invisibleImageData});";
+  EXPECT_EQ("Icon not sufficiently visible.",
+            EvalJs(web_contents, base::StringPrintf(kInvisibleScript, tab_id)));
+
+  // Setting a visible icon should succeed.
+  static constexpr char kVisibleScript[] =
+      "setIcon({tabId: %d, imageData: visibleImageData});";
+  EXPECT_EQ("<no error>",
+            EvalJs(web_contents, base::StringPrintf(kVisibleScript, tab_id)));
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
@@ -1279,6 +1160,102 @@ IN_PROC_BROWSER_TEST_F(ExtensionActionAPITest, SetIconInWorkerWithInvalidPath) {
   EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
 }
 
+// Tests calling setIcon() with an SVG icon path.
+IN_PROC_BROWSER_TEST_F(ExtensionActionAPITest, SetIconWithSvg) {
+  ResultCatcher result_catcher;
+  const Extension* extension =
+      LoadExtension(test_data_dir_.AppendASCII("extension_action/update_svg"));
+  ASSERT_TRUE(extension);
+  EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
+
+  // Now test loading from the extension page (non-service worker context).
+  content::WebContents* web_contents = GetActiveWebContents();
+  ASSERT_TRUE(
+      NavigateToURL(web_contents, extension->GetResourceURL("page.html")));
+  EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
+}
+
+// Tests dispatching the onClicked event to listeners in incognito split mode.
+IN_PROC_BROWSER_TEST_F(ExtensionActionAPITest, IncognitoSplit) {
+  ExtensionTestMessageListener listener_ready("regular ready");
+  ExtensionTestMessageListener incognito_ready("incognito ready");
+
+  // Open an incognito browser before loading the extension.
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowserWindow();
+  ASSERT_TRUE(incognito_browser);
+  TabListInterface* incognito_tab_list =
+      TabListInterface::From(incognito_browser);
+  ASSERT_TRUE(incognito_tab_list);
+  // Some platforms (e.g. desktop) do not open a tab by default. Ensure one
+  // exists so the extension action has an active tab to execute on.
+  if (incognito_tab_list->GetTabCount() == 0) {
+    incognito_tab_list->OpenTab(GURL("about:blank"), /*index=*/-1);
+  }
+
+  static constexpr char kManifest[] =
+      R"({
+           "name": "Action Incognito Split",
+           "version": "1.0",
+           "manifest_version": 3,
+           "incognito": "split",
+           "action": {},
+           "background": {
+             "service_worker": "background.js"
+           }
+         })";
+  static constexpr char kBackgroundJs[] =
+      R"(chrome.test.runTests([
+           async function testOnClick() {
+             chrome.action.onClicked.addListener(async (tab) => {
+               const isIncognito = chrome.extension.inIncognitoContext;
+               chrome.test.assertEq(isIncognito, tab.incognito);
+
+               const newTab = await chrome.tabs.create({url: 'about:blank'});
+               chrome.test.assertEq(isIncognito, newTab.incognito);
+               chrome.test.assertEq(tab.windowId, newTab.windowId);
+               chrome.test.succeed();
+             });
+
+             chrome.test.sendMessage(chrome.extension.inIncognitoContext
+                                         ? 'incognito ready'
+                                         : 'regular ready');
+           }
+         ]);)";
+
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(kManifest);
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"), kBackgroundJs);
+
+  ResultCatcher catcher;
+  const Extension* extension =
+      LoadExtension(test_dir.UnpackedPath(), {.allow_in_incognito = true});
+  ASSERT_TRUE(extension);
+
+  EXPECT_TRUE(listener_ready.WaitUntilSatisfied());
+
+  ExtensionsContainer* extensions_container =
+      ExtensionsContainer::From(*browser_window_interface());
+  ASSERT_TRUE(extensions_container);
+  ToolbarActionViewModel* regular_model =
+      extensions_container->GetActionForId(extension->id());
+  ASSERT_TRUE(regular_model);
+  regular_model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
+  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
+
+  EXPECT_TRUE(incognito_ready.WaitUntilSatisfied());
+
+  ExtensionsContainer* incognito_container =
+      ExtensionsContainer::From(*incognito_browser);
+  ASSERT_TRUE(incognito_container);
+  ToolbarActionViewModel* incognito_model =
+      incognito_container->GetActionForId(extension->id());
+  ASSERT_TRUE(incognito_model);
+  incognito_model->ExecuteUserAction(
+      ToolbarActionViewModel::InvocationSource::kToolbarButton);
+  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
+}
+
 // Tests multiple cases of setting an invalid popup that violate same-origin
 // checks.
 IN_PROC_BROWSER_TEST_P(MultiActionAPITest, SetPopupWithInvalidPath) {
@@ -1355,6 +1332,22 @@ IN_PROC_BROWSER_TEST_P(MultiActionAPITest, SetPopupWithInvalidPath) {
     RunTestAndWaitForSuccess(
         web_contents,
         get_script(tab_id, different_extension_popup_url.c_str()));
+  }
+
+  // Set the popup to a same-origin blob URL and expect an error.
+  {
+    const std::string blob_popup_url =
+        base::StrCat({"blob:", extension->GetResourceURL("popup.html").spec()});
+    RunTestAndWaitForSuccess(web_contents,
+                             get_script(tab_id, blob_popup_url.c_str()));
+  }
+
+  // Set the popup to a filesystem URL and expect an error.
+  {
+    const std::string filesystem_popup_url = base::StrCat(
+        {"filesystem:", extension->url().spec(), "temporary/popup.html"});
+    RunTestAndWaitForSuccess(web_contents,
+                             get_script(tab_id, filesystem_popup_url.c_str()));
   }
 }
 
@@ -1782,7 +1775,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionActionAPITest, IsEnabledIgnoreDeclarative) {
   EXPECT_FALSE(script_result.GetBool());
 }
 
-class ActionAPITest : public ExtensionApiTest {
+class ActionAPITest : public ExtensionActionAPITest {
  public:
   ActionAPITest() {
     scoped_feature_list_.InitAndDisableFeature(
@@ -2045,6 +2038,42 @@ IN_PROC_BROWSER_TEST_P(ActionAndBrowserActionAPITest,
   EXPECT_TRUE(run_script_and_wait_for_callback(kUnsetGlobalText).GetBool());
   EXPECT_EQ("", action->GetExplicitlySetBadgeText(tab_id1));
   EXPECT_EQ("", action->GetExplicitlySetBadgeText(tab_id2));
+}
+
+// Tests that action values do not persist across sessions for MV3 actions.
+IN_PROC_BROWSER_TEST_F(ActionAPITest, PRE_ValuesDoNotPersist) {
+  // Load up an extension, which then modifies the popup, title, and badge text
+  // of the action. We need to use a "real" extension on disk here (rather than
+  // a TestExtensionDir owned by the test fixture), because it needs to persist
+  // to the next test.
+  ResultCatcher catcher;
+  const Extension* extension = LoadExtension(
+      test_data_dir_.AppendASCII("extension_action/action_persistence"));
+  ASSERT_TRUE(extension);
+  ASSERT_TRUE(catcher.GetNextResult()) << catcher.message();
+
+  // Verify the values were modified.
+  ExtensionAction* action = GetExtensionAction(*extension);
+  EXPECT_EQ(extension->GetResourceURL("modified_popup.html"),
+            action->GetPopupUrl(ExtensionAction::kDefaultTabId));
+  EXPECT_EQ("modified title", action->GetTitle(ExtensionAction::kDefaultTabId));
+  EXPECT_EQ("custom badge text",
+            action->GetExplicitlySetBadgeText(ExtensionAction::kDefaultTabId));
+}
+
+IN_PROC_BROWSER_TEST_F(ActionAPITest, ValuesDoNotPersist) {
+  const Extension* extension = GetSingleLoadedExtension();
+  ASSERT_TRUE(extension) << message_;
+  EXPECT_EQ("Action persistence check", extension->name());
+
+  ExtensionAction* action = GetExtensionAction(*extension);
+
+  // Action values are not persisted across browser sessions for MV3 actions.
+  EXPECT_EQ("",
+            action->GetExplicitlySetBadgeText(ExtensionAction::kDefaultTabId));
+  EXPECT_EQ(extension->GetResourceURL("default_popup.html"),
+            action->GetPopupUrl(ExtensionAction::kDefaultTabId));
+  EXPECT_EQ("default title", action->GetTitle(ExtensionAction::kDefaultTabId));
 }
 
 #if BUILDFLAG(IS_ANDROID)

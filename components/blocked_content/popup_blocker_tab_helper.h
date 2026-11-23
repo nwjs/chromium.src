@@ -14,18 +14,21 @@
 #include "components/blocked_content/popup_blocker.h"
 #include "components/blocked_content/url_list_manager.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "content/public/browser/web_contents_user_data.h"
-#include "ui/base/window_open_disposition.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "url/gurl.h"
+
+namespace tabs {
+class TabInterface;
+}  // namespace tabs
 
 namespace blocked_content {
 class PopupNavigationDelegate;
 
 // Per-tab class to manage blocked popups.
-class PopupBlockerTabHelper
-    : public content::WebContentsObserver,
-      public content::WebContentsUserData<PopupBlockerTabHelper> {
+class PopupBlockerTabHelper : public content::WebContentsObserver {
  public:
+  DECLARE_USER_DATA(PopupBlockerTabHelper);
   // Mapping from popup IDs to blocked popup requests.
   typedef std::map<int32_t, GURL> PopupIdMap;
 
@@ -51,10 +54,17 @@ class PopupBlockerTabHelper
     kMaxValue = kClickedThroughAbusive
   };
 
+  PopupBlockerTabHelper(tabs::TabInterface& tab,
+                        content::WebContents* web_contents);
+
   PopupBlockerTabHelper(const PopupBlockerTabHelper&) = delete;
   PopupBlockerTabHelper& operator=(const PopupBlockerTabHelper&) = delete;
 
   ~PopupBlockerTabHelper() override;
+
+  static PopupBlockerTabHelper* From(tabs::TabInterface* tab);
+  static PopupBlockerTabHelper* FromWebContents(
+      content::WebContents* web_contents);
 
   // Returns the number of blocked popups.
   size_t GetBlockedPopupsCount() const;
@@ -62,12 +72,14 @@ class PopupBlockerTabHelper
   PopupIdMap GetBlockedPopupRequests();
 
   // Creates the blocked popup with |popup_id| in given |dispostion|.
-  // Note that if |disposition| is WindowOpenDisposition::CURRENT_TAB,
-  // blocked popup will be opened as it was specified by renderer.
-  void ShowBlockedPopup(int32_t popup_id, WindowOpenDisposition disposition);
+  // Note that if |disposition| is
+  // ui::mojom::WindowOpenDisposition::kCurrentTab, blocked popup will be opened
+  // as it was specified by renderer.
+  void ShowBlockedPopup(int32_t popup_id,
+                        ui::mojom::WindowOpenDisposition disposition);
 
   // All blocked popups will be opened with the disposition defaulted to
-  // WindowOpenDisposition::CURRENT_TAB. Used only on Android.
+  // ui::mojom::WindowOpenDisposition::kCurrentTab. Used only on Android.
   void ShowAllBlockedPopups();
 
   // Adds a new blocked popup to the UI.
@@ -86,9 +98,6 @@ class PopupBlockerTabHelper
 
  private:
   struct BlockedRequest;
-  friend class content::WebContentsUserData<PopupBlockerTabHelper>;
-
-  explicit PopupBlockerTabHelper(content::WebContents* web_contents);
 
   // Called when the blocked popup notification is hidden.
   void HidePopupNotification();
@@ -101,7 +110,7 @@ class PopupBlockerTabHelper
 
   int32_t next_id_ = 0;
 
-  WEB_CONTENTS_USER_DATA_KEY_DECL();
+  ui::ScopedUnownedUserData<PopupBlockerTabHelper> scoped_unowned_user_data_;
 };
 
 }  // namespace blocked_content

@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "ash/public/cpp/login_accelerators.h"
+#include "base/memory/raw_ref.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/sequence_checker.h"
@@ -19,13 +21,13 @@
 #include "chrome/browser/ash/app_mode/isolated_web_app/kiosk_iwa_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_app.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_launch_error.h"
+#include "chrome/browser/ash/app_mode/kiosk_app_level_logs_manager_wrapper.h"
 #include "chrome/browser/ash/app_mode/kiosk_app_types.h"
 #include "chrome/browser/ash/app_mode/kiosk_chrome_app_manager.h"
 #include "chrome/browser/ash/app_mode/kiosk_controller.h"
 #include "chrome/browser/ash/app_mode/kiosk_cryptohome_remover.h"
 #include "chrome/browser/ash/app_mode/kiosk_system_session.h"
 #include "chrome/browser/ash/app_mode/web_app/kiosk_web_app_manager.h"
-#include "chrome/browser/chromeos/app_mode/kiosk_app_level_logs_manager_wrapper.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/web_contents.h"
@@ -37,7 +39,7 @@ class SharedURLLoaderFactory;
 }
 
 namespace policy {
-class PolicyService;
+class BrowserPolicyConnectorAsh;
 }  // namespace policy
 
 namespace ash {
@@ -49,12 +51,13 @@ class KioskLaunchController;
 class KioskControllerImpl : public KioskController,
                             public user_manager::UserManager::Observer {
  public:
-  // `local_state` and `policy_service` must be non-null and must outlive
-  // `this`.
+  // `local_state` and `browser_policy_connector_ash` must be non-null and must
+  // outlive `this`.
+  // `shared_url_loader_factory` must be non-null.
   KioskControllerImpl(
       PrefService* local_state,
-      const policy::PolicyService* policy_service,
       scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
+      policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash,
       user_manager::UserManager* user_manager);
   KioskControllerImpl(const KioskControllerImpl&) = delete;
   KioskControllerImpl& operator=(const KioskControllerImpl&) = delete;
@@ -115,7 +118,10 @@ class KioskControllerImpl : public KioskController,
   SEQUENCE_CHECKER(sequence_checker_);
 
   const raw_ref<PrefService> local_state_;
-  const raw_ref<const policy::PolicyService> policy_service_;
+  const scoped_refptr<network::SharedURLLoaderFactory>
+      shared_url_loader_factory_;
+  const raw_ref<policy::BrowserPolicyConnectorAsh>
+      browser_policy_connector_ash_;
 
   KioskCryptohomeRemover cryptohome_remover_;
 

@@ -9,6 +9,10 @@
 #include "build/build_config.h"
 #include "ui/accessibility/ax_features.mojom-features.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/android_info.h"
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #endif
@@ -59,12 +63,6 @@ bool IsAccessibilityHandleOccludingViewsEnabled() {
       ::features::kAccessibilityHandleOccludingViews);
 }
 
-BASE_FEATURE(kAccessibilityTextChangeTypes, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityTextChangeTypesEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityTextChangeTypes);
-}
-
 BASE_FEATURE(kAccessibilityLabeledBy, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAccessibilityLabeledByEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityLabeledBy);
@@ -73,45 +71,6 @@ bool IsAccessibilityLabeledByEnabled() {
 BASE_FEATURE(kAccessibilityTreeForViews, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAccessibilityTreeForViewsEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityTreeForViews);
-}
-
-BASE_FEATURE(kAccessibilityPerformanceMeasurementExperiment,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-bool IsAccessibilityPerformanceMeasurementExperimentEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityPerformanceMeasurementExperiment);
-}
-
-namespace {
-
-constexpr base::FeatureParam<
-    AccessibilityPerformanceMeasurementExperimentGroup>::Option
-    kAccessibilityPerformanceMeasurementExperimentParamOptions[] = {
-        {AccessibilityPerformanceMeasurementExperimentGroup ::kAXModeComplete,
-         "AXModeComplete"},
-        {AccessibilityPerformanceMeasurementExperimentGroup ::kWebContentsOnly,
-         "WebContentsOnly"},
-        {AccessibilityPerformanceMeasurementExperimentGroup ::
-             kAXModeCompleteNoInlineTextBoxes,
-         "AXModeCompleteNoInlineTextBoxes"},
-        {AccessibilityPerformanceMeasurementExperimentGroup ::
-             kRendererSerializationOnly,
-         "RendererSerializationOnly"}};
-
-BASE_FEATURE_ENUM_PARAM(
-    AccessibilityPerformanceMeasurementExperimentGroup,
-    kAccessibilityPerformanceMeasurementExperimentParam,
-    &kAccessibilityPerformanceMeasurementExperiment,
-    "accessibility_performance_group_name",
-    AccessibilityPerformanceMeasurementExperimentGroup::kAXModeComplete,
-    &kAccessibilityPerformanceMeasurementExperimentParamOptions);
-
-}  // namespace
-
-AccessibilityPerformanceMeasurementExperimentGroup
-GetAccessibilityPerformanceMeasurementExperimentGroup() {
-  DCHECK(IsAccessibilityPerformanceMeasurementExperimentEnabled());
-  return kAccessibilityPerformanceMeasurementExperimentParam.Get();
 }
 
 BASE_FEATURE(kViewsAccessibilitySerializeOnDataChanged,
@@ -238,7 +197,7 @@ bool IsExperimentalAccessibilityDictationContextCheckingEnabled() {
       ::features::kExperimentalAccessibilityDictationContextChecking);
 }
 
-BASE_FEATURE(kAccessibilityShakeToLocate, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAccessibilityShakeToLocate, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityShakeToLocateEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityShakeToLocate);
 }
@@ -265,7 +224,7 @@ bool IsAccessibilityChromeVoxJapaneseBrailleEnabled() {
 }
 
 BASE_FEATURE(kAccessibilityGoogleTtsAutomaticReconnect,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityGoogleTtsAutomaticReconnectEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityGoogleTtsAutomaticReconnect);
@@ -298,6 +257,18 @@ bool IsAccessibilityAndroidMathEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityAndroidMath);
 }
 
+BASE_FEATURE(kAccessibilityAndroidBackgroundThread,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityAndroidBackgroundThreadEnabled() {
+  // The background thread owns an embedded window, which needs
+  // `SurfaceControlViewHost` from Android R. Check the feature last, so that
+  // only devices that can use it join a field trial.
+  return base::android::android_info::sdk_int() >=
+             base::android::android_info::SDK_VERSION_R &&
+         base::FeatureList::IsEnabled(
+             ::features::kAccessibilityAndroidBackgroundThread);
+}
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 bool IsReadAloudNativeEnabled() {
@@ -320,6 +291,13 @@ BASE_FEATURE(kAXTreeFixing, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAXTreeFixingEnabled() {
   return base::FeatureList::IsEnabled(::features::kAXTreeFixing);
 }
+
+#if !BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kPageColorsSettings, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsPageColorsSettingsEnabled() {
+  return base::FeatureList::IsEnabled(::features::kPageColorsSettings);
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS)
 
 bool IsScreenAIMainContentExtractionEnabled() {
   return base::FeatureList::IsEnabled(
@@ -397,7 +375,7 @@ bool IsReadAnythingReadAloudPhraseHighlightingEnabled() {
       ::features::kReadAnythingReadAloudPhraseHighlighting);
 }
 
-BASE_FEATURE(kReadAnythingOmniboxChip, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReadAnythingOmniboxChip, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsReadAnythingOmniboxChipEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingOmniboxChip);
 }
@@ -424,14 +402,6 @@ bool IsReadAnythingWithReadabilityEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingWithReadability);
 }
 
-BASE_FEATURE(kReadAnythingReadabilitySelectText,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsReadAnythingReadabilitySelectTextEnabled() {
-  return base::FeatureList::IsEnabled(
-             ::features::kReadAnythingReadabilitySelectText) &&
-         base::FeatureList::IsEnabled(::features::kReadAnythingWithReadability);
-}
-
 BASE_FEATURE(kReadAnythingDistillationQualityEvaluation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsReadAnythingDistillationQualityEvaluationEnabled() {
@@ -450,16 +420,16 @@ bool IsImmersiveReadAnythingPrintEnabled() {
   return base::FeatureList::IsEnabled(::features::kImmersiveReadAnythingPrint);
 }
 
+BASE_FEATURE(kReadAnythingSendFeedback, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsReadAnythingSendFeedbackEnabled() {
+  return base::FeatureList::IsEnabled(::features::kReadAnythingSendFeedback);
+}
+
 // This feature is only used in tests and must not be enabled by default.
 BASE_FEATURE(kScreenAITestMode, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsScreenAITestModeEnabled() {
   return base::FeatureList::IsEnabled(::features::kScreenAITestMode);
 }
-
-#if BUILDFLAG(IS_LINUX)
-BASE_FEATURE(kScreenAIPartitionAllocAdvancedChecksEnabled,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
 
 #endif  // !BUILDFLAG(IS_ANDROID)
 

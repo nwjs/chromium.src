@@ -221,11 +221,31 @@ class AtMemoryManager : public AutofillManager::Observer {
   // queries and hides the suggestion popup if showing.
   void OnStateReset();
 
-  // Sends the given suggestions to the UI.
-  void SendSuggestions(std::vector<Suggestion> suggestions);
+  // Sends suggestions to the UI if the popup is showing.
+  void ShowSuggestions(std::vector<Suggestion> suggestions);
+
+  // Returns the list of suggestions to show in the query typing state.
+  std::vector<Suggestion> GetQueryTypingSuggestions(
+      const std::u16string& query) const;
+
+  // Returns the list of suggestions to show in the fetching state.
+  std::vector<Suggestion> GetFetchingStateSuggestions() const;
+
+  // Takes raw search results or error suggestions and adds accessibility
+  // announcements, section titles, and footer notices as appropriate.
+  std::vector<Suggestion> GetResultsRetrievedSuggestions(
+      const std::vector<Suggestion>& results) const;
 
   // Advances to the next fetching suggestion message and updates the UI.
   void AdvanceFetchingSuggestion();
+
+  // Starts rotating the fetching suggestion messages, beginning with the first
+  // one. Requires `popup_state_`.
+  void StartFetchingTimer();
+
+  // Stops rotating the fetching suggestion messages, if any, without
+  // cancelling the pending query.
+  void StopFetchingTimer();
 
   // Appends previously filled suggestions to the list of suggestions.
   void MaybeAppendPreviouslyFilledSuggestions(

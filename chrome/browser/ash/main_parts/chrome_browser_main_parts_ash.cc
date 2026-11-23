@@ -38,6 +38,7 @@
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_split.h"
@@ -46,6 +47,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
+#include "base/timer/elapsed_timer.h"
 #include "build/branding_buildflags.h"
 #include "build/config/chromebox_for_meetings/buildflags.h"  // PLATFORM_CFM
 #include "build/config/cuttlefish/buildflags.h"  // PLATFORM_CUTTLEFISH
@@ -179,15 +181,18 @@
 #include "chrome/browser/ash/video_conference/video_conference_app_service_client.h"
 #include "chrome/browser/ash/video_conference/video_conference_ash_feature_client.h"
 #include "chrome/browser/ash/video_conference/video_conference_manager_ash.h"
+#include "chrome/browser/ash/video_conference/video_conference_manager_client.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
-#include "chrome/browser/chromeos/video_conference/video_conference_manager_client.h"
 #include "chrome/browser/component_updater/cros_component_installer_chromeos.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
+#include "chrome/browser/device_reauth/chromeos/authenticator_chromeos.h"
+#include "chrome/browser/device_reauth/chromeos/device_auth_availability_checker_chromeos.h"
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
+#include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/lifetime/termination_notification.h"
 #include "chrome/browser/memory/oom_kills_monitor.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
@@ -205,7 +210,6 @@
 #include "chrome/browser/ui/webui/ash/config/ash_web_ui_config_manager.h"
 #include "chrome/browser/ui/webui/ash/emoji/emoji_ui.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_paths.h"
 #include "chrome/common/logging_chrome.h"
 #include "chrome/common/pref_names.h"
 #include "chromeos/ash/components/attestation/attestation_features.h"
@@ -276,6 +280,7 @@
 #include "components/language/core/browser/pref_names.h"
 #include "components/metrics/metrics_service.h"
 #include "components/ownership/owner_key_util.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/quirks/quirks_manager.h"
@@ -334,6 +339,8 @@
 namespace ash {
 
 namespace {
+
+constexpr base::TimeDelta kCachePinAvailabilityDelay = base::Seconds(30);
 
 void ChromeOSVersionCallback(const std::optional<std::string>& version) {
   base::SetLinuxDistro("CrOS " + version.value_or("0.0.0.0"));
@@ -739,11 +746,11 @@ int ChromeBrowserMainPartsAsh::PreEarlyInitialization() {
   DocumentScannerInstaller::GetInstance()->TriggerInstall();
 
   if (auto* fake_biod_client = FakeBiodClient::Get()) {
-    // The Fake biod saves the fake records to the chrome::DIR_USER_DATA
+    // The Fake biod saves the fake records to the ash::DIR_USER_DATA
     // directory, since we can't retrieve this path from chromeos
     // we have to pass it in this way.
     base::FilePath user_data_dir;
-    base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+    base::PathService::Get(ash::DIR_USER_DATA, &user_data_dir);
     fake_biod_client->SetFakeUserDataDir(std::move(user_data_dir));
   }
 
@@ -761,7 +768,7 @@ int ChromeBrowserMainPartsAsh::PreEarlyInitialization() {
     }
 
     base::FilePath user_data_dir;
-    base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+    base::PathService::Get(ash::DIR_USER_DATA, &user_data_dir);
     FakeUserDataAuthClient::Get()->SetUserDataDir(std::move(user_data_dir));
     // Set a default password factor when `--login-manager` is used in
     // non-testing mode.
@@ -862,7 +869,7 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
   // So, we'll use "${DIR_USER_DATA}/display_profiles" in linux-chromeos
   // then.
   base::FilePath user_data_dir;
-  base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
+  base::PathService::Get(ash::DIR_USER_DATA, &user_data_dir);
   CHECK(user_data_dir.IsAbsolute());
   CHECK(base::PathService::OverrideAndCreateIfNeeded(
       ash::DIR_DEVICE_DISPLAY_PROFILES,
@@ -883,10 +890,6 @@ int ChromeBrowserMainPartsAsh::PreMainMessageLoopRun() {
       CHECK_DEREF(g_browser_process->local_state()));
   system::StatisticsProvider::GetInstance()->StartLoadingMachineStatistics(
       load_oem_statistics);
-
-  base::FilePath downloads_directory;
-  CHECK(base::PathService::Get(chrome::DIR_DEFAULT_DOWNLOADS,
-                               &downloads_directory));
 
   DeviceOAuth2TokenServiceFactory::Initialize(
       g_browser_process->system_network_context_manager()
@@ -1102,10 +1105,8 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
 
   kiosk_controller_ = std::make_unique<KioskControllerImpl>(
       g_browser_process->local_state(),
-      g_browser_process->platform_part()
-          ->browser_policy_connector_ash()
-          ->GetPolicyService(),
       g_browser_process->shared_url_loader_factory(),
+      g_browser_process->platform_part()->browser_policy_connector_ash(),
       user_manager::UserManager::Get());
 
   ambient_client_ = std::make_unique<AmbientClientImpl>();
@@ -1394,6 +1395,7 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
             g_browser_process->local_state());
 
     g_browser_process->platform_part()->chrome_session_manager()->Initialize(
+        g_browser_process->metrics_service(),
         g_browser_process->GetFeatures()->application_locale_storage(),
         g_browser_process->shared_url_loader_factory(),
         *base::CommandLine::ForCurrentProcess(), profile,
@@ -1481,6 +1483,19 @@ void ChromeBrowserMainPartsAsh::PostProfileInit(Profile* profile,
         base::DoNothing(),
         base::BindOnce(ShillSetPropertyErrorCallback,
                        shill::kEnableDHCPQoSProperty));
+  }
+
+  // Cache PIN availability 30 seconds after user profile initialization.
+  if (BrowserContextHelper::Get()->GetUserByBrowserContext(profile) &&
+      base::FeatureList::IsEnabled(
+          password_manager::features::kDeviceReauthRefactor)) {
+    content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
+        ->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(
+                &DeviceAuthAvailabilityCheckerChromeOS::CacheIfPinIsAvailable,
+                std::make_unique<AuthenticatorChromeOS>()),
+            kCachePinAvailabilityDelay);
   }
 
   ChromeBrowserMainPartsLinux::PostProfileInit(profile, is_initial_profile);
@@ -1622,8 +1637,7 @@ void ChromeBrowserMainPartsAsh::PostBrowserStart() {
     // initialized here in ChromeBrowserMainPartsAsh. Co-locating the clients
     // with their dependencies is the current design.
     video_conference_manager_client_ =
-        std::make_unique<video_conference::VideoConferenceManagerClientImpl>(
-            vc_manager);
+        std::make_unique<VideoConferenceManagerClientImpl>(vc_manager);
     vc_app_service_client_ =
         std::make_unique<VideoConferenceAppServiceClient>(vc_manager);
     vc_ash_feature_client_ =
@@ -1649,6 +1663,9 @@ void ChromeBrowserMainPartsAsh::PostBrowserStart() {
 // shutdown calls and test |pre_profile_init_called_| if necessary. See
 // crbug.com/40511182 for details.
 void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
+  browser_shutdown::SetShutdownPhase(
+      browser_shutdown::ShutdownPhase::kAshPreShell);
+
   video_conference_manager_client_.reset();
 
   arc_container_app_killer_.reset();
@@ -1831,7 +1848,12 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   memory::OOMKillsMonitor::GetInstance().Shutdown();
 
   // NOTE: Closes ash and destroys `Shell`.
+  browser_shutdown::SetShutdownPhase(
+      browser_shutdown::ShutdownPhase::kAshShell);
   ChromeBrowserMainPartsLinux::PostMainMessageLoopRun();
+
+  browser_shutdown::SetShutdownPhase(
+      browser_shutdown::ShutdownPhase::kAshPostProfile);
 
   ash_web_ui_config_manager_.reset();
 
@@ -1909,9 +1931,15 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   // after calling |PostMainMessageLoopRun()| and before calling
   // |PostDestroyThreads()|.
   mojo_service_manager_closer_.RunAndReset();
+
+  browser_shutdown::SetShutdownPhase(
+      browser_shutdown::ShutdownPhase::kStoppingThreads);
 }
 
 void ChromeBrowserMainPartsAsh::PostDestroyThreads() {
+  browser_shutdown::SetShutdownPhase(
+      browser_shutdown::ShutdownPhase::kPostDestroyThreads);
+
   network_change_manager_client_.reset();
   session_termination_manager_.reset();
 
@@ -1932,7 +1960,10 @@ void ChromeBrowserMainPartsAsh::PostDestroyThreads() {
   // GlobalFeatures.
   browser_controller_.reset();
 
+  const base::ElapsedTimer dbus_shutdown_timer;
   ShutdownDBus();
+  base::UmaHistogramTimes("Shutdown.ChromeOS.DBusShutdownDuration",
+                          dbus_shutdown_timer.Elapsed());
 
   // Destroy the SystemTokenCertDbStorage global instance which should outlive
   // NetworkCertLoader and |system_token_certdb_initializer_|.
@@ -1948,6 +1979,8 @@ void ChromeBrowserMainPartsAsh::PostDestroyThreads() {
   InstallAttributes::Shutdown();
   DeviceSettingsService::Shutdown();
   attestation::AttestationFeatures::Shutdown();
+
+  browser_shutdown::SetShutdownPhase(browser_shutdown::ShutdownPhase::kDone);
 }
 
 }  //  namespace ash

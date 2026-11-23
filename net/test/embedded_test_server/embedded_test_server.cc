@@ -20,6 +20,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/message_loop/message_pump_type.h"
+#include "base/no_destructor.h"
 #include "base/path_service.h"
 #include "base/process/process_metrics.h"
 #include "base/run_loop.h"
@@ -31,6 +32,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/threading/thread_restrictions.h"
+#include "build/build_config.h"
 #include "net/base/hex_utils.h"
 #include "net/base/ip_address.h"
 #include "net/base/ip_endpoint.h"
@@ -467,11 +469,34 @@ EmbeddedTestServer::InitializeCertAndKeyFromFile() {
 std::vector<SSLServerCredential> EmbeddedTestServer::GenerateCertAndKeys() {
   std::vector<SSLServerCredential> ssl_server_credentials;
 
-  // Create AIA server and start listening. Need to have the socket initialized
-  // so the URL can be put in the AIA records of the generated certs.
-  aia_http_server_ = std::make_unique<EmbeddedTestServer>(TYPE_HTTP);
-  if (!aia_http_server_->InitializeAndListen()) {
-    return {};
+  aia_http_server_.reset();
+  bool needs_aia_server = false;
+  for (const auto& config : cert_configs_) {
+    if (config.ocsp_config.response_type != OCSPConfig::ResponseType::kOff ||
+        config.intermediate_ocsp_config.response_type !=
+            OCSPConfig::ResponseType::kOff ||
+        config.intermediate == IntermediateType::kByAIA) {
+      needs_aia_server = true;
+      break;
+    }
+  }
+  if (needs_aia_server) {
+    // Create AIA server and start listening. Need to have the socket
+    // initialized so the URL can be put in the AIA records of the generated
+    // certs.
+#if BUILDFLAG(IS_IOS)
+    // Starting in iOS 27.2 Beta 3, trustd enforces SSRF protections
+    // (UseSSRFLiteralEnforcement and UseSSRFPortEnforcement) that block AIA
+    // and OCSP fetches to numeric loopback/private IP literals (such as
+    // 127.0.0.1) and to TCP ports other than 80 or 8080.
+    constexpr int kAiaServerPort = 8080;
+#else
+    constexpr int kAiaServerPort = 0;
+#endif
+    aia_http_server_ = std::make_unique<EmbeddedTestServer>(TYPE_HTTP);
+    if (!aia_http_server_->InitializeAndListen(kAiaServerPort)) {
+      return {};
+    }
   }
 
   credentials_.clear();
@@ -489,7 +514,7 @@ std::vector<SSLServerCredential> EmbeddedTestServer::GenerateCertAndKeys() {
   // `StartAcceptingConnections` so that this server and the AIA server start
   // at the same time. (If the test only called InitializeAndListen they expect
   // no threads to be created yet.)
-  if (io_thread_) {
+  if (io_thread_ && aia_http_server_) {
     aia_http_server_->StartAcceptingConnections();
   }
 
@@ -537,10 +562,18 @@ EmbeddedTestServer::GenerateCertAndKey(
 
   std::unique_ptr<CertBuilder> root;
   switch (cert_config.root) {
-    case RootType::kTestRootCa:
-      root = CertBuilder::FromStaticCertFile(
-          certs_dir.AppendASCII("root_ca_cert.pem"));
+    case RootType::kTestRootCa: {
+      static base::NoDestructor<scoped_refptr<X509Certificate>> g_root_cert(
+          ImportCertFromFile(certs_dir.AppendASCII("root_ca_cert.pem")));
+      static base::NoDestructor<bssl::UniquePtr<EVP_PKEY>> g_root_key(
+          key_util::LoadEVP_PKEYFromPEM(
+              certs_dir.AppendASCII("root_ca_cert.pem")));
+      CHECK(*g_root_cert);
+      CHECK(*g_root_key);
+      root = CertBuilder::FromStaticCert((*g_root_cert)->cert_buffer(),
+                                         g_root_key->get());
       break;
+    }
     case RootType::kUniqueRoot:
       root = std::make_unique<CertBuilder>(nullptr, nullptr);
       root->SetValidity(now - base::Days(100), now + base::Days(1000));
@@ -615,9 +648,15 @@ EmbeddedTestServer::GenerateCertAndKey(
                                &ocsp_response)) {
     return std::nullopt;
   }
+#if BUILDFLAG(IS_IOS)
+  constexpr std::string_view kAiaServerHostname = "localhost";
+#else
+  constexpr std::string_view kAiaServerHostname = "127.0.0.1";
+#endif
   if (!ocsp_response.empty()) {
     std::string ocsp_path = "/ocsp/" + leaf_serial_text;
-    leaf_ocsp_urls.push_back(aia_http_server_->GetURL(ocsp_path));
+    leaf_ocsp_urls.push_back(
+        aia_http_server_->GetURL(kAiaServerHostname, ocsp_path));
     aia_http_server_->RegisterRequestHandler(
         base::BindRepeating(ServeResponseForSubPaths, ocsp_path, HTTP_OK,
                             "application/ocsp-response", ocsp_response));
@@ -638,7 +677,8 @@ EmbeddedTestServer::GenerateCertAndKey(
   if (!intermediate_ocsp_response.empty()) {
     std::string intermediate_ocsp_path = "/ocsp/" + intermediate_serial_text;
     intermediate->SetCaIssuersAndOCSPUrls(
-        {}, {aia_http_server_->GetURL(intermediate_ocsp_path)});
+        {},
+        {aia_http_server_->GetURL(kAiaServerHostname, intermediate_ocsp_path)});
     aia_http_server_->RegisterRequestHandler(base::BindRepeating(
         ServeResponseForSubPaths, intermediate_ocsp_path, HTTP_OK,
         "application/ocsp-response", intermediate_ocsp_response));
@@ -646,7 +686,8 @@ EmbeddedTestServer::GenerateCertAndKey(
 
   if (cert_config.intermediate == IntermediateType::kByAIA) {
     std::string ca_issuers_path = "/ca_issuers/" + intermediate_serial_text;
-    leaf_ca_issuers_urls.push_back(aia_http_server_->GetURL(ca_issuers_path));
+    leaf_ca_issuers_urls.push_back(
+        aia_http_server_->GetURL(kAiaServerHostname, ca_issuers_path));
 
     // Setup AIA server to serve the intermediate referred to by the leaf.
     aia_http_server_->RegisterRequestHandler(

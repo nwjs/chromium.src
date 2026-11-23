@@ -8,10 +8,10 @@
 
 #import "base/strings/strcat.h"
 #import "base/strings/utf_string_conversions.h"
-#import "components/device_signals/core/common/signals_features.h"
+#import "components/device_signals/core/browser/user_permission_service.h"
 #import "components/enterprise/browser/reporting/common_pref_names.h"
-#import "components/enterprise/browser/reporting/reporting_features.h"
 #import "components/enterprise/connectors/core/features.h"
+#import "components/enterprise/net/core/utils.h"
 #import "components/grit/management_resources.h"
 #import "components/grit/management_resources_map.h"
 #import "components/policy/core/common/cloud/cloud_policy_core.h"
@@ -22,6 +22,7 @@
 #import "ios/chrome/browser/enterprise/connectors/connectors_service.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_util.h"
+#import "ios/chrome/browser/enterprise/signals/model/ios_user_permission_service_factory.h"
 #import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
 #import "ios/chrome/browser/policy/ui_bundled/management_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -37,8 +38,6 @@
 namespace {
 
 using enterprise_connectors::ConnectorsService;
-
-// TODO(crbug.com/539934808): Add eg test for the iOS management page.
 
 // Returns the management message depending on the levels of the policies that
 // are applied. Returns std::nullopt if there are no policies.
@@ -101,13 +100,11 @@ bool IsProfileReportingEnabled(PrefService* profile_prefs) {
 }
 
 // Whether the Device Signals disclosure should be displayed.
-bool IsDeviceSignalsDisclosureEnabled(PrefService* profile_prefs,
-                                      PrefService* local_state) {
-  return base::FeatureList::IsEnabled(
-             enterprise_reporting::kIOSSignalSharingEnabled) &&
-         enterprise_signals::features::IsProfileSignalsReportingEnabled() &&
-         (IsBrowserReportingEnabled(local_state) ||
-          IsProfileReportingEnabled(profile_prefs));
+bool IsDeviceSignalsDisclosureEnabled(
+    const device_signals::UserPermissionService* user_permission_service) {
+  return user_permission_service &&
+         user_permission_service->CanCollectSignals() ==
+             device_signals::UserPermission::kGranted;
 }
 
 // Whether the "Page is visited" event subsection under Chrome Enteprise
@@ -285,7 +282,7 @@ web::WebUIIOSDataSource* CreateManagementUIHTMLSource(web::WebUIIOS* web_ui) {
   source->AddBoolean(
       "deviceSignalsDisclosureEnabled",
       IsDeviceSignalsDisclosureEnabled(
-          profile->GetPrefs(), GetApplicationContext()->GetLocalState()));
+          IOSUserPermissionServiceFactory::GetForProfile(profile)));
 
   // Connectors Section
   auto* connectors_service =
@@ -296,6 +293,16 @@ web::WebUIIOSDataSource* CreateManagementUIHTMLSource(web::WebUIIOS* web_ui) {
                              IDS_MANAGEMENT_THREAT_PROTECTION);
   source->AddString("connectorsDescription",
                     GetConnectorsSectionDescription(connectors_service));
+  source->AddLocalizedString("threatProtectionMore",
+                             IDS_MANAGEMENT_THREAT_PROTECTION_MORE);
+
+  source->AddBoolean(
+      "secureGatewayDisclosureEnabled",
+      enterprise_net::IsSecureGatewayEnabled(profile->GetPrefs()));
+  source->AddLocalizedString("secureGatewayTitle",
+                             IDS_MANAGEMENT_SECURE_GATEWAY_TITLE);
+  source->AddLocalizedString("secureGatewayDisclosure",
+                             IDS_MANAGEMENT_SECURE_GATEWAY_DISCLOSURE);
 
   source->AddBoolean("pageVisitEventEnabled",
                      IsPageVisitEventEnabled(connectors_service));

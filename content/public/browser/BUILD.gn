@@ -190,7 +190,6 @@ source_set("browser_sources") {
     "file_system_access_write_item.cc",
     "file_system_access_write_item.h",
     "file_url_loader.h",
-    "first_party_sets_handler.h",
     "focused_node_details.h",
     "font_list_async.h",
     "frame_accept_header.cc",
@@ -202,6 +201,7 @@ source_set("browser_sources") {
     "frame_type.h",
     "fullscreen_types.h",
     "generated_code_cache_settings.h",
+    "global_dom_node_id.cc",
     "global_dom_node_id.h",
     "global_request_id.cc",
     "global_request_id.h",
@@ -438,6 +438,7 @@ source_set("browser_sources") {
     "speech_recognition_audio_forwarder_config.h",
     "speech_recognition_event_listener.h",
     "speech_recognition_manager.h",
+    "speech_recognition_manager_delegate.cc",
     "speech_recognition_manager_delegate.h",
     "speech_recognition_session_config.cc",
     "speech_recognition_session_config.h",
@@ -556,7 +557,6 @@ source_set("browser_sources") {
   ]
   configs += [
     "//build/config:precompiled_headers",
-    "//build/config/compiler:wexit_time_destructors",
     "//content:content_implementation",
   ]
 
@@ -565,11 +565,7 @@ source_set("browser_sources") {
   }
 
   if (enable_cdm_provision_fetcher) {
-    sources += [
-      "provision_fetcher_factory.h",
-      "provision_fetcher_impl.cc",
-      "provision_fetcher_impl.h",
-    ]
+    sources += [ "provision_fetcher_factory.h" ]
   }
 
   if (is_linux || is_mac) {
@@ -629,6 +625,7 @@ source_set("browser_sources") {
     "//storage/browser",
     "//third_party/webrtc_overrides:webrtc_component",
     "//ui/base/dragdrop/mojom:mojom_headers",
+    "//ui/base/ime:text_input_types",
     "//ui/base/mojom:ui_base_types",
   ]
   deps = [

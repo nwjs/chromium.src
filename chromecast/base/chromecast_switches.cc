@@ -35,6 +35,11 @@ const char kDisableCrashReporter[] = "disable-crash-reporter";
 // Switch to dumpstate binary path.
 const char kDumpstateBinPath[] = "dumpstate-path";
 
+// Switch to dumpstate log retrieval utility. utility must take no arguments as
+// dumpstate does not forward args.
+const char kDumpstateLogRetrievalUtilityPath[] =
+    "dumpstate-log-retrieval-utility-path";
+
 // Enable file accesses. It should not be enabled for most Cast devices.
 const char kEnableLocalFileAccesses[] = "enable-local-file-accesses";
 
@@ -76,11 +81,6 @@ const char kVSyncInterval[] = "vsync-interval";
 // When present, desktop cast_shell will create 1080p window (provided display
 // resolution is high enough).  Otherwise, cast_shell defaults to 720p.
 const char kDesktopWindow1080p[] = "desktop-window-1080p";
-
-// When present overrides the screen resolution used by CanDisplayType API,
-// instead of using the values obtained from avsettings.
-const char kForceMediaResolutionHeight[] = "force-media-resolution-height";
-const char kForceMediaResolutionWidth[] = "force-media-resolution-width";
 
 // Background color used when Chromium hasn't rendered anything yet.
 const char kCastAppBackgroundColor[] = "cast-app-background-color";

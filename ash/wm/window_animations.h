@@ -6,13 +6,21 @@
 #define ASH_WM_WINDOW_ANIMATIONS_H_
 
 #include <memory>
+#include <optional>
+#include <string_view>
 
 #include "ash/ash_export.h"
+#include "ash/constants/ash_features.h"
+#include "base/time/time.h"
 #include "ui/gfx/animation/tween.h"
 #include "ui/wm/core/window_animations.h"
 
 namespace aura {
 class Window;
+}
+
+namespace gfx {
+class Point;
 }
 
 namespace ui {
@@ -23,6 +31,51 @@ class LayerTreeOwner;
 // This is only for animations specific to Ash. For window animations shared
 // with desktop Chrome, see ui/wm/core/window_animations.h.
 namespace ash {
+
+struct BoundsChangeAnimationParams {
+  // The default duration for an animation between two sets of bounds.
+  static constexpr base::TimeDelta kDefaultDuration = base::Milliseconds(120);
+
+  // The default duration for an animation to float or unfloat a window.
+  static constexpr base::TimeDelta kFloatUnfloatDuration =
+      base::Milliseconds(400);
+
+  enum class Type {
+    kBounds,
+    kCrossFade,
+    // Cross-fade that only animates the new layer while an observer updates the
+    // old layer's transform as the window's bounds change during a drag.
+    kCrossFadeAnimateNewLayerOnly,
+  };
+
+  Type type = features::IsCrossFadeBoundsChangeAnimationEnabled()
+                  ? Type::kCrossFade
+                  : Type::kBounds;
+  std::optional<base::TimeDelta> duration = kDefaultDuration;
+  gfx::Tween::Type tween_type = gfx::Tween::LINEAR;
+  std::string_view histogram_name;
+};
+
+inline constexpr BoundsChangeAnimationParams kBoundsAnimationParams{
+    .type = BoundsChangeAnimationParams::Type::kBounds,
+    .duration = BoundsChangeAnimationParams::kDefaultDuration,
+    .tween_type = gfx::Tween::LINEAR,
+};
+inline constexpr BoundsChangeAnimationParams kCrossFadeAnimationParams{
+    .type = BoundsChangeAnimationParams::Type::kCrossFade,
+    .duration = std::nullopt,
+    .tween_type = gfx::Tween::EASE_OUT,
+};
+inline constexpr BoundsChangeAnimationParams kFloatCrossFadeAnimationParams{
+    .type = BoundsChangeAnimationParams::Type::kCrossFade,
+    .duration = BoundsChangeAnimationParams::kFloatUnfloatDuration,
+    .tween_type = gfx::Tween::ACCEL_30_DECEL_20_85,
+};
+inline constexpr BoundsChangeAnimationParams kUnfloatCrossFadeAnimationParams{
+    .type = BoundsChangeAnimationParams::Type::kCrossFade,
+    .duration = BoundsChangeAnimationParams::kFloatUnfloatDuration,
+    .tween_type = gfx::Tween::FAST_OUT_SLOW_IN_3,
+};
 
 // Direction for ash-specific window animations used in workspaces and
 // lock/unlock animations.
@@ -36,31 +89,35 @@ ASH_EXPORT void SetTransformForScaleAnimation(
     ui::Layer* layer,
     LayerScaleAnimationDirection type);
 
-// Implementation of cross fading. Window is the window being cross faded. It
-// should be at the target bounds. `old_layer_owner` contains the previous layer
-// from `window`.
+// Cross-fades `window` from `old_layer_owner` (the previous layer tree
+// recreated from `window`) to `window`'s current target bounds. Both
+// `old_layer_owner->root()->bounds()` and `window->bounds()` must be non-empty.
+// `animation_params` controls the cross-fade behavior:
+// - `type`: `kCrossFade` animates both layers; `kCrossFadeAnimateNewLayerOnly`
+//   animates only the new layer while an observer updates the old layer's
+//   transform as `window`'s bounds and transform change (`kBounds` is invalid).
+// - `duration`: uses an area-based duration if `std::nullopt`.
+// - `tween_type`: tween type for the transition.
+// - `histogram_name`: smoothness histogram to record (defaults to
+//   `Ash.Window.AnimationSmoothness.CrossFade` when empty).
 ASH_EXPORT void CrossFadeAnimation(
     aura::Window* window,
-    std::unique_ptr<ui::LayerTreeOwner> old_layer_owner);
-
-// Implementation of cross fading for floating/unfloating a window. If
-// `to_float` is true, animates to floated state, else animates unfloat.
-ASH_EXPORT void CrossFadeAnimationForFloatUnfloat(
-    aura::Window* window,
     std::unique_ptr<ui::LayerTreeOwner> old_layer_owner,
-    bool to_float);
+    const BoundsChangeAnimationParams& animation_params =
+        kCrossFadeAnimationParams);
 
-// Implementation of cross fading which only animates the new layer. The old
-// layer will be owned by an observer which will update the transform as the new
-// layer's transform and bounds change. This is used by the
-// WorkspaceWindowResizer which needs to animate a window which has its bounds
-// updated throughout the course of the animation.
-ASH_EXPORT void CrossFadeAnimationAnimateNewLayerOnly(
+// Returns true if `window` is currently animating with a cross-fade animation.
+ASH_EXPORT bool HasCrossFadeAnimation(aura::Window* window);
+
+// Animates `window` from `old_origin` (in parent coordinates) to `window`'s
+// current origin using a layer transform animation. `window` must not be
+// currently cross-fading (`!HasCrossFadeAnimation(window)`). Uses `duration`
+// (defaulting to `kDefaultDuration`), `tween_type`, and `histogram_name` (if
+// non-empty) from `animation_params`.
+ASH_EXPORT void PositionAnimation(
     aura::Window* window,
-    const gfx::Rect& target_bounds,
-    base::TimeDelta duration,
-    gfx::Tween::Type tween_type,
-    const std::string& histogram_name);
+    const gfx::Point& old_origin,
+    const BoundsChangeAnimationParams& animation_params = {});
 
 ASH_EXPORT bool AnimateOnChildWindowVisibilityChanged(aura::Window* window,
                                                       bool visible);

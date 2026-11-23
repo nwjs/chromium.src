@@ -112,6 +112,7 @@ PrefService* TestContentPaymentRequestDelegate::GetPrefService() {
 
 void TestContentPaymentRequestDelegate::EmbedPaymentHandlerWindow(
     const GURL& url,
+    const std::optional<gfx::Size>& preferred_web_contents_size,
     PaymentHandlerOpenWindowCallback callback) {}
 
 bool TestContentPaymentRequestDelegate::IsInteractive() const {
@@ -126,14 +127,6 @@ TestContentPaymentRequestDelegate::GetInvalidSslCertificateErrorMessage() {
 autofill::TestAddressNormalizer*
 TestContentPaymentRequestDelegate::test_address_normalizer() {
   return core_delegate_.test_address_normalizer();
-}
-
-void TestContentPaymentRequestDelegate::DelayFullCardRequestCompletion() {
-  core_delegate_.DelayFullCardRequestCompletion();
-}
-
-void TestContentPaymentRequestDelegate::CompleteFullCardRequest() {
-  core_delegate_.CompleteFullCardRequest();
 }
 
 const base::WeakPtr<PaymentUIObserver>

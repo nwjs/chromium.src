@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "base/memory/scoped_refptr.h"
+#include "components/viz/common/gpu/raster_context_provider.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "media/base/video_transformation.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_snapshot_info.h"
@@ -25,10 +26,6 @@ class PaintCanvasVideoRenderer;
 class VideoFrame;
 }  // namespace media
 
-namespace viz {
-class RasterContextProvider;
-}
-
 namespace cc {
 class PaintCanvas;
 class PaintFlags;
@@ -37,6 +34,31 @@ class PaintFlags;
 namespace blink {
 class CanvasNon2DResourceProvider;
 class StaticBitmapImage;
+
+// Pool of accelerated SharedImages used to produce AcceleratedStaticBitmapImage
+// snapshots from media::VideoFrames.
+class PLATFORM_EXPORT VideoFrameAcceleratedSnapshotPool {
+ public:
+  static std::unique_ptr<VideoFrameAcceleratedSnapshotPool> Create(
+      const CanvasSnapshotInfo& info);
+
+  VideoFrameAcceleratedSnapshotPool(const VideoFrameAcceleratedSnapshotPool&) =
+      delete;
+  VideoFrameAcceleratedSnapshotPool& operator=(
+      const VideoFrameAcceleratedSnapshotPool&) = delete;
+  ~VideoFrameAcceleratedSnapshotPool();
+
+  bool IsValid() const;
+  CanvasSnapshotInfo GetInfo() const;
+
+  CanvasNon2DResourceProvider* provider() { return provider_.get(); }
+
+ private:
+  explicit VideoFrameAcceleratedSnapshotPool(
+      std::unique_ptr<CanvasNon2DResourceProvider> provider);
+
+  std::unique_ptr<CanvasNon2DResourceProvider> provider_;
+};
 
 // Converts a media orientation into a blink one or vice versa.
 PLATFORM_EXPORT ImageOrientationEnum
@@ -63,7 +85,7 @@ enum class VideoColorSpaceInterpretation {
 PLATFORM_EXPORT bool WillCreateAcceleratedImagesFromVideoFrame();
 
 // Returns an accelerated StaticBitmapImage for the given frame.
-// `snapshot_provider` should have a size equal to frame->natural_size() and
+// `snapshot_pool` should have a size equal to frame->natural_size() and
 // color space equal to frame->CompatRGBColorSpace().
 //
 // `video_renderer` may optionally be provided in cases where the same frame may
@@ -80,7 +102,7 @@ PLATFORM_EXPORT bool WillCreateAcceleratedImagesFromVideoFrame();
 PLATFORM_EXPORT scoped_refptr<StaticBitmapImage>
 CreateAcceleratedImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame,
-    CanvasNon2DResourceProvider* snapshot_provider,
+    VideoFrameAcceleratedSnapshotPool* snapshot_pool,
     media::PaintCanvasVideoRenderer* video_renderer = nullptr,
     VideoOrientationBehavior orientation_behavior =
         VideoOrientationBehavior::kTagOrientation,

@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_service_factory.h"
 
+#import <utility>
+
 #import "base/check.h"
 #import "ios/chrome/browser/collaboration/model/collaboration_service_factory.h"
 #import "ios/chrome/browser/collaboration/model/features.h"
@@ -31,25 +33,11 @@ std::unique_ptr<KeyedService> CreateService(ProfileIOS* profile) {
 
 }  // namespace
 
-// static
-TabGroupServiceFactory* TabGroupServiceFactory::GetInstance() {
-  static base::NoDestructor<TabGroupServiceFactory> instance;
-  return instance.get();
-}
-
-// static
-TabGroupService* TabGroupServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<TabGroupService>(
-      profile, /*create=*/true);
-}
-
-TabGroupServiceFactory::TabGroupServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("TabGroupService") {
+TabGroupServiceFactory::TabGroupServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key), "TabGroupService") {
   DependsOn(collaboration::CollaborationServiceFactory::GetInstance());
   DependsOn(tab_groups::TabGroupSyncServiceFactory::GetInstance());
 }
-
-TabGroupServiceFactory::~TabGroupServiceFactory() = default;
 
 std::unique_ptr<KeyedService> TabGroupServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

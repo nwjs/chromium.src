@@ -89,6 +89,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       lineSpacing_: {type: Number},
       letterSpacing_: {type: Number},
       font_: {type: String},
+      fontSize_: {type: Number},
       speechRate_: {type: Number},
       highlightGranularity_: {type: Number},
       linksEnabled_: {type: Boolean},
@@ -107,6 +108,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       lineFocusMovement_: {type: Number},
       hasValidSelection_: {type: Boolean},
       isReadAnythingPinned_: {type: Boolean},
+      isHidingContentForTranslation_: {type: Boolean},
     };
   }
 
@@ -120,6 +122,11 @@ export class AppElement extends AppElementBase implements SpeechListener,
   protected accessor hasValidSelection_: boolean = false;
   protected accessor isReadAnythingPinned_: boolean = false;
   protected isReadAnythingImprovedUiEnabled_: boolean = false;
+
+  // Mirrors ContentController.isHidingContentForTranslation(): content is
+  // drawn (so it can be translated) but kept behind the loading screen, and
+  // `contentState_` is LOADING, until the translation is shown or fails.
+  protected accessor isHidingContentForTranslation_: boolean = false;
 
   // If the speech engine is considered "loaded." If it is, we should display
   // the play / pause buttons normally. Otherwise, we should disable the
@@ -179,6 +186,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   protected accessor lineSpacing_: number = 0;
   protected accessor letterSpacing_: number = 0;
   protected accessor font_: string = '';
+  protected accessor fontSize_: number = 0;
   protected accessor speechRate_: number = 1;
   protected accessor highlightGranularity_: number = 0;
   protected accessor linksEnabled_: boolean = false;
@@ -200,7 +208,11 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.styleUpdater_ = new AppStyleUpdater(this);
     this.nodeStore_.clear();
     ColorChangeUpdater.forDocument().start();
+    // Assigned directly rather than through syncContentState_() so TypeScript
+    // sees the definite assignment.
     this.contentState_ = this.contentController_.getState();
+    this.isHidingContentForTranslation_ =
+        this.contentController_.isHidingContentForTranslation();
     this.isReadAnythingImprovedUiEnabled_ =
         this.visualBrowserProxy_.isReadAnythingImprovedUiEnabled();
   }
@@ -285,8 +297,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.contentBrowserProxy_.updateLinks.addListener(
         this.updateLinks_.bind(this));
     this.contentBrowserProxy_.updateSelection.addListener(() => {
-      this.selectionController_.updateSelection(
-          this.getSelection(), this.$.container);
+      this.selectionController_.updateSelection(this.getSelection());
     });
     this.contentBrowserProxy_.updateContent.addListener(
         this.updateContent.bind(this));
@@ -304,7 +315,6 @@ export class AppElement extends AppElementBase implements SpeechListener,
         this.languageChanged.bind(this));
     this.audioBrowserProxy_.setPlayOnOpen.addListener(
         this.setPlayOnOpen.bind(this));
-
   }
 
   override disconnectedCallback() {
@@ -331,6 +341,12 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.playOnOpen_ = playOnOpen;
       this.requestUpdate();
     }
+  }
+
+  private syncContentState_() {
+    this.contentState_ = this.contentController_.getState();
+    this.isHidingContentForTranslation_ =
+        this.contentController_.isHidingContentForTranslation();
   }
 
   private onWindowResize_() {
@@ -441,7 +457,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
     // no content to content or from content to no content (e.g. on pages
     // with no text outside of image captions), so recompute if there's
     // distillable content each time Images are toggled.
-    if (!this.computeHasContent()) {
+    if (!this.computeIsContentDrawn_()) {
       this.updateContent();
     } else {
       this.onImagesVisibilityChanged_();
@@ -464,8 +480,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   private onRenderedTextMappingReady_() {
     this.contentController_.onRenderedTextMappingReady();
-    this.selectionController_.updateSelection(
-        this.getSelection(), this.$.container);
+    this.selectionController_.updateSelection(this.getSelection());
   }
 
   private cancelRenderedTextBlocksAnimationFrame_() {
@@ -599,7 +614,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   /////////////////////// end LineFocusListener methods ////////////////////////
 
   onContentStateChange(): void {
-    this.contentState_ = this.contentController_.getState();
+    this.syncContentState_();
     if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       const lineFocusTypeForStyling =
           (this.contentState_.type === ContentType.HAS_CONTENT) ?
@@ -679,18 +694,23 @@ export class AppElement extends AppElementBase implements SpeechListener,
       event: CustomEvent<{selectedVoice: SpeechSynthesisVoice}>) {
     event.preventDefault();
     event.stopPropagation();
+    this.logger_.logSpeechSettingsChange(
+        ReadAloudSettingsChange.VOICE_NAME_CHANGE);
     this.speechController_.onVoiceSelected(event.detail.selectedVoice);
   }
 
   protected onVoiceLanguageToggle_(event: CustomEvent<{language: string}>) {
     event.preventDefault();
     event.stopPropagation();
+    this.logger_.logSpeechSettingsChange(
+        ReadAloudSettingsChange.LANGUAGE_TOGGLE);
     this.voiceLanguageController_.onLanguageToggle(event.detail.language);
   }
 
   protected onVoiceLanguageSelected_(event: CustomEvent<{language: string}>) {
     event.preventDefault();
     event.stopPropagation();
+    this.logger_.logSpeechSettingsChange(ReadAloudSettingsChange.ACCENT_CHANGE);
     this.voiceLanguageController_.onLanguageSelected(event.detail.language);
   }
 
@@ -707,6 +727,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.lineSpacing_ = this.visualBrowserProxy_.getLineSpacing();
     this.letterSpacing_ = this.visualBrowserProxy_.getLetterSpacing();
     this.font_ = this.visualBrowserProxy_.getFontName();
+    this.fontSize_ = this.visualBrowserProxy_.getFontSize();
     this.speechRate_ = getCurrentSpeechRate();
     this.highlightGranularity_ =
         this.audioBrowserProxy_.getHighlightGranularity();
@@ -762,7 +783,20 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.onTextLocationsChange_();
   }
 
-  protected onFontSizeChange_() {
+  protected onFontSizeChange_(event: CustomEvent<{data: boolean}>) {
+    this.visualBrowserProxy_.onFontSizeChanged(event.detail.data);
+    this.applyFontSize_();
+  }
+
+  protected onFontSizeReset_() {
+    this.visualBrowserProxy_.onFontSizeReset();
+    this.applyFontSize_();
+  }
+
+  private applyFontSize_() {
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.FONT_SIZE_CHANGE);
+    this.syncSettings_();
     this.styleUpdater_.setFontSize();
     this.onTextLocationsChange_();
     this.setLineFocusStyle_();
@@ -780,6 +814,17 @@ export class AppElement extends AppElementBase implements SpeechListener,
     if (presentationState !== this.presentationState_) {
       this.visualBrowserProxy_.togglePresentation();
       this.presentationState_ = presentationState;
+    }
+  }
+
+  protected onPinToggle_() {
+    this.visualBrowserProxy_.togglePinState();
+    this.visualBrowserProxy_.sendPinStateRequest();
+  }
+
+  protected onTranslationRequested_() {
+    if (this.visualBrowserProxy_.isReadAnythingTranslateEntryPointEnabled()) {
+      this.visualBrowserProxy_.onTranslationRequested();
     }
   }
 
@@ -803,6 +848,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected onLineFocusStyleChange_(
       event: CustomEvent<{data: LineFocusStyle}>) {
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.LINE_FOCUS_STYLE_CHANGE);
     if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onStyleChange(
           event.detail.data, this.$.container,
@@ -812,6 +859,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onLineFocusToggleChange_(event: CustomEvent<{data: boolean}>) {
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.LINE_FOCUS_TOGGLE);
     if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.toggle(
           event.detail.data, this.$.container,
@@ -833,6 +882,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected onLineFocusMovementChange_(
       event: CustomEvent<{data: LineFocusMovement}>) {
+    this.logger_.logTextSettingsChange(
+        ReadAnythingSettingsChange.LINE_FOCUS_MOVEMENT_CHANGE);
     if (this.visualBrowserProxy_.isLineFocusEnabled()) {
       this.lineFocusController_.onMovementChange(
           event.detail.data, this.$.container,
@@ -870,6 +921,13 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected computeHasContent(): boolean {
     return this.contentState_.type === ContentType.HAS_CONTENT;
+  }
+
+  // Whether content has been drawn, either shown or kept behind the loading
+  // screen until its translation is shown or fails. The drawn content must
+  // keep its layout in the latter case so it can be translated.
+  protected computeIsContentDrawn_(): boolean {
+    return this.computeHasContent() || this.isHidingContentForTranslation_;
   }
 
   protected computeIsReadAloudPlayable(): boolean {

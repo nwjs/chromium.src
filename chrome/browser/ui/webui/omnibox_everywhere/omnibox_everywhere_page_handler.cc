@@ -24,15 +24,35 @@ void OmniboxEverywherePageHandler::ShowContextActionMenu(
   }
 }
 
+void OmniboxEverywherePageHandler::ShowOverflowMenu(
+    const gfx::Rect& anchor_rect,
+    ui::mojom::MenuSourceType source_type) {
+  if (web_ui_controller_) {
+    web_ui_controller_->ShowOverflowMenu(anchor_rect, source_type);
+  }
+}
+
 void OmniboxEverywherePageHandler::SetIsComposebox(bool is_composebox) {
   if (web_ui_controller_) {
     web_ui_controller_->SetIsComposebox(is_composebox);
   }
 }
 
+void OmniboxEverywherePageHandler::OnDismissMostVisited() {
+  if (web_ui_controller_) {
+    web_ui_controller_->OnDismissMostVisited();
+  }
+}
+
 void OmniboxEverywherePageHandler::OnContextMenuClosed() {
   if (page_) {
     page_->OnContextMenuClosed();
+  }
+}
+
+void OmniboxEverywherePageHandler::OnOverflowMenuClosed() {
+  if (page_) {
+    page_->OnOverflowMenuClosed();
   }
 }
 

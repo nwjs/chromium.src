@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/cached_metadata_handler.h"
 
+#include <utility>
+
 #include "base/debug/dump_without_crashing.h"
 #include "base/time/time.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -25,13 +27,12 @@ class CachedMetadataSenderImpl : public CachedMetadataSender {
                            mojom::blink::CodeCacheType);
   ~CachedMetadataSenderImpl() override = default;
 
-  void Send(CodeCacheHost*, base::span<const uint8_t>) override;
+  void Send(CodeCacheHost*, mojo_base::BigBuffer) override;
   bool IsServedFromCacheStorage() override { return false; }
 
  private:
   const KURL response_url_;
   const base::Time response_time_;
-  const base::Time original_response_time_;
   const mojom::blink::CodeCacheType code_cache_type_;
 };
 
@@ -39,26 +40,22 @@ CachedMetadataSenderImpl::CachedMetadataSenderImpl(
     const ResourceResponse& response,
     mojom::blink::CodeCacheType code_cache_type)
     : response_url_(response.CurrentRequestUrl()),
-      response_time_(response.ResponseTime()),
-      original_response_time_(response.OriginalResponseTime()),
+      response_time_(response.OriginalResponseTime().is_null()
+                         ? response.ResponseTime()
+                         : response.OriginalResponseTime()),
       code_cache_type_(code_cache_type) {
-  // WebAssembly always uses the site isolated code cache.
-  DCHECK(!response.CacheStorageSideDataWriterHolder()->data.is_valid() ||
-         code_cache_type_ == mojom::blink::CodeCacheType::kWebAssembly);
   DCHECK(!response.WasFetchedViaServiceWorker() ||
-         response.IsServiceWorkerPassThrough() ||
-         code_cache_type_ == mojom::blink::CodeCacheType::kWebAssembly);
+         response.IsServiceWorkerPassThrough());
 }
 
 void CachedMetadataSenderImpl::Send(CodeCacheHost* code_cache_host,
-                                    base::span<const uint8_t> data) {
+                                    mojo_base::BigBuffer data) {
   if (!code_cache_host)
     return;
   // TODO(crbug.com/862940): This should use the Blink variant of the
   // interface.
   code_cache_host->get()->DidGenerateCacheableMetadata(
-      code_cache_type_, response_url_, original_response_time_,
-      mojo_base::BigBuffer(data));
+      code_cache_type_, response_url_, response_time_, std::move(data));
 }
 
 // This is a CachedMetadataSender implementation that does nothing.
@@ -67,7 +64,7 @@ class NullCachedMetadataSender : public CachedMetadataSender {
   NullCachedMetadataSender() = default;
   ~NullCachedMetadataSender() override = default;
 
-  void Send(CodeCacheHost*, base::span<const uint8_t>) override {}
+  void Send(CodeCacheHost*, mojo_base::BigBuffer) override {}
   bool IsServedFromCacheStorage() override { return false; }
 };
 
@@ -75,55 +72,34 @@ class NullCachedMetadataSender : public CachedMetadataSender {
 // by a ServiceWorker from cache storage.
 class ServiceWorkerCachedMetadataSender : public CachedMetadataSender {
  public:
-  explicit ServiceWorkerCachedMetadataSender(const ResourceResponse&);
+  explicit ServiceWorkerCachedMetadataSender(
+      mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>);
   ~ServiceWorkerCachedMetadataSender() override = default;
 
-  void Send(CodeCacheHost*, base::span<const uint8_t>) override;
+  void Send(CodeCacheHost*, mojo_base::BigBuffer) override;
   bool IsServedFromCacheStorage() override { return true; }
 
  private:
-  const scoped_refptr<CacheStorageSideDataWriterHolder>
+  mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
       cache_storage_side_data_writer_;
 };
 
 ServiceWorkerCachedMetadataSender::ServiceWorkerCachedMetadataSender(
-    const ResourceResponse& response)
+    mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
+        cache_storage_side_data_writer)
     : cache_storage_side_data_writer_(
-          response.CacheStorageSideDataWriterHolder()) {
-  CHECK(cache_storage_side_data_writer_);
-  CHECK(cache_storage_side_data_writer_->data.is_valid());
+          std::move(cache_storage_side_data_writer)) {
+  CHECK(cache_storage_side_data_writer_.is_valid());
 }
 
 void ServiceWorkerCachedMetadataSender::Send(CodeCacheHost*,
-                                             base::span<const uint8_t> data) {
-  if (!cache_storage_side_data_writer_->data.is_valid()) {
+                                             mojo_base::BigBuffer data) {
+  if (!cache_storage_side_data_writer_.is_valid()) {
     return;
   }
   mojo::Remote<network::mojom::blink::CacheStorageSideDataWriter>(
-      std::move(cache_storage_side_data_writer_->data))
-      ->WriteSideData(mojo_base::BigBuffer(data));
-}
-
-// static
-void CachedMetadataSender::SendToCodeCacheHost(
-    CodeCacheHost* code_cache_host,
-    mojom::blink::CodeCacheType code_cache_type,
-    String url,
-    base::Time response_time,
-    mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
-        cache_storage_side_data_writer,
-    base::span<const uint8_t> data) {
-  if (cache_storage_side_data_writer.is_valid()) {
-    mojo::Remote<network::mojom::blink::CacheStorageSideDataWriter>(
-        std::move(cache_storage_side_data_writer))
-        ->WriteSideData(mojo_base::BigBuffer(data));
-    return;
-  }
-  if (!code_cache_host) {
-    return;
-  }
-  code_cache_host->get()->DidGenerateCacheableMetadata(
-      code_cache_type, KURL(url), response_time, mojo_base::BigBuffer(data));
+      std::move(cache_storage_side_data_writer_))
+      ->WriteSideData(std::move(data));
 }
 
 // static
@@ -146,7 +122,10 @@ std::unique_ptr<CachedMetadataSender> CachedMetadataSender::Create(
 
   // If the service worker provided a Response produced from cache_storage,
   // then we need to use a different code cache sender.
-  if (response.CacheStorageSideDataWriterHolder()->data.is_valid()) {
+  mojo::PendingRemote<network::mojom::blink::CacheStorageSideDataWriter>
+      cache_storage_side_data_writer =
+          response.TakeCacheStorageSideDataWriter();
+  if (cache_storage_side_data_writer.is_valid()) {
     CHECK_EQ(response.GetServiceWorkerResponseSource(),
              network::mojom::FetchResponseSource::kCacheStorage);
     // TODO(leszeks): Check whether it's correct that |origin| can be nullptr.
@@ -158,7 +137,8 @@ std::unique_ptr<CachedMetadataSender> CachedMetadataSender::Create(
     if (!response.HasMatchingServiceWorkerUrl()) {
       return std::make_unique<NullCachedMetadataSender>();
     }
-    return std::make_unique<ServiceWorkerCachedMetadataSender>(response);
+    return std::make_unique<ServiceWorkerCachedMetadataSender>(
+        std::move(cache_storage_side_data_writer));
   } else if (response.GetServiceWorkerResponseSource() ==
              network::mojom::FetchResponseSource::kCacheStorage) {
     // TODO(crbug.com/570132114): Restore the bidirectional CHECK once we verify

@@ -59,6 +59,8 @@ constexpr std::string_view kCrossDeviceHistoryPageCampaign =
     "XDeviceHistoryPage";
 constexpr std::string_view kCrossDeviceSendTabToSelfCampaign =
     "XDeviceSendTabToSelf";
+// TODO(crbug.com/571014322): Update with the final What's New campaign value.
+constexpr std::string_view kCrossDeviceWhatsNewCampaign = "XDeviceWhatsNew";
 
 // Limits for the dismissible promo.
 constexpr int kMaxShownCount = 5;
@@ -76,6 +78,8 @@ std::string_view GetEntryPointHistogramSuffix(
   switch (entry_point) {
     case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
       return "HistoryPage";
+    case CrossDeviceSigninPromoEntryPoint::kWhatsNewPage:
+      return "WhatsNewPage";
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
       return "ProfileMenu";
     case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
@@ -123,6 +127,7 @@ CrossDeviceSigninPromoData ReadDismissiblePromoData(
               signin_prefs.GetCrossDeviceHistoryPromoShownAfterDismissal(
                   gaia_id),
       };
+    case CrossDeviceSigninPromoEntryPoint::kWhatsNewPage:
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
     case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
       NOTREACHED() << "Entry point does not have any promo data";
@@ -147,6 +152,7 @@ void WriteDismissiblePromoData(Profile* profile,
         signin_prefs.ClearCrossDeviceHistoryPromoLastDismissedTime(gaia_id);
       }
       return;
+    case CrossDeviceSigninPromoEntryPoint::kWhatsNewPage:
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
     case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
       NOTREACHED() << "Entry point does not have any promo data";
@@ -160,40 +166,33 @@ std::optional<CrossDeviceSigninPromoData> GetPromoDataForDismissibleEntryPoint(
   switch (entry_point) {
     case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
       return ReadDismissiblePromoData(profile, entry_point);
+    case CrossDeviceSigninPromoEntryPoint::kWhatsNewPage:
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
     case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
       return std::nullopt;
   }
 }
 
-// Limits for the dismissible promo:
+// Checks the frequency caps for a dismissible promo:
 // - Promo can be shown at most 5 times.
 // - Promo can be shown at most once after dismissal.
 // - Cooldown period of 7 days after dismissal.
-bool IsDismissiblePromoLimitReached(
-    const CrossDeviceSigninPromoData& data,
-    CrossDeviceSigninPromoEntryPoint entry_point) {
+// Records no metrics.
+CrossDeviceSigninPromoShouldShowResult CheckDismissiblePromoLimits(
+    const CrossDeviceSigninPromoData& data) {
   if (data.shown_count >= kMaxShownCount) {
-    RecordShouldShowResult(
-        entry_point,
-        CrossDeviceSigninPromoShouldShowResult::kShownLimitReached);
-    return true;
+    return CrossDeviceSigninPromoShouldShowResult::kShownLimitReached;
   }
   if (data.shown_after_dismissal) {
-    RecordShouldShowResult(entry_point,
-                           CrossDeviceSigninPromoShouldShowResult::
-                               kAlreadyShownAfterDismissalLimitReached);
-    return true;
+    return CrossDeviceSigninPromoShouldShowResult::
+        kAlreadyShownAfterDismissalLimitReached;
   }
-  if (!data.last_dismissed_time.is_null()) {
-    if (base::Time::Now() <
-        data.last_dismissed_time + kDismissiblePromoCooldownPeriod) {
-      RecordShouldShowResult(
-          entry_point, CrossDeviceSigninPromoShouldShowResult::kCooldownActive);
-      return true;
-    }
+  if (!data.last_dismissed_time.is_null() &&
+      base::Time::Now() <
+          data.last_dismissed_time + kDismissiblePromoCooldownPeriod) {
+    return CrossDeviceSigninPromoShouldShowResult::kCooldownActive;
   }
-  return false;
+  return CrossDeviceSigninPromoShouldShowResult::kCanShow;
 }
 
 bool IsUserSignedInWithNoError(Profile* profile) {
@@ -243,6 +242,8 @@ std::string_view GetCrossDevicePromoCampaign(
       return kCrossDeviceHistoryPageCampaign;
     case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
       return kCrossDeviceSendTabToSelfCampaign;
+    case CrossDeviceSigninPromoEntryPoint::kWhatsNewPage:
+      return kCrossDeviceWhatsNewCampaign;
   }
 }
 
@@ -272,6 +273,7 @@ bool ShouldReplaceExistingBubble(CrossDeviceSigninPromoEntryPoint entry_point) {
   switch (entry_point) {
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
     case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
+    case CrossDeviceSigninPromoEntryPoint::kWhatsNewPage:
       // Permanent entry point, which cannot observe the bubble state to disable
       // itself: reopen the bubble where the user asked for it.
       return true;
@@ -350,53 +352,86 @@ class QrBubbleState : public base::SupportsUserData::Data {
   base::WeakPtrFactory<QrBubbleState> active_bubble_weak_factory_{this};
 };
 
-}  // namespace
-
-bool ShouldShowCrossDeviceSigninPromo(
-    CrossDeviceSigninPromoEntryPoint entry_point,
-    Profile* profile) {
+bool IsFeatureEnabledForEntryPoint(
+    CrossDeviceSigninPromoEntryPoint entry_point) {
   if (!base::FeatureList::IsEnabled(switches::kCrossDeviceSigninFromDesktop)) {
     return false;
   }
-
-  // 1. General eligibility: Signed in with no errors, and has NO other devices.
-  if (!IsUserSignedInWithNoError(profile)) {
-    RecordShouldShowResult(
-        entry_point, CrossDeviceSigninPromoShouldShowResult::kNotSignedIn);
+  if (entry_point == CrossDeviceSigninPromoEntryPoint::kWhatsNewPage &&
+      (!base::FeatureList::IsEnabled(
+           switches::kCrossDeviceSigninFromDesktopFollowup) ||
+       !switches::kCrossDeviceSigninFromDesktopWhatsNew.Get())) {
     return false;
   }
-  if (HasMobileDevice(profile)) {
-    RecordShouldShowResult(
-        entry_point, CrossDeviceSigninPromoShouldShowResult::kHasMobileDevice);
-    return false;
+  return true;
+}
+
+// Checks the user's state for the promo at `entry_point`, ignoring the
+// frequency caps: returns `kCanShow` if signed in with no error, without a
+// synced mobile device and with the required data types enabled, or the reason
+// it is not. Records no metrics.
+CrossDeviceSigninPromoShouldShowResult CheckPromoPrerequisites(
+    CrossDeviceSigninPromoEntryPoint entry_point,
+    Profile* profile) {
+  // 1. General eligibility: Signed in with no errors, and (except for What's
+  // New) has NO mobile device.
+  if (!IsUserSignedInWithNoError(profile)) {
+    return CrossDeviceSigninPromoShouldShowResult::kNotSignedIn;
+  }
+  // The What's New page always shows a QR code when the user asks for one, so
+  // signed-in users get the account-bound one even if they already have a
+  // phone (e.g. to set up a new one).
+  if (entry_point != CrossDeviceSigninPromoEntryPoint::kWhatsNewPage &&
+      HasMobileDevice(profile)) {
+    return CrossDeviceSigninPromoShouldShowResult::kHasMobileDevice;
   }
 
   // 2. Data-type eligibility check.
   switch (entry_point) {
     case CrossDeviceSigninPromoEntryPoint::kHistoryPage:
       if (!IsHistorySyncEnabled(profile)) {
-        RecordShouldShowResult(
-            entry_point,
-            CrossDeviceSigninPromoShouldShowResult::kDataTypeNotEnabled);
-        return false;
+        return CrossDeviceSigninPromoShouldShowResult::kDataTypeNotEnabled;
       }
       break;
+    case CrossDeviceSigninPromoEntryPoint::kWhatsNewPage:
     case CrossDeviceSigninPromoEntryPoint::kProfileMenu:
     case CrossDeviceSigninPromoEntryPoint::kSendTabToSelf:
-      // Permanent entry point, no data-type constraints.
+      // Entry points without data-type constraints.
       break;
   }
 
-  // 3. Dismissible limit checking - only for dismissible entry points.
-  std::optional<CrossDeviceSigninPromoData> data =
-      GetPromoDataForDismissibleEntryPoint(profile, entry_point);
-  if (data.has_value() && IsDismissiblePromoLimitReached(*data, entry_point)) {
+  return CrossDeviceSigninPromoShouldShowResult::kCanShow;
+}
+
+}  // namespace
+
+bool ShouldStartShowingCrossDeviceSigninPromo(
+    CrossDeviceSigninPromoEntryPoint entry_point,
+    Profile* profile) {
+  if (!IsFeatureEnabledForEntryPoint(entry_point)) {
     return false;
   }
 
-  RecordShouldShowResult(entry_point,
-                         CrossDeviceSigninPromoShouldShowResult::kCanShow);
-  return true;
+  CrossDeviceSigninPromoShouldShowResult result =
+      CheckPromoPrerequisites(entry_point, profile);
+  if (result == CrossDeviceSigninPromoShouldShowResult::kCanShow) {
+    // 3. Dismissible limit checking - only for dismissible entry points.
+    if (std::optional<CrossDeviceSigninPromoData> data =
+            GetPromoDataForDismissibleEntryPoint(profile, entry_point)) {
+      result = CheckDismissiblePromoLimits(*data);
+    }
+  }
+
+  RecordShouldShowResult(entry_point, result);
+  return result == CrossDeviceSigninPromoShouldShowResult::kCanShow;
+}
+
+bool ShouldKeepShowingCrossDeviceSigninPromo(
+    CrossDeviceSigninPromoEntryPoint entry_point,
+    Profile* profile) {
+  return IsFeatureEnabledForEntryPoint(entry_point) &&
+         CheckPromoPrerequisites(entry_point, profile) ==
+             CrossDeviceSigninPromoShouldShowResult::kCanShow;
 }
 
 void OnCrossDeviceSigninPromoShown(CrossDeviceSigninPromoEntryPoint entry_point,
@@ -442,7 +477,7 @@ void OnCrossDeviceSigninPromoDismissed(
 void OpenSigninToPhoneQrCodeBubble(BrowserWindowInterface* browser_window,
                                    CrossDeviceSigninPromoEntryPoint entry_point,
                                    base::OnceClosure closing_callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   CHECK(base::FeatureList::IsEnabled(switches::kCrossDeviceSigninFromDesktop));
   if (!browser_window) {
     return;
@@ -480,7 +515,7 @@ void OpenSigninToPhoneQrCodeBubble(BrowserWindowInterface* browser_window,
 }
 
 bool IsCrossDeviceSigninPromoBubbleOpen(Profile* profile) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   CHECK(profile);
   QrBubbleState* state = QrBubbleState::IfExists(profile);
   return state && state->is_open();
@@ -490,7 +525,7 @@ base::CallbackListSubscription
 RegisterCrossDeviceSigninPromoBubbleStateCallback(
     Profile* profile,
     base::RepeatingCallback<void(bool)> callback) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   CHECK(profile);
   return QrBubbleState::Get(profile)->AddObserver(std::move(callback));
 }

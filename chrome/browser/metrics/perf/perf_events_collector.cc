@@ -115,28 +115,11 @@ bool KernelReleaseHasPEBSFlushingFix(const std::string& release) {
   return major >= 5 || (major == 4 && minor >= 14);
 }
 
-// Returns if a micro-architecture supports LBR callgraph profiling.
-bool MicroarchitectureHasLBRCallgraph(const std::string& uarch) {
-  return uarch == "Haswell" || uarch == "Broadwell" || uarch == "Skylake" ||
-         uarch == "Kabylake" || uarch == "Tigerlake" || uarch == "Tremont" ||
-         uarch == "AlderLake" || uarch == "RaptorLake" || uarch == "Gracemont";
-}
-
-// Returns if a kernel release supports LBR callgraph profiling.
-bool KernelReleaseHasLBRCallgraph(const std::string& release) {
-  int32_t major, minor, bugfix;
-  ExtractVersionNumbers(release, &major, &minor, &bugfix);
-  return major > 4 || (major == 4 && minor >= 4) || (major == 3 && minor == 18);
-}
-
 // Hopefully we never need a space in a command argument.
 const char kPerfCommandDelimiter[] = " ";
 
 // Collect precise=3 (:ppp) cycle events on microarchitectures and kernels that
 // support it.
-const char kPerfLBRCallgraphPPPCmd[] =
-    "-- record -a -e cycles:ppp -c 6000011 --call-graph lbr";
-
 const char kPerfCyclesPPPHGCmd[] = "-- record -a -e cycles:pppHG -c 1000003";
 
 const char kPerfFPCallgraphPPPHGCmd[] =
@@ -146,9 +129,6 @@ const char kPerfFPCallgraphPPPHGCmd[] =
 const char kPerfCyclesHGCmd[] = "-- record -a -e cycles:HG -c 1000003";
 
 const char kPerfFPCallgraphHGCmd[] = "-- record -a -e cycles:HG -g -c 4000037";
-
-const char kPerfLBRCallgraphCmd[] =
-    "-- record -a -e cycles -c 6000011 --call-graph lbr";
 
 const char kPerfLBRCmd[] = "-- record -a -e r20c4 -b -c 800011";
 
@@ -202,28 +182,6 @@ const char kPerfLLCMissesCmd[] = "-- record -a -e r412e -g -c 30007";
 // Precise events (request zero skid) for last level cache misses.
 const char kPerfLLCMissesPreciseCmd[] = "-- record -a -e r412e:pp -g -c 30007";
 
-// Atom CPUs starting with Goldmont and big Intel cores starting with Haswell
-// support Data Linear Address in PEBS. Collecting data addresses requires the
-// use of precise events.
-//
-// On Goldmont & GoldmontPlus.
-const char kPerfDTLBMissesDAPGoldmont[] =
-    "-- record -a -e mem_uops_retired.dtlb_miss_loads:pp -c 2003 -d";
-
-// Tremont on kernel 5.4 doesn't support the event name, but it supports the raw
-// event code.
-// AlderLake on kernel 5.10 doesn't support the event name, but it supports the
-// raw event code.
-const char kPerfDTLBMissesDAPTremont[] = "-- record -a -e r11d0:pp -c 2003 -d";
-
-// On Haswell, Broadwell.
-const char kPerfDTLBMissesDAPHaswell[] =
-    "-- record -a -e mem_uops_retired.stlb_miss_loads:pp -c 2003 -d";
-
-// On big Intel cores from Skylake forward.
-const char kPerfDTLBMissesDAPSkylake[] =
-    "-- record -a -e mem_inst_retired.stlb_miss_loads:pp -c 2003 -d";
-
 // ETM for ARM boards including trogdor and herobrine.
 const char kPerfETMCmd[] =
     "--run_inject --inject_args inject;--itrace=i512il;--strip -- record -a -e "
@@ -243,8 +201,6 @@ const std::vector<RandomSelector::WeightAndValue> GetDefaultCommands_x86_64(
   const char* lbr_cmd = kPerfLBRCmd;
   const char* cycles_cmd = kPerfCyclesHGCmd;
   const char* fp_callgraph_cmd = kPerfFPCallgraphHGCmd;
-  const char* lbr_callgraph_cmd = kPerfLBRCallgraphCmd;
-  const char* dap_dtlb_miss_cmd = nullptr;
 
   if (cpu_uarch == "Skylake" || cpu_uarch == "Kabylake" ||
       cpu_uarch == "Tigerlake" || cpu_uarch == "GoldmontPlus") {
@@ -269,18 +225,6 @@ const std::vector<RandomSelector::WeightAndValue> GetDefaultCommands_x86_64(
   } else if (cpu_uarch == "AlderLake" || cpu_uarch == "RaptorLake") {
     lbr_cmd = kPerfLBRCmdAlderLake;
   }
-  if (cpu_uarch == "Skylake" || cpu_uarch == "Kabylake" ||
-      cpu_uarch == "Tigerlake" || cpu_uarch == "IceLake" ||
-      cpu_uarch == "CometLake" || cpu_uarch == "CannonLake") {
-    dap_dtlb_miss_cmd = kPerfDTLBMissesDAPSkylake;
-  } else if (cpu_uarch == "Goldmont" || cpu_uarch == "GoldmontPlus") {
-    dap_dtlb_miss_cmd = kPerfDTLBMissesDAPGoldmont;
-  } else if (cpu_uarch == "Haswell" || cpu_uarch == "Broadwell") {
-    dap_dtlb_miss_cmd = kPerfDTLBMissesDAPHaswell;
-  } else if (cpu_uarch == "Tremont" || cpu_uarch == "AlderLake" ||
-             cpu_uarch == "RaptorLake" || cpu_uarch == "Gracemont") {
-    dap_dtlb_miss_cmd = kPerfDTLBMissesDAPTremont;
-  }
 
   if (MicroarchitectureHasCyclesPPPEvent(cpu_uarch)) {
     fp_callgraph_cmd = kPerfFPCallgraphPPPHGCmd;
@@ -288,34 +232,11 @@ const std::vector<RandomSelector::WeightAndValue> GetDefaultCommands_x86_64(
     // has the fix for flushing PEBS on context switch.
     if (KernelReleaseHasPEBSFlushingFix(cpuid.release)) {
       cycles_cmd = kPerfCyclesPPPHGCmd;
-      lbr_callgraph_cmd = kPerfLBRCallgraphPPPCmd;
     }
   }
 
-  if (dap_dtlb_miss_cmd != nullptr) {
-    cmds.emplace_back(45.0, cycles_cmd);
-  } else {
-    cmds.emplace_back(50.0, cycles_cmd);
-  }
-
-  // Haswell and newer big Intel cores support LBR callstack profiling. This
-  // requires kernel support, which was added in kernel 4.4, and it was
-  // backported to kernel 3.18. Collect LBR callstack profiling where
-  // supported in addition to FP callchains. The former works with binaries
-  // compiled with frame pointers disabled, but it only captures callchains
-  // after profiling is enabled, so it's likely missing the lower frames of
-  // the callstack.
-  if (MicroarchitectureHasLBRCallgraph(cpu_uarch) &&
-      KernelReleaseHasLBRCallgraph(cpuid.release)) {
-    cmds.emplace_back(10.0, fp_callgraph_cmd);
-    cmds.emplace_back(10.0, lbr_callgraph_cmd);
-  } else {
-    cmds.emplace_back(20.0, fp_callgraph_cmd);
-  }
-
-  if (dap_dtlb_miss_cmd != nullptr) {
-    cmds.emplace_back(5.0, dap_dtlb_miss_cmd);
-  }
+  cmds.emplace_back(50.0, cycles_cmd);
+  cmds.emplace_back(20.0, fp_callgraph_cmd);
 
   if (cpu_uarch == "IvyBridge" || cpu_uarch == "Haswell" ||
       cpu_uarch == "Broadwell" || cpu_uarch == "SandyBridge" ||

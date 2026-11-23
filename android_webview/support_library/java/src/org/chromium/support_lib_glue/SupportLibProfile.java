@@ -11,10 +11,10 @@ import android.os.SystemClock;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.ServiceWorkerController;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebStorage;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.android.webview.chromium.PrefetchOperationCallback;
 import com.android.webview.chromium.PrefetchOperationStatusCode;
@@ -26,8 +26,10 @@ import org.chromium.android_webview.AwOriginMatchedHeader;
 import org.chromium.android_webview.common.Lifetime;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.support_lib_boundary.PrefetchOperationCallbackBoundaryInterface;
 import org.chromium.support_lib_boundary.ProfileBoundaryInterface;
+import org.chromium.support_lib_boundary.RequestMatcherConfig;
 import org.chromium.support_lib_boundary.SpeculativeLoadingConfigBoundaryInterface;
 import org.chromium.support_lib_boundary.SpeculativeLoadingParametersBoundaryInterface;
 import org.chromium.support_lib_boundary.util.BoundaryInterfaceReflectionUtil;
@@ -37,9 +39,12 @@ import org.chromium.support_lib_glue.SupportLibWebViewChromiumFactory.ApiCall;
 import java.lang.reflect.InvocationHandler;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /** The support-lib glue implementation for Profile, delegates all the calls to {@link Profile}. */
 @Lifetime.Profile
@@ -427,6 +432,32 @@ public class SupportLibProfile implements ProfileBoundaryInterface {
     }
 
     @Override
+    public Runnable addHeaderInterceptor(
+            Consumer<BiConsumer<@RequestMatcherConfig Integer, Object>> buildRequestMatcherConfig,
+            Function<WebResourceRequest, Map<String, @Nullable String>> headerInterceptor) {
+        recordApiCall(ApiCall.PROFILE_ADD_HEADER_INTERCEPTOR);
+        try (TraceEvent event =
+                TraceEvent.scoped("WebView.APICall.AndroidX.PROFILE_ADD_HEADER_INTERCEPTOR")) {
+            if (headerInterceptor == null) {
+                throw new NullPointerException("The HeaderInterceptor shouldn't be null");
+            }
+
+            RequestMatcherBuilder requestMatcherBuilder = new RequestMatcherBuilder();
+            buildRequestMatcherConfig.accept(requestMatcherBuilder);
+
+            int id =
+                    mProfileImpl
+                            .getBrowserContext()
+                            .getHeaderInterceptorStore()
+                            .addInterceptor(
+                                    new SupportLibHeaderInterceptorAdapter(headerInterceptor),
+                                    requestMatcherBuilder.getUrlPatterns());
+
+            return new SupportLibProfileHeaderInterceptorHandle(mProfileImpl, id);
+        }
+    }
+
+    @Override
     public void preconnect(String url) {
         recordApiCall(ApiCall.PRECONNECT);
         try (TraceEvent event = TraceEvent.scoped("WebView.APICall.AndroidX.PRECONNECT")) {
@@ -478,6 +509,24 @@ public class SupportLibProfile implements ProfileBoundaryInterface {
                 TraceEvent.scoped(
                         "WebView.APICall.AndroidX.GET_CROSS_ORIGIN_ISOLATED_ALLOW_LIST")) {
             return mProfileImpl.getCrossOriginIsolatedAllowList();
+        }
+    }
+
+    @Override
+    public void configureIsolatedSites(@NonNull Set<String> sites) {
+        recordApiCall(ApiCall.CONFIGURE_ISOLATED_SITES);
+        try (TraceEvent event =
+                TraceEvent.scoped("WebView.APICall.AndroidX.CONFIGURE_ISOLATED_SITES")) {
+            mProfileImpl.configureIsolatedSites(sites);
+        }
+    }
+
+    @Override
+    public boolean canConfigureIsolatedSites() {
+        recordApiCall(ApiCall.CAN_CONFIGURE_ISOLATED_SITES);
+        try (TraceEvent event =
+                TraceEvent.scoped("WebView.APICall.AndroidX.CAN_CONFIGURE_ISOLATED_SITES")) {
+            return mProfileImpl.canConfigureIsolatedSites();
         }
     }
 }

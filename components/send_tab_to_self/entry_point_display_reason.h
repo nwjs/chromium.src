@@ -23,14 +23,18 @@ class SendTabToSelfModel;
 //   org.chromium.chrome.browser.share.send_tab_to_self)
 enum class EntryPointDisplayReason {
   // The send-tab-to-self entry point should be shown because all the conditions
-  // are met and the feature is ready to be used.
+  // are met and the feature is ready to be used. Note that target device
+  // expiration is re-evaluated on every call to
+  // `SendTabToSelfModel::GetTargetDeviceInfoSortedList()`, so callers must
+  // still handle an empty device list if the last target device expires
+  // between the two calls.
   kOfferFeature,
   // The user might be able to use send-tab-to-self if they sign in, so offer
   // that. "Might" because the list of target devices can't be known yet, it
   // could be empty (see below).
   kOfferSignIn,
-  // The user is in a signin pending / reauth state (e.g. invalid credentials).
-  // Offer reauthentication if the enhanced desktop UI feature is enabled.
+  // The user is in a signin pending / reauth state (e.g. invalid credentials),
+  // so offer reauthentication.
   kOfferReauth,
   // All the conditions for send-tab-to-self are met, but there is no valid
   // target device. In that case the entry point should inform the user they

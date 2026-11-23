@@ -12,6 +12,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "base/check.h"
@@ -146,6 +147,9 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
     base::raw_span<const raw_ptr<Window, VectorExperimental>> windows_;
   };
 
+  // Asserts that at least one `ScopedDeleteBlocker` is active on this Window.
+  void AssertDeleteBlocked() const { CHECK(delete_block_count_ > 0u); }
+
   // Initial value of id() for newly created windows.
   static constexpr int kInitialId = -1;
 
@@ -216,7 +220,7 @@ class AURA_EXPORT Window : public ui::LayerDelegate,
   void SetId(int id);
 
   // ui::GestureConsumer:
-  const std::string& GetName() const override;
+  std::string_view GetName() const override;
   void SetName(const std::string& name);
 
   const std::u16string& GetTitle() const;

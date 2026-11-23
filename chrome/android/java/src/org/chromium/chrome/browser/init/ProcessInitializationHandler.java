@@ -47,7 +47,7 @@ import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.DevToolsServer;
 import org.chromium.chrome.browser.FileProviderHelper;
 import org.chromium.chrome.browser.accessibility.settings.AccessibilitySettingsBridge;
-import org.chromium.chrome.browser.actor.ActorForegroundServiceManager;
+import org.chromium.chrome.browser.actor.foreground_service.ActorForegroundServiceManager;
 import org.chromium.chrome.browser.app.bluetooth.BluetoothNotificationService;
 import org.chromium.chrome.browser.app.flags.ChromeCachedFlags;
 import org.chromium.chrome.browser.app.usb.UsbNotificationService;
@@ -109,7 +109,6 @@ import org.chromium.chrome.browser.tabmodel.TabPersistentStoreImpl;
 import org.chromium.chrome.browser.tips.TipsPromoHandlerRegistrar;
 import org.chromium.chrome.browser.ui.cars.DrivingRestrictionsManager;
 import org.chromium.chrome.browser.ui.color.ColorProviderBridgeImpl;
-import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerAckSyncer;
 import org.chromium.chrome.browser.ui.hats.SurveyClientFactory;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityPreferencesManager;
 import org.chromium.chrome.browser.usb.UsbNotificationManager;
@@ -503,6 +502,13 @@ public class ProcessInitializationHandler {
 
         // Needed for field trial metrics to be properly collected in minimal browser mode.
         ChromeCachedFlags.getInstance().cacheMinimalBrowserFlags();
+
+        DeferredStartupHandler.getInstance()
+                .addDeferredTask(
+                        () -> {
+                            SearchWidgetProvider.initialize();
+                            QuickActionSearchWidgetProvider.initialize();
+                        });
     }
 
     public final void initNetworkChangeNotifier() {
@@ -710,11 +716,6 @@ public class ProcessInitializationHandler {
                             new ApplicationStatusAccessibilityStateVisibilityManager());
                 });
         tasks.add(TabPersistentStoreImpl::onDeferredStartup);
-        tasks.add(
-                () -> {
-                    SearchWidgetProvider.initialize();
-                    QuickActionSearchWidgetProvider.initialize();
-                });
     }
 
     /**
@@ -756,7 +757,6 @@ public class ProcessInitializationHandler {
                 });
 
         tasks.add(() -> FeedbackPolicyManager.getInstance().onFinishNativeInitialization(profile));
-        tasks.add(() -> EnterpriseSignalsDisclaimerAckSyncer.initialize(profile));
     }
 
     private void initChannelsAsync() {

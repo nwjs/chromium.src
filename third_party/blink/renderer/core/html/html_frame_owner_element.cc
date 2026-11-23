@@ -42,6 +42,7 @@
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/events/current_input_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/exported/web_plugin_container_impl.h"
 #include "third_party/blink/renderer/core/fetch/fetch_later_util.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -62,7 +63,6 @@
 #include "third_party/blink/renderer/core/loader/frame_load_request.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
 #include "third_party/blink/renderer/core/loader/resource_initiator_helper.h"
-#include "third_party/blink/renderer/core/loader/url_matcher.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/scrolling/root_scroller_controller.h"
 #include "third_party/blink/renderer/core/paint/object_paint_invalidator.h"
@@ -165,7 +165,6 @@ HTMLFrameOwnerElement::HTMLFrameOwnerElement(const QualifiedName& tag_name,
     : HTMLElement(tag_name, document),
       should_lazy_load_children_(DoesParentAllowLazyLoadingChildren(document)) {
   SetHasCustomStyleCallbacks();
-  document.IncrementImmediateChildFrameCreationCount();
 }
 
 const QualifiedName& HTMLFrameOwnerElement::SubResourceAttributeName() const {
@@ -217,11 +216,12 @@ Node::InsertionNotificationRequest HTMLFrameOwnerElement::InsertedInto(
   return result;
 }
 
-void HTMLFrameOwnerElement::DidChangeIsInCanvasSubtree() {
-  HTMLElement::DidChangeIsInCanvasSubtree();
+void HTMLFrameOwnerElement::DidChangeIsInCanvasSubtree(
+    CanvasSubtreePropagation propagation_behavior) {
+  HTMLElement::DidChangeIsInCanvasSubtree(propagation_behavior);
   if (Document* inner_document = contentDocument()) {
     if (Element* root = inner_document->documentElement()) {
-      root->SetIsInCanvasSubtree(IsInCanvasSubtree());
+      root->SetIsInCanvasSubtree(IsInCanvasSubtree(), propagation_behavior);
       if (auto* layout_view = inner_document->GetLayoutView()) {
         layout_view->SetNeedsPaintPropertyUpdate();
         layout_view->SetSubtreeShouldDoFullPaintInvalidation();
@@ -593,7 +593,12 @@ void HTMLFrameOwnerElement::SetEmbeddedContentView(
   embedded_content_view_ = embedded_content_view;
   if (old_view && old_view->IsAttached()) {
     old_view->DetachFromLayout();
-    old_view->Dispose();
+    // Dispose a plugin but not a FrameView here. FrameViews are owned and
+    // disposed by their Frame, and an <iframe> that becomes display:none keeps
+    // an active FrameView which could be reattached later.
+    if (auto* plugin = DynamicTo<WebPluginContainerImpl>(old_view)) {
+      plugin->Dispose();
+    }
   }
 
   FrameOwnerPropertiesChanged();

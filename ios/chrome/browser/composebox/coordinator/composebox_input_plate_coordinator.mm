@@ -18,7 +18,6 @@
 #import "components/contextual_search/internal/ios/composebox_query_controller_ios.h"
 #import "components/lens/lens_features.h"
 #import "components/lens/lens_overlay_invocation_source.h"
-#import "components/ntp_tiles/features.h"
 #import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/omnibox/browser/location_bar_model_impl.h"
 #import "components/search_engines/template_url_service.h"
@@ -37,7 +36,6 @@
 #import "ios/chrome/browser/composebox/public/composebox_entrypoint.h"
 #import "ios/chrome/browser/composebox/public/composebox_focus_params.h"
 #import "ios/chrome/browser/composebox/public/composebox_input_item_source.h"
-#import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_attachment_diff.h"
@@ -56,6 +54,7 @@
 #import "ios/chrome/browser/location_bar/model/web_location_bar_impl.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_model_delegate_ios.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_url_loader.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/omnibox/coordinator/omnibox_coordinator.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_presentation_context.h"
 #import "ios/chrome/browser/omnibox/ui/omnibox_focus_delegate.h"
@@ -100,11 +99,9 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
     ComposeboxEntrypoint entrypoint) {
   switch (entrypoint) {
     case ComposeboxEntrypoint::kNTPAttachImageButton: {
-      ntp_tiles::AimButtonRefactorArm arm =
-          ntp_tiles::GetAimButtonRefactorArm();
-      CHECK(arm == ntp_tiles::AimButtonRefactorArm::kAttachImageQuickAction ||
-            arm ==
-                ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction);
+      AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+      CHECK(arm == AimButtonRefactorArm::kAttachImageQuickAction ||
+            arm == AimButtonRefactorArm::kImageGenerationQuickAction);
       return contextual_search::ContextualSearchSource::kNewTabPage;
     }
     case ComposeboxEntrypoint::kNTPAIMButton:
@@ -139,7 +136,13 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 @implementation ComposeboxInputPlateCoordinator {
   ComposeboxInputPlateViewController* _viewController;
   ComposeboxInputPlateMediator* _mediator;
+  // Used to display the legacy Voice Search UI.
+  // TODO(crbug.com/549858749): Remove once the legacy Voice Search UI is
+  // removed.
   id<VoiceSearchController> _voiceSearchController;
+  // Coordinator presenting the Voice Search UI. Nil if Voice Search isn't
+  // started.
+  ChromeCoordinator* _voiceSearchCoordinator;
   /// The entrypoing from which the coordinator was invoked.
   ComposeboxEntrypoint _entrypoint;
   /// Optional query inserted into the omnibox at start.
@@ -208,24 +211,36 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
         recordAiModeActivationSource:AiModeActivationSource::kNTPButton];
   }
 
-  _voiceSearchController =
-      ios::provider::CreateVoiceSearchController(self.browser);
-
-  auto query_controller_config_params = std::make_unique<
-      contextual_search::ContextualSearchContextController::ConfigParams>();
-  query_controller_config_params->send_lns_surface = false;
-  query_controller_config_params->enable_viewport_images = true;
-  query_controller_config_params
-      ->prioritize_suggestions_for_the_first_attached_document = true;
+  if (!IsVoiceSearchEvolutionPhase1Enabled()) {
+    _voiceSearchController =
+        ios::provider::CreateVoiceSearchController(self.browser);
+  }
 
   _contextualService =
       ContextualSearchServiceFactory::GetForProfile(self.profile);
 
   std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
-      contextualSearchSession = _contextualService->CreateSession(
-          std::move(query_controller_config_params),
-          ContextualSearchSourceFromEntrypoint(_entrypoint),
-          lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
+      contextualSearchSession;
+  if (_focusParams.hasContextualSearchSession) {
+    contextualSearchSession = [_focusParams takeContextualSearchSession];
+    if (contextual_search::ContextualSearchMetricsRecorder* metricsRecorder =
+            contextualSearchSession->GetMetricsRecorder()) {
+      metricsRecorder->UpdateContextualSearchSource(
+          ContextualSearchSourceFromEntrypoint(_entrypoint));
+    }
+  } else {
+    auto query_controller_config_params = std::make_unique<
+        contextual_search::ContextualSearchContextController::ConfigParams>();
+    query_controller_config_params->send_lns_surface = false;
+    query_controller_config_params->enable_viewport_images = true;
+    query_controller_config_params
+        ->prioritize_suggestions_for_the_first_attached_document = true;
+
+    contextualSearchSession = _contextualService->CreateSession(
+        std::move(query_controller_config_params),
+        ContextualSearchSourceFromEntrypoint(_entrypoint),
+        lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
+  }
   _metricsRecorder.contextualSearchMetricsRecorder =
       contextualSearchSession->GetMetricsRecorder();
 
@@ -263,10 +278,13 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   _mediator.consumer = _viewController;
   _mediator.delegate = self;
   _mediator.metricsRecorder = _metricsRecorder;
+  _mediator.assistantMetricsRecorder = _focusParams.assistantMetricsRecorder;
 
   _viewController.mutator = _mediator;
-  // Mediator is the voice search delegate to load queries in composebox.
-  _voiceSearchController.delegate = _mediator;
+  if (!IsVoiceSearchEvolutionPhase1Enabled()) {
+    // Mediator is the voice search delegate to load queries in composebox.
+    _voiceSearchController.delegate = _mediator;
+  }
 
   _locationBar = std::make_unique<WebLocationBarImpl>(self);
   _locationBar->SetURLLoader(self);
@@ -330,6 +348,7 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 
   _metricsRecorder.contextualSearchMetricsRecorder = nullptr;
 
+  [self stopVoiceSearchCoordinator];
   _viewController.mutator = nil;
   _viewController = nil;
   _pickerPresenter = nil;
@@ -398,6 +417,16 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
             (ComposeboxInputPlateViewController*)composeboxViewController
                  didTapMicButton:(UIButton*)micButton {
   [_metricsRecorder recordVoiceSearchButtonUsed];
+
+  if (IsVoiceSearchEvolutionPhase1Enabled()) {
+    [self stopVoiceSearchCoordinator];
+    // TODO(crbug.com/571184218): Implement `VoiceSearchCoordinatorDelegate` to
+    // submit recognized queries and stop the coordinator on dismissal.
+    _voiceSearchCoordinator = ios::provider::CreateVoiceSearchCoordinator(
+        _viewController, self.browser, /*delegate=*/nil);
+    [_voiceSearchCoordinator start];
+    return;
+  }
 
   WebStateList* webStateList = self.browser->GetWebStateList();
   if (!webStateList) {
@@ -506,42 +535,6 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   }
 }
 
-- (void)composeboxViewControllerDidTapFileButton:
-    (ComposeboxInputPlateViewController*)composeboxViewController {
-  [_metricsRecorder
-      recordAttachmentButtonUsed:FuseboxAttachmentButtonType::kFiles];
-  if (![_mediator canAddMoreAttachments]) {
-    [self showMaxAttachmentSnackbarError];
-    return;
-  }
-
-  [_pickerPresenter presentFilePicker];
-}
-
-- (void)composeboxViewControllerDidTapDriveButton:
-    (ComposeboxInputPlateViewController*)composeboxViewController {
-  [_metricsRecorder
-      recordAttachmentButtonUsed:FuseboxAttachmentButtonType::kDriveFiles];
-  if (![_mediator canAddMoreAttachments]) {
-    [self showMaxAttachmentSnackbarError];
-    return;
-  }
-
-  [_pickerPresenter presentDriveFilePicker];
-}
-
-- (void)composeboxViewControllerDidTapAttachTabsButton:
-    (ComposeboxInputPlateViewController*)viewController {
-  if (![_mediator canAddMoreAttachments]) {
-    [self showMaxAttachmentSnackbarError];
-    return;
-  }
-
-  [_metricsRecorder
-      recordAttachmentButtonUsed:FuseboxAttachmentButtonType::kTabPicker];
-  [_pickerPresenter presentTabPicker];
-}
-
 - (void)composeboxViewController:
             (ComposeboxInputPlateViewController*)viewController
        didAttemptDragAndDropType:(ComposeboxDragAndDropType)type {
@@ -553,13 +546,6 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
                       didTapTool:(ComposeboxMode)toolMode
                 activationSource:(AiModeActivationSource)activationSource {
   [self selectTool:toolMode activationSource:activationSource];
-}
-
-- (void)composeboxViewController:
-            (ComposeboxInputPlateViewController*)composeboxViewController
-                  didSelectModel:(ComposeboxModelOption)modelOption {
-  [_mediator setModelOption:modelOption explicitUserAction:YES];
-  [_metricsRecorder recordModelSelected:modelOption];
 }
 
 - (void)composeboxViewController:
@@ -679,8 +665,8 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
     UrlLoadParams params = UrlLoadParams::InNewTab(web_params);
     params.disposition = disposition;
     params.in_incognito = isIncognito;
-    if (params.disposition == WindowOpenDisposition::CURRENT_TAB) {
-      params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+    if (params.disposition == WindowOpenDisposition::kCurrentTab) {
+      params.disposition = WindowOpenDisposition::kNewForegroundTab;
     }
     UrlLoadingBrowserAgent::FromBrowser(self.browser)->Load(params);
   }
@@ -726,6 +712,12 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 }
 
 #pragma mark - Private helpers
+
+// Stops the Voice Search coordinator, if any.
+- (void)stopVoiceSearchCoordinator {
+  [_voiceSearchCoordinator stop];
+  _voiceSearchCoordinator = nil;
+}
 
 /// Updates the active tool mode in the composebox, toggling it off if it's
 /// already active, and records associated metrics.
@@ -924,21 +916,17 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 }
 
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
-    handleSelectedTabsWithWebStateIDs:
-        (std::set<web::WebStateID>)selectedWebStateIDs
-                    cachedWebStateIDs:
-                        (std::set<web::WebStateID>)cachedWebStateIDs {
+                      didPickTabs:(const ComposeboxTabSelection&)selection {
   std::set<web::WebStateID> alreadyProcessedIDs =
       [_mediator allAttachedWebStateIDs];
   composebox::TabDiff diff =
-      composebox::ComputeTabDiff(alreadyProcessedIDs, selectedWebStateIDs);
+      composebox::ComputeTabDiff(alreadyProcessedIDs, selection.selected_ids);
 
   if (diff.added.size() > 0) {
     [_metricsRecorder recordTabPickerTabsAttached:diff.added.size()];
   }
 
-  [_mediator attachSelectedTabsWithWebStateIDs:selectedWebStateIDs
-                             cachedWebStateIDs:cachedWebStateIDs];
+  [_mediator attachTabSelection:selection];
 }
 
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
@@ -988,9 +976,9 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 }
 
 - (void)composeboxMenuCoordinator:(ComposeboxMenuCoordinator*)coordinator
-                      didTapModel:(ComposeboxModelOption)modelMode {
-  [_mediator setModelOption:modelMode explicitUserAction:YES];
-  [_metricsRecorder recordModelSelected:modelMode];
+                      didTapModel:(omnibox::ModelMode)model {
+  [_mediator setModel:model explicitUserAction:YES];
+  [_metricsRecorder recordModelSelected:model];
 }
 
 - (void)composeboxMenuCoordinator:(ComposeboxMenuCoordinator*)coordinator

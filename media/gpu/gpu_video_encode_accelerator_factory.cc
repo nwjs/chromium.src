@@ -247,13 +247,6 @@ VideoEncodeAccelerator::SupportedProfiles GetSupportedProfilesInternal(
                                                         &profiles);
   }
 
-  if (gpu_workarounds.disable_accelerated_av1_encode) {
-    std::erase_if(profiles, [](const auto& vea_profile) {
-      return vea_profile.profile >= AV1PROFILE_PROFILE_MAIN &&
-             vea_profile.profile <= AV1PROFILE_PROFILE_PRO;
-    });
-  }
-
   if (gpu_workarounds.disable_accelerated_vp8_encode) {
     std::erase_if(profiles, [](const auto& vea_profile) {
       return vea_profile.profile == VP8PROFILE_ANY;
@@ -280,7 +273,8 @@ VideoEncodeAccelerator::SupportedProfiles GetSupportedProfilesInternal(
 }  // anonymous namespace
 
 // static
-MEDIA_GPU_EXPORT EncoderStatus::Or<std::unique_ptr<VideoEncodeAccelerator>>
+MEDIA_GPU_EXPORT
+base::expected<std::unique_ptr<VideoEncodeAccelerator>, EncoderStatus>
 GpuVideoEncodeAcceleratorFactory::CreateVEA(
     const VideoEncodeAccelerator::Config& config,
     VideoEncodeAccelerator::Client* client,
@@ -330,7 +324,7 @@ GpuVideoEncodeAcceleratorFactory::CreateVEA(
     }
     return vea;
   }
-  return std::move(initialization_err);
+  return base::unexpected(std::move(initialization_err));
 }
 
 // static

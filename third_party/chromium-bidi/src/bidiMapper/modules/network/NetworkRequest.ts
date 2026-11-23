@@ -128,6 +128,9 @@ export class NetworkRequest {
   };
 
   waitNextPhase: Deferred<void> = new Deferred<void>();
+  // Resolved when the request is finished, used to await pending data
+  // collection.
+  #finished: Deferred<void> = new Deferred<void>();
 
   constructor(
     id: Network.Request,
@@ -143,6 +146,20 @@ export class NetworkRequest {
     this.#cdpTarget = cdpTarget;
     this.#redirectCount = redirectCount;
     this.#logger = logger;
+  }
+
+  // Tracks if the request has finished loading or failed, preventing premature
+  // disposal.
+  get isFinished(): boolean {
+    return this.#finished.isFinished;
+  }
+
+  get finishedPromise(): Promise<void> {
+    return this.#finished;
+  }
+
+  get hasResponse(): boolean {
+    return Boolean(this.#response.info || this.#response.paused);
   }
 
   get id(): string {
@@ -161,17 +178,22 @@ export class NetworkRequest {
   }
 
   get url(): string {
+    // Prefer browser-emitted Fetch events over renderer-emitted Network events
+    // (https://crbug.com/575090111).
     const fragment =
-      this.#request.info?.request.urlFragment ??
-      this.#request.paused?.request.urlFragment ??
-      '';
+      (
+        this.#response.paused ??
+        this.#request.auth ??
+        this.#request.paused ??
+        this.#request.info
+      )?.request.urlFragment ?? '';
     const url =
       this.#response.paused?.request.url ??
       this.#requestOverrides?.url ??
-      this.#response.info?.url ??
       this.#request.auth?.request.url ??
-      this.#request.info?.request.url ??
       this.#request.paused?.request.url ??
+      this.#response.info?.url ??
+      this.#request.info?.request.url ??
       NetworkRequest.unknownParameter;
 
     return `${url}${fragment}`;
@@ -217,12 +239,14 @@ export class NetworkRequest {
   }
 
   get #method(): string | undefined {
+    // Prefer browser-emitted Fetch events over renderer-emitted Network events
+    // (https://crbug.com/575090111).
     return (
+      this.#response.paused?.request.method ??
       this.#requestOverrides?.method ??
-      this.#request.info?.request.method ??
-      this.#request.paused?.request.method ??
       this.#request.auth?.request.method ??
-      this.#response.paused?.request.method
+      this.#request.paused?.request.method ??
+      this.#request.info?.request.method
     );
   }
 
@@ -300,11 +324,13 @@ export class NetworkRequest {
   }
 
   get #context(): string | null {
+    // Prefer browser-emitted Fetch events over renderer-emitted Network events
+    // (https://crbug.com/575090111).
     const result =
       this.#response.paused?.frameId ??
-      this.#request.info?.frameId ??
+      this.#request.auth?.frameId ??
       this.#request.paused?.frameId ??
-      this.#request.auth?.frameId;
+      this.#request.info?.frameId;
 
     if (result !== undefined) {
       return result;
@@ -321,7 +347,7 @@ export class NetworkRequest {
         this.#request?.info?.initiator.requestId,
       );
       if (maybeInitiator !== undefined) {
-        return maybeInitiator.#request.info?.frameId ?? null;
+        return maybeInitiator.#context;
       }
     }
 
@@ -355,11 +381,16 @@ export class NetworkRequest {
         });
       }
     } else {
+      // Prefer browser-emitted Fetch request headers over renderer-emitted
+      // Network.requestWillBeSent headers when available
+      // (https://crbug.com/575090111).
+      const requestHeaders =
+        this.#response.paused?.request.headers ??
+        this.#request.auth?.request.headers ??
+        this.#request.paused?.request.headers ??
+        this.#request.info?.request.headers;
       headers = bidiNetworkHeadersFromCdpNetworkHeaders({
-        ...this.#request.info?.request.headers,
-        // `Network.requestWillBeSentExtraInfo` is not emitted while paused in
-        // `beforeRequestSent`, so include headers from `Fetch.requestPaused`.
-        ...this.#request.paused?.request.headers,
+        ...requestHeaders,
         ...this.#request.extraInfo?.headers,
       });
     }
@@ -482,6 +513,7 @@ export class NetworkRequest {
   }
 
   handleRedirect(event: Protocol.Network.RequestWillBeSentEvent): void {
+    this.#finished.resolve();
     // TODO: use event.redirectResponse;
     // Temporary workaround to emit ResponseCompleted event for redirects
     this.#response.hasExtraInfo = false;
@@ -566,7 +598,16 @@ export class NetworkRequest {
       (loadingFinished || options.wasRedirected)
     ) {
       this.#emitEvent(this.#getResponseReceivedEvent.bind(this));
-      this.#networkStorage.disposeRequest(this.id);
+      if (!this.#response.loadingFailed) {
+        if (this.#response.loadingFinished) {
+          this.#networkStorage.collectIfNeeded(this, Network.DataType.Response);
+        }
+        // Resolve `#finished` after `collectIfNeeded` and `ResponseCompleted`
+        // so `getData` sees updated size-limit state and `disposeRequest` does
+        // not wipe state before `ResponseCompleted` is emitted.
+        this.#finished.resolve();
+        this.#networkStorage.disposeRequest(this.id);
+      }
     }
   }
 
@@ -609,7 +650,6 @@ export class NetworkRequest {
     this.#response.hasExtraInfo = event.hasExtraInfo;
     this.#response.info = event.response;
     this.#responseBytesReceived = event.response.encodedDataLength;
-    this.#networkStorage.collectIfNeeded(this, Network.DataType.Response);
     this.#emitEventsIfReady();
   }
 
@@ -622,7 +662,6 @@ export class NetworkRequest {
     this.#response.loadingFinished = event;
     this.#responseBytesReceived = event.encodedDataLength;
     this.#encodedResponseBodySize = event.encodedBodyLength ?? null;
-    this.#networkStorage.collectIfNeeded(this, Network.DataType.Response);
     this.#emitEventsIfReady();
   }
 
@@ -644,7 +683,8 @@ export class NetworkRequest {
         },
       };
     });
-    this.disposeData();
+    this.#finished.resolve();
+    this.#networkStorage.disposeRequest(this.id);
   }
 
   /** @see https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#method-failRequest */
@@ -674,7 +714,9 @@ export class NetworkRequest {
       ) {
         this.#interceptPhase = Network.InterceptPhase.ResponseStarted;
       } else {
-        void this.#continueResponse();
+        void this.#continueResponse().catch((error: unknown) => {
+          this.#logger?.(LogType.debugError)?.(error);
+        });
       }
     } else {
       this.#request.paused = event;
@@ -689,7 +731,9 @@ export class NetworkRequest {
       ) {
         this.#interceptPhase = Network.InterceptPhase.BeforeRequestSent;
       } else {
-        void this.#continueRequest();
+        void this.#continueRequest().catch((error: unknown) => {
+          this.#logger?.(LogType.debugError)?.(error);
+        });
       }
     }
 
@@ -712,6 +756,8 @@ export class NetworkRequest {
     } else {
       void this.#continueWithAuth({
         response: 'Default',
+      }).catch((error: unknown) => {
+        this.#logger?.(LogType.debugError)?.(error);
       });
     }
 
@@ -874,12 +920,6 @@ export class NetworkRequest {
       });
     }
 
-    // If we don't modify the response
-    // just continue the request
-    if (!overrides.body && !overrides.headers) {
-      return await this.#continueRequest();
-    }
-
     const overrideHeaders = this.#getOverrideHeader(
       overrides.headers,
       overrides.cookies,
@@ -900,6 +940,8 @@ export class NetworkRequest {
   }
 
   dispose(): void {
+    // Unblock any pending `getData` calls when the target detaches.
+    this.#finished.resolve();
     this.waitNextPhase.reject(new Error('waitNextPhase disposed'));
   }
 
@@ -952,6 +994,7 @@ export class NetworkRequest {
       this.#eventManager.registerGlobalPromiseEvent(
         this.#resolveEvent(event),
         event.method,
+        this.#cdpTarget.userContext,
       );
     }
   }

@@ -24,7 +24,7 @@ TabModelList::TabModelList() = default;
 TabModelList::~TabModelList() = default;
 
 void TabModelList::AddTabModel(TabModel* tab_model) {
-  DCHECK(tab_model);
+  CHECK(tab_model, base::NotFatalUntil::M162);
   GetInstance().models_.push_back(tab_model);
 
   for (TabModelListObserver& observer : GetInstance().observers_) {
@@ -33,10 +33,8 @@ void TabModelList::AddTabModel(TabModel* tab_model) {
 }
 
 void TabModelList::RemoveTabModel(TabModel* tab_model) {
-  DCHECK(tab_model);
-  if (GetInstance().archived_tab_model_ == tab_model) {
-    GetInstance().archived_tab_model_ = nullptr;
-  }
+  CHECK(tab_model, base::NotFatalUntil::M162);
+  RemoveArchivedTabModel(tab_model);
   auto& tab_models = GetInstance().models_;
   std::erase(tab_models, tab_model);
 
@@ -57,8 +55,15 @@ void TabModelList::HandlePopupNavigation(NavigateParams* params) {
   TabAndroid* tab = TabAndroid::FromWebContents(params->source_contents);
 
   // NOTE: If this fails contact dtrainor@.
-  DCHECK(tab);
-  TabModel* model = FindTabModelWithWindowSessionId(tab->GetWindowId());
+  CHECK(tab, base::NotFatalUntil::M162);
+  if (!tab) {
+    return;
+  }
+  // Prefer membership lookup as unassociated TabModels lack a valid SessionID.
+  TabModel* model = GetTabModelForTabAndroid(tab);
+  if (!model && tab->GetWindowId().is_valid()) {
+    model = FindTabModelWithWindowSessionId(tab->GetWindowId());
+  }
   if (model) {
     model->HandlePopupNavigation(tab, params);
   }
@@ -128,10 +133,28 @@ const TabModelList::TabModelVector& TabModelList::models() {
 
 // static
 void TabModelList::SetArchivedTabModel(TabModel* archived_tab_model) {
-  GetInstance().archived_tab_model_ = archived_tab_model;
+  CHECK(archived_tab_model);
+  CHECK(archived_tab_model->GetProfile());
+  GetInstance().archived_tab_models_[archived_tab_model->GetProfile()] =
+      archived_tab_model;
 }
 
 // static
-TabModel* TabModelList::GetArchivedTabModel() {
-  return GetInstance().archived_tab_model_;
+void TabModelList::RemoveArchivedTabModel(TabModel* archived_tab_model) {
+  CHECK(archived_tab_model);
+  auto& archived_models = GetInstance().archived_tab_models_;
+  auto it = archived_models.find(archived_tab_model->GetProfile());
+  if (it != archived_models.end() && it->second == archived_tab_model) {
+    archived_models.erase(it);
+  }
+}
+
+// static
+TabModel* TabModelList::GetArchivedTabModel(Profile* profile) {
+  if (!profile) {
+    return nullptr;
+  }
+  auto& archived_models = GetInstance().archived_tab_models_;
+  auto it = archived_models.find(profile);
+  return it != archived_models.end() ? it->second.get() : nullptr;
 }

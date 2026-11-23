@@ -7,6 +7,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_util.h"
+#include "components/autofill/core/browser/ui/payments/payments_ui_closed_reasons.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
@@ -16,8 +17,18 @@ namespace {
 TEST(PromoCodeMetricsTest, LogPromoCodeFormEvent) {
   base::HistogramTester histogram_tester;
 
-  LogPromoCodeFormEvent(PromoCodeFormEvent::kPromoCodeSuggestionsShown);
+  LogPromoCodeFormEvent(PromoCodeFormEvent::kNavigatedToPageWithPromoCode);
   histogram_tester.ExpectUniqueSample(
+      "Autofill.FormEvents.PromoCode",
+      PromoCodeFormEvent::kNavigatedToPageWithPromoCode, 1);
+
+  LogPromoCodeFormEvent(PromoCodeFormEvent::kNavigatedToPageWithoutPromoCode);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      PromoCodeFormEvent::kNavigatedToPageWithoutPromoCode, 1);
+
+  LogPromoCodeFormEvent(PromoCodeFormEvent::kPromoCodeSuggestionsShown);
+  histogram_tester.ExpectBucketCount(
       "Autofill.FormEvents.PromoCode",
       PromoCodeFormEvent::kPromoCodeSuggestionsShown, 1);
 
@@ -25,6 +36,29 @@ TEST(PromoCodeMetricsTest, LogPromoCodeFormEvent) {
   histogram_tester.ExpectBucketCount(
       "Autofill.FormEvents.PromoCode",
       PromoCodeFormEvent::kPromoCodeSuggestionFilled, 1);
+
+  LogPromoCodeFormEvent(
+      PromoCodeFormEvent::kFormSubmittedWithPromoCodePresentForPage);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      PromoCodeFormEvent::kFormSubmittedWithPromoCodePresentForPage, 1);
+
+  LogPromoCodeFormEvent(
+      PromoCodeFormEvent::kFormSubmittedWithoutPromoCodePresentForPage);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      PromoCodeFormEvent::kFormSubmittedWithoutPromoCodePresentForPage, 1);
+
+  LogPromoCodeFormEvent(PromoCodeFormEvent::kFormSubmittedAfterPromoCodeFilled);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      PromoCodeFormEvent::kFormSubmittedAfterPromoCodeFilled, 1);
+
+  LogPromoCodeFormEvent(
+      PromoCodeFormEvent::kFormSubmittedWithPromoCodeFieldContainingValue);
+  histogram_tester.ExpectBucketCount(
+      "Autofill.FormEvents.PromoCode",
+      PromoCodeFormEvent::kFormSubmittedWithPromoCodeFieldContainingValue, 1);
 }
 
 // Tests that the total, valid and expired stored promo code counts are logged.
@@ -61,6 +95,24 @@ TEST(PromoCodeMetricsTest, LogStoredPromoCodeMetrics_NoPromoCodes) {
                                       0, 1);
   histogram_tester.ExpectUniqueSample(
       "Autofill.StoredPromoCodeCount.ExpiredCode", 0, 1);
+}
+
+TEST(PromoCodeMetricsTest, LogOfferNotificationBubbleResult) {
+  base::HistogramTester histogram_tester;
+
+  LogOfferNotificationBubbleResult(PaymentsUiClosedReason::kClosed);
+  histogram_tester.ExpectUniqueSample("Autofill.OfferNotificationBubble.Result",
+                                      PaymentsUiClosedReason::kClosed, 1);
+
+  LogOfferNotificationBubbleResult(PaymentsUiClosedReason::kNotInteracted);
+  histogram_tester.ExpectBucketCount("Autofill.OfferNotificationBubble.Result",
+                                     PaymentsUiClosedReason::kNotInteracted, 1);
+
+  LogOfferNotificationBubbleResult(PaymentsUiClosedReason::kUnknown);
+  histogram_tester.ExpectBucketCount("Autofill.OfferNotificationBubble.Result",
+                                     PaymentsUiClosedReason::kUnknown, 1);
+  histogram_tester.ExpectTotalCount("Autofill.OfferNotificationBubble.Result",
+                                    3);
 }
 
 }  // namespace

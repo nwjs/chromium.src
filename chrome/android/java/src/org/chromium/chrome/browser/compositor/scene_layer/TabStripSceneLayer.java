@@ -50,8 +50,10 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
 
     /**
      * @param density Density for Dp to Px conversion.
+     * @param activityCreationUptimeMs The {@code SystemClock.uptimeMillis()} timestamp when the
+     *     hosting activity was created, or 0 if unavailable.
      */
-    public TabStripSceneLayer(float density) {
+    public TabStripSceneLayer(float density, long activityCreationUptimeMs) {
         mDpToPx = density;
         TabStripSceneLayerJni.get()
                 .setConstants(
@@ -66,7 +68,8 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                                 StripLayoutGroupTitle.REORDER_BACKGROUND_CORNER_RADIUS * mDpToPx),
                         StripLayoutTab.TAB_UNDERLINE_THICKNESS_DP * mDpToPx,
                         StripLayoutTab.TAB_UNDERLINE_CORNER_RADIUS_DP * mDpToPx,
-                        StripLayoutTab.TAB_UNDERLINE_BOTTOM_MARGIN_DP * mDpToPx);
+                        StripLayoutTab.TAB_UNDERLINE_BOTTOM_MARGIN_DP * mDpToPx,
+                        activityCreationUptimeMs);
     }
 
     public static void setTestFlag(boolean testFlag) {
@@ -187,23 +190,34 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                         topPaddingPx);
 
         TintedCompositorButton newTabButton = layoutHelper.getNewTabButton();
-        boolean newTabButtonVisible = newTabButton.isVisible();
-        TabStripSceneLayerJni.get()
-                .updateNewTabButton(
-                        mNativePtr,
-                        newTabButton.getResourceId(),
-                        newTabButton.getBackgroundResourceId(),
-                        Math.round(newTabButton.getDrawX() * mDpToPx),
-                        Math.round(newTabButton.getDrawY() * mDpToPx),
-                        Math.round(layoutHelper.getNewTabBtnVisualOffset() * mDpToPx),
-                        newTabButtonVisible,
-                        newTabButton.getShouldApplyHoverBackground(),
-                        newTabButton.getTint(),
-                        newTabButton.getBackgroundTint(),
-                        newTabButton.getOpacity(),
-                        newTabButton.isKeyboardFocused(),
-                        TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
-                        newTabButton.getKeyboardFocusRingColor());
+        long ntbWebUiHost = layoutHelper.getNtbWebUiNativePtr();
+        if (ntbWebUiHost != 0) {
+            TabStripSceneLayerJni.get()
+                    .updateNtbWebUi(
+                            mNativePtr,
+                            ntbWebUiHost,
+                            Math.round(newTabButton.getDrawX() * mDpToPx),
+                            Math.round(newTabButton.getDrawY() * mDpToPx),
+                            Math.round(newTabButton.getWidth() * mDpToPx),
+                            Math.round(newTabButton.getHeight() * mDpToPx));
+        } else {
+            TabStripSceneLayerJni.get()
+                    .updateNewTabButton(
+                            mNativePtr,
+                            newTabButton.getResourceId(),
+                            newTabButton.getBackgroundResourceId(),
+                            Math.round(newTabButton.getDrawX() * mDpToPx),
+                            Math.round(newTabButton.getDrawY() * mDpToPx),
+                            Math.round(layoutHelper.getNewTabBtnVisualOffset() * mDpToPx),
+                            newTabButton.isVisible(),
+                            newTabButton.getShouldApplyHoverBackground(),
+                            newTabButton.getTint(),
+                            newTabButton.getBackgroundTint(),
+                            newTabButton.getOpacity(),
+                            newTabButton.isKeyboardFocused(),
+                            TabUiThemeUtil.getCircularButtonKeyboardFocusDrawableRes(),
+                            newTabButton.getKeyboardFocusRingColor());
+        }
 
         TintedCompositorTextButton glicButton = trailingButtonsCoordinator.getGlicButton();
         TintedCompositorTextButton glicActorButton =
@@ -500,7 +514,8 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 int reorderBackgroundCornerRadius,
                 float tabUnderlineThickness,
                 float tabUnderlineCornerRadius,
-                float tabUnderlineBottomMargin);
+                float tabUnderlineBottomMargin,
+                long activityCreationUptimeMs);
 
         void beginBuildingFrame(
                 long nativeTabStripSceneLayer,
@@ -539,6 +554,14 @@ public class TabStripSceneLayer extends SceneOverlayLayer {
                 boolean isKeyboardFocused,
                 @DrawableRes int keyboardFocusRingResourceId,
                 @ColorInt int keyboardFocusRingColor);
+
+        void updateNtbWebUi(
+                long nativeTabStripSceneLayer,
+                long nativeTabStripNtbWebUiHost,
+                float x,
+                float y,
+                float width,
+                float height);
 
         void updateGlicButton(
                 long nativeTabStripSceneLayer,

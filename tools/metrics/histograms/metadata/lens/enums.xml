@@ -117,6 +117,21 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/lens/lens_identity_delegation_helper.h:LensIdentityDelegationFetchStatus) -->
 
+<!-- LINT.IfChange(LensIdentityDelegationRetryRequestType) -->
+
+<enum name="LensIdentityDelegationRetryRequestType">
+  <summary>
+    The type of Lens request that received HTTP 401 Unauthorized when sent with
+    an identity delegation Authorization header and was retried once without it.
+  </summary>
+  <int value="0" label="Composebox ClusterInfo"/>
+  <int value="1" label="Composebox Fetch Request"/>
+  <int value="2" label="Overlay ClusterInfo"/>
+  <int value="3" label="Overlay Fetch Request"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/lens/lens_request_construction.h:LensIdentityDelegationRetryRequestType) -->
+
 <!-- LINT.IfChange(LensOverlayClusterInfoStatus) -->
 
 <enum name="LensOverlayClusterInfoStatus">
@@ -234,6 +249,9 @@ chromium-metrics-reviews@google.com.
   <int value="23" label="Omnibox Everywhere Composebox"/>
   <int value="24" label="Omnibox Popup Button"/>
   <int value="25" label="Contextual Cue"/>
+  <int value="26" label="Selection Suggestion"/>
+  <int value="27" label="App menu (Ask Google)"/>
+  <int value="28" label="Content area page context menu (Ask Google)"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/lens/lens_overlay_invocation_source.h:LensOverlayInvocationSource) -->

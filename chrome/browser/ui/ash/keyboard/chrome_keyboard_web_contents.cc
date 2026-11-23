@@ -94,7 +94,7 @@ class ChromeKeyboardContentsDelegate : public content::WebContentsDelegate,
     // keyboard window must have been added to keyboard container window at this
     // point. Otherwise, wrong keyboard bounds is used and may cause problem as
     // described in https://crbug.com/41104064.
-    DCHECK(keyboard_window->parent());
+    CHECK(keyboard_window->parent(), base::NotFatalUntil::M162);
     // keyboard window bounds may not set to |pos| after this call. If keyboard
     // is in FULL_WIDTH mode, only the height of keyboard window will be
     // changed.
@@ -112,7 +112,7 @@ class ChromeKeyboardContentsDelegate : public content::WebContentsDelegate,
       const extensions::ExtensionRegistry* registry =
           extensions::ExtensionRegistry::Get(web_contents->GetBrowserContext());
       extension = registry->enabled_extensions().GetByID(origin.GetHost());
-      DCHECK(extension);
+      CHECK(extension, base::NotFatalUntil::M162);
     }
     MediaCaptureDevicesDispatcher::GetInstance()->ProcessMediaAccessRequest(
         web_contents, request, std::move(callback), extension);
@@ -155,7 +155,7 @@ ChromeKeyboardWebContents::ChromeKeyboardWebContents(
     : load_callback_(std::move(load_callback)),
       unembed_callback_(std::move(unembed_callback)) {
   VLOG(1) << "ChromeKeyboardWebContents: " << url;
-  DCHECK(context);
+  CHECK(context, base::NotFatalUntil::M162);
   content::WebContents::CreateParams web_contents_params(
       context, content::SiteInstance::CreateForURL(context, url));
   // The WebContents is initially hidden and shown later on.
@@ -270,7 +270,7 @@ void ChromeKeyboardWebContents::OnColorProviderChanged() {
       extensions::events::VIRTUAL_KEYBOARD_PRIVATE_ON_COLOR_PROVIDER_CHANGED,
       extensions::api::virtual_keyboard_private::OnColorProviderChanged::
           kEventName,
-      base::ListValue(), browser_context);
+      nullptr, browser_context);
 
   router->BroadcastEvent(std::move(event));
 }
@@ -279,7 +279,7 @@ void ChromeKeyboardWebContents::LoadContents(const GURL& url) {
   TRACE_EVENT0("vk", "LoadContents");
   content::OpenURLParams params =
       content::OpenURLParams::CreateBrowserInitiated(
-          url, WindowOpenDisposition::SINGLETON_TAB,
+          url, WindowOpenDisposition::kSingletonTab,
           ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   web_contents_->OpenURL(params, /*navigation_handle_callback=*/{});
 }

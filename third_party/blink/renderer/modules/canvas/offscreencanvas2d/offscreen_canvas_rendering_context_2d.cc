@@ -274,22 +274,27 @@ bool OffscreenCanvasRenderingContext2D::InitializeBacking() {
   return true;
 }
 
-void OffscreenCanvasRenderingContext2D::Reset() {
+void OffscreenCanvasRenderingContext2D::Reshape(gfx::Size old_size,
+                                                gfx::Size new_size) {
+  if (old_size != new_size && isContextLost()) {
+    RestoreFromInvalidSizeIfNeeded();
+  }
+
   ResetBacking();
   ResetRecorder();
   Host()->DiscardResources();
   BaseRenderingContext2D::ResetInternal();
+  DidDraw(CanvasPerformanceMonitor::DrawType::kOther);
 }
 
-scoped_refptr<CanvasResource>
+scoped_refptr<ExportedCanvasResource>
 OffscreenCanvasRenderingContext2D::ProduceCanvasResource(FlushReason reason) {
-  if (!InitializeBacking() || !GetSharedImageProvider()) {
+  if (!InitializeBacking()) {
     return nullptr;
   }
 
-  FlushCanvas(reason);
-  scoped_refptr<CanvasResource> frame =
-      GetSharedImageProvider()->ProduceCanvasResource();
+  scoped_refptr<ExportedCanvasResource> frame =
+      PaintRenderingResultsToResource(kBackBuffer, reason);
   if (!frame)
     return nullptr;
 
@@ -297,12 +302,12 @@ OffscreenCanvasRenderingContext2D::ProduceCanvasResource(FlushReason reason) {
   return frame;
 }
 
-scoped_refptr<CanvasResource>
+scoped_refptr<ExportedCanvasResource>
 OffscreenCanvasRenderingContext2D::GetResourceForPushFrame(
     bool& should_call_push_frame) {
   should_call_push_frame = true;
   FinalizeFrame(FlushReason::kOther);
-  scoped_refptr<CanvasResource> resource =
+  scoped_refptr<ExportedCanvasResource> resource =
       ProduceCanvasResource(FlushReason::kOther);
   GetOffscreenFontCache().PruneLocalFontCache(kMaxCachedFonts);
   return resource;
@@ -381,8 +386,7 @@ void OffscreenCanvasRenderingContext2D::WillDraw(
     adjusted_dirty_rect.Outset(1);
   }
 
-  GetCanvasPerformanceMonitor().DidDraw(draw_type);
-  Host()->DidDraw(adjusted_dirty_rect);
+  CanvasRenderingContext::DidDraw(adjusted_dirty_rect, draw_type);
 
   if (layer_count_ == 0) [[likely]] {
     // TODO(crbug.com/1246486): Make auto-flushing layer friendly.

@@ -81,6 +81,11 @@ class NET_EXPORT SessionService {
   using OriginAndSiteMatcher =
       base::RepeatingCallback<bool(const url::Origin&, const SchemefulSite&)>;
 
+  // Receives the value of the Secure-Session-KeyBinding request header (the
+  // Base64URL-encoded JSON binding statement) or an error.
+  using KeyBindingCallback =
+      base::OnceCallback<void(SessionErrorOr<std::string>)>;
+
   // Indicates the reason for deferring. Exactly one of
   // `is_pending_initialization` or `session_id` will be truthy.
   struct NET_EXPORT DeferralParams {
@@ -221,7 +226,11 @@ class NET_EXPORT SessionService {
       const GURL& url,
       base::RepeatingCallback<void(const SessionAccess&)> callback) = 0;
 
-  // Add an observer for DBSC events. This is used for DevTools.
+  // Adds an observer for DBSC events. Used by DevTools and by the
+  // renderer-facing RestrictedDeviceBoundSessionManager. `callback` will only
+  // be notified until the destruction of the returned
+  // `CallbackListSubscription`. Creation events are dispatched after the new
+  // session is visible through GetSession().
   virtual base::CallbackListSubscription AddEventObserver(
       OnEventCallback callback) = 0;
 

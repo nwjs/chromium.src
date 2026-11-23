@@ -191,10 +191,10 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
   // where resource lifetime is handled.
   class ApiResourceData : public base::RefCountedThreadSafe<ApiResourceData> {
    public:
-    typedef std::map<int, std::unique_ptr<T>> ApiResourceMap;
+    using ApiResourceMap = std::map<int, std::unique_ptr<T>>;
     // Lookup map from extension id's to allocated resource id's.
-    typedef std::map<std::string, absl::flat_hash_set<int>>
-        ExtensionToResourceMap;
+    using ExtensionToResourceMap =
+        std::map<std::string, absl::flat_hash_set<int>>;
 
     ApiResourceData() : next_id_(1) { DETACH_FROM_SEQUENCE(sequence_checker_); }
 
@@ -279,7 +279,7 @@ class ApiResourceManager : public BrowserContextKeyedAPI,
    private:
     friend class base::RefCountedThreadSafe<ApiResourceData>;
 
-    virtual ~ApiResourceData() {}
+    virtual ~ApiResourceData() = default;
 
     T* GetOwnedResource(const ExtensionId& extension_id, int api_resource_id) {
       const std::unique_ptr<T>& ptr = api_resource_map_[api_resource_id];

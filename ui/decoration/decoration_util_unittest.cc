@@ -4,13 +4,16 @@
 
 #include "ui/decoration/decoration_util.h"
 
+#include <optional>
 #include <vector>
 
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkColor.h"
+#include "ui/decoration/decoration_details.h"
 #include "ui/decoration/highlight_border_value.h"
 #include "ui/decoration/shadow.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/outsets.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/shadow_value.h"
@@ -92,7 +95,7 @@ TEST(ShadowUtilTest, ShadowDetailsKey) {
 
 TEST(HighlightBorderGeneratorTest, Insets) {
   const HighlightBorderValue value(kHighlight, kBorder);
-  EXPECT_EQ(gfx::Insets(-1), HighlightBorderGenerator::GetMargins(value));
+  EXPECT_EQ(gfx::Outsets(), HighlightBorderGenerator::GetMargins(value));
   EXPECT_EQ(gfx::Insets(2), HighlightBorderGenerator::GetNineboxApertureInsets(
                                 value, gfx::RoundedCornersF()));
   EXPECT_EQ(gfx::Insets(10), HighlightBorderGenerator::GetNineboxApertureInsets(
@@ -105,7 +108,7 @@ TEST(HighlightBorderGeneratorTest, Insets) {
                                             /*lower_left=*/16)));
 
   const HighlightBorderValue thick(kHighlight, kBorder, /*thickness=*/2);
-  EXPECT_EQ(gfx::Insets(-2), HighlightBorderGenerator::GetMargins(thick));
+  EXPECT_EQ(gfx::Outsets(), HighlightBorderGenerator::GetMargins(thick));
   EXPECT_EQ(gfx::Insets(12), HighlightBorderGenerator::GetNineboxApertureInsets(
                                  thick, gfx::RoundedCornersF(8)));
 }
@@ -156,6 +159,93 @@ TEST(HighlightBorderGeneratorTest, DetailsCacheKey) {
       HighlightBorderValue(kUniqueHighlight, kUniqueBorder, /*thickness=*/2)));
   EXPECT_EQ(base_size + 4,
             HighlightBorderDetails::GetDetailsCacheSizeForTest());
+}
+
+using TestCompositeValue =
+    CompositeValue<gfx::ShadowValues, HighlightBorderValue>;
+using TestCompositeGenerator =
+    CompositeGenerator<ShadowDetails, HighlightBorderDetails>;
+using TestCompositeDetails =
+    DecorationDetails<TestCompositeValue, TestCompositeGenerator>;
+
+TEST(CompositeGeneratorTest, Insets) {
+  const gfx::RoundedCornersF radii(8);
+  const gfx::ShadowValues shadows = Shadow::MakeShadowValues(/*elevation=*/6);
+  const HighlightBorderValue border(kHighlight, kBorder, /*thickness=*/1);
+
+  // Shadow only.
+  const TestCompositeValue shadow_only(shadows, std::nullopt);
+  EXPECT_EQ(ShadowGenerator::GetMargins(shadows),
+            TestCompositeGenerator::GetMargins(shadow_only));
+  EXPECT_EQ(
+      ShadowGenerator::GetNineboxApertureInsets(shadows, radii),
+      TestCompositeGenerator::GetNineboxApertureInsets(shadow_only, radii));
+
+  // Highlight border only.
+  const TestCompositeValue border_only(std::nullopt, border);
+  EXPECT_EQ(HighlightBorderGenerator::GetMargins(border),
+            TestCompositeGenerator::GetMargins(border_only));
+  EXPECT_EQ(
+      HighlightBorderGenerator::GetNineboxApertureInsets(border, radii),
+      TestCompositeGenerator::GetNineboxApertureInsets(border_only, radii));
+
+  // Combined (shadow margins/aperture larger than 1px border).
+  const TestCompositeValue combined(shadows, border);
+  EXPECT_EQ(ShadowGenerator::GetMargins(shadows),
+            TestCompositeGenerator::GetMargins(combined));
+  EXPECT_EQ(ShadowGenerator::GetNineboxApertureInsets(shadows, radii),
+            TestCompositeGenerator::GetNineboxApertureInsets(combined, radii));
+
+  // Combined where thick border's inward reach exceeds a small elevation-1
+  // shadow.
+  const gfx::ShadowValues small_shadows =
+      Shadow::MakeShadowValues(/*elevation=*/1);
+  const HighlightBorderValue thick_border(kHighlight, kBorder, /*thickness=*/3);
+  const TestCompositeValue thick_combined(small_shadows, thick_border);
+  EXPECT_EQ(ShadowGenerator::GetMargins(small_shadows),
+            TestCompositeGenerator::GetMargins(thick_combined));
+  EXPECT_EQ(
+      gfx::Insets::TLBR(15, 16, 17, 16),
+      TestCompositeGenerator::GetNineboxApertureInsets(thick_combined, radii));
+}
+
+TEST(CompositeGeneratorTest, DetailsCacheKey) {
+  constexpr SkColor kUniqueHighlight = SkColorSetRGB(0x23, 0x45, 0x67);
+  constexpr SkColor kUniqueBorder = SkColorSetRGB(0x76, 0x54, 0x32);
+  const gfx::RoundedCornersF radii(4);
+  const gfx::ShadowValues shadows = Shadow::MakeShadowValues(/*elevation=*/4);
+  const HighlightBorderValue border(kUniqueHighlight, kUniqueBorder);
+  const TestCompositeValue value(shadows, border);
+
+  std::vector<TestCompositeDetails> details;
+  details.push_back(TestCompositeDetails::Get(radii, value));
+  const size_t base_size = TestCompositeDetails::GetDetailsCacheSizeForTest();
+
+  // Same key returns the same cached image.
+  details.push_back(TestCompositeDetails::Get(radii, value));
+  EXPECT_EQ(base_size, TestCompositeDetails::GetDetailsCacheSizeForTest());
+  EXPECT_TRUE(details[1].nine_patch_image.BackedBySameObjectAs(
+      details[0].nine_patch_image));
+
+  // Different corner radii.
+  details.push_back(TestCompositeDetails::Get(gfx::RoundedCornersF(6), value));
+  EXPECT_EQ(base_size + 1, TestCompositeDetails::GetDetailsCacheSizeForTest());
+
+  // Different shadow elevation.
+  details.push_back(TestCompositeDetails::Get(
+      radii,
+      TestCompositeValue(Shadow::MakeShadowValues(/*elevation=*/8), border)));
+  EXPECT_EQ(base_size + 2, TestCompositeDetails::GetDetailsCacheSizeForTest());
+
+  // Shadow omitted.
+  details.push_back(TestCompositeDetails::Get(
+      radii, TestCompositeValue(std::nullopt, border)));
+  EXPECT_EQ(base_size + 3, TestCompositeDetails::GetDetailsCacheSizeForTest());
+
+  // Border omitted.
+  details.push_back(TestCompositeDetails::Get(
+      radii, TestCompositeValue(shadows, std::nullopt)));
+  EXPECT_EQ(base_size + 4, TestCompositeDetails::GetDetailsCacheSizeForTest());
 }
 
 }  // namespace

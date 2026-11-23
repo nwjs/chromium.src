@@ -61,18 +61,19 @@ class CONTENT_EXPORT ModelContextPageUserData
   // is called, and the callback to resolve/reject the Promise in the renderer
   // is added to `pending_script_tool_executions_`.
   void AddPendingScriptToolExecution(
-      const base::UnguessableToken& invocation_id,
+      const blink::ToolInvocationToken& invocation_id,
       PendingScriptToolExecution execution);
   // When the browser process calls the `ExecuteScriptTool()` IPC on
   // `blink.mojom.ModelContext` (i.e., `blink::ModelContext`), the callback
   // signifying tool completion in the renderer calls this method. This method
-  // in turn takes the tool response, and forwards it back to the invoking
-  // renderer process, by running the response callback that was added in
-  // `AddPendingScriptToolExecution()` above.
+  // in turn takes `result` and `error` (if tool execution failed), and
+  // forwards them back to the invoking renderer process by running the
+  // response callback that was added in `AddPendingScriptToolExecution()`
+  // above.
   void CompletePendingScriptToolExecution(
-      const base::UnguessableToken& invocation_id,
+      const blink::ToolInvocationToken& invocation_id,
       const std::optional<std::string>& result,
-      bool success);
+      std::optional<blink::mojom::ExecuteRemoteScriptToolError> error);
   // The below "cancellation" methods ensure that a failure to execute a tool to
   // completion is propagated back to the calling renderer under certain
   // circumstances.
@@ -88,7 +89,7 @@ class CONTENT_EXPORT ModelContextPageUserData
   //      `rfh`, when tool callers gets destroyed.
   //
   void CancelPendingScriptToolExecution(
-      const base::UnguessableToken& invocation_id);
+      const blink::ToolInvocationToken& invocation_id);
   void CancelPendingScriptToolExecutionsForDocument(
       const blink::DocumentToken& document_token);
 
@@ -100,9 +101,9 @@ class CONTENT_EXPORT ModelContextPageUserData
 
   static void SendCancelScriptToolToTarget(
       WeakDocumentPtr target_document,
-      const base::UnguessableToken& invocation_id);
+      const blink::ToolInvocationToken& invocation_id);
 
-  std::map<base::UnguessableToken, PendingScriptToolExecution>
+  std::map<blink::ToolInvocationToken, PendingScriptToolExecution>
       pending_script_tool_executions_;
 
   base::WeakPtrFactory<ModelContextPageUserData> weak_factory_{this};
@@ -133,14 +134,14 @@ class CONTENT_EXPORT ModelContextUserData
   void GetScriptTools(const std::vector<url::Origin>& from_origins,
                       GetScriptToolsCallback callback) override;
   void ExecuteRemoteScriptTool(
-      const base::UnguessableToken& invocation_id,
+      const blink::ToolInvocationToken& invocation_id,
+      const base::UnguessableToken& tool_id,
       const blink::FrameToken& tool_owner_frame_token,
       const url::Origin& expected_target_origin,
-      const std::string& name,
       const std::string& input_arguments,
       ExecuteRemoteScriptToolCallback callback) override;
   void CancelRemoteScriptTool(
-      const base::UnguessableToken& invocation_id) override;
+      const blink::ToolInvocationToken& invocation_id) override;
 
   std::vector<blink::mojom::ScriptToolPtr>& script_tools() {
     return script_tools_;

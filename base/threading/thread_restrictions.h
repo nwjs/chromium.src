@@ -781,7 +781,6 @@ class BASE_EXPORT ScopedAllowBaseSyncPrimitives {
   friend class ::ChromeNSSCryptoModuleDelegate;
   friend class ::PartnerBookmarksReader;
   friend class ::tracing::FuchsiaPerfettoProducerConnector;
-  friend class android_webview::JsSandboxIsolate;
   friend class base::SimpleThread;
   friend class base::internal::GetAppOutputScopedAllowBaseSyncPrimitives;
   friend class blink::SourceStream;
@@ -871,8 +870,10 @@ class BASE_EXPORT
   friend class ::ChromeContentRendererClient;
   friend class ::KeyStorageLinux;
   friend class ::NativeDesktopMediaList;
+  friend class ::ash::system::StatisticsProviderImpl;
   friend class android::JavaHandlerThread;
   friend class android_webview::CookieManager;
+  friend class android_webview::JsSandboxIsolate;
   friend class android_webview::VizCompositorThreadRunnerWebView;
   friend class audio::OutputDevice;
   friend class base::FileDescriptorWatcher;
@@ -913,7 +914,6 @@ class BASE_EXPORT
   friend class vr::VrShell;
 
   // Usage that should be fixed:
-  friend class ::ash::system::StatisticsProviderImpl;  // http://b/261818124
   friend class ::chromeos::BlockingMethodCaller;  // http://crbug.com/125360
   friend class base::Thread;                      // http://crbug.com/918039
   friend class cc::CompletionEvent;               // http://crbug.com/902653

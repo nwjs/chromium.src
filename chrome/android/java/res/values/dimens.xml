@@ -486,6 +486,7 @@ found in the LICENSE file.
     <dimen name="autofill_bottom_sheet_iban_text_input_top_margin">20dp</dimen>
 
     <!-- Common autofill bottom sheet dimensions. -->
+    <dimen name="autofill_bottom_sheet_button_spinner_size">24dp</dimen>
     <dimen name="autofill_bottom_sheet_chip_top_margin">22dp</dimen>
     <dimen name="autofill_bottom_sheet_confirm_button_top_margin">22dp</dimen>
     <dimen name="autofill_bottom_sheet_drag_handlebar_spacing_top">8dp</dimen>
@@ -576,4 +577,10 @@ found in the LICENSE file.
     <dimen name="tab_position_card_active_stroke_radius">7dp</dimen>
     <dimen name="tab_position_card_inactive_stroke_radius">7.5dp</dimen>
     <dimen name="tab_position_card_gap">2dp</dimen>
+
+    <!-- On startup settings. -->
+    <dimen name="on_startup_page_item_vertical_padding">8dp</dimen>
+    <dimen name="on_startup_action_buttons_vertical_padding">8dp</dimen>
+    <dimen name="on_startup_action_buttons_spacing">24dp</dimen>
+    <dimen name="on_startup_url_dialog_padding_bottom">8dp</dimen>
 </resources>

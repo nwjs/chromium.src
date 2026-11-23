@@ -24,7 +24,7 @@ class TemplateURLService;
 namespace search_engines {
 enum class ChoiceMadeLocation;
 class SearchEngineSettingsDataProvider;
-}
+}  // namespace search_engines
 
 namespace settings {
 
@@ -65,6 +65,12 @@ class SearchEnginesHandler : public SettingsPageUIHandler,
   void HandleGetDefaultSearchEnginePickerData(const base::ListValue& args);
 
   base::DictValue GetDefaultSearchEnginePickerData();
+
+  // Retrieves the "more search engines" list for the choice dialog and returns
+  // it to WebUI. Called from WebUI.
+  void HandleGetMoreSearchEngines(const base::ListValue& args);
+
+  base::ListValue GetMoreSearchEngines();
 
   // Retrieves all search engines and returns them to WebUI.
   // TODO (crbug.com/494551138): Remove once `SearchSettingsUpdate` is launched.

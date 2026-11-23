@@ -80,17 +80,16 @@ class GPUCanvasContext : public ScriptWrappable,
       const gfx::ColorSpace& dst_color_space,
       VideoFrameCopyCompletedCallback callback) override;
   void PageVisibilityChanged() override {}
-  void SizeChanged() override;
   bool isContextLost() const override { return false; }
   bool IsComposited() const final { return true; }
   bool IsPaintable() const final { return true; }
   void Stop() final;
   cc::Layer* CcLayer() const final;
-  void Reshape(int width, int height) override;
+  void Reshape(gfx::Size old_size, gfx::Size new_size) override;
   void Dispose() override;
 
   // OffscreenCanvas-specific methods
-  scoped_refptr<CanvasResource> GetResourceForPushFrame(
+  scoped_refptr<ExportedCanvasResource> GetResourceForPushFrame(
       bool& should_call_push_frame) final;
   // Returns a StaticBitmapImage backed by a texture containing the current
   // contents of the front buffer. This is done without any pixel copies. The
@@ -134,6 +133,10 @@ class GPUCanvasContext : public ScriptWrappable,
   bool CopyTextureToResourceProvider(
       const wgpu::Texture& texture,
       CanvasNon2DResourceProvider* resource_provider) const;
+  std::optional<gpu::SyncToken> CopyTextureToSharedImage(
+      const wgpu::Texture& texture,
+      scoped_refptr<gpu::ClientSharedImage> dst_client_si,
+      const gpu::SyncToken& acquire_sync_token) const;
 
   void CopyToSwapTexture();
 

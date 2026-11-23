@@ -671,13 +671,12 @@ void ThrowRangeException(v8::Isolate* isolate, const char* message) {
 BASE_FEATURE(kWebAssemblyUnlimitedSyncCompilation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-bool WasmModuleOverride(const v8::FunctionCallbackInfo<v8::Value>& args) {
+bool WasmModuleOverride(v8::Isolate* isolate, v8::Local<v8::Value> source) {
   // Return false if we want the base behavior to proceed.
-  if (!IsMainThread() || args.Length() < 1 ||
+  if (!IsMainThread() ||
       base::FeatureList::IsEnabled(kWebAssemblyUnlimitedSyncCompilation)) {
     return false;
   }
-  v8::Local<v8::Value> source = args[0];
   if ((source->IsArrayBuffer() &&
        v8::Local<v8::ArrayBuffer>::Cast(source)->ByteLength() >
            kWasmWireBytesLimit) ||
@@ -685,7 +684,7 @@ bool WasmModuleOverride(const v8::FunctionCallbackInfo<v8::Value>& args) {
        v8::Local<v8::ArrayBufferView>::Cast(source)->ByteLength() >
            kWasmWireBytesLimit)) {
     ThrowRangeException(
-        args.GetIsolate(),
+        isolate,
         "WebAssembly.Compile is disallowed on the main thread, "
         "if the buffer size is larger than 8MB. Use "
         "WebAssembly.compile, compile on a worker thread, or use the flag "
@@ -697,13 +696,12 @@ bool WasmModuleOverride(const v8::FunctionCallbackInfo<v8::Value>& args) {
   return false;
 }
 
-bool WasmInstanceOverride(const v8::FunctionCallbackInfo<v8::Value>& args) {
+bool WasmInstanceOverride(v8::Isolate* isolate, v8::Local<v8::Value> source) {
   // Return false if we want the base behavior to proceed.
-  if (!IsMainThread() || args.Length() < 1 ||
+  if (!IsMainThread() ||
       base::FeatureList::IsEnabled(kWebAssemblyUnlimitedSyncCompilation)) {
     return false;
   }
-  v8::Local<v8::Value> source = args[0];
   if (!source->IsWasmModuleObject())
     return false;
 
@@ -711,7 +709,7 @@ bool WasmInstanceOverride(const v8::FunctionCallbackInfo<v8::Value>& args) {
       v8::Local<v8::WasmModuleObject>::Cast(source)->GetCompiledModule();
   if (compiled_module.GetWireBytesRef().size() > kWasmWireBytesLimit) {
     ThrowRangeException(
-        args.GetIsolate(),
+        isolate,
         "WebAssembly.Instance is disallowed on the main thread, "
         "if the buffer size is larger than 8MB. Use "
         "WebAssembly.instantiate, or use the flag "
@@ -889,7 +887,7 @@ void OnRejectedCallFallback(const v8::FunctionCallbackInfo<v8::Value>& info) {
     VLOG(1) << "Promise rejected! Reason: " << *reason_str;
   }
 
-  v8::Local<v8::Value> data_value = info.Data();
+  v8::Local<v8::Value> data_value = info.DataV2().As<v8::Value>();
   if (!data_value->IsObject()) {
     isolate->ThrowException(NewV8StringSafe(
         isolate, "Internal error: Rejection data is not an object.").ToLocalChecked());

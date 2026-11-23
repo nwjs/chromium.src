@@ -4,11 +4,11 @@
 
 #include "chrome/browser/keyboard_accessory/android/address_accessory_controller_impl.h"
 
-#include <algorithm>
 #include <utility>
 
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
@@ -17,7 +17,6 @@
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/android/preferences/autofill/settings_navigation_helper.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
-#include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
@@ -76,9 +75,7 @@ UserInfo TranslateProfile(const AutofillProfile* profile) {
 
 std::vector<UserInfo> UserInfosForProfiles(
     const std::vector<const AutofillProfile*>& profiles) {
-  std::vector<UserInfo> infos(profiles.size());
-  std::ranges::transform(profiles, infos.begin(), TranslateProfile);
-  return infos;
+  return base::ToVector(profiles, TranslateProfile);
 }
 
 }  // namespace
@@ -133,7 +130,7 @@ void AddressAccessoryControllerImpl::OnOptionSelected(
       return;
     default:
       NOTREACHED() << "Unhandled selected action: "
-                   << static_cast<int>(selected_action);
+                   << std::to_underlying(selected_action);
   }
 }
 
@@ -141,7 +138,7 @@ void AddressAccessoryControllerImpl::OnToggleChanged(
     AccessoryAction toggled_action,
     bool enabled) {
   NOTREACHED() << "Unhandled toggled action: "
-               << static_cast<int>(toggled_action);
+               << std::to_underlying(toggled_action);
 }
 
 
@@ -169,31 +166,10 @@ void AddressAccessoryControllerImpl::OnAddressDataChanged() {
   RefreshSuggestions();
 }
 
-
-// static
-void AddressAccessoryControllerImpl::CreateForWebContentsForTesting(
-    content::WebContents* web_contents,
-    base::WeakPtr<ManualFillingController> mf_controller) {
-  DCHECK(web_contents) << "Need valid WebContents to attach controller to!";
-  DCHECK(!FromWebContents(web_contents)) << "Controller already attached!";
-  CHECK(mf_controller, base::NotFatalUntil::M161);
-
-  web_contents->SetUserData(UserDataKey(),
-                            base::WrapUnique(new AddressAccessoryControllerImpl(
-                                web_contents, std::move(mf_controller))));
-}
-
 AddressAccessoryControllerImpl::AddressAccessoryControllerImpl(
     content::WebContents* web_contents)
-    : AddressAccessoryControllerImpl(web_contents, nullptr) {}
-
-// Additional creation functions in unit tests only:
-AddressAccessoryControllerImpl::AddressAccessoryControllerImpl(
-    content::WebContents* web_contents,
-    base::WeakPtr<ManualFillingController> mf_controller)
     : content::WebContentsUserData<AddressAccessoryControllerImpl>(
-          *web_contents),
-      mf_controller_(std::move(mf_controller)) {}
+          *web_contents) {}
 
 std::vector<FooterCommand>
 AddressAccessoryControllerImpl::CreateManageAddressesFooter() const {
@@ -221,14 +197,6 @@ void AddressAccessoryControllerImpl::FillValueIntoField(
   driver->browser_events().ApplyFieldAction(mojom::FieldActionType::kReplaceAll,
                                             mojom::ActionPersistence::kFill,
                                             focused_field_id, value);
-}
-
-base::WeakPtr<ManualFillingController>
-AddressAccessoryControllerImpl::GetManualFillingController() {
-  if (!mf_controller_)
-    mf_controller_ = ManualFillingController::GetOrCreate(&GetWebContents());
-  CHECK(mf_controller_, base::NotFatalUntil::M161);
-  return mf_controller_;
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(AddressAccessoryControllerImpl);

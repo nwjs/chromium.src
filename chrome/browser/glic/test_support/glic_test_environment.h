@@ -58,6 +58,7 @@ class GlicTestEnvironmentShared {
   GlicTestEnvironmentShared(
       std::vector<base::test::FeatureRef> enabled_features,
       std::vector<base::test::FeatureRef> disabled_features);
+  ~GlicTestEnvironmentShared();
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -126,6 +127,10 @@ class GlicTestEnvironment : public ProfileObserver {
  private:
   void OnWillCreateBrowserContextKeyedServices(
       content::BrowserContext* context);
+  bool StartTestServerIfNeeded(
+      net::test_server::EmbeddedTestServer* server,
+      net::test_server::EmbeddedTestServerHandle& handle);
+
   base::CallbackListSubscription create_services_subscription_;
 
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -134,10 +139,6 @@ class GlicTestEnvironment : public ProfileObserver {
       profile_observations_;
   internal::GlicTestEnvironmentShared shared_;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor> adaptor_;
-
-  bool StartTestServerIfNeeded(
-      net::test_server::EmbeddedTestServer* server,
-      net::test_server::EmbeddedTestServerHandle& handle);
 
   // URL configuration state.
   std::string glic_page_path_ = "/glic/test_client/index.html";

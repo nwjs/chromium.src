@@ -10,8 +10,6 @@ config("public_config") {
 
 cast_source_set("public") {
   sources = [
-    "avsettings.h",
-    "bluetooth/bluetooth_types.h",
     "cast_egl_platform.h",
     "cast_egl_platform_shlib.h",
     "cast_media_shlib.h",
@@ -20,9 +18,6 @@ cast_source_set("public") {
     "chromecast_export.h",
     "graphics_properties_shlib.h",
     "graphics_types.h",
-    "osd_plane.h",
-    "osd_plane_shlib.h",
-    "osd_surface.h",
     "reboot_shlib.h",
     "task_runner.h",
     "video_plane.h",
@@ -34,10 +29,6 @@ cast_source_set("public") {
 
 if (is_android) {
   import("//build/config/android/rules.gni")
-
-  java_cpp_enum("java_enums") {
-    sources = [ "avsettings.h" ]
-  }
 
   java_cpp_enum("java_enums_volume_control") {
     sources = [ "volume_control.h" ]

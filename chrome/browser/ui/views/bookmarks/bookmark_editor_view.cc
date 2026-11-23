@@ -89,9 +89,10 @@ BookmarkEditorView::BookmarkEditorView(
       bb_model_(BookmarkModelFactory::GetForBrowserContext(profile)),
       show_tree_(configuration == SHOW_TREE),
       on_save_callback_(std::move(on_save_callback)) {
-  DCHECK(profile);
-  DCHECK(bb_model_);
-  DCHECK(!bb_model_->client()->IsNodeManaged(details_.parent_node));
+  CHECK(profile, base::NotFatalUntil::M162);
+  CHECK(bb_model_, base::NotFatalUntil::M162);
+  CHECK(!bb_model_->client()->IsNodeManaged(details_.parent_node),
+        base::NotFatalUntil::M162);
   SetCanResize(true);
   SetModalType(ui::mojom::ModalType::kWindow);
   SetShowCloseButton(false);
@@ -275,14 +276,14 @@ bool BookmarkEditorView::GetAcceleratorForCommandId(
 }
 
 void BookmarkEditorView::ExecuteCommand(int command_id, int event_flags) {
-  DCHECK(tree_view_->GetActiveNode());
+  CHECK(tree_view_->GetActiveNode(), base::NotFatalUntil::M162);
   if (command_id == kContextMenuItemEdit) {
     tree_view_->StartEditing(tree_view_->GetActiveNode());
   } else if (command_id == kContextMenuItemDelete) {
     ExecuteCommandDelete(base::BindOnce(&bookmarks::ConfirmDeleteBookmarkNode,
                                         GetWidget()->GetNativeWindow()));
   } else {
-    DCHECK_EQ(kContextMenuItemNewFolder, command_id);
+    CHECK_EQ(kContextMenuItemNewFolder, command_id, base::NotFatalUntil::M162);
     NewFolder(tree_model_->AsNode(tree_view_->GetActiveNode()));
   }
 }
@@ -313,7 +314,7 @@ void BookmarkEditorView::ShowContextMenuForViewImpl(
     views::View* source,
     const gfx::Point& point,
     ui::mojom::MenuSourceType source_type) {
-  DCHECK_EQ(tree_view_, source);
+  CHECK_EQ(tree_view_, source, base::NotFatalUntil::M162);
   if (!tree_view_->GetActiveNode()) {
     return;
   }
@@ -467,13 +468,13 @@ void BookmarkEditorView::UserInputChanged() {
 }
 
 void BookmarkEditorView::NewFolderButtonPressed() {
-  DCHECK(tree_view_->GetSelectedNode());
+  CHECK(tree_view_->GetSelectedNode(), base::NotFatalUntil::M162);
   NewFolder(tree_model_->AsNode(tree_view_->GetSelectedNode()));
 }
 
 void BookmarkEditorView::NewFolder(EditorNode* parent) {
   // Create a new entry parented to the given item.
-  DCHECK(parent);
+  CHECK(parent, base::NotFatalUntil::M162);
   tree_view_->StartEditing(AddNewFolder(parent));
 }
 
@@ -567,9 +568,9 @@ void BookmarkEditorView::ExpandAndSelect() {
       FindNodeWithID(tree_model_->GetRoot(), folder_id_to_select);
   if (!b_node) {
     // Default to the bookmark bar folder.
-    bool has_title_node =
-        tree_model_->GetRoot()->children().front()->value.type ==
-        EditorNodeData::Type::kTitle;
+    bool has_title_node = EditorTreeModel::AsNode(
+                              tree_model_->GetRoot()->children().front().get())
+                              ->value.type == EditorNodeData::Type::kTitle;
     b_node = FindNodeWithID(tree_model_->GetRoot(),
                             has_title_node
                                 ? bb_model_->account_bookmark_bar_node()->id()
@@ -613,12 +614,15 @@ BookmarkEditorView::CreateRootNode() {
   } else {
     const BookmarkNode* bb_root_node = bb_model_->root_node();
     CreateNodes(bb_root_node, root_node.get());
-    DCHECK_GE(root_node->children().size(), 2u);
-    DCHECK_LE(root_node->children().size(), 4u);
-    DCHECK_EQ(BookmarkNode::BOOKMARK_BAR, bb_root_node->children()[0]->type());
-    DCHECK_EQ(BookmarkNode::OTHER_NODE, bb_root_node->children()[1]->type());
+    CHECK_GE(root_node->children().size(), 2u, base::NotFatalUntil::M162);
+    CHECK_LE(root_node->children().size(), 4u, base::NotFatalUntil::M162);
+    CHECK_EQ(BookmarkNode::BOOKMARK_BAR, bb_root_node->children()[0]->type(),
+             base::NotFatalUntil::M162);
+    CHECK_EQ(BookmarkNode::OTHER_NODE, bb_root_node->children()[1]->type(),
+             base::NotFatalUntil::M162);
     if (root_node->children().size() >= 3) {
-      DCHECK_EQ(BookmarkNode::MOBILE, bb_root_node->children()[2]->type());
+      CHECK_EQ(BookmarkNode::MOBILE, bb_root_node->children()[2]->type(),
+               base::NotFatalUntil::M162);
     }
   }
   return root_node;
@@ -646,7 +650,8 @@ BookmarkEditorView::EditorNode* BookmarkEditorView::FindNodeWithID(
     return node;
   }
   for (const auto& child : node->children()) {
-    EditorNode* const result = FindNodeWithID(child.get(), id);
+    EditorNode* const result =
+        FindNodeWithID(EditorTreeModel::AsNode(child.get()), id);
     if (result) {
       return result;
     }
@@ -655,7 +660,7 @@ BookmarkEditorView::EditorNode* BookmarkEditorView::FindNodeWithID(
 }
 
 void BookmarkEditorView::ApplyEdits(EditorNode* parent) {
-  DCHECK(bb_model_->loaded());
+  CHECK(bb_model_->loaded(), base::NotFatalUntil::M162);
 
   if (!parent) {
     if (tree_view_) {
@@ -664,7 +669,7 @@ void BookmarkEditorView::ApplyEdits(EditorNode* parent) {
 
     if (show_tree_) {
       parent = tree_model_->AsNode(tree_view_->GetSelectedNode());
-      DCHECK(parent);
+      CHECK(parent, base::NotFatalUntil::M162);
     }
   }
   // We're going to apply edits to the bookmark bar model, which will call us
@@ -711,7 +716,8 @@ void BookmarkEditorView::ApplyNameChangesAndCreateNewFolders(
   if (parent_source_node == source_node) {
     *parent_target_node = target_node;
   }
-  for (const auto& child_source_node : source_node->children()) {
+  for (const auto& child : source_node->children()) {
+    EditorNode* const child_source_node = EditorTreeModel::AsNode(child.get());
     const BookmarkNode* child_target_node = nullptr;
     switch (child_source_node->value.type) {
       case EditorNodeData::Type::kFolder:
@@ -770,8 +776,7 @@ void BookmarkEditorView::ApplyNameChangesAndCreateNewFolders(
       case EditorNodeData::Type::kRoot:
         NOTREACHED();
     }
-    ApplyNameChangesAndCreateNewFolders(child_target_node,
-                                        child_source_node.get(),
+    ApplyNameChangesAndCreateNewFolders(child_target_node, child_source_node,
                                         parent_source_node, parent_target_node);
   }
 }
@@ -823,11 +828,17 @@ void BookmarkEditorView::ExecuteCommandDelete(
   tree_model_->Remove(node->parent(), node);
 }
 
+BookmarkEditorView::EditorNode::EditorNode(const std::u16string& title,
+                                           const EditorNodeData& value)
+    : ui::TreeModelNode(title), value(value) {}
+
+BookmarkEditorView::EditorNode::~EditorNode() = default;
+
 void BookmarkEditorView::EditorTreeModel::SetTitle(
     ui::TreeModelNode* node,
     const std::u16string& title) {
   if (!title.empty()) {
-    ui::TreeNodeModel<EditorNode>::SetTitle(node, title);
+    ui::TreeModel::SetTitle(node, title);
   }
 }
 

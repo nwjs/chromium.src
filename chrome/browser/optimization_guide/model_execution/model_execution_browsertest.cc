@@ -23,13 +23,13 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
+#include "components/optimization_guide/core/feature_registry/enterprise_policy_registry.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/feature_registry/mqls_feature_registry.h"
 #include "components/optimization_guide/core/model_execution/configs/manifest_builder.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features_controller.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/remote_model_execution_common.h"
@@ -40,7 +40,6 @@
 #include "components/optimization_guide/core/model_quality/model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_logger.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/manifest.pb.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
@@ -854,13 +853,12 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
 
   // Enable without logging via the enterprise policy.
   policy::PolicyMap policies;
-  policies.Set(policy::key::kHelpMeWriteSettings,
-               policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
-               policy::POLICY_SOURCE_CLOUD,
-               base::Value(static_cast<int>(
-                   model_execution::prefs::ModelExecutionEnterprisePolicyValue::
-                       kAllowWithoutLogging)),
-               nullptr);
+  policies.Set(
+      policy::key::kHelpMeWriteSettings, policy::POLICY_LEVEL_MANDATORY,
+      policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
+      base::Value(
+          static_cast<int>(EnterprisePolicyValue::kAllowWithoutLogging)),
+      nullptr);
   policy_provider_.UpdateChromePolicy(policies);
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(IsSettingVisible(UserVisibleFeatureKey::kCompose));
@@ -880,9 +878,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   policies.Set(
       policy::key::kHelpMeWriteSettings, policy::POLICY_LEVEL_MANDATORY,
       policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
-      base::Value(static_cast<int>(
-          model_execution::prefs::ModelExecutionEnterprisePolicyValue::kAllow)),
-      nullptr);
+      base::Value(static_cast<int>(EnterprisePolicyValue::kAllow)), nullptr);
   policy_provider_.UpdateChromePolicy(policies);
   prefs->SetInteger(
       prefs::GetSettingEnabledPrefName(UserVisibleFeatureKey::kCompose),
@@ -921,13 +917,10 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
 
   // Disable via the enterprise policy.
   policy::PolicyMap policies;
-  policies.Set(policy::key::kCreateThemesSettings,
-               policy::POLICY_LEVEL_MANDATORY, policy::POLICY_SCOPE_USER,
-               policy::POLICY_SOURCE_CLOUD,
-               base::Value(static_cast<int>(
-                   model_execution::prefs::ModelExecutionEnterprisePolicyValue::
-                       kDisable)),
-               nullptr);
+  policies.Set(
+      policy::key::kCreateThemesSettings, policy::POLICY_LEVEL_MANDATORY,
+      policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
+      base::Value(static_cast<int>(EnterprisePolicyValue::kDisable)), nullptr);
   policy_provider_.UpdateChromePolicy(policies);
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(IsSettingVisible(UserVisibleFeatureKey::kWallpaperSearch));
@@ -938,9 +931,7 @@ IN_PROC_BROWSER_TEST_F(ModelExecutionEnterprisePolicyBrowserTest,
   policies.Set(
       policy::key::kCreateThemesSettings, policy::POLICY_LEVEL_MANDATORY,
       policy::POLICY_SCOPE_USER, policy::POLICY_SOURCE_CLOUD,
-      base::Value(static_cast<int>(
-          model_execution::prefs::ModelExecutionEnterprisePolicyValue::kAllow)),
-      nullptr);
+      base::Value(static_cast<int>(EnterprisePolicyValue::kAllow)), nullptr);
   policy_provider_.UpdateChromePolicy(policies);
   prefs->SetInteger(
       prefs::GetSettingEnabledPrefName(UserVisibleFeatureKey::kWallpaperSearch),

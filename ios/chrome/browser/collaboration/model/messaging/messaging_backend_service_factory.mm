@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/collaboration/model/messaging/messaging_backend_service_factory.h"
 
 #import <memory>
+#import <utility>
 
 #import "components/collaboration/internal/messaging/configuration.h"
 #import "components/collaboration/internal/messaging/data_sharing_change_notifier_impl.h"
@@ -28,21 +29,9 @@
 
 namespace collaboration::messaging {
 
-// static
-MessagingBackendService* MessagingBackendServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<MessagingBackendService>(
-      profile, /*create=*/true);
-}
-
-// static
-MessagingBackendServiceFactory* MessagingBackendServiceFactory::GetInstance() {
-  static base::NoDestructor<MessagingBackendServiceFactory> instance;
-  return instance.get();
-}
-
-MessagingBackendServiceFactory::MessagingBackendServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("MessagingBackendService") {
+MessagingBackendServiceFactory::MessagingBackendServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "MessagingBackendService") {
   DependsOn(tab_groups::TabGroupSyncServiceFactory::GetInstance());
   DependsOn(data_sharing::DataSharingServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
@@ -50,8 +39,6 @@ MessagingBackendServiceFactory::MessagingBackendServiceFactory()
   DependsOn(
       collaboration::messaging::InstantMessagingServiceFactory::GetInstance());
 }
-
-MessagingBackendServiceFactory::~MessagingBackendServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 MessagingBackendServiceFactory::BuildServiceInstanceFor(

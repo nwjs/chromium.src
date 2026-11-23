@@ -72,6 +72,7 @@ source_set("impl") {
       "//ash",
       "//chrome/browser/ash/boca/on_task",
       "//chrome/browser/ui/ash/system_web_apps",
+      "//chrome/browser/ui/chromeos/locked_state",
     ]
   }
 
@@ -92,10 +93,10 @@ source_set("impl") {
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:singleton_tabs",
       "//chrome/browser/ui:status_bubble",
-      "//chrome/browser/ui:tab_helpers",
       "//chrome/browser/ui/browser_ui_controller",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/location_bar",
+      "//chrome/browser/ui/tabs:features",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/ui/web_applications:launch_utils",
@@ -143,6 +144,7 @@ if (!is_android) {
     sources = [
       "browser_navigator_browsertest.cc",
       "browser_navigator_browsertest.h",
+      "window_open_split_tab_browsertest.cc",
     ]
 
     if (is_chromeos) {
@@ -167,11 +169,16 @@ if (!is_android) {
       "//chrome/browser/ui/browser_window:create_browser_window",
       "//chrome/browser/ui/page_info",
       "//chrome/browser/ui/search:test_support_ui",
+      "//chrome/browser/ui/tabs:features",
+      "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/window_feature_controller",
       "//chrome/test:test_support",
       "//components/captive_portal/content",
+      "//components/split_tabs",
+      "//components/tabs:public",
       "//content/test:test_support",
       "//testing/gtest",
+      "//third_party/blink/public/common:headers",
     ]
 
     if (is_chromeos) {
@@ -179,12 +186,20 @@ if (!is_android) {
         "//chrome/browser/ash/boca/on_task",
         "//chrome/browser/ui/ash/multi_user",
         "//chrome/browser/ui/ash/session",
+        "//chrome/browser/ui/chromeos/locked_state",
         "//components/account_id:test_support",
       ]
     }
 
     if (use_ozone) {
       deps += [ "//ui/ozone" ]
+    }
+
+    if (is_win) {
+      deps += [
+        "//components/viz/common",
+        "//ui/gfx",
+      ]
     }
   }
 }

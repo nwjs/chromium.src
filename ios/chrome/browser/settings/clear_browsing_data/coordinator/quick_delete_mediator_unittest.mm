@@ -13,7 +13,6 @@
 #import "components/browsing_data/core/pref_names.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/history/core/browser/history_service.h"
-#import "components/keyed_service/core/service_access_type.h"
 #import "components/prefs/pref_service.h"
 #import "components/search_engines/search_engines_test_environment.h"
 #import "components/search_engines/template_url.h"
@@ -84,8 +83,7 @@ class QuickDeleteMediatorTest : public PlatformTest {
     system_identity_manager->AddIdentity(fake_identity_);
 
     scene_state_ = [[SceneState alloc] init];
-    history_service_ = ios::HistoryServiceFactory::GetForProfile(
-        profile_, ServiceAccessType::EXPLICIT_ACCESS);
+    history_service_ = ios::HistoryServiceFactory::GetForProfile(profile_);
 
     // Reset prefs related to quick delete so tests start with the same state
     // every time.
@@ -183,8 +181,7 @@ class QuickDeleteMediatorTest : public PlatformTest {
     // Add stub counter result for browsing history.
     browsing_data::HistoryCounter history_counter(
         history_service_,
-        browsing_data::HistoryCounter::GetUpdatedWebHistoryServiceCallback(),
-        nullptr);
+        /*web_history_service=*/nullptr, nullptr);
 
     history_counter.Init(prefs(),
                          browsing_data::BrowsingDataCounter::ResultCallback());
@@ -220,10 +217,10 @@ class QuickDeleteMediatorTest : public PlatformTest {
                                                  int num_cards,
                                                  int num_addresses) {
     browsing_data::AutofillCounter autofill_counter(nullptr, nullptr, nullptr,
-                                                    nullptr);
+                                                    nullptr, nullptr);
     const browsing_data::AutofillCounter::AutofillResult autofillResult(
         &autofill_counter, num_suggestions, num_cards, num_addresses,
-        /*num_entities=*/0, false);
+        /*num_entities=*/0, /*num_suppressions=*/0, false);
     OCMExpect([consumer_
         setAutofillSummary:quick_delete_util::GetCounterTextFromResult(
                                autofillResult, time_range())]);
@@ -277,30 +274,29 @@ TEST_F(QuickDeleteMediatorTest, TestBrowsingHistorySummary) {
   TriggerUpdateUICallbackForAutofillResults(0, 0, 0);
 
   // clang-format off
-    const struct TestCase {
-        int num_sites;
-        bool sync_enabled;
-        NSString* expected_output;
-    } kTestCases[] = {
-        {0, true, l10n_util::GetNSString(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_NO_DATA)},
-        {0, false, l10n_util::GetNSString(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_NO_DATA)},
-        {1, true, l10n_util::GetPluralNSStringF(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES_SYNCED, 1)},
-        {1, false, l10n_util::GetPluralNSStringF(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES, 1)},
-        {2, true, l10n_util::GetPluralNSStringF(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES_SYNCED, 2)},
-        {2, false, l10n_util::GetPluralNSStringF(
-                   IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES, 2)},
-    };
+  const struct TestCase {
+      int num_sites;
+      bool sync_enabled;
+      NSString* expected_output;
+  } kTestCases[] = {
+      {0, true, l10n_util::GetNSString(
+                 IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_NO_DATA)},
+      {0, false, l10n_util::GetNSString(
+                 IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_NO_DATA)},
+      {1, true, l10n_util::GetPluralNSStringF(
+                 IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES_SYNCED, 1)},
+      {1, false, l10n_util::GetPluralNSStringF(
+                 IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES, 1)},
+      {2, true, l10n_util::GetPluralNSStringF(
+                 IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES_SYNCED, 2)},
+      {2, false, l10n_util::GetPluralNSStringF(
+                 IDS_IOS_DELETE_BROWSING_DATA_SUMMARY_SITES, 2)},
+  };
   // clang-format on
 
-  browsing_data::HistoryCounter counter(
-      history_service_,
-      browsing_data::HistoryCounter::GetUpdatedWebHistoryServiceCallback(),
-      nullptr);
+  browsing_data::HistoryCounter counter(history_service_,
+                                        /*web_history_service=*/nullptr,
+                                        nullptr);
 
   counter.Init(prefs(), browsing_data::BrowsingDataCounter::ResultCallback());
 
@@ -410,12 +406,13 @@ TEST_F(QuickDeleteMediatorTest, TestAddressesSummary) {
   };
   // clang-format on
 
-  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr, nullptr);
+  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr, nullptr,
+                                         nullptr);
 
   for (const TestCase& test_case : kTestCases) {
     const browsing_data::AutofillCounter::AutofillResult result(
         &counter, 0, 0, test_case.num_addresses, /*num_entities=*/0,
-        test_case.sync_enabled);
+        /*num_suppressions=*/0, test_case.sync_enabled);
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
     OCMExpect([consumer_
         setAutofillSummary:quick_delete_util::GetCounterTextFromResult(
@@ -462,12 +459,13 @@ TEST_F(QuickDeleteMediatorTest, TestCardsSummary) {
   };
   // clang-format on
 
-  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr, nullptr);
+  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr, nullptr,
+                                         nullptr);
 
   for (const TestCase& test_case : kTestCases) {
     const browsing_data::AutofillCounter::AutofillResult result(
         &counter, 0, test_case.num_cards, 0, /*num_entities=*/0,
-        test_case.sync_enabled);
+        /*num_suppressions=*/0, test_case.sync_enabled);
 
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
     OCMExpect([consumer_
@@ -518,12 +516,13 @@ TEST_F(QuickDeleteMediatorTest, TestSuggestionsSummary) {
   };
   // clang-format on
 
-  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr, nullptr);
+  browsing_data::AutofillCounter counter(nullptr, nullptr, nullptr, nullptr,
+                                         nullptr);
 
   for (const TestCase& test_case : kTestCases) {
     const browsing_data::AutofillCounter::AutofillResult result(
         &counter, test_case.num_suggestions, 0, 0, /*num_entities=*/0,
-        test_case.sync_enabled);
+        /*num_suppressions=*/0, test_case.sync_enabled);
     OCMExpect([consumer_ setBrowsingDataSummary:test_case.expected_output]);
     OCMExpect([consumer_
         setAutofillSummary:quick_delete_util::GetCounterTextFromResult(

@@ -552,6 +552,29 @@ TEST_F(WebUIPageActionControlTest, UpdateControllerToNullResetsState) {
   EXPECT_FALSE(control_->IsAnchoredMessageShowing(target_action_id));
 }
 
+// Only exercises the "state unchanged -> no notify" path: this harness has no
+// ColorProvider (the mock delegate's GetView() returns null), so GetState()
+// resolves no colors. Verifying that colors actually re-resolve on theme change
+// would require a real Widget.
+TEST_F(WebUIPageActionControlTest, OnThemeChangedOnlyNotifiesWhenStateChanges) {
+  control_->UpdateController(web_contents());
+
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents());
+  page_actions::PageActionController* controller =
+      page_actions::PageActionController::From(tab);
+
+  controller->Show(kActionAiMode);
+  ASSERT_EQ(1u, control_->GetPageActionStates().size());
+  testing::Mock::VerifyAndClearExpectations(&webui_delegate_);
+
+  // Without a ColorProvider in this harness, re-resolving yields an identical
+  // state, so the WebUI must not be notified.
+  EXPECT_CALL(webui_delegate_, OnPageActionChanged(_)).Times(0);
+  control_->OnThemeChanged();
+  ASSERT_EQ(1u, control_->GetPageActionStates().size());
+}
+
 TEST_F(WebUIPageActionControlTest, GetPageActionViewInterfaceAndMethods) {
   control_->UpdateController(web_contents());
 
@@ -642,147 +665,6 @@ TEST_F(WebUIPageActionControlTest, GetBubbleAnchor) {
 
   ai_mode_element.Hide();
   location_bar_element.Hide();
-}
-
-TEST_F(WebUIPageActionControlTest, MouseClickSuppression) {
-  control_->UpdateController(web_contents());
-
-  tabs::TabInterface* tab =
-      tabs::TabInterface::MaybeGetFromContents(web_contents());
-  ASSERT_TRUE(tab);
-  page_actions::PageActionController* controller =
-      page_actions::PageActionController::From(tab);
-  ASSERT_TRUE(controller);
-
-  actions::ActionItem* ai_mode_action_item =
-      actions::ActionManager::Get().FindAction(kActionAiMode,
-                                               root_action_item_.get());
-  ASSERT_TRUE(ai_mode_action_item);
-  actions::ActionItem* translate_action_item =
-      actions::ActionManager::Get().FindAction(kActionShowTranslate,
-                                               root_action_item_.get());
-  ASSERT_TRUE(translate_action_item);
-
-  int ai_mode_invoked_count = 0;
-  ai_mode_action_item->SetInvokeActionCallback(
-      base::BindRepeating([](int* count, actions::ActionItem*,
-                             actions::ActionInvocationContext) { ++(*count); },
-                          &ai_mode_invoked_count));
-
-  int translate_invoked_count = 0;
-  translate_action_item->SetInvokeActionCallback(
-      base::BindRepeating([](int* count, actions::ActionItem*,
-                             actions::ActionInvocationContext) { ++(*count); },
-                          &translate_invoked_count));
-
-  controller->Show(kActionAiMode);
-  controller->Show(kActionShowTranslate);
-
-  control_->SetSuppressionThresholdForTesting(base::Seconds(1));
-
-  // 1. Initial click without bubble being shown is NOT suppressed.
-  control_->OnPageActionPointerDown(
-      toolbar_ui_api::mojom::PageActionId::kActionAiMode);
-  {
-    base::test::TestFuture<
-        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
-        future;
-    control_->OnPageActionClick(
-        toolbar_ui_api::mojom::PageActionId::kActionAiMode,
-        PageActionTrigger::kMouse, future.GetCallback());
-    EXPECT_OK(future.Get());
-    EXPECT_EQ(1, ai_mode_invoked_count);
-  }
-
-  // 2. Simulate bubble showing and then closing.
-  ai_mode_action_item->SetIsShowingBubble(true);
-  ai_mode_action_item->SetIsShowingBubble(false);
-
-  // Pointer down occurs immediately within the suppression threshold.
-  control_->OnPageActionPointerDown(
-      toolbar_ui_api::mojom::PageActionId::kActionAiMode);
-
-  // 3. A non-pointer click (e.g. keyboard) should NOT be suppressed.
-  {
-    base::test::TestFuture<
-        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
-        future;
-    control_->OnPageActionClick(
-        toolbar_ui_api::mojom::PageActionId::kActionAiMode,
-        PageActionTrigger::kKeyboard, future.GetCallback());
-    EXPECT_OK(future.Get());
-    EXPECT_EQ(2, ai_mode_invoked_count);
-  }
-
-  // 4. A mouse click immediately after bubble close + pointerdown IS
-  // suppressed.
-  ai_mode_action_item->SetIsShowingBubble(true);
-  ai_mode_action_item->SetIsShowingBubble(false);
-  control_->OnPageActionPointerDown(
-      toolbar_ui_api::mojom::PageActionId::kActionAiMode);
-  {
-    base::test::TestFuture<
-        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
-        future;
-    control_->OnPageActionClick(
-        toolbar_ui_api::mojom::PageActionId::kActionAiMode,
-        PageActionTrigger::kMouse, future.GetCallback());
-    EXPECT_OK(future.Get());
-    // Action should NOT have been invoked.
-    EXPECT_EQ(2, ai_mode_invoked_count);
-  }
-
-  // 5. A gesture/touch click immediately after bubble close + pointerdown IS
-  // suppressed.
-  ai_mode_action_item->SetIsShowingBubble(true);
-  ai_mode_action_item->SetIsShowingBubble(false);
-  control_->OnPageActionPointerDown(
-      toolbar_ui_api::mojom::PageActionId::kActionAiMode);
-  {
-    base::test::TestFuture<
-        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
-        future;
-    control_->OnPageActionClick(
-        toolbar_ui_api::mojom::PageActionId::kActionAiMode,
-        PageActionTrigger::kGesture, future.GetCallback());
-    EXPECT_OK(future.Get());
-    // Action should NOT have been invoked.
-    EXPECT_EQ(2, ai_mode_invoked_count);
-  }
-
-  // 6. Clicking a different page action chip is NOT suppressed.
-  ai_mode_action_item->SetIsShowingBubble(true);
-  ai_mode_action_item->SetIsShowingBubble(false);
-  control_->OnPageActionPointerDown(
-      toolbar_ui_api::mojom::PageActionId::kActionShowTranslate);
-  {
-    base::test::TestFuture<
-        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
-        future;
-    control_->OnPageActionClick(
-        toolbar_ui_api::mojom::PageActionId::kActionShowTranslate,
-        PageActionTrigger::kMouse, future.GetCallback());
-    EXPECT_OK(future.Get());
-    EXPECT_EQ(1, translate_invoked_count);
-  }
-
-  // 7. Pointer down while bubble is still open suppresses the subsequent
-  // mouse click.
-  ai_mode_action_item->SetIsShowingBubble(true);
-  control_->OnPageActionPointerDown(
-      toolbar_ui_api::mojom::PageActionId::kActionAiMode);
-  ai_mode_action_item->SetIsShowingBubble(false);
-  {
-    base::test::TestFuture<
-        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
-        future;
-    control_->OnPageActionClick(
-        toolbar_ui_api::mojom::PageActionId::kActionAiMode,
-        PageActionTrigger::kMouse, future.GetCallback());
-    EXPECT_OK(future.Get());
-    // Action should NOT have been invoked.
-    EXPECT_EQ(2, ai_mode_invoked_count);
-  }
 }
 
 TEST_F(WebUIPageActionControlTest, AnchoredMessageState) {

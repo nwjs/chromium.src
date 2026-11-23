@@ -18,9 +18,13 @@ class ToolRequestVisitorFunctor;
 class CreateWindowToolRequest : public ToolRequest {
  public:
   static constexpr char kName[] = "CreateWindow";
+  static constexpr std::string_view kModelFacingName = "create_window";
 
   CreateWindowToolRequest();
   ~CreateWindowToolRequest() override;
+
+  // Returns the `ToolId::kCreateWindow` tool schema definition.
+  static std::optional<ToolDefinition> GetToolDefinition();
 
   CreateToolResult CreateTool(TaskId task_id,
                               ToolDelegate& tool_delegate) const override;
@@ -34,11 +38,16 @@ class CreateWindowToolRequest : public ToolRequest {
 class ActivateWindowToolRequest : public ToolRequest {
  public:
   static constexpr char kName[] = "ActivateWindow";
+  static constexpr std::string_view kModelFacingName = "activate_window";
+  static constexpr std::string_view kWindowIdParam = "window_id";
 
   explicit ActivateWindowToolRequest(int32_t window_id);
   ~ActivateWindowToolRequest() override;
 
   int32_t GetWindowId() const { return window_id_; }
+
+  // Returns the `ToolId::kActivateWindow` tool schema definition.
+  static std::optional<ToolDefinition> GetToolDefinition();
 
   CreateToolResult CreateTool(TaskId task_id,
                               ToolDelegate& tool_delegate) const override;
@@ -53,11 +62,16 @@ class ActivateWindowToolRequest : public ToolRequest {
 class CloseWindowToolRequest : public ToolRequest {
  public:
   static constexpr char kName[] = "CloseWindow";
+  static constexpr std::string_view kModelFacingName = "close_window";
+  static constexpr std::string_view kWindowIdParam = "window_id";
 
   explicit CloseWindowToolRequest(int32_t window_id);
   ~CloseWindowToolRequest() override;
 
   int32_t GetWindowId() const { return window_id_; }
+
+  // Returns the `ToolId::kCloseWindow` tool schema definition.
+  static std::optional<ToolDefinition> GetToolDefinition();
 
   CreateToolResult CreateTool(TaskId task_id,
                               ToolDelegate& tool_delegate) const override;

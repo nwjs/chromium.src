@@ -44,9 +44,7 @@ public class SiteSuggestion {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof SiteSuggestion)) return false;
-
-        SiteSuggestion that = (SiteSuggestion) o;
+        if (!(o instanceof SiteSuggestion that)) return false;
 
         if (source != that.source) return false;
         if (titleSource != that.titleSource) return false;
@@ -63,5 +61,15 @@ public class SiteSuggestion {
         result = 31 * result + sectionType;
         result = 31 * result + titleSource;
         return result;
+    }
+
+    /** Returns whether this suggestion represents the AI Mode tile. */
+    public boolean isAiMode() {
+        return source == TileSource.AI_MODE;
+    }
+
+    /** Returns whether this suggestion represents a custom link. */
+    public boolean isCustomLink() {
+        return source == TileSource.CUSTOM_LINKS;
     }
 }

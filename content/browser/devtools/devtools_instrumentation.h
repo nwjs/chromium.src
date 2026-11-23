@@ -29,6 +29,7 @@
 #include "net/filter/source_stream_type.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/cpp/headers_matcher.h"
+#include "services/network/public/cpp/http_request_headers_update_params.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/mojom/cookie_manager.mojom-forward.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
@@ -118,14 +119,35 @@ void ApplyAuctionNetworkRequestOverrides(FrameTreeNode* frame_tree_node,
 // this function overrides the `Accept-Language` header, it sets
 // `devtools_accept_language_overridden` to true; otherwise, false. If
 // this function overrides the `Referrer` header, it sets `referrer_override` to
-// the new Referrer header value.
+// the new Referrer header value. Network overrides are only applied by sessions
+// whose client may attach to `url`.
 void ApplyNetworkRequestOverrides(
     FrameTreeNode* frame_tree_node,
+    const GURL& url,
     blink::mojom::BeginNavigationParams* begin_params,
     bool* report_raw_headers,
     bool* devtools_user_agent_overridden,
     bool* devtools_accept_language_overridden,
     GURL* referrer_override);
+
+// Called on a navigation redirect to `redirect_url`. In `headers`, reverts the
+// extra headers set by sessions whose client may not attach to `redirect_url`
+// to the value set by a session that may, or else to `original_headers`, and
+// records the changes in `headers_update_params`. Likewise reverts emulation
+// overrides, clearing `devtools_user_agent_override` and
+// `devtools_accept_language_override` if no remaining session overrides them.
+// Sets `headers_reverted` to whether `headers` changed. Returns false if the
+// navigation must be blocked because such a session overrode the `Referer`,
+// which can't be reverted on redirect.
+bool RevertDisallowedNetworkOverridesOnRedirect(
+    FrameTreeNode* frame_tree_node,
+    const GURL& redirect_url,
+    const net::HttpRequestHeaders& original_headers,
+    net::HttpRequestHeaders* headers,
+    network::HttpRequestHeadersUpdateParams* headers_update_params,
+    bool* devtools_user_agent_override,
+    bool* devtools_accept_language_override,
+    bool* headers_reverted);
 
 // If this function overrides the `User-Agent` header, it sets the returned
 // `user_agent_overridden` to true; otherwise, false. If this function overrides
@@ -133,14 +155,17 @@ void ApplyNetworkRequestOverrides(
 // `accept_language_overridden` to true; otherwise, false.
 DevtoolsOverriddenOutputParams ApplyEmulationOverrides(
     DevToolsAgentHostImpl* agent_host,
-    net::HttpRequestHeaders* headers);
+    net::HttpRequestHeaders* headers,
+    const GURL& url);
 
 // Applies extra headers set via Network.setExtraHTTPHeaders to a WebSocket
 // handshake request. This is needed because WebSocket connections bypass the
 // normal URLLoader path where ApplyNetworkRequestOverrides is called.
+// Headers are only applied by sessions whose client may attach to `url`.
 void ApplyExtraHeadersForWebSocket(
     const GlobalRenderFrameHostId& frame_id,
     const std::optional<base::UnguessableToken>& devtools_worker_token,
+    const GURL& url,
     net::HttpRequestHeaders* headers);
 
 // Returns true if devtools want |*override_out| to be used.
@@ -149,7 +174,8 @@ void ApplyExtraHeadersForWebSocket(
 //  the behavior).
 bool ApplyUserAgentMetadataOverrides(
     FrameTreeNode* frame_tree_node,
-    std::optional<blink::UserAgentMetadata>* override_out);
+    std::optional<blink::UserAgentMetadata>* override_out,
+    const GURL& url);
 
 class WillCreateURLLoaderFactoryParams final {
   STACK_ALLOCATED();

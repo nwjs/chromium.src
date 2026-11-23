@@ -455,7 +455,8 @@ INSTANTIATE_TEST_SUITE_P(GpuDataManagerImplPrivateTest,
 
 #if !BUILDFLAG(IS_FUCHSIA)
 TEST_F(GpuDataManagerImplPrivateTest, GpuStartsWithGraphiteFeatureFlag) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
 
   ScopedGpuDataManagerImplPrivate manager;
@@ -466,22 +467,17 @@ TEST_F(GpuDataManagerImplPrivateTest, GpuStartsWithGraphiteFeatureFlag) {
 // platforms graphite should fallback to Ganesh/GL.
 TEST_F(GpuDataManagerImplPrivateTest, FallbackFromGraphite) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/
-      {
-#if BUILDFLAG(ENABLE_SWIFTSHADER)
-          features::kAllowSwiftShaderFallback,
-#endif
-      },
-      /*disabled_features=*/
-      {
 #if BUILDFLAG(ENABLE_VULKAN)
-          features::kVulkan,
+  feature_list.InitAndDisableFeature(features::kVulkan);
 #endif
-      });
 
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
+#if BUILDFLAG(ENABLE_SWIFTSHADER)
+  command_line.GetProcessCommandLine()->AppendSwitch(
+      switches::kEnableUnsafeSwiftShader);
+#endif
 
   ScopedGpuDataManagerImplPrivate manager;
   EXPECT_EQ(gpu::GpuMode::HARDWARE_GRAPHITE, manager->GetGpuMode());
@@ -502,7 +498,8 @@ TEST_F(GpuDataManagerImplPrivateTest, FallbackFromGraphite) {
 // kGL for the hardware fallback.
 TEST_F(GpuDataManagerImplPrivateTest,
        UpdateGpuPreferences_GraphiteModeFallbackIsGL) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
 
   base::test::ScopedFeatureList feature_list;
@@ -564,7 +561,8 @@ TEST_F(GpuDataManagerImplPrivateTest,
 // hardware types since no hardware modes remain.
 TEST_F(GpuDataManagerImplPrivateTest,
        UpdateGpuPreferences_AfterGraphiteFallbackToGL) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
 
   base::test::ScopedFeatureList feature_list;
@@ -601,7 +599,8 @@ TEST_F(GpuDataManagerImplPrivateTest,
     GTEST_SKIP();
   }
 
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
 
   base::test::ScopedFeatureList feature_list;
@@ -633,7 +632,8 @@ TEST_F(GpuDataManagerImplPrivateTest,
 // All GPU features are enabled: gpu_mode_ stays HARDWARE_GRAPHITE.
 TEST_F(GpuDataManagerImplPrivateTest,
        UpdateGpuFeatureInfo_GraphiteEnabledKeepsGraphiteMode) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
   ScopedGpuDataManagerImplPrivate manager;
   ASSERT_EQ(gpu::GpuMode::HARDWARE_GRAPHITE, manager->GetGpuMode());
@@ -651,7 +651,8 @@ TEST_F(GpuDataManagerImplPrivateTest,
 // loop falls back from HARDWARE_GRAPHITE to HARDWARE_GL.
 TEST_F(GpuDataManagerImplPrivateTest,
        UpdateGpuFeatureInfo_GraphiteBlocklistedSwitchesToGL) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
 
   base::test::ScopedFeatureList feature_list;
@@ -685,7 +686,8 @@ TEST_F(GpuDataManagerImplPrivateTest,
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_IOS)
 TEST_F(GpuDataManagerImplPrivateTest,
        UpdateGpuFeatureInfo_NoHardwareModeAvailable) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
 
   base::test::ScopedFeatureList feature_list;
@@ -732,13 +734,10 @@ TEST_F(GpuDataManagerImplPrivateTest, NoDefaultFallbackToSwiftShaderForGanesh) {
   command_line.GetProcessCommandLine()->RemoveSwitch(
       switches::kEnableUnsafeSwiftShader);
 
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures({}, {
-                                        features::kAllowSwiftShaderFallback,
 #if BUILDFLAG(IS_WIN)
-                                        features::kAllowD3D11WarpFallback,
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAllowD3D11WarpFallback);
 #endif  // BUILDFLAG(IS_WIN)
-                                    });
 
   ScopedGpuDataManagerImplPrivate manager;
   if (manager->supports_gpu_mode_hardware_gl()) {
@@ -750,9 +749,10 @@ TEST_F(GpuDataManagerImplPrivateTest, NoDefaultFallbackToSwiftShaderForGanesh) {
 }
 
 TEST_F(GpuDataManagerImplPrivateTest, ExplicitFallbackToSwiftShaderForGanesh) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kDisableSkiaGraphite);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableUnsafeSwiftShader);
 
   ScopedGpuDataManagerImplPrivate manager;
@@ -769,11 +769,12 @@ TEST_F(GpuDataManagerImplPrivateTest,
        FallbackWithSwiftShaderDisabledByFlagsForGanesh) {
   // Make sure that we don't fall back to SwiftShader when it's disabled with
   // --disable-software-rasterizer even if --allow-unsafe-swiftshader is used
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kDisableSkiaGraphite);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kDisableSoftwareRasterizer);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableUnsafeSwiftShader);
   ScopedGpuDataManagerImplPrivate manager;
   if (manager->supports_gpu_mode_hardware_gl()) {
@@ -787,34 +788,11 @@ TEST_F(GpuDataManagerImplPrivateTest,
 }
 
 TEST_F(GpuDataManagerImplPrivateTest,
-       FallbackWithSwiftShaderDisabledByFeaturesForGanesh) {
-  // Make sure that we don't fall back to SwiftShader when it's disabled with
-  // --disable-software-rasterizer even the AllowSwiftShaderFallback feature is
-  // present.
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisableSkiaGraphite);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisableSoftwareRasterizer);
-
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(features::kAllowSwiftShaderFallback);
-
-  ScopedGpuDataManagerImplPrivate manager;
-  if (manager->supports_gpu_mode_hardware_gl()) {
-    EXPECT_EQ(gpu::GpuMode::HARDWARE_GL, manager->GetGpuMode());
-
-    // An extra fallback is required if this platform supports Ganesh.
-    manager->FallBackToNextGpuMode();
-  }
-  gpu::GpuMode expected_mode = gpu::GpuMode::DISPLAY_COMPOSITOR;
-  EXPECT_EQ(expected_mode, manager->GetGpuMode());
-}
-
-TEST_F(GpuDataManagerImplPrivateTest,
        FallbackFromGraphiteWithSwiftShaderDisabled) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kDisableSoftwareRasterizer);
 
   ScopedGpuDataManagerImplPrivate manager;
@@ -834,9 +812,10 @@ TEST_F(GpuDataManagerImplPrivateTest,
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 TEST_F(GpuDataManagerImplPrivateTest,
        ExplicitFallbackToSwiftShaderForGraphite) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableUnsafeSwiftShader);
 
   ScopedGpuDataManagerImplPrivate manager;
@@ -855,11 +834,12 @@ TEST_F(GpuDataManagerImplPrivateTest,
        FallbackWithSwiftShaderDisabledByFlagsForGraphite) {
   // Make sure that we don't fall back to SwiftShader when it's disabled with
   // --disable-software-rasterizer even if --allow-unsafe-swiftshader is used
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  base::test::ScopedCommandLine command_line;
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableSkiaGraphite);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kDisableSoftwareRasterizer);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+  command_line.GetProcessCommandLine()->AppendSwitch(
       switches::kEnableUnsafeSwiftShader);
   ScopedGpuDataManagerImplPrivate manager;
   EXPECT_EQ(gpu::GpuMode::HARDWARE_GRAPHITE, manager->GetGpuMode());
@@ -874,43 +854,14 @@ TEST_F(GpuDataManagerImplPrivateTest,
   gpu::GpuMode expected_mode = gpu::GpuMode::DISPLAY_COMPOSITOR;
   EXPECT_EQ(expected_mode, manager->GetGpuMode());
 }
-
-TEST_F(GpuDataManagerImplPrivateTest,
-       FallbackWithSwiftShaderDisabledByFeaturesForGraphite) {
-  // Make sure that we don't fall back to SwiftShader when it's disabled with
-  // --disable-software-rasterizer even the AllowSwiftShaderFallback feature is
-  // present.
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kEnableSkiaGraphite);
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kDisableSoftwareRasterizer);
-
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(features::kAllowSwiftShaderFallback);
-
-  ScopedGpuDataManagerImplPrivate manager;
-  EXPECT_EQ(gpu::GpuMode::HARDWARE_GRAPHITE, manager->GetGpuMode());
-
-  if (manager->supports_gpu_mode_hardware_gl()) {
-    // An extra fallback is required if this platform supports Ganesh.
-    manager->FallBackToNextGpuMode();
-  }
-  manager->FallBackToNextGpuMode();
-
-  gpu::GpuMode expected_mode = gpu::GpuMode::DISPLAY_COMPOSITOR;
-  EXPECT_EQ(expected_mode, manager->GetGpuMode());
-}
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
 #if !BUILDFLAG(IS_FUCHSIA)
 TEST_F(GpuDataManagerImplPrivateTest, GpuStartsWithGpuDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures({}, {
-                                        features::kAllowSwiftShaderFallback,
 #if BUILDFLAG(IS_WIN)
-                                        features::kAllowD3D11WarpFallback,
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAllowD3D11WarpFallback);
 #endif  // BUILDFLAG(IS_WIN)
-                                    });
 
   // Ensure --enable-unsafe-swiftshader is not in the command line. It is used
   // by some other tests in this suite.
@@ -965,9 +916,6 @@ TEST_F(GpuDataManagerImplPrivateTest, VulkanInitializationFails) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures({features::kVulkan},
                                 {
-#if BUILDFLAG(ENABLE_SWIFTSHADER)
-                                    features::kAllowSwiftShaderFallback,
-#endif  // BUILDFLAG(ENABLE_SWIFTSHADER)
 #if BUILDFLAG(IS_WIN)
                                     features::kAllowD3D11WarpFallback,
 #endif  // BUILDFLAG(IS_WIN)
@@ -1006,7 +954,6 @@ TEST_F(GpuDataManagerImplPrivateTest, FallbackFromVulkanWithGLDisabled) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures({features::kVulkan},
                                 {
-                                    features::kAllowSwiftShaderFallback,
 #if BUILDFLAG(IS_WIN)
                                     features::kAllowD3D11WarpFallback,
 #endif  // BUILDFLAG(IS_WIN)

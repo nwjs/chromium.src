@@ -82,13 +82,6 @@ bool ConvertRequestValueToFileInfo(const RequestValue& value,
         params->metadata.cloud_identifier->id);
   }
 
-  if (fields & ProvidedFileSystemInterface::METADATA_FIELD_CLOUD_FILE_INFO &&
-      params->metadata.cloud_file_info &&
-      params->metadata.cloud_file_info->version_tag.has_value()) {
-    output->cloud_file_info = std::make_unique<CloudFileInfo>(
-        params->metadata.cloud_file_info->version_tag.value());
-  }
-
   return true;
 }
 
@@ -203,15 +196,15 @@ bool GetMetadata::Execute(int request_id) {
       fields_ & ProvidedFileSystemInterface::METADATA_FIELD_THUMBNAIL;
   options.cloud_identifier =
       fields_ & ProvidedFileSystemInterface::METADATA_FIELD_CLOUD_IDENTIFIER;
-  options.cloud_file_info =
-      fields_ & ProvidedFileSystemInterface::METADATA_FIELD_CLOUD_FILE_INFO;
 
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::file_system_provider::OnGetMetadataRequested::Create(
+          options));
   return SendEvent(
       request_id,
       extensions::events::FILE_SYSTEM_PROVIDER_ON_GET_METADATA_REQUESTED,
       extensions::api::file_system_provider::OnGetMetadataRequested::kEventName,
-      extensions::api::file_system_provider::OnGetMetadataRequested::Create(
-          options));
+      std::move(event_args));
 }
 
 void GetMetadata::OnSuccess(/*request_id=*/int,

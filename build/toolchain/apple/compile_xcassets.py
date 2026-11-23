@@ -122,6 +122,7 @@ def CompileAssetCatalog(
     app_icon,
     include_all_app_icons,
     temporary_dir,
+    car_tool_path=None,
 ):
     """Compile the .xcassets bundles to an asset catalog using actool.
 
@@ -135,17 +136,24 @@ def CompileAssetCatalog(
       target_platform: the targeted platform
       partial_info_plist: path to partial Info.plist to generate
       temporary_dir: path to directory for storing temp data
+      car_tool_path: optional path to a `cartool` binary, run as
+        `cartool actool` with the same flags as actool
     """
-    command = [
-        'xcrun',
-        'actool',
-        '--output-format=human-readable-text',
-        '--notices',
-        '--warnings',
-        '--errors',
-        '--minimum-deployment-target',
-        min_deployment_target,
-    ]
+    if car_tool_path:
+        # `cartool actool` accepts actool's command line.
+        command = [os.path.abspath(car_tool_path), 'actool']
+    else:
+        command = ['xcrun', 'actool']
+    command.extend(
+        [
+            '--output-format=human-readable-text',
+            '--notices',
+            '--warnings',
+            '--errors',
+            '--minimum-deployment-target',
+            min_deployment_target,
+        ]
+    )
 
     if compress_pngs:
         command.extend(['--compress-pngs'])
@@ -327,11 +335,14 @@ def CompileAssetCatalog(
         temporary_file = tempfile.NamedTemporaryFile(suffix='.plist')
         partial_info_plist = temporary_file.name
 
-    command.extend(['--output-partial-info-plist', partial_info_plist])
+    absolute_partial_info_plist = os.path.abspath(partial_info_plist)
+    command.extend(['--output-partial-info-plist', absolute_partial_info_plist])
 
     # Dictionary used to convert absolute paths back to their relative form
     # in the output of actool.
-    relative_paths = {}
+    relative_paths = {
+        absolute_partial_info_plist: partial_info_plist,
+    }
 
     # actool crashes if paths are relative, so convert input and output paths
     # to absolute paths, and record the relative paths to fix them back when
@@ -443,6 +454,10 @@ def Main():
         help='include all app icons in the compiled assets catalog',
     )
     parser.add_argument(
+        '--car-tool-path',
+        help='optional path to a cartool executable, run as `cartool actool`',
+    )
+    parser.add_argument(
         'inputs', nargs='+', help='path to input assets catalog sources'
     )
     args = parser.parse_args()
@@ -474,6 +489,7 @@ def Main():
             args.app_icon,
             args.include_all_app_icons,
             temporary_dir,
+            args.car_tool_path,
         )
 
 

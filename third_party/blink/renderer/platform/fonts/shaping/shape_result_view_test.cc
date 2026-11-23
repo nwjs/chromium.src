@@ -14,13 +14,25 @@
 #include "third_party/blink/renderer/platform/fonts/font_test_utilities.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/harfbuzz_shaper.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result.h"
+#include "third_party/blink/renderer/platform/fonts/shaping/shape_result_run.h"
+#include "third_party/blink/renderer/platform/fonts/shaping/shape_result_spacing.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_test_info.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shaping_line_breaker.h"
+#include "third_party/blink/renderer/platform/geometry/length.h"
 #include "third_party/blink/renderer/platform/testing/font_test_base.h"
 #include "third_party/blink/renderer/platform/testing/font_test_helpers.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 
 namespace blink {
+
+namespace {
+
+const ShapeResultTestInfo* TestInfo(const ShapeResult* result) {
+  return static_cast<const ShapeResultTestInfo*>(result);
+}
+
+}  // namespace
 
 class ShapeResultViewTest : public FontTestBase {
  protected:
@@ -224,6 +236,237 @@ TEST_F(ShapeResultViewTest, PreviousSafeToBreak) {
   } while (--offset > start_offset);
 }
 
+TEST_F(ShapeResultViewTest, NonCompactPartialViewsMatchSubRanges) {
+  ScopedMonospaceGlyphCompactionForTest disable_compaction(false);
+  FontDescription::VariantLigatures ligatures(
+      FontDescription::kEnabledLigaturesState);
+  Font* font = test::CreateTestFont(
+      AtomicString("roboto"),
+      test::PlatformTestDataPath("third_party/Roboto/roboto-regular.woff2"),
+      12.5f, &ligatures);
+  const String text("office affinity");
+  for (TextDirection direction : {TextDirection::kLtr, TextDirection::kRtl}) {
+    SCOPED_TRACE(direction);
+    for (float letter_spacing : {0.0f, -5.0f, -20.0f}) {
+      SCOPED_TRACE(letter_spacing);
+      HarfBuzzShaper shaper(text);
+      ShapeResult* result = shaper.Shape(font, direction);
+      ShapeResultSpacing spacing(text);
+      FontDescription spacing_font_description;
+      spacing_font_description.SetLetterSpacing(Length::Fixed(letter_spacing));
+      if (spacing.SetSpacing(spacing_font_description)) {
+        result->ApplySpacing(spacing);
+      }
+      const auto* outer = ShapeResultView::Create(result, 1, text.length() - 1);
+      for (wtf_size_t start = 2; start < text.length() - 2; ++start) {
+        for (wtf_size_t end = start + 1; end < text.length() - 1; ++end) {
+          SCOPED_TRACE(testing::Message() << start << ", " << end);
+          const auto* view = ShapeResultView::Create(outer, start, end);
+          const auto* expected = result->SubRange(start, end);
+          EXPECT_EQ(expected->Width(), view->Width());
+          expected->EnsurePositionData();
+          // Views retain empty runs, unlike copied subranges.
+          EXPECT_EQ(end, view->PreviousSafeToBreakOffset(end));
+          for (wtf_size_t offset = start; offset < end; ++offset) {
+            EXPECT_EQ(expected->CachedPreviousSafeToBreakOffset(offset),
+                      view->PreviousSafeToBreakOffset(offset));
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST_F(ShapeResultViewTest, CreateShapeResultMonospaceMaterialized) {
+  Font* font = test::CreateTestFont(
+      AtomicString("Noto Mono"),
+      test::BlinkWebTestsDir() +
+          "/third_party/NotoMono-hintedLocalizedFamilyName/"
+          "NotoMono-Regular.subset.ttf",
+      10);
+  ASSERT_TRUE(font->PrimaryFont()->IsFixedPitch());
+
+  auto Measure = [&](bool compaction,
+                     TextDirection direction) -> Vector<float> {
+    ScopedMonospaceGlyphCompactionForTest scoped_feature(compaction);
+    String string = To16Bit(
+        "abcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyz");
+    HarfBuzzShaper shaper(string);
+    ShapeResult* result = shaper.Shape(font, direction);
+    if (compaction) {
+      const ShapeResultTestInfo* const test_info = TestInfo(result);
+      EXPECT_EQ(1u, test_info->NumberOfRunsForTesting());
+      if (test_info->NumberOfRunsForTesting() == 1) {
+        EXPECT_TRUE(test_info->RunInfoForTesting(0)
+                        .GetGlyphDataRange()
+                        .IsCompactSource());
+      }
+    }
+
+    ShapeResultSpacing spacing(string);
+    FontDescription spacing_font_description;
+    spacing_font_description.SetLetterSpacing(Length::Fixed(4));
+    spacing.SetSpacing(spacing_font_description);
+    result->ApplySpacing(spacing);
+
+    const ShapeResultView* view1 = ShapeResultView::Create(result, 8, 72);
+    const ShapeResultView* view2 = ShapeResultView::Create(view1, 16, 64);
+    const ShapeResult* created = view2->CreateShapeResult();
+
+    Vector<float> out;
+    out.push_back(created->Width());
+    out.push_back(static_cast<float>(created->NumCharacters()));
+    for (unsigned offset = 0; offset <= created->NumCharacters(); ++offset) {
+      out.push_back(created->PositionForOffset(offset));
+    }
+    return out;
+  };
+  for (TextDirection direction : {TextDirection::kLtr, TextDirection::kRtl}) {
+    EXPECT_EQ(Measure(true, direction), Measure(false, direction));
+  }
+}
+
+TEST_F(ShapeResultViewTest, NestedCompactViewCopyAtThreshold) {
+  ScopedMonospaceGlyphCompactionForTest scoped_feature(true);
+  Font* font = test::CreateTestFont(
+      AtomicString("Noto Mono"),
+      test::BlinkWebTestsDir() +
+          "/third_party/NotoMono-hintedLocalizedFamilyName/"
+          "NotoMono-Regular.subset.ttf",
+      10);
+  ASSERT_TRUE(font->PrimaryFont()->IsFixedPitch());
+  const String string = To16Bit(
+      "abcdefghijklmnopqrstuvwxyz"
+      "abcdefghijklmnopqrstuvwxyz");
+  HarfBuzzShaper shaper(string);
+  for (TextDirection direction : {TextDirection::kLtr, TextDirection::kRtl}) {
+    SCOPED_TRACE(direction);
+    const ShapeResult* source = shaper.Shape(font, direction);
+    ASSERT_EQ(1u, TestInfo(source)->NumberOfRunsForTesting());
+    const ShapeResultRun& source_run = TestInfo(source)->RunInfoForTesting(0);
+    ASSERT_TRUE(source_run.GetGlyphDataRange().IsCompactSource());
+
+    const ShapeResultView* outer = ShapeResultView::Create(source, 8, 40);
+    constexpr unsigned kStart = 13;
+    for (unsigned num_glyphs : {7u, 8u, 9u}) {
+      SCOPED_TRACE(num_glyphs);
+      const ShapeResultView* inner =
+          ShapeResultView::Create(outer, kStart, kStart + num_glyphs);
+      ASSERT_TRUE(source_run.GetGlyphDataRange().IsCompactSource());
+      const ShapeResult* actual = inner->CreateShapeResult();
+      EXPECT_TRUE(source_run.GetGlyphDataRange().IsCompactSource());
+
+      const ShapeResult* expected;
+      {
+        ScopedMonospaceGlyphCompactionForTest disabled(false);
+        expected = shaper.Shape(font, direction, kStart, kStart + num_glyphs);
+      }
+      ASSERT_EQ(1u, TestInfo(actual)->NumberOfRunsForTesting());
+      ASSERT_EQ(1u, TestInfo(expected)->NumberOfRunsForTesting());
+      const ShapeResultRun& actual_run = TestInfo(actual)->RunInfoForTesting(0);
+      const ShapeResultRun& expected_run =
+          TestInfo(expected)->RunInfoForTesting(0);
+      EXPECT_EQ(num_glyphs >= 8,
+                actual_run.GetGlyphDataRange().IsCompactSource());
+      EXPECT_FALSE(expected_run.GetGlyphDataRange().IsCompactSource());
+      EXPECT_EQ(kStart, actual->StartIndex());
+      EXPECT_EQ(num_glyphs, actual->NumCharacters());
+      EXPECT_EQ(expected->Width(), actual->Width());
+
+      const GlyphDataRange::Reader actual_glyphs(actual_run);
+      const GlyphDataRange::Reader expected_glyphs(expected_run);
+      ASSERT_EQ(num_glyphs, actual_glyphs.size());
+      ASSERT_EQ(num_glyphs, expected_glyphs.size());
+      for (unsigned i = 0; i < num_glyphs; ++i) {
+        const HarfBuzzRunGlyphData actual_glyph = actual_glyphs[i];
+        const HarfBuzzRunGlyphData expected_glyph = expected_glyphs[i];
+        EXPECT_EQ(expected_glyph.glyph, actual_glyph.glyph);
+        EXPECT_EQ(direction == TextDirection::kRtl ? num_glyphs - i - 1 : i,
+                  actual_glyph.character_index);
+        EXPECT_EQ(expected_glyph.character_index, actual_glyph.character_index);
+        EXPECT_EQ(expected_glyph.advance, actual_glyph.advance);
+        EXPECT_EQ(expected_glyph.IsSafeToBreakBefore(),
+                  actual_glyph.IsSafeToBreakBefore());
+      }
+      for (unsigned i = 0; i <= num_glyphs; ++i) {
+        EXPECT_EQ(expected->PositionForOffset(i), actual->PositionForOffset(i));
+        EXPECT_EQ(expected->NextSafeToBreakOffset(kStart + i),
+                  actual->NextSafeToBreakOffset(kStart + i));
+        EXPECT_EQ(expected->PreviousSafeToBreakOffset(kStart + i),
+                  actual->PreviousSafeToBreakOffset(kStart + i));
+      }
+      EXPECT_EQ(num_glyphs >= 8,
+                actual_run.GetGlyphDataRange().IsCompactSource());
+      EXPECT_TRUE(source_run.GetGlyphDataRange().IsCompactSource());
+    }
+  }
+}
+
+TEST_F(ShapeResultViewTest, ExistingViewSurvivesSourceMaterialization) {
+  ScopedMonospaceGlyphCompactionForTest scoped_feature(true);
+  Font* font = test::CreateTestFont(
+      AtomicString("Noto Mono"),
+      test::BlinkWebTestsDir() +
+          "/third_party/NotoMono-hintedLocalizedFamilyName/"
+          "NotoMono-Regular.subset.ttf",
+      10);
+  ASSERT_TRUE(font->PrimaryFont()->IsFixedPitch());
+
+  for (TextDirection direction : {TextDirection::kLtr, TextDirection::kRtl}) {
+    SCOPED_TRACE(direction);
+    String string = To16Bit(
+        "abcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyz"
+        "abcdefghijklmnopqrstuvwxyz");
+    HarfBuzzShaper shaper(string);
+    ShapeResult* result = shaper.Shape(font, direction);
+    ASSERT_TRUE(TestInfo(result)
+                    ->RunInfoForTesting(0)
+                    .GetGlyphDataRange()
+                    .IsCompactSource());
+
+    const ShapeResultView* view = ShapeResultView::Create(result, 8, 64);
+    Vector<ShapeResultTestGlyphInfo> before;
+    view->ForEachGlyph(0, AddGlyphInfo, &before);
+
+    ShapeResultSpacing spacing(string);
+    FontDescription spacing_font_description;
+    spacing_font_description.SetLetterSpacing(Length::Fixed(1));
+    ASSERT_TRUE(spacing.SetSpacing(spacing_font_description));
+    result->ApplySpacing(spacing);
+    EXPECT_FALSE(TestInfo(result)
+                     ->RunInfoForTesting(0)
+                     .GetGlyphDataRange()
+                     .IsCompactSource());
+
+    Vector<ShapeResultTestGlyphInfo> after;
+    view->ForEachGlyph(0, AddGlyphInfo, &after);
+    const ShapeResultView* expected_view =
+        ShapeResultView::Create(result, 8, 64);
+    Vector<ShapeResultTestGlyphInfo> expected;
+    expected_view->ForEachGlyph(0, AddGlyphInfo, &expected);
+    ASSERT_EQ(expected.size(), after.size());
+    for (unsigned i = 0; i < expected.size(); ++i) {
+      EXPECT_EQ(expected[i].character_index, after[i].character_index);
+      EXPECT_EQ(expected[i].glyph, after[i].glyph);
+      EXPECT_EQ(expected[i].advance, after[i].advance);
+    }
+
+    const ShapeResult* copy = view->CreateShapeResult();
+    Vector<ShapeResultTestGlyphInfo> copied;
+    copy->ForEachGlyph(0, AddGlyphInfo, &copied);
+    ASSERT_EQ(after.size(), copied.size());
+    for (unsigned i = 0; i < after.size(); ++i) {
+      EXPECT_EQ(after[i].character_index, copied[i].character_index);
+      EXPECT_EQ(after[i].glyph, copied[i].glyph);
+      EXPECT_EQ(after[i].advance, copied[i].advance);
+    }
+  }
+}
+
 TEST_F(ShapeResultViewTest, LatinMultiRun) {
   Font* font = MakeGarbageCollected<Font>(font_description);
 
@@ -411,7 +654,7 @@ TEST_F(ShapeResultViewTest, TrimEndOfView) {
   EXPECT_EQ(view2->NumGlyphs(), 14u);
 }
 
-TEST_F(ShapeResultViewTest, SpacesInLTR) {
+TEST_F(ShapeResultViewTest, SpacesInLtr) {
   Font* font = MakeGarbageCollected<Font>(font_description);
 
   constexpr wtf_size_t kStartIndex = 0;
@@ -434,7 +677,7 @@ TEST_F(ShapeResultViewTest, SpacesInLTR) {
 }
 
 // http://crbug.com/1160582
-TEST_F(ShapeResultViewTest, SpacesInRTL) {
+TEST_F(ShapeResultViewTest, SpacesInRtl) {
   Font* font = MakeGarbageCollected<Font>(font_description);
 
   constexpr wtf_size_t kStartIndex = 0;
@@ -456,7 +699,7 @@ TEST_F(ShapeResultViewTest, SpacesInRTL) {
   EXPECT_EQ(view2->NumGlyphs(), 1u);
 }
 
-TEST_F(ShapeResultViewTest, TabulationCharactersInLTR) {
+TEST_F(ShapeResultViewTest, TabulationCharactersInLtr) {
   Font* font = MakeGarbageCollected<Font>(font_description);
 
   constexpr float kPosition = 0;
@@ -479,7 +722,7 @@ TEST_F(ShapeResultViewTest, TabulationCharactersInLTR) {
 }
 
 // http://crbug.com/1255310
-TEST_F(ShapeResultViewTest, TabulationCharactersInRTL) {
+TEST_F(ShapeResultViewTest, TabulationCharactersInRtl) {
   Font* font = MakeGarbageCollected<Font>(font_description);
 
   constexpr float kPosition = 0;
@@ -552,6 +795,9 @@ TEST_F(ShapeResultViewTest, EmptyGlyphRangePreservesRun) {
   // results rather than dereferencing a null run. The ink bounds are empty
   // because there are no glyphs.
   EXPECT_TRUE(view->ComputeInkBounds().IsEmpty());
+  EXPECT_EQ(view->PreviousSafeToBreakOffset(1), 1u);
+  EXPECT_EQ(view->PreviousSafeToBreakOffset(2), 1u);
+  EXPECT_EQ(view->PreviousSafeToBreakOffset(3), 3u);
 
   const ShapeResult* sub_result = view->CreateShapeResult();
   EXPECT_EQ(sub_result->NumCharacters(), 2u);
@@ -563,6 +809,85 @@ TEST_F(ShapeResultViewTest, EmptyGlyphRangePreservesRun) {
   Vector<ShapeResultTestGlyphInfo> glyphs;
   view->ForEachGlyph(0, AddGlyphInfo, static_cast<void*>(&glyphs));
   EXPECT_TRUE(glyphs.empty());
+}
+
+TEST_F(ShapeResultViewTest, IndividualCharacterRangesMatchesCreateShapeResult) {
+  auto verify_matches_create_shape_result = [](const ShapeResultView* view) {
+    const Vector<CharacterRange> view_ranges =
+        view->IndividualCharacterRanges();
+    const Vector<CharacterRange> result_ranges =
+        view->CreateShapeResult()->IndividualCharacterRanges();
+    ASSERT_EQ(view_ranges.size(), result_ranges.size());
+    for (wtf_size_t i = 0; i < view_ranges.size(); ++i) {
+      EXPECT_FLOAT_EQ(view_ranges[i].start, result_ranges[i].start)
+          << "i=" << i;
+      EXPECT_FLOAT_EQ(view_ranges[i].end, result_ranges[i].end) << "i=" << i;
+      EXPECT_FLOAT_EQ(view_ranges[i].ascent, result_ranges[i].ascent)
+          << "i=" << i;
+      EXPECT_FLOAT_EQ(view_ranges[i].descent, result_ranges[i].descent)
+          << "i=" << i;
+    }
+  };
+
+  Font* font = MakeGarbageCollected<Font>(font_description);
+
+  // 1. LTR single run and sub-ranges.
+  HarfBuzzShaper ltr_shaper(
+      To16Bit("Test run with multiple words and breaking opportunities."));
+  const ShapeResult* ltr_result = ltr_shaper.Shape(font, TextDirection::kLtr);
+  verify_matches_create_shape_result(ShapeResultView::Create(ltr_result));
+  verify_matches_create_shape_result(
+      ShapeResultView::Create(ltr_result, 0, 22));
+  verify_matches_create_shape_result(
+      ShapeResultView::Create(ltr_result, 14, 41));
+  verify_matches_create_shape_result(
+      ShapeResultView::Create(ltr_result, 33, 56));
+
+  // 2. RTL single run and sub-ranges.
+  HarfBuzzShaper rtl_shaper(To16Bit("عربى نص"));
+  const ShapeResult* rtl_result = rtl_shaper.Shape(font, TextDirection::kRtl);
+  verify_matches_create_shape_result(ShapeResultView::Create(rtl_result));
+  verify_matches_create_shape_result(ShapeResultView::Create(rtl_result, 0, 4));
+  verify_matches_create_shape_result(ShapeResultView::Create(rtl_result, 4, 7));
+
+  // 3. Multi-run and multi-segment composite views (LTR and RTL).
+  ShapeResult* multi_ltr =
+      MakeGarbageCollected<ShapeResult>(0, 0, TextDirection::kLtr);
+  HarfBuzzShaper(To16Bit("hello"))
+      .Shape(font, TextDirection::kLtr)
+      ->CopyRange(0u, 5u, multi_ltr);
+  HarfBuzzShaper(To16Bit(" world!"))
+      .Shape(font, TextDirection::kLtr)
+      ->CopyRange(0u, 7u, multi_ltr);
+  ShapeResultView::Segment ltr_segments[] = {
+      {multi_ltr, 0, 8},
+      {multi_ltr, 5, 12},
+  };
+  verify_matches_create_shape_result(ShapeResultView::Create(ltr_segments));
+
+  ShapeResult* multi_rtl =
+      MakeGarbageCollected<ShapeResult>(0, 0, TextDirection::kRtl);
+  rtl_result->CopyRange(0u, 4u, multi_rtl);
+  rtl_result->CopyRange(4u, 7u, multi_rtl);
+  ShapeResultView::Segment rtl_segments[] = {
+      {multi_rtl, 0, 5},
+      {multi_rtl, 2, 7},
+  };
+  verify_matches_create_shape_result(ShapeResultView::Create(rtl_segments));
+
+  // 4. Compact monospace run and sub-ranges.
+  ScopedMonospaceGlyphCompactionForTest scoped_compact(true);
+  Font* ahem = test::CreateAhemFont(12);
+  HarfBuzzShaper compact_shaper(String("0123456789abcdef"));
+  const ShapeResult* compact_result =
+      compact_shaper.Shape(ahem, TextDirection::kLtr);
+  verify_matches_create_shape_result(ShapeResultView::Create(compact_result));
+  verify_matches_create_shape_result(
+      ShapeResultView::Create(compact_result, 0, 5));
+  verify_matches_create_shape_result(
+      ShapeResultView::Create(compact_result, 5, 12));
+  verify_matches_create_shape_result(
+      ShapeResultView::Create(compact_result, 12, 16));
 }
 
 }  // namespace blink

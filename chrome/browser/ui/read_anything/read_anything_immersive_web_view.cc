@@ -8,9 +8,7 @@
 
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
-#include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
-#include "components/find_in_page/find_tab_helper.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -27,6 +25,7 @@ ReadAnythingImmersiveWebView::ReadAnythingImmersiveWebView(
       contents_wrapper_(std::move(contents_wrapper)) {
   SetWebContents(contents_wrapper_->web_contents());
   contents_wrapper_->SetHost(weak_factory_.GetWeakPtr());
+  SetAcceleratorHandling(views::WebContentsAcceleratorHandling::kEnabled);
 }
 
 ReadAnythingImmersiveWebView::~ReadAnythingImmersiveWebView() = default;
@@ -62,10 +61,7 @@ bool ReadAnythingImmersiveWebView::HandleKeyboardEvent(
       glue->controller()->HandleEscapeKey(event)) {
     return true;
   }
-  // Call the unhandled keyboard event handler to allow for default handling
-  // and propagation.
-  return unhandled_keyboard_event_handler_.HandleKeyboardEvent(
-      event, GetFocusManager());
+  return WebView::HandleKeyboardEvent(source, event);
 }
 
 std::unique_ptr<WebUIContentsWrapperT<ReadAnythingUntrustedUI>>

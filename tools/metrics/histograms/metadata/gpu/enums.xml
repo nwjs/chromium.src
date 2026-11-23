@@ -1404,10 +1404,10 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="3" label="EGLImageBacking"/>
   <int value="4" label="AHardwareBufferImageBacking"/>
   <int value="5" label="AngleVulkanImageBacking"/>
-  <int value="6" label="GLImageBacking"/>
+  <int value="6" label="(Obsolete) GLImageBacking. Removed in 2023/07."/>
   <int value="7" label="GLTextureImageBacking"/>
   <int value="8" label="OzoneImageBacking"/>
-  <int value="9" label="RawDrawImageBacking"/>
+  <int value="9" label="(Obsolete) RawDrawImageBacking. Removed in 2026/10."/>
   <int value="10" label="SharedMemoryImageBacking"/>
   <int value="11" label="VideoImageBacking"/>
   <int value="12" label="WrappedSkImageBacking"/>
@@ -1417,6 +1417,7 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="16" label="DCompSurfaceImageBacking"/>
   <int value="17" label="DXGISwapChainImageBacking"/>
   <int value="18" label="WrappedGraphiteTextureBacking"/>
+  <int value="19" label="DawnImageBacking"/>
 </enum>
 
 <enum name="SharedImageFormatUMA">
@@ -1514,6 +1515,21 @@ Called by update_gpu_driver_bug_workaround_entries.py.-->
   <int value="5" label="Core Blocklisted, Compat Supported"/>
   <int value="6" label="Core Supported"/>
 </enum>
+
+<!-- LINT.IfChange(WindowServerEventPumpResult) -->
+
+<enum name="WindowServerEventPumpResult">
+  <summary>
+    The result of pumping WindowServer events for CADisplayLink on the
+    WindowServerEventPumpThread in the GPU process.
+  </summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="Failed - Invalid connection"/>
+  <int value="2" label="Failed - Event port"/>
+  <int value="3" label="Failed - mach_msg"/>
+</enum>
+
+<!-- LINT.ThenChange(//ui/display/mac/ca_display_link_mac.h:WindowServerEventPumpResult) -->
 
 </enums>
 

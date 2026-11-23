@@ -22,8 +22,10 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/chromeos/locked_state/locked_state_controller.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
@@ -46,6 +48,57 @@ namespace {
 
 using BrowserNavigatorTestChromeOS = BrowserNavigatorTest;
 
+// TODO(crbug.com/438540029): Rename this test suite to "TrustedPinned" to
+// disambiguate between LockedFullscreen (which is for extension API) and OnTask
+// locked (which is for class tools).
+class BrowserNavigatorLockedTestChromeOS
+    : public BrowserNavigatorTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  BrowserNavigatorLockedTestChromeOS() {
+    scoped_feature_list_.InitWithFeatureState(
+        features::kUseUnifiedLockedStateController,
+        is_unified_locked_state_controller_enabled_);
+  }
+
+ protected:
+  void PinWindow(BrowserWindowInterface* browser,
+                 aura::Window* window,
+                 bool trusted,
+                 bool locked_for_on_task = false) {
+    if (is_unified_locked_state_controller_enabled_) {
+      CHECK(trusted);
+      auto* controller = chromeos::LockedStateController::From(browser);
+      ASSERT_TRUE(controller);
+      if (locked_for_on_task) {
+        controller->Lock(chromeos::LockedState::kOnTaskLocked);
+      } else {
+        controller->Lock(chromeos::LockedState::kExtensionLocked);
+      }
+    } else {
+      ash::boca::OnTaskLockedController::From(browser)->set_locked_for_on_task(
+          locked_for_on_task);
+      ash::PinWindow(window, trusted);
+    }
+  }
+
+  void UnpinWindow(BrowserWindowInterface* browser, aura::Window* window) {
+    if (is_unified_locked_state_controller_enabled_) {
+      auto* controller = chromeos::LockedStateController::From(browser);
+      ASSERT_TRUE(controller);
+      if (controller->IsLockedFullscreen()) {
+        controller->Unlock(controller->GetState());
+      }
+    } else {
+      ash::UnpinWindow(window);
+    }
+  }
+
+ private:
+  const bool is_unified_locked_state_controller_enabled_ = GetParam();
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
 GURL GetGoogleURL() {
   return GURL("http://www.google.com/");
 }
@@ -62,16 +115,16 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTestChromeOS, RestrictSigninProfile) {
 }
 
 // Verify that page navigation is blocked in locked fullscreen mode.
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTestChromeOS,
+IN_PROC_BROWSER_TEST_P(BrowserNavigatorLockedTestChromeOS,
                        NavigationBlockedInLockedFullscreen) {
   // Set locked fullscreen state.
   aura::Window* window = browser()->GetWindow()->GetNativeWindow();
-  ash::PinWindow(window, /*trusted=*/true);
+  PinWindow(browser(), window, /*trusted=*/true);
 
   // Navigate to a page.
   auto url = GURL(chrome::kChromeUIVersionURL);
   NavigateParams params(MakeNavigateParams(browser()));
-  params.disposition = WindowOpenDisposition::NEW_WINDOW;
+  params.disposition = WindowOpenDisposition::kNewWindow;
   params.url = url;
   params.window_action = NavigateParams::WindowAction::kShowWindow;
   Navigate(&params);
@@ -86,7 +139,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTestChromeOS,
   // As a sanity check unset the locked fullscreen state and make sure that the
   // navigation happens (the following EXPECTs fail if the next line isn't
   // executed).
-  ash::UnpinWindow(window);
+  UnpinWindow(browser(), window);
 
   Navigate(&params);
 
@@ -104,18 +157,16 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTestChromeOS,
 
 // Verify that page navigation is allowed in locked fullscreen mode when locked
 // for OnTask. Only applicable for non-web browser scenarios.
-IN_PROC_BROWSER_TEST_F(BrowserNavigatorTestChromeOS,
+IN_PROC_BROWSER_TEST_P(BrowserNavigatorLockedTestChromeOS,
                        NavigationAllowedInLockedFullscreenWhenLockedForOnTask) {
   // Set locked fullscreen state.
   aura::Window* const window = browser()->GetWindow()->GetNativeWindow();
-  ash::PinWindow(window, /*trusted=*/true);
-  ash::boca::OnTaskLockedController::From(browser())->set_locked_for_on_task(
-      true);
+  PinWindow(browser(), window, /*trusted=*/true, /*locked_for_on_task=*/true);
 
   // Navigate to a page.
   const GURL kUrl(chrome::kChromeUIVersionURL);
   NavigateParams params(MakeNavigateParams(browser()));
-  params.disposition = WindowOpenDisposition::NEW_WINDOW;
+  params.disposition = WindowOpenDisposition::kNewWindow;
   params.url = kUrl;
   params.window_action = NavigateParams::WindowAction::kShowWindow;
   Navigate(&params);
@@ -131,6 +182,10 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorTestChromeOS,
       kUrl,
       params.browser->GetTabStripModel()->GetActiveWebContents()->GetURL());
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         BrowserNavigatorLockedTestChromeOS,
+                         testing::Bool());
 
 // Subclass that tests navigation while in the Guest session.
 class BrowserGuestSessionNavigatorTest : public BrowserNavigatorTest {
@@ -156,7 +211,7 @@ IN_PROC_BROWSER_TEST_F(BrowserGuestSessionNavigatorTest,
 
   // Navigate to the settings page.
   NavigateParams params(MakeNavigateParams(incognito_browser));
-  params.disposition = WindowOpenDisposition::SINGLETON_TAB;
+  params.disposition = WindowOpenDisposition::kSingletonTab;
   params.url = GURL("chrome://settings");
   params.window_action = NavigateParams::WindowAction::kShowWindow;
   params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
@@ -271,7 +326,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorMultiUserTestChromeOS,
 
     // Navigate to the settings page from the primary user's browser.
     NavigateParams params(MakeNavigateParams(browser));
-    params.disposition = WindowOpenDisposition::NEW_POPUP;
+    params.disposition = WindowOpenDisposition::kNewPopup;
     params.url = GURL("chrome://settings");
     params.window_action = NavigateParams::WindowAction::kShowWindow;
     params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
@@ -302,7 +357,7 @@ IN_PROC_BROWSER_TEST_F(BrowserNavigatorMultiUserTestChromeOS,
 
     // Navigate to the settings page.
     NavigateParams params(MakeNavigateParams(browser));
-    params.disposition = WindowOpenDisposition::NEW_POPUP;
+    params.disposition = WindowOpenDisposition::kNewPopup;
     params.url = GURL("chrome://settings");
     params.window_action = NavigateParams::WindowAction::kShowWindow;
     params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;

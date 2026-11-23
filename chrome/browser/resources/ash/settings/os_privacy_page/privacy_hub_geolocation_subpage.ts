@@ -15,7 +15,6 @@ import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import '../controls/controlled_button.js';
 import '../os_settings_icons.html.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import {WebUiListenerMixin} from 'chrome://resources/ash/common/cr_elements/web_ui_listener_mixin.js';
 import {PermissionType} from 'chrome://resources/cr_components/app_management/app_management.mojom-webui.js';
@@ -33,7 +32,8 @@ import type {SettingsRadioGroupElement} from '../controls/settings_radio_group.j
 import type {App, AppPermissionsHandlerInterface} from '../mojom-webui/app_permission_handler.mojom-webui.js';
 import {AppPermissionsObserverReceiver} from '../mojom-webui/app_permission_handler.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {Router, routes} from '../router.js';
 
 import {getAppPermissionProvider} from './mojo_interface_provider.js';
@@ -167,6 +167,10 @@ export class SettingsPrivacyHubGeolocationSubpage extends
             'systemGeolocationAccessLevel_,' +
             'prefs.settings.ambient_mode.enabled.value)',
       },
+      shouldShowManageGeolocationDialog_: {
+        type: Boolean,
+        value: false,
+      },
     };
   }
 
@@ -207,7 +211,7 @@ export class SettingsPrivacyHubGeolocationSubpage extends
   declare private currentTimeZoneName_: string;
   declare private currentSunRiseTime_: string;
   declare private currentSunSetTime_: string;
-  private shouldShowManageGeolocationDialog_: boolean = false;
+  declare private shouldShowManageGeolocationDialog_: boolean;
   declare private automaticTimeZoneText_: string;
   declare private darkThemeText_: string;
   declare private localWeatherText_: string;

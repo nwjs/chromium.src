@@ -1198,7 +1198,7 @@ IN_PROC_BROWSER_TEST_F(PersistedPermissionsFileSystemAccessBrowserTest,
   // Open a second tab on the same origin in the background so that the origin
   // remains active after the first tab navigates away.
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), test_url, WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      browser(), test_url, WindowOpenDisposition::kNewBackgroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ASSERT_EQ(web_contents, browser()->tab_strip_model()->GetActiveWebContents());
 
@@ -1220,7 +1220,7 @@ IN_PROC_BROWSER_TEST_F(PersistedPermissionsFileSystemAccessBrowserTest,
   // Open a second tab on a different origin in the background.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("a.com", "/title1.html"),
-      WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      WindowOpenDisposition::kNewBackgroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   ASSERT_EQ(2, browser()->tab_strip_model()->count());
 
@@ -1340,7 +1340,7 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheFileSystemAccessBrowserTest,
   // Open a second tab with the same origin to ensure active grants are not
   // revoked by `MaybeCleanupPermissions()` when the primary tab navigates away.
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), initial_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), initial_url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   browser()->GetTabStripModel()->ActivateTabAt(0);
 
@@ -1474,7 +1474,7 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessBrowserTest,
   // Create a second tab
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("/title2.html"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   content::WebContents* second_tab =
@@ -1517,7 +1517,7 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessBrowserTest, ShowOpenFileThenHide) {
   // Create a second tab.
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), embedded_test_server()->GetURL("/title2.html"),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // The first tab should not be the active tab anymore.
@@ -1565,18 +1565,20 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessBrowserTest,
 
 // Test that resizing a window below minimum dimensions while the dialog is
 // showing closes the dialog.
-// TODO(crbug.com/570038473): Flaky on Mac.
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_ShowOpenFileThenResizeSmall DISABLED_ShowOpenFileThenResizeSmall
-#else
-#define MAYBE_ShowOpenFileThenResizeSmall ShowOpenFileThenResizeSmall
-#endif
 IN_PROC_BROWSER_TEST_F(FileSystemAccessBrowserTest,
-                       MAYBE_ShowOpenFileThenResizeSmall) {
+                       ShowOpenFileThenResizeSmall) {
+  // Use a popup browser because normal tabbed browser windows on macOS enforce
+  // a minimum client size of 500x375 (via kMainBrowserContentsMinimumWidth and
+  // the 4:3 aspect ratio in BrowserFrameViewMac::GetMinimumSize), which clamps
+  // programmatic SetBounds() calls above the 400x300 threshold.
+  BrowserWindowInterface* popup_browser =
+      CreateBrowserForPopup(browser()->GetProfile());
+  BrowserView::GetBrowserViewForBrowser(popup_browser)
+      ->SetBounds(gfx::Rect(0, 0, 800, 600));
   EXPECT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), embedded_test_server()->GetURL("/title1.html")));
-  content::WebContents* first_tab =
-      browser()->GetTabStripModel()->GetActiveWebContents();
+      popup_browser, embedded_test_server()->GetURL("/title1.html")));
+  content::WebContents* popup_tab =
+      popup_browser->GetTabStripModel()->GetActiveWebContents();
 
   // Open the dialog and wait until it's created.
   content::SelectFileDialogRecorder recorder;
@@ -1585,7 +1587,7 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessBrowserTest,
           recorder.GetWeakPtr()));
   EXPECT_EQ(42,
             content::EvalJs(
-                first_tab,
+                popup_tab,
                 "window.p = self.showOpenFilePicker().catch(e => e.name); 42"));
   EXPECT_TRUE(base::test::RunUntil([&recorder]() {
     return recorder.state != content::SelectFileDialogRecorder::kNotCreated;
@@ -1594,19 +1596,19 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessBrowserTest,
   // Narrowing only the WebContents (e.g. when opening a side panel or split
   // view) while the top-level browser window remains large should NOT cancel
   // the dialog.
-  first_tab->Resize(gfx::Rect(0, 0, 200, 600));
+  popup_tab->Resize(gfx::Rect(0, 0, 200, 600));
   EXPECT_NE(recorder.state, content::SelectFileDialogRecorder::kDestroyed);
 
   // Resize the top-level window below the minimum dimension threshold.
-  BrowserView::GetBrowserViewForBrowser(browser())->SetBounds(
-      gfx::Rect(0, 0, 100, 100));
-  first_tab->Resize(gfx::Rect(0, 0, 100, 100));
+  BrowserView::GetBrowserViewForBrowser(popup_browser)
+      ->SetBounds(gfx::Rect(0, 0, 100, 100));
+  popup_tab->Resize(gfx::Rect(0, 0, 100, 100));
   EXPECT_TRUE(base::test::RunUntil([&recorder]() {
     return recorder.state == content::SelectFileDialogRecorder::kDestroyed;
   }));
 
   // Check that the dialog was closed.
-  EXPECT_EQ("AbortError", content::EvalJs(first_tab, "window.p"));
+  EXPECT_EQ("AbortError", content::EvalJs(popup_tab, "window.p"));
 }
 
 class FileSystemAccessBrowserTestForWebUI : public InProcessBrowserTest {

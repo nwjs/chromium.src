@@ -8,13 +8,13 @@
 #include <memory>
 #include <string>
 
-#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/glic/browser_ui/glic_selection_widget.h"
 #include "chrome/browser/glic/glic_selection_observer.h"
+#include "chrome/browser/glic/public/glic_provider_metrics.h"
 #include "components/content_settings/core/browser/content_settings_observer.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 
@@ -94,6 +94,7 @@ class GlicSelectionWidgetController
 
   base::WeakPtr<content::WebContents> web_contents_;
   const raw_ref<GlicSelectionWidgetControllerDelegate> delegate_;
+  GlicMetricReporter metric_reporter_;
   raw_ptr<GlicKeyedService> glic_keyed_service_;
 
   // True if a dismissal metric has already been recorded for the shown widget.
@@ -108,8 +109,6 @@ class GlicSelectionWidgetController
 
   base::ScopedObservation<HostContentSettingsMap, content_settings::Observer>
       content_settings_observation_{this};
-
-  base::CallbackListSubscription overlay_closed_subscription_;
 
   std::unique_ptr<GlicSelectionWidgetDelegate> widget_delegate_;
 };

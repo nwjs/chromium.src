@@ -29,12 +29,12 @@ class OfferNotificationBubbleViewsBrowserTest
 };
 
 // Tests that the offer notification bubble will not be shown if the offer data
-// is invalid (does not have a linked card or a promo code).
+// is invalid (does not have a valid offer details url).
 IN_PROC_BROWSER_TEST_F(OfferNotificationBubbleViewsBrowserTest,
                        InvalidOfferData) {
-  auto offer_data = CreateCardLinkedOfferDataWithDomains(
+  auto offer_data = CreateWalletDirectOfferDataWithDomains(
       {GetUrl("www.example.com", "/"), GetUrl("www.test.com", "/")});
-  offer_data->SetEligibleInstrumentIdForTesting({});
+  offer_data->SetOfferDetailsUrl(GURL());
   test_api(personal_data()->payments_data_manager())
       .AddOfferData(std::move(offer_data));
   personal_data()->NotifyPersonalDataObserver();
@@ -43,25 +43,6 @@ IN_PROC_BROWSER_TEST_F(OfferNotificationBubbleViewsBrowserTest,
   NavigateToAndWaitForForm(GetUrl("www.example.com", "/first"));
   EXPECT_FALSE(IsIconVisible());
   EXPECT_FALSE(GetOfferNotificationBubbleViews());
-}
-
-// TODO(crbug.com/40205397): Does not work for Wayland-based tests.
-// TODO(crbug.com/40200304): Disabled on Mac, Win, ChromeOS due to
-// flakiness.
-IN_PROC_BROWSER_TEST_F(OfferNotificationBubbleViewsBrowserTest,
-                       DISABLED_PromoCodeOffer) {
-  auto offer_data = CreateGPayPromoCodeOfferDataWithDomains(
-      {GetUrl("www.example.com", "/"), GetUrl("www.test.com", "/")});
-  test_api(personal_data()->payments_data_manager())
-      .AddOfferData(std::move(offer_data));
-  personal_data()->NotifyPersonalDataObserver();
-
-  ResetEventWaiterForSequence({DialogEvent::BUBBLE_SHOWN});
-  NavigateToAndWaitForForm(GetUrl("www.example.com", "/first"));
-  ASSERT_TRUE(WaitForObservedEvent());
-
-  EXPECT_TRUE(IsIconVisible());
-  EXPECT_TRUE(GetOfferNotificationBubbleViews());
 }
 
 // Tests that the offer notification bubble will not be shown if bubble has been
@@ -111,7 +92,7 @@ class OfferNotificationBubbleViewsBubbleDisabledBrowserTest
 // direct offers notification bubble feature is disabled.
 IN_PROC_BROWSER_TEST_F(OfferNotificationBubbleViewsBubbleDisabledBrowserTest,
                        NotificationBubbleDisabled) {
-  auto offer_data = CreateCardLinkedOfferDataWithDomains(
+  auto offer_data = CreateWalletDirectOfferDataWithDomains(
       {GetUrl("www.example.com", "/"), GetUrl("www.test.com", "/")});
   test_api(personal_data()->payments_data_manager())
       .AddOfferData(std::move(offer_data));

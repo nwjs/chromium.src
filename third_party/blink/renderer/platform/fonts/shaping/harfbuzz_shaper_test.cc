@@ -175,7 +175,7 @@ class HarfBuzzShaperTest : public FontTestBase {
   const char* kSystemMonoEmojiFont = "Segoe UI Symbol";
 #endif
 
-  String GetShapedFontFamilyNameForEmojiVS(Font& font, String text) {
+  String GetShapedFontFamilyNameForEmojiVs(Font& font, String text) {
     DCHECK(text.length() == 1 ||
            (text.length() == 2 &&
             (text.ends_with(u"\ufe0e") || text.ends_with(u"\ufe0f"))));
@@ -807,8 +807,7 @@ TEST_F(HarfBuzzShaperTest, IdeographicSpace) {
 }
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN)
-TEST_F(HarfBuzzShaperTest, SystemEmojiVS15) {
-
+TEST_F(HarfBuzzShaperTest, SystemEmojiVs15) {
   Font* mono_font = CreateNotoEmoji();
   Font* color_font = CreateNotoColorEmoji();
 
@@ -819,21 +818,22 @@ TEST_F(HarfBuzzShaperTest, SystemEmojiVS15) {
       u"\u2614"
       u"\ufe0e");
   for (String text : {text_default, emoji_default}) {
-    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVS(*mono_font, text),
-              StringView(kNotoEmojiFontName)) << text;
+    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVs(*mono_font, text),
+              StringView(kNotoEmojiFontName))
+        << text;
     const char* system_mono_font_name = kSystemMonoEmojiFont;
 #if BUILDFLAG(IS_MAC)
     if (text == text_default) {
       system_mono_font_name = kSystemMonoTextDefaultEmojiFont;
     }
 #endif
-    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVS(*color_font, text),
-              StringView(system_mono_font_name)) << text;
+    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVs(*color_font, text),
+              StringView(system_mono_font_name))
+        << text;
   }
 }
 
-TEST_F(HarfBuzzShaperTest, SystemEmojiVS16) {
-
+TEST_F(HarfBuzzShaperTest, SystemEmojiVs16) {
   Font* mono_font = CreateNotoEmoji();
   Font* color_font = CreateNotoColorEmoji();
 
@@ -844,10 +844,12 @@ TEST_F(HarfBuzzShaperTest, SystemEmojiVS16) {
       u"\u2614"
       u"\ufe0f");
   for (String text : {text_default, emoji_default}) {
-    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVS(*mono_font, text),
-              StringView(kSystemColorEmojiFont)) << text;
-    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVS(*color_font, text),
-              StringView(kNotoColorEmojiFontName)) << text;
+    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVs(*mono_font, text),
+              StringView(kSystemColorEmojiFont))
+        << text;
+    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVs(*color_font, text),
+              StringView(kNotoColorEmojiFontName))
+        << text;
   }
 }
 
@@ -891,15 +893,14 @@ TEST_P(FontVariantEmojiTest, FontVariantEmojiSystemFallback) {
     }
 #endif
 
-    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVS(*mono_font, text),
+    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVs(*mono_font, text),
               StringView(expected_name_for_mono_requested_font));
-    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVS(*color_font, text),
+    EXPECT_EQ(GetShapedFontFamilyNameForEmojiVs(*color_font, text),
               StringView(expected_name_for_color_requested_font));
   }
 }
 
-TEST_F(HarfBuzzShaperTest, VSOverrideFontVariantEmoji) {
-
+TEST_F(HarfBuzzShaperTest, VsOverrideFontVariantEmoji) {
   String text(u"\u2603\u2614\ufe0e\u2603\ufe0f");
   Font* font = blink::test::CreateTestFont(
       AtomicString("Ahem"), blink::test::PlatformTestDataPath("Ahem.woff"), 12,
@@ -929,7 +930,7 @@ TEST_F(HarfBuzzShaperTest, FontVariantEmojiTextSystemFallback) {
 #endif
   String text(u"\u26CE");
   Font* color_font = CreateNotoColorEmoji(FontVariantEmoji::kTextVariantEmoji);
-  EXPECT_EQ(GetShapedFontFamilyNameForEmojiVS(*color_font, text),
+  EXPECT_EQ(GetShapedFontFamilyNameForEmojiVs(*color_font, text),
             StringView(mono_font_name));
 }
 
@@ -1035,11 +1036,13 @@ TEST_P(GlyphDataRangeTest, Data) {
   auto glyphs = run.FindGlyphDataRange(data.start_offset, data.end_offset);
   const GlyphDataRange::Reader reader(glyphs);
   ASSERT_EQ(glyphs.size(), reader.size());
-  const auto [range_begin, range_end] = glyphs.NonCompactGlyphPointers();
   const auto& run_glyphs = run.glyph_data_.NonCompactGlyphs();
-  wtf_size_t start_glyph = CheckedDistance(run_glyphs.data(), range_begin);
+  const base::span<const HarfBuzzRunGlyphData> range_glyphs =
+      glyphs.NonCompactGlyphs();
+  wtf_size_t start_glyph =
+      CheckedDistance(run_glyphs.data(), range_glyphs.data());
   EXPECT_EQ(data.start_glyph, start_glyph);
-  wtf_size_t end_glyph = CheckedDistance(run_glyphs.data(), range_end);
+  const auto end_glyph = start_glyph + range_glyphs.size();
   EXPECT_EQ(data.end_glyph, end_glyph);
   for (wtf_size_t i = 0; i < reader.size(); ++i) {
     const HarfBuzzRunGlyphData glyph_data = reader[i];
@@ -1167,6 +1170,74 @@ TEST_F(HarfBuzzShaperTest, PositionForOffsetLatin) {
   ASSERT_NEAR(result->Width(), result->PositionForOffset(12), 0.1);
 }
 
+TEST_F(HarfBuzzShaperTest, PositionForOffsetMonospaceCompaction) {
+  String string = To16Bit("Thequickbrownfoxjumpsoverthelazydog");
+  FontDescription::VariantLigatures ligatures;
+  Font* font = blink::test::CreateTestFont(
+      AtomicString("Noto Mono"),
+      test::BlinkWebTestsDir() +
+          "/third_party/NotoMono-hintedLocalizedFamilyName/"
+          "NotoMono-Regular.subset.ttf",
+      16, &ligatures);
+  ASSERT_TRUE(font->PrimaryFont()->IsFixedPitch());
+  for (TextDirection direction : {TextDirection::kLtr, TextDirection::kRtl}) {
+    SCOPED_TRACE(direction);
+    HarfBuzzShaper shaper(string);
+    const ShapeResult* full_result;
+    {
+      ScopedMonospaceGlyphCompactionForTest scoped_feature(false);
+      full_result = shaper.Shape(font, direction);
+    }
+    ScopedMonospaceGlyphCompactionForTest scoped_feature(true);
+    const ShapeResult* compact_result = shaper.Shape(font, direction);
+    const ShapeResultTestInfo* const test_info = TestInfo(compact_result);
+    ASSERT_EQ(1u, test_info->NumberOfRunsForTesting());
+    const ShapeResultRun& run = test_info->RunInfoForTesting(0);
+    EXPECT_TRUE(run.GetGlyphDataRange().IsCompactSource());
+    EXPECT_TRUE(compact_result->IsStartSafeToBreak());
+    EXPECT_FALSE(compact_result->ComputeInkBounds().IsEmpty());
+    EXPECT_TRUE(run.GetGlyphDataRange().IsCompactSource());
+
+    for (unsigned offset = 0; offset <= string.length(); ++offset) {
+      SCOPED_TRACE(offset);
+      EXPECT_EQ(
+          full_result->PositionForOffset(offset, AdjustMidCluster::kToEnd),
+          compact_result->PositionForOffset(offset, AdjustMidCluster::kToEnd));
+      EXPECT_EQ(
+          full_result->PositionForOffset(offset, AdjustMidCluster::kToStart),
+          compact_result->PositionForOffset(offset,
+                                            AdjustMidCluster::kToStart));
+      EXPECT_EQ(full_result->CaretPositionForOffset(offset, string,
+                                                    AdjustMidCluster::kToEnd),
+                compact_result->CaretPositionForOffset(
+                    offset, string, AdjustMidCluster::kToEnd));
+    }
+  }
+}
+
+TEST_F(HarfBuzzShaperTest, MonospaceGlyphCompactionRequiresHorizontalRun) {
+  FontDescription::VariantLigatures ligatures;
+  Font* font = blink::test::CreateTestFont(
+      AtomicString("Noto Mono"),
+      test::BlinkWebTestsDir() +
+          "/third_party/NotoMono-hintedLocalizedFamilyName/"
+          "NotoMono-Regular.subset.ttf",
+      16, &ligatures);
+  const SimpleFontData* const font_data = font->PrimaryFont();
+  ASSERT_TRUE(font_data->IsFixedPitch());
+
+  const auto CanCompact = [&](hb_direction_t direction) {
+    return MakeGarbageCollected<ShapeResultRun>(
+               font_data, direction, CanvasRotationInVertical::kRegular,
+               HB_SCRIPT_LATIN, 0, 8, 8)
+        ->CanUseMonospaceGlyphCompaction(/*num_glyphs*/ 8);
+  };
+  EXPECT_TRUE(CanCompact(HB_DIRECTION_LTR));
+  EXPECT_TRUE(CanCompact(HB_DIRECTION_RTL));
+  EXPECT_FALSE(CanCompact(HB_DIRECTION_TTB));
+  EXPECT_FALSE(CanCompact(HB_DIRECTION_BTT));
+}
+
 TEST_F(HarfBuzzShaperTest, PositionForOffsetArabic) {
   Font* font = MakeGarbageCollected<Font>(font_description);
 
@@ -1180,7 +1251,7 @@ TEST_F(HarfBuzzShaperTest, PositionForOffsetArabic) {
   ASSERT_NEAR(result->Width(), result->PositionForOffset(0), 0.1);
 }
 
-TEST_F(HarfBuzzShaperTest, EmojiZWJSequence) {
+TEST_F(HarfBuzzShaperTest, EmojiZwjSequence) {
   Font* font = MakeGarbageCollected<Font>(font_description);
 
   UChar emoji_zwj_sequence[] = {0x270C, 0x200D, 0xD83C, 0xDFFF,

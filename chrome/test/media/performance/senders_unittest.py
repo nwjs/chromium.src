@@ -266,6 +266,44 @@ class WaitForChromedriverTest(fakes.SenderTestCase):
                 _mac().wait_for_chromedriver()
         self.assertTrue(any('driver crashed' in l for l in logs.output))  # noqa: E741
 
+    def test_dead_sender_raises_without_polling(self):
+        status = senders.MacSender.STATUS_CMD
+        self.ssh.responses[status] = completed(255, stderr=NO_ROUTE)
+        with self.assertLogs(level='ERROR'):
+            with self.assertRaises(SenderUnreachableError):
+                _mac().wait_for_chromedriver()
+        self.assertEqual(self.ssh.remote_commands.count(status), 1)
+
+    def test_retries_after_timeout(self):
+        status = senders.MacSender.STATUS_CMD
+        ready = completed(stdout='200')
+
+        def run(argv, **kwargs):
+            if argv[-1] == status and not self.ssh.ran(status):
+                self.ssh.remote_commands.append(status)
+                raise subprocess.TimeoutExpired('ssh', 120)
+            return self.ssh(argv, **kwargs)
+
+        self.ssh.responses[status] = ready
+        self.run.side_effect = run
+        with self.assertLogs(level='WARNING'):
+            _mac().wait_for_chromedriver()
+        self.assertEqual(self.ssh.remote_commands.count(status), 2)
+
+    def test_does_not_swallow_unexpected_errors(self):
+        status = senders.MacSender.STATUS_CMD
+
+        def run(argv, **kwargs):
+            if argv[-1] == status:
+                self.ssh.remote_commands.append(status)
+                raise TypeError('bug')
+            return self.ssh(argv, **kwargs)
+
+        self.run.side_effect = run
+        with self.assertRaises(TypeError):
+            _mac().wait_for_chromedriver()
+        self.assertEqual(self.ssh.remote_commands.count(status), 1)
+
 
 class InstallChromeTest(fakes.SenderTestCase):
     def setUp(self):
@@ -476,6 +514,11 @@ class LocalInstallTest(fakes.SenderTestCase):
         self.run.side_effect = None
         self.run.return_value = completed()
         self._patch('os.path.exists', return_value=True)
+        self._patch('platform.machine', return_value='x86_64')
+        self._patch(
+            'senders.download_cft_urls',
+            return_value=('120.0.1.2', _CHROME_URL, _DRIVER_URL),
+        )
         cases = {
             'mac': '/tmp/chrome-mac-arm64/Google Chrome for Testing.app',
             'linux': '/tmp/chrome-mac-arm64/chrome',
@@ -487,8 +530,7 @@ class LocalInstallTest(fakes.SenderTestCase):
                     make_args(sender='localhost', sender_os=sender_os)
                 )
                 with self.assertLogs(level='INFO'):
-                    # pylint: disable-next=protected-access
-                    app_path = sender._install_locally(_CHROME_URL, _DRIVER_URL)
+                    app_path, _ = sender.install_chrome('120')
                 self.assertEqual(app_path, expected)
                 self.assertEqual(sender.driver_path, _MAC_DRIVER)
 
@@ -562,11 +604,13 @@ class CleanupTest(fakes.SenderTestCase):
         }
         for sender_os, (downloads, binaries) in expected.items():
             with self.subTest(sender_os=sender_os):
+                self.ssh.remote_commands.clear()
                 sender = senders.make_sender(make_args(sender_os=sender_os))
-                # pylint: disable=protected-access
-                self.assertEqual(sender._downloads_cleanup_command(), downloads)
-                self.assertEqual(sender._binaries_cleanup_command(), binaries)
-                # pylint: enable=protected-access
+                with self.assertLogs(level='INFO'):
+                    sender.cleanup_downloads()
+                    sender.cleanup_binaries()
+                self.assertTrue(self.ssh.ran(downloads), downloads)
+                self.assertEqual(self.ssh.remote_commands[-1], binaries)
 
 
 class MonitoringTest(fakes.SenderTestCase):

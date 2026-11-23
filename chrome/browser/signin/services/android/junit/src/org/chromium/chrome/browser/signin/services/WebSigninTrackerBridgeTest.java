@@ -5,7 +5,10 @@
 package org.chromium.chrome.browser.signin.services;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,6 +80,52 @@ public class WebSigninTrackerBridgeTest {
 
         mWebSigninCallbackCaptor.getValue().onResult(WebSigninTrackerResult.SUCCESS);
 
+        verify(mNativeMock).destroy(NATIVE_WEB_SIGNIN_TRACKER_BRIDGE);
+    }
+
+    @Test
+    public void testFactoryCreateDoesNotStart() {
+        mFactory.createWithCoreAccountId(mProfileMock, CORE_ACCOUNT_INFO.getId(), mCallbackMock);
+
+        verify(mNativeMock, never()).start(anyLong());
+    }
+
+    @Test
+    public void testStart() {
+        WebSigninTrackerBridge webSigninTrackerBridge =
+                mFactory.createWithCoreAccountId(
+                        mProfileMock, CORE_ACCOUNT_INFO.getId(), mCallbackMock);
+
+        webSigninTrackerBridge.start();
+
+        verify(mNativeMock).start(NATIVE_WEB_SIGNIN_TRACKER_BRIDGE);
+    }
+
+    @Test
+    public void testResultReportedSynchronouslyFromStart() {
+        when(mNativeMock.createWithCoreAccountId(
+                        eq(mProfileMock),
+                        eq(CORE_ACCOUNT_INFO.getId()),
+                        mWebSigninCallbackCaptor.capture()))
+                .thenReturn(NATIVE_WEB_SIGNIN_TRACKER_BRIDGE);
+        // Native reports the result from start() if it's already known, e.g. if the account is
+        // already in cookies.
+        doAnswer(
+                        invocation -> {
+                            mWebSigninCallbackCaptor
+                                    .getValue()
+                                    .onResult(WebSigninTrackerResult.SUCCESS);
+                            return null;
+                        })
+                .when(mNativeMock)
+                .start(NATIVE_WEB_SIGNIN_TRACKER_BRIDGE);
+        WebSigninTrackerBridge webSigninTrackerBridge =
+                mFactory.createWithCoreAccountId(
+                        mProfileMock, CORE_ACCOUNT_INFO.getId(), mCallbackMock);
+
+        webSigninTrackerBridge.start();
+
+        verify(mCallbackMock).onResult(WebSigninTrackerResult.SUCCESS);
         verify(mNativeMock).destroy(NATIVE_WEB_SIGNIN_TRACKER_BRIDGE);
     }
 

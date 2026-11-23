@@ -58,8 +58,9 @@ enum class WebInstallServiceResult {
   kNoCustomManifestId = 7,
   kManifestIdMismatch = 8,
   kInstallInProgress = 9,
+  kNoManifestIcons = 10,
   // Insert new values above this line.
-  kMaxValue = kInstallInProgress,
+  kMaxValue = kNoManifestIcons,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/webapps/enums.xml:WebInstallServiceResult)
 
@@ -88,6 +89,10 @@ class WebInstallServiceImpl
     : public content::DocumentService<blink::mojom::WebInstallService>,
       public content::WebContentsObserver {
  public:
+  WebInstallServiceImpl(
+      content::RenderFrameHost& render_frame_host,
+      mojo::PendingReceiver<blink::mojom::WebInstallService> receiver,
+      base::SelfDeletingPassKey key);
   WebInstallServiceImpl(const WebInstallServiceImpl&) = delete;
   WebInstallServiceImpl& operator=(const WebInstallServiceImpl&) = delete;
 
@@ -131,9 +136,6 @@ class WebInstallServiceImpl
   void InstallCurrentDocumentInternal(InstallFromManifestCallback callback,
                                       bool triggered_from_element);
 
-  WebInstallServiceImpl(
-      content::RenderFrameHost& render_frame_host,
-      mojo::PendingReceiver<blink::mojom::WebInstallService> receiver);
   ~WebInstallServiceImpl() override;
 
   // Manages `install_in_progress_`.

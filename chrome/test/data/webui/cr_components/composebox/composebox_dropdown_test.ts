@@ -5,20 +5,27 @@
 import 'chrome://contextual-tasks/strings.m.js';
 import 'chrome://resources/cr_components/composebox/composebox_dropdown.js';
 
+import {RichImageSuggestBatchLoadStatus} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxDropdownElement} from 'chrome://resources/cr_components/composebox/composebox_dropdown.js';
 import {createAutocompleteMatch} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import {createAutocompleteResultForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {RenderType, SideType} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {SuggestStyle} from 'chrome://resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
+import {SecondaryTextPlacement, SuggestStyle} from 'chrome://resources/mojo/components/omnibox/browser/suggest_template_info.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {createSuggestTemplateInfo} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
+import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
+import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 suite('ComposeboxDropdown', () => {
   let dropdown: ComposeboxDropdownElement;
+  let metrics: MetricsTracker;
 
   setup(async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    loadTimeData.overrideValues({composeboxSource: 'NewTabPage'});
+    metrics = fakeMetricsPrivate();
     dropdown = document.createElement('cr-composebox-dropdown');
     document.body.appendChild(dropdown);
     await microtasksFinished();
@@ -229,7 +236,106 @@ suite('ComposeboxDropdown', () => {
         assertTrue(scrollCalled);
       });
 
+  // Places the dropdown below a fixed-height input stub inside a
+  // height-capped, overflow: hidden flex column, like the composebox card.
+  function appendDropdownToHeightCappedParent(): HTMLElement {
+    const parentContainer = document.createElement('div');
+    parentContainer.style.display = 'flex';
+    parentContainer.style.flexDirection = 'column';
+    parentContainer.style.height = '180px';
+    parentContainer.style.overflow = 'hidden';
+
+    const inputStub = document.createElement('div');
+    inputStub.style.height = '80px';
+    inputStub.style.flexShrink = '0';
+
+    parentContainer.appendChild(inputStub);
+    parentContainer.appendChild(dropdown);
+    document.body.appendChild(parentContainer);
+    return parentContainer;
+  }
+
+  // Creates matches that render their secondary text on a second line.
+  function createTwoLineMatches(count: number, suggestionGroupId = -1) {
+    return Array.from(
+        {length: count},
+        (_, i) => createAutocompleteMatch({
+          suggestTemplate: createSuggestTemplateInfo({
+            primaryText: `Match ${i + 1}`,
+            secondaryText: `Description ${i + 1}`,
+            secondaryTextPlacement: SecondaryTextPlacement.kBelowPrimaryText,
+          }),
+          suggestionGroupId,
+        }));
+  }
+
+  test(
+      'vertical matches container scrolls independently without scrolling parent',
+      async () => {
+        const parentContainer = appendDropdownToHeightCappedParent();
+        dropdown.richImageSuggestionsEnabled = false;
+        dropdown.result = createAutocompleteResultForTesting({
+          matches: createTwoLineMatches(5),
+        });
+        await microtasksFinished();
+
+        const matches =
+            dropdown.shadowRoot.querySelectorAll('cr-composebox-match');
+        assertEquals(5, matches.length);
+        assertTrue(!!matches[4]!.shadowRoot.querySelector('#secondaryText'));
+
+        const verticalContainer =
+            dropdown.shadowRoot.querySelector<HTMLElement>('.matches.vertical');
+        assertTrue(!!verticalContainer);
+        assertEquals('auto', getComputedStyle(verticalContainer).overflowY);
+        assertEquals('0px', getComputedStyle(verticalContainer).minHeight);
+
+        dropdown.selectedMatchIndex = 4;
+        await microtasksFinished();
+
+        assertTrue(verticalContainer.scrollTop > 0);
+        assertEquals(0, parentContainer.scrollTop);
+      });
+
+  test(
+      'group header stays pinned while vertical matches container scrolls',
+      async () => {
+        const parentContainer = appendDropdownToHeightCappedParent();
+        dropdown.richImageSuggestionsEnabled = true;
+        dropdown.result = createAutocompleteResultForTesting({
+          suggestionGroupsMap: {
+            100: {
+              header: 'Recent searches',
+              renderType: RenderType.kDefaultVertical,
+              sideType: SideType.kDefaultPrimary,
+            },
+          },
+          matches: createTwoLineMatches(5, 100),
+        });
+        await microtasksFinished();
+
+        const header =
+            dropdown.shadowRoot.querySelector<HTMLElement>('.header');
+        assertTrue(!!header);
+        const verticalContainer =
+            dropdown.shadowRoot.querySelector<HTMLElement>('.matches.vertical');
+        assertTrue(!!verticalContainer);
+        const headerTop = header.getBoundingClientRect().top;
+
+        dropdown.selectedMatchIndex = 4;
+        await microtasksFinished();
+
+        assertTrue(verticalContainer.scrollTop > 0);
+        assertEquals(headerTop, header.getBoundingClientRect().top);
+        assertEquals(0, parentContainer.scrollTop);
+      });
+
   test('tracks isImageBatchLoading_ for rich image suggestions', async () => {
+    const batchLoadStatusMetric =
+        'ContextualSearch.RichImageSuggest.BatchLoadStatus.NewTabPage';
+    const batchLoadLatencyMetric =
+        'ContextualSearch.RichImageSuggest.BatchLoadLatency.NewTabPage';
+    const shownMetric = 'ContextualSearch.RichImageSuggest.Shown.NewTabPage';
     const createdImages: HTMLImageElement[] = [];
     const OriginalImage = window.Image;
     window.Image = class extends OriginalImage {
@@ -326,9 +432,15 @@ suite('ComposeboxDropdown', () => {
       assertEquals(0, matches[0]!.tabIndex);
       assertEquals(0, matches[1]!.tabIndex);
       assertEquals(0, matches[2]!.tabIndex);
+      assertEquals(
+          1,
+          metrics.count(
+              batchLoadStatusMetric, RichImageSuggestBatchLoadStatus.LOADED));
+      assertEquals(1, metrics.count(batchLoadLatencyMetric));
+      assertEquals(1, metrics.count(shownMetric, 1));
 
       // Subsequent result updates with already-loaded image URLs do not
-      // re-trigger the ghost loader.
+      // re-trigger the ghost loader and record CACHED.
       dropdown.result = createAutocompleteResultForTesting({
         matches: [
           createAutocompleteMatch({
@@ -350,6 +462,12 @@ suite('ComposeboxDropdown', () => {
       await microtasksFinished();
       assertFalse(dropdown.isImageBatchLoading_);
       assertEquals(2, createdImages.length);
+      assertEquals(
+          1,
+          metrics.count(
+              batchLoadStatusMetric, RichImageSuggestBatchLoadStatus.CACHED));
+      assertEquals(1, metrics.count(batchLoadLatencyMetric));
+      assertEquals(2, metrics.count(shownMetric, 1));
 
       // If an image fails to load (onerror), the batch still finishes loading,
       // but the failed URL is not cached as loaded so a subsequent update
@@ -372,6 +490,12 @@ suite('ComposeboxDropdown', () => {
       createdImages[2]!.onerror!(new Event('error'));
       await microtasksFinished();
       assertFalse(dropdown.isImageBatchLoading_);
+      assertEquals(
+          2,
+          metrics.count(
+              batchLoadStatusMetric, RichImageSuggestBatchLoadStatus.LOADED));
+      assertEquals(2, metrics.count(batchLoadLatencyMetric));
+      assertEquals(3, metrics.count(shownMetric, 1));
 
       dropdown.result = createAutocompleteResultForTesting({
         matches: [
@@ -387,6 +511,60 @@ suite('ComposeboxDropdown', () => {
       await microtasksFinished();
       assertTrue(dropdown.isImageBatchLoading_);
       assertEquals(4, createdImages.length);
+
+      // Superseding an in-flight batch records SUPERSEDED without recording
+      // latency or Shown. Firing the 2s timeout on the new batch reveals it,
+      // records TIMED_OUT and Shown, and records latency once the slow image
+      // eventually finishes loading.
+      let timeoutCallback: (() => void)|undefined;
+      const originalSetTimeout = window.setTimeout;
+      window.setTimeout = ((cb: TimerHandler, delay?: number) => {
+                            const id = originalSetTimeout(cb, delay);
+                            if (delay === 2000) {
+                              timeoutCallback = cb as () => void;
+                            }
+                            return id;
+                          }) as typeof window.setTimeout;
+      try {
+        dropdown.result = createAutocompleteResultForTesting({
+          matches: [
+            createAutocompleteMatch({
+              suggestTemplate: createSuggestTemplateInfo({
+                image: {url: 'https://example.com/slow.png', dominantColor: ''},
+                style: SuggestStyle.kRichImage,
+              }),
+            }),
+          ],
+        });
+        await microtasksFinished();
+        assertEquals(
+            1,
+            metrics.count(
+                batchLoadStatusMetric,
+                RichImageSuggestBatchLoadStatus.SUPERSEDED));
+        assertEquals(2, metrics.count(batchLoadLatencyMetric));
+        assertEquals(3, metrics.count(shownMetric, 1));
+        assertTrue(dropdown.isImageBatchLoading_);
+        assertEquals(5, createdImages.length);
+        assertTrue(!!timeoutCallback);
+
+        timeoutCallback();
+        await microtasksFinished();
+        assertFalse(dropdown.isImageBatchLoading_);
+        assertEquals(
+            1,
+            metrics.count(
+                batchLoadStatusMetric,
+                RichImageSuggestBatchLoadStatus.TIMED_OUT));
+        assertEquals(2, metrics.count(batchLoadLatencyMetric));
+        assertEquals(4, metrics.count(shownMetric, 1));
+
+        createdImages[4]!.onload!(new Event('load'));
+        await microtasksFinished();
+        assertEquals(3, metrics.count(batchLoadLatencyMetric));
+      } finally {
+        window.setTimeout = originalSetTimeout;
+      }
     } finally {
       window.Image = OriginalImage;
     }

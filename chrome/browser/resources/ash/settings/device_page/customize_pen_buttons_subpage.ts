@@ -18,7 +18,7 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 
 import {castExists} from '../assert_extras.js';
 import {RouteObserverMixin} from '../common/route_observer_mixin.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
 import {Router, routes} from '../router.js';
 
 import {getTemplate} from './customize_pen_buttons_subpage.html.js';
@@ -53,6 +53,11 @@ export class SettingsCustomizePenButtonsSubpageElement extends
        * Use metaKey to decide which meta key icon to display.
        */
       metaKey_: Object,
+
+      buttonActionList_: {
+        type: Array,
+        value: () => [],
+      },
     };
   }
 
@@ -69,7 +74,7 @@ export class SettingsCustomizePenButtonsSubpageElement extends
 
   declare selectedTablet: GraphicsTablet;
   declare graphicsTablets: GraphicsTablet[];
-  private buttonActionList_: ActionChoice[] = [];
+  declare private buttonActionList_: ActionChoice[];
   private inputDeviceSettingsProvider_: InputDeviceSettingsProviderInterface =
       getInputDeviceSettingsProvider();
   private previousRoute_: Route|null = null;

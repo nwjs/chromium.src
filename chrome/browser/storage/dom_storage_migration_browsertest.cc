@@ -84,6 +84,7 @@ class DOMStorageMigrationBrowserTest
       public InProcessBrowserTest {
  public:
   DOMStorageMigrationBrowserTest() {
+    set_force_in_process_storage_service(false);
     if (IsOutermostPreTest()) {
       // The first run creates a LevelDB with migration disabled,
       // mimicking a profile from before the migration rollout.
@@ -99,7 +100,8 @@ class DOMStorageMigrationBrowserTest
       feature_list_.InitAndEnableFeatureWithParameters(
           storage::kDomStorageSqliteMigration,
           {{storage::kDomStorageSqliteMigrationInactivityTimeoutParam.name,
-            "100ms"}});
+            "100ms"},
+           {storage::kDomStorageSqliteMigrationVerification.name, "true"}});
     }
   }
 

@@ -6,7 +6,9 @@
 
 #include <sstream>
 #include <string>
+#include <utility>
 
+#include "base/check.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -45,6 +47,7 @@ StatusChangeChecker::~StatusChangeChecker() = default;
 void StatusChangeChecker::WillStartWaiting() {}
 
 bool StatusChangeChecker::Wait(const base::Location& location) {
+  CHECK(!wait_done_called_);
   WillStartWaiting();
 
   std::ostringstream s;
@@ -53,7 +56,9 @@ bool StatusChangeChecker::Wait(const base::Location& location) {
     wait_done_called_ = true;
     WaitDone();
   } else {
-    DVLOG(1) << "Blocking: " << s.str();
+    const std::string message = std::move(s).str();
+    CHECK(!message.empty());
+    DVLOG(1) << "Blocking: " << message;
     StartBlockingWait(location);
   }
   return !TimedOut();
@@ -86,7 +91,9 @@ void StatusChangeChecker::CheckExitCondition() {
     DVLOG(1) << "Await -> Condition met: " << s.str();
     StopWaiting();
   } else {
-    DVLOG(1) << "Await -> Condition not met: " << s.str();
+    const std::string message = std::move(s).str();
+    CHECK(!message.empty());
+    DVLOG(1) << "Await -> Condition not met: " << message;
   }
 }
 
@@ -110,7 +117,9 @@ void StatusChangeChecker::OnTimeout(const base::Location& location) {
                      "triggered from "
                   << location.ToString();
   } else {
-    ADD_FAILURE() << "Await -> Timed out: " << s.str() << ", triggered from "
+    const std::string message = std::move(s).str();
+    CHECK(!message.empty());
+    ADD_FAILURE() << "Await -> Timed out: " << message << ", triggered from "
                   << location.ToString();
   }
 

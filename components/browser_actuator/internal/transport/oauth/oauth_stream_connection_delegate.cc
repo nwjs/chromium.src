@@ -17,7 +17,7 @@
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/resource_request.h"
 
-namespace browser_actuator {
+namespace browser_actuator::transport {
 
 namespace {
 
@@ -114,7 +114,7 @@ void OAuthStreamConnectionDelegate::OnTokenFetched(
   }
   // Only successful fetches are recorded: Mode::kImmediate failures (e.g. no
   // primary account) complete near-instantly and would skew the distribution.
-  base::UmaHistogramTimes("Browser.Actuator.OAuth.TokenFetchLatency",
+  base::UmaHistogramTimes("Browser.Actuator.Transport.OAuth.TokenFetchLatency",
                           base::TimeTicks::Now() - start_time);
   last_access_token_ = access_token_info.token;
   request->headers.SetHeader(
@@ -123,4 +123,4 @@ void OAuthStreamConnectionDelegate::OnTokenFetched(
   inner_->PrepareRequest(std::move(request), std::move(callback));
 }
 
-}  // namespace browser_actuator
+}  // namespace browser_actuator::transport

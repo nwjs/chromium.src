@@ -29,7 +29,6 @@
 #include "chrome/browser/enterprise/browser_management/browser_management_service.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
-#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_coordinator.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_types.h"
 #include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -41,10 +40,13 @@
 #include "chrome/browser/glic/host/glic_features.mojom-features.h"
 #include "chrome/browser/glic/host/glic_synthetic_trial_manager.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_fre_store.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/glic_provider_spec.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
+#include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -65,6 +67,7 @@
 #include "components/subscription_eligibility/subscription_eligibility_service.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/service/variations_service_utils.h"
+#include "components/variations/synthetic_trials.h"
 #include "content/public/common/content_switches.h"
 #include "ui/base/device_form_factor.h"
 
@@ -79,6 +82,7 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
 #include "base/android/device_info.h"
+#include "chrome/browser/glic/android/background_actuation_capability.h"
 #endif
 
 namespace glic {
@@ -125,6 +129,17 @@ void SetAnyEntryPointEnabledForTesting(Profile* profile, bool is_enabled) {
 }
 
 namespace {
+
+// The store for the FRE `profile`'s provider uses.
+const GlicFreStore& GetFreStore(Profile* profile) {
+  return GetGlicProviderSpec(profile).GetFreStore();
+}
+
+// Whether `profile`'s entry point can be anchored, given whether it has
+// `consented`: only onboarded profiles of providers that support anchoring are.
+bool IsAnchorable(Profile* profile, bool consented) {
+  return consented && GetGlicProviderSpec(profile).SupportsAnchoredEntryPoint();
+}
 
 constexpr int kExperimentalTriggeringVersion = 1;
 
@@ -422,8 +437,9 @@ GlicEnabling::ProfileEnablement ComputeProfileEnablement(
   if (!global_criteria_met) {
     result.anchor_entrypoint_override_active =
         result.feature_flag_enabled &&
-        GlicEnabling::IsAnchoredButIneligible(global_criteria_met,
-                                              result.fre_is_consented);
+        GlicEnabling::IsAnchoredButIneligible(
+            global_criteria_met,
+            IsAnchorable(profile, result.fre_is_consented));
     if (!result.anchor_entrypoint_override_active) {
       result.feature_enabled = false;
       return result;
@@ -495,7 +511,8 @@ GlicEnabling::ProfileEnablement ComputeProfileEnablement(
       // onboarded, but is missing an overridable requirement.
       bool overridable_requirements_met =
           result.primary_account_is_capable && result.allowed_by_country_filter;
-      if (!overridable_requirements_met && result.fre_is_consented &&
+      if (!overridable_requirements_met &&
+          IsAnchorable(profile, result.fre_is_consented) &&
           base::FeatureList::IsEnabled(
               features::kGlicAnchorEntryPointForOnboardedUsers)) {
         result.anchor_entrypoint_override_active = true;
@@ -923,7 +940,9 @@ bool GlicEnabling::IsProfileEligible(Profile* profile) {
   // A profile is eligible if global criteria are met OR if the user previously
   // onboarded and the anchor override is active (to keep the entry point
   // visible for error states).
-  return global_criteria || IsAnchoredButIneligible(global_criteria, consented);
+  return global_criteria ||
+         IsAnchoredButIneligible(global_criteria,
+                                 IsAnchorable(profile, consented));
 }
 
 // static
@@ -1006,6 +1025,40 @@ bool GlicEnabling::WasPreviouslyNotAllowed(Profile* profile) {
 // static
 bool GlicEnabling::HasConsentedForProfile(Profile* profile) {
   return profile && GetCompletedFre(profile) == prefs::FreStatus::kCompleted;
+}
+
+// static
+void GlicEnabling::RegisterDefaultHotkeyScopeSyntheticTrial(Profile* profile) {
+#if BUILDFLAG(IS_ANDROID)
+  // Hotkeys are only supported on desktop platforms.
+  return;
+#else
+  if (!base::FeatureList::IsEnabled(features::kGlicHotkeyLocalScope) ||
+      !g_browser_process || !g_browser_process->local_state()) {
+    return;
+  }
+
+  if (!HasConsentedForProfile(profile)) {
+    return;
+  }
+
+  const int default_scope = g_browser_process->local_state()->GetInteger(
+      prefs::kGlicDefaultHotkeyScope);
+  std::string_view group_name;
+  if (default_scope == std::to_underlying(prefs::DefaultHotkeyScope::kLocal)) {
+    group_name = kGlicHotkeyDefaultLocalScopeGroupName;
+  } else if (default_scope ==
+             std::to_underlying(prefs::DefaultHotkeyScope::kGlobal)) {
+    group_name = kGlicHotkeyDefaultGlobalScopeGroupName;
+  } else {
+    // Intentionally ignore kNotMigrated or any unexpected values.
+    return;
+  }
+
+  ChromeMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+      kGlicHotkeyDefaultScopeTrialName, group_name,
+      variations::SyntheticTrialAnnotationMode::kCurrentLog);
+#endif
 }
 
 // static
@@ -1305,7 +1358,9 @@ GlicEnabling::GlicEnabling(
       optimization_guide::prefs::kGeminiSettings,
       base::BindRepeating(&GlicEnabling::OnGlicSettingsPolicyChanged,
                           base::Unretained(this)));
-  pref_registrar_.Add(prefs::kGlicCompletedFre,
+  // Only the active provider's FRE pref is observed, so that changes to the
+  // other provider's FRE don't notify consent observers.
+  pref_registrar_.Add(GetFreStore(profile_).GetStatusPrefName(),
                       base::BindRepeating(&GlicEnabling::UpdateConsentStatus,
                                           base::Unretained(this)));
   pref_registrar_.Add(
@@ -1353,7 +1408,21 @@ GlicEnabling::GlicEnabling(
                 "If you want to inherit from GlicEnabling, ensure this "
                 "function call does not violate the 'no virtual functions in "
                 "constructors' style guide rule. Consider a 2-phase setup");
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kGlicExperimentalTriggering) &&
+      base::FeatureList::IsEnabled(features::kGlicBackgroundActuation)) {
+    background_actuation_capability_ =
+        std::make_unique<BackgroundActuationCapability>(
+            profile_->GetPrefs(),
+            IdentityManagerFactory::GetForProfile(profile_),
+            base::BindRepeating(
+                &GlicEnabling::MaybeNotifyExperimentalTriggeringStateChanged,
+                base::Unretained(this)));
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
   last_experimental_triggering_state_ = GetExperimentalTriggeringState();
+  last_experimental_triggering_capabilities_ =
+      GetExperimentalTriggeringCapabilities();
   int pref_state =
       profile_->GetPrefs()->GetInteger(prefs::kGlicLastProfileReadyState);
   last_profile_ready_state_ = GetSanitizedProfileReadyState(pref_state);
@@ -1371,13 +1440,7 @@ bool GlicEnabling::HasConsented() const {
 
 // static
 prefs::FreStatus GlicEnabling::GetCompletedFre(Profile* profile) {
-  if (base::FeatureList::IsEnabled(
-          features::kGlicExperimentalTriggeringOptInBypass) ||
-      IsRetailDemoModeDesktop()) {
-    return prefs::FreStatus::kCompleted;
-  }
-  return static_cast<prefs::FreStatus>(
-      profile->GetPrefs()->GetInteger(prefs::kGlicCompletedFre));
+  return GetFreStore(profile).GetStatus(profile);
 }
 
 prefs::FreStatus GlicEnabling::GetCompletedFre() const {
@@ -1385,8 +1448,7 @@ prefs::FreStatus GlicEnabling::GetCompletedFre() const {
 }
 
 void GlicEnabling::SetCompletedFre(prefs::FreStatus status) {
-  profile_->GetPrefs()->SetInteger(prefs::kGlicCompletedFre,
-                                   std::to_underlying(status));
+  GetFreStore(profile_).SetStatus(profile_, status);
 }
 
 bool GlicEnabling::GetUserEnabledActuationOnWeb() const {
@@ -1579,8 +1641,23 @@ std::optional<int> GlicEnabling::GetExperimentalTriggeringVersion() const {
 
 base::flat_set<std::string>
 GlicEnabling::GetExperimentalTriggeringCapabilities() const {
-  return GlicExperimentalTriggeringCoordinator::GetCapabilities(
-      GetExperimentalTriggeringState());
+  if (GetExperimentalTriggeringState() ==
+      syncer::DeviceInfo::GlicExperimentalTriggeringState::kUnavailable) {
+    return {};
+  }
+  base::flat_set<std::string> capabilities = {kGlicCapabilityStructuredYields,
+                                              kGlicCapabilityPaymentMetadata};
+  if (base::FeatureList::IsEnabled(
+          features::kGlicExperimentalTriggeringScreenshot)) {
+    capabilities.insert(kGlicCapabilityScreenshot);
+  }
+#if BUILDFLAG(IS_ANDROID)
+  if (background_actuation_capability_ &&
+      background_actuation_capability_->can_actuate_in_background()) {
+    capabilities.insert(kGlicCapabilityBackgroundActuation);
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
+  return capabilities;
 }
 
 RequiredExperimentalOptIn GlicEnabling::GetRequiredExperimentalOptIn() const {
@@ -1670,7 +1747,7 @@ void GlicEnabling::OnPrimaryAccountChanged(
 #if BUILDFLAG(IS_ANDROID)
   if (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin) ==
       signin::PrimaryAccountChangeEvent::Type::kCleared) {
-    SetCompletedFre(prefs::FreStatus::kNotStarted);
+    GetFreStore(profile_).OnPrimaryAccountCleared(profile_);
     profile_->GetPrefs()->ClearPref(prefs::kGlicUserEnabledActuationOnWeb);
     profile_->GetPrefs()->ClearPref(prefs::kGlicGeolocationEnabled);
   }
@@ -1754,6 +1831,7 @@ void GlicEnabling::UpdateEnabledStatus() {
 }
 
 void GlicEnabling::UpdateConsentStatus() {
+  RegisterDefaultHotkeyScopeSyntheticTrial(profile_);
   consent_changed_callback_list_.Notify();
   show_settings_page_changed_callback_list_.Notify();
   MaybeNotifyProfileReadyStateChanged();
@@ -1761,9 +1839,14 @@ void GlicEnabling::UpdateConsentStatus() {
 }
 
 void GlicEnabling::MaybeNotifyExperimentalTriggeringStateChanged() {
-  auto new_state = GetExperimentalTriggeringState();
-  if (new_state != last_experimental_triggering_state_) {
+  syncer::DeviceInfo::GlicExperimentalTriggeringState new_state =
+      GetExperimentalTriggeringState();
+  base::flat_set<std::string> new_capabilities =
+      GetExperimentalTriggeringCapabilities();
+  if (new_state != last_experimental_triggering_state_ ||
+      new_capabilities != last_experimental_triggering_capabilities_) {
     last_experimental_triggering_state_ = new_state;
+    last_experimental_triggering_capabilities_ = std::move(new_capabilities);
     experimental_triggering_state_changed_callback_list_.Notify();
   }
 }

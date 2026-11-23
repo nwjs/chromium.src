@@ -40,6 +40,7 @@
 #include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/chromeos/locked_state/locked_state_controller.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/frame/desks/move_to_desks_menu_delegate.h"
@@ -73,6 +74,18 @@ void AddItemWithIconMaybe(ui::SimpleMenuModel* model,
   }
 }
 #endif  // !BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_CHROMEOS)
+// Returns true if the browser is locked for OnTask. Only relevant for non-web
+// browser scenarios.
+bool IsLockedForOnTask(BrowserWindowInterface* browser) {
+  if (features::IsUseUnifiedLockedStateControllerEnabled()) {
+    return chromeos::LockedStateController::From(browser)->IsLockedForOnTask();
+  }
+  return ash::boca::OnTaskLockedController::From(browser)
+      ->is_locked_for_on_task();
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 }  // namespace
 
@@ -342,8 +355,7 @@ void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
 #if BUILDFLAG(IS_CHROMEOS)
   // Hide TaskManager option for the app if it is locked for OnTask. Only
   // relevant for non-web browser scenarios.
-  if (ash::boca::OnTaskLockedController::From(browser())
-          ->is_locked_for_on_task()) {
+  if (IsLockedForOnTask(browser())) {
     should_show_task_manager = false;
   }
 #endif
@@ -373,8 +385,7 @@ void SystemMenuModelBuilder::AppendMoveToDesksMenu(ui::SimpleMenuModel* model) {
   auto* const browser = menu_delegate_.browser();
   // Do not show the move to desks menu if the app is locked for OnTask. Only
   // relevant for non-web browser scenarios.
-  if (ash::boca::OnTaskLockedController::From(browser)
-          ->is_locked_for_on_task() ||
+  if (IsLockedForOnTask(browser) ||
       !chromeos::MoveToDesksMenuDelegate::ShouldShowMoveToDesksMenu()) {
     return;
   }
@@ -392,7 +403,7 @@ void SystemMenuModelBuilder::AppendMoveToDesksMenu(ui::SimpleMenuModel* model) {
 
 void SystemMenuModelBuilder::AppendTeleportMenu(ui::SimpleMenuModel* model) {
 #if BUILDFLAG(IS_CHROMEOS)
-  DCHECK(browser()->GetWindow());
+  CHECK(browser()->GetWindow(), base::NotFatalUntil::M162);
 
   // Avoid appending the teleport menu for the settings window.  This window's
   // presentation is unique: it's a normal browser window with an app-like

@@ -239,7 +239,7 @@ enum Setting {
   kCameraOnOff = 1116,
   kMicrophoneOnOff = 1117,
   kGeolocationOnOff = 1118,
-  kLockScreenNotification = 1119,
+  // Note: value 1119 was deprecated for kLockScreenNotification; don't reuse.
   kSpeakOnMuteDetectionOnOff = 1120,
   kDataRecovery = 1121,
   kRevenEnableHwDataUsage = 1122,
@@ -346,6 +346,7 @@ enum Setting {
   kBounceKeys = 1554,
   kSlowKeys = 1555,
   kDisableTouchpad = 1556,
+  kShakeToLocateCursor = 1557,
 
   // Reset section.
   kPowerwash = 1600,

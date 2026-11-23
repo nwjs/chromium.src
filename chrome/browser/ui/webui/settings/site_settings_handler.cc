@@ -58,7 +58,6 @@
 #include "chrome/browser/serial/serial_chooser_context_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
-#include "chrome/browser/ui/safety_hub/notification_permission_review_service_factory.h"
 #include "chrome/browser/ui/tab_contents/tab_contents_iterator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/url_identity.h"
@@ -278,7 +277,7 @@ base::flat_set<url::Origin> GetInstalledAppOrigins(Profile* profile) {
             update.AppType() == apps::AppType::kSystemWeb) {
           // For web apps, |PublisherId()| is set to the start URL.
           const GURL start_url(update.PublisherId());
-          DCHECK(start_url.is_valid());
+          CHECK(start_url.is_valid(), base::NotFatalUntil::M162);
           origins.push_back(url::Origin::Create(start_url));
         }
       });
@@ -522,7 +521,7 @@ void ConvertSiteGroupMapToList(
     base::ListValue* list_value,
     Profile* profile,
     BrowsingDataModel* browsing_data_model) {
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M162);
   auto* privacy_sandbox_service =
       PrivacySandboxServiceFactory::GetForProfile(profile);
   auto rws_map = GetRwsMap(privacy_sandbox_service, browsing_data_model);
@@ -923,7 +922,7 @@ void SiteSettingsHandler::OnJavascriptDisallowed() {
 }
 
 void SiteSettingsHandler::OnGetUsageInfo() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   // Site Details Page does not display the number of cookies for the origin.
   int64_t size = 0;
   std::string usage_string;
@@ -1135,7 +1134,7 @@ void SiteSettingsHandler::HandleClearPartitionedUsage(
   // The group key should always be an eTLD+1 because there aren't any
   // partitioned entries for IWAs (which have a non-eTLD+1 grouping key).
   std::optional<std::string> group_etld_plus1 = grouping_key.GetEtldPlusOne();
-  DCHECK(group_etld_plus1);
+  CHECK(group_etld_plus1, base::NotFatalUntil::M162);
 
   net::SchemefulSite https_top_level_site(
       ConvertEtldToOrigin(*group_etld_plus1, true));
@@ -1232,7 +1231,7 @@ void SiteSettingsHandler::HandleGetAllSites(const base::ListValue& args) {
       profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true) != profile_) {
     profile = profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true);
   }
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M162);
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(profile);
 
@@ -1282,21 +1281,21 @@ void SiteSettingsHandler::HandleGetAllSites(const base::ListValue& args) {
   for (auto content_type : kChooserDataContentSettingsTypes) {
     std::string_view group_name =
         site_settings::ContentSettingsTypeToGroupName(content_type);
-    DCHECK(!group_name.empty());
+    CHECK(!group_name.empty(), base::NotFatalUntil::M162);
     const site_settings::ChooserTypeNameEntry* chooser_type =
         site_settings::ChooserTypeFromGroupName(group_name);
-    DCHECK(chooser_type);
+    CHECK(chooser_type, base::NotFatalUntil::M162);
     base::ListValue exceptions =
         site_settings::GetChooserExceptionListFromProfile(profile_,
                                                           *chooser_type);
     for (const base::Value& exception : exceptions) {
       const base::ListValue* sites =
           exception.GetDict().FindList(site_settings::kSites);
-      DCHECK(sites);
+      CHECK(sites, base::NotFatalUntil::M162);
       for (const base::Value& site : *sites) {
         const std::string* origin_string =
             site.GetDict().FindString(site_settings::kOrigin);
-        DCHECK(origin_string);
+        CHECK(origin_string, base::NotFatalUntil::M162);
         auto origin = url::Origin::Create(GURL(*origin_string));
         InsertOriginIntoGroup(&all_sites_map_, origin);
         origin_permission_set_.insert(origin);
@@ -1352,7 +1351,7 @@ void SiteSettingsHandler::HandleGetRecentSitePermissions(
   // Convert groups of TimestampedPermissions for consumption by JS
   base::ListValue result;
   for (const auto& site_permissions : recent_site_permissions) {
-    DCHECK(!site_permissions.settings.empty());
+    CHECK(!site_permissions.settings.empty(), base::NotFatalUntil::M162);
     base::DictValue recent_site;
     recent_site.Set(site_settings::kOrigin, site_permissions.origin.spec());
     recent_site.Set(site_settings::kDisplayName, site_permissions.display_name);
@@ -1547,7 +1546,7 @@ void SiteSettingsHandler::HandleGetOriginPermissions(
   base::ListValue exceptions;
   for (const auto& type_val : types) {
     std::string type;
-    DCHECK(type_val.is_string());
+    CHECK(type_val.is_string(), base::NotFatalUntil::M162);
     const std::string* maybe_type = type_val.GetIfString();
     if (maybe_type) {
       type = *maybe_type;
@@ -1608,13 +1607,14 @@ void SiteSettingsHandler::HandleGetFileSystemGrants(
 
 void SiteSettingsHandler::HandleRevokeFileSystemGrant(
     const base::ListValue& args) {
-  DCHECK(base::FeatureList::IsEnabled(
-      features::kFileSystemAccessPersistentPermissions));
+  CHECK(base::FeatureList::IsEnabled(
+            features::kFileSystemAccessPersistentPermissions),
+        base::NotFatalUntil::M162);
   CHECK_EQ(2U, args.size());
   AllowJavascript();
 
   auto url = GURL(args[0].GetString());
-  DCHECK(url.is_valid());
+  CHECK(url.is_valid(), base::NotFatalUntil::M162);
   const url::Origin& origin = url::Origin::Create(url);
 
   const base::FilePath& file_path =
@@ -1628,14 +1628,15 @@ void SiteSettingsHandler::HandleRevokeFileSystemGrant(
 
 void SiteSettingsHandler::HandleRevokeFileSystemGrants(
     const base::ListValue& args) {
-  DCHECK(base::FeatureList::IsEnabled(
-      features::kFileSystemAccessPersistentPermissions));
+  CHECK(base::FeatureList::IsEnabled(
+            features::kFileSystemAccessPersistentPermissions),
+        base::NotFatalUntil::M162);
 
   CHECK_EQ(1U, args.size());
   AllowJavascript();
 
   auto url = GURL(args[0].GetString());
-  DCHECK(url.is_valid());
+  CHECK(url.is_valid(), base::NotFatalUntil::M162);
   const url::Origin& origin = url::Origin::Create(url);
 
   ChromeFileSystemAccessPermissionContext* permission_context =
@@ -1672,10 +1673,10 @@ void SiteSettingsHandler::HandleSetOriginPermissions(
       for (auto content_type : kChooserDataContentSettingsTypes) {
         std::string_view group_name =
             site_settings::ContentSettingsTypeToGroupName(content_type);
-        DCHECK(!group_name.empty());
+        CHECK(!group_name.empty(), base::NotFatalUntil::M162);
         const site_settings::ChooserTypeNameEntry* chooser_type =
             site_settings::ChooserTypeFromGroupName(group_name);
-        DCHECK(chooser_type);
+        CHECK(chooser_type, base::NotFatalUntil::M162);
 
         // The BluetoothChooserContext is only available when the
         // WebBluetoothNewPermissionsBackend flag is enabled.
@@ -1914,10 +1915,6 @@ void SiteSettingsHandler::HandleResetCategoryPermissionForPattern(
     ResetHeuristicData(profile_, url, content_type);
   }
 
-  if (content_type == ContentSettingsType::NOTIFICATIONS) {
-    SendNotificationPermissionReviewList();
-  }
-
   if (content_type == ContentSettingsType::COOKIES &&
       primary_pattern.MatchesAllHosts() &&
       !secondary_pattern.MatchesAllHosts()) {
@@ -2039,10 +2036,6 @@ void SiteSettingsHandler::HandleSetCategoryPermissionForPattern(
       base::RecordAction(base::UserMetricsAction(
           "SoundContentSetting.UnmuteBy.PatternException"));
     }
-  }
-
-  if (content_type == ContentSettingsType::NOTIFICATIONS) {
-    SendNotificationPermissionReviewList();
   }
 
   if (content_type == ContentSettingsType::COOKIES &&
@@ -2298,7 +2291,7 @@ void SiteSettingsHandler::HandleSetBlockAutoplayEnabled(
 
 void SiteSettingsHandler::RebuildModel() {
   // The handler services two requests async once models have been built.
-  DCHECK(update_site_details_ || send_sites_list_);
+  CHECK(update_site_details_ || send_sites_list_, base::NotFatalUntil::M162);
 
   // Tests will directly fire the appropriate service method.
   if (model_set_for_testing_) {
@@ -2569,8 +2562,10 @@ void SiteSettingsHandler::HandleRecordAction(const base::ListValue& args) {
   const auto& list = args;
   CHECK_EQ(1U, list.size());
   int action = list[0].GetInt();
-  DCHECK_LE(action, static_cast<int>(AllSitesAction2::kMaxValue));
-  DCHECK_GE(action, static_cast<int>(AllSitesAction2::kLoadPage));
+  CHECK_LE(action, static_cast<int>(AllSitesAction2::kMaxValue),
+           base::NotFatalUntil::M162);
+  CHECK_GE(action, static_cast<int>(AllSitesAction2::kLoadPage),
+           base::NotFatalUntil::M162);
 
   LogAllSitesAction(static_cast<AllSitesAction2>(action));
 }
@@ -2851,21 +2846,6 @@ base::ListValue SiteSettingsHandler::PopulateFileSystemGrantData() {
     grants.Append(std::move(origin_file_system_permission_grants));
   }
   return grants;
-}
-
-void SiteSettingsHandler::SendNotificationPermissionReviewList() {
-  NotificationPermissionsReviewService* service =
-      NotificationPermissionsReviewServiceFactory::GetForProfile(profile_);
-  CHECK(service);
-  // Notify observers that the permission review list could have changed. Note
-  // that the list is not guaranteed to have changed. In places where
-  // determining whether the list has changed is cause for performance concerns,
-  // an unchanged list may be sent. This is the case for
-  // HandleResetCategoryPermissionForPattern and
-  // HandleSetCategoryPermissionForPattern.
-  FireWebUIListener(
-      site_settings::kNotificationPermissionsReviewListMaybeChangedEvent,
-      service->PopulateNotificationPermissionReviewData());
 }
 
 base::Value SiteSettingsHandler::GetSystemDeniedPermissions() {

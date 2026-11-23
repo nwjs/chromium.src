@@ -60,7 +60,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.Android.CredManCreateRequest"
-    enum="CredManCreateRequestEnum" expires_after="2026-12-31">
+    enum="CredManCreateRequestEnum" expires_after="2027-04-11">
   <owner>derinel@google.com</owner>
   <owner>kenrb@chromium.org</owner>
   <summary>
@@ -99,7 +99,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.Android.GmsCoreGetCredentialsResult"
-    enum="GmsCoreGetCredentialsResult" expires_after="2027-02-14">
+    enum="GmsCoreGetCredentialsResult" expires_after="2027-04-18">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -132,7 +132,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.AutomaticPasskeyUpgrade.Result"
-    enum="PasskeyUpgradeResult" expires_after="2027-02-07">
+    enum="PasskeyUpgradeResult" expires_after="2027-04-11">
   <owner>martinkr@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -142,7 +142,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.CableV2.TunnelEvent{Server}"
-    enum="WebAuthenticationCableV2TunnelEvent" expires_after="2027-02-14">
+    enum="WebAuthenticationCableV2TunnelEvent" expires_after="2027-04-18">
   <owner>agl@chromium.org</owner>
   <owner>martinkr@google.com</owner>
   <summary>
@@ -295,7 +295,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.CredentialFetchDuration.GmsCore.{Source}"
-    units="ms" expires_after="2027-02-14">
+    units="ms" expires_after="2027-04-18">
   <owner>derinel@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -317,7 +317,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.CredentialFetchDuration.{ApiUsed}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>kenrb@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -406,6 +406,8 @@ chromium-metrics-reviews@google.com.
     <variant name="ChangePIN" summary="changing the GPM PIN"/>
     <variant name="ConsiderSecurityDomainState"
         summary="processing security domain state updates"/>
+    <variant name="RecoverWithICloudKeychain"
+        summary="recovering the security domain secret from iCloud Keychain"/>
     <variant name="RegisterIfNeeded"
         summary="registering the enclave if needed"/>
     <variant name="SetPIN" summary="setting a GPM PIN"/>
@@ -450,7 +452,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.Enclave.OpportunisticStoreKeysOutcome"
-    enum="EnclaveManagerActionOutcome" expires_after="2027-02-07">
+    enum="EnclaveManagerActionOutcome" expires_after="2027-04-11">
   <owner>ylahodiuk@google.com</owner>
   <owner>nsatragno@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
@@ -461,7 +463,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.Enclave.PinRenewalActionOutcome"
-    enum="EnclaveManagerActionOutcome" expires_after="2027-02-07">
+    enum="EnclaveManagerActionOutcome" expires_after="2027-04-11">
   <owner>agl@google.com</owner>
   <owner>kenrb@chromium.org</owner>
   <owner>nsatragno@chromium.org</owner>
@@ -500,7 +502,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.EnclaveRequestResult.{RequestType}"
-    enum="WebAuthenticationEnclaveRequestResult" expires_after="2027-02-07">
+    enum="WebAuthenticationEnclaveRequestResult" expires_after="2027-04-11">
   <owner>kenrb@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -650,7 +652,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="WebAuthentication.GPM.CachedOpportunisticallyRetrievedKeyEvent"
     enum="WebAuthenticationGPMCachedOpportunisticallyRetrievedKeyEvent"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>ylahodiuk@google.com</owner>
   <owner>izuzic@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
@@ -662,7 +664,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.GPM.GetAssertion"
-    enum="GPMGetAssertionEvents" expires_after="2027-02-07">
+    enum="GPMGetAssertionEvents" expires_after="2027-04-11">
   <owner>natiahlyi@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -689,7 +691,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.GPM.MakeCredential"
-    enum="GPMMakeCredentialEvents" expires_after="2027-02-07">
+    enum="GPMMakeCredentialEvents" expires_after="2027-04-11">
   <owner>natiahlyi@google.com</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -868,7 +870,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.MakeCredential.Result"
-    enum="WebAuthenticationCredentialRequestResult" expires_after="2027-02-07">
+    enum="WebAuthenticationCredentialRequestResult" expires_after="2027-04-11">
   <owner>kenrb@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>Records the result of a make credential request.</summary>
@@ -963,7 +965,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="WebAuthentication.SignalAllAcceptedCredentialsRemovedGPMPasskey"
-    enum="SignalAllAcceptedCredentialsResult" expires_after="2027-02-07">
+    enum="SignalAllAcceptedCredentialsResult" expires_after="2027-04-11">
   <owner>nsatragno@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -974,7 +976,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.SignalCurrentUserDetailsUpdatedGPMPasskey"
-    enum="SignalCurrentUserDetailsResult" expires_after="2026-11-29">
+    enum="SignalCurrentUserDetailsResult" expires_after="2027-10-17">
   <owner>nsatragno@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>
@@ -985,7 +987,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="WebAuthentication.SignalUnknownCredentialRemovedGPMPasskey"
-    enum="SignalUnknownCredentialResult" expires_after="2026-11-29">
+    enum="SignalUnknownCredentialResult" expires_after="2027-10-17">
   <owner>nsatragno@chromium.org</owner>
   <owner>chrome-webauthn@google.com</owner>
   <summary>

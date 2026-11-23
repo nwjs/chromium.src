@@ -56,7 +56,7 @@
       {
         "args": [
           "--avd-config=../../tools/android/avd/proto/android_29_google_apis_x86.textpb",
-          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.android_browsertests.filter",
+          "--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_10.android_browsertests.filter;../../testing/buildbot/filters/android.phone.android_browsertests.filter",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
@@ -451,7 +451,6 @@
       {
         "args": [
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--avd-config=../../tools/android/avd/proto/android_29_google_apis_x86.textpb",
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
@@ -902,7 +901,6 @@
       {
         "args": [
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--avd-config=../../tools/android/avd/proto/android_29_google_apis_x86.textpb",
           "--disable-field-trial-config",
           "--skia-gold-consider-unsupported",
@@ -962,7 +960,6 @@
       {
         "args": [
           "--git-revision=${got_revision}",
-          "--bypass-skia-gold-functionality",
           "--avd-config=../../tools/android/avd/proto/android_29_google_apis_x86.textpb",
           "--disable-field-trial-config",
           "--skia-gold-consider-unsupported",
@@ -1076,6 +1073,7 @@
           "--recover-devices"
         ],
         "description": "Run with android_29_google_apis_x86",
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "args": [
@@ -1161,15 +1159,8 @@
             }
           ],
           "optional_dimensions": {
-            "120": {
-              "caches": "android_29_google_apis_x86"
-            },
-            "30": {
-              "caches": "android_29_google_apis_x86",
-              "cpu": "x86-64-n4"
-            },
             "60": {
-              "cpu": "x86-64-n4"
+              "caches": "android_29_google_apis_x86"
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",

@@ -157,11 +157,14 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
     /**
      * Signals that the UrlBar has finished being relocated to a new parent.
      *
-     * @param postReparentingFocus Whether the UrlBar should be focused.
+     * @param focusGained Whether the UrlBar gained focus as part of the reparenting. Outside of an
+     *     input session the text is re-pushed so the view picks up the focused presentation. When
+     *     focus is unchanged the view is deliberately left untouched: re-pushing text calls
+     *     setText(), which replaces the Editable and destroys any in-progress IME composition.
      */
-    void finishReparenting(boolean postReparentingFocus) {
+    void finishReparenting(boolean focusGained) {
         mIsReparenting = false;
-        if (postReparentingFocus && !isInInputSession()) {
+        if (focusGained && !isInInputSession()) {
             pushTextToModel(/* originChanged= */ false);
         }
     }
@@ -423,11 +426,6 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
 
         // Trim to just the currently selected text as that is the only text we are replacing.
         currentText = currentText.substring(minSel, maxSel);
-
-        UrlBarDelegate delegate = mModel.get(UrlBarProperties.DELEGATE);
-        assert delegate != null;
-        String replacement = delegate.getReplacementCutCopyText(currentText, selection);
-        if (replacement != null) return replacement;
 
         String formattedUrlLocation;
         String originalUrlLocation;

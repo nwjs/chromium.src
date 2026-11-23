@@ -125,11 +125,15 @@ BASE_FEATURE(kBrowsingHistorySimilarVisitsGrouping,
 BASE_FEATURE(kBrowsingHistoryImprovedHostnameSuffixMatching,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables browser history filtering by device.
+// Enables browser history filtering by device. Do not check this feature
+// directly; use `IsBrowsingHistoryFilterByDeviceEnabled()` instead.
 BASE_FEATURE(kBrowsingHistoryFilterByDevice, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables browser history filtering by domain.
 BASE_FEATURE(kBrowsingHistoryFilterByDomain, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables browser history filtering by time.
+BASE_FEATURE(kBrowsingHistoryFilterByTime, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_IOS)
 // Enables browser history filtering by actor on Android. On desktop this
@@ -141,6 +145,11 @@ BASE_FEATURE(kBrowsingHistoryFilterByActor, base::FEATURE_DISABLED_BY_DEFAULT);
 // history (https://footprints-pa.googleapis.com/...) instead of the old and
 // deprecated one (https://history.google.com/history/api/...).
 BASE_FEATURE(kWebHistoryUseNewApi, base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsBrowsingHistoryFilterByDeviceEnabled() {
+  return base::FeatureList::IsEnabled(kWebHistoryUseNewApi) &&
+         base::FeatureList::IsEnabled(kBrowsingHistoryFilterByDevice);
+}
 
 // Enables WAL (Write-Ahead Logging) mode on the main history database
 // and opens the InMemoryHistoryDB with PRAGMA locking_mode=NORMAL (a

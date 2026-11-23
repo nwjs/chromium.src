@@ -6,10 +6,15 @@
 
 #include <memory>
 #include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 #include "base/base64url.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -17,6 +22,7 @@
 #include "base/time/time.h"
 #include "components/one_time_tokens/core/browser/fetch_email_one_time_token_response.pb.h"
 #include "components/one_time_tokens/core/browser/fetch_user_data_processing_consent_response.pb.h"
+#include "components/one_time_tokens/core/browser/one_time_token_log_sink.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service_constants.h"
 #include "components/one_time_tokens/core/browser/user_data_processing_consent_states.h"
 #include "components/one_time_tokens/core/common/one_time_token_features.h"
@@ -27,6 +33,7 @@
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace one_time_tokens {
@@ -90,7 +97,8 @@ TEST_F(GmailOtpBackendImplTest, SubscribeAndGetToken) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   backend_.OnIncomingOneTimeTokenBackendNotification(
       OneTimeTokenBackendNotification(
@@ -142,7 +150,8 @@ TEST_F(GmailOtpBackendImplTest, SubscribeAndGetTokenFailure) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   backend_.OnIncomingOneTimeTokenBackendNotification(
       OneTimeTokenBackendNotification(
@@ -187,7 +196,8 @@ TEST_F(GmailOtpBackendImplTest, MultiplePendingRequestsAllowed) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   // First tickle starts a request.
   backend_.OnIncomingOneTimeTokenBackendNotification(
@@ -216,7 +226,8 @@ TEST_F(GmailOtpBackendImplTest, EnforcesConcurrencyLimit) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   // Send 3 tickles and respond to their token requests.
   for (int i = 1; i <= 3; ++i) {
@@ -248,7 +259,8 @@ TEST_F(GmailOtpBackendImplTest, ProcessesQueueOnCompletion) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   // Start 3 requests (fill the limit).
   for (int i = 1; i <= 3; ++i) {
@@ -281,7 +293,8 @@ TEST_F(GmailOtpBackendImplTest, DeDuplicatesIncomingTickles) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   // Send the same tickle 3 times.
   const OneTimeTokenBackendNotification notification(
@@ -319,7 +332,8 @@ TEST_F(GmailOtpBackendImplTest, RecentTicklesProcessedUponSubscription) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   // The cached tickle should now trigger a request.
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
@@ -346,7 +360,8 @@ TEST_F(GmailOtpBackendImplTest, ExpiredTicklesNotProcessedUponSubscription) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   // No request should be triggered for the expired tickle.
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -360,7 +375,8 @@ TEST_F(GmailOtpBackendImplTest, SubscriptionWaitLatencyIsZeroWhenActive) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   backend_.OnIncomingOneTimeTokenBackendNotification(
       OneTimeTokenBackendNotification(EncryptedMessageReference("ref1")));
@@ -386,7 +402,8 @@ TEST_F(GmailOtpBackendImplTest, SubscriptionWaitLatencyRecordsWaitTime) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   histogram_tester.ExpectTimeBucketCount(
       "Autofill.OneTimeTokens.Backend.Gmail.SubscriptionWaitLatency",
@@ -403,7 +420,8 @@ TEST_F(GmailOtpBackendImplTest, Subscribe_InitializationFailed) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = bad_backend.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   const base::expected<OneTimeToken, OneTimeTokenRetrievalError>& result =
       future.Get();
@@ -574,7 +592,8 @@ TEST_F(GmailOtpBackendImplTest, HasPendingRequests) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
   EXPECT_TRUE(backend_.HasPendingRequests());
 
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
@@ -598,7 +617,8 @@ TEST_F(GmailOtpBackendImplTest,
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithToken(
       "access_token", base::Time::Now() + base::Hours(1));
@@ -658,6 +678,63 @@ TEST_F(GmailOtpBackendImplTest, ExpiredOnArrival_NotLoggedIfFeatureDisabled) {
   backend_.OnIncomingOneTimeTokenBackendNotification(notification);
 
   histogram_tester.ExpectTotalCount(kTickleArrivalHistogram, 0);
+}
+
+TEST_F(GmailOtpBackendImplTest,
+       EmailReceivedToTickleLatency_LoggedUponTickleArrival) {
+  base::HistogramTester histogram_tester;
+  base::Time now = base::Time::Now();
+  base::Time email_received = now - base::Milliseconds(500);
+  OneTimeTokenBackendNotification notification(
+      EncryptedMessageReference("ref1"),
+      /*otp_created_timestamp=*/now,
+      /*email_received_timestamp=*/email_received,
+      /*email_delivered_timestamp=*/now,
+      /*notification_sent_timestamp=*/now,
+      /*notification_received_timestamp=*/now,
+      /*notification_received_timeticks=*/base::TimeTicks::Now());
+
+  backend_.OnIncomingOneTimeTokenBackendNotification(notification);
+
+  histogram_tester.ExpectUniqueTimeSample(
+      kEmailReceivedToTickleLatencyHistogram, base::Milliseconds(500), 1);
+}
+
+TEST_F(GmailOtpBackendImplTest,
+       EmailReceivedToTickleLatency_NotLoggedIfReceivedTimestampMissing) {
+  base::HistogramTester histogram_tester;
+  base::Time now = base::Time::Now();
+  OneTimeTokenBackendNotification notification(
+      EncryptedMessageReference("ref1"),
+      /*otp_created_timestamp=*/now,
+      /*email_received_timestamp=*/base::Time(),
+      /*email_delivered_timestamp=*/now,
+      /*notification_sent_timestamp=*/now,
+      /*notification_received_timestamp=*/now,
+      /*notification_received_timeticks=*/base::TimeTicks::Now());
+
+  backend_.OnIncomingOneTimeTokenBackendNotification(notification);
+
+  histogram_tester.ExpectTotalCount(kEmailReceivedToTickleLatencyHistogram, 0);
+}
+
+TEST_F(GmailOtpBackendImplTest,
+       EmailReceivedToTickleLatency_NotLoggedIfNegativeLatency) {
+  base::HistogramTester histogram_tester;
+  base::Time now = base::Time::Now();
+  base::Time email_received_future = now + base::Seconds(1);
+  OneTimeTokenBackendNotification notification(
+      EncryptedMessageReference("ref1"),
+      /*otp_created_timestamp=*/now,
+      /*email_received_timestamp=*/email_received_future,
+      /*email_delivered_timestamp=*/now,
+      /*notification_sent_timestamp=*/now,
+      /*notification_received_timestamp=*/now,
+      /*notification_received_timeticks=*/base::TimeTicks::Now());
+
+  backend_.OnIncomingOneTimeTokenBackendNotification(notification);
+
+  histogram_tester.ExpectTotalCount(kEmailReceivedToTickleLatencyHistogram, 0);
 }
 
 TEST_F(GmailOtpBackendImplTest,
@@ -783,7 +860,8 @@ TEST_F(GmailOtpBackendImplTest, TokenCachedOnArrival) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   backend_.OnIncomingOneTimeTokenBackendNotification(
       OneTimeTokenBackendNotification(
@@ -807,11 +885,6 @@ TEST_F(GmailOtpBackendImplTest, TokenCachedOnArrival) {
 
   ASSERT_TRUE(future.Get().has_value());
 
-  std::vector<OneTimeToken> cached = backend_.GetCachedOneTimeTokens();
-  ASSERT_EQ(cached.size(), 1u);
-  EXPECT_EQ(cached[0].value(), kOtp);
-  EXPECT_EQ(cached[0].sender_address(), kSenderAddress);
-
   std::vector<OneTimeToken> purged =
       backend_.PurgeExpiredAndGetCachedOneTimeTokens();
   ASSERT_EQ(purged.size(), 1u);
@@ -828,7 +901,8 @@ TEST_F(GmailOtpBackendImplTest, CachedTokenExpiresAfterOneMinute) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   backend_.OnIncomingOneTimeTokenBackendNotification(
       OneTimeTokenBackendNotification(
@@ -867,7 +941,8 @@ TEST_F(GmailOtpBackendImplTest, TokenCacheDeduplication) {
       base::expected<OneTimeToken, OneTimeTokenRetrievalError>>
       future;
   ExpiringSubscription subscription = backend_.Subscribe(
-      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback());
+      base::Time::Now() + base::Minutes(1), future.GetRepeatingCallback(),
+      /*expiration_callback=*/base::DoNothing());
 
   backend_.OnIncomingOneTimeTokenBackendNotification(
       OneTimeTokenBackendNotification(
@@ -911,7 +986,7 @@ TEST_F(GmailOtpBackendImplTest, TokenCacheDeduplication) {
   ASSERT_TRUE(future.Take().has_value());
 
   // The cache should only contain 1 token due to deduplication.
-  EXPECT_EQ(backend_.GetCachedOneTimeTokens().size(), 1u);
+  EXPECT_EQ(backend_.PurgeExpiredAndGetCachedOneTimeTokens().size(), 1u);
 }
 
 TEST_F(GmailOtpBackendImplTest, SubscribeRunsExpirationCallback) {
@@ -921,6 +996,40 @@ TEST_F(GmailOtpBackendImplTest, SubscribeRunsExpirationCallback) {
                          base::DoNothing(), expired.GetCallback());
   task_environment_.FastForwardBy(base::Seconds(11));
   EXPECT_TRUE(expired.IsReady());
+}
+
+// Tests that a `LogHandler` passed to `GmailOtpBackendImpl` is registered with
+// `GetLogSink()` for the lifetime of the backend.
+TEST_F(GmailOtpBackendImplTest, LogHandlerRegisteredInConstructor) {
+  base::test::TestFuture<std::string> log_future;
+  GmailOtpBackendImpl backend(
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      *identity_test_env_.identity_manager(),
+      base::BindRepeating(
+          [](base::RepeatingCallback<void(std::string)> cb,
+             std::string_view message) { cb.Run(std::string(message)); },
+          log_future.GetRepeatingCallback()));
+
+  EXPECT_TRUE(backend.GetLogSink()->IsActive());
+  LOG_OTT(backend.GetLogSink()) << "test log message";
+  EXPECT_EQ(log_future.Take(), "test log message");
+}
+
+// Tests that the backend emits its logs to the `LogHandler` passed to it.
+TEST_F(GmailOtpBackendImplTest, LogsToLogHandler) {
+  std::vector<std::string> log_messages;
+  GmailOtpBackendImpl backend(
+      test_url_loader_factory_.GetSafeWeakWrapper(),
+      *identity_test_env_.identity_manager(),
+      base::BindLambdaForTesting([&](std::string_view message) {
+        log_messages.emplace_back(message);
+      }));
+
+  backend.OnIncomingOneTimeTokenBackendNotification(
+      OneTimeTokenBackendNotification(
+          EncryptedMessageReference("encrypted_reference")));
+
+  EXPECT_THAT(log_messages, testing::Contains("Tickle received"));
 }
 
 }  // namespace one_time_tokens

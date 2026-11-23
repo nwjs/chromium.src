@@ -282,10 +282,10 @@ sk_sp<SkTypeface> FontCache::CreateTypeface(
 
   if (creation_params.CreationType() == kCreateFontByFciIdAndTtcIndex) {
     if (Platform::Current()->GetSandboxSupport()) {
-      return SkTypeface_Factory::FromFontConfigInterfaceIdAndTtcIndex(
+      return CreateSkTypefaceFromFontConfigInterfaceIdAndTtcIndex(
           creation_params.FontconfigInterfaceId(), creation_params.TtcIndex());
     }
-    return SkTypeface_Factory::FromFilenameAndTtcIndex(
+    return CreateSkTypefaceFromFilenameAndTtcIndex(
         creation_params.Filename().data(), creation_params.TtcIndex());
   }
 #endif
@@ -364,7 +364,7 @@ const FontPlatformData* FontCache::CreateFontPlatformData(
       font_description.Orientation());
 
   font_platform_data->SetAvoidEmbeddedBitmaps(
-      BitmapGlyphsBlockList::ShouldAvoidEmbeddedBitmapsForTypeface(*typeface));
+      ShouldAvoidEmbeddedBitmapsForTypeface(*typeface));
 
   return font_platform_data;
 }

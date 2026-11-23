@@ -53,13 +53,13 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.night_mode.WebContentsDarkModeController;
-import org.chromium.chrome.browser.ntp.RecentlyClosedEntry;
-import org.chromium.chrome.browser.ntp.RecentlyClosedWindow;
-import org.chromium.chrome.browser.ntp.SessionRecentlyClosedEntry;
 import org.chromium.chrome.browser.open_in_app.OpenInAppMenuItemProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.readaloud.ReadAloudController;
 import org.chromium.chrome.browser.recent_tabs.ForeignSessionHelper.ForeignSessionTab;
+import org.chromium.chrome.browser.recent_tabs.RecentlyClosedEntry;
+import org.chromium.chrome.browser.recent_tabs.RecentlyClosedWindow;
+import org.chromium.chrome.browser.recent_tabs.SessionRecentlyClosedEntry;
 import org.chromium.chrome.browser.share.ShareHelper;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
@@ -1170,7 +1170,8 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
      * @return The share list item.
      */
     protected ListItem buildShareListItem(boolean showIcon) {
-        Pair<Drawable, CharSequence> directShare = ShareHelper.getShareableIconAndNameForText();
+        Pair<@Nullable Drawable, @Nullable CharSequence> directShare =
+                ShareHelper.getShareableIconAndNameForText();
         if (directShare.first != null) {
             CharSequence directShareTitle = directShare.second;
             if (directShareTitle != null) {

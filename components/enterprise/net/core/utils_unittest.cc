@@ -14,9 +14,13 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
+#include "components/enterprise/net/core/features.h"
+#include "components/enterprise/net/core/prefs.h"
+#include "components/prefs/testing_pref_service.h"
 #include "net/base/proxy_chain.h"
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
@@ -1074,6 +1078,49 @@ TEST(ParseRoutingRuleTest, PlainDomainDoesNotMatchSubdomains) {
 }
 
 #endif  // BUILDFLAG(IS_IOS)
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+// Tests that `IsSecureGatewayEnabled` returns true only when both the
+// `kProxyProvisioningDomains` preference is non-empty and the dynamic route
+// fetching feature is enabled.
+TEST(UtilsTest, IsSecureGatewayEnabled) {
+  TestingPrefServiceSimple prefs;
+  RegisterProfilePrefs(prefs.registry());
+
+  // Empty preference list should return false regardless of feature state.
+  EXPECT_FALSE(IsSecureGatewayEnabled(&prefs));
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(kEnableDynamicRouteFetching);
+    EXPECT_FALSE(IsSecureGatewayEnabled(&prefs));
+  }
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(kEnableDynamicRouteFetching);
+    EXPECT_FALSE(IsSecureGatewayEnabled(&prefs));
+  }
+
+  base::ListValue domains;
+  domains.Append("example.com");
+  prefs.SetList(kProxyProvisioningDomains, std::move(domains));
+#if BUILDFLAG(IS_ANDROID)
+  EXPECT_TRUE(IsSecureGatewayEnabled(&prefs));
+#else
+  EXPECT_FALSE(IsSecureGatewayEnabled(&prefs));
+#endif
+
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(kEnableDynamicRouteFetching);
+    EXPECT_TRUE(IsSecureGatewayEnabled(&prefs));
+  }
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(kEnableDynamicRouteFetching);
+    EXPECT_FALSE(IsSecureGatewayEnabled(&prefs));
+  }
+}
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 }  // namespace
 }  // namespace enterprise_net

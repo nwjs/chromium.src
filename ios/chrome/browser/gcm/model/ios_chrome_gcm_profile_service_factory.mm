@@ -4,11 +4,12 @@
 
 #import "ios/chrome/browser/gcm/model/ios_chrome_gcm_profile_service_factory.h"
 
+#import <utility>
+
 #import "base/check_is_test.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/memory/ref_counted.h"
-#import "base/no_destructor.h"
 #import "base/task/bind_post_task.h"
 #import "base/task/sequenced_task_runner.h"
 #import "base/task/thread_pool.h"
@@ -18,27 +19,12 @@
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
-#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/common/channel_info.h"
 #import "ios/web/public/thread/web_task_traits.h"
 #import "ios/web/public/thread/web_thread.h"
 #import "mojo/public/cpp/bindings/pending_receiver.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 #import "services/network/public/mojom/proxy_resolving_socket.mojom.h"
-
-// static
-gcm::GCMProfileService* IOSChromeGCMProfileServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<gcm::GCMProfileService>(
-      profile, /*create=*/true);
-}
-
-// static
-IOSChromeGCMProfileServiceFactory*
-IOSChromeGCMProfileServiceFactory::GetInstance() {
-  static base::NoDestructor<IOSChromeGCMProfileServiceFactory> instance;
-  return instance.get();
-}
 
 // static
 std::string IOSChromeGCMProfileServiceFactory::GetProductCategoryForSubtypes() {
@@ -49,12 +35,9 @@ std::string IOSChromeGCMProfileServiceFactory::GetProductCategoryForSubtypes() {
 #endif
 }
 
-IOSChromeGCMProfileServiceFactory::IOSChromeGCMProfileServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("GCMProfileService") {
-  DependsOn(IdentityManagerFactory::GetInstance());
-}
-
-IOSChromeGCMProfileServiceFactory::~IOSChromeGCMProfileServiceFactory() {}
+IOSChromeGCMProfileServiceFactory::IOSChromeGCMProfileServiceFactory(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key), "GCMProfileService") {}
 
 std::unique_ptr<KeyedService>
 IOSChromeGCMProfileServiceFactory::BuildServiceInstanceFor(
@@ -86,7 +69,6 @@ IOSChromeGCMProfileServiceFactory::BuildServiceInstanceFor(
       profile->GetSharedURLLoaderFactory(),
       GetApplicationContext()->GetNetworkConnectionTracker(), ::GetChannel(),
       GetProductCategoryForSubtypes(),
-      IdentityManagerFactory::GetForProfile(profile),
       std::make_unique<gcm::GCMClientFactory>(), web::GetUIThreadTaskRunner({}),
       web::GetIOThreadTaskRunner({}), blocking_task_runner,
       GetApplicationContext()->GetOSCryptAsync());

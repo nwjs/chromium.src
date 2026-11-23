@@ -27,6 +27,7 @@
 #include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/api/autofill_private/autofill_ai_util.h"
+#include "chrome/browser/extensions/api/autofill_private/autofill_private_event_router_factory.h"
 #include "chrome/browser/extensions/api/autofill_private/autofill_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
@@ -60,6 +61,7 @@
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_util.h"
+#include "components/autofill/core/browser/permissions/device_reauth_util.h"
 #include "components/autofill/core/browser/studies/autofill_experiments.h"
 #include "components/autofill/core/browser/ui/addresses/autofill_address_util.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -281,6 +283,9 @@ AutofillPrivateExtensionFunction::address_data_manager() {
 
 autofill::ContentAutofillClient*
 AutofillPrivateExtensionFunction::autofill_client() {
+  if (browser_context()) {
+    AutofillPrivateEventRouterFactory::GetForProfile(browser_context());
+  }
   return autofill::ContentAutofillClient::FromWebContents(
       GetSenderWebContents());
 }
@@ -291,6 +296,7 @@ AutofillPrivateExtensionFunction::entity_data_manager() {
   if (!context) {
     return nullptr;
   }
+  AutofillPrivateEventRouterFactory::GetForProfile(context);
   Profile* profile = Profile::FromBrowserContext(context);
   return profile ? autofill::AutofillEntityDataManagerFactory::GetForProfile(
                        profile)
@@ -1103,8 +1109,7 @@ AutofillPrivateCheckIfDeviceAuthAvailableFunction::Run() {
   autofill::ContentAutofillClient* client =
       autofill::ContentAutofillClient::FromWebContents(GetSenderWebContents());
   if (client) {
-    return RespondNow(WithArguments(autofill::IsDeviceAuthAvailable(
-        client->GetDeviceAuthenticator().get())));
+    return RespondNow(WithArguments(autofill::SupportsDeviceReauth(*client)));
   }
 #endif  // BUILDFLAG (IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   return RespondNow(Error(base::StrCat(
@@ -1459,13 +1464,13 @@ AutofillPrivateGetDetailsForUpsertPassFunction::Run() {
   }
 
   api::autofill_private::UpsertPassDetails details;
-  // `response->context_token` contains raw encrypted binary bytes, whereas
-  // `base::Value(std::string)` (used by Extensions IDL serialization) enforces
-  // `DCHECK(IsStringUTF8AllowingNoncharacters(...))`. Base64-encode the token
-  // for transport to the WebUI;
+  // `response->legal_message_token` contains raw encrypted binary bytes,
+  // whereas `base::Value(std::string)` (used by Extensions IDL serialization)
+  // enforces `DCHECK(IsStringUTF8AllowingNoncharacters(...))`. Base64-encode
+  // the token for transport to the WebUI;
   // `AutofillPrivateAddOrUpdateEntityInstanceFunction` decodes it back to raw
   // bytes via `base::Base64Decode`.
-  details.context_token = base::Base64Encode(response->context_token);
+  details.context_token = base::Base64Encode(response->legal_message_token);
   details.legal_message_lines.reserve(response->legal_message_lines.size());
   for (const auto& line : response->legal_message_lines) {
     api::autofill_private::LegalMessageLine idl_line;

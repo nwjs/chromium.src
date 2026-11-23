@@ -2,6 +2,7 @@
 // META: script=/resources/testdriver.js
 // META: script=/resources/testdriver-vendor.js
 // META: script=../resources/util.js
+// META: timeout=long
 
 'use strict';
 
@@ -218,21 +219,46 @@ promise_test(async t => {
 }, 'decisionModel.decide() rejects empty or whitespace-only input with TypeError');
 
 promise_test(async t => {
-  const decisionModel = await createDecisionModel(kSampleSchema);
-  t.add_cleanup(() => decisionModel.destroy());
+  await testCreateMonitorCallbackThrowsError(t, createDecisionModel,
+                                             kSampleSchema);
+}, 'DecisionModel.create() rejects when monitor callback throws an error');
 
-  const controller = new AbortController();
-  controller.abort();
-  await promise_rejects_dom(
-      t, 'AbortError',
-      decisionModel.decide('Aborted input', {signal: controller.signal}));
-}, 'decisionModel.decide() rejects with AbortError when passed an aborted AbortSignal');
+promise_test(async t => {
+  await testMonitor(createDecisionModel, kSampleSchema);
+}, 'DecisionModel.create() notifies its monitor on downloadprogress');
+
+promise_test(async t => {
+  await testCreateMonitorWithAbort(t, createDecisionModel, kSampleSchema);
+}, 'Progress events are not emitted after DecisionModel.create() is aborted');
+
+promise_test(async t => {
+  const availability = await DecisionModel.availability(kSampleSchema);
+  assert_implements_optional(
+      availability !== 'unavailable',
+      'DecisionModel is not available for the given options');
+  await test_driver.bless();
+  await testAbortPromise(t, signal => {
+    return DecisionModel.create({...kSampleSchema, signal});
+  });
+}, 'Aborting DecisionModel.create()');
 
 promise_test(async t => {
   const decisionModel = await createDecisionModel(kSampleSchema);
-  decisionModel.destroy();
+  t.add_cleanup(() => decisionModel.destroy());
 
-  await promise_rejects_dom(
-      t, 'InvalidStateError',
-      decisionModel.decide('Input after session destruction'));
-}, 'decisionModel.decide() rejects with InvalidStateError after destroy()');
+  await testAbortPromise(t, signal => {
+    return decisionModel.decide('Aborted input', {signal});
+  });
+}, 'Aborting decisionModel.decide()');
+
+promise_test(async t => {
+  await testCreateAbort(t, createDecisionModel, kSampleSchema, [
+    decisionModel => decisionModel.decide('Input aborted via create signal'),
+  ]);
+}, 'Aborting the signal passed to DecisionModel.create() destroys the session and rejects decide()');
+
+promise_test(async t => {
+  await testDestroy(t, createDecisionModel, kSampleSchema, [
+    decisionModel => decisionModel.decide('Input destroyed mid-flight'),
+  ]);
+}, 'DecisionModel.destroy() rejects pending and later decide() calls with AbortError');

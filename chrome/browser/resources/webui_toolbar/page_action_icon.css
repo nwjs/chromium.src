@@ -90,6 +90,10 @@
   --toolbar-chip-fg-color: var(--color-omnibox-icon-foreground-tonal);
 }
 
+:host-context([dir=rtl]) #animatedIcon {
+  transform: scaleX(-1);
+}
+
 #text {
   display: inline-block;
   font-family: var(--omnibox-primary-body-3-emphasis-font-family);
@@ -107,6 +111,12 @@
   text-box: trim-both cap alphabetic;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+/* Grey the label while the browser window is inactive. The browser only sets
+ * controls-appear-inactive on Mac. The icon keeps its color. */
+:host-context(toolbar-app[controls-appear-inactive]) #text {
+  color: var(--color-label-foreground-disabled);
 }
 
 /* SlideAndCrossfade animation styling: used by the AI Mode page action chip
@@ -151,7 +161,7 @@
   --slide-crossfade-leading-collapsed: var(--slide-crossfade-trailing);
 }
 
-:host([slide-and-crossfade]:dir(rtl)) {
+:host-context([dir=rtl]):host([slide-and-crossfade]) {
   --slide-crossfade-direction: 1;
 }
 
@@ -221,7 +231,13 @@
 }
 
 :host([slide-and-crossfade]:not([show-trailing-icon])) #text {
-  transform: translateX(0);
+  /* The resting state must match the out-of-mode computed value ('none', the
+   * default for #text) so that turning slide-and-crossfade on is not a
+   * computed value change and does not start a spurious no-op transition.
+   * 'none' still interpolates smoothly to translateX(): per CSS Transforms
+   * (https://www.w3.org/TR/css-transforms-1/#transform-interpolation-length-fixup)
+   * 'none' is substituted with identity functions matching the other side. */
+  transform: none;
   transition: transform var(--slide-crossfade-duration-collapse)
       var(--slide-crossfade-easing);
 }

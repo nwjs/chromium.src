@@ -12,9 +12,11 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "components/contextual_search/pref_names.h"
 #include "components/contextual_tasks/public/account_utils.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/contextual_tasks/public/features.h"
@@ -55,6 +57,14 @@ EntryPointEligibilityManager::EntryPointEligibilityManager(
             base::BindRepeating(&EntryPointEligibilityManager::
                                     MaybeNotifyEntryPointEligibilityChanged,
                                 base::Unretained(this)));
+  }
+  if (profile_ && profile_->GetPrefs()) {
+    pref_change_registrar_.Init(profile_->GetPrefs());
+    pref_change_registrar_.Add(
+        contextual_search::kSearchContentSharingSettings,
+        base::BindRepeating(&EntryPointEligibilityManager::
+                                MaybeNotifyEntryPointEligibilityChanged,
+                            base::Unretained(this)));
   }
   entry_points_are_eligible_ = AreEntryPointsEligible();
   is_pinning_eligible_ = IsPinningEligible(profile_);
@@ -106,20 +116,21 @@ bool EntryPointEligibilityManager::IsPinningEligible(Profile* profile) {
   if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled()) {
     return false;
   }
-  if (!profile) {
-    return false;
-  }
   if (base::FeatureList::IsEnabled(
           kContextualTasksForceEntryPointEligibility)) {
     return true;
   }
-  ContextualTasksEligibilityManager* eligibility_manager =
-      ContextualTasksEligibilityManager::GetForProfile(profile);
-  if (!eligibility_manager || !eligibility_manager->IsSidePanelAvailable()) {
+  if (!contextual_tasks::IsTabSharingEligible(profile)) {
     return false;
   }
-  auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile);
-  return aim_service && aim_service->IsFuseboxEligible();
+  ContextualTasksEligibilityManager* eligibility_manager =
+      ContextualTasksEligibilityManager::GetForProfile(profile);
+  return eligibility_manager && eligibility_manager->IsSidePanelAvailable();
+}
+
+// static
+bool EntryPointEligibilityManager::CanPinOrUnpin(Profile* profile) {
+  return profile && profile->IsRegularProfile() && IsPinningEligible(profile);
 }
 
 void EntryPointEligibilityManager::MaybeNotifyEntryPointEligibilityChanged() {

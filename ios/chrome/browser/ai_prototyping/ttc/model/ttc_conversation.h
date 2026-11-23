@@ -6,10 +6,12 @@
 #define IOS_CHROME_BROWSER_AI_PROTOTYPING_TTC_MODEL_TTC_CONVERSATION_H_
 
 #import <Foundation/Foundation.h>
+#import <stddef.h>
 #import <stdint.h>
 
 #import <memory>
 #import <string>
+#import <vector>
 
 #import "base/containers/span.h"
 #import "base/memory/raw_ptr.h"
@@ -20,8 +22,14 @@
 #import "components/ttc/app/public/tool_types.h"
 #import "components/ttc/app/ttc_backend.h"
 
+class GURL;
 @protocol TTCAudioController;
 @class TTCAudioControllerDelegateBridge;
+class TTCJournal;
+
+namespace optimization_guide::proto {
+class AnnotatedPageContent;
+}  // namespace optimization_guide::proto
 
 // Coordinates between audio input/output and the transport session for TTC on
 // iOS.
@@ -65,6 +73,10 @@ class TtcConversation : public ttc::TtcBackend::Observer {
   void set_delegate(Delegate* delegate) { delegate_ = delegate; }
   Delegate* delegate() const { return delegate_; }
 
+  // Optional session journal for structured event logging.
+  TTCJournal* journal() const;
+  void set_journal(TTCJournal* journal);
+
   // Underlying audio controller.
   id<TTCAudioController> audio_controller() const { return audio_controller_; }
 
@@ -84,6 +96,13 @@ class TtcConversation : public ttc::TtcBackend::Observer {
   // times.
   void Disconnect();
 
+  // Sends an updated context frame with page `url`, `title`, and
+  // `AnnotatedPageContent` (`apc`) for the active tab to the backend.
+  void SendContextUpdate(
+      const GURL& url,
+      const std::string& title,
+      const optimization_guide::proto::AnnotatedPageContent& apc);
+
   // Forwarded `TTCAudioControllerDelegate` callbacks.
   void OnAudioChunkCaptured(NSData* pcm_data);
   void OnInputEnergyUpdated(float energy);
@@ -94,6 +113,10 @@ class TtcConversation : public ttc::TtcBackend::Observer {
   base::WeakPtr<TtcConversation> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
   }
+
+  // Sends `tool_definitions` to the underlying backend.
+  void SendToolSetUpdate(
+      const std::vector<ttc::ToolDefinition>& tool_definitions);
 
   // `ttc::TtcBackend::Observer` implementation:
   void OnBackendInitialized() override;
@@ -119,6 +142,42 @@ class TtcConversation : public ttc::TtcBackend::Observer {
   // Notifies `delegate_` of a conversation error.
   void HandleError(ttc::ErrorCode error);
 
+  // Journal logging helpers.
+  void LogBackendSetupStarted();
+  void LogBackendInitialized();
+  void LogBackendClosed();
+  void LogBackendError(ttc::ErrorCode error);
+  // Logs `AudioInputSuppressed` to the journal when microphone capture is
+  // suppressed due to active response playback.
+  void LogAudioInputSuppressed();
+  // Logs `AudioInputDropped` to the journal when microphone capture arrives
+  // while the backend transport is disconnected.
+  void LogAudioInputDropped();
+  // Records `byte_size` audio payload bytes sent in the current burst, logging
+  // `AudioInputStarted` on the burst's first chunk.
+  void RecordAndLogAudioChunkSent(size_t byte_size);
+  // Flushes accumulated sent audio burst telemetry (`AudioInputSent`) to the
+  // journal and resets burst counters.
+  void FlushSentAudioJournalState();
+  void LogGenerationStateChanged(bool started,
+                                 bool completed,
+                                 bool interrupted);
+  void LogOrUpdateInputTranscription(const std::string& chunk);
+  void LogOrUpdateOutputTranscription(const std::string& chunk);
+  void LogToolCallReceived(const std::string& tool_name);
+  // Logs a `TtcToolDefinitionsSent` journal entry recording the active
+  // `tool_definitions` sent to the backend.
+  void LogToolDefinitionsSent(
+      const std::vector<ttc::ToolDefinition>& tool_definitions);
+  // Logs a `TtcContextUpdateSent` journal entry recording the page context
+  // update (`url`, `title`, and `AnnotatedPageContent` payload metadata) sent
+  // to the backend without serializing the full DOM tree.
+  void LogContextUpdateSent(
+      const GURL& url,
+      const std::string& title,
+      const optimization_guide::proto::AnnotatedPageContent& apc);
+  void ResetTurnJournalState();
+
   SEQUENCE_CHECKER(sequence_checker_);
 
   // Non-owning pointer to the conversation delegate.
@@ -140,6 +199,30 @@ class TtcConversation : public ttc::TtcBackend::Observer {
 
   // Guard flag preventing re-entrant `Stop()` invocations.
   bool is_stopping_ = false;
+
+  // Optional session journal for structured event logging.
+  base::WeakPtr<TTCJournal> journal_;
+
+  // Per-burst upstream audio sending telemetry metrics.
+  size_t sent_audio_chunks_ = 0;
+  size_t sent_audio_bytes_ = 0;
+  float peak_input_energy_ = 0.0f;
+
+  // Deduplication flags preventing log spam while capture is suppressed or
+  // disconnected.
+  bool logged_playback_suppression_ = false;
+  bool logged_disconnected_drop_ = false;
+
+  // Per-turn coalesced transcription state for one direction (input or output).
+  struct TranscriptionJournalState {
+    std::string text;
+    size_t chunks = 0;
+    uint64_t entry_id = 0;
+  };
+
+  // Per-turn coalesced transcription state.
+  TranscriptionJournalState input_transcription_;
+  TranscriptionJournalState output_transcription_;
 
   base::WeakPtrFactory<TtcConversation> weak_ptr_factory_{this};
 };

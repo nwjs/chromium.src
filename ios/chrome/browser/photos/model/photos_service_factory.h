@@ -7,30 +7,24 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class PhotosService;
+#import "ios/chrome/browser/photos/model/photos_service.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all PhotosService-s and associates them with
 // Profile.
-class PhotosServiceFactory : public ProfileKeyedServiceFactoryIOS {
+class PhotosServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<PhotosServiceFactory,
+                                                PhotosService> {
  public:
-  static PhotosService* GetForProfile(ProfileIOS* profile);
-  static PhotosServiceFactory* GetInstance();
+  explicit PhotosServiceFactory(PassKey key);
 
   // Returns the default factory.
   static TestingFactory GetDefaultFactory();
 
  private:
-  friend class base::NoDestructor<PhotosServiceFactory>;
-
-  PhotosServiceFactory();
-  ~PhotosServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_PHOTOS_MODEL_PHOTOS_SERVICE_FACTORY_H_

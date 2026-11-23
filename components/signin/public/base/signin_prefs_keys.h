@@ -8,6 +8,12 @@
 #include <array>
 #include <string_view>
 
+#include "build/build_config.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "components/device_signals/core/browser/pref_names.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
 namespace signin::internal {
 
 // Key names of the per-account preferences stored by `SigninPrefs`, i.e. the
@@ -113,6 +119,15 @@ inline constexpr std::string_view kExtensionsExplicitBrowserSigninEnabled =
 // bookmark sign-in promo. False by default.
 inline constexpr std::string_view kBookmarksExplicitBrowserSigninEnabled =
     "BookmarksExplicitBrowserSigninEnabled";
+
+#if BUILDFLAG(IS_ANDROID)
+// Whether a managed user has consented to the device signals collection.
+// Shares its key with the desktop profile pref
+// `device_signals::prefs::kDeviceSignalsPermanentConsentReceived`, but on
+// Android it is stored per account.
+inline constexpr std::string_view kDeviceSignalsPermanentConsentReceived =
+    device_signals::prefs::kDeviceSignalsPermanentConsentReceived;
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // History sync promo on the history page.
 //
@@ -230,20 +245,6 @@ inline constexpr std::string_view kAvatarButtonSigninPromoLastShownTime =
 inline constexpr std::string_view kDeprecatedTestingPref =
     "DeprecatingTestingPref";
 
-// DEPRECATED(10/2025):
-// History Sync promo on the avatar button.
-//
-// Number of times the history sync promo was shown in the identity pill (avatar
-// toolbar button).
-inline constexpr std::string_view
-    kDeprecatedHistorySyncPromoIdentityPillShownCount =
-        "ChromeSigninSyncPromoIdentityPillShownCount";
-// Number of times the history sync promo was used (clicked) in the identity
-// pill (avatar toolbar button).
-inline constexpr std::string_view
-    kDeprecatedHistorySyncPromoIdentityPillUsedCount =
-        "ChromeSigninSyncPromoIdentityPillUsedCount";
-
 // DEPRECATED(09/2026):
 // Sync promo on the avatar button.
 //
@@ -278,8 +279,6 @@ inline constexpr std::string_view kDeprecatedPasswordSignInPromoDismissCount =
 // `SigninPrefs::MigrateObsoleteSigninPrefs()`.
 inline constexpr auto kDeprecatedSigninPrefs = std::to_array<std::string_view>({
     kDeprecatedTestingPref,
-    kDeprecatedHistorySyncPromoIdentityPillShownCount,
-    kDeprecatedHistorySyncPromoIdentityPillUsedCount,
     kDeprecatedSyncPromoIdentityPillShownCount,
     kDeprecatedSyncPromoIdentityPillUsedCount,
     kDeprecatedPasswordSignInPromoShownCountForLimitsExperiment,

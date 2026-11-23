@@ -1,0 +1,21 @@
+upstream {
+  commit: "d78925584245597f2aa9c4c01a802eb0f0b77fb9"
+  artifacts {
+    git {
+      repository: "https://github.com/casiez/OneEuroFilter"
+      commit: "d78925584245597f2aa9c4c01a802eb0f0b77fb9"
+    }
+  }
+}
+stages {
+  input {
+    patch { copybara {} }
+  }
+  publish { git {} }
+}
+latest {
+  git {
+    repository: "https://github.com/casiez/OneEuroFilter"
+    branch: "HEAD"
+  }
+}

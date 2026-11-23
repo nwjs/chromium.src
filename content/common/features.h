@@ -185,6 +185,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kNavigationThrottleRunner2);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPermissionsPolicyVerificationInContent);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kMouseEventPreservePointerType);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kPointerLockRestoreScreenPosition);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrecomputeSiteInfo);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchCookieIndices);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrefetchDevtoolsUserAgentOverride);
@@ -216,12 +217,11 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kContinueGestureOnLosingFocus);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRemoveRendererProcessLimit);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kRendererCancellationThrottleImprovements);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
-    kResumeNavigationWithSpeculativeRFHProcessGone);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kPartitionAllocSchedulerLoopQuarantineTaskObserverForBrowserUIThread);
 #if BUILDFLAG(IS_ANDROID)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSandboxedProcessServiceLimitOnAndroid);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kScrollAfterOSKViewportShrinkFix);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kScrollFocusedNodeOnOSKViewportReshrink);
 #endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSanitizeLocationHeadersDuringNavigation);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kSanitizeFailedSubframeNavigationUrls);

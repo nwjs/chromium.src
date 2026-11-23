@@ -81,6 +81,7 @@ chromium-metrics-reviews@google.com.
   <int value="33" label="Remove from dictionary"/>
   <int value="34" label="Open link in isolated window"/>
   <int value="35" label="Ask Google about this page"/>
+  <int value="36" label="Try it on (Indigo)"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:ContextMenuOptionDesktop) -->
@@ -106,6 +107,24 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/startup/default_browser_prompt/default_browser_infobar_manager.h:InfoBarUserInteraction) -->
+
+<!-- LINT.IfChange(DefaultBrowserStartupStateTransition) -->
+
+<enum name="DefaultBrowserStartupStateTransition">
+  <summary>
+    Default browser state at startup compared with the state implied by the
+    installer beacons.
+  </summary>
+  <int value="0" label="No previous state (no beacons)"/>
+  <int value="1" label="Remained default"/>
+  <int value="2" label="Remained not default"/>
+  <int value="3" label="Lost default (was default, now not default)"/>
+  <int value="4" label="Became default"/>
+  <int value="5" label="Current state unknown (check failed)"/>
+  <int value="6" label="Other install mode is default"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/default_browser/default_browser_startup_metrics.h:DefaultBrowserStartupStateTransition) -->
 
 <enum name="DefaultBrowserState">
   <int value="0" label="Not Default"/>
@@ -197,16 +216,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/waap/waap_ui_metrics_service.cc:InitialWebUIView) -->
-
-<!-- LINT.IfChange(InitialWebUIWindowMetricsManagerBindingStatus) -->
-
-<enum name="InitialWebUIWindowMetricsManagerBindingStatus">
-  <int value="0" label="BoundAtStart"/>
-  <int value="1" label="BoundDeferred"/>
-  <int value="2" label="NeverBound"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/page_load_metrics/observers/initial_webui_page_load_metrics_observer.h:InitialWebUIWindowMetricsManagerBindingStatus) -->
 
 <!-- LINT.IfChange(PinInfoBarUserInteraction) -->
 
@@ -442,6 +451,7 @@ chromium-metrics-reviews@google.com.
   <int value="170" label="IDC_CONTENT_CONTEXT_ASK_GOOGLE_ABOUT_THIS_PAGE"/>
   <int value="171" label="IDC_CONTENT_CONTEXT_CONTEXTUAL_TASKS_SUBMENU"/>
   <int value="172" label="IDC_CONTENT_CONTEXT_GLIC_SMART_SUGGESTION"/>
+  <int value="173" label="IDC_CONTENT_CONTEXT_INDIGO"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/renderer_context_menu/render_view_context_menu.cc:RenderViewContextMenuItem) -->
@@ -545,8 +555,9 @@ chromium-metrics-reviews@google.com.
   <int value="66" label="UMA_SINGLE_TAB_GROUP_DELETE_UNDO"/>
   <int value="67" label="UMA_SAFETY_HUB_REGRANT_SINGLE_PERMISSION"/>
   <int value="68" label="UMA_SAFETY_HUB_REGRANT_MULTIPLE_PERMISSIONS"/>
-  <int value="69" label="UMA_SAFETY_HUB_SINGLE_SITE_NOTIFICATIONS"/>
-  <int value="70" label="UMA_SAFETY_HUB_MULTIPLE_SITE_NOTIFICATIONS"/>
+  <int value="69" label="(Obsolete) UMA_SAFETY_HUB_SINGLE_SITE_NOTIFICATIONS"/>
+  <int value="70"
+      label="(Obsolete) UMA_SAFETY_HUB_MULTIPLE_SITE_NOTIFICATIONS"/>
   <int value="71" label="UMA_SETTINGS_BATCH_UPLOAD"/>
   <int value="72" label="UMA_REVOKE_FILE_EDIT_GRANT"/>
   <int value="73" label="UMA_SEARCH_ENGINE_CHANGED_NOTIFICATION"/>
@@ -1311,6 +1322,7 @@ chromium-metrics-reviews@google.com.
   <int value="123" label="Chrome Enterprise release notes"/>
   <int value="124" label="Manage skills"/>
   <int value="125" label="Show skills and extensions"/>
+  <int value="126" label="Scheduled restart dialog"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/toolbar/app_menu_model.h:AppMenuAction) -->

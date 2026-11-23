@@ -239,27 +239,6 @@ TEST_F(MediaElementAudioSourceNodeTest, HasPendingActivity) {
 }
 
 TEST_F(MediaElementAudioSourceNodeTest,
-       DisposeRemovesFromActiveSourceHandlers) {
-  task_environment_.RunUntilIdle();
-  ASSERT_EQ(context_->ContextState(), V8AudioContextState::Enum::kRunning);
-
-  MediaElementAudioSourceHandler& handler =
-      node_->GetMediaElementAudioSourceHandler();
-  EXPECT_TRUE(
-      context_->GetDeferredTaskHandler().GetActiveSourceHandlers()->Contains(
-          &handler));
-
-  // Clear references to allow garbage collection.
-  node_ = nullptr;
-  media_element_ = nullptr;
-  ThreadState::Current()->CollectAllGarbageForTesting();
-
-  EXPECT_FALSE(
-      context_->GetDeferredTaskHandler().GetActiveSourceHandlers()->Contains(
-          &handler));
-}
-
-TEST_F(MediaElementAudioSourceNodeTest,
        ProcessAndResamplerAfterMediaElementCollected) {
   scoped_refptr<MediaElementAudioSourceHandler> handler =
       &node_->GetMediaElementAudioSourceHandler();

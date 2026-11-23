@@ -26,6 +26,7 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/site_info.h"
+#include "content/browser/site_shard.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/content_navigation_policy.h"
@@ -152,7 +153,7 @@ class IsolatedOriginTestBase : public ContentBrowserTest {
         /*does_site_request_dedicated_process_for_coop=*/false,
         /*is_jit_disabled=*/false, /*are_v8_optimizations_disabled=*/false,
         /*is_fenced=*/false, browser_context->UniqueToken(),
-        EmbedderIsolationInfo::CreateNone()));
+        EmbedderIsolationInfo::CreateNone(), SiteShard::kDefault));
   }
 
   WebContentsImpl* web_contents() const {
@@ -183,7 +184,7 @@ class IsolatedOriginTestBase : public ContentBrowserTest {
         /*does_site_request_dedicated_process_for_coop=*/false,
         /*is_jit_disabled=*/false, /*are_v8_optimizations_disabled=*/false,
         /*is_fenced=*/false, browser_context->UniqueToken(),
-        EmbedderIsolationInfo::CreateNone()));
+        EmbedderIsolationInfo::CreateNone(), SiteShard::kDefault));
   }
 
  protected:
@@ -1064,6 +1065,89 @@ IN_PROC_BROWSER_TEST_F(OriginKeyedProcessByDefaultTest,
   EXPECT_TRUE(isolation_state2->requires_origin_keyed_process());
 }
 
+// Page activations reach OnResponseStarted() before they have a
+// RenderFrameHost. The ad exclusion decision must not crash for them.
+class OriginKeyedProcessByDefaultExcludeAdsActivationTest
+    : public OriginKeyedProcessByDefaultTest {
+ public:
+  OriginKeyedProcessByDefaultExcludeAdsActivationTest()
+      : prerender_helper_(base::BindRepeating(
+            &OriginKeyedProcessByDefaultExcludeAdsActivationTest::
+                GetWebContents,
+            base::Unretained(this))) {
+    feature_list_.InitAndEnableFeature(
+        features::kExcludeAdsFromOriginIsolation);
+  }
+  ~OriginKeyedProcessByDefaultExcludeAdsActivationTest() override = default;
+
+  OriginKeyedProcessByDefaultExcludeAdsActivationTest(
+      const OriginKeyedProcessByDefaultExcludeAdsActivationTest&) = delete;
+  OriginKeyedProcessByDefaultExcludeAdsActivationTest& operator=(
+      const OriginKeyedProcessByDefaultExcludeAdsActivationTest&) = delete;
+
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    // Must run before the HTTPS server starts.
+    prerender_helper_.RegisterServerRequestMonitor(https_server());
+    OriginKeyedProcessByDefaultTest::SetUpCommandLine(command_line);
+  }
+
+  WebContents* GetWebContents() { return shell()->web_contents(); }
+
+ protected:
+  test::PrerenderTestHelper prerender_helper_;
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(OriginKeyedProcessByDefaultExcludeAdsActivationTest,
+                       PrerenderActivation) {
+  ASSERT_TRUE(SiteIsolationPolicy::AreOriginKeyedProcessesEnabledByDefault(
+      web_contents()->GetBrowserContext()));
+  ASSERT_TRUE(
+      base::FeatureList::IsEnabled(features::kExcludeAdsFromOriginIsolation));
+
+  GURL initial_url(https_server()->GetURL("foo.com", "/title1.html"));
+  GURL prerender_url(https_server()->GetURL("foo.com", "/title2.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), initial_url));
+
+  PrerenderHostId host_id = prerender_helper_.AddPrerender(prerender_url);
+  ASSERT_FALSE(host_id.is_null());
+  test::PrerenderHostObserver prerender_observer(*web_contents(), host_id);
+
+  prerender_helper_.NavigatePrimaryPage(prerender_url);
+
+  EXPECT_TRUE(prerender_observer.was_activated());
+  EXPECT_EQ(prerender_url, web_contents()->GetLastCommittedURL());
+}
+
+IN_PROC_BROWSER_TEST_F(OriginKeyedProcessByDefaultExcludeAdsActivationTest,
+                       BackForwardCacheRestore) {
+  if (!base::FeatureList::IsEnabled(features::kBackForwardCache)) {
+    GTEST_SKIP() << "This test requires the back-forward cache.";
+  }
+  ASSERT_TRUE(SiteIsolationPolicy::AreOriginKeyedProcessesEnabledByDefault(
+      web_contents()->GetBrowserContext()));
+  ASSERT_TRUE(
+      base::FeatureList::IsEnabled(features::kExcludeAdsFromOriginIsolation));
+
+  GURL url_a(https_server()->GetURL("a.com", "/title1.html"));
+  GURL url_b(https_server()->GetURL("b.com", "/title1.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostWrapper rfh_a(web_contents()->GetPrimaryMainFrame());
+
+  ASSERT_TRUE(NavigateToURL(shell(), url_b));
+  ASSERT_FALSE(rfh_a.IsDestroyed());
+  ASSERT_EQ(RenderFrameHost::LifecycleState::kInBackForwardCache,
+            rfh_a->GetLifecycleState());
+
+  ASSERT_TRUE(HistoryGoBack(web_contents()));
+
+  // The page came from the back-forward cache.
+  EXPECT_EQ(rfh_a.get(), web_contents()->GetPrimaryMainFrame());
+  EXPECT_EQ(url_a, web_contents()->GetLastCommittedURL());
+}
+
 // The test ExplicitOptInRespected tests the speculative RFH created before
 // receiving the OAC headers. The delay must be set to zero so that the
 // speculative RFH is always created before receiving the header.
@@ -1742,7 +1826,7 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderTest,
       /*does_site_request_dedicated_process_for_coop=*/false,
       /*is_jit_disabled=*/false, /*are_v8_optimizations_disabled=*/false,
       /*is_fenced=*/false, browser_context->UniqueToken(),
-      EmbedderIsolationInfo::CreateNone()));
+      EmbedderIsolationInfo::CreateNone(), SiteShard::kDefault));
   EXPECT_TRUE(NavigateToURL(shell(), test_url));
   EXPECT_EQ(2u, CollectAllRenderFrameHosts(shell()->web_contents()).size());
 
@@ -3028,7 +3112,8 @@ IN_PROC_BROWSER_TEST_F(OriginIsolationOptInHeaderTest,
   // BrowserContext, so DetermineOriginAgentClusterIsolation will return true.
   // However, during the navigation by the OpenPopup call below that global walk
   // will be triggered before the url's isolation status is set. This walk is
-  // triggered by the call to CheckForIsolationOptIn() in
+  // triggered by the call to
+  // MaybeRegisterExistingOriginAsHavingDefaultIsolation() in
   // NavigationRequest::OnResponseStarted().
   EXPECT_TRUE(policy
                   ->DetermineOriginAgentClusterIsolation(

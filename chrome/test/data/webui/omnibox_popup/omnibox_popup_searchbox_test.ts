@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 import {isMac} from '//resources/js/platform.js';
-import {MatchesUpdate, OmniboxEscapeAction, omniboxPopupBrowserProxyFactory, OmniboxPopupPageHandlerRemote, sanitizeTextForPaste, SearchboxBrowserProxy, stripJavascriptSchemas, UrlDeemphasisMode} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
-import type {OmniboxInputState, OmniboxPopupContextualEntrypointButtonElement, OmniboxPopupPageRemote, OmniboxPopupSearchboxElement, UrlEmphasis} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import {MatchesUpdate, OmniboxEscapeAction, omniboxPopupBrowserProxyFactory, OmniboxPopupPageHandlerRemote, sanitizeTextForPaste, SearchboxBrowserProxy, stripJavascriptSchemas, UrlDeemphasisMode} from 'chrome://omnibox-popup.top-chrome/omnibox_popup_full.js';
+import type {OmniboxInputState, OmniboxPopupContextualEntrypointButtonElement, OmniboxPopupPageRemote, OmniboxPopupSearchboxElement, UrlEmphasis} from 'chrome://omnibox-popup.top-chrome/omnibox_popup_full.js';
 import {KeywordModeEntryMethod} from 'chrome://resources/cr_components/searchbox/keyword_mode_manager.js';
 import {createAutocompleteResultForTesting, createMatchKeywordModelForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -543,6 +543,245 @@ suite('OmniboxPopupSearchboxTest', function() {
 
     // Verify onSelectionChanged is sent once composition ends.
     assertEquals(1, handler.getCallCount('onSelectionChanged'));
+  });
+
+  // Shows tab 1's draft in the focused input. Returns a list that collects the
+  // input's text whenever the input loses focus, which is when Blink commits an
+  // IME composition.
+  async function showFocusedTab1AndRecordBlurs(): Promise<string[]> {
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      tabId: 1,
+      text: 'tab 1 draft',
+      selection: {start: 11, end: 11},
+      userInputInProgress: true,
+      isFocused: true,
+    }));
+    await microtasksFinished();
+    assertEquals(searchbox.$.input, searchbox.shadowRoot.activeElement);
+
+    const textsOnBlur: string[] = [];
+    const input = searchbox.$.input.inputElement;
+    input.addEventListener('blur', () => textsOnBlur.push(input.value));
+    return textsOnBlur;
+  }
+
+  test('EndsCompositionBeforeShowingAnotherTab', async () => {
+    const textsOnBlur = await showFocusedTab1AndRecordBlurs();
+
+    // Compose, then switch to tab 2, whose omnibox is focused too.
+    searchbox.$.input.dispatchEvent(new CustomEvent('compositionstart'));
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      sequenceNumber: 2,
+      tabId: 2,
+      text: 'tab 2 draft',
+      selection: {start: 11, end: 11},
+      userInputInProgress: true,
+      isFocused: true,
+      isTabSwitch: true,
+    }));
+    await microtasksFinished();
+
+    // The input lost focus while it still had tab 1's text. Then it showed tab
+    // 2's text and regained focus.
+    assertDeepEquals(['tab 1 draft'], textsOnBlur);
+    assertEquals('tab 2 draft', searchbox.$.input.inputElement.value);
+    assertEquals(searchbox.$.input, searchbox.shadowRoot.activeElement);
+
+    // Compose, then open a New Tab Page, whose omnibox is focused. Unlike
+    // switching to an existing tab, this isn't marked as a tab switch.
+    searchbox.$.input.dispatchEvent(new CustomEvent('compositionstart'));
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      sequenceNumber: 3,
+      tabId: 3,
+      isFocused: true,
+    }));
+    await microtasksFinished();
+
+    assertDeepEquals(['tab 1 draft', 'tab 2 draft'], textsOnBlur);
+    assertEquals('', searchbox.$.input.inputElement.value);
+    assertEquals(searchbox.$.input, searchbox.shadowRoot.activeElement);
+  });
+
+  test('KeepsFocusWithoutCompositionOrTabChange', async () => {
+    const textsOnBlur = await showFocusedTab1AndRecordBlurs();
+
+    // Without a composition, switching to a tab whose omnibox is focused keeps
+    // the input focused.
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      sequenceNumber: 2,
+      tabId: 2,
+      text: 'tab 2 draft',
+      selection: {start: 11, end: 11},
+      userInputInProgress: true,
+      isFocused: true,
+      isTabSwitch: true,
+    }));
+    await microtasksFinished();
+    assertEquals('tab 2 draft', searchbox.$.input.inputElement.value);
+
+    // A state for the same tab doesn't end a composition.
+    searchbox.$.input.dispatchEvent(new CustomEvent('compositionstart'));
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      sequenceNumber: 3,
+      tabId: 2,
+      text: 'tab 2 draft',
+      selection: {start: 11, end: 11},
+      userInputInProgress: true,
+      isFocused: true,
+    }));
+    await microtasksFinished();
+
+    assertDeepEquals([], textsOnBlur);
+    assertEquals(searchbox.$.input, searchbox.shadowRoot.activeElement);
+  });
+
+  // Composes `composedText` at the end of the input's text, like an IME.
+  function compose(composedText: string) {
+    const input = searchbox.$.input.inputElement;
+    input.dispatchEvent(new CompositionEvent(
+        'compositionstart', {bubbles: true, composed: true}));
+    input.value += composedText;
+    input.dispatchEvent(new InputEvent('input', {
+      inputType: 'insertCompositionText',
+      data: composedText,
+      isComposing: true,
+    }));
+  }
+
+  // Commits the composition of `composedText`, like an IME.
+  function commitComposition(composedText: string) {
+    searchbox.$.input.inputElement.dispatchEvent(new CompositionEvent(
+        'compositionend', {data: composedText, bubbles: true, composed: true}));
+  }
+
+  function undo() {
+    searchbox.$.input.inputElement.dispatchEvent(new InputEvent('beforeinput', {
+      inputType: 'historyUndo',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }));
+  }
+
+  // Types `text` into the focused, empty input as one edit.
+  async function typeIntoEmptyInput(text: string) {
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      text: '',
+      isFocused: true,
+    }));
+    await microtasksFinished();
+    const input = searchbox.$.input.inputElement;
+    input.value = text;
+    input.dispatchEvent(new InputEvent('input', {inputType: 'insertText'}));
+    await microtasksFinished();
+  }
+
+  test('RecordsCommittedCompositionAsOneEdit', async () => {
+    await typeIntoEmptyInput('abc');
+    compose('にほん');
+    await microtasksFinished();
+    commitComposition('にほん');
+    await microtasksFinished();
+
+    // Text typed after it is a separate edit.
+    const input = searchbox.$.input.inputElement;
+    input.value = 'abcにほんx';
+    input.dispatchEvent(
+        new InputEvent('input', {inputType: 'insertText', data: 'x'}));
+    await microtasksFinished();
+
+    undo();
+    await microtasksFinished();
+    assertEquals('abcにほん', input.value);
+    undo();
+    await microtasksFinished();
+    assertEquals('abc', input.value);
+  });
+
+  test('RecordsCompositionEndedByLosingFocus', async () => {
+    await typeIntoEmptyInput('abc');
+    compose('にほん');
+    await microtasksFinished();
+    testProxy.handler.reset();
+
+    // E.g. deactivating the window blurs the input, then ends the composition.
+    const input = searchbox.$.input.inputElement;
+    input.dispatchEvent(new FocusEvent('blur'));
+    commitComposition('にほん');
+    await microtasksFinished();
+
+    // The user is no longer typing, so the committed text isn't queried, but
+    // it's still undone as one edit.
+    assertEquals(0, testProxy.handler.getCallCount('queryAutocomplete'));
+    undo();
+    await microtasksFinished();
+    assertEquals('abc', input.value);
+  });
+
+  test('RecordsCompositionAfterStateUpdateWhileComposing', async () => {
+    await typeIntoEmptyInput('abc');
+    compose('にほん');
+    await microtasksFinished();
+
+    // E.g. the browser sends the state of the same tab mid-composition.
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      text: 'abcにほん',
+      selection: {start: 6, end: 6},
+      userInputInProgress: true,
+      isFocused: true,
+    }));
+    await microtasksFinished();
+    commitComposition('にほん');
+    await microtasksFinished();
+
+    // Undo still goes back to the text from before the composition.
+    undo();
+    await microtasksFinished();
+    assertEquals('abc', searchbox.$.input.inputElement.value);
+  });
+
+  test('SendsCaretToOldTabOnTabSwitch', async () => {
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      tabId: 1,
+      text: 'abc',
+      selection: {start: 3, end: 3},
+      userInputInProgress: true,
+      isFocused: true,
+    }));
+    await microtasksFinished();
+    compose('def');
+    await microtasksFinished();
+    testProxy.handler.reset();
+
+    // Switching to tab 2 ends the composition, whose text is already in tab 1's
+    // draft, so only the caret after it needs to be sent.
+    const tab2State = createDefaultOmniboxInputState({
+      sequenceNumber: 2,
+      tabId: 2,
+      text: 'tab 2 draft',
+      userInputInProgress: true,
+      isFocused: true,
+      isTabSwitch: true,
+    });
+    callbackRouter.setInputState(tab2State);
+    await microtasksFinished();
+    assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
+    const [, tabId, queryText, , cursorPosition] =
+        testProxy.handler.getArgs('queryAutocomplete')[0];
+    assertEquals(1, tabId);
+    assertEquals('abcdef', queryText);
+    assertEquals(6, cursorPosition);
+
+    // After the popup is cleared, the tab it showed is stale, so nothing is
+    // sent to it.
+    callbackRouter.clearPopup();
+    await microtasksFinished();
+    compose('ghi');
+    await microtasksFinished();
+    testProxy.handler.reset();
+    callbackRouter.setInputState({...tab2State, sequenceNumber: 3, tabId: 3});
+    await microtasksFinished();
+    assertEquals(0, testProxy.handler.getCallCount('queryAutocomplete'));
   });
 
   test('DoubleClickingShowsFullUrl', async () => {
@@ -1376,24 +1615,27 @@ suite('OmniboxPopupSearchboxTest', function() {
     await microtasksFinished();
     assertTrue(input.scrollLeft > 0);
 
-    // A drag in the unfocused native omnibox from near the start past its
-    // elided end. The native omnibox kept showing the start of the text.
+    // A drag in the unfocused native omnibox over the start of its text, which
+    // it showed unscrolled.
+    const end = 20;
+    assertTrue(getTextOffsetLeft(input, end) + 1 < getVisibleTextWidth(input));
     callbackRouter.setInputState(createDefaultOmniboxInputState({
       sequenceNumber: 2,
       text,
-      selection: {start: 5, end: text.length},
+      selection: {start: 5, end},
       isFocused: true,
     }));
     await microtasksFinished();
 
     assertEquals(5, input.selectionStart);
-    assertEquals(text.length, input.selectionEnd);
+    assertEquals(end, input.selectionEnd);
     assertEquals(0, input.scrollLeft);
   });
 
-  test('SetInputStateKeepsTextStartOnFirstFocus', async () => {
+  test('SetInputStateKeepsCaretInViewOnFirstFocus', async () => {
     // The first handoff from native Views focuses the input and applies the
-    // range in the same update.
+    // range in the same update. The range is a drag to the end of the text,
+    // which the native omnibox scrolled to follow.
     const text = 'abcdefghij'.repeat(80);
     const input = searchbox.$.input.inputElement;
     callbackRouter.setInputState(createDefaultOmniboxInputState({
@@ -1405,10 +1647,11 @@ suite('OmniboxPopupSearchboxTest', function() {
 
     assertEquals(5, input.selectionStart);
     assertEquals(text.length, input.selectionEnd);
-    assertEquals(0, input.scrollLeft);
+    assertTrue(input.scrollLeft > 0);
+    assertTextOffsetVisible(input, text.length);
   });
 
-  test('SetInputStateScrollsToSelectionStart', async () => {
+  test('SetInputStateScrollsToSelection', async () => {
     const text = 'abcdefghij'.repeat(40);
     const input = searchbox.$.input.inputElement;
     callbackRouter.setInputState(createDefaultOmniboxInputState({
@@ -1420,7 +1663,8 @@ suite('OmniboxPopupSearchboxTest', function() {
     assertTrue(input.scrollWidth > input.clientWidth);
     assertEquals(0, input.scrollLeft);
 
-    // A range that starts past the first screenful of text.
+    // A range that starts past the first screenful of text, with the caret
+    // (`end`) after the anchor (`start`) as after a left-to-right drag.
     const start = text.length - 20;
     const end = text.length - 10;
     callbackRouter.setInputState(createDefaultOmniboxInputState({
@@ -1434,17 +1678,51 @@ suite('OmniboxPopupSearchboxTest', function() {
     assertEquals(start, input.selectionStart);
     assertEquals(end, input.selectionEnd);
     assertTextOffsetVisible(input, start);
-    // Scroll only as far as the selection start needs.
+    assertTextOffsetVisible(input, end);
+    // Scroll only as far as the selection needs.
     assertTrue(input.scrollLeft < input.scrollWidth - input.clientWidth);
-    // That is, just far enough to show the selection start (and the 1px caret
-    // there) at the end of the visible text, which the AIM button padding
-    // doesn't count towards.
+    // That is, just far enough to show the caret (and its 1px) at the end of
+    // the visible text, which the AIM button padding doesn't count towards.
     assertFalse(isVisible(searchbox.$.composeButton));
-    const startRight = getTextOffsetLeft(input, start) + 1 - input.scrollLeft;
+    const caretRight = getTextOffsetLeft(input, end) + 1 - input.scrollLeft;
     assertTrue(
-        Math.abs(getVisibleTextWidth(input) - startRight) <= 1,
-        `selection start at ${startRight}px, visible width ${
+        Math.abs(getVisibleTextWidth(input) - caretRight) <= 1,
+        `caret at ${caretRight}px, visible width ${
             getVisibleTextWidth(input)}px`);
+  });
+
+  test('SetInputStateKeepsCaretOfWideSelectionInView', async () => {
+    const text = 'abcdefghij'.repeat(80);
+    const input = searchbox.$.input.inputElement;
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      text,
+      selection: {start: 0, end: 0},
+      isFocused: true,
+    }));
+    await microtasksFinished();
+    assertEquals(0, input.scrollLeft);
+
+    // A left-to-right drag across more text than fits in the input, as the
+    // native omnibox allows by scrolling to follow the drag.
+    const start = 100;
+    const end = text.length - 10;
+    assertTrue(
+        getTextOffsetLeft(input, end) - getTextOffsetLeft(input, start) >
+        getVisibleTextWidth(input));
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      sequenceNumber: 2,
+      text,
+      selection: {start, end},
+      isFocused: true,
+    }));
+    await microtasksFinished();
+
+    assertEquals(start, input.selectionStart);
+    assertEquals(end, input.selectionEnd);
+    // The caret stays in view, as in the native omnibox, so the selection
+    // start can't be.
+    assertTextOffsetVisible(input, end);
+    assertTrue(getTextOffsetLeft(input, start) < input.scrollLeft - 1);
   });
 
   test('SetInputStateKeepsBackwardSelection', async () => {
@@ -1699,6 +1977,178 @@ suite('OmniboxPopupSearchboxTest', function() {
     assertEquals('hello ', input.value);
     assertEquals(6, input.selectionStart);
     assertEquals(6, input.selectionEnd);
+  });
+
+  // Focuses the empty input (as on the NTP), shows zero-prefix suggestions and
+  // arrows down to preview the first one, `fillIntoEdit`, in the input.
+  async function previewFirstZeroSuggestMatch(fillIntoEdit: string) {
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      isFocused: true,
+      matchesUpdate: MatchesUpdate.kQueryZps,
+    }));
+    await microtasksFinished();
+    testProxy.page.autocompleteResultChanged(
+        createAutocompleteResultForTesting({
+          queryId: searchbox.activeQueryId,
+          input: '',
+          matches: [
+            createSearchMatchForTesting({fillIntoEdit}),
+            createSearchMatchForTesting({fillIntoEdit: 'news'}),
+          ],
+        }));
+    await microtasksFinished();
+    assertTrue(searchbox.dropdownIsVisible);
+
+    searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'ArrowDown',
+    }));
+    await microtasksFinished();
+    assertEquals(fillIntoEdit, searchbox.$.input.inputElement.value);
+  }
+
+  test('CutPartOfPreviewedMatch', async () => {
+    await previewFirstZeroSuggestMatch('weather today');
+    handler.reset();
+
+    // Select "today" and cut it.
+    const input = searchbox.$.input.inputElement;
+    input.setSelectionRange(8, 13);
+    const cutEvent = new ClipboardEvent('cut', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    searchbox.$.input.dispatchEvent(cutEvent);
+    await microtasksFinished();
+
+    assertTrue(cutEvent.defaultPrevented);
+    assertEquals(1, handler.getCallCount('onCutOrCopy'));
+    const [, isCut, fullText, selection] = handler.getArgs('onCutOrCopy')[0];
+    assertTrue(isCut);
+    assertEquals('weather today', fullText);
+    assertEquals(8, selection.start);
+    assertEquals(13, selection.end);
+
+    // Only the selected text is cut, rather than the whole input.
+    assertEquals('weather ', input.value);
+    assertEquals(8, input.selectionStart);
+    assertEquals(8, input.selectionEnd);
+
+    // Undo restores the cut text and re-selects it.
+    input.dispatchEvent(new InputEvent('beforeinput', {
+      inputType: 'historyUndo',
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    }));
+    await microtasksFinished();
+    assertEquals('weather today', input.value);
+    assertEquals(8, input.selectionStart);
+    assertEquals(13, input.selectionEnd);
+  });
+
+  test('PasteOverPartOfPreviewedMatch', async () => {
+    await previewFirstZeroSuggestMatch('weather today');
+
+    // Select "today" and paste over it.
+    const input = searchbox.$.input.inputElement;
+    input.setSelectionRange(8, 13);
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData('text/plain', 'tomorrow');
+    const pasteEvent = new ClipboardEvent('paste', {
+      clipboardData: dataTransfer,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+    searchbox.$.input.dispatchEvent(pasteEvent);
+    await microtasksFinished();
+
+    assertTrue(pasteEvent.defaultPrevented);
+    assertEquals('weather tomorrow', input.value);
+    assertEquals(16, input.selectionStart);
+    assertEquals(16, input.selectionEnd);
+
+    // Undo restores the replaced text and re-selects it.
+    input.dispatchEvent(new InputEvent('beforeinput', {
+      inputType: 'historyUndo',
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    }));
+    await microtasksFinished();
+    assertEquals('weather today', input.value);
+    assertEquals(8, input.selectionStart);
+    assertEquals(13, input.selectionEnd);
+  });
+
+  test('UndoAfterCutOfPreviewedMatchStepsBackThroughTyping', async () => {
+    const input = searchbox.$.input.inputElement;
+    input.focus();
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      isFocused: true,
+    }));
+    await microtasksFinished();
+
+    // Type "hello", one character at a time.
+    for (let i = 1; i <= 'hello'.length; i++) {
+      input.value = 'hello'.substring(0, i);
+      input.setSelectionRange(i, i);
+      input.dispatchEvent(
+          new InputEvent('input', {bubbles: true, composed: true}));
+      await microtasksFinished();
+    }
+
+    // Arrow down to preview the non-default match "hello world".
+    testProxy.page.autocompleteResultChanged(
+        createAutocompleteResultForTesting({
+          queryId: searchbox.activeQueryId,
+          input: 'hello',
+          matches: [
+            createSearchMatchForTesting(
+                {allowedToBeDefaultMatch: true, fillIntoEdit: 'hello'}),
+            createSearchMatchForTesting({fillIntoEdit: 'hello world'}),
+          ],
+        }));
+    await microtasksFinished();
+    searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
+      bubbles: true,
+      cancelable: true,
+      key: 'ArrowDown',
+    }));
+    await microtasksFinished();
+    assertEquals('hello world', input.value);
+
+    // Select "hello " and cut it.
+    input.setSelectionRange(0, 6);
+    searchbox.$.input.dispatchEvent(new ClipboardEvent(
+        'cut', {bubbles: true, cancelable: true, composed: true}));
+    await microtasksFinished();
+    assertEquals('world', input.value);
+
+    // Each undo steps back one edit: the cut, then the previewed match, then
+    // the typing, back to the initial empty text.
+    const undo = async () => {
+      input.dispatchEvent(new InputEvent('beforeinput', {
+        inputType: 'historyUndo',
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      }));
+      await microtasksFinished();
+    };
+    await undo();
+    assertEquals('hello world', input.value);
+    assertEquals(0, input.selectionStart);
+    assertEquals(6, input.selectionEnd);
+    await undo();
+    assertEquals('hello', input.value);
+    await undo();
+    assertEquals('', input.value);
+    await undo();
+    assertEquals('', input.value);
   });
 
   test('WordDeletionUndoRedo', async () => {
@@ -2264,11 +2714,79 @@ suite('OmniboxPopupSearchboxTest', function() {
      }));
      await microtasksFinished();
 
+     assertEquals(1, handler.getCallCount('revert'));
+     assertEquals(6, handler.getArgs('revert')[0]);
      assertEquals(1, handler.getCallCount('closeUI'));
      assertEquals(1, handler.getCallCount('logEscapeAction'));
      assertEquals(
          OmniboxEscapeAction.kBlur, handler.getArgs('logEscapeAction')[0]);
    }
+ });
+
+ test('EscapeStagedUnwinding_ElidedUrlSelectionRevertedOnClose', async () => {
+   // Clicking the omnibox selects the elided URL (`showFullUrl: false`,
+   // `userInputInProgress: false`) and opens the zero-prefix suggestions
+   // dropdown. Pressing Escape twice (1st closes dropdown, 2nd blurs and closes
+   // popup) must revert/clear the selection.
+   const permanentDisplayText = 'example.com';
+   const fullUrl = 'https://example.com/';
+   callbackRouter.setInputState(createDefaultOmniboxInputState({
+     sequenceNumber: 12,
+     text: permanentDisplayText,
+     selection: {start: 0, end: permanentDisplayText.length},
+     userInputInProgress: false,
+     fullUrl: fullUrl,
+     isFocused: true,
+     permanentDisplayText: permanentDisplayText,
+     showFullUrl: false,
+   }));
+   await microtasksFinished();
+
+   searchbox.activeQueryId = 0;
+   searchbox.lastQueriedInput = '';
+   searchbox.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+     queryId: 0,
+     input: '',
+     matches: [createSearchMatchForTesting()],
+   }));
+   await microtasksFinished();
+
+   assertTrue(searchbox.dropdownIsVisible);
+   assertEquals(0, searchbox.getInputElement().inputElement.selectionStart);
+   assertEquals(
+       permanentDisplayText.length,
+       searchbox.getInputElement().inputElement.selectionEnd);
+
+   // 1st Escape (Stage 2: `kClosePopup`) closes dropdown; selection remains.
+   await searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
+     key: 'Escape',
+     cancelable: true,
+   }));
+   await microtasksFinished();
+
+   assertFalse(searchbox.dropdownIsVisible);
+   assertEquals(0, handler.getCallCount('revert'));
+   assertEquals(0, handler.getCallCount('closeUI'));
+   assertEquals(1, handler.getCallCount('logEscapeAction'));
+   assertEquals(
+       OmniboxEscapeAction.kClosePopup, handler.getArgs('logEscapeAction')[0]);
+
+   handler.reset();
+   testProxy.handler.reset();
+
+   // 2nd Escape (Stage 4: `kBlur`) reverts selection and closes UI.
+   await searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
+     key: 'Escape',
+     cancelable: true,
+   }));
+   await microtasksFinished();
+
+   assertEquals(1, handler.getCallCount('revert'));
+   assertEquals(12, handler.getArgs('revert')[0]);
+   assertEquals(1, handler.getCallCount('closeUI'));
+   assertEquals(1, handler.getCallCount('logEscapeAction'));
+   assertEquals(
+       OmniboxEscapeAction.kBlur, handler.getArgs('logEscapeAction')[0]);
  });
 
  test('EscapeStagedUnwinding_UnelidedUrlClosesDirectly', async () => {
@@ -2298,6 +2816,7 @@ suite('OmniboxPopupSearchboxTest', function() {
    await microtasksFinished();
 
    assertEquals(1, handler.getCallCount('revert'));
+   assertEquals(9, handler.getArgs('revert')[0]);
    assertEquals(1, handler.getCallCount('closeUI'));
    assertEquals(1, handler.getCallCount('logEscapeAction'));
    assertEquals(
@@ -2479,13 +2998,15 @@ suite('OmniboxPopupSearchboxTest', function() {
    handler.reset();
    testProxy.handler.reset();
 
-   // 3rd Escape (Stage 4: kBlur) - closes UI.
+   // 3rd Escape (Stage 4: kBlur) - reverts selection and closes UI.
    await searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
      key: 'Escape',
      cancelable: true,
    }));
    await microtasksFinished();
 
+   assertEquals(1, handler.getCallCount('revert'));
+   assertEquals(10, handler.getArgs('revert')[0]);
    assertEquals(1, handler.getCallCount('closeUI'));
    assertEquals(1, handler.getCallCount('logEscapeAction'));
    assertEquals(
@@ -2576,13 +3097,15 @@ suite('OmniboxPopupSearchboxTest', function() {
    handler.reset();
    testProxy.handler.reset();
 
-   // 3rd Escape (Stage 4: kBlur) - closes UI.
+   // 3rd Escape (Stage 4: kBlur) - reverts selection and closes UI.
    await searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
      key: 'Escape',
      cancelable: true,
    }));
    await microtasksFinished();
 
+   assertEquals(1, handler.getCallCount('revert'));
+   assertEquals(11, handler.getArgs('revert')[0]);
    assertEquals(1, handler.getCallCount('closeUI'));
    assertEquals(1, handler.getCallCount('logEscapeAction'));
    assertEquals(
@@ -3027,6 +3550,74 @@ suite('OmniboxPopupSearchboxTest', function() {
    assertEquals('', queryText);
    assertFalse(isOnFocus);
    assertEquals('google.com', keyword);
+ });
+
+ test('FocusSearch_UndoRevertsToEmptyNotFullUrl', async () => {
+   testProxy.page.setAvailableKeywordModels(
+       [{
+         type: KeywordType.kChip,
+         keyword: 'google.com',
+         displayText: 'Search Google',
+         iconPath: '',
+         placeholder: 'Search Google',
+       }],
+       'google.com');
+   await microtasksFinished();
+
+   const permanentText = 'example.com';
+   const fullUrl = 'https://www.example.com/';
+   callbackRouter.setInputState(createDefaultOmniboxInputState({
+     text: permanentText,
+     fullUrl: fullUrl,
+     permanentDisplayText: permanentText,
+     selection: {start: 0, end: fullUrl.length},
+     userInputInProgress: false,
+     isFocused: true,
+     showFullUrl: true,
+     matchesUpdate: MatchesUpdate.kQueryZps,
+   }));
+   await microtasksFinished();
+
+   callbackRouter.focusSearchWithDefaultSearchEngineKeywordMode();
+   await microtasksFinished();
+
+   const inputEl = searchbox.getInputElement().inputElement;
+   assertEquals('', inputEl.value);
+   assertTrue(searchbox.keywordModeManager.isInKeywordMode);
+
+   // Type 'hello' in keyword mode.
+   inputEl.value = 'hello';
+   inputEl.setSelectionRange(5, 5);
+   inputEl.dispatchEvent(
+       new InputEvent('input', {bubbles: true, composed: true}));
+   await microtasksFinished();
+   assertEquals('hello', inputEl.value);
+
+   // Undo should revert to empty input (''), not the full URL.
+   inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+     key: 'z',
+     ctrlKey: !isMac,
+     metaKey: isMac,
+     bubbles: true,
+     composed: true,
+   }));
+   await microtasksFinished();
+
+   assertEquals('', inputEl.value);
+   assertTrue(searchbox.keywordModeManager.isInKeywordMode);
+
+   // Further undo should be a no-op and keep empty input ('').
+   inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+     key: 'z',
+     ctrlKey: !isMac,
+     metaKey: isMac,
+     bubbles: true,
+     composed: true,
+   }));
+   await microtasksFinished();
+
+   assertEquals('', inputEl.value);
+   assertTrue(searchbox.keywordModeManager.isInKeywordMode);
  });
 
  test('FocusSearch_SelectsDraftTextWhenUserInputInProgress', async () => {
@@ -5980,10 +6571,13 @@ suite('OmniboxPopupSearchboxTest', function() {
  // also check that the input stays flush with the icon on the leading side.
 
  // Sets a URL long enough to overflow the input, with the caret at its end
- // (which scrolls the input to its max scroll offset).
- async function setLongUrlWithCaretAtEnd() {
+ // (which scrolls the input to its max scroll offset), or with all of it
+ // selected (which shows its start).
+ async function setLongUrlWithCaretAtEnd(selectAll = false) {
    const text = 'https://example.com/' +
        'foo/bar/baz/eggs/spam/'.repeat(20);
+   const selection = selectAll ? {start: 0, end: text.length} :
+                                 {start: text.length, end: text.length};
    callbackRouter.setInputState(createDefaultOmniboxInputState({
      text,
      urlEmphasis: {
@@ -5994,7 +6588,7 @@ suite('OmniboxPopupSearchboxTest', function() {
        schemeStrikeThrough: false,
        schemeDangerous: false,
      },
-     selection: {start: text.length, end: text.length},
+     selection,
      isFocused: true,
    }));
    await microtasksFinished();
@@ -6089,6 +6683,94 @@ suite('OmniboxPopupSearchboxTest', function() {
        });
  });
 
+ // An <input> clips its text, and so its selection highlight, to its content
+ // box, so the #mirror must clip its (overflowing) text there too: no more and
+ // no less. Uses an IntersectionObserver (which applies the clips of the
+ // #mirror and its ancestors, but ignores the input painted above it) to
+ // measure the #mirror's text that isn't clipped away and, in the same frame,
+ // the input, since the layout can still change asynchronously (e.g. the AIM
+ // button collapses to its icon-only variant once a later update notices that
+ // the text overflows). Allows 1px for rounding.
+ async function assertMirrorTextClippedLikeInput(step: string) {
+   const input = searchbox.$.input.inputElement;
+   const mirror = $$<HTMLElement>(searchbox.$.input, '#mirror');
+   assertTrue(!!mirror);
+   const spans = Array.from(mirror.children);
+   assertTrue(spans.length > 0);
+   const targets = [input, ...spans];
+   const rects: DOMRectReadOnly[] = [];
+   let contentLeft = 0;
+   let contentRight = 0;
+   await new Promise<void>(resolve => {
+     let pending = targets.length;
+     const observer = new IntersectionObserver(entries => {
+       for (const entry of entries) {
+         if (entry.target === input) {
+           const style = getComputedStyle(input);
+           contentLeft = entry.boundingClientRect.left +
+               parseFloat(style.borderLeftWidth) +
+               parseFloat(style.paddingLeft);
+           contentRight = entry.boundingClientRect.right -
+               parseFloat(style.borderRightWidth) -
+               parseFloat(style.paddingRight);
+         } else if (entry.intersectionRect.width > 0) {
+           rects.push(entry.intersectionRect);
+         }
+       }
+       pending -= entries.length;
+       if (pending <= 0) {
+         observer.disconnect();
+         resolve();
+       }
+     });
+     targets.forEach(target => observer.observe(target));
+   });
+   assertTrue(rects.length > 0, `${step}: some #mirror text should be visible`);
+   const left = Math.min(...rects.map(rect => rect.left));
+   const right = Math.max(...rects.map(rect => rect.right));
+   assertTrue(
+       Math.abs(left - contentLeft) <= 1,
+       `${step}: #mirror text starts at ${left}px, input text at ${
+           contentLeft}px`);
+   assertTrue(
+       Math.abs(right - contentRight) <= 1,
+       `${step}: #mirror text ends at ${right}px, input text at ${
+           contentRight}px`);
+ }
+
+ // While the AIM button is hidden, the input's padding leaves a gap at the end
+ // of the row, in which the input paints neither text nor selection. E.g. with
+ // all of a long URL selected (as after focusing the omnibox), the #mirror
+ // must not paint the URL's overflowing end into the gap, past the end of the
+ // selection highlight. In RTL UIs, the gap is on the left, next to the
+ // overflowing start of a scrolled (LTR) URL.
+ [false, true].forEach(aimButtonVisible => {
+   ['ltr', 'rtl'].forEach(uiDir => {
+     test(
+         `MirrorTextIsClippedLikeInput_AimButton${
+             aimButtonVisible ? 'Visible' : 'Hidden'}_${uiDir.toUpperCase()}`,
+         async () => {
+           searchbox.dir = uiDir;
+           testProxy.page.setAimButtonVisible(aimButtonVisible);
+           await microtasksFinished();
+
+           await setLongUrlWithCaretAtEnd(/*selectAll=*/ true);
+           assertEquals(aimButtonVisible, isVisible(searchbox.$.composeButton));
+           const input = searchbox.$.input.inputElement;
+           assertEquals(0, input.selectionStart);
+           assertEquals(input.value.length, input.selectionEnd);
+           assertEquals(0, input.scrollLeft);
+           await assertMirrorTextClippedLikeInput('all selected');
+           assertEquals(aimButtonVisible, isVisible(searchbox.$.composeButton));
+
+           await setLongUrlWithCaretAtEnd();
+           assertTrue(input.scrollLeft > 0, 'input should be scrolled');
+           await assertMirrorTextClippedLikeInput('caret at end');
+           assertEquals(aimButtonVisible, isVisible(searchbox.$.composeButton));
+         });
+   });
+ });
+
  // The popup stays open, but unfocused, when the user edits the text and then
  // clicks into the page. Like the input (whose own text is transparent), the
  // #mirror must then elide its overflowing end with an ellipsis, at the same
@@ -6127,8 +6809,10 @@ suite('OmniboxPopupSearchboxTest', function() {
        false, /*queryZps=*/ false, /*selectAll=*/ false,
        /*showFullUrl=*/ false);
    await microtasksFinished();
-   // Blink scrolls the input back to its start on blur, and the #mirror
-   // follows on the input's (asynchronous) scroll event.
+   // The input is scrolled back to its start once unfocused (whether or not
+   // the page has system focus, without which blur() fires no blur event), and
+   // the #mirror follows on the input's scroll event, which fires before the
+   // next animation frame callbacks.
    await new Promise(resolve => requestAnimationFrame(resolve));
    assertFalse(mirror.parentElement!.matches(':focus-within'));
    assertFalse(isVisible(searchbox.$.composeButton));
@@ -6709,4 +7393,41 @@ suite('OmniboxPopupSearchboxTest', function() {
    // Restore original values so `loadTimeData` does not leak into other tests.
    loadTimeData.overrideValues(originalConstants);
  });
+
+  test('ComposeButtonDoesNotShiftWhenDropdownOpens', async () => {
+    // Match `omnibox_popup_document_style.css` (`body { margin: 0; }`) so
+    // `:host(:not([dropdown-is-visible]))`'s top margin does not collapse with
+    // the default 8px user-agent body margin.
+    const originalMargin = document.body.style.margin;
+    document.body.style.margin = '0';
+    searchbox.dropdownIsVisible = false;
+    testProxy.page.setAimButtonVisible(true);
+    await microtasksFinished();
+
+    const composeButton = searchbox.$.composeButton;
+    assertTrue(isVisible(composeButton));
+    const glowContainer =
+        composeButton.shadowRoot.querySelector<HTMLElement>('.glow-container');
+    assertTrue(!!glowContainer);
+
+    const closedGlowRect = glowContainer.getBoundingClientRect();
+
+    // Open the dropdown by populating autocomplete matches.
+    searchbox.activeQueryId = 0;
+    searchbox.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+      queryId: 0,
+      input: 'test',
+      matches: [createSearchMatchForTesting({allowedToBeDefaultMatch: true})],
+    }));
+    await microtasksFinished();
+    assertTrue(searchbox.dropdownIsVisible);
+
+    const openGlowRect = glowContainer.getBoundingClientRect();
+    assertEquals(closedGlowRect.top, openGlowRect.top);
+    assertEquals(closedGlowRect.bottom, openGlowRect.bottom);
+    assertEquals(closedGlowRect.left, openGlowRect.left);
+    assertEquals(closedGlowRect.right, openGlowRect.right);
+
+    document.body.style.margin = originalMargin;
+  });
 });

@@ -48,6 +48,7 @@
 #include "chrome/browser/finds/finds_service_factory.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/glic/glic_marketing_page_tab_helper.h"
+#include "chrome/browser/glic/host/glic_drag_and_drop_util.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/widget/glic_side_panel_coordinator_android.h"
@@ -93,6 +94,7 @@
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/resource_coordinator/tab_helper.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/site_protection/site_protection_metrics_observer.h"
 #include "chrome/browser/ssl/ask_before_http_dialog_controller.h"
 #include "chrome/browser/ssl/connection_help_tab_helper.h"
@@ -107,6 +109,7 @@
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
 #include "chrome/browser/sync_tab_context/tab_context_decryption_token_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
+#include "chrome/browser/task_manager/common/task_manager_features.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/trusted_vault/trusted_vault_encryption_keys_tab_helper.h"
@@ -161,6 +164,7 @@
 #include "components/page_content_annotations/core/page_content_extraction_types.h"
 #include "components/payments/core/features.h"
 #include "components/performance_manager/embedder/performance_manager_registry.h"
+#include "components/performance_manager/public/performance_manager.h"
 #include "components/permissions/permission_recovery_success_rate_tracker.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/search/ntp_features.h"
@@ -175,6 +179,7 @@
 #include "components/webapps/browser/android/app_banner_manager_android.h"
 #include "components/webapps/browser/installable/installable_manager.h"
 #include "components/webapps/browser/installable/ml_installability_promoter.h"
+#include "components/zoom/zoom_controller.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "extensions/buildflags/buildflags.h"
@@ -253,8 +258,12 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
   CHECK(tab);
   tab_subscription_ = webui::InitEmbeddingContext(tab);
 
+  CreateSessionServiceTabHelper(web_contents);
+  zoom::ZoomController::CreateForWebContents(web_contents);
+  infobars::ContentInfoBarManager::CreateForWebContents(web_contents);
   autofill::AutofillClientProvider& autofill_client_provider =
       autofill::AutofillClientProviderFactory::GetForProfile(profile);
+  autofill_client_provider.CreateClientForWebContents(web_contents);
   if (!autofill_client_provider.uses_platform_autofill()) {
     if (autofill::ContentAutofillClient::FromWebContents(web_contents)) {
       ChromePasswordManagerClient::CreateForWebContents(web_contents);
@@ -282,22 +291,17 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
     auto* page_content_extraction_service = page_content_annotations::
         PageContentExtractionServiceFactory::GetForProfile(profile);
     if (page_content_extraction_service) {
-      page_content_annotations::AnnotatedPageContentRequest::
-          CreateForWebContents(
-              web_contents, *page_content_extraction_service,
-              base::BindRepeating(&page_content_annotations::FetchPageContext),
-              base::BindRepeating(&GetPageContentAnnotationsTabId));
+      annotated_page_content_request_ =
+          GetUserDataFactory()
+              .CreateInstance<
+                  page_content_annotations::AnnotatedPageContentRequest>(
+                  *tab, *tab, web_contents, *page_content_extraction_service,
+                  base::BindRepeating(
+                      &page_content_annotations::FetchPageContext),
+                  base::BindRepeating(&GetPageContentAnnotationsTabId));
     }
   }
   InitializePageLoadMetricsForWebContents(web_contents);
-
-  sync_sessions_router_ =
-      std::make_unique<sync_sessions::SyncSessionsRouterTabHelper>(
-          web_contents,
-          sync_sessions::SyncSessionsWebContentsRouterFactory::GetForProfile(
-              profile),
-          ChromeTranslateClient::FromWebContents(web_contents),
-          favicon::ContentFaviconDriver::FromWebContents(web_contents));
 
   http_auth_cache_status_ = std::make_unique<HttpAuthCacheStatus>(web_contents);
 
@@ -403,6 +407,8 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
   page_context_eligibility_helper_ =
       GetUserDataFactory().CreateInstance<tabs::PageContextEligibilityHelper>(
           *tab, *tab);
+
+  glic_web_drag_observer_ = std::make_unique<glic::GlicWebDragObserver>(*tab);
 
   bool use_glic_side_panel = false;
   if (base::FeatureList::IsEnabled(features::kGlicAndroidSidePanel) &&
@@ -598,12 +604,19 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
       GetUserDataFactory().CreateInstance<ChainedBackNavigationTracker>(
           *tab, *tab, web_contents);
 
-  task_manager::WebContentsTags::CreateForTabContents(web_contents);
+  // On Clank, Task Manager is not active on mobile phone/tablet form factors.
+  // Only attach WebContentsTags if the Clank task manager feature is enabled
+  // or if running on desktop form factors (e.g. desktop windowing / Dex).
+  if (features::IsTaskManagerClankEnabled()) {
+    task_manager::WebContentsTags::CreateForTabContents(web_contents);
+  }
 
   media_state_observer_ = std::make_unique<MediaStateObserver>(web_contents);
 
   // Attach FileSystemAccessPermissionRequestManager to the tab.
-  FileSystemAccessPermissionRequestManager::CreateForWebContents(web_contents);
+  file_system_access_permission_request_manager_ =
+      GetUserDataFactory()
+          .CreateInstance<FileSystemAccessPermissionRequestManager>(*tab, *tab);
 
   file_system_access_tab_helper_ =
       std::make_unique<FileSystemAccessTabHelper>(web_contents);
@@ -622,6 +635,14 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
         GetUserDataFactory().CreateInstance<SupervisedUserNavigationObserver>(
             *tab, *tab, web_contents);
   }
+
+  sync_sessions_router_ =
+      std::make_unique<sync_sessions::SyncSessionsRouterTabHelper>(
+          web_contents,
+          sync_sessions::SyncSessionsWebContentsRouterFactory::GetForProfile(
+              profile),
+          ChromeTranslateClient::FromWebContents(web_contents),
+          favicon::ContentFaviconDriver::FromWebContents(web_contents));
 
   offline_page_tab_helper_ =
       GetUserDataFactory().CreateInstance<offline_pages::OfflinePageTabHelper>(
@@ -767,10 +788,11 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
   PrefsTabHelper::CreateForWebContents(web_contents);
 
   if (site_engagement::SiteEngagementService::IsEnabled()) {
-    site_engagement::SiteEngagementService::Helper::CreateForWebContents(
-        web_contents,
-        prerender::NoStatePrefetchManagerFactory::GetForBrowserContext(
-            profile));
+    site_engagement_helper_ =
+        std::make_unique<site_engagement::SiteEngagementService::Helper>(
+            web_contents,
+            prerender::NoStatePrefetchManagerFactory::GetForBrowserContext(
+                profile));
   }
 
   SafetyTipWebContentsObserver::CreateForWebContents(web_contents);
@@ -785,15 +807,25 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
         web_contents, HistoryTabHelper::FromWebContents(web_contents));
   }
 
-  if (!blocked_content::PopupBlockerTabHelper::FromWebContents(web_contents)) {
-    if (auto* pm_registry =
-            performance_manager::PerformanceManagerRegistry::GetInstance()) {
+  if (auto* pm_registry =
+          performance_manager::PerformanceManagerRegistry::GetInstance()) {
+    // A WebContents reparented into a new TabAndroid already has its PageType
+    // set to kTab, and PageNodeImpl::SetType CHECKs that SetPageType is only
+    // called once per WebContents.
+    base::WeakPtr<performance_manager::PageNode> page_node =
+        performance_manager::PerformanceManager::
+            GetPrimaryPageNodeForWebContents(web_contents);
+    if (page_node &&
+        page_node->GetType() != performance_manager::PageType::kTab) {
       pm_registry->SetPageType(web_contents,
                                performance_manager::PageType::kTab);
     }
   }
 
-  blocked_content::PopupBlockerTabHelper::CreateForWebContents(web_contents);
+  popup_blocker_tab_helper_ =
+      GetUserDataFactory()
+          .CreateInstance<blocked_content::PopupBlockerTabHelper>(*tab, *tab,
+                                                                  web_contents);
 
   RequestDesktopSiteWebContentsObserverAndroid::CreateForWebContents(
       web_contents);

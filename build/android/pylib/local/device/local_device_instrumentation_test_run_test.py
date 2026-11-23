@@ -155,16 +155,11 @@ class LocalDeviceInstrumentationTestRunTest(unittest.TestCase):
             test7,
             test8,
         ]
-        expected_shard0 = [test8]
-        expected_shard1 = [
-            [test1_batch1, test4_batch1, test5_batch1],
-            test3_multiprocess,
-            test7,
-            test3,
-            test6,
-            test2,
-        ]
-        # Shuffle the tests two times to check if the output is deterministic.
+
+        self._obj._env.sharding_strategy = 'bounded-load'
+        expected_shard0 = self._obj._ApplyExternalSharding(tests, 0, 2)
+        expected_shard1 = self._obj._ApplyExternalSharding(tests, 1, 2)
+
         random.shuffle(tests)
         self.assertListEqual(
             self._obj._ApplyExternalSharding(tests, 0, 2), expected_shard0
@@ -245,6 +240,142 @@ class LocalDeviceInstrumentationTestRunTest(unittest.TestCase):
         )
         # Must not raise.
         self._obj._ResetLeftoverCtsMockIme(device)
+
+    def test_CleanDownloads_q(self):
+        self._env.force_main_user = False
+        device = mock.MagicMock()
+        device.build_version_sdk = 29
+        device.GetExternalStoragePath.return_value = '/sdcard'
+        self._obj._CleanDownloads(device)
+        device.RunShellCommand.assert_has_calls(
+            [
+                mock.call(
+                    [
+                        'content',
+                        'delete',
+                        '--uri',
+                        'content://media/external/downloads',
+                    ],
+                    check_return=True,
+                ),
+                mock.call(
+                    'rm -rf /sdcard/Download/*',
+                    shell=True,
+                    check_return=True,
+                    as_root=False,
+                ),
+            ]
+        )
+
+    def test_CleanDownloads_preQ(self):
+        self._env.force_main_user = False
+        device = mock.MagicMock()
+        device.build_version_sdk = 28
+        device.GetExternalStoragePath.return_value = '/sdcard'
+        self._obj._CleanDownloads(device)
+        device.RunShellCommand.assert_called_once_with(
+            'rm -rf /sdcard/Download/*',
+            shell=True,
+            check_return=True,
+            as_root=False,
+        )
+
+    def test_CleanDownloads_failureIsSwallowed(self):
+        self._env.force_main_user = False
+        device = mock.MagicMock()
+        device.build_version_sdk = 29
+        device.GetExternalStoragePath.return_value = '/sdcard'
+        device_errors = local_device_instrumentation_test_run.device_errors
+        device.RunShellCommand.side_effect = device_errors.CommandFailedError(
+            'boom'
+        )
+        # Must not raise, and the file cleanup still runs after the MediaStore
+        # cleanup fails.
+        self._obj._CleanDownloads(device)
+        self.assertEqual(device.RunShellCommand.call_count, 2)
+
+    def test_CleanDownloads_unsafePathIsNotDeleted(self):
+        self._env.force_main_user = False
+        for storage_path in ('', '/', '.', '/sdcard/..', 'sdcard'):
+            device = mock.MagicMock()
+            device.build_version_sdk = 28
+            device.GetExternalStoragePath.return_value = storage_path
+            self._obj._CleanDownloads(device)
+            device.RunShellCommand.assert_not_called()
+
+    def test_CleanDownloads_unsafeResolvedPathIsNotDeleted(self):
+        self._env.force_main_user = True
+        device = mock.MagicMock()
+        device.build_version_sdk = 28
+        device.GetExternalStoragePath.return_value = '/sdcard'
+        device.ResolveSpecialPath.return_value = ''
+        self._obj._CleanDownloads(device)
+        device.RunShellCommand.assert_not_called()
+
+    def testIsSafeDownloadsDir(self):
+        is_safe = local_device_instrumentation_test_run._IsSafeDownloadsDir
+        for path in ('/sdcard/Download', '/data/media/10/Download'):
+            self.assertTrue(is_safe(path), path)
+        for path in (
+            None,
+            '',
+            '/',
+            'Download',
+            '/Download',
+            '/sdcard/../Download',
+            '/sdcard/Download/',
+            '/sdcard/Downloads',
+            '/sdcard/Download/..',
+        ):
+            self.assertFalse(is_safe(path), path)
+
+    def testEstimateTestGroupRuntime(self):
+        # single test dict with no special annotations
+        # (weight = 8.0 + 1.0 = 9.0)
+        self.assertEqual(
+            self._obj._EstimateTestGroupRuntime({'annotations': {}}), 9.0
+        )
+
+        # test dict with TimeoutScale: {'value': 4} (weight = 8.0 + 4.0 = 12.0)
+        self.assertEqual(
+            self._obj._EstimateTestGroupRuntime(
+                {'annotations': {'TimeoutScale': {'value': 4}}}
+            ),
+            12.0,
+        )
+
+        # multi-test batch of non-unit tests
+        self.assertEqual(
+            self._obj._EstimateTestGroupRuntime(
+                [{'annotations': {}}, {'annotations': {}}]
+            ),
+            10.0,
+        )
+
+        # unit test batch with Batch: {'value': 'UnitTests'}
+        # (weight = 1.0 + 0.05 = 1.05)
+        self.assertEqual(
+            self._obj._EstimateTestGroupRuntime(
+                {'annotations': {'Batch': {'value': 'UnitTests'}}}
+            ),
+            1.05,
+        )
+
+        # unit test batch with multiple tests and TimeoutScale
+        self.assertEqual(
+            self._obj._EstimateTestGroupRuntime(
+                [
+                    {'annotations': {'Batch': {'value': 'UnitTests'}}},
+                    {
+                        'annotations': {
+                            'Batch': {'value': 'UnitTests'},
+                            'TimeoutScale': {'value': 4},
+                        }
+                    },
+                ]
+            ),
+            1.25,
+        )
 
     @mock.patch.object(
         local_device_instrumentation_test_run.LocalDeviceInstrumentationTestRun,

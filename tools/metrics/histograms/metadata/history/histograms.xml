@@ -162,7 +162,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ClearBrowsingData.Duration.ChromeTask.{Task}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>dullweber@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <component>1456716</component>
@@ -289,7 +289,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ClearBrowsingData.Duration.Task.{Task}" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>dullweber@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <component>1456716</component>
@@ -313,7 +313,6 @@ chromium-metrics-reviews@google.com.
     <variant name="PrerenderCache" summary="PrerenderCache"/>
     <variant name="ReportingCache" summary="ReportingCache"/>
     <variant name="SharedDictionary" summary="SharedDictionary"/>
-    <variant name="SharedStorage" summary="SharedStorage"/>
     <variant name="StoragePartition" summary="StoragePartition"/>
     <variant name="Synchronous" summary="Synchronous"/>
     <variant name="TrustTokens" summary="TrustTokens"/>
@@ -1409,7 +1408,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DomainCount28Day_V3" units="domains"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>mjzhang@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
@@ -1450,7 +1449,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DomainCount28Day_V4" units="domains"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>mjzhang@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
@@ -1487,7 +1486,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DomainCount7Day_V3" units="domains"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>mjzhang@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
@@ -1528,7 +1527,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DomainCount7Day_V4" units="domains"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>mjzhang@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
@@ -1788,7 +1787,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Embedder.EmbeddingsGenerationSucceeded"
-    enum="Boolean" expires_after="2027-02-14">
+    enum="Boolean" expires_after="2027-04-18">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -2408,7 +2407,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.ForeignVisitsTotal" units="visits"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>treib@chromium.org</owner>
   <component>1456716</component>
   <summary>
@@ -2419,7 +2418,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.HistoryPageView" enum="HistoryPageView"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>calamity@chromium.org</owner>
   <owner>src/chrome/browser/resources/history/OWNERS</owner>
   <component>1456716</component>
@@ -2446,7 +2445,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.InMemoryURLHistoryItems" units="items"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>chrome-omnibox-team@google.com</owner>
   <component>1456716</component>
@@ -2496,7 +2495,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.MonthlyHostCount" units="hosts"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -2508,7 +2507,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.MonthlyURLCount" units="urls"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -2585,7 +2584,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.QueryMostVisitedURLsTime" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mahmadi@chromium.org</owner>
   <owner>chrome-desktop-search@google.com</owner>
   <summary>
@@ -2838,7 +2837,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.VisitTableCount" units="visits"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -2872,7 +2871,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WebHistoryRequestOutcome.{RequestType}"
-    enum="WebHistoryRequestOutcome" expires_after="2027-02-07">
+    enum="WebHistoryRequestOutcome" expires_after="2027-04-11">
   <owner>treib@chromium.org</owner>
   <owner>src/components/history/OWNERS</owner>
   <component>1456716</component>
@@ -2900,7 +2899,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WeeklyURLCount" units="URLs"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>mpearson@chromium.org</owner>
   <owner>sky@chromium.org</owner>
   <component>1456716</component>
@@ -2933,7 +2932,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.CriticalAction.Click" enum="CriticalActionType"
-    expires_after="2026-11-01">
+    expires_after="2027-11-01">
   <owner>kalinino@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
@@ -2945,7 +2944,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.CriticalActionsPerVisitCount" units="actions"
-    expires_after="2026-11-01">
+    expires_after="2027-11-01">
   <owner>kalinino@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
@@ -2958,7 +2957,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.CriticalActionsQueryTime" units="ms"
-    expires_after="2026-11-01">
+    expires_after="2027-11-01">
   <owner>kalinino@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>
@@ -2998,7 +2997,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="HistoryPage.QueryHistoryTotalTime.{HasCriticalActions}"
-    units="ms" expires_after="2026-11-01">
+    units="ms" expires_after="2027-11-01">
   <owner>kalinino@google.com</owner>
   <owner>polonium@google.com</owner>
   <summary>

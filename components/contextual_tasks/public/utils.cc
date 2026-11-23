@@ -87,8 +87,6 @@ std::optional<lens::LensOverlayInvocationSource>
 GetLensInvocationSourceForAimZeroState(
     omnibox::ChromeAimEntryPoint entry_point) {
   switch (entry_point) {
-    case omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON:
-      return lens::LensOverlayInvocationSource::kCobrowseToolbarButton;
     case omnibox::ChromeAimEntryPoint::
         DESKTOP_CHROME_COBROWSE_PINNED_TOOLBAR_BUTTON:
       return lens::LensOverlayInvocationSource::kCobrowsePinnedToolbarButton;
@@ -98,9 +96,10 @@ GetLensInvocationSourceForAimZeroState(
       return lens::LensOverlayInvocationSource::kOmniboxPageAction;
     case omnibox::ChromeAimEntryPoint::
         DESKTOP_CHROME_PAGE_CONTEXT_MENU_ASK_GOOGLE:
-      return lens::LensOverlayInvocationSource::kContentAreaContextMenuPage;
+      return lens::LensOverlayInvocationSource::
+          kContentAreaContextMenuPageAskGoogle;
     case omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_APP_MENU_ASK_GOOGLE:
-      return lens::LensOverlayInvocationSource::kAppMenu;
+      return lens::LensOverlayInvocationSource::kAppMenuAskGoogle;
     case omnibox::ChromeAimEntryPoint::
         DESKTOP_CHROME_CHROMNIENT_HOMEWORK_ACTION_CHIP:
       return lens::LensOverlayInvocationSource::kHomeworkActionChip;

@@ -130,8 +130,7 @@ syncer::DataTypeController::TypeVector CreateControllers(
       profile, ServiceAccessType::IMPLICIT_ACCESS));
   builder.SetGoogleGroupsManager(
       GoogleGroupsManagerFactory::GetForProfile(profile));
-  builder.SetHistoryService(ios::HistoryServiceFactory::GetForProfile(
-      profile, ServiceAccessType::EXPLICIT_ACCESS));
+  builder.SetHistoryService(ios::HistoryServiceFactory::GetForProfile(profile));
   builder.SetIdentityManager(IdentityManagerFactory::GetForProfile(profile));
   builder.SetDataTypeStoreService(
       DataTypeStoreServiceFactory::GetForProfile(profile));
@@ -294,8 +293,11 @@ std::unique_ptr<KeyedService> BuildSyncService(ProfileIOS* profile) {
 syncer::SyncServiceImpl*
 SyncServiceFactory::GetForProfileAsSyncServiceImplForTesting(
     ProfileIOS* profile) {
+  if (!profile) {
+    return nullptr;
+  }
   return GetInstance()->GetServiceForProfileAs<syncer::SyncServiceImpl>(
-      profile, /*create*/ true);
+      *profile, /*create*/ true);
 }
 
 // static

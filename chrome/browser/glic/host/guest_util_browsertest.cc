@@ -9,6 +9,7 @@
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/glic/glic_pref_names.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -46,10 +47,10 @@
 namespace glic {
 namespace {
 
-// Use `kChromeUIContextualTasksURL` because it is allow-listed for web view
+// Use `kChromeUIChromeSigninURL` because it is allow-listed for web view
 // use in `chrome/common/extensions/api/_api_features.json`.
-const char* kTestWebViewURL = chrome::kChromeUIContextualTasksURL;
-const char* kTestWebViewHost = chrome::kChromeUIContextualTasksHost;
+const char* kTestWebViewURL = chrome::kChromeUIChromeSigninURL;
+const char* kTestWebViewHost = chrome::kChromeUIChromeSigninHost;
 
 // A simple WebUI controller that serves a blank page with a <webview> tag.
 class TestWebUIController : public content::WebUIController {
@@ -105,7 +106,7 @@ void OpenWebUiWithGuestView(const GURL& host_url) {
   new_browser.GetWindow()->Show();
 
   ui_test_utils::NavigateToURLWithDisposition(
-      &new_browser, host_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      &new_browser, host_url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 }
 
@@ -168,7 +169,7 @@ IN_PROC_BROWSER_TEST_F(GuestUtilBrowserTest, OnGuestAdded_NonGlic) {
 }
 
 IN_PROC_BROWSER_TEST_F(GuestUtilBrowserTest, OnGuestAdded_Glic) {
-  if (features::IsGlicNoWebviewEnabled()) {
+  if (IsNoWebviewEnabled()) {
     GTEST_SKIP() << "GuestView is not used in NoWebview mode.";
   }
   EXPECT_EQ(0ULL, GetGuestViewManager(factory()).GetCurrentGuestCount());

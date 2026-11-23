@@ -11,9 +11,9 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
+#include "components/input/native_web_keyboard_event.h"
 #include "components/performance_manager/public/decorators/page_live_state_decorator.h"
 #include "ui/base/metadata/metadata_header_macros.h"
-#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/controls/webview/webview.h"
 
 namespace ui {
@@ -67,9 +67,6 @@ class SidePanelWebUIView : public views::WebView,
       withheld_from_view_;
   std::unique_ptr<ui::MenuModel> context_menu_model_;
   std::unique_ptr<views::MenuRunner> context_menu_runner_;
-  // A handler to handle unhandled keyboard messages coming back from the
-  // renderer process.
-  views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
   base::CallbackListSubscription tab_will_discard_subscription_;
   base::WeakPtrFactory<SidePanelWebUIView> weak_factory_{this};
 };

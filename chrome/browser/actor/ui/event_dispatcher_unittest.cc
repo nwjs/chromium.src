@@ -14,10 +14,13 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
+#include "chrome/browser/actor/actor_surface_impl.h"
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/click_tool_request.h"
 #include "chrome/browser/actor/tools/move_mouse_tool_request.h"
+#include "chrome/browser/actor/tools/tab_management_tool_request.h"
 #include "chrome/browser/actor/tools/type_tool_request.h"
 #include "chrome/browser/actor/tools/wait_tool_request.h"
 #include "chrome/browser/actor/ui/actor_ui_metrics_types.h"
@@ -29,6 +32,7 @@
 #include "chrome/common/chrome_features.h"
 #include "components/actor/core/shared_types.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/tabs/public/mock_tab_interface.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace actor::ui {
@@ -88,12 +92,23 @@ TEST_F(EventDispatcherTest, NoEventsToDispatch) {
   EXPECT_TRUE(IsOk(*success.Get()));
 }
 
+TEST_F(EventDispatcherTest, CloseTabHasNoUiEvents) {
+  EXPECT_CALL(*mock_state_manager_, OnUiEvent(_, _)).Times(0);
+  CloseTabToolRequest close_tab_tr(ActorSurfaceHandle::FromRawValue(1));
+  TestFuture<ActionResultPtr> close_tab_result;
+  dispatcher_->OnPreTool(close_tab_tr, close_tab_result.GetCallback());
+  EXPECT_TRUE(IsOk(*close_tab_result.Get()));
+}
+
 TEST_F(EventDispatcherTest, SingleMouseMove_Point) {
+  tabs::MockTabInterface tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab.GetHandle());
   EXPECT_CALL(
       *mock_state_manager_,
       OnUiEvent(
           VariantWith<MouseMove>(AllOf(
-              Field(&MouseMove::tab_handle, tabs::TabHandle(123)),
+              Field(&MouseMove::tab_handle, tab.GetHandle()),
               Field(&MouseMove::target, gfx::Point(100, 200)),
               Field(&MouseMove::target_source, TargetSource::kToolRequest))),
           _))
@@ -101,7 +116,7 @@ TEST_F(EventDispatcherTest, SingleMouseMove_Point) {
       .WillOnce(WithArgs<1>([&](UiCompleteCallback callback) {
         std::move(callback).Run(MakeOkResult());
       }));
-  MoveMouseToolRequest tr(tabs::TabHandle(123),
+  MoveMouseToolRequest tr(actor_surface.GetHandle(),
                           PageTarget(gfx::Point(100, 200)));
   TestFuture<ActionResultPtr> result;
   dispatcher_->OnPreTool(tr, result.GetCallback());
@@ -115,9 +130,12 @@ TEST_F(EventDispatcherTest, SingleMouseMove_Point) {
 TEST_F(EventDispatcherTest, SingleMouseMove_DomNode) {
   // TODO(crbug.com/434038099): Update test when DomNode conversion is
   // implemented.
+  tabs::MockTabInterface tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab.GetHandle());
   EXPECT_CALL(*mock_state_manager_,
               OnUiEvent(VariantWith<MouseMove>(AllOf(
-                            Field(&MouseMove::tab_handle, tabs::TabHandle(123)),
+                            Field(&MouseMove::tab_handle, tab.GetHandle()),
                             Field(&MouseMove::target, std::nullopt),
                             Field(&MouseMove::target_source,
                                   TargetSource::kUnresolvableInApc))),
@@ -126,7 +144,7 @@ TEST_F(EventDispatcherTest, SingleMouseMove_DomNode) {
       .WillOnce(WithArgs<1>([&](UiCompleteCallback callback) {
         std::move(callback).Run(MakeOkResult());
       }));
-  MoveMouseToolRequest tr(tabs::TabHandle(123),
+  MoveMouseToolRequest tr(actor_surface.GetHandle(),
                           PageTarget(DomNode(100, "abcdefg")));
   TestFuture<ActionResultPtr> result;
   dispatcher_->OnPreTool(tr, result.GetCallback());
@@ -145,9 +163,15 @@ TEST_F(EventDispatcherTest, TwoToolRequests) {
       .WillRepeatedly(WithArgs<1>([&](UiCompleteCallback callback) {
         std::move(callback).Run(MakeOkResult());
       }));
-  MoveMouseToolRequest tr1(tabs::TabHandle(123),
+  tabs::MockTabInterface tab1;
+  ActorSurfaceImpl actor_surface1(ActorSurfaceHandle::CreateForTesting(),
+                                  tab1.GetHandle());
+  tabs::MockTabInterface tab2;
+  ActorSurfaceImpl actor_surface2(ActorSurfaceHandle::CreateForTesting(),
+                                  tab2.GetHandle());
+  MoveMouseToolRequest tr1(actor_surface1.GetHandle(),
                            PageTarget(gfx::Point(100, 200)));
-  MoveMouseToolRequest tr2(tabs::TabHandle(456),
+  MoveMouseToolRequest tr2(actor_surface2.GetHandle(),
                            PageTarget(gfx::Point(300, 400)));
   TestFuture<ActionResultPtr> result1, result2;
   dispatcher_->OnPreTool(tr1, result1.GetCallback());
@@ -157,11 +181,14 @@ TEST_F(EventDispatcherTest, TwoToolRequests) {
 }
 
 TEST_F(EventDispatcherTest, TwoUiEvents) {
+  tabs::MockTabInterface tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab.GetHandle());
   EXPECT_CALL(
       *mock_state_manager_,
       OnUiEvent(
           VariantWith<MouseMove>((AllOf(
-              Field(&MouseMove::tab_handle, tabs::TabHandle(867)),
+              Field(&MouseMove::tab_handle, tab.GetHandle()),
               Field(&MouseMove::target, gfx::Point(10, 50)),
               Field(&MouseMove::target_source, TargetSource::kToolRequest)))),
           _))
@@ -172,7 +199,7 @@ TEST_F(EventDispatcherTest, TwoUiEvents) {
       .WillOnce(WithArgs<1>([&](UiCompleteCallback callback) {
         std::move(callback).Run(MakeOkResult());
       }));
-  ClickToolRequest tr(tabs::TabHandle(867), PageTarget(gfx::Point(10, 50)),
+  ClickToolRequest tr(actor_surface.GetHandle(), PageTarget(gfx::Point(10, 50)),
                       mojom::ClickType::kLeft, mojom::ClickCount::kSingle);
   TestFuture<ActionResultPtr> result;
   dispatcher_->OnPreTool(tr, result.GetCallback());
@@ -180,6 +207,9 @@ TEST_F(EventDispatcherTest, TwoUiEvents) {
 }
 
 TEST_F(EventDispatcherTest, TwoUiEventsWithFirstOneFailing) {
+  tabs::MockTabInterface tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab.GetHandle());
   EXPECT_CALL(*mock_state_manager_, OnUiEvent(VariantWith<MouseMove>(_), _))
       .WillOnce(WithArgs<1>([&](UiCompleteCallback callback) {
         task_environment_.FastForwardBy(base::Microseconds(50));
@@ -188,7 +218,7 @@ TEST_F(EventDispatcherTest, TwoUiEventsWithFirstOneFailing) {
       }));
   EXPECT_CALL(*mock_state_manager_, OnUiEvent(VariantWith<MouseClick>(_), _))
       .Times(0);
-  ClickToolRequest tr(tabs::TabHandle(123), PageTarget(gfx::Point(10, 50)),
+  ClickToolRequest tr(actor_surface.GetHandle(), PageTarget(gfx::Point(10, 50)),
                       mojom::ClickType::kLeft, mojom::ClickCount::kSingle);
   TestFuture<ActionResultPtr> result;
   dispatcher_->OnPreTool(tr, result.GetCallback());
@@ -204,6 +234,9 @@ TEST_F(EventDispatcherTest, TwoUiEventsWithFirstOneFailing) {
 }
 
 TEST_F(EventDispatcherTest, TwoUiEventsWithSecondOneFailing) {
+  tabs::MockTabInterface tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab.GetHandle());
   EXPECT_CALL(*mock_state_manager_, OnUiEvent(VariantWith<MouseMove>(_), _))
       .WillOnce(WithArgs<1>([&](UiCompleteCallback callback) {
         task_environment_.FastForwardBy(base::Microseconds(50));
@@ -215,7 +248,7 @@ TEST_F(EventDispatcherTest, TwoUiEventsWithSecondOneFailing) {
         std::move(callback).Run(
             MakeResult(actor::mojom::ActionResultCode::kActorUiError));
       }));
-  ClickToolRequest tr(tabs::TabHandle(123), PageTarget(gfx::Point(10, 50)),
+  ClickToolRequest tr(actor_surface.GetHandle(), PageTarget(gfx::Point(10, 50)),
                       mojom::ClickType::kLeft, mojom::ClickCount::kSingle);
   TestFuture<ActionResultPtr> result;
   dispatcher_->OnPreTool(tr, result.GetCallback());
@@ -249,6 +282,12 @@ TEST_F(EventDispatcherTest, AllUiEventsLogDurationHistograms) {
     EXPECT_CALL(*mock_state_manager_,
                 OnUiEvent(VariantWith<StoppedActingOnTab>(_)));
     dispatcher_->OnActorTaskSyncChange(remove_tab);
+    // This generates a TaskStepProgressUpdated event.
+    EXPECT_CALL(*mock_state_manager_,
+                OnUiEvent(VariantWith<TaskStepProgressUpdated>(_)));
+    dispatcher_->OnActorTaskSyncChange(
+        UiEventDispatcher::UpdateTaskStepProgress{
+            .task_id = TaskId(1), .step_progress = "Searching"});
   }
   // Trigger asynchronous events.
   {
@@ -261,8 +300,11 @@ TEST_F(EventDispatcherTest, AllUiEventsLogDurationHistograms) {
         .WillOnce(WithArgs<1>([](UiCompleteCallback callback) {
           std::move(callback).Run(MakeOkResult());
         }));
+    tabs::MockTabInterface tab;
+    ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                   tab.GetHandle());
     ClickToolRequest click_tr(
-        tabs::TabHandle(867), PageTarget(gfx::Point(10, 50)),
+        actor_surface.GetHandle(), PageTarget(gfx::Point(10, 50)),
         mojom::ClickType::kLeft, mojom::ClickCount::kSingle);
     TestFuture<ActionResultPtr> click_result;
     dispatcher_->OnPreTool(click_tr, click_result.GetCallback());
@@ -288,6 +330,8 @@ TEST_F(EventDispatcherTest, AllUiEventsLogDurationHistograms) {
       "Actor.EventDispatcher.TaskStateChanged.Duration", 1);
   histograms_.ExpectTotalCount(
       "Actor.EventDispatcher.StoppedActingOnTab.Duration", 1);
+  histograms_.ExpectTotalCount(
+      "Actor.EventDispatcher.TaskStepProgressUpdated.Duration", 1);
   // Ensure all AsyncUiEvent Durations are logged.
   histograms_.ExpectTotalCount("Actor.EventDispatcher.MouseMove.Duration", 1);
   histograms_.ExpectTotalCount("Actor.EventDispatcher.MouseClick.Duration", 1);
@@ -296,13 +340,28 @@ TEST_F(EventDispatcherTest, AllUiEventsLogDurationHistograms) {
 }
 
 TEST_F(EventDispatcherTest, TypeCausesMouseMove) {
+  tabs::MockTabInterface tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab.GetHandle());
   EXPECT_CALL(*mock_state_manager_, OnUiEvent(VariantWith<MouseMove>(_), _))
       .WillOnce(WithArgs<1>([&](UiCompleteCallback callback) {
         std::move(callback).Run(MakeOkResult());
       }));
-  TypeToolRequest tr(tabs::TabHandle(456), PageTarget(gfx::Point(300, 400)),
-                     "some text to type",
+  TypeToolRequest tr(actor_surface.GetHandle(),
+                     PageTarget(gfx::Point(300, 400)), "some text to type",
                      /*follow_by_enter=*/true, TypeToolRequest::Mode::kReplace);
+  TestFuture<ActionResultPtr> result;
+  dispatcher_->OnPreTool(tr, result.GetCallback());
+  EXPECT_TRUE(IsOk(*result.Get()));
+}
+
+TEST_F(EventDispatcherTest, NoMouseEventsForActorSurfaceWithoutTab) {
+  // No actor surface is registered under this handle, so it has no tab, like a
+  // headless actor surface.
+  EXPECT_CALL(*mock_state_manager_, OnUiEvent(_, _)).Times(0);
+  ClickToolRequest tr(ActorSurfaceHandle::CreateForTesting(),
+                      PageTarget(gfx::Point(10, 50)), mojom::ClickType::kLeft,
+                      mojom::ClickCount::kSingle);
   TestFuture<ActionResultPtr> result;
   dispatcher_->OnPreTool(tr, result.GetCallback());
   EXPECT_TRUE(IsOk(*result.Get()));
@@ -359,6 +418,17 @@ TEST_F(EventDispatcherTest, SyncActor_RemoveTab) {
       .Times(1);
   dispatcher_->OnActorTaskSyncChange(UiEventDispatcher::RemoveTab{
       .task_id = TaskId(867), .handle = tabs::TabHandle(5309)});
+}
+
+TEST_F(EventDispatcherTest, SyncActor_UpdateTaskStepProgress) {
+  EXPECT_CALL(*mock_state_manager_,
+              OnUiEvent(VariantWith<TaskStepProgressUpdated>(
+                  AllOf(Field(&TaskStepProgressUpdated::task_id, TaskId(867)),
+                        Field(&TaskStepProgressUpdated::step_progress,
+                              "Searching for shoes")))))
+      .Times(1);
+  dispatcher_->OnActorTaskSyncChange(UiEventDispatcher::UpdateTaskStepProgress{
+      .task_id = TaskId(867), .step_progress = "Searching for shoes"});
 }
 
 TEST_F(EventDispatcherTest, AsyncActorTaskChange_OneEvent) {
@@ -419,10 +489,13 @@ class EventDispatcherRendererResolvedTest : public EventDispatcherTest {
 };
 
 TEST_F(EventDispatcherRendererResolvedTest, MissingActorTabData) {
-  tabs::TabHandle invalid_handle(999);
+  // A surface whose tab has no ActorTabData.
+  tabs::MockTabInterface tab;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab.GetHandle());
   EXPECT_CALL(*mock_state_manager_,
               OnUiEvent(VariantWith<MouseMove>(AllOf(
-                            Field(&MouseMove::tab_handle, invalid_handle),
+                            Field(&MouseMove::tab_handle, tab.GetHandle()),
                             Field(&MouseMove::target, std::nullopt),
                             Field(&MouseMove::target_source,
                                   TargetSource::kUnresolvableFromRenderer))),
@@ -432,7 +505,8 @@ TEST_F(EventDispatcherRendererResolvedTest, MissingActorTabData) {
         std::move(callback).Run(MakeOkResult());
       }));
 
-  MoveMouseToolRequest tr(invalid_handle, PageTarget(gfx::Point(100, 200)));
+  MoveMouseToolRequest tr(actor_surface.GetHandle(),
+                          PageTarget(gfx::Point(100, 200)));
 
   TestFuture<ActionResultPtr> result;
   dispatcher_->OnPreTool(tr, result.GetCallback());
@@ -445,6 +519,8 @@ TEST_F(EventDispatcherRendererResolvedTest, MissingActorTabData) {
 
 TEST_F(EventDispatcherRendererResolvedTest, TargetHasNoValue) {
   ::actor::TestTabState tab_state;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab_state.tab.GetHandle());
 
   EXPECT_CALL(
       *mock_state_manager_,
@@ -459,7 +535,7 @@ TEST_F(EventDispatcherRendererResolvedTest, TargetHasNoValue) {
         std::move(callback).Run(MakeOkResult());
       }));
 
-  MoveMouseToolRequest tr(tab_state.tab.GetHandle(),
+  MoveMouseToolRequest tr(actor_surface.GetHandle(),
                           PageTarget(gfx::Point(100, 200)));
 
   TestFuture<ActionResultPtr> result;
@@ -473,6 +549,8 @@ TEST_F(EventDispatcherRendererResolvedTest, TargetHasNoValue) {
 
 TEST_F(EventDispatcherRendererResolvedTest, TargetSuccess_PriorityOverDomNode) {
   ::actor::TestTabState tab_state;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab_state.tab.GetHandle());
   tab_state.tab_data->SetLastRendererResolvedTarget(gfx::Point(55, 66));
 
   EXPECT_CALL(
@@ -488,7 +566,7 @@ TEST_F(EventDispatcherRendererResolvedTest, TargetSuccess_PriorityOverDomNode) {
         std::move(callback).Run(MakeOkResult());
       }));
 
-  MoveMouseToolRequest tr(tab_state.tab.GetHandle(),
+  MoveMouseToolRequest tr(actor_surface.GetHandle(),
                           PageTarget(DomNode(100, "abcdefg")));
 
   TestFuture<ActionResultPtr> result;
@@ -503,6 +581,8 @@ TEST_F(EventDispatcherRendererResolvedTest, TargetSuccess_PriorityOverDomNode) {
 
 TEST_F(EventDispatcherRendererResolvedTest, TargetSuccess_PriorityOverPoint) {
   ::actor::TestTabState tab_state;
+  ActorSurfaceImpl actor_surface(ActorSurfaceHandle::CreateForTesting(),
+                                 tab_state.tab.GetHandle());
   tab_state.tab_data->SetLastRendererResolvedTarget(gfx::Point(55, 66));
 
   EXPECT_CALL(
@@ -518,7 +598,7 @@ TEST_F(EventDispatcherRendererResolvedTest, TargetSuccess_PriorityOverPoint) {
         std::move(callback).Run(MakeOkResult());
       }));
 
-  MoveMouseToolRequest tr(tab_state.tab.GetHandle(),
+  MoveMouseToolRequest tr(actor_surface.GetHandle(),
                           PageTarget(gfx::Point(100, 200)));
 
   TestFuture<ActionResultPtr> result;

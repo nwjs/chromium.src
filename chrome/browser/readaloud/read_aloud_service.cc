@@ -7,9 +7,12 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/unguessable_token.h"
@@ -21,6 +24,7 @@
 #include "chrome/browser/readaloud/audio_generation/speech_synthesis_broker.h"
 #include "chrome/browser/readaloud/read_aloud_audio_broker.h"
 #include "chrome/browser/readaloud/read_aloud_playback_session.h"
+#include "chrome/browser/readaloud/read_aloud_voice_catalog.h"
 #include "chrome/browser/readaloud/voice_preview_controller.h"
 #include "chrome/common/readaloud/read_aloud_constants.h"
 #include "components/dom_distiller/content/browser/distiller_page_web_contents.h"
@@ -66,6 +70,8 @@ std::string SanitizeMetadata(std::string_view value) {
   }
   return sanitized;
 }
+
+constexpr char kOverviewOutcomeHistogram[] = "ReadAloud.Overview.Outcome";
 
 }  // namespace
 
@@ -175,8 +181,10 @@ void ReadAloudService::ResetPlayback() {
   }
   overview_script_loaded_ = false;
   distillation_start_time_ = base::TimeTicks();
+  overview_generation_start_time_ = base::TimeTicks();
   article_title_.clear();
   current_publisher_.clear();
+  highlight_text_length_ = 0;
 
   // Stopping the Utility Process and any of their connections.
   ResetUtilityConnection();
@@ -200,7 +208,16 @@ void ReadAloudService::Seek(base::TimeDelta absolute_time) {
     utility_player_->SeekToTime(absolute_time);
   }
 }
-void ReadAloudService::SeekRelative(base::TimeDelta offset) {}
+
+void ReadAloudService::SeekRelative(base::TimeDelta offset) {
+  if (offset.is_inf()) {
+    return;
+  }
+  if (utility_player_.is_bound()) {
+    utility_player_->SeekRelative(offset);
+  }
+}
+
 void ReadAloudService::SetPlaybackRate(float rate) {
   if (utility_player_.is_bound()) {
     utility_player_->SetPlaybackRate(rate);
@@ -216,12 +233,13 @@ void ReadAloudService::SetLanguageCode(std::string_view language_code) {
     speech_synthesis_broker_->SetLanguageCode(language_code);
   }
 }
-void ReadAloudService::PreviewVoice(std::string_view voice_id) {
+void ReadAloudService::PreviewVoice(std::string_view voice_id,
+                                    std::u16string_view preview_text) {
   // Pause active article playback while previewing a voice.
   Pause();
 
   if (voice_preview_controller_) {
-    voice_preview_controller_->PlayPreview(voice_id);
+    voice_preview_controller_->PlayPreview(voice_id, preview_text);
   }
 }
 
@@ -259,6 +277,12 @@ void ReadAloudService::CheckReadability(const GURL& url) {
   }
 }
 
+void ReadAloudService::InitVoices() {
+  if (delegate_) {
+    delegate_->OnVoicesAvailable(kAvailableVoices);
+  }
+}
+
 void ReadAloudService::WebContentsDestroyed() {
   // Stop active playback and detach observer when the tab is destroyed.
   Stop();
@@ -270,11 +294,19 @@ void ReadAloudService::PrimaryPageChanged(content::Page& page) {
   Stop();
 }
 
+// `OnSessionSuspended()` and `OnSessionResumed()` run synchronously while
+// `MediaSession` iterates over its players. They must not destroy or replace
+// `media_session_`.
 void ReadAloudService::OnSessionSuspended() {
   Pause();
 }
 
 void ReadAloudService::OnSessionResumed() {
+  // `media_session_` observes the same `WebContents` as this service, so
+  // `Play()` does not call `Initialize()`, which would destroy
+  // `media_session_`.
+  CHECK(media_session_);
+  CHECK_EQ(media_session_->web_contents(), web_contents());
   Play(web_contents());
 }
 
@@ -386,6 +418,8 @@ void ReadAloudService::RequestOverviewGeneration(
   GURL page_url =
       web_contents() ? web_contents()->GetLastCommittedURL() : GURL();
 
+  overview_generation_start_time_ = base::TimeTicks::Now();
+
   // AI Overviews are supported in English language only.
   // Hardcoding the language code maximizes prompt/prefix cache hit rates.
   overview_generation_broker_->GenerateOverview(
@@ -403,7 +437,9 @@ void ReadAloudService::OnOverviewGenerated(mojo_base::BigBuffer response_bytes,
   }
 
   if (!success || response_bytes.size() == 0) {
-    // TODO(b/564908361): Record UMA metric for overview generation failure.
+    overview_generation_start_time_ = base::TimeTicks();
+    base::UmaHistogramEnumeration(kOverviewOutcomeHistogram,
+                                  OverviewOutcome::kGenerationFailed);
     HandlePlaybackError("Overview generation failed");
     return;
   }
@@ -427,8 +463,9 @@ void ReadAloudService::OnOverviewContentSet(bool success,
   }
 
   if (!success) {
-    // TODO(b/564908361): Record UMA metric for overview content parsing
-    // failure.
+    overview_generation_start_time_ = base::TimeTicks();
+    base::UmaHistogramEnumeration(kOverviewOutcomeHistogram,
+                                  OverviewOutcome::kContentParsingFailed);
     HandlePlaybackError("Overview content parsing failed");
     return;
   }
@@ -441,7 +478,14 @@ void ReadAloudService::OnOverviewContentSet(bool success,
         current_publisher_);
   }
 
-  // TODO(b/564908361): Record UMA metric for overview generation success.
+  if (!overview_generation_start_time_.is_null()) {
+    base::UmaHistogramMediumTimes(
+        "ReadAloud.Overview.TotalDuration",
+        base::TimeTicks::Now() - overview_generation_start_time_);
+    overview_generation_start_time_ = base::TimeTicks();
+  }
+  base::UmaHistogramEnumeration(kOverviewOutcomeHistogram,
+                                OverviewOutcome::kSuccess);
   overview_script_loaded_ = true;
 }
 
@@ -638,12 +682,26 @@ void ReadAloudService::OnPlaybackProgressChanged(base::TimeDelta elapsed,
   }
 }
 
-void ReadAloudService::OnWordBoundaryReached(
-    uint32_t /*segment_index*/,
-    uint32_t /*character_offset*/,
-    base::TimeDelta /*audio_timestamp*/) {
-  // Playback progress is reported by OnPlaybackProgressChanged().
-  // TODO(b/524283143): Forward the word range to the UI for highlighting.
+void ReadAloudService::OnWordBoundaryReached(uint32_t start_character_offset,
+                                             uint32_t end_character_offset) {
+  if (start_character_offset > end_character_offset) {
+    utility_observer_receiver_.ReportBadMessage(
+        "ReadAloudService: word boundary start exceeds end");
+    return;
+  }
+  if (!delegate_) {
+    return;
+  }
+
+  // The offsets are already in the highlighter's coordinate space, so they are
+  // forwarded unchanged. Empty words and words past the forwarded chunks (e.g.
+  // beyond `kMaxTextChunks`, which the UI has no text for) are dropped.
+  if (start_character_offset < end_character_offset &&
+      end_character_offset <= highlight_text_length_) {
+    delegate_->OnWordHighlightUpdated(
+        base::saturated_cast<int>(start_character_offset),
+        base::saturated_cast<int>(end_character_offset));
+  }
 }
 
 void ReadAloudService::OnTextChunked(
@@ -651,6 +709,17 @@ void ReadAloudService::OnTextChunked(
   if (chunks.size() > readaloud::kMaxTextChunks) {
     mojo::ReportBadMessage("Received invalid chunk payload");
     return;
+  }
+
+  // Must match the word offsets set by `PlaybackTimeline::SetTextContent()` in
+  // the utility process: one separator between chunks. No word can end in the
+  // separator after the last chunk, so the bound stops at the last chunk's end.
+  highlight_text_length_ = 0;
+  for (const std::u16string& chunk : chunks) {
+    highlight_text_length_ += chunk.size();
+  }
+  if (!chunks.empty()) {
+    highlight_text_length_ += chunks.size() - 1;
   }
 
   if (delegate_) {

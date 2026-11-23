@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/metrics/payments/promo_code_metrics.h"
 #include "components/autofill/core/browser/payments/offer_notification_options.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
@@ -77,46 +78,12 @@ OfferNotificationBubbleControllerImpl::OfferNotificationBubbleControllerImpl(
           CHECK_DEREF(tabs::TabInterface::GetFromContents(web_contents))) {}
 
 std::u16string OfferNotificationBubbleControllerImpl::GetWindowTitle() const {
-  switch (offer_.GetOfferType()) {
-    case AutofillOfferData::OfferType::GPAY_CARD_LINKED_OFFER:
-      return l10n_util::GetStringUTF16(
-          IDS_AUTOFILL_CARD_LINKED_OFFER_REMINDER_TITLE);
-    case AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER:
-      return l10n_util::GetStringUTF16(
-          IDS_AUTOFILL_GPAY_PROMO_CODE_OFFERS_REMINDER_TITLE);
-    case AutofillOfferData::OfferType::WALLET_DIRECT_OFFER:
-      return base::UTF8ToUTF16(offer_.GetOfferRewardAmount());
-    case AutofillOfferData::OfferType::UNKNOWN:
-      NOTREACHED();
-  }
-}
-
-std::u16string OfferNotificationBubbleControllerImpl::GetOkButtonLabel() const {
-  DCHECK_EQ(offer_.GetOfferType(),
-            AutofillOfferData::OfferType::GPAY_CARD_LINKED_OFFER);
-  return l10n_util::GetStringUTF16(
-      IDS_AUTOFILL_OFFERS_REMINDER_POSITIVE_BUTTON_LABEL);
-}
-
-std::u16string
-OfferNotificationBubbleControllerImpl::GetPromoCodeButtonTooltip() const {
-  return l10n_util::GetStringUTF16(
-      promo_code_button_clicked_
-          ? IDS_AUTOFILL_PROMO_CODE_OFFER_BUTTON_TOOLTIP_CLICKED
-          : IDS_AUTOFILL_PROMO_CODE_OFFER_BUTTON_TOOLTIP_NORMAL);
+  return base::UTF8ToUTF16(offer_.GetOfferRewardAmount());
 }
 
 AutofillBubbleBase*
 OfferNotificationBubbleControllerImpl::GetOfferNotificationBubbleView() const {
   return bubble_view();
-}
-
-const CreditCard* OfferNotificationBubbleControllerImpl::GetLinkedCard() const {
-  if (card_.has_value()) {
-    return &(*card_);
-  }
-
-  return nullptr;
 }
 
 const AutofillOfferData* OfferNotificationBubbleControllerImpl::GetOffer()
@@ -125,19 +92,20 @@ const AutofillOfferData* OfferNotificationBubbleControllerImpl::GetOffer()
 }
 
 bool OfferNotificationBubbleControllerImpl::IsIconVisible() const {
-  return bubble_state_ != BubbleState::kHidden;
+  return is_icon_visible_;
 }
 
 void OfferNotificationBubbleControllerImpl::OnBubbleClosed(
     PaymentsUiClosedReason closed_reason) {
   ResetBubbleViewAndInformBubbleManager();
-  promo_code_button_clicked_ = false;
+
+  autofill_metrics::LogOfferNotificationBubbleResult(closed_reason);
+
   UpdatePageActionIcon();
 }
 
 void OfferNotificationBubbleControllerImpl::ShowOfferNotificationIfApplicable(
     const AutofillOfferData& offer,
-    const CreditCard* card,
     const OfferNotificationOptions& options) {
   // If this is not the bubble's first show, and offer to be shown has not
   // changed, and it has not been shown for more than
@@ -153,11 +121,11 @@ void OfferNotificationBubbleControllerImpl::ShowOfferNotificationIfApplicable(
     return;
   }
 
-  // Hides the old bubble. Sets bubble_state_ to show icon here since we are
+  // Hides the old bubble. Sets is_icon_visible_ to show icon here since we are
   // going to show another bubble anyway.
   HideBubbleAndClearTimestamp(/*should_show_icon=*/true);
 
-  SetupOfferNotification(offer, card);
+  SetupOfferNotification(offer);
 
   if (options.show_notification_automatically) {
     QueueOrShowBubble();
@@ -167,21 +135,17 @@ void OfferNotificationBubbleControllerImpl::ShowOfferNotificationIfApplicable(
 }
 
 void OfferNotificationBubbleControllerImpl::SetupOfferNotification(
-    AutofillOfferData offer,
-    const CreditCard* card) {
+    AutofillOfferData offer) {
   was_bubble_shown_ = false;
   offer_ = std::move(offer);
 
-  DCHECK(IsIconVisible());
+  CHECK(IsIconVisible(), base::NotFatalUntil::M162);
 
-  if (card) {
-    card_ = *card;
-  }
   is_user_gesture_ = false;
 }
 
 void OfferNotificationBubbleControllerImpl::ReshowBubble() {
-  DCHECK(IsIconVisible());
+  CHECK(IsIconVisible(), base::NotFatalUntil::M162);
   if (bubble_view()) {
     return;
   }
@@ -197,25 +161,10 @@ void OfferNotificationBubbleControllerImpl::DismissNotification() {
 
 void OfferNotificationBubbleControllerImpl::OnVisibilityChanged(
     content::Visibility visibility) {
-  if (IsBubbleManagerEnabled()) {
-    if (visibility == content::Visibility::HIDDEN) {
-      if (bubble_state_ != BubbleState::kShowingIcon) {
-        bubble_state_ = BubbleState::kHidden;
-      }
-
-      // BubbleManager will hide the bubble.
-      bubble_shown_timestamp_ = std::nullopt;
-    }
-    return;
+  AutofillBubbleControllerBase::OnVisibilityChanged(visibility);
+  if (visibility == content::Visibility::HIDDEN) {
+    bubble_shown_timestamp_ = std::nullopt;
   }
-
-  if (visibility == content::Visibility::VISIBLE && !bubble_view() &&
-      bubble_state_ == BubbleState::kShowingIconAndBubble) {
-    QueueOrShowBubble();
-  } else if (visibility == content::Visibility::HIDDEN) {
-    HideBubbleAndClearTimestamp(bubble_state_ == BubbleState::kShowingIcon);
-  }
-  UpdatePageActionIcon();
 }
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -230,7 +179,7 @@ bool OfferNotificationBubbleControllerImpl::ShouldShowPageAction() {
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 void OfferNotificationBubbleControllerImpl::DoShowBubble() {
-  bubble_state_ = BubbleState::kShowingIconAndBubble;
+  is_icon_visible_ = true;
   UpdatePageActionIcon();
 
   // Don't show bubble yet if web content is not active (bubble will instead be
@@ -242,14 +191,8 @@ void OfferNotificationBubbleControllerImpl::DoShowBubble() {
   AutofillBubbleHandler* autofill_bubble_handler = GetAutofillBubbleHandler();
   SetBubbleView(*autofill_bubble_handler->ShowOfferNotificationBubble(
       web_contents(), this, is_user_gesture_));
-  DCHECK(bubble_view());
+  CHECK(bubble_view(), base::NotFatalUntil::M162);
 
-  // Update |bubble_state_| after bubble is shown once. In OnVisibilityChanged()
-  // we display the bubble if the the state is kShowingIconAndBubble. Once we
-  // open the bubble here once, we set |bubble_state_| to kShowingIcon to make
-  // sure further OnVisibilityChanged() don't trigger opening the bubble because
-  // we don't want to re-show it every time the web contents become visible.
-  bubble_state_ = BubbleState::kShowingIcon;
   bubble_shown_timestamp_ = AutofillClock::Now();
 
   if (observer_for_testing_) {
@@ -289,8 +232,7 @@ bool OfferNotificationBubbleControllerImpl::IsWebContentsActive() {
 
 void OfferNotificationBubbleControllerImpl::HideBubbleAndClearTimestamp(
     bool should_show_icon) {
-  bubble_state_ =
-      should_show_icon ? BubbleState::kShowingIcon : BubbleState::kHidden;
+  is_icon_visible_ = should_show_icon;
   UpdatePageActionIcon();
   HideBubble(/*initiated_by_bubble_manager=*/false);
   bubble_shown_timestamp_ = std::nullopt;

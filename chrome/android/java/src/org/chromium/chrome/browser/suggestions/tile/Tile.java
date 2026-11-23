@@ -19,7 +19,9 @@ import org.chromium.url.GURL;
 public class Tile implements OfflinableSuggestion {
     private final SiteSuggestion mSiteData;
 
-    private final int mIndex;
+    // 0-based visual screen index of tile, assigned at construction, but may be increased
+    // post-construction if extra tiles (e.g., The AI Mode tile) are added.
+    private int mIndex;
 
     private @TileVisualType int mType = TileVisualType.NONE;
 
@@ -79,15 +81,37 @@ public class Tile implements OfflinableSuggestion {
     }
 
     /**
-     * @return The index of this tile in the list of tiles.
+     * Returns the 0-based visual screen index of this tile on the New Tab Page.
+     *
+     * <p>This index is used by the Java presentation layer for layout, drag-and-drop animations,
+     * and view scrolling. Normally, the index ranges from [0..7]. When the NTP Aurora V2 feature
+     * flag and AI Mode tile (Arm 4) are enabled, an additional virtual tile slot is supported,
+     * extending the range to [0..8].
+     *
+     * <p>Note that the native C++ {@code CustomLinksManager} does not account for the virtual AI
+     * Mode tile and operates strictly on native custom link indices [0..7]. When translating visual
+     * screen positions to native indices (e.g. for reordering or restoring shortcuts), use {@link
+     * TileGroup#countCustomLinksBeforeIndex}.
+     *
+     * @return The 0-based visual screen index ([0..8] when NTP Aurora V2 and Arm 4 are enabled,
+     *     otherwise [0..7]).
      */
     public int getIndex() {
         return mIndex;
     }
 
     /**
+     * Reassigns the stored 0-based visual screen index so it's consistent with actual state.
+     *
+     * @param index The new 0-based index.
+     */
+    public void setIndex(int index) {
+        mIndex = index;
+    }
+
+    /**
      * @return The source of this tile's title. Used for metrics tracking. Valid values are listed
-     * in {@code TileTitleSource}.
+     *     in {@code TileTitleSource}.
      */
     public @TileTitleSource int getTitleSource() {
         return mSiteData.titleSource;
@@ -151,5 +175,15 @@ public class Tile implements OfflinableSuggestion {
 
     public @TileSectionType int getSectionType() {
         return mSiteData.sectionType;
+    }
+
+    /** Returns whether this tile represents the AI Mode tile. */
+    public boolean isAiMode() {
+        return mSiteData.isAiMode();
+    }
+
+    /** Returns whether this tile represents a custom link. */
+    public boolean isCustomLink() {
+        return mSiteData.isCustomLink();
     }
 }

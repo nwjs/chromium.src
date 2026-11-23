@@ -4,61 +4,10 @@
 
 #include "chrome/browser/ui/views/side_panel/side_panel_helper.h"
 
-#include "chrome/browser/history_clusters/history_clusters_service_factory.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_actions.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
-#include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/views/side_panel/bookmarks/bookmarks_side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/comments/comments_side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
-#include "chrome/browser/ui/views/side_panel/reading_list/reading_list_side_panel_coordinator.h"
-#include "chrome/browser/ui/webui_browser/webui_browser.h"
-#include "components/history_clusters/core/features.h"
-#include "components/history_clusters/core/history_clusters_service.h"
 #include "ui/actions/actions.h"
-
-// static
-void SidePanelHelper::PopulateGlobalEntries(
-    BrowserWindowInterface* browser,
-    SidePanelRegistry* window_registry) {
-  // Add reading list.
-  ReadingListSidePanelCoordinator::From(browser)->CreateAndRegisterEntry(
-      window_registry);
-
-  // Add bookmarks.
-  BookmarksSidePanelCoordinator::From(browser)->CreateAndRegisterEntry(
-      window_registry);
-
-  if (webui_browser::IsWebUIBrowserEnabled()) {
-    // TODO(webium): Consider supporting additional side panels beyond reading
-    // list and bookmarks.
-    return;
-  }
-
-  // Add history clusters.
-  if (HistoryClustersSidePanelCoordinator::IsSupported(browser->GetProfile()) &&
-      !HistorySidePanelCoordinator::IsSupported()) {
-    HistoryClustersSidePanelCoordinator::From(browser)->CreateAndRegisterEntry(
-        window_registry);
-  }
-
-  // Add history.
-  if (HistorySidePanelCoordinator::IsSupported()) {
-    HistorySidePanelCoordinator::From(browser)->CreateAndRegisterEntry(
-        window_registry);
-  }
-
-  // Add comments.
-  if (CommentsSidePanelCoordinator::IsSupported()) {
-    CommentsSidePanelCoordinator::From(browser)->CreateAndRegisterEntry(
-        window_registry);
-  }
-}
 
 // static
 actions::ActionItem* SidePanelHelper::GetActionItem(

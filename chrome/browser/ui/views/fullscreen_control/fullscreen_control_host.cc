@@ -191,6 +191,8 @@ void FullscreenControlHost::OnMouseEvent(const ui::MouseEvent& event) {
         Hide(true);
       }
     } else {
+      // TODO(crbug.com/576705322): CHECK-exclusion: Convert to a CHECK once we
+      // are confident it won't be triggered.
       DCHECK_EQ(InputEntryMethod::NOT_ACTIVE, input_entry_method_);
       if (!in_mouse_cooldown_mode_ &&
           event.y() <= kShowFullscreenExitControlHeight) {
@@ -218,7 +220,7 @@ void FullscreenControlHost::OnTouchEvent(const ui::TouchEvent& event) {
     return;
   }
 
-  DCHECK(IsVisible());
+  CHECK(IsVisible(), base::NotFatalUntil::M162);
 
   // Hide the popup if it is showing and the user touches outside of the popup.
   if (event.type() == ui::EventType::kTouchPressed && !IsAnimating()) {

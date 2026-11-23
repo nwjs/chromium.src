@@ -111,7 +111,7 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
       NavigationHistory navigation_history,
       base::OnceCallback<void(SendTabToSelfResult)> commit_confirmation,
       ShareEntryPoint entry_point) override;
-  void DismissEntry(std::string_view guid) override;
+  void DismissEntryNotification(std::string_view guid) override;
   void MarkEntryOpened(std::string_view guid) override;
   void MarkEntryActivated(std::string_view guid,
                           ShareActivatedEntryPoint entry_point) override;
@@ -176,9 +176,6 @@ class SendTabToSelfBridge : public syncer::DataTypeSyncBridge,
 
   // Returns the display name of the local device.
   std::string GetLocalDeviceName() const;
-
-  // Returns true if the device should be included in the target list.
-  bool ShouldIncludeDevice(const syncer::DeviceInfo& device) const;
 
   // Delete expired entries.
   void DoGarbageCollection();

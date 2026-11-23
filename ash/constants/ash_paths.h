@@ -35,7 +35,11 @@ enum {
                                         // in the file system.
   FILE_TPM_FIRMWARE_UPDATE_SRK_VULNERABLE_ROCA,  // Flag file indicating SRK
                                                  // ROCA vulnerability status.
+  FILE_DEVICE_REFRESH_TOKEN,  // File under DIR_USER_DATA containing the
+                              // device refresh token.
   DIR_USER_DATA,      // The same as chrome::DIR_USER_DATA. Allowed to access
+                      // the value from //ash.
+  DIR_RESOURCES,      // The same as chrome::DIR_RESOURCES. Allowed to access
                       // the value from //ash.
   DIR_HOMEDIR_MOUNT,  // Base directory where user cryptohome mount point
                       // (named as hash of username) resides.

@@ -25,6 +25,8 @@ import java.util.concurrent.Executor;
 public class UrlRequestBuilderImpl extends ExperimentalUrlRequest.Builder {
     private static final String ACCEPT_ENCODING = "Accept-Encoding";
     private static final String TAG = UrlRequestBuilderImpl.class.getSimpleName();
+    private static Boolean sShouldDisableSharedBrotli;
+    private static Boolean sShouldDisableSetIdempotency;
 
     // All fields are temporary storage of ExperimentalUrlRequest configuration to be
     // copied to built ExperimentalUrlRequest.
@@ -136,6 +138,12 @@ public class UrlRequestBuilderImpl extends ExperimentalUrlRequest.Builder {
 
     @Override
     public UrlRequestBuilderImpl setIdempotency(@CronetEngineBase.Idempotency int idempotency) {
+        if (sShouldDisableSetIdempotency == null) {
+            sShouldDisableSetIdempotency = mCronetEngine.shouldDisableSetIdempotency();
+        }
+        if (sShouldDisableSetIdempotency) {
+            return this;
+        }
         mIdempotency = idempotency;
         return this;
     }
@@ -195,6 +203,12 @@ public class UrlRequestBuilderImpl extends ExperimentalUrlRequest.Builder {
             @NonNull byte[] dictionarySha256Hash,
             @NonNull ByteBuffer dictionary,
             @NonNull String dictionaryId) {
+        if (sShouldDisableSharedBrotli == null) {
+            sShouldDisableSharedBrotli = mCronetEngine.shouldDisableSharedBrotli();
+        }
+        if (sShouldDisableSharedBrotli) {
+            return this;
+        }
         mDictionarySha256Hash = Objects.requireNonNull(dictionarySha256Hash, "Hash is required");
         if (dictionarySha256Hash.length != 32) {
             throw new IllegalArgumentException("SHA-256 hashes are supposed to be 32 bytes");

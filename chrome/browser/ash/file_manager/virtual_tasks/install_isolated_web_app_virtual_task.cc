@@ -4,10 +4,13 @@
 
 #include "chrome/browser/ash/file_manager/virtual_tasks/install_isolated_web_app_virtual_task.h"
 
+#include <array>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "ash/webui/file_manager/url_constants.h"
+#include "base/containers/span.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/ash/file_manager/file_tasks.h"
 #include "chrome/browser/ash/file_manager/virtual_tasks/id_constants.h"
@@ -17,7 +20,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_features.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
-#include "chrome/browser/web_applications/web_app_utils.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
 #include "content/public/browser/isolated_web_apps_policy.h"
 #include "storage/browser/file_system/file_system_url.h"
@@ -27,9 +29,7 @@
 
 namespace file_manager::file_tasks {
 
-InstallIsolatedWebAppVirtualTask::InstallIsolatedWebAppVirtualTask() {
-  matcher_file_extensions_ = {"swbn"};
-}
+InstallIsolatedWebAppVirtualTask::InstallIsolatedWebAppVirtualTask() = default;
 
 bool InstallIsolatedWebAppVirtualTask::IsEnabled(Profile* profile) const {
   return web_app::IsIwaUnmanagedInstallFeatureEnabled(profile);
@@ -73,12 +73,19 @@ bool InstallIsolatedWebAppVirtualTask::Execute(
     // VirtualTask::Match should return false if multiple files with different
     // extensions were selected. `AsUTF8Unsafe()` is safe on ChromeOS.
     CHECK(apps_util::ExtensionMatched(path.BaseName().AsUTF8Unsafe(),
-                                      matcher_file_extensions_[0]),
+                                      MatcherFileExtensions()[0]),
           base::NotFatalUntil::M161);
     web_app_provider->ui_manager().LaunchOrFocusIsolatedWebAppInstaller(
         file_url.path());
   }
   return true;
+}
+
+base::span<const std::string_view>
+InstallIsolatedWebAppVirtualTask::MatcherFileExtensions() const {
+  static constexpr auto kExtensions =
+      std::to_array<std::string_view>({".swbn"});
+  return kExtensions;
 }
 
 }  // namespace file_manager::file_tasks

@@ -5,6 +5,8 @@
 #include "ui/decoration/decoration_util.h"
 
 #include <algorithm>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "base/check.h"
@@ -18,6 +20,7 @@
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/dip_util.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/outsets.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
@@ -29,8 +32,8 @@
 namespace ui::decoration {
 
 // static
-gfx::Insets ShadowGenerator::GetMargins(const gfx::ShadowValues& shadows) {
-  return gfx::ShadowValue::GetMargin(shadows);
+gfx::Outsets ShadowGenerator::GetMargins(const gfx::ShadowValues& shadows) {
+  return gfx::ShadowValue::GetMargin(shadows).ToOutsets();
 }
 
 // static
@@ -152,10 +155,10 @@ void DrawHighlightBorder(gfx::Canvas* canvas,
 }
 
 // static
-gfx::Insets HighlightBorderGenerator::GetMargins(
+gfx::Outsets HighlightBorderGenerator::GetMargins(
     const HighlightBorderValue& value) {
   DCHECK_GT(value.thickness(), 0);
-  return gfx::Insets(-value.thickness());
+  return gfx::Outsets();
 }
 
 // static
@@ -174,10 +177,7 @@ void HighlightBorderGenerator::Draw(gfx::Canvas* canvas,
                                     const HighlightBorderValue& value,
                                     const gfx::RoundedCornersF& rounded_corners,
                                     const gfx::Rect& content_rect) {
-  // The outer ring sits outside the content.
-  gfx::Rect bounds = content_rect;
-  bounds.Outset(value.thickness());
-  DrawHighlightBorder(canvas, value, rounded_corners, bounds);
+  DrawHighlightBorder(canvas, value, rounded_corners, content_rect);
 }
 
 template class EXPORT_TEMPLATE_DEFINE(COMPONENT_EXPORT(UI_DECORATION))
@@ -185,5 +185,9 @@ template class EXPORT_TEMPLATE_DEFINE(COMPONENT_EXPORT(UI_DECORATION))
 
 template class EXPORT_TEMPLATE_DEFINE(COMPONENT_EXPORT(UI_DECORATION))
     internal::DecorationCache<HighlightBorderValue, HighlightBorderGenerator>;
+
+template class EXPORT_TEMPLATE_DEFINE(COMPONENT_EXPORT(UI_DECORATION))
+    internal::DecorationCache<ShadowWithHighlightBorderValue,
+                              ShadowWithHighlightBorderGenerator>;
 
 }  // namespace ui::decoration

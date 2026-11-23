@@ -56,9 +56,7 @@ class SendTabToSelfSubMenuModelTest : public ChromeRenderViewHostTestHarness {
   SendTabToSelfSubMenuModelTest()
       : ChromeRenderViewHostTestHarness(
             base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
-    feature_list_.InitWithFeatures(
-        {kSendTabToSelfEnhancedDesktopUI, kSendTabToSelfEnhancedDesktopUIv2},
-        {});
+    feature_list_.InitAndEnableFeature(kSendTabToSelfEnhancedDesktopUIv2);
   }
 
   void SetUp() override {
@@ -98,7 +96,8 @@ TEST_F(SendTabToSelfSubMenuModelTest, GetDevicesForDisplayLimitsToFive) {
   for (int i = 0; i < 10; ++i) {
     devices.emplace_back("Device " + base::NumberToString(i),
                          "guid" + base::NumberToString(i), FormFactor::kDesktop,
-                         OsType::kLinux, now);
+                         OsType::kLinux, now,
+                         /*has_high_precision_timestamp=*/false);
   }
   model()->SetTargetDeviceInfoSortedList(devices);
 
@@ -121,7 +120,8 @@ TEST_F(SendTabToSelfSubMenuModelTest, ExecuteCommandSendsToDevice) {
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   const GURL kExampleUrl("https://example.com");
@@ -157,7 +157,8 @@ TEST_F(SendTabToSelfSubMenuModelTest,
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   const GURL kPageUrl("https://example.com/page");
@@ -187,7 +188,8 @@ TEST_F(SendTabToSelfSubMenuModelTest,
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   const GURL kPageUrl("https://example.com/page");
@@ -218,7 +220,8 @@ TEST_F(SendTabToSelfSubMenuModelTest, BuildMenuAddsDevicesAndManageItem) {
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   std::unique_ptr<SendTabToSelfSubMenuModel> submenu =
@@ -244,7 +247,8 @@ TEST_F(SendTabToSelfSubMenuModelTest, BuildMenuUsesSentenceCaseForShareMenu) {
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   std::unique_ptr<SendTabToSelfSubMenuModel> submenu =
@@ -262,9 +266,11 @@ TEST_F(SendTabToSelfSubMenuModelTest, OnMenuWillShowRecordsMetrics) {
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   devices.emplace_back("Device 1", "guid1", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   base::HistogramTester histogram_tester;
@@ -287,7 +293,8 @@ TEST_F(SendTabToSelfSubMenuModelTest, ExecuteCommandSendsMultipleTabsToDevice) {
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   // Set up first tab (default web_contents()).
@@ -340,7 +347,8 @@ TEST_F(SendTabToSelfSubMenuModelTest, ExecuteCommandSkipsDestroyedWebContents) {
   base::Time now = base::Time::Now();
   std::vector<RemoteDeviceInfo> devices;
   devices.emplace_back("Device 0", "guid0", FormFactor::kDesktop,
-                       OsType::kLinux, now);
+                       OsType::kLinux, now,
+                       /*has_high_precision_timestamp=*/false);
   model()->SetTargetDeviceInfoSortedList(devices);
 
   const GURL kUrl1("https://example1.com");

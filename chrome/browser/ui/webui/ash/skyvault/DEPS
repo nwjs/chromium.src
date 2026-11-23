@@ -7,19 +7,24 @@ include_rules = [
   # directory to #include its own files.
   "+chrome/browser/ui/webui/ash/skyvault",
 
+  # Other ash directories in //chrome.
+  "+chrome/browser/ash/policy/skyvault",
+  "+chrome/browser/ui/webui/ash/system_web_dialog",
+
   # Existing dependencies within //chrome. There is an active effort to
   # refactor //chrome/browser/ui/ash to break these dependencies; see b/332804822.
   # Whenever possible, avoid adding new //chrome dependencies to this list.
-  "+chrome/browser/ash/policy/skyvault",
   "+chrome/browser/profiles/profile.h",
-  "+chrome/browser/ui/browser_window.h",
-  "+chrome/browser/ui/browser_window/public",
-  "+chrome/browser/ui/webui/ash/system_web_dialog",
   "+chrome/grit",
   "+chrome/test/base",
 ]
 
 specific_include_rules = {
+  # Only tests need these //chrome dependencies.
+  "local_files_migration_dialog_browsertest\\.cc": [
+    "+chrome/browser/ui/browser_window.h",
+    "+chrome/browser/ui/browser_window/public",
+  ],
   "local_files_migration_ui\\.cc": [
     "+chrome/browser/ui/webui/theme_source.h",
   ],

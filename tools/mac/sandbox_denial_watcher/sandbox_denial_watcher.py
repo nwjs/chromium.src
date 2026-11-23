@@ -4,9 +4,15 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-"""Watches macOS system logs for Chrome/Chromium sandbox denials.
+"""Watches macOS system logs for unexpected Chrome/Chromium sandbox denials.
 
-Prints each sandbox denial reported by a Chrome or Chromium process.
+Filters out expected/known denials and displays a macOS dialog prompting to file
+a pre-filled Chromium Issue Tracker bug when an unexpected denial occurs.
+Repeated dialogs for the same denial are suppressed after dismissal.
+
+This tool MUST remain compatible with the default macOS Python interpreter
+(`/usr/bin/python3`), which is Python 3.9.6 at the time of writing. Do not use
+syntax or standard library features introduced in Python 3.10 or later.
 
 Ensure Chrome sandbox denials are being reported by either
     1. Enabling "Mac Sandbox Logging" at chrome://flags/#mac-sandbox-logging
@@ -16,17 +22,111 @@ Usage (from the Chromium src directory):
     tools/mac/sandbox_denial_watcher/sandbox_denial_watcher.py [-v]
 """
 
+from __future__ import annotations
+
 import argparse
+from dataclasses import replace
+import functools
 import logging
+import math
+from pathlib import Path
+import re
 import shlex
 import subprocess
 import sys
+import threading
+import time
+from typing import Callable, Optional, Sequence, Union
+import webbrowser
 
-from typing import Optional, Sequence
-
+from bug_tracker import get_bug_url, get_denial_summary, normalize_denials
 from log_events import SandboxDenial
 
+# Duration (in seconds) to suppress repeated notifications for a denial after
+# its dialog is dismissed or times out.
+_COOLDOWN_SECONDS = 3600
+
+# Duration (in seconds) before an unanswered dialog closes itself.
+_DIALOG_GIVE_UP_SECONDS = 15
+
+# Duration (in seconds) to collect related denials into a batch before
+# prompting.
+_BATCH_WINDOW_SECONDS = 1.0
+
 _LOG_PATH = "/usr/bin/log"
+_OSASCRIPT_PATH = "/usr/bin/osascript"
+_PS_PATH = "/bin/ps"
+
+_DISMISS_BUTTON_TITLE = "Dismiss"
+_FILE_BUG_BUTTON_TITLE = "File bug"
+
+_DIALOG_SCRIPT = (
+    "on run argv\n"
+    "    set dialogText to item 1 of argv\n"
+    "    set dismissTitle to item 2 of argv\n"
+    "    set fileBugTitle to item 3 of argv\n"
+    "    set giveUpSeconds to (item 4 of argv as integer)\n"
+    "    display dialog dialogText buttons {dismissTitle, fileBugTitle} "
+    "default button fileBugTitle cancel button dismissTitle "
+    'with title "Chrome Sandbox Denial" '
+    "giving up after giveUpSeconds\n"
+    "end run\n"
+)
+
+# Serializes modal dialog display so concurrent unexpected denials do not
+# stack dialogs.
+_dialog_lock = threading.Lock()
+
+_HOME_DIR = Path.home()
+
+# Placeholder representing any Chrome/Chromium flavor's Application Support
+# directory after target normalization.
+_CHROME_APP_SUPPORT_DIR = "<CHROME_APP_SUPPORT_DIR>"
+
+# Default product directory names under ~/Library/Application Support (see
+# chrome/common/chrome_paths_mac.mm and docs/user_data_dir.md).
+_CHROME_PRODUCT_DIRS = (
+    "Chromium",
+    "Google/Chrome",
+    "Google/Chrome Beta",
+    "Google/Chrome Canary",
+    "Google/Chrome Dev",
+    "Google/Chrome for Testing",
+)
+
+_CHROME_APP_SUPPORT_PREFIXES = tuple(
+    f"{_HOME_DIR}/Library/Application Support/{product}"
+    for product in _CHROME_PRODUCT_DIRS
+)
+
+# Placeholder representing any Chrome/Chromium flavor's app bundle directory
+# under /Applications after target normalization.
+_CHROME_BUNDLE_DIR = "<CHROME_BUNDLE_DIR>"
+
+_CHROME_APP_NAMES = (
+    "Chromium.app",
+    "Google Chrome.app",
+    "Google Chrome Beta.app",
+    "Google Chrome Canary.app",
+    "Google Chrome Dev.app",
+    "Google Chrome for Testing.app",
+)
+
+_CHROME_BUNDLE_PREFIXES = tuple(
+    f"/Applications/{app_name}" for app_name in _CHROME_APP_NAMES
+)
+
+# Placeholder representing the parent directory of a user's Darwin directories
+# (`/private/var/folders/<bucket>/<user hash>`) after target normalization.
+_DARWIN_USER_DIR = "<DARWIN_USER_DIR>"
+
+# Matches the three Darwin user dirs (user, temp, cache), which live at
+# `/private/var/folders/<bucket>/<user hash>/[0|C|T]`, e.g.:
+#   /private/var/folders/tr/6v8rtgkn5399hj49myh4zh3m00czwq/T/tmp.123
+#   -> <DARWIN_USER_DIR>/T/tmp.123
+_DARWIN_USER_DIR_PATTERN = re.compile(
+    r"^/private/var/folders/[^/]+/[^/]+(?=/[0CT](?=/|$))"
+)
 
 # Prefixes of the process names whose denials are reported.
 _INTERESTING_PROCS = (
@@ -40,31 +140,422 @@ _INTERESTING_PROCS = (
     "MTLCompilerService",
 )
 
+# Known expected denials grouped by action. Rules match the target itself (not
+# subpaths) and may use `*` wildcards within a single path segment.
+_KNOWN_TARGET_DENIALS: dict[str, frozenset[str]] = {
+    "sysctl-read": frozenset(
+        (
+            "kern.bootargs",
+            "kern.willshutdown",
+            "machdep.cpu.brand_string",
+            "net.inet.ip.portrange.first",
+            "sysctl.proc_translated",
+        )
+    ),
+    "file-read-data": frozenset(
+        (
+            "/",
+            "/Library/Preferences/Logging/com.apple.diagnosticd.filter.plist",
+            "/Library/Preferences/com.apple.networkd.plist",
+            "/Library/Preferences/com.apple.security.plist",
+            "/System/Library/xpc/extensions.plist",
+            f"{_HOME_DIR}/Desktop",
+        )
+    ),
+    "file-write-create": frozenset((f"{_DARWIN_USER_DIR}/T/tmp.*",)),
+    "mach-lookup": frozenset(
+        (
+            "com.apple.CoreServices.coreservicesd",
+            "com.apple.DiskArbitration.diskarbitrationd",
+            "com.apple.analyticsd",
+            "com.apple.audioanalyticsd",
+            "com.apple.backupd.sandbox.xpc",
+            "com.apple.bsd.dirhelper",
+            "com.apple.cmio.registerassistantservice.system-extensions",
+            "com.apple.coreservices.quarantine-resolver",
+            "com.apple.ctkd.token-client",
+            "com.apple.diagnosticd",
+            "com.apple.distributed_notifications@Uv3",
+            "com.apple.lsd.mapdb",
+            "com.apple.lsd.modifydb",
+            "com.apple.system.notification_center",
+            "com.apple.system.opendirectoryd.membership",
+            "com.apple.tccd",
+            "com.apple.tccd.system",
+            "com.apple.trustd.agent",
+        )
+    ),
+    "syscall-mig": frozenset(
+        (
+            "341",  # mach_voucher_debug_info, used by MTLCompiler
+        )
+    ),
+    "system-info": frozenset(
+        (
+            "net.link.addr",
+            "vfs.disk-space",
+        )
+    ),
+}
+
+# Directory prefixes for operations that allow subpaths (e.g. file reads).
+# Rules may use `*` wildcards within a single path segment.
+_KNOWN_SUBPATH_DENIALS: dict[str, frozenset[str]] = {
+    "file-issue-extension": frozenset((f"target:{_CHROME_BUNDLE_DIR}/",)),
+    "file-read-data": frozenset(
+        (
+            "/Library/Managed Preferences/",
+            "/System/Library/CoreServices/RawCamera.bundle/",
+            "/System/Library/ExtensionKit/ExtensionPoints/",
+            "/System/iOSSupport/System/Library/ExtensionKit/ExtensionPoints/",
+            "/private/var/db/cmiodalassistants/Library/Preferences/",
+            f"{_DARWIN_USER_DIR}/C/*.helper/com.apple.metal/",
+            f"{_HOME_DIR}/Library/Preferences/",
+        )
+    ),
+    "file-write-mode": frozenset(
+        (f"{_DARWIN_USER_DIR}/T/scoped_dir*/CRX_INSTALL/",)
+    ),
+    "file-write-times": frozenset(
+        (
+            f"{_CHROME_APP_SUPPORT_DIR}/optimization_guide_model_store/",
+            f"{_DARWIN_USER_DIR}/T/scoped_dir*/CRX_INSTALL/",
+        )
+    ),
+}
+
+
+def _replace_prefix(
+    path: str, prefixes: Sequence[str], placeholder: str
+) -> str:
+    """Replaces the first matching prefix in `path` with `placeholder`."""
+    for prefix in prefixes:
+        if path == prefix or path.startswith(f"{prefix}/"):
+            return f"{placeholder}{path[len(prefix) :]}"
+    return path
+
+
+def _normalize_target(target: str) -> str:
+    """Normalizes a denial target path for matching and suppression."""
+    normalized = target.rstrip("/") if target != "/" else "/"
+    prefix = ""
+    if normalized.startswith("target:"):
+        prefix = "target:"
+        normalized = normalized[len(prefix) :]
+    normalized = _replace_prefix(
+        normalized, _CHROME_APP_SUPPORT_PREFIXES, _CHROME_APP_SUPPORT_DIR
+    )
+    normalized = _replace_prefix(
+        normalized, _CHROME_BUNDLE_PREFIXES, _CHROME_BUNDLE_DIR
+    )
+    normalized = _DARWIN_USER_DIR_PATTERN.sub(_DARWIN_USER_DIR, normalized)
+    return f"{prefix}{normalized}"
+
+
+@functools.lru_cache(maxsize=None)
+def _compile_glob_regex(pattern: str, match_subpaths: bool) -> re.Pattern[str]:
+    """Compiles a target pattern with `*` wildcards into a regex.
+
+    Each `*` matches zero or more characters within a single path segment
+    (`[^/]*`). If `match_subpaths` is True, the pattern matches both the
+    directory itself and any path beneath it.
+    """
+    body = r"[^/]*".join(re.escape(part) for part in pattern.split("*"))
+    suffix = r"(?:/.*)?$" if match_subpaths else r"$"
+    return re.compile(f"^{body}{suffix}")
+
+
+def _matches_target_rule(target: str, rule: str) -> bool:
+    """Returns True if `target` matches the single-target `rule`."""
+    if "*" not in rule:
+        return target == rule
+    return bool(_compile_glob_regex(rule, match_subpaths=False).match(target))
+
+
+def _matches_subpath_rule(target: str, prefix: str) -> bool:
+    """Returns True if `target` is `prefix` or a path beneath it."""
+    dir_path = prefix.rstrip("/")
+    if "*" not in dir_path:
+        return target == dir_path or target.startswith(f"{dir_path}/")
+    return bool(
+        _compile_glob_regex(dir_path, match_subpaths=True).match(target)
+    )
+
+
+class DenialFilter:
+    """Decides which sandbox denials should be reported.
+
+    Combines static known-denial rules with temporary suppressions that are
+    added when the user responds to a dialog.
+    """
+
+    def __init__(
+        self,
+        clock: Callable[[], float] = time.monotonic,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
+        self._clock = clock
+        self._logger = logger or logging.getLogger("sandbox_denial_watcher")
+        # Maps (action, target) to the clock time at which its suppression
+        # expires.
+        self._suppressed: dict[tuple[str, str], float] = {}
+
+    def should_ignore(self, denial_event: SandboxDenial) -> bool:
+        """Returns True if the denial is expected or currently suppressed."""
+        action = denial_event.action
+        target = _normalize_target(denial_event.target)
+
+        for rule in _KNOWN_TARGET_DENIALS.get(action, ()):
+            if _matches_target_rule(target, rule):
+                self._logger.debug(
+                    "Filtered known denial matching '%s %s': %s",
+                    action,
+                    rule,
+                    denial_event.event_message,
+                )
+                return True
+
+        for prefix in _KNOWN_SUBPATH_DENIALS.get(action, ()):
+            if _matches_subpath_rule(target, prefix):
+                self._logger.debug(
+                    "Filtered known denial matching '%s %s': %s",
+                    action,
+                    prefix,
+                    denial_event.event_message,
+                )
+                return True
+
+        key = (action, target)
+        expires_at = self._suppressed.get(key)
+        if expires_at is not None:
+            now = self._clock()
+            if now >= expires_at:
+                del self._suppressed[key]
+                return False
+
+            remaining = expires_at - now
+            duration_str = (
+                "for the remainder of the session"
+                if math.isinf(remaining)
+                else f"for {remaining:.1f}s"
+            )
+            denial_str = f"{action} {target}" if target else action
+            self._logger.debug(
+                "Filtered suppressed denial matching '%s' (%s): %s",
+                denial_str,
+                duration_str,
+                denial_event.event_message,
+            )
+            return True
+
+        return False
+
+    def suppress(
+        self,
+        denial_event: Union[SandboxDenial, Sequence[SandboxDenial]],
+        duration_seconds: float,
+    ) -> None:
+        """Suppresses notifications for a denial for the given duration.
+
+        An existing suppression for the same action and target is only ever
+        extended, never shortened.
+        """
+        if duration_seconds <= 0:
+            return
+        expires_at = (
+            math.inf
+            if math.isinf(duration_seconds)
+            else self._clock() + duration_seconds
+        )
+        for denial in normalize_denials(denial_event):
+            key = (denial.action, _normalize_target(denial.target))
+            if self._suppressed.get(key, -math.inf) < expires_at:
+                self._suppressed[key] = expires_at
+
 
 def _validate_process_name(proc: str) -> None:
     if not proc.isascii() or '"' in proc or "\\" in proc:
         raise ValueError(f"Invalid process name: {proc!r}")
 
 
+def _get_process_command_line(pid: int) -> Optional[str]:
+    """Returns the executable path and command-line arguments for `pid`.
+
+    For example:
+        '/Applications/Chromium.app/.../Chromium Helper --type=renderer ...'
+
+    Returns None if unavailable (e.g., if `ps` fails or if the process has
+    exited).
+    """
+    logger = logging.getLogger("sandbox_denial_watcher")
+    try:
+        res = subprocess.run(
+            [_PS_PATH, "-p", str(pid), "-o", "command="],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("Failed to query command line for pid %d: %s", pid, e)
+        return None
+
+    if res.returncode != 0:
+        logger.debug("ps exited with code %d for pid %d", res.returncode, pid)
+        return None
+
+    return res.stdout.strip() or None
+
+
+def prompt_to_file_bug(
+    denial_event: Union[SandboxDenial, Sequence[SandboxDenial]],
+) -> bool:
+    """Displays a macOS modal dialog prompting the user to file a bug.
+
+    If accepted, opens the pre-filled bug URL in the default browser.
+    Returns True if the user opened the bug tracker, or False otherwise.
+    """
+    denials = normalize_denials(denial_event)
+    if not denials:
+        return False
+
+    url = get_bug_url(denials)
+    logger = logging.getLogger("sandbox_denial_watcher")
+
+    first = denials[0]
+    dialog_text = f"{first.process_name}: {get_denial_summary(denials)}"
+
+    with _dialog_lock:
+        try:
+            res = subprocess.run(
+                [
+                    _OSASCRIPT_PATH,
+                    "-e",
+                    _DIALOG_SCRIPT,
+                    dialog_text,
+                    _DISMISS_BUTTON_TITLE,
+                    _FILE_BUG_BUTTON_TITLE,
+                    str(_DIALOG_GIVE_UP_SECONDS),
+                ],
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=_DIALOG_GIVE_UP_SECONDS + 5,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            logger.debug("Dialog timed out via subprocess timeout")
+            return False
+
+        if res.returncode != 0:
+            logger.debug(
+                "Dialog command exited with code %d: %s",
+                res.returncode,
+                res.stderr.strip(),
+            )
+            return False
+
+        logger.debug("Dialog response: %s", res.stdout.strip())
+        if f"button returned:{_FILE_BUG_BUTTON_TITLE}" in res.stdout:
+            webbrowser.open(url)
+            return True
+
+        return False
+
+
 class SandboxDenialWatcher:
-    """Watches macOS system logs for Chrome/Chromium sandbox denials."""
+    """Watches macOS system logs for unexpected sandbox denials."""
 
     def __init__(
         self,
+        denial_filter: Optional[DenialFilter] = None,
+        batch_window_seconds: float = _BATCH_WINDOW_SECONDS,
+        cooldown_seconds: float = _COOLDOWN_SECONDS,
+        interesting_procs: Sequence[str] = _INTERESTING_PROCS,
         logger: Optional[logging.Logger] = None,
-        interesting_procs: tuple[str, ...] = _INTERESTING_PROCS,
     ) -> None:
         self._logger = logger or logging.getLogger("sandbox_denial_watcher")
-        for proc in interesting_procs:
+        self._interesting_procs = tuple(interesting_procs)
+        for proc in self._interesting_procs:
             _validate_process_name(proc)
-        self._interesting_procs = interesting_procs
+        self._denial_filter = denial_filter or DenialFilter(logger=self._logger)
+        self._batch_window_seconds = batch_window_seconds
+        self._cooldown_seconds = cooldown_seconds
+        self._batch_lock = threading.Lock()
+        self._active_batches: dict[tuple[str, str], list[SandboxDenial]] = {}
+        self._prompted_denials: set[tuple[str, str]] = set()
+
+    def _flush_batch(self, batch_key: tuple[str, str]) -> None:
+        """Flushes a pending batch of denials and prompts the user."""
+        with self._batch_lock:
+            denials = self._active_batches.pop(batch_key, None)
+            if not denials:
+                return
+            for denial in denials:
+                self._prompted_denials.add(
+                    (denial.action, _normalize_target(denial.target))
+                )
+
+        url = get_bug_url(denials)
+        self._logger.info("[REPORT] %s", url)
+        if prompt_to_file_bug(denials):
+            self._denial_filter.suppress(denials, math.inf)
+        else:
+            self._denial_filter.suppress(denials, self._cooldown_seconds)
+        with self._batch_lock:
+            for denial in denials:
+                self._prompted_denials.discard(
+                    (denial.action, _normalize_target(denial.target))
+                )
+
+    def _flush_all_batches(self) -> None:
+        """Flushes all pending batches immediately."""
+        with self._batch_lock:
+            keys = list(self._active_batches.keys())
+        for key in keys:
+            self._flush_batch(key)
 
     def _report_denial(self, denial_event: SandboxDenial) -> None:
-        """Prints a denial to the terminal."""
+        """Logs an unexpected denial and queues it into a batch."""
         self._logger.info("[DENIAL] %s", denial_event.event_message)
+        batch_key = (denial_event.process_name, denial_event.action)
+
+        with self._batch_lock:
+            key = (denial_event.action, _normalize_target(denial_event.target))
+            if key in self._prompted_denials:
+                denial_str = (
+                    f"{denial_event.action} {key[1]}"
+                    if key[1]
+                    else denial_event.action
+                )
+                self._logger.debug(
+                    "Skipping bug prompt for already prompted denial: %s",
+                    denial_str,
+                )
+                return
+
+            if batch_key not in self._active_batches:
+                # Capture the process command line now (rather than when the
+                # batch flushes) in case a short-lived process exits beforehand.
+                command_line = _get_process_command_line(denial_event.pid)
+                if command_line:
+                    denial_event = replace(
+                        denial_event, command_line=command_line
+                    )
+                self._active_batches[batch_key] = [denial_event]
+                timer = threading.Timer(
+                    self._batch_window_seconds,
+                    self._flush_batch,
+                    args=(batch_key,),
+                )
+                timer.daemon = True
+                timer.start()
+            else:
+                self._active_batches[batch_key].append(denial_event)
 
     def _handle_log_line(self, line: bytes) -> None:
-        """Parses a log line and reports it if it is a Chrome sandbox denial."""
+        """Parses a log line and reports it if it is an unexpected denial."""
         denial_event = SandboxDenial.from_json(line)
         if not denial_event:
             self._logger.debug("Skipping unparsable line: %r", line)
@@ -75,6 +566,9 @@ class SandboxDenialWatcher:
                 "Skipping denial for non-target process: %s",
                 denial_event.process_name,
             )
+            return
+
+        if self._denial_filter.should_ignore(denial_event):
             return
 
         self._report_denial(denial_event)
@@ -99,7 +593,7 @@ class SandboxDenialWatcher:
         ]
 
     def watch_logs(self) -> int:
-        """Watches macOS system logs for sandbox denials.
+        """Watches macOS system logs for unexpected sandbox denials.
 
         Returns 1 if `log stream` exits unexpectedly with an error, otherwise 0.
         """
@@ -111,7 +605,7 @@ class SandboxDenialWatcher:
             stdout=subprocess.PIPE,
         ) as proc:
             try:
-                self._logger.info("Watching for sandbox denials...")
+                self._logger.info("Watching for unexpected sandbox denials...")
                 self._logger.info(
                     'Ensure "Mac Sandbox Logging" is enabled at '
                     "chrome://flags/#mac-sandbox-logging."
@@ -169,7 +663,7 @@ def main(args: Sequence[str]) -> int:
     if sys.platform != "darwin":
         logger.error("This tool only runs on macOS.")
         return 1
-    watcher = SandboxDenialWatcher(logger=logger)
+    watcher = SandboxDenialWatcher()
     return watcher.watch_logs()
 
 

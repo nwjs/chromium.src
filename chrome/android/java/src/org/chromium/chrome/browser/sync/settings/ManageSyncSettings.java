@@ -247,7 +247,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         setupAccountSettings(profile);
 
         mGoogleActivityControls = findPreference(PREF_GOOGLE_ACTIVITY_CONTROLS);
-        if (isEeaChoiceCountry()) {
+        if (mayShowLinkedGoogleServicesSetting()) {
             mGoogleActivityControls.setTitle(
                     R.string.sign_in_personalize_google_services_title_eea);
         }
@@ -369,6 +369,14 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     @Override
     public void onPrimaryAccountChanged(PrimaryAccountChangeEvent eventDetails) {
         if (eventDetails.getEventTypeFor() == PrimaryAccountChangeEvent.Type.CLEARED) {
+            // This page and its settings (e.g. "Sign out") no longer exist, so settings search
+            // must stop offering them. If this page was opened from search results, closing it
+            // returns to the results, which are re-run against the rebuilt index.
+            SettingsIndexData indexData = SettingsIndexData.getInstance();
+            if (indexData != null) {
+                indexData.setNeedsIndexing();
+                indexData.setRefreshResult(true);
+            }
             finishCurrentSettings();
         }
     }
@@ -762,7 +770,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
     }
 
     private void onGoogleActivityControlsClicked(String signedInAccountName) {
-        if (isEeaChoiceCountry()) {
+        if (mayShowLinkedGoogleServicesSetting()) {
             SettingsNavigationFactory.createSettingsNavigation(getContext())
                     .startSettings(
                             getContext(),
@@ -977,14 +985,14 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         notifyPreferencesUpdated();
     }
 
-    private static boolean isEeaChoiceCountry(Profile profile) {
+    private static boolean mayShowLinkedGoogleServicesSetting(Profile profile) {
         RegionalCapabilitiesService regionalCapabilities =
                 RegionalCapabilitiesServiceFactory.getForProfile(profile);
-        return regionalCapabilities.isInEeaCountry();
+        return regionalCapabilities.mayShowLinkedGoogleServicesSetting();
     }
 
-    private boolean isEeaChoiceCountry() {
-        return isEeaChoiceCountry(getProfile());
+    private boolean mayShowLinkedGoogleServicesSetting() {
+        return mayShowLinkedGoogleServicesSetting(getProfile());
     }
 
     /**
@@ -1066,7 +1074,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                     if (!shouldShowSwitchToIncognitoPref(profile)) {
                         indexData.removeEntryForKey(frag, PREF_SWITCH_TO_INCOGNITO);
                     }
-                    if (isEeaChoiceCountry(profile)) {
+                    if (mayShowLinkedGoogleServicesSetting(profile)) {
                         String activityControlsId = getUniqueId(PREF_GOOGLE_ACTIVITY_CONTROLS);
                         SettingsIndexData.Entry entry = indexData.getEntry(activityControlsId);
                         if (entry != null) {

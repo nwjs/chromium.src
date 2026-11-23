@@ -21,7 +21,6 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/scheduler/public/non_main_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 
@@ -121,7 +120,7 @@ TEST_F(PaintWorkletStylePropertyMapTest, UnregisteredCustomProperty) {
       "<div id='target' style='--x:50'></div>");
   UpdateAllLifecyclePhasesForTest();
 
-  Element* node = GetDocument().getElementById(AtomicString("target"));
+  Element* node = GetElementById("target");
   node->GetLayoutObject()->GetMutableForPainting().EnsureId();
   CompositorPaintWorkletInput::PropertyKeys input_property_keys;
   auto data = PaintWorkletStylePropertyMap::BuildCrossThreadData(
@@ -171,7 +170,7 @@ TEST_F(PaintWorkletStylePropertyMapTest, SupportedCrossThreadData) {
       "0)'></div>");
   UpdateAllLifecyclePhasesForTest();
 
-  Element* node = GetDocument().getElementById(AtomicString("target"));
+  Element* node = GetElementById("target");
   node->GetLayoutObject()->GetMutableForPainting().EnsureId();
   Vector<std::unique_ptr<CrossThreadStyleValue>> input_arguments;
   CompositorPaintWorkletInput::PropertyKeys input_property_keys;
@@ -218,7 +217,7 @@ TEST_F(PaintWorkletStylePropertyMapTest, UnsupportedCrossThreadData) {
       "--bar:15;'></div>");
   UpdateAllLifecyclePhasesForTest();
 
-  Element* node = GetDocument().getElementById(AtomicString("target"));
+  Element* node = GetElementById("target");
   node->GetLayoutObject()->GetMutableForPainting().EnsureId();
 
   Vector<std::unique_ptr<CrossThreadStyleValue>> input_arguments;

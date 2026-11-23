@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_observer.h"
 #include "components/sessions/core/session_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
@@ -62,9 +63,7 @@ TestTabModel::~TestTabModel() {
   if (std::ranges::contains(TabModelList::models(), self)) {
     TabModelList::RemoveTabModel(self);
   }
-  if (TabModelList::GetArchivedTabModel() == self) {
-    TabModelList::SetArchivedTabModel(nullptr);
-  }
+  TabModelList::RemoveArchivedTabModel(self);
 }
 
 void TestTabModel::AddTabListInterfaceObserver(
@@ -204,6 +203,13 @@ tabs::TabInterface* TestTabModel::OpenTab(const GURL& url,
   return nullptr;
 }
 
+tabs::TabInterface* TestTabModel::OpenTab(const GURL& url,
+                                          int index,
+                                          TabLaunchType launch_type) {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
 void TestTabModel::SetOpenerForTab(tabs::TabHandle target,
                                    tabs::TabHandle opener) {
   NOTIMPLEMENTED();
@@ -290,6 +296,12 @@ TestTabModel::GetTabGroupVisualData(tab_groups::TabGroupId group_id) {
   return std::nullopt;
 }
 
+std::optional<split_tabs::SplitTabVisualData>
+TestTabModel::GetSplitTabVisualData(split_tabs::SplitTabId split_id) {
+  NOTIMPLEMENTED();
+  return std::nullopt;
+}
+
 gfx::Range TestTabModel::GetTabGroupTabIndices(
     tab_groups::TabGroupId group_id) {
   NOTIMPLEMENTED();
@@ -303,7 +315,8 @@ std::optional<tab_groups::TabGroupId> TestTabModel::CreateTabGroup(
 }
 
 std::optional<split_tabs::SplitTabId> TestTabModel::CreateSplit(
-    const std::vector<tabs::TabHandle>& tabs) {
+    const std::vector<tabs::TabHandle>& tabs,
+    const split_tabs::SplitTabVisualData& visual_data) {
   NOTIMPLEMENTED();
   return std::nullopt;
 }
@@ -629,6 +642,13 @@ tabs::TabInterface* OwningTestTabModel::OpenTab(const GURL& url,
   return nullptr;
 }
 
+tabs::TabInterface* OwningTestTabModel::OpenTab(const GURL& url,
+                                                int index,
+                                                TabLaunchType launch_type) {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
 void OwningTestTabModel::SetOpenerForTab(tabs::TabHandle target,
                                          tabs::TabHandle opener) {
   NOTIMPLEMENTED();
@@ -707,7 +727,8 @@ std::optional<tab_groups::TabGroupId> OwningTestTabModel::CreateTabGroup(
 }
 
 std::optional<split_tabs::SplitTabId> OwningTestTabModel::CreateSplit(
-    const std::vector<tabs::TabHandle>& tabs) {
+    const std::vector<tabs::TabHandle>& tabs,
+    const split_tabs::SplitTabVisualData& visual_data) {
   NOTIMPLEMENTED();
   return std::nullopt;
 }
@@ -724,6 +745,12 @@ std::set<split_tabs::SplitTabId> OwningTestTabModel::ListSplits() {
 
 std::optional<tab_groups::TabGroupVisualData>
 OwningTestTabModel::GetTabGroupVisualData(tab_groups::TabGroupId group_id) {
+  NOTIMPLEMENTED();
+  return std::nullopt;
+}
+
+std::optional<split_tabs::SplitTabVisualData>
+OwningTestTabModel::GetSplitTabVisualData(split_tabs::SplitTabId split_id) {
   NOTIMPLEMENTED();
   return std::nullopt;
 }

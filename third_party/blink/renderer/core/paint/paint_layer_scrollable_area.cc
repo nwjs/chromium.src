@@ -155,9 +155,6 @@ PaintLayerScrollableArea::PaintLayerScrollableArea(PaintLayer& layer)
       in_resize_mode_(false),
       scrolls_overflow_(false),
       needs_scroll_offset_clamp_(false),
-      needs_relayout_(false),
-      had_horizontal_scrollbar_before_relayout_(false),
-      had_vertical_scrollbar_before_relayout_(false),
       had_resizer_before_relayout_(false),
       scroll_origin_changed_(false),
       is_scrollbar_freeze_root_(false),
@@ -724,7 +721,7 @@ PhysicalRect PaintLayerScrollableArea::VisibleScrollSnapportRect(
 gfx::Size PaintLayerScrollableArea::ContentsSize() const {
   // We need to take into account of the border/scrollbar/padding for
   // PaintLayerScrollableAreaTest.NotScrollsOverflowWithScrollableScrollbar.
-  // TODO(crbug.com/962299): The pixel snapping is incorrect in some cases.
+  // TODO(crbug.com/40105990): The pixel snapping is incorrect in some cases.
   return PixelSnappedContentsSize(
       GetLayoutBox()->PhysicalPaddingBoxRect().offset);
 }
@@ -1030,7 +1027,7 @@ void PaintLayerScrollableArea::SetScrollOffsetUnconditionally(
 }
 
 bool PaintLayerScrollableArea::ScrollByPageWithSnap(
-    ScrollDirectionPhysical direction,
+    mojom::blink::ScrollDirectionPhysical direction,
     mojom::blink::ScrollBehavior scroll_behavior) {
   gfx::Vector2dF displacement = ToScrollDelta(direction, 1);
   displacement.Scale(
@@ -1396,18 +1393,8 @@ bool PaintLayerScrollableArea::IsGlobalRootNonOverlayScroller() const {
 }
 
 bool PaintLayerScrollableArea::HasHorizontalOverflow() const {
-  // TODO(szager): Make the algorithm for adding/subtracting overflow:auto
-  // scrollbars memoryless (crbug.com/625300).  This client_width hack will
-  // prevent the spurious horizontal scrollbar, but it can cause a converse
-  // problem: it can leave a sliver of horizontal overflow hidden behind the
-  // vertical scrollbar without creating a horizontal scrollbar.  This
-  // converse problem seems to happen much less frequently in practice, so we
-  // bias the logic towards preventing unwanted horizontal scrollbars, which
-  // are more common and annoying.
   LayoutUnit client_width = LayoutContentRect(kIncludeScrollbars).Width() -
                             VerticalScrollbarWidth(kIgnoreOverlayScrollbarSize);
-  if (NeedsRelayout() && !HadVerticalScrollbarBeforeRelayout())
-    client_width += VerticalScrollbarWidth();
   return ScrollWidth().Round() > client_width.Round();
 }
 
@@ -3395,12 +3382,11 @@ CompositorElementId PaintLayerScrollableArea::GetScrollElementId() const {
 }
 
 gfx::Size PaintLayerScrollableArea::PixelSnappedBorderBoxSize() const {
-  // TODO(crbug.com/1020913): We use this method during
+  // TODO(crbug.com/40105990): We use this method during
   // PositionOverflowControls() even before the paint offset is updated.
   // This can be fixed only after we support subpixels in overflow control
   // geometry. For now we ensure correct pixel snapping of overflow controls by
   // calling PositionOverflowControls() again when paint offset is updated.
-  // TODO(crbug.com/962299): Only correct if the paint offset is correct.
   return PhysicalRect(GetLayoutBox()->FirstFragment().PaintOffset(),
                       GetLayoutBox()->StitchedSize())
       .PixelSnappedSize();
@@ -3465,6 +3451,11 @@ void PaintLayerScrollableArea::
       container_data->GetTargetSnapAreaElementIds();
 
   CreateAndSetSnappedQueryScrollSnapshotIfNeeded(new_target_ids);
+
+  // A short scroll that starts and ends between compositor commits can skip
+  // intermediate scrollsnapchanging updates. Ensure scrollsnapchanging targets
+  // and events catch up before dispatching scrollsnapchange.
+  UpdateScrollSnapChangingTargetsAndEnqueueScrollSnapChanging(new_target_ids);
 
   auto& rare_data = EnsureRareData();
   bool scrollsnapchange =
@@ -3572,8 +3563,11 @@ Node* PaintLayerScrollableArea::GetSnapEventTargetAlongAxis(
     return nullptr;
   }
   Node* node = GetSnapTargetAlongAxis(ids.value(), axis);
-  if (node && node->IsPseudoElement()) {
-    node = node->parentElement();
+  if (!node || !node->isConnected()) {
+    return nullptr;
+  }
+  if (PseudoElement* pseudo_element = DynamicTo<PseudoElement>(node)) {
+    return &pseudo_element->UltimateOriginatingElement();
   }
   return node;
 }

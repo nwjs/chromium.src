@@ -7,8 +7,6 @@
 #include <utility>
 
 #include "base/functional/bind.h"
-#include "base/no_destructor.h"
-#include "components/keyed_service/core/service_access_type.h"
 #include "components/omnibox/browser/in_memory_url_index.h"
 #include "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #include "ios/chrome/browser/history/model/history_service_factory.h"
@@ -25,11 +23,9 @@ std::unique_ptr<KeyedService> BuildInMemoryURLIndex(ProfileIOS* profile) {
   SchemeSet allowed_schemes;
   allowed_schemes.insert(kChromeUIScheme);
 
-  // Do not force creation of the HistoryService if saving history is disabled.
   std::unique_ptr<InMemoryURLIndex> in_memory_url_index(new InMemoryURLIndex(
       ios::BookmarkModelFactory::GetForProfile(profile),
-      ios::HistoryServiceFactory::GetForProfile(
-          profile, ServiceAccessType::IMPLICIT_ACCESS),
+      ios::HistoryServiceFactory::GetForProfile(profile),
       ios::TemplateURLServiceFactory::GetForProfile(profile),
       profile->GetStatePath(), allowed_schemes));
   in_memory_url_index->Init();
@@ -38,28 +34,16 @@ std::unique_ptr<KeyedService> BuildInMemoryURLIndex(ProfileIOS* profile) {
 
 }  // namespace
 
-// static
-InMemoryURLIndex* InMemoryURLIndexFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<InMemoryURLIndex>(
-      profile, /*create=*/true);
-}
-
-// static
-InMemoryURLIndexFactory* InMemoryURLIndexFactory::GetInstance() {
-  static base::NoDestructor<InMemoryURLIndexFactory> instance;
-  return instance.get();
-}
-
-InMemoryURLIndexFactory::InMemoryURLIndexFactory()
-    : ProfileKeyedServiceFactoryIOS("InMemoryURLIndex",
-                                    ProfileSelection::kRedirectedInIncognito,
-                                    TestingCreation::kNoServiceForTests) {
+InMemoryURLIndexFactory::InMemoryURLIndexFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "InMemoryURLIndex",
+          ProfileSelection::kRedirectedInIncognito,
+          TestingCreation::kNoServiceForTests) {
   DependsOn(ios::BookmarkModelFactory::GetInstance());
   DependsOn(ios::HistoryServiceFactory::GetInstance());
   DependsOn(ios::TemplateURLServiceFactory::GetInstance());
 }
-
-InMemoryURLIndexFactory::~InMemoryURLIndexFactory() = default;
 
 // static
 InMemoryURLIndexFactory::TestingFactory

@@ -64,8 +64,9 @@ if (toolkit_views) {
     ]
 
     if (!is_chromeos) {
-      # permission_prompt_bubble_one_origin_view.h guards both of these
-      # includes with the same #if !BUILDFLAG(IS_CHROMEOS) block:
+      # permission_prompt_base_view.h and
+      # permission_prompt_bubble_one_origin_view.h guard these includes
+      # with #if !BUILDFLAG(IS_CHROMEOS) blocks:
       # media_preview/permission_prompt_previews_coordinator.h and
       # media_effects/media_device_info.h. media_preview itself asserts
       # is_win || is_mac || is_linux (a strict subset of !is_chromeos on
@@ -74,11 +75,6 @@ if (toolkit_views) {
         "//chrome/browser/ui/views/media_preview",
         "//components/media_effects",
       ]
-    }
-
-    if (is_mac) {
-      public += [ "permission_prompt_notifications_mac.h" ]
-      public_deps += [ "//chrome/browser/apps/app_shim" ]
     }
   }
 
@@ -174,11 +170,6 @@ if (toolkit_views) {
         "//chrome/browser/ui/views/frame:toolbar_button_provider",
       ]
     }
-
-    if (is_mac) {
-      sources += [ "permission_prompt_notifications_mac.cc" ]
-      deps += [ "//chrome/browser/permissions/system" ]
-    }
   }
 
   source_set("unit_tests") {
@@ -190,6 +181,7 @@ if (toolkit_views) {
 
     deps = [
       ":permissions",
+      "//chrome/browser/ui/passwords",
       "//chrome/browser/ui/permission_bubble:test_support",
       "//chrome/browser/ui/views:title_origin_label",
       "//chrome/browser/ui/views/controls",
@@ -214,8 +206,6 @@ if (toolkit_views) {
       "permission_request_chip_browsertest.cc",
     ]
 
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
     deps = [
       ":permission_prompt_observer",
       ":permissions",
@@ -230,7 +220,12 @@ if (toolkit_views) {
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//ui/events:test_support",
+      "//ui/gfx/geometry",
     ]
+
+    if (use_ozone) {
+      deps += [ "//ui/ozone" ]
+    }
   }
 
   if (!is_chromeos_device) {
@@ -249,8 +244,6 @@ if (toolkit_views) {
         "permission_rhs_indicators_interactive_uitest.cc",
         "quiet_prompt_interactive_uitest.cc",
       ]
-
-      configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 
       deps = [
         ":permissions",

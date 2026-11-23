@@ -21,6 +21,7 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/system/sys_info.h"
 #include "base/task/thread_pool.h"
 #include "base/time/default_tick_clock.h"
 #include "base/trace_event/trace_event.h"
@@ -36,6 +37,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/safe_browsing/core/common/safebrowsing_switches.h"
 #include "components/safe_browsing/core/common/utils.h"
+#include "components/safe_browsing/core/common/visual_utils.h"
 #include "components/url_formatter/url_fixer.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "url/gurl.h"
@@ -173,6 +175,8 @@ std::string_view GetRequestTypeName(
       return "UserReport";
     case safe_browsing::ClientSideDetectionType::UNFAMILIAR_LOGIN_PAGE:
       return "UnfamiliarLoginPage";
+    case safe_browsing::ClientSideDetectionType::POLICY_ENGINE:
+      return "PolicyEngine";
   }
 }
 
@@ -256,13 +260,68 @@ void ClientSideDetectionHostBase::HistoryServiceBeingDeleted(
 
 ClientSideDetectionHostBase::~ClientSideDetectionHostBase() = default;
 
+void ClientSideDetectionHostBase::ResetUniformImageRetryState() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  keyboard_lock_uniform_image_retry_timer_.Stop();
+  is_checking_uniform_image_ = false;
+  keyboard_lock_uniform_image_retry_count_ = 0;
+}
+
 void ClientSideDetectionHostBase::CancelPendingRequests() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   task_tracker_.TryCancelAll();
+  if (second_force_request_timer_.IsRunning()) {
+    base::UmaHistogramEnumeration(
+        "SBClientPhishing.ForceRequest.DelayedPingEvent",
+        DelayedForceRequestPingEvent::kCancelled);
+  }
+  second_force_request_timer_.Stop();
+  has_triggered_second_force_request_ = false;
+  second_force_request_url_ = GURL();
+  ResetUniformImageRetryState();
   base_weak_factory_.InvalidateWeakPtrs();
   if (intelligent_scan_id_.has_value()) {
     intelligent_scan_delegate_->CancelIntelligentScan(*intelligent_scan_id_);
   }
+}
+
+void ClientSideDetectionHostBase::TriggerSecondForceRequest() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  has_triggered_second_force_request_ = true;
+  // Skip if a same-document navigation changed the URL; the renderer ignores
+  // requests that don't match the initial load URL (ignoring ref).
+  // TODO(crbug.com/579072786): Remove this check once the renderer checks
+  // only the host/origin instead of the full URL path on same-document
+  // navigations.
+  if (GetCurrentUrl().GetWithoutRef() !=
+      second_force_request_url_.GetWithoutRef()) {
+    base::UmaHistogramEnumeration(
+        "SBClientPhishing.ForceRequest.DelayedPingEvent",
+        DelayedForceRequestPingEvent::kSkippedUrlChanged);
+    return;
+  }
+  base::UmaHistogramEnumeration(
+      "SBClientPhishing.ForceRequest.DelayedPingEvent",
+      DelayedForceRequestPingEvent::kStarted);
+  MaybeStartPreClassification(ClientSideDetectionType::FORCE_REQUEST);
+}
+
+void ClientSideDetectionHostBase::TriggerKeyboardLockUniformImageRetry(
+    std::unique_ptr<ClientPhishingRequest> verdict,
+    std::optional<bool> did_match_high_confidence_allowlist,
+    bool is_invalid_ip,
+    PhishingDetectorResult result) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (GetCurrentUrl().GetWithoutRef() != current_url().GetWithoutRef()) {
+    set_image_embedding_start_time(tick_clock()->NowTicks());
+    PhishingImageEmbeddingDone(
+        std::move(verdict), did_match_high_confidence_allowlist, is_invalid_ip,
+        ImageEmbeddingResult::kCancelled, std::nullopt, std::nullopt);
+    return;
+  }
+  MaybeStartImageEmbedding(std::move(verdict),
+                           did_match_high_confidence_allowlist, is_invalid_ip,
+                           result);
 }
 
 void ClientSideDetectionHostBase::LogClientSideDetectionEvent(
@@ -482,6 +541,7 @@ void ClientSideDetectionHostBase::MaybeSendClientPhishingRequest(
     return;
   }
 
+  last_phishing_detector_result_ = result;
   MaybeStartImageEmbedding(std::move(verdict),
                            did_match_high_confidence_allowlist, is_invalid_ip,
                            result);
@@ -956,6 +1016,44 @@ void ClientSideDetectionHostBase::
           ? "ClientSideDetectionScamDetectionRequestWithUrl.Enabled"
           : "ClientSideDetectionScamDetectionRequestWithUrl.Control");
 
+  if (verdict->client_side_detection_type() ==
+      ClientSideDetectionType::FORCE_REQUEST) {
+    if (base::FeatureList::IsEnabled(
+            kClientSideDetectionSecondForceRequestWithDelay)) {
+      const std::string enabled_group_with_delay = base::StrCat(
+          {"ClientSideDetectionSecondForceRequestWithDelay.Enabled.",
+           base::NumberToString(kCsdForceRequestDelayMs.Get())});
+      verdict->mutable_population()->add_finch_active_groups(
+          enabled_group_with_delay);
+      verdict->mutable_population()->add_finch_active_groups(
+          base::StrCat({enabled_group_with_delay,
+                        has_triggered_second_force_request_ ? ".SecondPing"
+                                                            : ".FirstPing"}));
+    } else {
+      verdict->mutable_population()->add_finch_active_groups(
+          "ClientSideDetectionSecondForceRequestWithDelay.Control");
+    }
+  }
+
+  verdict->mutable_population()->add_finch_active_groups(
+      base::FeatureList::IsEnabled(kClientSideDetectionServerModelMultimodal)
+          ? "ClientSideDetectionServerModelMultimodal.Enabled"
+          : "ClientSideDetectionServerModelMultimodal.Control");
+
+  if (verdict->client_side_detection_type() ==
+      ClientSideDetectionType::KEYBOARD_LOCK_REQUESTED) {
+    if (base::FeatureList::IsEnabled(
+            kClientSideDetectionKeyboardLockUniformPageDelay)) {
+      verdict->mutable_population()->add_finch_active_groups(
+          "ClientSideDetectionKeyboardLockUniformPageDelay.Enabled." +
+          base::NumberToString(
+              kCsdKeyboardLockUniformPageDelayDurationMs.Get()));
+    } else {
+      verdict->mutable_population()->add_finch_active_groups(
+          "ClientSideDetectionKeyboardLockUniformPageDelay.Control");
+    }
+  }
+
   if (base::FeatureList::IsEnabled(kClientSideDetectionNewObservers)) {
     verdict->mutable_population()->add_finch_active_groups(
         "ClientSideDetectionNewObservers.Enabled." +
@@ -1037,6 +1135,19 @@ void ClientSideDetectionHostBase::SendRequest(
   if (verdict->client_side_detection_type() ==
       ClientSideDetectionType::USER_REPORT) {
     MaybeRunUserReportCallback();
+  }
+
+  if (verdict->client_side_detection_type() ==
+      ClientSideDetectionType::FORCE_REQUEST) {
+    base::UmaHistogramEnumeration("SBClientPhishing.ForceRequest.PingOrder",
+                                  has_triggered_second_force_request_
+                                      ? ForceRequestPingOrder::kSecondPing
+                                      : ForceRequestPingOrder::kFirstPing);
+    if (has_triggered_second_force_request_) {
+      base::UmaHistogramEnumeration(
+          "SBClientPhishing.ForceRequest.DelayedPingEvent",
+          DelayedForceRequestPingEvent::kSent);
+    }
   }
 
   auto callback = base::BindOnce(
@@ -1152,6 +1263,7 @@ void ClientSideDetectionHostBase::PhishingImageEmbeddingDone(
   // early without sending a ping since feature extraction is not possible.
   if (result == ImageEmbeddingResult::kInvalidURLFormatRequest ||
       result == ImageEmbeddingResult::kInvalidDocumentLoader) {
+    ResetUniformImageRetryState();
     set_is_csd_running(false);
     if (verdict->client_side_detection_type() ==
         ClientSideDetectionType::USER_REPORT) {
@@ -1161,6 +1273,52 @@ void ClientSideDetectionHostBase::PhishingImageEmbeddingDone(
   }
 
   if (result == ImageEmbeddingResult::kSuccess) {
+    if (visual_features.has_value()) {
+      *verdict->mutable_visual_features() = std::move(visual_features.value());
+    }
+    if (!verdict->has_visual_features()) {
+      VLOG(0) << "Failed to parse visual features.";
+    }
+    base::UmaHistogramBoolean(
+        "SBClientPhishing.VisualFeaturesExistAfterImageEmbedding",
+        verdict->has_visual_features());
+
+    if (verdict->client_side_detection_type() ==
+            ClientSideDetectionType::KEYBOARD_LOCK_REQUESTED &&
+        base::FeatureList::IsEnabled(
+            kClientSideDetectionKeyboardLockUniformPageDelay)) {
+      const bool is_uniform = visual_utils::IsUniformImage(
+          verdict->visual_features().image(),
+          kCsdKeyboardLockUniformPageMaxColorRange.Get());
+      if (keyboard_lock_uniform_image_retry_count_ == 0) {
+        base::UmaHistogramBoolean(
+            "SBClientPhishing.KeyboardLock.IsInitialImageUniform", is_uniform);
+      }
+
+      if (is_uniform && keyboard_lock_uniform_image_retry_count_ <
+                            kCsdKeyboardLockUniformPageMaxRetries.Get()) {
+        ++keyboard_lock_uniform_image_retry_count_;
+        is_checking_uniform_image_ = true;
+        verdict->clear_image_feature_embedding();
+        keyboard_lock_uniform_image_retry_timer_.Start(
+            FROM_HERE,
+            base::Milliseconds(
+                kCsdKeyboardLockUniformPageDelayDurationMs.Get()),
+            base::BindOnce(
+                &ClientSideDetectionHostBase::TriggerKeyboardLockUniformImageRetry,
+                base_weak_factory_.GetWeakPtr(), std::move(verdict),
+                did_match_high_confidence_allowlist, is_invalid_ip,
+                last_phishing_detector_result_));
+        return;
+      }
+
+      base::UmaHistogramBoolean(
+          "SBClientPhishing.KeyboardLock.IsFinalImageUniform", is_uniform);
+      base::UmaHistogramCounts100(
+          "SBClientPhishing.KeyboardLock.UniformImageRetryCount",
+          keyboard_lock_uniform_image_retry_count_);
+    }
+
     if (image_feature_embedding.has_value()) {
       auto csd_service = GetClientSideDetectionService();
       if (csd_service) {
@@ -1181,17 +1339,9 @@ void ClientSideDetectionHostBase::PhishingImageEmbeddingDone(
     } else {
       VLOG(0) << "Failed to parse image feature embedding.";
     }
-
-    if (visual_features.has_value()) {
-      *verdict->mutable_visual_features() = std::move(visual_features.value());
-    }
-    if (!verdict->has_visual_features()) {
-      VLOG(0) << "Failed to parse visual features.";
-    }
-    base::UmaHistogramBoolean(
-        "SBClientPhishing.VisualFeaturesExistAfterImageEmbedding",
-        verdict->has_visual_features());
   }
+
+  ResetUniformImageRetryState();
 
   MaybeStartIntelligentScanForScamDetection(
       std::move(verdict), did_match_high_confidence_allowlist, is_invalid_ip);
@@ -1295,11 +1445,46 @@ void ClientSideDetectionHostBase::OnInnerTextComplete(
       base::StrCat({"SBClientPhishing.IntelligentScanInnerTextSize.",
                     GetRequestTypeName(verdict->client_side_detection_type())}),
       inner_text.size());
-  if (inner_text.size() <= kInnerTextMinThresholdBytes) {
+  MaybeCaptureScreenshotAndStartIntelligentScan(
+      std::move(verdict), did_match_high_confidence_allowlist, is_invalid_ip,
+      std::move(inner_text));
+}
+
+bool ClientSideDetectionHostBase::ShouldCaptureScreenshotForIntelligentScan()
+    const {
+  if (!base::FeatureList::IsEnabled(
+          kClientSideDetectionServerModelMultimodal)) {
+    return false;
+  }
+  if (kClientSideDetectionServerModelMultimodalExcludeLowEndDevices.Get() &&
+      base::SysInfo::IsLowEndDevice()) {
+    return false;
+  }
+  return true;
+}
+
+void ClientSideDetectionHostBase::MaybeCaptureScreenshotAndStartIntelligentScan(
+    std::unique_ptr<ClientPhishingRequest> verdict,
+    std::optional<bool> did_match_high_confidence_allowlist,
+    bool is_invalid_ip,
+    std::string inner_text) {
+  StartIntelligentScan(std::move(verdict), did_match_high_confidence_allowlist,
+                       is_invalid_ip, std::move(inner_text),
+                       /*tab_screenshot=*/std::nullopt);
+}
+
+void ClientSideDetectionHostBase::StartIntelligentScan(
+    std::unique_ptr<ClientPhishingRequest> verdict,
+    std::optional<bool> did_match_high_confidence_allowlist,
+    bool is_invalid_ip,
+    std::string inner_text,
+    std::optional<std::string> tab_screenshot) {
+  last_intelligent_scan_tab_screenshot_for_testing_.reset();
+  if ((!tab_screenshot.has_value() || tab_screenshot->empty()) &&
+      inner_text.size() <= kInnerTextMinThresholdBytes) {
     IntelligentScanInfo intelligent_scan_info;
     if (inner_text.empty()) {
       intelligent_scan_info.set_no_info_reason(IntelligentScanInfo::EMPTY_TEXT);
-
     } else {
       intelligent_scan_info.set_no_info_reason(
           IntelligentScanInfo::TEXT_TOO_SHORT);
@@ -1311,9 +1496,12 @@ void ClientSideDetectionHostBase::OnInnerTextComplete(
     return;
   }
 
+  last_intelligent_scan_tab_screenshot_for_testing_ = std::move(tab_screenshot);
   LogClientSideDetectionEvent(ClientSideDetectionEvent::kIntelligentScanBegin,
                               verdict->client_side_detection_type());
   std::string url = verdict->url();
+  // TODO(b/538133674): Pass `tab_screenshot` to `StartIntelligentScan` once
+  // `ScamDetectionRequest` proto is updated with `tab_screenshot`.
   intelligent_scan_id_ = intelligent_scan_delegate_->StartIntelligentScan(
       inner_text, std::move(url),
       base::BindOnce(&ClientSideDetectionHostBase::OnIntelligentScanDone,
@@ -1471,6 +1659,25 @@ void ClientSideDetectionHostBase::MaybeShowPhishingWarning(
     ShowBlockingPage(phishing_url, request_type, intelligent_scan_verdict,
                      is_phishing, should_show_scam_warning);
     CancelPendingRequests();
+    return;
+  }
+
+  if (!is_from_cache && !is_phishing &&
+      intelligent_scan_verdict ==
+          IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE &&
+      request_type == ClientSideDetectionType::FORCE_REQUEST &&
+      base::FeatureList::IsEnabled(
+          kClientSideDetectionSecondForceRequestWithDelay) &&
+      !has_triggered_second_force_request_ &&
+      !second_force_request_timer_.IsRunning()) {
+    base::UmaHistogramEnumeration(
+        "SBClientPhishing.ForceRequest.DelayedPingEvent",
+        DelayedForceRequestPingEvent::kScheduled);
+    second_force_request_url_ = phishing_url;
+    second_force_request_timer_.Start(
+        FROM_HERE, base::Milliseconds(kCsdForceRequestDelayMs.Get()),
+        base::BindOnce(&ClientSideDetectionHostBase::TriggerSecondForceRequest,
+                       base_weak_factory_.GetWeakPtr()));
   }
 }
 

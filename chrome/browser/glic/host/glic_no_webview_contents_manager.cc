@@ -63,7 +63,8 @@
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/glic/android/glic_navigation_utils_android.h"
+#include "chrome/browser/actor/android/background_tabs/offscreen_rendering_manager_android.h"
+#include "chrome/browser/glic/android/settings/glic_navigation_utils_android.h"
 #include "ui/android/view_android.h"
 #include "ui/gfx/geometry/size_conversions.h"
 #endif
@@ -71,6 +72,8 @@
 namespace glic {
 
 namespace {
+constexpr base::TimeDelta kHibernateDisconnectedClientDelay = base::Seconds(20);
+
 content::WebContents::CreateParams MakeOverlayCreateParams(
     Profile* profile,
     bool initially_hidden) {
@@ -193,8 +196,14 @@ const char* ErrorPanelTypeToHistogramSuffix(mojom::ErrorPanelType error_type) {
   }
 }
 
-bool ShouldDisableLoadingOverlay() {
-  return base::FeatureList::IsEnabled(features::kGlicSsr);
+bool ShouldDisableLoadingOverlay(bool guest_main_page_loaded) {
+  if (!base::FeatureList::IsEnabled(features::kGlicSsr)) {
+    return false;
+  }
+  if (features::kGlicShowLoaderUntilMainPageOnload.Get()) {
+    return guest_main_page_loaded;
+  }
+  return true;
 }
 
 }  // namespace
@@ -315,11 +324,16 @@ class GlicNoWebviewContentsManager::Metrics {
 GlicNoWebviewContentsManager::OverlayContentsManager::OverlayContentsManager(
     Profile* profile,
     GlicNoWebviewContentsManager* owner,
-    ObservableValueView<GuestState>& guest_state)
+    ObservableValueView<GuestState>& guest_state,
+    ObservableValueView<bool>& guest_main_page_loaded)
     : profile_(profile),
       owner_(owner),
       guest_state_(guest_state),
       guest_state_subscription_(guest_state_->AddObserver(
+          base::BindRepeating(&OverlayContentsManager::UpdateOverlayState,
+                              base::Unretained(this)))),
+      guest_main_page_loaded_(guest_main_page_loaded),
+      guest_main_page_loaded_subscription_(guest_main_page_loaded_->AddObserver(
           base::BindRepeating(&OverlayContentsManager::UpdateOverlayState,
                               base::Unretained(this)))) {}
 
@@ -418,16 +432,19 @@ mojom::OverlayStatePtr
 GlicNoWebviewContentsManager::OverlayContentsManager::DetermineOverlayState(
     std::optional<mojom::ErrorPanelType> error_type,
     GuestState guest_state,
-    std::optional<mojom::PanelStateKind> panel_state_kind) {
+    std::optional<mojom::PanelStateKind> panel_state_kind,
+    bool guest_main_page_loaded) {
   // Input 1: Active error state. An error panel always takes precedence.
   if (error_type.has_value()) {
     return mojom::OverlayState::NewError(*error_type);
   }
 
-  // Input 2: Guest presentation. When the guest is ready, displaying a login
-  // or in-page error page, or when the loading overlay is disabled, the guest
-  // WebContents is shown and no overlay is needed.
-  if (guest_state != GuestState::kLoading || ShouldDisableLoadingOverlay()) {
+  // Input 2: Guest presentation. When the guest is ready, or displaying a
+  // login, security interstitial, or in-page error page, or when the loading
+  // overlay is disabled, the guest WebContents is shown and no overlay is
+  // needed.
+  if (guest_state != GuestState::kLoading ||
+      ShouldDisableLoadingOverlay(guest_main_page_loaded)) {
     return nullptr;
   }
 
@@ -448,7 +465,8 @@ GlicNoWebviewContentsManager::OverlayContentsManager::DetermineOverlayState() {
     panel_state_kind = panel_state_->get().kind;
   }
   return DetermineOverlayState(error_type_, guest_state_->get(),
-                               panel_state_kind);
+                               panel_state_kind,
+                               guest_main_page_loaded_->get());
 }
 
 void GlicNoWebviewContentsManager::OverlayContentsManager::
@@ -564,7 +582,7 @@ void GlicNoWebviewContentsManager::OverlayContentsManager::OpenUrlAndClosePanel(
     const GURL& url) {
   auto params = std::make_unique<NavigateParams>(
       profile_, url, ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
-  params->disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params->disposition = WindowOpenDisposition::kNewForegroundTab;
   glic::NavigateAsync(std::move(params), base::DoNothing());
   OnClosePanelClicked();
 }
@@ -621,7 +639,7 @@ GlicNoWebviewContentsManager::GlicNoWebviewContentsManager(
       enabling_(enabling),
       metrics_(std::make_unique<Metrics>()),
       guest_state_{GuestState::kLoading},
-      overlay_manager_(profile, this, guest_state_),
+      overlay_manager_(profile, this, guest_state_, guest_main_page_loaded_),
       privileged_guest_contents_(pwc::PrivilegedWebContents::Create(
           pwc::PrivilegedComponent::kGlic,
           profile,
@@ -662,7 +680,14 @@ GlicNoWebviewContentsManager::GlicNoWebviewContentsManager(
   UpdateForProfileReadyState(/*is_initial=*/true);
 }
 
-GlicNoWebviewContentsManager::~GlicNoWebviewContentsManager() = default;
+GlicNoWebviewContentsManager::~GlicNoWebviewContentsManager() {
+#if BUILDFLAG(IS_ANDROID)
+  if (guest_contents() &&
+      base::FeatureList::IsEnabled(features::kGlicAndroidOffscreenRendering)) {
+    actor::StopOffscreenRenderingForWebContents(guest_contents());
+  }
+#endif
+}
 
 content::WebContents* GlicNoWebviewContentsManager::guest_contents() const {
   return privileged_guest_contents_ ? privileged_guest_contents_->web_contents()
@@ -773,6 +798,38 @@ void GlicNoWebviewContentsManager::SetErrorCallback(
   }
 }
 
+void GlicNoWebviewContentsManager::WaitForLoad(
+    base::OnceCallback<void(bool failed)> callback) {
+  const mojom::WebClientState state = web_client_state();
+  if (state == mojom::WebClientState::kResponsive ||
+      state == mojom::WebClientState::kUnresponsive) {
+    std::move(callback).Run(/*failed=*/false);
+    return;
+  }
+  if (HasClientLoadFailed()) {
+    std::move(callback).Run(/*failed=*/true);
+    return;
+  }
+  pending_wait_for_load_callbacks_.push_back(std::move(callback));
+}
+
+void GlicNoWebviewContentsManager::ResolvePendingWaitForLoadCallbacks() {
+  if (pending_wait_for_load_callbacks_.empty()) {
+    return;
+  }
+  const mojom::WebClientState state = web_client_state();
+  const bool is_ready = state == mojom::WebClientState::kResponsive ||
+                        state == mojom::WebClientState::kUnresponsive;
+  const bool is_failed = HasClientLoadFailed();
+  if (!is_ready && !is_failed) {
+    return;
+  }
+  auto callbacks = std::exchange(pending_wait_for_load_callbacks_, {});
+  for (auto& cb : callbacks) {
+    std::move(cb).Run(is_failed);
+  }
+}
+
 void GlicNoWebviewContentsManager::OnZoomLevelChange() {
   if (host_) {
     host_->instance_metrics().OnZoomLevelChange();
@@ -784,6 +841,9 @@ void GlicNoWebviewContentsManager::NotifyWebContentsChanged() {
 }
 
 void GlicNoWebviewContentsManager::ApplySizeToGuest() {
+  if (!guest_contents()) {
+    return;
+  }
   gfx::Size target_size;
   if (host_) {
     target_size = host_->instance().GetPanelSize();
@@ -805,8 +865,7 @@ void GlicNoWebviewContentsManager::ApplySizeToGuest() {
     // side panel, floaty, and Android surfaces.
     target_size = gfx::Size(384, 675);
   }
-  if (target_size.IsEmpty() || !guest_contents() ||
-      !guest_contents()->GetRenderWidgetHostView()) {
+  if (target_size.IsEmpty()) {
     return;
   }
 #if BUILDFLAG(IS_ANDROID)
@@ -817,7 +876,18 @@ void GlicNoWebviewContentsManager::ApplySizeToGuest() {
     native_view->OnPhysicalBackingSizeChanged(size_px);
   }
 #else
-  guest_contents()->GetRenderWidgetHostView()->SetSize(target_size);
+  // Resize the WebContentsView container bounds (and any active
+  // RenderWidgetHostView). Sizing the WebContentsView before
+  // `LoadURLWithParams()` ensures `WebContentsImpl::GetSizeForMainFrame()`
+  // returns `target_size` when creating both the initial RenderWidgetHostView
+  // and any speculative RenderWidgetHostView (e.g. for
+  // Cross-Origin-Opener-Policy or RenderDocument swaps), so the renderer never
+  // observes a 0x0 viewport.
+  guest_contents()->Resize(gfx::Rect(target_size));
+  if (content::RenderWidgetHostView* rwhv =
+          guest_contents()->GetRenderWidgetHostView()) {
+    rwhv->SetSize(target_size);
+  }
 #endif
   // While the overlay is shown, the guest is not attached to a view, so mark it
   // visible to let it load and render at full priority.
@@ -831,7 +901,6 @@ void GlicNoWebviewContentsManager::ShowGuestDirectly(GuestState state) {
   ClearTransientErrorState();
   if (!overlay_manager_.error_type().has_value()) {
     guest_state_.Set(state);
-    ApplySizeToGuest();
   }
   UpdateDisplayState();
   if (error_callback_ && ShouldReloadOnShow()) {
@@ -850,7 +919,7 @@ GlicNoWebviewContentsManager::CalculateDesiredState() const {
     return DisplayState::kShowingOverlay;
   }
   if (guest_state_.get() != GuestState::kLoading ||
-      ShouldDisableLoadingOverlay()) {
+      ShouldDisableLoadingOverlay(guest_main_page_loaded_.get())) {
     return DisplayState::kShowingGuest;
   }
   return DisplayState::kShowingOverlay;
@@ -874,6 +943,7 @@ void GlicNoWebviewContentsManager::UpdateClientLoadFailed() {
   if (host_) {
     host_->SetClientLoadFailed(HasClientLoadFailed());
   }
+  ResolvePendingWaitForLoadCallbacks();
 }
 
 void GlicNoWebviewContentsManager::UpdateDisplayState() {
@@ -883,16 +953,23 @@ void GlicNoWebviewContentsManager::UpdateDisplayState() {
     TransitionTo(desired);
   }
   UpdateLoadingTimer();
+  ResolvePendingWaitForLoadCallbacks();
 }
 
 void GlicNoWebviewContentsManager::OnGuestNavigationStarted() {
   StopGuestBootstrap();
   ClearTransientErrorState();
+  guest_main_page_loaded_.Set(false);
   guest_state_.Set(GuestState::kLoading);
   UpdateClientLoadFailed();
   // Allow the full loading time after navigation. UpdateDisplayState() will
   // start the timer.
   loading_timer_.Stop();
+  UpdateDisplayState();
+}
+
+void GlicNoWebviewContentsManager::OnGuestMainPageLoaded() {
+  guest_main_page_loaded_.Set(true);
   UpdateDisplayState();
 }
 
@@ -902,6 +979,7 @@ void GlicNoWebviewContentsManager::OnGuestNavigated(
     mojom::GuestPageType page_type,
     bool is_initial_commit) {
   StopGuestBootstrap();
+  guest_main_page_loaded_.Set(false);
 
   switch (page_type) {
     case mojom::GuestPageType::kDisabledByAdmin:
@@ -919,6 +997,12 @@ void GlicNoWebviewContentsManager::OnGuestNavigated(
       // present the guest WebContents directly so the user can enter
       // credentials.
       ShowGuestDirectly(GuestState::kLogin);
+      break;
+    case mojom::GuestPageType::kSecurityInterstitial:
+      // When the guest encounters a security interstitial (e.g. an enterprise
+      // warning page), present the guest WebContents directly so the user can
+      // interact with the interstitial.
+      ShowGuestDirectly(GuestState::kSecurityInterstitial);
       break;
     case mojom::GuestPageType::kGuestError:
       // When the guest encounters an in-page error (e.g. /sorry/ or CAPTCHA),
@@ -939,7 +1023,6 @@ void GlicNoWebviewContentsManager::OnGuestNavigated(
         ClearTransientErrorState();
         guest_state_.Set(GuestState::kLoading);
         if (!overlay_manager_.error_type().has_value()) {
-          ApplySizeToGuest();
           StartGuestBootstrap();
         }
         UpdateDisplayState();
@@ -972,6 +1055,7 @@ void GlicNoWebviewContentsManager::StopGuestBootstrap() {
 void GlicNoWebviewContentsManager::OnGuestProcessGone(
     base::TerminationStatus status) {
   StopGuestBootstrap();
+  guest_main_page_loaded_.Set(false);
   guest_state_.Set(GuestState::kLoading);
   SetErrorState(mojom::ErrorPanelType::kError,
                 ClientLoadErrorReason::kGuestProcessGone);
@@ -1010,6 +1094,7 @@ void GlicNoWebviewContentsManager::OnWebClientStateChanged(
 }
 
 void GlicNoWebviewContentsManager::LoadGuest() {
+  guest_main_page_loaded_.Set(false);
   guest_state_.Set(GuestState::kLoading);
   UpdateClientLoadFailed();
   ApplySizeToGuest();
@@ -1135,6 +1220,16 @@ void GlicNoWebviewContentsManager::OnProfileReadyStateChanged() {
 void GlicNoWebviewContentsManager::SetVisibility(
     content::Visibility visibility) {
   is_visible_ = (visibility == content::Visibility::VISIBLE);
+  // Don't keep hidden guest contents, if they're not in a good state. Check on
+  // delay after hide.
+  if (is_visible_) {
+    unconnected_hibernation_timer_.Stop();
+  } else {
+    unconnected_hibernation_timer_.Start(
+        FROM_HERE, kHibernateDisconnectedClientDelay, this,
+        &GlicNoWebviewContentsManager::OnHibernationTimerExpired);
+  }
+
   // Update the guest WebContents visibility before `UpdateDisplayState()` so
   // that if transitioning to `kShowingGuest` requests a visual state callback
   // (`InsertVisualStateCallback`) on an already-warmed guest, its
@@ -1230,6 +1325,12 @@ void GlicNoWebviewContentsManager::OnLoadingTimeout() {
   }
   SetErrorState(mojom::ErrorPanelType::kError,
                 ClientLoadErrorReason::kClientLoadTimeout);
+}
+
+void GlicNoWebviewContentsManager::OnHibernationTimerExpired() {
+  if (host_ && !host_->IsWebClientConnected()) {
+    host_->Hibernate();
+  }
 }
 
 }  // namespace glic

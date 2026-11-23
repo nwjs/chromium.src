@@ -14,6 +14,7 @@
 #include "build/buildflag.h"
 #include "components/input/timeout_monitor.h"
 #include "content/browser/bad_message.h"
+#include "content/browser/renderer_host/ipc_utils.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 #include "content/browser/renderer_host/render_frame_host_manager.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
@@ -51,12 +52,14 @@
 #include "services/network/public/mojom/cors_origin_pattern.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_context.h"
 #include "third_party/blink/public/common/runtime_feature_state/runtime_feature_state_read_context.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
 #include "third_party/blink/public/mojom/notifications/notification_service.mojom.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
+#include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/blink/public/mojom/worker/dedicated_worker_host_factory.mojom.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -1595,7 +1598,8 @@ TEST_F(RenderFrameHostImplTest, CapturedMediaStreamAddedRemoved) {
 // message.
 TEST_F(RenderFrameHostImplTest, CreateNewWindowInvalidDisposition) {
   mojom::CreateNewWindowParamsPtr params = mojom::CreateNewWindowParams::New();
-  params->disposition = WindowOpenDisposition::UNKNOWN;
+  params->disposition = WindowOpenDisposition::kUnknown;
+  params->features = blink::mojom::WindowFeatures::New();
 
   // The bad message is reported to the process.
   EXPECT_EQ(0, process()->bad_msg_count());
@@ -1604,6 +1608,85 @@ TEST_F(RenderFrameHostImplTest, CreateNewWindowInvalidDisposition) {
       ->CreateNewWindow(std::move(params), base::DoNothing());
 
   EXPECT_EQ(1, process()->bad_msg_count());
+}
+
+class RenderFrameHostImplWindowOpenSplitTabTest
+    : public RenderFrameHostImplTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  RenderFrameHostImplWindowOpenSplitTabTest() {
+    feature_list_.InitWithFeatureState(blink::features::kWindowOpenSplitTab,
+                                       IsSplitTabEnabled());
+  }
+
+  bool IsSplitTabEnabled() const { return GetParam(); }
+
+  // Returns the result of VerifyCreateNewWindowParams() for a window.open()
+  // request with `features`, and expects a bad message if the result is false.
+  bool VerifyFeatures(blink::mojom::WindowFeaturesPtr features) {
+    mojom::CreateNewWindowParamsPtr params =
+        mojom::CreateNewWindowParams::New();
+    params->disposition = WindowOpenDisposition::kNewForegroundTab;
+    params->features = std::move(features);
+
+    base::HistogramTester histograms;
+    const int initial_bad_msg_count = process()->bad_msg_count();
+    const bool result = VerifyCreateNewWindowParams(
+        *static_cast<RenderFrameHostImpl*>(main_rfh()), *params);
+    EXPECT_EQ(initial_bad_msg_count + (result ? 0 : 1),
+              process()->bad_msg_count());
+    histograms.ExpectBucketCount(
+        "Stability.BadMessageTerminated.Content",
+        bad_message::RFH_CREATE_NEW_WINDOW_INVALID_SPLIT_TAB_FEATURES,
+        result ? 0 : 1);
+    return result;
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         RenderFrameHostImplWindowOpenSplitTabTest,
+                         testing::Bool());
+
+TEST_P(RenderFrameHostImplWindowOpenSplitTabTest, NoSplit) {
+  EXPECT_TRUE(VerifyFeatures(blink::mojom::WindowFeatures::New()));
+}
+
+TEST_P(RenderFrameHostImplWindowOpenSplitTabTest, Split) {
+  auto features = blink::mojom::WindowFeatures::New();
+  features->is_split = true;
+  features->split_position = blink::mojom::SplitTabPosition::kLeft;
+  features->split_size = 30;
+  // Split features are only allowed when the feature is enabled.
+  EXPECT_EQ(IsSplitTabEnabled(), VerifyFeatures(std::move(features)));
+}
+
+TEST_P(RenderFrameHostImplWindowOpenSplitTabTest, PositionWithoutSplit) {
+  auto features = blink::mojom::WindowFeatures::New();
+  features->split_position = blink::mojom::SplitTabPosition::kLeft;
+  EXPECT_FALSE(VerifyFeatures(std::move(features)));
+}
+
+TEST_P(RenderFrameHostImplWindowOpenSplitTabTest, SizeWithoutSplit) {
+  auto features = blink::mojom::WindowFeatures::New();
+  features->split_size = 30;
+  EXPECT_FALSE(VerifyFeatures(std::move(features)));
+}
+
+TEST_P(RenderFrameHostImplWindowOpenSplitTabTest, SizeTooSmall) {
+  auto features = blink::mojom::WindowFeatures::New();
+  features->is_split = true;
+  features->split_size = 0;
+  EXPECT_FALSE(VerifyFeatures(std::move(features)));
+}
+
+TEST_P(RenderFrameHostImplWindowOpenSplitTabTest, SizeTooLarge) {
+  auto features = blink::mojom::WindowFeatures::New();
+  features->is_split = true;
+  features->split_size = 100;
+  EXPECT_FALSE(VerifyFeatures(std::move(features)));
 }
 
 // Ensure that attempting to create a DedicatedWorkerHostFactory from a PDF
@@ -1960,6 +2043,92 @@ TEST_F(RenderFrameHostImplMimeHandlerTest,
   EXPECT_TRUE(extension_frame->frame_tree_node()
                   ->current_replication_state()
                   .is_secure_context_root);
+}
+
+// Turns on the DBSC JS API, so that each commit computes
+// `can_use_device_bound_session_js_api`.
+class RenderFrameHostImplDeviceBoundSessionJsApiTest
+    : public RenderFrameHostImplTest {
+ protected:
+  // Commits `navigation` and returns the new document's value. Checks that
+  // the renderer got the same value in the commit params.
+  bool CommitAndCheck(std::unique_ptr<NavigationSimulator> navigation) {
+    navigation->ReadyToCommit();
+    const bool sent = NavigationRequest::From(navigation->GetNavigationHandle())
+                          ->commit_params()
+                          .can_use_device_bound_session_js_api;
+    navigation->Commit();
+    auto* rfh = static_cast<RenderFrameHostImpl*>(
+        navigation->GetFinalRenderFrameHost());
+    EXPECT_EQ(sent, rfh->CanUseDeviceBoundSessionJsApi());
+    return sent;
+  }
+
+  // Commits https://a.test/ in the main frame and returns a new child of it.
+  TestRenderFrameHost* AddChildToHttpsPage(bool credentialless) {
+    NavigationSimulator::NavigateAndCommitFromBrowser(contents(),
+                                                      GURL("https://a.test/"));
+    return credentialless ? main_test_rfh()->AppendCredentiallessChild("child")
+                          : main_test_rfh()->AppendChild("child");
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      features::kDeviceBoundSessionJsApi};
+};
+
+TEST_F(RenderFrameHostImplDeviceBoundSessionJsApiTest,
+       TopLevelHttpsDocumentCanUse) {
+  EXPECT_TRUE(CommitAndCheck(NavigationSimulator::CreateBrowserInitiated(
+      GURL("https://a.test/"), contents())));
+}
+
+TEST_F(RenderFrameHostImplDeviceBoundSessionJsApiTest, SameSiteIframeCanUse) {
+  TestRenderFrameHost* child = AddChildToHttpsPage(/*credentialless=*/false);
+  EXPECT_TRUE(CommitAndCheck(NavigationSimulator::CreateRendererInitiated(
+      GURL("https://sub.a.test/"), child)));
+}
+
+TEST_F(RenderFrameHostImplDeviceBoundSessionJsApiTest,
+       CrossSiteIframeCannotUse) {
+  TestRenderFrameHost* child = AddChildToHttpsPage(/*credentialless=*/false);
+  EXPECT_FALSE(CommitAndCheck(NavigationSimulator::CreateRendererInitiated(
+      GURL("https://b.test/"), child)));
+}
+
+TEST_F(RenderFrameHostImplDeviceBoundSessionJsApiTest,
+       CredentiallessIframeCannotUse) {
+  TestRenderFrameHost* child = AddChildToHttpsPage(/*credentialless=*/true);
+  EXPECT_FALSE(CommitAndCheck(NavigationSimulator::CreateRendererInitiated(
+      GURL("https://a.test/"), child)));
+}
+
+TEST_F(RenderFrameHostImplDeviceBoundSessionJsApiTest, OpaqueOriginCannotUse) {
+  EXPECT_FALSE(CommitAndCheck(NavigationSimulator::CreateBrowserInitiated(
+      GURL("data:text/html,opaque"), contents())));
+}
+
+TEST_F(RenderFrameHostImplDeviceBoundSessionJsApiTest, HttpDocumentCannotUse) {
+  EXPECT_FALSE(CommitAndCheck(NavigationSimulator::CreateBrowserInitiated(
+      GURL("http://a.test/"), contents())));
+}
+
+// A same-document navigation keeps the document, so it keeps the value.
+TEST_F(RenderFrameHostImplDeviceBoundSessionJsApiTest,
+       SameDocumentNavigationKeepsValue) {
+  ASSERT_TRUE(CommitAndCheck(NavigationSimulator::CreateBrowserInitiated(
+      GURL("https://a.test/"), contents())));
+  NavigationSimulator::CreateRendererInitiated(GURL("https://a.test/#frag"),
+                                               main_test_rfh())
+      ->CommitSameDocument();
+  EXPECT_TRUE(main_test_rfh()->CanUseDeviceBoundSessionJsApi());
+}
+
+TEST_F(RenderFrameHostImplTest,
+       CannotUseDeviceBoundSessionJsApiWhenFeatureOff) {
+  NavigationSimulator::NavigateAndCommitFromBrowser(contents(),
+                                                    GURL("https://a.test/"));
+  EXPECT_FALSE(main_test_rfh()->CanUseDeviceBoundSessionJsApi());
 }
 
 TEST_F(RenderFrameHostImplTest, NotificationServiceBlockedForPdf) {

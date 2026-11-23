@@ -318,7 +318,7 @@ suite('HistoryListTest', function() {
     assertGT(title.children[1]!.innerHTML.indexOf('<b>google</b>'), -1);
   });
 
-  test('CorrectDisplayMessageWhenNoHistoryAvailable', async function() {
+  test('CorrectElementDisplayedWithAndWithoutResults', async function() {
     await finishSetup([]);
     await microtasksFinished();
     assertFalse(element.$.noResults.hidden);
@@ -333,6 +333,119 @@ suite('HistoryListTest', function() {
     await microtasksFinished();
     assertTrue(element.$.noResults.hidden);
     assertFalse(element.$.infiniteList.hidden);
+  });
+
+  test('CorrectNoResultsMessageWhenFilteringDisabled', async function() {
+    loadTimeData.overrideValues({
+      isBrowsingHistoryFilterByActorEnabled: false,
+      isBrowsingHistoryFilterByDeviceEnabled: false,
+    });
+    await finishSetup([]);
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noResults'),
+        element.$.noResults.textContent.trim());
+
+    // Setting a search query updates the empty-state message.
+    element.searchedTerm = 'test query';
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noSearchResults'),
+        element.$.noResults.textContent.trim());
+
+    // Clearing the search query restores the default empty-state message.
+    element.searchedTerm = '';
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noResults'),
+        element.$.noResults.textContent.trim());
+  });
+
+  test('CorrectNoResultsMessageWhenFilteringEnabled', async function() {
+    loadTimeData.overrideValues({
+      isBrowsingHistoryFilterByActorEnabled: true,
+      isBrowsingHistoryFilterByDeviceEnabled: true,
+    });
+    await finishSetup([]);
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noResults'),
+        element.$.noResults.textContent.trim());
+
+    // Filtering by search query alone.
+    element.searchedTerm = 'test query';
+    element.queryState = {
+      ...element.queryState,
+      includeUserVisits: true,
+      includeActorVisits: true,
+      clientIds: [],
+    };
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noMatchingResults'),
+        element.$.noResults.textContent.trim());
+
+    // Filtering by device alone.
+    element.searchedTerm = '';
+    element.queryState = {
+      ...element.queryState,
+      includeUserVisits: true,
+      includeActorVisits: true,
+      clientIds: ['device_1'],
+    };
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noMatchingResults'),
+        element.$.noResults.textContent.trim());
+
+    // Filtering by user visits alone.
+    element.searchedTerm = '';
+    element.queryState = {
+      ...element.queryState,
+      includeUserVisits: true,
+      includeActorVisits: false,
+      clientIds: [],
+    };
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noMatchingResults'),
+        element.$.noResults.textContent.trim());
+
+    // Filtering by actor visits alone.
+    element.searchedTerm = '';
+    element.queryState = {
+      ...element.queryState,
+      includeUserVisits: false,
+      includeActorVisits: true,
+      clientIds: [],
+    };
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noMatchingResults'),
+        element.$.noResults.textContent.trim());
+
+    // Resetting all filters and the search query restores the default
+    // empty-state message.
+    element.searchedTerm = '';
+    element.queryState = {
+      ...element.queryState,
+      includeUserVisits: true,
+      includeActorVisits: true,
+      clientIds: [],
+    };
+    await microtasksFinished();
+    assertFalse(element.$.noResults.hidden);
+    assertEquals(
+        loadTimeData.getString('noResults'),
+        element.$.noResults.textContent.trim());
   });
 
   test('MoreFromThisSiteSendsAndSetsCorrectData', async function() {
@@ -1108,13 +1221,20 @@ suite('HistoryListTest', function() {
     // Simulate a shorter window to make this easier.
     document.body.style.maxHeight = '300px';
     document.body.style.height = '300px';
-    await finishSetup(TEST_HISTORY_RESULTS, /*finished=*/ false);
+    // Enough items to scroll in the short window, so no results are loaded
+    // until the window is resized.
+    const results = [];
+    for (let i = 0; i < 10; i++) {
+      results.push(createHistoryEntry('2016-03-15', 'https://www.google.com'));
+    }
+    await finishSetup(results, /*finished=*/ false);
     testProxy.handler.reset();
 
-    // Set up more results.
+    // Set up more results. Report them as finished so that the taller window
+    // doesn't keep requesting more.
     testProxy.handler.setResultFor('queryHistoryContinuation', Promise.resolve({
       results: {
-        info: {finished: false, term: ''},
+        info: {finished: true, term: ''},
         value: [
           createHistoryEntry('2013-02-13 10:00', 'https://en.wikipedia.org'),
         ],
@@ -1126,6 +1246,40 @@ suite('HistoryListTest', function() {
     document.body.style.height = '800px';
     await testProxy.handler.whenCalled('queryHistoryContinuation');
     assertEquals(1, testProxy.handler.getCallCount('queryHistoryContinuation'));
+  });
+
+  test('LoadsMoreResultsWithoutScrollingWhenListIsShort', async () => {
+    // If the loaded results don't fill the viewport and more are
+    // available, the next batch should be requested without any scrolling.
+    testProxy.handler.setResultFor('queryHistoryContinuation', Promise.resolve({
+      results: {
+        info: {finished: true, term: ''},
+        value: [
+          createHistoryEntry('2013-02-13 10:00', 'https://en.wikipedia.org'),
+        ],
+      },
+    }));
+    await finishSetup(TEST_HISTORY_RESULTS, /*finished=*/ false);
+
+    await testProxy.handler.whenCalled('queryHistoryContinuation');
+    await microtasksFinished();
+    assertEquals(1, testProxy.handler.getCallCount('queryHistoryContinuation'));
+    assertEquals(TEST_HISTORY_RESULTS.length + 1, getHistoryData().length);
+  });
+
+  test('DoesNotLoadMoreResultsWithoutScrollingWhenListOverflows', async () => {
+    // Simulate a shorter window so that the results overflow it.
+    document.body.style.maxHeight = '300px';
+    document.body.style.height = '300px';
+    const results = [];
+    for (let i = 0; i < 20; i++) {
+      results.push(createHistoryEntry('2016-03-15', 'https://www.google.com'));
+    }
+    await finishSetup(results, /*finished=*/ false);
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await microtasksFinished();
+
+    assertEquals(0, testProxy.handler.getCallCount('queryHistoryContinuation'));
   });
 
   test('SharedMenuClosesOnFocusout', async () => {

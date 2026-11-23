@@ -11,6 +11,7 @@
 
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "media/base/media_export.h"
 #include "media/gpu/buildflags.h"
@@ -135,6 +136,8 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kAVDColorSpaceChanges);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAomVpxUsePresentationThreadType);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioFocusDuckFlash);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAudioRendererMixerImmediatePause);
+MEDIA_EXPORT extern const base::FeatureParam<base::TimeDelta>
+    kAudioRendererMixerImmediatePauseDelay;
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoPictureInPictureOnWindowOccluded);
 // Enables showing auto picture-in-picture permission details in page info.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoPictureInPicturePageInfoDetails);
@@ -182,6 +185,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kD3D11VideoDecoderUseSharedHandle);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDedicatedMediaServiceThread);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDeferAudioFocusUntilAudible);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDirectOpusAudioDecoding);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kDisallowMixedOpaqueMediaResponses);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDocumentPictureInPictureAnimateResize);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDocumentPictureInPictureCapture);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kDocumentPictureInPictureNavigation);
@@ -242,6 +246,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kLogSodaLoadFailures);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMP4TimedMetadataTrack);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMatchSourceAudioChannelLayout);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCapabilitiesQueryGpuFactories);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCapabilitiesStrictMimeTypeValidation);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCapabilitiesWithParameters);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaEngagementBypassAutoplayPolicies);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaEngagementHTTPSOnly);
@@ -288,6 +293,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kRenderMutedAudio);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kResolutionBasedDecoderPriority);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kResumeBackgroundVideo);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kRevokeMediaSourceObjectURLOnAttach);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kSodaXnnpackDelegate);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kSpeakerChangeDetection);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kSpecCompliantCanPlayThrough);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kUnifiedAutoplay);
@@ -399,6 +405,7 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kAutoPictureInPictureAndroid);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kContextMenuPictureInPictureAndroid);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kFullscreenVideoPictureInPicture);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecBlockModel);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecBlockModelEncrypted);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecBlockModelOutput);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecColorSpaceCleanup);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaCodecLowDelayMode);
@@ -512,10 +519,13 @@ MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationBatchRead);
 // Specify the batch read count between client renderer and remote renderer,
 // default value is 1.
 MEDIA_EXPORT extern const base::FeatureParam<int> kBatchReadCount;
+MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationChromiumCompatibilityMode);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationClearPlayback);
 // For feature check of kMediaFoundationD3D11VideoCapture at runtime,
 // please use IsMediaFoundationD3D11VideoCaptureEnabled() instead.
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationD3D11VideoCapture);
+MEDIA_EXPORT BASE_DECLARE_FEATURE(
+    kMediaFoundationD3D11VideoCaptureUseSharedImage);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationD3D11VideoCaptureZeroCopy);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationD3DVideoProcessing);
 MEDIA_EXPORT BASE_DECLARE_FEATURE(kMediaFoundationMultiGpuAdapterSelection);

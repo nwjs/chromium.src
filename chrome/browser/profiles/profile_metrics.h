@@ -25,6 +25,8 @@ class ProfileMetrics {
   // Enum for counting the ways users were added.
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
+  //
+  // LINT.IfChange(ProfileAddNewUser)
   enum ProfileAdd {
     // User adds new user from icon menu -- no longer used
     // ADD_NEW_USER_ICON = 0,
@@ -40,34 +42,43 @@ class ProfileMetrics {
     ADD_NEW_USER_SIGNIN_INTERCEPTION = 5,
     // Created during the sync flow (to avoid clash with data in the existing
     // profile)
-    ADD_NEW_USER_SYNC_FLOW = 6,
+    // DEPRECATED: ADD_NEW_USER_SYNC_FLOW = 6,
     // User adds new signed-in profile from Profile Picker
     ADD_NEW_PROFILE_PICKER_SIGNED_IN = 7,
     kMaxValue = ADD_NEW_PROFILE_PICKER_SIGNED_IN
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/profile/enums.xml:ProfileAddNewUser)
 
+  // Outcome of the signed-in profile creation flow.
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.
+  // Logged for `Profile.AddSignInFlowOutcome`.
+  //
+  // LINT.IfChange(ProfileSignedInFlowOutcome)
   enum class ProfileSignedInFlowOutcome {
-    kConsumerSync = 0,
-    kConsumerSigninOnly = 1,
-    kConsumerSyncSettings = 2,
-    kEnterpriseSync = 3,
-    kEnterpriseSigninOnly = 4,
+    // Obsolete: Post-sign-in sync confirmation outcomes were only recorded by
+    // the deleted `ProfilePickerTurnSyncOnDelegate`.
+    // kConsumerSync = 0,
+    // kConsumerSigninOnly = 1,
+    // kConsumerSyncSettings = 2,
+    // kEnterpriseSync = 3,
+    // kEnterpriseSigninOnly = 4,
     // DEPRECATED: kEnterpriseSigninOnlyNotLinked = 5,
-    kEnterpriseSyncSettings = 6,
-    kEnterpriseSyncDisabled = 7,
-    // Includes the case that the account is already syncing in another profile.
-    kLoginError = 8,
+    // kEnterpriseSyncSettings = 6,
+    // kEnterpriseSyncDisabled = 7,
+    // kLoginError = 8,
     kSAML = 9,
     kAbortedBeforeSignIn = 10,
     kAbortedAfterSignIn = 11,
-    kAbortedOnEnterpriseWelcome = 12,
-    kSkippedAlreadySyncing = 13,
-    kSkippedByPolicies = 14,
-    kForceSigninSyncNotGranted = 15,
-    kMaxValue = kForceSigninSyncNotGranted,
+    // kAbortedOnEnterpriseWelcome = 12,
+    // kSkippedAlreadySyncing = 13,
+    // kSkippedByPolicies = 14,
+    // Note: Not commented out because `kMaxValue` must share the value of the
+    // highest enumerator. Comment out when adding a new entry.
+    kDeprecatedForceSigninSyncNotGranted = 15,
+    kMaxValue = kDeprecatedForceSigninSyncNotGranted,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/profile/enums.xml:ProfileSignedInFlowOutcome)
 
   // These values are persisted to logs. Entries should not be renumbered and
   // numeric values should never be reused.

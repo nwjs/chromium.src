@@ -31,7 +31,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/window_open_disposition.h"
-#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
+#include "ui/views/controls/webview/web_contents_delegate_views.h"
 #include "ui/views/view_tracker.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -67,7 +67,8 @@ class PaymentRequestState;
 // |target| inside a views::WebView control.
 class PaymentHandlerWebFlowViewController
     : public PaymentRequestSheetController,
-      public content::WebContentsDelegate,
+      public views::WebContentsDelegateViews<
+          PaymentHandlerWebFlowViewController>,
       public content::WebContentsObserver,
       public ChromeLocationBarModelDelegate,
       public IconLabelBubbleView::Delegate,
@@ -146,6 +147,7 @@ class PaymentHandlerWebFlowViewController
   bool GetSheetId(DialogViewID* sheet_id) override;
   bool DisplayDynamicBorderForHiddenContents() override;
   bool CanContentViewBeScrollable() override;
+  bool ShouldContentViewFillPane() override;
   void Stop() override;
   base::WeakPtr<PaymentRequestSheetController> GetWeakPtr() override;
 
@@ -163,9 +165,13 @@ class PaymentHandlerWebFlowViewController
       const blink::mojom::WindowFeatures& window_features,
       bool user_gesture,
       bool* was_blocked) override;
-  bool HandleKeyboardEvent(content::WebContents* source,
-                           const input::NativeWebKeyboardEvent& event) override;
   void CloseContents(content::WebContents* source) override;
+  // Handles window.resizeTo() from the payment handler's top-level page.
+  // Unlike other consumers of resizeTo(), which treat `bounds` as their outer
+  // window bounds, the requested size is interpreted as the inner size: the
+  // size of the payment handler WebContents.
+  void SetContentsBounds(content::WebContents* source,
+                         const gfx::Rect& bounds) override;
   void RequestMediaAccessPermission(
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
@@ -274,9 +280,6 @@ class PaymentHandlerWebFlowViewController
   // Used to present modal dialog triggered from the payment handler web view,
   // e.g. an authenticator dialog.
   PaymentHandlerModalDialogManagerDelegate dialog_manager_delegate_;
-  // A handler to handle unhandled keyboard messages coming back from the
-  // renderer process.
-  views::UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 
   // Helper which clips the views::WebView created by this class so that it has
   // rounded corners matching its parent dialog.

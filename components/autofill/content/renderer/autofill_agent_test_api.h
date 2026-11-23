@@ -48,6 +48,10 @@ class AutofillAgentTestApi {
     agent_->ContentEditableDidChange(element);
   }
 
+  bool is_popup_possibly_visible() const {
+    return agent_->is_popup_possibly_visible_;
+  }
+
   void TextFieldValueChanged(const blink::WebFormControlElement& element) {
     agent_->TextFieldValueChanged(element);
   }
@@ -70,6 +74,22 @@ class AutofillAgentTestApi {
   void set_focus_requires_scroll(bool focus_requires_scroll) {
     const_cast<AutofillAgent::Config&>(agent_->config_).focus_requires_scroll =
         AutofillAgent::FocusRequiresScroll(focus_requires_scroll);
+  }
+
+  void set_uses_keyboard_accessory_for_suggestions(
+      bool uses_keyboard_accessory_for_suggestions) {
+    const_cast<AutofillAgent::Config&>(agent_->config_)
+        .uses_keyboard_accessory_for_suggestions =
+        AutofillAgent::UsesKeyboardAccessoryForSuggestions(
+            uses_keyboard_accessory_for_suggestions);
+  }
+
+  void set_keyboard_accessory_uses_dynamic_positioning(
+      bool keyboard_accessory_uses_dynamic_positioning) {
+    const_cast<AutofillAgent::Config&>(agent_->config_)
+        .keyboard_accessory_uses_dynamic_positioning =
+        AutofillAgent::KeyboardAccessoryUsesDynamicPositioning(
+            keyboard_accessory_uses_dynamic_positioning);
   }
 
   const FormCache& form_cache() { return agent_->form_cache_; }

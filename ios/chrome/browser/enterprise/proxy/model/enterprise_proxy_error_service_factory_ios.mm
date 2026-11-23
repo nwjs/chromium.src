@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/enterprise/proxy/model/enterprise_proxy_error_service_factory_ios.h"
 
+#import <utility>
+
 #import "base/check.h"
 #import "base/functional/bind.h"
 #import "components/enterprise/net/core/enterprise_proxy_error_service.h"
@@ -28,36 +30,21 @@ std::unique_ptr<KeyedService> BuildEnterpriseProxyErrorService(
 }  // namespace
 
 // static
-enterprise_net::EnterpriseProxyErrorService*
-EnterpriseProxyErrorServiceFactoryIOS::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<enterprise_net::EnterpriseProxyErrorService>(
-          profile, /*create=*/true);
-}
-
-// static
-EnterpriseProxyErrorServiceFactoryIOS*
-EnterpriseProxyErrorServiceFactoryIOS::GetInstance() {
-  static base::NoDestructor<EnterpriseProxyErrorServiceFactoryIOS> instance;
-  return instance.get();
-}
-
-// static
 EnterpriseProxyErrorServiceFactoryIOS::TestingFactory
 EnterpriseProxyErrorServiceFactoryIOS::GetDefaultFactory() {
   return base::BindOnce(&BuildEnterpriseProxyErrorService);
 }
 
-EnterpriseProxyErrorServiceFactoryIOS::EnterpriseProxyErrorServiceFactoryIOS()
-    : ProfileKeyedServiceFactoryIOS("EnterpriseProxyErrorServiceIOS",
-                                    ProfileSelection::kNoInstanceInIncognito,
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {
+EnterpriseProxyErrorServiceFactoryIOS::EnterpriseProxyErrorServiceFactoryIOS(
+    PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "EnterpriseProxyErrorServiceIOS",
+          ProfileSelection::kNoInstanceInIncognito,
+          ServiceCreation::kCreateWithProfile,
+          TestingCreation::kNoServiceForTests) {
   DependsOn(EnterpriseProxyServiceFactoryIOS::GetInstance());
 }
-
-EnterpriseProxyErrorServiceFactoryIOS::
-    ~EnterpriseProxyErrorServiceFactoryIOS() = default;
 
 std::unique_ptr<KeyedService>
 EnterpriseProxyErrorServiceFactoryIOS::BuildServiceInstanceFor(

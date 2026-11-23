@@ -6,6 +6,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_keyed_service_browsertest.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -26,7 +27,7 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest, StopPausedTask) {
   // Open a second tab to prevent the browser from closing when the active tab
   // is closed.
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), GURL("about:blank"), WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Navigate the active tab to a new page.
@@ -70,19 +71,22 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
 
   // Open a second tab to observe.
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), GURL("about:blank"), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), GURL("about:blank"), WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   tabs::TabInterface* second_tab =
       browser()->tab_strip_model()->GetTabAtIndex(1);
   ASSERT_TRUE(second_tab);
   tabs::TabHandle second_tab_handle = second_tab->GetHandle();
+  const ActorSurfaceHandle second_actor_surface_handle =
+      ActorSurfaceHandle::From(second_tab_handle);
 
   // Observe the second tab.
   task->ObserveTabOnce(second_tab_handle);
 
-  // Verify it is in LastActedTabs.
-  EXPECT_TRUE(task->GetLastActedTabs().contains(second_tab_handle));
+  // Verify it is in LastActedActorSurfaces.
+  EXPECT_TRUE(
+      task->GetLastActedActorSurfaces().contains(second_actor_surface_handle));
 
   // Close the second tab.
   browser()->tab_strip_model()->CloseWebContentsAt(1,
@@ -94,8 +98,9 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
       FROM_HERE, run_loop.QuitClosure());
   run_loop.Run();
 
-  // Verify it is NO LONGER in LastActedTabs.
-  EXPECT_FALSE(task->GetLastActedTabs().contains(second_tab_handle));
+  // Verify it is NO LONGER in LastActedActorSurfaces.
+  EXPECT_FALSE(
+      task->GetLastActedActorSurfaces().contains(second_actor_surface_handle));
 }
 
 }  // namespace

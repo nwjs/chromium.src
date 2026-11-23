@@ -60,6 +60,7 @@ import "services/network/public/mojom/proxy_lookup_client.mojom";
 import "services/network/public/mojom/proxy_resolving_socket.mojom";
 import "services/network/public/mojom/reporting_service.mojom";
 import "services/network/public/mojom/restricted_cookie_manager.mojom";
+import "services/network/public/mojom/restricted_device_bound_sessions.mojom";
 import "services/network/public/mojom/restricted_udp_socket.mojom";
 import "services/network/public/mojom/schemeful_site.mojom";
 import "services/network/public/mojom/shared_dictionary_access_observer.mojom";
@@ -1111,6 +1112,19 @@ interface NetworkContext {
       bool prefer_bound_cookie_context,
       pending_remote<CookieAccessObserver>? cookie_observer);
 
+  // Binds a RestrictedDeviceBoundSessionManager for one Document. `origin` is
+  // the Document's committed origin and `isolation_info` its isolation info
+  // for subresources, both supplied by the browser process. The network
+  // service CHECKs that `isolation_info.frame_origin()` equals `origin`, that
+  // `origin` is potentially trustworthy and not opaque, and that
+  // `isolation_info` has no nonce and is first-party for `origin`. The
+  // comment on RestrictedDeviceBoundSessionObserver says which sessions the
+  // manager shows the Document.
+  GetRestrictedDeviceBoundSessionManager(
+      pending_receiver<RestrictedDeviceBoundSessionManager> manager,
+      url.mojom.Origin origin,
+      IsolationInfo isolation_info);
+
   // Provides a TrustTokenQueryAnswerer scoped to the given top-frame origin
   // (subsequent calls to its HasTrustTokens(issuer) and
   // HasRedemptionRecord(issuer) methods will attempt to
@@ -1570,6 +1584,11 @@ interface NetworkContext {
   // Clears the list of bad proxy servers that has been cached.
   ClearBadProxiesCache() => ();
 
+  // Retrieves the current proxy settings (original and effective
+  // configurations), the cached list of bad proxies, and the time tick offset
+  // as a NetLog-formatted dictionary.
+  GetProxySettings() => (mojo_base.mojom.DictionaryValue proxy_settings);
+
   // Creates a WebSocket connection to |url|. |requested_protocols| is a
   // list of tokens identifying sub-protocols the renderer would like to use,
   // as described in RFC6455 "Subprotocols Using the WebSocket Protocol".
@@ -1849,8 +1868,11 @@ interface NetworkContext {
       ProxyServer proxy_server, string auth_scheme, string realm)
       => (AuthCredentials? credentials);
 
-  // Enables the checking of static PKP records.
-  EnableStaticKeyPinningForTesting() => ();
+  // Re-initialize the key pinning state in the network context's
+  // TransportSecurityState. This can pick up changes in the test's default key
+  // pinning configuration that were made after the TransportSecurityState was
+  // already created.
+  ReinitializeKeyPinningForTesting() => ();
 
   // Verifies the given certificate using the context's CertVerifier.
   VerifyCertificateForTesting(X509Certificate certificate,
@@ -1983,4 +2005,13 @@ interface NetworkContext {
 
   // Updates the variations headers to be used for requests.
   SetVariationsHeaders(variations.mojom.VariationsHeaders? variations_headers);
+
+  // Clones this NetworkContext connection. The new receiver is bound to the
+  // same underlying NetworkContext instance. Disconnection of any cloned
+  // receiver does not destroy the NetworkContext nor disconnect other sibling
+  // clones. When owned by NetworkService, disconnection of the primary
+  // NetworkContext receiver will destroy the NetworkContext instance and
+  // disconnect all clones.
+  [AllowedContext=sandbox.mojom.Context.kBrowser]
+  Clone(pending_receiver<NetworkContext> receiver);
 };

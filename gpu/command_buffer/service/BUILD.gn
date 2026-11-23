@@ -11,7 +11,6 @@ import("//ui/gl/features.gni")
 
 config("implementation") {
   defines = [ "GPU_COMMAND_BUFFER_SERVICE_IMPLEMENTATION" ]
-  configs = [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 component("service") {
@@ -73,7 +72,7 @@ source_set("service_sources") {
   configs += [
     "//build/config:precompiled_headers",
     ":implementation",
-    "//third_party/khronos:khronos_headers",
+    "//gpu:gl_headers",
   ]
 
   public_deps = [
@@ -251,6 +250,8 @@ target(link_target_type, "gles2_sources") {
     "shared_image/egl_image_backing.h",
     "shared_image/egl_image_backing_factory.cc",
     "shared_image/egl_image_backing_factory.h",
+    "shared_image/end_access_state.cc",
+    "shared_image/end_access_state.h",
     "shared_image/gl_common_image_backing_factory.cc",
     "shared_image/gl_common_image_backing_factory.h",
     "shared_image/gl_repack_utils.cc",
@@ -263,10 +264,6 @@ target(link_target_type, "gles2_sources") {
     "shared_image/gl_texture_image_backing_factory.h",
     "shared_image/gl_texture_passthrough_fallback_image_representation.cc",
     "shared_image/gl_texture_passthrough_fallback_image_representation.h",
-    "shared_image/raw_draw_image_backing.cc",
-    "shared_image/raw_draw_image_backing.h",
-    "shared_image/raw_draw_image_backing_factory.cc",
-    "shared_image/raw_draw_image_backing_factory.h",
     "shared_image/shared_image_backing.cc",
     "shared_image/shared_image_backing.h",
     "shared_image/shared_image_backing_factory.cc",
@@ -361,7 +358,7 @@ target(link_target_type, "gles2_sources") {
     "//gpu:gpu_gles2_implementation",
     "//gpu:raster_implementation",
     "//gpu:webgpu_implementation",
-    "//third_party/khronos:khronos_headers",
+    "//gpu:gl_headers",
   ]
 
   # This target pulls in angle headers that can't be built with this

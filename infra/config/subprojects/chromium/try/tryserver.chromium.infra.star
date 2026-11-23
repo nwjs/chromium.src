@@ -86,6 +86,7 @@ try_.builder(
     executable = "recipe:chromium_3pp",
     builderless = True,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     contact_team_email = "chrome-browser-infra-team@google.com",
     properties = {
         "$build/chromium_3pp": {
@@ -206,6 +207,7 @@ try_.builder(
     builderless = True,
     cores = 8,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     contact_team_email = "chrome-dev-infra-team@google.com",
     cq_settings = try_.cq_settings(
         location_filters = [
@@ -348,6 +350,7 @@ try_.builder(
     ),
     builderless = True,
     os = os.WINDOWS_DEFAULT,
+    ssd = None,
     contact_team_email = "pdeio-chrome-test-infra-mx@google.com",
     execution_timeout = 2 * time.hour,
     properties = {
@@ -416,4 +419,15 @@ try_.builder(
     #         "tools/autotest.py",
     #     ],
     # ),
+)
+
+try_.builder(
+    name = "rts-complement-runner",
+    description_html = "Runs RTS-skipped (complement) test suites for a CQ build to measure post-submit RTS safety.",
+    executable = "recipe:chromium/rts_complement_runner",
+    builderless = True,
+    cores = 2,
+    os = os.LINUX_DEFAULT,
+    contact_team_email = "chrome-test-infra-mx@google.com",
+    service_account = "chromium-orchestrator@chops-service-accounts.iam.gserviceaccount.com",
 )

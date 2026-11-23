@@ -81,8 +81,12 @@ if (!is_android) {
     deps = [
       "//base",
       "//chrome/browser",
+      "//chrome/browser/ui/omnibox",
+      "//chrome/browser/ui/tabs:tabs_public",
+      "//chrome/browser/ui/views/omnibox",
       "//chrome/test:test_support_ui",
       "//components/site_engagement/content",
+      "//components/tabs:public",
       "//components/webapps/common",
       "//content/public/browser",
       "//content/test:test_support",

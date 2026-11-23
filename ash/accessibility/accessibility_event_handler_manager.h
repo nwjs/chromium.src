@@ -24,10 +24,12 @@ class AccessibilityEventHandlerManager {
   enum class HandlerType {
     kMouseKeys = 0,
     kCursor,
+    kMouseShakeToLocate,
     kFullscreenMagnifier,
     kDockedMagnifier,
     kChromeVox,
     kAutoclick,
+    kHoverText,
     kSelectToSpeak,
     kMaxValue = kSelectToSpeak,
   };

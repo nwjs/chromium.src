@@ -338,6 +338,7 @@ source_set("web_internal") {
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
+    "//ios/chrome/browser/shared/model/profile/internal:profile_dependency_manager",
     "//ios/chrome/browser/shared/model/url",
     "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/shared/public/features",
@@ -423,6 +424,7 @@ source_set("unit_tests_internal") {
     "//components/universal_optout",
     "//components/universal_optout:features",
     "//components/version_info",
+    "//ios/chrome/browser/cobrowse/model",
     "//ios/chrome/browser/content_settings/model",
     "//ios/chrome/browser/find_in_page/model",
     "//ios/chrome/browser/infobars/model",
@@ -435,6 +437,7 @@ source_set("unit_tests_internal") {
     "//ios/chrome/browser/search_engines/model",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/url:constants",
+    "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/public/features:system_flags",
     "//ios/chrome/browser/ssl/model",
     "//ios/chrome/browser/web/model",
@@ -564,6 +567,7 @@ source_set("eg2_tests") {
     "//ios/chrome/test/earl_grey:eg_test_support+eg2",
     "//ios/net:test_support",
     "//ios/testing:embedded_test_server_support",
+    "//ios/testing:test_tag_registry",
     "//ios/testing/earl_grey:eg_test_support+eg2",
     "//ios/web/common:features",
     "//ios/web/public/test:element_selector",
@@ -573,4 +577,12 @@ source_set("eg2_tests") {
   ]
 
   frameworks = [ "UIKit.framework" ]
+}
+
+source_set("feature_flags") {
+  sources = [
+    "features.cc",
+    "features.h",
+  ]
+  deps = [ "//base" ]
 }

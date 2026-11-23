@@ -27,10 +27,7 @@ source_set("library_support") {
     "library_support/histogram_manager.cc",
   ]
 
-  configs += [
-    "//build/config/compiler:wexit_time_destructors",
-    "//build/config/compiler:wglobal_constructors",
-  ]
+  configs += [ "//build/config/compiler:wglobal_constructors" ]
 
   deps = [
     "//base",
@@ -100,19 +97,13 @@ source_set("client_info") {
     "client_info.cc",
     "client_info.h",
   ]
-  configs += [
-    "//build/config/compiler:wexit_time_destructors",
-    "//build/config/compiler:wglobal_constructors",
-  ]
+  configs += [ "//build/config/compiler:wglobal_constructors" ]
 }
 
 # Used by the Chrome installer, which doesn't need the whole metrics library.
 source_set("metrics_pref_names") {
   sources = [ "metrics_pref_names.h" ]
-  configs += [
-    "//build/config/compiler:wexit_time_destructors",
-    "//build/config/compiler:wglobal_constructors",
-  ]
+  configs += [ "//build/config/compiler:wglobal_constructors" ]
 }
 
 if (!is_cronet_build || is_ios) {
@@ -130,10 +121,7 @@ if (!is_cronet_build || is_ios) {
       "histogram_controller.h",
       "histogram_subscriber.h",
     ]
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
 
     deps = [
       "//base",
@@ -156,10 +144,7 @@ if (!is_cronet_build || is_ios) {
   source_set("system_profile_user_stream") {
     public = [ "system_profile_user_stream.h" ]
     sources = [ "system_profile_user_stream.cc" ]
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
     public_deps = [
       "//base",
       "//components/crash/core/common:shared_memory_user_stream",
@@ -292,10 +277,7 @@ if (!is_cronet_build || is_ios) {
       "version_utils.h",
     ]
 
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
 
     public_deps = [
       ":metrics_component",
@@ -388,7 +370,6 @@ if (!is_cronet_build || is_ios) {
         "motherboard_metrics_provider.h",
       ]
     }
-    check_includes_strict = CHECK_INCLUDES_STRICT_PUBLIC_INCLUDES_PRIVATE
   }
 
   static_library("test_support") {
@@ -421,10 +402,7 @@ if (!is_cronet_build) {
       "component_metrics_provider.h",
     ]
 
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
 
     public_deps = [ "//third_party/metrics_proto" ]
 
@@ -450,10 +428,7 @@ if (!is_cronet_build) {
         "content/subprocess_metrics_provider.cc",
         "content/subprocess_metrics_provider.h",
       ]
-      configs += [
-        "//build/config/compiler:wexit_time_destructors",
-        "//build/config/compiler:wglobal_constructors",
-      ]
+      configs += [ "//build/config/compiler:wglobal_constructors" ]
       public_deps = [ ":metrics" ]
       deps = [
         "//base",
@@ -479,10 +454,7 @@ if (!is_cronet_build) {
       "net/network_metrics_provider.h",
     ]
 
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
 
     public_deps = [ ":metrics" ]
 
@@ -508,10 +480,7 @@ if (!is_cronet_build) {
       "ui/screen_info_metrics_provider.h",
     ]
 
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
 
     public_deps = [ ":metrics" ]
     deps = [
@@ -547,10 +516,7 @@ if (!is_cronet_build) {
     public = [ "call_stacks/call_stack_profile_encoding.h" ]
     sources = [ "call_stacks/call_stack_profile_encoding.cc" ]
 
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
 
     deps = [
       "//base",
@@ -571,10 +537,7 @@ if (!is_cronet_build) {
       "call_stacks/call_stack_profile_metadata.cc",
       "call_stacks/child_call_stack_profile_collector.cc",
     ]
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
     public_deps = [ ":call_stack_profile_encoding" ]
     deps = [
       "//base",
@@ -602,10 +565,7 @@ if (!is_cronet_build) {
       "call_stacks/call_stack_profile_collector.cc",
       "call_stacks/call_stack_profile_collector.h",
     ]
-    configs += [
-      "//build/config/compiler:wexit_time_destructors",
-      "//build/config/compiler:wglobal_constructors",
-    ]
+    configs += [ "//build/config/compiler:wglobal_constructors" ]
     deps = [
       ":metrics",
       "//components/metrics/public/mojom:call_stack_mojo_bindings",
@@ -771,10 +731,6 @@ if (!is_cronet_build) {
     if (is_win || is_linux) {
       sources += [ "motherboard_metrics_provider_unittest.cc" ]
     }
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   }
 
   # Convenience testing target

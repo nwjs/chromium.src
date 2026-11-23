@@ -46,6 +46,7 @@
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/sessions/core/session_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/android/jni_conversion.h"
@@ -178,21 +179,17 @@ TabAndroid* TabModelJniBridge::DuplicateTab(JNIEnv* env, TabAndroid* tab) {
 
 void TabModelJniBridge::MoveTabToWindowForTesting(
     TabAndroid* tab,
-    int64_t native_browser_window_ptr,
+    BrowserWindowInterface* browser_window,
     int new_index) {
-  SessionID destination_window_id =
-      reinterpret_cast<BrowserWindowInterface*>(native_browser_window_ptr)
-          ->GetSessionID();
+  SessionID destination_window_id = browser_window->GetSessionID();
   MoveTabToWindow(tab->GetHandle(), destination_window_id, new_index);
 }
 
 bool TabModelJniBridge::MoveTabGroupToWindowForTesting(
     const base::Token& group_id,
-    int64_t native_browser_window_ptr,
+    BrowserWindowInterface* browser_window,
     int new_index) {
-  SessionID destination_window_id =
-      reinterpret_cast<BrowserWindowInterface*>(native_browser_window_ptr)
-          ->GetSessionID();
+  SessionID destination_window_id = browser_window->GetSessionID();
   return MoveTabGroupToWindow(tab_groups::TabGroupId::FromRawToken(group_id),
                               destination_window_id, new_index);
 }
@@ -281,7 +278,7 @@ void TabModelJniBridge::SetMuteSetting(const std::vector<TabAndroid*>& tabs,
   }
 }
 
-int32_t TabModelJniBridge::GetSessionIdForTesting() {
+int32_t TabModelJniBridge::GetNativeSessionId() {
   return GetSessionId().id();
 }
 
@@ -367,16 +364,17 @@ tabs::TabInterface* TabModelJniBridge::CreateTab(
 
 void TabModelJniBridge::HandlePopupNavigation(TabAndroid* parent,
                                               NavigateParams* params) {
-  DCHECK_EQ(params->source_contents, parent->web_contents());
-  DCHECK(!params->contents_to_insert);
-  DCHECK(!params->switch_to_singleton_tab);
+  CHECK_EQ(params->source_contents, parent->web_contents(),
+           base::NotFatalUntil::M162);
+  CHECK(!params->contents_to_insert, base::NotFatalUntil::M162);
+  CHECK(!params->switch_to_singleton_tab, base::NotFatalUntil::M162);
 
   WindowOpenDisposition disposition = params->disposition;
-  bool supported = disposition == WindowOpenDisposition::NEW_POPUP ||
-                   disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
-                   disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB ||
-                   disposition == WindowOpenDisposition::NEW_WINDOW ||
-                   disposition == WindowOpenDisposition::OFF_THE_RECORD;
+  bool supported = disposition == WindowOpenDisposition::kNewPopup ||
+                   disposition == WindowOpenDisposition::kNewForegroundTab ||
+                   disposition == WindowOpenDisposition::kNewBackgroundTab ||
+                   disposition == WindowOpenDisposition::kNewWindow ||
+                   disposition == WindowOpenDisposition::kOffTheRecord;
   if (!supported) {
     NOTIMPLEMENTED();
     return;
@@ -560,12 +558,24 @@ void TabModelJniBridge::ActivateTab(tabs::TabHandle tab) {
 tabs::TabInterface* TabModelJniBridge::OpenTab(const GURL& url,
                                                int index,
                                                bool foreground) {
+  return OpenTab(url, index,
+                 foreground
+                     ? TabLaunchType::FROM_TAB_LIST_INTERFACE
+                     : TabLaunchType::FROM_TAB_LIST_INTERFACE_BACKGROUND);
+}
+
+tabs::TabInterface* TabModelJniBridge::OpenTab(const GURL& url,
+                                               int index,
+                                               TabLaunchType launch_type) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> jobj = java_object_.get(env);
 
   tabs::TabInterface* tab = Java_TabModelJniBridge_openTabProgrammatically(
-      env, jobj, url, index, foreground);
-  if (foreground && tab) {
+      env, jobj, url, index, static_cast<int>(launch_type));
+  // Assume that background tabs opened via OpenTab can only come from
+  // FROM_TAB_LIST_INTERFACE_BACKGROUND (all other callers of OpenTab open
+  // foreground tabs).
+  if (launch_type != TabLaunchType::FROM_TAB_LIST_INTERFACE_BACKGROUND && tab) {
     ActivateTab(tab->GetHandle());
   }
   return tab;
@@ -807,6 +817,14 @@ std::optional<TabGroupVisualData> TabModelJniBridge::GetTabGroupVisualData(
   return TabGroupVisualData(title, color_id, collapsed);
 }
 
+std::optional<split_tabs::SplitTabVisualData>
+TabModelJniBridge::GetSplitTabVisualData(split_tabs::SplitTabId split_id) {
+  // TODO(https://crbug.com/480192698): Implement this once split tabs are
+  // supported on Desktop Android.
+  NOTIMPLEMENTED();
+  return std::nullopt;
+}
+
 gfx::Range TabModelJniBridge::GetTabGroupTabIndices(
     tab_groups::TabGroupId group_id) {
   JNIEnv* env = AttachCurrentThread();
@@ -834,7 +852,8 @@ std::optional<tab_groups::TabGroupId> TabModelJniBridge::CreateTabGroup(
 }
 
 std::optional<split_tabs::SplitTabId> TabModelJniBridge::CreateSplit(
-    const std::vector<tabs::TabHandle>& tabs) {
+    const std::vector<tabs::TabHandle>& tabs,
+    const split_tabs::SplitTabVisualData& visual_data) {
   // TODO(https://crbug.com/480192698): Implement this once split tabs are
   // supported on Desktop Android.
   NOTIMPLEMENTED();
@@ -984,7 +1003,7 @@ TabModelJniBridge::~TabModelJniBridge() {
   }
 
   if (GetTabModelType() == TabModelType::kArchived) {
-    TabModelList::SetArchivedTabModel(nullptr);
+    TabModelList::RemoveArchivedTabModel(this);
   } else {
     TabModelList::RemoveTabModel(this);
   }

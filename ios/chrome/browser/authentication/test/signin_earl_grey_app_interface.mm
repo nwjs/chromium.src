@@ -199,19 +199,6 @@
   return base::SysUTF8ToNSString(info.email);
 }
 
-+ (NSSet<NSString*>*)accountsInProfileGaiaIDs {
-  ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
-  std::vector<CoreAccountInfo> infos =
-      IdentityManagerFactory::GetForProfile(profile)
-          ->GetAccountsWithRefreshTokens();
-
-  NSMutableSet<NSString*>* gaias = [[NSMutableSet alloc] init];
-  for (const CoreAccountInfo& info : infos) {
-    [gaias addObject:info.gaia.ToNSString()];
-  }
-  return gaias;
-}
-
 + (BOOL)isSignedOut {
   ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
 
@@ -310,19 +297,19 @@
       profileSeparationDataMigrationSettings);
 }
 
-+ (void)setPreferredAccountForPromo:(FakeSystemIdentity*)fakeIdentity {
++ (void)setPreferredAccountForSignin:(FakeSystemIdentity*)fakeIdentity {
   ProfileIOS* profile = chrome_test_util::GetOriginalProfile();
   signin::TestAccountPreviewDataService* accountPreviewDataService =
       static_cast<signin::TestAccountPreviewDataService*>(
           AccountPreviewDataServiceFactory::GetForProfile(profile));
   CHECK(accountPreviewDataService);
   if (!fakeIdentity) {
-    accountPreviewDataService->SetPreferredAccountForPromo(std::nullopt);
+    accountPreviewDataService->SetPreferredAccountForSignin(std::nullopt);
     return;
   }
   signin::AccountPreviewDataService::AccountPreviewPreference preference;
   preference.gaia_id = fakeIdentity.gaiaId;
-  accountPreviewDataService->SetPreferredAccountForPromo(preference);
+  accountPreviewDataService->SetPreferredAccountForSignin(preference);
 }
 
 @end

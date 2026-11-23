@@ -7,12 +7,13 @@
 
 #include <stdint.h>
 
+#include <array>
 #include <utility>
 
-#include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
 #include "third_party/blink/renderer/core/html/forms/html_label_element.h"
 #include "third_party/blink/renderer/modules/accessibility/ax_object_cache_impl.h"
+#include "third_party/blink/renderer/modules/modules_export.h"
 #include "third_party/blink/renderer/platform/graphics/dom_node_id.h"
 #include "third_party/blink/renderer/platform/heap/forward.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -28,7 +29,7 @@ using TargetIdToSourceNodeMap = HashMap<AtomicString, HashSet<DOMNodeId>>;
 using TargetNodeToSourceNodeMap = HashMap<DOMNodeId, HashSet<DOMNodeId>>;
 
 // This class should only be used from inside the accessibility directory.
-class AXRelationCache {
+class MODULES_EXPORT AXRelationCache {
   USING_FAST_MALLOC(AXRelationCache);
 
  public:
@@ -131,6 +132,10 @@ class AXRelationCache {
   // relation present on source. This includes attributes on ElementInternals.
   void UpdateReverseOwnsRelations(Element& source);
 
+  // Return true if `attr_name` is tracked in `aria_other_relations_id_map_` /
+  // `aria_other_relations_node_map_`.
+  static bool IsOtherRelationAttribute(const QualifiedName& attr_name);
+
   // Update the target to source node mappings for any other ARIA
   // relation present on source. This includes attributes on ElementInternals.
   void UpdateReverseOtherRelations(Element& source);
@@ -164,6 +169,10 @@ class AXRelationCache {
   // of them.
   void ProcessUpdatesWithCleanLayout();
 
+  // Restores the natural parent (or prunes the subtree) of any formerly
+  // aria-owned children whose owners were removed during `RemoveSubtree()`.
+  void RestorePendingParents();
+
   // Determines the set of child nodes that this object owns due to aria-owns
   // (fully validating that the ownership is legal and free of cycles).
   // If that differs from the previously cached set of owned children,
@@ -176,6 +185,19 @@ class AXRelationCache {
   bool UpdateAriaOwnsWithCleanLayout(AXObject* owner, bool force = false);
   void QueueOwnerToUpdate(AXObject* owner);
 
+  // TODO(crbug.com/576036695): Move the rest of the usemap and image map
+  // ownership logic here so AXRelationCache manages all cases where an
+  // element's accessibility parent differs from its DOM or layout parent.
+  void MarkImageMapsDirty();
+  // Mark image maps dirty if |node| is a <map> or an <img> with usemap.
+  void MaybeMarkImageMapsDirty(const Node&);
+  // Detach stale <map> children and return the images whose map changed.
+  HeapVector<Member<Element>> DetachStaleImageMapsWithCleanLayout();
+  // Rebuild the children of the images returned by
+  // DetachStaleImageMapsWithCleanLayout().
+  void RebuildImageMapsWithCleanLayout(
+      const HeapVector<Member<Element>>& images);
+
   // Is there work to be done when layout becomes clean?
   bool IsDirty() const;
 
@@ -187,18 +209,14 @@ class AXRelationCache {
 #endif
 
  private:
-  // Check that the element has been previouslly processed.
-  void CheckElementWasProcessed(Element&) const;
+  // Detach stale <map> children from the images in |document| and append the
+  // images whose map changed to |images_with_changed_map|.
+  void DetachStaleImageMapsInDocument(
+      Document& document,
+      HeapVector<Member<Element>>& images_with_changed_map);
 
-  // Get any explicitly-set attr elements associated with source for
-  // the given attribute, whether set via the element or element internals.
-  static void GetExplicitlySetElementsForAttr(
-      const Element& source,
-      const QualifiedName& attr_name,
-      HeapVector<Member<Element>>& target_elements);
-
-  // Get ID or element reference relation targets for source for the
-  // given attribute. Either ids or elements will be populated with the
+  // Get ID or element reference relation targets for `source` for the
+  // given attribute. Either `ids` or `elements` will be populated with the
   // appropriate values, depending on whether the attribute was set as a content
   // attribute or an element reference attribute.
   static void GetRelationTargets(const Element& source,
@@ -301,10 +319,13 @@ class AXRelationCache {
   // related object.
   void UpdateRelatedText(Node*);
 
-  static base::span<std::pair<QualifiedName, Element::TinyBloomFilter>>
-  GetTextRelationAttributes();
-  static base::span<std::pair<QualifiedName, Element::TinyBloomFilter>>
-  GetOtherRelationAttributes();
+  using TextRelationAttributeArray =
+      std::array<std::pair<QualifiedName, Element::TinyBloomFilter>, 4>;
+  using OtherRelationAttributeArray =
+      std::array<std::pair<QualifiedName, Element::TinyBloomFilter>, 8>;
+
+  static const TextRelationAttributeArray& GetTextRelationAttributes();
+  static const OtherRelationAttributeArray& GetOtherRelationAttributes();
 
   bool IsValidOwnsRelation(AXObject* owner, Node& child_node) const;
   void UnmapOwnedChildrenWithCleanLayout(const AXObject* owner,
@@ -330,8 +351,8 @@ class AXRelationCache {
       HeapVector<Member<AXObject>>& validated_owned_children_result,
       bool force);
 
-  // Save the current id attribute for the given DOMNodeId.
-  void UpdateRegisteredIdAttribute(Element& element, DOMNodeId node_id);
+  // Save the current `id` attribute for the given `element`.
+  void UpdateRegisteredIdAttribute(Element& element);
 
   WeakPersistent<AXObjectCacheImpl> object_cache_;
 
@@ -384,9 +405,21 @@ class AXRelationCache {
   // will be fired on all affected nodes.
   HashSet<DOMNodeId> owner_axids_to_update_;
 
+  // A set of formerly aria-owned child IDs whose owners were removed and whose
+  // natural parents need to be restored (or their subtrees pruned) once the
+  // removal finishes or in `ProcessUpdatesWithCleanLayout()`.
+  HashSet<DOMNodeId> child_axids_to_restore_parent_;
+
+  bool is_restoring_parents_ = false;
+
   // For each DOM node, the most recent id attribute value processed.
   HashMap<DOMNodeId, AtomicString> registered_id_attributes_;
 
+  // Whether a <map> or <img usemap> changed since the last update.
+  bool has_dirty_image_maps_ = false;
+
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
+                           CacheRelationsSkipsElementsWithoutIdOrRelations);
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
                            RegisteredIdAttributesAreRemovedOnDisconnection);
   FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
@@ -394,6 +427,13 @@ class AXRelationCache {
   FRIEND_TEST_ALL_PREFIXES(
       AccessibilityTest,
       RegisteredIdAttributesSurviveConnectedAXObjectRecreation);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest, ImageMapsNotDirtyOnInitialLoad);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
+                           ImageMapsNotDirtyWhenPlainImageInsertedOrRemoved);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
+                           ImageMapsNotDirtyOnOtherAttributeChanges);
+  FRIEND_TEST_ALL_PREFIXES(AccessibilityTest,
+                           ImageMapsDirtyOnMapOrUsemapChanges);
 
   // Helpers that call back into object cache
   AXObject* ObjectFromAXID(AXID) const;

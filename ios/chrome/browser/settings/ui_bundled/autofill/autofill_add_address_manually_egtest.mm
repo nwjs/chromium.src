@@ -104,6 +104,10 @@ void OpenAddressSettings() {
     [ChromeEarlGreyUI
         tapSettingsMenuButton:chrome_test_util::AddressesAndMoreButton()];
   }
+  // The Addresses page can be pushed after EarlGrey already reports the app as
+  // idle, so wait for it explicitly before interacting with its toolbar.
+  [ChromeEarlGrey
+      waitForSufficientlyVisibleElementWithMatcher:SettingsProfileMatcher()];
 }
 
 // Gets the top presented view controller, in this case the bottom sheet view
@@ -173,8 +177,8 @@ UIViewController* TopPresentedViewController() {
 // Helper to open the "add address" bottom sheet.
 - (void)openAddAddressView:(BOOL)signIn {
   if (signIn) {
-    [SigninEarlGreyUI
-        signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+    [SigninEarlGreyUI signinWithFakeIdentity:[FakeSystemIdentity
+                                                 fakeIdentityWithMissingNames]];
     [ChromeEarlGrey
         waitForSyncTransportStateActiveWithTimeout:base::Seconds(10)];
   }

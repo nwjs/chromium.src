@@ -42,8 +42,6 @@
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/js_test_util.h"
 #import "ios/web/public/web_state.h"
-#import "third_party/dom_distiller_js/dom_distiller.pb.h"
-#import "third_party/dom_distiller_js/dom_distiller_json_converter.h"
 
 namespace {
 
@@ -167,11 +165,13 @@ void ReaderModeTest::SetReaderModeState(web::FakeWebState* web_state,
   options.allowed_video_regex = kReadabilityAllowedVideoRegex;
   std::u16string readability_script =
       base::UTF8ToUTF16(dom_distiller::GetReadabilityDistillerScript(options));
-  base::DictValue readability_result;
-  readability_result.Set("content", distilled_content);
-  readability_result.Set("title", "fake title");
+  base::DictValue distiller_result;
+  distiller_result.Set(dom_distiller::kDistilledContentKey, distilled_content);
+  distiller_result.Set(dom_distiller::kDistilledTitleKey, "fake title");
+  distiller_result.Set(dom_distiller::kDistilledTextContentKey,
+                       distilled_content);
   distiller_result_values_.push_back(
-      std::make_unique<base::Value>(std::move(readability_result)));
+      std::make_unique<base::Value>(std::move(distiller_result)));
   web_frame->AddResultForExecutedJs(distiller_result_values_.back().get(),
                                     readability_script);
 

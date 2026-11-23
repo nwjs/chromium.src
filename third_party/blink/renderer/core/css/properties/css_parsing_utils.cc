@@ -2143,10 +2143,7 @@ static std::optional<ColorInterpolationSpace> ConsumeColorInterpolationSpace(
     ConsumeIdent(stream);
     auto& color_space = read_color_space.value();
     std::optional<Color::HueInterpolationMethod> read_hue{};
-    if (color_space == Color::ColorSpace::kHSL ||
-        color_space == Color::ColorSpace::kHWB ||
-        color_space == Color::ColorSpace::kLch ||
-        color_space == Color::ColorSpace::kOklch) {
+    if (Color::HueComponentIndex(color_space)) {
       switch (stream.Peek().Id()) {
         case CSSValueID::kShorter:
           read_hue = Color::HueInterpolationMethod::kShorter;
@@ -2345,8 +2342,8 @@ std::optional<Color> ParseQuirkyHexColor(CSSParserTokenStream& stream) {
     if (token.GetType() == kNumberToken) {  // e.g. 112233
       color = String::Number(static_cast<int>(token.NumericValue()));
     } else {  // e.g. 0001FF
-      color = StrCat({String::Number(static_cast<int>(token.NumericValue())),
-                      token.Value()});
+      color =
+          Format("{}{}", static_cast<int>(token.NumericValue()), token.Value());
     }
     while (color.length() < 6) {
       color = StrCat({"0", color});
@@ -7870,9 +7867,9 @@ CSSValue* ConsumeHangingPunctuation(CSSParserTokenStream& stream) {
   return list;
 }
 
-CSSValue* ConsumeFlowTolerance(CSSParserTokenStream& stream,
-                               const CSSParserContext& context,
-                               CSSParserLocalContext& local_context) {
+CSSValue* ConsumeFitTolerance(CSSParserTokenStream& stream,
+                              const CSSParserContext& context,
+                              CSSParserLocalContext& local_context) {
   if (stream.Peek().Id() == CSSValueID::kNormal ||
       stream.Peek().Id() == CSSValueID::kInfinite) {
     return ConsumeIdent(stream);
@@ -8456,16 +8453,16 @@ const CSSValuePair* ConsumeShapeCommandEndPoint(
     const CSSParserContext& context,
     CSSParserLocalContext& local_context,
     CSSValueID& point_origin) {
-  point_origin = args.ConsumeIncludingWhitespace().Id();
-  switch (point_origin) {
-    case CSSValueID::kTo:
-      return ConsumePosition(args, context, local_context,
-                             UnitlessQuirk::kForbid, std::nullopt);
-    case CSSValueID::kBy:
-      return ConsumeCoordinatePair(args, context, local_context);
-    default:
-      return nullptr;
+  point_origin = args.Peek().Id();
+  if (!IdentMatches<CSSValueID::kTo, CSSValueID::kBy>(point_origin)) {
+    return nullptr;
   }
+  args.ConsumeIncludingWhitespace();
+  if (point_origin == CSSValueID::kTo) {
+    return ConsumePosition(args, context, local_context, UnitlessQuirk::kForbid,
+                           std::nullopt);
+  }
+  return ConsumeCoordinatePair(args, context, local_context);
 }
 
 const CSSValuePair* ConsumeShapeCommandControlPoint(
@@ -8504,9 +8501,9 @@ const CSSValuePair* ConsumeShapeCommandControlPoint(
   if (args.AtEnd()) {
     return nullptr;
   }
-  control_point_origin = args.ConsumeIncludingWhitespace().Id();
-  if (IdentMatches<CSSValueID::kStart, CSSValueID::kEnd, CSSValueID::kOrigin>(
-          control_point_origin)) {
+  if (PeekedIdentMatches<CSSValueID::kStart, CSSValueID::kEnd,
+                         CSSValueID::kOrigin>(args)) {
+    control_point_origin = args.ConsumeIncludingWhitespace().Id();
     return control_point;
   }
   return nullptr;
@@ -8548,7 +8545,11 @@ cssvalue::CSSShapeValue* ConsumeBasicShapeShape(
   HeapVector<Member<const CSSShapeCommand>> commands;
   while (!args.AtEnd()) {
     CSSValueID end_point_origin = CSSValueID::kInvalid;
-    CSSValueID command_type = args.ConsumeIncludingWhitespace().Id();
+    CSSValueID command_type = args.Peek().Id();
+    if (command_type == CSSValueID::kInvalid) {
+      return nullptr;
+    }
+    args.ConsumeIncludingWhitespace();
     switch (command_type) {
       // https://drafts.csswg.org/css-shapes-2/#typedef-shape-move-command
       // <move-command> = move <command-end-point>
@@ -8583,7 +8584,11 @@ cssvalue::CSSShapeValue* ConsumeBasicShapeShape(
       // position component
       case CSSValueID::kHline:
       case CSSValueID::kVline: {
-        end_point_origin = args.ConsumeIncludingWhitespace().Id();
+        end_point_origin = args.Peek().Id();
+        if (end_point_origin == CSSValueID::kInvalid) {
+          return nullptr;
+        }
+        args.ConsumeIncludingWhitespace();
         bool horizontal_edge = command_type == CSSValueID::kVline;
         bool vertical_edge = !horizontal_edge;
         const CSSValue* end_point = nullptr;
@@ -9153,6 +9158,58 @@ bool ConsumeRadii(std::array<CSSValue*, 4>& horizontal_radii,
   Complete4Sides(horizontal_radii);
   Complete4Sides(vertical_radii);
   return true;
+}
+
+std::optional<std::pair<CSSValue*, CSSValue*>>
+ConsumeBorderRadiusCornerShorthand(CSSParserTokenStream& stream,
+                                   const CSSParserContext& context,
+                                   CSSParserLocalContext& local_context) {
+  std::array<CSSValue*, 2> horizontal_radii = {nullptr};
+  std::array<CSSValue*, 2> vertical_radii = {nullptr};
+
+  wtf_size_t horizontal_value_count = 0;
+  for (;
+       horizontal_value_count < 2 && stream.Peek().GetType() != kDelimiterToken;
+       ++horizontal_value_count) {
+    horizontal_radii[horizontal_value_count] =
+        ConsumeLengthOrPercent(stream, context, local_context,
+                               CSSPrimitiveValue::ValueRange::kNonNegative);
+    if (!horizontal_radii[horizontal_value_count]) {
+      break;
+    }
+  }
+  if (horizontal_value_count == 0) {
+    return std::nullopt;
+  }
+  if (!horizontal_radii[1]) {
+    horizontal_radii[1] = horizontal_radii[0];
+  }
+
+  if (ConsumeSlashIncludingWhitespace(stream)) {
+    for (wtf_size_t i = 0; i < 2; ++i) {
+      vertical_radii[i] =
+          ConsumeLengthOrPercent(stream, context, local_context,
+                                 CSSPrimitiveValue::ValueRange::kNonNegative);
+      if (!vertical_radii[i]) {
+        break;
+      }
+    }
+    if (!vertical_radii[0]) {
+      return std::nullopt;
+    }
+    if (!vertical_radii[1]) {
+      vertical_radii[1] = vertical_radii[0];
+    }
+  } else {
+    vertical_radii[0] = horizontal_radii[0];
+    vertical_radii[1] = horizontal_radii[1];
+  }
+
+  return std::make_pair(
+      MakeGarbageCollected<CSSValuePair>(horizontal_radii[0], vertical_radii[0],
+                                         CSSValuePair::kDropIdenticalValues),
+      MakeGarbageCollected<CSSValuePair>(horizontal_radii[1], vertical_radii[1],
+                                         CSSValuePair::kDropIdenticalValues));
 }
 
 CSSValue* ConsumeBasicShape(CSSParserTokenStream& stream,

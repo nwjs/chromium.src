@@ -4,27 +4,16 @@
 
 #import "ios/chrome/browser/enterprise/model/idle/idle_service_factory.h"
 
+#import <utility>
+
 #import "components/enterprise/idle/idle_pref_names.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 
 namespace enterprise_idle {
 
-// static
-IdleService* IdleServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<IdleService>(profile,
-                                                            /*create=*/true);
-}
-
-IdleServiceFactory* IdleServiceFactory::GetInstance() {
-  static base::NoDestructor<IdleServiceFactory> instance;
-  return instance.get();
-}
-
-IdleServiceFactory::IdleServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("IdleService") {}
-
-IdleServiceFactory::~IdleServiceFactory() = default;
+IdleServiceFactory::IdleServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key), "IdleService") {}
 
 std::unique_ptr<KeyedService> IdleServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

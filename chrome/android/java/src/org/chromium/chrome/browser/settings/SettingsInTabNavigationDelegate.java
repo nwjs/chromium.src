@@ -53,7 +53,11 @@ public class SettingsInTabNavigationDelegate implements SettingsNavigation {
             Context context, @SettingsFragment int settingsFragment, boolean addToBackStack) {
         Class<? extends Fragment> fragmentClass =
                 SettingsNavigationImpl.getFragmentClassFromEnum(settingsFragment);
-        startSettings(context, fragmentClass, null, addToBackStack);
+        startSettings(
+                context,
+                fragmentClass,
+                SettingsNavigationImpl.getFragmentArgsFromEnum(context, settingsFragment),
+                addToBackStack);
     }
 
     @Override
@@ -280,13 +284,25 @@ public class SettingsInTabNavigationDelegate implements SettingsNavigation {
      * settings altogether is not what finishing a settings page means.
      */
     private boolean goBackToPreviousSettingsEntry() {
+        if (getPreviousSettingsPageUrl() == null) return false;
+        mTab.goBack();
+        return true;
+    }
+
+    /**
+     * Returns the URL of the entry preceding the current one if it is a settings page, or null.
+     *
+     * <p>For a page that has to know where it was opened from after the tab's history may have
+     * changed. Deleting browsing data, for instance, can delete the entries before the current one.
+     * Such a page should ask while the history is still intact.
+     */
+    public @Nullable String getPreviousSettingsPageUrl() {
         String previousUrl = getPreviousEntryUrl();
         if (previousUrl == null
                 || SettingsFragmentRegistry.getFragmentClassForUrl(previousUrl) == null) {
-            return false;
+            return null;
         }
-        mTab.goBack();
-        return true;
+        return previousUrl;
     }
 
     /** Returns the URL of the entry preceding the current one, or null if there is none. */

@@ -66,12 +66,77 @@ message SecurityAgent {
   }
 }
 
+// A single node in the OS process tree.
+message ProcessNode {
+  int64 process_id = 1;
+  int64 parent_process_id = 2;
+
+  // Client-side sanitized executable path (e.g., /usr/bin/node or
+  // /Users/<user>/bin/agent)
+  string executable_path = 3
+      // copybara:datapol_begin
+      // [
+      //   (datapol.semantic_type) = ST_USER_CONTENT
+      // ]
+      // copybara:datapol_end
+      ;
+
+  // Client-side sanitized script path (e.g., /Users/<user>/project/script.js)
+  string script_path = 4
+      // copybara:datapol_begin
+      // [
+      //   (datapol.semantic_type) = ST_USER_CONTENT
+      // ]
+      // copybara:datapol_end
+      ;
+}
+
+// External process working to actuate CDP commands.
+message ExternalProcessInfo {
+  // Transport layer used by the actor.
+  enum TransportType {
+    TRANSPORT_TYPE_UNSPECIFIED = 0;
+    TRANSPORT_TYPE_PIPE = 1;
+    TRANSPORT_TYPE_WEBSOCKET = 2;
+    reserved 3;  // DevTools UI uses BrowserFeatureInfo on EventInitiatorInfo.
+    reserved "TRANSPORT_TYPE_DEVTOOLS_UI";
+  }
+
+  message ExternalProcess {
+    TransportType transport_type = 1;
+
+    // Ordered from immediate connecting process (index 0) up to root ancestor.
+    // Populated for TRANSPORT_TYPE_PIPE and TRANSPORT_TYPE_WEBSOCKET.
+    repeated ProcessNode process_nodes = 2;
+  }
+
+  repeated ExternalProcess external_processes = 1;
+}
+
+// First-party built-in browser feature or surface that initiated the event.
+message BrowserFeatureInfo {
+  enum FeatureType {
+    FEATURE_TYPE_UNSPECIFIED = 0;
+    FEATURE_TYPE_DEVTOOLS_UI = 1;
+  }
+
+  FeatureType feature_type = 1;
+}
+
 // Represents the entity that initiated the event.
 message EventInitiatorInfo {
   oneof initiator {
     // Populated when the event was driven by a Chrome extension.
     safe_browsing.ExtensionTelemetryReportRequest.ExtensionInfo
         chrome_extension = 1;
+
+    // Populated when one or more CDP actors are attached (wraps repeated
+    // ExternalProcesses):
+    ExternalProcessInfo external_process_info = 2;
+
+    // Populated when the event involves a built-in browser feature (e.g.,
+    // native F12 DevTools UI).
+    BrowserFeatureInfo browser_feature_info = 3;
   }
 }
 
@@ -1468,22 +1533,7 @@ message SuspiciousURLEvent {
       ;
 }
 
-message TelomereEvent {
-  message TelomereLog {
-    // The event log_type if it needs to be specified.
-    string log_type = 1;
 
-    // The event log_message that will be forwarded to partners as is.
-    string log_data = 2
-        // copybara:datapol_begin
-        // [(datapol.semantic_type) = ST_USER_CONTENT]
-        // copybara:datapol_end
-        ;
-  }
-
-  // List of telomere events.
-  repeated TelomereLog logs = 1;
-}
 
 // Event sent when a browser is launched.
 // Next ID: 3.

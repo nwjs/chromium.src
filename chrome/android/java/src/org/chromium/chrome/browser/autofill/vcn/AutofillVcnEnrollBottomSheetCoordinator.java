@@ -5,7 +5,6 @@
 package org.chromium.chrome.browser.autofill.vcn;
 
 import android.content.Context;
-import android.view.View;
 
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
@@ -79,6 +78,14 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
                                                         issuerIcon.mIconResource,
                                                         /* cardIconSize= */ ImageSize.LARGE,
                                                         /* showCustomIcon= */ true))
+                        .with(
+                                AutofillVcnEnrollBottomSheetProperties
+                                        .ON_ACCEPT_BUTTON_CLICK_ACTION,
+                                this::onAccept)
+                        .with(
+                                AutofillVcnEnrollBottomSheetProperties
+                                        .ON_CANCEL_BUTTON_CLICK_ACTION,
+                                this::onCancel)
                         .build();
         mView = new AutofillVcnEnrollBottomSheetView(context);
         PropertyModelChangeProcessor.create(
@@ -92,21 +99,19 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
                 new AutofillVcnEnrollBottomSheetMediator(
                         new AutofillVcnEnrollBottomSheetContent(
                                 mView.mContentView, mView.mScrollView, delegate::onDismiss),
+                        delegate,
                         new AutofillVcnEnrollBottomSheetLifecycle(
                                 layoutStateProvider, tabModelSelectorSupplier),
                         uiController,
                         mModel);
+    }
 
-        mView.mAcceptButton.setOnClickListener(
-                (View button) -> {
-                    delegate.onAccept();
-                    mMediator.onAccept();
-                });
-        mView.mCancelButton.setOnClickListener(
-                (View button) -> {
-                    delegate.onCancel();
-                    mMediator.onCancel();
-                });
+    private void onAccept() {
+        mMediator.onAccept();
+    }
+
+    private void onCancel() {
+        mMediator.onCancel();
     }
 
     /**

@@ -14,6 +14,7 @@
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_keyed_service_browsertest.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/actor_task_metadata.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
@@ -36,6 +37,7 @@
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/page_content_annotations/content/page_context_fetcher.h"
+#include "components/page_content_annotations/content/page_context_fetcher_metrics.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
 #include "content/public/browser/render_frame_host.h"
@@ -172,7 +174,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   const GURL url =
       embedded_https_test_server().GetURL("example.com", "/actor/blank.html");
   std::unique_ptr<ToolRequest> action_request =
-      std::make_unique<NavigateToolRequest>(active_tab()->GetHandle(), url);
+      std::make_unique<NavigateToolRequest>(
+          ActorSurfaceHandle::From(active_tab()->GetHandle()), url);
   actor_keyed_service()->PerformActions(
       first_task_id, ToRequestList(action_request), ActorTaskMetadata(),
       result_future.GetCallback());
@@ -320,6 +323,14 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
 
   const ActorKeyedService::TabObservationResult& result = future.Get();
   ASSERT_TRUE(result.has_value());
+  ASSERT_FALSE(result.value()->annotated_page_content_result.has_value());
+  EXPECT_EQ(
+      result.value()->annotated_page_content_result.error().status,
+      optimization_guide::AIPageContentExtractionStatus::kMainFrameNotLive);
+  ASSERT_FALSE(result.value()->screenshot_result.has_value());
+  EXPECT_EQ(
+      result.value()->screenshot_result.error().status,
+      page_content_annotations::ScreenshotCaptureStatus::kNoViewOrSurface);
 
   // Crashing the main frame does not destroy the `WebContents`, so
   // `PageContextFetcher` still returns a `FetchPageContextResult` rather than
@@ -360,7 +371,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   const GURL url =
       embedded_https_test_server().GetURL("example.com", "/actor/simple.html");
   std::unique_ptr<ToolRequest> action_request =
-      std::make_unique<NavigateToolRequest>(new_tab->GetHandle(), url);
+      std::make_unique<NavigateToolRequest>(
+          ActorSurfaceHandle::From(new_tab->GetHandle()), url);
   actor_keyed_service()->PerformActions(task_id, ToRequestList(action_request),
                                         ActorTaskMetadata(),
                                         result_future.GetCallback());
@@ -419,20 +431,18 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   // "Some extra info".
   auto ok_result = MakeOkResultWithMessage(/*requires_page_stabilization=*/true,
                                            "Some extra info");
-  action_results.emplace_back(base::TimeTicks::Now(), base::TimeTicks::Now(),
-                              std::move(ok_result));
+  const base::TimeTicks now = base::TimeTicks::Now();
+  action_results.emplace_back(now, now, std::move(ok_result));
 
   // Add a failed result.
   auto fail_result = mojom::ActionResult::New(
       mojom::ActionResultCode::kFormFillingDialogError,
       /*requires_page_stabilization=*/false, "Error message",
       /*script_tool_response=*/nullptr,
-      /*execution_end_time=*/base::TimeTicks::Now(),
-      mojom::ScreenshotPolicy::kRequested,
+      /*execution_end_time=*/now, mojom::ScreenshotPolicy::kRequested,
       mojom::PageContentExtractionPolicy::kRequested,
       /*attempt_login_status=*/std::nullopt);
-  action_results.emplace_back(base::TimeTicks::Now(), base::TimeTicks::Now(),
-                              std::move(fail_result));
+  action_results.emplace_back(now, now, std::move(fail_result));
 
   TestFuture<base::TimeTicks, std::vector<actor::ActionResultWithLatencyInfo>,
              actor::TaskId, bool,
@@ -631,7 +641,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
 
   task->ObserveTabOnce(tab2->GetHandle());
 
-  EXPECT_FALSE(task->GetLastActedTabs().contains(tab2->GetHandle()));
+  EXPECT_FALSE(task->GetLastActedActorSurfaces().contains(
+      ActorSurfaceHandle::From(tab2->GetHandle())));
 
   browser2->GetWindow()->Close();
 }

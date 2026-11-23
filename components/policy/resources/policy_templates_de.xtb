@@ -1511,6 +1511,23 @@ Wird sie nicht konfiguriert, ist die Funktion „Zum Anrufen klicken“ standard
       Beachte, dass diese Richtlinie JavaScript blockiert, wenn der Ursprung des obersten Dokuments (normalerweise die URL der Seite, die auch in der Adressleiste angezeigt wird) mit einem der Muster übereinstimmt. Daher ist diese Richtlinie nicht geeignet, um Web‑Lieferkettenangriffe zu verhindern. Wenn du beispielsweise das Muster „https://[*.]foo.de/“ angibst, wird nicht verhindert, dass eine Seite, die unter https://beispiel.de gehostet wird, ein Script ausführt, das von https://www.foo.de/beispiel.js geladen wird. Außerdem verhindert das Muster „https://beispiel.de/“ nicht, dass ein Dokument von https://beispiel.de Scripts ausführt, wenn es nicht das übergeordnete Dokument ist, sondern als Subframe in eine Seite eingebettet ist, die auf einem anderen Ursprung gehostet wird, z. B. https://www.bar.de.</translation>
 <translation id="1942015922182679826">Löschen nicht entschlüsselbarer Passwörter aktivieren</translation>
 <translation id="1942626390957213764">Desktop-Freigabe-Hub deaktivieren</translation>
+<translation id="1943243146727870858">Deaktiviere die Einmalanmeldung (SSO) über <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> für die aufgeführten Identitätsanbieter.
+
+Wenn du den Wert „<ph name="POLICY_VALUE_ALL" />“ hinzufügst, werden alle unterstützten Identitätsanbieter für die Einmalanmeldung deaktiviert.
+
+Wenn du den Wert „<ph name="POLICY_VALUE_MICROSOFT" />“ hinzufügst, wird die Unterstützung für die Einmalanmeldung für den Microsoft®-Cloud-Identitätsanbieter in Chrome deaktiviert.
+
+Wenn du diese Richtlinie nicht konfigurierst, werden alle Identitätsanbieter aktiviert, die von <ph name="PRODUCT_NAME" /> unterstützt werden.
+
+Für Identitätsanbieter, die in <ph name="PRODUCT_NAME" /> aktiviert und von Admins auf dem Gerät konfiguriert sind, können Nutzer, die sich über diesen Identitätsanbieter einmal in einer Anwendung anmelden, die <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> unterstützt, über diesen Identitätsanbieter automatisch in Web-Properties angemeldet werden. Informationen zu den Authentifizierungsdaten des Nutzers werden bei jedem Authentifizierungsereignis an den Cloud-Identitätsanbieter des Nutzers gesendet.
+
+Hinweise:
+
+<ph name="PRODUCT_NAME" /> unterstützt nicht die Einmalanmeldung über <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> im Inkognito- oder Gastmodus.
+
+<ph name="PRODUCT_NAME" /> unterstützt die Einmalanmeldung über <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> nur für die folgenden Identitätsanbieter: Microsoft, Okta und Ping.
+
+Diese Funktion ist unter <ph name="MAC_OS_NAME" /> 10.15 und höher verfügbar.</translation>
 <translation id="1943628907052340534"><ph name="PRODUCT_NAME" /> nicht öffnen, wenn sich der Nutzer in <ph name="MS_WIN_NAME" /> anmeldet</translation>
 <translation id="194407941132272412">Website-Isolierung für alle Websites deaktivieren (Nutzer kann dies ändern)</translation>
 <translation id="1945994447126139909">Diese Unternehmensrichtlinie kann nur übergangsweise verwendet werden und wird in Version 88 von <ph name="PRODUCT_NAME" /> entfernt.
@@ -3495,6 +3512,8 @@ Ist diese Richtlinie deaktiviert oder nicht konfiguriert, wird das unverankerte 
 <translation id="3146711617256415776">Stimmen für Text-zu-Sprache bei Enhanced Network nicht zulassen, wenn die Funktion „Vorlesen“ verwendet wird</translation>
 <translation id="315013437951136266">Funktion „<ph name="IP_PROTECTION_NAME" />“ aktivieren.</translation>
 <translation id="3150351525324499342"><ph name="PRODUCT_NAME" />-Symbol nicht standardmäßig in der Symbolleiste anzeigen, sondern Nutzer auswählen lassen</translation>
+<translation id="3151501327418961907">Wenn diese Richtlinie auf „0“ festgelegt oder nicht konfiguriert ist, werden die Richtlinien „<ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />“ und „<ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" />“ nur auf Nutzerebene für mit einer Organisation verknüpfte Nutzer in einem verwalteten Browser angewendet.
+Wenn diese Richtlinie auf „1“ festgelegt ist, werden die Richtlinien „<ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />“ und „<ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" />“ auf Nutzerebene angewendet, auch wenn der Nutzer nicht mit einer Organisation verknüpft ist.</translation>
 <translation id="3152135410085709340">Lokalen Dateizugriff auf „file://“-URLs auf diesen Websites im PDF-Viewer zulassen</translation>
 <translation id="3152425128389603870">Unified Desktop verfügbar machen und standardmäßig aktivieren</translation>
 <translation id="3159375329008977062">Nutzer darf Crostini-Container über die Benutzeroberfläche exportieren/importieren</translation>
@@ -3714,8 +3733,6 @@ Wenn die Richtlinie <ph name="NTPCARDSVISIBLE" /> deaktiviert ist, wird die Outl
       Ist sie deaktiviert, senden registrierte Geräte keine Informationen zur Kiosksitzung.</translation>
 <translation id="3303770131697159224">Standardeinstellung für die Berechtigung „Fensterverwaltung“</translation>
 <translation id="3303911765031636277">Konfigurationsrichtlinie für den Chrome Enterprise-Connector "OnFileAttached"</translation>
-<translation id="3305586786770047829">Wenn diese Richtlinie auf „0“ festgelegt oder nicht konfiguriert ist, wird die Richtlinie „<ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />“ nur auf Nutzerebene für Nutzer angewendet, die mit einer Organisation verknüpft sind.
-Wenn diese Richtlinie auf „1“ festgelegt ist, wird die Richtlinie „<ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />“ auf Nutzerebene angewendet, auch wenn der Nutzer nicht mit einer Organisation verknüpft ist.</translation>
 <translation id="3307744348419745296">Nicht zulassen, dass WLAN-Konfigurationen zwischen <ph name="PRODUCT_OS_NAME" />-Geräten und einem verbundenen Android-Smartphone synchronisiert werden</translation>
 <translation id="3308724602356134956">Wenn du die Richtlinie konfigurierst, wird <ph name="PRODUCT_OS_NAME" />
 
@@ -4307,6 +4324,21 @@ Die Datenübertragung mit Datenexport muss ebenfalls aktiviert sein, damit die A
 <translation id="370314752761795411"><ph name="PRODUCT_NAME" /> mit <ph name="MS_WIN_NAME" /> starten</translation>
 <translation id="3711895659073496551">Suspend-Modus</translation>
 <translation id="3712861436661566358">Profiltrennung erzwingen</translation>
+<translation id="3715589988915487768">Konfiguriert eine Liste von Bereitstellungsdomains (Provisioning Domains, PvDs), die <ph name="PRODUCT_NAME" /> zum dynamischen Abrufen von Proxykonfigurationen verwendet.
+
+Mit dieser Richtlinie kann eine Liste von Domainnamen oder Ressourcen-URIs angegeben werden, die Bereitstellungsdomains gemäß RFC 8801 („Discovering Provisioning Domain Names and Data“) darstellen. Für jede PvD löst der Browser die entsprechende JSON-Konfiguration auf, indem er eine HTTPS-Anfrage an den bekannten Endpunktpfad „https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd“ sendet.
+
+Jeder Eintrag in der Liste gibt Folgendes an:
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />: Die Kennung der Bereitstellungsdomain (ein Domainname).
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" />: Die optionale Authentifizierungskonfiguration. Wenn sie nicht konfiguriert oder auf „none“ gesetzt ist, wird keine Authentifizierung durchgeführt. Wenn die Einstellung „profile_bearer_token“ lautet, weist sie den Browser an, ein OAuth2-Zugriffstoken mit dem angegebenen Bereich für das angemeldete primäre Konto abzurufen und es im „Authorization“-Header als „Bearer“-Token anzuhängen.
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" />: Eine optionale Liste benutzerdefinierter HTTP-Header, die beim Abfragen des PvD-Endpunkts enthalten sein sollen. Dynamische Werte können eingefügt werden, z. B. „profile_id“ (steht für eine stabile, eindeutige Kennung des Browserprofils auf dem Gerät, die Targeting nach Profilkonfiguration ermöglicht) oder „accept_language“ (steht für die bevorzugten Sprachen des Browsers).
+
+Die abgerufenen Konfigurationen werden gemäß dem RFC 8801-Schema geparst. Es werden nur Routingregeln und Proxys aus der JSON-Nutzlast der PvD angewendet, die sich auf die Proxykonfiguration beziehen. Wenn diese Richtlinie nicht konfiguriert ist, werden keine Bereitstellungsdomains abgefragt oder zum Abrufen von Proxykonfigurationen verwendet.
+
+Diese Richtlinie kann nur dann auf Nutzerebene festgelegt werden, wenn der Nutzer mit dem Browser verknüpft ist, der Browser nicht verwaltet wird oder die Richtlinie „<ph name="ENABLE_PROXY_OVERRIDE_RULES_FOR_ALL_USERS_POLICY_NAME" />“ auf „1“ festgelegt ist.</translation>
 <translation id="3719826155360621982">Startseite</translation>
 <translation id="3724039569609354541">Standardverhalten anwenden, wenn festgelegt wird, ob Websites Anfragen an Netzwerkendpunkte senden können</translation>
 <translation id="3726715125055227414">Diese Richtlinie konfiguriert <ph name="PRODUCT_OS_NAME" /> so, dass bei Netzwerkanfragen vom Anmeldebildschirm aus die bevorzugten Algorithmen für Schlüsselvereinbarungen (unterstützte Gruppen) für TLS 1.3 so angeordnet werden, dass Algorithmen Vorrang erhalten, die von einer bestimmten Compliance-Regelung zugelassen sind.
@@ -5542,6 +5574,27 @@ Das Erhöhen über den Standardwert (128) erfolgt auf eigenes Risiko.
 Beachte, dass die erzwungenen Limits durch „<ph name="ALLOW_SOCKET_POOL_SIZE_RANDOMIZATION_FOR_PROXIES_POLICY_NAME" />“ beeinflusst werden.</translation>
 <translation id="4528981768990874684">Funktion „<ph name="IP_PROTECTION_NAME" />“ deaktivieren.</translation>
 <translation id="453031441196755904">Diese Richtlinie ist veraltet.</translation>
+<translation id="4531088355818260318">Mit dieser Richtlinie lässt sich eine Liste von Regeln definieren, um benutzerdefinierte HTTP-Header in Webanfragen einzuschleusen, die mit bestimmten URL-Mustern übereinstimmen. Header, die durch diese Richtlinie festgelegt werden, haben Vorrang vor Headern, die ursprünglich bereits in der Anfrage vorhanden waren, sowie vor Änderungen, die von Nutzern oder Erweiterungen vorgenommen werden.
+
+Ein häufiger Anwendungsfall für diese Richtlinie ist die Durchsetzung von Mandanten-Zugriffskontrollen durch das Einschleusen benutzerdefinierter Header (z. B. <ph name="EXAMPLE_HEADER_NAME" />).
+
+Die Richtlinie akzeptiert eine Liste von Regeln. Jede Regel enthält:
+
+* <ph name="PATTERNS_KEY" />: Eine Liste von URL-Mustern, die abgeglichen werden sollen. Wie ein URL-Muster formatiert wird, erfährst du unter https://support.google.com/chrome/a?p=url_blocklist_filter_format.
+
+* <ph name="HEADERS_KEY" />: Eine Liste von Objekten, die die einzufügenden Header repräsentieren. Jedes Objekt enthält:
+
+  * <ph name="HEADER_NAME_KEY" />: Den Namen des einzuschleusenden Headers.
+
+  * <ph name="HEADER_VALUE_KEY" />: Den Wert des einzuschleusenden Headers.
+
+Wenn mehrere Regeln auf eine Anfrage zutreffen, werden Header aus allen übereinstimmenden Regeln angewendet. Falls mehrere Header denselben Namen haben, wird der Header mit dem spezifischsten URL-Muster angewendet. Sind die Muster gleich spezifisch, wird der Header angewendet, der zuletzt in der Liste erscheint.
+
+Headernamen müssen RFC 2616 (https://www.rfc-editor.org/rfc/rfc2616) entsprechen. Headerwerte dürfen keine NUL-, CR- oder LF-Zeichen enthalten. Einzelne Header dürfen eine Größe von 8 KB nicht überschreiten. Ungültige Header und URL-Muster werden ignoriert.
+
+Diese Richtlinie ist auf insgesamt 500 URL-Muster über alle Regeln hinweg begrenzt. Jede Regel darf maximal 20 Header enthalten. Muster und Header, die diese Grenzwerte überschreiten, werden ignoriert.
+
+Hinweis: Wenn ein URL-Muster mit unverschlüsselten Schemas übereinstimmt (http://, ws:// oder kein Schema), werden die konfigurierten Header möglicherweise als Nur-Text über einen unverschlüsselten Kanal übertragen und können von Netzwerkbeobachtern eingesehen werden. Beschränke URL-Muster auf verschlüsselte Schemas (https:// oder wss://), um vertrauliche oder identifizierende Headerwerte zu schützen.</translation>
 <translation id="4531706050939927436">Die Installation von Android-Apps kann von der Google Admin-Konsole aus über Google Play erzwungen werden. Android-Apps nutzen diese Richtlinie nicht.</translation>
 <translation id="4534500438517478692">Name der Android-Einschränkung:</translation>
 <translation id="4541530620466526913">Lokale Gerätekonten</translation>
@@ -6505,6 +6558,17 @@ Ist diese Richtlinie nicht konfiguriert, ist „Formuliere für mich“ auf nich
 <translation id="5081204761483900654">Eingeschränkte verwaltete Gastsitzungen</translation>
 <translation id="5082296146261894974">Ermöglicht Nutzern, auf die Phone Hub-Benachrichtigung zu klicken, um die App „Eche“ zu starten.</translation>
 <translation id="5082572440690475059">Lesezugriff über die File System API auf diesen Websites erlauben</translation>
+<translation id="5084849119584030624">Konfiguriert die Verbindungseinstellungen für <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> in <ph name="PRODUCT_NAME" />.
+
+Diese Richtlinie wird nicht mehr unterstützt und wird ignoriert. Verwende stattdessen die Richtlinie „<ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />“.
+
+Die Richtlinie konfiguriert die URL der <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />-Webanwendung über <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />. Dies muss eine gültige URL sein, die das HTTPS-Schema verwendet, auf eine <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />-Domain verweist und keinen Nutzernamen oder kein Passwort enthält. Wenn sie diese Anforderungen nicht erfüllt, wird die Richtlinie ignoriert und <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> bleibt unkonfiguriert.
+
+Ist diese Richtlinie konfiguriert, wird <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> für Nutzer konfiguriert, die mit einem verwalteten Konto oder einem verwalteten Browser angemeldet sind.
+
+Wenn diese Richtlinie nicht konfiguriert ist, wird <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> nicht konfiguriert.
+
+Diese Richtlinie steuert nicht die allgemeine <ph name="GOOGLE_GEMINI_PRODUCT_NAME" />-Anbindung, die über die Richtlinie „<ph name="GEMINI_SETTINGS_POLICY_NAME" />“ gesteuert werden kann.</translation>
 <translation id="5085647276663819155">Druckvorschau deaktivieren</translation>
 <translation id="5087922428454325090">Nutzer können Web-Apps nicht über den Browser installieren.</translation>
 <translation id="5087932158260897375">Wenn diese Richtlinie auf „false“ gesetzt ist, sind Berichte zur Diagnose der Domainzuverlässigkeit deaktiviert und es werden keine Daten an Google gesendet.
@@ -6572,19 +6636,6 @@ Diese Richtlinie ist eine vorübergehende Lösung, damit genug Zeit ist, Webinha
 <translation id="5120168808610189805">Import der Startseite bei der ersten Ausführung aktivieren</translation>
 <translation id="5124321040285474825">Einstellungen für auf generativer KI basierende Funktionen in Autofill</translation>
 <translation id="5124368997194894978">Starten bei anliegender Netzspannung aktivieren</translation>
-<translation id="5124652340668722849">Konfiguriert eine Liste von Bereitstellungsdomains (Provisioning Domains, PvDs), die <ph name="PRODUCT_NAME" /> zum dynamischen Abrufen von Proxykonfigurationen verwendet.
-
-Mit dieser Richtlinie kann eine Liste von Domainnamen oder Ressourcen-URIs angegeben werden, die Bereitstellungsdomains gemäß RFC 8801 („Discovering Provisioning Domain Names and Data“) darstellen. Für jede PvD löst der Browser die entsprechende JSON-Konfiguration auf, indem er eine HTTPS-Anfrage an den bekannten Endpunktpfad „https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd“ sendet.
-
-Jeder Eintrag in der Liste gibt Folgendes an:
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />: Die Kennung der Bereitstellungsdomain (ein Domainname).
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" />: Die optionale Authentifizierungskonfiguration. Wenn sie nicht konfiguriert oder auf „none“ gesetzt ist, wird keine Authentifizierung durchgeführt. Wenn die Einstellung „profile_bearer_token“ lautet, weist sie den Browser an, ein OAuth2-Zugriffstoken mit dem angegebenen Bereich für das angemeldete primäre Konto abzurufen und es im „Authorization“-Header als „Bearer“-Token anzuhängen.
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" />: Eine optionale Liste benutzerdefinierter HTTP-Header, die beim Abfragen des PvD-Endpunkts enthalten sein sollen. Dynamische Werte können eingefügt werden, z. B. „profile_id“ (steht für eine stabile, eindeutige ID des Browserprofils auf dem Gerät, die Targeting nach Profilkonfiguration ermöglicht) oder „accept_language“ (steht für die bevorzugten Sprachen des Browsers).
-
-Die abgerufenen Konfigurationen werden gemäß dem RFC 8801-Schema geparst. Es werden nur Routingregeln und Proxys aus der JSON-Nutzlast des PvD angewendet, die sich auf die Proxykonfiguration beziehen. Wenn diese Richtlinie nicht konfiguriert ist, werden keine Bereitstellungsdomains abgefragt oder zum Abrufen von Proxykonfigurationen verwendet.</translation>
 <translation id="5130213897914754028">Websites die Nutzung von „SharedArrayBuffers“ nicht erlauben</translation>
 <translation id="5130935469849337738">Übersetzung immer anbieten</translation>
 <translation id="513314432051760916">Durch diese Richtlinie wird festgelegt, ob die <ph name="PRIVACY_SANDBOX_NAME" />-Einstellung für die Erfolgsmessung bei Anzeigen für Nutzer deaktiviert werden kann.
@@ -7084,6 +7135,7 @@ Es gibt mehrere Richtlinien, die Ursprünge auflisten, die sich auf Anfragen an 
 
       Wenn sie auf "false" gesetzt oder nicht konfiguriert ist, werden keine Informationen ausgegeben.
       Ist sie auf "true" gesetzt, werden Informationen zu Anwendungen und zur Verwendung eines Geräts ausgegeben.</translation>
+<translation id="5418723809273651607">Ping®-Cloud-Identitätsanbieter</translation>
 <translation id="5420245232720940848">Aktiviert PCIe-Tunneling für Thunderbolt/USB4-Peripheriegeräte und schränkt die Gerätefunktion ein</translation>
 <translation id="5420673997623782432">Zugriff auf Standortbestimmung des Systems für alle Clients blockieren</translation>
 <translation id="5420774177427557782">Bestimmt, ob VMs, für die diese Konfiguration verwendet wird, installiert und ausgeführt (<ph name="INSTALL_ALLOWED" />), ausgeführt, aber nicht installiert (<ph name="RUN_ALLOWED" />), oder nicht ausgeführt (<ph name="BLOCKED" />) werden können. Hinweis: Zum Installieren einer VM muss auch der installer_image_x86_64-Schlüssel festgelegt sein. Wenn eine Konfiguration vollständig entfernt wird, wird die Property implizit auf „<ph name="BLOCKED" />“ gesetzt. Dadurch wird verhindert, dass VMs ohne Richtlinie ausgeführt werden.</translation>
@@ -8339,25 +8391,6 @@ In Version 114 und höher ist diese Richtlinie optional, wenn die Richtlinie �
 <translation id="6244061205361004687">Nutzern erlauben, VPN-Verbindungen manuell zu trennen oder zu ändern</translation>
 <translation id="6244210204546589761">Beim Start zu öffnende URLs</translation>
 <translation id="6244263962918757383">Einstellungen für Vorschläge in Chrome</translation>
-<translation id="6245828368576563662">Mit dieser Richtlinie lässt sich eine Liste von Regeln definieren, um benutzerdefinierte HTTP-Header in Webanfragen einzuschleusen, die mit bestimmten URL-Mustern übereinstimmen. Header, die durch diese Richtlinie festgelegt werden, haben Vorrang vor Headern, die ursprünglich bereits in der Anfrage vorhanden waren, sowie vor Änderungen, die von Nutzern oder Erweiterungen vorgenommen werden.
-
-Ein häufiger Anwendungsfall für diese Richtlinie ist die Durchsetzung von Mandanten-Zugriffskontrollen durch das Einschleusen benutzerdefinierter Header (z. B. <ph name="EXAMPLE_HEADER_NAME" />).
-
-Die Richtlinie akzeptiert eine Liste von Regeln. Jede Regel enthält:
-
-* <ph name="PATTERNS_KEY" />: Eine Liste von URL-Mustern, die abgeglichen werden sollen. Wie ein URL-Muster formatiert wird, erfährst du unter https://support.google.com/chrome/a?p=url_blocklist_filter_format.
-
-* <ph name="HEADERS_KEY" />: Eine Liste von Objekten, die die einzufügenden Header repräsentieren. Jedes Objekt enthält:
-
-  * <ph name="HEADER_NAME_KEY" />: Den Namen des einzuschleusenden Headers.
-
-  * <ph name="HEADER_VALUE_KEY" />: Den Wert des einzuschleusenden Headers.
-
-Wenn mehrere Regeln auf eine Anfrage zutreffen, werden Header aus allen übereinstimmenden Regeln angewendet. Falls mehrere Header denselben Namen haben, wird der Header mit dem spezifischsten URL-Muster angewendet. Sind die Muster gleich spezifisch, wird der Header angewendet, der zuletzt in der Liste erscheint.
-
-Headernamen müssen RFC 2616 (https://www.rfc-editor.org/rfc/rfc2616) entsprechen. Headerwerte dürfen keine NUL-, CR- oder LF-Zeichen enthalten. Einzelne Header dürfen eine Größe von 8 KB nicht überschreiten. Ungültige Header und URL-Muster werden ignoriert.
-
-Diese Richtlinie ist auf insgesamt 500 URL-Muster über alle Regeln hinweg begrenzt. Jede Regel darf maximal 20 Header enthalten. Muster und Header, die diese Grenzwerte überschreiten, werden ignoriert.</translation>
 <translation id="624595269193747921">Gibt an, ob die Suche nach dem passenden Drucker auf eine bestimmte Gruppe von Druckern beschränkt werden soll.</translation>
 <translation id="6246290059248303618">Mediensteuerelemente für <ph name="PRODUCT_NAME" />-Sitzungen anzeigen, die von anderen Geräten im lokalen Netzwerk gestartet wurden</translation>
 <translation id="6247316685259031374">Mit dieser Richtlinie kann die Sandbox für den Audioprozess konfiguriert werden.
@@ -8606,17 +8639,6 @@ Hinweis: Diese Richtlinie gilt nur für Plattformen, die Erweiterungen unterstü
       Wenn die Richtlinie auf "False" gesetzt ist, werden die Signed HTTP Exchanges nicht geladen.</translation>
 <translation id="6368011194414932347">Startseiten-URL konfigurieren</translation>
 <translation id="6368403635025849609">JavaScript auf diesen Websites zulassen</translation>
-<translation id="6368652917086795891">Konfiguriert die Verbindungseinstellungen für <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> in <ph name="PRODUCT_NAME" />.
-
-Diese Richtlinie wird durch die Richtlinie „<ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />“ ersetzt. Wenn beide konfiguriert sind, hat „<ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />“ Vorrang.
-
-Die Richtlinie konfiguriert die URL der <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />-Webanwendung über <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />. Dies muss eine gültige URL sein, die das HTTPS-Schema verwendet, auf eine <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />-Domain verweist und keinen Nutzernamen oder kein Passwort enthält. Wenn sie diese Anforderungen nicht erfüllt, wird die Richtlinie ignoriert und <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> bleibt unkonfiguriert.
-
-Ist diese Richtlinie konfiguriert, wird <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> für Nutzer konfiguriert, die mit einem verwalteten Konto oder einem verwalteten Browser angemeldet sind.
-
-Wenn diese Richtlinie nicht konfiguriert ist, wird <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> nicht konfiguriert.
-
-Diese Richtlinie steuert nicht die allgemeine <ph name="GOOGLE_GEMINI_PRODUCT_NAME" />-Integration, die über die Richtlinie „<ph name="GEMINI_SETTINGS_POLICY_NAME" />“ gesteuert werden kann.</translation>
 <translation id="6368671810229507360">WebRTC</translation>
 <translation id="6370742079247037704">Nicht zulassen, dass Seiten die integrierten KI-APIs verwenden.</translation>
 <translation id="6371005337713685988">Einstellungen für Gruppen ähnlicher Websites</translation>
@@ -9413,15 +9435,6 @@ HINWEIS: Während der Browser ausgeführt wird, werden Änderungen an dieser Ric
 <translation id="6833988859168635883">Start, Startseite und Seite "Neuer Tab"</translation>
 <translation id="6835254082476223414">Sichern und Wiederherstellen von virtuellen Maschinen mit Linux aktivieren</translation>
 <translation id="6835883744948188639">Dem Nutzer eine wiederkehrende Aufforderung anzeigen, dass ein Neustart empfohlen wird</translation>
-<translation id="683688607121170501">Mit dieser Einstellung können Nutzer nach der Anmeldung auf ihrem <ph name="PRODUCT_OS_NAME" />-Gerät im Inhaltsbereich des Browserfensters und in Android-Apps zwischen Google-Konten wechseln.
-
-Wenn diese Richtlinie auf "false" gesetzt ist, ist die Anmeldung in einem anderen Google-Konto im Inhaltsbereich eines Browsers, der nicht im Inkognitomodus ist, und in Android-Apps nicht erlaubt.
-
-Ist sie nicht konfiguriert oder auf "true" gesetzt, wird das Standardverhalten verwendet: Die Anmeldung in einem anderen Google-Konto aus dem Inhaltsbereich eines Browsers und in Android-Apps ist dann erlaubt; hiervon ausgenommen sind jedoch Konten für Kinder, bei denen die Anmeldung für den Inhaltsbereich eines Browsers, der nicht im Inkognitomodus ist, blockiert wird.
-
-Falls die Anmeldung in einem anderen Konto über den Inkognitomodus nicht erlaubt sein soll, kannst du diesen Modus mithilfe der Richtlinie "IncognitoModeAvailability" blockieren.
-
-Hinweis: Nutzer können Cookies blockieren und so auf Google-Dienste zugreifen, die nicht authentifiziert sind.</translation>
 <translation id="6841254611279513739">Durch die Richtlinie wird festgelegt, ob nur in Farbe, nur in Schwarz-Weiß oder ohne Farbmodusbeschränkung gedruckt wird. Wenn die Richtlinie nicht konfiguriert ist, wird keine Beschränkung angewendet.</translation>
 <translation id="6843008643303282259">Gewünschte Upload-Geschwindigkeit in kbit/s.</translation>
 <translation id="6843296367238757293">Diese Richtlinie ist veraltet. Von ihrer Verwendung wird abgeraten. Weitere Informationen dazu findest du unter https://support.google.com/chrome/a/answer/7643500</translation>
@@ -9889,23 +9902,6 @@ Diese Richtlinie wirkt sich nicht auf Passwortmanager von Drittanbietern aus, di
 
       Hinweis: Die Scanfunktion ist derzeit über eine Funktions-Flag standardmäßig deaktiviert. Auch wenn der Nutzer die Funktion über die Funktions-Flag aktiviert, kann sie aufgrund dieser Richtlinie deaktiviert bleiben.</translation>
 <translation id="7115684775550072082">Leerzeichen nur für die MIME-Typen „text“ und „xml“ beibehalten</translation>
-<translation id="7116098886490965998">Deaktiviere die Einmalanmeldung über <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> für die aufgeführten Identitätsanbieter.
-
-Wenn du den Wert „<ph name="POLICY_VALUE_ALL" />“ hinzufügst, werden alle unterstützten Identitätsanbieter für die Einmalanmeldung deaktiviert.
-
-Wenn du den Wert „<ph name="POLICY_VALUE_MICROSOFT" />“ hinzufügst, wird die Unterstützung für die Einmalanmeldung für den Microsoft®-Cloud-Identitätsanbieter in Chrome deaktiviert.
-
-Wenn du diese Richtlinie nicht konfigurierst, werden alle Identitätsanbieter aktiviert, die von <ph name="PRODUCT_NAME" /> unterstützt werden.
-
-Für Identitätsanbieter, die in <ph name="PRODUCT_NAME" /> aktiviert und vom Administrator auf dem Gerät konfiguriert sind, können Nutzer, die sich über diesen Identitätsanbieter einmal in einer Anwendung anmelden, die <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> unterstützt, über diesen Identitätsanbieter automatisch in Web-Properties angemeldet werden. Informationen zu den Authentifizierungsdaten des Nutzers werden bei jedem Authentifizierungsereignis an den Cloud-Identitätsanbieter des Nutzers gesendet.
-
-Hinweise:
-
-<ph name="PRODUCT_NAME" /> unterstützt nicht die Einmalanmeldung über <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> im Inkognito- oder Gastmodus.
-
-<ph name="PRODUCT_NAME" /> unterstützt die Einmalanmeldung über <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> nur für die folgenden Identitätsanbieter: Microsoft, Okta.
-
-Diese Funktion ist unter <ph name="MAC_OS_NAME" /> 10.15 und höher verfügbar.</translation>
 <translation id="7119538491527883595">Lokaler Speicher für Nutzerdaten</translation>
 <translation id="7121046543122812054">Diese Richtlinie ist veraltet. Du kannst stattdessen <ph name="BROWSER_SIGNIN_POLICY_NAME" /> verwenden.
 
@@ -10524,7 +10520,6 @@ Diese Richtlinie steuert nicht die allgemeine <ph name="GOOGLE_GEMINI_PRODUCT_NA
 <translation id="7491720878670299691">Häufigkeit, mit der Netzwerkdaten gepollt und auf Ereignisse geprüft werden. Die geringste zulässige Häufigkeit beträgt 1 Minute.
 
       Wenn die Richtlinie nicht konfiguriert ist, beträgt die Häufigkeit standardmäßig 1 Minute.</translation>
-<translation id="7496284563199466390">Bestimmt, welche verwalteten Nutzer die Richtlinie „<ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />“ festlegen können.</translation>
 <translation id="7498595166686106721">
       Die Richtlinie für Berechtigungen zur Display-Erfassung ermöglicht Zugriff auf „getDisplayMedia()“ gemäß dieser Spezifikation: https://www.w3.org/TR/screen-capture/#feature-policy-integration. Ist die Richtlinie jedoch deaktiviert, wird diese Anforderung nicht erzwungenund „getDisplayMedia()“ wird aus Kontexten zugelassen, die andernfalls nicht zulässig wären. Diese Unternehmensrichtlinie ist vorübergehend. Nach Version 100 von <ph name="PRODUCT_NAME" /> wird sie voraussichtlich entfernt. Sie soll Unternehmensnutzer freigeben, deren Anwendung nicht spezifikationskonform ist, jedoch erst nach einiger Zeit angepasst werden kann.
 
@@ -11688,6 +11683,7 @@ Die Funktion ist nur in Canary-Versionen verfügbar.
 
 Wenn die Richtlinie aktiviert oder nicht konfiguriert ist, kann auf die Seite zugegriffen werden.
 Ist die Richtlinie deaktiviert, wird die Seite blockiert.</translation>
+<translation id="8266506455952754231">Bestimmt, welche verwalteten Nutzer die Richtlinien „<ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />“ und „<ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" />“ festlegen können.</translation>
 <translation id="8266778278542911985">Wenn die Richtlinie auf "3" gesetzt ist, dürfen Websites um Zugriff auf serielle Ports bitten. Ist die Richtlinie auf "2" gesetzt, wird der Zugriff auf serielle Ports blockiert.
 
       Wenn sie nicht konfiguriert ist, können Websites den Zugriff erfragen, aber Nutzer können diese Einstellung ändern.</translation>
@@ -12257,6 +12253,17 @@ Für <ph name="PRODUCT_OS_NAME" /> wird diese Richtlinie immer angewendet.</tran
 <translation id="8621146428060651659">Randomisierung von Socket-Pools für Proxys zulassen</translation>
 <translation id="862621549134406761">Prüfung der RSA-Schlüsselverwendung aktivieren</translation>
 <translation id="8626826495474944836">Website-Isolierung für jede Website erzwingen</translation>
+<translation id="8628954914373039931">Mit dieser Einstellung können Nutzer im Inhaltsbereich ihres Browserfensters und in Android-Apps zwischen Google-Konten wechseln, nachdem sie sich auf ihrem <ph name="PRODUCT_OS_NAME" />-Gerät angemeldet haben.
+
+      Wenn diese Richtlinie auf „false“ gesetzt ist, wird die Anmeldung in einem anderen Google-Konto über den Inhaltsbereich eines Browsers (außerhalb des Inkognitomodus) sowie über Android-Apps unterbunden.
+
+      Wenn diese Richtlinie nicht konfiguriert oder auf „true“ gesetzt ist, wird das Standardverhalten verwendet: Die Anmeldung in einem anderen Google-Konto über den Browser-Inhaltsbereich und Android-Apps ist zulässig, mit Ausnahme von Kinderkonten, bei denen sie für den Inhaltsbereich außerhalb des Inkognitomodus blockiert wird.
+
+      Unter Android wird mit dieser Einstellung festgelegt, ob Nutzer zusätzliche Google-Konten über den Inhaltsbereich von Google-Websites hinzufügen können, während sie in <ph name="PRODUCT_NAME" /> angemeldet sind. Wenn diese Richtlinie auf „false“ gesetzt ist, bieten Google-Websites nicht die Option zum Hinzufügen eines weiteren Google-Kontos an (z. B. über den Button „Weiteres Konto hinzufügen“ im Kontomenü). Wenn diese Richtlinie nicht konfiguriert oder auf „true“ gesetzt ist, ist das Hinzufügen eines weiteren Google-Kontos über Google-Websites zulässig. Diese Richtlinie hindert Nutzer nicht daran, dem Android-Gerät selbst Google-Konten hinzuzufügen.
+
+      Wenn die Anmeldung in einem anderen Konto über den Inkognitomodus nicht zulässig sein soll, können Sie diesen Modus mithilfe der Richtlinie „IncognitoModeAvailability“ blockieren.
+
+      Beachte, dass Nutzer auf Google-Dienste in einem nicht authentifizierten Zustand zugreifen können, indem sie ihre Cookies blockieren.</translation>
 <translation id="8630797597241896082">VC‑Hintergrund basierend auf generativer KI zulassen und KI‑Modelle verbessern</translation>
 <translation id="8631314130868563649">Energieverwaltung zum Umschalten bei Leistungsspitzen deaktivieren</translation>
 <translation id="8631434304112909927">Bis Version <ph name="UNTIL_VERSION" /></translation>

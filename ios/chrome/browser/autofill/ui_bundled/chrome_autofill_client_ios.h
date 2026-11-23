@@ -44,6 +44,7 @@
 @protocol FormInputAccessoryCommands;
 @class UIViewController;
 
+class IOSDeviceAuthAvailabilityChecker;
 class IOSDeviceAuthenticator;
 
 namespace affiliations {
@@ -223,6 +224,8 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   // platform is not supported.
   std::unique_ptr<device_reauth::DeviceAuthenticator> GetDeviceAuthenticator(
       std::string histogram) const override;
+  std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker>
+  GetDeviceAuthAvailabilityChecker() const override;
   PasswordFormClassification ClassifyAsPasswordForm(
       AutofillManager& manager,
       FormGlobalId form_id,
@@ -259,6 +262,10 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   // Searches for Autofill AI save entity infobar and returns its delegate.
   AutofillAiSaveEntityInfoBarDelegateIOS*
   GetAutofillAiSaveEntityInfoBarDelegateIOS();
+
+  // Returns an `IOSDeviceAuthAvailabilityChecker` for the profile.
+  std::unique_ptr<IOSDeviceAuthAvailabilityChecker>
+  GetIOSDeviceAuthAvailabilityChecker() const;
 
   // Returns an `IOSDeviceAuthenticator` for the profile.
   std::unique_ptr<IOSDeviceAuthenticator> GetIOSDeviceAuthenticator(

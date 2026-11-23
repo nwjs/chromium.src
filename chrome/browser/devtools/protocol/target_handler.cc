@@ -41,11 +41,11 @@ NavigateParams CreateNavigateParams(Profile* profile,
   CHECK(new_window || browser, base::NotFatalUntil::M161);
   NavigateParams params(profile, url, transition);
   if (new_window) {
-    params.disposition = WindowOpenDisposition::NEW_WINDOW;
+    params.disposition = WindowOpenDisposition::kNewWindow;
   } else {
     params.disposition = (background)
-                             ? WindowOpenDisposition::NEW_BACKGROUND_TAB
-                             : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+                             ? WindowOpenDisposition::kNewBackgroundTab
+                             : WindowOpenDisposition::kNewForegroundTab;
     params.browser = browser;
   }
   if (background) {
@@ -121,8 +121,13 @@ protocol::Response TargetHandler::CreateTarget(
           "Failed to find browser context with id " + profile_id);
     }
   } else {
+    // This fails if the last used profile can't be loaded, for example because
+    // its directory can't be created or is scheduled for deletion.
     profile = ProfileManager::GetLastUsedProfile();
-    CHECK(profile, base::NotFatalUntil::M161);
+    if (!profile) {
+      return protocol::Response::ServerError(
+          "Failed to load default browser context");
+    }
   }
 
   bool create_new_window = new_window.value_or(false);

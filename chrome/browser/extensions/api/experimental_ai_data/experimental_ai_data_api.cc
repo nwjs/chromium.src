@@ -14,7 +14,9 @@
 #include "base/base64.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/thread_pool.h"
 #include "base/version_info/channel.h"
@@ -26,6 +28,7 @@
 #include "chrome/common/extensions/api/experimental_ai_data.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/proto/features/model_prototyping.pb.h"
+#include "components/page_content_annotations/content/page_context_fetcher.h"
 #include "components/page_content_annotations/content/page_context_fetcher_options.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_context.h"
@@ -37,6 +40,7 @@
 #include "extensions/common/extension.h"
 #include "extensions/common/features/feature_channel.h"
 #include "extensions/common/permissions/permissions_data.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 #include "url/scheme_host_port.h"
@@ -59,6 +63,7 @@ constexpr char kPolicyBlockedHostError[] =
     "Host access is restricted by policy.";
 constexpr char kInvalidMaxMetaElementsError[] =
     "maxMetaElements must not be negative.";
+constexpr char kInvalidMaxLengthError[] = "maxLength must not be negative.";
 constexpr char kApcSerializationError[] = "Failed to serialize APC.";
 constexpr char kScreenshotDisabledByPreferencesError[] =
     "Failed to capture tab: screenshots disabled";
@@ -170,17 +175,6 @@ bool IsBlockedByPolicy(const Extension& extension,
       return true;
     }
   }
-  // History search can return cached page passages without live WebContents.
-  // URL/title-only visits and site engagement scores do not expose page
-  // content.
-  for (const auto& query : data.history_query_result()) {
-    for (const auto& visit : query.history_data().visit_item()) {
-      if (visit.passages_size() > 0 &&
-          permissions.IsPolicyBlockedHost(GURL(visit.page_url()))) {
-        return true;
-      }
-    }
-  }
   return false;
 }
 
@@ -226,13 +220,11 @@ bool ExperimentalAiDataApiFunction::PreRunValidation(std::string* error) {
     return false;
   }
 
-  auto* ai_data_service =
-      AiDataKeyedServiceFactory::GetAiDataKeyedService(browser_context());
-  if (!ai_data_service) {
+  // This API never collects data from an incognito profile.
+  if (browser_context()->IsOffTheRecord()) {
     *error = kIncognitoNotSupportedError;
     return false;
   }
-  CHECK(ai_data_service, base::NotFatalUntil::M161);
 
   return true;
 }
@@ -246,7 +238,8 @@ std::optional<std::string> ExperimentalAiDataApiFunction::StartDataCollection(
   collection_page_guards_.push_back(
       std::make_unique<CollectionPageGuard>(web_contents));
   if (max_tabs_for_text_collection > 0) {
-    tabs::TabInterface* tab = tabs::TabInterface::GetFromContents(web_contents);
+    tabs::TabInterface* tab =
+        tabs::TabInterface::MaybeGetFromContents(web_contents);
     BrowserWindowInterface* browser =
         tab ? tab->GetBrowserWindowInterface() : nullptr;
     TabListInterface* tab_list =
@@ -277,6 +270,9 @@ ExperimentalAiDataApiFunction::GetDataCollectionError() const {
       // Deliberately reject the entire response if any observed page changed.
       // The combined result cannot reliably separate data from replaced pages.
       return kPageChangedError;
+    }
+    if (contents->GetBrowserContext()->IsOffTheRecord()) {
+      return kIncognitoNotSupportedError;
     }
     if (IsBlockedByPolicy(*extension(), *contents)) {
       return kPolicyBlockedHostError;
@@ -321,12 +317,10 @@ ExperimentalAiDataGetAiDataFunction::~ExperimentalAiDataGetAiDataFunction() =
 ExtensionFunction::ResponseAction ExperimentalAiDataGetAiDataFunction::Run() {
   auto params = api::experimental_ai_data::GetAiData::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
-  content::WebContents* web_contents = nullptr;
-  if (!ExtensionTabUtil::GetTabById(params->tab_id, browser_context(), true,
-                                    &web_contents)) {
+  content::WebContents* web_contents = GetTabById(params->tab_id);
+  if (!web_contents) {
     return RespondNow(Error(kInvalidTabError));
   }
-  CHECK(web_contents, base::NotFatalUntil::M161);
 
   auto* ai_data_service =
       AiDataKeyedServiceFactory::GetAiDataKeyedService(browser_context());
@@ -358,12 +352,10 @@ ExperimentalAiDataGetAiDataWithSpecifierFunction::Run() {
   auto params =
       api::experimental_ai_data::GetAiDataWithSpecifier::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
-  content::WebContents* web_contents = nullptr;
-  if (!ExtensionTabUtil::GetTabById(params->tab_id, browser_context(), true,
-                                    &web_contents)) {
+  content::WebContents* web_contents = GetTabById(params->tab_id);
+  if (!web_contents) {
     return RespondNow(Error(kInvalidTabError));
   }
-  CHECK(web_contents, base::NotFatalUntil::M161);
 
   auto* ai_data_service =
       AiDataKeyedServiceFactory::GetAiDataKeyedService(browser_context());
@@ -409,11 +401,6 @@ ExperimentalAiDataGetApcSnapshotFunction::Run() {
       api::experimental_ai_data::GetApcSnapshot::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
 
-  // This debugging API never collects data from an incognito profile.
-  if (browser_context()->IsOffTheRecord()) {
-    return RespondNow(Error(kIncognitoNotSupportedError));
-  }
-
   using SnapshotType = api::experimental_ai_data::SnapshotType;
   bool capture_apc = false;
   bool capture_screenshot = false;
@@ -435,13 +422,15 @@ ExperimentalAiDataGetApcSnapshotFunction::Run() {
   if (options.max_meta_elements.value_or(0) < 0) {
     return RespondNow(Error(kInvalidMaxMetaElementsError));
   }
-  content::WebContents* web_contents =
-      GetTabById(params->tab_id, /*include_incognito=*/false);
+  content::WebContents* web_contents = GetTabById(params->tab_id);
   if (!web_contents) {
     return RespondNow(Error(kInvalidTabError));
   }
-  if (web_contents->GetBrowserContext()->IsOffTheRecord()) {
-    return RespondNow(Error(kIncognitoNotSupportedError));
+
+  // APC options can omit frames, but screenshots still include their pixels.
+  // Apply the same frame policy checks to every snapshot mode.
+  if (auto error = StartDataCollection(web_contents)) {
+    return RespondNow(Error(*error));
   }
 
   if (capture_screenshot) {
@@ -452,24 +441,19 @@ ExperimentalAiDataGetApcSnapshotFunction::Run() {
     }
   }
 
-  // APC options can omit frames, but screenshots still include their pixels.
-  // Apply the same frame policy checks to every snapshot mode.
-  if (auto error = StartDataCollection(web_contents)) {
-    return RespondNow(Error(*error));
-  }
-
   StartSnapshot(web_contents, capture_apc, capture_screenshot,
                 ToMojoApcOptions(options));
 
   return RespondLater();
 }
 
-content::WebContents* ExperimentalAiDataGetApcSnapshotFunction::GetTabById(
-    int tab_id,
-    bool include_incognito) {
+content::WebContents* ExperimentalAiDataApiFunction::GetTabById(int tab_id) {
   content::WebContents* web_contents = nullptr;
+  // This API never collects data from an incognito profile, even if the
+  // extension is enabled in incognito.
   if (!ExtensionTabUtil::GetTabById(tab_id, browser_context(),
-                                    include_incognito, &web_contents)) {
+                                    /*include_incognito=*/false,
+                                    &web_contents)) {
     return nullptr;
   }
   return web_contents;
@@ -534,14 +518,15 @@ void ExperimentalAiDataGetApcSnapshotFunction::OnSnapshotFetched(
   // If extraction fails, reject the image rather than risk exposing sensitive
   // content.
   if (!snapshot.annotated_page_content_result.has_value()) {
-    Respond(
-        Error(base::StrCat({kApcExtractionErrorPrefix,
-                            snapshot.annotated_page_content_result.error()})));
+    Respond(Error(base::StrCat(
+        {kApcExtractionErrorPrefix,
+         snapshot.annotated_page_content_result.error().message})));
     return;
   }
   if (capture_screenshot && !snapshot.screenshot_result.has_value()) {
-    Respond(Error(base::StrCat(
-        {kScreenshotCaptureErrorPrefix, snapshot.screenshot_result.error()})));
+    Respond(Error(
+        base::StrCat({kScreenshotCaptureErrorPrefix,
+                      snapshot.screenshot_result.error().message})));
     return;
   }
 
@@ -577,6 +562,71 @@ void ExperimentalAiDataGetApcSnapshotFunction::OnSnapshotSerialized(
     }
   }
   Respond(ArgumentList(std::move(result).value()));
+}
+
+ExperimentalAiDataGetTextSurroundingSelectionFunction::
+    ExperimentalAiDataGetTextSurroundingSelectionFunction() = default;
+
+ExperimentalAiDataGetTextSurroundingSelectionFunction::
+    ~ExperimentalAiDataGetTextSurroundingSelectionFunction() = default;
+
+ExtensionFunction::ResponseAction
+ExperimentalAiDataGetTextSurroundingSelectionFunction::Run() {
+  auto params =
+      api::experimental_ai_data::GetTextSurroundingSelection::Params::Create(
+          args());
+  EXTENSION_FUNCTION_VALIDATE(params);
+  if (params->max_length < 0) {
+    return RespondNow(Error(kInvalidMaxLengthError));
+  }
+
+  content::WebContents* web_contents = GetTabById(params->tab_id);
+  if (!web_contents) {
+    return RespondNow(Error(kInvalidTabError));
+  }
+
+  if (auto error = StartDataCollection(web_contents)) {
+    return RespondNow(Error(*error));
+  }
+
+  content::RenderFrameHost* rfh = web_contents->GetFocusedFrame();
+  if (!rfh) {
+    rfh = web_contents->GetPrimaryMainFrame();
+  }
+  rfh->RequestTextSurroundingSelection(
+      mojo::WrapCallbackWithDropHandler(
+          base::BindOnce(
+              &ExperimentalAiDataGetTextSurroundingSelectionFunction::
+                  OnSurroundingTextReceived,
+              this),
+          base::BindOnce(
+              &ExperimentalAiDataGetTextSurroundingSelectionFunction::
+                  OnSurroundingTextRequestDropped,
+              this)),
+      params->max_length);
+  return RespondLater();
+}
+
+void ExperimentalAiDataGetTextSurroundingSelectionFunction::
+    OnSurroundingTextReceived(const std::u16string& content,
+                              uint32_t start_offset,
+                              uint32_t end_offset) {
+  if (auto error = GetDataCollectionError()) {
+    Respond(Error(*error));
+    return;
+  }
+  api::experimental_ai_data::TextSurroundingSelection response;
+  response.content = base::UTF16ToUTF8(content);
+  response.start_offset = base::saturated_cast<int>(start_offset);
+  response.end_offset = base::saturated_cast<int>(end_offset);
+  Respond(ArgumentList(
+      api::experimental_ai_data::GetTextSurroundingSelection::Results::Create(
+          response)));
+}
+
+void ExperimentalAiDataGetTextSurroundingSelectionFunction::
+    OnSurroundingTextRequestDropped() {
+  Respond(Error(GetDataCollectionError().value_or(kDataCollectionError)));
 }
 
 }  // namespace extensions

@@ -53,8 +53,6 @@ source_set("identity_manager") {
     "token_binding_info.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   public_deps = [
     ":tribool",
     "//base",
@@ -110,7 +108,6 @@ source_set("tribool") {
     "tribool.cc",
     "tribool.h",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
   deps = [ "//base" ]
 }
 
@@ -145,6 +142,7 @@ source_set("unit_tests") {
     "//base/test:test_support",
     "//components/image_fetcher/core:test_support",
     "//components/metrics",
+    "//components/policy/core/common:common_constants",
     "//components/prefs",
     "//components/prefs:test_support",
     "//components/signin/internal/identity_manager",
@@ -210,6 +208,7 @@ source_set("test_support") {
   deps = [
     "//components/image_fetcher/core:test_support",
     "//components/metrics",
+    "//components/policy/core/common:common_constants",
     "//components/signin/internal/identity_manager",
     "//components/signin/internal/identity_manager:test_support",
     "//components/signin/public/base:test_support",

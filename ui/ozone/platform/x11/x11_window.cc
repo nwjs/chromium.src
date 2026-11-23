@@ -634,6 +634,18 @@ gfx::Rect X11Window::GetBoundsInDIP() const {
   return platform_window_delegate_->ConvertRectToDIP(GetBoundsInPixels());
 }
 
+void X11Window::SetWindowClass(const std::string& wm_class_name,
+                               const std::string& wm_class_class,
+                               const std::string& wayland_app_id) {
+  // ICCCM only allows changing WM_CLASS while the window is withdrawn, but
+  // remapping the window would be disruptive. Many window managers, e.g.
+  // mutter, muffin and i3, pick up changes to mapped windows anyway, and
+  // others keep using the old value, which is no worse than not updating it.
+  SetWindowClassHint(&connection_.get(), xwindow_, wm_class_name,
+                     wm_class_class);
+  connection_->Flush();
+}
+
 void X11Window::SetTitle(const std::u16string& title) {
   if (window_title_ == title) {
     return;
@@ -1180,7 +1192,6 @@ void X11Window::SetOpaqueRegion(
 void X11Window::SetInputRegion(
     std::optional<std::vector<gfx::Rect>> region_px) {
   if (!region_px.has_value() || region_px->empty()) {
-    // Reset the input region.
     connection_->shape().Mask({
         .operation = x11::Shape::So::Set,
         .destination_kind = x11::Shape::Sk::Input,
@@ -1188,16 +1199,22 @@ void X11Window::SetInputRegion(
     });
     return;
   }
-  DCHECK_EQ(1u, region_px->size());
+
+  // The rectangles in a Shape::Rectangles request must be in YXBanded order,
+  // so build a region from all of them rather than assuming there is exactly
+  // one rectangle.
+  SkRegion native_region;
+  for (const gfx::Rect& rect : *region_px) {
+    native_region.op(gfx::RectToSkIRect(rect), SkRegion::kUnion_Op);
+  }
+  std::unique_ptr<std::vector<x11::Rectangle>> region =
+      x11::CreateRegionFromSkRegion(native_region);
   connection_->shape().Rectangles(x11::Shape::RectanglesRequest{
       .operation = x11::Shape::So::Set,
       .destination_kind = x11::Shape::Sk::Input,
       .ordering = x11::ClipOrdering::YXBanded,
       .destination_window = xwindow_,
-      .rectangles = {{static_cast<int16_t>((*region_px)[0].x()),
-                      static_cast<int16_t>((*region_px)[0].y()),
-                      static_cast<uint16_t>((*region_px)[0].width()),
-                      static_cast<uint16_t>((*region_px)[0].height())}},
+      .rectangles = *region,
   });
 }
 
@@ -1625,7 +1642,14 @@ void X11Window::DispatchHostWindowDragMovement(
 }
 
 bool X11Window::RunMoveLoop(const gfx::Vector2d& drag_offset) {
-  return x11_window_move_client_->RunMoveLoop(!HasCapture(), drag_offset);
+  auto alive = weak_ptr_factory_.GetWeakPtr();
+  const bool moved =
+      x11_window_move_client_->RunMoveLoop(!HasCapture(), drag_offset);
+  if (alive) {
+    CancelConsumedTouches(alive,
+                          x11_window_move_client_->TakeConsumedTouches());
+  }
+  return moved;
 }
 
 void X11Window::EndMoveLoop() {
@@ -1650,7 +1674,9 @@ bool X11Window::StartDrag(
   allowed_drag_operations_ = 0;
   notified_enter_ = false;
 
-  drag_loop_ = std::make_unique<X11WholeScreenMoveLoop>(this);
+  auto drag_loop = std::make_unique<X11WholeScreenMoveLoop>(this);
+  X11WholeScreenMoveLoop* const whole_screen_drag_loop = drag_loop.get();
+  drag_loop_ = std::move(drag_loop);
 
   auto alive = weak_ptr_factory_.GetWeakPtr();
   const bool dropped =
@@ -1660,10 +1686,33 @@ bool X11Window::StartDrag(
     return false;
   }
 
+  auto consumed_touches = whole_screen_drag_loop->TakeConsumedTouches();
   drag_loop_.reset();
   drag_location_delegate_ = nullptr;
   drag_drop_client_->CleanupDrag();
+  CancelConsumedTouches(alive, std::move(consumed_touches));
   return dropped;
+}
+
+// static
+void X11Window::CancelConsumedTouches(
+    base::WeakPtr<X11Window> fallback,
+    std::vector<X11WholeScreenMoveLoop::ConsumedTouch> touches) {
+  auto* window_manager = X11WindowManager::GetInstance();
+  for (const auto& touch : touches) {
+    X11Window* target =
+        touch.window == x11::Window::None
+            ? fallback.get()
+            : window_manager->GetWindow(
+                  static_cast<gfx::AcceleratedWidget>(touch.window));
+    if (!target) {
+      continue;
+    }
+    TouchEvent cancel(EventType::kTouchCancelled, touch.location,
+                      touch.location, EventTimeForNow(),
+                      PointerDetails(EventPointerType::kTouch, touch.id));
+    target->platform_window_delegate()->DispatchEvent(&cancel);
+  }
 }
 
 void X11Window::CancelDrag() {

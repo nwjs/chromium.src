@@ -6,6 +6,7 @@
 #define PARTITION_ALLOC_ADDRESS_POOL_MANAGER_H_
 
 #include <array>
+#include <atomic>
 #include <bitset>
 #include <limits>
 
@@ -20,6 +21,7 @@
 #include "partition_alloc/partition_alloc_public_constants.h"
 #include "partition_alloc/partition_lock.h"
 #include "partition_alloc/thread_isolation/alignment.h"
+#include "partition_alloc/thread_isolation/pkey.h"
 #include "partition_alloc/thread_isolation/thread_isolation.h"
 
 #if !PA_BUILDFLAG(HAS_64_BIT_POINTERS)
@@ -60,7 +62,10 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC)
   AddressPoolManager& operator=(const AddressPoolManager&) = delete;
 
 #if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
-  void Add(pool_handle handle, uintptr_t address, size_t length);
+  void Add(pool_handle handle,
+           uintptr_t address,
+           size_t length,
+           int pkey = kInvalidPkey);
   void Remove(pool_handle handle);
 
   // Populate a |used| bitset of superpages currently in use.
@@ -69,12 +74,33 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC)
 
   // Return the base address of a pool.
   uintptr_t GetPoolBaseAddress(pool_handle handle);
+
+  using AsyncSafeMemoryPressureNotification = void (*)();
+  void SetAsyncSafeMemoryPressureNotification(
+      AsyncSafeMemoryPressureNotification notification);
+  bool IsAlmostFull();
+
+  static constexpr size_t kDefaultAlmostFullPercent = 90;
 #endif  // PA_BUILDFLAG(HAS_64_BIT_POINTERS)
 
-  // Reserves address space from the pool.
-  uintptr_t Reserve(pool_handle handle,
-                    uintptr_t requested_address,
-                    size_t length);
+  // Expected lifetime of an address space reservation, used to decide where in
+  // the pool it is placed when |requested_address| is 0 or unavailable.
+  enum class ReservationLifetime {
+    // The reservation is expected to never be released (e.g. normal bucket
+    // superpages).
+    kPersistent,
+    // The reservation is expected to be released (e.g. direct-mapped
+    // allocations).
+    kTransient,
+  };
+
+  // Reserves address space from the pool. See |ReservationLifetime| for how
+  // |lifetime| affects placement.
+  uintptr_t Reserve(
+      pool_handle handle,
+      uintptr_t requested_address,
+      size_t length,
+      ReservationLifetime lifetime = ReservationLifetime::kPersistent);
 
   // Frees address space back to the pool and decommits underlying system pages.
   void UnreserveAndDecommit(pool_handle handle,
@@ -120,24 +146,43 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC)
 #endif  // PA_BUILDFLAG(ENABLE_THREAD_ISOLATION)
 
 #if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+  void NotifyMemoryPressureIfNeeded(bool should_notify);
+
+  std::atomic<AsyncSafeMemoryPressureNotification>
+      async_safe_memory_pressure_notification_{nullptr};
+  std::atomic<size_t> almost_full_pool_count_{0};
 
   class Pool {
    public:
-    constexpr Pool() = default;
+    PA_ALWAYS_INLINE constexpr Pool();
     ~Pool() = default;
 
     Pool(const Pool&) = delete;
     Pool& operator=(const Pool&) = delete;
 
-    void Initialize(uintptr_t ptr, size_t length) PA_LOCKS_EXCLUDED(lock_);
-    bool IsInitialized();
-    void Reset();
-
-    uintptr_t FindChunk(size_t size) PA_LOCKS_EXCLUDED(lock_);
-    void FreeChunk(uintptr_t address, size_t size) PA_LOCKS_EXCLUDED(lock_);
-
-    bool TryReserveChunk(uintptr_t address, size_t size)
+    void Initialize(uintptr_t ptr, size_t length, int pkey = kInvalidPkey)
         PA_LOCKS_EXCLUDED(lock_);
+    bool IsInitialized();
+    bool Reset(std::atomic<size_t>& almost_full_pool_count)
+        PA_LOCKS_EXCLUDED(lock_);
+
+    void DecommitPages(uintptr_t address, size_t size);
+
+    uintptr_t FindChunk(size_t size,
+                        std::atomic<size_t>& almost_full_pool_count,
+                        bool& should_notify) PA_LOCKS_EXCLUDED(lock_);
+    uintptr_t FindChunkFromEnd(size_t size,
+                               std::atomic<size_t>& almost_full_pool_count,
+                               bool& should_notify) PA_LOCKS_EXCLUDED(lock_);
+    bool FreeChunk(uintptr_t address,
+                   size_t size,
+                   std::atomic<size_t>& almost_full_pool_count)
+        PA_LOCKS_EXCLUDED(lock_);
+
+    bool TryReserveChunk(uintptr_t address,
+                         size_t size,
+                         std::atomic<size_t>& almost_full_pool_count,
+                         bool& should_notify) PA_LOCKS_EXCLUDED(lock_);
 
     void GetUsedSuperPages(std::bitset<kMaxSuperPagesInPool>& used)
         PA_LOCKS_EXCLUDED(lock_);
@@ -146,6 +191,10 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC)
     void GetStats(PoolStats* stats) PA_LOCKS_EXCLUDED(lock_);
 
    private:
+    bool UpdateAlmostFullStateLocked(
+        std::atomic<size_t>& almost_full_pool_count)
+        PA_EXCLUSIVE_LOCKS_REQUIRED(lock_);
+
     // The lock needs to be the first field in this class.
     // We write-protect the pool in the ThreadIsolated case, except that the
     // lock can be used without acquiring write-permission first (via
@@ -168,10 +217,26 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC)
     // starting the search before it.
     size_t bit_hint_ PA_GUARDED_BY(lock_) = 0;
 
+    // An index of a bit in the bitset at or after which we know for sure there
+    // are all 1s (i.e. all bits in [high_bit_hint_, total_bits_) are 1).
+    //
+    // Note that |bit_hint_| and |high_bit_hint_| are maintained independently,
+    // and it is valid for |bit_hint_| to be greater than |high_bit_hint_|. This
+    // happens when the pool is completely full (the two all-1s ranges overlap),
+    // and must be handled by all users of these hints. FreeChunk() restores
+    // |bit_hint_| <= |high_bit_hint_|.
+    size_t high_bit_hint_ PA_GUARDED_BY(lock_) = 0;
+
+    size_t allocated_bits_ PA_GUARDED_BY(lock_) = 0;
+    bool is_almost_full_ PA_GUARDED_BY(lock_) = false;
+
     size_t total_bits_ = 0;
     uintptr_t address_begin_ = 0;
 #if PA_BUILDFLAG(DCHECKS_ARE_ON)
     uintptr_t address_end_ = 0;
+#endif
+#if PA_BUILDFLAG(ENABLE_PKEYS)
+    int pkey_ = kInvalidPkey;
 #endif
 
 #if PA_BUILDFLAG(ENABLE_THREAD_ISOLATION)
@@ -201,7 +266,9 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC)
   char pad_[PA_THREAD_ISOLATED_ARRAY_PAD_SZ_WITH_OFFSET(
       Pool,
       kNumPools,
-      offsetof(Pool, alloc_bitset_))] = {};
+      sizeof(async_safe_memory_pressure_notification_) +
+          sizeof(almost_full_pool_count_) + offsetof(Pool, alloc_bitset_))] =
+      {};
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
@@ -211,6 +278,10 @@ class PA_COMPONENT_EXPORT(PARTITION_ALLOC)
 
   constinit static AddressPoolManager singleton_;
 };
+
+#if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
+PA_ALWAYS_INLINE constexpr AddressPoolManager::Pool::Pool() = default;
+#endif  // PA_BUILDFLAG(HAS_64_BIT_POINTERS)
 
 }  // namespace partition_alloc::internal
 

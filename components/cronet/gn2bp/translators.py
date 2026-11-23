@@ -8,10 +8,10 @@ import copy
 import shlex
 import hashlib
 from pathlib import Path
-from typing import List, Dict, Set, Union, Iterable
+from typing import List, Dict, Set, Union, Iterable  # noqa: F401
 
 import gn_utils
-import targets as gn2bp_targets
+import targets as gn2bp_targets  # noqa: F401
 import build.gn_helpers
 import components.cronet.tools.utils as cronet_utils
 import soong_ast
@@ -96,6 +96,12 @@ def create_rust_cxx_modules(blueprint, gn, target, is_test_target, context):
         is_test_target,
         context,
     )[0].name
+    # All Soong targets built for Cronet (Android device architectures and Linux
+    # host) belong to the Unix target family. Pass this cfg explicitly (with
+    # single quotes so the shell preserves the inner double quotes required by
+    # cxxbridge's syn LitStr parser) since gn2bp invokes cxxbridge directly
+    # instead of via run_cxxbridge.py + rustc_print_cfg.
+    cxx_flags = "--cfg 'target_family=\"unix\"'"
     modules = []
     for i, src in enumerate(sorted(target.common.sources)):
         header_genrule = soong_ast.create_module(
@@ -106,9 +112,7 @@ def create_rust_cxx_modules(blueprint, gn, target, is_test_target, context):
             is_test=is_test_target,
         )
         header_genrule.tools = {cxx_bridge_module_name}
-        header_genrule.cmd = (
-            f"$(location {cxx_bridge_module_name}) $(in) --header > $(out)"
-        )
+        header_genrule.cmd = f"$(location {cxx_bridge_module_name}) $(in) --header {cxx_flags} > $(out)"
         header_genrule.srcs = {gn_utils.label_to_path(src)}
         header_genrule.out = {f"{gn_utils.label_to_path(src)}.h"}
 
@@ -120,7 +124,9 @@ def create_rust_cxx_modules(blueprint, gn, target, is_test_target, context):
             is_test=is_test_target,
         )
         cc_genrule.tools = {cxx_bridge_module_name}
-        cc_genrule.cmd = f"$(location {cxx_bridge_module_name}) $(in) > $(out)"
+        cc_genrule.cmd = (
+            f"$(location {cxx_bridge_module_name}) $(in) {cxx_flags} > $(out)"
+        )
         cc_genrule.srcs = {gn_utils.label_to_path(src)}
         cc_genrule.genrule_srcs = {f":{cc_genrule.name}"}
         cc_genrule.out = {f"{gn_utils.label_to_path(src)}.cc"}
@@ -1196,6 +1202,10 @@ def _is_allowed_ldflag(flag):
             "-Wl,-mllvm,-enable-ml-inliner",
             "-Wl,-mllvm,-ml-inliner-model-selector",
             "-Wl,-mllvm,-ml-inliner-skip-policy",
+            # Chromium-internal pseudo-flag intercepted by gcc_link_wrapper.py /
+            # whole_archive.py to link Rust gtest rlibs with --whole-archive.
+            # Soong already links rust_ffi_static dependencies via whole_static_libs.
+            "-LinkWrapper,",
         ]
     )
 
@@ -1681,6 +1691,25 @@ def _create_initial_modules(
         modules = create_aidl_module(
             bp_module_name, target, blueprint, is_test_target, context
         )
+    elif target.type == 'crubit_cpp_from_rust':
+        module = soong_ast.create_module(
+            'crubit_cpp_from_rust',
+            bp_module_name,
+            gn_target_name,
+            context,
+            is_test=is_test_target,
+        )
+        # Soong's `crubit_cpp_from_rust` compiles the generated Rust thunk into
+        # an rlib, so it requires a unique `crate_name` (distinct from the
+        # wrapped `rust_library`) and a `stem` starting with `lib<crate_name>`.
+        module.crate_name = f"{target.crate_name}_crubit_bindings"
+        module.namespace = target.cpp_namespace
+        module.stem = f"lib{module.crate_name}"
+        module.source_stem = target.source_stem
+        module.source_subdir = target.source_subdir
+        module.min_sdk_version = cronet_utils.MIN_SDK_VERSION_FOR_AOSP
+        module.apex_available.add(common.tethering_apex)
+        modules = (module,)
     else:
         # Note we don't have to handle `group` targets because parse_gn_desc() never
         # returns any; it just recurses through them and bubbles their dependencies
@@ -1815,6 +1844,7 @@ def _configure_rust_properties(module, target):
         "rust_binary",
         "rust_ffi_static",
         "rust_bindgen",
+        "crubit_cpp_from_rust",
     ):
         # We may end up (in)directly depending on cc modules, e.g. through the
         # rust bindgen "generated headers" library we may generate. Our cc modules
@@ -1829,6 +1859,7 @@ def _configure_rust_properties(module, target):
         "cc_library_static",
         "cc_binary",
         "rust_binary",
+        "crubit_cpp_from_rust",
     ):
         # If we don't add this, then some types of AOSP builds fail due to an
         # issue with proc_macro2 - see https://crbug.com/392704960.
@@ -1862,6 +1893,7 @@ def _configure_common_properties(module, target, context):
         module.is_compiled()
         and not module.type.startswith("java")
         and not module.type.startswith("rust")
+        and not module.type.startswith("crubit")
     ):
         # Don't try to inject library/source dependencies into genrules or
         # filegroups because they are not compiled in the traditional sense.
@@ -1946,7 +1978,26 @@ def _resolve_dependencies(
                 'cc_library_static',
             ]
 
-            if dep_module.type == 'cc_library_shared':
+            if dep_module.type == 'crubit_cpp_from_rust':
+                # In Soong, `crubit_cpp_from_rust` compiles the Rust thunk into
+                # an rlib and exports its generated C++ headers (`source_subdir`
+                # / `source_stem`) and stdlib headers to C++ targets via
+                # `static_libs`, while also providing `CrubitInfo` and rlib
+                # metadata to dependent Crubit/Rust targets via `rustlibs`.
+                if module_is_cc:
+                    module_target.static_libs.add(dep_module.name)
+                elif module.type in (
+                    'crubit_cpp_from_rust',
+                    'rust_ffi_static',
+                    'rust_binary',
+                ):
+                    module_target.rustlibs.add(dep_module.name)
+                else:
+                    raise Exception(
+                        f"Cannot add Crubit dep {dep_module.name} "
+                        f"({dep_module.type}) to {module.name} ({module.type})"
+                    )
+            elif dep_module.type == 'cc_library_shared':
                 module_target.shared_libs.add(dep_module.name)
             elif dep_module.type == 'cc_library_static' or (
                 dep_module.type == "rust_ffi_static" and module_is_cc
@@ -1983,6 +2034,14 @@ def _resolve_dependencies(
                     # that, we still need these dependencies to further bubble them up
                     # to rust_proc_macro targets dependencies, so simply ignore them.
                     # See https:/crbug.com/417429009.
+                    pass
+                elif (
+                    module.type.startswith('crubit')
+                    and dep_module.type == 'cc_library_static'
+                ):
+                    # crubit_cpp_from_rust modules do not link C++ static
+                    # libraries directly; C++ dependencies are consumed by
+                    # downstream C++ targets.
                     pass
                 else:
                     raise Exception(
@@ -2026,10 +2085,18 @@ def _resolve_dependencies(
                     # consume it. We don't know that until we add the `rust_bindgen` as a dep.
                     dep_module.static_inline_library = module.name
             elif dep_module.type == "rust_ffi_static":
-                if module.type in [
+                if (
+                    module.type == 'crubit_cpp_from_rust'
+                    and dep_module.gn_target == target.crubit_rust_target
+                ):
+                    # Point `crubit_cpp_from_rust` at the primary `rust_ffi_static`
+                    # module it generates C++ bindings for via `rust_library`.
+                    module.rust_library = dep_module.name
+                elif module.type in [
                     "rust_binary",
                     "rust_proc_macro",
                     "rust_ffi_static",
+                    "crubit_cpp_from_rust",
                 ]:
                     module_target.rustlibs.add(dep_module.name)
             elif dep_module.type == "rust_proc_macro":
@@ -2219,6 +2286,7 @@ def create_modules_from_target(
         "rust_executable",
         "rust_library",
         "rust_proc_macro",
+        'crubit_cpp_from_rust',
     ]
     if target.type in target_types_to_hash_module_name:
         # "lib{crate_name}" must be a prefix of the module name, this is a Soong

@@ -11,6 +11,7 @@ import("//media/media_options.gni")
 import("//net/features.gni")
 import("//third_party/blink/public/public_features.gni")
 import("//third_party/widevine/cdm/widevine.gni")
+import("//ui/webui/webui_features.gni")
 
 # Header-only target. Only .h files; no sources.
 source_set("component_updater") {
@@ -25,7 +26,6 @@ source_set("component_updater") {
     "component_updater_utils.h",
     "crl_set_component_installer.h",
     "crowd_deny_component_installer.h",
-    "first_party_sets_component_installer.h",
     "indigo_component_installer.h",
     "install_product_component.h",
     "mei_preload_component_installer.h",
@@ -95,6 +95,10 @@ source_set("component_updater") {
     public += [ "updater_state.h" ]
   }
 
+  if (is_win) {
+    public += [ "dynamic_patch_component_installer.h" ]
+  }
+
   if (enable_library_cdms && enable_widevine && enable_widevine_cdm_component) {
     public += [ "widevine_cdm_component_installer.h" ]
   }
@@ -108,7 +112,7 @@ source_set("component_updater") {
   }
 
   if (enable_extensions_core) {
-    public += [ "aim_eligibility_component_installer.h" ]
+    public += [ "component_extension_installer.h" ]
   }
 }
 
@@ -124,7 +128,6 @@ source_set("impl") {
     "component_updater_utils.cc",
     "crl_set_component_installer.cc",
     "crowd_deny_component_installer.cc",
-    "first_party_sets_component_installer.cc",
     "indigo_component_installer.cc",
     "install_product_component.cc",
     "mei_preload_component_installer.cc",
@@ -206,11 +209,15 @@ source_set("impl") {
   }
 
   if (enable_extensions_core) {
-    sources += [ "aim_eligibility_component_installer.cc" ]
+    sources += [ "component_extension_installer.cc" ]
     deps += [
       "//chrome/browser/extensions",
       "//chrome/browser/resources/omnibox_internals/aim_eligibility_extension:resources",
+      "//ui/webui:buildflags",
     ]
+    if (enable_webui_ntp) {
+      deps += [ "//chrome/browser/resources/new_tab_page_extension:resources" ]
+    }
   }
 
   if (!is_android) {
@@ -261,6 +268,7 @@ source_set("impl") {
       "//chromeos/ash/components/dbus/image_loader",
       "//chromeos/ash/components/settings",
       "//chromeos/constants",
+      "//components/session_manager/core",
     ]
   }
 
@@ -271,6 +279,7 @@ source_set("impl") {
 
   if (is_win) {
     sources += [
+      "dynamic_patch_component_installer.cc",
       "install_product_component_win.cc",
       "updater_state_win.cc",
     ]
@@ -382,11 +391,18 @@ source_set("unit_tests") {
   ]
 
   if (enable_extensions_core) {
-    sources += [ "aim_eligibility_component_installer_unittest.cc" ]
+    sources += [ "component_extension_installer_unittest.cc" ]
     deps += [
       "//chrome/browser/extensions",
       "//chrome/browser/resources/omnibox_internals/aim_eligibility_extension:resources",
+      "//ui/webui:buildflags",
     ]
+    if (enable_webui_ntp) {
+      deps += [
+        "//chrome/browser/resources/new_tab_page_extension:resources",
+        "//components/search",
+      ]
+    }
   }
 
   if (!is_android) {
@@ -424,6 +440,7 @@ source_set("unit_tests") {
   }
 
   if (is_win) {
+    sources += [ "dynamic_patch_component_installer_unittest.cc" ]
     deps += [
       "//chrome/browser/child_module",
       "//chrome/browser/enterprise",

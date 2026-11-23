@@ -200,6 +200,11 @@ std::optional<size_t> NavigationEventList::FindNavigationEvent(
               nav_event->server_redirect_urls;
           retargeting_nav_event->original_request_url =
               nav_event->original_request_url;
+          if (nav_event->navigation_initiation ==
+              ReferrerChainEntry::RENDERER_INITIATED_WITH_USER_GESTURE) {
+            retargeting_nav_event->navigation_initiation =
+                ReferrerChainEntry::RENDERER_INITIATED_WITH_USER_GESTURE;
+          }
           result_index = retargeting_nav_event_index;
         }
       }
@@ -236,6 +241,27 @@ NavigationEvent* NavigationEventList::FindPendingNavigationEvent(
         (!return_event ||
          return_event->last_updated < it.second.get()->last_updated)) {
       return_event = it.second.get();
+    }
+  }
+  if (return_event && return_event->source_url.is_empty() &&
+      return_event->source_main_frame_url.is_empty() &&
+      !navigation_events_.empty()) {
+    size_t retargeting_nav_event_index = FindRetargetingNavigationEvent(
+        return_event->last_updated, return_event->target_tab_id,
+        navigation_events_.size() - 1);
+    if (static_cast<int>(retargeting_nav_event_index) != -1) {
+      auto* retargeting_nav_event =
+          GetNavigationEvent(retargeting_nav_event_index);
+      retargeting_nav_event->server_redirect_urls =
+          return_event->server_redirect_urls;
+      retargeting_nav_event->original_request_url =
+          return_event->original_request_url;
+      if (return_event->navigation_initiation ==
+          ReferrerChainEntry::RENDERER_INITIATED_WITH_USER_GESTURE) {
+        retargeting_nav_event->navigation_initiation =
+            ReferrerChainEntry::RENDERER_INITIATED_WITH_USER_GESTURE;
+      }
+      return retargeting_nav_event;
     }
   }
   return return_event;
@@ -717,7 +743,18 @@ void SafeBrowsingNavigationObserverManager::RecordNewWebContents(
 
   if (!renderer_initiated) {
     nav_event->navigation_initiation = ReferrerChainEntry::BROWSER_INITIATED;
-  } else if (HasUnexpiredUserGesture(source_web_contents)) {
+  } else if (HasUnexpiredUserGesture(source_web_contents) ||
+             // DidGetUserInteraction() is not called for user interactions in
+             // cross-origin subframes (OOPIFs), so HasUnexpiredUserGesture() on
+             // source_web_contents is false. Check the source frame's transient
+             // user activation directly to cover new tabs opened from OOPIFs.
+             // TODO(b/568560137): When a new window is created via
+             // RenderFrameHostImpl::CreateNewWindow (e.g. window.open()), the
+             // source frame's transient user activation is consumed before
+             // RecordNewWebContents is called, so HasTransientUserActivation()
+             // is already false here. Handle that case as well.
+             (source_render_frame_host &&
+              source_render_frame_host->HasTransientUserActivation())) {
     OnUserGestureConsumed(source_web_contents);
     nav_event->navigation_initiation =
         ReferrerChainEntry::RENDERER_INITIATED_WITH_USER_GESTURE;

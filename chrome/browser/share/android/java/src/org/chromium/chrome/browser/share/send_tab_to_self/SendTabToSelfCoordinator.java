@@ -22,7 +22,6 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browserservices.intents.WebappConstants;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
@@ -46,6 +45,7 @@ import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.signin.SigninFeatureMap;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
+import org.chromium.components.sync_device_info.RemoteDeviceInfo;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -164,7 +164,7 @@ public class SendTabToSelfCoordinator
         // Do not show the UI if the model is not ready or the URL is unsupported.
         if (displayReason == null) return;
 
-        List<TargetDeviceInfo> targetDevices =
+        List<RemoteDeviceInfo> targetDevices =
                 displayReason == EntryPointDisplayReason.OFFER_FEATURE
                         ? SendTabToSelfAndroidBridge.getAllTargetDeviceInfos(mProfile)
                         : Collections.emptyList();
@@ -179,12 +179,7 @@ public class SendTabToSelfCoordinator
                         new NoTargetDeviceBottomSheetContent(mContext, mProfile), true);
                 return;
             case EntryPointDisplayReason.OFFER_FEATURE:
-                if (ChromeFeatureList.isEnabled(
-                        ChromeFeatureList.SEND_TAB_TO_SELF_ENHANCED_BOTTOMSHEET)) {
-                    showEnhancedTargetDevicePicker(targetDevices);
-                } else {
-                    showLegacyTargetDevicePicker(targetDevices);
-                }
+                showEnhancedTargetDevicePicker(targetDevices);
                 return;
             case EntryPointDisplayReason.OFFER_SIGN_IN:
                 {
@@ -329,7 +324,7 @@ public class SendTabToSelfCoordinator
         }
     }
 
-    private void showEnhancedTargetDevicePicker(List<TargetDeviceInfo> targetDevices) {
+    private void showEnhancedTargetDevicePicker(List<RemoteDeviceInfo> targetDevices) {
         if (mChangeProcessor != null) {
             mChangeProcessor.destroy();
             mChangeProcessor = null;
@@ -384,19 +379,5 @@ public class SendTabToSelfCoordinator
                         .putExtra(WebappConstants.REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB, true);
         IntentUtils.addTrustedIntentExtras(intent);
         mContext.startActivity(intent);
-    }
-
-    private void showLegacyTargetDevicePicker(List<TargetDeviceInfo> targetDevices) {
-        mBottomSheetController.requestShowContent(
-                new DevicePickerBottomSheetContent(
-                        mContext,
-                        mUrl,
-                        mTitle,
-                        mBottomSheetController,
-                        targetDevices,
-                        mProfile,
-                        mTabProvider,
-                        mEntryPoint),
-                true);
     }
 }

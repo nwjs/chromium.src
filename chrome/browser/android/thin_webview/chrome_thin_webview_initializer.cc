@@ -14,7 +14,6 @@
 #include "chrome/browser/ui/android/context_menu_helper.h"
 #include "chrome/browser/ui/autofill/autofill_client_provider.h"
 #include "chrome/browser/ui/autofill/autofill_client_provider_factory.h"
-#include "chrome/browser/ui/tab_helpers.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/performance_manager/embedder/performance_manager_registry.h"
 #include "components/permissions/permission_request_manager.h"
@@ -36,12 +35,12 @@ void ChromeThinWebViewInitializer::AttachTabHelpers(
     content::WebContents* web_contents,
     bool enable_permission_requests,
     bool enable_browser_autofill) {
-  TabHelpers::AttachTabHelpers(web_contents, enable_browser_autofill);
   if (enable_browser_autofill) {
     Profile* profile =
         Profile::FromBrowserContext(web_contents->GetBrowserContext());
     autofill::AutofillClientProvider& autofill_client_provider =
         autofill::AutofillClientProviderFactory::GetForProfile(profile);
+    autofill_client_provider.CreateClientForWebContents(web_contents);
     if (!autofill_client_provider.uses_platform_autofill()) {
       ChromePasswordManagerClient::CreateForWebContents(web_contents);
     }

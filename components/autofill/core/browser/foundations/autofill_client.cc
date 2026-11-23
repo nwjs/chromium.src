@@ -36,11 +36,12 @@
 #include "components/autofill/core/browser/ui/popup_open_enums.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/unique_ids.h"
+#include "components/device_reauth/device_authenticator.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/personal_context/core/personal_context_types.h"
 #include "components/profile_metrics/browser_profile_type.h"
-#include "net/base/schemeful_site.h"
 #include "ui/gfx/geometry/rect_f.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/autofill/core/browser/ui/autofill_tapjacking_protector.h"
@@ -339,6 +340,12 @@ void AutofillClient::TriggerAtMemoryPersonalizationAndTrustSurvey(
   NOTIMPLEMENTED();
 }
 
+void AutofillClient::
+    TriggerOneTimePasswordDismissalPersonalizationAndTrustSurvey(
+        const HatsSurveyStringData& product_specific_data) {
+  NOTIMPLEMENTED();
+}
+
 bool AutofillClient::IsTabInActorMode() const {
   return false;
 }
@@ -352,20 +359,8 @@ int64_t AutofillClient::GetNavigationId() const {
 }
 
 std::unique_ptr<device_reauth::DeviceAuthenticator>
-AutofillClient::GetDeviceAuthenticator(std::string histogram) const {
-  return nullptr;
-}
-
-std::unique_ptr<device_reauth::DeviceAuthenticator>
 AutofillClient::GetDeviceAuthenticator() const {
   return GetDeviceAuthenticator("");
-}
-
-bool AutofillClient::SupportsDeviceReauth() const {
-  std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator =
-      GetDeviceAuthenticator();
-  return authenticator &&
-         authenticator->CanAuthenticateWithBiometricOrScreenLock();
 }
 
 bool AutofillClient::ShowAutofillFieldIphForFeature(
@@ -488,7 +483,7 @@ void AutofillClient::ShowAutofillAiSuggestionRemovedNotification(
 
 void AutofillClient::ShowEmailVerificationPopup(
     const gfx::RectF& element_bounds,
-    const net::SchemefulSite& issuer_site,
+    const url::Origin& issuer_origin,
     const std::u16string& email,
     base::OnceCallback<void(EmailVerificationPermissionUiStatus)> callback) {
   NOTIMPLEMENTED();
@@ -499,7 +494,8 @@ void AutofillClient::HideEmailVerificationPopup() {
   NOTIMPLEMENTED();
 }
 
-void AutofillClient::ShowEmailVerificationLoadingToast() {
+void AutofillClient::ShowEmailVerificationLoadingToast(
+    base::OnceClosure cancel_callback) {
   NOTIMPLEMENTED();
 }
 
@@ -529,8 +525,7 @@ FormPredictionsTracker* AutofillClient::GetFormPredictionsTracker() {
   return nullptr;
 }
 
-one_time_tokens::OneTimeTokenService* AutofillClient::GetOneTimeTokenService()
-    const {
+one_time_tokens::SmsOtpService* AutofillClient::GetSmsOtpService() const {
   return nullptr;
 }
 

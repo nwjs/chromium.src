@@ -53,6 +53,7 @@ import android.webkit.WebViewClient;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.IntDef;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
@@ -60,6 +61,7 @@ import androidx.core.graphics.Insets;
 import org.jni_zero.CalledByNative;
 import org.jni_zero.CalledByNativeUnchecked;
 import org.jni_zero.JNINamespace;
+import org.jni_zero.JniRawPtr;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
@@ -72,6 +74,7 @@ import org.chromium.android_webview.common.SafeModeActionIds;
 import org.chromium.android_webview.common.SafeModeController;
 import org.chromium.android_webview.gfx.AwDrawFnImpl;
 import org.chromium.android_webview.gfx.AwPicture;
+import org.chromium.android_webview.http_headers.AwHeaderInterceptorStore;
 import org.chromium.android_webview.metrics.AwOriginVisitLogger;
 import org.chromium.android_webview.metrics.BackForwardCacheNotRestoredReason;
 import org.chromium.android_webview.permission.AwGeolocationCallback;
@@ -420,6 +423,8 @@ public class AwContents implements SmartClipProvider {
     private AwViewAndroidDelegate mViewAndroidDelegate;
     private WindowAndroidWrapper mWindowAndroid;
     private WebContents mWebContents;
+    private final AwHeaderInterceptorStore mHeaderInterceptorStore =
+            new AwHeaderInterceptorStore(this::supplyNativeHeaderInterceptorStore);
     private ViewEventSink mViewEventSink;
     private WebContentsInternalsHolder mWebContentsInternalsHolder;
     private NavigationController mNavigationController;
@@ -429,6 +434,7 @@ public class AwContents implements SmartClipProvider {
     private final AwContentsClientBridge mContentsClientBridge;
     private final AwWebContentsDelegateAdapter mWebContentsDelegate;
     private AwActionModeCallback mAwActionModeCallback;
+    private @Nullable Consumer<GoogleAccountsEvent> mGoogleAccountsCallback;
     private final ShouldInterceptRequestMediator mShouldInterceptRequestMediator;
     private final AwContentsIoThreadClient mIoThreadClient;
     private final InterceptNavigationDelegateImpl mInterceptNavigationDelegate;
@@ -459,6 +465,7 @@ public class AwContents implements SmartClipProvider {
     private boolean mIsUpdateVisibilityTaskPending;
     private final Runnable mUpdateVisibilityRunnable;
     @Nullable private Runnable mInvalidateListener;
+    @Nullable private AwWebSurface mWebSurface;
 
     private final SparseArray<WindowAndroid.IntentCallback> mOutstandingIntents =
             new SparseArray<>();
@@ -1198,7 +1205,6 @@ public class AwContents implements SmartClipProvider {
             mScrollAccessibilityHelper = new ScrollAccessibilityHelper(mContainerView);
 
             setOverScrollMode(mContainerView.getOverScrollMode());
-            setScrollBarStyle(mCurrentInternalAccessAdapter.super_getScrollBarStyle());
 
             mAwDarkMode = new AwDarkMode(this);
             mStylusWritingController = new StylusWritingController(context.getApplicationContext());
@@ -1420,6 +1426,8 @@ public class AwContents implements SmartClipProvider {
             recordAdoptResult(AdoptResult.DESTROYED);
             throw new IllegalStateException("AwContents is destroyed.");
         }
+        // The FullScreenView replaces the container view being swapped out, so exit it first.
+        if (isFullScreen()) requestExitFullscreen();
         if (mContainerView != null && mContainerView.isAttachedToWindow()) {
             recordAdoptResult(AdoptResult.OLD_CONTAINER_ATTACHED);
             throw new IllegalStateException(
@@ -1509,7 +1517,6 @@ public class AwContents implements SmartClipProvider {
         if (mDisplayCutoutController != null) {
             mDisplayCutoutController.setCurrentContainerView(mContainerView);
         }
-        setScrollBarStyle(mCurrentInternalAccessAdapter.super_getScrollBarStyle());
     }
 
     public AwDrawFnImpl.DrawFnAccess getDrawFnAccess() {
@@ -1950,6 +1957,9 @@ public class AwContents implements SmartClipProvider {
 
         // Finally refresh all view state for mNativeAwContents.
         restoreState(prePopupState);
+        if (mWebSurface != null) {
+            mWebSurface.onWebContentsChanged();
+        }
 
         mIsPopupWindow = true;
     }
@@ -2139,6 +2149,17 @@ public class AwContents implements SmartClipProvider {
     @VisibleForTesting
     public WebContents getWebContents() {
         return mWebContents;
+    }
+
+    public AwHeaderInterceptorStore getHeaderInterceptorStore() {
+        return mHeaderInterceptorStore;
+    }
+
+    private @Nullable JniRawPtr<AwHeaderInterceptorStore.Native>
+            supplyNativeHeaderInterceptorStore() {
+        return mNativeAwContents == 0
+                ? null
+                : AwContentsJni.get().getHeaderInterceptorStoreFromJava(mNativeAwContents);
     }
 
     public AwWebContentsObserver getWebContentsObserverForTesting() {
@@ -2853,12 +2874,12 @@ public class AwContents implements SmartClipProvider {
      *
      * @return The URL of the current page or null if it's empty.
      */
-    public GURL getUrl() {
+    public String getUrl() {
         if (TRACE) Log.i(TAG, "%s getUrl", this);
         if (isDestroyed(WARN)) return null;
         GURL url = mWebContents.getVisibleUrl();
         if (url == null || url.getSpec().trim().isEmpty()) return null;
-        return url;
+        return url.getSpec();
     }
 
     /**
@@ -2929,57 +2950,6 @@ public class AwContents implements SmartClipProvider {
     public void setOverScrollMode(int mode) {
         if (TRACE) Log.i(TAG, "%s setOverScrollMode", this);
         mOverScrollHelper.setOverScrollMode(mode, mContext);
-    }
-
-    // TODO(mkosiba): In WebViewClassic these appear in some of the scroll extent calculation
-    // methods but toggling them has no visiual effect on the content (in other words the scrolling
-    // code behaves as if the scrollbar-related padding is in place but the onDraw code doesn't
-    // take that into consideration).
-    // http://crbug.com/269032
-    private boolean mOverlayHorizontalScrollbar = true;
-    private boolean mOverlayVerticalScrollbar;
-
-    /**
-     * @see View#setScrollBarStyle(int)
-     */
-    public void setScrollBarStyle(int style) {
-        if (TRACE) Log.i(TAG, "%s setScrollBarStyle", this);
-        boolean scrollbars =
-                style == View.SCROLLBARS_INSIDE_OVERLAY || style == View.SCROLLBARS_OUTSIDE_OVERLAY;
-        mOverlayHorizontalScrollbar = scrollbars;
-        mOverlayVerticalScrollbar = scrollbars;
-    }
-
-    /**
-     * @see View#setHorizontalScrollbarOverlay(boolean)
-     */
-    public void setHorizontalScrollbarOverlay(boolean overlay) {
-        if (TRACE) Log.i(TAG, "%s setHorizontalScrollbarOverlay=%s", this, overlay);
-        mOverlayHorizontalScrollbar = overlay;
-    }
-
-    /**
-     * @see View#setVerticalScrollbarOverlay(boolean)
-     */
-    public void setVerticalScrollbarOverlay(boolean overlay) {
-        if (TRACE) Log.i(TAG, "%s setVerticalScrollbarOverlay=%s", this, overlay);
-        mOverlayVerticalScrollbar = overlay;
-    }
-
-    /**
-     * @see View#overlayHorizontalScrollbar()
-     */
-    public boolean overlayHorizontalScrollbar() {
-        if (TRACE) Log.i(TAG, "%s overlayHorizontalScrollbar", this);
-        return mOverlayHorizontalScrollbar;
-    }
-
-    /**
-     * @see View#overlayVerticalScrollbar()
-     */
-    public boolean overlayVerticalScrollbar() {
-        if (TRACE) Log.i(TAG, "%s overlayVerticalScrollbar", this);
-        return mOverlayVerticalScrollbar;
     }
 
     /**
@@ -3483,6 +3453,47 @@ public class AwContents implements SmartClipProvider {
         AwContentsJni.get()
                 .removeWebMessageListener(
                         mNativeAwContents, jsObjectName, mJsWorldNameIds.get(world));
+    }
+
+    /**
+     * Configures Google Account Mirroring.
+     *
+     * <p>By setting a callback and optional gaiaId, WebView will send a `X-Chrome-Connected` header
+     * to Google login domains, which changes the web behavior so account changes can be handled by
+     * the embedder.
+     *
+     * <p>This header will contain the value of {@code gaiaId} when sent to Google Drive and Google
+     * Docs, since those domains need it for correct account management. If the user is not
+     * currently signed in, the value should just be empty. The {@code gaiaId} value is ignored for
+     * all other domains.
+     *
+     * <p>Call with a {@code null} callback value to disable mirroring.
+     *
+     * @param gaiaId The current gaia ID. Empty string if the user is not signed in.
+     * @param callback The callback to invoke when a Google accounts event occurs.
+     */
+    public void configureGoogleAccountMirroring(
+            @NonNull String gaiaId, @Nullable Consumer<GoogleAccountsEvent> callback) {
+        if (TRACE) Log.i(TAG, "%s configureGoogleAccountMirroring", this);
+        if (isDestroyed(WARN)) return;
+        mGoogleAccountsCallback = callback;
+        AwContentsJni.get()
+                .setGoogleAccountMirroringEnabled(mNativeAwContents, callback != null, gaiaId);
+    }
+
+    @CalledByNative
+    private void onGoogleAccountsRequest(
+            int serviceType,
+            @JniType("std::string") String continueUrl,
+            boolean isOutermostMainFrame,
+            boolean isNavigationRequest) {
+
+        if (isDestroyed(NO_WARN)) return;
+        if (mGoogleAccountsCallback != null) {
+            mGoogleAccountsCallback.accept(
+                    new GoogleAccountsEvent(
+                            serviceType, continueUrl, isOutermostMainFrame, isNavigationRequest));
+        }
     }
 
     /**
@@ -4247,7 +4258,6 @@ public class AwContents implements SmartClipProvider {
         return AwContentsJni.get().getRenderProcess(mNativeAwContents);
     }
 
-    @VisibleForTesting
     @Nullable
     public AwDisplayCutoutController getDisplayCutoutController() {
         return mDisplayCutoutController;
@@ -4425,6 +4435,10 @@ public class AwContents implements SmartClipProvider {
      */
     public void setInvalidateListener(@Nullable Runnable listener) {
         mInvalidateListener = listener;
+    }
+
+    void setWebSurface(@Nullable AwWebSurface webSurface) {
+        mWebSurface = webSurface;
     }
 
     public int getScrollX() {
@@ -5280,6 +5294,9 @@ public class AwContents implements SmartClipProvider {
 
         AwBrowserContext getBrowserContext(long nativeAwContents);
 
+        JniRawPtr<AwHeaderInterceptorStore.Native> getHeaderInterceptorStoreFromJava(
+                long nativeAwContents);
+
         void setCompositorFrameConsumer(long nativeAwContents, long nativeCompositorFrameConsumer);
 
         void documentHasImages(long nativeAwContents, Message message);
@@ -5450,5 +5467,8 @@ public class AwContents implements SmartClipProvider {
         void cancelPrerendering(long nativeAwContents, long prerenderId);
 
         void cancelAllPrerendering(long nativeAwContents);
+
+        void setGoogleAccountMirroringEnabled(
+                long nativeAwContents, boolean enabled, @JniType("std::string") String gaiaId);
     }
 }

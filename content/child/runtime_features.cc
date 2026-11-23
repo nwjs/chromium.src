@@ -138,8 +138,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {wf::EnableBackgroundFetch, features::kBackgroundFetch},
           {wf::EnableBoundaryEventDispatchTracksNodeRemoval,
            blink::features::kBoundaryEventDispatchTracksNodeRemoval},
-          {wf::EnableCompositeBGColorAnimation,
-           features::kCompositeBGColorAnimation},
           {wf::EnableDigitalGoods, features::kDigitalGoodsApi,
            kSetOnlyIfOverridden},
           {wf::EnableDocumentPolicyNegotiation,
@@ -272,6 +270,7 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           // override still takes precedence, since it is applied afterwards by
           // UpdateStatusFromBaseFeatures().
           {"DeclarativeWebMCP", blink::features::kWebMCP, kSetOnlyIfOverridden},
+          {"DeviceBoundSessionJsApi", features::kDeviceBoundSessionJsApi},
           {"DocumentPolicyIncludeJSCallStacksInCrashReports",
            blink::features::kDocumentPolicyIncludeJSCallStacksInCrashReports,
            kSetOnlyIfOverridden},
@@ -302,8 +301,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
           {"ExperimentalMachineLearningNeuralNetwork",
            webnn::mojom::features::kExperimentalWebMachineLearningNeuralNetwork,
            kSetOnlyIfOverridden},
-          {"RequestStorageAccessFor",
-           content_settings::features::kStorageAccessAPIRelatedWebsiteSets},
           {"LocalNetworkAccessPermissionPolicy",
            network::features::kLocalNetworkAccessChecks}};
   for (const auto& mapping : runtime_feature_name_to_chromium_feature_mapping) {
@@ -429,8 +426,10 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
   // content. See HTMLElement::showUnboundedElement().
   if (base::android::android_info::sdk_int() <
       base::android::android_info::SDK_VERSION_U) {
-    // UnboundedElement is implied_by UnsafeUnboundedElementOnTheOpenWeb, so
-    // both have to be disabled for UnboundedElementEnabled() to return false.
+    // UnboundedElement is implied_by UnsafeUnboundedElementOnTheOpenWeb,
+    // which is implied_by UnsafeEscapingUnboundedElementOnTheOpenWeb, so they
+    // all have to be disabled for UnboundedElementEnabled() to return false.
+    WebRuntimeFeatures::EnableUnsafeEscapingUnboundedElementOnTheOpenWeb(false);
     WebRuntimeFeatures::EnableUnsafeUnboundedElementOnTheOpenWeb(false);
     WebRuntimeFeatures::EnableUnboundedElement(false);
   }
@@ -519,7 +518,7 @@ void ResolveInvalidConfigurations() {
   // InstallElement cannot be enabled without the support of the browser
   // process.
   if (!base::FeatureList::IsEnabled(blink::features::kInstallElement)) {
-    LOG_IF(WARNING, WebRuntimeFeatures::IsInstallElementEnabledByRuntimeFlag())
+    LOG_IF(WARNING, WebRuntimeFeatures::IsInstallElementEnabled())
         << "InstallElement cannot be enabled in this configuration. Use --"
         << switches::kEnableFeatures << "="
         << blink::features::kInstallElement.name << " instead.";
@@ -529,8 +528,7 @@ void ResolveInvalidConfigurations() {
   // WebAppInstallation cannot be enabled without the support of the browser
   // process.
   if (!base::FeatureList::IsEnabled(blink::features::kWebAppInstallation)) {
-    LOG_IF(WARNING,
-           WebRuntimeFeatures::IsWebAppInstallationEnabledByRuntimeFlag())
+    LOG_IF(WARNING, WebRuntimeFeatures::IsWebAppInstallationEnabled())
         << "WebAppInstallation cannot be enabled in this configuration. Use "
            "--"
         << switches::kEnableFeatures << "="

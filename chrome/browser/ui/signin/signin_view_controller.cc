@@ -216,7 +216,7 @@ void ShowTabOverwritingNTP(BrowserWindowInterface* browser,
                            TabStripModel* tab_strip_model,
                            const GURL& url) {
   NavigateParams params(browser, url, ui::PAGE_TRANSITION_AUTO_BOOKMARK);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   params.window_action = NavigateParams::WindowAction::kShowWindow;
   params.user_gesture = false;
   params.tabstrip_add_types |= AddTabTypes::ADD_INHERIT_OPENER;
@@ -226,7 +226,7 @@ void ShowTabOverwritingNTP(BrowserWindowInterface* browser,
     const GURL& contents_url = contents->GetVisibleURL();
     if (contents_url == chrome::ChromeUINewTabURLAsGURL() ||
         search::IsInstantNTP(contents) || contents_url == url::kAboutBlankURL) {
-      params.disposition = WindowOpenDisposition::CURRENT_TAB;
+      params.disposition = WindowOpenDisposition::kCurrentTab;
     }
   }
 
@@ -318,7 +318,8 @@ GURL GetSigninUrlForDiceSigninTab(
     signin_metrics::AccessPoint access_point,
     signin_metrics::Reason signin_reason,
     const std::string& email_hint,
-    const GURL& continue_url) {
+    const GURL& continue_url,
+    signin::Flow signin_flow = signin::Flow::NONE) {
   // Use the add account URL if it's a reauthentication, or if we are adding a
   // secondary account and already have a primary account.
   // TODO(crbug.com/425645725): Investigates simplifying the params such as the
@@ -348,12 +349,8 @@ GURL GetSigninUrlForDiceSigninTab(
     return signin::GetAddAccountURLForDice(email_hint, continue_url);
   }
 
-  signin::ChromeSyncUrlArgs sync_url_args{.email = email_hint,
-                                          .continue_url = continue_url};
-  if (access_point == signin_metrics::AccessPoint::kExtensions &&
-      signin_reason == signin_metrics::Reason::kAddSecondaryAccount) {
-    sync_url_args.flow = signin::Flow::PROMO;
-  }
+  signin::ChromeSyncUrlArgs sync_url_args{
+      .email = email_hint, .continue_url = continue_url, .flow = signin_flow};
   return signin::GetChromeSyncURLForDice(sync_url_args);
 }
 
@@ -544,7 +541,7 @@ void SigninViewController::MaybeShowChromeSigninDialogForExtensions(
   // Create a new tab page and wait for the navigation to complete.
   NavigateParams params(&browser_.get(), chrome::ChromeUINewTabURLAsGURL(),
                         ui::PAGE_TRANSITION_AUTO_BOOKMARK);
-  params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+  params.disposition = WindowOpenDisposition::kNewForegroundTab;
   params.window_action = NavigateParams::WindowAction::kShowWindow;
   params.user_gesture = false;
   params.tabstrip_add_types |= AddTabTypes::ADD_INHERIT_OPENER;
@@ -732,7 +729,7 @@ void SigninViewController::CloseModalSignin() {
     }
   }
 
-  DCHECK(!dialog_);
+  CHECK(!dialog_, base::NotFatalUntil::M162);
 }
 
 void SigninViewController::CloseBubbleSignin() {
@@ -765,7 +762,8 @@ void SigninViewController::ShowDiceSigninTab(
     signin_metrics::AccessPoint access_point,
     signin_metrics::PromoAction promo_action,
     const std::string& email_hint,
-    const GURL& redirect_url) {
+    const GURL& redirect_url,
+    signin::Flow signin_flow) {
 #if DCHECK_IS_ON()
   if (!AccountConsistencyModeManager::IsDiceEnabledForProfile(GetProfile())) {
     // Developers often fall into the trap of not configuring the OAuth client
@@ -802,7 +800,7 @@ void SigninViewController::ShowDiceSigninTab(
 
   const GURL signin_url = GetSigninUrlForDiceSigninTab(
       *IdentityManagerFactory::GetForProfile(GetProfile()), access_point,
-      signin_reason, email_hint, continue_url);
+      signin_reason, email_hint, continue_url, signin_flow);
 
   // Check if there is already a signin-tab open.
   const int dice_tab_index = FindDiceSigninTab(GetTabStripModel(), signin_url);
@@ -831,10 +829,11 @@ void SigninViewController::ShowDiceSigninTab(
   // Checks that we have right contents, in which the signin page is being
   // loaded. Note that we need to check the original URL, being mindful of
   // possible redirects, but also the navigation hasn't happened yet.
-  DCHECK(active_contents);
-  DCHECK_EQ(
+  CHECK(active_contents, base::NotFatalUntil::M162);
+  CHECK_EQ(
       signin_url,
-      active_contents->GetController().GetVisibleEntry()->GetUserTypedURL());
+      active_contents->GetController().GetVisibleEntry()->GetUserTypedURL(),
+      base::NotFatalUntil::M162);
   DiceTabHelper::CreateForWebContents(active_contents);
   DiceTabHelper* tab_helper = DiceTabHelper::FromWebContents(active_contents);
 
@@ -843,7 +842,6 @@ void SigninViewController::ShowDiceSigninTab(
   tab_helper->InitializeSigninFlow(
       signin_url, access_point, signin_reason, promo_action, redirect_url,
       /*record_signin_started_metrics=*/true,
-      DiceTabHelper::GetEnableSyncCallbackForBrowser(),
       DiceTabHelper::GetHistorySyncOptinCallbackForBrowser(),
       DiceTabHelper::OnSigninHeaderReceived(),
       DiceTabHelper::GetShowSigninErrorCallbackForBrowser());
@@ -865,7 +863,7 @@ void SigninViewController::ShowDiceSigninTab(
   }
 }
 
-void SigninViewController::ShowDiceEnableSyncTab(
+void SigninViewController::ShowEnableHistorySyncTab(
     signin_metrics::AccessPoint access_point,
     signin_metrics::PromoAction promo_action,
     const std::string& email_hint) {
@@ -879,7 +877,8 @@ void SigninViewController::ShowDiceEnableSyncTab(
     email_to_use =
         identity_manager->GetPrimaryAccountInfo(signin::ConsentLevel::kSync)
             .email;
-    DCHECK(email_hint.empty() || gaia::AreEmailsSame(email_hint, email_to_use));
+    CHECK(email_hint.empty() || gaia::AreEmailsSame(email_hint, email_to_use),
+          base::NotFatalUntil::M162);
   }
   ShowDiceSigninTab(reason, access_point, promo_action, email_to_use,
                     chrome::ChromeUINewTabURLAsGURL());
@@ -888,20 +887,27 @@ void SigninViewController::ShowDiceEnableSyncTab(
 void SigninViewController::ShowDiceAddAccountTab(
     signin_metrics::AccessPoint access_point,
     const std::string& email_hint) {
-  signin_metrics::Reason reason = signin_metrics::Reason::kAddSecondaryAccount;
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(GetProfile());
+  signin_metrics::Reason reason =
+      identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)
+          ? signin_metrics::Reason::kAddSecondaryAccount
+          : signin_metrics::Reason::kSigninPrimaryAccount;
   if (!email_hint.empty() &&
       !identity_manager->FindExtendedAccountInfoByEmailAddress(email_hint)
            .IsEmpty()) {
-    // Use more precise `signin_metrics::Reason` if we know that it's a reauth.
-    // This only has an impact on metrics.
+    // If the account is already known, this is a reauth. Besides metrics, this
+    // selects the reauth/add-account Gaia URL, and (when signed out) means the
+    // tab does not track a Chrome sign-in flow in `DiceTabHelper`.
     reason = signin_metrics::Reason::kReauthentication;
   }
 
+  signin::Flow flow = (access_point == signin_metrics::AccessPoint::kExtensions)
+                          ? signin::Flow::PROMO
+                          : signin::Flow::NONE;
   ShowDiceSigninTab(reason, access_point,
                     signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO,
-                    email_hint, /*redirect_url=*/GURL());
+                    email_hint, /*redirect_url=*/GURL(), flow);
 }
 
 void SigninViewController::ShowGaiaLogoutTab(
@@ -928,7 +934,7 @@ void SigninViewController::ShowGaiaLogoutTab(
   // LogoutTabHelper deletes itself.
   content::WebContents* logout_tab_contents =
       tab_strip_model_->GetActiveWebContents();
-  DCHECK(logout_tab_contents);
+  CHECK(logout_tab_contents, base::NotFatalUntil::M162);
   LogoutTabHelper::CreateForWebContents(logout_tab_contents);
 }
 
@@ -1093,7 +1099,7 @@ void SigninViewController::ShowSignoutConfirmationPrompt(
 
 content::WebContents*
 SigninViewController::GetModalDialogWebContentsForTesting() {
-  DCHECK(dialog_);
+  CHECK(dialog_, base::NotFatalUntil::M162);
   return dialog_->GetModalDialogWebContentsForTesting();  // IN-TEST
 }
 

@@ -43,6 +43,8 @@
 #import "ios/web/public/test/fakes/fake_web_state_policy_decider.h"
 #import "ios/web/public/test/web_view_content_test_util.h"
 #import "ios/web/public/web_state_observer.h"
+#import "ios/web/public/webui/web_ui_ios_controller.h"
+#import "ios/web/public/webui/web_ui_ios_controller_factory.h"
 #import "ios/web/security/wk_web_view_security_util.h"
 #import "ios/web/test/fakes/crw_fake_back_forward_list.h"
 #import "ios/web/test/fakes/crw_fake_web_view_content_view.h"
@@ -60,13 +62,14 @@
 #import "net/cert/x509_util_apple.h"
 #import "net/ssl/ssl_info.h"
 #import "net/test/cert_test_util.h"
+#import "net/test/embedded_test_server/default_handlers.h"
+#import "net/test/embedded_test_server/embedded_test_server.h"
 #import "net/test/test_data_directory.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
 #import "third_party/ocmock/ocmock_extensions.h"
-#import "ui/base/device_form_factor.h"
 #import "url/scheme_host_port.h"
 
 @interface CRWWebController (Testing)
@@ -370,10 +373,6 @@ TEST_F(CRWWebControllerTest, UnsetObscuredContentInsetsPreservesWebViewInsets) {
 // Tests `shouldSuppressInputViews` default value, toggling this property, and
 // propagating the state when creating a new web view.
 TEST_F(CRWWebControllerTest, SetShouldSuppressInputViews) {
-  // TODO(crbug.com/556733164): Add iPad support.
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
-    GTEST_SKIP();
-  }
   EXPECT_FALSE(web_controller().shouldSuppressInputViews);
 
   OCMExpect([mock_web_view_ setShouldSuppressInputViews:YES]);
@@ -2279,13 +2278,148 @@ TEST_F(
   }));
 }
 
+// Tests that WebUI is not created when a navigation is cancelled by a policy
+// decider, and is created when the policy decider allows the navigation.
+TEST_F(CRWWebControllerPolicyDeciderTest,
+       WebUINotCreatedWhenPolicyDeciderCancelsNavigation) {
+  class MinimalWebUIControllerFactory : public WebUIIOSControllerFactory {
+   public:
+    std::unique_ptr<WebUIIOSController> CreateWebUIIOSControllerForURL(
+        WebUIIOS* web_ui,
+        const GURL& url) const override {
+      return std::make_unique<WebUIIOSController>(web_ui, url.GetHost());
+    }
+    NSInteger GetErrorCodeForWebUIURL(const GURL& url) const override {
+      return url.SchemeIs(kTestWebUIScheme) ? 0 : NSURLErrorUnsupportedURL;
+    }
+  };
+
+  MinimalWebUIControllerFactory factory;
+  WebUIIOSControllerFactory::RegisterFactory(&factory);
+
+  [fake_wk_list_ setCurrentURL:@(kTestAppSpecificURL)];
+  NSURL* app_url = [NSURL URLWithString:@(kTestAppSpecificURL)];
+  NSMutableURLRequest* app_request =
+      [NSMutableURLRequest requestWithURL:app_url];
+  app_request.mainDocumentURL = app_url;
+
+  FakeWKFrameInfo* main_frame = [[FakeWKFrameInfo alloc] init];
+  main_frame.mainFrame = YES;
+  main_frame.webView = mock_web_view_;
+
+  CRWFakeWKNavigationAction* action = [[CRWFakeWKNavigationAction alloc] init];
+  action.request = app_request;
+  action.navigationType = WKNavigationTypeBackForward;
+  action.targetFrame = (WKFrameInfo*)main_frame;
+
+  FakeWebStatePolicyDecider policy_decider(web_state());
+  policy_decider.SetShouldAllowRequest(
+      web::WebStatePolicyDecider::PolicyDecision::Cancel());
+
+  WebStateImpl* web_state_impl = WebStateImpl::FromWebState(web_state());
+
+  // 1. Back-forward navigation to an app-specific URL cancelled by a policy
+  // decider must not create a WebUI instance on the WebState.
+  __block bool callback_called = false;
+  [navigation_delegate_ webView:mock_web_view_
+      decidePolicyForNavigationAction:action
+                          preferences:[[WKWebpagePreferences alloc] init]
+                      decisionHandler:^(WKNavigationActionPolicy policy,
+                                        WKWebpagePreferences* ignored) {
+                        EXPECT_EQ(policy, WKNavigationActionPolicyCancel);
+                        callback_called = true;
+                      }];
+  ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    return callback_called;
+  }));
+  EXPECT_FALSE(web_state_impl->HasWebUI());
+
+  // 2. When the policy decider allows the navigation, WebUI is created.
+  policy_decider.SetShouldAllowRequest(
+      web::WebStatePolicyDecider::PolicyDecision::Allow());
+  callback_called = false;
+  [navigation_delegate_ webView:mock_web_view_
+      decidePolicyForNavigationAction:action
+                          preferences:[[WKWebpagePreferences alloc] init]
+                      decisionHandler:^(WKNavigationActionPolicy policy,
+                                        WKWebpagePreferences* ignored) {
+                        EXPECT_EQ(policy, WKNavigationActionPolicyAllow);
+                        callback_called = true;
+                      }];
+  ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    return callback_called;
+  }));
+  EXPECT_TRUE(web_state_impl->HasWebUI());
+
+  web_state_impl->ClearWebUI();
+  WebUIIOSControllerFactory::DeregisterFactory(&factory);
+}
+
+// Tests that a back-forward navigation to an app-specific URL is only allowed
+// when `backForwardList.currentItem.URL` matches the requested app-specific
+// URL, and is rejected when a back-forward navigation to a regular web URL
+// redirects to an app-specific URL.
+TEST_F(CRWWebControllerPolicyDeciderTest,
+       BackForwardAppSpecificNavigationRequiresMatchingCurrentItemURL) {
+  NSURL* app_url = [NSURL URLWithString:@(kTestAppSpecificURL)];
+  NSMutableURLRequest* app_request =
+      [NSMutableURLRequest requestWithURL:app_url];
+  app_request.mainDocumentURL = app_url;
+
+  FakeWKFrameInfo* main_frame = [[FakeWKFrameInfo alloc] init];
+  main_frame.mainFrame = YES;
+  main_frame.webView = mock_web_view_;
+
+  CRWFakeWKNavigationAction* action = [[CRWFakeWKNavigationAction alloc] init];
+  action.request = app_request;
+  action.navigationType = WKNavigationTypeBackForward;
+  action.targetFrame = (WKFrameInfo*)main_frame;
+
+  // 1. Back-forward navigation where `currentItem` is a web URL (e.g. a server
+  // redirect from a history entry to an app-specific URL) must be cancelled.
+  [fake_wk_list_ setCurrentURL:@(kTestURLString)];
+  __block bool callback_called = false;
+  [navigation_delegate_ webView:mock_web_view_
+      decidePolicyForNavigationAction:action
+                          preferences:[[WKWebpagePreferences alloc] init]
+                      decisionHandler:^(WKNavigationActionPolicy policy,
+                                        WKWebpagePreferences* ignored) {
+                        EXPECT_EQ(policy, WKNavigationActionPolicyCancel);
+                        callback_called = true;
+                      }];
+  ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    return callback_called;
+  }));
+  EXPECT_FALSE(WebStateImpl::FromWebState(web_state())->HasWebUI());
+
+  // 2. Back-forward navigation where `currentItem` matches the requested
+  // app-specific URL is allowed.
+  [fake_wk_list_ setCurrentURL:@(kTestAppSpecificURL)];
+  callback_called = false;
+  [navigation_delegate_ webView:mock_web_view_
+      decidePolicyForNavigationAction:action
+                          preferences:[[WKWebpagePreferences alloc] init]
+                      decisionHandler:^(WKNavigationActionPolicy policy,
+                                        WKWebpagePreferences* ignored) {
+                        EXPECT_EQ(policy, WKNavigationActionPolicyAllow);
+                        callback_called = true;
+                      }];
+  ASSERT_TRUE(WaitUntilConditionOrTimeout(kWaitForPageLoadTimeout, ^{
+    return callback_called;
+  }));
+}
+
 // Test fixture for window.open tests.
 class WindowOpenByDomTest : public WebTestWithWebController {
  protected:
-  WindowOpenByDomTest() : opener_url_("http://test") {}
-
   void SetUp() override {
     WebTestWithWebController::SetUp();
+    net::test_server::RegisterDefaultHandlers(&server_);
+    ASSERT_TRUE(server_.Start());
+    // The opener URL must be the origin root: WKWebView reports the opener of
+    // a popup through the origin-only Referer header, which is what the popup
+    // tests compare against.
+    opener_url_ = server_.GetURL("/");
     web_state()->SetDelegate(&delegate_);
     LoadHtml(@"<html><body></body></html>", opener_url_);
   }
@@ -2302,7 +2436,8 @@ class WindowOpenByDomTest : public WebTestWithWebController {
   void CloseWindow() { ExecuteJavaScript(@"w.close()"); }
 
   // URL of a page which opens child windows.
-  const GURL opener_url_;
+  GURL opener_url_;
+  net::EmbeddedTestServer server_;
   FakeWebStateDelegate delegate_;
 };
 
@@ -2369,21 +2504,18 @@ TEST_F(WindowOpenByDomTest, CloseWindow) {
 }
 
 // Tests that calling document.write() on a newly-opened window doesn't crash.
-// TODO(crbug.com/433776063): The test fails on device.
-#if TARGET_OS_SIMULATOR
-#define MAYBE_DocumentWrite DocumentWrite
-#else
-#define MAYBE_DocumentWrite DISABLED_DocumentWrite
-#endif
-TEST_F(WindowOpenByDomTest, MAYBE_DocumentWrite) {
+TEST_F(WindowOpenByDomTest, DocumentWrite) {
   delegate_.allow_popups(opener_url_);
 
-  NSString* const kDocumentWriteScript =
-      @"var w = window.open();"
-      @"w.document.write('<p>Hello</p>');"
-      @"w.document.write(\"<meta http-equiv='refresh' content='0; url=\""
-      @"+ location.toString() + \"'>\");"
-      @"w.document.close();";
+  // Reload the child window with a page served by the test server so the
+  // meta-refresh navigation completes and replaces the written content.
+  NSString* const kDocumentWriteScript = [NSString
+      stringWithFormat:@"var w = window.open();"
+                        "w.document.write('<p>Hello</p>');"
+                        "w.document.write(\"<meta http-equiv='refresh' "
+                        "content='0; url=%s'>\");"
+                        "w.document.close();",
+                       server_.GetURL("/echo").spec().c_str()];
 
   ExecuteJavaScript(kDocumentWriteScript);
   EXPECT_EQ(1U, delegate_.child_windows().size());

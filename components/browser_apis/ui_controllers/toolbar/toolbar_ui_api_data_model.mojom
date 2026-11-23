@@ -8,6 +8,7 @@ import "components/browser_apis/browser_controls/browser_controls_api_data_model
 import "components/browser_apis/ui_controllers/toolbar/extensions_bar_data_model.mojom";
 import "components/browser_apis/ui_controllers/toolbar/icon_handle.mojom";
 import "components/content_settings/core/common/content_settings_types.mojom";
+import "mojo/public/mojom/base/empty.mojom";
 import "mojo/public/mojom/base/string16.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "skia/public/mojom/skcolor.mojom";
@@ -58,6 +59,11 @@ enum ContextMenuType {
   kPinnedActionSidePanelShowMerchantTrust,
   kPinnedActionSendSharedTabGroupFeedback,
   kPinnedActionSidePanelShowComments,
+  kPinnedActionShowAiOverlayDialog,
+  kPinnedActionTtcToolbar,
+  kPinnedActionSidePanelShowHistory,
+  kPinnedActionShowChromeLabs,
+  kPinnedActionSidePanelShowGlic,
   // App Menu Button
   kAppMenu,
   // Glic Button
@@ -198,6 +204,8 @@ union OmniboxAction {
   OmniboxActionPointer pointer;
   OmniboxActionDropText drop_text;
   OmniboxActionDropFile drop_file;
+  // Notifies the browser the user started dragging text out of the omnibox.
+  mojo_base.mojom.Empty drag_start;
 };
 
 struct ReloadControlState {
@@ -306,6 +314,15 @@ struct GlicButtonState {
   bool should_show = false;
   // Whether the context menu is currently visible.
   bool is_context_menu_visible = false;
+  // Whether the button background should match the toolbar instead of using
+  // the highlighted Glic chip background. Mirrors
+  // `glic::ToolbarGlicButton::UpdateStyle()`.
+  bool should_match_toolbar_style = false;
+  // Whether a custom (extension) theme is in use, in which case the button
+  // uses the avatar button highlight colors regardless of
+  // `should_match_toolbar_style`. Mirrors
+  // `glic::GlicButton::ShouldApplyCustomThemeFallback()`.
+  bool use_custom_theme_fallback = false;
   // Dynamic nudge label to display in the button when a nudge is active, if
   // available. This string is for display only and must not be
   // programmatically parsed.
@@ -320,7 +337,7 @@ struct GlicButtonState {
 enum AppMenuIconType {
   kNone,
   kUpgradeNotification,
-  kGlobalError, // e.g. sign-in error.
+  kGlobalError,  // e.g. sign-in error.
 };
 
 // The severity level of the app menu icon (e.g., for updates or errors).
@@ -382,6 +399,17 @@ struct AvatarControlState {
   mojo_base.mojom.String16 accessibility_description;
   bool enabled = true;
   bool has_linear_gradient_ring = false;
+
+  // When true, the button is exempt from overflow logic, which normally hides
+  // the button and adds it to the overflow menu when there's insufficient space
+  // for it to fit.
+  //
+  // Set while the browser is waiting to show a bubble anchored to the avatar
+  // button (e.g., the profile menu), and while that bubble is open, since the
+  // bubble needs the button to remain visible.
+  //
+  // Corresponds to `OverflowableButtonState.preventOverflow`.
+  bool prevent_overflow = false;
 };
 
 // Current state related to and managed by the overflow button.
@@ -422,10 +450,10 @@ enum ContentSettingImageType {
   kStorageAccess = 19,
   // kMidi = 20, // Deprecated.
   kNotifications = 21,
-  [EnableIf=is_chromeos]
-  kSmartCard = 22,
-  [EnableIf=is_win]
-  kProtectedMediaIdentifier = 23,
+
+  [EnableIf=is_chromeos] kSmartCard = 22,
+
+  [EnableIf=is_win] kProtectedMediaIdentifier = 23,
 };
 
 // These fields correspond to the accessors of ContentSettingImageModel.
@@ -498,7 +526,9 @@ enum PageActionId {
   kActionShowPaymentsChurnedUsersBubble,
   kActionFakePageActionForDebug,
   kActionWalletReminderNotice,
+  kActionGmailOtpOptIn,
 };
+
 // LINT.ThenChange(//chrome/browser/ui/page_action/page_action_properties_provider.cc:kPageActionProperties,//chrome/browser/ui/page_action/action_ids.h:kActionIds)
 
 // The input modality that causes the page action to trigger: click, keyboard
@@ -555,6 +585,9 @@ struct PageActionState {
 
   // Overrides background color from its usual behavior.
   skia.mojom.SkColor? background_color_override;
+
+  // Overrides foreground (icon and text) color from its usual behavior.
+  skia.mojom.SkColor? foreground_color_override;
 
   // The TrackedElement id to use for the page action icon button. Used for
   // element tracking.
@@ -646,6 +679,9 @@ struct OmniboxViewState {
   // This is the same as `user_input_in_progress` in LocationBarFlags, but also
   // included here for convenience.
   bool user_input_in_progress = false;
+
+  // True if temporary text is being displayed, i.e. from suggestions.
+  bool has_temporary_text = false;
 };
 
 struct LocationBarFlags {
@@ -678,36 +714,41 @@ struct SelectedKeywordState {
 
 // Enum of all supported pinned toolbar actions.
 enum PinnedToolbarAction {
- kUnspecified, // Unused; triggers assert if used.
- kNewIncognitoWindow,
- kShowPasswordsBubbleOrPage,
- kShowPaymentsBubbleOrPage,
- kShowAddressesBubbleOrPage,
- kSidePanelShowBookmarks,
- kSidePanelShowReadingList,
- kSidePanelShowHistoryCluster,
- kShowDownloads,
- kClearBrowsingData,
- kPrint,
- kSidePanelShowLensOverlayResults,
- kShowTranslate,
- kQrCodeGenerator,
- kRouteMedia,
- kSidePanelShowReadAnything,
- kCopyUrl,
- kSendTabToSelf,
- kTaskManager,
- kDevTools,
- kTabSearch,
- kSidePanelShowContextualTasks,
- kSidePanelShowLens,
- kSidePanelShowAboutThisSite,
- kSidePanelShowCustomizeChrome,
- kSidePanelShowShoppingInsights,
- kSidePanelShowMerchantTrust,
- kSendSharedTabGroupFeedback,
- kSidePanelShowComments,
- kDivider, // A divider; not a clickable action.
+  kUnspecified,  // Unused; triggers assert if used.
+  kNewIncognitoWindow,
+  kShowPasswordsBubbleOrPage,
+  kShowPaymentsBubbleOrPage,
+  kShowAddressesBubbleOrPage,
+  kSidePanelShowBookmarks,
+  kSidePanelShowReadingList,
+  kSidePanelShowHistoryCluster,
+  kShowDownloads,
+  kClearBrowsingData,
+  kPrint,
+  kSidePanelShowLensOverlayResults,
+  kShowTranslate,
+  kQrCodeGenerator,
+  kRouteMedia,
+  kSidePanelShowReadAnything,
+  kCopyUrl,
+  kSendTabToSelf,
+  kTaskManager,
+  kDevTools,
+  kTabSearch,
+  kSidePanelShowContextualTasks,
+  kSidePanelShowLens,
+  kSidePanelShowAboutThisSite,
+  kSidePanelShowCustomizeChrome,
+  kSidePanelShowShoppingInsights,
+  kSidePanelShowMerchantTrust,
+  kSendSharedTabGroupFeedback,
+  kSidePanelShowComments,
+  kShowAiOverlayDialog,
+  kTtcToolbar,
+  kSidePanelShowHistory,
+  kShowChromeLabs,
+  kSidePanelShowGlic,
+  kDivider,  // A divider; not a clickable action.
 };
 
 // The status of the progress ring drawn around a pinned toolbar action
@@ -766,6 +807,10 @@ struct PinnedToolbarActionState {
   // The progress ring to draw around the icon, if any. Null if this action
   // never draws a progress ring.
   DownloadProgressRingState? progress_ring;
+
+  // The number to show in the badge drawn over the icon, if any. Null if this
+  // action has no badge.
+  int32? badge_number;
 };
 
 struct LocationBarState {
@@ -935,6 +980,13 @@ struct ToolbarState {
 
   // State of the Glic button in the toolbar.
   GlicButtonState glic_button_state;
+
+  // True while toolbar button icons should use the inactive color because the
+  // browser window is inactive. Only ever true on platforms where
+  // views::PlatformStyle::kInactiveWidgetControlsAppearDisabled is set (Mac),
+  // matching native toolbar buttons, which use kColorToolbarButtonIconInactive
+  // in that case.
+  bool controls_appear_inactive = false;
 };
 
 enum FocusRequestTarget {

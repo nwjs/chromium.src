@@ -4,7 +4,6 @@
 
 #include "chrome/browser/android/omnibox/composebox_query_controller_bridge.h"
 
-#include <algorithm>
 #include <memory>
 #include <utility>
 
@@ -102,25 +101,25 @@ bool IsFuseboxEligibleForProfileInternal(Profile* profile) {
 }
 }  // namespace
 
-static int64_t JNI_ComposeboxQueryControllerBridge_Init(
+static jni_zero::JniUniquePtr<ComposeboxQueryControllerBridge>
+JNI_ComposeboxQueryControllerBridge_Init(
     const base::android::JavaRef<jobject>& java_obj,
     Profile* profile,
     content::WebContents* web_contents) {
   auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile);
   if (!aim_service || !aim_service->IsAimEligible()) {
-    return 0L;
+    return nullptr;
   }
 
   // TODO(crbug.com/469142288): this should only disable sharing; for now the
   // resolution is that in M144 we disable all of the fusebox.
   if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
           profile->GetPrefs())) {
-    return 0L;
+    return nullptr;
   }
 
-  ComposeboxQueryControllerBridge* instance =
-      new ComposeboxQueryControllerBridge(java_obj, profile, web_contents);
-  return reinterpret_cast<intptr_t>(instance);
+  return jni_zero::MakeUnique<ComposeboxQueryControllerBridge>(
+      java_obj, profile, web_contents);
 }
 
 ComposeboxQueryControllerBridge::ComposeboxQueryControllerBridge(
@@ -165,9 +164,7 @@ ComposeboxQueryControllerBridge::ComposeboxQueryControllerBridge(
   query_controller()->AddObserver(this);
 }
 
-ComposeboxQueryControllerBridge::~ComposeboxQueryControllerBridge() = default;
-
-void ComposeboxQueryControllerBridge::Destroy() {
+ComposeboxQueryControllerBridge::~ComposeboxQueryControllerBridge() {
   // Query controller is accessed through a weak ptr, possible that during
   // shutdown it's already gone.
   contextual_search::ContextualSearchContextController* controller =
@@ -175,8 +172,6 @@ void ComposeboxQueryControllerBridge::Destroy() {
   if (controller) {
     controller->RemoveObserver(this);
   }
-
-  delete this;
 }
 
 size_t ComposeboxQueryControllerBridge::GetAttachmentCount() const {
@@ -737,35 +732,6 @@ std::vector<int32_t> ComposeboxQueryControllerBridge::GetSelectedTabIds()
 static bool JNI_ComposeboxQueryControllerBridge_IsFuseboxEligibleForProfile(
     Profile* profile) {
   return IsFuseboxEligibleForProfileInternal(profile);
-}
-
-static bool JNI_ComposeboxQueryControllerBridge_IsToolAllowedForProfile(
-    Profile* profile,
-    omnibox::ToolMode tool_mode) {
-  if (!profile) {
-    return false;
-  }
-
-  // Mirror the checks in JNI_ComposeboxQueryControllerBridge_Init(): if a
-  // controller can't be created, no tools are available.
-  AimEligibilityService* aim_service =
-      AimEligibilityServiceFactory::GetForProfile(profile);
-  if (!aim_service || !aim_service->IsAimEligible()) {
-    return false;
-  }
-  if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
-          profile->GetPrefs())) {
-    return false;
-  }
-
-  const omnibox::SearchboxConfig* config = aim_service->GetSearchboxConfig();
-  if (!config) {
-    return false;
-  }
-  return std::ranges::contains(
-      contextual_search::InputStateModel::GetAllowedTools(
-          *config, profile->IsOffTheRecord()),
-      tool_mode);
 }
 
 DEFINE_JNI(ComposeboxQueryControllerBridge)

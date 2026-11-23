@@ -404,6 +404,39 @@ TEST_P(InvalidIfTest, ContainsInvalidIf) {
       *context));
 }
 
+TEST(CSSVariableParserTest, StripTrailingWhitespaceAndComments) {
+  struct {
+    const char* input;
+    const char* expected;
+  } cases[] = {
+      {"", ""},
+      {"a", "a"},
+      {"a   ", "a"},
+      {" \t\n", ""},
+      {"a /* c */", "a"},
+      {"a /* c */ /* d */ ", "a"},
+      {"a/**/", "a"},
+      {"a /* c */ b", "a /* c */ b"},
+      {"a /* unfinished", "a"},
+      {"a \"/* not a comment */\"  ", "a \"/* not a comment */\""},
+      {"a '/*' ", "a '/*'"},
+      {"url(a/b) ", "url(a/b)"},
+  };
+  for (const auto& test : cases) {
+    for (bool wide : {false, true}) {
+      String input(test.input);
+      if (wide) {
+        input.Ensure16Bit();
+      }
+      SCOPED_TRACE(testing::Message()
+                   << "'" << test.input << "'" << (wide ? " (16-bit)" : ""));
+      EXPECT_EQ(CSSVariableParser::StripTrailingWhitespaceAndComments(input)
+                    .ToString(),
+                String(test.expected));
+    }
+  }
+}
+
 TEST(CSSVariableParserTest, ParseDeclarationValueWithDashedFunctions) {
   auto* context = MakeGarbageCollected<CSSParserContext>(
       kHTMLStandardMode, SecureContextMode::kInsecureContext);
@@ -507,6 +540,17 @@ TEST_P(CollectDashedFunctionsTest, CollectionTest) {
   }
 
   EXPECT_EQ(String(param.expected_names), actual_joined.ToString());
+}
+
+TEST(CSSVariableParserTest, ParseDeclarationValueWithInheritDisabled) {
+  ScopedCSSInheritFunctionForTest feature(false);
+
+  auto* context = MakeGarbageCollected<CSSParserContext>(
+      kHTMLStandardMode, SecureContextMode::kInsecureContext);
+  CSSUnparsedDeclarationValue* value = CSSVariableParser::ParseDeclarationValue(
+      "inherit(--foo)",
+      /*is_animation_tainted=*/false, *context);
+  EXPECT_TRUE(value);
 }
 
 }  // namespace blink

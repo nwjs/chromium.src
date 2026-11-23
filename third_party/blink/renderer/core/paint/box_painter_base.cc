@@ -97,9 +97,6 @@ void ApplySpreadToShadowShape(ContouredRect& shadow_shape, float spread) {
 
 BackgroundColorPaintImageGenerator* GetBackgroundColorPaintImageGenerator(
     const Document& document) {
-  if (!RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled())
-    return nullptr;
-
   return document.GetFrame()->GetBackgroundColorPaintImageGenerator();
 }
 
@@ -403,7 +400,7 @@ void BoxPainterBase::PaintInsetBoxShadowWithInnerRect(
   if (!style.BoxShadow())
     return;
   auto bounds = ContouredBorderGeometry::PixelSnappedContouredBorderWithOutsets(
-      style, inner_rect, PhysicalBoxStrut());
+      style, inner_rect, gfx::Outsets());
   PaintInsetBoxShadow(info, bounds, style);
 }
 
@@ -676,7 +673,6 @@ BoxPainterBase::FillLayerInfo::FillLayerInfo(
   }
 
   bool composite_bgcolor_animation =
-      RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
       style.HasCurrentBackgroundColorAnimation() &&
       layer.GetType() == EFillLayerType::kBackground &&
       !(paint_flags & PaintFlag::kOmitCompositingInfo);
@@ -1214,7 +1210,8 @@ ContouredRect ContouredBorderRectForClip(
   if (bg_layer.Clip() == EFillBox::kFillBox ||
       bg_layer.Clip() == EFillBox::kContent) {
     border = ContouredBorderGeometry::PixelSnappedContouredBorderWithOutsets(
-        style, border_rect, border_padding_insets, info.sides_to_include);
+        style, border_rect, border_padding_insets.ToRoundedOutsets(),
+        info.sides_to_include);
     // Background of 'background-attachment: local' without visible/clip
     // overflow also needs to use inner border which is equivalent to kPadding.
   } else if (bg_layer.Clip() == EFillBox::kPadding ||

@@ -19,7 +19,7 @@
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
-#include "ash/style/system_shadow.h"
+#include "ash/style/system_decoration.h"
 #include "base/check.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -36,7 +36,6 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
-#include "ui/views/highlight_border.h"
 #include "ui/views/widget/widget.h"
 
 namespace ash {
@@ -246,8 +245,8 @@ GameDashboardToolbarView::GameDashboardToolbarView(
       cros_tokens::kCrosSysSystemBaseElevatedOpaque, kCornerRadius));
   SetBorder(views::CreateRoundedRectBorder(
       1, kCornerRadius, ui::ColorIds::kColorCrosSystemHighlightBorder));
-  shadow_ = SystemShadow::CreateShadowOnNinePatchLayerForView(
-      this, SystemShadow::Type::kElevation12);
+  shadow_ = SystemDecoration::CreateForView(
+      this, SystemDecoration::ShadowType::kElevation12);
   shadow_->SetRoundedCorners(gfx::RoundedCornersF(kCornerRadius));
 
   AddShortcutTiles();

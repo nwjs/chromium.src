@@ -45,7 +45,7 @@ class FakeSendTabToSelfModel final : public SendTabToSelfModel {
       NavigationHistory navigation_history,
       base::OnceCallback<void(SendTabToSelfResult)> commit_confirmation,
       ShareEntryPoint entry_point) override;
-  void DismissEntry(std::string_view guid) override;
+  void DismissEntryNotification(std::string_view guid) override;
   void MarkEntryOpened(std::string_view guid) override;
   void MarkEntryActivated(std::string_view guid,
                           ShareActivatedEntryPoint entry_point) override;
@@ -62,7 +62,6 @@ class FakeSendTabToSelfModel final : public SendTabToSelfModel {
   void SetTargetDeviceInfoSortedList(
       const std::vector<syncer::RemoteDeviceInfo>& devices);
   void AddTargetDevice(const syncer::RemoteDeviceInfo& device);
-  void SetLocalDeviceName(std::string_view device_name);
   void SetLocalCacheGuid(std::string_view cache_guid);
   void SetSendResult(SendTabToSelfResult result);
 
@@ -119,7 +118,6 @@ class FakeSendTabToSelfModel final : public SendTabToSelfModel {
  private:
   bool is_ready_ = true;
   bool has_valid_target_device_ = false;
-  std::string local_device_name_ = "device";
   std::string local_cache_guid_ = "";
   std::map<std::string, std::unique_ptr<SendTabToSelfEntry>, std::less<>>
       entries_;

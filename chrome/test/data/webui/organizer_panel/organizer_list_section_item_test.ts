@@ -7,6 +7,7 @@ import 'chrome://organizer-panel.top-chrome/organizer_panel.js';
 import type {OrganizerListSectionItemElement, StackedFaviconsElement} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
 import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import {getFaviconForPageURL} from 'chrome://resources/js/icon.js';
+import {getDeepActiveElement} from 'chrome://resources/js/util.js';
 import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -165,13 +166,33 @@ suite('OrganizerListSectionItemTest', () => {
     assertTrue(!!actionButton);
     assertEquals('cr:close', actionButton.getAttribute('iron-icon'));
     assertEquals('Close tab', actionButton.getAttribute('aria-label'));
+    assertFalse(actionButton.hasAttribute('title'));
 
     // Action button should be hidden when not hovered.
+    listItem.classList.remove('hovered');
+    listItem.$.crUrlListItem.classList.remove('hovered');
     assertFalse(isVisible(actionButton));
 
     // Action button should be displayed when hovered.
     listItem.classList.add('hovered');
     assertTrue(isVisible(actionButton));
+  });
+
+  test('renders hovered action button with tooltip', async () => {
+    listItem.item = {
+      title: ['Tab Group'],
+      hoveredActionButton: {
+        icon: 'cr:more-vert',
+        ariaLabel: 'More options',
+        tooltip: 'Options',
+      },
+    };
+    await microtasksFinished();
+
+    const actionButton =
+        listItem.shadowRoot.querySelector<HTMLElement>('#actionButton')!;
+    assertTrue(!!actionButton);
+    assertEquals('Options', actionButton.getAttribute('title'));
   });
 
   test('switches from trailing icon to action button on hover', async () => {
@@ -198,6 +219,8 @@ suite('OrganizerListSectionItemTest', () => {
     assertTrue(!!actionButton);
 
     // Initially, trailing icon is visible and action button is hidden.
+    listItem.classList.remove('hovered');
+    listItem.$.crUrlListItem.classList.remove('hovered');
     assertTrue(isVisible(trailingIcon));
     assertFalse(isVisible(actionButton));
 
@@ -333,7 +356,7 @@ suite('OrganizerListSectionItemTest', () => {
       'renders prefix icon with multiple URLs as stacked favicons',
       async () => {
         listItem.item = {
-          title: ['Split View'],
+          title: ['Split view'],
           prefixIcon: {
             stackedFavicons: {
               urls: [TEST_URL_1, TEST_URL_2],
@@ -365,7 +388,7 @@ suite('OrganizerListSectionItemTest', () => {
 
   test('forwards stacking orientation to stacked favicons', async () => {
     listItem.item = {
-      title: ['Split View Vertical'],
+      title: ['Split view vertical'],
       prefixIcon: {
         stackedFavicons: {
           urls: [TEST_URL_1, TEST_URL_2],
@@ -443,4 +466,109 @@ suite('OrganizerListSectionItemTest', () => {
         assertDeepEquals([[]], listItem.$.title.highlightRanges);
         assertDeepEquals([[]], listItem.$.description.highlightRanges);
       });
+
+  test(
+      'sets tabIndex to -1 on focusable element and supports focus()',
+      async () => {
+        listItem.item = {
+          title: ['Google Search'],
+        };
+        await microtasksFinished();
+
+        assertEquals(
+            -1, listItem.$.crUrlListItem.getFocusableElement().tabIndex);
+
+        listItem.focus();
+        assertEquals(
+            listItem.$.crUrlListItem.getFocusableElement(),
+            getDeepActiveElement());
+      });
+
+  test('tab navigation on item with action button', async () => {
+    listItem.item = {
+      title: ['Tab with close action'],
+      hoveredActionButton: {
+        icon: 'cr:close',
+        ariaLabel: 'Close tab',
+      },
+    };
+    await microtasksFinished();
+
+    listItem.focus();
+    assertEquals(
+        listItem.$.crUrlListItem.getFocusableElement(), getDeepActiveElement());
+
+    const actionButton =
+        listItem.shadowRoot.querySelector<HTMLElement>('#actionButton')!;
+    assertTrue(!!actionButton);
+
+    // Tab focuses action button
+    listItem.$.crUrlListItem.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }));
+    assertEquals(actionButton, getDeepActiveElement());
+
+    // Shift+Tab on action button returns focus to item
+    actionButton.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }));
+    assertEquals(
+        listItem.$.crUrlListItem.getFocusableElement(), getDeepActiveElement());
+
+    // Tab on action button fires focus-next-section
+    const whenFocusNextSection = eventToPromise('focus-next-section', listItem);
+    actionButton.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }));
+    await whenFocusNextSection;
+  });
+
+  test('tab navigation on item without action button', async () => {
+    listItem.item = {
+      title: ['Tab without action button'],
+    };
+    await microtasksFinished();
+
+    listItem.focus();
+
+    // Tab fires focus-next-section immediately
+    const whenFocusNextSection = eventToPromise('focus-next-section', listItem);
+    listItem.$.crUrlListItem.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }));
+    await whenFocusNextSection;
+  });
+
+  test('shift+tab on item fires focus-current-section', async () => {
+    listItem.item = {
+      title: ['Tab'],
+    };
+    await microtasksFinished();
+
+    listItem.focus();
+
+    const whenFocusCurrentSection =
+        eventToPromise('focus-current-section', listItem);
+    listItem.$.crUrlListItem.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }));
+    await whenFocusCurrentSection;
+  });
 });

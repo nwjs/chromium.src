@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/views/layout/layout_manager_base.h"
 #include "ui/views/view.h"
 
 class TabCollectionNode;
@@ -28,7 +29,7 @@ class TabGroupDataObserver;
 
 // The view class for the tab group container. It hosts the group header,
 // underline and all the tabs within the group, and serves as the drag target
-// for tab dragging. Layout is managed by TabGroupViewLayout.
+// for tab dragging.
 class TabGroupView : public TabCollectionZOrderManager,
                      public TabGroupHeaderView::Delegate,
                      public DraggedTabsContainer,
@@ -42,6 +43,19 @@ class TabGroupView : public TabCollectionZOrderManager,
   TabGroupView(const TabGroupView&) = delete;
   TabGroupView& operator=(const TabGroupView&) = delete;
   ~TabGroupView() override;
+
+  class LayoutManager : public views::LayoutManagerBase {
+   public:
+    virtual int GetCrossoverWidth() const;
+
+   protected:
+    // views::LayoutManagerBase:
+    void OnInstalled(views::View* host) override;
+
+    // Casts host_view() to a TabGroupView const ref, using static_cast. Avoids
+    // views::AsViewClass as it incurs overhead when checking metadata.
+    const class TabGroupView& TabGroupView() const;
+  };
 
   // views::View:
   void AddedToWidget() override;
@@ -63,9 +77,13 @@ class TabGroupView : public TabCollectionZOrderManager,
   void HideHoverCard(int update_type) const override;
   bool IsFocusInTabStrip() override;
   std::unique_ptr<ExpandOnHoverLock> AcquireExpandOnHoverLock() override;
+  std::unique_ptr<TabHoverCardController::ScopedHideHoverCardLock>
+  AcquireHoverCardHideLock() override;
   void ShiftGroupUp() override;
   void ShiftGroupDown() override;
   bool IsGroupFocused() const override;
+  bool IsUnfocusButtonFocused() const override;
+  bool CanShowEditorBubbleButton() const override;
   HorizontalTabClosingHelper* GetTabClosingHelper() const override;
 
   // TabCollectionAnimatingLayoutManager::Delegate:
@@ -74,9 +92,8 @@ class TabGroupView : public TabCollectionZOrderManager,
   bool ShouldAnimateOpacityForAddAndRemove(
       const views::View& child_view) const override;
   bool ShouldSnapToTarget(const views::View& child_view) const override;
-  std::optional<views::SizeBound> GetAvailableMainAxisSpaceOverride()
-      const override;
   void OnAnimationEnded() override;
+  bool ShouldAnimateLayout() override;
 
   bool IsCollapsed() const;
 
@@ -100,18 +117,14 @@ class TabGroupView : public TabCollectionZOrderManager,
   TabGroupLineView* group_line() { return group_line_; }
   const TabGroupLineView* group_line() const { return group_line_; }
 
-  // Sets the main-axis space allocated for this group during unpinned tab
-  // container layout passes.
-  void SetAvailableSpace(views::SizeBound space);
-  views::SizeBound available_space() const { return available_space_; }
-
   // Returns the minimum width for the group in horizontal orientation where all
   // child tabs have the same size. Below this width, an active tab has a larger
   // size than inactive tabs before the container scrolls.
   int GetCrossoverWidth() const;
 
  private:
-  friend class TabGroupViewLayout;
+  friend class TabGroupViewVerticalLayout;
+  friend class TabGroupViewHorizontalLayout;
 
   // DraggedTabsContainer:
   views::ScrollView* GetScrollViewForContainer() const override;
@@ -131,6 +144,7 @@ class TabGroupView : public TabCollectionZOrderManager,
 
   void ResetCollectionNode();
   void OnDataChanged();
+  void OnCollapseStateChanged(tabs::VerticalTabStripCollapseState state);
   void UpdateChildVisibilityForCollapseState(bool collapsed);
   void ExitFocusMode();
 
@@ -138,23 +152,20 @@ class TabGroupView : public TabCollectionZOrderManager,
   raw_ptr<TabCollectionNode> collection_node_ = nullptr;
   tab_groups::TabGroupVisualData tab_group_visual_data_;
   bool is_ephemeral_ = false;
-  const raw_ptr<TabGroupUnfocusButton> unfocus_header_ = nullptr;
-  const raw_ptr<TabGroupHeaderView> group_header_ = nullptr;
-  const raw_ptr<TabGroupLineView> group_line_ = nullptr;
-
-  // The available main-axis space allocated by the parent unpinned container.
-  views::SizeBound available_space_;
-
   // Tracked separately for layout purposes so child/underline visibility
   // updates occur only when collapse/expand animations complete, rather than
   // reacting immediately to visual data updates during animation.
   bool is_collapsed_ = false;
 
+  const raw_ptr<TabGroupUnfocusButton> unfocus_header_ = nullptr;
+  const raw_ptr<TabGroupHeaderView> group_header_ = nullptr;
+  const raw_ptr<TabGroupLineView> group_line_ = nullptr;
   const raw_ref<TabCollectionAnimatingLayoutManager> layout_manager_;
 
   std::unique_ptr<tabs::TabGroupDataObserver> tab_group_data_observer_;
   base::CallbackListSubscription tab_group_data_changed_subscription_;
   base::CallbackListSubscription node_destroyed_subscription_;
+  base::CallbackListSubscription collapsed_state_changed_subscription_;
   base::CallbackListSubscription paint_as_active_subscription_;
 };
 

@@ -36,17 +36,17 @@ namespace media {
 
 namespace {
 
-const int kStreamCloseDelaySeconds = 5;
+constexpr int kStreamCloseDelaySeconds = 5;
 
 // Default maximum number of output streams that can be open simultaneously
 // for all platforms.
-const int kDefaultMaxOutputStreams = 16;
+constexpr int kDefaultMaxOutputStreams = 16;
 
 // Default maximum number of input streams that can be open simultaneously
 // for all platforms.
-const int kMaxInputStreams = 16;
+constexpr int kMaxInputStreams = 16;
 
-const int kMaxInputChannels = 3;
+constexpr int kMaxInputChannels = 3;
 
 // Helper function to pass as callback when the audio debug recording is not
 // enabled.
@@ -283,6 +283,20 @@ AudioManagerBase::~AudioManagerBase() {
   //CHECK_EQ(0, num_output_streams_);
   // All the input streams should have been deleted.
   //CHECK(input_streams_.empty());
+}
+
+void AudioManagerBase::CloseIdleStreams() {
+  if (GetTaskRunner()->BelongsToCurrentThread()) {
+    CloseAllIdleStreamsOnAudioThread();
+    return;
+  }
+  // AudioManagerBase outlives `audio_thread_` (stopped in
+  // AudioManager::Shutdown() before ~AudioManagerBase()), so base::Unretained
+  // is safe.
+  GetTaskRunner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&AudioManagerBase::CloseAllIdleStreamsOnAudioThread,
+                     base::Unretained(this)));
 }
 
 void AudioManagerBase::LogAudioManagerStartup() {
@@ -735,6 +749,15 @@ void AudioManagerBase::ShutdownOnAudioThread() {
 
   // Close all output streams.
   output_dispatchers_.clear();
+}
+
+void AudioManagerBase::CloseAllIdleStreamsOnAudioThread() {
+  DCHECK(GetTaskRunner()->BelongsToCurrentThread());
+  for (auto& params : output_dispatchers_) {
+    if (params->dispatcher) {
+      params->dispatcher->CloseAllIdleStreams();
+    }
+  }
 }
 
 void AudioManagerBase::AddOutputDeviceChangeListener(

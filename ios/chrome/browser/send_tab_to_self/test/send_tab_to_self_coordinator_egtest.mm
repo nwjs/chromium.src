@@ -195,16 +195,6 @@ void DismissSendTabToSelfModal() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
   config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfPropagateScrollPosition);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfPropagateFormFields);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfExtraEntryPoints);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfEnhancedBottomsheet);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfPostSendToast);
-  config.features_enabled.push_back(
       send_tab_to_self::kSendTabToSelfIOSShareSheetDeviceList);
   return config;
 }
@@ -381,8 +371,8 @@ void DismissSendTabToSelfModal() {
   [[EarlGrey
       selectElementWithMatcher:grey_accessibilityLabel(kTargetDeviceName)]
       assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityLabel(
-                                          kSecondTargetDeviceName)]
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityLabel(kSecondTargetDeviceName)]
       assertWithMatcher:grey_sufficientlyVisible()];
   [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
                                           kSendTabToSelfModalSendButton)]
@@ -418,8 +408,7 @@ void DismissSendTabToSelfModal() {
                                    error:nil];
 }
 
-// Tests that when kSendTabToSelfPostSendToast is enabled, sending a tab to a
-// target device shows a success snackbar toast.
+// Tests that sending a tab to a target device shows a success snackbar toast.
 - (void)testSendTabToSelfAndVerifySuccessSnackbar {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   SetupActivePageAndOpenModal(self.testServer, kTargetDeviceName, fakeIdentity);
@@ -485,8 +474,7 @@ void DismissSendTabToSelfModal() {
       kPageText, textFragment);
 }
 
-// Tests that when kSendTabToSelfPostSendToast is enabled, a network failure
-// during send displays an error snackbar toast.
+// Tests that a network failure during send displays an error snackbar toast.
 - (void)testSendTabToSelfAndVerifyErrorSnackbar {
   SetupActivePageAndOpenModal(self.testServer, kTargetDeviceName,
                               [FakeSystemIdentity fakeIdentity1]);
@@ -527,7 +515,8 @@ void DismissSendTabToSelfModal() {
 // snackbar toast.
 - (void)testShareTabViaDirectTargetInShareSheetAndVerifySuccessSnackbar {
   [self setupHistogramTester];
-  FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
+  FakeSystemIdentity* fakeIdentity =
+      [FakeSystemIdentity fakeIdentityWithMissingNames];
   [ChromeEarlGrey addFakeSyncServerDeviceInfo:kTargetDeviceName
                          lastUpdatedTimestamp:base::Time::Now()];
   LoadActivePage(self.testServer);
@@ -577,7 +566,8 @@ void DismissSendTabToSelfModal() {
 // Tests that when network connectivity is lost, attempting to share a tab via a
 // direct target in the Share Sheet displays an error snackbar toast.
 - (void)testShareTabViaDirectTargetAndVerifyErrorSnackbarOnNetworkFailure {
-  FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
+  FakeSystemIdentity* fakeIdentity =
+      [FakeSystemIdentity fakeIdentityWithMissingNames];
   [ChromeEarlGrey addFakeSyncServerDeviceInfo:kTargetDeviceName
                          lastUpdatedTimestamp:base::Time::Now()];
   LoadActivePage(self.testServer);
@@ -1018,66 +1008,6 @@ void DismissSendTabToSelfModal() {
 
 @end
 
-@interface SendTabToSelfCoordinatorPostSendToastDisabledTestCase
-    : ChromeTestCase
-@end
-
-@implementation SendTabToSelfCoordinatorPostSendToastDisabledTestCase
-
-- (AppLaunchConfiguration)appConfigurationForTestCase {
-  AppLaunchConfiguration config = [super appConfigurationForTestCase];
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfPropagateScrollPosition);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfPropagateFormFields);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfExtraEntryPoints);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfEnhancedBottomsheet);
-  config.features_disabled.push_back(
-      send_tab_to_self::kSendTabToSelfPostSendToast);
-  return config;
-}
-
-- (void)setUp {
-  [super setUp];
-
-  GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
-}
-
-// Tests that when kSendTabToSelfPostSendToast is disabled, sending a tab to a
-// target device displays the legacy snackbar message.
-- (void)testSendTabToSelfShowsLegacySnackbarWhenPostSendToastDisabled {
-  SetupActivePageAndOpenModal(self.testServer, kTargetDeviceName,
-                              [FakeSystemIdentity fakeIdentity1]);
-
-  // Verify the device is shown in the device picker.
-  [ChromeEarlGrey
-      waitForSufficientlyVisibleElementWithMatcher:grey_accessibilityLabel(
-                                                       kTargetDeviceName)];
-
-  // Tap "Send".
-  [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                          kSendTabToSelfModalSendButton)]
-      performAction:grey_tap()];
-
-  // Verify that the bottom sheet is dismissed.
-  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
-                      grey_accessibilityID(kSendTabToSelfModalSendButton)];
-
-  // Wait for and verify the legacy snackbar message.
-  NSString* snackbarMessage =
-      l10n_util::GetNSStringF(IDS_IOS_SEND_TAB_TO_SELF_SNACKBAR_MESSAGE,
-                              base::SysNSStringToUTF16(kTargetDeviceName));
-  [ChromeEarlGrey
-      waitForSufficientlyVisibleElementWithMatcher:SnackbarWithMessage(
-                                                       snackbarMessage)];
-
-  DismissSnackbar();
-}
-
-@end
-
 @interface SendTabToSelfCoordinatorAutoOpenTestCase : ChromeTestCase
 @end
 
@@ -1085,13 +1015,6 @@ void DismissSendTabToSelfModal() {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfPropagateScrollPosition);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfPropagateFormFields);
-  config.features_enabled.push_back(
-      send_tab_to_self::kSendTabToSelfExtraEntryPoints);
-  config.features_enabled.push_back(send_tab_to_self::kSendTabToSelfAutoOpen);
   config.features_enabled.push_back(
       send_tab_to_self::kSendTabToSelfSupportAutoOpenInTabGrid);
   return config;
@@ -1114,9 +1037,8 @@ void DismissSendTabToSelfModal() {
   }];
 }
 
-// Tests that when kSendTabToSelfAutoOpen is enabled, receiving a shared tab
-// while active in the foreground automatically opens it as a background tab
-// and presents a snackbar banner.
+// Tests that receiving a shared tab while active in the foreground
+// automatically opens it as a background tab and presents a snackbar banner.
 - (void)testSendTabToSelfAutoOpenWhenReceivedInForeground {
   [ChromeEarlGrey addFakeSyncServerDeviceInfo:kTargetDeviceName
                          lastUpdatedTimestamp:base::Time::Now()];
@@ -1173,11 +1095,10 @@ void DismissSendTabToSelfModal() {
       @"%@ histogram not logged.", kActivatedEntryPointHistogram);
 }
 
-// Tests that when kSendTabToSelfAutoOpen is enabled and a shared tab is
-// received while there is no active WebState
-// (e.g., when all tabs are closed), it is
-// not opened immediately but is automatically opened as a background tab when
-// an active WebState is brought back to the foreground.
+// Tests that when a shared tab is received while there is no active WebState
+// (e.g., when all tabs are closed), it is not opened immediately but is
+// automatically opened as a background tab when an active WebState is brought
+// back to the foreground.
 - (void)testSendTabToSelfAutoOpenWhenBroughtToForeground {
   [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
   [ChromeEarlGrey addFakeSyncServerDeviceInfo:kTargetDeviceName
@@ -1408,11 +1329,11 @@ void DismissSendTabToSelfModal() {
       @"%@ histogram not logged.", kTimeOpenedToActivatedHistogram);
 }
 
-// Tests that when both kSendTabToSelfAutoOpen and
-// kSendTabToSelfSupportAutoOpenInTabGrid are enabled, and a shared tab is
-// received while in the Tab Grid, it is opened immediately in the background
-// adjacent to the active tab, displays its activity badge in the switcher, and
-// does not display an infobar banner upon returning to the foreground.
+// Tests that when kSendTabToSelfSupportAutoOpenInTabGrid is enabled, and a
+// shared tab is received while in the Tab Grid, it is opened immediately in the
+// background adjacent to the active tab, displays its activity badge in the
+// switcher, and does not display an infobar banner upon returning to the
+// foreground.
 - (void)testSendTabToSelfAutoOpenWhenReceivedInTabGrid {
   [ChromeEarlGrey addFakeSyncServerDeviceInfo:kTargetDeviceName
                          lastUpdatedTimestamp:base::Time::Now()];

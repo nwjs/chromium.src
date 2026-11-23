@@ -7,6 +7,7 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_header_view.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_intervention_view.h"
+#import "ios/chrome/browser/intelligence/actor/ui/actuation_suggestions_presenter.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_compact_view.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_constants.h"
 #import "ios/chrome/browser/intelligence/actor/ui/actuation_worklog_consumer.h"
@@ -22,6 +23,19 @@ namespace {
 
 // Point size for the header close button symbol.
 constexpr CGFloat kCloseButtonPointSize = 14.0;
+
+// Text used to measure the header as if it displayed a title and a subtitle.
+NSString* const kHeaderSizingPlaceholderText = @"Placeholder";
+
+// Returns the header density for `mode`. The minimized header is condensed so
+// that a title and a subtitle fit in about the same height as a title-only
+// header.
+ActuationHeaderDensity HeaderDensityForDisplayMode(
+    ActuationWorklogDisplayMode mode) {
+  return mode == ActuationWorklogDisplayModeMinimized
+             ? ActuationHeaderDensityCondensed
+             : ActuationHeaderDensityRegular;
+}
 
 }  // namespace
 
@@ -47,6 +61,10 @@ using intelligence::actor::kSpacingLarge;
   ActuationInterventionView* _interventionView;
   // Height of `_compactView`. Adjusted dynamically when its content changes.
   NSLayoutConstraint* _compactHeightConstraint;
+  // Mode-specific header content applied to `_headerView`.
+  ActuationHeaderContentVariants* _headerContentVariants;
+  // Offscreen header for content-independent height calculation.
+  ActuationHeaderView* _sizingHeaderView;
 
   BOOL _actuationActive;
 }
@@ -67,6 +85,7 @@ using intelligence::actor::kSpacingLarge;
     return;
   }
   _displayMode = displayMode;
+  [self updateHeaderContent];
   [self updateVisibility];
 }
 
@@ -76,16 +95,17 @@ using intelligence::actor::kSpacingLarge;
   // intervention is active.
   CGFloat interventionHeight = [self fittingHeightForView:_interventionView
                                               targetWidth:width];
+  CGFloat headerHeight = [self headerHeightForDisplayMode:mode];
   switch (mode) {
     case ActuationWorklogDisplayModeMinimized:
-      return [self headerHeight];
+      return headerHeight;
     case ActuationWorklogDisplayModeCompact:
-      return [self headerHeight] + _compactHeightConstraint.constant +
+      return headerHeight + _compactHeightConstraint.constant +
              interventionHeight;
     case ActuationWorklogDisplayModeExpanded:
       // Height needed to show the full timeline without scrolling, including
       // the bottom inset applied to `_fullView` in its scroll view.
-      return [self headerHeight] +
+      return headerHeight +
              [self fittingHeightForView:_fullView targetWidth:width] +
              kSpacingLarge + interventionHeight;
   }
@@ -98,6 +118,7 @@ using intelligence::actor::kSpacingLarge;
   self.view.backgroundColor = [UIColor colorNamed:kPrimaryBackgroundColor];
   [self setupSubviews];
   [self setupConstraints];
+  [self updateHeaderContent];
   [self updateVisibility];
 }
 
@@ -112,8 +133,9 @@ using intelligence::actor::kSpacingLarge;
   [self updateVisibility];
 }
 
-- (void)setTaskTitle:(NSString*)taskTitle {
-  _headerView.title = [taskTitle copy];
+- (void)setHeaderContentVariants:(ActuationHeaderContentVariants*)variants {
+  _headerContentVariants = variants;
+  [self updateHeaderContent];
 }
 
 - (void)updateWorklogWithItem:(ActuationWorklogItem*)item
@@ -134,6 +156,7 @@ using intelligence::actor::kSpacingLarge;
 }
 
 - (void)reset {
+  _headerContentVariants = nil;
   [_headerView reset];
   _headerView.primaryItem = [self createCloseItem];
   [_compactView reset];
@@ -149,6 +172,19 @@ using intelligence::actor::kSpacingLarge;
            didChangeHeight:(CGFloat)targetHeight {
   _compactHeightConstraint.constant = targetHeight;
   [self notifyHeightDidChange];
+}
+
+#pragma mark - ActuationWorklogItemViewDelegate
+
+- (void)worklogItemViewDidTapItem:(ActuationWorklogItemView*)itemView {
+  if (self.displayMode == ActuationWorklogDisplayModeExpanded) {
+    [_fullView handleTapOnView:itemView];
+  }
+}
+
+- (void)worklogItemView:(ActuationWorklogItemView*)itemView
+    didTapAccessoryItem:(ActuationWorklogAccessoryItem*)accessoryItem {
+  [self.suggestionsPresenter showSuggestionsPickerForAccessory:accessoryItem];
 }
 
 #pragma mark - Private
@@ -184,6 +220,7 @@ using intelligence::actor::kSpacingLarge;
   _compactView = [[ActuationWorklogCompactView alloc] init];
   _compactView.accessibilityIdentifier = kCompactWorklogAccessibilityIdentifier;
   _compactView.delegate = self;
+  _compactView.itemDelegate = self;
   _compactView.translatesAutoresizingMaskIntoConstraints = NO;
   [self.view addSubview:_compactView];
 
@@ -196,7 +233,7 @@ using intelligence::actor::kSpacingLarge;
   [self.view addSubview:_scrollView];
 
   _fullView = [[ActuationWorklogView alloc] initWithFrame:CGRectZero];
-  // TODO(crbug.com/550337643): Set delegate when interactions are handled.
+  _fullView.itemDelegate = self;
   _fullView.translatesAutoresizingMaskIntoConstraints = NO;
   [_scrollView addSubview:_fullView];
 
@@ -231,6 +268,15 @@ using intelligence::actor::kSpacingLarge;
   ]];
 }
 
+// Updates `_headerView` content and density for `_displayMode`.
+- (void)updateHeaderContent {
+  ActuationHeaderContent* content =
+      [_headerContentVariants contentForDisplayMode:_displayMode];
+  _headerView.title = content.title;
+  _headerView.subtitle = content.subtitle;
+  _headerView.density = HeaderDensityForDisplayMode(_displayMode);
+}
+
 // Updates visibility of the view and its subviews for `_displayMode`.
 - (void)updateVisibility {
   self.view.hidden = !_actuationActive;
@@ -255,14 +301,24 @@ using intelligence::actor::kSpacingLarge;
                 [self heightForDisplayMode:ActuationWorklogDisplayModeCompact]];
 }
 
-// Returns the height of `_headerView`, falling back to its fitting height
-// before the first layout pass.
-- (CGFloat)headerHeight {
-  CGFloat headerHeight = _headerView.bounds.size.height;
-  if (headerHeight > 0) {
-    return headerHeight;
+// Returns the header height for any given `mode`. A sizing view ensures we do
+// not mutate `_headerView`. The minimized height fits both title and subtitle
+// without clippping in the minimized display mode.
+- (CGFloat)headerHeightForDisplayMode:(ActuationWorklogDisplayMode)mode {
+  if (!_sizingHeaderView) {
+    _sizingHeaderView = [[ActuationHeaderView alloc] initWithFrame:CGRectZero];
   }
-  return [self fittingHeightForView:_headerView
+  ActuationHeaderContent* content =
+      [_headerContentVariants contentForDisplayMode:mode];
+  BOOL minimized = mode == ActuationWorklogDisplayModeMinimized;
+  _sizingHeaderView.title =
+      minimized ? kHeaderSizingPlaceholderText : content.title;
+  _sizingHeaderView.subtitle =
+      minimized ? kHeaderSizingPlaceholderText : content.subtitle;
+  _sizingHeaderView.density = HeaderDensityForDisplayMode(mode);
+  _sizingHeaderView.primaryItem = _headerView.primaryItem;
+  _sizingHeaderView.secondaryItems = _headerView.secondaryItems;
+  return [self fittingHeightForView:_sizingHeaderView
                         targetWidth:self.view.bounds.size.width];
 }
 
@@ -295,7 +351,7 @@ using intelligence::actor::kSpacingLarge;
 #pragma mark - ActuationInterventionViewDelegate
 
 - (void)interventionView:(ActuationInterventionView*)view
-        didTriggerAction:(ActuationInterventionAction)action {
+        didTriggerAction:(ActuationInterventionAction*)action {
   [self.mutator didTriggerInterventionAction:action];
 }
 

@@ -22,7 +22,6 @@
 #import "components/feature_engagement/test/mock_tracker.h"
 #import "components/history/core/browser/history_service.h"
 #import "components/image_fetcher/core/image_data_fetcher.h"
-#import "components/keyed_service/core/service_access_type.h"
 #import "components/ntp_tiles/icon_cacher.h"
 #import "components/ntp_tiles/most_visited_sites.h"
 #import "components/ntp_tiles/pref_names.h"
@@ -318,8 +317,7 @@ class MagicStackRankingModelTest : public PlatformTest {
         optimizationGuideService:nil
                  shoppingService:nil];
     history::HistoryService* history_service =
-        ios::HistoryServiceFactory::GetForProfile(
-            GetProfile(), ServiceAccessType::EXPLICIT_ACCESS);
+        ios::HistoryServiceFactory::GetForProfile(GetProfile());
     favicon::LargeIconService* large_icon_service =
         IOSChromeLargeIconServiceFactory::GetForProfile(GetProfile());
     LargeIconCache* cache =
@@ -344,7 +342,7 @@ class MagicStackRankingModelTest : public PlatformTest {
           accountManagerService:nullptr
               engagementTracker:tracker
               layoutGuideCenter:nil
-          aimEligibilityService:nullptr];
+            aiModeButtonService:nil];
 
     _safetyCheckMediator = [[SafetyCheckMagicStackMediator alloc]
         initWithSafetyCheckManager:IOSChromeSafetyCheckManagerFactory::
@@ -357,13 +355,15 @@ class MagicStackRankingModelTest : public PlatformTest {
     bookmark_model_ = bookmarks::TestBookmarkClient::CreateModel();
     app_store_bundle_service_ = std::make_unique<TestAppStoreBundleService>();
 
-    _tipsMediator = [[TipsMagicStackMediator alloc]
-        initWithIdentifier:segmentation_platform::TipIdentifier::kUnknown
-        profilePrefService:GetProfile()->GetPrefs()
-           shoppingService:shopping_service_.get()
-             bookmarkModel:bookmark_model_.get()
-              imageFetcher:std::make_unique<image_fetcher::ImageDataFetcher>(
-                               GetProfile()->GetSharedURLLoaderFactory())];
+    _tipsMediator = [[TipsMagicStackMediator
+        alloc] initWithIdentifier:segmentation_platform::TipIdentifier::kUnknown
+                    profilePrefService:GetProfile()->GetPrefs()
+                       shoppingService:shopping_service_.get()
+                         bookmarkModel:bookmark_model_.get()
+                          imageFetcher:
+                              std::make_unique<image_fetcher::ImageDataFetcher>(
+                                  GetProfile()->GetSharedURLLoaderFactory())
+        backgroundCustomizationService:nullptr];
 
     _priceTrackingPromoMediator = [[PriceTrackingPromoMediator alloc]
         initWithShoppingService:commerce::ShoppingServiceFactory::GetForProfile(

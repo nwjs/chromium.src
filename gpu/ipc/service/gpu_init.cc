@@ -39,7 +39,6 @@
 #include "gpu/config/gpu_info_collector.h"
 #include "gpu/config/gpu_preferences.h"
 #include "gpu/config/gpu_switches.h"
-#include "gpu/config/gpu_switching.h"
 #include "gpu/config/gpu_util.h"
 #include "gpu/ipc/service/gpu_init_2.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
@@ -150,8 +149,6 @@ void InitializePlatformOverlaySettings(GPUInfo* gpu_info,
       .enable_bgra8_overlays_with_yuv_overlay_support =
           gpu_feature_info.IsWorkaroundEnabled(
               gpu::ENABLE_BGRA8_OVERLAYS_WITH_YUV_OVERLAY_SUPPORT),
-      .force_nv12_overlay_support =
-          gpu_feature_info.IsWorkaroundEnabled(gpu::FORCE_NV12_OVERLAY_SUPPORT),
       .force_rgb10a2_overlay_support = gpu_feature_info.IsWorkaroundEnabled(
           gpu::FORCE_RGB10A2_OVERLAY_SUPPORT),
       .check_ycbcr_studio_g22_left_p709_for_nv12_support =
@@ -373,9 +370,7 @@ std::unique_ptr<GpuInit> GpuInit::Create() {
 
 GpuInitLegacy::GpuInitLegacy() = default;
 
-GpuInitLegacy::~GpuInitLegacy() {
-  StopForceDiscreteGPU();
-}
+GpuInitLegacy::~GpuInitLegacy() = default;
 
 void GpuInitLegacy::set_sandbox_helper(GpuSandboxHelper* helper) {
   sandbox_helper_ = helper;
@@ -494,10 +489,6 @@ bool GpuInitLegacy::InitializeAndStartSandbox(
   gpu_info_.in_process_gpu = false;
 
   DCHECK_EQ(gl::GetGLImplementation(), gl::kGLImplementationNone);
-  if (SwitchableGPUsSupported(gpu_info_, *command_line)) {
-    InitializeSwitchableGPUs(
-        gpu_feature_info_.enabled_gpu_driver_bug_workarounds);
-  }
   gl_use_swiftshader_ = EnableSwiftShaderIfNeeded(
       command_line, gpu_feature_info_,
       gpu_preferences_.disable_software_rasterizer, needs_more_info);
@@ -652,11 +643,6 @@ bool GpuInitLegacy::InitializeAndStartSandbox(
           command_line, gpu_feature_info_,
           gpu_preferences_.disable_software_rasterizer, false);
       if (gl_use_swiftshader_) {
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-        VLOG(1) << "Quit GPU process launch to fallback to SwiftShader cleanly "
-                << "on Linux";
-        return false;
-#else
         SaveHardwareGpuInfoAndGpuFeatureInfo();
         gl::init::ShutdownGL(gl_display, true);
         if (watchdog_thread_.get()) {
@@ -676,7 +662,6 @@ bool GpuInitLegacy::InitializeAndStartSandbox(
               << "failed";
           return false;
         }
-#endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
       }
     } else {  // gl_use_swiftshader_ == true
       switch (gpu_preferences_.use_vulkan) {
@@ -1163,10 +1148,6 @@ void GpuInitLegacy::InitializeInProcess(base::CommandLine* command_line,
 #endif  // defined(SUBPIXEL_FONT_RENDERING_DISABLED)
   gpu_feature_info_ = ComputeGpuFeatureInfo(gpu_info_, gpu_preferences_,
                                             command_line, &needs_more_info);
-  if (SwitchableGPUsSupported(gpu_info_, *command_line)) {
-    InitializeSwitchableGPUs(
-        gpu_feature_info_.enabled_gpu_driver_bug_workarounds);
-  }
 #endif  // !BUILDFLAG(IS_CASTOS) && !BUILDFLAG(IS_CAST_ANDROID)
 
   gl::GLDisplay* gl_display = nullptr;

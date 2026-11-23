@@ -70,6 +70,7 @@
 #include "third_party/blink/public/web/web_navigation_control.h"
 #include "third_party/blink/public/web/web_performance_metrics_for_nested_contexts.h"
 #include "third_party/blink/public/web/web_performance_metrics_for_reporting.h"
+#include "third_party/blink/public/web/web_performance_timings.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/editing/forward.h"
 #include "third_party/blink/renderer/core/exported/web_input_method_controller_impl.h"
@@ -351,6 +352,7 @@ class CORE_EXPORT WebLocalFrameImpl final
       const override;
   WebPerformanceMetricsForNestedContexts PerformanceMetricsForNestedContexts()
       const override;
+  WebPerformanceTimings PerformanceTimings() const override;
   bool IsAdFrame() const override;
   bool IsAdScriptInStack() const override;
   void SetAdEvidence(const FrameAdEvidence& ad_evidence) override;
@@ -372,7 +374,7 @@ class CORE_EXPORT WebLocalFrameImpl final
       mojom::blink::UserActivationNotificationType notification_type) override;
   bool HasStickyUserActivation() override;
   bool HasTransientUserActivation() override;
-  bool ConsumeTransientUserActivation(UserActivationUpdateSource) override;
+  bool ConsumeTransientUserActivation(UserActivationUpdateScope) override;
   bool LastActivationWasRestricted() const override;
 #if BUILDFLAG(IS_WIN)
   WebFontFamilyNames GetWebFontFamilyNames() const override;
@@ -439,6 +441,8 @@ class CORE_EXPORT WebLocalFrameImpl final
 
   bool IsFeatureEnabled(
       const network::mojom::PermissionsPolicyFeature&) const override;
+
+  bool IsInBackForwardCache() const override;
 
   void InitializeCoreFrame(
       Page&,

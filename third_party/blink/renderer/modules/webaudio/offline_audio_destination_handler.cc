@@ -23,7 +23,6 @@
 #include "third_party/blink/renderer/platform/audio/denormal_disabler.h"
 #include "third_party/blink/renderer/platform/audio/hrtf_database_loader.h"
 #include "third_party/blink/renderer/platform/scheduler/public/non_main_thread.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
@@ -176,7 +175,7 @@ void OfflineAudioDestinationHandler::SetSharedRenderTarget(
     AudioBuffer* render_target) {
   DCHECK(IsMainThread());
   CHECK(render_target);
-  DCHECK(!is_rendering_started_);
+  CHECK(!is_rendering_started_);
   // `DoOfflineRendering()` walks the target's channels while indexing into
   // `render_bus_`, so the two must always agree.
   CHECK_EQ(render_target->numberOfChannels(), number_of_channels_);

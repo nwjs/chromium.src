@@ -7,7 +7,6 @@ import("//third_party/blink/renderer/core/core.gni")
 blink_core_sources_workers = [
   "abstract_worker.cc",
   "abstract_worker.h",
-  "cross_thread_global_scope_creation_params_copier.h",
   "custom_event_message.h",
   "dedicated_worker.cc",
   "dedicated_worker.h",
@@ -88,6 +87,7 @@ blink_core_tests_workers = [
   "dedicated_worker_test.cc",
   "dedicated_worker_test.h",
   "main_thread_worklet_test.cc",
+  "shared_worker_test.cc",
   "threaded_worklet_test.cc",
   "worker_thread_test.cc",
   "worklet_global_scope_test_helper.h",

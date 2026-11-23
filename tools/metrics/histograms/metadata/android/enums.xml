@@ -99,6 +99,25 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AndroidBottomBarCandidateAction) -->
 
+<!-- LINT.IfChange(AndroidBottomBarEducationOnboardingEvent) -->
+
+<enum name="AndroidBottomBarEducationOnboardingEvent">
+  <int value="0" label="Shown"/>
+  <int value="1" label="Accepted"/>
+  <int value="2" label="Declined"/>
+  <int value="3" label="SettingsClicked"/>
+  <int value="4" label="DismissedOther"/>
+  <int value="5" label="TappedScrim">
+    Tapped outside the bubble, not on the bottom bar
+  </int>
+  <int value="6" label="TappedBottomBar">
+    Tapped the bottom bar, outside the bubble
+  </int>
+  <int value="7" label="BackPressed">Closed with system back</int>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AndroidBottomBarEducationOnboardingEvent) -->
+
 <!-- LINT.IfChange(AndroidBottomBarGlicButtonState) -->
 
 <enum name="AndroidBottomBarGlicButtonState">
@@ -135,9 +154,10 @@ chromium-metrics-reviews@google.com.
 <enum name="AndroidBottomBarIphEvent">
   <int value="0" label="Shown"/>
   <int value="1" label="Dismissed"/>
+  <int value="2" label="MovedToBottom"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:IphEvent) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AndroidBottomBarIphEvent) -->
 
 <!-- LINT.IfChange(AndroidBottomBarPromoEvent) -->
 
@@ -240,6 +260,18 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//ui/android/java/src/org/chromium/ui/dragdrop/DragAndDropDelegateImpl.java:DragTargetType) -->
 
+<!-- LINT.IfChange(AndroidFullscreenResizeResult) -->
+
+<enum name="AndroidFullscreenResizeResult">
+  <int value="0" label="Completed"/>
+  <int value="1" label="Exited fullscreen"/>
+  <int value="2" label="Hidden"/>
+  <int value="3" label="Evicted"/>
+  <int value="4" label="Destroyed"/>
+</enum>
+
+<!-- LINT.ThenChange(//ui/android/delegated_frame_host_android.h:AndroidFullscreenResizeResult) -->
+
 <enum name="AndroidKernelVersion">
   <int value="131078" label="2.6"/>
   <int value="196608" label="3.0"/>
@@ -329,6 +361,16 @@ chromium-metrics-reviews@google.com.
     more than 1 temporary files left in the temp directory.
   </int>
 </enum>
+
+<!-- LINT.IfChange(AndroidPdfFrozenStateWhenDisplayed) -->
+
+<enum name="AndroidPdfFrozenStateWhenDisplayed">
+  <int value="0" label="Not frozen"/>
+  <int value="1" label="Frozen (no unsaved changes)"/>
+  <int value="2" label="Frozen (with unsaved changes)"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/pdf/java/src/org/chromium/chrome/browser/pdf/PdfUtils.java:AndroidPdfFrozenStateWhenDisplayed) -->
 
 <!-- LINT.IfChange(AndroidPdfHyperlinkClickResult) -->
 
@@ -986,6 +1028,16 @@ chromium-metrics-reviews@google.com.
   <int value="231" label="PageState.getPage"/>
   <int value="232" label="Navigation.snapshotState"/>
   <int value="233" label="Page.snapshotState"/>
+  <int value="234" label="Profile.addHeaderInterceptor"/>
+  <int value="235" label="WebViewCompat.addHeaderInterceptor"/>
+  <int value="236" label="WebViewCompat.setGoogleAccountsCallback"/>
+  <int value="237" label="WebViewCompat.clearGoogleAccountsCallback"/>
+  <int value="238" label="GoogleAccountsEvent.getActionType"/>
+  <int value="239" label="GoogleAccountsEvent.getContinueUrl"/>
+  <int value="240" label="GoogleAccountsEvent.isOutermostMainFrame"/>
+  <int value="241" label="GoogleAccountsEvent.isNavigationRequest"/>
+  <int value="242" label="Profile.configureIsolatedSites"/>
+  <int value="243" label="Profile.canConfigureIsolatedSites"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -1359,6 +1411,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="TAB_STRIP_TO_NEW_INSTANCE"/>
   <int value="3" label="LINK_TO_NEW_INSTANCE"/>
   <int value="4" label="UNKNOWN_TO_NEW_INSTANCE"/>
+  <int value="5" label="LINK_TO_TAB_STRIP"/>
 </enum>
 
 <!-- LINT.IfChange(DroppedSequenceEventAndDownTimeDelta) -->
@@ -1492,6 +1545,18 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/hub/internal/android/java/src/org/chromium/chrome/browser/hub/HubToolbarMediator.java:HubSearchEntrypoint) -->
+
+<!-- LINT.IfChange(InAppUpdateAppMenuAction) -->
+
+<enum name="InAppUpdateAppMenuAction">
+  <int value="0" label="Trigger Download"/>
+  <int value="1" label="Trigger Restart"/>
+  <int value="2" label="Intent Fallback"/>
+  <int value="3" label="Already Downloading"/>
+  <int value="4" label="Restart Failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/omaha/android/java/src/org/chromium/chrome/browser/omaha/inline/InAppUpdateController.java:AppMenuAction) -->
 
 <!-- LINT.IfChange(InAppUpdateDownloadResult) -->
 
@@ -1706,6 +1771,8 @@ chromium-metrics-reviews@google.com.
   <int value="79" label="PasswordSavedConfirmation"/>
   <int value="80" label="EmailVerified"/>
   <int value="81" label="ResurrectChurnedUsers"/>
+  <int value="82" label="EmailVerificationError"/>
+  <int value="83" label="EmailVerificationLoading"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
@@ -1714,12 +1781,6 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="App is minimized but current tab is not closed"/>
   <int value="1" label="Current tab is closed but app is not minimized"/>
   <int value="2" label="App is minimized and current tab is closed"/>
-</enum>
-
-<enum name="MissingDeviceLockDialogEvent">
-  <int value="0" label="Dialog shown"/>
-  <int value="1" label="Continue without a device lock"/>
-  <int value="2" label="Device lock restored"/>
 </enum>
 
 <enum name="MissingNavbarInsetsReason">
@@ -1841,16 +1902,6 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/omnibox/browser/android/java/src/org/chromium/components/omnibox/OmniboxFocusReason.java:OmniboxFocusReason) -->
-
-<!-- LINT.IfChange(OmniboxJumpStartState) -->
-
-<enum name="OmniboxJumpStartState">
-  <int value="0" label="Not Eligible"/>
-  <int value="1" label="Enabled"/>
-  <int value="2" label="Disabled By User"/>
-</enum>
-
-<!-- LINT.ThenChange(//components/omnibox/common/android/java/src/org/chromium/components/omnibox/OmniboxFeatures.java:OmniboxJumpStartState) -->
 
 <!-- LINT.IfChange(OmniboxSuggestionUiType) -->
 
@@ -2347,6 +2398,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Tab Group Selected"/>
   <int value="6" label="URL Loaded / Query Submitted"/>
   <int value="7" label="Window Resized"/>
+  <int value="8" label="Recently Closed Tab Restored"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/android/features/tab_ui/java/src/org/chromium/chrome/browser/tasks/tab_management/TabSearchOverlayCoordinator.java:TabSearchDismissalReason) -->
@@ -3074,12 +3126,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//android_webview/java/src/org/chromium/android_webview/AwDataDirLock.java:WebViewLockOutcome)-->
 
-<enum name="WebViewMixedContentMode">
-  <int value="0" label="Always allow"/>
-  <int value="1" label="Never allow"/>
-  <int value="2" label="Compatibility Mode"/>
-</enum>
-
 <!-- LINT.IfChange(WebViewRendererKeepAliveEvent) -->
 
 <enum name="WebViewRendererKeepAliveEvent">
@@ -3264,6 +3310,8 @@ chromium-metrics-reviews@google.com.
   <int value="146" label="webViewInstanceAddJavaScriptOnEvent"/>
   <int value="147" label="webViewInstanceGetJavaScriptWorld"/>
   <int value="148" label="webViewInstanceGetProfile"/>
+  <int value="149" label="profileConfigureIsolatedSites"/>
+  <int value="150" label="profileCanConfigureIsolatedSites"/>
 </enum>
 
 <!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup,//android_webview/java/src/org/chromium/android_webview/StartupCallSite.java:StartupCallSite) -->

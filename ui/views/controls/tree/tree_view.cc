@@ -46,6 +46,7 @@
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/textfield/textfield.h"
 #include "ui/views/controls/tree/tree_view_controller.h"
+#include "ui/views/deprecated_layout_immediately_pass_key.h"
 #include "ui/views/style/platform_style.h"
 #include "ui/views/widget/widget.h"
 
@@ -148,14 +149,12 @@ void TreeView::SetModel(TreeModel* model) {
   model_ = model;
   selected_node_ = nullptr;
   active_node_ = nullptr;
-  icons_.clear();
   root_.Reset(nullptr);
   root_.DeleteAll();
   GetViewAccessibility().RemoveAllVirtualChildViews();
 
   if (model_) {
     tree_model_observation_.Observe(model_);
-    model_->GetIcons(&icons_);
 
     ConfigureInternalNode(model_->GetRoot(), &root_);
     std::unique_ptr<AXVirtualView> ax_root_view =
@@ -1136,7 +1135,7 @@ void TreeView::LayoutEditor() {
   // Scroll as necessary to ensure that the editor is visible.
   ScrollRectToVisible(outter_bounds);
   editor_->SetBoundsRect(row_bounds);
-  editor_->DeprecatedLayoutImmediately();
+  editor_->DeprecatedLayoutImmediately(DeprecatedLayoutImmediatelyPassKey());
 }
 
 void TreeView::SchedulePaintForNode(InternalNode* node) {
@@ -1266,25 +1265,12 @@ void TreeView::PaintExpandControl(gfx::Canvas* canvas,
 void TreeView::PaintNodeIcon(gfx::Canvas* canvas,
                              InternalNode* node,
                              const gfx::Rect& bounds) {
-  std::optional<size_t> icon_index = model_->GetIconIndex(node->model_node());
   int icon_x = kArrowRegionSize + kImagePadding;
-  if (!icon_index.has_value()) {
-    // Flip just the |bounds| region of |canvas|.
-    gfx::ScopedCanvas scoped_canvas(canvas);
-    canvas->Translate(gfx::Vector2d(bounds.x(), 0));
-    scoped_canvas.FlipIfRTL(bounds.width());
-    // Now paint the icon local to that flipped region.
-    PaintRowIcon(canvas, folder_icon_.Rasterize(GetColorProvider()), icon_x,
-                 gfx::Rect(0, bounds.y(), bounds.width(), bounds.height()));
-  } else {
-    const gfx::ImageSkia& icon =
-        icons_[icon_index.value()].Rasterize(GetColorProvider());
-    icon_x += (folder_icon_.Size().width() - icon.width()) / 2;
-    if (base::i18n::IsRTL()) {
-      icon_x = bounds.width() - icon_x - icon.width();
-    }
-    PaintRowIcon(canvas, icon, icon_x, bounds);
-  }
+  gfx::ScopedCanvas scoped_canvas(canvas);
+  canvas->Translate(gfx::Vector2d(bounds.x(), 0));
+  scoped_canvas.FlipIfRTL(bounds.width());
+  PaintRowIcon(canvas, folder_icon_.Rasterize(GetColorProvider()), icon_x,
+               gfx::Rect(0, bounds.y(), bounds.width(), bounds.height()));
 }
 
 TreeView::InternalNode* TreeView::GetInternalNodeForModelNode(

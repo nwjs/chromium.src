@@ -111,7 +111,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/platform_locale.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
-#include "third_party/blink/renderer/platform/wtf/text/strcat.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "ui/gfx/geometry/size.h"
 
 namespace blink {
@@ -1588,8 +1588,7 @@ void MediaControlsImpl::UpdateOverflowMenuItemCSSClass() const {
       continue;
     }
 
-    AtomicString css_class =
-        AtomicString(StrCat({"animated-", AtomicString::Number(id++)}));
+    AtomicString css_class = AtomicString(Format("animated-{}", id++));
     if (!class_list.contains(css_class))
       class_list.setValue(css_class);
   }
@@ -2091,6 +2090,28 @@ void MediaControlsImpl::OnTextTracksAddedOrRemoved() {
 
 void MediaControlsImpl::OnTextTracksChanged() {
   toggle_closed_captions_button_->UpdateDisplayType();
+}
+
+void MediaControlsImpl::OnAudioOrVideoTracksChanged() {
+  const bool show_video_button = ShouldShowTrackSelectionButton(
+      WebMediaPlayer::TrackType::kVideoTrack, MediaElement());
+  video_track_selector_button_->SetIsWanted(show_video_button);
+  if (show_video_button) {
+    video_track_selector_list_->RefreshTrackList();
+  } else {
+    video_track_selector_list_->SetIsWanted(false);
+  }
+
+  const bool show_audio_button = ShouldShowTrackSelectionButton(
+      WebMediaPlayer::TrackType::kAudioTrack, MediaElement());
+  audio_track_selector_button_->SetIsWanted(show_audio_button);
+  if (show_audio_button) {
+    audio_track_selector_list_->RefreshTrackList();
+  } else {
+    audio_track_selector_list_->SetIsWanted(false);
+  }
+
+  BatchedControlUpdate batch(this);
 }
 
 void MediaControlsImpl::OnError() {

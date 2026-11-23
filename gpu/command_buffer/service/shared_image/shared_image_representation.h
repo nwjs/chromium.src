@@ -17,6 +17,7 @@
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
+#include "gpu/command_buffer/service/shared_image/end_access_state.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
 #include "gpu/gpu_gles2_export.h"
 #include "gpu/vulkan/buildflags.h"
@@ -65,10 +66,6 @@ typedef unsigned int GLenum;
 namespace skgpu {
 class MutableTextureState;
 }
-
-namespace cc {
-class PaintOpBuffer;
-}  // namespace cc
 
 namespace gfx {
 class NativePixmap;
@@ -368,12 +365,11 @@ class GPU_GLES2_EXPORT SkiaImageRepresentation
     // Return the representations's implementation.
     bool NeedGraphiteContextSubmit();
 
-    // NOTE: Implemented only for Ganesh.
-    // Checks if there's a need to apply skgpu::MutableTextureState.
+    // Checks if there's a need to call ApplyBackendSurfaceEndState().
     virtual bool HasBackendSurfaceEndState() = 0;
-    // NOTE: Implemented only for Ganesh.
     // Applies the skgpu::MutableTextureState for Vulkan layout and external
-    // queue transitions needed for Vulkan/GL interop.
+    // queue transitions needed for Vulkan/GL interop. With Graphite it also
+    // adds signal semaphores where needed.
     virtual void ApplyBackendSurfaceEndState() = 0;
 
    protected:
@@ -439,11 +435,11 @@ class GPU_GLES2_EXPORT SkiaImageRepresentation
         SkImages::TextureReleaseProc texture_release_proc = nullptr,
         SkImages::ReleaseContext release_context = nullptr) = 0;
 
-    // NOTE: Implemented only for Ganesh.
-    // Checks if there's a need to apply skgpu::MutableTextureState.
+    // Checks if there's a need to call ApplyBackendSurfaceEndState().
     virtual bool HasBackendSurfaceEndState() = 0;
     // Applies the skgpu::MutableTextureState for Vulkan layout and external
-    // queue transitions needed for Vulkan/GL interop.
+    // queue transitions needed for Vulkan/GL interop. With Graphite it also
+    // adds signal semaphores where needed.
     virtual void ApplyBackendSurfaceEndState() = 0;
 
    protected:
@@ -686,15 +682,20 @@ class GPU_GLES2_EXPORT SkiaGraphiteImageRepresentation
     ScopedGraphiteWriteAccess(
         base::PassKey<SkiaGraphiteImageRepresentation> pass_key,
         SkiaImageRepresentation* representation,
-        std::vector<sk_sp<SkSurface>> surfaces);
+        std::vector<sk_sp<SkSurface>> surfaces,
+        EndAccessState end_access_state);
     ScopedGraphiteWriteAccess(
         base::PassKey<SkiaGraphiteImageRepresentation> pass_key,
         SkiaImageRepresentation* representation,
-        std::vector<scoped_refptr<GraphiteTextureHolder>> graphite_textures);
+        std::vector<scoped_refptr<GraphiteTextureHolder>> graphite_textures,
+        EndAccessState end_access_state);
     ~ScopedGraphiteWriteAccess() override;
 
     bool HasBackendSurfaceEndState() override;
     void ApplyBackendSurfaceEndState() override;
+
+   private:
+    EndAccessState end_access_state_;
   };
 
   class GPU_GLES2_EXPORT ScopedGraphiteReadAccess : public ScopedReadAccess {
@@ -702,7 +703,8 @@ class GPU_GLES2_EXPORT SkiaGraphiteImageRepresentation
     ScopedGraphiteReadAccess(
         base::PassKey<SkiaGraphiteImageRepresentation> pass_key,
         SkiaImageRepresentation* representation,
-        std::vector<scoped_refptr<GraphiteTextureHolder>> graphite_textures);
+        std::vector<scoped_refptr<GraphiteTextureHolder>> graphite_textures,
+        EndAccessState end_access_state);
     ~ScopedGraphiteReadAccess() override;
 
     // Creates an SkImage from BackendTexture for single planar formats or if
@@ -722,6 +724,9 @@ class GPU_GLES2_EXPORT SkiaGraphiteImageRepresentation
 
     bool HasBackendSurfaceEndState() override;
     void ApplyBackendSurfaceEndState() override;
+
+   private:
+    EndAccessState end_access_state_;
   };
 
   SkiaGraphiteImageRepresentation(SharedImageManager* manager,
@@ -771,7 +776,8 @@ class GPU_GLES2_EXPORT SkiaGraphiteImageRepresentation
   // required to overwrite every pixel inside it.
   virtual std::vector<sk_sp<SkSurface>> BeginWriteAccess(
       const SkSurfaceProps& surface_props,
-      const gfx::Rect& update_rect) = 0;
+      const gfx::Rect& update_rect,
+      EndAccessState& end_access_state) = 0;
 
   // Returns a vector of ref counted GraphiteTextureHolder that holds
   // skgpu::graphite::BackendTexture which graphite can use for writing.
@@ -786,13 +792,13 @@ class GPU_GLES2_EXPORT SkiaGraphiteImageRepresentation
   // refptr<GraphiteTextureHolder> to Graphite's release proc in order to keep
   // the BackendTexture alive until Graphite finishes using it.
   // - This function will return an empty vector on failure.
-  virtual std::vector<scoped_refptr<GraphiteTextureHolder>>
-  BeginWriteAccess() = 0;
+  virtual std::vector<scoped_refptr<GraphiteTextureHolder>> BeginWriteAccess(
+      EndAccessState& end_access_state) = 0;
 
   // Same as above but return holders of skgpu::graphite::BackendTexture for
   // reading in graphite.
-  virtual std::vector<scoped_refptr<GraphiteTextureHolder>>
-  BeginReadAccess() = 0;
+  virtual std::vector<scoped_refptr<GraphiteTextureHolder>> BeginReadAccess(
+      EndAccessState& end_access_state) = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1105,85 +1111,6 @@ class GPU_GLES2_EXPORT MemoryImageRepresentation
   friend class WrappedMemoryCompoundImageRepresentation;
 
   virtual SkPixmap BeginReadAccess() = 0;
-};
-
-///////////////////////////////////////////////////////////////////////////////
-// RasterImageRepresentation
-
-// Representation of a SharedImageBacking for raster work.
-// This representation is used for raster work and compositor. The raster work
-// will be converted to a cc::PaintOpBuffer and stored in the
-// SharedImageBacking. And then the the compositor will access the stored
-// cc::PaintOpBuffer and execute paint ops in it.
-class GPU_GLES2_EXPORT RasterImageRepresentation
-    : public SharedImageRepresentation {
- public:
-  class GPU_GLES2_EXPORT ScopedReadAccess
-      : public ScopedAccessBase<RasterImageRepresentation> {
-   public:
-    ScopedReadAccess(base::PassKey<RasterImageRepresentation> pass_key,
-                     RasterImageRepresentation* representation,
-                     const cc::PaintOpBuffer* paint_op_buffer,
-                     const std::optional<SkColor4f>& clear_color);
-    ~ScopedReadAccess();
-
-    const cc::PaintOpBuffer* paint_op_buffer() const {
-      return paint_op_buffer_;
-    }
-    const std::optional<SkColor4f>& clear_color() const { return clear_color_; }
-
-   private:
-    const raw_ptr<const cc::PaintOpBuffer> paint_op_buffer_;
-    std::optional<SkColor4f> clear_color_;
-  };
-
-  class GPU_GLES2_EXPORT ScopedWriteAccess
-      : public ScopedAccessBase<RasterImageRepresentation> {
-   public:
-    ScopedWriteAccess(base::PassKey<RasterImageRepresentation> pass_key,
-                      RasterImageRepresentation* representation,
-                      cc::PaintOpBuffer* paint_op_buffer);
-    ~ScopedWriteAccess();
-
-    cc::PaintOpBuffer* paint_op_buffer() { return paint_op_buffer_; }
-    // An optional callback which will be called when the all paint ops in the
-    // |paint_op_buffer_| are released.
-    void set_callback(base::OnceClosure callback) {
-      DCHECK(!callback_);
-      DCHECK(callback);
-      callback_ = std::move(callback);
-    }
-
-   private:
-    const raw_ptr<cc::PaintOpBuffer> paint_op_buffer_;
-    base::OnceClosure callback_;
-  };
-
-  RasterImageRepresentation(SharedImageManager* manager,
-                            SharedImageBacking* backing,
-                            MemoryTypeTracker* tracker)
-      : SharedImageRepresentation(manager, backing, tracker) {}
-
-  std::unique_ptr<ScopedReadAccess> BeginScopedReadAccess();
-
-  std::unique_ptr<ScopedWriteAccess> BeginScopedWriteAccess(
-      scoped_refptr<SharedContextState> context_state,
-      int final_msaa_count,
-      const SkSurfaceProps& surface_props,
-      const std::optional<SkColor4f>& clear_color,
-      bool visible);
-
- protected:
-  virtual cc::PaintOpBuffer* BeginReadAccess(
-      std::optional<SkColor4f>& clear_color) = 0;
-  virtual void EndReadAccess() = 0;
-  virtual cc::PaintOpBuffer* BeginWriteAccess(
-      scoped_refptr<SharedContextState> context_state,
-      int final_msaa_count,
-      const SkSurfaceProps& surface_props,
-      const std::optional<SkColor4f>& clear_color,
-      bool visible) = 0;
-  virtual void EndWriteAccess(base::OnceClosure callback) = 0;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

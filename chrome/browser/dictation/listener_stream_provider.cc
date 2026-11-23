@@ -6,7 +6,11 @@
 
 #include <ostream>
 
+#include "base/check.h"
+#include "base/dcheck_is_on.h"
 #include "base/functional/bind.h"
+#include "base/no_destructor.h"
+#include "base/state_transitions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/dictation/dictation_context_fetcher.h"
 #include "chrome/browser/dictation/dictation_keyed_service.h"
@@ -57,6 +61,26 @@ const char* ToString(StreamProvider::StreamState state) {
 
 std::ostream& operator<<(std::ostream& out, StreamProvider::StreamState state) {
   return out << ToString(state);
+}
+
+void DCheckStreamStateTransition(StreamProvider::StreamState old_state,
+                                 StreamProvider::StreamState new_state) {
+#if DCHECK_IS_ON()
+  using enum StreamProvider::StreamState;
+  static const base::NoDestructor<
+      base::StateTransitions<StreamProvider::StreamState>>
+      kTransitions(base::StateTransitions<StreamProvider::StreamState>({
+          // The extension may redundantly report kInitializing when it starts
+          // a stream.
+          {kInitializing, {kInitializing, kTranscribing, kFailed, kComplete}},
+          {kTranscribing, {kFailed, kComplete}},
+          {kFailed, {}},
+          {kComplete, {}},
+      }));
+  DCHECK(kTransitions->IsTransitionValid(old_state, new_state))
+      << "Invalid transition: " << ToString(old_state) << " -> "
+      << ToString(new_state);
+#endif  // DCHECK_IS_ON()
 }
 
 }  // namespace
@@ -118,9 +142,8 @@ void ListenerStreamProvider::StartStream(
   flags.web_speech_api_backend = kWebSpeechApiBackend.Get();
   details.flags = std::move(flags);
 
-  base::ListValue event_args =
-      extensions::api::dictation_private::OnStartStream::Create(details);
-
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::dictation_private::OnStartStream::Create(details));
   auto event = std::make_unique<extensions::Event>(
       extensions::events::DICTATION_PRIVATE_ON_START_STREAM,
       extensions::api::dictation_private::OnStartStream::kEventName,
@@ -142,9 +165,8 @@ void ListenerStreamProvider::OnAsyncContextCaptured(DictationContext result) {
   details.stream_id = stream_id_.value();
   details.context = ConvertToApiContext(std::move(result));
 
-  base::ListValue event_args =
-      extensions::api::dictation_private::OnContextUpdate::Create(details);
-
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::dictation_private::OnContextUpdate::Create(details));
   auto event = std::make_unique<extensions::Event>(
       extensions::events::DICTATION_PRIVATE_ON_CONTEXT_UPDATE,
       extensions::api::dictation_private::OnContextUpdate::kEventName,
@@ -170,9 +192,8 @@ void ListenerStreamProvider::Stop(DictationStreamEndTrigger trigger) {
   extensions::api::dictation_private::EndStreamDetails details;
   details.stream_id = stream_id_.value();
 
-  base::ListValue event_args =
-      extensions::api::dictation_private::OnEndStream::Create(details);
-
+  auto event_args = base::MakeRefCounted<extensions::EventArgs>(
+      extensions::api::dictation_private::OnEndStream::Create(details));
   auto event = std::make_unique<extensions::Event>(
       extensions::events::DICTATION_PRIVATE_ON_END_STREAM,
       extensions::api::dictation_private::OnEndStream::kEventName,
@@ -220,7 +241,7 @@ void ListenerStreamProvider::OnStreamStateChanged(StreamState state,
   VT_LOG(browser_context_) << "Stream(" << stream_id_ << ")::" << __func__
                            << " " << state_ << " --> " << state;
 
-  // TODO(crbug.com/502587072): Assert state transitions are correct.
+  DCheckStreamStateTransition(state_, state);
   StreamState old_state = state_;
   state_ = state;
 
@@ -232,6 +253,7 @@ void ListenerStreamProvider::OnPendingInsertionsComplete() {
                            << " " << state_ << " --> "
                            << StreamState::kComplete;
 
+  DCheckStreamStateTransition(state_, StreamState::kComplete);
   StreamState old_state = state_;
   state_ = StreamState::kComplete;
 

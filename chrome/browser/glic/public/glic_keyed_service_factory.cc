@@ -6,10 +6,12 @@
 
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
-#include "chrome/browser/browser_actuator/browser_actuator_service_factory.h"
+#include "chrome/browser/browser_actuator/transport/transport_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
+#include "chrome/browser/glic/public/glic_provider_latch_factory.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service_factory.h"
+#include "chrome/browser/metrics/variations/google_groups_manager_factory.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/page_content_annotations/page_content_annotations_service_factory.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -47,14 +49,17 @@ GlicKeyedServiceFactory::GlicKeyedServiceFactory()
           "GlicKeyedService",
           BrowserContextDependencyManager::GetInstance()) {
   DependsOn(IdentityManagerFactory::GetInstance());
+  DependsOn(GoogleGroupsManagerFactory::GetInstance());
   DependsOn(actor::ActorKeyedServiceFactory::GetInstance());
-  DependsOn(browser_actuator::BrowserActuatorServiceFactory::GetInstance());
+  DependsOn(
+      browser_actuator::transport::TransportServiceFactory::GetInstance());
   DependsOn(ContextualCueingServiceFactory::GetInstance());
   DependsOn(subscription_eligibility::SubscriptionEligibilityServiceFactory::
                 GetInstance());
   DependsOn(OptimizationGuideKeyedServiceFactory::GetInstance());
   DependsOn(PageContentAnnotationsServiceFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
+  DependsOn(GlicProviderLatchFactory::GetInstance());
 #if BUILDFLAG(IS_ANDROID)
   DependsOn(AndroidProfileBrowserCollectionServiceFactory::GetInstance());
 #else

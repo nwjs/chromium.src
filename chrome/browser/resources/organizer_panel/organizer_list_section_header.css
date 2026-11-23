@@ -25,10 +25,14 @@
 }
 
 #expandButton {
-  --cr-expand-button-icon-size: 16px;
+  --cr-expand-button-icon-size: 20px;
   --cr-expand-button-size: 24px;
+  --cr-icon-button-fill-color: var(--color-organizer-panel-foreground-subtle,
+      var(--cr-secondary-text-color));
+  --cr-icon-button-focus-outline-color: transparent;
   --cr-section-vertical-padding: 0;
-  color: var(--cr-secondary-text-color);
+  color: var(--color-organizer-panel-foreground-subtle,
+      var(--cr-secondary-text-color));
   flex: 1;
   font-size: 9px;
   font-weight: 700;
@@ -42,10 +46,13 @@
 }
 
 #expandButton::part(icon) {
+  --cr-icon-button-focus-outline-color: transparent;
+  box-shadow: none;
   margin-block: -4px;
   margin-inline-end: 8px;
   margin-inline-start: 2px;
   order: -1;
+  outline: none;
 }
 
 #expandButton[disabled]::part(icon) {
@@ -53,6 +60,8 @@
 }
 
 #menuButton {
+  --cr-icon-button-fill-color: var(--color-organizer-panel-foreground-subtle,
+      var(--cr-secondary-text-color));
   --cr-icon-button-icon-size: 16px;
   --cr-icon-button-margin-end: 12px;
   --cr-icon-button-margin-start: 0;
@@ -61,15 +70,10 @@
   margin-block: -4px;
 }
 
-:host([expanded]:not([disabled]):hover) #menuButton,
-:host([expanded]:not([disabled]).hovered) #menuButton,
-:host([expanded][menu-open_]:not([disabled])) #menuButton,
-:host-context(html.focus-outline-visible):host(
-    [expanded]:not([disabled]):focus-within) #menuButton {
+:host([expanded]:not([disabled])) #menuButton {
   display: inline-flex;
 }
 
-:host-context(html:not(.focus-outline-visible)) #expandButton::part(icon),
 :host-context(html:not(.focus-outline-visible)) #menuButton {
   --cr-icon-button-focus-outline-color: transparent;
 }
@@ -86,5 +90,6 @@ cr-icon[invisible] {
 
 .dropdown-item {
   gap: 8px;
+  user-select: none;
 }
 

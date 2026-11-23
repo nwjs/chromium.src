@@ -25,9 +25,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler_interface.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_service.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_context_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_internals_page_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_page_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
@@ -37,7 +35,6 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/site_exclusion_detail.h"
-#include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -46,9 +43,9 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/plural_string_provider.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
-#include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
@@ -100,7 +97,6 @@
 #include "ui/base/device_form_factor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/webui/buildflags.h"
 #include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
@@ -176,7 +172,7 @@ void AddDefaultZeroStateStrings(base::DictValue& dict) {
 }
 
 void AddZeroStateStrings(base::DictValue& dict, Profile* profile) {
-  if (!profile) {
+  if (!profile || !g_browser_process || !g_browser_process->profile_manager()) {
     AddDefaultZeroStateStrings(dict);
     return;
   }
@@ -240,7 +236,6 @@ void AddContextMenuItemEligibilityLoadTimeData(base::DictValue& dict,
 
 std::string EntryPointToString(omnibox::ChromeAimEntryPoint entry_point) {
   switch (entry_point) {
-    case omnibox::DESKTOP_CHROME_COBROWSE_TOOLBAR_BUTTON:
     case omnibox::DESKTOP_CHROME_COBROWSE_PINNED_TOOLBAR_BUTTON:
       return "toolbar";
     case omnibox::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION:
@@ -253,6 +248,12 @@ std::string EntryPointToString(omnibox::ChromeAimEntryPoint entry_point) {
       return "omnibox_popup_button";
     case omnibox::DESKTOP_CHROME_CONTEXTUAL_CUE:
       return "contextual_cue";
+    case omnibox::DESKTOP_CHROME_PAGE_CONTEXT_MENU_ASK_GOOGLE:
+      return "page_context_menu";
+    case omnibox::DESKTOP_CHROME_APP_MENU_ASK_GOOGLE:
+      return "app_menu";
+    case omnibox::DESKTOP_CHROME_CHROMNIENT_HOMEWORK_ACTION_CHIP:
+      return "homework_action_chip";
     default:
       return "unknown";
   }
@@ -311,12 +312,6 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
               Profile::FromBrowserContext(
                   web_ui->GetWebContents()->GetBrowserContext()))) {
   Profile* profile = Profile::FromWebUI(web_ui);
-
-  // Add a handler to provide plural strings.
-  auto plural_string_handler = std::make_unique<PluralStringHandler>();
-  plural_string_handler->AddLocalizedString("sharingTabs",
-                                            IDS_COMPOSE_SHARING_TABS);
-  web_ui->AddMessageHandler(std::move(plural_string_handler));
 
 #if !BUILDFLAG(IS_ANDROID)
   // This hints the IPH system to use the webui help bubble factory. It is
@@ -573,8 +568,12 @@ base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
   dict.Set(
       "webUIOmniboxAskGAboutThisPageEnabled",
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxAskGAboutThisPage));
+  dict.Set(
+      "contextualTasksUpdatedEntryPointsEnabled",
+      contextual_tasks::AreContextualTasksUpdatedEntryPointsEnabled(profile));
 #else
   dict.Set("webUIOmniboxAskGAboutThisPageEnabled", false);
+  dict.Set("contextualTasksUpdatedEntryPointsEnabled", false);
 #endif
 
   dict.Set("composeboxFileMaxSize",
@@ -593,16 +592,17 @@ base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
   dict.Set(
       "composeboxSkillsEnabled",
       base::FeatureList::IsEnabled(omnibox::kComposeboxSkillsContextualTasks));
-  const bool is_pinning_eligible =
-      contextual_tasks::EntryPointEligibilityManager::IsPinningEligible(
-          profile);
-  dict.Set("enablePinButton", is_pinning_eligible);
+  const bool can_pin_or_unpin =
+      contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile);
+  dict.Set("enablePinButton", can_pin_or_unpin);
+  // Intentionally not gated on pinning eligibility: eligibility can change
+  // while the page is open and is pushed separately via
+  // `OnPinButtonEligibilityChanged()`, which the WebUI already combines with
+  // this flag.
   dict.Set("enablePinButtonOnSrp",
-           is_pinning_eligible &&
-               contextual_tasks::IsContextualTasksPinButtonOnSrpEnabled());
+           contextual_tasks::IsContextualTasksPinButtonOnSrpEnabled());
   dict.Set("isSidePanelPinned",
-           is_pinning_eligible &&
-               contextual_tasks::GetEffectivePinState(profile));
+           contextual_tasks::GetEffectivePinState(profile));
   dict.Set("showOnboardingTooltip",
            base::FeatureList::IsEnabled(
                contextual_tasks::kContextualTasksShowOnboardingTooltip));
@@ -654,6 +654,8 @@ base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
            omnibox::IsTabDeselectionInComposeboxEnabled());
   dict.Set("composeboxContextMenuTooltipsEnabled",
            omnibox::IsContextMenuTooltipsInComposeboxEnabled());
+  dict.Set("contextualTasksSingleTabMenuItemEnabled",
+           contextual_tasks::IsContextualTasksSingleTabMenuItemEnabled());
   dict.Set("enableGhostLoader", contextual_tasks::GetIsGhostLoaderEnabled());
   dict.Set("forceBasicModeIfOpeningThreadHistory",
            contextual_tasks::ShouldForceBasicModeIfOpeningThreadHistory());
@@ -667,10 +669,10 @@ base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
            contextual_tasks::GetIsContextualTasksWindowTrackingEnabled());
   dict.Set("supportsLensButtonInComposebox", !BUILDFLAG(IS_ANDROID));
   // Android delegates voice search to the platform recognition activity.
-  // Large-screen Android can opt into the in-panel WebUI voice search UI
-  // instead; phone Clank always stays on the platform path.
+  // Desktop Android can opt into the in-panel WebUI voice search UI instead;
+  // phone and tablet Clank always stay on the platform path.
   const bool use_webui_voice_search =
-      contextual_tasks::IsAndroidLargeFormFactor() &&
+      contextual_tasks::IsAndroidDesktopFormFactor() &&
       contextual_tasks::
           GetIsContextualTasksWebUiVoiceSearchDesktopAndroidEnabled();
   dict.Set("isSystemVoiceSearchEnabled",
@@ -1053,6 +1055,13 @@ ContextualTasksUIConfig::CreateWebUIController(content::WebUI* web_ui,
 }
 
 void ContextualTasksUI::BindInterface(
+    mojo::PendingReceiver<plural_string::mojom::PluralStringProvider>
+        receiver) {
+  PluralStringProvider::Create(std::move(receiver),
+                               GetSearchboxPluralStringIds());
+}
+
+void ContextualTasksUI::BindInterface(
     mojo::PendingReceiver<composebox::mojom::PageHandlerFactory>
         pending_receiver) {
   if (!contextual_tasks::IsContextualTasksUIEnabled()) {
@@ -1167,7 +1176,7 @@ ContextualTasksUI::TakeInputStateModel() {
   return helper->TakeInputStateModel();
 }
 
-std::vector<int32_t> ContextualTasksUI::GetRestoredTabIds() {
+const std::vector<int32_t>& ContextualTasksUI::GetRestoredTabIds() {
   content::WebContents* web_contents = web_ui()->GetWebContents();
   auto* helper = ContextualSearchWebContentsHelper::GetOrCreateForWebContents(
       web_contents);
@@ -1216,8 +1225,10 @@ void ContextualTasksUI::MaybeTriggerPinningPromo() {
 #if BUILDFLAG(IS_ANDROID)
   return;
 #else
+  // Side panel is open & pinning/ephemeral button eligibility is active.
   auto* panel_controller = GetPanelController();
-  if (!panel_controller || !panel_controller->IsPanelOpenForContextualTask()) {
+  if (!panel_controller || !panel_controller->IsPanelOpenForContextualTask() ||
+      panel_controller->IsOnboardingTooltipVisible()) {
     return;
   }
 
@@ -1226,14 +1237,13 @@ void ContextualTasksUI::MaybeTriggerPinningPromo() {
     return;
   }
 
-  if (!contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() ||
-      base::FeatureList::IsEnabled(
-          contextual_tasks::kContextualTasksHideMenuOnAiPage)) {
+  if (!contextual_tasks::IsContextualTasksPinningV2Enabled() ||
+      !contextual_tasks::EntryPointEligibilityManager::CanPinOrUnpin(profile)) {
     return;
   }
 
-  // 1. Verify we are still in AI Mode (or on the SRP when pinning on SRP is
-  // enabled).
+  // Results have fully loaded for a contextual query about a tab or PDF (or
+  // on SRP when enabled), with no active Lens overlay.
   const GURL& inner_frame_url = GetInnerFrameUrl();
   bool is_ai_page = ui_service_ && ui_service_->IsAiUrl(inner_frame_url);
   bool is_srp = contextual_tasks::IsContextualTasksPinButtonOnSrpEnabled() &&
@@ -1241,15 +1251,18 @@ void ContextualTasksUI::MaybeTriggerPinningPromo() {
   if (!is_ai_page && !is_srp) {
     return;
   }
+  if (is_ai_page &&
+      (IsLensOverlayShowing() ||
+       !CanTriggerPinningPromoForAiPage(inner_frame_url, panel_controller))) {
+    return;
+  }
 
-  // 2. Verify the button is not already pinned.
+  // User hasn't yet pinned the side panel.
   bool is_pinned = contextual_tasks::GetEffectivePinState(profile);
   if (is_pinned) {
     return;
   }
 
-  // 3. Verify we have reached the session count threshold after onboarding
-  // tooltip was dismissed.
   int post_onboarding_sessions = profile->GetPrefs()->GetInteger(
       contextual_tasks::kContextualTasksSessionCountPostOnboarding);
   if (post_onboarding_sessions <
@@ -1257,7 +1270,8 @@ void ContextualTasksUI::MaybeTriggerPinningPromo() {
     return;
   }
 
-  // 4. Attempt to show the IPH!
+  // Anchored to `kContextualTasksEphemeralToolbarButtonElementId`,
+  // so it only shows if the ephemeral button is visible.
   BrowserWindowInterface* browser_window = GetBrowser();
   if (!browser_window) {
     return;
@@ -1865,6 +1879,30 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
 
   // Capture the old task ID associated with this WebUI.
   std::optional<base::Uuid> old_task_id = task_info_delegate_->GetTaskId();
+  // When a thread change in the side panel is scoped to the tab, the other
+  // tabs of `old_task_id` keep its thread in a new panel. Save the old thread
+  // URL as the task's initial URL so that the new panel loads it.
+  const std::optional<std::string> old_thread_id =
+      task_info_delegate_->GetThreadId();
+  const GURL old_thread_url = last_thread_url_;
+  auto maybe_save_old_thread_url_for_other_tabs = [&]() {
+    if (!contextual_tasks::ShouldScopeSidePanelStateToTab() ||
+        task_info_delegate_->IsShownInTab() || !old_task_id ||
+        !old_task_id->is_valid() || !old_thread_id) {
+      return;
+    }
+    std::string old_url_thread_id;
+    if (!net::GetValueForKeyInQuery(old_thread_url, "mtid",
+                                    &old_url_thread_id) ||
+        old_url_thread_id != *old_thread_id) {
+      return;
+    }
+    // Don't reopen thread history in the new panel if it was open to pick the
+    // new thread.
+    ui_service_->SetInitialUrlForTask(
+        *old_task_id, net::AppendOrReplaceQueryParameter(old_thread_url, "atvm",
+                                                         std::nullopt));
+  };
   if (is_zero_state &&
       (!base::FeatureList::IsEnabled(
            contextual_tasks::kEnableNotifyZeroStateRenderedCapability) ||
@@ -1888,6 +1926,7 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
     }
     task_info_delegate_->SetTaskId(new_task_id);
     task_info_delegate_->SetThreadId(std::nullopt);
+    last_thread_url_ = GURL();
     // Replace state if last committed URL was empty (i.e. the page is
     // reloaded) or if zero state has not changed, otherwise push new state.
     task_info_delegate_->PushTaskDetailsToPage(
@@ -1900,6 +1939,7 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
     // update.
     if (old_task_id != new_task_id) {
       task_info_delegate_->PrepareForTaskChange();
+      maybe_save_old_thread_url_for_other_tabs();
       ui_service_->OnTaskChanged(task_info_delegate_->GetBrowser(),
                                  task_info_delegate_->GetWebUIWebContents(),
                                  old_task_id, new_task_id,
@@ -1914,6 +1954,7 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
 
   std::string url_thread_id;
   if (!net::GetValueForKeyInQuery(url, "mtid", &url_thread_id)) {
+    task_info_delegate_->MaybeTriggerPinningPromo();
     OMNIBOX_LOG("nav_trace")
         << "ContextualTasks navigation trace: "
            "FrameNavObserver::DidFinishNavigation returning early, no "
@@ -2006,6 +2047,7 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
   }
 
   task_info_delegate_->SetThreadId(url_thread_id);
+  last_thread_url_ = url;
   auto new_task_id = task_info_delegate_->GetTaskId();
   // Replace state if old task id and new task id is the same, otherwise push
   // new state. This is to make sure navigation stack works when switching
@@ -2037,12 +2079,15 @@ void ContextualTasksUI::FrameNavObserver::DidFinishNavigation(
         << "Task changed: "
         << task_info_delegate_->GetTaskId().value().AsLowercaseString();
     task_info_delegate_->PrepareForTaskChange();
+    maybe_save_old_thread_url_for_other_tabs();
     ui_service_->OnTaskChanged(task_info_delegate_->GetBrowser(),
                                task_info_delegate_->GetWebUIWebContents(),
                                old_task_id, task_info_delegate_->GetTaskId(),
                                task_info_delegate_->IsShownInTab());
     task_info_delegate_->OnTaskChanged();
   }
+
+  task_info_delegate_->MaybeTriggerPinningPromo();
 }
 
 bool ContextualTasksUI::IsZeroState(
@@ -2104,32 +2149,6 @@ void ContextualTasksUI::InnerFrameCreationObvserver::DidFinishNavigation(
 void ContextualTasksUI::ResetEmbeddedPage() {
   embedded_web_contents_ = nullptr;
   nav_observer_.reset();
-}
-
-void ContextualTasksUI::BindInterface(
-    mojo::PendingReceiver<contextual_tasks_internals::mojom::
-                              ContextualTasksInternalsPageHandlerFactory>
-        receiver) {
-  contextual_tasks_internals_page_handler_receiver_.reset();
-  contextual_tasks_internals_page_handler_receiver_.Bind(std::move(receiver));
-}
-
-void ContextualTasksUI::CreatePageHandler(
-    mojo::PendingRemote<
-        contextual_tasks_internals::mojom::ContextualTasksInternalsPage> page,
-    mojo::PendingReceiver<
-        contextual_tasks_internals::mojom::ContextualTasksInternalsPageHandler>
-        receiver) {
-  Profile* profile = Profile::FromWebUI(web_ui());
-  auto* contextual_tasks_service =
-      contextual_tasks::ContextualTasksContextServiceFactory::GetForProfile(
-          profile);
-  auto* optimization_guide_keyed_service =
-      OptimizationGuideKeyedServiceFactory::GetForProfile(profile);
-  contextual_tasks_internals_page_handler_ =
-      std::make_unique<ContextualTasksInternalsPageHandler>(
-          profile, contextual_tasks_service, optimization_guide_keyed_service,
-          std::move(receiver), std::move(page));
 }
 
 void ContextualTasksUI::PrepareForTaskChange() {

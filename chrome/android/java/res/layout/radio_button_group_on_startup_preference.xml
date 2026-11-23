@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Copyright 2026 The Chromium Authors
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <org.chromium.components.browser_ui.widget.RadioButtonWithDescriptionLayout
+        android:id="@+id/on_startup_radio_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <org.chromium.components.browser_ui.widget.RadioButtonWithDescription
+            android:id="@+id/pref_new_tab"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/min_touch_target_size"
+            android:paddingTop="@dimen/settings_item_default_padding"
+            android:paddingBottom="@dimen/settings_item_default_padding"
+            app:primaryText="@string/on_startup_pref_new_tab" />
+
+        <org.chromium.components.browser_ui.widget.RadioButtonWithDescription
+            android:id="@+id/pref_last"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/min_touch_target_size"
+            android:paddingTop="@dimen/settings_item_default_padding"
+            android:paddingBottom="@dimen/settings_item_default_padding"
+            app:primaryText="@string/on_startup_pref_last" />
+
+        <org.chromium.components.browser_ui.widget.RadioButtonWithDescription
+            android:id="@+id/pref_urls"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="@dimen/min_touch_target_size"
+            android:paddingTop="@dimen/settings_item_default_padding"
+            android:paddingBottom="@dimen/settings_item_default_padding"
+            app:backgroundStyle="none"
+            app:primaryText="@string/on_startup_pref_urls" />
+
+    </org.chromium.components.browser_ui.widget.RadioButtonWithDescriptionLayout>
+
+    <!-- Attached to @id/on_startup_radio_group to wrap @id/pref_urls and its accessory startup
+         pages section inside a single contained card item. -->
+    <org.chromium.components.browser_ui.widget.containment.ContainedLinearLayout
+        android:id="@+id/urls_pref_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/startup_pages_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="@dimen/radio_button_accessory_view_padding_start"
+            android:paddingEnd="@dimen/radio_button_accessory_view_padding_end"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/startup_pages_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:orientation="horizontal"
+                android:paddingTop="@dimen/on_startup_action_buttons_vertical_padding"
+                android:paddingBottom="@dimen/on_startup_action_buttons_vertical_padding">
+
+                <org.chromium.ui.widget.ButtonCompat
+                    android:id="@+id/add_new_page_button"
+                    style="@style/TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="@dimen/on_startup_action_buttons_spacing"
+                    android:text="@string/on_startup_add_new_page" />
+
+                <org.chromium.ui.widget.ButtonCompat
+                    android:id="@+id/use_current_pages_button"
+                    style="@style/TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/on_startup_use_current_pages" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </org.chromium.components.browser_ui.widget.containment.ContainedLinearLayout>
+
+</LinearLayout>

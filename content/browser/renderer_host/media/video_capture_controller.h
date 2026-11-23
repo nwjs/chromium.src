@@ -153,8 +153,6 @@ class CONTENT_EXPORT VideoCaptureController
           callback);
   void RequestRefreshFrame();
   void InvalidateBuffers();
-  void SetDesktopCaptureWindowIdAsync(gfx::NativeViewId window_id,
-                                      base::OnceClosure done_cb);
   int serial_id() const { return serial_id_; }
   const std::string& device_id() const { return device_id_; }
   blink::mojom::MediaStreamType stream_type() const { return stream_type_; }
@@ -224,9 +222,6 @@ class CONTENT_EXPORT VideoCaptureController
   // Find a client of |id| and |handler| in |controller_clients_|.
   ControllerClient* FindClient(const VideoCaptureControllerID& id,
                                VideoCaptureControllerEventHandler* handler);
-
-  // Find a client of |session_id| in |controller_clients_|.
-  ControllerClient* FindClient(const base::UnguessableToken& session_id);
 
   std::vector<BufferContext>::iterator FindBufferContextFromBufferContextId(
       int buffer_context_id);

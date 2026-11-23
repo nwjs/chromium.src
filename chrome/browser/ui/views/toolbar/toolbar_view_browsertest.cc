@@ -11,10 +11,12 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/toolbar_controller_util.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
+#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_ephemeral_button_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
@@ -293,7 +295,6 @@ IN_PROC_BROWSER_TEST_F(ToolbarViewResponsiveTest,
   // In a super wide toolbar, the omnibox absorbs all excess space beyond its
   // preferred width, and all responsive buttons remain visible.
   toolbar->SetSize(gfx::Size(super_wide_width, toolbar_height));
-  toolbar->DeprecatedLayoutImmediately();
   EXPECT_TRUE(is_forward_visible());
   EXPECT_TRUE(is_home_visible());
   EXPECT_GT(get_location_bar_width(), preferred_width);
@@ -301,7 +302,6 @@ IN_PROC_BROWSER_TEST_F(ToolbarViewResponsiveTest,
   // When resized down to a moderate width where all elements fit, the omnibox
   // shrinks down towards its preferred width while buttons remain visible.
   toolbar->SetSize(gfx::Size(all_fit_width, toolbar_height));
-  toolbar->DeprecatedLayoutImmediately();
   EXPECT_TRUE(is_forward_visible());
   EXPECT_TRUE(is_home_visible());
   EXPECT_GE(get_location_bar_width(), preferred_width);
@@ -310,7 +310,6 @@ IN_PROC_BROWSER_TEST_F(ToolbarViewResponsiveTest,
   // hidden and the omnibox shrinks down from its preferred width towards its
   // minimum width.
   toolbar->SetSize(gfx::Size(omnibox_resizing_width, toolbar_height));
-  toolbar->DeprecatedLayoutImmediately();
   EXPECT_FALSE(is_forward_visible());
   EXPECT_FALSE(is_home_visible());
   EXPECT_LT(get_location_bar_width(), preferred_width);
@@ -319,7 +318,6 @@ IN_PROC_BROWSER_TEST_F(ToolbarViewResponsiveTest,
   // At absolute minimum width, all responsive buttons remain hidden and the
   // omnibox reaches its minimum width.
   toolbar->SetSize(gfx::Size(min_width_bound, toolbar_height));
-  toolbar->DeprecatedLayoutImmediately();
   EXPECT_FALSE(is_forward_visible());
   EXPECT_FALSE(is_home_visible());
   EXPECT_EQ(get_location_bar_width(), min_width);
@@ -327,7 +325,6 @@ IN_PROC_BROWSER_TEST_F(ToolbarViewResponsiveTest,
   // When expanding to moderate width, responsive buttons reappear with
   // non-empty bounds and the omnibox recovers its preferred width.
   toolbar->SetSize(gfx::Size(all_fit_width, toolbar_height));
-  toolbar->DeprecatedLayoutImmediately();
   EXPECT_TRUE(is_forward_visible());
   EXPECT_TRUE(is_home_visible());
   EXPECT_GE(get_location_bar_width(), preferred_width);
@@ -335,7 +332,6 @@ IN_PROC_BROWSER_TEST_F(ToolbarViewResponsiveTest,
   // Expanding back to a super wide width allows the omnibox to expand into
   // excess space again.
   toolbar->SetSize(gfx::Size(super_wide_width, toolbar_height));
-  toolbar->DeprecatedLayoutImmediately();
   EXPECT_TRUE(is_forward_visible());
   EXPECT_TRUE(is_home_visible());
   EXPECT_GT(get_location_bar_width(), preferred_width);
@@ -370,7 +366,6 @@ IN_PROC_BROWSER_TEST_F(ToolbarViewResponsiveTest,
   const int constrained_height = toolbar->GetPreferredSize().height() - 4;
 
   toolbar->SetSize(gfx::Size(all_fit_width, constrained_height));
-  toolbar->DeprecatedLayoutImmediately();
 
   if (forward) {
     EXPECT_TRUE(forward->GetVisible());
@@ -438,6 +433,15 @@ class ToolbarViewInteriorMarginBrowserTestBase
     expected.set_right(0);
     EXPECT_EQ(flex_layout()->interior_margin(), expected);
   }
+
+  // Aligns the contextual tasks side panel to the right or left. The contextual
+  // tasks button is placed on the toolbar edge next to the side panel.
+  void SetContextualTasksRightAligned(bool right_aligned) {
+    ScopedDictPrefUpdate(browser()->GetProfile()->GetPrefs(),
+                         prefs::kSidePanelAlignmentOverrides)
+        ->Set(SidePanelEntryIdToString(SidePanelEntryId::kContextualTasks),
+              right_aligned);
+  }
 };
 
 class ToolbarViewContextualTasksInteriorMarginBrowserTest
@@ -451,6 +455,14 @@ class ToolbarViewContextualTasksInteriorMarginBrowserTest
                                {{contextual_tasks::kShowEntryPoint.name,
                                  "toolbar-ephemeral-branded"}}}},
         /*disabled_features=*/{features::kWebUIBackForwardButton});
+  }
+
+  void SetUpOnMainThread() override {
+    ToolbarViewInteriorMarginBrowserTestBase::SetUpOnMainThread();
+    // These tests expect the contextual tasks button on the leading edge, so
+    // align the side panel to the leading side (left in LTR, right in RTL)
+    // instead of relying on its default alignment.
+    SetContextualTasksRightAligned(/*right_aligned=*/base::i18n::IsRTL());
   }
 
  private:
@@ -637,14 +649,6 @@ class ToolbarViewCircularContextualTasksBrowserTest
     SetContextualTasksRightAligned(true);
   }
 
-  void SetContextualTasksRightAligned(bool right_aligned) {
-    ScopedDictPrefUpdate(browser()->GetProfile()->GetPrefs(),
-                         prefs::kSidePanelAlignmentOverrides)
-        ->Set("kContextualTasks", right_aligned);
-    browser()->GetProfile()->GetPrefs()->SetBoolean(
-        prefs::kSidePanelHorizontalAlignment, right_aligned);
-  }
-
  private:
   base::test::ScopedFeatureList feature_list_;
 };
@@ -659,7 +663,7 @@ IN_PROC_BROWSER_TEST_P(ToolbarViewCircularContextualTasksBrowserTest,
 
   auto* contextual_tasks_button = static_cast<ContextualTasksButton*>(button);
   EXPECT_EQ(contextual_tasks_button->GetShape(),
-            ContextualTasksButton::Shape::kCircle);
+            contextual_tasks::EphemeralButtonShape::kCircle);
 
   // Positioned to the left of profile (and glic button if visible).
   views::View* anchor = nullptr;
@@ -713,9 +717,10 @@ IN_PROC_BROWSER_TEST_P(ToolbarViewCircularContextualTasksBrowserTest,
   SetContextualTasksRightAligned(false);
   toolbar()->PositionContextualTasksButton();
 
-  EXPECT_FALSE(contextual_tasks_button->IsSidePanelRightAligned());
+  EXPECT_FALSE(
+      contextual_tasks::IsContextualTasksSidePanelRightAligned(browser()));
   EXPECT_EQ(contextual_tasks_button->GetShape(),
-            ContextualTasksButton::Shape::kFlatEdgeLeft);
+            contextual_tasks::EphemeralButtonShape::kFlatEdgeLeft);
 
   // In LTR, the button is on the leading edge (index 0).
   if (!is_rtl) {

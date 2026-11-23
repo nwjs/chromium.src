@@ -7,21 +7,17 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-namespace page_content_annotations {
-class PageContentAnnotationsService;
-}  // namespace page_content_annotations
+#import "components/page_content_annotations/core/page_content_annotations_service.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all PageContentAnnotationsService(s) and associates them
 // with ProfileIOS. No service is created for incognito profile.
-class PageContentAnnotationsServiceFactory
-    : public ProfileKeyedServiceFactoryIOS {
+class PageContentAnnotationsServiceFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          PageContentAnnotationsServiceFactory,
+          page_content_annotations::PageContentAnnotationsService> {
  public:
-  static page_content_annotations::PageContentAnnotationsService* GetForProfile(
-      ProfileIOS* profile);
-  static PageContentAnnotationsServiceFactory* GetInstance();
+  explicit PageContentAnnotationsServiceFactory(PassKey key);
 
   // Returns the default factory used to build PageContentAnnotationsService.
   // Can be registered with AddTestingFactory to use real instances during
@@ -29,14 +25,9 @@ class PageContentAnnotationsServiceFactory
   static TestingFactory GetDefaultFactory();
 
  private:
-  friend class base::NoDestructor<PageContentAnnotationsServiceFactory>;
-
-  PageContentAnnotationsServiceFactory();
-  ~PageContentAnnotationsServiceFactory() override;
-
   // ProfileKeyedServiceFactoryIOS implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_PAGE_CONTENT_ANNOTATIONS_MODEL_PAGE_CONTENT_ANNOTATIONS_SERVICE_FACTORY_H_

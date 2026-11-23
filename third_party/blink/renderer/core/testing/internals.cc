@@ -196,8 +196,6 @@
 #include "third_party/blink/renderer/platform/testing/url_test_helpers.h"
 #include "third_party/blink/renderer/platform/text/layout_locale.h"
 #include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/dtoa.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_buffer.h"
@@ -3748,8 +3746,7 @@ String Internals::getAgentId(DOMWindow* window) {
   // This serializes a pointer as a decimal number, which is a bit ugly, but
   // it works. Is there any utility to dump a number in a hexadecimal form?
   // I couldn't find one in WTF.
-  return StrCat(
-      {String::Number(process_id), ":", String::Number(agent_address)});
+  return Format("{}:{}", process_id, agent_address);
 }
 
 void Internals::useMockOverlayScrollbars() {

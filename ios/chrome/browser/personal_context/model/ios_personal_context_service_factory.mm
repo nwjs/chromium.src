@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/personal_context/model/ios_personal_context_service_factory.h"
 
+#import <utility>
+
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "components/personal_context/core/personal_context_features.h"
@@ -35,36 +37,22 @@ std::unique_ptr<KeyedService> BuildPersonalContextService(ProfileIOS* profile) {
 }  // namespace
 
 // static
-PersonalContextService* IOSPersonalContextServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<PersonalContextService>(profile,
-                                                                       true);
-}
-
-// static
-IOSPersonalContextServiceFactory*
-IOSPersonalContextServiceFactory::GetInstance() {
-  static base::NoDestructor<IOSPersonalContextServiceFactory> instance;
-  return instance.get();
-}
-
-// static
 IOSPersonalContextServiceFactory::TestingFactory
 IOSPersonalContextServiceFactory::GetDefaultFactory() {
-  return base::BindRepeating(&BuildPersonalContextService);
+  return base::BindOnce(&BuildPersonalContextService);
 }
 
-IOSPersonalContextServiceFactory::IOSPersonalContextServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("PersonalContextService",
-                                    ProfileSelection::kNoInstanceInIncognito,
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {
+IOSPersonalContextServiceFactory::IOSPersonalContextServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "PersonalContextService",
+          ProfileSelection::kNoInstanceInIncognito,
+          ServiceCreation::kCreateWithProfile,
+          TestingCreation::kNoServiceForTests) {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(DeviceInfoSyncServiceFactory::GetInstance());
   DependsOn(IOSPersonalContextEligibilityServiceFactory::GetInstance());
 }
-
-IOSPersonalContextServiceFactory::~IOSPersonalContextServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 IOSPersonalContextServiceFactory::BuildServiceInstanceFor(

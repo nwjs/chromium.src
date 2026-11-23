@@ -8,6 +8,7 @@
 #import <UIKit/UIKit.h>
 
 #import "ios/chrome/browser/composebox/public/composebox_input_item_source.h"
+#import "ios/web/public/web_state_id.h"
 #import "url/gurl.h"
 
 namespace base {
@@ -16,6 +17,7 @@ class UnguessableToken;
 
 // Enum for the loading state of an item.
 enum class ComposeboxInputItemState {
+  kDeferred,
   kLoading,
   kUploading,
   kLoaded,
@@ -58,6 +60,9 @@ enum class ComposeboxInputItemType {
 @property(nonatomic, assign) NSInteger uploadIndex;
 // The current state of the item.
 @property(nonatomic, assign) ComposeboxInputItemState state;
+// Whether the item is ready for the query to be sent (i.e. not deferred,
+// loading, or uploading).
+@property(nonatomic, assign, readonly) BOOL readyForSend;
 // The type of the input item.
 @property(nonatomic, assign) ComposeboxInputItemType type;
 // Optional, uniquely identifying the asset the item is associated with.
@@ -75,6 +80,9 @@ enum class ComposeboxInputItemType {
 @property(nonatomic, strong) NSURL* fileURL;
 // The tab URL for this item. Only set for tab types.
 @property(nonatomic, assign) GURL tabURL;
+// The unique identifier of the `WebState` associated with this item. Only set
+// for tab types.
+@property(nonatomic, assign) web::WebStateID webStateID;
 // The Drive item identifier. Only set for Drive types.
 @property(nonatomic, copy) NSString* driveIdentifier;
 // The Drive resource key. Only set for Drive types.

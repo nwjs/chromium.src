@@ -166,7 +166,6 @@ import org.chromium.base.test.util.TestAnimations;
 import org.chromium.base.test.util.UrlUtils;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.content.browser.webcontents.WebContentsImpl;
-import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.HostZoomMap;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationController;
@@ -200,11 +199,6 @@ import java.util.concurrent.ExecutionException;
 @SuppressLint("VisibleForTests")
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
 @TestAnimations.EnableAnimations
-@EnableFeatures({
-    ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION,
-    // This flag is needed to set and read `isTextSelectable` property.
-    ContentFeatureList.ACCESSIBILITY_SET_SELECTABLE_ON_ALL_NODES_WITH_TEXT
-})
 public class WebContentsAccessibilityTest {
     private static final String TAG = "WebContentsAXTest";
 
@@ -1435,16 +1429,22 @@ public class WebContentsAccessibilityTest {
     @SmallTest
     public void testAccessibilityFocusPartiallyOffscreenBottomScrollsIntoView() throws Throwable {
         // Build a page where a target element's top edge is visible near the bottom of the
-        // viewport and its height extends below the viewport.
+        // viewport (`90vh`) and its height (`20vh`) extends below the viewport (`110vh`), with
+        // trailing content below so the page has room to scroll further down and center the target.
         setupTestWithHTML(
                 """
                 <body style="margin: 0;">
                   <div style="height: 90vh;"></div>
-                  <div id="target" style="height: 500px; background: red;">Partially offscreen</div>
+                  <div id="target" style="height: 20vh; background: red;">Partially offscreen</div>
+                  <div style="height: 200vh;"></div>
                 </body>
                 """);
 
         int targetVvid = waitForNodeMatching(sViewIdResourceNameMatcher, "target");
+        mNodeInfo = createAccessibilityNodeInfo(targetVvid);
+        Assert.assertNotNull(NODE_TIMEOUT_ERROR, mNodeInfo);
+        Rect initialBounds = new Rect();
+        mNodeInfo.getBoundsInScreen(initialBounds);
 
         // Initial scroll Y should be 0.
         Assert.assertEquals(0f, mActivityTestRule.mWcax.getScrollYForTesting(), 0.01f);
@@ -1452,12 +1452,23 @@ public class WebContentsAccessibilityTest {
         // Perform accessibility focus action.
         performActionOnUiThread(targetVvid, ACTION_ACCESSIBILITY_FOCUS, null);
 
-        // Poll until scroll Y is updated.
+        // Poll until scroll Y centers the target in the viewport (`scrollY ~= 50vh`), rather than
+        // stopping as soon as the bottom edge enters the viewport (`scrollY ~= 10vh`).
         CriteriaHelper.pollUiThread(
                 () -> {
-                    return mActivityTestRule.mWcax.getScrollYForTesting() > 0f;
-                },
-                "Expected view to scroll down to make target fully visible.");
+                    float scrollY = mActivityTestRule.mWcax.getScrollYForTesting();
+                    Criteria.checkThat(scrollY, Matchers.greaterThan(0f));
+                    Rect currentBounds = new Rect();
+                    AccessibilityNodeInfoCompat info = createAccessibilityNodeInfo(targetVvid);
+                    Criteria.checkThat(info, Matchers.notNullValue());
+                    info.getBoundsInScreen(currentBounds);
+                    // `#target` has height `20vh`. When centered in the viewport, `#target`'s top
+                    // moves up by `50vh` (`2.5 * height`), whereas `kClosestEdge` only moves
+                    // `#target`'s top up by `10vh` (`0.5 * height`).
+                    Criteria.checkThat(
+                            initialBounds.top - currentBounds.top,
+                            Matchers.greaterThan(initialBounds.height() * 2));
+                });
     }
 
     /**
@@ -1817,6 +1828,120 @@ public class WebContentsAccessibilityTest {
                 });
 
         Assert.assertFalse(mActivityTestRule.mWcax.hasAnyPendingTimersForTesting());
+    }
+
+    /**
+     * Tests that requesting an AccessibilityNodeProvider initializes native accessibility only when
+     * an accessibility service or password manager is enabled (e.g. not when only UiAutomation
+     * queries the view hierarchy).
+     */
+    @Test
+    @SmallTest
+    public void testGetAccessibilityNodeProvider_initializesNativeOnlyWithClients() {
+        mActivityTestRule.launchContentShellWithUrl(
+                UrlUtils.encodeHtmlDataUri("<p>This is a test</p>"));
+        mActivityTestRule.waitForActiveShellToBeDoneLoading();
+        mActivityTestRule.mockWebContentsAccessibilityImpl();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    WebContentsAccessibilityImpl wcax =
+                            mActivityTestRule.getWebContentsAccessibility();
+                    mActivityTestRule.mWcax = wcax;
+                    wcax.setIsAutoDisableAccessibilityCandidateForTesting(true);
+
+                    AccessibilityStateTestHelper.setIsOnlyPasswordManagersEnabledForTesting(false);
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            false);
+                    Assert.assertNull(wcax.getAccessibilityNodeProviderCompat());
+                    Assert.assertFalse(wcax.isNativeInitialized());
+
+                    // Returns null since the root manager is not connected yet.
+                    AccessibilityStateTestHelper.setIsOnlyPasswordManagersEnabledForTesting(true);
+                    Assert.assertNull(wcax.getAccessibilityNodeProviderCompat());
+                    Assert.assertTrue(wcax.isNativeInitialized());
+                });
+    }
+
+    /**
+     * Tests that once accessibility is auto-disabled and no accessibility services or password
+     * managers are enabled, neither refreshing native state nor requesting an
+     * AccessibilityNodeProvider re-enables renderer accessibility or sets an AXMode.
+     */
+    @Test
+    @SmallTest
+    public void testAutoDisableAccessibility_noClientsDoesNotReEnableOrSetAXMode()
+            throws Throwable {
+        setupTestWithHTML("<p>This is a test</p>");
+        waitForNodeMatching(sTextMatcher, "This is a test");
+
+        mActivityTestRule.mWcax.setIsAutoDisableAccessibilityCandidateForTesting(true);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(AUTO_DISABLE_ACCESSIBILITY_REENABLE_METHOD_CALLED_INITIAL)
+                        .build();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    WebContentsAccessibilityImpl wcax = mActivityTestRule.mWcax;
+                    wcax.forceAutoDisableAccessibilityForTesting();
+                    Assert.assertFalse(wcax.hasScopedAXModeForTesting());
+
+                    // The state change refreshes native state, which must not restore an AXMode.
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            false);
+                    Assert.assertFalse(wcax.hasScopedAXModeForTesting());
+
+                    // Nor may requesting the node provider.
+                    Assert.assertNull(wcax.getAccessibilityNodeProviderCompat());
+                    Assert.assertFalse(wcax.hasScopedAXModeForTesting());
+                });
+
+        histogramWatcher.assertExpected();
+
+        // Non-candidates (e.g. WebView) re-enable and restore basic AXMode even without services.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule.mWcax.setIsAutoDisableAccessibilityCandidateForTesting(false);
+                    mActivityTestRule.mWcax.getAccessibilityNodeProviderCompat();
+                    Assert.assertTrue(mActivityTestRule.mWcax.hasScopedAXModeForTesting());
+                });
+    }
+
+    /**
+     * Tests that re-enabling renderer accessibility after an auto-disable restores the AXMode that
+     * was cleared when disabling.
+     */
+    @Test
+    @SmallTest
+    public void testAutoDisableAccessibility_reEnableRestoresAXMode() throws Throwable {
+        setupTestWithHTML("<p>This is a test</p>");
+        waitForNodeMatching(sTextMatcher, "This is a test");
+
+        mActivityTestRule.mWcax.setIsAutoDisableAccessibilityCandidateForTesting(true);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    WebContentsAccessibilityImpl wcax = mActivityTestRule.mWcax;
+                    wcax.forceAutoDisableAccessibilityForTesting();
+                    Assert.assertFalse(wcax.hasScopedAXModeForTesting());
+
+                    // Refreshing native state while auto-disabled (even with a service enabled)
+                    // must not restore the AXMode before renderer accessibility is re-enabled.
+                    // Note: AccessibilityStateTestHelper notifies AccessibilityState listeners
+                    // (and thus calls refreshNativeState()) synchronously on the calling thread.
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            false);
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            true);
+                    Assert.assertFalse(wcax.hasScopedAXModeForTesting());
+
+                    // Requesting the node provider re-enables renderer accessibility and restores
+                    // the AXMode.
+                    wcax.getAccessibilityNodeProviderCompat();
+                    Assert.assertTrue(wcax.hasScopedAXModeForTesting());
+                });
     }
 
     // ------------------ Tests of AccessibilityNodeInfo caching mechanism ------------------ //
@@ -5123,11 +5248,10 @@ public class WebContentsAccessibilityTest {
                         null,
                         () -> createAccessibilityNodeInfo(buttonVvid).isFocused()));
 
-        // Select in the subframe while the root frame is focused.
-        // The wait relies on the selection changed event fired for the selection change of the
-        // subframe itself, although the subframe is not focused and the exposed selection does not
-        // change. TODO(crbug.com/481134054): Revisit this sync if that event is no longer fired.
-        executeJSAndWaitForSelectionEvent(
+        // Select in the subframe while the root frame is focused, and don't wait for the
+        // selection to be exposed.
+        JavaScriptUtils.executeJavaScriptAndWaitForResult(
+                mActivityTestRule.getWebContents(),
                 """
                 const p2 = document.getElementById('f1').contentDocument.getElementById('p2');
                 p2.ownerDocument.getSelection().setBaseAndExtent(
@@ -6700,12 +6824,11 @@ public class WebContentsAccessibilityTest {
                         new SpanRange(new BackgroundColorSpan(0xFFFFFF00), 47, 52),
                         new SpanRange(new StyleSpan(Typeface.ITALIC), 41, 47)));
 
-        // TODO: crbug.com/426007976 - Add back missing span once zero font size nodes are fixed.
         testCases.put(
                 "Example Text - Nested invisible text",
                 List.of(
                         new SpanRange(new AbsoluteSizeSpan(16), 0, 22),
-                        // new SpanRange(new AbsoluteSizeSpan(0), 22, 31),
+                        new SpanRange(new AbsoluteSizeSpan(0), 22, 31),
                         new SpanRange(new AbsoluteSizeSpan(16), 31, 36)));
 
         testCases.put("Italic text field", List.of(new SpanRange(new StyleSpan(Typeface.ITALIC))));

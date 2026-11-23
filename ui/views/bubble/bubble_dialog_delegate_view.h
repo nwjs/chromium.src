@@ -159,10 +159,6 @@ class CastDialogView;
 class MediaRemotingDialogView;
 }  // namespace media_router
 
-namespace send_tab_to_self {
-class SendTabToSelfToolbarBubbleView;
-}
-
 namespace toasts {
 class ToastView;
 }
@@ -317,6 +313,10 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // anchor view can easily migrate to accept a WebUI anchor.
   void SetAnchor(BubbleAnchor anchor);
   BubbleAnchor GetAnchor() const;
+
+  // Returns the focus-traversable BubbleDialogDelegate anchored to `anchor`, or
+  // nullptr if none exists.
+  static BubbleDialogDelegate* GetAnchoredDialog(BubbleAnchor anchor);
 
   // Returns true when this is anchored on the same thing in `anchor`; this is
   // needed since GetAnchor() can return different representations than what
@@ -484,6 +484,13 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   // (e.g. a button). The element is looked up by `id`, in the context based on
   // the anchor widget.
   void SetHighlightedElement(ui::ElementIdentifier id);
+
+  // Same as above, but looks up `id` in `context` instead of the context based
+  // on the anchor widget. Use this when the element lives in a different
+  // context than the anchor widget, e.g. an element in a WebUI that has its own
+  // element context.
+  void SetHighlightedElement(ui::ElementIdentifier id,
+                             ui::ElementContext context);
 
   // The bubble's parent window - this can only be usefully set before creating
   // the bubble's widget. If there is one, the bubble will be stacked above it,
@@ -686,6 +693,8 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
                            DelayedHighlightByElement);
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
+                           HighlightByElementInExplicitContext);
+  FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
                            AnchorChangeChangesHighlight);
   FRIEND_TEST_ALL_PREFIXES(BubbleDialogDelegateViewTest,
                            MultipleBubbleAnchorHighlightTestInOrder);
@@ -723,6 +732,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   void UpdateHighlightedButton(bool highlight);
 
   void SetAnchoredDialogKey();
+  void ClearAnchoredDialogKey();
 
   gfx::Rect GetDesiredBubbleBounds();
 
@@ -764,7 +774,7 @@ class VIEWS_EXPORT BubbleDialogDelegate : public DialogDelegate {
   mutable std::optional<gfx::Rect> anchor_rect_;
 
   bool accept_events_ = true;
-  bool accept_drag_drop_ = false;
+  bool accept_drag_drop_ = true;
   gfx::NativeView parent_window_ = gfx::NativeView();
 
   // By default, all BubbleDialogDelegates have parent windows.
@@ -964,7 +974,6 @@ class VIEWS_EXPORT BubbleDialogDelegateView : public View,
   friend class ::lens::LensRegionSearchInstructionsView;
   friend class ::media_router::CastDialogView;
   friend class ::media_router::MediaRemotingDialogView;
-  friend class ::send_tab_to_self::SendTabToSelfToolbarBubbleView;
   friend class ::toasts::ToastView;
   friend class ::ui::ime::AnnouncementView;
   friend class ::ui::ime::CandidateWindowView;

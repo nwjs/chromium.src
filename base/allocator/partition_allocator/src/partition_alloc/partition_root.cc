@@ -26,6 +26,7 @@
 #include "partition_alloc/partition_alloc_base/bits.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
+#include "partition_alloc/partition_alloc_base/containers/span.h"
 #include "partition_alloc/partition_alloc_base/thread_annotations.h"
 #include "partition_alloc/partition_alloc_check.h"
 #include "partition_alloc/partition_alloc_config.h"
@@ -423,7 +424,7 @@ static size_t PartitionPurgeSlotSpan(PartitionRoot* root,
   // DiscardVirtualMemory makes the contents of discarded memory undefined.
   size_t last_slot = static_cast<size_t>(-1);
 #endif
-  std::fill_n(slot_usage.begin(), num_provisioned_slots, 1);
+  std::ranges::fill(base::span(slot_usage).first(num_provisioned_slots), 1);
   SlotSpanStart slot_span_start =
       internal::SlotSpanMetadata::ToSlotSpanStart(slot_span, root);
   // First, walk the freelist for this slot span and make a bitmap of which
@@ -1434,6 +1435,12 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
       // Important to note that DCHECKED_BRP implies BACKUP_REF_PTR_SUPPORT and
       // thus `ref_count` is always set above.
       PA_DCHECK(new_ref_count == ref_count);
+
+#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+      // By definition, slots that can store the raw size do not smuggle
+      // the requested size.
+      PA_DCHECK(!ref_count->IsSmuggledSizeAvailable());
+#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
     }
 #endif  // PARTITION_ALLOC_HAS_DCHECKED_BRP
 
@@ -1445,12 +1452,6 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
           static_cast<unsigned char*>(object) + GetSlotUsableSize(slot_span)));
     }
 #endif  // PA_BUILDFLAG(USE_PARTITION_COOKIE)
-
-#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
-    // By definition, slots that can store the raw size do not smuggle
-    // the requested size.
-    PA_DCHECK(!ref_count->IsSmuggledSizeAvailable());
-#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
 
   }
 #if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)

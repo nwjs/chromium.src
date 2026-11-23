@@ -16,8 +16,10 @@
 #import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/web_state.h"
+#import "net/base/is_potentially_trustworthy.h"
 #import "url/gurl.h"
 #import "url/origin.h"
+#import "url/url_constants.h"
 
 namespace {
 // Browser-side timeout for device attestation requests.
@@ -35,6 +37,20 @@ GURL DeterminePolicyCheckUrl(const url::Origin& security_origin,
     return *candidate_url;
   }
   return security_origin.GetURL();
+}
+
+// Returns whether `security_origin` may be offered the Device Trust API and
+// request device attestation. Only trustworthy web origins are eligible:
+// opaque origins have no authority, insecure origins could let a network
+// attacker inject a script that calls the API, and non-web schemes that are
+// nonetheless potentially trustworthy (e.g. `file:`, `chrome:`,
+// `chrome-extension:`) cannot host an Identity Provider. HTTP is kept only so
+// that localhost and origins listed with
+// `--unsafely-treat-insecure-origin-as-secure` remain usable.
+bool IsEligibleOrigin(const url::Origin& security_origin) {
+  return (security_origin.scheme() == url::kHttpsScheme ||
+          security_origin.scheme() == url::kHttpScheme) &&
+         net::IsOriginPotentiallyTrustworthy(security_origin);
 }
 }  // namespace
 
@@ -85,8 +101,7 @@ void DeviceTrustChallengeTabHelper::BuildChallengeResponse(
     return;
   }
 
-  // Opaque origins have no authority to request device attestation.
-  if (security_origin.opaque()) {
+  if (!IsEligibleOrigin(security_origin)) {
     PostError(std::move(callback),
               enterprise_connectors::DeviceTrustError::kInvalidOrigin);
     return;
@@ -215,12 +230,14 @@ void DeviceTrustChallengeTabHelper::MaybeSetupDeviceTrustAPI(
     return;
   }
 
-  const url::Origin security_origin = web_frame->GetSecurityOrigin();
-  if (security_origin.opaque()) {
+  if (!device_trust_service_ || !device_trust_service_->IsEnabled()) {
     return;
   }
 
-  if (!device_trust_service_ || !device_trust_service_->IsEnabled()) {
+  // Only trustworthy web origins may be offered the API; see
+  // `IsEligibleOrigin()`.
+  const url::Origin security_origin = web_frame->GetSecurityOrigin();
+  if (!IsEligibleOrigin(security_origin)) {
     return;
   }
 

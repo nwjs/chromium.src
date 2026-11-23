@@ -71,8 +71,6 @@ source_set("browser") {
     "//ui/base",
     "//url",
   ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 source_set("util") {
@@ -90,7 +88,6 @@ source_set("util") {
     "//ios/web/public/security",
     "//url",
   ]
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 optimize_js("autofill_js") {
@@ -176,6 +173,7 @@ source_set("unit_tests") {
     "//components/autofill/ios/form_util:child_frame_registrar",
     "//components/autofill/ios/form_util:form_handler_feature",
     "//components/autofill/ios/form_util:test_support",
+    "//components/feature_engagement/public",
     "//components/prefs:test_support",
     "//ios/testing:embedded_test_server_support",
     "//ios/web/public",

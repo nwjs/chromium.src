@@ -80,6 +80,11 @@ class TestNetworkContext : public mojom::NetworkContext {
       const net::CookieSettingOverrides& devtools_cookie_setting_overrides,
       bool prefer_bound_cookie_context,
       mojo::PendingRemote<mojom::CookieAccessObserver> observer) override {}
+  void GetRestrictedDeviceBoundSessionManager(
+      mojo::PendingReceiver<mojom::RestrictedDeviceBoundSessionManager>
+          receiver,
+      const url::Origin& origin,
+      const net::IsolationInfo& isolation_info) override {}
   void GetTrustTokenQueryAnswerer(
       mojo::PendingReceiver<mojom::TrustTokenQueryAnswerer> receiver,
       const url::Origin& top_frame_origin) override {}
@@ -301,8 +306,8 @@ class TestNetworkContext : public mojom::NetworkContext {
                AddHSTSCallback callback) override {}
   void GetHSTSState(const std::string& domain,
                     GetHSTSStateCallback callback) override {}
-  void EnableStaticKeyPinningForTesting(
-      EnableStaticKeyPinningForTestingCallback callback) override {}
+  void ReinitializeKeyPinningForTesting(
+      ReinitializeKeyPinningForTestingCallback callback) override {}
   void VerifyCertificateForTesting(
       const scoped_refptr<net::X509Certificate>& certificate,
       const std::string& hostname,
@@ -340,6 +345,7 @@ class TestNetworkContext : public mojom::NetworkContext {
   void ForceReloadProxyConfig(
       ForceReloadProxyConfigCallback callback) override {}
   void ClearBadProxiesCache(ClearBadProxiesCacheCallback callback) override {}
+  void GetProxySettings(GetProxySettingsCallback callback) override {}
   void DeleteDynamicDataForHost(
       const std::string& host,
       DeleteDynamicDataForHostCallback callback) override {}
@@ -430,6 +436,7 @@ class TestNetworkContext : public mojom::NetworkContext {
   void SetTryQuicByDefault(bool enable) override {}
   void SetVariationsHeaders(
       variations::mojom::VariationsHeadersPtr variations_headers) override {}
+  void Clone(mojo::PendingReceiver<mojom::NetworkContext> receiver) override {}
 };
 
 }  // namespace network

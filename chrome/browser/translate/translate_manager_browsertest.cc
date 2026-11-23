@@ -17,14 +17,17 @@
 #include "base/timer/timer.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/language/accept_languages_service_factory.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/translate/translate_test_utils.h"
+#include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
+#include "chrome/browser/ui/read_anything/read_anything_test_utils.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -33,6 +36,9 @@
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/toasts/toast_view.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/side_panel/side_panel.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 #include "chrome/browser/ui/views/translate/translate_bubble_controller.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/test/base/chrome_test_path_utils.h"
@@ -65,11 +71,11 @@
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/test/button_test_api.h"
 #include "url/gurl.h"
+#include "url/url_constants.h"
 
 #if BUILDFLAG(ENABLE_PDF)
 #include "base/scoped_observation.h"
 #include "base/test/test_future.h"
-#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "components/pdf/browser/pdf_document_helper.h"
 #include "components/translate/content/browser/pdf_translation_coordinator.h"
@@ -1563,6 +1569,38 @@ class TranslateManagerReadingModeBrowserTest
     ReadAnythingController::SetFreezeDistillationOnCreationForTesting(false);
     TranslateManagerBrowserTest::TearDown();
   }
+
+ protected:
+  // Opens Reading Mode, or closes it if it's open, the same way Reading Mode's
+  // keyboard shortcut does.
+  void ToggleReadingMode() {
+    chrome::ExecuteCommand(browser(), IDC_SHOW_READING_MODE_KEYBOARD);
+  }
+
+  // Switches Reading Mode from the side panel to the immersive overlay the same
+  // way Reading Mode's presentation menu does.
+  void TogglePresentationFromSidePanel() {
+    views::View* content_wrapper =
+        BrowserView::GetBrowserViewForBrowser(browser())
+            ->side_panel()
+            ->GetContentParentView();
+    ASSERT_EQ(content_wrapper->children().size(), 1u);
+    content::WebContents* reading_mode_contents =
+        static_cast<SidePanelWebUIView*>(content_wrapper->children()[0])
+            ->web_contents();
+    ASSERT_TRUE(content::ExecJs(reading_mode_contents,
+                                "chrome.readingMode.togglePresentation();"));
+  }
+
+  // Switches to a new tab and back to the active tab, which hides Reading Mode
+  // and shows it again if it was open.
+  void SwitchTabAwayAndBack() {
+    TabStripModel* tab_strip_model = browser()->tab_strip_model();
+    const int index = tab_strip_model->active_index();
+    ASSERT_TRUE(AddTabAtIndex(index + 1, GURL(url::kAboutBlankURL),
+                              ui::PAGE_TRANSITION_TYPED));
+    tab_strip_model->ActivateTabAt(index);
+  }
 };
 
 IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
@@ -1570,15 +1608,13 @@ IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
   ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
   EXPECT_FALSE(chrome_translate_client->IsReadingModeOpen());
 
-  auto* controller = ReadAnythingController::From(
-      browser()->tab_strip_model()->GetActiveTab());
-  ASSERT_TRUE(controller);
+  read_anything::test::PreferSidePanel(browser()->GetProfile());
 
-  controller->ShowSidePanelUI(SidePanelOpenTrigger::kAppMenu);
+  ToggleReadingMode();
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return chrome_translate_client->IsReadingModeOpen(); }));
 
-  controller->CloseSidePanelUI(ReadAnythingCloseReason::kClosedByUser);
+  ToggleReadingMode();
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !chrome_translate_client->IsReadingModeOpen(); }));
 }
@@ -1592,14 +1628,14 @@ IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
       browser()->tab_strip_model()->GetActiveTab());
   ASSERT_TRUE(controller);
 
-  controller->ShowImmersiveUI(
-      ReadAnythingController::ReadAnythingOpenTrigger::kOmniboxChip);
+  // Reading Mode opens in the immersive overlay by default.
+  ToggleReadingMode();
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return chrome_translate_client->IsReadingModeOpen(); }));
   ASSERT_EQ(controller->GetPresentationState(),
             ReadAnythingController::PresentationState::kInImmersiveOverlay);
 
-  controller->CloseImmersiveUI(ReadAnythingCloseReason::kClosedByUser);
+  ToggleReadingMode();
   EXPECT_TRUE(base::test::RunUntil(
       [&]() { return !chrome_translate_client->IsReadingModeOpen(); }));
 }
@@ -1647,6 +1683,49 @@ IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
 
   // Revert PDF translation (should NOT close side panel since it was open before).
   chrome_translate_client->RevertPdfTranslation();
+  EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
+
+  // Clean up
+  side_panel_ui->Close();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+}
+
+IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
+                       NavigationClosesSidePanelIfOpenedByPdfTranslation) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  EXPECT_FALSE(chrome_translate_client->IsReadingModeOpen());
+
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // Navigating to a new page should close the side panel that was opened for
+  // PDF translation.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/english_page.html")));
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+}
+
+IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
+                       NavigationDoesNotCloseSidePanelIfAlreadyOpen) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  EXPECT_FALSE(chrome_translate_client->IsReadingModeOpen());
+
+  // Open Reading Mode side panel prior to triggering PDF translation.
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
+  ASSERT_TRUE(side_panel_ui);
+  side_panel_ui->Show(SidePanelEntryId::kReadAnything);
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
+
+  // The side panel was opened by the user, so navigating should keep it open.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL("/english_page.html")));
   EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
 
   // Clean up
@@ -1739,7 +1818,209 @@ IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
     return !manager->GetLanguageState()->IsPageTranslated();
   }));
 }
+
+IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
+                       ClosingSidePanelCancelsPendingPdfTranslation) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  TranslateManager* manager = chrome_translate_client->GetTranslateManager();
+  ASSERT_TRUE(manager);
+  LanguageState* language_state = manager->GetLanguageState();
+
+  // A PDF translation requested while Reading Mode is closed is pending until
+  // Reading Mode distills its content.
+  language_state->set_translation_pending(true);
+  language_state->SetPendingTranslationLanguages(
+      base::i18n::GetKnownLanguageTag("fr"),
+      base::i18n::GetKnownLanguageTag("en"));
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // Closing the side panel before the translation started should cancel it.
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
+  ASSERT_TRUE(side_panel_ui);
+  side_panel_ui->Close();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+
+  EXPECT_FALSE(language_state->translation_pending());
+  EXPECT_FALSE(language_state->pending_source_language().has_value());
+  EXPECT_FALSE(language_state->pending_target_language().has_value());
+  EXPECT_FALSE(language_state->IsPageTranslated());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    TranslateManagerReadingModeBrowserTest,
+    ClosingSidePanelAfterTabSwitchCancelsPendingPdfTranslation) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  TranslateManager* manager = chrome_translate_client->GetTranslateManager();
+  ASSERT_TRUE(manager);
+  LanguageState* language_state = manager->GetLanguageState();
+
+  // A PDF translation requested while Reading Mode is closed is pending until
+  // Reading Mode distills its content.
+  language_state->set_translation_pending(true);
+  language_state->SetPendingTranslationLanguages(
+      base::i18n::GetKnownLanguageTag("fr"),
+      base::i18n::GetKnownLanguageTag("en"));
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // Switching tabs only hides Reading Mode, so the translation stays pending.
+  SwitchTabAwayAndBack();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+  EXPECT_TRUE(language_state->translation_pending());
+  EXPECT_TRUE(language_state->pending_source_language().has_value());
+
+  // Closing the side panel after switching back, before the translation
+  // started, should still cancel it, which requires still observing Reading
+  // Mode after the tab switch.
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
+  ASSERT_TRUE(side_panel_ui);
+  side_panel_ui->Close();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+
+  EXPECT_FALSE(language_state->translation_pending());
+  EXPECT_FALSE(language_state->pending_source_language().has_value());
+  EXPECT_FALSE(language_state->pending_target_language().has_value());
+}
+
+// TODO(crbug.com/568775395): Fix test failure on Linux.
+// TODO(crbug.com/569866044): Fix test failure on ChromeOS.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_ClosingSidePanelAfterTabSwitchRevertsPdfTranslation \
+  DISABLED_ClosingSidePanelAfterTabSwitchRevertsPdfTranslation
+#else
+#define MAYBE_ClosingSidePanelAfterTabSwitchRevertsPdfTranslation \
+  ClosingSidePanelAfterTabSwitchRevertsPdfTranslation
 #endif
+IN_PROC_BROWSER_TEST_F(
+    TranslateManagerReadingModeBrowserTest,
+    MAYBE_ClosingSidePanelAfterTabSwitchRevertsPdfTranslation) {
+  ChromeTranslateClient* chrome_translate_client = OpenFrenchPage();
+  TranslateManager* manager = chrome_translate_client->GetTranslateManager();
+  ASSERT_TRUE(manager);
+
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // Switching away hides Reading Mode, and switching back shows it again.
+  SwitchTabAwayAndBack();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // The page can still be translated with Reading Mode open.
+  TranslateActivePageToEnglish(manager);
+  EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
+
+  // Closing Reading Mode reverts the translation, which requires still
+  // observing Reading Mode after the tab switch.
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
+  ASSERT_TRUE(side_panel_ui);
+  side_panel_ui->Close();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+  EXPECT_TRUE(base::test::RunUntil([&]() -> bool {
+    return !manager->GetLanguageState()->IsPageTranslated();
+  }));
+}
+
+IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
+                       TogglePresentationKeepsPendingPdfTranslation) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+  TranslateManager* manager = chrome_translate_client->GetTranslateManager();
+  ASSERT_TRUE(manager);
+  LanguageState* language_state = manager->GetLanguageState();
+
+  // A PDF translation requested while Reading Mode is closed is pending until
+  // Reading Mode distills its content.
+  language_state->set_translation_pending(true);
+  language_state->SetPendingTranslationLanguages(
+      base::i18n::GetKnownLanguageTag("fr"),
+      base::i18n::GetKnownLanguageTag("en"));
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+
+  // Switching to the immersive overlay keeps Reading Mode open, so the
+  // translation stays pending.
+  auto* controller = ReadAnythingController::From(
+      browser()->tab_strip_model()->GetActiveTab());
+  ASSERT_TRUE(controller);
+  TogglePresentationFromSidePanel();
+  EXPECT_TRUE(base::test::RunUntil([&]() -> bool {
+    return controller->GetPresentationState() ==
+           ReadAnythingController::PresentationState::kInImmersiveOverlay;
+  }));
+  EXPECT_TRUE(language_state->translation_pending());
+  EXPECT_TRUE(language_state->pending_source_language().has_value());
+
+  // Closing Reading Mode after the toggle should still cancel it.
+  ToggleReadingMode();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+
+  EXPECT_FALSE(language_state->translation_pending());
+  EXPECT_FALSE(language_state->pending_source_language().has_value());
+  EXPECT_FALSE(language_state->pending_target_language().has_value());
+}
+
+// TODO(crbug.com/568700021): Fix test failure on Linux MSan.
+#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+#define MAYBE_TogglePresentationKeepsPdfTranslation \
+  DISABLED_TogglePresentationKeepsPdfTranslation
+#else
+#define MAYBE_TogglePresentationKeepsPdfTranslation \
+  TogglePresentationKeepsPdfTranslation
+#endif
+IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
+                       MAYBE_TogglePresentationKeepsPdfTranslation) {
+  ChromeTranslateClient* chrome_translate_client = OpenFrenchPage();
+  TranslateManager* manager = chrome_translate_client->GetTranslateManager();
+  ASSERT_TRUE(manager);
+
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+  TranslateActivePageToEnglish(manager);
+
+  // Switching to the immersive overlay keeps Reading Mode open, so the
+  // translation isn't reverted.
+  auto* controller = ReadAnythingController::From(
+      browser()->tab_strip_model()->GetActiveTab());
+  ASSERT_TRUE(controller);
+  TogglePresentationFromSidePanel();
+  EXPECT_TRUE(base::test::RunUntil([&]() -> bool {
+    return controller->GetPresentationState() ==
+           ReadAnythingController::PresentationState::kInImmersiveOverlay;
+  }));
+  EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
+  EXPECT_TRUE(manager->GetLanguageState()->IsPageTranslated());
+}
+
+IN_PROC_BROWSER_TEST_F(TranslateManagerReadingModeBrowserTest,
+                       TriggerPdfTranslationTwiceWhileOpen) {
+  ChromeTranslateClient* chrome_translate_client = GetChromeTranslateClient();
+
+  // Requesting a translation again while Reading Mode is open must not add
+  // the Reading Mode observer twice.
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return chrome_translate_client->IsReadingModeOpen(); }));
+  chrome_translate_client->TriggerPdfTranslation();
+  EXPECT_TRUE(chrome_translate_client->IsReadingModeOpen());
+
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
+  ASSERT_TRUE(side_panel_ui);
+  side_panel_ui->Close();
+  EXPECT_TRUE(base::test::RunUntil(
+      [&]() -> bool { return !chrome_translate_client->IsReadingModeOpen(); }));
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(ENABLE_PDF)
 class TranslateManagerPdfBrowserTest : public TranslateManagerBrowserTest {

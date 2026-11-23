@@ -727,6 +727,14 @@ void ClearStyleColorCache() {
   cache.separator.clear();
 }
 
+bool IsGtkThemeDark() {
+  return color_utils::IsDark(GetBgColor({}));
+}
+
+SkColor GetThemeAccentColor() {
+  return GetBgColor("treeview.view treeview.view.cell:selected:focus");
+}
+
 std::string GetGtkSettingsStringProperty(GtkSettings* settings,
                                          const gchar* prop_name) {
   GValue layout = G_VALUE_INIT;

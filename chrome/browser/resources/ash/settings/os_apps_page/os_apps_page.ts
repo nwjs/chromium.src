@@ -24,7 +24,6 @@ import './app_management_page/uninstall_button.js';
 import './app_parental_controls/app_setup_pin_dialog.js';
 import './app_parental_controls/app_verify_pin_dialog.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
 import type {CrToggleElement} from 'chrome://resources/ash/common/cr_elements/cr_toggle/cr_toggle.js';
 import {I18nMixin} from 'chrome://resources/ash/common/cr_elements/i18n_mixin.js';
 import type {App} from 'chrome://resources/cr_components/app_management/app_management.mojom-webui.js';
@@ -45,7 +44,8 @@ import {AppNotificationsObserverReceiver, Readiness} from '../mojom-webui/app_no
 import type {AppParentalControlsHandlerInterface} from '../mojom-webui/app_parental_controls_handler.mojom-webui.js';
 import {Section} from '../mojom-webui/routes.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import type {Route} from '../router.js';
+import type {Route} from '../os_settings_routes.js';
+import {PrefsMixin} from '../prefs/prefs_mixin.js';
 import {Router, routes} from '../router.js';
 
 import type {AndroidAppsInfo} from './android_apps_browser_proxy.js';

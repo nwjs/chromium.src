@@ -152,12 +152,10 @@ void AudioWorkletGlobalScope::registerProcessor(
       if ((default_value < min_value) || (default_value > max_value)) {
         exception_state.ThrowDOMException(
             DOMExceptionCode::kInvalidStateError,
-            StrCat({"The default value, ", String::Number(default_value),
-                    ", in \"", new_param_name,
-                    "\" parameterDescriptors() from the AudioWorkletProcessor "
-                    "is out of the range [",
-                    String::Number(min_value), ", ", String::Number(max_value),
-                    "]."}));
+            Format("The default value, {:g}, in \"{}\" parameterDescriptors() "
+                   "from the AudioWorkletProcessor is out of the range [{:g}, "
+                   "{:g}].",
+                   default_value, new_param_name, min_value, max_value));
         return;
       }
 
@@ -183,11 +181,13 @@ void AudioWorkletGlobalScope::registerProcessor(
   }
 }
 
-AudioWorkletProcessor* AudioWorkletGlobalScope::CreateProcessor(
+base::expected<AudioWorkletProcessor*, AudioWorkletProcessorErrorDetails>
+AudioWorkletGlobalScope::CreateProcessor(
     const String& name,
     MessagePortChannel message_port_channel,
     scoped_refptr<SerializedScriptValue> node_options) {
   DCHECK(IsContextThread());
+  CHECK(node_options);
 
   // The registered definition is already checked by AudioWorkletNode
   // construction process, so the `definition` here must be valid.
@@ -223,7 +223,11 @@ AudioWorkletProcessor* AudioWorkletGlobalScope::CreateProcessor(
         "Transferred AudioWorkletNodeOptions could not be deserialized because "
         "it contains an object of a type not available in "
         "AudioWorkletGlobalScope. See https://crbug.com/1429681 for details."));
-    return nullptr;
+    return base::unexpected(AudioWorkletProcessorErrorDetails::Create(
+        AudioWorkletProcessorErrorState::kConstructionError, name,
+        "Transferred AudioWorkletNodeOptions could not be deserialized "
+        "because it contains an object of a type not available in "
+        "AudioWorkletGlobalScope."));
   }
 
   UnpackedSerializedScriptValue* unpacked_node_options =
@@ -231,16 +235,32 @@ AudioWorkletProcessor* AudioWorkletGlobalScope::CreateProcessor(
           std::move(node_options));
   ScriptValue deserialized_options(
       isolate, unpacked_node_options->Deserialize(isolate));
-
-  ScriptValue instance;
-  if (!definition->ConstructorFunction()->Construct(deserialized_options)
-          .To(&instance)) {
-    return nullptr;
+  if (unpacked_node_options->Value()->HasDeserializationError()) {
+    return base::unexpected(AudioWorkletProcessorErrorDetails::Create(
+        AudioWorkletProcessorErrorState::kConstructionError, name,
+        "Failed to deserialize AudioWorkletNodeOptions."));
   }
 
-  // ToImplWithTypeCheck() may return nullptr when the type does not match.
+  ScriptValue instance;
+  if (!definition->ConstructorFunction()
+           ->Construct(deserialized_options)
+           .To(&instance)) {
+    return base::unexpected(AudioWorkletProcessorErrorDetails::Create(
+        AudioWorkletProcessorErrorState::kConstructionError, name,
+        "Invoking the user-supplied constructor failed.",
+        AudioWorkletProcessorErrorDetails::ExtractScriptException(
+            isolate, script_state->GetContext(), try_catch)));
+  }
+
+  // ToWrappable() returns nullptr when the constructor returned an object that
+  // is not an AudioWorkletProcessor.
   AudioWorkletProcessor* processor =
       V8AudioWorkletProcessor::ToWrappable(isolate, instance.V8Value());
+  if (!processor) {
+    return base::unexpected(AudioWorkletProcessorErrorDetails::Create(
+        AudioWorkletProcessorErrorState::kConstructionError, name,
+        "Constructor did not return an AudioWorkletProcessor."));
+  }
 
   return processor;
 }

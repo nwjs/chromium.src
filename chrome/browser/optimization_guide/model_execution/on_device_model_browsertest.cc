@@ -20,7 +20,6 @@
 #include "components/optimization_guide/core/model_execution/configs/manifest_builder.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/manifest_component_directory.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_capability.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
@@ -73,7 +72,7 @@ class OnDeviceAssets {
                 proto::BaseModelRecipe::PERFORMANCE_HINT_UNSPECIFIED, {}, 0)));
     builder.Add(
         "test_solution",
-        SolutionRecipe("base_model_recipe", "",
+        SolutionRecipe("base_model_recipe",
                        FileReference("manifest", "test_config.binarypb")),
         {
             DeviceUseCase{DeviceCategory::kCpu, "test"},

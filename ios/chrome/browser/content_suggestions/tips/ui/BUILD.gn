@@ -4,6 +4,12 @@
 
 source_set("ui") {
   sources = [
+    "ntp_customization_promo_view_controller.h",
+    "ntp_customization_promo_view_controller.mm",
+    "ntp_theme_actionable_tip_config.h",
+    "ntp_theme_actionable_tip_config.mm",
+    "ntp_theme_actionable_tip_view.h",
+    "ntp_theme_actionable_tip_view.mm",
     "save_passwords_instructional_view_controller.h",
     "save_passwords_instructional_view_controller.mm",
     "tips_module_audience.h",
@@ -22,14 +28,17 @@ source_set("ui") {
   deps = [
     "//base",
     "//components/segmentation_platform/embedder/home_modules/tips_manager:constants",
+    "//components/segmentation_platform/public",
     "//ios/chrome/app/strings",
     "//ios/chrome/browser/content_suggestions/magic_stack/ui:magic_stack_module_content_view_delegate",
+    "//ios/chrome/browser/content_suggestions/magic_stack/ui:public",
     "//ios/chrome/browser/content_suggestions/public:constants",
     "//ios/chrome/browser/content_suggestions/tips/ui/resources",
     "//ios/chrome/browser/instructions_bottom_sheet/ui",
     "//ios/chrome/browser/ntp/ui_bundled:theme",
     "//ios/chrome/browser/shared/public/features",
     "//ios/chrome/browser/shared/ui/brick_configurations",
+    "//ios/chrome/browser/shared/ui/bricks",
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/common/ui/button_stack",
     "//ios/chrome/common/ui/colors",

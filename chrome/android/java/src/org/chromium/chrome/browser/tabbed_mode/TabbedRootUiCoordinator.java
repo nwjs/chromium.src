@@ -83,6 +83,7 @@ import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils.BookmarkBarSettingChangeOrigin;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarVisibilityProvider;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarVisibilityProvider.BookmarkBarVisibilityObserver;
+import org.chromium.chrome.browser.browser_controls.BottomControlsStacker.LayerType;
 import org.chromium.chrome.browser.browser_controls.BottomOverscrollHandler;
 import org.chromium.chrome.browser.collaboration.CollaborationControllerDelegateFactory;
 import org.chromium.chrome.browser.collaboration.CollaborationControllerDelegateImpl;
@@ -127,11 +128,11 @@ import org.chromium.chrome.browser.glic.GlicHelper;
 import org.chromium.chrome.browser.glic.GlicKeyedService.GlicInvocationSource;
 import org.chromium.chrome.browser.glic.GlicKeyedServiceHandler;
 import org.chromium.chrome.browser.glic.GlicMetrics;
-import org.chromium.chrome.browser.glic.GlicNavigationUtils;
 import org.chromium.chrome.browser.glic.GlicPrefNames;
-import org.chromium.chrome.browser.glic.GlicPromoCoordinator;
-import org.chromium.chrome.browser.glic.GlicUiCoordinator;
 import org.chromium.chrome.browser.glic.GlicUtils;
+import org.chromium.chrome.browser.glic.settings.GlicNavigationUtils;
+import org.chromium.chrome.browser.glic.ui.GlicPromoCoordinator;
+import org.chromium.chrome.browser.glic.ui.GlicUiCoordinator;
 import org.chromium.chrome.browser.history.HistoryManagerUtils;
 import org.chromium.chrome.browser.hub.HubManager;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthCoordinatorFactory;
@@ -257,7 +258,7 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeControllerFactory;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.TopInsetProvider;
-import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerController;
+import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.StartupEnterpriseSignalsDisclaimerController;
 import org.chromium.chrome.browser.ui.extensions.side_panel.ExtensionSidePanelManagerBridge;
 import org.chromium.chrome.browser.ui.extensions.side_panel.ExtensionSidePanelManagerBridgeFactory;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -326,6 +327,7 @@ import org.chromium.ui.widget.ViewRectProvider;
 import org.chromium.url.GURL;
 
 import java.util.Collections;
+import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -408,12 +410,12 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private CharSequence mApplicationLabel;
     private @Nullable TipsOptInCoordinator mTipsOptInCoordinator;
     private @Nullable GlicPromoCoordinator mGlicPromoCoordinator;
-    private @Nullable EnterpriseSignalsDisclaimerController mEnterpriseSignalsDisclaimerController;
+    private @Nullable StartupEnterpriseSignalsDisclaimerController
+            mEnterpriseSignalsDisclaimerController;
     private boolean mPromosEvaluatedForCurrentForeground;
     private final OneshotSupplier<ChromeInactivityTracker> mInactivityTrackerSupplier;
     private final InactivityObserver mInactivityObserver;
-    private @Nullable NtpSyncedThemeManager mNtpSyncedThemeManager;
-    private final @Nullable CrossDeviceSettingImporter mCrossDeviceSettingImporter;
+    private @Nullable CrossDeviceSettingImporter mCrossDeviceSettingImporter;
     private @Nullable SideUiCoordinator mSideUiCoordinator;
     private @Nullable WebContentHairlineCoordinator mWebContentHairlineCoordinator;
     private @Nullable SidePanelContainerCoordinator mSidePanelContainerCoordinator;
@@ -519,7 +521,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         }
 
         @Override
-        public void onSideUiSpecsChanged(
+        public void onSideUiSpecsChangeStarted(
                 SideUiCoordinator.SideUiSpecs sideUiSpecs,
                 SideUiCoordinator.UiUpdateRequest request) {
             if (mIsInHub) {
@@ -728,7 +730,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         multiInstanceManager),
                 bottomBarHostManager);
 
-        if (BottomBarConfigUtils.isBottomBarEnabled(activity)) {
+        // Match ToolbarManager, which builds the bottom bar only when the host manager exists.
+        if (bottomBarHostManager != null) {
             if (BottomBarConfigUtils.shouldShowOnGts()) {
                 Function<HubManager, NonNullObservableSupplier<Integer>> supplierGetter =
                         hubManager -> assumeNonNull(hubManager.getHubBottomOverviewColorSupplier());
@@ -862,16 +865,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 });
 
         maybeShowPromosOnForeground();
-
-        mCrossDeviceSettingImporter =
-                DeviceInfo.isDesktop() || !CrossDeviceSettingImporter.shouldCreateImporter()
-                        ? null
-                        : new CrossDeviceSettingImporter(
-                                activityLifecycleDispatcher,
-                                mActivityTabProvider.asObservable(),
-                                mActivity,
-                                modalDialogManagerSupplier,
-                                snackbarManagerSupplier);
 
         new OneShotCallback<>(mProfileSupplier, this::waitForTrackerInit);
 
@@ -1053,10 +1046,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             mInactivityTrackerSupplier.get().removeObserver(mInactivityObserver);
         }
 
-        if (mNtpSyncedThemeManager != null) {
-            mNtpSyncedThemeManager.destroy();
-        }
-
         if (mTabBottomSheetReadAloudControllerCallback != null) {
             mReadAloudControllerSupplier.removeObserver(mTabBottomSheetReadAloudControllerCallback);
             mTabBottomSheetReadAloudControllerCallback = null;
@@ -1078,6 +1067,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
         if (mCrossDeviceSettingImporter != null) {
             mCrossDeviceSettingImporter.destroy();
+            mCrossDeviceSettingImporter = null;
         }
 
         if (mGlicUiCoordinator != null) {
@@ -1528,7 +1518,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DEVICE_SIGNALS_DISCLAIMER)) {
             mEnterpriseSignalsDisclaimerController =
-                    EnterpriseSignalsDisclaimerController.maybeCreateForProfile(
+                    StartupEnterpriseSignalsDisclaimerController.maybeCreateForProfile(
                             mProfileSupplier.asNonNull().get().getOriginalProfile(),
                             assertNonNull(getBottomSheetController()),
                             mModalDialogManagerSupplier.get(),
@@ -1607,7 +1597,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         || NtpCustomizationUtils.supportsEnableEdgeToEdgeOnTop(
                                 mWindowAndroid, isTablet);
         if (isNewTabPageCustomizationV2Enabled) {
-            mNtpSyncedThemeManager = new NtpSyncedThemeManager(mActivity, originalProfile);
+            NtpSyncedThemeManager.getInstance().onFinishNativeInitialization(originalProfile);
             NtpCustomizationPolicyManager.getInstance()
                     .onFinishNativeInitialization(currentlySelectedProfile);
             if (NtpCustomizationUtils.isNTPCustomizationSyncEnabled()) {
@@ -1615,6 +1605,15 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         .onFinishNativeInitialization(originalProfile);
             }
         }
+        mCrossDeviceSettingImporter =
+                DeviceInfo.isDesktop() || !CrossDeviceSettingImporter.shouldCreateImporter()
+                        ? null
+                        : new CrossDeviceSettingImporter(
+                                mActivityLifecycleDispatcher,
+                                mActivityTabProvider.asObservable(),
+                                mActivity,
+                                mModalDialogManagerSupplier,
+                                mSnackbarManagerSupplier);
         NewTabPageLocationPolicyManager.getInstance().onFinishNativeInitialization(originalProfile);
 
         // Must precede initializeSideUi(), which passes this controller to vertical tabs.
@@ -1971,6 +1970,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         assert bottomSheetController != null;
         TipsUtils.maybeShowTipsOptInPromo(
                 mActivity,
+                mProfileSupplier.get(),
                 bottomSheetController,
                 mSnackbarManagerSupplier.asNonNull().get(),
                 ChromeSharedPreferences.getInstance(),
@@ -2185,11 +2185,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
 
     private void initializeTabBottomSheetManagers() {
         if (TabBottomSheetUtils.isTabBottomSheetEnabled()) {
+            BooleanSupplier canCoverBottomControlsSupplier =
+                    () ->
+                            !mBottomControlsStacker.hasVisibleLayersOtherThan(
+                                    Set.of(LayerType.BOTTOM_CHIN, LayerType.BOTTOM_SHEET));
             mTabBottomSheetManager =
                     new TabBottomSheetManagerImpl(
                             mActivity,
                             mWindowAndroid,
                             assertNonNull(getBottomSheetController()),
+                            canCoverBottomControlsSupplier,
                             mLayoutStateProviderOneShotSupplier,
                             SupplierUtils.asNonNull(mCompositorViewHolderSupplier).get(),
                             getOmniboxFocusStateSupplier());
@@ -2625,7 +2630,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                                 showVerticalTabs(true);
                             }
                             if (mControlContainer != null) {
-                                mControlContainer.updateToolbarRightOffset();
+                                mControlContainer.updateToolbarHorizontalMargins();
                             }
                             var transitionCoord =
                                     assumeNonNull(mToolbarManager)
@@ -2998,7 +3003,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                         new NotificationPermissionRationaleDialogController(
                                 mActivity, mModalDialogManagerSupplier.get());
         mNotificationPermissionController =
-                new NotificationPermissionController(mWindowAndroid, rationaleUIDelegateSupplier);
+                new NotificationPermissionController(
+                        mWindowAndroid, rationaleUIDelegateSupplier, profile);
         NotificationPermissionController.attach(mWindowAndroid, mNotificationPermissionController);
         if (mNotificationPermissionController.requestPermissionIfNeeded(/* contextual= */ false)) {
             return true;
@@ -3066,7 +3072,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private boolean maybeShowPromo(Profile profile) {
         // NOTE: Only one promo can be shown in one run to avoid nagging users too much.
 
-        if (mBottomBarHostManager != null && mBottomBarHostManager.maybeShowPromoDialog(profile)) {
+        if (mToolbarManager != null && mToolbarManager.maybeShowBottomBarPromo(profile)) {
             return true;
         }
         if (FullscreenSigninPromoLauncher.launchPromoIfNeeded(
@@ -3418,9 +3424,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
      * the next image for the theme collection to be used for the following day's refresh.
      */
     public void onDailyRefreshThemeCollectionApplied() {
-        if (mNtpSyncedThemeManager != null) {
-            mNtpSyncedThemeManager.fetchNextThemeCollectionImageAfterDailyRefreshApplied();
-        }
+        NtpSyncedThemeManager.getInstance().fetchNextThemeCollectionImageAfterDailyRefreshApplied();
     }
 
     private void waitForTrackerInit(Profile profile) {

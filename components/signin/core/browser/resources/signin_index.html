@@ -7,6 +7,10 @@
 </head>
 <body>
   <button id="download-button">Download JSON</button>
+  <label>
+    <input type="checkbox" id="show-real-identifiers-checkbox">
+    Show real identifiers
+  </label>
   <cr-tab-box id="signin-page">
     <div slot="tab" id="signin-overview-tab">Overview</div>
     <div slot="tab" id="signin-account-capabilities-tab">
@@ -18,6 +22,7 @@
       <div id="cookie-info"></div>
       <div id="account-info"></div>
       <div id="refresh-token-events"></div>
+      <div id="account-reconcilor-events"></div>
       <div id="bound-session-info"></div>
     </div>
     <div slot="panel">

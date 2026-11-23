@@ -10,7 +10,9 @@
 #include <limits>
 
 #include "base/check_op.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
+#include "cc/base/features.h"
 #include "cc/base/math_util.h"
 #include "cc/debug/debug_colors.h"
 #include "cc/layers/append_quads_context.h"
@@ -499,10 +501,12 @@ std::unique_ptr<viz::CompositorRenderPass> RenderSurfaceImpl::CreateRenderPass(
   // We never cache the capture render pass, so it's only specified here.
   pass->cache_render_pass = ShouldCacheRenderSurface();
 
-  // We only set the view transition tokens on a regular pass that don't match
-  // the capture phase tokens. The capture phase tokens will only be set on the
-  // view transition render pass.
-  if (!ViewTransitionElementResourceId().MatchesToken(
+  // We set the view transition resource id on a regular pass if we're not
+  // creating a separate capture render pass for it (either because its token
+  // doesn't match the capture phase tokens, or because it has no nested
+  // capture contributions to exclude).
+  if (!has_view_transition_capture_contributions() ||
+      !ViewTransitionElementResourceId().MatchesToken(
           capture_view_transition_tokens)) {
     pass->view_transition_element_resource_id =
         ViewTransitionElementResourceId();
@@ -517,9 +521,14 @@ RenderSurfaceImpl::CreateViewTransitionCaptureRenderPass(
   auto pass = CreateRenderPassCommon(view_transition_capture_render_pass_id(),
                                      view_transition_capture_content_rect_);
 
-  DCHECK(IsViewTransitionElement() ||
-         has_view_transition_capture_contributions());
-  pass->view_transition_element_resource_id = ViewTransitionElementResourceId();
+  DCHECK(has_view_transition_capture_contributions());
+  if (!base::FeatureList::IsEnabled(
+          features::kViewTransitionsAvoidDuplicateCaptureRenderPass) ||
+      ViewTransitionElementResourceId().MatchesToken(
+          capture_view_transition_tokens)) {
+    pass->view_transition_element_resource_id =
+        ViewTransitionElementResourceId();
+  }
   return pass;
 }
 
@@ -532,9 +541,6 @@ RenderSurfaceImpl::CreateRenderPassCommon(viz::CompositorRenderPassId id,
   damage_rect.Intersect(output_rect);
   pass->SetNew(id, output_rect, damage_rect,
                draw_properties_.screen_space_transform);
-  pass->filters = Filters();
-  pass->backdrop_filters = BackdropFilters();
-  pass->backdrop_filter_bounds = BackdropFilterBounds();
   pass->generate_mipmap = TrilinearFiltering();
   // The subtree size may be slightly larger than our content rect during
   // some animations, so we clamp it here.
@@ -663,7 +669,8 @@ void RenderSurfaceImpl::AppendQuads(const AppendQuadsContext& context,
       /*needs_blending=*/true, append_render_pass_id, mask_resource_id,
       mask_uv_rect, mask_texture_size, surface_contents_scale, gfx::PointF(),
       !layer_tree_impl_->settings().enable_edge_anti_aliasing,
-      OwningEffectNode()->backdrop_filter_quality, intersects_damage_under_);
+      OwningEffectNode()->backdrop_filter_quality, intersects_damage_under_,
+      Filters(), BackdropFilters(), BackdropFilterBounds());
 }
 
 bool RenderSurfaceImpl::ShouldClip() const {

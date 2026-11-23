@@ -13,6 +13,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/sequence_checker.h"
 #include "base/strings/strcat.h"
@@ -161,16 +162,16 @@ int RendererWebAudioDeviceImpl::GetOutputBufferSize(
   // buffer size calculations rely on the context sample rate.
   int min_buffer_size = kMinWebAudioBufferSize;
   if (min_hardware_buffer_size != 0) {
-    min_buffer_size = std::max(
-        kMinWebAudioBufferSize,
-        static_cast<int>(std::ceil(min_hardware_buffer_size * scale_factor)));
+    min_buffer_size = std::clamp(
+        static_cast<int>(std::ceil(min_hardware_buffer_size * scale_factor)),
+        kMinWebAudioBufferSize, kMaxWebAudioBufferSize);
   }
 
   int max_buffer_size = kMaxWebAudioBufferSize;
   if (max_hardware_buffer_size != 0) {
-    max_buffer_size = std::min(
-        kMaxWebAudioBufferSize,
-        static_cast<int>(std::ceil(max_hardware_buffer_size * scale_factor)));
+    max_buffer_size = std::clamp(
+        static_cast<int>(std::ceil(max_hardware_buffer_size * scale_factor)),
+        kMinWebAudioBufferSize, kMaxWebAudioBufferSize);
   }
   // Ensure that the `min_buffer_size` does not exceed `max_buffer_size`.
   // This can occur when a small scale_factor leads to inverted limits after
@@ -257,7 +258,16 @@ RendererWebAudioDeviceImpl::RendererWebAudioDeviceImpl(
   SendLogMessage(base::StringPrintf("%s", __func__));
 
   CreateAudioRendererSink();
-  HandleDeviceStatus(GetSinkOutputDeviceInfo());
+  media::OutputDeviceInfo device_info = GetSinkOutputDeviceInfo();
+  // Silent sinks get synthesized parameters and a failed authorization reports
+  // placeholder ones, so neither carries a hardware buffer size.
+  if (sink_descriptor_.Type() == WebAudioSinkDescriptor::kAudible &&
+      device_info.device_status() == media::OUTPUT_DEVICE_STATUS_OK &&
+      device_info.output_params().IsValid()) {
+    base::UmaHistogramSparse("WebAudio.AudioDestination.HardwareBufferSize2",
+                             device_info.output_params().frames_per_buffer());
+  }
+  HandleDeviceStatus(std::move(device_info));
 }
 
 media::OutputDeviceInfo RendererWebAudioDeviceImpl::GetSinkOutputDeviceInfo() {
@@ -555,8 +565,8 @@ RendererWebAudioDeviceImpl::MaybeCreateSinkAndGetStatus() {
 
   TRACE_EVENT2("webaudio",
                "RendererWebAudioDeviceImpl::MaybeCreateSinkAndGetStatus",
-               "sink_id", sink_descriptor_.SinkId().Utf8(),
-               "status", static_cast<int>(status));
+               "sink_id", sink_descriptor_.SinkId().Utf8(), "status",
+               static_cast<int>(status));
 
   return status;
 }

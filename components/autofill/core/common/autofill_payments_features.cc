@@ -28,6 +28,12 @@ BASE_FEATURE(kAutofillCardScanningBugfixes, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAutofillDisableBnplCountryCheckForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables testing Wallet direct offers with locales and in countries where they
+// would otherwise be disabled. This is a testing flag that should never be
+// enabled.
+BASE_FEATURE(kAutofillDisableWalletDirectOffersLocaleCountryCheckForTesting,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, Chrome will extract the checkout amount from the checkout
 // page using server-side AI.
 BASE_FEATURE(kAutofillEnableAiBasedAmountExtraction,
@@ -214,6 +220,11 @@ BASE_FEATURE(kAutofillEnableGradientGoogleLogos,
 BASE_FEATURE(kAutofillEnableNewCardBenefitsToggleText,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, Autofill payments requests fetch OAuth2 tokens from the
+// identity service on each request, instead of keeping local cache in Autofill
+// components.
+BASE_FEATURE(kAutofillEnableOAuth2TokenFix, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, offers will be displayed in the Clank keyboard accessory during
 // downstream.
 BASE_FEATURE(kAutofillEnableOffersInClankKeyboardAccessory,
@@ -306,17 +317,16 @@ BASE_FEATURE(kAutofillEnableWalletDirectOffers,
 BASE_FEATURE(kAutofillEnableWalletDirectOffersNotificationBubble,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, offers from the user's Gmail are synced via Google Wallet in
+// addition to direct offers.
+BASE_FEATURE(kAutofillEnableWalletGmailOffers,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, shows the Wallet Reminder Notice for credit cards after payment
 // form submission if higher-priority Autofill features (such as mandatory
 // re-auth, VCN, or card save) do not take precedence.
 BASE_FEATURE(kAutofillEnableWalletReminderNotice,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, PaymentsFormDataImporter prefers FormFieldData::user_input() over
-// FormFieldData::value() for import to avoid silently importing obfuscated
-// values.
-// TODO(crbug.com/526738761): Clean up after launch.
-BASE_FEATURE(kAutofillFixCvcImport, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_IOS)
 // When enabled, skips empty CVCs in AutofillWalletCredentialSyncBridge instead
@@ -392,15 +402,5 @@ BASE_FEATURE(kAutofillUpstreamEnforceStrikeDelay,
 const base::FeatureParam<int> kAutofillUpstreamEnforceStrikeDelayDays{
     &kAutofillUpstreamEnforceStrikeDelay,
     "autofill_upstream_enforce_strike_delay_days", 1};
-
-bool ShouldShowImprovedUserConsentForCreditCardSave() {
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX)
-  // The new user consent UI is fully launched on MacOS, Windows and Linux.
-  return true;
-#else
-  // Chrome OS does not have the new UI.
-  return false;
-#endif
-}
 
 }  // namespace autofill::features

@@ -32,6 +32,7 @@
 #include "components/autofill/content/renderer/form_autofill_util.h"
 #include "components/autofill/content/renderer/form_submission_tracker.h"
 #include "components/autofill/content/renderer/password_generation_agent.h"
+#include "components/autofill/content/renderer/synchronous_form_cache.h"
 #include "components/autofill/content/renderer/test_password_autofill_agent.h"
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -61,6 +62,10 @@
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/device_info.h"
+#endif
 
 #if BUILDFLAG(IS_WIN)
 #include "third_party/blink/public/web/win/web_font_rendering.h"
@@ -766,11 +771,26 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
     }
   }
 
-  void SimulateElementClick(const WebElement element) {
-    SimulatePointClick(element.BoundsInWidget().CenterPoint());
+  void SimulateFocusChangeCompleteIfAndroid() {
+#if BUILDFLAG(IS_ANDROID)
+    if (GetMainFrame() && GetMainFrame()->AutofillClient()) {
+      GetMainFrame()->AutofillClient()->DidCompleteFocusChangeInFrame();
+    }
+#endif
   }
 
-  using ChromeRenderViewTest::SimulateElementClick;
+  void SimulateElementClick(const WebElement element) {
+    SimulatePointClick(element.BoundsInWidget().CenterPoint());
+    SimulateFocusChangeCompleteIfAndroid();
+  }
+
+  bool SimulateElementClick(const std::string& element_id) {
+    bool result = ChromeRenderViewTest::SimulateElementClick(element_id);
+    if (result) {
+      SimulateFocusChangeCompleteIfAndroid();
+    }
+    return result;
+  }
 
   void SimulateSuggestionChoice(WebInputElement& username_input) {
     std::u16string username(kAliceUsername16);
@@ -3505,8 +3525,8 @@ TEST_F(PasswordAutofillAgentTest, CanShowSuggestionsAfterManualGeneration) {
 
   // Clear the password field value.
   password_element_.SetValue(WebString());
-  password_generation_->TextDidChangeInTextField(password_element_,
-                                                 /*form_cache=*/{});
+  SynchronousFormCache form_cache;
+  password_generation_->TextDidChangeInTextField(password_element_, form_cache);
 
   // Focus the password element again and verify that suggestions are shown to
   // the user.
@@ -5225,9 +5245,15 @@ TEST_F(PasswordAutofillAgentTest,
   FocusElement(kUsernameName);
 
 #if BUILDFLAG(IS_ANDROID)
-  EXPECT_CALL(fake_autofill_driver_,
-              AskForValuesToFill(_, _, _, _, Eq(std::nullopt)))
-      .Times(1);
+  if (!base::android::device_info::is_desktop() ||
+      !base::FeatureList::IsEnabled(
+          features::kAutofillAndroidKeyboardAccessoryDynamicPositioning)) {
+    EXPECT_CALL(fake_autofill_driver_,
+                AskForValuesToFill(_, _, _, _, Eq(std::nullopt)))
+        .Times(1);
+  } else {
+    CheckSuggestionsNotShown();
+  }
 #else
   CheckSuggestionsNotShown();
 #endif
@@ -5268,10 +5294,16 @@ TEST_F(PasswordAutofillAgentTest,
   FocusElement(kUsernameName);
 
 #if BUILDFLAG(IS_ANDROID)
-  EXPECT_CALL(fake_autofill_driver_,
-              AskForValuesToFill(_, _, _, _, Eq(std::nullopt)))
-      .Times(1);
-  task_environment_.FastForwardBy(base::Seconds(1));
+  if (!base::android::device_info::is_desktop() ||
+      !base::FeatureList::IsEnabled(
+          features::kAutofillAndroidKeyboardAccessoryDynamicPositioning)) {
+    EXPECT_CALL(fake_autofill_driver_,
+                AskForValuesToFill(_, _, _, _, Eq(std::nullopt)))
+        .Times(1);
+    task_environment_.FastForwardBy(base::Seconds(1));
+  } else {
+    CheckSuggestionsNotShown();
+  }
 #else
   CheckSuggestionsNotShown();
 #endif  // BUILDFLAG(IS_ANDROID)

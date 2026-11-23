@@ -318,6 +318,13 @@ IN_PROC_BROWSER_TEST_F(PrerenderUntilScriptBrowserTest, UseCounter) {
 
 IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
                        PrerenderTriggeredByEmbedderAndActivate) {
+#if BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/576393693): Prerender activation fails with
+  // kActivationNavigationParameterMismatch on Android tablets.
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    GTEST_SKIP() << "Prerender activation fails on Android tablets.";
+  }
+#endif
   base::HistogramTester histogram_tester;
 
   // Navigate to an initial page.
@@ -755,7 +762,7 @@ class PrerenderNewTabPageBrowserTest
   void SimulateNewTabNavigation(const GURL& url) {
     GetActiveWebContents()->OpenURL(
         content::OpenURLParams::CreateBrowserInitiated(
-            url, WindowOpenDisposition::CURRENT_TAB,
+            url, WindowOpenDisposition::kCurrentTab,
             ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK)),
         page_load_metrics::NavigationInitiatorHolder::AttacherCallback(
             chrome_navigation_initiator::kNewTabPage));
@@ -1040,8 +1047,7 @@ class PrerenderPrewarmDefaultSearchEngineTest
     content::WebContents* original_web_contents = GetActiveWebContents();
     original_web_contents->OpenURL(
         content::OpenURLParams::CreateBrowserInitiated(
-            GURL(url::kAboutBlankURL),
-            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            GURL(url::kAboutBlankURL), WindowOpenDisposition::kNewForegroundTab,
             ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK)),
         page_load_metrics::NavigationInitiatorHolder::AttacherCallback(
             chrome_navigation_initiator::kNewTabPage));

@@ -149,6 +149,9 @@ class CORE_EXPORT OffscreenCanvas final
                           float font_height) override;
   void ClearRenderedText(const gfx::RectF& rect) override;
   void ClearRenderedText() override;
+  bool ShouldCaptureRenderedText() override {
+    return should_capture_rendered_text_ && HasPlaceholderCanvas();
+  }
   void UpdateDrawnElementGeometry(Element&,
                                   const gfx::Transform*,
                                   const FloatClipRect*,
@@ -175,7 +178,7 @@ class CORE_EXPORT OffscreenCanvas final
   };
 
   bool PushFrameIfNeeded();
-  bool PushFrame(scoped_refptr<CanvasResource>&& frame);
+  bool PushFrame(scoped_refptr<ExportedCanvasResource>&& frame);
   void DidDraw(const gfx::Rect&) override;
   using CanvasRenderingContextHost::DidDraw;
   bool ShouldAccelerate2dContext() const override;
@@ -337,6 +340,8 @@ class CORE_EXPORT OffscreenCanvas final
   // then the following members would remain as initialized zero values.
   uint32_t client_id_ = 0;
   uint32_t sink_id_ = 0;
+
+  bool should_capture_rendered_text_ = false;
 
   Vector<ElementGeometryUpdate> pending_element_geometry_updates_;
 };

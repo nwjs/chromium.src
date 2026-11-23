@@ -2,7 +2,7 @@ Tests property access on a cached DOMWindow after the associated frame is remove
 
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
-PASS childWindow.alwaysOnTop is false
+PASS childWindow.alwaysOnTopPopup is false
 FAIL childWindow.closed should be false. Was true.
 PASS childWindow.credentialless is false
 PASS childWindow.crossOriginEmbedderPolicy is 'unsafe-none'
@@ -113,6 +113,7 @@ PASS childWindow.ongamepadrawinputchanged is null
 PASS childWindow.ongotpointercapture is null
 PASS childWindow.onhashchange is null
 PASS childWindow.oninput is null
+PASS childWindow.oninstallresult is null
 PASS childWindow.oninvalid is null
 PASS childWindow.onkeydown is null
 PASS childWindow.onkeypress is null

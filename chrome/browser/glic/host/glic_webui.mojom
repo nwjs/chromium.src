@@ -46,11 +46,17 @@ interface PreloadPage {
   // Notifies the page when the guest frame starts a navigation.
   OnGuestNavigationStarted();
 
-  // Notifies the page when the guest frame commits a navigation.
+  // Notifies the page when the guest frame commits a navigation or when a
+  // primary main frame navigation is blocked before commit.
   OnGuestNavigated(url.mojom.Url url,
                    bool is_api_allowed,
                    GuestPageType page_type,
                    bool is_initial_commit);
+
+  // Notifies the page when the guest main page is ready to display before the
+  // web client initializes (when kGlicShowLoaderUntilMainPageOnload is
+  // enabled).
+  OnGuestMainPageLoaded();
 
   // Notifies the page when the guest process terminates unexpectedly.
   OnGuestProcessGone();
@@ -80,6 +86,7 @@ enum GuestPageType {
   kGuestError = 2,
   kLoadError = 3,
   kDisabledByAdmin = 4,
+  kSecurityInterstitial = 5,
 };
 
 // Functions provided by the WebUI page.
@@ -92,6 +99,11 @@ interface Page {
   // reconsider. A page that does not retry its current failure must report it
   // again, through `OnClientLoadFailed(true)`, in response to this call.
   IntentToShow();
+
+  // Waits for the page to finish loading, or returns immediately if loading
+  // has already succeeded or failed. `failed` is true if the page reached a
+  // failure state it will not leave without being reloaded.
+  WaitForLoad() => (bool failed);
 
   // TODO(crbug.com/454120908): Remove this method after WebContents warming is
   // rolled out.
@@ -171,6 +183,9 @@ enum WebUiState {
   kLocationMismatch = 14,
   // Glic is unavailable due to account capabilities.
   kIneligibleAccount = 15,
+  // Guest main page has loaded and web view is displayed while waiting for the
+  // web client to initialize, or until `kMaxWaitTimeMs` timeout is reached.
+  kGuestLoaded = 16,
 };
 
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:WebUiState)

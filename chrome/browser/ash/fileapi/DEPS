@@ -21,11 +21,9 @@ include_rules = [
   "+chrome/browser/ash/fusebox",
   "+chrome/browser/ash/login/users",
   "+chrome/browser/browser_process.h",
-  "+chrome/browser/extensions/extension_util.h",
   "+chrome/browser/media_galleries/fileapi",
   "+chrome/browser/profiles",
   "+chrome/test/base",
-  "+chromeos/ash/experiences/extensions/common/api/file_manager_private.h",
 ]
 
 specific_include_rules = {

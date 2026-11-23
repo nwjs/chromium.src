@@ -387,17 +387,10 @@ static bool IsAtMediaUAShadowBoundary(const Element* element) {
 static bool StopPropagateTextDecorations(const ComputedStyleBuilder& builder,
                                          const Element* element) {
   return builder.IsAtomicInlineDisplayType() ||
+         IsA<HTMLCanvasElement>(element) ||
          IsAtMediaUAShadowBoundary(element) || builder.IsFloating() ||
          builder.HasOutOfFlowPosition() || IsOutermostSVGElement(element) ||
          builder.Display() == EDisplay::kRubyText;
-}
-
-static bool LayoutParentStyleForcesZIndexToCreateStackingContext(
-    const ComputedStyle& layout_parent_style) {
-  return layout_parent_style.IsDisplayFlex() ||
-         layout_parent_style.IsDisplayWebkitBox() ||
-         layout_parent_style.IsDisplayGrid() ||
-         layout_parent_style.IsDisplayGridLanes();
 }
 
 void StyleAdjuster::AdjustStyleForEditing(ComputedStyleBuilder& builder,
@@ -1054,10 +1047,11 @@ void StyleAdjuster::AdjustForForcedColorsMode(ComputedStyleBuilder& builder,
       mojom::blink::PreferredColorScheme::kDark) {
     color_scheme = mojom::blink::ColorScheme::kDark;
   }
-  const ui::ColorProvider* color_provider =
-      document.GetColorProviderForPainting(color_scheme);
-  auto can_expose_accent_color =
-      document.IsInWebAppScope() && document.IsInitialProfile();
+  const ColorThemeInfo theme_info{
+      .color_provider = document.GetColorProviderForPainting(color_scheme),
+      .color_scheme = color_scheme,
+      .can_expose_system_accent_color =
+          document.IsInWebAppScope() && document.IsInitialProfile()};
 
   // Re-resolve some internal forced color properties whose initial
   // values are system colors. This is necessary to ensure we get
@@ -1065,8 +1059,7 @@ void StyleAdjuster::AdjustForForcedColorsMode(ComputedStyleBuilder& builder,
   // system color when the theme changes.
   if (builder.InternalForcedBackgroundColor().IsSystemColor()) {
     builder.SetInternalForcedBackgroundColor(
-        builder.InternalForcedBackgroundColor().ResolveSystemColor(
-            color_scheme, color_provider, can_expose_accent_color));
+        builder.InternalForcedBackgroundColor().ResolveSystemColor(theme_info));
   }
   // Per the CSS Color Adjustment specification [1]:
   // In forced-colors mode, if 'font-variant-emoji' computes to 'normal' or
@@ -1080,13 +1073,11 @@ void StyleAdjuster::AdjustForForcedColorsMode(ComputedStyleBuilder& builder,
   }
   if (builder.InternalForcedColor().IsSystemColor()) {
     builder.SetInternalForcedColor(
-        builder.InternalForcedColor().ResolveSystemColor(
-            color_scheme, color_provider, can_expose_accent_color));
+        builder.InternalForcedColor().ResolveSystemColor(theme_info));
   }
   if (builder.InternalForcedVisitedColor().IsSystemColor()) {
     builder.SetInternalForcedVisitedColor(
-        builder.InternalForcedVisitedColor().ResolveSystemColor(
-            color_scheme, color_provider, can_expose_accent_color));
+        builder.InternalForcedVisitedColor().ResolveSystemColor(theme_info));
   }
 }
 
@@ -1265,10 +1256,12 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
     builder.SetIsolation(EIsolation::kIsolate);
   }
 
+  if (layout_parent_style.AllowsZIndexOnChildren()) {
+    builder.SetIsInZIndexAllowingDisplay();
+  }
   // z-index is only applicable if positioned, or if a flex/grid/etc item.
   if (builder.GetPosition() != EPosition::kStatic ||
-      LayoutParentStyleForcesZIndexToCreateStackingContext(
-          layout_parent_style)) {
+      layout_parent_style.AllowsZIndexOnChildren()) {
     builder.SetAllowsZIndex(true);
     if (!builder.HasAutoZIndex()) {
       builder.SetForcesStackingContext(true);
@@ -1522,7 +1515,9 @@ bool StyleAdjuster::IsCacheCompatible(
       layout_parent_style_a.IsInBlockifyingDisplay() !=
           layout_parent_style_b.IsInBlockifyingDisplay() ||
       layout_parent_style_a.IsInInlinifyingDisplay() !=
-          layout_parent_style_b.IsInInlinifyingDisplay()) {
+          layout_parent_style_b.IsInInlinifyingDisplay() ||
+      layout_parent_style_a.IsInZIndexAllowingDisplay() !=
+          layout_parent_style_b.IsInZIndexAllowingDisplay()) {
     // The layout parent style's display style affects blockification,
     // stacking context, and many other things.
     return false;
@@ -1853,7 +1848,9 @@ StyleAdjuster::ElementTypeForCache StyleAdjuster::GetElementTypeCacheKey(
     case ElementType::kHTMLMapElement:
     case ElementType::kHTMLMenuBarElement:
     case ElementType::kHTMLMenuElement:
+    case ElementType::kHTMLMenuItemCheckboxElement:
     case ElementType::kHTMLMenuItemElement:
+    case ElementType::kHTMLMenuItemRadioElement:
     case ElementType::kHTMLMenuListElement:
     case ElementType::kHTMLMetaElement:
     case ElementType::kHTMLModElement:

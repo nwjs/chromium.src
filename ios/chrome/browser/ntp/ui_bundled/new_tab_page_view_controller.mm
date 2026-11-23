@@ -14,7 +14,6 @@
 #import "base/ios/block_types.h"
 #import "base/task/sequenced_task_runner.h"
 #import "components/feature_engagement/public/tracker.h"
-#import "components/ntp_tiles/features.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/public/magic_stack_constants.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_collection_view.h"
 #import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
@@ -47,12 +46,11 @@
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_utils.h"
 #import "ios/chrome/common/material_timing.h"
+#import "ios/chrome/common/ui/animations/radial_wipe_animation.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
 #import "ui/base/device_form_factor.h"
-
-using ntp_tiles::AimButtonRefactorArm;
 
 namespace {
 
@@ -206,6 +204,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   NSString* _aimAccessibilityLabel;
   // Whether AIM image generation is allowed.
   BOOL _aimImageGenerationAllowed;
+  // Whether attaching images to an AIM search query is allowed.
+  BOOL _aimAttachImagesAllowed;
   // Tracks whether the NTP was scrolled to the top before a size transition.
   BOOL _scrolledToTop;
   // Constraints for the feed top section promo.
@@ -214,6 +214,8 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   NSLayoutConstraint* _collectionViewTopConstraint;
   // The height of the feed top section before it was closed/removed.
   CGFloat _lastClosedPromoHeight;
+  // Animation used to hide the Magic Stack and Discover feed.
+  RadialWipeAnimation* _radialWipeAnimation;
 }
 
 // Properties synthesized from NewTabPageScrollConsumer.
@@ -258,10 +260,13 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   [_quickActionsViewController setAIMTitle:_aimTitle
                                       icon:_aimIcon
                         accessibilityLabel:_aimAccessibilityLabel];
-  if (ntp_tiles::GetAimButtonRefactorArm() ==
-      ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction) {
+
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  if (arm == AimButtonRefactorArm::kImageGenerationQuickAction ||
+      arm == AimButtonRefactorArm::kAttachImageQuickAction) {
     [_quickActionsViewController
-        setAIMImageGenerationAllowed:_aimImageGenerationAllowed];
+        setAIMImageGenerationAllowed:_aimImageGenerationAllowed
+                 attachImagesAllowed:_aimAttachImagesAllowed];
   }
 
   // TODO(crbug.com/40799579): Remove this when bug is fixed.
@@ -810,6 +815,42 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   return _moduleLayoutGuide;
 }
 
+- (void)animateHideMagicStackAndFeedWithCompletion:(ProceduralBlock)completion {
+  NSMutableArray<UIView*>* targetViews = [NSMutableArray array];
+  if (self.magicStackVisible && self.magicStackCollectionView.view) {
+    [targetViews addObject:self.magicStackCollectionView.view];
+  }
+  if (self.feedHeaderViewController.view) {
+    [targetViews addObject:self.feedHeaderViewController.view];
+  }
+  if (self.feedTopSectionVisible && self.feedTopSectionViewController.view) {
+    [targetViews addObject:self.feedTopSectionViewController.view];
+  }
+  if (self.feedVisible) {
+    if (_feedContainer) {
+      [targetViews addObject:_feedContainer];
+    }
+    [targetViews addObjectsFromArray:self.collectionView.visibleCells];
+  }
+  if (targetViews.count == 0) {
+    if (completion) {
+      completion();
+    }
+    return;
+  }
+  _radialWipeAnimation =
+      [[RadialWipeAnimation alloc] initWithWindow:self.view
+                                      targetViews:targetViews];
+  _radialWipeAnimation.type = RadialWipeAnimationType::kHideTarget;
+  _radialWipeAnimation.startPoint = CGPointMake(0.5, 0);
+  // Required by CHECK(!_window.userInteractionEnabled) in RadialWipeAnimation.
+  self.view.userInteractionEnabled = NO;
+  __weak __typeof(self) weakSelf = self;
+  [_radialWipeAnimation animateWithCompletion:^{
+    [weakSelf didCompleteRadialWipeWithCompletion:completion];
+  }];
+}
+
 #pragma mark - NewTabPageScrollConsumer
 
 - (void)restoreScrollPosition:(CGFloat)scrollPosition {
@@ -899,17 +940,21 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 - (void)setAIMAllowed:(BOOL)allowed {
   _isAIMAllowed = allowed;
-  if (ntp_tiles::GetAimButtonRefactorArm() ==
-      ntp_tiles::AimButtonRefactorArm::kAimAsModule) {
+  if (GetAimButtonRefactorArm() == AimButtonRefactorArm::kAimAsModule) {
     [self.contentSuggestionsViewController setAIMAllowed:allowed];
   }
 }
 
-- (void)setAIMImageGenerationAllowed:(BOOL)allowed {
-  CHECK_EQ(ntp_tiles::GetAimButtonRefactorArm(),
-           ntp_tiles::AimButtonRefactorArm::kImageGenerationQuickAction);
-  _aimImageGenerationAllowed = allowed;
-  [_quickActionsViewController setAIMImageGenerationAllowed:allowed];
+- (void)setAIMImageGenerationAllowed:(BOOL)imageGenerationAllowed
+                 attachImagesAllowed:(BOOL)attachmentsAllowed {
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  CHECK(arm == AimButtonRefactorArm::kImageGenerationQuickAction ||
+        arm == AimButtonRefactorArm::kAttachImageQuickAction);
+  _aimImageGenerationAllowed = imageGenerationAllowed;
+  _aimAttachImagesAllowed = attachmentsAllowed;
+  [_quickActionsViewController
+      setAIMImageGenerationAllowed:imageGenerationAllowed
+               attachImagesAllowed:attachmentsAllowed];
 }
 
 - (void)setAIMTitle:(NSString*)title
@@ -1234,13 +1279,6 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 #pragma mark - Private
 
-// Returns whether the vertical space above the logo and below the fakebox
-// should be redistributed for `kAimButtonRefactor` arms where the Quick Actions
-// row is removed.
-- (BOOL)shouldRedistributeHeaderSpace {
-  return content_suggestions::ShouldRedistributeHeaderSpace(_isAIMAllowed);
-}
-
 // Sets the background using the current color palette, or defaults if none is
 // set.
 - (void)applyBackgroundTheme {
@@ -1296,9 +1334,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 - (void)setContentSuggestionsViewController:
     (ContentSuggestionsViewController*)contentSuggestionsViewController {
   _contentSuggestionsViewController = contentSuggestionsViewController;
-  if (ntp_tiles::GetAimButtonRefactorArm() ==
-      ntp_tiles::AimButtonRefactorArm::kAimAsModule) {
+  if (GetAimButtonRefactorArm() == AimButtonRefactorArm::kAimAsModule) {
     [_contentSuggestionsViewController setAIMAllowed:_isAIMAllowed];
+    _contentSuggestionsViewController.NTPShortcutsHandler =
+        self.NTPShortcutsHandler;
   }
 }
 
@@ -1306,6 +1345,10 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
     (id<NewTabPageShortcutsHandler>)NTPShortcutsHandler {
   _NTPShortcutsHandler = NTPShortcutsHandler;
   _quickActionsViewController.NTPShortcutsHandler = NTPShortcutsHandler;
+  if (GetAimButtonRefactorArm() == AimButtonRefactorArm::kAimAsModule) {
+    self.contentSuggestionsViewController.NTPShortcutsHandler =
+        NTPShortcutsHandler;
+  }
 }
 
 - (void)setLayoutGuideCenter:(LayoutGuideCenter*)layoutGuideCenter {
@@ -1318,10 +1361,17 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   if (!_isAIMAllowed || !IsAimEnabledInNtp()) {
     return NO;
   }
-  AimButtonRefactorArm arm = ntp_tiles::GetAimButtonRefactorArm();
-  return arm != AimButtonRefactorArm::kAimAsModule &&
-         arm != AimButtonRefactorArm::kAimAsMvt &&
-         arm != AimButtonRefactorArm::kNoChips;
+  switch (GetAimButtonRefactorArm()) {
+    case AimButtonRefactorArm::kFocusComposeboxAimQuickAction:
+    case AimButtonRefactorArm::kImageGenerationQuickAction:
+    case AimButtonRefactorArm::kAttachImageQuickAction:
+    case AimButtonRefactorArm::kDisabled:
+      return YES;
+    case AimButtonRefactorArm::kAimAsModule:
+    case AimButtonRefactorArm::kAimAsMvt:
+    case AimButtonRefactorArm::kNoChips:
+      return NO;
+  }
 }
 
 // Applies the horizontal constraints for the quick actions row.
@@ -1903,7 +1953,11 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 // Sets minimum height for the NTP collection view, allowing it to scroll enough
 // to focus the omnibox.
 - (void)setMinimumHeight {
-  CGFloat minimumNTPHeight = [self minimumNTPHeight] - [self heightAboveFeed];
+  // When `heightAboveFeed` exceeds `minimumNTPHeight` (e.g. in landscape),
+  // clamp to 0 so `contentSize.height` does not become negative and lock
+  // scrolling before reaching the bottom of the NTP.
+  CGFloat minimumNTPHeight =
+      std::max<CGFloat>(0, [self minimumNTPHeight] - [self heightAboveFeed]);
   self.collectionView.contentSize =
       CGSizeMake(self.collectionView.frame.size.width, minimumNTPHeight);
 }
@@ -2081,6 +2135,17 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
   [self updateFakeOmniboxOnNewWidth:width];
 }
 
+- (void)didCompleteRadialWipeWithCompletion:(ProceduralBlock)completion {
+  _radialWipeAnimation = nil;
+  self.view.userInteractionEnabled = YES;
+  // Reset `hidden` on the Magic Stack view before pref changes remove it from
+  // the hierarchy, so it remains visible if re-enabled via "Undo".
+  self.magicStackCollectionView.view.hidden = NO;
+  if (completion) {
+    completion();
+  }
+}
+
 #pragma mark - Helpers
 
 // Returns YES if the NTP was scrolled to the top before a size transition.
@@ -2095,7 +2160,7 @@ const CGFloat kBackgroundImageAnimationDuration = 0.2;
 
 // Spacing between the header view and the module directly below it.
 - (CGFloat)headerBottomSpacing {
-  if ([self shouldRedistributeHeaderSpace]) {
+  if (content_suggestions::ShouldRedistributeHeaderSpace()) {
     return content_suggestions::RedistributedHeaderBottomSpacing(
         self.traitCollection);
   }

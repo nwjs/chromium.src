@@ -17,6 +17,7 @@ import {AvatarToolbarButtonState} from '/shared/toolbar_ui_api_data_model.mojom-
 import {getCss} from './avatar_button.css.js';
 import {getHtml} from './avatar_button.html.js';
 import {BrowserProxyImpl} from './browser_proxy.js';
+import type {OverflowableButtonState} from './overflowable_button.js';
 import {OverflowableButtonMixin} from './overflowable_button.js';
 import type {ToolbarChipButtonElement} from './toolbar_chip_button.js';
 
@@ -65,7 +66,7 @@ export class AvatarButtonElement extends AvatarButtonElementBase {
     }
   }
 
-  override accessor state: AvatarControlState = {
+  override accessor state: AvatarControlState&OverflowableButtonState = {
     state: AvatarToolbarButtonState.kNormal,
     icon: {handleId: 0n},
     text: '',
@@ -74,6 +75,10 @@ export class AvatarButtonElement extends AvatarButtonElementBase {
     accessibilityDescription: '',
     enabled: true,
     hasLinearGradientRing: false,
+
+    // This field is from OverflowableButtonState (in addition to
+    // AvatarControlState), and is used by OverflowableButtonMixin.
+    preventOverflow: false,
   };
 
   protected highlightTracker: HighlightTracker = new HighlightTracker();

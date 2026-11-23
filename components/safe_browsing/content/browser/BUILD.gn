@@ -16,8 +16,6 @@ source_set("safe_browsing_service") {
     "safe_browsing_service_interface.h",
   ]
 
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
   deps = [
     "//base",
     "//components/safe_browsing/core/browser:referring_app_info",
@@ -44,8 +42,6 @@ if (safe_browsing_mode > 0) {
       "ui_manager.cc",
       "ui_manager.h",
     ]
-
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
     deps = [
       ":browser",
@@ -100,8 +96,6 @@ source_set("browser") {
     "web_contents_key.cc",
     "web_contents_key.h",
   ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   deps = [
     "//base",
@@ -289,8 +283,6 @@ if (safe_browsing_mode != 0) {
       "safe_browsing_tab_observer.h",
     ]
 
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
-
     public_deps = [
       "//base",
       "//components/prefs",
@@ -325,10 +317,12 @@ if (safe_browsing_mode != 0) {
       "//components/security_interstitials/core:unsafe_resource",
       "//components/site_engagement/content",
       "//components/variations",
+      "//components/viz/common",
       "//components/zoom",
       "//content/public/browser",
       "//mojo/public/mojom/base:protobuf_support",
       "//ui/display",
+      "//ui/gfx/codec",
     ]
 
     if (is_android) {

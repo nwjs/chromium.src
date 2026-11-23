@@ -15,6 +15,7 @@
 #import "base/metrics/histogram_macros.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/single_thread_task_runner.h"
+#import "components/device_signals/core/browser/pref_names.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/ios/browser/features.h"
@@ -121,8 +122,7 @@ void AuthenticationService::Initialize() {
   initialized_ = true;
 
   identity_manager_observation_.Observe(identity_manager_.get());
-  HandleForgottenIdentity(nil,
-                          device_restore_session == signin::Tribool::kTrue);
+  HandleForgottenIdentity(device_restore_session == signin::Tribool::kTrue);
 
   // Clean up account-scoped settings, in case any accounts were removed from
   // the device while Chrome wasn't running.
@@ -225,6 +225,8 @@ void AuthenticationService::Initialize() {
       PerformProfileInitializationIfNecessary();
   base::UmaHistogramEnumeration(
       "Signin.IOSAuthenticationServiceInitializationOutcome", outcome);
+
+  SyncDeviceSignalsConsentWithManagementState();
 }
 
 void AuthenticationService::Shutdown() {
@@ -580,6 +582,7 @@ void AuthenticationService::OnPrimaryAccountChanged(
   for (auto& observer : observer_list_) {
     observer.OnPrimaryIdentityChanged();
   }
+  SyncDeviceSignalsConsentWithManagementState();
 }
 
 void AuthenticationService::OnIdentitiesInProfileChanged() {
@@ -587,12 +590,12 @@ void AuthenticationService::OnIdentitiesInProfileChanged() {
   ReloadCredentialsFromIdentities();
 }
 
-bool AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
+void AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
                                            id<RefreshAccessTokenError> error) {
   id<RefreshAccessTokenError> cached_error = GetCachedMDMError(identity);
   if (cached_error && [cached_error isEqualToError:error]) {
     // Same status as the last error, ignore it to avoid spamming users.
-    return false;
+    return;
   }
 
   SystemIdentityManager* system_identity_manager =
@@ -602,7 +605,7 @@ bool AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
   base::UmaHistogramBoolean("Signin.ScopeLimitedErrorSuppressed",
                             scope_limited_error_suppressed);
   if (scope_limited_error_suppressed) {
-    return false;
+    return;
   }
 
   // Stop displaying the MDM error dialog on the NTP when
@@ -623,10 +626,7 @@ bool AuthenticationService::HandleMDMError(id<SystemIdentity> identity,
         << identity.gaiaId.ToNSString()
         << "; userEmail = " << identity.userEmail << "]";
     cached_mdm_errors_[account_id] = error;
-    return true;
   }
-
-  return false;
 }
 
 void AuthenticationService::MDMErrorHandled(id<SystemIdentity> identity,
@@ -665,37 +665,10 @@ void AuthenticationService::OnAccessTokenRefreshFailed(
     return;
   }
 
-  if (HandleMDMError(identity, error)) {
-    return;
-  }
-
-  if (base::FeatureList::IsEnabled(switches::kIgnoreInvalidGrantError)) {
-    // `InvalidGrantError` is the iOS naming for the persistent auth error, it
-    // shouldn't trigger a sign-out.
-    return;
-  }
-
-  if (!error.isInvalidGrantError) {
-    // If the failure is not due to an invalid grant, the identity is not
-    // invalid and there is nothing to do.
-    return;
-  }
-
-  // Handle the failure of access token refresh on the next message loop cycle.
-  // `identity` is now invalid and the authentication service might need to
-  // react to this loss of identity.
-  // Note that no reload of the credentials is necessary here, as `identity`
-  // might still be accessible in SSO, and `OnIdentityListChanged` will handle
-  // this when `identity` will actually disappear from SSO.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE, base::BindOnce(&AuthenticationService::HandleForgottenIdentity,
-                                GetWeakPtr(), identity,
-                                /*device_restore=*/false));
+  HandleMDMError(identity, error);
 }
 
-void AuthenticationService::HandleForgottenIdentity(
-    id<SystemIdentity> invalid_identity,
-    bool device_restore) {
+void AuthenticationService::HandleForgottenIdentity(bool device_restore) {
   if (!identity_manager_->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     // User is not signed in. Nothing to do here.
     return;
@@ -703,10 +676,8 @@ void AuthenticationService::HandleForgottenIdentity(
 
   // Tests if the primary identity still exists.
   id<SystemIdentity> authenticated_identity = GetPrimaryIdentity();
-  if (authenticated_identity &&
-      ![authenticated_identity isEqual:invalid_identity]) {
-    // `authenticated_identity` exists and is a valid identity. Nothing to do
-    // here.
+  if (authenticated_identity) {
+    // `authenticated_identity` exists. Nothing to do here.
     return;
   }
 
@@ -725,8 +696,7 @@ void AuthenticationService::HandleForgottenIdentity(
     signout_source = signin_metrics::ProfileSignout::
         kIosAccountRemovedFromDeviceAfterRestore;
   } else {
-    // Account removed from the device by another app or the token being
-    // invalid.
+    // Account removed from the device by another app.
     signout_source = signin_metrics::ProfileSignout::kAccountRemovedFromDevice;
   }
 
@@ -780,7 +750,7 @@ void AuthenticationService::ReloadCredentialsFromIdentities() {
 
   base::AutoReset<bool> auto_reset(&is_reloading_credentials_, true);
 
-  HandleForgottenIdentity(nil, /*device_restore=*/false);
+  HandleForgottenIdentity(/*device_restore=*/false);
 
   identity_manager_->GetDeviceAccountsSynchronizer()
       ->ReloadAllAccountsFromSystemWithPrimaryAccount(
@@ -841,4 +811,47 @@ bool AuthenticationService::IsPersonalProfile() {
 NSArray<id<SystemIdentity>>* AuthenticationService::ActiveIdentities() {
   return GetPrimaryIdentity() ? account_manager_service_->GetAllIdentities()
                               : @[];
+}
+
+void AuthenticationService::OnExtendedAccountInfoUpdated(
+    const AccountInfo& info) {
+  if (info.GetAccountId() ==
+      identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin)) {
+    SyncDeviceSignalsConsentWithManagementState();
+  }
+}
+
+void AuthenticationService::SyncDeviceSignalsConsentWithManagementState() {
+  ProfileManagerIOS* profile_manager =
+      GetApplicationContext()->GetProfileManager();
+
+  if (!profile_manager) {
+    // profile_manager can be null in unit_tests.
+    CHECK_IS_TEST();
+    return;
+  }
+
+  if (!IsPersonalProfile() || HasPrimaryIdentityManaged()) {
+    pref_service_->SetBoolean(
+        device_signals::prefs::kDeviceSignalsConsentReceived, true);
+    pref_service_->SetBoolean(
+        device_signals::prefs::kDeviceSignalsPermanentConsentReceived, true);
+    return;
+  }
+
+  if (HasPrimaryIdentity()) {
+    AccountInfo info = identity_manager_->FindExtendedAccountInfo(
+        identity_manager_->GetPrimaryAccountInfo(
+            signin::ConsentLevel::kSignin));
+    if (info.IsManaged() == signin::Tribool::kUnknown) {
+      // Early exit if the extended account info has not yet been received to
+      // avoid flipping the consent bit unnecessarily.
+      return;
+    }
+  }
+
+  pref_service_->ClearPref(
+      device_signals::prefs::kDeviceSignalsConsentReceived);
+  pref_service_->ClearPref(
+      device_signals::prefs::kDeviceSignalsPermanentConsentReceived);
 }

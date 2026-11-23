@@ -18,8 +18,6 @@ static_library("enrollment") {
     "enrollment_uma.h",
     "oauth2_token_revoker.cc",
     "oauth2_token_revoker.h",
-    "timebound_user_context_holder.cc",
-    "timebound_user_context_holder.h",
   ]
 
   public_deps = [
@@ -36,19 +34,18 @@ static_library("enrollment") {
 
   deps = [
     "//ash/constants",
-    "//chrome/browser:browser_process",
     "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/ash/attestation",
     "//chrome/browser/ash/login/demo_mode",
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/enrollment",
     "//chrome/browser/ash/policy/handlers",
-    "//chrome/browser/net",
     "//chrome/browser/ui/ash/login",
     "//chromeos/ash/components/attestation",
     "//chromeos/ash/components/dbus",
     "//chromeos/ash/components/dbus/attestation",
     "//chromeos/ash/components/dbus/device_management",
+    "//chromeos/ash/components/login/session:process_shutdown",
     "//chromeos/ash/components/system",
     "//chromeos/dbus/common",
     "//components/user_manager",
@@ -74,8 +71,6 @@ static_library("test_support") {
     "mock_enrollment_launcher.h",
     "mock_enrollment_screen.cc",
     "mock_enrollment_screen.h",
-    "mock_oauth2_token_revoker.cc",
-    "mock_oauth2_token_revoker.h",
   ]
 
   public_deps = [
@@ -167,6 +162,7 @@ source_set("unit_tests") {
     "//chrome/test:test_support",
     "//chrome/test/base:testing_browser_process",
     "//chromeos/ash/components/install_attributes:test_support",
+    "//chromeos/ash/components/login/session:test_support",
     "//chromeos/ash/components/network:test_support",
     "//chromeos/ash/components/system",
     "//components/policy/core/common:common_constants",

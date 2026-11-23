@@ -20,10 +20,10 @@ AnnouncementView::AnnouncementView(gfx::NativeView parent,
                                    const std::u16string& name) {
   DialogDelegate::SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   SetCanActivate(false);
-  DCHECK(parent);
+  CHECK(parent, base::NotFatalUntil::M162);
   set_parent_window(parent);
   set_frame_margins({.contents = gfx::Insets(), .title = gfx::Insets()});
-  set_shadow(views::BubbleBorder::NO_SHADOW);
+  set_shadow_config({.shadow_type = views::BubbleBorder::NO_SHADOW});
 
   announcement_label_ = AddChildView(std::make_unique<AnnouncementLabel>(name));
   announcement_label_->SetLineHeight(0);
@@ -47,7 +47,7 @@ void AnnouncementView::Announce(const std::u16string& message) {
 
 void AnnouncementView::AnnounceAfterDelay(const std::u16string& message,
                                           base::TimeDelta delay) {
-  DCHECK(announcement_label_);
+  CHECK(announcement_label_, base::NotFatalUntil::M162);
   if (message.empty()) {
     return;
   }

@@ -203,8 +203,11 @@ GlicActorGeneralUiTest::CheckActorTabDataHasAnnotatedPageContentCache() {
   return Steps(Do([&]() {
     // TODO(crbug.com/420669167): Needs to be reconsidered for multi-tab.
     const AnnotatedPageContent* cached_apc =
-        actor::ActorTabData::From(
-            GetActorTask()->GetLastActedTabs().begin()->Get())
+        actor::ActorTabData::From(GetActorTask()
+                                      ->GetLastActedActorSurfaces()
+                                      .begin()
+                                      ->GetTabHandle()
+                                      .Get())
             ->GetLastObservedPageContent();
     EXPECT_TRUE(cached_apc);
     EXPECT_THAT(*annotated_page_content_, EqualsProto(*cached_apc));
@@ -267,8 +270,11 @@ MultiStep GlicActorGeneralUiTest::ReadTinyTargetBoundsAndAssertApcHitTest(
         EXPECT_EQ(button_bounds.size(), gfx::Size(20, 20));
 
         const apc::AnnotatedPageContent* cached_apc =
-            actor::ActorTabData::From(
-                GetActorTask()->GetLastActedTabs().begin()->Get())
+            actor::ActorTabData::From(GetActorTask()
+                                          ->GetLastActedActorSurfaces()
+                                          .begin()
+                                          ->GetTabHandle()
+                                          .Get())
                 ->GetLastObservedPageContent();
         ASSERT_TRUE(cached_apc);
 
@@ -779,7 +785,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorGeneralUiTest, CreateActorTabOnNewTabPage) {
         // Create another tab to ensure we're using the initiator tab.
         ui_test_utils::NavigateToURLWithDisposition(
             browser(), GURL(url::kAboutBlankURL),
-            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            WindowOpenDisposition::kNewForegroundTab,
             ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
 
         // Sanity check - we'll ensure these won't change after binding to the
@@ -837,7 +843,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorGeneralUiTest,
         // Create another tab to ensure we're using the initiator tab.
         ui_test_utils::NavigateToURLWithDisposition(
             browser(), GURL(url::kAboutBlankURL),
-            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            WindowOpenDisposition::kNewForegroundTab,
             ui_test_utils::BROWSER_TEST_WAIT_FOR_TAB);
 
         // Sanity check - we'll ensure these won't change after binding to the

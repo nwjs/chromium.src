@@ -384,36 +384,14 @@ bool ShouldProcessKeyEventForListeners(
   return false;
 }
 
-gfx::Rect ClampPopupBoundsToDisplay(const gfx::Rect& bounds,
-                                    RenderWidgetHostViewBase* view) {
-  // More than twice the width of an 8K display, so it never constrains a
-  // real popup, while keeping the area (2^28) well inside int.
-  constexpr int kMaxPopupWidthOrHeight = 16384;
-  static_assert(kMaxPopupWidthOrHeight <= std::numeric_limits<int>::max() / 4 /
-                                              kMaxPopupWidthOrHeight,
-                "kMaxPopupWidthOrHeight squared must stay well inside int");
-
-  // Ozone headless reports a 1x1 display unless --ozone-override-screen-size
-  // overrides it, which describes no real estate to clamp against. Fall back
-  // to a fixed maximum there, and likewise with no screen or an empty work
-  // area.
-  gfx::Size max_size(kMaxPopupWidthOrHeight, kMaxPopupWidthOrHeight);
-  display::Screen* screen = display::Screen::Get();
-  if (screen && !screen->IsHeadless()) {
-    // The view does not exist yet when the popup is first shown, in which
-    // case fall back to whichever display the requested bounds land on.
-    const display::Display display =
-        view ? screen->GetDisplayNearestView(view->GetNativeView())
-             : screen->GetDisplayMatching(bounds);
-    if (!display.work_area().IsEmpty()) {
-      max_size = display.work_area().size();
-    }
+void DismissUnboundedSurfaceOnKeyDown(
+    base::WeakPtr<RenderWidgetHostImpl> host,
+    const input::NativeWebKeyboardEvent& key_event) {
+  if (host && host->GetView() &&
+      (key_event.GetType() == WebInputEvent::Type::kRawKeyDown ||
+       key_event.GetType() == WebInputEvent::Type::kKeyDown)) {
+    host->GetView()->DismissUnboundedSurface();
   }
-
-  gfx::Rect clamped(bounds);
-  clamped.set_width(std::clamp(clamped.width(), 0, max_size.width()));
-  clamped.set_height(std::clamp(clamped.height(), 0, max_size.height()));
-  return clamped;
 }
 
 }  // namespace
@@ -950,6 +928,12 @@ void RenderWidgetHostImpl::WasHidden() {
   // Tell the RenderProcessHost we were hidden.
   GetProcess()->UpdateClientPriority(this);
 
+  if (view_) {
+    // Synchronously tear down the floating window since a hidden widget will
+    // not present a post-dismissal frame.
+    view_->DestroyUnboundedSurfaceForThisView();
+  }
+
   NotifyVizOfPageVisibilityUpdates();
 
   for (auto& observer : observers_) {
@@ -1232,7 +1216,7 @@ blink::VisualProperties RenderWidgetHostImpl::GetVisualProperties() {
         delegate_->GetVirtualKeyboardResizeHeight();
     visual_properties.window_show_state = delegate_->GetWindowShowState();
     visual_properties.resizable = delegate_->GetResizable();
-    visual_properties.always_on_top = delegate_->GetIsAlwaysOnTop();
+    visual_properties.always_on_top_popup = delegate_->GetIsAlwaysOnTopPopup();
   } else {
     visual_properties.compositor_viewport_pixel_rect =
         properties_from_parent_local_root_.compositor_viewport;
@@ -1936,13 +1920,16 @@ void RenderWidgetHostImpl::ForwardKeyboardEventWithCommands(
       suppress_events_until_keydown_ = true;
     }
 
+    const auto weak_this = weak_factory_.GetWeakPtr();
     // Tab switching/closing accelerators aren't sent to the renderer to avoid
     // a hung/malicious renderer from interfering.
     switch (delegate_->PreHandleKeyboardEvent(key_event)) {
       case KeyboardEventProcessingResult::HANDLED:
+        DismissUnboundedSurfaceOnKeyDown(weak_this, key_event);
         return;
 #if defined(USE_AURA)
       case KeyboardEventProcessingResult::HANDLED_DONT_UPDATE_EVENT:
+        DismissUnboundedSurfaceOnKeyDown(weak_this, key_event);
         if (update_event) {
           *update_event = false;
         }
@@ -2243,9 +2230,6 @@ void RenderWidgetHostImpl::DragSourceEndedAt(const gfx::PointF& client_point,
 }
 
 void RenderWidgetHostImpl::DragSourceSystemDragEnded() {
-  if (delegate_) {
-    delegate_->OnDragSourceEnded();
-  }
   // TODO(crbug.com/40138933): Replace with a for_frame() check.
   if (!blink_frame_widget_) {
     return;
@@ -2847,7 +2831,12 @@ void RenderWidgetHostImpl::OnKeyboardEventAck(
   // of this key event.
   if (delegate_ && !processed && !IsHidden() &&
       !event.event.skip_if_unhandled) {
-    delegate_->HandleKeyboardEvent(event.event);
+    const auto weak_this = weak_factory_.GetWeakPtr();
+    if (delegate_->HandleKeyboardEvent(event.event)) {
+      if (event.event.is_browser_shortcut) {
+        DismissUnboundedSurfaceOnKeyDown(weak_this, event.event);
+      }
+    }
   }
   // WARNING: This RenderWidgetHostImpl can be deallocated at this point
   // (i.e.  in the case of Ctrl+W, where the call to
@@ -2867,8 +2856,7 @@ void RenderWidgetHostImpl::SetPopupBounds(const gfx::Rect& bounds,
   if (view_ && !waiting_for_screen_rects_ack_) {
     gfx::Rect constrained_bounds =
         delegate_ ? delegate_->ConstrainPopupBounds(bounds) : bounds;
-    view_->SetBounds(
-        ClampPopupBoundsToDisplay(constrained_bounds, view_.get()));
+    view_->SetBounds(constrained_bounds);
   }
   std::move(callback).Run();
 }
@@ -3051,10 +3039,8 @@ void RenderWidgetHostImpl::ShowPopup(const gfx::Rect& initial_screen_rect,
   // `delegate_` may be null since this message may be received from when
   // the delegate shutdown but this widget is not yet destroyed.
   if (delegate_) {
-    delegate_->ShowCreatedWidget(
-        GetProcess()->GetID(), GetRoutingID(),
-        ClampPopupBoundsToDisplay(initial_screen_rect, view_.get()),
-        anchor_screen_rect);
+    delegate_->ShowCreatedWidget(GetProcess()->GetID(), GetRoutingID(),
+                                 initial_screen_rect, anchor_screen_rect);
   }
   std::move(callback).Run();
 }
@@ -3431,8 +3417,8 @@ bool RenderWidgetHostImpl::StoredVisualPropertiesNeedsUpdate(
              new_visual_properties.root_widget_viewport_segments ||
          old_visual_properties->window_controls_overlay_rect !=
              new_visual_properties.window_controls_overlay_rect ||
-         old_visual_properties->always_on_top !=
-             new_visual_properties.always_on_top;
+         old_visual_properties->always_on_top_popup !=
+             new_visual_properties.always_on_top_popup;
 }
 
 void RenderWidgetHostImpl::UpdateFullscreenGrantCount() {

@@ -20,6 +20,7 @@
 #include "partition_alloc/partition_alloc_public_constants.h"
 #include "partition_alloc/reservation_offset_table.h"
 #include "partition_alloc/thread_isolation/alignment.h"
+#include "partition_alloc/thread_isolation/thread_isolation.h"
 
 #if PA_BUILDFLAG(IS_APPLE) || PA_BUILDFLAG(ENABLE_THREAD_ISOLATION)
 #include <sys/mman.h>
@@ -42,26 +43,33 @@ constexpr PageTag kPageTag = PageTag::kPartitionAlloc;
 
 #if PA_BUILDFLAG(HAS_64_BIT_POINTERS)
 
-namespace {
-
-// This will crash if the range cannot be decommitted.
-void DecommitPages(uintptr_t address, size_t size) {
-  // Callers rely on the pages being zero-initialized when recommitting them.
-  // |DecommitSystemPages| doesn't guarantee this on all operating systems, in
-  // particular on macOS, but |DecommitAndZeroSystemPages| does.
-  PA_CHECK(DecommitAndZeroSystemPages(address, size, kPageTag));
+void AddressPoolManager::SetAsyncSafeMemoryPressureNotification(
+    AsyncSafeMemoryPressureNotification notification) {
+  async_safe_memory_pressure_notification_.store(notification,
+                                                 std::memory_order_release);
 }
 
-}  // namespace
+void AddressPoolManager::NotifyMemoryPressureIfNeeded(bool should_notify) {
+  if (!should_notify) [[likely]] {
+    return;
+  }
+  if (auto* notification = async_safe_memory_pressure_notification_.load(
+          std::memory_order_acquire)) {
+    notification();
+  }
+}
 
-void AddressPoolManager::Add(pool_handle handle, uintptr_t ptr, size_t length) {
+void AddressPoolManager::Add(pool_handle handle,
+                             uintptr_t ptr,
+                             size_t length,
+                             int pkey) {
   PA_DCHECK(!(ptr & kSuperPageOffsetMask));
   PA_DCHECK(!((ptr + length) & kSuperPageOffsetMask));
   PA_CHECK(handle > 0 && handle <= std::size(pools_));
 
   Pool* pool = GetPool(handle);
   PA_CHECK(!pool->IsInitialized());
-  pool->Initialize(ptr, length);
+  pool->Initialize(ptr, length, pkey);
 }
 
 void AddressPoolManager::GetPoolUsedSuperPages(
@@ -86,28 +94,49 @@ uintptr_t AddressPoolManager::GetPoolBaseAddress(pool_handle handle) {
 
 void AddressPoolManager::ResetForTesting() {
   for (auto& pool : pools_) {
-    pool.Reset();
+    pool.Reset(almost_full_pool_count_);
   }
+  PA_DCHECK(almost_full_pool_count_.load(std::memory_order_relaxed) == 0);
+  async_safe_memory_pressure_notification_.store(nullptr,
+                                                 std::memory_order_release);
 }
 
 void AddressPoolManager::Remove(pool_handle handle) {
   Pool* pool = GetPool(handle);
   PA_DCHECK(pool->IsInitialized());
-  pool->Reset();
+  NotifyMemoryPressureIfNeeded(pool->Reset(almost_full_pool_count_));
 }
 
 uintptr_t AddressPoolManager::Reserve(pool_handle handle,
                                       uintptr_t requested_address,
-                                      size_t length) {
+                                      size_t length,
+                                      ReservationLifetime lifetime) {
   Pool* pool = GetPool(handle);
-  if (!requested_address) {
-    return pool->FindChunk(length);
+  bool should_notify = false;
+  uintptr_t address = 0;
+  // Reservations can be persistent or not. If a reservation is persistent, we
+  // try to pack it from the bottom of the address space, otherwise from the
+  // top. This is intended to minimize fragmentation over time:
+  // - Persistent: Since these are never released, they effectively end up being
+  //   a single, continuous region with no holes.
+  // - Non-persistent: The main goal is to keep holes that are as large as
+  //   possible, to prevent allocation failures due to GigaCage
+  //   fragmentation. Allocating from the top at least moves these away from the
+  //   persistent allocations. The current policy (first-fit) is not necessarily
+  //   the best one, but at least it prevents the interleaving of persistent and
+  //   non-persistent allocations from creating permanent fragmentation.
+  if (requested_address &&
+      pool->TryReserveChunk(requested_address, length, almost_full_pool_count_,
+                            should_notify)) {
+    address = requested_address;
+  } else if (lifetime == ReservationLifetime::kTransient) {
+    address =
+        pool->FindChunkFromEnd(length, almost_full_pool_count_, should_notify);
+  } else {
+    address = pool->FindChunk(length, almost_full_pool_count_, should_notify);
   }
-  const bool is_available = pool->TryReserveChunk(requested_address, length);
-  if (is_available) {
-    return requested_address;
-  }
-  return pool->FindChunk(length);
+  NotifyMemoryPressureIfNeeded(should_notify);
+  return address;
 }
 
 void AddressPoolManager::UnreserveAndDecommit(pool_handle handle,
@@ -116,11 +145,15 @@ void AddressPoolManager::UnreserveAndDecommit(pool_handle handle,
   PA_DCHECK(kNullPoolHandle < handle && handle <= kNumPools);
   Pool* pool = GetPool(handle);
   PA_DCHECK(pool->IsInitialized());
-  DecommitPages(address, length);
-  pool->FreeChunk(address, length);
+  pool->DecommitPages(address, length);
+  const bool should_notify =
+      pool->FreeChunk(address, length, almost_full_pool_count_);
+  NotifyMemoryPressureIfNeeded(should_notify);
 }
 
-void AddressPoolManager::Pool::Initialize(uintptr_t ptr, size_t length) {
+void AddressPoolManager::Pool::Initialize(uintptr_t ptr,
+                                          size_t length,
+                                          int pkey) {
   PA_CHECK(ptr != 0);
   PA_CHECK(!(ptr & kSuperPageOffsetMask));
   PA_CHECK(!(length & kSuperPageOffsetMask));
@@ -133,17 +166,92 @@ void AddressPoolManager::Pool::Initialize(uintptr_t ptr, size_t length) {
   total_bits_ = length / kSuperPageSize;
   PA_CHECK(total_bits_ <= kMaxSuperPagesInPool);
 
+#if PA_BUILDFLAG(ENABLE_PKEYS)
+  if (pkey != kInvalidPkey) {
+    pkey_ = pkey;
+    SetSystemPagesAccess(ptr, length,
+                         PageAccessibilityConfiguration(
+                             PageAccessibilityConfiguration::kInaccessible,
+                             ThreadIsolationOption(pkey_)));
+  }
+#else
+  PA_CHECK(pkey == kInvalidPkey);
+#endif
+
   ScopedGuard scoped_lock(lock_);
   alloc_bitset_.reset();
   bit_hint_ = 0;
+  high_bit_hint_ = total_bits_;
+  allocated_bits_ = 0;
+  is_almost_full_ = false;
+}
+
+void AddressPoolManager::Pool::DecommitPages(uintptr_t address, size_t size) {
+  // Callers rely on the pages being zero-initialized when recommitting them.
+  // |DecommitSystemPages| doesn't guarantee this on all operating systems, in
+  // particular on macOS, but |DecommitAndZeroSystemPages| does.
+  PA_CHECK(DecommitAndZeroSystemPages(address, size, kPageTag));
+#if PA_BUILDFLAG(ENABLE_PKEYS)
+  if (pkey_ != kInvalidPkey) {
+    // DecommitAndZeroSystemPages replaces the mapping with fresh anonymous
+    // pages via mmap(MAP_FIXED, PROT_NONE), which resets the memory protection
+    // key to the default key (0). Re-tag the pages with the pool's pkey.
+    SetSystemPagesAccess(address, size,
+                         PageAccessibilityConfiguration(
+                             PageAccessibilityConfiguration::kInaccessible,
+                             ThreadIsolationOption(pkey_)));
+  }
+#endif
 }
 
 bool AddressPoolManager::Pool::IsInitialized() {
   return address_begin_ != 0;
 }
 
-void AddressPoolManager::Pool::Reset() {
+bool AddressPoolManager::Pool::Reset(
+    std::atomic<size_t>& almost_full_pool_count) {
+  ScopedGuard scoped_lock(lock_);
   address_begin_ = 0;
+  total_bits_ = 0;
+#if PA_BUILDFLAG(ENABLE_PKEYS)
+  pkey_ = kInvalidPkey;
+#endif
+  alloc_bitset_.reset();
+  bit_hint_ = 0;
+  high_bit_hint_ = 0;
+  allocated_bits_ = 0;
+  if (!is_almost_full_) {
+    return false;
+  }
+  is_almost_full_ = false;
+  const size_t prev_count =
+      almost_full_pool_count.fetch_sub(1, std::memory_order_relaxed);
+  PA_DCHECK(prev_count > 0);
+  return prev_count == 1;
+}
+
+bool AddressPoolManager::Pool::UpdateAlmostFullStateLocked(
+    std::atomic<size_t>& almost_full_pool_count) {
+  if (total_bits_ == 0) {
+    return false;
+  }
+  if (!is_almost_full_) {
+    if (allocated_bits_ * 100 >= total_bits_ * kDefaultAlmostFullPercent) {
+      is_almost_full_ = true;
+      return almost_full_pool_count.fetch_add(1, std::memory_order_relaxed) ==
+             0;
+    }
+  } else {
+    if (allocated_bits_ * 100 <=
+        total_bits_ * (kDefaultAlmostFullPercent - 5)) {
+      is_almost_full_ = false;
+      const size_t prev_count =
+          almost_full_pool_count.fetch_sub(1, std::memory_order_relaxed);
+      PA_DCHECK(prev_count > 0);
+      return prev_count == 1;
+    }
+  }
+  return false;
 }
 
 void AddressPoolManager::Pool::GetUsedSuperPages(
@@ -159,7 +267,10 @@ uintptr_t AddressPoolManager::Pool::GetBaseAddress() {
   return address_begin_;
 }
 
-uintptr_t AddressPoolManager::Pool::FindChunk(size_t requested_size) {
+uintptr_t AddressPoolManager::Pool::FindChunk(
+    size_t requested_size,
+    std::atomic<size_t>& almost_full_pool_count,
+    bool& should_notify) {
   ScopedGuard scoped_lock(lock_);
 
   PA_DCHECK(!(requested_size & kSuperPageOffsetMask));
@@ -170,12 +281,15 @@ uintptr_t AddressPoolManager::Pool::FindChunk(size_t requested_size) {
   size_t beg_bit = bit_hint_;
   size_t curr_bit = bit_hint_;
   while (true) {
-    // |end_bit| points 1 past the last bit that needs to be 0. If it goes past
-    // |total_bits_|, return |nullptr| to signal no free chunk was found.
-    size_t end_bit = beg_bit + need_bits;
-    if (end_bit > total_bits_) {
+    // The candidate chunk is [beg_bit, beg_bit + need_bits). All bits at or
+    // after |high_bit_hint_| are known to be 1, so if the chunk doesn't fit
+    // below it, return 0 to signal no free chunk was found. Note that
+    // |beg_bit| may be past |high_bit_hint_| when the pool is full.
+    if (beg_bit > high_bit_hint_ || high_bit_hint_ - beg_bit < need_bits) {
+      should_notify = false;
       return 0;
     }
+    size_t end_bit = beg_bit + need_bits;
 
     bool found = true;
     for (; curr_bit < end_bit; ++curr_bit) {
@@ -200,9 +314,14 @@ uintptr_t AddressPoolManager::Pool::FindChunk(size_t requested_size) {
         PA_DCHECK(!alloc_bitset_[i]);
         alloc_bitset_[i] = true;
       }
+      allocated_bits_ += need_bits;
       if (bit_hint_ == beg_bit) {
         bit_hint_ = end_bit;
       }
+      if (high_bit_hint_ == end_bit) {
+        high_bit_hint_ = beg_bit;
+      }
+      should_notify = UpdateAlmostFullStateLocked(almost_full_pool_count);
       uintptr_t address = address_begin_ + beg_bit * kSuperPageSize;
 #if PA_BUILDFLAG(DCHECKS_ARE_ON)
       PA_DCHECK(address + requested_size <= address_end_);
@@ -214,8 +333,75 @@ uintptr_t AddressPoolManager::Pool::FindChunk(size_t requested_size) {
   PA_NOTREACHED();
 }
 
-bool AddressPoolManager::Pool::TryReserveChunk(uintptr_t address,
-                                               size_t requested_size) {
+uintptr_t AddressPoolManager::Pool::FindChunkFromEnd(
+    size_t requested_size,
+    std::atomic<size_t>& almost_full_pool_count,
+    bool& should_notify) {
+  ScopedGuard scoped_lock(lock_);
+
+  PA_DCHECK(!(requested_size & kSuperPageOffsetMask));
+  const size_t need_bits = requested_size >> kSuperPageShift;
+
+  // Use first-fit policy from the high end to find an available chunk from free
+  // chunks. Start from |high_bit_hint_|, because we know there are no free
+  // chunks at or after it.
+  size_t end_bit = high_bit_hint_;
+  size_t curr_bit = high_bit_hint_;
+  while (true) {
+    if (end_bit < bit_hint_ || end_bit - bit_hint_ < need_bits) {
+      should_notify = false;
+      return 0;
+    }
+    size_t beg_bit = end_bit - need_bits;
+
+    bool found = true;
+    while (curr_bit > beg_bit) {
+      --curr_bit;
+      if (alloc_bitset_[curr_bit]) {
+        // The bit was set, so this chunk isn't entirely free. Set |found=false|
+        // to ensure the outer loop continues. However, continue the inner loop
+        // to set |end_bit| to the lowest set bit in the investigated chunk.
+        // |curr_bit| is decremented all the way to |beg_bit| to prevent the
+        // next outer loop pass from checking the same bits.
+        end_bit = curr_bit;
+        found = false;
+        if (high_bit_hint_ == curr_bit + 1) {
+          --high_bit_hint_;
+        }
+      }
+    }
+
+    // An entire [beg_bit;end_bit) region of 0s was found. Fill them with 1s (to
+    // mark as allocated) and return the allocated address.
+    if (found) {
+      for (size_t i = beg_bit; i < end_bit; ++i) {
+        PA_DCHECK(!alloc_bitset_[i]);
+        alloc_bitset_[i] = true;
+      }
+      allocated_bits_ += need_bits;
+      if (high_bit_hint_ == end_bit) {
+        high_bit_hint_ = beg_bit;
+      }
+      if (bit_hint_ == beg_bit) {
+        bit_hint_ = end_bit;
+      }
+      should_notify = UpdateAlmostFullStateLocked(almost_full_pool_count);
+      uintptr_t address = address_begin_ + beg_bit * kSuperPageSize;
+#if PA_BUILDFLAG(DCHECKS_ARE_ON)
+      PA_DCHECK(address + requested_size <= address_end_);
+#endif
+      return address;
+    }
+  }
+
+  PA_NOTREACHED();
+}
+
+bool AddressPoolManager::Pool::TryReserveChunk(
+    uintptr_t address,
+    size_t requested_size,
+    std::atomic<size_t>& almost_full_pool_count,
+    bool& should_notify) {
   ScopedGuard scoped_lock(lock_);
   PA_DCHECK(!(address & kSuperPageOffsetMask));
   PA_DCHECK(!(requested_size & kSuperPageOffsetMask));
@@ -236,10 +422,15 @@ bool AddressPoolManager::Pool::TryReserveChunk(uintptr_t address,
   for (size_t i = begin_bit; i < end_bit; ++i) {
     alloc_bitset_[i] = true;
   }
+  allocated_bits_ += need_bits;
+  should_notify = UpdateAlmostFullStateLocked(almost_full_pool_count);
   return true;
 }
 
-void AddressPoolManager::Pool::FreeChunk(uintptr_t address, size_t free_size) {
+bool AddressPoolManager::Pool::FreeChunk(
+    uintptr_t address,
+    size_t free_size,
+    std::atomic<size_t>& almost_full_pool_count) {
   ScopedGuard scoped_lock(lock_);
 
   PA_DCHECK(!(address & kSuperPageOffsetMask));
@@ -251,28 +442,35 @@ void AddressPoolManager::Pool::FreeChunk(uintptr_t address, size_t free_size) {
 #endif
 
   const size_t beg_bit = (address - address_begin_) / kSuperPageSize;
-  const size_t end_bit = beg_bit + free_size / kSuperPageSize;
+  const size_t need_bits = free_size / kSuperPageSize;
+  const size_t end_bit = beg_bit + need_bits;
   for (size_t i = beg_bit; i < end_bit; ++i) {
     PA_DCHECK(alloc_bitset_[i]);
     alloc_bitset_[i] = false;
   }
+  PA_DCHECK(allocated_bits_ >= need_bits);
+  allocated_bits_ -= need_bits;
   bit_hint_ = std::min(bit_hint_, beg_bit);
+  high_bit_hint_ = std::max(high_bit_hint_, end_bit);
+  return UpdateAlmostFullStateLocked(almost_full_pool_count);
 }
 
 void AddressPoolManager::Pool::GetStats(PoolStats* stats) {
   std::bitset<kMaxSuperPagesInPool> pages;
   size_t i;
+  size_t end;
   {
     ScopedGuard scoped_lock(lock_);
     pages = alloc_bitset_;
     i = bit_hint_;
+    end = high_bit_hint_;
+    PA_DCHECK(pages.count() == allocated_bits_);
+    stats->usage = allocated_bits_;
   }
-
-  stats->usage = pages.count();
 
   size_t largest_run = 0;
   size_t current_run = 0;
-  for (; i < total_bits_; ++i) {
+  for (; i < end; ++i) {
     if (!pages[i]) {
       current_run += 1;
       continue;
@@ -311,6 +509,10 @@ bool AddressPoolManager::GetStats(AddressSpaceStats* stats) {
   GetPoolStats(kThreadIsolatedPoolHandle, &stats->thread_isolated_pool_stats);
 #endif
   return true;
+}
+
+bool AddressPoolManager::IsAlmostFull() {
+  return almost_full_pool_count_.load(std::memory_order_relaxed) > 0;
 }
 
 #else  // PA_BUILDFLAG(HAS_64_BIT_POINTERS)
@@ -357,7 +559,8 @@ void ResetBitmap(std::bitset<bitsize>& bitmap,
 
 uintptr_t AddressPoolManager::Reserve(pool_handle handle,
                                       uintptr_t requested_address,
-                                      size_t length) {
+                                      size_t length,
+                                      ReservationLifetime lifetime) {
   PA_DCHECK(!(length & DirectMapAllocationGranularityOffsetMask()));
   uintptr_t address =
       AllocPages(requested_address, length, kSuperPageSize,

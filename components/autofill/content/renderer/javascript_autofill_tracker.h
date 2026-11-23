@@ -41,14 +41,14 @@ class JavaScriptAutofillTracker {
       delete;
   ~JavaScriptAutofillTracker();
 
-  // Invoked directly from Blink just prior to initiating DOM mousedown event
+  // Invoked directly from Blink just prior to initiating DOM pointerdown event
   // dispatch, before JavaScript receives the same signal.
   // `target_node` is the innermost hit-tested Blink node that receives the
-  // mousedown event.
-  void HandleMousedown(const blink::WebNode& target_node);
+  // pointerdown event.
+  void HandlePointerdown(const blink::WebNode& target_node);
 
-  void OnJavaScriptChangedValue(const blink::WebFormControlElement& element,
-                                const blink::WebString& old_value);
+  void OnJavaScriptSetValue(const blink::WebFormControlElement& element,
+                            const blink::WebString& old_value);
 
   // Clears all recorded changes and stops the detection timer.
   void Reset();

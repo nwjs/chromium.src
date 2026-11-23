@@ -11,7 +11,9 @@
 // NSWindow for the omnibox popup. Window managers (Moom, Rectangle, ...) act on
 // AXFocusedWindow, which is the popup while it is key. This proxies AXPosition
 // and AXSize (reads and writes), and AXZoomButton (reads), to the root parent
-// window, so they move and resize the browser instead.
+// window, so they move and resize the browser instead. It also forwards
+// -toggleFullScreen: to the browser window, so Ctrl+Cmd+F works. In immersive
+// fullscreen, it only keeps the toolbar revealed while it is key.
 @interface OmniboxPopupNSWindow : NativeWidgetMacNSWindow
 @end
 #endif  // defined(__OBJC__)

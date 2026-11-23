@@ -31,7 +31,6 @@ include_rules = [
   "+chrome/browser/ui/web_applications",
   "+chrome/browser/ui/webui/ash/crostini_installer",
   "+chrome/browser/web_applications/web_app_provider.h",
-  "+chrome/browser/web_applications/web_app_registrar.h",
 ]
 
 specific_include_rules = {
@@ -41,6 +40,7 @@ specific_include_rules = {
     "+ui/message_center",
   ],
   "autotest_private_apitest\\.cc": [
+    "+chrome/browser/ash/ownership/owner_settings_service_ash_factory.h",
     "+chrome/browser/ui/browser_window.h",
   ],
 }

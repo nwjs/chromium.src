@@ -39,8 +39,6 @@
 #include "chrome/browser/ui/signin/account_preview_utils.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/webui/settings/settings_localized_strings_provider.h"
-#include "chrome/browser/ui/webui/signin/login_ui_service.h"
-#include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -537,7 +535,7 @@ TEST_F(PeopleHandlerTest, DisplayBasicLogin) {
   handler_->DisallowJavascript();
 
   EXPECT_CALL(mock_signin_ui_delegate,
-              ShowSigninUI(profile(), /*enable_sync=*/true,
+              ShowSigninUI(profile(), /*enable_history_sync=*/true,
                            signin_metrics::AccessPoint::kSettings,
                            signin_metrics::PromoAction::
                                PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
@@ -546,17 +544,9 @@ TEST_F(PeopleHandlerTest, DisplayBasicLogin) {
   args.Append(0);
   handler_->HandleStartSignin(args);
 
-  // The sign-in flow setup hands off control to the gaia login tab.
-  EXPECT_EQ(
-      nullptr,
-      LoginUIServiceFactory::GetForProfile(profile())->current_login_ui());
-
   ASSERT_FALSE(handler_->is_configuring_sync());
 
   handler_->CloseSyncSetup();
-  EXPECT_EQ(
-      nullptr,
-      LoginUIServiceFactory::GetForProfile(profile())->current_login_ui());
 }
 
 #endif  // !BUILDFLAG(IS_CHROMEOS)
@@ -579,16 +569,9 @@ TEST_F(PeopleHandlerTest, DisplayConfigureWithEngineDisabledAndCancel) {
   // spinner is showing.
   handler_->HandleShowSyncSetupUI(base::ListValue());
 
-  EXPECT_EQ(
-      handler_.get(),
-      LoginUIServiceFactory::GetForProfile(profile())->current_login_ui());
-
   EXPECT_EQ(0U, web_ui_.call_data().size());
 
   handler_->CloseSyncSetup();
-  EXPECT_EQ(
-      nullptr,
-      LoginUIServiceFactory::GetForProfile(profile())->current_login_ui());
 }
 
 // Verifies that the handler only sends the sync pref updates once the engine is
@@ -654,9 +637,6 @@ TEST_F(PeopleHandlerTest,
             syncer::SyncService::TransportState::ACTIVE);
 
   handler_->CloseSyncSetup();
-  EXPECT_EQ(
-      nullptr,
-      LoginUIServiceFactory::GetForProfile(profile())->current_login_ui());
 
   EXPECT_FALSE(sync_service_->IsSetupInProgress());
 }
@@ -961,10 +941,6 @@ TEST_F(PeopleHandlerTest, ShowSetupSyncForAllTypesIndividually) {
 
     // This should display the sync setup dialog (not login).
     handler_->HandleShowSyncSetupUI(base::ListValue());
-
-    // Close the config overlay.
-    LoginUIServiceFactory::GetForProfile(profile())->LoginUIClosed(
-        handler_.get());
 
     base::DictValue dictionary = ExpectSyncPrefsChanged();
     CheckConfigDataTypeArguments(dictionary, CHOOSE_WHAT_TO_SYNC, types);
@@ -1272,7 +1248,7 @@ TEST(PeopleHandlerDiceTest, AccountPromoSubtitleWithAccountPreviewFollowup) {
   pref.preferred_data_types = {
       {.data_type = syncer::BOOKMARKS,
        .quartile = signin::SyncDataQuartile::kMedianToQ3}};
-  data_service->SetPreferredAccountForPromo(pref);
+  data_service->SetPreferredAccountForSignin(pref);
 
   std::optional<std::string> expected_subtitle =
       signin::GetAccountPreviewSettingsPromoSubtitle(pref);
@@ -1333,7 +1309,7 @@ TEST(PeopleHandlerDiceTest,
   pref.preferred_data_types = {
       {.data_type = syncer::BOOKMARKS,
        .quartile = signin::SyncDataQuartile::kMedianToQ3}};
-  data_service->SetPreferredAccountForPromo(pref);
+  data_service->SetPreferredAccountForSignin(pref);
 
   // But GetPeopleSignInPromptSecondaryWithAccountForTesting() should return the
   // default string because the followup flag is disabled.
@@ -1700,7 +1676,7 @@ TEST_F(PeopleHandlerTest, HandleStartSigninManaged) {
   // This should not crash.
   EXPECT_CALL(
       mock_signin_ui_delegate,
-      ShowReauthUI(profile(), kManagedEmail, /*enable_sync=*/false,
+      ShowReauthUI(profile(), kManagedEmail, /*enable_history_sync=*/false,
                    signin_metrics::AccessPoint::kSettings,
                    signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO));
   base::ListValue args;
@@ -1985,9 +1961,6 @@ TEST_F(PeopleHandlerWithReplaceSyncWithSigninUI, HandleShowAccountSettingsUI) {
   handler_->HandleShowAccountSettingsUI(base::ListValue());
 
   EXPECT_FALSE(handler_->sync_blocker_);
-  EXPECT_EQ(
-      handler_.get(),
-      LoginUIServiceFactory::GetForProfile(profile())->current_login_ui());
   ExpectSyncPrefsChanged();
 }
 

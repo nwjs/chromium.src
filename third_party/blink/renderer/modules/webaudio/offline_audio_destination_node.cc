@@ -39,7 +39,6 @@
 #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
 #include "third_party/blink/renderer/platform/audio/denormal_disabler.h"
 #include "third_party/blink/renderer/platform/audio/hrtf_database_loader.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 
 namespace blink {
@@ -64,11 +63,6 @@ OfflineAudioDestinationNode* OfflineAudioDestinationNode::Create(
 OfflineAudioDestinationHandler&
 OfflineAudioDestinationNode::GetAudioDestinationHandler() const {
   return static_cast<OfflineAudioDestinationHandler&>(Handler());
-}
-
-void OfflineAudioDestinationNode::Trace(Visitor* visitor) const {
-  visitor->Trace(destination_buffer_);
-  AudioDestinationNode::Trace(visitor);
 }
 
 }  // namespace blink

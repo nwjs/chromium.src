@@ -20,6 +20,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/accessibility/ax_common.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_event.h"
 #include "ui/accessibility/ax_event_intent.h"
@@ -341,7 +342,7 @@ TEST_F(ReadAnythingAppModelTest, SetIsPdf_PreservesStateAcrossPendingUpdates) {
   // unserialize pending updates.
   model().SetActiveTreeId(pdf_tree_id);
   EXPECT_TRUE(model().IsPdf());
-  model().UnserializePendingUpdates(pdf_tree_id);
+  EXPECT_TRUE(model().UnserializePendingUpdates(pdf_tree_id));
 
   // The OCR banner node and child text node should be ignored because the tree
   // is a PDF.
@@ -573,7 +574,7 @@ TEST_F(ReadAnythingAppModelTest,
 
   // Ensure that there are no crashes after an accessibility event is received
   // immediately after unserializing.
-  model().UnserializePendingUpdates(tree_id_);
+  EXPECT_TRUE(model().UnserializePendingUpdates(tree_id_));
   QueueAccessibilityUpdates(tree_id_, {std::move(updates[2])});
   EXPECT_EQ(1u, model().pending_updates_for_testing().at(tree_id_).size());
   ASSERT_FALSE(AreAllPendingUpdatesEmpty());
@@ -599,6 +600,53 @@ TEST_F(ReadAnythingAppModelTest, OnTreeErased_ClearsPendingUpdates) {
 }
 
 TEST_F(ReadAnythingAppModelTest,
+       ApplyAccessibilityUpdates_InvalidUpdate_DestroysTreeWithoutCrashing) {
+  // Clearing node 2 without updating it leaves it pending, so
+  // `AXTree::Unserialize()` fails.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.node_id_to_clear = 2;
+  update.nodes.resize(1);
+  update.nodes[0].id = 3;
+
+#if AX_FAIL_FAST_BUILD()
+  EXPECT_DEATH_IF_SUPPORTED(ApplyAccessibilityUpdates(tree_id_, {update}),
+                            "Nodes left pending by the update: 2");
+#else
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  EXPECT_FALSE(model().ContainsTree(tree_id_));
+#endif
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       ApplyAccessibilityUpdates_InvalidPendingUpdate_StopsUnserializing) {
+  std::vector<int> child_ids = SendSimpleUpdateAndGetChildIds();
+  ReadAnythingAppModel::Updates updates =
+      test::CreateSimpleUpdateList(child_ids, tree_id_);
+
+  // Clearing node 2 without updating it leaves it pending, so
+  // `AXTree::Unserialize()` fails.
+  ui::AXTreeUpdate invalid_update;
+  test::SetUpdateTreeID(&invalid_update, tree_id_);
+  invalid_update.node_id_to_clear = 2;
+  invalid_update.nodes.resize(1);
+  invalid_update.nodes[0].id = 3;
+
+  QueueAccessibilityUpdates(tree_id_, {invalid_update});
+  QueueAccessibilityUpdates(tree_id_, {std::move(updates[0])});
+  ASSERT_EQ(2u, model().pending_updates_for_testing().at(tree_id_).size());
+
+#if AX_FAIL_FAST_BUILD()
+  EXPECT_DEATH_IF_SUPPORTED(
+      ApplyAccessibilityUpdates(tree_id_, {std::move(updates[1])}),
+      "Nodes left pending by the update: 2");
+#else
+  ApplyAccessibilityUpdates(tree_id_, {std::move(updates[1])});
+  EXPECT_FALSE(model().ContainsTree(tree_id_));
+#endif
+}
+
+TEST_F(ReadAnythingAppModelTest,
        QueueAccessibilityUpdates_UnserializesUpdates) {
   std::vector<int> child_ids = SendSimpleUpdateAndGetChildIds();
   ReadAnythingAppModel::Updates updates =
@@ -619,7 +667,7 @@ TEST_F(ReadAnythingAppModelTest,
 
   // Complete distillation which unserializes the pending updates and distills
   // them.
-  model().UnserializePendingUpdates(tree_id_);
+  EXPECT_TRUE(model().UnserializePendingUpdates(tree_id_));
   EXPECT_FALSE(model().pending_updates_for_testing().contains(tree_id_));
   ASSERT_TRUE(AreAllPendingUpdatesEmpty());
 }
@@ -705,6 +753,121 @@ TEST_F(ReadAnythingAppModelTest, DisplayNodeIdsContains_ContentNodes) {
   EXPECT_TRUE(model().display_node_ids().contains(4));
   EXPECT_TRUE(model().display_node_ids().contains(5));
   EXPECT_TRUE(model().display_node_ids().contains(6));
+}
+
+TEST_F(ReadAnythingAppModelTest, DisplayNodeIdsContains_ListItems) {
+  static constexpr ui::AXNodeID kRootId = 1;
+  static constexpr ui::AXNodeID kListId = 2;
+  static constexpr ui::AXNodeID kListItemId = 3;
+  static constexpr ui::AXNodeID kListMarkerId = 4;
+  static constexpr ui::AXNodeID kItemTextId = 5;
+  static constexpr ui::AXNodeID kCollapsedListItemId = 6;
+  static constexpr ui::AXNodeID kCollapsedItemTextId = 7;
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+
+  ui::AXNodeData root = test::GenericContainerNode(kRootId);
+  root.child_ids = {kListId};
+
+  ui::AXNodeData ul_node;
+  ul_node.id = kListId;
+  ul_node.role = ax::mojom::Role::kList;
+  ul_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag, "ul");
+  ul_node.child_ids = {kListItemId, kCollapsedListItemId};
+
+  ui::AXNodeData li_node;
+  li_node.id = kListItemId;
+  li_node.role = ax::mojom::Role::kListItem;
+  li_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag, "li");
+  li_node.child_ids = {kListMarkerId, kItemTextId};
+
+  ui::AXNodeData marker_node;
+  marker_node.id = kListMarkerId;
+  marker_node.role = ax::mojom::Role::kListMarker;
+  marker_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag,
+                                 "::marker");
+  ui::AXNodeData item_text = test::TextNode(kItemTextId, u"Item 1");
+
+  ui::AXNodeData collapsed_li_node;
+  collapsed_li_node.id = kCollapsedListItemId;
+  collapsed_li_node.role = ax::mojom::Role::kListItem;
+  collapsed_li_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag,
+                                       "li");
+  collapsed_li_node.AddState(ax::mojom::State::kCollapsed);
+  collapsed_li_node.child_ids = {kCollapsedItemTextId};
+  ui::AXNodeData collapsed_item_text =
+      test::TextNode(kCollapsedItemTextId, u"Collapsed item");
+
+  update.root_id = kRootId;
+  update.nodes = {std::move(root),
+                  std::move(ul_node),
+                  std::move(li_node),
+                  std::move(marker_node),
+                  std::move(item_text),
+                  std::move(collapsed_li_node),
+                  std::move(collapsed_item_text)};
+
+  ApplyAccessibilityUpdates(tree_id_, {std::move(update)});
+  ProcessDisplayNodes({kListItemId, kCollapsedListItemId});
+  EXPECT_THAT(model().display_node_ids(),
+              UnorderedElementsAre(kRootId, kListId, kListItemId, kListMarkerId,
+                                   kItemTextId));
+}
+
+TEST_F(ReadAnythingAppModelTest, DisplayNodeIdsContains_Tables) {
+  static constexpr ui::AXNodeID kRootId = 1;
+  static constexpr ui::AXNodeID kTableId = 2;
+  static constexpr ui::AXNodeID kRowId = 3;
+  static constexpr ui::AXNodeID kHeaderCellId = 4;
+  static constexpr ui::AXNodeID kHeaderTextId = 5;
+  static constexpr ui::AXNodeID kCellId = 6;
+  static constexpr ui::AXNodeID kCellTextId = 7;
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+
+  ui::AXNodeData root = test::GenericContainerNode(kRootId);
+  root.child_ids = {kTableId};
+
+  ui::AXNodeData table_node;
+  table_node.id = kTableId;
+  table_node.role = ax::mojom::Role::kTable;
+  table_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag, "table");
+  table_node.child_ids = {kRowId};
+
+  ui::AXNodeData row_node;
+  row_node.id = kRowId;
+  row_node.role = ax::mojom::Role::kRow;
+  row_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag, "tr");
+  row_node.child_ids = {kHeaderCellId, kCellId};
+
+  ui::AXNodeData header_cell_node;
+  header_cell_node.id = kHeaderCellId;
+  header_cell_node.role = ax::mojom::Role::kColumnHeader;
+  header_cell_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag,
+                                      "th");
+  header_cell_node.child_ids = {kHeaderTextId};
+  ui::AXNodeData header_text = test::TextNode(kHeaderTextId, u"Header");
+
+  ui::AXNodeData cell_node;
+  cell_node.id = kCellId;
+  cell_node.role = ax::mojom::Role::kCell;
+  cell_node.AddStringAttribute(ax::mojom::StringAttribute::kHtmlTag, "td");
+  cell_node.child_ids = {kCellTextId};
+  ui::AXNodeData cell_text = test::TextNode(kCellTextId, u"Cell");
+
+  update.root_id = kRootId;
+  update.nodes = {std::move(root),        std::move(table_node),
+                  std::move(row_node),    std::move(header_cell_node),
+                  std::move(header_text), std::move(cell_node),
+                  std::move(cell_text)};
+
+  ApplyAccessibilityUpdates(tree_id_, {std::move(update)});
+  ProcessDisplayNodes({kTableId});
+  EXPECT_THAT(model().display_node_ids(),
+              UnorderedElementsAre(kRootId, kTableId, kRowId, kHeaderCellId,
+                                   kHeaderTextId, kCellId, kCellTextId));
 }
 
 TEST_F(ReadAnythingAppModelTest,
@@ -1490,6 +1653,48 @@ class ReadAnythingAppModelReadabilityTest : public ReadAnythingAppModelTest {
   }
   ~ReadAnythingAppModelReadabilityTest() override = default;
 
+ protected:
+  static constexpr ui::AXNodeID kArticleId = 2;
+  static constexpr ui::AXNodeID kSidebarId = 3;
+
+  // Creates a page with an article paragraph and a sidebar, then simulates
+  // distilling only the article paragraph with Readability and mapping its
+  // rendered text back to the AXTree.
+  void SetUpMappedReadabilityContent() {
+    ui::AXTreeUpdate update;
+    test::SetUpdateTreeID(&update, tree_id_);
+    ui::AXNodeData root = test::GenericContainerNode(1);
+    ui::AXNodeData article =
+        test::TextNode(kArticleId, u"This is the article paragraph text.");
+    ui::AXNodeData sidebar =
+        test::TextNode(kSidebarId, u"Unrelated sidebar text.");
+    root.child_ids = {article.id, sidebar.id};
+    update.root_id = root.id;
+    update.nodes = {root, article, sidebar};
+    ApplyAccessibilityUpdates(tree_id_, {update});
+
+    model().set_next_distillation_method(
+        ReadAnythingAppModel::DistillationMethod::kReadability);
+    model().set_readability_content_drawn(true);
+    model().set_should_map_rendered_text_to_tree_for_readability(true);
+    ASSERT_TRUE(model().MapRenderedTextToTree(
+        {u"Title", u"This is the article paragraph text."}));
+    model().set_is_readability_mapping_in_progress(false);
+  }
+
+  // Selects the range [start_offset, end_offset) within `node_id` on the main
+  // page. Passing equal offsets collapses (clears) the selection.
+  void SetSelection(ui::AXNodeID node_id, int start_offset, int end_offset) {
+    ui::AXTreeUpdate update;
+    test::SetUpdateTreeID(&update, tree_id_);
+    update.tree_data.sel_anchor_object_id = node_id;
+    update.tree_data.sel_focus_object_id = node_id;
+    update.tree_data.sel_anchor_offset = start_offset;
+    update.tree_data.sel_focus_offset = end_offset;
+    update.tree_data.sel_is_backward = false;
+    ApplyAccessibilityUpdates(tree_id_, {update});
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
@@ -1772,8 +1977,10 @@ TEST_F(ReadAnythingAppModelReadabilityTest,
   update.has_tree_data = true;
   ApplyAccessibilityUpdates(tree_id_, {std::move(update)});
 
-  // PostProcessSelection should return false for Readability.
+  // Because no Readability content has been drawn yet, the selection should
+  // stay pending.
   EXPECT_FALSE(model().PostProcessSelection());
+  EXPECT_TRUE(model().requires_post_process_selection());
 
   // Confirm that UpdateSelectionEndpoints was called and the model's
   // selection endpoints were updated.
@@ -1781,6 +1988,56 @@ TEST_F(ReadAnythingAppModelReadabilityTest,
   EXPECT_EQ(model().end_node_id(), 3);
   EXPECT_EQ(model().start_offset(), 0);
   EXPECT_EQ(model().end_offset(), 1);
+}
+
+TEST_F(ReadAnythingAppModelReadabilityTest,
+       PostProcessSelection_Readability_DefersWhileMappingInProgress) {
+  SetUpMappedReadabilityContent();
+  model().set_is_readability_mapping_in_progress(true);
+  SetSelection(kSidebarId, 0, 5);
+
+  EXPECT_FALSE(model().PostProcessSelection());
+  EXPECT_TRUE(model().requires_post_process_selection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+}
+
+TEST_F(ReadAnythingAppModelReadabilityTest,
+       PostProcessSelection_Readability_SelectionInsideContent_DoesNotDraw) {
+  SetUpMappedReadabilityContent();
+  SetSelection(kArticleId, 0, 4);
+
+  EXPECT_FALSE(model().PostProcessSelection());
+  EXPECT_FALSE(model().requires_post_process_selection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+}
+
+TEST_F(
+    ReadAnythingAppModelReadabilityTest,
+    PostProcessSelection_Readability_SelectionOutsideContent_EntersSelectionMode) {
+  SetUpMappedReadabilityContent();
+  SetSelection(kSidebarId, 0, 5);
+
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+  EXPECT_TRUE(model().selection_node_ids().contains(kSidebarId));
+}
+
+TEST_F(ReadAnythingAppModelReadabilityTest,
+       PostProcessSelection_Readability_SelectionCleared_ReturnsToMainContent) {
+  SetUpMappedReadabilityContent();
+  SetSelection(kSidebarId, 0, 5);
+  ASSERT_TRUE(model().PostProcessSelection());
+
+  SetSelection(kSidebarId, 0, 0);
+
+  EXPECT_TRUE(model().PostProcessSelection());
+  EXPECT_EQ(model().side_panel_distillation_mode(),
+            ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+  // The distilled Readability content is still available to be redrawn.
+  EXPECT_FALSE(model().is_empty());
 }
 
 TEST_F(
@@ -2445,6 +2702,57 @@ TEST_F(ReadAnythingAppModelTest, MapRenderedTextToTree_PartialNodeMapping) {
   EXPECT_EQ(mapping[2].ax_node_offset, 0);
 }
 
+TEST_F(ReadAnythingAppModelTest,
+       MapRenderedTextToTree_NonBreakingSpaceWhitespaceNodes) {
+  // Setup AXTree where words are separated by whitespace-only "\u00A0" nodes:
+  // "Blood", "\u00A0", "is", "\u00A0", "vital." (Nodes 2, 3, 4, 5, 6)
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData root = test::GenericContainerNode(1);
+  ui::AXNodeData n2 = test::TextNode(2, u"Blood");
+  ui::AXNodeData n3 = test::TextNode(3, u"\u00A0");
+  ui::AXNodeData n4 = test::TextNode(4, u"is");
+  ui::AXNodeData n5 = test::TextNode(5, u"\u00A0");
+  ui::AXNodeData n6 = test::TextNode(6, u"vital.");
+  root.child_ids = {2, 3, 4, 5, 6};
+  update.root_id = 1;
+  update.nodes = {root, n2, n3, n4, n5, n6};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  // In Readability, inline whitespace separators are replaced with regular
+  // spaces (' '), producing "Blood is vital.".
+  std::vector<std::u16string> blocks = {u"Blood is vital."};
+
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+  EXPECT_TRUE(model().MapRenderedTextToTree(blocks));
+
+  // Verify the entire block (including short words and whitespace nodes) maps
+  // cleanly across all 5 AXNodes.
+  auto mapping = model().GetAXMapping(0);
+  ASSERT_EQ(mapping.size(), 5u);
+
+  EXPECT_EQ(mapping[0].id, 2);
+  EXPECT_EQ(mapping[0].start, 0);
+  EXPECT_EQ(mapping[0].end, 5);
+
+  EXPECT_EQ(mapping[1].id, 3);
+  EXPECT_EQ(mapping[1].start, 5);
+  EXPECT_EQ(mapping[1].end, 6);
+
+  EXPECT_EQ(mapping[2].id, 4);
+  EXPECT_EQ(mapping[2].start, 6);
+  EXPECT_EQ(mapping[2].end, 8);
+
+  EXPECT_EQ(mapping[3].id, 5);
+  EXPECT_EQ(mapping[3].start, 8);
+  EXPECT_EQ(mapping[3].end, 9);
+
+  EXPECT_EQ(mapping[4].id, 6);
+  EXPECT_EQ(mapping[4].start, 9);
+  EXPECT_EQ(mapping[4].end, 15);
+}
+
 TEST_F(ReadAnythingAppModelTest, FlattenAXTree_BuildsContiguousString) {
   ui::AXTreeUpdate update;
   test::SetUpdateTreeID(&update, tree_id_);
@@ -2828,6 +3136,157 @@ TEST_F(ReadAnythingAppModelTest,
   EXPECT_EQ(mapping[0].id, 3);
   EXPECT_EQ(mapping[0].start, 0);
   EXPECT_EQ(mapping[0].end, 15);
+}
+
+TEST_F(ReadAnythingAppModelTest,
+       MapRenderedTextToTree_GapSubstringAlignment_MinAnchorLengthBoundary) {
+  std::u16string a1 = u"Anchor1_________";
+  std::u16string a2 = u"Anchor2_________";
+
+  // In the gap between Anchor1 and Anchor2:
+  // - "RepeatedPrefix_" appears twice (nodes 3 and 4), so it is not locally
+  //   unique.
+  // - "XY" (length 2 < kMinAnchorLength) is locally unique in node 5, but too
+  //   short to anchor.
+  // - "ABC" (length 3 == kMinAnchorLength) is locally unique in node 6 and
+  //   should anchor.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.root_id = 1;
+  update.nodes = {test::GenericContainerNode(1),
+                  test::TextNode(2, a1),
+                  test::TextNode(3, u"RepeatedPrefix_1"),
+                  test::TextNode(4, u"RepeatedPrefix_2"),
+                  test::TextNode(5, u"XY"),
+                  test::TextNode(6, u"ABC"),
+                  test::TextNode(7, a2),
+                  test::TextNode(8, u"ABC")};
+  update.nodes[0].child_ids = {2, 3, 4, 5, 6, 7, 8};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  std::vector<std::u16string> blocks = {
+      a1,
+      u"RepeatedPrefix_XY",
+      u"Noise_ABC_Noise",
+      a2,
+  };
+
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+  model().MapRenderedTextToTree(blocks);
+
+  // Block 1 ("RepeatedPrefix_XY") should ignore the 2-char locally unique "XY"
+  // and map the 15-char "RepeatedPrefix_" via AlignRelativeOrder to node 3.
+  auto mapping1 = model().GetAXMapping(1);
+  ASSERT_EQ(mapping1.size(), 1u);
+  EXPECT_EQ(mapping1[0].id, 3);
+  EXPECT_EQ(mapping1[0].start, 0);
+  EXPECT_EQ(mapping1[0].end, 15);
+
+  // Block 2 ("Noise_ABC_Noise") should anchor the 3-char "ABC" to node 6.
+  auto mapping2 = model().GetAXMapping(2);
+  ASSERT_EQ(mapping2.size(), 1u);
+  EXPECT_EQ(mapping2[0].id, 6);
+  EXPECT_EQ(mapping2[0].start, 6);
+  EXPECT_EQ(mapping2[0].end, 9);
+}
+
+TEST_F(
+    ReadAnythingAppModelTest,
+    MapRenderedTextToTree_GapSubstringAlignment_MergedShuffledOccupiedRanges) {
+  std::u16string title = u"Title___________";
+  std::u16string a1 = u"Anchor1_________";
+  std::u16string shuffled1 = u"Shuffled1_Shared";
+  std::u16string shuffled2 = u"Part_Shuffled2";
+  std::u16string gap_target = u"SharedPart";
+  std::u16string a2 = u"Anchor2_________";
+
+  // In the AXTree, shuffled1 (node 4) and shuffled2 (node 5) are adjacent, so
+  // their boundary forms "SharedPart", while node 6 immediately follows node 5
+  // with an unoccupied "SharedPart".
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.root_id = 1;
+  update.nodes = {test::GenericContainerNode(1), test::TextNode(2, title),
+                  test::TextNode(3, a1),         test::TextNode(4, shuffled1),
+                  test::TextNode(5, shuffled2),  test::TextNode(6, gap_target),
+                  test::TextNode(7, a2),         test::TextNode(8, gap_target)};
+  update.nodes[0].child_ids = {2, 3, 4, 5, 6, 7, 8};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  // Place shuffled2 and shuffled1 (in reverse AX order) before a1 so their
+  // occupied ranges are recorded out of order before sorting and merging,
+  // while [a1, a2] is the unique longest increasing anchor subsequence.
+  std::vector<std::u16string> blocks = {
+      title, shuffled2, shuffled1, a1, gap_target, a2,
+  };
+
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+  model().MapRenderedTextToTree(blocks);
+
+  // "SharedPart" (Block 4) must skip the occupied cross-boundary match in
+  // nodes 4+5 and map to the immediately adjacent unoccupied node 6.
+  auto mapping = model().GetAXMapping(4);
+  ASSERT_EQ(mapping.size(), 1u);
+  EXPECT_EQ(mapping[0].id, 6);
+  EXPECT_EQ(mapping[0].start, 0);
+  EXPECT_EQ(mapping[0].end, 10);
+}
+
+TEST_F(
+    ReadAnythingAppModelTest,
+    MapRenderedTextToTree_AlignRelativeOrder_BinarySearchAndMinLengthBoundary) {
+  std::u16string a1 = u"Anchor1_________________________________________";
+  std::u16string a2 = u"Anchor2_________________________________________";
+
+  // Duplicate nodes in the gap ensure no substring in the gap is locally
+  // unique, forcing AlignSubstring to fall back to AlignRelativeOrder.
+  std::u16string dup_mid = u"RepeatedMatch_";
+  std::u16string dup_five = u"Five5";
+  std::u16string dup_four = u"Four";
+
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  update.root_id = 1;
+  update.nodes = {test::GenericContainerNode(1), test::TextNode(2, a1),
+                  test::TextNode(3, dup_mid),    test::TextNode(4, dup_mid),
+                  test::TextNode(5, dup_five),   test::TextNode(6, dup_five),
+                  test::TextNode(7, dup_four),   test::TextNode(8, dup_four),
+                  test::TextNode(9, a2)};
+  update.nodes[0].child_ids = {2, 3, 4, 5, 6, 7, 8, 9};
+  ApplyAccessibilityUpdates(tree_id_, {update});
+  model().SetActiveTreeId(tree_id_);
+
+  std::vector<std::u16string> blocks = {
+      a1,
+      dup_mid + u"UnmatchedLongSuffix",
+      dup_five + u"UnmatchedTail",
+      dup_four + u"UnmatchedTail",
+      a2,
+  };
+
+  model().set_should_map_rendered_text_to_tree_for_readability(true);
+  model().MapRenderedTextToTree(blocks);
+
+  // Block 1 binary-searches down to the 14-char prefix in node 3.
+  auto mapping1 = model().GetAXMapping(1);
+  ASSERT_EQ(mapping1.size(), 1u);
+  EXPECT_EQ(mapping1[0].id, 3);
+  EXPECT_EQ(mapping1[0].start, 0);
+  EXPECT_EQ(mapping1[0].end, 14);
+
+  // Block 2 matches at the exact kMinSequentialMatchLength (5) boundary in
+  // node 5.
+  auto mapping2 = model().GetAXMapping(2);
+  ASSERT_EQ(mapping2.size(), 1u);
+  EXPECT_EQ(mapping2[0].id, 5);
+  EXPECT_EQ(mapping2[0].start, 0);
+  EXPECT_EQ(mapping2[0].end, 5);
+
+  // Block 3 only matches 4 chars (< kMinSequentialMatchLength) and must remain
+  // unmapped.
+  EXPECT_TRUE(model().GetAXMapping(3).empty());
 }
 TEST_F(ReadAnythingAppModelTest,
        GetOriginalPageMetrics_ReturnsTrueForHeadings) {
@@ -4200,9 +4659,9 @@ TEST_F(ReadAnythingAppModelScreen2xTest,
   // should return false.
   EXPECT_FALSE(model().SelectionNodesContainedInDistilledContent());
 
-  // Now, let's test the true case.
-  // content_node_ids = {1, 2, 3, 4}.
-  model().Reset({1, 2, 3, 4});
+  // Now, let's test the true case with unsorted input IDs.
+  // content_node_ids = {4, 2, 1, 3}.
+  model().Reset({4, 2, 1, 3});
 
   // Selection is {2}.
   ui::AXTreeUpdate update2;
@@ -4292,3 +4751,59 @@ TEST_F(ReadAnythingAppModelScreen2xTest,
   EXPECT_TRUE(model().requires_distillation());
 }
 #endif
+
+TEST_F(ReadAnythingAppModelTest, IsEmpty_ReadabilityMainContent) {
+  model().set_side_panel_distillation_mode_for_testing(
+      ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kReadability);
+
+  model().set_readability_content_drawn(false);
+  EXPECT_TRUE(model().is_empty());
+
+  model().set_readability_content_drawn(true);
+  EXPECT_FALSE(model().is_empty());
+}
+
+TEST_F(ReadAnythingAppModelTest, IsEmpty_SelectionMode) {
+  model().set_side_panel_distillation_mode_for_testing(
+      ReadAnythingAppModel::SidePanelDistillationMode::kSelection);
+
+  model().set_selection_node_ids_for_testing({});
+  EXPECT_TRUE(model().is_empty());
+
+  model().set_selection_node_ids_for_testing({1});
+  EXPECT_FALSE(model().is_empty());
+
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kReadability);
+  model().set_readability_content_drawn(false);
+  model().set_selection_node_ids_for_testing({1});
+  EXPECT_FALSE(model().is_empty());
+
+  model().set_selection_node_ids_for_testing({});
+  EXPECT_TRUE(model().is_empty());
+}
+
+TEST_F(ReadAnythingAppModelTest, IsEmpty_Screen2x) {
+  model().set_side_panel_distillation_mode_for_testing(
+      ReadAnythingAppModel::SidePanelDistillationMode::kMainContent);
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+
+  model().set_display_node_ids_for_testing({});
+  model().set_selection_node_ids_for_testing({});
+  EXPECT_TRUE(model().is_empty());
+
+  model().set_display_node_ids_for_testing({1});
+  model().set_selection_node_ids_for_testing({});
+  EXPECT_FALSE(model().is_empty());
+
+  model().set_display_node_ids_for_testing({});
+  model().set_selection_node_ids_for_testing({2});
+  EXPECT_FALSE(model().is_empty());
+
+  model().set_display_node_ids_for_testing({1});
+  model().set_selection_node_ids_for_testing({2});
+  EXPECT_FALSE(model().is_empty());
+}

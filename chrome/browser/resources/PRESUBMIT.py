@@ -205,6 +205,8 @@ def CheckNoNewPolymer(input_api, output_api):
     'chrome/browser/resources/ash/',
     'chrome/browser/resources/chromeos/',
     'chrome/browser/resources/password_manager/',
+    'chrome/browser/resources/settings/site_settings/',
+    'chrome/browser/resources/settings_shared/',
   ]
 
   normalized_excluded_paths = []

@@ -10,8 +10,168 @@ import {PrefsBrowserProxy} from './prefs_browser_proxy.js';
 
 type PrefObject<T> = chrome.settingsPrivate.PrefObject<T>;
 
+// Categories from the ContentSettingsTypes enum in
+// chrome/browser/resources/settings/site_settings/constants.ts that use
+// settings-category-default-radio-group.
+const CATEGORY_DEFAULT_SYNTHETIC_PREFS: string[] = [
+  'ads',
+  'ar',
+  'auto-picture-in-picture',
+  'background-sync',
+  'bluetooth-devices',
+  'bluetooth-scanning',
+  'captured-surface-control',
+  'clipboard',
+  'federated-identity-api',
+  'file-system-write',
+  'hand-tracking',
+  'hid-devices',
+  'idle-detection',
+  'images',
+  'javascript',
+  'keyboard-lock',
+  'local-fonts',
+  'local-network',
+  'location',
+  'loopback-network',
+  'media-stream-camera',
+  'media-stream-mic',
+  'midi-sysex',
+  'multiple-automatic-downloads',
+  'notifications',
+  'payment-handler',
+  'popups',
+  'protected-content',
+  'sensors',
+  'serial-ports',
+  'smart-card-readers',
+  'sound',
+  'storage-access',
+  'usb-devices',
+  'vr',
+  'web-app-installation',
+  'web-printing',
+  'window-management',
+];
+
+function getSyntheticPrefs(): chrome.settingsPrivate.PrefObject[] {
+  return [
+    ...CATEGORY_DEFAULT_SYNTHETIC_PREFS.map(
+        category => ({
+          key: `synthetic.settings.category_default.${category}`,
+          type: chrome.settingsPrivate.PrefType.STRING,
+          value: 'default',
+        })),
+    {
+      key: 'synthetic.settings.autofill.credit_card_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.autofill.enhanced_autofill_opted_in',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.autofill.identity_docs_opted_in',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.autofill.otp_filling',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.autofill.profile_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.autofill.shopping_opted_in',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.autofill.travel_opted_in',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.autofill.walletable_pass_detection_opted_in',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.contextual_cueing.inline_cue_menu.enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.dns_over_https.secure_dns_toggle',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.glic.experimental_triggering_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'synthetic.settings.glic.fake_pref',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.glic.web_actuation_disabled_for_enterprise',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+      controlledBy: chrome.settingsPrivate.ControlledBy.DEVICE_POLICY,
+    },
+    {
+      key: 'synthetic.settings.glic.web_actuation_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.omnibox_everywhere.show_shortcuts',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.on_device_ai_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'synthetic.settings.privacy_guide.history_sync',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.search_aggregator_suggest',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
+      controlledBy: chrome.settingsPrivate.ControlledBy.USER_POLICY,
+    },
+    {
+      key: 'synthetic.settings.site_settings.anti_abuse',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'synthetic.settings.site_settings.block_autoplay',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+  ];
+}
+
 export class PrefService {
   private cache_: Map<string, PrefObject<unknown>> = new Map();
+  private syntheticPrefs_: Set<string> = new Set();
 
   private initializedPromise_: Promise<void>;
   private isInitialized_ = false;
@@ -39,11 +199,46 @@ export class PrefService {
       this.cache_.set(pref.key, pref);
     }
     this.isInitialized_ = true;
+    this.registerSyntheticPrefs_(getSyntheticPrefs());
     this.browserProxy_.onPrefsChanged.addListener(this.boundOnPrefsChanged_);
   }
 
   whenInitialized(): Promise<void> {
     return this.initializedPromise_;
+  }
+
+  /**
+   * Registers synthetic (frontend-only) prefs in the local cache. Should not
+   * be used for real (backend-backed) prefs.
+   */
+  private registerSyntheticPrefs_(prefs: chrome.settingsPrivate.PrefObject[]) {
+    for (const pref of prefs) {
+      assert(
+          pref.key.startsWith('synthetic.'),
+          `Synthetic pref key '${pref.key}' must start with 'synthetic.'`);
+      assert(
+          !this.cache_.has(pref.key),
+          `registerSyntheticPrefs_ called for already existing pref '${
+              pref.key}'`);
+      this.syntheticPrefs_.add(pref.key);
+      this.cache_.set(pref.key, structuredClone(pref));
+    }
+  }
+
+  /**
+   * Updates a synthetic (frontend-only) pref and notifies observers. Should be
+   * used when `setPrefValue`, `setPrefDictEntry`, etc. are not sufficient (for
+   * example, when modifying `enforcement` or `controlledBy`).
+   */
+  setSyntheticPref<T>(pref: PrefObject<T>) {
+    assert(
+        this.isInitialized_,
+        `setSyntheticPref called before PrefService initialized, for pref '${
+            pref.key}'`);
+    assert(
+        this.syntheticPrefs_.has(pref.key),
+        `setSyntheticPref called for non-synthetic pref '${pref.key}'`);
+    this.onPrefsChanged_([structuredClone(pref)]);
   }
 
   async setPrefValue<T>(key: string, value: T): Promise<boolean> {
@@ -64,6 +259,10 @@ export class PrefService {
     this.queueAndDispatch_([
       new CustomEvent(pref.key, {detail: structuredClone(pref)}),
     ]);
+
+    if (this.syntheticPrefs_.has(key)) {
+      return Promise.resolve(true);
+    }
 
     // Step2: Propagate change to backend.
     const success = await this.browserProxy_.setPref(key, value);
@@ -136,6 +335,9 @@ export class PrefService {
    * stays up to date.
    */
   async refreshPrefFromBackend(key: string) {
+    assert(
+        !this.syntheticPrefs_.has(key),
+        `refreshPrefFromBackend called for synthetic pref '${key}'`);
     const pref = await this.browserProxy_.getPref(key);
     this.onPrefsChanged_([pref]);
   }

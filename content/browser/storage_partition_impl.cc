@@ -80,6 +80,7 @@
 #include "content/browser/loader/url_loader_factory_utils.h"
 #include "content/browser/locks/lock_manager.h"
 #include "content/browser/navigation_or_document_handle.h"
+#include "content/browser/network/cross_thread_network_context.h"
 #include "content/browser/network/shared_dictionary_util.h"
 #include "content/browser/network_context_client_base_impl.h"
 #include "content/browser/network_service_instance_impl.h"
@@ -122,6 +123,7 @@
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/storage_usage_info.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/child_process_id.h"
 #include "content/public/common/child_process_id_util.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_constants.h"
@@ -609,7 +611,7 @@ class SSLClientAuthDelegate : public SSLClientAuthHandler::Delegate {
       mojo::PendingRemote<network::mojom::ClientCertificateResponder>
           client_cert_responder_remote,
       BrowserContext* browser_context,
-      int process_id,
+      ChildProcessId process_id,
       base::WeakPtr<WebContents> web_contents,
       const scoped_refptr<net::SSLCertRequestInfo>& cert_info)
       : client_cert_responder_(std::move(client_cert_responder_remote)),
@@ -1026,7 +1028,7 @@ class StoragePartitionImpl::DataDeletionHelper {
     kPluginPrivate = 7,       // Deprecated.
     kConversions = 8,         // Deprecated.
     kAggregationService = 9,  // Deprecated.
-    kSharedStorage = 10,
+    kSharedStorage = 10,      // Deprecated.
     kGpuCache = 11,
     kPrivateAggregation = 12,  // Deprecated.
     kInterestGroups = 13,      // Deprecated
@@ -1078,10 +1080,6 @@ class StoragePartitionImpl::ServiceWorkerCookieAccessObserver
     base::UmaHistogramCounts1M(
         "Cookie.OnCookiesAccessed.BatchSize.CookieAccessObserver",
         details_vector.size());
-    std::optional<base::ElapsedTimer> timer;
-    if (base::ShouldRecordSubsampledMetric(0.01)) {
-      timer.emplace();
-    }
     for (auto& details : details_vector) {
       for (GlobalRenderFrameHostId frame_id : GetRoutingIdsForOrigin(
                storage_partition_, url::Origin::Create(details->url))) {
@@ -1094,12 +1092,6 @@ class StoragePartitionImpl::ServiceWorkerCookieAccessObserver
               CookieAccessDetails::Source::kNonNavigation);
         }
       }
-    }
-    if (timer) {
-      base::UmaHistogramCustomMicrosecondsTimes(
-          "Browser.CookieAccessObserver.StoragePartitionImpl.Duration."
-          "Subsampled",
-          timer->Elapsed(), base::Microseconds(1), base::Seconds(1), 100);
     }
   }
 
@@ -1662,6 +1654,20 @@ bool StoragePartitionImpl::IsNetworkContextInitialized() {
   return network_context_owner_->network_context.is_bound();
 }
 
+void StoragePartitionImpl::CloneNetworkContext(
+    mojo::PendingReceiver<network::mojom::NetworkContext> receiver) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK(initialized_);
+  GetNetworkContext()->Clone(std::move(receiver));
+}
+
+scoped_refptr<CrossThreadNetworkContext>
+StoragePartitionImpl::CreateCrossThreadNetworkContext() {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK(initialized_);
+  return CrossThreadNetworkContext::Create(weak_factory_.GetWeakPtr());
+}
+
 cert_verifier::mojom::CertVerifierServiceUpdater*
 StoragePartitionImpl::GetCertVerifierServiceUpdater() {
   CHECK(initialized_, base::NotFatalUntil::M159);
@@ -1881,7 +1887,9 @@ BucketManager* StoragePartitionImpl::GetBucketManager() {
 
 GeneratedCodeCacheContext*
 StoragePartitionImpl::GetGeneratedCodeCacheContext() {
-  CHECK(initialized_, base::NotFatalUntil::M159);
+  // TODO(crbug.com/577473808): CHECK-exclusion: Convert to a CHECK once we
+  // are confident it won't be triggered.
+  DCHECK(initialized_);
   return generated_code_cache_context_.get();
 }
 
@@ -2516,16 +2524,17 @@ void StoragePartitionImpl::OnCertificateRequested(
   }
 
   base::WeakPtr<WebContents> web_contents_weak;
-  int process_id = network::mojom::kInvalidProcessId;
+  ChildProcessId process_id;
   if (context.type() == ContextType::kSharedOrServiceWorkerContext ||
       context.type() == ContextType::kDeviceBoundSessionContext) {
+    // TODO(crbug.com/479742988): Browser-process requests currently share
+    // SharedOrServiceWorkerContext, so guard against `is_browser()`.
     if (const auto* worker_context =
             std::get_if<URLLoaderNetworkContext::SharedOrServiceWorkerContext>(
-                &context.context())) {
-      // TODO(crbug.com/379869738) Remove GetUnsafeValue.
-      // TODO(crbug.com/479742988) This can be the browser process and
-      // shouldn't.
-      process_id = worker_context->process_id.GetUnsafeValue();
+                &context.context());
+        worker_context && !worker_context->process_id.is_browser()) {
+      process_id =
+          ToChildProcessId(worker_context->process_id.renderer_process_id());
     }
   } else {
     WebContents* web_contents = context.GetWebContents();
@@ -2540,7 +2549,7 @@ void StoragePartitionImpl::OnCertificateRequested(
     if (context.navigation_or_document()) {
       auto* render_frame_host = context.navigation_or_document()->GetDocument();
       if (render_frame_host) {
-        process_id = render_frame_host->GetProcess()->GetDeprecatedID();
+        process_id = render_frame_host->GetProcess()->GetID();
       }
     }
   }

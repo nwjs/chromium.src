@@ -30,6 +30,7 @@
 #include "components/autofill/content/renderer/autofill_agent_test_api.h"
 #include "components/autofill/content/renderer/autofill_renderer_test.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
+#include "components/autofill/content/renderer/form_cache_test_api.h"
 #include "components/autofill/content/renderer/test_util.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -48,6 +49,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
+#include "third_party/blink/public/mojom/scroll/scroll_enums.mojom-shared.h"
 #include "third_party/blink/public/web/web_autofill_state.h"
 #include "third_party/blink/public/web/web_ax_context.h"
 #include "third_party/blink/public/web/web_ax_object.h"
@@ -178,7 +180,7 @@ class AutofillAgentTest : public test::AutofillRendererTest {
 
   size_t num_extracted_forms() {
     return std::ranges::count_if(
-        test_api(autofill_agent()).form_cache().extracted_forms_unsafe(),
+        test_api(test_api(autofill_agent()).form_cache()).extracted_forms(),
         [](const auto& id_and_form) {
           const auto& [id, form] = id_and_form;
           return form != nullptr;
@@ -906,7 +908,8 @@ TEST_F(AutofillAgentTestWithoutFocusRequiresScroll,
   base::RunLoop run_loop;
   EXPECT_CALL(autofill_driver(), TextFieldDidScroll(_, focused_field_id))
       .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
-  test_api(autofill_agent()).DidChangeScrollOffset();
+  test_api(autofill_agent())
+      .DidChangeScrollOffset(blink::mojom::ScrollType::kUser);
   run_loop.Run();
 }
 
@@ -929,7 +932,101 @@ TEST_F(AutofillAgentTestWithoutFocusRequiresScroll,
   ASSERT_TRUE(contenteditable.Focused());
 
   EXPECT_CALL(autofill_driver(), TextFieldDidScroll).Times(0);
-  test_api(autofill_agent()).DidChangeScrollOffset();
+  test_api(autofill_agent())
+      .DidChangeScrollOffset(blink::mojom::ScrollType::kUser);
+}
+
+class AutofillAgentTestHidePopupOnScroll : public AutofillAgentTest {
+ public:
+  void SetUp() override {
+    AutofillAgentTest::SetUp();
+    test_api(autofill_agent()).set_focus_requires_scroll(true);
+    test_api(autofill_agent())
+        .set_uses_keyboard_accessory_for_suggestions(false);
+  }
+};
+
+// Tests that a scroll clamping event keeps the popup open.
+TEST_F(AutofillAgentTestHidePopupOnScroll, ClampingScrollDoesNotHidePopup) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillIgnoreLayoutInducedScrollEvents};
+  LoadHTML("<input id=ff>");
+  Focus("ff");
+  test_api(autofill_agent())
+      .ShowSuggestions(
+          GetFormControlElementById("ff"),
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          /*form_cache=*/{}, /*password_request=*/std::nullopt);
+  ASSERT_TRUE(test_api(autofill_agent()).is_popup_possibly_visible());
+
+  EXPECT_CALL(autofill_driver(), HidePopup).Times(0);
+  test_api(autofill_agent())
+      .DidChangeScrollOffset(blink::mojom::ScrollType::kClamping);
+
+  EXPECT_TRUE(test_api(autofill_agent()).is_popup_possibly_visible());
+}
+
+// Tests that a scroll anchoring event keeps the popup open.
+TEST_F(AutofillAgentTestHidePopupOnScroll, AnchoringScrollDoesNotHidePopup) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillIgnoreLayoutInducedScrollEvents};
+  LoadHTML("<input id=ff>");
+  Focus("ff");
+  test_api(autofill_agent())
+      .ShowSuggestions(
+          GetFormControlElementById("ff"),
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          /*form_cache=*/{}, /*password_request=*/std::nullopt);
+  ASSERT_TRUE(test_api(autofill_agent()).is_popup_possibly_visible());
+
+  EXPECT_CALL(autofill_driver(), HidePopup).Times(0);
+  test_api(autofill_agent())
+      .DidChangeScrollOffset(blink::mojom::ScrollType::kAnchoring);
+
+  EXPECT_TRUE(test_api(autofill_agent()).is_popup_possibly_visible());
+}
+
+// Tests that when the feature is disabled, popup is hidden on a clamping
+// scroll.
+TEST_F(AutofillAgentTestHidePopupOnScroll,
+       ClampingScrollHidesPopupWhenFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAutofillIgnoreLayoutInducedScrollEvents);
+
+  LoadHTML("<input id=ff>");
+  Focus("ff");
+  test_api(autofill_agent())
+      .ShowSuggestions(
+          GetFormControlElementById("ff"),
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          /*form_cache=*/{}, /*password_request=*/std::nullopt);
+  ASSERT_TRUE(test_api(autofill_agent()).is_popup_possibly_visible());
+
+  EXPECT_CALL(autofill_driver(), HidePopup);
+  test_api(autofill_agent())
+      .DidChangeScrollOffset(blink::mojom::ScrollType::kClamping);
+  EXPECT_FALSE(test_api(autofill_agent()).is_popup_possibly_visible());
+}
+
+// Tests that a user scroll dismisses the popup.
+TEST_F(AutofillAgentTestHidePopupOnScroll, UserScrollHidesPopup) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillIgnoreLayoutInducedScrollEvents};
+  LoadHTML("<input id=ff>");
+  Focus("ff");
+  test_api(autofill_agent())
+      .ShowSuggestions(
+          GetFormControlElementById("ff"),
+          AutofillSuggestionTriggerSource::kFormControlElementClicked,
+          /*form_cache=*/{}, /*password_request=*/std::nullopt);
+  ASSERT_TRUE(test_api(autofill_agent()).is_popup_possibly_visible());
+
+  EXPECT_CALL(autofill_driver(), HidePopup);
+  test_api(autofill_agent())
+      .DidChangeScrollOffset(blink::mojom::ScrollType::kUser);
+
+  EXPECT_FALSE(test_api(autofill_agent()).is_popup_possibly_visible());
 }
 
 // Tests that suggestion availability updates the field identified by
@@ -1071,7 +1168,7 @@ TEST_F(AutofillAgentTest,
        DynamicElementNotificationFiltering_AddNonAutofillableElement) {
   LoadHTML(R"(<form id="form_id"> <input id="name"></form>)");
   const auto& extracted_forms =
-      test_api(autofill_agent()).form_cache().extracted_forms_unsafe();
+      test_api(test_api(autofill_agent()).form_cache()).extracted_forms();
   ASSERT_EQ(num_extracted_forms(), 1u);
   ASSERT_EQ(extracted_forms.rbegin()->second->fields().size(), 1u);
 
@@ -1105,7 +1202,7 @@ TEST_F(AutofillAgentTest,
        DynamicElementNotificationFiltering_AddAutofillableElement) {
   LoadHTML(R"(<form id="form_id"> <input id="name"></form>)");
   const auto& extracted_forms =
-      test_api(autofill_agent()).form_cache().extracted_forms_unsafe();
+      test_api(test_api(autofill_agent()).form_cache()).extracted_forms();
   ASSERT_EQ(num_extracted_forms(), 1u);
   ASSERT_EQ(extracted_forms.rbegin()->second->fields().size(), 1u);
 

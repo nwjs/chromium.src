@@ -20,6 +20,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "base/uuid.h"
@@ -27,7 +28,10 @@
 #include "components/contextual_search/contextual_search_context_controller.h"
 #include "components/contextual_search/contextual_search_types.h"
 #include "components/contextual_search/input_state_model.h"
+#include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/sessions/core/session_id.h"
+#include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "url/gurl.h"
 
@@ -62,12 +66,37 @@ class QueryContextualizer;
 
 class ContextualTasksWebContentsUserData
     : public content::WebContentsUserData<ContextualTasksWebContentsUserData>,
+      public content::WebContentsObserver,
       public contextual_search::ContextualSearchContextController::
-          ContextUploadStatusObserver {
+          ContextUploadStatusObserver,
+      public ContextualTasksService::Observer {
  public:
-  enum class InjectedInputType {
-    kContextLibrary,
-    kLensChip,
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  // LINT.IfChange(ContextualTasksThreadContextLibraryUpdateOutcome)
+  enum class ThreadContextLibraryUpdateOutcome {
+    kSuccessWithTaskId = 0,
+    kSuccessWithoutTaskId = 1,
+    kFeatureDisabled = 2,
+    kNoSessionHandle = 3,
+    kEmptyConvertedContext = 4,
+    kMaxValue = kEmptyConvertedContext,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/contextual_tasks/enums.xml:ContextualTasksThreadContextLibraryUpdateOutcome)
+
+  enum class ContextState {
+    kNone,
+    kUploading,
+    kReady,
+  };
+
+  struct PageSearchDebugState {
+    std::string connected_document_id;
+    bool is_handshake_complete = false;
+    size_t pending_search_messages_count = 0;
+    bool is_lens_crop_mounted = false;
+    bool context_library_is_active = false;
+    ContextState last_sent_context_state = ContextState::kNone;
   };
 
   struct ExtensionFrameInfo {
@@ -80,11 +109,8 @@ class ContextualTasksWebContentsUserData
 
     raw_ptr<const void> handler_id = nullptr;
     bool is_page_bound = false;
-    bool is_handshake_complete = false;
-    base::RepeatingCallback<void(const lens::ClientToSearchMessage&)>
-        post_search_message_cb;
-    base::RepeatingClosure on_handshake_complete_cb;
     base::RepeatingCallback<void(const GURL&)> on_lens_crop_updated_cb;
+    base::RepeatingClosure on_tab_context_updated_cb;
   };
 
   ~ContextualTasksWebContentsUserData() override;
@@ -92,17 +118,20 @@ class ContextualTasksWebContentsUserData
   base::WeakPtr<contextual_search::InputStateModel> input_state_model() {
     return last_active_model_;
   }
+  base::WeakPtr<const contextual_search::InputStateModel> input_state_model()
+      const {
+    return last_active_model_;
+  }
   void set_input_state_model(
       std::unique_ptr<contextual_search::InputStateModel> input_state_model);
+  static void UpdateInputStateModelIdentity(
+      content::WebContents* web_contents,
+      contextual_search::InputStateModel* input_state_model);
 
   base::WeakPtr<contextual_search::InputStateModel> GetOrCreateInputStateModel(
       contextual_search::ContextualSearchSessionHandle& session_handle);
   base::WeakPtr<contextual_search::InputStateModel>
   GetOrCreateInputStateModel();
-
-  static void UpdateInputStateModelIdentity(
-      content::WebContents* web_contents,
-      contextual_search::InputStateModel* input_state_model);
 
   const std::optional<base::Uuid>& pending_task_id() const {
     return pending_task_id_;
@@ -113,22 +142,30 @@ class ContextualTasksWebContentsUserData
 
   const std::optional<base::Uuid>& task_id() const { return task_id_; }
   void SetTaskId(std::optional<base::Uuid> task_id);
+  void OnTaskChanged();
   // Returns `task_id_` if valid, else the task of this WebContents'
   // `ContextualSearchWebContentsHelper` (e.g. the side panel's task).
   // `task_id_` is set for full-tab AI Mode (see
   // `ContextualTasksTabNavigationObserver`).
   std::optional<base::Uuid> GetEffectiveTaskId() const;
 
+  // Registers `callback` to run when the AI Mode page reports zero state
+  // (`OnPageChanged`), before the input state is updated for it. See
+  // `ContextualTasksPanelThreadObserver`.
+  base::CallbackListSubscription RegisterZeroStateCallback(
+      base::RepeatingClosure callback);
+
   void RegisterExtensionFrame(const void* handler_id);
   void UpdateExtensionFrameBound(
       const void* handler_id,
       bool is_page_bound,
-      base::RepeatingCallback<void(const lens::ClientToSearchMessage&)>
-          post_search_message_cb,
-      base::RepeatingClosure on_handshake_complete_cb,
-      base::RepeatingCallback<void(const GURL&)> on_lens_crop_updated_cb);
+      base::RepeatingCallback<void(const GURL&)> on_lens_crop_updated_cb,
+      base::RepeatingClosure on_tab_context_updated_cb = base::NullCallback());
   void UnregisterExtensionFrame(const void* handler_id);
   bool HasBoundExtensionFrame() const;
+  const std::vector<ExtensionFrameInfo>& extension_frames() const {
+    return extension_frames_;
+  }
 
   // Service Worker Port connection and search communication lifecycle.
   using ServiceWorkerPostMessageCallback =
@@ -139,22 +176,18 @@ class ContextualTasksWebContentsUserData
   bool IsServiceWorkerPortConnected() const;
   bool IsHandshakeCompleteForTesting() const;
   const std::string& GetConnectedDocumentIdForTesting() const;
+  PageSearchDebugState GetPageSearchDebugState() const;
 
   // Parses and handles an incoming SearchToClientMessage. Returns true if the
   // message was a valid SearchToClientMessage with a recognized payload, or
   // false if the caller should fall back to legacy AimToClientMessage parsing.
-  bool OnSearchMessageReceived(base::span<const uint8_t> message,
-                               const void* source_handler_id = nullptr);
-  void OnHandshakeComplete(const void* source_handler_id = nullptr);
+  bool OnSearchMessageReceived(base::span<const uint8_t> message);
+  void OnHandshakeComplete();
 
-  // Sends a ClientToSearchMessage to the AIM page via the Service Worker Port
-  // (if connected), queuing if the handshake is not yet complete, or falling
-  // back to the primary bound extension iframe.
+  // Sends a `ClientToSearchMessage` to the AIM page via the Service Worker
+  // Port, queuing if the handshake is not yet complete.
   void PostSearchMessage(const lens::ClientToSearchMessage& message);
 
-  void SendInjectChromeInput(InjectedInputType type, bool is_active);
-  void SendMountContextLibrary();
-  void UpdateContextLibraryInputState();
   void OnTabContextUploadStarted(const base::UnguessableToken& context_token);
   void OnTabContextRemoved(const base::UnguessableToken& context_token);
 
@@ -167,18 +200,44 @@ class ContextualTasksWebContentsUserData
       const std::optional<contextual_search::ContextUploadErrorType>&
           error_type) override;
 
-  void HandleOnSubmitQueryRequest();
+  // ContextualTasksService::Observer:
+  void OnTaskDisassociatedFromTab(const base::Uuid& task_id,
+                                  SessionID tab_id) override;
+  void OnWillBeDestroyed() override;
+
+  // content::WebContentsObserver:
+  void RenderFrameHostChanged(content::RenderFrameHost* old_host,
+                              content::RenderFrameHost* new_host) override;
+  void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
+
+  void HandleOnSubmitQueryRequest(std::string_view query_text = {});
   void HandleOpenLinkInSidePanelMode(std::string_view url);
   // Syncs this thread's context library from AIM Search Web's tab history
   // into the `ContextualTasksService` for the current task.
   void HandleThreadContextLibraryUpdateFromAim(
       const lens::SearchToClientMessage_UpdateThreadContextLibrary& message);
 
+  // Returns true if Smart Tab Sharing is enabled by feature flags and profile
+  // policy.
+  bool IsSmartTabSharingEnabled();
+  // Returns true if Smart Tab Sharing is currently active for this thread.
+  bool IsSmartTabSharingActive();
+  // Enables or disables Smart Tab Sharing for this thread, clearing conflicting
+  // manual/restored tab contexts and notifying bound extension frames.
+  void SetSmartTabSharingActive(bool active);
+  // Clears any per-thread Smart Tab Sharing override and returns whether Smart
+  // Tab Sharing is active by default.
+  bool ResetSmartTabSharing();
+
   void OnLensThumbnailCreated(const std::string& thumbnail_uri);
   void RemoveLensCrop();
 
   contextual_search::ContextualSearchSessionHandle*
+  GetExistingContextualSessionHandle();
+  contextual_search::ContextualSearchSessionHandle*
   GetOrCreateContextualSessionHandle();
+  const contextual_search::ContextualSearchSessionHandle*
+  GetExistingContextualSessionHandle() const;
   std::optional<base::UnguessableToken> GetLensOverlayToken();
 #if !BUILDFLAG(IS_ANDROID)
   LensSearchController* GetLensSearchController() const;
@@ -190,10 +249,42 @@ class ContextualTasksWebContentsUserData
   // that are delayed tabs pending upload or whose context token is still
   // pending submission (in `GetUploadedContextTokens()`).
   std::vector<contextual_search::TabInfo> GetSelectedTabs();
+  std::vector<contextual_search::TabInfo> GetSelectedTabsSnapshot() const;
+  const base::flat_set<base::UnguessableToken>& pending_context_uploads()
+      const {
+    return pending_context_uploads_;
+  }
+  const base::flat_set<base::UnguessableToken>& failed_context_uploads() const {
+    return failed_context_uploads_;
+  }
+  bool submit_pending() const { return pending_submit_.has_value(); }
   void DeleteContext(const base::UnguessableToken& file_token);
   void DeleteTabContext(int32_t tab_id);
-  void ClearFiles();
+  bool OnBrowserTabClosedOrNavigated(SessionID tab_session_id,
+                                     std::optional<GURL> current_url,
+                                     std::optional<std::string> current_title);
+  // Removes a closed or navigated tab from the task: detaches each of
+  // `tab_urls` that `session_handle` no longer references from the task, and
+  // drops the committed URL resources owned by `tab_session_id` (or, for
+  // resources without a tab ID, matching one of `tab_urls`).
+  void RemoveTabFromTaskState(
+      const contextual_search::ContextualSearchSessionHandle& session_handle,
+      SessionID tab_session_id,
+      const std::vector<GURL>& tab_urls);
+  void ClearFiles(bool should_block_auto_suggested_tabs = false);
   void ClearInputPlateState();
+
+  // Syncs the zero-state active-tab delayed attachment with panel/tab state.
+  void UpdateImplicitTabContext();
+  // Injects `TAB_PICKER` (`is_active = true`) when eligible tabs exist, or
+  // sends `INJECT_INPUT` (`is_active = false`) to hide the tab picker when no
+  // eligible tabs exist.
+  void UpdateTabPickerVisibility();
+  // Unblocks `url` and clears `implicit_tab_` when manually attaching a tab.
+  void OnManualTabContextAdded(const GURL& url, SessionID tab_session_id);
+  std::optional<tabs::TabHandle> GetAutoSuggestedTabHandle() const;
+  void RemoveImplicitTabContext();
+  void PreservePreStagedContext();
 
   // Associates `tab_session_id` with the task, if any, so the task knows which
   // tabs have been attached as context.
@@ -222,25 +313,47 @@ class ContextualTasksWebContentsUserData
       int32_t tab_handle_id) const;
   std::optional<int32_t> GetTabHandleForSessionTabId(
       int32_t session_tab_id) const;
+  // Resolves `session_tab_id` to its `TabHandle` ID by checking existing tab ID
+  // mappings and scanning open tabs in the browser window (recording the
+  // mapping if a matching open tab is found). Returns `std::nullopt` if no
+  // matching tab handle exists.
+  std::optional<int32_t> ResolveAndRecordTabHandleForSessionTabId(
+      int32_t session_tab_id);
+  const base::flat_map<int32_t, int32_t>& tab_handle_to_session_id() const {
+    return tab_handle_to_session_id_;
+  }
+
+  void AppendTabContextsToOnSubmitQueryResponseForTesting(
+      lens::ClientToSearchMessage* response_message,
+      contextual_search::ContextualSearchSessionHandle* session_handle,
+      std::optional<base::UnguessableToken> overlay_token);
 
  private:
-  enum class ContextState {
-    kNone,
-    kUploading,
-    kReady,
+  enum class InjectedInputType {
+    kContextLibrary,
+    kLensChip,
+    kTabPicker,
   };
   struct PageSearchState;
 
   explicit ContextualTasksWebContentsUserData(content::WebContents* contents);
   friend class content::WebContentsUserData<ContextualTasksWebContentsUserData>;
 
+  void SendInjectChromeInput(InjectedInputType type, bool is_active);
+  void SendMountContextLibrary();
+  void UpdateContextLibraryInputState();
   void SubscribeToInputStateModel(
       base::WeakPtr<contextual_search::InputStateModel> model);
   void OnInputStateChanged(const omnibox::InputState& state);
+  void OnSessionChanged(
+      contextual_search::ContextualSearchSessionHandle* session_handle);
+  bool MaybeRefreshTabContextSubscription(
+      contextual_search::ContextualSearchSessionHandle* session_handle);
+  void OnTabContextUpdated(const contextual_search::TabContextState& state);
   void ObserveContextController(
       contextual_search::ContextualSearchContextController* controller);
   ContextState ComputeContextState();
-  void UpdateContextState(bool force_send = false);
+  void UpdateContextState();
   std::vector<lens::AddedContext> ComputeSuggestInputContexts();
   void UpdateSuggestInputs();
   void RecordTimeToHandshakeComplete();
@@ -253,21 +366,48 @@ class ContextualTasksWebContentsUserData
   // Returns the delayed tabs in `session_handle` to upload on submit.
   std::vector<int32_t> GetPendingDelayedTabs(
       contextual_search::ContextualSearchSessionHandle& session_handle);
-  // Posts the `on_submit_query_response` once `query_contextualizer_` has
-  // uploaded the tabs for the submitted query.
-  void OnSubmitQueryContextualized(
-      std::optional<lens::AddedContext> lens_added_context,
-      std::optional<base::UnguessableToken> overlay_token);
+  // Marks `pending_submit_` as contextualized once `query_contextualizer_`
+  // finishes and attempts to complete the submission.
+  void OnSubmitQueryContextualized();
+  // Posts `on_submit_query_response` if `pending_submit_` has finished
+  // contextualizing and no selected tabs still have in-flight uploads in
+  // `pending_context_uploads_`.
+  void MaybeFinishPendingSubmit();
+  void OnPageContextIneligible();
+  void OnPageChanged(bool is_zero_state);
+  // Runs `on_tab_context_updated_cb` on every bound extension frame.
+  void NotifyExtensionFramesTabContextUpdated();
   void AppendTabContextsToOnSubmitQueryResponse(
       lens::ClientToSearchMessage* response_message,
       contextual_search::ContextualSearchSessionHandle* session_handle,
       const std::optional<base::UnguessableToken>& overlay_token);
-  std::optional<lens::AddedContext> GetLensAddedContext();
-  const ExtensionFrameInfo* FindTargetExtensionFrame() const;
+  std::vector<lens::AddedContext> GetLensAddedContexts(
+      std::optional<base::UnguessableToken>& overlay_token);
   void DispatchSerializedSearchMessage(
       const std::vector<uint8_t>& message_bytes);
   PageSearchState& GetPrimaryPageSearchState();
   const PageSearchState* GetPrimaryPageSearchState() const;
+  // Returns true if the session has tabs for the context library to show:
+  // unsubmitted tabs, submitted (persisted) tabs, or tabs restored from the AIM
+  // thread. Keep in sync with
+  // `ContextualTasksExtensionHandler::SendTabContextToExtensionPage()`.
+  bool HasContextLibraryTabs();
+  // Returns true if `CONTEXT_LIBRARY` should be mounted in the AIM input plate
+  // (either because the session has tabs to show or Smart Tab Sharing is
+  // active).
+  bool ShouldMountContextLibrary();
+  // Returns true if any open tab in the browser window is eligible to be shown
+  // in the tab picker.
+  bool HasEligibleTabsForTabPicker() const;
+
+  struct ImplicitTab {
+    base::UnguessableToken token;
+    tabs::TabHandle handle;
+  };
+  std::optional<ImplicitTab> implicit_tab_;
+  base::flat_set<GURL> dismissed_implicit_urls_;
+  bool preserve_prestaged_context_ = false;
+  base::RepeatingClosureList zero_state_callbacks_;
 
   base::flat_map<base::UnguessableToken,
                  std::unique_ptr<contextual_search::InputStateModel>>
@@ -275,6 +415,10 @@ class ContextualTasksWebContentsUserData
   base::WeakPtr<contextual_search::InputStateModel> last_active_model_;
   base::WeakPtr<contextual_search::InputStateModel> subscribed_model_;
   base::CallbackListSubscription input_state_subscription_;
+  base::CallbackListSubscription session_changed_subscription_;
+  base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
+      subscribed_session_handle_;
+  base::CallbackListSubscription tab_context_subscription_;
   base::WeakPtr<contextual_search::ContextualSearchContextController>
       observed_controller_;
 
@@ -283,9 +427,6 @@ class ContextualTasksWebContentsUserData
   std::optional<base::Uuid> task_id_;
 
   std::vector<ExtensionFrameInfo> extension_frames_;
-  // TODO(crbug.com/573125119): Clean up per-frame handshake tracking and
-  // routing fallback once Service Worker communication lands.
-  raw_ptr<const void> last_active_search_handler_id_ = nullptr;
   base::flat_set<base::UnguessableToken> pending_context_uploads_;
   base::flat_set<base::UnguessableToken> failed_context_uploads_;
 
@@ -295,14 +436,36 @@ class ContextualTasksWebContentsUserData
   std::unique_ptr<DesktopQueryContextualizerDelegate>
       query_contextualizer_delegate_;
   std::unique_ptr<QueryContextualizer> query_contextualizer_;
-  // Whether a submit is waiting for `query_contextualizer_`.
-  bool submit_pending_ = false;
+  struct PendingSubmit {
+    PendingSubmit(std::string query_text,
+                  std::vector<lens::AddedContext> lens_added_contexts,
+                  std::optional<base::UnguessableToken> overlay_token);
+    PendingSubmit(PendingSubmit&&) noexcept;
+    PendingSubmit& operator=(PendingSubmit&&) noexcept;
+    ~PendingSubmit();
+
+    std::string query_text;
+    std::vector<lens::AddedContext> lens_added_contexts;
+    std::optional<base::UnguessableToken> overlay_token;
+    bool contextualized = false;
+  };
+  // State for an in-flight query submission while waiting for
+  // `query_contextualizer_` (`contextualized == false`) and any in-flight
+  // manual tab uploads in `pending_context_uploads_` (`contextualized ==
+  // true`). Populated in `HandleOnSubmitQueryRequest()` and cleared when
+  // `MaybeFinishPendingSubmit()` posts `on_submit_query_response` or when input
+  // plate state is reset (e.g. `ClearInputPlateState()`).
+  std::optional<PendingSubmit> pending_submit_;
 
   // Maps TabHandle raw values to SessionID values so closed tabs can still be
   // resolved when deleting tab context or removing underlines.
   base::flat_map<int32_t, int32_t> tab_handle_to_session_id_;
 
   SearchMessageDispatcherForTesting search_message_dispatcher_for_testing_;
+
+  base::ScopedObservation<ContextualTasksService,
+                          ContextualTasksService::Observer>
+      contextual_tasks_service_observation_{this};
 
   base::WeakPtrFactory<ContextualTasksWebContentsUserData> weak_ptr_factory_{
       this};

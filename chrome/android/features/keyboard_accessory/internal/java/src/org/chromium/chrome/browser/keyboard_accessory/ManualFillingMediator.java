@@ -6,8 +6,8 @@ package org.chromium.chrome.browser.keyboard_accessory;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.FIELD_BOUNDS;
-import static org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.IS_CONTENT_EDITABLE;
 import static org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.IS_FULLSCREEN;
+import static org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.IS_UNSTRUCTURED_FIELD;
 import static org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.KEYBOARD_EXTENSION_STATE;
 import static org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.KeyboardExtensionState.EXTENDING_KEYBOARD;
 import static org.chromium.chrome.browser.keyboard_accessory.ManualFillingProperties.KeyboardExtensionState.FLOATING_BAR;
@@ -47,7 +47,6 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.autofill.autofill_ai.AutofillAiSourceAttributionCoordinator;
 import org.chromium.chrome.browser.autofill.settings.SettingsNavigationHelper;
-import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -303,12 +302,14 @@ class ManualFillingMediator
     }
 
     boolean isFillingViewShown(View view) {
+        // Check `isSoftKeyboardShowing` last to avoid querying WindowInsets when no filling view
+        // is active.
         return isInitialized()
-                && !isSoftKeyboardShowing(view)
                 && (mKeyboardAccessory.hasActiveTab()
                         || (is(WAITING_TO_REPLACE)
                                 || is(REPLACING_KEYBOARD)
-                                || is(FLOATING_SHEET)));
+                                || is(FLOATING_SHEET)))
+                && !isSoftKeyboardShowing(view);
     }
 
     NonNullObservableSupplier<Integer> getBottomInsetSupplier() {
@@ -490,9 +491,9 @@ class ManualFillingMediator
     void show(
             boolean waitForKeyboard,
             boolean shouldShowOnLargeFormFactor,
-            boolean isContentEditable) {
+            boolean isUnstructuredField) {
         mModel.set(SHOULD_SHOW_ON_LARGE_FORM_FACTOR, shouldShowOnLargeFormFactor);
-        mModel.set(IS_CONTENT_EDITABLE, isContentEditable);
+        mModel.set(IS_UNSTRUCTURED_FIELD, isUnstructuredField);
         showWithKeyboardExtensionState(waitForKeyboard);
     }
 
@@ -565,9 +566,9 @@ class ManualFillingMediator
             }
         }
         mKeyboardAccessory.setAtMemoryEnabled(enabled);
-        // If AtMemory becomes disabled while focused on a contenteditable element, hide the
-        // accessory to avoid displaying an empty bar.
-        if (mModel.get(IS_CONTENT_EDITABLE) && !enabled) {
+        // If AtMemory becomes disabled while focused on a contenteditable or textarea
+        // element, hide the accessory to avoid displaying an empty bar.
+        if (mModel.get(IS_UNSTRUCTURED_FIELD) && !enabled) {
             hide();
         }
     }
@@ -641,8 +642,9 @@ class ManualFillingMediator
             // Do nothing. SHOULD_SHOW_ON_LARGE_FORM_FACTOR is used with
             // KEYBOARD_EXTENSION_STATE.
             return;
-        } else if (property == IS_CONTENT_EDITABLE) {
-            // Contenteditable state dictates whether fallback tabs should be hidden on the bar.
+        } else if (property == IS_UNSTRUCTURED_FIELD) {
+            // Unstructured field state dictates whether fallback tabs should be hidden on the
+            // bar.
             refreshTabs();
             return;
         } else if (property == FIELD_BOUNDS) {
@@ -650,8 +652,10 @@ class ManualFillingMediator
             // Re-triggering the style and space update here ensures that FIELD_BOUNDS are used to
             // adjust the screen position once they become available. Ideally, this call should not
             // be necessary.
-            if (ChromeFeatureList.isEnabled(
-                    ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
+            if (DeviceInfo.isDesktop()
+                    && ChromeFeatureList.isEnabled(
+                            ChromeFeatureList
+                                    .AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
                 updateStyleAndControlSpaceForState(mModel.get(KEYBOARD_EXTENSION_STATE));
             }
             return;
@@ -923,9 +927,7 @@ class ManualFillingMediator
                             mActivity,
                             view ->
                                     SettingsNavigationHelper.showAutofillPersonalContextSettings(
-                                            mActivity,
-                                            AutofillOptionsReferrer
-                                                    .PERSONAL_CONTEXT_AMBIENT_AUTOFILL_NOTICE));
+                                            mActivity));
             spanInfos.add(
                     new SpanApplier.SpanInfo(
                             MANAGE_LINK_OPEN_TAG, MANAGE_LINK_CLOSE_TAG, manageSpan));
@@ -1044,8 +1046,10 @@ class ManualFillingMediator
     private @Px int getTopOffset() {
         @Px int contentOffset = Math.round(getVisibleViewport().top);
 
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
+        if (DeviceInfo.isDesktop()
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList
+                                .AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
             return getTopOffsetForDynamicPositioning() + contentOffset;
         }
 
@@ -1093,8 +1097,10 @@ class ManualFillingMediator
      * boundary of the focused field, ensuring the bar is displayed near the field.
      */
     private @Px int getHorizontalOffset() {
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
+        if (DeviceInfo.isDesktop()
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList
+                                .AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
             @Px int viewportLeft = Math.round(getVisibleViewport().left);
             @Px
             int leftBound =
@@ -1118,8 +1124,10 @@ class ManualFillingMediator
     }
 
     private @Px int getMaxWidth() {
-        if (ChromeFeatureList.isEnabled(
-                ChromeFeatureList.AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
+        if (DeviceInfo.isDesktop()
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList
+                                .AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
             return mActivity
                     .getResources()
                     .getDimensionPixelSize(
@@ -1142,9 +1150,10 @@ class ManualFillingMediator
         if (requiresVisibleSheet(extensionState)) {
             boolean isDocked = !useUndockedLayout;
             if (isDocked
-                    || ChromeFeatureList.isEnabled(
-                            ChromeFeatureList
-                                    .AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING)) {
+                    || (DeviceInfo.isDesktop()
+                            && ChromeFeatureList.isEnabled(
+                                    ChromeFeatureList
+                                            .AUTOFILL_ANDROID_KEYBOARD_ACCESSORY_DYNAMIC_POSITIONING))) {
                 mAccessorySheet.setStyle(isDocked);
             }
         }
@@ -1356,10 +1365,10 @@ class ManualFillingMediator
         ManualFillingState state = mStateCache.getStateFor(mActivity.getCurrentWebContents());
         state.notifyObservers();
         updateAtMemoryEnablement();
-        // For contenteditable fields, provide empty tabs so that only the AtMemory
-        // button is displayed without clearing cached tabs in ManualFillingState.
+        // For unstructured fields (e.g., contenteditable and textarea), provide empty tabs so that
+        // only the AtMemory button is displayed without clearing cached tabs in ManualFillingState.
         KeyboardAccessoryData.Tab[] tabs =
-                mModel.get(IS_CONTENT_EDITABLE)
+                mModel.get(IS_UNSTRUCTURED_FIELD)
                         ? new KeyboardAccessoryData.Tab[0]
                         : state.getTabs();
         mAccessorySheet.setTabs(tabs); // Set the sheet tabs first to invalidate the tabs properly.

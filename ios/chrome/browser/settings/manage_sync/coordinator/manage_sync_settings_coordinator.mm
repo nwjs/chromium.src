@@ -5,7 +5,6 @@
 #import "ios/chrome/browser/settings/manage_sync/coordinator/manage_sync_settings_coordinator.h"
 
 #import "base/check_op.h"
-#import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback.h"
 #import "base/functional/callback_helpers.h"
@@ -20,7 +19,6 @@
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/strings/grit/components_strings.h"
-#import "components/sync/base/features.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
@@ -191,7 +189,7 @@ enum class ActionAfterReauth {
       AuthenticationService::ServiceStatus::SigninForcedByPolicy;
   self.mediator.isEEAAccount =
       ios::RegionalCapabilitiesServiceFactory::GetForProfile(self.profile)
-          ->IsInEeaCountry();
+          ->MayShowLinkedGoogleServicesSetting();
 
   ManageSyncSettingsTableViewController* viewController =
       [[ManageSyncSettingsTableViewController alloc]
@@ -444,9 +442,7 @@ enum class ActionAfterReauth {
         manageSyncSettingsCoordinatorNeedToOpenChromeSyncWebPage:self];
   }
   GURL url = google_util::AppendGoogleLocaleParam(
-      GURL(base::FeatureList::IsEnabled(syncer::kSyncEnableNewSyncDashboardUrl)
-               ? kNewSyncGoogleDashboardURL
-               : kLegacySyncGoogleDashboardURL),
+      GURL(kSyncGoogleDashboardURL),
       std::string(GetApplicationContext()
                       ->GetApplicationLocaleStorage()
                       ->GetTag()
@@ -699,15 +695,11 @@ enum class ActionAfterReauth {
   [_trustedVaultReauthenticationCoordinator start];
 }
 
-- (void)openMDMErrorDialogWithSystemIdentity:(id<SystemIdentity>)identity
-                                  completion:(ProceduralBlock)completion {
+- (void)openMDMErrorDialogWithSystemIdentity:(id<SystemIdentity>)identity {
   [self.viewController preventUserInteraction];
   __weak __typeof(self) weakSelf = self;
   base::OnceCallback<void(bool)> callback = base::BindOnce(^void(bool) {
     [weakSelf.viewController allowUserInteraction];
-    if (completion) {
-      completion();
-    }
   });
   self.authService->ShowMDMErrorDialogForIdentity(identity,
                                                   std::move(callback));

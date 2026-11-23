@@ -53,14 +53,35 @@ chromium-metrics-reviews@google.com.
   <variant name=".Video" summary="The context menu was shown for a video"/>
 </variants>
 
+<!-- LINT.IfChange(CreationSource) -->
+
 <variants name="CreationSource">
   <variant name=".AllSources" summary="Aggregated across all sources"/>
-  <variant name=".BrowserInitiated"
-      summary="Triggered by browser action, e.g. shortcut or menu"/>
   <variant name=".DragToNewWindow"
       summary="Triggered by dragging a tab to a new window"/>
+  <variant name=".Launch"
+      summary="Triggered by a browser launch that opens a new window (e.g. an
+               OS/shell shortcut or --new-window handled by an already
+               running browser, or opening a window for another profile or
+               Guest mode). As with other sources, the first window of the
+               browser process is recorded under InitialWebUI.Startup instead"/>
+  <variant name=".MoveTabsToNewWindow"
+      summary="Triggered by moving tab(s) to a new window (e.g. via tab
+               context menu)"/>
+  <variant name=".NewEmptyWindow"
+      summary="Triggered by opening a new window that usually starts with a
+               single New Tab Page (e.g. keyboard shortcut, app menu, macOS
+               Dock click, or a feature such as Glic or background mode
+               opening a window when the profile has none)"/>
   <variant name=".SessionRestore" summary="Triggered by session restore"/>
+  <variant name=".SessionRestoreFallback"
+      summary="Triggered by session restore opening a fallback window when
+               the restored session has no tabbed browser windows; the window
+               restores no tabs and only opens the startup pages or the New
+               Tab Page"/>
 </variants>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/waap/waap_utils.h:NewWindowCreationSource, //chrome/browser/ui/waap/waap_ui_metrics_service.cc:CreationSourceToString) -->
 
 <!-- LINT.IfChange(DefaultBrowserEntrypointType) -->
 
@@ -168,6 +189,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".ReloadButtonUI"/>
   <variant name=".ShoppingInsightsSidePanel"/>
   <variant name=".TabSearch"/>
+  <variant name=".TabsFromOtherDevicesSidePanel"/>
   <variant name=".UserEducation"/>
 </variants>
 
@@ -278,7 +300,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextMenu.SelectedOptionDesktop{ContextMenuTypeDesktop}"
-    enum="ContextMenuOptionDesktop" expires_after="2027-02-07">
+    enum="ContextMenuOptionDesktop" expires_after="2027-04-11">
   <owner>avi@chromium.org</owner>
   <owner>mpearson@chromium.org</owner>
   <summary>
@@ -305,7 +327,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContextMenu.Shown{Type}" enum="BooleanPresent"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mpearson@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <owner>clank-app-team@google.com</owner>
@@ -368,7 +390,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DefaultBrowser.InfoBar.TimesShownBeforeAccept" units="count"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>agale@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -393,6 +415,36 @@ chromium-metrics-reviews@google.com.
   <summary>
     User interaction with the pin-to-taskbar infobar (e.g., accepted, ignored,
     dismissed).
+  </summary>
+</histogram>
+
+<histogram name="DefaultBrowser.StartupLostDefault.DaysSinceChange"
+    units="days" expires_after="2027-04-27">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>alsan@chromium.org</owner>
+  <owner>atharvmaan@chromium.org</owner>
+  <owner>chrome-desktop-ui-waterloo@google.com</owner>
+  <summary>
+    Windows only. Days between the last change of the http or https default
+    (latest HKCU UserChoice last-write time) and this startup. Recorded once per
+    startup when DefaultBrowser.StartupStateTransition is &quot;Lost
+    default&quot;; 0 means less than a day.
+  </summary>
+</histogram>
+
+<histogram name="DefaultBrowser.StartupStateTransition"
+    enum="DefaultBrowserStartupStateTransition" expires_after="2027-04-27">
+  <owner>koretadaniel@chromium.org</owner>
+  <owner>alsan@chromium.org</owner>
+  <owner>atharvmaan@chromium.org</owner>
+  <owner>chrome-desktop-ui-waterloo@google.com</owner>
+  <summary>
+    Windows only. Default browser state at this startup compared with the state
+    implied by the installer beacons (LastWasDefault / FirstNotDefault), which
+    every default-browser check updates. Recorded once per startup. &quot;Lost
+    default&quot; means Chrome was default at the last check and is not now; it
+    is a lower bound because setup.exe also updates the beacons while Chrome is
+    not running, and any Chrome install mode counts as default.
   </summary>
 </histogram>
 
@@ -623,7 +675,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.NewWindow{CreationSource}.{ExistingWindow}.BrowserWindow.ShowRequestedToFirstPaint{Version}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -826,7 +878,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.BrowserWindow.FirstPaint{StartupTemperature}"
-    units="ms" expires_after="2027-02-14">
+    units="ms" expires_after="2027-04-18">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -844,7 +896,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.BrowserWindow.ShowRequestedToFirstPaint{StartupTemperature}"
-    units="ms" expires_after="2027-02-14">
+    units="ms" expires_after="2027-04-18">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -891,7 +943,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.ReloadButton.RendererProcessCreated{StartupTemperature}"
-    units="ms" expires_after="2027-02-14">
+    units="ms" expires_after="2027-04-18">
   <owner>elkurin@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -912,7 +964,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InitialWebUI.Startup{Scenario}.ReloadButton.RendererProcessLaunched{StartupTemperature}"
-    units="ms" expires_after="2027-02-14">
+    units="ms" expires_after="2027-04-18">
   <owner>elkurin@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -957,7 +1009,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InitialWebUI.Toolbar.ParseFinishedToFirstUpdate" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>leimy@chromium.org</owner>
   <owner>chrome-webium-product-eng@google.com</owner>
   <summary>
@@ -1005,44 +1057,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Record the number of times that the Web UI Toolbar render process is
     terminated abnormmaly and it exceeds the recovery limit.
-  </summary>
-</histogram>
-
-<histogram name="InitialWebUI.Toolbar.TimeToWindowMetricsManagerBound"
-    units="ms" expires_after="2027-08-01">
-  <owner>leimy@chromium.org</owner>
-  <owner>chrome-webium-product-eng@google.com</owner>
-  <summary>
-    Recorded when the `InitialWebUIWindowMetricsManager` is bound to the
-    `InitialWebUIPageLoadMetricsObserver` after being initially unavailable
-    (e.g., for prewarmed WebContents waiting for a BrowserWindowInterface).
-    Measures the elapsed time from observer creation until the manager is bound.
-  </summary>
-</histogram>
-
-<histogram
-    name="InitialWebUI.Toolbar.TimeWithoutWindowMetricsManagerOnDestruction"
-    units="ms" expires_after="2027-08-01">
-  <owner>leimy@chromium.org</owner>
-  <owner>chrome-webium-product-eng@google.com</owner>
-  <summary>
-    Recorded in `~InitialWebUIPageLoadMetricsObserver` upon destruction when no
-    `InitialWebUIWindowMetricsManager` was ever bound to the observer. Measures
-    the elapsed time from observer creation until destruction.
-  </summary>
-</histogram>
-
-<histogram name="InitialWebUI.Toolbar.WindowMetricsManagerBindingStatus"
-    enum="InitialWebUIWindowMetricsManagerBindingStatus"
-    expires_after="2027-08-01">
-  <owner>leimy@chromium.org</owner>
-  <owner>chrome-webium-product-eng@google.com</owner>
-  <summary>
-    Recorded in `~InitialWebUIPageLoadMetricsObserver` upon destruction. Records
-    the binding status of `InitialWebUIWindowMetricsManager`: whether it was
-    bound immediately at start, bound deferred (after receiving the
-    `BrowserWindowInterface` change notification), or never bound before
-    destruction.
   </summary>
 </histogram>
 
@@ -1218,7 +1232,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="Toolbar.Overflow.HomeButton" enum="Boolean"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>robliao@chromium.org</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1227,7 +1241,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="TopChromeUI.{UIName}.RequestToFirstContentfulPaint" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>mych@chromium.org</owner>
   <owner>chrome-webui@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1363,7 +1377,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ColorsStylesheetServingDuration" units="ms"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>skau@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1410,7 +1424,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.ShownUrl" enum="WebUIUrlHashes"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>kerenzhu@chromium.org</owner>
   <owner>dpapad@chromium.org</owner>
   <owner>chrome-webui@google.com</owner>
@@ -1425,7 +1439,7 @@ features through Chrome Labs. -->
 </histogram>
 
 <histogram name="WebUI.TopChrome.Preload.Reason" enum="WebUIPreloadReason"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>kerenzhu@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
@@ -1501,6 +1515,16 @@ features through Chrome Labs. -->
   <owner>ainslie@chromium.org</owner>
   <owner>edwardjung@chromium.org</owner>
   <summary>Number of times that each menu item is clicked.</summary>
+</histogram>
+
+<histogram name="WrenchMenu.MenuHeightPercentage" units="%"
+    expires_after="2027-10-16">
+  <owner>emshack@chromium.org</owner>
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <summary>
+    The percentage of the device screen height occupied by the app menu's
+    preferred height when the menu is opened.
+  </summary>
 </histogram>
 
 <histogram name="WrenchMenu.TimeToAction{Action}" units="ms"
@@ -1582,6 +1606,7 @@ features through Chrome Labs. -->
     <variant name=".SavedTabGroupOpenInNewWindow"/>
     <variant name=".SavedTabGroupPin"/>
     <variant name=".SavePage"/>
+    <variant name=".ScheduledRestartDialog"/>
     <variant name=".SeeDeviceTabs"/>
     <variant name=".SendToDevices"/>
     <variant name=".SetBrowserAsDefault"/>

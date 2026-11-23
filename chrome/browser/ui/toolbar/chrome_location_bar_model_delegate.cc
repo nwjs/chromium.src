@@ -70,7 +70,7 @@ ChromeLocationBarModelDelegate::FormattedStringWithEquivalentMeaning(
 }
 
 bool ChromeLocationBarModelDelegate::GetURL(GURL* url) const {
-  DCHECK(url);
+  CHECK(url, base::NotFatalUntil::M162);
   content::NavigationEntry* entry = GetNavigationEntry();
   if (!entry || entry->IsInitialEntry()) {
     return false;
@@ -123,7 +123,7 @@ bool ChromeLocationBarModelDelegate::ShouldDisplayURL() const {
 
   const auto is_ntp = [](const GURL& url) {
     return (url.SchemeIs(content::kChromeUIScheme) &&
-            url.GetHost() == chrome::kChromeUINewTabHost) ||
+            url.host() == chrome::kChromeUINewTabHost) ||
            url.spec() == chrome::kChromeUISplitViewNewTabPageURL;
   };
 

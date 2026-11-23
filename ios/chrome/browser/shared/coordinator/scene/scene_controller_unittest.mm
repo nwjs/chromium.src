@@ -8,12 +8,16 @@
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/test/task_environment.h"
+#import "base/threading/thread_restrictions.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
 #import "components/supervised_user/test_support/kids_chrome_management_test_utils.h"
 #import "components/sync/test/test_sync_service.h"
 #import "components/variations/scoped_variations_ids_provider.h"
 #import "components/variations/variations_ids_provider.h"
+#import "ios/chrome/app/actor_request.h"
+#import "ios/chrome/app/app_startup_parameters.h"
+#import "ios/chrome/app/application_delegate/tab_opening.h"
 #import "ios/chrome/app/profile/profile_init_stage.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/profile/profile_state_test_utils.h"
@@ -22,6 +26,7 @@
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h"
+#import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
@@ -32,6 +37,10 @@
 #import "ios/chrome/browser/main/ui_bundled/wrangled_browser.h"
 #import "ios/chrome/browser/menu/public/menu_action_type.h"
 #import "ios/chrome/browser/menu/public/menu_histograms.h"
+#import "ios/chrome/browser/passwords/model/remote_actor/remote_actor_constants.h"
+#import "ios/chrome/browser/passwords/model/remote_actor/remote_actor_keychain_util.h"
+#import "ios/chrome/browser/passwords/model/remote_actor/test/remote_actor_test_util.h"
+#import "ios/chrome/browser/passwords/model/remote_actor/test/scoped_keychain_access_group_override.h"
 #import "ios/chrome/browser/saved_tab_groups/model/tab_group_sync_service_factory.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/model/session_restoration_service_factory.h"
@@ -58,7 +67,6 @@
 #import "ios/chrome/browser/sync/model/test_sync_service_utils.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/window_activities/model/window_activity_helpers.h"
-#import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/public/provider/chrome/browser/user_feedback/user_feedback_data.h"
 #import "ios/testing/scoped_block_swizzler.h"
@@ -69,6 +77,7 @@
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
+#import "third_party/ocmock/gtest_support.h"
 #import "ui/base/page_transition_types.h"
 
 @interface InternalFakeSceneController : SceneController
@@ -82,6 +91,7 @@
 // -dismissModalsAndMaybeOpenSelectedTabInMode:withUrlLoadParams:dismissOmnibox:
 //  completion:.
 @property(nonatomic, readonly) ApplicationModeForTabOpening applicationMode;
+@property(nonatomic, assign) BOOL simulateTabOpening;
 @end
 
 @implementation InternalFakeSceneController
@@ -96,6 +106,12 @@
                                     dismissOmnibox:(BOOL)dismissOmnibox
                                         completion:(ProceduralBlock)completion {
   _applicationMode = targetMode;
+  if (self.simulateTabOpening) {
+    [super dismissModalsAndMaybeOpenSelectedTabInMode:targetMode
+                                    withUrlLoadParams:urlLoadParams
+                                       dismissOmnibox:dismissOmnibox
+                                           completion:completion];
+  }
 }
 @end
 
@@ -181,8 +197,8 @@ class SceneControllerTest : public PlatformTest {
         [[LayoutGuideSceneAgent alloc] init];
     [scene_state_ addAgent:layout_guide_scene_agent];
 
-    IncognitoReauthSceneAgent* reauth_agent = [[IncognitoReauthSceneAgent alloc]
-        initWithReauthModule:[[ReauthenticationModule alloc] init]];
+    IncognitoReauthSceneAgent* reauth_agent =
+        [[IncognitoReauthSceneAgent alloc] init];
     [scene_state_ addAgent:reauth_agent];
 
     BrowserCommandEndpoints command_endpoints = {
@@ -499,5 +515,256 @@ TEST_F(SceneControllerTest, RecordWindowCreationMenuActionHistogram) {
   histogram_tester.ExpectUniqueSample(
       GetActionsHistogramName(kMenuScenarioHistogramHistoryEntry),
       MenuActionType::OpenInNewWindow, 1);
+}
+
+// Tests that REMOTE_ACTOR_CREDENTIAL_SHARING opens the Gemini callback URL
+// when preconditions fail (e.g., signed out) and does not open it when they
+// pass.
+TEST_F(SceneControllerTest,
+       RemoteActorCredentialSharingOpensCallbackOnPreconditionFailure) {
+  base::File::Error file_error;
+  FirstRun::RemoveSentinel();
+  FirstRun::CreateSentinel(&file_error);
+  FirstRun::LoadSentinelInfo();
+  FirstRun::ClearStateForTesting();
+
+  AppStartupParameters* startup_params = [[AppStartupParameters alloc]
+       initWithExternalURL:GURL()
+               completeURL:GURL()
+           applicationMode:ApplicationModeForTabOpening::UNDETERMINED
+      forceApplicationMode:NO];
+  RemoteActorRequest actor_request;
+  actor_request.request.emplace();
+  actor_request.request->set_task_id("task-123");
+  actor_request.request->set_gaia_id("expected-gaia-id");
+  actor_request.request->set_domain("https://example.com");
+  startup_params.remoteActorRequest = actor_request;
+  [connection_information_ setStartupParameters:startup_params];
+
+  id mock_application = OCMClassMock([UIApplication class]);
+  OCMStub([mock_application sharedApplication]).andReturn(mock_application);
+
+  // When signed out, opens the callback URL with CANCELLED / NOT_SIGNED_IN.
+  NSURL* expected_callback_url = [NSURL
+      URLWithString:[NSString
+                        stringWithFormat:@"%s?task_id=task-123&status="
+                                         @"CANCELLED&reason=NOT_SIGNED_IN",
+                                         kRemoteActorGeminiCallbackBaseURL]];
+  OCMExpect([mock_application openURL:expected_callback_url
+                              options:@{}
+                    completionHandler:[OCMArg any]]);
+
+  ProceduralBlock action = [scene_controller_
+      completionBlockForTriggeringAction:REMOTE_ACTOR_CREDENTIAL_SHARING];
+  ASSERT_NE(action, nil);
+  action();
+  EXPECT_OCMOCK_VERIFY(mock_application);
+
+  // When signed in with matching GAIA ID, preconditions succeed and the
+  // Remote Actor bottom sheet command is dispatched without opening an error
+  // callback URL.
+  MakePrimaryAccountAvailable("user@example.com");
+  CoreAccountInfo primary_account = GetIdentityManager()->GetPrimaryAccountInfo(
+      signin::ConsentLevel::kSignin);
+  actor_request.request->set_gaia_id(primary_account.gaia.ToString());
+  startup_params.remoteActorRequest = actor_request;
+
+  [[[mock_scene_handler_ expect] ignoringNonObjectArgs]
+      showRemoteActorCredentialBottomSheetWithRequest:*actor_request.request];
+  OCMReject([mock_application openURL:[OCMArg any]
+                              options:[OCMArg any]
+                    completionHandler:[OCMArg any]]);
+  action();
+  EXPECT_OCMOCK_VERIFY(mock_application);
+  EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
+
+  // When the scene handler / browser is unavailable, opens the callback URL
+  // with FAILED / UPLOAD_FAILED rather than silently returning.
+  [mock_application stopMocking];
+  mock_application = OCMClassMock([UIApplication class]);
+  OCMStub([mock_application sharedApplication]).andReturn(mock_application);
+  [browser_->GetCommandDispatcher()
+      stopDispatchingToTarget:mock_scene_handler_];
+  NSURL* expected_failed_url = [NSURL
+      URLWithString:[NSString stringWithFormat:
+                                  @"%s?task_id=task-123&status=FAILED&reason="
+                                  @"UPLOAD_FAILED",
+                                  kRemoteActorGeminiCallbackBaseURL]];
+  OCMExpect([mock_application openURL:expected_failed_url
+                              options:@{}
+                    completionHandler:[OCMArg any]]);
+  action();
+  EXPECT_OCMOCK_VERIFY(mock_application);
+
+  [mock_application stopMocking];
+  FirstRun::RemoveSentinel();
+  FirstRun::ClearStateForTesting();
+}
+
+// Tests that `openSelectedTabInMode:withUrlLoadParams:completion:` caches
+// `remoteActorRequest` before `startupParameters` is cleared, consumes it once
+// when handling the action, and resets any cached request when a subsequent
+// tab opening has no `remoteActorRequest`.
+TEST_F(SceneControllerTest,
+       RemoteActorCredentialSharingConsumesAndResetsCachedRequest) {
+  scene_controller_.simulateTabOpening = YES;
+  id mock_scene_state = OCMPartialMock(scene_state_);
+  OCMStub([mock_scene_state activationLevel])
+      .andReturn(SceneActivationLevelForegroundActive);
+
+  base::File::Error file_error;
+  FirstRun::RemoveSentinel();
+  FirstRun::CreateSentinel(&file_error);
+  FirstRun::LoadSentinelInfo();
+  FirstRun::ClearStateForTesting();
+
+  MakePrimaryAccountAvailable("user@example.com");
+  CoreAccountInfo primary_account = GetIdentityManager()->GetPrimaryAccountInfo(
+      signin::ConsentLevel::kSignin);
+
+  AppStartupParameters* startup_params = [[AppStartupParameters alloc]
+       initWithExternalURL:GURL()
+               completeURL:GURL()
+           applicationMode:ApplicationModeForTabOpening::UNDETERMINED
+      forceApplicationMode:NO];
+  startup_params.postOpeningAction = REMOTE_ACTOR_CREDENTIAL_SHARING;
+  RemoteActorRequest actor_request;
+  actor_request.request.emplace();
+  actor_request.request->set_task_id("task-cached");
+  actor_request.request->set_gaia_id(primary_account.gaia.ToString());
+  actor_request.request->set_domain("https://example.com");
+  startup_params.remoteActorRequest = actor_request;
+  [connection_information_ setStartupParameters:startup_params];
+
+  // Clear `startupParameters` before the tab-opened completion runs so that
+  // `handleRemoteActorCredentialSharing` relies on the cached request.
+  id partial_scene_controller = OCMPartialMock(scene_controller_);
+  OCMStub(
+      [partial_scene_controller
+          completionBlockForTriggeringAction:REMOTE_ACTOR_CREDENTIAL_SHARING])
+      .andDo(^(NSInvocation* invocation) {
+        [connection_information_ setStartupParameters:nil];
+      })
+      .andForwardToRealObject();
+
+  OCMStub([partial_scene_controller
+      dismissModalDialogsWithCompletion:[OCMArg invokeBlock]
+                         dismissOmnibox:YES
+                          dismissGemini:YES]);
+
+  [[[mock_scene_handler_ expect] ignoringNonObjectArgs]
+      showRemoteActorCredentialBottomSheetWithRequest:*actor_request.request];
+
+  [(id<TabOpening>)scene_controller_
+      dismissModalsAndMaybeOpenSelectedTabInMode:ApplicationModeForTabOpening::
+                                                     NORMAL
+                               withUrlLoadParams:UrlLoadParams::InNewTab(GURL())
+                                  dismissOmnibox:YES
+                                      completion:nil];
+  EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
+
+  // The cached request was consumed, so triggering the action again is a
+  // no-op.
+  [[[mock_scene_handler_ reject] ignoringNonObjectArgs]
+      showRemoteActorCredentialBottomSheetWithRequest:*actor_request.request];
+  ProceduralBlock action = [scene_controller_
+      completionBlockForTriggeringAction:REMOTE_ACTOR_CREDENTIAL_SHARING];
+  ASSERT_NE(action, nil);
+  action();
+  EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
+
+  // Opening a tab without a `remoteActorRequest` clears any previously cached
+  // request.
+  AppStartupParameters* empty_params = [[AppStartupParameters alloc]
+       initWithExternalURL:GURL()
+               completeURL:GURL()
+           applicationMode:ApplicationModeForTabOpening::UNDETERMINED
+      forceApplicationMode:NO];
+  empty_params.remoteActorRequest = actor_request;
+  [connection_information_ setStartupParameters:empty_params];
+  [(id<TabOpening>)scene_controller_
+      dismissModalsAndMaybeOpenSelectedTabInMode:ApplicationModeForTabOpening::
+                                                     NORMAL
+                               withUrlLoadParams:UrlLoadParams::InNewTab(GURL())
+                                  dismissOmnibox:YES
+                                      completion:nil];
+
+  empty_params.remoteActorRequest = std::nullopt;
+  [connection_information_ setStartupParameters:empty_params];
+  [(id<TabOpening>)scene_controller_
+      dismissModalsAndMaybeOpenSelectedTabInMode:ApplicationModeForTabOpening::
+                                                     NORMAL
+                               withUrlLoadParams:UrlLoadParams::InNewTab(GURL())
+                                  dismissOmnibox:YES
+                                      completion:nil];
+
+  [[[mock_scene_handler_ reject] ignoringNonObjectArgs]
+      showRemoteActorCredentialBottomSheetWithRequest:*actor_request.request];
+  action();
+  EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
+  [partial_scene_controller stopMocking];
+  [mock_scene_state stopMocking];
+
+  FirstRun::RemoveSentinel();
+  FirstRun::ClearStateForTesting();
+}
+
+// Tests that `REMOTE_ACTOR_CREDENTIAL_SHARING` decrypts encrypted `payload` and
+// `nonce` on a background thread without blocking the UI thread.
+TEST_F(SceneControllerTest,
+       RemoteActorCredentialSharingDecryptsOnBackgroundThread) {
+  base::File::Error file_error;
+  FirstRun::RemoveSentinel();
+  FirstRun::CreateSentinel(&file_error);
+  FirstRun::LoadSentinelInfo();
+  FirstRun::ClearStateForTesting();
+
+  ScopedRemoteActorKeychainAccessGroupOverrideForTesting keychain_override(nil);
+  std::vector<uint8_t> key(32, 0xAB);
+  ASSERT_TRUE(SetRemoteActorSharedSymmetricKeyForTesting(
+      key, nil, kRemoteActorKeychainAccount, kRemoteActorKeychainService));
+
+  MakePrimaryAccountAvailable("user@example.com");
+  CoreAccountInfo primary_account = GetIdentityManager()->GetPrimaryAccountInfo(
+      signin::ConsentLevel::kSignin);
+
+  remote_actor::proto::RemoteActorPasswordUploadRequest proto_request;
+  proto_request.set_task_id("task-async");
+  proto_request.set_gaia_id(primary_account.gaia.ToString());
+  proto_request.set_domain("example.com");
+
+  std::optional<std::pair<std::string, std::string>> encrypted =
+      CreateEncryptedRemoteActorPayloadForTesting(proto_request, key);
+  ASSERT_TRUE(encrypted.has_value());
+
+  AppStartupParameters* startup_params = [[AppStartupParameters alloc]
+       initWithExternalURL:GURL()
+               completeURL:GURL()
+           applicationMode:ApplicationModeForTabOpening::UNDETERMINED
+      forceApplicationMode:NO];
+  RemoteActorRequest actor_request;
+  actor_request.payload = encrypted->first;
+  actor_request.nonce = encrypted->second;
+  startup_params.remoteActorRequest = actor_request;
+  [connection_information_ setStartupParameters:startup_params];
+
+  [[[mock_scene_handler_ expect] ignoringNonObjectArgs]
+      showRemoteActorCredentialBottomSheetWithRequest:proto_request];
+
+  ProceduralBlock action = [scene_controller_
+      completionBlockForTriggeringAction:REMOTE_ACTOR_CREDENTIAL_SHARING];
+  ASSERT_NE(action, nil);
+
+  {
+    base::ScopedDisallowBlocking disallow_blocking;
+    action();
+  }
+  task_environment_.RunUntilIdle();
+
+  EXPECT_OCMOCK_VERIFY(mock_scene_handler_);
+  DeleteRemoteActorSharedSymmetricKeyForTesting(
+      nil, kRemoteActorKeychainAccount, kRemoteActorKeychainService);
+  FirstRun::RemoveSentinel();
+  FirstRun::ClearStateForTesting();
 }
 }  // namespace

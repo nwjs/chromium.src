@@ -17,7 +17,7 @@
 #include "base/time/time.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/dictation/features.h"
-#include "chrome/browser/dictation/local_hotkey_manager.h"
+#include "chrome/browser/dictation/hotkey_manager.h"
 #include "chrome/browser/dictation/logging.h"
 #include "chrome/browser/dictation/metrics.h"
 #include "chrome/browser/dictation/session_controller_delegate.h"
@@ -30,7 +30,6 @@
 #include "content/public/browser/editable_level.h"
 #include "content/public/browser/focused_node_details.h"
 #include "content/public/browser/global_dom_node_id.h"
-#include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
@@ -39,21 +38,6 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/events/blink/blink_event_util.h"
 #include "ui/events/keycodes/keyboard_codes.h"
-
-namespace content {
-
-// TODO(bokan): Move into global_dom_node_id.h
-std::ostream& operator<<(std::ostream& os,
-                         const content::GlobalDOMNodeId& target_id) {
-  const content::RenderFrameHost* rfh =
-      target_id.document.AsRenderFrameHostIfValid();
-
-  return os << "GlobalDOMNodeId("
-            << (rfh ? rfh->GetGlobalId() : content::GlobalRenderFrameHostId())
-            << ", " << target_id.target_element_dom_id << ")";
-}
-
-}  // namespace content
 
 namespace dictation {
 
@@ -260,6 +244,15 @@ void SessionController::PrimaryMainFrameRenderProcessGone(
   EndSessionAsynchronously();
 }
 
+void SessionController::WebContentsDestroyed() {
+  // If the target WebContents is destroyed (e.g. an overlay WebUI is closed
+  // while the host tab remains open), immediately end the session.
+  if (ui_) {
+    ui_->OnStopped();
+  }
+  EndSessionAsynchronously();
+}
+
 void SessionController::EndDictationStream(DictationStreamEndTrigger trigger) {
   VT_LOG(GetBrowserContext()) << __func__;
   CHECK(attached_stream_provider_);
@@ -420,10 +413,10 @@ void SessionController::MoveToState(SessionState new_state) {
 #if DCHECK_IS_ON()
   static const base::NoDestructor<base::StateTransitions<SessionState>>
       allowed_transitions(base::StateTransitions<SessionState>(
-          {{kInactive, {kStreamInitializing}},
+          {{kInactive, {kStreamInitializing, kEnded}},
            {kStreamInitializing, {kInactive, kTranscribing, kFinalizing}},
            {kTranscribing, {kInactive, kFinalizing}},
-           {kFinalizing, {kInactive, kStreamInitializing}}}));
+           {kFinalizing, {kInactive, kStreamInitializing, kEnded}}}));
   DCHECK_STATE_TRANSITION(allowed_transitions, /*old_state=*/state_,
                           /*new_state=*/new_state);
 #endif  // DCHECK_IS_ON()
@@ -476,6 +469,11 @@ void SessionController::EndSessionAsynchronously() {
 
 void SessionController::EndSessionSynchronously() {
   auto_session_end_timer_.Stop();
+  // Stop the stream now, as `kEnded` can't be left once entered.
+  if (attached_stream_provider_) {
+    EndDictationStream(DictationStreamEndTrigger::kDestructor);
+  }
+  MoveToState(SessionState::kEnded);
   delegate_->EndSession();
   // WARNING: `this` is deleted, do not add code below here.
 }

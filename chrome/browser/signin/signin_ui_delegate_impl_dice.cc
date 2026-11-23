@@ -9,8 +9,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/signin/cross_device_signin_qr_bubble.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
-#include "chrome/browser/ui/webui/signin/turn_sync_on_helper.h"
-#include "google_apis/gaia/core_account_id.h"
 #include "url/gurl.h"
 
 namespace signin_ui_util {
@@ -19,15 +17,15 @@ namespace {
 
 void ShowDiceTab(BrowserWindowInterface* browser,
                  const std::string& email,
-                 bool enable_sync,
+                 bool enable_history_sync,
                  signin_metrics::AccessPoint access_point,
                  signin_metrics::PromoAction promo_action) {
   // Failed to create a browser. Bailing.
   if (!browser)
     return;
 
-  if (enable_sync) {
-    SigninViewController::From(browser)->ShowDiceEnableSyncTab(
+  if (enable_history_sync) {
+    SigninViewController::From(browser)->ShowEnableHistorySyncTab(
         access_point, promo_action, email);
   } else {
     SigninViewController::From(browser)->ShowDiceAddAccountTab(access_point,
@@ -39,23 +37,23 @@ void ShowDiceTab(BrowserWindowInterface* browser,
 
 void SigninUiDelegateImplDice::ShowSigninUI(
     Profile* profile,
-    bool enable_sync,
+    bool enable_history_sync,
     signin_metrics::AccessPoint access_point,
     signin_metrics::PromoAction promo_action,
     const std::string& extension_name) {
-  ShowDiceTab(EnsureBrowser(profile), /*email=*/std::string(), enable_sync,
-              access_point, promo_action);
+  ShowDiceTab(EnsureBrowser(profile), /*email=*/std::string(),
+              enable_history_sync, access_point, promo_action);
 }
 
 void SigninUiDelegateImplDice::ShowReauthUI(
     Profile* profile,
     const std::string& email,
-    bool enable_sync,
+    bool enable_history_sync,
     signin_metrics::AccessPoint access_point,
     signin_metrics::PromoAction promo_action) {
-  DCHECK(profile);
+  CHECK(profile, base::NotFatalUntil::M162);
 
-  ShowDiceTab(EnsureBrowser(profile), email, enable_sync, access_point,
+  ShowDiceTab(EnsureBrowser(profile), email, enable_history_sync, access_point,
               promo_action);
 }
 

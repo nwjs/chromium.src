@@ -38,7 +38,6 @@
 #include "net/cert/x509_certificate.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "base/feature_list.h"
 #include "chrome/browser/enterprise/connectors/device_trust/device_trust_features.h"
 #include "chrome/browser/enterprise/reporting/reporting_delegate_factory_android.h"
 #else
@@ -66,7 +65,7 @@ ConnectorsInternalsPageHandler::ConnectorsInternalsPageHandler(
     mojo::PendingReceiver<connectors_internals::mojom::PageHandler> receiver,
     Profile* profile)
     : receiver_(this, std::move(receiver)), profile_(profile) {
-  DCHECK(profile_);
+  CHECK(profile_, base::NotFatalUntil::M162);
 }
 
 ConnectorsInternalsPageHandler::~ConnectorsInternalsPageHandler() = default;
@@ -74,7 +73,7 @@ ConnectorsInternalsPageHandler::~ConnectorsInternalsPageHandler() = default;
 void ConnectorsInternalsPageHandler::GetDeviceTrustState(
     GetDeviceTrustStateCallback callback) {
 #if BUILDFLAG(IS_ANDROID)
-  if (!base::FeatureList::IsEnabled(kDeviceTrustConnectorAndroid)) {
+  if (!IsDeviceTrustConnectorAndroidEnabled()) {
     std::move(callback).Run(utils::CreateUnsupportedDeviceTrustState());
     return;
   }

@@ -31,6 +31,7 @@
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 #include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/browser/ui/actor_login_permission.h"
 #include "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
 #include "content/public/browser/web_contents.h"
@@ -117,7 +118,10 @@ class MockPasswordChangeActuator : public PasswordChangeActuator {
               (),
               (const, override));
   MOCK_METHOD(void, OpenPasswordChangeTab, (content::WebContents*), (override));
-  MOCK_METHOD(std::u16string, GetGeneratedPassword, (), (const, override));
+  MOCK_METHOD(password_manager::PasswordString,
+              GetGeneratedPassword,
+              (),
+              (const, override));
   MOCK_METHOD(void, AddObserver, (Observer*), (override));
   MOCK_METHOD(void, RemoveObserver, (Observer*), (override));
 };
@@ -444,6 +448,25 @@ TEST_F(PasswordManagerUIHandlerUnitTest,
   handler().OnPasswordsExportProgress(
       password_manager::ExportProgressStatus::kSucceeded, "folder");
   mock_page_.FlushForTesting();
+}
+
+TEST_F(PasswordManagerUIHandlerUnitTest, RemoveCredential_CallsDelegate) {
+  EXPECT_CALL(
+      mock_delegate(),
+      RemoveCredential(
+          42, extensions::api::passwords_private::PasswordStoreSet::kDevice));
+  handler().RemoveCredential(42, mojom::PasswordStoreSet::kDevice);
+
+  EXPECT_CALL(
+      mock_delegate(),
+      RemoveCredential(
+          43, extensions::api::passwords_private::PasswordStoreSet::kAccount));
+  handler().RemoveCredential(43, mojom::PasswordStoreSet::kAccount);
+
+  EXPECT_CALL(mock_delegate(),
+              RemoveCredential(44, extensions::api::passwords_private::
+                                       PasswordStoreSet::kDeviceAndAccount));
+  handler().RemoveCredential(44, mojom::PasswordStoreSet::kDeviceAndAccount);
 }
 
 TEST_F(PasswordManagerUIHandlerUnitTest,

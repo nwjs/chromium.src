@@ -19,7 +19,6 @@
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
-#include "base/test/with_feature_override.h"
 #include "components/regional_capabilities/regional_capabilities_switches.h"
 #include "components/search_engines/choice_made_location.h"
 #include "components/search_engines/default_search_manager.h"
@@ -259,16 +258,7 @@ TEST_F(TemplateURLServiceUnitTest, SwitchDefaultFromRecommendedPolicyEngine) {
             template_url_service().GetDefaultSearchProvider());
 }
 
-class TemplateURLServiceUpdateLastVisitedTest
-    : public base::test::WithFeatureOverride,
-      public TemplateURLServiceUnitTest {
- public:
-  TemplateURLServiceUpdateLastVisitedTest()
-      : base::test::WithFeatureOverride(
-            switches::kVisitCustomSearchOnUndefaulting) {}
-};
-
-TEST_P(TemplateURLServiceUpdateLastVisitedTest,
+TEST_F(TemplateURLServiceUnitTest,
        UpdateLastVisitedOnDefaultSearchProviderChange) {
   template_url_service().Load();
   TemplateURLServiceLoadWaiter().WaitForLoadComplete(template_url_service());
@@ -319,13 +309,9 @@ TEST_P(TemplateURLServiceUpdateLastVisitedTest,
   template_url_service().SetUserSelectedDefaultSearchProvider(
       custom_turl2, search_engines::ChoiceMadeLocation::kOther);
 
-  // custom_turl1 was replaced. If the feature is enabled, since it's a custom
-  // engine, its last_visited should have been updated.
-  if (IsParamFeatureEnabled()) {
-    EXPECT_NE(custom_turl1->last_visited(), kOldTime);
-  } else {
-    EXPECT_EQ(custom_turl1->last_visited(), kOldTime);
-  }
+  // custom_turl1 was replaced. Since it's a custom engine, its last_visited
+  // should have been updated.
+  EXPECT_NE(custom_turl1->last_visited(), kOldTime);
 
   // Overriding custom_turl2 with an extension should NOT update custom_turl2's
   // last_visited time, nor should removing the extension update the extension
@@ -351,9 +337,6 @@ TEST_P(TemplateURLServiceUpdateLastVisitedTest,
       &custom_turl2->data(), DefaultSearchManager::FROM_USER);
   EXPECT_EQ(ext_turl->last_visited(), kOldTime);
 }
-
-INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(
-    TemplateURLServiceUpdateLastVisitedTest);
 
 TEST_F(TemplateURLServiceUnitTest, GenerateSearchURL) {
   // Set the default search provider to a custom one.
@@ -555,6 +538,63 @@ TEST_F(TemplateURLServiceUnitTest, HiddenFromLists) {
     ASSERT_TRUE(template_url_service().HiddenFromLists(turl));
     ASSERT_FALSE(template_url_service().HiddenFromLists(turl_featured_policy));
   }
+}
+
+TEST_F(TemplateURLServiceUnitTest, ShowInDsePickerList) {
+  template_url_service().Load();
+  TemplateURLServiceLoadWaiter().WaitForLoadComplete(template_url_service());
+
+  // Policy-created engine
+  TemplateURLData policy_data;
+  policy_data.SetShortName(u"policy");
+  policy_data.SetKeyword(u"policy");
+  policy_data.SetURL("https://policy.com/?q={searchTerms}");
+  policy_data.policy_origin =
+      TemplateURLData::PolicyOrigin::kDefaultSearchProvider;
+  TemplateURL* policy_turl =
+      template_url_service().Add(std::make_unique<TemplateURL>(policy_data));
+
+  // Regional prepopulated engine (using a known prepopulate_id)
+  TemplateURLData regional_data;
+  regional_data.SetShortName(u"regional");
+  regional_data.SetKeyword(u"regional");
+  regional_data.SetURL("https://regional.com/?q={searchTerms}");
+  regional_data.prepopulate_id = TemplateURLPrepopulateData::google.id;
+  TemplateURL* regional_turl =
+      template_url_service().Add(std::make_unique<TemplateURL>(regional_data));
+
+  // Non-regional prepopulated engine (using an unknown prepopulate_id)
+  TemplateURLData non_regional_data;
+  non_regional_data.SetShortName(u"non_regional");
+  non_regional_data.SetKeyword(u"non_regional");
+  non_regional_data.SetURL("https://nonregional.com/?q={searchTerms}");
+  non_regional_data.prepopulate_id = 999999;
+  TemplateURL* non_regional_turl = template_url_service().Add(
+      std::make_unique<TemplateURL>(non_regional_data));
+
+  // Custom user engine
+  TemplateURLData custom_data;
+  custom_data.SetShortName(u"custom");
+  custom_data.SetKeyword(u"custom");
+  custom_data.SetURL("https://custom.com/?q={searchTerms}");
+  custom_data.prepopulate_id = 0;
+  TemplateURL* custom_turl =
+      template_url_service().Add(std::make_unique<TemplateURL>(custom_data));
+
+  // Starter pack engine
+  TemplateURLData starter_pack_data;
+  starter_pack_data.SetShortName(u"starter");
+  starter_pack_data.SetKeyword(u"starter");
+  starter_pack_data.SetURL("https://starter.com/?q={searchTerms}");
+  starter_pack_data.starter_pack_id = 1;
+  TemplateURL* starter_pack_turl = template_url_service().Add(
+      std::make_unique<TemplateURL>(starter_pack_data));
+
+  EXPECT_TRUE(template_url_service().ShowInDsePickerList(policy_turl));
+  EXPECT_TRUE(template_url_service().ShowInDsePickerList(regional_turl));
+  EXPECT_FALSE(template_url_service().ShowInDsePickerList(non_regional_turl));
+  EXPECT_FALSE(template_url_service().ShowInDsePickerList(custom_turl));
+  EXPECT_FALSE(template_url_service().ShowInDsePickerList(starter_pack_turl));
 }
 
 TEST_F(TemplateURLServiceUnitTest,

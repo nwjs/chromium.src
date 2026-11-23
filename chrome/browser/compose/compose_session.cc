@@ -43,7 +43,7 @@
 #include "components/compose/core/browser/compose_utils.h"
 #include "components/compose/core/browser/config.h"
 #include "components/content_extraction/content/browser/inner_text.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/multimodal_message.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
@@ -890,7 +890,7 @@ void ComposeSession::OpenBugReportingLink() {
   }
   web_contents_->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
-          GURL(url), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          GURL(url), WindowOpenDisposition::kNewForegroundTab,
           ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
@@ -909,7 +909,7 @@ void ComposeSession::OpenComposeLearnMorePage() {
   web_contents_->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
           GURL(kComposeLearnMorePageURL),
-          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
+          WindowOpenDisposition::kNewForegroundTab, ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 
@@ -917,7 +917,7 @@ void ComposeSession::OpenEnterpriseComposeLearnMorePage() {
   web_contents_->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
           GURL(kEnterpriseComposeLearnMorePageURL),
-          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
+          WindowOpenDisposition::kNewForegroundTab, ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 
@@ -933,7 +933,7 @@ void ComposeSession::OpenFeedbackSurveyLink() {
   }
   web_contents_->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
-          GURL(url), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          GURL(url), WindowOpenDisposition::kNewForegroundTab,
           ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
@@ -941,7 +941,7 @@ void ComposeSession::OpenFeedbackSurveyLink() {
 void ComposeSession::OpenSignInPage() {
   web_contents_->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
-          GURL(kSignInPageURL), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          GURL(kSignInPageURL), WindowOpenDisposition::kNewForegroundTab,
           ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }

@@ -47,10 +47,6 @@ class PhoneHubUiControllerTest : public NoSessionAshTestBase,
 
   // NoSessionAshTestBase:
   void SetUp() override {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{features::kEcheSWA},
-        /*disabled_features=*/{});
-
     NoSessionAshTestBase::SetUp();
 
     handler_ = std::make_unique<eche_app::EcheConnectionStatusHandler>();
@@ -58,7 +54,7 @@ class PhoneHubUiControllerTest : public NoSessionAshTestBase,
     phone_hub_manager_.set_eche_connection_handler(handler_.get());
 
     // Log into usr1.
-    SimulateUserLogin({kUser1Email});
+    SimulateUserLogin(AccountId::FromUserEmail(kUser1Email));
 
     controller_ = std::make_unique<PhoneHubUiController>();
     controller_->AddObserver(this);
@@ -291,7 +287,7 @@ TEST_F(PhoneHubUiControllerTest, UnavailableScreenLocked) {
 TEST_F(PhoneHubUiControllerTest, UnavailableSecondaryUser) {
   base::HistogramTester histograms;
   // Simulate log in to secondary user.
-  SimulateUserLogin({kUser2Email});
+  SimulateUserLogin(AccountId::FromUserEmail(kUser2Email));
   EXPECT_TRUE(ui_state_changed_);
   ui_state_changed_ = false;
   EXPECT_EQ(PhoneHubUiController::UiState::kHidden, controller_->ui_state());

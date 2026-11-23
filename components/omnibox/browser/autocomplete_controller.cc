@@ -86,6 +86,7 @@
 #include "components/omnibox/browser/tab_group_provider.h"
 #include "components/omnibox/browser/unscoped_extension_provider.h"
 #include "components/omnibox/browser/url_scoring_signals_annotator.h"
+#include "components/omnibox/browser/verbatim_match.h"
 #include "components/omnibox/browser/voice_suggest_provider.h"
 #include "components/omnibox/browser/zero_suggest_provider.h"
 #include "components/omnibox/browser/zero_suggest_verbatim_match_provider.h"
@@ -111,7 +112,6 @@
 #include "url/url_util.h"
 
 #if !BUILDFLAG(IS_IOS)
-#include "components/history_clusters/core/config.h"  // nogncheck
 #include "components/omnibox/browser/actions/history_clusters_action.h"
 #include "components/omnibox/browser/geolocation_header_service.h"
 #include "components/omnibox/browser/history_cluster_provider.h"
@@ -563,23 +563,12 @@ AutocompleteController::AutocompleteController(
   InitializeAsyncProviders(config_.provider_types);
   InitializeSyncProviders(config_.provider_types);
 
-  // Ideally, we'd check `IsApplicationLocaleSupportedByJourneys()` when
-  // constructing `provider_types`. But that's usually constructed in
-  // `AutocompleteClassifier::DefaultOmniboxProviders` which can't depend on the
-  // browser dir to detect locale. The alternative of piping in the locale from
-  // each call site seems too intrusive for a temporary condition (some call
-  // sites are also in the components dir). All callers of
-  // `DefaultOmniboxProviders` only use it to then construct
-  // `AutocompleteController`, so placing the check here instead has no behavior
-  // change.
   // TODO(manukh): Move this to `InitializeAsyncProviders()`.
 #if !BUILDFLAG(IS_IOS)
   // HistoryClusters is not enabled on iOS.
   if (config_.provider_types &
           static_cast<int>(
               AutocompleteProvider::Type::kHistoryClusterProvider) &&
-      history_clusters::IsApplicationLocaleSupportedByJourneys(
-          provider_client_->GetApplicationLocale()) &&
       search_provider_ && history_url_provider_ && history_quick_provider_) {
     providers_.push_back(base::MakeRefCounted<HistoryClusterProvider>(
         provider_client_.get(), this, search_provider_, history_url_provider_,
@@ -883,8 +872,10 @@ void AutocompleteController::OnProviderUpdate(
   }
 
   // Ignore updates from providers that shouldn't run for the current input.
-  // This can happen if a provider was started for a previous input and an async
-  // update arrived after a new input began (e.g. entering keyword mode).
+  // Excluded providers should have been stopped in `Start()`, and
+  // `ShouldRunProvider()` is almost completely constant during the lifecycle of
+  // an autocomplete pass except if `TemplateURLService` is synced in the
+  // background.
   if (provider && !ShouldRunProvider(provider)) {
     return;
   }
@@ -1095,6 +1086,22 @@ void AutocompleteController::SetMatchDestinationURL(
 #endif
 }
 
+AutocompleteMatch AutocompleteController::ComputeAlternativeNavMatch(
+    const AutocompleteInput& input,
+    const AutocompleteMatch& match) const {
+  return ComputeAlternativeNavMatch(input,
+                                    AutocompleteResult::ComputeAlternateNavUrl(
+                                        input, match, provider_client_.get()));
+}
+
+AutocompleteMatch AutocompleteController::ComputeAlternativeNavMatch(
+    const AutocompleteInput& input,
+    const GURL& alternate_nav_url) const {
+  return VerbatimMatchForInput(history_url_provider_, provider_client_.get(),
+                               input, alternate_nav_url,
+                               /*trim_http=*/false);
+}
+
 void AutocompleteController::GroupSuggestionsBySearchVsURL(size_t begin,
                                                            size_t end) {
   if (begin == end) {
@@ -1194,7 +1201,10 @@ bool AutocompleteController::ShouldRunProvider(
     return provider->type() == AutocompleteProvider::Type::kSearch ||
            provider->type() == AutocompleteProvider::Type::kOpenTab ||
            provider->type() == AutocompleteProvider::Type::kBookmark ||
-           provider->type() == AutocompleteProvider::Type::kHistoryQuick;
+           provider->type() == AutocompleteProvider::Type::kHistoryQuick ||
+           (provider->type() ==
+                AutocompleteProvider::Type::kRecentlyClosedTabs &&
+            omnibox::IsAndroidTabSearch(input_.current_page_classification()));
   }
 #endif
 

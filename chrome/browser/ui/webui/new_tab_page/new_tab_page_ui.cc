@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -56,6 +57,7 @@
 #include "chrome/browser/ui/webui/cr_components/composebox/composebox_handler.h"
 #include "chrome/browser/ui/webui/cr_components/most_visited/most_visited_handler.h"
 #include "chrome/browser/ui/webui/cr_components/most_visited/most_visited_pref_observer.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/plural_string_provider.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui/customize_buttons/customize_buttons_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
@@ -67,7 +69,6 @@
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/untrusted_source.h"
 #include "chrome/browser/ui/webui/page_not_available_for_guest/page_not_available_for_guest_ui.h"
-#include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/searchbox/realbox_handler.h"
 #include "chrome/browser/ui/webui/theme_source.h"
@@ -82,6 +83,8 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/new_tab_page_resources.h"
 #include "chrome/grit/new_tab_page_resources_map.h"
+#include "chrome/grit/new_tab_shared_resources.h"
+#include "chrome/grit/new_tab_shared_resources_map.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/content_settings/core/common/content_settings_pattern.h"
@@ -125,6 +128,7 @@
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "skia/ext/skia_utils_base.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
+#include "third_party/omnibox_proto/lhs_rail_config.pb.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -148,11 +152,6 @@
 #include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo_handler.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-#if !BUILDFLAG(OPTIMIZE_WEBUI)
-#include "chrome/grit/new_tab_shared_resources.h"
-#include "chrome/grit/new_tab_shared_resources_map.h"
-#endif  // !BUILDFLAG(OPTIMIZE_WEBUI)
 
 #if !defined(OFFICIAL_BUILD)
 #include "chrome/browser/ui/webui/new_tab_page/foo/foo_handler.h"
@@ -250,6 +249,22 @@ bool UseGoogleLogo26() {
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
 
+// Returns whether the left-hand side (LHS) threads rail is shown on the NTP.
+// The rail embeds Google Search AI Mode content, so it is only available on
+// Google Chrome branded builds. In hybrid mode, the local rail renders items
+// from `LhsRailConfig`, so a non-null config is required.
+bool IsThreadsRailEnabled(bool aim_eligible, bool has_lhs_rail_config) {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (!aim_eligible ||
+      !base::FeatureList::IsEnabled(ntp_features::kNtpThreadsRail)) {
+    return false;
+  }
+  return !ntp_features::kNtpThreadsRailHybridParam.Get() || has_lhs_rail_config;
+#else
+  return false;
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
+}
+
 }  // namespace
 
 // static
@@ -285,16 +300,11 @@ base::DictValue NewTabPageUI::GetLoadTimeData(
       /*is_contextual_tasks=*/true);
   dict.Set("threadsUrl", threads_url.spec());
 
-  const auto* theme_service = ThemeServiceFactory::GetForProfile(profile);
-  const bool is_dark_mode =
-      theme_service && theme_service->BrowserUsesDarkColors();
   GURL expanded_lhs_url = google_base_url.Resolve(kLhsRelativeUrl);
   if (ntp_features::kNtpThreadsRailHybridParam.Get()) {
     expanded_lhs_url = net::AppendQueryParameter(expanded_lhs_url, "atvm",
                                                  kAIMThreadsVisibilityMode);
   }
-  expanded_lhs_url =
-      lens::AppendDarkModeParamToURL(expanded_lhs_url, is_dark_mode);
   expanded_lhs_url = net::AppendQueryParameter(expanded_lhs_url, "csui",
                                                kAIMConversationalSearchUI);
   expanded_lhs_url = net::AppendQueryParameter(
@@ -361,8 +371,6 @@ base::DictValue NewTabPageUI::GetLoadTimeData(
   dict.Set("doodleMuralsEnabled",
            base::FeatureList::IsEnabled(ntp_features::kNtpDoodleMurals));
   dict.Set("useGoogleLogo26", UseGoogleLogo26());
-  dict.Set("modulesLoadEnabled",
-           base::FeatureList::IsEnabled(ntp_features::kNtpModulesLoad));
   dict.Set(
       "modulesLoadTimeout",
       static_cast<int>(ntp_features::GetModulesLoadTimeout().InMilliseconds()));
@@ -444,6 +452,7 @@ base::DictValue NewTabPageUI::GetLoadTimeData(
       {"linkRemove", IDS_NTP_CUSTOM_LINKS_REMOVE},
       {"shortcutReorder", IDS_NTP_CUSTOM_LINKS_REORDER},
       {"shortcutReorderA11y", IDS_NTP_SHORTCUT_REORDER_A11Y},
+      {"shortcutMovedA11y", IDS_NTP_SHORTCUT_MOVED_A11Y},
       {"linkRemoveA11y", IDS_NTP_MOST_VISITED_SITES_REMOVE},
       {"linkRemovedMsg", IDS_NTP_CONFIRM_MSG_SHORTCUT_REMOVED},
       {"shortcutMoreActions", IDS_NTP_CUSTOM_LINKS_MORE_ACTIONS},
@@ -693,6 +702,7 @@ base::DictValue NewTabPageUI::GetLoadTimeData(
       {"mobilePromoQrCode", IDS_NTP_MOBILE_PROMO_QR_CODE_LABEL},
 
       // Threads rail.
+      {"aimThreadsGoogleSearchLabel", IDS_NTP_THREADS_GOOGLE_SEARCH_LABEL},
       {"aimThreadsHistoryLabel", IDS_NTP_THREADS_HISTORY_LABEL},
       {"aimThreadsNewSearchLabel", IDS_NTP_THREADS_NEW_SEARCH_LABEL},
 
@@ -744,6 +754,9 @@ base::DictValue NewTabPageUI::GetLoadTimeData(
            ntp_realbox::IsNtpRealboxNextEnabled(profile) &&
                base::FeatureList::IsEnabled(
                    ntp_realbox::kNtpRealboxDynamicAiModeButton));
+  dict.Set("ntpRealboxDynamicAiModeButtonPreventEarlyPaint",
+           base::FeatureList::IsEnabled(
+               ntp_realbox::kNtpRealboxDynamicAiModeButtonPreventEarlyPaint));
 
   if (ntp_realbox::IsNtpRealboxNextEnabled(profile)) {
     if (base::FeatureList::IsEnabled(
@@ -804,10 +817,47 @@ base::DictValue NewTabPageUI::GetLoadTimeData(
   dict.Set("composeboxSmartComposeEnabled",
            ntp_composebox::kShowSmartCompose.Get());
 
-  dict.Set("enableThreadsRail",
-           base::FeatureList::IsEnabled(ntp_features::kNtpThreadsRail));
+  // The left-hand side (LHS) threads rail embeds AI Mode content, so it is only
+  // shown to AIM eligible users.
+  const omnibox::LhsRailConfig* lhs_rail_config =
+      service ? service->GetLhsRailConfig() : nullptr;
+  const bool enable_threads_rail =
+      IsThreadsRailEnabled(aim_eligible, lhs_rail_config != nullptr);
+  dict.Set("enableThreadsRail", enable_threads_rail);
   dict.Set("enableThreadsRailHybrid",
            ntp_features::kNtpThreadsRailHybridParam.Get());
+  if (enable_threads_rail && lhs_rail_config) {
+    base::DictValue lhs_rail_config_dict;
+    base::ListValue items_list;
+    const url::Origin google_base_origin = url::Origin::Create(google_base_url);
+    for (const auto& item : lhs_rail_config->lhs_items()) {
+      base::DictValue item_dict;
+      // `icon_svg` is untrusted server-supplied markup; WebUI consumers must
+      // render it in a non-script-executing context (e.g., CSS `mask-image`
+      // `data:image/svg+xml` URI) rather than injecting raw markup into the
+      // DOM.
+      item_dict.Set("iconSvg", item.icon_svg());
+      item_dict.Set("name", item.name());
+      item_dict.Set("clientAction",
+                    static_cast<int>(item.click_action().client_action()));
+      const std::string& relative_url =
+          item.click_action().link().relative_url();
+      // Ensure `relative_url` is a root-relative path (not an absolute URL or
+      // a scheme-relative `"//"` / `"/\\"` authority override) and resolves
+      // to the same origin as `google_base_url`.
+      if (relative_url.starts_with("/") && !relative_url.starts_with("//") &&
+          !relative_url.starts_with("/\\")) {
+        GURL target_url = google_base_url.Resolve(relative_url);
+        if (target_url.is_valid() && target_url.SchemeIsHTTPOrHTTPS() &&
+            google_base_origin.IsSameOriginWith(target_url)) {
+          item_dict.Set("targetUrl", target_url.spec());
+        }
+      }
+      items_list.Append(std::move(item_dict));
+    }
+    lhs_rail_config_dict.Set("items", std::move(items_list));
+    dict.Set("lhsRailConfig", std::move(lhs_rail_config_dict));
+  }
 
   // Action Chips LoadTimeData
   bool add_tab_upload_delay_on_action_chip_click =
@@ -842,6 +892,8 @@ base::DictValue NewTabPageUI::GetLoadTimeData(
   dict.Set("composeboxPersistentAimButtonWithX",
            base::FeatureList::IsEnabled(
                omnibox::kComposeboxPersistentAimButtonWithX));
+  dict.Set("dynamicAimFulfillmentEnabled",
+           omnibox::IsDynamicAimFulfillmentEnabledForRealbox());
 
   dict.Merge(SearchboxHandler::GetWebUIDataSourceDict(
       profile, {.enable_voice_search = true,
@@ -899,9 +951,23 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   webui::SetupWebUIDataSource(source, kNewTabPageResources,
                               IDR_NEW_TAB_PAGE_NEW_TAB_PAGE_HTML);
 
-#if !BUILDFLAG(OPTIMIZE_WEBUI)
+#if BUILDFLAG(OPTIMIZE_WEBUI)
+  // By default, `SetupWebUIDataSource` maps `new_tab_page.js` to the bundle
+  // that defers modules like ntp composebox to `lazy_load.js`. When
+  // `kNtpLazyLoadComposebox` is disabled, remap all three Rollup chunks to the
+  // eager bundle built from `new_tab_page_eager.ts`, which eagerly includes
+  // those modules.
+  if (!base::FeatureList::IsEnabled(ntp_features::kNtpLazyLoadComposebox)) {
+    source->AddResourcePath(
+        "new_tab_page.js", IDR_NEW_TAB_PAGE_EAGER_NEW_TAB_PAGE_EAGER_ROLLUP_JS);
+    source->AddResourcePath("lazy_load.js",
+                            IDR_NEW_TAB_PAGE_EAGER_LAZY_LOAD_ROLLUP_JS);
+    source->AddResourcePath("shared.rollup.js",
+                            IDR_NEW_TAB_PAGE_EAGER_SHARED_ROLLUP_JS);
+  }
+#endif
+
   source->AddResourcePaths(kNewTabSharedResources);
-#endif  // BUILDFLAG(OPTIMIZE_WEBUI)
 
   // Allow embedding of iframes for the doodle and
   // chrome-untrusted://new-tab-page for other external content and resources.
@@ -984,14 +1050,6 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
   }
 
   CreateAndAddNewTabPageUiHtmlSource(profile_, session_allows_drag_and_drop);
-
-  // Add a handler to provide pluralized strings.
-  auto plural_string_handler = std::make_unique<PluralStringHandler>();
-  plural_string_handler->AddLocalizedString("modulesTabGroupsTabsText",
-                                            IDS_SAVED_TAB_GROUP_TABS_COUNT);
-  plural_string_handler->AddLocalizedString("sharingTabs",
-                                            IDS_COMPOSE_SHARING_TABS);
-  web_ui->AddMessageHandler(std::move(plural_string_handler));
 
   content::URLDataSource::Add(profile_,
                               std::make_unique<SanitizedImageSource>(profile_));
@@ -1180,6 +1238,16 @@ void NewTabPageUI::BindInterface(
 }
 
 void NewTabPageUI::BindInterface(
+    mojo::PendingReceiver<plural_string::mojom::PluralStringProvider>
+        receiver) {
+  PluralStringProvider::MessageIdMap message_ids =
+      GetSearchboxPluralStringIds();
+  message_ids.emplace("modulesTabGroupsTabsText",
+                      IDS_SAVED_TAB_GROUP_TABS_COUNT);
+  PluralStringProvider::Create(std::move(receiver), std::move(message_ids));
+}
+
+void NewTabPageUI::BindInterface(
     mojo::PendingReceiver<composebox::mojom::PageHandlerFactory>
         pending_receiver) {
   auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile_);
@@ -1265,7 +1333,7 @@ void NewTabPageUI::CreatePageHandler(
     mojo::PendingRemote<new_tab_page::mojom::Page> pending_page,
     mojo::PendingReceiver<new_tab_page::mojom::PageHandler>
         pending_page_handler) {
-  DCHECK(pending_page.is_valid());
+  CHECK(pending_page.is_valid(), base::NotFatalUntil::M162);
 
   page_handler_ = std::make_unique<NewTabPageHandler>(
       std::move(pending_page_handler), std::move(pending_page), profile_,
@@ -1319,7 +1387,7 @@ void NewTabPageUI::CreatePageHandler(
     mojo::PendingRemote<most_visited::mojom::MostVisitedPage> pending_page,
     mojo::PendingReceiver<most_visited::mojom::MostVisitedPageHandler>
         pending_page_handler) {
-  DCHECK(pending_page.is_valid());
+  CHECK(pending_page.is_valid(), base::NotFatalUntil::M162);
   most_visited_page_handler_ = std::make_unique<MostVisitedHandler>(
       std::move(pending_page_handler), std::move(pending_page), profile_,
       web_contents(),
@@ -1372,7 +1440,7 @@ void NewTabPageUI::CreateHelpBubbleHandler(
 void NewTabPageUI::CreateNtpPromoHandler(
     mojo::PendingRemote<ntp_promo::mojom::NtpPromoClient> client,
     mojo::PendingReceiver<ntp_promo::mojom::NtpPromoHandler> handler) {
-  ntp_promo_handler_ = NtpPromoHandler::Create(
+  ntp_promo_handler_ = std::make_unique<NtpPromoHandler>(
       std::move(client), std::move(handler), web_contents());
 }
 #endif  // !BUILDFLAG(IS_ANDROID)

@@ -5,6 +5,8 @@
 #ifndef IOS_CHROME_APP_APPLICATION_DELEGATE_STARTUP_INFORMATION_H_
 #define IOS_CHROME_APP_APPLICATION_DELEGATE_STARTUP_INFORMATION_H_
 
+#import <stdint.h>
+
 #import <optional>
 
 class FirstUserActionRecorder;
@@ -75,7 +77,8 @@ inline constexpr bool IsBackgroundLaunchReason(IOSLaunchReason reason) {
 // Start of the application, used for UMA.
 @property(nonatomic, assign) base::ElapsedNoSleepTimer appLaunchTimer;
 // The duration between process creation and the call to main, used for UMA.
-@property(nonatomic, readonly) base::TimeDelta preMainDuration;
+// std::nullopt if unavailable or invalid.
+@property(nonatomic, readonly) std::optional<base::TimeDelta> preMainDuration;
 // An object to record metrics related to the user's first action.
 @property(nonatomic, readonly) FirstUserActionRecorder* firstUserActionRecorder;
 // Tick of the call to didFinishLaunching, used for UMA.
@@ -86,6 +89,10 @@ inline constexpr bool IsBackgroundLaunchReason(IOSLaunchReason reason) {
 // Startup.ColdStartFromMain. Stays zero for background and suspicious launches,
 // which UMA also skips.
 @property(nonatomic, assign) base::TimeDelta coldStartFromMainDuration;
+// Physical memory footprint (`TASK_VM_INFO.phys_footprint`) in bytes captured
+// in the `TakeStartupMemorySnapshot` deferred initialization block, matching
+// `Memory.Browser.MemoryFootprint.Startup`. Stays zero until captured.
+@property(nonatomic, assign) uint64_t startupMemoryFootprintBytes;
 
 // Disables the FirstUserActionRecorder.
 - (void)resetFirstUserActionRecorder;

@@ -16,6 +16,9 @@ from typing import Any, Type
 import unittest
 from unittest import mock
 
+# vpython-provided modules.
+from pyfakefs import fake_filesystem_unittest
+
 # Needed in order for the tools/perf and Telemetry imports to work.
 # pylint: disable=unused-import
 from gpu_path_util import setup_telemetry_paths  # noqa: F401
@@ -1223,6 +1226,7 @@ class IsolatedWaylandDisplaysUnittest(unittest.TestCase):
     options.no_browser_restart_on_failure = False
     options.disable_log_uploads = False
     options.enforce_browser_version = False
+    options.clear_system_shader_cache = False
     options.Copy.return_value = options
 
     with (
@@ -1469,6 +1473,123 @@ class RetrieveAboutGpuUnittest(unittest.TestCase):
       GpuTestClass._RestartBrowser('test failure')
 
     self.assertFalse(GpuTestClass._args_changed_this_browser_start)
+
+
+class ClearSystemShaderCacheUnittest(fake_filesystem_unittest.TestCase):
+  def setUp(self):
+    self.setUpPyfakefs()
+    self.fs.CreateDirectory(tempfile.gettempdir())
+    GpuTestClass.child = None
+    mock_process = mock.MagicMock()
+    mock_process.pid = 1234
+    mock_process.create_time.return_value = 5678.9
+    process_patcher = mock.patch.object(
+      gpu_integration_test.psutil, 'Process', return_value=mock_process
+    )
+    process_patcher.start()
+    self.addCleanup(process_patcher.stop)
+
+  def tearDown(self):
+    GpuTestClass.child = None
+
+  def _CreateMockFinderOptions(
+    self, clear_system_shader_cache: bool
+  ) -> mock.MagicMock:
+    options = mock.MagicMock()
+    options.use_isolated_wayland_displays = False
+    options.extra_overlay_config_json = None
+    options.browser_type = 'exact'
+    options.skip_post_test_cleanup_and_debug_info = False
+    options.no_browser_restart_on_failure = False
+    options.disable_log_uploads = False
+    options.enforce_browser_version = False
+    options.clear_system_shader_cache = clear_system_shader_cache
+    options.Copy.return_value = options
+    return options
+
+  def testSetUpProcessSkipsShaderCacheClearByDefault(self):
+    GpuTestClass._finder_options = self._CreateMockFinderOptions(False)
+    with (
+      mock.patch.object(
+        gpu_integration_test.serially_executed_browser_test_case.SeriallyExecutedBrowserTestCase,
+        'SetUpProcess',
+      ),
+      mock.patch.object(GpuTestClass, '_ClearSystemShaderCache') as mock_clear,
+    ):
+      GpuTestClass.SetUpProcess()
+    mock_clear.assert_not_called()
+
+  def testSetUpProcessCallsShaderCacheClearWhenEnabled(self):
+    GpuTestClass._finder_options = self._CreateMockFinderOptions(True)
+    with (
+      mock.patch.object(
+        gpu_integration_test.serially_executed_browser_test_case.SeriallyExecutedBrowserTestCase,
+        'SetUpProcess',
+      ),
+      mock.patch.object(GpuTestClass, '_ClearSystemShaderCache') as mock_clear,
+    ):
+      GpuTestClass.SetUpProcess()
+    mock_clear.assert_called_once_with()
+
+  def testClearSystemShaderCacheWorker1RemovesDirsOnWindows(self):
+    home_dir = os.path.join(os.path.sep, 'Users', 'chrome-bot')
+    local_dir = os.path.join(home_dir, 'AppData', 'Local')
+    locallow_dxcache = os.path.join(
+      home_dir, 'AppData', 'LocalLow', 'NVIDIA', 'DXCache'
+    )
+    local_dxcache = os.path.join(local_dir, 'NVIDIA', 'DXCache')
+    cache_file_1 = os.path.join(locallow_dxcache, 'test1.nvph')
+    cache_file_2 = os.path.join(local_dxcache, 'test2.nvph')
+    self.fs.CreateFile(cache_file_1, contents='1234')
+    self.fs.CreateFile(cache_file_2, contents='5678')
+
+    GpuTestClass.child = mock.MagicMock(worker_num=1)
+    with (
+      mock.patch.object(
+        gpu_integration_test.host_information,
+        'IsWindows',
+        return_value=True,
+      ),
+      mock.patch.object(os.path, 'expanduser', return_value=home_dir),
+      mock.patch.dict(os.environ, {'LOCALAPPDATA': local_dir}),
+    ):
+      GpuTestClass._ClearSystemShaderCache()
+
+    self.assertFalse(os.path.exists(cache_file_1))
+    self.assertFalse(os.path.exists(cache_file_2))
+    self.assertFalse(os.path.exists(locallow_dxcache))
+    self.assertFalse(os.path.exists(local_dxcache))
+    sentinel_file = os.path.join(
+      tempfile.gettempdir(), 'cleared_shader_cache_1234_5678'
+    )
+    self.assertTrue(os.path.exists(sentinel_file))
+
+  def testClearSystemShaderCacheOtherWorkersWaitForRemoval(self):
+    sentinel_file = os.path.join(
+      tempfile.gettempdir(), 'cleared_shader_cache_1234_5678'
+    )
+
+    def _simulate_worker1_sentinel(condition, timeout):
+      del timeout
+      self.assertFalse(condition())
+      self.fs.CreateFile(sentinel_file)
+      self.assertTrue(condition())
+
+    GpuTestClass.child = mock.MagicMock(worker_num=2)
+    with (
+      mock.patch.object(
+        gpu_integration_test.host_information,
+        'IsWindows',
+        return_value=True,
+      ),
+      mock.patch.object(
+        py_utils, 'WaitFor', side_effect=_simulate_worker1_sentinel
+      ) as mock_wait_for,
+    ):
+      GpuTestClass._ClearSystemShaderCache()
+
+    mock_wait_for.assert_called_once()
+    self.assertTrue(os.path.exists(sentinel_file))
 
 
 def _ExtractTestResults(

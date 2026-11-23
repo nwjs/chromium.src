@@ -86,18 +86,24 @@ class Generator(generator.Generator):
     self.primary_interface = None
     self.interface_remotes = {}
     self.interface_receivers = {}
-    # An interface may appear as both associated and non-associated
-    self.associated_interfaces = set()
-    self.non_associated_interfaces = set()
+
+    # The following track which pending endpoint types are used from the JS
+    # side.
+    self.interface_pending_remotes = set()
+    self.interface_associated_pending_remotes = set()
+    self.interface_pending_receivers = set()
+    self.interface_associated_pending_receivers = set()
+
     self.arrays = {}
     self.maps = {}
     self.enums = {}
     self.unions = {}
     self.structs = {}
-    # Synchronous methods return JavaScript objects in the JavaScript bindings.
-    # Represent these return values as `mojom.Struct` objects, since we can then
-    # handle them the same way we handle Mojo structs in a few parts of the
-    # templates.
+    # Methods with a response return a Promise that resolves to a JavaScript
+    # object holding the response parameters. Represent these objects as
+    # `mojom.Struct` objects, since we can then handle them the same way we
+    # handle Mojo structs in a few parts of the templates. The lite bindings
+    # have no synchronous calls, so `[Sync]` methods also return a Promise.
     self.response_structs = {}
 
   def GetFilters(self):
@@ -107,11 +113,8 @@ class Generator(generator.Generator):
       "format_unique_name": self._FormatUniqueName,
       "fully_qualified_name": self._FullyQualifiedName,
       "is_array_kind": mojom.IsArrayKind,
-      "is_synchronous_method": self._IsSynchronousMethod,
       "namespace_as_array": self._NamespaceAsArray,
       "to_camel": generator.ToCamel,
-      "uses_associated_endpoints": self._UsesAssociatedEndpoints,
-      "uses_non_associated_endpoints": self._UsesNonAssociatedEndpoints,
     }
 
   @staticmethod
@@ -126,9 +129,18 @@ class Generator(generator.Generator):
 
     return {
       "module": self.module,
+      "mojo_scripts_page_path": self._GetMojoScriptsPagePath(),
       "primary": self.primary_interface,
       "interface_remotes": list(self.interface_remotes.values()),
       "interface_receivers": list(self.interface_receivers.values()),
+      "interface_pending_remotes": list(self.interface_pending_remotes),
+      "interface_associated_pending_remotes": list(
+        self.interface_associated_pending_remotes
+      ),
+      "interface_pending_receivers": list(self.interface_pending_receivers),
+      "interface_associated_pending_receivers": list(
+        self.interface_associated_pending_receivers
+      ),
       "arrays": list(self.arrays.values()),
       "maps": list(self.maps.values()),
       "enums": list(self.enums.values()),
@@ -209,14 +221,11 @@ class Generator(generator.Generator):
       interface = kind
     name = self._FormatUniqueName(interface)
 
-    # TODO(crbug.com/570073119): Separately track which interfaces are only
-    # ever sent from the browser to avoid emitting unnecessary types (e.g.,
-    # currently emits unused *PendingReceiver when getting a pending_remote
-    # from the browser).
-    if self._IsPendingAssociatedKind(kind):
-      self.associated_interfaces.add(name)
-    elif is_pending_remote or is_pending_receiver:
-      self.non_associated_interfaces.add(name)
+    # Track the pending endpoints used from the JS side. A pending remote passed
+    # from the browser side is used directly as a `Remote`, so it is not
+    # tracked.
+    if is_pending_receiver or (is_pending_remote and is_in_js):
+      self._TrackPendingInterfaces(kind)
 
     # TODO(crbug.com/522372048): this check prevents interfaces from being
     # registered as both remotes and receivers. Rewrite the logic to
@@ -224,18 +233,23 @@ class Generator(generator.Generator):
     if name in self.interface_remotes or name in self.interface_receivers:
       return
 
-    if is_pending_remote or is_pending_receiver:
-      if is_pending_remote == is_in_js:
-        # Either (1) is pending remote used in JS side OR
-        #        (2) is pending receiver used in browser side
-        # In either case, JS side keeps a receiver
+    if is_pending_remote:
+      if is_in_js:
+        # Pending remote passed from JS side, JS keeps receiver
         self.interface_receivers[name] = interface
       else:
-        # Either (1) is pending remote used in browser side OR
-        #        (2) is pending receiver used in JS side
-        # In either case, JS side keeps a remote
+        # Pending remote passed from browser side, JS keeps remote
         self.interface_remotes[name] = interface
-      is_in_js = not is_in_js  # interface is used from other side
+      is_in_js = not is_in_js  # interface is used from the other side
+    elif is_pending_receiver:
+      if is_in_js:
+        # Pending receiver passed from JS side, JS keeps remote
+        self.interface_remotes[name] = interface
+      else:
+        # Pending receiver passed from browser side, JS keeps receiver
+        self.interface_receivers[name] = interface
+      # Do NOT flip is_in_js; the interface is used from the same side that
+      # passed the receiver to the other side.
     else:
       self.interface_remotes[name] = interface
 
@@ -370,12 +384,51 @@ class Generator(generator.Generator):
   def _GenerateFuzzilliModule(self):
     return self._GetParameters()
 
+  def _GetMojoScriptsPagePath(self):
+    """Returns the path of the Mojo scripts page of the module, i.e. the page
+    loading the MojoJS bindings of the module, relative to the root gen
+    directory."""
+    return "%s-scripts-page.html" % self.module.path
+
+  def _CollectModuleDependencies(
+    self,
+    m: mojom.Module,
+    js_modules: dict[str, None],
+  ):
+    """Appends the lite bindings of |m| and of its transitive imports to
+    |js_modules|, in dependency order."""
+    js_path = f'gen/{m.path}-lite.js'
+    if js_path in js_modules:
+      return
+
+    for imported_module in m.imports:
+      self._CollectModuleDependencies(imported_module, js_modules)
+
+    js_modules[js_path] = None
+
+  @UseJinja("mojo_scripts_page.tmpl")
+  def _GenerateMojoScriptsPage(self):
+    js_modules: dict[str, None] = {}
+    self._CollectModuleDependencies(
+      self.module,
+      js_modules,
+    )
+    return {
+      "module": self.module,
+      "js_modules": js_modules,
+    }
+
   def GenerateFiles(self, unparsed_args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--fuzzilli_primary_interface_name')
     args = parser.parse_args(unparsed_args)
 
+    self.Write(self._GenerateMojoScriptsPage(), self._GetMojoScriptsPagePath())
+
     primary_interface_name = args.fuzzilli_primary_interface_name
+    # GN doesn't provide primary interface when generating Mojo scripts page.
+    if not primary_interface_name:
+      return
     self.primary_interface = next(
       (
         i
@@ -392,16 +445,25 @@ class Generator(generator.Generator):
     file_name = "%s.MojoProfile.swift" % self.module.path
     self.WriteWithComment(self._GenerateFuzzilliModule(), file_name)
 
-  def _IsPendingAssociatedKind(self, kind):
-    return mojom.IsPendingAssociatedRemoteKind(
-      kind
-    ) or mojom.IsPendingAssociatedReceiverKind(kind)
-
-  def _UsesAssociatedEndpoints(self, interface):
-    return self._FormatUniqueName(interface) in self.associated_interfaces
-
-  def _UsesNonAssociatedEndpoints(self, interface):
-    return self._FormatUniqueName(interface) in self.non_associated_interfaces
+  # Stores the interface of a pending kind used from the JS side in the
+  # dictionary matching that pending kind.
+  #
+  # Note: takes the Mojom pending kind as it is used. So, this method should
+  # receive the kind `pending_remote<Foo>`, not the kind `Foo`.
+  def _TrackPendingInterfaces(self, pending_kind):
+    interface = pending_kind.kind
+    if mojom.IsPendingRemoteKind(pending_kind):
+      self.interface_pending_remotes.add(interface)
+    elif mojom.IsPendingAssociatedRemoteKind(pending_kind):
+      self.interface_associated_pending_remotes.add(interface)
+    elif mojom.IsPendingReceiverKind(pending_kind):
+      self.interface_pending_receivers.add(interface)
+    elif mojom.IsPendingAssociatedReceiverKind(pending_kind):
+      self.interface_associated_pending_receivers.add(interface)
+    else:
+      assert False, (
+        f"Expected pending interface kind, received: {pending_kind}."
+      )
 
   def _IsAnyPendingRemoteKind(self, kind):
     return mojom.IsPendingRemoteKind(
@@ -425,9 +487,6 @@ class Generator(generator.Generator):
       f"{self._FormatUniqueName(method.interface)}"
       f"{generator.ToCamel(method.name)}CallbackReceiver"
     )
-
-  def _IsSynchronousMethod(self, method):
-    return method.attributes and method.attributes['Sync']
 
   def _NamespaceAsArray(self, namespace):
     return namespace.split(".")

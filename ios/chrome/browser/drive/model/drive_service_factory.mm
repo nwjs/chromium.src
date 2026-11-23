@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/drive/model/drive_service_factory.h"
 
+#import <utility>
+
 #import "base/feature_list.h"
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/drive/model/drive_service.h"
@@ -17,26 +19,14 @@
 
 namespace drive {
 
-// static
-DriveService* DriveServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<DriveService>(profile,
-                                                             /*create=*/true);
-}
-
-// static
-DriveServiceFactory* DriveServiceFactory::GetInstance() {
-  static base::NoDestructor<DriveServiceFactory> instance;
-  return instance.get();
-}
-
-DriveServiceFactory::DriveServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("DriveService",
-                                    ProfileSelection::kRedirectedInIncognito) {
+DriveServiceFactory::DriveServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "DriveService",
+          ProfileSelection::kRedirectedInIncognito) {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(ChromeAccountManagerServiceFactory::GetInstance());
 }
-
-DriveServiceFactory::~DriveServiceFactory() = default;
 
 std::unique_ptr<KeyedService> DriveServiceFactory::BuildServiceInstanceFor(
     ProfileIOS* profile) const {

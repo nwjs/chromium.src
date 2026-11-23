@@ -9,6 +9,7 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/common/bookmark_metrics.h"
+#include "components/sync_bookmarks/scoped_bookmark_extensive_changes.h"
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "base/metrics/histogram_base.h"
 #include "base/metrics/histogram_functions.h"
@@ -190,7 +191,7 @@ void BookmarkModelViewUsingLocalOrSyncableNodes::EnsurePermanentNodesExist() {
 }
 
 void BookmarkModelViewUsingLocalOrSyncableNodes::RemoveAllSyncableNodes() {
-  underlying_model()->BeginExtensiveChanges();
+  ScopedBookmarkExtensiveChanges extensive_changes(*underlying_model());
 
   for (const auto& permanent_node : root_node()->children()) {
     if (!IsNodeSyncable(permanent_node.get())) {
@@ -203,8 +204,6 @@ void BookmarkModelViewUsingLocalOrSyncableNodes::RemoveAllSyncableNodes() {
           FROM_HERE);
     }
   }
-
-  underlying_model()->EndExtensiveChanges();
 }
 
 void BookmarkModelViewUsingLocalOrSyncableNodes::
@@ -254,8 +253,6 @@ void BookmarkModelViewUsingAccountNodes::RemoveAllSyncableNodes() {
 void BookmarkModelViewUsingAccountNodes::
     MaybeRemoveUnderlyingModelDuplicatesUponInitialSync() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
-  BeginExtensiveChanges();
-
   const base::Time deduplication_start_time = base::Time::Now();
 
   InitialAccountBookmarkDeduplicator initial_account_bookmark_deduplicator(
@@ -270,8 +267,6 @@ void BookmarkModelViewUsingAccountNodes::
                                 /*min=*/base::Milliseconds(1),
                                 /*max=*/base::Seconds(60),
                                 /*buckets=*/50);
-
-  EndExtensiveChanges();
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 }
 

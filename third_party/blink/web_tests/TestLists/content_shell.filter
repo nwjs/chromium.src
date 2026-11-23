@@ -118,7 +118,6 @@ external/wpt/dom/events/scrolling/wheel-event-transactions-target-resize.html?in
 external/wpt/dom/events/webkit-animation-iteration-event.html
 external/wpt/dom/nodes/moveBefore/select-option-optgroup.html
 external/wpt/dom/nodes/moveBefore/selection-preserve.html
-external/wpt/dom/nodes/NodeList-static-length-getter-tampered-indexOf-*
 external/wpt/editing/crashtests/contenteditable-will-be-blurred-by-focus-event-listener.html
 external/wpt/editing/crashtests/designMode-document-will-be-blurred-by-focus-event-listener.html
 external/wpt/editing/crashtests/insertorderedlist-in-focused-inline-editing-host.html
@@ -145,8 +144,6 @@ external/wpt/editing/other/typing-around-link-element-at-non-collapsed-selection
 external/wpt/editing/other/typing-around-link-element-at-non-collapsed-selection.tentative.html?target=DesignMode&parent=b
 external/wpt/editing/other/typing-around-link-element-at-non-collapsed-selection.tentative.html?target=DesignMode&parent=b&child=i
 external/wpt/editing/plaintext-only/paste.https.html*
-external/wpt/element-timing/observe-multiple-images.html
-external/wpt/encoding/unsupported-labels.window.html
 external/wpt/event-timing/keyup.html
 external/wpt/event-timing/modal-dialog-interrupt-paint.html
 external/wpt/event-timing/selection-autoscroll.html
@@ -163,7 +160,6 @@ external/wpt/fedcm/third-party-iframe/fedcm-third-party-iframe.https.html
 external/wpt/fetch/stale-while-revalidate/stale-css.html
 external/wpt/fetch/stale-while-revalidate/stale-image.html
 external/wpt/fetch/stale-while-revalidate/stale-script.html
-external/wpt/fs/FileSystemObserver-sync-access-handle.https.tentative.*
 external/wpt/html-aam/names.html
 external/wpt/html-aam/roles.html
 external/wpt/html/browsers/browsing-the-web/back-forward-cache/eligibility/inflight-fetch-redirects.html
@@ -175,8 +171,6 @@ external/wpt/html/browsers/browsing-the-web/overlapping-navigations-and-traversa
 external/wpt/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/same-document-traversal-cross-document-nav.html
 external/wpt/html/browsers/browsing-the-web/unloading-documents/prompt/004.html
 external/wpt/html/browsers/browsing-the-web/unloading-documents/prompt-and-unload-script-closeable.html
-external/wpt/html/browsers/history/the-location-interface/assign_after_load.html
-external/wpt/html/browsers/history/the-location-interface/assign_before_load.html
 external/wpt/html/browsers/origin/cross-origin-objects/cross-origin-objects.html
 external/wpt/html/browsers/the-window-object/open-close/open-features-is-popup-condition.html*
 external/wpt/html/browsers/the-window-object/open-close/open-features-non-integer-width.html
@@ -185,19 +179,11 @@ external/wpt/html/browsers/the-window-object/open-close/open-features-tokenizati
 external/wpt/html/browsers/the-window-object/window-open-popup-behavior.html
 external/wpt/html/canvas/element/filters/2d.filter.canvasFilterObject.dropShadow.tentative.html
 external/wpt/html/canvas/element/filters/2d.filter.layers.dropShadow.tentative.html
-external/wpt/html/canvas/element/manual/fill-and-stroke-styles/canvas_colorsandstyles_createlineargradient_001.htm
 external/wpt/html/canvas/element/manual/filters/svg-filter-lh-rlh.html
 external/wpt/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.dropShadow.tentative.html
 external/wpt/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.dropShadow.tentative.w.html
 external/wpt/html/canvas/offscreen/filters/2d.filter.layers.dropShadow.tentative.html
 external/wpt/html/canvas/offscreen/filters/2d.filter.layers.dropShadow.tentative.w.html
-external/wpt/html/canvas/offscreen/manual/filter/offscreencanvas.filter.w.html
-external/wpt/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.html
-external/wpt/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.worker.html
-external/wpt/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.resize.html
-external/wpt/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap.html
-external/wpt/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transfer.to.imagebitmap.w.html
-external/wpt/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.transferrable.w.html
 external/wpt/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin-allow-popups.https.html*
 external/wpt/html/cross-origin-opener-policy/iframe-popup-unsafe-none-to-same-origin.https.html*
 external/wpt/html/cross-origin-opener-policy/javascript-url.https.html*
@@ -251,21 +237,13 @@ external/wpt/html/semantics/scripting-1/the-script-element/module/dynamic-import
 external/wpt/html/semantics/scripting-1/the-script-element/module/dynamic-import/microtasks/basic.any.html
 external/wpt/html/semantics/scripting-1/the-script-element/moving-between-documents/*
 external/wpt/html/semantics/text-level-semantics/the-bdi-element/*
-external/wpt/html/the-xhtml-syntax/parsing-xhtml-documents/data-xhtml-with-dtd.html
 external/wpt/html/webappapis/microtask-queuing/queue-microtask-exceptions.any.*
 external/wpt/html/webappapis/scripting/events/event-handler-all-global-events.html
 external/wpt/html/webappapis/scripting/events/event-handler-onmove-02.tentative.html
 external/wpt/html/webappapis/scripting/processing-model-2/runtime-error-in-setInterval.html
 external/wpt/html/webappapis/scripting/processing-model-2/runtime-error-in-setTimeout.html
-external/wpt/idle-detection/idle-detection-allowed-by-permissions-policy.https.sub.html
-external/wpt/import-maps/data-driven/resolving.html?scopes.json
-external/wpt/import-maps/multiple-import-maps/resolution-consistency-in-module-tree.html
-external/wpt/IndexedDB/idbindex_getAll.any.*
 external/wpt/inert/inert-iframe-hittest.html
 external/wpt/input-events/input-events-exec-command.html
-external/wpt/largest-contentful-paint/broken-image-icon.html
-external/wpt/largest-contentful-paint/multiple-image-same-src.html
-external/wpt/largest-contentful-paint/video-data-uri.html
 external/wpt/mathml/presentation-markup/fractions/frac-parameters-gap-*
 external/wpt/mathml/presentation-markup/operators/mo-paint-lspace-rspace.html
 external/wpt/mathml/presentation-markup/operators/operator-dictionary-arabic-*
@@ -316,12 +294,8 @@ external/wpt/resize-observer/scrollbars.html
 external/wpt/resize-observer/svg.html
 external/wpt/screen-wake-lock/wakelock-enabled-by-permissions-policy-attribute.https.html
 external/wpt/screen-wake-lock/wakelock-enabled-by-permissions-policy.https.html
-external/wpt/scroll-animations/css/animation-fill-outside-range-test.html
 external/wpt/scroll-animations/css/animation-range-visual-test.html
-external/wpt/scroll-animations/css/scroll-timeline-dynamic.tentative.html
 external/wpt/scroll-animations/css/view-timeline-range-animation.html
-external/wpt/scroll-animations/scroll-timelines/layout-changes-on-percentage-based-timeline.html
-external/wpt/scroll-animations/view-timelines/range-boundary.html
 external/wpt/scroll-to-text-fragment/find-range-from-text-directive.html
 external/wpt/service-workers/service-worker/client-navigate.https.html
 external/wpt/service-workers/service-worker/clients-matchall-frozen.https.html
@@ -335,7 +309,7 @@ external/wpt/shadow-dom/focus/focus-pseudo-on-shadow-host-1.html
 external/wpt/shadow-dom/focus/focus-pseudo-on-shadow-host-2.html
 external/wpt/shadow-dom/focus-navigation/delegatesFocus-highlight-sibling.html
 external/wpt/shadow-dom/focus-navigation/focus-navigation-slot-fallback.html
-external/wpt/shadow-dom/focus-navigation/reading-flow/tentative/grid-order-with-iframe.html
+external/wpt/shadow-dom/focus-navigation/reading-flow/grid-order-with-iframe.html
 external/wpt/shadow-dom/reference-target/tentative/*
 external/wpt/speech-api/SpeechSynthesisEvent-properties.html
 external/wpt/speech-api/SpeechSynthesis-pause-resume.tentative.html
@@ -357,18 +331,9 @@ external/wpt/svg/text/scripted/getcharnumatposition-slr.tentative.html
 external/wpt/svg/text/scripted/getstartpositionofchar.html
 external/wpt/trusted-types/trusted-types-navigation.html
 external/wpt/uievents/interface/keyboard-accesskey-click-event.html
-external/wpt/upgrade-insecure-requests/gen/iframe-blank-inherit.meta/upgrade/websocket.https.html
-external/wpt/url/failure.html
-external/wpt/video-rvfc/request-video-frame-callback-before-xr-session.https.html
-external/wpt/video-rvfc/request-video-frame-callback-during-xr-session.https.html
 external/wpt/video-rvfc/request-video-frame-callback-webrtc.https.html
 external/wpt/visual-viewport/page-and-offset-in-iframe.html
 external/wpt/visual-viewport/resize-event-order.html
-external/wpt/wai-aria/accessibility_properties_basic.tentative.html
-external/wpt/wai-aria/checked/checked.tentative.html
-external/wpt/wai-aria/pressed/pressed.tentative.html
-external/wpt/wai-aria/role/invalid-roles.html
-external/wpt/wai-aria/subtree/tablist.tentative.html
 external/wpt/web-animations/interfaces/Animation/finished.html
 external/wpt/web-animations/interfaces/Animation/onremove.html
 external/wpt/web-animations/timing-model/timelines/timelines.html
@@ -376,13 +341,6 @@ external/wpt/web-animations/responsive/toggle-animated-iframe-visibility.html
 external/wpt/web-bundle/subresource-loading/csp-blocked.https.tentative.html
 external/wpt/web-locks/bfcache/sharedworker-multiple.tentative.https.html
 external/wpt/web-locks/query-ordering.https.html
-external/wpt/webcodecs/audioDecoder-codec-specific.https.any.worker.html?flac
-external/wpt/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_f32
-external/wpt/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_s24
-external/wpt/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_s32
-external/wpt/webcodecs/audioDecoder-codec-specific.https.any.worker.html?pcm_u8
-external/wpt/webcodecs/per-frame-qp-encoding.https.any.html?vp9_p2
-external/wpt/webcodecs/per-frame-qp-encoding.https.any.worker.html?vp9_p2
 external/wpt/webcodecs/videoDecoder-codec-specific.https.any.html?h265_annexb
 external/wpt/webcodecs/videoDecoder-codec-specific.https.any.html?h265_hevc
 external/wpt/webcodecs/videoDecoder-codec-specific.https.any.worker.html?h265_annexb
@@ -392,8 +350,6 @@ external/wpt/webcodecs/videoDecoder-codec-specific-orientation.https.any.html?h2
 external/wpt/webcodecs/videoDecoder-codec-specific-orientation.https.any.worker.html?h265_annexb
 external/wpt/webcodecs/videoDecoder-codec-specific-orientation.https.any.worker.html?h265_hevc
 external/wpt/webcodecs/videoFrame-construction.any.html
-external/wpt/webcodecs/videoFrame-texImage.any.html
-external/wpt/webcodecs/videoFrame-texImage.any.worker.html
 external/wpt/webrtc/protocol/h264-unidirectional-codec-offer.https.html
 external/wpt/webrtc/RTCDataChannel-close.html
 external/wpt/webrtc/RTCPeerConnection-operations.https.html
@@ -450,52 +406,6 @@ external/wpt/pointerevents/crashtests/longpress-crash.html
 external/wpt/css/css-break/grid/grid-lanes/grid-lanes-fragmentation-003.html
 external/wpt/css/css-overflow/keyboard-scroll.html
 external/wpt/css/css-page/*
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-003.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-003.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-004.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-005.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-006.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-007.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-008.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-009.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-010.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-011.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-border-box-border-radius-012.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-box-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-box-003.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-box-004.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-box-006.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-box-007.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-box-008.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-box-009.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-content-box-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-content-box-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-content-box-003.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-content-box-border-radius-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-content-box-border-radius-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-003.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-004.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-005.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-006.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-007.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-margin-box-border-radius-008.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-padding-box-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-padding-box-002.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-padding-box-003.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-padding-box-border-radius-001.html
-external/wpt/css/css-shapes/shape-outside/shape-box/shape-outside-padding-box-border-radius-002.html
-external/wpt/css/css-shapes/spec-examples/shape-outside-014.html
-external/wpt/css/css-shapes/spec-examples/shape-outside-015.html
-external/wpt/css/css-shapes/spec-examples/shape-outside-016.html
-external/wpt/css/css-shapes/spec-examples/shape-outside-017.html
 external/wpt/css/printing/*
 virtual/fragmented-oof-in-cb/*
 
@@ -513,6 +423,25 @@ external/wpt/html/semantics/popovers/popover-focus-2.html
 # These are flaky on Mac. Judging by the other focus-related test in this list, I'm assuming
 # there is some kind of headless focus problem.
 external/wpt/html/semantics/interestfor/interestfor-invoker-descendants.tentative.html
+# Touch long-press is disabled in TouchEmulator under headless_shell.
+external/wpt/html/semantics/interestfor/interestfor-pseudo-element.tentative.html
+
+# These reftests fail on Mac headless_shell when OS overlay scrollbars are
+# enabled because headless_shell runs with --disable-features=ScrollbarAnimations,
+# leaving the overlay scrollbar thumb permanently visible when only the test or
+# reference page scrolls programmatically. Do not remove based on testing in
+# environments without Mac overlay scrollbars. See https://crbug.com/573662745.
+external/wpt/css/CSS2/stacking-context/composite-change-after-scroll-preserves-stacking-order.html
+external/wpt/css/css-contain/content-visibility/content-visibility-096.html
+external/wpt/css/css-contain/content-visibility/content-visibility-097.html
+external/wpt/css/css-flexbox/scrollbars-auto.html
+external/wpt/css/css-grid/grid-lanes/overflow/grid-lanes-overflow-reverse-001.html
+external/wpt/css/css-grid/grid-lanes/overflow/grid-lanes-overflow-reverse-002.html
+external/wpt/css/css-grid/grid-lanes/overflow/grid-lanes-overflow-reverse-004.html
+external/wpt/css/css-grid/grid-lanes/overflow/grid-lanes-overflow-reverse-baseline-001.html
+external/wpt/css/css-grid/grid-lanes/overflow/grid-lanes-overflow-reverse-baseline-002.html
+external/wpt/css/css-writing-modes/sizing-orthog-htb-in-vrl-001.xht
+external/wpt/css/css-writing-modes/sizing-orthog-htb-in-vrl-004.xht
 
 virtual/composite-clip-path-animation/external/wpt/css/css-masking/clip-path/animations/clip-path-animation*
 virtual/composite-clip-path-animation/external/wpt/css/css-masking/clip-path/animations/clip-path-transition*
@@ -563,10 +492,6 @@ virtual/scalefactor200/external/wpt/css/filter-effects/clip-under-filter-*
 virtual/scalefactor200/external/wpt/css/filter-effects/effect-reference-on-span.html
 virtual/scalefactor200/external/wpt/css/filter-effects/repaint-added-backdrop-filter.html
 virtual/scalefactor200/external/wpt/css/printing/*
-virtual/scalefactor200/external/wpt/largest-contentful-paint/animated/observe-cross-origin-tao-animated-image.tentative.html
-virtual/scalefactor200/external/wpt/largest-contentful-paint/image-not-fully-visible.html
-virtual/scalefactor200/external/wpt/largest-contentful-paint/multiple-image-same-src.html
-virtual/scalefactor200/external/wpt/largest-contentful-paint/video-data-uri.html
 
 external/wpt/speculation-rules/prerender/restriction-background-sync.https.html?target_hint=_blank
 external/wpt/speculation-rules/prerender/restriction-background-sync.https.html?target_hint=_self

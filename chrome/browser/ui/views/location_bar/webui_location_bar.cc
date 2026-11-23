@@ -9,11 +9,11 @@
 #include <vector>
 
 #include "base/functional/bind.h"
-#include "base/logging.h"
 #include "base/notimplemented.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/branding_buildflags.h"
+#include "build/build_config.h"
 #include "build/buildflag.h"
 #include "chrome/browser/actor/ui/actor_ui_window_controller.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
@@ -34,7 +34,6 @@
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
-#include "chrome/browser/ui/views/location_bar/location_bar_actions.h"
 #include "chrome/browser/ui/views/location_bar/location_icon_state_helper.h"
 #include "chrome/browser/ui/views/location_bar/omnibox_popup_file_selector.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
@@ -65,7 +64,13 @@
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_node.h"
+#include "ui/accessibility/ax_tree_manager.h"
+#include "ui/accessibility/platform/ax_platform_node.h"
+#include "ui/accessibility/platform/ax_platform_tree_manager.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
@@ -75,6 +80,7 @@
 #include "ui/display/screen.h"
 #include "ui/views/bubble/bubble_border.h"
 #include "ui/views/button_drag_utils.h"
+#include "ui/views/controls/menu/menu_controller.h"
 #include "ui/views/widget/widget.h"
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -164,8 +170,8 @@ void WebUILocationBar::Init(WebUIToolbarControlDelegate* delegate) {
   const bool is_devtools =
       browser_ &&
       browser_->GetType() == BrowserWindowInterface::Type::TYPE_DEVTOOLS;
-  DCHECK(!is_web_app);
-  DCHECK(!is_devtools);
+  CHECK(!is_web_app, base::NotFatalUntil::M162);
+  CHECK(!is_devtools, base::NotFatalUntil::M162);
 
   if (omnibox::IsAimPopupFeatureEnabled()) {
     if (!CreateOmniboxPopupAimPresenterIfEligible()) {
@@ -205,8 +211,6 @@ void WebUILocationBar::Init(WebUIToolbarControlDelegate* delegate) {
           base::BindRepeating(&WebUILocationBar::OnPopupStateChanged,
                               base::Unretained(this)));
 
-  RegisterOmniboxActions(browser_);
-
   is_initialized_ = true;
 }
 
@@ -235,10 +239,13 @@ void WebUILocationBar::PropagateFocusRequest(
     // ... well, almost immediately, since we may be in middle of activation
     // (see views::Widget::Activate()), so trying to activate the popup instead
     // can make things very unhappy.
+    const bool was_focused =
+        omnibox_controller_ && omnibox_controller_->edit_model()->has_focus();
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
         base::BindOnce(&WebUILocationBar::HandleFocusRequestForFullPopup,
-                       focus_request_weak_ptr_factory_.GetWeakPtr(), target));
+                       focus_request_weak_ptr_factory_.GetWeakPtr(), target,
+                       was_focused));
   } else if (toolbar_delegate_) {
     toolbar_delegate_->OnFocusRequested(target);
     if (auto* web_view = toolbar_delegate_->GetInternalWebView();
@@ -262,6 +269,9 @@ void WebUILocationBar::OnThemeChanged() {
   // Location icon cares about color scheme.
   UpdateLhsChipsState();
   UpdatePageActions(/*contents=*/nullptr);
+  // `UpdatePageActions()` is a no-op when the active tab and URL are unchanged,
+  // so explicitly re-resolve page action colors.
+  page_action_control_.OnThemeChanged();
 }
 
 void WebUILocationBar::HandleContextMenu(
@@ -291,6 +301,29 @@ void WebUILocationBar::SetFocusWithin(bool focused) {
   RefreshAiModePageAction();
 
   NotifyFocusChanged();
+}
+
+void WebUILocationBar::OnToolbarFocused() {
+  if (!omnibox_controller_ || !omnibox_popup_view_) {
+    return;
+  }
+  // Do not hand focus back to the popup while a Views menu is active (matching
+  // `OmniboxPopupFullPresenter::ShouldReceiveFocus()`), as `OnFocus()` would
+  // otherwise still update WebUI focus state and cancel pending context menus
+  // if browser widget activation restores focus to the toolbar WebView.
+  if (views::MenuController::GetActiveInstance()) {
+    return;
+  }
+  // When the browser window activates (e.g. clicking the tab strip), focus is
+  // restored to the toolbar WebView, which deactivates the popup widget. Hand
+  // focus back to the popup if the omnibox is still logically focused (an
+  // unfocused draft also keeps the popup in `kFull`, so check `has_focus()`
+  // too).
+  if (omnibox_controller_->edit_model()->has_focus() &&
+      omnibox_controller_->popup_state_manager()->popup_state() ==
+          OmniboxPopupState::kFull) {
+    OpenOmniboxIfFullPopup(/*query_zps=*/false);
+  }
 }
 
 void WebUILocationBar::OnBlur() {
@@ -620,7 +653,8 @@ void WebUILocationBar::UpdateLhsChipsState(bool icon_known) {
           location_icon_ = toolbar_delegate_->GetIconTable().RegisterColorUrl(
               "chrome://theme/IDR_GOOGLE_G_GRADIENT_16_ALT");
         } else {
-          DCHECK_EQ(*maybe_resource_id, IDR_GOOGLE_G_GRADIENT_20);
+          CHECK_EQ(*maybe_resource_id, IDR_GOOGLE_G_GRADIENT_20,
+                   base::NotFatalUntil::M162);
           location_icon_ = toolbar_delegate_->GetIconTable().RegisterColorUrl(
               "chrome://theme/IDR_GOOGLE_G_GRADIENT_20");
         }
@@ -816,18 +850,7 @@ void WebUILocationBar::OnLhsChipClicked(
                 toolbar_ui_api::mojom::LhsChipIdentifier::kPermissionIndicator
             ? permission_dashboard_->indicator_chip()
             : permission_dashboard_->request_chip();
-
-    // Drop stale clicks: the WebUI echoes the token it rendered with, so a
-    // mismatch means the chip's backing model changed while the click IPC was
-    // in flight (e.g. across a tab switch or same-tab navigation). See
-    // crbug.com/557279024.
-    if (chip->state_token() != state_token) {
-      VLOG(1) << "Dropped stale chip click for identifier "
-              << static_cast<int>(identifier) << ": received token "
-              << state_token << " != current token " << chip->state_token();
-      return;
-    }
-    chip->OnClicked(is_mouse_interaction);
+    chip->OnClickedIfCurrent(is_mouse_interaction, state_token);
     return;
   }
 
@@ -901,7 +924,16 @@ void WebUILocationBar::OnPageInfoBubbleClosed(
 }
 
 void WebUILocationBar::HandleFocusRequestForFullPopup(
-    toolbar_ui_api::mojom::FocusRequestTarget target) {
+    toolbar_ui_api::mojom::FocusRequestTarget target,
+    bool was_focused) {
+  // If the omnibox had focus when the request was posted (e.g. from
+  // `BrowserView::RestoreFocus()` when reactivating the browser window) but was
+  // blurred before this task ran (e.g. by the click or focus change that
+  // triggered that activation), do not refocus it.
+  if (was_focused && !omnibox_controller_->edit_model()->has_focus()) {
+    return;
+  }
+
   // Of things handled here, only kLocationBar is not user-inititiated.
   const bool is_user_initiated =
       (target != toolbar_ui_api::mojom::FocusRequestTarget::kLocationBar);
@@ -945,7 +977,6 @@ void WebUILocationBar::SetSuppressionThresholdForTesting(
       threshold);
   content_setting_image_control_.SetSuppressionThresholdForTesting(  // IN-TEST
       threshold);
-  page_action_control_.SetSuppressionThresholdForTesting(threshold);  // IN-TEST
   if (permission_dashboard_controller_) {
     permission_dashboard_controller_
         ->SetSuppressionThresholdForTesting(  // IN-TEST
@@ -1179,10 +1210,75 @@ void WebUILocationBar::OnPopupStateChanged(OmniboxPopupState old_state,
       }
       break;
     case OmniboxPopupState::kNone:
+      if (using_full_popup_) {
+        omnibox_controller_->edit_model()->OnKillFocus();
+      }
       break;
   }
 
   UpdateWithoutTabRestore();
+
+  // Notify accessibility that the popup controls changed, matching
+  // LocationBarView::OnPopupStateChanged().
+  NotifyPopupControlsChanged();
+}
+
+void WebUILocationBar::NotifyPopupControlsChanged() {
+#if BUILDFLAG(IS_WIN)
+  // Firing `ax::mojom::Event::kControlsChanged` is specifically needed on
+  // Windows UIA (to populate `ControllerFor`) for screen readers (like
+  // Narrator) to discover suggestions popup changes. On macOS, firing
+  // `kControlsChanged` causes crashes because delegates without an NSWindow
+  // hit NOTREACHED().
+  if (!toolbar_delegate_) {
+    return;
+  }
+  content::WebContents* web_contents = toolbar_delegate_->GetWebContents();
+  if (!web_contents) {
+    return;
+  }
+  content::RenderFrameHost* rfh = web_contents->GetPrimaryMainFrame();
+  if (!rfh) {
+    return;
+  }
+  ui::AXTreeManager* tree_manager =
+      ui::AXTreeManager::FromID(rfh->GetAXTreeID());
+  if (!tree_manager || !tree_manager->is_platform_tree_manager() ||
+      !tree_manager->GetRoot()) {
+    return;
+  }
+  auto* platform_tree_manager =
+      static_cast<ui::AXPlatformTreeManager*>(tree_manager);
+  const std::string expected_name =
+      l10n_util::GetStringUTF8(IDS_ACCNAME_LOCATION);
+  auto find_omnibox_node = [&expected_name](auto& self,
+                                            ui::AXNode* node) -> ui::AXNode* {
+    if (!node) {
+      return nullptr;
+    }
+    if (node->GetStringAttribute(ax::mojom::StringAttribute::kName) ==
+        expected_name) {
+      return node;
+    }
+    for (ui::AXNode* child : node->children()) {
+      if (ui::AXNode* found = self(self, child)) {
+        return found;
+      }
+    }
+    return nullptr;
+  };
+  if (ui::AXNode* omnibox_node =
+          find_omnibox_node(find_omnibox_node, tree_manager->GetRoot())) {
+    if (ui::AXPlatformNode* platform_node =
+            platform_tree_manager->GetPlatformNodeFromTree(*omnibox_node)) {
+      // TODO(crbug.com/572483458): Make sure the omnibox popup correctly calls
+      // SetControlIds(), and ensure the timing of this kControlsChanged and
+      // SetControlIds() isn't racy.
+      platform_node->NotifyAccessibilityEvent(
+          ax::mojom::Event::kControlsChanged);
+    }
+  }
+#endif
 }
 
 void WebUILocationBar::ClearInPopupStateTransition() {

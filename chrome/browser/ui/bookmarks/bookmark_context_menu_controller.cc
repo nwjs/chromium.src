@@ -189,8 +189,8 @@ BookmarkContextMenuController::BookmarkContextMenuController(
           BookmarkMergedSurfaceServiceFactory::GetForProfile(profile)),
       new_nodes_parent_(GetParentForNewNodes(selection)),
       can_paste_(can_paste) {
-  DCHECK(profile_);
-  DCHECK(bookmark_service_->loaded());
+  CHECK(profile_, base::NotFatalUntil::M162);
+  CHECK(bookmark_service_->loaded(), base::NotFatalUntil::M162);
   CheckSelectionIsValid(selection);
   CHECK(new_nodes_parent_);
   menu_model_ = std::make_unique<ui::SimpleMenuModel>(this);
@@ -390,11 +390,11 @@ void BookmarkContextMenuController::ExecuteCommand(int id, int event_flags) {
       if (id == IDC_BOOKMARK_BAR_OPEN_ALL ||
           id == IDC_BOOKMARK_BAR_OPEN_ALL_NEW_TAB_GROUP ||
           id == IDC_BOOKMARK_BAR_OPEN_SPLIT_VIEW) {
-        initial_disposition = WindowOpenDisposition::NEW_BACKGROUND_TAB;
+        initial_disposition = WindowOpenDisposition::kNewBackgroundTab;
       } else if (id == IDC_BOOKMARK_BAR_OPEN_ALL_NEW_WINDOW) {
-        initial_disposition = WindowOpenDisposition::NEW_WINDOW;
+        initial_disposition = WindowOpenDisposition::kNewWindow;
       } else {
-        initial_disposition = WindowOpenDisposition::OFF_THE_RECORD;
+        initial_disposition = WindowOpenDisposition::kOffTheRecord;
       }
       const UserMetricsAction* const action =
           GetActionForLocationAndDisposition(id, opened_from_);
@@ -688,7 +688,8 @@ bool BookmarkContextMenuController::IsCommandIdChecked(int command_id) const {
                bookmarks::BookmarkBarVisibilityState::kOnlyShowOnNtp);
   }
 
-  DCHECK_EQ(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT, command_id);
+  CHECK_EQ(IDC_BOOKMARK_BAR_SHOW_APPS_SHORTCUT, command_id,
+           base::NotFatalUntil::M162);
   return prefs->GetBoolean(bookmarks::prefs::kShowAppsShortcutInBookmarkBar);
 }
 

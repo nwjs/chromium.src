@@ -61,6 +61,7 @@
 #include "ui/views/layout/layout_manager.h"
 #include "ui/views/layout/layout_types.h"
 #include "ui/views/paint_info.h"
+#include "ui/views/view_hierarchy_changed_details.h"
 #include "ui/views/view_targeter.h"
 #include "ui/views/views_export.h"
 
@@ -113,6 +114,7 @@ namespace views {
 class Background;
 class Border;
 class ContextMenuController;
+class DeprecatedLayoutImmediatelyPassKey;
 class DragController;
 class FillLayout;
 class FocusManager;
@@ -134,31 +136,6 @@ class PostEventDispatchHandler;
 class RootView;
 class ScopedChildrenLock;
 }  // namespace internal
-
-// Struct used to describe how a View hierarchy has changed. See
-// View::ViewHierarchyChanged.
-// TODO(pbos): Move to a separate view_hierarchy_changed_details.h header.
-struct VIEWS_EXPORT ViewHierarchyChangedDetails {
-  ViewHierarchyChangedDetails(bool is_add,
-                              View* parent,
-                              View* child,
-                              View* move_view)
-      : is_add(is_add), parent(parent), child(child), move_view(move_view) {}
-  const bool is_add;
-  // New parent if |is_add| is true, old parent if |is_add| is false.
-  const raw_ptr<View> parent;
-  // The view being added or removed.
-  const raw_ptr<View> child;
-  // If this is a move (reparent), meaning AddChildViewAt() is invoked with an
-  // existing parent, then a notification for the remove is sent first,
-  // followed by one for the add.  This case can be distinguished by a
-  // non-null |move_view|.
-  // For the remove part of move, |move_view| is the new parent of the View
-  // being removed.
-  // For the add part of move, |move_view| is the old parent of the View being
-  // added.
-  const raw_ptr<View> move_view;
-};
 
 using PropertyChangedCallback = ui::metadata::PropertyChangedCallback;
 
@@ -861,7 +838,13 @@ class VIEWS_EXPORT View : public ui::LayerDelegate,
   // synchronously lay out a view, but this will eventually be removed; see
   // https://crbug.com/1521108. Neither of these methods should be called from
   // Layout(); see https://crbug.com/1121681.
+  //
+  // New callers are banned by PRESUBMIT. Existing callers are being migrated
+  // either to InvalidateLayout() or, where synchronous layout is truly needed,
+  // to the overload taking a DeprecatedLayoutImmediatelyPassKey. Once all
+  // callers are migrated, the no-arg overload will be removed.
   void DeprecatedLayoutImmediately();
+  void DeprecatedLayoutImmediately(DeprecatedLayoutImmediatelyPassKey);
   virtual void Layout(PassKey);
 
   bool needs_layout() const { return needs_layout_; }

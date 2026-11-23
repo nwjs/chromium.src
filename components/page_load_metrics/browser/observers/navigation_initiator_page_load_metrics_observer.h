@@ -1,0 +1,41 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_NAVIGATION_INITIATOR_PAGE_LOAD_METRICS_OBSERVER_H_
+#define COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_NAVIGATION_INITIATOR_PAGE_LOAD_METRICS_OBSERVER_H_
+
+#include "components/page_load_metrics/browser/page_load_metrics_observer.h"
+#include "components/page_load_metrics/common/page_load_metrics.mojom-forward.h"
+
+class GURL;
+
+namespace content {
+class NavigationHandle;
+}  // namespace content
+
+// Observer that records page load metrics based on the navigation's initiator.
+class NavigationInitiatorPageLoadMetricsObserver
+    : public page_load_metrics::PageLoadMetricsObserver {
+ public:
+  NavigationInitiatorPageLoadMetricsObserver() = default;
+  ~NavigationInitiatorPageLoadMetricsObserver() override = default;
+
+  // page_load_metrics::PageLoadMetricsObserver:
+  const char* GetObserverName() const override;
+  ObservePolicy OnEnterBackForwardCache(
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
+  void OnRestoreFromBackForwardCache(
+      const page_load_metrics::mojom::PageLoadTiming& timing,
+      content::NavigationHandle* navigation_handle) override;
+  void DidActivatePrerenderedPage(
+      content::NavigationHandle* navigation_handle) override;
+  ObservePolicy OnCommit(content::NavigationHandle* navigation_handle) override;
+  ObservePolicy OnFencedFramesStart(
+      content::NavigationHandle* navigation_handle,
+      const GURL& currently_committed_url) override;
+  ObservePolicy OnPrerenderStart(content::NavigationHandle* navigation_handle,
+                                 const GURL& currently_committed_url) override;
+};
+
+#endif  // COMPONENTS_PAGE_LOAD_METRICS_BROWSER_OBSERVERS_NAVIGATION_INITIATOR_PAGE_LOAD_METRICS_OBSERVER_H_

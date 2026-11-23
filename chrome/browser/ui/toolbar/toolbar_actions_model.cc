@@ -142,23 +142,28 @@ void ToolbarActionsModel::OnExtensionInstalled(
   const bool is_installed_from_sync =
       sync_service && sync_service->IsPendingSyncInstall(extension->id());
 
+  const bool is_installed_by_default = extension->was_installed_by_default();
+
   bool is_feature_enabled =
       base::FeatureList::IsEnabled(features::kExtensionsPinnedByDefault);
   bool is_toggle_on =
       profile_->GetPrefs()->GetBoolean(prefs::kExtensionsPinnedByDefault);
   // Pin the extension if policy enforces default pinning, OR if no policy is
   // set and default pinning is enabled by feature flag and user preference
-  // (excluding enterprise extensions and extensions installed from sync).
+  // (excluding enterprise extensions, extensions installed from sync, and
+  // default-installed extensions).
   const bool is_pinned_by_policy =
       pin_mode == extensions::ManagedToolbarPinMode::kDefaultPinned;
   const bool is_pinned_by_feature =
       pin_mode == extensions::ManagedToolbarPinMode::kNotSet &&
       !is_enterprise_extension && !is_installed_from_sync &&
-      is_feature_enabled && is_toggle_on;
+      !is_installed_by_default && is_feature_enabled && is_toggle_on;
 
   // We can only pin extensions that have a toolbar action.
   if (should_add_extension) {
-    if (is_pinned_by_policy || is_pinned_by_feature) {
+    if ((is_pinned_by_policy || is_pinned_by_feature) &&
+        !std::ranges::contains(extension_prefs_->GetPinnedExtensions(),
+                               extension->id())) {
       SetActionVisibility(extension->id(), true);
     }
   }
@@ -176,6 +181,8 @@ void ToolbarActionsModel::OnExtensionInstalled(
       pin_reason = ExtensionPinReason::kNotPinnedEnterpriseExtension;
     } else if (is_installed_from_sync) {
       pin_reason = ExtensionPinReason::kNotPinnedInstalledFromSync;
+    } else if (is_installed_by_default) {
+      pin_reason = ExtensionPinReason::kNotPinnedInstalledByDefault;
     } else if (!is_feature_enabled) {
       pin_reason = ExtensionPinReason::kNotPinnedFeatureDisabled;
     } else if (!is_toggle_on) {
@@ -313,9 +320,7 @@ void ToolbarActionsModel::RemovePref(const ActionId& action_id) {
   // the active pinned set.
   DCHECK(!IsActionPinned(action_id));
   auto stored_pinned_actions = extension_prefs_->GetPinnedExtensions();
-  auto iter = std::ranges::find(stored_pinned_actions, action_id);
-  if (iter != stored_pinned_actions.end()) {
-    stored_pinned_actions.erase(iter);
+  if (std::erase(stored_pinned_actions, action_id) > 0) {
     extension_prefs_->SetPinnedExtensions(stored_pinned_actions);
   }
 }
@@ -613,6 +618,27 @@ void ToolbarActionsModel::InitializeActionList() {
     Populate();
   }
 
+  if (!profile_->IsOffTheRecord()) {
+    // Prune any duplicate pinned extension IDs from preferences on startup
+    // (e.g. from older builds or synced from other devices) so that subsequent
+    // reordering logic in MovePinnedAction() is not corrupted.
+    auto stored_pinned_actions = extension_prefs_->GetPinnedExtensions();
+    base::flat_set<ActionId> seen;
+    bool has_duplicates = false;
+    std::vector<ActionId> deduped_pinned_actions;
+    deduped_pinned_actions.reserve(stored_pinned_actions.size());
+    for (const auto& id : stored_pinned_actions) {
+      if (seen.insert(id).second) {
+        deduped_pinned_actions.push_back(id);
+      } else {
+        has_duplicates = true;
+      }
+    }
+    if (has_duplicates) {
+      extension_prefs_->SetPinnedExtensions(deduped_pinned_actions);
+    }
+  }
+
   // Set |pinned_action_ids_| directly to avoid notifying observers that they
   // have changed even though they haven't.
   pinned_action_ids_ = GetFilteredPinnedActionIds();
@@ -693,12 +719,15 @@ void ToolbarActionsModel::SetActionVisibility(const ActionId& action_id,
       << "Changing action pin state is disallowed in incognito.";
 
   auto stored_pinned_action_ids = extension_prefs_->GetPinnedExtensions();
-  DCHECK_NE(is_now_visible,
-            std::ranges::contains(stored_pinned_action_ids, action_id));
   if (is_now_visible) {
+    if (std::ranges::contains(stored_pinned_action_ids, action_id)) {
+      return;
+    }
     stored_pinned_action_ids.push_back(action_id);
   } else {
-    std::erase(stored_pinned_action_ids, action_id);
+    if (std::erase(stored_pinned_action_ids, action_id) == 0) {
+      return;
+    }
   }
   extension_prefs_->SetPinnedExtensions(stored_pinned_action_ids);
   // The |pinned_action_ids_| should be updated as a result of updating the
@@ -731,8 +760,9 @@ ToolbarActionsModel::GetFilteredPinnedActionIds() const {
   // TODO(pbos): Make sure that the pinned IDs are pruned from ExtensionPrefs on
   // startup so that we don't keep saving stale IDs.
   std::vector<ActionId> filtered_action_ids;
+  base::flat_set<ActionId> seen_action_ids;
   for (auto& action_id : pinned) {
-    if (HasAction(action_id)) {
+    if (HasAction(action_id) && seen_action_ids.insert(action_id).second) {
       filtered_action_ids.push_back(action_id);
     }
   }

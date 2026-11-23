@@ -1,0 +1,10 @@
+include_rules = [
+  "+chrome/browser/profiles",
+  "+chrome/browser/screen_ai/public",
+]
+
+specific_include_rules = {
+  ".*_browsertest\\.cc": [
+    "+chrome/browser/screen_ai/screen_ai_install_state.h",
+  ],
+}

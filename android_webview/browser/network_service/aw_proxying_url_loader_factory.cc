@@ -22,6 +22,7 @@
 #include "android_webview/browser/aw_settings.h"
 #include "android_webview/browser/content_restriction/aw_content_restriction_manager_client.h"
 #include "android_webview/browser/cookie_manager.h"
+#include "android_webview/browser/http_headers/aw_header_interceptor_store.h"
 #include "android_webview/browser/http_headers/aw_origin_matched_header.h"
 #include "android_webview/browser/network_service/aw_web_resource_intercept_response.h"
 #include "android_webview/browser/network_service/net_helpers.h"
@@ -144,6 +145,8 @@ void RecordRequestBypassedDueToIntercept(
 class InterceptedRequest : public network::mojom::URLLoader,
                            public network::mojom::URLLoaderClient {
  public:
+  using InterceptorEntryPtr = AwHeaderInterceptorStore::InterceptorEntryPtr;
+
   InterceptedRequest(
       OptionalGetCookie get_cookie_header,
       OptionalSetCookie set_cookie_header,
@@ -159,7 +162,8 @@ class InterceptedRequest : public network::mojom::URLLoader,
       bool intercept_only,
       std::optional<AwProxyingURLLoaderFactory::SecurityOptions>
           security_options,
-      std::vector<scoped_refptr<AwOriginMatchedHeader>> origin_matched_headers,
+      scoped_refptr<AwProxyingURLLoaderFactory::ProxySharedState>
+          proxy_shared_state,
       scoped_refptr<AwBrowserContextIoThreadHandle> browser_context_handle);
 
   InterceptedRequest(const InterceptedRequest&) = delete;
@@ -185,6 +189,9 @@ class InterceptedRequest : public network::mojom::URLLoader,
   void OnComplete(const network::URLLoaderCompletionStatus& status) override;
 
   // network::mojom::URLLoader
+  // `headers_update_params` should be applied to the request (and propagated to
+  // any downstream UrlLoader), as it contains header updates computed from
+  // previous parts of the infrastructure.
   void FollowRedirect(
       network::HttpRequestHeadersUpdateParams headers_update_params,
       const std::optional<GURL>& new_url) override;
@@ -208,7 +215,7 @@ class InterceptedRequest : public network::mojom::URLLoader,
       std::unique_ptr<embedder_support::WebResourceResponse> response,
       std::unique_ptr<embedder_support::InputStream> input_stream);
   void ContinueFollowRedirectAfterCustomHeaders(
-      network::HttpRequestHeadersUpdateParams headers_update_params,
+      network::HttpRequestHeadersUpdateParams previous_header_updates,
       std::optional<GURL> new_url,
       network::HttpRequestHeadersUpdateParams custom_headers_update_params);
 
@@ -238,6 +245,15 @@ class InterceptedRequest : public network::mojom::URLLoader,
   // This method does not modify the request, but returns an update that can
   // be applied to the request later.
   network::HttpRequestHeadersUpdateParams ComputeOriginMatchedHeaders();
+
+  void ComputeDynamicHeaders(
+      network::HttpRequestHeadersUpdateParams previous_header_updates,
+      AwContentsIoThreadClient::InterceptHeadersResponseCallback callback);
+
+  void ContinueAfterDynamicHeadersAvailable(
+      CustomHeadersCallback callback,
+      base::expected<network::HttpRequestHeadersUpdateParams, std::string>
+          headers_update_params_expected);
 
   std::unique_ptr<AwContentsIoThreadClient> GetIoThreadClient();
 
@@ -297,7 +313,8 @@ class InterceptedRequest : public network::mojom::URLLoader,
       this};
   mojo::Remote<network::mojom::URLLoader> target_loader_;
   mojo::Remote<network::mojom::URLLoaderFactory> target_factory_;
-  std::vector<scoped_refptr<AwOriginMatchedHeader>> origin_matched_headers_;
+  scoped_refptr<AwProxyingURLLoaderFactory::ProxySharedState>
+      proxy_shared_state_;
   network::HttpRequestHeadersUpdateParams custom_headers_inverse_;
   scoped_refptr<AwBrowserContextIoThreadHandle> browser_context_handle_;
 
@@ -397,7 +414,8 @@ InterceptedRequest::InterceptedRequest(
     mojo::PendingRemote<network::mojom::URLLoaderFactory> target_factory,
     bool intercept_only,
     std::optional<AwProxyingURLLoaderFactory::SecurityOptions> security_options,
-    std::vector<scoped_refptr<AwOriginMatchedHeader>> origin_matched_headers,
+    scoped_refptr<AwProxyingURLLoaderFactory::ProxySharedState>
+        proxy_shared_state,
     scoped_refptr<AwBrowserContextIoThreadHandle> browser_context_handle)
     : get_cookie_header_(get_cookie_header),
       set_cookie_header_(set_cookie_header),
@@ -413,7 +431,7 @@ InterceptedRequest::InterceptedRequest(
       proxied_loader_receiver_(this, std::move(loader_receiver)),
       target_client_(std::move(client)),
       target_factory_(std::move(target_factory)),
-      origin_matched_headers_(std::move(origin_matched_headers)),
+      proxy_shared_state_(std::move(proxy_shared_state)),
       browser_context_handle_(std::move(browser_context_handle)) {
   // If there is a client error, clean up the request.
   target_client_.set_disconnect_handler(base::BindOnce(
@@ -619,28 +637,26 @@ InterceptedRequest::RevertCustomHeaders() {
 }
 
 void InterceptedRequest::ApplyCustomHeaders(CustomHeadersCallback callback) {
-  network::HttpRequestHeadersUpdateParams custom_headers_update =
+  network::HttpRequestHeadersUpdateParams result =
       ComputeOriginMatchedHeaders();
 
-  // Apply the updates to the request, storing the inverse into
-  // custom_headers_inverse_.
-  custom_headers_inverse_ = custom_headers_update.ApplyAndReturnInverse(
-      request_.headers, request_.cors_exempt_headers);
-
-  // TODO(b/527005583): Apply headers from the Dynamic Headers API.
-  std::move(callback).Run(std::move(custom_headers_update));
+  ComputeDynamicHeaders(
+      std::move(result),
+      base::BindOnce(&InterceptedRequest::ContinueAfterDynamicHeadersAvailable,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
 network::HttpRequestHeadersUpdateParams
 InterceptedRequest::ComputeOriginMatchedHeaders() {
-  if (origin_matched_headers_.empty()) {
+  if (proxy_shared_state_->origin_matched_headers.empty()) {
     return network::HttpRequestHeadersUpdateParams();
   }
 
   // TODO(crbug.com/422368112): Figure out how to handle CORS requests.
   url::Origin request_origin = url::Origin::Create(request_.url);
   if (options_ & network::mojom::kURLLoadOptionAsCorsPreflight) {
-    for (const auto& matched_header : origin_matched_headers_) {
+    for (const auto& matched_header :
+         proxy_shared_state_->origin_matched_headers) {
       if (matched_header->MatchesOrigin(request_origin)) {
         base::UmaHistogramBoolean(
             "Android.WebView.AndroidX.Profile.ExtraHeaderTargetsCorsPreflight",
@@ -657,7 +673,7 @@ InterceptedRequest::ComputeOriginMatchedHeaders() {
 
   for (const auto& [header_name, header_value] :
        AwOriginMatchedHeader::GetCombinedMatchingHeaders(
-           origin_matched_headers_, request_origin)) {
+           proxy_shared_state_->origin_matched_headers, request_origin)) {
     // TODO(crbug.com/423581920): Follow up to determine what the best merging
     // strategy is. The current strategy is to only attach if there is no
     // collision, which is least likely to break existing web pages.
@@ -670,6 +686,57 @@ InterceptedRequest::ComputeOriginMatchedHeaders() {
   }
 
   return result;
+}
+
+void InterceptedRequest::ComputeDynamicHeaders(
+    network::HttpRequestHeadersUpdateParams previous_header_updates,
+    AwContentsIoThreadClient::InterceptHeadersResponseCallback callback) {
+  std::vector<InterceptorEntryPtr> eligible_interceptors;
+
+  for (const auto& entry : proxy_shared_state_->profile_header_interceptors) {
+    if (entry->request_matcher->Matches(request_)) {
+      eligible_interceptors.push_back(entry);
+    }
+  }
+  for (const auto& entry :
+       proxy_shared_state_->web_contents_header_interceptors) {
+    if (entry->request_matcher->Matches(request_)) {
+      eligible_interceptors.push_back(entry);
+    }
+  }
+
+  if (eligible_interceptors.empty()) {
+    // No interceptors will be called for this request. Return early to avoid
+    // an additional thread switch.
+    std::move(callback).Run(std::move(previous_header_updates));
+    return;
+  }
+
+  std::unique_ptr<AwContentsIoThreadClient> io_thread_client =
+      GetIoThreadClient();
+  io_thread_client->InterceptHeadersAsync(
+      std::move(eligible_interceptors), AwWebResourceRequest(request_),
+      std::move(previous_header_updates), std::move(callback));
+}
+
+void InterceptedRequest::ContinueAfterDynamicHeadersAvailable(
+    CustomHeadersCallback callback,
+    base::expected<network::HttpRequestHeadersUpdateParams, std::string>
+        headers_update_params_expected) {
+  CHECK_CURRENTLY_ON(content::BrowserThread::IO);
+
+  if (!headers_update_params_expected.has_value()) {
+    LOG(WARNING) << headers_update_params_expected.error();
+    // The Java callback raised an error. Cancel the request immediately.
+    SendErrorAndCompleteImmediately(net::ERR_UNEXPECTED);
+    return;
+  }
+  // Apply the updates to the request, computing the inverse updates.
+  custom_headers_inverse_ =
+      headers_update_params_expected->ApplyAndReturnInverse(
+          request_.headers, request_.cors_exempt_headers);
+
+  std::move(callback).Run(std::move(headers_update_params_expected.value()));
 }
 
 // logic for when not to invoke shouldInterceptRequest callback
@@ -914,13 +981,13 @@ void InterceptedRequest::FollowRedirect(
 }
 
 void InterceptedRequest::ContinueFollowRedirectAfterCustomHeaders(
-    network::HttpRequestHeadersUpdateParams headers_update_params,
+    network::HttpRequestHeadersUpdateParams previous_header_updates,
     std::optional<GURL> new_url,
     network::HttpRequestHeadersUpdateParams custom_headers_update_params) {
-  headers_update_params.MergeFromInChain(
+  previous_header_updates.MergeFromInChain(
       std::move(custom_headers_update_params));
   if (target_loader_) {
-    target_loader_->FollowRedirect(std::move(headers_update_params), new_url);
+    target_loader_->FollowRedirect(std::move(previous_header_updates), new_url);
   }
 
   // If |OnURLLoaderClientError| was called then we're just waiting for the
@@ -1061,15 +1128,20 @@ AwProxyingURLLoaderFactory::AwProxyingURLLoaderFactory(
     bool intercept_only,
     std::optional<SecurityOptions> security_options,
     std::vector<scoped_refptr<AwOriginMatchedHeader>> origin_matched_headers,
+    std::vector<InterceptorEntryPtr> profile_header_interceptors,
+    std::vector<InterceptorEntryPtr> web_contents_header_interceptors,
     scoped_refptr<AwBrowserContextIoThreadHandle> browser_context_handle,
     std::optional<int64_t> navigation_id)
-    : cookie_access_policy_(cookie_access_policy),
+    : proxy_shared_state_(base::MakeRefCounted<ProxySharedState>(
+          std::move(origin_matched_headers),
+          std::move(profile_header_interceptors),
+          std::move(web_contents_header_interceptors))),
+      cookie_access_policy_(cookie_access_policy),
       isolation_info_(isolation_info),
       web_contents_key_(web_contents_key),
       frame_tree_node_id_(frame_tree_node_id),
       intercept_only_(intercept_only),
       security_options_(security_options),
-      origin_matched_headers_(std::move(origin_matched_headers)),
       browser_context_handle_(std::move(browser_context_handle)),
       navigation_id_(navigation_id) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
@@ -1120,6 +1192,8 @@ void AwProxyingURLLoaderFactory::CreateProxy(
     mojo::PendingRemote<network::mojom::URLLoaderFactory> target_factory_remote,
     std::optional<SecurityOptions> security_options,
     std::vector<scoped_refptr<AwOriginMatchedHeader>> origin_matched_headers,
+    std::vector<InterceptorEntryPtr> profile_header_interceptors,
+    std::vector<InterceptorEntryPtr> web_contents_header_interceptors,
     scoped_refptr<AwBrowserContextIoThreadHandle> browser_context_handle,
     std::optional<int64_t> navigation_id) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
@@ -1129,8 +1203,9 @@ void AwProxyingURLLoaderFactory::CreateProxy(
       std::move(cookie_manager), cookie_access_policy, isolation_info,
       web_contents_key, frame_tree_node_id, std::move(loader_receiver),
       std::move(target_factory_remote), false, security_options,
-      std::move(origin_matched_headers), std::move(browser_context_handle),
-      navigation_id);
+      std::move(origin_matched_headers), std::move(profile_header_interceptors),
+      std::move(web_contents_header_interceptors),
+      std::move(browser_context_handle), navigation_id);
 }
 
 void AwProxyingURLLoaderFactory::CreateLoaderAndStart(
@@ -1234,7 +1309,7 @@ void AwProxyingURLLoaderFactory::CreateLoaderAndStart(
       web_contents_key_, frame_tree_node_id_, request_id, options,
       std::move(request), traffic_annotation, std::move(loader),
       std::move(client), std::move(target_factory_clone), intercept_only_,
-      security_options_, origin_matched_headers_, browser_context_handle_);
+      security_options_, proxy_shared_state_, browser_context_handle_);
   req->Restart();
 }
 
@@ -1371,5 +1446,16 @@ void AwProxyingURLLoaderFactory::Clone(
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   proxy_receivers_.Add(this, std::move(loader_receiver));
 }
+
+AwProxyingURLLoaderFactory::ProxySharedState::ProxySharedState(
+    std::vector<scoped_refptr<AwOriginMatchedHeader>> origin_matched_headers,
+    std::vector<InterceptorEntryPtr> profile_header_interceptors,
+    std::vector<InterceptorEntryPtr> web_contents_header_interceptors)
+    : origin_matched_headers(std::move(origin_matched_headers)),
+      profile_header_interceptors(std::move(profile_header_interceptors)),
+      web_contents_header_interceptors(
+          std::move(web_contents_header_interceptors)) {}
+
+AwProxyingURLLoaderFactory::ProxySharedState::~ProxySharedState() = default;
 
 }  // namespace android_webview

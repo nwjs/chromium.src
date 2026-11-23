@@ -311,7 +311,7 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     }
 
     @Override
-    public @Nullable Integer getNativeSessionIdForTesting() {
+    public @Nullable Integer getNativeSessionId() {
         return null;
     }
 
@@ -419,6 +419,13 @@ public class EmptyTabModel implements IncognitoTabModelInternal {
     @Override
     public void mergeListOfTabsToGroup(
             List<Tab> tabs, Tab destinationTab, @Nullable Integer indexInGroup, int notify) {}
+
+    @Override
+    public void mergeListOfTabsToExistingGroup(
+            List<Tab> tabs,
+            Token destinationGroupId,
+            @Nullable Integer indexInGroup,
+            @TabGroupMergeNotificationType int notify) {}
 
     @Override
     public TabUngrouper getTabUngrouper() {

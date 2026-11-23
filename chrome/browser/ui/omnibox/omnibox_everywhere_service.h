@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "ui/base/mojom/menu_source_type.mojom-forward.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
@@ -33,8 +34,9 @@ class NavigationHandle;
 
 namespace omnibox_everywhere {
 class OmniboxEverywhereController;
-class OmniboxEverywhereUIManager;
 class OmniboxEverywhereFeaturePromoController;
+class OmniboxEverywhereFreController;
+class OmniboxEverywhereUIManager;
 }
 
 class OmniboxEverywhereService : public KeyedService {
@@ -61,6 +63,10 @@ class OmniboxEverywhereService : public KeyedService {
   const user_education::FeaturePromoController* feature_promo_controller()
       const;
 
+  omnibox_everywhere::OmniboxEverywhereFreController* fre_controller();
+  const omnibox_everywhere::OmniboxEverywhereFreController* fre_controller()
+      const;
+
   virtual void HidePopup();
   virtual bool IsPopupVisible() const;
   virtual bool IsPopupVisibleForProfile() const;
@@ -84,6 +90,13 @@ class OmniboxEverywhereService : public KeyedService {
   virtual void OnFileChooserClosed();
   virtual void OnHotkeyDropdownOpened();
   virtual void OnHotkeyDropdownClosed();
+  // Shows the Omnibox Everywhere overflow (three-dot) menu anchored below
+  // `anchor_screen_rect` (screen DIPs). `source_type` is how the button was
+  // activated. `on_closed` runs once the menu closes, or immediately if the
+  // menu cannot be shown.
+  void ShowOverflowMenu(const gfx::Rect& anchor_screen_rect,
+                        ui::mojom::MenuSourceType source_type,
+                        base::OnceClosure on_closed);
   void OpenUrl(const GURL& url,
                WindowOpenDisposition disposition,
                ui::PageTransition transition);
@@ -133,6 +146,8 @@ class OmniboxEverywhereService : public KeyedService {
   omnibox_everywhere::OmniboxEverywhereUIManager* ui_manager() const;
 
   raw_ptr<Profile> profile_;
+  std::unique_ptr<omnibox_everywhere::OmniboxEverywhereFreController>
+      fre_controller_;
   std::unique_ptr<omnibox_everywhere::OmniboxEverywhereFeaturePromoController>
       feature_promo_controller_;
   std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive_;

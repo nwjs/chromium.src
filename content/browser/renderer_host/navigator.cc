@@ -698,11 +698,13 @@ void Navigator::DidNavigate(
   int old_entry_count = controller_.GetEntryCount();
   LoadCommittedDetails details;
   base::TimeTicks start = base::TimeTicks::Now();
-  bool did_navigate = controller_.RendererDidNavigate(
-      render_frame_host, params, &details, was_within_same_document,
-      was_on_initial_empty_document,
-      previous_document_history_intervention_activation, caused_by_ad,
-      navigation_request.get());
+  NavigationControllerImpl::CommitResult commit_result =
+      controller_.RendererDidNavigate(
+          render_frame_host, params, &details, was_within_same_document,
+          was_on_initial_empty_document,
+          previous_document_history_intervention_activation, caused_by_ad,
+          navigation_request.get());
+  bool did_navigate = commit_result.did_navigate;
   if (!was_within_same_document) {
     base::UmaHistogramTimes(
         base::StrCat(
@@ -721,12 +723,8 @@ void Navigator::DidNavigate(
   // RenderFrameHostImpl::DidNavigate if that can be moved after
   // RendererDidNavigate, allowing us to avoid duplicating the URL and origin in
   // RenderFrameHost.
-  FrameNavigationEntry* frame_entry = nullptr;
-  if (controller_.GetLastCommittedEntry()) {
-    frame_entry =
-        controller_.GetLastCommittedEntry()->GetFrameEntry(frame_tree_node);
-  }
-  render_frame_host->set_last_committed_frame_entry(frame_entry);
+  render_frame_host->set_last_committed_frame_entry(
+      std::move(commit_result.frame_entry));
 
   // If the history length and/or index changed, update other renderers in the
   // FrameTree.
@@ -1113,7 +1111,7 @@ void Navigator::RequestOpenURL(
   // Send the navigation to the current FrameTreeNode if it's destined for a
   // subframe in the current tab.  We'll assume it's for the main frame
   // (possibly of a new or different WebContents) otherwise.
-  if (disposition == WindowOpenDisposition::CURRENT_TAB &&
+  if (disposition == WindowOpenDisposition::kCurrentTab &&
       render_frame_host->GetParentOrOuterDocument()) {
     frame_tree_node_id =
         render_frame_host->frame_tree_node()->frame_tree_node_id();

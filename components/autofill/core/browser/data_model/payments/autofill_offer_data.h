@@ -5,8 +5,6 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MODEL_PAYMENTS_AUTOFILL_OFFER_DATA_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_DATA_MODEL_PAYMENTS_AUTOFILL_OFFER_DATA_H_
 
-#include <stdint.h>
-
 #include <string>
 #include <vector>
 
@@ -28,54 +26,19 @@ struct DisplayStrings {
   std::string usage_instructions_text;
 };
 
-// Represents an offer for certain merchants. Card-linked offers are redeemable
-// with certain cards, and the unique ids of those cards are stored in
-// |eligible_instrument_id|. Promo code offers are redeemable with autofillable
-// promo codes. Merchants are determined by |merchant_origins|.
+// Represents an offer for certain merchants. Offers are redeemable with
+// autofillable promo codes. Merchants are determined by `merchant_origins`.
 class AutofillOfferData {
  public:
-  // TODO(crbug.com/546252995): Deprecate `OfferType` since we will only have
-  // `WALLET_DIRECT_OFFER`.
   // The specific type of offer.
   enum class OfferType {
     // Default value, should not be used.
     UNKNOWN,
-    // GPay-activated card linked offer.
-    GPAY_CARD_LINKED_OFFER,
-    // GPay-activated promo code offer.
-    GPAY_PROMO_CODE_OFFER,
     // Google Wallet direct offer.
     WALLET_DIRECT_OFFER,
   };
 
-  // TODO(crbug.com/546252995): Deprecate static factory methods in favor of the
-  // constructor.
-  // Returns an AutofillOfferData for a GPay card-linked offer.
-  static AutofillOfferData GPayCardLinkedOffer(
-      std::string offer_id,
-      base::Time expiry,
-      const std::vector<GURL>& merchant_origins,
-      const GURL& offer_details_url,
-      const DisplayStrings& display_strings,
-      const std::vector<int64_t>& eligible_instrument_id,
-      const std::string& offer_reward_amount);
-  // Returns an AutofillOfferData for a GPay promo code offer.
-  static AutofillOfferData GPayPromoCodeOffer(
-      std::string offer_id,
-      base::Time expiry,
-      const std::vector<GURL>& merchant_origins,
-      const GURL& offer_details_url,
-      const DisplayStrings& display_strings,
-      const std::string& promo_code);
-  // Returns an AutofillOfferData for a Google Wallet direct offer.
-  static AutofillOfferData WalletDirectOffer(
-      std::string offer_id,
-      base::Time expiry,
-      const std::vector<GURL>& merchant_origins,
-      const GURL& offer_details_url,
-      const DisplayStrings& display_strings,
-      const std::string& promo_code);
-
+  // Constructs an AutofillOfferData for a Google Wallet direct offer.
   AutofillOfferData(std::string offer_id,
                     base::Time expiry,
                     std::vector<GURL> merchant_origins,
@@ -120,9 +83,6 @@ class AutofillOfferData {
   const std::string& GetOfferRewardAmount() const {
     return offer_reward_amount_;
   }
-  const std::vector<int64_t>& GetEligibleInstrumentIds() const {
-    return eligible_instrument_id_;
-  }
   const std::string& GetPromoCode() const { return promo_code_; }
 
 #ifdef UNIT_TEST
@@ -131,10 +91,6 @@ class AutofillOfferData {
   }
   void SetMerchantOriginForTesting(const std::vector<GURL>& merchant_origins) {
     merchant_origins_ = merchant_origins;
-  }
-  void SetEligibleInstrumentIdForTesting(
-      const std::vector<int64_t>& eligible_instrument_id) {
-    eligible_instrument_id_ = eligible_instrument_id;
   }
 
   void SetPromoCode(const std::string& promo_code) { promo_code_ = promo_code; }
@@ -149,26 +105,6 @@ class AutofillOfferData {
 #endif
 
  private:
-  // TODO(crbug.com/546252995): Remove these constructors along with the static
-  // factory methods above once `OfferType` is deprecated.
-  // Constructs an AutofillOfferData for a card-linked offer.
-  AutofillOfferData(std::string offer_id,
-                    base::Time expiry,
-                    const std::vector<GURL>& merchant_origins,
-                    const GURL& offer_details_url,
-                    const DisplayStrings& display_strings,
-                    const std::vector<int64_t>& eligible_instrument_id,
-                    const std::string& offer_reward_amount);
-  // Constructs an AutofillOfferData for a GPay promo code offer or Wallet
-  // direct offer.
-  AutofillOfferData(OfferType offer_type,
-                    std::string offer_id,
-                    base::Time expiry,
-                    const std::vector<GURL>& merchant_origins,
-                    const GURL& offer_details_url,
-                    const DisplayStrings& display_strings,
-                    const std::string& promo_code);
-
   // The specific type of offer, which informs decisions made by other classes,
   // such as UI rendering or metrics.
   OfferType offer_type_ = OfferType::UNKNOWN;
@@ -191,23 +127,14 @@ class AutofillOfferData {
   // redeemed.
   std::vector<GURL> merchant_origins_;
 
-  // Optional server-driven strings for certain offer elements. Generally most
-  // useful for promo code offers, but could potentially apply to card-linked
-  // offers as well.
+  // Optional server-driven strings for certain offer elements.
   DisplayStrings display_strings_;
 
   // TODO(crbug.com/546252995): Rename `offer_reward_amount_` to
-  // `offer_short_title_` once `OfferType` is deprecated, since direct offers
-  // store their short title here.
+  // `offer_short_title_`, since direct offers store their short title here.
   // The string including the reward details of the offer. Could be either
   // percentage off (XXX%) or fixed amount off ($XXX).
   std::string offer_reward_amount_;
-
-  // TODO(crbug.com/546252995): Remove `eligible_instrument_id_` field
-  // once `OfferType` is deprecated, since it will not be used for direct
-  // offers.
-  // The ids of the cards this offer can be applied to.
-  std::vector<int64_t> eligible_instrument_id_;
 
   // A promo/gift/coupon code that can be applied at checkout with the merchant.
   std::string promo_code_;

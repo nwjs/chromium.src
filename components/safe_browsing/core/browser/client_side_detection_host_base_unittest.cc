@@ -9,8 +9,10 @@
 #include <string>
 #include <vector>
 
+#include "base/base_switches.h"
 #include "base/memory/weak_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -53,6 +55,28 @@ class MockClientSideDetectionServiceBase
               (override));
 };
 
+class MockIntelligentScanDelegate : public IntelligentScanDelegate {
+ public:
+  MOCK_METHOD(bool,
+              ShouldRequestIntelligentScan,
+              (ClientPhishingRequest*),
+              (override));
+  MOCK_METHOD(ModelType, GetIntelligentScanModelType, (bool), (override));
+  MOCK_METHOD(std::optional<base::UnguessableToken>,
+              StartIntelligentScan,
+              (std::string, std::string, IntelligentScanDoneCallback),
+              (override));
+  MOCK_METHOD(bool,
+              CancelIntelligentScan,
+              (const base::UnguessableToken&),
+              (override));
+  MOCK_METHOD(bool,
+              ShouldShowScamWarning,
+              (std::optional<IntelligentScanVerdict>),
+              (override));
+  MOCK_METHOD(void, OnScamWarningShown, (), (override));
+};
+
 class TestClientSideDetectionHostBase : public ClientSideDetectionHostBase {
  public:
   TestClientSideDetectionHostBase(
@@ -60,10 +84,11 @@ class TestClientSideDetectionHostBase : public ClientSideDetectionHostBase {
       PrefService* pref_service,
       history::HistoryService* history_service,
       base::WeakPtr<ClientSideDetectionServiceBase> csd_service,
-      bool is_off_the_record)
+      bool is_off_the_record,
+      IntelligentScanDelegate* intelligent_scan_delegate = nullptr)
       : ClientSideDetectionHostBase(csd_service,
                                     cache_manager,
-                                    /*intelligent_scan_delegate=*/nullptr,
+                                    intelligent_scan_delegate,
                                     pref_service,
                                     /*token_fetcher=*/nullptr,
                                     history_service,
@@ -84,7 +109,18 @@ class TestClientSideDetectionHostBase : public ClientSideDetectionHostBase {
                ClientSideDetectionType request_type,
                std::optional<bool> did_match_high_confidence_allowlist),
               (override));
-  GURL GetCurrentUrl() const override { return current_url(); }
+  GURL GetCurrentUrl() const override {
+    if (current_url_override_.has_value()) {
+      return *current_url_override_;
+    }
+    return current_url();
+  }
+  void set_current_url_override(const GURL& url) {
+    current_url_override_ = url;
+  }
+  void clear_current_url_override() {
+    current_url_override_.reset();
+  }
   MOCK_METHOD(void,
               ClassifyPhishingThroughThresholds,
               (ClientPhishingRequest * verdict),
@@ -103,6 +139,7 @@ class TestClientSideDetectionHostBase : public ClientSideDetectionHostBase {
 
   void MaybeStartPreClassification(
       ClientSideDetectionType request_type) override {
+    preclassification_count_++;
     last_preclassification_request_type_ = request_type;
     set_last_committed_url(request_type, current_url());
   }
@@ -163,32 +200,41 @@ class TestClientSideDetectionHostBase : public ClientSideDetectionHostBase {
 
   using ClientSideDetectionHostBase::
       AddMiscellaneousMetadataToClientPhishingRequest;
+  using ClientSideDetectionHostBase::CancelPendingRequests;
   using ClientSideDetectionHostBase::CanGetAccessToken;
   using ClientSideDetectionHostBase::CanSendSamplePing;
   using ClientSideDetectionHostBase::ExtractClipboardData;
   using ClientSideDetectionHostBase::GetTierValue;
   using ClientSideDetectionHostBase::HasDonePreclassificationCheckOnSameURL;
   using ClientSideDetectionHostBase::HasForceRequestFromRtUrlLookup;
+  using ClientSideDetectionHostBase::is_checking_uniform_image;
   using ClientSideDetectionHostBase::is_classifying;
   using ClientSideDetectionHostBase::is_csd_running;
+  using ClientSideDetectionHostBase::is_uniform_image_retry_timer_running;
   using ClientSideDetectionHostBase::MaybeSendClientPhishingRequest;
   using ClientSideDetectionHostBase::NewRequestTypeTierHigher;
   using ClientSideDetectionHostBase::OnCreditCardFormVisitCount;
   using ClientSideDetectionHostBase::OnIntelligentScanDone;
   using ClientSideDetectionHostBase::OnTextCopiedToClipboard;
   using ClientSideDetectionHostBase::PhishingDetectionDone;
+  using ClientSideDetectionHostBase::PhishingImageEmbeddingDone;
   using ClientSideDetectionHostBase::SendRequest;
+  using ClientSideDetectionHostBase::current_url;
   using ClientSideDetectionHostBase::set_current_url;
   using ClientSideDetectionHostBase::set_is_classifying;
   using ClientSideDetectionHostBase::set_is_csd_running;
   using ClientSideDetectionHostBase::set_last_request_type;
   using ClientSideDetectionHostBase::ShouldAcceptHCAllowlist;
+  using ClientSideDetectionHostBase::ShouldCaptureScreenshotForIntelligentScan;
+  using ClientSideDetectionHostBase::StartIntelligentScan;
 
   ClientSideDetectionFeatureCacheBase feature_cache_;
   std::optional<ClientSideDetectionType> last_preclassification_request_type_;
   credit_card_form::ReferringApp referring_app_ =
       credit_card_form::ReferringApp::kNoReferringApp;
   std::optional<double> site_engagement_score_;
+  std::optional<GURL> current_url_override_;
+  int preclassification_count_ = 0;
 };
 
 class ClientSideDetectionHostBaseTest : public testing::Test {
@@ -218,7 +264,8 @@ class ClientSideDetectionHostBaseTest : public testing::Test {
     content_setting_map_->ShutdownOnUIThread();
   }
 
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   sync_preferences::TestingPrefServiceSyncable prefs_;
   scoped_refptr<HostContentSettingsMap> content_setting_map_;
   std::unique_ptr<VerdictCacheManager> cache_manager_;
@@ -262,6 +309,7 @@ TEST_F(ClientSideDetectionHostBaseTest, PriorityTier) {
       host_->GetTierValue(CLIENT_SIDE_DETECTION_TYPE_UNSPECIFIED), "");
   EXPECT_DEATH_IF_SUPPORTED(host_->GetTierValue(POINTER_LOCK_REQUESTED), "");
   EXPECT_DEATH_IF_SUPPORTED(host_->GetTierValue(FULLSCREEN_API), "");
+  EXPECT_DEATH_IF_SUPPORTED(host_->GetTierValue(POLICY_ENGINE), "");
 
   // Default last request type is unspecified, so any new request type is
   // higher.
@@ -424,6 +472,10 @@ TEST_F(ClientSideDetectionHostBaseTest,
   EXPECT_EQ(request.client_side_detection_type(), TRIGGER_MODELS);
   EXPECT_EQ(request.population().user_population(),
             ChromeUserPopulation::ENHANCED_PROTECTION);
+  EXPECT_THAT(
+      request.population().finch_active_groups(),
+      ::testing::Not(::testing::Contains(::testing::HasSubstr(
+          "ClientSideDetectionKeyboardLockUniformPageDelay"))));
 }
 
 TEST_F(ClientSideDetectionHostBaseTest, PhishingDetectionDoneMetricsAndCache) {
@@ -541,6 +593,307 @@ TEST_F(ClientSideDetectionHostBaseTest, SendRequest) {
 
   // State should be reset.
   EXPECT_FALSE(host_->is_csd_running());
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ForceRequest_SendsImmediateFirstPingAndDelayedSecondPingWhenEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kClientSideDetectionSecondForceRequestWithDelay);
+
+  GURL url("https://example.com/");
+  MockClientSideDetectionServiceBase mock_csd_service;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false);
+  host_->set_current_url(url);
+
+  std::vector<ClientPhishingRequest> sent_requests;
+  EXPECT_CALL(mock_csd_service, SendClientReportPhishingRequest(_, _, _))
+      .WillRepeatedly([&](std::unique_ptr<ClientPhishingRequest> verdict,
+                          ClientSideDetectionServiceBase::
+                              ClientReportPhishingRequestCallback callback,
+                          const std::string& access_token) {
+        ClientSideDetectionType request_type =
+            verdict->client_side_detection_type();
+        sent_requests.push_back(*verdict);
+        host_->CallMaybeShowPhishingWarning(
+            /*is_from_cache=*/false, request_type,
+            /*did_match_high_confidence_allowlist=*/false, url,
+            /*is_phishing=*/false, net::HTTP_OK,
+            IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE);
+      });
+
+  base::HistogramTester histograms;
+  auto verdict1 = std::make_unique<ClientPhishingRequest>();
+  verdict1->set_url(url.spec());
+  verdict1->set_client_side_detection_type(FORCE_REQUEST);
+  verdict1->set_report_type(ClientPhishingRequest::FULL_REPORT);
+
+  // 1st ping is sent immediately at t = 0 ms, and safe verdict schedules 2nd
+  // ping.
+  host_->SendRequest(std::move(verdict1), "token",
+                     /*did_match_high_confidence_allowlist=*/false,
+                     /*is_invalid_ip=*/false);
+  ASSERT_EQ(sent_requests.size(), 1u);
+  EXPECT_EQ(host_->preclassification_count_, 0);
+  EXPECT_THAT(
+      sent_requests[0].population().finch_active_groups(),
+      ::testing::AllOf(
+          ::testing::Contains(
+              "ClientSideDetectionSecondForceRequestWithDelay.Enabled.2000"),
+          ::testing::Contains("ClientSideDetectionSecondForceRequestWithDelay."
+                              "Enabled.2000.FirstPing")));
+  histograms.ExpectUniqueSample("SBClientPhishing.ForceRequest.PingOrder",
+                                ForceRequestPingOrder::kFirstPing, 1);
+  histograms.ExpectUniqueSample(
+      "SBClientPhishing.ForceRequest.DelayedPingEvent",
+      DelayedForceRequestPingEvent::kScheduled, 1);
+
+  // At 1999 ms, the 2nd preclassification has not started yet.
+  task_environment_.FastForwardBy(base::Milliseconds(1999));
+  EXPECT_EQ(host_->preclassification_count_, 0);
+
+  // At 2000 ms, the timer triggers MaybeStartPreClassification(FORCE_REQUEST).
+  task_environment_.FastForwardBy(base::Milliseconds(1));
+  EXPECT_EQ(host_->preclassification_count_, 1);
+  EXPECT_EQ(host_->last_preclassification_request_type_, FORCE_REQUEST);
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                               DelayedForceRequestPingEvent::kStarted, 1);
+
+  // When the 2nd FORCE_REQUEST completes and sends its ping, it is tagged with
+  // .SecondPing and kSecondPing.
+  auto verdict2 = std::make_unique<ClientPhishingRequest>();
+  verdict2->set_url(url.spec());
+  verdict2->set_client_side_detection_type(FORCE_REQUEST);
+  verdict2->set_report_type(ClientPhishingRequest::FULL_REPORT);
+  host_->SendRequest(std::move(verdict2), "token",
+                     /*did_match_high_confidence_allowlist=*/false,
+                     /*is_invalid_ip=*/false);
+  ASSERT_EQ(sent_requests.size(), 2u);
+  EXPECT_THAT(
+      sent_requests[1].population().finch_active_groups(),
+      ::testing::AllOf(
+          ::testing::Contains(
+              "ClientSideDetectionSecondForceRequestWithDelay.Enabled.2000"),
+          ::testing::Contains("ClientSideDetectionSecondForceRequestWithDelay."
+                              "Enabled.2000.SecondPing")));
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.PingOrder",
+                               ForceRequestPingOrder::kFirstPing, 1);
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.PingOrder",
+                               ForceRequestPingOrder::kSecondPing, 1);
+  histograms.ExpectTotalCount("SBClientPhishing.ForceRequest.PingOrder", 2);
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                               DelayedForceRequestPingEvent::kScheduled, 1);
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                               DelayedForceRequestPingEvent::kStarted, 1);
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                               DelayedForceRequestPingEvent::kSent, 1);
+  histograms.ExpectTotalCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                              3);
+
+  // Advancing another 2000 ms must not trigger a 3rd preclassification.
+  task_environment_.FastForwardBy(base::Milliseconds(2000));
+  EXPECT_EQ(host_->preclassification_count_, 1);
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ForceRequest_UsesConfiguredRequestDelayMsParamForSecondPing) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      kClientSideDetectionSecondForceRequestWithDelay,
+      {{"RequestDelayMs", "500"}});
+
+  GURL url("https://example.com/");
+  MockClientSideDetectionServiceBase mock_csd_service;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false);
+  host_->set_current_url(url);
+
+  std::vector<ClientPhishingRequest> sent_requests;
+  EXPECT_CALL(mock_csd_service, SendClientReportPhishingRequest(_, _, _))
+      .WillRepeatedly([&](std::unique_ptr<ClientPhishingRequest> verdict,
+                          ClientSideDetectionServiceBase::
+                              ClientReportPhishingRequestCallback callback,
+                          const std::string& access_token) {
+        ClientSideDetectionType request_type =
+            verdict->client_side_detection_type();
+        sent_requests.push_back(*verdict);
+        host_->CallMaybeShowPhishingWarning(
+            /*is_from_cache=*/false, request_type,
+            /*did_match_high_confidence_allowlist=*/false, url,
+            /*is_phishing=*/false, net::HTTP_OK,
+            IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE);
+      });
+
+  auto verdict1 = std::make_unique<ClientPhishingRequest>();
+  verdict1->set_url(url.spec());
+  verdict1->set_client_side_detection_type(FORCE_REQUEST);
+
+  host_->SendRequest(std::move(verdict1), "token",
+                     /*did_match_high_confidence_allowlist=*/false,
+                     /*is_invalid_ip=*/false);
+  ASSERT_EQ(sent_requests.size(), 1u);
+  EXPECT_THAT(sent_requests[0].population().finch_active_groups(),
+              ::testing::Contains("ClientSideDetectionSecondForceRequestWithDel"
+                                  "ay.Enabled.500.FirstPing"));
+
+  task_environment_.FastForwardBy(base::Milliseconds(499));
+  EXPECT_EQ(host_->preclassification_count_, 0);
+
+  task_environment_.FastForwardBy(base::Milliseconds(1));
+  EXPECT_EQ(host_->preclassification_count_, 1);
+
+  auto verdict2 = std::make_unique<ClientPhishingRequest>();
+  verdict2->set_url(url.spec());
+  verdict2->set_client_side_detection_type(FORCE_REQUEST);
+  host_->SendRequest(std::move(verdict2), "token",
+                     /*did_match_high_confidence_allowlist=*/false,
+                     /*is_invalid_ip=*/false);
+  ASSERT_EQ(sent_requests.size(), 2u);
+  EXPECT_THAT(sent_requests[1].population().finch_active_groups(),
+              ::testing::Contains("ClientSideDetectionSecondForceRequestWithDel"
+                                  "ay.Enabled.500.SecondPing"));
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ForceRequest_SendsOnlyOnePingWhenFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      kClientSideDetectionSecondForceRequestWithDelay);
+
+  GURL url("https://example.com/");
+  MockClientSideDetectionServiceBase mock_csd_service;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false);
+  host_->set_current_url(url);
+
+  std::vector<ClientPhishingRequest> sent_requests;
+  EXPECT_CALL(mock_csd_service, SendClientReportPhishingRequest(_, _, _))
+      .WillRepeatedly([&](std::unique_ptr<ClientPhishingRequest> verdict,
+                          ClientSideDetectionServiceBase::
+                              ClientReportPhishingRequestCallback callback,
+                          const std::string& access_token) {
+        sent_requests.push_back(*verdict);
+        host_->CallMaybeShowPhishingWarning(
+            /*is_from_cache=*/false, verdict->client_side_detection_type(),
+            /*did_match_high_confidence_allowlist=*/false, url,
+            /*is_phishing=*/false, net::HTTP_OK,
+            IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE);
+      });
+
+  base::HistogramTester histograms;
+  auto verdict = std::make_unique<ClientPhishingRequest>();
+  verdict->set_url(url.spec());
+  verdict->set_client_side_detection_type(FORCE_REQUEST);
+
+  host_->SendRequest(std::move(verdict), "token",
+                     /*did_match_high_confidence_allowlist=*/false,
+                     /*is_invalid_ip=*/false);
+  ASSERT_EQ(sent_requests.size(), 1u);
+  EXPECT_THAT(sent_requests[0].population().finch_active_groups(),
+              ::testing::Contains(
+                  "ClientSideDetectionSecondForceRequestWithDelay.Control"));
+  histograms.ExpectUniqueSample("SBClientPhishing.ForceRequest.PingOrder",
+                                ForceRequestPingOrder::kFirstPing, 1);
+  histograms.ExpectTotalCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                              0);
+
+  task_environment_.FastForwardBy(base::Milliseconds(2000));
+  EXPECT_EQ(host_->preclassification_count_, 0);
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       NonForceRequestOrUnsafeVerdict_DoesNotScheduleSecondPing) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kClientSideDetectionSecondForceRequestWithDelay);
+
+  GURL url("https://example.com/");
+  MockClientSideDetectionServiceBase mock_csd_service;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false);
+  host_->set_current_url(url);
+
+  base::HistogramTester histograms;
+
+  // Non-FORCE_REQUEST with safe verdict does not schedule second request.
+  host_->CallMaybeShowPhishingWarning(
+      /*is_from_cache=*/false, KEYBOARD_LOCK_REQUESTED,
+      /*did_match_high_confidence_allowlist=*/false, url,
+      /*is_phishing=*/false, net::HTTP_OK,
+      IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE);
+
+  // FORCE_REQUEST with phishy = true does not schedule second request.
+  EXPECT_CALL(*host_, ShowBlockingPage(url, FORCE_REQUEST, _, true, false))
+      .Times(1);
+  host_->CallMaybeShowPhishingWarning(
+      /*is_from_cache=*/false, FORCE_REQUEST,
+      /*did_match_high_confidence_allowlist=*/false, url,
+      /*is_phishing=*/true, net::HTTP_OK,
+      IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE);
+
+  // FORCE_REQUEST without INTELLIGENT_SCAN_VERDICT_SAFE does not schedule
+  // second request.
+  host_->CallMaybeShowPhishingWarning(
+      /*is_from_cache=*/false, FORCE_REQUEST,
+      /*did_match_high_confidence_allowlist=*/false, url,
+      /*is_phishing=*/false, net::HTTP_OK,
+      IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_UNSPECIFIED);
+
+  histograms.ExpectTotalCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                              0);
+  task_environment_.FastForwardBy(base::Milliseconds(2000));
+  EXPECT_EQ(host_->preclassification_count_, 0);
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ForceRequest_SecondPingCancelledByNavigationDuringDelay) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kClientSideDetectionSecondForceRequestWithDelay);
+
+  GURL url("https://example.com/");
+  MockClientSideDetectionServiceBase mock_csd_service;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false);
+  host_->set_current_url(url);
+
+  base::HistogramTester histograms;
+  host_->CallMaybeShowPhishingWarning(
+      /*is_from_cache=*/false, FORCE_REQUEST,
+      /*did_match_high_confidence_allowlist=*/false, url,
+      /*is_phishing=*/false, net::HTTP_OK,
+      IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE);
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                               DelayedForceRequestPingEvent::kScheduled, 1);
+
+  // Navigation occurs at 500 ms before the 2000 ms timer fires.
+  task_environment_.FastForwardBy(base::Milliseconds(500));
+  host_->CancelPendingRequests();
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                               DelayedForceRequestPingEvent::kCancelled, 1);
+
+  // Advancing past 2000 ms must not start the 2nd preclassification.
+  task_environment_.FastForwardBy(base::Milliseconds(2000));
+  EXPECT_EQ(host_->preclassification_count_, 0);
+  histograms.ExpectTotalCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                              2);
+
+  // After navigation resets state in CancelPendingRequests(), a new safe
+  // FORCE_REQUEST verdict on the next page schedules a delayed ping again.
+  host_->CallMaybeShowPhishingWarning(
+      /*is_from_cache=*/false, FORCE_REQUEST,
+      /*did_match_high_confidence_allowlist=*/false,
+      GURL("https://example2.com/"),
+      /*is_phishing=*/false, net::HTTP_OK,
+      IntelligentScanVerdict::INTELLIGENT_SCAN_VERDICT_SAFE);
+  histograms.ExpectBucketCount("SBClientPhishing.ForceRequest.DelayedPingEvent",
+                               DelayedForceRequestPingEvent::kScheduled, 2);
 }
 
 // Verifies that OnCreditCardFormVisitCount returns early without triggering
@@ -1064,6 +1417,229 @@ TEST_F(
   histograms.ExpectTotalCount("SBClientPhishing.IntelligentScanVerdict", 0);
   histograms.ExpectTotalCount(
       "SBClientPhishing.IntelligentScanVerdict.ForceRequest", 0);
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ShouldCaptureScreenshotForIntelligentScan_FeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(kClientSideDetectionServerModelMultimodal);
+  EXPECT_FALSE(host_->ShouldCaptureScreenshotForIntelligentScan());
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       ShouldCaptureScreenshotForIntelligentScan_FeatureEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kClientSideDetectionServerModelMultimodal);
+  EXPECT_TRUE(host_->ShouldCaptureScreenshotForIntelligentScan());
+}
+
+TEST_F(
+    ClientSideDetectionHostBaseTest,
+    ShouldCaptureScreenshotForIntelligentScan_LowEndDeviceExcludedByDefault) {
+  base::test::ScopedCommandLine scoped_command_line;
+  scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+      switches::kEnableLowEndDeviceMode);
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kClientSideDetectionServerModelMultimodal);
+  EXPECT_FALSE(host_->ShouldCaptureScreenshotForIntelligentScan());
+}
+
+TEST_F(
+    ClientSideDetectionHostBaseTest,
+    ShouldCaptureScreenshotForIntelligentScan_LowEndDeviceAllowedWhenParamFalse) {
+  base::test::ScopedCommandLine scoped_command_line;
+  scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+      switches::kEnableLowEndDeviceMode);
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      kClientSideDetectionServerModelMultimodal,
+      {{kClientSideDetectionServerModelMultimodalExcludeLowEndDevices.name,
+        "false"}});
+  EXPECT_TRUE(host_->ShouldCaptureScreenshotForIntelligentScan());
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       StartIntelligentScan_SkipsWhenBothInnerTextAndScreenshotAreEmpty) {
+  GURL url("https://example.com/");
+  auto verdict = std::make_unique<ClientPhishingRequest>();
+  verdict->set_url(url.spec());
+  verdict->set_client_side_detection_type(TRIGGER_MODELS);
+
+  MockClientSideDetectionServiceBase mock_csd_service;
+  MockIntelligentScanDelegate mock_intelligent_scan_delegate;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false,
+      &mock_intelligent_scan_delegate);
+  host_->set_current_url(url);
+  SetEnhancedProtectionPrefForTests(&prefs_, false);
+
+  EXPECT_CALL(mock_intelligent_scan_delegate, StartIntelligentScan(_, _, _))
+      .Times(0);
+  EXPECT_CALL(mock_csd_service, SendClientReportPhishingRequest(_, _, _))
+      .WillOnce([&](std::unique_ptr<ClientPhishingRequest> sent_verdict,
+                    ClientSideDetectionServiceBase::
+                        ClientReportPhishingRequestCallback callback,
+                    const std::string& access_token) {
+        ASSERT_TRUE(sent_verdict->has_intelligent_scan_info());
+        EXPECT_EQ(sent_verdict->intelligent_scan_info().no_info_reason(),
+                  IntelligentScanInfo::EMPTY_TEXT);
+      });
+
+  host_->StartIntelligentScan(std::move(verdict),
+                              /*did_match_high_confidence_allowlist=*/false,
+                              /*is_invalid_ip=*/false, /*inner_text=*/"",
+                              /*tab_screenshot=*/std::nullopt);
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       StartIntelligentScan_SkipsWhenInnerTextTooShortAndScreenshotEmpty) {
+  GURL url("https://example.com/");
+  auto verdict = std::make_unique<ClientPhishingRequest>();
+  verdict->set_url(url.spec());
+  verdict->set_client_side_detection_type(TRIGGER_MODELS);
+
+  MockClientSideDetectionServiceBase mock_csd_service;
+  MockIntelligentScanDelegate mock_intelligent_scan_delegate;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false,
+      &mock_intelligent_scan_delegate);
+  host_->set_current_url(url);
+  SetEnhancedProtectionPrefForTests(&prefs_, false);
+
+  EXPECT_CALL(mock_intelligent_scan_delegate, StartIntelligentScan(_, _, _))
+      .Times(0);
+  EXPECT_CALL(mock_csd_service, SendClientReportPhishingRequest(_, _, _))
+      .WillOnce([&](std::unique_ptr<ClientPhishingRequest> sent_verdict,
+                    ClientSideDetectionServiceBase::
+                        ClientReportPhishingRequestCallback callback,
+                    const std::string& access_token) {
+        ASSERT_TRUE(sent_verdict->has_intelligent_scan_info());
+        EXPECT_EQ(sent_verdict->intelligent_scan_info().no_info_reason(),
+                  IntelligentScanInfo::TEXT_TOO_SHORT);
+      });
+
+  host_->StartIntelligentScan(std::move(verdict),
+                              /*did_match_high_confidence_allowlist=*/false,
+                              /*is_invalid_ip=*/false, /*inner_text=*/"text",
+                              /*tab_screenshot=*/"");
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       StartIntelligentScan_ProceedsWhenInnerTextEmptyAndScreenshotPresent) {
+  GURL url("https://example.com/");
+  auto verdict = std::make_unique<ClientPhishingRequest>();
+  verdict->set_url(url.spec());
+  verdict->set_client_side_detection_type(TRIGGER_MODELS);
+
+  MockClientSideDetectionServiceBase mock_csd_service;
+  MockIntelligentScanDelegate mock_intelligent_scan_delegate;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false,
+      &mock_intelligent_scan_delegate);
+  host_->set_current_url(url);
+
+  EXPECT_CALL(mock_intelligent_scan_delegate,
+              StartIntelligentScan("", url.spec(), _))
+      .WillOnce(Return(base::UnguessableToken::Create()));
+
+  host_->StartIntelligentScan(std::move(verdict),
+                              /*did_match_high_confidence_allowlist=*/false,
+                              /*is_invalid_ip=*/false, /*inner_text=*/"",
+                              /*tab_screenshot=*/"fake_png_bytes");
+  EXPECT_EQ(host_->last_intelligent_scan_tab_screenshot_for_testing(),
+            "fake_png_bytes");
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       StartIntelligentScan_ProceedsWhenInnerTextTooShortAndScreenshotPresent) {
+  GURL url("https://example.com/");
+  auto verdict = std::make_unique<ClientPhishingRequest>();
+  verdict->set_url(url.spec());
+  verdict->set_client_side_detection_type(TRIGGER_MODELS);
+
+  MockClientSideDetectionServiceBase mock_csd_service;
+  MockIntelligentScanDelegate mock_intelligent_scan_delegate;
+  host_ = std::make_unique<TestClientSideDetectionHostBase>(
+      cache_manager_.get(), &prefs_, /*history_service=*/nullptr,
+      mock_csd_service.GetWeakPtr(), /*is_off_the_record=*/false,
+      &mock_intelligent_scan_delegate);
+  host_->set_current_url(url);
+
+  EXPECT_CALL(mock_intelligent_scan_delegate,
+              StartIntelligentScan("text", url.spec(), _))
+      .WillOnce(Return(base::UnguessableToken::Create()));
+
+  host_->StartIntelligentScan(std::move(verdict),
+                              /*did_match_high_confidence_allowlist=*/false,
+                              /*is_invalid_ip=*/false, /*inner_text=*/"text",
+                              /*tab_screenshot=*/"fake_png_bytes");
+  EXPECT_EQ(host_->last_intelligent_scan_tab_screenshot_for_testing(),
+            "fake_png_bytes");
+}
+
+TEST_F(ClientSideDetectionHostBaseTest,
+       KeyboardLockUniformImageRetry_CancelledOnSameDocumentNavigationUrlChange) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      kClientSideDetectionKeyboardLockUniformPageDelay,
+      {{"DelayDurationMs", "500"}, {"MaxRetries", "3"}});
+
+  host_->set_tick_clock_for_testing(task_environment_.GetMockTickClock());
+
+  GURL initial_url("https://example.com/initial");
+  host_->set_current_url(initial_url);
+
+  base::HistogramTester histograms;
+
+  auto verdict = std::make_unique<ClientPhishingRequest>();
+  verdict->set_url(initial_url.spec());
+  verdict->set_client_side_detection_type(
+      ClientSideDetectionType::KEYBOARD_LOCK_REQUESTED);
+
+  // A 1x1 image with identical bytes across channels is uniform.
+  VisualFeatures visual_features;
+  visual_features.mutable_image()->set_width(1);
+  visual_features.mutable_image()->set_height(1);
+  visual_features.mutable_image()->set_data(std::string(3, '\0'));
+
+  host_->PhishingImageEmbeddingDone(
+      std::move(verdict),
+      /*did_match_high_confidence_allowlist=*/false,
+      /*is_invalid_ip=*/false,
+      ClientSideDetectionHostBase::ImageEmbeddingResult::kSuccess,
+      /*image_feature_embedding=*/std::nullopt,
+      std::move(visual_features));
+
+  // The retry timer should now be running.
+  EXPECT_TRUE(host_->is_uniform_image_retry_timer_running());
+  EXPECT_TRUE(host_->is_checking_uniform_image());
+  histograms.ExpectUniqueSample(
+      "SBClientPhishing.KeyboardLock.IsInitialImageUniform", true, 1);
+
+  // Simulate a same-document navigation URL change before the timer fires.
+  GURL changed_url("https://example.com/changed");
+  host_->set_current_url_override(changed_url);
+  ASSERT_NE(host_->GetCurrentUrl().GetWithoutRef(),
+            host_->current_url().GetWithoutRef());
+
+  // Fast forward to timer expiration.
+  task_environment_.FastForwardBy(base::Milliseconds(500));
+
+  // The retry timer should no longer be running, and the retry should be
+  // cancelled without hanging.
+  EXPECT_FALSE(host_->is_uniform_image_retry_timer_running());
+  EXPECT_FALSE(host_->is_checking_uniform_image());
+  histograms.ExpectBucketCount(
+      "SBClientPhishing.PhishingImageEmbeddingResult",
+      ClientSideDetectionHostBase::ImageEmbeddingResult::kCancelled, 1);
+  histograms.ExpectBucketCount(
+      "SBClientPhishing.PhishingImageEmbeddingResult.KeyboardLockRequested",
+      ClientSideDetectionHostBase::ImageEmbeddingResult::kCancelled, 1);
+  histograms.ExpectTotalCount(
+      "SBClientPhishing.KeyboardLock.IsFinalImageUniform", 0);
 }
 
 // Unit tests for ExtractClipboardData

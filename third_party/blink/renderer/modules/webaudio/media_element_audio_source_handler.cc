@@ -82,10 +82,6 @@ void MediaElementAudioSourceHandler::Dispose() {
     audio_source_provider_.reset();
     multi_channel_resampler_.reset();
   }
-  if (GetDeferredTaskHandler().GetActiveSourceHandlers()->Contains(this)) {
-    GetDeferredTaskHandler().GetActiveSourceHandlers()->erase(this);
-    BreakConnectionWithLock();
-  }
   AudioHandler::Dispose();
 }
 

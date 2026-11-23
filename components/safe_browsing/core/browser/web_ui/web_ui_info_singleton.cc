@@ -4,11 +4,9 @@
 
 #include "components/safe_browsing/core/browser/web_ui/web_ui_info_singleton.h"
 
-#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/strcat.h"
 #include "components/safe_browsing/core/browser/web_ui/web_ui_info_singleton_event_observer.h"
-#include "components/safe_browsing/core/common/features.h"
 #include "components/sync/protocol/user_event_specifics.pb.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 
@@ -300,11 +298,7 @@ void WebUIInfoSingleton::ClearHPRTLookupPings() {
 }
 
 void WebUIInfoSingleton::AddToV5GetHashLookups(
-    const V5GetHashProtocolManager::V5GetHashLookup& lookup) {
-  if (!base::FeatureList::IsEnabled(kLocalListsUseSBv5WebUI)) {
-    return;
-  }
-
+    V5GetHashProtocolManager::V5GetHashLookup lookup) {
   if (!HasListener()) {
     return;
   }
@@ -314,7 +308,7 @@ void WebUIInfoSingleton::AddToV5GetHashLookups(
     webui_listener->NotifyV5GetHashLookupJsListener(lookup);
   }
 
-  v5_get_hash_lookups_.push_back(lookup);
+  v5_get_hash_lookups_.push_back(std::move(lookup));
 }
 
 void WebUIInfoSingleton::ClearV5GetHashLookups() {

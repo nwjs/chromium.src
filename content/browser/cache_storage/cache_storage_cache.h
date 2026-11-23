@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 
+#include "base/byte_size.h"
 #include "base/containers/id_map.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/files/file_path.h"
@@ -32,7 +33,6 @@
 #include "content/common/content_export.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
-#include "net/base/completion_once_callback.h"
 #include "net/base/io_buffer.h"
 #include "net/disk_cache/disk_cache.h"
 #include "services/network/public/mojom/cache_storage_side_data_writer.mojom.h"
@@ -89,8 +89,10 @@ class CONTENT_EXPORT CacheStorageCache {
       base::OnceCallback<void(blink::mojom::CacheStorageError,
                               std::unique_ptr<Requests>)>;
 
-  using SizeCallback = base::OnceCallback<void(int64_t)>;
-  using SizePaddingCallback = base::OnceCallback<void(int64_t, int64_t)>;
+  using SizeCallback = base::OnceCallback<void(std::optional<base::ByteSize>)>;
+  using SizePaddingCallback =
+      base::OnceCallback<void(std::optional<base::ByteSize>,
+                              std::optional<base::ByteSize>)>;
 
   // The stream index for a cache Entry. This cannot be extended without changes
   // in the Entry implementation. INDEX_SIDE_DATA is used for storing any
@@ -117,8 +119,8 @@ class CONTENT_EXPORT CacheStorageCache {
       const base::FilePath& path,
       scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
       scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
-      int64_t cache_size,
-      int64_t cache_padding);
+      std::optional<base::ByteSize> cache_size,
+      std::optional<base::ByteSize> cache_padding);
   static int32_t GetResponsePaddingVersion();
 
   // Returns ERROR_TYPE_NOT_FOUND if not found.
@@ -170,30 +172,12 @@ class CONTENT_EXPORT CacheStorageCache {
             int64_t trace_id,
             RequestsCallback callback);
 
-  // Closes the backend. Future operations that require the backend
-  // will exit early, even while the close is pending. Close should only be
-  // called once per CacheStorageCache.
-  void Close(base::OnceClosure callback);
-
   // The size of the cache's contents.  The callback reports the padded
   // size.  If you want the unpadded size you may call the cache_size()
   // getter method on the cache object when the callback is invoked; the
   // getter will have an up-to-date value at that point.
+  // Returns std::nullopt if the size is unknown or the operation is cancelled.
   void Size(SizeCallback callback);
-
-  // Gets the cache's size, closes the backend, and then runs |callback| with
-  // the cache's size.  As per the comment for Size(), this also returns the
-  // padded size.
-  void GetSizeThenClose(SizeCallback callback);
-
-  // Puts the request/response pair in the cache. This is a public member to
-  // directly bypass the batch operations and write into the cache. This is used
-  // by non-CacheAPI owners. The Cache Storage API uses batch operations defined
-  // in the dispatcher.
-  void Put(blink::mojom::FetchAPIRequestPtr request,
-           blink::mojom::FetchAPIResponsePtr response,
-           int64_t trace_id,
-           ErrorCallback callback);
 
   // Similar to MatchAll, but returns the associated requests as well.
   void GetAllMatchedEntries(blink::mojom::FetchAPIRequestPtr request,
@@ -216,13 +200,13 @@ class CONTENT_EXPORT CacheStorageCache {
 
   std::u16string cache_name() const { return cache_name_; }
 
-  int64_t cache_size() const { return cache_size_; }
+  std::optional<base::ByteSize> cache_size() const { return cache_size_; }
 
-  int64_t cache_padding() const { return cache_padding_; }
+  std::optional<base::ByteSize> cache_padding() const { return cache_padding_; }
 
   // Return the total cache size (actual size + padding). If either is unknown
-  // then CacheStorage::kSizeUnknown is returned.
-  int64_t PaddedCacheSize() const;
+  // then std::nullopt is returned.
+  std::optional<base::ByteSize> PaddedCacheSize() const;
 
   // Set the one observer that will be notified of changes to this cache.
   // Note: Either the observer must have a lifetime longer than this instance
@@ -233,6 +217,10 @@ class CONTENT_EXPORT CacheStorageCache {
       const blink::mojom::FetchAPIRequestPtr& request);
 
   base::WeakPtr<CacheStorageCache> AsWeakPtr();
+
+  // Immediately initiates shutdown of the backend, and invokes `callback` when
+  // that completes.
+  void ForceClose(base::OnceClosure callback);
 
   // Create a handle that will hold the CacheStorageCache alive. Client code
   // should hold one of these handles while waiting for operation callbacks to
@@ -271,9 +259,13 @@ class CONTENT_EXPORT CacheStorageCache {
   // The backend progresses from uninitialized, to open, to closed, and cannot
   // reverse direction.  The open step may be skipped.
   enum BackendState {
-    BACKEND_UNINITIALIZED,  // No backend, create backend on first operation.
-    BACKEND_OPEN,           // Backend can be used.
-    BACKEND_CLOSED          // Backend cannot be used.  All ops should fail.
+    // No backend, create backend on first operation.
+    BACKEND_UNINITIALIZED,
+    // Backend can be used.
+    BACKEND_OPEN,
+    // Backend cannot be used. All ops should fail. This is the state after
+    // failed initialization or after ForceClose is called.
+    BACKEND_CLOSED
   };
 
   friend class base::RefCounted<CacheStorageCache>;
@@ -301,8 +293,8 @@ class CONTENT_EXPORT CacheStorageCache {
       CacheStorage* cache_storage,
       scoped_refptr<storage::QuotaManagerProxy> quota_manager_proxy,
       scoped_refptr<BlobStorageContextWrapper> blob_storage_context,
-      int64_t cache_size,
-      int64_t cache_padding);
+      std::optional<base::ByteSize> cache_size,
+      std::optional<base::ByteSize> cache_padding);
 
   // Callback passed to operations. If |error| is a real error, invokes
   // |error_callback|. Always invokes |completion_closure| to signal
@@ -439,10 +431,10 @@ class CONTENT_EXPORT CacheStorageCache {
                              int64_t side_data_padding,
                              blink::mojom::CacheStorageError error);
 
-  // Puts the request and response object in the cache. The response body (if
-  // present) is stored in the cache, but not the request body. Returns OK on
-  // success.
-  void Put(blink::mojom::BatchOperationPtr operation,
+  // Puts the request and response in the cache. The response body, if present,
+  // is stored in the cache, but the request body is not.
+  void Put(blink::mojom::FetchAPIRequestPtr request,
+           blink::mojom::FetchAPIResponsePtr response,
            int64_t trace_id,
            ErrorCallback callback);
   void PutImpl(std::unique_ptr<PutContext> put_context);
@@ -484,7 +476,7 @@ class CONTENT_EXPORT CacheStorageCache {
   void UpdateCacheSize(base::OnceClosure callback);
   void UpdateCacheSizeGotSize(CacheStorageCacheHandle,
                               base::OnceClosure callback,
-                              int64_t current_cache_size);
+                              std::optional<base::ByteSize> current_cache_size);
   void UpdateCacheSizeNotifiedStorageModified(base::OnceClosure callback);
 
   // GetAllMatchedEntries callbacks.
@@ -520,46 +512,38 @@ class CONTENT_EXPORT CacheStorageCache {
       blink::mojom::CacheStorageError error,
       std::unique_ptr<QueryCacheResults> query_cache_results);
 
-  bool IsClosingOrClosed() const {
-    return close_requested_ || backend_state_ == BACKEND_CLOSED;
-  }
-
-  void CloseImpl(base::OnceClosure callback);
-
-  void SizeImpl(SizeCallback callback);
-
-  void GetSizeThenCloseDidGetSize(SizeCallback callback, int64_t cache_size);
-
   // Loads the backend and calls the callback with the result (true for
   // success). The callback will always be called. Virtual for tests.
   virtual void CreateBackend(ErrorCallback callback);
   void CreateBackendDidCreate(ErrorCallback callback,
                               disk_cache::BackendResult result);
 
+  // Marks padding as unknown if the adjustment would underflow.
+  void AdjustCachePadding(base::ByteSizeDelta delta);
+
   // Calculate the size and padding of the cache.
-  void CalculateCacheSizePadding(SizePaddingCallback callback);
   void CalculateCacheSizePaddingGotSize(SizePaddingCallback callback,
-                                        int64_t cache_size);
+                                        base::ByteSize cache_size);
   void PaddingDidQueryCache(
       SizePaddingCallback callback,
-      int64_t cache_size,
+      base::ByteSize cache_size,
       blink::mojom::CacheStorageError error,
       std::unique_ptr<QueryCacheResults> query_cache_results);
 
   // Calculate the size (but not padding) of the cache.
-  void CalculateCacheSize(net::Int64CompletionOnceCallback callback);
+  void CalculateCacheSize(SizeCallback callback);
 
   void InitBackend();
   void InitDidCreateBackend(base::OnceClosure callback,
                             blink::mojom::CacheStorageError cache_create_error);
   void InitGotCacheSize(base::OnceClosure callback,
                         blink::mojom::CacheStorageError cache_create_error,
-                        int64_t cache_size);
+                        std::optional<base::ByteSize> cache_size);
   void InitGotCacheSizeAndPadding(
       base::OnceClosure callback,
       blink::mojom::CacheStorageError cache_create_error,
-      int64_t cache_size,
-      int64_t cache_padding);
+      std::optional<base::ByteSize> cache_size,
+      std::optional<base::ByteSize> cache_padding);
   void DeleteBackendCompletedIO();
 
   // Calculate the required safe space to put the entry in the cache.
@@ -581,17 +565,16 @@ class CONTENT_EXPORT CacheStorageCache {
   base::OnceCallback<void(Args...)> WrapCallbackWithHandle(
       base::OnceCallback<void(Args...)> callback) {
     return base::BindOnce(&CacheStorageCache::RunWithHandle<Args...>,
-                          weak_ptr_factory_.GetWeakPtr(), CreateHandle(),
-                          std::move(callback));
+                          CreateHandle(), std::move(callback));
   }
 
   // Invoked by wrapped callbacks with the CacheStorageCacheHandle passed
   // as a parameter.  The handle is kept alive here simply to maintain
   // a self-reference during the operation.
   template <typename... Args>
-  void RunWithHandle(CacheStorageCacheHandle handle,
-                     base::OnceCallback<void(Args...)> callback,
-                     Args... args) {
+  static void RunWithHandle(CacheStorageCacheHandle handle,
+                            base::OnceCallback<void(Args...)> callback,
+                            Args... args) {
     std::move(callback).Run(std::forward<Args>(args)...);
     // |handle| is destroyed after running the inner wrapped callback.
   }
@@ -616,14 +599,10 @@ class CONTENT_EXPORT CacheStorageCache {
   BackendState backend_state_ = BACKEND_UNINITIALIZED;
   std::unique_ptr<CacheStorageScheduler> scheduler_;
   bool initializing_ = false;
-  // Reject new operations once closing is requested. Keep this separate from
-  // backend_state_ so previously scheduled operations can use the open backend
-  // until the close operation runs.
-  bool close_requested_ = false;
   // The actual cache size (not including padding).
-  int64_t cache_size_;
-  int64_t cache_padding_ = 0;
-  int64_t last_reported_size_ = 0;
+  std::optional<base::ByteSize> cache_size_;
+  std::optional<base::ByteSize> cache_padding_;
+  std::optional<base::ByteSize> last_reported_size_{base::ByteSize()};
   size_t max_query_size_bytes_;
   size_t handle_ref_count_ = 0;
   int query_cache_recursive_depth_ = 0;
@@ -640,11 +619,13 @@ class CONTENT_EXPORT CacheStorageCache {
   // Whether or not to store data in disk or memory.
   const bool memory_only_;
 
-  // Active while waiting for the backend to finish its closing up, and contains
-  // the callback passed to CloseImpl.
+  // Non-null until backend cleanup completes. Initially a no-op; ForceClose()
+  // chains its completion callback onto this via Then().
   base::OnceClosure post_backend_closed_callback_;
 
   SEQUENCE_CHECKER(sequence_checker_);
+  base::WeakPtrFactory<CacheStorageCache> backend_shutdown_weak_ptr_factory_{
+      this};
   base::WeakPtrFactory<CacheStorageCache> weak_ptr_factory_{this};
 };
 

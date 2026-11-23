@@ -21,6 +21,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
+import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
+import static org.chromium.base.test.transit.ViewFinder.waitForView;
+
 import android.app.Activity;
 
 import androidx.annotation.Nullable;
@@ -43,7 +46,6 @@ import org.chromium.base.Callback;
 import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.ThreadUtils;
-import org.chromium.base.test.transit.ViewFinder;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -65,7 +67,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManagerSupplier;
 import org.chromium.chrome.browser.glic.GlicEnabling;
-import org.chromium.chrome.browser.glic.GlicNavigationUtils;
+import org.chromium.chrome.browser.glic.settings.GlicNavigationUtils;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.metrics.UmaSessionStatsJni;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
@@ -100,7 +102,6 @@ import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.base.DeviceFormFactor;
-import org.chromium.ui.test.util.ViewUtils;
 
 /** Tests for {@link TabbedRootUiCoordinator}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -207,11 +208,11 @@ public class TabbedRootUiCoordinatorTest {
         mPage = mActivityTestRule.startOnBlankPage();
         mTabbedRootUiCoordinator =
                 (TabbedRootUiCoordinator) mPage.getActivity().getRootUiCoordinatorForTesting();
-        ViewFinder.waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
+        waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
 
         // The fullscreen prompt should be displayed upon signout.
         mSigninTestRule.signOut();
-        ViewUtils.waitForVisibleView(withText(R.string.signin_fre_title_signin_forced_by_policy));
+        waitForView(withText(R.string.signin_fre_title_signin_forced_by_policy));
     }
 
     /**
@@ -230,12 +231,12 @@ public class TabbedRootUiCoordinatorTest {
         mPage = mActivityTestRule.startOnBlankPage();
         mTabbedRootUiCoordinator =
                 (TabbedRootUiCoordinator) mPage.getActivity().getRootUiCoordinatorForTesting();
-        ViewFinder.waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
+        waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
 
         // The fullscreen prompt should be displayed upon signout, without waiting for the activity
         // to be resumed again.
         mSigninTestRule.signOut();
-        ViewUtils.waitForVisibleView(withText(R.string.signin_fre_title_signin_forced_by_policy));
+        waitForView(withText(R.string.signin_fre_title_signin_forced_by_policy));
     }
 
     @Test
@@ -247,7 +248,7 @@ public class TabbedRootUiCoordinatorTest {
 
         // The user is already signed in at first, so the fullscreen signin prompt is not displayed.
         mPage = mActivityTestRule.startOnBlankPage();
-        ViewFinder.waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
+        waitForNoView(withText(R.string.signin_fre_title_signin_forced_by_policy));
 
         // Mock ExternalAuthUtils to simulate Google Play Services missing, making signin not
         // allowed.
@@ -1038,7 +1039,6 @@ public class TabbedRootUiCoordinatorTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_EXTRA_ENTRY_POINTS)
     public void testSendTabToSelfOmniboxIphOnStartup() {
         doAnswer(
                         invocation -> {
@@ -1072,7 +1072,6 @@ public class TabbedRootUiCoordinatorTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_EXTRA_ENTRY_POINTS)
     public void testSendTabToSelfOmniboxIphOnStartup_notEligible() {
         doAnswer(
                         invocation -> {

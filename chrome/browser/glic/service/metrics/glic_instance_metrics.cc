@@ -26,6 +26,9 @@
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_cui_tracker.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_fre_impression_cui_tracker.h"
+#include "chrome/browser/glic/public/glic_provider_metrics.h"
+#include "chrome/browser/glic/public/glic_response_completion_cui_tracker.h"
 #include "chrome/browser/glic/public/glic_submit_query_cui_tracker.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/service/glic_state_tracker.h"
@@ -57,6 +60,8 @@
 #endif
 
 namespace glic {
+
+// User actions are not split by provider; histograms carry the provider split.
 
 namespace {
 
@@ -108,7 +113,8 @@ enum class GlicTurnSource {
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicTurnSource)
 
 void RecordSelectionOverlayMetrics(
-    const std::vector<tabs::TabInterface*>& pinned_tabs) {
+    const std::vector<raw_ptr<tabs::TabInterface>>& pinned_tabs,
+    const GlicMetricReporter& reporter) {
 // Selection Overlays are not currently implemented on Android.
 #if !BUILDFLAG(IS_ANDROID)
   int selection_areas_count = 0;
@@ -127,13 +133,13 @@ void RecordSelectionOverlayMetrics(
     }
   }
   if (base::FeatureList::IsEnabled(features::kGlicCaptureRegion)) {
-    base::UmaHistogramExactLinear("Glic.Instance.InputSubmitted.SelectionCount",
-                                  selection_areas_count, 10);
+    reporter.RecordExactLinear("Instance.InputSubmitted.SelectionCount",
+                               selection_areas_count, 10);
   }
   if (base::FeatureList::IsEnabled(features::kGlicRegionSelectionLine)) {
     for (int count : polyline_point_counts) {
-      base::UmaHistogramCounts1000(
-          "Glic.Instance.InputSubmitted.Selection.PolylinePointCount", count);
+      reporter.RecordCounts1000(
+          "Instance.InputSubmitted.Selection.PolylinePointCount", count);
     }
   }
 #endif
@@ -188,7 +194,8 @@ GlicInstanceMetrics::GlicInstanceMetrics(
     const metrics::ProfileMetricsService* profile_metrics_service,
     Profile* profile)
     : creation_time_(base::TimeTicks::Now()),
-      session_manager_(this),
+      metric_reporter_(profile),
+      session_manager_(this, metric_reporter_),
       profile_metrics_service_(CHECK_DEREF(profile_metrics_service)),
       saas_usage_reporting_controller_(nullptr),
       profile_(profile),
@@ -196,6 +203,7 @@ GlicInstanceMetrics::GlicInstanceMetrics(
   CHECK(profile);
   // Used in the unit tests.
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Created"));
+  // Not split: recorded by GlicStateTracker, not this class.
   activity_tracker_ = std::make_unique<GlicStateTracker>(
       false, "Glic.Instance.UninterruptedActiveDuration");
   visibility_tracker_ = std::make_unique<GlicStateTracker>(
@@ -210,7 +218,8 @@ GlicInstanceMetrics::GlicInstanceMetrics(
         saas_usage_reporting_controller,
     Profile* profile)
     : creation_time_(base::TimeTicks::Now()),
-      session_manager_(this),
+      metric_reporter_(profile),
+      session_manager_(this, metric_reporter_),
       pinned_tabs_changed_subscription_(
           sharing_manager->AddPinnedTabsChangedCallback(
               base::BindRepeating(&GlicInstanceMetrics::OnPinnedTabsChanged,
@@ -226,6 +235,7 @@ GlicInstanceMetrics::GlicInstanceMetrics(
       pref_service_(profile ? profile->GetPrefs() : nullptr) {
   CHECK(profile);
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Created"));
+  // Not split: recorded by GlicStateTracker, not this class.
   activity_tracker_ = std::make_unique<GlicStateTracker>(
       false, "Glic.Instance.UninterruptedActiveDuration");
   visibility_tracker_ = std::make_unique<GlicStateTracker>(
@@ -253,6 +263,7 @@ void GlicInstanceMetrics::MaybeRecordOptInImpression() {
   }
   base::RecordAction(
       base::UserMetricsAction("Glic.Onboarding.OptInImpression"));
+  // Not split: consumer FRE/opt-in only; GEiC FRE tracked in b/571507463.
   base::UmaHistogramEnumeration("Glic.Onboarding.OptInImpression.FlowSource",
                                 OptInFlow::kGlicFre);
   if (opt_in_shown_callback_) {
@@ -262,6 +273,8 @@ void GlicInstanceMetrics::MaybeRecordOptInImpression() {
     opt_in_shown_callback_.Run(GetUkmSourceIdForTab(tab));
   }
   is_opt_in_pending_ = false;
+  opt_in_impression_recorded_for_current_open_ = true;
+  LogEvent(GlicInstanceEvent::kOptInImpression);
 }
 
 void GlicInstanceMetrics::OnGlicScrollAttempt() {
@@ -277,8 +290,8 @@ void GlicInstanceMetrics::OnGlicScrollComplete(bool success) {
       base::TimeDelta time_to_scroll =
           base::TimeTicks::Now() - turn_info.input_submitted_time_;
       std::string_view mode_string = GetInputModeString(turn_info.input_mode_);
-      base::UmaHistogramMediumTimes(
-          base::StrCat({"Glic.ScrollTo.UserPromptToScrollTime.", mode_string}),
+      metric_reporter_.RecordMediumTimes(
+          base::StrCat({"ScrollTo.UserPromptToScrollTime.", mode_string}),
           time_to_scroll);
     }
     turn_info.pending_scroll_complete_ = false;
@@ -292,7 +305,7 @@ void GlicInstanceMetrics::OnGlicScrollComplete(bool success) {
 }
 
 void GlicInstanceMetrics::OnPinnedTabsChanged(
-    const std::vector<tabs::TabInterface*>& pinned_tabs) {
+    const std::vector<raw_ptr<tabs::TabInterface>>& pinned_tabs) {
   pinned_tab_count_ = pinned_tabs.size();
   session_manager_.SetPinnedTabCount(pinned_tab_count_);
 }
@@ -301,11 +314,11 @@ void GlicInstanceMetrics::RecordTabPinningStatusEvent(
     tabs::TabInterface* tab,
     GlicPinningStatusEvent event) {
   if (const auto* pin_event = std::get_if<GlicPinEvent>(&event)) {
-    base::UmaHistogramEnumeration("Glic.Instance.TabPinTrigger",
-                                  pin_event->trigger);
+    metric_reporter_.RecordEnumeration("Instance.TabPinTrigger",
+                                       pin_event->trigger);
   } else if (const auto* unpin_event = std::get_if<GlicUnpinEvent>(&event)) {
-    base::UmaHistogramEnumeration("Glic.Instance.TabUnpinTrigger",
-                                  unpin_event->trigger);
+    metric_reporter_.RecordEnumeration("Instance.TabUnpinTrigger",
+                                       unpin_event->trigger);
   }
 }
 
@@ -326,27 +339,28 @@ void GlicInstanceMetrics::OnInstanceDestroyed() {
   const base::TimeDelta background_time = lifetime - total_active_time;
   const base::TimeDelta hidden_time = lifetime - total_visible_time;
 
-  base::UmaHistogramCustomTimes("Glic.Instance.TotalActiveDuration",
-                                total_active_time, base::Milliseconds(1),
-                                base::Hours(24), 50);
-  base::UmaHistogramCustomTimes("Glic.Instance.TotalBackgroundDuration",
-                                background_time, base::Milliseconds(1),
-                                base::Hours(24), 50);
-  base::UmaHistogramCustomTimes("Glic.Instance.TotalVisibleDuration",
-                                total_visible_time, base::Milliseconds(1),
-                                base::Hours(24), 50);
-  base::UmaHistogramCustomTimes("Glic.Instance.TotalHiddenDuration",
-                                hidden_time, base::Milliseconds(1),
-                                base::Hours(24), 50);
+  metric_reporter_.RecordCustomTimes("Instance.TotalActiveDuration",
+                                     total_active_time, base::Milliseconds(1),
+                                     base::Hours(24), 50);
+  metric_reporter_.RecordCustomTimes("Instance.TotalBackgroundDuration",
+                                     background_time, base::Milliseconds(1),
+                                     base::Hours(24), 50);
+  metric_reporter_.RecordCustomTimes("Instance.TotalVisibleDuration",
+                                     total_visible_time, base::Milliseconds(1),
+                                     base::Hours(24), 50);
+  metric_reporter_.RecordCustomTimes("Instance.TotalHiddenDuration",
+                                     hidden_time, base::Milliseconds(1),
+                                     base::Hours(24), 50);
 
-  base::UmaHistogramCounts100("Glic.Instance.TotalTabsBoundInLifetime",
-                              GetEventCount(GlicInstanceEvent::kTabBound));
-  base::UmaHistogramCounts100("Glic.Instance.MaxConcurrentlyBoundTabs",
-                              max_concurrently_bound_tabs_);
+  metric_reporter_.RecordCounts100("Instance.TotalTabsBoundInLifetime",
+                                   GetEventCount(GlicInstanceEvent::kTabBound));
+  metric_reporter_.RecordCounts100("Instance.MaxConcurrentlyBoundTabs",
+                                   max_concurrently_bound_tabs_);
+  // Not split: ProfileMetricsService adds its own {Profile} token.
   profile_metrics_service_->UmaHistogramCounts100(
       "Glic.Instance.TurnCount",
       GetEventCount(GlicInstanceEvent::kTurnCompleted));
-  base::UmaHistogramCounts100("Glic.Instance.SessionCount", session_count_);
+  metric_reporter_.RecordCounts100("Instance.SessionCount", session_count_);
 
   InputModesUsed modes_used = InputModesUsed::kNone;
   bool has_audio = inputs_modes_used_.Has(mojom::WebClientMode::kAudio);
@@ -358,10 +372,10 @@ void GlicInstanceMetrics::OnInstanceDestroyed() {
   } else if (has_text) {
     modes_used = InputModesUsed::kOnlyText;
   }
-  base::UmaHistogramEnumeration("Glic.Instance.InputModesUsed", modes_used);
+  metric_reporter_.RecordEnumeration("Instance.InputModesUsed", modes_used);
 
-  base::UmaHistogramCounts100("Glic.Instance.ZoomChangeCount",
-                              zoom_change_count_);
+  metric_reporter_.RecordCounts100("Instance.ZoomChangeCount",
+                                   zoom_change_count_);
   zoom_change_count_ = 0;
 }
 
@@ -376,14 +390,14 @@ void GlicInstanceMetrics::OnActivationChanged(bool is_active) {
     if (!last_active_time_.is_null()) {
       base::TimeDelta time_since_last_active =
           base::TimeTicks::Now() - last_active_time_;
-      base::UmaHistogramLongTimes("Glic.Instance.TimeSinceLastActive",
-                                  time_since_last_active);
-      base::UmaHistogramCustomTimes("Glic.Instance.TimeSinceLastActive.24H",
-                                    time_since_last_active, base::Seconds(1),
-                                    base::Hours(24), 50);
-      base::UmaHistogramCustomTimes("Glic.Instance.TimeSinceLastActive.7D",
-                                    time_since_last_active, base::Seconds(1),
-                                    base::Days(7), 50);
+      metric_reporter_.RecordLongTimes("Instance.TimeSinceLastActive",
+                                       time_since_last_active);
+      metric_reporter_.RecordCustomTimes("Instance.TimeSinceLastActive.24H",
+                                         time_since_last_active,
+                                         base::Seconds(1), base::Hours(24), 50);
+      metric_reporter_.RecordCustomTimes("Instance.TimeSinceLastActive.7D",
+                                         time_since_last_active,
+                                         base::Seconds(1), base::Days(7), 50);
     }
   }
 
@@ -485,8 +499,8 @@ void GlicInstanceMetrics::OnShowInSidePanel(tabs::TabInterface* tab) {
   MaybeSetInitialInvocationSource(last_invocation_source_);
 
   if (side_panel_open_times_.contains(tab->GetHandle())) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kSidePanelOpenedWhileAlreadyOpen);
     return;
   }
@@ -529,24 +543,24 @@ void GlicInstanceMetrics::MaybeSetInitialInvocationSource(
   // Backfill events that happened before the initial invocation source was set.
   const std::string source_str = GetInvocationSourceString(source);
   const std::string event_counts_histogram =
-      base::StrCat({"Glic.InvocationSource.", source_str, ".EventCounts"});
+      base::StrCat({"InvocationSource.", source_str, ".EventCounts"});
   const std::string had_event_histogram =
-      base::StrCat({"Glic.InvocationSource.", source_str, ".HadEvent"});
+      base::StrCat({"InvocationSource.", source_str, ".HadEvent"});
   for (const auto& [event, count] : event_counts_) {
     if (count <= 0) {
       continue;
     }
-    base::UmaHistogramEnumeration(had_event_histogram, event);
+    metric_reporter_.RecordEnumeration(had_event_histogram, event);
     for (int i = 0; i < count; ++i) {
-      base::UmaHistogramEnumeration(event_counts_histogram, event);
+      metric_reporter_.RecordEnumeration(event_counts_histogram, event);
     }
   }
 }
 
 void GlicInstanceMetrics::OnShowInFloaty(const ShowOptions& options) {
   if (!floaty_open_time_.is_null()) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kFloatyOpenedWhileAlreadyOpen);
     return;
   }
@@ -558,8 +572,8 @@ void GlicInstanceMetrics::OnShowInFloaty(const ShowOptions& options) {
   if (const auto* floaty_options =
           std::get_if<FloatingShowOptions>(&options.embedder_options)) {
     if (floaty_options->initial_mode != mojom::WebClientMode::kUnknown) {
-      base::UmaHistogramEnumeration("Glic.Instance.Floaty.InitialMode",
-                                    floaty_options->initial_mode);
+      metric_reporter_.RecordEnumeration("Instance.Floaty.InitialMode",
+                                         floaty_options->initial_mode);
     }
   }
   LogEvent(GlicInstanceEvent::kShown);
@@ -567,21 +581,20 @@ void GlicInstanceMetrics::OnShowInFloaty(const ShowOptions& options) {
 
 void GlicInstanceMetrics::OnFloatyClosed() {
   if (floaty_open_time_.is_null()) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kFloatyClosedWithoutOpen);
     return;
   }
   base::TimeDelta duration = base::TimeTicks::Now() - floaty_open_time_;
-  base::UmaHistogramCustomTimes("Glic.Instance.Floaty.OpenDuration", duration,
-                                base::Milliseconds(1), base::Hours(1), 50);
+  metric_reporter_.RecordCustomTimes("Instance.Floaty.OpenDuration", duration,
+                                     base::Milliseconds(1), base::Hours(1), 50);
   if (!first_floaty_close_recorded_) {
     first_floaty_close_recorded_ = true;
     mojom::InvocationSource source = initial_invocation_source_.value_or(
         mojom::InvocationSource::kUnsupported);
-    base::UmaHistogramCustomTimes(
-        base::StrCat({"Glic.InvocationSource.",
-                      GetInvocationSourceString(source),
+    metric_reporter_.RecordCustomTimes(
+        base::StrCat({"InvocationSource.", GetInvocationSourceString(source),
                       ".FloatyFirstOpenDuration"}),
         duration, base::Milliseconds(1), base::Hours(1), 50);
   }
@@ -606,16 +619,16 @@ void GlicInstanceMetrics::OnSidePanelClosed(
   tabs::TabHandle tab_handle = tab->GetHandle();
   auto it = side_panel_open_times_.find(tab_handle);
   if (it == side_panel_open_times_.end()) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kSidePanelClosedWithoutOpen);
     return;
   }
 
   base::TimeDelta duration = base::TimeTicks::Now() - it->second;
-  base::UmaHistogramCustomTimes("Glic.Instance.SidePanel.OpenDuration",
-                                duration, base::Milliseconds(1), base::Hours(1),
-                                50);
+  metric_reporter_.RecordCustomTimes("Instance.SidePanel.OpenDuration",
+                                     duration, base::Milliseconds(1),
+                                     base::Hours(1), 50);
 
   MaybeRecordFirstSidePanelOpenMetrics(duration);
 
@@ -640,21 +653,21 @@ void GlicInstanceMetrics::MaybeRecordFirstSidePanelOpenMetrics(
       mojom::InvocationSource::kUnsupported);
   const std::string source_str = GetInvocationSourceString(source);
 
-  base::UmaHistogramCustomTimes(
-      base::StrCat({"Glic.InvocationSource.", source_str,
-                    ".SidePanelFirstOpenDuration"}),
+  metric_reporter_.RecordCustomTimes(
+      base::StrCat(
+          {"InvocationSource.", source_str, ".SidePanelFirstOpenDuration"}),
       duration, base::Milliseconds(1), base::Hours(1), 50);
 
   const char* variant =
       (side_panel_prompt_count_ >= 1) ? "WithPrompts" : "NoPrompts";
-  base::UmaHistogramCustomTimes(
-      base::StrCat({"Glic.InvocationSource.", source_str,
+  metric_reporter_.RecordCustomTimes(
+      base::StrCat({"InvocationSource.", source_str,
                     ".SidePanelFirstOpenDuration.", variant}),
       duration, base::Milliseconds(1), base::Hours(1), 50);
 
-  base::UmaHistogramCounts100(
-      base::StrCat({"Glic.InvocationSource.", source_str,
-                    ".SidePanelFirstOpenPromptCount"}),
+  metric_reporter_.RecordCounts100(
+      base::StrCat(
+          {"InvocationSource.", source_str, ".SidePanelFirstOpenPromptCount"}),
       side_panel_prompt_count_);
 }
 
@@ -676,14 +689,14 @@ void GlicInstanceMetrics::OnUnbindEmbedder(EmbedderKey key) {
     auto it = side_panel_open_times_.find(tab_handle);
     if (it != side_panel_open_times_.end()) {
       base::TimeDelta duration = base::TimeTicks::Now() - it->second;
-      base::UmaHistogramCustomTimes("Glic.Instance.SidePanel.OpenDuration",
-                                    duration, base::Milliseconds(1),
-                                    base::Hours(1), 50);
+      metric_reporter_.RecordCustomTimes("Instance.SidePanel.OpenDuration",
+                                         duration, base::Milliseconds(1),
+                                         base::Hours(1), 50);
       MaybeRecordFirstSidePanelOpenMetrics(duration);
       side_panel_open_times_.erase(it);
     } else {
-      base::UmaHistogramEnumeration(
-          "Glic.Instance.Metrics.Error",
+      metric_reporter_.RecordEnumeration(
+          "Instance.Metrics.Error",
           GlicInstanceMetricsError::kTabUnbindWithoutOpen);
     }
     tab_depths_.erase(tab_handle);
@@ -693,15 +706,15 @@ void GlicInstanceMetrics::OnUnbindEmbedder(EmbedderKey key) {
   } else {
     if (!floaty_open_time_.is_null()) {
       base::TimeDelta duration = base::TimeTicks::Now() - floaty_open_time_;
-      base::UmaHistogramCustomTimes("Glic.Instance.Floaty.OpenDuration",
-                                    duration, base::Milliseconds(1),
-                                    base::Hours(1), 50);
+      metric_reporter_.RecordCustomTimes("Instance.Floaty.OpenDuration",
+                                         duration, base::Milliseconds(1),
+                                         base::Hours(1), 50);
       if (!first_floaty_close_recorded_) {
         first_floaty_close_recorded_ = true;
         mojom::InvocationSource source = initial_invocation_source_.value_or(
             mojom::InvocationSource::kUnsupported);
-        base::UmaHistogramCustomTimes(
-            base::StrCat({"Glic.InvocationSource.",
+        metric_reporter_.RecordCustomTimes(
+            base::StrCat({"InvocationSource.",
                           GetInvocationSourceString(source),
                           ".FloatyFirstOpenDuration"}),
             duration, base::Milliseconds(1), base::Hours(1), 50);
@@ -736,7 +749,7 @@ void GlicInstanceMetrics::OnDaisyChain(DaisyChainSource source,
       }
       tab_depths_[new_tab->GetHandle()] = depth;
       if (source == DaisyChainSource::kTabContents) {
-        base::UmaHistogramExactLinear("Glic.Tab.DaisyChainDepth", depth, 50);
+        metric_reporter_.RecordExactLinear("Tab.DaisyChainDepth", depth, 50);
       }
 
       if (auto* new_helper = GlicInstanceHelper::From(new_tab)) {
@@ -775,9 +788,9 @@ void GlicInstanceMetrics::MaybeRecordTimeToDismissWhileLoading() {
   base::TimeDelta wait_time =
       base::TimeTicks::Now() - invocation_load_state_.start_time;
   if (invocation_load_state_.embedder_type != EmbedderType::kUnknown) {
-    base::UmaHistogramCustomTimes(
+    metric_reporter_.RecordCustomTimes(
         base::StrCat(
-            {"Glic.Instance.TimeToDismissWhileLoading.",
+            {"Instance.TimeToDismissWhileLoading.",
              GetEmbedderTypeString(invocation_load_state_.embedder_type)}),
         wait_time, base::Milliseconds(1), base::Seconds(60), 50);
   }
@@ -788,14 +801,16 @@ void GlicInstanceMetrics::OnInstanceHidden() {
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Hide"));
   LogEvent(GlicInstanceEvent::kInstanceHidden);
   MaybeRecordTimeToDismissWhileLoading();
+  opt_in_impression_recorded_for_current_open_ = false;
 }
 
 void GlicInstanceMetrics::OnClose() {
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Close"));
   LogEvent(GlicInstanceEvent::kClose);
-  base::UmaHistogramEnumeration("Glic.PanelWebUiState.FinishState3",
-                                last_web_ui_state_);
+  metric_reporter_.RecordEnumeration("PanelWebUiState.FinishState3",
+                                     last_web_ui_state_);
   if (!GlicEnabling::HasConsentedForProfile(profile_)) {
+    // Not split: consumer FRE/opt-in only; GEiC FRE tracked in b/571507463.
     base::UmaHistogramEnumeration("Glic.Fre.PanelWebUiState.FinishState",
                                   last_web_ui_state_);
   }
@@ -804,6 +819,7 @@ void GlicInstanceMetrics::OnClose() {
   actionable_invocation_state_ = {};
   // A frame submitted during this invocation is stale for the next one.
   guest_actionable_.frame_submitted_while_hidden = false;
+  opt_in_impression_recorded_for_current_open_ = false;
 }
 
 bool GlicInstanceMetrics::MarkShownAndCheckIfFirstTime(EmbedderKey key) {
@@ -812,8 +828,8 @@ bool GlicInstanceMetrics::MarkShownAndCheckIfFirstTime(EmbedderKey key) {
   return seen_embedders_.insert(ToSafeKey(key)).second;
 }
 
-void GlicInstanceMetrics::ResetShownState(EmbedderKey key) {
-  seen_embedders_.erase(ToSafeKey(key));
+bool GlicInstanceMetrics::ResetShownState(EmbedderKey key) {
+  return seen_embedders_.erase(ToSafeKey(key)) > 0;
 }
 
 void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
@@ -841,9 +857,10 @@ void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
     // Don't overwrite initial invocation source if it was set due to being
     // invoked in the background.
     MaybeSetInitialInvocationSource(source);
-    base::UmaHistogramEnumeration("Glic.Instance.InitialInvocationSource",
-                                  *initial_invocation_source_);
+    metric_reporter_.RecordEnumeration("Instance.InitialInvocationSource",
+                                       *initial_invocation_source_);
     if (!GlicEnabling::HasConsentedForProfile(profile_)) {
+      // Not split: consumer FRE/opt-in only; GEiC FRE tracked in b/571507463.
       base::UmaHistogramEnumeration("Glic.Fre.Invoked.InvocationSource",
                                     *initial_invocation_source_);
       base::RecordAction(base::UserMetricsAction("Glic.Fre.Invoked"));
@@ -852,6 +869,15 @@ void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
 
   // 2. Log Events
   LogEvent(GlicInstanceEvent::kOpen);
+  if (!GlicEnabling::HasConsentedForProfile(profile_)) {
+    auto fre_tracker = std::make_unique<GlicFreImpressionCuiTracker>();
+    if (opt_in_impression_recorded_for_current_open_) {
+      fre_tracker->OnEvent(GlicInstanceEvent::kOptInImpression);
+      opt_in_impression_recorded_for_current_open_ = false;
+    } else {
+      cui_trackers_.push_back(std::move(fre_tracker));
+    }
+  }
 
   // 3. Record Actions
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Open"));
@@ -859,15 +885,14 @@ void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
   // 4. Log Open Source
   bool is_floaty =
       std::holds_alternative<FloatingShowOptions>(options.embedder_options);
-  std::string open_source_base = is_floaty
-                                     ? "Glic.Instance.Floaty.OpenSource"
-                                     : "Glic.Instance.SidePanel.OpenSource";
-  base::UmaHistogramEnumeration(open_source_base, source);
+  std::string open_source_base = is_floaty ? "Instance.Floaty.OpenSource"
+                                           : "Instance.SidePanel.OpenSource";
+  metric_reporter_.RecordEnumeration(open_source_base, source);
 
   // 5. Log Zoom Level
   if (pref_service_) {
     int zoom_level = pref_service_->GetInteger(prefs::kGlicZoomLevel);
-    base::UmaHistogramSparse("Glic.ZoomLevel.OnOpen", zoom_level);
+    metric_reporter_.RecordSparse("ZoomLevel.OnOpen", zoom_level);
   }
 
   // 6. SaaS Usage
@@ -877,20 +902,15 @@ void GlicInstanceMetrics::OnOpen(glic::mojom::InvocationSource source,
   }
 }
 
-void GlicInstanceMetrics::OnToggle(
-    glic::mojom::InvocationSource source,
-    const EmbedderKey& embedder_key,
-    bool is_showing,
-    std::unique_ptr<GlicWindowInvocationTracker> invocation_tracker) {
-  if (invocation_tracker) {
-    cui_trackers_.push_back(std::move(invocation_tracker));
-  }
+void GlicInstanceMetrics::OnToggle(glic::mojom::InvocationSource source,
+                                   const EmbedderKey& embedder_key,
+                                   bool is_showing) {
   base::RecordAction(base::UserMetricsAction("Glic.Instance.Toggle"));
   if (std::holds_alternative<FloatingEmbedderKey>(embedder_key)) {
-    base::UmaHistogramEnumeration("Glic.Instance.Floaty.ToggleSource", source);
+    metric_reporter_.RecordEnumeration("Instance.Floaty.ToggleSource", source);
   } else {
-    base::UmaHistogramEnumeration("Glic.Instance.SidePanel.ToggleSource",
-                                  source);
+    metric_reporter_.RecordEnumeration("Instance.SidePanel.ToggleSource",
+                                       source);
   }
   LogEvent(GlicInstanceEvent::kToggle);
 }
@@ -1032,13 +1052,15 @@ void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
             (visibility_tracker_ && visibility_tracker_->state())
                 ? ".Visible"
                 : ".Nonvisible";
-        base::UmaHistogramCustomTimes(
-            base::StrCat({"Glic.Instance.WebUiLoadTime", visibility_suffix}),
+        metric_reporter_.RecordCustomTimes(
+            base::StrCat({"Instance.WebUiLoadTime", visibility_suffix}),
             load_time, base::Milliseconds(1), base::Seconds(60), 50);
 
         if (profile_ && !has_consented_) {
           has_consented_ = GlicEnabling::HasConsentedForProfile(profile_);
           if (!has_consented_) {
+            // Not split: consumer FRE/opt-in only; GEiC FRE tracked in
+            // b/571507463.
             base::UmaHistogramCustomTimes(
                 base::StrCat(
                     {"Glic.Onboarding.WebUiLoadTime", visibility_suffix}),
@@ -1047,8 +1069,8 @@ void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
         }
 
         if (initial_invocation_source_.has_value()) {
-          base::UmaHistogramCustomTimes(
-              base::StrCat({"Glic.InvocationSource.",
+          metric_reporter_.RecordCustomTimes(
+              base::StrCat({"InvocationSource.",
                             GetInvocationSourceString(
                                 initial_invocation_source_.value()),
                             ".WebUiLoadTime", visibility_suffix}),
@@ -1088,6 +1110,11 @@ void GlicInstanceMetrics::OnWebUiStateChanged(mojom::WebUiState state) {
           "Glic.Instance.WebUiStateChanged.LocationMismatch"));
       LogEvent(GlicInstanceEvent::kWebUiStateLocationMismatch);
       break;
+    case mojom::WebUiState::kGuestLoaded:
+      base::RecordAction(base::UserMetricsAction(
+          "Glic.Instance.WebUiStateChanged.GuestLoaded"));
+      LogEvent(GlicInstanceEvent::kWebUiStateGuestLoaded);
+      break;
   }
 }
 
@@ -1106,10 +1133,11 @@ void GlicInstanceMetrics::OnClientReady() {
         visibility_tracker_ ? visibility_tracker_->state() : false;
     std::string_view inactive_str = is_visible ? "" : "Inactive.";
     std::string histogram_name = base::StrCat(
-        {"Glic.Instance.PanelPresentationTime.", inactive_str,
+        {"Instance.PanelPresentationTime.", inactive_str,
          GetEmbedderTypeString(invocation_load_state_.embedder_type)});
-    base::UmaHistogramCustomTimes(histogram_name, presentation_time,
-                                  base::Milliseconds(1), base::Seconds(60), 50);
+    metric_reporter_.RecordCustomTimes(histogram_name, presentation_time,
+                                       base::Milliseconds(1), base::Seconds(60),
+                                       50);
   }
   invocation_load_state_ = {};
 }
@@ -1172,10 +1200,11 @@ void GlicInstanceMetrics::RecordTimeToActionable(base::TimeTicks end_time) {
         visibility_tracker_ ? visibility_tracker_->state() : false;
     std::string_view inactive_str = is_visible ? "" : "Inactive.";
     std::string histogram_name = base::StrCat(
-        {"Glic.Instance.TimeToActionable.", inactive_str,
+        {"Instance.TimeToActionable.", inactive_str,
          GetEmbedderTypeString(actionable_invocation_state_.embedder_type)});
-    base::UmaHistogramCustomTimes(histogram_name, actionable_time,
-                                  base::Milliseconds(1), base::Seconds(60), 50);
+    metric_reporter_.RecordCustomTimes(histogram_name, actionable_time,
+                                       base::Milliseconds(1), base::Seconds(60),
+                                       50);
   }
   actionable_invocation_state_ = {};
 }
@@ -1188,11 +1217,11 @@ void GlicInstanceMetrics::LogEvent(GlicInstanceEvent event) {
       ++it;
     }
   }
-  base::UmaHistogramEnumeration("Glic.Instance.EventCounts", event);
+  metric_reporter_.RecordEnumeration("Instance.EventCounts", event);
   if (initial_invocation_source_.has_value()) {
-    base::UmaHistogramEnumeration(
+    metric_reporter_.RecordEnumeration(
         base::StrCat(
-            {"Glic.InvocationSource.",
+            {"InvocationSource.",
              GetInvocationSourceString(initial_invocation_source_.value()),
              ".EventCounts"}),
         event);
@@ -1200,11 +1229,11 @@ void GlicInstanceMetrics::LogEvent(GlicInstanceEvent event) {
   if (event_counts_[event] == 0) {
     // This is recorded only the first time an event occurs within this sessions
     // lifetime.
-    base::UmaHistogramEnumeration("Glic.Instance.HadEvent", event);
+    metric_reporter_.RecordEnumeration("Instance.HadEvent", event);
     if (initial_invocation_source_.has_value()) {
-      base::UmaHistogramEnumeration(
+      metric_reporter_.RecordEnumeration(
           base::StrCat(
-              {"Glic.InvocationSource.",
+              {"InvocationSource.",
                GetInvocationSourceString(initial_invocation_source_.value()),
                ".HadEvent"}),
           event);
@@ -1237,26 +1266,29 @@ void GlicInstanceMetrics::OnUserInputSubmitted(mojom::WebClientMode mode,
   }
 
   if (turn_.response_started_) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kInputSubmittedWhileResponseInProgress);
     return;
   }
   if (!visibility_tracker_->state()) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kInputSubmittedWhileHidden);
     return;
   }
   session_manager_.OnUserInputSubmitted(mode);
   LogEvent(GlicInstanceEvent::kUserInputSubmitted);
   cui_trackers_.push_back(std::make_unique<GlicSubmitQueryCuiTracker>());
+  cui_trackers_.push_back(
+      std::make_unique<GlicResponseCompletionCuiTracker>());
 
   base::RecordAction(base::UserMetricsAction("GlicResponseInputSubmit"));
-  base::UmaHistogramEnumeration("Glic.Turn.PromptType", prompt_type);
+  metric_reporter_.RecordEnumeration("Turn.PromptType", prompt_type);
 
   if (sharing_manager_) {
-    RecordSelectionOverlayMetrics(sharing_manager_->GetPinnedTabs());
+    RecordSelectionOverlayMetrics(sharing_manager_->GetPinnedTabs(),
+                                  metric_reporter_);
   }
 
   // Reset turn data and start populating it for the new turn being started.
@@ -1293,23 +1325,23 @@ void GlicInstanceMetrics::OnResponseStarted() {
   bool is_response_for_actuation =
       !turn_.action_result_submitted_time_.is_null();
   if (is_response_for_actuation) {
-    base::UmaHistogramMediumTimes(
-        "Glic.Turn.Actuation.ResponseStartTime",
+    metric_reporter_.RecordMediumTimes(
+        "Turn.Actuation.ResponseStartTime",
         base::TimeTicks::Now() - turn_.action_result_submitted_time_);
   }
 
   // It doesn't make sense to record response start without input submission,
   // unless we just submitted an actuation result.
   if (turn_.input_submitted_time_.is_null() && !is_response_for_actuation) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kResponseStartWithoutInput);
     return;
   }
 
   if (!visibility_tracker_->state()) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kResponseStartWhileHidingOrHidden);
     return;
   }
@@ -1319,23 +1351,23 @@ void GlicInstanceMetrics::OnResponseStarted() {
   if (!turn_.input_submitted_time_.is_null()) {
     base::TimeDelta start_time =
         base::TimeTicks::Now() - turn_.input_submitted_time_;
-    base::UmaHistogramMediumTimes("Glic.Turn.ResponseStartTime", start_time);
+    metric_reporter_.RecordMediumTimes("Turn.ResponseStartTime", start_time);
     std::string_view mode_string = GetInputModeString(input_mode_);
-    base::UmaHistogramMediumTimes(
-        base::StrCat({"Glic.Turn.ResponseStartTime.InputMode.", mode_string}),
+    metric_reporter_.RecordMediumTimes(
+        base::StrCat({"Turn.ResponseStartTime.InputMode.", mode_string}),
         start_time);
 
     if (turn_.did_request_context_) {
-      base::UmaHistogramMediumTimes("Glic.Turn.ResponseStartTime.WithContext",
-                                    start_time);
+      metric_reporter_.RecordMediumTimes("Turn.ResponseStartTime.WithContext",
+                                         start_time);
     } else {
-      base::UmaHistogramMediumTimes(
-          "Glic.Turn.ResponseStartTime.WithoutContext", start_time);
+      metric_reporter_.RecordMediumTimes(
+          "Turn.ResponseStartTime.WithoutContext", start_time);
     }
   }
 
-  base::UmaHistogramEnumeration(
-      "Glic.Response.Segmentation",
+  metric_reporter_.RecordEnumeration(
+      "Response.Segmentation",
       GetResponseSegmentation(turn_.ui_mode_ == EmbedderType::kSidePanel,
                               turn_.input_mode_, last_invocation_source_));
 
@@ -1347,8 +1379,6 @@ void GlicInstanceMetrics::OnResponseStarted() {
 }
 
 void GlicInstanceMetrics::OnResponseStopped(mojom::ResponseStopCause cause) {
-  LogEvent(GlicInstanceEvent::kResponseStopped);
-
   bool has_input = !turn_.input_submitted_time_.is_null();
   bool has_action_result = !turn_.action_result_submitted_time_.is_null();
 
@@ -1364,39 +1394,44 @@ void GlicInstanceMetrics::OnResponseStopped(mojom::ResponseStopCause cause) {
     case mojom::ResponseStopCause::kUser:
       cause_suffix = ".ByUser";
       base::RecordAction(base::UserMetricsAction("GlicResponseStopByUser"));
+      LogEvent(GlicInstanceEvent::kResponseStoppedByUser);
       break;
     case mojom::ResponseStopCause::kOther:
       cause_suffix = ".Other";
       base::RecordAction(base::UserMetricsAction("GlicResponseStopOther"));
+      LogEvent(GlicInstanceEvent::kResponseStoppedOther);
       break;
     case mojom::ResponseStopCause::kUnknown:
+      // `kUnknown` represents an omitted stop cause (`cause === undefined`)
+      // from the web client, indicating normal, successful completion.
       cause_suffix = ".UnknownCause";
       base::RecordAction(
           base::UserMetricsAction("GlicResponseStopUnknownCause"));
+      LogEvent(GlicInstanceEvent::kResponseStoppedSuccess);
       break;
   }
 
   if (!has_input && !has_action_result) {
-    base::UmaHistogramEnumeration(
-        "Glic.Instance.Metrics.Error",
+    metric_reporter_.RecordEnumeration(
+        "Instance.Metrics.Error",
         GlicInstanceMetricsError::kResponseStopWithoutInput);
-    base::UmaHistogramEnumeration(
-        base::StrCat({"Glic.Instance.Metrics.Error", cause_suffix}),
+    metric_reporter_.RecordEnumeration(
+        base::StrCat({"Instance.Metrics.Error", cause_suffix}),
         GlicInstanceMetricsError::kResponseStopWithoutInput);
   } else {
     base::TimeTicks now = base::TimeTicks::Now();
     base::TimeDelta latency;
     if (has_input) {
       latency = now - turn_.input_submitted_time_;
-      base::UmaHistogramMediumTimes("Glic.Turn.ResponseStopTime", latency);
-      base::UmaHistogramMediumTimes(
-          base::StrCat({"Glic.Turn.ResponseStopTime", cause_suffix}), latency);
+      metric_reporter_.RecordMediumTimes("Turn.ResponseStopTime", latency);
+      metric_reporter_.RecordMediumTimes(
+          base::StrCat({"Turn.ResponseStopTime", cause_suffix}), latency);
     } else if (has_action_result) {
       latency = now - turn_.action_result_submitted_time_;
-      base::UmaHistogramMediumTimes("Glic.Turn.Actuation.ResponseStopTime",
-                                    latency);
-      base::UmaHistogramMediumTimes(
-          base::StrCat({"Glic.Turn.Actuation.ResponseStopTime", cause_suffix}),
+      metric_reporter_.RecordMediumTimes("Turn.Actuation.ResponseStopTime",
+                                         latency);
+      metric_reporter_.RecordMediumTimes(
+          base::StrCat({"Turn.Actuation.ResponseStopTime", cause_suffix}),
           latency);
     }
     RecordResponseLatencyByAttachedTabCount(latency);
@@ -1447,9 +1482,9 @@ void GlicInstanceMetrics::OnResponseStopped(mojom::ResponseStopCause cause) {
       turn_source = GlicTurnSource::kUnknown;
       break;
   }
-  base::UmaHistogramEnumeration("Glic.Turn.Source", turn_source);
-  base::UmaHistogramEnumeration("Glic.Turn.InvocationSource",
-                                last_invocation_source_);
+  metric_reporter_.RecordEnumeration("Turn.Source", turn_source);
+  metric_reporter_.RecordEnumeration("Turn.InvocationSource",
+                                     last_invocation_source_);
   // Reset the turn.
   last_turn_ = turn_;
   turn_ = {};
@@ -1458,28 +1493,28 @@ void GlicInstanceMetrics::OnResponseStopped(mojom::ResponseStopCause cause) {
 void GlicInstanceMetrics::OnTurnCompleted(mojom::WebClientModel model,
                                           base::TimeDelta duration) {
   LogEvent(GlicInstanceEvent::kTurnCompleted);
-  base::UmaHistogramMediumTimes(model == mojom::WebClientModel::kActor
-                                    ? "Glic.Turn.Duration.Actor"
-                                    : "Glic.Turn.Duration.Default",
-                                duration);
+  metric_reporter_.RecordMediumTimes(model == mojom::WebClientModel::kActor
+                                         ? "Turn.Duration.Actor"
+                                         : "Turn.Duration.Default",
+                                     duration);
 }
 
 void GlicInstanceMetrics::OnUserResizeStarted(const gfx::Size& start_size) {
   base::RecordAction(
       base::UserMetricsAction("Glic.Instance.Floaty.UserResizeStarted"));
-  base::UmaHistogramCounts10000("Glic.Instance.Floaty.UserResizeStarted.Width",
-                                start_size.width());
-  base::UmaHistogramCounts10000("Glic.Instance.Floaty.UserResizeStarted.Height",
-                                start_size.height());
+  metric_reporter_.RecordCounts10000("Instance.Floaty.UserResizeStarted.Width",
+                                     start_size.width());
+  metric_reporter_.RecordCounts10000("Instance.Floaty.UserResizeStarted.Height",
+                                     start_size.height());
 }
 
 void GlicInstanceMetrics::OnUserResizeEnded(const gfx::Size& end_size) {
   base::RecordAction(
       base::UserMetricsAction("Glic.Instance.Floaty.UserResizeEnded"));
-  base::UmaHistogramCounts10000("Glic.Instance.Floaty.UserResizeEnded.Width",
-                                end_size.width());
-  base::UmaHistogramCounts10000("Glic.Instance.Floaty.UserResizeEnded.Height",
-                                end_size.height());
+  metric_reporter_.RecordCounts10000("Instance.Floaty.UserResizeEnded.Width",
+                                     end_size.width());
+  metric_reporter_.RecordCounts10000("Instance.Floaty.UserResizeEnded.Height",
+                                     end_size.height());
 }
 
 void GlicInstanceMetrics::OnReaction(
@@ -1501,7 +1536,7 @@ void GlicInstanceMetrics::OnReaction(
 
 void GlicInstanceMetrics::OnActionSubmitted(bool is_retry) {
   turn_.action_result_submitted_time_ = base::TimeTicks::Now();
-  base::UmaHistogramBoolean("Glic.Turn.Actuation.IsRetry", is_retry);
+  metric_reporter_.RecordBoolean("Turn.Actuation.IsRetry", is_retry);
 }
 
 void GlicInstanceMetrics::OnSessionStarted() {
@@ -1512,19 +1547,19 @@ void GlicInstanceMetrics::OnSessionStarted() {
   if (!last_session_end_time_.is_null()) {
     const base::TimeDelta time_between_sessions =
         base::TimeTicks::Now() - last_session_end_time_;
-    base::UmaHistogramCustomTimes("Glic.Instance.TimeBetweenSessions.7D",
-                                  time_between_sessions, base::Seconds(1),
-                                  base::Days(7), 50);
-    base::UmaHistogramCustomTimes("Glic.Instance.TimeBetweenSessions.24H",
-                                  time_between_sessions, base::Seconds(1),
-                                  base::Hours(24), 50);
+    metric_reporter_.RecordCustomTimes("Instance.TimeBetweenSessions.7D",
+                                       time_between_sessions, base::Seconds(1),
+                                       base::Days(7), 50);
+    metric_reporter_.RecordCustomTimes("Instance.TimeBetweenSessions.24H",
+                                       time_between_sessions, base::Seconds(1),
+                                       base::Hours(24), 50);
   }
 }
 
 void GlicInstanceMetrics::OnSessionFinished() {
   if (base::FeatureList::IsEnabled(features::kGlicScrollTo)) {
-    base::UmaHistogramCounts100("Glic.ScrollTo.SessionCount",
-                                scroll_attempt_count_);
+    metric_reporter_.RecordCounts100("ScrollTo.SessionCount",
+                                     scroll_attempt_count_);
     scroll_attempt_count_ = 0;
   }
   last_session_end_time_ = base::TimeTicks::Now();
@@ -1535,8 +1570,8 @@ void GlicInstanceMetrics::OnZoomLevelChange() {
 }
 
 void GlicInstanceMetrics::RecordAttachedContextTabCount(int tab_count) {
-  base::UmaHistogramExactLinear("Glic.Response.AttachedContextCount", tab_count,
-                                51);
+  metric_reporter_.RecordExactLinear("Response.AttachedContextCount", tab_count,
+                                     51);
 }
 
 void GlicInstanceMetrics::RecordResponseLatencyByAttachedTabCount(
@@ -1548,8 +1583,8 @@ void GlicInstanceMetrics::RecordResponseLatencyByAttachedTabCount(
     tab_count_suffix = base::NumberToString(pinned_tab_count_);
   }
 
-  base::UmaHistogramMediumTimes(
-      base::StrCat({"Glic.Turn.LatencyByAttachedTabCount.", tab_count_suffix}),
+  metric_reporter_.RecordMediumTimes(
+      base::StrCat({"Turn.LatencyByAttachedTabCount.", tab_count_suffix}),
       latency);
 }
 
@@ -1567,31 +1602,31 @@ void GlicInstanceMetrics::RecordSkillsWebClientEvent(
   // acting as the entry point into the funnel.
   if (event != kSkillBuilderPromptGenerated &&
       event != kSkillBuilderClickedSaveAsSkill) {
-    base::UmaHistogramEnumeration("Glic.Skills.WebClient.Event", event);
+    metric_reporter_.RecordEnumeration("Skills.WebClient.Event", event);
   }
 
   switch (event) {
     case kOpenedMenu:
-      base::UmaHistogramEnumeration("Glic.Skills.Invoke.Funnel",
-                                    SkillsInvokeFunnel::kOpenedMenu);
+      metric_reporter_.RecordEnumeration("Skills.Invoke.Funnel",
+                                         SkillsInvokeFunnel::kOpenedMenu);
       break;
     // --- Skill Invocation Metrics ---
     case kUsedFirstPartySkill:
       skills::RecordSkillsInvokeAction(skills::SkillsInvokeAction::kFirstParty);
-      base::UmaHistogramEnumeration("Glic.Skills.Invoke.Funnel",
-                                    SkillsInvokeFunnel::kInvokedSkill);
+      metric_reporter_.RecordEnumeration("Skills.Invoke.Funnel",
+                                         SkillsInvokeFunnel::kInvokedSkill);
       break;
     case kUsedUserCreatedSkill:
       skills::RecordSkillsInvokeAction(
           skills::SkillsInvokeAction::kUserCreated);
-      base::UmaHistogramEnumeration("Glic.Skills.Invoke.Funnel",
-                                    SkillsInvokeFunnel::kInvokedSkill);
+      metric_reporter_.RecordEnumeration("Skills.Invoke.Funnel",
+                                         SkillsInvokeFunnel::kInvokedSkill);
       break;
     case kUsedDerivedFirstPartySkill:
       skills::RecordSkillsInvokeAction(
           skills::SkillsInvokeAction::kDerivedFromFirstParty);
-      base::UmaHistogramEnumeration("Glic.Skills.Invoke.Funnel",
-                                    SkillsInvokeFunnel::kInvokedSkill);
+      metric_reporter_.RecordEnumeration("Skills.Invoke.Funnel",
+                                         SkillsInvokeFunnel::kInvokedSkill);
       break;
     case kClickedManageFromMenu:
     case kClickedAddFromMenu:
@@ -1609,16 +1644,16 @@ void GlicInstanceMetrics::RecordSkillsWebClientEvent(
       break;
     // --- SkillBuilder Metrics ---
     case kSkillBuilderClickedPromoChip:
-      base::UmaHistogramEnumeration("Glic.Skills.SkillBuilder.Event",
-                                    SkillBuilderEvent::kClickedPromoChip);
+      metric_reporter_.RecordEnumeration("Skills.SkillBuilder.Event",
+                                         SkillBuilderEvent::kClickedPromoChip);
       break;
     case kSkillBuilderPromptGenerated:
-      base::UmaHistogramEnumeration("Glic.Skills.SkillBuilder.Event",
-                                    SkillBuilderEvent::kPromptGenerated);
+      metric_reporter_.RecordEnumeration("Skills.SkillBuilder.Event",
+                                         SkillBuilderEvent::kPromptGenerated);
       break;
     case kSkillBuilderClickedSaveAsSkill:
-      base::UmaHistogramEnumeration("Glic.Skills.SkillBuilder.Event",
-                                    SkillBuilderEvent::kClickedSaveAsSkill);
+      metric_reporter_.RecordEnumeration(
+          "Skills.SkillBuilder.Event", SkillBuilderEvent::kClickedSaveAsSkill);
       break;
     // --- No-Ops ---
     case mojom::SkillsWebClientEvent::kUnknown:

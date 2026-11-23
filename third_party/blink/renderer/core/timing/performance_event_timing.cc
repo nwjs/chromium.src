@@ -126,7 +126,7 @@ DOMHighResTimeStamp PerformanceEventTiming::processingEnd() const {
 }
 
 Node* PerformanceEventTiming::target() const {
-  return Performance::CanExposeNode(target_) ? target_ : nullptr;
+  return Performance::CanExposeNode(target_, source()) ? target_ : nullptr;
 }
 
 void PerformanceEventTiming::SetTarget(EventTarget* target) {
@@ -171,7 +171,6 @@ bool PerformanceEventTiming::IsReadyForReporting() const {
   return !reporting_info_.processing_end_time.is_null() && HasKnownEndTime() &&
          HasInteractionId();
 }
-
 
 base::TimeTicks PerformanceEventTiming::GetStartTime() const {
   return reporting_info_.creation_time;

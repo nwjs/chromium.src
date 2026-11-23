@@ -12,14 +12,12 @@ import android.webkit.WebView;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
-import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.webview.chromium.CallbackConverter;
 import com.android.webview.chromium.ProfileStore;
 import com.android.webview.chromium.SharedStatics;
 import com.android.webview.chromium.SharedTracingControllerAdapter;
-import com.android.webview.chromium.WebSurface;
 import com.android.webview.chromium.WebViewChromiumAwInit;
 import com.android.webview.chromium.WebkitToSharedGlueConverter;
 
@@ -33,6 +31,7 @@ import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.WebViewCachedFlags;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.content_public.browser.SharedArrayBuffer;
 import org.chromium.support_lib_boundary.StaticsBoundaryInterface;
 import org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface;
@@ -163,10 +162,13 @@ public class SupportLibWebViewChromiumFactory
                 Features.WEBVIEW_NAVIGATE_DRAIN_PREFETCH,
                 Features.NAVIGATION_GET_NAVIGATION_START_UPTIME_MILLIS,
                 Features.WEB_MESSAGE_SHARED_ARRAY_BUFFER + Features.DEV_SUFFIX,
-                WebFeatures.WEB_SURFACE + WebFeatures.DEV_SUFFIX,
+                WebFeatures.WEB_SURFACE,
                 Features.ADD_QUIC_HINTS_WILDCARDS,
                 Features.THEME_COLOR_CALLBACK + Features.DEV_SUFFIX,
                 Features.NAVIGATION_LISTENER_NAVIGATION_STATE,
+                Features.HEADER_INTERCEPTOR + Features.DEV_SUFFIX,
+                Features.GOOGLE_ACCOUNTS_CALLBACK,
+                Features.PROFILE_SELECTED_SITE_ISOLATION_V1,
                 // Add new features above. New features must include `+ Features.DEV_SUFFIX`
                 // when they're initially added (this can be removed in a future CL). The one
                 // exception is when adding a new method to an interface that extends from
@@ -426,6 +428,16 @@ public class SupportLibWebViewChromiumFactory
         ApiCall.PAGE_STATE_GET_PAGE,
         ApiCall.NAVIGATION_SNAPSHOT_STATE,
         ApiCall.PAGE_SNAPSHOT_STATE,
+        ApiCall.PROFILE_ADD_HEADER_INTERCEPTOR,
+        ApiCall.WEBVIEW_ADD_HEADER_INTERCEPTOR,
+        ApiCall.SET_GOOGLE_ACCOUNTS_CALLBACK,
+        ApiCall.CLEAR_GOOGLE_ACCOUNTS_CALLBACK,
+        ApiCall.GOOGLE_ACCOUNTS_EVENT_GET_ACTION_TYPE,
+        ApiCall.GOOGLE_ACCOUNTS_EVENT_GET_CONTINUE_URL,
+        ApiCall.GOOGLE_ACCOUNTS_EVENT_IS_OUTERMOST_MAIN_FRAME,
+        ApiCall.GOOGLE_ACCOUNTS_EVENT_IS_NAVIGATION_REQUEST,
+        ApiCall.CONFIGURE_ISOLATED_SITES,
+        ApiCall.CAN_CONFIGURE_ISOLATED_SITES,
         // Add new constants above. The final constant should have a trailing comma for cleaner
         // diffs.
         ApiCall.COUNT, // Added to suppress WrongConstant in #recordApiCall
@@ -667,8 +679,18 @@ public class SupportLibWebViewChromiumFactory
         int PAGE_STATE_GET_PAGE = 231;
         int NAVIGATION_SNAPSHOT_STATE = 232;
         int PAGE_SNAPSHOT_STATE = 233;
+        int PROFILE_ADD_HEADER_INTERCEPTOR = 234;
+        int WEBVIEW_ADD_HEADER_INTERCEPTOR = 235;
+        int SET_GOOGLE_ACCOUNTS_CALLBACK = 236;
+        int CLEAR_GOOGLE_ACCOUNTS_CALLBACK = 237;
+        int GOOGLE_ACCOUNTS_EVENT_GET_ACTION_TYPE = 238;
+        int GOOGLE_ACCOUNTS_EVENT_GET_CONTINUE_URL = 239;
+        int GOOGLE_ACCOUNTS_EVENT_IS_OUTERMOST_MAIN_FRAME = 240;
+        int GOOGLE_ACCOUNTS_EVENT_IS_NAVIGATION_REQUEST = 241;
+        int CONFIGURE_ISOLATED_SITES = 242;
+        int CAN_CONFIGURE_ISOLATED_SITES = 243;
         // Remember to update AndroidXWebkitApiCall in enums.xml when adding new values here
-        int COUNT = 234;
+        int COUNT = 244;
     }
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/android/enums.xml:AndroidXWebkitApiCall)
@@ -729,13 +751,11 @@ public class SupportLibWebViewChromiumFactory
 
     @Override
     public /* WebSurfaceBoundaryInterface */ InvocationHandler createWebSurface(
-            BiConsumer<@WebSurfaceEvent Integer, Object> eventListener) {
+            BiConsumer<@WebSurfaceEvent Integer, @Nullable Object> eventListener) {
         try (TraceEvent event = TraceEvent.scoped("WebView.APICall.AndroidX.CREATE_WEB_SURFACE")) {
             recordApiCall(ApiCall.CREATE_WEB_SURFACE);
-            WebSurface webSurface =
-                    new WebSurface(() -> eventListener.accept(WebSurfaceEvent.INVALIDATE, null));
-            SupportLibWebSurfaceAdapter adapter = new SupportLibWebSurfaceAdapter(webSurface);
-            return BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(adapter);
+            return BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(
+                    new SupportLibWebSurfaceAdapter(eventListener));
         }
     }
 

@@ -440,6 +440,46 @@ TEST_F(MojoRendererTest, GetMediaTime) {
   Destroy();
 }
 
+// Media time interpolated by MojoRenderer should keep up with the remote
+// renderer between periodic time updates at playback rates above 2x, rather
+// than being clamped to the upper bound of the last time update.
+TEST_F(MojoRendererTest, GetMediaTime_HighPlaybackRate) {
+  Initialize();
+
+  // Must match `kTimeUpdateInterval` in mojo_renderer_service.cc.
+  constexpr base::TimeDelta kTimeUpdateInterval = base::Milliseconds(125);
+  constexpr double kPlaybackRate = 4.0;
+  const base::TimeDelta kStartTime = base::Milliseconds(kStartPlayingTimeInMs);
+
+  // The remote renderer's media time advances at `kPlaybackRate`.
+  base::ElapsedTimer elapsed_timer;
+  auto remote_media_time = [&]() {
+    return kStartTime + elapsed_timer.Elapsed() * kPlaybackRate;
+  };
+  EXPECT_CALL(*mock_renderer_, SetPlaybackRate(kPlaybackRate));
+  EXPECT_CALL(*mock_renderer_, StartPlayingFrom(kStartTime));
+  EXPECT_CALL(*mock_renderer_, GetMediaTime())
+      .WillRepeatedly(remote_media_time);
+  mojo_renderer_->SetPlaybackRate(kPlaybackRate);
+  mojo_renderer_->StartPlayingFrom(kStartTime);
+
+  // Wait for the first periodic time update.
+  task_environment_.FastForwardBy(kTimeUpdateInterval);
+  EXPECT_EQ(remote_media_time(), mojo_renderer_->GetMediaTime());
+
+  // Sample the media time throughout the next few update intervals. At 4x,
+  // more than `2 * kTimeUpdateInterval` of media time elapses within a single
+  // update interval, so an upper bound that is not scaled by the playback rate
+  // would stall the interpolated media time until the next time update.
+  constexpr int kSamplesPerInterval = 5;
+  for (int i = 0; i < 3 * kSamplesPerInterval; ++i) {
+    task_environment_.FastForwardBy(kTimeUpdateInterval / kSamplesPerInterval);
+    EXPECT_EQ(remote_media_time(), mojo_renderer_->GetMediaTime());
+  }
+
+  Destroy();
+}
+
 TEST_F(MojoRendererTest, OnBufferingStateChange) {
   Initialize();
   Play();
@@ -536,11 +576,56 @@ TEST_F(MojoRendererTest, ErrorDuringFlush) {
   EXPECT_CALL(renderer_client_, OnError(HasStatusCode(PIPELINE_ERROR_DECODE)))
       .Times(1);
   EXPECT_CALL(*mock_renderer_, OnFlush(_))
-      .WillOnce(DoAll(InvokeWithoutArgs([&]() {
-                        remote_renderer_client_->OnError(PIPELINE_ERROR_DECODE);
-                      }),
-                      RunOnceClosure<0>()));
+      .WillOnce(DoAll(
+          [&]() { remote_renderer_client_->OnError(PIPELINE_ERROR_DECODE); },
+          RunOnceClosure<0>()));
   Flush();
+}
+
+TEST_F(MojoRendererTest, OnTracksChanged) {
+  Initialize();
+  Play();
+
+  // Create a second audio stream to switch to.
+  std::unique_ptr<StrictMock<MockDemuxerStream>> audio_stream_2 =
+      CreateStream(DemuxerStream::AUDIO);
+  audio_stream_2->set_audio_decoder_config(TestAudioConfig::Normal());
+  EXPECT_CALL(*audio_stream_2, ManagesTrackSwitchesInternally())
+      .WillOnce(Return(false));
+
+  // Switching to a new stream that does not manage track switches internally
+  // should flush and restart playback at the current media time.
+  EXPECT_CALL(*mock_renderer_, OnFlush(_)).WillOnce(RunOnceClosure<0>());
+  EXPECT_CALL(*mock_renderer_, StartPlayingFrom(_)).Times(1);
+
+  bool track_change_completed = false;
+  mojo_renderer_->OnTracksChanged(
+      DemuxerStream::AUDIO, audio_stream_2.get(),
+      base::BindOnce([](bool* completed) { *completed = true; },
+                     &track_change_completed));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(track_change_completed);
+
+  // Switching between active streams where the stream manages track switches
+  // internally (e.g., HLS/MSE) should complete immediately without flushing.
+  EXPECT_CALL(*audio_stream_, ManagesTrackSwitchesInternally())
+      .WillOnce(Return(true));
+  track_change_completed = false;
+  mojo_renderer_->OnTracksChanged(
+      DemuxerStream::AUDIO, audio_stream_.get(),
+      base::BindOnce([](bool* completed) { *completed = true; },
+                     &track_change_completed));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(track_change_completed);
+
+  // Disabling the track (nullptr) should complete immediately without flushing.
+  track_change_completed = false;
+  mojo_renderer_->OnTracksChanged(
+      DemuxerStream::AUDIO, nullptr,
+      base::BindOnce([](bool* completed) { *completed = true; },
+                     &track_change_completed));
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(track_change_completed);
 }
 
 }  // namespace media

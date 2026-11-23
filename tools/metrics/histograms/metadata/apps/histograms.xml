@@ -222,7 +222,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AppPreloadService.ServerResponseCodes"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2026-11-29">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2027-11-29">
   <owner>ovn@google.com</owner>
   <owner>lt-web-apps-team@google.com</owner>
   <summary>
@@ -334,7 +334,7 @@ chromium-metrics-reviews@google.com.
   <token key="AppInstallSurface" variants="AppInstallSurface"/>
 </histogram>
 
-<histogram name="Apps.AppLaunch" enum="AppLaunch" expires_after="2027-02-07">
+<histogram name="Apps.AppLaunch" enum="AppLaunch" expires_after="2027-04-11">
   <owner>tapted@chromium.org</owner>
   <owner>benwells@chromium.org</owner>
   <summary>
@@ -1876,7 +1876,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppsCount.{AppType}" units="Apps"
-    expires_after="2026-11-29">
+    expires_after="2027-11-29">
   <owner>ovn@google.com</owner>
   <owner>lt-web-apps-team@google.com</owner>
   <component>1389907</component>
@@ -1948,6 +1948,19 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Apps.AppShim.NotificationProvider.Outcome"
+    enum="AppShimNotificationProviderOutcome" expires_after="2027-03-01">
+  <owner>mek@chromium.org</owner>
+  <owner>src/chrome/browser/web_applications/OWNERS</owner>
+  <summary>
+    Records the outcome of AppShimManager::LaunchNotificationProvider on macOS
+    when connecting a MacNotificationProvider to an app shim (binding to an
+    already-running host, launching a new shim in background mode, or falling
+    back to a dummy provider when no profile is available or Chrome is shutting
+    down).
+  </summary>
+</histogram>
+
 <histogram name="Apps.AppShim.WillTerminate" enum="Boolean"
     expires_after="2027-03-01">
   <owner>mek@chromium.org</owner>
@@ -1990,7 +2003,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppShimSignatureValidationResult"
-    enum="WebAppShimSignatureValidationResult" expires_after="2027-02-07">
+    enum="WebAppShimSignatureValidationResult" expires_after="2027-04-11">
   <owner>markrowe@chromium.org</owner>
   <owner>chrome-platform-security-core@google.com</owner>
   <owner>dmurph@google.com</owner>
@@ -2098,7 +2111,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.CreateShortcuts.Linux.Result"
-    enum="WebAppCreateShortcutLinuxResult" expires_after="2026-11-15">
+    enum="WebAppCreateShortcutLinuxResult" expires_after="2027-11-15">
   <owner>phillis@chromium.org</owner>
   <owner>cmumford@chromium.org</owner>
   <summary>
@@ -2140,7 +2153,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.DefaultAppLaunch{DefaultAppLaunchSource}"
-    enum="DefaultAppName" expires_after="2027-02-07">
+    enum="DefaultAppName" expires_after="2027-04-11">
   <owner>ovn@google.com</owner>
   <owner>lt-web-apps-team@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
@@ -2345,7 +2358,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.MediaApp.Load.OtherOpenWindowCount" units="windows"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>tapted@chromium.org</owner>
   <owner>patricialor@chromium.org</owner>
   <summary>
@@ -2672,7 +2685,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.SessionRestoreWindowCount"
-    enum="SessionRestoreWindowCount" expires_after="2027-02-07">
+    enum="SessionRestoreWindowCount" expires_after="2027-04-11">
   <owner>dandersson@chromium.org</owner>
   <owner>fanafan@chromium.org</owner>
   <owner>chromeos-wm-corexp@google.com</owner>
@@ -2751,7 +2764,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.UsageTime.{AppType}" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>ovn@google.com</owner>
   <owner>lt-web-apps-team@google.com</owner>
   <component>1389907</component>
@@ -2763,7 +2776,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.UsageTimeV2.{AppTypeV2}" units="ms"
-    expires_after="2026-11-29">
+    expires_after="2027-11-29">
   <owner>ovn@google.com</owner>
   <owner>lt-web-apps-team@google.com</owner>
   <component>1389907</component>

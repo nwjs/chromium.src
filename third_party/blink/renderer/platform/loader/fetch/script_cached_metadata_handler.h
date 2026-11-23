@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <utility>
 
 #include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/platform/bindings/parkable_string.h"
@@ -62,6 +63,9 @@ class PLATFORM_EXPORT ScriptCachedMetadataHandler
   void OnMemoryDump(WebProcessMemoryDump* pmd,
                     const String& dump_prefix) const override;
   size_t GetCodeCacheSize() const override;
+  std::unique_ptr<CachedMetadataSender> TakeSender() override {
+    return std::move(sender_);
+  }
 
  protected:
   // Asks sender to send `cached_metadata_` to the `code_cache_host`. Virtual to
@@ -124,10 +128,10 @@ class PLATFORM_EXPORT ScriptCachedMetadataHandlerWithHashing final
 
   // Get the serialized representation of the cached metadata with appropriate
   // with-hashing-specific headers.
-  Vector<uint8_t> GetSerializedCachedMetadata() const;
+  mojo_base::BigBuffer GetSerializedCachedMetadata() const;
 
   // Serializes cached metadata with the hash header prepended.
-  static Vector<uint8_t> AddHashHeader(
+  static mojo_base::BigBuffer AddHashHeader(
       base::span<const uint8_t> hash,
       base::span<const uint8_t> serialized_metadata);
 
@@ -139,6 +143,7 @@ class PLATFORM_EXPORT ScriptCachedMetadataHandlerWithHashing final
 // The serialized header format for cached metadata which includes a hash of the
 // script text. This header is followed by a second header in the format defined
 // by CachedMetadataHeader, which is in turn followed by the data.
+// NOTE: this struct is stored to disk, do NOT change or reorder its members.
 struct CachedMetadataHeaderWithHash {
   // Only valid value is CachedMetadataHandler::kSingleEntryWithHashAndPadding.
   // Default-initialized to an invalid value to ensure headers are explicitly

@@ -2422,13 +2422,15 @@ void AXTree::UpdateReverseRelations(AXNode* node,
           }
         }
       }
-      map[new_relation_target_id].insert(id);
+      if (new_relation_target_id != kInvalidAXNodeID) {
+        map[new_relation_target_id].insert(id);
+      }
     }
   }
 
   for (const auto& attr : kReverseRelationIntListAttributes) {
-    const std::vector<int32_t>& old_idlist = old_data.GetIntListAttribute(attr);
-    const std::vector<int32_t>& new_idlist = new_data.GetIntListAttribute(attr);
+    base::span<const int32_t> old_idlist = old_data.GetIntListAttribute(attr);
+    base::span<const int32_t> new_idlist = new_data.GetIntListAttribute(attr);
     if (is_new_node || old_idlist != new_idlist) {
       auto& map = intlist_reverse_relations_[attr];
       if (!is_new_node) {
@@ -3027,7 +3029,7 @@ std::optional<int> AXTree::GetPosInSet(const AXNode& node) {
   if (node.GetRole() == ax::mojom::Role::kRadioButton &&
       !node.HasIntAttribute(ax::mojom::IntAttribute::kPosInSet) &&
       node.HasIntListAttribute(ax::mojom::IntListAttribute::kRadioGroupIds)) {
-    const std::vector<int32_t>& ids =
+    base::span<const int32_t> ids =
         node.GetIntListAttribute(ax::mojom::IntListAttribute::kRadioGroupIds);
     for (size_t i = 0; i < ids.size(); ++i) {
       if (ids[i] == node.id()) {

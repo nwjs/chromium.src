@@ -428,9 +428,11 @@ class ViewTransitionStyleTracker::ImageWrapperPseudoElement
 
 ViewTransitionStyleTracker::ViewTransitionStyleTracker(
     Document& document,
-    const blink::ViewTransitionToken& transition_token)
+    const blink::ViewTransitionToken& transition_token,
+    bool generates_pseudo_element_tree)
     : document_(document),
       transition_token_(transition_token),
+      generates_pseudo_element_tree_(generates_pseudo_element_tree),
       device_pixel_ratio_(DevicePixelRatioFromDocument(document)) {}
 
 ViewTransitionStyleTracker::ViewTransitionStyleTracker(
@@ -1046,6 +1048,7 @@ bool ViewTransitionStyleTracker::Capture(bool snap_browser_controls) {
 
     auto* element_data = MakeGarbageCollected<ElementData>();
     element_data->target_element = element;
+    element_data->is_document_element = element->IsDocumentElement();
     element_data->element_index = next_index++;
     element_data->old_snapshot_id = snapshot_id;
     element_data->class_list = GetDocumentScopedClassList(element);
@@ -1076,7 +1079,8 @@ bool ViewTransitionStyleTracker::Capture(bool snap_browser_controls) {
 
   view_transition_names_ = std::move(transition_names);
 
-  // We need a style invalidation to generate the pseudo-element tree.
+  // We need a style invalidation to generate the pseudo-element tree (if any)
+  // and to update the participants' style and paint properties.
   InvalidateStyleAndCompositing();
 
   set_element_sequence_id_ = 0;
@@ -1265,6 +1269,7 @@ bool ViewTransitionStyleTracker::Start() {
     auto& element_data = element_data_map_.find(name)->value;
     DCHECK(!element_data->target_element);
     element_data->target_element = element;
+    element_data->is_document_element = element->IsDocumentElement();
     element_data->new_snapshot_id = snapshot_id;
     element_data->class_list = GetDocumentScopedClassList(element);
 
@@ -1633,7 +1638,7 @@ bool ViewTransitionStyleTracker::RunPostPrePaintStepsForElement(
     ElementData* element_data,
     const int max_capture_size_in_layout,
     bool& needs_style_invalidation) {
-  if (!element_data->target_element) {
+  if (!element_data->target_element || state_ == State::kOldSnapshotFrozen) {
     // For an exiting element, there is no "new" geometry. But if it's parented
     // to a group that has a "new" geometry, the UA stylesheet needs a
     // transform to correctly position this element relative to the parent's
@@ -1726,6 +1731,10 @@ bool ViewTransitionStyleTracker::RunPostPrePaintStepsForElement(
     return true;
   }
 
+  const bool captured_rect_changed =
+      captured_rect_in_layout_space !=
+      element_data->captured_rect_in_layout_space;
+
   element_data->container_properties = container_properties;
 
   element_data->visual_overflow_rect_in_layout_space =
@@ -1760,7 +1769,10 @@ bool ViewTransitionStyleTracker::RunPostPrePaintStepsForElement(
     element_data->CacheStateForOldSnapshot();
   }
 
-  needs_style_invalidation = true;
+  // Without the pseudo-element tree, the invalidation is only needed to update
+  // the capture clip, which is a paint property of the participant.
+  needs_style_invalidation |=
+      generates_pseudo_element_tree_ || captured_rect_changed;
   return true;
 }
 
@@ -2258,6 +2270,9 @@ void ViewTransitionStyleTracker::InvalidateStyleAndCompositing() {
     return;
   }
 
+  // This is needed even if the pseudo-element tree isn't generated, since it
+  // ensures that the lifecycle reruns to apply the paint property updates
+  // below (e.g. if the root is the only participant).
   originating_element->SetNeedsStyleRecalc(
       kLocalStyleChange, StyleChangeReasonForTracing::Create(
                              style_change_reason::kViewTransition));
@@ -2501,7 +2516,7 @@ gfx::RectF ViewTransitionStyleTracker::ElementData::GetReferenceRect(
 
 bool ViewTransitionStyleTracker::ElementData::
     ShouldPropagateVisualOverflowRectAsMaxExtentsRect() const {
-  return !target_element || !target_element->IsDocumentElement();
+  return !is_document_element;
 }
 
 void ViewTransitionStyleTracker::ElementData::CacheStateForOldSnapshot() {

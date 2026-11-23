@@ -53,10 +53,6 @@ Profile* GetProfile(ContextPtr context) {
 
 NtpPromoSpecification::Eligibility CheckExtensionsPromoEligibility(
     ContextPtr context) {
-  // TODO(webium): add user education context for WebUI browser.
-  if (!context) {
-    return NtpPromoSpecification::Eligibility::kIneligible;
-  }
   return extensions::util::AnyCurrentlyInstalledExtensionIsFromWebstore(
              GetProfile(context))
              ? NtpPromoSpecification::Eligibility::kCompleted
@@ -81,16 +77,12 @@ void InvokeExtensionsPromo(ContextPtr context) {
   NavigateParams params(
       context->AsA<BrowserUserEducationContext>()->GetBrowserView().browser(),
       url_with_utm, ui::PAGE_TRANSITION_LINK);
-  params.disposition = WindowOpenDisposition::CURRENT_TAB;
+  params.disposition = WindowOpenDisposition::kCurrentTab;
   Navigate(&params);
 }
 
 NtpPromoSpecification::Eligibility CheckCustomizationPromoEligibility(
     ContextPtr context) {
-  // TODO(webium): add user education context for WebUI browser.
-  if (!context) {
-    return NtpPromoSpecification::Eligibility::kIneligible;
-  }
   auto* profile = GetProfile(context);
   auto* background_service =
       NtpCustomBackgroundServiceFactory::GetForProfile(profile);

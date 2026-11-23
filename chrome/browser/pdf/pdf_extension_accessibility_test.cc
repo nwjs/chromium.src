@@ -417,9 +417,9 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityTestWithOopifOverride,
     if (node.role == ax::mojom::Role::kInlineTextBox &&
         name == "First Section\r\n") {
       found = true;
-      std::vector<int32_t> word_starts =
+      base::span<const int32_t> word_starts =
           node.GetIntListAttribute(ax::mojom::IntListAttribute::kWordStarts);
-      std::vector<int32_t> word_ends =
+      base::span<const int32_t> word_ends =
           node.GetIntListAttribute(ax::mojom::IntListAttribute::kWordEnds);
       ASSERT_EQ(2U, word_starts.size());
       ASSERT_EQ(2U, word_ends.size());
@@ -1326,6 +1326,24 @@ IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityHeuristicsTreeDumpTest,
 IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityHeuristicsTreeDumpTest,
                        HeadingHeuristicsDenseTableAndBody) {
   RunPDFTest(FILE_PATH_LITERAL("heading-heuristics-dense-table-and-body.pdf"),
+             /*expected_subtext=*/"Page 1");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityHeuristicsTreeDumpTest,
+                       UnorderedListHeuristics) {
+  RunPDFTest(FILE_PATH_LITERAL("unordered-list-heuristics.pdf"),
+             /*expected_subtext=*/"Page 1");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityHeuristicsTreeDumpTest,
+                       UnorderedListCombinedHeuristics) {
+  RunPDFTest(FILE_PATH_LITERAL("unordered-list-combined-heuristics.pdf"),
+             /*expected_subtext=*/"Page 1");
+}
+
+IN_PROC_BROWSER_TEST_P(PDFExtensionAccessibilityHeuristicsTreeDumpTest,
+                       NestedUnorderedListHeuristics) {
+  RunPDFTest(FILE_PATH_LITERAL("nested-unordered-list-heuristics.pdf"),
              /*expected_subtext=*/"Page 1");
 }
 

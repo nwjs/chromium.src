@@ -55,7 +55,6 @@ source_set("web_ui_test_support") {
     "web_ui_test_data_source.cc",
     "web_ui_test_data_source.h",
   ]
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
   public_deps = [
     "//base",
     "//content/public/browser",
@@ -138,12 +137,22 @@ source_set("chrome_render_view_host_test_harness") {
     "//content/test:test_support",
   ]
   deps = [
+    ":testing_browser_process",
     "//base",
     "//chrome/browser:browser_process",
     "//chrome/browser/signin",
   ]
   if (is_chromeos) {
-    deps += [ "//ash" ]
+    public_deps += [ "//components/user_manager:common" ]
+    deps += [
+      "//ash",
+      "//chrome/browser/ash/login/test:user_session_test_environment_delegate",
+      "//chromeos/ash/components/browser_context_helper",
+      "//chromeos/ash/components/login/login_state",
+      "//components/account_id",
+      "//components/session_manager/test:test_support",
+      "//components/user_manager",
+    ]
   }
 }
 
@@ -369,7 +378,7 @@ source_set("testing_profile_impl") {
   if (enable_extensions_core) {
     deps += [
       "//chrome/browser/extensions",
-      "//chrome/browser/extensions:test_support",
+      "//chrome/browser/extensions:test_extension_system",
     ]
   }
   if (enable_extensions) {
@@ -413,7 +422,6 @@ source_set("testing_browser_process") {
     "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/upgrade_detector",
     "//chrome/common:buildflags",
-    "//components/activity_reporter",
     "//components/signin/core/browser",
     "//extensions/buildflags",
     "//media:media_buildflags",
@@ -437,7 +445,6 @@ source_set("testing_browser_process_impl") {
     "//chrome/browser",
     "//chrome/browser:browser_process_platform_part",
     "//chrome/common:buildflags",
-    "//components/activity_reporter",
     "//components/signin/core/browser",
     "//extensions/buildflags",
     "//media:media_buildflags",
@@ -475,6 +482,9 @@ source_set("testing_browser_process_impl") {
     "//services/device/public/cpp/geolocation:buildflags",
     "//services/network:test_support",
   ]
+  if (!is_chromeos) {
+    deps += [ "//components/activity_reporter" ]
+  }
   if (os_level_geolocation_permission_supported) {
     deps += [
       "//services/device/public/cpp:device_features",
@@ -570,6 +580,8 @@ source_set("chrome_unit_test_suite") {
     "//testing/gtest",
     "//ui/accessibility",
     "//ui/base",
+    "//ui/base/idle",
+    "//ui/base/idle:test_support",
     "//ui/gfx",
     "//ui/gl:test_support",
   ]
@@ -701,6 +713,7 @@ source_set("chrome_test_suite") {
     "//chrome/browser/signin",
     "//chrome/common",
     "//components/content_settings/core/common",
+    "//components/contextual_search/internal",
     "//components/signin/public/identity_manager:test_support",
     "//media",
     "//testing/gtest",
@@ -771,6 +784,47 @@ source_set("web_ui_mocha_browser_test") {
 }
 
 if (!is_android) {
+  static_library("interactive_ui_tests_runner") {
+    testonly = true
+    sources = [ "interactive_ui_tests_main.cc" ]
+    deps = [
+      ":chrome_test_launcher",
+      ":chrome_test_suite",
+      ":in_process_browser_test",
+      ":interactive_test_utils",
+      "//base",
+      "//base/test:test_support",
+      "//build:chromeos_buildflags",
+      "//chrome/browser/preloading",
+      "//chrome/browser/ssl",
+      "//content/public/common",
+      "//gpu/ipc/service",
+      "//ui/base:test_support",
+      "//ui/base/interaction:test_support",
+      "//ui/compositor",
+    ]
+    if (is_linux) {
+      deps += [ "//ui/linux:display_server_utils" ]
+    }
+    if (is_chromeos) {
+      deps += [ "//ash:test_support" ]
+    } else if (is_win) {
+      deps += [
+        ":always_on_top_window_killer_win",
+        "//ui/views",
+      ]
+    }
+    if (use_aura) {
+      deps += [ "//ui/aura:test_support" ]
+    }
+    if (use_aura && use_ozone) {
+      deps += [
+        "//ui/ozone",
+        "//ui/platform_window/common",
+      ]
+    }
+  }
+
   source_set("platform_browser_test") {
     testonly = true
     sources = [ "platform_browser_test.h" ]
@@ -795,6 +849,7 @@ if (!is_android) {
       ":chrome_test_path_utils",
       ":chrome_test_suite",
       ":test_launcher_utils",
+      ":test_switches",
       ":ui_test_utils",
       "//chrome/browser",
       "//chrome/browser:after_startup_task_utils",
@@ -821,6 +876,7 @@ if (!is_android) {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window:create_browser_window",
       "//chrome/browser/ui/navigator",
+      "//chrome/browser/ui/omnibox",
       "//chrome/browser/ui/views/frame:browser_view_header",
       "//chrome/browser/ui/views/tabs:tab",
       "//chrome/browser/ui/views/toolbar:test_support",
@@ -878,9 +934,12 @@ if (!is_android) {
         "//ash/public/cpp",
         "//chrome/browser/ash/app_restore",
         "//chrome/browser/ash/input_method",
+        "//chrome/browser/ash/ownership",
         "//chromeos/ash/components/browser_context_helper",
         "//chromeos/ash/components/cryptohome",
         "//chromeos/ash/services/device_sync:test_support",
+        "//chromeos/dbus/constants",
+        "//components/ownership",
         "//ui/display",
       ]
     }
@@ -1114,7 +1173,6 @@ if (!is_android) {
 
   source_set("browser_with_test_window_test") {
     testonly = true
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
     sources = [
       "browser_with_test_window_test.cc",
       "browser_with_test_window_test.h",
@@ -1282,6 +1340,10 @@ if (!is_android) {
     if (use_ozone) {
       deps += [ "//ui/ozone" ]
     }
+    if (is_chromeos) {
+      sources += [ "ash/web_ui_browser_test_browsertest.cc" ]
+      deps += [ ":cros_web_ui_browser_test" ]
+    }
   }
 }
 
@@ -1333,11 +1395,16 @@ if (is_android) {
     deps = [
       ":chrome_test_path_utils",
       ":test_launcher_utils",
+      "//chrome/browser:browser_features",
+      "//chrome/browser/navigation_predictor",
       "//chrome/browser/net",
+      "//chrome/browser/preloading",
       "//chrome/browser/ui/android/tab_model",
       "//chrome/browser/ui/browser_window",
       "//components/keyed_service/content",
+      "//components/performance_manager",
       "//extensions/buildflags",
+      "//testing/android/native_test:native_browser_test_support",
     ]
     if (enable_extensions_core) {
       deps += [ "//chrome/browser/extensions" ]
@@ -1386,6 +1453,30 @@ if (is_android) {
     sources = [ "platform_browser_test.h" ]
     public_deps = [ ":android_browser_test" ]
   }
+
+  source_set("android_browsertests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+    sources = [ "android/android_browser_test_browsertest_android.cc" ]
+    deps = [
+      ":android_browser_test",
+      "//base",
+      "//chrome/browser:browser_features",
+      "//chrome/browser/flags:flags_android",
+      "//chrome/browser/navigation_predictor",
+      "//chrome/browser/preloading",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/ui/android/tab_model",
+      "//components/performance_manager",
+      "//content/public/browser",
+      "//content/test:test_support",
+      "//net",
+      "//services/network:test_support",
+      "//services/network/public/cpp",
+      "//testing/gtest",
+      "//url",
+    ]
+  }
 }
 
 if (is_chromeos) {
@@ -1416,16 +1507,45 @@ if (is_chromeos) {
     deps = [ "//ui/aura:test_support" ]
   }
 
+  source_set("js_test_api") {
+    testonly = true
+    sources = [
+      "ash/js_test_api.cc",
+      "ash/js_test_api.h",
+    ]
+    public_deps = [ "//base" ]
+    deps = [ "//chrome/common:constants" ]
+  }
+
+  source_set("v8_unit_test") {
+    testonly = true
+    sources = [
+      "ash/v8_unit_test.cc",
+      "ash/v8_unit_test.h",
+    ]
+    public_deps = [
+      "//base",
+      "//base/test:test_support",
+      "//testing/gtest",
+      "//v8",
+    ]
+    deps = [
+      ":js_test_api",
+      "//chrome/common:constants",
+      "//content/test:test_support",
+      "//third_party/blink/public:blink",
+    ]
+  }
+
   source_set("javascript_browser_test") {
     testonly = true
     sources = [
       "ash/javascript_browser_test.cc",
       "ash/javascript_browser_test.h",
-      "ash/js_test_api.cc",
-      "ash/js_test_api.h",
     ]
     public_deps = [
       ":in_process_browser_test",
+      ":js_test_api",
       "//base",
     ]
     deps = [

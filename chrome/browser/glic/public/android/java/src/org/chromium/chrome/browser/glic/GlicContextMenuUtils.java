@@ -31,6 +31,12 @@ public final class GlicContextMenuUtils {
     @VisibleForTesting
     public static final String PARAM_ASK_GEMINI_SEND_SELECTED_TEXT = "send_selected_text";
 
+    @VisibleForTesting
+    public static final String PARAM_MAX_SELECTED_TEXT_LENGTH = "max_selected_text_length";
+
+    @VisibleForTesting
+    public static final int DEFAULT_MAX_SELECTED_TEXT_LENGTH = 1000;
+
     public static final String ASK_GEMINI_POSITION_SECONDARY = "secondary";
 
     public static final String ASK_GEMINI_POSITION_ASSIST = "assist";
@@ -55,15 +61,20 @@ public final class GlicContextMenuUtils {
 
     private GlicContextMenuUtils() {}
 
-    private static boolean isContextMenuEligible(
-            @Nullable Profile profile, String paramName, boolean defaultValue) {
+    /** Returns true if the profile is eligible for any Glic context menu entry point. */
+    public static boolean isGlicContextMenuEligible(@Nullable Profile profile) {
         if (profile == null || profile.isOffTheRecord() || DeviceInfo.isAutomotive()) {
             return false;
         }
         return ChromeFeatureList.isEnabled(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
+                && GlicEnabling.isReadyForProfile(profile);
+    }
+
+    private static boolean isContextMenuEligible(
+            @Nullable Profile profile, String paramName, boolean defaultValue) {
+        return isGlicContextMenuEligible(profile)
                 && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU, paramName, defaultValue)
-                && GlicEnabling.isEnabledForProfile(profile);
+                        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU, paramName, defaultValue);
     }
 
     private static boolean isContainerAvailable(Context context) {
@@ -120,6 +131,19 @@ public final class GlicContextMenuUtils {
                 ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
                 PARAM_ASK_GEMINI_SEND_SELECTED_TEXT,
                 true);
+    }
+
+    /**
+     * Returns {@code text} as it should be sent in an Ask Gemini prompt, or an empty string if
+     * nothing remains.
+     */
+    public static String sanitizeSelectedText(@Nullable String text) {
+        int maxLength =
+                ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
+                        PARAM_MAX_SELECTED_TEXT_LENGTH,
+                        DEFAULT_MAX_SELECTED_TEXT_LENGTH);
+        return SelectedTextSanitizer.sanitize(text, maxLength);
     }
 
     /** Whether duplicate ACTION_PROCESS_TEXT activities should be suppressed. */

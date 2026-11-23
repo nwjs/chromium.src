@@ -451,8 +451,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/android-annotator-rel",
-            "try_builder",
-            "no_symbols",
+            "release_try_builder",
         ],
     ),
     ssd = True,
@@ -607,15 +606,16 @@ try_.builder(
         "$build/binary_size": {
             "analyze_targets": [
                 "//chrome/android:chrome_and_webview_32_minimal_apks",
-                "//chrome/android:chrome_and_webview_64_minimal_apks",
+                "//chrome/android:chrome_public_minimal_apks",
                 "//chrome/android:validate_expectations",
                 "//tools/binary_size:binary_size_trybot_py",
             ],
-            "arm64_size_config_json": "config/ChromeAndWebView64_size_config.json",
+            "arm64_size_config_json": "config/Chrome64_size_config.json",
             "compile_targets": [
                 "check_chrome_static_initializers",
+                "check_webview_static_initializers",
                 "chrome_and_webview_32_minimal_apks",
-                "chrome_and_webview_64_minimal_apks",
+                "chrome_public_minimal_apks",
                 "validate_expectations",
             ],
         },
@@ -895,6 +895,11 @@ try_.builder(
     gn_args = "ci/android-cronet-x86-dbg",
     ssd = True,
     contact_team_email = "cronet-team@google.com",
+    cq_settings = try_.cq_settings(
+        location_filters = [
+            "net/.+",
+        ],
+    ),
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -1060,8 +1065,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/android-fieldtrial-rel",
-            "try_builder",
-            "no_symbols",
+            "release_try_builder",
         ],
     ),
     ssd = True,
@@ -1075,8 +1079,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = [
             "ci/android-perfetto-rel",
-            "try_builder",
-            "no_symbols",
+            "release_try_builder",
         ],
     ),
     ssd = True,
@@ -1304,7 +1307,6 @@ try_.builder(
             "12-x64-emulator",
             "emulator-8-cores",
             "linux-jammy",
-            "x86-64",
         ],
     ),
     targets_settings = targets.settings(

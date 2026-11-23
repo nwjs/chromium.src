@@ -112,9 +112,6 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
     /** The accessibility string associated with the bubble. */
     private final String mAccessibilityString;
 
-    /** The content view shown in the popup window. */
-    protected View mContentView;
-
     /**
      * Constructs a {@link TextBubble} instance.
      *
@@ -129,6 +126,7 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
      *     should be no image.
      * @param isRoundBubble Whether the bubble should be round.
      * @param inverseColor Whether the background and icon/text colors should be inverted.
+     * @param maxWidthPx The maximum width of the bubble in pixels, or 0 for no custom limit.
      * @param snoozeRunnable The callback for when snooze button is clicked.
      * @param snoozeDismissRunnable The callback to be invoked when dismiss button is clicked.
      */
@@ -142,6 +140,7 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
             @Nullable Drawable imageDrawable,
             boolean isRoundBubble,
             boolean inverseColor,
+            int maxWidthPx,
             @Nullable Runnable snoozeRunnable,
             @Nullable Runnable snoozeDismissRunnable) {
         assert snoozeRunnable == null || snoozeDismissRunnable == null;
@@ -157,19 +156,12 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
         // ArrowBubbleDrawable.
         Drawable backgroundDrawable = getBackground(mContext, showArrow, isRoundBubble);
 
-        mContentView = createContentView();
-        // On some versions of Android, the LayoutParams aren't set until after the popup window
-        // is shown. Explicitly set the LayoutParams to avoid crashing. See
-        // https://crbug.com/713759.
-        mContentView.setLayoutParams(
-                new FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
-
-        mPopupWindow =
+        AnchoredPopupWindow.Builder popupBuilder =
                 new AnchoredPopupWindow.Builder(
                                 context,
                                 rootView,
                                 backgroundDrawable,
-                                () -> mContentView,
+                                this::createContentView,
                                 anchorRectProvider)
                         .setMargin(
                                 context.getResources()
@@ -177,8 +169,11 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
                         .setPreferredHorizontalOrientation(
                                 AnchoredPopupWindow.HorizontalOrientation.CENTER)
                         .setLayoutObserver(this)
-                        .setAnimationStyle(R.style.TextBubbleAnimation)
-                        .build();
+                        .setAnimationStyle(R.style.TextBubbleAnimation);
+        if (maxWidthPx > 0) {
+            popupBuilder.setMaxWidth(maxWidthPx);
+        }
+        mPopupWindow = popupBuilder.build();
 
         mHandler = new Handler();
 
@@ -389,20 +384,23 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
         mBubbleDrawable.setPositionProperties(arrowXOffset, positionBelow);
     }
 
-    /** @return The content view to show in the TextBubble. */
-    private View createContentView() {
+    /**
+     * @return The content view to show in the TextBubble.
+     */
+    private View createContentView(Context context) {
+        View view;
         if (mImageDrawable == null) {
-            View view = LayoutInflater.from(mContext).inflate(R.layout.textbubble_text, null);
+            view = LayoutInflater.from(context).inflate(R.layout.textbubble_text, null);
             setText(view.findViewById(R.id.message));
 
             // Set different paddings for when snooze feature is present.
             if (mSnoozeRunnable != null || mSnoozeDismissRunnable != null) {
                 int paddingStart =
-                        mContext.getResources()
+                        context.getResources()
                                 .getDimensionPixelSize(
                                         R.dimen.text_bubble_with_snooze_padding_horizontal);
                 int paddingEnd =
-                        mContext.getResources()
+                        context.getResources()
                                 .getDimensionPixelSize(R.dimen.text_bubble_with_snooze_padding_end);
                 TextView text = view.findViewById(R.id.message);
                 text.setPadding(
@@ -426,16 +424,21 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
                             mDismissRunnable.run();
                         });
             }
-            return view;
+        } else {
+            view = LayoutInflater.from(context).inflate(R.layout.textbubble_text_with_image, null);
+            ImageView imageView = view.findViewById(R.id.image);
+            imageView.setImageDrawable(mImageDrawable);
+            if (mInverseColor) {
+                imageView.setColorFilter(SemanticColorUtils.getDefaultControlColorActive(context));
+            }
+            setText(view.findViewById(R.id.message));
         }
-        View view =
-                LayoutInflater.from(mContext).inflate(R.layout.textbubble_text_with_image, null);
-        ImageView imageView = view.findViewById(R.id.image);
-        imageView.setImageDrawable(mImageDrawable);
-        if (mInverseColor) {
-            imageView.setColorFilter(SemanticColorUtils.getDefaultControlColorActive(mContext));
-        }
-        setText(view.findViewById(R.id.message));
+
+        // On some versions of Android, the LayoutParams aren't set until after the popup window
+        // is shown. Explicitly set the LayoutParams to avoid crashing. See
+        // https://crbug.com/713759.
+        view.setLayoutParams(
+                new FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         return view;
     }
 
@@ -464,8 +467,8 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
     }
 
     /** For testing only, get the content view of a TextBubble. */
-    public View getTextBubbleContentViewForTesting() {
-        return mContentView;
+    public @Nullable View getTextBubbleContentViewForTesting() {
+        return mPopupWindow.getContentView();
     }
 
     public static void setSkipShowCheckForTesting(boolean skip) {
@@ -486,6 +489,7 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
         private @Nullable Drawable mImageDrawable;
         private boolean mIsRoundBubble;
         private boolean mInverseColor;
+        private int mMaxWidthPx;
         private @Nullable Runnable mSnoozeRunnable;
         private @Nullable Runnable mSnoozeDismissRunnable;
 
@@ -544,6 +548,11 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
             return this;
         }
 
+        public Builder setMaxWidth(int maxWidthPx) {
+            mMaxWidthPx = maxWidthPx;
+            return this;
+        }
+
         public Builder setSnoozeRunnable(@Nullable Runnable snoozeRunnable) {
             mSnoozeRunnable = snoozeRunnable;
             return this;
@@ -565,6 +574,7 @@ public class TextBubble implements AnchoredPopupWindow.LayoutObserver {
                     mImageDrawable,
                     mIsRoundBubble,
                     mInverseColor,
+                    mMaxWidthPx,
                     mSnoozeRunnable,
                     mSnoozeDismissRunnable);
         }

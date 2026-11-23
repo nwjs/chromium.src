@@ -1147,8 +1147,6 @@ class CORE_EXPORT Element : public ContainerNode {
   // Implements manual slot assignment for user agent shadow roots.
   virtual void ManuallyAssignSlots() { DCHECK(false); }
 
-  bool IsInDescendantTreeOf(const Element* shadow_host) const;
-
   // Returns the Element’s ComputedStyle. If the ComputedStyle is not already
   // stored on the Element, computes the ComputedStyle and stores it on the
   // Element’s NodeRareData.  Used for getComputedStyle when Element is display
@@ -1170,8 +1168,16 @@ class CORE_EXPORT Element : public ContainerNode {
     SetElementFlag(ElementFlags::kStyleAffectedByEmpty);
   }
 
+  enum class CanvasSubtreePropagation { kOnlyIfChanged, kAlways };
+
   // Recursively sets the IsInCanvasSubtree bit for the element and its subtree.
-  void SetIsInCanvasSubtree(bool value);
+  // If propagation_behavior is kOnlyIfChanged, the recursion stops when it
+  // reaches a Node where `value` is the same as the Node's current state. If
+  // the behavior is kAlways, the recursion forcibly continues all the way down
+  // the tree regardless of the previous value.
+  void SetIsInCanvasSubtree(bool value,
+                            CanvasSubtreePropagation propagation_behavior =
+                                CanvasSubtreePropagation::kOnlyIfChanged);
   // True if this element has a flat-tree DOM ancestor <canvas> (including
   // across local frame boundaries).
   // Warning: This is a pure DOM check; it is true regardless of
@@ -1183,8 +1189,10 @@ class CORE_EXPORT Element : public ContainerNode {
   }
   // Like `IsInCanvasSubtree()`, but includes <canvas> elements.
   bool IsCanvasOrInCanvasSubtree() const;
-  // Called when `IsInCanvasSubtree()` changes.
-  virtual void DidChangeIsInCanvasSubtree();
+  // Called when `IsInCanvasSubtree()` changes, or when content should be
+  // invalidated *as if* `IsInCanvasSubtree()` changed (e.g., when showing
+  // or hiding a popover).
+  virtual void DidChangeIsInCanvasSubtree(CanvasSubtreePropagation);
 #if DCHECK_IS_ON()
   void VerifySubtreeIsInCanvas(bool value);
 #endif
@@ -1742,7 +1750,6 @@ class CORE_EXPORT Element : public ContainerNode {
   virtual bool IsValidElement() { return false; }
   virtual bool IsInRange() const { return false; }
   virtual bool IsOutOfRange() const { return false; }
-  virtual bool IsClearButtonElement() const { return false; }
   virtual bool IsScriptElement() const { return false; }
   virtual bool IsVTTCueBackgroundBox() const { return false; }
   virtual bool IsVTTCueBox() const { return false; }
@@ -2723,10 +2730,6 @@ class CORE_EXPORT Element : public ContainerNode {
                                      const AtomicString& new_name);
 
   void CreateUniqueElementData();
-
-  bool ShouldInvalidateDistributionWhenAttributeChanged(ShadowRoot&,
-                                                        const QualifiedName&,
-                                                        const AtomicString&);
 
   void SetInnerHTMLInternal(const String&,
                             FragmentParserConfig::ParseDeclarativeShadowRoots,

@@ -4,29 +4,20 @@
 
 #import "ios/chrome/browser/safe_browsing/model/safe_browsing_helper_factory.h"
 
+#import <utility>
+
 #import "ios/chrome/browser/safe_browsing/model/safe_browsing_metrics_collector_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_helper.h"
 
-// static
-SafeBrowsingHelperFactory* SafeBrowsingHelperFactory::GetInstance() {
-  static base::NoDestructor<SafeBrowsingHelperFactory> instance;
-  return instance.get();
-}
-
-// static
-SafeBrowsingHelper* SafeBrowsingHelperFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<SafeBrowsingHelper>(
-      profile, /*create=*/true);
-}
-
-SafeBrowsingHelperFactory::SafeBrowsingHelperFactory()
-    : ProfileKeyedServiceFactoryIOS("SafeBrowsingHelper",
-                                    ProfileSelection::kNoInstanceInIncognito,
-                                    ServiceCreation::kCreateWithProfile,
-                                    TestingCreation::kNoServiceForTests) {
+SafeBrowsingHelperFactory::SafeBrowsingHelperFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "SafeBrowsingHelper",
+          ProfileSelection::kNoInstanceInIncognito,
+          ServiceCreation::kCreateWithProfile,
+          TestingCreation::kNoServiceForTests) {
   DependsOn(SafeBrowsingMetricsCollectorFactory::GetInstance());
 }
 

@@ -14,6 +14,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/flat_set.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "base/time/time.h"
@@ -385,20 +386,13 @@ class ReadAnythingAppModel {
     if (!features::IsReadAnythingWithReadabilityEnabled()) {
       return false;
     }
-
-    if (is_readability_next_distillation_method() &&
-        distillation_state_ ==
-            read_anything::mojom::ReadAnythingDistillationState::
-                kDistillationInProgress) {
-      return true;
-    }
-
-    if (is_readability_current_distillation_method() &&
-        distillation_state_ ==
-            read_anything::mojom::ReadAnythingDistillationState::
-                kDistillationWithContent) {
-      return true;
-    }
+    return is_readability_next_distillation_method() &&
+           (distillation_state_ ==
+                read_anything::mojom::ReadAnythingDistillationState::
+                    kDistillationInProgress ||
+            distillation_state_ ==
+                read_anything::mojom::ReadAnythingDistillationState::
+                    kDistillationWithContent);
 
     return false;
   }
@@ -409,6 +403,11 @@ class ReadAnythingAppModel {
   void set_readability_distillation_complete_for_current_tree(bool complete) {
     readability_distillation_complete_for_current_tree_ = complete;
     last_readability_distilled_url_ = complete ? GetActiveTreeUrl() : GURL();
+  }
+
+  bool readability_content_drawn() const { return readability_content_drawn_; }
+  void set_readability_content_drawn(bool content_drawn) {
+    readability_content_drawn_ = content_drawn;
   }
 
   read_anything::mojom::LetterSpacing letter_spacing() const {
@@ -563,7 +562,7 @@ class ReadAnythingAppModel {
   bool will_hide() const { return will_hide_; }
   void set_will_hide(bool will_hide) { will_hide_ = will_hide; }
 
-  const std::vector<ui::AXNodeID>& content_node_ids() const {
+  const base::flat_set<ui::AXNodeID>& content_node_ids() const {
     return content_node_ids_;
   }
 
@@ -571,11 +570,32 @@ class ReadAnythingAppModel {
     return display_node_ids_;
   }
 
+  void set_display_node_ids_for_testing(
+      const std::set<ui::AXNodeID>& display_node_ids) {
+    display_node_ids_ = display_node_ids;
+  }
+
   const std::set<ui::AXNodeID>& selection_node_ids() const {
     return selection_node_ids_;
   }
+  void set_selection_node_ids_for_testing(
+      const std::set<ui::AXNodeID>& selection_node_ids) {
+    selection_node_ids_ = selection_node_ids;
+  }
 
   bool is_empty() const {
+    if (side_panel_distillation_mode_ ==
+        SidePanelDistillationMode::kSelection) {
+      return selection_node_ids_.empty();
+    }
+
+    // This needs to check the next distillation method because if this is
+    // checked while Readability is falling back to Screen2x,
+    // is_readability_current_distillation_method may temporarily be true
+    // before the fallback is complete.
+    if (is_readability_next_distillation_method()) {
+      return !readability_content_drawn_;
+    }
     return display_node_ids_.empty() && selection_node_ids_.empty();
   }
 
@@ -637,6 +657,9 @@ class ReadAnythingAppModel {
 
   void Reset(std::vector<ui::AXNodeID> content_node_ids);
 
+  // Clears the current selection and resets the view back to the main content.
+  void ResetSelection();
+
   // Helper functions for the rendering algorithm. Post-process the AXTree and
   // cache values before sending an `updateContent` notification to the Read
   // Anything app.ts.
@@ -654,9 +677,10 @@ class ReadAnythingAppModel {
   // are stored in forward tree order.
   void UpdateSelectionEndpoints();
 
-  // Returns true if the user's current selection is entirely contained within
-  // the distilled article content (display_node_ids_). When images are
-  // disabled, returns false if the selection starts or ends in a figure, so
+  // Returns true if the user's current selection is entirely within the
+  // distilled article content (display_node_ids_ for Screen2x, or
+  // readability_display_node_ids_ for Readability). When images are
+  // disabled, returns false if the selection starts or ends in a figure so
   // that the hidden figure is redrawn in selection mode.
   bool IsSelectionInDistilledContent() const;
 
@@ -668,6 +692,10 @@ class ReadAnythingAppModel {
   // displayed in the Read Anything app.ts by default.
   void ComputeDisplayNodeIdsForDistilledTree();
 
+  // Computes the AXNodes (and their ancestors) mapped from the rendered
+  // Readability text.
+  void ComputeReadabilityDisplayNodeIds();
+
   ui::AXSerializableTree* GetActiveTree() const;
 
   // Returns the active AXTree if it is available, initialized, and contains a
@@ -678,7 +706,9 @@ class ReadAnythingAppModel {
 
   bool ContainsActiveTree() const;
 
-  void UnserializePendingUpdates(const ui::AXTreeID& tree_id);
+  // Returns false if a failed unserialization destroyed the tree. Callers that
+  // continue using the tree must check the return value.
+  bool UnserializePendingUpdates(const ui::AXTreeID& tree_id);
 
   void ClearPendingUpdates();
 
@@ -732,6 +762,24 @@ class ReadAnythingAppModel {
     is_content_translated_ = is_content_translated;
   }
 
+  // Whether the WebUI should keep content hidden behind the loading screen
+  // until translation completes.
+  bool is_awaiting_translation() const { return is_awaiting_translation_; }
+  void set_is_awaiting_translation(bool is_awaiting_translation) {
+    is_awaiting_translation_ = is_awaiting_translation;
+  }
+
+  // The UKM source of the page that the active AXTree belongs to, as reported
+  // by the browser. Unlike GetUkmSourceId(), this is independent of the active
+  // tree's lifetime: it's kept when the tree is destroyed and set even before
+  // the tree's first updates arrive.
+  ukm::SourceId active_page_ukm_source_id() const {
+    return active_page_ukm_source_id_;
+  }
+  void set_active_page_ukm_source_id(ukm::SourceId ukm_source_id) {
+    active_page_ukm_source_id_ = ukm_source_id;
+  }
+
   void AddObserver(ModelObserver* observer);
   void RemoveObserver(ModelObserver* observer);
 
@@ -775,6 +823,10 @@ class ReadAnythingAppModel {
 
   SidePanelDistillationMode side_panel_distillation_mode() const {
     return side_panel_distillation_mode_;
+  }
+  void set_side_panel_distillation_mode_for_testing(
+      SidePanelDistillationMode mode) {
+    side_panel_distillation_mode_ = mode;
   }
 
   bool has_pending_selection() const { return has_pending_selection_; }
@@ -860,13 +912,13 @@ class ReadAnythingAppModel {
 
   ui::AXNode* GetAXNodeFromRoot(const ui::AXNodeID& ax_node_id) const;
 
-  void ResetSelection();
-
   bool ContentNodesOnlyContainHeadings();
 
   void AddPendingUpdates(const ui::AXTreeID& tree_id, Updates& updates);
 
-  void UnserializeUpdates(const Updates& updates, const ui::AXTreeID& tree_id);
+  // Returns false if a failed unserialization destroyed the tree. Callers that
+  // continue using the tree must check the return value.
+  bool UnserializeUpdates(const Updates& updates, const ui::AXTreeID& tree_id);
 
   void ProcessNonGeneratedEvents(const std::vector<ui::AXEvent>& events);
 
@@ -1005,6 +1057,20 @@ class ReadAnythingAppModel {
   // ReadAnythingUntrustedPageHandler::SendTranslationState()).
   bool is_content_translated_ = false;
 
+  // Whether the WebUI should keep content hidden behind the loading screen
+  // until translation completes. Set when reading mode is opened to translate a
+  // PDF, and cleared once the tab is translated, the translation fails, or
+  // reading mode is hidden. Only changed through
+  // ReadAnythingAppController::SetAwaitingTranslation(), which also notifies
+  // the WebUI.
+  bool is_awaiting_translation_ = false;
+
+  // The UKM source of the page that the active AXTree belongs to, as reported
+  // by the browser with each new active tree. Several trees can belong to the
+  // same page (e.g. a PDF's content frame), so a different source means the
+  // page changed, not just the tree. Only updated with valid sources.
+  ukm::SourceId active_page_ukm_source_id_ = ukm::kInvalidSourceId;
+
   // Distillation is slow and happens out-of-process when Screen2x is running.
   // This boolean marks when distillation is in progress to avoid sending
   // new distillation requests during that time.
@@ -1020,18 +1086,27 @@ class ReadAnythingAppModel {
   // The node IDs identified as main by the distiller. These are static text
   // nodes when generated by Screen2x. When generated by the rules-based
   // distiller, these are heading or paragraph subtrees.
-  std::vector<ui::AXNodeID> content_node_ids_;
+  base::flat_set<ui::AXNodeID> content_node_ids_;
 
   // This contains all ancestors and descendants of each content node. These
   // nodes will be displayed in the Read Anything app if there is no user
   // selection or if the users selection is contained within these nodes.
   std::set<ui::AXNodeID> display_node_ids_;
 
+  // All AXNodes mapped from the rendered Readability text, along with their
+  // ancestors. This corresponds to display_node_ids_ for Screen2x and is used
+  // to check if a user selection on the main page exists in the distilled
+  // reading mode content. Note that this is not a perfect match with the
+  // distilled content because distilled readability content is not always
+  // identical to the AXTree.
+  std::set<ui::AXNodeID> readability_display_node_ids_;
+
   // Set of displayed nodes that will be deleted.
   std::set<ui::AXNodeID> displayed_nodes_pending_deletion_;
 
-  // If the user's selection contains nodes outside of display_node_ids, this
-  // contains all nodes between the start and end nodes of the selection.
+  // If the user's selection contains nodes outside of display_node_ids_ (or
+  // readability_display_node_ids_), this contains all nodes between the start
+  // and end nodes of the selection.
   std::set<ui::AXNodeID> selection_node_ids_;
 
   // The current base language code used for fonts or reading aloud.
@@ -1147,7 +1222,7 @@ class ReadAnythingAppModel {
   // assigned to a full distilled block. Needed to ensure GapSubstringAlignment
   // doesn't map something to already mapped text in a gap (Ex: a shuffled
   // unique block not in the monotonic anchor list).
-  // Each pair is [start, end)
+  // Each pair is [start, end). Sorted and disjoint once populated.
   std::vector<std::pair<size_t, size_t>> occupied_ax_ranges_;
 
   // The minimum number of characters required for a substring to be considered
@@ -1173,6 +1248,9 @@ class ReadAnythingAppModel {
   // Track if a readability distillation has already been completed for the
   // current active AX tree.
   bool readability_distillation_complete_for_current_tree_ = false;
+
+  // When readability has content and has been drawn.
+  bool readability_content_drawn_ = false;
 
   // Track the URL of the last successfully distilled page on the active tree.
   GURL last_readability_distilled_url_;

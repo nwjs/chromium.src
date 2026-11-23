@@ -31,6 +31,7 @@ chromium-metrics-reviews@google.com.
   <variant name="OtherOffTheRecordProfile"/>
   <variant name="Regular"/>
   <variant name="System"/>
+  <variant name="TopChromeWebUIProfile"/>
 </variants>
 
 <!-- LINT.ThenChange(//chrome/browser/profiles/profile_load_tracker_win.cc:BrowserProfileType) -->
@@ -93,13 +94,15 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.AddSignInFlowOutcome"
-    enum="ProfileSignedInFlowOutcome" expires_after="2026-12-20">
+    enum="ProfileSignedInFlowOutcome" expires_after="2027-04-11">
   <owner>rsult@google.com</owner>
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
     Records the outcome of signed-in profile creation whenever it's started (by
     user choosing to sign-in in the first screen of the profile creation flow).
+    Post-sign-in sync confirmation outcomes are no longer recorded since the
+    removal of the legacy sync confirmation flow.
   </summary>
 </histogram>
 
@@ -161,6 +164,20 @@ chromium-metrics-reviews@google.com.
     Note: The guest profile has bucket 0. Regular profiles start at bucket 1.
     Incognito browser windows count towards the original profile.
   </summary>
+</histogram>
+
+<histogram name="Profile.BrowserActive{ProfileIndex}" enum="BooleanHit"
+    expires_after="2027-03-28">
+  <owner>rsult@google.com</owner>
+  <owner>msarda@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Recorded every time a browser window becomes active. Incognito browser
+    windows count towards the original profile.
+
+    {ProfileIndex}
+  </summary>
+  <token key="ProfileIndex" variants="ProfileIndex"/>
 </histogram>
 
 <histogram name="Profile.DeleteProfileAction" enum="ProfileDeleteAction"
@@ -350,7 +367,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.Menu.ClickedActionableItem{ProfileType}"
-    enum="ProfileMenuActionableItem" expires_after="2027-02-07">
+    enum="ProfileMenuActionableItem" expires_after="2027-04-11">
   <owner>rsult@google.com</owner>
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-desktop-team@google.com</owner>
@@ -447,7 +464,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.NumberOfManagedProfiles{ProfileActivityThreshold}"
-    units="profiles" expires_after="2027-02-07">
+    units="profiles" expires_after="2027-04-11">
   <owner>agawronska@chromium.org</owner>
   <owner>cros-families-eng@google.com</owner>
   <summary>
@@ -543,13 +560,16 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Profile.NumberOfSignedInProfiles{ProfileActivityThreshold}"
-    units="profiles" expires_after="2027-02-07">
+<histogram name="Profile.NumberOfSignedInProfiles2{ProfileActivityThreshold}"
+    units="profiles" expires_after="2027-04-21">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
-    Counts the number of signed-in (syncing) profiles on a user's machine. Only
-    emitted for users with at least one profile (of any type).
+    Counts the number of signed-in profiles (regardless of sync status, i.e.
+    ConsentLevel::kSignin) on a user's machine. Replaces
+    Profile.NumberOfSignedInProfiles (and its variants), which only counted
+    syncing profiles on non-iOS platforms. Only emitted for users with at least
+    one profile (of any type).
 
     This is intended to count only profiles that have been used in the last
     {ProfileActivityThreshold}. However, active usage detection does not work
@@ -641,7 +661,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.ProfileError2" enum="ProfileErrorType"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>etienneb@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -662,15 +682,17 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.SessionDuration.PerProfile" enum="Profile"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>msarda@chromium.org</owner>
   <owner>alexilin@chromium.org</owner>
   <summary>
-    Browsing session duration in minutes, recorded per profile. Each profile on
-    a client is assigned a unique bucket.
+    Total session duration accumulated in minutes, bucketed by profile index.
+    Each sample (count) in a bucket represents one minute of browsing activity
+    in that profile.
 
-    Recorded when the user switches profiles, after some time of
-    inactivity(usually 5 minutes) or at browser shutdown.
+    The session duration is calculated and added to the histogram when the user
+    switches profiles, after some time of inactivity (usually 5 minutes), or at
+    browser shutdown.
 
     Example: A user has 2 profiles. They open a browser window of profile 1 and
     interact with the browser for 8 minutes. Then they open a browser window of
@@ -683,8 +705,26 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Profile.SessionDuration{ProfileIndex}" units="ms"
+    expires_after="2027-04-11">
+  <owner>rsult@google.com</owner>
+  <owner>msarda@chromium.org</owner>
+  <owner>alexilin@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Browsing session duration, recorded per profile.
+
+    Recorded when the user switches profiles, after some time of inactivity
+    (usually 5 minutes) or at browser shutdown. Incognito profiles count towards
+    the original profile.
+
+    {ProfileIndex}
+  </summary>
+  <token key="ProfileIndex" variants="ProfileIndex"/>
+</histogram>
+
 <histogram name="Profile.State.LastUsed{ProfileStateGroup}" units="days"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -695,7 +735,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Profile.State.SyncEnabled{ProfileStateGroup}"
-    enum="BooleanEnabled" expires_after="2027-02-07">
+    enum="BooleanEnabled" expires_after="2027-04-11">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -706,7 +746,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Profile.State.UnconsentedPrimaryAccountType{ProfileStateGroup}"
-    enum="ProfileUnconsentedPrimaryAccountType" expires_after="2027-02-07">
+    enum="ProfileUnconsentedPrimaryAccountType" expires_after="2027-04-11">
   <owner>droger@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -761,6 +801,26 @@ chromium-metrics-reviews@google.com.
     Note: The guest profile has bucket 0. Regular profiles start at bucket 1.
     Incognito profiles count towards the original profile.
   </summary>
+</histogram>
+
+<histogram name="Profile.UserAction{ProfileIndex}" enum="BooleanHit"
+    expires_after="never">
+<!-- expires-never: Used by the Chrome Profile Metrics dashboard to track user
+      actions per profile, for users with multiple active profiles. -->
+
+  <owner>rsult@google.com</owner>
+  <owner>msarda@chromium.org</owner>
+  <owner>chrome-signin-team@google.com</owner>
+  <summary>
+    Helper histogram to track user actions per profile. Recorded when there is
+    an active profile browser instance and a UMA UserAction is recorded, i.e. if
+    there's an active profile, a recording of a UMA UserAction will result in a
+    recording of a sample in this histogram. Incognito profiles count towards
+    the original profile.
+
+    {ProfileIndex}
+  </summary>
+  <token key="ProfileIndex" variants="ProfileIndex"/>
 </histogram>
 
 <histogram name="Profile.Windows.ProfileLockStatus.{BrowserProfileType}"
@@ -931,7 +991,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfilePicker.FirstRun.ExitStatus" enum="FirstRunExitStatus"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>dgn@chromium.org</owner>
   <owner>for-you-fre@google.com</owner>
   <summary>
@@ -1128,7 +1188,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfilePicker.StartupTime.FirstPaint" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>rsult@google.com</owner>
   <owner>dgn@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -1140,7 +1200,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ProfilePicker.StartupTime.FirstPaint.FromApplicationStart{StartupTemperatureSuffix}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>alexilin@chromium.org</owner>
   <owner>dgn@chromium.org</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -1186,7 +1246,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfilePicker.{ProfilePickerFlowType}.FlowEndedAtStep"
-    enum="ProfileManagementFlowStep" expires_after="2027-02-07">
+    enum="ProfileManagementFlowStep" expires_after="2027-04-11">
   <owner>rsult@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>
@@ -1210,7 +1270,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfilePicker.{ProfilePickerFlowType}.SignInError"
-    enum="SigninUIErrorType" expires_after="2027-02-07">
+    enum="SigninUIErrorType" expires_after="2027-04-11">
   <owner>anthie@google.com</owner>
   <owner>rsult@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>
@@ -1266,7 +1326,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ProfilePicker.{ProfilePickerFlowType}.{StepStatus}"
-    enum="ProfileManagementFlowStep" expires_after="2027-02-07">
+    enum="ProfileManagementFlowStep" expires_after="2027-04-11">
   <owner>rsult@google.com</owner>
   <owner>chrome-signin-team@google.com</owner>
   <summary>

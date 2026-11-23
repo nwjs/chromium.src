@@ -51,6 +51,14 @@ public final class EventConstants {
     public static final String ADAPTIVE_TOOLBAR_PAGE_SUMMARY_WEB_USED =
             "adaptive_toolbar_page_summary_web_used";
 
+    /** The user accepted the bottom bar opt-in dialog. */
+    public static final String ANDROID_BOTTOM_BAR_EDUCATION_OPT_IN_ACCEPTED =
+            "android_bottom_bar_education_opt_in_accepted";
+
+    /** The user tapped "Show me" in the bottom bar education onboarding flow. */
+    public static final String ANDROID_BOTTOM_BAR_EDUCATION_USED =
+            "android_bottom_bar_education_used";
+
     /** The user interacted with the GLIC button on the new bottom bar. */
     public static final String ANDROID_BOTTOM_BAR_GLIC_USED = "android_bottom_bar_glic_used";
 
@@ -179,6 +187,10 @@ public final class EventConstants {
 
     /** The keyboard accessory At Memory feature was used. */
     public static final String KEYBOARD_ACCESSORY_AT_MEMORY_USED = "autofill_at_memory_iph_used";
+
+    /** The keyboard accessory Autofill AI SPII disclaimer was used. */
+    public static final String KEYBOARD_ACCESSORY_AUTOFILL_AI_SPII_DISCLAIMER_USED =
+            "autofill_ai_spii_disclaimer_used";
 
     /** The keyboard accessory was used to fill autofill valuables data into a form. */
     public static final String KEYBOARD_ACCESSORY_AUTOFILL_AI_VALUABLES_AUTOFILLED =

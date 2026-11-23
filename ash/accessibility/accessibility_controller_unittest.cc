@@ -17,6 +17,7 @@
 #include "ash/accessibility/disable_touchpad_event_rewriter.h"
 #include "ash/accessibility/filter_keys_event_rewriter.h"
 #include "ash/accessibility/flash_screen_controller.h"
+#include "ash/accessibility/hover_text_event_handler.h"
 #include "ash/accessibility/magnifier/docked_magnifier_controller.h"
 #include "ash/accessibility/mouse_keys/mouse_keys_controller.h"
 #include "ash/accessibility/sticky_keys/sticky_keys_controller.h"
@@ -35,8 +36,9 @@
 #include "ash/public/cpp/test/test_system_tray_client.h"
 #include "ash/root_window_controller.h"
 #include "ash/session/session_controller_impl.h"
-#include "ash/session/test_pref_service_provider.h"
 #include "ash/shell.h"
+#include "ash/system/accessibility/hover_text_bubble_controller.h"
+#include "ash/system/accessibility/hover_text_bubble_view.h"
 #include "ash/system/toast/anchored_nudge_manager_impl.h"
 #include "ash/system/toast/toast_manager_impl.h"
 #include "ash/system/unified/unified_system_tray.h"
@@ -44,6 +46,7 @@
 #include "ash/test/ash_test_base.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/language_tag.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
@@ -390,22 +393,54 @@ TEST_F(AccessibilityControllerTest, PrefsAreRegistered) {
 }
 
 TEST_F(AccessibilityControllerTest, SetHoverTextEnabled) {
+  TestAccessibilityControllerClient client;
+
   base::test::ScopedFeatureList scoped_feature_list(
       ::features::kAccessibilityHoverText);
   EXPECT_FALSE(controller()->hover_text().enabled());
+  EXPECT_EQ(nullptr, controller()->GetHoverTextBubbleControllerForTest());
+  EXPECT_EQ(nullptr, controller()->GetHoverTextEventHandlerForTest());
 
   TestAccessibilityObserver observer;
   EXPECT_EQ(0, observer.status_changed_count_);
 
   controller()->hover_text().SetEnabled(true);
   EXPECT_TRUE(controller()->hover_text().enabled());
+  EXPECT_FALSE(controller()->IsHoverTextActive());
   EXPECT_EQ(1, observer.status_changed_count_);
+  EXPECT_NE(nullptr, controller()->GetHoverTextBubbleControllerForTest());
+  EXPECT_NE(nullptr, controller()->GetHoverTextEventHandlerForTest());
   ExpectSessionDurationMetricCount("CrosHoverText", 0);
+
+  // Verify toggling active state when enabled.
+  EXPECT_FALSE(controller()->IsHoverTextActive());
+  controller()->ToggleHoverTextActive();
+  EXPECT_TRUE(controller()->IsHoverTextActive());
+  EXPECT_EQ(1, observer.status_changed_count_);
+  EXPECT_EQ(1, client.hover_text_key_event_count());
+  EXPECT_TRUE(client.last_hover_text_activation_key_held());
+  EXPECT_FALSE(client.last_hover_text_stop_speech());
+
+  controller()->ToggleHoverTextActive();
+  EXPECT_FALSE(controller()->IsHoverTextActive());
+  EXPECT_EQ(2, client.hover_text_key_event_count());
+  EXPECT_FALSE(client.last_hover_text_activation_key_held());
+  EXPECT_TRUE(client.last_hover_text_stop_speech());
+
+  controller()->ToggleHoverTextActive();
+  EXPECT_TRUE(controller()->IsHoverTextActive());
+  EXPECT_EQ(3, client.hover_text_key_event_count());
 
   controller()->hover_text().SetEnabled(false);
   EXPECT_FALSE(controller()->hover_text().enabled());
+  EXPECT_FALSE(controller()->IsHoverTextActive());
   EXPECT_EQ(2, observer.status_changed_count_);
+  EXPECT_EQ(nullptr, controller()->GetHoverTextBubbleControllerForTest());
+  EXPECT_EQ(nullptr, controller()->GetHoverTextEventHandlerForTest());
   ExpectSessionDurationMetricCount("CrosHoverText", 1);
+  EXPECT_EQ(4, client.hover_text_key_event_count());
+  EXPECT_FALSE(client.last_hover_text_activation_key_held());
+  EXPECT_TRUE(client.last_hover_text_stop_speech());
 }
 
 TEST_F(AccessibilityControllerTest, HoverTextConflictsWithChromeVox) {
@@ -445,6 +480,48 @@ TEST_F(AccessibilityControllerTest, HoverTextConflictsWithChromeVox) {
 
   controller()->spoken_feedback().SetEnabled(false);
   controller()->hover_text().SetEnabled(false);
+}
+
+TEST_F(AccessibilityControllerTest, HoverTextPrefsUpdateControllers) {
+  {
+    base::test::ScopedFeatureList disabled_feature_list;
+    disabled_feature_list.InitAndDisableFeature(
+        ::features::kAccessibilityHoverText);
+    controller()->hover_text().SetEnabled(true);
+    EXPECT_EQ(nullptr, controller()->GetHoverTextEventHandlerForTest());
+    EXPECT_EQ(nullptr, controller()->GetHoverTextBubbleControllerForTest());
+    controller()->hover_text().SetEnabled(false);
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list(
+      ::features::kAccessibilityHoverText);
+  controller()->hover_text().SetEnabled(true);
+  ASSERT_NE(nullptr, controller()->GetHoverTextEventHandlerForTest());
+  ASSERT_NE(nullptr, controller()->GetHoverTextBubbleControllerForTest());
+
+  HoverTextBubbleProps props;
+  props.visible = true;
+  props.text = u"Test";
+  props.anchor_rect = gfx::Rect(100, 100, 50, 20);
+  controller()->UpdateHoverTextBubble(props);
+  ASSERT_NE(nullptr, controller()
+                         ->GetHoverTextBubbleControllerForTest()
+                         ->bubble_view_for_testing());
+
+  props.font_scale = 3.0;
+  props.font_style = HoverTextFontStyle::kMonospace;
+  controller()->UpdateHoverTextBubble(props);
+
+  EXPECT_EQ(48, controller()
+                    ->GetHoverTextBubbleControllerForTest()
+                    ->bubble_view_for_testing()
+                    ->GetFontSizePixelsForTesting());
+  const std::string font_family = controller()
+                                      ->GetHoverTextBubbleControllerForTest()
+                                      ->bubble_view_for_testing()
+                                      ->GetFontFamilyForTesting();
+  EXPECT_TRUE(font_family == "Roboto Mono" ||
+              font_family == "DejaVu Sans Mono" || font_family == "monospace");
 }
 
 TEST_F(AccessibilityControllerTest, SetAlwaysShowScrollbarEnabled) {
@@ -913,14 +990,18 @@ TEST_F(AccessibilityControllerTest, DictationTrayMenuVisibility) {
 
 TEST_F(AccessibilityControllerTest, DictationLanguageUpgradedNudge) {
   struct {
-    std::string locale;
-    std::string application_locale;
+    base::i18n::LanguageTag locale;
+    base::i18n::LanguageTag application_locale;
     std::string label;
   } kTestCases[] = {
-      {"en-US", "en-US", "English"},
-      {"es-ES", "en-US", "Spanish"},
-      {"en-US", "es-ES", "inglés"},
-      {"es-ES", "es-ES", "español"},
+      {base::i18n::GetKnownLanguageTag("en-US"),
+       base::i18n::GetKnownLanguageTag("en-US"), "English"},
+      {base::i18n::GetKnownLanguageTag("es-ES"),
+       base::i18n::GetKnownLanguageTag("en-US"), "Spanish"},
+      {base::i18n::GetKnownLanguageTag("en-US"),
+       base::i18n::GetKnownLanguageTag("es-ES"), "inglés"},
+      {base::i18n::GetKnownLanguageTag("es-ES"),
+       base::i18n::GetKnownLanguageTag("es-ES"), "español"},
   };
 
   auto* nudge_manager = Shell::Get()->anchored_nudge_manager();
@@ -2046,7 +2127,7 @@ class AccessibilityControllerSigninTest
         break;
 
       case TestUserLoginType::kExistingUser:
-        SimulateUserLogin({kUserEmail});
+        SimulateUserLogin(AccountId::FromUserEmail(kUserEmail));
         break;
     }
   }
@@ -2933,28 +3014,24 @@ class AccessibilityControllerSyncablePrefsOnSigninTest
 
   void SimulateLogin() {
     constexpr char kUserEmail[] = "user1@test.com";
-    auto pref_service =
-        std::make_unique<sync_preferences::TestingPrefServiceSyncable>();
-    RegisterUserProfilePrefs(pref_service->registry(), /*country=*/"",
-                             /*for_test=*/true);
 
     switch (GetParam()) {
       case TestUserLoginType::kNewUser:
         ash_test_helper_->SimulateUserLogin(
-            {.display_email = kUserEmail, .is_new_profile = true},
-            /*opt_account_id=*/std::nullopt, std::move(pref_service));
+            {.account_id = AccountId::FromUserEmail(kUserEmail),
+             .is_new_profile = true});
         break;
 
       case TestUserLoginType::kGuest:
         ash_test_helper_->SimulateUserLogin(
-            {user_manager::kGuestUserName, user_manager::UserType::kGuest},
-            /*opt_account_id=*/std::nullopt, std::move(pref_service));
+            {.account_id =
+                 AccountId::FromUserEmail(user_manager::kGuestUserName),
+             .user_type = user_manager::UserType::kGuest});
         break;
 
       case TestUserLoginType::kExistingUser:
-        ash_test_helper_->SimulateUserLogin({kUserEmail},
-                                            /*opt_account_id=*/std::nullopt,
-                                            std::move(pref_service));
+        ash_test_helper_->SimulateUserLogin(
+            {.account_id = AccountId::FromUserEmail(kUserEmail)});
         break;
     }
   }

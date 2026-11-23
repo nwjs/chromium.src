@@ -77,6 +77,8 @@
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
+#include "third_party/blink/renderer/core/frame/permissions_policy_violation_report_body.h"
+#include "third_party/blink/renderer/core/frame/report.h"
 #include "third_party/blink/renderer/core/frame/reporting_context.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/viewport_data.h"
@@ -444,7 +446,7 @@ TEST_F(DocumentTest, StyleVersion) {
     <div id='x'><span class='c'></span></div>
   )HTML");
 
-  Element* element = GetDocument().getElementById(AtomicString("x"));
+  Element* element = GetElementById("x");
   EXPECT_TRUE(element);
 
   uint64_t previous_style_version = GetDocument().StyleVersion();
@@ -532,7 +534,7 @@ TEST_F(DocumentTest, ViewportPropagationNoRecalc) {
 
   int old_element_count = GetDocument().GetStyleEngine().StyleForElementCount();
 
-  Element* div = GetDocument().getElementById(AtomicString("recalc"));
+  Element* div = GetElementById("recalc");
   div->setAttribute(html_names::kStyleAttr, AtomicString("color:green"));
   GetDocument().UpdateStyleAndLayoutTree();
 
@@ -683,7 +685,7 @@ TEST_F(DocumentTest, ElementFromPointOnScrollbar) {
   EXPECT_EQ(GetDocument().ElementFromPoint(1, 590), GetDocument().body());
 
   // Add width which will cause a horizontal scrollbar.
-  auto* content = GetDocument().getElementById(AtomicString("content"));
+  auto* content = GetElementById("content");
   content->setAttribute(html_names::kStyleAttr, AtomicString("width: 101%;"));
 
   // A hit test on the horizontal scrollbar should not return an element because
@@ -706,7 +708,7 @@ TEST_F(DocumentTest, ElementFromPointWithPageZoom) {
   )HTML");
 
   // A hit test on the content div should hit it.
-  auto* content = GetDocument().getElementById(AtomicString("content"));
+  auto* content = GetElementById("content");
   EXPECT_EQ(GetDocument().ElementFromPoint(1, 8), content);
   // A hit test below the content div should not hit it.
   EXPECT_EQ(GetDocument().ElementFromPoint(1, 12), GetDocument().body());
@@ -1340,11 +1342,20 @@ class MockReportingContext final : public ReportingContext {
  public:
   explicit MockReportingContext(ExecutionContext& ec) : ReportingContext(ec) {}
 
-  void QueueReport(Report* report, const Vector<String>& endpoint) override {
+  void QueueReport(Report* report, const Vector<String>& endpoints) override {
     report_count++;
+    last_report = report;
+    last_endpoints = endpoints;
+  }
+
+  void Trace(Visitor* visitor) const override {
+    visitor->Trace(last_report);
+    ReportingContext::Trace(visitor);
   }
 
   unsigned report_count = 0;
+  Member<Report> last_report;
+  Vector<String> last_endpoints;
 };
 
 }  // namespace
@@ -1439,19 +1450,15 @@ TEST_F(UnassociatedListedElementTest, GetUnassociatedListedElements) {
   unassociated_custom_element->SetIdAttribute(
       AtomicString("unassociated_custom_element"));
   GetDocument().body()->AppendChild(unassociated_custom_element);
-  ASSERT_TRUE(GetDocument().getElementById(
-      AtomicString("unassociated_custom_element")));
+  ASSERT_TRUE(GetElementById("unassociated_custom_element"));
 
   // Add associated form-associated custom element.
   Element* associated_custom_element =
       CreateElement(AtomicString("input")).WithIsValue(AtomicString("a-b"));
   associated_custom_element->SetIdAttribute(
       AtomicString("associated_custom_element"));
-  GetDocument()
-      .getElementById(AtomicString("form"))
-      ->AppendChild(associated_custom_element);
-  ASSERT_TRUE(
-      GetDocument().getElementById(AtomicString("associated_custom_element")));
+  GetElementById("form")->AppendChild(associated_custom_element);
+  ASSERT_TRUE(GetElementById("associated_custom_element"));
 
   auto expected_elements = [&] {
     return ElementsAre(
@@ -1519,7 +1526,7 @@ TEST_F(UnassociatedListedElementTest,
       GetDocument().UnassociatedListedElements();
   EXPECT_THAT(listed_elements, ElementsAre(GetElement("input_id")));
 
-  GetDocument().getElementById(AtomicString("input_id"))->remove();
+  GetElementById("input_id")->remove();
   listed_elements = GetDocument().UnassociatedListedElements();
   EXPECT_EQ(0u, listed_elements.size());
 }
@@ -1538,8 +1545,7 @@ TEST_F(UnassociatedListedElementTest,
       GetDocument().UnassociatedListedElements();
   EXPECT_THAT(listed_elements, ElementsAre(GetElement("input_id")));
 
-  GetDocument()
-      .getElementById(AtomicString("input_id"))
+  GetElementById("input_id")
       ->setAttribute(html_names::kFormAttr, AtomicString("form_id"));
   listed_elements = GetDocument().UnassociatedListedElements();
   EXPECT_EQ(0u, listed_elements.size());
@@ -1558,9 +1564,7 @@ TEST_F(UnassociatedListedElementTest,
       GetDocument().UnassociatedListedElements();
   EXPECT_EQ(0u, listed_elements.size());
 
-  GetDocument()
-      .getElementById(AtomicString("input_id"))
-      ->removeAttribute(html_names::kFormAttr);
+  GetElementById("input_id")->removeAttribute(html_names::kFormAttr);
   listed_elements = GetDocument().UnassociatedListedElements();
   EXPECT_THAT(listed_elements, ElementsAre(GetElement("input_id")));
 }
@@ -1577,8 +1581,7 @@ TEST_F(UnassociatedListedElementTest,
       GetDocument().UnassociatedListedElements();
   EXPECT_EQ(0u, listed_elements.size());
 
-  GetDocument()
-      .getElementById(AtomicString("input_id"))
+  GetElementById("input_id")
       ->setAttribute(html_names::kFormAttr, AtomicString("nonexistent_id"));
   listed_elements = GetDocument().UnassociatedListedElements();
   EXPECT_THAT(listed_elements, ElementsAre(GetElement("input_id")));
@@ -1631,7 +1634,7 @@ TEST_F(UnassociatedListedElementTest,
       GetDocument().UnassociatedListedElements();
   EXPECT_THAT(listed_elements, ElementsAre(GetElement("input_id")));
 
-  auto* div = GetDocument().getElementById(AtomicString("div_id"));
+  auto* div = GetElementById("div_id");
   div->remove();
   listed_elements = GetDocument().UnassociatedListedElements();
   EXPECT_EQ(0u, listed_elements.size());
@@ -1889,10 +1892,10 @@ TEST_F(DocumentTest, ActiveModalDialog) {
     <dialog popover id="popover"></dialog>
   )HTML");
 
-  HTMLDialogElement* modal = DynamicTo<HTMLDialogElement>(
-      GetDocument().getElementById(AtomicString("modal")));
-  HTMLDialogElement* popover = DynamicTo<HTMLDialogElement>(
-      GetDocument().getElementById(AtomicString("popover")));
+  HTMLDialogElement* modal =
+      DynamicTo<HTMLDialogElement>(GetElementById("modal"));
+  HTMLDialogElement* popover =
+      DynamicTo<HTMLDialogElement>(GetElementById("popover"));
 
   ASSERT_TRUE(modal);
   ASSERT_TRUE(popover);
@@ -2311,7 +2314,7 @@ class DocumentFocusUseCounterTest : public DocumentSimTest {
       <label id="label" for="label-target">Label</label>
     )HTML");
     GetDocument().body()->AppendChild(container);
-    return GetDocument().getElementById(AtomicString("label"));
+    return GetElementById("label");
   }
 };
 
@@ -2409,7 +2412,7 @@ TEST_F(DocumentFocusUseCounterTest, LabelFocusAllowedWithFeatureDisabled) {
   SetUpChildFrame("focus-without-user-activation 'none'");
   Element* label = AddLabel();
   ASSERT_TRUE(label);
-  Element* target = GetDocument().getElementById(AtomicString("label-target"));
+  Element* target = GetElementById("label-target");
   ASSERT_TRUE(target);
   ASSERT_FALSE(GetDocument().FocusedElement());
 
@@ -2423,7 +2426,7 @@ TEST_F(DocumentFocusUseCounterTest, LabelClickAllowedWithFeatureDisabled) {
   ScopedBlockingFocusWithoutUserActivationForTest feature(false);
   SetUpChildFrame("focus-without-user-activation 'none'");
   ASSERT_TRUE(AddLabel());
-  Element* target = GetDocument().getElementById(AtomicString("label-target"));
+  Element* target = GetElementById("label-target");
   ASSERT_TRUE(target);
   ASSERT_FALSE(GetDocument().FocusedElement());
 
@@ -2444,7 +2447,7 @@ TEST_F(DocumentFocusUseCounterTest,
   SetUpChildFrame("focus-without-user-activation 'none'");
   Element* label = AddLabel();
   ASSERT_TRUE(label);
-  Element* target = GetDocument().getElementById(AtomicString("label-target"));
+  Element* target = GetElementById("label-target");
   ASSERT_TRUE(target);
 
   ScriptState::Scope script_scope(ToScriptStateForMainWorld(ChildFrame()));
@@ -2526,6 +2529,7 @@ TEST_F(DocumentFocusUseCounterTest,
 
   EXPECT_TRUE(GetDocument().IsUseCounted(
       WebFeature::kFocusWithoutUserActivationBlocked));
+  EXPECT_THAT(ConsoleMessages(), IsEmpty());
 }
 
 // Regression coverage for the activated-target variant of crbug.com/513330788:
@@ -2553,6 +2557,121 @@ TEST_F(DocumentFocusUseCounterTest,
   EXPECT_TRUE(GetDocument().IsUseCounted(
       WebFeature::kFocusWithoutUserActivationBlocked));
 }
+
+class DocumentFocusReportingTest : public DocumentFocusUseCounterTest,
+                                   public testing::WithParamInterface<bool> {
+ protected:
+  void SetUp() override {
+    DocumentFocusUseCounterTest::SetUp();
+    SetUpChildFrameWithHeader(
+        nullptr,
+        IsReportOnly()
+            ? nullptr
+            : "focus-without-user-activation=();report-to=enforcing-endpoint",
+        "focus-without-user-activation=();report-to=report-only-endpoint");
+  }
+
+  bool IsReportOnly() const { return GetParam(); }
+
+  MockReportingContext* CaptureReports(LocalFrame& frame) {
+    auto* window = frame.DomWindow();
+    auto* reporting_context =
+        MakeGarbageCollected<MockReportingContext>(*window);
+    Supplement<ExecutionContext>::ProvideTo(*window, reporting_context);
+    return reporting_context;
+  }
+
+ private:
+  ScopedBlockingFocusWithoutUserActivationForTest feature_{true};
+};
+
+TEST_P(DocumentFocusReportingTest, ReportsViolationOnInitiator) {
+  auto* initiator_reports = CaptureReports(*ChildFrame());
+  auto* target_reports = CaptureReports(*GetDocument().GetFrame());
+
+  EXPECT_EQ(IsReportOnly(),
+            GetDocument().IsFocusAllowed(FocusTrigger::kScript, *ChildFrame()));
+
+  EXPECT_EQ(initiator_reports->report_count, 1u);
+  EXPECT_EQ(target_reports->report_count, 0u);
+  ASSERT_TRUE(initiator_reports->last_report);
+  EXPECT_EQ(initiator_reports->last_report->url(),
+            ChildDocument()->Url().GetString());
+  ASSERT_EQ(initiator_reports->last_report->type(),
+            ReportType::kPermissionsPolicyViolation);
+  const auto* body = static_cast<PermissionsPolicyViolationReportBody*>(
+      initiator_reports->last_report->body());
+  EXPECT_EQ(body->featureId(), "focus-without-user-activation");
+  EXPECT_EQ(body->disposition(), IsReportOnly() ? "report" : "enforce");
+  EXPECT_THAT(initiator_reports->last_endpoints,
+              ElementsAre(IsReportOnly() ? "report-only-endpoint"
+                                         : "enforcing-endpoint"));
+}
+
+TEST_P(DocumentFocusReportingTest, FocusedFrameDoesNotReport) {
+  auto* reports = CaptureReports(*ChildFrame());
+  ChildDocument()->GetPage()->GetFocusController().SetFocusedFrame(
+      ChildFrame());
+
+  EXPECT_TRUE(
+      ChildDocument()->IsFocusAllowed(FocusTrigger::kScript, *ChildFrame()));
+
+  EXPECT_EQ(reports->report_count, 0u);
+  EXPECT_FALSE(ChildDocument()->IsUseCounted(
+      WebFeature::kFocusWithoutUserActivationAllowedByPolicy));
+  EXPECT_TRUE(ChildDocument()->IsUseCounted(
+      WebFeature::kFocusWithoutUserActivationAllowedByDescendant));
+}
+
+TEST_P(DocumentFocusReportingTest, FocusedDescendantDoesNotReport) {
+  ChildDocument()->body()->SetInnerHTMLWithoutTrustedTypes("<iframe></iframe>");
+  auto* descendant = To<LocalFrame>(ChildFrame()->FirstChild());
+  ASSERT_TRUE(descendant);
+  auto* reports = CaptureReports(*ChildFrame());
+  ChildDocument()->GetPage()->GetFocusController().SetFocusedFrame(descendant);
+
+  EXPECT_TRUE(
+      ChildDocument()->IsFocusAllowed(FocusTrigger::kScript, *ChildFrame()));
+
+  EXPECT_EQ(reports->report_count, 0u);
+  EXPECT_FALSE(ChildDocument()->IsUseCounted(
+      WebFeature::kFocusWithoutUserActivationAllowedByPolicy));
+  EXPECT_TRUE(ChildDocument()->IsUseCounted(
+      WebFeature::kFocusWithoutUserActivationAllowedByDescendant));
+}
+
+TEST_P(DocumentFocusReportingTest, UserActivationDoesNotReport) {
+  auto* reports = CaptureReports(*ChildFrame());
+  LocalFrame::NotifyUserActivation(
+      ChildFrame(), mojom::blink::UserActivationNotificationType::kTest);
+  ASSERT_TRUE(LocalFrame::HasTransientUserActivation(ChildFrame()));
+
+  EXPECT_TRUE(
+      ChildDocument()->IsFocusAllowed(FocusTrigger::kScript, *ChildFrame()));
+
+  EXPECT_EQ(reports->report_count, 0u);
+}
+
+TEST_P(DocumentFocusReportingTest, UserGestureDoesNotReport) {
+  auto* reports = CaptureReports(*ChildFrame());
+
+  EXPECT_TRUE(ChildDocument()->IsFocusAllowed(FocusTrigger::kUserGesture,
+                                              *ChildFrame()));
+
+  EXPECT_EQ(reports->report_count, 0u);
+}
+
+TEST_P(DocumentFocusReportingTest, DisabledFeatureDoesNotReport) {
+  ScopedBlockingFocusWithoutUserActivationForTest disabled(false);
+  auto* reports = CaptureReports(*ChildFrame());
+
+  EXPECT_TRUE(
+      ChildDocument()->IsFocusAllowed(FocusTrigger::kScript, *ChildFrame()));
+
+  EXPECT_EQ(reports->report_count, 0u);
+}
+
+INSTANTIATE_TEST_SUITE_P(All, DocumentFocusReportingTest, testing::Bool());
 
 TEST_F(DocumentTest, CreateElementFastPath) {
   // 1. Standard HTML elements hit the fast path in CreateElementForBinding.

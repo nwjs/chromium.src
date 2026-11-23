@@ -54,7 +54,6 @@ interface SafetyHubModuleMediator {
         ModuleOption.UNIFIED_PASSWORDS,
         ModuleOption.SAFE_BROWSING,
         ModuleOption.UNUSED_PERMISSIONS,
-        ModuleOption.NOTIFICATION_REVIEW,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface ModuleOption {
@@ -64,8 +63,7 @@ interface SafetyHubModuleMediator {
         int UNIFIED_PASSWORDS = 3;
         int SAFE_BROWSING = 4;
         int UNUSED_PERMISSIONS = 5;
-        int NOTIFICATION_REVIEW = 6;
-        int NUM_ENTRIES = 7;
+        int NUM_ENTRIES = 6;
     }
 
     /**
@@ -146,7 +144,7 @@ interface SafetyHubModuleMediator {
                 return isManaged()
                         ? SafetyHubUtils.getManagedIcon(context)
                         : SettingsUtils.getTintedIcon(
-                                context, R.drawable.ic_error, R.color.default_red);
+                                context, R.drawable.ic_error_24dp, R.color.default_red);
             case ModuleState.LOADING:
                 return null;
             default:

@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "content/public/browser/content_browser_client.h"
+#include "content/public/common/child_process_id.h"
 #include "content/shell/browser/shell_speech_recognition_manager_delegate.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/network_context.mojom-forward.h"
@@ -21,6 +22,8 @@
 class PrefService;
 
 #if BUILDFLAG(IS_IOS)
+class ApplicationLocaleStorage;
+
 namespace permissions {
 class BluetoothDelegateImpl;
 }
@@ -59,6 +62,9 @@ class ShellContentBrowserClient : public ContentBrowserClient {
   bool AreIsolatedWebAppsEnabled(BrowserContext* browser_context) override;
   void AppendExtraCommandLineSwitches(base::CommandLine* command_line,
                                       int child_process_id) override;
+#if BUILDFLAG(IS_IOS)
+  std::string GetApplicationLocale() override;
+#endif
   std::string GetAcceptLangs(BrowserContext* context) override;
   std::string GetDefaultDownloadName() override;
   std::unique_ptr<WebContentsViewDelegate> GetWebContentsViewDelegate(
@@ -69,7 +75,7 @@ class ShellContentBrowserClient : public ContentBrowserClient {
       content::BrowserContext* context) override;
   base::OnceClosure SelectClientCertificate(
       BrowserContext* browser_context,
-      int process_id,
+      ChildProcessId process_id,
       WebContents* web_contents,
       net::SSLCertRequestInfo* cert_request_info,
       net::ClientCertIdentityList client_certs,
@@ -236,6 +242,7 @@ class ShellContentBrowserClient : public ContentBrowserClient {
   base::RepeatingCallback<void(NavigationThrottleRegistry&)>
       create_throttles_for_navigation_callback_;
 #if BUILDFLAG(IS_IOS)
+  std::unique_ptr<ApplicationLocaleStorage> application_locale_storage_;
   std::unique_ptr<permissions::BluetoothDelegateImpl> bluetooth_delegate_;
 #endif
 

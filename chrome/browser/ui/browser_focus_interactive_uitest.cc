@@ -17,6 +17,7 @@
 #include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
@@ -73,6 +74,7 @@
 #include "ui/base/test/ui_controls.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
 #include "ui/views/interaction/view_focus_observer.h"
 #include "ui/views/test/widget_activation_waiter.h"
@@ -80,6 +82,10 @@
 
 #if BUILDFLAG(IS_OZONE)
 #include "ui/ozone/public/ozone_platform.h"
+#endif
+
+#if BUILDFLAG(IS_WIN)
+#include "ui/base/ime/win/tsf_input_scope.h"
 #endif
 
 #if BUILDFLAG(IS_MAC)
@@ -246,10 +252,7 @@ class BrowserFocusTest : public InteractiveBrowserTest {
     std::vector<content::WebContents*> web_contents = {
         browser()->tab_strip_model()->GetActiveWebContents()};
 
-    WebUIToolbarWebView* webui_toolbar =
-        BrowserView::GetBrowserViewForBrowser(browser())
-            ->toolbar_button_provider()
-            ->GetWebUIToolbarViewForTesting();
+    WebUIToolbarWebView* webui_toolbar = GetWebUIToolbarWebView(browser());
     if (webui_toolbar) {
       web_contents.push_back(
           webui_toolbar->GetWebViewForTesting()->web_contents());
@@ -266,6 +269,27 @@ class BrowserFocusTest : public InteractiveBrowserTest {
     // ToolbarUIService pipe. Settle the toolbar pipes so callers observe the
     // state that corresponds to the focus change they just waited for.
     if (webui_toolbar) {
+      // Flushing the pipes is only sufficient once the toolbar page has sent
+      // its omnibox focus notification. The page sends it from the omnibox
+      // input's `focus`/`blur` handler, and Blink only dispatches those events
+      // on the active element once the page itself is focused. That page-level
+      // focus state (RenderWidgetHostImpl::SetPageFocus()) travels over the
+      // widget input pipe, which is not ordered with respect to the frame
+      // interface used by SetInitialFocus() and by the flush below. So when
+      // tab traversal moves Views focus onto the toolbar WebView, the omnibox
+      // element may already be document.activeElement while the page is not
+      // yet focused, and a flush at that point would complete without the
+      // focus notification. Wait for the page's focus state to agree with the
+      // Views focused view first.
+      views::WebView* toolbar_web_view = webui_toolbar->GetWebViewForTesting();
+      const bool toolbar_page_focused =
+          toolbar_web_view->Contains(GetFocusManager()->GetFocusedView());
+      ASSERT_TRUE(base::test::RunUntil([&]() {
+        return content::EvalJs(toolbar_web_view->web_contents(),
+                               "document.hasFocus()")
+                   .ExtractBool() == toolbar_page_focused;
+      })) << "Toolbar page focus did not settle to "
+          << toolbar_page_focused;
       ASSERT_TRUE(FlushWebUIToolbarPipes(browser()));
     }
   }
@@ -291,13 +315,13 @@ class BrowserFocusTest : public InteractiveBrowserTest {
 
   views::FocusManager* GetFocusManager() {
     BrowserWindow* browser_window = BrowserWindow::FromBrowser(browser());
-    DCHECK(browser_window);
+    CHECK(browser_window, base::NotFatalUntil::M162);
     gfx::NativeWindow window = browser_window->GetNativeWindow();
-    DCHECK(window);
+    CHECK(window, base::NotFatalUntil::M162);
     views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
-    DCHECK(widget);
+    CHECK(widget, base::NotFatalUntil::M162);
     views::FocusManager* focus_manager = widget->GetFocusManager();
-    DCHECK(focus_manager);
+    CHECK(focus_manager, base::NotFatalUntil::M162);
     return focus_manager;
   }
 
@@ -476,6 +500,95 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, TabsRememberFocus) {
   }
 }
 
+#if BUILDFLAG(IS_WIN)
+// Leaves `browser` with two tabs of `url`. The second one is active and has a
+// focused, selected contenteditable in an about:blank iframe, like the editing
+// iframe Google Slides uses.
+void OpenTabWithFocusedEditable(BrowserWindowInterface* browser,
+                                const GURL& url,
+                                content::WebContents** tab) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser, url));
+  chrome::AddSelectedTabWithURL(browser, url, ui::PAGE_TRANSITION_TYPED);
+  *tab = browser->GetTabStripModel()->GetActiveWebContents();
+  ASSERT_TRUE(content::WaitForLoadStop(*tab));
+  ASSERT_TRUE(content::ExecJs(*tab, R"(
+    const frame = document.createElement('iframe');
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument;
+    doc.body.contentEditable = 'true';
+    doc.body.textContent = 'hello';
+    frame.contentWindow.focus();
+    doc.body.focus();
+    frame.contentWindow.getSelection().setBaseAndExtent(
+        doc.body.firstChild, 1, doc.body.firstChild, 3);
+  )"));
+  ASSERT_EQ(true, content::EvalJs(*tab, R"(
+    (() => {
+      const doc = document.querySelector('iframe').contentDocument;
+      return doc.hasFocus() && doc.activeElement === doc.body;
+    })()
+  )"));
+}
+
+// The param is whether the test runs in an incognito window.
+class BrowserFocusInputScopeTest : public BrowserFocusTest,
+                                   public testing::WithParamInterface<bool> {};
+
+// Regression test for crbug.com/344961539. Slides keeps its editing state in
+// an about:blank iframe. SetInputScope() makes TSF request a lock on the
+// focused text store. With Slides' braille support on, calling it every time a
+// tab was shown changed the page's selection and made Slides flip between
+// slides. A TSF client that reacts like that can't be attached in a test, so
+// check the cause instead: showing a tab with a focused editable must not call
+// SetInputScope().
+IN_PROC_BROWSER_TEST_P(BrowserFocusInputScopeTest,
+                       ShowingTabDoesNotCallSetInputScopeWithFocusedEditable) {
+  BrowserWindowInterface* browser_window = browser();
+  if (GetParam()) {
+    browser_window = CreateIncognitoBrowser();
+    ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser_window));
+  }
+  content::WebContents* tab = nullptr;
+  ASSERT_NO_FATAL_FAILURE(OpenTabWithFocusedEditable(
+      browser_window, embedded_test_server()->GetURL(kSimplePage), &tab));
+
+  int set_input_scope_calls = 0;
+  ui::tsf_inputscope::ScopedSetInputScopeCallbackForTesting scoped_callback(
+      base::BindLambdaForTesting(
+          [&](HWND, InputScope) { ++set_input_scope_calls; }));
+
+  // Switch away from and back to the tab several times.
+  TabStripModel* tab_strip = browser_window->GetTabStripModel();
+  for (int i = 0; i < 5; ++i) {
+    for (int index : {0, 1}) {
+      tab_strip->ActivateTabAt(
+          index, TabStripUserGestureDetails(
+                     TabStripUserGestureDetails::GestureType::kOther));
+    }
+  }
+
+  // Guard against passing vacuously: the tab must be showing again, with the
+  // editable focused.
+  ASSERT_EQ(tab, tab_strip->GetActiveWebContents());
+  ASSERT_EQ("visible", content::EvalJs(tab, "document.visibilityState"));
+  ASSERT_TRUE(tab->GetRenderWidgetHostView()->HasFocus());
+  ASSERT_EQ(true, content::EvalJs(tab, R"(
+    (() => {
+      const doc = document.querySelector('iframe').contentDocument;
+      return doc.activeElement === doc.body;
+    })()
+  )"));
+  EXPECT_EQ(0, set_input_scope_calls);
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         BrowserFocusInputScopeTest,
+                         testing::Bool(),
+                         [](const testing::TestParamInfo<bool>& info) {
+                           return info.param ? "Incognito" : "Regular";
+                         });
+#endif  // BUILDFLAG(IS_WIN)
+
 // Tabs remember focus with find-in-page box.
 #if BUILDFLAG(IS_MAC)
 // TODO(https://crbug.com/40268465): Re-enable when child widget focus manager
@@ -602,10 +715,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusTraversal) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   std::vector<content::WebContents*> web_contents = {
       browser()->tab_strip_model()->GetActiveWebContents()};
-  WebUIToolbarWebView* webui_toolbar =
-      BrowserView::GetBrowserViewForBrowser(browser())
-          ->toolbar_button_provider()
-          ->GetWebUIToolbarViewForTesting();
+  WebUIToolbarWebView* webui_toolbar = GetWebUIToolbarWebView(browser());
   if (webui_toolbar) {
     web_contents.push_back(
         webui_toolbar->GetWebViewForTesting()->web_contents());
@@ -710,7 +820,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusOnReload) {
   {
     content::LoadStopObserver observer(
         browser()->tab_strip_model()->GetActiveWebContents());
-    chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
+    chrome::Reload(browser(), WindowOpenDisposition::kCurrentTab);
     observer.Wait();
   }
   // Focus should stay on the location bar.
@@ -726,7 +836,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusOnReload) {
   {
     content::LoadStopObserver observer(
         browser()->tab_strip_model()->GetActiveWebContents());
-    chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
+    chrome::Reload(browser(), WindowOpenDisposition::kCurrentTab);
     observer.Wait();
   }
 
@@ -753,7 +863,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, MAYBE_FocusOnReloadCrashedTab) {
   {
     content::LoadStopObserver observer(
         browser()->tab_strip_model()->GetActiveWebContents());
-    chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
+    chrome::Reload(browser(), WindowOpenDisposition::kCurrentTab);
     observer.Wait();
   }
 
@@ -843,7 +953,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, NavigateFromOmniboxIntoNewTab) {
 
   // Simulate an alt-enter.
   omnibox_client->OnAutocompleteAccept(
-      url2, nullptr, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      url2, nullptr, WindowOpenDisposition::kNewForegroundTab,
       ui::PAGE_TRANSITION_TYPED,
       omnibox::AutocompleteMatchType::kUrlWhatYouTyped, base::TimeTicks(),
       false, false, std::u16string(), AutocompleteMatch(), AutocompleteMatch());

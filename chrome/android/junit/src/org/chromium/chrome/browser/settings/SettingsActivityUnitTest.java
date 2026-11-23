@@ -43,7 +43,6 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
@@ -137,10 +136,6 @@ public class SettingsActivityUnitTest {
     }
 
     @Test
-    @DisabledTest(
-            message =
-                    "TODO(crbug.com/404074032): Re-enable after fixing SlidingPaneLayout state in"
-                            + " Robolectric.")
     public void testUpdateTitle() {
         startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.RESUMED);
@@ -149,10 +144,6 @@ public class SettingsActivityUnitTest {
     }
 
     @Test
-    @DisabledTest(
-            message =
-                    "TODO(crbug.com/404074032): Re-enable after fixing SlidingPaneLayout state in"
-                            + " Robolectric.")
     public void testUpdateTitleSingleActivity() {
         startSettingsActivity(TestEmbeddableFragment.class.getName());
         mActivityScenario.moveToState(State.RESUMED);
@@ -420,6 +411,41 @@ public class SettingsActivityUnitTest {
                 "Navigation from activity-hosted settings must target SettingsActivity, not a tab.",
                 SettingsActivity.class.getName(),
                 startedIntent.getComponent().getClassName());
+    }
+
+    @Test
+    @Config(qualifiers = "w1024dp-h1024dp")
+    public void testFinishCurrentSettings_LaunchedFromMainSettings_DoesNotFinishActivity() {
+        startSettingsActivity(/* fragmentName= */ null);
+        mActivityScenario.moveToState(State.RESUMED);
+
+        MultiColumnSettings multiColumnSettings = mSettingsActivity.getMultiColumnSettings();
+        assertNotNull(multiColumnSettings);
+        TestEmbeddableFragment detailFragment = new TestEmbeddableFragment();
+        multiColumnSettings.showDetailFragment(
+                detailFragment, /* addToBackStack= */ false, /* tag= */ null);
+        assertEquals(detailFragment, mSettingsActivity.getMainFragment());
+        assertTrue(multiColumnSettings.canBeBackToMain());
+
+        mSettingsActivity.finishCurrentSettings(detailFragment);
+
+        assertFalse(
+                "Finishing a detail fragment opened from MainSettings should not finish the"
+                        + " activity.",
+                mSettingsActivity.isFinishing());
+    }
+
+    @Test
+    public void testFinishCurrentSettings_LaunchedDirectlyIntoSubpage_FinishesActivity() {
+        startSettingsActivity(TestEmbeddableFragment.class.getName());
+        mActivityScenario.moveToState(State.RESUMED);
+
+        assertTrue(mSettingsActivity.getMainFragment() instanceof TestEmbeddableFragment);
+        mSettingsActivity.finishCurrentSettings(mSettingsActivity.getMainFragment());
+
+        assertTrue(
+                "Finishing a subpage launched directly via Intent should finish the activity.",
+                mSettingsActivity.isFinishing());
     }
 
     private void startSettingsActivity(String fragmentName) {

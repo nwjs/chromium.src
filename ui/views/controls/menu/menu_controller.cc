@@ -100,6 +100,24 @@ DEFINE_UI_CLASS_PROPERTY_KEY(views::MenuController*,
                              kMenuControllerKey,
                              nullptr)
 
+Button* GetButtonForView(View* view) {
+  for (View* v = view; v; v = v->parent()) {
+    if (Button* button = Button::AsButton(v)) {
+      return button;
+    }
+  }
+  return nullptr;
+}
+
+bool ShouldDragActivateButton(const SubmenuView* source, const Button* button) {
+  if (!button || !source) {
+    return false;
+  }
+  const MenuItemView* item = source->GetMenuItem();
+  const MenuDelegate* delegate = item ? item->GetDelegate() : nullptr;
+  return delegate && delegate->ShouldDragActivateChildButtons();
+}
+
 void CollectWidgets(views::MenuItemView* item,
                     std::vector<views::Widget*>* widgets) {
   if (item->HasSubmenu()) {
@@ -113,7 +131,13 @@ void CollectWidgets(views::MenuItemView* item,
   }
 }
 
-enum class MenuPartType { kNone, kMenuItem, kScrollUp, kScrollDown };
+enum class MenuPartType {
+  kNone,
+  kMenuItem,
+  kScrollUp,
+  kScrollDown,
+  kScrollBar
+};
 
 // The menu controller manages the AX index attributes inside menu items. This
 // property maintains a vector of menu children that were last assigned such
@@ -260,6 +284,19 @@ MenuItemView* GetAnchorViewContainerMenuItem(MenuItemView* item) {
   return nullptr;
 }
 
+gfx::Rect GetChildMenuAnchorBounds(MenuItemView* item) {
+  gfx::Rect bounds;
+  if (const View* anchor_view = item->GetAnchorView()) {
+    bounds = anchor_view->GetBoundsInScreen();
+  } else {
+    bounds = item->GetBoundsInScreen();
+    bounds.Inset(item->GetHighlightInsets());
+  }
+  // TODO(pkasting): Not clear to me why we want to set the height to 1 dip.
+  bounds.set_height(1);
+  return bounds;
+}
+
 MenuPartType GetScrollButtonAt(SubmenuView* source,
                                const gfx::Point& location) {
   MenuScrollViewContainer* scroll_view = source->GetScrollViewContainer();
@@ -271,6 +308,10 @@ MenuPartType GetScrollButtonAt(SubmenuView* source,
     }
     if (child_under_mouse == scroll_view->scroll_down_button()) {
       return MenuPartType::kScrollDown;
+    }
+    if (scroll_view->scroll_bar() && scroll_view->scroll_bar()->GetVisible() &&
+        scroll_view->scroll_bar()->Contains(child_under_mouse)) {
+      return MenuPartType::kScrollBar;
     }
   }
   return MenuPartType::kNone;
@@ -989,13 +1030,17 @@ bool MenuController::OnMousePressed(SubmenuView* source,
 
   current_mouse_pressed_state_ |= event.changed_button_flags();
 
+  Button* button = nullptr;
   if (forward_to_root) {
     // Reset hot-tracking if a different view is getting a mouse press.
     const ui::MouseEvent event_for_root =
         ConvertLocatedEventForRootView(*source, *forward_to_root, event);
     View* view =
         forward_to_root->GetEventHandlerForPoint(event_for_root.location());
-    Button* button = Button::AsButton(view);
+    button = GetButtonForView(view);
+    if (button && !button->GetEnabled()) {
+      button = nullptr;
+    }
     if (hot_button_ != button) {
       SetHotTrackedButton(button);
     }
@@ -1004,8 +1049,10 @@ bool MenuController::OnMousePressed(SubmenuView* source,
       return true;
     }
 
-    // Empty menu items are always handled by the menu controller.
-    if (!IsViewClass<EmptyMenuMenuItem>(view)) {
+    const bool drag_activates_button = ShouldDragActivateButton(source, button);
+
+    // Empty menu items and buttons are handled by the menu controller directly.
+    if (!IsViewClass<EmptyMenuMenuItem>(view) && !drag_activates_button) {
       bool processed = forward_to_root->ProcessMousePressed(event_for_root);
       // This object may be destroyed as a result of a mouse press event (some
       // item may close the menu).
@@ -1028,6 +1075,19 @@ bool MenuController::OnMousePressed(SubmenuView* source,
 
   // Otherwise, the menu handles this click directly.
   SetSelectionOnPointerDown(source, &event);
+  if (ShouldDragActivateButton(source, button) && !destroy_pending_) {
+    SetHotTrackedButton(button);
+    active_mouse_view_tracker_->SetView(button);
+    const gfx::Point loc = View::ConvertPointFromScreen(
+        button, ConvertToScreen(*source, event.location()));
+    ui::MouseEvent mouse_entered_event(ui::EventType::kMouseEntered, loc, loc,
+                                       ui::EventTimeForNow(), 0, 0);
+    button->OnMouseEntered(mouse_entered_event);
+    ui::MouseEvent mouse_pressed_event(ui::EventType::kMousePressed, loc, loc,
+                                       ui::EventTimeForNow(), event.flags(),
+                                       event.changed_button_flags());
+    button->OnMousePressed(mouse_pressed_event);
+  }
   return true;
 }
 
@@ -1160,9 +1220,7 @@ void MenuController::OnMouseReleased(SubmenuView* source,
       part.menu->GetDelegate()->ExecuteCommand(command, event.flags());
       return;
     }
-    if ((!part.menu->NonIconChildViewsCount() ||
-         part.menu->GetTriggerActionWithNonIconChildViews()) &&
-        part.menu->GetDelegate()->IsTriggerableEvent(part.menu, event)) {
+    if (CanPointerReleaseActivate(part.menu, event)) {
       Accept(part.menu, event.flags());
       return;
     }
@@ -1212,7 +1270,7 @@ void MenuController::OnMouseMoved(SubmenuView* source,
     // mouse and keyboard are used to navigate the menu.
     View* view = root_view->GetEventHandlerForPoint(
         ConvertLocatedEventForRootView(*source, *root_view, event).location());
-    new_hot_tracked_button = Button::AsButton(view);
+    new_hot_tracked_button = GetButtonForView(view);
   }
 
   // `HandleMouseLocation()` may change the selection, which can cause `this` to
@@ -1310,8 +1368,7 @@ void MenuController::OnGestureEvent(SubmenuView* source,
               command, *event)) {
         item_selected_by_touch_ = true;
         part.menu->GetDelegate()->ExecuteCommand(command, 0);
-      } else if (part.menu->GetDelegate()->IsTriggerableEvent(part.menu,
-                                                              *event)) {
+      } else if (CanPointerReleaseActivate(part.menu, *event)) {
         item_selected_by_touch_ = true;
         Accept(part.menu, event->flags());
       }
@@ -1960,7 +2017,7 @@ void MenuController::SetSelectionOnPointerDown(SubmenuView* source,
   DCHECK(!active_mouse_view_tracker_->view());
 
   MenuPart part = GetMenuPart(source, event->location());
-  if (part.is_scroll()) {
+  if (part.is_scroll() || part.type == MenuPartType::kScrollBar) {
     return;  // Ignore presses on scroll buttons.
   }
 
@@ -2329,6 +2386,7 @@ MenuController::~MenuController() {
 }
 
 bool MenuController::SendAcceleratorToHotTrackedView(int event_flags) {
+  ScopedDeletionGuard guard(AsWeakPtr());
   Button* hot_view = GetFirstHotTrackedView(pending_state_.item);
   if (!hot_view) {
     return false;
@@ -2339,11 +2397,12 @@ bool MenuController::SendAcceleratorToHotTrackedView(int event_flags) {
     return true;
   }
 
+  ViewTracker hot_view_tracker(hot_view);
   ui::Accelerator accelerator(ui::VKEY_RETURN, event_flags);
   hot_view->AcceleratorPressed(accelerator);
   // An accelerator may have canceled the menu after activation.
-  if (!destroy_pending_) {
-    Button* button = static_cast<Button*>(hot_view);
+  if (!destroy_pending_ && hot_view_tracker) {
+    Button* button = static_cast<Button*>(hot_view_tracker.view());
     SetHotTrackedButton(button);
   }
   return true;
@@ -2590,11 +2649,13 @@ bool MenuController::GetMenuPartByScreenCoordinateImpl(
   }
 
   // Not over the scroll button. Check the actual menu.
-  menu_loc = View::ConvertPointFromScreen(menu, screen_loc);
-  if (menu->GetVisibleBounds().Contains(menu_loc)) {
-    part->menu = GetMenuItemAt(menu, menu_loc);
+  MenuScrollViewContainer* const container = menu->GetScrollViewContainer();
+  const gfx::Point container_loc =
+      View::ConvertPointFromScreen(container, screen_loc);
+  if (container->GetContentsBounds().Contains(container_loc)) {
+    part->menu = GetMenuItemAt(container, container_loc);
     if (part->menu && !part->menu->children().empty()) {
-      for (View* v = menu->GetEventHandlerForPoint(menu_loc);
+      for (View* v = container->GetEventHandlerForPoint(container_loc);
            v && v != part->menu; v = v->parent()) {
         if (Button* button = Button::AsButton(v)) {
           if (MenuItemView* button_submenu =
@@ -2943,17 +3004,10 @@ gfx::Rect MenuController::CalculateMenuBounds(
   DCHECK(submenu);
 
   // For the first menu, anchor_rect is initial bounds. Otherwise, it is the top
-  // of the menu item that spawned this menu.
-  // TODO(pkasting): Not clear to me why we want to set the height to 1 dip.
+  // of the highlight (or anchor view) of the menu item that spawned this menu.
   const bool is_child_menu = !!item->GetParentMenuItem();
-  gfx::Rect anchor_bounds =
-      is_child_menu
-          ? (item->GetAnchorView() ? item->GetAnchorView()->GetBoundsInScreen()
-                                   : item->GetBoundsInScreen())
-          : state_.initial_bounds;
-  if (is_child_menu) {
-    anchor_bounds.set_height(1);
-  }
+  const gfx::Rect anchor_bounds =
+      is_child_menu ? GetChildMenuAnchorBounds(item) : state_.initial_bounds;
   anchor->anchor_rect = anchor_bounds;
 
   SetAnchorParametersForItem(item, anchor_bounds.origin(), anchor);
@@ -3128,17 +3182,10 @@ gfx::Rect MenuController::CalculateBubbleMenuBounds(
   DCHECK(anchor);
 
   // For the first menu, anchor_rect is initial bounds. Otherwise, it is the top
-  // of the menu item that spawned this menu.
-  // TODO(pkasting): Not clear to me why we want to set the height to 1 dip.
+  // of the highlight (or anchor view) of the menu item that spawned this menu.
   const bool is_child_menu = !!item->GetParentMenuItem();
-  gfx::Rect anchor_bounds =
-      is_child_menu
-          ? (item->GetAnchorView() ? item->GetAnchorView()->GetBoundsInScreen()
-                                   : item->GetBoundsInScreen())
-          : state_.initial_bounds;
-  if (is_child_menu) {
-    anchor_bounds.set_height(1);
-  }
+  const gfx::Rect anchor_bounds =
+      is_child_menu ? GetChildMenuAnchorBounds(item) : state_.initial_bounds;
   anchor->anchor_rect = anchor_bounds;
 
   SetAnchorParametersForItem(item, anchor_bounds.origin(), anchor);
@@ -3403,8 +3450,17 @@ size_t MenuController::MenuDepth(MenuItemView* item) {
   return item ? (MenuDepth(item->GetParentMenuItem()) + 1) : size_t{0};
 }
 
+// static
+bool MenuController::CanPointerReleaseActivate(MenuItemView* item,
+                                               const ui::Event& event) {
+  return (!item->NonIconChildViewsCount() ||
+          item->GetTriggerActionWithNonIconChildViews()) &&
+         item->GetDelegate()->IsTriggerableEvent(item, event);
+}
+
 void MenuController::IncrementSelection(
     SelectionIncrementDirectionType direction) {
+  ScopedDeletionGuard guard(AsWeakPtr());
   MenuItemView* item = pending_state_.item;
   DCHECK(item);
   if (pending_state_.submenu_open && item->SubmenuIsShowing()) {
@@ -3569,6 +3625,7 @@ void MenuController::OpenSubmenuChangeSelectionIfCan() {
 }
 
 void MenuController::CloseSubmenu() {
+  ScopedDeletionGuard guard(AsWeakPtr());
   MenuItemView* item = state_.item;
   DCHECK(item);
   if (!item->GetParentMenuItem()) {
@@ -3586,8 +3643,9 @@ void MenuController::CloseSubmenu() {
   if (MenuItemView* container_item =
           GetAnchorViewContainerMenuItem(item_to_select)) {
     Button* anchor_button = Button::AsButton(item_to_select->GetAnchorView());
+    ViewTracker anchor_button_tracker(anchor_button);
     SetSelection(container_item, SELECTION_UPDATE_IMMEDIATELY);
-    if (!destroy_pending_ && anchor_button) {
+    if (!destroy_pending_ && anchor_button_tracker) {
       SetHotTrackedButton(anchor_button);
     }
     return;
@@ -3655,6 +3713,7 @@ MenuController::SelectByCharDetails MenuController::FindChildForMnemonic(
 
 void MenuController::AcceptOrSelect(MenuItemView* parent,
                                     const SelectByCharDetails& details) {
+  ScopedDeletionGuard guard(AsWeakPtr());
   // This should only be invoked if there is a match.
   DCHECK(details.first_match.has_value());
   DCHECK(parent->HasSubmenu());
@@ -3665,10 +3724,13 @@ void MenuController::AcceptOrSelect(MenuItemView* parent,
     const SelectByCharDetails::Match match = details.first_match.value();
     MenuItemView* item = submenu->GetMenuItemAt(match.item_index);
     if (match.button) {
+      ViewTracker button_tracker(match.button);
       SetSelection(item, SELECTION_DEFAULT);
-      if (!destroy_pending_) {
+      if (!destroy_pending_ && button_tracker) {
         SetHotTrackedButton(match.button);
-        SendAcceleratorToHotTrackedView(0);
+        if (!destroy_pending_) {
+          SendAcceleratorToHotTrackedView(0);
+        }
       }
     } else if (item->HasSubmenu()) {
       SetSelection(item, SELECTION_OPEN_SUBMENU | SELECTION_UPDATE_IMMEDIATELY);
@@ -3680,14 +3742,16 @@ void MenuController::AcceptOrSelect(MenuItemView* parent,
         (!details.index_of_item.has_value() || !details.next_match.has_value())
             ? details.first_match.value()
             : details.next_match.value();
+    ViewTracker button_tracker(match.button);
     SetSelection(submenu->GetMenuItemAt(match.item_index), SELECTION_DEFAULT);
     if (!destroy_pending_) {
-      SetHotTrackedButton(match.button);
+      SetHotTrackedButton(static_cast<Button*>(button_tracker.view()));
     }
   }
 }
 
 void MenuController::SelectByChar(char16_t character) {
+  ScopedDeletionGuard guard(AsWeakPtr());
   // Do not process while performing drag-and-drop.
   if (for_drop_) {
     return;
@@ -3853,7 +3917,8 @@ void MenuController::UpdateActiveMouseView(SubmenuView* event_source,
                                            View* target_menu) {
   View* target = nullptr;
   gfx::Point target_menu_loc(event.location());
-  if (target_menu && !target_menu->children().empty()) {
+  if (target_menu && !target_menu->children().empty() &&
+      target_menu->GetWidget()) {
     // Locate the deepest child view to send events to.  This code assumes we
     // don't have to walk up the tree to find a view interested in events. This
     // is currently true for the cases we are embedding views, but if we embed
@@ -3861,7 +3926,11 @@ void MenuController::UpdateActiveMouseView(SubmenuView* event_source,
     target_menu_loc = ConvertToScreen(*event_source, target_menu_loc);
     View::ConvertPointFromScreen(target_menu, &target_menu_loc);
     target = target_menu->GetEventHandlerForPoint(target_menu_loc);
-    if (target == target_menu || !target->GetEnabled()) {
+    if (Button* button = GetButtonForView(target)) {
+      target =
+          ShouldDragActivateButton(event_source, button) ? button : nullptr;
+    }
+    if (!target || target == target_menu || !target->GetEnabled()) {
       target = nullptr;
     }
   }
@@ -3882,6 +3951,14 @@ void MenuController::UpdateActiveMouseView(SubmenuView* event_source,
           ui::EventType::kMousePressed, target_point, target_point,
           ui::EventTimeForNow(), event.flags(), event.changed_button_flags());
       active_mouse_view->OnMousePressed(mouse_pressed_event);
+    }
+  }
+
+  Button* new_hot_tracked_button = Button::AsButton(target);
+  if (hot_button_ != new_hot_tracked_button) {
+    SetHotTrackedButton(new_hot_tracked_button);
+    if (destroy_pending_) {
+      return;
     }
   }
 
@@ -4145,6 +4222,7 @@ void MenuController::SetNextHotTrackedView(
 }
 
 void MenuController::SetHotTrackedButton(Button* new_hot_button) {
+  ScopedDeletionGuard guard(AsWeakPtr());
   // Set hot tracked state and fire a11y events for the hot tracked button.
   // This must be done whether or not it was the previous hot tracked button.
   // For example, when a zoom button is pressed, the menu remains open and the
@@ -4159,6 +4237,7 @@ void MenuController::SetHotTrackedButton(Button* new_hot_button) {
   // Then set the new one.
   hot_button_ = new_hot_button;
   if (hot_button_) {
+    ViewTracker hot_button_tracker(hot_button_);
     hot_button_->GetViewAccessibility().SetPopupFocusOverride();
     hot_button_->SetHotTracked(true);
 
@@ -4170,6 +4249,10 @@ void MenuController::SetHotTrackedButton(Button* new_hot_button) {
               pending_state_.item->GetParentMenuItem()->GetSubmenu()) {
         submenu->GetViewAccessibility().SetActiveDescendant(*hot_button_);
       }
+    }
+
+    if (destroy_pending_ || !hot_button_ || !hot_button_tracker) {
+      return;
     }
 
     // TODO(crbug.com/40672441): Handle this manually fired event for ViewsAX.

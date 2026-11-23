@@ -4,8 +4,8 @@
 
 package org.chromium.chrome.browser.settings;
 
-import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.closeSoftKeyboard;
 import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
@@ -27,6 +27,7 @@ import androidx.preference.PreferenceFragmentCompat;
 
 import org.hamcrest.Matcher;
 
+import org.chromium.base.test.transit.ViewElement;
 import org.chromium.chrome.R;
 
 import java.util.Set;
@@ -40,13 +41,14 @@ public class SettingsSearchTestUtils {
     private SettingsSearchTestUtils() {}
 
     /**
-     * Types a search query in the Settings search box.
+     * Types a search query in the Settings search box and closes the soft keyboard so it does not
+     * obscure or intercept clicks on search results.
      *
      * @param query The search query string.
      */
     public static void typeSearchQuery(String query) {
-        onView(withId(R.id.search_box)).perform(click());
-        onView(withId(R.id.search_query)).perform(replaceText(query));
+        onViewWaiting(withId(R.id.search_box)).perform(click());
+        onViewWaiting(withId(R.id.search_query)).perform(replaceText(query), closeSoftKeyboard());
     }
 
     /**
@@ -96,12 +98,40 @@ public class SettingsSearchTestUtils {
         return allOf(hasDescendant(childMatcher), withHighlight(true));
     }
 
+    /**
+     * Waits until a view row containing a text view with the given string resource is highlighted
+     * and displayed.
+     *
+     * @param textResId The string resource ID for the descendant text view.
+     */
+    public static void assertHighlighted(@StringRes int textResId) {
+        assertHighlighted(withText(textResId));
+    }
+
+    /**
+     * Waits until a view row containing {@code childMatcher} is highlighted and displayed.
+     *
+     * <p>Uses {@code ViewFinder.waitForView} rather than a one-shot {@code Espresso.onView} check
+     * because {@link SettingsContainmentHelper} schedules highlight application via a delayed
+     * runnable after scrolling to the target preference. Uses {@code allowDisabled()} and {@code
+     * displayingAtLeast(1)} to match {@code ViewMatchers.isDisplayed()} semantics for disabled or
+     * tall multi-line preference rows.
+     *
+     * @param childMatcher Matcher for a descendant view within the highlighted row.
+     */
+    public static void assertHighlighted(Matcher<View> childMatcher) {
+        waitForView(
+                highlighted(childMatcher),
+                ViewElement.newOptions().allowDisabled().displayingAtLeast(1).build());
+    }
+
     /** Asserts that no search results are found in Settings search. */
     public static void assertNoSearchResultsFound() {
-        // Uses {@code ViewFinder.waitForView} rather than {@code isDisplayed()} because the
-        // keyboard can cover the empty state text on smaller devices, resulting in less than 51% of
-        // the view being displayed.
-        waitForView(withText(R.string.search_in_settings_no_match), displayingAtLeastOption(1));
+        // Uses {@code ViewFinder.waitForView} with {@code displayingAtLeastOption(0)} rather than
+        // {@code isDisplayed()} because the keyboard can completely cover the empty state text on
+        // smaller or landscape screens, resulting in 0% of the view being displayed even though it
+        // is effectively VISIBLE.
+        waitForView(withText(R.string.search_in_settings_no_match), displayingAtLeastOption(0));
     }
 
     /**

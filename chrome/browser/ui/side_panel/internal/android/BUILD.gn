@@ -78,10 +78,12 @@ source_set("dev") {
 
 android_resources("java_resources") {
   sources = [
-    "java/res/drawable/side_panel_container_toolbar_height_bg.xml",
-    "java/res/drawable/side_panel_container_webcontent_height_bg.xml",
+    "java/res/color-night/side_panel_container_bg_color.xml",
+    "java/res/color/side_panel_container_bg_color.xml",
+    "java/res/drawable/side_panel_inner_container_bg.xml",
     "java/res/layout/side_panel_container.xml",
     "java/res/layout/side_panel_dev_feature.xml",
+    "java/res/values/colors.xml",
     "java/res/values/dimens.xml",
   ]
   deps = [
@@ -101,6 +103,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ui/side_panel/SidePanelContainerCoordinatorImpl.java",
     "java/src/org/chromium/chrome/browser/ui/side_panel/SidePanelCoordinatorAndroidBridge.java",
     "java/src/org/chromium/chrome/browser/ui/side_panel/SidePanelNativeBridgeSelector.java",
+    "java/src/org/chromium/chrome/browser/ui/side_panel/SidePanelResizeManager.java",
     "java/src/org/chromium/chrome/browser/ui/side_panel/WindowScopedSidePanelRegistryBridge.java",
   ]
 
@@ -217,7 +220,10 @@ source_set("browser_tests") {
 }
 
 robolectric_library("junit") {
-  sources = [ "java/src/org/chromium/chrome/browser/ui/side_panel/SidePanelContainerCoordinatorImplUnitTest.java" ]
+  sources = [
+    "java/src/org/chromium/chrome/browser/ui/side_panel/SidePanelContainerCoordinatorImplUnitTest.java",
+    "java/src/org/chromium/chrome/browser/ui/side_panel/SidePanelResizeManagerUnitTest.java",
+  ]
   deps = [
     ":java",
     "//base:base_junit_test_support",

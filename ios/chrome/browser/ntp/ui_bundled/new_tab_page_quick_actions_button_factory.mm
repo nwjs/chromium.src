@@ -5,7 +5,6 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_quick_actions_button_factory.h"
 
 #import "base/check.h"
-#import "components/ntp_tiles/features.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
@@ -18,9 +17,6 @@
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
-
-using ntp_tiles::AimButtonRefactorArm;
-using ntp_tiles::GetAimButtonRefactorArm;
 
 // The border radius for a quick action button.
 constexpr CGFloat kButtonCornerRadius = 24.0;
@@ -147,19 +143,20 @@ UIButton* CreateQuickActionButton(UIImage* image, NSString* title) {
     return;
   }
   UIButtonConfiguration* configuration = button.configuration;
-  ConfigureButtonTitleAndIcon(configuration, icon, title);
+  ConfigureButtonTitleAndIcon(configuration, icon, [title copy]);
   button.configuration = configuration;
-  button.accessibilityLabel = accessibilityLabel;
+  button.accessibilityLabel = [accessibilityLabel copy];
 }
 
 + (UIButton*)aimImageGenerationButton {
   CHECK_EQ(GetAimButtonRefactorArm(),
            AimButtonRefactorArm::kImageGenerationQuickAction);
-  // TODO(crbug.com/549020046): Add an accessibility label to this button.
   UIImage* icon =
       QuickActionButtonIconWithSymbol(SymbolImageCreate, /*has_title=*/false);
   UIButton* aimImageGenerationButton =
       CreateQuickActionButton(icon, /*title=*/nil);
+  aimImageGenerationButton.accessibilityLabel =
+      l10n_util::GetNSString(IDS_IOS_ACCNAME_NTP_CREATE_IMAGE);
   aimImageGenerationButton.accessibilityIdentifier =
       kNTPAIMImageGenerationQuickActionIdentifier;
   return aimImageGenerationButton;
@@ -169,10 +166,11 @@ UIButton* CreateQuickActionButton(UIImage* image, NSString* title) {
   AimButtonRefactorArm arm = GetAimButtonRefactorArm();
   CHECK(arm == AimButtonRefactorArm::kAttachImageQuickAction ||
         arm == AimButtonRefactorArm::kImageGenerationQuickAction);
-  // TODO(crbug.com/549020046): Add an accessibility label to this button.
   UIImage* icon = QuickActionButtonIconWithSymbol(SymbolPhotoBadgePlus,
                                                   /*has_title=*/false);
   UIButton* aimAttachImageButton = CreateQuickActionButton(icon, /*title=*/nil);
+  aimAttachImageButton.accessibilityLabel =
+      l10n_util::GetNSString(IDS_IOS_ACCNAME_NTP_ATTACH_IMAGE);
   aimAttachImageButton.accessibilityIdentifier =
       kNTPAIMAttachImageQuickActionIdentifier;
   return aimAttachImageButton;

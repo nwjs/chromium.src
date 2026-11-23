@@ -18,6 +18,7 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
@@ -26,6 +27,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_web_ui.h"
+#include "google_apis/gaia/gaia_urls.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -133,6 +135,28 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksPageHandlerBrowserTest, OpenMyActivityUi) 
   content::WebContents* active_contents =
       browser()->GetActiveTabInterface()->GetContents();
   EXPECT_EQ(active_contents->GetURL().spec(), "https://myactivity.google.com/myactivity");
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksPageHandlerBrowserTest,
+                       OpenManageAccountUi) {
+  auto* tab_list = TabListInterface::From(browser());
+  int start_count = tab_list->GetTabCount();
+  contextual_tasks_ui_->OpenManageAccountUi();
+  EXPECT_EQ(tab_list->GetTabCount(), start_count + 1);
+  content::WebContents* active_contents =
+      browser()->GetActiveTabInterface()->GetContents();
+  EXPECT_EQ(active_contents->GetURL(), GURL(chrome::kGoogleAccountURL));
+}
+
+IN_PROC_BROWSER_TEST_F(ContextualTasksPageHandlerBrowserTest, OpenLogOutFlow) {
+  auto* tab_list = TabListInterface::From(browser());
+  int start_count = tab_list->GetTabCount();
+  contextual_tasks_ui_->OpenLogOutFlow();
+  EXPECT_EQ(tab_list->GetTabCount(), start_count + 1);
+  content::WebContents* active_contents =
+      browser()->GetActiveTabInterface()->GetContents();
+  EXPECT_EQ(active_contents->GetVisibleURL(),
+            GaiaUrls::GetInstance()->service_logout_url());
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksPageHandlerBrowserTest, OpenOnboardingHelpUi) {

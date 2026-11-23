@@ -115,13 +115,6 @@ ImageBitmapRenderingContext::getHTMLOrOffscreenCanvas(
       script_state, static_cast<HTMLCanvasElement*>(Host()));
 }
 
-void ImageBitmapRenderingContext::Reset() {
-  CHECK(Host());
-  CHECK(Host()->IsOffscreenCanvas());
-  resource_provider_for_offscreen_canvas_.reset();
-  Host()->DiscardResources();
-}
-
 base::ByteSize ImageBitmapRenderingContext::AllocatedBufferSize() const {
   if (!IsPaintable()) {
     return base::ByteSize();
@@ -409,7 +402,7 @@ void ImageBitmapRenderingContext::Trace(Visitor* visitor) const {
   CanvasRenderingContext::Trace(visitor);
 }
 
-scoped_refptr<CanvasResource>
+scoped_refptr<ExportedCanvasResource>
 ImageBitmapRenderingContext::GetResourceForPushFrame(
     bool& should_call_push_frame) {
   should_call_push_frame = false;
@@ -501,7 +494,9 @@ ImageBitmapRenderingContext::GetResourceForPushFrame(
                              SkSamplingOptions(), &paint_flags);
           });
   should_call_push_frame = true;
-  return resource;
+  return resource
+             ? base::MakeRefCounted<ExportedCanvasResource>(std::move(resource))
+             : nullptr;
 }
 
 V8RenderingContext* ImageBitmapRenderingContext::AsV8RenderingContext() {
@@ -539,6 +534,19 @@ ImageBitmap* ImageBitmapRenderingContext::TransferToImageBitmap(
 
   image->Transfer();
   return MakeGarbageCollected<ImageBitmap>(std::move(image));
+}
+
+void ImageBitmapRenderingContext::Reshape(gfx::Size old_size,
+                                          gfx::Size new_size) {
+  if (Host()->IsOffscreenCanvas()) {
+    if (old_size != new_size) {
+      resource_provider_for_offscreen_canvas_.reset();
+      Host()->DiscardResources();
+      DidDraw(CanvasPerformanceMonitor::DrawType::kOther);
+    }
+  } else {
+    Host()->UpdateMemoryUsage();
+  }
 }
 
 CanvasRenderingContext* ImageBitmapRenderingContext::Factory::Create(

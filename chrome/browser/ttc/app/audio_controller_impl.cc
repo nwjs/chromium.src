@@ -1,0 +1,553 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/ttc/app/audio_controller_impl.h"
+
+#include <algorithm>
+#include <cmath>
+#include <optional>
+
+#include "base/check.h"
+#include "base/functional/bind.h"
+#include "base/logging.h"
+#include "base/no_destructor.h"
+#include "base/notreached.h"
+#include "base/task/bind_post_task.h"
+#include "base/task/sequenced_task_runner.h"
+#include "content/public/browser/audio_service.h"
+#include "content/public/browser/browser_thread.h"
+#include "media/audio/audio_device_description.h"
+#include "media/audio/audio_system.h"
+#include "media/base/audio_bus.h"
+#include "media/base/audio_converter.h"
+#include "media/base/audio_parameters.h"
+#include "media/base/audio_processing.h"
+#include "media/base/audio_push_fifo.h"
+#include "media/base/audio_sample_types.h"
+#include "media/base/channel_layout.h"
+#include "media/base/media_switches.h"
+#include "services/audio/public/cpp/device_factory.h"
+#include "services/audio/public/cpp/output_device.h"
+
+namespace ttc {
+
+namespace {
+
+// Captured audio is always delivered to the backend as 16kHz mono PCM16. The
+// capture device itself is opened with its native parameters and converted to
+// this format.
+constexpr int kBackendInputSampleRate = 16000;
+constexpr int kBackendInputChunkDurationMs = 100;
+constexpr int kBackendInputSamplesPerChunk =
+    kBackendInputSampleRate * kBackendInputChunkDurationMs / 1000;
+
+// WebRTC Audio Processing Module (APM) operates strictly on 10ms frames.
+constexpr int kAPMChunkDurationMs = 10;
+constexpr int kAPMSamplesPerBuffer =
+    kBackendInputSampleRate * kAPMChunkDurationMs / 1000;
+
+// Hardware microphone input sample rate is natively 48kHz on macOS CoreAudio
+// and Android (AAudio/OpenSLES), while ConversationImpl downsamples 48kHz to
+// 16kHz for model input. On other platforms, 16kHz capture is requested
+// directly.
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+constexpr int kDefaultPlaybackFramesPerBuffer = 480;  // 20ms at 24kHz
+#else
+constexpr int kDefaultPlaybackFramesPerBuffer = 2400;  // 100ms chunks
+#endif
+
+// Model execution service audio output is 24kHz mono PCM16 across all
+// platforms. Resampling from 24kHz to hardware device sample rate (e.g. 48kHz)
+// is handled automatically by the Chrome Audio Service.
+constexpr int kDefaultPlaybackSampleRate = 24000;
+
+AudioControllerImpl::AudioStreamFactoryBinder&
+GetDefaultBinderForTestingStorage() {
+  static base::NoDestructor<AudioControllerImpl::AudioStreamFactoryBinder>
+      binder;
+  return *binder;
+}
+
+ErrorCode CaptureErrorToErrorCode(media::AudioCapturerSource::ErrorCode code) {
+  switch (code) {
+    case media::AudioCapturerSource::ErrorCode::kSystemPermissions:
+    case media::AudioCapturerSource::ErrorCode::kDeviceRemoved:
+      return ErrorCode::kAudioNoMicrophoneDetected;
+
+    case media::AudioCapturerSource::ErrorCode::kDeviceInUse:
+      return ErrorCode::kAudioMicrophoneInUse;
+
+    case media::AudioCapturerSource::ErrorCode::kUnknown:
+    case media::AudioCapturerSource::ErrorCode::kSocketError:
+      return ErrorCode::kAudioUnknownError;
+  }
+
+  NOTREACHED();
+}
+
+std::optional<media::AudioProcessingSettings>
+GetSoftwareCaptureSettingsIfNeeded(
+    const media::AudioParameters& device_params) {
+  if (!media::IsChromeWideEchoCancellationEnabled()) {
+    return std::nullopt;
+  }
+
+  const media::ChannelLayout layout = device_params.channel_layout();
+  const bool layout_is_supported = layout == media::CHANNEL_LAYOUT_MONO ||
+                                   layout == media::CHANNEL_LAYOUT_STEREO ||
+                                   (layout == media::CHANNEL_LAYOUT_DISCRETE &&
+                                    device_params.channels() <= 2);
+  if (!layout_is_supported) {
+    return std::nullopt;
+  }
+
+  // Prefer hardware effects if supported by the device; fall back to WebRTC
+  // software processing for any effect not provided by hardware.
+  const int effects = device_params.effects();
+  media::AudioProcessingSettings settings{
+      .echo_cancellation =
+          (effects & media::AudioParameters::ECHO_CANCELLER) == 0,
+      .noise_suppression =
+          (effects & media::AudioParameters::NOISE_SUPPRESSION) == 0,
+      .automatic_gain_control =
+          (effects & media::AudioParameters::AUTOMATIC_GAIN_CONTROL) == 0,
+      .multi_channel_capture_processing = false,
+  };
+  if (!settings.NeedWebrtcAudioProcessing()) {
+    return std::nullopt;
+  }
+  return settings;
+}
+
+}  // namespace
+
+// Resamples and channel-mixes capture audio from the device's native format to
+// the format delivered to listeners. Constructed and destroyed on the main
+// sequence, but Convert() runs on the realtime capture thread.
+// TODO(bokan): This comes from SpeechRecognizerImpl - consider creating a
+// shareable implementation.
+class AudioControllerImpl::CaptureConverter
+    : public media::AudioConverter::InputCallback {
+ public:
+  CaptureConverter(const media::AudioParameters& input_params,
+                   const media::AudioParameters& output_params)
+      : converter_(input_params, output_params, /*disable_fifo=*/false),
+        input_bus_(media::AudioBus::Create(input_params)),
+        output_bus_(media::AudioBus::Create(output_params)),
+        input_params_(input_params) {
+    converter_.AddInput(this);
+    converter_.PrimeWithSilence();
+  }
+
+  CaptureConverter(const CaptureConverter&) = delete;
+  CaptureConverter& operator=(const CaptureConverter&) = delete;
+
+  ~CaptureConverter() override { converter_.RemoveInput(this); }
+
+  // Converts one buffer of `source`. The returned bus is owned by this object
+  // and remains valid until the next call to Convert().
+  const media::AudioBus& Convert(const media::AudioBus& source) {
+    CHECK_EQ(source.frames(), input_params_.frames_per_buffer());
+    CHECK_EQ(source.channels(), input_params_.channels());
+    data_was_converted_ = false;
+    source.CopyTo(input_bus_.get());
+    converter_.Convert(output_bus_.get());
+    return *output_bus_;
+  }
+
+  // False if the last Convert() call was satisfied entirely from buffered data
+  // without consuming the input, in which case Convert() must be called again
+  // with the same input. See https://crbug.com/506051.
+  bool data_was_converted() const { return data_was_converted_; }
+
+ private:
+  // media::AudioConverter::InputCallback:
+  double ProvideInput(media::AudioBus* dest,
+                      uint32_t frames_delayed,
+                      const media::AudioGlitchInfo& glitch_info) override {
+    input_bus_->CopyTo(dest);
+    data_was_converted_ = true;
+    return 1.0;
+  }
+
+  media::AudioConverter converter_;
+  std::unique_ptr<media::AudioBus> input_bus_;
+  std::unique_ptr<media::AudioBus> output_bus_;
+  const media::AudioParameters input_params_;
+  bool data_was_converted_ = false;
+};
+
+// static
+media::AudioParameters AudioControllerImpl::GetBackendInputAudioParameters() {
+  return media::AudioParameters(media::AudioParameters::AUDIO_PCM_LOW_LATENCY,
+                                media::ChannelLayoutConfig::Mono(),
+                                kBackendInputSampleRate,
+                                kBackendInputSamplesPerChunk);
+}
+
+// static
+media::AudioParameters
+AudioControllerImpl::GetDefaultPlaybackAudioParameters() {
+  return media::AudioParameters(media::AudioParameters::AUDIO_PCM_LOW_LATENCY,
+                                media::ChannelLayoutConfig::Mono(),
+                                kDefaultPlaybackSampleRate,
+                                kDefaultPlaybackFramesPerBuffer);
+}
+
+// static
+base::AutoReset<AudioControllerImpl::AudioStreamFactoryBinder>
+AudioControllerImpl::SetDefaultAudioStreamFactoryBinderForTesting(
+    AudioStreamFactoryBinder binder) {
+  return base::AutoReset<AudioStreamFactoryBinder>(
+      &GetDefaultBinderForTestingStorage(), std::move(binder));
+}
+
+// static
+AudioControllerImpl::AudioStreamFactoryBinder
+AudioControllerImpl::GetDefaultAudioStreamFactoryBinder() {
+  if (GetDefaultBinderForTestingStorage()) {
+    return GetDefaultBinderForTestingStorage();
+  }
+  return content::GetAudioServiceStreamFactoryBinder();
+}
+
+AudioControllerImpl::AudioControllerImpl(
+    AudioStreamFactoryBinder factory_binder,
+    AudioSystemFactory audio_system_factory)
+    : main_task_runner_(base::SequencedTaskRunner::GetCurrentDefault()),
+      factory_binder_(std::move(factory_binder)),
+      audio_system_factory_(std::move(audio_system_factory)),
+      capture_fifo_(std::make_unique<media::AudioPushFifo>(
+          base::BindRepeating(&AudioControllerImpl::DeliverCapturedAudio,
+                              base::Unretained(this)))) {
+  // Initialize the FIFO with the delivery chunk size. AudioPushFifo requires
+  // Reset() to be called at least once before Push().
+  capture_fifo_->Reset(kBackendInputSamplesPerChunk);
+  capture_callback_runner_ = base::BindPostTask(
+      main_task_runner_,
+      base::BindRepeating(&AudioControllerImpl::OnCapturedAudioOnMainThread,
+                          weak_factory_.GetWeakPtr()));
+  render_callback_runner_ = base::BindPostTask(
+      main_task_runner_,
+      base::BindRepeating(&AudioControllerImpl::OnAudioRenderedOnMainThread,
+                          weak_factory_.GetWeakPtr()));
+  error_callback_runner_ = base::BindPostTask(
+      main_task_runner_,
+      base::BindRepeating(&AudioControllerImpl::OnAudioErrorOnMainThread,
+                          weak_factory_.GetWeakPtr()));
+}
+
+AudioControllerImpl::~AudioControllerImpl() {
+  StopCapture();
+  StopPlayback();
+}
+
+media::AudioSystem* AudioControllerImpl::GetAudioSystem() {
+  if (!audio_system_) {
+    audio_system_ = audio_system_factory_
+                        ? audio_system_factory_.Run()
+                        : content::CreateAudioSystemForAudioService();
+  }
+  return audio_system_.get();
+}
+
+void AudioControllerImpl::StartCapture(std::string_view device_id) {
+  if (capture_requested_ || !factory_binder_) {
+    return;
+  }
+  capture_requested_ = true;
+  capture_device_id_ = device_id.empty()
+                           ? media::AudioDeviceDescription::kDefaultDeviceId
+                           : std::string(device_id);
+
+  GetAudioSystem()->GetInputStreamParameters(
+      capture_device_id_,
+      base::BindOnce(&AudioControllerImpl::OnInputDeviceParametersReceived,
+                     weak_factory_.GetWeakPtr(), capture_device_id_));
+}
+
+void AudioControllerImpl::OnInputDeviceParametersReceived(
+    const std::string& device_id,
+    const std::optional<media::AudioParameters>& device_params) {
+  if (!capture_requested_ || audio_capturer_source_ ||
+      device_id != capture_device_id_) {
+    return;
+  }
+
+  if (!device_params.has_value()) {
+    VLOG(1) << "AudioController: no parameters for capture device "
+            << device_id;
+    capture_requested_ = false;
+    observers_.Notify(&Observer::OnAudioError,
+                      ErrorCode::kAudioNoMicrophoneDetected);
+    return;
+  }
+
+  std::optional<media::AudioProcessingSettings> processing_settings =
+      GetSoftwareCaptureSettingsIfNeeded(device_params.value());
+
+  media::AudioParameters input_params;
+  if (processing_settings.has_value()) {
+    // When WebRTC audio processing is enabled, the audio service processes
+    // and resamples audio into 10ms chunks of 16kHz mono PCM, so we don't
+    // need the capture converter.
+    input_params = GetBackendInputAudioParameters();
+    input_params.set_frames_per_buffer(kAPMSamplesPerBuffer);
+    capture_converter_ = nullptr;
+  } else {
+    // Open the device with its native format, but with the same chunk duration
+    // used for delivery so that each captured buffer produces exactly one
+    // converted buffer.
+    input_params = device_params.value();
+    input_params.set_frames_per_buffer(input_params.sample_rate() *
+                                       kBackendInputChunkDurationMs / 1000);
+    capture_converter_ = std::make_unique<CaptureConverter>(
+        input_params, GetBackendInputAudioParameters());
+  }
+
+  capture_fifo_->Reset(kBackendInputSamplesPerChunk);
+
+  mojo::PendingRemote<media::mojom::AudioStreamFactory> stream_factory;
+  factory_binder_.Run(stream_factory.InitWithNewPipeAndPassReceiver());
+
+  audio_capturer_source_ = audio::CreateInputDevice(
+      std::move(stream_factory), device_id,
+      audio::DeadStreamDetection::kEnabled, processing_settings);
+  audio_capturer_source_->Initialize(input_params, this);
+  if (processing_settings.has_value()) {
+    audio_capturer_source_->SetOutputDeviceForAec(
+        media::AudioDeviceDescription::kDefaultDeviceId);
+    audio_capturer_source_->SetAutomaticGainControl(
+        processing_settings->automatic_gain_control);
+  }
+  audio_capturer_source_->Start();
+}
+
+void AudioControllerImpl::StopCapture() {
+  capture_requested_ = false;
+  capture_device_id_.clear();
+  if (audio_capturer_source_) {
+    // Stop() joins the realtime capture thread, so no Capture() call can be in
+    // flight once it returns and the converter can be safely destroyed.
+    audio_capturer_source_->Stop();
+    audio_capturer_source_ = nullptr;
+  }
+  capture_converter_.reset();
+}
+
+bool AudioControllerImpl::is_capturing() const {
+  return capture_requested_;
+}
+
+void AudioControllerImpl::AddObserver(Observer* observer) {
+  observers_.AddObserver(observer);
+}
+
+void AudioControllerImpl::RemoveObserver(Observer* observer) {
+  observers_.RemoveObserver(observer);
+}
+
+void AudioControllerImpl::PlayAudio(base::span<const int16_t> pcm_data,
+                                    const media::AudioParameters& params,
+                                    int64_t sequence_number) {
+  // Ignore empty or placeholder/preamble chunks (< 2 samples) that carry no
+  // usable audio and can cause buffer underruns.
+  if (pcm_data.size() < 2u) {
+    return;
+  }
+  {
+    base::AutoLock auto_lock(playback_lock_);
+    playback_queue_.push_back(
+        {std::vector<int16_t>(pcm_data.begin(), pcm_data.end()), 0,
+         sequence_number});
+  }
+  CreateAudioOutputDevice(params);
+
+  const AudioEnvelope envelope = audio_envelope_extractor_.Extract(pcm_data);
+  observers_.Notify(&Observer::OnModelAudioEnvelopeReady, envelope);
+}
+
+void AudioControllerImpl::PlayAudio(base::span<const int16_t> pcm_data,
+                                    int64_t sequence_number) {
+  PlayAudio(pcm_data, GetDefaultPlaybackAudioParameters(), sequence_number);
+}
+
+void AudioControllerImpl::ClearPlaybackQueue() {
+  {
+    base::AutoLock auto_lock(playback_lock_);
+    playback_queue_.clear();
+  }
+  audio_envelope_extractor_.Reset();
+}
+
+void AudioControllerImpl::StopPlayback() {
+  ClearPlaybackQueue();
+  output_device_.reset();
+}
+
+bool AudioControllerImpl::is_playing() const {
+  base::AutoLock auto_lock(playback_lock_);
+  return !playback_queue_.empty();
+}
+
+void AudioControllerImpl::CreateAudioOutputDevice(
+    const media::AudioParameters& params) {
+  if (output_device_ || !factory_binder_) {
+    return;
+  }
+  mojo::PendingRemote<media::mojom::AudioStreamFactory> stream_factory;
+  factory_binder_.Run(stream_factory.InitWithNewPipeAndPassReceiver());
+
+  output_device_ = std::make_unique<audio::OutputDevice>(
+      std::move(stream_factory), params, this,
+      media::AudioDeviceDescription::kDefaultDeviceId);
+  output_device_->Play();
+}
+
+void AudioControllerImpl::OnCaptureStarted() {}
+
+void AudioControllerImpl::Capture(const media::AudioBus* audio_source,
+                                  base::TimeTicks audio_capture_time,
+                                  const media::AudioGlitchInfo& glitch_info,
+                                  double volume) {
+  // NOTE: This callback is executed on the real-time audio capture thread.
+  // We convert and re-buffer via capture_fifo_ here, then post to
+  // main_task_runner_ via capture_callback_runner_ for thread safety.
+  if (!audio_source || audio_source->frames() == 0) {
+    return;
+  }
+
+  if (!capture_converter_) {
+    capture_fifo_->Push(*audio_source);
+    return;
+  }
+
+  capture_fifo_->Push(capture_converter_->Convert(*audio_source));
+
+  // The converter can occasionally satisfy a call entirely from its buffered
+  // data without consuming `audio_source`; one extra call is then needed to
+  // avoid dropping it. See https://crbug.com/506051.
+  if (!capture_converter_->data_was_converted()) {
+    capture_fifo_->Push(capture_converter_->Convert(*audio_source));
+  }
+}
+
+void AudioControllerImpl::DeliverCapturedAudio(const media::AudioBus& audio_bus,
+                                               int frame_delay) {
+  // `frame_delay` indicates the offset of the first frame in `audio_bus`
+  // relative to the latest Push() call (negative when output includes frames
+  // queued in previous pushes). Since TTC streams audio chunks sequentially
+  // without relying on precise hardware timestamps, this delay does not need
+  // to be accounted for here.
+  std::vector<int16_t> pcm_data(audio_bus.frames() * audio_bus.channels());
+  audio_bus.ToInterleaved<media::SignedInt16SampleTypeTraits>(
+      base::span(pcm_data));
+
+  float sum_squares = 0.0f;
+  base::span<const float> channel_data = audio_bus.channel(0);
+  for (int i = 0; i < audio_bus.frames(); ++i) {
+    sum_squares += channel_data[i] * channel_data[i];
+  }
+  float energy = std::sqrt(sum_squares / audio_bus.frames());
+
+  media::AudioParameters params = GetBackendInputAudioParameters();
+  params.set_frames_per_buffer(audio_bus.frames());
+
+  capture_callback_runner_.Run(std::move(pcm_data), params, energy);
+}
+
+void AudioControllerImpl::OnCaptureError(
+    media::AudioCapturerSource::ErrorCode code,
+    const std::string& message) {
+  VLOG(1) << "AudioController audio capture error: " << message;
+  ErrorCode error_code = CaptureErrorToErrorCode(code);
+  error_callback_runner_.Run(error_code);
+}
+
+void AudioControllerImpl::OnCaptureMuted(bool is_muted) {}
+
+void AudioControllerImpl::OnCapturedAudioOnMainThread(
+    std::vector<int16_t> pcm_data,
+    media::AudioParameters params,
+    float energy) {
+  observers_.Notify(&Observer::OnCapturedAudio, pcm_data, params, energy);
+}
+
+int AudioControllerImpl::Render(base::TimeDelta delay,
+                                base::TimeTicks delay_timestamp,
+                                const media::AudioGlitchInfo& glitch_info,
+                                media::AudioBus* dest) {
+  if (!dest || dest->frames() == 0) {
+    return 0;
+  }
+
+  int frames_rendered = 0;
+  int64_t completed_sequence = -1;
+
+  {
+    base::AutoLock auto_lock(playback_lock_);
+    while (frames_rendered < dest->frames() && !playback_queue_.empty()) {
+      auto& chunk = playback_queue_.front();
+      const size_t total_chunk_frames = chunk.pcm_data.size();
+      const size_t frames_available_in_chunk =
+          total_chunk_frames - chunk.read_offset;
+
+      size_t frames_to_copy =
+          std::min(static_cast<size_t>(dest->frames() - frames_rendered),
+                   frames_available_in_chunk);
+
+      base::span<const int16_t> mono_samples =
+          base::span(chunk.pcm_data).subspan(chunk.read_offset, frames_to_copy);
+      base::span<float> ch0 = dest->channel(0);
+      for (size_t i = 0; i < frames_to_copy; ++i) {
+        ch0[frames_rendered + i] =
+            media::SignedInt16SampleTypeTraits::ToFloat(mono_samples[i]);
+      }
+
+      frames_rendered += frames_to_copy;
+      chunk.read_offset += frames_to_copy;
+
+      if (chunk.read_offset >= total_chunk_frames) {
+        completed_sequence = chunk.sequence_number;
+        playback_queue_.pop_front();
+      }
+    }
+  }
+
+  if (frames_rendered < dest->frames()) {
+    dest->ZeroFramesPartial(frames_rendered, dest->frames() - frames_rendered);
+  }
+
+  if (dest->channels() > 1) {
+    for (int ch = 1; ch < dest->channels(); ++ch) {
+      dest->channel(ch).copy_from(dest->channel(0));
+    }
+  }
+
+  if (completed_sequence >= 0) {
+    render_callback_runner_.Run(completed_sequence);
+  }
+
+  return dest->frames();
+}
+
+void AudioControllerImpl::OnRenderError() {
+  VLOG(1) << "AudioController audio render error";
+}
+
+void AudioControllerImpl::OnAudioRenderedOnMainThread(
+    int64_t completed_sequence) {
+  if (!is_playing()) {
+    audio_envelope_extractor_.Reset();
+  }
+  if (completed_sequence >= 0) {
+    observers_.Notify(&Observer::OnPlaybackCompleted, completed_sequence);
+  }
+}
+
+void AudioControllerImpl::OnAudioErrorOnMainThread(ErrorCode error_code) {
+  observers_.Notify(&Observer::OnAudioError, error_code);
+}
+
+}  // namespace ttc

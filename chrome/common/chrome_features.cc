@@ -57,6 +57,12 @@ BASE_FEATURE(kUseAdHocSigningForWebAppShims, base::FEATURE_ENABLED_BY_DEFAULT);
 // When enabled, the KeychainKeyProvider is used to provide the OS Crypt async
 // key.
 BASE_FEATURE(kUseKeychainKeyProvider, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, KeychainKeyProvider uses a separate key for non-default user
+// data directories and marks the default ("v10") key as temporarily
+// unavailable.
+BASE_FEATURE(kKeychainKeyProviderUserDataDirProtection,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
@@ -76,6 +82,12 @@ BASE_FEATURE(kAutofillPasswordSurvey, base::FEATURE_DISABLED_BY_DEFAULT);
 // When enabled, GetUserCacheDirectory on Android will append the relative path
 // of non-default partitions to the cache directory.
 BASE_FEATURE(kAndroidKeepProfilePartitionDirsInCacheDir,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Blocks navigations to content:// URIs served by Chrome's own
+// android:exported="false" content providers. Kill switch for
+// https://crbug.com/496190746.
+BASE_FEATURE(kBlockNonExportedContentProviderNavigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable boarding pass detector on Chrome Android.
@@ -159,26 +171,6 @@ BASE_FEATURE(kPreinstalledWebAppInstallation,
 BASE_FEATURE(kPreinstalledWebAppAlwaysMigrateForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
-
-#if !BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kRemoteActorCredentialSharing, base::FEATURE_DISABLED_BY_DEFAULT);
-// This parameter is for testing purposes only and must not be used in
-// production. It overrides the whitelisted origins with the specified host.
-const base::FeatureParam<std::string>
-    kRemoteActorCredentialSharingAllowedHostForTesting{
-        &kRemoteActorCredentialSharing, "allowed_host_for_testing", ""};
-const base::FeatureParam<std::string> kRemoteActorOAuthClientId{
-    &kRemoteActorCredentialSharing, "oauth_client_id",
-    "320695880279-gnq6the97ga85scn208u5jctnk82qelk.apps.googleusercontent.com"};
-#endif
-
-bool RemoteActorCredentialSharingEnabled() {
-#if !BUILDFLAG(IS_ANDROID)
-  return base::FeatureList::IsEnabled(features::kRemoteActorCredentialSharing);
-#else
-  return false;
-#endif
-}
 
 // Controls the enablement of structured metrics on Windows, Linux, and Mac.
 BASE_FEATURE(kChromeStructuredMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -357,6 +349,10 @@ const base::FeatureParam<int> kGlicActorUiMagicCursorMinDuration{
 // Default: 300ms
 const base::FeatureParam<int> kGlicActorUiMagicCursorMaxDuration{
     &kGlicActorUiMagicCursor, "magic-cursor-max-duration-ms", 300};
+
+// If enabled, a chip next to the magic cursor shows the actor task's step
+// progress text.
+BASE_FEATURE(kGlicActorUiMagicCursorChip, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, tool execution is split into separate Validate and Execute steps.
 // The Validate step initializes the tool in the renderer and returns the
@@ -1082,6 +1078,13 @@ const base::FeatureParam<std::string> kHappinessTrackingSurveysHostedUrl{
     &kHappinessTrackingSurveysConfiguration, "custom-url",
     "https://www.google.com/chrome/hats/index_m129.html"};
 
+// When enabled, Desktop HaTS surveys automatically include the Chrome channel
+// and version as Product Specific Data, matching the behavior on Android.
+// TODO(crbug.com/575956151): Remove this kill switch once the change has
+// reached Stable.
+BASE_FEATURE(kHappinessTrackingSurveysDefaultProductSpecificData,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables or disables the Happiness Tracking System for COEP issues in Chrome
 // DevTools on Desktop.
 BASE_FEATURE(kHaTSDesktopDevToolsIssuesCOEP, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1205,6 +1208,10 @@ const base::FeatureParam<bool>
     kHappinessTrackingSurveysForSecurityPageRequireInteraction{
         &kHappinessTrackingSurveysForSecurityPage,
         "security-page-require-interaction", false};
+
+// Enables or disables HaTS for Scheduled Restarts on Desktop.
+BASE_FEATURE(kHappinessTrackingSurveysForDesktopScheduledRestart,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 // Enables HTTPS-First Mode in a balanced configuration that doesn't warn on
@@ -1267,6 +1274,7 @@ BASE_FEATURE(kIncomingCallNotifications,
 
 // Experimental image replacement feature. b/482792874
 BASE_FEATURE(kIndigo, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIndigoContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIndigoContextualCueingV2, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIndigoWatermark, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -1382,10 +1390,31 @@ BASE_FEATURE(kListWebAppsSwitch, base::FEATURE_DISABLED_BY_DEFAULT);
 // on demand rather than eagerly at startup.
 BASE_FEATURE(kLazyKeyedServiceInstantiation, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, background observer keyed services (ChromePingManager,
+// SendTabToSelfClientService, AutofillPrivateEventRouter) are created after
+// browser startup completes rather than eagerly during BrowserContext creation.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationAfterStartup,
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
+bool IsLazyAfterStartupKeyedServicesEnabled() {
+  return base::FeatureList::IsEnabled(kLazyKeyedServiceInstantiation) &&
+         kLazyKeyedServiceInstantiationAfterStartup.Get();
+}
+
 // When enabled, autofill and password manager keyed services are instantiated
 // lazily.
 BASE_FEATURE_PARAM(bool,
                    kLazyKeyedServiceInstantiationAutofillAndPassword,
+                   &kLazyKeyedServiceInstantiation,
+                   true);
+
+// When enabled, the enterprise CertificateProvisioningService is created once
+// browser startup is complete (or on first use) rather than eagerly during
+// BrowserContext creation.
+BASE_FEATURE_PARAM(bool,
+                   kLazyKeyedServiceInstantiationCertificateProvisioning,
                    &kLazyKeyedServiceInstantiation,
                    true);
 
@@ -1525,13 +1554,6 @@ BASE_FEATURE(kOverridePrefetchOnSingleton, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allows Chrome to do preconnect when prerender fails.
 BASE_FEATURE(kPrerenderFallbackToPreconnect, base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_CHROMEOS)
-// If enabled, use managed per-printer print job options set via
-// DevicePrinters/PrinterBulkConfiguration policy in print preview.
-BASE_FEATURE(kUseManagedPrintJobOptionsInPrintPreview,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE(kUserValueDefaultBrowserStrings,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1951,6 +1973,7 @@ BASE_FEATURE(kWebium, base::FEATURE_DISABLED_BY_DEFAULT);
 // chrome://webui-toolbar.top-chrome will be loaded as the content.
 // crbug.com/444358999
 BASE_FEATURE(kWebUIReloadButton, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTopChromeWebUISharedRenderer, base::FEATURE_DISABLED_BY_DEFAULT);
 // Switches location bar over to a WebUI implementation.
 // See crbug.com/470042732
 BASE_FEATURE(kWebUILocationBar, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2114,17 +2137,32 @@ BASE_FEATURE(kSmartRestart, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta> kSmartRestartDelay{
     &kSmartRestart, "restart_delay", base::Minutes(1)};
 
-BASE_FEATURE(kSmartRestartLockScreen, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables automatic background browser restarts to apply pending updates while
+// the OS screen is locked.
+BASE_FEATURE(kSmartRestartLockScreen, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Maximum number of open tabs allowed for a lock screen restart. -1 disables
+// the tab count limit.
 const base::FeatureParam<int> kSmartRestartLockScreenTabThreshold{
     &kSmartRestartLockScreen, "lock_tab_threshold", -1};
 
+// Maximum SmartRestartDisruptionLevel allowed for a lock screen restart
+// (0 = kNoDisruption, 1 = kLowDisruption, 2 = kMediumDisruption,
+// 3 = kHighDisruption). Default 2 allows restarts up to medium disruption while
+// blocking high-disruption states (e.g. incognito, active downloads, media,
+// user edits, beforeunload).
 const base::FeatureParam<int> kSmartRestartLockScreenDisruptionThreshold{
     &kSmartRestartLockScreen, "lock_disruption_threshold", 2};
 
+// Grace period to wait after the screen is locked before evaluating and
+// executing a restart.
 const base::FeatureParam<base::TimeDelta> kSmartRestartLockScreenDelay{
-    &kSmartRestartLockScreen, "lock_restart_delay", base::Minutes(5)};
+    &kSmartRestartLockScreen, "lock_restart_delay", base::Minutes(2)};
 
+// Maximum Site Engagement score ([0.0, 100.0]) at or below which beforeunload
+// handlers can be bypassed during a lock screen restart. A negative value
+// (-1.0) disables bypassing beforeunload handlers; a value above 100.0 (e.g.
+// 101.0) runs in dry-run mode to record metrics without restarting.
 const base::FeatureParam<double> kSmartRestartLockBypassBeforeUnloadThreshold{
     &kSmartRestartLockScreen, "lock_bypass_beforeunload_threshold", -1.0};
 

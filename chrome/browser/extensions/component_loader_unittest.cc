@@ -53,8 +53,18 @@
 #include "extensions/common/extension_resource.h"
 #include "extensions/common/extension_set.h"
 #include "extensions/common/manifest_handlers/background_info.h"
+#include "extensions/common/mojom/manifest.mojom-shared.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/display/test/test_screen.h"
+#include "ui/webui/buildflags.h"
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#include "components/search/ntp_features.h"
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/ash/components/file_manager/app_id.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
@@ -81,6 +91,29 @@ base::FilePath GetAimEligibilityRelativeInstallDir(std::string_view version) {
   return base::FilePath(extension_misc::kAimEligibilityExtensionDirName)
       .AppendASCII(version);
 }
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+base::DictValue CreateNewTabPageManifest(std::string_view version) {
+  constexpr char kNewTabPageExtensionKey[] =
+      "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAykwjZZvD8VmMLl8zD6+aoJ/"
+      "c3yC3CGNlJwsOVMUrcFYN7PNXcEnbzdYELWakSOUvFONXrg5MLlEYn8JK7R4J6iJTPU8Ch"
+      "ySEU2doBXAB1200QcLo6GL+GW13SyzazqbB4FbSVuez9Gu0LIBHwZcoI/"
+      "a7RG5ffGfm9FSPKRSzb9JRQ5GKywcyGXnM6xEZ0dezHB9aNxt+"
+      "SiVC5iRU3zLY9gxFIrqCYMPywGrHA1OWpFwiF7VrR8EJD73+5W/m/"
+      "oiiSou6yPar9yFXhl/38huIxlypsRggptgKMyMvr0/"
+      "iUO/mmWBxQZIQgtYYb0QRS4QL42u2fvVmmVGolHWESI5c1wIDAQAB";
+  return base::DictValue()
+      .Set("key", kNewTabPageExtensionKey)
+      .Set("version", version)
+      .Set("manifest_version", 3)
+      .Set("name", "NTP Staged");
+}
+
+base::FilePath GetNewTabPageRelativeInstallDir(std::string_view version) {
+  return base::FilePath(extension_misc::kNewTabPageExtensionDirName)
+      .AppendASCII(version);
+}
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 
 class ExtensionUnloadedObserver : public ExtensionRegistryObserver {
  public:
@@ -181,6 +214,8 @@ class ComponentLoaderTest : public testing::Test {
   void AddAimEligibilityExtension() {
     component_loader_->AddAimEligibilityExtension();
   }
+
+  void AddNewTabPageExtension() { component_loader_->AddNewTabPageExtension(); }
 
   void VerifyBundledAimEligibilityExtensionLoaded(
       bool expect_prefs_cleared = true) {
@@ -519,6 +554,18 @@ TEST_F(ComponentLoaderTest, RemovePendingAdd) {
   EXPECT_FALSE(component_loader_->ExistsOrPendingAdd(kExtensionId));
 }
 
+// Verifies that the Image Loader extension is not loaded by default and can
+// be loaded on demand.
+TEST_F(ComponentLoaderTest, AddImageLoaderExtensionOnDemand) {
+  component_loader_->EnableBackgroundExtensionsForTesting();
+  component_loader_->AddDefaultComponentExtensions(false);
+  EXPECT_FALSE(
+      component_loader_->Exists(file_manager::kImageLoaderExtensionId));
+
+  component_loader_->AddImageLoaderExtension();
+  EXPECT_TRUE(component_loader_->Exists(file_manager::kImageLoaderExtensionId));
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 TEST_F(ComponentLoaderTest,
@@ -729,5 +776,109 @@ TEST_F(ComponentLoaderTest,
 
   VerifyBundledAimEligibilityExtensionLoaded();
 }
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+// Verifies the NTP component extension is installed when its feature is
+// enabled.
+TEST_F(ComponentLoaderTest, AddNewTabPageExtensionLoadsWhenFeatureEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ntp_features::kNtpComponentExtension);
+
+  AddNewTabPageExtension();
+  component_loader_->LoadAll();
+
+  const Extension* extension =
+      ExtensionRegistry::Get(profile())->enabled_extensions().GetByID(
+          extension_misc::kNewTabPageExtensionId);
+  ASSERT_TRUE(extension);
+  EXPECT_EQ(extension->location(), mojom::ManifestLocation::kComponent);
+}
+
+// Verifies the NTP component extension loads the staged version from disk when
+// a newer version is staged in Local State.
+TEST_F(ComponentLoaderTest, AddNewTabPageExtensionLoadsStagedVersionIfNewer) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ntp_features::kNtpComponentExtension);
+
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::ScopedPathOverride path_override(component_updater::DIR_COMPONENT_USER,
+                                         temp_dir.GetPath());
+  base::FilePath relative_path = GetNewTabPageRelativeInstallDir("2.0");
+  ASSERT_TRUE(base::CreateDirectory(temp_dir.GetPath().Append(relative_path)));
+
+  PrefService* local_state = TestingBrowserProcess::GetGlobal()->local_state();
+  component_loader_prefs::StageExtension(
+      *local_state, extension_misc::kNewTabPageExtensionId, relative_path,
+      CreateNewTabPageManifest("2.0"));
+
+  AddNewTabPageExtension();
+  component_loader_->LoadAll();
+
+  ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
+  const Extension* extension = registry->enabled_extensions().GetByID(
+      extension_misc::kNewTabPageExtensionId);
+  ASSERT_TRUE(extension);
+  EXPECT_EQ(extension->version(), base::Version("2.0"));
+  EXPECT_EQ(extension->name(), "NTP Staged");
+}
+
+// Verifies the NTP component extension falls back to the bundled version when
+// the use_component_updater feature param is disabled.
+TEST_F(ComponentLoaderTest,
+       AddNewTabPageExtensionLoadsBundledIfFeatureParamDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeaturesAndParameters(
+      {{ntp_features::kNtpComponentExtension,
+        {{"use_component_updater", "false"}}}},
+      {});
+
+  PrefService* local_state = TestingBrowserProcess::GetGlobal()->local_state();
+  component_loader_prefs::StageExtension(
+      *local_state, extension_misc::kNewTabPageExtensionId,
+      GetNewTabPageRelativeInstallDir("2.0"), CreateNewTabPageManifest("2.0"));
+
+  AddNewTabPageExtension();
+  component_loader_->LoadAll();
+
+  ExtensionRegistry* registry = ExtensionRegistry::Get(profile());
+  const Extension* extension = registry->enabled_extensions().GetByID(
+      extension_misc::kNewTabPageExtensionId);
+  ASSERT_TRUE(extension);
+  EXPECT_EQ(extension->version(), base::Version("1.0"));
+  EXPECT_EQ(extension->name(), "New Tab Page");
+  EXPECT_TRUE(component_loader_prefs::GetExtension(
+                  *local_state, extension_misc::kNewTabPageExtensionId)
+                  .has_value());
+}
+
+// Verifies the NTP component extension is not installed when its feature is
+// disabled.
+TEST_F(ComponentLoaderTest, AddNewTabPageExtensionSkippedWhenFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      ntp_features::kNtpComponentExtension);
+
+  AddNewTabPageExtension();
+  component_loader_->LoadAll();
+
+  EXPECT_FALSE(ExtensionRegistry::Get(profile())->GetInstalledExtension(
+      extension_misc::kNewTabPageExtensionId));
+}
+
+// Verifies the extension is on the component extension allowlist, so it loads
+// without `set_ignore_allowlist_for_testing()`.
+TEST_F(ComponentLoaderTest, AddNewTabPageExtensionIsAllowlisted) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      ntp_features::kNtpComponentExtension);
+  component_loader_->set_ignore_allowlist_for_testing(false);
+
+  AddNewTabPageExtension();
+  component_loader_->LoadAll();
+
+  EXPECT_TRUE(ExtensionRegistry::Get(profile())->enabled_extensions().GetByID(
+      extension_misc::kNewTabPageExtensionId));
+}
+#endif  // BUILDFLAG(ENABLE_WEBUI_NTP)
 
 }  // namespace extensions

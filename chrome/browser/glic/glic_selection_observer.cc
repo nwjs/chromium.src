@@ -5,6 +5,7 @@
 #include "chrome/browser/glic/glic_selection_observer.h"
 
 #include "base/containers/flat_set.h"
+#include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/strings/string_split.h"
@@ -17,6 +18,7 @@
 #include "chrome/browser/glic/glic_zero_state_suggestions_manager.h"
 #include "chrome/browser/glic/host/context/glic_sharing_utils.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
@@ -453,6 +455,40 @@ void GlicSelectionObserver::SendAdditionalContextToPanel(
     return;
   }
 
+  mojom::AdditionalContextPtr context =
+      CreateTextSelectionContext(web_contents(), selected_text);
+
+  // Common case: the tab's instance already exists and is showing. This is a
+  // background update of the panel's selection context, not a user asking to
+  // invoke Gemini, so hand it straight to the instance. Going through Invoke()
+  // here would start a full invocation that (a) is rejected with
+  // kInvokeInProgress whenever any client invocation is already in flight on
+  // the instance, including the previous selection update, and (b) records an
+  // InvokeStarted/InvokeTerminated pair for something that is not a journey.
+  // SendAdditionalContext() has neither problem and coalesces to the latest
+  // value per source while the client is still connecting.
+  if (GlicInstance* instance =
+          glic_keyed_service_->GetInstanceForTab(tab_interface)) {
+    if (instance->IsShowing()) {
+      // The selected text flow has no live mode UI: mirror
+      // `LiveModeBehavior::kFail` and leave a live conversation alone.
+      if (instance->IsLiveMode()) {
+        return;
+      }
+      instance->SendAdditionalContext(std::move(context));
+      return;
+    }
+  }
+
+  // Clearing a previous selection only matters while the panel is open to
+  // display it; never start an invocation just to send an empty selection.
+  if (selected_text.empty() &&
+      base::FeatureList::IsEnabled(features::kGlicInvokeErrorRecoveryFixes)) {
+    return;
+  }
+
+  // Otherwise fall back to an invocation so the surface is resolved and shown
+  // the same way as before.
   GlicInvokeOptions options(glic::Target(*tab_interface),
                             mojom::InvocationSource::kTextSelectionWidget);
   // Delivering the selection shouldn't relocate the conversation: leave it on
@@ -461,8 +497,8 @@ void GlicSelectionObserver::SendAdditionalContextToPanel(
   options.preserve_active_surface = true;
   options.target.live_mode_behavior = LiveModeBehavior::kFail;
   options.additional_context = AdditionalTabContext(
-      CreateTextSelectionContext(web_contents(), selected_text),
-      content::GlobalRenderFrameHostId(), PolicyCheck::kNone);
+      std::move(context), content::GlobalRenderFrameHostId(),
+      PolicyCheck::kNone);
   glic_keyed_service_->Invoke(std::move(options));
 }
 

@@ -37,7 +37,7 @@ void ReceiveTextRequest(
     return;
   }
 
-  std::move(cb).Run(text.value());
+  std::move(cb).Run(std::move(text).value());
 }
 
 void ReceiveGenerateContentResponse(
@@ -54,8 +54,8 @@ void ReceiveGenerateContentResponse(
     std::move(cb).Run(base::unexpected(StatusCode::kNoResponse));
     return;
   }
-  std::move(cb).Run(
-      std::move(private_ai_response->generate_content_response()));
+  std::move(cb).Run(std::move(
+      *private_ai_response->mutable_generate_content_response()));
 }
 
 void ReceivePaicMessage(
@@ -72,7 +72,8 @@ void ReceivePaicMessage(
     std::move(cb).Run(base::unexpected(StatusCode::kNoResponse));
     return;
   }
-  std::move(cb).Run(std::move(private_ai_response->paic_response()));
+  std::move(cb).Run(
+      std::move(*private_ai_response->mutable_paic_response()));
 }
 
 }  // namespace
@@ -154,11 +155,11 @@ void ClientImpl::SendRequest(proto::FeatureName feature_name,
 
   connection_manager_->GetConnection(feature_name)
       ->Send(std::move(private_ai_request), options.timeout,
-             base::BindOnce(&ClientImpl::OnReponseReceived,
+             base::BindOnce(&ClientImpl::OnResponseReceived,
                             weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
-void ClientImpl::OnReponseReceived(
+void ClientImpl::OnResponseReceived(
     OnRequestCompletedCallback cb,
     base::expected<proto::PrivateAiResponse, StatusCode> private_ai_response) {
   if (private_ai_response.has_value()) {

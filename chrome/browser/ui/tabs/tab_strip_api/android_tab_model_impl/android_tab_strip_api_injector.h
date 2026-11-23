@@ -5,9 +5,10 @@
 #ifndef CHROME_BROWSER_UI_TABS_TAB_STRIP_API_ANDROID_TAB_MODEL_IMPL_ANDROID_TAB_STRIP_API_INJECTOR_H_
 #define CHROME_BROWSER_UI_TABS_TAB_STRIP_API_ANDROID_TAB_MODEL_IMPL_ANDROID_TAB_STRIP_API_INJECTOR_H_
 
+#include <memory>
+
 #include "base/types/expected.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/android_tab_model_impl/android_tab_model_event_bridge.h"
 #include "components/browser_apis/tab_strip/adapters/event_bridge.h"
 #include "components/browser_apis/tab_strip/adapters/platform_adapters_provider.h"
 #include "components/browser_apis/tab_strip/tab_strip_api.mojom.h"
@@ -24,7 +25,20 @@ class AndroidTranslationAdapter;
 
 class AndroidTabStripApiInjector : public PlatformAdaptersProvider {
  public:
-  explicit AndroidTabStripApiInjector(TabModel* model);
+  AndroidTabStripApiInjector(TabModel* model,
+                             TabModel::TabLaunchType launch_type);
+
+  // Creates an injector with a no-op EventBridge for callers that do not
+  // observe tab strip events. Kept separate from the main constructor rather
+  // than gated by a runtime boolean so the linker can dead-strip
+  // AndroidTabModelEventBridge when unused.
+  // TODO(crbug.com/498763314): AndroidTabModelEventBridge also assumes every
+  // tab has a loaded WebContents, which fails on Android when background tabs
+  // are lazily restored.
+  static std::unique_ptr<AndroidTabStripApiInjector> CreateWithoutEventBridge(
+      TabModel* model,
+      TabModel::TabLaunchType launch_type);
+
   AndroidTabStripApiInjector(const AndroidTabStripApiInjector&&) = delete;
   AndroidTabStripApiInjector operator=(const AndroidTabStripApiInjector&) =
       delete;
@@ -36,10 +50,13 @@ class AndroidTabStripApiInjector : public PlatformAdaptersProvider {
   EventBridge& event_bridge() override;
 
  private:
+  AndroidTabStripApiInjector(TabModel* model,
+                             TabModel::TabLaunchType launch_type,
+                             std::unique_ptr<EventBridge> event_bridge);
   std::unique_ptr<AndroidBrowserAdapterImpl> browser_adapter_;
   std::unique_ptr<AndroidTabStripModelAdapter> tab_model_adapter_;
   std::unique_ptr<AndroidTranslationAdapter> translation_adapter_;
-  AndroidTabModelEventBridge event_bridge_;
+  std::unique_ptr<EventBridge> event_bridge_;
 };
 
 }  // namespace tabs_api

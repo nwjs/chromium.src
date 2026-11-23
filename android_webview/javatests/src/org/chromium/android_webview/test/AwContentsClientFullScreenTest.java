@@ -35,7 +35,6 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.test.util.DOMUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
-import org.chromium.url.GURL;
 
 import java.util.concurrent.TimeoutException;
 
@@ -119,6 +118,24 @@ public class AwContentsClientFullScreenTest extends AwParameterizedTest {
     @Test
     public void testOnShowAndHideCustomViewWithCallback_videoInsideDiv() throws Throwable {
         doTestOnShowAndHideCustomViewWithCallback(VIDEO_INSIDE_DIV_TEST_URL);
+    }
+
+    @MediumTest
+    @Feature({"AndroidWebView"})
+    @Test
+    public void testAdoptExitsFullscreen() throws Throwable {
+        doOnShowCustomViewTest(VIDEO_INSIDE_DIV_TEST_URL);
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AwTestContainerView newContainer =
+                            new AwTestContainerView(mActivityTestRule.getActivity(), false);
+                    ((ViewGroup) mTestContainerView.getParent()).removeView(mTestContainerView);
+                    mTestContainerView
+                            .getAwContents()
+                            .adopt(newContainer, newContainer.getInternalAccessDelegate());
+                    Assert.assertFalse(mTestContainerView.getAwContents().isFullScreen());
+                });
+        mContentsClient.waitForCustomViewHidden();
     }
 
     public void doTestOnShowAndHideCustomViewWithCallback(String videoTestUrl) throws Throwable {
@@ -359,9 +376,8 @@ public class AwContentsClientFullScreenTest extends AwParameterizedTest {
     }
 
     private boolean shouldPlayOnFullScreenView() throws Exception {
-        GURL testUrl = mTestContainerView.getAwContents().getUrl();
-        return new GURL(VIDEO_TEST_URL).equals(testUrl)
-                && DOMUtils.isFullscreen(getWebContentsOnUiThread());
+        String testUrl = mTestContainerView.getAwContents().getUrl();
+        return VIDEO_TEST_URL.equals(testUrl) && DOMUtils.isFullscreen(getWebContentsOnUiThread());
     }
 
     private void playVideo() throws Exception {

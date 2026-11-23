@@ -92,7 +92,7 @@
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service.h"
 #include "chrome/browser/ui/hats/trust_safety_sentiment_service_factory.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
-#include "chrome/browser/ui/tab_dialogs.h"
+#include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_utils.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
@@ -204,7 +204,7 @@ void ChromePageInfoDelegate::OnUserActionOnPasswordUi(
     safe_browsing::WarningAction action) {
   auto* chrome_password_protection_service =
       GetChromePasswordProtectionService();
-  DCHECK(chrome_password_protection_service);
+  CHECK(chrome_password_protection_service, base::NotFatalUntil::M162);
 
   chrome_password_protection_service->OnUserAction(
       web_contents_->GetWeakPtr(),
@@ -392,17 +392,19 @@ void ChromePageInfoDelegate::ShowSyncSettings() {
 
 void ChromePageInfoDelegate::OpenCookiesDialog() {
   FocusWebContents();
-  TabDialogs::FromWebContents(web_contents_)->ShowCollectedCookies();
+  PageSpecificSiteDataDialogController::CreateAndShowForWebContents(
+      web_contents_);
 }
 
 void ChromePageInfoDelegate::OpenCertificateDialog(
     net::X509Certificate* certificate) {
   gfx::NativeWindow top_window = web_contents_->GetTopLevelNativeWindow();
-  DCHECK(certificate);
-  DCHECK(top_window);
+  CHECK(certificate, base::NotFatalUntil::M162);
+  CHECK(top_window, base::NotFatalUntil::M162);
 
   FocusWebContents();
-  ShowCertificateViewer(web_contents_, top_window, certificate);
+  ShowCertificateViewer(web_contents_, top_window, certificate,
+                        CertificateViewerEntrypoint::kPageInfo);
 }
 
 void ChromePageInfoDelegate::OpenConnectionHelpCenterPage(
@@ -411,7 +413,7 @@ void ChromePageInfoDelegate::OpenConnectionHelpCenterPage(
       content::OpenURLParams::CreateBrowserInitiated(
           GURL(chrome::kPageInfoHelpCenterURL),
           ui::DispositionFromEventFlags(
-              event.flags(), WindowOpenDisposition::NEW_FOREGROUND_TAB),
+              event.flags(), WindowOpenDisposition::kNewForegroundTab),
           ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
@@ -460,7 +462,7 @@ void ChromePageInfoDelegate::OpenSafeBrowsingHelpCenterPage(
       content::OpenURLParams::CreateBrowserInitiated(
           GURL(url),
           ui::DispositionFromEventFlags(
-              event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB),
+              event_flags, WindowOpenDisposition::kNewForegroundTab),
           ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }

@@ -68,6 +68,7 @@ export class MockInputState implements InputState {
   maxInputsByType: {[key: number]: number} = {};
   maxTotalInputs: number = 0;
   isCanvasQuerySubmitted: boolean = false;
+  willFulfillInAim: boolean = true;
 
   hintText: string = '';
 
@@ -76,7 +77,6 @@ export class MockInputState implements InputState {
   }
 }
 // LINT.ThenChange(//chrome/test/data/webui/cr_components/searchbox/searchbox_test_utils.ts)
-export type {InputState};
 
 const THOUSANDTHS = 0.001;
 
@@ -210,7 +210,8 @@ export type MockComposeboxVoiceSearch = Omit<
     ComposeboxVoiceSearchElement,
     'state_'|'voiceRecognition_'|'onFinalResult_'|'onCloseClick_'|'onEnd_'|
     'onTryAgainClick_'|'onLinkClick_'|'errorMessage_'|'voiceModeEndCleanup_'|
-    'detailedError'|'onStopClick_'|'recordMetric_'|'onIdleTimeout_'>&{
+    'detailedError'|'onStopClick_'|'recordMetric_'|'onIdleTimeout_'|
+    'onVoicePermissionPromptChanged'>&{
   state_: number,
   metricSource_: string,
   voiceRecognition_: MockSpeechRecognition,
@@ -224,6 +225,8 @@ export type MockComposeboxVoiceSearch = Omit<
   onTryAgainClick_: (e: Event) => void,
   onLinkClick_: (e: Event) => void,
   onStopClick_: () => void,
+  onVoicePermissionPromptChanged:
+      (isOpened: boolean, promptSize: {width: number, height: number}) => void,
   recordMetric_:
       (type: VoiceSearchMetricType, metricEnumValue: number, max: number) =>
           void,

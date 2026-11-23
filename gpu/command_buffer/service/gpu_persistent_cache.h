@@ -13,12 +13,14 @@
 #include "base/containers/flat_set.h"
 #include "base/containers/heap_array.h"
 #include "base/containers/span.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory_coordinator/memory_limit.h"
 #include "base/memory_coordinator/utils.h"
 #include "base/synchronization/atomic_flag.h"
 #include "base/synchronization/lock.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/thread_annotations.h"
 #include "base/trace_event/memory_dump_provider.h"
@@ -32,7 +34,7 @@
 #include "ui/gl/buildflags.h"
 
 #if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
-#include <dawn/platform/DawnPlatform.h>
+#include "gpu/command_buffer/service/dawn_caching_interface.h"
 #endif
 
 namespace persistent_cache {
@@ -49,7 +51,7 @@ class MemoryCache;
 // initialized are copied into it on initialization.
 class GPU_GLES2_EXPORT GpuPersistentCache :
 #if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
-    public dawn::platform::CachingInterface,
+    public webgpu::DawnCachingInterface,
 #endif
     public GrContextOptions::PersistentCache,
     public base::RefCountedThreadSafe<GpuPersistentCache> {
@@ -115,15 +117,19 @@ class GPU_GLES2_EXPORT GpuPersistentCache :
   GpuPersistentCache(const GpuPersistentCache&) = delete;
   GpuPersistentCache& operator=(const GpuPersistentCache&) = delete;
 
-  // This can only be called once but is thread safe w.r.t loads and stores.
+  // Initializes the underlying persistent disk cache. If
+  // `async_write_options.task_runner` is set and does not run tasks on the
+  // calling sequence, initialization is posted to a background worker thread.
+  // This can only be called once and is thread safe w.r.t loads and stores.
   void InitializeCache(persistent_cache::PendingBackend pending_backend,
                        scoped_refptr<RefCountedGpuProcessShmCount>
                            use_shader_cache_shm_count = nullptr);
 
 #if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
-  size_t FindKey(std::string_view key);
-  size_t LoadData(std::string_view key, base::span<uint8_t> dest);
-  void StoreData(std::string_view key, base::span<const uint8_t> src);
+  // webgpu::DawnCachingInterface implementation.
+  size_t FindKey(std::string_view key) override;
+  size_t LoadData(std::string_view key, base::span<uint8_t> dest) override;
+  void StoreData(std::string_view key, base::span<const uint8_t> src) override;
 #endif
 
   // GrContextOptions::PersistentCache implementation.
@@ -158,15 +164,6 @@ class GPU_GLES2_EXPORT GpuPersistentCache :
 
   ~GpuPersistentCache() override;
 
-#if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
-  // dawn::platform::CachingInterface implementation.
-  size_t FindKey(std::span<const std::byte> key) override;
-  size_t LoadData(std::span<const std::byte> key,
-                  std::span<std::byte> dest) override;
-  void StoreData(std::span<const std::byte> key,
-                 std::span<const std::byte> src) override;
-#endif
-
   struct DiskCache;
 
   // LINT.IfChange(CacheLoadResult)
@@ -193,6 +190,12 @@ class GPU_GLES2_EXPORT GpuPersistentCache :
   // LINT.ThenChange(//tools/metrics/histograms/metadata/gpu/enums.xml:GpuPersistentCacheMetadataEvent)
 
   static bool IsCacheHitResult(CacheLoadResult result);
+
+  void DoInitializeCache(
+      persistent_cache::PendingBackend pending_backend,
+      scoped_refptr<RefCountedGpuProcessShmCount> use_shader_cache_shm_count,
+      base::ScopedClosureRunner signal_init_complete);
+  bool EnsureDiskCacheInitialized() const;
 
   CacheLoadResult LoadImpl(std::string_view key,
                            persistent_cache::BufferProvider buffer_provider,
@@ -228,7 +231,11 @@ class GPU_GLES2_EXPORT GpuPersistentCache :
   // initialized
   scoped_refptr<MemoryCache> memory_cache_;
 
+  base::AtomicFlag init_started_;
   base::AtomicFlag disk_cache_initialized_;
+  mutable base::WaitableEvent init_complete_event_{
+      base::WaitableEvent::ResetPolicy::MANUAL,
+      base::WaitableEvent::InitialState::NOT_SIGNALED};
   scoped_refptr<DiskCache> disk_cache_;
   const AsyncDiskWriteOpts async_write_options_;
 

@@ -5,8 +5,8 @@
 #import "ios/chrome/browser/personal_context/model/ios_personal_context_eligibility_service_factory.h"
 
 #import <string>
+#import <utility>
 
-#import "base/no_destructor.h"
 #import "base/strings/string_util.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/personal_context/core/country_type.h"
@@ -31,34 +31,15 @@ personal_context::GeoIpCountryCode GetCountryCodeFromVariations() {
 }
 }  // namespace
 
-// static
-IOSPersonalContextEligibilityServiceFactory*
-IOSPersonalContextEligibilityServiceFactory::GetInstance() {
-  static base::NoDestructor<IOSPersonalContextEligibilityServiceFactory>
-      instance;
-  return instance.get();
-}
-
-// static
-personal_context::PersonalContextEligibilityService*
-IOSPersonalContextEligibilityServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<
-          personal_context::PersonalContextEligibilityService>(profile,
-                                                               /*create=*/true);
-}
-
 IOSPersonalContextEligibilityServiceFactory::
-    IOSPersonalContextEligibilityServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("PersonalContextEligibilityService",
-                                    ProfileSelection::kNoInstanceInIncognito) {
+    IOSPersonalContextEligibilityServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "PersonalContextEligibilityService",
+          ProfileSelection::kNoInstanceInIncognito) {
   DependsOn(IOSAccountSettingServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
 }
-
-IOSPersonalContextEligibilityServiceFactory::
-    ~IOSPersonalContextEligibilityServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 IOSPersonalContextEligibilityServiceFactory::BuildServiceInstanceFor(

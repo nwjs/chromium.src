@@ -22,7 +22,6 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_auto_suggestion_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler_interface.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_internals.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_page_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_toolbar.mojom.h"
@@ -51,6 +50,7 @@
 #include "ui/base/resource/resource_scale_factor.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
+#include "ui/webui/resources/cr_components/search/plural_string_provider.mojom.h"
 
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "components/guest_view/browser/slim_web_view/slim_web_view_page_handler_factory.h"  // nogncheck
@@ -81,8 +81,6 @@ namespace tabs {
 class TabInterface;
 }  // namespace tabs
 
-class ContextualTasksInternalsPageHandler;
-
 class ContextualTasksPageHandler;
 class Profile;
 
@@ -94,8 +92,6 @@ class ContextualTasksUI
 #endif
       public contextual_tasks::mojom::PageHandlerFactory,
       public composebox::mojom::PageHandlerFactory,
-      public contextual_tasks_internals::mojom::
-          ContextualTasksInternalsPageHandlerFactory,
       public signin::IdentityManager::Observer,
       public contextual_tasks::ContextualTasksService::Observer {
  public:
@@ -130,6 +126,9 @@ class ContextualTasksUI
 
     // Last committed URL used to check if URL changes.
     GURL last_committed_url_;
+
+    // Last committed URL that showed the current thread.
+    GURL last_thread_url_;
   };
 
   explicit ContextualTasksUI(content::WebUI* web_ui);
@@ -160,6 +159,11 @@ class ContextualTasksUI
   void BindInterface(
       mojo::PendingReceiver<composebox::mojom::PageHandlerFactory> receiver);
 
+  // Binds the plural_string::mojom::PluralStringProvider used by the shared
+  // searchbox and composebox components.
+  void BindInterface(
+      mojo::PendingReceiver<plural_string::mojom::PluralStringProvider>
+          receiver);
 
   // contextual_tasks::mojom::PageHandlerFactory:
   void CreatePageHandler(
@@ -183,6 +187,7 @@ class ContextualTasksUI
   void SetInNlm(bool in_nlm) override;
   void PrepareForTaskChange() override;
   void OnTaskChanged() override;
+  void MaybeTriggerPinningPromo() override;
 
   // contextual_tasks::ContextualTasksUIInterface implementation:
   Profile* GetProfile() override;
@@ -206,7 +211,6 @@ class ContextualTasksUI
   bool IsActiveTabContextSuggestionShowing() const override;
   void MoveTaskUiToNewTab() override;
   void ShowThreadHistory() override;
-  void MaybeTriggerPinningPromo() override;
   bool CanExpandToFullTab() const override;
   void PostAimMessage(const lens::ClientToAimMessage& message) override;
   contextual_search::ContextualSearchSessionHandle*
@@ -230,7 +234,7 @@ class ContextualTasksUI
 
   std::unique_ptr<contextual_search::InputStateModel> TakeInputStateModel()
       override;
-  std::vector<int32_t> GetRestoredTabIds() override;
+  const std::vector<int32_t>& GetRestoredTabIds() override;
   void SetComposeboxHandler(
       contextual_tasks::ContextualTasksComposeboxHandlerInterface* handler)
       override;
@@ -274,23 +278,6 @@ class ContextualTasksUI
   void BindInterface(
       mojo::PendingReceiver<contextual_tasks::mojom::PageHandlerFactory>
           pending_receiver);
-
-
-  // Instantiates the implementor of the contextual_tasks::mojom::
-  // ContextualTasksInternalsPageHandlerFactory mojo interface passing the
-  // pending receiver that will be internally bound.
-  void BindInterface(
-      mojo::PendingReceiver<contextual_tasks_internals::mojom::
-                                ContextualTasksInternalsPageHandlerFactory>
-          pending_receiver);
-
-  // contextual_tasks::mojom::ContextualTasksInternalsPageHandlerFactory:
-  void CreatePageHandler(
-      mojo::PendingRemote<
-          contextual_tasks_internals::mojom::ContextualTasksInternalsPage> page,
-      mojo::PendingReceiver<contextual_tasks_internals::mojom::
-                                ContextualTasksInternalsPageHandler> receiver)
-      override;
 
   static constexpr std::string_view GetWebUIName() { return "ContextualTasks"; }
 
@@ -419,13 +406,6 @@ class ContextualTasksUI
 
   base::ObserverList<contextual_tasks::ContextualTasksUIInterface::Observer>
       observers_;
-
-  mojo::Receiver<contextual_tasks_internals::mojom::
-                     ContextualTasksInternalsPageHandlerFactory>
-      contextual_tasks_internals_page_handler_receiver_{this};
-
-  std::unique_ptr<ContextualTasksInternalsPageHandler>
-      contextual_tasks_internals_page_handler_;
 
   enum class WebUIState {
     kUnknown,

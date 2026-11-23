@@ -26,7 +26,7 @@ export function getHtml(this: AppElement) {
         .selectedVoice="${this.selectedVoice_}" .theme="${this.theme_}"
         .lineSpacing="${this.lineSpacing_}"
         .letterSpacing="${this.letterSpacing_}" .font="${this.font_}"
-        .speechRate="${this.speechRate_}"
+        .fontSize="${this.fontSize_}" .speechRate="${this.speechRate_}"
         .highlightGranularity="${this.highlightGranularity_}"
         .linksEnabled="${this.linksEnabled_}"
         .imagesEnabled="${this.imagesEnabled_}"
@@ -48,12 +48,15 @@ export function getHtml(this: AppElement) {
         @voice-menu-open="${this.onVoiceMenuOpen_}"
         @play-pause-click="${this.onPlayPauseClick_}"
         @font-size-change="${this.onFontSizeChange_}"
+        @font-size-reset="${this.onFontSizeReset_}"
         @font-change="${this.onFontChange_}"
         @rate-change="${this.onSpeechRateChange_}"
         @next-granularity-click="${this.onNextGranularityClick_}"
         @previous-granularity-click="${this.onPreviousGranularityClick_}"
         @links-toggle="${this.onLinksToggle_}"
         @images-toggle="${this.onImagesToggle_}"
+        @pin-toggle="${this.onPinToggle_}"
+        @translation-requested="${this.onTranslationRequested_}"
         @letter-spacing-change="${this.onLetterSpacingChange_}"
         @theme-change="${this.onThemeChange_}"
         @presentation-change="${this.onPresentationChange_}"
@@ -70,8 +73,11 @@ export function getHtml(this: AppElement) {
         class="notranslate" id="toolbar">
     </read-anything-toolbar>
   </div>
-  <div id="containerParent" class="sp-card"
-      ?hidden="${!this.computeHasContent()}">
+  <div id="containerParent"
+      class="sp-card ${
+          this.isHidingContentForTranslation_ ? 'awaiting-translation' : ''}"
+      ?hidden="${!this.computeIsContentDrawn_()}"
+      ?inert="${this.isHidingContentForTranslation_}">
     <div id="containerScroller" class="sp-scroller"
         @scroll="${this.onContainerScroll_}"
         @scrollend="${this.onContainerScrollend_}"

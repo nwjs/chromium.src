@@ -8,11 +8,13 @@
 #include <optional>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
+#include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
@@ -21,7 +23,10 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
+#include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
@@ -32,23 +37,52 @@
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_ephemeral_button_menu_model.h"
+#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_ephemeral_button_utils.h"
+#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
+#include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
+#include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/branded_strings.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/contextual_tasks/public/features.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
+#include "components/user_education/common/feature_promo/feature_promo_controller.h"
+#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/page.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/url_constants.h"
+#include "ui/actions/actions.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/image_model.h"
+#include "ui/base/ui_base_features.h"
+#include "ui/color/color_id.h"
+#include "ui/menus/simple_menu_model.h"
+#include "ui/views/view_class_properties.h"
 
 namespace {
+constexpr base::TimeDelta kRapidOpenCloseThreshold = base::Seconds(3);
+
 bool IsContextualTasksPage(const GURL& url) {
   return url.SchemeIs(content::kChromeUIScheme) &&
          url.host() == chrome::kChromeUIContextualTasksHost;
+}
+
+bool IsEphemeralEntryPointEnabled() {
+  return contextual_tasks::kShowEntryPoint.Get() ==
+             contextual_tasks::EntryPointOption::kToolbarEphemeralBranded ||
+         contextual_tasks::
+             IsContextualTasksEphemeralPinButtonRefactorEnabled();
 }
 }  // namespace
 
@@ -87,6 +121,17 @@ ContextualTasksEphemeralButtonController::
   if (auto* pinned_model = PinnedToolbarActionsModel::Get(profile)) {
     pinned_toolbar_observation_.Observe(pinned_model);
   }
+  if (contextual_tasks::IsContextualTasksPinningV2Enabled()) {
+    if (auto* const eligibility_manager =
+            contextual_tasks::EntryPointEligibilityManager::From(
+                browser_window_interface_)) {
+      entry_point_eligibility_subscription_ =
+          eligibility_manager->RegisterOnEntryPointEligibilityChanged(
+              base::BindRepeating(&ContextualTasksEphemeralButtonController::
+                                      OnEntryPointEligibilityChanged,
+                                  base::Unretained(this)));
+    }
+  }
   pref_change_registrar_.Init(profile->GetPrefs());
   pref_change_registrar_.Add(
       prefs::kSidePanelHorizontalAlignment,
@@ -98,11 +143,74 @@ ContextualTasksEphemeralButtonController::
       base::BindRepeating(&ContextualTasksEphemeralButtonController::
                               OnSidePanelAlignmentChanged,
                           base::Unretained(this)));
+  if (BrowserActions* const browser_actions =
+          BrowserActions::From(browser_window_interface_);
+      browser_actions && browser_actions->root_action_item()) {
+    if (actions::ActionItem* const action_item =
+            actions::ActionManager::Get().FindAction(
+                kActionSidePanelShowContextualTasks,
+                browser_actions->root_action_item())) {
+      if (contextual_tasks::
+              IsContextualTasksPinnedButtonActiveIndicatorEnabled()) {
+        action_item->SetProperty(
+            kActionItemEngagedIndicatorStyleKey,
+            contextual_tasks::
+                    IsContextualTasksPinnedButtonActiveIndicatorCircleHighlightEnabled()
+                ? ActionItemEngagedIndicatorStyle::kCircleHighlight
+                : ActionItemEngagedIndicatorStyle::kUnderline);
+      }
+      if (contextual_tasks::
+              ShouldShowCloseSidePanelInPinnedButtonContextMenu() ||
+          (contextual_tasks::
+               IsContextualTasksEphemeralPinButtonRefactorEnabled() &&
+           base::FeatureList::IsEnabled(
+               contextual_tasks::kContextualTasksEphemeralButtonContextMenu))) {
+        const int close_label_id = contextual_tasks::
+            GetContextualTasksEphemeralButtonContextMenuCloseTextId();
+        close_side_panel_action_item_ = action_item->AddChild(
+            actions::ActionItem::Builder(
+                base::BindRepeating(
+                    [](base::WeakPtr<ContextualTasksEphemeralButtonController>
+                           controller,
+                       actions::ActionItem* item,
+                       actions::ActionInvocationContext context) {
+                      if (controller) {
+                        controller->RemoveEphemeralButtonForCurrentTask();
+                      }
+                    },
+                    weak_ptr_factory_.GetWeakPtr()))
+                .SetActionId(kActionContextualTasksCloseSidePanel)
+                .SetText(l10n_util::GetStringUTF16(close_label_id))
+                .SetImage(ui::ImageModel::FromVectorIcon(
+                    features::IsRoundedIconsEnabled()
+                        ? vector_icons::kCloseIcon
+                        : vector_icons::kCloseOldIcon,
+                    ui::kColorIcon, ui::SimpleMenuModel::kDefaultIconSize))
+                .SetProperty(
+                    views::kElementIdentifierKey,
+                    ContextualTasksEphemeralButtonMenuModel::
+                        kRemoveForTaskMenuItem)
+                .SetVisible(false)
+                .SetEnabled(false)
+                .Build());
+      }
+    }
+  }
   UpdateActiveTabObservation();
+  UpdatePinnedButtonActiveIndicator();
+  UpdatePinButtonTooltip();
 }
 
 ContextualTasksEphemeralButtonController::
-    ~ContextualTasksEphemeralButtonController() = default;
+    ~ContextualTasksEphemeralButtonController() {
+  FlushOpenClickCounts(/*flush_all=*/true);
+  if (actions::ActionItem* const item =
+          std::exchange(close_side_panel_action_item_, nullptr)) {
+    if (actions::BaseAction* const parent = item->GetParent()) {
+      parent->RemoveChild(item);
+    }
+  }
+}
 
 // static:
 ContextualTasksEphemeralButtonController*
@@ -126,10 +234,20 @@ void ContextualTasksEphemeralButtonController::OnTaskUpdated(
 void ContextualTasksEphemeralButtonController::OnTaskRemoved(
     const base::Uuid& task_id,
     contextual_tasks::ContextualTasksService::TriggerSource source) {
+  std::optional<base::AutoReset<std::optional<RemovalReason>>> reset_reason;
+  if (!removal_reason_.has_value()) {
+    reset_reason.emplace(&removal_reason_, RemovalReason::kTaskDisassociated);
+  }
   MaybeNotifyVisibilityShouldChange();
 }
 
 void ContextualTasksEphemeralButtonController::OnWillBeDestroyed() {
+  FlushOpenClickCounts(/*flush_all=*/true);
+  if (contextual_tasks::IsContextualTasksEphemeralPinButtonRefactorEnabled() &&
+      was_ephemeral_button_visible_) {
+    UpdateEphemeralStateInToolbar(false);
+    was_ephemeral_button_visible_ = false;
+  }
   should_update_visibility_callbacks_.Notify(false);
   ephemeral_button_auto_dismiss_timers_.clear();
   contextual_task_observation_.Reset();
@@ -137,6 +255,8 @@ void ContextualTasksEphemeralButtonController::OnWillBeDestroyed() {
   pref_change_registrar_.Reset();
   tab_discard_subscription_ = base::CallbackListSubscription();
   Observe(nullptr);
+  UpdatePinnedButtonActiveIndicator();
+  UpdatePinButtonTooltip();
 }
 
 void ContextualTasksEphemeralButtonController::OnTaskAssociatedToTab(
@@ -148,8 +268,11 @@ void ContextualTasksEphemeralButtonController::OnTaskAssociatedToTab(
 void ContextualTasksEphemeralButtonController::OnTaskDisassociatedFromTab(
     const base::Uuid& task_id,
     SessionID tab_id) {
-  std::erase(ephemeral_button_eligible_tabs_, tab_id);
-  ephemeral_button_auto_dismiss_timers_.erase(tab_id);
+  ClearTabEligibility(tab_id);
+  std::optional<base::AutoReset<std::optional<RemovalReason>>> reset_reason;
+  if (!removal_reason_.has_value()) {
+    reset_reason.emplace(&removal_reason_, RemovalReason::kTaskDisassociated);
+  }
   MaybeNotifyVisibilityShouldChange();
 }
 
@@ -158,14 +281,38 @@ void ContextualTasksEphemeralButtonController::
   MaybeNotifyVisibilityShouldChange();
 }
 
+void ContextualTasksEphemeralButtonController::OnEntryPointEligibilityChanged(
+    bool is_eligible) {
+  if (is_eligible) {
+    MaybeNotifyVisibilityShouldChange();
+    return;
+  }
+
+  // The side panel coordinator closes the panel when eligibility is lost, which
+  // would otherwise mark the active task's tabs eligible for the ephemeral
+  // button. Clear every tab so no thread-state button is left behind. Tasks are
+  // intentionally not disassociated: a pinned icon comes back if the user
+  // becomes eligible again, and the thread can still be resumed from it.
+  ephemeral_button_eligible_tabs_.clear();
+  ephemeral_button_auto_dismiss_timers_.clear();
+  std::optional<base::AutoReset<std::optional<RemovalReason>>> reset_reason;
+  if (!removal_reason_.has_value()) {
+    reset_reason.emplace(&removal_reason_, RemovalReason::kTaskDisassociated);
+  }
+  MaybeNotifyVisibilityShouldChange();
+}
+
 void ContextualTasksEphemeralButtonController::OnEntryShown(
     SidePanelEntry* entry) {
-  if (contextual_tasks::kShowEntryPoint.Get() ==
-      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
-    is_contextual_tasks_panel_open_ = true;
-    is_hiding_contextual_tasks_panel_ = false;
+  is_contextual_tasks_panel_open_ = true;
+  is_hiding_contextual_tasks_panel_ = false;
+  if (IsEphemeralEntryPointEnabled() ||
+      contextual_tasks::IsContextualTasksPinningV2Enabled()) {
     CancelAutoDismissTimersForActiveTask();
     MaybeNotifyVisibilityShouldChange();
+  } else {
+    UpdatePinnedButtonActiveIndicator();
+    UpdatePinButtonTooltip();
   }
 }
 
@@ -173,63 +320,77 @@ void ContextualTasksEphemeralButtonController::OnEntryWillHide(
     SidePanelEntry* entry,
     SidePanelEntryHideReason reason) {
   is_hiding_contextual_tasks_panel_ = true;
-  if (!IsActiveTabAssociatedToTask()) {
+
+  // The pinning promo is only meaningful while the Contextual Tasks panel is
+  // showing. Dismiss it explicitly when the panel is hidden.
+  if (auto* user_education =
+          BrowserUserEducationInterface::From(browser_window_interface_)) {
+    user_education->AbortFeaturePromo(
+        feature_engagement::kIPHSidePanelContextualTasksPinnableFeature);
+  }
+
+  std::optional<base::Uuid> task_id = GetActiveTaskId();
+  if (!task_id.has_value() ||
+      reason == SidePanelEntryHideReason::kBackgrounded) {
+    if (contextual_tasks::IsContextualTasksPinningV2Enabled()) {
+      MaybeNotifyVisibilityShouldChange();
+    } else {
+      UpdatePinnedButtonActiveIndicator();
+    }
     return;
   }
 
-  if (reason == SidePanelEntryHideReason::kBackgrounded) {
-    return;
+  if (auto it = open_side_panel_session_counts_.find(*task_id);
+      it != open_side_panel_session_counts_.end()) {
+    SettlePendingOpenClick(
+        it->second, reason == SidePanelEntryHideReason::kSidePanelClosed);
   }
 
   contextual_tasks::ContextualTasksService* service =
       GetContextualTasksService();
-  std::optional<contextual_tasks::ContextualTask> current_task =
-      service->GetContextualTaskForTab(GetCurrentTabSessionId().value());
-
-  const base::TimeDelta auto_dismiss_duration = GetAutoDismissDuration();
+  if (!HasPanelResults()) {
+    for (SessionID tab_id : service->GetTabsAssociatedWithTask(*task_id)) {
+      ClearTabEligibility(tab_id);
+    }
+    MaybeNotifyVisibilityShouldChange();
+    return;
+  }
 
   // Mark every tab associated to the task, not just the active one, so the
   // remaining tabs keep the button if the dismissing tab goes away.
-  for (SessionID tab_id :
-       service->GetTabsAssociatedWithTask(current_task->GetTaskId())) {
+  for (SessionID tab_id : service->GetTabsAssociatedWithTask(*task_id)) {
     if (!std::ranges::contains(ephemeral_button_eligible_tabs_, tab_id)) {
       ephemeral_button_eligible_tabs_.emplace_back(tab_id);
     }
-    if (auto_dismiss_duration.is_positive()) {
-      base::OneShotTimer& timer = ephemeral_button_auto_dismiss_timers_[tab_id];
-      if (task_runner_for_testing_) {
-        timer.Stop();
-        timer.SetTaskRunner(task_runner_for_testing_);
-      }
-      timer.Start(
-          FROM_HERE, auto_dismiss_duration,
-          base::BindOnce(
-              &ContextualTasksEphemeralButtonController::
-                  OnAutoDismissTimerFired,
-              base::Unretained(this), tab_id));
-    }
+    StartAutoDismissTimerForTab(tab_id);
   }
   MaybeNotifyVisibilityShouldChange();
 }
 
 void ContextualTasksEphemeralButtonController::OnEntryHideCancelled(
     SidePanelEntry* entry) {
-  if (contextual_tasks::kShowEntryPoint.Get() ==
-      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
-    is_hiding_contextual_tasks_panel_ = false;
-    is_contextual_tasks_panel_open_ = true;
+  is_hiding_contextual_tasks_panel_ = false;
+  is_contextual_tasks_panel_open_ = true;
+  if (IsEphemeralEntryPointEnabled() ||
+      contextual_tasks::IsContextualTasksPinningV2Enabled()) {
     CancelAutoDismissTimersForActiveTask();
     MaybeNotifyVisibilityShouldChange();
+  } else {
+    UpdatePinnedButtonActiveIndicator();
+    UpdatePinButtonTooltip();
   }
 }
 
 void ContextualTasksEphemeralButtonController::OnEntryHidden(
     SidePanelEntry* entry) {
-  if (contextual_tasks::kShowEntryPoint.Get() ==
-      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
-    is_hiding_contextual_tasks_panel_ = false;
-    is_contextual_tasks_panel_open_ = false;
+  is_hiding_contextual_tasks_panel_ = false;
+  is_contextual_tasks_panel_open_ = false;
+  if (IsEphemeralEntryPointEnabled() ||
+      contextual_tasks::IsContextualTasksPinningV2Enabled()) {
     MaybeNotifyVisibilityShouldChange();
+  } else {
+    UpdatePinnedButtonActiveIndicator();
+    UpdatePinButtonTooltip();
   }
 }
 
@@ -255,6 +416,11 @@ void ContextualTasksEphemeralButtonController::OnSidePanelAlignmentChanged() {
 }
 
 bool ContextualTasksEphemeralButtonController::ShouldShowEphemeralButton() {
+  Profile* const profile = browser_window_interface_->GetProfile();
+  if (!profile || profile->IsOffTheRecord()) {
+    return false;
+  }
+
   // TabInterface can be null on browser shutdown.
   tabs::TabInterface* const tab_interface =
       browser_window_interface_->GetActiveTabInterface();
@@ -263,29 +429,16 @@ bool ContextualTasksEphemeralButtonController::ShouldShowEphemeralButton() {
     return false;
   }
 
+  const bool is_pinned = contextual_tasks::GetEffectivePinState(
+      browser_window_interface_->GetProfile());
   if (!base::FeatureList::IsEnabled(
           contextual_tasks::kEphemeralPinningVisibleWhenPermanentlyPinned) &&
-      contextual_tasks::GetEffectivePinState(
-          browser_window_interface_->GetProfile())) {
+      is_pinned) {
     return false;
   }
 
-  if (contextual_tasks::kShowEntryPoint.Get() ==
-          contextual_tasks::EntryPointOption::kToolbarEphemeralBranded &&
+  if (IsEphemeralEntryPointEnabled() &&
       IsContextualTasksPage(tab_interface->GetURL())) {
-    return false;
-  }
-
-  std::optional<SessionID> current_tab_session_id = GetCurrentTabSessionId();
-  if (!current_tab_session_id.has_value()) {
-    return false;
-  }
-
-  std::optional<contextual_tasks::ContextualTask> current_task =
-      GetContextualTasksService()->GetContextualTaskForTab(
-          current_tab_session_id.value());
-
-  if (!current_task.has_value()) {
     return false;
   }
 
@@ -293,30 +446,79 @@ bool ContextualTasksEphemeralButtonController::ShouldShowEphemeralButton() {
     return false;
   }
 
-  // The ephemeral toolbar button should show if the contextual task side panel
-  // was closed on this tab, or on any other tab sharing its task.
-  bool should_show_button = std::ranges::any_of(
-      GetContextualTasksService()->GetTabsAssociatedWithTask(
-          current_task->GetTaskId()),
-      [this](SessionID tab_id) {
-        return std::ranges::contains(ephemeral_button_eligible_tabs_, tab_id);
-      });
+  // The trailing edge is only used when the right-hand ephemeral button param
+  // is enabled.
+  if (!contextual_tasks::ShouldPlaceCircularButtonBeforeProfile(
+          browser_window_interface_) &&
+      contextual_tasks::IsEphemeralButtonTrailing(browser_window_interface_) &&
+      !contextual_tasks::GetEnableRightHandContextualTasksEphemeralButton()) {
+    return false;
+  }
 
-  if (contextual_tasks::kShowEntryPoint.Get() ==
-      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
-    should_show_button &=
-        (!is_contextual_tasks_panel_open_ || is_hiding_contextual_tasks_panel_);
+  // The ephemeral toolbar button should show if the contextual task side panel
+  // was shown or closed on this tab, or on any other tab sharing its task.
+  bool should_show_button = IsActiveTabEligible();
+
+  if (contextual_tasks::IsContextualTasksPinningV2Enabled() && !is_pinned) {
+    should_show_button |= IsPanelOpen();
+  } else if (IsEphemeralEntryPointEnabled() || is_pinned) {
+    should_show_button &= !IsPanelOpen();
   }
 
   return should_show_button;
 }
 
+bool ContextualTasksEphemeralButtonController::
+    ShouldShowPinnedButtonActiveIndicator() {
+  if (!contextual_tasks::
+          IsContextualTasksPinnedButtonActiveIndicatorEnabled() ||
+      !contextual_tasks::IsContextualTasksUIEnabled() ||
+      !contextual_task_observation_.IsObserving()) {
+    return false;
+  }
+
+  const bool is_pinned = contextual_tasks::GetEffectivePinState(
+      browser_window_interface_->GetProfile());
+  if (!is_pinned &&
+      (!contextual_tasks::
+           IsContextualTasksEphemeralPinButtonRefactorEnabled() ||
+       !ShouldShowEphemeralButton())) {
+    return false;
+  }
+
+  if (contextual_tasks::
+          IsContextualTasksPinnedButtonActiveIndicatorCircleHighlightEnabled() &&
+      IsPanelOpen()) {
+    return false;
+  }
+
+  tabs::TabInterface* const tab_interface =
+      browser_window_interface_->GetActiveTabInterface();
+  if (!tab_interface || IsContextualTasksPage(tab_interface->GetURL())) {
+    return false;
+  }
+
+  return IsActiveTabEligible();
+}
+
 void ContextualTasksEphemeralButtonController::
     RemoveEphemeralButtonForCurrentTask() {
   if (!base::FeatureList::IsEnabled(
-          contextual_tasks::kContextualTasksEphemeralButtonContextMenu)) {
+          contextual_tasks::kContextualTasksEphemeralButtonContextMenu) &&
+      !contextual_tasks::ShouldShowCloseSidePanelInPinnedButtonContextMenu()) {
     return;
   }
+
+  base::RecordAction(base::UserMetricsAction(
+      "ContextualTasks.EphemeralToolbarButton.UserAction."
+      "RemoveByContextMenu"));
+  base::UmaHistogramBoolean(
+      "ContextualTasks.EphemeralToolbarButton.UserAction."
+      "RemoveByContextMenu",
+      true);
+
+  base::AutoReset<std::optional<RemovalReason>> reset_reason(
+      &removal_reason_, RemovalReason::kContextMenu);
 
   std::optional<SessionID> current_tab_session_id = GetCurrentTabSessionId();
   if (current_tab_session_id.has_value()) {
@@ -324,14 +526,33 @@ void ContextualTasksEphemeralButtonController::
     return;
   }
 
-  contextual_tasks::ContextualTasksUiService* ui_service =
-      contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
-          browser_window_interface_->GetProfile());
-  if (ui_service) {
-    ui_service->DestroyClosedSidePanel(browser_window_interface_);
-  }
-
+  HideTaskSidePanel();
   MaybeNotifyVisibilityShouldChange();
+}
+
+void ContextualTasksEphemeralButtonController::RecordToolbarButtonOpenClick(
+    bool is_permanent_button) {
+  if (is_permanent_button &&
+      !contextual_tasks::IsContextualTasksPinningV2Enabled() &&
+      contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled() &&
+      browser_window_interface_->GetProfile() &&
+      contextual_tasks::GetEffectivePinState(
+          browser_window_interface_->GetProfile())) {
+    return;
+  }
+  std::optional<base::Uuid> task_id = GetActiveTaskId();
+  if (!task_id.has_value() || !IsTaskEligibleForEphemeralButton(*task_id)) {
+    return;
+  }
+  OpenSidePanelSessionCounts& counts =
+      open_side_panel_session_counts_[*task_id];
+  SettlePendingOpenClick(counts, /*closed_by_user=*/false);
+  ClickCounts& target =
+      is_permanent_button ? counts.permanent : counts.ephemeral;
+  target.collapsed_shown = true;
+  ++target.open_clicks;
+  counts.last_open_click_time = NowTicks();
+  counts.last_open_was_permanent = is_permanent_button;
 }
 
 bool ContextualTasksEphemeralButtonController::HasAutoDismissTimerForTesting(
@@ -346,11 +567,57 @@ void ContextualTasksEphemeralButtonController::SetTaskRunnerForTesting(
   task_runner_for_testing_ = std::move(task_runner);
 }
 
+void ContextualTasksEphemeralButtonController::SetTickClockForTesting(
+    const base::TickClock* tick_clock) {
+  tick_clock_for_testing_ = tick_clock;
+}
+
+base::TimeTicks ContextualTasksEphemeralButtonController::NowTicks() const {
+  return tick_clock_for_testing_ ? tick_clock_for_testing_->NowTicks()
+                                 : base::TimeTicks::Now();
+}
+
+void ContextualTasksEphemeralButtonController::SettlePendingOpenClick(
+    OpenSidePanelSessionCounts& counts,
+    bool closed_by_user) {
+  if (!counts.last_open_click_time.has_value()) {
+    return;
+  }
+  const base::TimeDelta open_duration =
+      NowTicks() - *counts.last_open_click_time;
+  counts.last_open_click_time.reset();
+  ClickCounts& target =
+      counts.last_open_was_permanent ? counts.permanent : counts.ephemeral;
+  if (closed_by_user && open_duration < kRapidOpenCloseThreshold) {
+    ++target.rapid_open_clicks;
+  } else {
+    ++target.sustained_open_clicks;
+  }
+}
+
 base::TimeDelta
 ContextualTasksEphemeralButtonController::GetAutoDismissDuration() const {
   const int minutes =
       contextual_tasks::GetContextualTasksEphemeralButtonAutoDismissTimeMinutes();
   return minutes > 0 ? base::Minutes(minutes) : base::TimeDelta();
+}
+
+void ContextualTasksEphemeralButtonController::StartAutoDismissTimerForTab(
+    SessionID tab_id) {
+  const base::TimeDelta auto_dismiss_duration = GetAutoDismissDuration();
+  if (!auto_dismiss_duration.is_positive()) {
+    return;
+  }
+  base::OneShotTimer& timer = ephemeral_button_auto_dismiss_timers_[tab_id];
+  if (task_runner_for_testing_) {
+    timer.Stop();
+    timer.SetTaskRunner(task_runner_for_testing_);
+  }
+  timer.Start(
+      FROM_HERE, auto_dismiss_duration,
+      base::BindOnce(
+          &ContextualTasksEphemeralButtonController::OnAutoDismissTimerFired,
+          base::Unretained(this), tab_id));
 }
 
 void ContextualTasksEphemeralButtonController::OnAutoDismissTimerFired(
@@ -360,13 +627,70 @@ void ContextualTasksEphemeralButtonController::OnAutoDismissTimerFired(
   base::UmaHistogramSparse(
       "ContextualTasks.EphemeralToolbarButton.AutoDismissed",
       GetAutoDismissDuration().InMinutes());
+  base::AutoReset<std::optional<RemovalReason>> reset_reason(
+      &removal_reason_, RemovalReason::kAutoDismissed);
   DismissEphemeralButtonForTab(tab_id);
+}
+
+void ContextualTasksEphemeralButtonController::ClearTabEligibility(
+    SessionID tab_id) {
+  std::erase(ephemeral_button_eligible_tabs_, tab_id);
+  ephemeral_button_auto_dismiss_timers_.erase(tab_id);
+}
+
+bool ContextualTasksEphemeralButtonController::IsTaskEligibleForEphemeralButton(
+    const base::Uuid& task_id) {
+  contextual_tasks::ContextualTasksService* service =
+      GetContextualTasksService();
+  if (!service) {
+    return false;
+  }
+  if (contextual_tasks::IsContextualTasksPinningV2Enabled() && IsPanelOpen() &&
+      GetActiveTaskId() == task_id) {
+    return true;
+  }
+  return std::ranges::any_of(
+      service->GetTabsAssociatedWithTask(task_id), [this](SessionID tab_id) {
+        return std::ranges::contains(ephemeral_button_eligible_tabs_, tab_id);
+      });
+}
+
+bool ContextualTasksEphemeralButtonController::IsActiveTabEligible() {
+  std::optional<base::Uuid> task_id = GetActiveTaskId();
+  return task_id.has_value() && IsTaskEligibleForEphemeralButton(*task_id);
+}
+
+void ContextualTasksEphemeralButtonController::HideTaskSidePanel() {
+  if (auto* ui_service =
+          contextual_tasks::ContextualTasksUiServiceFactory::
+              GetForBrowserContext(browser_window_interface_->GetProfile())) {
+    ui_service->DestroyClosedSidePanel(browser_window_interface_);
+  }
+  if (contextual_tasks::IsContextualTasksPinningV2Enabled() ||
+      contextual_tasks::ShouldShowCloseSidePanelInPinnedButtonContextMenu()) {
+    if (auto* panel_controller =
+            contextual_tasks::ContextualTasksPanelController::From(
+                browser_window_interface_);
+        panel_controller && panel_controller->IsPanelOpenForContextualTask()) {
+      panel_controller->Close();
+    }
+  }
+}
+
+void ContextualTasksEphemeralButtonController::
+    MaybeCleanUpUnusedSidePanelWebContents() {
+  // `CleanUpUnusedWebContents()` checks all tabs in the browser window and only
+  // destroys cached WebContents for tasks with no remaining associated tabs.
+  if (auto* panel_controller =
+          contextual_tasks::ContextualTasksPanelController::From(
+              browser_window_interface_)) {
+    panel_controller->CleanUpUnusedWebContents();
+  }
 }
 
 void ContextualTasksEphemeralButtonController::DismissEphemeralButtonForTab(
     SessionID tab_id) {
-  std::erase(ephemeral_button_eligible_tabs_, tab_id);
-  ephemeral_button_auto_dismiss_timers_.erase(tab_id);
+  ClearTabEligibility(tab_id);
 
   contextual_tasks::ContextualTasksService* service =
       GetContextualTasksService();
@@ -375,25 +699,15 @@ void ContextualTasksEphemeralButtonController::DismissEphemeralButtonForTab(
   if (task.has_value()) {
     for (SessionID associated_tab_id :
          service->GetTabsAssociatedWithTask(task->GetTaskId())) {
-      std::erase(ephemeral_button_eligible_tabs_, associated_tab_id);
-      ephemeral_button_auto_dismiss_timers_.erase(associated_tab_id);
+      ClearTabEligibility(associated_tab_id);
     }
   }
 
   if (GetCurrentTabSessionId() == tab_id) {
-    contextual_tasks::ContextualTasksUiService* ui_service =
-        contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
-            browser_window_interface_->GetProfile());
-    if (ui_service) {
-      ui_service->DestroyClosedSidePanel(browser_window_interface_);
-    }
+    HideTaskSidePanel();
   } else if (task.has_value()) {
     service->DisassociateAllTabsFromTask(task->GetTaskId());
-    if (auto* panel_controller =
-            contextual_tasks::ContextualTasksPanelController::From(
-                browser_window_interface_)) {
-      panel_controller->CleanUpUnusedWebContents();
-    }
+    MaybeCleanUpUnusedSidePanelWebContents();
   }
 
   MaybeNotifyVisibilityShouldChange();
@@ -407,19 +721,13 @@ void ContextualTasksEphemeralButtonController::
   }
   ephemeral_button_auto_dismiss_timers_.erase(current_tab_session_id.value());
 
-  contextual_tasks::ContextualTasksService* service =
-      GetContextualTasksService();
-  if (!service) {
-    return;
-  }
-  std::optional<contextual_tasks::ContextualTask> current_task =
-      service->GetContextualTaskForTab(current_tab_session_id.value());
-  if (!current_task.has_value()) {
-    return;
-  }
-  for (SessionID tab_id :
-       service->GetTabsAssociatedWithTask(current_task->GetTaskId())) {
-    ephemeral_button_auto_dismiss_timers_.erase(tab_id);
+  if (std::optional<base::Uuid> task_id = GetActiveTaskId()) {
+    if (contextual_tasks::ContextualTasksService* service =
+            GetContextualTasksService()) {
+      for (SessionID tab_id : service->GetTabsAssociatedWithTask(*task_id)) {
+        ephemeral_button_auto_dismiss_timers_.erase(tab_id);
+      }
+    }
   }
 }
 
@@ -440,16 +748,28 @@ ContextualTasksEphemeralButtonController::GetCurrentTabSessionId() {
   }
 }
 
-bool ContextualTasksEphemeralButtonController::IsActiveTabAssociatedToTask() {
-  std::optional<SessionID> current_tab_session_id = GetCurrentTabSessionId();
-  if (!current_tab_session_id.has_value()) {
-    return false;
+std::optional<base::Uuid>
+ContextualTasksEphemeralButtonController::GetActiveTaskId() {
+  std::optional<SessionID> tab_id = GetCurrentTabSessionId();
+  contextual_tasks::ContextualTasksService* service =
+      GetContextualTasksService();
+  if (!tab_id || !service) {
+    return std::nullopt;
   }
+  std::optional<contextual_tasks::ContextualTask> task =
+      service->GetContextualTaskForTab(*tab_id);
+  return task ? std::optional(task->GetTaskId()) : std::nullopt;
+}
 
-  std::optional<contextual_tasks::ContextualTask> current_task =
-      GetContextualTasksService()->GetContextualTaskForTab(
-          current_tab_session_id.value());
-  return current_task.has_value();
+bool ContextualTasksEphemeralButtonController::IsActiveTabAssociatedToTask() {
+  return GetActiveTaskId().has_value();
+}
+
+bool ContextualTasksEphemeralButtonController::HasPanelResults() const {
+  auto* const panel_controller =
+      contextual_tasks::ContextualTasksPanelController::From(
+          browser_window_interface_);
+  return panel_controller && panel_controller->HasResults();
 }
 
 void ContextualTasksEphemeralButtonController::OnActiveTabChange(
@@ -460,20 +780,302 @@ void ContextualTasksEphemeralButtonController::OnActiveTabChange(
 
 void ContextualTasksEphemeralButtonController::
     MaybeNotifyVisibilityShouldChange() {
-  should_update_visibility_callbacks_.Notify(ShouldShowEphemeralButton());
+  const bool should_show = ShouldShowEphemeralButton();
+  if (contextual_tasks::IsContextualTasksEphemeralPinButtonRefactorEnabled()) {
+    contextual_tasks::UpdatePinButtonVisibilityState(browser_window_interface_);
+    if (should_show || was_ephemeral_button_visible_) {
+      UpdateEphemeralStateInToolbar(should_show);
+    }
+    const bool is_panel_open = IsPanelOpen();
+    const bool was_active_panel_open =
+        was_ephemeral_button_visible_ && was_ephemeral_panel_open_;
+    const bool will_be_active_panel_open = should_show && is_panel_open;
+    const bool was_active_panel_collapsed =
+        was_ephemeral_button_visible_ && !was_ephemeral_panel_open_;
+    const bool will_be_active_panel_collapsed = should_show && !is_panel_open;
+
+    if (!was_active_panel_open && will_be_active_panel_open) {
+      ephemeral_button_shown_time_ticks_.reset();
+      contextual_tasks::RecordEphemeralButtonShown(/*is_panel_open=*/true);
+      if (was_active_panel_collapsed) {
+        // The panel was reopened while the collapsed button's toast could be
+        // showing (e.g. from the Omnibox or a context menu). Match the legacy
+        // ContextualTasksButton, which aborts the toast whenever the panel
+        // opens; a click on the button itself already marks the promo as
+        // used before reaching here.
+        if (auto* user_education = BrowserUserEducationInterface::From(
+                browser_window_interface_)) {
+          user_education->AbortFeaturePromo(
+              feature_engagement::
+                  kIPHContextualTasksEphemeralToolbarButtonFeature);
+        }
+      }
+    } else if (!was_active_panel_collapsed && will_be_active_panel_collapsed) {
+      ephemeral_button_shown_time_ticks_ = NowTicks();
+      contextual_tasks::RecordEphemeralButtonShown(/*is_panel_open=*/false);
+      if (auto* user_education =
+              BrowserUserEducationInterface::From(browser_window_interface_)) {
+        user_education::FeaturePromoParams params(
+            feature_engagement::
+                kIPHContextualTasksEphemeralToolbarButtonFeature);
+        params.show_promo_result_callback = base::DoNothing();
+        user_education->MaybeShowFeaturePromo(std::move(params));
+      }
+    }
+    if (!should_show && was_ephemeral_button_visible_) {
+      if (removal_reason_.has_value()) {
+        switch (*removal_reason_) {
+          case RemovalReason::kContextMenu:
+            RecordShownDuration("RemovedByContextMenu");
+            break;
+          case RemovalReason::kAutoDismissed:
+            RecordShownDuration("AutoDismissed");
+            break;
+          case RemovalReason::kTaskDisassociated:
+            RecordShownDuration("TaskDisassociated");
+            break;
+        }
+      }
+      ephemeral_button_shown_time_ticks_.reset();
+      if (auto* user_education = BrowserUserEducationInterface::From(
+              browser_window_interface_)) {
+        user_education->AbortFeaturePromo(
+            feature_engagement::
+                kIPHContextualTasksEphemeralToolbarButtonFeature);
+      }
+    }
+    was_ephemeral_button_visible_ = should_show;
+    was_ephemeral_panel_open_ = is_panel_open;
+  }
+  UpdatePinnedButtonActiveIndicator();
+  UpdatePinButtonTooltip();
+  if (!IsPanelOpen()) {
+    if (std::optional<base::Uuid> task_id = GetActiveTaskId()) {
+      if (IsEphemeralEntryPointEnabled() && should_show) {
+        open_side_panel_session_counts_[*task_id].ephemeral.collapsed_shown =
+            true;
+      }
+      if (IsTaskEligibleForEphemeralButton(*task_id) &&
+          browser_window_interface_->GetProfile() &&
+          contextual_tasks::GetEffectivePinState(
+              browser_window_interface_->GetProfile()) &&
+          (contextual_tasks::IsContextualTasksPinningV2Enabled() ||
+           !contextual_tasks::IsContextualTasksPinButtonInToolbarEnabled())) {
+        open_side_panel_session_counts_[*task_id].permanent.collapsed_shown =
+            true;
+      }
+    }
+  }
+  should_update_visibility_callbacks_.Notify(should_show);
+  FlushOpenClickCounts(/*flush_all=*/false);
+}
+
+void ContextualTasksEphemeralButtonController::RecordTaskOpenClickCounts(
+    const OpenSidePanelSessionCounts& counts) {
+  auto record = [](std::string_view entrypoint, const ClickCounts& c) {
+    const std::string base_name = base::StrCat(
+        {"ContextualTasks.", entrypoint, ".OpenSidePanelCountPerSession"});
+    base::UmaHistogramCounts100(base_name, c.open_clicks);
+    base::UmaHistogramCounts100(base::StrCat({base_name, ".RapidToggle"}),
+                                c.rapid_open_clicks);
+    base::UmaHistogramCounts100(base::StrCat({base_name, ".SustainedOpen"}),
+                                c.sustained_open_clicks);
+  };
+  if (counts.ephemeral.collapsed_shown) {
+    record("EphemeralToolbarButton", counts.ephemeral);
+  }
+  if (counts.permanent.collapsed_shown) {
+    record("PermanentToolbarButton", counts.permanent);
+  }
+  if (counts.ephemeral.collapsed_shown || counts.permanent.collapsed_shown) {
+    record(
+        "ToolbarButton",
+        {.open_clicks =
+             counts.ephemeral.open_clicks + counts.permanent.open_clicks,
+         .rapid_open_clicks = counts.ephemeral.rapid_open_clicks +
+                              counts.permanent.rapid_open_clicks,
+         .sustained_open_clicks = counts.ephemeral.sustained_open_clicks +
+                                  counts.permanent.sustained_open_clicks});
+  }
+}
+
+void ContextualTasksEphemeralButtonController::FlushOpenClickCounts(
+    bool flush_all) {
+  std::erase_if(open_side_panel_session_counts_, [this, flush_all](auto& entry) {
+    if (!flush_all && IsTaskEligibleForEphemeralButton(entry.first)) {
+      return false;
+    }
+    SettlePendingOpenClick(entry.second, /*closed_by_user=*/false);
+    RecordTaskOpenClickCounts(entry.second);
+    return true;
+  });
+}
+
+void ContextualTasksEphemeralButtonController::
+    UpdatePinnedButtonActiveIndicator() {
+  if (!browser_window_interface_ ||
+      (!contextual_tasks::
+           IsContextualTasksPinnedButtonActiveIndicatorEnabled() &&
+       !contextual_tasks::
+           IsContextualTasksEphemeralPinButtonRefactorEnabled())) {
+    return;
+  }
+  const bool is_pinned = contextual_tasks::GetEffectivePinState(
+      browser_window_interface_->GetProfile());
+  const bool should_show = ShouldShowPinnedButtonActiveIndicator();
+  if (close_side_panel_action_item_) {
+    // The ephemeral (unpinned) button offers "Close/Hide side panel" whenever
+    // it is shown for an ongoing task. The permanently pinned button offers it
+    // only when the active indicator is showing and the corresponding
+    // `ContextualTasksPinnedButtonContextMenuCloseSidePanel` param is on.
+    const bool ephemeral_button_eligible =
+        !is_pinned &&
+        (should_show ||
+         (contextual_tasks::
+              IsContextualTasksEphemeralPinButtonRefactorEnabled() &&
+          ShouldShowEphemeralButton()));
+    const bool pinned_button_eligible =
+        is_pinned && should_show &&
+        contextual_tasks::ShouldShowCloseSidePanelInPinnedButtonContextMenu();
+    const bool should_show_close_side_panel =
+        (ephemeral_button_eligible || pinned_button_eligible) && !IsPanelOpen();
+    close_side_panel_action_item_->SetVisible(should_show_close_side_panel);
+    close_side_panel_action_item_->SetEnabled(should_show_close_side_panel);
+  }
+  BrowserActions* const browser_actions =
+      BrowserActions::From(browser_window_interface_);
+  if (!browser_actions || !browser_actions->root_action_item()) {
+    return;
+  }
+  actions::ActionItem* const action_item =
+      actions::ActionManager::Get().FindAction(
+          kActionSidePanelShowContextualTasks,
+          browser_actions->root_action_item());
+  if (action_item) {
+    action_item->SetProperty(kActionItemUnderlineIndicatorKey, should_show);
+  }
+}
+
+void ContextualTasksEphemeralButtonController::UpdatePinButtonTooltip() {
+  if (!contextual_tasks::
+          IsContextualTasksEphemeralPinButtonRefactorEnabled() ||
+      !browser_window_interface_) {
+    return;
+  }
+  BrowserActions* const browser_actions =
+      BrowserActions::From(browser_window_interface_);
+  if (!browser_actions || !browser_actions->root_action_item()) {
+    return;
+  }
+  actions::ActionItem* const action_item =
+      actions::ActionManager::Get().FindAction(
+          kActionSidePanelShowContextualTasks,
+          browser_actions->root_action_item());
+  if (!action_item) {
+    return;
+  }
+
+  const bool is_pinned = contextual_tasks::GetEffectivePinState(
+      browser_window_interface_->GetProfile());
+  int tooltip_id = IDS_CONTEXTUAL_TASKS_CUSTOMIZE_CHROME_LABEL;
+  if (!is_pinned) {
+    tooltip_id = IsPanelOpen()
+                     ? IDS_CONTEXTUAL_TASKS_EPHEMERAL_BUTTON_CLOSE_TOOL_TIP
+                     : IDS_CONTEXTUAL_TASKS_SIDE_PANEL_REOPEN_TOOL_TIP;
+  }
+  const std::u16string tooltip_text = l10n_util::GetStringUTF16(
+      contextual_tasks::GetContextualTasksPinningStringId(tooltip_id));
+  action_item->SetTooltipText(tooltip_text);
+  action_item->SetAccessibleName(tooltip_text);
+}
+
+void ContextualTasksEphemeralButtonController::UpdateEphemeralStateInToolbar(
+    bool show) {
+  if (auto* toolbar_button_provider =
+          ToolbarButtonProvider::From(browser_window_interface_)) {
+    if (auto* pinned_toolbar_actions =
+            toolbar_button_provider->GetPinnedToolbarActions()) {
+      pinned_toolbar_actions->ShowActionEphemerallyInToolbar(
+          kActionSidePanelShowContextualTasks, show);
+    }
+  }
+}
+
+void ContextualTasksEphemeralButtonController::RecordShownDuration(
+    std::string_view end_reason) {
+  if (!ephemeral_button_shown_time_ticks_.has_value()) {
+    return;
+  }
+  const base::TimeDelta duration =
+      NowTicks() -
+      std::exchange(ephemeral_button_shown_time_ticks_, std::nullopt).value();
+  base::UmaHistogramLongTimes(
+      "ContextualTasks.EphemeralToolbarButton.ShownDuration", duration);
+  base::UmaHistogramLongTimes(
+      base::StrCat({"ContextualTasks.EphemeralToolbarButton.ShownDuration.",
+                    end_reason}),
+      duration);
+}
+
+void ContextualTasksEphemeralButtonController::RecordEphemeralButtonClicked() {
+  RecordShownDuration("Clicked");
+}
+
+void ContextualTasksEphemeralButtonController::DisassociateNavigatedTab() {
+  std::optional<SessionID> current_tab_session_id = GetCurrentTabSessionId();
+  contextual_tasks::ContextualTasksService* service =
+      GetContextualTasksService();
+  if (!current_tab_session_id.has_value() || !service) {
+    return;
+  }
+
+  std::optional<contextual_tasks::ContextualTask> task =
+      service->GetContextualTaskForTab(*current_tab_session_id);
+  if (!task.has_value() ||
+      !IsTaskEligibleForEphemeralButton(task->GetTaskId())) {
+    return;
+  }
+
+  // Clear synchronously before `MaybeNotifyVisibilityShouldChange()`, since
+  // `OnTaskDisassociatedFromTab()` is posted asynchronously by the service.
+  ClearTabEligibility(*current_tab_session_id);
+
+  for (SessionID tab_id :
+       service->GetTabsAssociatedWithTask(task->GetTaskId())) {
+    if (tab_id != *current_tab_session_id &&
+        !std::ranges::contains(ephemeral_button_eligible_tabs_, tab_id)) {
+      ephemeral_button_eligible_tabs_.emplace_back(tab_id);
+      StartAutoDismissTimerForTab(tab_id);
+    }
+  }
+  service->DisassociateTabFromTask(task->GetTaskId(), *current_tab_session_id);
+  MaybeCleanUpUnusedSidePanelWebContents();
 }
 
 void ContextualTasksEphemeralButtonController::PrimaryPageChanged(
     content::Page& page) {
-  if (contextual_tasks::kShowEntryPoint.Get() ==
-      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
-    MaybeNotifyVisibilityShouldChange();
+  if (!IsEphemeralEntryPointEnabled() &&
+      !contextual_tasks::IsContextualTasksPinningV2Enabled() &&
+      !contextual_tasks::
+          IsContextualTasksPinnedButtonActiveIndicatorEnabled()) {
+    return;
   }
+  std::optional<base::AutoReset<std::optional<RemovalReason>>> reset_reason;
+  if (!IsPanelOpen()) {
+    DisassociateNavigatedTab();
+    if (!removal_reason_.has_value()) {
+      reset_reason.emplace(&removal_reason_,
+                           RemovalReason::kTaskDisassociated);
+    }
+  }
+  MaybeNotifyVisibilityShouldChange();
 }
 
 void ContextualTasksEphemeralButtonController::UpdateActiveTabObservation() {
-  if (contextual_tasks::kShowEntryPoint.Get() !=
-      contextual_tasks::EntryPointOption::kToolbarEphemeralBranded) {
+  if (!IsEphemeralEntryPointEnabled() &&
+      !contextual_tasks::IsContextualTasksPinningV2Enabled() &&
+      !contextual_tasks::
+          IsContextualTasksPinnedButtonActiveIndicatorEnabled()) {
     return;
   }
   tabs::TabInterface* const active_tab =

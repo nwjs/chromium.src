@@ -32,13 +32,18 @@ source_set("top_chrome") {
       "preload_candidate_selector.h",
       "preload_context.h",
       "profile_preload_candidate_selector.h",
+      "top_chrome_webui_profile.h",
+      "top_chrome_webui_user_profile.h",
       "webui_contents_preload_manager.h",
       "webui_contents_preload_state.h",
       "webui_contents_warmup_level.h",
       "webui_contents_warmup_level_recorder.h",
       "webui_contents_wrapper.h",
     ]
-    public_deps += [ "//components/web_modal" ]
+    public_deps += [
+      "//components/site_engagement/content",
+      "//components/web_modal",
+    ]
   }
 }
 
@@ -72,6 +77,8 @@ source_set("impl") {
       "preload_candidate_selector.cc",
       "preload_context.cc",
       "profile_preload_candidate_selector.cc",
+      "top_chrome_webui_profile.cc",
+      "top_chrome_webui_user_profile.cc",
       "webui_contents_preload_manager.cc",
       "webui_contents_preload_state.cc",
       "webui_contents_warmup_level.cc",
@@ -80,6 +87,7 @@ source_set("impl") {
     ]
     deps += [
       "//chrome/browser/page_load_metrics",
+      "//chrome/browser/profiles:misc",
       "//chrome/browser/task_manager",
       "//chrome/browser/ui:browser_window_header",
       "//chrome/browser/ui:ui_features",
@@ -115,7 +123,6 @@ if (!is_android) {
   source_set("browser_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
     sources = [
       "preload_context_browsertest.cc",
       "webui_contents_preload_manager_browsertest.cc",
@@ -150,6 +157,7 @@ if (!is_android) {
       "per_profile_webui_tracker_unittest.cc",
       "profile_preload_candidate_selector_unittest.cc",
       "top_chrome_webui_config_unittest.cc",
+      "top_chrome_webui_user_profile_unittest.cc",
       "webui_contents_preload_manager_unittest.cc",
       "webui_contents_wrapper_unittest.cc",
     ]

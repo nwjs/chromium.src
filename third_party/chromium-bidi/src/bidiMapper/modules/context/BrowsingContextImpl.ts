@@ -502,6 +502,20 @@ export class BrowsingContextImpl {
         params.type,
       );
 
+      // If the execution context was reused (e.g. navigating from initial about:blank
+      // to a same-site URL), no `Runtime.executionContextCreated` event is emitted.
+      // If we reset the default realm deferred in `Page.frameStartedNavigating`,
+      // we must resolve it here to prevent it from hanging forever.
+      if (!this.#defaultRealmDeferred.isFinished) {
+        const defaultRealms = this.#realmStorage.findRealms({
+          browsingContextId: this.id,
+          sandbox: null,
+        });
+        if (defaultRealms.length > 0) {
+          this.#defaultRealmDeferred.resolve(defaultRealms[0]!);
+        }
+      }
+
       // At the point the page is initialized, all the nested iframes from the
       // previous page are detached and realms are destroyed.
       // Delete children from context.
@@ -605,7 +619,14 @@ export class BrowsingContextImpl {
                   ChromiumBidi.BrowsingContext.EventNames.DomContentLoaded,
                 params: {
                   context: this.id,
-                  navigation: this.#navigationTracker.currentNavigationId,
+                  // The event belongs to the document of `params.loaderId`.
+                  // It must not use the ID of a pending navigation, which
+                  // has not committed yet (e.g. after a failed navigation,
+                  // the error page can fire lifecycle events after the next
+                  // navigation starts).
+                  navigation: this.#navigationTracker.navigationIdForLoaderId(
+                    params.loaderId,
+                  ),
                   timestamp: getTimestamp(),
                   url: this.#navigationTracker.url,
                   userContext: this.userContext,
@@ -626,7 +647,14 @@ export class BrowsingContextImpl {
                 method: ChromiumBidi.BrowsingContext.EventNames.Load,
                 params: {
                   context: this.id,
-                  navigation: this.#navigationTracker.currentNavigationId,
+                  // The event belongs to the document of `params.loaderId`.
+                  // It must not use the ID of a pending navigation, which
+                  // has not committed yet (e.g. after a failed navigation,
+                  // the error page can fire lifecycle events after the next
+                  // navigation starts).
+                  navigation: this.#navigationTracker.navigationIdForLoaderId(
+                    params.loaderId,
+                  ),
                   timestamp: getTimestamp(),
                   url: this.#navigationTracker.url,
                   userContext: this.userContext,
@@ -1332,12 +1360,30 @@ export class BrowsingContextImpl {
       );
     }
 
+    // The specification requires `scale` to be reduced if the given `imageSize` dimensions
+    // result in a smaller viewport scale relative to the unscaled CSS framebuffer dimensions.
+    let scale = 1.0;
+    if (params.imageSize) {
+      if (
+        params.imageSize.maxWidth !== undefined &&
+        params.imageSize.maxWidth / rect.width < scale
+      ) {
+        scale = params.imageSize.maxWidth / rect.width;
+      }
+      if (
+        params.imageSize.maxHeight !== undefined &&
+        params.imageSize.maxHeight / rect.height < scale
+      ) {
+        scale = params.imageSize.maxHeight / rect.height;
+      }
+    }
+
     return await this.#cdpTarget.cdpClient.sendCommand(
       'Page.captureScreenshot',
       {
         // Standard BiDi options take precedence over `goog:` extensions.
         ...params['goog:params'],
-        clip: {...rect, scale: 1.0},
+        clip: {...rect, scale},
         ...formatParameters,
         captureBeyondViewport,
       } as Protocol.Page.CaptureScreenshotRequest,
@@ -1932,15 +1978,29 @@ export class BrowsingContextImpl {
 
     const startBackendNodeIds: number[] = [];
     if (startNodes.length === 0) {
-      const {root: documentRoot} =
-        await this.#cdpTarget.cdpClient.sendCommand('DOM.getDocument');
-      startBackendNodeIds.push(documentRoot.backendNodeId);
+      // Fetch the root AX node of this frame to get its document backendNodeId.
+      const {node: rootNode} = await this.#cdpTarget.cdpClient.sendCommand(
+        'Accessibility.getRootAXNode',
+        {
+          frameId: this.id,
+        },
+      );
+      if (rootNode.backendDOMNodeId !== undefined) {
+        // Default to the current frame's document when no startNodes are given.
+        startBackendNodeIds.push(rootNode.backendDOMNodeId);
+      }
     } else {
       for (const node of startNodes) {
         if (node.sharedId) {
           const parsed = parseSharedId(node.sharedId);
           if (!parsed) {
             throw new NoSuchNodeException(`Invalid sharedId: ${node.sharedId}`);
+          }
+          // Reject stale sharedIds from unloaded documents.
+          if (this.navigableId !== parsed.documentId) {
+            throw new NoSuchNodeException(
+              `SharedId "${node.sharedId}" belongs to different document. Current document is ${this.navigableId}.`,
+            );
           }
           startBackendNodeIds.push(parsed.backendNodeId);
         } else {
@@ -1999,6 +2059,8 @@ export class BrowsingContextImpl {
           'DOM.resolveNode',
           {
             backendNodeId,
+            // Resolve the node in the requested realm instead of the main world.
+            executionContextId: realm.executionContextId,
           },
         );
         // We need to use `serializeCdpObject` to convert it to BiDi format.
@@ -2051,6 +2113,14 @@ export class BrowsingContextImpl {
     );
   }
 
+  async setBypassCSP(bypassCSP: true | null): Promise<void> {
+    await Promise.all(
+      this.#getAllRelatedCdpTargets().map(
+        async (cdpTarget) => await cdpTarget.setBypassCSP(bypassCSP),
+      ),
+    );
+  }
+
   async setScriptingEnabled(scriptingEnabled: false | null): Promise<void> {
     await Promise.all(
       this.#getAllRelatedCdpTargets().map(
@@ -2097,13 +2167,17 @@ export class BrowsingContextImpl {
     );
   }
 
-  async setMediaFeaturesOverride(
+  async setEmulatedMedia(
     mediaFeatures: Emulation.MediaFeatures | null,
+    forcedColorsModeTheme: Emulation.ForcedColorsModeTheme | null,
   ): Promise<void> {
     await Promise.all(
       this.#getAllRelatedCdpTargets().map(
         async (cdpTarget) =>
-          await cdpTarget.setMediaFeaturesOverride(mediaFeatures),
+          await cdpTarget.setEmulatedMedia(
+            mediaFeatures,
+            forcedColorsModeTheme,
+          ),
       ),
     );
   }

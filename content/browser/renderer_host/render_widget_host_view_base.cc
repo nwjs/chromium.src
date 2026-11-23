@@ -30,6 +30,7 @@
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/input/mouse_wheel_phase_handler.h"
 #include "content/browser/renderer_host/input/synthetic_gesture_target_base.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_delegate.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
@@ -625,8 +626,10 @@ void RenderWidgetHostViewBase::UpdateScreenInfo() {
   }
 #endif  // BUILDFLAG(IS_OZONE)
 
-  if (screen_infos_ == new_screen_infos && !force_sync_visual_properties)
+  if (screen_infos_ == new_screen_infos && !force_sync_visual_properties &&
+      has_updated_screen_info_) {
     return;
+  }
 
   // We need to look at `orientation_type` which is marked as kUndefined at
   // startup. Unlike `orientation_angle` that uses 0 degrees as the default.
@@ -634,10 +637,12 @@ void RenderWidgetHostViewBase::UpdateScreenInfo() {
   // as tablets. We do not want the first UpdateScreenInfo to be treated as a
   // rotation.
   const bool has_rotation_changed =
+      has_updated_screen_info_ &&
       screen_infos_.current().orientation_type !=
           display::mojom::ScreenOrientation::kUndefined &&
       screen_infos_.current().orientation_type !=
           new_screen_infos.current().orientation_type;
+  has_updated_screen_info_ = true;
   screen_infos_ = std::move(new_screen_infos);
 
   // Notify the associated RenderWidgetHostImpl when screen info has changed.
@@ -917,10 +922,10 @@ void RenderWidgetHostViewBase::DestroyOrDefer() {
 #endif  // BUILDFLAG(IS_WIN)
     OnDestroyOrDefer();
     NotifyObserversAboutShutdown();
+    // Must run before `CleanUpHostObservers()`, which clears `frame_connector_`
+    // on `RenderWidgetHostViewChildFrame` so `GetRootView()` returns null.
+    DestroyUnboundedSurfaceForThisView();
     CleanUpHostObservers();
-    if (unbounded_surface_window_) {
-      DestroyUnboundedSurface(unbounded_surface_window_->GetWeakPtr());
-    }
     if (text_input_manager_) {
       text_input_manager_->Unregister(this);
       text_input_manager_ = nullptr;
@@ -1042,44 +1047,49 @@ void RenderWidgetHostViewBase::DidNavigate() {
 }
 
 void RenderWidgetHostViewBase::CreateUnboundedSurface(
-    mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
-    mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client,
-    const gfx::Rect& bounds_in_dips,
+    const gfx::Rect& bounds_in_screen,
     base::WeakPtr<RenderWidgetHostViewBase> subframe_view) {}
 
-void RenderWidgetHostViewBase::UpdateUnboundedSurfaceBoundsInSubframeContext(
-    const gfx::Rect& bounds_in_dips,
-    RenderWidgetHostViewBase* subframe_view) {
-  if (!unbounded_surface_window_) {
-    return;
-  }
-  UpdateUnboundedSurfaceBounds(
-      ConvertSubframeBoundsToScreen(bounds_in_dips, subframe_view));
-}
-
-gfx::Rect RenderWidgetHostViewBase::ConvertSubframeBoundsToScreen(
+gfx::Rect
+RenderWidgetHostViewBase::ConvertSubframeBoundsToScreenWithoutConstraints(
     const gfx::Rect& bounds_in_dips,
     RenderWidgetHostViewBase* subframe_view) {
   gfx::Rect transformed_bounds = bounds_in_dips;
-  if (subframe_view) {
-    TransformPointAndRectToRootView(subframe_view, this, nullptr,
-                                    &transformed_bounds);
+  if (subframe_view && subframe_view != this) {
+    if (!TransformPointAndRectToRootView(subframe_view, this, nullptr,
+                                         &transformed_bounds)) {
+      transformed_bounds.Offset(
+          subframe_view->GetViewBounds().OffsetFromOrigin() -
+          GetViewBounds().OffsetFromOrigin());
+    }
   }
   gfx::Rect bounds_in_screen = transformed_bounds;
   bounds_in_screen.Offset(GetViewBounds().OffsetFromOrigin());
   return bounds_in_screen;
 }
 
-void RenderWidgetHostViewBase::UpdateUnboundedSurfaceBounds(
-    const gfx::Rect& bounds_in_screen) {
+void RenderWidgetHostViewBase::DismissUnboundedSurface() {
+  dismiss_unbounded_surface_called_for_testing_ = true;
   if (unbounded_surface_window_) {
-    unbounded_surface_window_->SetBounds(bounds_in_screen);
+    unbounded_surface_window_->Dismiss();
+  } else if (RenderWidgetHostViewBase* root_view = GetRootView();
+             root_view && root_view != this) {
+    root_view->DismissUnboundedSurface();
   }
 }
 
-void RenderWidgetHostViewBase::DismissUnboundedSurface() {
+bool RenderWidgetHostViewBase::TakeDismissUnboundedSurfaceCalledForTesting() {
+  return std::exchange(dismiss_unbounded_surface_called_for_testing_, false);
+}
+
+void RenderWidgetHostViewBase::DestroyUnboundedSurfaceForThisView() {
   if (unbounded_surface_window_) {
-    unbounded_surface_window_->Dismiss();
+    DestroyUnboundedSurface(unbounded_surface_window_->GetWeakPtr());
+  } else if (RenderWidgetHostViewBase* root_view = GetRootView()) {
+    if (UnboundedSurfaceWindow* window = root_view->GetUnboundedSurfaceWindow();
+        window && window->GetTargetView() == this) {
+      root_view->DestroyUnboundedSurface(window->GetWeakPtr());
+    }
   }
 }
 

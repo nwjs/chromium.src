@@ -27,6 +27,7 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.actor.background_tabs.OffscreenRenderingManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabCreationState;
 import org.chromium.chrome.browser.tab.TabDelegateFactory;
@@ -297,15 +298,14 @@ public class LiveBackgroundTabTest {
         when(mTabModel.getTabById(PLACEHOLDER_TAB_ID)).thenReturn(mPlaceholderTab);
         when(mTabModel.indexOf(mPlaceholderTab)).thenReturn(1);
         when(mPlaceholderTab.getTabGroupId()).thenReturn(groupId);
-        when(mTabModel.getRelatedTabList(PLACEHOLDER_TAB_ID))
-                .thenReturn(Collections.singletonList(mPlaceholderTab));
+        when(mTabModel.getIndexOfTabInGroup(mPlaceholderTab)).thenReturn(0);
 
         mLiveBackgroundTab.attachToForeground(mTabModel, mWindowAndroid, mTabDelegateFactory);
 
         verify(mTabModel)
-                .mergeListOfTabsToGroup(
+                .mergeListOfTabsToExistingGroup(
                         eq(Collections.singletonList(mTab)),
-                        eq(mPlaceholderTab),
+                        eq(groupId),
                         eq(1),
                         eq(TabGroupMergeNotificationType.DONT_NOTIFY));
     }

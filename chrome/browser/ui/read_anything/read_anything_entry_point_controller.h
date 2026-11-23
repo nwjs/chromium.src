@@ -13,8 +13,6 @@
 
 using read_anything::mojom::ReadAnythingOpenTrigger;
 
-class ReadAnythingController;
-
 namespace read_anything {
 
 // Maintains and handles entry points for the ReadAnythingController.
@@ -24,7 +22,6 @@ class ReadAnythingEntryPointController {
       delete;
   ReadAnythingEntryPointController& operator=(
       const ReadAnythingEntryPointController&) = delete;
-  ~ReadAnythingEntryPointController();
 
   // Toggles Reading Mode on or off.
   // This and other methods below can handle null `bwi`.
@@ -39,8 +36,8 @@ class ReadAnythingEntryPointController {
   static void ShowUI(BrowserWindowInterface* bwi,
                      ReadAnythingOpenTrigger open_trigger);
 
-  // Shows or hides the omnibox entry point and the IPH for it.
-  // show_promo_callback is called with the result of whether the IPH was shown.
+  // Shows or hides the omnibox entry point. When showing, also tries to show
+  // the IPH if show_promo_callback is set, then runs it with the IPH result.
   static void UpdatePageActionVisibility(
       bool should_show_page_action,
       tabs::TabInterface* tab,

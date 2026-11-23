@@ -20,6 +20,7 @@
 #include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/user_action_tester.h"
 #include "base/test/run_until.h"
@@ -89,10 +90,6 @@
 #if defined(TOOLKIT_VIEWS)
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "ui/views/test/mock_activation_controller.h"
-#endif
-
-#if BUILDFLAG(IS_CHROMEOS)
-#include "components/sync/base/features.h"
 #endif
 
 namespace glic {
@@ -285,9 +282,6 @@ class GlicBrowserTestMixin : public T {
       : T(std::forward<Args>(args)...) {
     std::vector<base::test::FeatureRefAndParams> enabled_features = {
         {features::kGlicMultiInstance, {}},
-#if BUILDFLAG(IS_CHROMEOS)
-        {syncer::kReplaceSyncPromosWithSignInPromos, {}},
-#endif
 #if BUILDFLAG(IS_ANDROID)
         {chrome::android::kTabBottomSheet, {}},
 #endif
@@ -413,6 +407,19 @@ class GlicBrowserTestMixin : public T {
     // JNI cleanup tasks) have finished running before the test fixture is
     // destroyed (which destroys ScopedFeatureList).
     base::RunLoop().RunUntilIdle();
+  }
+
+  void TearDown() override {
+    T::TearDown();
+#if BUILDFLAG(IS_ANDROID)
+    // On Android, BrowserTestBase::SetUp() releases the BEST_EFFORT execution
+    // fence and tears down the browser at the end of SetUp() without shutting
+    // down ThreadPoolInstance. Flush any queued background tasks before ~Test()
+    // destroys the fixture's ScopedFeatureList instances.
+    if (auto* thread_pool = base::ThreadPoolInstance::Get()) {
+      thread_pool->FlushForTesting();
+    }
+#endif
   }
 
   // Toggles the Glic UI.
@@ -986,8 +993,12 @@ class GlicBrowserTestMixin : public T {
     }
   }
 
+  bool IsNoWebviewEnabled() {
+    return GlicKeyedService::IsNoWebviewEnabled(T::GetProfile());
+  }
+
   [[nodiscard]] TestResult<> WaitForWebUiState(mojom::WebUiState state) {
-    if (features::IsGlicNoWebviewEnabled()) {
+    if (IsNoWebviewEnabled()) {
       if (state == mojom::WebUiState::kReady) {
         return WaitForGlicClient();
       } else {
@@ -1014,7 +1025,7 @@ class GlicBrowserTestMixin : public T {
   [[nodiscard]] TestResult<> WaitForErrorPanelType(
       std::optional<mojom::ErrorPanelType> expected_type,
       GlicInstance* instance = nullptr) {
-    CHECK(features::IsGlicNoWebviewEnabled())
+    CHECK(IsNoWebviewEnabled())
         << "WaitForErrorPanelType only works with GlicNoWebview";
     auto type_to_string =
         [](std::optional<mojom::ErrorPanelType> type) -> std::string {
@@ -1044,7 +1055,7 @@ class GlicBrowserTestMixin : public T {
   [[nodiscard]] TestResult<> WaitForOverlayErrorPanel(
       mojom::ErrorPanelType error_panel_type,
       GlicInstance* instance = nullptr) {
-    if (!features::IsGlicNoWebviewEnabled()) {
+    if (!IsNoWebviewEnabled()) {
       return base::unexpected(
           "kGlicNoWebview must be enabled to use WaitForOverlayErrorPanel()");
     }
@@ -1065,7 +1076,7 @@ class GlicBrowserTestMixin : public T {
   [[nodiscard]] TestResult<> WaitForDisplayState(
       GlicNoWebviewContentsManager::DisplayState display_state,
       GlicInstance* instance = nullptr) {
-    if (!features::IsGlicNoWebviewEnabled()) {
+    if (!IsNoWebviewEnabled()) {
       return WaitForWebUiState(mojom::WebUiState::kReady);
     }
     auto to_string =
@@ -1094,7 +1105,7 @@ class GlicBrowserTestMixin : public T {
   // guarantee the glic view is itself visible.
   [[nodiscard]] TestResult<> WaitUntilGuestIsShowing(
       GlicInstance* instance = nullptr) {
-    if (!features::IsGlicNoWebviewEnabled()) {
+    if (!IsNoWebviewEnabled()) {
       return WaitForWebUiState(mojom::WebUiState::kReady);
     }
     return WaitForDisplayState(
@@ -1104,7 +1115,7 @@ class GlicBrowserTestMixin : public T {
   [[nodiscard]] TestResult<> WaitForGuestState(
       GlicNoWebviewContentsManager::GuestState guest_state,
       GlicInstance* instance = nullptr) {
-    if (!features::IsGlicNoWebviewEnabled()) {
+    if (!IsNoWebviewEnabled()) {
       return base::unexpected(
           "WaitForGuestState only works with GlicNoWebview");
     }
@@ -1119,6 +1130,8 @@ class GlicBrowserTestMixin : public T {
           return "kLogin";
         case GlicNoWebviewContentsManager::GuestState::kGuestError:
           return "kGuestError";
+        case GlicNoWebviewContentsManager::GuestState::kSecurityInterstitial:
+          return "kSecurityInterstitial";
       }
     };
     return RunUntilEqual(

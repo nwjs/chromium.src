@@ -79,7 +79,7 @@ class OmniboxPedalImplementationsTest : public testing::Test {
         autocomplete_provider_client_,
         base::BindOnce(&OmniboxPedalImplementationsTest::OnAutocompleteAccept,
                        base::Unretained(this)),
-        {}, WindowOpenDisposition::CURRENT_TAB);
+        {}, WindowOpenDisposition::kCurrentTab);
     pedal->Execute(context);
     return last_destination_url_;
   }
@@ -18087,6 +18087,7 @@ TEST_F(OmniboxPedalImplementationsTest, PedalLaunchIncognitoStrings) {
 }
 
 TEST_F(OmniboxPedalImplementationsTest, MemoryUsageIsModerate) {
+  provider()->FindPedalMatch(u"");
   // Note: This allowance is a soft limit that may be tweaked depending on
   // how usefulness is weighed against memory cost. The goal of the test is
   // just to prove a reasonable bound.

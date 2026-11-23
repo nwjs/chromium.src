@@ -6,18 +6,22 @@
  * @fileoverview
  * `pref-toggle-button` is a toggle that controls a supplied preference.
  */
-import '//resources/cr_elements/cr_actionable_row_style.css.js';
 import '//resources/cr_elements/cr_shared_vars.css.js';
 import '//resources/cr_elements/cr_toggle/cr_toggle.js';
 import '/shared/settings/controls/cr_policy_pref_indicator.js';
+import '../cr_actionable_row_style.css.js';
 
+import {PrefKeyObserverMixin} from '/shared/settings/prefs2/pref_key_observer_mixin.js';
+import {PrefService} from '/shared/settings/prefs2/pref_service.js';
 import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {sanitizeInnerHtml} from 'chrome://resources/js/parse_html_subset.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {getTemplate} from './pref_toggle_button.html.js';
 
-export class PrefToggleButtonElement extends PolymerElement {
+const PrefToggleButtonElementBase = PrefKeyObserverMixin(PolymerElement);
+
+export class PrefToggleButtonElement extends PrefToggleButtonElementBase {
   static get is() {
     return 'pref-toggle-button';
   }
@@ -81,8 +85,6 @@ export class PrefToggleButtonElement extends PolymerElement {
       },
 
       noExtensionIndicator: Boolean,
-
-      pref: Object,
     };
   }
 
@@ -101,7 +103,6 @@ export class PrefToggleButtonElement extends PolymerElement {
   declare disabled: boolean;
   declare changeRequiresValidation: boolean;
   declare noExtensionIndicator: boolean;
-  declare pref: chrome.settingsPrivate.PrefObject;
 
   override ready() {
     super.ready();
@@ -183,7 +184,7 @@ export class PrefToggleButtonElement extends PolymerElement {
 
   /** Update the pref to the current |checked| value. */
   private updatePrefValue_() {
-    this.set('pref.value', this.checked);
+    PrefService.getInstance().setPrefValue(this.prefKey, this.checked);
   }
 
   /**

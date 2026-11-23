@@ -243,16 +243,22 @@ AndroidHubZPSSection::AndroidHubZPSSection(
               },
               group_configs) {}
 
+// LINT.IfChange(TabSearchRecentlyClosedZPSSectionSlots)
 AndroidTabSearchZPSSection::AndroidTabSearchZPSSection(
     const omnibox::GroupConfigMap& group_configs)
-    : Section(35,
+    : Section(40,
               {
                   Group(35,
                         {
                             {omnibox::GROUP_MOBILE_OPEN_TABS, 35},
                         }),
+                  Group(5,
+                        {
+                            {omnibox::GROUP_RECENTLY_CLOSED_TABS, 5},
+                        }),
               },
               group_configs) {}
+// LINT.ThenChange(//components/omnibox/browser/recently_closed_tabs_provider.cc:TabSearchRecentlyClosedMaxMatches)
 
 AndroidHubNonZPSSection::AndroidHubNonZPSSection(
     const omnibox::GroupConfigMap& group_configs)
@@ -289,7 +295,7 @@ AndroidHubNonZPSSection::AndroidHubNonZPSSection(
 AndroidTabSearchNonZPSSection::AndroidTabSearchNonZPSSection(
     const omnibox::GroupConfigMap& group_configs)
     : Section(
-          35,
+          40,
           {
               // Reserve most of the spots for open tabs.
               Group(30,
@@ -297,6 +303,13 @@ AndroidTabSearchNonZPSSection::AndroidTabSearchNonZPSSection(
                         {omnibox::GROUP_MOBILE_OPEN_TABS, 30},
                     },
                     /*is_zps=*/false),
+              // LINT.IfChange(TabSearchRecentlyClosedNonZPSSectionSlots)
+              Group(5,
+                    {
+                        {omnibox::GROUP_RECENTLY_CLOSED_TABS, 5},
+                    },
+                    /*is_zps=*/false),
+              // LINT.ThenChange(//components/omnibox/browser/recently_closed_tabs_provider.cc:TabSearchRecentlyClosedMaxMatches)
               // LINT.IfChange(TabSearchHistorySectionSlots)
               Group(5,
                     {

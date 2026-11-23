@@ -10,6 +10,7 @@
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/shared/coordinator/composebox_picker_drive_result.h"
 #import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
+#import "ios/chrome/browser/composebox/ui/composebox_model_item.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_utils.h"
@@ -87,11 +88,10 @@
 
   ComposeboxAttachmentSelection* selection =
       [[ComposeboxAttachmentSelection alloc]
-             initWithTabIDs:_preselection.tabIDs
-          cachedWebStateIDs:_preselection.cachedWebStateIDs
-                     images:updatedImages
-                      files:_preselection.files
-                 driveItems:_preselection.driveItems];
+          initWithTabSelection:_preselection.tabSelection
+                        images:updatedImages
+                         files:_preselection.files
+                    driveItems:_preselection.driveItems];
 
   [self.delegate composeboxMenuMediator:self didUpdateAttachments:selection];
 }
@@ -112,11 +112,10 @@
 
   ComposeboxAttachmentSelection* selection =
       [[ComposeboxAttachmentSelection alloc]
-             initWithTabIDs:_preselection.tabIDs
-          cachedWebStateIDs:_preselection.cachedWebStateIDs
-                     images:_preselection.images
-                      files:[updatedURLs allObjects]
-                 driveItems:_preselection.driveItems];
+          initWithTabSelection:_preselection.tabSelection
+                        images:_preselection.images
+                         files:[updatedURLs allObjects]
+                    driveItems:_preselection.driveItems];
   [self.delegate composeboxMenuMediator:self didUpdateAttachments:selection];
 }
 
@@ -132,26 +131,23 @@
 
   ComposeboxAttachmentSelection* selection =
       [[ComposeboxAttachmentSelection alloc]
-             initWithTabIDs:_preselection.tabIDs
-          cachedWebStateIDs:_preselection.cachedWebStateIDs
-                     images:_preselection.images
-                      files:_preselection.files
-                 driveItems:updatedDriveItems];
+          initWithTabSelection:_preselection.tabSelection
+                        images:_preselection.images
+                         files:_preselection.files
+                    driveItems:updatedDriveItems];
   [self.delegate composeboxMenuMediator:self didUpdateAttachments:selection];
 }
 
-- (void)processWebStateIDs:(std::set<web::WebStateID>)selectedWebStateIDs
-         cachedWebStateIDs:(std::set<web::WebStateID>)cachedWebStateIDs {
+- (void)processTabSelection:(const ComposeboxTabSelection&)tabSelection {
   // As the tab picker is prepopulated, there's no need to handle the set
   // difference, as the web state IDs already take into account the
   // preselection.
   ComposeboxAttachmentSelection* selection =
       [[ComposeboxAttachmentSelection alloc]
-             initWithTabIDs:selectedWebStateIDs
-          cachedWebStateIDs:cachedWebStateIDs
-                     images:_preselection.images
-                      files:_preselection.files
-                 driveItems:_preselection.driveItems];
+          initWithTabSelection:tabSelection
+                        images:_preselection.images
+                         files:_preselection.files
+                    driveItems:_preselection.driveItems];
   [self.delegate composeboxMenuMediator:self didUpdateAttachments:selection];
 }
 
@@ -195,35 +191,10 @@
       [self.delegate composeboxMenuMediator:self
                                  didTapTool:ComposeboxMode::kCanvas];
       break;
-    case ComposeboxMenuItemType::kModelRegular:
-      [self.delegate composeboxMenuMediator:self
-                                didTapModel:ComposeboxModelOption::kRegular];
-      break;
-    case ComposeboxMenuItemType::kModelAuto:
-      [self.delegate composeboxMenuMediator:self
-                                didTapModel:ComposeboxModelOption::kAuto];
-      break;
-    case ComposeboxMenuItemType::kModelThinking:
-      [self.delegate composeboxMenuMediator:self
-                                didTapModel:ComposeboxModelOption::kThinking];
-      break;
     case ComposeboxMenuItemType::kCurrentTab: {
       [self processCurrentTab];
       break;
     }
-    case ComposeboxMenuItemType::kModelThinkingNoGenUI:
-      [self.delegate
-          composeboxMenuMediator:self
-                     didTapModel:ComposeboxModelOption::kThinkingNoGenUI];
-      break;
-    case ComposeboxMenuItemType::kModelFlash:
-      [self.delegate composeboxMenuMediator:self
-                                didTapModel:ComposeboxModelOption::kFlash];
-      break;
-    case ComposeboxMenuItemType::kModelProLatest:
-      [self.delegate composeboxMenuMediator:self
-                                didTapModel:ComposeboxModelOption::kProLatest];
-      break;
     case ComposeboxMenuItemType::kAttachmentSharedTabs:
       [self.delegate composeboxMenuMediatorDidRequestSharedTabs:self];
       break;
@@ -243,17 +214,23 @@
       CHECK(IsComposeboxDriveOptionEnabled());
       [self.delegate composeboxMenuMediatorDidRequestDriveFileSelection:self];
       break;
+    case ComposeboxMenuItemType::kModel:
+      // Models are handled by `-selectModelItem:`.
     case ComposeboxMenuItemType::kMoreOptionsSubmenu:
     case ComposeboxMenuItemType::kUnknown:
       break;
   }
 }
 
+- (void)selectModelItem:(ComposeboxModelItem*)item {
+  [self.delegate composeboxMenuMediator:self didTapModel:item.modelMode];
+}
+
 - (std::set<web::WebStateID>)allAttachedWebStateIDs {
   if (!_preselection) {
     return std::set<web::WebStateID>();
   }
-  return _preselection.tabIDs;
+  return _preselection.tabSelection.selected_ids;
 }
 
 - (std::set<web::WebStateID>)attachedWebStateIDsInCurrentContext {
@@ -262,7 +239,7 @@
     return webStateIDs;
   }
 
-  for (web::WebStateID webStateID : _preselection.tabIDs) {
+  for (web::WebStateID webStateID : _preselection.tabSelection.selected_ids) {
     if (!webStateID.valid()) {
       continue;
     }
@@ -298,11 +275,10 @@
 
   web::WebStateID activeWebStateID = activeWebState->GetUniqueIdentifier();
 
-  std::set<web::WebStateID> webStateIDs = _preselection.tabIDs;
-  webStateIDs.insert(activeWebStateID);
+  ComposeboxTabSelection tabSelection = _preselection.tabSelection;
+  tabSelection.selected_ids.insert(activeWebStateID);
 
-  [self processWebStateIDs:webStateIDs
-         cachedWebStateIDs:_preselection.cachedWebStateIDs];
+  [self processTabSelection:tabSelection];
 }
 
 @end

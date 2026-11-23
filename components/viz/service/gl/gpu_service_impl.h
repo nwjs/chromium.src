@@ -6,8 +6,11 @@
 #define COMPONENTS_VIZ_SERVICE_GL_GPU_SERVICE_IMPL_H_
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
+#include "base/byte_size.h"
 #include "base/clang_profiling_buildflags.h"
 #include "base/compiler_specific.h"
 #include "base/functional/callback.h"
@@ -489,6 +492,13 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   gfx::mojom::DXGIInfoPtr dxgi_info_;
 #endif
 
+  // Dawn info collection is expensive, as it enumerates adapters on every
+  // backend and creates a device on each of them. The results do not change
+  // over the lifetime of the GPU process, so collect them at most once per
+  // mode. Only accessed on the main thread.
+  std::optional<std::vector<std::string>> dawn_info_list_;
+  bool dawn_metrics_collected_ = false;
+
   // What we would have gotten if we haven't fallen back to SwiftShader or
   // pure software (in the viz case).
   std::optional<gpu::GPUInfo> gpu_info_for_hardware_gpu_;
@@ -544,6 +554,10 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   std::unique_ptr<webnn::WebNNContextProviderImpl> webnn_context_provider_;
 
   gpu::GpuPersistentCacheCollection persistent_caches_;
+
+  // Total size of the persistent cache databases passed to
+  // SetChannelPersistentCachePendingBackend(). Only accessed on the IO thread.
+  base::ByteSize persistent_cache_db_size_;
 
   // An event that will be signalled when we shutdown. On some platforms it
   // comes from external sources.

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "media/gpu/windows/d3d11_texture_wrapper.h"
-
 #include <utility>
 
 #include "base/functional/bind.h"
@@ -13,6 +11,7 @@
 #include "base/test/task_environment.h"
 #include "media/gpu/test/fake_command_buffer_helper.h"
 #include "media/gpu/windows/d3d_picture_buffer.h"
+#include "media/gpu/windows/d3d_texture_wrapper.h"
 #include "media/gpu/windows/format_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -81,7 +80,7 @@ class D3D11TextureWrapperUnittest : public ::testing::Test {
 };
 
 TEST_F(D3D11TextureWrapperUnittest, NV12InitSucceeds) {
-  auto wrapper = std::make_unique<DefaultTexture2DWrapper>(
+  auto wrapper = std::make_unique<DefaultD3DTextureWrapper>(
       size_, color_space_, viz::MultiPlaneFormat::kNV12,
       /*device=*/nullptr, gpu::GpuDriverBugWorkarounds());
   const D3DStatus init_result = wrapper->Init(
@@ -94,7 +93,7 @@ TEST_F(D3D11TextureWrapperUnittest, NV12InitSucceeds) {
 }
 
 TEST_F(D3D11TextureWrapperUnittest, BGRA8InitSucceeds) {
-  auto wrapper = std::make_unique<DefaultTexture2DWrapper>(
+  auto wrapper = std::make_unique<DefaultD3DTextureWrapper>(
       size_, color_space_, viz::SinglePlaneFormat::kBGRA_8888,
       /*device=*/nullptr, gpu::GpuDriverBugWorkarounds());
   const D3DStatus init_result = wrapper->Init(
@@ -105,7 +104,7 @@ TEST_F(D3D11TextureWrapperUnittest, BGRA8InitSucceeds) {
 }
 
 TEST_F(D3D11TextureWrapperUnittest, RGBA102InitSucceeds) {
-  auto wrapper = std::make_unique<DefaultTexture2DWrapper>(
+  auto wrapper = std::make_unique<DefaultD3DTextureWrapper>(
       size_, color_space_, viz::SinglePlaneFormat::kRGBA_1010102,
       /*device=*/nullptr, gpu::GpuDriverBugWorkarounds());
   const D3DStatus init_result = wrapper->Init(
@@ -116,7 +115,7 @@ TEST_F(D3D11TextureWrapperUnittest, RGBA102InitSucceeds) {
 }
 
 TEST_F(D3D11TextureWrapperUnittest, P010InitSucceeds) {
-  auto wrapper = std::make_unique<DefaultTexture2DWrapper>(
+  auto wrapper = std::make_unique<DefaultD3DTextureWrapper>(
       size_, color_space_, viz::MultiPlaneFormat::kP010,
       /*device=*/nullptr, gpu::GpuDriverBugWorkarounds());
   const D3DStatus init_result = wrapper->Init(
@@ -127,7 +126,7 @@ TEST_F(D3D11TextureWrapperUnittest, P010InitSucceeds) {
 }
 
 TEST_F(D3D11TextureWrapperUnittest, UnknownInitFails) {
-  auto wrapper = std::make_unique<DefaultTexture2DWrapper>(
+  auto wrapper = std::make_unique<DefaultD3DTextureWrapper>(
       size_, color_space_, viz::SinglePlaneFormat::kRGBA_4444,
       /*device=*/nullptr, gpu::GpuDriverBugWorkarounds());
   const D3DStatus init_result = wrapper->Init(

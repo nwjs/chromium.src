@@ -31,6 +31,10 @@ BASE_FEATURE(kUseAAudioInput, base::FEATURE_ENABLED_BY_DEFAULT);
 // effect.
 BASE_FEATURE(kAAudioPerStreamDeviceSelection, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// On desktop Android, retries a failed AAudio input start once with a fresh
+// stream for the same device.
+BASE_FEATURE(kAAudioInputRetryOnStartFailure, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Use buffer size from AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER for
 // optimal output frame size.
 BASE_FEATURE(kAlwaysUseAudioManagerOutputFramesPerBuffer,
@@ -44,6 +48,16 @@ BASE_FEATURE(kAudioStereoInputStreamParameters,
 // Enables support for variable sized callbacks in AAudio.
 BASE_FEATURE(kAAudioVariableSizedCallbacks, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// Kill switch for the crbug.com/572682743 fix. When enabled (default),
+// AudioThreadHangMonitor keeps checking after a check that runs late, e.g.
+// after a system suspend, and keeps at most one ping in flight. When disabled,
+// it behaves as before: every check that isn't late pings the audio thread, and
+// a late check doesn't update the last check time, so hang detection stops.
+// TODO(crbug.com/572682743): Remove when the fix has rolled out and we have
+// verified that it works as expected.
+BASE_FEATURE(kAudioThreadHangMonitorRearmAfterLateCheck,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This feature flag controls whether the WebAudio destination resampler is
 // bypassed. When enabled, if the WebAudio context's sample rate differs from

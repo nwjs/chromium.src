@@ -66,6 +66,33 @@ inline constexpr char kSafeBrowsingExtendedReportingOptInAllowed[] =
 inline constexpr char kSafeBrowsingIncidentsSent[] =
     "safebrowsing.incidents_sent";
 
+// Timestamp indicating when the user temporarily entered No Protection mode.
+inline constexpr char kSafeBrowsingNoProtectionDisabledTimestamp[] =
+    "safebrowsing.no_protection_disabled_timestamp";
+
+// Integer tracking the number of times the No Protection reminder was shown.
+inline constexpr char kSafeBrowsingNoProtectionReminderCount[] =
+    "safebrowsing.no_protection_reminder_count";
+
+// Boolean indicating whether the user explicitly dismissed the No Protection
+// reminder.
+inline constexpr char kSafeBrowsingNoProtectionReminderDismissed[] =
+    "safebrowsing.no_protection_reminder_dismissed";
+
+// Boolean indicating whether the user explicitly opted out of Safe Browsing
+// permanently.
+inline constexpr char kSafeBrowsingNoProtectionDisabledPermanently[] =
+    "safebrowsing.no_protection_disabled_permanently";
+
+// Timestamp of the last time the No Protection reminder was shown.
+inline constexpr char kSafeBrowsingNoProtectionReminderLastShown[] =
+    "safebrowsing.no_protection_reminder_last_shown";
+
+// Integer indicating the previous SafeBrowsingState before entering No
+// Protection mode.
+inline constexpr char kSafeBrowsingPreNoProtectionState[] =
+    "safebrowsing.pre_no_protection_state";
+
 // Boolean that is true when the SafeBrowsing interstitial should not allow
 // users to proceed anyway.
 inline constexpr char kSafeBrowsingProceedAnywayDisabled[] =
@@ -177,28 +204,10 @@ inline constexpr char kAccountTailoredSecurityUpdateTimestamp[] =
 inline constexpr char kTailoredSecurityNextSyncFlowTimestamp[] =
     "safebrowsing.aesb_next_sync_flow_timestamp";
 
-// Timestamp indicating the last time the tailored security sync flow ran.
-inline constexpr char kTailoredSecuritySyncFlowLastRunTime[] =
-    "safebrowsing.aesb_sync_flow_start_timestamp";
-
-// Integer that maps to TailoredSecurityUserInteractionState. Indicates the
-// last known state of the tailored security sync flow.
-// TODO(crbug.com/40925236): remove this preference value.
-inline constexpr char kTailoredSecuritySyncFlowLastUserInteractionState[] =
-    "safebrowsing.aesb_sync_flow_last_user_interaction_state";
-
 // Integer that maps to TailoredSecurityRetryState. Indicates the last
 // known state of the tailored security sync flow retry mechanism.
 inline constexpr char kTailoredSecuritySyncFlowRetryState[] =
     "safebrowsing.aesb_sync_flow_retry_state";
-
-// Timestamp indicating when the last user interaction state was observed as
-// having the value of `UNSET`. It is possible that this value will never be
-// set. This will only be set for syncing users where the retry detection logic
-// ran and no outcome was set -- indicating that tailored security with retry
-// capabilities had never run.
-inline constexpr char kTailoredSecuritySyncFlowObservedOutcomeUnsetTimestamp[] =
-    "safebrowsing.aesb_sync_flow_observed_outcome_unset_timestamp";
 
 // Whether the user was shown the notification that they may want to enable
 // Enhanced Safe Browsing due to their account tailored security state.
@@ -443,11 +452,14 @@ SafeBrowsingState GetSafeBrowsingState(const PrefService& prefs);
 SafeBrowsingState GetDefaultSafeBrowsingState(
     SecuritySettingsBundleSetting bundle_setting);
 
-// Set the SafeBrowsing prefs.  Records whether ESB was enabled by Tailored
-// Security (through account integration).
+// Set the SafeBrowsing prefs. Records whether ESB was enabled by Tailored
+// Security (through account integration). When disabling Safe Browsing,
+// |is_temporary_opt_out| specifies whether to track a temporary 24-hour opt-out
+// or execute an explicit permanent opt-out.
 void SetSafeBrowsingState(PrefService* prefs,
                           SafeBrowsingState state,
-                          bool is_esb_enabled_by_account_integration = false);
+                          bool is_esb_enabled_by_account_integration = false,
+                          bool is_temporary_opt_out = false);
 
 // Returns whether Safe Browsing is enabled for the user.
 bool IsSafeBrowsingEnabled(const PrefService& prefs);
@@ -549,6 +561,22 @@ void SetStandardProtectionPref(PrefService* prefs, bool value);
 // user. This may trigger the user to begin seeing the Scout opt-in text
 // depending on their experiment state.
 void UpdatePrefsBeforeSecurityInterstitial(PrefService* prefs);
+
+// Clears preferences related to temporary No Protection reminder notifications
+// (reminder count, last shown timestamp, and dismissed status).
+void ClearNoProtectionReminderState(PrefService* prefs);
+
+// Clears all preferences related to temporary No Protection tracking and
+// re-engagement (disabled timestamp, previous state, permanent opt-out flag,
+// and reminder tracking).
+void ClearNoProtectionTrackingState(PrefService* prefs);
+
+// Returns the duration for temporary Safe Browsing No Protection mode.
+// Defaults to 24 hours, or can be overridden via
+// `kSafeBrowsingNoProtectionTemporaryDurationInSeconds` (`duration_seconds`)
+// on `kSafeBrowsingNoProtectionTemporary`, or via the command-line switch
+// `--safe-browsing-no-protection-duration-seconds=<N>`.
+base::TimeDelta GetNoProtectionReversionDuration();
 
 // Returns a list of preferences to be shown in chrome://safe-browsing. The
 // preferences are passed as an alternating sequence of preference names and

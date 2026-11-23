@@ -96,6 +96,10 @@ class GlicInvokeHandler {
   // See RequiresClientInvoke().
   bool requires_client_invoke() const { return requires_client_invoke_; }
 
+  // Whether this invocation is waiting (or will wait) on the user completing
+  // the FRE in the panel before it can finish.
+  bool NeedsFreCompletion() const;
+
   // The metrics invocation ID for this invocation.
   uint64_t invocation_id() const { return metrics_->GetInvocationId(); }
 
@@ -109,6 +113,9 @@ class GlicInvokeHandler {
   // Deletes `this`. Exactly one of these methods will be called.
   void OnSuccess();
   void OnError(GlicInvokeError error);
+  // The timeout timer fired. Ends the invocation with kTimeout, or with
+  // kSignInRequired if it spent the time waiting for the user to sign in.
+  void OnTimeout();
 
   void OnTabWillDetach(tabs::TabInterface* tab,
                        tabs::TabInterface::DetachReason reason);

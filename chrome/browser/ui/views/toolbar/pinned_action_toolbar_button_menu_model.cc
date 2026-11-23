@@ -31,6 +31,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/menus/simple_menu_model.h"
+#include "ui/views/view_class_properties.h"
 
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kPinnedActionToolbarPinElementId);
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kPinnedActionToolbarUnpinElementId);
@@ -185,7 +186,15 @@ bool PinnedActionToolbarButtonMenuModel::IsEnabledAt(size_t index) const {
 
 bool PinnedActionToolbarButtonMenuModel::IsVisibleAt(size_t index) const {
   if (GetTypeAt(index) == TYPE_SEPARATOR) {
-    return true;
+    for (size_t i = index; i > 0; --i) {
+      if (GetTypeAt(i - 1) == TYPE_SEPARATOR) {
+        return false;
+      }
+      if (IsVisibleAt(i - 1)) {
+        return true;
+      }
+    }
+    return false;
   }
   const bool is_pinned = IsPinned();
   if (is_pinned && items_[index].action_id == kActionPinActionToToolbar) {
@@ -208,7 +217,7 @@ void PinnedActionToolbarButtonMenuModel::ActivatedAt(size_t index) {
 
 void PinnedActionToolbarButtonMenuModel::ActivatedAt(size_t index,
                                                      int event_flags) {
-  DCHECK(GetTypeAt(index) != TYPE_SEPARATOR);
+  CHECK(GetTypeAt(index) != TYPE_SEPARATOR, base::NotFatalUntil::M162);
   auto action_id = items_[index].action_id;
   if (action_id == kActionPinActionToToolbar ||
       action_id == kActionUnpinActionFromToolbar) {
@@ -262,7 +271,9 @@ void PinnedActionToolbarButtonMenuModel::AddActionSpecificItems() {
         // should be displayed as Checked that is handled in `GetTypeAt` which
         // will evaluated the ActionItem's checked state when the menu is run.
         auto* child_action_item = child_item->GetActionItem();
-        items_.emplace_back(*child_action_item->GetActionId(), TYPE_COMMAND);
+        items_.emplace_back(
+            *child_action_item->GetActionId(), TYPE_COMMAND,
+            child_action_item->GetProperty(views::kElementIdentifierKey));
       }
       items_.emplace_back(TYPE_SEPARATOR);
     }

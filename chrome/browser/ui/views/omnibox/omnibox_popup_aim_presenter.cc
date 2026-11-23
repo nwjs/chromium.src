@@ -25,15 +25,15 @@ OmniboxPopupAimPresenter::OmniboxPopupAimPresenter(
     OmniboxController* controller,
     OmniboxPopupPresenterDelegate& presenter_delegate)
     : OmniboxPopupPresenterBase(location_bar, presenter_delegate, controller) {
-  // With `omnibox::kOmniboxAimPopupDeferCreation`, the content is created by
-  // the first `EnsureWebUIContentCreated()` call instead. It comes from the
-  // task posted after the browser window presents a frame, from `Show()`, or
-  // from the classic popup's context menu, which needs the AIM WebContents.
-  if (base::FeatureList::IsEnabled(omnibox::kOmniboxAimPopupDeferCreation)) {
-    CreateWebUIContentAfterBrowserWindowPresentation();
-  } else {
-    SetWebUIContent(CreateWebUIContent());
+  // If the content is not created here, it is created on demand by `Show()`
+  // or by the classic popup's context menu, which needs the AIM WebContents.
+  WebUIContentCreationStrategy strategy =
+      GetWebUIContentCreationStrategy(omnibox::kOmniboxAimPopupDeferCreation);
+  if (strategy == WebUIContentCreationStrategy::kAfterWindowPresentation &&
+      !omnibox::kOmniboxAimPopupCreateOnFirstPresentation.Get()) {
+    strategy = WebUIContentCreationStrategy::kOnDemand;
   }
+  ApplyWebUIContentCreationStrategy(strategy);
 }
 
 OmniboxPopupAimPresenter::~OmniboxPopupAimPresenter() = default;

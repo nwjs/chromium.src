@@ -8,7 +8,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/apps/platform_apps/app_browsertest_util.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -65,7 +64,7 @@ class ChromeTabStripDelegateBrowserTest
     for (const auto& url : urls) {
       // content::TestNavigationObserver navigation_observer(urls[i]);
       ui_test_utils::NavigateToURLWithDisposition(
-          browser, url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          browser, url, WindowOpenDisposition::kNewForegroundTab,
           ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
     }
     return browser;

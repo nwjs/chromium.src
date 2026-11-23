@@ -17,21 +17,10 @@ _TAB_FEATURES_CC = 'tab_features.cc'
 # justified in the CL description and reviewed by chrome/browser/ui/tabs
 # OWNERS.
 _ALLOWED_CREATE_FOR_CALLS = (
-  # AnnotatedPageContentRequest lives in
-  # //components/page_content_annotations/content and is looked up on
-  # WebContents by
-  # PageContentExtractionService::GetAnnotatedPageContentRequestFromWebContents,
-  # so the WebContents must own it.
-  'AnnotatedPageContentRequest::CreateForWebContents',
   # BookmarkTabHelper is also attached to non-tab WebContents in
   # extensions::BookmarkManagerPrivateDragEventRouter, so the WebContents
   # must own it.
   'BookmarkTabHelper::CreateForWebContents',
-  # PopupBlockerTabHelper lives in //components/blocked_content and is looked up
-  # from arbitrary WebContents by PopupBlocker,
-  # ChromeContentBrowserClient::CanCreateWindow, and PopupOpenerTabHelper, so
-  # the WebContents must own it.
-  'blocked_content::PopupBlockerTabHelper::CreateForWebContents',
   # CaptivePortalTabHelper lives in //components/captive_portal/content and
   # is also attached to non-tab GuestView WebContents in
   # ChromeGuestViewManagerDelegate, so the WebContents must own it.
@@ -56,10 +45,6 @@ _ALLOWED_CREATE_FOR_CALLS = (
   # ChromeThinWebViewInitializer, GuestView, PrerenderNewTabHandle, and Android
   # popup WebContents), so the WebContents must own it.
   'content_settings::PageSpecificContentSettings::CreateForWebContents',
-  # DlpContentTabHelper is also attached to non-tab Chrome App window
-  # WebContents in ChromeAppDelegate and looked up from arbitrary WebContents
-  # by DlpContentManager, so the WebContents must own it.
-  'policy::DlpContentTabHelper::MaybeCreateForWebContents',
   # extensions::TabHelper is also attached to non-tab and pre-tab WebContents
   # (such as DocumentPipHost, ConstrainedWebDialogUI, NetworkUI, OobeUI,
   # InlineLoginUI, ContextualTasksSidePanelCoordinator, and Prerender /
@@ -71,10 +56,6 @@ _ALLOWED_CREATE_FOR_CALLS = (
   # TabFeatures::WillDiscardContents swaps in new_contents, so the WebContents
   # must own it.
   'extensions::WebNavigationTabObserver::CreateForWebContents',
-  # FileSystemAccessPermissionRequestManager is also attached to non-tab
-  # Chrome App window WebContents in ChromeAppDelegate::InitWebContents, so
-  # the WebContents must own it.
-  'FileSystemAccessPermissionRequestManager::CreateForWebContents',
   # HistoryClustersTabHelper records final page-end metrics
   # (RecordPageEndMetricsIfNeeded) in WebContentsDestroyed() after TabFeatures
   # is destroyed, and is looked up on WebContents by
@@ -92,6 +73,11 @@ _ALLOWED_CREATE_FOR_CALLS = (
   # WebContentsDestroyed() after TabFeatures is destroyed, so the WebContents
   # must continue to own it.
   'HttpsOnlyModeTabHelper::CreateForWebContents',
+  # ContentInfoBarManager lives in //components/infobars/content, is also
+  # attached to non-tab WebContents in PresentationReceiverWindowView and
+  # ProfilePolicyConnector, and is looked up on WebContents across //chrome and
+  # //components, so the WebContents must own it.
+  'infobars::ContentInfoBarManager::CreateForWebContents',
   # TabModalDialogManager lives in //components/javascript_dialogs and is also
   # attached to non-tab Document Picture-in-Picture WebContents in
   # DocumentPipHost, so the WebContents must own it.
@@ -155,10 +141,6 @@ _ALLOWED_CREATE_FOR_CALLS = (
   # WebContentsDestroyed() after TabFeatures is destroyed, so WebContents must
   # own it.
   'safe_browsing::SafeBrowsingNavigationObserver::MaybeCreateForWebContents',
-  # SiteEngagementService::Helper lives in //components/site_engagement/content
-  # and is also attached to non-tab WebContents in WebUIContentsWrapper, so
-  # WebContents must own it.
-  'site_engagement::SiteEngagementService::Helper::CreateForWebContents',
   # The task manager tag is looked up from WebContents user data by
   # WebContentsTaskProvider, is swapped in place by WebAppTabHelper, and is
   # also attached to non-tab WebContents (e.g. payment handler WebViews) and
@@ -181,6 +163,12 @@ _ALLOWED_CREATE_FOR_CALLS = (
   # WebUIContentsWrapper, SimpleWebViewDialog, and DevToolsWindowViews), so
   # the WebContents must own it.
   'web_modal::WebContentsModalDialogManager::CreateForWebContents',
+  # ZoomController lives in //components/zoom and is also attached to non-tab
+  # WebContents in ChromeAppDelegate, DevToolsWindow,
+  # ConstrainedWebDialogDelegateViews, DocumentPipHost, SkillsDialogView,
+  # TopChromeWebUIController, ContextualTasksUI, and CoBrowseViewsBridge, so
+  # the WebContents must own it.
+  'zoom::ZoomController::CreateForWebContents',
 )
 
 

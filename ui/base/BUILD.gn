@@ -75,8 +75,6 @@ component("ui_data_pack") {
   ]
 
   defines = [ "IS_UI_DATA_PACK_IMPL" ]
-
-  configs += [ "//build/config/compiler:wexit_time_destructors" ]
 }
 
 buildflag_header("buildflags") {
@@ -109,6 +107,10 @@ source_set("constants") {
 # (ideally none).
 source_set("types") {
   sources = [ "window_open_disposition.h" ]
+
+  # TODO(crbug.com/373551504): Remove once the `WindowOpenDisposition` alias is
+  # removed.
+  public_deps = [ "//ui/base/mojom" ]
   if (!is_ios) {
     sources += [ "ui_base_types.h" ]
   }
@@ -145,8 +147,6 @@ component("base") {
     "dragdrop/os_exchange_data.h",
     "dragdrop/os_exchange_data_provider_factory.cc",
     "dragdrop/os_exchange_data_provider_factory.h",
-    "ime/utf_offset.cc",
-    "ime/utf_offset.h",
     "l10n/chromium_language_matcher.cc",
     "l10n/chromium_language_matcher.h",
     "l10n/formatter.cc",
@@ -474,10 +474,7 @@ component("base") {
     sources += [ "resource/resource_bundle_fuchsia.cc" ]
   }
 
-  configs += [
-    "//build/config/compiler:prevent_unsafe_narrowing",
-    "//build/config/compiler:wexit_time_destructors",
-  ]
+  configs += [ "//build/config/compiler:prevent_unsafe_narrowing" ]
 
   defines = [ "IS_UI_BASE_IMPL" ]
 
@@ -506,6 +503,7 @@ component("base") {
     "//build:android_buildflags",
     "//build:blink_buildflags",
     "//build:branding_buildflags",
+    "//build:is_android_web_view",
     "//net",
     "//third_party/brotli:dec",
     "//third_party/icu",
@@ -939,10 +937,6 @@ static_library("test_support") {
     sources += [ "test/ui_controls_android.cc" ]
     deps += [ "//ui/android" ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 if (is_android) {
@@ -1039,7 +1033,6 @@ test("ui_base_unittests") {
   sources = [
     "class_property_unittest.cc",
     "clipboard/file_info_unittest.cc",
-    "ime/utf_offset_unittest.cc",
     "l10n/l10n_util_unittest.cc",
     "l10n/time_format_unittest.cc",
     "models/image_model_unittest.cc",
@@ -1297,6 +1290,10 @@ test("ui_base_unittests") {
     if (!is_component_build && !is_asan) {
       data_deps += [ ":shell_test_helper" ]
     }
+  }
+
+  if (is_linux && use_dbus) {
+    deps += [ "//ui/base/idle:unit_tests" ]
   }
 
   if (is_android) {

@@ -104,7 +104,7 @@
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/password_form_fill_data.h"
 #include "components/device_reauth/mock_device_authenticator.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/personal_context/core/mock_personal_context_eligibility_service.h"
 #include "components/personal_context/core/personal_context_prefs.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -257,6 +257,23 @@ class MockAutofillClient : public TestAutofillClient {
   MockAutofillClient() {
     set_payments_autofill_client(
         std::make_unique<MockPaymentsAutofillClient>(this));
+    ON_CALL(*this, GetDeviceAuthAvailabilityChecker).WillByDefault([] {
+      auto checker =
+          std::make_unique<device_reauth::MockDeviceAuthAvailabilityChecker>();
+      ON_CALL(*checker, CanAuthenticateWithBiometricOrScreenLock)
+          .WillByDefault(Return(true));
+      return checker;
+    });
+    // Like the real client, provide an authenticator whenever the checker says
+    // that the device can authenticate. Authentication succeeds by default.
+    ON_CALL(*this, GetDeviceAuthenticator).WillByDefault([](std::string) {
+      auto authenticator =
+          std::make_unique<NiceMock<device_reauth::MockDeviceAuthenticator>>();
+      ON_CALL(*authenticator, AuthenticateWithMessage)
+          .WillByDefault(
+              base::test::RunOnceCallback<1>(/*auth_succeeded=*/true));
+      return authenticator;
+    });
   }
   MockAutofillClient(const MockAutofillClient&) = delete;
   MockAutofillClient& operator=(const MockAutofillClient&) = delete;
@@ -287,6 +304,10 @@ class MockAutofillClient : public TestAutofillClient {
   MOCK_METHOD(void, OpenGmailForOtps, (), (override));
   MOCK_METHOD(void, OpenGeminiInSidebar, (const std::u16string&), (override));
   MOCK_METHOD(void, ShowAutofillSettings, (SuggestionType), (override));
+  MOCK_METHOD(void,
+              TriggerOneTimePasswordDismissalPersonalizationAndTrustSurvey,
+              (const HatsSurveyStringData&),
+              (override));
   MOCK_METHOD(AutofillComposeDelegate*, GetComposeDelegate, (), (override));
   MOCK_METHOD(IdentityCredentialDelegate*,
               GetIdentityCredentialDelegate,
@@ -311,6 +332,10 @@ class MockAutofillClient : public TestAutofillClient {
   MOCK_METHOD(std::unique_ptr<device_reauth::DeviceAuthenticator>,
               GetDeviceAuthenticator,
               (std::string),
+              (const, override));
+  MOCK_METHOD(std::unique_ptr<device_reauth::DeviceAuthAvailabilityChecker>,
+              GetDeviceAuthAvailabilityChecker,
+              (),
               (const, override));
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
@@ -1814,6 +1839,48 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().OnSuggestionsHidden(reason);
 }
 
+// Tests that a HaT survey is triggered when dismissing a popup without
+// accepting one of the shown OTP suggestions.
+TEST_F(AutofillExternalDelegateTest,
+       PersonalizationAndTrustSurvey_OtpDismissal) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillPersonalizationAndTrustOneTimePasswordSurvey};
+  IssueOnQuery();
+
+  OnSuggestionsReturned(queried_field(),
+                        {Suggestion(SuggestionType::kOneTimePasswordEntry)});
+
+  EXPECT_CALL(autofill_client(),
+              TriggerOneTimePasswordDismissalPersonalizationAndTrustSurvey(
+                  HatsSurveyStringData{
+                      {"GIC opt-in accepted", "false"},
+                      {"Origin of the website (eTLD+1)", "example.test"},
+                      {"OTP type", "SMS"},
+                      {"Personal Intelligence available", "true"},
+                      {"Type of dismissal", "User dismissed"}}));
+
+  external_delegate().OnSuggestionsHidden(SuggestionHidingReason::kUserAborted);
+}
+
+// Tests that no OTP dismissal HaT survey is triggered when accepting an OTP
+// suggestion.
+TEST_F(AutofillExternalDelegateTest,
+       PersonalizationAndTrustSurvey_NoDismissalSurvey_OnOtpFilling) {
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillPersonalizationAndTrustOneTimePasswordSurvey};
+  IssueOnQuery();
+
+  OnSuggestionsReturned(queried_field(),
+                        {Suggestion(SuggestionType::kOneTimePasswordEntry)});
+
+  EXPECT_CALL(autofill_client(),
+              TriggerOneTimePasswordDismissalPersonalizationAndTrustSurvey)
+      .Times(0);
+
+  external_delegate().OnSuggestionsHidden(
+      SuggestionHidingReason::kAcceptSuggestion);
+}
+
 // Tests that the Autofill delegate fills a form with a VCN when a suggestion
 // containing a BNPL entry is accepted, and the user completes the flow.
 TEST_F(AutofillExternalDelegateTest, AcceptedBnplEntry_FormIsFilled) {
@@ -2498,7 +2565,6 @@ TEST_F(AutofillExternalDelegateTest, AcceptManageOffers) {
                                           {.multi_index = {0}});
 }
 
-
 // Test that the ClearPreview call is only sent if the form was being previewed
 // (i.e. it isn't autofilling a password).
 TEST_F(AutofillExternalDelegateTest, ExternalDelegateClearPreviewedForm) {
@@ -2850,15 +2916,27 @@ TEST_F(AutofillExternalDelegateTest, FillAutofillAiFillsFullForm) {
 }
 
 #if PLATFORM_SUPPORTS_DEVICE_REAUTH
+// Test fixture parameterized by whether `kDeviceReauthRefactor` is enabled.
+class AutofillExternalDelegateReauthTest
+    : public AutofillExternalDelegateTest,
+      public testing::WithParamInterface<bool> {
+ public:
+  bool IsRefactorEnabled() const { return GetParam(); }
+};
+
 // Tests that when accepting a `kFillAutofillAi` suggestion that requires
 // re-authentication, the re-authentication flow is triggered and the form is
 // filled upon success.
-TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthAccepted) {
+TEST_P(AutofillExternalDelegateReauthTest,
+       AutofillAiReauthFlow_ReauthAccepted) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {features::kAutofillAiWithDataSchema, features::kAutofillAiReauthRequired,
-       features::kAutofillAiWalletPrivatePasses},
-      {});
+  std::vector<base::test::FeatureRef> enabled_features = {
+      features::kAutofillAiWithDataSchema, features::kAutofillAiReauthRequired,
+      features::kAutofillAiWalletPrivatePasses};
+  std::vector<base::test::FeatureRef> disabled_features;
+  (IsRefactorEnabled() ? enabled_features : disabled_features)
+      .push_back(password_manager::features::kDeviceReauthRefactor);
+  scoped_feature_list.InitWithFeatures(enabled_features, disabled_features);
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
 
@@ -2876,10 +2954,15 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthAccepted) {
   ON_CALL(autofill_client(), GetAutofillSuggestions)
       .WillByDefault(Return(all_suggestions));
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
 
   device_reauth::DeviceAuthenticator::AuthenticateCallback reauth_callback;
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
@@ -2921,11 +3004,14 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthAccepted) {
 // accepting a `kFillAutofillAi` suggestion that requires re-authentication.
 // Note however that the messaged passed to Android is empty since the
 // platform does not allow it to begin with.
-TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthMessage) {
+TEST_P(AutofillExternalDelegateReauthTest, AutofillAiReauthFlow_ReauthMessage) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
-                                        features::kAutofillAiReauthRequired},
-                                       {});
+  std::vector<base::test::FeatureRef> enabled_features = {
+      features::kAutofillAiWithDataSchema, features::kAutofillAiReauthRequired};
+  std::vector<base::test::FeatureRef> disabled_features;
+  (IsRefactorEnabled() ? enabled_features : disabled_features)
+      .push_back(password_manager::features::kDeviceReauthRefactor);
+  scoped_feature_list.InitWithFeatures(enabled_features, disabled_features);
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
 
@@ -2939,10 +3025,15 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthMessage) {
   IssueOnQuery({.fields = {{.role = PASSPORT_NUMBER,
                             .origin = url::Origin::Create(kUrl)}}});
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
 
   std::u16string expected_message;
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || \
@@ -2967,24 +3058,33 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthMessage) {
 
 // Tests that when accepting a `kFillAutofillAi` suggestion that requires
 // re-authentication, the form is NOT filled if re-authentication fails.
-TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthRejected) {
+TEST_P(AutofillExternalDelegateReauthTest,
+       AutofillAiReauthFlow_ReauthRejected) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
-                                        features::kAutofillAiReauthRequired},
-                                       {});
+  std::vector<base::test::FeatureRef> enabled_features = {
+      features::kAutofillAiWithDataSchema, features::kAutofillAiReauthRequired};
+  std::vector<base::test::FeatureRef> disabled_features;
+  (IsRefactorEnabled() ? enabled_features : disabled_features)
+      .push_back(password_manager::features::kDeviceReauthRefactor);
+  scoped_feature_list.InitWithFeatures(enabled_features, disabled_features);
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
 
   EntityInstance passport = GetPassportEntityInstanceWithRandomGuid();
   AddOrUpdateEntityInstance(passport);
-  // Create form with a passport number, which triggers obfuscation and thus
-  // re-auth.
+  // Create form with a passport number, which triggers obfuscation and
+  // technical re-auth.
   IssueOnQuery({.fields = {{.role = PASSPORT_NUMBER}}});
+
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
 
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
       .WillOnce(RunOnceCallback<1>(false));
   test_api(autofill_manager().GetAutofillAiAccessManager())
@@ -2999,11 +3099,14 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ReauthRejected) {
 
 // Tests that the result of the re-authentication flow is recorded per field
 // type.
-TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ResultMetrics) {
+TEST_P(AutofillExternalDelegateReauthTest, AutofillAiReauthFlow_ResultMetrics) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
-                                        features::kAutofillAiReauthRequired},
-                                       {});
+  std::vector<base::test::FeatureRef> enabled_features = {
+      features::kAutofillAiWithDataSchema, features::kAutofillAiReauthRequired};
+  std::vector<base::test::FeatureRef> disabled_features;
+  (IsRefactorEnabled() ? enabled_features : disabled_features)
+      .push_back(password_manager::features::kDeviceReauthRefactor);
+  scoped_feature_list.InitWithFeatures(enabled_features, disabled_features);
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
 
@@ -3018,10 +3121,15 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ResultMetrics) {
 
   {
     base::HistogramTester histogram_tester;
+    EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+        .Times(IsRefactorEnabled() ? 1 : 0);
+
     auto authenticator =
         std::make_unique<device_reauth::MockDeviceAuthenticator>();
+    ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+        .WillByDefault(Return(true));
     EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-        .WillOnce(Return(true));
+        .Times(IsRefactorEnabled() ? 0 : 1);
     EXPECT_CALL(*authenticator, AuthenticateWithMessage)
         .WillOnce(RunOnceCallback<1>(true));
     test_api(autofill_manager().GetAutofillAiAccessManager())
@@ -3039,10 +3147,15 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ResultMetrics) {
 
   {
     base::HistogramTester histogram_tester;
+    EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+        .Times(IsRefactorEnabled() ? 1 : 0);
+
     auto authenticator =
         std::make_unique<device_reauth::MockDeviceAuthenticator>();
+    ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+        .WillByDefault(Return(true));
     EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-        .WillOnce(Return(true));
+        .Times(IsRefactorEnabled() ? 0 : 1);
     EXPECT_CALL(*authenticator, AuthenticateWithMessage)
         .WillOnce(RunOnceCallback<1>(false));
     test_api(autofill_manager().GetAutofillAiAccessManager())
@@ -3061,11 +3174,15 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_ResultMetrics) {
 
 // Tests that when accepting a `kFillAutofillAi` suggestion that requires
 // re-authentication, the form IS filled if no authenticator is available.
-TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_NoAuthenticator) {
+TEST_P(AutofillExternalDelegateReauthTest,
+       AutofillAiReauthFlow_NoAuthenticator) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
-                                        features::kAutofillAiReauthRequired},
-                                       {});
+  std::vector<base::test::FeatureRef> enabled_features = {
+      features::kAutofillAiWithDataSchema, features::kAutofillAiReauthRequired};
+  std::vector<base::test::FeatureRef> disabled_features;
+  (IsRefactorEnabled() ? enabled_features : disabled_features)
+      .push_back(password_manager::features::kDeviceReauthRefactor);
+  scoped_feature_list.InitWithFeatures(enabled_features, disabled_features);
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
 
@@ -3075,8 +3192,27 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_NoAuthenticator) {
   // re-auth.
   IssueOnQuery({.fields = {{.role = PASSPORT_NUMBER}}});
 
+  ON_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .WillByDefault([] {
+        auto checker = std::make_unique<
+            device_reauth::MockDeviceAuthAvailabilityChecker>();
+        EXPECT_CALL(*checker, CanAuthenticateWithBiometricOrScreenLock)
+            .WillOnce(Return(false));
+        return checker;
+      });
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
+  auto authenticator =
+      std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(false));
+  EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .Times(IsRefactorEnabled() ? 0 : 1);
+  EXPECT_CALL(*authenticator, AuthenticateWithMessage).Times(0);
   test_api(autofill_manager().GetAutofillAiAccessManager())
-      .SetDeviceAuthenticator(nullptr);
+      .SetDeviceAuthenticator(std::move(authenticator));
+
   EXPECT_CALL(
       autofill_manager(),
       FillOrPreviewForm(mojom::ActionPersistence::kFill, HasQueriedFormId(),
@@ -3124,12 +3260,15 @@ TEST_F(AutofillExternalDelegateTest, AutofillAiReauthFlow_FlagOff) {
 // Tests that when accepting a `kFillAutofillAi` suggestion that requires
 // re-authentication, the form IS filled without re-authentication if the pref
 // is disabled.
-TEST_F(AutofillExternalDelegateTest,
+TEST_P(AutofillExternalDelegateReauthTest,
        AutofillAiReauthFlow_ReauthNotRequiredWhenPrefIsDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures({features::kAutofillAiWithDataSchema,
-                                        features::kAutofillAiReauthRequired},
-                                       {});
+  std::vector<base::test::FeatureRef> enabled_features = {
+      features::kAutofillAiWithDataSchema, features::kAutofillAiReauthRequired};
+  std::vector<base::test::FeatureRef> disabled_features;
+  (IsRefactorEnabled() ? enabled_features : disabled_features)
+      .push_back(password_manager::features::kDeviceReauthRefactor);
+  scoped_feature_list.InitWithFeatures(enabled_features, disabled_features);
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, false);
 
@@ -3138,6 +3277,8 @@ TEST_F(AutofillExternalDelegateTest,
   // Create form with a passport number, which triggers obfuscation and thus
   // re-auth.
   IssueOnQuery({.fields = {{.role = PASSPORT_NUMBER}}});
+
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker).Times(0);
 
   EXPECT_CALL(autofill_client(),
               GetDeviceAuthenticator("Autofill.Ai.ReauthToFill"))
@@ -3154,6 +3295,8 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().DidAcceptSuggestion(fill_suggestion,
                                           {.multi_index = {0}});
 }
+
+INSTANTIATE_TEST_SUITE_P(, AutofillExternalDelegateReauthTest, testing::Bool());
 #endif  // PLATFORM_SUPPORTS_DEVICE_REAUTH
 
 TEST_F(AutofillExternalDelegateTest, AcceptManageAutofillAi) {
@@ -3223,25 +3366,32 @@ TEST_F(AutofillExternalDelegateTest, AcceptedOpenGmailSuggestion) {
 }
 
 class AutofillExternalDelegateWithWalletPrivatePassesTest
-    : public AutofillExternalDelegateTest {
+    : public AutofillExternalDelegateTest,
+      public testing::WithParamInterface<bool> {
  public:
   AutofillExternalDelegateWithWalletPrivatePassesTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {
-            features::kAutofillAiWithDataSchema,
-            features::kAutofillAiWalletPrivatePasses,
-            features::kAutofillAiReauthRequired,
+    std::vector<base::test::FeatureRef> enabled_features = {
+        features::kAutofillAiWithDataSchema,
+        features::kAutofillAiWalletPrivatePasses,
+        features::kAutofillAiReauthRequired,
 #if BUILDFLAG(IS_ANDROID)
-            features::kAutofillAiShowServerWalletFillingYourInfoDialog,
+        features::kAutofillAiShowServerWalletFillingYourInfoDialog,
 #endif  // BUILDFLAG(IS_ANDROID)
-        },
-        {});
+    };
+    std::vector<base::test::FeatureRef> disabled_features;
+    (IsRefactorEnabled() ? enabled_features : disabled_features)
+        .push_back(password_manager::features::kDeviceReauthRefactor);
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
+
+  bool IsRefactorEnabled() const { return GetParam(); }
 
   void SetUp() override {
     AutofillExternalDelegateTest::SetUp();
     autofill_client().set_wallet_pass_access_manager(
         std::make_unique<MockWalletPassAccessManager>());
+    prefs::SetAutofillAiReauthBeforeFillingEnabled(autofill_client().GetPrefs(),
+                                                   false);
   }
 
   MockWalletPassAccessManager& wallet_manager() {
@@ -3258,7 +3408,7 @@ class AutofillExternalDelegateWithWalletPrivatePassesTest
 
 // Tests that when accepting a `kFillAutofillAi` suggestion that would fill a
 // masked server entity, the entity is first fetched from the server.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AutofillAiFillMaskedServerEntity) {
   constexpr auto kPassportNumberType =
       AttributeType(AttributeTypeName::kPassportNumber);
@@ -3312,7 +3462,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
 // Tests that when accepting a `kFillAutofillAi` suggestion that would fill a
 // only non-obfuscated attributes of a server entity, the entity is not fetched
 // from the server and the masked entity is used for filling.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AutofillAiFillMaskedServerEntityNonObfuscatedAttributesOnly) {
   EntityInstance full_passport = GetPassportEntityInstance(
       {.record_type = EntityInstance::RecordType::kServerWallet});
@@ -3358,7 +3508,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
 
 // Tests that when fetching a masked server entity fails, the suggestion is
 // not filled.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AutofillAiFillMaskedServerEntityFetchingFails) {
   constexpr auto kPassportNumberType =
       AttributeType(AttributeTypeName::kPassportNumber);
@@ -3403,7 +3553,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
 #if PLATFORM_SUPPORTS_DEVICE_REAUTH
 // Tests that when attempting to fill a masked server entity and re-auth fails,
 // no failure notification is displayed.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AutofillAiFillMaskedServerEntityReauthFails) {
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
@@ -3422,11 +3572,16 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
   ON_CALL(autofill_client(), GetAutofillSuggestions)
       .WillByDefault(Return(suggestions));
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   // Simulate a failed re-auth.
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
       .WillOnce(RunOnceCallback<1>(false));
   test_api(autofill_manager().GetAutofillAiAccessManager())
@@ -3456,7 +3611,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
 
 // Tests that when attempting to fill a masked server entity and re-auth
 // succeeds, no failure notification is displayed.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AutofillAiFillMaskedServerEntityReauthSucceeds) {
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
@@ -3476,11 +3631,16 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
   ON_CALL(autofill_client(), GetAutofillSuggestions)
       .WillByDefault(Return(suggestions));
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   // Simulate a failed re-auth.
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
   device_reauth::DeviceAuthenticator::AuthenticateCallback reauth_callback;
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
       .WillOnce(MoveArg<1>(&reauth_callback));
@@ -3533,7 +3693,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
 
 // Tests that when attempting to fill a masked server entity and re-auth
 // succeeds, no failure notification is displayed.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AutofillAiFillMaskedServerEntityReauthSucceeds_AccessManagerReset) {
   autofill_client().GetPrefs()->SetBoolean(
       prefs::kAutofillAiReauthBeforeViewingSensitiveData, true);
@@ -3553,11 +3713,16 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
   ON_CALL(autofill_client(), GetAutofillSuggestions)
       .WillByDefault(Return(suggestions));
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   // Simulate a failed re-auth.
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
   device_reauth::DeviceAuthenticator::AuthenticateCallback reauth_callback;
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
       .WillOnce(MoveArg<1>(&reauth_callback));
@@ -3607,22 +3772,27 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
 #endif  // PLATFORM_SUPPORTS_DEVICE_REAUTH
 
 class AutofillExternalDelegateWithAmbientAutofillTest
-    : public AutofillExternalDelegateTest {
+    : public AutofillExternalDelegateTest,
+      public testing::WithParamInterface<bool> {
  public:
   AutofillExternalDelegateWithAmbientAutofillTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {
-            features::kAutofillAiWithDataSchema,
-            features::kAutofillAiReauthRequired,
-            features::kAutofillAmbientAutofill,
-            features::kAutofillAmbientAutofillSuppression,
-            features::kAutofillAiWalletPrivatePasses,
+    std::vector<base::test::FeatureRef> enabled_features = {
+        features::kAutofillAiWithDataSchema,
+        features::kAutofillAiReauthRequired,
+        features::kAutofillAmbientAutofill,
+        features::kAutofillAmbientAutofillSuppression,
+        features::kAutofillAiWalletPrivatePasses,
 #if BUILDFLAG(IS_ANDROID)
-            features::kAutofillAiShowPersonalContextFillingYourInfoDialog,
+        features::kAutofillAiShowPersonalContextFillingYourInfoDialog,
 #endif  // BUILDFLAG(IS_ANDROID)
-        },
-        {});
+    };
+    std::vector<base::test::FeatureRef> disabled_features;
+    (IsRefactorEnabled() ? enabled_features : disabled_features)
+        .push_back(password_manager::features::kDeviceReauthRefactor);
+    scoped_feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
+
+  bool IsRefactorEnabled() const { return GetParam(); }
 
   void SetUp() override {
     AutofillExternalDelegateTest::SetUp();
@@ -3668,7 +3838,7 @@ class AutofillExternalDelegateWithAmbientAutofillTest
 // Tests that when accepting a `kFillAutofillAi` suggestion for a masked
 // personal context entity, the entity is fetched and a loading state is shown
 // if it is async.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        AutofillAiFillMaskedPersonalContextEntity) {
   constexpr auto kPassportNumberType =
       AttributeType(AttributeTypeName::kPassportNumber);
@@ -3692,10 +3862,24 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
       .WillByDefault(Return(suggestions));
 
   // Authenticator is not supported by the platform.
+  ON_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .WillByDefault([] {
+        auto checker = std::make_unique<
+            device_reauth::MockDeviceAuthAvailabilityChecker>();
+        EXPECT_CALL(*checker, CanAuthenticateWithBiometricOrScreenLock)
+            .WillOnce(Return(false));
+        return checker;
+      });
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(false));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(false));
+      .Times(IsRefactorEnabled() ? 0 : 1);
+  EXPECT_CALL(*authenticator, AuthenticateWithMessage).Times(0);
   test_api(autofill_manager().GetAutofillAiAccessManager())
       .SetDeviceAuthenticator(std::move(authenticator));
 
@@ -3747,7 +3931,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 // that requires re-authentication, the re-authentication flow is triggered and
 // the form is filled upon success. The loading dialog is shown on Android while
 // the data is fetched from the server.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        AutofillAiReauthFlow_PersonalContextEntity_ReauthAccepted) {
   EntityInstance full_passport = GetPassportEntityInstanceWithRandomGuid(
       {.record_type = EntityInstance::RecordType::kPersonalContext});
@@ -3766,11 +3950,16 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
   ON_CALL(autofill_client(), GetAutofillSuggestions)
       .WillByDefault(Return(all_suggestions));
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   // Init the authenticator.
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
   device_reauth::DeviceAuthenticator::AuthenticateCallback reauth_callback;
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
       .WillOnce(MoveArg<1>(&reauth_callback));
@@ -3845,7 +4034,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 // the form is filled upon success. The entity is returned directly if it's
 // unmasked. The loading dialog is not shown on Android because there's no
 // server request for the entity.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        AutofillAiReauthFlow_UnmaskedPersonalContextEntity_ReauthAccepted) {
   EntityInstance full_passport = GetPassportEntityInstanceWithRandomGuid(
       {.record_type = EntityInstance::RecordType::kPersonalContext});
@@ -3863,11 +4052,16 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
   ON_CALL(autofill_client(), GetAutofillSuggestions)
       .WillByDefault(Return(all_suggestions));
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   // Init the authenticator.
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
   device_reauth::DeviceAuthenticator::AuthenticateCallback reauth_callback;
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
       .WillOnce(MoveArg<1>(&reauth_callback));
@@ -3930,7 +4124,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 // The loading dialog is shown on Android during the server request to fetch
 // the entity. The loading dialog is closed even if the
 // `AutofillAiAccessManager` is deleted.
-TEST_F(
+TEST_P(
     AutofillExternalDelegateWithAmbientAutofillTest,
     AutofillAiReauthFlow_PersonalContextEntity_AutofillAiAccessManagerIsReset) {
   EntityInstance full_passport = GetPassportEntityInstanceWithRandomGuid(
@@ -3950,11 +4144,16 @@ TEST_F(
   ON_CALL(autofill_client(), GetAutofillSuggestions)
       .WillByDefault(Return(all_suggestions));
 
+  EXPECT_CALL(autofill_client(), GetDeviceAuthAvailabilityChecker)
+      .Times(IsRefactorEnabled() ? 1 : 0);
+
   // Init the authenticator.
   auto authenticator =
       std::make_unique<device_reauth::MockDeviceAuthenticator>();
+  ON_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
+      .WillByDefault(Return(true));
   EXPECT_CALL(*authenticator, CanAuthenticateWithBiometricOrScreenLock)
-      .WillOnce(Return(true));
+      .Times(IsRefactorEnabled() ? 0 : 1);
   device_reauth::DeviceAuthenticator::AuthenticateCallback reauth_callback;
   EXPECT_CALL(*authenticator, AuthenticateWithMessage)
       .WillOnce(MoveArg<1>(&reauth_callback));
@@ -4024,7 +4223,7 @@ TEST_F(
 
 // Tests that calling `RemoveSuggestion` for a `kFillAutofillAi` suggestion
 // fails and does not suppress when suppression feature is disabled.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_FeatureDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndDisableFeature(
@@ -4045,7 +4244,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 
 // Tests that calling `RemoveSuggestion` for a `kFillAutofillAi` suggestion
 // fails when the entity is not found in EntityDataManager.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_EntityNotFound) {
   IssueOnQuery({.fields = {{.role = PASSPORT_NUMBER}}});
   Suggestion suggestion(SuggestionType::kFillAutofillAi);
@@ -4058,7 +4257,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 // Tests that calling `RemoveSuggestion` for a `kFillAutofillAi` suggestion
 // fails and does not suppress when the entity has no merge constraints
 // satisfied.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_NoMergeConstraintsSatisfied) {
   // Passport requires either {number} or {name, country}. Setting only {name}
   // leaves no merge constraint satisfied.
@@ -4082,7 +4281,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 // Tests that accepting a `kRemoveAutofillAi` suggestion asks the user to
 // confirm in a dialog, and that the entity is suppressed and an undo is offered
 // only once the user confirms.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        DidAcceptSuggestion_RemoveAutofillAi_SuppressesAfterConfirmation) {
   EntityInstance passport = AddPersonalContextPassport();
   Suggestion remove_suggestion(SuggestionType::kRemoveAutofillAi);
@@ -4110,8 +4309,62 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
       EntitySuppressionConfirmationDialogResult::kAccepted, 1);
 }
 
+// Tests that manually suppressing a Personal Context entity records whether a
+// saved entity of the same type exists in `EntityDataManager`.
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
+       DidAcceptSuggestion_RemoveAutofillAi_LogsSavedEntityPresentMetric) {
+  {
+    base::HistogramTester histogram_tester;
+    EntityInstance pcontext_passport = AddPersonalContextPassport();
+    Suggestion remove_suggestion(SuggestionType::kRemoveAutofillAi);
+    remove_suggestion.payload =
+        Suggestion::AutofillAiPayload(pcontext_passport.guid());
+    EXPECT_CALL(autofill_client(), ShowAutofillAiSuppressionConfirmationDialog)
+        .WillOnce(RunOnceCallback<1>(/*confirmed=*/true));
+    EXPECT_CALL(autofill_client(), ShowAutofillAiSuggestionRemovedNotification);
+
+    external_delegate().DidAcceptSuggestion(remove_suggestion,
+                                            {.multi_index = {0}});
+    histogram_tester.ExpectUniqueSample(
+        "Autofill.Ai.Suppression.SavedEntityOfSameTypePresent", false, 1);
+    histogram_tester.ExpectUniqueSample(
+        "Autofill.Ai.Suppression.SavedEntityOfSameTypePresent.Passport", false,
+        1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+    AddOrUpdateEntityInstance(GetPassportEntityInstanceWithRandomGuid(
+        {.number = u"9999888877",
+         .record_type = EntityInstance::RecordType::kLocal}));
+
+    EntityInstance pcontext_passport2 = GetPassportEntityInstanceWithRandomGuid(
+        {.number = u"1111222233",
+         .record_type = EntityInstance::RecordType::kPersonalContext});
+    autofill_client().GetEntityDataManager()->OnPrefetchContextComplete(
+        personal_context_manager(),
+        std::vector<EntityInstance>{pcontext_passport2});
+    IssueOnQuery({.fields = {{.role = PASSPORT_NUMBER}}});
+
+    Suggestion remove_suggestion(SuggestionType::kRemoveAutofillAi);
+    remove_suggestion.payload =
+        Suggestion::AutofillAiPayload(pcontext_passport2.guid());
+    EXPECT_CALL(autofill_client(), ShowAutofillAiSuppressionConfirmationDialog)
+        .WillOnce(RunOnceCallback<1>(/*confirmed=*/true));
+    EXPECT_CALL(autofill_client(), ShowAutofillAiSuggestionRemovedNotification);
+
+    external_delegate().DidAcceptSuggestion(remove_suggestion,
+                                            {.multi_index = {0}});
+    histogram_tester.ExpectUniqueSample(
+        "Autofill.Ai.Suppression.SavedEntityOfSameTypePresent", true, 1);
+    histogram_tester.ExpectUniqueSample(
+        "Autofill.Ai.Suppression.SavedEntityOfSameTypePresent.Passport", true,
+        1);
+  }
+}
+
 // Tests that cancelling the dialog does not suppress the entity.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        DidAcceptSuggestion_RemoveAutofillAi_CancellationDoesNotSuppress) {
   EntityInstance passport = AddPersonalContextPassport();
   Suggestion remove_suggestion(SuggestionType::kRemoveAutofillAi);
@@ -4135,7 +4388,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 // also asks the user to confirm in the dialog. The removal itself reports
 // failure so that the suggestion is not removed from the UI before the user
 // confirms.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_SuppressesAfterConfirmation) {
   EntityInstance passport = AddPersonalContextPassport();
   Suggestion suggestion(SuggestionType::kFillAutofillAi);
@@ -4156,7 +4409,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 
 // Tests that the removal undo notification is shown after the user confirmed
 // the suppression in the dialog, and that undoing unsuppresses the entity.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_ShowsNotificationAfterConfirmation) {
   EntityInstance passport = AddPersonalContextPassport();
   Suggestion suggestion(SuggestionType::kFillAutofillAi);
@@ -4180,7 +4433,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 
 // Tests that the entity is not suppressed if the user confirms the dialog after
 // the delegate was destroyed.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_ConfirmationAfterDelegateDestroyed) {
   EntityInstance passport = AddPersonalContextPassport();
   Suggestion suggestion(SuggestionType::kFillAutofillAi);
@@ -4206,7 +4459,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 
 // Tests that calling `RemoveSuggestion` for a `kFillAutofillAi` suggestion
 // suppresses the corresponding entity in `EntitySuppressionManager`.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_SuppressesEntity) {
   EntityInstance full_passport = GetPassportEntityInstanceWithRandomGuid(
       {.record_type = EntityInstance::RecordType::kPersonalContext});
@@ -4224,7 +4477,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 
 // Tests that calling `RemoveSuggestion` for a `kFillAutofillAi` suggestion
 // succeeds if the entity was already suppressed.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_AlreadySuppressed) {
   EntityInstance full_passport = GetPassportEntityInstanceWithRandomGuid(
       {.record_type = EntityInstance::RecordType::kPersonalContext});
@@ -4248,7 +4501,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 
 // Tests that calling `RemoveSuggestion` for a `kFillAutofillAi` suggestion
 // calls `ShowAutofillAiSuggestionRemovedNotification`.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_ShowsNotification) {
   EntityInstance full_passport = GetPassportEntityInstanceWithRandomGuid(
       {.record_type = EntityInstance::RecordType::kPersonalContext});
@@ -4282,7 +4535,7 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
 
 // Tests that calling `RemoveSuggestion` for a non-kPersonalContext entity
 // returns false and does not suppress or show a notification.
-TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
+TEST_P(AutofillExternalDelegateWithAmbientAutofillTest,
        RemoveSuggestion_FillAutofillAi_NonPersonalContextRejected) {
   EntityInstance local_passport = GetPassportEntityInstanceWithRandomGuid(
       {.record_type = EntityInstance::RecordType::kLocal});
@@ -4297,6 +4550,10 @@ TEST_F(AutofillExternalDelegateWithAmbientAutofillTest,
   EXPECT_FALSE(autofill_client().GetEntitySuppressionManager()->IsSuppressed(
       local_passport));
 }
+
+INSTANTIATE_TEST_SUITE_P(,
+                         AutofillExternalDelegateWithAmbientAutofillTest,
+                         testing::Bool());
 
 TEST_F(AutofillExternalDelegateTest,
        ComposeSuggestion_ComposeProactiveNudge_ForwardsCaretBoundsToClient) {
@@ -5324,7 +5581,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_UsesSpecialAction) {
 
 // Tests that when an AtMemory search result requires async fetching,
 // accepting the suggestion triggers a loading state UI update.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AtMemorySearchResult_Async_TriggersLoadingState) {
   constexpr auto kPassportNumberType =
       AttributeType(AttributeTypeName::kPassportNumber);
@@ -5471,7 +5728,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_RevealsAutofillAi) {
 // Tests that accepting an AtMemory suggestion for a masked server AutofillAI
 // private pass successfully initiates the server unmasking flow and fills the
 // unmasked value.
-TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
+TEST_P(AutofillExternalDelegateWithWalletPrivatePassesTest,
        AtMemorySearchResult_RevealsPrivatePassAutofillAi) {
   constexpr auto kPassportNumberType =
       AttributeType(AttributeTypeName::kPassportNumber);
@@ -5513,6 +5770,10 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
   external_delegate().DidAcceptSuggestion(
       suggestion, SuggestionPosition{.multi_index = {0}});
 }
+
+INSTANTIATE_TEST_SUITE_P(,
+                         AutofillExternalDelegateWithWalletPrivatePassesTest,
+                         testing::Bool());
 
 TEST_F(AutofillExternalDelegateTest,
        ExternalDelegateHidesSuggestionsWhenNoSuggestionsReturned) {

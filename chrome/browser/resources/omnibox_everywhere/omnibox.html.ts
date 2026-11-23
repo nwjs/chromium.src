@@ -11,13 +11,12 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
     <div id="inputWrapper" @focusout="${this.onInputWrapperFocusout}"
         @keydown="${this.onInputWrapperKeydown}"
         @dragenter="${this.dragAndDropHandler.handleDragEnter}"
-        @dragover="${this.dragAndDropHandler.handleDragOver}"
+        @dragover="${this.onInputWrapperDragover_}"
         @dragleave="${this.dragAndDropHandler.handleDragLeave}"
         @drop="${this.dragAndDropHandler.handleDrop}">
       <search-animated-glow
-        .animationState="${this.animationState}"
+        .animationState="${this.computeGlowAnimationState_()}"
         .energyEffectAnimationEnabled="${this.energyEffectAnimationEnabled_}"
-        .entrypointName="${this.entrypointName}"
         part="animated-glow">
       </search-animated-glow>
       <cr-searchbox-input id="input"
@@ -34,6 +33,7 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
           ?input-has-matches="${this.hasMatches()}"
           ?allow-file-paste="${this.canAddFileContext_()}"
           @focusin="${this.onInputFocusin_}"
+          @searchbox-input-empty-changed="${this.onSearchboxInputEmptyChanged_}"
           @searchbox-input-files-pasted="${this.onSearchboxInputFilesPasted_}"
           @searchbox-input-text-updated="${this.onSearchboxInputTextUpdated_}"
           @input-focus-changed="${this.onInputFocusChanged}">
@@ -41,6 +41,8 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
       this.composeButtonEnabled ? html`
           <cr-searchbox-compose-button id="composeButton" slot="compose-button"
               ?dynamic="${this.ntpRealboxDynamicAiModeButtonEnabled_}"
+              ?inherit-visibility="${
+                  this.ntpRealboxDynamicAiModeButtonPreventEarlyPaint_}"
               ?has-user-input="${this.hasUserInput_}"
               ?virtual-focus-enabled="${this.virtualFocusEnabled}"
               ?has-virtual-focus="${this.isAiModeVirtualFocused()}"
@@ -66,7 +68,9 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
             ?hidden="${!this.dropdownIsVisible}">
         </cr-searchbox-dropdown>
       </div>
-      <div id="bottomControls">
+      <div id="bottomControls"
+          @animationend="${this.onBottomControlsAnimationEnd_}"
+          @animationcancel="${this.onBottomControlsAnimationEnd_}">
         ${this.isFuseboxEnabled ? html`
         <div class="contextualEntrypointContainer
                     contextualEntrypointContainerCompact">
@@ -118,6 +122,20 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
           </div>
           ` :
               ''}
+          <div class="searchbox-icon-button-container overflow ${
+              this.isOverflowMenuOpen ? 'menu-open' : ''}">
+            <button id="overflowMenuButton" class="searchbox-icon-button"
+                tabindex="${this.virtualFocusEnabled &&
+                    this.dropdownIsVisible ? -1 : 0}"
+                aria-haspopup="menu"
+                aria-expanded="${this.isOverflowMenuOpen}"
+                aria-label="${this.i18n('overflowMenuButtonLabel')}"
+                title="${this.i18n('overflowMenuButtonLabel')}"
+                @pointerdown="${this.onOverflowMenuPointerdown_}"
+                @pointercancel="${this.onOverflowMenuPointercancel_}"
+                @click="${this.onOverflowMenuClick_}">
+            </button>
+          </div>
         </div>
       </div>
     </div>

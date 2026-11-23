@@ -52,6 +52,10 @@ pub mod ffi {
         #[namespace = "url"]
         #[rust_name = "create_origin_from_gurl"]
         fn CreateOriginFromGURL(url: &GURL) -> UniquePtr<Origin>;
+
+        #[namespace = "url"]
+        #[rust_name = "origin_serialize"]
+        fn OriginSerialize(origin: &Origin) -> String;
     }
 
     impl UniquePtr<Origin> {}
@@ -68,12 +72,24 @@ impl ffi::SchemeHostPort {
 }
 
 impl ffi::Origin {
+    pub fn scheme(&self) -> &str {
+        if self.opaque() {
+            ""
+        } else {
+            self.get_tuple_or_precursor_tuple_if_opaque().scheme()
+        }
+    }
+
     pub fn host(&self) -> &str {
         if self.opaque() {
             ""
         } else {
             self.get_tuple_or_precursor_tuple_if_opaque().host()
         }
+    }
+
+    pub fn serialize(&self) -> String {
+        ffi::origin_serialize(self)
     }
 }
 

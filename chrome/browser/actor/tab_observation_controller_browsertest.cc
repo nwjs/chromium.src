@@ -4,10 +4,13 @@
 
 #include "chrome/browser/actor/tab_observation_controller.h"
 
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_metrics.h"
+#include "chrome/browser/actor/actor_surface_handle.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -17,6 +20,8 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/actor/core/actor_features.h"
+#include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/page_content_annotations/content/page_context_fetcher_metrics.h"
 #include "content/public/common/result_codes.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -63,6 +68,7 @@ class TabObservationControllerBrowserTest : public InProcessBrowserTest {
 };
 
 IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest, ObserveSingleTab) {
+  base::HistogramTester histogram_tester;
   TaskId task_id = CreateTask();
   GURL url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -83,6 +89,12 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest, ObserveSingleTab) {
   EXPECT_EQ(result->tab_observations[0].id(), tab->GetHandle().raw_value());
   EXPECT_EQ(result->tab_observations[0].result(),
             optimization_guide::proto::TabObservation::TAB_OBSERVATION_OK);
+  histogram_tester.ExpectUniqueSample(
+      kActorPageContextApcStatus,
+      optimization_guide::AIPageContentExtractionStatus::kSuccess, 1);
+  histogram_tester.ExpectUniqueSample(
+      kActorPageContextScreenshotStatus,
+      page_content_annotations::ScreenshotCaptureStatus::kSuccess, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
@@ -95,7 +107,7 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
   actor::AddTabToTask(*tab1, *actor_service()->GetTask(task_id));
 
   ui_test_utils::NavigateToURLWithDisposition(
-      browser(), url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      browser(), url, WindowOpenDisposition::kNewForegroundTab,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
   tabs::TabInterface* tab2 = browser()->GetActiveTabInterface();
   actor::AddTabToTask(*tab2, *actor_service()->GetTask(task_id));
@@ -203,6 +215,7 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerWithoutScreenshotBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
                        ObserveWithOmittedScreenshot) {
+  base::HistogramTester histogram_tester;
   TaskId task_id = CreateTask();
   GURL url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -211,9 +224,11 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
   actor::AddTabToTask(*tab, *actor_service()->GetTask(task_id));
 
   TabObservationStrategy strategy;
-  strategy.VoteForScreenshot(tab->GetHandle(), ScreenshotPolicy::kSkipped);
+  strategy.VoteForScreenshot(ActorSurfaceHandle::From(tab->GetHandle()),
+                             ScreenshotPolicy::kSkipped);
   strategy.VoteForPageContentExtraction(
-      tab->GetHandle(), PageContentExtractionPolicy::kRequested);
+      ActorSurfaceHandle::From(tab->GetHandle()),
+      PageContentExtractionPolicy::kRequested);
 
   base::test::TestFuture<TabObservationController*,
                          std::unique_ptr<ObservationResult>>
@@ -235,10 +250,15 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
       result->tab_observations[0].annotated_page_content_result(),
       optimization_guide::proto::TabObservation::ANNOTATED_PAGE_CONTENT_OK);
   EXPECT_TRUE(result->tab_observations[0].has_annotated_page_content());
+  histogram_tester.ExpectUniqueSample(
+      kActorPageContextApcStatus,
+      optimization_guide::AIPageContentExtractionStatus::kSuccess, 1);
+  histogram_tester.ExpectTotalCount(kActorPageContextScreenshotStatus, 0);
 }
 
 IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
                        ObserveWithOmittedApc) {
+  base::HistogramTester histogram_tester;
   TaskId task_id = CreateTask();
   GURL url = embedded_test_server()->GetURL("/title1.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
@@ -247,9 +267,11 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
   actor::AddTabToTask(*tab, *actor_service()->GetTask(task_id));
 
   TabObservationStrategy strategy;
-  strategy.VoteForScreenshot(tab->GetHandle(), ScreenshotPolicy::kRequested);
-  strategy.VoteForPageContentExtraction(tab->GetHandle(),
-                                        PageContentExtractionPolicy::kSkipped);
+  strategy.VoteForScreenshot(ActorSurfaceHandle::From(tab->GetHandle()),
+                             ScreenshotPolicy::kRequested);
+  strategy.VoteForPageContentExtraction(
+      ActorSurfaceHandle::From(tab->GetHandle()),
+      PageContentExtractionPolicy::kSkipped);
 
   base::test::TestFuture<TabObservationController*,
                          std::unique_ptr<ObservationResult>>
@@ -271,6 +293,10 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
       result->tab_observations[0].annotated_page_content_result(),
       optimization_guide::proto::TabObservation::ANNOTATED_PAGE_CONTENT_OK);
   EXPECT_FALSE(result->tab_observations[0].has_annotated_page_content());
+  histogram_tester.ExpectTotalCount(kActorPageContextApcStatus, 0);
+  histogram_tester.ExpectUniqueSample(
+      kActorPageContextScreenshotStatus,
+      page_content_annotations::ScreenshotCaptureStatus::kSuccess, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
@@ -283,9 +309,11 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
   actor::AddTabToTask(*tab, *actor_service()->GetTask(task_id));
 
   TabObservationStrategy strategy;
-  strategy.VoteForScreenshot(tab->GetHandle(), ScreenshotPolicy::kSkipped);
-  strategy.VoteForPageContentExtraction(tab->GetHandle(),
-                                        PageContentExtractionPolicy::kSkipped);
+  strategy.VoteForScreenshot(ActorSurfaceHandle::From(tab->GetHandle()),
+                             ScreenshotPolicy::kSkipped);
+  strategy.VoteForPageContentExtraction(
+      ActorSurfaceHandle::From(tab->GetHandle()),
+      PageContentExtractionPolicy::kSkipped);
 
   base::test::TestFuture<TabObservationController*,
                          std::unique_ptr<ObservationResult>>
@@ -319,9 +347,11 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
   actor::AddTabToTask(*tab, *actor_service()->GetTask(task_id));
 
   TabObservationStrategy strategy;
-  strategy.VoteForScreenshot(tab->GetHandle(), ScreenshotPolicy::kRequested);
-  strategy.VoteForPageContentExtraction(tab->GetHandle(),
-                                        PageContentExtractionPolicy::kSkipped);
+  strategy.VoteForScreenshot(ActorSurfaceHandle::From(tab->GetHandle()),
+                             ScreenshotPolicy::kRequested);
+  strategy.VoteForPageContentExtraction(
+      ActorSurfaceHandle::From(tab->GetHandle()),
+      PageContentExtractionPolicy::kSkipped);
 
   base::test::TestFuture<TabObservationController*,
                          std::unique_ptr<ObservationResult>>
@@ -371,9 +401,11 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
   actor::AddTabToTask(*tab, *actor_service()->GetTask(task_id));
 
   TabObservationStrategy strategy;
-  strategy.VoteForScreenshot(tab->GetHandle(), ScreenshotPolicy::kSkipped);
+  strategy.VoteForScreenshot(ActorSurfaceHandle::From(tab->GetHandle()),
+                             ScreenshotPolicy::kSkipped);
   strategy.VoteForPageContentExtraction(
-      tab->GetHandle(), PageContentExtractionPolicy::kRequested);
+      ActorSurfaceHandle::From(tab->GetHandle()),
+      PageContentExtractionPolicy::kRequested);
 
   base::test::TestFuture<TabObservationController*,
                          std::unique_ptr<ObservationResult>>
@@ -426,9 +458,11 @@ IN_PROC_BROWSER_TEST_F(TabObservationControllerBrowserTest,
   actor::AddTabToTask(*tab, *actor_service()->GetTask(task_id));
 
   TabObservationStrategy strategy;
-  strategy.VoteForScreenshot(tab->GetHandle(), ScreenshotPolicy::kSkipped);
-  strategy.VoteForPageContentExtraction(tab->GetHandle(),
-                                        PageContentExtractionPolicy::kSkipped);
+  strategy.VoteForScreenshot(ActorSurfaceHandle::From(tab->GetHandle()),
+                             ScreenshotPolicy::kSkipped);
+  strategy.VoteForPageContentExtraction(
+      ActorSurfaceHandle::From(tab->GetHandle()),
+      PageContentExtractionPolicy::kSkipped);
 
   base::test::TestFuture<TabObservationController*,
                          std::unique_ptr<ObservationResult>>

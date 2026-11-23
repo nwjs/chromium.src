@@ -24,15 +24,18 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/blocked_content/popup_blocker_tab_helper.h"
 #include "components/contextual_tasks/public/features.h"
-#include "components/lens/lens_features.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/pwn_open_url_helper.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/events/base_event_utils.h"
 
 namespace {
 
@@ -98,11 +101,8 @@ std::unique_ptr<KeyedService> BuildMockUiServiceForAuth(
 class LensSearchControllerUnificationBrowserTest : public InProcessBrowserTest {
  public:
   void SetUp() override {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{contextual_tasks::kContextualTasks, {}},
-         {lens::features::kLensSidePanelUnification,
-          {{"allow-signed-out", "true"}}}},
-        {});
+    feature_list_.InitAndDisableFeature(
+        contextual_tasks::kContextualTasksClobberActiveTab);
     InProcessBrowserTest::SetUp();
   }
 
@@ -228,14 +228,36 @@ class LensSearchControllerUnificationBrowserTest : public InProcessBrowserTest {
                  .ExtractString() == "complete";
     }));
 
-    // Now, we want to watch for a new tab.
-    ui_test_utils::AllBrowserTabAddedWaiter tab_waiter;
-
-    // Trigger window.open in the webview.
     GURL target_url = embedded_test_server()->GetURL("/title1.html");
     std::string open_script =
         base::StringPrintf("window.open('%s')", target_url.spec().c_str());
 
+    if (contextual_tasks::IsContextualTasksClobberActiveTabEnabled()) {
+      content::WebContents* active_contents =
+          browser()->GetTabStripModel()->GetActiveWebContents();
+      ASSERT_TRUE(active_contents);
+      int initial_tab_count = browser()->GetTabStripModel()->count();
+      content::TestNavigationObserver nav_observer(active_contents);
+
+      ASSERT_TRUE(
+          content::ExecJs(panel_wc, base::StringPrintf(R"(
+        const app = document.querySelector('contextual-tasks-app');
+        const webview = app ? app.shadowRoot.getElementById('threadFrame')
+                            : null;
+        webview.executeScript({code: "%s"});
+      )",
+                                                       open_script.c_str())));
+
+      nav_observer.Wait();
+      EXPECT_EQ(browser()->GetTabStripModel()->count(), initial_tab_count);
+      EXPECT_EQ(active_contents->GetVisibleURL(), target_url);
+      return;
+    }
+
+    // Now, we want to watch for a new tab.
+    ui_test_utils::AllBrowserTabAddedWaiter tab_waiter;
+
+    // Trigger window.open in the webview.
     ASSERT_TRUE(
         content::ExecJs(panel_wc, base::StringPrintf(R"(
       const app = document.querySelector('contextual-tasks-app');
@@ -335,85 +357,14 @@ IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
   EXPECT_TRUE(controller->should_route_to_contextual_tasks());
 }
 
-class LensSearchControllerUnificationSignOutDisabledTest
-    : public LensSearchControllerUnificationBrowserTest {
- public:
-  void SetUp() override {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{contextual_tasks::kContextualTasks, {}},
-         {lens::features::kLensSidePanelUnification,
-          {{"allow-signed-out", "false"}}}},
-        {});
-    InProcessBrowserTest::SetUp();
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationSignOutDisabledTest,
-                       RoutesToLegacyPanel_SignedOut_WithOverrideFlagDisabled) {
-  auto* mock_ui = GetMockUiService();
-  ASSERT_TRUE(mock_ui);
-  EXPECT_CALL(*mock_ui, IsSignedInToBrowserWithValidCredentials())
-      .WillRepeatedly(testing::Return(false));
-
-  auto* controller =
-      LensSearchController::From(browser()->GetActiveTabInterface());
-  ASSERT_TRUE(controller);
-
-  controller->OpenLensOverlay(
-      lens::LensOverlayInvocationSource::kContextualTasksComposebox);
-
-  EXPECT_FALSE(controller->should_route_to_contextual_tasks());
-}
-
-IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationSignOutDisabledTest,
-                       RoutesToUnifiedPanel_SignedIn_WithOverrideFlagDisabled) {
-  auto* mock_ui = GetMockUiService();
-  ASSERT_TRUE(mock_ui);
-  EXPECT_CALL(*mock_ui, IsSignedInToBrowserWithValidCredentials())
-      .WillRepeatedly(testing::Return(true));
-  EXPECT_CALL(*mock_ui, CookieJarContainsPrimaryAccount())
-      .WillRepeatedly(testing::Return(true));
-
-  auto* controller =
-      LensSearchController::From(browser()->GetActiveTabInterface());
-  ASSERT_TRUE(controller);
-
-  controller->OpenLensOverlay(
-      lens::LensOverlayInvocationSource::kContextualTasksComposebox);
-}
-
 IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
-                       IsWebUIEnabledInIncognito_WithUnificationEnabled) {
+                       IsWebUIEnabledInIncognito) {
   BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
   Profile* incognito_profile = incognito_browser->GetProfile();
   EXPECT_TRUE(incognito_profile->IsOffTheRecord());
 
   ContextualTasksUIConfig config;
   EXPECT_TRUE(config.IsWebUIEnabled(incognito_profile));
-}
-
-class LensSearchControllerUnificationDisabledTest
-    : public InProcessBrowserTest {
- public:
-  void SetUp() override {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{contextual_tasks::kContextualTasks, {}}},
-        {{lens::features::kLensSidePanelUnification}});
-    InProcessBrowserTest::SetUp();
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationDisabledTest,
-                       IsWebUIEnabledInIncognito_WithUnificationDisabled) {
-  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
-  Profile* incognito_profile = incognito_browser->GetProfile();
-  EXPECT_TRUE(incognito_profile->IsOffTheRecord());
-
-  ContextualTasksUIConfig config;
-  EXPECT_FALSE(config.IsWebUIEnabled(incognito_profile));
 }
 
 IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
@@ -424,6 +375,30 @@ IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
                        LinkClickInPanelOpensNewTabWhenAimIneligible) {
+  VerifyLinkClickInPanelOpensNewTab(/*aim_eligible=*/false,
+                                    /*cobrowse_eligible=*/false);
+}
+
+class LensSearchControllerUnificationClobberActiveTabBrowserTest
+    : public LensSearchControllerUnificationBrowserTest {
+ public:
+  void SetUp() override {
+    feature_list_.InitAndEnableFeature(
+        contextual_tasks::kContextualTasksClobberActiveTab);
+    InProcessBrowserTest::SetUp();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(
+    LensSearchControllerUnificationClobberActiveTabBrowserTest,
+    LinkClickInPanelClobbersActiveTabWhenCobrowseIneligible) {
+  VerifyLinkClickInPanelOpensNewTab(/*aim_eligible=*/true,
+                                    /*cobrowse_eligible=*/false);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    LensSearchControllerUnificationClobberActiveTabBrowserTest,
+    LinkClickInPanelClobbersActiveTabWhenAimIneligible) {
   VerifyLinkClickInPanelOpensNewTab(/*aim_eligible=*/false,
                                     /*cobrowse_eligible=*/false);
 }
@@ -466,8 +441,8 @@ IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
   constexpr int kSpam = 3;
   for (int i = 0; i < kSpam; ++i) {
     WindowOpenDisposition d = (i < kSpam - 1)
-                                  ? WindowOpenDisposition::NEW_BACKGROUND_TAB
-                                  : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+                                  ? WindowOpenDisposition::kNewBackgroundTab
+                                  : WindowOpenDisposition::kNewForegroundTab;
     content::PwnOpenURLWithDisposition(panel_rfh, popup_target, d,
                                        /*user_gesture=*/true);
   }
@@ -519,7 +494,7 @@ IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
   const int tabs_before = browser()->GetTabStripModel()->count();
   GURL target_url = embedded_test_server()->GetURL("/title2.html");
   content::PwnOpenURLWithDisposition(panel_rfh, target_url,
-                                     WindowOpenDisposition::CURRENT_TAB,
+                                     WindowOpenDisposition::kCurrentTab,
                                      /*user_gesture=*/true);
 
   EXPECT_EQ(tabs_before, browser()->GetTabStripModel()->count());
@@ -529,4 +504,80 @@ IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
       blocked_content::PopupBlockerTabHelper::FromWebContents(active_tab);
   ASSERT_TRUE(popup_blocker);
   EXPECT_EQ(1u, popup_blocker->GetBlockedPopupsCount());
+}
+
+IN_PROC_BROWSER_TEST_F(LensSearchControllerUnificationBrowserTest,
+                       ModifiedClickInPanelOpensNewTabWithoutPopupBlock) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL initial_url = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), initial_url));
+
+  content::WebContents* active_tab =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  ASSERT_EQ(initial_url, active_tab->GetLastCommittedURL());
+
+  MockContextualTasksUiServiceForAuth* ui_service = GetMockUiService();
+  ASSERT_TRUE(ui_service);
+  auto* side_panel_ui = SidePanelUI::From(browser());
+  ASSERT_TRUE(side_panel_ui);
+
+  GURL guest_url = embedded_test_server()->GetURL("/empty.html");
+  ui_service->StartTaskUiInSidePanel(
+      browser(), browser()->GetActiveTabInterface(), guest_url,
+      /*session_handle=*/nullptr);
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return side_panel_ui->IsSidePanelShowing() &&
+           side_panel_ui->GetCurrentEntryId() ==
+               SidePanelEntry::Id::kContextualTasks;
+  }));
+
+  auto* controller =
+      contextual_tasks::ContextualTasksPanelController::From(browser());
+  ASSERT_TRUE(controller);
+  content::WebContents* panel_wc = controller->GetActiveWebContents();
+  ASSERT_TRUE(panel_wc);
+  EXPECT_TRUE(content::WaitForLoadStop(panel_wc));
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !panel_wc->GetInnerWebContents().empty(); }));
+  content::WebContents* guest_wc = panel_wc->GetInnerWebContents()[0];
+  ASSERT_TRUE(guest_wc);
+  EXPECT_TRUE(content::WaitForLoadStop(guest_wc));
+
+  const int tabs_before = browser()->GetTabStripModel()->count();
+  GURL target_url = embedded_test_server()->GetURL("/title2.html");
+
+  blink::WebMouseEvent mouse_event(blink::WebInputEvent::Type::kMouseDown,
+                                   blink::WebInputEvent::kControlKey,
+                                   ui::EventTimeForNow());
+  mouse_event.button = blink::WebMouseEvent::Button::kLeft;
+  guest_wc->GetPrimaryMainFrame()
+      ->GetRenderWidgetHost()
+      ->SimulateUserInteraction(mouse_event);
+
+  ui_test_utils::TabAddedWaiter tab_waiter(browser());
+  ASSERT_TRUE(content::ExecJs(guest_wc, content::JsReplace(R"(
+        const a = document.createElement('a');
+        a.href = $1;
+        a.textContent = 'Open in new tab';
+        document.body.appendChild(a);
+        a.dispatchEvent(new MouseEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          ctrlKey: true,
+          metaKey: true,
+        }));
+      )",
+                                                           target_url)));
+  content::WebContents* new_tab = tab_waiter.Wait();
+  ASSERT_TRUE(new_tab);
+  EXPECT_TRUE(content::WaitForLoadStop(new_tab));
+
+  EXPECT_EQ(tabs_before + 1, browser()->GetTabStripModel()->count());
+  EXPECT_EQ(target_url, new_tab->GetLastCommittedURL());
+  auto* popup_blocker =
+      blocked_content::PopupBlockerTabHelper::FromWebContents(active_tab);
+  ASSERT_TRUE(popup_blocker);
+  EXPECT_EQ(0u, popup_blocker->GetBlockedPopupsCount());
 }

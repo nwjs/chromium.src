@@ -184,9 +184,6 @@ class CC_PAINT_EXPORT DisplayItemList
   bool has_draw_text_ops() const {
     return paint_op_buffer_.has_draw_text_ops();
   }
-  bool has_save_layer_ops() const {
-    return paint_op_buffer_.has_save_layer_ops();
-  }
   bool has_save_layer_alpha_ops() const {
     return paint_op_buffer_.has_save_layer_alpha_ops();
   }
@@ -197,8 +194,8 @@ class CC_PAINT_EXPORT DisplayItemList
   bool has_discardable_images() const {
     return paint_op_buffer_.has_discardable_images();
   }
-  gfx::ContentColorUsage content_color_usage() const {
-    return paint_op_buffer_.content_color_usage();
+  const gfx::ContentColorVolume& content_color_volume() const {
+    return paint_op_buffer_.content_color_volume();
   }
 
   // Ops with nested paint ops are considered as a single op.

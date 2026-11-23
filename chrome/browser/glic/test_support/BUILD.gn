@@ -14,6 +14,8 @@ source_set("test_support") {
     "fake_web_contents_manager.h",
     "glic_api_test.cc",
     "glic_api_test.h",
+    "glic_api_test_passkeys.cc",
+    "glic_api_test_passkeys.h",
     "glic_browser_test.h",
     "glic_drag_and_drop_test_base.cc",
     "glic_drag_and_drop_test_base.h",
@@ -30,6 +32,8 @@ source_set("test_support") {
     "mock_glic_instance_coordinator.h",
     "mock_glic_keyed_service.cc",
     "mock_glic_keyed_service.h",
+    "scoped_page_context_eligibility.cc",
+    "scoped_page_context_eligibility.h",
     "test_result.h",
   ]
   if (!is_android) {
@@ -58,6 +62,8 @@ source_set("test_support") {
     "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//components/feature_engagement/test:test_support",
+    "//components/optimization_guide/content/browser:page_context_eligibility",
+    "//components/optimization_guide/content/browser:page_context_eligibility_api",
     "//components/signin/public/identity_manager:test_support",
     "//components/skills:features",
   ]

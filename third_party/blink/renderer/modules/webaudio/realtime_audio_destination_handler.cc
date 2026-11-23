@@ -26,7 +26,6 @@
 #include "third_party/blink/renderer/platform/bindings/exception_messages.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
 
 namespace blink {
@@ -68,6 +67,7 @@ RealtimeAudioDestinationHandler::RealtimeAudioDestinationHandler(
   channel_count_ = kDefaultNumberOfInputChannels;
   SetInternalChannelCountMode(V8ChannelCountMode::Enum::kExplicit);
   SetInternalChannelInterpretation(AudioBus::kSpeakers);
+  weak_this_ = weak_ptr_factory_.GetWeakPtr();
 }
 
 RealtimeAudioDestinationHandler::~RealtimeAudioDestinationHandler() {
@@ -342,8 +342,7 @@ void RealtimeAudioDestinationHandler::SetDetectSilenceIfNecessary(
     PostCrossThreadTask(
         *task_runner_, FROM_HERE,
         CrossThreadBindOnce(&RealtimeAudioDestinationHandler::SetDetectSilence,
-                            weak_ptr_factory_.GetWeakPtr(),
-                            needs_silence_detection));
+                            weak_this_, needs_silence_detection));
     is_detecting_silence_ = needs_silence_detection;
   }
 }

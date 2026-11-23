@@ -94,12 +94,8 @@ class SingleClientTabContextSyncTest
       public testing::WithParamInterface<SyncTest::SetupSyncMode> {
  public:
   SingleClientTabContextSyncTest() : SyncTest(SINGLE_CLIENT) {
-    std::vector<base::test::FeatureRef> enabled_features = {
-        syncer::kSyncEncryptedTabContextContainer};
-    if (GetSetupSyncMode() == SetupSyncMode::kSyncTransportOnly) {
-      enabled_features.push_back(syncer::kReplaceSyncPromosWithSignInPromos);
-    }
-    feature_overrides_.InitWithFeatures(enabled_features, {});
+    feature_overrides_.InitAndEnableFeature(
+        syncer::kSyncEncryptedTabContextContainer);
   }
 
   SingleClientTabContextSyncTest(const SingleClientTabContextSyncTest&) =
@@ -196,14 +192,14 @@ INSTANTIATE_TEST_SUITE_P(,
                          testing::PrintToStringParamName());
 
 IN_PROC_BROWSER_TEST_P(SingleClientTabContextSyncTest,
-                       ShouldNotActivateWithoutTrustedVaultPassphrase) {
+                       ShouldNotCreateContainerWithoutTrustedVaultPassphrase) {
   ASSERT_TRUE(SetupSync());
   ASSERT_NE(GetSyncService(0)->GetUserSettings()->GetPassphraseType(),
             syncer::PassphraseType::kTrustedVaultPassphrase);
 
-  EXPECT_FALSE(GetSyncService(0)->GetActiveDataTypes().Has(
+  EXPECT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
       syncer::ENCRYPTED_TAB_CONTEXT_CONTAINER));
-  EXPECT_FALSE(GetSyncService(0)->GetActiveDataTypes().Has(
+  EXPECT_TRUE(GetSyncService(0)->GetActiveDataTypes().Has(
       syncer::ENCRYPTED_TAB_CONTEXT_ITEM));
   EXPECT_EQ(GetTabContextSyncService().CreateContainer(), std::nullopt);
 }

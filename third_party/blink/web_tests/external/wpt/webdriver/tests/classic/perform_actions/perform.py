@@ -4,6 +4,53 @@ from tests.support.classic.asserts import assert_success
 from . import perform_actions
 
 
+@pytest.mark.parametrize("pointer_action", ["pointerDown", "pointerMove", "pointerUp"])
+@pytest.mark.parametrize("dimension", ["width", "height"])
+@pytest.mark.parametrize("value", [0, 0.1])
+def test_pointer_action_common_properties_dimensions_valid(
+    session, pointer_action, dimension, value
+):
+    action = {"type": pointer_action, "width": 0, "height": 0}
+    action[dimension] = value
+    if pointer_action == "pointerMove":
+        action.update({"x": 0, "y": 0})
+    else:
+        action["button"] = 0
+
+    actions = []
+    if pointer_action == "pointerUp":
+        actions.append({"type": "pointerDown", "button": 0})
+    actions.append(action)
+    if pointer_action == "pointerDown":
+        actions.append({"type": "pointerUp", "button": 0})
+
+    response = perform_actions(
+        session, [{"type": "pointer", "id": "dimension-test", "actions": actions}]
+    )
+    assert_success(response)
+
+
+@pytest.mark.parametrize("pointer_action", ["pointerDown", "pointerMove", "pointerUp"])
+def test_pointer_action_common_properties_dimensions_missing(session, pointer_action):
+    action = {"type": pointer_action}
+    if pointer_action == "pointerMove":
+        action.update({"x": 0, "y": 0})
+    else:
+        action["button"] = 0
+
+    actions = []
+    if pointer_action == "pointerUp":
+        actions.append({"type": "pointerDown", "button": 0})
+    actions.append(action)
+    if pointer_action == "pointerDown":
+        actions.append({"type": "pointerUp", "button": 0})
+
+    response = perform_actions(
+        session, [{"type": "pointer", "id": "dimension-test", "actions": actions}]
+    )
+    assert_success(response)
+
+
 @pytest.mark.parametrize("action_type", ["none", "key", "pointer", "wheel"])
 def test_input_source_action_sequence_actions_pause_duration_valid(
     session, action_type

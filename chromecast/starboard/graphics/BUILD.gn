@@ -19,15 +19,14 @@ shared_library("GL_starboard") {
     ]
   } else {
     sources += [
+      "//chromecast/starboard/chromecast/starboard_cast_dummy/cast_starboard_api_dummy.cc",
       "egl_starboard.cc",
       "gles2_starboard.cc",
     ]
-    configs += [
-      "//chromecast/starboard/third_party/starboard/sabi",
-      "//third_party/khronos:khronos_headers",
-    ]
+    configs += [ "//chromecast/starboard/third_party/starboard/sabi" ]
     deps += [
-      "//chromecast/starboard/chromecast/starboard_cast_dummy:cast_starboard_api",
+      "//base:compiler_specific",
+      "//chromecast/public",
       "//chromecast/starboard/third_party/starboard/public",
     ]
   }
@@ -39,15 +38,16 @@ source_set("graphics") {
     "graphics_properties_default.cc",
   ]
   deps = [
-    ":GL_starboard",
     "//base",
     "//chromecast/public",
     "//chromecast/starboard:starboard_buildflags",
     "//chromecast/starboard/chromecast/starboard_adapter",
   ]
+  data_deps = [ ":GL_starboard" ]
   if (!remove_starboard_headers) {
     configs += [ "//chromecast/starboard/third_party/starboard/sabi" ]
     deps += [
+      "//chromecast/starboard:starboard_adapter_loader",
       "//chromecast/starboard/chromecast/starboard_cast_dummy:cast_starboard_api",
       "//chromecast/starboard/third_party/starboard/public",
     ]

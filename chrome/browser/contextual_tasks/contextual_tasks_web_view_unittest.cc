@@ -5,6 +5,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_web_view.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -26,6 +27,8 @@
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service_delegate.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
+#include "chrome/browser/themes/theme_service.h"
+#include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
@@ -40,6 +43,7 @@
 #include "content/public/browser/file_select_listener.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
@@ -50,6 +54,9 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/choosers/file_chooser.mojom.h"
+#include "third_party/blink/public/mojom/css/preferred_color_scheme.mojom.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/shell_dialogs/fake_select_file_dialog.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
@@ -574,10 +581,11 @@ TEST_F(ContextualTasksWebViewTest, OpenURLFromTab_RejectsNonWebSchemes) {
       GURL("about:blank"),
   };
   for (const GURL& url : kNonWebUrls) {
-    content::OpenURLParams params(url, content::Referrer(),
-                                  WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                  ui::PAGE_TRANSITION_LINK,
-                                  /*is_renderer_initiated=*/true);
+    content::OpenURLParams params(
+        url, content::Referrer(),
+        ui::mojom::WindowOpenDisposition::kNewForegroundTab,
+        ui::PAGE_TRANSITION_LINK,
+        /*is_renderer_initiated=*/true);
     params.user_gesture = true;
     EXPECT_EQ(nullptr, web_view_->OpenURLFromTab(panel_contents.get(), params,
                                                  base::NullCallback()));
@@ -608,7 +616,7 @@ TEST_F(
 
   const GURL kTargetUrl("https://example.com/target");
   content::OpenURLParams params(kTargetUrl, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
+                                ui::mojom::WindowOpenDisposition::kCurrentTab,
                                 ui::PAGE_TRANSITION_LINK,
                                 /*is_renderer_initiated=*/true);
   params.user_gesture = true;
@@ -623,7 +631,7 @@ TEST_F(
                     base::OnceCallback<void(content::NavigationHandle&)>) {
         EXPECT_EQ(kTargetUrl, forwarded_params.url);
         EXPECT_FALSE(forwarded_params.user_gesture);
-        EXPECT_EQ(WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        EXPECT_EQ(ui::mojom::WindowOpenDisposition::kNewForegroundTab,
                   forwarded_params.disposition);
         EXPECT_TRUE(forwarded_params.frame_tree_node_id.is_null());
         return tab_contents.get();
@@ -658,7 +666,8 @@ TEST_F(ContextualTasksWebViewTest,
 
   content::OpenURLParams params(
       GURL("https://example.com/target"), content::Referrer(),
-      WindowOpenDisposition::NEW_BACKGROUND_TAB, ui::PAGE_TRANSITION_LINK,
+      ui::mojom::WindowOpenDisposition::kNewBackgroundTab,
+      ui::PAGE_TRANSITION_LINK,
       /*is_renderer_initiated=*/true);
   params.user_gesture = true;
   params.source_render_process_id = panel_rfh->GetProcess()->GetDeprecatedID();
@@ -669,7 +678,7 @@ TEST_F(ContextualTasksWebViewTest,
                     const content::OpenURLParams& forwarded_params,
                     base::OnceCallback<void(content::NavigationHandle&)>) {
         EXPECT_TRUE(forwarded_params.user_gesture);
-        EXPECT_EQ(WindowOpenDisposition::NEW_BACKGROUND_TAB,
+        EXPECT_EQ(ui::mojom::WindowOpenDisposition::kNewBackgroundTab,
                   forwarded_params.disposition);
         return tab_contents.get();
       });
@@ -677,6 +686,72 @@ TEST_F(ContextualTasksWebViewTest,
   EXPECT_EQ(tab_contents.get(),
             web_view_->OpenURLFromTab(panel_contents.get(), params,
                                       base::NullCallback()));
+
+  tab_contents->SetDelegate(nullptr);
+}
+
+TEST_F(
+    ContextualTasksWebViewTest,
+    OpenURLFromTab_PreservesGestureWhenBlinkConsumesTransientActivationFirst) {
+  tabs::MockTabInterface mock_tab;
+  std::unique_ptr<content::WebContents> tab_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  NiceMock<MockTabWebContentsDelegate> tab_delegate;
+  tab_contents->SetDelegate(&tab_delegate);
+  ON_CALL(mock_tab, GetContents()).WillByDefault(Return(tab_contents.get()));
+  ON_CALL(*browser_window_, GetActiveTabInterface())
+      .WillByDefault(Return(&mock_tab));
+
+  web_view_ = std::make_unique<ContextualTasksWebView>(browser_window_.get());
+  std::unique_ptr<content::WebContents> panel_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  web_view_->SetWebContents(panel_contents.get());
+
+  content::RenderFrameHost* panel_rfh = panel_contents->GetPrimaryMainFrame();
+  content::WebContentsTester::For(panel_contents.get())
+      ->TestDidReceiveMouseDownEvent();
+  content::RenderFrameHostTester::For(panel_rfh)->SimulateUserActivation();
+  // Simulate Blink's `FrameLoader::StartNavigation()` consuming transient user
+  // activation on the frame before sending the `FrameHost::OpenURL` IPC for a
+  // Cmd+Click / Ctrl+Click navigation.
+  EXPECT_TRUE(panel_rfh->ConsumeTransientUserActivation());
+  ASSERT_FALSE(panel_rfh->HasTransientUserActivation());
+
+  content::OpenURLParams params(
+      GURL("https://example.com/target"), content::Referrer(),
+      ui::mojom::WindowOpenDisposition::kNewBackgroundTab,
+      ui::PAGE_TRANSITION_LINK,
+      /*is_renderer_initiated=*/true);
+  params.user_gesture = true;
+  params.source_render_process_id = panel_rfh->GetProcess()->GetDeprecatedID();
+  params.source_render_frame_id = panel_rfh->GetRoutingID();
+
+  EXPECT_CALL(tab_delegate, OpenURLFromTab(tab_contents.get(), _, _))
+      .WillOnce([&](content::WebContents* source,
+                    const content::OpenURLParams& forwarded_params,
+                    base::OnceCallback<void(content::NavigationHandle&)>) {
+        EXPECT_TRUE(forwarded_params.user_gesture);
+        EXPECT_EQ(ui::mojom::WindowOpenDisposition::kNewBackgroundTab,
+                  forwarded_params.disposition);
+        return tab_contents.get();
+      });
+
+  EXPECT_EQ(tab_contents.get(),
+            web_view_->OpenURLFromTab(panel_contents.get(), params,
+                                      base::NullCallback()));
+
+  // A subsequent `OpenURLFromTab()` without a new user interaction must have
+  // its gesture stripped so a single click cannot be replayed.
+  EXPECT_CALL(tab_delegate, OpenURLFromTab(tab_contents.get(), _, _))
+      .WillOnce([&](content::WebContents* source,
+                    const content::OpenURLParams& forwarded_params,
+                    base::OnceCallback<void(content::NavigationHandle&)>) {
+        EXPECT_FALSE(forwarded_params.user_gesture);
+        return nullptr;
+      });
+
+  EXPECT_EQ(nullptr, web_view_->OpenURLFromTab(panel_contents.get(), params,
+                                               base::NullCallback()));
 
   tab_contents->SetDelegate(nullptr);
 }
@@ -706,7 +781,8 @@ TEST_F(ContextualTasksWebViewTest,
 
   content::OpenURLParams params(
       GURL("https://example.com/target"), content::Referrer(),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK,
+      ui::mojom::WindowOpenDisposition::kNewForegroundTab,
+      ui::PAGE_TRANSITION_LINK,
       /*is_renderer_initiated=*/true);
   params.user_gesture = true;
   params.source_render_process_id =
@@ -745,7 +821,7 @@ TEST_F(ContextualTasksWebViewTest,
 
   content::OpenURLParams params(
       GURL("https://example.com/incognito"), content::Referrer(),
-      WindowOpenDisposition::OFF_THE_RECORD, ui::PAGE_TRANSITION_LINK,
+      ui::mojom::WindowOpenDisposition::kOffTheRecord, ui::PAGE_TRANSITION_LINK,
       /*is_renderer_initiated=*/false);
   params.user_gesture = true;
   params.started_from_context_menu = true;
@@ -755,7 +831,7 @@ TEST_F(ContextualTasksWebViewTest,
                     const content::OpenURLParams& forwarded_params,
                     base::OnceCallback<void(content::NavigationHandle&)>) {
         EXPECT_TRUE(forwarded_params.user_gesture);
-        EXPECT_EQ(WindowOpenDisposition::OFF_THE_RECORD,
+        EXPECT_EQ(ui::mojom::WindowOpenDisposition::kOffTheRecord,
                   forwarded_params.disposition);
         return tab_contents.get();
       });
@@ -786,12 +862,13 @@ TEST_F(ContextualTasksWebViewTest, PropagatesAiPageAndThreadTitleOnNavigation) {
   EXPECT_TRUE(toolbar_ui->IsAiPage());
   EXPECT_EQ(toolbar_ui->GetThreadTitle(), "hello world");
 
-  // Follow-up AI navigation without  preserves the existing thread title.
+  // Navigating to an AI URL without q clears the thread title so stale titles
+  // from other threads do not persist.
   content::NavigationSimulator::NavigateAndCommitFromDocument(
       GURL("https://ai.google.com/search?mtid=1&mstk=2"),
       web_contents->GetPrimaryMainFrame());
   EXPECT_TRUE(toolbar_ui->IsAiPage());
-  EXPECT_EQ(toolbar_ui->GetThreadTitle(), "hello world");
+  EXPECT_EQ(toolbar_ui->GetThreadTitle(), std::nullopt);
 
   // Starting a navigation to a non-AI URL immediately sets IsAiPage to false,
   // and committing it clears the thread title.
@@ -874,12 +951,27 @@ TEST_F(ContextualTasksWebViewTest, SetWebContentsUpdatesAiPageAndThreadTitle) {
   content::NavigationSimulator::NavigateAndCommitFromDocument(
       GURL("https://ai.google.com/search"), wc3->GetPrimaryMainFrame());
 
+  // WebContents 4: AI thread without a query parameter (e.g. visual search).
+  std::unique_ptr<content::WebContents> wc4 =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  content::NavigationSimulator::NavigateAndCommitFromDocument(
+      GURL("https://ai.google.com/search?mtid=2&mstk=1"),
+      wc4->GetPrimaryMainFrame());
+
   web_view_->SetWebContents(wc1.get());
   EXPECT_TRUE(toolbar_ui->IsAiPage());
   EXPECT_EQ(toolbar_ui->GetThreadTitle(), "first thread");
 
   web_view_->SetWebContents(wc2.get());
   EXPECT_FALSE(toolbar_ui->IsAiPage());
+  EXPECT_EQ(toolbar_ui->GetThreadTitle(), std::nullopt);
+
+  web_view_->SetWebContents(wc1.get());
+  EXPECT_TRUE(toolbar_ui->IsAiPage());
+  EXPECT_EQ(toolbar_ui->GetThreadTitle(), "first thread");
+
+  web_view_->SetWebContents(wc4.get());
+  EXPECT_TRUE(toolbar_ui->IsAiPage());
   EXPECT_EQ(toolbar_ui->GetThreadTitle(), std::nullopt);
 
   web_view_->SetWebContents(wc1.get());
@@ -984,6 +1076,152 @@ TEST_F(ContextualTasksWebViewTest,
   EXPECT_EQ(
       dark_web_contents->GetOrCreateWebPreferences().preferred_color_scheme,
       blink::mojom::PreferredColorScheme::kDark);
+}
+
+TEST_F(ContextualTasksWebViewTest,
+       OnThemeChangedUpdatesBackgroundsAndWebContentsColorSchemes) {
+  ThemeService* theme_service = ThemeServiceFactory::GetForProfile(profile_);
+  ASSERT_NE(theme_service, nullptr);
+  theme_service->SetBrowserColorScheme(
+      ThemeService::BrowserColorScheme::kLight);
+
+  web_view_ = std::make_unique<ContextualTasksWebView>(browser_window_.get());
+  std::unique_ptr<content::WebContents> content_wc =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  web_view_->SetWebContents(content_wc.get());
+
+  views::View* content_container = web_view_->content_web_view()->parent();
+  ASSERT_NE(content_container, nullptr);
+  EXPECT_EQ(web_view_->GetBackground()->color(),
+            ui::ColorVariant(SK_ColorWHITE));
+  EXPECT_EQ(content_container->GetBackground()->color(),
+            ui::ColorVariant(SK_ColorWHITE));
+  EXPECT_EQ(web_view_->toolbar_web_view()
+                ->GetWebContents()
+                ->GetOrCreateWebPreferences()
+                .preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kLight);
+  EXPECT_EQ(web_view_->ghost_loader_view()
+                ->GetWebContents()
+                ->GetOrCreateWebPreferences()
+                .preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kLight);
+  EXPECT_EQ(content_wc->GetOrCreateWebPreferences().preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kLight);
+
+  // Switch Chrome appearance to Dark while the side panel view is open.
+  theme_service->SetBrowserColorScheme(ThemeService::BrowserColorScheme::kDark);
+  web_view_->OnThemeChanged();
+
+  EXPECT_EQ(web_view_->GetBackground()->color(),
+            ui::ColorVariant(SkColorSetRGB(34, 36, 43)));
+  EXPECT_EQ(content_container->GetBackground()->color(),
+            ui::ColorVariant(SkColorSetRGB(34, 36, 43)));
+  EXPECT_EQ(web_view_->toolbar_web_view()
+                ->GetWebContents()
+                ->GetOrCreateWebPreferences()
+                .preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kDark);
+  EXPECT_EQ(web_view_->ghost_loader_view()
+                ->GetWebContents()
+                ->GetOrCreateWebPreferences()
+                .preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kDark);
+  EXPECT_EQ(content_wc->GetOrCreateWebPreferences().preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kDark);
+
+  // Switch Chrome appearance back to Light while still open.
+  theme_service->SetBrowserColorScheme(
+      ThemeService::BrowserColorScheme::kLight);
+  web_view_->OnThemeChanged();
+
+  EXPECT_EQ(web_view_->GetBackground()->color(),
+            ui::ColorVariant(SK_ColorWHITE));
+  EXPECT_EQ(content_container->GetBackground()->color(),
+            ui::ColorVariant(SK_ColorWHITE));
+  EXPECT_EQ(web_view_->toolbar_web_view()
+                ->GetWebContents()
+                ->GetOrCreateWebPreferences()
+                .preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kLight);
+  EXPECT_EQ(web_view_->ghost_loader_view()
+                ->GetWebContents()
+                ->GetOrCreateWebPreferences()
+                .preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kLight);
+  EXPECT_EQ(content_wc->GetOrCreateWebPreferences().preferred_color_scheme,
+            blink::mojom::PreferredColorScheme::kLight);
+}
+
+TEST_F(ContextualTasksWebViewTest,
+       ErrorPageScrimTakesPrecedenceOverGhostLoaderAndPersistsAcrossLoads) {
+  web_view_ = std::make_unique<ContextualTasksWebView>(browser_window_.get());
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+  web_view_->SetWebContents(web_contents.get());
+
+  EXPECT_FALSE(web_view_->IsGhostLoaderVisible());
+  EXPECT_FALSE(web_view_->IsErrorPageVisible());
+
+  // Showing the error page displays the scrim in error-page mode (`#error`).
+  web_view_->SetErrorPageVisible(true);
+  EXPECT_TRUE(web_view_->IsErrorPageVisible());
+  EXPECT_FALSE(web_view_->IsGhostLoaderVisible());
+  EXPECT_TRUE(web_view_->ghost_loader_view()->GetVisible());
+  EXPECT_TRUE(web_view_->ghost_loader_view()->is_showing_error_page());
+  EXPECT_EQ(
+      web_view_->ghost_loader_view()->GetWebContents()->GetVisibleURL().ref(),
+      "error");
+
+  // Background content navigations and paint/load completion events must not
+  // dismiss the error page scrim.
+  auto sim = content::NavigationSimulator::CreateRendererInitiated(
+      GURL("https://www.google.com/search?q=test"),
+      web_contents->GetPrimaryMainFrame());
+  sim->Start();
+  EXPECT_TRUE(web_view_->IsErrorPageVisible());
+  EXPECT_FALSE(web_view_->IsGhostLoaderVisible());
+
+  sim->Commit();
+  web_view_->DidFirstVisuallyNonEmptyPaint();
+  web_view_->DidStopLoading();
+  EXPECT_TRUE(web_view_->IsErrorPageVisible());
+  EXPECT_FALSE(web_view_->IsGhostLoaderVisible());
+
+  // Explicitly hiding the error page returns the scrim to hidden ghost-loader
+  // mode.
+  web_view_->SetErrorPageVisible(false);
+  EXPECT_FALSE(web_view_->IsErrorPageVisible());
+  EXPECT_FALSE(web_view_->IsGhostLoaderVisible());
+  EXPECT_FALSE(web_view_->ghost_loader_view()->GetVisible());
+  EXPECT_FALSE(web_view_->ghost_loader_view()->is_showing_error_page());
+  EXPECT_EQ(
+      web_view_->ghost_loader_view()->GetWebContents()->GetVisibleURL().ref(),
+      "ghost-loader");
+}
+
+TEST_F(ContextualTasksWebViewTest,
+       SetWebContentsDefersWasShownUntilAddedToWidget) {
+  web_view_ = std::make_unique<ContextualTasksWebView>(browser_window_.get());
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile_, nullptr);
+
+  // Simulate a cached task WebContents that was previously hidden when the side
+  // panel closed.
+  web_contents->WasHidden();
+  ASSERT_EQ(web_contents->GetVisibility(), content::Visibility::HIDDEN);
+
+  // Attaching the WebContents while `web_view_` is not yet in a Widget must not
+  // mark the WebContents visible before its native view is attached to a
+  // Widget.
+  ASSERT_EQ(web_view_->GetWidget(), nullptr);
+  web_view_->SetWebContents(web_contents.get());
+  EXPECT_EQ(web_contents->GetVisibility(), content::Visibility::HIDDEN);
+
+  // Once `web_view_` is added to a Widget, `AddedToWidget()` marks the hosted
+  // WebContents visible.
+  web_view_->AddedToWidget();
+  EXPECT_EQ(web_contents->GetVisibility(), content::Visibility::VISIBLE);
 }
 
 }  // namespace

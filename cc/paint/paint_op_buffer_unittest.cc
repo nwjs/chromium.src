@@ -41,6 +41,7 @@
 #include "cc/test/test_paint_worklet_input.h"
 #include "cc/test/test_skcanvas.h"
 #include "cc/test/transfer_cache_test_helper.h"
+#include "gpu/command_buffer/common/mailbox.h"
 #include "skia/buildflags.h"
 #include "skia/ext/font_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -197,7 +198,6 @@ class PaintOpAppendTest : public ::testing::Test {
 
   void CheckInitialState(PaintOpBuffer* buffer, bool expect_empty_buffer) {
     EXPECT_FALSE(buffer->has_draw_ops());
-    EXPECT_FALSE(buffer->has_save_layer_ops());
     EXPECT_EQ(0u, buffer->size());
     EXPECT_EQ(0u, buffer->total_op_count());
     EXPECT_EQ(0u, buffer->next_op_offset());
@@ -4134,6 +4134,292 @@ TEST(PaintOpBufferTest, RecordShadersCachedSize) {
   EXPECT_GT(shader_size, estimated_image_size);
 }
 
+namespace {
+
+// Serializes every image as a SharedImage mailbox, like PlaybackImageProvider
+// does for texture-backed images.
+class MailboxImageProvider : public ImageProvider {
+ public:
+  explicit MailboxImageProvider(const gpu::Mailbox& mailbox)
+      : mailbox_(mailbox) {}
+
+  ScopedResult GetRasterContent(const DrawImage& draw_image) override {
+    return ScopedResult(
+        DecodedDrawImage(mailbox_, PaintFlags::FilterQuality::kNone));
+  }
+
+ private:
+  const gpu::Mailbox mailbox_;
+};
+
+class CountingSharedImageProvider : public SharedImageProvider {
+ public:
+  sk_sp<SkImage> OpenSharedImageForRead(const gpu::Mailbox& mailbox,
+                                        Error& error) override {
+    ++open_count_;
+    error = Error::kNoError;
+    SkBitmap bitmap;
+    bitmap.allocN32Pixels(10, 10);
+    bitmap.eraseColor(SK_ColorGREEN);
+    return SkImages::RasterFromBitmap(bitmap);
+  }
+
+  int open_count() const { return open_count_; }
+
+ private:
+  int open_count_ = 0;
+};
+
+sk_sp<PaintShader> MakeImageRecordShader() {
+  PaintOpBuffer shader_buffer;
+  shader_buffer.push<DrawImageOp>(CreateBitmapImage(gfx::Size(10, 10)), 0.f,
+                                  0.f);
+  auto shader = PaintShader::MakePaintRecord(
+      shader_buffer.ReleaseAsRecord(), SkRect::MakeWH(10.f, 10.f),
+      SkTileMode::kRepeat, SkTileMode::kRepeat, nullptr);
+  shader->set_has_animated_images(false);
+  return shader;
+}
+
+size_t SerializeDrawRectWithShader(sk_sp<PaintShader> shader,
+                                   const PaintOp::SerializeOptions& options,
+                                   base::span<uint8_t> memory) {
+  PaintOpBuffer buffer;
+  PaintFlags flags;
+  flags.setShader(std::move(shader));
+  buffer.push<DrawRectOp>(SkRect::MakeWH(10.f, 10.f), flags);
+  SimpleBufferSerializer serializer(memory, options);
+  serializer.Serialize(buffer);
+  return serializer.written();
+}
+
+const PaintShader* GetDrawRectShader(const PaintOpBuffer& buffer) {
+  for (const PaintOp& op : buffer) {
+    if (op.GetType() == PaintOpType::kDrawRect) {
+      return static_cast<const DrawRectOp&>(op).flags.getShader();
+    }
+  }
+  return nullptr;
+}
+
+}  // namespace
+
+// SkImages opened through the SharedImageProvider are only valid during the
+// current deserialization's raster pass. A record shader that opens one must
+// not be stored in the transfer cache, where it would outlive the pass.
+TEST(PaintOpBufferTest, RecordShadersWithSharedImagesNotCached) {
+  auto shader = MakeImageRecordShader();
+  auto shader_id = shader->paint_record_shader_id();
+
+  TestOptionsProvider options_provider;
+  MailboxImageProvider image_provider(gpu::Mailbox::Generate());
+  options_provider.mutable_serialize_options().image_provider = &image_provider;
+  auto memory = AllocateSerializedBuffer();
+  size_t written = SerializeDrawRectWithShader(
+      shader, options_provider.serialize_options(), memory.as_span());
+
+  auto* transfer_cache = options_provider.transfer_cache_helper();
+  CountingSharedImageProvider shared_image_provider;
+  std::vector<uint8_t> scratch_buffer;
+  PaintOp::DeserializeOptions deserialize_options{
+      .transfer_cache = transfer_cache,
+      .paint_cache = options_provider.service_paint_cache(),
+      .strike_client = options_provider.strike_client(),
+      .scratch_buffer = scratch_buffer,
+      .shared_image_provider = &shared_image_provider};
+
+  // Every deserialization opens the SharedImage again and resolves a new
+  // picture, instead of reusing a cached one.
+  std::array<sk_sp<PaintOpBuffer>, 2> buffers;
+  for (size_t i = 0; i < buffers.size(); ++i) {
+    buffers[i] = PaintOpBuffer::MakeFromMemory(memory.as_span().first(written),
+                                               deserialize_options);
+    ASSERT_TRUE(buffers[i]);
+    EXPECT_EQ(shared_image_provider.open_count(), static_cast<int>(i + 1));
+    EXPECT_FALSE(
+        transfer_cache->GetEntryAs<ServiceShaderTransferCacheEntry>(shader_id));
+    const PaintShader* deserialized_shader = GetDrawRectShader(*buffers[i]);
+    ASSERT_TRUE(deserialized_shader);
+    EXPECT_TRUE(
+        PaintOpSerializationTestUtils::GetCachedPicture(deserialized_shader));
+  }
+  EXPECT_NE(PaintOpSerializationTestUtils::GetCachedPicture(
+                GetDrawRectShader(*buffers[0])),
+            PaintOpSerializationTestUtils::GetCachedPicture(
+                GetDrawRectShader(*buffers[1])));
+}
+
+// A cached entry for a record shader must not replace a record that opens a
+// SharedImage, even if the shader id and tile match.
+TEST(PaintOpBufferTest, RecordShadersWithSharedImagesIgnoreCachedEntry) {
+  auto shader = MakeImageRecordShader();
+  auto shader_id = shader->paint_record_shader_id();
+
+  // Serialize the shader once with the image in the transfer cache, which is
+  // cached, and once with the image as a SharedImage.
+  TestOptionsProvider options_provider;
+  auto cached_memory = AllocateSerializedBuffer();
+  size_t cached_written = SerializeDrawRectWithShader(
+      shader, options_provider.serialize_options(), cached_memory.as_span());
+  MailboxImageProvider image_provider(gpu::Mailbox::Generate());
+  PaintOp::SerializeOptions mailbox_options =
+      options_provider.serialize_options();
+  mailbox_options.image_provider = &image_provider;
+  auto mailbox_memory = AllocateSerializedBuffer();
+  size_t mailbox_written = SerializeDrawRectWithShader(
+      shader, mailbox_options, mailbox_memory.as_span());
+
+  auto* transfer_cache = options_provider.transfer_cache_helper();
+  CountingSharedImageProvider shared_image_provider;
+  std::vector<uint8_t> scratch_buffer;
+  PaintOp::DeserializeOptions deserialize_options{
+      .transfer_cache = transfer_cache,
+      .paint_cache = options_provider.service_paint_cache(),
+      .strike_client = options_provider.strike_client(),
+      .scratch_buffer = scratch_buffer,
+      .shared_image_provider = &shared_image_provider};
+
+  auto cached_buffer = PaintOpBuffer::MakeFromMemory(
+      cached_memory.as_span().first(cached_written), deserialize_options);
+  ASSERT_TRUE(cached_buffer);
+  auto* entry =
+      transfer_cache->GetEntryAs<ServiceShaderTransferCacheEntry>(shader_id);
+  ASSERT_TRUE(entry);
+  EXPECT_EQ(shared_image_provider.open_count(), 0);
+
+  auto mailbox_buffer = PaintOpBuffer::MakeFromMemory(
+      mailbox_memory.as_span().first(mailbox_written), deserialize_options);
+  ASSERT_TRUE(mailbox_buffer);
+  EXPECT_EQ(shared_image_provider.open_count(), 1);
+  const PaintShader* deserialized_shader = GetDrawRectShader(*mailbox_buffer);
+  ASSERT_TRUE(deserialized_shader);
+  EXPECT_TRUE(
+      PaintOpSerializationTestUtils::GetCachedPicture(deserialized_shader));
+  EXPECT_NE(
+      PaintOpSerializationTestUtils::GetCachedPicture(deserialized_shader),
+      PaintOpSerializationTestUtils::GetCachedPicture(entry->shader().get()));
+}
+
+// SharedImages opened by a nested record shader also keep the enclosing record
+// shader out of the transfer cache.
+TEST(PaintOpBufferTest, NestedRecordShadersWithSharedImagesNotCached) {
+  auto inner_shader = MakeImageRecordShader();
+  auto inner_shader_id = inner_shader->paint_record_shader_id();
+  PaintOpBuffer outer_buffer;
+  PaintFlags inner_flags;
+  inner_flags.setShader(inner_shader);
+  outer_buffer.push<DrawRectOp>(SkRect::MakeWH(10.f, 10.f), inner_flags);
+  auto outer_shader = PaintShader::MakePaintRecord(
+      outer_buffer.ReleaseAsRecord(), SkRect::MakeWH(10.f, 10.f),
+      SkTileMode::kRepeat, SkTileMode::kRepeat, nullptr);
+  outer_shader->set_has_animated_images(false);
+  auto outer_shader_id = outer_shader->paint_record_shader_id();
+
+  TestOptionsProvider options_provider;
+  MailboxImageProvider image_provider(gpu::Mailbox::Generate());
+  options_provider.mutable_serialize_options().image_provider = &image_provider;
+  auto memory = AllocateSerializedBuffer();
+  size_t written = SerializeDrawRectWithShader(
+      outer_shader, options_provider.serialize_options(), memory.as_span());
+
+  auto* transfer_cache = options_provider.transfer_cache_helper();
+  CountingSharedImageProvider shared_image_provider;
+  std::vector<uint8_t> scratch_buffer;
+  PaintOp::DeserializeOptions deserialize_options{
+      .transfer_cache = transfer_cache,
+      .paint_cache = options_provider.service_paint_cache(),
+      .strike_client = options_provider.strike_client(),
+      .scratch_buffer = scratch_buffer,
+      .shared_image_provider = &shared_image_provider};
+
+  auto buffer = PaintOpBuffer::MakeFromMemory(memory.as_span().first(written),
+                                              deserialize_options);
+  ASSERT_TRUE(buffer);
+  EXPECT_EQ(shared_image_provider.open_count(), 1);
+  EXPECT_FALSE(transfer_cache->GetEntryAs<ServiceShaderTransferCacheEntry>(
+      inner_shader_id));
+  EXPECT_FALSE(transfer_cache->GetEntryAs<ServiceShaderTransferCacheEntry>(
+      outer_shader_id));
+}
+
+// Only SharedImages opened by the shader's own record matter. One opened by an
+// image filter on the same flags doesn't keep the record shader out of the
+// transfer cache.
+TEST(PaintOpBufferTest, RecordShaderCachedWithSharedImageInImageFilter) {
+  PaintOpBuffer shader_buffer;
+  PaintFlags shader_record_flags;
+  shader_record_flags.setColor(SkColors::kBlue);
+  shader_buffer.push<DrawRectOp>(SkRect::MakeWH(10.f, 10.f),
+                                 shader_record_flags);
+  auto shader = PaintShader::MakePaintRecord(
+      shader_buffer.ReleaseAsRecord(), SkRect::MakeWH(10.f, 10.f),
+      SkTileMode::kClamp, SkTileMode::kClamp, nullptr);
+  shader->set_has_animated_images(false);
+  auto shader_id = shader->paint_record_shader_id();
+
+  PaintOpBuffer buffer;
+  PaintFlags flags;
+  flags.setImageFilter(sk_make_sp<ImagePaintFilter>(
+      CreateBitmapImage(gfx::Size(10, 10)), SkRect::MakeWH(10, 10),
+      SkRect::MakeWH(10, 10), PaintFlags::FilterQuality::kNone));
+  flags.setShader(std::move(shader));
+  buffer.push<DrawRectOp>(SkRect::MakeWH(10.f, 10.f), flags);
+
+  TestOptionsProvider options_provider;
+  MailboxImageProvider image_provider(gpu::Mailbox::Generate());
+  options_provider.mutable_serialize_options().image_provider = &image_provider;
+  auto memory = AllocateSerializedBuffer();
+  SimpleBufferSerializer serializer(memory.as_span(),
+                                    options_provider.serialize_options());
+  serializer.Serialize(buffer);
+  ASSERT_TRUE(serializer.valid());
+
+  auto* transfer_cache = options_provider.transfer_cache_helper();
+  CountingSharedImageProvider shared_image_provider;
+  std::vector<uint8_t> scratch_buffer;
+  PaintOp::DeserializeOptions deserialize_options{
+      .transfer_cache = transfer_cache,
+      .paint_cache = options_provider.service_paint_cache(),
+      .strike_client = options_provider.strike_client(),
+      .scratch_buffer = scratch_buffer,
+      .shared_image_provider = &shared_image_provider};
+
+  auto deserialized = PaintOpBuffer::MakeFromMemory(
+      memory.as_span().first(serializer.written()), deserialize_options);
+  ASSERT_TRUE(deserialized);
+  EXPECT_EQ(shared_image_provider.open_count(), 1);
+  EXPECT_TRUE(
+      transfer_cache->GetEntryAs<ServiceShaderTransferCacheEntry>(shader_id));
+}
+
+// Clients only serialize an image for image shaders, so an image on any other
+// shader type is rejected.
+TEST(PaintOpBufferTest, NonImageShaderWithImageRejected) {
+  auto shader =
+      PaintShader::MakeImage(CreateBitmapImage(gfx::Size(10, 10)),
+                             SkTileMode::kClamp, SkTileMode::kClamp, nullptr);
+  PaintOpSerializationTestUtils::ResetShaderType(shader.get(),
+                                                 PaintShader::Type::kColor);
+
+  // Security constrained serialization inlines the image, so it doesn't need
+  // an image provider.
+  constexpr bool kEnableSecurityConstraints = true;
+  auto memory = AllocateSerializedBuffer();
+  TestOptionsProvider options_provider;
+  PaintOpWriter writer(memory.first(kDefaultSerializedBufferSize),
+                       options_provider.serialize_options(),
+                       kEnableSecurityConstraints);
+  writer.Write(shader.get(), PaintFlags::FilterQuality::kLow, SkM44());
+  ASSERT_GT(writer.size(), 0u);
+
+  sk_sp<PaintShader> deserialized_shader;
+  PaintOpReader reader(memory.as_span().first(writer.size()),
+                       options_provider.deserialize_options(),
+                       kEnableSecurityConstraints);
+  reader.Read(&deserialized_shader);
+  EXPECT_FALSE(reader.valid());
+}
+
 TEST(PaintOpBufferTest, RecordShaderIdSerialization) {
   PaintOpBuffer shader_buffer;
   shader_buffer.push<DrawRectOp>(SkRect::MakeWH(10.f, 10.f), PaintFlags());
@@ -4877,14 +5163,16 @@ TEST(IteratorTest, PlaybackFoldingIteratorEmptyDrawRecordInSaveLayerAlpha) {
 
 TEST(PaintOpBufferTest, ContentColorUsageFromImages) {
   PaintOpBuffer buffer;
-  EXPECT_EQ(gfx::ContentColorUsage::kSRGB, buffer.content_color_usage());
+  EXPECT_FALSE(buffer.content_color_volume().is_wide_color_gamut);
+  EXPECT_EQ(0.f, buffer.content_color_volume().hdr_headroom);
 
   // Adding a SRGB image should remain SRGB.
   PaintImage srgb = CreateDiscardablePaintImage(
       gfx::Size(1, 1), gfx::ColorSpace::CreateSRGB().ToSkColorSpace());
   ASSERT_EQ(gfx::ContentColorUsage::kSRGB, srgb.GetContentColorUsage());
   buffer.push<DrawImageOp>(srgb, 0.f, 0.f);
-  EXPECT_EQ(gfx::ContentColorUsage::kSRGB, buffer.content_color_usage());
+  EXPECT_FALSE(buffer.content_color_volume().is_wide_color_gamut);
+  EXPECT_EQ(0.f, buffer.content_color_volume().hdr_headroom);
 
   // Adding a WCG image should switch to WCG.
   PaintImage wcg = CreateDiscardablePaintImage(
@@ -4892,8 +5180,8 @@ TEST(PaintOpBufferTest, ContentColorUsageFromImages) {
   ASSERT_EQ(gfx::ContentColorUsage::kWideColorGamut,
             wcg.GetContentColorUsage());
   buffer.push<DrawImageOp>(wcg, 0.f, 0.f);
-  EXPECT_EQ(gfx::ContentColorUsage::kWideColorGamut,
-            buffer.content_color_usage());
+  EXPECT_TRUE(buffer.content_color_volume().is_wide_color_gamut);
+  EXPECT_EQ(0.f, buffer.content_color_volume().hdr_headroom);
 
   // Adding a HDR image should switch to HDR.
   PaintOpBuffer sub_buffer;
@@ -4903,9 +5191,11 @@ TEST(PaintOpBufferTest, ContentColorUsageFromImages) {
   sub_buffer.push<DrawImageRectOp>(hdr, SkRect::MakeWH(10, 10),
                                    SkRect::MakeWH(20, 20),
                                    SkCanvas::kStrict_SrcRectConstraint);
-  EXPECT_EQ(gfx::ContentColorUsage::kHDR, sub_buffer.content_color_usage());
+  EXPECT_TRUE(sub_buffer.content_color_volume().is_wide_color_gamut);
+  EXPECT_GT(sub_buffer.content_color_volume().hdr_headroom, 0.f);
   buffer.push<DrawRecordOp>(sub_buffer.ReleaseAsRecord());
-  EXPECT_EQ(gfx::ContentColorUsage::kHDR, buffer.content_color_usage());
+  EXPECT_TRUE(buffer.content_color_volume().is_wide_color_gamut);
+  EXPECT_GT(buffer.content_color_volume().hdr_headroom, 0.f);
 }
 
 TEST(PaintOpBufferTest, ContentColorUsageFromShader) {
@@ -4919,8 +5209,8 @@ TEST(PaintOpBufferTest, ContentColorUsageFromShader) {
                                         SkTileMode::kClamp, nullptr);
   flags1.setShader(std::move(shader1));
   buffer1.push<DrawRectOp>(SkRect::MakeWH(10, 20), flags1);
-  EXPECT_EQ(gfx::ContentColorUsage::kWideColorGamut,
-            buffer1.content_color_usage());
+  EXPECT_TRUE(buffer1.content_color_volume().is_wide_color_gamut);
+  EXPECT_EQ(0.f, buffer1.content_color_volume().hdr_headroom);
 
   PaintOpBuffer buffer2;
   PaintFlags flags2;
@@ -4929,8 +5219,8 @@ TEST(PaintOpBufferTest, ContentColorUsageFromShader) {
       SkTileMode::kClamp, nullptr);
   flags2.setShader(std::move(shader2));
   buffer2.push<DrawRectOp>(SkRect::MakeWH(10, 20), flags2);
-  EXPECT_EQ(gfx::ContentColorUsage::kWideColorGamut,
-            buffer2.content_color_usage());
+  EXPECT_TRUE(buffer2.content_color_volume().is_wide_color_gamut);
+  EXPECT_EQ(0.f, buffer2.content_color_volume().hdr_headroom);
 }
 
 TEST(PaintOpBufferTest, ContentColorUsageFromFilter) {
@@ -4945,8 +5235,8 @@ TEST(PaintOpBufferTest, ContentColorUsageFromFilter) {
                                               PaintFlags::FilterQuality::kNone);
   flags1.setImageFilter(std::move(filter1));
   buffer1.push<DrawRectOp>(SkRect::MakeWH(10, 20), flags1);
-  EXPECT_EQ(gfx::ContentColorUsage::kWideColorGamut,
-            buffer1.content_color_usage());
+  EXPECT_TRUE(buffer1.content_color_volume().is_wide_color_gamut);
+  EXPECT_EQ(0.f, buffer1.content_color_volume().hdr_headroom);
 
   PaintOpBuffer buffer2;
   PaintFlags flags2;
@@ -4956,8 +5246,8 @@ TEST(PaintOpBufferTest, ContentColorUsageFromFilter) {
                                     SkRect::MakeWH(5, 5)));
   flags2.setImageFilter(std::move(filter2));
   buffer2.push<DrawRectOp>(SkRect::MakeWH(10, 20), flags2);
-  EXPECT_EQ(gfx::ContentColorUsage::kWideColorGamut,
-            buffer2.content_color_usage());
+  EXPECT_TRUE(buffer2.content_color_volume().is_wide_color_gamut);
+  EXPECT_EQ(0.f, buffer2.content_color_volume().hdr_headroom);
 }
 
 TEST(PaintOpBufferTest, SkSLShaderPrivilegeEnforcement) {

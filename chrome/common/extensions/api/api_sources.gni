@@ -111,7 +111,6 @@ if (enable_extensions) {
     schema_sources_ += [
       "accessibility_service_private.webidl",
       "document_scan.webidl",
-      "echo_private.json",
       "enterprise_device_attributes.webidl",
       "enterprise_kiosk_input.webidl",
       "enterprise_login.webidl",
@@ -122,24 +121,11 @@ if (enable_extensions) {
       "login.webidl",
       "login_screen_storage.webidl",
       "login_state.idl",
-      "odfs_config_private.idl",
       "platform_keys.idl",
       "platform_keys_internal.idl",
       "quick_unlock_private.idl",
-      "smart_card_provider_private.idl",
-      "system_log.idl",
       "terminal_private.json",
-      "vpn_provider.idl",
-      "wallpaper.json",
-      "wm_desks_private.idl",
     ]
-
-    if (use_cups) {
-      schema_sources_ += [
-        "printing.idl",
-        "printing_metrics.idl",
-      ]
-    }
   }
 
   if (is_linux || is_win || is_chromeos) {

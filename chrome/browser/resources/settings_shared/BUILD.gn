@@ -19,29 +19,32 @@ build_webui("build") {
     "controls/extension_controlled_indicator.ts",
   ]
 
+  css_files = [
+    "controls/extension_controlled_indicator.css",
+    "md_select.css",
+  ]
+
   ts_files = [
     "a11y_page/ax_annotations_browser_proxy.ts",
     "a11y_page/captions_browser_proxy.ts",
     "appearance_page/fonts_browser_proxy.ts",
     "controls/cr_policy_pref_mixin.ts",
     "controls/cr_policy_pref_mixin_lit.ts",
-    "controls/pref_control_mixin.ts",
-    "controls/settings_boolean_control_mixin.ts",
     "extension_control_browser_proxy.ts",
     "lifetime_browser_proxy.ts",
     "people_page/profile_info_browser_proxy.ts",
     "people_page/sync_browser_proxy.ts",
     "prefs/equality_comparators.ts",
     "prefs/pref_util.ts",
-    "prefs/prefs.ts",
-    "prefs/prefs_mixin.ts",
-    "prefs/prefs_types.ts",
     "prefs2/prefs_browser_proxy.ts",
+    "prefs2/pref_key_observer_mixin.ts",
+    "prefs2/pref_key_observer_mixin_lit.ts",
     "prefs2/pref_service.ts",
     "prefs2/pref_service_observer_mixin.ts",
     "prefs2/pref_service_observer_mixin_lit.ts",
     "privacy_page/privacy_page_browser_proxy.ts",
     "security_page/security_page_browser_proxy.ts",
+    "web_ui_listener_mixin.ts",
   ]
 
   ts_composite = true

@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/drive_file_picker/coordinator/root_drive_file_picker_coordinator.h"
 
 #import <memory>
+#import <utility>
 
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
@@ -49,7 +50,6 @@
 #import "ios/chrome/browser/web/model/choose_file/choose_file_tab_helper.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "services/network/public/cpp/shared_url_loader_factory.h"
-#import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
 @interface RootDriveFilePickerCoordinator () <
@@ -294,13 +294,6 @@ void ConfirmChangeProfileWithCompletion(
 }
 
 - (void)mediator:(DriveFilePickerMediator*)mediator
-    didActivateSearch:(BOOL)searchActivated {
-  _navigationController.sheetPresentationController.prefersGrabberVisible =
-      !searchActivated &&
-      (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE);
-}
-
-- (void)mediator:(DriveFilePickerMediator*)mediator
     didPickDriveItems:(const std::vector<DriveItem>&)driveItems {
   CHECK(_forComposebox);
   CHECK(self.responseHandler);
@@ -381,24 +374,11 @@ void ConfirmChangeProfileWithCompletion(
 
   _navigationController.modalPresentationStyle = UIModalPresentationFormSheet;
   _navigationController.presentationController.delegate = self;
-  if (ui::GetDeviceFormFactor() ==
-      ui::DeviceFormFactor::DEVICE_FORM_FACTOR_PHONE) {
-    _navigationController.sheetPresentationController.prefersGrabberVisible =
-        YES;
-    // TODO(crbug.com/441764702): Add `mediumDetent` back.
-    _navigationController.sheetPresentationController.detents = @[
-      [UISheetPresentationControllerDetent largeDetent],
-    ];
-    _navigationController.sheetPresentationController.selectedDetentIdentifier =
-        UISheetPresentationControllerDetentIdentifierLarge;
-  } else {
-    _navigationController.sheetPresentationController.prefersGrabberVisible =
-        NO;
-    _navigationController.sheetPresentationController.detents =
-        @[ [UISheetPresentationControllerDetent largeDetent] ];
-    _navigationController.sheetPresentationController.selectedDetentIdentifier =
-        UISheetPresentationControllerDetentIdentifierLarge;
-  }
+  // TODO(crbug.com/441764702): Add `mediumDetent` back.
+  _navigationController.sheetPresentationController.detents =
+      @[ [UISheetPresentationControllerDetent largeDetent] ];
+  _navigationController.sheetPresentationController.selectedDetentIdentifier =
+      UISheetPresentationControllerDetentIdentifierLarge;
 
   [self.baseViewController presentViewController:_navigationController
                                         animated:YES
@@ -438,11 +418,9 @@ void ConfirmChangeProfileWithCompletion(
   _addAccountCoordinator = nil;
 }
 
-- (void)
-    addAccountCompletionWithCoordinator:(SigninCoordinator*)coordinator
-                                 result:
-                                     (const SigninCoordinatorResultOrIdentity&)
-                                         result {
+- (void)addAccountCompletionWithCoordinator:(SigninCoordinator*)coordinator
+                                     result:(SigninCoordinatorResultOrIdentity)
+                                                result {
   CHECK_EQ(_addAccountCoordinator, coordinator);
   if (result.has_value()) {
     CHECK(result.value());
@@ -472,11 +450,12 @@ void ConfirmChangeProfileWithCompletion(
                                    prefilledEmail:nil
                              continuationProvider:
                                  DoNothingContinuationProvider()];
-  _addAccountCoordinator.signinCompletion = ^(
-      SigninCoordinator* coordinator,
-      SigninCoordinatorResultOrIdentity result) {
-    [weakSelf addAccountCompletionWithCoordinator:coordinator result:result];
-  };
+  _addAccountCoordinator.signinCompletion =
+      ^(SigninCoordinator* coordinator,
+        SigninCoordinatorResultOrIdentity result) {
+        [weakSelf addAccountCompletionWithCoordinator:coordinator
+                                               result:std::move(result)];
+      };
   [_addAccountCoordinator start];
 }
 
@@ -494,7 +473,7 @@ void ConfirmChangeProfileWithCompletion(
                             PROMO_ACTION_NO_SIGNIN_PROMO
              completion:^(SigninCoordinator* coordinator,
                           SigninCoordinatorResultOrIdentity result) {
-               [weakSelf handleSignInResult:result];
+               [weakSelf handleSignInResult:std::move(result)];
              }];
   command.confirmChangeProfile = ^(void (^completion)(BOOL)) {
     ConfirmChangeProfileWithCompletion(weakSelf, completion);
@@ -506,7 +485,7 @@ void ConfirmChangeProfileWithCompletion(
   [_signinCoordinator start];
 }
 
-- (void)handleSignInResult:(const SigninCoordinatorResultOrIdentity&)result {
+- (void)handleSignInResult:(SigninCoordinatorResultOrIdentity)result {
   [_signinCoordinator stop];
   _signinCoordinator = nil;
   [_metricsHelper reportDriveSignInResult:result];
@@ -621,7 +600,8 @@ void ConfirmChangeProfileWithCompletion(
     [weakSelf userInterrupted];
   };
   UIAlertController* discardSelectionAlertController =
-      DiscardSelectionAlertController(discardSelectionBlock, nil);
+      DiscardSelectionAlertController(discardSelectionBlock, nil,
+                                      self.baseViewController.traitCollection);
   [_navigationController presentViewController:discardSelectionAlertController
                                       animated:YES
                                     completion:nil];

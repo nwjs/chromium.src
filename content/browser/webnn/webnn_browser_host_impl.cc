@@ -29,10 +29,8 @@
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/public/browser/service_process_host.h"
-#include "content/public/browser/service_process_host_passkeys.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "sandbox/policy/switches.h"
-#include "services/webnn/public/cpp/compiler_disconnect_reason.h"
 #include "services/webnn/public/cpp/context_properties.h"
 #include "services/webnn/public/mojom/features.mojom-features.h"
 #include "services/webnn/public/mojom/webnn_compiler_context.mojom.h"
@@ -70,6 +68,10 @@ namespace {
 // relaunch is blocked.
 constexpr int kMaxCompilerCrashCount = 3;
 
+// How long to wait after the last compiler context disconnects before
+// shutting down the Compiler process.
+constexpr base::TimeDelta kCompilerIdleTimeout = base::Seconds(30);
+
 #if BUILDFLAG(IS_WIN)
 // Number of times each WebNN Compiler process has crashed, keyed by device.
 // Stop relaunching after too many crashes to avoid an infinite loop.
@@ -80,42 +82,12 @@ base::flat_map<webnn::EpDeviceInfo, int>& GetWebNNCompilerCrashCounts() {
   return *counts;
 }
 
-// Returns the paths of the workaround libraries that must be preloaded for
-// `target_device` before sandbox lockdown. The libraries live alongside the EP
-// library, whose directory is `ep_library_dir`.
-std::vector<base::FilePath> GetPreloadLibraryWorkaroundPaths(
-    const webnn::EpDeviceInfo& target_device,
-    const base::FilePath& ep_library_dir) {
-  auto ep_it = webnn::kKnownEPs.find(target_device.ep_name);
-  if (ep_it == webnn::kKnownEPs.end()) {
-    return {};
-  }
-  const auto& offline_support = ep_it->second.offline_compilation_support;
-  auto support_it =
-      std::ranges::find(offline_support, target_device.device_type,
-                        &webnn::OfflineCompilationSupport::device_type);
-  if (support_it == offline_support.end()) {
-    return {};
-  }
-
-  std::vector<base::FilePath> preload_library_paths;
-  preload_library_paths.reserve(
-      support_it->preload_libraries_workaround.size());
-  for (std::string_view preload_library :
-       support_it->preload_libraries_workaround) {
-    preload_library_paths.push_back(
-        ep_library_dir.AppendASCII(preload_library));
-  }
-  return preload_library_paths;
-}
-
 // Launches the WebNN Compiler utility process and returns its mojo remote.
 // `ep_library_path` is the path to the EP library that will be loaded.
 // `target_device` is the EP device that the Compiler process will work on.
 mojo::Remote<webnn::mojom::WebNNCompilerService> LaunchCompilerProcess(
     const base::FilePath& ep_library_path,
-    const webnn::EpDeviceInfo& target_device,
-    ServiceProcessHostPreloadLibraries::PassKey pass_key) {
+    const webnn::EpDeviceInfo& target_device) {
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
 
   ServiceProcessHost::Options options;
@@ -142,19 +114,6 @@ mojo::Remote<webnn::mojom::WebNNCompilerService> LaunchCompilerProcess(
           sandbox::policy::switches::kAllowThirdPartyModules)) {
     options.WithExtraCommandLineSwitches(
         {sandbox::policy::switches::kAllowThirdPartyModules});
-  }
-
-  // Preload the EP workaround libraries into the Compiler process before
-  // sandbox lockdown, which is required because some EPs load these libraries
-  // from a worker thread that runs under the lockdown token and would otherwise
-  // fail. See services/webnn/public/cpp/execution_providers_info.h for details.
-  // TODO(crbug.com/529544314): Remove once the EPs are fixed to load these
-  // libraries from the main thread before sandbox lockdown.
-  std::vector<base::FilePath> preload_libraries =
-      GetPreloadLibraryWorkaroundPaths(target_device,
-                                       ep_library_path.DirName());
-  if (!preload_libraries.empty()) {
-    options.WithPreloadedLibraries(std::move(preload_libraries), pass_key);
   }
 
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -286,8 +245,9 @@ void WebNNBrowserHostImpl::RequestCompilerContext(
       return;
     }
 
-    webnn_compiler_remote_.set_disconnect_with_reason_handler(base::BindOnce(
+    webnn_compiler_remote_.set_disconnect_handler(base::BindOnce(
         &WebNNBrowserHostImpl::OnDisconnected, base::Unretained(this)));
+    webnn_compiler_remote_.reset_on_idle_timeout(kCompilerIdleTimeout);
   }
 
   webnn_compiler_remote_->CreateCompilerContext(
@@ -323,9 +283,7 @@ void WebNNBrowserHostImpl::OnEpsResolvedForCompilerContext(
   // Each EP device gets its own compiler process.
   auto& compiler_remote = webnn_compiler_remotes_[target_device];
   if (!compiler_remote.is_bound()) {
-    compiler_remote =
-        LaunchCompilerProcess(ep_library_path, target_device,
-                              ServiceProcessHostPreloadLibraries::GetPassKey());
+    compiler_remote = LaunchCompilerProcess(ep_library_path, target_device);
     if (!compiler_remote.is_bound()) {
       LOG(ERROR) << "[WebNN] RequestCompilerContext() failed: "
                     "WebNN Compiler process could not be launched for ["
@@ -333,9 +291,13 @@ void WebNNBrowserHostImpl::OnEpsResolvedForCompilerContext(
       return;
     }
 
-    compiler_remote.set_disconnect_with_reason_handler(
+    compiler_remote.set_disconnect_handler(
         base::BindOnce(&WebNNBrowserHostImpl::OnDisconnected,
                        base::Unretained(this), target_device));
+    compiler_remote.set_idle_handler(
+        kCompilerIdleTimeout,
+        base::BindRepeating(&WebNNBrowserHostImpl::OnIdle,
+                            base::Unretained(this), target_device));
   }
 
   // Tell the Compiler process to create a per-context compiler state.
@@ -347,28 +309,21 @@ void WebNNBrowserHostImpl::OnEpsResolvedForCompilerContext(
       std::move(callback));
 }
 
+void WebNNBrowserHostImpl::OnIdle(const webnn::EpDeviceInfo& device_info) {
+  CHECK_CURRENTLY_ON(BrowserThread::UI);
+  auto it = webnn_compiler_remotes_.find(device_info);
+  CHECK(it != webnn_compiler_remotes_.end());
+  it->second.reset();
+}
+
 void WebNNBrowserHostImpl::OnDisconnected(
-    const webnn::EpDeviceInfo& device_info,
-    uint32_t reason,
-    const std::string& description) {
+    const webnn::EpDeviceInfo& device_info) {
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M160);
-  webnn_compiler_remotes_.erase(device_info);
+  auto it = webnn_compiler_remotes_.find(device_info);
+  CHECK(it != webnn_compiler_remotes_.end());
+  it->second.reset();
 
-  // `reason` comes from a less-trusted child process. Verify it matches a
-  // known disconnect reason before acting on it; treat any unrecognized
-  // value as an unexpected crash.
-  switch (reason) {
-    case static_cast<uint32_t>(webnn::CompilerDisconnectReason::kIdleShutdown):
-      // The Compiler process shut down gracefully after all compiler
-      // contexts disconnected and the idle timeout elapsed. Not a crash.
-      DVLOG(1) << "[WebNN] Compiler process idle shutdown for ["
-               << device_info.ToSwitchValue() << "] (" << description << ").";
-      return;
-    default:
-      break;
-  }
-
-  // Any other disconnect is unexpected and treated as a crash.
+  // Any disconnect is unexpected and treated as a crash.
   int crash_count = ++GetWebNNCompilerCrashCounts()[device_info];
   base::UmaHistogramExactLinear(
       base::StrCat({"WebNN.CompilerProcess.CrashCount.", device_info.ep_name,
@@ -478,19 +433,9 @@ void WebNNBrowserHostImpl::CopyCompiledModel(
       std::move(callback));
 }
 
-void WebNNBrowserHostImpl::OnDisconnected(uint32_t reason,
-                                          const std::string& description) {
+void WebNNBrowserHostImpl::OnDisconnected() {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   webnn_compiler_remote_.reset();
-
-  switch (reason) {
-    case static_cast<uint32_t>(webnn::CompilerDisconnectReason::kIdleShutdown):
-      DVLOG(1) << "[WebNN] Compiler process idle shutdown (" << description
-               << ").";
-      return;
-    default:
-      break;
-  }
 
   int crash_count = ++g_webnn_compiler_crash_count;
   base::UmaHistogramExactLinear("WebNN.CompilerProcess.CrashCount.CoreML",

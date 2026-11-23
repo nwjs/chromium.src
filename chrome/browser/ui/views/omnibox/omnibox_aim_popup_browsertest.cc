@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_webui_creation.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/permission_bubble/permission_prompt.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -529,6 +530,7 @@ IN_PROC_BROWSER_TEST_P(OmniboxAimPopupKeepOpenBrowserTest,
                        FileChooserCancellationReleasesDeactivationBlocker) {
   auto* content = ShowPopupAndGetWebUIContent();
   ASSERT_TRUE(content);
+  ASSERT_TRUE(content::WaitForLoadStop(content->GetWebContents()));
   auto* presenter = location_bar()->GetOmniboxPopupAimPresenter();
   ASSERT_TRUE(presenter);
   // Wait for popup state transition delayed task to finish.
@@ -648,6 +650,7 @@ IN_PROC_BROWSER_TEST_P(OmniboxAimPopupKeepOpenBrowserTest,
                        FileChooserSelectionReleasesDeactivationBlocker) {
   auto* content = ShowPopupAndGetWebUIContent();
   ASSERT_TRUE(content);
+  ASSERT_TRUE(content::WaitForLoadStop(content->GetWebContents()));
   auto* presenter = location_bar()->GetOmniboxPopupAimPresenter();
   ASSERT_TRUE(presenter);
 
@@ -1145,6 +1148,10 @@ class OmniboxAimPopupNoDeferCreationBrowserTest
 
  private:
   base::test::ScopedFeatureList feature_list_;
+  // Follow the deferral feature rather than the on-demand creation that
+  // `InProcessBrowserTest` sets up.
+  base::AutoReset<bool> create_popup_webui_on_demand_ =
+      omnibox::SetCreatePopupWebUIOnDemandForTesting(false);
 };
 
 // Without `omnibox::kOmniboxAimPopupDeferCreation`, a new window's AIM popup
@@ -1191,6 +1198,10 @@ class OmniboxAimPopupDeferCreationBrowserTest
 
  private:
   base::test::ScopedFeatureList feature_list_;
+  // Follow the deferral feature rather than the on-demand creation that
+  // `InProcessBrowserTest` sets up.
+  base::AutoReset<bool> create_popup_webui_on_demand_ =
+      omnibox::SetCreatePopupWebUIOnDemandForTesting(false);
 };
 
 // The AIM popup creates its content without user action once the browser
@@ -1357,13 +1368,20 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationLateEligibilityBrowserTest,
   EXPECT_FALSE(presenter->IsShown());
 }
 
-// Keeps the deferred AIM content pending by ignoring the browser window's
-// presentation, to test the paths that create it before the post-paint task.
-class OmniboxAimPopupDeferCreationPendingBrowserTest
-    : public OmniboxAimPopupDeferCreationBrowserTest {
+// Browser tests create the AIM popup's content only when something needs it
+// (see `InProcessBrowserTest`). Tests the paths that create it on demand.
+class OmniboxAimPopupOnDemandCreationBrowserTest
+    : public OmniboxAimPopupBrowserTest {
+ public:
+  // Enables deferred creation to show that on-demand creation takes precedence.
+  OmniboxAimPopupOnDemandCreationBrowserTest() {
+    defer_creation_feature_.InitAndEnableFeature(
+        omnibox::kOmniboxAimPopupDeferCreation);
+  }
+
  protected:
   void SetUpOnMainThread() override {
-    OmniboxAimPopupDeferCreationBrowserTest::SetUpOnMainThread();
+    OmniboxAimPopupBrowserTest::SetUpOnMainThread();
     // No permission prompt shows here. `browser_tests` runs multiple browser
     // processes at once, so another test window can take OS activation while
     // the AIM page loads. Marking a prompt as showing keeps the popup open
@@ -1373,12 +1391,14 @@ class OmniboxAimPopupDeferCreationPendingBrowserTest
   }
 
  private:
-  base::AutoReset<bool> ignore_presentation_ =
-      OmniboxPopupPresenterBase::IgnoreBrowserWindowPresentationForTesting();
+  base::test::ScopedFeatureList defer_creation_feature_;
+  // Explicit, so that these tests don't depend on the browser test default.
+  base::AutoReset<bool> on_demand_creation_ =
+      omnibox::SetCreatePopupWebUIOnDemandForTesting(true);
 };
 
-// Showing the popup creates the pending content and its widget.
-IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationPendingBrowserTest,
+// Showing the popup creates the content and its widget.
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupOnDemandCreationBrowserTest,
                        CreatesContentOnShow) {
   auto* presenter = location_bar()->GetOmniboxPopupAimPresenter();
   ASSERT_TRUE(presenter);
@@ -1393,8 +1413,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationPendingBrowserTest,
 }
 
 // The context menu of the classic popup acts on the AIM popup's WebContents,
-// so opening it creates the pending AIM content.
-IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationPendingBrowserTest,
+// so opening it creates the AIM content.
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupOnDemandCreationBrowserTest,
                        ClassicPopupContextMenuCreatesAimContent) {
   auto* aim_presenter = location_bar()->GetOmniboxPopupAimPresenter();
   ASSERT_TRUE(aim_presenter);
@@ -1424,22 +1444,6 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationPendingBrowserTest,
   menu_controller->Cancel(views::MenuController::ExitType::kAll);
 }
 
-// A location bar action that selects an AIM tool opens AI Mode, which creates
-// the pending AIM content.
-IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationPendingBrowserTest,
-                       LocationBarActionCreatesAimContent) {
-  auto* aim_presenter = location_bar()->GetOmniboxPopupAimPresenter();
-  ASSERT_TRUE(aim_presenter);
-  ASSERT_FALSE(aim_presenter->GetWebUIContent());
-
-  actions::ActionItem* action = actions::ActionManager::Get().FindAction(
-      kActionOmniboxContextDeepResearch,
-      BrowserActions::From(browser())->root_action_item());
-  ASSERT_TRUE(action);
-  action->InvokeAction();
-  EXPECT_TRUE(aim_presenter->GetWebUIContent());
-}
-
 namespace {
 
 // Returns a script that evaluates `expression` against the AIM page's
@@ -1461,7 +1465,7 @@ std::string ComposeboxScript(std::string_view expression,
 
 // The show that creates the AIM content runs before the page binds its
 // handler. The page still receives the omnibox text of that show.
-IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationPendingBrowserTest,
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupOnDemandCreationBrowserTest,
                        FirstShowTransfersOmniboxText) {
   ASSERT_FALSE(
       location_bar()->GetOmniboxPopupAimPresenter()->GetWebUIContent());
@@ -1486,4 +1490,51 @@ IN_PROC_BROWSER_TEST_F(OmniboxAimPopupDeferCreationPendingBrowserTest,
                               ->popup_state())
       << ", presenter shown: "
       << location_bar()->GetOmniboxPopupAimPresenter()->IsShown();
+}
+
+// Tests `omnibox::kOmniboxAimPopupCreateOnFirstPresentation` set to false:
+// the AIM content is created only when something needs it.
+class OmniboxAimPopupCreateOnDemandBrowserTest
+    : public OmniboxAimPopupBrowserTest {
+ public:
+  OmniboxAimPopupCreateOnDemandBrowserTest() {
+    feature_list_.InitAndEnableFeatureWithParameters(
+        omnibox::kOmniboxAimPopupDeferCreation,
+        {{omnibox::kOmniboxAimPopupCreateOnFirstPresentation.name, "false"}});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+  // Follow the deferral feature rather than the on-demand creation that
+  // `InProcessBrowserTest` sets up.
+  base::AutoReset<bool> create_popup_webui_on_demand_ =
+      omnibox::SetCreatePopupWebUIOnDemandForTesting(false);
+};
+
+// Presenting the browser window does not create the AIM content.
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupCreateOnDemandBrowserTest,
+                       WindowPresentationDoesNotCreateContent) {
+  auto* presenter = location_bar()->GetOmniboxPopupAimPresenter();
+  ASSERT_TRUE(presenter);
+  views::Widget* widget =
+      BrowserView::GetBrowserViewForBrowser(browser())->GetWidget();
+  ASSERT_TRUE(PaintAndWaitForPresentation(widget));
+  // A creation task posted by the first presentation would run while waiting
+  // for the second one.
+  ASSERT_TRUE(PaintAndWaitForPresentation(widget));
+  EXPECT_FALSE(presenter->GetWebUIContent());
+  EXPECT_FALSE(presenter->GetWidget());
+}
+
+// Showing the popup creates the content and its widget.
+IN_PROC_BROWSER_TEST_F(OmniboxAimPopupCreateOnDemandBrowserTest,
+                       CreatesContentOnShow) {
+  auto* presenter = location_bar()->GetOmniboxPopupAimPresenter();
+  ASSERT_TRUE(presenter);
+  ASSERT_FALSE(presenter->GetWebUIContent());
+
+  auto* content = ShowPopupAndGetWebUIContent();
+  ASSERT_TRUE(content);
+  EXPECT_TRUE(presenter->IsShown());
+  EXPECT_TRUE(content::WaitForLoadStop(content->GetWrappedWebContents()));
 }

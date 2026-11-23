@@ -1,0 +1,445 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=chrome://resources/cr_elements/cr_icons_lit.css.js
+ * #import=chrome://resources/cr_components/composebox/composebox.css.js
+ * #import=chrome://resources/cr_components/composebox/composebox_shared_style.css.js
+ * #import=chrome://omnibox-popup.top-chrome/shared/omnibox_popup_shared_style.css.js
+ * #include=cr-icons-lit composebox composebox-shared-style omnibox-popup-shared-style
+ * #css_wrapper_metadata_end */
+
+:host {
+  --composebox-cancel-button-top: var(--cr-composebox-cancel-button-top, 12px);
+  --color-composebox-ghost-card-background:
+      var(--color-sys-state-ripple-neutral-on-subtle);
+  --cr-composebox-grid-min-item-width: 100px;
+  --cr-composebox-grid-padding-bottom: 10px;
+  --cr-composebox-grid-row-gap: 16px;
+  --cr-composebox-header-color: var(--color-sys-on-surface-subtle);
+  --cr-composebox-header-font-size: 12px;
+  --cr-composebox-header-font-weight: 500;
+  --cr-composebox-header-line-height: 18px;
+  --cr-composebox-image-card-aspect-ratio: 4 / 3;
+  --cr-composebox-image-card-border-radius: 16px;
+  --cr-composebox-image-card-text-color: var(--color-sys-on-surface);
+  --input-bottom-spacing: 10px;
+  --text-input-top-spacing: 10px;
+  --text-input-inline-end-spacing: 80px;
+  --text-input-inline-start-spacing: 16px;
+  --text-input-max-height: 190px;
+  --fade-duration: 100ms;
+  --cr-composebox-submit-container-size: 40px;
+  /* When voice search error shows, #composebox and
+   * search-animated-glow's #fullContainerOverlay are hidden (display: none),
+   * and cr-composebox-voice-search is position: static (e.g. in voice search
+   * error state). This makes this container in control of the width.
+   * Make sure it is 100% instead of 337px default width from composebox.css.
+   */
+  --cr-composebox-width: 100%;
+  --suggestion-activity-height: 18px;
+  display: block;
+  --color-file-chip-remove-button-fill: var(--color-omnibox-results-icon);
+  --cr-composebox-cancel-button-top: 5px;
+  --cr-composebox-custom-font-size: var(--omnibox-font-size);
+  --cr-composebox-expanded-border-radius: 16px;
+  --cr-composebox-input-placeholder-font-size: var(--omnibox-font-size);
+  --cr-composebox-match-height: 40px;
+  --cr-composebox-match-icon-container-padding-inline-start: 20px;
+  --cr-composebox-match-icon-size: 16px;
+  --cr-composebox-match-match-padding-bottom: 0;
+  --cr-composebox-match-remove-button-top: 4px;
+  --cr-composebox-match-text-container-font-size: var(--omnibox-font-size);
+  --cr-composebox-match-text-padding-inline-end: 4px;
+  --cr-composebox-max-height: 800px;
+  --cr-composebox-text-container-padding-block-start: 0;
+  --cr-composebox-voice-icon-fill-color: var(--color-sys-on-surface);
+  --search-animated-glif-rotation-duration: 2000ms;
+
+  --color-composebox-aim-chip-hover-background: var(--color-omnibox-action-icon-hover);
+  --color-composebox-aim-chip-hover-text: var(--color-omnibox-text);
+  --color-composebox-background: var(--color-omnibox-results-background);
+  --color-composebox-cancel-button: unset; /* Lens only */
+  --color-composebox-cancel-button-light: var(--color-omnibox-text-dimmed);
+  --color-composebox-context-entrypoint-background: var(--color-omnibox-action-icon-hover);
+  --color-composebox-context-entrypoint-hover-background: var(--color-omnibox-action-icon-hover);
+  --color-composebox-tool-chip-background: var(--color-omnibox-action-icon-hover);
+  --color-composebox-voice-button-hover-background: var(--color-omnibox-action-icon-hover);
+  --color-composebox-context-entrypoint-text: var(--color-omnibox-context-entrypoint-text);
+  --color-composebox-context-entrypoint-text-disabled: var(--color-omnibox-foreground-disabled);
+  --color-composebox-file-carousel-remove-button: var(--color-omnibox-results-button-ink-drop-row-hovered);
+  --color-composebox-file-chip-spinner: var(--color-omnibox-composebox-primary-action);
+
+  /* Themed gradient hover background color for the close button in
+   * cr-composebox-file-thumbnail. */
+  --color-composebox-file-carousel-remove-gradient-start: var(--color-omnibox-composebox-chip-background);
+  --color-composebox-file-carousel-remove-gradient-end: color-mix(
+    in srgb,
+    var(--color-composebox-file-carousel-remove-gradient-start),
+    transparent 100%);
+
+  --color-composebox-file-carousel-url: var(--color-omnibox-text-dimmed);
+  --color-composebox-file-image-overlay: var(--color-omnibox-composebox-file-thumbnail-overlay);
+  --color-composebox-file-image-overlay-icon-color: var(--color-omnibox-composebox-file-thumbnail-overlay-icon);
+  --color-composebox-font: var(--color-omnibox-text);
+  --color-composebox-font-light: var(--color-omnibox-text);
+  --color-composebox-hover: unset; /* Lens only */
+  --color-composebox-input-icon: var(--color-omnibox-results-icon);
+
+  /* The composebox is the popup's surface rather than a plate drawn on a
+   * page, so it takes no outline of its own; the drop shadow separates it.
+   * An opaque one would also cover the outer edge of the glow stroke. */
+  --color-composebox-input-plate-outline: transparent;
+
+  --color-composebox-lens-button: unset; /* Lens only */
+  --color-composebox-pdf-chip-icon: var(--color-omnibox-text-dimmed);
+  --color-composebox-scrim-background: unset; /* No scrim. */
+  --color-composebox-submit-button-background: var(--color-omnibox-composebox-submit-button-background);
+  --color-composebox-submit-button-energy: var(--color-omnibox-composebox-submit-button-energy);
+  --color-composebox-submit-button-icon: var(--color-omnibox-composebox-submit-button-icon);
+  --color-composebox-submit-button-hover: var(--color-omnibox-action-icon-hover);
+  --color-composebox-suggestion-activity: var(--color-omnibox-text-dimmed);
+  --color-composebox-type-ahead: var(--color-omnibox-foreground-disabled);
+  --color-composebox-type-ahead-chip: var(--color-omnibox-composebox-chip-background);
+  --color-composebox-upload-button: var(--omnibox-results-chip-background);
+  --color-composebox-voice-search-font: var(--color-omnibox-text);
+  --cr-composebox-background-color: var(--color-omnibox-results-background);
+  --cr-composebox-input-placeholder-color: var(--color-omnibox-foreground-disabled);
+  --cr-composebox-outline-hcm: none;
+  --cr-composebox-submit-button-margin-inline-start: auto;
+  --cr-composebox-submit-container-top: auto;
+  --cr-composebox-voice-icon-top: auto;
+  position: relative;
+}
+
+#composebox {
+  border-radius: inherit;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  transition:
+    opacity var(--fade-duration) ease-in-out,
+    visibility var(--fade-duration) ease-in-out;
+  padding-bottom: 10px;
+}
+
+/* The activity link is the last row inside the card. #composebox already
+ * provides the bottom padding. */
+#suggestionActivity {
+  height: var(--suggestion-activity-height);
+  padding-bottom: 0;
+}
+
+/* The mic and submit buttons are anchored to the bottom of #composebox. Lift
+ * them by the link's height so they stay aligned with the context menu row
+ * above the link. With a grid they are anchored to the top instead. */
+:host(:not([has-grid])) #composebox:has(> #suggestionActivity) #voiceSearchButton,
+:host(:not([has-grid])) #composebox:has(> #suggestionActivity)
+    cr-composebox-submit::part(submit) {
+  translate: 0 calc(-1 * var(--suggestion-activity-height));
+}
+
+#inputContainer {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+#composeboxInput {
+  flex-shrink: 0;
+}
+
+:host([is-aim-button-shown_]) {
+  --cr-composebox-text-container-padding-block-start: 4px;
+  --omnibox-voice-icon-inset-end: 8px;
+  --omnibox-voice-icon-margin-end: 0;
+}
+
+:host([is-aim-button-shown_]) #composeboxInput {
+  --cr-composebox-icon-container-height: 40px;
+  --cr-composebox-input-padding-block: 8px;
+  --text-input-inline-end-spacing: 15px;
+  --text-input-inline-start-spacing: 16px;
+}
+
+cr-composebox-aim-button {
+  --cr-button-height: 24px;
+  --cr-composebox-aim-button-icon-gap: 4px;
+  --cr-composebox-aim-button-icon-inset: 6px;
+  --cr-composebox-aim-button-icon-size: 16px;
+  --cr-composebox-aim-button-leading-glyph-size: 16px;
+  font-size: 12px;
+  margin-block-start: 10px;
+  margin-inline-end: 11px;
+}
+
+#context {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  reading-flow: flex-visual;
+}
+
+#contextEntrypoint::part(entrypoint-button) {
+  --cr-icon-button-size: 36px;
+}
+
+#lensSearchChip {
+  flex-shrink: 1;
+  max-width: 100%;
+  min-width: 0;
+}
+
+#lensSearchChip::part(lens-search-pill) {
+  font-size: var(--omnibox-font-size, 14px);
+  height: 36px;
+  padding: 8px 12px;
+}
+
+#contextMenuContainer {
+  --omnibox-context-menu-container-margin-top: 0px;
+  margin-inline-end: 96px;
+  margin-top: var(--omnibox-context-menu-container-margin-top);
+  min-width: 0;
+}
+
+cr-composebox-tool-chip {
+  padding-inline-start: 8px;
+}
+
+.carousel-container-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+/* Overrides regular carousel CSS (above) for voice. */
+#voiceCarouselContainerInner {
+  align-items: flex-start;
+  /* This is already in shared CSS, but to make it clear
+   * that it is 'flex-direction: column' and not 'row':
+   */
+  flex-direction: column;
+}
+
+:host([searchbox-next-enabled]) #carousel {
+  --context-non-top-carousel-bottom-margin: 4px;
+  --context-non-top-carousel-top-margin: 6px;
+}
+
+#errorScrim {
+  border-radius: inherit;
+}
+
+/* Voice Search Styles */
+#voiceSearchButton {
+  --cr-icon-button-fill-color: var(--cr-composebox-voice-icon-fill-color);
+  --cr-icon-button-hover-background-color: var(--color-composebox-voice-button-hover-background);
+  --cr-icon-button-margin-end: 0px;
+  --cr-icon-button-margin-start: 0px;
+  --cr-icon-button-size: 36px;
+}
+
+:host(:not([searchbox-next-enabled])) #voiceSearchButton,
+:host([searchbox-layout-mode='TallBottomContext']) #voiceSearchButton {
+  bottom: 12px;
+  inset-inline-end: var(--omnibox-voice-icon-inset-end, 12px);
+  position: absolute;
+}
+
+:host([submit-enabled][searchbox-layout-mode='TallBottomContext']) #voiceSearchButton {
+  inset-inline-end: var(--omnibox-voice-icon-inset-end,
+      calc(var(--cr-composebox-submit-container-size) + 6px));
+  margin-inline-end: var(--omnibox-voice-icon-margin-end, 6px);
+}
+
+:host([searchbox-layout-mode='Compact']) #voiceSearchButton {
+  position: absolute;
+  inset-inline-end: calc(var(--cr-composebox-submit-container-size) + 12px);
+  top: 10px;
+}
+
+/* TODO(crbug.com/558864651): When cleaning up
+ * ComposeboxPersistentAimButtonOmnibox, replace is-aim-button-shown_ below
+ * with searchbox-layout-mode='TallBottomContext', keeping submit-enabled and
+ * show-dropdown to override composebox.css's bottom reset. */
+:host([searchbox-layout-mode='TallBottomContext']) #voiceSearchButton,
+:host([is-aim-button-shown_][submit-enabled][show-dropdown])
+    #voiceSearchButton {
+  bottom: 11px;
+}
+
+:host([energy-effect-enabled][searchbox-layout-mode='TallBottomContext']) #voiceSearchButton,
+:host([energy-effect-enabled][searchbox-layout-mode='TallBottomContext'][show-dropdown]) #voiceSearchButton {
+  bottom: 10px;
+  top: unset;
+  inset-inline-end: var(--omnibox-voice-icon-inset-end, 14px);
+}
+
+:host([energy-effect-enabled][submit-enabled][searchbox-layout-mode='TallBottomContext']) #voiceSearchButton {
+  inset-inline-end: var(--omnibox-voice-icon-inset-end,
+      calc(var(--cr-composebox-submit-width,
+          var(--cr-composebox-submit-container-size)) + 8px));
+  margin-inline-end: var(--omnibox-voice-icon-margin-end, 4px);
+}
+
+:host([submit-enabled][searchbox-layout-mode='TallBottomContext'])
+    cr-composebox-submit::part(submit) {
+  bottom: 10px;
+}
+
+:host([energy-effect-enabled][submit-enabled][searchbox-layout-mode='TallBottomContext'])
+    cr-composebox-submit::part(submit) {
+  inset-inline-end: 8px;
+}
+
+:host([submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown]))
+    cr-composebox-submit::part(submit) {
+  bottom: 6px;
+}
+
+:host([energy-effect-enabled][submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown]))
+    cr-composebox-submit::part(submit) {
+  bottom: 10px;
+}
+
+.divider-and-dropdown {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Rich image suggestions state: context menu moves above image grid */
+:host([has-grid]) .divider-and-dropdown {
+  order: 1;
+
+  .carousel-divider {
+    --contextual-entrypoint-and-carousel-carousel-divider-margin-top: 8px;
+    --contextual-entrypoint-and-carousel-carousel-divider-margin-bottom: 12px;
+  }
+}
+
+:host([searchbox-layout-mode='TallBottomContext'][show-dropdown][has-grid]) #voiceSearchButton {
+  bottom: unset;
+  top: var(--cr-composebox-voice-icon-top, 60px);
+}
+
+:host([searchbox-layout-mode='TallBottomContext'][show-dropdown][has-grid]) cr-composebox-submit::part(submit) {
+  bottom: unset;
+  top: var(--cr-composebox-submit-container-top, 58px);
+}
+
+/* Some selectors below match ones in composebox.css on purpose. They
+ * override its rules by coming later at the same specificity. */
+
+/* Paints the popup's surface and drop shadow. The composebox fills its own box
+ * to within the transparent border 'search-animated-glow' reserves for its
+ * glow, so without this the page behind the popup shows through that edge.
+ * https://source.chromium.org/chromium/chromium/src/+/main:ui/webui/resources/cr_components/search/animated_glow.css;l=244
+ * Drawn as a plain box-shadow on :host, not on a ::before/::after; see the
+ * note on '--omnibox-webui-shadow' in omnibox_popup_shared_style.css. */
+:host([webui-shadow-enabled]) {
+  background-color: var(--color-omnibox-results-background);
+  border-radius: var(--cr-composebox-expanded-border-radius);
+  box-shadow: var(--omnibox-webui-shadow);
+}
+
+:host([energy-effect-enabled]) {
+  --composebox-cancel-button-inline-end: 14px;
+  --cr-composebox-padding-bottom: 8px;
+  --cr-composebox-submit-border-radius: 100px;
+  --cr-composebox-submit-height: 36px;
+  --cr-composebox-submit-icon-offset: 0;
+  --cr-composebox-submit-width: 48px;
+}
+
+/* The Compact layout pulls the context button into the input row. (A 'Tall'
+ * layout without allowed inputs for its context row is Compact, see
+ * willUpdate().) composebox.css has Compact values of its own for
+ * '--input-bottom-spacing', incl. one with a file carousel. */
+:host([searchbox-next-enabled][searchbox-layout-mode='Compact']),
+:host([searchbox-next-enabled][searchbox-layout-mode='Compact'][show-file-carousel]) {
+  --cr-composebox-context-margin-top: -12px;
+  --input-bottom-spacing: 14px;
+}
+
+/* composebox.css sizes the omnibox's oblong entry point separately. */
+:host([searchbox-layout-mode='Compact']) #contextEntrypoint::part(context-menu-entrypoint-icon),
+:host([searchbox-next-enabled][searchbox-layout-mode='Compact']) #contextEntrypoint[is-oblong-shape]::part(context-menu-entrypoint-icon) {
+  --cr-icon-button-icon-size: 20px;
+  --cr-icon-button-size: 28px;
+  inset-inline-start: 12px;
+  top: 14px;
+}
+
+:host([energy-effect-enabled]) #contextEntrypoint::part(context-menu-entrypoint-icon) {
+  --cr-composebox-entrypoint-background-color: var(--color-omnibox-composebox-context-entrypoint-background);
+  --cr-composebox-entrypoint-border-radius: 100px;
+  --cr-composebox-entrypoint-height: 32px;
+  --cr-composebox-entrypoint-width: 40px;
+  --cr-icon-button-icon-size: 20px;
+}
+
+:host([energy-effect-enabled][in-tool-mode]) #contextEntrypoint::part(context-menu-entrypoint-icon) {
+  --cr-composebox-entrypoint-background-color: transparent;
+}
+
+:host([energy-effect-animation-enabled_]) #contextEntrypoint::part(context-menu-entrypoint-icon),
+:host([energy-effect-animation-enabled_]) #contextEntrypoint::part(entrypoint-button) {
+  --button-scale-x: 1.16;
+  --cr-icon-button-transition:
+    var(--on-release-duration) var(--expressive-fast-curve);
+  --expressive-fast-curve: cubic-bezier(0.42, 1.67, 0.21, 0.9);
+  --icon-scale-x: 0.95;
+  --on-press-duration: 200ms;
+  --on-release-duration: 400ms;
+
+  transform-origin: center;
+  transition: transform var(--on-release-duration) var(--expressive-fast-curve);
+  will-change: transform;
+}
+
+:host([energy-effect-animation-enabled_]) #contextEntrypoint::part(context-menu-entrypoint-icon):active,
+:host([energy-effect-animation-enabled_]) #contextEntrypoint::part(entrypoint-button):active {
+  --cr-icon-button-icon-size:
+    calc(20px * var(--icon-scale-x));
+  --cr-icon-button-transition:
+    var(--on-press-duration) var(--expressive-fast-curve);
+
+  transform: scale(var(--button-scale-x), 1);
+  transition-duration: var(--on-press-duration);
+}
+
+:host(:not([is-aim-button-shown_])) #composeboxInput::part(input) {
+  min-height: 44px;
+}
+
+#voiceSearch::part(voice-stop-button) {
+  background-color: var(--color-sys-neutral-container);
+  --cr-icon-button-fill-color: var(--color-sys-on-surface);
+}
+
+:host([searchbox-layout-mode='TallBottomContext']) #contextMenuContainer {
+  height: 40px;
+}
+
+/* Only set min height/width if it exists;
+ * otherwise use existing min height/width.
+ */
+:host([has-permission-prompt_]) #composebox {
+  min-height: var(--cr_composebox_minimum_height);
+  min-width: var(--cr_composebox_minimum_width);
+}
+
+:host([apply-context-button-background]) #contextEntrypoint::part(context-menu-entrypoint-icon) {
+  --cr-composebox-entrypoint-background-color: var(
+    --color-omnibox-composebox-context-entrypoint-background);
+  --cr-icon-button-hover-background-color: var(--color-omnibox-icon-pressed);
+}

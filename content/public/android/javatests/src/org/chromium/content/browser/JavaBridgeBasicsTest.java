@@ -13,7 +13,6 @@ import androidx.test.filters.SmallTest;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -576,7 +575,6 @@ public class JavaBridgeBasicsTest {
     @SmallTest
     @Feature({"AndroidWebView", "Android-JavaBridge"})
     @CommandLineFlags.Add("js-flags=--expose-gc")
-    @Ignore("https://crbug.com/447424913")
     public void testReturnedObjectIsGarbageCollected() throws Throwable {
         Assert.assertEquals("function", executeJavaScriptAndGetStringResult("typeof gc"));
         class InnerObject {}

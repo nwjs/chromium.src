@@ -107,6 +107,9 @@ BASE_FEATURE(kApiDesktopAndroidNativeMessagingBypassExtensionAllowlist,
 BASE_FEATURE(kExtensionInstallSiteAccessOptions,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kBackForwardCacheForComponentExtensionFrames,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kBlockBackgroundContentsOffExtentNavigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -117,7 +120,13 @@ BASE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs,
 BASE_FEATURE(kComponentExtensionAllowWorkerChromeResources,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kCrxInstallerVerifyReloadedManifest,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kCWSReviewPromptingNativeUI, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeclarativeNetRequestRestrictResponseHeaderValueMatching,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableWebHidInWebView, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -127,9 +136,13 @@ BASE_FEATURE(kExtensionAutoRejectIncognitoConnectability,
 BASE_FEATURE(kExtensionAsyncListenerRegistration,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// TODO(crbug.com/561948316): Remove this kill switch in M160.
 BASE_FEATURE(kExtensionDebuggerStrictPolicyRestrictions,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// TODO(crbug.com/578677350): Remove this kill switch in M161.
+BASE_FEATURE(kExtensionDownloaderPublisherProofByUpdateUrl,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kExtensionLocalizationGuid, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionIconVariants, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -268,5 +281,8 @@ BASE_FEATURE(kShareEventArgsOnDispatch, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kOptimizeWebRequestProxy, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseSha256ForExtensionHashes, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRestrictGeneratedPathsInWebAccessibleResources,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

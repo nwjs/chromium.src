@@ -10,7 +10,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Linux Builder (dbg)",
-              "project": "chromium-m157"
+              "project": "chromium-m158"
             },
             "builder_spec": {
               "builder_group": "chromium.linux",
@@ -36,7 +36,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Linux Tests (dbg)(1)",
-              "project": "chromium-m157"
+              "project": "chromium-m158"
             },
             "builder_spec": {
               "builder_group": "chromium.linux",
@@ -56,7 +56,7 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "Linux Builder (dbg)",
-                "project": "chromium-m157"
+                "project": "chromium-m158"
               }
             }
           }
@@ -66,14 +66,14 @@
         {
           "bucket": "ci",
           "builder": "Linux Builder (dbg)",
-          "project": "chromium-m157"
+          "project": "chromium-m158"
         }
       ],
       "builder_ids_in_scope_for_testing": [
         {
           "bucket": "ci",
           "builder": "Linux Tests (dbg)(1)",
-          "project": "chromium-m157"
+          "project": "chromium-m158"
         }
       ],
       "is_compile_only": true,
@@ -81,8 +81,7 @@
     }
   },
   "$build/flakiness": {
-    "check_for_flakiness": true,
-    "check_for_flakiness_with_resultdb": true
+    "check_for_flakiness": true
   },
   "$build/siso": {
     "configs": [

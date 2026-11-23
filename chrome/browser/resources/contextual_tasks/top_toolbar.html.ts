@@ -80,12 +80,17 @@ export function getHtml(this: TopToolbarElement) {
         ?disabled="${!this.enableOpenInNewTabButton}">
       </cr-icon-button>
     ` : ''}
-    ${this.isSidePanelRearchitectureEnabled_ ? html`
-      <div id="profileIndicator" class="profile-indicator">
+    ${this.isSidePanelRearchitectureEnabled_ && this.profileAvatarUrl ? html`
+      <cr-button id="profileIndicator" class="profile-indicator"
+          aria-label="$i18n{accountMenuButtonAccessibleName}"
+          aria-haspopup="menu"
+          @click="${this.onProfileIndicatorClick_}"
+          @pointerenter="${this.onProfileIndicatorPointerenter_}"
+          @pointerleave="${this.onProfileIndicatorPointerleave_}">
         <img class="profile-avatar-img"
             src="${this.profileAvatarUrl}"
             alt="">
-      </div>
+      </cr-button>
     ` : ''}
     <cr-icon-button id="overflowMenuButton" iron-icon="cr:more-vert"
       data-element-id="kContextualTasksWebUIOverflowMenuElementId"
@@ -102,6 +107,17 @@ export function getHtml(this: TopToolbarElement) {
     </cr-icon-button>
   </div>
 </div>
+  <cr-lazy-render-lit id="accountMenu" .template="${() => html`
+    <contextual-tasks-account-menu
+        .fullName="${this.accountFullName}"
+        .email="${this.accountEmail}">
+    </contextual-tasks-account-menu>`}">
+  </cr-lazy-render-lit>
+  ${this.isSidePanelRearchitectureEnabled_ && this.profileAvatarUrl ? html`
+    <contextual-tasks-profile-tooltip id="profileTooltip"
+        .fullName="${this.accountFullName}" .email="${this.accountEmail}">
+    </contextual-tasks-profile-tooltip>
+  ` : ''}
   <cr-lazy-render-lit id="sourcesMenu" .template="${() => html`
     <contextual-tasks-sources-menu .contextInfos="${this.contextInfos}">
     </contextual-tasks-sources-menu>`}">
@@ -117,7 +133,7 @@ export function getHtml(this: TopToolbarElement) {
         .contextualTasksEnableSpatialModelToolbarLayout="${this.contextualTasksEnableSpatialModelToolbarLayout_}"
         .contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow="${this.contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow_}"
         @pin-click="${this.onPinClick_}"
-        @new-thread-click="${this.onNewThreadClick_}"
+        @new-thread-click="${this.onOverflowMenuNewThreadClick_}"
         @open-changed="${this.onOverflowMenuOpenChanged_}">
     </contextual-tasks-overflow-menu>`}">
   </cr-lazy-render-lit>

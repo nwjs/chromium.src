@@ -184,6 +184,9 @@ class ToolbarView : public views::AccessiblePaneView,
     return contextual_tasks_button_;
   }
   ToolbarButton* forward_button() const { return forward_; }
+  // Returns the Views extensions (puzzle piece) button, or null if the toolbar
+  // doesn't host the Views extensions container (e.g. when
+  // features::IsWebUIExtensionsContainerEnabled()).
   ExtensionsToolbarButton* GetExtensionsButton() const;
   ReloadButton* reload_button() const { return reload_; }
   LocationBarView* location_bar_view() const { return location_bar_view_; }
@@ -509,5 +512,9 @@ class ToolbarView : public views::AccessiblePaneView,
 };
 
 extern const ui::ClassProperty<bool>* const kActionItemUnderlineIndicatorKey;
+extern const ui::ClassProperty<ActionItemEngagedIndicatorStyle>* const
+    kActionItemEngagedIndicatorStyleKey;
+
+DECLARE_UI_CLASS_PROPERTY_TYPE(ActionItemEngagedIndicatorStyle)
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TOOLBAR_TOOLBAR_VIEW_H_

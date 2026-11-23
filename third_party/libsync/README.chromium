@@ -1,7 +1,8 @@
 Name: Android Explicit Synchronization
-URL: http://source.android.com
+URL: https://android.googlesource.com/platform/system/core
 Description: libsync helper library.
-Version: 074e053f159602aa7558cfb2ae2f3c67878d90e0
+Version: N/A
+Revision: a3b721a32242006b59cb12bd62c9133632af3a2d
 Update Mechanism: Manual
 Security Critical: yes
 Shipped: yes
@@ -10,8 +11,12 @@ License File: LICENSE
 
 Modifications:
 - Added strlcpy.c
+- src/ has only the upstream files Chromium builds, plus NOTICE; Android.bp,
+  libsync.map.txt, OWNERS and tests/ are not imported.
+- src/include/sync/sync.h is a copy of src/include/android/sync.h; upstream
+  has a symlink there, which Crowbar cannot import.
 
-To import a new snapshot of libsync:
-- Checkout the latest version: git checkout 074e053f159602aa7558cfb2ae2f3c67878d90e0
-- Change the DEPS entry to the newly checked out commit.
-- Update this README to reflect the new version.
+Update instructions:
+Update commit hashes in crowbar.txtpb, then run from
+this directory:
+crowbar build --no-dry-run ./

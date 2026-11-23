@@ -10,12 +10,12 @@
 
 #include "base/feature_list.h"
 #include "chrome/browser/tips/core/tips_prefs.h"
+#include "chrome/browser/tips/core/tips_signal_keys.h"
 #include "chrome/browser/tips/core/tips_types.h"
 #include "chrome/browser/tips/core/tips_utils.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
 #include "components/prefs/pref_service.h"
-#include "components/segmentation_platform/public/constants.h"
 #include "components/segmentation_platform/public/features.h"
 
 namespace tips {
@@ -40,8 +40,7 @@ bool BottomOmniboxTip::IsEligible(
     const std::map<std::string, float>& signal_values,
     const PrefService& pref_service) const {
   if (!base::FeatureList::IsEnabled(
-          segmentation_platform::features::kAndroidTipsNotifications) ||
-      !segmentation_platform::features::kEnableBottomOmniboxTip.Get()) {
+          segmentation_platform::features::kAndroidTipsNotifications)) {
     return false;
   }
 
@@ -56,7 +55,7 @@ bool BottomOmniboxTip::IsEligible(
 
   // If the bottom omnibox is currently enabled/active in the UI (custom runtime
   // signal passed via JNI), do not show the tip.
-  auto it = signal_values.find(segmentation_platform::kBottomOmniboxStatus);
+  auto it = signal_values.find(kBottomOmniboxStatus);
   if (it != signal_values.end() && it->second != 0.0f) {
     return false;
   }

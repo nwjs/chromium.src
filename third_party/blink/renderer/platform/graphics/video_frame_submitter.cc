@@ -423,7 +423,7 @@ void VideoFrameSubmitter::OnBeginFrame(
     const bool has_frame_token = pending_frame != pending_frames_.end();
 
     auto final_state = cc::FrameInfo::FrameFinalState::kNoUpdateDesired;
-    if (!has_frame_token || !pending_frame->second.is_manual_source) {
+    if (has_frame_token && !pending_frame->second.is_manual_source) {
       if (presentation_failure) {
         final_state = cc::FrameInfo::FrameFinalState::kDropped;
       } else {
@@ -467,7 +467,7 @@ void VideoFrameSubmitter::OnBeginFrame(
                   (1 - emea_smoothing_factor_for_average_delta);
         }
       }
-      if (has_frame_token && pending_frame->second.was_decoded_with_end_time) {
+      if (pending_frame->second.was_decoded_with_end_time) {
         frame_sorter_.AddFrameResult(pending_frame->second.begin_frame_args,
                                      CreateFrameInfo(final_state));
       }
@@ -935,6 +935,9 @@ viz::CompositorFrame VideoFrameSubmitter::CreateCompositorFrame(
   }
 
   if (video_frame) {
+    if (pending_frames_.size() == kMaxPendingFrames) {
+      pending_frames_.erase(pending_frames_.begin());
+    }
     pending_frames_.emplace(
         frame_token,
         PendingFrameInfo{
@@ -985,8 +988,6 @@ viz::CompositorFrame VideoFrameSubmitter::CreateCompositorFrame(
                       gfx::Rect(frame_size_), gfx::Transform());
 
   if (video_frame) {
-    compositor_frame.metadata.content_color_usage =
-        video_frame->ColorSpace().GetContentColorUsage();
     const bool is_opaque = media::IsOpaque(video_frame->format());
     resource_provider_->AppendQuads(render_pass.get(), std::move(video_frame),
                                     transform, is_opaque);

@@ -15,12 +15,16 @@ import {TabGroupDotSize} from '/tab_group_shared/tab_group_dot.js';
 
 import type {OrganizerListSectionClient, OrganizerListSectionDelegate} from '../organizer_list_section_delegate.js';
 import type {OrganizerListSectionItem} from '../organizer_list_section_item.js';
+import type {BrowserProxy as OrganizerPanelBrowserProxy} from '../organizer_panel.mojom-webui.js';
+import {browserProxyFactory as organizerPanelBrowserProxyFactory} from '../organizer_panel.mojom-webui.js';
 import type {BrowserProxy, TabGroup} from '../tab_groups.mojom-webui.js';
 import {browserProxyFactory} from '../tab_groups.mojom-webui.js';
 
 export class TabGroupsDelegate implements
     OrganizerListSectionDelegate<TabGroup> {
   private browserProxy_: BrowserProxy = browserProxyFactory.getInstance();
+  private organizerPanelBrowserProxy_: OrganizerPanelBrowserProxy =
+      organizerPanelBrowserProxyFactory.getInstance();
   private client_?: OrganizerListSectionClient;
   private listenerIds_: number[] = [];
   private tabGroups_: TabGroup[] = [];
@@ -58,7 +62,9 @@ export class TabGroupsDelegate implements
     const item: OrganizerListSectionItem<unknown> = {
       title: [loadTimeData.getString('createTabGroup')],
       prefixIcon: {
-        element: html`<cr-icon icon="cr:add"></cr-icon>`,
+        element: html`<cr-icon icon="cr:add"
+            style="--iron-icon-height: 20px; --iron-icon-width: 20px;">
+        </cr-icon>`,
       },
       size: CrUrlListItemSize.COMPACT,
     };
@@ -74,6 +80,7 @@ export class TabGroupsDelegate implements
   }
 
   private onCreateTabGroupClick_() {
+    this.organizerPanelBrowserProxy_.handler.closePanel();
     this.browserProxy_.handler.createNewTabGroup();
   }
 
@@ -136,6 +143,9 @@ export class TabGroupsDelegate implements
       OrganizerListSectionItem<TabGroup> {
     return {
       title: [group.title],
+      description: group.lastActiveElapsedText ?
+          [{text: group.lastActiveElapsedText, matchable: false}] :
+          undefined,
       prefixIcon: {
         element: html`<tab-group-dot .color="${group.color}"
             .filled="${group.isOpen}"
@@ -144,8 +154,8 @@ export class TabGroupsDelegate implements
       hoveredActionButton: {
         icon: 'cr:more-vert',
         ariaLabel: loadTimeData.getString('tabGroupMoreOptions'),
+        tooltip: loadTimeData.getString('options'),
       },
-      size: CrUrlListItemSize.COMPACT,
       data: group,
     };
   }

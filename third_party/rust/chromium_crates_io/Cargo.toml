@@ -24,6 +24,7 @@ bytes = "1"
 chrono = "0.4.43"
 cxx = "1"
 fend-core = "1"
+flate2 = "1.1"
 font-types = "0.12.6"
 hex = "0.4"
 hmac-sha256 = "1.1.12"
@@ -75,7 +76,7 @@ features = [
 ]
 
 [dependencies.icu_capi]
-version = "2.2"
+version = "2.4"
 default-features = false
 features = [
     "compiled_data",
@@ -87,36 +88,36 @@ features = [
 ]
 
 [dependencies.icu_casemap]
-version = "2.2.0"
+version = "2.4.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_experimental]
-version = "0.5.0"
+version = "0.7.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_locale]
-version = "2.2.0"
+version = "2.4.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_locale_core]
-version = "2.2.0"
+version = "2.4.0"
 default-features = false
 
 [dependencies.icu_normalizer]
-version = "2.2.0"
+version = "2.4.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_properties]
-version = "2.2.0"
+version = "2.4.0"
 default-features = false
 features = ["compiled_data"]
 
 [dependencies.icu_provider]
-version = "2.2.0"
+version = "2.4.0"
 default-features = false
 
 [dependencies.image]
@@ -125,7 +126,7 @@ default-features = false
 features = ["bmp", "ico"]
 
 [dependencies.jxl]
-version = "0.7.0"
+version = "0.8.0"
 features = ["all-simd"]
 
 [dependencies.llguidance]
@@ -179,7 +180,7 @@ version = "0.6.0"
 # codecs specifically added in `features`. Enabling new codec support requires a
 # package configuration through gnrt vendor and gnrt gen.
 default-features = false
-features = ["flac", "mpa", "ogg", "wav", "mkv", "pcm", "isomp4", "vorbis", "opt-simd"]
+features = ["all-meta", "flac", "mpa", "ogg", "wav", "mkv", "pcm", "isomp4", "vorbis", "opt-simd"]
 
 # TODO(https://crbug.com/540235303): Remove direct dependency on syn-v2 after
 # migrating Crubit, WebRTC, and other third-party libraries to syn-v3.

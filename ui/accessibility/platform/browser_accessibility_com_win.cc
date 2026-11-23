@@ -22,6 +22,7 @@
 #include "base/win/shlwapi.h"
 #include "base/win/win_util.h"
 #include "base/win/windows_version.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/accessibility/ax_common.h"
 #include "ui/accessibility/ax_enum_localization_util.h"
 #include "ui/accessibility/ax_enum_util.h"
@@ -740,7 +741,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::doAction(LONG action_index) {
 
   BrowserAccessibilityWin* const owner = GetOwner();
   const std::vector<ax::mojom::Action> actions = owner->GetSupportedActions();
-  const std::vector<int32_t>& aria_actions =
+  base::span<const int32_t> aria_actions =
       owner->GetIntListAttribute(ax::mojom::IntListAttribute::kActionsIds);
 
   // Actions can be from Blink for the given markup, or from the aria-actions
@@ -789,7 +790,7 @@ BrowserAccessibilityComWin::get_description(LONG action_index,
 
   BrowserAccessibilityWin* const owner = GetOwner();
   const std::vector<ax::mojom::Action> actions = owner->GetSupportedActions();
-  const std::vector<int32_t>& aria_actions =
+  base::span<const int32_t> aria_actions =
       owner->GetIntListAttribute(ax::mojom::IntListAttribute::kActionsIds);
 
   if (action_index < 0 ||
@@ -824,7 +825,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_keyBinding(LONG action_index,
 
   BrowserAccessibilityWin* const owner = GetOwner();
   const std::vector<ax::mojom::Action> actions = owner->GetSupportedActions();
-  const std::vector<int32_t>& aria_actions =
+  base::span<const int32_t> aria_actions =
       owner->GetIntListAttribute(ax::mojom::IntListAttribute::kActionsIds);
 
   if (action_index < 0 ||
@@ -863,7 +864,7 @@ IFACEMETHODIMP BrowserAccessibilityComWin::get_name(LONG action_index,
 
   BrowserAccessibilityWin* const owner = GetOwner();
   const std::vector<ax::mojom::Action> actions = owner->GetSupportedActions();
-  const std::vector<int32_t>& aria_actions =
+  base::span<const int32_t> aria_actions =
       owner->GetIntListAttribute(ax::mojom::IntListAttribute::kActionsIds);
 
   if (action_index < 0 ||
@@ -925,7 +926,7 @@ BrowserAccessibilityComWin::get_localizedName(LONG action_index,
 
   BrowserAccessibilityWin* const owner = GetOwner();
   const std::vector<ax::mojom::Action> actions = owner->GetSupportedActions();
-  const std::vector<int32_t>& aria_actions =
+  base::span<const int32_t> aria_actions =
       owner->GetIntListAttribute(ax::mojom::IntListAttribute::kActionsIds);
 
   if (action_index < 0 ||
@@ -1762,6 +1763,12 @@ void BrowserAccessibilityComWin::UpdateStep3FireEvents() {
   DCHECK(update_state_);
   DCHECK(update_state_->old_win_attributes);
 
+  Microsoft::WRL::ComPtr<BrowserAccessibilityComWin> this_ref(this);
+  absl::Cleanup clear_update_state = [this] { update_state_ = nullptr; };
+
+  if (IsDestroyed()) {
+    return;
+  }
   BrowserAccessibilityWin* const owner = GetOwner();
   const bool ignored = owner->IsIgnored();
 
@@ -1772,7 +1779,6 @@ void BrowserAccessibilityComWin::UpdateStep3FireEvents() {
   if (ignored || (old_win_attributes.ignored != ignored &&
                   !owner->GetData().IsContainedInActiveLiveRegion() &&
                   !owner->GetData().IsActiveLiveRegionRoot())) {
-    update_state_ = nullptr;
     return;
   }
 
@@ -1782,6 +1788,9 @@ void BrowserAccessibilityComWin::UpdateStep3FireEvents() {
     // Fire an event if the description, help, or value changes.
     if (description() != old_win_attributes.description) {
       FireNativeEvent(EVENT_OBJECT_DESCRIPTIONCHANGE);
+      if (IsDestroyed()) {
+        return;
+      }
     }
 
     // Fire an event if this container object has scrolled.
@@ -1789,8 +1798,12 @@ void BrowserAccessibilityComWin::UpdateStep3FireEvents() {
     int sy = 0;
     if (owner->GetIntAttribute(ax::mojom::IntAttribute::kScrollX, &sx) &&
         owner->GetIntAttribute(ax::mojom::IntAttribute::kScrollY, &sy)) {
-      if (sx != previous_scroll_x_ || sy != previous_scroll_y_)
+      if (sx != previous_scroll_x_ || sy != previous_scroll_y_) {
         FireNativeEvent(EVENT_SYSTEM_SCROLLINGEND);
+        if (IsDestroyed()) {
+          return;
+        }
+      }
       previous_scroll_x_ = sx;
       previous_scroll_y_ = sy;
     }
@@ -1808,16 +1821,20 @@ void BrowserAccessibilityComWin::UpdateStep3FireEvents() {
         // In-process screen readers may call IAccessibleText::get_oldText
         // in reaction to this event to retrieve the text that was removed.
         FireNativeEvent(IA2_EVENT_TEXT_REMOVED);
+        if (IsDestroyed()) {
+          return;
+        }
       }
       if (new_len > 0) {
         // In-process screen readers may call IAccessibleText::get_newText
         // in reaction to this event to retrieve the text that was inserted.
         FireNativeEvent(IA2_EVENT_TEXT_INSERTED);
+        if (IsDestroyed()) {
+          return;
+        }
       }
     }
   }
-
-  update_state_ = nullptr;
 }
 
 BrowserAccessibilityWin* BrowserAccessibilityComWin::GetOwner() const {

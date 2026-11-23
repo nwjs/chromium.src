@@ -4,7 +4,6 @@
 
 import 'chrome://settings/lazy_load.js';
 
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {SettingsCheckboxElement} from 'chrome://settings/lazy_load.js';
 import {PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertNotReached, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -18,36 +17,57 @@ suite('SettingsCheckbox', function() {
    * Checkbox created before each test.
    */
   let testElement: SettingsCheckboxElement;
-
-  /**
-   * Pref value used in tests, should reflect checkbox 'checked' attribute.
-   */
-  const pref: chrome.settingsPrivate.PrefObject = {
-    key: 'test',
-    type: chrome.settingsPrivate.PrefType.BOOLEAN,
-    value: true,
-  };
+  let prefsBrowserProxy: TestPrefsBrowserProxy;
+  let prefService: PrefService;
 
   // Initialize a checked settings-checkbox before each test.
-  setup(function() {
+  setup(async function() {
+    const initialPrefs = [
+      {
+        key: 'test',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+    ];
+    prefsBrowserProxy = new TestPrefsBrowserProxy(initialPrefs);
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+
+    PrefService.resetInstanceForTesting();
+    prefService = PrefService.getInstance();
+    await prefService.whenInitialized();
+
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     testElement = document.createElement('settings-checkbox');
-    testElement.set('pref', pref);
+    testElement.prefKey = 'test';
     document.body.appendChild(testElement);
+    await microtasksFinished();
   });
 
   test('value changes on click', async function() {
     assertTrue(testElement.checked);
+    assertTrue(prefService.getPref<boolean>('test').value);
 
     testElement.$.checkbox.click();
     await microtasksFinished();
     assertFalse(testElement.checked);
-    assertFalse(pref.value);
+    assertFalse(prefService.getPref<boolean>('test').value);
 
     testElement.$.checkbox.click();
     await microtasksFinished();
     assertTrue(testElement.checked);
-    assertTrue(pref.value);
+    assertTrue(prefService.getPref<boolean>('test').value);
+  });
+
+  test('pref change updates value', async function() {
+    assertTrue(testElement.checked);
+
+    prefService.setPrefValue('test', false);
+    await microtasksFinished();
+    assertFalse(testElement.checked);
+
+    prefService.setPrefValue('test', true);
+    await microtasksFinished();
+    assertTrue(testElement.checked);
   });
 
   test('fires a change event', function(done) {
@@ -61,6 +81,7 @@ suite('SettingsCheckbox', function() {
   test('does not change when disabled', async function() {
     testElement.checked = false;
     testElement.setAttribute('disabled', '');
+    await microtasksFinished();
     assertTrue(testElement.disabled);
     assertTrue(testElement.$.checkbox.disabled);
 
@@ -71,38 +92,37 @@ suite('SettingsCheckbox', function() {
   });
 
   test('numerical pref', async function() {
-    const prefNum = {
+    prefsBrowserProxy.fakeApi.sendPrefChanges([{
       key: 'test',
       type: chrome.settingsPrivate.PrefType.NUMBER,
       value: 1,
-    };
-
-    testElement.set('pref', prefNum);
+    }]);
+    await microtasksFinished();
     assertTrue(testElement.checked);
 
     testElement.$.checkbox.click();
     await microtasksFinished();
     assertFalse(testElement.checked);
-    assertEquals(0, prefNum.value);
+    assertEquals(0, prefService.getPref<number>('test').value);
 
     testElement.$.checkbox.click();
     await microtasksFinished();
     assertTrue(testElement.checked);
-    assertEquals(1, prefNum.value);
+    assertEquals(1, prefService.getPref<number>('test').value);
   });
 
-  test('sub label should be able to have an id', () => {
+  test('sub label should be able to have an id', async () => {
     testElement.subLabelHtml = '<a id="subLabelWithLink"></a>';
-    flush();
+    await microtasksFinished();
 
     const actionLink =
         testElement.$.subLabel.querySelector('#subLabelWithLink');
     assertTrue(!!actionLink);
   });
 
-  test('sub label should be able to have an aria-label', () => {
+  test('sub label should be able to have an aria-label', async () => {
     testElement.subLabelHtml = '<a aria-label="Label"></a>';
-    flush();
+    await microtasksFinished();
 
     const actionLink = testElement.$.subLabel.querySelector('a');
     assertTrue(!!actionLink);
@@ -113,7 +133,7 @@ suite('SettingsCheckbox', function() {
       'click on sub label link should not toggle the button', async function() {
         testElement.checked = true;
         testElement.subLabelHtml = '<a href="#"></a>';
-        flush();
+        await microtasksFinished();
 
         const actionLink = testElement.$.subLabel.querySelector('a');
         assertTrue(!!actionLink);
@@ -129,7 +149,7 @@ suite('SettingsCheckbox', function() {
   test('click on sub label text should toggle the button', async function() {
     testElement.checked = true;
     testElement.subLabelHtml = '<a href="#"></a>';
-    flush();
+    await microtasksFinished();
 
     assertTrue(testElement.checked);
 
@@ -141,7 +161,7 @@ suite('SettingsCheckbox', function() {
 
   test('click on sub label link should fire a custom event', async function() {
     testElement.subLabelHtml = '<a href="#" id="subLabelWithLink"></a>';
-    flush();
+    await microtasksFinished();
 
     const actionLink = testElement.$.subLabel.querySelector('a');
     assertTrue(!!actionLink);
@@ -153,70 +173,14 @@ suite('SettingsCheckbox', function() {
     assertEquals('subLabelWithLink', clickEvent.detail.id);
   });
 
-  test('click on sub label text should not fire a custom event', () => {
+  test('click on sub label text should not fire a custom event', async () => {
     testElement.subLabelHtml = '<a href="#" id="subLabelWithLink"></a>';
     testElement.addEventListener('sub-label-link-clicked', () => {
       assertNotReached(
           'custom event should not be triggered for non action link clicks.');
     });
-    flush();
+    await microtasksFinished();
 
     testElement.$.subLabel.click();
-  });
-});
-
-suite('SettingsCheckboxPrefKey', () => {
-  let testElement: SettingsCheckboxElement;
-  let prefsBrowserProxy: TestPrefsBrowserProxy;
-
-  const initialPrefs = [
-    {
-      key: 'test_boolean',
-      type: chrome.settingsPrivate.PrefType.BOOLEAN,
-      value: true,
-    },
-  ];
-
-  setup(async () => {
-    prefsBrowserProxy = new TestPrefsBrowserProxy(initialPrefs);
-    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
-
-    PrefService.resetInstanceForTesting();
-    await PrefService.getInstance().whenInitialized();
-
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    testElement = document.createElement('settings-checkbox');
-    testElement.prefKey = 'test_boolean';
-    document.body.appendChild(testElement);
-  });
-
-  test('valueChangesOnClick', async () => {
-    assertTrue(testElement.checked);
-    assertTrue(
-        PrefService.getInstance().getPref<boolean>('test_boolean').value);
-
-    testElement.$.checkbox.click();
-    await microtasksFinished();
-    assertFalse(testElement.checked);
-    assertFalse(
-        PrefService.getInstance().getPref<boolean>('test_boolean').value);
-
-    testElement.$.checkbox.click();
-    await microtasksFinished();
-    assertTrue(testElement.checked);
-    assertTrue(
-        PrefService.getInstance().getPref<boolean>('test_boolean').value);
-  });
-
-  test('prefChangeUpdatesValue', async () => {
-    assertTrue(testElement.checked);
-
-    PrefService.getInstance().setPrefValue('test_boolean', false);
-    await microtasksFinished();
-    assertFalse(testElement.checked);
-
-    PrefService.getInstance().setPrefValue('test_boolean', true);
-    await microtasksFinished();
-    assertTrue(testElement.checked);
   });
 });

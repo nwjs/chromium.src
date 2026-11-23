@@ -28,6 +28,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.chromium.base.test.transit.ViewFinder.waitForView;
 import static org.chromium.chrome.test.util.ChromeTabUtils.getTabCountOnUiThread;
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
@@ -54,8 +55,10 @@ import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
@@ -87,6 +90,7 @@ import org.chromium.ui.modaldialog.ModalDialogManager;
 })
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+@DisableIf.Device(DeviceFormFactor.AUTOMOTIVE) // crbug.com/462592111
 public class TabStripGroupContextMenuTest {
     @Rule
     public AutoResetCtaTransitTestRule mActivityTestRule =
@@ -371,6 +375,51 @@ public class TabStripGroupContextMenuTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.TAB_GROUP_CONTEXT_MENU_LIVE_TITLE_UPDATE)
+    public void testLiveUpdateGroupTitle() {
+        // Prepare standard state and show menu.
+        prepareStandardState();
+        showMenu();
+
+        // Verify default group title in the menu.
+        onView(withText("2 tabs")).check(matches(isDisplayed()));
+
+        // Focus title edit box and replace text with rapid typing to verify debouncing.
+        onView(withId(R.id.tab_group_title)).perform(click());
+        onViewWaiting(allOf(withId(R.id.tab_group_title), isFocused()));
+        onView(withId(R.id.tab_group_title)).perform(replaceText("live"));
+        onView(withId(R.id.tab_group_title)).perform(replaceText("liveTitle"));
+
+        // While the menu is STILL SHOWING (no enter pressed, no dismissal), verify the TabModel
+        // updates live after the debounce period.
+        TabModel tabModel =
+                TabStripTestUtils.getTabModel(
+                        mActivityTestRule.getActivity(), /* isIncognito= */ false);
+        CriteriaHelper.pollUiThread(
+                () -> "liveTitle".equals(tabModel.getTabGroupTitle(mTabGroupId)),
+                "Tab group title should be updated live while menu is open");
+
+        // Verify the menu is still open and displaying the new title.
+        onView(allOf(withId(R.id.tab_group_title), withText("liveTitle")))
+                .check(matches(isDisplayed()));
+
+        // Clear the title in the edit box.
+        onView(withId(R.id.tab_group_title)).perform(replaceText(""));
+
+        // While still showing, verify that deleting the text clears the title in TabModel.
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    String currentTitle = tabModel.getTabGroupTitle(mTabGroupId);
+                    return currentTitle == null || currentTitle.isEmpty();
+                },
+                "Tab group title in TabModel should be cleared while edit text is empty");
+
+        // Verify that the EditText itself remains empty while the user is actively typing.
+        onView(allOf(withId(R.id.tab_group_title), withText(""))).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @SmallTest
     public void testUpdateGroupColor() {
         // Prepare standard state and show menu.
         prepareStandardState();
@@ -583,14 +632,14 @@ public class TabStripGroupContextMenuTest {
                                 R.plurals.move_group_to_another_window_context_menu_item, 2);
 
         // Click on "Move tab to other window" to open a submenu.
-        onView(withText(moveToAnotherWindow)).perform(click());
+        waitForView(withText(moveToAnotherWindow)).click();
 
         // Sub-menu should be scrollable and should not have excess space.
         onView(withId(R.id.tab_group_action_menu_list)).check(matches(isScrollContainerMatcher));
         onView(withId(R.id.tab_group_action_menu_list)).check(matches(layoutParamsMatcher));
 
         // Go back to the main menu.
-        onView(withText(moveToAnotherWindow)).perform(click());
+        waitForView(withText(moveToAnotherWindow)).click();
 
         // Main menu should not be scrollable again.
         onView(withId(R.id.tab_group_action_menu_list))

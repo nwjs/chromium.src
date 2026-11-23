@@ -124,10 +124,6 @@ bool ExtensionsRequestAccessButton::IsShowingConfirmationFor(
   return confirmation_origin_ == origin;
 }
 
-bool ExtensionsRequestAccessButton::ShouldShowInkdropAfterIphInteraction() {
-  return false;
-}
-
 void ExtensionsRequestAccessButton::VisibilityChanged(
     views::View* starting_from,
     bool is_visible) {
@@ -236,7 +232,7 @@ void ExtensionsRequestAccessButton::OnButtonPressed(const ui::Event& event) {
   confirmation_origin_ = origin_;
 
   // Always grant access to this site to all extensions.
-  DCHECK_GT(extension_ids_.size(), 0u);
+  CHECK_GT(extension_ids_.size(), 0u, base::NotFatalUntil::M162);
   extensions_toolbar_view_model_->GrantSiteAccess(web_contents, extension_ids_,
                                                   origin_);
 

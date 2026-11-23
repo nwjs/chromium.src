@@ -38,7 +38,11 @@ OpenXrGraphicsBinding::~OpenXrGraphicsBinding() {
 }
 
 bool OpenXrGraphicsBinding::ShouldRenderBaseLayer() const {
-  return layers_sequence_.empty() || overlay_visible_;
+  // When WebXR uses a custom projection layer and is visible, the overlay is
+  // composited directly into that layer rather than the base layer.
+  const bool overlay_needs_base_layer =
+      overlay_visible_ && (!webxr_visible_ || !has_custom_projection_layer_);
+  return layers_sequence_.empty() || overlay_needs_base_layer;
 }
 
 bool OpenXrGraphicsBinding::RequiresSharedImages() const {
@@ -89,6 +93,8 @@ void OpenXrGraphicsBinding::OnSessionDestroyed(gpu::SharedImageInterface* sii) {
     layer->DestroySwapchain(sii);
   }
   layers_.clear();
+  layers_sequence_.clear();
+  has_custom_projection_layer_ = false;
 }
 
 std::vector<XrCompositionLayerProjectionView>
@@ -222,22 +228,24 @@ std::unique_ptr<OpenXrLayers> OpenXrGraphicsBinding::GetLayersForViewConfig(
     OpenXrApiWrapper* openxr,
     const OpenXrViewConfiguration& view_config) const {
   auto openxr_layers = std::make_unique<OpenXrLayers>();
-  for (const auto& layer_id : layers_sequence_) {
-    auto layer_it = layers_.find(layer_id);
-    if (layer_it == layers_.end()) {
-      continue;
-    }
-    OpenXrCompositionLayer& layer = *layer_it->second;
-    if (layer.type() == OpenXrCompositionLayer::Type::kProjection) {
-      openxr_layers->AddCompositionLayer(openxr, layer,
-                                         GetProjectionViews(view_config, layer),
-                                         GetFlipLayerLayout(layer));
-    } else {
-      openxr_layers->AddCompositionLayer(openxr, layer, {},
-                                         GetFlipLayerLayout(layer));
+  if (webxr_visible_) {
+    for (const auto& layer_id : layers_sequence_) {
+      auto layer_it = layers_.find(layer_id);
+      if (layer_it == layers_.end()) {
+        continue;
+      }
+      OpenXrCompositionLayer& layer = *layer_it->second;
+      if (layer.type() == OpenXrCompositionLayer::Type::kProjection) {
+        openxr_layers->AddCompositionLayer(
+            openxr, layer, GetProjectionViews(view_config, layer),
+            GetFlipLayerLayout(layer));
+      } else {
+        openxr_layers->AddCompositionLayer(openxr, layer, {},
+                                           GetFlipLayerLayout(layer));
+      }
     }
   }
-  if (ShouldRenderBaseLayer()) {
+  if (ShouldRenderBaseLayer() && base_layer_->is_rendered()) {
     openxr_layers->AddBaseLayer(
         openxr->GetReferenceSpace(mojom::XRReferenceSpaceType::kLocal),
         GetBaseLayerProjectionViews(view_config), GetFlipLayerLayout());
@@ -388,6 +396,8 @@ XrResult OpenXrGraphicsBinding::WaitSwapchainImages(
       if (result == XR_TIMEOUT_EXPIRED) {
         return_result = result;
       }
+    } else if (base_layer_->has_active_swapchain_image()) {
+      OnSwapchainImageReady(*base_layer_, sii);
     }
   }
 
@@ -403,6 +413,8 @@ XrResult OpenXrGraphicsBinding::WaitSwapchainImages(
       if (result == XR_TIMEOUT_EXPIRED) {
         return_result = result;
       }
+    } else if (layer_it->second->has_active_swapchain_image()) {
+      OnSwapchainImageReady(*layer_it->second, sii);
     }
   }
 
@@ -553,6 +565,13 @@ bool OpenXrGraphicsBinding::CreateCompositionLayer(
   if (!SupportsLayers()) {
     return false;
   }
+#if BUILDFLAG(IS_LINUX)
+  // The page's layer of an unsupported type never becomes active.
+  if (!SupportsLayerType(OpenXrCompositionLayer::GetTypeFromMojomData(
+          *layer_data->mutable_data->layer_data))) {
+    return false;
+  }
+#endif
 
   auto layer_id = layer_data->read_only_data->layer_id;
   CHECK(!layers_.contains(layer_id));

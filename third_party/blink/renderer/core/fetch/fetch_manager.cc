@@ -23,6 +23,7 @@
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/net_errors.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/header_util.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
@@ -285,9 +286,9 @@ class ResponseResolver final : public GarbageCollected<ResponseResolver> {
   // channel that is inaccessible to the page (so additional information
   // stored in the `issue_summary` about for example CORS policy violations
   // is not leaked to the page).
-  void RejectBecauseFailed(std::optional<String> devtools_request_id,
+  void RejectBecauseFailed(const String& devtools_request_id,
                            std::optional<base::UnguessableToken> issue_id,
-                           std::optional<String> issue_summary);
+                           const String& issue_summary);
 
   void Trace(Visitor* visitor) const {
     visitor->Trace(resolver_);
@@ -334,32 +335,32 @@ void ResponseResolver::Reject(DOMException* dom_exception) {
 }
 
 void ResponseResolver::RejectBecauseFailed(
-    std::optional<String> devtools_request_id,
+    const String& devtools_request_id,
     std::optional<base::UnguessableToken> issue_id,
-    std::optional<String> issue_summary) {
+    const String& issue_summary) {
   CHECK(resolver_);
   auto* script_state = resolver_->GetScriptState();
   auto* isolate = script_state->GetIsolate();
   auto context = script_state->GetContext();
   v8::Local<v8::Value> value = exception_.Get(isolate);
   exception_.Reset();
-  if (devtools_request_id || issue_id || issue_summary) {
+  if (!devtools_request_id.IsNull() || issue_id || !issue_summary.IsNull()) {
     ThreadDebugger* debugger = ThreadDebugger::From(isolate);
     auto* inspector = debugger->GetV8Inspector();
-    if (devtools_request_id) {
+    if (!devtools_request_id.IsNull()) {
       inspector->associateExceptionData(
           context, value, V8AtomicString(isolate, "requestId"),
-          V8String(isolate, *devtools_request_id));
+          V8String(isolate, devtools_request_id));
     }
     if (issue_id) {
       inspector->associateExceptionData(
           context, value, V8AtomicString(isolate, "issueId"),
           V8String(isolate, IdentifiersFactory::IdFromToken(*issue_id)));
     }
-    if (issue_summary) {
+    if (!issue_summary.IsNull()) {
       inspector->associateExceptionData(context, value,
                                         V8AtomicString(isolate, "issueSummary"),
-                                        V8String(isolate, *issue_summary));
+                                        V8String(isolate, issue_summary));
     }
   }
   resolver_->Reject(value);
@@ -422,9 +423,9 @@ class FetchLoaderBase : public GarbageCollectedMixin {
   virtual void Failed(
       const String& message,
       DOMException* dom_exception,
-      std::optional<String> devtools_request_id = std::nullopt,
+      const String& devtools_request_id = String(),
       std::optional<base::UnguessableToken> issue_id = std::nullopt,
-      std::optional<String> issue_summary = std::nullopt) = 0;
+      const String& issue_summary = String()) = 0;
 
   void PerformSchemeFetch(ExceptionState&);
   void PerformNetworkError(
@@ -610,9 +611,9 @@ class FetchManager::Loader final
   // of the usual "Failed to fetch" TypeError.
   void Failed(const String& message,
               DOMException* dom_exception,
-              std::optional<String> devtools_request_id = std::nullopt,
+              const String& devtools_request_id = String(),
               std::optional<base::UnguessableToken> issue_id = std::nullopt,
-              std::optional<String> issue_summary = std::nullopt) override;
+              const String& issue_summary = String()) override;
 
   // Classifies why a request that ended with `net::ERR_ABORTED` was cancelled,
   // inspecting the AbortSignal, the owning frame's attachment state, and
@@ -917,7 +918,7 @@ void FetchManager::Loader::DidFail(uint64_t identifier,
   }
 
   std::optional<base::UnguessableToken> issue_id;
-  std::optional<String> issue_summary;
+  String issue_summary;
   if (const auto& cors_error_status = error.CorsErrorStatus()) {
     issue_id = cors_error_status->issue_id;
     if (base::FeatureList::IsEnabled(features::kDevToolsImprovedNetworkError)) {
@@ -1145,7 +1146,7 @@ void FetchLoaderBase::PerformNetworkError(
   Failed(
       StrCat({"Fetch API cannot load ",
               fetch_request_data_->Url().ElidedString(), ". ", issue_summary}),
-      nullptr, std::nullopt, issue_id, issue_summary);
+      nullptr, String(), issue_id, issue_summary);
 }
 
 void FetchLoaderBase::PerformHTTPFetch(ExceptionState& exception_state) {
@@ -1334,9 +1335,9 @@ bool FetchLoaderBase::AddConsoleMessage(
 void FetchManager::Loader::Failed(
     const String& message,
     DOMException* dom_exception,
-    std::optional<String> devtools_request_id,
+    const String& devtools_request_id,
     std::optional<base::UnguessableToken> issue_id,
-    std::optional<String> issue_summary) {
+    const String& issue_summary) {
   if (failed_ || finished_) {
     return;
   }
@@ -1349,8 +1350,8 @@ void FetchManager::Loader::Failed(
     if (dom_exception) {
       response_resolver_->Reject(dom_exception);
     } else {
-      response_resolver_->RejectBecauseFailed(
-          std::move(devtools_request_id), issue_id, std::move(issue_summary));
+      response_resolver_->RejectBecauseFailed(devtools_request_id, issue_id,
+                                              issue_summary);
       LogIfKeepalive("Failed");
     }
     response_resolver_.Clear();
@@ -1363,6 +1364,19 @@ void FetchManager::Loader::NotifyFinished() {
     fetch_manager_->OnLoaderFinished(this);
 }
 
+namespace {
+
+// For documents, Frame::Detach() advances the frame lifecycle to kDetaching and
+// stops active loaders before LocalDOMWindow::FrameDestroyed runs. Any
+// unattached frame or destroyed window context indicates page navigation, tab
+// close, or iframe removal.
+bool IsFrameDetaching(const LocalDOMWindow* window) {
+  return window && (!window->GetFrame() || !window->GetFrame()->IsAttached() ||
+                    window->IsContextDestroyed());
+}
+
+}  // namespace
+
 FetchAbortedReason FetchManager::Loader::DeduceAbortedReason() const {
   if (Signal()->aborted()) {
     // Explicit script abort via AbortController is the primary cause, even if
@@ -1372,12 +1386,7 @@ FetchAbortedReason FetchManager::Loader::DeduceAbortedReason() const {
 
   ExecutionContext* context = GetExecutionContext();
   if (auto* window = DynamicTo<LocalDOMWindow>(context)) {
-    // For documents, Frame::Detach() advances the frame lifecycle to
-    // kDetaching and stops active loaders before
-    // LocalDOMWindow::FrameDestroyed runs. Any unattached frame or destroyed
-    // window context indicates page navigation, tab close, or iframe removal.
-    if (!window->GetFrame() || !window->GetFrame()->IsAttached() ||
-        window->IsContextDestroyed()) {
+    if (IsFrameDetaching(window)) {
       return FetchAbortedReason::kFrameDetaching;
     }
   } else if (!context || context->IsContextDestroyed()) {
@@ -1398,9 +1407,38 @@ void FetchManager::Loader::RecordFetchCompletion(int net_error) {
           : kErrorCodesBeforeResponseHeadersHistogramName;
   base::UmaHistogramSparse(phase_histogram, -net_error);
 
+  std::optional<FetchAbortedReason> aborted_reason;
   if (net_error == net::ERR_ABORTED) {
-    base::UmaHistogramEnumeration(kAbortedReasonHistogramName,
-                                  DeduceAbortedReason());
+    aborted_reason = DeduceAbortedReason();
+    base::UmaHistogramEnumeration(kAbortedReasonHistogramName, *aborted_reason);
+  }
+
+  ExecutionContext* context = GetExecutionContext();
+  if (!context || url_list_.empty()) {
+    return;
+  }
+
+  std::optional<uint32_t> category_id =
+      network_utils::GetFetchCategoryIdFromUrl(url_list_.front());
+  if (!category_id.has_value()) {
+    return;
+  }
+
+  if (auto* recorder = context->UkmRecorder()) {
+    const bool is_context_detached =
+        IsFrameDetaching(DynamicTo<LocalDOMWindow>(context)) ||
+        context->IsContextDestroyed();
+    ukm::builders::FetchRequest_WithCategory builder(context->UkmSourceID());
+    builder.SetCategory(*category_id)
+        .SetHttpStatusCode(response_http_status_code_)
+        .SetIsAbortSignalled(Signal()->aborted() ? 1 : 0)
+        .SetIsContextDetached(is_context_detached ? 1 : 0)
+        .SetNetError(-net_error)
+        .SetResponseReceived(received_response_headers_ ? 1 : 0);
+    if (aborted_reason.has_value()) {
+      builder.SetFetchAbortedReason(static_cast<int64_t>(*aborted_reason));
+    }
+    builder.Record(recorder);
   }
 }
 
@@ -1632,9 +1670,9 @@ class FetchLaterManager::DeferredLoader final
   }
   void Failed(const String& message,
               DOMException* dom_exception,
-              std::optional<String> devtools_request_id = std::nullopt,
+              const String& devtools_request_id = String(),
               std::optional<base::UnguessableToken> issue_id = std::nullopt,
-              std::optional<String> issue_summary = std::nullopt) override {
+              const String& issue_summary = String()) override {
     AddConsoleMessage(message, issue_id);
     NotifyFinished();
   }

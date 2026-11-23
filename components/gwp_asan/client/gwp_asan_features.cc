@@ -10,7 +10,7 @@ namespace gwp_asan::internal {
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) ||                                          \
-    (BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_64_BITS))
+    (BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_64_BITS)) || BUILDFLAG(IS_IOS)
 constexpr base::FeatureState kDefaultEnabled = base::FEATURE_ENABLED_BY_DEFAULT;
 #else
 constexpr base::FeatureState kDefaultEnabled =
@@ -19,6 +19,7 @@ constexpr base::FeatureState kDefaultEnabled =
 
 BASE_FEATURE(kGwpAsanMalloc, kDefaultEnabled);
 BASE_FEATURE(kGwpAsanPartitionAlloc, kDefaultEnabled);
+BASE_FEATURE(kGwpAsanMallocSmartSampling, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 

@@ -181,6 +181,11 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // gestures.
   void OnSpaceActivationMayHaveChanged();
 
+  // Called by WebContentsOcclusionCheckerMac with its computed occlusion state
+  // for this window (possibly unchanged). Forwarded to the host, which uses it
+  // only to update compositor visibility.
+  void OnWindowOcclusionChanged(bool occluded);
+
   // Called by the NSWindowDelegate when the system colors change.
   void OnSystemColorsChanged();
 
@@ -358,6 +363,10 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // Return true if [NSApp updateWindows] needs to be called after updating the
   // TextInputClient.
   bool NeedsUpdateWindows();
+
+  // Sets -[BridgedContentView deferInputContextActivation]. While deferred,
+  // AppKit does not activate the input method for the focused text field.
+  void SetDeferInputContextActivation(bool defer);
 
   // Compute the window and content size, and forward them to |host_|. This will
   // update widget and compositor size.

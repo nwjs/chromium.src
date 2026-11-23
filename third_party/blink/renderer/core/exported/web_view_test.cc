@@ -164,6 +164,7 @@
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/loader/fetch/memory_cache.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
+#include "third_party/blink/renderer/platform/testing/font_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
@@ -651,10 +652,13 @@ TEST_F(WebViewTest, SetBaseBackgroundColorWithColorScheme) {
 
   mojom::blink::ColorScheme color_scheme = mojom::blink::ColorScheme::kLight;
   Color system_background_color = LayoutTheme::GetTheme().SystemColor(
-      CSSValueID::kCanvas, color_scheme,
-      web_view->GetPage()->GetColorProviderForPainting(
-          color_scheme, /*in_forced_colors=*/true),
-      document->IsInWebAppScope() && document->IsInitialProfile());
+      CSSValueID::kCanvas,
+      /*theme_info=*/
+      {.color_provider = web_view->GetPage()->GetColorProviderForPainting(
+           color_scheme, /*in_forced_colors=*/true),
+       .color_scheme = color_scheme,
+       .can_expose_system_accent_color =
+           document->IsInWebAppScope() && document->IsInitialProfile()});
   EXPECT_EQ(system_background_color, frame_view->BaseBackgroundColor());
 
   color_scheme_helper.SetInForcedColors(*document, /*in_forced_colors=*/false);
@@ -1737,6 +1741,20 @@ TEST_F(WebViewTest, AutoResizeWithViewportMetaDoesNotZoomOut) {
   EXPECT_EQ(1.0f, web_view->PageScaleFactor());
   EXPECT_EQ(450, client.GetTestData().Width());
   EXPECT_EQ(500, client.GetTestData().Height());
+
+  // Re-applying SetIgnoreViewportTagScaleLimits (as ApplyWebPreferences does
+  // on Android) should not clobber the auto-resize minimum scale constraint.
+  web_view->SetIgnoreViewportTagScaleLimits(false);
+  UpdateAllLifecyclePhases();
+  EXPECT_EQ(1.0f, web_view->MinimumPageScaleFactor());
+  EXPECT_EQ(1.0f, web_view->PageScaleFactor());
+  EXPECT_EQ(gfx::Size(450, 500), web_view->MainFrameSize());
+
+  web_view->SetIgnoreViewportTagScaleLimits(true);
+  UpdateAllLifecyclePhases();
+  EXPECT_EQ(1.0f, web_view->MinimumPageScaleFactor());
+  EXPECT_EQ(1.0f, web_view->PageScaleFactor());
+  EXPECT_EQ(gfx::Size(450, 500), web_view->MainFrameSize());
 
   web_view_helper_.Reset();
 }
@@ -3717,6 +3735,7 @@ TEST_F(WebViewTest, MouseDragDropSuppressesPointerStream) {
   const gfx::PointF center = GetElementCenterPoint(
       web_view->MainFrameImpl()->GetDocument().GetElementById("target"));
   mouse_event.SetPositionInWidget(center.x(), center.y());
+  mouse_event.SetPositionInScreen(center.x(), center.y());
   mouse_event.button = WebMouseEvent::Button::kLeft;
   mouse_event.click_count = 1;
   web_view->MainFrameWidget()->HandleInputEvent(
@@ -3726,6 +3745,7 @@ TEST_F(WebViewTest, MouseDragDropSuppressesPointerStream) {
                                  WebInputEvent::Modifiers::kNoModifiers,
                                  WebInputEvent::GetStaticTimeStampForTests());
   mouse_drag_event.SetPositionInWidget(center.x() + 50, center.y());
+  mouse_drag_event.SetPositionInScreen(center.x() + 50, center.y());
   mouse_drag_event.button = WebMouseEvent::Button::kLeft;
   web_view->MainFrameWidget()->HandleInputEvent(
       WebCoalescedInputEvent(mouse_drag_event, ui::LatencyInfo()));
@@ -3831,6 +3851,7 @@ class WebViewDragWithLayoutChangeTest
                                 WebInputEvent::kNoModifiers,
                                 WebInputEvent::GetStaticTimeStampForTests());
       mouse_event.SetPositionInWidget(center.x(), center.y());
+      mouse_event.SetPositionInScreen(center.x(), center.y());
       mouse_event.button = WebMouseEvent::Button::kLeft;
       mouse_event.click_count = 1;
       web_view->MainFrameWidget()->HandleInputEvent(
@@ -3842,6 +3863,7 @@ class WebViewDragWithLayoutChangeTest
           WebInputEvent::Modifiers::kNoModifiers,
           WebInputEvent::GetStaticTimeStampForTests());
       mouse_drag_event.SetPositionInWidget(center.x() + 50, center.y());
+      mouse_drag_event.SetPositionInScreen(center.x() + 50, center.y());
       mouse_drag_event.button = WebMouseEvent::Button::kLeft;
       web_view->MainFrameWidget()->HandleInputEvent(
           WebCoalescedInputEvent(mouse_drag_event, ui::LatencyInfo()));
@@ -6832,6 +6854,51 @@ TEST_F(WebViewTest, TouchEmulationSurvivesWebPreferencesRepush) {
   EXPECT_EQ(kUpdatedEmbedderMaxTouchPoints, settings.GetMaxTouchPoints());
 }
 
+TEST_F(WebViewTest, ApplyWebPreferencesSkipsPrewarmingEmptyFontFamilies) {
+  WebViewImpl* web_view_impl = web_view_helper_.Initialize();
+  GenericFontFamilySettings& font_settings =
+      web_view_impl->GetPage()->GetSettings().GetGenericFontFamilySettings();
+
+  web_pref::WebPreferences empty_font_prefs;
+  empty_font_prefs.standard_font_family_map.clear();
+  empty_font_prefs.fixed_font_family_map.clear();
+  empty_font_prefs.serif_font_family_map.clear();
+  empty_font_prefs.sans_serif_font_family_map.clear();
+  empty_font_prefs.cursive_font_family_map.clear();
+  empty_font_prefs.fantasy_font_family_map.clear();
+  empty_font_prefs.math_font_family_map.clear();
+
+  {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+    test::ScopedTestFontPrewarmer prewarmer;
+#endif
+    WebView::ApplyWebPreferences(empty_font_prefs, web_view_impl);
+    EXPECT_TRUE(font_settings.Serif().empty());
+    EXPECT_TRUE(font_settings.SansSerif().empty());
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+    EXPECT_TRUE(prewarmer.PrewarmedFamilyNames().empty());
+#endif
+  }
+
+  {
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+    test::ScopedTestFontPrewarmer prewarmer;
+#endif
+    web_pref::WebPreferences default_prefs;
+    WebView::ApplyWebPreferences(default_prefs, web_view_impl);
+    EXPECT_EQ("Times New Roman", font_settings.Serif());
+    EXPECT_EQ("Arial", font_settings.SansSerif());
+#if BUILDFLAG(IS_WIN)
+    ASSERT_EQ(2u, prewarmer.PrewarmedFamilyNames().size());
+    EXPECT_EQ("Times New Roman", prewarmer.PrewarmedFamilyNames()[0]);
+    EXPECT_EQ("Arial", prewarmer.PrewarmedFamilyNames()[1]);
+#elif BUILDFLAG(IS_ANDROID)
+    ASSERT_EQ(1u, prewarmer.PrewarmedFamilyNames().size());
+    EXPECT_EQ("Arial", prewarmer.PrewarmedFamilyNames()[0]);
+#endif
+  }
+}
+
 TEST_F(WebViewTest, ViewportOverrideIntegratesDeviceMetricsOffsetAndScale) {
   RegisterMockedHttpURLLoad("200-by-300.html");
   WebViewImpl* web_view_impl =
@@ -8107,6 +8174,7 @@ TEST_F(WebViewTest, DragAndDropMouseHistogramsTest) {
                             WebInputEvent::kNoModifiers,
                             WebInputEvent::GetStaticTimeStampForTests());
   mouse_event.SetPositionInWidget(250, 8);
+  mouse_event.SetPositionInScreen(250, 8);
   mouse_event.button = WebMouseEvent::Button::kLeft;
   mouse_event.click_count = 1;
   web_view->MainFrameWidget()->HandleInputEvent(
@@ -8116,6 +8184,7 @@ TEST_F(WebViewTest, DragAndDropMouseHistogramsTest) {
                                  WebInputEvent::Modifiers::kNoModifiers,
                                  WebInputEvent::GetStaticTimeStampForTests());
   mouse_drag_event.SetPositionInWidget(300, 8);
+  mouse_drag_event.SetPositionInScreen(300, 8);
   mouse_drag_event.button = WebMouseEvent::Button::kLeft;
   web_view->MainFrameWidget()->HandleInputEvent(
       WebCoalescedInputEvent(mouse_drag_event, ui::LatencyInfo()));
@@ -8195,6 +8264,7 @@ TEST_F(WebViewTest, DragAndDropPenButtonHistogramsTest) {
                           WebInputEvent::kNoModifiers,
                           WebInputEvent::GetStaticTimeStampForTests());
   pen_event.SetPositionInWidget(250, 8);
+  pen_event.SetPositionInScreen(250, 8);
   pen_event.button = WebPointerProperties::Button::kLeft;
   pen_event.pointer_type = blink::WebPointerProperties::PointerType::kPen;
   pen_event.click_count = 1;
@@ -8205,6 +8275,7 @@ TEST_F(WebViewTest, DragAndDropPenButtonHistogramsTest) {
                                WebInputEvent::Modifiers::kNoModifiers,
                                WebInputEvent::GetStaticTimeStampForTests());
   pen_drag_event.SetPositionInWidget(300, 8);
+  pen_drag_event.SetPositionInScreen(300, 8);
   pen_drag_event.button = WebPointerProperties::Button::kLeft;
   pen_drag_event.pointer_type = blink::WebPointerProperties::PointerType::kPen;
   web_view->MainFrameWidget()->HandleInputEvent(
@@ -8309,6 +8380,49 @@ TEST_F(WebViewTest, KeyboardFocusOnTabindexLinkShowsBubble) {
 
   // Verify target_url_ (Status bubble) is showing the link URL
   EXPECT_EQ(KURL("http://example.com/"), web_view->target_url_);
+}
+
+TEST_F(WebViewTest, MainFrameLayoutUpdatedDuringOnPageVisibilityChanged) {
+  class LayoutUpdatingVisibilityObserver : public WebViewObserver {
+   public:
+    explicit LayoutUpdatingVisibilityObserver(WebView* web_view)
+        : WebViewObserver(web_view) {}
+    ~LayoutUpdatingVisibilityObserver() override = default;
+
+    void OnPageVisibilityChanged(
+        blink::mojom::PageVisibilityState visibility_state) override {
+      Document* document = To<WebViewImpl>(GetWebView())
+                               ->MainFrameImpl()
+                               ->GetFrame()
+                               ->GetDocument();
+      Element* target = document->getElementById(AtomicString("target"));
+      target->setAttribute(html_names::kStyleAttr,
+                           AtomicString("width: 200px"));
+      // Reading innerText forces a synchronous style and layout update, which
+      // calls WebViewImpl::MainFrameLayoutUpdated() while SetVisibilityState()
+      // is iterating `observers_`.
+      target->innerText();
+    }
+
+    void DidUpdateMainFrameLayout() override { ++layout_updated_count_; }
+
+    void OnDestruct() override {}
+
+    int layout_updated_count() const { return layout_updated_count_; }
+
+   private:
+    int layout_updated_count_ = 0;
+  };
+
+  WebViewImpl* web_view = web_view_helper_.Initialize();
+  frame_test_helpers::LoadHTMLString(
+      web_view->MainFrameImpl(), "<div id='target'>Hello</div>",
+      url_test_helpers::ToKURL("http://example.com/"));
+
+  LayoutUpdatingVisibilityObserver observer(web_view);
+  web_view->SetVisibilityState(mojom::blink::PageVisibilityState::kHidden,
+                               /*is_initial_state=*/false);
+  EXPECT_GE(observer.layout_updated_count(), 1);
 }
 
 }  // namespace blink

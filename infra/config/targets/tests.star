@@ -697,6 +697,12 @@ targets.tests.isolated_script_test(
     ],
     args = [
         "--flag-specific=surface-embed",
+        "--no-virtual-tests",
+        "--skip-failing-tests",
+        "--skip-timeouts",
+        # TODO(https://crbug.com/575925048): Revisit wdspec test handling (e.g.,
+        # moving to a separate suite or filtering with --test-type).
+        "--inverted-test-launcher-filter-file=../../third_party/blink/web_tests/TestLists/content_shell.filter",
     ],
     binary = "chrome_wpt_tests",
 )
@@ -1967,6 +1973,30 @@ targets.tests.isolated_script_test(
     binary = "chrome_ai_wpt_tests",
 )
 
+targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_manifest_cpu_conversation",
+    args = [
+        "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_cpu_conversation.json",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_manifest_gpu_high_tier_conversation",
+    args = [
+        "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_gpu_high_tier_conversation.json",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "chrome_ai_wpt_tests_manifest_gpu_low_tier_conversation",
+    args = [
+        "--manifest-test-config=../../components/optimization_guide/internal/testing/configs/manifest_test_config_gpu_low_tier_conversation.json",
+    ],
+    binary = "chrome_ai_wpt_tests",
+)
+
 targets.tests.gtest_test(
     name = "oobe_only_browser_tests",
     args = [
@@ -2636,6 +2666,10 @@ targets.tests.isolated_script_test(
         "--target-platform=webview",
     ],
     binary = "variations_desktop_smoke_tests",
+)
+
+targets.tests.isolated_script_test(
+    name = "views_examples_mac_signing_tests",
 )
 
 targets.tests.gtest_test(

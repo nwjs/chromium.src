@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 
+#import <utility>
+
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_impl.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -29,26 +31,12 @@ std::unique_ptr<KeyedService> BuildGeminiService(ProfileIOS* profile) {
 
 }  // namespace
 
-// static
-GeminiService* GeminiServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<GeminiService>(profile,
-                                                              /*create=*/true);
-}
-
-// static
-GeminiServiceFactory* GeminiServiceFactory::GetInstance() {
-  static base::NoDestructor<GeminiServiceFactory> instance;
-  return instance.get();
-}
-
-GeminiServiceFactory::GeminiServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("GeminiService") {
+GeminiServiceFactory::GeminiServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key), "GeminiService") {
   DependsOn(AuthenticationServiceFactory::GetInstance());
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(OptimizationGuideServiceFactory::GetInstance());
 }
-
-GeminiServiceFactory::~GeminiServiceFactory() = default;
 
 // static
 GeminiServiceFactory::TestingFactory GeminiServiceFactory::GetDefaultFactory() {

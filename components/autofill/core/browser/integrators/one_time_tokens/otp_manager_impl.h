@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
@@ -22,9 +21,9 @@
 #include "components/one_time_tokens/core/browser/gmail_otp_retriever.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
 #include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
-#include "components/one_time_tokens/core/browser/one_time_token_service.h"
+#include "components/one_time_tokens/core/browser/sms_otp_service.h"
 #include "components/one_time_tokens/core/browser/util/expiring_subscription.h"
-#include "url/gurl.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "url/origin.h"
 
 namespace autofill {
@@ -46,16 +45,17 @@ enum class OneTimeTokensPhishGuardVerdict {
 LogBuffer& operator<<(LogBuffer& buffer,
                       OneTimeTokensPhishGuardVerdict verdict);
 
-// This class triggers the fetching of OTPs from the `OneTimeTokenService` as
-// soon as `OnFieldTypesDetermined()` is notified about the classification of
-// OTP fields. OTPs are fetched only once per instantiation. This is ok
-// if the `OtpManagerImpl` is recreated on each frame navigation.
+// This class triggers the fetching of SMS OTPs from the `SmsOtpService`
+// and of Gmail OTPs from the `GmailOtpBackend` as soon as
+// `OnFieldTypesDetermined()` is notified about the classification of OTP
+// fields. OTPs are fetched only once per instantiation. This is ok if the
+// `OtpManagerImpl` is recreated on each frame navigation.
 //
 // One instance per frame, owned by the BrowserAutofillManager.
 class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
  public:
   OtpManagerImpl(BrowserAutofillManager& owner,
-                 one_time_tokens::OneTimeTokenService* one_time_token_service);
+                 one_time_tokens::SmsOtpService* sms_otp_service);
   OtpManagerImpl(const OtpManagerImpl&) = delete;
   OtpManagerImpl& operator=(const OtpManagerImpl&) = delete;
   ~OtpManagerImpl() override;
@@ -78,9 +78,6 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
                                 FieldGlobalId field) override;
   void OnBeforeFocusOnNonFormField(AutofillManager& manager) override;
 
-  // Callback handler for `log_subscription_`.
-  void OnLogMessage(std::string_view message);
-
  private:
   friend class OtpManagerImplTestApi;
 
@@ -95,33 +92,36 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   static constexpr base::TimeDelta kGmailOtpTickleSubscriptionDuration =
       base::Minutes(5);
 
-  // Returns the most recent non-expired token from the token service's cache
-  // matching the optional `type`. If `type` is nullopt, tokens of any type
-  // are considered. Returns std::nullopt if the service is unavailable, the
-  // cache is empty, or all matching tokens are expired.
-  std::optional<one_time_tokens::OneTimeToken> SelectMostRecentToken(
-      std::optional<one_time_tokens::OneTimeTokenType> type =
-          std::nullopt) const;
+  // Returns `last_retrieved_gmail_otp_` if it is present and not expired, or
+  // `std::nullopt` otherwise.
+  std::optional<one_time_tokens::OneTimeToken> SelectMostRecentToken() const;
   // Fetches recent OTPs and creates or renewes a subscription. Any OTPs
   // discovered in this process are reported to `OnOneTimeTokenReceived`.
   // This calls OnOneTimeTokenReceived() at least one time.
   void GetRecentOtpsAndRenewSubscription();
 
-  // Called when an incoming OTP tickle push notification arrives.
+  // Starts `gmail_otp_retriever_` if no Gmail OTP is currently cached and the
+  // user has opted into Gmail OTP filling.
+  void MaybeRetrieveGmailOtp();
+
+  // Called when `prefs::kAutofillGmailOtpFillingEnabled` changes.
+  void OnGmailOtpFillingEnabledPrefChanged();
+
+  // Called when the `GmailOtpBackend` notifies about an incoming Gmail OTP
+  // tickle push notification.
   //
   // Verifies preconditions before initiating retrieval:
-  // - The tickle source is Gmail.
-  // - An OTP field is detected on the page and currently has focus.
+  // - An eligible OTP field is detected on the page.
   // - No OTP field already contains user-typed input.
   // - The user has opted into Gmail OTP filling.
   // - No Gmail OTP retrieval is already in flight.
-  // - Both AffiliationService and GmailOtpBackend are available.
+  // - Both `AffiliationService` and `GmailOtpBackend` are available.
   //
   // If all preconditions are satisfied, starts an asynchronous retrieval via
-  // `GmailOtpRetriever` using the focused field's frame origin (falling back to
-  // the primary main frame origin if opaque) to fetch the token payload, which
-  // invokes `OnGmailOtpRetrieved` upon completion.
-  void OnTickleReceived(one_time_tokens::OneTimeTokenSource source);
+  // `GmailOtpRetriever` using the target OTP field's frame origin (falling back
+  // to the primary main frame origin if opaque) to fetch the token payload,
+  // which invokes `OnGmailOtpRetrieved` upon completion.
+  void OnTickleReceived();
 
   // Callback for `one_time_tokens::GmailOtpRetriever`.
   void OnGmailOtpRetrieved(
@@ -131,7 +131,6 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   // TODO(crbug.com/415273270): Update UI (dropdown or keyboard accessory) when
   // a new token is received.
   void OnOneTimeTokenReceived(
-      one_time_tokens::OneTimeTokenSource,
       base::expected<one_time_tokens::OneTimeToken,
                      one_time_tokens::OneTimeTokenRetrievalError>
           token_or_error);
@@ -140,17 +139,18 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   // performed) and delivers or triggers OTP suggestions for SMS and Gmail
   // respectively.
   void MaybeShowOtpSuggestionsForSms(one_time_tokens::OneTimeToken token,
+                                     LocalFrameToken frame_token,
                                      OneTimeTokensPhishGuardVerdict verdict);
   void MaybeShowOtpSuggestionsForGmail(one_time_tokens::OneTimeToken token,
                                        LocalFrameToken frame_token,
                                        OneTimeTokensPhishGuardVerdict verdict);
 
-  // Returns the currently focused field if it exists and has `ONE_TIME_CODE`
-  // type, or nullptr otherwise.
-  // TODO(crbug.com/556170646): Rework this method to return a target
-  // `ONE_TIME_CODE` field even when no OTP field is currently focused, so
-  // proactive suggestions can be triggered without requiring field focus.
-  const AutofillField* GetFocusedOtpField() const;
+  // Returns the target OTP field:
+  // - If a form field is currently focused, returns it if it is an eligible OTP
+  //   field, or `nullptr` if another (non-OTP) field has focus.
+  // - If no form field is currently focused, returns the first eligible OTP
+  //   field in cached forms, or `nullptr` if none exists.
+  const AutofillField* GetTargetOtpField() const;
 
   // Returns true if an OTP must not be delivered to the caller in an autofill
   // context, e.g., because the page called the WebOTP API.
@@ -171,28 +171,35 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   raw_ref<BrowserAutofillManager> owner_;
 
   // May be nullptr on platforms that don't support SMS OTP fetching.
-  raw_ptr<one_time_tokens::OneTimeTokenService> one_time_token_service_ =
-      nullptr;
+  raw_ptr<one_time_tokens::SmsOtpService> sms_otp_service_ = nullptr;
 
-  // Manages single retrieval of Gmail OTP for the target origin.
-  // A retrieval is started when we detect an OTP field present on the page
-  // and the user focuses it.
-  // Do not overwrite this retriever in other cases, e.g. for retrieving an OTP
-  // proactively in response to tickles.
+  // Manages retrieval of a Gmail OTP for the target origin, started either when
+  // an OTP field is detected on the page or in response to an incoming Gmail
+  // OTP tickle notification.
   std::unique_ptr<one_time_tokens::GmailOtpRetriever> gmail_otp_retriever_;
 
-  // Subscriptions to a `OneTimeTokenService`.
+  // Subscription to the `SmsOtpService` for incoming SMS OTPs.
   one_time_tokens::ExpiringSubscription sms_otp_subscription_;
+  // Subscription to the `GmailOtpBackend` for incoming Gmail OTP tickles.
   one_time_tokens::ExpiringSubscription gmail_otp_tickle_subscription_;
 
-  // Subscription to log events of `one_time_token_service_`.
-  base::CallbackListSubscription log_subscription_;
+  // Observes `prefs::kAutofillGmailOtpFillingEnabled` so that when the user
+  // accepts the opt-in bubble, `OtpManagerImpl` immediately retrieves the
+  // pending Gmail OTP and triggers suggestions on the current page.
+  PrefChangeRegistrar pref_change_registrar_;
 
   // Only the last call from the UI to generate suggestions is retained as such
   // a callback corresponds to the desire to show an autofill dropdown. A new
   // call to `GetOtpSuggestions()` invalidates the previous call.
   GetOtpSuggestionsCallback last_pending_get_suggestions_callback_;
   LocalFrameToken last_pending_frame_token_;
+
+  // True while an asynchronous PhishGuard check is pending for a Gmail OTP
+  // associated with `last_pending_get_suggestions_callback_`. Prevents
+  // non-Gmail callbacks (such as synchronous SMS backend errors on Desktop)
+  // from consuming `last_pending_get_suggestions_callback_` before the
+  // PhishGuard check completes.
+  bool is_gmail_phish_guard_pending_ = false;
 
   // Tracks the currently focused form and field, if any.
   std::optional<FormGlobalId> currently_focused_form_id_;
@@ -201,6 +208,11 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   // Value of the last OTP that proactively triggered suggestions via the
   // renderer, used to avoid duplicate triggers.
   std::string last_triggered_otp_value_;
+
+  // The most recent domain-verified Gmail OTP retrieved via
+  // `gmail_otp_retriever_`, cached so that proactive renderer-triggered
+  // `GetOtpSuggestions()` requests can synchronously serve it.
+  std::optional<one_time_tokens::OneTimeToken> last_retrieved_gmail_otp_;
 
   base::ScopedObservation<BrowserAutofillManager, AutofillManager::Observer>
       autofill_manager_observation_{this};

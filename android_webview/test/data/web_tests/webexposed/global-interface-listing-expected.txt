@@ -2879,6 +2879,10 @@ interface External
     method AddSearchProvider
     method IsSearchProviderInstalled
     method constructor
+interface EyeDropper
+    attribute @@toStringTag
+    method constructor
+    method open
 interface FaceDetector
     attribute @@toStringTag
     method constructor
@@ -2994,7 +2998,7 @@ interface FocusEvent : UIEvent
 interface Focusable
     attribute @@toStringTag
     getter pseudoElement
-    getter shadowHost
+    getter shadowHostChain
     getter target
     method constructor
     method focus
@@ -4173,7 +4177,6 @@ interface HTMLFencedFrameElement : HTMLElement
     setter width
 interface HTMLFieldSetElement : HTMLElement
     attribute @@toStringTag
-    getter checkable
     getter disabled
     getter elements
     getter form
@@ -4186,7 +4189,6 @@ interface HTMLFieldSetElement : HTMLElement
     method constructor
     method reportValidity
     method setCustomValidity
-    setter checkable
     setter disabled
     setter name
 interface HTMLFontElement : HTMLElement
@@ -4740,18 +4742,36 @@ interface HTMLMenuElement : HTMLElement
     getter compact
     method constructor
     setter compact
-interface HTMLMenuItemElement : HTMLElement
+interface HTMLMenuItemCheckboxElement : HTMLElement
     attribute @@toStringTag
     getter checked
-    getter command
-    getter commandForElement
     getter defaultChecked
     getter disabled
     getter interestForElement
     method constructor
     setter checked
+    setter defaultChecked
+    setter disabled
+    setter interestForElement
+interface HTMLMenuItemElement : HTMLElement
+    attribute @@toStringTag
+    getter command
+    getter commandForElement
+    getter disabled
+    getter interestForElement
+    method constructor
     setter command
     setter commandForElement
+    setter disabled
+    setter interestForElement
+interface HTMLMenuItemRadioElement : HTMLElement
+    attribute @@toStringTag
+    getter checked
+    getter defaultChecked
+    getter disabled
+    getter interestForElement
+    method constructor
+    setter checked
     setter defaultChecked
     setter disabled
     setter interestForElement
@@ -6473,9 +6493,14 @@ interface ModelContext : EventTarget
     method executeTool
     method getTools
     method registerTool
+    method resumeTool
     setter ontoolactivated
     setter ontoolcancel
     setter ontoolchange
+interface ModelContextToolInvocation
+    attribute @@toStringTag
+    method constructor
+    method requestToken
 interface Mojo
     static method bindInterface
     static method createDataPipe
@@ -7421,7 +7446,9 @@ interface PerformanceResourceTiming : PerformanceEntry
     getter serverTiming
     getter transferSize
     getter workerCacheLookupStart
+    getter workerFinalRouterSource
     getter workerFinalSourceType
+    getter workerMatchedRouterSource
     getter workerMatchedSourceType
     getter workerRouterEvaluationStart
     getter workerStart
@@ -7579,12 +7606,6 @@ interface PopStateEvent : Event
     getter hasUAVisualTransition
     getter state
     method constructor
-interface PreconnectData
-    attribute @@toStringTag
-    getter crossorigin
-    getter earlyhint
-    getter origin
-    method constructor
 interface PreferenceManager
     attribute @@toStringTag
     getter colorScheme
@@ -7603,14 +7624,6 @@ interface PreferenceObject : EventTarget
     method constructor
     method requestOverride
     setter onchange
-interface PreloadData
-    attribute @@toStringTag
-    getter as
-    getter crossorigin
-    getter earlyhint
-    getter url
-    getter used
-    method constructor
 interface ProcessingInstruction : CharacterData
     attribute @@toStringTag
     getter sheet
@@ -8157,24 +8170,43 @@ interface RtcTransportIceEvent : Event
 interface SVGAElement : SVGGraphicsElement
     attribute @@toStringTag
     getter download
+    getter hash
+    getter host
+    getter hostname
     getter href
     getter hreflang
     getter interestForElement
+    getter origin
+    getter password
+    getter pathname
     getter ping
+    getter port
+    getter protocol
     getter referrerPolicy
     getter rel
     getter relList
+    getter search
     getter target
     getter type
+    getter username
     method constructor
     setter download
+    setter hash
+    setter host
+    setter hostname
     setter hreflang
     setter interestForElement
+    setter password
+    setter pathname
     setter ping
+    setter port
+    setter protocol
     setter referrerPolicy
     setter rel
     setter relList
+    setter search
     setter type
+    setter username
 interface SVGAngle
     attribute @@toStringTag
     attribute SVG_ANGLETYPE_DEG
@@ -9652,20 +9684,6 @@ interface SourceBufferList : EventTarget
     method constructor
     setter onaddsourcebuffer
     setter onremovesourcebuffer
-interface SpeculationData
-    attribute @@toStringTag
-    getter navigationDestinationURL
-    getter navigations
-    getter preconnects
-    getter preloads
-    method constructor
-interface SpeculationNavigationData
-    attribute @@toStringTag
-    getter eagerness
-    getter tags
-    getter type
-    getter url
-    method constructor
 interface SpeechGrammar
     attribute @@toStringTag
     getter src
@@ -10083,6 +10101,16 @@ interface ToggleEvent : Event
     getter newState
     getter oldState
     getter source
+    method constructor
+interface Tool
+    attribute @@toStringTag
+    getter annotations
+    getter description
+    getter inputSchema
+    getter name
+    getter origin
+    getter title
+    getter window
     method constructor
 interface ToolActivatedEvent : Event
     attribute @@toStringTag
@@ -12539,7 +12567,7 @@ namespace console
     attribute awConsole
     attribute globalThis
     attribute propertyNamesInGlobal
-    getter alwaysOnTop
+    getter alwaysOnTopPopup
     getter caches
     getter clientInformation
     getter closed

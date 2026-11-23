@@ -50,17 +50,17 @@ void EventEmitter::Dispose() {
 gin::ObjectTemplateBuilder EventEmitter::GetObjectTemplateBuilder(
     v8::Isolate* isolate) {
   return gin::Wrappable<EventEmitter>::GetObjectTemplateBuilder(isolate)
-      .SetMethod("addListener", &EventEmitter::AddListener)
-      .SetMethod("removeListener", &EventEmitter::RemoveListener)
-      .SetMethod("hasListener", &EventEmitter::HasListener)
-      .SetMethod("hasListeners", &EventEmitter::HasListeners)
-      .SetMethod("getListeners", &EventEmitter::GetListeners)
+      .SetMethod<&EventEmitter::AddListener>("addListener")
+      .SetMethod<&EventEmitter::RemoveListener>("removeListener")
+      .SetMethod<&EventEmitter::HasListener>("hasListener")
+      .SetMethod<&EventEmitter::HasListeners>("hasListeners")
+      .SetMethod<&EventEmitter::GetListeners>("getListeners")
       // The following methods aren't part of the public API, but are used
       // by our custom bindings and exposed on the public event object. :(
       // TODO(devlin): Once we convert all custom bindings that use these,
       // they can be removed.
-      .SetMethod("dispatchNW", &EventEmitter::DispatchNW)
-      .SetMethod("dispatch", &EventEmitter::Dispatch);
+      .SetMethod<&EventEmitter::DispatchNW>("dispatchNW")
+      .SetMethod<&EventEmitter::Dispatch>("dispatch");
 }
 
 const char* EventEmitter::GetHumanReadableName() const {

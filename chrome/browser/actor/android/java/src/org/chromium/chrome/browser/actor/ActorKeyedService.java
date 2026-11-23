@@ -15,6 +15,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.actor.foreground_service.ActorForegroundServiceController;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 
@@ -219,6 +220,18 @@ public class ActorKeyedService {
         return ActorKeyedServiceJni.get().getPendingTasksCount(mNativePtr);
     }
 
+    /**
+     * Adds a pending task for an external trigger initiated from an external app intent. Keeps the
+     * pending task count non-zero until an FCM task trigger arrives or {@link
+     * ActorTaskTimeoutParameters#getPreparingToStartTaskTimeoutMs()} elapses.
+     */
+    public void addExternalTriggerPendingTask() {
+        if (mNativePtr == 0) return;
+        ActorKeyedServiceJni.get()
+                .addExternalTriggerPendingTask(
+                        mNativePtr, ActorTaskTimeoutParameters.getPreparingToStartTaskTimeoutMs());
+    }
+
     /** Registers a pending task for the given context ID. */
     public void addPendingTask(String contextId) {
         if (mNativePtr == 0) return;
@@ -234,6 +247,8 @@ public class ActorKeyedService {
     @NativeMethods
     interface Natives {
         int getPendingTasksCount(long nativeActorKeyedServiceAndroid);
+
+        void addExternalTriggerPendingTask(long nativeActorKeyedServiceAndroid, long timeoutMs);
 
         void addPendingTask(
                 long nativeActorKeyedServiceAndroid, @JniType("std::string") String contextId);

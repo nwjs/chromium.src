@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_SHAPING_SHAPE_RESULT_VIEW_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_FONTS_SHAPING_SHAPE_RESULT_VIEW_H_
 
+#include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_data.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_data_range.h"
@@ -127,6 +128,7 @@ class PLATFORM_EXPORT ShapeResultView final
 
   wtf_size_t NumGlyphs() const;
   HeapHashSet<Member<const SimpleFontData>> UsedFonts() const;
+  Vector<CharacterRange> IndividualCharacterRanges() const;
 
   wtf_size_t PreviousSafeToBreakOffset(wtf_size_t index) const;
 

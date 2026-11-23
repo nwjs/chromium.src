@@ -32,6 +32,9 @@
   WalletReminderNoticeMediator* _mediator;
   // The view controller owned by this coordinator.
   WalletReminderNoticeViewController* _viewController;
+  // The window whose VoiceOver modality was overridden while the reminder
+  // notice is shown, restored on dismissal.
+  __weak UIWindow* _voiceOverScopedWindow;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)baseViewController
@@ -73,12 +76,17 @@
 
   _mediator.consumer = _viewController;
 
-  [self.baseViewController presentViewController:_viewController
-                                        animated:YES
-                                      completion:nil];
+  __weak __typeof(self) weakSelf = self;
+  [self.baseViewController
+      presentViewController:_viewController
+                   animated:YES
+                 completion:^{
+                   [weakSelf scopeVoiceOverToReminderNoticeSheet];
+                 }];
 }
 
 - (void)stop {
+  [self unscopeVoiceOverFromReminderNoticeSheet];
   [_viewController dismissViewControllerAnimated:YES completion:nil];
   _viewController = nil;
   _mediator.consumer = nil;
@@ -132,6 +140,37 @@
 }
 
 #pragma mark - Private
+
+// Restricts VoiceOver to the reminder notice sheet and moves focus onto its
+// title.
+// TODO(crbug.com/576780746): Clean up the accessibility view is modal logic
+// when the bug is fixed.
+- (void)scopeVoiceOverToReminderNoticeSheet {
+  UIView* sheetView = _viewController.view;
+  if (!sheetView) {
+    return;
+  }
+  sheetView.accessibilityViewIsModal = YES;
+  _viewController.presentationController.containerView
+      .accessibilityViewIsModal = YES;
+
+  UIWindow* window = sheetView.window;
+  if (window && !window.accessibilityViewIsModal) {
+    window.accessibilityViewIsModal = YES;
+    _voiceOverScopedWindow = window;
+  }
+
+  // A screen change notification is required to pull focus away from the
+  // content presented behind the sheet.
+  UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification,
+                                  _viewController.titleLabel);
+}
+
+// Reverts the window modality applied by `scopeVoiceOverToReminderNoticeSheet`.
+- (void)unscopeVoiceOverFromReminderNoticeSheet {
+  _voiceOverScopedWindow.accessibilityViewIsModal = NO;
+  _voiceOverScopedWindow = nil;
+}
 
 - (void)dismissNotice {
   [self stop];

@@ -7,10 +7,15 @@ package org.chromium.chrome.browser.tips;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -20,26 +25,51 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
+import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProviderSupplier;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.tips.TipsPromoProperties.FeatureTipPromoData;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.notifications.NotificationProxyUtils;
+import org.chromium.ui.base.WindowAndroid;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /** Unit tests for {@link TipsUtils}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures(ChromeFeatureList.INTERRUPTIVE_IPH_COOLDOWN_GROUP)
 public class TipsUtilsUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private SharedPreferencesManager mSharedPreferences;
+    @Mock private Callback<TipsOptInCoordinator> mOnShowCallback;
+
+    @Mock private BrowserControlsStateProvider mBrowserControlsStateProvider;
 
     private Activity mActivity;
+    private WindowAndroid mWindowAndroid;
 
     @Before
     public void setUp() {
         mActivity = Robolectric.buildActivity(Activity.class).create().get();
+        mWindowAndroid = new WindowAndroid(mActivity, /* occlusionTrackingAllowed= */ false);
+    }
+
+    @After
+    public void tearDown() {
+        mWindowAndroid.destroy();
+        TipsPromoHandlerFactory.resetForTesting();
     }
 
     @Test
@@ -400,6 +430,46 @@ public class TipsUtilsUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.INTERRUPTIVE_IPH_COOLDOWN_GROUP)
+    public void testShouldShowTipsOptInPromo_CooldownGroupEnabledBypassesSharedPreferencesCaps() {
+        when(mSharedPreferences.readInt(
+                        ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_SHOW_COUNT, 0))
+                .thenReturn(TipsUtils.getMaxTipsOptInPromoShowCount());
+        when(mSharedPreferences.readLong(
+                        ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_LAST_SHOWN_TIMESTAMP,
+                        0))
+                .thenReturn(System.currentTimeMillis());
+
+        assertTrue(
+                TipsUtils.shouldShowTipsOptInPromo(
+                        /* notificationsEnabled= */ false,
+                        mSharedPreferences,
+                        /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                                TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO + 1)));
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.ANDROID_TIPS_NOTIFICATIONS,
+        ChromeFeatureList.INTERRUPTIVE_IPH_COOLDOWN_GROUP
+    })
+    public void testMaybeShowTipsOptInPromo_CooldownGroupEnabledAndNullProfile_DoesNotShow() {
+        NotificationProxyUtils.setNotificationEnabledForTest(false);
+
+        TipsUtils.maybeShowTipsOptInPromo(
+                mActivity,
+                /* profile= */ null,
+                mock(BottomSheetController.class),
+                mock(SnackbarManager.class),
+                mSharedPreferences,
+                /* timeSinceLastBackgroundedMs= */ TimeUnit.HOURS.toMillis(
+                        TipsUtils.APP_BACKGROUNDED_HOURS_FOR_PROMO + 1),
+                mOnShowCallback);
+
+        verify(mOnShowCallback, never()).onResult(any());
+    }
+
+    @Test
     public void testShouldShowTipsOptInPromo_CooldownNotPassed() {
         when(mSharedPreferences.readLong(
                         ChromePreferenceKeys.TIPS_NOTIFICATIONS_OPT_IN_PROMO_LAST_SHOWN_TIMESTAMP,
@@ -446,5 +516,43 @@ public class TipsUtilsUnitTest {
         DeviceInfo.setIsDesktopForTesting(true);
         assertFalse(TipsUtils.isSupportedDeviceType());
         DeviceInfo.setIsDesktopForTesting(false);
+    }
+
+    @Test
+    public void testCollectCustomSignals_SeedsBottomOmniboxStatus() {
+        attachControlsPosition(ControlsPosition.BOTTOM);
+
+        assertEquals(
+                Map.of(TipsSignalKeys.BOTTOM_OMNIBOX_STATUS, 1.0f),
+                TipsUtils.collectCustomSignals(mWindowAndroid));
+    }
+
+    @Test
+    public void testCollectCustomSignals_NoControlsProvider_DefaultsToTop() {
+        assertEquals(
+                Map.of(TipsSignalKeys.BOTTOM_OMNIBOX_STATUS, 0.0f),
+                TipsUtils.collectCustomSignals(mWindowAndroid));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TIPS_SELF_SERVICE)
+    public void testCollectCustomSignals_HandlerSignalsOverrideSeed() {
+        attachControlsPosition(ControlsPosition.TOP);
+        TipsPromoHandler handler = mock(TipsPromoHandler.class);
+        when(handler.getCustomSignals(mWindowAndroid))
+                .thenReturn(Map.of(TipsSignalKeys.BOTTOM_OMNIBOX_STATUS, 1.0f, "other", 2.0f));
+        TipsPromoHandlerFactory.register(
+                TipsNotificationsFeatureType.BOTTOM_OMNIBOX, () -> handler);
+
+        assertEquals(
+                Map.of(TipsSignalKeys.BOTTOM_OMNIBOX_STATUS, 1.0f, "other", 2.0f),
+                TipsUtils.collectCustomSignals(mWindowAndroid));
+    }
+
+    private void attachControlsPosition(@ControlsPosition int position) {
+        when(mBrowserControlsStateProvider.getControlsPosition()).thenReturn(position);
+        BrowserControlsStateProviderSupplier.attach(
+                mWindowAndroid.getUnownedUserDataHost(),
+                ObservableSuppliers.createMonotonic(mBrowserControlsStateProvider));
     }
 }

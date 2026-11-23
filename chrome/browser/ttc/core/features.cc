@@ -6,6 +6,8 @@
 
 namespace ttc {
 
-BASE_FEATURE(kTtc, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTtcFre, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTtcDebugTools, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace ttc

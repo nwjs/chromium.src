@@ -54,6 +54,7 @@ class DeviceBoundSessionManager;
 
 namespace storage {
 class QuotaManager;
+class QuotaManagerProxy;
 struct QuotaSettings;
 class SpecialStoragePolicy;
 }  // namespace storage
@@ -143,7 +144,10 @@ class CONTENT_EXPORT StoragePartition {
   CreateURLLoaderNetworkObserverForNavigationRequest(
       NavigationRequest& navigation_request) = 0;
 
+  // TODO(crbug.com/468047539): migrate callers of `QuotaManager` to
+  // `QuotaManagerProxy`.
   virtual storage::QuotaManager* GetQuotaManager() = 0;
+  virtual storage::QuotaManagerProxy* GetQuotaManagerProxy() = 0;
   virtual BackgroundSyncContext* GetBackgroundSyncContext() = 0;
   virtual storage::FileSystemContext* GetFileSystemContext() = 0;
   virtual DOMStorageContext* GetDOMStorageContext() = 0;
@@ -200,9 +204,6 @@ class CONTENT_EXPORT StoragePartition {
     // Public explainer here:
     // https://github.com/WICG/turtledove/blob/main/FLEDGE.md
     REMOVE_DATA_MASK_INTEREST_GROUPS = 1 << 12,
-    // Shared storage data as part of the Shared Storage API.
-    // Public explainer: https://github.com/pythagoraskitty/shared-storage
-    REMOVE_DATA_MASK_SHARED_STORAGE = 1 << 14,
     // Fairly obscure cache of .well-known responses for cross-origin
     // joining/leaving of interest groups used by FLEDGE.
     // Public explainer here:

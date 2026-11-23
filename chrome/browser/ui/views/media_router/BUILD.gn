@@ -106,11 +106,6 @@ source_set("impl") {
     "//ui/views",
   ]
 
-  # These .cc files include headers still compiled in //chrome/browser/ui:ui:
-  # views/frame/browser_view.h and tab_dialogs.h. Reach them via
-  # browser_public_dependencies; the reverse
-  # edge is the allow_circular_includes_from entry on //chrome/browser/ui:ui.
-
   if (is_mac) {
     deps += [ "//chrome/browser:global_keyboard_shortcuts_mac" ]
   }
@@ -128,8 +123,6 @@ source_set("unit_tests") {
     "cast_dialog_view_unittest.cc",
     "web_contents_display_observer_view_unittest.cc",
   ]
-
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 
   deps = [
     ":media_router",
@@ -170,8 +163,6 @@ source_set("browser_tests") {
     "presentation_receiver_window_view_browsertest.cc",
   ]
 
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
   deps = [
     ":media_router",
     "//chrome/browser/media/router/discovery/access_code:access_code_cast_feature",
@@ -199,8 +190,6 @@ if (!is_chromeos_device) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
     sources = [ "media_router_dialog_controller_views_interactive_uitest.cc" ]
-
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 
     deps = [
       ":media_router",

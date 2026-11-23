@@ -1,0 +1,4 @@
+Tests that Debugger.setPauseOnExceptions does not pause on syntax errors when state is 'uncaught'.
+syntax-error.html:4 Uncaught SyntaxError: Unexpected token ')' (at syntax-error.html:4:1)
+syntax-error.html:8 Iframe loaded
+

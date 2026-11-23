@@ -78,12 +78,16 @@ ts_library("build_ts") {
     "//chrome/browser/resources/multistep_filter_internals:build_ts",
     "//chrome/browser/resources/new_tab_footer:build_ts",
     "//chrome/browser/resources/new_tab_page:build_ts",
+    "//chrome/browser/resources/new_tab_page_extension:build_ts",
     "//chrome/browser/resources/new_tab_shared:build_ts",
     "//chrome/browser/resources/omnibox_everywhere:build_ts",
     "//chrome/browser/resources/omnibox_internals/aim_eligibility:build_ts",
     "//chrome/browser/resources/omnibox_internals/aim_eligibility_extension:build_ts",
     "//chrome/browser/resources/omnibox_internals/logging:build_ts",
     "//chrome/browser/resources/omnibox_popup:build_ts",
+    "//chrome/browser/resources/omnibox_popup/aim:build_ts",
+    "//chrome/browser/resources/omnibox_popup/full:build_ts",
+    "//chrome/browser/resources/omnibox_popup/shared:build_ts",
     "//chrome/browser/resources/on_device_internals:build_ts",
     "//chrome/browser/resources/on_device_translation_internals:build_ts",
     "//chrome/browser/resources/organizer_panel:build_ts",
@@ -103,6 +107,7 @@ ts_library("build_ts") {
     "//chrome/browser/resources/side_panel/read_anything:build_ts",
     "//chrome/browser/resources/side_panel/reading_list:build_ts",
     "//chrome/browser/resources/side_panel/shared:build_ts",
+    "//chrome/browser/resources/side_panel/tabs_from_other_devices:build_ts",
     "//chrome/browser/resources/signin:build_ts",
     "//chrome/browser/resources/signin/batch_upload:build_ts",
     "//chrome/browser/resources/signin/history_sync_optin:build_ts",
@@ -256,6 +261,9 @@ ts_library("build_ts") {
   ]
 
   path_mappings = [
+    "lit/directives/cache.js|" +
+        rebase_path("${node_modules}/lit/directives/cache.d.ts",
+                    target_gen_dir),
     "lit/directives/repeat.js|" +
         rebase_path("${node_modules}/lit/directives/repeat.d.ts",
                     target_gen_dir),
@@ -263,6 +271,9 @@ ts_library("build_ts") {
         rebase_path("${node_modules}/lit/index.d.ts", target_gen_dir),
     "lit-html/async-directive.js|" +
         rebase_path("${node_modules}/lit-html/async-directive.d.ts",
+                    target_gen_dir),
+    "lit-html/directives/cache.js|" +
+        rebase_path("${node_modules}/lit-html/directives/cache.d.ts",
                     target_gen_dir),
     "lit-html/directives/repeat.js|" +
         rebase_path("${node_modules}/lit-html/directives/repeat.d.ts",

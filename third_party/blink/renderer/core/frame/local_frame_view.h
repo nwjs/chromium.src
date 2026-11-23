@@ -310,7 +310,7 @@ class CORE_EXPORT LocalFrameView final
   std::optional<NaturalSizingInfo> GetNaturalDimensions() const override;
   void ClearNaturalDimensions() override;
 
-  void Dispose() override;
+  void Dispose();
   void ZoomFactorChanged(float zoom_factor) override;
   void InvalidateAllCustomScrollbarsOnActiveChanged();
 
@@ -1228,6 +1228,7 @@ class CORE_EXPORT LocalFrameView final
   // Used for tracking the frame's size and replicating it to the browser
   // process when it changes.
   std::optional<gfx::Size> frame_size_;
+  std::optional<gfx::Rect> frame_bounds_in_local_root_;
 
   AtomicString media_type_;
   AtomicString media_type_when_not_printing_;
@@ -1272,6 +1273,7 @@ class CORE_EXPORT LocalFrameView final
   // TODO(bokan): This is unneeded when root-layer-scrolls is turned on.
   // crbug.com/417782.
   gfx::Size layout_overflow_size_;
+  gfx::Size layout_overflow_size_without_padding_box_;
   std::optional<gfx::Size> natural_size_;
 
   bool root_layer_did_scroll_;

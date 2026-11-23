@@ -9,7 +9,6 @@
 
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "base/sequence_checker.h"
@@ -44,18 +43,6 @@ class CONTENT_EXPORT CdmStorageDatabase {
                  const media::CdmType& cdm_type,
                  const std::string& file_name,
                  const std::vector<uint8_t>& data);
-
-  std::optional<uint64_t> GetSizeForFile(const blink::StorageKey& storage_key,
-                                         const media::CdmType& cdm_type,
-                                         const std::string& file_name);
-
-  std::optional<uint64_t> GetSizeForStorageKey(
-      const blink::StorageKey& storage_key,
-      const base::Time begin = base::Time::Min(),
-      const base::Time end = base::Time::Max());
-
-  std::optional<uint64_t> GetSizeForTimeFrame(const base::Time begin,
-                                              const base::Time end);
 
   CdmStorageKeyUsageSize GetUsagePerAllStorageKeys(
       const base::Time begin = base::Time::Min(),
@@ -106,9 +93,6 @@ class CONTENT_EXPORT CdmStorageDatabase {
 
   // Empty if the database is in-memory.
   const base::FilePath path_;
-
-  // A descriptor of the last SQL statement that was executed, used for metrics.
-  std::optional<std::string> last_operation_;
 
   sql::Database db_ GUARDED_BY_CONTEXT(sequence_checker_);
 };

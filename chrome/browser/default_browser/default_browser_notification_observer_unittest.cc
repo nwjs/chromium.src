@@ -9,7 +9,6 @@
 
 #include "base/callback_list.h"
 #include "base/functional/callback_helpers.h"
-#include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/default_browser/default_browser_features.h"
@@ -27,6 +26,10 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 
+#if BUILDFLAG(IS_WIN)
+#include "base/test/scoped_os_info_override_win.h"
+#endif
+
 namespace default_browser {
 
 class DefaultBrowserNotificationObserverTest : public testing::Test {
@@ -42,7 +45,6 @@ class DefaultBrowserNotificationObserverTest : public testing::Test {
             base::BindLambdaForTesting([&](BrowserProcess& browser_process) {
               auto fake_delegate = std::make_unique<FakeShellDelegate>();
               fake_delegate->set_default_state(shell_integration::IS_DEFAULT);
-              fake_shell_delegate_ptr_ = fake_delegate.get();
               return std::make_unique<DefaultBrowserManager>(
                   TestingBrowserProcess::GetGlobal(), std::move(fake_delegate),
                   base::BindLambdaForTesting(
@@ -97,12 +99,15 @@ class DefaultBrowserNotificationObserverTest : public testing::Test {
   }
 
  private:
+#if BUILDFLAG(IS_WIN)
+  base::test::ScopedOSInfoOverride win11_os_{
+      base::test::ScopedOSInfoOverride::Type::kWin11Pro};
+#endif
   content::BrowserTaskEnvironment task_environment_;
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<TestingProfile> profile_;
 
   ui::UserDataFactory::ScopedOverride global_feature_override_;
-  raw_ptr<FakeShellDelegate> fake_shell_delegate_ptr_;
 
   std::unique_ptr<NotificationDisplayServiceTester> display_service_tester_;
 

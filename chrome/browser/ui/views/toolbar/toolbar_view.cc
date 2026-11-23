@@ -74,6 +74,7 @@
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_button.h"
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_close_tab_button.h"
 #include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_ephemeral_button_controller.h"
+#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_ephemeral_button_utils.h"
 #include "chrome/browser/ui/views/extensions/extension_popup.h"
 #include "chrome/browser/ui/views/extensions/extensions_container_views.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_button.h"
@@ -185,7 +186,11 @@
 using base::UserMetricsAction;
 using content::WebContents;
 
+DEFINE_UI_CLASS_PROPERTY_TYPE(ActionItemEngagedIndicatorStyle)
 DEFINE_UI_CLASS_PROPERTY_KEY(bool, kActionItemUnderlineIndicatorKey, false)
+DEFINE_UI_CLASS_PROPERTY_KEY(ActionItemEngagedIndicatorStyle,
+                             kActionItemEngagedIndicatorStyleKey,
+                             ActionItemEngagedIndicatorStyle::kUnderline)
 
 namespace {
 
@@ -465,9 +470,7 @@ void ToolbarView::Init() {
     auto* vts_controller =
         tabs::VerticalTabStripStateController::From(browser_);
     if ((!vts_controller || !vts_controller->ShouldDisplayVerticalTabs()) &&
-        !(contextual_tasks::kEnableCircularEphemeralButtonNextToBatterySaver
-              .Get() &&
-          button->IsSidePanelRightAligned())) {
+        !contextual_tasks::ShouldPlaceCircularButtonBeforeProfile(browser_)) {
       button->SetProperty(views::kMarginsKey, gfx::Insets());
     }
     contextual_tasks_button_ = AddChildViewAt(std::move(button), 0);
@@ -563,7 +566,8 @@ void ToolbarView::Init() {
   }
 
   if (glic::GlicEnabling::IsProfileEligible(browser_view_->GetProfile())) {
-    if (base::FeatureList::IsEnabled(features::kAiOverlayDialog) &&
+    if (ttc::AiOverlayDialogController::IsEnabledForProfile(
+            browser_view_->GetProfile()) &&
         ttc::AiOverlayDialogController::From(browser_)) {
       actions::ActionItem* action_item =
           actions::ActionManager::Get().FindAction(
@@ -1238,7 +1242,7 @@ void ToolbarView::SetToolbarVisibility(bool visible) {
 }
 
 void ToolbarView::UpdateCustomTabBarVisibility(bool visible, bool animate) {
-  DCHECK_EQ(display_mode_, DisplayMode::kCustomTab);
+  CHECK_EQ(display_mode_, DisplayMode::kCustomTab, base::NotFatalUntil::M162);
 
   if (!animate) {
     size_animation_.Reset(visible ? 1.0 : 0.0);
@@ -1335,7 +1339,8 @@ views::Button* ToolbarView::GetChromeLabsButton() const {
 }
 
 ExtensionsToolbarButton* ToolbarView::GetExtensionsButton() const {
-  return extensions_container_->GetExtensionsButton();
+  return extensions_container_ ? extensions_container_->GetExtensionsButton()
+                               : nullptr;
 }
 
 views::LabelButton* ToolbarView::GetGlicButton() {
@@ -1366,7 +1371,7 @@ ToolbarView::GetContentSettingBubbleModelDelegate() {
 // ToolbarView, CommandObserver implementation:
 
 void ToolbarView::EnabledStateChangedForCommand(int id, bool enabled) {
-  DCHECK(display_mode_ == DisplayMode::kNormal);
+  CHECK(display_mode_ == DisplayMode::kNormal, base::NotFatalUntil::M162);
 
   if ((id == IDC_BACK || id == IDC_FORWARD) &&
       features::IsWebUIBackForwardButtonEnabled()) {
@@ -1699,7 +1704,7 @@ void ToolbarView::InitLayout() {
 }
 
 void ToolbarView::LayoutCommon() {
-  DCHECK(display_mode_ == DisplayMode::kNormal);
+  CHECK(display_mode_ == DisplayMode::kNormal, base::NotFatalUntil::M162);
 
   gfx::Insets interior_margin =
       GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
@@ -1817,11 +1822,7 @@ void ToolbarView::PositionContextualTasksButton() {
   if (!contextual_tasks_button_) {
     return;
   }
-  auto* button =
-      static_cast<ContextualTasksButton*>(contextual_tasks_button_.get());
-  if (contextual_tasks::kEnableCircularEphemeralButtonNextToBatterySaver
-          .Get() &&
-      button->IsSidePanelRightAligned()) {
+  if (contextual_tasks::ShouldPlaceCircularButtonBeforeProfile(browser_)) {
     const bool is_glic_left_of_profile =
         features::kGlicToolbarButtonLocationParam.Get() ==
             features::GlicToolbarButtonLocation::kLeftOfProfileChip ||
@@ -1851,7 +1852,9 @@ void ToolbarView::PositionContextualTasksButton() {
       }
     }
   }
-  const size_t target_index = button->IsTrailing() ? children().size() : 0;
+  const size_t target_index =
+      contextual_tasks::IsEphemeralButtonTrailing(browser_) ? children().size()
+                                                            : 0;
   ReorderChildView(contextual_tasks_button_, target_index);
 }
 
@@ -2123,7 +2126,7 @@ void ToolbarView::OnChromeLabsPrefChanged() {
 }
 
 void ToolbarView::LoadImages() {
-  DCHECK_EQ(display_mode_, DisplayMode::kNormal);
+  CHECK_EQ(display_mode_, DisplayMode::kNormal, base::NotFatalUntil::M162);
 
   if (extensions_container_) {
     extensions_container_->UpdateAllIcons();

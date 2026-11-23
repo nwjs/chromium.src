@@ -12,6 +12,7 @@
 #include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -34,6 +35,7 @@
 #include "chrome/browser/favicon/large_icon_service_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_utils.h"
+#include "chrome/browser/history/web_history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/chrome_signin_pref_names.h"
@@ -57,6 +59,7 @@
 #include "components/favicon/core/large_icon_service.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/history/core/browser/features.h"
+#include "components/history/core/browser/time_period_filter_utils.h"
 #include "components/history_clusters/core/config.h"
 #include "components/history_clusters/core/features.h"
 #include "components/history_clusters/core/history_clusters_prefs.h"
@@ -100,7 +103,7 @@
 #include "ui/android/window_android.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
-#include "chrome/browser/settings/jni_headers/SettingsNavigationFactory_jni.h"
+#include "chrome/browser/quick_delete/jni_headers/QuickDeleteControllerProvider_jni.h"
 #endif
 
 using bookmarks::BookmarkModel;
@@ -146,8 +149,8 @@ void GetDeviceNameAndType(const syncer::DeviceInfoTracker* tracker,
                           std::string* type) {
   // DeviceInfoTracker must be syncing in order for remote history entries to
   // be available.
-  DCHECK(tracker);
-  DCHECK(tracker->IsSyncing());
+  CHECK(tracker, base::NotFatalUntil::M162);
+  CHECK(tracker->IsSyncing(), base::NotFatalUntil::M162);
 
   const syncer::DeviceInfo* device_info =
       tracker->GetChromeDeviceInfo(client_id);
@@ -458,7 +461,20 @@ BrowsingHistoryHandler::BrowsingHistoryHandler(
       identity_manager_(
           CHECK_DEREF(IdentityManagerFactory::GetForProfile(profile))),
       clock_(base::DefaultClock::GetInstance()),
-      browsing_history_service_(nullptr) {}
+      browsing_history_service_(nullptr) {
+  HistoryService* local_history = HistoryServiceFactory::GetForProfile(
+      profile_, ServiceAccessType::EXPLICIT_ACCESS);
+  WebHistoryService* web_history =
+      WebHistoryServiceFactory::GetForProfile(profile_);
+  syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(profile_);
+  auto* device_info_service =
+      DeviceInfoSyncServiceFactory::GetForProfile(profile_);
+  browsing_history_service_ = std::make_unique<BrowsingHistoryService>(
+      this, local_history, web_history, sync_service,
+      device_info_service ? device_info_service->GetDeviceInfoTracker()
+                          : nullptr);
+}
 
 BrowsingHistoryHandler::~BrowsingHistoryHandler() = default;
 
@@ -526,33 +542,14 @@ void BrowsingHistoryHandler::ShowSidePanelUI() {
 #endif
 }
 
-void BrowsingHistoryHandler::StartQueryHistory() {
-  HistoryService* local_history = HistoryServiceFactory::GetForProfile(
-      profile_, ServiceAccessType::EXPLICIT_ACCESS);
-  syncer::SyncService* sync_service =
-      SyncServiceFactory::GetForProfile(profile_);
-  auto* device_info_service =
-      DeviceInfoSyncServiceFactory::GetForProfile(profile_);
-  browsing_history_service_ = std::make_unique<BrowsingHistoryService>(
-      this, local_history, sync_service,
-      device_info_service ? device_info_service->GetDeviceInfoTracker()
-                          : nullptr);
-
-  // 150 = RESULTS_PER_PAGE from chrome/browser/resources/history/constants.js
-  SendHistoryQuery(150, std::string(), std::nullopt, true, true);
-}
-
-void BrowsingHistoryHandler::QueryHistory(const std::string& query,
-                                          int max_count,
-                                          std::optional<double> begin_timestamp,
-                                          bool include_user_visits,
-                                          bool include_actor_visits,
-                                          QueryHistoryCallback callback) {
-  if (!browsing_history_service_) {
-    // Page was refreshed, so need to call StartQueryHistory here
-    StartQueryHistory();
-  }
-
+void BrowsingHistoryHandler::QueryHistory(
+    const std::string& query,
+    int max_count,
+    std::optional<double> begin_timestamp,
+    bool include_user_visits,
+    bool include_actor_visits,
+    const std::vector<std::string>& client_ids,
+    QueryHistoryCallback callback) {
   // Reset the query history continuation callback. Since it is repopulated in
   // OnQueryComplete(), it cannot be reset earlier, as the early return above
   // prevents the QueryHistory() call to the browsing history service.
@@ -566,7 +563,7 @@ void BrowsingHistoryHandler::QueryHistory(const std::string& query,
   query_history_callback_ = std::move(callback);
 
   SendHistoryQuery(max_count, query, begin_timestamp, include_user_visits,
-                   include_actor_visits);
+                   include_actor_visits, client_ids);
 }
 
 void BrowsingHistoryHandler::SendHistoryQuery(
@@ -574,7 +571,8 @@ void BrowsingHistoryHandler::SendHistoryQuery(
     const std::string& query,
     std::optional<double> begin_timestamp,
     bool include_user_visits,
-    bool include_actor_visits) {
+    bool include_actor_visits,
+    const std::vector<std::string>& client_ids) {
   query_timer_ = base::ElapsedTimer();
   history::QueryOptions options;
   options.max_count = max_count;
@@ -617,6 +615,8 @@ void BrowsingHistoryHandler::SendHistoryQuery(
         base::Time::FromMillisecondsSinceUnixEpoch(begin_timestamp.value());
   }
 
+  options.client_ids = client_ids;
+
   browsing_history_service_->QueryHistory(base::UTF8ToUTF16(text_query),
                                           options);
 }
@@ -648,7 +648,7 @@ void BrowsingHistoryHandler::RemoveVisits(
       NOTREACHED() << "Unable to extract arguments";
     }
 
-    DCHECK_GT(timestamps.size(), 0U);
+    CHECK_GT(timestamps.size(), 0U, base::NotFatalUntil::M162);
     BrowsingHistoryService::HistoryEntry entry;
     entry.url = GURL(url);
 
@@ -669,7 +669,7 @@ void BrowsingHistoryHandler::OpenClearBrowsingDataDialog() {
   ui::WindowAndroid* window =
       web_contents_ ? web_contents_->GetTopLevelNativeWindow() : nullptr;
   if (window) {
-    Java_SettingsNavigationFactory_showClearBrowsingData(
+    Java_QuickDeleteControllerProvider_showDialog(
         base::android::AttachCurrentThread(), window->GetJavaObject());
   } else {
     DLOG(WARNING)
@@ -947,7 +947,7 @@ void BrowsingHistoryHandler::HandleQueryResults(
       DeviceInfoSyncServiceFactory::GetForProfile(profile_)
           ->GetDeviceInfoTracker();
 
-  DCHECK(tracker);
+  CHECK(tracker, base::NotFatalUntil::M162);
 
   // Deduplicate actions belonging to the same task and visit.
   // 5 seconds is chosen as a safe heuristic upper bound to accommodate
@@ -1126,6 +1126,27 @@ void BrowsingHistoryHandler::OpenCriticalActionConversation(
           weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
+void BrowsingHistoryHandler::GetTimePeriodOptions(
+    GetTimePeriodOptionsCallback callback) {
+  std::vector<history::mojom::TimePeriodOptionPtr> options_mojom;
+  for (const history::TimePeriodOption& option :
+       history::ComputeTimePeriodOptions(clock_->Now())) {
+    auto option_mojom = history::mojom::TimePeriodOption::New();
+    option_mojom->id =
+        static_cast<history::mojom::TimePeriodOptionId>(option.id);
+    option_mojom->label = base::UTF16ToUTF8(option.label);
+    if (!option.begin_time.is_null()) {
+      option_mojom->begin_time =
+          option.begin_time.InMillisecondsFSinceUnixEpoch();
+    }
+    if (!option.end_time.is_null()) {
+      option_mojom->end_time = option.end_time.InMillisecondsFSinceUnixEpoch();
+    }
+    options_mojom.push_back(std::move(option_mojom));
+  }
+  std::move(callback).Run(std::move(options_mojom));
+}
+
 void BrowsingHistoryHandler::OnCriticalActionRetrievedForLinkout(
     OpenCriticalActionConversationCallback callback,
     std::optional<critical_actions::CriticalActionEntry> entry) {
@@ -1148,4 +1169,15 @@ void BrowsingHistoryHandler::OnCriticalActionRetrievedForLinkout(
                 static_cast<history::mojom::OpenConversationResult>(result));
           },
           std::move(callback)));
+}
+
+void BrowsingHistoryHandler::GetSyncedDevicesForFiltering(
+    GetSyncedDevicesForFilteringCallback callback) {
+  std::move(callback).Run(base::ToVector(
+      browsing_history_service_->GetSyncedDevicesForFiltering(),
+      [](auto& device) {
+        return history::mojom::Device::New(std::move(device.name),
+                                           device.is_local_device,
+                                           std::move(device.client_ids));
+      }));
 }

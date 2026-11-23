@@ -1584,6 +1584,23 @@ Jika kebijakan ini tidak disetel, fitur Klik untuk Menelepon akan diaktifkan sec
       Perlu diperhatikan bahwa kebijakan ini memblokir JavaScript berdasarkan apakah origin dokumen tingkat atas (biasanya URL halaman yang juga ditampilkan di kolom URL) cocok dengan pola apa pun. Oleh karena itu, kebijakan ini tidak sesuai untuk memitigasi serangan supply-chain web. Misalnya, menyediakan pola "https://[*.]foo.com/" tidak akan mencegah halaman yang dihosting di, misalnya, https://example.com, untuk menjalankan skrip yang dimuat dari https://www.foo.com/example.js. Selain itu, menyediakan pola "https://example.com/" tidak akan mencegah dokumen dari https://example.com untuk menjalankan skrip jika dokumen tersebut bukan dokumen tingkat atas, tetapi disematkan sebagai sub-frame ke halaman yang dihosting di origin lain, misalnya, https://www.bar.com.</translation>
 <translation id="1942015922182679826">Aktifkan penghapusan sandi yang tidak dapat didekripsi</translation>
 <translation id="1942626390957213764">Nonaktifkan hub berbagi desktop</translation>
+<translation id="1943243146727870858">Nonaktifkan Single Sign-On menggunakan <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> untuk penyedia identitas yang tercantum.
+
+Dengan menambahkan nilai <ph name="POLICY_VALUE_ALL" />, semua penyedia identitas yang didukung untuk SSO akan dinonaktifkan.
+
+Dengan menambahkan nilai <ph name="POLICY_VALUE_MICROSOFT" />, dukungan untuk Single Sign-On bagi penyedia identitas cloud Microsoft® di Chrome akan dinonaktifkan.
+
+Jika kebijakan ini tidak disetel, semua penyedia identitas yang didukung oleh <ph name="PRODUCT_NAME" /> akan diaktifkan.
+
+Pengguna yang login ke akunnya di aplikasi apa pun yang mendukung <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" />, menggunakan penyedia identitas yang diaktifkan di <ph name="PRODUCT_NAME" /> dan dikonfigurasi di perangkat oleh administrator, dapat login ke properti web menggunakan penyedia identitas tersebut secara otomatis. Informasi yang berkaitan dengan informasi autentikasi pengguna akan dikirimkan ke penyedia identitas cloud pengguna untuk setiap peristiwa autentikasi.
+
+Catatan:
+
+<ph name="PRODUCT_NAME" /> tidak mendukung Single Sign-On menggunakan <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> dalam mode Samaran atau Tamu.
+
+<ph name="PRODUCT_NAME" /> hanya mendukung Single Sign-On menggunakan <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> untuk penyedia identitas berikut: Microsoft, Okta, Ping.
+
+Fitur ini tersedia mulai <ph name="MAC_OS_NAME" /> 10.15.</translation>
 <translation id="1943628907052340534">Jangan buka <ph name="PRODUCT_NAME" /> saat pengguna login ke <ph name="MS_WIN_NAME" /></translation>
 <translation id="194407941132272412">Nonaktifkan isolasi situs untuk semua situs, tetapi izinkan pengguna mengaktifkannya</translation>
 <translation id="1945994447126139909">Kebijakan perusahaan ini berlaku untuk adaptasi jangka pendek dan akan dihapus di <ph name="PRODUCT_NAME" /> versi 88.
@@ -3648,6 +3665,8 @@ Jika kebijakan ini disetel ke nonaktif atau tidak disetel, menu aksesibilitas me
 <translation id="3146711617256415776">Larang suara text-to-speech enhanced network saat menggunakan Klik untuk Diucapkan</translation>
 <translation id="315013437951136266">Aktifkan fitur <ph name="IP_PROTECTION_NAME" />.</translation>
 <translation id="3150351525324499342">Jangan tampilkan ikon <ph name="PRODUCT_NAME" /> di toolbar secara default, tetapi izinkan pengguna memilih</translation>
+<translation id="3151501327418961907">Jika kebijakan ini disetel ke 0 atau tidak disetel, kebijakan <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> dan <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" /> hanya akan diterapkan pada cakupan pengguna bagi pengguna terafiliasi di browser terkelola.
+Jika kebijakan ini disetel ke 1, kebijakan <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> dan <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" /> akan diterapkan pada cakupan pengguna, meskipun pengguna tersebut tidak terafiliasi.</translation>
 <translation id="3152135410085709340">Mengizinkan akses file lokal ke URL file:// di situs ini di Penampil PDF</translation>
 <translation id="3152425128389603870">Membuat Desktop Terpadu tersedia dan aktif secara default</translation>
 <translation id="3159375329008977062">Pengguna diaktifkan untuk mengekspor/mengimpor container Crostini melalui UI</translation>
@@ -3885,8 +3904,6 @@ Jika <ph name="NTPCARDSVISIBLE" /> disetel ke nonaktif, Kartu Outlook tidak akan
       Jika kebijakan disetel ke Nonaktif, perangkat yang terdaftar tidak akan melaporkan informasi sesi kios.</translation>
 <translation id="3303770131697159224">Setelan izin Pengelolaan Jendela Default</translation>
 <translation id="3303911765031636277">Kebijakan konfigurasi untuk Chrome Enterprise Connector OnFileAttached</translation>
-<translation id="3305586786770047829">Jika kebijakan ini disetel ke 0 atau tidak disetel, kebijakan <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> hanya akan diterapkan pada cakupan pengguna untuk pengguna terafiliasi.
-Jika kebijakan ini disetel ke 1, kebijakan <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> akan diterapkan pada cakupan pengguna, meskipun pengguna tersebut tidak terafiliasi.</translation>
 <translation id="3307744348419745296">Jangan izinkan konfigurasi jaringan Wi-Fi disinkronkan di seluruh perangkat <ph name="PRODUCT_OS_NAME" /> dan ponsel Android yang terhubung</translation>
 <translation id="3308724602356134956">Jika Anda menetapkan kebijakan, <ph name="PRODUCT_OS_NAME" />
 
@@ -4497,6 +4514,21 @@ Transfer data dengan Takeout juga harus diaktifkan agar aplikasi Transfer konten
 <translation id="370314752761795411">Mulai <ph name="PRODUCT_NAME" /> dengan <ph name="MS_WIN_NAME" /></translation>
 <translation id="3711895659073496551">Tangguhkan</translation>
 <translation id="3712861436661566358">Menerapkan pemisahan profil</translation>
+<translation id="3715589988915487768">Mengonfigurasi daftar Domain Penyediaan (PvD) yang akan digunakan <ph name="PRODUCT_NAME" /> untuk mengambil konfigurasi proxy secara dinamis.
+
+Kebijakan ini memungkinkan penentuan daftar nama domain atau URI resource yang mewakili Domain Penyediaan sebagaimana ditentukan dalam RFC 8801 ("Discovering Provisioning Domain Names and Data"). Untuk setiap PvD, browser me-resolve konfigurasi JSON yang sesuai dengan membuat permintaan HTTPS ke jalur endpoint yang sudah dikenal: "https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd".
+
+Setiap entri dalam daftar ini menentukan:
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />: ID Domain Penyediaan (nama domain).
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" />: Konfigurasi autentikasi opsional. Jika tidak dikonfigurasi atau disetel ke "none", tidak ada autentikasi yang dilakukan. Jika disetel ke "profile_bearer_token", browser akan mengambil token akses OAuth2 dengan cakupan yang diberikan untuk akun utama yang login dan melampirkannya di header "Authorization" sebagai token "Bearer".
+
+* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" />: Daftar opsional header HTTP kustom yang akan disertakan saat membuat kueri endpoint PvD. Nilai dinamis dapat dimasukkan, seperti "profile_id" (yang mewakili ID unik dan stabil dari profil browser di perangkat, yang memungkinkan penargetan konfigurasi per profil) atau "accept_language" (yang mewakili bahasa pilihan browser).
+
+Konfigurasi yang diambil diuraikan sesuai dengan skema RFC 8801. Hanya aturan pemilihan rute dan proxy terkait dengan konfigurasi proxy dari payload JSON PvD yang diterapkan. Jika kebijakan ini tidak disetel, tidak ada Domain Penyediaan yang akan dibuat kueri atau digunakan untuk mengambil konfigurasi proxy.
+
+Kebijakan ini hanya dapat ditetapkan di tingkat pengguna jika pengguna tersebut berafiliasi dengan browser, jika browser tidak dikelola, atau jika kebijakan <ph name="ENABLE_PROXY_OVERRIDE_RULES_FOR_ALL_USERS_POLICY_NAME" /> disetel ke 1.</translation>
 <translation id="3719826155360621982">Beranda</translation>
 <translation id="3724039569609354541">Gunakan perilaku default saat menentukan apakah situs dapat membuat permintaan ke endpoint jaringan</translation>
 <translation id="3726715125055227414">Kebijakan ini mengonfigurasi <ph name="PRODUCT_OS_NAME" /> untuk mengurutkan algoritma perjanjian kunci pilihannya (grup yang didukung) di TLS 1.3 agar sesuai dengan algoritma yang telah disetujui berdasarkan skema kepatuhan tertentu, saat membuat permintaan jaringan dari layar login.
@@ -5756,6 +5788,27 @@ Jika menaikkan nilai di atas nilai default (128), Anda harus menanggung sendiri 
 Perlu diperhatikan bahwa batas yang diterapkan dipengaruhi oleh <ph name="ALLOW_SOCKET_POOL_SIZE_RANDOMIZATION_FOR_PROXIES_POLICY_NAME" />.</translation>
 <translation id="4528981768990874684">Nonaktifkan fitur <ph name="IP_PROTECTION_NAME" />.</translation>
 <translation id="453031441196755904">Kebijakan ini tidak digunakan lagi.</translation>
+<translation id="4531088355818260318">Kebijakan ini memungkinkan penentuan daftar aturan untuk memasukkan header HTTP kustom ke dalam permintaan web yang cocok dengan pola URL tertentu. Header yang ditetapkan oleh kebijakan ini lebih diutamakan daripada header yang awalnya ada dalam permintaan, serta modifikasi yang dicoba dilakukan oleh pengguna atau ekstensi.
+
+Kasus penggunaan umum untuk kebijakan ini adalah untuk menerapkan kontrol akses tenant dengan memasukkan header kustom (mis., <ph name="EXAMPLE_HEADER_NAME" />).
+
+Kebijakan ini menerima daftar Aturan. Setiap Aturan berisi:
+
+* <ph name="PATTERNS_KEY" />: Daftar pola URL yang harus dicocokkan. Lihat cara memformat pola URL ( https://support.google.com/chrome/a?p=url_blocklist_filter_format ).
+
+* <ph name="HEADERS_KEY" />: Daftar objek yang mewakili header yang akan dimasukkan, yang masing-masing berisi:
+
+  * <ph name="HEADER_NAME_KEY" />: Nama header yang akan dimasukkan.
+
+  * <ph name="HEADER_VALUE_KEY" />: Nilai header yang akan dimasukkan.
+
+Jika beberapa aturan cocok dengan permintaan, header dari semua aturan yang cocok akan diterapkan. Jika ada beberapa header dengan nama yang sama, header dengan pola URL yang paling spesifik akan diterapkan. Jika pola sama-sama spesifik, pola yang muncul terakhir dalam daftar akan diterapkan.
+
+Nama header harus mematuhi RFC 2616 ( https://www.rfc-editor.org/rfc/rfc2616 ). Nilai header tidak boleh berisi simbol NUL, CR, atau LF. Ukuran setiap header tidak boleh melebihi 8 KB. Header dan pola URL yang tidak valid akan diabaikan.
+
+Kebijakan ini dibatasi hingga total 500 pola URL di semua aturan. Setiap aturan dapat berisi maksimal 20 header. Pola dan header di luar batas ini akan diabaikan.
+
+Catatan: Jika pola URL cocok dengan skema yang tidak dienkripsi (http://, ws://, atau saat skema dihilangkan), header yang dikonfigurasi mungkin dikirim dalam bentuk teks biasa melalui saluran yang tidak dienkripsi dan mungkin terekspos ke pengamat jaringan. Untuk melindungi nilai header yang sensitif atau bersifat mengidentifikasi, batasi pola URL hanya pada skema terenkripsi (https:// atau wss://).</translation>
 <translation id="4531706050939927436">Aplikasi Android dapat diinstal otomatis dari konsol Google Admin menggunakan Google Play. Aplikasi Android tidak menggunakan kebijakan ini.</translation>
 <translation id="4534500438517478692">Nama pembatasan Android:</translation>
 <translation id="4541530620466526913">Akun lokal perangkat</translation>
@@ -6757,6 +6810,17 @@ Jika kebijakan ini disetel ke Tidak Disetel, "Bantu tulis" akan diaktifkan di pe
 <translation id="5081204761483900654">Sesi tamu terkelola yang dibatasi</translation>
 <translation id="5082296146261894974">Mengizinkan pengguna mengklik notifikasi Phone Hub untuk meluncurkan aplikasi Eche.</translation>
 <translation id="5082572440690475059">Izinkan akses baca melalui File System API di situs ini</translation>
+<translation id="5084849119584030624">Mengonfigurasi setelan koneksi untuk <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> di <ph name="PRODUCT_NAME" />.
+
+Kebijakan ini tidak lagi didukung dan kini diabaikan. Sebagai gantinya, gunakan kebijakan <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />.
+
+Kebijakan ini mengonfigurasi URL aplikasi web <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> melalui <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />. URL tersebut harus valid, menggunakan skema HTTPS, mengarah ke domain <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />, serta tidak mencantumkan nama pengguna maupun sandi. Jika persyaratan ini tidak terpenuhi, kebijakan akan diabaikan dan <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> tidak akan dikonfigurasi.
+
+Jika kebijakan ini disetel, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> akan dikonfigurasi untuk pengguna yang login dengan akun terkelola atau browser terkelola.
+
+Jika kebijakan ini tidak disetel, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> tidak akan dikonfigurasi.
+
+Perhatikan bahwa kebijakan ini tidak mengontrol integrasi <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> umum, yang dapat dikontrol oleh kebijakan <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="5085647276663819155">Nonaktifkan Pratinjau Cetak</translation>
 <translation id="5087922428454325090">Pengguna tidak dapat menginstal aplikasi web melalui browser.</translation>
 <translation id="5087932158260897375">Jika kebijakan ini disetel ke salah (false), pelaporan data diagnostik keandalan domain akan dinonaktifkan dan tidak ada data yang akan dikirim ke Google.
@@ -6826,19 +6890,6 @@ Kebijakan ini adalah penangguhan sementara agar pengguna memiliki waktu untuk me
 <translation id="5120168808610189805">Aktifkan impor halaman beranda saat browser pertama kali dijalankan</translation>
 <translation id="5124321040285474825">Setelan untuk fitur AI generatif di Isi Otomatis</translation>
 <translation id="5124368997194894978">Aktifkan booting pada tegangan AC (arus bolak-balik)</translation>
-<translation id="5124652340668722849">Mengonfigurasi daftar Domain Penyediaan (PvD) yang akan digunakan <ph name="PRODUCT_NAME" /> untuk mengambil konfigurasi proxy secara dinamis.
-
-Kebijakan ini memungkinkan penentuan daftar nama domain atau URI aset yang mewakili Domain Penyediaan sebagaimana ditentukan dalam RFC 8801 ("Discovering Provisioning Domain Names and Data"). Untuk setiap PvD, browser me-resolve konfigurasi JSON yang sesuai dengan membuat permintaan HTTPS ke jalur endpoint yang sudah dikenal: "https://[<ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />]/.well-known/pvd".
-
-Setiap entri dalam daftar ini menentukan:
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_PVD_ID" />: Pengidentifikasi Domain Penyediaan (nama domain).
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_AUTH_CONFIG" />: Konfigurasi autentikasi opsional. Jika tidak dikonfigurasi atau disetel ke "none", tidak ada autentikasi yang dilakukan. Jika disetel ke "profile_bearer_token", browser akan mengambil token akses OAuth2 dengan cakupan yang diberikan untuk akun utama yang login dan melampirkannya di header "Authorization" sebagai token "Bearer".
-
-* <ph name="PROXY_PROVISIONING_DOMAINS_EXTRA_HEADERS" />: Daftar opsional header HTTP kustom yang akan disertakan saat membuat kueri endpoint PvD. Nilai dinamis dapat dimasukkan, seperti "profile_id" (yang mewakili ID unik dan stabil dari profil browser di perangkat, yang memungkinkan penargetan konfigurasi per profil) atau "accept_language" (yang mewakili bahasa pilihan browser).
-
-Konfigurasi yang diambil diuraikan sesuai dengan skema RFC 8801. Hanya aturan pemilihan rute dan proxy terkait dengan konfigurasi proxy dari payload JSON PvD yang diterapkan. Jika kebijakan ini tidak disetel, tidak ada Domain Penyediaan yang akan dibuat kueri atau digunakan untuk mengambil konfigurasi proxy.</translation>
 <translation id="5130213897914754028">Cegah situs menggunakan SharedArrayBuffer</translation>
 <translation id="5130935469849337738">Selalu tawarkan terjemahan</translation>
 <translation id="513314432051760916">Kebijakan untuk mengontrol apakah setelan Pengukuran iklan <ph name="PRIVACY_SANDBOX_NAME" /> dapat dinonaktifkan untuk pengguna Anda.
@@ -7361,6 +7412,7 @@ pintasan berbasis penelusuran akan bertindak sebagai default.</translation>
 
       Jika kebijakan ditetapkan ke salah, atau tidak ditetapkan, informasi tidak akan dilaporkan.
       Jika ditetapkan ke benar, aplikasi dan penggunaan perangkat akan dilaporkan.</translation>
+<translation id="5418723809273651607">Penyedia identitas cloud Ping®</translation>
 <translation id="5420245232720940848">Menonaktifkan tunneling PCIe untuk perangkat periferal Thunderbolt/USB4, yang membatasi kemampuan perangkat tersebut</translation>
 <translation id="5420673997623782432">Blokir akses geolokasi sistem ke semua klien</translation>
 <translation id="5420774177427557782">Mengontrol apakah VM yang menggunakan konfigurasi ini dapat diinstal dan dijalankan (<ph name="INSTALL_ALLOWED" />), dijalankan tetapi tidak diinstal (<ph name="RUN_ALLOWED" />), atau tidak dapat dijalankan (<ph name="BLOCKED" />). Perhatikan bahwa untuk menginstal VM, kunci installer_image_x86_64 juga harus disetel. Menghapus konfigurasi sepenuhnya secara implisit akan menyetelnya ke <ph name="BLOCKED" />, sehingga mencegah VM berjalan tanpa kebijakan.</translation>
@@ -8678,25 +8730,6 @@ Di versi 114 dan yang lebih baru, kebijakan ini bersifat opsional jika kebijakan
 <translation id="6244061205361004687">Izinkan pengguna memutuskan koneksi atau mengubah VPN secara manual</translation>
 <translation id="6244210204546589761">URL untuk membuka saat permulaan</translation>
 <translation id="6244263962918757383">Setelan untuk ChromeSuggestions</translation>
-<translation id="6245828368576563662">Kebijakan ini memungkinkan penentuan daftar aturan untuk memasukkan header HTTP kustom ke dalam permintaan web yang cocok dengan pola URL tertentu. Header yang ditetapkan oleh kebijakan ini lebih diutamakan daripada header yang awalnya ada dalam permintaan, serta modifikasi yang dicoba dilakukan oleh pengguna atau ekstensi.
-
-Kasus penggunaan umum untuk kebijakan ini adalah untuk menerapkan kontrol akses tenant dengan memasukkan header kustom (misalnya, <ph name="EXAMPLE_HEADER_NAME" />).
-
-Kebijakan ini menerima daftar Aturan. Setiap Aturan berisi:
-
-* <ph name="PATTERNS_KEY" />: Daftar pola URL yang harus dicocokkan. Lihat cara memformat pola URL ( https://support.google.com/chrome/a?p=url_blocklist_filter_format ).
-
-* <ph name="HEADERS_KEY" />: Daftar objek yang mewakili header yang akan dimasukkan, yang masing-masing berisi:
-
-  * <ph name="HEADER_NAME_KEY" />: Nama header yang akan dimasukkan.
-
-  * <ph name="HEADER_VALUE_KEY" />: Nilai header yang akan dimasukkan.
-
-Jika beberapa aturan cocok dengan permintaan, header dari semua aturan yang cocok akan diterapkan. Jika ada beberapa header dengan nama yang sama, header dengan pola URL yang paling spesifik akan diterapkan. Jika pola sama-sama spesifik, pola yang muncul terakhir dalam daftar akan diterapkan.
-
-Nama header harus mematuhi RFC 2616 ( https://www.rfc-editor.org/rfc/rfc2616 ). Nilai header tidak boleh berisi simbol NUL, CR, atau LF. Ukuran setiap header tidak boleh melebihi 8 KB. Header dan pola URL yang tidak valid akan diabaikan.
-
-Kebijakan ini dibatasi hingga total 500 pola URL di semua aturan. Setiap aturan dapat berisi maksimal 20 header. Pola dan header di luar batas ini akan diabaikan.</translation>
 <translation id="624595269193747921">Apakah ingin membatasi penelusuran printer yang cocok untuk satu set printer tertentu.</translation>
 <translation id="6246290059248303618">Menampilkan kontrol media untuk sesi <ph name="PRODUCT_NAME" /> yang dimulai oleh perangkat lain di jaringan lokal</translation>
 <translation id="6247316685259031374">Kebijakan ini mengontrol proses audio dalam sandbox.
@@ -9006,17 +9039,6 @@ Catatan: Kebijakan ini hanya berlaku untuk platform yang mendukung ekstensi.</tr
       Jika kebijakan disetel ke Salah (False), Signed HTTP Exchange tidak akan dimuat.</translation>
 <translation id="6368011194414932347">Konfigurasikan URL halaman beranda</translation>
 <translation id="6368403635025849609">Izinkan JavaScript di situs ini</translation>
-<translation id="6368652917086795891">Mengonfigurasi setelan koneksi untuk <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> di <ph name="PRODUCT_NAME" />.
-
-Kebijakan ini digantikan oleh kebijakan <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" />. Jika keduanya ditetapkan, <ph name="GEMINI_ENTERPRISE_URL_POLICY_NAME" /> akan diprioritaskan.
-
-Kebijakan ini mengonfigurasi URL aplikasi web <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> melalui <ph name="GEMINI_ENTERPRISE_SETTINGS_URL_POLICY_VALUE" />. URL tersebut harus valid, menggunakan skema HTTPS, mengarah ke domain <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" />, serta tidak mencantumkan nama pengguna maupun sandi. Jika persyaratan ini tidak terpenuhi, kebijakan akan diabaikan dan <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> tidak akan dikonfigurasi.
-
-Jika kebijakan ini disetel, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> akan dikonfigurasi untuk pengguna yang login dengan akun terkelola atau browser terkelola.
-
-Jika kebijakan ini tidak disetel, <ph name="GEMINI_ENTERPRISE_PRODUCT_NAME" /> tidak akan dikonfigurasi.
-
-Perhatikan bahwa kebijakan ini tidak mengontrol integrasi <ph name="GOOGLE_GEMINI_PRODUCT_NAME" /> umum, yang dapat dikontrol oleh kebijakan <ph name="GEMINI_SETTINGS_POLICY_NAME" />.</translation>
 <translation id="6368671810229507360">WebRTC</translation>
 <translation id="6370742079247037704">Jangan izinkan penggunaan API AI bawaan.</translation>
 <translation id="6371005337713685988">Setelan Set Situs Terkait</translation>
@@ -9850,15 +9872,6 @@ kebijakan ini saat browser berjalan.</translation>
 <translation id="6833988859168635883">Halaman Awal, Halaman Beranda, dan halaman Tab Baru</translation>
 <translation id="6835254082476223414">Aktifkan pencadangan dan pemulihan mesin virtual Linux</translation>
 <translation id="6835883744948188639">Tampilkan permintaan berulang kepada pengguna yang menunjukkan bahwa peluncuran ulang direkomendasikan</translation>
-<translation id="683688607121170501">Setelan ini memungkinkan pengguna beralih ke Akun Google lain di dalam area konten jendela browser dan aplikasi Android setelah mereka login ke perangkat <ph name="PRODUCT_OS_NAME" />.
-
-      Jika kebijakan ini ditetapkan ke false, pengguna tidak diizinkan untuk login ke Akun Google lain dari area konten browser non-Penyamaran dan aplikasi Android.
-
-      Jika kebijakan ini tidak ditetapkan atau ditetapkan ke true, perilaku default akan digunakan: pengguna diizinkan untuk login ke Akun Google lain dari area konten browser dan aplikasi Android, kecuali akun anak karena area konten non-Penyamaran dalam akun anak akan diblokir.
-
-      Jika tidak diizinkan untuk login ke akun lain melalui Mode penyamaran, sebaiknya blokir mode tersebut menggunakan kebijakan IncognitoModeAvailability.
-
-      Perlu diketahui bahwa pengguna akan dapat mengakses layanan Google dalam kondisi tidak terautentikasi dengan memblokir cookienya.</translation>
 <translation id="6841254611279513739">Menyetel kebijakan pencetakan ke hanya warna, hanya monokrom, atau tanpa batasan mode warna. Jika kebijakan tidak disetel, artinya tidak ada batasan.</translation>
 <translation id="6843008643303282259">Kecepatan upload yang diinginkan dalam kbit/dtk.</translation>
 <translation id="6843296367238757293">Kebijakan ini tidak digunakan lagi. Penggunaannya tidak disarankan. Baca selengkapnya di https://support.google.com/chrome/a/answer/7643500</translation>
@@ -10337,23 +10350,6 @@ API aksesibilitas.</translation>
 
       Catatan: Fitur pemindaian saat ini dinonaktifkan secara default melalui tombol fitur. Jika pengguna mengaktifkannya melalui tombol fitur, fitur tersebut masih dapat dinonaktifkan dengan kebijakan ini.</translation>
 <translation id="7115684775550072082">Hanya pertahankan spasi kosong untuk jenis MIME teks dan XML</translation>
-<translation id="7116098886490965998">Nonaktifkan single sign-on menggunakan <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> untuk penyedia identitas yang tercantum.
-
-Dengan menambahkan nilai <ph name="POLICY_VALUE_ALL" />, semua penyedia identitas yang didukung untuk SSO akan dinonaktifkan.
-
-Dengan menambahkan nilai <ph name="POLICY_VALUE_MICROSOFT" />, dukungan untuk single sign-on bagi penyedia identitas cloud Microsoft® di Chrome akan dinonaktifkan.
-
-Jika kebijakan ini tidak disetel, semua penyedia identitas yang didukung oleh <ph name="PRODUCT_NAME" /> akan diaktifkan.
-
-Pengguna yang login ke akunnya di aplikasi apa pun yang mendukung <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" />, menggunakan penyedia identitas yang diaktifkan di <ph name="PRODUCT_NAME" /> dan dikonfigurasi di perangkat oleh administrator, dapat login ke properti web menggunakan penyedia identitas tersebut secara otomatis. Informasi yang berkaitan dengan informasi autentikasi pengguna akan dikirimkan ke penyedia identitas cloud pengguna untuk setiap peristiwa autentikasi.
-
-Catatan:
-
-<ph name="PRODUCT_NAME" /> tidak mendukung Single Sign-On menggunakan <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> dalam mode Samaran atau Tamu.
-
-<ph name="PRODUCT_NAME" /> hanya mendukung Single Sign-On menggunakan <ph name="EXTENSIBLE_ENTERPRISE_SSO_PRODUCT_NAME" /> untuk penyedia identitas berikut: Microsoft, Okta.
-
-Fitur ini tersedia mulai <ph name="MAC_OS_NAME" /> 10.15.</translation>
 <translation id="7119538491527883595">Penyimpanan data pengguna lokal</translation>
 <translation id="7121046543122812054">Kebijakan ini tidak digunakan lagi. Sebagai gantinya, gunakan <ph name="BROWSER_SIGNIN_POLICY_NAME" />.
 
@@ -11009,7 +11005,6 @@ baca lisan akan diaktifkan.</translation>
 <translation id="7491720878670299691">Interval pada saat data jaringan disurvei dan diperiksa untuk mencari aktivitas. Batas minimum yang diizinkan adalah 1 menit.
 
       Jika tidak disetel, interval default 1 menit akan berlaku.</translation>
-<translation id="7496284563199466390">Mengontrol pengguna terkelola mana yang dapat menetapkan kebijakan <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" />.</translation>
 <translation id="7498595166686106721">
       Kebijakan izin perekaman layar mendapat akses ke getDisplayMedia(), sesuai spesifikasi berikut: https://www.w3.org/TR/screen-capture/#feature-policy-integration. Namun, jika kebijakan ini disetel ke Nonaktif, persyaratan ini tidak akan diterapkan dan getDisplayMedia() akan diizinkan dari konteks yang seharusnya dilarang. Kebijakan Perusahaan ini bersifat sementara dan akan dihapus setelah <ph name="PRODUCT_NAME" /> versi 100. Kebijakan ini dimaksudkan untuk berhenti memblokir Pengguna versi bisnis yang aplikasinya tidak sesuai spesifikasi, tetapi perlu waktu untuk diperbaiki.
 
@@ -12212,6 +12207,7 @@ Fitur ini hanya akan tersedia di saluran Canary.
 
 Jika kebijakan disetel ke Aktif atau tidak disetel, halaman akan dapat diakses.
 Jika kebijakan disetel ke Nonaktif, halaman akan diblokir.</translation>
+<translation id="8266506455952754231">Mengontrol pengguna terkelola mana yang dapat menetapkan kebijakan <ph name="PROXY_OVERRIDE_RULES_POLICY_NAME" /> dan <ph name="PROXY_PROVISIONING_DOMAINS_POLICY_NAME" />.</translation>
 <translation id="8266778278542911985">Jika kebijakan disetel ke 3, situs akan dapat meminta akses ke port serial. Jika kebijakan disetel ke 2, akses ke port serial akan ditolak.
 
       Jika tidak disetel, situs akan dapat meminta akses tetapi pengguna dapat mengubah setelan ini.</translation>
@@ -12790,6 +12786,17 @@ Kebijakan ini selalu berlaku untuk <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="8621146428060651659">Izinkan pengacakan pool soket untuk proxy</translation>
 <translation id="862621549134406761">Aktifkan pemeriksaan penggunaan kunci RSA</translation>
 <translation id="8626826495474944836">Memerlukan Isolasi Situs untuk setiap situs</translation>
+<translation id="8628954914373039931">Setelan ini memungkinkan pengguna berganti antar-Akun Google dalam area konten jendela browser dan di aplikasi Android, setelah mereka login ke perangkat <ph name="PRODUCT_OS_NAME" />.
+
+      Jika kebijakan ini disetel ke salah (false), login ke Akun Google yang berbeda dari area konten browser non-Samaran dan aplikasi Android tidak akan diizinkan.
+
+      Jika kebijakan ini tidak disetel atau disetel ke benar (true), perilaku default akan digunakan: login ke Akun Google yang berbeda dari area konten browser dan aplikasi Android akan diizinkan, kecuali untuk akun anak yang akan diblokir untuk area konten non-Samaran.
+
+      Di Android, setelan ini mengontrol apakah pengguna dapat menambahkan Akun Google tambahan dari area konten situs Google saat mereka login ke <ph name="PRODUCT_NAME" />. Jika kebijakan ini disetel ke salah (false), situs Google tidak akan menawarkan opsi untuk menambahkan Akun Google lain (misalnya, tombol "Tambahkan akun lain" di menu akun). Jika kebijakan ini tidak disetel atau disetel ke benar (true), penambahan Akun Google lain dari situs Google akan diizinkan. Kebijakan ini tidak mencegah penambahan Akun Google ke perangkat Android itu sendiri.
+
+      Jika login ke akun yang berbeda tidak diizinkan melalui mode Samaran, pertimbangkan untuk memblokir mode tersebut menggunakan kebijakan IncognitoModeAvailability.
+
+      Perhatikan bahwa pengguna akan dapat mengakses layanan Google dalam status tidak diautentikasi dengan memblokir cookie mereka.</translation>
 <translation id="8630797597241896082">Izinkan Latar Belakang Konferensi Video AI Generatif dan tingkatkan kualitas model AI</translation>
 <translation id="8631314130868563649">Nonaktifkan manajemen pengaktifan daya baterai</translation>
 <translation id="8631434304112909927">sampai versi <ph name="UNTIL_VERSION" /></translation>

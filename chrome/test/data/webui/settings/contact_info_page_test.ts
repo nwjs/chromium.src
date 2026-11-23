@@ -5,6 +5,7 @@
 // clang-format off
 import 'chrome://settings/settings.js';
 
+import type {CrCollapseElement} from 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import type {
   CrInputElement,
   CrTextareaElement,
@@ -312,6 +313,68 @@ suite('ContactInfoPageUiTest', function() {
     const noEmailsLabel = page.shadowRoot.querySelector('#noEmailsLabel');
     assertTrue(!!noEmailsLabel);
     assertFalse((noEmailsLabel as HTMLElement).hidden);
+  });
+
+  test('EmailVerificationInfoExpandCollapse', async function() {
+    loadTimeData.overrideValues({emailVerificationProtocolEnabled: true});
+
+    const page = await createContactInfoPage([], {
+      profile_enabled: {value: true},
+      email_verification_enabled: {value: true},
+    });
+
+    const collapse = page.shadowRoot.querySelector<CrCollapseElement>(
+        '#emailVerificationInfoCollapse');
+    assertTrue(!!collapse);
+    assertFalse(collapse.opened, 'Info should be collapsed by default');
+
+    const columns = collapse.querySelectorAll('.column');
+    assertEquals(2, columns.length);
+    assertEquals(1, columns[0]!.querySelectorAll('li').length);
+    assertEquals(3, columns[1]!.querySelectorAll('li').length);
+    assertTrue(
+        columns[0]!.textContent.includes(
+            loadTimeData.getString('emailVerificationWhenOnConfirm')));
+    assertTrue(
+        columns[1]!.textContent.includes(
+            loadTimeData.getString('emailVerificationConsiderSupportedSites')));
+    assertTrue(
+        columns[1]!.textContent.includes(
+            loadTimeData.getString('emailVerificationConsiderPerEmail')));
+    assertTrue(
+        columns[1]!.textContent.includes(
+            loadTimeData.getString('emailVerificationConsiderSignedIn')));
+
+    const toggle = page.shadowRoot.querySelector<SettingsToggleButtonElement>(
+        '#autofillEmailVerificationToggle');
+    assertTrue(!!toggle);
+    const expandButton = page.shadowRoot.querySelector<HTMLElement>(
+        '#emailVerificationExpandButton');
+    assertTrue(!!expandButton);
+
+    // Expanding does not change the pref.
+    expandButton.click();
+    await microtasksFinished();
+    assertTrue(collapse.opened);
+    assertTrue(toggle.checked);
+    assertTrue(
+        prefService.getPref<boolean>('autofill.email_verification_enabled')
+            .value);
+
+    // Clicking the row (outside the toggle) collapses without changing the
+    // pref.
+    toggle.click();
+    await microtasksFinished();
+    assertFalse(collapse.opened);
+    assertTrue(toggle.checked);
+
+    // Clicking the actual toggle flips the pref.
+    toggle.$.control.click();
+    await microtasksFinished();
+    assertFalse(toggle.checked);
+    assertFalse(
+        prefService.getPref<boolean>('autofill.email_verification_enabled')
+            .value);
   });
 
   test('EmailVerificationList', async function() {
@@ -731,6 +794,22 @@ suite('ContactInfoPageUiTest', function() {
         'fetchUserDataProcessingConsent should not be called when pref is off');
   });
 
+  test('OtpFillingToggleWithUninitializedPrefService', async function() {
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
+    AutofillManagerImpl.setInstance(new TestAutofillManager());
+
+    // Reset PrefService to simulate the case where it has not been initialized
+    // yet when the page is connected.
+    PrefService.resetInstanceForTesting();
+
+    const page = document.createElement('settings-contact-info-page');
+    document.body.appendChild(page);
+    await microtasksFinished();
+
+    assertTrue(isVisible(page.$.autofillOtpFillingToggle));
+    assertFalse(page.$.autofillOtpFillingToggle.checked);
+  });
+
   test('OtpFillingToggleExternallyEnabledUpdatesToggle', async function() {
     loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
     const autofillManager = new TestAutofillManager();
@@ -1096,7 +1175,7 @@ suite('ContactInfoPageUiTest', function() {
     loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
     const {page, toggle} = await createContactInfoPageForGmailOtpFilling();
 
-    const toggleLink = toggle.shadowRoot!.querySelector('a');
+    const toggleLink = toggle.shadowRoot.querySelector('a');
     assertTrue(!!toggleLink);
     assertEquals(
         loadTimeData.getString('gmailOtpFillingLearnMoreA11yLabel'),
@@ -1113,6 +1192,45 @@ suite('ContactInfoPageUiTest', function() {
     assertEquals(
         loadTimeData.getString('opensInNewTab'), loadingLink.ariaDescription);
   });
+
+  test(
+      'OtpFillingLearnMoreLinkAriaAttributesWithEscapedQuotes',
+      async function() {
+        const defaultDescription =
+            loadTimeData.getString('enableGmailOtpFillingDescription');
+        const escapedDescription = 'Autofill verification codes. ' +
+            '<a href="https://support.google.com/chrome" tabindex="0" ' +
+            'aria-description="Opens in a &quot;new&quot; tab" ' +
+            'aria-label="Learn more about &quot;Autofill&quot; verification ' +
+            'codes" target="_blank">Learn more</a>';
+        loadTimeData.overrideValues({
+          autofillGmailOtpFillingEnabled: true,
+          enableGmailOtpFillingDescription: escapedDescription,
+        });
+        try {
+          const {page, toggle} =
+              await createContactInfoPageForGmailOtpFilling();
+
+          const toggleLink = toggle.shadowRoot.querySelector('a');
+          assertTrue(!!toggleLink);
+          assertEquals(
+              'Learn more about "Autofill" verification codes',
+              toggleLink.ariaLabel);
+          assertEquals('Opens in a "new" tab', toggleLink.ariaDescription);
+
+          const loadingLink =
+              page.$.otpFillingLoadingSubLabelWithLink.querySelector('a');
+          assertTrue(!!loadingLink);
+          assertEquals(
+              'Learn more about "Autofill" verification codes',
+              loadingLink.ariaLabel);
+          assertEquals('Opens in a "new" tab', loadingLink.ariaDescription);
+        } finally {
+          loadTimeData.overrideValues({
+            enableGmailOtpFillingDescription: defaultDescription,
+          });
+        }
+      });
 
   test('OtpFillingLoadingSpinnerMinimumDuration', async function() {
     loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
@@ -2194,6 +2312,7 @@ suite('ContactInfoPageAddressTests', function() {
 
     // Test that toggling the button off records the correct metric.
     button.click();
+    await microtasksFinished();
     assertEquals(metricsTracker.count('Autofill.Address.IsEnabled.Change'), 1);
     assertEquals(
         metricsTracker.count(
@@ -2203,6 +2322,7 @@ suite('ContactInfoPageAddressTests', function() {
 
     // Test that toggling the button on records the correct metric.
     button.click();
+    await microtasksFinished();
     assertEquals(metricsTracker.count('Autofill.Address.IsEnabled.Change'), 2);
     assertEquals(
         metricsTracker.count(

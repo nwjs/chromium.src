@@ -3,15 +3,17 @@
 # found in the LICENSE file.
 
 import("//build/config/chrome_build.gni")
+import("//chrome/browser/ttc/core/buildflags.gni")
 import("//ui/webui/resources/tools/build_webui.gni")
 
-assert(is_win || is_mac || is_linux || is_chromeos || is_desktop_android)
+assert(enable_ttc_webui)
 
 build_webui("build") {
   grd_prefix = "ai_overlay_dialog_untrusted"
 
   static_files = [
     "ai_overlay_dialog.html",
+    "eval/eval.html",
     "notes/notes.html",
   ]
 
@@ -28,6 +30,7 @@ build_webui("build") {
     "audio_processor.ts",
     "audio_utils.ts",
     "caption_block_manager.ts",
+    "eval/eval_app.ts",
     "journal.ts",
     "local_speech_recognition.ts",
     "logging.ts",
@@ -38,6 +41,7 @@ build_webui("build") {
   ]
 
   if (is_chrome_branded) {
+    preprocessor_defines = [ "enable_ttc_built_in_key=true" ]
     ts_files += [
       "internal/api_session.ts",
       "internal/conversation.ts",
@@ -56,12 +60,14 @@ build_webui("build") {
   ]
 
   mojo_files_deps = [
+    "//chrome/browser/ttc/core:mojo_bindings_ts__generator",
     "//chrome/browser/ui/webui/ai_overlay_dialog:mojo_bindings_ts__generator",
     "//chrome/browser/ui/webui/ai_overlay_dialog/tools:generate_tool_definitions",
     "//chrome/browser/ui/webui/ai_overlay_dialog/tools:mojo_bindings_ts__generator",
     "//third_party/blink/public/mojom:dom_node_id_ts__generator",
   ]
   mojo_files = [
+    "$root_gen_dir/chrome/browser/ttc/core/eval_harness.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/ui/webui/ai_overlay_dialog/ai_overlay_dialog.mojom-webui.ts",
     "$root_gen_dir/chrome/browser/ui/webui/ai_overlay_dialog/tools/generated_tool_definitions.ts",
     "$root_gen_dir/chrome/browser/ui/webui/ai_overlay_dialog/tools/tools.mojom-webui.ts",

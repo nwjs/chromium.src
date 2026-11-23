@@ -23,16 +23,11 @@ import static org.mockito.Mockito.verify;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Activity;
-import android.content.res.Configuration;
 import android.graphics.Bitmap;
-import android.graphics.Rect;
 import android.view.LayoutInflater;
 import android.view.View;
 
 import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.graphics.Insets;
-import androidx.core.view.WindowInsetsCompat;
-import androidx.window.layout.WindowMetricsCalculator;
 
 import org.junit.After;
 import org.junit.Before;
@@ -47,7 +42,6 @@ import org.mockito.junit.MockitoRule;
 import org.mockito.quality.Strictness;
 import org.robolectric.Robolectric;
 import org.robolectric.android.controller.ActivityController;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.NullableObservableSupplier;
@@ -65,10 +59,9 @@ import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.R;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.CurrentTabPlacement;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.ViewportRectProvider;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.CurrentTabPlacement;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxLayoutMode;
+import org.chromium.chrome.browser.omnibox.fusebox.Fusebox.FuseboxState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -82,6 +75,7 @@ import org.chromium.components.contextual_search.InputState;
 import org.chromium.components.contextual_search.InputStateBuilder;
 import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
+import org.chromium.components.omnibox.AutocompleteInput.AutocompleteState;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatureList;
@@ -93,8 +87,6 @@ import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.base.WindowAndroid;
-import org.chromium.ui.insets.InsetObserver;
-import org.chromium.ui.widget.RectProvider;
 import org.chromium.url.GURL;
 
 import java.util.Collections;
@@ -118,12 +110,9 @@ public class FuseboxCoordinatorUnitTest {
     @Mock private TemplateUrlService mTemplateUrlService;
     @Mock private SnackbarManager mSnackbarManager;
     @Mock private FuseboxMetrics mMetrics;
-    @Mock private RectProvider.Observer mRectProviderObserver;
     @Mock private BackPressManager mBackPressManager;
     @Mock private PrefService mPrefService;
     @Mock private PrefChangeRegistrar.Natives mPrefChangeRegistrarJni;
-    @Mock private InsetObserver mInsetObserver;
-    @Mock private WindowInsetsCompat mWindowInsetsCompat;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private Callback<Boolean> mOnInteractionCompletedCallback;
 
@@ -131,7 +120,9 @@ public class FuseboxCoordinatorUnitTest {
     private AutocompleteInput mAutocompleteInput;
     private ActivityController<TestActivity> mActivityController;
     private ConstraintLayout mParent;
+    private @Nullable View mNtpSearchBoxView;
     private FuseboxCoordinator mCoordinator;
+    private OmniboxResourceProvider mResourceProvider;
     private SettableNonNullObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
     private SettableNonNullObservableSupplier<List<SuggestedTabInfo>> mSuggestedTabsSupplier;
     private SettableNonNullObservableSupplier<InputState> mInputStateSupplier;
@@ -174,11 +165,9 @@ public class FuseboxCoordinatorUnitTest {
         activity.setContentView(mParent);
         LayoutInflater.from(activity).inflate(R.layout.fusebox_layout, mParent, true);
 
-        lenient().doReturn(mInsetObserver).when(mWindowAndroid).getInsetObserver();
-        lenient().doReturn(mWindowInsetsCompat).when(mInsetObserver).getLastRawWindowInsets();
-        lenient().doReturn(Insets.NONE).when(mWindowInsetsCompat).getInsets(anyInt());
-
-        OmniboxResourceProvider.setTabFaviconFactory(mTabFaviconFunction);
+        mResourceProvider =
+                new OmniboxResourceProvider(
+                        activity, BrandedColorScheme.APP_DEFAULT, mTabFaviconFunction);
 
         lenient().doReturn(mTabModel).when(mTabModelSelector).getCurrentModel();
         lenient().doReturn(Collections.emptyIterator()).when(mTabModel).iterator();
@@ -206,12 +195,12 @@ public class FuseboxCoordinatorUnitTest {
                         mActivityController.get(),
                         mWindowAndroid,
                         mParent,
-                        new OmniboxResourceProvider(
-                                mActivityController.get(), BrandedColorScheme.APP_DEFAULT),
+                        mResourceProvider,
                         mTabModelSelectorSupplier,
                         mTemplateUrlServiceSupplier,
                         mSnackbarManager,
                         /* scrimAnchorViewSupplier= */ SupplierUtils.ofNull(),
+                        /* ntpSearchBoxViewSupplier= */ () -> mNtpSearchBoxView,
                         mBackPressManager,
                         isForcedPhoneStyleOmnibox);
         coordinator.setUrlTextWrappingSupplier(mUrlTextWrappingSupplier);
@@ -221,6 +210,13 @@ public class FuseboxCoordinatorUnitTest {
     @After
     public void tearDown() {
         mActivityController.close();
+    }
+
+    /** Switches to the desktop platform and re-evaluates the shared resource provider's state. */
+    private void setIsDesktopPlatform() {
+        OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
+        mResourceProvider.onConfigurationChanged(
+                mActivityController.get().getResources().getConfiguration());
     }
 
     @Test
@@ -413,28 +409,6 @@ public class FuseboxCoordinatorUnitTest {
     }
 
     @Test
-    @Config(qualifiers = "sw400dp")
-    public void viewportRectProvider() {
-        Activity activity = mActivityController.get();
-        View view = new View(activity);
-        doReturn(Insets.of(0, 40, 0, 0)).when(mWindowInsetsCompat).getInsets(anyInt());
-
-        ViewportRectProvider viewportRectProvider =
-                new ViewportRectProvider(activity, mInsetObserver, view);
-        viewportRectProvider.startObserving(mRectProviderObserver);
-
-        org.robolectric.RuntimeEnvironment.setQualifiers("w1000dp-h800dp");
-        viewportRectProvider.onConfigurationChanged(new Configuration());
-        var windowMetrics =
-                WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity);
-        var bounds = windowMetrics.getBounds();
-        assertEquals(
-                new Rect(0, 40, bounds.width(), bounds.height()), viewportRectProvider.getRect());
-        verify(mRectProviderObserver).onRectChanged();
-        org.robolectric.shadows.ShadowLooper.idleMainLooper();
-    }
-
-    @Test
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
     public void testNotifyOmniboxSessionEnded() {
         mCoordinator.beginInput(mSession);
@@ -549,7 +523,7 @@ public class FuseboxCoordinatorUnitTest {
 
     @Test
     public void testGetFuseboxLayoutMode_normalStyleOnDesktop() {
-        OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
+        setIsDesktopPlatform();
 
         FuseboxCoordinator desktopCoordinator =
                 createCoordinator(/* isForcedPhoneStyleOmnibox= */ false);
@@ -561,7 +535,7 @@ public class FuseboxCoordinatorUnitTest {
 
     @Test
     public void testGetFuseboxLayoutMode_forcedPhoneStyleOnDesktop() {
-        OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
+        setIsDesktopPlatform();
 
         FuseboxCoordinator forcedCoordinator =
                 createCoordinator(/* isForcedPhoneStyleOmnibox= */ true);
@@ -569,5 +543,35 @@ public class FuseboxCoordinatorUnitTest {
         assertEquals(
                 FuseboxLayoutMode.TOOLBAR,
                 forcedCoordinator.getFuseboxLayoutModeSupplier().get().intValue());
+    }
+
+    @Test
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_MULTIMODAL_INPUT)
+    public void testResolveFloatingRectProvider_standbyNoFocusWithVisibleNtpSearchBox() {
+        View ntpSearchBoxView = new View(mActivityController.get());
+        mActivityController.get().setContentView(ntpSearchBoxView);
+        mNtpSearchBoxView = ntpSearchBoxView;
+        mAutocompleteInput.setAutocompleteState(AutocompleteState.STANDBY_NO_FOCUS);
+
+        mCoordinator.beginInput(mSession);
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+
+        var ntpRectProvider = mCoordinator.resolveFloatingRectProvider();
+        assertNotNull(ntpRectProvider);
+
+        // When transitioning to ENABLED, it should switch back to the toolbar rect provider.
+        mAutocompleteInput.setAutocompleteState(AutocompleteState.ENABLED);
+        var toolbarRectProvider = mCoordinator.resolveFloatingRectProvider();
+        assertNotEquals(ntpRectProvider, toolbarRectProvider);
+
+        // When back in STANDBY_NO_FOCUS, if NTP search box is invisible (alpha 0), use toolbar.
+        mAutocompleteInput.setAutocompleteState(AutocompleteState.STANDBY_NO_FOCUS);
+        ntpSearchBoxView.setAlpha(0f);
+        assertEquals(toolbarRectProvider, mCoordinator.resolveFloatingRectProvider());
+
+        // If the NTP search box is not shown, use toolbar.
+        ntpSearchBoxView.setAlpha(1f);
+        ntpSearchBoxView.setVisibility(View.GONE);
+        assertEquals(toolbarRectProvider, mCoordinator.resolveFloatingRectProvider());
     }
 }

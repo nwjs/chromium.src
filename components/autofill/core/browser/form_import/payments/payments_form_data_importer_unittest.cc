@@ -122,7 +122,8 @@ class PaymentsFormDataImporterTest
     payments_client().set_virtual_card_enrollment_manager(
         std::move(virtual_card_enrollment_manager));
     auto credit_card_save_manager =
-        std::make_unique<MockCreditCardSaveManager>(&autofill_client());
+        std::make_unique<testing::NiceMock<MockCreditCardSaveManager>>(
+            &autofill_client());
     test_api(form_data_importer().GetPaymentsFormDataImporter())
         .set_credit_card_save_manager(std::move(credit_card_save_manager));
     auto wallet_reminder_notice_manager =
@@ -226,7 +227,6 @@ class PaymentsFormDataImporterTest
   }
 
  private:
-  base::test::ScopedFeatureList feature_list_{features::kAutofillFixCvcImport};
   base::test::TaskEnvironment task_environment_;
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   syncer::TestSyncService sync_service_;
@@ -273,9 +273,9 @@ TEST_F(PaymentsFormDataImporterTest, ExtractCreditCard_InvalidCardNumber) {
 }
 
 // Tests that FormFieldData::user_input is preferred over FormFieldData::value
-// for credit card numbers.
+// for credit card numbers and CVCs.
 // Using FormFieldData::user_input enables showing the save-card prompt for
-// sites which use JavaScript to set the credit-card <input> to '***'.
+// sites which use JavaScript to set the credit-card or CVC <input> to '***'.
 TEST_F(PaymentsFormDataImporterTest, ExtractCreditCard_PreferUserInput) {
   FormData form = CreateFullCreditCardForm("Jim Johansen", "••••••••••••••••",
                                            "02", "2999");

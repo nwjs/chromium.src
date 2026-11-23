@@ -15,6 +15,8 @@
 class PrefService;
 @protocol TipsMagicStackMediatorDelegate;
 @class TipsModuleConfig;
+@class MagicStackModule;
+class HomeBackgroundCustomizationService;
 namespace bookmarks {
 class BookmarkModel;
 }  // namespace bookmarks
@@ -34,6 +36,9 @@ enum class TipIdentifier;
 // Used by the Tips module for the current module configuration.
 @property(nonatomic, strong, readonly) TipsModuleConfig* config;
 
+// Returns the currently active module config.
+@property(nonatomic, strong, readonly) MagicStackModule* activeConfig;
+
 // Delegate.
 @property(nonatomic, weak) id<TipsMagicStackMediatorDelegate> delegate;
 
@@ -42,13 +47,16 @@ enum class TipIdentifier;
     presentationAudience;
 
 // Default initializer.
-- (instancetype)
-    initWithIdentifier:(segmentation_platform::TipIdentifier)identifier
-    profilePrefService:(PrefService*)profilePrefService
-       shoppingService:(commerce::ShoppingService*)shoppingService
-         bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
-          imageFetcher:
-              (std::unique_ptr<image_fetcher::ImageDataFetcher>)imageFetcher
+- (instancetype)initWithIdentifier:
+                    (segmentation_platform::TipIdentifier)identifier
+                profilePrefService:(PrefService*)profilePrefService
+                   shoppingService:(commerce::ShoppingService*)shoppingService
+                     bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+                      imageFetcher:
+                          (std::unique_ptr<image_fetcher::ImageDataFetcher>)
+                              imageFetcher
+    backgroundCustomizationService:
+        (HomeBackgroundCustomizationService*)backgroundCustomizationService
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

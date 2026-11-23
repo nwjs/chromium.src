@@ -30,14 +30,8 @@ BASE_FEATURE(kActorLoginSyncsPasswordPermissions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kActorLoginNoPermanentPermissionsAndroid,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kActorLoginPermissionsUi, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
-
-#if !BUILDFLAG(IS_IOS)
-BASE_FEATURE(kActorLoginQualityLogs, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // !BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kAndroidSelectPasswordContextMenu,
@@ -52,15 +46,6 @@ BASE_FEATURE(kAutoApproveSharedPasswordUpdatesFromSameSender,
 
 BASE_FEATURE(kAutofillPersonalizationAndTrustPasswordSurvey,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
-BASE_FEATURE(kAwaitPageStabilityForPasswordChange,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<base::TimeDelta> kAwaitPageStabilityTimeout = {
-    &kAwaitPageStabilityForPasswordChange, "stability_timeout",
-    base::Seconds(5)};
-
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kBiometricTouchToFill, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -93,9 +78,11 @@ BASE_FEATURE(kClearUndecryptablePasswordsOnSync,
 BASE_FEATURE(kCredentialManagementUnifiedUi, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kDeviceAuthenticatorWinCancel, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
 
-BASE_FEATURE(kDisablePasswordChangeFromNewPasswordFields,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kDeviceReauthRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 BASE_FEATURE(kEnablePasswordManagerMojoApiPhase2,
@@ -171,9 +158,6 @@ BASE_FEATURE(kPasswordFormClientsideClassifier,
 #endif
 );
 
-BASE_FEATURE(kPasswordFormGroupedAffiliations,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kPasswordGenerationDropFullscreenAndCheckPointerLock,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -188,7 +172,12 @@ BASE_FEATURE(kPasswordManualFallbackSecurityChecks,
 BASE_FEATURE(kPasswordSaveInContextErrorResolution,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPreventAPCOnFederatedLogin, base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
+BASE_FEATURE(kPasswordSignInInContextErrorResolution,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 BASE_FEATURE(kPreventNonHttpSuggestionsInHttpManualFallbackFlows,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -208,15 +197,12 @@ BASE_FEATURE(kRestartToGainAccessToKeychain,
 #endif
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
-BASE_FEATURE(kRetryCapturePageContent, base::FEATURE_ENABLED_BY_DEFAULT);
-const base::FeatureParam<base::TimeDelta> kCapturePageContentDelay = {
-    &kRetryCapturePageContent, "retry_capture_delay", base::Milliseconds(500)};
-const base::FeatureParam<int> kCapturePageContentRetryCount = {
-    &kRetryCapturePageContent, "retry_count", 3};
-
-
 BASE_FEATURE(kShowTabWithPasswordChangeOnSuccess,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kSkipChromeReauthForCredMan, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kSkipUndecryptablePasswords,
 #if BUILDFLAG(IS_WIN)
@@ -230,8 +216,6 @@ BASE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUnifiedPasswordLeakDialog, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kUseDetachedWidget, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUseProcessBoundPasswordString, base::FEATURE_DISABLED_BY_DEFAULT);
 

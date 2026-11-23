@@ -14,11 +14,11 @@ import '//resources/cr_elements/cr_toast/cr_toast.js';
 
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {OverlayBorderGlowElement} from '/lens/overlay_border_glow.js';
 import type {OverlayShimmerCanvasElement} from '/lens/overlay_shimmer_canvas.js';
 import type {PostSelectionBoundingBox, PostSelectionRendererElement} from '/lens/post_selection_renderer.js';
 import type {RegionSelectionElement} from '/lens/region_selection.js';
-import {RegionSource} from '/lens/selection_overlay_base_handler.js';
 import {SelectionOverlayBaseLitElement} from '/lens/selection_overlay_base_lit.js';
 import {DragFeature, GestureState} from '/lens/selection_utils.js';
 
@@ -88,6 +88,9 @@ export class GlicSelectionOverlayElement extends
       enableSelectionOverlayPromptBox: {type: Boolean},
       hideHandles: {type: Boolean},
       disableMultiSelect: {type: Boolean, reflect: true},
+      skipIntroAnimation: {type: Boolean, reflect: true},
+      hasPromptText: {type: Boolean},
+      sidePanelOpen: {type: Boolean, reflect: true},
     };
   }
 
@@ -105,6 +108,16 @@ export class GlicSelectionOverlayElement extends
       loadTimeData.getBoolean('enableSelectionOverlayPromptBox');
   accessor hideHandles: boolean = false;
   accessor disableMultiSelect: boolean = false;
+  accessor skipIntroAnimation: boolean = false;
+  // Whether the prompt input has non-whitespace text, which shows the submit
+  // button.
+  accessor hasPromptText: boolean = false;
+  // Whether the Glic side panel is open for this tab: showing, or backgrounded
+  // and showing again once the tab is in front. Kept live by the browser for
+  // the length of the session. Separate from the base class's
+  // `sidePanelOpened`, which applies the Lens side panel margins; the Glic
+  // overlay is tab-scoped and never applies them.
+  accessor sidePanelOpen: boolean = false;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -113,6 +126,11 @@ export class GlicSelectionOverlayElement extends
         (options: InteractionOptions) => {
           this.hideHandles = options.hideHandles;
           this.disableMultiSelect = options.disableMultiSelect;
+          this.skipIntroAnimation = options.skipIntroAnimation;
+        }));
+    this.listenerIds.push(
+        handlerImpl.addSetSidePanelOpenListener((open: boolean) => {
+          this.sidePanelOpen = open;
         }));
   }
 
@@ -132,6 +150,11 @@ export class GlicSelectionOverlayElement extends
     this.eventTracker_.add(
         document, 'post-selection-updated',
         (e: CustomEvent<PostSelectionBoundingBox>) => {
+          // `PostSelectionRendererElement.clearSelection()` reports a cleared
+          // selection as an update with zero size.
+          if (e.detail.width === 0 && e.detail.height === 0) {
+            this.skipIntroAnimation = false;
+          }
           const prev = this.activeSelection;
           const selectionChanged = !prev ||
               Math.abs(prev.top - e.detail.top) > 1e-5 ||
@@ -152,13 +175,18 @@ export class GlicSelectionOverlayElement extends
           }
         });
 
+    // TODO(b/501134201): 'post-selection-cleared' is never dispatched. Move
+    // this cleanup into the zero-size branch of the 'post-selection-updated'
+    // listener above and return early there, so that a cleared selection does
+    // not re-activate the scrim. Then remove this listener.
     this.eventTracker_.add(document, 'post-selection-cleared', () => {
       this.activeSelection = null;
       this.showFloatingPrompt = false;
       this.clearInlineFulfillment_();
     });
 
-    if (this.enableSelectionOverlayPrompt) {
+    if (this.enableSelectionOverlayPrompt ||
+        this.enableSelectionOverlayPromptBox) {
       this.fetchSuggestedActions();
     }
 
@@ -172,6 +200,15 @@ export class GlicSelectionOverlayElement extends
         this.shadowRoot.querySelector<HTMLElement>('#floatingPromptContainer');
     if (container) {
       this.floatingPromptResizeObserver_.observe(container);
+    }
+  }
+
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+    if (changedProperties.has('skipIntroAnimation') &&
+        this.skipIntroAnimation) {
+      this.selectionElements.regionSelectionLayer
+          .handlePostSelectionDragGestureEnd();
     }
   }
 
@@ -273,6 +310,10 @@ export class GlicSelectionOverlayElement extends
   // The action whose card is showing, if any.
   private shownInlineAction_: SuggestedAction|null = null;
 
+  // Height of `.action-chips-row` before the inline fulfillment card replaced
+  // it, used to keep the card's top-left corner at the row's top-left corner.
+  private replacedChipsRowHeight_ = 0;
+
   private clearInlineFulfillment_() {
     this.shownInlineAction_ = null;
     this.inlineFulfillmentHost_?.clear();
@@ -282,7 +323,8 @@ export class GlicSelectionOverlayElement extends
       SuggestedActionsListenerCallbackRouter|null = null;
 
   private fetchSuggestedActions() {
-    if (!this.enableSelectionOverlayPrompt) {
+    if (!this.enableSelectionOverlayPrompt &&
+        !this.enableSelectionOverlayPromptBox) {
       return;
     }
     if (this.suggestedActionsListenerRouter_) {
@@ -316,7 +358,8 @@ export class GlicSelectionOverlayElement extends
   }
 
   private updateFloatingPromptPosition() {
-    if (!this.enableSelectionOverlayPrompt) {
+    if (!this.enableSelectionOverlayPrompt &&
+        !this.enableSelectionOverlayPromptBox) {
       this.showFloatingPrompt = false;
       return;
     }
@@ -372,7 +415,9 @@ export class GlicSelectionOverlayElement extends
       }
 
       // When the prompt box is not shown, anchor the bottom-left of the row at
-      // the region's top-right corner (selRight, selTop).
+      // the region's top-right corner (selRight, selTop). When an inline
+      // fulfillment card replaces the row, keep the card's top-left corner at
+      // the row's top-left corner so it expands downward.
       const idealCenterX = selRight + effectiveWidth / 2;
       let clampedCenterX: number;
       if (effectiveWidth >= maxAvailableWidth) {
@@ -383,7 +428,8 @@ export class GlicSelectionOverlayElement extends
         clampedCenterX = Math.max(minCenter, Math.min(idealCenterX, maxCenter));
       }
 
-      const idealTop = selTop - height;
+      const idealTop = selTop -
+          (this.shownInlineAction_ ? this.replacedChipsRowHeight_ : height);
       const targetTop = Math.max(
           margin, Math.min(idealTop, viewportHeight - height - margin));
       return `left: ${clampedCenterX}px; top: ${
@@ -523,16 +569,30 @@ export class GlicSelectionOverlayElement extends
     this.updateFloatingPromptPosition();
   }
 
+  protected onPromptInput(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.hasPromptText = input.value.trim().length > 0;
+  }
+
   protected onInputKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
-      const input =
-          this.shadowRoot.querySelector<HTMLInputElement>('#promptInput');
-      if (input && input.value.trim().length > 0) {
-        this.submitPrompt(input.value.trim());
-      }
+      this.submitPromptInput_();
     } else if (event.key === 'Escape') {
       (this.baseHandler as SelectionOverlayBaseHandlerImpl)
           .dismissOverlay(DismissOverlayReason.kCloseButton);
+    }
+  }
+
+  protected onSubmitPromptClick() {
+    this.submitPromptInput_();
+  }
+
+  private submitPromptInput_() {
+    const input =
+        this.shadowRoot.querySelector<HTMLInputElement>('#promptInput');
+    const prompt = input?.value.trim() ?? '';
+    if (prompt.length > 0) {
+      this.submitPrompt(prompt);
     }
   }
 
@@ -561,9 +621,19 @@ export class GlicSelectionOverlayElement extends
     // selection replaced it. Otherwise nothing is sent, since the browser
     // rejects an inline action without a channel.
     await host.show(inlineFulfillment.resourceName, channel => {
+      this.replacedChipsRowHeight_ =
+          this.shadowRoot.querySelector<HTMLElement>(
+                             '.action-chips-row')!.offsetHeight;
       this.shownInlineAction_ = action;
       handler.executeSuggestedAction(action.id, channel);
     });
+  }
+
+  protected onInlineFulfillmentCloseClick() {
+    // Closes the overlay without the hidden toast, like a background click.
+    // TODO(b/546644969): Reorganize overlay close reasons once the UX is final.
+    (this.baseHandler as SelectionOverlayBaseHandlerImpl)
+        .dismissOverlay(DismissOverlayReason.kBackgroundClick);
   }
 
   protected submitPrompt(prompt: string) {
@@ -574,23 +644,17 @@ export class GlicSelectionOverlayElement extends
     event.stopPropagation();
   }
 
-  protected onCloseRegionClick(event: Event) {
-    if (this.activeRegionId) {
-      const source =
-          (event instanceof PointerEvent && event.pointerType === '') ?
-          RegionSource.KEYBOARD :
-          RegionSource.CLICK;
-      this.baseHandler.deleteRegion(this.activeRegionId, source);
-    }
+  protected onSettingsClick(event: Event) {
+    (this.baseHandler as SelectionOverlayBaseHandlerImpl).openSettings();
     event.stopPropagation();
   }
 
-  protected getActionIcon(icon: SuggestedActionIcon): string {
+  protected getActionIconClass(icon: SuggestedActionIcon): string {
     switch (icon) {
       case SuggestedActionIcon.kSpark:
-        return '/spark.svg';
+        return 'spark';
       case SuggestedActionIcon.kExplain:
-        return '/explain.svg';
+        return 'explain';
       case SuggestedActionIcon.kNone:
       default:
         return '';

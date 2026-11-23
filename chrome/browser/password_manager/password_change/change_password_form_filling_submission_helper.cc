@@ -106,8 +106,8 @@ ChangePasswordFormFillingSubmissionHelper::
 void ChangePasswordFormFillingSubmissionHelper::FillChangePasswordForm(
     password_manager::PasswordFormManager* form_manager,
     const std::u16string& username,
-    const std::u16string& login_password,
-    const std::u16string& generated_password) {
+    const password_manager::PasswordString& login_password,
+    const password_manager::PasswordString& generated_password) {
   CHECK(form_manager);
   CHECK(form_manager->GetParsedObservedForm());
   CHECK(form_manager->GetDriver());
@@ -138,7 +138,7 @@ void ChangePasswordFormFillingSubmissionHelper::OnFormFilled(
   form_manager_ = std::move(result.value());
 
   capturer_ = AnnotatedPageContentCapturer::Create(
-      web_contents_, client_, GetAIPageContentOptions(),
+      web_contents_, GetAIPageContentOptions(),
       base::BindOnce(
           &ChangePasswordFormFillingSubmissionHelper::OnPageContentReceived,
           weak_ptr_factory_.GetWeakPtr()));
@@ -267,4 +267,3 @@ void ChangePasswordFormFillingSubmissionHelper::OnTimeout() {
   }
   std::move(callback_).Run(base::unexpected(SubmissionError::kTimeout));
 }
-

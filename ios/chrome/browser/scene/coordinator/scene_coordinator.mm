@@ -4,7 +4,11 @@
 
 #import "ios/chrome/browser/scene/coordinator/scene_coordinator.h"
 
+#import <string>
+#import <utility>
+
 #import "base/cancelable_callback.h"
+#import "base/functional/callback_helpers.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
@@ -15,6 +19,7 @@
 #import "components/autofill/core/browser/data_model/payments/credit_card.h"
 #import "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #import "components/infobars/core/infobar_manager.h"
+#import "components/password_manager/core/browser/remote_actor/remote_actor_credential_sharing_result.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/identity_manager/account_capabilities.h"
@@ -28,7 +33,6 @@
 #import "ios/chrome/app/application_delegate/tab_opening.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
 #import "ios/chrome/app/deferred_initialization_task_names.h"
-#import "ios/chrome/app/profile/first_run_profile_agent.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/browser/ai_prototyping/coordinator/ai_prototyping_coordinator.h"
 #import "ios/chrome/browser/app_bar/coordinator/app_bar_coordinator.h"
@@ -71,6 +75,9 @@
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service.h"
 #import "ios/chrome/browser/mailto_handler/model/mailto_handler_service_factory.h"
 #import "ios/chrome/browser/main/ui/browser_layout_view_controller.h"
+#import "ios/chrome/browser/passwords/bottom_sheet/coordinator/remote_actor_credential_bottom_sheet_coordinator.h"
+#import "ios/chrome/browser/passwords/model/remote_actor/proto/remote_actor_password_upload_request.pb.h"
+#import "ios/chrome/browser/passwords/model/remote_actor/remote_actor_callback_util.h"
 #import "ios/chrome/browser/policy/model/policy_util.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent.h"
 #import "ios/chrome/browser/policy/model/policy_watcher_browser_agent_observer_bridge.h"
@@ -129,15 +136,6 @@
 #import "ios/public/provider/chrome/browser/ui_utils/ui_utils_api.h"
 #import "ios/public/provider/chrome/browser/user_feedback/user_feedback_api.h"
 #import "ios/public/provider/chrome/browser/user_feedback/user_feedback_data.h"
-
-// Used to create PassKey to access the UIViewController through the
-// BrowserProvider interface (crbug.com/40606165).
-class SceneCoordinatorPassKeyFactory {
- public:
-  static BrowserProviderPassKey CreateKey() {
-    return base::PassKey<SceneCoordinatorPassKeyFactory>();
-  }
-};
 
 namespace layout_state {
 class SceneCoordinatorPassKeyFactory {
@@ -265,6 +263,9 @@ inline LayoutStateScenePassKey PassKey() {
   AssistantAIMCoordinator* _assistantAIMCoordinator;
   // The coordinator for the Assistant Container.
   AssistantContainerCoordinator* _assistantContainerCoordinator;
+  // Coordinator for the Remote Actor credential bottom sheet.
+  RemoteActorCredentialBottomSheetCoordinator*
+      _remoteActorCredentialBottomSheetCoordinator;
   // Observer for PolicyWatcherBrowserAgent.
   std::unique_ptr<PolicyWatcherBrowserAgentObserverBridge>
       _policyWatcherObserverBridge;
@@ -288,7 +289,7 @@ inline LayoutStateScenePassKey PassKey() {
   SettingsNavigationController* _settingsNavigationController;
   // Completion block called when Settings are dismissed.
   ProceduralBlock _settingsDismissalCompletion;
-  // Coordinator for the first step of the guided tour (NTP).
+  // Coordinator for the Guided Tour.
   GuidedTourCoordinator* _guidedTourCoordinator;
   // Coordinator for the undo sign-out flow.
   UndoSignoutCoordinator* _undoSignoutCoordinator;
@@ -401,6 +402,7 @@ inline LayoutStateScenePassKey PassKey() {
   [self stopHistoryCoordinator];
   [self stopYoutubeIncognitoCoordinator];
   [self stopIncognitoInterstitialCoordinator];
+  [self stopRemoteActorCredentialBottomSheetCoordinator];
   [_AIPrototypingCoordinator stop];
   _AIPrototypingCoordinator = nil;
   [self stopAssistantAIMCoordinator];
@@ -413,7 +415,8 @@ inline LayoutStateScenePassKey PassKey() {
   self.UIHandler = nil;
   self.tabGridDelegate = nil;
   self.sceneURLLoadingService = nullptr;
-  [self hideGuidedTourNTPStep];
+  _guidedTourCoordinator.completion = nil;
+  [self hideGuidedTour];
   [_geminiContainerCoordinator stop];
   _geminiContainerCoordinator = nil;
   [_geminiLiveFirstRunCoordinator stopWithCompletion:nil];
@@ -1224,31 +1227,23 @@ inline LayoutStateScenePassKey PassKey() {
   [_managedConfirmationScreenCoordinator start];
 }
 
-- (void)showGuidedTourNTPStepWithCompletion:(ProceduralBlock)completion {
-  UIViewController* baseViewController;
-  if (IsChromeNextIaEnabled()) {
-    baseViewController = _viewController;
-  } else {
-    id<BrowserProvider> presentingInterface =
-        self.sceneState.browserProviderInterface.currentBrowserProvider;
-    baseViewController = [presentingInterface
-        viewController:SceneCoordinatorPassKeyFactory::CreateKey()];
+- (void)showGuidedTourWithCompletion:
+    (void (^)(BOOL guidedTourStarted))completion {
+  CHECK(!_guidedTourCoordinator, base::NotFatalUntil::M162);
+  if (_guidedTourCoordinator) {
+    return;
   }
-  __weak __typeof(self) weakSelf = self;
-  _guidedTourCoordinator =
-      [[GuidedTourCoordinator alloc] initWithStep:GuidedTourStep::kNTP
-                               baseViewController:baseViewController
-                                          browser:self.currentBrowser
-                                  completionBlock:^{
-                                    [weakSelf hideGuidedTourNTPStep];
-                                    if (completion) {
-                                      completion();
-                                    }
-                                  }];
+  UIViewController* baseViewController = IsUseSceneViewControllerEnabled()
+                                             ? _viewController
+                                             : self.activeViewController;
+  _guidedTourCoordinator = [[GuidedTourCoordinator alloc]
+      initWithBaseViewController:baseViewController
+                         browser:self.currentBrowser];
+  _guidedTourCoordinator.completion = completion;
   [_guidedTourCoordinator start];
 }
 
-- (void)hideGuidedTourNTPStep {
+- (void)hideGuidedTour {
   [_guidedTourCoordinator stop];
   _guidedTourCoordinator = nil;
 }
@@ -1791,6 +1786,38 @@ inline LayoutStateScenePassKey PassKey() {
                                         completion:nil];
 }
 
+- (void)showRemoteActorCredentialBottomSheetWithRequest:
+    (const remote_actor::proto::RemoteActorPasswordUploadRequest&)request {
+  [self stopRemoteActorCredentialBottomSheetCoordinator];
+
+  UIViewController* baseViewController = self.activeViewController;
+  if (self.sceneState.activationLevel == SceneActivationLevelDisconnected ||
+      !self.currentBrowser || !baseViewController ||
+      !baseViewController.view.window ||
+      baseViewController.presentedViewController ||
+      baseViewController.isBeingDismissed) {
+    OpenGeminiCallbackURL(request.task_id(), RemoteActorCallbackStatus::kFailed,
+                          RemoteActorCallbackReason::kUploadFailed,
+                          base::DoNothing());
+    return;
+  }
+
+  std::string taskID = request.task_id();
+  __weak __typeof(self) weakSelf = self;
+  RemoteActorCredentialBottomSheetCompletion completion =
+      ^(password_manager::RemoteActorCredentialSharingResult result) {
+        [weakSelf remoteActorCredentialBottomSheetDidFinishWithResult:result
+                                                               taskID:taskID];
+      };
+  _remoteActorCredentialBottomSheetCoordinator =
+      [[RemoteActorCredentialBottomSheetCoordinator alloc]
+          initWithBaseViewController:baseViewController
+                             browser:self.currentBrowser
+                             request:request
+                          completion:completion];
+  [_remoteActorCredentialBottomSheetCoordinator start];
+}
+
 #pragma mark - Properties
 
 - (id<SceneSignInCommands>)sceneSignInEndpoint {
@@ -2111,7 +2138,7 @@ inline LayoutStateScenePassKey PassKey() {
       ^(SigninCoordinator* coordinator,
         SigninCoordinatorResultOrIdentity result) {
         [weakSelf signinCompletedWithCoordinator:coordinator
-                                          result:result
+                                          result:std::move(result)
                                       completion:completion];
       };
 
@@ -2140,7 +2167,7 @@ inline LayoutStateScenePassKey PassKey() {
   CHECK_EQ(coordinator, _signinCoordinator);
 
   if (completion) {
-    completion(coordinator, result);
+    completion(coordinator, std::move(result));
   }
   [self stopSigninCoordinatorAnimated:YES];
 }
@@ -2542,6 +2569,52 @@ inline LayoutStateScenePassKey PassKey() {
   _managedConfirmationScreenCoordinator = nil;
 }
 
+// Stops `_remoteActorCredentialBottomSheetCoordinator` without triggering a
+// callback URL when torn down externally.
+- (void)stopRemoteActorCredentialBottomSheetCoordinator {
+  RemoteActorCredentialBottomSheetCoordinator* coordinator =
+      _remoteActorCredentialBottomSheetCoordinator;
+  _remoteActorCredentialBottomSheetCoordinator = nil;
+  [coordinator stop];
+}
+
+// Handles completion of `_remoteActorCredentialBottomSheetCoordinator` and
+// reports the outcome back to Gemini.
+- (void)remoteActorCredentialBottomSheetDidFinishWithResult:
+            (password_manager::RemoteActorCredentialSharingResult)result
+                                                     taskID:
+                                                         (std::string)taskID {
+  if (!_remoteActorCredentialBottomSheetCoordinator) {
+    return;
+  }
+  [self stopRemoteActorCredentialBottomSheetCoordinator];
+
+  using password_manager::RemoteActorCredentialSharingResult;
+  RemoteActorCallbackStatus status;
+  std::optional<RemoteActorCallbackReason> reason;
+  switch (result) {
+    case RemoteActorCredentialSharingResult::kSuccess:
+      status = RemoteActorCallbackStatus::kSuccess;
+      break;
+    case RemoteActorCredentialSharingResult::kUserCancelledDialog:
+      status = RemoteActorCallbackStatus::kCancelled;
+      break;
+    case RemoteActorCredentialSharingResult::kOtherError:
+    case RemoteActorCredentialSharingResult::kUserIdentityOrSyncStateInvalid:
+    case RemoteActorCredentialSharingResult::kNoSyncOrAccountStorage:
+    case RemoteActorCredentialSharingResult::kNoPasswordsFound:
+    case RemoteActorCredentialSharingResult::kAuthenticatorFailed:
+    case RemoteActorCredentialSharingResult::kSharingServiceUnavailable:
+    case RemoteActorCredentialSharingResult::kSharingFailed:
+    case RemoteActorCredentialSharingResult::kRequestAlreadyInProgress:
+    case RemoteActorCredentialSharingResult::kBlockedByPolicy:
+      status = RemoteActorCallbackStatus::kFailed;
+      reason = RemoteActorCallbackReason::kUploadFailed;
+      break;
+  }
+  OpenGeminiCallbackURL(taskID, status, reason, base::DoNothing());
+}
+
 // Opens the price tracking notification settings view.
 - (void)openPriceTrackingNotificationsSettings {
   Browser* browser = _regularBrowser.get();
@@ -2614,12 +2687,13 @@ inline LayoutStateScenePassKey PassKey() {
   // Stop the password settings.
   [self stopPasswordSettingsCoordinator];
 
+  // If the remote actor credential bottom sheet is active, stop it. Gemini is
+  // intentionally not notified: this path is reached when the sheet itself
+  // requests to open a URL or when the presented UI is torn down externally.
+  [self stopRemoteActorCredentialBottomSheetCoordinator];
+
   // If the guided tour is active, stop it.
-  FirstRunProfileAgent* firstRunAgent =
-      [FirstRunProfileAgent agentFromProfile:self.sceneState.profileState];
-  if (firstRunAgent) {
-    [firstRunAgent stopGuidedTour];
-  }
+  [self hideGuidedTour];
 
   __weak __typeof(self) weakSelf = self;
   ProceduralBlock resetAndDismiss = ^{

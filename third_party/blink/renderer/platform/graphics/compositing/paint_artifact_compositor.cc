@@ -621,8 +621,8 @@ bool NeedsFullUpdateAfterPaintingChunk(
 }
 
 // When a drawable element of <canvas> is rendered via drawElementImage, its
-// paint must be recorded using the canvas element's content clip and effect
-// state.
+// paint must be recorded using the drawable element's clip, effect, and
+// transform state.
 PropertyTreeState GetPropertyTreeStateForPaint(
     const PropertyTreeState& layer_state) {
   PropertyTreeState result = layer_state;
@@ -925,8 +925,7 @@ void PaintArtifactCompositor::Layerizer::LayerizeGroup(
                                            .NearestDirectlyCompositedAncestor();
     if (composited_transform &&
         !composited_transform->RequiresCompositingForFixedPositionOnly() &&
-        (!RuntimeEnabledFeatures::MergeStickyLayersEnabled() ||
-         !composited_transform->RequiresCompositingForStickyPositionOnly()) &&
+        !composited_transform->RequiresCompositingForStickyPositionOnly() &&
         directly_composited_transforms_.insert(composited_transform)
             .is_new_entry) {
       continue;
@@ -1361,6 +1360,13 @@ void PaintArtifactCompositor::Update(
       chunk.hit_test_data->scroll_translation->ClearChangedToRoot(
           g_s_property_tree_sequence_number);
     }
+  }
+  for (auto& node : scroll_translation_nodes) {
+    node->ClearChangedToRoot(g_s_property_tree_sequence_number);
+  }
+  if (viewport_properties.outer_scroll_translation) {
+    viewport_properties.outer_scroll_translation->ClearChangedToRoot(
+        g_s_property_tree_sequence_number);
   }
 
   DVLOG(2) << "PaintArtifactCompositor::Update() done\n"

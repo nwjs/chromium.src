@@ -25,11 +25,17 @@
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"  // nogncheck
 #include "chrome/browser/glic/public/glic_enabling.h"             // nogncheck
 #include "chrome/browser/glic/public/glic_keyed_service.h"        // nogncheck
-#include "chrome/browser/ui/webui/favicon_source.h"  // nogncheck
+#include "chrome/browser/ui/webui/favicon_source.h"               // nogncheck
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"  // nogncheck
 #include "components/favicon_base/favicon_url_parser.h"
 #include "content/public/browser/url_data_source.h"
 #endif
+
+bool ContextHubUIConfig::IsWebUIEnabled(
+    content::BrowserContext* browser_context) {
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  return profile && !profile->IsOffTheRecord();
+}
 
 ContextHubUI::ContextHubUI(content::WebUI* web_ui)
     : ui::MojoWebUIController(web_ui) {
@@ -43,6 +49,8 @@ ContextHubUI::ContextHubUI(content::WebUI* web_ui)
   source->AddResourcePath("save_to_memory_bank",
                           IDR_CONTEXT_HUB_SAVE_TO_MEMORY_BANK_HTML);
   source->AddResourcePath("topic_details", IDR_CONTEXT_HUB_TOPIC_DETAILS_HTML);
+  source->AddResourcePath("memory_banks_palette",
+                          IDR_CONTEXT_HUB_MEMORY_BANKS_PALETTE_HTML);
 
   source->AddBoolean("kAutoTabGroups",
                      base::FeatureList::IsEnabled(

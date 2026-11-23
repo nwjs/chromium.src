@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/webui/ash/cloud_upload/drive_upload_handler.h"
 
+#include <algorithm>
+
 #include "base/check_op.h"
 #include "base/files/file_path.h"
 #include "base/i18n/message_formatter.h"
@@ -43,14 +45,16 @@ const int kAlternateUrlPollInterval = 200;
 
 std::string GetTargetAppName(base::FilePath file_path) {
   const std::string extension = base::ToLowerASCII(file_path.FinalExtension());
-  if (file_manager::file_tasks::WordGroupExtensions().contains(extension)) {
+  if (std::ranges::contains(file_manager::file_tasks::WordGroupExtensions(),
+                            extension)) {
     return l10n_util::GetStringUTF8(IDS_OFFICE_FILE_HANDLER_APP_GOOGLE_DOCS);
   }
-  if (file_manager::file_tasks::ExcelGroupExtensions().contains(extension)) {
+  if (std::ranges::contains(file_manager::file_tasks::ExcelGroupExtensions(),
+                            extension)) {
     return l10n_util::GetStringUTF8(IDS_OFFICE_FILE_HANDLER_APP_GOOGLE_SHEETS);
   }
-  if (file_manager::file_tasks::PowerPointGroupExtensions().contains(
-          extension)) {
+  if (std::ranges::contains(
+          file_manager::file_tasks::PowerPointGroupExtensions(), extension)) {
     return l10n_util::GetStringUTF8(IDS_OFFICE_FILE_HANDLER_APP_GOOGLE_SLIDES);
   }
   return l10n_util::GetStringUTF8(IDS_OFFICE_FILE_HANDLER_APP_GOOGLE_DOCS);
@@ -88,7 +92,7 @@ DriveUploadHandler::DriveUploadHandler(
 DriveUploadHandler::~DriveUploadHandler() = default;
 
 void DriveUploadHandler::Run() {
-  DCHECK(callback_);
+  CHECK(callback_, base::NotFatalUntil::M162);
 
   if (!profile_) {
     LOG(ERROR) << "No profile";
@@ -285,8 +289,8 @@ void DriveUploadHandler::OnCopyStatus(
       UpdateProgressNotification();
       if (observed_relative_drive_path_.empty()) {
         // TODO (b/242685536) Define multiple-file handling.
-        DCHECK_EQ(status.sources.size(), 1u);
-        DCHECK_EQ(status.outputs.size(), 1u);
+        CHECK_EQ(status.sources.size(), 1u, base::NotFatalUntil::M162);
+        CHECK_EQ(status.outputs.size(), 1u, base::NotFatalUntil::M162);
 
         if (!drive_integration_service_) {
           LOG(ERROR) << "No Drive integration service";
@@ -312,7 +316,7 @@ void DriveUploadHandler::OnCopyStatus(
       move_progress_ = 100;
       notification_manager_->SetDestinationPath(status.outputs[0].url.path());
       UpdateProgressNotification();
-      DCHECK_EQ(status.outputs.size(), 1u);
+      CHECK_EQ(status.outputs.size(), 1u, base::NotFatalUntil::M162);
       return;
     case file_manager::io_task::State::kCancelled:
       LOG(ERROR) << "Upload to Google Drive cancelled";

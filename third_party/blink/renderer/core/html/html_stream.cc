@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/html/html_stream.h"
 
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
+#include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/core/dom/container_node.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
@@ -25,6 +26,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 
 namespace blink {
@@ -32,7 +34,7 @@ namespace blink {
 namespace {
 class HTMLSink : public UnderlyingSinkBase {
  public:
-  HTMLSink(DocumentParser* parser,
+  HTMLSink(HTMLDocumentParser* parser,
            ParserRootInsertionPoint* root_insertion_point)
       : parser_(parser), root_insertion_point_(root_insertion_point) {}
 
@@ -55,7 +57,7 @@ class HTMLSink : public UnderlyingSinkBase {
     CHECK(parser_);
     CHECK(root_insertion_point_);
     if (chunk.V8ValueFor(script_state)->IsSymbol()) {
-      parser_->StopParsing();
+      Parser().StopParsing();
       exception_state.ThrowTypeError("Cannot stream symbols into HTML");
       return ToResolvedUndefinedPromise(script_state);
     }
@@ -65,39 +67,56 @@ class HTMLSink : public UnderlyingSinkBase {
         exception_state);
 
     if (exception_state.HadException()) {
-      parser_->StopParsing();
+      Parser().StopParsing();
       return ToResolvedUndefinedPromise(script_state);
     }
 
     if (root_insertion_point_->ref_node &&
         root_insertion_point_->ref_node->parentNode() !=
             root_insertion_point_->target) {
-      parser_->StopParsing();
+      Parser().StopParsing();
       exception_state.ThrowDOMException(
           DOMExceptionCode::kHierarchyRequestError,
           "The ref_node is no longer a child of the target.");
       return ToResolvedUndefinedPromise(script_state);
     }
 
-    parser_->Append(text);
+    Parser().Append(text);
     return ToResolvedUndefinedPromise(script_state);
   }
 
   ScriptPromise<IDLUndefined> close(ScriptState* script_state,
                                     ExceptionState&) override {
-    parser_->Finish();
-    return ToResolvedUndefinedPromise(script_state);
+    auto* resolver =
+        MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
+    resolver->SuppressDetachCheck();
+    parser_->SetCloseCallback(BindOnce(
+        [](ScriptPromiseResolver<IDLUndefined>* resolver) {
+          resolver->Resolve();
+        },
+        WrapPersistent(resolver)));
+    Parser().Finish();
+    return resolver->Promise();
   }
 
   ScriptPromise<IDLUndefined> abort(ScriptState* script_state,
                                     ScriptValue reason,
                                     ExceptionState& exception_state) override {
-    parser_->StopParsing();
-    parser_->Detach();
+    // https://html.spec.whatwg.org/C/#html-streaming-methods abortAlgorithm:
+    // "If parser has not been aborted, then abort parser." The abort is
+    // deferred if the parser is currently running, e.g. when a streamed script
+    // aborts the stream while the parser resumes after a parser-blocking
+    // script; the rest of the current chunk is still parsed.
+    parser_->AbortFragmentParser();
     return ToResolvedUndefinedPromise(script_state);
   }
 
-  Member<DocumentParser> parser_;
+ private:
+  // Append(), Finish() and StopParsing() are only exposed through the
+  // DocumentParser interface.
+  DocumentParser& Parser() { return *parser_; }
+
+  Member<HTMLDocumentParser> parser_;
   Member<ParserRootInsertionPoint> root_insertion_point_;
 };
 }  // namespace
@@ -185,7 +204,7 @@ WritableStream* HTMLStream::Create(ScriptState* script_state,
     return nullptr;
   }
 
-  DocumentParser* parser = MakeGarbageCollected<HTMLDocumentParser>(
+  auto* parser = MakeGarbageCollected<HTMLDocumentParser>(
       target->GetDocument().createDocumentFragment(), context_element,
       parser_content_policy, ParserPrefetchPolicy::kDisallowPrefetching,
       registry, sanitizer, root_insertion_point);

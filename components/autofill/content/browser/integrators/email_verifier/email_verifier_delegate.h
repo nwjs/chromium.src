@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_AUTOFILL_CONTENT_BROWSER_INTEGRATORS_EMAIL_VERIFIER_EMAIL_VERIFIER_DELEGATE_H_
 #define COMPONENTS_AUTOFILL_CONTENT_BROWSER_INTEGRATORS_EMAIL_VERIFIER_EMAIL_VERIFIER_DELEGATE_H_
 
+#include <cstdint>
 #include <map>
 #include <optional>
 #include <vector>
@@ -23,11 +24,11 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/webid/email_verifier.h"
-#include "net/base/schemeful_site.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/blink/public/mojom/webid/email_verification_request.mojom-shared.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace autofill {
 
@@ -71,6 +72,11 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
   // metrics so that a single aggregated UKM event
   // (`Blink.EmailVerificationProtocol`) can be emitted when the flow completes.
   struct RequestMetrics {
+    // Monotonically increasing identifier for this verification attempt, used
+    // to ignore stale callbacks from cancelled or superseded requests on the
+    // same field.
+    uint64_t request_id = 0;
+
     // UKM source ID associated with the main frame page navigation.
     ukm::SourceId ukm_source_id = ukm::kInvalidSourceId;
 
@@ -169,10 +175,15 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
                            std::u16string email_value,
                            const std::string& nonce);
 
+  // Cancels an in-flight email verification request for the given field and
+  // `request_id`.
+  void CancelVerification(const FieldGlobalId& email_field_id,
+                          uint64_t request_id);
 
   void OnIsVerifiable(
       base::WeakPtr<AutofillManager> manager,
       FieldGlobalId email_field_id,
+      uint64_t request_id,
       gfx::RectF email_field_bounds,
       std::u16string email,
       std::string nonce,
@@ -183,6 +194,7 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
 
   void Verify(base::WeakPtr<AutofillManager> manager,
               FieldGlobalId email_field_id,
+              uint64_t request_id,
               std::string email,
               const std::string& nonce,
               const content::webid::EmailVerifier::Result& result);
@@ -190,8 +202,9 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
   void OnVerificationResponseReceived(
       base::WeakPtr<AutofillManager> manager,
       FieldGlobalId email_field_id,
+      uint64_t request_id,
       std::string email,
-      net::SchemefulSite issuer_site,
+      url::Origin issuer_origin,
       std::optional<std::string> token,
       blink::mojom::EmailVerificationRequestResult status,
       base::TimeDelta verify_duration);
@@ -199,6 +212,7 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
   void OnEmailVerificationDecision(
       base::WeakPtr<AutofillManager> manager,
       FieldGlobalId email_field_id,
+      uint64_t request_id,
       std::string email,
       std::string nonce,
       content::webid::EmailVerifier::Result result,
@@ -229,6 +243,7 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
   // by the email field's ID. Entries are inserted in `TriggerVerification` and
   // erased in `NotifyFlowCompleted`.
   base::flat_map<FieldGlobalId, RequestMetrics> pending_request_metrics_;
+  uint64_t next_request_id_ = 0;
   std::optional<FieldGlobalId> last_focused_field_;
   // A tab-scoped cache of recently verified email values (mapped by field ID)
   // used to deduplicate verification prompts when the user alternates focus.

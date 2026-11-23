@@ -147,6 +147,8 @@ class ContextLostIntegrationTest(gpu_integration_test.GpuIntegrationTest):
               'worker-webgl-raf-after-gpu-crash.html'),
              ('ContextLost_OffscreenCanvasRecoveryAfterGPUCrash',
               'offscreencanvas_recovery_after_gpu_crash.html'),
+             ('ContextLost_WebGL2TransferCachePrune',
+              'webgl2-transfer-cache-prune.html'),
              ('ContextLost_WebGL2UnpackImageHeight',
               'webgl2-unpack-image-height.html'),
              ('GpuCrash_InfoForHardwareGpu', 'simple.html'),
@@ -423,11 +425,15 @@ class ContextLostIntegrationTest(gpu_integration_test.GpuIntegrationTest):
       [cba.DISABLE_DOMAIN_BLOCKING_FOR_3D_APIS]
     )
     self._NavigateAndWaitForLoad(test_path)
-    # Entering fullscreen requires focus and user activation, so focus the tab
-    # and synthesize a real click on the button, rather than calling
-    # requestFullscreen() from script.
+    # Entering fullscreen requires focus and user activation, so focus the tab,
+    # wait for the document to actually gain focus (window activation after
+    # Page.bringToFront is asynchronous on macOS), and synthesize a real click
+    # on the button rather than calling requestFullscreen() from script.
     self.tab._inspector_backend._websocket.SyncRequest(
       {'method': 'Page.bringToFront'}, timeout=60
+    )
+    self.tab.action_runner.WaitForJavaScriptCondition(
+      'document.hasFocus()', timeout=10
     )
     self.tab.action_runner.ClickElement(selector='#enterFullscreenButton')
     self._WaitForTabAndCheckCompletion()
@@ -607,6 +613,15 @@ class ContextLostIntegrationTest(gpu_integration_test.GpuIntegrationTest):
     self._WaitForTabAndCheckCompletion()
     self._RestartBrowser('must restart after tests that kill the GPU process')
 
+  def _ContextLost_WebGL2TransferCachePrune(self, test_path: str) -> None:
+    self.RestartBrowserIfNecessaryWithArgs(
+      [cba.DISABLE_DOMAIN_BLOCKING_FOR_3D_APIS]
+    )
+    self._NavigateAndWaitForLoad(test_path)
+    # Test runs for ~32 seconds (past the 30s ServiceTransferCache prune
+    # interval); wait up to 60 seconds.
+    self._WaitForTabAndCheckCompletion(timeout=60)
+
   def _ContextLost_WebGL2UnpackImageHeight(self, test_path: str) -> None:
     self.RestartBrowserIfNecessaryWithArgs(
       [
@@ -624,8 +639,8 @@ class ContextLostIntegrationTest(gpu_integration_test.GpuIntegrationTest):
     self.RestartBrowserIfNecessaryWithArgs(
       [
         cba.DISABLE_DOMAIN_BLOCKING_FOR_3D_APIS,
-        '--enable-features=AllowSoftwareGLFallbackDueToCrashes,'
-        'AllowSwiftShaderFallback',
+        '--enable-features=AllowSoftwareGLFallbackDueToCrashes',
+        '--enable-unsafe-swiftshader',
       ]
     )
     self._NavigateAndWaitForLoad(test_path)

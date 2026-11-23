@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {Color, TabGroupDotSize, tabGroupsBrowserProxyFactory, TabGroupsDelegate, TabGroupsOrganizerPageHandlerRemote} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
+import {Color, organizerPanelBrowserProxyFactory, OrganizerPanelPageHandlerRemote, TabGroupDotSize, tabGroupsBrowserProxyFactory, TabGroupsDelegate, TabGroupsOrganizerPageHandlerRemote} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
 import type {OrganizerListSectionClient, OrganizerListSectionItem, OrganizerListSectionItemElement, TabGroup, TabGroupsOrganizerPageRemote} from 'chrome://organizer-panel.top-chrome/organizer_panel.js';
 import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -23,6 +23,8 @@ suite('TabGroupsDelegateTest', () => {
   let delegate: TabGroupsDelegate;
   let mockHandler: TestMock<TabGroupsOrganizerPageHandlerRemote>&
       TabGroupsOrganizerPageHandlerRemote;
+  let mockOrganizerPanelHandler: TestMock<OrganizerPanelPageHandlerRemote>&
+      OrganizerPanelPageHandlerRemote;
   let remotePage: TabGroupsOrganizerPageRemote;
 
   const sampleGroups: TabGroup[] = [
@@ -31,18 +33,21 @@ suite('TabGroupsDelegateTest', () => {
       color: Color.kBlue,
       title: 'Sample Group 1',
       isOpen: true,
+      lastActiveElapsedText: '10m ago',
     },
     {
       id: '2',
       color: Color.kRed,
       title: 'Sample Group 2',
       isOpen: false,
+      lastActiveElapsedText: '1h ago',
     },
     {
       id: '3',
       color: Color.kGreen,
       title: 'Sample Group 3',
       isOpen: true,
+      lastActiveElapsedText: '',
     },
   ];
 
@@ -50,6 +55,7 @@ suite('TabGroupsDelegateTest', () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     loadTimeData.resetForTesting({
       createTabGroup: 'Create tab group',
+      options: 'Options',
       tabGroupMoreOptions: 'More options',
       tabGroups: 'Tab Groups',
     });
@@ -61,6 +67,14 @@ suite('TabGroupsDelegateTest', () => {
         tabGroupsBrowserProxyFactory.createForTest(mockHandler);
     tabGroupsBrowserProxyFactory.setInstance(instance);
     remotePage = remote;
+
+    mockOrganizerPanelHandler =
+        TestMock.fromClass(OrganizerPanelPageHandlerRemote);
+    const {instance: organizerPanelInstance} =
+        organizerPanelBrowserProxyFactory.createForTest(
+            mockOrganizerPanelHandler);
+    organizerPanelBrowserProxyFactory.setInstance(organizerPanelInstance);
+
     delegate = new TabGroupsDelegate();
   });
 
@@ -73,13 +87,20 @@ suite('TabGroupsDelegateTest', () => {
     const items = await delegate.getItems();
     assertEquals(3, items.length);
     assertEquals('Sample Group 1', items[0]!.title[0]);
+    assertDeepEquals(
+        [{text: '10m ago', matchable: false}], items[0]!.description);
     assertEquals('Sample Group 2', items[1]!.title[0]);
+    assertDeepEquals(
+        [{text: '1h ago', matchable: false}], items[1]!.description);
     assertEquals('Sample Group 3', items[2]!.title[0]);
+    assertEquals(undefined, items[2]!.description);
+    assertEquals(undefined, items[0]!.size);
     assertEquals(1, mockHandler.getCallCount('getTabGroups'));
 
     assertTrue(!!items[0]!.hoveredActionButton);
     assertEquals('cr:more-vert', items[0]!.hoveredActionButton.icon);
     assertEquals('More options', items[0]!.hoveredActionButton.ariaLabel);
+    assertEquals('Options', items[0]!.hoveredActionButton.tooltip);
 
     const container = document.createElement('div');
     document.body.appendChild(container);
@@ -119,6 +140,7 @@ suite('TabGroupsDelegateTest', () => {
       color: Color.kYellow,
       title: 'Sample Group 4',
       isOpen: true,
+      lastActiveElapsedText: 'just now',
     };
 
     remotePage.tabGroupAdded(newGroup);
@@ -126,6 +148,8 @@ suite('TabGroupsDelegateTest', () => {
 
     assertEquals(4, client.items.length);
     assertEquals('Sample Group 4', client.items[0]!.title[0]);
+    assertDeepEquals(
+        [{text: 'just now', matchable: false}], client.items[0]!.description);
     assertEquals('Sample Group 1', client.items[1]!.title[0]);
     assertEquals('Sample Group 2', client.items[2]!.title[0]);
     assertEquals('Sample Group 3', client.items[3]!.title[0]);
@@ -156,6 +180,7 @@ suite('TabGroupsDelegateTest', () => {
       color: Color.kCyan,
       title: 'Updated Group 2',
       isOpen: true,
+      lastActiveElapsedText: '5m ago',
     };
 
     remotePage.tabGroupUpdated(updatedGroup);
@@ -164,6 +189,8 @@ suite('TabGroupsDelegateTest', () => {
     assertEquals(3, client.items.length);
     assertEquals('Sample Group 1', client.items[0]!.title[0]);
     assertEquals('Updated Group 2', client.items[1]!.title[0]);
+    assertDeepEquals(
+        [{text: '5m ago', matchable: false}], client.items[1]!.description);
     assertEquals('Sample Group 3', client.items[2]!.title[0]);
 
     const container = document.createElement('div');
@@ -207,31 +234,34 @@ suite('TabGroupsDelegateTest', () => {
     assertDeepEquals({x: 15, y: 25, width: 0, height: 0}, args[1]);
   });
 
-  test('returns zero state and triggers createNewTabGroup on click', () => {
-    assertTrue(delegate.shouldAlwaysShowZeroState());
-    const zeroState = delegate.getZeroState();
-    assertTrue(!!zeroState);
+  test(
+      'returns zero state and triggers createNewTabGroup and closePanel on click',
+      () => {
+        assertTrue(delegate.shouldAlwaysShowZeroState());
+        const zeroState = delegate.getZeroState();
+        assertTrue(!!zeroState);
 
-    const container = document.createElement('div');
-    document.body.appendChild(container);
-    render(zeroState, container);
+        const container = document.createElement('div');
+        document.body.appendChild(container);
+        render(zeroState, container);
 
-    const item = container.querySelector<OrganizerListSectionItemElement>(
-        'organizer-list-section-item');
-    assertTrue(!!item);
-    assertDeepEquals(['Create tab group'], item.item.title);
+        const item = container.querySelector<OrganizerListSectionItemElement>(
+            'organizer-list-section-item');
+        assertTrue(!!item);
+        assertDeepEquals(['Create tab group'], item.item.title);
 
-    const icon = item.item.prefixIcon?.element;
-    assertTrue(!!icon);
+        const icon = item.item.prefixIcon?.element;
+        assertTrue(!!icon);
 
-    const iconContainer = document.createElement('div');
-    document.body.appendChild(iconContainer);
-    render(icon, iconContainer);
-    const crIcon = iconContainer.querySelector<CrIconElement>('cr-icon');
-    assertTrue(!!crIcon);
-    assertEquals('cr:add', crIcon.icon);
+        const iconContainer = document.createElement('div');
+        document.body.appendChild(iconContainer);
+        render(icon, iconContainer);
+        const crIcon = iconContainer.querySelector<CrIconElement>('cr-icon');
+        assertTrue(!!crIcon);
+        assertEquals('cr:add', crIcon.icon);
 
-    item.click();
-    assertEquals(1, mockHandler.getCallCount('createNewTabGroup'));
-  });
+        item.click();
+        assertEquals(1, mockHandler.getCallCount('createNewTabGroup'));
+        assertEquals(1, mockOrganizerPanelHandler.getCallCount('closePanel'));
+      });
 });

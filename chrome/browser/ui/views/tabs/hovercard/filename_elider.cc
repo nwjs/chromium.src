@@ -105,6 +105,8 @@ FilenameElider::LineLengths FilenameElider::GetLineLengths(
 
   // Since we truncated, expect the string to start with ellipsis, then
   // calculate the length of the string sans ellipsis.
+  // TODO(crbug.com/577275387): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK_EQ(gfx::kEllipsisUTF16[0], tentative_second_line[0]);
 
   // TODO(crbug.com/1239317): Elision is still a little flaky, so we'll make
@@ -138,10 +140,12 @@ std::u16string FilenameElider::ElideImpl(
   std::u16string_view text = render_text_->text();
 
   // Validate the inputs. All of these are base assumptions.
-  DCHECK_LE(line_lengths.first, text.length());
-  DCHECK_LE(line_lengths.second, text.length());
-  DCHECK(render_text_->IsGraphemeBoundary(line_lengths.first));
-  DCHECK(render_text_->IsGraphemeBoundary(text.length() - line_lengths.second));
+  CHECK_LE(line_lengths.first, text.length(), base::NotFatalUntil::M162);
+  CHECK_LE(line_lengths.second, text.length(), base::NotFatalUntil::M162);
+  CHECK(render_text_->IsGraphemeBoundary(line_lengths.first),
+        base::NotFatalUntil::M162);
+  CHECK(render_text_->IsGraphemeBoundary(text.length() - line_lengths.second),
+        base::NotFatalUntil::M162);
 
   // If the entire text fits on a single line, use it as-is.
   if (line_lengths.first == text.length() ||

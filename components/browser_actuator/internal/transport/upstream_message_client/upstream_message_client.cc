@@ -12,8 +12,8 @@
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/uuid.h"
-#include "components/browser_actuator/internal/metrics_utils.h"
-#include "components/browser_actuator/internal/proto/transport_messages.pb.h"
+#include "components/browser_actuator/internal/transport/metrics_utils.h"
+#include "components/browser_actuator/internal/transport/proto/transport_messages.pb.h"
 #include "components/endpoint_fetcher/endpoint_fetcher.h"
 #include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -21,7 +21,7 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
-namespace browser_actuator {
+namespace browser_actuator::transport {
 
 namespace {
 
@@ -136,4 +136,4 @@ void UpstreamMessageClient::OnMessageSent(
   std::move(callback).Run(success, response_code);
 }
 
-}  // namespace browser_actuator
+}  // namespace browser_actuator::transport

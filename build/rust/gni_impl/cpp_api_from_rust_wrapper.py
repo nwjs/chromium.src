@@ -8,12 +8,12 @@ import argparse
 import subprocess
 import pathlib
 import sys
-import tempfile
 
 from rustc_wrapper import (
     PrepareRustEnvForExecution,
     LoadRustEnvAndFlags,
     HandleReturnCode,
+    ExpandNestedRustStyleRspFiles,
 )
 
 
@@ -22,27 +22,34 @@ def main():
     parser.add_argument(
         '--cpp-api-from-rust-exe-path', required=True, type=pathlib.Path
     )
-    parser.add_argument(
-        '--rustc-env-and-flags', type=pathlib.Path, required=True
-    )
+    # `--rustc-env-and-flags` is not used when generating bindings for a
+    # prebuilt stdlib in the sysroot.
+    parser.add_argument('--rustc-env-and-flags', type=pathlib.Path)
     parser.add_argument('args', metavar='ARG', nargs='+')
     args = parser.parse_args()
 
-    (rustenv, rustflags) = LoadRustEnvAndFlags(args.rustc_env_and_flags)
-    PrepareRustEnvForExecution(rustenv)
+    rustenv = None
+    rustflags = []
+    if args.rustc_env_and_flags:
+        (rustenv, rustflags) = LoadRustEnvAndFlags(args.rustc_env_and_flags)
+        PrepareRustEnvForExecution(rustenv)
 
-    rustflags = [*args.args, "--", *rustflags]
+    expanded_rustflags = ExpandNestedRustStyleRspFiles(rustflags)
+    flag_parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    flag_parser.add_argument('-L', action='append', default=[])
+    flag_parser.add_argument('--extern', action='append', default=[])
+    known, _ = flag_parser.parse_known_args(expanded_rustflags)
+    crubit_extra_args = [f'-L{x}' for x in known.L]
+    # Crubit requires `CRATE=PATH`. Skip sysroot crates like
+    # `--extern proc_macro`.
+    crubit_extra_args += [f'--extern={x}' for x in known.extern if '=' in x]
 
-    # `cpp_api_from_rust` should not write any files into the build directory
-    # (e.g. into `out/`).
-    assert not [x for x in rustflags if x.startswith("--emit")]
-    assert not [x for x in rustflags if x.startswith("-o")]
-    assert not [x for x in rustflags if x.startswith("--out-dir")]
-    temp_dir = tempfile.TemporaryDirectory()
-    rustflags += ["--out-dir", temp_dir.name]
+    crubit_args = [*args.args, *crubit_extra_args]
 
     r = subprocess.run(
-        [args.cpp_api_from_rust_exe_path, *rustflags], env=rustenv, check=False
+        [args.cpp_api_from_rust_exe_path, *crubit_args],
+        env=rustenv,
+        check=False,
     )
     HandleReturnCode(r)
     return 0

@@ -246,7 +246,7 @@ DbusAppmenu::~DbusAppmenu() {
 }
 
 void DbusAppmenu::Initialize(DbusMenu::InitializedCallback callback) {
-  DCHECK(!initialized_);
+  CHECK(!initialized_, base::NotFatalUntil::M162);
   initialized_ = true;
 
   // First build static menu content.
@@ -276,7 +276,7 @@ void DbusAppmenu::Initialize(DbusMenu::InitializedCallback callback) {
   }
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
-  DCHECK(profile_manager);
+  CHECK(profile_manager, base::NotFatalUntil::M162);
   avatar_menu_ = std::make_unique<AvatarMenu>(
       &profile_manager->GetProfileAttributesStorage(), this, browser_.get());
   avatar_menu_->RebuildMenu();
@@ -385,7 +385,7 @@ void DbusAppmenu::AddEntryToHistoryMenu(
 }
 
 void DbusAppmenu::GetTopSitesData() {
-  DCHECK(top_sites_);
+  CHECK(top_sites_, base::NotFatalUntil::M162);
 
   top_sites_->GetMostVisitedURLs(base::BindOnce(
       &DbusAppmenu::OnTopSitesReceived, weak_ptr_factory_.GetWeakPtr()));
@@ -645,14 +645,13 @@ void DbusAppmenu::ExecuteCommand(int command_id, int event_flags) {
     if (item->session_id.is_valid() && service) {
       service->RestoreEntryById(BrowserLiveTabContext::From(browser_),
                                 item->session_id,
-                                WindowOpenDisposition::UNKNOWN);
+                                WindowOpenDisposition::kUnknown);
     } else {
-      DCHECK(item->url.is_valid());
-      browser_->OpenURL(
-          content::OpenURLParams::CreateBrowserInitiated(
-              item->url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-              ui::PAGE_TRANSITION_AUTO_BOOKMARK),
-          /*navigation_handle_callback=*/{});
+      CHECK(item->url.is_valid(), base::NotFatalUntil::M162);
+      browser_->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                            item->url, WindowOpenDisposition::kNewForegroundTab,
+                            ui::PAGE_TRANSITION_AUTO_BOOKMARK),
+                        /*navigation_handle_callback=*/{});
     }
   } else if (profile_commands_.contains(command_id)) {
     avatar_menu_->SwitchToProfile(profile_commands_[command_id], false);

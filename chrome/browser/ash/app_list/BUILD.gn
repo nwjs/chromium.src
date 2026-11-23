@@ -56,8 +56,9 @@ static_library("app_list") {
   public_deps = [
     "//ash/public/cpp",
     "//base",
+    "//chrome/browser/apps/almanac_api_client/proto",
+    "//chrome/browser/apps/app_preload_service/proto",
     "//chrome/browser/profiles:profile",
-    "//components/feature_engagement/public",
     "//components/search_engines",
     "//components/session_manager/core",
     "//components/sync/model",
@@ -69,13 +70,13 @@ static_library("app_list") {
   deps = [
     "//ash",
     "//ash/app_list",
+    "//ash/constants",
     "//ash/resources/vector_icons",
     "//ash/strings",
     "//ash/webui/mall:app_id",
     "//ash/webui/projector_app/public/cpp",
     "//build:branding_buildflags",
     "//chrome/app/theme:chrome_unscaled_resources_grit",
-    "//chrome/app/vector_icons",
     "//chrome/browser/ash/app_list/search/ranking",
     "//chrome/browser/ash/arc:arc_util",
     "//chrome/browser/ui:chrome_pages",
@@ -85,7 +86,6 @@ static_library("app_list") {
     "//chromeos/ash/components/bookmarks:bookmark_model_provider",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/browser_delegate",
-    "//chromeos/ash/components/feature_engagement:feature_engagement_tracker_provider",
     "//chromeos/ash/components/file_manager:constants",
     "//chromeos/ash/components/search_engines",
     "//chromeos/ash/experiences/arc:arc_app_constants",
@@ -97,6 +97,10 @@ static_library("app_list") {
     "//components/pref_registry",
     "//extensions/common",
     "//rlz/buildflags",
+
+    # TODO(crbug.com/556482973): Use //chrome/browser/ash/crostini instead
+    # after fixing cyclic dependency.
+    "//chromeos/ash/components/dbus:vm_launch_proto",
   ]
 
   if (enable_rlz) {

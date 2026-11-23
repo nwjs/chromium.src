@@ -46,7 +46,7 @@
 #include "third_party/blink/renderer/core/style/basic_shapes.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
-#include "third_party/blink/renderer/core/style/flow_tolerance.h"
+#include "third_party/blink/renderer/core/style/fit_tolerance.h"
 #include "third_party/blink/renderer/core/style/grid_area.h"
 #include "third_party/blink/renderer/core/style/max_lines_data.h"
 #include "third_party/blink/renderer/core/style/named_grid_lines_map.h"
@@ -79,7 +79,6 @@ namespace blink {
 class ClipPathOperation;
 class ComputedGridTrackList;
 class CSSToLengthConversionData;
-class Font;
 class FontBuilder;
 class LinkParameterList;
 class OffsetPathOperation;
@@ -152,8 +151,6 @@ class StyleBuilderConverter {
   static FilterOperations ConvertFilterOperations(StyleResolverState&,
                                                   const CSSValue&,
                                                   CSSPropertyID);
-  static FilterOperations ConvertOffscreenFilterOperations(const CSSValue&,
-                                                           const Font*);
   // The template parameter ZeroValue indicates which CSSValueID should be
   // converted to zero.
   template <typename T, CSSValueID ZeroValue = CSSValueID::kNone>
@@ -225,8 +222,8 @@ class StyleBuilderConverter {
                                             const CSSValue&);
   static GridTrackList ConvertGridTrackSizeList(StyleResolverState&,
                                                 const CSSValue&);
-  static FlowTolerance ConvertFlowTolerance(const StyleResolverState&,
-                                            const CSSValue&);
+  static FitTolerance ConvertFitTolerance(const StyleResolverState&,
+                                          const CSSValue&);
   static GridLanesDirection ConvertGridLanesDirection(const StyleResolverState&,
                                                       const CSSValue&);
   static StyleHyphenateLimitChars ConvertHyphenateLimitChars(
@@ -239,7 +236,6 @@ class StyleBuilderConverter {
   static int ClampLineWidth(double);
   static int ConvertBorderWidth(const StyleResolverState&, const CSSValue&);
   static int ConvertOutlineOffset(const StyleResolverState&, const CSSValue&);
-  static uint16_t ConvertColumnRuleWidth(StyleResolverState&, const CSSValue&);
   static Superellipse ConvertCornerShape(const StyleResolverState&,
                                          const CSSValue&);
   static LayoutUnit ConvertLayoutUnit(const StyleResolverState&,
@@ -270,8 +266,6 @@ class StyleBuilderConverter {
                             const CSSValue&);  // clamps to [0,1]
   static ScopedCSSName* ConvertNoneOrCustomIdent(StyleResolverState&,
                                                  const CSSValue&);
-  static ScopedCSSName* ConvertNormalOrCustomIdent(StyleResolverState&,
-                                                   const CSSValue&);
   static ScopedCSSName* ConvertCustomIdent(StyleResolverState&,
                                            const CSSValue&);
   static AtomicString ConvertNoneOrCustomIdentUnscoped(StyleResolverState&,
@@ -369,6 +363,7 @@ class StyleBuilderConverter {
                                             const CSSValue&);
   static cc::ScrollSnapAlign ConvertSnapAlign(StyleResolverState&,
                                               const CSSValue&);
+  static cc::SnapStop ConvertSnapStop(StyleResolverState&, const CSSValue&);
   static TranslateTransformOperation* ConvertTranslate(StyleResolverState&,
                                                        const CSSValue&);
   static RotateTransformOperation* ConvertRotate(StyleResolverState&,
@@ -435,12 +430,6 @@ class StyleBuilderConverter {
   static StyleViewTransitionGroup ConvertViewTransitionGroup(
       StyleResolverState&,
       const CSSValue&);
-
-  // Overscroll gesture related properties.
-  static ScopedCSSNameList* ConvertOverscrollArea(StyleResolverState&,
-                                                  const CSSValue&);
-  static ScopedCSSName* ConvertOverscrollPosition(StyleResolverState&,
-                                                  const CSSValue&);
 
   // Take a list value for a specified color-scheme, extract flags for known
   // color-schemes and the 'only' modifier, and push the list items into a
@@ -604,10 +593,7 @@ struct ResolveColorValueContext {
  public:
   const CSSLengthResolver& length_resolver;
   const TextLinkColors& text_link_colors;
-  const mojom::blink::ColorScheme used_color_scheme =
-      mojom::blink::ColorScheme::kLight;
-  const ui::ColorProvider* color_provider = nullptr;
-  const bool can_expose_accent_color = false;
+  const ColorThemeInfo theme_info;
   const bool for_visited_link = false;
 };
 

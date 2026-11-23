@@ -18,28 +18,28 @@ namespace blink {
   /* Initial state */                                                    \
   V(kStart)                                                              \
   /* The current offset is just before line feed. */                     \
-  V(kBeforeLF)                                                           \
+  V(kBeforeLineFeed)                                                     \
   /* The current offset is just before keycap. */                        \
   V(kBeforeKeycap)                                                       \
   /* The current offset is just before variation selector and keycap. */ \
-  V(kBeforeVSAndKeycap)                                                  \
+  V(kBeforeVsAndKeycap)                                                  \
   /* The current offset is just before emoji modifier. */                \
   V(kBeforeEmojiModifier)                                                \
   /* The current offset is just before variation selector and emoji*/    \
   /* modifier. */                                                        \
-  V(kBeforeVSAndEmojiModifier)                                           \
+  V(kBeforeVsAndEmojiModifier)                                           \
   /* The current offset is just before variation sequence. */            \
-  V(kBeforeVS)                                                           \
+  V(kBeforeVs)                                                           \
   /* The current offset is just before ZWJ emoji. */                     \
-  V(kBeforeZWJEmoji)                                                     \
+  V(kBeforeZwjEmoji)                                                     \
   /* The current offset is just before ZWJ. */                           \
-  V(kBeforeZWJ)                                                          \
+  V(kBeforeZwj)                                                          \
   /* The current offset is just before variation selector and ZWJ. */    \
-  V(kBeforeVSAndZWJ)                                                     \
+  V(kBeforeVsAndZwj)                                                     \
   /* That there are odd numbered RIS from the beggining. */              \
-  V(kOddNumberedRIS)                                                     \
+  V(kOddNumberedRis)                                                     \
   /* That there are even numbered RIS from the begging. */               \
-  V(kEvenNumberedRIS)                                                    \
+  V(kEvenNumberedRis)                                                    \
   /* The current offset is just before emoji tag sequence cancel tag. */ \
   V(kBeforeTagTerm)                                                      \
   /* The current offset is inside an emoji tag sequence. */              \
@@ -100,16 +100,18 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
     case BackspaceState::kStart:
       code_units_to_be_deleted_ = U16_LENGTH(code_point);
       if (code_point == uchar::kLineFeed) {
-        return MoveToNextState(BackspaceState::kBeforeLF);
+        return MoveToNextState(BackspaceState::kBeforeLineFeed);
       }
       if (u_hasBinaryProperty(code_point, UCHAR_VARIATION_SELECTOR))
-        return MoveToNextState(BackspaceState::kBeforeVS);
-      if (Character::IsRegionalIndicator(code_point))
-        return MoveToNextState(BackspaceState::kOddNumberedRIS);
-      if (Character::IsModifier(code_point))
+        return MoveToNextState(BackspaceState::kBeforeVs);
+      if (unicode::IsRegionalIndicator(code_point)) {
+        return MoveToNextState(BackspaceState::kOddNumberedRis);
+      }
+      if (unicode::IsModifier(code_point)) {
         return MoveToNextState(BackspaceState::kBeforeEmojiModifier);
+      }
       if (IsExtendedPictographicGb11(code_point)) {
-        return MoveToNextState(BackspaceState::kBeforeZWJEmoji);
+        return MoveToNextState(BackspaceState::kBeforeZwjEmoji);
       }
       if (code_point == uchar::kCombiningEnclosingKeycap) {
         return MoveToNextState(BackspaceState::kBeforeKeycap);
@@ -120,7 +122,7 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
         return MoveToNextState(BackspaceState::kBeforeTagTerm);
       }
       return Finish();
-    case BackspaceState::kBeforeLF:
+    case BackspaceState::kBeforeLineFeed:
       if (code_point == uchar::kCarriageReturn) {
         ++code_units_to_be_deleted_;
       }
@@ -129,13 +131,13 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
       if (u_hasBinaryProperty(code_point, UCHAR_VARIATION_SELECTOR)) {
         DCHECK_EQ(last_seen_vs_code_units_, 0);
         last_seen_vs_code_units_ = U16_LENGTH(code_point);
-        return MoveToNextState(BackspaceState::kBeforeVSAndKeycap);
+        return MoveToNextState(BackspaceState::kBeforeVsAndKeycap);
       }
       if (unicode::IsEmojiKeycapBase(code_point)) {
         code_units_to_be_deleted_ += U16_LENGTH(code_point);
       }
       return Finish();
-    case BackspaceState::kBeforeVSAndKeycap:
+    case BackspaceState::kBeforeVsAndKeycap:
       if (unicode::IsEmojiKeycapBase(code_point)) {
         DCHECK_GT(last_seen_vs_code_units_, 0);
         DCHECK_LE(last_seen_vs_code_units_, 2);
@@ -147,7 +149,7 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
       if (u_hasBinaryProperty(code_point, UCHAR_VARIATION_SELECTOR)) {
         DCHECK_EQ(last_seen_vs_code_units_, 0);
         last_seen_vs_code_units_ = U16_LENGTH(code_point);
-        return MoveToNextState(BackspaceState::kBeforeVSAndEmojiModifier);
+        return MoveToNextState(BackspaceState::kBeforeVsAndEmojiModifier);
       }
       if (unicode::IsEmojiModifierBase(code_point)) {
         code_units_to_be_deleted_ += U16_LENGTH(code_point);
@@ -157,10 +159,10 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
           processing_tag_sequence_base_ = false;
           return Finish();
         }
-        return MoveToNextState(BackspaceState::kBeforeZWJEmoji);
+        return MoveToNextState(BackspaceState::kBeforeZwjEmoji);
       }
       return Finish();
-    case BackspaceState::kBeforeVSAndEmojiModifier:
+    case BackspaceState::kBeforeVsAndEmojiModifier:
       if (unicode::IsEmojiModifierBase(code_point)) {
         DCHECK_GT(last_seen_vs_code_units_, 0);
         DCHECK_LE(last_seen_vs_code_units_, 2);
@@ -168,7 +170,7 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
             last_seen_vs_code_units_ + U16_LENGTH(code_point);
       }
       return Finish();
-    case BackspaceState::kBeforeVS:
+    case BackspaceState::kBeforeVs:
       if (IsExtendedPictographicGb11(code_point)) {
         code_units_to_be_deleted_ += U16_LENGTH(code_point);
         // If processing tag sequence base, finish here instead of looking
@@ -177,30 +179,30 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
           processing_tag_sequence_base_ = false;
           return Finish();
         }
-        return MoveToNextState(BackspaceState::kBeforeZWJEmoji);
+        return MoveToNextState(BackspaceState::kBeforeZwjEmoji);
       }
       if (!u_hasBinaryProperty(code_point, UCHAR_VARIATION_SELECTOR) &&
           u_getCombiningClass(code_point) == 0)
         code_units_to_be_deleted_ += U16_LENGTH(code_point);
       return Finish();
-    case BackspaceState::kBeforeZWJEmoji:
+    case BackspaceState::kBeforeZwjEmoji:
       return code_point == uchar::kZeroWidthJoiner
-                 ? MoveToNextState(BackspaceState::kBeforeZWJ)
+                 ? MoveToNextState(BackspaceState::kBeforeZwj)
                  : Finish();
-    case BackspaceState::kBeforeZWJ:
+    case BackspaceState::kBeforeZwj:
       if (IsExtendedPictographicGb11(code_point)) {
         code_units_to_be_deleted_ += U16_LENGTH(code_point) + 1;  // +1 for ZWJ
-        return Character::IsModifier(code_point)
+        return unicode::IsModifier(code_point)
                    ? MoveToNextState(BackspaceState::kBeforeEmojiModifier)
-                   : MoveToNextState(BackspaceState::kBeforeZWJEmoji);
+                   : MoveToNextState(BackspaceState::kBeforeZwjEmoji);
       }
       if (u_hasBinaryProperty(code_point, UCHAR_VARIATION_SELECTOR)) {
         DCHECK_EQ(last_seen_vs_code_units_, 0);
         last_seen_vs_code_units_ = U16_LENGTH(code_point);
-        return MoveToNextState(BackspaceState::kBeforeVSAndZWJ);
+        return MoveToNextState(BackspaceState::kBeforeVsAndZwj);
       }
       return Finish();
-    case BackspaceState::kBeforeVSAndZWJ:
+    case BackspaceState::kBeforeVsAndZwj:
       if (!IsExtendedPictographicGb11(code_point)) {
         return Finish();
       }
@@ -211,17 +213,19 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
       code_units_to_be_deleted_ +=
           U16_LENGTH(code_point) + 1 + last_seen_vs_code_units_;
       last_seen_vs_code_units_ = 0;
-      return MoveToNextState(BackspaceState::kBeforeZWJEmoji);
-    case BackspaceState::kOddNumberedRIS:
-      if (!Character::IsRegionalIndicator(code_point))
+      return MoveToNextState(BackspaceState::kBeforeZwjEmoji);
+    case BackspaceState::kOddNumberedRis:
+      if (!unicode::IsRegionalIndicator(code_point)) {
         return Finish();
+      }
       code_units_to_be_deleted_ += 2;  // Code units of RIS
-      return MoveToNextState(BackspaceState::kEvenNumberedRIS);
-    case BackspaceState::kEvenNumberedRIS:
-      if (!Character::IsRegionalIndicator(code_point))
+      return MoveToNextState(BackspaceState::kEvenNumberedRis);
+    case BackspaceState::kEvenNumberedRis:
+      if (!unicode::IsRegionalIndicator(code_point)) {
         return Finish();
+      }
       code_units_to_be_deleted_ -= 2;  // Code units of RIS
-      return MoveToNextState(BackspaceState::kOddNumberedRIS);
+      return MoveToNextState(BackspaceState::kOddNumberedRis);
     case BackspaceState::kBeforeTagTerm:
       // After seeing CANCEL TAG, we expect tag sequence characters.
       // http://www.unicode.org/reports/tr51/#def_emoji_tag_sequence
@@ -245,7 +249,7 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
       // sequences, we continue to look for the base but should finish
       // immediately after finding it (not look for ZWJ sequences).
       // https://unicode.org/reports/tr51/#def_emoji_tag_sequence
-      if (Character::IsModifier(code_point)) {
+      if (unicode::IsModifier(code_point)) {
         // Part of emoji_modifier_sequence - continue to find the base.
         code_units_to_be_deleted_ += U16_LENGTH(code_point);
         processing_tag_sequence_base_ = true;
@@ -255,7 +259,7 @@ TextSegmentationMachineState BackspaceStateMachine::FeedPrecedingCodeUnit(
         // Part of emoji_presentation_sequence - continue to find the base.
         code_units_to_be_deleted_ += U16_LENGTH(code_point);
         processing_tag_sequence_base_ = true;
-        return MoveToNextState(BackspaceState::kBeforeVS);
+        return MoveToNextState(BackspaceState::kBeforeVs);
       }
       if (IsExtendedPictographicGb11(code_point)) {
         // Found an emoji_character as tag_base, include it and finish.

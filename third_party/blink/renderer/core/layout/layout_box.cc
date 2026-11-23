@@ -2059,8 +2059,7 @@ bool LayoutBox::ForegroundIsKnownToBeOpaqueInRect(
         child_local_rect.Right() > child_box->StitchedSize().width) {
       continue;
     }
-    if (RuntimeEnabledFeatures::CompositeBGColorAnimationEnabled() &&
-        child->Style().HasCurrentBackgroundColorAnimation()) {
+    if (child->Style().HasCurrentBackgroundColorAnimation()) {
       return false;
     }
     if (child_box->BackgroundIsKnownToBeOpaqueInRect(child_local_rect))
@@ -4634,7 +4633,7 @@ PhysicalRect LayoutBox::BoundingBoxRelativeToFirstFragment() const {
 
 bool LayoutBox::IsReadingFlowContainer() const {
   NOT_DESTROYED();
-  // TODO(almaher): Add reading flow support for grid-lanes.
+  // TODO(celestepan): For grid-lanes, we'll want to replace the keywords used.
   const ComputedStyle& style = Style();
   switch (style.ReadingFlow()) {
     case EReadingFlow::kNormal:
@@ -4643,9 +4642,15 @@ bool LayoutBox::IsReadingFlowContainer() const {
     case EReadingFlow::kFlexFlow:
       return IsFlexibleBox();
     case EReadingFlow::kGridRows:
+      return IsLayoutGrid() ||
+             (IsLayoutGridLanes() &&
+              style.GridLanesTrackSizingDirection() == kForRows);
     case EReadingFlow::kGridColumns:
+      return IsLayoutGrid() ||
+             (IsLayoutGridLanes() &&
+              style.GridLanesTrackSizingDirection() == kForColumns);
     case EReadingFlow::kGridOrder:
-      return IsLayoutGrid();
+      return IsLayoutGridOrGridLanes();
     case EReadingFlow::kSourceOrder:
       return IsLayoutBlock() || IsFlexibleBox() || IsLayoutGridOrGridLanes();
   }

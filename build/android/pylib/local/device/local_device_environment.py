@@ -35,7 +35,11 @@ LOGCAT_FILTERS = [
     'StrictMode:D',
 ]
 
-SYSTEM_USER_ID = 0
+ANIMATION_SCALE_SETTINGS = (
+    'window_animation_scale',
+    'transition_animation_scale',
+    'animator_duration_scale',
+)
 
 
 def _DeviceCachePath(device):
@@ -106,10 +110,19 @@ class LocalDeviceEnvironment(environment.Environment):
         self._devices = None
         self._concurrent_adb = args.enable_concurrent_adb
         self._enable_device_cache = args.enable_device_cache
+        self._enable_test_data_cache = getattr(
+            args, 'enable_test_data_cache', False
+        )
         self._logcat_monitors = []
         self._logcat_output_dir = args.logcat_output_dir
         self._logcat_output_file = args.logcat_output_file
         self._max_tries = 1 + args.num_retries
+        self._saved_animation_scales = {}
+        # Must use getattr because this class is used by
+        # //third_party/catapult's browser_options.py
+        self._device_retries = getattr(args, 'device_retries', None)
+        if self._device_retries is None:
+            self._device_retries = args.num_retries
         self._preferred_abis = None
         self._recover_devices = args.recover_devices
         self._skip_clear_data = args.skip_clear_data
@@ -118,6 +131,9 @@ class LocalDeviceEnvironment(environment.Environment):
         # //third_party/catapult's browser_options.py
         if hasattr(args, 'trace_output'):
             self._trace_output = args.trace_output
+        self._sharding_strategy = getattr(
+            args, 'sharding_strategy', 'bounded-load'
+        )
         self._trace_all = None
         if hasattr(args, 'trace_all'):
             self._trace_all = args.trace_all
@@ -188,7 +204,7 @@ class LocalDeviceEnvironment(environment.Environment):
             retries=5,
             enable_usb_resets=True,
             enable_device_files_cache=self._enable_device_cache,
-            default_retries=self._max_tries - 1,
+            default_retries=self._device_retries,
             device_arg=device_arg,
             abis=self._preferred_abis,
             persistent_shell=self._use_persistent_shell,
@@ -197,36 +213,50 @@ class LocalDeviceEnvironment(environment.Environment):
         if self._logcat_output_file:
             self._logcat_output_dir = tempfile.mkdtemp()
 
+        force_main_user = self.force_main_user
+
         @handle_shard_failures_with(on_failure=self.DenylistDevice)
         def prepare_device(d):
             d.WaitUntilFullyBooted()
             self._LogDeviceTime(d)
 
-            force_main_user = self._force_main_user
-            if force_main_user is None:
-                # Default to forcing the main user on desktop HSUM devices.
-                force_main_user = d.is_desktop and d.GetProp(
-                    'ro.fw.mu.headless_system_user', cache=True
-                ) in ('true', '1')
-
+            device_serial = d.adb.GetDeviceSerial()
+            try:
+                cmd = ' && '.join(
+                    f'settings get global {s}' for s in ANIMATION_SCALE_SETTINGS
+                )
+                output = d.RunShellCommand(cmd, shell=True, check_return=True)
+                saved_scales = {}
+                all_zero = True
+                for i, key in enumerate(ANIMATION_SCALE_SETTINGS):
+                    val = output[i].strip() if i < len(output) else ''
+                    if not val or val == 'null':
+                        val = '1.0'
+                    else:
+                        try:
+                            float(val)
+                        except ValueError:
+                            val = '1.0'
+                    if float(val) != 0.0:
+                        all_zero = False
+                    saved_scales[key] = val
+                if all_zero:
+                    logging.warning(
+                        'Animation scales on device %s were all 0.0 at '
+                        'startup. Animations will remain disabled after test '
+                        'run.',
+                        device_serial,
+                    )
+                self._saved_animation_scales[device_serial] = saved_scales
+            except device_errors.CommandFailedError:
+                logging.warning(
+                    'Failed to query animation scales on device %s',
+                    device_serial,
+                )
             if force_main_user:
                 # Ensure the current user is the main user (the first real
                 # human user).
-                main_user = d.GetMainUser()
-                if d.GetCurrentUser() != main_user:
-                    logging.info(
-                        'Switching to the main user with id %s', main_user
-                    )
-                    d.SwitchUser(main_user)
-                d.target_user = main_user
-            elif d.GetCurrentUser() != SYSTEM_USER_ID:
-                # TODO(b/293175593): Remove this after "force_main_user"
-                # works fine.
-                # Use system user to run tasks to avoid "/sdcard "accessing
-                # issue due to multiple-users. For details, see
-                # https://source.android.com/docs/devices/admin/multi-user-testing
-                logging.info('Switching to user with id %s', SYSTEM_USER_ID)
-                d.SwitchUser(SYSTEM_USER_ID)
+                d.EnsureMainUser()
 
             if self._enable_device_cache:
                 cache_path = _DeviceCachePath(d)
@@ -270,13 +300,6 @@ class LocalDeviceEnvironment(environment.Environment):
 
         self.parallel_devices.pMap(prepare_device)
 
-        if self._force_main_user is None:
-            self._force_main_user = any(
-                isinstance(getattr(d, 'target_user', None), int)
-                and d.target_user != SYSTEM_USER_ID
-                for d in self._devices
-            )
-
     @property
     def current_try(self):
         return self._current_try
@@ -294,6 +317,10 @@ class LocalDeviceEnvironment(environment.Environment):
     @property
     def concurrent_adb(self):
         return self._concurrent_adb
+
+    @property
+    def enable_test_data_cache(self):
+        return self._enable_test_data_cache
 
     @property
     def devices(self):
@@ -324,7 +351,19 @@ class LocalDeviceEnvironment(environment.Environment):
         return self._trace_output
 
     @property
+    def sharding_strategy(self):
+        return self._sharding_strategy
+
+    @property
     def force_main_user(self):
+        if self._force_main_user is None and self._devices:
+            # Default to forcing the main user on desktop HSUM devices.
+            self._force_main_user = any(
+                d.is_desktop
+                and d.GetProp('ro.fw.mu.headless_system_user', cache=True)
+                in ('true', '1')
+                for d in self._devices
+            )
         return bool(self._force_main_user)
 
     @property
@@ -365,6 +404,23 @@ class LocalDeviceEnvironment(environment.Environment):
                     'Unable to write device cache as %s directory does not exist',
                     os.path.dirname(cache_path),
                 )
+
+            device_serial = d.adb.GetDeviceSerial()
+            saved_scales = self._saved_animation_scales.get(device_serial, {})
+            if saved_scales and not all(
+                float(v) == 0.0 for v in saved_scales.values()
+            ):
+                cmd = ' && '.join(
+                    f'settings put global {k} {v}'
+                    for k, v in saved_scales.items()
+                )
+                try:
+                    d.RunShellCommand(cmd, shell=True, check_return=True)
+                except device_errors.CommandFailedError:
+                    logging.warning(
+                        'Failed to restore animation scales on %s',
+                        device_serial,
+                    )
 
         self.parallel_devices.pMap(tear_down_device)
 

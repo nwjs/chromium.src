@@ -18,7 +18,6 @@
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "chrome/browser/about_flags.h"
-#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sharesheet/sharesheet_metrics.h"
 #include "chrome/browser/sharesheet/sharesheet_service_delegator.h"
 #include "chrome/browser/ui/ash/sharesheet/sharesheet_constants.h"
@@ -339,7 +338,7 @@ void SharesheetBubbleView::PopulateLayoutsWithTargets(
       // When we've reached kMaxRowsForDefaultView switch to populating
       // |expanded_layout|.
       if (row_count == kMaxRowsForDefaultView) {
-        DCHECK(expanded_view);
+        CHECK(expanded_view, base::NotFatalUntil::M162);
         view_for_target = expanded_view;
       }
       ++row_count;
@@ -451,7 +450,7 @@ bool SharesheetBubbleView::AcceleratorPressed(
   // We override this because when this is handled by the base class,
   // OnKeyPressed is not invoked when a user presses |VKEY_ESCAPE| if they have
   // not pressed |VKEY_TAB| first to focus the SharesheetBubbleView.
-  DCHECK_EQ(accelerator.key_code(), ui::VKEY_ESCAPE);
+  CHECK_EQ(accelerator.key_code(), ui::VKEY_ESCAPE, base::NotFatalUntil::M162);
   if (share_action_view_->GetVisible() &&
       active_share_action_type_.has_value() &&
       delegator_->OnAcceleratorPressed(accelerator,

@@ -100,7 +100,8 @@ shared_gpu.ci.linux_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -150,7 +151,8 @@ shared_gpu.ci.linux_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -189,7 +191,8 @@ shared_gpu.ci.linux_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -236,7 +239,8 @@ shared_gpu.ci.linux_builder(
         configs = [
             "android_builder",
             "android_fastbuild",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -277,7 +281,8 @@ shared_gpu.ci.linux_builder(
             "android_builder",
             "android_fastbuild",
             "arm64",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -684,7 +689,8 @@ shared_gpu.ci.linux_builder(
         configs = [
             "android_builder",
             "android_fastbuild",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -726,7 +732,8 @@ shared_gpu.ci.linux_builder(
             "android_builder",
             "android_fastbuild",
             "arm64",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -1450,7 +1457,8 @@ shared_gpu.ci.mac_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "arm64",
@@ -1487,7 +1495,8 @@ shared_gpu.ci.mac_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "arm64",
@@ -1676,7 +1685,8 @@ shared_gpu.ci.mac_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "x64",
@@ -1714,7 +1724,8 @@ shared_gpu.ci.mac_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "x64",
@@ -2150,7 +2161,8 @@ shared_gpu.ci.windows_builder(
             "dawn_use_built_dxc",
             "dawn_enable_opengles",
             "asan",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -2278,6 +2290,13 @@ ci.thin_tester(
         mixins = [
             "win10_nvidia_gtx_1660_stable",
         ],
+        per_test_modifications = {
+            "webgpu_cts_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 24,
+                ),
+            ),
+        },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE_X64,
@@ -2320,7 +2339,8 @@ shared_gpu.ci.windows_builder(
         configs = [
             "dawn_use_built_dxc",
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -2359,7 +2379,8 @@ shared_gpu.ci.windows_builder(
         configs = [
             "dawn_use_built_dxc",
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -2406,7 +2427,8 @@ shared_gpu.ci.windows_builder(
             "arm64",
             "dawn_use_built_dxc",
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -2457,7 +2479,8 @@ shared_gpu.ci.windows_builder(
             "arm64",
             "dawn_use_built_dxc",
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "gpu_tests",
@@ -2934,7 +2957,18 @@ ci.thin_tester(
         targets = [
             "dawn_chromium_isolated_scripts",
             "gpu_common_gtests_passthrough",
-            "gpu_dawn_telemetry_win_x64_tests",
+            targets.bundle(
+                targets = "gpu_dawn_telemetry_win_x64_tests",
+                mixins = [
+                    targets.mixin(
+                        args = [
+                            # TODO(crbug.com/574658973): Remove this once the
+                            # driver shader cache slowdown is resolved.
+                            "--clear-system-shader-cache",
+                        ],
+                    ),
+                ],
+            ),
         ],
         mixins = [
             "limited_capacity_bot",
@@ -3039,7 +3073,8 @@ shared_gpu.ci.windows_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "x86",
@@ -3077,7 +3112,8 @@ shared_gpu.ci.windows_builder(
     gn_args = gn_args.config(
         configs = [
             "dawn_enable_opengles",
-            "release_try_builder",
+            "release_builder",
+            "dcheck_always_on",
             "minimal_symbols",
             "remoteexec",
             "x86",
@@ -3294,7 +3330,18 @@ ci.thin_tester(
         # should be running the same test_suites as 'Dawn Win10 x86 Release
         # (NVIDIA)'.
         targets = [
-            "gpu_dawn_telemetry_tests_fxc",
+            targets.bundle(
+                targets = "gpu_dawn_telemetry_tests_fxc",
+                mixins = [
+                    targets.mixin(
+                        args = [
+                            # TODO(crbug.com/574658973): Remove this once the
+                            # driver shader cache slowdown is resolved.
+                            "--clear-system-shader-cache",
+                        ],
+                    ),
+                ],
+            ),
             "gpu_dawn_integration_gtests_passthrough",
             "gpu_dawn_isolated_scripts",
         ],

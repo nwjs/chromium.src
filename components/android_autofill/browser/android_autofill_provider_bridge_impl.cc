@@ -228,6 +228,16 @@ void AndroidAutofillProviderBridgeImpl::Reset() {
   Java_AutofillProvider_reset(env, obj);
 }
 
+bool AndroidAutofillProviderBridgeImpl::IsAutofillDisabled() const {
+  JNIEnv* env = AttachCurrentThread();
+  ScopedJavaLocalRef<jobject> obj = java_ref_.get(env);
+  if (obj.is_null()) {
+    return true;
+  }
+
+  return Java_AutofillProvider_isAutofillDisabled(env, obj);
+}
+
 void AndroidAutofillProviderBridgeImpl::DetachFromJavaAutofillProvider(
     JNIEnv* env) {
   java_ref_.reset();
@@ -263,6 +273,10 @@ void AndroidAutofillProviderBridgeImpl::OnShowBottomSheetResult(
     bool is_shown,
     bool provided_autofill_structure) {
   delegate_->OnShowBottomSheetResult(is_shown, provided_autofill_structure);
+}
+
+void AndroidAutofillProviderBridgeImpl::OnDidShowSuggestions(JNIEnv* env) {
+  delegate_->OnDidShowSuggestions();
 }
 
 void AndroidAutofillProviderBridgeImpl::OnTriggerPasskeyRequest(JNIEnv* env) {

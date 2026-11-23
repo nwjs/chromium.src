@@ -71,7 +71,7 @@ constexpr auto kGroupTitleMargins = gfx::Insets::VH(6, 0);
 // space.
 gfx::Size GetPreviewImageSize(gfx::Size preview_size,
                               gfx::Size preferred_size) {
-  DCHECK(!preferred_size.IsEmpty());
+  CHECK(!preferred_size.IsEmpty(), base::NotFatalUntil::M162);
   if (preview_size.IsEmpty()) {
     return preview_size;
   }
@@ -665,6 +665,7 @@ TabHoverCardBubbleView::TabHoverCardBubbleView(
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   set_accept_events(false);
 #endif
+  set_accept_drag_drop(false);
 
   // Set so that the tab hover card is not focus traversable when keyboard
   // navigating through the tab strip.
@@ -730,21 +731,21 @@ void TabHoverCardBubbleView::SetTextFade(double percent) {
 }
 
 void TabHoverCardBubbleView::SetTargetTabImage(gfx::ImageSkia preview_image) {
-  DCHECK(tab_card_view_);
+  CHECK(tab_card_view_, base::NotFatalUntil::M162);
   DCHECK(tab_card_view_->thumbnail_view())
       << "This method should only be called when preview images are enabled.";
   tab_card_view_->thumbnail_view()->SetTargetTabImage(preview_image);
 }
 
 void TabHoverCardBubbleView::SetPlaceholderImage() {
-  DCHECK(tab_card_view_);
+  CHECK(tab_card_view_, base::NotFatalUntil::M162);
   DCHECK(tab_card_view_->thumbnail_view())
       << "This method should only be called when preview images are enabled.";
   tab_card_view_->thumbnail_view()->SetPlaceholderImage();
 }
 
 void TabHoverCardBubbleView::SetCrashedImage() {
-  DCHECK(tab_card_view_);
+  CHECK(tab_card_view_, base::NotFatalUntil::M162);
   DCHECK(tab_card_view_->thumbnail_view())
       << "This method should only be called when preview images are enabled.";
   tab_card_view_->thumbnail_view()->SetCrashedImage();
@@ -816,7 +817,7 @@ gfx::Size TabHoverCardBubbleView::CalculatePreferredSize(
   const int height =
       GetLayoutManager()->GetPreferredHeightForWidth(this, width);
   const gfx::Size preferred_size(width, height);
-  DCHECK(!preferred_size.IsEmpty());
+  CHECK(!preferred_size.IsEmpty(), base::NotFatalUntil::M162);
   return preferred_size;
 }
 

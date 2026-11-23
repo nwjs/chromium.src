@@ -30,8 +30,6 @@ namespace trusted_vault {
 class TrustedVaultService;
 }  // namespace trusted_vault
 
-namespace browser_sync {
-
 class ExtensionsActivityMonitor;
 
 class ChromeSyncClient : public syncer::SyncClient {
@@ -76,9 +74,7 @@ class ChromeSyncClient : public syncer::SyncClient {
   const raw_ptr<supervised_user::FamilyLinkSettingsService>
       family_link_settings_service_;
   const std::unique_ptr<ExtensionsActivityMonitor> extensions_activity_monitor_;
-  SyncEngineFactoryImpl engine_factory_;
+  browser_sync::SyncEngineFactoryImpl engine_factory_;
 };
-
-}  // namespace browser_sync
 
 #endif  // CHROME_BROWSER_SYNC_CHROME_SYNC_CLIENT_H__

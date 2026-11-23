@@ -82,7 +82,7 @@ void PopulatePlatformDataSource(content::WebUIDataSource* source,
   std::optional<signin::AccountPreviewDataService::AccountPreviewPreference>
       preferred_account =
           account_preview_data_service
-              ? account_preview_data_service->GetPreferredAccountForPromo()
+              ? account_preview_data_service->GetPreferredAccountForSignin()
               : std::nullopt;
   bool has_matching_preferred_account =
       preferred_account.has_value() &&
@@ -210,7 +210,8 @@ CreateForeignSessionPageHandler(
              const std::vector<const ::sessions::SessionWindow*>& windows) {
             SessionRestore::RestoreForeignSessionWindows(
                 profile, windows.begin(), windows.end(), base::DoNothing());
-          }));
+          }),
+      /*side_panel_ui=*/nullptr);
 }
 
 std::unique_ptr<user_education::mojom::UserEducationMixedTrustHandler>

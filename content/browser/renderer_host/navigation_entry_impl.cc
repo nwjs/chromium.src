@@ -1110,7 +1110,8 @@ NavigationEntryImpl::ConstructCommitNavigationParams(
           /*permissions_policy_override=*/std::nullopt,
           /*internal_scroll_to_text_fragment=*/std::nullopt,
           /*is_secure_context_root=*/false,
-          blink::mojom::ScriptInjectionPolicy::kNone);
+          blink::mojom::ScriptInjectionPolicy::kNone,
+          /*can_use_device_bound_session_js_api=*/false);
 #if BUILDFLAG(IS_ANDROID)
   // `data_url_as_string` is saved in NavigationEntry but should only be used by
   // main frames, because loadData* navigations can only happen on the main
@@ -1163,7 +1164,7 @@ const NavigationEntryImpl::TreeNode* NavigationEntryImpl::GetTreeNode(
   return nullptr;
 }
 
-void NavigationEntryImpl::AddOrUpdateFrameEntry(
+FrameNavigationEntry* NavigationEntryImpl::AddOrUpdateFrameEntry(
     FrameTreeNode* frame_tree_node,
     UpdatePolicy update_policy,
     int64_t item_sequence_number,
@@ -1225,7 +1226,7 @@ void NavigationEntryImpl::AddOrUpdateFrameEntry(
           method, post_id, std::move(blob_url_loader_factory),
           std::move(policy_container_policies), protect_url_in_navigation_api);
     }
-    return;
+    return root_node()->frame_entry.get();
   }
 
   // We should already have a TreeNode for the parent node by the time this node
@@ -1235,7 +1236,7 @@ void NavigationEntryImpl::AddOrUpdateFrameEntry(
   if (!parent_node) {
     // The renderer should not send a commit for a subframe before its parent.
     // TODO(creis): Kill the renderer if we get here.
-    return;
+    return nullptr;
   }
 
   // Now check whether we have a TreeNode for the node itself.
@@ -1262,7 +1263,7 @@ void NavigationEntryImpl::AddOrUpdateFrameEntry(
           redirect_chain, page_state, method, post_id,
           std::move(blob_url_loader_factory),
           std::move(policy_container_policies), protect_url_in_navigation_api);
-      return;
+      return child->frame_entry.get();
     }
   }
 
@@ -1275,9 +1276,11 @@ void NavigationEntryImpl::AddOrUpdateFrameEntry(
       origin, referrer, initiator_origin, initiator_base_url, redirect_chain,
       page_state, method, post_id, std::move(blob_url_loader_factory),
       std::move(policy_container_policies), protect_url_in_navigation_api);
+  FrameNavigationEntry* result = frame_entry.get();
   parent_node->children.push_back(
       std::make_unique<NavigationEntryImpl::TreeNode>(parent_node,
                                                       std::move(frame_entry)));
+  return result;
 }
 
 const FrameNavigationEntry* NavigationEntryImpl::GetFrameEntry(

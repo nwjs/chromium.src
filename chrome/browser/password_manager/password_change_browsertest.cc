@@ -53,11 +53,11 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_test_util.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/test/mock_remote_model_executor.h"
 #include "components/optimization_guide/core/model_quality/test_model_quality_logs_uploader_service.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/password_manager/core/browser/features/password_features.h"
@@ -157,10 +157,8 @@ class PasswordChangeBrowserTest : public base::test::WithFeatureOverride,
                 kPasswordChangeWithPrivateInferenceLoginCheck) {
     // kShowDomNodeIDs is required in order to extract the dom_node_id for
     // the submission step.
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{autofill::features::debug::kShowDomNodeIDs,
-                              password_manager::features::kUseDetachedWidget},
-        /*disabled_features=*/{});
+    scoped_feature_list_.InitAndEnableFeature(
+        autofill::features::debug::kShowDomNodeIDs);
   }
 
   bool IsPrivateInferenceLoginCheckEnabled() const {
@@ -524,8 +522,10 @@ IN_PROC_BROWSER_TEST_P(PasswordChangeBrowserTest,
   PasswordsNavigationObserver observer(web_contents);
   EXPECT_TRUE(observer.Wait());
 
-  std::string generated_password = base::UTF16ToUTF8(
-      static_cast<PasswordChangeDelegateImpl*>(delegate)->generated_password());
+  std::string generated_password =
+      base::UTF16ToUTF8(static_cast<PasswordChangeDelegateImpl*>(delegate)
+                            ->generated_password()
+                            .secure_value());
 
   // Verify all the fields are filled correctly.
   WaitForElementValue("new_password_2", generated_password);
@@ -551,7 +551,8 @@ IN_PROC_BROWSER_TEST_P(PasswordChangeBrowserTest, GeneratedPasswordIsPreSaved) {
   CheckThatCredentialsStored(
       /*username=*/"test", "pa$$word",
       base::UTF16ToUTF8(static_cast<PasswordChangeDelegateImpl*>(delegate)
-                            ->generated_password()));
+                            ->generated_password()
+                            .secure_value()));
 }
 
 // Verify that after password change is stopped, password change delegate is not
@@ -587,7 +588,8 @@ IN_PROC_BROWSER_TEST_P(PasswordChangeBrowserTest, NewPasswordIsSaved) {
   CheckThatCredentialsStored(
       /*username=*/"test",
       base::UTF16ToUTF8(static_cast<PasswordChangeDelegateImpl*>(delegate)
-                            ->generated_password()),
+                            ->generated_password()
+                            .secure_value()),
       "pa$$word", password_manager::PasswordForm::Type::kChangeSubmission);
 
   base::WeakPtr<PasswordChangeDelegate> delegate_weak_ptr =
@@ -643,7 +645,8 @@ IN_PROC_BROWSER_TEST_P(PasswordChangeBrowserTest, OldPasswordIsUpdated) {
   CheckThatCredentialsStored(
       base::UTF16ToUTF8(form.username_value),
       base::UTF16ToUTF8(static_cast<PasswordChangeDelegateImpl*>(delegate)
-                            ->generated_password()),
+                            ->generated_password()
+                            .secure_value()),
       base::UTF16ToUTF8(form.password_value.value()),
       password_manager::PasswordForm::Type::kChangeSubmission);
 }
@@ -1375,7 +1378,8 @@ IN_PROC_BROWSER_TEST_P(PasswordChangeBrowserTest,
   CheckThatCredentialsStored(
       /*username=*/"test",
       base::UTF16ToUTF8(static_cast<PasswordChangeDelegateImpl*>(delegate)
-                            ->generated_password()),
+                            ->generated_password()
+                            .secure_value()),
       "pa$$word", password_manager::PasswordForm::Type::kChangeSubmission);
 
   // Stop the flow.

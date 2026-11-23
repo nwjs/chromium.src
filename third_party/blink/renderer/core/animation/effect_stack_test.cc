@@ -197,6 +197,38 @@ TEST_F(AnimationEffectStackTest, ClearedEffectsRemoved) {
   EXPECT_EQ(0u, result.size());
 }
 
+TEST_F(AnimationEffectStackTest, PartialEffectStackCutoff) {
+  Play(MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "1px")), 0);
+  KeyframeEffect* cutoff =
+      MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "2px"));
+  Play(cutoff, 0);
+  Play(MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "3px")), 0);
+
+  ActiveInterpolationsMap result = EffectStack::ActiveInterpolations(
+      &element->GetElementAnimations()->GetEffectStack(), nullptr, nullptr,
+      KeyframeEffect::kDefaultPriority, cutoff);
+  EXPECT_EQ(1u, result.size());
+  EXPECT_EQ(GetFontSizeValue(result), 2);
+}
+
+TEST_F(AnimationEffectStackTest, PartialEffectStackCutoffNotInEffect) {
+  Play(MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "1px")), 0);
+  KeyframeEffect* cutoff =
+      MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "2px"));
+  Animation* cutoff_animation = Play(cutoff, 0);
+  Play(MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "3px")), 0);
+
+  // Canceling the animation removes its effect from the effect stack. Effects
+  // with a higher composite order than the cutoff must still be excluded.
+  cutoff_animation->cancel();
+  ActiveInterpolationsMap result = EffectStack::ActiveInterpolations(
+      &element->GetElementAnimations()->GetEffectStack(), nullptr, nullptr,
+      KeyframeEffect::kDefaultPriority, cutoff);
+  EXPECT_EQ(2u, SampledEffectCount());
+  EXPECT_EQ(1u, result.size());
+  EXPECT_EQ(GetFontSizeValue(result), 1);
+}
+
 TEST_F(AnimationEffectStackTest, ForwardsFillDiscarding) {
   Play(MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "1px")), 2);
   Play(MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "2px")), 6);
@@ -344,6 +376,39 @@ TEST_F(AnimationEffectStackTest, AffectedPropertiesTransitionPriority) {
       effect_stack.AffectedProperties(KeyframeEffect::kTransitionPriority);
   ASSERT_EQ(1u, set.size());
   EXPECT_TRUE(set.Contains(PropertyHandle(GetCSSPropertyColor())));
+}
+
+TEST_F(AnimationEffectStackTest,
+       ForwardsFillDiscardingOutOfOrderSampledEffects) {
+  Animation* anim1 = Animation::Create(
+      MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "1px")),
+      timeline, ASSERT_NO_EXCEPTION);
+  Animation* anim2 = Animation::Create(
+      MakeKeyframeEffect(MakeEffectModel(CSSPropertyID::kFontSize, "2px")),
+      timeline, ASSERT_NO_EXCEPTION);
+  // Sample anim2 before anim1 so that sampled_effects_ initially has anim2
+  // (higher composite order) before anim1 (lower composite order).
+  anim2->setStartTime(MakeGarbageCollected<V8CSSNumberish>(0),
+                      ASSERT_NO_EXCEPTION);
+  anim2->Update(kTimingUpdateOnDemand);
+  anim1->setStartTime(MakeGarbageCollected<V8CSSNumberish>(0),
+                      ASSERT_NO_EXCEPTION);
+  anim1->Update(kTimingUpdateOnDemand);
+  GetDocument().GetPendingAnimations().Update(nullptr);
+
+  using ActiveInterpolationsMapHolder =
+      DisallowNewWrapper<ActiveInterpolationsMap>;
+  Persistent<ActiveInterpolationsMapHolder> interpolations =
+      MakeGarbageCollected<ActiveInterpolationsMapHolder>();
+
+  UpdateTimeline(base::Seconds(15));
+  ThreadState::Current()->CollectAllGarbageForTesting();
+  interpolations->Value() = EffectStack::ActiveInterpolations(
+      &element->GetElementAnimations()->GetEffectStack(), nullptr, nullptr,
+      KeyframeEffect::kDefaultPriority);
+  EXPECT_EQ(1u, interpolations->Value().size());
+  EXPECT_EQ(GetFontSizeValue(interpolations->Value()), 2);
+  EXPECT_EQ(1u, SampledEffectCount());
 }
 
 }  // namespace blink

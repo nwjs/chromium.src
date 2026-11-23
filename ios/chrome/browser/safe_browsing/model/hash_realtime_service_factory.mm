@@ -4,6 +4,8 @@
 
 #import "ios/chrome/browser/safe_browsing/model/hash_realtime_service_factory.h"
 
+#import <utility>
+
 #import "base/feature_list.h"
 #import "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #import "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_service.h"
@@ -22,22 +24,9 @@ network::mojom::NetworkContext* GetNetworkContext() {
 
 }  // namespace
 
-// static
-safe_browsing::HashRealTimeService* HashRealTimeServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<safe_browsing::HashRealTimeService>(
-          profile, /*create=*/true);
-}
-
-// static
-HashRealTimeServiceFactory* HashRealTimeServiceFactory::GetInstance() {
-  static base::NoDestructor<HashRealTimeServiceFactory> instance;
-  return instance.get();
-}
-
-HashRealTimeServiceFactory::HashRealTimeServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("HashRealTimeService") {
+HashRealTimeServiceFactory::HashRealTimeServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "HashRealTimeService") {
   DependsOn(V5SearchHashesCacheFactory::GetInstance());
   DependsOn(OhttpKeyServiceFactory::GetInstance());
 }

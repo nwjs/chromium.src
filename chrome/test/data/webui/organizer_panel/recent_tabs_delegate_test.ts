@@ -115,7 +115,7 @@ suite('RecentTabsDelegateTest', () => {
       noRecentlyClosedTabs: 'No recently closed tabs',
       recentlyClosed: 'Recently Closed',
       oneTab: '1 tab',
-      splitView: 'Split View',
+      splitView: 'Split view',
       tabCount: '$1 tabs',
     });
     mockPageHandler = TestMock.fromClass(PageHandlerRemote);
@@ -143,21 +143,27 @@ suite('RecentTabsDelegateTest', () => {
     assertDeepEquals([youtubeTab.title], items[0]!.title);
     assertEquals(1, items[0]!.description?.length);
     assertDeepEquals(
-        {text: youtubeTab.lastActiveElapsedText}, items[0]!.description?.[0]);
+        {text: youtubeTab.lastActiveElapsedText, matchable: false},
+        items[0]!.description?.[0]);
+    assertDeepEquals(['www.youtube.com'], items[0]!.extraSearchTerms);
     assertEquals(youtubeTab.url, items[0]!.prefixIcon?.url);
 
     // Second most recent tab.
     assertDeepEquals([chromiumTab.title], items[1]!.title);
     assertEquals(1, items[1]!.description?.length);
     assertDeepEquals(
-        {text: chromiumTab.lastActiveElapsedText}, items[1]!.description?.[0]);
+        {text: chromiumTab.lastActiveElapsedText, matchable: false},
+        items[1]!.description?.[0]);
+    assertDeepEquals(['www.chromium.org'], items[1]!.extraSearchTerms);
     assertEquals(chromiumTab.url, items[1]!.prefixIcon?.url);
 
     // Least recent tab.
     assertDeepEquals([googleTab.title], items[2]!.title);
     assertEquals(1, items[2]!.description?.length);
     assertDeepEquals(
-        {text: googleTab.lastActiveElapsedText}, items[2]!.description?.[0]);
+        {text: googleTab.lastActiveElapsedText, matchable: false},
+        items[2]!.description?.[0]);
+    assertDeepEquals(['www.google.com'], items[2]!.extraSearchTerms);
     assertEquals(googleTab.url, items[2]!.prefixIcon?.url);
   });
 
@@ -189,7 +195,9 @@ suite('RecentTabsDelegateTest', () => {
     assertDeepEquals([tabGroup.title], items[1]!.title);
     assertEquals(1, items[1]!.description?.length);
     assertDeepEquals(
-        {text: tabGroup.lastActiveElapsedText}, items[1]!.description?.[0]);
+        {text: tabGroup.lastActiveElapsedText, matchable: false},
+        items[1]!.description?.[0]);
+    assertEquals(undefined, items[1]!.extraSearchTerms);
     assertEquals(undefined, items[1]!.prefixIcon);
     assertEquals(tabGroup, items[1]!.data);
 
@@ -227,7 +235,8 @@ suite('RecentTabsDelegateTest', () => {
         assertEquals(1, items.length);
         assertDeepEquals(['3 tabs'], items[0]!.title);
         assertEquals(1, items[0]!.description?.length);
-        assertDeepEquals({text: '3m ago'}, items[0]!.description?.[0]);
+        assertDeepEquals(
+            {text: '3m ago', matchable: false}, items[0]!.description?.[0]);
       });
 
   test(
@@ -447,7 +456,8 @@ suite('RecentTabsDelegateTest', () => {
 
         const items = await delegate.getItems();
         assertEquals(1, items.length);
-        assertDeepEquals({text: '5m ago'}, items[0]!.description?.[0]);
+        assertDeepEquals(
+            {text: '5m ago', matchable: false}, items[0]!.description?.[0]);
 
         delegate.onItemClick(items[0]!);
 
@@ -465,9 +475,10 @@ suite('RecentTabsDelegateTest', () => {
     document.body.appendChild(container);
     render(zeroState, container);
 
-    const zeroStateText = container.querySelector('.zero-state-text');
-    assertTrue(!!zeroStateText);
-    assertEquals('No recently closed tabs', zeroStateText.textContent.trim());
+    const zeroStateElement = container.querySelector('organizer-zero-state');
+    assertTrue(!!zeroStateElement);
+    assertEquals(
+        'No recently closed tabs', zeroStateElement.textContent.trim());
   });
 
   test(
@@ -497,9 +508,12 @@ suite('RecentTabsDelegateTest', () => {
         const item = items[0]!;
         assertDeepEquals([loadTimeData.getString('splitView')], item.title);
         assertEquals(3, item.description?.length);
-        assertDeepEquals({text: '3m ago'}, item.description?.[0]);
+        assertDeepEquals(
+            {text: '3m ago', matchable: false}, item.description?.[0]);
         assertDeepEquals({text: 'Docs'}, item.description?.[1]);
         assertDeepEquals({text: 'Sheets'}, item.description?.[2]);
+        assertDeepEquals(
+            ['docs.google.com', 'sheets.google.com'], item.extraSearchTerms);
         assertDeepEquals(
             ['https://docs.google.com', 'https://sheets.google.com'],
             item.prefixIcon?.stackedFavicons?.urls);

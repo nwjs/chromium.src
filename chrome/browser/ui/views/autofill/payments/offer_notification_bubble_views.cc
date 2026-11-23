@@ -11,7 +11,6 @@
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/controls/subpage_view.h"
 #include "components/autofill/core/browser/data_model/payments/autofill_offer_data.h"
-#include "components/autofill/core/browser/data_model/payments/credit_card.h"
 #include "components/strings/grit/components_strings.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -19,13 +18,13 @@
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/layout/box_layout.h"
-#include "ui/views/layout/flex_layout.h"
-#include "ui/views/layout/layout_types.h"
+#include "ui/views/view_class_properties.h"
 
 namespace autofill {
 DEFINE_ELEMENT_IDENTIFIER_VALUE(kOfferNotificationBubbleElementId);
@@ -38,7 +37,7 @@ OfferNotificationBubbleViews::OfferNotificationBubbleViews(
                                 web_contents,
                                 /*autosize=*/true),
       controller_(controller) {
-  DCHECK(controller);
+  CHECK(controller, base::NotFatalUntil::M162);
   SetShowCloseButton(true);
   set_fixed_width(views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_BUBBLE_PREFERRED_WIDTH));
@@ -61,129 +60,7 @@ void OfferNotificationBubbleViews::Hide() {
 }
 
 void OfferNotificationBubbleViews::Init() {
-  switch (controller_->GetOffer()->GetOfferType()) {
-    case AutofillOfferData::OfferType::GPAY_CARD_LINKED_OFFER:
-      InitWithCardLinkedOfferContent();
-      return;
-    case AutofillOfferData::OfferType::GPAY_PROMO_CODE_OFFER:
-      InitWithGPayPromoCodeOfferContent();
-      return;
-    case AutofillOfferData::OfferType::WALLET_DIRECT_OFFER:
-      InitWithWalletDirectOfferContent();
-      return;
-    case AutofillOfferData::OfferType::UNKNOWN:
-      NOTREACHED();
-  }
-}
-
-void OfferNotificationBubbleViews::AddedToWidget() {
-  const AutofillOfferData* offer = controller_->GetOffer();
-  CHECK(offer);
-
-  // Wallet direct offers are surfaced from the user's Google Wallet, so they
-  // show the Google Wallet logo next to the title. Legacy GPay offers keep the
-  // Google super G.
-  const TitleWithIconAfterLabelView::Icon icon =
-      offer->GetOfferType() == AutofillOfferData::OfferType::WALLET_DIRECT_OFFER
-          ? TitleWithIconAfterLabelView::Icon::GOOGLE_WALLET
-          : TitleWithIconAfterLabelView::Icon::GOOGLE_G;
-
-  GetBubbleFrameView()->SetTitleView(
-      std::make_unique<TitleWithIconAfterLabelView>(GetWindowTitle(), icon));
-}
-
-std::u16string OfferNotificationBubbleViews::GetWindowTitle() const {
-  return controller_ ? controller_->GetWindowTitle() : std::u16string();
-}
-
-void OfferNotificationBubbleViews::WindowClosing() {
-  if (controller_) {
-    controller_->OnBubbleClosed(
-        GetPaymentsUiClosedReasonFromWidget(GetWidget()));
-    controller_ = nullptr;
-  }
-}
-
-void OfferNotificationBubbleViews::OnWidgetDestroying(views::Widget* widget) {
-  LocationBarBubbleDelegateView::OnWidgetDestroying(widget);
-  if (!widget->IsClosed()) {
-    return;
-  }
-  DCHECK_NE(widget->closed_reason(),
-            views::Widget::ClosedReason::kCancelButtonClicked);
-}
-
-void OfferNotificationBubbleViews::InitWithCardLinkedOfferContent() {
-  // Card-linked offers have a positive CTA button:
-  SetButtons(static_cast<int>(ui::mojom::DialogButton::kOk));
-  SetButtonLabel(ui::mojom::DialogButton::kOk, controller_->GetOkButtonLabel());
-
-  // Create bubble content:
-  views::FlexLayout* layout =
-      SetLayoutManager(std::make_unique<views::FlexLayout>());
-  layout->SetOrientation(views::LayoutOrientation::kVertical);
-  auto* explanatory_message = AddChildView(std::make_unique<views::Label>(
-      l10n_util::GetStringFUTF16(
-          IDS_AUTOFILL_OFFERS_REMINDER_DESCRIPTION_TEXT,
-          controller_->GetLinkedCard()->CardNameAndLastFourDigits()),
-      views::style::CONTEXT_DIALOG_BODY_TEXT, views::style::STYLE_SECONDARY));
-  explanatory_message->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-  explanatory_message->SetMultiLine(true);
-}
-
-void OfferNotificationBubbleViews::InitWithGPayPromoCodeOfferContent() {
-  // Promo code offers have no CTA buttons:
-  SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
-
-  // Create bubble content:
-  auto* layout = SetLayoutManager(std::make_unique<views::BoxLayout>());
-  layout->SetOrientation(views::BoxLayout::Orientation::kVertical);
-  layout->set_cross_axis_alignment(
-      views::BoxLayout::CrossAxisAlignment::kStart);
-
-  const AutofillOfferData* offer = controller_->GetOffer();
-  DCHECK(offer);
-  const std::string& value_prop_text =
-      offer->GetDisplayStrings().value_prop_text;
-  // Add the first line of `value_prop_text` with see details link.
-  if (!value_prop_text.empty()) {
-    // Hide See details if the link is not valid.
-    const std::string& see_details_text =
-        offer->GetOfferDetailsUrl().is_valid()
-            ? offer->GetDisplayStrings().see_details_text
-            : "";
-    promo_code_label_ = AddChildView(std::make_unique<views::StyledLabel>());
-    std::vector<size_t> offsets;
-    auto label_text = l10n_util::GetStringFUTF16(
-        IDS_AUTOFILL_GPAY_PROMO_CODE_OFFERS_REMINDER_VALUE_PROP_TEXT,
-        base::UTF8ToUTF16(value_prop_text), base::UTF8ToUTF16(see_details_text),
-        &offsets);
-    promo_code_label_->SetText(label_text);
-    promo_code_label_->SetTextContext(
-        ChromeTextContext::CONTEXT_DIALOG_BODY_TEXT_SMALL);
-    promo_code_label_->SetDefaultTextStyle(views::style::STYLE_SECONDARY);
-    promo_code_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    if (!see_details_text.empty()) {
-      promo_code_label_->AddStyleRange(
-          gfx::Range(offsets.at(1), offsets.at(1) + see_details_text.length()),
-          views::StyledLabel::RangeStyleInfo::CreateForLink(base::BindRepeating(
-              &OfferNotificationBubbleViews::OnOfferDetailsLinkClicked,
-              base::Unretained(this))));
-    }
-  }
-  // Add the usage instructions text.
-  if (!offer->GetDisplayStrings().usage_instructions_text.empty()) {
-    instructions_label_ = AddChildView(std::make_unique<views::Label>(
-        base::ASCIIToUTF16(offer->GetDisplayStrings().usage_instructions_text),
-        ChromeTextContext::CONTEXT_DIALOG_BODY_TEXT_SMALL,
-        views::style::STYLE_SECONDARY));
-    instructions_label_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
-    instructions_label_->SetMultiLine(true);
-  }
-}
-
-void OfferNotificationBubbleViews::InitWithWalletDirectOfferContent() {
-  // Wallet direct offers have no CTA buttons.
+  // Offers have no CTA buttons.
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
 
   // Create bubble content:
@@ -217,12 +94,56 @@ void OfferNotificationBubbleViews::InitWithWalletDirectOfferContent() {
           base::Unretained(this))));
 }
 
+void OfferNotificationBubbleViews::AddedToWidget() {
+  // Offers are surfaced from the user's Google Wallet, so they show the Google
+  // Wallet logo next to the title.
+  GetBubbleFrameView()->SetTitleView(
+      std::make_unique<TitleWithIconAfterLabelView>(
+          GetWindowTitle(), TitleWithIconAfterLabelView::Icon::GOOGLE_WALLET));
+
+  // The Google Wallet logo is shown next to the title, so include it in the
+  // accessible title.
+  SetAccessibleTitle(l10n_util::GetStringFUTF16(
+      IDS_CONCAT_TWO_STRINGS_WITH_COMMA, GetWindowTitle(),
+      l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_GOOGLE_WALLET_LOGO_ACCESSIBLE_NAME)));
+}
+
+views::View* OfferNotificationBubbleViews::GetInitiallyFocusedView() {
+  // The bubble has no dialog buttons, so focus the close button.
+  views::BubbleFrameView* frame_view = GetBubbleFrameView();
+  return frame_view ? frame_view->close_button() : nullptr;
+}
+
+std::u16string OfferNotificationBubbleViews::GetWindowTitle() const {
+  return controller_ ? controller_->GetWindowTitle() : std::u16string();
+}
+
+void OfferNotificationBubbleViews::WindowClosing() {
+  if (controller_) {
+    controller_->OnBubbleClosed(
+        GetPaymentsUiClosedReasonFromWidget(GetWidget()));
+    controller_ = nullptr;
+  }
+}
+
+void OfferNotificationBubbleViews::OnWidgetDestroying(views::Widget* widget) {
+  LocationBarBubbleDelegateView::OnWidgetDestroying(widget);
+  if (!widget->IsClosed()) {
+    return;
+  }
+  CHECK_NE(widget->closed_reason(),
+           views::Widget::ClosedReason::kCancelButtonClicked,
+           base::NotFatalUntil::M162);
+}
+
 void OfferNotificationBubbleViews::OnOfferDetailsLinkClicked() {
-  DCHECK(controller_->GetOffer()->GetOfferDetailsUrl().is_valid());
+  CHECK(controller_->GetOffer()->GetOfferDetailsUrl().is_valid(),
+        base::NotFatalUntil::M162);
   web_contents()->OpenURL(
       content::OpenURLParams::CreateBrowserInitiated(
           GURL(controller_->GetOffer()->GetOfferDetailsUrl()),
-          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
+          WindowOpenDisposition::kNewForegroundTab, ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 

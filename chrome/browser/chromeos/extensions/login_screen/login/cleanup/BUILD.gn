@@ -46,6 +46,10 @@ static_library("cleanup") {
     "//extensions/common",
     "//mojo/public/cpp/bindings",
     "//ui/base/clipboard",
+
+    # TODO(crbug.com/556482973): Use //chrome/browser/ui/ash/shelf instead
+    # after fixing cyclic dependency.
+    "//chrome/browser/apps/app_preload_service/proto",
   ]
 }
 
@@ -132,7 +136,6 @@ source_set("browser_tests") {
     "//chrome/browser/ash/policy/core",
     "//chrome/browser/ash/policy/core:test_support",
     "//chrome/browser/ash/policy/test_support",
-    "//chrome/browser/ash/profiles",
     "//chrome/browser/extensions",
     "//chrome/browser/extensions:test_support",
     "//chrome/browser/lifetime",
@@ -144,10 +147,12 @@ source_set("browser_tests") {
     "//chrome/common:constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//chromeos/ash/components/browser_context_helper",
     "//components/app_constants",
     "//components/policy/core/common:common_constants",
     "//components/policy/core/common:test_support",
     "//components/prefs",
+    "//components/session_manager/core",
     "//components/webapps/browser",
     "//components/webapps/common",
     "//content/test:test_support",

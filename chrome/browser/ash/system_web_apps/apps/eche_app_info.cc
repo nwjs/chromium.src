@@ -13,7 +13,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/system_web_apps/apps/system_web_app_install_utils.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
-#include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -101,5 +100,5 @@ gfx::Rect EcheSystemAppDelegate::GetDefaultBounds(ash::BrowserDelegate*) const {
 }
 
 bool EcheSystemAppDelegate::IsAppEnabled() const {
-  return base::FeatureList::IsEnabled(ash::features::kEcheSWA);
+  return true;
 }

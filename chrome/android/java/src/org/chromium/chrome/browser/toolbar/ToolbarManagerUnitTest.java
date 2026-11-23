@@ -15,6 +15,8 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -30,6 +32,7 @@ import android.view.ViewStub;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.jni_zero.JniUniquePtr;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -70,6 +73,7 @@ import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
@@ -108,6 +112,7 @@ import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.OmniboxChipManager;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
+import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridgeJni;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController;
 import org.chromium.chrome.browser.omnibox.suggestions.action.OmniboxActionDelegateImpl;
 import org.chromium.chrome.browser.paint_preview.services.PaintPreviewTabServiceFactory;
@@ -179,10 +184,13 @@ import org.chromium.components.browser_ui.widget.scrim.ScrimManager;
 import org.chromium.components.favicon.LargeIconBridge;
 import org.chromium.components.favicon.LargeIconBridgeJni;
 import org.chromium.components.feature_engagement.EventConstants;
+import org.chromium.components.feature_engagement.FeatureConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxFocusReason;
+import org.chromium.components.prefs.PrefChangeRegistrar;
+import org.chromium.components.prefs.PrefChangeRegistrarJni;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.SigninFeatures;
@@ -198,6 +206,7 @@ import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.insets.InsetObserver;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.test.util.MockitoHelper;
 import org.chromium.ui.util.TokenHolder;
 import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
@@ -235,9 +244,15 @@ public class ToolbarManagerUnitTest {
     @Mock private TabModelSelector mTabModelSelector;
     @Mock private TabModelDotInfo mTabModelDotInfo;
     @Mock private LocationBarModel.Natives mLocationBarModelNatives;
+
+    @Mock
+    private JniUniquePtr<LocationBarModel.NativeLocationBarModelAndroid>
+            mNativeLocationBarModelAndroid;
+
     @Mock private FaviconHelper.Natives mFaviconHelperNatives;
     @Mock private LargeIconBridge.Natives mLargeIconBridgeNatives;
     @Mock private ChromeAutocompleteSchemeClassifier.Natives mChromeAutocompleteSchemeClassifierJni;
+    @Mock private ComposeboxQueryControllerBridge.Natives mComposeboxBridgeJni;
     @Mock private PaintPreviewTabServiceFactory.Natives mPaintPreviewTabServiceFactoryNatives;
     @Mock private PictureInPictureWindowManagerBridge.Natives mPictureInPictureBridgeNatives;
     @Mock private Runnable mOpenGridTabSwitcherHandler;
@@ -297,6 +312,7 @@ public class ToolbarManagerUnitTest {
     @Mock private GlicKeyedService mGlicKeyedService;
     @Mock private TopToolbarCoordinator mMockToolbar;
     @Mock private TabBottomSheetManager mTabBottomSheetManager;
+    @Mock private PrefChangeRegistrar.Natives mPrefChangeRegistrarJni;
     @Mock private PrefService mPrefService;
     @Mock private TabModel mIncognitoTabModel;
     @Mock private Profile mIncognitoProfile;
@@ -327,6 +343,7 @@ public class ToolbarManagerUnitTest {
         GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
         GlicEnabling.setEnabledForTesting(true);
         ComposeboxQueryControllerBridge.setInstanceForTesting(null);
+        ComposeboxQueryControllerBridgeJni.setInstanceForTesting(mComposeboxBridgeJni);
         ChromeAutocompleteSchemeClassifierJni.setInstanceForTesting(
                 mChromeAutocompleteSchemeClassifierJni);
         when(mChromeAutocompleteSchemeClassifierJni.createAutocompleteClassifier(any()))
@@ -342,13 +359,23 @@ public class ToolbarManagerUnitTest {
         when(mPaintPreviewTabServiceFactoryNatives.getServiceInstanceForCurrentProfile())
                 .thenReturn(null);
         LocationBarModelJni.setInstanceForTesting(mLocationBarModelNatives);
-        when(mLocationBarModelNatives.init(any())).thenReturn(1L);
+        when(mLocationBarModelNatives.init(any())).thenReturn(mNativeLocationBarModelAndroid);
+        PrefChangeRegistrarJni.setInstanceForTesting(mPrefChangeRegistrarJni);
         UserPrefs.setPrefServiceForTesting(mPrefService);
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
         SceneLayerJni.setInstanceForTesting(mSceneLayerNatives);
-        when(mLocationBarModelNatives.getUrlOfVisibleNavigationEntry(anyLong()))
-                .thenReturn(GURL.emptyGURL());
-        when(mLocationBarModelNatives.getFormattedFullURL(anyLong())).thenReturn("");
-        when(mLocationBarModelNatives.getURLForDisplay(anyLong())).thenReturn("");
+        when(mLocationBarModelNatives.getUrlOfVisibleNavigationEntry(any()))
+                .thenAnswer(
+                        invocation -> {
+                            Tab tab =
+                                    mActivityTabProvider != null
+                                            ? mActivityTabProvider.get()
+                                            : null;
+                            GURL url = tab != null ? tab.getUrl() : null;
+                            return url != null ? url : GURL.emptyGURL();
+                        });
+        when(mLocationBarModelNatives.getFormattedFullURL(any())).thenReturn("");
+        when(mLocationBarModelNatives.getURLForDisplay(any())).thenReturn("");
         TopToolbarSceneLayerJni.setInstanceForTesting(mTopToolbarSceneLayerNatives);
         when(mTopToolbarSceneLayerNatives.init(any()))
                 .thenAnswer(
@@ -789,6 +816,15 @@ public class ToolbarManagerUnitTest {
     }
 
     @Test
+    public void testMaybeShowBottomBarPromo_delegatesToBottomBarHostManager() {
+        when(mBottomBarHostManager.maybeShowPromoDialog(mProfile)).thenReturn(true);
+        assertTrue(mToolbarManager.maybeShowBottomBarPromo(mProfile));
+
+        when(mBottomBarHostManager.maybeShowPromoDialog(mProfile)).thenReturn(false);
+        assertFalse(mToolbarManager.maybeShowBottomBarPromo(mProfile));
+    }
+
+    @Test
     public void testFullscreenHairlineVisibility() {
         ArgumentCaptor<FullscreenManager.Observer> captor =
                 ArgumentCaptor.forClass(FullscreenManager.Observer.class);
@@ -1141,6 +1177,7 @@ public class ToolbarManagerUnitTest {
     public void testSetToolbarTabletMarginsForAutoHiddenVerticalTab() {
         MarginLayoutParams params =
                 setUpTabletLayoutForAutoHiddenVerticalTab(/* initialRightMargin= */ 20);
+        params.leftMargin = 30;
         View toolbarContainer = mControlContainer.findViewById(R.id.toolbar_container);
         MarginLayoutParams containerParams =
                 (MarginLayoutParams) toolbarContainer.getLayoutParams();
@@ -1165,12 +1202,12 @@ public class ToolbarManagerUnitTest {
         isAutoHiddenSupplier.set(false);
         assertEquals(0, containerParams.topMargin);
         assertEquals(20, params.rightMargin);
-        assertEquals(0, params.leftMargin);
+        assertEquals(30, params.leftMargin);
     }
 
     @Test
-    public void testSetToolbarTabletMarginsForAutoHiddenVerticalTab_UpdateRightMarginWhileHidden() {
-        // Simulate returning from fullscreen where right margin was 0.
+    public void testSetToolbarTabletMarginsForAutoHiddenVerticalTab_UpdateMarginsWhileHidden() {
+        // Simulate returning from fullscreen where margins were 0.
         MarginLayoutParams params =
                 setUpTabletLayoutForAutoHiddenVerticalTab(/* initialRightMargin= */ 0);
         View toolbarContainer = mControlContainer.findViewById(R.id.toolbar_container);
@@ -1189,16 +1226,19 @@ public class ToolbarManagerUnitTest {
         // Vertical Tabs is auto-hidden in narrow window.
         isAutoHiddenSupplier.set(true);
         assertEquals(tabStripHeight, containerParams.topMargin);
+        assertEquals(0, params.leftMargin);
         assertEquals(0, params.rightMargin);
 
-        // Insets update notifies a new right margin while Vertical Tabs is auto-hidden.
-        mToolbarManager.onToolbarRightMarginChanged(20);
-        // Active layout margin remains 0 while auto-hidden.
+        // Insets update notifies new left and right margins while Vertical Tabs is auto-hidden.
+        mToolbarManager.onToolbarHorizontalMarginsChanged(15, 20);
+        // Active layout margins remain 0 while auto-hidden.
+        assertEquals(0, params.leftMargin);
         assertEquals(0, params.rightMargin);
 
-        // When Vertical Tabs gets shown again on window widening, the updated margin is restored.
+        // When Vertical Tabs gets shown again on window widening, the updated margins are restored.
         isAutoHiddenSupplier.set(false);
         assertEquals(0, containerParams.topMargin);
+        assertEquals(15, params.leftMargin);
         assertEquals(20, params.rightMargin);
     }
 
@@ -1227,7 +1267,7 @@ public class ToolbarManagerUnitTest {
 
     @Test
     public void testOnSendTabToSelfClicked_recordsEvent() {
-        when(mLocationBarModelNatives.getUrlOfVisibleNavigationEntry(anyLong()))
+        when(mLocationBarModelNatives.getUrlOfVisibleNavigationEntry(any()))
                 .thenReturn(JUnitTestGURLs.EXAMPLE_URL);
         when(mTab.getUrl()).thenReturn(JUnitTestGURLs.EXAMPLE_URL);
         when(mTab.isInitialized()).thenReturn(true);
@@ -1557,5 +1597,57 @@ public class ToolbarManagerUnitTest {
 
         tabObserver.onLoadStopped(backgroundTab, /* toDifferentDocument= */ true);
         verify(mLocationBarDataProviderObserver, never()).hintZeroSuggestRefresh();
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":education_enabled/true/education_address_bar_iph_enabled/true")
+    public void testMaybeShowBottomToolbarIph_EducationAddressBarIph_TopPosition() {
+        triggerMaybeShowBottomToolbarIph(ControlsPosition.TOP);
+
+        verify(mTracker, atLeastOnce())
+                .shouldTriggerHelpUi(FeatureConstants.ANDROID_BOTTOM_BAR_ADDRESS_BAR);
+        verify(mTracker, never())
+                .shouldTriggerHelpUi(eq(FeatureConstants.BOTTOM_TOOLBAR_FEATURE), any());
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":education_enabled/true/education_address_bar_iph_enabled/true")
+    public void testMaybeShowBottomToolbarIph_EducationAddressBarIph_BottomPosition() {
+        triggerMaybeShowBottomToolbarIph(ControlsPosition.BOTTOM);
+
+        verify(mTracker, never())
+                .shouldTriggerHelpUi(FeatureConstants.ANDROID_BOTTOM_BAR_ADDRESS_BAR);
+        verify(mTracker, never())
+                .shouldTriggerHelpUi(eq(FeatureConstants.BOTTOM_TOOLBAR_FEATURE), any());
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR
+                    + ":education_enabled/true/education_address_bar_iph_enabled/false")
+    public void
+            testMaybeShowBottomToolbarIph_EducationAddressBarIphDisabled_ShowsBottomToolbarIph() {
+        triggerMaybeShowBottomToolbarIph(ControlsPosition.TOP);
+
+        verify(mTracker, atLeastOnce())
+                .shouldTriggerHelpUi(eq(FeatureConstants.BOTTOM_TOOLBAR_FEATURE), any());
+        verify(mTracker, never())
+                .shouldTriggerHelpUi(FeatureConstants.ANDROID_BOTTOM_BAR_ADDRESS_BAR);
+    }
+
+    private void triggerMaybeShowBottomToolbarIph(@ControlsPosition int controlsPosition) {
+        MockitoHelper.doCallback((Callback<Boolean> callback) -> callback.onResult(true))
+                .when(mTracker)
+                .addOnInitializedCallback(any());
+        when(mControlsSizer.getControlsPosition()).thenReturn(controlsPosition);
+        clearInvocations(mTracker);
+
+        Tab webTab = mockTab(/* isNtp= */ false);
+        mActivityTabProvider.setForTesting(webTab);
+        RobolectricUtil.runAllBackgroundAndUi();
     }
 }

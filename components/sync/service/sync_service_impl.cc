@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <utility>
 
-#include "base/barrier_callback.h"
 #include "base/check_is_test.h"
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
@@ -88,9 +87,6 @@
 namespace syncer {
 
 namespace {
-
-BASE_FEATURE(kSyncUnsubscribeFromTypesWithPermanentErrors,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 constexpr int kMinGmsVersionCodeWithCustomPassphraseApi = 235204000;
@@ -343,7 +339,6 @@ void SyncServiceImpl::Initialize(DataTypeController::TypeVector controllers) {
   // the account state.
   sync_prefs_.MaybeMigratePrefsForSyncToSigninPart1(
       GetSyncAccountStateForPrefs(), GetAccountInfo().gaia);
-  sync_prefs_.MaybeMigrateCustomPassphrasePref(GetAccountInfo().gaia);
 
   // Update selected types prefs if a policy is applied.
   sync_prefs_policy_handler_ = std::make_unique<SyncPrefsPolicyHandler>(this);
@@ -565,24 +560,14 @@ void SyncServiceImpl::TryStart() {
   // OSCryptAsync will just queue the callbacks and run them once the
   // encryptor is available. The first call to TryStartImpl() that succeeds
   // will create the engine, and subsequent ones will be no-ops.
-  // TODO(crbug.com/514283732): Now that Encryptor is a refcounted object, we
-  // can the barrier is probably not needed anymore. Investigate if it can be
-  // removed.
-  auto barrier =
-      base::BarrierCallback<scoped_refptr<os_crypt_async::Encryptor>>(
-          2,
-          base::BindOnce(&SyncServiceImpl::TryStartImpl,
-                         weak_factory_.GetWeakPtr(), base::TimeTicks::Now()));
-
-  // One instance of Encryptor is needed for SyncServiceImpl and one for
-  // SyncEngine.
-  os_crypt_async_->GetInstance(barrier);
-  os_crypt_async_->GetInstance(barrier);
+  os_crypt_async_->GetInstance(base::BindOnce(&SyncServiceImpl::TryStartImpl,
+                                              weak_factory_.GetWeakPtr(),
+                                              base::TimeTicks::Now()));
 }
 
 void SyncServiceImpl::TryStartImpl(
     base::TimeTicks try_start_time,
-    std::vector<scoped_refptr<os_crypt_async::Encryptor>> encryptors) {
+    scoped_refptr<os_crypt_async::Encryptor> encryptor) {
   base::Time deferral_time;
   std::swap(deferring_first_start_since_, deferral_time);
 
@@ -590,14 +575,12 @@ void SyncServiceImpl::TryStartImpl(
     return;
   }
 
-  CHECK_EQ(encryptors.size(), 2u);
+  CHECK(encryptor);
 
   base::UmaHistogramTimes("Sync.EncryptorReceivedTime",
                           base::TimeTicks::Now() - try_start_time);
 
-  // One instance of Encryptor is needed for SyncServiceImpl and one for
-  // SyncEngine.
-  crypto_.SetEncryptor(std::move(encryptors[0]));
+  crypto_.SetEncryptor(encryptor);
 
   if (!deferral_time.is_null()) {
     base::UmaHistogramCustomTimes("Sync.Startup.TimeDeferred2",
@@ -655,7 +638,7 @@ void SyncServiceImpl::TryStartImpl(
                 MakeUserAgentForSync(channel_), url_loader_factory_->Clone()));
   }
 
-  params.encryptor = std::move(encryptors[1]);
+  params.encryptor = std::move(encryptor);
 
   if (!IsLocalSyncEnabled()) {
     auth_manager_->ConnectionOpened();
@@ -1228,14 +1211,11 @@ void SyncServiceImpl::OnActionableProtocolError(
 #else
         // The Sync consent will be revoked, and Sync will enter
         // Sync-the-transport mode.
-        if (base::FeatureList::IsEnabled(
-                kSyncCopyPreferencesToTransportModeOnServerForcedDisable)) {
-          CHECK(!GetAccountInfo().gaia.empty());
-          // Migrating the user's selected types prefs to ensure that they will
-          // be available in Sync-the-transport mode.
-          SyncPrefs::MigrateGlobalDataTypePrefsToAccount(
-              sync_client_->GetPrefService(), GetAccountInfo().gaia);
-        }
+        CHECK(!GetAccountInfo().gaia.empty());
+        // Migrating the user's selected types prefs to ensure that they will
+        // be available in Sync-the-transport mode.
+        SyncPrefs::MigrateGlobalDataTypePrefsToAccount(
+            sync_client_->GetPrefService(), GetAccountInfo().gaia);
         // Note: On some platforms, revoking the sync consent will also clear
         // the primary account as transitioning from ConsentLevel::kSync to
         // ConsentLevel::kSignin is not supported.
@@ -1899,14 +1879,10 @@ void SyncServiceImpl::UpdateDataTypesForInvalidations() {
   }
 #endif  // BUILDFLAG(IS_ANDROID)
 
-  if (!data_type_manager_->GetDataTypesWithPermanentErrors().empty() &&
-      base::FeatureList::IsEnabled(
-          kSyncUnsubscribeFromTypesWithPermanentErrors)) {
-    // Unsubscribe from data types with permanent errors. Types which are
-    // unready or have crypto errors are intentionally kept because they will
-    // may change their state.
-    types.RemoveAll(data_type_manager_->GetDataTypesWithPermanentErrors());
-  }
+  // Unsubscribe from data types with permanent errors. Types which are
+  // unready or have crypto errors are intentionally kept because they may
+  // change their state.
+  types.RemoveAll(data_type_manager_->GetDataTypesWithPermanentErrors());
 
 #if BUILDFLAG(IS_ANDROID)
   // On Android, don't subscribe to HISTORY invalidations, to save network

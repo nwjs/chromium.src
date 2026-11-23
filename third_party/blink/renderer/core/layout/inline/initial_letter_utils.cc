@@ -12,6 +12,7 @@
 #include "third_party/blink/renderer/core/layout/inline/logical_line_item.h"
 #include "third_party/blink/renderer/core/layout/logical_fragment.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/writing_direction_mode.h"
 
 namespace blink {
@@ -20,13 +21,15 @@ namespace {
 
 // Returns border-box block offset of initial letter box to contain initial
 // letter text and shift down amount of surrounding text in
-// `initial_letter_block_start_adjust`,
+// `initial_letter_block_start_adjust`, and the block end of sink lines in
+// `sink_block_end` when size < sink.
 LayoutUnit ComputeInitialLetterBoxBlockOffset(
     const PhysicalBoxFragment& initial_letter_box_fragment,
     const LayoutUnit block_size,
     const ComputedStyle& initial_letter_box_style,
     const ComputedStyle& paragraph_style,
-    LayoutUnit* initial_letter_block_start_adjust) {
+    LayoutUnit* initial_letter_block_start_adjust,
+    LayoutUnit* sink_block_end) {
   const auto& initial_letter = initial_letter_box_style.InitialLetter();
   DCHECK(!initial_letter.IsNormal());
 
@@ -36,9 +39,12 @@ LayoutUnit ComputeInitialLetterBoxBlockOffset(
   const LayoutUnit line_height = paragraph_style.ComputedLineHeightAsFixed();
 
   const int size = std::ceil(initial_letter.Size());
-  const int sink = initial_letter.IsRaise() || initial_letter.IsIntegerSink()
-                       ? initial_letter.Sink()
-                       : size;
+  // Sink() follows the spec, e.g. floor(size) for drop or an omitted sink.
+  const int sink =
+      RuntimeEnabledFeatures::InitialLetterBlockPositioningEnabled() ||
+              initial_letter.IsRaise() || initial_letter.IsIntegerSink()
+          ? initial_letter.Sink()
+          : size;
 
   // Block-axis positioning[1]:
   //   size >= sink: => under alignment with shift (sink - 1) * line_height
@@ -54,8 +60,23 @@ LayoutUnit ComputeInitialLetterBoxBlockOffset(
   // [2]
   // https://drafts.csswg.org/css-inline-3/#valdef-initial-letter-align-alphabetic
   // [3] https://drafts.csswg.org/css-inline/#drop-initial
+  // [4] https://drafts.csswg.org/css-inline-3/#initial-letter-box-size
 
-  if (size < sink) {
+  if (RuntimeEnabledFeatures::InitialLetterBlockPositioningEnabled() &&
+      initial_letter.Size() < sink) {
+    // Over alignment: no text shift, but the box still spans `sink` lines[4].
+    // Example: `initial-letter: 5 7`
+    //  *     * line 1
+    //  *     * line 2
+    //  ******* line 3
+    //  *     * line 4
+    //  *     * line 5
+    //  line 6
+    //  line 7
+    *sink_block_end = line_height * sink;
+  } else if (size < sink) {
+    // TODO(crbug.com/573256240): Remove with InitialLetterBlockPositioning.
+    // Bottom alignment before w3c/csswg-drafts#5329.
     // Example: `initial-letter: 5 7`
     //  *     * line 1                      line 1
     //  *     * line 2                      line 2
@@ -65,18 +86,22 @@ LayoutUnit ComputeInitialLetterBoxBlockOffset(
     //  line 6                      *     * line 6
     //  line 7                      *     * line 7
     return line_height * sink - block_size;
+  } else {
+    // Shift down surrounding text
+    // Example: `initial-letter: 5 2`
+    //    *     * line 1              *     *
+    //    *     * line 2              *     *
+    //    ******* line 3  = shift =>  ******* line 1
+    //    *     * line 4              *     * line 2
+    //    *     * line 5              *     * line 3
+    //    line 6                      line 4
+    //    line 7                      line 5
+    // Shift by the specified size to keep a non-integer one under aligned.
+    *initial_letter_block_start_adjust =
+        RuntimeEnabledFeatures::InitialLetterBlockPositioningEnabled()
+            ? LayoutUnit(line_height * (initial_letter.Size() - sink))
+            : line_height * (size - sink);
   }
-
-  // Shift down surrounding text
-  // Example: `initial-letter: 5 2`
-  //    *     * line 1              *     *
-  //    *     * line 2              *     *
-  //    ******* line 3  = shift =>  ******* line 1
-  //    *     * line 4              *     * line 2
-  //    *     * line 5              *     * line 3
-  //    line 6                      line 4
-  //    line 7                      line 5
-  *initial_letter_block_start_adjust = line_height * (size - sink);
 
   if (paragraph_style.IsHorizontalTypographicMode() ||
       initial_letter_box_style.GetTextOrientation() ==
@@ -101,6 +126,9 @@ LayoutUnit ComputeInitialLetterBoxBlockOffset(
 
   // In vertical writing mode, `block_offset` will be physical offset x.
   // Align initial letter box in center.
+  if (RuntimeEnabledFeatures::InitialLetterBlockPositioningEnabled()) {
+    return (LayoutUnit(line_height * initial_letter.Size()) - block_size) / 2;
+  }
   return (line_height * size - block_size) / 2;
 }
 
@@ -267,11 +295,12 @@ const ExclusionArea* PostPlaceInitialLetterBox(
           .Size();
 
   LayoutUnit initial_letter_block_start_adjust;
+  LayoutUnit sink_block_end;
   const LayoutUnit initial_letter_border_box_block_offset =
       ComputeInitialLetterBoxBlockOffset(
           initial_letter_box_fragment, initial_letter_box_size.block_size,
           *initial_letter_line_item->Style(), line_style,
-          &initial_letter_block_start_adjust) +
+          &initial_letter_block_start_adjust, &sink_block_end) +
       initial_letter_box_margins.block_start;
   DCHECK_GE(initial_letter_block_start_adjust, LayoutUnit());
   line_info->SetInitialLetterBlockStartAdjustment(
@@ -309,13 +338,21 @@ const ExclusionArea* PostPlaceInitialLetterBox(
                 initial_letter_box_size.inline_size,
       line_origin.block_offset);
 
+  // The initial letter box spans its sink even if its glyphs are shorter.
+  LogicalSize exclusion_box_size = initial_letter_box_size;
+  if (sink_block_end) {
+    exclusion_box_size.block_size =
+        std::max(exclusion_box_size.block_size,
+                 sink_block_end - initial_letter_border_box_block_offset);
+  }
+
   const ExclusionArea* exclusion = CreateExclusionSpaceForInitialLetterBox(
       writing_direction_mode.IsLtr() ? EFloat::kLeft : EFloat::kRight,
       initial_letter_box_origin,
       BfcOffset(initial_letter_border_box_inline_offset,
                 initial_letter_border_box_block_offset +
                     line_info->ComputeInitialLetterBoxBlockStartAdjustment()),
-      initial_letter_box_size, initial_letter_box_margins);
+      exclusion_box_size, initial_letter_box_margins);
 
   line_info->SetInitialLetterBoxBlockSize(exclusion->rect.BlockSize());
   return exclusion;

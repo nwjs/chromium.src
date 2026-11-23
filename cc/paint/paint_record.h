@@ -59,7 +59,6 @@ class CC_PAINT_EXPORT PaintRecord {
   bool has_non_aa_paint() const { return buffer_->has_non_aa_paint(); }
   bool has_draw_ops() const { return buffer_->has_draw_ops(); }
   bool has_draw_text_ops() const { return buffer_->has_draw_text_ops(); }
-  bool has_save_layer_ops() const { return buffer_->has_save_layer_ops(); }
   bool has_save_layer_alpha_ops() const {
     return buffer_->has_save_layer_alpha_ops();
   }
@@ -69,8 +68,8 @@ class CC_PAINT_EXPORT PaintRecord {
   bool has_discardable_images() const {
     return buffer_->has_discardable_images();
   }
-  gfx::ContentColorUsage content_color_usage() const {
-    return buffer_->content_color_usage();
+  const gfx::ContentColorVolume& content_color_volume() const {
+    return buffer_->content_color_volume();
   }
   const PaintOp& GetFirstOp() const { return buffer_->GetFirstOp(); }
 

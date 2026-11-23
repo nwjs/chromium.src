@@ -31,6 +31,8 @@
 class Profile;
 
 namespace content {
+class RenderFrameHost;
+class RenderWidgetHostView;
 class WebContents;
 }  // namespace content
 
@@ -71,6 +73,8 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
     kLogin,
     // Guest is displaying an in-page error page (e.g. /sorry/ or CAPTCHA).
     kGuestError,
+    // Guest is displaying a security interstitial (e.g. enterprise warning).
+    kSecurityInterstitial,
   };
 
   // Manages the lifetime, WebUI page handler bindings, and observer events
@@ -80,7 +84,8 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
    public:
     OverlayContentsManager(Profile* profile,
                            GlicNoWebviewContentsManager* owner,
-                           ObservableValueView<GuestState>& guest_state);
+                           ObservableValueView<GuestState>& guest_state,
+                           ObservableValueView<bool>& guest_main_page_loaded);
     ~OverlayContentsManager() override;
 
     content::WebContents* EnsureWebContents();
@@ -100,14 +105,16 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
     // - `error_type`: If an error is active, the overlay shows that error
     //   panel.
     // - `guest_state`: If `GuestState::kLoading`, a loading skeleton is shown;
-    //   otherwise (kReady, kLogin, kGuestError), the guest WebContents is
-    //   presented directly and no overlay is needed (returns nullptr).
+    //   otherwise (kReady, kLogin, kGuestError, kSecurityInterstitial), the
+    //   guest WebContents is presented directly and no overlay is needed
+    //   (returns nullptr).
     // - `panel_state_kind`: Detached panels show a floating loading skeleton;
     //   otherwise, a side-panel loading skeleton is shown.
     static mojom::OverlayStatePtr DetermineOverlayState(
         std::optional<mojom::ErrorPanelType> error_type,
         GuestState guest_state,
-        std::optional<mojom::PanelStateKind> panel_state_kind);
+        std::optional<mojom::PanelStateKind> panel_state_kind,
+        bool guest_main_page_loaded);
 
     // Evaluates current inputs to determine the desired overlay state.
     mojom::OverlayStatePtr DetermineOverlayState();
@@ -144,6 +151,8 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
     std::optional<mojom::ErrorPanelType> error_type_;
     const raw_ref<ObservableValueView<GuestState>> guest_state_;
     base::CallbackListSubscription guest_state_subscription_;
+    const raw_ref<ObservableValueView<bool>> guest_main_page_loaded_;
+    base::CallbackListSubscription guest_main_page_loaded_subscription_;
     base::CallbackListSubscription panel_state_subscription_;
     raw_ptr<ObservableValueView<mojom::PanelState>> panel_state_ = nullptr;
     gfx::Size cached_size_;
@@ -173,6 +182,7 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
   bool IsCrashed() const override;
   void Zoom(mojom::ZoomAction zoom_action, ZoomSource source) override;
   void SetErrorCallback(base::RepeatingClosure callback) override;
+  void WaitForLoad(base::OnceCallback<void(bool failed)> callback) override;
 
   // GlicWebClientManager::Delegate implementation:
   void OnGuestNavigationStarted() override;
@@ -180,6 +190,7 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
                         bool is_api_allowed,
                         mojom::GuestPageType page_type,
                         bool is_initial_commit) override;
+  void OnGuestMainPageLoaded() override;
   void OnGuestProcessGone(base::TerminationStatus status) override;
   void OnWebClientCreated() override;
   void OnWebClientStateChanged(mojom::WebClientState state) override;
@@ -250,6 +261,10 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
 
   base::OneShotTimer& loading_timer_for_testing() { return loading_timer_; }
 
+  base::OneShotTimer& unconnected_hibernation_timer_for_testing() {
+    return unconnected_hibernation_timer_;
+  }
+
  private:
   class Metrics;
   // Ensures that the overlay WebContents exists and returns it.
@@ -305,11 +320,21 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
   // sign-in required or disabled by admin).
   void ClearTransientErrorState();
 
-  // Applies the cached viewport size from the overlay/host to the guest view.
+  // Applies the target viewport size (from the host panel, cached overlay
+  // size, or default warming size) to the guest WebContentsView (and any active
+  // RenderWidgetHostView).
+  //
+  // Sizing the WebContentsView container bounds (`WebContents::Resize()` /
+  // `ViewAndroid::OnSizeChanged()`) before `LoadURLWithParams()` in
+  // `LoadGuest()` ensures `WebContentsImpl::GetSizeForMainFrame()` returns the
+  // target size when creating both the initial `RenderWidgetHostView` and any
+  // speculative `RenderWidgetHostView` (e.g. for `Cross-Origin-Opener-Policy`
+  // or `RenderDocument` swaps), even before a `RenderWidgetHostView` exists.
   void ApplySizeToGuest();
 
   // Displays the guest WebContents directly for guest pages that bypass the
-  // web client bootstrap (e.g. login or guest error pages).
+  // web client bootstrap (e.g. login, security interstitial, or guest error
+  // pages).
   void ShowGuestDirectly(GuestState state);
 
   // Transitions the manager to `next_state`, coordinating overlay allocation,
@@ -330,6 +355,8 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
   void OnZoomLevelChange();
   void OnProfileReadyStateChanged();
   void UpdateForProfileReadyState(bool is_initial);
+  void OnHibernationTimerExpired();
+  void ResolvePendingWaitForLoadCallbacks();
 
   raw_ptr<Profile> profile_;
   raw_ptr<GlicEnabling> enabling_ = nullptr;
@@ -338,6 +365,7 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
 
   // Lifecycle state of the guest WebContents.
   ObservableValue<GuestState> guest_state_{GuestState::kLoading};
+  ObservableValue<bool> guest_main_page_loaded_{false};
 
   // A client load error that happened before a Host was attached, i.e. while
   // the contents were warming in the background. Reported once AttachToHost()
@@ -371,7 +399,9 @@ class GlicNoWebviewContentsManager : public GlicWebContentsManager,
 
   base::OneShotTimer overlay_deletion_timer_;
   base::OneShotTimer loading_timer_;
+  base::OneShotTimer unconnected_hibernation_timer_;
   base::RepeatingClosure error_callback_;
+  std::vector<base::OnceCallback<void(bool)>> pending_wait_for_load_callbacks_;
 
   base::WeakPtrFactory<GlicNoWebviewContentsManager> weak_ptr_factory_{this};
 };

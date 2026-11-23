@@ -48,7 +48,7 @@ class ModuleSystem : public ObjectBackedNativeHandler {
   class ExceptionHandler {
    public:
     explicit ExceptionHandler(ScriptContext* context) : context_(context) {}
-    virtual ~ExceptionHandler() {}
+    virtual ~ExceptionHandler() = default;
     virtual void HandleUncaughtException(const v8::TryCatch& try_catch) = 0;
 
    protected:
@@ -144,8 +144,8 @@ class ModuleSystem : public ObjectBackedNativeHandler {
   void Invalidate() override;
 
  private:
-  typedef std::map<std::string, std::unique_ptr<NativeHandler>>
-      NativeHandlerMap;
+  using NativeHandlerMap =
+      std::map<std::string, std::unique_ptr<NativeHandler>>;
 
   // Run `code` in the current context with the name `name` used for stack
   // traces.

@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/base64.h"
+#include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
@@ -205,6 +206,7 @@ int GetPasswordCount(int index, PasswordForm::Store store) {
 }
 
 PasswordForm CreateTestPasswordForm(int index, PasswordForm::Store store) {
+  CHECK_NE(store, PasswordForm::Store::kNotSet);
   PasswordForm form;
   form.signon_realm = kFakeSignonRealm;
   form.url = GURL(base::StringPrintf(kIndexedFakeOrigin, index));
@@ -272,6 +274,7 @@ PasswordSyncActiveChecker::PasswordSyncActiveChecker(
 PasswordSyncActiveChecker::~PasswordSyncActiveChecker() = default;
 
 bool PasswordSyncActiveChecker::IsExitConditionSatisfied(std::ostream* os) {
+  *os << "Waiting for passwords sync to become active.";
   return service()->GetActiveDataTypes().Has(syncer::PASSWORDS);
 }
 
@@ -282,6 +285,7 @@ PasswordSyncInactiveChecker::PasswordSyncInactiveChecker(
 PasswordSyncInactiveChecker::~PasswordSyncInactiveChecker() = default;
 
 bool PasswordSyncInactiveChecker::IsExitConditionSatisfied(std::ostream* os) {
+  *os << "Waiting for passwords sync to become inactive.";
   return !service()->GetActiveDataTypes().Has(syncer::PASSWORDS);
 }
 

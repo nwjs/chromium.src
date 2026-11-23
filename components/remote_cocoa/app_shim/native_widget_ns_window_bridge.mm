@@ -1618,6 +1618,10 @@ void NativeWidgetNSWindowBridge::OnSpaceActivationMayHaveChanged() {
   host_->OnSpaceActivationChanged(is_visible_on_screen);
 }
 
+void NativeWidgetNSWindowBridge::OnWindowOcclusionChanged(bool occluded) {
+  host_->OnWindowOcclusionChanged(occluded);
+}
+
 void NativeWidgetNSWindowBridge::OnSystemColorsChanged() {
   host_->OnWindowNativeThemeChanged();
 }
@@ -2255,6 +2259,10 @@ bool NativeWidgetNSWindowBridge::NeedsUpdateWindows() {
   return [bridged_view_ needsUpdateWindows];
 }
 
+void NativeWidgetNSWindowBridge::SetDeferInputContextActivation(bool defer) {
+  bridged_view_.deferInputContextActivation = defer;
+}
+
 void NativeWidgetNSWindowBridge::RedispatchKeyEvent(
     const std::vector<uint8_t>& native_event_data) {
   RedispatchKeyEvent(ui::EventFromData(native_event_data));
@@ -2477,6 +2485,12 @@ void NativeWidgetNSWindowBridge::ShowAsModalSheet() {
       FROM_HERE, base::BindOnce(^{
         NativeWidgetNSWindowBridge* bridge = weak_this.get();
         if (!bridge || !bridge->wants_to_be_visible_) {
+          return;
+        }
+        // Check again inside the posted task in case ShowAsModalSheet() was
+        // called multiple times before the first task executed
+        // (https://crbug.com/572474546).
+        if (parent_window.attachedSheet == bridge->ns_window()) {
           return;
         }
         [parent_window beginSheet:bridge->ns_window()

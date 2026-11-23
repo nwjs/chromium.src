@@ -11,11 +11,13 @@
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/functional/callback_helpers.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "cc/test/pixel_test_utils.h"
 #include "components/viz/common/resources/shared_image_format.h"
 #include "gpu/command_buffer/service/service_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
+#include "gpu/command_buffer/service/shared_image/compound_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/external_vk_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/external_vk_image_dawn_representation.h"
 #include "gpu/command_buffer/service/shared_image/external_vk_image_skia_representation.h"
@@ -25,6 +27,7 @@
 #include "gpu/command_buffer/service/shared_image/shared_image_test_base.h"
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/vulkan_in_process_context_provider.h"
+#include "gpu/config/gpu_finch_features.h"
 #include "gpu/config/gpu_test_config.h"
 #include "gpu/vulkan/vulkan_implementation.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -302,11 +305,16 @@ TEST_F(ExternalVkImageBackingFactoryDawnTest, SkiaVulkanWrite_DawnRead) {
 
     wgpu::Texture src_texture(dawn_scoped_access->texture());
 
+    // Row pitch of the readback buffer. Dawn requires `bytesPerRow` for
+    // texture-to-buffer copies to be a multiple of 256.
+    constexpr uint32_t kBytesPerRow = 256;
+    const size_t buffer_size = kBytesPerRow * size.height();
+
     // Create a buffer to read back the texture data
     wgpu::BufferDescriptor dst_buffer_desc = {};
     dst_buffer_desc.usage =
         wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-    dst_buffer_desc.size = 256 * size.height();
+    dst_buffer_desc.size = buffer_size;
     wgpu::Buffer dst_buffer = dawn_device_.CreateBuffer(&dst_buffer_desc);
 
     // Encode the buffer copy
@@ -318,7 +326,7 @@ TEST_F(ExternalVkImageBackingFactoryDawnTest, SkiaVulkanWrite_DawnRead) {
 
       wgpu::TexelCopyBufferInfo dst_copy_view = {};
       dst_copy_view.buffer = dst_buffer;
-      dst_copy_view.layout.bytesPerRow = 256;
+      dst_copy_view.layout.bytesPerRow = kBytesPerRow;
       dst_copy_view.layout.offset = 0;
 
       wgpu::Extent3D copy_extent = {static_cast<uint32_t>(size.width()),
@@ -332,12 +340,11 @@ TEST_F(ExternalVkImageBackingFactoryDawnTest, SkiaVulkanWrite_DawnRead) {
     queue.Submit(1, &commands);
 
     // Map the buffer to read back data
-    wgpu::FutureWaitInfo wait_info{
-        dst_buffer.MapAsync(wgpu::MapMode::Read, 0, 256 * size.height(),
-                            wgpu::CallbackMode::WaitAnyOnly,
-                            [](wgpu::MapAsyncStatus status, wgpu::StringView) {
-                              ASSERT_EQ(status, wgpu::MapAsyncStatus::Success);
-                            })};
+    wgpu::FutureWaitInfo wait_info{dst_buffer.MapAsync(
+        wgpu::MapMode::Read, 0, buffer_size, wgpu::CallbackMode::WaitAnyOnly,
+        [](wgpu::MapAsyncStatus status, wgpu::StringView) {
+          ASSERT_EQ(status, wgpu::MapAsyncStatus::Success);
+        })};
 
     wgpu::WaitStatus status =
         wgpu::Instance(dawn_instance_.Get())
@@ -345,21 +352,27 @@ TEST_F(ExternalVkImageBackingFactoryDawnTest, SkiaVulkanWrite_DawnRead) {
     DCHECK(status == wgpu::WaitStatus::Success);
 
     // Check the pixel data
-    const uint8_t* pixel_data =
-        static_cast<const uint8_t*>(dst_buffer.GetConstMappedRange());
+    const void* mapped_data = dst_buffer.GetConstMappedRange(0, buffer_size);
+    ASSERT_NE(mapped_data, nullptr);
+    // SAFETY: When GetConstMappedRange() is called with an explicit size, a
+    // non-null return value points to at least `buffer_size` bytes of valid
+    // data.
+    base::span<const uint8_t> pixel_data = UNSAFE_BUFFERS(
+        base::span(static_cast<const uint8_t*>(mapped_data), buffer_size));
     for (int h = 0; h < size.height(); ++h) {
       for (int w = 0; w < size.width(); ++w) {
-        const uint8_t* pixel = UNSAFE_TODO((pixel_data + h * 256) + w * 4);
+        base::span<const uint8_t> pixel = pixel_data.subspan(
+            static_cast<size_t>(h * kBytesPerRow + w * 4), 4u);
         if (h < size.height() / 2) {
           EXPECT_EQ(pixel[0], 0);
-          UNSAFE_TODO(EXPECT_EQ(pixel[1], 0));
-          UNSAFE_TODO(EXPECT_EQ(pixel[2], 255));
-          UNSAFE_TODO(EXPECT_EQ(pixel[3], 255));
+          EXPECT_EQ(pixel[1], 0);
+          EXPECT_EQ(pixel[2], 255);
+          EXPECT_EQ(pixel[3], 255);
         } else {
           EXPECT_EQ(pixel[0], 0);
-          UNSAFE_TODO(EXPECT_EQ(pixel[1], 255));
-          UNSAFE_TODO(EXPECT_EQ(pixel[2], 0));
-          UNSAFE_TODO(EXPECT_EQ(pixel[3], 255));
+          EXPECT_EQ(pixel[1], 255);
+          EXPECT_EQ(pixel[2], 0);
+          EXPECT_EQ(pixel[3], 255);
         }
       }
     }
@@ -477,35 +490,41 @@ TEST_P(ExternalVkImageBackingFactoryWithFormatTest, Basic) {
   }
   skia_representation.reset();
 
-  // Verify GL access works.
-  if (use_passthrough()) {
-    auto gl_representation =
-        shared_image_representation_factory_.ProduceGLTexturePassthrough(
-            mailbox);
-    ASSERT_TRUE(gl_representation);
-    auto scoped_access = gl_representation->BeginScopedAccess(
-        GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM,
-        SharedImageRepresentation::AllowUnclearedAccess::kNo);
-    ASSERT_TRUE(scoped_access);
+  // Verify GL access works if supported. When `kUseDynamicBackingAllocations`
+  // is enabled and a separate GL texture would be needed (e.g. BGRA_8888 on
+  // ANGLE-GL), ExternalVkImageBacking does not support GL access directly
+  // (relying on CompoundImageBacking in production instead).
+  if (backing_factory_->IsSupportedForAccessStream(SharedImageAccessStream::kGL,
+                                                   format, nullptr)) {
+    if (use_passthrough()) {
+      auto gl_representation =
+          shared_image_representation_factory_.ProduceGLTexturePassthrough(
+              mailbox);
+      ASSERT_TRUE(gl_representation);
+      auto scoped_access = gl_representation->BeginScopedAccess(
+          GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM,
+          SharedImageRepresentation::AllowUnclearedAccess::kNo);
+      ASSERT_TRUE(scoped_access);
 
-    for (int plane = 0; plane < format.NumberOfPlanes(); ++plane) {
-      auto texture = gl_representation->GetTexturePassthrough(plane);
-      ASSERT_TRUE(texture);
-      EXPECT_NE(texture->service_id(), 0u);
-    }
-  } else {
-    auto gl_representation =
-        shared_image_representation_factory_.ProduceGLTexture(mailbox);
-    ASSERT_TRUE(gl_representation);
-    auto scoped_access = gl_representation->BeginScopedAccess(
-        GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM,
-        SharedImageRepresentation::AllowUnclearedAccess::kNo);
-    ASSERT_TRUE(scoped_access);
+      for (int plane = 0; plane < format.NumberOfPlanes(); ++plane) {
+        auto texture = gl_representation->GetTexturePassthrough(plane);
+        ASSERT_TRUE(texture);
+        EXPECT_NE(texture->service_id(), 0u);
+      }
+    } else {
+      auto gl_representation =
+          shared_image_representation_factory_.ProduceGLTexture(mailbox);
+      ASSERT_TRUE(gl_representation);
+      auto scoped_access = gl_representation->BeginScopedAccess(
+          GL_SHARED_IMAGE_ACCESS_MODE_READ_CHROMIUM,
+          SharedImageRepresentation::AllowUnclearedAccess::kNo);
+      ASSERT_TRUE(scoped_access);
 
-    for (int plane = 0; plane < format.NumberOfPlanes(); ++plane) {
-      auto* texture = gl_representation->GetTexture(plane);
-      ASSERT_TRUE(texture);
-      EXPECT_NE(texture->service_id(), 0u);
+      for (int plane = 0; plane < format.NumberOfPlanes(); ++plane) {
+        auto* texture = gl_representation->GetTexture(plane);
+        ASSERT_TRUE(texture);
+        EXPECT_NE(texture->service_id(), 0u);
+      }
     }
   }
 }
@@ -737,6 +756,18 @@ TEST_F(ExternalVkImageBackingFactoryTest, InteropRejectsSeparateGLTexture) {
 
 TEST_F(ExternalVkImageBackingFactoryTest,
        SeparateGLTextureWriteAccessSyncsContent) {
+  // Disable `kUseDynamicBackingAllocations` to test ExternalVkImageBacking's
+  // legacy internal separate-GL-texture fallback path while the feature flag
+  // still exists as a kill-switch; when the feature is enabled,
+  // `ProduceGLTexture*()` CHECK-fails if `use_separate_gl_texture()` is true
+  // because CompoundImageBacking manages the separate GL backing.
+  // TODO(crbug.com/475210055): Remove this test along with the internal
+  // separate-GL-texture fallback in ExternalVkImageBacking once
+  // `kUseDynamicBackingAllocations` is cleaned up.
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kUseDynamicBackingAllocations);
+
   const auto format = viz::SinglePlaneFormat::kBGRA_8888;
   if (!ExternalVkImageBacking::UseSeparateGLTexture(context_state_.get(),
                                                     format)) {

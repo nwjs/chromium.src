@@ -356,6 +356,10 @@ class InProcessBrowserTest : public content::BrowserTestBase {
     open_about_blank_on_browser_launch_ = value;
   }
 
+  void set_force_in_process_storage_service(bool value) {
+    force_in_process_storage_service_ = value;
+  }
+
 #if BUILDFLAG(IS_CHROMEOS)
   void set_launch_browser_for_testing(
       std::unique_ptr<ash::full_restore::ScopedLaunchBrowserForTesting>
@@ -411,6 +415,10 @@ class InProcessBrowserTest : public content::BrowserTestBase {
   // True if the about:blank tab should be opened when the browser is launched.
   bool open_about_blank_on_browser_launch_ = true;
 
+  // True if the StorageService should be forced to run in-process in fast test
+  // builds (!EXPENSIVE_TEST_LOGIC_IS_ON()).
+  bool force_in_process_storage_service_ = true;
+
   // Use a default download directory to make sure downloads don't end up in the
   // system default location.
   base::ScopedTempDir default_download_dir_;
@@ -450,6 +458,10 @@ class InProcessBrowserTest : public content::BrowserTestBase {
 
   // Used to set up test factories for each browser context.
   base::CallbackListSubscription create_services_subscription_;
+
+  // Makes the omnibox popups create their WebUI content only when needed,
+  // unless `--disable-omnibox-popup-on-demand-creation` is passed.
+  std::optional<base::AutoReset<bool>> create_popup_webui_on_demand_;
 
 #if BUILDFLAG(IS_CHROMEOS)
   // ChromeOS does not create a browser by default when the full restore feature

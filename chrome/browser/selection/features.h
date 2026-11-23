@@ -19,6 +19,23 @@ BASE_DECLARE_FEATURE(kSmartSelectionServerSuggestions);
 // Execution Service.
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSmartSelectionServerTimeout);
 
+// If non-negative, crops the screenshot sent to the Model Execution Service to
+// the selected area expanded by a padding of this width in pixels.
+BASE_DECLARE_FEATURE_PARAM(int, kSmartSelectionServerCropPadding);
+
+// If non-negative and the screenshot sent to the Model Execution Service
+// exceeds this size, downscales the screenshot so that its longest side is at
+// most this value in pixels.
+BASE_DECLARE_FEATURE_PARAM(int, kSmartSelectionServerMaxScreenshotDimension);
+
+// If in the range [0, 100], encodes the screenshot as JPEG with the given
+// compression quality. Otherwise encodes the screenshot as PNG.
+BASE_DECLARE_FEATURE_PARAM(int, kSmartSelectionServerJpegQuality);
+
+// Whether to include the AnnotatedPageContent in the request sent to the Model
+// Execution Service.
+BASE_DECLARE_FEATURE_PARAM(bool, kSmartSelectionServerAppendApc);
+
 }  // namespace selection
 
 #endif  // CHROME_BROWSER_SELECTION_FEATURES_H_

@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/safe_browsing/model/chrome_enterprise_url_lookup_service_factory.h"
 
 #import <memory>
+#import <utility>
 
 #import "base/functional/callback_helpers.h"
 #import "components/enterprise/connectors/core/common.h"
@@ -52,26 +53,10 @@ bool IsProfileAffiliated(ProfileIOS* profile) {
 
 namespace safe_browsing {
 
-// static
-ChromeEnterpriseRealTimeUrlLookupServiceFactory*
-ChromeEnterpriseRealTimeUrlLookupServiceFactory::GetInstance() {
-  static base::NoDestructor<ChromeEnterpriseRealTimeUrlLookupServiceFactory>
-      instance;
-  return instance.get();
-}
-
-// static
-ChromeEnterpriseRealTimeUrlLookupService*
-ChromeEnterpriseRealTimeUrlLookupServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<ChromeEnterpriseRealTimeUrlLookupService>(
-          profile, /*create=*/true);
-}
-
 ChromeEnterpriseRealTimeUrlLookupServiceFactory::
-    ChromeEnterpriseRealTimeUrlLookupServiceFactory()
-    : ProfileKeyedServiceFactoryIOS(
+    ChromeEnterpriseRealTimeUrlLookupServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
           "ChromeEnterpriseRealTimeUrlLookupServiceFactory") {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(VerdictCacheManagerFactory::GetInstance());
@@ -80,9 +65,6 @@ ChromeEnterpriseRealTimeUrlLookupServiceFactory::
   DependsOn(SyncServiceFactory::GetInstance());
   DependsOn(policy::BrowserManagementServiceFactory::GetInstance());
 }
-
-ChromeEnterpriseRealTimeUrlLookupServiceFactory::
-    ~ChromeEnterpriseRealTimeUrlLookupServiceFactory() = default;
 
 std::unique_ptr<KeyedService>
 ChromeEnterpriseRealTimeUrlLookupServiceFactory::BuildServiceInstanceFor(

@@ -189,7 +189,7 @@ TEST_F(RunSegmenterTest, PunctuationDevanagariCombining) {
         FontFallbackPriority::kText}});
 }
 
-TEST_F(RunSegmenterTest, EmojiZWJSequences) {
+TEST_F(RunSegmenterTest, EmojiZwjSequences) {
   CheckRunsHorizontal(
       {{"👩‍👩‍👧‍👦👩‍❤️‍💋‍👨", USCRIPT_LATIN,
         OrientationIterator::kOrientationKeep,
@@ -202,7 +202,7 @@ TEST_F(RunSegmenterTest, EmojiZWJSequences) {
         OrientationIterator::kOrientationKeep, FontFallbackPriority::kText}});
 }
 
-TEST_F(RunSegmenterTest, EmojiZWJSequencesVerticalMixed) {
+TEST_F(RunSegmenterTest, EmojiZwjSequencesVerticalMixed) {
   CheckRunsMixed({{"👩‍👩‍👧‍👦👩‍❤️‍💋‍👨",
                    USCRIPT_COMMON, OrientationIterator::kOrientationKeep,
                    FontFallbackPriority::kEmojiEmoji}});
@@ -260,7 +260,7 @@ TEST_F(RunSegmenterTest, NonEmojiPresentationSymbols) {
         FontFallbackPriority::kText}});
 }
 
-TEST_F(RunSegmenterTest, CJKBracketsAfterLatinLetter) {
+TEST_F(RunSegmenterTest, CjkBracketsAfterLatinLetter) {
   CheckRunsHorizontal(
       {{"A", USCRIPT_LATIN, OrientationIterator::kOrientationKeep,
         FontFallbackPriority::kText},
@@ -271,7 +271,7 @@ TEST_F(RunSegmenterTest, CJKBracketsAfterLatinLetter) {
         FontFallbackPriority::kText}});
 }
 
-TEST_F(RunSegmenterTest, CJKBracketsAfterLatinParenthesis) {
+TEST_F(RunSegmenterTest, CjkBracketsAfterLatinParenthesis) {
   CheckRunsHorizontal(
       {{"A(", USCRIPT_LATIN, OrientationIterator::kOrientationKeep,
         FontFallbackPriority::kText},
@@ -284,7 +284,7 @@ TEST_F(RunSegmenterTest, CJKBracketsAfterLatinParenthesis) {
         FontFallbackPriority::kText}});
 }
 
-TEST_F(RunSegmenterTest, CJKBracketsWithLatinParenthesisInside) {
+TEST_F(RunSegmenterTest, CjkBracketsWithLatinParenthesisInside) {
   CheckRunsHorizontal(
       {{"A", USCRIPT_LATIN, OrientationIterator::kOrientationKeep,
         FontFallbackPriority::kText},
@@ -301,7 +301,7 @@ TEST_F(RunSegmenterTest, CJKBracketsWithLatinParenthesisInside) {
         FontFallbackPriority::kText}});
 }
 
-TEST_F(RunSegmenterTest, CJKBracketsAfterUnmatchingLatinParenthesis) {
+TEST_F(RunSegmenterTest, CjkBracketsAfterUnmatchingLatinParenthesis) {
   CheckRunsHorizontal(
       {{"A((", USCRIPT_LATIN, OrientationIterator::kOrientationKeep,
         FontFallbackPriority::kText},

@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.res.Resources;
+import android.util.DisplayMetrics;
 import android.view.View;
 
 import org.junit.After;
@@ -42,6 +43,7 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.glic.GlicEnabling;
@@ -50,6 +52,7 @@ import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.theme.ThemeColorProvider;
 import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.actions.ActionProperties;
@@ -85,6 +88,9 @@ public class BottomBarMediatorUnitTest {
     @Mock private Context mContext;
     @Mock private Resources mResources;
     @Mock private LayoutStateProvider mLayoutStateProvider;
+    @Mock private BottomBarEducationCoordinator mEducationCoordinator;
+    @Mock private Tab mTab;
+    private SettableNullableObservableSupplier<Tab> mTabSupplier;
 
     @Captor private ArgumentCaptor<BottomBarButtonManager.Listener> mButtonManagerListenerCaptor;
 
@@ -95,6 +101,7 @@ public class BottomBarMediatorUnitTest {
 
     private SettableNonNullObservableSupplier<Boolean> mHomepageEnabledSupplier;
     private SettableNonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
+    private SettableNonNullObservableSupplier<@ControlsPosition Integer> mToolbarPositionSupplier;
     private SettableNullableObservableSupplier<PropertyModel> mGlicActionSupplier;
     private SettableNullableObservableSupplier<PropertyModel> mNewTabActionSupplier;
     private PropertyModel mModel;
@@ -104,7 +111,11 @@ public class BottomBarMediatorUnitTest {
     @Before
     public void setUp() {
         mHomepageEnabledSupplier = ObservableSuppliers.createNonNull(false);
+        mTabSupplier = ObservableSuppliers.createNullable();
+        mTabSupplier.set(mTab);
+        when(mTab.isOffTheRecord()).thenReturn(false);
         mOmniboxFocusStateSupplier = ObservableSuppliers.createNonNull(false);
+        mToolbarPositionSupplier = ObservableSuppliers.createNonNull(ControlsPosition.TOP);
         mProfileSupplier = ObservableSuppliers.createNullable();
         mProfileSupplier.set(mProfile);
         when(mProfile.getOriginalProfile()).thenReturn(mProfile);
@@ -123,7 +134,10 @@ public class BottomBarMediatorUnitTest {
         when(mActionRegistry.get(ActionId.GLIC)).thenReturn(mGlicActionSupplier);
         when(mActionRegistry.get(ActionId.NEW_TAB)).thenReturn(mNewTabActionSupplier);
 
+        DisplayMetrics displayMetrics = new DisplayMetrics();
+        displayMetrics.density = 1.0f;
         when(mContext.getResources()).thenReturn(mResources);
+        when(mResources.getDisplayMetrics()).thenReturn(displayMetrics);
         when(mResources.getDimensionPixelSize(R.dimen.bottom_bar_new_tab_background_radius))
                 .thenReturn(12);
         when(mResources.getDimensionPixelSize(R.dimen.bottom_bar_new_tab_background_size))
@@ -413,7 +427,10 @@ public class BottomBarMediatorUnitTest {
                         mOmniboxFocusStateSupplier,
                         mPromoDialogCoordinator,
                         mActionRegistry,
-                        mLayoutStateProvider);
+                        mLayoutStateProvider,
+                        mToolbarPositionSupplier,
+                        /* educationCoordinator= */ null,
+                        mTabSupplier);
 
         // Bottom bar is visible, but startup promo flow hasn't finished. IPH should NOT be shown.
         assertTrue(mModel.get(BottomBarProperties.IS_VISIBLE));
@@ -725,7 +742,171 @@ public class BottomBarMediatorUnitTest {
         verify(mVisibilityDelegate, never()).onModelTokenChange();
     }
 
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testToolbarPositionChanged_RemoveTopPaddingForBottomOmniboxDefaultEnabled() {
+        createMediator();
+        assertNotNull(mMediator);
+
+        // Initially TOP toolbar: top padding not removed, height is 56px.
+        assertFalse(mModel.get(BottomBarProperties.IS_TOP_PADDING_REMOVED));
+        verify(mVisibilityDelegate).onHeightChanged(56);
+
+        // Switch to BOTTOM toolbar: top padding removed, height is 48px.
+        mToolbarPositionSupplier.set(ControlsPosition.BOTTOM);
+        assertTrue(mModel.get(BottomBarProperties.IS_TOP_PADDING_REMOVED));
+        verify(mVisibilityDelegate).onHeightChanged(48);
+
+        // Switch to HUB host: top padding restored on view while in Hub. The tabbed host container
+        // height must stay at 48px since the Hub hosts the view in its own container.
+        clearInvocations(mVisibilityDelegate);
+        mMediator.setParent(Host.HUB);
+        assertFalse(mModel.get(BottomBarProperties.IS_TOP_PADDING_REMOVED));
+        verify(mVisibilityDelegate, never()).onHeightChanged(56);
+
+        // Return to TABBED host: top padding removed again, tabbed height unchanged.
+        mMediator.setParent(Host.TABBED);
+        assertTrue(mModel.get(BottomBarProperties.IS_TOP_PADDING_REMOVED));
+        verify(mVisibilityDelegate, never()).onHeightChanged(56);
+
+        // Switch back to TOP toolbar: top padding restored, height is 56px.
+        clearInvocations(mVisibilityDelegate);
+        mToolbarPositionSupplier.set(ControlsPosition.TOP);
+        assertFalse(mModel.get(BottomBarProperties.IS_TOP_PADDING_REMOVED));
+        verify(mVisibilityDelegate).onHeightChanged(56);
+    }
+
+    @Test
+    @EnableFeatures(
+            ChromeFeatureList.ANDROID_BOTTOM_BAR + ":remove_top_padding_for_bottom_omnibox/false")
+    public void testToolbarPositionChanged_RemoveTopPaddingForBottomOmniboxDisabled() {
+        createMediator();
+        assertNotNull(mMediator);
+
+        assertFalse(mModel.get(BottomBarProperties.IS_TOP_PADDING_REMOVED));
+        verify(mVisibilityDelegate).onHeightChanged(56);
+
+        clearInvocations(mVisibilityDelegate);
+        mToolbarPositionSupplier.set(ControlsPosition.BOTTOM);
+        assertFalse(mModel.get(BottomBarProperties.IS_TOP_PADDING_REMOVED));
+        verify(mVisibilityDelegate).onHeightChanged(56);
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_BOTTOM_BAR + ":education_enabled/true"})
+    public void testEducationEnabled_SuppressesLegacyNewTabIph() {
+        PropertyModel newTabModel = new PropertyModel.Builder(ActionProperties.ALL_KEYS).build();
+        mNewTabActionSupplier.set(newTabModel);
+        createMediator();
+
+        // Simulate bottom bar becoming visible, which usually triggers IPH
+        assertNotNull(mMediator);
+        mMediator.onBottomBarStateChanged(true);
+
+        // Assert NewTab action model does NOT have an IPH intent
+        assertNull(newTabModel.get(ActionProperties.IPH_INTENT));
+    }
+
+    @Test
+    public void testEducation_MaybeShowCalled() {
+        createMediator(true, false);
+        assertNotNull(mMediator);
+        when(mEducationCoordinator.wouldShow(mProfile)).thenReturn(true);
+        mOmniboxFocusStateSupplier.set(false); // visible
+
+        assertTrue(mMediator.maybeClaimPromoSlotForEducation(mProfile));
+        mMediator.onStartupPromoFlowFinished(true);
+
+        verify(mEducationCoordinator).maybeShow();
+    }
+
+    @Test
+    public void testEducation_WouldShowTooltips_MaybeShowCalledWithoutClaimingSlot() {
+        createMediator(true, false);
+        assertNotNull(mMediator);
+        when(mEducationCoordinator.wouldShowTooltips(mProfile)).thenReturn(true);
+        mOmniboxFocusStateSupplier.set(false); // visible
+
+        // Even without claiming the promo slot, maybeShow should be called
+        // because there are pending tooltips that should bypass the startup queue.
+        mMediator.onStartupPromoFlowFinished(false);
+        verify(mEducationCoordinator).maybeShow();
+    }
+
+    @Test
+    public void testEducation_WouldShowTooltips_Incognito_NotCalled() {
+        when(mTab.isOffTheRecord()).thenReturn(true);
+        createMediator(true, false);
+        assertNotNull(mMediator);
+        when(mEducationCoordinator.wouldShowTooltips(mProfile)).thenReturn(true);
+        mOmniboxFocusStateSupplier.set(false); // visible
+
+        mMediator.onStartupPromoFlowFinished(false);
+        verify(mEducationCoordinator, never()).maybeShow();
+    }
+
+    @Test
+    public void testEducation_NotClaimed_NotCalled() {
+        createMediator(true, false);
+        assertNotNull(mMediator);
+        mOmniboxFocusStateSupplier.set(false); // visible
+
+        mMediator.onStartupPromoFlowFinished(false);
+        verify(mEducationCoordinator, never()).maybeShow();
+    }
+
+    @Test
+    public void testEducation_Incognito_NotCalled() {
+        when(mTab.isOffTheRecord()).thenReturn(true);
+        createMediator(true, false);
+        assertNotNull(mMediator);
+        when(mEducationCoordinator.wouldShow(mProfile)).thenReturn(true);
+        mOmniboxFocusStateSupplier.set(false); // visible
+
+        assertTrue(mMediator.maybeClaimPromoSlotForEducation(mProfile));
+        mMediator.onStartupPromoFlowFinished(true);
+
+        verify(mEducationCoordinator, never()).maybeShow();
+    }
+
+    @Test
+    public void testEducation_NotifiedWhenHidden() {
+        createMediator(true, false);
+        mOmniboxFocusStateSupplier.set(false); // visible
+        clearInvocations(mEducationCoordinator);
+
+        mOmniboxFocusStateSupplier.set(true); // invisible
+        verify(mEducationCoordinator).onBottomBarHidden();
+        verify(mEducationCoordinator, never()).dismiss();
+    }
+
+    @Test
+    public void testEducation_NullTab_NotCalled() {
+        mTabSupplier.set(null);
+        createMediator(true, false);
+        assertNotNull(mMediator);
+        when(mEducationCoordinator.wouldShow(mProfile)).thenReturn(true);
+        mOmniboxFocusStateSupplier.set(false); // visible
+
+        assertTrue(mMediator.maybeClaimPromoSlotForEducation(mProfile));
+        mMediator.onStartupPromoFlowFinished(true);
+
+        verify(mEducationCoordinator, never()).maybeShow();
+    }
+
+    @Test
+    public void testEducation_DestroyDoesNotDestroyCoordinator() {
+        createMediator(true, false);
+        assertNotNull(mMediator);
+        mMediator.destroy();
+        verify(mEducationCoordinator, never()).destroy();
+    }
+
     private void createMediator() {
+        createMediator(false, true);
+    }
+
+    private void createMediator(boolean withEducation, boolean finishStartupFlow) {
         mMediator =
                 new BottomBarMediator(
                         mContext,
@@ -738,7 +919,12 @@ public class BottomBarMediatorUnitTest {
                         mOmniboxFocusStateSupplier,
                         mPromoDialogCoordinator,
                         mActionRegistry,
-                        mLayoutStateProvider);
-        mMediator.onStartupPromoFlowFinished(false);
+                        mLayoutStateProvider,
+                        mToolbarPositionSupplier,
+                        withEducation ? mEducationCoordinator : null,
+                        mTabSupplier);
+        if (finishStartupFlow) {
+            mMediator.onStartupPromoFlowFinished(false);
+        }
     }
 }

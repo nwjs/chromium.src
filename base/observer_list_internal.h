@@ -5,6 +5,7 @@
 #ifndef BASE_OBSERVER_LIST_INTERNAL_H_
 #define BASE_OBSERVER_LIST_INTERNAL_H_
 
+#include <memory>
 #include <string>
 #include <type_traits>
 
@@ -29,8 +30,17 @@ template <base::RawPtrTraits ptr_traits = RawPtrTraits::kEmpty,
           bool use_raw_pointer = false>
 class BASE_EXPORT UncheckedObserverAdapter {
  public:
+#if DCHECK_IS_ON()
+  UncheckedObserverAdapter(const void* observer, bool collect_stack)
+      : ptr_(const_cast<void*>(observer)) {
+    if (collect_stack) {
+      stack_ = std::make_unique<base::debug::StackTrace>();
+    }
+  }
+#else
   explicit UncheckedObserverAdapter(const void* observer)
       : ptr_(const_cast<void*>(observer)) {}
+#endif  // DCHECK_IS_ON()
   UncheckedObserverAdapter(const UncheckedObserverAdapter&) = delete;
   UncheckedObserverAdapter& operator=(const UncheckedObserverAdapter&) = delete;
   UncheckedObserverAdapter(UncheckedObserverAdapter&& other) = default;
@@ -51,7 +61,9 @@ class BASE_EXPORT UncheckedObserverAdapter {
   }
 
 #if DCHECK_IS_ON()
-  std::string GetCreationStackString() const { return stack_.ToString(); }
+  std::string GetCreationStackString() const {
+    return stack_ ? stack_->ToString() : std::string();
+  }
 #endif  // DCHECK_IS_ON()
 
  private:
@@ -59,7 +71,7 @@ class BASE_EXPORT UncheckedObserverAdapter {
       std::conditional_t<use_raw_pointer, void*, raw_ptr<void, ptr_traits>>;
   StorageType ptr_;
 #if DCHECK_IS_ON()
-  base::debug::StackTrace stack_;
+  std::unique_ptr<base::debug::StackTrace> stack_;
 #endif  // DCHECK_IS_ON()
 };
 
@@ -70,7 +82,11 @@ class BASE_EXPORT UncheckedObserverAdapter {
 // whilst an iteration is in progress.
 class BASE_EXPORT CheckedObserverAdapter {
  public:
+#if DCHECK_IS_ON()
+  CheckedObserverAdapter(const CheckedObserver* observer, bool collect_stack);
+#else
   explicit CheckedObserverAdapter(const CheckedObserver* observer);
+#endif
 
   // Move-only construction and assignment is required to store this in STL
   // types.
@@ -86,6 +102,9 @@ class BASE_EXPORT CheckedObserverAdapter {
   }
 
   bool IsMarkedForRemoval() const {
+    if (weak_ptr_) {
+      return false;
+    }
     // If |weak_ptr_| was invalidated then this attempt to iterate over the
     // pointer is a UAF. Tip: If it's unclear where the `delete` occurred, try
     // adding CHECK(!IsInObserverList()) to the ~CheckedObserver() (destructor)
@@ -93,7 +112,7 @@ class BASE_EXPORT CheckedObserverAdapter {
     // observer can exist in an ObserverList so long as nothing iterates over
     // the ObserverList before the list itself is destroyed.
     CHECK(!weak_ptr_.WasInvalidated());
-    return weak_ptr_ == nullptr;
+    return true;
   }
 
   bool IsEqual(const CheckedObserver* rhs) const {
@@ -108,18 +127,21 @@ class BASE_EXPORT CheckedObserverAdapter {
         std::is_base_of_v<CheckedObserver, ObserverType>,
         "Observers should inherit from base::CheckedObserver. "
         "Use ObserverList<T>::Unchecked to observe with raw pointers.");
-    DCHECK(adapter.weak_ptr_);
-    return static_cast<ObserverType*>(adapter.weak_ptr_.get());
+    CheckedObserver* observer = adapter.weak_ptr_.get();
+    DCHECK(observer);
+    return static_cast<ObserverType*>(observer);
   }
 
 #if DCHECK_IS_ON()
-  std::string GetCreationStackString() const { return stack_.ToString(); }
+  std::string GetCreationStackString() const {
+    return stack_ ? stack_->ToString() : std::string();
+  }
 #endif
 
  private:
   WeakPtr<CheckedObserver> weak_ptr_;
 #if DCHECK_IS_ON()
-  base::debug::StackTrace stack_;
+  std::unique_ptr<base::debug::StackTrace> stack_;
 #endif
 };
 
@@ -129,7 +151,7 @@ class BASE_EXPORT CheckedObserverAdapter {
 // destructor of ObserverList. This invalidates all WeakLinkNodes. There is no
 // threading support.
 template <class ObserverList>
-class WeakLinkNode : public base::LinkNode<WeakLinkNode<ObserverList>> {
+class WeakLinkNode : public base::UnsafeLinkNode<WeakLinkNode<ObserverList>> {
  public:
   WeakLinkNode() = default;
   explicit WeakLinkNode(ObserverList* list) { SetList(list); }

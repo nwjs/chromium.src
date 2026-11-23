@@ -38,7 +38,6 @@ import java.util.function.Supplier;
 @NullMarked
 class LegacyTipsPromoHandler implements TipsPromoHandler {
     private final @TipsNotificationsFeatureType int mFeatureType;
-    private final WindowAndroid mWindowAndroid;
     private final boolean mIsIncognito;
     private final boolean mIsUserSignedIn;
     private final Supplier<QuickDeleteController> mQuickDeleteControllerCreator;
@@ -51,7 +50,6 @@ class LegacyTipsPromoHandler implements TipsPromoHandler {
      * Constructs a {@link LegacyTipsPromoHandler}.
      *
      * @param featureType The {@link TipsNotificationsFeatureType} for the promo.
-     * @param windowAndroid The {@link WindowAndroid} for UI actions.
      * @param isIncognito Whether the current tab model is incognito.
      * @param isUserSignedIn Whether the user is signed in to Chrome.
      * @param quickDeleteControllerCreator Supplier for {@link QuickDeleteController}.
@@ -62,7 +60,6 @@ class LegacyTipsPromoHandler implements TipsPromoHandler {
      */
     LegacyTipsPromoHandler(
             @TipsNotificationsFeatureType int featureType,
-            WindowAndroid windowAndroid,
             boolean isIncognito,
             boolean isUserSignedIn,
             Supplier<QuickDeleteController> quickDeleteControllerCreator,
@@ -71,7 +68,6 @@ class LegacyTipsPromoHandler implements TipsPromoHandler {
             Supplier<LayoutManager> layoutManagerSupplier,
             Supplier<LensController> lensControllerSupplier) {
         mFeatureType = featureType;
-        mWindowAndroid = windowAndroid;
         mIsIncognito = isIncognito;
         mIsUserSignedIn = isUserSignedIn;
         mQuickDeleteControllerCreator = quickDeleteControllerCreator;
@@ -87,7 +83,11 @@ class LegacyTipsPromoHandler implements TipsPromoHandler {
     }
 
     @Override
-    public void onPromoAccepted(Context context) {
+    public void onPromoAccepted(WindowAndroid windowAndroid) {
+        // The hosting activity outlives the promo in practice, but bail out rather than crash if
+        // its context has already been released.
+        Context context = windowAndroid.getContext().get();
+        if (context == null) return;
         switch (mFeatureType) {
             case TipsNotificationsFeatureType.ENHANCED_SAFE_BROWSING:
                 Intent intent =
@@ -107,7 +107,7 @@ class LegacyTipsPromoHandler implements TipsPromoHandler {
                 mLensControllerSupplier
                         .get()
                         .startLens(
-                                mWindowAndroid,
+                                windowAndroid,
                                 new LensIntentParams.Builder(
                                                 LensEntryPoint.TIPS_NOTIFICATIONS, mIsIncognito)
                                         .build());

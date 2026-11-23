@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -888,7 +889,7 @@ void AutomationV8Bindings::AddV8Routes() {
                              v8::ReturnValue<v8::Value> result,
                              AutomationAXTreeWrapper* tree_wrapper,
                              AXNode* node) {
-        const std::vector<int> line_starts =
+        base::span<const int> line_starts =
             node->GetIntListAttribute(ax::mojom::IntListAttribute::kLineStarts);
         v8::Local<v8::Context> context = isolate->GetCurrentContext();
         v8::Local<v8::Array> array_result(
@@ -1046,17 +1047,18 @@ void AutomationV8Bindings::AddV8Routes() {
         if (!node->HasIntListAttribute(attribute)) {
           return;
         }
-        const std::vector<int32_t>& attr_value =
+        base::span<const int32_t> attr_value =
             node->GetIntListAttribute(attribute);
 
         v8::Local<v8::Context> context = isolate->GetCurrentContext();
         v8::Local<v8::Array> array_result(
             v8::Array::New(isolate, attr_value.size()));
-        for (size_t i = 0; i < attr_value.size(); ++i)
+        for (size_t i = 0; i < attr_value.size(); ++i) {
           array_result
               ->CreateDataProperty(context, static_cast<uint32_t>(i),
                                    v8::Integer::New(isolate, attr_value[i]))
               .Check();
+        }
         result.Set(array_result);
       });
   RouteNodeIDPlusAttributeFunction(
@@ -1175,7 +1177,7 @@ void AutomationV8Bindings::AddV8Routes() {
       base::BindRepeating(
           [](v8::Isolate* isolate, v8::ReturnValue<v8::Value> result,
              AutomationAXTreeWrapper* tree_wrapper, AXNode* node) {
-            const std::vector<int32_t>& custom_action_ids =
+            base::span<const int32_t> custom_action_ids =
                 node->GetIntListAttribute(
                     ax::mojom::IntListAttribute::kCustomActionIds);
             if (custom_action_ids.empty()) {
@@ -1183,7 +1185,7 @@ void AutomationV8Bindings::AddV8Routes() {
               return;
             }
 
-            const std::vector<std::string>& custom_action_descriptions =
+            base::span<const std::string> custom_action_descriptions =
                 node->GetStringListAttribute(
                     ax::mojom::StringListAttribute::kCustomActionDescriptions);
             if (custom_action_ids.size() != custom_action_descriptions.size()) {
@@ -1926,11 +1928,11 @@ void AutomationV8Bindings::GetMarkers(v8::Isolate* isolate,
     return;
   }
 
-  const std::vector<int32_t>& marker_starts =
+  base::span<const int32_t> marker_starts =
       node->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerStarts);
-  const std::vector<int32_t>& marker_ends =
+  base::span<const int32_t> marker_ends =
       node->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerEnds);
-  const std::vector<int32_t>& marker_types =
+  base::span<const int32_t> marker_types =
       node->GetIntListAttribute(ax::mojom::IntListAttribute::kMarkerTypes);
 
   v8::LocalVector<v8::Object> markers(isolate);

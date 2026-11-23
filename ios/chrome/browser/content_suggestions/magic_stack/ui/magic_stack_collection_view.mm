@@ -464,6 +464,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
       [self.diffableDataSource.snapshot itemIdentifiers];
   if ([items count] > page && !_hasSeenEphemeralCard &&
       [self isCardEphemeral:items[page]]) {
+    _hasSeenEphemeralCard = YES;
     [self.audience logEphemeralCardVisibility:items[page].type];
   }
 }
@@ -493,6 +494,7 @@ typedef NSDiffableDataSourceSnapshot<NSString*, MagicStackModule*>
     case ContentSuggestionsModuleType::kSendTabPromo:
     case ContentSuggestionsModuleType::kTipsWithProductImage:
     case ContentSuggestionsModuleType::kTips:
+    case ContentSuggestionsModuleType::kTipsNTPThemeActionable:
     case ContentSuggestionsModuleType::kAppBundlePromo:
     case ContentSuggestionsModuleType::kDefaultBrowser:
       return YES;

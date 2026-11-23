@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -30,6 +31,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.ListAdapter;
 import android.widget.ListView;
@@ -109,18 +111,21 @@ import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.listmenu.ListSectionDividerProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
+import org.chromium.ui.widget.AnchoredPopupWindow;
 import org.chromium.ui.widget.RectProvider;
 import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 /** Unit tests for {@link TabGroupContextMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures({
     ChromeFeatureList.DATA_SHARING,
+    ChromeFeatureList.TAB_GROUP_CONTEXT_MENU_LIVE_TITLE_UPDATE
 })
 @DisableFeatures({TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS})
 public class TabGroupContextMenuCoordinatorUnitTest {
@@ -662,6 +667,53 @@ public class TabGroupContextMenuCoordinatorUnitTest {
     }
 
     @Test
+    @Feature("Tab Strip Group Context Menu")
+    public void testLiveUpdateGroupTitle_Debounced() {
+        mTabGroupContextMenuCoordinator.buildCustomView(mMenuView, /* isIncognito= */ false);
+        EditText groupTitleEditText =
+                mTabGroupContextMenuCoordinator.getGroupTitleEditTextForTesting();
+
+        // 1. Rapid typing within 50ms does not commit intermediate text (< 100ms debounce).
+        groupTitleEditText.setText("T");
+        ShadowLooper.idleMainLooper(50, TimeUnit.MILLISECONDS);
+        groupTitleEditText.setText("Test");
+        verify(mTabModel, never()).setTabGroupTitle(any(), any());
+
+        // 2. Waiting for the 100ms debounce commits the final text.
+        ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS);
+        verify(mTabModel).setTabGroupTitle(eq(TAB_GROUP_ID), eq("Test"));
+
+        // 3. Clearing the text deletes the title in TabModel without wiping the active EditText.
+        groupTitleEditText.setText("");
+        ShadowLooper.idleMainLooper(100, TimeUnit.MILLISECONDS);
+        verify(mTabModel).deleteTabGroupTitle(TAB_GROUP_ID);
+        assertEquals("", groupTitleEditText.getText().toString());
+    }
+
+    @Test
+    @Feature("Tab Strip Group Context Menu")
+    public void testLiveUpdateGroupTitle_RemoteUpdateClearsModifiedTitle() {
+        mTabGroupContextMenuCoordinator.buildCustomView(mMenuView, /* isIncognito= */ false);
+        mTabGroupContextMenuCoordinator.showMenu(new RectProvider(), TAB_GROUP_ID);
+        EditText groupTitleEditText =
+                mTabGroupContextMenuCoordinator.getGroupTitleEditTextForTesting();
+
+        // User was editing the field locally.
+        groupTitleEditText.setText("local edit");
+
+        // A remote sync update arrives while the menu is showing.
+        mTabGroupContextMenuCoordinator
+                .getTabGroupObserverForTesting()
+                .didChangeTabGroupTitle(TAB_GROUP_ID, "Remote Sync Title");
+        assertEquals("Remote Sync Title", groupTitleEditText.getText().toString());
+
+        // Dismiss menu without further user edits; verify local edit does not overwrite remote
+        // title.
+        mTabGroupContextMenuCoordinator.updateTabGroupTitle();
+        verify(mTabModel, never()).setTabGroupTitle(eq(TAB_GROUP_ID), eq("local edit"));
+    }
+
+    @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
     @Config(qualifiers = "sw600dp")
     @Feature("Vertical Tabs Tab Group Context Menu")
@@ -676,6 +728,11 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         assertTrue(
                 "Menu should be showing initially",
                 mTabGroupContextMenuCoordinator.isMenuShowing());
+        AnchoredPopupWindow menuWindow = mTabGroupContextMenuCoordinator.getMenuWindowForTesting();
+        assertNotNull(menuWindow);
+        assertNotEquals(
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING,
+                menuWindow.getSoftInputModeForTesting());
 
         // Extract the internal listener that we defined/modified in the constructor.
         KeyboardVisibilityDelegate.KeyboardVisibilityListener listener =
@@ -703,6 +760,70 @@ public class TabGroupContextMenuCoordinatorUnitTest {
         assertTrue(
                 "Menu should remain displayable after layout update",
                 mTabGroupContextMenuCoordinator.isMenuShowing());
+
+        // Simulate the keyboard dismissing (isShowing = false).
+        listener.keyboardVisibilityChanged(false);
+
+        // For vertical tabs, dismissing the keyboard should NOT schedule a layout task to
+        // avoid jarring flip-flop jumping.
+        assertTrue(
+                "The keyboard dismissal on vertical strip must not schedule a layout task",
+                ShadowLooper.getShadowMainLooper().isIdle());
+    }
+
+    @Test
+    @Config(qualifiers = "sw600dp")
+    @Feature("Tab Strip Group Context Menu")
+    public void testKeyboardShowing_HorizontalStrip_ForcesMenuLayoutUpdate() {
+        mTabGroupContextMenuCoordinator.buildCustomView(mMenuView, /* isIncognito= */ false);
+        mTabGroupContextMenuCoordinator.showMenu(new RectProvider(), TAB_GROUP_ID);
+        assertTrue(
+                "Menu should be showing initially",
+                mTabGroupContextMenuCoordinator.isMenuShowing());
+        AnchoredPopupWindow menuWindow = mTabGroupContextMenuCoordinator.getMenuWindowForTesting();
+        assertNotNull(menuWindow);
+        assertEquals(
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING,
+                menuWindow.getSoftInputModeForTesting());
+
+        // Extract the internal listener that we defined/modified in the constructor.
+        KeyboardVisibilityDelegate.KeyboardVisibilityListener listener =
+                mTabGroupContextMenuCoordinator.getKeyboardVisibilityListenerForTesting();
+        assertNotNull("KeyboardVisibilityListener should not be null", listener);
+
+        // Clear all initialization/inflation tasks so the looper queue is completely empty.
+        ShadowLooper.getShadowMainLooper().runToEndOfTasks();
+        assertTrue(
+                "Looper must be idle before simulating the keyboard event",
+                ShadowLooper.getShadowMainLooper().isIdle());
+
+        // Simulate the keyboard surfacing (isShowing = true).
+        listener.keyboardVisibilityChanged(true);
+
+        // Check if a layout task was successfully scheduled on the looper.
+        assertFalse(
+                "The keyboard visibility change must schedule a layout task, making the looper"
+                        + " non-idle",
+                ShadowLooper.getShadowMainLooper().isIdle());
+
+        // Execute the posted layout task cleanly to finish the test cycle.
+        ShadowLooper.getShadowMainLooper().runToEndOfTasks();
+
+        assertTrue(
+                "Menu should remain displayable after layout update",
+                mTabGroupContextMenuCoordinator.isMenuShowing());
+
+        // Simulate the keyboard dismissing (isShowing = false) while menu remains open.
+        listener.keyboardVisibilityChanged(false);
+
+        // For horizontal tabs, dismissing the keyboard must schedule a layout task to restore
+        // menu height.
+        assertFalse(
+                "The keyboard dismissal on horizontal strip must schedule a layout task",
+                ShadowLooper.getShadowMainLooper().isIdle());
+
+        ShadowLooper.getShadowMainLooper().runToEndOfTasks();
+        assertTrue(mTabGroupContextMenuCoordinator.isMenuShowing());
     }
 
     @Test
@@ -1356,6 +1477,72 @@ public class TabGroupContextMenuCoordinatorUnitTest {
 
         // 2. Verify menu width.
         verifyMenuWidthAndTabGroupColorPicker(contentView);
+    }
+
+    @Test
+    @Feature("Tab Strip Group Context Menu")
+    public void testTitleEditor_DoubleTapReselectsText() {
+        mTabGroupContextMenuCoordinator.showMenu(new RectProvider(), TAB_GROUP_ID);
+
+        View contentView = mTabGroupContextMenuCoordinator.getContentViewForTesting();
+        assertNotNull(contentView);
+        EditText titleEditText = contentView.findViewById(R.id.tab_group_title);
+        assertNotNull(titleEditText);
+        assertTrue(titleEditText.getText().length() > 0);
+
+        // 1. First double-tap: deselect or place cursor at beginning, then reselect.
+        titleEditText.setSelection(0, 0);
+        assertEquals(0, titleEditText.getSelectionStart());
+        assertEquals(0, titleEditText.getSelectionEnd());
+
+        // Simulate double-tap within double-tap timeout.
+        long now = SystemClock.uptimeMillis();
+        MotionEvent down1 = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 10f, 10f, 0);
+        MotionEvent up1 = MotionEvent.obtain(now, now + 20, MotionEvent.ACTION_UP, 10f, 10f, 0);
+        MotionEvent down2 =
+                MotionEvent.obtain(now + 100, now + 100, MotionEvent.ACTION_DOWN, 10f, 10f, 0);
+        MotionEvent up2 =
+                MotionEvent.obtain(now + 100, now + 120, MotionEvent.ACTION_UP, 10f, 10f, 0);
+
+        titleEditText.dispatchTouchEvent(down1);
+        titleEditText.dispatchTouchEvent(up1);
+        titleEditText.dispatchTouchEvent(down2);
+        titleEditText.dispatchTouchEvent(up2);
+
+        assertEquals(0, titleEditText.getSelectionStart());
+        assertEquals(titleEditText.getText().length(), titleEditText.getSelectionEnd());
+
+        down1.recycle();
+        up1.recycle();
+        down2.recycle();
+        up2.recycle();
+
+        // 2. Second double-tap cycle: deselect and wait past double-tap window to verify repeated
+        // re-selection.
+        titleEditText.setSelection(1, 1);
+        assertEquals(1, titleEditText.getSelectionStart());
+        assertEquals(1, titleEditText.getSelectionEnd());
+
+        now += 500;
+        MotionEvent down3 = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, 10f, 10f, 0);
+        MotionEvent up3 = MotionEvent.obtain(now, now + 20, MotionEvent.ACTION_UP, 10f, 10f, 0);
+        MotionEvent down4 =
+                MotionEvent.obtain(now + 100, now + 100, MotionEvent.ACTION_DOWN, 10f, 10f, 0);
+        MotionEvent up4 =
+                MotionEvent.obtain(now + 100, now + 120, MotionEvent.ACTION_UP, 10f, 10f, 0);
+
+        titleEditText.dispatchTouchEvent(down3);
+        titleEditText.dispatchTouchEvent(up3);
+        titleEditText.dispatchTouchEvent(down4);
+        titleEditText.dispatchTouchEvent(up4);
+
+        assertEquals(0, titleEditText.getSelectionStart());
+        assertEquals(titleEditText.getText().length(), titleEditText.getSelectionEnd());
+
+        down3.recycle();
+        up3.recycle();
+        down4.recycle();
+        up4.recycle();
     }
 
     @Test

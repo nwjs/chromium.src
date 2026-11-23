@@ -7,7 +7,6 @@
 #import <utility>
 
 #import "base/feature_list.h"
-#import "base/no_destructor.h"
 #import "base/strings/string_util.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
@@ -28,22 +27,11 @@
 
 namespace autofill {
 
-// static
-PersonalDataManager* PersonalDataManagerFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<PersonalDataManager>(
-      profile, /*create=*/true);
-}
-
-// static
-PersonalDataManagerFactory* PersonalDataManagerFactory::GetInstance() {
-  static base::NoDestructor<PersonalDataManagerFactory> instance;
-  return instance.get();
-}
-
-PersonalDataManagerFactory::PersonalDataManagerFactory()
-    : ProfileKeyedServiceFactoryIOS("PersonalDataManager",
-                                    ProfileSelection::kRedirectedInIncognito) {
+PersonalDataManagerFactory::PersonalDataManagerFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "PersonalDataManager",
+          ProfileSelection::kRedirectedInIncognito) {
   DependsOn(IdentityManagerFactory::GetInstance());
   DependsOn(ios::HistoryServiceFactory::GetInstance());
   DependsOn(ios::WebDataServiceFactory::GetInstance());
@@ -51,8 +39,6 @@ PersonalDataManagerFactory::PersonalDataManagerFactory()
   DependsOn(AutofillImageFetcherFactory::GetInstance());
   DependsOn(SyncServiceFactory::GetInstance());
 }
-
-PersonalDataManagerFactory::~PersonalDataManagerFactory() = default;
 
 std::unique_ptr<KeyedService>
 PersonalDataManagerFactory::BuildServiceInstanceFor(ProfileIOS* profile) const {
@@ -63,8 +49,7 @@ PersonalDataManagerFactory::BuildServiceInstanceFor(ProfileIOS* profile) const {
       ios::WebDataServiceFactory::GetAutofillWebDataForAccount(
           profile, ServiceAccessType::EXPLICIT_ACCESS);
   history::HistoryService* history_service =
-      ios::HistoryServiceFactory::GetForProfile(
-          profile, ServiceAccessType::EXPLICIT_ACCESS);
+      ios::HistoryServiceFactory::GetForProfile(profile);
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(profile);
   AutofillImageFetcherBase* autofill_image_fetcher =
@@ -72,7 +57,6 @@ PersonalDataManagerFactory::BuildServiceInstanceFor(ProfileIOS* profile) const {
 
   return std::make_unique<PersonalDataManager>(
       local_storage, account_storage, profile->GetPrefs(),
-      GetApplicationContext()->GetLocalState(),
       IdentityManagerFactory::GetForProfile(profile), history_service,
       sync_service, StrikeDatabaseFactory::GetForProfile(profile),
       autofill_image_fetcher,

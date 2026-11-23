@@ -29,7 +29,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
-#include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
@@ -127,8 +126,9 @@ BrowserWindowInterface* BrowserTabStripModelDelegate::CreateNewStripWithTabs(
     std::vector<NewStripContents> tabs,
     const gfx::Rect& window_bounds,
     bool maximize) {
-  DCHECK(WindowFeatureController::From(browser_)->CanSupportWindowFeature(
-      WindowFeatureController::WindowFeature::kFeatureTabStrip));
+  CHECK(WindowFeatureController::From(browser_)->CanSupportWindowFeature(
+            WindowFeatureController::WindowFeature::kFeatureTabStrip),
+        base::NotFatalUntil::M162);
 
   // Create an empty new browser window the same size as the old one.
   BrowserWindowCreateParams params(browser_->GetProfile(), true);
@@ -162,9 +162,7 @@ BrowserWindowInterface* BrowserTabStripModelDelegate::CreateNewStripWithTabs(
 }
 
 void BrowserTabStripModelDelegate::WillAddWebContents(
-    content::WebContents* contents) {
-  TabHelpers::AttachTabHelpers(contents);
-}
+    content::WebContents* contents) {}
 
 int BrowserTabStripModelDelegate::GetDragActions() const {
   return TabStripModelDelegate::TAB_TEAROFF_ACTION |

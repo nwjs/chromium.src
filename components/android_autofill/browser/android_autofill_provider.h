@@ -113,6 +113,8 @@ class AndroidAutofillProvider : public AutofillProvider,
 
   bool GetCachedIsAutofilled(const FormFieldData& field) const override;
 
+  bool IsAutofillDisabled() const override;
+
   void MaybeInitKeyboardSuppressor() override;
 
  private:
@@ -127,6 +129,7 @@ class AndroidAutofillProvider : public AutofillProvider,
                          const gfx::RectF& bounds) override;
   void OnShowBottomSheetResult(bool is_shown,
                                bool provided_autofill_structure) override;
+  void OnDidShowSuggestions() override;
   bool HasPasskeyRequest() override;
   void OnTriggerPasskeyRequest() override;
 
@@ -309,7 +312,6 @@ class AndroidAutofillProvider : public AutofillProvider,
     // Information about a field in an autofill session.
     struct CurrentFieldInfo {
       FieldGlobalId id;
-      FieldTypeGroup group = {FieldTypeGroup::kNoGroup};
       url::Origin origin;
     };
 
@@ -377,7 +379,7 @@ class AndroidAutofillProvider : public AutofillProvider,
   static constexpr SessionId kMinimumSessionId = SessionId(1);
   static constexpr SessionId kMaximumSessionId = SessionId(0xffff);
   // The last assigned session id.
-  SessionId last_session_id_ = kMaximumSessionId;
+  std::optional<SessionId> last_session_id_;
 
   // The bridge for C++ <-> Java communication.
   std::unique_ptr<AndroidAutofillProviderBridge> bridge_;

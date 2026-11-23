@@ -109,17 +109,18 @@ safe_browsing::NotificationRevocationSource GetNotificationRevocationSource(
 // suspicious notification.
 bool HasShowOriginalSuspiciousNotification(HostContentSettingsMap* hcsm,
                                            GURL url) {
-  DCHECK(hcsm);
-  DCHECK(url.is_valid());
+  CHECK(hcsm, base::NotFatalUntil::M162);
+  CHECK(url.is_valid(), base::NotFatalUntil::M162);
   base::Value stored_value(hcsm->GetWebsiteSetting(
       url, url, ContentSettingsType::SUSPICIOUS_NOTIFICATION_SHOW_ORIGINAL));
 
   if (stored_value.is_none()) {
     return false;
   }
-  DCHECK(stored_value.is_dict());
-  DCHECK(stored_value.GetDict().contains(
-      safe_browsing::kSuspiciousNotificationShowOriginalKey));
+  CHECK(stored_value.is_dict(), base::NotFatalUntil::M162);
+  CHECK(stored_value.GetDict().contains(
+            safe_browsing::kSuspiciousNotificationShowOriginalKey),
+        base::NotFatalUntil::M162);
   return stored_value.GetDict()
       .FindBool(safe_browsing::kSuspiciousNotificationShowOriginalKey)
       .value_or(false);
@@ -134,8 +135,8 @@ bool ShouldCheckSuspiciousContentRevocationThreshold(
     Profile* profile,
     HostContentSettingsMap* hcsm,
     GURL url) {
-  DCHECK(hcsm);
-  DCHECK(url.is_valid());
+  CHECK(hcsm, base::NotFatalUntil::M162);
+  CHECK(url.is_valid(), base::NotFatalUntil::M162);
   // Notification permission for the site is not enabled or is not controlled by
   // the user (e.g. policy and extensions).
   if (hcsm->GetUserModifiableContentSetting(
@@ -219,13 +220,13 @@ void AbusiveNotificationPermissionsManager::
         bool is_ignored,
         safe_browsing::NotificationRevocationSource revocation_source,
         const content_settings::ContentSettingConstraints& constraints) {
-  DCHECK(url.is_valid());
+  CHECK(url.is_valid(), base::NotFatalUntil::M162);
   // If the `url` should be ignore during future auto revocation, then the
   // constraint should not expire. If the lifetime is zero, then the setting
   // does not expire.
   if (is_ignored) {
-    DCHECK(constraints.lifetime().is_zero());
-    DCHECK(constraints.expiration() == base::Time());
+    CHECK(constraints.lifetime().is_zero(), base::NotFatalUntil::M162);
+    CHECK(constraints.expiration() == base::Time(), base::NotFatalUntil::M162);
     PermissionRevocationRequest::ExemptOriginFromFutureRevocations(hcsm, url);
   } else {
     PermissionRevocationRequest::UndoExemptOriginFromFutureRevocations(hcsm,
@@ -267,8 +268,9 @@ void AbusiveNotificationPermissionsManager::
 // static
 bool AbusiveNotificationPermissionsManager::
     MaybeRevokeSuspiciousNotificationPermission(Profile* profile, GURL url) {
-  DCHECK(base::FeatureList::IsEnabled(
-      safe_browsing::kAutoRevokeSuspiciousNotification));
+  CHECK(base::FeatureList::IsEnabled(
+            safe_browsing::kAutoRevokeSuspiciousNotification),
+        base::NotFatalUntil::M162);
   auto* hcsm = HostContentSettingsMapFactory::GetForProfile(profile);
   if (!url.is_valid() || !hcsm) {
     return false;
@@ -318,7 +320,7 @@ safe_browsing::NotificationRevocationSource
 AbusiveNotificationPermissionsManager::
     GetRevokedAbusiveNotificationRevocationSource(HostContentSettingsMap* hcsm,
                                                   GURL setting_url) {
-  DCHECK(setting_url.is_valid());
+  CHECK(setting_url.is_valid(), base::NotFatalUntil::M162);
   base::Value stored_value =
       safety_hub_util::GetRevokedAbusiveNotificationPermissionsSettingValue(
           hcsm, setting_url);
@@ -337,7 +339,7 @@ AbusiveNotificationPermissionsManager::
 bool AbusiveNotificationPermissionsManager::IsUrlRevokedDueToSuspiciousContent(
     HostContentSettingsMap* hcsm,
     GURL setting_url) {
-  DCHECK(setting_url.is_valid());
+  CHECK(setting_url.is_valid(), base::NotFatalUntil::M162);
   return GetRevokedAbusiveNotificationRevocationSource(hcsm, setting_url) ==
          safe_browsing::NotificationRevocationSource::
              kSuspiciousContentAutoRevocation;
@@ -345,7 +347,7 @@ bool AbusiveNotificationPermissionsManager::IsUrlRevokedDueToSuspiciousContent(
 
 void AbusiveNotificationPermissionsManager::
     CheckNotificationPermissionOrigins() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   if (!database_manager_) {
     return;
   }
@@ -468,12 +470,16 @@ void AbusiveNotificationPermissionsManager::OnPermissionChanged(
   RecordAbusiveNotificationPermissionChangedHistogram(
       is_ignored, revocation_source, new_setting);
 
-  // If the user re-granted notification permission revoked due to suspicious
-  // content, set revocation entry to ignore so the permission will not be
-  // revoked again.
+  // If the user re-granted a notification permission that was auto-revoked,
+  // set revocation entry to ignore so the permission will not be
+  // auto-revoked again.
   if (new_setting == CONTENT_SETTING_ALLOW &&
-      revocation_source == safe_browsing::NotificationRevocationSource::
-                               kSuspiciousContentAutoRevocation) {
+      (revocation_source == safe_browsing::NotificationRevocationSource::
+                                kSuspiciousContentAutoRevocation ||
+       revocation_source == safe_browsing::NotificationRevocationSource::
+                                kSocialEngineeringBlocklist ||
+       revocation_source == safe_browsing::NotificationRevocationSource::
+                                kSafeBrowsingUnwantedRevocation)) {
     SetRevokedAbusiveNotificationPermission(hcsm_.get(), setting_url,
                                             /*is_ignored=*/true);
     // Return without deleting abusive revocation entry.
@@ -549,7 +555,7 @@ AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
 AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
     ~SafeBrowsingCheckClient() {
   if (timer_.IsRunning()) {
-    DCHECK(database_manager_);
+    CHECK(database_manager_, base::NotFatalUntil::M162);
     database_manager_->CancelCheck(this);
     timer_.Stop();
   }
@@ -563,7 +569,7 @@ AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
 
 void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
     CheckSocialEngineeringBlocklist() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   // Set a timer to fail open, i.e. call it "allowlisted", if the full
   // check takes too long.
   auto timeout_callback =
@@ -577,7 +583,7 @@ void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
 
   // Check the phishing blocklist, since this is where we'll find blocklisted
   // abusive notification sites.
-  DCHECK(database_manager_);
+  CHECK(database_manager_, base::NotFatalUntil::M162);
   bool is_safe_synchronously = database_manager_->CheckBrowseUrl(
       url_,
       safe_browsing::CreateSBThreatTypeSet(
@@ -598,7 +604,7 @@ void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
 void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
     OnCheckBrowseUrlResult(const GURL& url,
                            safe_browsing::SBThreatType threat_type) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
   // Stop the timer to avoid `OnCheckBlocklistTimeout` from being called, since
   // we got a blocklist check result in time.
   timer_.Stop();
@@ -635,8 +641,8 @@ void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
 
 void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
     OnCheckBlocklistTimeout() {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(database_manager_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
+  CHECK(database_manager_, base::NotFatalUntil::M162);
   database_manager_->CancelCheck(this);
   LogCheckResult(CheckResult::kTimeout);
   safe_browsing_request_clients_->erase(this);
@@ -653,8 +659,8 @@ void AbusiveNotificationPermissionsManager::SafeBrowsingCheckClient::
 
 void AbusiveNotificationPermissionsManager::PerformSafeBrowsingChecks(
     GURL url) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(database_manager_);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
+  CHECK(database_manager_, base::NotFatalUntil::M162);
   auto new_sb_check = std::make_unique<SafeBrowsingCheckClient>(
       safe_browsing::SafeBrowsingDatabaseManager::Client::GetPassKey(),
       database_manager_.get(), v5_get_hash_protocol_manager_,
@@ -667,7 +673,7 @@ void AbusiveNotificationPermissionsManager::PerformSafeBrowsingChecks(
 
 bool AbusiveNotificationPermissionsManager::ShouldCheckOrigin(
     const ContentSettingPatternSource& setting) const {
-  DCHECK(hcsm_);
+  CHECK(hcsm_, base::NotFatalUntil::M162);
   // Skip wildcard patterns that don't belong to a single origin.
   if (!setting.primary_pattern.MatchesSingleOrigin()) {
     return false;
@@ -711,12 +717,19 @@ bool AbusiveNotificationPermissionsManager::ShouldCheckOrigin(
     if (stored_value.is_none()) {
       return true;
     }
+    // Track how often we hit this desynced state (where the setting is ALLOW
+    // but the revocation status is not marked as ignore).
+    bool is_ignored = safety_hub_util::IsAbusiveNotificationRevocationIgnored(
+        hcsm_.get(), setting.primary_pattern.ToRepresentativeUrl());
+    base::UmaHistogramBoolean(
+        "Settings.SafetyHub.AbusiveNotificationPermissionRevocation."
+        "InconsistentStateEncountered",
+        !is_ignored);
     // If the url has a REVOKED_ABUSIVE_NOTIFICATION_PERMISSIONS setting value
     // and the NOTIFICATIONS permission is set to CONTENT_SETTING_ALLOW, then
-    // the user chose to ignore the origin for future revocations so the setting
-    // value should specify ignore.
-    DCHECK(safety_hub_util::IsAbusiveNotificationRevocationIgnored(
-        hcsm_.get(), setting.primary_pattern.ToRepresentativeUrl()));
+    // the user chose to ignore the origin for future revocations. This could have been done
+    // by re-allowing in Safety Hub or otherwise manually updating the notification permission
+    // following an auto-revocation. We do not need to check the origin again.
     return false;
   }
   return false;

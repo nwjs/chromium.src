@@ -1,3 +1,5 @@
+              // Defer the click to the next task to ensure the Promise resolves
+              // before the click event triggers iframe unmounting and teardown.
 // Copyright 2026 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -121,13 +123,13 @@ class ContextualTasksLensOverlayControllerInteractiveUiTest
   void SetUpFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
-        {{contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {lens::features::kLensOverlayTextSelectionContextMenuEntrypoint,
-          {{"contextualize", "true"}}},
-         {lens::features::kLensSidePanelUnification,
-          {{"allow-signed-out", "true"}}}},
-        /*disabled_features=*/{features::kNonBlockingOsClipboardReads});
+        {{lens::features::kLensOverlayTextSelectionContextMenuEntrypoint,
+          {{"contextualize", "true"}}}},
+        /*disabled_features=*/
+        {features::kNonBlockingOsClipboardReads,
+         // These tests expect closing the side panel to close Lens sessions in
+         // all tabs that share its task.
+         contextual_tasks::kContextualTasksSidePanelTabState});
   }
 
   void SetUpOnMainThread() override {
@@ -857,6 +859,7 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksLensOverlayControllerInteractiveUiTest,
   const GURL page_url =
       embedded_test_server()->GetURL(kDocumentWithNamedElement);
   const DeepQuery kPathToParagraph{"p"};
+  base::HistogramTester histogram_tester;
 
   RunTestSequence(
       // Step 1: Navigate the active tab to a webpage and select text.
@@ -888,18 +891,14 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksLensOverlayControllerInteractiveUiTest,
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
       CheckResult(
           [this]() {
-            return LensSearchController::FromTabWebContents(
-                       browser()->GetTabStripModel()->GetWebContentsAt(0))
-                ->invocation_source();
-          },
-          std::make_optional(
-              lens::LensOverlayInvocationSource::kContentAreaContextMenuText),
-          "Text query was issued from the text selection context menu"),
-      CheckResult(
-          [this]() {
             return SidePanelUI::From(browser())->IsSidePanelShowing();
           },
           true));
+
+  histogram_tester.ExpectUniqueSample(
+      "Lens.Overlay.ContextualTasks.QueryEligibility.ByInvocationSource."
+      "ContentAreaContextMenuText",
+      lens::LensContextualTasksQueryEligibility::kEligible, 1);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -916,12 +915,8 @@ class ContextualTasksLensOverlayEphemeralButtonInteractiveUiTest
   void SetUpFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
-        {{contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksEphemeralBrandedEntryPoint,
-          {{"ContextualTasksEntryPoint", "toolbar-ephemeral-branded"}}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {lens::features::kLensSidePanelUnification,
-          {{"allow-signed-out", "true"}}}},
+        {{contextual_tasks::kContextualTasksEphemeralBrandedEntryPoint,
+          {{"ContextualTasksEntryPoint", "toolbar-ephemeral-branded"}}}},
         /*disabled_features=*/{features::kNonBlockingOsClipboardReads});
   }
 };
@@ -954,7 +949,11 @@ IN_PROC_BROWSER_TEST_P(
         controller->Close();
       }),
       WaitForContextualPanelAndLensToClose(),
-      WaitForShow(kContextualTasksEphemeralToolbarButtonElementId));
+      GetParam() == contextual_tasks::UserVariation::kIncognito
+          ? Steps(EnsureNotPresent(
+                kContextualTasksEphemeralToolbarButtonElementId))
+          : Steps(
+                WaitForShow(kContextualTasksEphemeralToolbarButtonElementId)));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -984,14 +983,7 @@ class ContextualTasksLensOverlayControllerEligibilityInteractiveUiTest
   }
 
   void SetUpFeatureList() override {
-    feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{contextual_tasks::kContextualTasks, {}},
-                              {contextual_tasks::
-                                   kContextualTasksForceEntryPointEligibility,
-                               {}},
-                              {lens::features::kLensSidePanelUnification,
-                               {{"allow-signed-out", "true"}}}},
-        /*disabled_features=*/{features::kNonBlockingOsClipboardReads});
+    feature_list_.InitAndDisableFeature(features::kNonBlockingOsClipboardReads);
   }
 
   std::unique_ptr<KeyedService> BuildMockAimServiceInstance(
@@ -1099,18 +1091,13 @@ class OmniboxContextualSuggestionInteractiveUiTest
  public:
   void SetUpFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{contextual_tasks::kContextualTasks, {}},
-                              {contextual_tasks::kContextualTasksContext, {}},
-                              {contextual_tasks::
-                                   kContextualTasksForceEntryPointEligibility,
-                               {}},
+        /*enabled_features=*/{{contextual_tasks::kContextualTasksContext, {}},
                               {lens::features::kLensOverlay, {}},
                               {lens::features::kLensOverlayContextualSearchbox,
                                {}},
                               {omnibox::kWebUIOmniboxAskGAboutThisPage,
                                {{"Omnibox_AskGBypassPrivacyNotice", "true"}}}},
-        /*disabled_features=*/{features::kNonBlockingOsClipboardReads,
-                               lens::features::kLensSidePanelUnification});
+        /*disabled_features=*/{features::kNonBlockingOsClipboardReads});
   }
 };
 
@@ -1148,16 +1135,16 @@ IN_PROC_BROWSER_TEST_P(
             GURL("https://www.google.com/search?q=Help+me+with+this+page"),
             omnibox::AutocompleteMatchType::kSearchSuggest,
             /*is_zero_prefix_suggestion=*/true);
+
+        ASSERT_TRUE(controller->lens_overlay_query_controller());
+        EXPECT_TRUE(controller->lens_overlay_query_controller()
+                        ->HasPermissionForSession());
       }),
       // Verify the Contextual Tasks side panel web view shows.
       WaitForShow(kContextualTasksSidePanelWebViewElementId),
       CheckResult(
           [this]() {
-            auto* controller = LensSearchController::FromTabWebContents(
-                browser()->GetTabStripModel()->GetActiveWebContents());
-            return controller && controller->lens_overlay_query_controller() &&
-                   controller->lens_overlay_query_controller()
-                       ->HasPermissionForSession();
+            return SidePanelUI::From(browser())->IsSidePanelShowing();
           },
           true));
 }
@@ -1179,14 +1166,10 @@ class ContextualTasksContextMenuAskGoogleInteractiveUiTest
   void SetUpFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
-        {{contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {contextual_tasks::kEnableContextualTasksPinButtonInToolbar, {}},
+        {{contextual_tasks::kEnableContextualTasksPinButtonInToolbar, {}},
          {lens::features::kLensOverlay, {}},
          {lens::features::kLensOverlayEduActionChip,
           {{"max-shown-count", "5"}}},
-         {lens::features::kLensSidePanelUnification,
-          {{"allow-signed-out", "true"}}},
          {contextual_tasks::kContextualTasksUpdatedEntryPoints,
           {{"ContextualTasksContextMenuShowAskGoogle", "true"},
            {"ContextualTasksContextMenuSubmenu", "false"},
@@ -1211,7 +1194,7 @@ class ContextualTasksContextMenuAskGoogleInteractiveUiTest
 //  (3) User selects the "Ask Google about this page" item from the context
 //      menu.
 //  (4) The Contextual Tasks side panel opens in zero state with the
-//      kContentAreaContextMenuPage invocation source.
+//      kContentAreaContextMenuPageAskGoogle invocation source.
 // Disabled on Mac because the Mac interaction test util implementation does
 // not support selecting an item in the native context menu.
 #if BUILDFLAG(IS_MAC)
@@ -1223,6 +1206,8 @@ class ContextualTasksContextMenuAskGoogleInteractiveUiTest
 #endif
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuAskGoogleInteractiveUiTest,
                        MAYBE_AskGoogleContextMenuClickOpensSidePanel) {
+  SkipIfIncognito(
+      "Ask Google entry points are not supported in Incognito mode.");
   WaitForTemplateURLServiceToLoad();
   SidePanelUI::From(browser())->DisableAnimationsForTesting();
 
@@ -1293,20 +1278,22 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuAskGoogleInteractiveUiTest,
             }
             return session_handle->invocation_source();
           },
-          std::make_optional(
-              lens::LensOverlayInvocationSource::kContentAreaContextMenuPage),
-          "Side panel session has kContentAreaContextMenuPage invocation "
-          "source"));
+          std::make_optional(lens::LensOverlayInvocationSource::
+                                 kContentAreaContextMenuPageAskGoogle),
+          "Side panel session has kContentAreaContextMenuPageAskGoogle "
+          "invocation source"));
 }
 
 // This tests the following CUJ:
 //  (1) User navigates to a webpage.
 //  (2) User clicks the 3-dot app menu button on the browser toolbar.
 //  (3) User selects the "Ask Google about this page" item from the app menu.
-//  (4) The Contextual Tasks side panel opens in zero state with the kAppMenu
-//      invocation source.
+//  (4) The Contextual Tasks side panel opens in zero state with the
+//      kAppMenuAskGoogle invocation source.
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuAskGoogleInteractiveUiTest,
                        AskGoogleAppMenuClickOpensSidePanel) {
+  SkipIfIncognito(
+      "Ask Google entry points are not supported in Incognito mode.");
   WaitForTemplateURLServiceToLoad();
   SidePanelUI::From(browser())->DisableAnimationsForTesting();
 
@@ -1376,104 +1363,9 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuAskGoogleInteractiveUiTest,
             }
             return session_handle->invocation_source();
           },
-          std::make_optional(lens::LensOverlayInvocationSource::kAppMenu),
-          "Side panel session has kAppMenu invocation source"));
-}
-
-// This tests the following CUJ:
-//  (1) User navigates to a webpage and pins the Contextual Tasks button in the
-//      toolbar.
-//  (2) User clicks the pinned Contextual Tasks toolbar button.
-//  (3) The Contextual Tasks side panel opens in zero state with the
-//      kCobrowsePinnedToolbarButton invocation source.
-//  (4) User clicks the pinned Contextual Tasks toolbar button again to close
-//      the side panel.
-IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuAskGoogleInteractiveUiTest,
-                       PinnedToolbarButtonClickOpensAndClosesSidePanel) {
-  WaitForTemplateURLServiceToLoad();
-  SidePanelUI::From(browser())->DisableAnimationsForTesting();
-
-  contextual_tasks::SetForcedEmbeddedPageHostOverride(
-      contextual_tasks::HostOverride{"www.google.com"});
-  base::ScopedClosureRunner clear_host_override(base::BindOnce([]() {
-    contextual_tasks::SetForcedEmbeddedPageHostOverride(std::nullopt);
-  }));
-
-  content::URLLoaderInterceptor url_loader_interceptor(base::BindRepeating(
-      [](content::URLLoaderInterceptor::RequestParams* params) {
-        if (params->url_request.url.host() == "www.google.com" ||
-            params->url_request.url.host() == "www.g.ai") {
-          content::URLLoaderInterceptor::WriteResponse(
-              "HTTP/1.1 200 OK\nContent-Type: text/html\n\n",
-              "<html><body>Mock Page</body></html>", params->client.get());
-          return true;
-        }
-        return false;
-      }));
-
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTabId);
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSidePanelWebContentsId);
-
-  const GURL page_url =
-      embedded_test_server()->GetURL(kDocumentWithNamedElement);
-  const DeepQuery kPathToBody{"body"};
-
-  RunTestSequence(
-      InstrumentTab(kTabId, 0), NavigateWebContents(kTabId, page_url),
-      EnsurePresent(kTabId, kPathToBody), WaitForWebContentsPainted(kTabId),
-      WaitForWebContentsReady(kTabId, page_url),
-
-      Do([this]() {
-        PinnedToolbarActionsModel::Get(browser()->GetProfile())
-            ->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
-      }),
-      WaitForShow(kPinnedToolbarActionShowSidePanelContextualTasksElementId),
-      PressButton(kPinnedToolbarActionShowSidePanelContextualTasksElementId),
-
-      WaitForShow(kContextualTasksSidePanelWebViewElementId),
-      NameViewRelative(kContextualTasksSidePanelWebViewElementId,
-                       "SidePanelContentWebViewName",
-                       [](contextual_tasks::ContextualTasksWebView* web_view) {
-                         return web_view->content_web_view();
-                       }),
-      InstrumentNonTabWebView(kSidePanelWebContentsId,
-                              "SidePanelContentWebViewName"),
-      WaitForWebContentsReady(kSidePanelWebContentsId),
-      WaitForJsResultAt(kSidePanelWebContentsId,
-                        DeepQuery{"contextual-tasks-app"},
-                        "el => el.isZeroState_", true),
-      CheckResult(
-          [this]() -> bool {
-            return SidePanelUI::From(browser())->IsSidePanelShowing();
-          },
-          true),
-      CheckResult(
-          [this]() -> std::optional<lens::LensOverlayInvocationSource> {
-            auto* panel_controller =
-                contextual_tasks::ContextualTasksPanelController::From(
-                    browser());
-            if (!panel_controller) {
-              return std::nullopt;
-            }
-            auto* session_handle =
-                panel_controller->GetContextualSearchSessionHandleForPanel();
-            if (!session_handle) {
-              return std::nullopt;
-            }
-            return session_handle->invocation_source();
-          },
           std::make_optional(
-              lens::LensOverlayInvocationSource::kCobrowsePinnedToolbarButton),
-          "Side panel session has kCobrowsePinnedToolbarButton invocation "
-          "source"),
-
-      PressButton(kPinnedToolbarActionShowSidePanelContextualTasksElementId),
-      WaitForHide(kContextualTasksSidePanelWebViewElementId),
-      CheckResult(
-          [this]() -> bool {
-            return SidePanelUI::From(browser())->IsSidePanelShowing();
-          },
-          false));
+              lens::LensOverlayInvocationSource::kAppMenuAskGoogle),
+          "Side panel session has kAppMenuAskGoogle invocation source"));
 }
 
 // This tests the following CUJ:
@@ -1573,11 +1465,7 @@ class ContextualTasksContextMenuSubmenuInteractiveUiTest
   void SetUpFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
-        {{contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {lens::features::kLensSidePanelUnification,
-          {{"allow-signed-out", "true"}}},
-         {contextual_tasks::kContextualTasksUpdatedEntryPoints,
+        {{contextual_tasks::kContextualTasksUpdatedEntryPoints,
           {{"ContextualTasksContextMenuShowAskGoogle", "true"},
            {"ContextualTasksContextMenuSubmenu", "true"},
            {"ContextualTasksContextMenuRouteAskGoogleToOmnibox", "false"}}}},
@@ -1591,7 +1479,7 @@ class ContextualTasksContextMenuSubmenuInteractiveUiTest
 //  (3) User opens the Contextual Tasks submenu and selects "Ask Google about
 //      this page".
 //  (4) The Contextual Tasks side panel opens in zero state with the
-//      kContentAreaContextMenuPage invocation source.
+//      kContentAreaContextMenuPageAskGoogle invocation source.
 // Disabled on Mac because the Mac interaction test util implementation does
 // not support selecting an item in the native context menu.
 #if BUILDFLAG(IS_MAC)
@@ -1603,6 +1491,8 @@ class ContextualTasksContextMenuSubmenuInteractiveUiTest
 #endif
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuSubmenuInteractiveUiTest,
                        MAYBE_AskGoogleSubmenuItemClickOpensSidePanel) {
+  SkipIfIncognito(
+      "Ask Google entry points are not supported in Incognito mode.");
   WaitForTemplateURLServiceToLoad();
   SidePanelUI::From(browser())->DisableAnimationsForTesting();
 
@@ -1673,10 +1563,10 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuSubmenuInteractiveUiTest,
             }
             return session_handle->invocation_source();
           },
-          std::make_optional(
-              lens::LensOverlayInvocationSource::kContentAreaContextMenuPage),
-          "Side panel session has kContentAreaContextMenuPage invocation "
-          "source"));
+          std::make_optional(lens::LensOverlayInvocationSource::
+                                 kContentAreaContextMenuPageAskGoogle),
+          "Side panel session has kContentAreaContextMenuPageAskGoogle "
+          "invocation source"));
 }
 
 // This tests the following CUJ:
@@ -1684,10 +1574,12 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuSubmenuInteractiveUiTest,
 //  (2) User clicks the 3-dot app menu button on the browser toolbar.
 //  (3) User opens the Contextual Tasks submenu and selects "Ask Google about
 //      this page".
-//  (4) The Contextual Tasks side panel opens in zero state with the kAppMenu
-//      invocation source.
+//  (4) The Contextual Tasks side panel opens in zero state with the
+//      kAppMenuAskGoogle invocation source.
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuSubmenuInteractiveUiTest,
                        AskGoogleAppMenuSubmenuItemClickOpensSidePanel) {
+  SkipIfIncognito(
+      "Ask Google entry points are not supported in Incognito mode.");
   WaitForTemplateURLServiceToLoad();
   SidePanelUI::From(browser())->DisableAnimationsForTesting();
 
@@ -1758,8 +1650,9 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuSubmenuInteractiveUiTest,
             }
             return session_handle->invocation_source();
           },
-          std::make_optional(lens::LensOverlayInvocationSource::kAppMenu),
-          "Side panel session has kAppMenu invocation source"));
+          std::make_optional(
+              lens::LensOverlayInvocationSource::kAppMenuAskGoogle),
+          "Side panel session has kAppMenuAskGoogle invocation source"));
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1779,14 +1672,10 @@ class ContextualTasksContextMenuRouteOmniboxInteractiveUiTest
   void SetUpFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
-        {{contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {contextual_tasks::kEnableContextualTasksPinButtonInToolbar, {}},
+        {{contextual_tasks::kEnableContextualTasksPinButtonInToolbar, {}},
          {lens::features::kLensOverlay, {}},
          {lens::features::kLensOverlayEduActionChip,
           {{"max-shown-count", "5"}}},
-         {lens::features::kLensSidePanelUnification,
-          {{"allow-signed-out", "true"}}},
          {contextual_tasks::kContextualTasksUpdatedEntryPoints,
           {{"ContextualTasksContextMenuShowAskGoogle", "true"},
            {"ContextualTasksContextMenuSubmenu", "false"},
@@ -1822,6 +1711,8 @@ class ContextualTasksContextMenuRouteOmniboxInteractiveUiTest
 #endif
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuRouteOmniboxInteractiveUiTest,
                        MAYBE_AskGoogleContextMenuClickOpensOmnibox) {
+  SkipIfIncognito(
+      "Ask Google entry points are not supported in Incognito mode.");
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTabId);
 
   const GURL page_url =
@@ -1862,6 +1753,8 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuRouteOmniboxInteractiveUiTest,
 //  (3) The Omnibox popup opens in AIM mode (OmniboxPopupState::kAim).
 IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuRouteOmniboxInteractiveUiTest,
                        AskGoogleAppMenuClickOpensOmnibox) {
+  SkipIfIncognito(
+      "Ask Google entry points are not supported in Incognito mode.");
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTabId);
 
   const GURL page_url =
@@ -1876,47 +1769,6 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuRouteOmniboxInteractiveUiTest,
       PressButton(kToolbarAppMenuButtonElementId),
       WaitForShow(AppMenuModel::kAskGoogleAboutThisPageItem),
       SelectMenuItem(AppMenuModel::kAskGoogleAboutThisPageItem),
-
-      PollUntil(
-          [this]() -> bool {
-            LocationBar* location_bar =
-                BrowserWindow::FromBrowser(browser())->GetLocationBar();
-            if (!location_bar) {
-              return false;
-            }
-            OmniboxController* controller =
-                location_bar->GetOmniboxController();
-            return controller &&
-                   controller->popup_state_manager()->popup_state() ==
-                       OmniboxPopupState::kAim;
-          },
-          "Omnibox popup state is kAim"));
-}
-
-// This tests the following CUJ:
-//  (1) User navigates to a webpage when Ask Google is configured to route to
-//      the Omnibox and pins the Contextual Tasks toolbar button.
-//  (2) User clicks the pinned Contextual Tasks toolbar button.
-//  (3) The Omnibox popup opens in AIM mode (OmniboxPopupState::kAim).
-IN_PROC_BROWSER_TEST_P(ContextualTasksContextMenuRouteOmniboxInteractiveUiTest,
-                       PinnedToolbarButtonClickOpensOmnibox) {
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTabId);
-
-  const GURL page_url =
-      embedded_test_server()->GetURL(kDocumentWithNamedElement);
-  const DeepQuery kPathToBody{"body"};
-
-  RunTestSequence(
-      InstrumentTab(kTabId, 0), NavigateWebContents(kTabId, page_url),
-      EnsurePresent(kTabId, kPathToBody), WaitForWebContentsPainted(kTabId),
-      WaitForWebContentsReady(kTabId, page_url),
-
-      Do([this]() {
-        PinnedToolbarActionsModel::Get(browser()->GetProfile())
-            ->UpdatePinnedState(kActionSidePanelShowContextualTasks, true);
-      }),
-      WaitForShow(kPinnedToolbarActionShowSidePanelContextualTasksElementId),
-      PressButton(kPinnedToolbarActionShowSidePanelContextualTasksElementId),
 
       PollUntil(
           [this]() -> bool {
@@ -2004,9 +1856,7 @@ class ContextualTasksLensRegionChipInteractiveUiTest
   void SetUpFeatureList() override {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
-        {{contextual_tasks::kContextualTasks, {}},
-         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
-         {contextual_tasks::kEnableContextualTasksPinButtonInToolbar, {}},
+        {{contextual_tasks::kEnableContextualTasksPinButtonInToolbar, {}},
          {contextual_tasks::kContextualTasksRearchitecture, {}},
          {contextual_tasks::kContextualTasksSidePanelRearchitecture, {}},
          {extensions_features::kApiContextualTasksPrivate, {}}},
@@ -2317,7 +2167,7 @@ class ContextualTasksLensRegionChipInteractiveUiTest
             const app = document.querySelector('lens-chip-app');
             const btn = app?.shadowRoot?.querySelector('#closeButton');
             if (btn && !btn.disabled) {
-              btn.click();
+              setTimeout(() => btn.click(), 0);
               resolve(true);
             } else {
               setTimeout(check, 50);

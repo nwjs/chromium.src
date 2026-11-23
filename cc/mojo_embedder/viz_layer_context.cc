@@ -1101,8 +1101,6 @@ void SerializeLayer(LayerImpl& layer,
             picture_layer.has_animated_image_update_rect();
         tile_display_extra->has_non_animated_image_update_rect =
             picture_layer.has_non_animated_image_update_rect();
-        tile_display_extra->content_color_usage =
-            picture_layer.GetContentColorUsage();
         tile_display_extra->recorded_bounds =
             picture_layer.GetRasterSource()->recorded_bounds();
         tile_display_extra->proposed_tiling_scales_for_deletion =
@@ -1479,7 +1477,8 @@ base::TimeTicks VizLayerContext::UpdateDisplayTreeFrom(
     bool frame_has_damage,
     bool is_flush,
     std::vector<ui::LatencyInfo> latency_info,
-    viz::TrackedElementRects tracked_element_rects) {
+    viz::TrackedElementRects tracked_element_rects,
+    std::optional<viz::FrameIntervalInputs> frame_interval_inputs) {
   TRACE_EVENT0("viz", "VizLayerContext::UpdateDisplayTreeFrom");
 
   auto& property_trees = *tree.property_trees();
@@ -1513,6 +1512,7 @@ base::TimeTicks VizLayerContext::UpdateDisplayTreeFrom(
 
   update->latency_info = std::move(latency_info);
   update->tracked_element_rects = std::move(tracked_element_rects);
+  update->frame_interval_inputs = std::move(frame_interval_inputs);
   update->device_viewport = tree.GetDeviceViewport();
   update->device_scale_factor = tree.device_scale_factor();
   DUMP_WILL_BE_CHECK_GT(update->device_scale_factor, 0.f);

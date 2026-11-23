@@ -33,6 +33,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
+#include "google_apis/gaia/core_account_id.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/url_util.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -122,7 +123,7 @@ credential_provider::UiExitCodes ValidateSigninEmail(
 
 void FinishCompleteLogin(const FinishCompleteLoginParams& params,
                          Profile* profile) {
-  DCHECK(params.handler);
+  CHECK(params.handler, base::NotFatalUntil::M162);
   CHECK_EQ(signin::GetSigninReasonForEmbeddedPromoURL(params.url),
            signin_metrics::Reason::kFetchLstOnly);
 
@@ -180,10 +181,10 @@ InlineSigninHelper::InlineSigninHelper(
       gaia_id_(gaia_id),
       password_(password),
       auth_code_(auth_code) {
-  DCHECK(profile_);
-  DCHECK(!email_.empty());
-  DCHECK(!auth_code_.empty());
-  DCHECK(handler);
+  CHECK(profile_, base::NotFatalUntil::M162);
+  CHECK(!email_.empty(), base::NotFatalUntil::M162);
+  CHECK(!auth_code_.empty(), base::NotFatalUntil::M162);
+  CHECK(handler, base::NotFatalUntil::M162);
 
   gaia_auth_fetcher_.StartAuthCodeForOAuth2TokenExchangeWithDeviceId(
       auth_code_, signin_scoped_device_id);
@@ -221,7 +222,8 @@ void InlineSigninHelper::OnClientOAuthFailure(
 
   AboutSigninInternals* about_signin_internals =
       AboutSigninInternalsFactory::GetForProfile(profile_);
-  about_signin_internals->OnRefreshTokenReceived("Failure");
+  about_signin_internals->OnRefreshTokenReceived(
+      "Failure", CoreAccountId::FromGaiaId(gaia_id_));
 
   base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(FROM_HERE,
                                                                 this);
@@ -308,9 +310,9 @@ void InlineLoginHandlerImpl::CompleteLogin(const CompleteLoginParams& params) {
     return;
   }
 
-  DCHECK(!params.email.empty());
-  DCHECK(!params.gaia_id.empty());
-  DCHECK(!params.auth_code.empty());
+  CHECK(!params.email.empty(), base::NotFatalUntil::M162);
+  CHECK(!params.gaia_id.empty(), base::NotFatalUntil::M162);
+  CHECK(!params.auth_code.empty(), base::NotFatalUntil::M162);
 
   content::WebContents* contents = web_ui()->GetWebContents();
   const GURL& current_url = contents->GetLastCommittedURL();

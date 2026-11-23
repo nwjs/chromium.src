@@ -207,18 +207,30 @@ class BrowserDelegate {
   // tab restore record.
   virtual void ForceCloseWebContentsAt(size_t index) = 0;
 
-  // Navigates the browser to the given URL, and enqueues the launch params
-  // passed as an input if they are available once the navigation commits
-  // to the LaunchQueue.
-  // The browser must be of `kApp` or `kAppPopup` type.
-  // In the case of a tabbed web app (e.g. ChromeOS Terminal), performs tab
-  // pinning as requested and ensures that home tab URL navigation happens in
-  // the home tab.
-  enum class TabPinning { kYes, kNo };
-  virtual content::WebContents* NavigateWebApp(
-      const GURL& url,
-      TabPinning pin_tab,
-      std::optional<webapps::LaunchParams> launch_params = std::nullopt) = 0;
+  struct LoadUrlParams {
+    // Whether to show (and activate) the window. Has no effect when LoadUrl
+    // returns nullptr.
+    bool show_window = false;
+    // Pins the tab if a new one is added. Only allowed for kApp/kAppPopup.
+    bool pin_tab = false;
+    // Delivered to the web app once the navigation commits. Only allowed for
+    // kApp/kAppPopup.
+    std::optional<webapps::LaunchParams> launch_params;
+  };
+
+  // Loads `url` in the active tab with the given page transition. If the
+  // browser has no active tab, adds a new one.
+  // In a tabbed web app with a pinned home tab, URLs in the home tab's scope
+  // are loaded in the home tab (or skipped, returning nullptr, if the home tab
+  // is already on `url`), while other URLs requested from the home tab are
+  // redirected to a new tab unless `transition` has core type AUTO_BOOKMARK.
+  // Returns the WebContents in which the navigation was started, or nullptr if
+  // none was started (e.g. because `url` is captured by a different system web
+  // app, the home tab is already on `url`, the browser is in locked fullscreen,
+  // or the browser is being deleted).
+  virtual content::WebContents* LoadUrl(const GURL& url,
+                                        ui::PageTransition transition,
+                                        LoadUrlParams params) = 0;
 
   // Creates the specified tab group.
   virtual void CreateTabGroup(const tab_groups::TabGroupInfo& tab_group) = 0;
@@ -246,7 +258,8 @@ class BrowserDelegate {
     // physically locked/pinned yet.
     kPrepared,
     // Locked for OnTask (pinned window in locked fullscreen with toolbar and
-    // tab strip enabled).
+    // tab strip enabled). IsOnTaskState(kLocked) is also true while paused,
+    // since paused is a locked state with additional restrictions.
     kLocked,
     // Locked for OnTask but paused (pinned window with tab switching and
     // immersive mode disabled).
@@ -258,6 +271,21 @@ class BrowserDelegate {
 
   // Returns true if the browser is in the specified `state`.
   virtual bool IsOnTaskState(OnTaskState state) const = 0;
+
+  // Sets whether this window may use the immersive frame (toolbar and tab
+  // strip hidden, revealed from the top edge) while it is trusted-pinned.
+  // OnTask disables this while paused so that students cannot reveal the tab
+  // strip and switch tabs. False by default.
+  //
+  // The value is stored on the window and only has an effect while the window
+  // is trusted-pinned. If the window is pinned now, the frame is updated
+  // immediately. Otherwise the value applies the next time the window is
+  // pinned. `true` allows immersive mode but does not force it (e.g. it is
+  // never used in kiosk sessions).
+  //
+  // TODO(crbug.com/438540029): Remove once LockedStateController derives this
+  // from its OnTask state.
+  virtual void SetImmersiveAllowedWhileTrustedPinned(bool allowed) = 0;
 
   // Activates the web contents at the specified tab strip index.
   virtual void ActivateWebContentsAt(size_t index) = 0;

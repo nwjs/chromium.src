@@ -11,7 +11,6 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/notifications/screen_capture_notification_ui_ash.h"
-#include "chrome/browser/media/webrtc/desktop_capture_access_handler.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/experiences/arc/mojom/screen_capture.mojom.h"
 #include "components/viz/common/frame_sinks/copy_output_request.h"
@@ -62,38 +61,27 @@ scoped_refptr<viz::RasterContextProvider> GetContextProvider() {
 // Android.
 viz::SharedImageFormat GetSharedImageFormat(mojom::BufferFormat buffer_format) {
   switch (buffer_format) {
-    case mojom::BufferFormat::R_8:
-      return viz::SinglePlaneFormat::kR_8;
-    case mojom::BufferFormat::R_16:
-      return viz::SinglePlaneFormat::kR_16;
-    case mojom::BufferFormat::RG_88:
-      return viz::SinglePlaneFormat::kRG_88;
-    case mojom::BufferFormat::RG_1616:
-      return viz::SinglePlaneFormat::kRG_1616;
-    case mojom::BufferFormat::BGR_565:
-      return viz::SinglePlaneFormat::kBGR_565;
-    case mojom::BufferFormat::RGBA_4444:
-      return viz::SinglePlaneFormat::kRGBA_4444;
-    case mojom::BufferFormat::RGBX_8888:
-      return viz::SinglePlaneFormat::kRGBX_8888;
     case mojom::BufferFormat::RGBA_8888:
       return viz::SinglePlaneFormat::kRGBA_8888;
-    case mojom::BufferFormat::BGRX_8888:
-      return viz::SinglePlaneFormat::kBGRX_8888;
-    case mojom::BufferFormat::BGRA_1010102:
-      return viz::SinglePlaneFormat::kBGRA_1010102;
-    case mojom::BufferFormat::RGBA_1010102:
-      return viz::SinglePlaneFormat::kRGBA_1010102;
     case mojom::BufferFormat::BGRA_8888:
       return viz::SinglePlaneFormat::kBGRA_8888;
+    case mojom::BufferFormat::RGBX_8888:
+      return viz::SinglePlaneFormat::kRGBX_8888;
+    case mojom::BufferFormat::BGRX_8888:
+      return viz::SinglePlaneFormat::kBGRX_8888;
+    case mojom::BufferFormat::R_8:
+    case mojom::BufferFormat::R_16:
+    case mojom::BufferFormat::RG_88:
+    case mojom::BufferFormat::RG_1616:
+    case mojom::BufferFormat::BGR_565:
+    case mojom::BufferFormat::RGBA_4444:
+    case mojom::BufferFormat::BGRA_1010102:
+    case mojom::BufferFormat::RGBA_1010102:
     case mojom::BufferFormat::RGBA_F16:
-      return viz::SinglePlaneFormat::kRGBA_F16;
     case mojom::BufferFormat::YVU_420:
-      return viz::MultiPlaneFormat::kYV12;
     case mojom::BufferFormat::YUV_420_BIPLANAR:
-      return viz::MultiPlaneFormat::kNV12;
     case mojom::BufferFormat::P010:
-      return viz::MultiPlaneFormat::kP010;
+      NOTREACHED();
   }
   NOTREACHED();
 }

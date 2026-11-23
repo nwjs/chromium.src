@@ -26,6 +26,7 @@ using GeminiEligibilityCallback = void (^)(BOOL eligible);
 
 namespace gemini {
 enum class EntryPoint;
+enum class InputType;
 }
 
 namespace ios::provider {
@@ -154,6 +155,32 @@ enum class GeminiDormantReason {
   kServerPause,
 };
 
+// Error codes for Gemini client errors.
+// This needs to stay in sync with `GCRGeminiErrorCode`.
+enum class GeminiErrorCode {
+  // None of the errors below occurred, though an unmapped error may still have
+  // happened (e.g., non-gRPC WebChannel or `GTMSessionFetcher` transport
+  // failures).
+  kNone = 0,
+  kTermsOfServiceNotAccepted,
+  kVolumeIsTooLow,
+  kNoMicPermission,
+  kServerTimeout,
+  kUnspecified,
+  kGenericServerError,
+  kNoSpeechDetected,
+  kLivePausedDueToExternalAudio,
+  kNoCameraPermission,
+  kNotEligible,
+  kQuotaExceeded,
+  kNetworkError,
+  kAudioSessionError,
+  kEncoderError,
+  kAudioRechunkerError,
+  kNoGeminiModeId,
+  kGenericError,
+};
+
 // Enum representing the Gemini view mode.
 // This needs to stay in sync with GMNGeminiViewMode in the SDK.
 enum class GeminiViewMode {
@@ -200,6 +227,11 @@ void UpdatePageAttachmentState(
 
 // Updates the prompt action of the floaty if it's invoked.
 void UpdatePromptAction(gemini::EntryPoint entry_point,
+                        NSString* prepopulated_prompt,
+                        bool should_auto_submit = false);
+
+// Updates the prompt action of the floaty with an input type if it's invoked.
+void UpdatePromptAction(gemini::InputType input_type,
                         NSString* prepopulated_prompt,
                         bool should_auto_submit = false);
 

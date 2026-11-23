@@ -489,6 +489,7 @@ chromium-metrics-reviews@google.com.
   <int value="10" label="UnexpectedEmptyCapability"/>
   <int value="11" label="NoMediaDrmSupport"/>
   <int value="12" label="MediaFoundationGetExtendedDRMTypeSupportFailed"/>
+  <int value="13" label="Pending (not reported)"/>
 </enum>
 
 <enum name="CdmHostVerificationStatus">
@@ -1667,6 +1668,17 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(/media/renderers/win/media_foundation_renderer.h:RenderedVideoFrameDetectionResult) -->
+
+<!-- LINT.IfChange(MediaFoundationSharedImageDeliveryResult) -->
+
+<enum name="MediaFoundationSharedImageDeliveryResult">
+  <int value="0" label="Delivered shared image"/>
+  <int value="1" label="Slot shared image creation failed"/>
+  <int value="2" label="Copy to slot failed"/>
+  <int value="3" label="Buffer pool exhausted"/>
+</enum>
+
+<!-- LINT.ThenChange(/media/capture/video/win/metrics.h:MediaFoundationSharedImageDeliveryResult) -->
 
 <enum name="MediaHardwareKeyAction">
   <int value="0" label="Play"/>

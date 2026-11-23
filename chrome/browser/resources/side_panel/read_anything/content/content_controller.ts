@@ -13,7 +13,7 @@ import {previousReadHighlightClass} from '../read_aloud/movement.js';
 import {getReadAloudModel} from '../read_aloud/read_aloud_model_browser_proxy.js';
 import {ReadAloudNode} from '../read_aloud/read_aloud_types.js';
 import {SpeechController} from '../read_aloud/speech_controller.js';
-import {isDistilledByReadability, LOG_EMPTY_DELAY_MS} from '../shared/common.js';
+import {isBlockTrackingEnabled, isDistilledByReadability, LOG_EMPTY_DELAY_MS} from '../shared/common.js';
 import {LinkStatus, ReadAnythingLogger} from '../shared/read_anything_logger.js';
 import {getReadingModeTextNodes} from '../shared/tree_traversal.js';
 
@@ -73,6 +73,9 @@ const SCREEN2X_TAG_TO_RM_TAG: Map<string, string> = new Map([
   // happens, ensure they're converted to divs so that an interactable
   // element isn't shown on the reading mode panel.
   ['input', 'div'],
+  // List markers are rendered via CSS or synthesized for speech, not as
+  // '<::marker>' elements.
+  ['::marker', 'span'],
 ]);
 
 // Readability doesn't need to replace as many tags as Screen2x. If there's
@@ -202,6 +205,14 @@ export class ContentController {
   private currentState_: ContentState = CONTENT_STATES[ContentType.NO_CONTENT];
   private previousRootId_?: number;
 
+  // Whether the browser is waiting for the content to be translated. While
+  // true, content is drawn (so it can be translated) but the state stays
+  // LOADING so it's kept behind the loading screen.
+  private isAwaitingTranslation_: boolean = false;
+  // Whether content was drawn while awaiting translation, so the transition
+  // to HAS_CONTENT was deferred until the translation is shown or fails.
+  private isHidingContentForTranslation_: boolean = false;
+
   // Holds the text nodes extracted from the current rendered distillation.
   // This array ensures that we can link a DOM node back to its AXTree
   // mapping for text selection via its index in this array.
@@ -213,18 +224,58 @@ export class ContentController {
     this.contentBrowserProxy_.onNodeWillBeDeleted.addListener(
         this.onNodeWillBeDeleted.bind(this));
     this.contentBrowserProxy_.showEmpty.addListener(this.setEmpty.bind(this));
+    this.visualBrowserProxy_.onAwaitingTranslationChanged.addListener(
+        this.setAwaitingTranslation_.bind(this));
+    // The browser may have signaled before this listener was registered.
+    this.isAwaitingTranslation_ =
+        this.visualBrowserProxy_.isAwaitingTranslation();
   }
 
   getState(): ContentState {
     return this.currentState_;
   }
 
+  // Whether content has been drawn but is kept behind the loading screen until
+  // its translation is shown or fails. The state is LOADING while this is true.
+  isHidingContentForTranslation(): boolean {
+    return this.isHidingContentForTranslation_;
+  }
+
   setState(type: ContentType) {
-    if (type === this.currentState_.type) {
+    if (type === ContentType.HAS_CONTENT && this.isAwaitingTranslation_) {
+      // Keep the state matching what's shown: the content is drawn so it can
+      // be translated, but stays behind the loading screen until then.
+      this.applyState_(ContentType.LOADING, /*hideForTranslation=*/ true);
+    } else {
+      this.applyState_(type, /*hideForTranslation=*/ false);
+    }
+  }
+
+  private applyState_(type: ContentType, hideForTranslation: boolean) {
+    // Listeners are also notified when only `hideForTranslation` changes, so
+    // that content hidden behind the loading screen is still drawn.
+    const changed = type !== this.currentState_.type ||
+        hideForTranslation !== this.isHidingContentForTranslation_;
+    this.isHidingContentForTranslation_ = hideForTranslation;
+    if (!changed) {
       return;
     }
     this.currentState_ = CONTENT_STATES[type];
     this.listeners_.forEach(l => l.onContentStateChange());
+  }
+
+  private setAwaitingTranslation_(awaiting: boolean) {
+    if (awaiting === this.isAwaitingTranslation_) {
+      return;
+    }
+    this.isAwaitingTranslation_ = awaiting;
+    if (awaiting && this.hasContent()) {
+      // Content that's already shown goes back behind the loading screen.
+      this.applyState_(ContentType.LOADING, /*hideForTranslation=*/ true);
+    } else if (!awaiting && this.isHidingContentForTranslation_) {
+      // Whether the translation is shown or failed, the content is now shown.
+      this.applyState_(ContentType.HAS_CONTENT, /*hideForTranslation=*/ false);
+    }
   }
 
   hasContent(): boolean {
@@ -234,6 +285,11 @@ export class ContentController {
   isEmpty(): boolean {
     return this.currentState_.type === ContentType.NO_CONTENT ||
         this.currentState_.type === ContentType.NO_SELECTABLE_CONTENT;
+  }
+
+  attemptToRedistill() {
+    this.setEmpty();
+    this.contentBrowserProxy_.onNoTextContent();
   }
 
   setEmpty() {
@@ -312,7 +368,7 @@ export class ContentController {
       const contentHtml = this.contentBrowserProxy_.getHtmlContent();
 
       if (!contentHtml || !contentHtml.trim()) {
-        this.setEmpty();
+        this.attemptToRedistill();
         return null;
       }
 
@@ -324,8 +380,12 @@ export class ContentController {
         contentFragment.appendChild(titleElement);
       }
 
+      // Parse into a <template> so custom elements defined in the Reading Mode
+      // WebUI are not upgraded before they can be unwrapped below.
+      const template = document.createElement('template');
+      template.setHTML(contentHtml, READABILITY_SET_HTML_OPTIONS);
       const contentContainer = document.createElement('div');
-      contentContainer.setHTML(contentHtml, READABILITY_SET_HTML_OPTIONS);
+      contentContainer.appendChild(template.content);
 
       // Strip single newlines from text nodes to prevent unexpected sentence
       // breaks, as Readability preserves raw HTML newlines which are visually
@@ -371,7 +431,7 @@ export class ContentController {
           this.contentBrowserProxy_.hasValidSelection() && hasImages;
 
       if (!contentContainer.textContent?.trim() && !hasImagesAsContent) {
-        this.setEmpty();
+        this.attemptToRedistill();
         return null;
       }
 
@@ -416,10 +476,7 @@ export class ContentController {
       return null;
     }
 
-    const shouldTrackBlocks =
-        this.contentBrowserProxy_.isTranslatePdfEnabled() &&
-        this.visualBrowserProxy_.isPdf();
-    const node = this.buildSubtree_(rootId, shouldTrackBlocks);
+    const node = this.buildSubtree_(rootId, isBlockTrackingEnabled());
     // If there is no text or images in the tree, do not proceed. The empty
     // state container will show instead.
     // We should only consider images as content when determining whether or
@@ -434,8 +491,7 @@ export class ContentController {
       // content and also not showing the empty page sometimes. In this case,
       // send that info back to the controller.
       if (this.hasContent()) {
-        this.setEmpty();
-        this.contentBrowserProxy_.onNoTextContent();
+        this.attemptToRedistill();
       } else if (!this.isEmpty()) {
         // This is possible when the AXTree returns bad selection data and
         // reading mode believes it has selected content to distll but
@@ -463,8 +519,7 @@ export class ContentController {
   }
 
   onRenderedTextMappingReady() {
-    if (!isDistilledByReadability() ||
-        !this.contentBrowserProxy_.isReadabilitySelectTextEnabled()) {
+    if (!isDistilledByReadability()) {
       return;
     }
 
@@ -539,6 +594,8 @@ export class ContentController {
         if (contextNode) {
           // Don't initialize until after drawing otherwise, the DOM nodes might
           // not yet exist in the tree.
+          // TODO(crbug.com/575459750): Don't let Read Aloud setup block
+          // distillation or other Reading mode work.
           getReadAloudModel().init(contextNode);
         }
       }
@@ -584,6 +641,10 @@ export class ContentController {
     }
 
     const element = document.createElement(htmlTag);
+    if (element instanceof HTMLLIElement && parentId !== undefined &&
+        this.contentBrowserProxy_.getHtmlTag(parentId) === 'ol') {
+      this.setListMarker_(element, nodeId);
+    }
     const htmlId = this.contentBrowserProxy_.getHtmlId(nodeId);
     if (htmlId) {
       element.id = htmlId;
@@ -637,6 +698,23 @@ export class ContentController {
           this.buildSubtree_(childNodeId, shouldTrackBlocks, blockId, nodeId);
       node.appendChild(childNode);
     }
+  }
+
+  // Copies the source marker (e.g. "5." or "a.") onto the list item so it is
+  // shown and spoken as on the page, rather than renumbered from 1 in decimal.
+  private setListMarker_(li: HTMLLIElement, nodeId: number) {
+    const markerId = this.contentBrowserProxy_.getChildren(nodeId).find(
+        childId =>
+            this.contentBrowserProxy_.getHtmlTag(childId) === '::marker');
+    if (markerId === undefined) {
+      return;
+    }
+    const marker = this.contentBrowserProxy_.getTextContent(markerId).trim();
+    if (!marker) {
+      return;
+    }
+    li.dataset['marker'] = marker;
+    li.style.listStyleType = JSON.stringify(`${marker} `);
   }
 
   private safeParseUrl_(url: string, base?: string): URL|null {
@@ -928,11 +1006,15 @@ export class ContentController {
 
     // Final check to ensure there are actually visible text nodes.
     // Otherwise, a blank screen may be shown instead of the empty state
-    // page.
-    this.setEmptyIfNoTextNodesAvailable(renderedTextNodes);
+    // page. Only attempt to redistill if Readability content is shown. If
+    // updateContent already found no text, it has already requested a
+    // redistill.
+    this.setEmptyIfNoTextNodesAvailable(
+        renderedTextNodes,
+        /*shouldAttemptToRedistill=*/ isDistilledByReadability() &&
+            this.hasContent());
 
-    if (!isDistilledByReadability() ||
-        !this.contentBrowserProxy_.isReadabilitySelectTextEnabled()) {
+    if (!isDistilledByReadability() || !this.hasContent()) {
       return;
     }
 
@@ -948,9 +1030,14 @@ export class ContentController {
     this.contentBrowserProxy_.onRenderedTextBlocksAvailable(blocks);
   }
 
-  setEmptyIfNoTextNodesAvailable(nodes: Node[]) {
+  setEmptyIfNoTextNodesAvailable(
+      nodes: Node[], shouldAttemptToRedistill: boolean) {
     if (!nodes || nodes.length === 0) {
-      this.setEmpty();
+      if (shouldAttemptToRedistill) {
+        this.attemptToRedistill();
+      } else {
+        this.setEmpty();
+      }
     }
   }
 
@@ -963,7 +1050,12 @@ export class ContentController {
     // distillable content each time Images are toggled. This is called in
     // a wrapper for updateImages instead of in updateImages directly to
     // avoid creating new tree walkers each time updateImages is called.
-    this.setEmptyIfNoTextNodesAvailable(getReadingModeTextNodes(container));
+    // Reading mode should not redistill from an image toggle change, even if
+    // a different distillation method may be able to show content and the
+    // current distillation method cannot.
+    this.setEmptyIfNoTextNodesAvailable(
+        getReadingModeTextNodes(container),
+        /*shouldAttemptToRedistill=*/ false);
   }
 
   updateImages(shadowRoot?: ShadowRoot) {

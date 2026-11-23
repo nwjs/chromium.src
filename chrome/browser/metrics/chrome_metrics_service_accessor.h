@@ -21,6 +21,8 @@ class BrowserWindowInterface;
 class CampaignsManagerClientImpl;
 class ChromeMetricsServiceClient;
 class ChromePasswordManagerClient;
+class ChromeSyncClient;
+class DeviceInfoSyncClientImpl;
 class GlobalFeatures;
 class HttpsFirstModeService;
 class NavigationMetricsRecorder;
@@ -33,10 +35,6 @@ class CrashesDOMHandler;
 #if BUILDFLAG(IS_CHROMEOS)
 class ChromeCameraAppUIDelegate;
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-namespace browser_sync {
-class ChromeSyncClient;
-}
 
 namespace subscription_eligibility {
 class SubscriptionEligibilityMetricsProvider;
@@ -58,6 +56,7 @@ class FirstRunInitialPrefsVariationsSeedTest;
 }
 
 namespace glic {
+class GlicEnabling;
 class GlicMetricsProvider;
 class GlicSyntheticTrialManager;
 }  // namespace glic
@@ -95,10 +94,6 @@ class FieldTrialRegisterImpl;
 namespace feed {
 class FeedServiceDelegateImpl;
 }  // namespace feed
-
-namespace browser_sync {
-class DeviceInfoSyncClientImpl;
-}  // namespace browser_sync
 
 namespace webauthn {
 namespace authenticator {
@@ -148,7 +143,7 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   friend class ChromeBrowserMainParts;
   friend class ChromeContentBrowserClient;
   friend class ChromeMetricsServicesManagerClient;
-  friend class browser_sync::ChromeSyncClient;
+  friend class ChromeSyncClient;
   friend class ChromeDomainReliabilityDelegate;
   friend class domain_reliability::TestDomainReliabilityServiceDelegate;
   friend class extensions::ChromeGuestViewManagerDelegate;
@@ -177,6 +172,7 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   friend class BrowserProcessImpl;
   friend class GlobalFeatures;
   friend class subscription_eligibility::SubscriptionEligibilityMetricsProvider;
+  friend class glic::GlicEnabling;
   friend class glic::GlicMetricsProvider;
   friend class glic::GlicSyntheticTrialManager;
   friend class OptimizationGuideKeyedService;
@@ -184,7 +180,7 @@ class ChromeMetricsServiceAccessor : public metrics::MetricsServiceAccessor {
   friend class WebUITabStripFieldTrial;
   friend class feed::FeedServiceDelegateImpl;
   friend class FirstRunService;
-  friend class browser_sync::DeviceInfoSyncClientImpl;
+  friend class DeviceInfoSyncClientImpl;
   friend class HttpsFirstModeService;
   friend class ash::DemoSession;
   friend class DataSharingUI;

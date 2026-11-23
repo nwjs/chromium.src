@@ -8,6 +8,7 @@ import './test_composebox_mixin.js';
 import {ComposeboxFile, ComposeboxInputModel, ContextType, ContextualSearchInputStateDeletionType, isValidTabId} from 'chrome://resources/cr_components/composebox/common.js';
 import type {ComposeboxFuseboxActionRequest} from 'chrome://resources/cr_components/composebox/common.js';
 import {PageHandlerRemote} from 'chrome://resources/cr_components/composebox/composebox.mojom-webui.js';
+import {AimButtonMode} from 'chrome://resources/cr_components/composebox/composebox_aim_button.js';
 import type {ComposeboxEmbedderMixinInterface} from 'chrome://resources/cr_components/composebox/composebox_mixin.js';
 import {ComposeboxProxyImpl, createAutocompleteMatch} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
 import type {ContextualEntrypointAndMenuElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
@@ -110,11 +111,12 @@ suite('ComposeboxMixinTest', () => {
   // hidden verbatim match (no action), and index 1 is the Fusebox action match.
   async function showFuseboxMatches(
       fuseboxAction: FuseboxAction, originalInput: string = 'typed input',
-      fillIntoEdit: string = 'action suggestion') {
+      fillIntoEdit: string = 'action suggestion',
+      suggestStyle: SuggestStyle = SuggestStyle.kDefault) {
     await microtasksFinished();
     element.input = originalInput;
     element.lastQueriedInput = originalInput;
-    element.result = {
+    element.result = createAutocompleteResultForTesting({
       input: originalInput,
       matches: [
         createAutocompleteMatch({
@@ -123,10 +125,11 @@ suite('ComposeboxMixinTest', () => {
         }),
         createAutocompleteMatch({
           fillIntoEdit,
-          suggestTemplate: createSuggestTemplateInfo({fuseboxAction}),
+          suggestTemplate:
+              createSuggestTemplateInfo({fuseboxAction, style: suggestStyle}),
         }),
       ],
-    } as AutocompleteResult;
+    });
     await element.updateComplete;
     await microtasksFinished();
   }
@@ -826,8 +829,9 @@ suite('ComposeboxMixinTest', () => {
       assertEquals(0, closeCount);
       assertEquals(null, element.result);
 
-      // 4. For kHint actions, clicking the match executes handleFuseboxAction,
-      // restores the original typed input, and re-queries autocomplete.
+      // 4. For kHint actions, selecting the match keeps the typed input, and
+      // clicking it executes handleFuseboxAction without re-querying
+      // autocomplete.
       element.files.clear();
       const originalInput = 'original typed input';
       await showFuseboxMatches(
@@ -838,7 +842,7 @@ suite('ComposeboxMixinTest', () => {
           originalInput, 'hint suggestion');
       dropdown.selectIndex(1);
       await microtasksFinished();
-      assertEquals('hint suggestion', element.input);
+      assertEquals(originalInput, element.input);
       const initialQueryCount =
           searchboxHandler.getCallCount('queryAutocomplete');
       clickActionMatch();
@@ -854,7 +858,7 @@ suite('ComposeboxMixinTest', () => {
       assertEquals(-1, element.activeQueryId);
 
       // Verify that late async autocomplete responses do not overwrite the
-      // restored user input since activeQueryId is -1.
+      // typed input since activeQueryId is -1.
       searchboxCallbackRouterRemote.autocompleteResultChanged(
           createAutocompleteResultForTesting({
             input: originalInput,
@@ -912,10 +916,136 @@ suite('ComposeboxMixinTest', () => {
       assertDeepEquals(['open', 'open', 'stats', 'open'], effects);
       assertEquals(2, matchClickCount);
       assertTrue(element.submitting);
+      element.composeboxSource = 'TestEmbedder';
+      assertEquals(
+          0,
+          metrics.count(
+              'ContextualSearch.RichImageSuggest.Clicked.TestEmbedder'));
+
+      // 7. Selecting a kRichImage action match when richImageSuggestionsEnabled
+      // is true records ContextualSearch.RichImageSuggest.Clicked.{Source} on
+      // both mouse click and keyboard Enter.
+      element.submitting = false;
+      element.richImageSuggestionsEnabled = true;
+      await showFuseboxMatches(
+          makeAction({queryActionOverride: QueryActionOverride.kPaste}),
+          'typed input', 'rich image suggestion', SuggestStyle.kRichImage);
+      clickActionMatch();
+      await microtasksFinished();
+      assertEquals(
+          1,
+          metrics.count(
+              'ContextualSearch.RichImageSuggest.Clicked.TestEmbedder', 1));
+
+      await showFuseboxMatches(
+          makeAction({queryActionOverride: QueryActionOverride.kPaste}),
+          'typed input', 'rich image suggestion', SuggestStyle.kRichImage);
+      selectMatch(1);
+      await microtasksFinished();
+      pressEnter();
+      await microtasksFinished();
+      assertEquals(
+          2,
+          metrics.count(
+              'ContextualSearch.RichImageSuggest.Clicked.TestEmbedder', 1));
     } finally {
       element.handleFuseboxAction = originalHandler;
     }
   });
+
+  test('kHint matches keep the typed input with zero suggest', async () => {
+    element.showZps = true;
+    const typedInput = 'typed input';
+    const hintAction = createFuseboxActionRequest({
+                         queryActionOverride: QueryActionOverride.kHint,
+                       }).fuseboxAction;
+    const dropdown = element.getDropdownElement();
+
+    // Embedders that do not handle suggestion fusebox actions treat kHint
+    // matches as regular suggestions, so selecting one previews its text.
+    await showFuseboxMatches(hintAction, typedInput, 'hint suggestion');
+    dropdown.selectIndex(1);
+    await microtasksFinished();
+    assertEquals('hint suggestion', element.input);
+
+    element.suggestionFuseboxActionsEnabled = true;
+    await showFuseboxMatches(hintAction, typedInput, 'hint suggestion');
+    dropdown.selectIndex(1);
+    await microtasksFinished();
+    assertEquals(typedInput, element.input);
+
+    // Accepting the hint re-queries zero suggest for the current tool. The
+    // query and the input must both use the typed text, not the hint.
+    const queryCount = searchboxHandler.getCallCount('queryAutocomplete');
+    const matchEl =
+        dropdown.shadowRoot.querySelectorAll('cr-composebox-match')[1]!;
+    matchEl.dispatchEvent(new MouseEvent(
+        'click', {button: 0, bubbles: true, cancelable: true, composed: true}));
+    await microtasksFinished();
+    await element.updateComplete;
+
+    assertEquals(
+        queryCount + 1, searchboxHandler.getCallCount('queryAutocomplete'));
+    assertEquals(
+        typedInput, searchboxHandler.getArgs('queryAutocomplete').at(-1)![2]);
+    assertEquals(typedInput, element.input);
+    assertEquals(typedInput, element.lastQueriedInput);
+    assertEquals('hint suggestion', element.inputPlaceholder);
+  });
+
+  test(
+      'clicking an action match drops the preview of another selected match',
+      async () => {
+        element.showZps = true;
+        element.suggestionFuseboxActionsEnabled = true;
+        const typedInput = 'typed input';
+        element.input = typedInput;
+        element.lastQueriedInput = typedInput;
+        element.result = {
+          input: typedInput,
+          matches: [
+            createAutocompleteMatch(
+                {allowedToBeDefaultMatch: true, fillIntoEdit: typedInput}),
+            createAutocompleteMatch({fillIntoEdit: 'other suggestion'}),
+            createAutocompleteMatch({
+              fillIntoEdit: 'hint suggestion',
+              suggestTemplate: createSuggestTemplateInfo({
+                fuseboxAction: createFuseboxActionRequest({
+                                 queryActionOverride: QueryActionOverride.kHint,
+                               }).fuseboxAction,
+              }),
+            }),
+          ],
+        } as AutocompleteResult;
+        await microtasksFinished();
+
+        // Keyboard-select a regular match so its text is previewed, then click
+        // the kHint match with the mouse, which does not change the selection.
+        const dropdown = element.getDropdownElement();
+        dropdown.selectIndex(1);
+        await microtasksFinished();
+        assertEquals('other suggestion', element.input);
+
+        const queryCount = searchboxHandler.getCallCount('queryAutocomplete');
+        const matchEl =
+            dropdown.shadowRoot.querySelectorAll('cr-composebox-match')[2]!;
+        matchEl.dispatchEvent(new MouseEvent('click', {
+          button: 0,
+          bubbles: true,
+          cancelable: true,
+          composed: true,
+        }));
+        await microtasksFinished();
+        await element.updateComplete;
+
+        assertEquals(
+            queryCount + 1, searchboxHandler.getCallCount('queryAutocomplete'));
+        assertEquals(
+            typedInput,
+            searchboxHandler.getArgs('queryAutocomplete').at(-1)![2]);
+        assertEquals(typedInput, element.input);
+        assertEquals('hint suggestion', element.inputPlaceholder);
+      });
 
   test('clearAutocompleteMatches preserves typed draft input', async () => {
     element.input = 'Draft text';
@@ -1202,10 +1332,18 @@ suite('ComposeboxMixinTest', () => {
       maxInputsByType: {},
       maxTotalInputs: 5,
       isCanvasQuerySubmitted: false,
+      willFulfillInAim: true,
     } as unknown as InputState;
     element.onInputStateChanged(inputState);
     await microtasksFinished();
     assertDeepEquals(element.inputState, inputState);
+    assertTrue(element.willFulfillInAim);
+    assertTrue(element.hasAttribute('will-fulfill-in-aim'));
+
+    element.onInputStateChanged({...inputState, willFulfillInAim: false});
+    await microtasksFinished();
+    assertFalse(element.willFulfillInAim);
+    assertFalse(element.hasAttribute('will-fulfill-in-aim'));
   });
 
   test('NotifySessionStarted called on connectedCallback', () => {
@@ -1214,7 +1352,8 @@ suite('ComposeboxMixinTest', () => {
 
   test('clear button title changes with input text', async () => {
     const cancelIcon =
-        element.getInputElement().shadowRoot.querySelector('#cancelIcon')!;
+        element.getInputElement().shadowRoot.querySelector<HTMLElement>(
+            '#cancelIcon')!;
     assertEquals(
         loadTimeData.getString('composeboxCancelButtonTitle'),
         cancelIcon.getAttribute('title'));
@@ -1768,6 +1907,38 @@ suite('ComposeboxMixinTest', () => {
     assertFalse((await whenCloseComposebox).detail.afterSubmit);
   });
 
+  // <if expr="not is_android">
+  test('STS reset on dismiss', async () => {
+    // Enable STS.
+    element.smartTabSharingVisible = true;
+    element.smartTabSharingActive = true;
+    await element.updateComplete;
+
+    // Dismissing without submit should reset.
+    searchboxHandler.resetResolver('resetSmartTabSharing');
+    searchboxHandler.setResultFor(
+        'resetSmartTabSharing', Promise.resolve({active: false}));
+    element.closeComposebox(/*afterSubmit=*/ false);
+    // Cleared synchronously to prevent flashing.
+    assertFalse(element.smartTabSharingActive);
+
+    await searchboxHandler.whenCalled('resetSmartTabSharing');
+    await microtasksFinished();
+    assertFalse(element.smartTabSharingActive);
+
+    // Set it active again.
+    element.smartTabSharingActive = true;
+    await element.updateComplete;
+
+    // Submitting should NOT reset.
+    searchboxHandler.resetResolver('resetSmartTabSharing');
+    element.closeComposebox(/*afterSubmit=*/ true);
+    await microtasksFinished();
+    assertEquals(0, searchboxHandler.getCallCount('resetSmartTabSharing'));
+    assertTrue(element.smartTabSharingActive);
+  });
+  // </if>
+
   test(
       'esc clears input instead of closing when closeOnEscape is false and has content',
       async () => {
@@ -2203,6 +2374,9 @@ suite('ComposeboxMixinTest', () => {
     await element.updateComplete;
     assertTrue(isInputFocused());
     assertEquals('pasted text', element.state!.text);
+    const inputElement = inputComponent.inputElement as HTMLTextAreaElement;
+    assertEquals(0, inputElement.selectionStart);
+    assertEquals('pasted text'.length, inputElement.selectionEnd);
   });
 
   test('handleFuseboxAction dispatches input sources', async () => {
@@ -3014,6 +3188,48 @@ suite('ComposeboxMixinTest', () => {
     assertEquals(
         0, handler.getCallCount('notifyComposeboxQuerySubmittedWithContext'));
   });
+
+  test(
+      'AIM button holds an inert SEND while a submission navigates',
+      async () => {
+        let closeCount = 0;
+        element.addEventListener('close-composebox', () => ++closeCount);
+        element.clearAllInputsWhenSubmittingQuery = true;
+        element.onInputStateChanged(
+            new MockInputState({activeTool: ToolMode.kDeepSearch}));
+        await element.updateComplete;
+        await simulateUserTextInput(element.getInputElement(), 'hello');
+        assertEquals(AimButtonMode.SEND, element.getAimButtonMode());
+
+        element.onAimButtonClick(createClickEvent(new MouseEvent('click')));
+        await microtasksFinished();
+        assertEquals(1, searchboxHandler.getCallCount('submitQuery'));
+        assertEquals(
+            1,
+            handler.getCallCount('notifyComposeboxQuerySubmittedWithContext'));
+        // The input is cleared, but the button neither falls back to EXIT
+        // nor gets disabled.
+        assertEquals('', element.input);
+        assertFalse(element.submitEnabled);
+        assertTrue(element.submitting);
+        assertEquals(AimButtonMode.SEND, element.getAimButtonMode());
+        assertFalse(element.isAimButtonDisabled());
+
+        // A second click neither closes the composebox nor resubmits.
+        element.onAimButtonClick(createClickEvent(new MouseEvent('click')));
+        assertEquals(0, closeCount);
+        assertEquals(1, searchboxHandler.getCallCount('submitQuery'));
+        assertEquals(
+            1,
+            handler.getCallCount('notifyComposeboxQuerySubmittedWithContext'));
+
+        // Re-engaging the input ends the held state and restores EXIT.
+        element.getInputElement().inputElement.dispatchEvent(
+            new KeyboardEvent('keydown', {bubbles: true, composed: true}));
+        await microtasksFinished();
+        assertFalse(element.submitting);
+        assertEquals(AimButtonMode.EXIT, element.getAimButtonMode());
+      });
 
   test(
       'onAimButtonClick opens the selected match with activation details',

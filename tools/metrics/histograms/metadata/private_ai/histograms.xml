@@ -38,6 +38,36 @@ reviewer.
 
 <!-- LINT.ThenChange(//components/private_ai/proto/private_ai.proto:FeatureName) -->
 
+<histogram name="PrivateAi.Certs.DownloadSuccess" enum="BooleanSuccess"
+    expires_after="2027-04-01">
+  <owner>georgeseb@google.com</owner>
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <summary>
+    Records whether downloading the Trusted Certificate Authority (TCA) root and
+    Oak Certificate Transparency (OakCT) certificates succeeded. Recorded every
+    time a certificate download completes.
+  </summary>
+</histogram>
+
+<histogram name="PrivateAi.Certs.OakCtVerificationResult"
+    enum="PrivateAiOakCtVerificationResult" expires_after="2027-04-01">
+  <owner>georgeseb@google.com</owner>
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <summary>
+    Records the outcome of verifying that the Trusted Certificate Authority
+    (TCA) root certificate used for Private AI TLS sessions has been published
+    to Oak Certificate Transparency, i.e. that the accompanying OakCT
+    certificate is publicly trusted and CT-compliant for the hostname derived
+    from the TCA root. Recorded every time the TCA root is downloaded or loaded
+    from the on-disk cache and verified; only verified roots are cached and
+    handed out.
+  </summary>
+</histogram>
+
 <histogram name="PrivateAi.Client.ClientAttestationRequestFailureReason"
     enum="PrivateAiStatusCode" expires_after="2027-03-28">
   <owner>arabm@google.com</owner>
@@ -68,7 +98,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Client.FeatureName" enum="PrivateAiFeatureName"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -81,7 +111,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Client.RequestLatency.{FeatureName}" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
   <owner>lamzin@google.com</owner>
@@ -166,7 +196,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Client.ServerStatusCode" enum="GoogleRpcCode"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -181,7 +211,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Client.WebSocketCloseCode" enum="WebSocketCloseCode"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -227,7 +257,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Client.WebSocketSessionDuration.ClosedByServer"
-    units="ms" expires_after="2027-02-14">
+    units="ms" expires_after="2027-04-18">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -273,7 +303,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Phosphor.ConfigHttp.ResponseCode"
-    enum="HttpResponseCode" expires_after="2027-02-07">
+    enum="HttpResponseCode" expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -286,7 +316,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Phosphor.FeatureTokenManager.ServedFromCache"
-    enum="Boolean" expires_after="2027-02-07">
+    enum="Boolean" expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -299,7 +329,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Phosphor.FeatureTokenManager.TokensFetched"
-    units="count" expires_after="2027-02-07">
+    units="count" expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -312,7 +342,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.Phosphor.TokenFetcher.GetAuthnTokens.Result"
-    enum="PrivateAiPhosphorGetAuthnTokensResult" expires_after="2027-02-07">
+    enum="PrivateAiPhosphorGetAuthnTokensResult" expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -337,7 +367,7 @@ reviewer.
 
 <histogram
     name="PrivateAi.SecureChannel.ConnectionEstablishmentLatency.Success"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
   <owner>lamzin@google.com</owner>
@@ -386,7 +416,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.SecureChannel.RequestsPerSession" units="requests"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -440,7 +470,7 @@ reviewer.
 </histogram>
 
 <histogram name="PrivateAi.SecureChannel.SessionDuration2" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>nikhiljakhar@google.com</owner>
   <owner>arabm@google.com</owner>
   <owner>dullweber@chromium.org</owner>
@@ -450,6 +480,37 @@ reviewer.
     Records the duration of a secure channel session. This is the time from when
     the session is established to when it is closed. Recorded when a session is
     closed.
+  </summary>
+</histogram>
+
+<histogram name="PrivateAi.Tls.HandshakeLatency.{Result}" units="ms"
+    expires_after="2027-04-01">
+  <owner>georgeseb@google.com</owner>
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <summary>
+    Time from creating a Private AI TLS secure channel until its TLS 1.3 session
+    is established ({Result} = Success) or the channel fails before being
+    established ({Result} = Failure). Includes fetching and verifying the TCA
+    root certificate. Recorded once per channel.
+  </summary>
+  <token key="Result">
+    <variant name="Failure"/>
+    <variant name="Success"/>
+  </token>
+</histogram>
+
+<histogram name="PrivateAi.Tls.HandshakeStatus"
+    enum="PrivateAiTlsHandshakeStatus" expires_after="2027-04-01">
+  <owner>georgeseb@google.com</owner>
+  <owner>arabm@google.com</owner>
+  <owner>dullweber@chromium.org</owner>
+  <owner>lamzin@google.com</owner>
+  <summary>
+    Outcome of each Private AI TLS handshake attempt, as reported by the Oak
+    session service. Recorded once per attempt; a certificate refresh followed
+    by a retry counts as a second attempt.
   </summary>
 </histogram>
 

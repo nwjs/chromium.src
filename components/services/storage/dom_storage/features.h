@@ -36,6 +36,12 @@ COMPONENT_EXPORT(STORAGE_FEATURES)
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
                            kDomStorageSqliteMigrationInactivityTimeoutParam);
 
+// Verifies the contents of the database after migration.  This is expensive,
+// requiring a full read of both the source database and the destination
+// database.
+COMPONENT_EXPORT(STORAGE_FEATURES)
+BASE_DECLARE_FEATURE_PARAM(bool, kDomStorageSqliteMigrationVerification);
+
 inline constexpr base::TimeDelta kDomStorageSqliteMigrationInactivityTimeout =
     base::Seconds(45);
 
@@ -45,6 +51,9 @@ inline constexpr base::TimeDelta kDomStorageSqliteMigrationInactivityTimeout =
 enum class DomStorageSqliteRolloutStage {
   // Use LevelDB exclusively. All on-disk stores emit metrics to "OnDisk".
   kUseLevelDbOnly,
+  // Use LevelDB for new databases and keep existing SQLite databases on
+  // SQLite. All on-disk stores emit metrics to "OnDisk".
+  kUseLevelDbForNewDatabases,
   // Functionally the same as `kUseLevelDbOnly`. On-disk stores created during
   // this stage emit metrics to "OnDiskExperimental"; previously existing stores
   // emit to "OnDisk".

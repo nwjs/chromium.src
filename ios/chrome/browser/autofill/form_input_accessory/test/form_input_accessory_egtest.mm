@@ -46,6 +46,7 @@
 #import "ios/chrome/test/scoped_eg_synchronization_disabler.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "ios/testing/earl_grey/matchers.h"
+#import "ios/testing/test_tag_registry.h"
 #import "net/base/apple/url_conversions.h"
 #import "net/test/embedded_test_server/default_handlers.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -378,10 +379,6 @@ void SlowlyTypeText(NSString* text) {
     config.features_enabled.push_back(
         autofill::features::kAutofillAiReauthRequired);
   }
-  if ([self isRunningTest:@selector(testFillXframeCreditCardFormThrottled)]) {
-    config.features_enabled.push_back(
-        autofill::features::kAutofillAcrossIframesIosThrottling);
-  }
   if ([self isRunningTest:@selector(testAddressHomeAndWorkIPH)]) {
     config.iph_feature_enabled =
         feature_engagement::kIPHAutofillHomeWorkProfileSuggestionFeature.name;
@@ -609,6 +606,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
 // Tests that tapping on a password related field opens the keyboard accessory
 // with the proper suggestion visible and that tapping on that suggestion
 // properly fills the related fields on the form.
+TAG_SMOKE_TEST(FormInputAccessoryEGTest, testFillPasswordFieldsOnForm);
 - (void)testFillPasswordFieldsOnForm {
   // Disable the credential bottom sheet.
   [CredentialSuggestionBottomSheetAppInterface disableBottomSheet];
@@ -703,6 +701,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
 // Tests that tapping on a credit card related field opens the keyboard
 // accessory with the proper suggestions visible and that tapping on a
 // suggestion properly fills the related fields on the form.
+TAG_SMOKE_TEST(FormInputAccessoryEGTest, testFillCreditCardFieldsOnForm);
 - (void)testFillCreditCardFieldsOnForm {
   [ReauthenticationAppInterface mockReauthenticationModuleCanAttempt:YES];
   [ReauthenticationAppInterface mockReauthenticationModuleExpectedResult:
@@ -993,6 +992,7 @@ id<GREYMatcher> PaymentsBottomSheetUseKeyboardButton() {
 // Tests that tapping on an address related field opens the keyboard
 // accessory with the proper suggestion visible and that tapping on that
 // suggestion properly fills the related fields on the form.
+TAG_SMOKE_TEST(FormInputAccessoryEGTest, testFillAddressFieldsOnForm);
 - (void)testFillAddressFieldsOnForm {
   [self loadAddressPage];
 

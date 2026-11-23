@@ -315,6 +315,15 @@ TEST_F(ResourceMultiBufferDataProviderTest, DidFailBlockedByOrbIsCrossOrigin) {
   EXPECT_TRUE(url_data->is_cors_cross_origin());
 }
 
+TEST_F(ResourceMultiBufferDataProviderTest, DidFailBlockedByResponse) {
+  Initialize(kHttpUrl, 0);
+  Start();
+  scoped_refptr<UrlData> url_data = url_data_;
+  EXPECT_CALL(*this, RedirectCallback(testing::IsNull()));
+  loader_->DidFail(WebURLError(net::ERR_BLOCKED_BY_RESPONSE, url_));
+  EXPECT_TRUE(url_data->is_cors_cross_origin());
+}
+
 TEST_F(ResourceMultiBufferDataProviderTest, DidFailOtherErrorNotCrossOrigin) {
   Initialize(kHttpUrl, 0);
   Start();
@@ -324,8 +333,9 @@ TEST_F(ResourceMultiBufferDataProviderTest, DidFailOtherErrorNotCrossOrigin) {
   EXPECT_FALSE(url_data->is_cors_cross_origin());
 }
 
-// An ORB block is deterministic, so it must fail immediately rather than being
-// retried, even at a non-zero position where transient failures are retried.
+// Deterministic security, policy, and certificate errors must fail immediately
+// rather than being retried, even at a non-zero position where transient
+// failures are retried.
 TEST_F(ResourceMultiBufferDataProviderTest, DidFailBlockedByOrbDoesNotRetry) {
   Initialize(kHttpUrl, 100);
   // Exactly one loader must be created: the initial one. A retry would create
@@ -337,6 +347,37 @@ TEST_F(ResourceMultiBufferDataProviderTest, DidFailBlockedByOrbDoesNotRetry) {
   loader_->DidFail(WebURLError(net::ERR_BLOCKED_BY_ORB, url_));
   EXPECT_TRUE(url_data->is_cors_cross_origin());
   task_environment_.FastForwardUntilNoTasksRemain();
+}
+
+TEST_F(ResourceMultiBufferDataProviderTest,
+       DidFailWebSecurityViolationDoesNotRetry) {
+  Initialize(kHttpUrl, 100);
+  EXPECT_CALL(fetch_context_, CreateUrlLoader(_)).Times(1);
+  Start();
+  scoped_refptr<UrlData> url_data = url_data_;
+  EXPECT_CALL(*this, RedirectCallback(testing::IsNull()));
+  loader_->DidFail(
+      WebURLError(network::CorsErrorStatus(
+                      network::mojom::CorsError::kWildcardOriginNotAllowed),
+                  WebURLError::HasCopyInCache::kFalse, url_));
+  EXPECT_TRUE(url_data->is_cors_cross_origin());
+  task_environment_.FastForwardUntilNoTasksRemain();
+}
+
+TEST_F(ResourceMultiBufferDataProviderTest,
+       DidFailDeterministicNetErrorDoesNotRetry) {
+  for (int err :
+       {net::ERR_BLOCKED_BY_CLIENT, net::ERR_BLOCKED_BY_CSP,
+        net::ERR_CERT_COMMON_NAME_INVALID, net::ERR_BAD_SSL_CLIENT_AUTH_CERT}) {
+    Initialize(kHttpUrl, 100);
+    EXPECT_CALL(fetch_context_, CreateUrlLoader(_)).Times(1);
+    Start();
+    scoped_refptr<UrlData> url_data = url_data_;
+    EXPECT_CALL(*this, RedirectCallback(testing::IsNull()));
+    loader_.ExtractAsDangling()->DidFail(WebURLError(err, url_));
+    EXPECT_FALSE(url_data->is_cors_cross_origin());
+    task_environment_.FastForwardUntilNoTasksRemain();
+  }
 }
 
 // Transient errors at a non-zero position are still retried.
@@ -532,6 +573,178 @@ TEST_F(ResourceMultiBufferDataProviderTest, NoCrossOriginMediaLeaks) {
   StopWhenLoad();
 }
 
+// Verifies that a same-origin redirect cannot be used to mix responses with
+// different data origins (e.g., via a Service Worker responding to the
+// redirected URL with a cross-origin response).
+TEST_F(ResourceMultiBufferDataProviderTest,
+       SameOriginRedirectRejectsMismatchedDataOrigin) {
+  url_index_ = std::make_unique<UrlIndex>(
+      &fetch_context_, task_environment_.GetMainThreadTaskRunner());
+
+  constexpr char kOriginA1[] = "http://localhost:18080/v1";
+  constexpr char kOriginA2[] = "http://localhost:18080/v2";
+  constexpr char kOriginB[] = "http://127.0.0.1:18081/secret";
+  constexpr int kBlockSize = 1 << 15;
+
+  Initialize(kOriginA1, 0);
+  auto reader = CreateReader(kBlockSize);
+  task_environment_.FastForwardUntilNoTasksRemain();
+  ASSERT_TRUE(loader_);
+  loader_->Start();
+
+  // 1. Receive initial partial response from Origin A.
+  WebURL url_a1{KURL(kOriginA1)};
+  WebURLResponse response_a1{url_a1};
+  response_a1.SetHttpStatusCode(kHttpPartialContent);
+  response_a1.SetHttpHeaderField(WebString::FromUtf8("Content-Range"),
+                                 WebString::FromUtf8("bytes 0-32767/100000"));
+  response_a1.SetExpectedContentLength(kBlockSize);
+  response_a1.SetType(network::mojom::FetchResponseType::kBasic);
+  loader_->DidReceiveResponse(response_a1);
+  ASSERT_TRUE(loader_);
+
+  std::string data_str(kBlockSize, 'a');
+  loader_->DidReceiveData(data_str);
+
+  // 2. Simulate retry/next range on the same loader redirecting same-origin to
+  // kOriginA2, which WillFollowRedirect allows because A1 and A2 are
+  // same-origin.
+  loader_->DidFail(WebURLError(net::ERR_ABORTED, url_a1));
+  task_environment_.FastForwardUntilNoTasksRemain();
+  ASSERT_TRUE(loader_);
+
+  WebURL url_a2{KURL(kOriginA2)};
+  WebURLResponse redirect_response{url_a1};
+  ASSERT_TRUE(loader_->WillFollowRedirect(url_a2, redirect_response));
+
+  EXPECT_CALL(*this, RedirectCallback(testing::IsNull()));
+
+  // 3. Service Worker responds to A2 with a response from Origin B.
+  WebURL url_b{KURL(kOriginB)};
+  WebURLResponse response_b{url_b};
+  response_b.SetHttpStatusCode(kHttpPartialContent);
+  response_b.SetHttpHeaderField(
+      WebString::FromUtf8("Content-Range"),
+      WebString::FromUtf8("bytes 32768-65535/100000"));
+  response_b.SetExpectedContentLength(kBlockSize);
+  response_b.SetType(network::mojom::FetchResponseType::kBasic);
+  response_b.SetWasFetchedViaServiceWorker(true);
+  response_b.SetUrlListViaServiceWorker(std::vector<WebURL>{url_b});
+
+  loader_->DidReceiveResponse(response_b);
+  StopWhenLoad();
+}
+
+// Verifies that a response rejected by CanAcceptDataFrom() does not overwrite
+// metadata (such as `length()`) on the shared `UrlData` in `UrlIndex`.
+TEST_F(ResourceMultiBufferDataProviderTest,
+       MismatchedDataOriginDoesNotMutateUrlData) {
+  url_index_ = std::make_unique<UrlIndex>(
+      &fetch_context_, task_environment_.GetMainThreadTaskRunner());
+
+  constexpr char kOriginA[] = "http://localhost:18080/v1";
+  constexpr char kOriginB[] = "http://127.0.0.1:18081/secret";
+  constexpr int kBlockSize = 1 << 15;
+  constexpr int64_t kInitialLength = 100000;
+  constexpr int64_t kSecretLength = 424242;
+
+  Initialize(kOriginA, 0);
+  auto reader = CreateReader(kBlockSize);
+  task_environment_.FastForwardUntilNoTasksRemain();
+  ASSERT_TRUE(loader_);
+  loader_->Start();
+
+  // 1. Receive initial partial response from Origin A, pinning `data_origin_`
+  // and `length()` on `url_data_` in `url_index_`.
+  WebURL url_a{KURL(kOriginA)};
+  WebURLResponse response_a{url_a};
+  response_a.SetHttpStatusCode(kHttpPartialContent);
+  response_a.SetHttpHeaderField(WebString::FromUtf8("Content-Range"),
+                                WebString::FromUtf8("bytes 0-32767/100000"));
+  response_a.SetExpectedContentLength(kBlockSize);
+  response_a.SetType(network::mojom::FetchResponseType::kBasic);
+  loader_->DidReceiveResponse(response_a);
+  ASSERT_TRUE(loader_);
+  EXPECT_EQ(url_data_->length(), kInitialLength);
+
+  std::string data_str(kBlockSize, 'a');
+  loader_->DidReceiveData(data_str);
+
+  // 2. Simulate retry/next range on the same `url_data_` where a Service Worker
+  // responds with a 200 OK response from Origin B carrying a different
+  // Content-Length.
+  loader_->DidFail(WebURLError(net::ERR_ABORTED, url_a));
+  task_environment_.FastForwardUntilNoTasksRemain();
+  ASSERT_TRUE(loader_);
+
+  EXPECT_CALL(*this, RedirectCallback(testing::IsNull()));
+
+  WebURL url_b{KURL(kOriginB)};
+  WebURLResponse response_b{url_b};
+  response_b.SetHttpStatusCode(kHttpOK);
+  response_b.SetExpectedContentLength(kSecretLength);
+  response_b.SetType(network::mojom::FetchResponseType::kOpaque);
+  response_b.SetWasFetchedViaServiceWorker(true);
+  response_b.SetUrlListViaServiceWorker(std::vector<WebURL>{url_b});
+
+  loader_->DidReceiveResponse(response_b);
+  EXPECT_EQ(url_data_->length(), kInitialLength);
+  EXPECT_FALSE(url_data_->is_cors_cross_origin());
+  StopWhenLoad();
+}
+
+// Verifies that a subsequent opaque response on a non-opaque resource (even
+// from the same data origin) is rejected before mutating metadata on the shared
+// `UrlData`.
+TEST_F(ResourceMultiBufferDataProviderTest,
+       MixedOpaqueResponseDoesNotMutateUrlData) {
+  base::test::ScopedFeatureList feature_list(
+      media::kDisallowMixedOpaqueMediaResponses);
+  url_index_ = std::make_unique<UrlIndex>(
+      &fetch_context_, task_environment_.GetMainThreadTaskRunner());
+
+  constexpr char kOriginA[] = "http://localhost:18080/v1";
+  constexpr int kBlockSize = 1 << 15;
+  constexpr int64_t kInitialLength = 100000;
+  constexpr int64_t kNewLength = 424242;
+
+  Initialize(kOriginA, 0);
+  auto reader = CreateReader(kBlockSize);
+  task_environment_.FastForwardUntilNoTasksRemain();
+  ASSERT_TRUE(loader_);
+  loader_->Start();
+
+  WebURL url_a{KURL(kOriginA)};
+  WebURLResponse response1{url_a};
+  response1.SetHttpStatusCode(kHttpPartialContent);
+  response1.SetHttpHeaderField(WebString::FromUtf8("Content-Range"),
+                               WebString::FromUtf8("bytes 0-32767/100000"));
+  response1.SetExpectedContentLength(kBlockSize);
+  response1.SetType(network::mojom::FetchResponseType::kBasic);
+  loader_->DidReceiveResponse(response1);
+  ASSERT_TRUE(loader_);
+  EXPECT_EQ(url_data_->length(), kInitialLength);
+  EXPECT_FALSE(url_data_->is_cors_cross_origin());
+
+  std::string data_str(kBlockSize, 'a');
+  loader_->DidReceiveData(data_str);
+
+  loader_->DidFail(WebURLError(net::ERR_ABORTED, url_a));
+  task_environment_.FastForwardUntilNoTasksRemain();
+  ASSERT_TRUE(loader_);
+
+  EXPECT_CALL(*this, RedirectCallback(testing::IsNull()));
+
+  WebURLResponse response2{url_a};
+  response2.SetHttpStatusCode(kHttpOK);
+  response2.SetExpectedContentLength(kNewLength);
+  response2.SetType(network::mojom::FetchResponseType::kOpaque);
+  loader_->DidReceiveResponse(response2);
+  EXPECT_EQ(url_data_->length(), kInitialLength);
+  EXPECT_FALSE(url_data_->is_cors_cross_origin());
+  StopWhenLoad();
+}
+
 TEST_F(ResourceMultiBufferDataProviderTest, AllowGzip) {
   Initialize(kHttpUrl, 0, media::DataSource::EncodingMode::kAllowGzip);
 
@@ -643,6 +856,102 @@ TEST_F(ResourceMultiBufferDataProviderTest, DestructedUrlIndexStartViaReader) {
 
   task_environment_.FastForwardUntilNoTasksRemain();
   EXPECT_FALSE(reader);
+}
+
+TEST_F(ResourceMultiBufferDataProviderTest, ServiceWorkerFailureDoesNotRetry) {
+  Initialize(kHttpUrl, 100);
+  Start();
+
+  WebURLResponse response(url_);
+  response.SetHttpStatusCode(kHttpPartialContent);
+  response.SetHttpHeaderField(WebString::FromUtf8("Content-Range"),
+                              WebString::FromUtf8("bytes 100-1023/1024"));
+  response.SetExpectedContentLength(924);
+  response.SetWasFetchedViaServiceWorker(true);
+  response.SetUrlListViaServiceWorker(std::vector<WebURL>{url_});
+  loader_->DidReceiveResponse(response);
+
+  // Failing after receiving a service worker response at `pos_ != 0` should
+  // fail immediately rather than scheduling a retry.
+  EXPECT_CALL(*this, RedirectCallback(scoped_refptr<UrlData>(nullptr)));
+  EXPECT_CALL(fetch_context_, CreateUrlLoader(_)).Times(0);
+  loader_->DidFail(WebURLError(net::ERR_ABORTED, url_));
+  task_environment_.FastForwardUntilNoTasksRemain();
+}
+
+TEST_F(ResourceMultiBufferDataProviderTest,
+       PartialResponseMismatchedInstanceSizeFails) {
+  Initialize(kHttpUrl, 0);
+  Start();
+
+  // First response pins `url_data_->length()` to 1,000,000.
+  WebURLResponse response1(url_);
+  response1.SetHttpStatusCode(kHttpOK);
+  response1.SetExpectedContentLength(1000000);
+  loader_->DidReceiveResponse(response1);
+  EXPECT_EQ(url_data_->length(), 1000000);
+
+  // Empty body triggers a retry from byte 0.
+  loader_->DidFinishLoading();
+  task_environment_.FastForwardUntilNoTasksRemain();
+
+  // A subsequent 206 response reporting a different instance size (7777) must
+  // be rejected immediately in DidReceiveResponse().
+  EXPECT_CALL(*this, RedirectCallback(scoped_refptr<UrlData>(nullptr)));
+  WebURLResponse response2(url_);
+  response2.SetHttpStatusCode(kHttpPartialContent);
+  response2.SetHttpHeaderField(WebString::FromUtf8("Content-Range"),
+                               WebString::FromUtf8("bytes 0-7776/7777"));
+  response2.SetExpectedContentLength(7777);
+  loader_->DidReceiveResponse(response2);
+  EXPECT_EQ(url_data_->length(), 1000000);
+}
+
+TEST_F(ResourceMultiBufferDataProviderTest,
+       OkResponseMismatchedContentLengthFails) {
+  Initialize(kHttpUrl, 0);
+  Start();
+
+  // First response pins `url_data_->length()` to 1,000,000.
+  WebURLResponse response1(url_);
+  response1.SetHttpStatusCode(kHttpOK);
+  response1.SetExpectedContentLength(1000000);
+  loader_->DidReceiveResponse(response1);
+  EXPECT_EQ(url_data_->length(), 1000000);
+
+  // Empty body triggers a retry from byte 0.
+  loader_->DidFinishLoading();
+  task_environment_.FastForwardUntilNoTasksRemain();
+
+  // A subsequent chunked 200 OK response (kPositionNotSpecified) must be
+  // rejected when `url_data_->length()` is already known.
+  EXPECT_CALL(*this, RedirectCallback(scoped_refptr<UrlData>(nullptr)));
+  WebURLResponse response2(url_);
+  response2.SetHttpStatusCode(kHttpOK);
+  response2.SetExpectedContentLength(kPositionNotSpecified);
+  loader_->DidReceiveResponse(response2);
+  EXPECT_EQ(url_data_->length(), 1000000);
+
+  // Likewise, a mid-resource 200 OK response reporting a different
+  // Content-Length (e.g. b/574206996) must be rejected without overwriting
+  // `url_data_->length()`.
+  url_data_->OnRedirect(
+      blink::BindOnce(&ResourceMultiBufferDataProviderTest::RedirectCallback,
+                      Unretained(this)));
+  auto mid_loader = std::make_unique<ResourceMultiBufferDataProvider>(
+      url_data_.get(), /*pos=*/1, /*is_client_audio_element=*/false,
+      task_environment_.GetMainThreadTaskRunner());
+  ResourceMultiBufferDataProvider* raw_mid_loader = mid_loader.get();
+  url_data_->multibuffer()->AddProvider(std::move(mid_loader));
+  loader_ = raw_mid_loader;
+  Start();
+
+  EXPECT_CALL(*this, RedirectCallback(scoped_refptr<UrlData>(nullptr)));
+  WebURLResponse response3(url_);
+  response3.SetHttpStatusCode(kHttpOK);
+  response3.SetExpectedContentLength(500000);
+  loader_->DidReceiveResponse(response3);
+  EXPECT_EQ(url_data_->length(), 1000000);
 }
 
 }  // namespace blink

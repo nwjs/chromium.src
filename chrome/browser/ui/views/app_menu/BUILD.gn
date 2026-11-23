@@ -119,6 +119,7 @@ source_set("impl") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/actions",
     "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/actions:actions_util",
     "//chrome/browser/ui/bookmarks",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
@@ -190,6 +191,10 @@ source_set("impl") {
       "//chrome/browser/ui/webui/signin:signin_utils",
     ]
   }
+
+  if (is_win || is_mac || is_linux) {
+    deps += [ "//chrome/browser/lifetime" ]
+  }
 }
 
 if (toolkit_views) {
@@ -216,6 +221,7 @@ if (toolkit_views) {
       ":impl",
       "//base",
       "//base/test:test_support",
+      "//build:branding_buildflags",
       "//chrome/app:branded_strings",
       "//chrome/app:generated_resources",
       "//chrome/browser",
@@ -228,6 +234,7 @@ if (toolkit_views) {
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/actions",
+      "//chrome/browser/ui/actions:actions_util",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/fuzzy_search",
       "//chrome/browser/ui/navigator",
@@ -256,6 +263,8 @@ if (toolkit_views) {
       "//ui/actions:actions_headers",
       "//ui/base",
       "//ui/base:test_support",
+      "//ui/events:gesture_detection",
+      "//ui/events:test_support",
       "//ui/gfx",
       "//ui/strings",
       "//ui/views",

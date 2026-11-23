@@ -27,9 +27,7 @@ import {
   UnsupportedOperationException,
 } from '../../../protocol/protocol.js';
 import {CdpErrorConstants} from '../../../utils/cdpErrorConstants.js';
-import type {ContextConfig} from '../browser/ContextConfig.js';
 import type {ContextConfigStorage} from '../browser/ContextConfigStorage.js';
-import type {UserContextStorage} from '../browser/UserContextStorage.js';
 import type {EventManager} from '../session/EventManager.js';
 
 import type {BrowsingContextImpl} from './BrowsingContextImpl.js';
@@ -40,17 +38,14 @@ export class BrowsingContextProcessor {
   readonly #browsingContextStorage: BrowsingContextStorage;
   readonly #contextConfigStorage: ContextConfigStorage;
   readonly #eventManager: EventManager;
-  readonly #userContextStorage: UserContextStorage;
 
   constructor(
     browserCdpClient: CdpClient,
     browsingContextStorage: BrowsingContextStorage,
-    userContextStorage: UserContextStorage,
     contextConfigStorage: ContextConfigStorage,
     eventManager: EventManager,
   ) {
     this.#contextConfigStorage = contextConfigStorage;
-    this.#userContextStorage = userContextStorage;
     this.#browserCdpClient = browserCdpClient;
     this.#browsingContextStorage = browsingContextStorage;
     this.#eventManager = eventManager;
@@ -206,6 +201,34 @@ export class BrowsingContextProcessor {
     return await context.print(params);
   }
 
+  async setBypassCSP(
+    params: BrowsingContext.SetBypassCspParameters,
+  ): Promise<EmptyResult> {
+    const relatedBrowsingContexts =
+      await this.#contextConfigStorage.updateConfig(
+        {
+          bypassCSP: params.bypass,
+        },
+        params.contexts,
+        params.userContexts,
+      );
+
+    await Promise.all(
+      relatedBrowsingContexts.map(async (context) => {
+        // Actual value can be different from the one in params, e.g. in case of already
+        // existing more granular setting.
+        const config = this.#contextConfigStorage.getActiveConfig(
+          context.id,
+          context.userContext,
+        );
+
+        await context.setBypassCSP(config.bypassCSP ?? null);
+      }),
+    );
+
+    return {};
+  }
+
   async setViewport(
     params: BrowsingContext.SetViewportParameters,
   ): Promise<EmptyResult> {
@@ -222,34 +245,19 @@ export class BrowsingContextProcessor {
       );
     }
 
-    const config: ContextConfig = {};
-    // `undefined` means no changes should be done to the config.
-    if (params.devicePixelRatio !== undefined) {
-      config.devicePixelRatio = params.devicePixelRatio;
-    }
-    if (params.viewport !== undefined) {
-      config.viewport = params.viewport;
-    }
-
-    const impactedTopLevelContexts =
-      await this.#getRelatedTopLevelBrowsingContexts(
-        params.context,
+    const relatedBrowsingContexts =
+      await this.#contextConfigStorage.updateConfig(
+        {
+          devicePixelRatio: params.devicePixelRatio,
+          viewport: params.viewport,
+        },
+        params.context === undefined ? undefined : [params.context],
         params.userContexts,
+        false,
       );
-
-    for (const userContextId of params.userContexts ?? []) {
-      this.#contextConfigStorage.updateUserContextConfig(userContextId, config);
-    }
-
-    if (params.context !== undefined) {
-      this.#contextConfigStorage.updateBrowsingContextConfig(
-        params.context,
-        config,
-      );
-    }
 
     await Promise.all(
-      impactedTopLevelContexts.map(async (context) => {
+      relatedBrowsingContexts.map(async (context) => {
         const config = this.#contextConfigStorage.getActiveConfig(
           context.id,
           context.userContext,
@@ -263,53 +271,6 @@ export class BrowsingContextProcessor {
     );
 
     return {};
-  }
-
-  /**
-   * Returns a list of top-level browsing context ids.
-   */
-  async #getRelatedTopLevelBrowsingContexts(
-    browsingContextId?: string,
-    userContextIds?: string[],
-  ): Promise<BrowsingContextImpl[]> {
-    if (browsingContextId === undefined && userContextIds === undefined) {
-      throw new InvalidArgumentException(
-        'Either userContexts or context must be provided',
-      );
-    }
-
-    if (browsingContextId !== undefined && userContextIds !== undefined) {
-      throw new InvalidArgumentException(
-        'userContexts and context are mutually exclusive',
-      );
-    }
-
-    if (browsingContextId !== undefined) {
-      const context =
-        this.#browsingContextStorage.getContext(browsingContextId);
-      if (!context.isTopLevelContext()) {
-        throw new InvalidArgumentException(
-          'Emulating viewport is only supported on the top-level context',
-        );
-      }
-      return [context];
-    }
-
-    // Verify that all user contexts exist.
-    await this.#userContextStorage.verifyUserContextIdList(userContextIds!);
-
-    const result = [];
-    for (const userContextId of userContextIds!) {
-      const topLevelBrowsingContexts = this.#browsingContextStorage
-        .getTopLevelContexts()
-        .filter(
-          (browsingContext) => browsingContext.userContext === userContextId,
-        );
-      result.push(...topLevelBrowsingContexts);
-    }
-    // Remove duplicates. Compare `BrowsingContextImpl` by reference is correct here, as
-    // `browsingContextStorage` returns the same instance for the same id.
-    return [...new Set(result).values()];
   }
 
   async traverseHistory(

@@ -31,7 +31,6 @@ source_set("page_load_metrics") {
     "observers/lcp_critical_path_predictor_page_load_metrics_observer.h",
     "observers/loading_predictor_page_load_metrics_observer.h",
     "observers/multi_tab_loading_page_load_metrics_observer.h",
-    "observers/navigation_initiator_page_load_metrics_observer.h",
     "observers/new_tab_page_initiated_page_load_metrics_observer.h",
     "observers/new_tab_page_page_load_metrics_observer.h",
     "observers/omnibox_suggestion_used_page_load_metrics_observer.h",
@@ -111,7 +110,6 @@ source_set("impl") {
     "observers/lcp_critical_path_predictor_page_load_metrics_observer.cc",
     "observers/loading_predictor_page_load_metrics_observer.cc",
     "observers/multi_tab_loading_page_load_metrics_observer.cc",
-    "observers/navigation_initiator_page_load_metrics_observer.cc",
     "observers/new_tab_page_initiated_page_load_metrics_observer.cc",
     "observers/new_tab_page_page_load_metrics_observer.cc",
     "observers/omnibox_suggestion_used_page_load_metrics_observer.cc",
@@ -221,9 +219,6 @@ if (is_android) {
 source_set("unit_tests") {
   testonly = true
 
-  # Some of these tests declare file-scope objects with non-trivial destructors.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
-
   sources = [
     "metrics_web_contents_observer_unittest.cc",
     "observers/captcha_metrics_observer_unittest.cc",
@@ -284,6 +279,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui/browser_window/test:test_support",
       "//chrome/browser/ui/tabs:test_support",
+      "//chrome/browser/ui/waap",
       "//chrome/browser/ui/waap:window_metrics_manager",
       "//chrome/browser/ui/webui:webui_util",
       "//ui/views:test_support",

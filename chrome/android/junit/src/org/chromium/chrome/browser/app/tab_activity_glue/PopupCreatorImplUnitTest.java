@@ -6,12 +6,15 @@ package org.chromium.chrome.browser.app.tab_activity_glue;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -61,6 +64,7 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
@@ -75,6 +79,7 @@ import org.chromium.chrome.browser.media.DocumentPictureInPictureActivity;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskUnitTestSupport;
 import org.chromium.chrome.browser.util.AndroidTaskUtils;
 import org.chromium.chrome.browser.util.PictureInPictureWindowOptions;
 import org.chromium.chrome.browser.util.WindowFeatures;
@@ -87,6 +92,7 @@ import org.chromium.ui.insets.InsetObserver;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -157,6 +163,8 @@ public class PopupCreatorImplUnitTest {
     private static final int TOOLBAR_HAIRLINE_HEIGHT = 9;
     private static final int CUSTOM_TABS_POPUP_TITLE_BAR_MIN_HEIGHT = 62;
     private static final int CUSTOM_TABS_POPUP_TITLE_BAR_TEXT_HEIGHT = 75;
+    private static final int SMALL_POPUP_TITLE_BAR_HEIGHT = 10;
+    private static final Rect VIEWPORT_BOUNDS_PX = new Rect(100, 200, 400, 600);
 
     private TestCustomTabActivity mActivity;
     private PopupCreatorImpl mPopupCreator;
@@ -168,7 +176,8 @@ public class PopupCreatorImplUnitTest {
         DisplayAndroidManager.setInstanceForTesting(mDisplayAndroidManager);
 
         PopupCreatorImpl.setReparentingTaskForTesting(mReparentingTask);
-        PopupCreatorImpl.setInsetsForecastForTesting(Insets.NONE);
+        doReturn(true).when(mReparentingTask).begin(any(), any(), any(), nullable(Runnable.class));
+        PopupCreatorImpl.setPredictPopupWindowBoundsForTesting(false);
 
         doReturn(DISPLAY_ID).when(mDisplay).getDisplayId();
         doReturn(DENSITY).when(mDisplay).getDipScale();
@@ -206,6 +215,7 @@ public class PopupCreatorImplUnitTest {
                 .getDimensionPixelSize(R.dimen.custom_tabs_popup_title_bar_text_height);
 
         AndroidTaskUtils.setMoveTaskDelegateForTesting(mMoveTaskDelegate);
+        AndroidTaskUtils.setCanRepositionSelfWindowsForTesting(true);
 
         doReturn(mWindow).when(mWebContents).getTopLevelNativeWindow();
     }
@@ -219,11 +229,9 @@ public class PopupCreatorImplUnitTest {
 
         Bundle extras = new Bundle();
         extras.putInt("extra", 1);
-        Bundle options = new Bundle();
-        options.putInt("option", 2);
 
         mPopupCreator.createNewPopupFromWebContents(
-                mContext, profile, mWebContents, windowFeatures, extras, options);
+                mContext, profile, mWebContents, windowFeatures, extras);
 
         ArgumentCaptor<Intent> captor = ArgumentCaptor.forClass(Intent.class);
         ArgumentCaptor<Bundle> optionsCaptor = ArgumentCaptor.forClass(Bundle.class);
@@ -249,7 +257,7 @@ public class PopupCreatorImplUnitTest {
                 windowFeatures,
                 new WindowFeatures(sentIntent.getBundleExtra(EXTRA_REQUESTED_WINDOW_FEATURES)));
         assertEquals("The extra is not in intent", 1, sentIntent.getIntExtra("extra", 0));
-        assertEquals("The option is not in options bundle", 2, sentOptions.getInt("option", 0));
+        assertNotNull("Options bundle should be present", sentOptions);
     }
 
     @Test
@@ -467,13 +475,13 @@ public class PopupCreatorImplUnitTest {
         assertFalse(
                 "createNewPopupFromWebContents should return false for isolated OTR profiles",
                 mPopupCreator.createNewPopupFromWebContents(
-                        mContext, isolatedProfile, mWebContents, windowFeatures, null, null));
+                        mContext, isolatedProfile, mWebContents, windowFeatures, null));
         verify(mWebContents).destroy();
     }
 
     private ActivityOptions getActivityOptionsPassedToReparentingTask() {
         ArgumentCaptor<Bundle> captor = ArgumentCaptor.forClass(Bundle.class);
-        verify(mReparentingTask).begin(any(), any(), captor.capture(), any());
+        verify(mReparentingTask).begin(any(), any(), captor.capture(), nullable(Runnable.class));
         Bundle aoBundle = captor.getValue();
         return new ActivityOptions(aoBundle);
     }
@@ -498,12 +506,20 @@ public class PopupCreatorImplUnitTest {
     @Test
     @Config(sdk = Build.VERSION_CODES.BAKLAVA)
     public void testActivityOptionsWhenWindowFeaturesDegenerated_belowCinnamonBun() {
+        AndroidTaskUtils.setCanRepositionSelfWindowsForTesting(false);
         WindowFeatures windowFeatures = new WindowFeatures(null, null, null, 100);
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.MultiWindowMode.PopupLaunch.Outcome.FromTab",
+                                PopupCreatorImpl.PopupLaunchOutcome.FALLBACK_TO_TAB)
+                        .build();
 
         assertFalse(
-                "moveTabToNewPopup should have returned false",
+                "moveTabToNewPopup should fall back to a tab below Cinnamon Bun",
                 mPopupCreator.moveTabToNewPopup(mTab, windowFeatures));
         verify(mReparentingTask, never()).begin(any(), any(), any(), any());
+        watcher.assertExpected();
     }
 
     @Test
@@ -525,58 +541,39 @@ public class PopupCreatorImplUnitTest {
     }
 
     @Test
-    public void testInsetsForecastUsedForNewPopups() {
-        WindowFeatures windowFeatures =
-                new WindowFeatures(100, 200, 300, 400); // left, top, width, height
-        final Rect windowBounds = new Rect(100, 200, 400, 600); // left, top, right, bottom
-        final Insets insets = Insets.of(-12, -34, -56, -78); // left, top, right, bottom
+    public void testPredictPopupWindowBounds_E2EUiMode() {
+        PopupCreatorImpl.setPredictPopupWindowBoundsForTesting(true);
 
-        doReturn(mDisplay).when(mDisplayAndroidManager).getDisplayMatching(windowBounds);
-
-        PopupCreatorImpl.setInsetsForecastForTesting(insets);
-        mPopupCreator.moveTabToNewPopup(mTab, windowFeatures);
-        ActivityOptions activityOptions = getActivityOptionsPassedToReparentingTask();
-
-        Rect launchBounds = activityOptions.getLaunchBounds();
-        final Rect targetBounds =
-                new Rect(100 - 12, 200 - 34, 400 + 56, 600 + 78); // left, top, right, bottom
-
+        // The popup header is taller than the caption bar, so it replaces the top inset.
+        final int deltaWidthPx = LAST_RAW_WINDOW_INSETS.left + LAST_RAW_WINDOW_INSETS.right;
+        final int deltaHeightPx =
+                CUSTOM_TABS_POPUP_TITLE_BAR_TEXT_HEIGHT
+                        + CUSTOM_TABS_CONTROL_CONTAINER_HEIGHT
+                        + TOOLBAR_HAIRLINE_HEIGHT
+                        + LAST_RAW_WINDOW_INSETS.bottom;
         assertEquals(
-                "The launch bounds specified in ActivityOptions have not been preserved and outset"
-                        + " by given window insets",
-                targetBounds,
-                launchBounds);
+                "The predicted window bounds are invalid",
+                growViewportBounds(deltaWidthPx, deltaHeightPx),
+                PopupCreatorImpl.predictPopupWindowBounds(mWindow, mDisplay, VIEWPORT_BOUNDS_PX));
     }
 
     @Test
-    public void testPopupInsetsForecastUseExpectedValues_E2EUiMode() {
-        PopupCreatorImpl.setInsetsForecastForTesting(null);
+    public void testPredictPopupWindowBoundsCrossDisplays_E2EUiMode() {
+        PopupCreatorImpl.setPredictPopupWindowBoundsForTesting(true);
 
-        /* Insets.of(
-         *     0,
-         *     0,
-         *     -(left inset + right inset),
-         *     -(popup header height + CCT toolbar height + hairline height + bottom inset)) */
+        // Insets are scaled by the density ratio between displays; resources are not.
+        final int deltaWidthPx =
+                scaleToExternalDisplay(LAST_RAW_WINDOW_INSETS.left + LAST_RAW_WINDOW_INSETS.right);
+        final int deltaHeightPx =
+                CUSTOM_TABS_POPUP_TITLE_BAR_TEXT_HEIGHT
+                        + CUSTOM_TABS_CONTROL_CONTAINER_HEIGHT
+                        + TOOLBAR_HAIRLINE_HEIGHT
+                        + scaleToExternalDisplay(LAST_RAW_WINDOW_INSETS.bottom);
         assertEquals(
-                "The insets returned are invalid",
-                Insets.of(0, 0, -(12 + 56), -(75 + 20 + 9 + 78)),
-                PopupCreatorImpl.getPopupInsetsForecast(mWindow, mDisplay));
-    }
-
-    @Test
-    public void testPopupInsetsForecastUseExpectedValuesCrossDisplays_E2EUiMode() {
-        PopupCreatorImpl.setInsetsForecastForTesting(null);
-
-        /* Pixel values of insets are scaled by the density quotient between displays.
-         * Insets.of(
-         *     0,
-         *     0,
-         *     -(left inset + right inset),
-         *     -(popup header height + CCT toolbar height + hairline height + bottom inset)) */
-        assertEquals(
-                "The insets returned are invalid",
-                Insets.of(0, 0, -(24 + 112), -(75 + 20 + 9 + 156)),
-                PopupCreatorImpl.getPopupInsetsForecast(mWindow, mExternalDisplay));
+                "The predicted window bounds are invalid",
+                growViewportBounds(deltaWidthPx, deltaHeightPx),
+                PopupCreatorImpl.predictPopupWindowBounds(
+                        mWindow, mExternalDisplay, VIEWPORT_BOUNDS_PX));
     }
 
     /**
@@ -584,24 +581,20 @@ public class PopupCreatorImplUnitTest {
      * header height should match the top inset height.
      */
     @Test
-    public void testPopupInsetsForecastUseExpectedValues_E2EUiMode_smallHeader() {
-        PopupCreatorImpl.setInsetsForecastForTesting(null);
-        doReturn(10)
-                .when(mResources)
-                .getDimensionPixelSize(R.dimen.custom_tabs_popup_title_bar_min_height);
-        doReturn(10)
-                .when(mResources)
-                .getDimensionPixelSize(R.dimen.custom_tabs_popup_title_bar_text_height);
+    public void testPredictPopupWindowBounds_E2EUiMode_smallHeader() {
+        PopupCreatorImpl.setPredictPopupWindowBoundsForTesting(true);
+        useSmallPopupTitleBar();
 
-        /* Insets.of(
-         *     0,
-         *     0,
-         *     -(left inset + right inset),
-         *     -(top inset + CCT toolbar height + hairline height + bottom inset)) */
+        final int deltaWidthPx = LAST_RAW_WINDOW_INSETS.left + LAST_RAW_WINDOW_INSETS.right;
+        final int deltaHeightPx =
+                LAST_RAW_WINDOW_INSETS.top
+                        + CUSTOM_TABS_CONTROL_CONTAINER_HEIGHT
+                        + TOOLBAR_HAIRLINE_HEIGHT
+                        + LAST_RAW_WINDOW_INSETS.bottom;
         assertEquals(
-                "The insets returned are invalid",
-                Insets.of(0, 0, -(12 + 56), -(34 + 20 + 9 + 78)),
-                PopupCreatorImpl.getPopupInsetsForecast(mWindow, mDisplay));
+                "The predicted window bounds are invalid",
+                growViewportBounds(deltaWidthPx, deltaHeightPx),
+                PopupCreatorImpl.predictPopupWindowBounds(mWindow, mDisplay, VIEWPORT_BOUNDS_PX));
     }
 
     /**
@@ -609,25 +602,47 @@ public class PopupCreatorImplUnitTest {
      * header height should match the top inset height.
      */
     @Test
-    public void testPopupInsetsForecastUseExpectedValuesCrossDisplays_E2EUiMode_smallHeader() {
-        PopupCreatorImpl.setInsetsForecastForTesting(null);
-        doReturn(10)
+    public void testPredictPopupWindowBoundsCrossDisplays_E2EUiMode_smallHeader() {
+        PopupCreatorImpl.setPredictPopupWindowBoundsForTesting(true);
+        useSmallPopupTitleBar();
+
+        // Insets are scaled by the density ratio between displays; resources are not.
+        final int deltaWidthPx =
+                scaleToExternalDisplay(LAST_RAW_WINDOW_INSETS.left + LAST_RAW_WINDOW_INSETS.right);
+        final int deltaHeightPx =
+                scaleToExternalDisplay(LAST_RAW_WINDOW_INSETS.top)
+                        + CUSTOM_TABS_CONTROL_CONTAINER_HEIGHT
+                        + TOOLBAR_HAIRLINE_HEIGHT
+                        + scaleToExternalDisplay(LAST_RAW_WINDOW_INSETS.bottom);
+        assertEquals(
+                "The predicted window bounds are invalid",
+                growViewportBounds(deltaWidthPx, deltaHeightPx),
+                PopupCreatorImpl.predictPopupWindowBounds(
+                        mWindow, mExternalDisplay, VIEWPORT_BOUNDS_PX));
+    }
+
+    /** Returns {@link #VIEWPORT_BOUNDS_PX} grown to the right and bottom by the given deltas. */
+    private static Rect growViewportBounds(int deltaWidthPx, int deltaHeightPx) {
+        return new Rect(
+                VIEWPORT_BOUNDS_PX.left,
+                VIEWPORT_BOUNDS_PX.top,
+                VIEWPORT_BOUNDS_PX.right + deltaWidthPx,
+                VIEWPORT_BOUNDS_PX.bottom + deltaHeightPx);
+    }
+
+    /** Scales pixels on the default display to pixels on the external display. */
+    private static int scaleToExternalDisplay(int px) {
+        return Math.round(px * EXTERNAL_DISPLAY_DENSITY / DENSITY);
+    }
+
+    /** Makes the minimal popup header height smaller than the top inset. */
+    private void useSmallPopupTitleBar() {
+        doReturn(SMALL_POPUP_TITLE_BAR_HEIGHT)
                 .when(mResources)
                 .getDimensionPixelSize(R.dimen.custom_tabs_popup_title_bar_min_height);
-        doReturn(10)
+        doReturn(SMALL_POPUP_TITLE_BAR_HEIGHT)
                 .when(mResources)
                 .getDimensionPixelSize(R.dimen.custom_tabs_popup_title_bar_text_height);
-
-        /* Pixel values of insets are scaled by the density quotient between displays.
-         * Insets.of(
-         *     0,
-         *     0,
-         *     -(left inset + right inset),
-         *     -(top inset + CCT toolbar height + hairline height + bottom inset)) */
-        assertEquals(
-                "The insets returned are invalid",
-                Insets.of(0, 0, -(24 + 112), -(68 + 20 + 9 + 156)),
-                PopupCreatorImpl.getPopupInsetsForecast(mWindow, mExternalDisplay));
     }
 
     @Test
@@ -638,7 +653,7 @@ public class PopupCreatorImplUnitTest {
 
         doReturn(mExternalDisplay).when(mDisplayAndroidManager).getDisplayMatching(windowBounds);
 
-        PopupCreatorImpl.setInsetsForecastForTesting(null);
+        PopupCreatorImpl.setPredictPopupWindowBoundsForTesting(true);
         mPopupCreator.moveTabToNewPopup(mTab, windowFeatures);
 
         final ActivityOptions activityOptions = getActivityOptionsPassedToReparentingTask();
@@ -813,7 +828,7 @@ public class PopupCreatorImplUnitTest {
 
     @Test
     public void testTryStartActivity_success() {
-        final Intent intent = mock(Intent.class);
+        final Intent intent = new Intent();
         final Bundle ao = new Bundle();
 
         assertTrue(
@@ -824,45 +839,41 @@ public class PopupCreatorImplUnitTest {
 
     @Test
     public void testTryStartActivity_securityException() {
-        final Intent intent = mock(Intent.class);
+        final Intent intent = new Intent();
         final Bundle ao = new Bundle();
         doThrow(new SecurityException()).when(mContext).startActivity(any(), any());
 
         assertFalse(
                 "tryStartActivity should have returned false due to an exception being thrown",
                 mPopupCreator.tryStartActivity(mContext, intent, ao));
-        verify(mContext, times(2)).startActivity(any(), any());
-    }
-
-    @Test
-    public void testTryStartActivity_securityException_retriesWithoutMovableTask() {
-        final Intent intent = mock(Intent.class);
-        final Bundle ao = new Bundle();
-        ao.putBoolean("android.activity.movableTaskRequired", true);
-        doThrow(new SecurityException()).when(mContext).startActivity(eq(intent), eq(ao));
-
-        assertTrue(
-                "tryStartActivity should succeed on retry without movableTaskRequired",
-                mPopupCreator.tryStartActivity(mContext, intent, ao));
-        verify(mContext, times(2)).startActivity(eq(intent), any());
+        verify(mContext, times(1)).startActivity(any(), any());
     }
 
     @Test
     public void testTryStartActivity_infeasibleActivityOptionsException() {
-        final Intent intent = mock(Intent.class);
+        final Intent intent = new Intent();
         final Bundle ao = new Bundle();
         final InfeasibleActivityOptionsException e = mock(InfeasibleActivityOptionsException.class);
         doThrow(e).when(mContext).startActivity(intent, ao);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.MultiWindowMode.PopupLaunch.Outcome.NewPopup")
+                        .expectNoRecords(
+                                "Android.MultiWindowMode.PopupLaunch.Outcome.FromWebContents")
+                        .expectNoRecords("Android.MultiWindowMode.PopupLaunch.Outcome.FromTab")
+                        .build();
 
         assertFalse(
                 "tryStartActivity should have returned false due to an exception being thrown",
                 mPopupCreator.tryStartActivity(mContext, intent, ao));
         verify(mContext).startActivity(intent, ao);
+        watcher.assertExpected();
     }
 
     @Test
     public void testTryStartActivity_genericArtException() {
-        final Intent intent = mock(Intent.class);
+        final Intent intent = new Intent();
         final Bundle ao = new Bundle();
         final AndroidRuntimeException e = new AndroidRuntimeException("Test message");
         doThrow(e).when(mContext).startActivity(intent, ao);
@@ -877,7 +888,7 @@ public class PopupCreatorImplUnitTest {
 
     @Test
     public void testTryStartActivity_genericRuntimeException() {
-        final Intent intent = mock(Intent.class);
+        final Intent intent = new Intent();
         final Bundle ao = new Bundle();
         final RuntimeException e = new RuntimeException("Test message");
         doThrow(e).when(mContext).startActivity(intent, ao);
@@ -967,6 +978,185 @@ public class PopupCreatorImplUnitTest {
         doReturn(1.0f).when(mDisplay).getDipScale();
         mActivity.mBrowserControlsManager = mBrowserControlsManager;
 
-        AndroidTaskUtils.setAppTaskForTesting(mAppTask);
+        // adjustWindowBoundsToRequested() requires a resizable ChromeAndroidTask for mActivity.
+        var deps =
+                ChromeAndroidTaskUnitTestSupport.createChromeAndroidTaskWithMockDeps(
+                        mActivity.getTaskId(),
+                        /* isPendingTask= */ false,
+                        /* isDesktopMode= */ true);
+        mAppTask = deps.mMockAppTask;
+        mMoveTaskDelegate = deps.mMockMoveTaskDelegate;
+    }
+
+    @Test
+    public void testGetPopupLaunchMode_newPopup_noPermission_launchesNonMovableTask() {
+        AndroidTaskUtils.setCanRepositionSelfWindowsForTesting(false);
+        final WindowFeatures windowFeatures = new WindowFeatures(100, 200, 300, 400);
+        final Rect windowBounds = new Rect(100, 200, 400, 600);
+        doReturn(mDisplay).when(mDisplayAndroidManager).getDisplayMatching(windowBounds);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.MultiWindowMode.PopupLaunch.Outcome.NewPopup",
+                                PopupCreatorImpl.PopupLaunchOutcome
+                                        .NON_MOVABLE_TASK_LAUNCHED_NO_PERMISSION)
+                        .build();
+
+        assertTrue(mPopupCreator.createNewPopup(mContext, false, windowFeatures, null));
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testGetPopupLaunchMode_testHook_launchesNonMovableTask() {
+        AndroidTaskUtils.setCanRepositionSelfWindowsForTesting(true);
+        PopupCreatorImpl.setSetMovableTaskRequiredForPopupsForTesting(false);
+
+        final WindowFeatures windowFeatures = new WindowFeatures(100, 200, 300, 400);
+        final Rect windowBounds = new Rect(100, 200, 400, 600);
+        doReturn(mDisplay).when(mDisplayAndroidManager).getDisplayMatching(windowBounds);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.MultiWindowMode.PopupLaunch.Outcome.FromTab")
+                        .build();
+
+        assertTrue(mPopupCreator.moveTabToNewPopup(mTab, windowFeatures));
+
+        ArgumentCaptor<Bundle> captor = ArgumentCaptor.forClass(Bundle.class);
+        verify(mReparentingTask).begin(any(), any(), captor.capture(), nullable(Runnable.class));
+        ActivityOptions options = new ActivityOptions(captor.getValue());
+        assertFalse(
+                "Test hook should force a non-movable task launch",
+                options.isMovableTaskRequired());
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testNewPopupInfeasible_retriesWithoutMovableTask() {
+        AndroidTaskUtils.setCanRepositionSelfWindowsForTesting(true);
+        final WindowFeatures windowFeatures = new WindowFeatures(100, 200, 300, 400);
+        final Rect windowBounds = new Rect(100, 200, 400, 600);
+        doReturn(mDisplay).when(mDisplayAndroidManager).getDisplayMatching(windowBounds);
+
+        final InfeasibleActivityOptionsException infeasible =
+                mock(InfeasibleActivityOptionsException.class);
+        // First startActivity throws Infeasible, second call (retry) succeeds.
+        final List<Boolean> movablePerAttempt = new ArrayList<>();
+        doAnswer(
+                        inv -> {
+                            Bundle options = inv.getArgument(1);
+                            movablePerAttempt.add(
+                                    new ActivityOptions(options).isMovableTaskRequired());
+                            if (movablePerAttempt.size() == 1) throw infeasible;
+                            return null;
+                        })
+                .when(mContext)
+                .startActivity(any(), any());
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.MultiWindowMode.PopupLaunch.Outcome.NewPopup",
+                                PopupCreatorImpl.PopupLaunchOutcome
+                                        .NON_MOVABLE_TASK_LAUNCHED_AFTER_INFEASIBLE)
+                        .build();
+
+        assertTrue(mPopupCreator.createNewPopup(mContext, false, windowFeatures, null));
+        verify(mContext, times(2)).startActivity(any(), any());
+        watcher.assertExpected();
+        assertEquals(
+                "First attempt should require a movable task, the retry should not",
+                Arrays.asList(true, false),
+                movablePerAttempt);
+    }
+
+    @Test
+    public void testFromWebContentsInfeasible_retriesWithoutMovableTask() {
+        startFromReparentingTask();
+        TabBuilder.setTabForTesting(mTab);
+        doThrow(mock(InfeasibleActivityOptionsException.class))
+                .doNothing()
+                .when(mContext)
+                .startActivity(any(), any());
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.MultiWindowMode.PopupLaunch.Outcome.FromWebContents",
+                                PopupCreatorImpl.PopupLaunchOutcome
+                                        .NON_MOVABLE_TASK_LAUNCHED_AFTER_INFEASIBLE)
+                        .build();
+
+        assertTrue(
+                mPopupCreator.createNewPopupFromWebContents(
+                        mContext, mock(Profile.class), mWebContents, null, null));
+        verify(mContext, times(2)).startActivity(any(), any());
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testWindowOpenInfeasible_fallsBackToTab_noRetry() {
+        startFromReparentingTask();
+        doThrow(mock(InfeasibleActivityOptionsException.class))
+                .when(mContext)
+                .startActivity(any(), any());
+        final WindowFeatures windowFeatures = new WindowFeatures(100, 200, 300, 400);
+        doReturn(mDisplay)
+                .when(mDisplayAndroidManager)
+                .getDisplayMatching(new Rect(100, 200, 400, 600));
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.MultiWindowMode.PopupLaunch.Outcome.FromTab",
+                                PopupCreatorImpl.PopupLaunchOutcome.FAILED_INFEASIBLE_OPTIONS)
+                        .build();
+
+        assertFalse(mPopupCreator.moveTabToNewPopup(mTab, windowFeatures));
+        verify(mContext, times(1)).startActivity(any(), any());
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testNewPopupInfeasible_retryThrowsUnexpected_propagates() {
+        final WindowFeatures windowFeatures = new WindowFeatures(100, 200, 300, 400);
+        doReturn(mDisplay)
+                .when(mDisplayAndroidManager)
+                .getDisplayMatching(new Rect(100, 200, 400, 600));
+        doThrow(mock(InfeasibleActivityOptionsException.class))
+                .doThrow(new IllegalStateException("unexpected"))
+                .when(mContext)
+                .startActivity(any(), any());
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> mPopupCreator.createNewPopup(mContext, false, windowFeatures, null));
+        verify(mContext, times(2)).startActivity(any(), any());
+    }
+
+    @Test
+    public void testDocPip_ignoresPopupTestHook() {
+        ContextUtils.initApplicationContextForTests(mContext);
+        PopupCreatorImpl.setSetMovableTaskRequiredForPopupsForTesting(false);
+
+        mPopupCreator.moveWebContentsToNewDocumentPictureInPictureWindow(
+                null, mWebContents, new PictureInPictureWindowOptions());
+
+        ArgumentCaptor<Bundle> optionsCaptor = ArgumentCaptor.forClass(Bundle.class);
+        verify(mContext).startActivity(any(), optionsCaptor.capture());
+        assertTrue(
+                "Doc PiP must stay movable regardless of the popup test hook",
+                new ActivityOptions(optionsCaptor.getValue()).isMovableTaskRequired());
+    }
+
+    /** Makes the mocked ReparentingTask#begin start the intent via tryStartActivity. */
+    private void startFromReparentingTask() {
+        doAnswer(
+                        inv ->
+                                mPopupCreator.tryStartActivity(
+                                        mContext, inv.getArgument(1), inv.getArgument(2)))
+                .when(mReparentingTask)
+                .begin(any(), any(), any(), nullable(Runnable.class));
     }
 }

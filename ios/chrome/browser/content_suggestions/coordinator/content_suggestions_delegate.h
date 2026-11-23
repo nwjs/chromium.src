@@ -36,6 +36,18 @@ class GURL;
 // device's photo library.
 - (void)openNTPBackgroundPhotoPicker;
 
+// Presents the IPH bubble pointing to the Home customization menu button.
+- (void)presentCustomizationButtonBubble;
+
+// Returns `YES` if the NTP is bypassed because the omnibox is focused or
+// scheduled to be shown, or because a post-opening startup action is pending
+// (for example, when selecting "Search" from the app icon long-press menu).
+- (BOOL)isNTPBypassed;
+
+// Triggers the radial wipe animation to hide the Magic Stack and Discover feed,
+// disables both modules, and shows an undo snackbar.
+- (void)applyFocusedNTPWithUndoSnackbar;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_CONTENT_SUGGESTIONS_COORDINATOR_CONTENT_SUGGESTIONS_DELEGATE_H_

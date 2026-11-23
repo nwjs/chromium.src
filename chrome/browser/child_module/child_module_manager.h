@@ -5,16 +5,16 @@
 #ifndef CHROME_BROWSER_CHILD_MODULE_CHILD_MODULE_MANAGER_H_
 #define CHROME_BROWSER_CHILD_MODULE_CHILD_MODULE_MANAGER_H_
 
-#include <optional>
-
 #include "base/files/file_path.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
 #include "base/threading/sequence_bound.h"
+#include "base/types/optional_ref.h"
 #include "base/version.h"
 #include "chrome/browser/child_module/version_set.h"
+#include "content/public/common/child_process_id.h"
 
 class PrefRegistrySimple;
 class PrefService;
@@ -42,8 +42,9 @@ class ChildModuleManager {
   // Registers local-state preferences used by ChildModuleManager.
   static void RegisterLocalStatePrefs(PrefRegistrySimple* registry);
 
-  // Constructs the manager and starts monitoring the default child modules
-  // directory (`GetModulesDir()`). Staged modules are served when
+  // Constructs the manager and starts monitoring the directory in which child
+  // module versions for the running browser are staged. No versions are
+  // available if the directory was not set. Staged modules are served when
   // `DynamicPatchingEnabled` is enabled in `local_state`. `local_state` must
   // outlive this instance.
   explicit ChildModuleManager(PrefService& local_state);
@@ -51,10 +52,22 @@ class ChildModuleManager {
   ChildModuleManager& operator=(const ChildModuleManager&) = delete;
   ~ChildModuleManager();
 
-  // Returns the latest available child module, or std::nullopt if dynamic
-  // patching is disabled by policy or if no valid patched version is currently
-  // available.
-  std::optional<Module> GetLatestModule() const;
+  // Selects the latest available child module for the RenderProcessHost
+  // identified by `render_process_id` and associates it with the host (or
+  // clears any previous association if none is available). Returns the selected
+  // module, or std::nullopt if no such host exists or if no patched module is
+  // available. The returned reference remains valid until the RenderProcessHost
+  // is destroyed or SelectModuleForProcess() is called again for the same host.
+  base::optional_ref<const Module> SelectModuleForProcess(
+      content::ChildProcessId render_process_id);
+
+  // Returns the child module associated with the RenderProcessHost identified
+  // by `render_process_id` by a prior call to SelectModuleForProcess(), or
+  // std::nullopt if no such host exists or if it is not using a patched module.
+  // The returned reference remains valid until the RenderProcessHost is
+  // destroyed or SelectModuleForProcess() is called again for the same host.
+  base::optional_ref<const Module> GetModuleForProcess(
+      content::ChildProcessId render_process_id) const;
 
   // Returns the set of all currently discovered versions, sorted descending.
   const VersionSet& GetAvailableVersionsForTesting() const;
@@ -69,6 +82,10 @@ class ChildModuleManager {
   void OnVersionSetChanged(VersionSet versions);
 
   const raw_ref<PrefService> local_state_ GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // The directory holding the available versions; empty if it was not set.
+  const base::FilePath modules_dir_;
+
   VersionSet available_versions_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   base::SequenceBound<ChildModuleWatcher> watcher_

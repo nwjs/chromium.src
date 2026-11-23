@@ -19,6 +19,7 @@
 #include "components/metrics/metrics_features.h"
 #include "components/metrics/persistent_histograms.h"
 #include "components/payments/content/android/payment_feature_map.h"
+#include "components/payments/core/features.h"
 #include "components/permissions/features.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/variations/feature_overrides.h"
@@ -33,6 +34,7 @@
 #include "storage/browser/blob/features.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/features_generated.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/android/ui_android_features.h"
 #include "ui/gl/gl_features.h"
 #include "ui/gl/gl_switches.h"
@@ -179,6 +181,11 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // WebView does not support handling payment links.
   aw_feature_overrides.DisableFeature(blink::features::kPaymentLinkDetection);
 
+  // DISABLED_TEMPORARY: WebView needs to be updated to support 3D-Secure
+  // Telemetry b/575486194.
+  aw_feature_overrides.DisableFeature(
+      ::payments::features::kThreeDSecureTelemetry);
+
   // WebView does not support overlay fullscreen yet for video overlays.
   aw_feature_overrides.DisableFeature(media::kOverlayFullscreenVideo);
 
@@ -204,6 +211,11 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // DISABLED_TEMPORARY: crbug.com/40652382. WebXR is not yet supported
   // on WebView.
   aw_feature_overrides.DisableFeature(::features::kWebXr);
+
+  // DISABLED_TEMPORARY: crbug.com/548048933. Accessibility on a background
+  // thread is not yet supported on WebView.
+  aw_feature_overrides.DisableFeature(
+      ::features::kAccessibilityAndroidBackgroundThread);
 
   // DISABLED_TEMPORARY: crbug.com/40831925. Digital Goods API is not yet
   // supported on WebView.
@@ -402,9 +414,16 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   // unconditionally retain caches in the face of memory pressure signals.
   aw_feature_overrides.DisableFeature(
       net::features::kIgnoreQuicCryptoConfigMemoryPressure);
+
+  // DISABLED_INCOMPATIBLE: WebView does not support the browser-style keyboard
+  // context menu or dropdown selection menu.
+  aw_feature_overrides.DisableFeature(
+      blink::features::kAndroidKeyboardContextMenu);
 }
 
 void AwFieldTrials::EnableRuntimeMutableFeatures(
     base::FeatureList* feature_list) {
+  variations::PlatformFieldTrials::EnableRuntimeMutableFeatures(feature_list);
+
   // Add calls to enable runtime-mutable features here.
 }

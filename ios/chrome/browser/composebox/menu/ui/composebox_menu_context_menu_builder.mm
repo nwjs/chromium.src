@@ -4,12 +4,14 @@
 
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_context_menu_builder.h"
 
+#import <vector>
+
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/composebox/menu/ui/composebox_menu_item.h"
 #import "ios/chrome/browser/composebox/public/composebox_attachment_option.h"
-#import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/shared/ui/composebox_ui_constants.h"
+#import "ios/chrome/browser/composebox/ui/composebox_model_item.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_config.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -28,13 +30,6 @@ struct MenuItemAvailability {
   bool disabled;
   bool hidden;
   bool selected;
-
-  MenuItemAvailability(ComposeboxUIInputState* input_state,
-                       ComposeboxModelOption model_option) {
-    this->disabled = [input_state isModelDisabled:model_option];
-    this->hidden = [input_state isModelHidden:model_option];
-    this->selected = input_state.activeModel == model_option;
-  }
 
   MenuItemAvailability(ComposeboxUIInputState* input_state,
                        ComposeboxMode tool) {
@@ -77,12 +72,17 @@ struct MenuItemAvailability {
   NSMutableArray<UIMenuElement*>* sections = [[NSMutableArray alloc] init];
 
   if (IsPlusButtonMenuMoreOptionsSubmenu()) {
-    UIMenu* attachmentMenu =
-        [self inlineMenuFromItemTypes:{kCurrentTab, kAttachmentGallery,
-                                       kAttachmentCamera, kAttachmentTabs}];
+    UIMenu* currentTabMenu = [self inlineMenuFromItemTypes:{kCurrentTab}];
+    UIMenu* attachmentMenu = [self
+        inlineMenuFromItemTypes:{kAttachmentGallery, kAttachmentCamera,
+                                 kAttachmentTabs}
+                      withTitle:_inputState.uiConfig.attachmentsSectionHeader];
     UIMenu* aimMenu = [self inlineMenuFromItemTypes:{kAIM}];
     UIMenu* moreOptions = [self createMoreOptionsSubmenu];
 
+    if (currentTabMenu) {
+      [sections addObject:currentTabMenu];
+    }
     if (attachmentMenu) {
       [sections addObject:attachmentMenu];
     }
@@ -191,25 +191,33 @@ struct MenuItemAvailability {
   if (!_inputState.allowModelPicker) {
     return nil;
   }
-  using enum ComposeboxMenuItemType;
 
-  // Note: When possible, 'Regular' is meant to be replaced by 'Auto'.
-  return
-      [self inlineMenuFromItemTypes:{kModelRegular, kModelAuto, kModelThinking,
-                                     kModelThinkingNoGenUI, kModelFlash}
-                          withTitle:[_inputState.uiConfig modelSectionHeader]];
+  NSMutableArray<UIAction*>* actions = [[NSMutableArray alloc] init];
+  for (ComposeboxModelItem* item in _inputState.modelItems) {
+    [actions addObject:[self actionForModelItem:item]];
+  }
+  if ([actions count] == 0) {
+    return nil;
+  }
+  return [UIMenu menuWithTitle:[_inputState.uiConfig modelSectionHeader]
+                         image:nil
+                    identifier:nil
+                       options:UIMenuOptionsDisplayInline
+                      children:actions];
 }
 
 #pragma mark - Private
 
 - (void)handleItemPickedWithType:(ComposeboxMenuItemType)itemType {
-  // Ignore taps on already selected models.
-  if (_inputState.activeModel != ComposeboxModelOption::kNone &&
-      itemType == MenuItemTypeForModel(_inputState.activeModel)) {
+  [self.mutator handleItemPickedWithType:itemType];
+}
+
+- (void)handleModelItemPicked:(ComposeboxModelItem*)item {
+  // Ignore taps on the already selected model.
+  if (item.selected) {
     return;
   }
-
-  [self.mutator handleItemPickedWithType:itemType];
+  [self.mutator selectModelItem:item];
 }
 
 // Creates a new UIAction based on the given configuration.
@@ -241,6 +249,24 @@ struct MenuItemAvailability {
   return action;
 }
 
+// Creates a new `UIAction` for the given model `item`.
+- (UIAction*)actionForModelItem:(ComposeboxModelItem*)item {
+  __weak __typeof(self) weakSelf = self;
+  UIAction* action = [UIAction actionWithTitle:item.title ?: @""
+                                         image:item.icon
+                                    identifier:nil
+                                       handler:^(UIAction*) {
+                                         [weakSelf handleModelItemPicked:item];
+                                       }];
+  if (item.disabled) {
+    action.attributes |= UIMenuElementAttributesDisabled;
+  }
+  if (item.selected) {
+    [action setState:UIMenuElementStateOn];
+  }
+  return action;
+}
+
 #pragma mark - Options customization
 
 // Returns the image for the menu type.
@@ -264,29 +290,16 @@ struct MenuItemAvailability {
                  ?: SymbolWithPointSize(SymbolNewTabGroupAction,
                                         kSymbolActionPointSize);
     }
-    case ComposeboxMenuItemType::kModelRegular:
-      return
-          [_inputState.uiConfig iconForModel:ComposeboxModelOption::kRegular];
-    case ComposeboxMenuItemType::kModelAuto:
-      return [_inputState.uiConfig iconForModel:ComposeboxModelOption::kAuto];
-    case ComposeboxMenuItemType::kModelThinking:
-      return
-          [_inputState.uiConfig iconForModel:ComposeboxModelOption::kThinking];
-    case ComposeboxMenuItemType::kModelThinkingNoGenUI:
-      return [_inputState.uiConfig
-          iconForModel:ComposeboxModelOption::kThinkingNoGenUI];
-    case ComposeboxMenuItemType::kModelFlash:
-      return [_inputState.uiConfig iconForModel:ComposeboxModelOption::kFlash];
-    case ComposeboxMenuItemType::kModelProLatest:
-      return
-          [_inputState.uiConfig iconForModel:ComposeboxModelOption::kProLatest];
     case ComposeboxMenuItemType::kAttachmentTabs:
       return SymbolWithPointSize(SymbolNewTabGroupAction,
                                  kSymbolActionPointSize);
     case ComposeboxMenuItemType::kAttachmentCamera:
       return SymbolWithPointSize(SymbolSystemCamera, kSymbolActionPointSize);
     case ComposeboxMenuItemType::kAttachmentGallery:
-      return SymbolWithPointSize(SymbolPhoto, kSymbolActionPointSize);
+      return IsPlusButtonMenuStringUpdatesEnabled()
+                 ? SymbolWithPointSize(SymbolPhotoBadgePlus,
+                                       kSymbolActionPointSize)
+                 : SymbolWithPointSize(SymbolPhoto, kSymbolActionPointSize);
     case ComposeboxMenuItemType::kAttachmentFiles:
       return SymbolWithPointSize(SymbolDoc, kSymbolActionPointSize);
     case ComposeboxMenuItemType::kAttachmentDrive: {
@@ -299,6 +312,8 @@ struct MenuItemAvailability {
 
       return driveSymbol;
     }
+    // Model actions are created from `ComposeboxModelItem`s.
+    case ComposeboxMenuItemType::kModel:
     case ComposeboxMenuItemType::kAttachmentSharedTabs:
     case ComposeboxMenuItemType::kMoreOptionsSubmenu:
     case ComposeboxMenuItemType::kUnknown:
@@ -324,24 +339,6 @@ struct MenuItemAvailability {
                        IDS_IOS_COMPOSEBOX_ASK_ABOUT_THIS_PAGE_ACTION)
                  : l10n_util::GetNSString(
                        IDS_IOS_COMPOSEBOX_ADD_CURRENT_TAB_ACTION);
-    case ComposeboxMenuItemType::kModelRegular:
-      return [_inputState.uiConfig
-          menuLabelForModel:ComposeboxModelOption::kRegular];
-    case ComposeboxMenuItemType::kModelAuto:
-      return
-          [_inputState.uiConfig menuLabelForModel:ComposeboxModelOption::kAuto];
-    case ComposeboxMenuItemType::kModelThinking:
-      return [_inputState.uiConfig
-          menuLabelForModel:ComposeboxModelOption::kThinking];
-    case ComposeboxMenuItemType::kModelThinkingNoGenUI:
-      return [_inputState.uiConfig
-          menuLabelForModel:ComposeboxModelOption::kThinkingNoGenUI];
-    case ComposeboxMenuItemType::kModelFlash:
-      return [_inputState.uiConfig
-          menuLabelForModel:ComposeboxModelOption::kFlash];
-    case ComposeboxMenuItemType::kModelProLatest:
-      return [_inputState.uiConfig
-          menuLabelForModel:ComposeboxModelOption::kProLatest];
     case ComposeboxMenuItemType::kAttachmentTabs:
       return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_SELECT_TAB_ACTION);
     case ComposeboxMenuItemType::kAttachmentCamera:
@@ -352,6 +349,8 @@ struct MenuItemAvailability {
       return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_FILES_ACTION);
     case ComposeboxMenuItemType::kAttachmentDrive:
       return l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_DRIVE_ACTION);
+    // Model actions are created from `ComposeboxModelItem`s.
+    case ComposeboxMenuItemType::kModel:
     case ComposeboxMenuItemType::kAttachmentSharedTabs:
     case ComposeboxMenuItemType::kMoreOptionsSubmenu:
     case ComposeboxMenuItemType::kUnknown:
@@ -396,26 +395,8 @@ struct MenuItemAvailability {
       return MenuItemAvailability(_inputState, ComposeboxMode::kDeepSearch);
     case ComposeboxMenuItemType::kCanvas:
       return MenuItemAvailability(_inputState, ComposeboxMode::kCanvas);
-    case ComposeboxMenuItemType::kModelRegular: {
-      MenuItemAvailability availability(_inputState,
-                                        ComposeboxModelOption::kRegular);
-      availability.hidden |=
-          ![_inputState isModelHidden:ComposeboxModelOption::kAuto];
-      return availability;
-    }
-    case ComposeboxMenuItemType::kModelAuto:
-      return MenuItemAvailability(_inputState, ComposeboxModelOption::kAuto);
-    case ComposeboxMenuItemType::kModelThinking:
-      return MenuItemAvailability(_inputState,
-                                  ComposeboxModelOption::kThinking);
-    case ComposeboxMenuItemType::kModelThinkingNoGenUI:
-      return MenuItemAvailability(_inputState,
-                                  ComposeboxModelOption::kThinkingNoGenUI);
-    case ComposeboxMenuItemType::kModelFlash:
-      return MenuItemAvailability(_inputState, ComposeboxModelOption::kFlash);
-    case ComposeboxMenuItemType::kModelProLatest:
-      return MenuItemAvailability(_inputState,
-                                  ComposeboxModelOption::kProLatest);
+    // Model actions are created from `ComposeboxModelItem`s.
+    case ComposeboxMenuItemType::kModel:
     case ComposeboxMenuItemType::kUnknown:
     case ComposeboxMenuItemType::kMoreOptionsSubmenu:
     case ComposeboxMenuItemType::kAttachmentSharedTabs:

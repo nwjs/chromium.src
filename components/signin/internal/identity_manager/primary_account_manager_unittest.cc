@@ -184,6 +184,12 @@ class PrimaryAccountManagerTest : public testing::Test,
     }
   }
 
+#if BUILDFLAG(IS_IOS)
+  void OnEndBatchOfPrimaryAccountChanges() override {
+    num_end_batch_of_primary_account_changes_++;
+  }
+#endif  // BUILDFLAG(IS_IOS)
+
   base::test::TaskEnvironment task_environment_;
   sync_preferences::TestingPrefServiceSyncable user_prefs_;
   TestSigninClient test_signin_client_;
@@ -197,6 +203,9 @@ class PrimaryAccountManagerTest : public testing::Test,
   int num_successful_signins_{0};
   int num_successful_signouts_{0};
   int num_unconsented_account_changed_{0};
+#if BUILDFLAG(IS_IOS)
+  int num_end_batch_of_primary_account_changes_{0};
+#endif  // BUILDFLAG(IS_IOS)
 };
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -342,6 +351,48 @@ TEST_F(PrimaryAccountManagerTest, UnconsentedSignOutWhileProhibited) {
   CheckSigninMetrics({.sign_in = AccessPoint::kStartPage,
                       .sign_out = signin_metrics::ProfileSignout::kTest});
 }
+
+#if BUILDFLAG(IS_IOS)
+// Tests `OnEndBatchOfPrimaryAccountChanges()` with
+// `StartBatchOfPrimaryAccountChanges()`.
+TEST_F(PrimaryAccountManagerTest, BatchOfPrimaryAccountChanges) {
+  CreatePrimaryAccountManager();
+  CoreAccountId account_id1 =
+      AddToAccountTracker(GaiaId("gaia_id1"), "user1@gmail.com");
+  CoreAccountId account_id2 =
+      AddToAccountTracker(GaiaId("gaia_id2"), "user2@gmail.com");
+
+  manager_->SetPrimaryAccountInfo(
+      account_tracker()->GetAccountInfo(account_id1).GetCoreAccountInfo(),
+      ConsentLevel::kSignin, AccessPoint::kStartPage);
+  EXPECT_EQ(1, num_unconsented_account_changed_);
+  EXPECT_EQ(1, num_end_batch_of_primary_account_changes_);
+  EXPECT_FALSE(manager_->IsBatchOfPrimaryAccountChangesInProgress());
+
+  base::ScopedClosureRunner scoped_closure_runner =
+      manager_->StartBatchOfPrimaryAccountChanges();
+  EXPECT_TRUE(manager_->IsBatchOfPrimaryAccountChangesInProgress());
+
+  manager_->ClearPrimaryAccount(signin_metrics::ProfileSignout::kTest);
+  EXPECT_EQ(2, num_unconsented_account_changed_);
+  EXPECT_EQ(1, num_end_batch_of_primary_account_changes_);
+
+  manager_->SetPrimaryAccountInfo(
+      account_tracker()->GetAccountInfo(account_id2).GetCoreAccountInfo(),
+      ConsentLevel::kSignin, AccessPoint::kStartPage);
+  EXPECT_EQ(3, num_unconsented_account_changed_);
+  EXPECT_EQ(1, num_end_batch_of_primary_account_changes_);
+
+  scoped_closure_runner.RunAndReset();
+  EXPECT_FALSE(manager_->IsBatchOfPrimaryAccountChangesInProgress());
+  EXPECT_EQ(3, num_unconsented_account_changed_);
+  EXPECT_EQ(2, num_end_batch_of_primary_account_changes_);
+
+  manager_->ClearPrimaryAccount(signin_metrics::ProfileSignout::kTest);
+  EXPECT_EQ(4, num_unconsented_account_changed_);
+  EXPECT_EQ(3, num_end_batch_of_primary_account_changes_);
+}
+#endif  // BUILDFLAG(IS_IOS)
 #endif
 
 TEST_F(PrimaryAccountManagerTest, RevokeSyncConsentAllowedSignoutProhibited) {
@@ -1196,17 +1247,8 @@ class PrimaryAccountManagerExplicitSigninNewFeatureTest
       public testing::WithParamInterface<bool> {
  public:
   PrimaryAccountManagerExplicitSigninNewFeatureTest() {
-    if (GetParam()) {
-      scoped_feature_list_.InitWithFeatures(
-          /*enabled_features=*/
-          {syncer::kReplaceSyncPromosWithSigninPromosNewSignin},
-          /*disabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos});
-    } else {
-      scoped_feature_list_.InitWithFeatures(
-          /*enabled_features=*/{syncer::kReplaceSyncPromosWithSignInPromos},
-          /*disabled_features=*/{
-              syncer::kReplaceSyncPromosWithSigninPromosNewSignin});
-    }
+    scoped_feature_list_.InitWithFeatureState(
+        syncer::kReplaceSyncPromosWithSignInPromos, !GetParam());
   }
 
  private:
@@ -1257,7 +1299,10 @@ TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
       signin::ConsentLevel::kSignin,
       signin_metrics::AccessPoint::kChromeSigninInterceptBubble);
 
-  EXPECT_TRUE(
+  const bool expected_other_opt_in =
+      syncer::IsReplaceSyncPromosWithSignInPromosEnabled();
+  EXPECT_EQ(
+      expected_other_opt_in,
       SigninPrefs(*prefs()).GetExtensionsExplicitBrowserSignin(other_gaia_id));
 
   // Verify histograms as well that this was for a new opt-in.
@@ -1266,7 +1311,8 @@ TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
       /*sample=*/true, /*expected_bucket_count=*/1);
   histogram_tester_.ExpectUniqueSample(
       "Signin.Extensions.ExplicitSigninFromAnyAccessPoint",
-      /*sample=*/true, /*expected_bucket_count=*/2);
+      /*sample=*/true,
+      /*expected_bucket_count=*/expected_other_opt_in ? 2 : 1);
 
   // Sign out, then sign in again through the extensions install bubble.
   manager_->ClearPrimaryAccount(signin_metrics::ProfileSignout::kTest);
@@ -1284,7 +1330,7 @@ TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
       /*sample=*/false, /*expected_count=*/1);
   histogram_tester_.ExpectBucketCount(
       "Signin.Extensions.ExplicitSigninFromAnyAccessPoint",
-      /*sample=*/true, /*expected_count=*/2);
+      /*sample=*/true, /*expected_count=*/expected_other_opt_in ? 2 : 1);
   histogram_tester_.ExpectBucketCount(
       "Signin.Extensions.ExplicitSigninFromAnyAccessPoint",
       /*sample=*/false, /*expected_count=*/1);
@@ -1321,7 +1367,8 @@ TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
       signin::ConsentLevel::kSignin,
       signin_metrics::AccessPoint::kChromeSigninInterceptBubble);
 
-  EXPECT_TRUE(
+  EXPECT_EQ(
+      syncer::IsReplaceSyncPromosWithSignInPromosEnabled(),
       SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(other_gaia_id));
 
   // Quickly verify that the pref is still true for `gaia_id`.
@@ -1340,7 +1387,7 @@ TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
   manager_->SetPrimaryAccountInfo(
       account_tracker()->GetAccountInfo(account_id).GetCoreAccountInfo(),
       signin::ConsentLevel::kSignin,
-      signin_metrics::AccessPoint::kChromeSigninInterceptBubble);
+      signin_metrics::AccessPoint::kBookmarkBubble);
 
   ASSERT_TRUE(SigninPrefs(*prefs()).GetBookmarksExplicitBrowserSignin(gaia_id));
 
@@ -1358,10 +1405,8 @@ TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
       /*sample=*/true, /*expected_bucket_count=*/1);
 }
 
-// Tests for users already signed `ExplicitSigninExtensionsPref` is only set to
-// true if the user belongs to the group with
-// `kReplaceSyncPromosWithSignInPromos` enabled but
-// `kReplaceSyncPromosWithSigninPromosNewSignin` disabled.
+// Tests for users already signed in `ExplicitSigninExtensionsPref` is only set
+// to true if `kReplaceSyncPromosWithSignInPromos` is enabled.
 TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninExtensionsPref_AlreadySignedIn) {
   GaiaId gaia_id("gaia_id");
@@ -1378,10 +1423,8 @@ TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
             SigninPrefs(*prefs()).GetExtensionsExplicitBrowserSignin(gaia_id));
 }
 
-// Tests for users already signed `ExplicitSigninBookmarksPref` is only set to
-// true if the user belongs to the group with
-// `kReplaceSyncPromosWithSignInPromos` enabled but
-// `kReplaceSyncPromosWithSigninPromosNewSignin` disabled.
+// Tests for users already signed in `ExplicitSigninBookmarksPref` is only set
+// to true if `kReplaceSyncPromosWithSignInPromos` is enabled.
 TEST_P(PrimaryAccountManagerExplicitSigninNewFeatureTest,
        ExplicitSigninBookmarksPref_AlreadySignedIn) {
   GaiaId gaia_id("gaia_id");

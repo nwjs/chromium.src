@@ -4,9 +4,19 @@
 
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 
+#include <set>
+
+#include "base/observer_list.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/uuid.h"
 #include "build/build_config.h"
+#include "chrome/browser/contextual_tasks/active_task_context_provider.h"
+#include "chrome/browser/contextual_tasks/mock_contextual_tasks_panel_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
+#include "chrome/browser/ui/tabs/contextual_tasks_tab_sub_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
@@ -14,11 +24,20 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/menu_model_test.h"
 #include "chrome/test/base/testing_profile.h"
+#include "components/contextual_search/pref_names.h"
+#include "components/contextual_tasks/public/features.h"
+#include "components/omnibox/common/composebox_features.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_task_environment.h"
+#include "content/public/test/test_renderer_host.h"
+#include "content/public/test/web_contents_tester.h"
 #include "extensions/buildflags/buildflags.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -29,6 +48,46 @@
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_features.h"
 #endif
+
+namespace {
+
+class FakeActiveTaskContextProvider
+    : public contextual_tasks::ActiveTaskContextProvider {
+ public:
+  explicit FakeActiveTaskContextProvider(BrowserWindowInterface* window)
+      : scoped_data_(window->GetUnownedUserDataHost(), *this) {}
+  ~FakeActiveTaskContextProvider() override {
+    for (auto& observer : observers_) {
+      observer.OnActiveTaskContextProviderDestroyed();
+    }
+  }
+
+  void AddObserver(Observer* observer) override {
+    observers_.AddObserver(observer);
+  }
+  void RemoveObserver(Observer* observer) override {
+    observers_.RemoveObserver(observer);
+  }
+  void RefreshContext() override {}
+  void SetContextualTasksPanelController(
+      contextual_tasks::ContextualTasksPanelController*) override {}
+  void AddLocalTabUnderline(tabs::TabHandle) override {}
+  void RemoveLocalTabUnderline(tabs::TabHandle) override {}
+  void ClearAllLocalTabUnderlines() override {}
+
+  void NotifyContextTabsChanged(const std::set<tabs::TabHandle>& context_tabs) {
+    for (auto& observer : observers_) {
+      observer.OnContextTabsChanged(context_tabs);
+    }
+  }
+
+ private:
+  base::ObserverList<Observer> observers_;
+  ui::ScopedUnownedUserData<contextual_tasks::ActiveTaskContextProvider>
+      scoped_data_;
+};
+
+}  // namespace
 
 // A TabStripModelDelegate for simulating web apps.
 class WebAppTabStripModelDelegate : public TestTabStripModelDelegate {
@@ -65,6 +124,7 @@ class TabMenuModelTest : public MenuModelTest, public ::testing::Test {
  private:
   const tabs::TabModel::PreventFeatureInitializationForTesting prevent_;
   content::BrowserTaskEnvironment task_environment_;
+  content::RenderViewHostTestEnabler rvh_test_enabler_;
   TestingProfile profile_;
   ui::UnownedUserDataHost unowned_user_data_host_;
   TabMenuModelTestDelegate menu_model_delegate_{unowned_user_data_host_};
@@ -377,4 +437,451 @@ TEST_F(TabMenuModelTest, FocusSelectionMenuItem) {
               l10n_util::GetStringUTF16(IDS_TAB_CXMENU_UNFOCUS_TAB_GROUP));
     tab_strip_model.ExitFocusMode();
   }
+}
+
+TEST_F(TabMenuModelTest, AiModeShareSubMenuEnabledForValidUrl) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {contextual_tasks::kContextualTasks,
+       contextual_tasks::kContextualTasksForceEntryPointEligibility,
+       contextual_tasks::kContextualTasksSidePanelRearchitecture},
+      {});
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::MenuManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(), base::BindOnce([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+        return std::make_unique<extensions::MenuManager>(context, nullptr);
+      }));
+#endif
+
+  ui::UnownedUserDataHost host;
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
+  ON_CALL(mock_browser_window, GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(host));
+  contextual_tasks::MockContextualTasksPanelController mock_panel_controller(
+      &mock_browser_window);
+
+  TestTabStripModelDelegate delegate;
+  delegate.SetBrowserWindowInterface(&mock_browser_window);
+  TabStripModel tab_strip_model(&delegate, profile());
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+  content::WebContentsTester::For(web_contents.get())
+      ->NavigateAndCommit(GURL("https://example.com"));
+  tab_strip_model.AppendWebContents(std::move(web_contents), true);
+
+  TabMenuModel model(&delegate_, &menu_model_delegate(), &tab_strip_model, 0);
+  std::optional<size_t> share_index =
+      model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare);
+  ASSERT_TRUE(share_index.has_value());
+  EXPECT_TRUE(model.IsEnabledAt(*share_index));
+  EXPECT_EQ(model.GetTypeAt(*share_index), ui::MenuModel::TYPE_SUBMENU);
+  EXPECT_EQ(model.GetLabelAt(*share_index),
+            l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_AI_MODE_SHARE, 1));
+  EXPECT_FALSE(model.GetIconAt(*share_index).IsEmpty());
+
+  ui::MenuModel* submenu = model.GetSubmenuModelAt(*share_index);
+  ASSERT_TRUE(submenu);
+  ASSERT_EQ(submenu->GetItemCount(), 1u);
+  EXPECT_EQ(submenu->GetCommandIdAt(0),
+            TabStripModel::CommandAiModeCreateNewThread);
+  EXPECT_TRUE(submenu->IsEnabledAt(0));
+
+  EXPECT_CALL(mock_panel_controller,
+              ShareTabsWithNewThread(testing::ElementsAre(
+                  tab_strip_model.GetTabAtIndex(0)->GetHandle())))
+      .Times(1);
+  submenu->ActivatedAt(0);
+}
+
+TEST_F(TabMenuModelTest, AiModeShareMultiTabPluralization) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {contextual_tasks::kContextualTasks,
+       contextual_tasks::kContextualTasksForceEntryPointEligibility,
+       contextual_tasks::kContextualTasksSidePanelRearchitecture},
+      {});
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::MenuManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(), base::BindOnce([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+        return std::make_unique<extensions::MenuManager>(context, nullptr);
+      }));
+#endif
+
+  TestTabStripModelDelegate delegate;
+  TabStripModel tab_strip_model(&delegate, profile());
+  for (int i = 0; i < 2; ++i) {
+    std::unique_ptr<content::WebContents> web_contents =
+        content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+    content::WebContentsTester::For(web_contents.get())
+        ->NavigateAndCommit(GURL("https://example.com"));
+    tab_strip_model.AppendWebContents(std::move(web_contents), true);
+  }
+  tab_strip_model.SelectTabAt(0);
+
+  TabMenuModel model(&delegate_, &menu_model_delegate(), &tab_strip_model, 0);
+  std::optional<size_t> share_index =
+      model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare);
+  ASSERT_TRUE(share_index.has_value());
+  EXPECT_TRUE(model.IsEnabledAt(*share_index));
+  EXPECT_EQ(model.GetLabelAt(*share_index),
+            l10n_util::GetPluralStringFUTF16(IDS_TAB_CXMENU_AI_MODE_SHARE, 2));
+}
+
+TEST_F(TabMenuModelTest, AiModeShareHiddenForInvalidUrl) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {contextual_tasks::kContextualTasks,
+       contextual_tasks::kContextualTasksForceEntryPointEligibility,
+       contextual_tasks::kContextualTasksSidePanelRearchitecture},
+      {});
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::MenuManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(), base::BindOnce([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+        return std::make_unique<extensions::MenuManager>(context, nullptr);
+      }));
+#endif
+
+  TestTabStripModelDelegate delegate;
+  TabStripModel tab_strip_model(&delegate, profile());
+  for (const char* invalid_url :
+       {"about:blank", "chrome://version", "chrome-untrusted://test",
+        "chrome-extension://abcdefghijklmnop/index.html"}) {
+    std::unique_ptr<content::WebContents> web_contents =
+        content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+    content::WebContentsTester::For(web_contents.get())
+        ->NavigateAndCommit(GURL(invalid_url));
+    tab_strip_model.AppendWebContents(std::move(web_contents), true);
+
+    TabMenuModel model(&delegate_, &menu_model_delegate(), &tab_strip_model,
+                       tab_strip_model.count() - 1);
+    EXPECT_FALSE(model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+                     .has_value())
+        << "Expected CommandAiModeShare to be hidden for URL: " << invalid_url;
+  }
+}
+
+TEST_F(TabMenuModelTest, AiModeShareHiddenWhenPolicyDisabledOrOffTheRecord) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {contextual_tasks::kContextualTasks,
+       contextual_tasks::kContextualTasksForceEntryPointEligibility,
+       contextual_tasks::kContextualTasksSidePanelRearchitecture},
+      {});
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::MenuManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(), base::BindOnce([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+        return std::make_unique<extensions::MenuManager>(context, nullptr);
+      }));
+#endif
+
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kDisabled));
+
+  TestTabStripModelDelegate delegate;
+  TabStripModel tab_strip_model(&delegate, profile());
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+  content::WebContentsTester::For(web_contents.get())
+      ->NavigateAndCommit(GURL("https://example.com"));
+  tab_strip_model.AppendWebContents(std::move(web_contents), true);
+
+  TabMenuModel disabled_pref_model(&delegate_, &menu_model_delegate(),
+                                   &tab_strip_model, 0);
+  EXPECT_FALSE(
+      disabled_pref_model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+          .has_value());
+
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+  Profile* otr_profile =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::MenuManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+      otr_profile, base::BindOnce([](content::BrowserContext* context)
+                                      -> std::unique_ptr<KeyedService> {
+        return std::make_unique<extensions::MenuManager>(context, nullptr);
+      }));
+#endif
+  TabStripModel otr_tab_strip_model(&delegate, otr_profile);
+  std::unique_ptr<content::WebContents> otr_web_contents =
+      content::WebContentsTester::CreateTestWebContents(otr_profile, nullptr);
+  content::WebContentsTester::For(otr_web_contents.get())
+      ->NavigateAndCommit(GURL("https://example.com"));
+  otr_tab_strip_model.AppendWebContents(std::move(otr_web_contents), true);
+
+  TabMenuModel otr_model(&delegate_, &menu_model_delegate(),
+                         &otr_tab_strip_model, 0);
+  EXPECT_FALSE(otr_model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+                   .has_value());
+}
+
+TEST_F(TabMenuModelTest, AiModeShareSubMenuRecentThreads) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {contextual_tasks::kContextualTasks,
+       contextual_tasks::kContextualTasksForceEntryPointEligibility,
+       contextual_tasks::kContextualTasksSidePanelRearchitecture},
+      {});
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::MenuManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(), base::BindOnce([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+        return std::make_unique<extensions::MenuManager>(context, nullptr);
+      }));
+#endif
+
+  ui::UnownedUserDataHost host;
+  testing::NiceMock<MockBrowserWindowInterface> mock_browser_window;
+  ON_CALL(mock_browser_window, GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(host));
+  contextual_tasks::MockContextualTasksPanelController mock_panel_controller(
+      &mock_browser_window);
+
+  base::Uuid thread_id = base::Uuid::GenerateRandomV4();
+  std::vector<
+      contextual_tasks::ContextualTasksPanelController::RecentThreadInfo>
+      recent_threads = {
+          {thread_id, u"Recent Thread 1"},
+      };
+  ON_CALL(mock_panel_controller, GetRecentThreads())
+      .WillByDefault(testing::Return(recent_threads));
+
+  TestTabStripModelDelegate delegate;
+  delegate.SetBrowserWindowInterface(&mock_browser_window);
+  TabStripModel tab_strip_model(&delegate, profile());
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+  content::WebContentsTester::For(web_contents.get())
+      ->NavigateAndCommit(GURL("https://example.com"));
+  tab_strip_model.AppendWebContents(std::move(web_contents), true);
+
+  TabMenuModel model(&delegate_, &menu_model_delegate(), &tab_strip_model, 0);
+  std::optional<size_t> share_index =
+      model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare);
+  ASSERT_TRUE(share_index.has_value());
+
+  ui::MenuModel* submenu = model.GetSubmenuModelAt(*share_index);
+  ASSERT_TRUE(submenu);
+  ASSERT_EQ(submenu->GetItemCount(), 3u);
+  EXPECT_EQ(submenu->GetCommandIdAt(0),
+            TabStripModel::CommandAiModeCreateNewThread);
+  EXPECT_EQ(submenu->GetTypeAt(1), ui::MenuModel::TYPE_SEPARATOR);
+  EXPECT_EQ(submenu->GetCommandIdAt(2),
+            contextual_tasks::ContextualTasksTabSubMenuModel::
+                kMinRecentThreadCommandId);
+  EXPECT_EQ(submenu->GetLabelAt(2), u"Recent Thread 1");
+  EXPECT_TRUE(submenu->IsEnabledAt(2));
+
+  // Verify root menu tree command ID dispatch resolves to the AI Mode submenu.
+  ui::MenuModel* resolved_model = &model;
+  size_t resolved_index = 0;
+  ASSERT_TRUE(ui::MenuModel::GetModelAndIndexForCommandId(
+      contextual_tasks::ContextualTasksTabSubMenuModel::
+          kMinRecentThreadCommandId,
+      &resolved_model, &resolved_index));
+  EXPECT_EQ(resolved_model, submenu);
+  EXPECT_EQ(resolved_index, 2u);
+
+  EXPECT_CALL(
+      mock_panel_controller,
+      ShareTabsWithExistingThread(
+          thread_id,
+          testing::ElementsAre(tab_strip_model.GetTabAtIndex(0)->GetHandle()),
+          omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT))
+      .Times(1);
+  resolved_model->ActivatedAt(resolved_index);
+
+  tab_strip_model.CloseAllTabs();
+  delegate.SetBrowserWindowInterface(nullptr);
+}
+
+TEST_F(TabMenuModelTest, AiModeUnshareShownWhenTabInContext) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{contextual_tasks::kContextualTasks, {}},
+       {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
+       {contextual_tasks::kContextualTasksSidePanelRearchitecture, {}},
+       {omnibox::kContextManagementInComposebox,
+        {{"enable_tab_deselection", "true"}}}},
+      {});
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  extensions::MenuManagerFactory::GetInstance()->SetTestingFactoryAndUse(
+      profile(), base::BindOnce([](content::BrowserContext* context)
+                                    -> std::unique_ptr<KeyedService> {
+        return std::make_unique<extensions::MenuManager>(context, nullptr);
+      }));
+#endif
+
+  ui::UnownedUserDataHost user_data_host;
+  testing::NiceMock<MockBrowserWindowInterface> browser_window;
+  ON_CALL(browser_window, GetUnownedUserDataHost())
+      .WillByDefault(testing::ReturnRef(user_data_host));
+  ON_CALL(browser_window, GetProfile())
+      .WillByDefault(testing::Return(profile()));
+
+  FakeActiveTaskContextProvider context_provider(&browser_window);
+  testing::NiceMock<contextual_tasks::MockContextualTasksPanelController>
+      mock_panel_controller(&browser_window);
+
+  TestTabStripModelDelegate delegate;
+  delegate.SetBrowserWindowInterface(&browser_window);
+  TabStripModel tab_strip_model(&delegate, profile());
+
+  std::unique_ptr<content::WebContents> wc1 =
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+  content::WebContentsTester::For(wc1.get())->NavigateAndCommit(
+      GURL("https://example.com/1"));
+  tab_strip_model.AppendWebContents(std::move(wc1), /*foreground=*/true);
+
+  std::unique_ptr<content::WebContents> wc2 =
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+  content::WebContentsTester::For(wc2.get())->NavigateAndCommit(
+      GURL("https://example.com/2"));
+  tab_strip_model.AppendWebContents(std::move(wc2), /*foreground=*/true);
+  tab_strip_model.SelectTabAt(0);
+
+  auto alert_controller1 = std::make_unique<tabs::TabAlertController>(
+      *tab_strip_model.GetTabAtIndex(0));
+  auto alert_controller2 = std::make_unique<tabs::TabAlertController>(
+      *tab_strip_model.GetTabAtIndex(1));
+
+  tabs::TabHandle tab_handle1 = tab_strip_model.GetTabAtIndex(0)->GetHandle();
+  tabs::TabHandle tab_handle2 = tab_strip_model.GetTabAtIndex(1)->GetHandle();
+
+  // When neither selected tab is in context, Unshare is disabled and hidden.
+  context_provider.NotifyContextTabsChanged({});
+  EXPECT_FALSE(tab_strip_model.IsContextMenuCommandEnabled(
+      0, TabStripModel::CommandAiModeUnshare));
+  {
+    TabMenuModel unshared_model(&delegate_, &menu_model_delegate(),
+                                &tab_strip_model, 0);
+    EXPECT_TRUE(
+        unshared_model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+            .has_value());
+    EXPECT_FALSE(
+        unshared_model.GetIndexOfCommandId(TabStripModel::CommandAiModeUnshare)
+            .has_value());
+  }
+
+  // When at least one selected tab is in context, both Share and Unshare show
+  // with the expected label and dispatch `UnshareTabs()` for all selected tabs.
+  context_provider.NotifyContextTabsChanged({tab_handle2});
+  EXPECT_TRUE(tab_strip_model.IsContextMenuCommandEnabled(
+      0, TabStripModel::CommandAiModeUnshare));
+  {
+    TabMenuModel shared_model(&delegate_, &menu_model_delegate(),
+                              &tab_strip_model, 0);
+    EXPECT_TRUE(
+        shared_model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+            .has_value());
+    std::optional<size_t> unshare_index =
+        shared_model.GetIndexOfCommandId(TabStripModel::CommandAiModeUnshare);
+    ASSERT_TRUE(unshare_index.has_value());
+    EXPECT_EQ(shared_model.GetLabelAt(*unshare_index),
+              l10n_util::GetStringUTF16(IDS_TAB_CXMENU_AI_MODE_UNSHARE));
+  }
+
+  base::HistogramTester histogram_tester;
+  EXPECT_CALL(mock_panel_controller,
+              UnshareTabs(testing::ElementsAre(tab_handle1, tab_handle2)))
+      .Times(1);
+  tab_strip_model.ExecuteContextMenuCommand(
+      0, TabStripModel::CommandAiModeUnshare);
+  histogram_tester.ExpectUniqueSample(
+      "Tab.ContextMenu.AiModeUnshare.SelectedTabsCount", 2, 1);
+
+  // Disabling content sharing policy or tab deselection disables
+  // `CommandAiModeUnshare`.
+  {
+    base::test::ScopedFeatureList deselection_disabled;
+    deselection_disabled.InitAndDisableFeature(
+        omnibox::kContextManagementInComposebox);
+    EXPECT_FALSE(tab_strip_model.IsContextMenuCommandEnabled(
+        0, TabStripModel::CommandAiModeUnshare));
+  }
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kDisabled));
+  EXPECT_FALSE(tab_strip_model.IsContextMenuCommandEnabled(
+      0, TabStripModel::CommandAiModeUnshare));
+  profile()->GetPrefs()->SetInteger(
+      contextual_search::kSearchContentSharingSettings,
+      static_cast<int>(
+          contextual_search::SearchContentSharingSettingsValue::kEnabled));
+
+  // On an unselected internal chrome:// tab that is still in context (e.g.
+  // attached prior to navigation or via Chromnient), Share is hidden while
+  // Unshare still shows both with default menu layout and under
+  // `features::kMenuSimplification`.
+  std::unique_ptr<content::WebContents> wc3 =
+      content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
+  content::WebContentsTester::For(wc3.get())->NavigateAndCommit(
+      GURL("chrome://version"));
+  tab_strip_model.AppendWebContents(std::move(wc3), /*foreground=*/false);
+  auto alert_controller3 = std::make_unique<tabs::TabAlertController>(
+      *tab_strip_model.GetTabAtIndex(2));
+  tabs::TabHandle tab_handle3 = tab_strip_model.GetTabAtIndex(2)->GetHandle();
+  context_provider.NotifyContextTabsChanged({tab_handle2, tab_handle3});
+  {
+    TabMenuModel internal_model(&delegate_, &menu_model_delegate(),
+                                &tab_strip_model, 2);
+    EXPECT_FALSE(
+        internal_model.GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+            .has_value());
+    EXPECT_TRUE(
+        internal_model.GetIndexOfCommandId(TabStripModel::CommandAiModeUnshare)
+            .has_value());
+  }
+
+  {
+    base::test::ScopedFeatureList menu_simplification_feature;
+    menu_simplification_feature.InitAndEnableFeature(
+        features::kMenuSimplification);
+
+    TabMenuModel simplified_internal_model(&delegate_, &menu_model_delegate(),
+                                           &tab_strip_model, 2);
+    EXPECT_FALSE(simplified_internal_model
+                     .GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+                     .has_value());
+    std::optional<size_t> simplified_unshare_index =
+        simplified_internal_model.GetIndexOfCommandId(
+            TabStripModel::CommandAiModeUnshare);
+    ASSERT_TRUE(simplified_unshare_index.has_value());
+    ASSERT_GT(*simplified_unshare_index, 0u);
+    ASSERT_LT(*simplified_unshare_index + 1,
+              simplified_internal_model.GetItemCount());
+    EXPECT_EQ(
+        simplified_internal_model.GetTypeAt(*simplified_unshare_index - 1),
+        ui::MenuModel::TYPE_SEPARATOR);
+    EXPECT_EQ(
+        simplified_internal_model.GetTypeAt(*simplified_unshare_index + 1),
+        ui::MenuModel::TYPE_SEPARATOR);
+
+    TabMenuModel simplified_web_model(&delegate_, &menu_model_delegate(),
+                                      &tab_strip_model, 0);
+    EXPECT_TRUE(simplified_web_model
+                    .GetIndexOfCommandId(TabStripModel::CommandAiModeShare)
+                    .has_value());
+  }
+
+  alert_controller3.reset();
+  alert_controller2.reset();
+  alert_controller1.reset();
+  tab_strip_model.CloseAllTabs();
+  delegate.SetBrowserWindowInterface(nullptr);
 }

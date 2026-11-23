@@ -368,15 +368,6 @@ export class WebuiBrowserSearchboxElement extends
     return this.pageHandler_;
   }
 
-  isInputEmpty(): boolean {
-    // If this is called before first render, the input element will not exist.
-    if (!this.shadowRoot?.querySelector('#input') || !this.$.input ||
-        !this.$.input.lastInput()) {
-      return true;
-    }
-    return !this.$.input.lastInput()!.text.trim();
-  }
-
   protected shouldShowVoiceLens_(isEnabled: boolean): boolean {
     if (!isEnabled) {
       return false;

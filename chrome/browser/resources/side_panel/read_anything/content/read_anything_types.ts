@@ -45,6 +45,16 @@ export interface SelectionWithIds {
   focusOffset: number;
 }
 
+// A selection whose endpoints are DOM nodes in the reading mode panel and
+// offsets, as opposed to SelectionWithIds, whose endpoints are identified by
+// AXNodeIDs. The anchor may come after the focus.
+export interface ReadingModeSelection {
+  anchorNode: Node;
+  anchorOffset: number;
+  focusNode: Node;
+  focusOffset: number;
+}
+
 export enum LineFocusType {
   NONE = 0,
   LINE = 1,
@@ -75,8 +85,6 @@ export class LineFocusStyle {
   private constructor(
       public readonly type: LineFocusType, public readonly lines: number) {}
 
-  // TODO(crbug.com/447427066): Finalize the default mode. This is a
-  // placeholder.
   static defaultValue(): LineFocusStyle {
     return this.MEDIUM_WINDOW;
   }
@@ -144,6 +152,7 @@ export enum ToolbarEvent {
   LINE_SPACING = 'line-spacing-change',
   THEME = 'theme-change',
   FONT_SIZE = 'font-size-change',
+  FONT_SIZE_RESET = 'font-size-reset',
   FONT = 'font-change',
   RATE = 'rate-change',
   PLAY_PAUSE = 'play-pause-click',
@@ -152,6 +161,7 @@ export enum ToolbarEvent {
   PREVIOUS_GRANULARITY = 'previous-granularity-click',
   LINKS = 'links-toggle',
   IMAGES = 'images-toggle',
+  PIN = 'pin-toggle',
   VOICE = 'select-voice',
   LANGUAGE_TOGGLE = 'voice-language-toggle',
   LANGUAGE_SELECTED = 'voice-language-selected',
@@ -170,6 +180,7 @@ export enum ToolbarEvent {
   SETTINGS_OPENED = 'settings-opened',
   SETTINGS_CLOSED = 'settings-closed',
   TRANSLATION_REQUESTED = 'translation-requested',
+  SEND_FEEDBACK = 'send-feedback',
 }
 
 // The available menu items in Reading mode
@@ -189,6 +200,7 @@ export enum SettingsOption {
   PINNED_TO_TOOLBAR = 'pinned-to-toolbar',
   PRESENTATION = 'presentation',
   TRANSLATION_REQUESTED = 'translation-requested',
+  SEND_FEEDBACK = 'send-feedback',
   VOICE_HIGHLIGHT = 'voice-highlight',
   VOICE_SELECTION = 'voice-selection',
 }

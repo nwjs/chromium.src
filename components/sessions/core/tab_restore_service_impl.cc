@@ -1036,7 +1036,7 @@ void TabRestoreServiceImpl::PersistenceDelegate::ScheduleCommandsForTab(
     command_storage_manager_->ScheduleCommand(std::move(command));
   }
 
-  if (tab.group.has_value()) {
+  if (tab.group.has_value() && !tab.is_group_ephemeral) {
     base::Pickle pickle;
     WriteTokenToPickle(&pickle, tab.group.value().token());
     const tab_groups::TabGroupVisualData* visual_data =
@@ -1747,6 +1747,8 @@ bool TabRestoreServiceImpl::PersistenceDelegate::ConvertSessionWindowToWindow(
   window->bounds = session_window->bounds;
   window->show_state = session_window->show_state;
   window->workspace = session_window->workspace;
+  window->app_name = session_window->app_name;
+  window->user_title = session_window->user_title;
   return true;
 }
 

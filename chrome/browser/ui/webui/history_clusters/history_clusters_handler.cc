@@ -20,6 +20,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/history/history_utils.h"
+#include "chrome/browser/history/web_history_service_factory.h"
 #include "chrome/browser/history_clusters/history_clusters_metrics_logger.h"
 #include "chrome/browser/history_clusters/history_clusters_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -133,7 +134,7 @@ class HistoryClustersSidePanelContextMenu
         }
         content::OpenURLParams params =
             content::OpenURLParams::CreateBrowserInitiated(
-                url_, WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                url_, WindowOpenDisposition::kNewBackgroundTab,
                 ui::PAGE_TRANSITION_AUTO_BOOKMARK);
         GetBrowserWindowInterface(interface_)
             ->OpenURL(params,
@@ -147,7 +148,7 @@ class HistoryClustersSidePanelContextMenu
         }
         content::OpenURLParams params =
             content::OpenURLParams::CreateBrowserInitiated(
-                url_, WindowOpenDisposition::NEW_WINDOW,
+                url_, WindowOpenDisposition::kNewWindow,
                 ui::PAGE_TRANSITION_AUTO_BOOKMARK);
         GetBrowserWindowInterface(interface_)
             ->OpenURL(params,
@@ -161,7 +162,7 @@ class HistoryClustersSidePanelContextMenu
         }
         content::OpenURLParams params =
             content::OpenURLParams::CreateBrowserInitiated(
-                url_, WindowOpenDisposition::OFF_THE_RECORD,
+                url_, WindowOpenDisposition::kOffTheRecord,
                 ui::PAGE_TRANSITION_AUTO_BOOKMARK);
         GetBrowserWindowInterface(interface_)
             ->OpenURL(params,
@@ -257,22 +258,24 @@ HistoryClustersHandler::HistoryClustersHandler(
 }
 
 void HistoryClustersHandler::CommonInit() {
-  DCHECK(profile_);
-  DCHECK(web_contents_);
+  CHECK(profile_, base::NotFatalUntil::M162);
+  CHECK(web_contents_, base::NotFatalUntil::M162);
 
   auto* history_clusters_service =
       HistoryClustersServiceFactory::GetForBrowserContext(profile_);
-  DCHECK(history_clusters_service);
+  CHECK(history_clusters_service, base::NotFatalUntil::M162);
   service_observation_.Observe(history_clusters_service);
 
   history_service_ = HistoryServiceFactory::GetForProfile(
       profile_, ServiceAccessType::EXPLICIT_ACCESS);
+  history::WebHistoryService* web_history_service =
+      WebHistoryServiceFactory::GetForProfile(profile_);
   syncer::SyncService* sync_service =
       SyncServiceFactory::GetForProfile(profile_);
   auto* device_info_service =
       DeviceInfoSyncServiceFactory::GetForProfile(profile_);
   browsing_history_service_ = std::make_unique<history::BrowsingHistoryService>(
-      this, history_service_, sync_service,
+      this, history_service_, web_history_service, sync_service,
       device_info_service ? device_info_service->GetDeviceInfoTracker()
                           : nullptr);
 }
@@ -305,8 +308,8 @@ void HistoryClustersHandler::OpenHistoryUrl(
   // default is a new foreground tab.
   WindowOpenDisposition default_disposition =
       history_clusters_side_panel_embedder_
-          ? WindowOpenDisposition::CURRENT_TAB
-          : WindowOpenDisposition::NEW_FOREGROUND_TAB;
+          ? WindowOpenDisposition::kCurrentTab
+          : WindowOpenDisposition::kNewForegroundTab;
 
   WindowOpenDisposition open_location = ui::DispositionFromClick(
       click_modifiers->middle_button, click_modifiers->alt_key,
@@ -359,6 +362,8 @@ void HistoryClustersHandler::StartQueryClusters(
 
 void HistoryClustersHandler::LoadMoreClusters(const std::string& query) {
   if (query_clusters_state_) {
+    // TODO(crbug.com/578093658): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK_EQ(query, query_clusters_state_->query());
     query_clusters_state_->LoadNextBatchOfClusters(
         base::BindOnce(&HistoryClustersHandler::SendClustersToPage,
@@ -368,7 +373,7 @@ void HistoryClustersHandler::LoadMoreClusters(const std::string& query) {
 
 void HistoryClustersHandler::HideVisits(std::vector<mojom::URLVisitPtr> visits,
                                         HideVisitsCallback callback) {
-  DCHECK(!visits.empty());
+  CHECK(!visits.empty(), base::NotFatalUntil::M162);
 
   // If there's a pending request, fail because `HistoryClustersHandler` only
   // supports one hide request at a time.
@@ -485,7 +490,7 @@ void HistoryClustersHandler::OpenVisitUrlsInTabGroup(
         GetBrowserWindowInterface(interface_)
             ->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
                           visit_ptr->normalized_url,
-                          WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                          WindowOpenDisposition::kNewBackgroundTab,
                           ui::PAGE_TRANSITION_AUTO_BOOKMARK),
                       /*navigation_handle_callback=*/{});
 
@@ -546,7 +551,7 @@ void HistoryClustersHandler::HistoryDeleted() {
 }
 
 Profile* HistoryClustersHandler::GetProfile() {
-  DCHECK(profile_);
+  CHECK(profile_, base::NotFatalUntil::M162);
   return profile_;
 }
 
@@ -570,7 +575,7 @@ void HistoryClustersHandler::SendClustersToPage(
 }
 
 void HistoryClustersHandler::OnHideVisitsComplete() {
-  DCHECK(!pending_hide_visits_callback_.is_null());
+  CHECK(!pending_hide_visits_callback_.is_null(), base::NotFatalUntil::M162);
   std::move(pending_hide_visits_callback_).Run(/*success=*/true);
   // Notify the page of the successfully hidden visits to update the UI.
   page_->OnVisitsHidden(std::move(pending_hide_visits_));

@@ -3,15 +3,29 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_components/composebox/composebox_favicon_group.js';
+import 'chrome://resources/cr_components/composebox/icons.html.js';
+import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 
+import type {SmartTabSharingState} from 'chrome://contextual-tasks/contextual_tasks.mojom-webui.js';
 import {ExtensionBrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
 import type {ComposeboxFaviconGroupElement} from 'chrome://resources/cr_components/composebox/composebox_favicon_group.js';
+import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/composebox_proxy.js';
+import {TrackedElementManager} from 'chrome://resources/js/tracked_element/tracked_element_manager.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
-import type {CSSResultGroup} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {CSSResultGroup, PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
 import {getCss} from './context_library.css.js';
 import {getHtml} from './context_library.html.js';
+
+// Sets the `ComposeboxProxyImpl` singleton inside this Rollup bundle (`optimize
+// = true` in `BUILD.gn` bundles `composebox_proxy.js` into
+// `context_library.js`, giving it its own module-scoped `instance` separate
+// from unbundled test imports of
+// `chrome://resources/cr_components/composebox/composebox_proxy.js`).
+export function setComposeboxProxyForTesting(proxy: ComposeboxProxyImpl) {
+  ComposeboxProxyImpl.setInstance(proxy);
+}
 
 export interface ContextLibraryElement {
   $: {
@@ -36,6 +50,7 @@ export class ContextLibraryElement extends CrLitElement {
     return {
       tabs: {type: Array},
       submittedTabIds: {type: Object},
+      smartTabSharingActive: {type: Boolean},
       darkMode: {
         type: Boolean,
         reflect: true,
@@ -45,10 +60,11 @@ export class ContextLibraryElement extends CrLitElement {
 
   accessor tabs: TabInfo[] = [];
   accessor submittedTabIds: Set<number> = new Set();
+  accessor smartTabSharingActive: boolean = false;
   accessor darkMode: boolean = false;
 
+  private isTrackingFaviconGroup_: boolean = false;
   private resizeObserver_: ResizeObserver|null = null;
-  private messageListener_: ((event: MessageEvent) => void)|null = null;
   private listenerIds_: number[] = [];
 
   override connectedCallback() {
@@ -59,30 +75,26 @@ export class ContextLibraryElement extends CrLitElement {
     });
     this.resizeObserver_.observe(this);
 
-    this.messageListener_ = (event: MessageEvent) => {
-      if (event.data?.type === 'SET_TABS' && Array.isArray(event.data.tabs)) {
-        this.tabs = event.data.tabs;
-      }
-    };
-    window.addEventListener('message', this.messageListener_);
-
     const callbackRouter =
         ExtensionBrowserProxyImpl.getInstance().callbackRouter;
     this.listenerIds_.push(callbackRouter.onTabContextUpdated.addListener(
-        (tabs: TabInfo[], submittedTabIds: number[]) => {
+        (tabs: TabInfo[], submittedTabIds: number[],
+         smartTabSharingState: SmartTabSharingState) => {
           this.tabs = tabs;
           this.submittedTabIds = new Set(submittedTabIds);
+          this.smartTabSharingActive = smartTabSharingState.active;
         }));
+    this.updateFaviconTracking_();
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    if (this.isTrackingFaviconGroup_) {
+      this.isTrackingFaviconGroup_ = false;
+      TrackedElementManager.getInstance().stopTracking(this.$.faviconGroup);
+    }
     this.resizeObserver_?.disconnect();
     this.resizeObserver_ = null;
-    if (this.messageListener_) {
-      window.removeEventListener('message', this.messageListener_);
-      this.messageListener_ = null;
-    }
     const callbackRouter =
         ExtensionBrowserProxyImpl.getInstance().callbackRouter;
     for (const id of this.listenerIds_) {
@@ -91,14 +103,40 @@ export class ContextLibraryElement extends CrLitElement {
     this.listenerIds_ = [];
   }
 
+  override updated(changedProperties: PropertyValues<this>) {
+    super.updated(changedProperties);
+
+    if (changedProperties.has('tabs')) {
+      this.updateFaviconTracking_();
+    }
+  }
+
+  private updateFaviconTracking_() {
+    const hasTabs = (this.tabs?.length ?? 0) > 0;
+    if (hasTabs && !this.isTrackingFaviconGroup_) {
+      this.isTrackingFaviconGroup_ = true;
+      TrackedElementManager.getInstance().startTracking(
+          this.$.faviconGroup, 'kContextualTasksFaviconsElementId');
+    } else if (!hasTabs && this.isTrackingFaviconGroup_) {
+      this.isTrackingFaviconGroup_ = false;
+      TrackedElementManager.getInstance().stopTracking(this.$.faviconGroup);
+    }
+  }
+
   // <composebox-favicon-group> fires this to request a live favicon for a tab
   // that is still loading. Handled here so the event does not escape the
   // component; invoking `onTabLoaded` swaps in the higher fidelity favicon.
-  protected onWaitForTabLoad_(
-      _e: CustomEvent<{tabId: number, onTabLoaded: (url?: string) => void}>) {
-    // TODO(crbug.com/): Forward to the browser and call `onTabLoaded` with the
-    // resolved favicon data URL. Until then the group falls back to
-    // getFaviconForPageURL().
+  protected async onWaitForTabLoad_(
+      e: CustomEvent<{tabId: number, onTabLoaded: (url?: string) => void}>) {
+    e.stopPropagation();
+    try {
+      const {faviconDataUrl} =
+          await ComposeboxProxyImpl.getInstance()
+              .searchboxHandler.waitForTabFaviconLoad(e.detail.tabId);
+      e.detail.onTabLoaded(faviconDataUrl || undefined);
+    } catch {
+      e.detail.onTabLoaded(undefined);
+    }
   }
 
   protected isDarkModeEnabled_(): boolean {

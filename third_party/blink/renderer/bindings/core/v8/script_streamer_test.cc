@@ -68,7 +68,6 @@
 #include "third_party/blink/renderer/platform/testing/task_environment.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_loader_mock_factory.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/text_encoding.h"
 #include "v8/include/v8.h"
@@ -1182,7 +1181,7 @@ class DummyBackgroundResponseProcessorClient
 class DummyCachedMetadataSender : public CachedMetadataSender {
  public:
   DummyCachedMetadataSender() = default;
-  void Send(CodeCacheHost*, base::span<const uint8_t>) override {}
+  void Send(CodeCacheHost*, mojo_base::BigBuffer) override {}
   bool IsServedFromCacheStorage() override { return false; }
 };
 
@@ -1228,7 +1227,7 @@ mojo_base::BigBuffer CreateDummyCodeCacheDataWithHash(
   cache_handler->SetCachedMetadata(
       /*code_cache_host=*/nullptr, data_type_id,
       base::byte_span_from_cstring("X"));
-  return mojo_base::BigBuffer(cache_handler->GetSerializedCachedMetadata());
+  return cache_handler->GetSerializedCachedMetadata();
 }
 
 network::mojom::URLResponseHeadPtr CreateURLResponseHead(

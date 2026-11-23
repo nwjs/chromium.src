@@ -10,8 +10,11 @@ namespace ui {
 
 BASE_FEATURE(kAndroidHDR, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAndroidPreserveStatusBarInsetsWhenUnfocused,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kAndroidResourceMemoryOptimization,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAndroidUseCorrectDisplayWorkArea,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -67,6 +70,8 @@ BASE_FEATURE(kRequireLeadingInTextViewWithLeading,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAndroidUpdateDisplayForContext, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSubmenuTypeOverride, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSupportKeyboard, base::FEATURE_ENABLED_BY_DEFAULT);
 

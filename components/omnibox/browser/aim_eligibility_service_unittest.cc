@@ -262,6 +262,22 @@ TEST_F(AimEligibilityServiceTest, IsAimUrl) {
   EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
       GURL("https://goo.gl/search?a=1&b=2"),
       contextual_tasks::HostOverride::FromString("goo.gl:8888")));
+
+  // g.ai and www.g.ai should be recognized as AIM URLs without requiring query
+  // params or specific paths, as long as the scheme is HTTP or HTTPS.
+  EXPECT_TRUE(
+      aim_eligibility_service_->IsAimUrl(GURL("https://g.ai/"), std::nullopt));
+  EXPECT_TRUE(aim_eligibility_service_->IsAimUrl(GURL("https://www.g.ai/"),
+                                                 std::nullopt));
+  EXPECT_TRUE(aim_eligibility_service_->IsAimUrl(GURL("http://g.ai/path"),
+                                                 std::nullopt));
+  EXPECT_FALSE(
+      aim_eligibility_service_->IsAimUrl(GURL("chrome://g.ai/"), std::nullopt));
+  EXPECT_FALSE(
+      aim_eligibility_service_->IsAimUrl(GURL("file://g.ai/"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("chrome://google.com/search?a=1&b=2"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(GURL(), std::nullopt));
 }
 
 TEST_F(AimEligibilityServiceTest, IsAimHost_HostOverrideWithPort) {
@@ -1034,4 +1050,32 @@ TEST_F(AimEligibilityServiceTest,
   task_environment_.FastForwardBy(
       omnibox::kAimEligibilityServiceDebounceDelay.Get());
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
+}
+
+TEST_F(AimEligibilityServiceTest, GetLhsRailConfig) {
+  EXPECT_EQ(aim_eligibility_service_->GetLhsRailConfig(), nullptr);
+
+  omnibox::AimEligibilityResponse response;
+  omnibox::LhsRailConfig* lhs_config = response.mutable_lhs_rail_config();
+  auto* item = lhs_config->add_lhs_items();
+  item->set_icon_svg("<svg></svg>");
+  item->set_name("New chat");
+  item->mutable_click_action()->set_client_action(
+      omnibox::LhsRailConfig::ClickAction::CLIENT_ACTION_FOCUS_REALBOX_AIM);
+  item->mutable_click_action()->mutable_link()->set_relative_url(
+      "/search?udm=50");
+
+  aim_eligibility_service_->SetAimEligibilityResponse(std::move(response));
+
+  const omnibox::LhsRailConfig* actual_config =
+      aim_eligibility_service_->GetLhsRailConfig();
+  ASSERT_NE(actual_config, nullptr);
+  ASSERT_EQ(actual_config->lhs_items_size(), 1);
+  EXPECT_EQ(actual_config->lhs_items(0).icon_svg(), "<svg></svg>");
+  EXPECT_EQ(actual_config->lhs_items(0).name(), "New chat");
+  EXPECT_EQ(
+      actual_config->lhs_items(0).click_action().client_action(),
+      omnibox::LhsRailConfig::ClickAction::CLIENT_ACTION_FOCUS_REALBOX_AIM);
+  EXPECT_EQ(actual_config->lhs_items(0).click_action().link().relative_url(),
+            "/search?udm=50");
 }

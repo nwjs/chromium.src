@@ -16,6 +16,14 @@ bool IsTerminalContextStatus(ContextUploadStatus status) {
          status == ContextUploadStatus::kUploadReplaced;
 }
 
+bool IsValidContextUploadStatusForMultimodalRequest(
+    ContextUploadStatus upload_status) {
+  return upload_status == ContextUploadStatus::kProcessing ||
+         upload_status == ContextUploadStatus::kProcessingSuggestSignalsReady ||
+         upload_status == ContextUploadStatus::kUploadStarted ||
+         upload_status == ContextUploadStatus::kUploadSuccessful;
+}
+
 FileInfo::FileInfo() = default;
 FileInfo::FileInfo(const FileInfo& other) {
   *this = other;
@@ -33,6 +41,7 @@ FileInfo& FileInfo::operator=(const FileInfo& other) {
   tab_title = other.tab_title;
   tab_session_id = other.tab_session_id;
   request_id = other.request_id;
+  viewport_request_id = other.viewport_request_id;
   response_bodies = other.response_bodies;
   is_superceded = other.is_superceded;
   is_implicit_upload = other.is_implicit_upload;

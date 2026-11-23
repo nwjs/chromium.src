@@ -51,7 +51,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
-import org.chromium.chrome.browser.actor.OffscreenRenderingManager;
+import org.chromium.chrome.browser.actor.background_tabs.OffscreenRenderingManager;
 import org.chromium.chrome.browser.chrome_item_picker.TabItemPickerCoordinator.ItemPickerNavigationProvider;
 import org.chromium.chrome.browser.chrome_item_picker.TabItemPickerCoordinator.ThumbnailCaptureResult;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -127,7 +127,8 @@ public class TabItemPickerCoordinatorNavigationUnitTest {
                         rootView,
                         containerView,
                         new ArrayList<Integer>(),
-                        TabListEditorCoordinator.UNLIMITED_SELECTION);
+                        TabListEditorCoordinator.UNLIMITED_SELECTION,
+                        /* includePdfTabs= */ false);
         mItemPickerCoordinator = Mockito.spy(realCoordinator);
         mCachedTabIds = new HashSet<>();
     }

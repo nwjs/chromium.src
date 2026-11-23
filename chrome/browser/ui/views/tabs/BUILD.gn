@@ -50,8 +50,6 @@ source_set("base_impl") {
     "//ui/gfx/animation",
     "//ui/gfx/geometry",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("tab_group") {
@@ -125,8 +123,6 @@ source_set("tab_group_impl") {
     "//ui/gfx/geometry",
     "//ui/views",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("tab_style_views") {
@@ -171,14 +167,11 @@ source_set("tab_style_views_impl") {
     "//ui/gfx/geometry",
     "//ui/views",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("tab_container") {
   sources = [
     "tab_container.h",
-    "tab_container_impl.h",
     "tab_slot_animation_delegate.h",
     "tab_strip_layout_helper.h",
     "z_orderable_tab_container_element.h",
@@ -203,7 +196,6 @@ source_set("tab_container") {
 source_set("tab_container_impl") {
   sources = [
     "tab_container.cc",
-    "tab_container_impl.cc",
     "tab_slot_animation_delegate.cc",
     "tab_strip_layout_helper.cc",
     "z_orderable_tab_container_element.cc",
@@ -234,8 +226,6 @@ source_set("tab_container_impl") {
     "//ui/gfx/range",
     "//ui/views",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("tab") {
@@ -309,7 +299,10 @@ source_set("tab_impl") {
   ]
 
   if (is_chromeos) {
-    deps += [ "//chrome/browser/ash/boca/on_task" ]
+    deps += [
+      "//chrome/browser/ash/boca/on_task",
+      "//chrome/browser/ui/chromeos/locked_state",
+    ]
   }
 
   # frame/browser_frame_view.h and frame/browser_view.h are still
@@ -317,7 +310,6 @@ source_set("tab_impl") {
   # tab.cc, never by tab.h -- so this :tab_impl target is the one that
   # carries the real dependency and the corresponding
   # allow_circular_includes_from grant on ui:ui, not the public :tab target.
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("tab_strip_button") {
@@ -364,8 +356,6 @@ source_set("tab_strip_button_impl") {
     "//ui/gfx/geometry",
     "//ui/views",
   ]
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("tab_strip") {
@@ -500,6 +490,7 @@ source_set("tab_strip_impl") {
     deps += [
       "//ash/public/cpp",
       "//chrome/browser/ash/boca/on_task",
+      "//chrome/browser/ui/chromeos/locked_state",
       "//chromeos/ash/experiences/system_web_apps/types",
     ]
   }
@@ -507,8 +498,6 @@ source_set("tab_strip_impl") {
   if (use_aura) {
     deps += [ "//ui/aura" ]
   }
-
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("new_tab_button") {
@@ -558,10 +547,6 @@ source_set("test_support") {
 
 source_set("unit_tests") {
   testonly = true
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 
   sources = [
     "tab_container_unittest.cc",
@@ -713,7 +698,10 @@ source_set("browser_tests") {
   ]
 
   if (is_chromeos) {
-    deps += [ "//chrome/browser/ash/boca/on_task" ]
+    deps += [
+      "//chrome/browser/ash/boca/on_task",
+      "//chrome/browser/ui/chromeos/locked_state",
+    ]
   }
 }
 
@@ -721,10 +709,6 @@ if (!is_chromeos_device) {
   source_set("interactive_ui_tests") {
     testonly = true
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
-
-    # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-    # enable the diagnostic by removing this line.
-    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 
     sources = [
       "tab_group_header_interactive_uitest.cc",
@@ -771,6 +755,7 @@ if (!is_chromeos_device) {
 
     if (is_mac) {
       deps += [
+        "//chrome/browser/ui/side_panel",
         "//chrome/browser/ui/tabs:tabs_public",
         "//chrome/browser/ui/views/frame:contents_web_view",
         "//ui/base",

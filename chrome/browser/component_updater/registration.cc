@@ -21,7 +21,6 @@
 #include "chrome/browser/component_updater/commerce_heuristics_component_installer.h"
 #include "chrome/browser/component_updater/crl_set_component_installer.h"
 #include "chrome/browser/component_updater/crowd_deny_component_installer.h"
-#include "chrome/browser/component_updater/first_party_sets_component_installer.h"
 #include "chrome/browser/component_updater/hyphenation_component_installer.h"
 #include "chrome/browser/component_updater/indigo_component_installer.h"
 #include "chrome/browser/component_updater/mei_preload_component_installer.h"
@@ -45,8 +44,6 @@
 #include "components/component_updater/installer_policies/optimization_hints_component_installer.h"
 #include "components/component_updater/installer_policies/safety_tips_component_installer.h"
 #include "components/on_device_translation/buildflags/buildflags.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
-#include "components/optimization_guide/core/model_execution/model_execution_util.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "device/vr/buildflags/buildflags.h"
@@ -55,12 +52,16 @@
 #include "ui/accessibility/accessibility_features.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-#include "chrome/browser/component_updater/aim_eligibility_component_installer.h"
+#include "chrome/browser/component_updater/component_extension_installer.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #include "chrome/browser/component_updater/recovery_improved_component_installer.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_WIN)
+#include "chrome/browser/component_updater/dynamic_patch_component_installer.h"
+#endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/component_updater/real_time_url_checks_allowlist_component_installer.h"
@@ -170,7 +171,6 @@ void RegisterComponentsForUpdate() {
   RegisterOptimizationHintsComponent(cus);
   RegisterTrustTokenKeyCommitmentsComponentIfTrustTokensEnabled(cus);
   RegisterPrivateVerificationTokensComponentIfEnabled(cus);
-  RegisterFirstPartySetsComponent(cus);
   RegisterPrivacySandboxAttestationsComponent(cus);
   RegisterActorSafetyListsComponent(cus, base::OnceClosure());
   if (history_embeddings::IsHistoryEmbeddingsFeatureEnabled()) {
@@ -245,6 +245,10 @@ void RegisterComponentsForUpdate() {
 
   MaybeRegisterPlatformRuntimeComponent(cus);
 
+#if BUILDFLAG(IS_WIN)
+  MaybeRegisterDynamicPatchComponent(cus);
+#endif  // BUILDFLAG(IS_WIN)
+
   base::FilePath path;
   if (base::PathService::Get(chrome::DIR_USER_DATA, &path)) {
     ManageAIEmbeddingsComponentRegistration(cus,
@@ -254,7 +258,7 @@ void RegisterComponentsForUpdate() {
       DeleteHistorySearchStringsComponent(path);
     }
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
-    ManageAimEligibilityComponentRegistration(cus);
+    ManageComponentExtensionRegistrations(cus);
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
     base::ThreadPool::PostTask(
         FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},

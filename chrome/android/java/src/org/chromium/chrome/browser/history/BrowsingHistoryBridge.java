@@ -12,7 +12,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.history.HistoryProvider.ClientInfo;
+import org.chromium.chrome.browser.history.HistoryProvider.ClientGroup;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
 import org.chromium.url.GURL;
@@ -75,16 +75,16 @@ public class BrowsingHistoryBridge implements HistoryProvider {
 
     @Override
     public void queryClients() {
-        List<ClientInfo> clients =
+        List<ClientGroup> clients =
                 BrowsingHistoryBridgeJni.get().getAllClients(mNativeHistoryBridge);
         if (mObserver != null) mObserver.onQueryClientsComplete(clients);
     }
 
     @CalledByNative
-    public static ClientInfo createClientInfo(
+    public static ClientGroup createClientGroup(
             @JniType("std::vector<std::string>") List<String> clientIds,
             @JniType("std::string") String clientName) {
-        return new ClientInfo(clientIds, clientName);
+        return new ClientGroup(clientIds, clientName);
     }
 
     @Override
@@ -188,6 +188,22 @@ public class BrowsingHistoryBridge implements HistoryProvider {
         }
     }
 
+    public static boolean isBrowsingHistoryFilterByDeviceEnabled() {
+        return BrowsingHistoryBridgeJni.get().isBrowsingHistoryFilterByDeviceEnabled();
+    }
+
+    /**
+     * Queries the native {@code HistoryService} for the cached page title associated with {@code
+     * url}, invoking {@code callback} with the title string or an empty string if unavailable.
+     *
+     * @param profile The {@link Profile} whose history database to query.
+     * @param url The {@link GURL} to look up.
+     * @param callback Callback invoked asynchronously with the resolved page title.
+     */
+    public static void getPageTitleForUrl(Profile profile, GURL url, Callback<String> callback) {
+        BrowsingHistoryBridgeJni.get().getPageTitleForUrl(profile, url, callback);
+    }
+
     /**
      * Writes a page visit with an explicit timestamp directly to the native {@code HistoryService}
      * for tests (such as WebUI history render tests) that query C++ {@code HistoryService} and
@@ -204,6 +220,8 @@ public class BrowsingHistoryBridge implements HistoryProvider {
         long init(BrowsingHistoryBridge self, @JniType("Profile*") Profile profile);
 
         void destroy(long nativeBrowsingHistoryBridge);
+
+        boolean isBrowsingHistoryFilterByDeviceEnabled();
 
         void queryHistory(
                 long nativeBrowsingHistoryBridge,
@@ -242,8 +260,13 @@ public class BrowsingHistoryBridge implements HistoryProvider {
 
         void getAllAppIds(long nativeBrowsingHistoryBridge);
 
-        @JniType("std::vector<const syncer::DeviceInfo*>")
-        List<ClientInfo> getAllClients(long nativeBrowsingHistoryBridge);
+        @JniType("std::vector<history::BrowsingHistoryService::ClientGroup>")
+        List<ClientGroup> getAllClients(long nativeBrowsingHistoryBridge);
+
+        void getPageTitleForUrl(
+                @JniType("Profile*") Profile profile,
+                @JniType("GURL") GURL url,
+                Callback<String> callback);
 
         void addPageToHistoryForTesting( // IN-TEST
                 @JniType("Profile*") Profile profile,

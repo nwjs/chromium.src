@@ -80,8 +80,7 @@ class AutofillAiModelExecutorImplTest : public testing::Test {
     features.InitAndDisableFeature(features::kAutofillAiPrivateAiShadowMetric);
     optimization_guide::RegisterModelQualityLocalStatePrefs(
         local_state_.registry());
-    optimization_guide::model_execution::prefs::RegisterProfilePrefs(
-        local_state_.registry());
+    optimization_guide::RegisterGenAiFeatures(local_state_.registry());
     engine_ = std::make_unique<AutofillAiModelExecutorImpl>(
         &model_cache_, &model_executor_, &mqls_uploader_);
   }

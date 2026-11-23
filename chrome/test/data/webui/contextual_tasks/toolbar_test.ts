@@ -101,49 +101,6 @@ suite('ToolbarAppTest', () => {
     assertTrue(topToolbar.hasAttribute('is-ai-page'));
   });
 
-  test('side panel state change updates theme from url', async () => {
-    const topToolbar = toolbarApp.shadowRoot.querySelector('top-toolbar')!;
-    // Simulate url with dark mode param.
-    const url = new URL(window.location.href);
-    url.searchParams.set('cs', '1');
-    window.history.replaceState({}, '', url.href);
-
-    toolbarProxy.callbackRouterRemote.onSidePanelStateChanged();
-    await toolbarProxy.callbackRouterRemote.$.flushForTesting();
-    await toolbarApp.updateComplete;
-    await topToolbar.updateComplete;
-
-    assertTrue(topToolbar.hasAttribute('dark-mode'));
-
-    // Switch to light mode.
-    url.searchParams.set('cs', '0');
-    window.history.replaceState({}, '', url.href);
-
-    toolbarProxy.callbackRouterRemote.onSidePanelStateChanged();
-    await toolbarProxy.callbackRouterRemote.$.flushForTesting();
-    await toolbarApp.updateComplete;
-    await topToolbar.updateComplete;
-
-    assertFalse(topToolbar.hasAttribute('dark-mode'));
-  });
-
-  test(
-      'side panel state change listener is removed on disconnect', async () => {
-        const topToolbar = toolbarApp.shadowRoot.querySelector('top-toolbar')!;
-        toolbarApp.remove();
-
-        const url = new URL(window.location.href);
-        url.searchParams.set('cs', '1');
-        window.history.replaceState({}, '', url.href);
-
-        toolbarProxy.callbackRouterRemote.onSidePanelStateChanged();
-        await toolbarProxy.callbackRouterRemote.$.flushForTesting();
-        await toolbarApp.updateComplete;
-        await topToolbar.updateComplete;
-
-        assertFalse(topToolbar.hasAttribute('dark-mode'));
-      });
-
   test('new thread click invokes browser proxy handler', async () => {
     const topToolbar = toolbarApp.shadowRoot.querySelector('top-toolbar')!;
 
@@ -151,9 +108,7 @@ suite('ToolbarAppTest', () => {
     topToolbar.isAimEligible = true;
     await topToolbar.updateComplete;
 
-    const newThreadButton =
-        topToolbar.shadowRoot.querySelector<HTMLElement>('#newThreadButton')!;
-    assertTrue(!!newThreadButton);
+    const newThreadButton = topToolbar.$.newThreadButton;
 
     newThreadButton.click();
     await toolbarProxy.handler.whenCalled('createNewThread');

@@ -4,8 +4,9 @@
 
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/page_content_cache_service_factory.h"
 
+#import <utility>
+
 #import "base/files/file_path.h"
-#import "base/no_destructor.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/page_content_cache_service.h"
@@ -18,14 +19,6 @@ constexpr char kPersistedTabContextsDatabase[] = "persisted_tab_contexts_db";
 }  // namespace
 
 // static
-PageContentCacheService* PageContentCacheServiceFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<PageContentCacheService>(
-      profile,
-      /*create=*/true);
-}
-
-// static
 base::FilePath PageContentCacheServiceFactory::GetStoragePathForProfile(
     ProfileIOS* profile) {
   base::FilePath cache_directory_path;
@@ -33,14 +26,9 @@ base::FilePath PageContentCacheServiceFactory::GetStoragePathForProfile(
   return cache_directory_path.Append(kPersistedTabContextsDatabase);
 }
 
-// static
-PageContentCacheServiceFactory* PageContentCacheServiceFactory::GetInstance() {
-  static base::NoDestructor<PageContentCacheServiceFactory> instance;
-  return instance.get();
-}
-
-PageContentCacheServiceFactory::PageContentCacheServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("PageContentCacheService") {}
+PageContentCacheServiceFactory::PageContentCacheServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "PageContentCacheService") {}
 
 std::unique_ptr<KeyedService>
 PageContentCacheServiceFactory::BuildServiceInstanceFor(

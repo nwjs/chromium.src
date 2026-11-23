@@ -19,10 +19,10 @@ class ConvertToVariantFn : public ToolRequestVisitorFunctor {
  public:
   ConvertToVariantFn() = default;
   ~ConvertToVariantFn() = default;
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void Apply(const ActivateTabToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
+#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void Apply(const ActivateWindowToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
@@ -45,16 +45,21 @@ class ConvertToVariantFn : public ToolRequestVisitorFunctor {
   void Apply(const ClickToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+  void Apply(const CloseGeminiPanelToolRequest& tr) override {
+    var_ = ToolRequestVariant(tr);
+  }
   void Apply(const CloseTabToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
+#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void Apply(const CloseWindowToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
+#endif
   void Apply(const CreateTabToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
+#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void Apply(const CreateWindowToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
@@ -62,14 +67,12 @@ class ConvertToVariantFn : public ToolRequestVisitorFunctor {
   void Apply(const DragAndReleaseToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void Apply(const EnterFullscreenToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
   void Apply(const ExitFullscreenToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
-#endif
   void Apply(const FileUploadToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
@@ -93,11 +96,12 @@ class ConvertToVariantFn : public ToolRequestVisitorFunctor {
   void Apply(const NavigateToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
   void Apply(const OpenKnownPageToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
-#endif
+  void Apply(const OpenUrlToolRequest& tr) override {
+    var_ = ToolRequestVariant(tr);
+  }
   void Apply(const PauseMediaToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
@@ -107,10 +111,16 @@ class ConvertToVariantFn : public ToolRequestVisitorFunctor {
   void Apply(const PlayMediaToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
+  void Apply(const PromptGeminiPanelToolRequest& tr) override {
+    var_ = ToolRequestVariant(tr);
+  }
   void Apply(const ReloadPageToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
   void Apply(const RemoveBookmarkToolRequest& tr) override {
+    var_ = ToolRequestVariant(tr);
+  }
+  void Apply(const ScrollPageToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
   void Apply(const ScriptToolRequest& tr) override {
@@ -128,11 +138,12 @@ class ConvertToVariantFn : public ToolRequestVisitorFunctor {
   void Apply(const SelectToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
-#if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
+  void Apply(const SiteBasedSearchToolRequest& tr) override {
+    var_ = ToolRequestVariant(tr);
+  }
   void Apply(const SwitchTabToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }
-#endif
   void Apply(const TranslatePageToolRequest& tr) override {
     var_ = ToolRequestVariant(tr);
   }

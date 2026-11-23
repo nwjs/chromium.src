@@ -79,8 +79,10 @@ class InfoBarSpec {
   // then, in which case it is null.
   using ResultCallback =
       base::RepeatingCallback<void(content::WebContents*, InfoBarResult)>;
-  // Returns true if the infobar may be shown in the given browser. Only
-  // consulted for InfoBarScope::kGlobal.
+  // Returns true if the infobar applies to the given browser. A spec's own
+  // filter is only consulted for InfoBarScope::kGlobal.
+  // BrowserInfoBarManager::Hide(identifier, filter) takes one to limit which
+  // browsers' kTab instances it hides.
   using BrowserFilter = base::RepeatingCallback<bool(BrowserWindowInterface*)>;
 
   class Builder;
@@ -238,6 +240,9 @@ struct InfoBarShowParams {
   // instance is deduplicated away there and only reappears on the next
   // active-tab change.
   std::optional<InfoBarScope> scope;
+
+  // Overrides the spec's icon when non-null.
+  raw_ptr<const gfx::VectorIcon> icon = nullptr;
 
   InfoBarButtonParams ok_button;
   InfoBarButtonParams cancel_button;

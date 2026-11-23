@@ -171,13 +171,8 @@ SyncConfirmationUI::SyncConfirmationUI(content::WebUI* web_ui)
        IDR_SIGNIN_SYNC_CONFIRMATION_SYNC_CONFIRMATION_JS},
       {"sync_confirmation_refresh.js",
        IDR_SIGNIN_SYNC_CONFIRMATION_SYNC_CONFIRMATION_REFRESH_JS},
-      {chrome::kChromeUISyncConfirmationLoadingPath,
-       IDR_SIGNIN_SYNC_CONFIRMATION_SYNC_LOADING_CONFIRMATION_HTML},
   };
   source->AddResourcePaths(kResources);
-
-  AddStringResource(source, "syncLoadingConfirmationTitle",
-                    IDS_SYNC_LOADING_CONFIRMATION_TITLE);
 
   bool is_first_run_desktop_refresh_enabled = false;
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -319,7 +314,7 @@ void SyncConfirmationUI::InitializeForSyncConfirmation(
         g_browser_process->profile_manager()
             ->GetProfileAttributesStorage()
             .GetProfileAttributesWithPath(profile_->GetPath());
-    DCHECK(entry);
+    CHECK(entry, base::NotFatalUntil::M162);
     std::u16string gaia_name = entry->GetGAIANameToDisplay();
     if (gaia_name.empty()) {
       gaia_name = entry->GetLocalProfileName();

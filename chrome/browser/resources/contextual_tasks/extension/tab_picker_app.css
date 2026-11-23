@@ -12,8 +12,10 @@
  * #css_wrapper_metadata_end */
 
 :host {
-  display: block;
-  height: 100%;
+  color-scheme: light;
+  display: flex;
+  flex-direction: column;
+  height: max-content;
   width: 100%;
 
   --tab-picker-item-color: var(--color-composebox-file-chip-text, #1f1f1f);
@@ -23,28 +25,45 @@
   --tab-picker-favicon-border-color: var(--tab-picker-menu-background-color,
       var(--color-composebox-background,
           #fff));
+  --tab-picker-favicon-more-items-color: #474747;
+  --tab-picker-favicon-skeleton-color: #e1e3e1;
+  --tab-picker-focus-outline-color: #0b57d0;
+  /* Matches the font of the Search page's other (+) menu rows: Arial, as
+   * Search doesn't enable its Google Sans webfont on this surface. CSS doesn't
+   * inherit into an iframe, and the page is cross-origin, so the frame can't
+   * pick up the page's font itself. */
+  --tab-picker-font-family: var(--cr-composebox-context-menu-font-family,
+      Arial, sans-serif);
+  /* Matches the hover state layer of the Search page's other (+) menu rows:
+   * on-surface-default (#0a0a0a light, #e6e8f0 dark) at the SDS med-emphasis
+   * hover opacity (0.08). Like the font above, this can't be inherited across
+   * the cross-origin iframe boundary, so the value is duplicated here. */
   --tab-picker-hover-background-color:
-      var(--color-context-menu-hover-background,
-          var(--cr-hover-background-color, rgba(0, 0, 0, 0.04)));
+      var(--color-context-menu-hover-background, rgba(10, 10, 10, 0.08));
   --tab-picker-menu-background-color: var(--color-composebox-background,
       var(--search-background-color,
-          var(--color-menu-background,
-              var(--cr-fallback-color-surface, #fff))));
+          var(--color-menu-background, #fff)));
+  --cr-focus-outline-color: var(--tab-picker-focus-outline-color);
 }
 
 :host([dark-mode]) {
+  color-scheme: dark;
   --tab-picker-item-color: rgba(230, 232, 240, 1);
   --tab-picker-disabled-text-color:
       var(--color-composebox-context-entrypoint-text-disabled,
           rgba(230, 232, 240, 0.38));
   --tab-picker-favicon-border-color: rgba(44, 46, 54, 1);
+  --tab-picker-favicon-more-items-color: rgb(199, 199, 199);
+  --tab-picker-favicon-skeleton-color: rgb(68, 71, 70);
+  --tab-picker-focus-outline-color: #a8c7fa;
   --tab-picker-hover-background-color:
-      var(--color-context-menu-hover-background, rgba(53, 53, 53, 1));
+      var(--color-context-menu-hover-background, rgba(230, 232, 240, 0.08));
   --tab-picker-menu-background-color: var(--color-composebox-background,
       var(--search-background-color,
           var(--color-menu-background, rgba(44, 46, 54, 1))));
 }
 
+#singleTabItem,
 #shareTabsTrigger {
   --iron-icon-height: 20px;
   --iron-icon-width: 20px;
@@ -55,12 +74,11 @@
   color: var(--tab-picker-item-color);
   cursor: pointer;
   display: flex;
-  font-family: var(--cr-composebox-context-menu-font-family,
-      'Google Sans', Roboto, sans-serif);
+  font-family: var(--tab-picker-font-family);
   font-size: 14px;
   font-weight: 400;
   gap: 0;
-  height: 100%;
+  height: 38px;
   justify-content: flex-start;
   line-height: 18px;
   min-height: 38px;
@@ -69,6 +87,7 @@
   width: 100%;
 }
 
+#singleTabItem > cr-composebox-tab-favicon,
 #shareTabsTrigger > cr-icon:first-child {
   --iron-icon-height: 20px;
   --iron-icon-width: 20px;
@@ -77,32 +96,46 @@
   width: 20px;
 }
 
+#singleTabItem:hover,
 #shareTabsTrigger:hover,
 #shareTabsTrigger[aria-expanded='true'] {
   background-color: var(--tab-picker-hover-background-color);
 }
 
+#singleTabItem:focus,
 #shareTabsTrigger:focus {
   outline: none;
 }
 
+:host-context(.focus-outline-visible) #singleTabItem:focus,
 :host-context(.focus-outline-visible) #shareTabsTrigger:focus {
   background-color: var(--tab-picker-hover-background-color);
   outline: 2px solid var(--cr-focus-outline-color);
   outline-offset: -2px;
 }
 
+#singleTabItem[disabled],
 #shareTabsTrigger[disabled] {
   color: var(--tab-picker-disabled-text-color);
   cursor: default;
 }
 
+#singleTabItem[disabled]:hover,
 #shareTabsTrigger[disabled]:hover {
   background-color: transparent;
 }
 
+#singleTabItem .share-tabs-check {
+  --iron-icon-height: 20px;
+  --iron-icon-width: 20px;
+}
+
 composebox-favicon-group {
   --composebox-favicon-border-color: var(--tab-picker-favicon-border-color);
+  --composebox-favicon-more-items-color:
+      var(--tab-picker-favicon-more-items-color);
+  --composebox-favicon-skeleton-color:
+      var(--tab-picker-favicon-skeleton-color);
   margin-inline-end: 10px;
   margin-inline-start: auto;
 }
@@ -121,11 +154,12 @@ composebox-favicon-group {
 }
 
 #tabMenu {
+  --cr-action-menu-disabled-item-color: var(--tab-picker-disabled-text-color);
+  --cr-hover-background-color: var(--tab-picker-hover-background-color);
   --cr-menu-background-color: var(--tab-picker-menu-background-color);
   --cr-menu-border-radius: 16px;
   --cr-menu-shadow: var(--cr-elevation-3);
   --cr-primary-text-color: var(--tab-picker-item-color);
-  --cr-hover-background-color: var(--tab-picker-hover-background-color);
 }
 
 #tabMenu::part(dialog) {
@@ -148,8 +182,7 @@ composebox-favicon-group {
   color: var(--tab-picker-item-color);
   cursor: pointer;
   display: flex;
-  font-family: var(--cr-composebox-context-menu-font-family,
-      'Google Sans', Roboto, sans-serif);
+  font-family: var(--tab-picker-font-family);
   font-size: 13px;
   font-weight: 400;
   gap: 8px;
@@ -165,6 +198,40 @@ composebox-favicon-group {
 #tabMenu .dropdown-item:focus {
   background-color: var(--tab-picker-hover-background-color);
   outline: none;
+}
+
+#tabMenu .dropdown-item[disabled] {
+  color: var(--tab-picker-disabled-text-color);
+  cursor: default;
+}
+
+#tabMenu .dropdown-item[disabled]:hover,
+#tabMenu .dropdown-item[disabled]:focus {
+  background-color: transparent;
+}
+
+#automaticallyAddTabsHeader,
+#manuallyAddTabsHeader {
+  color: var(--tab-picker-item-color);
+  font-family: var(--cr-composebox-context-menu-font-family,
+      'Google Sans', Roboto, sans-serif);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  margin: 0;
+  padding: 8px 14px 4px 14px;
+}
+
+#tabMenu hr {
+  background: var(--color-sys-divider,
+      var(--color-composebox-file-carousel-divider, rgba(0, 0, 0, 0.12)));
+  border: none;
+  height: 1px;
+  margin: 8px 0;
+}
+
+:host([dark-mode]) #tabMenu hr {
+  background: var(--color-sys-divider, rgba(255, 255, 255, 0.16));
 }
 
 :host-context(.focus-outline-visible) #tabMenu .dropdown-item:focus {
@@ -188,8 +255,7 @@ composebox-favicon-group {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  font-family: var(--cr-composebox-context-menu-font-family,
-      'Google Sans', Roboto, sans-serif);
+  font-family: var(--tab-picker-font-family);
   font-size: 12px;
   font-weight: 400;
   height: 20px;
@@ -199,11 +265,11 @@ composebox-favicon-group {
   width: 72px;
 }
 
-.recent-tabs-suffix:not([disabled]) {
+.dropdown-item:not([disabled]) .recent-tabs-suffix {
   color: var(--tab-picker-item-color);
 }
 
-.recent-tabs-suffix[disabled] {
+.dropdown-item[disabled] .recent-tabs-suffix {
   color: var(--tab-picker-disabled-text-color);
 }
 

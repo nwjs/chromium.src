@@ -5,11 +5,15 @@
 #ifndef CHROME_BROWSER_DOWNLOAD_DOWNLOAD_HISTORY_H_
 #define CHROME_BROWSER_DOWNLOAD_DOWNLOAD_HISTORY_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <set>
+#include <string>
 #include <vector>
 
+#include "base/auto_reset.h"
+#include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -87,6 +91,16 @@ class DownloadHistory : public download::AllDownloadItemNotifier::Observer {
   // persisted state may not yet have been updated for a download that was
   // restored from history.
   static bool IsPersisted(const download::DownloadItem* item);
+
+  // Returns `path` (as UTF-8) with any trailing " (1)".." (100)" or
+  // " - YYYY-MM-DDTHHMMSS.mmm" uniquifier before the extension removed (e.g.
+  // "/foo/bar (1).pdf" -> "/foo/bar.pdf").
+  static std::string GetPathWithoutUniquifier(const base::FilePath& path);
+
+  // Overrides the minimum number of loaded downloads required to emit
+  // Download.History.HeavyProfile.* histograms.
+  static base::AutoReset<size_t> SetHeavyProfileThresholdForTesting(
+      size_t threshold);
 
   // Neither |manager| nor |history| may be NULL.
   // DownloadService creates DownloadHistory some time after DownloadManager is

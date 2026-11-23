@@ -41,7 +41,7 @@
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
-#include "ui/views/view_shadow.h"
+#include "ui/views/view_decoration.h"
 #include "ui/views/window/dialog_delegate.h"
 #include "ui/views/window/frame_view.h"
 #include "ui/wm/core/coordinate_conversion.h"
@@ -96,9 +96,9 @@ class ConnectionErrorDialogDelegateView : public views::WidgetDelegateView {
         kDialogRoundedCornerRadius,
         views::HighlightBorder::Type::kHighlightBorderOnShadow));
 
-    view_shadow_ =
-        std::make_unique<views::ViewShadow>(this, kDialogShadowElevation);
+    view_shadow_ = std::make_unique<views::ViewDecoration>(this);
     view_shadow_->SetRoundedCornerRadius(kDialogRoundedCornerRadius);
+    view_shadow_->SetShadow(kDialogShadowElevation);
 
     SetLayoutManager(std::make_unique<views::BoxLayout>(
         views::BoxLayout::Orientation::kVertical, kDialogContentInsets));
@@ -256,7 +256,7 @@ class ConnectionErrorDialogDelegateView : public views::WidgetDelegateView {
 
  private:
   StartTetheringCallback start_tethering_callback_;
-  std::unique_ptr<views::ViewShadow> view_shadow_;
+  std::unique_ptr<views::ViewDecoration> view_shadow_;
 
   raw_ptr<views::ImageView> icon_ = nullptr;
   raw_ptr<views::Label> title_ = nullptr;

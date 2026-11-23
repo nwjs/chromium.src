@@ -26,12 +26,6 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(
 // Enables the addition of new security fields for SecOps.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kEnhancedSecurityEventFields);
 
-// Returns true if `kEnhancedSecurityEventFields` is enabled and supported on
-// the current platform. On Windows 11 24H2+, this returns false due to hangs
-// during synchronous WLAN API queries.
-// TODO(crbug.com/577109904): Re-enable once network name query is asynchronous.
-POLICY_EXPORT bool IsEnhancedSecurityEventFieldsEnabled();
-
 // Controls if we can use the cec flag in PolicyData.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kUseCECFlagInPolicyData);
 
@@ -44,9 +38,6 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(kUserPolicyCacheSizeLimit2MB);
 // Enables policy initialization for signed-in users in new entry points.
 POLICY_EXPORT BASE_DECLARE_FEATURE(
     kInitializePoliciesForSignedInUserInNewEntryPoints);
-
-// Controls whether to use active admins to calculate the enterprise info.
-POLICY_EXPORT BASE_DECLARE_FEATURE(kAndroidUseAdminsForEnterpriseInfo);
 
 // Controls whether to use RestrictionsManager instead of UserManager in
 // AppRestrictionsProvider to retrieve application restrictions.

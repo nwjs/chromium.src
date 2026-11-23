@@ -249,6 +249,14 @@ base::TimeDelta GetActorPageStabilityAutofillPredictionsTimeout();
 // feature parameter of the `kActorTools` feature.
 bool IsToolDisabled(optimization_guide::proto::Action::ActionCase tool);
 
+// Feature parameter for `kActorTools` controlling whether input views are
+// suppressed during Actor actuation.
+extern const char kActorToolsDisableInputDuringActuationParam[];
+
+// Returns true if input views (the software keyboard, input accessory views,
+// and tablet shortcut bar) should be suppressed during Actor actuation.
+bool ActorDisablesInputDuringActuation();
+
 // Feature flag controlling Actor origin gating.
 BASE_DECLARE_FEATURE(kActorOriginGating);
 
@@ -323,6 +331,18 @@ extern const char
 // WebContent processes alive in the background.
 base::TimeDelta GetGeminiActorBackgroundWebStateKeepAliveHeartbeatInterval();
 
+// Parameter for the interval of the system progress heartbeat of the actor's
+// background tasks. Zero disables the heartbeat.
+extern const char kGeminiActorBackgroundProgressHeartbeatIntervalParam[];
+
+// Returns the interval of the system progress heartbeat of the actor's
+// background tasks.
+base::TimeDelta GetGeminiActorBackgroundProgressHeartbeatInterval();
+
+// The timeout for Page Context extraction during an Actor tab observation,
+// the "ActorTabObservationPageContextTimeout" parameter of `kGeminiActor`.
+base::TimeDelta GetActorTabObservationPageContextTimeout();
+
 // Enables the GeminiUnaryMigration feature.
 BASE_DECLARE_FEATURE(kGeminiUnaryMigration);
 
@@ -347,12 +367,6 @@ BASE_DECLARE_FEATURE(kPageContextPdf);
 
 // Returns true if the PageContextPdf feature is enabled.
 bool IsPageContextPDFEnabled();
-
-// Enables the GeminiClientMigration feature.
-BASE_DECLARE_FEATURE(kGeminiClientMigration);
-
-// Returns true if the GeminiClientMigration feature is enabled.
-bool IsGeminiClientMigrationEnabled();
 
 // Enables the GeminiMultiTabContext feature.
 BASE_DECLARE_FEATURE(kGeminiMultiTabContext);

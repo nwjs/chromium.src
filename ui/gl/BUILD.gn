@@ -190,7 +190,6 @@ component("gl") {
   ]
 
   configs += [
-    "//build/config/compiler:wexit_time_destructors",
     "//build/config/compiler:wglobal_constructors",
     "//build/config:precompiled_headers",
   ]
@@ -599,6 +598,7 @@ test("gl_unittests") {
     "egl_api_unittest.cc",
     "gl_api_unittest.cc",
     "gl_display_manager_unittest.cc",
+    "gl_surface_presentation_helper_unittest.cc",
     "gl_version_info_unittest.cc",
     "gpu_timing_unittest.cc",
     "scoped_gl_framebuffer_unittest.cc",
@@ -632,6 +632,7 @@ test("gl_unittests") {
     ":run_all_unittests",
     ":test_support",
     "//base",
+    "//base/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
     "//third_party/angle:includes",

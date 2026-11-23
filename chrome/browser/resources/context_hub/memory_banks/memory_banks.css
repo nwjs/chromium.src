@@ -320,6 +320,14 @@ h2 {
   width: 16px;
 }
 
+.table-image-thumb {
+  border-radius: 2px;
+  flex-shrink: 0;
+  height: 16px;
+  object-fit: contain;
+  width: 16px;
+}
+
 .table-title-link {
   color: var(--cr-primary-text-color);
   font-weight: 500;
@@ -523,6 +531,19 @@ h2 {
   width: var(--cr-icon-size);
 }
 
+.card-body.image-type {
+  align-items: center;
+  background: var(--cr-fallback-color-surface5);
+  justify-content: center;
+  padding: 0;
+}
+
+.card-image-preview {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
 .text-preview {
   color: var(--cr-primary-text-color);
   font-family: 'Google Sans Text', sans-serif;
@@ -702,7 +723,7 @@ h2 {
 
 .search-container {
   left: 50%;
-  max-width: calc(100% - 240px);
+  max-width: calc(100% - 360px);
   position: absolute;
   transform: translateX(-50%);
   width: 680px;

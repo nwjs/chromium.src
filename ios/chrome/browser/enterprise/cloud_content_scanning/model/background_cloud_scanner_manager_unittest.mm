@@ -7,12 +7,16 @@
 #import <memory>
 
 #import "base/files/file_path.h"
+#import "base/files/file_util.h"
+#import "base/files/scoped_temp_dir.h"
 #import "base/json/json_reader.h"
 #import "base/memory/raw_ptr.h"
 #import "base/run_loop.h"
 #import "base/task/sequenced_task_runner.h"
+#import "base/test/metrics/histogram_tester.h"
 #import "base/test/run_until.h"
 #import "base/test/scoped_feature_list.h"
+#import "base/test/test_future.h"
 #import "components/enterprise/browser/controller/fake_browser_dm_token_storage.h"
 #import "components/enterprise/connectors/core/analysis_settings.h"
 #import "components/enterprise/connectors/core/common.h"
@@ -20,6 +24,7 @@
 #import "components/policy/core/common/policy_types.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/enterprise/cloud_content_scanning/model/background_cloud_scanner_manager_factory.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/download_protection_metrics.h"
 #import "ios/chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_service.h"
 #import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
@@ -56,6 +61,11 @@ class BackgroundCloudScannerManagerTest : public PlatformTest {
  protected:
   void SetUp() override {
     PlatformTest::SetUp();
+    ASSERT_TRUE(scoped_temp_dir_.CreateUniqueTempDir());
+    test_file_path_ =
+        scoped_temp_dir_.GetPath().Append(FILE_PATH_LITERAL("test_file.txt"));
+    ASSERT_TRUE(base::WriteFile(test_file_path_, "test content"));
+
     TestProfileIOS::Builder profile_builder;
     profile_ = std::move(profile_builder).Build();
     web_state_.SetBrowserState(profile_.get());
@@ -82,13 +92,13 @@ class BackgroundCloudScannerManagerTest : public PlatformTest {
         ContentAnalysisRequest::NORMAL_DOWNLOAD, web_state_);
   }
 
-  // Starts a scan that completes synchronously: an empty file path makes
-  // FilesRequestHandlerIOS run its completion callback from within
-  // `StartScanner()`. This is the re-entrant path the manager has to handle,
-  // since the scanner can't be destroyed while it is running that callback.
-  void StartSynchronouslyCompletingScan() {
+  // Starts a scan that completes synchronously: without connector policies
+  // enabled, FilesRequestHandlerIOS runs its completion callback synchronously
+  // upon `StartScanner()`.
+  void StartSynchronouslyCompletingScan(
+      base::test::TestFuture<bool>& download_proceed) {
     manager_->StartScanner(CreateContentAnalysisInfo(), GURL(kDownloadUrl),
-                           base::FilePath());
+                           test_file_path_, download_proceed.GetCallback());
   }
 
   // Runs the task queue until the task posted by the manager to delete the
@@ -118,6 +128,9 @@ class BackgroundCloudScannerManagerTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   policy::FakeBrowserDMTokenStorage fake_browser_dm_token_storage_;
+  base::ScopedTempDir scoped_temp_dir_;
+  base::FilePath test_file_path_;
+  base::HistogramTester histogram_tester_;
   std::unique_ptr<TestProfileIOS> profile_;
   web::FakeWebState web_state_;
   raw_ptr<BackgroundCloudScannerManager> manager_;
@@ -126,7 +139,12 @@ class BackgroundCloudScannerManagerTest : public PlatformTest {
 // Tests that a completed scanner is unregistered immediately but only destroyed
 // once the completion callback it is running has returned.
 TEST_F(BackgroundCloudScannerManagerTest, CompletedScannerIsDeletedAsync) {
-  StartSynchronouslyCompletingScan();
+  base::test::TestFuture<bool> download_proceed;
+  StartSynchronouslyCompletingScan(download_proceed);
+  EXPECT_TRUE(download_proceed.Get());
+
+  histogram_tester_.ExpectUniqueSample(
+      kIOSDownloadProtectionScanTriggeredClonefileSuccessHistogram, true, 1);
 
   // The scan is done, so the scanner is no longer active, but its destruction
   // is deferred to a posted task.
@@ -137,19 +155,42 @@ TEST_F(BackgroundCloudScannerManagerTest, CompletedScannerIsDeletedAsync) {
       [&]() { return manager_->GetPendingDeletionCountForTesting() == 0u; }));
 
   EXPECT_EQ(manager_->GetScannerCountForTesting(), 0u);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester_.GetBucketCount(
+               kIOSDownloadProtectionScanTriggeredTempDirectoryDeleteSuccessHistogram,
+               true) == 1;
+  }));
 }
 
 // Tests that several scanners completing before the deletion task runs are all
 // destroyed.
 TEST_F(BackgroundCloudScannerManagerTest, MultipleCompletedScannersAreDeleted) {
-  StartSynchronouslyCompletingScan();
-  StartSynchronouslyCompletingScan();
+  base::test::TestFuture<bool> download_proceed_1;
+  StartSynchronouslyCompletingScan(download_proceed_1);
+  base::test::TestFuture<bool> download_proceed_2;
+  StartSynchronouslyCompletingScan(download_proceed_2);
+
+  EXPECT_TRUE(download_proceed_1.Get());
+  EXPECT_TRUE(download_proceed_2.Get());
+
+  histogram_tester_.ExpectUniqueSample(
+      kIOSDownloadProtectionScanTriggeredClonefileSuccessHistogram, true, 2);
 
   EXPECT_EQ(manager_->GetScannerCountForTesting(), 0u);
-  EXPECT_EQ(manager_->GetPendingDeletionCountForTesting(), 2u);
+
+  // Depending on whether the scanner for `download_proceed_1` is cleaned up
+  // before we successfully cloned the temporary file for `download_proceed_2`,
+  // we would either have 1 or 2 pending deletion count.
+  EXPECT_GE(manager_->GetPendingDeletionCountForTesting(), 1u);
+  EXPECT_LE(manager_->GetPendingDeletionCountForTesting(), 2u);
 
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return manager_->GetPendingDeletionCountForTesting() == 0u; }));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester_.GetBucketCount(
+               kIOSDownloadProtectionScanTriggeredTempDirectoryDeleteSuccessHistogram,
+               true) == 2;
+  }));
 }
 
 // Tests that active in-flight scanners in `scanners_` are directly cleared and
@@ -160,8 +201,14 @@ TEST_F(BackgroundCloudScannerManagerTest, ShutdownDeletesActiveScanners) {
       kEnableCancelUploadOnContentAnalysis);
   SetUpAnalysisConnectorPolicy();
 
+  base::test::TestFuture<bool> download_proceed;
   manager_->StartScanner(CreateContentAnalysisInfo(), GURL(kDownloadUrl),
-                         base::FilePath(FILE_PATH_LITERAL("/path/to/file")));
+                         test_file_path_, download_proceed.GetCallback());
+  EXPECT_TRUE(download_proceed.Get());
+
+  histogram_tester_.ExpectUniqueSample(
+      kIOSDownloadProtectionScanTriggeredClonefileSuccessHistogram, true, 1);
+
   ASSERT_EQ(manager_->GetScannerCountForTesting(), 1u);
   EXPECT_EQ(manager_->GetPendingDeletionCountForTesting(), 0u);
 
@@ -169,13 +216,24 @@ TEST_F(BackgroundCloudScannerManagerTest, ShutdownDeletesActiveScanners) {
 
   EXPECT_EQ(manager_->GetScannerCountForTesting(), 0u);
   EXPECT_EQ(manager_->GetPendingDeletionCountForTesting(), 0u);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester_.GetBucketCount(
+               kIOSDownloadProtectionScanTriggeredTempDirectoryDeleteSuccessHistogram,
+               true) == 1;
+  }));
 }
 
 // Tests that scanners waiting to be deleted are destroyed by Shutdown() when
 // the profile goes away before the deletion task runs, and that the pending
 // task is then harmless.
 TEST_F(BackgroundCloudScannerManagerTest, ShutdownDeletesPendingScanners) {
-  StartSynchronouslyCompletingScan();
+  base::test::TestFuture<bool> download_proceed;
+  StartSynchronouslyCompletingScan(download_proceed);
+  EXPECT_TRUE(download_proceed.Get());
+
+  histogram_tester_.ExpectUniqueSample(
+      kIOSDownloadProtectionScanTriggeredClonefileSuccessHistogram, true, 1);
+
   ASSERT_EQ(manager_->GetPendingDeletionCountForTesting(), 1u);
 
   manager_->Shutdown();
@@ -186,16 +244,66 @@ TEST_F(BackgroundCloudScannerManagerTest, ShutdownDeletesPendingScanners) {
   RunUntilPendingScannersAreDeleted();
 
   EXPECT_EQ(manager_->GetPendingDeletionCountForTesting(), 0u);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return histogram_tester_.GetBucketCount(
+               kIOSDownloadProtectionScanTriggeredTempDirectoryDeleteSuccessHistogram,
+               true) == 1;
+  }));
 }
 
 // Tests that no scan is started once the profile is being torn down.
 TEST_F(BackgroundCloudScannerManagerTest, StartScannerAfterShutdownIsIgnored) {
   manager_->Shutdown();
 
-  StartSynchronouslyCompletingScan();
+  base::test::TestFuture<bool> download_proceed;
+  StartSynchronouslyCompletingScan(download_proceed);
+  EXPECT_TRUE(download_proceed.Get());
+
+  histogram_tester_.ExpectTotalCount(
+      kIOSDownloadProtectionScanTriggeredClonefileSuccessHistogram, 0);
 
   EXPECT_EQ(manager_->GetScannerCountForTesting(), 0u);
   EXPECT_EQ(manager_->GetPendingDeletionCountForTesting(), 0u);
+  histogram_tester_.ExpectTotalCount(
+      kIOSDownloadProtectionScanTriggeredTempDirectoryDeleteSuccessHistogram,
+      0);
+}
+
+// Tests that when `kEnableDLPClonefileScanUploadIOS` is disabled, the scanner
+// still starts using the original file path and does not delete it on cleanup.
+TEST_F(BackgroundCloudScannerManagerTest,
+       CloneDisabledFallsBackToOriginalFile) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(kEnableDLPClonefileScanUploadIOS);
+
+  base::test::TestFuture<bool> download_proceed;
+  StartSynchronouslyCompletingScan(download_proceed);
+  EXPECT_TRUE(download_proceed.Get());
+
+  EXPECT_EQ(manager_->GetScannerCountForTesting(), 0u);
+  EXPECT_EQ(manager_->GetPendingDeletionCountForTesting(), 1u);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return manager_->GetPendingDeletionCountForTesting() == 0u; }));
+
+  EXPECT_TRUE(base::PathExists(test_file_path_));
+}
+
+// Tests that when `clonefile` fails (e.g. source file does not exist), the
+// scanner still starts with the original path instead of dropping the scan.
+TEST_F(BackgroundCloudScannerManagerTest, CloneFailureFallsBackToOriginalFile) {
+  base::FilePath missing_path =
+      scoped_temp_dir_.GetPath().Append(FILE_PATH_LITERAL("missing_file.txt"));
+  base::test::TestFuture<bool> download_proceed;
+  manager_->StartScanner(CreateContentAnalysisInfo(), GURL(kDownloadUrl),
+                         missing_path, download_proceed.GetCallback());
+  EXPECT_TRUE(download_proceed.Get());
+
+  EXPECT_EQ(manager_->GetScannerCountForTesting(), 0u);
+  EXPECT_EQ(manager_->GetPendingDeletionCountForTesting(), 1u);
+
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return manager_->GetPendingDeletionCountForTesting() == 0u; }));
 }
 
 }  // namespace enterprise_connectors

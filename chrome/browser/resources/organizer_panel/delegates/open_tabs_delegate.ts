@@ -10,12 +10,13 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {OrganizerListSectionClient, OrganizerListSectionDelegate} from '../organizer_list_section_delegate.js';
-import type {OrganizerListSectionItem, OrganizerListSectionItemDescriptionPart, OrganizerListSectionItemIcon} from '../organizer_list_section_item.js';
+import type {OrganizerListSectionItem, OrganizerListSectionItemIcon} from '../organizer_list_section_item.js';
+import type {OrganizerListSectionItemDescriptionPart} from '../organizer_list_section_item_description.js';
 import type {BrowserProxy, ProfileData, Tab, TabGroup, TabsRemovedInfo, TabUpdateInfo} from '../tab_search.mojom-webui.js';
 import {browserProxyFactory} from '../tab_search.mojom-webui.js';
 import {TabAlertState} from '../tabs.mojom-webui.js';
 
-import {compareTimeDescending, getSplitViewPrefixIcon, getTabCountText, tokenToString} from './tab_delegate_utils.js';
+import {compareTimeDescending, getHostnameOrUrl, getSplitViewPrefixIcon, getTabCountText, tokenToString} from './tab_delegate_utils.js';
 
 // Trailing icon shown for tabs that are playing or muting audio.
 const AUDIO_ICON = 'organizer-panel:volume-up';
@@ -97,7 +98,7 @@ export class OpenTabsDelegate implements
   }
 
   getHeader(): string {
-    return loadTimeData.getString('openTabs');
+    return loadTimeData.getString('recentlyVisited');
   }
 
   async getItems(): Promise<Array<OrganizerListSectionItem<OpenTabsItem>>> {
@@ -237,20 +238,22 @@ export class OpenTabsDelegate implements
       });
     }
 
-    // The currently active tab is placed at the end of the list so that users
-    // can more easily navigate to their other tabs. Tabs playing or muting
-    // audio are surfaced first, and within each group items are ordered by most
-    // recently used.
+    // Tabs playing or muting audio are surfaced first, ordered by most recently
+    // used. For non-audio tabs, the currently active tab is placed at the end
+    // of the list so that users can more easily navigate to their other tabs,
+    // and items are ordered by most recently used.
     items.sort((a, b) => {
-      const activeA = isActive(a);
-      const activeB = isActive(b);
-      if (activeA !== activeB) {
-        return activeA ? 1 : -1;
-      }
       const audioA = hasAudioAlert(a);
       const audioB = hasAudioAlert(b);
       if (audioA !== audioB) {
         return audioA ? -1 : 1;
+      }
+      if (!audioA) {
+        const activeA = isActive(a);
+        const activeB = isActive(b);
+        if (activeA !== activeB) {
+          return activeA ? 1 : -1;
+        }
       }
       return compareTimeDescending(
           getMostRecentTab(a).lastActiveTimeTicks,
@@ -263,21 +266,26 @@ export class OpenTabsDelegate implements
   private toSectionItem_(item: OpenTabsItem):
       OrganizerListSectionItem<OpenTabsItem> {
     let title: string[];
+    let extraSearchTerms: string[];
     let prefixIcon: OrganizerListSectionItemIcon;
 
     if (isSplitTab(item)) {
       title = [loadTimeData.getString('splitView')];
+      extraSearchTerms = item.tabs.map(tab => getHostnameOrUrl(tab.url));
       prefixIcon = getSplitViewPrefixIcon(
           [item.tabs[0].url, item.tabs[1].url], item.tabs[0].splitLayout);
     } else {
       title = [item.tab.title];
+      extraSearchTerms = [getHostnameOrUrl(item.tab.url)];
       prefixIcon = {url: item.tab.url};
     }
 
     const description: OrganizerListSectionItemDescriptionPart[] = [];
-    const elapsedText = getMostRecentTab(item).lastActiveElapsedText;
-    if (elapsedText) {
-      description.push({text: elapsedText});
+    const statusText = hasAudioAlert(item) ?
+        loadTimeData.getString('currentlyPlaying') :
+        getMostRecentTab(item).lastActiveElapsedText;
+    if (statusText) {
+      description.push({text: statusText, matchable: false});
     }
 
     const tabGroup = this.getTabGroupFromItem_(item);
@@ -293,11 +301,14 @@ export class OpenTabsDelegate implements
       description.push({text: item.tabs[0].title}, {text: item.tabs[1].title});
     }
 
+    const hasAudio = hasAudioAlert(item);
     return {
       title,
       description,
+      extraSearchTerms,
       prefixIcon,
-      trailingIcon: hasAudioAlert(item) ? AUDIO_ICON : undefined,
+      trailingIcon: hasAudio ? AUDIO_ICON : undefined,
+      alwaysShow: hasAudio,
       hoveredActionButton: {
         icon: 'cr:close',
         ariaLabel: loadTimeData.getString('closeTab'),

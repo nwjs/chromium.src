@@ -18,6 +18,7 @@
 #import "base/notreached.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/uuid.h"
+#import "components/cbor/writer.h"
 #import "components/password_manager/core/browser/passkey_credential.h"
 #import "components/password_manager/core/browser/password_manager_metrics_util.h"
 #import "components/password_manager/core/browser/password_store/password_store_interface.h"
@@ -107,22 +108,23 @@ CreatePasskeyAndAttestationObject(
     const passkey_model_utils::ExtensionInputData& extension_input_data,
     bool did_complete_uv) {
   passkey_model_utils::ExtensionOutputData extension_output_data;
+  // TODO(crbug.com/434939433): Pass the device authorization key.
   auto [passkey, public_key_spki_der] =
       passkey_model_utils::GeneratePasskeyAndEncryptSecrets(
           rp_id, user_entity, trusted_vault_key,
-          /*trusted_vault_key_version=*/0, extension_input_data,
+          /*trusted_vault_key_version=*/0,
+          /*device_authorization_key=*/std::nullopt, extension_input_data,
           &extension_output_data);
 
-  passkey_model_utils::SerializedAttestationObject
-      serialized_attestation_object =
-          passkey_model_utils::MakeAttestationObjectForCreation(
-              rp_id, did_complete_uv,
-              base::as_byte_span(passkey.credential_id()), public_key_spki_der);
+  device::AttestationObject attestation_object =
+      passkey_model_utils::MakeAttestationObjectForCreation(
+          rp_id, did_complete_uv, base::as_byte_span(passkey.credential_id()),
+          public_key_spki_der);
 
   return {std::move(passkey),
           PasskeyJavaScriptFeature::AttestationData(
-              std::move(serialized_attestation_object.attestation_object),
-              std::move(serialized_attestation_object.authenticator_data),
+              *cbor::Writer::Write(attestation_object.AsCBOR()),
+              attestation_object.authenticator_data().SerializeToByteArray(),
               std::move(public_key_spki_der), std::move(client_data_json),
               std::move(extension_output_data))};
 }
@@ -148,7 +150,8 @@ std::optional<PasskeyJavaScriptFeature::AssertionData> CreateAssertionObject(
   // Generate authenticator data.
   std::vector<uint8_t> authenticator_data =
       passkey_model_utils::MakeAuthenticatorDataForAssertion(rp_id,
-                                                             did_complete_uv);
+                                                             did_complete_uv)
+          .SerializeToByteArray();
 
   // Generate client data hash.
   std::array<uint8_t, crypto::hash::kSha256Size> client_data_hash =

@@ -35,7 +35,6 @@
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
 #include "chrome/browser/ui/views/omnibox/test_location_bar.h"
@@ -505,14 +504,7 @@ TEST_F(OmniboxViewViewsTest, UpdatePopupCall) {
   omnibox_view()->CheckUpdatePopupCallInfo(3, u"a", Range(1));
 }
 
-class OmniboxViewViewsAiModeSpaceTest : public OmniboxViewViewsTest {
- public:
-  OmniboxViewViewsAiModeSpaceTest()
-      : OmniboxViewViewsTest({{omnibox::kAiModeSpaceDoesNotActivate, {}}}, {}) {
-  }
-};
-
-TEST_F(OmniboxViewViewsAiModeSpaceTest, AiModeSpaceDoesNotActivate) {
+TEST_F(OmniboxViewViewsTest, AiModeSpaceDoesNotActivate) {
   omnibox_view()->set_aim_page_action_icon_has_fake_focus(true);
   ASSERT_TRUE(omnibox_view()->aim_page_action_icon_has_fake_focus());
 
@@ -1585,6 +1577,96 @@ TEST_F(OmniboxViewViewsSteadyStateElisionsTest,
   EXPECT_FALSE(omnibox_view()->IsSelectAll());
 }
 
+// In Full WebUI mode the textfield never takes focus, so `OnFocus()` never
+// stops eliding its text, and tail-elided text can't scroll. A left press stops
+// eliding it instead, so a drag past its visible end scrolls the text and ends
+// where the pointer is, rather than selecting to the end of the URL. The
+// release elides the text again.
+TEST_F(OmniboxViewViewsSteadyStateElisionsTest,
+       MouseDragPastElidedEndWithFocusBehaviorNeverScrollsUntilRelease) {
+  omnibox_view()->set_is_full_webui_omnibox(true);
+  omnibox_view()->set_is_full_webui_omnibox_ready(true);
+  omnibox_view()->SetFocusBehavior(views::View::FocusBehavior::NEVER);
+  // Narrow enough that "example.com" is tail-elided.
+  omnibox_view()->GetWidget()->SetBounds(gfx::Rect(0, 0, 80, 40));
+  gfx::RenderText* render_text = omnibox_view()->GetRenderText();
+  ASSERT_EQ(gfx::ELIDE_TAIL, render_text->elide_behavior());
+  ASSERT_TRUE(IsElidedUrlDisplayed());
+  ASSERT_NE(render_text->GetDisplayText(), render_text->text());
+
+  // Press on ex|ample.com.
+  omnibox_textfield()->OnMousePressed(
+      CreateMouseEvent(ui::EventType::kMousePressed,
+                       GetPointInTextAtXOffset(2 * kCharacterWidth)));
+  EXPECT_FALSE(omnibox_view()->HasFocus());
+  EXPECT_EQ(gfx::NO_ELIDE, render_text->elide_behavior());
+
+  // Drag 2 characters past the right edge. The text scrolls to keep the caret
+  // in view, and the selection ends there, not at the end of the text.
+  const gfx::Rect display_rect = render_text->display_rect();
+  const gfx::Point past_end(display_rect.right() + 2 * kCharacterWidth,
+                            display_rect.CenterPoint().y());
+  omnibox_textfield()->OnMouseDragged(
+      CreateMouseEvent(ui::EventType::kMouseDragged, past_end));
+  EXPECT_LT(render_text->GetUpdatedDisplayOffset().x(), 0);
+  gfx::Range selection = omnibox_view()->GetSelectionBounds();
+  EXPECT_EQ(2U, selection.start());
+  EXPECT_GT(selection.end(), 2U);
+  EXPECT_LT(selection.end(), omnibox_view()->GetText().length());
+
+  // The release unelides the URL, as a drag always does, hands the selection
+  // off to WebUI, and elides the text again.
+  omnibox_textfield()->OnMouseReleased(
+      CreateMouseEvent(ui::EventType::kMouseReleased, past_end));
+  ExpectFullUrlDisplayed();
+  EXPECT_EQ(gfx::ELIDE_TAIL, render_text->elide_behavior());
+  EXPECT_EQ(0, render_text->GetUpdatedDisplayOffset().x());
+  // The selection moved past the prepended "https://www." and stays partial.
+  selection = omnibox_view()->GetSelectionBounds();
+  EXPECT_EQ(14U, selection.start());
+  EXPECT_LT(selection.end(), omnibox_view()->GetText().length());
+  EXPECT_FALSE(omnibox_view()->IsSelectAll());
+}
+
+TEST_F(OmniboxViewViewsSteadyStateElisionsTest,
+       MouseClickWithFocusBehaviorNeverStopsElidingOnlyWhilePressed) {
+  omnibox_view()->set_is_full_webui_omnibox(true);
+  omnibox_view()->set_is_full_webui_omnibox_ready(true);
+  omnibox_view()->SetFocusBehavior(views::View::FocusBehavior::NEVER);
+  gfx::RenderText* render_text = omnibox_view()->GetRenderText();
+  ASSERT_EQ(gfx::ELIDE_TAIL, render_text->elide_behavior());
+
+  const gfx::Point point = GetPointInTextAtXOffset(2 * kCharacterWidth);
+  omnibox_textfield()->OnMousePressed(
+      CreateMouseEvent(ui::EventType::kMousePressed, point));
+  EXPECT_EQ(gfx::NO_ELIDE, render_text->elide_behavior());
+
+  omnibox_textfield()->OnMouseReleased(
+      CreateMouseEvent(ui::EventType::kMouseReleased, point));
+  EXPECT_EQ(gfx::ELIDE_TAIL, render_text->elide_behavior());
+  // A click still selects all of the elided URL, as before.
+  EXPECT_TRUE(IsElidedUrlDisplayed());
+  EXPECT_TRUE(omnibox_view()->IsSelectAll());
+}
+
+TEST_F(OmniboxViewViewsSteadyStateElisionsTest,
+       MouseCaptureLostWithFocusBehaviorNeverElidesAgain) {
+  omnibox_view()->set_is_full_webui_omnibox(true);
+  omnibox_view()->set_is_full_webui_omnibox_ready(true);
+  omnibox_view()->SetFocusBehavior(views::View::FocusBehavior::NEVER);
+  gfx::RenderText* render_text = omnibox_view()->GetRenderText();
+
+  omnibox_textfield()->OnMousePressed(
+      CreateMouseEvent(ui::EventType::kMousePressed,
+                       GetPointInTextAtXOffset(2 * kCharacterWidth)));
+  EXPECT_EQ(gfx::NO_ELIDE, render_text->elide_behavior());
+
+  // E.g. the user Alt+Tabbed away mid-drag, so there is no release.
+  omnibox_textfield()->OnMouseCaptureLost();
+  EXPECT_EQ(gfx::ELIDE_TAIL, render_text->elide_behavior());
+  EXPECT_EQ(0, render_text->GetUpdatedDisplayOffset().x());
+}
+
 // Between browser creation and the WebUI popup handler coming up, the omnibox
 // *is* a Full WebUI Omnibox but is not ready: the Views textfield still holds
 // focus and must behave exactly as it does in classic mode. Regressing this
@@ -2036,4 +2118,18 @@ TEST_F(OmniboxViewViewsTest, DragAndDropTextWithinOmnibox) {
   // like dragging from outside the omnibox would.
   EXPECT_EQ(omnibox_view()->GetText(), u"bcdaef");
   EXPECT_EQ(output_drag_op, ui::mojom::DragOperation::kMove);
+}
+
+TEST_F(OmniboxViewViewsTest,
+       UpdateInstallsPlaceholderWhenDisplayTextsUnchanged) {
+  omnibox_view()->SetPlaceholderText(u"Placeholder");
+  EXPECT_EQ(u"Placeholder", omnibox_view()->GetPlaceholderText());
+
+  // Calling Update() when ResetDisplayTexts() returns false should still
+  // install placeholder text (recomputing from location bar / controller).
+  EXPECT_FALSE(omnibox_controller()->edit_model()->ResetDisplayTexts());
+  omnibox_view()->Update();
+  // TestingOmniboxView has a null location_bar_view, so ComputePlaceholderText
+  // resets placeholder text to empty.
+  EXPECT_TRUE(omnibox_view()->GetPlaceholderText().empty());
 }

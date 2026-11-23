@@ -737,8 +737,8 @@ StatusBubbleViews::~StatusBubbleViews() {
 
 void StatusBubbleViews::InitPopup() {
   if (!popup_) {
-    DCHECK(!view_);
-    DCHECK(!expand_view_);
+    CHECK(!view_, base::NotFatalUntil::M162);
+    CHECK(!expand_view_, base::NotFatalUntil::M162);
     popup_ = std::make_unique<views::Widget>();
 
     views::Widget::InitParams params(
@@ -749,12 +749,6 @@ void StatusBubbleViews::InitPopup() {
         views::Widget::InitParams::TYPE_POPUP);
 #endif
 
-#if BUILDFLAG(IS_WIN)
-    // On Windows use the software compositor to ensure that we don't block
-    // the UI thread blocking issue during command buffer creation. We can
-    // revert this change once http://crbug.com/40198772 is fixed.
-    params.force_software_compositing = true;
-#endif
     params.opacity = views::Widget::InitParams::WindowOpacity::kTranslucent;
     params.accept_events = false;
     params.accept_drag_drop = false;
@@ -971,7 +965,7 @@ void StatusBubbleViews::MouseMovedAt(const gfx::Point& location,
 }
 
 void StatusBubbleViews::AvoidMouse(const gfx::Point& location) {
-  DCHECK(view_);
+  CHECK(view_, base::NotFatalUntil::M162);
   // Get the position of the frame.
   gfx::Point top_left;
   views::View::ConvertPointToScreen(base_view_, &top_left);

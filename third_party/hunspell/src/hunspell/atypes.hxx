@@ -54,6 +54,7 @@ static inline void HUNSPELL_WARNING(FILE*, const char*, ...) {}
 
 #include "w_char.hxx"
 #include <algorithm>
+#include <chrono>
 #include <string>
 #include <vector>
 
@@ -66,6 +67,9 @@ static inline void HUNSPELL_WARNING(FILE*, const char*, ...) {}
 #define aeALIASF (1 << 2)
 #define aeALIASM (1 << 3)
 #define aeLONGCOND (1 << 4)
+// the rule wrote a condition that the stripping already forces, so the
+// condition was dropped and the rule now matches anything
+#define aeREDUNDANTCOND (1 << 5)
 
 // compound options
 #define IN_CPD_NOT 0
@@ -97,15 +101,17 @@ static inline void HUNSPELL_WARNING(FILE*, const char*, ...) {}
 
 #define TESTAFF(a, b, c) (std::binary_search(a, a + c, b))
 
-// timelimit: max. ~1/4 sec (process time on Linux) for
-// for a suggestion, including max. ~/10 sec for a case
-// sensitive plain or compound word suggestion, within
-// ~1/20 sec long time consuming suggestion functions
-#define TIMELIMIT_GLOBAL (CLOCKS_PER_SEC / 4)
-#define TIMELIMIT_SUGGESTION (CLOCKS_PER_SEC / 10)
-#define TIMELIMIT (CLOCKS_PER_SEC / 20)
+// timelimit: max. ~1/4 sec wall time for a suggestion, including max.
+// ~1/10 sec for a case sensitive plain or compound word suggestion,
+// within ~1/20 sec long time consuming suggestion functions
+#define TIMELIMIT_GLOBAL_MS std::chrono::milliseconds(250)
+#define TIMELIMIT_SUGGESTION_MS std::chrono::milliseconds(100)
+#define TIMELIMIT_MS std::chrono::milliseconds(50)
 #define MINTIMER 100
 #define MAXPLUSTIMER 100
+
+// ceiling on the accumulated compound morph analysis string
+#define MAXMORPHRESULT (4 * 1024 * 1024)
 
 struct guessword {
   char* word;
@@ -119,8 +125,8 @@ struct guessword {
   }
 };
 
-typedef std::vector<std::string> mapentry;
-typedef std::vector<FLAG> flagentry;
+using mapentry = std::vector<std::string>;
+using flagentry = std::vector<FLAG>;
 
 struct patentry {
   std::string pattern;

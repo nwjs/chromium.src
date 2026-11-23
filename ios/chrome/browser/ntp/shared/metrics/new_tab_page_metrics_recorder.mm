@@ -10,6 +10,7 @@
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "ios/chrome/browser/ntp/shared/metrics/new_tab_page_metrics_constants.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 
 @implementation NewTabPageMetricsRecorder
 
@@ -70,6 +71,25 @@
 
 - (void)recordAIMButtonTapped {
   base::RecordAction(base::UserMetricsAction(kNTPMIAEntryPointTappedAction));
+}
+
+- (void)recordAIMImageGenerationButtonTapped {
+  if (GetAimButtonRefactorArm() !=
+      AimButtonRefactorArm::kImageGenerationQuickAction) {
+    return;
+  }
+  base::RecordAction(
+      base::UserMetricsAction(kNTPAIMImageGenerationButtonTappedAction));
+}
+
+- (void)recordAIMAttachImageButtonTapped {
+  AimButtonRefactorArm arm = GetAimButtonRefactorArm();
+  if (arm != AimButtonRefactorArm::kImageGenerationQuickAction &&
+      arm != AimButtonRefactorArm::kAttachImageQuickAction) {
+    return;
+  }
+  base::RecordAction(
+      base::UserMetricsAction(kNTPAIMAttachImageButtonTappedAction));
 }
 
 - (void)recordPlusButtonTapped {

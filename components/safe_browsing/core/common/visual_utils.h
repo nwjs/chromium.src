@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "build/build_config.h"
 #include "components/safe_browsing/core/common/proto/client_model.pb.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -33,6 +34,14 @@ enum class CanExtractVisualFeaturesResult {
 // by taking an average over fixed-size blocks of pixels.
 bool GetBlurredImage(const SkBitmap& image,
                      VisualFeatures::BlurredImage* blurred_image);
+
+// Returns true if `blurred_image` is uniform, defined as the difference between
+// the 99.5th and 0.5th percentile pixel values (ignoring the top and bottom
+// 0.5% of pixels as outliers) in each RGB channel being at most
+// `max_color_range`. Returns false if `blurred_image` has invalid dimensions or
+// empty/mismatched data.
+bool IsUniformImage(const VisualFeatures::BlurredImage& blurred_image,
+                    int max_color_range = 10);
 
 // Generates VisualFeatures::Screenshot for the passed-in `screenshot`.
 void EncodeScreenshot(const SkBitmap& screenshot,
@@ -68,9 +77,18 @@ CanExtractVisualFeaturesResult CanExtractVisualFeatures(bool is_user_opted_in,
 // without performing any downscaling.
 SkBitmap GetBitmapForVisualFeatures(const gfx::Image& image);
 
-// Extract a VisualFeatures proto from the given `bitmap` (used by password
+// Extracts a `VisualFeatures` proto from the given `bitmap` (used by password
 // protection and client-side phishing detection).
 std::unique_ptr<VisualFeatures> ExtractVisualFeatures(const SkBitmap& bitmap);
+
+#if BUILDFLAG(IS_IOS)
+// Resizes `image` to `size` (in pixels) using CoreGraphics and returns the
+// result directly as an `SkBitmap` without routing through `Image::AsBitmap()`
+// (which upsamples by the maximum supported resource scale factor).
+// Must be called on the main UI thread.
+SkBitmap GetResizedImageAsSkBitmap(const gfx::Image& image,
+                                   const gfx::Size& size);
+#endif  // BUILDFLAG(IS_IOS)
 
 }  // namespace safe_browsing::visual_utils
 

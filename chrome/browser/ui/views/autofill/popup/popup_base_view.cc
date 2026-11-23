@@ -444,7 +444,8 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
        "PopupSeparatorView", "PopupWarningView", "PopupBaseView",
        "PasswordGenerationPopupViewViews::GeneratedPasswordBox", "PopupRowView",
        "PopupRowWithButtonView", "PopupRowContentView", "MdTextButton",
-       "PopupBnplFootnoteView", "PopupFooterWithLinkView", "PopupNoticeView"});
+       "PopupBnplFootnoteView", "PopupFooterWithLinkView", "PopupNoticeView",
+       "LinkFragment"});
   DCHECK(kDerivedClasses.contains(selected_view.GetClassName()))
       << "If you add a new derived class from AutofillPopupRowView, add it "
          "here and to onSelection(evt) in "
@@ -538,7 +539,7 @@ gfx::Rect PopupBaseView::GetOptimalPositionAndPlaceArrowOnPopup(
     base::span<const views::BubbleArrowSide> preferred_popup_sides) {
   views::BubbleBorder* border = static_cast<views::BubbleBorder*>(
       GetWidget()->GetRootView()->GetBorder());
-  DCHECK(border);
+  CHECK(border, base::NotFatalUntil::M162);
 
   gfx::Rect popup_bounds;
 
@@ -559,8 +560,8 @@ gfx::Rect PopupBaseView::GetOptimalPositionAndPlaceArrowOnPopup(
 
   // Those values are not supported for adding an arrow.
   // Currently, they can not be returned by GetOptimalPopupPlacement().
-  DCHECK(arrow != views::BubbleBorder::Arrow::NONE);
-  DCHECK(arrow != views::BubbleBorder::Arrow::FLOAT);
+  CHECK(arrow != views::BubbleBorder::Arrow::NONE, base::NotFatalUntil::M162);
+  CHECK(arrow != views::BubbleBorder::Arrow::FLOAT, base::NotFatalUntil::M162);
 
   if (show_arrow_pointer_) {
     // Set the arrow position to the border.

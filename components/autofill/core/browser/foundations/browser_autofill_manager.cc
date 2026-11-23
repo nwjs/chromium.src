@@ -524,6 +524,25 @@ bool IsTriggerSourceOnlyRelevantForCompose(
   NOTREACHED();
 }
 
+// Returns true if regular Autofill suggestions must not be generated for
+// `field` because it is a <textarea> on Android. With
+// `kAutofillAtMemorySupportTextAreaOnAndroid`, textareas behave like
+// contenteditables: the keyboard accessory only offers the AtMemory entry
+// point, so no address, payment or single-field suggestions are generated for
+// them. AtMemory-triggered suggestions are unaffected.
+bool ShouldSuppressSuggestionsForTextArea(
+    const FormFieldData& field,
+    AutofillSuggestionTriggerSource trigger_source) {
+#if BUILDFLAG(IS_ANDROID)
+  return field.form_control_type() == FormControlType::kTextArea &&
+         !IsAtMemoryTriggerSource(trigger_source) &&
+         base::FeatureList::IsEnabled(
+             features::kAutofillAtMemorySupportTextAreaOnAndroid);
+#else
+  return false;
+#endif
+}
+
 // Returns `true` if this suggestion trigger source should replace the currently
 // showing suggestions. `true` for everything but IPH-like nudges to start using
 // a product (Compose, AtMemory).
@@ -793,7 +812,7 @@ FilterSuggestionsByPrioritization(
 
 std::unique_ptr<OtpManager> CreateOtpManager(
     BrowserAutofillManager& owner,
-    one_time_tokens::OneTimeTokenService* service) {
+    one_time_tokens::SmsOtpService* service) {
   if (base::FeatureList::IsEnabled(
           features::kAutofillShowGmailOtpSuggestions)) {
     return std::make_unique<OtpManagerImpl>(owner, service);
@@ -825,7 +844,7 @@ BrowserAutofillManager::BrowserAutofillManager(AutofillDriver* driver)
     : AutofillManager(driver),
       autofill_ai_access_manager_(
           std::make_unique<AutofillAiAccessManager>(this)),
-      otp_manager_(CreateOtpManager(*this, client().GetOneTimeTokenService())),
+      otp_manager_(CreateOtpManager(*this, client().GetSmsOtpService())),
       account_name_email_strike_manager_(
           std::make_unique<AccountNameEmailStrikeManager>(*this)),
       address_on_typing_manager_(client()) {}
@@ -966,6 +985,9 @@ void BrowserAutofillManager::OnFormSubmittedImpl(const FormData& form,
 
   std::unique_ptr<FormStructure> submitted_form = ValidateSubmittedForm(form);
   CHECK(!client().IsOffTheRecord() || !submitted_form);
+
+  metrics_->autocomplete_key_metrics_logger.OnFormSubmitted(
+      form, submitted_form.get());
 
   if (!submitted_form) {
     // We always give Autocomplete a chance to save the data.
@@ -1248,6 +1270,14 @@ void BrowserAutofillManager::OnAskForValuesToFillImpl(
   }
 
   external_delegate_->OnQuery(form, field, caret_bounds, trigger_source);
+
+  // Textareas on Android only offer the AtMemory entry point in the keyboard
+  // accessory, so no Autofill suggestions are generated for them.
+  if (ShouldSuppressSuggestionsForTextArea(field, trigger_source)) {
+    external_delegate_->OnSuggestionsReturned(field, /*input_suggestions=*/{},
+                                              /*prefilled_query=*/{});
+    return;
+  }
 
   if (AtMemoryManager* amm = client().GetAtMemoryManager();
       amm && IsAtMemoryTriggerSource(trigger_source)) {
@@ -2319,6 +2349,9 @@ void BrowserAutofillManager::DidShowSuggestions(
     }
   }
 
+  metrics_->autocomplete_key_metrics_logger.OnSuggestionsShown(field_id,
+                                                               suggestions);
+
   if (shown_suggestion_types.contains(SuggestionType::kIbanEntry) &&
       client().GetPaymentsAutofillClient()->GetIbanManager()) {
     client()
@@ -2462,6 +2495,9 @@ void BrowserAutofillManager::OnSingleFieldSuggestionSelected(
     const FieldGlobalId& field_id) {
   client().GetSingleFieldFillRouter().OnSingleFieldSuggestionSelected(
       suggestion);
+
+  metrics_->autocomplete_key_metrics_logger.OnSuggestionSelected(field_id,
+                                                                 suggestion);
 
   auto [form_structure, autofill_trigger_field] =
       FindMutableFormAndField(form_id, field_id);
@@ -2827,7 +2863,7 @@ void BrowserAutofillManager::Reset() {
   }
   // Re-create the OtpManager in order to forget stored data (e.g. active
   // subscriptions and pending callbacks) after a navigation.
-  otp_manager_ = CreateOtpManager(*this, client().GetOneTimeTokenService());
+  otp_manager_ = CreateOtpManager(*this, client().GetSmsOtpService());
   account_name_email_strike_manager_ =
       std::make_unique<AccountNameEmailStrikeManager>(*this);
   metrics_.reset();

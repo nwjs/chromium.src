@@ -9,33 +9,67 @@
 #include <utility>
 #include <vector>
 
+#include "base/memory/weak_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/test/gtest_util.h"
+#include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/views/app_menu/app_menu_action_item.h"
+#include "chrome/browser/ui/views/app_menu/app_menu_search_bar_view.h"
 #include "chrome/browser/ui/views/app_menu/app_menu_search_item.h"
 #include "chrome/grit/generated_resources.h"
+#include "chrome/test/base/testing_browser_process_death_test_mixin.h"
+#include "chrome/test/views/chrome_views_test_base.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
+#include "ui/views/controls/button/button.h"
+#include "ui/views/test/button_test_api.h"
 
 namespace {
 
-class AppMenuSearchControllerTest : public testing::Test {
+class MockDelegate : public AppMenuSearchController::Delegate {
+ public:
+  MOCK_METHOD(void, ShowSearchResults, (actions::ActionItem*), (override));
+  MOCK_METHOD(void, RestoreMenu, (), (override));
+};
+
+class AppMenuSearchControllerTest
+    : public chrome_test_utils::TestingBrowserProcessDeathTestMixin,
+      public ChromeViewsTestBase {
  public:
   void SetUp() override {
+    ChromeViewsTestBase::SetUp();
     scope_ = actions::ActionItem::Builder().Build();
     menu_root_ = actions::ActionItem::Builder().Build();
-    controller_ = std::make_unique<AppMenuSearchController>(menu_root_.get());
+    search_bar_ = std::make_unique<AppMenuSearchBarView>();
+    controller_ = std::make_unique<AppMenuSearchController>(
+        menu_root_.get(), search_bar_.get(), &delegate_);
+  }
+
+  void TearDown() override {
+    controller_.reset();
+    search_bar_.reset();
+    ChromeViewsTestBase::TearDown();
   }
 
  protected:
+  bool IsBackButtonVisible() {
+    return search_bar_
+        ->GetViewByElementId(AppMenuSearchBarView::kBackButtonElementId)
+        ->GetVisible();
+  }
+
   // `scope_` must be declared before `menu_root_` so that underlying delegate
   // ActionItems outlive any IndirectActionItems stored in `menu_root_`.
   std::unique_ptr<actions::ActionItem> scope_;
   std::unique_ptr<actions::ActionItem> menu_root_;
+  std::unique_ptr<AppMenuSearchBarView> search_bar_;
+  // A StrictMock, so tests fail on any delegate call they don't expect.
+  testing::StrictMock<MockDelegate> delegate_;
   std::unique_ptr<AppMenuSearchController> controller_;
 };
 
@@ -51,7 +85,12 @@ TEST_F(AppMenuSearchControllerTest, InitializeSearchIndexOnlyOnce) {
   EXPECT_TRUE(controller_->is_search_index_initialized_for_testing());
   EXPECT_EQ(controller_->search_items_for_testing().size(), 1u);
 
+  // TODO(crbug.com/41487832): Enable on ChromeOS when test setup in the death
+  // subprocess is fixed. AshTestHelper causes ICU/Timezone crashes in the
+  // forked process before the CHECK can fire.
+#if !BUILDFLAG(IS_CHROMEOS)
   EXPECT_CHECK_DEATH(controller_->InitializeSearchIndex());
+#endif
 }
 
 TEST_F(AppMenuSearchControllerTest, FlattenHierarchyFiltering) {
@@ -191,6 +230,15 @@ TEST_F(AppMenuSearchControllerTest, ZoomSubmenuAndTooltips) {
                              .SetActionId(kActionZoomMinus)
                              .SetTooltipText(u"Zoom Out")
                              .Build());
+
+  // The zoom percentage is a read-only label and must not be indexed.
+  auto zoom_label = actions::ActionItem::Builder()
+                        .SetActionId(kActionZoomNormal)
+                        .SetText(u"100%")
+                        .Build();
+  zoom_label->SetProperty(AppMenuActionItem::kDisplayTypeKey,
+                          AppMenuActionItem::DisplayType::kLabel);
+  zoom_submenu->AddChild(std::move(zoom_label));
 
   zoom_submenu->AddChild(actions::ActionItem::Builder()
                              .SetActionId(kActionZoomPlus)
@@ -353,7 +401,12 @@ TEST_F(AppMenuSearchControllerTest, SearchRequiresInitializedIndex) {
                            .SetText(u"New Tab")
                            .Build());
 
+  // TODO(crbug.com/41487832): Enable on ChromeOS when test setup in the death
+  // subprocess is fixed. AshTestHelper causes ICU/Timezone crashes in the
+  // forked process before the CHECK can fire.
+#if !BUILDFLAG(IS_CHROMEOS)
   EXPECT_CHECK_DEATH(controller_->Search(u"New"));
+#endif
 
   controller_->InitializeSearchIndex();
   EXPECT_NE(controller_->Search(u"New"), nullptr);
@@ -393,7 +446,8 @@ TEST_F(AppMenuSearchControllerTest, SearchResultsCategorizationAndCapping) {
   menu_root_->AddChild(std::move(recent_tabs_menu));
 
   controller_->InitializeSearchIndex();
-  actions::ActionItem* const results_root = controller_->Search(u"Item");
+  const std::unique_ptr<actions::ActionItem> results_root =
+      controller_->Search(u"Item");
   ASSERT_NE(results_root, nullptr);
 
   const auto& sections = results_root->GetChildren().children();
@@ -437,7 +491,8 @@ TEST_F(AppMenuSearchControllerTest, SearchResultsTreeCategoryHeaders) {
   menu_root_->AddChild(std::move(recent_tabs_menu));
 
   controller_->InitializeSearchIndex();
-  actions::ActionItem* const results_root = controller_->Search(u"New");
+  const std::unique_ptr<actions::ActionItem> results_root =
+      controller_->Search(u"New");
   ASSERT_NE(results_root, nullptr);
 
   const auto& children = results_root->GetChildren().children();
@@ -484,7 +539,8 @@ TEST_F(AppMenuSearchControllerTest,
   menu_root_->AddChild(std::move(bookmarks_menu));
 
   controller_->InitializeSearchIndex();
-  actions::ActionItem* const results_root = controller_->Search(u"Work");
+  const std::unique_ptr<actions::ActionItem> results_root =
+      controller_->Search(u"Work");
   ASSERT_NE(results_root, nullptr);
 
   bool found_secondary_text = false;
@@ -518,7 +574,8 @@ TEST_F(AppMenuSearchControllerTest,
       }));
 
   controller_->InitializeSearchIndex();
-  actions::ActionItem* const results_root = controller_->Search(u"horizontal");
+  const std::unique_ptr<actions::ActionItem> results_root =
+      controller_->Search(u"horizontal");
   ASSERT_NE(results_root, nullptr);
   const auto& rows = results_root->GetChildren().children();
   ASSERT_EQ(rows.size(), 1u);
@@ -529,6 +586,43 @@ TEST_F(AppMenuSearchControllerTest,
             u"Show tabs horizontally");
   ASSERT_NE(row->GetProperty(AppMenuActionItem::kIconOverrideKey), nullptr);
   EXPECT_EQ(*row->GetProperty(AppMenuActionItem::kIconOverrideKey), icon);
+}
+
+TEST_F(AppMenuSearchControllerTest, BuildSearchResultsTreePreservesCheckable) {
+  scope_->AddChild(actions::ActionItem::Builder()
+                       .SetActionId(kActionBookmarkBarSubmenuAlwaysShow)
+                       .SetText(u"Always show")
+                       .SetChecked(true)
+                       .Build());
+  scope_->AddChild(actions::ActionItem::Builder()
+                       .SetActionId(kActionShowBookmarkBar)
+                       .SetText(u"Always show bookmarks bar")
+                       .Build());
+  menu_root_->AddChild(
+      AppMenuActionItem::CreateIndirect(kActionBookmarkBarSubmenuAlwaysShow,
+                                        scope_.get(), {.is_checkable = true}));
+  menu_root_->AddChild(
+      AppMenuActionItem::CreateIndirect(kActionShowBookmarkBar, scope_.get()));
+
+  controller_->InitializeSearchIndex();
+  const auto& items = controller_->search_items_for_testing();
+  ASSERT_EQ(items.size(), 2u);
+  EXPECT_TRUE(items[0]->IsCheckable());
+  EXPECT_FALSE(items[1]->IsCheckable());
+
+  const std::unique_ptr<actions::ActionItem> results_root =
+      controller_->Search(u"Always show");
+  ASSERT_NE(results_root, nullptr);
+  const auto& rows = results_root->GetChildren().children();
+  ASSERT_EQ(rows.size(), 2u);
+
+  for (const auto& row : rows) {
+    const bool is_checkable_row = row->GetActionItem()->GetActionId() ==
+                                  kActionBookmarkBarSubmenuAlwaysShow;
+    EXPECT_EQ(row->GetProperty(AppMenuActionItem::kIsCheckableKey),
+              is_checkable_row);
+    EXPECT_EQ(row->GetActionItem()->GetChecked(), is_checkable_row);
+  }
 }
 
 TEST_F(AppMenuSearchControllerTest, FlattenHierarchyExtractsSynonyms) {
@@ -716,6 +810,90 @@ TEST_F(AppMenuSearchControllerTest,
   // and search filtering.
   EXPECT_EQ(items[0]->GetTitle(), u"Hide bookmark bar");
   EXPECT_EQ(items[0]->GetSecondaryText(), u"Bookmarks and lists");
+}
+
+TEST_F(AppMenuSearchControllerTest, ChangingQueryReplacesResults) {
+  menu_root_->AddChild(actions::ActionItem::Builder()
+                           .SetActionId(kActionNewTab)
+                           .SetText(u"New Tab")
+                           .Build());
+  menu_root_->AddChild(actions::ActionItem::Builder()
+                           .SetActionId(kActionPrint)
+                           .SetText(u"Print")
+                           .Build());
+  controller_->InitializeSearchIndex();
+
+  base::WeakPtr<actions::ActionItem> first_results;
+  EXPECT_CALL(delegate_, ShowSearchResults(testing::NotNull()))
+      .WillOnce([&first_results](actions::ActionItem* results) {
+        first_results = results->GetAsWeakPtr();
+      })
+      .WillOnce([&first_results](actions::ActionItem* results) {
+        // The previous results must outlive the call that replaces them, so
+        // the menu can remove the rows pointing into them first.
+        EXPECT_TRUE(first_results);
+        EXPECT_NE(results, first_results.get());
+      });
+  search_bar_->SetText(u"New");
+  search_bar_->SetText(u"Print");
+  // The previous results are freed once the menu shows the new ones.
+  EXPECT_FALSE(first_results);
+  EXPECT_TRUE(IsBackButtonVisible());
+}
+
+TEST_F(AppMenuSearchControllerTest, ShortQueryKeepsResults) {
+  menu_root_->AddChild(actions::ActionItem::Builder()
+                           .SetActionId(kActionNewTab)
+                           .SetText(u"New Tab")
+                           .Build());
+  controller_->InitializeSearchIndex();
+
+  search_bar_->SetText(u"N");
+  EXPECT_FALSE(IsBackButtonVisible());
+
+  base::WeakPtr<actions::ActionItem> results;
+  EXPECT_CALL(delegate_, ShowSearchResults(testing::NotNull()))
+      .WillOnce([&results](actions::ActionItem* shown) {
+        results = shown->GetAsWeakPtr();
+      });
+  search_bar_->SetText(u"New");
+  EXPECT_TRUE(results);
+  EXPECT_TRUE(IsBackButtonVisible());
+
+  search_bar_->SetText(u"N");
+  EXPECT_TRUE(results);
+  EXPECT_TRUE(IsBackButtonVisible());
+
+  search_bar_->SetText(std::u16string());
+  EXPECT_TRUE(results);
+  EXPECT_TRUE(IsBackButtonVisible());
+
+  EXPECT_CALL(delegate_, RestoreMenu());
+  views::test::ButtonTestApi(
+      views::Button::AsButton(search_bar_->GetViewByElementId(
+          AppMenuSearchBarView::kBackButtonElementId)))
+      .NotifyDefaultMouseClick();
+  EXPECT_FALSE(results);
+  EXPECT_FALSE(IsBackButtonVisible());
+}
+
+TEST_F(AppMenuSearchControllerTest, BackPressShowsNormalMenu) {
+  menu_root_->AddChild(actions::ActionItem::Builder()
+                           .SetActionId(kActionNewTab)
+                           .SetText(u"New Tab")
+                           .Build());
+  controller_->InitializeSearchIndex();
+
+  testing::InSequence sequence;
+  EXPECT_CALL(delegate_, ShowSearchResults(testing::NotNull()));
+  EXPECT_CALL(delegate_, RestoreMenu());
+  search_bar_->SetText(u"New");
+  views::test::ButtonTestApi(
+      views::Button::AsButton(search_bar_->GetViewByElementId(
+          AppMenuSearchBarView::kBackButtonElementId)))
+      .NotifyDefaultMouseClick();
+  EXPECT_TRUE(search_bar_->GetText().empty());
+  EXPECT_FALSE(IsBackButtonVisible());
 }
 
 }  // namespace

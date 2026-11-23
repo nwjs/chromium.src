@@ -25,7 +25,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
-#include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
@@ -60,8 +59,12 @@
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_api_metrics.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/glic/public/glic_fre_store.h"
+#include "chrome/browser/glic/public/glic_instance_metrics_backwards_compatibility.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/glic_provider_metrics.h"
+#include "chrome/browser/glic/public/glic_provider_spec.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_metrics.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
@@ -74,16 +77,14 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
+#include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
-#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
-#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "components/feature_engagement/public/event_constants.h"
 #include "components/optimization_guide/core/model_quality/model_quality_util.h"
 #include "components/policy/core/common/management/management_service.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -91,6 +92,10 @@
 #include "components/safe_browsing/content/browser/ui_manager.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/security_interstitials/core/unsafe_resource.h"
+#include "components/send_tab_to_self/send_tab_to_self_model.h"
+#include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
+#include "components/sync_device_info/device_info.h"
+#include "components/sync_device_info/remote_device_info.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -384,6 +389,7 @@ class GlicWebClientHandler
       base::OnceClosure disconnect_callback,
       WebClientStateChangedCallback state_changed_callback)
       : profile_(Profile::FromBrowserContext(browser_context)),
+        metric_reporter_(profile_),
         host_(host),
         glic_service_(
             GlicKeyedServiceFactory::GetGlicKeyedService(browser_context)),
@@ -434,14 +440,25 @@ class GlicWebClientHandler
     }
   }
 
+  template <typename... Args>
+  base::OnceCallback<void(Args...)> WrapCallbackToLogApiRequestWithLatency(
+      GlicHostApiRequestId request_type_id,
+      base::OnceCallback<void(Args...)> callback) {
+    LogApiRequest(request_type_id);
+    return WrapCallbackToLogApiRequestLatency(request_type_id,
+                                              std::move(callback));
+  }
+
   // glic::mojom::WebClientHandler implementation.
   void SwitchConversation(glic::mojom::ConversationInfoPtr info,
                           SwitchConversationCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSwitchConversation);
     host().SwitchConversation(std::move(info), std::move(callback));
   }
 
   void RegisterConversation(glic::mojom::ConversationInfoPtr info,
                             RegisterConversationCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kRegisterConversation);
     host().instance_delegate().RegisterConversation(std::move(info),
                                                     std::move(callback));
   }
@@ -465,7 +482,7 @@ class GlicWebClientHandler
 
     std::unique_ptr<NavigateParams> params = std::make_unique<NavigateParams>(
         profile_, url, ui::PAGE_TRANSITION_LINK);
-    params->disposition = WindowOpenDisposition::NEW_POPUP;
+    params->disposition = WindowOpenDisposition::kNewPopup;
     params->opened_by_another_window = true;
     params->window_features.bounds = gfx::Rect(x, y, popup_width, popup_height);
     glic::NavigateAsync(std::move(params), base::DoNothing());
@@ -481,6 +498,8 @@ class GlicWebClientHandler
     if (request_type.empty()) {
       return;
     }
+    // Not split: recorded on every API call across many ApiRequestType
+    // variants; see go/geic-metrics-split.
     base::UmaHistogramTimes(
         base::StrCat({"Glic.Api.RequestHostLatency.", request_type}), latency);
   }
@@ -653,7 +672,7 @@ class GlicWebClientHandler
           host().instance().GetPanelState()->Clone();
       panel_opening_data->invocation_source =
           mojom::InvocationSource::kUnsupported;
-      base::UmaHistogramBoolean("Glic.Host.OpenedInRegularTab", true);
+      metric_reporter_.RecordBoolean("Host.OpenedInRegularTab", true);
       web_client_->NotifyPanelWillOpen(std::move(panel_opening_data),
                                        base::DoNothing());
       host()
@@ -673,8 +692,8 @@ class GlicWebClientHandler
       if (auto* tab = GetSharingManagerInternal().GetFocusedTabData().focus()) {
         const bool replaced =
             GlicMediaLinkHelper(tab->GetContents()).MaybeReplaceNavigation(url);
-        base::UmaHistogramBoolean("Glic.MaybeReplaceNavigation.Result",
-                                  replaced);
+        metric_reporter_.RecordBoolean("MaybeReplaceNavigation.Result",
+                                       replaced);
         if (replaced) {
           std::move(callback).Run(nullptr);
           return;
@@ -837,15 +856,22 @@ class GlicWebClientHandler
 
   void GetModelQualityClientId(
       GetModelQualityClientIdCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kGetModelQualityClientId);
     auto* local_state = g_browser_process->local_state();
     std::string client_id =
         optimization_guide::GetOrCreateGlicModelQualityClientId(local_state);
     std::move(callback).Run(std::move(client_id));
   }
 
+  // TODO(b/576030201): Decide whether GEiC tab context sharing (focused/tab
+  // context, pinning, image bytes) should be gated on GEiC FRE completion.
+  // Today GEiC uses the same checks as consumer Glic, which don't depend on FRE
+  // consent.
   void GetContextFromFocusedTab(
       glic::mojom::TabContextOptionsPtr options,
       GetContextFromFocusedTabCallback callback) override {
+    callback = WrapCallbackToLogApiRequestWithLatency(
+        GlicHostApiRequestId::kGetContextFromFocusedTab, std::move(callback));
     FocusedTabData ftd = GetSharingManagerInternal().GetFocusedTabData();
     if (ftd.unfocused_tab()) {
       CHECK(!ftd.focus());
@@ -874,6 +900,8 @@ class GlicWebClientHandler
   void GetContextFromTab(int32_t tab_id,
                          glic::mojom::TabContextOptionsPtr options,
                          GetContextFromTabCallback callback) override {
+    callback = WrapCallbackToLogApiRequestWithLatency(
+        GlicHostApiRequestId::kGetContextFromTab, std::move(callback));
     // Extra activation gating is done in this function.
     host().instance_metrics().DidRequestContextFromTab();
     GetSharingManagerInternal().GetContextFromTab(
@@ -889,6 +917,8 @@ class GlicWebClientHandler
                             const std::string& document_id,
                             int32_t dom_node_id,
                             GetImageBytesFromTabCallback callback) override {
+    callback = WrapCallbackToLogApiRequestWithLatency(
+        GlicHostApiRequestId::kGetImageBytesFromTab, std::move(callback));
     GetSharingManagerInternal().GetImageBytes(
         tabs::TabHandle(tab_id), document_id, dom_node_id,
         base::BindOnce(
@@ -901,6 +931,7 @@ class GlicWebClientHandler
   void SetMaximumNumberOfPinnedTabs(
       uint32_t num_tabs,
       SetMaximumNumberOfPinnedTabsCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSetMaximumNumberOfPinnedTabs);
     uint32_t effective_max =
         GetSharingManagerInternal().SetMaxPinnedTabs(num_tabs);
     std::move(callback).Run(effective_max);
@@ -909,6 +940,7 @@ class GlicWebClientHandler
   void PinTabs(const std::vector<int32_t>& tab_ids,
                mojom::PinTabsOptionsPtr options,
                PinTabsCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kPinTabs);
     std::vector<tabs::TabHandle> tab_handles;
     for (auto tab_id : tab_ids) {
       tab_handles.push_back(tabs::TabHandle(tab_id));
@@ -937,6 +969,7 @@ class GlicWebClientHandler
   void UnpinTabs(const std::vector<int32_t>& tab_ids,
                  mojom::UnpinTabsOptionsPtr options,
                  UnpinTabsCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kUnpinTabs);
     std::vector<tabs::TabHandle> tab_handles;
     for (auto tab_id : tab_ids) {
       tab_handles.push_back(tabs::TabHandle(tab_id));
@@ -950,6 +983,7 @@ class GlicWebClientHandler
   }
 
   void UnpinAllTabs(mojom::UnpinTabsOptionsPtr options) override {
+    LogApiRequest(GlicHostApiRequestId::kUnpinAllTabs);
     GlicUnpinTrigger trigger = GlicUnpinTrigger::kWebClientUnknown;
     if (options) {
       trigger = FromMojomUnpinTrigger(options->unpin_trigger);
@@ -960,6 +994,7 @@ class GlicWebClientHandler
   void OpenPinnedTabPicker(
       mojom::OpenPinnedTabPickerOptionsPtr options,
       mojom::WebClientHandler::OpenPinnedTabPickerCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kOpenPinnedTabPicker);
 #if BUILDFLAG(IS_ANDROID)
     if (base::android::device_info::is_desktop()) {
       std::move(callback).Run();
@@ -986,6 +1021,9 @@ class GlicWebClientHandler
   void CreateActorHandler(
       mojo::PendingReceiver<mojom::ActorHandler> receiver,
       mojo::PendingRemote<mojom::ActorClient> client) override {
+    if (!glic_service_->provider_spec().IsActuationSupported()) {
+      return;
+    }
     auto* actor_task_manager = host().instance().GetActorTaskManager();
     if (!actor_task_manager) {
       return;
@@ -1070,7 +1108,48 @@ class GlicWebClientHandler
     std::move(callback).Run();
   }
 
+  void GetSendTabToSelfDevices(
+      GetSendTabToSelfDevicesCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kGetSendTabToSelfDevices);
+    send_tab_to_self::SendTabToSelfSyncService* const service =
+        SendTabToSelfSyncServiceFactory::GetForProfile(profile_);
+    send_tab_to_self::SendTabToSelfModel* const model =
+        service ? service->GetSendTabToSelfModel() : nullptr;
+    if (!model || !model->IsReady()) {
+      std::move(callback).Run({});
+      return;
+    }
+
+    std::vector<syncer::RemoteDeviceInfo> devices =
+        model->GetTargetDeviceInfoSortedList();
+    std::vector<mojom::SendTabToSelfDevicePtr> result;
+    result.reserve(devices.size());
+    for (syncer::RemoteDeviceInfo& info : devices) {
+      auto device = mojom::SendTabToSelfDevice::New();
+      device->device_guid = std::move(info.cache_guid);
+      device->device_name = std::move(info.device_name);
+      switch (info.form_factor) {
+        case syncer::DeviceInfo::FormFactor::kDesktop:
+          device->form_factor = mojom::FormFactor::kDesktop;
+          break;
+        case syncer::DeviceInfo::FormFactor::kPhone:
+          device->form_factor = mojom::FormFactor::kPhone;
+          break;
+        case syncer::DeviceInfo::FormFactor::kTablet:
+          device->form_factor = mojom::FormFactor::kTablet;
+          break;
+        default:
+          device->form_factor = mojom::FormFactor::kUnknown;
+          break;
+      }
+      device->last_updated_time = info.last_updated_timestamp;
+      result.push_back(std::move(device));
+    }
+    std::move(callback).Run(std::move(result));
+  }
+
   void ActivateTab(int32_t tab_id) override {
+    LogApiRequest(GlicHostApiRequestId::kActivateTab);
     tabs::TabInterface* tab = tabs::TabHandle(tab_id).Get();
     if (!tab) {
       return;
@@ -1113,6 +1192,7 @@ class GlicWebClientHandler
 
   void DeleteCapturedRegion(int32_t tab_id,
                             const base::UnguessableToken& id) override {
+    LogApiRequest(GlicHostApiRequestId::kDeleteCapturedRegion);
 #if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL: CaptureRegion (b/494315475)
     tabs::TabInterface* tab = tabs::TabHandle(tab_id).Get();
     if (!tab) {
@@ -1253,6 +1333,8 @@ class GlicWebClientHandler
   }
 
   void GetUserProfileInfo(GetUserProfileInfoCallback callback) override {
+    callback = WrapCallbackToLogApiRequestWithLatency(
+        GlicHostApiRequestId::kGetUserProfileInfo, std::move(callback));
     ProfileAttributesEntry* entry =
         g_browser_process->profile_manager()
             ->GetProfileAttributesStorage()
@@ -1308,6 +1390,7 @@ class GlicWebClientHandler
   }
 
   void SyncCookies(SyncCookiesCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kRefreshSignInCookies);
     if (auto* auth_controller = glic_service_->GetAuthController()) {
       auth_controller->ForceSyncCookies(GlicCookieSyncTrigger::kGlicClient,
                                         std::move(callback));
@@ -1320,8 +1403,8 @@ class GlicWebClientHandler
       std::optional<glic::mojom::ClientErrorDialogType> shown_dialog_type)
       override {
     if (shown_dialog_type) {
-      base::UmaHistogramEnumeration("Glic.Api.Client.ErrorDialogShown",
-                                    *shown_dialog_type);
+      metric_reporter_.RecordEnumeration("Api.Client.ErrorDialogShown",
+                                         *shown_dialog_type);
       if (auto* auth_controller = glic_service_->GetAuthController()) {
         auth_controller->OnClientError();
       }
@@ -1333,13 +1416,14 @@ class GlicWebClientHandler
     if (auto* auth_controller = glic_service_->GetAuthController()) {
       auth_controller->OnClientTransientError(status_code);
     }
-    base::UmaHistogramSparse("Glic.Api.Client.TransientError",
-                             static_cast<int>(status_code));
+    metric_reporter_.RecordSparse("Api.Client.TransientError",
+                                  static_cast<int>(status_code));
   }
 
   void ProcessCounterAbuseVerdict(
       int32_t tab_id,
       mojom::CounterAbuseVerdictPtr verdict) override {
+    LogApiRequest(GlicHostApiRequestId::kProcessCounterAbuseVerdict);
     if (!base::FeatureList::IsEnabled(
             features::kGlicProcessCounterAbuseVerdict)) {
       return;
@@ -1348,14 +1432,14 @@ class GlicWebClientHandler
       return;
     }
     if (!verdict || !verdict->sb_verdict_result) {
-      base::UmaHistogramEnumeration(
-          "Glic.Api.ProcessCounterAbuseVerdict.Result",
+      metric_reporter_.RecordEnumeration(
+          "Api.ProcessCounterAbuseVerdict.Result",
           GlicProcessCounterAbuseVerdictResult::kInvalidVerdict);
       return;
     }
     if (!verdict->sb_verdict_result->show_interstitial) {
-      base::UmaHistogramEnumeration(
-          "Glic.Api.ProcessCounterAbuseVerdict.Result",
+      metric_reporter_.RecordEnumeration(
+          "Api.ProcessCounterAbuseVerdict.Result",
           GlicProcessCounterAbuseVerdictResult::kNoInterstitialRequested);
       return;
     }
@@ -1370,8 +1454,8 @@ class GlicWebClientHandler
     }
     GURL active_url = contents->GetVisibleURL();
     if (GURL(verdict->sb_verdict_result->url) != active_url) {
-      base::UmaHistogramEnumeration(
-          "Glic.Api.ProcessCounterAbuseVerdict.Result",
+      metric_reporter_.RecordEnumeration(
+          "Api.ProcessCounterAbuseVerdict.Result",
           GlicProcessCounterAbuseVerdictResult::kUrlMismatch);
       return;
     }
@@ -1400,8 +1484,8 @@ class GlicWebClientHandler
               safe_browsing::SBThreatType::SB_THREAT_TYPE_URL_UNWANTED;
           break;
         default:
-          base::UmaHistogramEnumeration(
-              "Glic.Api.ProcessCounterAbuseVerdict.Result",
+          metric_reporter_.RecordEnumeration(
+              "Api.ProcessCounterAbuseVerdict.Result",
               GlicProcessCounterAbuseVerdictResult::kUnsupportedThreatType);
           return;
       }
@@ -1422,16 +1506,16 @@ class GlicWebClientHandler
               resource.threat_type, resource.threat_source) ||
           safe_browsing::IsURLAllowlistedByPolicy(resource.url,
                                                   *pref_service_)) {
-        base::UmaHistogramEnumeration(
-            "Glic.Api.ProcessCounterAbuseVerdict.Result",
+        metric_reporter_.RecordEnumeration(
+            "Api.ProcessCounterAbuseVerdict.Result",
             GlicProcessCounterAbuseVerdictResult::
                 kInterstitialSkippedAllowlist);
       } else {
-        base::UmaHistogramEnumeration(
-            "Glic.Api.ProcessCounterAbuseVerdict.Result",
+        metric_reporter_.RecordEnumeration(
+            "Api.ProcessCounterAbuseVerdict.Result",
             GlicProcessCounterAbuseVerdictResult::kSuccess);
-        base::UmaHistogramEnumeration(
-            "Glic.Api.ProcessCounterAbuseVerdict.ThreatType",
+        metric_reporter_.RecordEnumeration(
+            "Api.ProcessCounterAbuseVerdict.ThreatType",
             verdict->sb_verdict_result->threat_type);
         ui_manager->DisplayBlockingPage(resource);
       }
@@ -1446,10 +1530,7 @@ class GlicWebClientHandler
   void OnUserInputSubmitted(mojom::WebClientMode mode,
                             mojom::PromptType prompt_type) override {
     LogApiRequest(GlicHostApiRequestId::kOnUserInputSubmitted);
-    if (base::FeatureList::IsEnabled(
-            features::kGlicFixTimeToFirstQueryKillSwitch)) {
-      glic_service_->metrics()->OnUserInputSubmitted(mode, prompt_type);
-    }
+    glic_service_->metrics()->OnUserInputSubmitted();
     glic_service_->OnUserInputSubmitted(mode);
     host().instance_metrics_backwards_compatibility().OnUserInputSubmitted(
         mode, prompt_type);
@@ -1474,24 +1555,20 @@ class GlicWebClientHandler
     host().instance_metrics().OnReaction(reaction_type);
   }
 
-  // TODO(crbug.com/450026474): Remove call to GlicMetrics once
-  // non-profile-scoped metrics are logged entirely from GlicInstanceMetrics.
   void OnResponseStarted() override {
     LogApiRequest(GlicHostApiRequestId::kOnResponseStarted);
-    host().instance_metrics_backwards_compatibility().OnResponseStarted();
+    host().instance_metrics().OnResponseStarted();
     host().instance_metrics().RecordAttachedContextTabCount(
         GetSharingManagerInternal().GetNumPinnedTabs());
   }
 
-  // TODO(crbug.com/450026474): Remove call to GlicMetrics once
-  // non-profile-scoped metrics are logged entirely from GlicInstanceMetrics.
   void OnResponseStopped(mojom::OnResponseStoppedDetailsPtr details) override {
     LogApiRequest(GlicHostApiRequestId::kOnResponseStopped);
     mojom::ResponseStopCause cause = mojom::ResponseStopCause::kUnknown;
     if (details) {
       cause = details->cause;
     }
-    host().instance_metrics_backwards_compatibility().OnResponseStopped(cause);
+    host().instance_metrics().OnResponseStopped(cause);
   }
 
   void OnSessionTerminated() override {
@@ -1559,19 +1636,7 @@ class GlicWebClientHandler
 
   void SetOnboardingCompleted() override {
     LogApiRequest(GlicHostApiRequestId::kSetOnboardingCompleted);
-    glic_service_->metrics()->OnTrustFirstOnboardingAccept();
-    glic_service_->enabling().SetCompletedFre(prefs::FreStatus::kCompleted);
-
-#if !BUILDFLAG(IS_ANDROID)  // NEEDS_ANDROID_IMPL
-    GlicLauncherConfiguration::CheckDefaultBrowserToEnableLauncher();
-
-    BrowserWindowInterface* browser =
-        ProfileBrowserCollection::GetForProfile(profile_)->FindTabbedBrowser();
-    if (auto* interface = BrowserUserEducationInterface::From(browser)) {
-      interface->NotifyAdditionalConditionEvent(
-          feature_engagement::events::kGlicOnboardingCompleted);
-    }
-#endif  // !BUILDFLAG(IS_ANDROID)
+    glic_service_->provider_spec().GetFreStore().CompleteOnboarding(profile_);
   }
 
   // GlicInstanceCoordinator::StateObserver implementation.
@@ -1589,18 +1654,21 @@ class GlicWebClientHandler
   void PanelWillOpen(glic::mojom::PanelOpeningDataPtr panel_opening_data,
                      PanelWillOpenCallback done) override {
     host().SetInvocationSource(panel_opening_data->invocation_source);
-    base::UmaHistogramBoolean("Glic.Host.OpenedInRegularTab", false);
+    metric_reporter_.RecordBoolean("Host.OpenedInRegularTab", false);
+    // Computed before the async hop; the Profile may be gone when the callback
+    // runs.
+
     web_client_->NotifyPanelWillOpen(
         std::move(panel_opening_data),
         base::BindOnce(
-            [](PanelWillOpenCallback done, GlicMetrics* metrics,
-               glic::mojom::OpenPanelInfoPtr info) {
-              base::UmaHistogramEnumeration("Glic.Api.NotifyPanelWillOpen",
-                                            info->web_client_mode);
+            [](GlicMetricReporter reporter, PanelWillOpenCallback done,
+               GlicMetrics* metrics, glic::mojom::OpenPanelInfoPtr info) {
+              reporter.RecordEnumeration("Api.NotifyPanelWillOpen",
+                                         info->web_client_mode);
               metrics->SetWebClientMode(info->web_client_mode);
               std::move(done).Run(std::move(info));
             },
-            std::move(done), glic_service_->metrics()));
+            metric_reporter_, std::move(done), glic_service_->metrics()));
     host().instance_delegate().skills_manager().NotifyPanelOpenedOrActivated();
   }
 
@@ -1667,6 +1735,7 @@ class GlicWebClientHandler
   void GetZeroStateSuggestionsForFocusedTab(
       std::optional<bool> is_fre,
       GetZeroStateSuggestionsForFocusedTabCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kGetZeroStateSuggestionsForFocusedTab);
     if (!IsZeroStateSuggestionsEnabled()) {
       receiver_.ReportBadMessage(
           "Client should not call "
@@ -1683,6 +1752,7 @@ class GlicWebClientHandler
   }
 
   void MaybeRefreshUserStatus() override {
+    LogApiRequest(GlicHostApiRequestId::kMaybeRefreshUserStatus);
     if (!base::FeatureList::IsEnabled(features::kGlicUserStatusCheck) ||
         !features::kGlicUserStatusRefreshApi.Get()) {
       receiver_.ReportBadMessage(
@@ -1713,7 +1783,8 @@ class GlicWebClientHandler
     }
   }
 
-  void OnPinningChanged(const std::vector<tabs::TabInterface*>& pinned_tabs) {
+  void OnPinningChanged(
+      const std::vector<raw_ptr<tabs::TabInterface>>& pinned_tabs) {
     std::vector<glic::mojom::TabDataPtr> tab_data;
     for (tabs::TabInterface* tab : pinned_tabs) {
       tab_data.push_back(CreateTabData(tab));
@@ -1725,6 +1796,7 @@ class GlicWebClientHandler
       int32_t tab_id,
       const std::vector<std::string>& names,
       SubscribeToPageMetadataCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kSubscribeToPageMetadata);
     // TODO(b/480418718): Not sure how this happens but we sometimes get here
     // with a null page_metadata_manager_. The mojo pipe is cleared on mojo
     // disconnect and destruction (which also closes the mojo pipe) so suspect
@@ -1932,6 +2004,7 @@ class GlicWebClientHandler
   PrefChangeRegistrar pref_change_registrar_;
   PrefChangeRegistrar local_state_pref_change_registrar_;
   raw_ptr<Profile> profile_;
+  GlicMetricReporter metric_reporter_;
   raw_ptr<Host> host_;
   raw_ptr<GlicKeyedService> glic_service_;
   raw_ptr<GlicInstanceCoordinator> window_controller_;

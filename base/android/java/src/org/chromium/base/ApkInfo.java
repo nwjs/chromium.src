@@ -17,7 +17,6 @@ import org.jni_zero.JNINamespace;
 import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
-import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
@@ -116,11 +115,21 @@ public final class ApkInfo {
     }
 
     /**
+     * Same as {@link #isDebugApp()}, but reads straight from the given {@link ApplicationInfo}
+     * instead of forcing {@link ApkInfo} to initialize. Prefer this on startup-critical paths,
+     * since initializing ApkInfo requires several PackageManager calls.
+     */
+    public static boolean isDebugAppNoInit(ApplicationInfo appInfo) {
+        return (appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    }
+
+    /**
      * Check if this is either a debuggable build of Android or of the host app. Use this to enable
      * developer-only features.
      */
     public static boolean isDebugAndroidOrApp() {
-        return AndroidInfo.isDebugAndroid() || isDebugApp();
+        return AndroidInfo.isDebugAndroid()
+                || isDebugAppNoInit(ContextUtils.getApplicationContext().getApplicationInfo());
     }
 
     /**
@@ -148,12 +157,6 @@ public final class ApkInfo {
     }
 
     public static ApkInfo getInstance() {
-        // Some tests mock out things ApkInfo is based on, so disable caching in tests to ensure
-        // such mocking is not defeated by caching.
-        if (BuildConfig.IS_FOR_TEST) {
-            return new ApkInfo();
-        }
-
         if (sInstance == null) {
             synchronized (CREATION_LOCK) {
                 if (sInstance == null) {
@@ -183,6 +186,22 @@ public final class ApkInfo {
         return seq == null ? "" : seq.toString();
     }
 
+    /**
+     * Initializes ApkInfo in a child process using the info computed by the parent process. Child
+     * processes may be isolated, and so cannot retrieve much of this information themselves.
+     */
+    public static void initFromParentProcess(IApkInfo info) {
+        synchronized (CREATION_LOCK) {
+            sInstance = new ApkInfo(info);
+        }
+    }
+
+    private ApkInfo(IApkInfo info) {
+        sInitialized = true;
+        mIApkInfo = info;
+        mBrowserApplicationInfo = ContextUtils.getApplicationContext().getApplicationInfo();
+    }
+
     private ApkInfo() {
         sInitialized = true;
         mIApkInfo = new IApkInfo();
@@ -191,99 +210,56 @@ public final class ApkInfo {
         PackageManager pm = appContext.getPackageManager();
         ApplicationInfo appInfo = appContext.getApplicationInfo();
 
-        String providedHostPackageName = null;
-        String providedHostPackageLabel = null;
-        String providedPackageName = null;
-        String providedPackageVersionName = null;
-        Long providedHostVersionCode = null;
-
-        // The child processes are running in an isolated process so they can't grab a lot of
-        // package information in the same way that we normally would retrieve them. To get around
-        // this, we feed the information as command line switches.
-        if (CommandLine.isInitialized()) {
-            CommandLine commandLine = CommandLine.getInstance();
-            providedHostPackageName = commandLine.getSwitchValue(BaseSwitches.HOST_PACKAGE_NAME);
-            providedHostPackageLabel = commandLine.getSwitchValue(BaseSwitches.HOST_PACKAGE_LABEL);
-            providedPackageName = commandLine.getSwitchValue(BaseSwitches.PACKAGE_NAME);
-            providedPackageVersionName =
-                    commandLine.getSwitchValue(BaseSwitches.PACKAGE_VERSION_NAME);
-
-            String flagValue = commandLine.getSwitchValue(BaseSwitches.HOST_VERSION_CODE);
-
-            if (flagValue != null) {
-                providedHostVersionCode = Long.parseLong(flagValue);
-            }
-        }
-
-        boolean hostInformationProvided =
-                providedHostPackageName != null
-                        && providedHostPackageLabel != null
-                        && providedHostVersionCode != null
-                        && providedPackageName != null
-                        && providedPackageVersionName != null;
-
         // We want to retrieve the original package installed to verify to host package name.
         // In the case of the SDK Runtime, we would like to retrieve the package name loading the
         // SDK.
         String appInstalledPackageName = appContextPackageName;
-        mIApkInfo.isDebugApp = (appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        mIApkInfo.isDebugApp = isDebugAppNoInit(appInfo);
         mIApkInfo.isSystemApp = (appInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0;
 
-        if (hostInformationProvided) {
-            mIApkInfo.hostPackageName = assumeNonNull(providedHostPackageName);
-            mIApkInfo.hostPackageLabel = assumeNonNull(providedHostPackageLabel);
-            mIApkInfo.hostVersionCode = String.valueOf(assumeNonNull(providedHostVersionCode));
-            mIApkInfo.packageVersionName = assumeNonNull(providedPackageVersionName);
-            mIApkInfo.packageVersionCode = mIApkInfo.hostVersionCode;
-            mIApkInfo.packageName = assumeNonNull(providedPackageName);
-            mBrowserApplicationInfo = appInfo;
+        // The SDK Qualified package name will retrieve the same information as
+        // appInstalledPackageName but prefix it with the SDK Sandbox process so that we can
+        // tell SDK Runtime data apart from regular data in our logs and metrics.
+        String sdkQualifiedName = appInstalledPackageName;
+
+        // TODO(bewise): There isn't currently an official API to grab the host package name
+        // with the SDK Runtime. We can work around this because SDKs loaded in the SDK
+        // Runtime have the host UID + 10000. This should be updated if a public API comes
+        // along that we can use.
+        // You can see more about this in the Android source:
+        // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/core/java/android/os/Process.java;l=292;drc=47fffdd53115a9af1820e3f89d8108745be4b55d
+        if (ContextUtils.isSdkSandboxProcess()) {
+            final int hostId = Process.myUid() - 10000;
+            final String[] packageNames = pm.getPackagesForUid(hostId);
+
+            if (packageNames != null && packageNames.length > 0) {
+                // We could end up with more than one package name if the app used a
+                // sharedUserId but these are deprecated so this is a safe bet to rely on the
+                // first package name.
+                appInstalledPackageName = packageNames[0];
+                sdkQualifiedName += ":" + appInstalledPackageName;
+            }
+        }
+
+        mIApkInfo.hostPackageName = sdkQualifiedName;
+        mIApkInfo.hostPackageLabel = nullToEmpty(pm.getApplicationLabel(appInfo));
+
+        if (sBrowserPackageInfo != null) {
+            PackageInfo pi = assumeNonNull(PackageUtils.getPackageInfo(appInstalledPackageName, 0));
+            mIApkInfo.hostVersionCode = String.valueOf(PackageUtils.packageVersionCode(pi));
+            mIApkInfo.packageName = sBrowserPackageInfo.packageName;
+            mIApkInfo.packageVersionCode =
+                    String.valueOf(PackageUtils.packageVersionCode(sBrowserPackageInfo));
+            mIApkInfo.packageVersionName = nullToEmpty(sBrowserPackageInfo.versionName);
+            mBrowserApplicationInfo = sBrowserPackageInfo.applicationInfo;
+            sBrowserPackageInfo = null;
         } else {
-            // The SDK Qualified package name will retrieve the same information as
-            // appInstalledPackageName but prefix it with the SDK Sandbox process so that we can
-            // tell SDK Runtime data apart from regular data in our logs and metrics.
-            String sdkQualifiedName = appInstalledPackageName;
-
-            // TODO(bewise): There isn't currently an official API to grab the host package name
-            // with the SDK Runtime. We can work around this because SDKs loaded in the SDK
-            // Runtime have the host UID + 10000. This should be updated if a public API comes
-            // along that we can use.
-            // You can see more about this in the Android source:
-            // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/core/java/android/os/Process.java;l=292;drc=47fffdd53115a9af1820e3f89d8108745be4b55d
-            if (ContextUtils.isSdkSandboxProcess()) {
-                final int hostId = Process.myUid() - 10000;
-                final String[] packageNames = pm.getPackagesForUid(hostId);
-
-                if (packageNames != null && packageNames.length > 0) {
-                    // We could end up with more than one package name if the app used a
-                    // sharedUserId but these are deprecated so this is a safe bet to rely on the
-                    // first package name.
-                    appInstalledPackageName = packageNames[0];
-                    sdkQualifiedName += ":" + appInstalledPackageName;
-                }
-            }
-
-            mIApkInfo.hostPackageName = sdkQualifiedName;
-            mIApkInfo.hostPackageLabel = nullToEmpty(pm.getApplicationLabel(appInfo));
-
-            if (sBrowserPackageInfo != null) {
-                PackageInfo pi =
-                        assumeNonNull(PackageUtils.getPackageInfo(appInstalledPackageName, 0));
-                mIApkInfo.hostVersionCode = String.valueOf(PackageUtils.packageVersionCode(pi));
-                mIApkInfo.packageName = sBrowserPackageInfo.packageName;
-                mIApkInfo.packageVersionCode =
-                        String.valueOf(PackageUtils.packageVersionCode(sBrowserPackageInfo));
-                mIApkInfo.packageVersionName = nullToEmpty(sBrowserPackageInfo.versionName);
-                mBrowserApplicationInfo = sBrowserPackageInfo.applicationInfo;
-                sBrowserPackageInfo = null;
-            } else {
-                PackageInfo pi =
-                        assumeNonNull(PackageUtils.getPackageInfo(appInstalledPackageName, 0));
-                mIApkInfo.packageName = appContextPackageName;
-                mIApkInfo.packageVersionCode = String.valueOf(PackageUtils.packageVersionCode(pi));
-                mIApkInfo.hostVersionCode = mIApkInfo.packageVersionCode;
-                mIApkInfo.packageVersionName = nullToEmpty(pi.versionName);
-                mBrowserApplicationInfo = appInfo;
-            }
+            PackageInfo pi = assumeNonNull(PackageUtils.getPackageInfo(appInstalledPackageName, 0));
+            mIApkInfo.packageName = appContextPackageName;
+            mIApkInfo.packageVersionCode = String.valueOf(PackageUtils.packageVersionCode(pi));
+            mIApkInfo.hostVersionCode = mIApkInfo.packageVersionCode;
+            mIApkInfo.packageVersionName = nullToEmpty(pi.versionName);
+            mBrowserApplicationInfo = appInfo;
         }
         assert mBrowserApplicationInfo != null;
 

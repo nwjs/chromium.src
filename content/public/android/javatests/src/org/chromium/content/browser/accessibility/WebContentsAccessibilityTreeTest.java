@@ -30,7 +30,6 @@ import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.TestAnimations;
 import org.chromium.content.common.ContentInternalFeatures;
-import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
 import org.chromium.ui.accessibility.AccessibilityFeatures;
 import org.chromium.ui.test.util.DeviceRestriction;
@@ -40,10 +39,6 @@ import org.chromium.ui.test.util.DeviceRestriction;
 @SuppressLint("VisibleForTests")
 @Batch(Batch.PER_CLASS)
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
-@EnableFeatures({
-    ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION,
-    ContentFeatureList.ACCESSIBILITY_SET_SELECTABLE_ON_ALL_NODES_WITH_TEXT
-})
 @TestAnimations.EnableAnimations
 public class WebContentsAccessibilityTreeTest {
     // File path that holds all the relevant tests.
@@ -798,6 +793,12 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    public void test_ariaModalWithAriaOwns() {
+        performAriaTest("aria-modal-with-aria-owns.html");
+    }
+
+    @Test
+    @SmallTest
     public void test_ariaMultiline() {
         performAriaTest("aria-multiline.html");
     }
@@ -932,6 +933,12 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_radioGroupCalculationWithIgnoredRadios() {
         performAriaTest("radio-group-calculation-with-ignored-radios.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_radioGroupPosinsetSetsizeOverrides() {
+        performAriaTest("radio-group-posinset-setsize-overrides.html");
     }
 
     @Test
@@ -2063,6 +2070,7 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(AccessibilityFeatures.ACCESSIBILITY_CANVAS)
     @CommandLineFlags.Add({"enable-blink-features=CanvasDrawElement"})
     public void test_canvas() {
         performHtmlTest("canvas.html");
@@ -2221,10 +2229,7 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
-    @EnableFeatures({
-        ContentInternalFeatures.ACCESSIBILITY_EXPOSE_NON_ATOMIC_TEXT_FIELD_CHILDREN,
-        ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION
-    })
+    @EnableFeatures({ContentInternalFeatures.ACCESSIBILITY_EXPOSE_NON_ATOMIC_TEXT_FIELD_CHILDREN})
     public void test_selectionInContenteditable() {
         performHtmlTest("selection-in-contenteditable.html");
     }

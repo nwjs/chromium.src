@@ -31,19 +31,29 @@ BASE_DECLARE_FEATURE(kFastFaviconDisplay);
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_DECLARE_FEATURE(kDseIntegrity);
 BASE_DECLARE_FEATURE(kFeedbackDisabledDialog);
-BASE_DECLARE_FEATURE(kFewerUpdateConfirmations);
 BASE_DECLARE_FEATURE(kLegacySearchIntegrityCheck);
 #endif
 
+BASE_DECLARE_FEATURE(kFedCmPermissionUiWithContainer);
+
 BASE_DECLARE_FEATURE(kImportExportFlags);
 
-BASE_DECLARE_FEATURE(kInfoBarInlineLinks);
+// Shows a "+N" count pill in the bottom-most infobar while lower-priority
+// infobars wait in the prioritization queue.
+BASE_DECLARE_FEATURE(kInfoBarQueuedCountPill);
 
 BASE_DECLARE_FEATURE(kKeyboardLockHeldEscExitsTabFullscreen);
+
+#if BUILDFLAG(IS_LINUX)
+BASE_DECLARE_FEATURE(kLinuxPerProfileAppId);
+#endif
 
 // All feature flags associated with Glow Up, apart from those in
 // ui_base_features.h
 BASE_DECLARE_FEATURE(kTabStripDeclutter);
+BASE_DECLARE_FEATURE_PARAM(bool, kTabStripDeclutterActiveTabCloseHideEnabled);
+BASE_DECLARE_FEATURE_PARAM(bool, kTabStripDeclutterInactiveTabCloseHideEnabled);
+BASE_DECLARE_FEATURE_PARAM(int, kTabStripDeclutterMaxTabWidthForCloseHide);
 BASE_DECLARE_FEATURE(kToolbarGlowUp);
 BASE_DECLARE_FEATURE_PARAM(bool, kToolbarGlowUpReloadEnabled);
 BASE_DECLARE_FEATURE_PARAM(bool, kToolbarGlowUpBackForwardEnabled);
@@ -111,7 +121,6 @@ BASE_DECLARE_FEATURE(kSessionRestoreInfobar);
 // continue where you left off as default behavior
 BASE_DECLARE_FEATURE_PARAM(bool, kSetDefaultToContinueSession);
 #endif
-
 
 BASE_DECLARE_FEATURE(kPreloadTopChromeWebUI);
 // This enum entry values must be in sync with
@@ -264,18 +273,6 @@ BASE_DECLARE_FEATURE(kThreeButtonPasswordSaveDialog);
 BASE_DECLARE_FEATURE(kPasswordSaveUpdateDropdownMenuExperiment);
 #endif
 
-// Feature which uses a flyover animation for animating side panels (and
-// expansion/contraction of the Vertical Tab Strip).
-//
-// Call `UseSidePanelFlyoverAnimation()` instead of checking this feature
-// directly.
-BASE_DECLARE_FEATURE(kSidePanelFlyoverAnimation);
-bool UseSidePanelFlyoverAnimation();
-
-BASE_DECLARE_FEATURE_PARAM(int, kSidePanelFlyoverDurationMs);
-
-BASE_DECLARE_FEATURE(kUseDefaultDeadlineWhenAnimatingBounds);
-
 // TODO(crbug.com/460764864): Cleanup all the enterprise badging feature flags.
 BASE_DECLARE_FEATURE(kNTPFooterBadgingPolicies);
 
@@ -285,10 +282,17 @@ BASE_DECLARE_FEATURE(kManagedProfileRequiredInterstitial);
 // Enables WebUI migration for chrome://management on Android Mobile.
 BASE_DECLARE_FEATURE(kMigrateManagementPageToWebUIOnMobile);
 
-
 // Cocoa to views migration.
 #if BUILDFLAG(IS_MAC)
 BASE_DECLARE_FEATURE(kViewsJSAppModalDialog);
+#endif
+
+#if BUILDFLAG(IS_MAC)
+// When enabled, a new browser window does not activate the input method for
+// its focused location bar until the window has presented its first frame.
+// Activating some input methods (for example Japanese) blocks the main thread
+// and delays the first frame.
+BASE_DECLARE_FEATURE(kMacDeferInputContextUntilFirstPaint);
 #endif
 
 // Controls whether the site-specific data dialog shows a related installed
@@ -329,6 +333,13 @@ bool IsPageActionsElevatedToolbarEnabled();
 
 // If enabled, the by date history will show in the side panel.
 BASE_DECLARE_FEATURE(kByDateHistoryInSidePanel);
+
+// If enabled, the "Tabs from other devices" side panel will be available.
+BASE_DECLARE_FEATURE(kTabsFromOtherDevicesSidePanel);
+
+// If enabled, the "Tabs from other devices" toolbar button will be pinned by
+// default.
+BASE_DECLARE_FEATURE(kTabsFromOtherDevicesSidePanelPinnedByDefault);
 
 #if !BUILDFLAG(IS_ANDROID)
 
@@ -374,7 +385,6 @@ bool IsWebUIToolbarFullyEnabled();
 // Controls whether to show a toast for Chrome non milestone update.
 BASE_DECLARE_FEATURE(kNonMilestoneUpdateToast);
 
-
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kAndroidAnimatedProgressBarInBrowser);
 
@@ -387,10 +397,13 @@ BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogApiKey);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogMockJsonPath);
 BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogUseMes);
 BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogPageTools);
+BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogNext);
 BASE_DECLARE_FEATURE(kAiOverlayDisableNavigationContext);
 
 BASE_DECLARE_FEATURE(kTabGroupsFocusing);
 BASE_DECLARE_FEATURE_PARAM(bool, kTabGroupsFocusFreezing);
+BASE_DECLARE_FEATURE_PARAM(int, kTabGroupsFocusingIphMinTabs);
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kTabGroupsFocusingIphPromoDelay);
 bool IsTabGroupsFocusFreezingEnabled();
 
 BASE_DECLARE_FEATURE(kTabGroupRibbon);

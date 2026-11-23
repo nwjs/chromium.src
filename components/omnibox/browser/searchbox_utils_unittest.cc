@@ -13,25 +13,30 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/omnibox/browser/actions/contextual_search_action.h"
 #include "components/omnibox/browser/actions/omnibox_action.h"
 #include "components/omnibox/browser/actions/omnibox_action_concepts.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/fake_autocomplete_controller.h"
+#include "components/omnibox/browser/mock_autocomplete_provider_client.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
 #include "components/omnibox/browser/test_omnibox_client.h"
 #if !BUILDFLAG(IS_IOS)
 #include "components/omnibox/browser/vector_icons.h"
 #endif  // !BUILDFLAG(IS_IOS)
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_starter_pack_data.h"
+#include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/mojom/window_open_disposition.mojom.h"
 #include "ui/base/ui_base_features.h"
-#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "url/gurl.h"
 
@@ -78,15 +83,17 @@ TEST_F(SearchboxUtilsTest, OpenMatchNormal) {
   metrics_tracker.set_time_user_first_modified_omnibox(now - base::Seconds(2));
   metrics_tracker.set_match_selection_timestamp(now);
 
-  EXPECT_CALL(client_, OnAutocompleteAccept(GURL("https://example.com"), _,
-                                            WindowOpenDisposition::CURRENT_TAB,
-                                            _, _, _, _, _, _, _, _))
+  EXPECT_CALL(client_, OnAutocompleteAccept(
+                           GURL("https://example.com"), _,
+                           ui::mojom::WindowOpenDisposition::kCurrentTab, _, _,
+                           _, _, _, _, _, _))
       .Times(1);
 
   OpenMatch(&autocomplete_controller_, &client_,
             MakeAutocompleteSnapshot(&autocomplete_controller_),
-            OmniboxPopupSelection(0), match, WindowOpenDisposition::CURRENT_TAB,
-            metrics_tracker, metrics::OmniboxEventProto::INVALID, u"");
+            OmniboxPopupSelection(0), match,
+            ui::mojom::WindowOpenDisposition::kCurrentTab, metrics_tracker,
+            metrics::OmniboxEventProto::INVALID, u"");
 }
 
 TEST_F(SearchboxUtilsTest, OpenMatchWithAction) {
@@ -118,8 +125,8 @@ TEST_F(SearchboxUtilsTest, OpenMatchWithAction) {
 
   OpenMatch(&autocomplete_controller_, &client_,
             MakeAutocompleteSnapshot(&autocomplete_controller_), selection,
-            match, WindowOpenDisposition::CURRENT_TAB, metrics_tracker,
-            metrics::OmniboxEventProto::INVALID, u"");
+            match, ui::mojom::WindowOpenDisposition::kCurrentTab,
+            metrics_tracker, metrics::OmniboxEventProto::INVALID, u"");
 }
 
 TEST_F(SearchboxUtilsTest, ComputeOpenDispositionFromModifiers) {
@@ -128,28 +135,40 @@ TEST_F(SearchboxUtilsTest, ComputeOpenDispositionFromModifiers) {
     bool control;
     bool alt;
     bool command;
-    WindowOpenDisposition expected_disposition;
+    ui::mojom::WindowOpenDisposition expected_disposition;
     int expected_metric_value;
   } test_cases[] = {
       // {shift, control, alt, command, expected_disposition,
       // expected_metric_value}
-      {false, false, false, false, WindowOpenDisposition::CURRENT_TAB, 0},
-      {false, true, false, false, WindowOpenDisposition::CURRENT_TAB, 1},
-      {false, false, true, false, WindowOpenDisposition::NEW_FOREGROUND_TAB, 2},
-      {false, true, true, false, WindowOpenDisposition::NEW_FOREGROUND_TAB, 3},
-      {true, false, false, true, WindowOpenDisposition::NEW_FOREGROUND_TAB, 4},
-      {true, true, false, true, WindowOpenDisposition::NEW_FOREGROUND_TAB, 5},
-      {true, false, true, false, WindowOpenDisposition::NEW_BACKGROUND_TAB, 6},
-      {true, true, true, false, WindowOpenDisposition::NEW_BACKGROUND_TAB, 7},
-      {false, false, false, true, WindowOpenDisposition::NEW_BACKGROUND_TAB, 8},
-      {false, true, false, true, WindowOpenDisposition::NEW_BACKGROUND_TAB, 9},
-      {true, false, false, false, WindowOpenDisposition::NEW_WINDOW, 10},
-      {true, true, false, false, WindowOpenDisposition::NEW_WINDOW, 11},
+      {false, false, false, false,
+       ui::mojom::WindowOpenDisposition::kCurrentTab, 0},
+      {false, true, false, false, ui::mojom::WindowOpenDisposition::kCurrentTab,
+       1},
+      {false, false, true, false,
+       ui::mojom::WindowOpenDisposition::kNewForegroundTab, 2},
+      {false, true, true, false,
+       ui::mojom::WindowOpenDisposition::kNewForegroundTab, 3},
+      {true, false, false, true,
+       ui::mojom::WindowOpenDisposition::kNewForegroundTab, 4},
+      {true, true, false, true,
+       ui::mojom::WindowOpenDisposition::kNewForegroundTab, 5},
+      {true, false, true, false,
+       ui::mojom::WindowOpenDisposition::kNewBackgroundTab, 6},
+      {true, true, true, false,
+       ui::mojom::WindowOpenDisposition::kNewBackgroundTab, 7},
+      {false, false, false, true,
+       ui::mojom::WindowOpenDisposition::kNewBackgroundTab, 8},
+      {false, true, false, true,
+       ui::mojom::WindowOpenDisposition::kNewBackgroundTab, 9},
+      {true, false, false, false, ui::mojom::WindowOpenDisposition::kNewWindow,
+       10},
+      {true, true, false, false, ui::mojom::WindowOpenDisposition::kNewWindow,
+       11},
   };
 
   for (const auto& test_case : test_cases) {
     base::HistogramTester histogram_tester;
-    WindowOpenDisposition disposition =
+    ui::mojom::WindowOpenDisposition disposition =
         ComputeOpenDispositionFromModifiersAndLogToUma(
             test_case.shift, test_case.control, test_case.alt,
             test_case.command);
@@ -318,5 +337,47 @@ TEST_F(SearchboxUtilsTest, GetKeywordVectorIcon) {
   }
 }
 #endif  // !BUILDFLAG(IS_IOS)
+
+TEST_F(SearchboxUtilsTest,
+       GetAccessibilityLabelForSelection_SidePanelDescription) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      omnibox::kWebUIOmniboxAskGAboutThisPage,
+      {{"Omnibox_AskGSuggestionSidePanelDescription", "true"}});
+  MockAutocompleteProviderClient provider_client;
+
+  AutocompleteMatch entrypoint_match(nullptr, 1000, false,
+                                     omnibox::AutocompleteMatchType::kPedal);
+  entrypoint_match.takeover_action =
+      base::MakeRefCounted<ContextualSearchOpenLensAction>();
+  AutocompleteMatch contextual_match(
+      nullptr, 1000, false, omnibox::AutocompleteMatchType::kSearchSuggest);
+  contextual_match.subtypes.insert(
+      omnibox::SuggestSubtype::SUBTYPE_CONTEXTUAL_SEARCH);
+  contextual_match.description = u"Opens in side panel";
+  AutocompleteResult result;
+  result.AppendMatches({entrypoint_match, contextual_match});
+
+  auto get_label = [&](size_t line) {
+    return GetAccessibilityLabelForSelection(
+        result, OmniboxPopupSelection(line), /*header_text=*/u"",
+        /*match_text=*/u"foo", /*include_positional_info=*/false,
+        /*template_url_service=*/nullptr, &provider_client);
+  };
+  const std::u16string entrypoint_label =
+      l10n_util::GetStringUTF16(IDS_ACC_CONTEXTUAL_SEARCH_OPEN_LENS_ACTION);
+
+  // Not narrated when the AskG action won't open the side panel.
+  EXPECT_EQ(get_label(0), entrypoint_label);
+  EXPECT_EQ(get_label(1), u"foo search suggestion");
+
+  ON_CALL(provider_client, ShouldOpenCoBrowsePanel())
+      .WillByDefault(Return(true));
+  const std::u16string side_panel_suffix =
+      u", " +
+      l10n_util::GetStringUTF16(IDS_CONTEXTUAL_SEARCH_OPENS_IN_SIDE_PANEL);
+  EXPECT_EQ(get_label(0), entrypoint_label + side_panel_suffix);
+  EXPECT_EQ(get_label(1), u"foo search suggestion" + side_panel_suffix);
+}
 
 }  // namespace searchbox

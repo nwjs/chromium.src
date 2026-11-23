@@ -63,29 +63,19 @@ proto::AdaptationRecipe AdaptationRecipe(const std::string& base_model_id,
   return recipe;
 }
 
-proto::SafetyModelRecipe SafetyModelRecipe(
-    proto::FileReference weights_file,
-    proto::FileReference language_detection_model_file) {
-  proto::SafetyModelRecipe recipe;
-  *recipe.mutable_weights_file() = std::move(weights_file);
-  *recipe.mutable_language_detection_model_file() =
-      std::move(language_detection_model_file);
+proto::PostprocessedModelRecipe PostprocessedModelRecipe(
+    const std::string& base_model_id,
+    const std::string& postprocessor_model_id) {
+  proto::PostprocessedModelRecipe recipe;
+  recipe.set_base_model_recipe_id(base_model_id);
+  recipe.set_postprocessor_model_recipe_id(postprocessor_model_id);
   return recipe;
 }
 
-proto::SolutionRecipe SolutionRecipe(
-    const std::string& model_recipe_id,
-    const std::string& safety_model_recipe_id,
-    proto::FileReference config_file,
-    const std::string& postprocessor_model_recipe_id) {
+proto::SolutionRecipe SolutionRecipe(const std::string& model_recipe_id,
+                                     proto::FileReference config_file) {
   proto::SolutionRecipe recipe;
   recipe.set_model_recipe_id(model_recipe_id);
-  if (!safety_model_recipe_id.empty()) {
-    recipe.set_safety_model_recipe_id(safety_model_recipe_id);
-  }
-  if (!postprocessor_model_recipe_id.empty()) {
-    recipe.set_postprocessor_model_recipe_id(postprocessor_model_recipe_id);
-  }
   *recipe.mutable_config_file() = std::move(config_file);
   return recipe;
 }
@@ -115,8 +105,8 @@ ManifestBuilder& ManifestBuilder::Add(const std::string& name,
 }
 
 ManifestBuilder& ManifestBuilder::Add(const std::string& name,
-                                      proto::SafetyModelRecipe recipe) {
-  (*manifest_.mutable_recipes()->mutable_safety_models())[name] =
+                                      proto::PostprocessedModelRecipe recipe) {
+  (*manifest_.mutable_recipes()->mutable_postprocessed_models())[name] =
       std::move(recipe);
   return *this;
 }

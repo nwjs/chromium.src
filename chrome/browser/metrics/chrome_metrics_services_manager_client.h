@@ -73,6 +73,9 @@ class ChromeMetricsServicesManagerClient
   void OnCrosSettingsCreated();
 #endif
 
+  // Performs initialization that requires field trials to be set up.
+  void OnFieldTrialsInitialized();
+
   // metrics_services_manager::MetricsServicesManagerClient:
   std::unique_ptr<variations::VariationsService> CreateVariationsService()
       override;
@@ -84,7 +87,7 @@ class ChromeMetricsServicesManagerClient
   bool IsOffTheRecordSessionActive() override;
 #if BUILDFLAG(IS_WIN)
   // On Windows, the client controls whether Crashpad can upload crash reports.
-  void UpdateRunningServices(bool may_record, bool may_upload) override;
+  void UpdateRunningServices(bool may_record_and_upload) override;
 #endif  // BUILDFLAG(IS_WIN)
 
  private:

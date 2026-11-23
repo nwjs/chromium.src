@@ -346,7 +346,10 @@ bool ReadAnythingAppController::IsUpdateProcessingPaused(
     // already a good distillation on IRM. If a distillation or selection is
     // pending, or if the current distillation is empty, we don't want to
     // block the pending update.
-    if (allow_selection_updates && model_.has_pending_selection()) {
+    // TODO(b/574644874): Align Readability's pending selection handling with
+    // Screen2x.
+    if (allow_selection_updates && (model_.has_pending_selection() ||
+                                    model_.requires_post_process_selection())) {
       return false;
     }
 
@@ -365,7 +368,9 @@ void ReadAnythingAppController::ProcessPendingUpdatesIfAllowed(
     return;
   }
 
-  model_.UnserializePendingUpdates(model_.active_tree_id());
+  if (!model_.UnserializePendingUpdates(model_.active_tree_id())) {
+    return;
+  }
   ProcessModelUpdates();
 }
 
@@ -412,26 +417,10 @@ void ReadAnythingAppController::AccessibilityEventReceived(
     return;
   }
 
-  // Trigger model updates for Screen2x or for Readability when the select text
-  // feature is enabled.
-  if (IsReadabilitySelectTextEnabled() ||
-      !model_.is_readability_next_distillation_method()) {
-    ProcessModelUpdates();
-    return;
-  }
+  ProcessModelUpdates();
 }
 
 void ReadAnythingAppController::ProcessModelUpdates() {
-  // When the Readability feature is enabled as standalone, treat readability
-  // distilation as static and ignore model updates.
-  if (model_.is_readability_next_distillation_method() &&
-      !IsReadabilitySelectTextEnabled()) {
-    return;
-  }
-
-  // TODO: crbug.com/505770261 - Implement selection_mode for readability.
-  // If IsReadAnythingReadabilitySelectTextEnabled, Readability should
-  // only be able to trigger PostProcessSelection.
   if (model_.is_readability_next_distillation_method()) {
     DCHECK(!model_.requires_distillation())
         << "Readability should not trigger Screen2x distillation.";
@@ -492,7 +481,9 @@ void ReadAnythingAppController::ProcessModelUpdates() {
 
   // TODO(accessibility): it isn't clear this handles the pending updates path
   // correctly within the model.
-  if (model_.requires_post_process_selection()) {
+  if (model_.requires_post_process_selection() &&
+      !pdf_draw_debouncer_->IsRunning() &&
+      !(IsPdf() && model_.screen2x_distiller_running())) {
     PostProcessSelection();
   }
 
@@ -526,9 +517,7 @@ void ReadAnythingAppController::SetDistillationState(
   if (state == read_anything::mojom::ReadAnythingDistillationState::
                    kDistillationInProgress) {
     model_.set_should_extract_anchors_from_tree_for_readability(false);
-    if (IsReadabilitySelectTextEnabled()) {
-      model_.set_should_map_rendered_text_to_tree_for_readability(false);
-    }
+    model_.set_should_map_rendered_text_to_tree_for_readability(false);
     model_.ResetAXTreeAnchors();
   } else if (state == read_anything::mojom::ReadAnythingDistillationState::
                           kDistillationWithContent) {
@@ -545,6 +534,20 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
     return;
   }
   VLOG(1) << "On active tree changed with new id: " << tree_id;
+
+  // The browser cancels a pending PDF translation when the page changes (see
+  // ContentTranslateDriver::DidFinishNavigation()), so stop waiting for it.
+  // Usually reading mode is closed then, which also stops waiting, but don't
+  // rely on that to avoid keeping the new page behind the loading screen.
+  if (ukm_source_id != ukm::kInvalidSourceId) {
+    const ukm::SourceId previous_page_ukm_source_id =
+        model_.active_page_ukm_source_id();
+    if (previous_page_ukm_source_id != ukm::kInvalidSourceId &&
+        ukm_source_id != previous_page_ukm_source_id) {
+      SetAwaitingTranslation(false);
+    }
+    model_.set_active_page_ukm_source_id(ukm_source_id);
+  }
 
   ax_tree_ready_for_current_active_tree_measured_ = false;
   ax_tree_ready_for_current_active_tree_recorded_ = false;
@@ -626,6 +629,7 @@ void ReadAnythingAppController::PrepareForNewContentDistillation() {
 
   model_.set_requires_readability_distillation(false);
   model_.set_readability_distillation_complete_for_current_tree(false);
+  model_.set_readability_content_drawn(false);
 
   // TODO: crbug.com/526701545: Show Loading screen when re-distilling.
 
@@ -957,7 +961,9 @@ void ReadAnythingAppController::OnAXTreeDistilled(
     // distilled. We must call this before PostProcessSelection() below because
     // that call checks if the current selection is inside the currently
     // displayed nodes. Thus, we have to calculate the display nodes first.
-    model_.ComputeDisplayNodeIdsForDistilledTree();
+    if (!pdf_draw_debouncer_->IsRunning()) {
+      model_.ComputeDisplayNodeIdsForDistilledTree();
+    }
 
     distillations_completed_++;
   }
@@ -969,7 +975,7 @@ void ReadAnythingAppController::OnAXTreeDistilled(
   model_.AllowChildTreeForActiveTree(model_.content_node_ids().empty());
 
   // Draw the selection in the side panel (if one exists in the main panel).
-  if (!PostProcessSelection()) {
+  if (!pdf_draw_debouncer_->IsRunning() && !PostProcessSelection()) {
     // If a draw did not occur, make sure to draw. This will happen if there is
     // no main content selection when the tree is distilled. Sometimes in Gmail,
     // The above call to ComputeDisplayNodeIdsForDistilledTree still produces
@@ -1047,12 +1053,26 @@ void ReadAnythingAppController::OnPdfDebounceFinished() {
     return;
   }
 
-  if (model_.is_empty()) {
-    DrawEmptyState();
-  } else {
-    Draw(/*recompute_display_nodes=*/false);
-    if (model_.unprocessed_selections_from_reading_mode() == 0) {
-      DrawSelection();
+  // OnAXTreeDistilled() defers this work while the debouncer runs. Compute
+  // display nodes first since PostProcessSelection() checks against them.
+  if (!model_.content_node_ids().empty()) {
+    model_.ComputeDisplayNodeIdsForDistilledTree();
+  }
+
+  // The debouncer starts when the PDF becomes the active tree, so it can fire
+  // before any updates for that tree arrive. PostProcessSelection() requires
+  // the active tree to exist.
+  if (!model_.ContainsActiveTree() || !PostProcessSelection()) {
+    if (model_.is_empty()) {
+      DrawEmptyState();
+    } else {
+      bool should_recompute_display_nodes =
+          !model_.content_node_ids().empty() &&
+          model_.GetCurrentlyVisibleNodes()->empty();
+      Draw(should_recompute_display_nodes);
+      if (model_.unprocessed_selections_from_reading_mode() == 0) {
+        DrawSelection();
+      }
     }
   }
 
@@ -1075,16 +1095,35 @@ bool ReadAnythingAppController::PostProcessSelection() {
   if (!model_.ContainsActiveTree()) {
     return false;
   }
+
+  // TODO(b/574644874): Align Readability selection / hidden lifecycle with
+  // Screen2x so `PostProcessSelection()` is not called while hidden.
+  // On pages distilled via Readability, a selection can change what the side
+  // panel shows. Update the selection endpoints, but leave the selection
+  // pending until reading mode is shown.
+  if (model_.is_readability_next_distillation_method() && IsHidden()) {
+    model_.UpdateSelectionEndpoints();
+    model_.set_requires_post_process_selection(true);
+    return false;
+  }
+
   bool did_draw = false;
   // Note post `model_.PostProcessSelection` returns true if a draw is required.
   if (model_.PostProcessSelection()) {
     did_draw = true;
     if (model_.is_empty()) {
       DrawEmptyState();
+    } else if (model_.is_readability_next_distillation_method()) {
+      // Reset Read Aloud when switching between the readability distillation
+      // and selection mode or when changing the selected content in selection
+      // mode, since the displayed content is changing.
+      read_aloud_model_.ResetReadAloudState();
+      if (IsInSelectionMode()) {
+        Draw(/*recompute_display_nodes=*/false);
+      } else {
+        DrawReadabilityContent();
+      }
     } else {
-      // TODO(b/40927698): When Read Aloud is playing and content is selected
-      // in the main panel, don't re-draw with the updated selection until
-      // Read Aloud is paused.
       bool should_recompute_display_nodes = !model_.content_node_ids().empty();
       VLOG(1) << "In PostProcessSelection content node size: "
               << model_.content_node_ids().size()
@@ -1105,10 +1144,12 @@ bool ReadAnythingAppController::PostProcessSelection() {
 }
 
 void ReadAnythingAppController::Draw(bool recompute_display_nodes) {
-  // Draw is only used for the Screen2x distillation path. Readability
-  // distillation uses UpdateContent instead.
-  DCHECK(!model_.is_readability_next_distillation_method())
-      << "Draw called during Readability distillation path.";
+  // On pages distilled via Readability, `Draw()` is only used when rendering a
+  // user selection. Main article content is drawn via
+  // `DrawReadabilityContent()` instead.
+  DCHECK(!model_.is_readability_next_distillation_method() ||
+         IsInSelectionMode())
+      << "Draw called for Readability outside of selection mode.";
 
   // For Google Docs, do not show any text before the doc finishing loading.
   if (pdf_draw_debouncer_->IsRunning() ||
@@ -1160,10 +1201,11 @@ void ReadAnythingAppController::DrawSelection() {
 }
 
 void ReadAnythingAppController::DrawEmptyState() {
-  // Draw is only used for the Screen2x distillation path. Readability
-  // distillation uses UpdateContent instead.
-  DCHECK(!model_.is_readability_next_distillation_method())
-      << "DrawEmptyState called during Readability distillation path.";
+  // On pages distilled via Readability, `DrawEmptyState()` is only used when in
+  // selection mode.
+  DCHECK(!model_.is_readability_next_distillation_method() ||
+         IsInSelectionMode())
+      << "DrawEmptyState called for Readability outside of selection mode.";
 
   // Update the current distillation method to Screen2x now that the content is
   // about to be drawn.
@@ -1171,6 +1213,25 @@ void ReadAnythingAppController::DrawEmptyState() {
       ReadAnythingAppModel::DistillationMethod::kScreen2x);
 
   ExecuteJavaScript("chrome.readingMode.showEmpty();");
+}
+
+void ReadAnythingAppController::DrawReadabilityContent() {
+  model_.set_current_content_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kReadability);
+
+  // Reset text blocks when content is updated and reset should map flag to
+  // not trigger a false positive when rendered text is not ready.
+  model_.set_readability_text_blocks({});
+  model_.set_should_map_rendered_text_to_tree_for_readability(false);
+  model_.set_is_readability_mapping_in_progress(true);
+  ExecuteJavaScript("chrome.readingMode.updateContent();");
+
+  // Update anchors.
+  model_.set_should_extract_anchors_from_tree_for_readability(true);
+  bool didProcessAnchors = model_.ProcessAXTreeAnchors();
+  if (didProcessAnchors) {
+    ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
+  }
 }
 
 void ReadAnythingAppController::LogEmptyState() {
@@ -1228,281 +1289,285 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
     v8::Isolate* isolate) {
   return gin::Wrappable<ReadAnythingAppController>::GetObjectTemplateBuilder(
              isolate)
-      .SetProperty("rootId", &ReadAnythingAppController::RootId)
-      .SetProperty("startNodeId", &ReadAnythingAppController::StartNodeId)
-      .SetProperty("startOffset", &ReadAnythingAppController::StartOffset)
-      .SetProperty("endNodeId", &ReadAnythingAppController::EndNodeId)
-      .SetProperty("endOffset", &ReadAnythingAppController::EndOffset)
-      .SetProperty("hasValidSelection",
-                   &ReadAnythingAppController::HasValidSelection)
-      .SetProperty("fontName", &ReadAnythingAppController::FontName)
-      .SetProperty("fontSize", &ReadAnythingAppController::FontSize)
-      .SetProperty("linksEnabled", &ReadAnythingAppController::LinksEnabled)
-      .SetProperty("imagesEnabled", &ReadAnythingAppController::ImagesEnabled)
-      .SetProperty("letterSpacing", &ReadAnythingAppController::LetterSpacing)
-      .SetProperty("lineSpacing", &ReadAnythingAppController::LineSpacing)
-      .SetProperty("standardLineSpacing",
-                   &ReadAnythingAppController::StandardLineSpacing)
-      .SetProperty("looseLineSpacing",
-                   &ReadAnythingAppController::LooseLineSpacing)
-      .SetProperty("veryLooseLineSpacing",
-                   &ReadAnythingAppController::VeryLooseLineSpacing)
-      .SetProperty("standardLetterSpacing",
-                   &ReadAnythingAppController::StandardLetterSpacing)
-      .SetProperty("wideLetterSpacing",
-                   &ReadAnythingAppController::WideLetterSpacing)
-      .SetProperty("veryWideLetterSpacing",
-                   &ReadAnythingAppController::VeryWideLetterSpacing)
-      .SetProperty("colorTheme", &ReadAnythingAppController::ColorTheme)
-      .SetProperty("highlightGranularity",
-                   &ReadAnythingAppController::HighlightGranularity)
-      .SetProperty("lastNonDisabledLineFocus",
-                   &ReadAnythingAppController::LastNonDisabledLineFocus)
-      .SetProperty("isLineFocusOn", &ReadAnythingAppController::IsLineFocusOn)
-      .SetProperty("defaultTheme", &ReadAnythingAppController::DefaultTheme)
-      .SetProperty("lightTheme", &ReadAnythingAppController::LightTheme)
-      .SetProperty("darkTheme", &ReadAnythingAppController::DarkTheme)
-      .SetProperty("yellowTheme", &ReadAnythingAppController::YellowTheme)
-      .SetProperty("blueTheme", &ReadAnythingAppController::BlueTheme)
-      .SetProperty("highContrastTheme",
-                   &ReadAnythingAppController::HighContrastTheme)
-      .SetProperty("lowContrastLightTheme",
-                   &ReadAnythingAppController::LowContrastLightTheme)
-      .SetProperty("lowContrastDarkTheme",
-                   &ReadAnythingAppController::LowContrastDarkTheme)
-      .SetProperty("autoHighlighting",
-                   &ReadAnythingAppController::AutoHighlighting)
-      .SetProperty("wordHighlighting",
-                   &ReadAnythingAppController::WordHighlighting)
-      .SetProperty("phraseHighlighting",
-                   &ReadAnythingAppController::PhraseHighlighting)
-      .SetProperty("sentenceHighlighting",
-                   &ReadAnythingAppController::SentenceHighlighting)
-      .SetProperty("noHighlighting", &ReadAnythingAppController::NoHighlighting)
-      .SetProperty("pauseButtonStopSource",
-                   &ReadAnythingAppController::PauseButtonStopSource)
-      .SetProperty("keyboardShortcutStopSource",
-                   &ReadAnythingAppController::KeyboardShortcutStopSource)
-      .SetProperty("engineInterruptStopSource",
-                   &ReadAnythingAppController::EngineInterruptStopSource)
-      .SetProperty("engineErrorStopSource",
-                   &ReadAnythingAppController::EngineErrorStopSource)
-      .SetProperty("contentFinishedStopSource",
-                   &ReadAnythingAppController::ContentFinishedStopSource)
-      .SetProperty("isSpeechTreeInitialized",
-                   &ReadAnythingAppController::IsSpeechTreeInitialized)
-      .SetProperty(
-          "unexpectedUpdateContentStopSource",
-          &ReadAnythingAppController::UnexpectedUpdateContentStopSource)
-      .SetProperty("lineFocusOff", &ReadAnythingAppController::LineFocusOff)
-      .SetProperty("lineFocusSmallStaticWindow",
-                   &ReadAnythingAppController::LineFocusSmallStaticWindow)
-      .SetProperty("lineFocusMediumStaticWindow",
-                   &ReadAnythingAppController::LineFocusMediumStaticWindow)
-      .SetProperty("lineFocusLargeStaticWindow",
-                   &ReadAnythingAppController::LineFocusLargeStaticWindow)
-      .SetProperty("lineFocusSmallCursorWindow",
-                   &ReadAnythingAppController::LineFocusSmallCursorWindow)
-      .SetProperty("lineFocusMediumCursorWindow",
-                   &ReadAnythingAppController::LineFocusMediumCursorWindow)
-      .SetProperty("lineFocusLargeCursorWindow",
-                   &ReadAnythingAppController::LineFocusLargeCursorWindow)
-      .SetProperty("lineFocusStaticLine",
-                   &ReadAnythingAppController::LineFocusStaticLine)
-      .SetProperty("lineFocusCursorLine",
-                   &ReadAnythingAppController::LineFocusCursorLine)
-      .SetProperty("maxLineWidth", &ReadAnythingAppController::MaxLineWidth)
-      .SetProperty("activePresentationState",
-                   &ReadAnythingAppController::ActivePresentationState)
-      .SetProperty("inHiddenPresentationState",
-                   &ReadAnythingAppController::InHiddenPresentationState)
-      .SetProperty("inSidePanelPresentationState",
-                   &ReadAnythingAppController::InSidePanelPresentationState)
-      .SetProperty(
-          "inImmersiveOverlayPresentationState",
-          &ReadAnythingAppController::InImmersiveOverlayPresentationState)
-      .SetProperty("speechRate", &ReadAnythingAppController::SpeechRate)
-      .SetProperty("isGoogleDocs", &ReadAnythingAppController::IsGoogleDocs)
-      .SetProperty("isPdf", &ReadAnythingAppController::IsPdf)
-      .SetProperty("isContentTranslated",
-                   &ReadAnythingAppController::IsContentTranslated)
-      .SetProperty("isImprovedReadAloudEnabled",
-                   &ReadAnythingAppController::IsImprovedReadAloudEnabled)
-      .SetProperty("isReadAnythingImprovedUiEnabled",
-                   &ReadAnythingAppController::IsReadAnythingImprovedUiEnabled)
-      .SetProperty(
-          "isReadAnythingTranslateEntryPointEnabled",
-          &ReadAnythingAppController::IsReadAnythingTranslateEntryPointEnabled)
-      .SetProperty("isTranslatePdfEnabled",
-                   &ReadAnythingAppController::IsTranslatePdfEnabled)
-      .SetProperty("isReadAnythingReadAloudExperimentalPlaybackUiEnabled",
-                   &ReadAnythingAppController::
-                       IsReadAnythingReadAloudExperimentalPlaybackUiEnabled)
-      .SetProperty("isReadabilityEnabled",
-                   &ReadAnythingAppController::IsReadabilityEnabled)
-      .SetProperty("isReadabilitySelectTextEnabled",
-                   &ReadAnythingAppController::IsReadabilitySelectTextEnabled)
-      .SetProperty("activeDistillationMethod",
-                   &ReadAnythingAppController::GetDistillationMethod)
-      .SetProperty("isLineFocusEnabled",
-                   &ReadAnythingAppController::IsLineFocusEnabled)
-      .SetProperty("baseLanguageForSpeech",
-                   &ReadAnythingAppController::GetLanguageCodeForSpeech)
-      .SetProperty("requiresDistillation",
-                   &ReadAnythingAppController::RequiresDistillation)
-      .SetProperty("defaultLanguageForSpeech",
-                   &ReadAnythingAppController::GetDefaultLanguageCodeForSpeech)
-      .SetProperty("isPhraseHighlightingEnabled",
-                   &ReadAnythingAppController::IsPhraseHighlightingEnabled)
-      .SetProperty("htmlTitle",
-                   &ReadAnythingAppController::GetDomDistillerTitle)
-      .SetProperty("documentUrl", &ReadAnythingAppController::GetDocumentUrl)
-      .SetProperty("htmlContent",
-                   &ReadAnythingAppController::GetDomDistillerContentHtml)
-      .SetProperty("axTreeAnchors",
-                   &ReadAnythingAppController::GetDomDistillerAnchors)
-      .SetProperty("distillationTypeScreen2x",
-                   &ReadAnythingAppController::DistillationTypeScreen2x)
-      .SetProperty("distillationTypeReadability",
-                   &ReadAnythingAppController::DistillationTypeReadability)
-      .SetMethod("isHighlightOn", &ReadAnythingAppController::IsHighlightOn)
-      .SetMethod("getChildren", &ReadAnythingAppController::GetChildren)
-      .SetMethod("getTextDirection",
-                 &ReadAnythingAppController::GetTextDirection)
-      .SetMethod("getHtmlTag", &ReadAnythingAppController::GetHtmlTag)
-      .SetMethod("getLanguage", &ReadAnythingAppController::GetLanguage)
-      .SetMethod("getTextContent", &ReadAnythingAppController::GetTextContent)
-      .SetMethod("getPrefixText", &ReadAnythingAppController::GetPrefixText)
-      .SetMethod("getUrl", &ReadAnythingAppController::GetUrl)
-      .SetMethod("getHtmlId", &ReadAnythingAppController::GetHtmlId)
-      .SetMethod("getAltText", &ReadAnythingAppController::GetAltText)
-      .SetMethod("shouldBold", &ReadAnythingAppController::ShouldBold)
-      .SetMethod("isOverline", &ReadAnythingAppController::IsOverline)
-      .SetMethod("isSuperscript", &ReadAnythingAppController::IsSuperscript)
-      .SetMethod("isSubscript", &ReadAnythingAppController::IsSubscript)
-      .SetMethod("isLeafNode", &ReadAnythingAppController::IsLeafNode)
-      .SetMethod("onConnected", &ReadAnythingAppController::OnConnected)
-      .SetMethod("onCopy", &ReadAnythingAppController::OnCopy)
-      .SetMethod("onNoTextContent", &ReadAnythingAppController::OnNoTextContent)
-      .SetMethod("updateWordsSeen", &ReadAnythingAppController::UpdateWordsSeen)
-      .SetMethod("logEmptyState", &ReadAnythingAppController::LogEmptyState)
-      .SetMethod("updateWordsHeard",
-                 &ReadAnythingAppController::UpdateWordsHeard)
-      .SetMethod("onFontSizeChanged",
-                 &ReadAnythingAppController::OnFontSizeChanged)
-      .SetMethod("onFontSizeReset", &ReadAnythingAppController::OnFontSizeReset)
-      .SetMethod("onImagesEnabledToggled",
-                 &ReadAnythingAppController::OnImagesEnabledToggled)
-      .SetMethod("onLinksEnabledToggled",
-                 &ReadAnythingAppController::OnLinksEnabledToggled)
-      .SetMethod("onTranslationRequested",
-                 &ReadAnythingAppController::OnTranslationRequested)
-      .SetMethod("onScroll", &ReadAnythingAppController::OnScroll)
-      .SetMethod("onLinkClicked", &ReadAnythingAppController::OnLinkClicked)
-      .SetMethod("onLetterSpacingChange",
-                 &ReadAnythingAppController::OnLetterSpacingChange)
-      .SetMethod("onLineSpacingChange",
-                 &ReadAnythingAppController::OnLineSpacingChange)
-      .SetMethod("onThemeChange", &ReadAnythingAppController::OnThemeChange)
-      .SetMethod("onFontChange", &ReadAnythingAppController::OnFontChange)
-      .SetMethod("onSpeechRateChange",
-                 &ReadAnythingAppController::OnSpeechRateChange)
-      .SetMethod("getStoredVoice", &ReadAnythingAppController::GetStoredVoice)
-      .SetMethod("onVoiceChange", &ReadAnythingAppController::OnVoiceChange)
-      .SetMethod("logExtensionState",
-                 &ReadAnythingAppController::LogExtensionState)
-      .SetMethod("onLanguagePrefChange",
-                 &ReadAnythingAppController::OnLanguagePrefChange)
-      .SetMethod("getLanguagesEnabledInPref",
-                 &ReadAnythingAppController::GetLanguagesEnabledInPref)
-      .SetMethod("onHighlightGranularityChanged",
-                 &ReadAnythingAppController::OnHighlightGranularityChanged)
-      .SetMethod("onLineFocusChanged",
-                 &ReadAnythingAppController::OnLineFocusChanged)
-      .SetMethod("getLineSpacingValue",
-                 &ReadAnythingAppController::GetLineSpacingValue)
-      .SetMethod("getLetterSpacingValue",
-                 &ReadAnythingAppController::GetLetterSpacingValue)
-      .SetMethod("onSelectionChange",
-                 &ReadAnythingAppController::OnSelectionChange)
-      .SetMethod("onCollapseSelection",
-                 &ReadAnythingAppController::OnCollapseSelection)
-      .SetMethod("onDistilled", &ReadAnythingAppController::OnDistilled)
-      .SetProperty("supportedFonts",
-                   &ReadAnythingAppController::GetSupportedFonts)
-      .SetProperty("allFonts", &ReadAnythingAppController::GetAllFonts)
-      .SetMethod("initAxPositionWithNode",
-                 &ReadAnythingAppController::InitAXPositionWithNode)
-      .SetMethod("resetGranularityIndex",
-                 &ReadAnythingAppController::ResetGranularityIndex)
-      .SetMethod("getCurrentTextContent",
-                 &ReadAnythingAppController::GetCurrentTextContent)
-      .SetMethod("shouldShowUi", &ReadAnythingAppController::ShouldShowUI)
-      .SetMethod("getOriginalPageMetrics",
-                 &ReadAnythingAppController::GetOriginalPageMetrics)
-      .SetMethod("getKeyPointsRegex",
-                 &ReadAnythingAppController::GetKeyPointsRegex)
-      .SetMethod("onIsSpeechActiveChanged",
-                 &ReadAnythingAppController::OnIsSpeechActiveChanged)
-      .SetMethod("onIsAudioCurrentlyPlayingChanged",
-                 &ReadAnythingAppController::OnIsAudioCurrentlyPlayingChanged)
-      .SetMethod("onAiPlaybackStateChanged",
-                 &ReadAnythingAppController::OnAiPlaybackStateChanged)
-      .SetMethod("getAccessibleBoundary",
-                 &ReadAnythingAppController::GetAccessibleBoundary)
-      .SetMethod("movePositionToNextGranularity",
-                 &ReadAnythingAppController::MovePositionToNextGranularity)
-      .SetMethod("movePositionToPreviousGranularity",
-                 &ReadAnythingAppController::MovePositionToPreviousGranularity)
-      .SetMethod("requestImageData",
-                 &ReadAnythingAppController::RequestImageData)
-      .SetMethod("getImageBitmap", &ReadAnythingAppController::GetImageBitmap)
-      .SetMethod("getDisplayNameForLocale",
-                 &ReadAnythingAppController::GetDisplayNameForLocale)
-      .SetMethod("incrementMetricCount",
-                 &ReadAnythingAppController::IncrementMetricCount)
-      .SetMethod("logSpeechStop", &ReadAnythingAppController::LogSpeechStop)
-      .SetMethod("startLineFocusSession",
-                 &ReadAnythingAppController::StartLineFocusSession)
-      .SetMethod("logLineFocusSession",
-                 &ReadAnythingAppController::LogLineFocusSession)
-      .SetMethod("addLineFocusScrollDistance",
-                 &ReadAnythingAppController::AddLineFocusScrollDistance)
-      .SetMethod("addLineFocusMouseDistance",
-                 &ReadAnythingAppController::AddLineFocusMouseDistance)
-      .SetMethod("incrementLineFocusKeyboardLines",
-                 &ReadAnythingAppController::IncrementLineFocusKeyboardLines)
-      .SetMethod("incrementLineFocusSpeechLines",
-                 &ReadAnythingAppController::IncrementLineFocusSpeechLines)
-      .SetMethod("sendGetVoicePackInfoRequest",
-                 &ReadAnythingAppController::SendGetVoicePackInfoRequest)
-      .SetMethod("sendInstallVoicePackRequest",
-                 &ReadAnythingAppController::SendInstallVoicePackRequest)
-      .SetMethod("sendUninstallVoiceRequest",
-                 &ReadAnythingAppController::SendUninstallVoiceRequest)
-      .SetMethod("getCurrentTextSegments",
-                 &ReadAnythingAppController::GetCurrentTextSegments)
-      .SetMethod("getHighlightForCurrentSegmentIndex",
-                 &ReadAnythingAppController::GetHighlightForCurrentSegmentIndex)
-      .SetMethod("getValidatedFontName",
-                 &ReadAnythingAppController::GetValidatedFontName)
-      .SetMethod("sendGetPresentationStateRequest",
-                 &ReadAnythingAppController::SendGetPresentationStateRequest)
-      .SetMethod("togglePresentation",
-                 &ReadAnythingAppController::TogglePresentation)
-      .SetMethod("close", &ReadAnythingAppController::CloseUI)
-      .SetMethod("togglePinState", &ReadAnythingAppController::TogglePinState)
-      .SetMethod("sendPinStateRequest",
-                 &ReadAnythingAppController::SendPinStateRequest)
-      .SetMethod("onSpeechEngineFirstStall",
-                 &ReadAnythingAppController::OnSpeechEngineFirstStall)
-      .SetMethod("onSpeechEngineStalled",
-                 &ReadAnythingAppController::OnSpeechEngineStalled)
-      .SetMethod("onRenderedTextBlocksAvailable",
-                 &ReadAnythingAppController::OnRenderedTextBlocksAvailable)
-      .SetMethod("getAxMapping", &ReadAnythingAppController::GetAXMapping)
-      .SetMethod("attemptLogEarlySelection",
-                 &ReadAnythingAppController::AttemptLogEarlySelection);
+      .SetProperty<&ReadAnythingAppController::RootId>("rootId")
+      .SetProperty<&ReadAnythingAppController::StartNodeId>("startNodeId")
+      .SetProperty<&ReadAnythingAppController::StartOffset>("startOffset")
+      .SetProperty<&ReadAnythingAppController::EndNodeId>("endNodeId")
+      .SetProperty<&ReadAnythingAppController::EndOffset>("endOffset")
+      .SetProperty<&ReadAnythingAppController::HasValidSelection>(
+          "hasValidSelection")
+      .SetProperty<&ReadAnythingAppController::FontName>("fontName")
+      .SetProperty<&ReadAnythingAppController::FontSize>("fontSize")
+      .SetProperty<&ReadAnythingAppController::LinksEnabled>("linksEnabled")
+      .SetProperty<&ReadAnythingAppController::ImagesEnabled>("imagesEnabled")
+      .SetProperty<&ReadAnythingAppController::LetterSpacing>("letterSpacing")
+      .SetProperty<&ReadAnythingAppController::LineSpacing>("lineSpacing")
+      .SetProperty<&ReadAnythingAppController::StandardLineSpacing>(
+          "standardLineSpacing")
+      .SetProperty<&ReadAnythingAppController::LooseLineSpacing>(
+          "looseLineSpacing")
+      .SetProperty<&ReadAnythingAppController::VeryLooseLineSpacing>(
+          "veryLooseLineSpacing")
+      .SetProperty<&ReadAnythingAppController::StandardLetterSpacing>(
+          "standardLetterSpacing")
+      .SetProperty<&ReadAnythingAppController::WideLetterSpacing>(
+          "wideLetterSpacing")
+      .SetProperty<&ReadAnythingAppController::VeryWideLetterSpacing>(
+          "veryWideLetterSpacing")
+      .SetProperty<&ReadAnythingAppController::ColorTheme>("colorTheme")
+      .SetProperty<&ReadAnythingAppController::HighlightGranularity>(
+          "highlightGranularity")
+      .SetProperty<&ReadAnythingAppController::LastNonDisabledLineFocus>(
+          "lastNonDisabledLineFocus")
+      .SetProperty<&ReadAnythingAppController::IsLineFocusOn>("isLineFocusOn")
+      .SetProperty<&ReadAnythingAppController::DefaultTheme>("defaultTheme")
+      .SetProperty<&ReadAnythingAppController::LightTheme>("lightTheme")
+      .SetProperty<&ReadAnythingAppController::DarkTheme>("darkTheme")
+      .SetProperty<&ReadAnythingAppController::YellowTheme>("yellowTheme")
+      .SetProperty<&ReadAnythingAppController::BlueTheme>("blueTheme")
+      .SetProperty<&ReadAnythingAppController::HighContrastTheme>(
+          "highContrastTheme")
+      .SetProperty<&ReadAnythingAppController::LowContrastLightTheme>(
+          "lowContrastLightTheme")
+      .SetProperty<&ReadAnythingAppController::LowContrastDarkTheme>(
+          "lowContrastDarkTheme")
+      .SetProperty<&ReadAnythingAppController::AutoHighlighting>(
+          "autoHighlighting")
+      .SetProperty<&ReadAnythingAppController::WordHighlighting>(
+          "wordHighlighting")
+      .SetProperty<&ReadAnythingAppController::PhraseHighlighting>(
+          "phraseHighlighting")
+      .SetProperty<&ReadAnythingAppController::SentenceHighlighting>(
+          "sentenceHighlighting")
+      .SetProperty<&ReadAnythingAppController::NoHighlighting>("noHighlighting")
+      .SetProperty<&ReadAnythingAppController::PauseButtonStopSource>(
+          "pauseButtonStopSource")
+      .SetProperty<&ReadAnythingAppController::KeyboardShortcutStopSource>(
+          "keyboardShortcutStopSource")
+      .SetProperty<&ReadAnythingAppController::EngineInterruptStopSource>(
+          "engineInterruptStopSource")
+      .SetProperty<&ReadAnythingAppController::EngineErrorStopSource>(
+          "engineErrorStopSource")
+      .SetProperty<&ReadAnythingAppController::ContentFinishedStopSource>(
+          "contentFinishedStopSource")
+      .SetProperty<&ReadAnythingAppController::IsSpeechTreeInitialized>(
+          "isSpeechTreeInitialized")
+      .SetProperty<
+          &ReadAnythingAppController::UnexpectedUpdateContentStopSource>(
+          "unexpectedUpdateContentStopSource")
+      .SetProperty<&ReadAnythingAppController::LineFocusOff>("lineFocusOff")
+      .SetProperty<&ReadAnythingAppController::LineFocusSmallStaticWindow>(
+          "lineFocusSmallStaticWindow")
+      .SetProperty<&ReadAnythingAppController::LineFocusMediumStaticWindow>(
+          "lineFocusMediumStaticWindow")
+      .SetProperty<&ReadAnythingAppController::LineFocusLargeStaticWindow>(
+          "lineFocusLargeStaticWindow")
+      .SetProperty<&ReadAnythingAppController::LineFocusSmallCursorWindow>(
+          "lineFocusSmallCursorWindow")
+      .SetProperty<&ReadAnythingAppController::LineFocusMediumCursorWindow>(
+          "lineFocusMediumCursorWindow")
+      .SetProperty<&ReadAnythingAppController::LineFocusLargeCursorWindow>(
+          "lineFocusLargeCursorWindow")
+      .SetProperty<&ReadAnythingAppController::LineFocusStaticLine>(
+          "lineFocusStaticLine")
+      .SetProperty<&ReadAnythingAppController::LineFocusCursorLine>(
+          "lineFocusCursorLine")
+      .SetProperty<&ReadAnythingAppController::MaxLineWidth>("maxLineWidth")
+      .SetProperty<&ReadAnythingAppController::ActivePresentationState>(
+          "activePresentationState")
+      .SetProperty<&ReadAnythingAppController::InHiddenPresentationState>(
+          "inHiddenPresentationState")
+      .SetProperty<&ReadAnythingAppController::InSidePanelPresentationState>(
+          "inSidePanelPresentationState")
+      .SetProperty<
+          &ReadAnythingAppController::InImmersiveOverlayPresentationState>(
+          "inImmersiveOverlayPresentationState")
+      .SetProperty<&ReadAnythingAppController::SpeechRate>("speechRate")
+      .SetProperty<&ReadAnythingAppController::IsGoogleDocs>("isGoogleDocs")
+      .SetProperty<&ReadAnythingAppController::IsPdf>("isPdf")
+      .SetProperty<&ReadAnythingAppController::IsContentTranslated>(
+          "isContentTranslated")
+      .SetProperty<&ReadAnythingAppController::IsAwaitingTranslation>(
+          "isAwaitingTranslation")
+      .SetProperty<&ReadAnythingAppController::IsImprovedReadAloudEnabled>(
+          "isImprovedReadAloudEnabled")
+      .SetProperty<&ReadAnythingAppController::IsReadAnythingImprovedUiEnabled>(
+          "isReadAnythingImprovedUiEnabled")
+      .SetProperty<
+          &ReadAnythingAppController::IsReadAnythingTranslateEntryPointEnabled>(
+          "isReadAnythingTranslateEntryPointEnabled")
+      .SetProperty<
+          &ReadAnythingAppController::IsReadAnythingSendFeedbackEnabled>(
+          "isReadAnythingSendFeedbackEnabled")
+      .SetProperty<&ReadAnythingAppController::IsTranslatePdfEnabled>(
+          "isTranslatePdfEnabled")
+      .SetProperty<&ReadAnythingAppController::
+                       IsReadAnythingReadAloudExperimentalPlaybackUiEnabled>(
+          "isReadAnythingReadAloudExperimentalPlaybackUiEnabled")
+      .SetProperty<&ReadAnythingAppController::IsReadabilityEnabled>(
+          "isReadabilityEnabled")
+      .SetProperty<&ReadAnythingAppController::GetDistillationMethod>(
+          "activeDistillationMethod")
+      .SetProperty<&ReadAnythingAppController::IsLineFocusEnabled>(
+          "isLineFocusEnabled")
+      .SetProperty<&ReadAnythingAppController::GetLanguageCodeForSpeech>(
+          "baseLanguageForSpeech")
+      .SetProperty<&ReadAnythingAppController::RequiresDistillation>(
+          "requiresDistillation")
+      .SetProperty<&ReadAnythingAppController::GetDefaultLanguageCodeForSpeech>(
+          "defaultLanguageForSpeech")
+      .SetProperty<&ReadAnythingAppController::IsPhraseHighlightingEnabled>(
+          "isPhraseHighlightingEnabled")
+      .SetProperty<&ReadAnythingAppController::GetDomDistillerTitle>(
+          "htmlTitle")
+      .SetProperty<&ReadAnythingAppController::GetDocumentUrl>("documentUrl")
+      .SetProperty<&ReadAnythingAppController::GetDomDistillerContentHtml>(
+          "htmlContent")
+      .SetProperty<&ReadAnythingAppController::GetDomDistillerAnchors>(
+          "axTreeAnchors")
+      .SetProperty<&ReadAnythingAppController::DistillationTypeScreen2x>(
+          "distillationTypeScreen2x")
+      .SetProperty<&ReadAnythingAppController::DistillationTypeReadability>(
+          "distillationTypeReadability")
+      .SetMethod<&ReadAnythingAppController::IsHighlightOn>("isHighlightOn")
+      .SetMethod<&ReadAnythingAppController::GetChildren>("getChildren")
+      .SetMethod<&ReadAnythingAppController::GetTextDirection>(
+          "getTextDirection")
+      .SetMethod<&ReadAnythingAppController::GetHtmlTag>("getHtmlTag")
+      .SetMethod<&ReadAnythingAppController::GetLanguage>("getLanguage")
+      .SetMethod<&ReadAnythingAppController::GetTextContent>("getTextContent")
+      .SetMethod<&ReadAnythingAppController::GetPrefixText>("getPrefixText")
+      .SetMethod<&ReadAnythingAppController::GetUrl>("getUrl")
+      .SetMethod<&ReadAnythingAppController::GetHtmlId>("getHtmlId")
+      .SetMethod<&ReadAnythingAppController::GetAltText>("getAltText")
+      .SetMethod<&ReadAnythingAppController::ShouldBold>("shouldBold")
+      .SetMethod<&ReadAnythingAppController::IsOverline>("isOverline")
+      .SetMethod<&ReadAnythingAppController::IsSuperscript>("isSuperscript")
+      .SetMethod<&ReadAnythingAppController::IsSubscript>("isSubscript")
+      .SetMethod<&ReadAnythingAppController::IsLeafNode>("isLeafNode")
+      .SetMethod<&ReadAnythingAppController::OnConnected>("onConnected")
+      .SetMethod<&ReadAnythingAppController::OnCopy>("onCopy")
+      .SetMethod<&ReadAnythingAppController::OnNoTextContent>("onNoTextContent")
+      .SetMethod<&ReadAnythingAppController::UpdateWordsSeen>("updateWordsSeen")
+      .SetMethod<&ReadAnythingAppController::LogEmptyState>("logEmptyState")
+      .SetMethod<&ReadAnythingAppController::UpdateWordsHeard>(
+          "updateWordsHeard")
+      .SetMethod<&ReadAnythingAppController::OnFontSizeChanged>(
+          "onFontSizeChanged")
+      .SetMethod<&ReadAnythingAppController::OnFontSizeReset>("onFontSizeReset")
+      .SetMethod<&ReadAnythingAppController::OnImagesEnabledToggled>(
+          "onImagesEnabledToggled")
+      .SetMethod<&ReadAnythingAppController::OnLinksEnabledToggled>(
+          "onLinksEnabledToggled")
+      .SetMethod<&ReadAnythingAppController::OnTranslationRequested>(
+          "onTranslationRequested")
+      .SetMethod<&ReadAnythingAppController::OnScroll>("onScroll")
+      .SetMethod<&ReadAnythingAppController::OnLinkClicked>("onLinkClicked")
+      .SetMethod<&ReadAnythingAppController::OnLetterSpacingChange>(
+          "onLetterSpacingChange")
+      .SetMethod<&ReadAnythingAppController::OnLineSpacingChange>(
+          "onLineSpacingChange")
+      .SetMethod<&ReadAnythingAppController::OnThemeChange>("onThemeChange")
+      .SetMethod<&ReadAnythingAppController::OnFontChange>("onFontChange")
+      .SetMethod<&ReadAnythingAppController::OnSpeechRateChange>(
+          "onSpeechRateChange")
+      .SetMethod<&ReadAnythingAppController::GetStoredVoice>("getStoredVoice")
+      .SetMethod<&ReadAnythingAppController::OnVoiceChange>("onVoiceChange")
+      .SetMethod<&ReadAnythingAppController::LogExtensionState>(
+          "logExtensionState")
+      .SetMethod<&ReadAnythingAppController::OnLanguagePrefChange>(
+          "onLanguagePrefChange")
+      .SetMethod<&ReadAnythingAppController::GetLanguagesEnabledInPref>(
+          "getLanguagesEnabledInPref")
+      .SetMethod<&ReadAnythingAppController::OnHighlightGranularityChanged>(
+          "onHighlightGranularityChanged")
+      .SetMethod<&ReadAnythingAppController::OnLineFocusChanged>(
+          "onLineFocusChanged")
+      .SetMethod<&ReadAnythingAppController::GetLineSpacingValue>(
+          "getLineSpacingValue")
+      .SetMethod<&ReadAnythingAppController::GetLetterSpacingValue>(
+          "getLetterSpacingValue")
+      .SetMethod<&ReadAnythingAppController::OnSelectionChange>(
+          "onSelectionChange")
+      .SetMethod<&ReadAnythingAppController::OnCollapseSelection>(
+          "onCollapseSelection")
+      .SetMethod<&ReadAnythingAppController::OnDistilled>("onDistilled")
+      .SetProperty<&ReadAnythingAppController::GetSupportedFonts>(
+          "supportedFonts")
+      .SetProperty<&ReadAnythingAppController::GetAllFonts>("allFonts")
+      .SetMethod<&ReadAnythingAppController::InitAXPositionWithNode>(
+          "initAxPositionWithNode")
+      .SetMethod<&ReadAnythingAppController::ResetGranularityIndex>(
+          "resetGranularityIndex")
+      .SetMethod<&ReadAnythingAppController::GetCurrentTextContent>(
+          "getCurrentTextContent")
+      .SetMethod<&ReadAnythingAppController::ShouldShowUI>("shouldShowUi")
+      .SetMethod<&ReadAnythingAppController::GetOriginalPageMetrics>(
+          "getOriginalPageMetrics")
+      .SetMethod<&ReadAnythingAppController::GetKeyPointsRegex>(
+          "getKeyPointsRegex")
+      .SetMethod<&ReadAnythingAppController::OnIsSpeechActiveChanged>(
+          "onIsSpeechActiveChanged")
+      .SetMethod<&ReadAnythingAppController::OnIsAudioCurrentlyPlayingChanged>(
+          "onIsAudioCurrentlyPlayingChanged")
+      .SetMethod<&ReadAnythingAppController::OnAiPlaybackStateChanged>(
+          "onAiPlaybackStateChanged")
+      .SetMethod<&ReadAnythingAppController::GetAccessibleBoundary>(
+          "getAccessibleBoundary")
+      .SetMethod<&ReadAnythingAppController::MovePositionToNextGranularity>(
+          "movePositionToNextGranularity")
+      .SetMethod<&ReadAnythingAppController::MovePositionToPreviousGranularity>(
+          "movePositionToPreviousGranularity")
+      .SetMethod<&ReadAnythingAppController::RequestImageData>(
+          "requestImageData")
+      .SetMethod<&ReadAnythingAppController::GetImageBitmap>("getImageBitmap")
+      .SetMethod<&ReadAnythingAppController::GetDisplayNameForLocale>(
+          "getDisplayNameForLocale")
+      .SetMethod<&ReadAnythingAppController::IncrementMetricCount>(
+          "incrementMetricCount")
+      .SetMethod<&ReadAnythingAppController::LogSpeechStop>("logSpeechStop")
+      .SetMethod<&ReadAnythingAppController::StartLineFocusSession>(
+          "startLineFocusSession")
+      .SetMethod<&ReadAnythingAppController::LogLineFocusSession>(
+          "logLineFocusSession")
+      .SetMethod<&ReadAnythingAppController::AddLineFocusScrollDistance>(
+          "addLineFocusScrollDistance")
+      .SetMethod<&ReadAnythingAppController::AddLineFocusMouseDistance>(
+          "addLineFocusMouseDistance")
+      .SetMethod<&ReadAnythingAppController::IncrementLineFocusKeyboardLines>(
+          "incrementLineFocusKeyboardLines")
+      .SetMethod<&ReadAnythingAppController::IncrementLineFocusSpeechLines>(
+          "incrementLineFocusSpeechLines")
+      .SetMethod<&ReadAnythingAppController::SendGetVoicePackInfoRequest>(
+          "sendGetVoicePackInfoRequest")
+      .SetMethod<&ReadAnythingAppController::SendInstallVoicePackRequest>(
+          "sendInstallVoicePackRequest")
+      .SetMethod<&ReadAnythingAppController::SendUninstallVoiceRequest>(
+          "sendUninstallVoiceRequest")
+      .SetMethod<&ReadAnythingAppController::GetCurrentTextSegments>(
+          "getCurrentTextSegments")
+      .SetMethod<
+          &ReadAnythingAppController::GetHighlightForCurrentSegmentIndex>(
+          "getHighlightForCurrentSegmentIndex")
+      .SetMethod<&ReadAnythingAppController::GetValidatedFontName>(
+          "getValidatedFontName")
+      .SetMethod<&ReadAnythingAppController::SendGetPresentationStateRequest>(
+          "sendGetPresentationStateRequest")
+      .SetMethod<&ReadAnythingAppController::TogglePresentation>(
+          "togglePresentation")
+      .SetMethod<&ReadAnythingAppController::CloseUI>("close")
+      .SetMethod<&ReadAnythingAppController::TogglePinState>("togglePinState")
+      .SetMethod<&ReadAnythingAppController::SendPinStateRequest>(
+          "sendPinStateRequest")
+      .SetMethod<&ReadAnythingAppController::OnSpeechEngineFirstStall>(
+          "onSpeechEngineFirstStall")
+      .SetMethod<&ReadAnythingAppController::OnSpeechEngineStalled>(
+          "onSpeechEngineStalled")
+      .SetMethod<&ReadAnythingAppController::OnRenderedTextBlocksAvailable>(
+          "onRenderedTextBlocksAvailable")
+      .SetMethod<&ReadAnythingAppController::GetAXMapping>("getAxMapping")
+      .SetMethod<&ReadAnythingAppController::AttemptLogEarlySelection>(
+          "attemptLogEarlySelection");
 }
 
 ui::AXNodeID ReadAnythingAppController::RootId() const {
@@ -1793,6 +1858,11 @@ int ReadAnythingAppController::DistillationTypeScreen2x() const {
 int ReadAnythingAppController::DistillationTypeReadability() const {
   return static_cast<int>(
       ReadAnythingAppModel::DistillationMethod::kReadability);
+}
+
+bool ReadAnythingAppController::IsInSelectionMode() const {
+  return model_.side_panel_distillation_mode() ==
+         ReadAnythingAppModel::SidePanelDistillationMode::kSelection;
 }
 
 std::vector<ui::AXNodeID> ReadAnythingAppController::GetChildren(
@@ -2096,6 +2166,10 @@ bool ReadAnythingAppController::IsReadAnythingTranslateEntryPointEnabled()
   return features::IsReadAnythingTranslateEntryPointEnabled();
 }
 
+bool ReadAnythingAppController::IsReadAnythingSendFeedbackEnabled() const {
+  return features::IsReadAnythingSendFeedbackEnabled();
+}
+
 bool ReadAnythingAppController::IsTranslatePdfEnabled() const {
   return base::FeatureList::IsEnabled(translate::kEnableTranslatePdf);
 }
@@ -2105,10 +2179,6 @@ bool ReadAnythingAppController::IsTranslatePdfEnabled() const {
 bool ReadAnythingAppController::IsReadabilityEnabled() const {
   return features::IsReadAnythingWithReadabilityEnabled() &&
          !features::IsReadAnythingReadAloudPhraseHighlightingEnabled();
-}
-
-bool ReadAnythingAppController::IsReadabilitySelectTextEnabled() const {
-  return features::IsReadAnythingReadabilitySelectTextEnabled();
 }
 
 bool ReadAnythingAppController::IsLineFocusEnabled() const {
@@ -2339,6 +2409,14 @@ void ReadAnythingAppController::OnCopy() const {
 
 void ReadAnythingAppController::OnNoTextContent() {
   if (model_.is_readability_next_distillation_method()) {
+    // Fall back to Screen2x if the drawn Readability content has no text. When
+    // the current method is Screen2x, this is an empty selection instead.
+    if (model_.is_readability_current_distillation_method()) {
+      model_.set_readability_content_drawn(false);
+      model_.set_is_readability_mapping_in_progress(false);
+      model_.FallbackToScreen2x();
+      DistillNewTree();
+    }
     return;
   }
   Distill();
@@ -2715,6 +2793,10 @@ void ReadAnythingAppController::OnReadingModeHidden(bool tab_active) {
   // speech was not stopped. If the tab is still active and RM is hidden, then
   // RM was closed, so log the speech stopped.
   if (tab_active) {
+    // Only stop awaiting translation when RM is actually closed. A pending
+    // translation still starts after switching tabs and returning, so keep the
+    // content behind the loading screen until then.
+    SetAwaitingTranslation(false);
     ReadingModeWillClose();
     if (read_aloud_model_.speech_playing()) {
       read_aloud_model_.LogSpeechStop(
@@ -2742,6 +2824,19 @@ void ReadAnythingAppController::OnReadingModeShown(
   if (open_trigger == read_anything::mojom::ReadAnythingOpenTrigger::
                           kListenToThisPageContextMenu) {
     ExecuteJavaScript("chrome.readingMode.setPlayOnOpen(true);");
+  }
+
+  // Reading mode is opened with this trigger right after a PDF translation is
+  // requested. The browser starts the translation once the content is
+  // distilled, or right away if it already is (see
+  // ReadAnythingUntrustedPageHandler::OnDistillationStateChanged() and
+  // ReadAnythingUntrustedPageHandler::Activate()). Keep the content behind the
+  // loading screen until it's translated so the user doesn't see the
+  // untranslated text first.
+  if (open_trigger ==
+          read_anything::mojom::ReadAnythingOpenTrigger::kPdfTranslation &&
+      IsTranslatePdfEnabled() && !model_.is_content_translated()) {
+    SetAwaitingTranslation(true);
   }
 
   if (ax_tree_ready_for_current_active_tree_measured_) {
@@ -2791,6 +2886,33 @@ void ReadAnythingAppController::OnTranslationStateChanged(bool is_translated) {
   CHECK(IsTranslatePdfEnabled());
   model_.set_is_content_translated(is_translated);
   ExecuteJavaScript("chrome.readingMode.onTranslationStateChanged();");
+  if (is_translated) {
+    SetAwaitingTranslation(false);
+  }
+}
+
+void ReadAnythingAppController::OnTranslationFailed() {
+  // The browser only reports translation failures when PDF translation is
+  // enabled. See ReadAnythingTranslateObserver::OnPageTranslated().
+  CHECK(IsTranslatePdfEnabled());
+  // The content won't be translated, so stop hiding it behind the loading
+  // screen.
+  SetAwaitingTranslation(false);
+}
+
+void ReadAnythingAppController::SetAwaitingTranslation(bool awaiting) {
+  if (model_.is_awaiting_translation() == awaiting) {
+    return;
+  }
+  model_.set_is_awaiting_translation(awaiting);
+  // The WebUI may not have registered its handler yet if this happens very
+  // early; in that case it reads `isAwaitingTranslation` when it draws.
+  ExecuteJavaScript("chrome.readingMode.onAwaitingTranslationChanged?.(" +
+                    base::ToString(awaiting) + ")");
+}
+
+bool ReadAnythingAppController::IsAwaitingTranslation() const {
+  return model_.is_awaiting_translation();
 }
 
 void ReadAnythingAppController::SetDefaultLanguageCode(
@@ -3151,6 +3273,8 @@ void ReadAnythingAppController::UpdateContent(const std::string& title,
   // If readability distillation returns empty content, consider distillation as
   // failure and default to Screen2X distillation.
   if (dom_distiller_content_html_.empty()) {
+    model_.set_readability_content_drawn(false);
+
     // Immediately attempt distillation. If there's not yet an active tree,
     // distillation will be attempted after the event processes. However,
     // attempting distillation immediately will allow distillation failures
@@ -3176,31 +3300,27 @@ void ReadAnythingAppController::UpdateContent(const std::string& title,
 
   model_.set_readability_distillation_complete_for_current_tree(true);
 
-  // Set both active and target distillation to readability since distillation
-  // was successful.
+  // Set the next distillation method to Readability now that distillation
+  // succeeded. `DrawReadabilityContent()` will update the active method.
   model_.set_next_distillation_method(
       ReadAnythingAppModel::DistillationMethod::kReadability);
-  model_.set_current_content_distillation_method(
-      ReadAnythingAppModel::DistillationMethod::kReadability);
+  model_.set_readability_content_drawn(true);
 
-  if (IsReadabilitySelectTextEnabled()) {
-    // Reset text blocks when content is updated and reset should map flag to
-    // not trigger a false positive when rendered text is not ready.
-    model_.set_readability_text_blocks({});
-    model_.set_should_map_rendered_text_to_tree_for_readability(false);
-    model_.set_is_readability_mapping_in_progress(true);
+  // Exit selection mode so the newly distilled article is displayed.
+  if (IsInSelectionMode()) {
+    model_.ResetSelection();
   }
-  ExecuteJavaScript("chrome.readingMode.updateContent();");
+  DrawReadabilityContent();
 
-  if (IsReadabilitySelectTextEnabled() && !IsUpdateProcessingPaused() &&
-      model_.ContainsActiveTree()) {
+  // If the WebUI found no visible text in the Readability content, it has
+  // already fallen back to Screen2x via `OnNoTextContent()`. Don't process
+  // selections or log a successful Readability distillation in that case.
+  if (!model_.is_readability_next_distillation_method()) {
+    return;
+  }
+
+  if (!IsUpdateProcessingPaused() && model_.ContainsActiveTree()) {
     PostProcessSelection();
-  }
-
-  model_.set_should_extract_anchors_from_tree_for_readability(true);
-  bool didProcessAnchors = model_.ProcessAXTreeAnchors();
-  if (didProcessAnchors) {
-    ExecuteJavaScript("chrome.readingMode.onAnchorsReadyForReadability();");
   }
 
   // Log a successful readability distillation if reading mode is currently
@@ -3251,11 +3371,10 @@ void ReadAnythingAppController::ApplyAccessibilityUpdatesForReadability(
 
   // If there's been a selection on the main page, the selection should be
   // processed so that Immersive can open to the correctly selected text.
-  if (IsReadabilitySelectTextEnabled() && !read_aloud_model_.speech_playing() &&
+  if (!read_aloud_model_.speech_playing() &&
       model_.requires_post_process_selection()) {
-    // TODO: crbug.com/505770261- Once general select-to-distill is enabled
-    // this should be re-evaluated to prevent switching distillation modes
-    // before the selection mapping is ready.
+    // If the Readability text hasn't been mapped to the AXTree yet, the model
+    // will keep the selection pending until mapping completes.
     PostProcessSelection();
   }
 
@@ -3279,7 +3398,7 @@ void ReadAnythingAppController::OnRenderedTextBlocksAvailable(
     rendered_text_blocks_ready_recorded_ = true;
   }
 
-  if (!IsReadabilitySelectTextEnabled()) {
+  if (!IsReadabilityEnabled()) {
     return;
   }
   model_.set_readability_text_blocks(blocks);
@@ -3290,7 +3409,7 @@ void ReadAnythingAppController::OnRenderedTextBlocksAvailable(
 }
 
 void ReadAnythingAppController::MaybeMapRenderedTextToTree() {
-  if (!IsReadabilitySelectTextEnabled()) {
+  if (!IsReadabilityEnabled()) {
     return;
   }
 
@@ -3302,12 +3421,19 @@ void ReadAnythingAppController::MaybeMapRenderedTextToTree() {
   if (model_.MapRenderedTextToTree(model_.readability_text_blocks())) {
     model_.set_is_readability_mapping_in_progress(false);
     ExecuteJavaScript("chrome.readingMode.onRenderedTextMappingReady();");
+
+    // Process any selection that was deferred while text mapping was still in
+    // progress.
+    if (model_.requires_post_process_selection() &&
+        !read_aloud_model_.speech_playing()) {
+      PostProcessSelection();
+    }
   }
 }
 
 v8::Local<v8::Value> ReadAnythingAppController::GetAXMapping(int index) {
   v8::Isolate* isolate = v8::Isolate::GetCurrent();
-  if (!IsReadabilitySelectTextEnabled() || !isolate) {
+  if (!IsReadabilityEnabled() || !isolate) {
     return v8::Undefined(isolate);
   }
 
@@ -3345,8 +3471,7 @@ v8::Local<v8::Value> ReadAnythingAppController::GetAXMapping(int index) {
 
 void ReadAnythingAppController::AttemptLogEarlySelection(bool from_side_panel) {
   if (model_.has_logged_early_selection() ||
-      !model_.is_readability_mapping_in_progress() ||
-      !IsReadabilitySelectTextEnabled()) {
+      !model_.is_readability_mapping_in_progress() || !IsReadabilityEnabled()) {
     return;
   }
   model_.set_has_logged_early_selection(true);

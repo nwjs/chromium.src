@@ -6,7 +6,6 @@
 
 #include <utility>
 
-#include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/mojom/notifications/notification.mojom-blink.h"
@@ -58,8 +57,9 @@ NotificationManager::NotificationManager(ExecutionContext& context)
 NotificationManager::~NotificationManager() = default;
 
 mojom::blink::PermissionStatus NotificationManager::GetPermissionStatus() {
-  if (GetSupplementable()->IsContextDestroyed())
+  if (GetSupplementable()->IsContextDestroyed()) {
     return mojom::blink::PermissionStatus::DENIED;
+  }
 
   // Tentatively have an early return to avoid calling GetNotificationService()
   // during prerendering. The return value is the same as
@@ -72,8 +72,6 @@ mojom::blink::PermissionStatus NotificationManager::GetPermissionStatus() {
     }
   }
 
-  SCOPED_UMA_HISTOGRAM_TIMER(
-      "Blink.NotificationManager.GetPermissionStatusTime");
   mojom::blink::PermissionStatus permission_status;
   if (!GetNotificationService()->GetPermissionStatus(&permission_status)) {
     // The browser-side Mojo connection was closed, disabling notifications.
@@ -264,6 +262,7 @@ void NotificationManager::DidDisplayPersistentNotification(
 
 void NotificationManager::ClosePersistentNotification(
     const WebString& notification_id) {
+  CHECK(!notification_id.IsEmpty());
   GetNotificationService()->ClosePersistentNotification(notification_id);
 }
 
@@ -284,8 +283,9 @@ void NotificationManager::DidGetNotifications(
     Vector<mojom::blink::NotificationDataPtr> notification_datas) {
   DCHECK_EQ(notification_ids.size(), notification_datas.size());
   ExecutionContext* context = resolver->GetExecutionContext();
-  if (!context)
+  if (!context) {
     return;
+  }
 
   HeapVector<Member<Notification>> notifications;
   notifications.ReserveInitialCapacity(notification_ids.size());

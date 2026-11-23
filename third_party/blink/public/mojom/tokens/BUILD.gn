@@ -74,10 +74,6 @@ mojom_component("tokens") {
           cpp = "::blink::PaintWorkletToken"
         },
         {
-          mojom = "blink.mojom.SharedStorageWorkletToken"
-          cpp = "::blink::SharedStorageWorkletToken"
-        },
-        {
           mojom = "blink.mojom.WorkletToken"
           cpp = "::blink::WorkletToken"
         },
@@ -102,6 +98,10 @@ mojom_component("tokens") {
         {
           mojom = "blink.mojom.SameDocNavigationScreenshotDestinationToken"
           cpp = "::blink::SameDocNavigationScreenshotDestinationToken"
+        },
+        {
+          mojom = "blink.mojom.ToolInvocationToken"
+          cpp = "::blink::ToolInvocationToken"
         },
         {
           mojom = "blink.mojom.V8ContextToken"

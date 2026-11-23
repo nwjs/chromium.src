@@ -8,6 +8,7 @@
 #include <string_view>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
@@ -26,6 +27,7 @@
 #include "base/time/time.h"
 #include "google_apis/gcm/base/encryptor.h"
 #include "google_apis/gcm/base/gcm_constants.h"
+#include "google_apis/gcm/base/gcm_features.h"
 #include "google_apis/gcm/base/mcs_message.h"
 #include "google_apis/gcm/base/mcs_util.h"
 #include "google_apis/gcm/protocol/mcs.pb.h"
@@ -100,30 +102,35 @@ const char kGServiceSettingKeyStart[] = "gservice1-";
 const char kGServiceSettingKeyEnd[] = "gservice2-";
 // Key for digest of the last G-services settings update.
 const char kGServiceSettingsDigestKey[] = "gservices_digest";
-// Key used to indicate how many accounts were last checked in with this device.
-const char kLastCheckinAccountsKey[] = "last_checkin_accounts_count";
 // Key used to timestamp last checkin (marked with G services settings update).
 const char kLastCheckinTimeKey[] = "last_checkin_time";
-// Lowest lexicographically ordered account key.
-// Used for prefixing account information.
-const char kAccountKeyStart[] = "account1-";
-// Key guaranteed to be higher than all account keys.
-// Used for limiting iteration.
-const char kAccountKeyEnd[] = "account2-";
 // Lowest lexicographically ordered heartbeat key.
 // Used for prefixing account information.
 const char kHeartbeatKeyStart[] = "heartbeat1-";
 // Key guaranteed to be higher than all heartbeat keys.
 // Used for limiting iteration.
 const char kHeartbeatKeyEnd[] = "heartbeat2-";
-// Key used for last token fetch time.
-const char kLastTokenFetchTimeKey[] = "last_token_fetch_time";
 // Lowest lexicographically ordered app ids.
 // Used for prefixing app id.
 const char kInstanceIDKeyStart[] = "iid1-";
 // Key guaranteed to be higher than all app ids.
 // Used for limiting iteration.
 const char kInstanceIDKeyEnd[] = "iid2-";
+
+// ---- Deprecated LevelDB keys. ----
+// Deprecated in October 2026.
+// TODO(crbug.com/384891711): Remove these deprecated keys and their cleanup
+// logic after October 2027.
+// Key used to indicate how many accounts were last checked in with this device.
+const char kDeprecatedLastCheckinAccountsKey[] = "last_checkin_accounts_count";
+// Lowest lexicographically ordered account key.
+// Used for prefixing account information.
+const char kDeprecatedAccountKeyStart[] = "account1-";
+// Key guaranteed to be higher than all account keys.
+// Used for limiting iteration.
+const char kDeprecatedAccountKeyEnd[] = "account2-";
+// Key used for last token fetch time.
+const char kDeprecatedLastTokenFetchTimeKey[] = "last_token_fetch_time";
 
 std::string MakeRegistrationKey(const std::string& app_id) {
   return kRegistrationKeyStart + app_id;
@@ -159,14 +166,6 @@ std::string MakeGServiceSettingKey(const std::string& setting_name) {
 
 std::string ParseGServiceSettingKey(const std::string& key) {
   return key.substr(std::size(kGServiceSettingKeyStart) - 1);
-}
-
-std::string MakeAccountKey(const CoreAccountId& account_id) {
-  return kAccountKeyStart + account_id.ToString();
-}
-
-CoreAccountId ParseAccountKey(const std::string& key) {
-  return CoreAccountId::FromString(key.substr(std::size(kAccountKeyStart) - 1));
 }
 
 std::string MakeHeartbeatKey(const std::string& scope) {
@@ -228,17 +227,10 @@ class GCMStoreImpl::Backend
                            UpdateCallback callback);
   void RemoveUserSerialNumber(const std::string& username,
                               UpdateCallback callback);
-  void SetLastCheckinInfo(const base::Time& time,
-                          const std::set<std::string>& accounts,
-                          UpdateCallback callback);
+  void SetLastCheckinInfo(const base::Time& time, UpdateCallback callback);
   void SetGServicesSettings(const std::map<std::string, std::string>& settings,
                             const std::string& digest,
                             UpdateCallback callback);
-  void AddAccountMapping(const AccountMapping& account_mapping,
-                         UpdateCallback callback);
-  void RemoveAccountMapping(const CoreAccountId& account_id,
-                            UpdateCallback callback);
-  void SetLastTokenFetchTime(const base::Time& time, UpdateCallback callback);
   void AddHeartbeatInterval(const std::string& scope,
                             int interval_ms,
                             UpdateCallback callback);
@@ -264,10 +256,10 @@ class GCMStoreImpl::Backend
   bool LoadLastCheckinInfo(base::Time* last_checkin_time);
   bool LoadGServicesSettings(std::map<std::string, std::string>* settings,
                              std::string* digest);
-  bool LoadAccountMappingInfo(AccountMappings* account_mappings);
-  bool LoadLastTokenFetchTime(base::Time* last_token_fetch_time);
   bool LoadHeartbeatIntervals(std::map<std::string, int>* heartbeat_intervals);
   bool LoadInstanceIDData(std::map<std::string, std::string>* instance_id_data);
+  // Removes deprecated entries from the database on load.
+  void RemoveDeprecatedData();
 
   const base::FilePath path_;
   scoped_refptr<base::SequencedTaskRunner> foreground_task_runner_;
@@ -340,14 +332,12 @@ LoadStatus GCMStoreImpl::Backend::OpenStoreAndLoadData(StoreOpenMode open_mode,
                              &result->gservices_digest)) {
     return load_status = LOADING_GSERVICE_SETTINGS_FAILED;
   }
-  if (!LoadAccountMappingInfo(&result->account_mappings))
-    return LOADING_ACCOUNT_MAPPING_FAILED;
-  if (!LoadLastTokenFetchTime(&result->last_token_fetch_time))
-    return LOADING_LAST_TOKEN_TIME_FAILED;
   if (!LoadHeartbeatIntervals(&result->heartbeat_intervals))
     return LOADING_HEARTBEAT_INTERVALS_FAILED;
   if (!LoadInstanceIDData(&result->instance_id_data))
     return LOADING_INSTANCE_ID_DATA_FAILED;
+
+  RemoveDeprecatedData();
 
   return LOADING_SUCCEEDED;
 }
@@ -638,28 +628,13 @@ void GCMStoreImpl::Backend::RemoveOutgoingMessages(
       base::BindOnce(std::move(callback), false, AppIdToMessageCountMap()));
 }
 
-void GCMStoreImpl::Backend::SetLastCheckinInfo(
-    const base::Time& time,
-    const std::set<std::string>& accounts,
-    UpdateCallback callback) {
+void GCMStoreImpl::Backend::SetLastCheckinInfo(const base::Time& time,
+                                               UpdateCallback callback) {
   leveldb::WriteBatch write_batch;
 
   int64_t last_checkin_time_internal = time.ToInternalValue();
   write_batch.Put(MakeSlice(kLastCheckinTimeKey),
                   MakeSlice(base::NumberToString(last_checkin_time_internal)));
-
-  std::string serialized_accounts;
-  for (std::set<std::string>::iterator iter = accounts.begin();
-       iter != accounts.end();
-       ++iter) {
-    serialized_accounts += *iter;
-    serialized_accounts += ",";
-  }
-  if (!serialized_accounts.empty())
-    serialized_accounts.erase(serialized_accounts.length() - 1);
-
-  write_batch.Put(MakeSlice(kLastCheckinAccountsKey),
-                  MakeSlice(serialized_accounts));
 
   leveldb::WriteOptions write_options;
   write_options.sync = true;
@@ -722,76 +697,6 @@ void GCMStoreImpl::Backend::SetGServicesSettings(
   leveldb::Status s = db_->Write(write_options, &write_batch);
   if (!s.ok())
     LOG(ERROR) << "LevelDB GService Settings update failed: " << s.ToString();
-  foreground_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), s.ok()));
-}
-
-void GCMStoreImpl::Backend::AddAccountMapping(
-    const AccountMapping& account_mapping,
-    UpdateCallback callback) {
-  DVLOG(1) << "Saving account info for account with email: "
-           << account_mapping.email;
-  if (!db_.get()) {
-    LOG(ERROR) << "GCMStore db doesn't exist.";
-    foreground_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), false));
-    return;
-  }
-
-  leveldb::WriteOptions write_options;
-  write_options.sync = true;
-
-  std::string data = account_mapping.SerializeAsString();
-  std::string key = MakeAccountKey(account_mapping.account_id);
-  const leveldb::Status s =
-      db_->Put(write_options, MakeSlice(key), MakeSlice(data));
-  if (!s.ok())
-    LOG(ERROR) << "LevelDB adding account mapping failed: " << s.ToString();
-  foreground_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), s.ok()));
-}
-
-void GCMStoreImpl::Backend::RemoveAccountMapping(
-    const CoreAccountId& account_id,
-    UpdateCallback callback) {
-  if (!db_.get()) {
-    LOG(ERROR) << "GCMStore db doesn't exist.";
-    foreground_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), false));
-    return;
-  }
-
-  leveldb::WriteOptions write_options;
-  write_options.sync = true;
-
-  leveldb::Status s =
-      db_->Delete(write_options, MakeSlice(MakeAccountKey(account_id)));
-
-  if (!s.ok())
-    LOG(ERROR) << "LevelDB removal of account mapping failed: " << s.ToString();
-  foreground_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(std::move(callback), s.ok()));
-}
-
-void GCMStoreImpl::Backend::SetLastTokenFetchTime(const base::Time& time,
-                                                  UpdateCallback callback) {
-  DVLOG(1) << "Setting last token fetching time.";
-  if (!db_.get()) {
-    LOG(ERROR) << "GCMStore db doesn't exist.";
-    foreground_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), false));
-    return;
-  }
-
-  leveldb::WriteOptions write_options;
-  write_options.sync = true;
-
-  const leveldb::Status s =
-      db_->Put(write_options, MakeSlice(kLastTokenFetchTimeKey),
-               MakeSlice(base::NumberToString(time.ToInternalValue())));
-
-  if (!s.ok())
-    LOG(ERROR) << "LevelDB setting last token fetching time: " << s.ToString();
   foreground_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(std::move(callback), s.ok()));
 }
@@ -1101,55 +1006,6 @@ bool GCMStoreImpl::Backend::LoadGServicesSettings(
   return true;
 }
 
-bool GCMStoreImpl::Backend::LoadAccountMappingInfo(
-    AccountMappings* account_mappings) {
-  leveldb::ReadOptions read_options;
-  read_options.verify_checksums = true;
-
-  AccountMappings loaded_account_mappings;
-  std::unique_ptr<leveldb::Iterator> iter(db_->NewIterator(read_options));
-  for (iter->Seek(MakeSlice(kAccountKeyStart));
-       iter->Valid() && iter->key().ToString() < kAccountKeyEnd;
-       iter->Next()) {
-    AccountMapping account_mapping;
-    account_mapping.account_id = ParseAccountKey(iter->key().ToString());
-    if (!account_mapping.ParseFromString(iter->value().ToString())) {
-      DVLOG(1) << "Failed to parse account info with ID: "
-               << account_mapping.account_id;
-      return false;
-    }
-    DVLOG(1) << "Found account mapping with ID: " << account_mapping.account_id;
-    loaded_account_mappings.push_back(account_mapping);
-  }
-
-  for (const auto& account_mapping : loaded_account_mappings) {
-    account_mappings->push_back(account_mapping);
-  }
-
-  return true;
-}
-
-bool GCMStoreImpl::Backend::LoadLastTokenFetchTime(
-    base::Time* last_token_fetch_time) {
-  leveldb::ReadOptions read_options;
-  read_options.verify_checksums = true;
-
-  std::string result;
-  leveldb::Status s =
-      db_->Get(read_options, MakeSlice(kLastTokenFetchTimeKey), &result);
-  int64_t time_internal = 0LL;
-  if (s.ok() && !base::StringToInt64(result, &time_internal)) {
-    LOG(ERROR) <<
-        "Failed to restore last token fetching time. Using default = 0.";
-    time_internal = 0LL;
-  }
-
-  // In case we cannot read last token fetching time, we default it to 0.
-  *last_token_fetch_time = base::Time::FromInternalValue(time_internal);
-
-  return true;
-}
-
 bool GCMStoreImpl::Backend::LoadHeartbeatIntervals(
     std::map<std::string, int>* heartbeat_intervals) {
   leveldb::ReadOptions read_options;
@@ -1194,6 +1050,53 @@ bool GCMStoreImpl::Backend::LoadInstanceIDData(
   }
 
   return true;
+}
+
+void GCMStoreImpl::Backend::RemoveDeprecatedData() {
+  if (!base::FeatureList::IsEnabled(features::kGCMRemoveDeprecatedStoreData)) {
+    return;
+  }
+
+  leveldb::ReadOptions read_options;
+  read_options.verify_checksums = true;
+
+  leveldb::WriteBatch write_batch;
+  bool has_deprecated_data = false;
+
+  std::unique_ptr<leveldb::Iterator> iter(db_->NewIterator(read_options));
+  for (iter->Seek(MakeSlice(kDeprecatedAccountKeyStart));
+       iter->Valid() && iter->key().ToString() < kDeprecatedAccountKeyEnd;
+       iter->Next()) {
+    write_batch.Delete(iter->key());
+    has_deprecated_data = true;
+  }
+
+  std::string value;
+  if (db_->Get(read_options, MakeSlice(kDeprecatedLastTokenFetchTimeKey),
+               &value)
+          .ok()) {
+    write_batch.Delete(MakeSlice(kDeprecatedLastTokenFetchTimeKey));
+    has_deprecated_data = true;
+  }
+
+  if (db_->Get(read_options, MakeSlice(kDeprecatedLastCheckinAccountsKey),
+               &value)
+          .ok()) {
+    write_batch.Delete(MakeSlice(kDeprecatedLastCheckinAccountsKey));
+    has_deprecated_data = true;
+  }
+
+  if (!has_deprecated_data) {
+    return;
+  }
+
+  leveldb::WriteOptions write_options;
+  write_options.sync = true;
+  leveldb::Status status = db_->Write(write_options, &write_batch);
+  if (!status.ok()) {
+    LOG(ERROR) << "LevelDB deprecated data removal failed: "
+               << status.ToString();
+  }
 }
 
 GCMStoreImpl::GCMStoreImpl(
@@ -1347,10 +1250,8 @@ void GCMStoreImpl::RemoveOutgoingMessages(
 void GCMStoreImpl::SetLastCheckinInfo(const base::Time& time,
                                       UpdateCallback callback) {
   blocking_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&GCMStoreImpl::Backend::SetLastCheckinInfo, backend_, time,
-                     /*accounts*/ std::set<std::string>(),
-                     std::move(callback)));
+      FROM_HERE, base::BindOnce(&GCMStoreImpl::Backend::SetLastCheckinInfo,
+                                backend_, time, std::move(callback)));
 }
 
 void GCMStoreImpl::SetGServicesSettings(
@@ -1361,28 +1262,6 @@ void GCMStoreImpl::SetGServicesSettings(
       FROM_HERE,
       base::BindOnce(&GCMStoreImpl::Backend::SetGServicesSettings, backend_,
                      settings, digest, std::move(callback)));
-}
-
-void GCMStoreImpl::AddAccountMapping(const AccountMapping& account_mapping,
-                                     UpdateCallback callback) {
-  blocking_task_runner_->PostTask(
-      FROM_HERE,
-      base::BindOnce(&GCMStoreImpl::Backend::AddAccountMapping, backend_,
-                     account_mapping, std::move(callback)));
-}
-
-void GCMStoreImpl::RemoveAccountMapping(const CoreAccountId& account_id,
-                                        UpdateCallback callback) {
-  blocking_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&GCMStoreImpl::Backend::RemoveAccountMapping,
-                                backend_, account_id, std::move(callback)));
-}
-
-void GCMStoreImpl::SetLastTokenFetchTime(const base::Time& time,
-                                         UpdateCallback callback) {
-  blocking_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&GCMStoreImpl::Backend::SetLastTokenFetchTime,
-                                backend_, time, std::move(callback)));
 }
 
 void GCMStoreImpl::AddHeartbeatInterval(const std::string& scope,

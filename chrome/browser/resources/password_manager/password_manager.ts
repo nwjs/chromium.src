@@ -4,8 +4,10 @@
 
 import './password_manager_app.js';
 
-export {SettingsPrefsElement} from '/shared/settings/prefs/prefs.js';
-export {CrSettingsPrefs} from '/shared/settings/prefs/prefs_types.js';
+export {PrefService} from '/shared/settings/prefs2/pref_service.js';
+export {PrefServiceObserverMixin} from '/shared/settings/prefs2/pref_service_observer_mixin.js';
+export type {PrefServiceObserverMixinInterface} from '/shared/settings/prefs2/pref_service_observer_mixin.js';
+export {PrefsBrowserProxy} from '/shared/settings/prefs2/prefs_browser_proxy.js';
 export {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 export {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
 export {CrExpandButtonElement} from 'chrome://resources/cr_elements/cr_expand_button/cr_expand_button.js';
@@ -41,12 +43,15 @@ export type {PasskeysBrowserProxy} from './passkeys_browser_proxy.js';
 export {PasswordChangeDetailsElement} from './password_change_details.js';
 export {PasswordDetailsSectionElement} from './password_details_section.js';
 export {PasswordListItemElement} from './password_list_item.js';
+export type {ImportEntry, ImportResults} from './password_manager.mojom-webui.js';
+export {ExportPasswordsResult, ExportProgressStatus, ImportEntryStatus, ImportResultsStatus, PageCallbackRouter, PasswordAutomaticChangeState, PasswordManagerActionableError} from './password_manager.mojom-webui.js';
 export {PasswordManagerAppElement} from './password_manager_app.js';
-export type {AccountStorageActiveStateChangedListener, BlockedSite, BlockedSitesListChangedListener, CredentialsChangedListener, ImportEntry, ImportResults, PasswordCheckStatusChangedListener, PasswordManagerActionableErrorChangedListener, PasswordManagerAuthTimeoutListener, PasswordManagerProxy} from './password_manager_proxy.js';
-export {ExportPasswordsResult, ExportProgressStatus, ImportEntryStatus, ImportResultsStatus, PageCallbackRouter, PasswordAutomaticChangeState, PasswordCheckInteraction, PasswordManagerActionableError, PasswordManagerImpl, PasswordViewPageInteractions, toMojoActionableError} from './password_manager_proxy.js';
+export type {AccountStorageActiveStateChangedListener, BlockedSite, BlockedSitesListChangedListener, CredentialsChangedListener, PasswordCheckStatusChangedListener, PasswordManagerActionableErrorChangedListener, PasswordManagerAuthTimeoutListener, PasswordManagerProxy} from './password_manager_proxy.js';
+export {PasswordCheckInteraction, PasswordManagerImpl, PasswordViewPageInteractions, toMojoActionableError} from './password_manager_proxy.js';
 export {PasswordsExporterElement} from './passwords_exporter.js';
 export {PasswordsImporterElement} from './passwords_importer.js';
 export {PasswordsSectionElement} from './passwords_section.js';
+export {isSavingNewPasswordsBlockedByMandatoryPolicy} from './prefs/policy_utils.js';
 export {PrefToggleButtonElement} from './prefs/pref_toggle_button.js';
 export type {RouteObserverMixinInterface} from './router.js';
 export {CheckupSubpage, Page, Route, RouteObserverMixin, Router, UrlParam} from './router.js';

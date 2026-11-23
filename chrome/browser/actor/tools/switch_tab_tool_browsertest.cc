@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "base/test/scoped_feature_list.h"
+#include "build/build_config.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
@@ -12,16 +13,14 @@
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/tools/tools_test_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/test/base/ui_test_utils.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
-#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 namespace actor {
@@ -43,6 +42,9 @@ class ActorSwitchTabToolBrowserTest : public ActorToolsTest {
     ASSERT_TRUE(embedded_https_test_server().Start());
   }
 
+ protected:
+  int active_index() { return tab_list()->GetActiveIndex(); }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
@@ -58,10 +60,8 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   // "example.com/title1.html").
   const GURL active_url =
       embedded_https_test_server().GetURL("example.com", "/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), active_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(active_url));
+  ASSERT_EQ(active_index(), 1);
 
   std::unique_ptr<ToolRequest> action =
       std::make_unique<SwitchTabToolRequest>("Awesomeness");
@@ -69,9 +69,8 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
 
-  EXPECT_EQ(browser()->GetTabStripModel()->active_index(), 0);
-  EXPECT_EQ(browser()->GetTabStripModel()->GetActiveWebContents()->GetURL(),
-            target_url);
+  EXPECT_EQ(active_index(), 0);
+  EXPECT_EQ(tab_list()->GetActiveTab()->GetContents()->GetURL(), target_url);
 }
 
 IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
@@ -82,10 +81,8 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
 
   const GURL active_url = embedded_https_test_server().GetURL(
       "example.com", "/title1.html?active_page");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), active_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(active_url));
+  ASSERT_EQ(active_index(), 1);
 
   std::unique_ptr<ToolRequest> action =
       std::make_unique<SwitchTabToolRequest>("target_page");
@@ -93,7 +90,7 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
 
-  EXPECT_EQ(browser()->GetTabStripModel()->active_index(), 0);
+  EXPECT_EQ(active_index(), 0);
 }
 
 // When both the currently active tab and a single background tab match `query`,
@@ -108,10 +105,8 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   // Active tab also has title "Title Of Awesomeness" (/title2.html).
   const GURL active_url =
       embedded_https_test_server().GetURL("example.com", "/title2.html?fg");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), active_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(active_url));
+  ASSERT_EQ(active_index(), 1);
 
   std::unique_ptr<ToolRequest> action =
       std::make_unique<SwitchTabToolRequest>("Awesomeness");
@@ -119,7 +114,7 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
 
-  EXPECT_EQ(browser()->GetTabStripModel()->active_index(), 0);
+  EXPECT_EQ(active_index(), 0);
 }
 
 // When only the currently active tab matches `query`, ignoring the active tab
@@ -134,10 +129,8 @@ IN_PROC_BROWSER_TEST_F(
 
   const GURL active_url =
       embedded_https_test_server().GetURL("example.com", "/title2.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), active_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(active_url));
+  ASSERT_EQ(active_index(), 1);
 
   std::unique_ptr<ToolRequest> action =
       std::make_unique<SwitchTabToolRequest>("Awesomeness");
@@ -146,7 +139,7 @@ IN_PROC_BROWSER_TEST_F(
   ExpectErrorResult(result,
                     mojom::ActionResultCode::kPageSearchAlreadyOnMatchingTab);
 
-  EXPECT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  EXPECT_EQ(active_index(), 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
@@ -157,16 +150,12 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
 
   const GURL background_url2 =
       embedded_https_test_server().GetURL("example.com", "/title2.html?bg2");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), background_url2, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(background_url2));
 
   const GURL active_url =
       embedded_https_test_server().GetURL("example.com", "/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), active_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 2);
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(active_url));
+  ASSERT_EQ(active_index(), 2);
 
   std::unique_ptr<ToolRequest> action =
       std::make_unique<SwitchTabToolRequest>("Awesomeness");
@@ -174,7 +163,7 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kPageSearchAmbiguousMatch);
 
-  EXPECT_EQ(browser()->GetTabStripModel()->active_index(), 2);
+  EXPECT_EQ(active_index(), 2);
 }
 
 IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest, SwitchTabTool_NoMatch) {
@@ -210,10 +199,8 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
 
   const GURL active_url =
       embedded_https_test_server().GetURL("example.com", "/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), active_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(active_url));
+  ASSERT_EQ(active_index(), 1);
 
   std::unique_ptr<ToolRequest> action =
       std::make_unique<SwitchTabToolRequest>("Awesomeness");
@@ -221,7 +208,7 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectErrorResult(result, mojom::ActionResultCode::kUrlBlocked);
 
-  EXPECT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  EXPECT_EQ(active_index(), 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
@@ -229,7 +216,7 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   // Create a task configured with kRequireHttpsOrHttpOrNtp so that NTP
   // navigation is permitted by origin gating.
   task_id_ =
-      ActorKeyedService::Get(browser()->GetProfile())
+      ActorKeyedService::Get(GetProfile())
           ->CreateTask(
               TaskSourceInfo(TaskSourceInfo::Client::kTtc, "ttc"),
               NoEnterprisePolicyChecker(),
@@ -240,10 +227,8 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
 
   const GURL active_url =
       embedded_https_test_server().GetURL("example.com", "/title1.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
-      browser(), active_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP));
-  ASSERT_EQ(browser()->GetTabStripModel()->active_index(), 1);
+  ASSERT_NO_FATAL_FAILURE(OpenForegroundTab(active_url));
+  ASSERT_EQ(active_index(), 1);
 
   std::unique_ptr<ToolRequest> action =
       std::make_unique<SwitchTabToolRequest>("newtab");
@@ -251,9 +236,8 @@ IN_PROC_BROWSER_TEST_F(ActorSwitchTabToolBrowserTest,
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
 
-  EXPECT_EQ(browser()->GetTabStripModel()->active_index(), 0);
-  EXPECT_EQ(browser()->GetTabStripModel()->GetActiveWebContents()->GetURL(),
-            ntp_url);
+  EXPECT_EQ(active_index(), 0);
+  EXPECT_EQ(tab_list()->GetActiveTab()->GetContents()->GetURL(), ntp_url);
 }
 
 }  // namespace

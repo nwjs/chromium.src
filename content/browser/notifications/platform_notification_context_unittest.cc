@@ -14,6 +14,9 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/test_future.h"
+#include "base/test/test_mock_time_task_runner.h"
+#include "content/browser/notifications/notification_database_conversions.h"
 #include "content/browser/notifications/platform_notification_context_impl.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
@@ -29,6 +32,7 @@
 #include "content/public/test/test_browser_context.h"
 #include "content/test/mock_platform_notification_service.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "storage/common/database/database_identifier.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/notifications/notification_resources.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
@@ -36,7 +40,9 @@
 #include "third_party/blink/public/mojom/notifications/notification_service.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration_options.mojom.h"
+#include "third_party/leveldatabase/env_chromium.h"
 #include "third_party/leveldatabase/leveldb_chrome.h"
+#include "third_party/leveldatabase/src/include/leveldb/db.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_MAC)
@@ -129,9 +135,11 @@ class PlatformNotificationContextTest : public ::testing::Test {
 
   // Overrides the task runner in |context| with the current message loop
   // proxy, to reduce the number of threads involved in the tests.
-  void OverrideTaskRunnerForTesting(PlatformNotificationContextImpl* context) {
-    context->SetTaskRunnerForTesting(
-        base::SingleThreadTaskRunner::GetCurrentDefault());
+  void OverrideTaskRunnerForTesting(
+      PlatformNotificationContextImpl* context,
+      scoped_refptr<base::SequencedTaskRunner> task_runner =
+          base::SingleThreadTaskRunner::GetCurrentDefault()) {
+    context->SetTaskRunnerForTesting(std::move(task_runner));
   }
 
   // Gets the currently displayed notifications from |service| synchronously.
@@ -529,6 +537,92 @@ TEST_F(PlatformNotificationContextTest, DeleteClosesNotification) {
   // Deleting the notification data should have closed the notification.
   ASSERT_TRUE(success());
   EXPECT_EQ(0u, GetDisplayedNotificationsSync(service).size());
+}
+
+TEST_F(PlatformNotificationContextTest,
+       DeleteNotificationDataClosesAfterDatabaseTask) {
+  PlatformNotificationService* service =
+      browser_context()->GetPlatformNotificationService();
+
+  auto db_task_runner = base::MakeRefCounted<base::TestMockTimeTaskRunner>();
+  auto context = base::MakeRefCounted<PlatformNotificationContextImpl>(
+      base::FilePath(), browser_context(), nullptr);
+  OverrideTaskRunnerForTesting(context.get(), db_task_runner);
+  context->Initialize();
+  db_task_runner->RunUntilIdle();
+  base::RunLoop().RunUntilIdle();
+
+  GURL origin("https://example.com");
+  NotificationDatabaseData notification_database_data;
+  notification_database_data.origin = origin;
+  notification_database_data.service_worker_registration_id =
+      kFakeServiceWorkerRegistrationId;
+  notification_database_data.notification_data.tag = "chat-tag";
+
+  // Write an initial tagged notification and flush both task runners so the
+  // notification is displayed and its deterministic tagged ID is known.
+  context->WriteNotificationData(
+      next_persistent_notification_id(), kFakeServiceWorkerRegistrationId,
+      origin, notification_database_data,
+      base::BindOnce(&PlatformNotificationContextTest::DidWriteNotificationData,
+                     base::Unretained(this)));
+  db_task_runner->RunUntilIdle();
+  base::RunLoop().RunUntilIdle();
+  ASSERT_TRUE(success());
+  const std::string tagged_id = notification_id();
+  ASSERT_EQ(1u, GetDisplayedNotificationsSync(service).size());
+
+  // Queue a replacement WriteNotificationData followed by
+  // DeleteNotificationData on the UI thread before the database task runner
+  // executes.
+  context->WriteNotificationData(
+      next_persistent_notification_id(), kFakeServiceWorkerRegistrationId,
+      origin, notification_database_data,
+      base::BindOnce(&PlatformNotificationContextTest::DidWriteNotificationData,
+                     base::Unretained(this)));
+  context->DeleteNotificationData(
+      tagged_id, origin, /*close_notification=*/true,
+      base::BindOnce(
+          &PlatformNotificationContextTest::DidDeleteNotificationData,
+          base::Unretained(this)));
+
+  // Flushing the UI thread before the database task runner executes must not
+  // prematurely close the currently displayed notification.
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(1u, GetDisplayedNotificationsSync(service).size());
+
+  // Once the serialized database tasks run and their UI callbacks complete,
+  // DisplayNotification runs before CloseNotifications, leaving 0 displayed
+  // notifications.
+  db_task_runner->RunUntilIdle();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(success());
+  EXPECT_EQ(0u, GetDisplayedNotificationsSync(service).size());
+
+  // Now verify the reverse sequence (DeleteNotificationData followed by
+  // WriteNotificationData for the same tag): CloseNotifications must run on
+  // the UI thread before DisplayNotification so the newly written notification
+  // remains displayed.
+  context->DeleteNotificationData(
+      tagged_id, origin, /*close_notification=*/true,
+      base::BindOnce(
+          &PlatformNotificationContextTest::DidDeleteNotificationData,
+          base::Unretained(this)));
+  context->WriteNotificationData(
+      next_persistent_notification_id(), kFakeServiceWorkerRegistrationId,
+      origin, notification_database_data,
+      base::BindOnce(&PlatformNotificationContextTest::DidWriteNotificationData,
+                     base::Unretained(this)));
+  db_task_runner->RunUntilIdle();
+  base::RunLoop().RunUntilIdle();
+  EXPECT_TRUE(success());
+  EXPECT_EQ(1u, GetDisplayedNotificationsSync(service).size());
+
+  // Release `context` and flush `db_task_runner` so `DeleteSoon` frees
+  // `database_` before `db_task_runner` goes out of scope.
+  context->Shutdown();
+  context.reset();
+  db_task_runner->RunUntilIdle();
 }
 
 TEST_F(PlatformNotificationContextTest,
@@ -1350,6 +1444,159 @@ TEST_F(PlatformNotificationContextTest, WriteReadNotificationMetadata) {
   histogram_tester.ExpectBucketCount(
       "Notifications.Database.WriteNotificationMetadataUpdateResult",
       /*sample=*/0, /*expected_count=*/3);
+}
+
+TEST_F(PlatformNotificationContextTest,
+       DestroyDatabaseOnCorruptedNotificationIdDuringSync) {
+  base::ScopedTempDir database_dir;
+  ASSERT_TRUE(database_dir.CreateUniqueTempDir());
+
+  GURL origin("https://example.com");
+  base::FilePath db_path = database_dir.GetPath().Append(
+      FILE_PATH_LITERAL("Platform Notifications"));
+
+  // Create an on-disk database containing a corrupted DATA: record whose
+  // serialized proto is missing `notification_id`.
+  {
+    NotificationDatabaseData corrupted_data;
+    corrupted_data.origin = origin;
+    std::string serialized_data;
+    ASSERT_TRUE(
+        SerializeNotificationDatabaseData(corrupted_data, &serialized_data));
+
+    std::unique_ptr<leveldb::DB> db;
+    leveldb_env::Options options;
+    options.create_if_missing = true;
+    ASSERT_TRUE(leveldb_env::OpenDB(options, db_path.AsUTF8Unsafe(), &db).ok());
+    std::string key =
+        "DATA:" + storage::GetIdentifierFromOrigin(origin) + '\0' + "bad-id";
+    ASSERT_TRUE(db->Put(leveldb::WriteOptions(), key, serialized_data).ok());
+  }
+  EXPECT_FALSE(base::IsDirectoryEmpty(db_path));
+
+  // Initializing the context runs DoSyncNotificationData(), which should detect
+  // STATUS_ERROR_CORRUPTED and destroy the database instead of crashing in
+  // DeleteNotificationData().
+  auto context = CreatePlatformNotificationContext(database_dir.GetPath());
+  EXPECT_TRUE(base::IsDirectoryEmpty(db_path));
+
+  // Subsequent reads should re-initialize a clean database.
+  EXPECT_EQ(0u, GetStoredNotificationsSync(context.get(), origin).size());
+  EXPECT_FALSE(base::IsDirectoryEmpty(db_path));
+}
+
+TEST_F(PlatformNotificationContextTest,
+       PurgeNonPersistentNotificationIdOnReadAll) {
+  base::ScopedTempDir database_dir;
+  ASSERT_TRUE(database_dir.CreateUniqueTempDir());
+
+  GURL origin("https://example.com");
+  const std::string kCorruptedId = "not-a-persistent-id";
+  base::FilePath db_path = database_dir.GetPath().Append(
+      FILE_PATH_LITERAL("Platform Notifications"));
+
+  // Write a corrupted DATA: record whose ID lacks the persistent prefix. It is
+  // a pending scheduled notification so that the startup sync keeps it.
+  {
+    NotificationDatabaseData corrupted_data;
+    corrupted_data.notification_id = kCorruptedId;
+    corrupted_data.origin = origin;
+    corrupted_data.service_worker_registration_id =
+        kFakeServiceWorkerRegistrationId;
+    corrupted_data.creation_time_millis = base::Time::Now();
+    corrupted_data.notification_data.show_trigger_timestamp =
+        base::Time::Now() + base::Days(1);
+    std::string serialized_data;
+    ASSERT_TRUE(
+        SerializeNotificationDatabaseData(corrupted_data, &serialized_data));
+
+    std::unique_ptr<leveldb::DB> db;
+    leveldb_env::Options options;
+    options.create_if_missing = true;
+    ASSERT_TRUE(leveldb_env::OpenDB(options, db_path.AsUTF8Unsafe(), &db).ok());
+    std::string key = "DATA:" + storage::GetIdentifierFromOrigin(origin) +
+                      '\0' + kCorruptedId;
+    ASSERT_TRUE(db->Put(leveldb::WriteOptions(), key, serialized_data).ok());
+  }
+
+  auto context = CreatePlatformNotificationContext(database_dir.GetPath());
+
+  // Reading all notifications with synchronization support must not hit a
+  // CHECK on the non-persistent ID; the record is dropped from the result.
+  EXPECT_EQ(0u, GetStoredNotificationsSync(context.get(), origin).size());
+
+  // The corrupted record should have been purged from the database.
+  base::test::TestFuture<bool, const NotificationDatabaseData&> read_future;
+  context->ReadNotificationDataAndRecordInteraction(
+      kCorruptedId, origin, PlatformNotificationContext::Interaction::NONE,
+      read_future.GetCallback());
+  EXPECT_FALSE(read_future.Get<0>());
+}
+
+TEST_F(PlatformNotificationContextTest, EmptyNotificationIdAndInvalidOrigin) {
+  scoped_refptr<PlatformNotificationContextImpl> context =
+      CreatePlatformNotificationContext();
+  GURL origin("https://example.com");
+
+  // Deleting with an empty notification_id or invalid origin should fail
+  // gracefully without hitting CHECKs.
+  {
+    base::test::TestFuture<bool> delete_future;
+    context->DeleteNotificationData(
+        /*notification_id=*/"", origin, /*close_notification=*/true,
+        delete_future.GetCallback());
+    EXPECT_FALSE(delete_future.Get());
+  }
+  {
+    base::test::TestFuture<bool> delete_future;
+    context->DeleteNotificationData(
+        /*notification_id=*/"id", GURL(), /*close_notification=*/true,
+        delete_future.GetCallback());
+    EXPECT_FALSE(delete_future.Get());
+  }
+
+  // Reading data with an empty notification_id or invalid origin should fail
+  // gracefully.
+  {
+    base::test::TestFuture<bool, const NotificationDatabaseData&> read_future;
+    context->ReadNotificationDataAndRecordInteraction(
+        /*notification_id=*/"", origin,
+        PlatformNotificationContext::Interaction::NONE,
+        read_future.GetCallback());
+    EXPECT_FALSE(read_future.Get<0>());
+  }
+  {
+    base::test::TestFuture<bool, const NotificationDatabaseData&> read_future;
+    context->ReadNotificationDataAndRecordInteraction(
+        /*notification_id=*/"id", GURL(),
+        PlatformNotificationContext::Interaction::NONE,
+        read_future.GetCallback());
+    EXPECT_FALSE(read_future.Get<0>());
+  }
+
+  // Reading resources with an empty notification_id or invalid origin should
+  // fail gracefully.
+  EXPECT_FALSE(ReadNotificationResourcesSync(context.get(),
+                                             /*notification_id=*/"", origin));
+  EXPECT_FALSE(ReadNotificationResourcesSync(context.get(),
+                                             /*notification_id=*/"id", GURL()));
+
+  // Writing metadata with an empty notification_id or invalid origin should
+  // fail gracefully.
+  EXPECT_FALSE(WriteNotificationMetadataSync(
+      context.get(), /*notification_id=*/"", origin, "key", "value"));
+  EXPECT_FALSE(WriteNotificationMetadataSync(
+      context.get(), /*notification_id=*/"id", GURL(), "key", "value"));
+
+  // Writing resources with an empty notification_id or invalid origin entry
+  // should skip it without crashing.
+  std::vector<NotificationResourceData> resources;
+  resources.emplace_back(
+      /*notification_id=*/"", origin, blink::NotificationResources());
+  resources.emplace_back(
+      /*notification_id=*/"id", GURL(), blink::NotificationResources());
+  EXPECT_TRUE(
+      WriteNotificationResourcesSync(context.get(), std::move(resources)));
 }
 
 }  // namespace content

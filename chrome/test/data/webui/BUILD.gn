@@ -45,6 +45,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/tabs/tab_group_home:constants",
     "//chrome/test:test_support",
+    "//chrome/test/base:chrome_test_utils",
     "//chrome/test/base:test_switches",
     "//chrome/test/base:testing_browser_process",
     "//chrome/test/base:web_ui_mocha_browser_test",
@@ -60,6 +61,8 @@ source_set("browser_tests") {
     "//services/metrics/public/cpp:test_support",
     "//services/metrics/public/cpp:ukm_builders",
     "//ui/compositor",
+    "//ui/native_theme",
+    "//ui/native_theme:test_support",
   ]
 
   if (!is_android) {
@@ -88,7 +91,6 @@ source_set("browser_tests") {
     deps += [
       "//chrome/browser/flags:flags_android",
       "//chrome/browser/ui/webui/tabstrip_ntb",
-      "//chrome/test/base:chrome_test_utils",
       "//components/browser_apis/tab_strip:service",
       "//components/browser_apis/tab_strip/testing",
     ]
@@ -103,6 +105,7 @@ source_set("browser_tests") {
       "actor_overlay/actor_overlay_browsertest.cc",
       "bookmarks/bookmarks_browsertest.cc",
       "chrome_apis/chrome_histograms_browsertest.cc",
+      "chrome_apis/chrome_request_presentation_time_browsertest.cc",
       "chrome_apis/chrome_timeticks_browsertest.cc",
       "content_settings/content_settings_browsertest.cc",
       "context_hub/context_hub_browsertest.cc",
@@ -170,6 +173,16 @@ source_set("browser_tests") {
 
     if (enable_compose) {
       deps += [ "//chrome/browser/compose" ]
+    }
+
+    if (enable_extensions_core) {
+      deps += [
+        "//chrome/browser/extensions",
+        "//chrome/browser/resources/contextual_tasks/extension:resources",
+        "//chrome/browser/ui/tabs:tab_strip",
+        "//extensions/common",
+        "//extensions/common:extension_features",
+      ]
     }
   }
 

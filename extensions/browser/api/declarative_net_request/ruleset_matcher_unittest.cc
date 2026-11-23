@@ -31,6 +31,7 @@
 #include "extensions/browser/api/declarative_net_request/request_params.h"
 #include "extensions/browser/api/declarative_net_request/test_utils.h"
 #include "extensions/browser/api/declarative_net_request/utils.h"
+#include "extensions/browser/api/extensions_api_client.h"
 #include "extensions/browser/extensions_test.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/api/declarative_net_request.h"
@@ -38,6 +39,7 @@
 #include "extensions/common/api/declarative_net_request/test_utils.h"
 #include "extensions/common/extension_features.h"
 #include "extensions/common/features/feature_channel.h"
+#include "net/base/net_errors.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -1346,7 +1348,8 @@ TEST_F(AllowAllRequestsTest, AllowlistedFrameTracking) {
     testing::NiceMock<content::MockNavigationHandle> navigation_handle(
         url, new_host);
     navigation_handle.set_has_committed(true);
-    matcher->OnDidFinishNavigation(&navigation_handle);
+    matcher->OnDidFinishNavigation(&navigation_handle,
+                                   /*has_host_access_for_navigation=*/true);
 
     return new_host;
   };
@@ -1403,6 +1406,149 @@ TEST_F(AllowAllRequestsTest, AllowlistedFrameTracking) {
   EXPECT_FALSE(action);
 }
 
+// Regression test for crbug.com/519999855: verifies that error documents do not
+// gain allowAllRequests privileges from their failed destination URL (neither
+// on initial error commit nor on subsequent same-document navigations), evict
+// stale self-allowlist entries on same-RFH error commits, and still preserve
+// any allowlist action inherited from an enclosing allowlisted parent frame.
+TEST_F(AllowAllRequestsTest, ErrorDocumentTracking) {
+  TestRule parent_allow_rule = CreateGenericRule();
+  parent_allow_rule.id = kMinValidID;
+  parent_allow_rule.condition->url_filter = "||parent-allowed.com";
+  parent_allow_rule.condition->resource_types =
+      std::vector<std::string>({"main_frame"});
+  parent_allow_rule.action->type = "allowAllRequests";
+  parent_allow_rule.priority = 2;
+
+  TestRule subframe_allow_rule = CreateGenericRule();
+  subframe_allow_rule.id = kMinValidID + 1;
+  subframe_allow_rule.condition->url_filter = "||corp-intranet.com";
+  subframe_allow_rule.condition->resource_types =
+      std::vector<std::string>({"sub_frame"});
+  subframe_allow_rule.action->type = "allowAllRequests";
+  subframe_allow_rule.priority = 10;
+
+  TestRule block_rule = CreateGenericRule();
+  block_rule.id = kMinValidID + 2;
+  block_rule.condition->url_filter = "||tracker.com";
+  block_rule.action->type = "block";
+  block_rule.priority = 5;
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(CreateVerifiedMatcher(
+      {parent_allow_rule, subframe_allow_rule, block_rule},
+      CreateTemporarySource(), &matcher));
+
+  auto notify_committed = [&matcher](content::RenderFrameHost* host,
+                                     const GURL& url, bool is_error_page) {
+    testing::NiceMock<content::MockNavigationHandle> navigation_handle(url,
+                                                                       host);
+    navigation_handle.set_has_committed(true);
+    navigation_handle.set_is_error_page(is_error_page);
+    matcher->OnDidFinishNavigation(&navigation_handle,
+                                   /*has_host_access_for_navigation=*/true);
+  };
+
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(
+          browser_context(), content::SiteInstance::Create(browser_context()));
+  ASSERT_TRUE(web_contents);
+
+  // 1. Navigate main frame to a non-allowlisted page and append a child frame.
+  const GURL untrusted_main_url("https://attacker.com/");
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents.get(), untrusted_main_url);
+  content::RenderFrameHost* main_rfh = web_contents->GetPrimaryMainFrame();
+  notify_committed(main_rfh, untrusted_main_url, /*is_error_page=*/false);
+  EXPECT_FALSE(matcher->GetAllowlistedFrameActionForTesting(main_rfh));
+
+  content::RenderFrameHost* child =
+      content::RenderFrameHostTester::For(main_rfh)->AppendChild("sub_frame");
+  ASSERT_TRUE(child);
+
+  // 2. Navigate child frame to https://corp-intranet.com/ and fail (e.g.,
+  // ERR_BLOCKED_BY_CSP). Even though GetLastCommittedURL() holds
+  // https://corp-intranet.com/, the error document must not be allowlisted and
+  // block rules must still apply to its subresource loads.
+  const GURL blocked_allowlisted_url("https://corp-intranet.com/secret");
+  content::RenderFrameHost* error_child =
+      content::NavigationSimulator::NavigateAndFailFromDocument(
+          blocked_allowlisted_url, net::ERR_BLOCKED_BY_CSP, child);
+  ASSERT_TRUE(error_child);
+  ASSERT_TRUE(error_child->IsErrorDocument());
+  ASSERT_EQ(blocked_allowlisted_url, error_child->GetLastCommittedURL());
+
+  notify_committed(error_child, blocked_allowlisted_url,
+                   /*is_error_page=*/true);
+  EXPECT_FALSE(matcher->GetAllowlistedFrameActionForTesting(error_child));
+
+  // Verify subresource requests from `error_child` are blocked by `block_rule`.
+  GURL tracker_url("https://tracker.com/probe.gif");
+  RequestParams subresource_params;
+  subresource_params.url = &tracker_url;
+  subresource_params.element_type = url_pattern_index::flat::ElementType_IMAGE;
+  subresource_params.parent_routing_id = error_child->GetGlobalId();
+  EXPECT_EQ(CreateRequestActionForTesting(RequestAction::Type::COLLAPSE,
+                                          *block_rule.id, *block_rule.priority),
+            matcher->GetAction(subresource_params,
+                               RulesetMatchingStage::kOnBeforeRequest));
+
+  // 3. Simulate a same-document navigation inside `error_child` (where
+  // NavigationHandle::IsErrorPage() is false while host->IsErrorDocument()
+  // remains true). The error document must still not be allowlisted.
+  const GURL fragment_url("https://corp-intranet.com/secret#fragment");
+  notify_committed(error_child, fragment_url, /*is_error_page=*/false);
+  EXPECT_FALSE(matcher->GetAllowlistedFrameActionForTesting(error_child));
+
+  // 4. Commit a valid navigation to https://corp-intranet.com/ in the subframe,
+  // then simulate an error page committing in the same RenderFrameHost to
+  // verify the stale self-allowlist entry is evicted.
+  content::RenderFrameHost* allowed_child =
+      content::NavigationSimulator::NavigateAndCommitFromDocument(
+          blocked_allowlisted_url, error_child);
+  ASSERT_TRUE(allowed_child);
+  ASSERT_FALSE(allowed_child->IsErrorDocument());
+  notify_committed(allowed_child, blocked_allowlisted_url,
+                   /*is_error_page=*/false);
+  EXPECT_EQ(CreateRequestActionForTesting(
+                RequestAction::Type::ALLOW_ALL_REQUESTS,
+                *subframe_allow_rule.id, *subframe_allow_rule.priority),
+            matcher->GetAllowlistedFrameActionForTesting(allowed_child));
+
+  // Simulate an error commit in the same RenderFrameHost. This intentionally
+  // exercises the NavigationHandle::IsErrorPage() branch while the host's last
+  // committed URL still matches `subframe_allow_rule`, verifying that the stale
+  // self-allowlist entry is evicted rather than re-added.
+  notify_committed(allowed_child, blocked_allowlisted_url,
+                   /*is_error_page=*/true);
+  EXPECT_FALSE(matcher->GetAllowlistedFrameActionForTesting(allowed_child));
+
+  // 5. Navigate main frame to https://parent-allowed.com/ (priority 2) and fail
+  // a child subframe navigation to https://corp-intranet.com/ (priority 10):
+  // the error child must inherit the parent's priority-2 action rather than
+  // gaining the failed URL's priority-10 action.
+  const GURL allowed_main_url("https://parent-allowed.com/");
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(web_contents.get(),
+                                                             allowed_main_url);
+  main_rfh = web_contents->GetPrimaryMainFrame();
+  notify_committed(main_rfh, allowed_main_url, /*is_error_page=*/false);
+  RequestAction parent_action = CreateRequestActionForTesting(
+      RequestAction::Type::ALLOW_ALL_REQUESTS, *parent_allow_rule.id,
+      *parent_allow_rule.priority);
+  EXPECT_EQ(parent_action,
+            matcher->GetAllowlistedFrameActionForTesting(main_rfh));
+
+  child = content::RenderFrameHostTester::For(main_rfh)->AppendChild("sub2");
+  ASSERT_TRUE(child);
+  error_child = content::NavigationSimulator::NavigateAndFailFromDocument(
+      blocked_allowlisted_url, net::ERR_BLOCKED_BY_CSP, child);
+  ASSERT_TRUE(error_child);
+  notify_committed(error_child, blocked_allowlisted_url,
+                   /*is_error_page=*/true);
+  EXPECT_EQ(parent_action,
+            matcher->GetAllowlistedFrameActionForTesting(error_child));
+}
+
 // Ensures that GetBeforeRequestAction correctly incorporates allowAllRequests
 // rules.
 TEST_F(AllowAllRequestsTest, GetBeforeRequestAction) {
@@ -1456,7 +1602,8 @@ TEST_F(AllowAllRequestsTest, GetBeforeRequestAction) {
   testing::NiceMock<content::MockNavigationHandle> navigation_handle(
       google_url, web_contents->GetPrimaryMainFrame());
   navigation_handle.set_has_committed(true);
-  matcher->OnDidFinishNavigation(&navigation_handle);
+  matcher->OnDidFinishNavigation(&navigation_handle,
+                                 /*has_host_access_for_navigation=*/true);
 
   struct {
     std::string url;
@@ -1549,6 +1696,8 @@ TEST_F(RulesetMatcherTest, SetDisabledRuleIds) {
 
 class RulesetMatcherResponseHeadersTest : public RulesetMatcherTest {
  public:
+  static constexpr char kExtensionId[] = "extensionid";
+
   RulesetMatcherResponseHeadersTest() {
     scoped_feature_list_.InitAndEnableFeature(
         extensions_features::kDeclarativeNetRequestResponseHeaderMatching);
@@ -1589,6 +1738,9 @@ TEST_F(RulesetMatcherResponseHeadersTest, OnHeadersReceivedAction) {
   GURL google_url("http://google.com");
   RequestParams params =
       CreateRequestWithResponseHeaders(google_url, base_headers.get());
+  // `response_headers_rule` matches on a header value, which requires host
+  // access.
+  params.has_host_access[kExtensionId] = true;
 
   std::unique_ptr<RulesetMatcher> matcher;
   ASSERT_TRUE(
@@ -1862,10 +2014,329 @@ TEST_F(RulesetMatcherResponseHeadersTest, MatchOnResponseHeaders) {
         net::HttpUtil::AssembleRawHeaders(cases[i].response_headers.c_str()));
     RequestParams params =
         CreateRequestWithResponseHeaders(url, base_headers.get());
+    // Some of the rules match on header values, which requires host access.
+    params.has_host_access[kExtensionId] = true;
     EXPECT_EQ(
         cases[i].expected_action,
         matcher->GetAction(params, RulesetMatchingStage::kOnHeadersReceived));
   }
+}
+
+// Test that response headers hidden from extensions by
+// ExtensionsAPIClient::ShouldHideResponseHeader are treated as absent when
+// matching response header conditions.
+TEST_F(RulesetMatcherResponseHeadersTest, HiddenResponseHeadersNotMatched) {
+  class TestExtensionsAPIClient : public ExtensionsAPIClient {
+   public:
+    bool ShouldHideResponseHeader(
+        const GURL& url,
+        const std::string& header_name) const override {
+      return url.host() == "hidden.com" &&
+             base::EqualsCaseInsensitiveASCII(header_name, "secret");
+    }
+  };
+  TestExtensionsAPIClient api_client;
+
+  // `rule_1` matches if the secret header is present with a value starting
+  // with "a" (i.e. a value-probing rule).
+  TestRule rule_1 = CreateGenericRule(kMinValidID);
+  rule_1.action->type = std::string("block");
+  rule_1.condition->url_filter = std::string("|http://");
+  rule_1.condition->response_headers = std::vector<TestHeaderCondition>(
+      {TestHeaderCondition("secret", {"a*"}, {})});
+
+  // `rule_2` does not match if the secret header is present.
+  TestRule rule_2 = CreateGenericRule(kMinValidID + 1);
+  rule_2.action->type = std::string("block");
+  rule_2.condition->url_filter = std::string("|https://");
+  rule_2.condition->excluded_response_headers =
+      std::vector<TestHeaderCondition>({TestHeaderCondition("secret", {}, {})});
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(CreateVerifiedMatcher({rule_1, rule_2}, CreateTemporarySource(),
+                                    &matcher));
+  ASSERT_TRUE(matcher);
+
+  struct Cases {
+    std::string url;
+    std::optional<RequestAction> expected_action;
+  };
+  auto cases = std::to_array<Cases>({
+      // The secret header is visible for non-hidden hosts.
+      {"http://visible.com", CreateRequestActionForTesting(
+                                 RequestAction::Type::COLLAPSE, kMinValidID)},
+      {"https://visible.com", std::nullopt},
+
+      // The secret header is hidden for hidden.com, so `rule_1` does not match
+      // and `rule_2` is not excluded.
+      {"http://hidden.com", std::nullopt},
+      {"https://hidden.com",
+       CreateRequestActionForTesting(RequestAction::Type::COLLAPSE,
+                                     kMinValidID + 1)},
+  });
+
+  auto base_headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders("HTTP/1.0 200 OK\r\nSecret: abc\r\n"));
+  for (size_t i = 0; i < std::size(cases); ++i) {
+    SCOPED_TRACE(base::StringPrintf("Testing case[%" PRIuS "]", i));
+    GURL url(cases[i].url);
+    ASSERT_TRUE(url.is_valid());
+
+    RequestParams params =
+        CreateRequestWithResponseHeaders(url, base_headers.get());
+    params.has_host_access[kExtensionId] = true;
+    EXPECT_EQ(
+        cases[i].expected_action,
+        matcher->GetAction(params, RulesetMatchingStage::kOnHeadersReceived));
+  }
+}
+
+// Tests that rules which match on the values of response headers other than
+// CORS-safelisted response headers and Content-Encoding are only matched if the
+// extension has host access to the request, and that lower priority rules are
+// matched instead otherwise.
+TEST_F(RulesetMatcherResponseHeadersTest,
+       HeaderValueMatchingRequiresHostAccess) {
+  struct RuleData {
+    int id;
+    int priority;
+    std::string action_type;
+    std::string url_filter;
+    std::optional<std::vector<TestHeaderCondition>> response_headers;
+    std::optional<std::vector<TestHeaderCondition>> excluded_response_headers;
+  };
+  auto rule_data = std::to_array<RuleData>({
+      // Matches on the value of the set-cookie header: requires host access.
+      {1, 3, "allow", "secret.com",
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("set-cookie", {"sid=a*"}, {})}),
+       std::nullopt},
+      // Matches on the presence of the set-cookie header: does not require host
+      // access.
+      {2, 1, "block", "secret.com",
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("set-cookie", {}, {})}),
+       std::nullopt},
+      // Matches on the values of CORS-safelisted headers and Content-Encoding
+      // (with header names in varying case): does not require host access.
+      {3, 1, "block", "allowlisted.com",
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("Content-Type", {"*pdf*"}, {}),
+            TestHeaderCondition("LAST-MODIFIED", {"*2026*"}, {}),
+            TestHeaderCondition("content-length", {"5"}, {}),
+            TestHeaderCondition("Content-Encoding", {"gzip*"}, {})}),
+       std::nullopt},
+      // Excludes on the value of a custom header: requires host access.
+      {4, 1, "block", "excluded.com", std::nullopt,
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("x-secret", {"0"}, {})})},
+      // Matches on the values of an allowlisted header and a non-allowlisted
+      // header: requires host access.
+      {5, 1, "block", "mixed.com",
+       std::vector<TestHeaderCondition>(
+           {TestHeaderCondition("content-type", {"*pdf*"}, {}),
+            TestHeaderCondition("x-custom", {}, {"value"})}),
+       std::nullopt},
+  });
+
+  std::vector<TestRule> rules;
+  for (const auto& data : rule_data) {
+    TestRule rule = CreateGenericRule(data.id);
+    rule.priority = data.priority;
+    rule.action->type = data.action_type;
+    rule.condition->url_filter = data.url_filter;
+    rule.condition->response_headers = data.response_headers;
+    rule.condition->excluded_response_headers = data.excluded_response_headers;
+    rules.push_back(std::move(rule));
+  }
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(CreateVerifiedMatcher(rules, CreateTemporarySource(), &matcher));
+  ASSERT_TRUE(matcher);
+
+  auto collapse_action = [&rule_data](size_t index) {
+    return CreateRequestActionForTesting(RequestAction::Type::COLLAPSE,
+                                         rule_data[index].id,
+                                         rule_data[index].priority);
+  };
+
+  struct {
+    std::string url;
+    std::string response_headers;
+    std::optional<RequestAction> expected_action_with_host_access;
+    std::optional<RequestAction> expected_action_without_host_access;
+  } cases[] = {
+      // With host access, the outcome depends on the set-cookie value. Without
+      // host access, rule 1 is never matched so the outcome is the same
+      // regardless of the value: rule 2 is matched instead.
+      {"http://secret.com", "HTTP/1.0 200 OK\r\nSet-Cookie: sid=abc\r\n",
+       CreateRequestActionForTesting(RequestAction::Type::ALLOW,
+                                     rule_data[0].id, rule_data[0].priority),
+       collapse_action(1)},
+      {"http://secret.com", "HTTP/1.0 200 OK\r\nSet-Cookie: sid=xyz\r\n",
+       collapse_action(1), collapse_action(1)},
+
+      // Allowlisted header values can be matched without host access.
+      {"http://allowlisted.com",
+       "HTTP/1.0 200 OK\r\nContent-Type: application/pdf\r\n",
+       collapse_action(2), collapse_action(2)},
+
+      // Excluded header values require host access too.
+      {"http://excluded.com", "HTTP/1.0 200 OK\r\nX-Secret: 5\r\n",
+       collapse_action(3), std::nullopt},
+
+      // A rule requires host access if any of its header conditions does.
+      {"http://mixed.com",
+       "HTTP/1.0 200 OK\r\nContent-Type: application/pdf\r\n",
+       collapse_action(4), std::nullopt},
+  };
+
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE(base::StringPrintf("Testing %s with headers %s",
+                                    test_case.url.c_str(),
+                                    test_case.response_headers.c_str()));
+    GURL url(test_case.url);
+    ASSERT_TRUE(url.is_valid());
+    auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+        net::HttpUtil::AssembleRawHeaders(test_case.response_headers));
+
+    // Note: separate RequestParams are used since actions may be cached.
+    RequestParams params_without_host_access =
+        CreateRequestWithResponseHeaders(url, headers.get());
+    EXPECT_FALSE(params_without_host_access.HasHostAccess(kExtensionId));
+    EXPECT_EQ(test_case.expected_action_without_host_access,
+              matcher->GetAction(params_without_host_access,
+                                 RulesetMatchingStage::kOnHeadersReceived));
+
+    RequestParams params_with_host_access =
+        CreateRequestWithResponseHeaders(url, headers.get());
+    params_with_host_access.has_host_access[kExtensionId] = true;
+    EXPECT_EQ(test_case.expected_action_with_host_access,
+              matcher->GetAction(params_with_host_access,
+                                 RulesetMatchingStage::kOnHeadersReceived));
+  }
+}
+
+// Same as above, but for regex rules.
+TEST_F(RulesetMatcherResponseHeadersTest,
+       HeaderValueMatchingRequiresHostAccess_Regex) {
+  TestRule allow_rule = CreateGenericRule(kMinValidID);
+  allow_rule.priority = kMinValidPriority + 1;
+  allow_rule.action->type = std::string("allow");
+  allow_rule.condition->url_filter.reset();
+  allow_rule.condition->regex_filter = std::string(R"(^http://secret\.com)");
+  allow_rule.condition->response_headers = std::vector<TestHeaderCondition>(
+      {TestHeaderCondition("set-cookie", {"sid=a*"}, {})});
+
+  TestRule block_rule = CreateGenericRule(kMinValidID + 1);
+  block_rule.priority = kMinValidPriority;
+  block_rule.condition->url_filter.reset();
+  block_rule.condition->regex_filter = std::string(R"(^http://secret\.com)");
+  block_rule.condition->response_headers = std::vector<TestHeaderCondition>(
+      {TestHeaderCondition("set-cookie", {}, {})});
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(CreateVerifiedMatcher({allow_rule, block_rule},
+                                    CreateTemporarySource(), &matcher));
+  ASSERT_TRUE(matcher);
+
+  GURL url("http://secret.com");
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders(
+          "HTTP/1.0 200 OK\r\nSet-Cookie: sid=abc\r\n"));
+
+  RequestAction expected_block_action = CreateRequestActionForTesting(
+      RequestAction::Type::COLLAPSE, *block_rule.id, *block_rule.priority);
+  RequestAction expected_allow_action = CreateRequestActionForTesting(
+      RequestAction::Type::ALLOW, *allow_rule.id, *allow_rule.priority);
+
+  RequestParams params_without_host_access =
+      CreateRequestWithResponseHeaders(url, headers.get());
+  params_without_host_access.has_host_access[kExtensionId] = false;
+  EXPECT_EQ(expected_block_action,
+            matcher->GetAction(params_without_host_access,
+                               RulesetMatchingStage::kOnHeadersReceived));
+
+  RequestParams params_with_host_access =
+      CreateRequestWithResponseHeaders(url, headers.get());
+  params_with_host_access.has_host_access[kExtensionId] = true;
+  EXPECT_EQ(expected_allow_action,
+            matcher->GetAction(params_with_host_access,
+                               RulesetMatchingStage::kOnHeadersReceived));
+}
+
+// Tests that rules matching on response header values can be matched without
+// host access if the restriction is disabled via its kill switch.
+TEST_F(RulesetMatcherResponseHeadersTest,
+       HeaderValueMatchingRestrictionDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      extensions_features::
+          kDeclarativeNetRequestRestrictResponseHeaderValueMatching);
+
+  TestRule rule = CreateGenericRule(kMinValidID);
+  rule.condition->url_filter = std::string("secret.com");
+  rule.condition->response_headers = std::vector<TestHeaderCondition>(
+      {TestHeaderCondition("set-cookie", {"sid=a*"}, {})});
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(CreateVerifiedMatcher({rule}, CreateTemporarySource(), &matcher));
+  ASSERT_TRUE(matcher);
+
+  GURL url("http://secret.com");
+  auto headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      net::HttpUtil::AssembleRawHeaders(
+          "HTTP/1.0 200 OK\r\nSet-Cookie: sid=abc\r\n"));
+  RequestParams params = CreateRequestWithResponseHeaders(url, headers.get());
+  ASSERT_FALSE(params.HasHostAccess(kExtensionId));
+  EXPECT_EQ(
+      CreateRequestActionForTesting(RequestAction::Type::COLLAPSE, *rule.id),
+      matcher->GetAction(params, RulesetMatchingStage::kOnHeadersReceived));
+}
+
+// Tests that allowAllRequests rules which match on response header values
+// requiring host access only allowlist a frame on navigation if the extension
+// has host access to it.
+TEST_F(RulesetMatcherResponseHeadersTest,
+       HeaderValueMatchingRequiresHostAccess_AllowlistedFrames) {
+  TestRule rule = CreateGenericRule(kMinValidID);
+  rule.action->type = std::string("allowAllRequests");
+  rule.condition->url_filter = std::string("secret.com");
+  rule.condition->resource_types = std::vector<std::string>({"main_frame"});
+  rule.condition->response_headers = std::vector<TestHeaderCondition>(
+      {TestHeaderCondition("set-cookie", {"sid=a*"}, {})});
+
+  std::unique_ptr<RulesetMatcher> matcher;
+  ASSERT_TRUE(CreateVerifiedMatcher({rule}, CreateTemporarySource(), &matcher));
+  ASSERT_TRUE(matcher);
+
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContentsTester::CreateTestWebContents(
+          browser_context(), content::SiteInstance::Create(browser_context()));
+  ASSERT_TRUE(web_contents);
+
+  GURL url("http://secret.com");
+  content::WebContentsTester::For(web_contents.get())->NavigateAndCommit(url);
+  content::RenderFrameHost* main_frame = web_contents->GetPrimaryMainFrame();
+
+  testing::NiceMock<content::MockNavigationHandle> navigation_handle(
+      url, main_frame);
+  navigation_handle.set_has_committed(true);
+  navigation_handle.set_response_headers(
+      base::MakeRefCounted<net::HttpResponseHeaders>(
+          net::HttpUtil::AssembleRawHeaders(
+              "HTTP/1.0 200 OK\r\nSet-Cookie: sid=abc\r\n")));
+
+  matcher->OnDidFinishNavigation(&navigation_handle,
+                                 /*has_host_access_for_navigation=*/false);
+  EXPECT_EQ(std::nullopt,
+            matcher->GetAllowlistedFrameActionForTesting(main_frame));
+
+  matcher->OnDidFinishNavigation(&navigation_handle,
+                                 /*has_host_access_for_navigation=*/true);
+  EXPECT_EQ(CreateRequestActionForTesting(
+                RequestAction::Type::ALLOW_ALL_REQUESTS, *rule.id),
+            matcher->GetAllowlistedFrameActionForTesting(main_frame));
 }
 
 }  // namespace

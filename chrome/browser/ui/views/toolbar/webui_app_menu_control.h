@@ -12,6 +12,7 @@
 #include "base/observer_list.h"
 #include "chrome/browser/ui/toolbar/app_menu_icon_controller.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
+#include "chrome/browser/ui/views/toolbar/toolbar_button_menu_highlighter.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/gfx/geometry/rect.h"
@@ -20,6 +21,7 @@ namespace views {
 class AccessiblePaneView;
 }  // namespace views
 
+class ActionAppMenu;
 class AppMenu;
 class AppMenuButtonObserver;
 class AppMenuModel;
@@ -42,6 +44,7 @@ class WebUIAppMenuControl : public AppMenuControl {
   void ShowMenu() override;
   void ShowMenuWithFlags(int run_types) override;
   views::MenuItemView* GetRootMenuItemViewForTesting() override;
+  ActionAppMenu* GetActionAppMenuForTesting() override;
   void ExecuteCommandForTesting(int command_id, int mouse_event_flags) override;
   void SetMenuTimerForTesting(base::ElapsedTimer timer) override;
   void AddObserver(AppMenuButtonObserver* observer) override;
@@ -79,8 +82,10 @@ class WebUIAppMenuControl : public AppMenuControl {
   // Caches the focus state of the button within the WebUI.
   bool focused_ = false;
   base::ObserverList<AppMenuButtonObserver>::Unchecked observer_list_;
+  ToolbarButtonMenuHighlighter highlighter_;
   std::unique_ptr<AppMenuModel> menu_model_;
   std::unique_ptr<AppMenu> menu_;
+  std::unique_ptr<ActionAppMenu> action_menu_;
 
   base::WeakPtrFactory<WebUIAppMenuControl> weak_ptr_factory_{this};
 };

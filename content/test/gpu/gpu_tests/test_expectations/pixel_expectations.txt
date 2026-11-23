@@ -473,8 +473,8 @@ crbug.com/515133241 [ win11 amd-0x7550 ] Pixel_DirectComposition_Video_VP9_BGRA 
 # crbug.com/402429382 [ win11 amd-0x150e ] Pixel_ReflectedDiv [ Failure ]
 
 # Win11/GTX 1660 experimental flaky failures when going to 610.74
-crbug.com/402429382 [ win11 nvidia-0x2184 nvidia_ge_32.0.16.1074 ] Pixel_ReflectedDiv [ RetryOnFailure ]
 crbug.com/543955581 [ win11 nvidia-0x2184 nvidia_ge_32.0.16.1074 ] Pixel_Video_Context_Loss_MP4 [ RetryOnFailure ]
+crbug.com/543955581 [ win11 nvidia-0x2184 nvidia_ge_32.0.16.1074 ] Pixel_Video_Context_Loss_VP9 [ RetryOnFailure ]
 
 # Win/Qualcomm Snapdragon X Elite
 crbug.com/402429382 [ win11 qualcomm-0x36334330 ] Pixel_ReflectedDiv [ Failure ]
@@ -551,10 +551,10 @@ crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrument
 crbug.com/558993697 [ android android-pixel-11-pro-xl android-webview-instrumentation ] Pixel_WebGLWebCodecsBreakoutBoxDisplaysFrame [ Failure ]
 
 # MeetEffects failures
-crbug.com/286989320 [ linux nvidia ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure Slow ]
-crbug.com/286989320 [ linux amd-0x7340 ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure Slow ]
-crbug.com/286989320 [ mac no-clang-coverage no-asan  ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure Slow ]
-crbug.com/545524954 [ win target-cpu-32 ] Pixel_MeetEffects_rainbow_wig_and_eyelashes [ Failure ]
+crbug.com/286989320 [ linux nvidia ] Pixel_MeetEffects_ar_effect_rainbow_wig_and_eyelashes [ Failure Slow ]
+crbug.com/286989320 [ linux amd-0x7340 ] Pixel_MeetEffects_ar_effect_rainbow_wig_and_eyelashes [ Failure Slow ]
+crbug.com/286989320 [ mac no-clang-coverage no-asan  ] Pixel_MeetEffects_ar_effect_rainbow_wig_and_eyelashes [ Failure Slow ]
+crbug.com/545524954 [ win target-cpu-32 ] Pixel_MeetEffects_ar_effect_rainbow_wig_and_eyelashes [ Failure ]
 
 # Mac AMD flaky directory failures
 crbug.com/444653106 [ mac amd-0x7340 graphite-enabled angle-metal ] Pixel_CSSFilterEffects [ Slow ]
@@ -575,10 +575,6 @@ crbug.com/536089774 [ android android-pixel-10 android-webview-instrumentation ]
 crbug.com/536977902 [ mac apple-angle-metal-renderer:-apple-m2 asan ] * [ RetryOnFailure ]
 
 crbug.com/544795245 [ mac apple-angle-metal-renderer:-apple-m2 asan ] Pixel_ViewTransitionsCapture [ Failure ]
-
-# Pixel 6 failures
-# Periodically exhibits flaky timeouts
-crbug.com/559557324 [ android android-Pixel-6 android-chromium ] Pixel_Video_Context_Loss_VP9 [ RetryOnFailure ]
 
 # 32-bit GPU process virtual address space exhaustion (E_OUTOFMEMORY)
 crbug.com/417782068 [ win nvidia-0x2184 target-cpu-32 ] Pixel_MediaFoundationClearDirectComposition [ Failure ]

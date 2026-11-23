@@ -19,6 +19,10 @@ class EntityInstance;
 
 // In-memory implementation of EntitySuppressionManager for testing, UI
 // prototyping, and initial feature integration.
+//
+// DEPRECATED: Use `EntitySuppressionManagerImpl` with
+// `CreateTestEntitySuppressionSyncBridge()` instead.
+// TODO(crbug.com/501036619): Remove.
 class InMemoryEntitySuppressionManager : public EntitySuppressionManager {
  public:
   InMemoryEntitySuppressionManager();
@@ -37,6 +41,8 @@ class InMemoryEntitySuppressionManager : public EntitySuppressionManager {
   bool ClearSuppressions(base::Time delete_begin,
                          base::Time delete_end) override;
   bool IsSuppressed(const EntityInstance& entity) const override;
+  size_t CountSuppressionsCreatedBetween(base::Time begin,
+                                         base::Time end) const override;
 
   base::WeakPtr<syncer::DataTypeControllerDelegate> GetSyncControllerDelegate()
       override;

@@ -5,11 +5,12 @@
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_view.h"
 
 #include <algorithm>
-#include <iterator>
 #include <numeric>
 #include <ranges>
 
+#include "base/types/to_address.h"
 #include "build/build_config.h"
+#include "third_party/blink/renderer/platform/fonts/character_range.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/glyph_bounds_accumulator.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_run.h"
@@ -49,26 +50,25 @@ wtf_size_t ShapeResultView::RunInfoPart::PreviousSafeToBreakOffset(
     return num_glyphs ? num_glyphs - 1 : 0;
   }
   offset += offset_;
-  const auto [begin, end] = range_.NonCompactGlyphPointers();
-  const auto is_safe = [offset](const HarfBuzzRunGlyphData& glyph) {
-    return glyph.IsSafeToBreakBefore() && glyph.character_index <= offset;
+  const base::span<const HarfBuzzRunGlyphData> glyphs =
+      range_.NonCompactGlyphs();
+  const auto find_safe_break = [offset, this](const auto& range) -> wtf_size_t {
+    for (const auto& glyph : range) {
+      if (glyph.IsSafeToBreakBefore() && glyph.character_index <= offset) {
+        return glyph.character_index - offset_;
+      }
+    }
+
+    // Next safe break is at the start of the run.
+    return 0;
   };
   if (GetRunInfo()->IsLtr()) {
-    const auto rbegin = std::make_reverse_iterator(end);
-    const auto rend = std::make_reverse_iterator(begin);
-    const auto glyph = std::find_if(rbegin, rend, is_safe);
-    if (glyph != rend) {
-      return glyph->character_index - offset_;
-    }
-  } else {
-    const auto* const glyph = std::find_if(begin, end, is_safe);
-    if (glyph != end) {
-      return glyph->character_index - offset_;
-    }
+    // Avoid reverse-iterator checks within this validated, read-only range.
+    const auto range =
+        std::ranges::subrange(glyphs.data(), base::to_address(glyphs.end()));
+    return find_safe_break(std::views::reverse(range));
   }
-
-  // Next safe break is at the start of the run.
-  return 0;
+  return find_safe_break(glyphs);
 }
 
 GlyphDataRange ShapeResultView::RunInfoPart::FindGlyphDataRange(
@@ -201,13 +201,8 @@ ShapeResult* ShapeResultView::CreateShapeResult() const {
         part_run->font_data_.Get(), part_run->HbDirection(),
         part_run->canvas_rotation_, part_run->script_, part.start_index_,
         /*num_glyphs=*/0, part.num_characters_);
-    new_run->glyph_data_.CopyFromRange(part.range_);
-    for (HarfBuzzRunGlyphData& glyph_data :
-         new_run->glyph_data_.MutableGlyphs()) {
-      DCHECK_GE(glyph_data.character_index, part.offset_);
-      glyph_data.character_index -= part.offset_;
-      DCHECK_LT(glyph_data.character_index, part.num_characters_);
-    }
+    new_run->glyph_data_.CopyFromRange(part.range_, part.offset_,
+                                       part.num_characters_);
 
     new_run->start_index_ += char_index_offset_;
     new_run->width_ = part.width_;
@@ -268,12 +263,20 @@ void ShapeResultView::PopulateRunInfoParts(const ShapeResultType& other,
       part_width = run->width_;
     } else {
       range = run->FindGlyphDataRange(range_start, range_end);
-      const auto [begin, end] = range.NonCompactGlyphPointers();
-      part_width = std::accumulate(
-          begin, end, InlineLayoutUnit(),
-          [](InlineLayoutUnit sum, const auto& glyph) {
-            return sum + glyph.advance.template To<InlineLayoutUnit>();
-          });
+      if (range.IsCompactSource()) [[unlikely]] {
+        part_width =
+            InlineLayoutUnit::FromRawValue(
+                int64_t{range.CompactSourceAdvance().RawValue()} * range.size())
+                .ToFloat();
+      } else {
+        const base::span<const HarfBuzzRunGlyphData> glyphs =
+            range.NonCompactGlyphs();
+        part_width = std::accumulate(
+            glyphs.begin(), glyphs.end(), InlineLayoutUnit(),
+            [](InlineLayoutUnit sum, const auto& glyph) {
+              return sum + glyph.advance.template To<InlineLayoutUnit>();
+            });
+      }
     }
 
     width_ += part_width;
@@ -401,6 +404,30 @@ HeapHashSet<Member<const SimpleFontData>> ShapeResultView::UsedFonts() const {
     }
   }
   return used_fonts;
+}
+
+Vector<CharacterRange> ShapeResultView::IndividualCharacterRanges() const {
+  Vector<CharacterRange> ranges;
+  ranges.reserve(num_characters_);
+  float current_x = 0;
+
+  if (IsRtl()) {
+    for (const auto& part : std::views::reverse(parts_)) {
+      current_x -= part.Width();
+      ShapeResult::AddRunInfoRanges(part.range_, part.offset_,
+                                    part.num_characters_, part.width_,
+                                    current_x, &ranges);
+    }
+  } else {
+    for (const auto& part : parts_) {
+      ShapeResult::AddRunInfoRanges(part.range_, part.offset_,
+                                    part.num_characters_, part.width_,
+                                    current_x, &ranges);
+      current_x += part.Width();
+    }
+  }
+
+  return ranges;
 }
 
 template <bool kHasNonZeroGlyphOffsets>

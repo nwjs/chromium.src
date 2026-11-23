@@ -736,7 +736,7 @@ static bool IsAllCollapsedWhiteSpace(const LayoutObject& layout_object) {
   if (const auto* layout_text = DynamicTo<LayoutText>(&layout_object)) {
     if (layout_text->Style().ShouldCollapseWhiteSpaces() &&
         layout_text->TransformedText()
-            .IsAllSpecialCharacters<Character::IsCollapsibleSpace>()) {
+            .IsAllSpecialCharacters<unicode::IsCollapsibleSpace>()) {
       return true;
     }
   }
@@ -813,7 +813,6 @@ static std::string TreeUpdateReasonAsDebugString(
     DEBUG_STRING_CASE(
         kRemoveValidationMessageObjectFromValidationMessageObject);
     DEBUG_STRING_CASE(kRoleChangeFromAriaHasPopup);
-    DEBUG_STRING_CASE(kRoleChangeFromImageMapName);
     DEBUG_STRING_CASE(kRoleChangeFromRoleOrType);
     DEBUG_STRING_CASE(kRoleMaybeChangedFromEventListener);
     DEBUG_STRING_CASE(kRoleMaybeChangedFromHref);
@@ -827,7 +826,6 @@ static std::string TreeUpdateReasonAsDebugString(
     DEBUG_STRING_CASE(kUpdateActiveMenuOption);
     DEBUG_STRING_CASE(kUpdateAriaOwns);
     DEBUG_STRING_CASE(kUpdateTableRole);
-    DEBUG_STRING_CASE(kUseMapAttributeChanged);
     DEBUG_STRING_CASE(kValidationMessageVisibilityChanged);
     DEBUG_STRING_CASE(kChildrenChanged);
     DEBUG_STRING_CASE(kMarkAXObjectDirty);
@@ -903,6 +901,7 @@ void AXObjectCacheImpl::Dispose() {
   weak_factory_for_loc_updates_pipeline_.Invalidate();
 
   aria_radiogroups_with_changed_membership_.clear();
+  dirty_radio_button_peers_.clear();
 
   lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kDisposed);
 }
@@ -1329,9 +1328,9 @@ bool AXObjectCacheImpl::IsRelevantSlotElement(const HTMLSlotElement& slot) {
 bool AXObjectCacheImpl::IsRelevantPseudoElement(const Node& node) {
   DCHECK(node.IsPseudoElement());
 
-  std::optional<String> alt_text =
+  String alt_text =
       AXNodeObject::GetCSSAltText(To<Element>(&node));
-  if (alt_text && alt_text->empty()) {
+  if (!alt_text.IsNull() && alt_text.empty()) {
     return false;
   }
 
@@ -1440,7 +1439,8 @@ bool AXObjectCacheImpl::IsRelevantPseudoElementDescendant(
       return false;
     if (ancestor->IsPseudoElement()) {
       // When an ancestor is exposed using CSS alt text, descendants are pruned.
-      if (AXNodeObject::GetCSSAltText(To<Element>(ancestor->GetNode()))) {
+      if (!AXNodeObject::GetCSSAltText(To<Element>(ancestor->GetNode()))
+               .IsNull()) {
         return false;
       }
       return IsRelevantPseudoElement(*ancestor->GetNode());
@@ -1740,7 +1740,7 @@ void AXObjectCacheImpl::RemoveFromRadioButtonGroupCache(AXID ax_id) {
         if (peer_id != ax_id) {
           if (AXObject* peer = ObjectFromAXID(peer_id)) {
             if (lifecycle().StateAllowsImmediateTreeUpdates()) {
-              MarkAXObjectDirtyWithCleanLayout(peer);
+              dirty_radio_button_peers_.insert(peer_id);
             } else {
               MarkAXObjectDirty(peer);
             }
@@ -1754,7 +1754,7 @@ void AXObjectCacheImpl::RemoveFromRadioButtonGroupCache(AXID ax_id) {
         if (AXObject* radio_obj = Get(radio)) {
           if (radio_obj != obj) {
             if (lifecycle().StateAllowsImmediateTreeUpdates()) {
-              MarkAXObjectDirtyWithCleanLayout(radio_obj);
+              dirty_radio_button_peers_.insert(radio_obj->AXObjectID());
             } else {
               MarkAXObjectDirty(radio_obj);
             }
@@ -1837,6 +1837,10 @@ void AXObjectCacheImpl::Remove(AXID ax_id, bool notify_parent) {
 #if AX_FAIL_FAST_BUILD()
   DCHECK(!nodes_requiring_cache_update_.Contains(ax_id));
 #endif
+  if (!in_remove_subtree_ && relation_cache_ &&
+      lifecycle_.StateAllowsImmediateTreeUpdates() && !IsDisposing()) {
+    relation_cache_->RestorePendingParents();
+  }
 }
 
 void AXObjectCacheImpl::Remove(LayoutObject* layout_object,
@@ -1900,6 +1904,10 @@ void AXObjectCacheImpl::Remove(Node* node) {
     ResetPluginTreeSerializer();
   }
 
+  if (relation_cache_) {
+    relation_cache_->MaybeMarkImageMapsDirty(*node);
+  }
+
   Remove(node, /* notify_parent */ true);
 }
 
@@ -1910,18 +1918,23 @@ void AXObjectCacheImpl::Remove(Node* node, bool notify_parent) {
                                layout_object_mapping_.end())
       << "AXObject cannot be backed by both a layout object and node.";
 
-  AXID axid = node->GetDomNodeId();
+  if (node == active_aria_modal_dialog_ &&
+      lifecycle_.StateAllowsAXObjectsToBeDirtied()) {
+    UpdateActiveAriaModalDialog(FocusedNode());
+  }
+
+  CHECK(lifecycle_.StateAllowsRemovingAXObjects()) << *this;
+
+  AXID axid = DOMNodeIds::ExistingIdForNode(node);
+  if (!axid) {
+    return;
+  }
 
   // HTML ids belong to connected DOM elements, not their AXObjects. Elements
   // may be registered before an AXObject exists, and connected AXObjects can be
   // removed and recreated without removing their DOM elements.
   if (!node->isConnected() && relation_cache_) {
     relation_cache_->RemoveRegisteredIdAttribute(axid);
-  }
-
-  if (node == active_aria_modal_dialog_ &&
-      lifecycle_.StateAllowsAXObjectsToBeDirtied()) {
-    UpdateActiveAriaModalDialog(FocusedNode());
   }
 
   DCHECK_GE(axid, 1);
@@ -1984,11 +1997,21 @@ void AXObjectCacheImpl::RemoveIncludedSubtree(AXObject* object,
     return;
   }
 
-  for (const auto& ax_child : object->CachedChildrenIncludingIgnored()) {
-    RemoveIncludedSubtree(ax_child, /* remove_root */ true);
+  {
+    base::AutoReset<bool> in_remove_subtree(&in_remove_subtree_, true);
+    for (const auto& ax_child :
+         object->GuardedCachedChildrenIncludingIgnored()) {
+      RemoveIncludedSubtree(ax_child, /*remove_root=*/true);
+    }
+    // Removing the children can remove |object|.
+    if (remove_root && !object->IsDetached()) {
+      Remove(object, /*notify_parent=*/false);
+    }
   }
-  if (remove_root) {
-    Remove(object, /* notify_parent */ false);
+
+  if (!in_remove_subtree_ && relation_cache_ &&
+      lifecycle_.StateAllowsImmediateTreeUpdates()) {
+    relation_cache_->RestorePendingParents();
   }
 }
 
@@ -2016,9 +2039,17 @@ void AXObjectCacheImpl::RemoveSubtree(const Node* node) {
 void AXObjectCacheImpl::RemoveSubtree(const Node* node,
                                       bool remove_root,
                                       bool notify_parent) {
-  HashSet<AXID> removing_subtree_axids;
-  RemoveSubtreeInternal(node, remove_root, notify_parent,
-                        removing_subtree_axids);
+  {
+    base::AutoReset<bool> in_remove_subtree(&in_remove_subtree_, true);
+    HashSet<AXID> removing_subtree_axids;
+    RemoveSubtreeInternal(node, remove_root, notify_parent,
+                          removing_subtree_axids);
+  }
+
+  if (!in_remove_subtree_ && relation_cache_ &&
+      lifecycle_.StateAllowsImmediateTreeUpdates()) {
+    relation_cache_->RestorePendingParents();
+  }
 }
 
 void AXObjectCacheImpl::RemoveSubtreeInternal(
@@ -2081,7 +2112,8 @@ void AXObjectCacheImpl::RemoveSubtreeInternal(
 
   // When removing children, use the cached children to avoid creating a child
   // just to destroy it.
-  for (AXObject* ax_included_child : object->CachedChildrenIncludingIgnored()) {
+  for (AXObject* ax_included_child :
+       object->GuardedCachedChildrenIncludingIgnored()) {
     if (ax_included_child->ParentObjectIfPresent() != object) {
       continue;
     }
@@ -2097,6 +2129,11 @@ void AXObjectCacheImpl::RemoveSubtreeInternal(
     } else {
       RemoveIncludedSubtree(ax_included_child, /* remove_root */ true);
     }
+  }
+
+  // Removing the children can remove |object|.
+  if (object->IsDetached()) {
+    return;
   }
 
   // The code below uses ChildrenChangedWithCleanLayout() instead of
@@ -2116,6 +2153,18 @@ void AXObjectCacheImpl::RemoveSubtreeInternal(
   if (parent_to_notify) {
     NotifyParentChildrenChanged(parent_to_notify);
   }
+}
+
+void AXObjectCacheImpl::RemoveImageMapChildren(AXObject& image) {
+  // Remove the <area> AXObjects so queued updates don't reach them. Don't
+  // notify yet because queued updates haven't restored missing parents.
+  RemoveSubtree(image.GetNode(), /*remove_root=*/false,
+                /*notify_parent=*/false);
+  // RemoveSubtree() doesn't clear children_ when remove_root is false.
+  image.ClearChildren();
+  // Mark the image and any unincluded ancestors dirty now, and wait for
+  // RebuildImageMapsWithCleanLayout() to run ChildrenChangedWithCleanLayout().
+  InvalidateChildren(&image);
 }
 
 // All generated AXIDs are negative, ranging from kFirstGeneratedRendererNodeID
@@ -2394,6 +2443,16 @@ void AXObjectCacheImpl::StyleChanged(const LayoutObject* layout_object,
   if (visibility_or_inertness_changed) {
     ChildrenChanged(ax_object);
     ChildrenChanged(ax_object->ParentObject());
+    // A visibility change can change whether this element is a valid aria-owns
+    // owner (see AXRelationCache::IsValidOwner()). Unlike display:none or
+    // aria-hidden changes, the AXObject is not rebuilt in this case, so the
+    // owner must be explicitly re-validated in order to drop or re-establish
+    // its owned children. Inertness does not affect owner validity, so for
+    // inertness-only changes the re-validation is harmless and cheap.
+    if (Element* element = DynamicTo<Element>(layout_object->GetNode());
+        element && AXObject::HasARIAOwns(element)) {
+      DeferTreeUpdate(TreeUpdateReason::kUpdateAriaOwns, element);
+    }
   }
   MarkAXObjectDirty(ax_object);
 }
@@ -2433,9 +2492,8 @@ void AXObjectCacheImpl::TextChanged(Node* node) {
     return;
 
   // A text changed event is redundant with children changed on the same node.
-  if (AXID node_id = static_cast<AXID>(node->GetDomNodeId())) {
-    if (nodes_with_pending_children_changed_.find(node_id) !=
-        nodes_with_pending_children_changed_.end()) {
+  if (AXID node_id = DOMNodeIds::ExistingIdForNode(node)) {
+    if (nodes_with_pending_children_changed_.Contains(node_id)) {
       return;
     }
   }
@@ -2465,7 +2523,7 @@ void AXObjectCacheImpl::TextChanged(const LayoutObject* layout_object) {
     // If the text changed in a pseudo-element, rebuild the entire subtree.
     if (node->IsPseudoElement()) {
       RemoveAXObjectsInLayoutSubtree(node->GetLayoutObject());
-    } else if (AXID node_id = static_cast<AXID>(node->GetDomNodeId())) {
+    } else if (AXID node_id = DOMNodeIds::ExistingIdForNode(node)) {
       // Text changed is redundant with children changed on the same node.
       if (nodes_with_pending_children_changed_.Contains(node_id)) {
         return;
@@ -2705,12 +2763,17 @@ void AXObjectCacheImpl::NodeIsConnected(Node* node) {
     if (relation_cache_) {
       // Register relation ids so that reverse relations can be computed.
       relation_cache_->CacheRelations(*element);
+      relation_cache_->MaybeMarkImageMapsDirty(*element);
       ScheduleAXUpdate();
     }
     if (AXObject::HasARIAOwns(element)) {
       DeferTreeUpdate(TreeUpdateReason::kUpdateAriaOwns, element);
     }
-    if (element->HasID()) {
+    if (element->HasID() ||
+        (IsA<HTMLElement>(element) && To<HTMLElement>(element)->IsPopover())) {
+      // `kIdChanged` is also used for popover targets to trigger
+      // `MaybeNewRelationTarget()`, which marks any reverse-relation sources
+      // (such as popover invokers) dirty.
       DeferTreeUpdate(TreeUpdateReason::kIdChanged, element);
     }
   }
@@ -2847,32 +2910,6 @@ void AXObjectCacheImpl::NodeIsAttached(Node* node) {
       // * Inline text boxes must know their children in order to determine
       //   whether they can be ignored;
       node_to_parse_before_more_tree_updates_ = node;
-    }
-
-    // Rare edge case: if an image is added, it could have changed the order of
-    // images with the same usemap in the document. Only the first image for a
-    // given <map> should have the <area> children. Therefore, get the current
-    // primary image before it's updated, and ensure its children are
-    // recalculated.
-    if (IsA<HTMLImageElement>(node)) {
-      if (HTMLMapElement* map = AXObject::GetMapForImage(node)) {
-        HTMLImageElement* primary_image_element = map->ImageElement();
-        if (node != primary_image_element) {
-          // This is a secondary image for its map, and therefore the map does
-          // not apply to it. Make sure the primary image recomputes its
-          // children.
-          ChildrenChanged(primary_image_element);
-        } else if (AXObject* ax_previous_parent = GetAXImageForMap(*map)) {
-          // This is the primary image for its map and the map's children
-          // were previously parented by an AXObject for an <img>
-          if (ax_previous_parent->GetNode() != node) {
-            // The previous AXObject parent for the maps children does not
-            // match!
-            ChildrenChanged(ax_previous_parent);
-            ax_previous_parent->ClearChildren();
-          }
-        }
-      }
     }
   }
 
@@ -3414,10 +3451,14 @@ int AXObjectCacheImpl::GetLocationSerializationDelay() {
   // currently focused object, so schedule serializations (almost )immediately
   // if that object changes. The root is an exception because it often has focus
   // while the page is loading.
-  DOMNodeId focused_node_id = FocusedNode()->GetDomNodeId();
-  if (focused_node_id != document_->GetDomNodeId() &&
-      changed_bounds_ids_.Contains(focused_node_id)) {
-    return kDelayForLocationUpdatesFocused;
+  Node* focused_node = FocusedNode();
+  if (focused_node != document_) {
+    if (DOMNodeId focused_node_id =
+            DOMNodeIds::ExistingIdForNode(focused_node)) {
+      if (changed_bounds_ids_.Contains(focused_node_id)) {
+        return kDelayForLocationUpdatesFocused;
+      }
+    }
   }
 
   if (accessibility_focus_ != ui::AXNodeData::kInvalidAXID &&
@@ -3574,10 +3615,17 @@ bool AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
       // |tree_update_callback_queue_|, and have names like
       // FooBarredWithCleanLayout().
       if (IsDirty()) {
+        // Detach stale <map> children before queued updates can reach an
+        // <area> under its old image. Wait to rebuild the images until queued
+        // updates have finished updating the images and their ancestors.
+        HeapVector<Member<Element>> images_with_changed_map =
+            relation_cache_->DetachStaleImageMapsWithCleanLayout();
         if (GetPopupDocumentIfShowing()) {
           ProcessCleanLayoutCallbacks(*GetPopupDocumentIfShowing());
         }
         ProcessCleanLayoutCallbacks(document);
+        relation_cache_->RebuildImageMapsWithCleanLayout(
+            images_with_changed_map);
       }
     }
 
@@ -3630,6 +3678,7 @@ bool AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
         MarkDocumentDirtyWithCleanLayout();
         mark_all_dirty_ = false;
       }
+      relation_cache_->ProcessUpdatesWithCleanLayout();
 
       // Now that tree updates and aria-owns relations have been processed,
       // mark all the radios that belong to a radiogroup with a changed children
@@ -3641,6 +3690,7 @@ bool AXObjectCacheImpl::CommitAXUpdates(Document& document, bool force) {
       CHECK(nodes_with_pending_children_changed_.empty());
       CHECK(queued_children_changed_ancestors_.empty());
       CHECK(aria_radiogroups_with_changed_membership_.empty());
+      CHECK(dirty_radio_button_peers_.empty());
 
       {
         lifecycle_.AdvanceTo(AXObjectCacheLifecycle::kFinalizingTree);
@@ -4108,7 +4158,18 @@ void AXObjectCacheImpl::MarkAriaRadioGroupMembersDirty() {
   CHECK(lifecycle_.StateAllowsAXObjectsToGainFinalizationNeededBit());
   // Collecting the radios can update children, which can record more
   // radiogroups, so process until none remain.
-  while (!aria_radiogroups_with_changed_membership_.empty()) {
+  while (!aria_radiogroups_with_changed_membership_.empty() ||
+         !dirty_radio_button_peers_.empty()) {
+    while (!dirty_radio_button_peers_.empty()) {
+      HashSet<AXID> peer_ids;
+      peer_ids.swap(dirty_radio_button_peers_);
+      for (AXID peer_id : peer_ids) {
+        if (AXObject* peer = ObjectFromAXID(peer_id);
+            peer && !peer->IsDetached()) {
+          MarkAXObjectDirtyWithCleanLayout(peer);
+        }
+      }
+    }
     HashSet<AXID> radiogroup_ids;
     radiogroup_ids.swap(aria_radiogroups_with_changed_membership_);
     for (AXID radiogroup_id : radiogroup_ids) {
@@ -4320,20 +4381,24 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForNode(
   }
 
   AXObject* ax_object = Get(node);
-  if (!ax_object) {
+  if (!ax_object &&
+      tree_update->update_reason != TreeUpdateReason::kIdChanged &&
+      tree_update->update_reason != TreeUpdateReason::kReferenceTargetChanged) {
     return;
   }
 
-  ax_object->UpdateCachedAttributeValuesIfNeeded(/* notify_parent */ true);
-  if (ax_object->IsDetached()) {
-    return;
-  }
+  if (ax_object) {
+    ax_object->UpdateCachedAttributeValuesIfNeeded(/* notify_parent */ true);
+    if (ax_object->IsDetached()) {
+      return;
+    }
 
-  // TODO(crbug.com/452392024): Investigate why this fails, fix it, and move to
-  // a CHECK.
-  // TODO(crbug.com/500774799): Investigate and convert to CHECK.
-  DCHECK(!ax_object->IsMissingParent())
-      << tree_update->ToString() << " on " << ax_object;
+    // TODO(crbug.com/452392024): Investigate why this fails, fix it, and move
+    // to a CHECK.
+    // TODO(crbug.com/500774799): Investigate and convert to CHECK.
+    DCHECK(!ax_object->IsMissingParent())
+        << tree_update->ToString() << " on " << ax_object;
+  }
 
   base::AutoReset<ax::mojom::blink::EventFrom> event_from_resetter(
       &active_event_from_, tree_update->event_from);
@@ -4395,7 +4460,6 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForNode(
       RemoveValidationMessageObjectWithCleanLayout(node);
       break;
     case TreeUpdateReason::kRoleChangeFromAriaHasPopup:
-    case TreeUpdateReason::kRoleChangeFromImageMapName:
     case TreeUpdateReason::kRoleChangeFromRoleOrType:
       HandleRoleChangeWithCleanLayout(node);
       break;
@@ -4428,9 +4492,6 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForNode(
     case TreeUpdateReason::kUpdateTableRole:
       UpdateTableRoleWithCleanLayout(node);
       break;
-    case TreeUpdateReason::kUseMapAttributeChanged:
-      HandleUseMapAttributeChangedWithCleanLayout(node);
-      break;
     case TreeUpdateReason::kValidationMessageVisibilityChanged:
       HandleValidationMessageVisibilityChangedWithCleanLayout(node);
       break;
@@ -4440,7 +4501,7 @@ void AXObjectCacheImpl::FireTreeUpdatedEventForNode(
   }
   // Ensure that new subtrees are filled out. Any new AXObjects added will
   // also add their children.
-  if (!ax_object->IsDetached()) {
+  if (ax_object && !ax_object->IsDetached()) {
     ax_object->UpdateChildrenIfNecessary();
   }
 }
@@ -5031,11 +5092,7 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
           MarkElementDirty(element);
         }
       }
-    } else if (attr_name == html_names::kAriaActionsAttr ||
-               attr_name == html_names::kAriaControlsAttr ||
-               attr_name == html_names::kAriaDetailsAttr ||
-               attr_name == html_names::kAriaErrormessageAttr ||
-               attr_name == html_names::kAriaFlowtoAttr) {
+    } else if (AXRelationCache::IsOtherRelationAttribute(attr_name)) {
       MarkElementDirty(element);
       if (relation_cache_) {
         relation_cache_->UpdateReverseOtherRelations(*element);
@@ -5088,8 +5145,16 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
             Element::InterestForType::kExplicitOnly)) {
       MarkElementDirty(target);
     }
-  } else if (attr_name == html_names::kIdAttr) {
+  } else if (attr_name == html_names::kIdAttr ||
+             attr_name == html_names::kPopoverAttr) {
+    // `kIdChanged` is also used when `popover` changes to trigger
+    // `MaybeNewRelationTarget()`, which marks any reverse-relation sources
+    // (such as popover invokers) dirty.
     DeferTreeUpdate(TreeUpdateReason::kIdChanged, element);
+    if (attr_name == html_names::kIdAttr && IsA<HTMLMapElement>(element) &&
+        relation_cache_) {
+      relation_cache_->MarkImageMapsDirty();
+    }
   } else if (attr_name == html_names::kClassAttr) {
     MarkElementDirty(element);  // Reserialize the class.
   } else if (attr_name == html_names::kTabindexAttr) {
@@ -5103,9 +5168,13 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
              attr_name == html_names::kStepAttr) {
     MarkElementDirty(element);
   } else if (attr_name == html_names::kUsemapAttr) {
-    DeferTreeUpdate(TreeUpdateReason::kUseMapAttributeChanged, element);
+    if (IsA<HTMLImageElement>(element) && relation_cache_) {
+      relation_cache_->MarkImageMapsDirty();
+    }
   } else if (attr_name == html_names::kNameAttr) {
-    HandleNameAttributeChanged(element);
+    if (IsA<HTMLMapElement>(element) && relation_cache_) {
+      relation_cache_->MarkImageMapsDirty();
+    }
   } else if (attr_name == html_names::kControlsAttr) {
     ChildrenChanged(element);
   } else if (attr_name == html_names::kHrefAttr) {
@@ -5118,48 +5187,14 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
     if (element == document_->documentElement()) {
       MarkElementDirty(document_);
     }
-  }
-}
-
-void AXObjectCacheImpl::HandleUseMapAttributeChangedWithCleanLayout(
-    Node* node) {
-  if (!IsA<HTMLImageElement>(node)) {
-    return;
-  }
-  // Get an area (aka image link) from the previous usemap.
-  AXObject* ax_image = Get(node);
-  AXObject* ax_image_link =
-      ax_image ? ax_image->FirstChildIncludingIgnored() : nullptr;
-  HTMLMapElement* previous_map =
-      ax_image_link && ax_image_link->GetNode()
-          ? Traversal<HTMLMapElement>::FirstAncestor(*ax_image_link->GetNode())
-          : nullptr;
-  // Both the old and new image may change image <--> image map.
-  HandleRoleChangeWithCleanLayout(node);
-  if (previous_map)
-    HandleRoleChangeWithCleanLayout(previous_map->ImageElement());
-}
-
-void AXObjectCacheImpl::HandleNameAttributeChanged(Node* node) {
-  HTMLMapElement* map = DynamicTo<HTMLMapElement>(node);
-  if (!map) {
-    return;
-  }
-
-  // Changing a map name can alter an image's role and children.
-  // First update any image that may have used the old map name.
-  if (AXObject* ax_previous_image = GetAXImageForMap(*map)) {
-    DeferTreeUpdate(TreeUpdateReason::kRoleChangeFromImageMapName,
-                    ax_previous_image->GetElement());
-  }
-
-  // Then, update any image which may use the new map name.
-  HTMLImageElement* new_image = map->ImageElement();
-  if (new_image) {
-    if (AXObject* obj = Get(new_image)) {
-      DeferTreeUpdate(TreeUpdateReason::kRoleChangeFromImageMapName,
-                      obj->GetElement());
+  } else if (AXRelationCache::IsOtherRelationAttribute(attr_name)) {
+    MarkElementDirty(element);
+    if (relation_cache_) {
+      relation_cache_->UpdateReverseOtherRelations(*element);
     }
+  } else if (attr_name == html_names::kCommandAttr ||
+             attr_name == html_names::kPopovertargetactionAttr) {
+    MarkElementDirty(element);
   }
 }
 
@@ -5588,7 +5623,6 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequired(
         kRemoveValidationMessageObjectFromValidationMessageObject:
     case TreeUpdateReason::kRestoreParentOrPrune:
     case TreeUpdateReason::kRoleChangeFromAriaHasPopup:
-    case TreeUpdateReason::kRoleChangeFromImageMapName:
     case TreeUpdateReason::kRoleChangeFromRoleOrType:
     case TreeUpdateReason::kRoleMaybeChangedFromEventListener:
     case TreeUpdateReason::kRoleMaybeChangedFromHref:
@@ -5601,7 +5635,6 @@ bool AXObjectCacheImpl::IsImmediateProcessingRequired(
     case TreeUpdateReason::kTextMarkerDataAdded:
     case TreeUpdateReason::kUpdateAriaOwns:
     case TreeUpdateReason::kUpdateTableRole:
-    case TreeUpdateReason::kUseMapAttributeChanged:
       return false;
 
     // These updates are associated with an AXID:
@@ -5831,8 +5864,11 @@ void AXObjectCacheImpl::MarkAXSubtreeDirtyWithCleanLayout(AXObject* obj) {
     return;
   }
   if (!obj->IsIncludedInTree()) {
-    for (const auto& included_child : obj->ChildrenIncludingIgnored()) {
-      MarkAXSubtreeDirtyWithCleanLayout(included_child);
+    HeapVector<Member<AXObject>> children = obj->ChildrenIncludingIgnored();
+    for (AXObject* included_child : children) {
+      if (!included_child->IsDetached()) {
+        MarkAXSubtreeDirtyWithCleanLayout(included_child);
+      }
     }
     return;
   }
@@ -5889,6 +5925,12 @@ void AXObjectCacheImpl::MarkDocumentDirtyWithCleanLayout() {
   for (auto& object : objects) {
     if (!object->IsDetached()) {
       object->SetNeedsToUpdateChildren();
+      // `SetNeedsToUpdateChildren()` returns early if `children_dirty_` was
+      // already set. Explicitly mark all included objects so no ancestor is
+      // left with `has_dirty_descendants_` unset above a dirty descendant.
+      if (object->CachedIsIncludedInTree()) {
+        object->SetHasDirtyDescendants(true);
+      }
     }
   }
 
@@ -6000,6 +6042,9 @@ void AXObjectCacheImpl::RestoreParentOrPruneWithCleanLayout(Node* child_node) {
       // Mark the parent dirty so it picks up this child on next update.
       if (parent) {
         ChildrenChangedWithCleanLayout(parent);
+        if (!parent->IsDetached() && !parent->IsMissingParent()) {
+          parent->UpdateChildrenIfNecessary();
+        }
       }
       return;
     }
@@ -6726,9 +6771,8 @@ void AXObjectCacheImpl::HandleTextMarkerDataAddedWithCleanLayout(Node* node) {
             .is_new_entry) {
       ChildrenChangedWithCleanLayout(node);
     }
-  } else {
-    const auto& iter =
-        nodes_with_spelling_or_grammar_markers_.find(node->GetDomNodeId());
+  } else if (AXID node_id = DOMNodeIds::ExistingIdForNode(node)) {
+    const auto& iter = nodes_with_spelling_or_grammar_markers_.find(node_id);
     if (iter != nodes_with_spelling_or_grammar_markers_.end()) {
       nodes_with_spelling_or_grammar_markers_.erase(iter);
       ChildrenChangedWithCleanLayout(node);
@@ -6888,8 +6932,8 @@ void AXObjectCacheImpl::HandleScrollPositionChanged(
   InvalidateBoundingBoxForFixedOrStickyPosition();
 
   Node* node = GetClosestNodeForLayoutObject(layout_object);
-  if (node) {
-    InvalidateBoundingBox(node->GetDomNodeId());
+  if (AXID node_id = DOMNodeIds::ExistingIdForNode(node)) {
+    InvalidateBoundingBox(node_id);
   }
 }
 

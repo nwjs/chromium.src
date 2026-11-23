@@ -23,14 +23,17 @@ enum class EntryPoint;
 
 class AuthenticationService;
 class Browser;
+class FullscreenController;
 class GeminiContainerMediatorEventHandler;
 class GeminiSharedTabsDelegate;
 @class GeminiConfiguration;
 @class GeminiGatewayManager;
 @class GeminiPageContext;
+@class GeminiSessionMetricsManager;
 @class GeminiStartupState;
 @protocol AssistantContainerCommands;
 @protocol BWGGatewayProtocol;
+@protocol FullscreenCommands;
 @protocol GeminiCommands;
 @protocol GeminiContainerMediatorDelegate;
 @protocol GeminiZeroStateConsumer;
@@ -54,6 +57,13 @@ class GeminiSharedTabsDelegate;
 // Handler for Gemini commands (e.g. dismissing Gemini flow).
 @property(nonatomic, weak) id<GeminiCommands> geminiHandler;
 
+// Handler for fullscreen commands (e.g. exiting fullscreen on mode
+// transitions).
+@property(nonatomic, weak) id<FullscreenCommands> fullscreenHandler;
+
+// Controller for browser fullscreen state.
+@property(nonatomic, assign) FullscreenController* fullscreenController;
+
 // Consumer interface for handling UI updates from the coordinator.
 @property(nonatomic, weak) id<GeminiContainerConsumer> consumer;
 
@@ -71,12 +81,13 @@ class GeminiSharedTabsDelegate;
 
 // TODO(crbug.com/537719170): Mediator should be the target directly.
 // Initializes the mediator with the given dependencies.
-- (instancetype)initWithBrowser:(Browser*)browser
-                   actorService:(actor::ActorService*)actorService
-          authenticationService:(AuthenticationService*)authService
-                   eventHandler:
-                       (GeminiContainerMediatorEventHandler*)eventHandler
-             sharedTabsDelegate:(GeminiSharedTabsDelegate*)sharedTabsDelegate
+- (instancetype)
+          initWithBrowser:(Browser*)browser
+             actorService:(actor::ActorService*)actorService
+    authenticationService:(AuthenticationService*)authService
+             eventHandler:(GeminiContainerMediatorEventHandler*)eventHandler
+       sharedTabsDelegate:(GeminiSharedTabsDelegate*)sharedTabsDelegate
+    sessionMetricsManager:(GeminiSessionMetricsManager*)sessionMetricsManager
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -109,10 +120,6 @@ class GeminiSharedTabsDelegate;
 - (BOOL)shouldShowPageLoadingSnackbarOnOpeningInvocationForEntryPoint:
     (gemini::EntryPoint)entryPoint;
 
-// Handles initial setup for UI state and page context generation when the
-// container session starts.
-- (void)connect;
-
 // Currently, `GeminiBrowserAgent` does some of the state setup/cleanup on each
 // floaty invocation/dismissal, while full destruction happens on
 // `GeminiBrowserAgent` destruction.
@@ -128,7 +135,8 @@ class GeminiSharedTabsDelegate;
 - (void)onFloatyInvoked;
 - (void)onFloatyDismiss;
 
-// Fetches zero-state suggestions for the active web state.
+// Fetches zero-state suggestions for the active web state, or hides them when
+// its page context is detached or not eligible to be attached.
 - (void)fetchZeroStateSuggestions:(GeminiStartupState*)startupState;
 
 // Handles initial setup for UI state, page context generation, and connecting

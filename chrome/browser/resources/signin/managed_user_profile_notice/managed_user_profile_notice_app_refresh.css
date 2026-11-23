@@ -27,6 +27,10 @@
   width: 100vw;
 }
 
+:host([is-modal-dialog_]) {
+  min-height: 560px;
+}
+
 /* Keep consistent with managed_user_profile_notice_disclosure_refresh.css */
 @media screen and ((max-width: 1024px) or (max-height: 750px)) {
   :host {
@@ -62,8 +66,21 @@
 .action-container {
   align-items: center;
   flex-shrink: 0;
-  justify-content: center;
   padding: 24px;
+}
+
+/* In full-window flows (First Run and Profile Picker), center the buttons below
+ * the content to match the other pages of these flows. */
+:host(:not([is-modal-dialog_])) .action-container {
+  justify-content: center;
+}
+
+/* In modal dialogs, keep the content centered and anchor the buttons to the
+ * bottom-end corner, matching the legacy management dialogs. The horizontal
+ * alignment and button order come from .action-container in signin_shared.css
+ * and are platform specific. */
+:host([is-modal-dialog_]) .main-container {
+  margin-block: auto;
 }
 
 .action-button {

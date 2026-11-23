@@ -120,6 +120,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
       lineSpacing: {type: Number},
       letterSpacing: {type: Number},
       font: {type: String},
+      fontSize: {type: Number},
       speechRate: {type: Number},
       highlightGranularity: {type: Number},
       linksEnabled: {type: Boolean},
@@ -164,6 +165,7 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   accessor lineSpacing: number = 0;
   accessor letterSpacing: number = 0;
   accessor font: string = '';
+  accessor fontSize: number = 0;
   accessor speechRate: number = 1;
   accessor highlightGranularity: number = 0;
   accessor linksEnabled: boolean = false;
@@ -431,13 +433,6 @@ export class ReadAnythingToolbarElement extends ReadAnythingToolbarElementBase {
   protected onCloseSubmenuRequested_(
       event: CustomEvent<{previousId: SettingsOption}>) {
     this.closeSubmenu_(event.detail.previousId);
-  }
-
-  protected onTranslationRequested_() {
-    if (!this.visualBrowserProxy_.isReadAnythingTranslateEntryPointEnabled()) {
-      return;
-    }
-    this.visualBrowserProxy_.onTranslationRequested();
   }
 
   protected onOpenSettingsSubmenu_(event: CustomEvent<{

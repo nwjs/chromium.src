@@ -7,31 +7,22 @@
 
 #import <memory>
 
-#import "base/no_destructor.h"
-#import "ios/chrome/browser/shared/model/profile/profile_keyed_service_factory_ios.h"
-
-class ProfileIOS;
-
-namespace autofill {
-class WalletPassAccessManager;
-}  // namespace autofill
+#import "components/autofill/core/browser/network/autofill_ai/wallet_pass_access_manager.h"
+#import "ios/chrome/browser/shared/model/profile/typed_profile_keyed_service_factory_ios.h"
 
 // Singleton that owns all WalletPassAccessManagers and associates them with
 // ProfileIOS.
-class IOSWalletPassAccessManagerFactory : public ProfileKeyedServiceFactoryIOS {
+class IOSWalletPassAccessManagerFactory final
+    : public TypedProfileKeyedServiceFactoryIOS<
+          IOSWalletPassAccessManagerFactory,
+          autofill::WalletPassAccessManager> {
  public:
-  static autofill::WalletPassAccessManager* GetForProfile(ProfileIOS* profile);
-  static IOSWalletPassAccessManagerFactory* GetInstance();
+  explicit IOSWalletPassAccessManagerFactory(PassKey key);
 
  private:
-  friend class base::NoDestructor<IOSWalletPassAccessManagerFactory>;
-
-  IOSWalletPassAccessManagerFactory();
-  ~IOSWalletPassAccessManagerFactory() override;
-
   // BrowserStateKeyedServiceFactory implementation.
   std::unique_ptr<KeyedService> BuildServiceInstanceFor(
-      ProfileIOS* profile) const override;
+      ProfileIOS* profile) const final;
 };
 
 #endif  // IOS_CHROME_BROWSER_AUTOFILL_MODEL_IOS_WALLET_PASS_ACCESS_MANAGER_FACTORY_H_

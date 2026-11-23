@@ -7,6 +7,7 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
@@ -134,6 +135,7 @@ class PaymentRequestDialogView : public views::DialogDelegateView,
   bool IsInteractive() const override;
   void ShowPaymentHandlerScreen(
       const GURL& url,
+      const std::optional<gfx::Size>& preferred_web_contents_size,
       PaymentHandlerOpenWindowCallback callback) override;
   void RetryDialog() override;
 
@@ -192,14 +194,6 @@ class PaymentRequestDialogView : public views::DialogDelegateView,
 
   Profile* GetProfile();
 
-  // Calculates the actual payment handler dialog height based on the preferred
-  // height and current browser window size.
-  int GetActualPaymentHandlerDialogHeight() const;
-
-  // Calculates the dialog width depending on whether or not the large payment
-  // handler window is currently showing.
-  int GetActualDialogWidth() const;
-
   // Called when a PaymentHandler dialog detects a title being set from the
   // underlying WebContents.
   void OnPaymentHandlerTitleSet();
@@ -207,6 +201,17 @@ class PaymentRequestDialogView : public views::DialogDelegateView,
   // Called when a PaymentHandler dialog detects a theme color being set from
   // the underlying WebContents.
   void OnPaymentHandlerThemeColorSet();
+
+  // Resizes the payment handler dialog so that its WebContents is, as closely
+  // as possible, `preferred_web_contents_size`. The preferred size is clamped
+  // by a minimum/maximum allowed dialog size, as well as the overall available
+  // size of the containing browser window.
+  void ResizeToFitPaymentHandlerWebContents(
+      const gfx::Size& preferred_web_contents_size);
+
+  // Returns true if the payment handler window is showing and the user can
+  // interact with it.
+  bool IsShowingInteractivePaymentHandlerWindow();
 
  private:
   friend class PaymentRequestDialogViewTestApi;
@@ -224,14 +229,12 @@ class PaymentRequestDialogView : public views::DialogDelegateView,
   void ShowInitialPaymentSheet();
   void RemoveLoadingView();
   void OnDialogClosed();
-  void ResizeDialogWindow();
+  void ResizeDialogWindow(const gfx::Size& size);
   void ResizeToPaymentHandlerSize();
   void CheckIfDialogFitsInBrowserWindow();
   bool DialogFitsInBrowserWindow() const;
 
   // views::View
-  gfx::Size CalculatePreferredSize(
-      const views::SizeBounds& /*available_size*/) const override;
   void ViewHierarchyChanged(
       const views::ViewHierarchyChangedDetails& details) override;
 
@@ -260,14 +263,6 @@ class PaymentRequestDialogView : public views::DialogDelegateView,
 
   // The number of initialization tasks that are not yet initialized.
   size_t number_of_initialization_tasks_ = 0;
-
-  // True when payment handler screen is shown, as it is larger than the Payment
-  // Request sheet view.
-  bool is_showing_large_payment_handler_window_ = false;
-
-  // Calculated based on the browser content size at the time of opening payment
-  // handler window.
-  int payment_handler_window_height_ = 0;
 
   // We track the size of the containing browser window in order to detect cases
   // where it becomes too small to contain the Payment Request/Handler dialog.

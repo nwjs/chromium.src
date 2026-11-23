@@ -76,6 +76,11 @@ if (!defined(use_partition_alloc_default)) {
   use_partition_alloc_default = true
 }
 
+# Allows embedders to enable alloc token support by default.
+if (!defined(shim_supports_alloc_token_default)) {
+  shim_supports_alloc_token_default = false
+}
+
 # PartitionAlloc have limited support for MSVC's cl.exe compiler. It can only
 # access the generate "buildflags" and the "raw_ptr" definitions implemented
 # with RawPtrNoOpImpl. Everything else is considered not supported.
@@ -174,12 +179,14 @@ declare_args() {
 declare_args() {
   # Whether the allocator shim supports alloc token or not. If true, malloc()
   # and operator new() families are injected with an alloc token parameter.
-  # shim_supports_alloc_token = use_partition_alloc_as_malloc
-  shim_supports_alloc_token = false
+  # In Chromium, the default follows use_alloc_token.
+  shim_supports_alloc_token =
+      shim_supports_alloc_token_default && use_partition_alloc_as_malloc &&
+      is_clang && !is_component_build
 }
 
-assert(!is_component_build || is_linux || !shim_supports_alloc_token,
-       "In the component build, alloc token is only supported on Linux.")
+assert(!is_component_build || !shim_supports_alloc_token,
+       "Alloc token is not supported in the component build.")
 
 use_allocator = "none"
 
@@ -607,11 +614,12 @@ declare_args() {
   # We can only enable this on 64-bit builds and when PA is used as malloc to
   # get hooks early enough to reserve the segment.
   #
-  # TODO(40925855): Android can only be enabled after switching to native
-  # zygote.
+  # On Android, reserving the segment only succeeds in processes spawned from
+  # the Native Zygote (Android 17+); in other processes the first 4GB are
+  # occupied by ART and reservation fails gracefully.
   enable_user_space_zero_segment =
       has_64_bit_pointers && use_partition_alloc_as_malloc &&
-      (is_mac || is_win || is_chromeos || is_linux)
+      (is_mac || is_win || is_chromeos || is_linux || is_android)
 
   # Size of the zero segment in MB. The total size will be at least this value.
   # This is 4GB + 1MB. The 1MB protects from using certain kinds of objects
@@ -640,4 +648,4 @@ use_checked_span = !(is_asan || is_ubsan || is_tsan || is_msan) &&
 # build toggle is necessarily defined as a subset of BackupRefPtr build
 # support.
 checked_span_has_metadata_support =
-    use_checked_span && enable_backup_ref_ptr_support && false
+    use_checked_span && enable_backup_ref_ptr_support

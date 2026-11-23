@@ -681,6 +681,10 @@ interface LocalFrameHost {
   // navigation.
   FrameSizeChanged(gfx.mojom.Size size);
 
+  // The frame's bounds in its local root widget's DIP space, used by the
+  // browser process to constrain unbounded elements inside iframes.
+  FrameBoundsInLocalRootChanged(gfx.mojom.Rect bounds);
+
   // Notifies the frame that the document's color scheme has been inferred.
   DidInferColorScheme(PreferredColorScheme color_scheme);
 
@@ -1076,7 +1080,7 @@ interface LocalFrame {
   // TODO(crbug.com/515541906): This method is to be merged with the InvokeTool
   // method in chrome/common/chrome_render_frame.mojom once //chrome
   // implementation for script tools is moved to //content.
-  InvokeScriptToolForInspector(mojo_base.mojom.UnguessableToken invocation_id,
+  InvokeScriptToolForInspector(blink.mojom.ToolInvocationToken invocation_id,
                                string tool_name,
                                string input_arguments) => (bool success);
 
@@ -1091,7 +1095,7 @@ interface LocalFrame {
   // chrome/common/chrome_render_frame.mojom once //chrome implementation for
   // script tools is moved to //content.
   NotifyInspectorOfCrossDocumentScriptToolResult(
-      mojo_base.mojom.UnguessableToken invocation_id);
+      blink.mojom.ToolInvocationToken invocation_id);
 
   // Requests the index of a character in the frame's text stream at the given
   // point. The point is in the viewport coordinate space. Replies using

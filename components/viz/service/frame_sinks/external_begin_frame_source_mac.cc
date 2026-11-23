@@ -120,13 +120,23 @@ void ExternalBeginFrameSourceMac::CreateDelayBasedTimeSourceIfNeeded() {
   time_source_->SetTimebaseAndInterval(last_frame_time_, preferred_interval_);
 }
 
-// Forces an update of the DisplayLinkMac for the specified display. This is
-// called when the browser-side CADisplayLink state changes (e.g., becomes
-// valid or invalid) or when a display is added or removed.
+// Forces this frame sink to destroy and recreate its DisplayLinkMac. Called by
+// FrameSinkManagerImpl::UpdateVSyncDisplays() in two cases:
+// (1) The browser-side CADisplayLink for `display_id` changed validity (e.g.
+//     a display was added or removed). Only the frame sink on that display
+//     needs to update. (This will be removed with the feature flag
+//     kCADisplayLinkInBrowser.)
+// (2) The GPU-side WindowServerEventPumpThread failed and CADisplayLink can
+//     no longer be used. In this case `display_id` is meaningless and every
+//     frame sink must update so that it falls back to a timer.
 void ExternalBeginFrameSourceMac::UpdateVSyncDisplay(int64_t display_id) {
-  if (display_id_ == display_id) {
-    SetVSyncDisplayID(display_id_, /*force_update=*/true);
+  if (ui::DisplayLinkMac::SupportsDisplayLinkMacInBrowser()) {
+    if (display_id_ != display_id) {
+      return;
+    }
   }
+
+  SetVSyncDisplayID(display_id_, /*force_update=*/true);
 }
 
 void ExternalBeginFrameSourceMac::SetVSyncDisplayID(int64_t display_id,
@@ -518,7 +528,8 @@ base::TimeDelta ExternalBeginFrameSourceMac::GetMinimumFrameInterval() {
     // the last known or default refresh interval instead. If the refresh rate
     // has changed, OnDisplayLinkCallback() will receive the updated interval
     // and invoke update_vsync_params_callback_ to update FrameIntervalDecider.
-    if (ui::DisplayLinkMac::SupportsDisplayLinkMacInBrowser()) {
+    if (ui::DisplayLinkMac::SupportsDisplayLinkMacInBrowser() ||
+        ui::DisplayLinkMac::SupportsCADisplayLinkInGPU()) {
       min_interval = min_refresh_interval_;
     } else {
       min_interval = display_link_mac_->GetRefreshInterval();

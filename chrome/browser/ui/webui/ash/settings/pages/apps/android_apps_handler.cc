@@ -6,8 +6,6 @@
 
 #include "base/functional/bind.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
-#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/experiences/arc/app/arc_app_constants.h"
@@ -115,7 +113,7 @@ void AndroidAppsHandler::ShowAndroidAppsSettings(const base::ListValue& args) {
 
 int64_t AndroidAppsHandler::GetDisplayIdForCurrentProfile() {
   // Settings in secondary profile cannot access ARC.
-  DCHECK(arc::IsArcAllowedForProfile(profile_));
+  CHECK(arc::IsArcAllowedForProfile(profile_), base::NotFatalUntil::M162);
   return display::Screen::Get()
       ->GetDisplayNearestView(web_ui()->GetWebContents()->GetNativeView())
       .id();

@@ -16,7 +16,6 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
 #include "ui/gfx/geometry/size.h"
-#include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/controls/webview/webview_export.h"
 #include "ui/views/window/client_view.h"
@@ -73,13 +72,16 @@ class ObservableWebView : public WebView {
 // TODO(akalin): Make WebDialogView contain an WebDialogWebContentsDelegate
 // instead of inheriting from it to avoid violating the "no multiple
 // inheritance" rule.
-class WEBVIEW_EXPORT WebDialogView : public ClientView,
-                                     public ui::WebDialogWebContentsDelegate,
-                                     public ui::WebDialogDelegate,
-                                     public DialogDelegate {
+class WEBVIEW_EXPORT WebDialogView
+    : public ClientView,
+      public views::WebContentsDelegateViews<WebDialogView,
+                                             ui::WebDialogWebContentsDelegate>,
+      public DialogDelegate {
   METADATA_HEADER(WebDialogView, ClientView)
 
  public:
+  using FrameKind = ui::WebDialogDelegate::FrameKind;
+
   // |handler| must not be nullptr.
   // |use_dialog_frame| indicates whether to use dialog frame view for non
   // client frame view.
@@ -118,34 +120,12 @@ class WEBVIEW_EXPORT WebDialogView : public ClientView,
   Widget* GetWidget() override;
   const Widget* GetWidget() const override;
 
-  // ui::WebDialogDelegate:
-  ui::mojom::ModalType GetDialogModalType() const override;
-  std::u16string GetDialogTitle() const override;
-  GURL GetDialogContentURL() const override;
-  void GetWebUIMessageHandlers(
-      std::vector<content::WebUIMessageHandler*>* handlers) override;
-  void GetDialogSize(gfx::Size* size) const override;
-  void GetMinimumDialogSize(gfx::Size* size) const override;
-  std::string GetDialogArgs() const override;
-  void OnDialogShown(content::WebUI* webui) override;
-  void OnDialogClosed(const std::string& json_retval) override;
-  void OnDialogCloseFromWebUI(const std::string& json_retval) override;
-  void OnCloseContents(content::WebContents* source,
-                       bool* out_close_dialog) override;
-  bool ShouldShowDialogTitle() const override;
-  bool ShouldCenterDialogTitleText() const override;
-  bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
-                         const content::ContextMenuParams& params) override;
-  FrameKind GetWebDialogFrameKind() const override;
-
   // content::WebContentsDelegate:
   void CanDownload(const GURL& url,
                    const std::string& request_method,
                    base::OnceCallback<void(bool)> callback) override;
   void SetContentsBounds(content::WebContents* source,
                          const gfx::Rect& bounds) override;
-  bool HandleKeyboardEvent(content::WebContents* source,
-                           const input::NativeWebKeyboardEvent& event) override;
   void CloseContents(content::WebContents* source) override;
   content::WebContents* OpenURLFromTab(
       content::WebContents* source,
@@ -179,12 +159,21 @@ class WEBVIEW_EXPORT WebDialogView : public ClientView,
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
                                   const url::Origin& security_origin,
                                   blink::mojom::MediaStreamType type) override;
+  bool HandleContextMenu(content::RenderFrameHost& render_frame_host,
+                         const content::ContextMenuParams& params) override;
 
+  FrameKind GetWebDialogFrameKind() const;
   void SetWebViewCornersRadii(const gfx::RoundedCornersF& radii);
+
+  // Required for testing.
+  using WebContentsDelegateViews::HandleKeyboardEvent;
 
  private:
   friend class WebDialogViewUnitTest;
   FRIEND_TEST_ALL_PREFIXES(WebDialogBrowserTest, WebContentRendered);
+  FRIEND_TEST_ALL_PREFIXES(WebDialogViewUnitTest,
+                           PreHandleAcceleratorsByDefault);
+  FRIEND_TEST_ALL_PREFIXES(WebDialogViewUnitTest, DisablePreHandleAccelerators);
 
   // Initializes the contents of the dialog.
   void InitDialog();
@@ -192,19 +181,12 @@ class WEBVIEW_EXPORT WebDialogView : public ClientView,
   // Accessor used by metadata only.
   ObservableWebView* GetWebView() const { return web_view_; }
 
+  void OnDialogClosed(const std::string& json_retval);
+  void OnDialogCloseFromWebUI(const std::string& json_retval);
   void NotifyDialogWillClose();
 
   void UpdateAccessibleNameForRootView();
 
-  // This view is a delegate to the HTML content since it needs to get notified
-  // about when the dialog is closing. For all other actions (besides dialog
-  // closing) we delegate to the creator of this view, which we keep track of
-  // using this variable.
-  //
-  // TODO(ellyjones): Having WebDialogView implement all of WebDialogDelegate,
-  // and plumb all the calls through to |delegate_|, is a lot of code overhead
-  // to support having this view know about dialog closure. There is probably a
-  // lighter-weight way to achieve that.
   raw_ptr<ui::WebDialogDelegate, DanglingUntriaged> delegate_;
 
   raw_ptr<ObservableWebView> web_view_;
@@ -226,9 +208,6 @@ class WEBVIEW_EXPORT WebDialogView : public ClientView,
 
   // Whether CloseContents() has been called.
   bool close_contents_called_ = false;
-
-  // Handler for unhandled key events from renderer.
-  UnhandledKeyboardEventHandler unhandled_keyboard_event_handler_;
 
   bool disable_url_load_for_test_ = false;
 

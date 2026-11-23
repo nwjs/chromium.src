@@ -2849,7 +2849,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Autofill.AiAmountExtraction.ApcFetchResult" singular="true">
-  <owner>jamessun@google.com</owner>
+  <owner>vinnypersky@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
     Records whether the Annotated Page Content (APC) fetch was successful. APC
@@ -2873,7 +2873,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Autofill.AiAmountExtraction.Result" singular="true">
-  <owner>jamessun@google.com</owner>
+  <owner>vinnypersky@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
     Records the final result of the AI-based checkout amount extraction process.
@@ -2948,8 +2948,9 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Autofill.AmountExtractionComplete" singular="true">
-  <owner>jamessun@google.com</owner>
   <owner>longsheng@google.com</owner>
+  <owner>vinnypersky@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
   <summary>
     Records the result of the amount extraction process. This process is to
     search for the final checkout amount from the merchants' checkout page and
@@ -3001,7 +3002,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="Autofill.Bnpl.AiAmountExtraction.AmountInIssuerRange">
-  <owner>jamessun@google.com</owner>
+  <owner>vinnypersky@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
     Records whether the AI-based checkout amount is within the issuer's
@@ -3549,6 +3550,13 @@ be describing additional metrics about the same event.
       kAfterFieldDetection and kBeforeFieldDetection, where an OTP form was
       detected and the URL can be reliably established.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="Tickle.FormOutcome" enum="OneTimeTokensTickleFormOutcome">
     <summary>
@@ -3557,6 +3565,13 @@ be describing additional metrics about the same event.
       before user interaction, after user interaction, or no tickle received
       within timeout).
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -10273,6 +10288,55 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="FetchRequest.WithCategory">
+  <owner>sisidovski@chromium.org</owner>
+  <owner>chrome-loading@google.com</owner>
+  <summary>
+    Logged when a fetch() request with a recognized category parameter reaches a
+    terminal state in the renderer.
+  </summary>
+  <metric name="Category">
+    <summary>
+      An integer representing the numeric identifier parsed from the category
+      query parameter in the request URL.
+    </summary>
+  </metric>
+  <metric name="FetchAbortedReason" enum="FetchAbortedReason">
+    <summary>
+      Why the request ended with net::ERR_ABORTED.
+    </summary>
+  </metric>
+  <metric name="HttpStatusCode" enum="CombinedHttpResponseAndNetErrorCode">
+    <summary>
+      The HTTP response status code if response headers were received, or 0
+      otherwise.
+    </summary>
+  </metric>
+  <metric name="IsAbortSignalled" enum="Boolean">
+    <summary>
+      Whether the request received an explicit abort signal (e.g. from
+      AbortController.abort() or window stop).
+    </summary>
+  </metric>
+  <metric name="IsContextDetached" enum="Boolean">
+    <summary>
+      Whether the execution context or frame was detaching or destroyed when the
+      request terminated.
+    </summary>
+  </metric>
+  <metric name="NetError" enum="NetErrorCodes">
+    <summary>
+      The terminal net error code, recorded as -net_error (e.g. net::OK is 0,
+      net::ERR_ABORTED is 3).
+    </summary>
+  </metric>
+  <metric name="ResponseReceived" enum="Boolean">
+    <summary>
+      Whether response headers were received before the terminal state.
+    </summary>
+  </metric>
+</event>
+
 <event name="FileSystemAPI.WebRequest">
   <owner>mek@chromium.org</owner>
   <owner>rhalavatigit@chromium.org</owner>
@@ -12337,6 +12401,18 @@ be describing additional metrics about the same event.
   <metric name="GatsbyPageLoad" enum="Boolean">
     <summary>
       True if the page loaded in the main frame uses the Gatsby JavaScript
+      framework.
+    </summary>
+  </metric>
+  <metric name="LiteRTLMPageLoad" enum="Boolean">
+    <summary>
+      True if the page loaded in the main frame uses the LiteRT-LM JavaScript
+      framework.
+    </summary>
+  </metric>
+  <metric name="LiteRTPageLoad" enum="Boolean">
+    <summary>
+      True if the page loaded in the main frame uses the LiteRT.js JavaScript
       framework.
     </summary>
   </metric>
@@ -21572,42 +21648,6 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="RequestStorageAccessFor.RequestStorageResult">
-  <owner>selya@google.com</owner>
-  <owner>cfredric@chromium.org</owner>
-  <summary>
-    Records invocations of document.requestStorageAccessFor and reasons the
-    request was approved or rejected. Recorded for every call to the function,
-    regardless of outcome.
-  </summary>
-  <metric name="RequestStorageResult" enum="RequestStorageResult">
-    <summary>
-      The result of the requestStorageAccessFor call.
-    </summary>
-  </metric>
-</event>
-
-<event name="RequestStorageAccessFor.TopLevelStorageIsExemptionReason">
-  <owner>selya@google.com</owner>
-  <owner>cfredric@chromium.org</owner>
-  <summary>
-    Tracks when a cookie is included in a network request due to the
-    ExemptionReason::kTopLevelStorageAccess. This state can only occur when a
-    request is cors-enabled and made from the top-level frame. Reads from
-    document.cookies (and requests that are not cors-enabled) are not included
-    because the value is always 0 and those are not recorded. Cookies that have
-    been written by document.cookies or network responses may be included if
-    subsequent request meets the requirments for kTopLevelStorageAccess.
-  </summary>
-  <metric name="NumberOfCookies">
-    <summary>
-      Number of cookies where ExemptionReason::kTopLevelStorageAccess is the
-      reason a cookie is included in a given request. The value is rounded down
-      to the nearest exponential bucket with factor of 2.0.
-    </summary>
-  </metric>
-</event>
-
 <event name="Responsiveness.UserInteraction">
   <owner>mmocny@chromium.org</owner>
   <owner>sullivan@chromium.org</owner>
@@ -23084,26 +23124,6 @@ be describing additional metrics about the same event.
     <summary>
       Whether the highlighting of a set of text fragments was a complete success
       or not.
-    </summary>
-  </metric>
-</event>
-
-<event name="SharedStorage.Worklet.OnDestroyed">
-  <owner>yaoxia@chromium.org</owner>
-  <owner>cammie@chromium.org</owner>
-  <summary>
-    Metrics for Shared Storage worklet. Each document can create zero or more
-    worklets, and the recorded URL represents the URL of the top-level page that
-    creates the worklet. (Note: The Storage.SharedStorage.Worklet.NumPerPage
-    histogram tracks the number of worklets per page.) Recorded when a worklet
-    is destroyed. See https://wicg.github.io/shared-storage/#worklet.
-  </summary>
-  <metric name="AbsoluteUsefulResourceDuration">
-    <summary>
-      The total duration (ms) that a Shared Storage worklet is actively
-      processing operations (i.e, from the worklet's creation until either its
-      last operation completes or it is destroyed). The number is exponentially
-      bucketed.
     </summary>
   </metric>
 </event>

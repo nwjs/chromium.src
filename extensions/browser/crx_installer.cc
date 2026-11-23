@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
@@ -446,40 +447,8 @@ std::optional<CrxInstallError> CrxInstaller::AllowInstall(
               base::ASCIIToUTF16(Extension::kMimeType)));
     }
 
-    // If the client_ is NULL, then the app is either being installed via
-    // an internal mechanism like sync, external_extensions, or default apps.
-    // In that case, we don't want to enforce things like the install origin.
-    if (!is_gallery_install() && client_) {
-      // For apps with a gallery update URL, require that they be installed
-      // from the gallery.
-      // TODO(erikkay) Apply this rule for paid extensions and themes as well.
-      if (UpdatesFromWebstore(*extension)) {
-        return CrxInstallError(
-            CrxInstallErrorType::OTHER,
-            CrxInstallErrorDetail::NOT_INSTALLED_FROM_GALLERY,
-            l10n_util::GetStringFUTF16(
-                IDS_EXTENSION_INSTALL_GALLERY_ONLY,
-                l10n_util::GetStringUTF16(IDS_EXTENSION_WEB_STORE_TITLE)));
-      }
-
-      // For self-hosted apps, verify that the entire extent is on the same
-      // host (or a subdomain of the host) the download happened from.  There's
-      // no way for us to verify that the app controls any other hosts.
-      URLPattern pattern(UserScript::ValidUserScriptSchemes());
-      pattern.SetHost(download_url_.GetHost());
-      pattern.SetMatchSubdomains(true);
-
-      const URLPatternSet& patterns = extension_->web_extent();
-      for (auto i = patterns.begin(); i != patterns.end(); ++i) {
-        if (!pattern.MatchesHost(i->host())) {
-          return CrxInstallError(
-              CrxInstallErrorType::OTHER,
-              CrxInstallErrorDetail::INCORRECT_INSTALL_HOST,
-              l10n_util::GetStringUTF16(
-                  IDS_EXTENSION_INSTALL_INCORRECT_INSTALL_HOST));
-        }
-      }
-    }
+    // Additional install-origin checks for user-initiated app installs are
+    // performed in CheckInstall() on the UI thread.
   }
 
   return std::nullopt;
@@ -633,6 +602,57 @@ void CrxInstaller::CheckInstall() {
     return;
   }
 
+  // If `client_` is null, then the app is being installed via an internal
+  // mechanism like sync, external_extensions, or default apps. In that case,
+  // install origin enforcement is not needed.
+  if (extension()->is_app() && !is_gallery_install() && client_ &&
+      !Manifest::IsExternalLocation(install_source_)) {
+    // For apps with a gallery update URL, require that they be installed from
+    // the gallery.
+    // TODO(erikkay) Apply this rule for paid extensions and themes as well.
+    if (UpdatesFromWebstore(*extension())) {
+      ReportFailureFromUIThread(CrxInstallError(
+          CrxInstallErrorType::OTHER,
+          CrxInstallErrorDetail::NOT_INSTALLED_FROM_GALLERY,
+          l10n_util::GetStringFUTF16(
+              IDS_EXTENSION_INSTALL_GALLERY_ONLY,
+              l10n_util::GetStringUTF16(IDS_EXTENSION_WEB_STORE_TITLE))));
+      return;
+    }
+
+    // For self-hosted apps, verify that the entire extent is on the same host
+    // (or a subdomain of the host) the download happened from. There is no
+    // way to verify that the app controls any other hosts.
+    if (!extension()->web_extent().is_empty()) {
+      // A pattern with an empty host and match_subdomains matches every host,
+      // so any web extent must be rejected when there is no download host
+      // available to compare against.
+      if (!download_url_.has_host()) {
+        ReportFailureFromUIThread(
+            CrxInstallError(CrxInstallErrorType::OTHER,
+                            CrxInstallErrorDetail::INCORRECT_INSTALL_HOST,
+                            l10n_util::GetStringUTF16(
+                                IDS_EXTENSION_INSTALL_INCORRECT_INSTALL_HOST)));
+        return;
+      }
+
+      URLPattern pattern(UserScript::ValidUserScriptSchemes());
+      pattern.SetHost(download_url_.host());
+      pattern.SetMatchSubdomains(true);
+
+      for (const URLPattern& web_extent_pattern : extension()->web_extent()) {
+        if (!pattern.MatchesHost(web_extent_pattern.host())) {
+          ReportFailureFromUIThread(CrxInstallError(
+              CrxInstallErrorType::OTHER,
+              CrxInstallErrorDetail::INCORRECT_INSTALL_HOST,
+              l10n_util::GetStringUTF16(
+                  IDS_EXTENSION_INSTALL_INCORRECT_INSTALL_HOST)));
+          return;
+        }
+      }
+    }
+  }
+
   // TODO(crbug.com/40387578): Move this code to a utility class to avoid
   // duplication of SharedModuleService::CheckImports code.
   if (SharedModuleInfo::ImportsModules(extension())) {
@@ -723,13 +743,13 @@ void CrxInstaller::OnInstallChecksComplete(const PreloadCheck::Errors& errors) {
   }
 
   // Check the blocklist state.
-  if (errors.count(PreloadCheck::Error::kBlocklistedId) ||
-      errors.count(PreloadCheck::Error::kBlocklistedUnknown)) {
+  if (errors.contains(PreloadCheck::Error::kBlocklistedId) ||
+      errors.contains(PreloadCheck::Error::kBlocklistedUnknown)) {
     if (allow_silent_install_) {
       // NOTE: extension may still be blocklisted, but we're forced to silently
       // install it. In this case, ExtensionService::OnExtensionInstalled needs
       // to deal with it.
-      if (errors.count(PreloadCheck::Error::kBlocklistedId)) {
+      if (errors.contains(PreloadCheck::Error::kBlocklistedId)) {
         install_flags_ |= kInstallFlagIsBlocklistedForMalware;
       }
     } else {
@@ -748,7 +768,7 @@ void CrxInstaller::OnInstallChecksComplete(const PreloadCheck::Errors& errors) {
   }
 
   // Check for policy errors.
-  if (errors.count(PreloadCheck::Error::kDisallowedByPolicy)) {
+  if (errors.contains(PreloadCheck::Error::kDisallowedByPolicy)) {
     // We don't want to show the error infobar for installs from the WebStore,
     // because the WebStore already shows an error dialog itself.
     // Note: |client_| can be NULL in unit_tests!
@@ -978,21 +998,84 @@ void CrxInstaller::ReloadExtensionAfterInstall(
   // just moved the extension.
   // TODO(aa): All paths to resources inside extensions should be created
   // lazily and based on the Extension's root path at that moment.
-  ExtensionId extension_id = extension()->id();
+  scoped_refptr<const Extension> unpacked_extension = std::move(extension_);
   std::u16string error;
   extension_ = file_util::LoadExtension(
       version_dir, install_source_,
       // Note: modified by UpdateCreationFlagsAndCompleteInstall.
       creation_flags_, &error);
 
-  if (extension()) {
-    ReportSuccessFromSharedFileThread();
-  } else {
-    LOG(ERROR) << error << " " << extension_id << " " << download_url_;
+  if (!extension()) {
+    LOG(ERROR) << error << " " << unpacked_extension->id() << " "
+               << download_url_;
+    if (install_directory_.IsParent(version_dir) &&
+        base::FeatureList::IsEnabled(
+            extensions_features::kCrxInstallerVerifyReloadedManifest)) {
+      base::DeletePathRecursively(version_dir);
+    }
     ReportFailureFromSharedFileThread(
         CrxInstallError(CrxInstallErrorType::OTHER,
                         CrxInstallErrorDetail::CANT_LOAD_EXTENSION, error));
+    return;
   }
+
+  // `SandboxedUnpacker` writes the parsed manifest to disk and
+  // `file_util::LoadExtension` re-localizes it, so the reloaded manifest must
+  // equal the one validated in `OnUnpackSuccess`. The `id()` and `version()`
+  // checks are implied by manifest equality and kept as belt-and-braces.
+  const bool manifest_mismatch =
+      extension()->id() != unpacked_extension->id() ||
+      extension()->version() != unpacked_extension->version() ||
+      *extension()->manifest()->value() !=
+          *unpacked_extension->manifest()->value();
+  if (manifest_mismatch &&
+      base::FeatureList::IsEnabled(
+          extensions_features::kCrxInstallerVerifyReloadedManifest)) {
+    if (!install_directory_.IsParent(version_dir) &&
+        base::PathExists(unpacked_extension_root_)) {
+      // On ChromeOS with shared extension assets enabled, `version_dir` may
+      // resolve to a pre-existing shared copy written by an earlier install
+      // (e.g. with a different `differential_fingerprint` or Chrome version)
+      // while this install's `unpacked_extension_root_` is still on disk. Fall
+      // back to installing `unpacked_extension_root_` into this profile's
+      // `install_directory_`.
+      // TODO(crbug.com/574299586): Unregister this user from
+      // `ExtensionAssetsManagerChromeOS` (`MarkSharedExtensionUnused`) so
+      // unused or mismatched shared copies can be garbage-collected.
+      base::UmaHistogramEnumeration(
+          "Extensions.CrxInstaller.ReloadManifestMismatch",
+          ReloadManifestVerificationResult::kSharedCopyMismatchFallback);
+      extension_ = std::move(unpacked_extension);
+      ReloadExtensionAfterInstall(file_util::InstallExtension(
+          unpacked_extension_root_, extension_->id(),
+          extension_->VersionString(), install_directory_));
+      return;
+    }
+    base::UmaHistogramEnumeration(
+        "Extensions.CrxInstaller.ReloadManifestMismatch",
+        ReloadManifestVerificationResult::kMismatch);
+    LOG(ERROR) << "Manifest mismatch after install " << unpacked_extension->id()
+               << " " << download_url_;
+    extension_.reset();
+    // Only delete `version_dir` if it was installed under this profile's
+    // `install_directory_`. On ChromeOS with shared extension assets enabled,
+    // `version_dir` may refer to an existing shared cache directory used by
+    // other users.
+    if (install_directory_.IsParent(version_dir)) {
+      base::DeletePathRecursively(version_dir);
+    }
+    ReportFailureFromSharedFileThread(CrxInstallError(
+        CrxInstallErrorType::OTHER,
+        CrxInstallErrorDetail::MANIFEST_MISMATCH_AFTER_INSTALL,
+        l10n_util::GetStringUTF16(IDS_EXTENSION_MANIFEST_INVALID)));
+    return;
+  }
+  base::UmaHistogramEnumeration(
+      "Extensions.CrxInstaller.ReloadManifestMismatch",
+      manifest_mismatch ? ReloadManifestVerificationResult::kMismatch
+                        : ReloadManifestVerificationResult::kMatch);
+
+  ReportSuccessFromSharedFileThread();
 }
 
 void CrxInstaller::ReportFailureFromSharedFileThread(

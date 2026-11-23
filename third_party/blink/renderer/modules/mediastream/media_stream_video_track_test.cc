@@ -23,6 +23,7 @@
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/test_future.h"
 #include "base/threading/thread_checker.h"
 #include "build/build_config.h"
 #include "media/base/video_frame.h"
@@ -537,7 +538,7 @@ TEST_F(MediaStreamVideoTrackTest, DeliverFramesAndGetSettings) {
   auto frame2 = media::VideoFrame::CreateBlackFrame(gfx::Size(200, 300));
 
   media::VideoFrameMetadata metadata = frame2->metadata();
-  metadata.source_size = gfx::Size(600, 400);
+  metadata.capture.source_size = gfx::Size(600, 400);
   frame2->set_metadata(metadata);
   DeliverVideoFrameAndWaitForRenderer(std::move(frame2), &sink);
   native_track->GetSettings(settings);
@@ -563,7 +564,7 @@ TEST_F(MediaStreamVideoTrackTest, ScreenPixelRatioDoesNotIncludePageZoom) {
 
   auto frame1 = media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
   media::VideoFrameMetadata metadata = frame1->metadata();
-  metadata.source_size = gfx::Size(600, 400);
+  metadata.capture.source_size = gfx::Size(600, 400);
   metadata.device_scale_factor = 2.0f;
   frame1->set_metadata(metadata);
   DeliverVideoFrameAndWaitForRenderer(frame1, &sink);
@@ -613,9 +614,9 @@ TEST_F(MediaStreamVideoTrackTest,
   EXPECT_EQ(std::nullopt, settings.physical_frame_size);
   EXPECT_EQ(2.0f, settings.device_scale_factor);
 
-  // Changing metadata source_size triggers an event.
+  // Changing metadata capture.source_size triggers an event.
   auto frame2 = media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
-  metadata.source_size = gfx::Size(600, 400);
+  metadata.capture.source_size = gfx::Size(600, 400);
   frame2->set_metadata(metadata);
   DeliverVideoFrameAndWaitForRenderer(std::move(frame2), &sink);
   native_track->GetSettings(settings);
@@ -1422,7 +1423,7 @@ class MediaStreamVideoTrackCaptureVersionTest
       media::CaptureVersion capture_version = media::CaptureVersion()) {
     scoped_refptr<media::VideoFrame> frame =
         media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
-    frame->metadata().capture_version = capture_version;
+    frame->metadata().capture.version = capture_version;
     return frame;
   }
 
@@ -1669,6 +1670,46 @@ TEST_F(MediaStreamVideoTrackCaptureVersionTest,
   // To avoid false positives, ensure a rendezvous with the FrameDeliverer by
   // delivering a frame.
   DeliverFrame(capture_version);
+}
+
+// Makes sure that callbacks registered for an already-observed
+// `media::CaptureVersion` are invoked without waiting for a new frame.
+TEST_F(MediaStreamVideoTrackCaptureVersionTest,
+       CallbackForAlreadyObservedCaptureVersionInvoked) {
+  constexpr uint32_t kSource = 2;
+  constexpr uint32_t kSubCapture = 3;
+  const media::CaptureVersion older_version(kSource, kSubCapture - 1);
+  const media::CaptureVersion current_version(kSource, kSubCapture);
+
+  DeliverFrame(current_version);
+
+  base::test::TestFuture<void> older_version_future;
+  native_track_->AddCaptureVersionCallback(older_version,
+                                           older_version_future.GetCallback());
+  EXPECT_TRUE(older_version_future.Wait());
+
+  base::test::TestFuture<void> current_version_future;
+  native_track_->AddCaptureVersionCallback(
+      current_version, current_version_future.GetCallback());
+  EXPECT_TRUE(current_version_future.Wait());
+}
+
+// Makes sure that a callback is invoked if the source already announced its
+// `media::CaptureVersion`, even if no frame is ever delivered.
+TEST_F(MediaStreamVideoTrackCaptureVersionTest,
+       CallbackForAlreadyAnnouncedCaptureVersionInvoked) {
+  constexpr uint32_t kSource = 2;
+  constexpr uint32_t kSubCapture = 3;
+  const media::CaptureVersion capture_version(kSource, kSubCapture);
+
+  // Both tasks are posted to the video task runner, so the announcement is
+  // processed before the callback is registered.
+  mock_source()->DeliverNewCaptureVersion(capture_version);
+
+  base::test::TestFuture<void> future;
+  native_track_->AddCaptureVersionCallback(capture_version,
+                                           future.GetCallback());
+  EXPECT_TRUE(future.Wait());
 }
 
 }  // namespace media_stream_video_track_test

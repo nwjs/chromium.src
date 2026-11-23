@@ -9,10 +9,14 @@
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/check.h"
+#include "base/functional/bind.h"
+#include "base/location.h"
 #include "base/notimplemented.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/sequenced_task_runner.h"
+#include "third_party/jni_zero/jni_zero.h"
 #include "ui/android/window_android.h"
 #include "ui/shell_dialogs/select_file_policy.h"
 #include "ui/shell_dialogs/selected_file_info.h"
@@ -151,6 +155,13 @@ void SelectFileDialogImpl::SelectFileImpl(Type type,
     return;
   }
 
+  if (!owning_window) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&SelectFileDialogImpl::OnFileNotSelected,
+                                  this, nullptr));
+    return;
+  }
+
   JNIEnv* env = base::android::AttachCurrentThread();
 
   ScopedJavaLocalRef<jstring> intent_action =
@@ -214,9 +225,8 @@ SelectFileDialogImpl::SelectFileDialogImpl(
     std::unique_ptr<SelectFilePolicy> policy)
     : SelectFileDialog(listener, std::move(policy)) {
   JNIEnv* env = base::android::AttachCurrentThread();
-  // TODO(crbug.com/1365766): The `intptr_t` to `this` might get stale.
   java_object_.Reset(
-      Java_SelectFileDialog_create(env, reinterpret_cast<intptr_t>(this)));
+      Java_SelectFileDialog_create(env, jni_zero::MakeRaw(this)));
 }
 
 bool SelectFileDialogImpl::HasMultipleFileTypeChoicesImpl() {

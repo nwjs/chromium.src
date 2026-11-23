@@ -82,12 +82,7 @@ class _Writer:
 
   def WriteNumberList(self, gen):
     """Writes numbers from |gen| separated by space, in one line."""
-    sep = b''
-    for num in gen:
-      self.WriteBytes(sep)
-      self.WriteString(str(num))
-      sep = b' '
-    self.WriteBytes(b'\n')
+    self.WriteLine(' '.join(map(str, gen)))
 
   def LogSize(self, desc):
     self.file_obj_.flush()
@@ -157,14 +152,19 @@ def SortSymbols(raw_symbols):
   raw_symbols.sort(key=_SortKey)
 
 
+_NATIVE_SECTIONS_SET = frozenset(models.NATIVE_SECTIONS)
+
+
 def CalculatePadding(raw_symbols):
   """Populates the |padding| field based on symbol addresses."""
   logging.info('Calculating padding')
 
   seen_container_and_sections = set()
-  for i, symbol in enumerate(raw_symbols[1:]):
-    prev_symbol = raw_symbols[i]
-    if symbol.IsOverhead():
+  # This loop is hot, so avoids method calls and properties.
+  for prev_symbol, symbol in zip(
+    raw_symbols, itertools.islice(raw_symbols, 1, None)
+  ):
+    if symbol.full_name.startswith('Overhead: '):
       # Overhead symbols are not actionable so should be padding-only.
       symbol.padding = symbol.size
     if (
@@ -184,8 +184,7 @@ All: {}
     if (
       symbol.address <= 0
       or prev_symbol.address <= 0
-      or not symbol.IsNative()
-      or not prev_symbol.IsNative()
+      or symbol.section_name not in _NATIVE_SECTIONS_SET
     ):
       continue
 
@@ -199,11 +198,13 @@ All: {}
         'Found duplicate symbols:\n%r\n%r' % (prev_symbol, symbol)
       )
 
-    padding = symbol.address - prev_symbol.end_address
+    padding = symbol.address - (
+      prev_symbol.address + prev_symbol.size - prev_symbol.padding
+    )
     symbol.padding = padding
     symbol.size += padding
     assert symbol.size >= 0, (
-      'Symbol has negative size (likely not sorted propertly): '
+      'Symbol has negative size (likely not sorted properly): '
       '%r\nprev symbol: %r' % (symbol, prev_symbol)
     )
 
@@ -268,16 +269,16 @@ def _SaveSizeInfoToFile(size_info, file_obj):
   )
   path_tuples = {tup: i for i, tup in enumerate(unique_path_tuples)}
   w.WriteLine(str(len(unique_path_tuples)))
-  for pair in unique_path_tuples:
-    w.WriteLine('%s\t%s' % pair)
+  if unique_path_tuples:
+    w.WriteLine('\n'.join('%s\t%s' % pair for pair in unique_path_tuples))
   w.LogSize('paths')  # For libchrome, adds 200kb.
 
   # Store a single copy of all components and have them referenced by index.
   unique_components = sorted(set(s.component for s in raw_symbols))
   components = {comp: i for i, comp in enumerate(unique_components)}
   w.WriteLine(str(len(unique_components)))
-  for comp in unique_components:
-    w.WriteLine(comp)
+  if unique_components:
+    w.WriteLine('\n'.join(unique_components))
   w.LogSize('components')
 
   # Symbol counts by "segments", defined as (container, section) tuples.
@@ -338,17 +339,20 @@ def _SaveSizeInfoToFile(size_info, file_obj):
   symbols_with_disassembly = []
   disassembly_idx = 0
   for group in symbol_group_by_segment:
+    lines = []
     for symbol in group:
       if symbol.disassembly:
         symbols_with_disassembly.append((disassembly_idx, symbol.disassembly))
-      w.WriteString(symbol.full_name)
+      line = symbol.full_name
       if symbol.aliases and symbol.aliases is not prev_aliases:
-        w.WriteString('\t0%x' % symbol.num_aliases)
+        line += '\t0%x' % symbol.num_aliases
       prev_aliases = symbol.aliases
       if symbol.flags:
-        w.WriteString('\t%x' % symbol.flags)
-      w.WriteBytes(b'\n')
+        line += '\t%x' % symbol.flags
+      lines.append(line)
       disassembly_idx += 1
+    if lines:
+      w.WriteLine('\n'.join(lines))
   w.LogSize('names (final)')  # For libchrome: adds 3.5mb.
 
   w.WriteNumberList(x[0] for x in symbols_with_disassembly)
@@ -395,7 +399,8 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
     is_sparse: Whether the size file is a sparse, e.g., created from diff.
   """
   # Split lines on '\n', since '\r' can appear in some lines!
-  lines = io.TextIOWrapper(file_obj, newline='\n')
+  # Use latin-1 so that lines.read() counts bytes rather than code points.
+  lines = io.TextIOWrapper(file_obj, encoding='latin-1', newline='\n')
   header_line = _ReadLine(lines).encode('ascii')
   assert header_line == _COMMON_HEADER[:-1], 'was ' + str(header_line)
   header_line = _ReadLine(lines).encode('ascii')
@@ -413,7 +418,6 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
   fields = json.loads(json_str)
   assert ('containers' in fields) == has_multi_containers
   assert ('build_config' in fields) == has_multi_containers
-  assert ('containers' in fields) == has_multi_containers
   assert ('metadata' not in fields) == has_multi_containers
   assert ('section_sizes' not in fields) == has_multi_containers
 
@@ -454,6 +458,7 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
   # Eat empty line.
   _ReadLine(lines)
 
+  next_line = lines.__next__
   # Path list.
   num_path_tuples = int(_ReadLine(lines))  # Number of paths in list.
   # Read the path list values and store for later.
@@ -484,16 +489,12 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
     If |delta| is True, the numbers are read as a value to add to the sum of the
     prior values in the line, or as the amount to change by.
     """
-    ret = []
-    delta_multiplier = int(delta)
-    for _ in symbol_counts:
-      value = 0
-      fields = []
-      for f in _ReadValuesFromLine(lines, split=' '):
-        value = value * delta_multiplier + int(f)
-        fields.append(value)
-      ret.append(fields)
-    return ret
+    if delta:
+      return [
+        list(itertools.accumulate(map(int, next_line().split())))
+        for _ in symbol_counts
+      ]
+    return [list(map(int, next_line().split())) for _ in symbol_counts]
 
   addresses = read_numeric(delta=True)
   sizes = read_numeric(delta=False)
@@ -509,6 +510,9 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
 
   raw_symbols = [None] * sum(symbol_counts)
   symbol_idx = 0
+  symbol_cls = models.Symbol
+  symbol_new = symbol_cls.__new__
+  string_literal_name = models.STRING_LITERAL_NAME
   for (
     cur_segment_name,
     cur_symbol_count,
@@ -538,32 +542,34 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
       cur_container = containers[0]
     alias_counter = 0
     for i in range(cur_symbol_count):
-      parts = _ReadValuesFromLine(lines, split='\t')
-      full_name = parts[0]
-      flags_part = None
-      aliases_part = None
-
-      # aliases_part or flags_part may have been omitted.
-      if len(parts) == 3:
-        # full_name  aliases_part  flags_part
-        aliases_part = parts[1]
-        flags_part = parts[2]
-      elif len(parts) == 2:
-        if parts[1][0] == '0':
+      line = next_line()[:-1]
+      if '\t' not in line:
+        full_name = line
+        flags = 0
+        num_aliases = 0
+      else:
+        parts = line.split('\t')
+        full_name = parts[0]
+        # aliases_part or flags_part may have been omitted.
+        if len(parts) == 3:
+          # full_name  aliases_part  flags_part
+          num_aliases = int(parts[1], 16)
+          flags = int(parts[2], 16)
+        elif parts[1][0] == '0':
           # full_name  aliases_part
-          aliases_part = parts[1]
+          num_aliases = int(parts[1], 16)
+          flags = 0
         else:
           # full_name  flags_part
-          flags_part = parts[1]
+          num_aliases = 0
+          flags = int(parts[1], 16)
 
       # Use a bit less RAM by using the same instance for this common string.
-      if full_name == models.STRING_LITERAL_NAME:
-        full_name = models.STRING_LITERAL_NAME
-      flags = int(flags_part, 16) if flags_part else 0
-      num_aliases = int(aliases_part, 16) if aliases_part else 0
+      if full_name == string_literal_name:
+        full_name = string_literal_name
 
       # Skip the constructor to avoid default value checks.
-      new_sym = models.Symbol.__new__(models.Symbol)
+      new_sym = symbol_new(symbol_cls)
       new_sym.container = cur_container
       new_sym.section_name = cur_section_name
       new_sym.full_name = full_name
@@ -609,7 +615,11 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
       for elem in idx_disassembly:
         elem = int(elem)
         diss_len = int(_ReadLine(lines))
-        diss_text = lines.read(diss_len)
+        diss_text = (
+          lines.read(diss_len)
+          .encode('latin-1')
+          .decode('utf-8', errors='surrogatepass')
+        )
         raw_symbols[elem].disassembly = diss_text
   return models.SizeInfo(
     build_config,
@@ -623,12 +633,18 @@ def _LoadSizeInfoFromFile(file_obj, size_path, is_sparse):
 @contextlib.contextmanager
 def _OpenGzipForWrite(path, file_obj=None):
   # Open in a way that doesn't set any gzip header fields.
+  # Use compresslevel=6 (standard gzip/zlib default) rather than Python's
+  # GzipFile default of 9, which is ~2.3x slower for <3% size difference.
   if file_obj:
-    with gzip.GzipFile(filename='', mode='wb', fileobj=file_obj, mtime=0) as fz:
+    with gzip.GzipFile(
+      filename='', mode='wb', fileobj=file_obj, compresslevel=6, mtime=0
+    ) as fz:
       yield fz
   else:
     with open(path, 'wb') as f:
-      with gzip.GzipFile(filename='', mode='wb', fileobj=f, mtime=0) as fz:
+      with gzip.GzipFile(
+        filename='', mode='wb', fileobj=f, compresslevel=6, mtime=0
+      ) as fz:
         yield fz
 
 

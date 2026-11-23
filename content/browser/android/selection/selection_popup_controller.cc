@@ -20,6 +20,7 @@
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/common/content_features.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
 #include "third_party/blink/public/mojom/input/input_handler.mojom.h"
 #include "ui/base/ime/text_input_flags.h"
@@ -285,13 +286,20 @@ bool SelectionPopupController::ShowSelectionMenu(
   const bool from_mouse =
       params.source_type == ui::mojom::MenuSourceType::kMouse;
 
+  const bool from_keyboard =
+      params.source_type == ui::mojom::MenuSourceType::kKeyboard &&
+      base::FeatureList::IsEnabled(
+          blink::features::kAndroidKeyboardContextMenu);
+
   const bool from_selection_adjustment =
       params.source_type == ui::mojom::MenuSourceType::kAdjustSelection ||
       params.source_type == ui::mojom::MenuSourceType::kAdjustSelectionReset;
 
   // If source_type is not in the list then return.
-  if (!from_touch && !from_mouse && !from_selection_adjustment)
+  if (!from_touch && !from_mouse && !from_keyboard &&
+      !from_selection_adjustment) {
     return false;
+  }
 
   // Don't show paste pop-up for non-editable textarea.
   if (!params.is_editable && params.selection_text.empty()) {
@@ -322,26 +330,27 @@ bool SelectionPopupController::ShowSelectionMenu(
       params.source_type == ui::mojom::MenuSourceType::kTouch ||
       params.source_type == ui::mojom::MenuSourceType::kLongPress;
 
-    extra_items_menu_model_.reset();
+  extra_items_menu_model_.reset();
+  if (selection_popup_delegate_) {
+    selection_popup_delegate_->OnShowSelectionPopup(*render_frame_host, params);
     extra_items_menu_model_ =
-        selection_popup_delegate_
-            ? selection_popup_delegate_->GetSelectionPopupExtraItems(
-                  *render_frame_host, params)
-            : nullptr;
-    ui::MenuModel* menu_model = extra_items_menu_model_.get();
-    menu_model_bridge_ = std::make_unique<ui::MenuModelBridge>(
-        menu_model ? menu_model->AsWeakPtr() : nullptr);
+        selection_popup_delegate_->GetSelectionPopupExtraItems(
+            *render_frame_host, params);
+  }
+  ui::MenuModel* menu_model = extra_items_menu_model_.get();
+  menu_model_bridge_ = std::make_unique<ui::MenuModelBridge>(
+      menu_model ? menu_model->AsWeakPtr() : nullptr);
 
-    Java_SelectionPopupControllerImpl_showSelectionMenu(
-        env, obj, params.x, params.y, params.selection_rect.x(),
-        params.selection_rect.y(), params.selection_rect.right(),
-        params.selection_rect.bottom(), handle_height, params.is_editable,
-        is_password_type, jselected_text, params.selection_start_offset,
-        can_select_all, can_edit_richly, should_suggest,
-        static_cast<int>(params.source_type),
-        render_frame_host->GetJavaRenderFrameHost(),
-        menu_model_bridge_->GetJavaObject());
-    return true;
+  Java_SelectionPopupControllerImpl_showSelectionMenu(
+      env, obj, params.x, params.y, params.selection_rect.x(),
+      params.selection_rect.y(), params.selection_rect.right(),
+      params.selection_rect.bottom(), handle_height, params.is_editable,
+      is_password_type, jselected_text, params.selection_start_offset,
+      can_select_all, can_edit_richly, should_suggest,
+      static_cast<int>(params.source_type),
+      render_frame_host->GetJavaRenderFrameHost(),
+      menu_model_bridge_->GetJavaObject());
+  return true;
 }
 
 void SelectionPopupController::OnSelectAroundCaretAck(

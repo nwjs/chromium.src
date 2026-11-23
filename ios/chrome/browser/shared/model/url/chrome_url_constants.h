@@ -92,12 +92,8 @@ inline constexpr char kChromeUIUserDefaultsInternalsHost[] =
 inline constexpr char kChromeUIVersionHost[] = "version";
 inline constexpr char kChromeUIDownloadsHost[] = "downloads";
 
-// Legacy URL to the sync google dashboard.
-inline constexpr char kLegacySyncGoogleDashboardURL[] =
-    "https://www.google.com/settings/chrome/sync/";
-
-// New URL to the sync google dashboard.
-inline constexpr char kNewSyncGoogleDashboardURL[] =
+// URL to the sync google dashboard.
+inline constexpr char kSyncGoogleDashboardURL[] =
     "https://chrome.google.com/data";
 
 // URL to opt-in to on-device encryption.
@@ -225,7 +221,9 @@ inline constexpr char kGeminiPreciseLocationURL[] =
 
 // URL for the Gemini Page Content Sharing Settings row.
 inline constexpr char kGeminiPageContentSharingURL[] =
-    "https://support.google.com/gemini?p=chrome_PH#topic=15280100";
+    "https://support.google.com/gemini/answer/"
+    "13594961?hl=en#chrome&zippy=%2Cwhat-happens-to-my-data-when-i-use-"
+    "gemini-in-chrome";
 
 // URL for the Gemini Extensions Settings row.
 inline constexpr char kGeminiExtensionsURL[] = "https://gemini.google.com/apps";

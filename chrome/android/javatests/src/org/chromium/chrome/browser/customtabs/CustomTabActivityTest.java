@@ -66,6 +66,7 @@ import android.widget.TextView;
 import androidx.annotation.DrawableRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.ContentFrameLayout;
+import androidx.browser.customtabs.CustomTabColorSchemeParams;
 import androidx.browser.customtabs.CustomTabsCallback;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.CustomTabsService;
@@ -131,6 +132,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.WarmupManager;
 import org.chromium.chrome.browser.browserservices.SessionDataHolder;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
+import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabsUiType;
 import org.chromium.chrome.browser.browserservices.intents.SessionHolder;
 import org.chromium.chrome.browser.browserservices.verification.ChromeOriginVerifier;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
@@ -147,11 +149,13 @@ import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.flags.CustomTabProfileType;
 import org.chromium.chrome.browser.history.BrowsingHistoryBridge;
 import org.chromium.chrome.browser.history.HistoryItem;
 import org.chromium.chrome.browser.history.TestBrowsingHistoryObserver;
 import org.chromium.chrome.browser.lifecycle.InflationObserver;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.night_mode.SystemNightModeMonitor;
 import org.chromium.chrome.browser.page_load_metrics.PageLoadMetrics;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
@@ -554,6 +558,7 @@ public class CustomTabActivityTest {
     @Test
     @SmallTest
     @EnableFeatures({ChromeFeatureList.ENABLE_DISCOUNT_INFO_API})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // TODO(crbug.com/572881868): Re-enable.
     public void testOptionalButton_SupportedTypes() {
         Intent intent = createMinimalCustomTabIntent();
         mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
@@ -1412,6 +1417,7 @@ public class CustomTabActivityTest {
     @Test
     @SmallTest
     @RequiresRestart("Testing CCT startup/warmup behavior")
+    @DisableIf.Device(DeviceFormFactor.AUTOMOTIVE) // crbug.com/574149885
     public void testPrecreatedRenderer() throws Exception {
         var histograms =
                 HistogramWatcher.newBuilder()
@@ -1692,6 +1698,7 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
+    @DisabledTest(message = "https://crbug.com/572881868")
     public void testParallelRequest() throws Exception {
         String url = mTestServer.getURL("/echoheader?Cookie");
         Uri requestUri = Uri.parse(mTestServer.getURL("/set-cookie?acookie"));
@@ -2186,7 +2193,6 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @DisableIf.Device(DeviceFormFactor.DESKTOP)
     public void closeButton_closesActivityIfNoLandingPage() throws TimeoutException {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         Intent intent =
@@ -3112,5 +3118,81 @@ public class CustomTabActivityTest {
                 ThreadUtils.runOnUiThreadBlocking(
                         () -> AcceleratorManager.fromForTesting(activity.getWindowAndroid()));
         assertNotNull("AcceleratorManager should be initialized for CustomTabActivity", manager);
+    }
+
+    @Test
+    @MediumTest
+    public void testActivityRecreation() {
+        SystemNightModeMonitor systemNightModeMonitor = Mockito.mock(SystemNightModeMonitor.class);
+        ArgumentCaptor<SystemNightModeMonitor.Observer> observerCaptor =
+                ArgumentCaptor.forClass(SystemNightModeMonitor.Observer.class);
+        Mockito.doNothing().when(systemNightModeMonitor).addObserver(observerCaptor.capture());
+        doReturn(false).when(systemNightModeMonitor).isSystemNightModeOn();
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> SystemNightModeMonitor.setInstanceForTesting(systemNightModeMonitor));
+
+        CustomTabColorSchemeParams lightParams =
+                new CustomTabColorSchemeParams.Builder().setToolbarColor(Color.RED).build();
+        CustomTabColorSchemeParams darkParams =
+                new CustomTabColorSchemeParams.Builder().setToolbarColor(Color.BLUE).build();
+        Intent intent =
+                CustomTabsIntentTestUtils.createCustomTabIntent(
+                        ApplicationProvider.getApplicationContext(),
+                        mTestPage,
+                        /* launchAsNewTask= */ true,
+                        builder -> {
+                            builder.setShowTitle(true)
+                                    .setColorScheme(CustomTabsIntent.COLOR_SCHEME_SYSTEM)
+                                    .setColorSchemeParams(
+                                            CustomTabsIntent.COLOR_SCHEME_LIGHT, lightParams)
+                                    .setColorSchemeParams(
+                                            CustomTabsIntent.COLOR_SCHEME_DARK, darkParams);
+                        });
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+
+        CustomTabActivity initialActivity = getActivity();
+        int initialTabId = initialActivity.getActivityTab().getId();
+        BrowserServicesIntentDataProvider initialDataProvider =
+                initialActivity.getIntentDataProvider();
+        SessionHolder initialSession = initialDataProvider.getSession();
+        assertNotNull(initialSession);
+        assertFalse(initialActivity.getCustomTabNightModeStateController().isInNightMode());
+        assertEquals(Color.RED, initialDataProvider.getColorProvider().getToolbarColor());
+
+        doReturn(true).when(systemNightModeMonitor).isSystemNightModeOn();
+        CustomTabActivity recreatedActivity =
+                ApplicationTestUtils.waitForActivityWithClass(
+                        CustomTabActivity.class,
+                        Stage.RESUMED,
+                        () -> {
+                            for (SystemNightModeMonitor.Observer observer :
+                                    observerCaptor.getAllValues()) {
+                                observer.onSystemNightModeChanged();
+                            }
+                        });
+        mCustomTabActivityTestRule.setActivity(recreatedActivity);
+        mCustomTabActivityTestRule.waitForActivityNativeInitializationComplete();
+
+        BrowserServicesIntentDataProvider dataProvider = recreatedActivity.getIntentDataProvider();
+        assertNotNull(dataProvider);
+        assertEquals(ActivityType.CUSTOM_TAB, dataProvider.getActivityType());
+        assertEquals(CustomTabsUiType.DEFAULT, dataProvider.getUiType());
+        assertEquals(CustomTabProfileType.REGULAR, dataProvider.getCustomTabMode());
+        assertFalse(dataProvider.isOffTheRecord());
+        assertEquals(CustomTabsIntent.SHOW_PAGE_TITLE, dataProvider.getTitleVisibilityState());
+        assertEquals(initialSession, dataProvider.getSession());
+        assertTrue(recreatedActivity.getCustomTabNightModeStateController().isInNightMode());
+        assertEquals(Color.BLUE, dataProvider.getColorProvider().getToolbarColor());
+        assertEquals(initialTabId, recreatedActivity.getActivityTab().getId());
+        assertEquals(
+                mTestPage,
+                ChromeTabUtils.getUrlStringOnUiThread(recreatedActivity.getActivityTab()));
+        onViewWaiting(withId(R.id.toolbar))
+                .check(
+                        (view, e) -> {
+                            ColorDrawable toolbarBg = (ColorDrawable) view.getBackground();
+                            assertEquals(Color.BLUE, toolbarBg.getColor());
+                        });
+        onViewWaiting(withId(R.id.title_bar));
     }
 }

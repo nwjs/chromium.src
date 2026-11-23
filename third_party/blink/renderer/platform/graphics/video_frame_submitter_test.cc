@@ -164,20 +164,6 @@ class MockSurfaceEmbedder : public mojom::blink::SurfaceEmbedder {
   mojo::Receiver<mojom::blink::SurfaceEmbedder> receiver_{this};
 };
 
-class TestClientSharedImageInterface : public gpu::ClientSharedImageInterface {
- public:
-  TestClientSharedImageInterface()
-      : gpu::ClientSharedImageInterface(
-            nullptr,
-            gpu::GpuChannelHost::Create(
-                0 /* channel_id */,
-                gpu::GPUInfo(),
-                gpu::GpuFeatureInfo(),
-                gpu::SharedImageCapabilities(),
-                mojo::ScopedMessagePipeHandle(
-                    mojo::MessagePipeHandle(mojo::kInvalidHandleValue)))) {}
-};
-
 }  // namespace
 
 // Supports testing features::OnBeginFrameAcks, which changes the expectations
@@ -198,8 +184,8 @@ class VideoFrameSubmitterTest : public testing::Test {
         begin_frame_source_(new viz::FakeExternalBeginFrameSource(0.f, false)),
         video_frame_provider_(new StrictMock<MockVideoFrameProvider>()),
         context_provider_(viz::TestContextProvider::CreateRaster()),
-        client_shared_image_interface_(
-            base::MakeRefCounted<TestClientSharedImageInterface>()) {
+        shared_image_interface_(
+            base::MakeRefCounted<gpu::TestSharedImageInterface>()) {
     context_provider_->BindToCurrentSequence();
     MakeSubmitter();
     task_environment_.RunUntilIdle();
@@ -210,7 +196,7 @@ class VideoFrameSubmitterTest : public testing::Test {
     // Make sure GpuChannelHost is completely destroyed to avoid ASAN memory
     // leak errors.
     resource_provider_ = nullptr;
-    client_shared_image_interface_.reset();
+    shared_image_interface_.reset();
     submitter_.reset();
     task_environment_.RunUntilIdle();
   }
@@ -267,6 +253,13 @@ class VideoFrameSubmitterTest : public testing::Test {
 
   gfx::Size frame_size() const { return submitter_->frame_size_; }
 
+  size_t PendingFramesSize() const {
+    return submitter_->pending_frames_.size();
+  }
+
+  static constexpr size_t kMaxPendingFrames =
+      VideoFrameSubmitter::kMaxPendingFrames;
+
   // Replacement for RunUntilIdle().  Post a quit closure to the end of the main
   // thread queue and wait for it.
   void DrainMainThread() {
@@ -278,7 +271,7 @@ class VideoFrameSubmitterTest : public testing::Test {
   void OnReceivedContextProvider(
       bool use_gpu_compositing,
       scoped_refptr<viz::RasterContextProvider> context_provider,
-      scoped_refptr<gpu::ClientSharedImageInterface> shared_image_interface) {
+      scoped_refptr<gpu::SharedImageInterface> shared_image_interface) {
     submitter_->OnReceivedContextProvider(use_gpu_compositing,
                                           std::move(context_provider),
                                           std::move(shared_image_interface));
@@ -306,7 +299,7 @@ class VideoFrameSubmitterTest : public testing::Test {
   std::unique_ptr<StrictMock<MockVideoFrameProvider>> video_frame_provider_;
   std::unique_ptr<StrictMock<MockSurfaceEmbedder>> surface_embedder_;
   scoped_refptr<viz::TestContextProvider> context_provider_;
-  scoped_refptr<TestClientSharedImageInterface> client_shared_image_interface_;
+  scoped_refptr<gpu::TestSharedImageInterface> shared_image_interface_;
   std::unique_ptr<VideoFrameSubmitter> submitter_;
   raw_ptr<StrictMock<MockVideoFrameResourceProvider>> resource_provider_;
 };
@@ -820,7 +813,7 @@ TEST_F(VideoFrameSubmitterTest,
       .Times(1);
   EXPECT_CALL(*video_frame_provider_, OnContextLost()).Times(1);
   submitter_->OnContextLost();
-  OnReceivedContextProvider(false, nullptr, client_shared_image_interface_);
+  OnReceivedContextProvider(false, nullptr, shared_image_interface_);
   task_environment_.RunUntilIdle();
 }
 
@@ -864,8 +857,8 @@ TEST_F(VideoFrameSubmitterTest,
       .Times(0);
   EXPECT_CALL(*video_frame_provider_, OnContextLost()).Times(1);
   submitter_->OnContextLost();
-  client_shared_image_interface_->gpu_channel()->DestroyChannel();
-  OnReceivedContextProvider(false, nullptr, client_shared_image_interface_);
+  shared_image_interface_->MarkAsLost();
+  OnReceivedContextProvider(false, nullptr, shared_image_interface_);
   task_environment_.RunUntilIdle();
 }
 
@@ -1359,6 +1352,66 @@ TEST_F(VideoFrameSubmitterTest, OpaqueFramesNotifyEmbedder) {
   EXPECT_CALL(*surface_embedder_, OnOpacityChanged(false)).Times(0);
   submitter_->DidReceiveFrame();
   DrainMainThread();
+}
+
+TEST_F(VideoFrameSubmitterTest, PendingFramesBoundedAndDrainedOnBeginFrame) {
+  constexpr size_t kFramesToSubmit = kMaxPendingFrames * 2;
+  HashMap<uint32_t, viz::FrameTimingDetails> timing_details;
+
+  EXPECT_CALL(*sink_, SetNeedsBeginFrame(true));
+  submitter_->StartRendering();
+  DrainMainThread();
+
+  EXPECT_CALL(*video_frame_provider_, PutCurrentFrame()).Times(kFramesToSubmit);
+  EXPECT_CALL(*resource_provider_, AppendQuads(_, _, _, _))
+      .Times(kFramesToSubmit);
+  EXPECT_CALL(*resource_provider_, PrepareSendToParent(_))
+      .Times(kFramesToSubmit);
+  EXPECT_CALL(*resource_provider_, ReleaseFrameResources())
+      .Times(kFramesToSubmit);
+  EXPECT_CALL(*sink_, DoSubmitCompositorFrame(_, _))
+      .WillRepeatedly([&](const viz::LocalSurfaceId&,
+                          viz::CompositorFrame* frame) {
+        viz::FrameTimingDetails details;
+        details.received_compositor_frame_timestamp =
+            base::TimeTicks() + base::Milliseconds(100);
+        details.presentation_feedback = gfx::PresentationFeedback::Failure();
+        timing_details.Set(frame->metadata.frame_token, details);
+      });
+
+  // Simulate background rendering submitting manual frames while OnBeginFrame
+  // is not firing.
+  for (size_t i = 0; i < kFramesToSubmit; ++i) {
+    EXPECT_CALL(*video_frame_provider_, GetCurrentFrame())
+        .WillOnce(Return(media::VideoFrame::CreateFrame(
+            media::PIXEL_FORMAT_YV12, gfx::Size(8, 8),
+            gfx::Rect(gfx::Size(8, 8)), gfx::Size(8, 8),
+            base::Milliseconds(i))));
+    submitter_->DidReceiveFrame();
+    DrainMainThread();
+    AckSubmittedFrame();
+    EXPECT_LE(PendingFramesSize(), kMaxPendingFrames);
+  }
+
+  EXPECT_EQ(PendingFramesSize(), kMaxPendingFrames);
+  EXPECT_EQ(timing_details.size(), kFramesToSubmit);
+
+  // When OnBeginFrame finally fires with all accumulated timing details,
+  // pending_frames_ should be drained and evicted manual frames must not
+  // pollute the expected display time EMA.
+  EXPECT_CALL(*video_frame_provider_, OnFramePresented(_, _, _))
+      .Times(AnyNumber());
+  EXPECT_CALL(*video_frame_provider_, UpdateCurrentFrame(_, _))
+      .WillOnce(Return(false));
+  EXPECT_CALL(*sink_, DidNotProduceFrame(_));
+
+  viz::BeginFrameArgs args = begin_frame_source_->CreateBeginFrameArgs(
+      BEGINFRAME_FROM_HERE, now_src_.get());
+  OnBeginFrame(args, timing_details, Vector<viz::ReturnedResource>());
+  DrainMainThread();
+
+  EXPECT_EQ(PendingFramesSize(), 0u);
+  EXPECT_EQ(submitter_->GetExpectedDisplayTime(), std::nullopt);
 }
 
 // Uses MOCK_TIME so base::TimeTicks::Now() is controlled for display-time and

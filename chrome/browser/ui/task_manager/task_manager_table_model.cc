@@ -366,7 +366,7 @@ TaskManagerTableModel::TaskManagerTableModel(
       table_model_observer_(nullptr),
       stringifier_(new TaskManagerValuesStringifier),
       display_category_(initial_display_category) {
-  DCHECK(delegate);
+  CHECK(delegate, base::NotFatalUntil::M162);
   StartUpdating();
 }
 
@@ -770,8 +770,8 @@ std::u16string TaskManagerTableModel::GetAXNameForHeaderCell(
 std::u16string TaskManagerTableModel::GetAXNameForRow(
     size_t row,
     const std::vector<int>& visible_column_ids) const {
-  DCHECK_LT(row, RowCount());
-  DCHECK(!visible_column_ids.empty());
+  CHECK_LT(row, RowCount(), base::NotFatalUntil::M162);
+  CHECK(!visible_column_ids.empty(), base::NotFatalUntil::M162);
 
   // Holds all visible column values for the `row`.
   std::vector<std::u16string> column_names;
@@ -799,7 +799,7 @@ std::u16string TaskManagerTableModel::GetAXNameForRow(
     if (mismatch_task - current_task > 1) {
       const TaskIdList group_tasks =
           observed_task_manager()->GetIdsOfTasksSharingSameProcess(tasks_[row]);
-      DCHECK(!group_tasks.empty());
+      CHECK(!group_tasks.empty(), base::NotFatalUntil::M162);
       other_task_titles.reserve(group_tasks.size() - 1);
       // If there is at least one task other than the `row` in the same task
       // group existing in `tasks_`, insert the connect text and the title of
@@ -909,21 +909,23 @@ void TaskManagerTableModel::OnTaskAdded(TaskId id) {
 
 void TaskManagerTableModel::OnTaskToBeRemoved(TaskId id) {
   themed_icons_.erase(id);
-  if (!search_terms_.empty() && !HasMatchInTasksSharingSameProcess(id)) {
-    // Update matched process set if task manager is in search mode.
-    matched_process_set_.erase(observed_task_manager()->GetProcessId(id));
-  }
 
-  if (!ShouldKeepTask(id)) {
-    return;
-  }
-
+  // Do not check ShouldKeepTask(id) here: it can return false for a task that
+  // is currently in `tasks_` (e.g. if its parent task was removed first), which
+  // would leave a destroyed TaskId in `tasks_`.
   auto index = std::ranges::find(tasks_, id);
   if (index == tasks_.end()) {
     return;
   }
   auto removed_index = static_cast<size_t>(index - tasks_.begin());
   tasks_.erase(index);
+
+  // Update `matched_process_set_` after erasing `id` from `tasks_` so
+  // HasMatchInTasksSharingSameProcess() only checks remaining tasks.
+  if (!search_terms_.empty() && !HasMatchInTasksSharingSameProcess(id)) {
+    matched_process_set_.erase(observed_task_manager()->GetProcessId(id));
+  }
+
   if (table_model_observer_) {
     table_model_observer_->OnItemsRemoved(removed_index, 1);
   }

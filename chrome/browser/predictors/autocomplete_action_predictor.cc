@@ -120,7 +120,7 @@ AutocompleteActionPredictor::AutocompleteActionPredictor(Profile* profile)
   if (profile_->IsOffTheRecord()) {
     main_profile_predictor_ = AutocompleteActionPredictorFactory::GetForProfile(
         profile_->GetOriginalProfile());
-    DCHECK(main_profile_predictor_);
+    CHECK(main_profile_predictor_, base::NotFatalUntil::M162);
     main_profile_predictor_->incognito_predictor_ = this;
     if (main_profile_predictor_->initialized_) {
       CopyFromMainProfile();
@@ -208,7 +208,7 @@ AutocompleteActionPredictor::TakeTransitionalMatches() {
 void AutocompleteActionPredictor::StartPrerendering(
     const GURL& url,
     content::WebContents& web_contents) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK_CURRENTLY_ON(content::BrowserThread::UI, base::NotFatalUntil::M162);
 
   // Helpers to create content::PreloadingAttempt.
   auto* preloading_data =
@@ -250,7 +250,7 @@ AutocompleteActionPredictor::RecommendAction(
     const AutocompleteMatch& match,
     content::WebContents* web_contents) const {
   const double confidence = CalculateConfidence(user_text, match);
-  DCHECK(confidence >= 0.0 && confidence <= 1.0);
+  CHECK(confidence >= 0.0 && confidence <= 1.0, base::NotFatalUntil::M162);
 
   // Map the confidence to an action.
   Action action = DecideActionByConfidence(confidence);
@@ -359,11 +359,14 @@ void AutocompleteActionPredictor::UpdateDatabaseFromTransitionalMatchesInternal(
   std::vector<AutocompleteActionPredictorTable::Row> rows_to_add;
   std::vector<AutocompleteActionPredictorTable::Row> rows_to_update;
   for (const TransitionalMatch& transitional_match : transitional_matches) {
-    DCHECK_GE(transitional_match.user_text.length(), kMinimumUserTextLength);
-    DCHECK_LE(transitional_match.user_text.length(), kMaximumStringLength);
+    CHECK_GE(transitional_match.user_text.length(), kMinimumUserTextLength,
+             base::NotFatalUntil::M162);
+    CHECK_LE(transitional_match.user_text.length(), kMaximumStringLength,
+             base::NotFatalUntil::M162);
     // Add entries to the database for those matches.
     for (const GURL& url : transitional_match.urls) {
-      DCHECK_LE(url.spec().length(), kMaximumStringLength);
+      CHECK_LE(url.spec().length(), kMaximumStringLength,
+               base::NotFatalUntil::M162);
 
       const DBCacheKey key = {transitional_match.user_text, url};
       const bool is_hit = !opened_url.is_empty() && (url == opened_url);
@@ -380,7 +383,8 @@ void AutocompleteActionPredictor::UpdateDatabaseFromTransitionalMatchesInternal(
 
         rows_to_add.push_back(row);
       } else {
-        DCHECK(db_id_cache_.find(key) != db_id_cache_.end());
+        CHECK(db_id_cache_.find(key) != db_id_cache_.end(),
+              base::NotFatalUntil::M162);
         row.id = db_id_cache_.find(key)->second;
         row.number_of_hits = it->second.number_of_hits + (is_hit ? 1 : 0);
         row.number_of_misses = it->second.number_of_misses + (is_hit ? 0 : 1);
@@ -407,7 +411,7 @@ void AutocompleteActionPredictor::UpdateDatabaseFromTransitionalMatchesInternal(
 }
 
 void AutocompleteActionPredictor::DeleteAllRows() {
-  DCHECK(initialized_);
+  CHECK(initialized_, base::NotFatalUntil::M162);
 
   db_cache_.clear();
   db_id_cache_.clear();
@@ -423,14 +427,14 @@ void AutocompleteActionPredictor::DeleteAllRows() {
 void AutocompleteActionPredictor::DeleteRowsFromCaches(
     const history::URLRows& rows,
     std::vector<AutocompleteActionPredictorTable::Row::Id>* id_list) {
-  DCHECK(initialized_);
-  DCHECK(id_list);
+  CHECK(initialized_, base::NotFatalUntil::M162);
+  CHECK(id_list, base::NotFatalUntil::M162);
 
   for (auto it = db_cache_.begin(); it != db_cache_.end();) {
     if (std::ranges::any_of(rows,
                             history::URLRow::URLRowHasURL(it->first.url))) {
       const DBIdCacheMap::iterator id_it = db_id_cache_.find(it->first);
-      DCHECK(id_it != db_id_cache_.end());
+      CHECK(id_it != db_id_cache_.end(), base::NotFatalUntil::M162);
       id_list->push_back(id_it->second);
       db_id_cache_.erase(id_it);
       db_cache_.erase(it++);
@@ -451,7 +455,7 @@ void AutocompleteActionPredictor::AddAndUpdateRows(
     const DBCacheKey key = { it->user_text, it->url };
     DBCacheValue value = { it->number_of_hits, it->number_of_misses };
 
-    DCHECK(db_cache_.find(key) == db_cache_.end());
+    CHECK(db_cache_.find(key) == db_cache_.end(), base::NotFatalUntil::M162);
 
     db_cache_[key] = value;
     db_id_cache_[key] = it->id;
@@ -460,8 +464,9 @@ void AutocompleteActionPredictor::AddAndUpdateRows(
     const DBCacheKey key = { it->user_text, it->url };
 
     auto db_it = db_cache_.find(key);
-    DCHECK(db_it != db_cache_.end());
-    DCHECK(db_id_cache_.find(key) != db_id_cache_.end());
+    CHECK(db_it != db_cache_.end(), base::NotFatalUntil::M162);
+    CHECK(db_id_cache_.find(key) != db_id_cache_.end(),
+          base::NotFatalUntil::M162);
 
     db_it->second.number_of_hits = it->number_of_hits;
     db_it->second.number_of_misses = it->number_of_misses;
@@ -478,10 +483,10 @@ void AutocompleteActionPredictor::AddAndUpdateRows(
 void AutocompleteActionPredictor::CreateCaches(
     std::unique_ptr<std::vector<AutocompleteActionPredictorTable::Row>> rows) {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK(!profile_->IsOffTheRecord());
-  DCHECK(!initialized_);
-  DCHECK(db_cache_.empty());
-  DCHECK(db_id_cache_.empty());
+  CHECK(!profile_->IsOffTheRecord(), base::NotFatalUntil::M162);
+  CHECK(!initialized_, base::NotFatalUntil::M162);
+  CHECK(db_cache_.empty(), base::NotFatalUntil::M162);
+  CHECK(db_id_cache_.empty(), base::NotFatalUntil::M162);
 
   for (std::vector<AutocompleteActionPredictorTable::Row>::const_iterator it =
        rows->begin(); it != rows->end(); ++it) {
@@ -504,8 +509,8 @@ void AutocompleteActionPredictor::CreateCaches(
 void AutocompleteActionPredictor::TryDeleteOldEntries(
     history::HistoryService* service) {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK(!profile_->IsOffTheRecord());
-  DCHECK(!initialized_);
+  CHECK(!profile_->IsOffTheRecord(), base::NotFatalUntil::M162);
+  CHECK(!initialized_, base::NotFatalUntil::M162);
 
   if (!service) {
     return;
@@ -522,9 +527,9 @@ void AutocompleteActionPredictor::TryDeleteOldEntries(
 void AutocompleteActionPredictor::DeleteOldEntries(
     history::URLDatabase* url_db) {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK(!profile_->IsOffTheRecord());
-  DCHECK(!initialized_);
-  DCHECK(table_.get());
+  CHECK(!profile_->IsOffTheRecord(), base::NotFatalUntil::M162);
+  CHECK(!initialized_, base::NotFatalUntil::M162);
+  CHECK(table_.get(), base::NotFatalUntil::M162);
 
   std::vector<AutocompleteActionPredictorTable::Row::Id> ids_to_delete;
   DeleteOldIdsFromCaches(url_db, &ids_to_delete);
@@ -550,9 +555,9 @@ void AutocompleteActionPredictor::DeleteOldIdsFromCaches(
     history::URLDatabase* url_db,
     std::vector<AutocompleteActionPredictorTable::Row::Id>* id_list) {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK(!profile_->IsOffTheRecord());
-  DCHECK(url_db);
-  DCHECK(id_list);
+  CHECK(!profile_->IsOffTheRecord(), base::NotFatalUntil::M162);
+  CHECK(url_db, base::NotFatalUntil::M162);
+  CHECK(id_list, base::NotFatalUntil::M162);
 
   for (auto it = db_cache_.begin(); it != db_cache_.end();) {
     history::URLRow url_row;
@@ -561,7 +566,7 @@ void AutocompleteActionPredictor::DeleteOldIdsFromCaches(
         ((base::Time::Now() - url_row.last_visit()).InDays() >
          kMaximumDaysToKeepEntry)) {
       const DBIdCacheMap::iterator id_it = db_id_cache_.find(it->first);
-      DCHECK(id_it != db_id_cache_.end());
+      CHECK(id_it != db_id_cache_.end(), base::NotFatalUntil::M162);
       id_list->push_back(id_it->second);
       db_id_cache_.erase(id_it);
       db_cache_.erase(it++);
@@ -575,7 +580,7 @@ void AutocompleteActionPredictor::DeleteLowestConfidenceRowsFromCaches(
     size_t count,
     std::vector<AutocompleteActionPredictorTable::Row::Id>* id_list) {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK(id_list);
+  CHECK(id_list, base::NotFatalUntil::M162);
 
   auto compare_confidence = [](const DBCacheMap::iterator& lhs,
                                const DBCacheMap::iterator& rhs) {
@@ -608,7 +613,7 @@ void AutocompleteActionPredictor::DeleteLowestConfidenceRowsFromCaches(
   while (!max_heap.empty()) {
     auto entry_to_delete = max_heap.top();
     auto id_it = db_id_cache_.find(entry_to_delete->first);
-    DCHECK(id_it != db_id_cache_.end());
+    CHECK(id_it != db_id_cache_.end(), base::NotFatalUntil::M162);
 
     id_list->push_back(id_it->second);
     db_id_cache_.erase(id_it);
@@ -619,10 +624,10 @@ void AutocompleteActionPredictor::DeleteLowestConfidenceRowsFromCaches(
 
 void AutocompleteActionPredictor::CopyFromMainProfile() {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK(profile_->IsOffTheRecord());
-  DCHECK(!initialized_);
-  DCHECK(main_profile_predictor_);
-  DCHECK(main_profile_predictor_->initialized_);
+  CHECK(profile_->IsOffTheRecord(), base::NotFatalUntil::M162);
+  CHECK(!initialized_, base::NotFatalUntil::M162);
+  CHECK(main_profile_predictor_, base::NotFatalUntil::M162);
+  CHECK(main_profile_predictor_->initialized_, base::NotFatalUntil::M162);
 
   db_cache_ = main_profile_predictor_->db_cache_;
   db_id_cache_ = main_profile_predictor_->db_id_cache_;
@@ -631,7 +636,7 @@ void AutocompleteActionPredictor::CopyFromMainProfile() {
 
 void AutocompleteActionPredictor::FinishInitialization() {
   CHECK(content::BrowserThread::CurrentlyOn(content::BrowserThread::UI));
-  DCHECK(!initialized_);
+  CHECK(!initialized_, base::NotFatalUntil::M162);
   initialized_ = true;
   for (Observer& obs : observers_) {
     obs.OnInitialized();
@@ -673,7 +678,7 @@ void AutocompleteActionPredictor::Shutdown() {
 void AutocompleteActionPredictor::OnHistoryDeletions(
     history::HistoryService* history_service,
     const history::DeletionInfo& deletion_info) {
-  DCHECK(initialized_);
+  CHECK(initialized_, base::NotFatalUntil::M162);
 
   if (deletion_info.IsAllHistory()) {
     DeleteAllRows();

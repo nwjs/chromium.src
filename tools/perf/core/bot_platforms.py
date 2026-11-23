@@ -48,6 +48,7 @@ class _PerfPlatform(object):
     pinpoint_only: bool = False,
     executables: Optional[frozenset[ExecutableConfig]] = None,
     crossbench: Optional[frozenset[CrossbenchConfig]] = None,
+    allowed_benchmarks: Optional[frozenset[str]] = None,
   ):
     benchmark_config_set = benchmark_configs.Frozenset()
     self._name = name
@@ -60,6 +61,7 @@ class _PerfPlatform(object):
     self.pinpoint_only = pinpoint_only
     self.executables = executables or frozenset()
     self.crossbench = crossbench or frozenset()
+    self.allowed_benchmarks = allowed_benchmarks
     assert num_shards
     self._num_shards = num_shards
     self._benchmark_configs: frozenset[TelemetryConfig] = frozenset(
@@ -73,6 +75,21 @@ class _PerfPlatform(object):
     assert len(set(benchmark_names)) == len(benchmark_names), (
       'Make sure that a benchmark does not appear twice.'
     )
+    if self.allowed_benchmarks is not None:
+      scheduled_names = {
+        c.name
+        for c in (
+          *self._benchmark_configs,
+          *self.executables,
+          *self.crossbench,
+        )
+      }
+      disallowed = scheduled_names - self.allowed_benchmarks
+      assert not disallowed, (
+        f'Bot {self._name!r} only allows benchmarks '
+        f'{sorted(self.allowed_benchmarks)}, but found disallowed '
+        f'benchmarks: {sorted(disallowed)}'
+      )
 
     base_file_name = name.replace(' ', '_').lower()
     self._timing_file_path = os.path.join(
@@ -364,6 +381,18 @@ def _base_perftests(
   )
 
 
+@_register('partition_alloc_perftests')
+def _partition_alloc_perftests(
+  estimated_runtime: int = 60, path=None, flags: tuple[str, ...] = ()
+):
+  return ExecutableConfig(
+    'partition_alloc_perftests',
+    path=path,
+    flags=('--test-launcher-jobs=1', '--test-launcher-retry-limit=0', *flags),
+    estimated_runtime=estimated_runtime,
+  )
+
+
 @_register('components_perftests')
 def _components_perftests(
   estimated_runtime: int = 110, flags: tuple[str, ...] = ()
@@ -589,14 +618,20 @@ def _browser_startup_crossbench(
 
   # NOTE: Keep this list in sync with:
   # third_party/crossbench/config/benchmark/browser_startup/browser.config.hjson
+  # The shard maps in tools/perf/core/shard_maps/ also embed these flags, so
+  # update them too.
   INITIAL_WEBUI_FEATURES = (
-    "InitialWebUI:high_stream_priority/true,"
-    "WebUIReloadButton:WebUIReloadButtonDeferBrowserViewShow/true/"
+    "InitialWebUI:high_stream_priority/true/without_spellcheck/true/"
+    "without_translate/true,"
+    "WebUIReloadButton:WebUIReloadButtonDeferBrowserViewShow/false/"
     "WebUIReloadButtonKeepVisibleUntilPaint/true/"
-    "WebUIReloadButtonPrewarmWebUI/true,"
-    "SkipIPCChannelPausingForNonGuests,WebUIInProcessResourceLoadingV2,"
-    "InitialWebUISyncNavStartToCommit,InitialWebUIWithoutExtensions,"
-    "WebUIBundledCodeCache,SendGPUChannelEarly"
+    "WebUIReloadButtonPrewarmWebUI/true/"
+    "WebUIReloadButtonPrewarmWebUIPreNavigate/true,"
+    "WebUIInProcessResourceLoadingV2,InitialWebUISyncNavStartToCommit,"
+    "InitialWebUIWithoutExtensions,WebUIBundledCodeCache,SendGPUChannelEarly,"
+    "InitialWebUISurfaceSync:deadline_in_frames/12000/"
+    "renderer_commit_delay_ms/100000,"
+    "BypassOutdatedSurfaceActivation,OnlyUseWindowResizeHelperOnResize"
   )
   return CrossbenchConfig(
     'browser_startup.crossbench',
@@ -886,6 +921,19 @@ def _crossbench_shell_embedder(
   )
 
 
+@_register('notification.embedder.crossbench')
+def _crossbench_notification_embedder(
+  estimated_runtime: int = 900, flags: tuple[str, ...] = ()
+):
+  return CrossbenchConfig(
+    'notification.embedder.crossbench',
+    'embedder',
+    estimated_runtime=estimated_runtime,
+    flags=flags,
+    auto_enable_field_trials=False,
+  )
+
+
 @_register('devtools_frontend.crossbench')
 def _devtools_frontend_crossbench(
   estimated_runtime: int = 60, flags: tuple[str, ...] = ()
@@ -945,6 +993,15 @@ PLATFORM_INFO = {
     'num_shards': 1,
     'platform_os': 'linux',
     'is_fyi': False,
+  },
+  # Uses the shared chrome.tests.intelligence pool and is reserved exclusively
+  # for blink-ai.crossbench. Do not schedule other benchmarks on this bot.
+  'linux-rtx4070-perf': {
+    'description': 'Ubuntu-24.04, NVIDIA GeForce RTX 4070',
+    'num_shards': 1,
+    'platform_os': 'linux',
+    'is_fyi': False,
+    'allowed_benchmarks': frozenset({'blink-ai.crossbench'}),
   },
   'linux-nvidia-dgx-spark-arm-perf': {
     'description': 'Ubuntu-24.04, Nvidia DGX Spark',
@@ -1008,7 +1065,7 @@ PLATFORM_INFO = {
   },
   'mac-m5-pro-perf': {
     'description': 'Mac M5 PRO ARM',
-    'num_shards': 2,
+    'num_shards': 24,
     'platform_os': 'mac',
     'is_fyi': False,
   },
@@ -1276,6 +1333,7 @@ def LoadAllScheduleFiles() -> set[_PerfPlatform]:
       pinpoint_only=platform_info.get('pinpoint_only', False),
       executables=executable_configs,
       crossbench=crossbench_configs,
+      allowed_benchmarks=platform_info.get('allowed_benchmarks'),
     )
     new_platforms.add(new_platform)
   return new_platforms
@@ -1300,6 +1358,12 @@ def LoadScheduleFile(
       f'Duplicate bot {bot!r} in schedule file {file_path}'
     )
     seen_bots.add(bot)
+    allowed_benchmarks = PLATFORM_INFO.get(bot, {}).get('allowed_benchmarks')
+    if allowed_benchmarks is not None:
+      assert name in allowed_benchmarks, (
+        f'Bot {bot!r} only allows benchmarks {sorted(allowed_benchmarks)}, '
+        f'cannot schedule {name!r} in {file_path}'
+      )
     config = _ParseScheduleConfigRow(row, name, factory, is_telemetry)
     configs.setdefault(bot, []).append(config)
 

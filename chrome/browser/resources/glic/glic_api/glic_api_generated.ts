@@ -532,6 +532,8 @@ export enum HostCapability {
   EMBEDDED_PDF_BYTES_EXTRACTION = 18,
   // Indicates that the host operates in NoWebview mode.
   NO_WEBVIEW = 19,
+  // Indicates that the host supports Send Tab to Self APIs.
+  SEND_TAB_TO_SELF = 20,
 }
 
 // Lists capabilities that the glic web client may support.
@@ -735,6 +737,8 @@ export enum InvocationSource {
   // desktop (when the selection is attached) or the text selection menu on
   // Android.
   WEB_CONTENTS_CONTEXT_MENU_TEXT_SELECTION = 48,
+  // Invoked by the actor GeminiPanelTool.
+  ACTOR_TOOL = 49,
 }
 
 // Target for actuation.
@@ -1123,6 +1127,19 @@ export declare interface CreateTabOptions {
   windowId?: string;
 }
 
+// A device that can receive tabs sent via Send Tab to Self.
+export declare interface SendTabToSelfDevice {
+  // A unique identifier for the device. Pass this as the target device when
+  // sending a tab.
+  deviceGuid: string;
+  // The user-visible name of the device.
+  deviceName: string;
+  // The form factor of the device.
+  formFactor: FormFactor;
+  // The time when the device last updated its sync metadata.
+  lastUpdatedTime?: Date;
+}
+
 // Information about a conversation.
 export declare interface ConversationInfo {
   // The unique ID of the conversation. This will be stored.
@@ -1417,8 +1434,7 @@ export declare interface Screenshot {
   widthPixels: number;
   heightPixels: number;
   // Encoded image data. If `encryption_scheme` is not `kNone`, this contains
-  // the encrypted ciphertext payload. ArrayBuffer is transferable, so it should
-  // be copied more efficiently over postMessage.
+  // the encrypted ciphertext payload.
   data: ArrayBuffer;
   // The unencrypted source image format represented as a MIME type (e.g.,
   // "image/jpeg").

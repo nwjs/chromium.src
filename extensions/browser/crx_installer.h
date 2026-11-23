@@ -101,6 +101,20 @@ class CrxInstaller : public SandboxedUnpackerClient {
   // installation.
   enum WithholdingBehavior { kWithholdPermissions, kDontWithholdPermissions };
 
+  // LINT.IfChange(CrxInstallerReloadManifestVerificationResult)
+  // Recorded in `CrxInstaller::ReloadExtensionAfterInstall` to track whether
+  // the manifest reloaded from the final install directory matched the
+  // unpacked manifest validated in `OnUnpackSuccess`.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  enum class ReloadManifestVerificationResult {
+    kMatch = 0,
+    kMismatch = 1,
+    kSharedCopyMismatchFallback = 2,
+    kMaxValue = kSharedCopyMismatchFallback,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/extensions/enums.xml:ExtensionCrxInstallerReloadManifestVerificationResult)
+
   static void EnsureShutdownNotifierFactoryBuilt();
 
   // Extensions will be installed into the default install directory, then
@@ -167,6 +181,9 @@ class CrxInstaller : public SandboxedUnpackerClient {
   void set_creation_flags(int val) { creation_flags_ = val; }
 
   const base::FilePath& source_file() const { return source_file_; }
+
+  const GURL& download_url() const { return download_url_; }
+  void set_download_url(const GURL& val) { download_url_ = val; }
 
   mojom::ManifestLocation install_source() const { return install_source_; }
   void set_install_source(mojom::ManifestLocation source) {

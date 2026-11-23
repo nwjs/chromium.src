@@ -37,9 +37,14 @@ BASE_FEATURE(kCtrlTabMru, base::FEATURE_ENABLED_BY_DEFAULT);
 // navigation. Kill switch for crbug.com/554464784.
 BASE_FEATURE(kFastFaviconDisplay, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables the request permission UI with a container for the disclosure text
+// in the FedCM active mode modal dialog on desktop.
+BASE_FEATURE(kFedCmPermissionUiWithContainer,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kImportExportFlags, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kInfoBarInlineLinks, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kInfoBarQueuedCountPill, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Kill switch for crbug.com/559656985. When enabled, the press-and-hold Esc
 // timer also exits tab fullscreen (unless browser fullscreen is underneath)
@@ -51,7 +56,29 @@ BASE_FEATURE(kInfoBarInlineLinks, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kKeyboardLockHeldEscExitsTabFullscreen,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_LINUX)
+// Gives browser windows of non-default profiles their own identity for the
+// desktop environment: the X11 WM_CLASS res_name and the Wayland app_id are set
+// to a per-profile desktop entry ID (e.g. "google-chrome-Profile_1"), so the
+// shell can match the windows to a per-profile .desktop file and icon. The
+// per-profile ID is only used when a desktop entry with that ID is installed,
+// so windows never end up without a matching .desktop file.
+BASE_FEATURE(kLinuxPerProfileAppId, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 BASE_FEATURE(kTabStripDeclutter, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(bool,
+                   kTabStripDeclutterActiveTabCloseHideEnabled,
+                   &kTabStripDeclutter,
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kTabStripDeclutterInactiveTabCloseHideEnabled,
+                   &kTabStripDeclutter,
+                   true);
+BASE_FEATURE_PARAM(int,
+                   kTabStripDeclutterMaxTabWidthForCloseHide,
+                   &kTabStripDeclutter,
+                   100);
 BASE_FEATURE(kToolbarGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
                    kToolbarGlowUpReloadEnabled,
@@ -145,10 +172,6 @@ BASE_FEATURE(kDseIntegrity, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables the dialog shown when user feedback is disabled.
 BASE_FEATURE(kFeedbackDisabledDialog, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the feature to remove the last confirmation dialog when relaunching
-// to update Chrome.
-BASE_FEATURE(kFewerUpdateConfirmations, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kLegacySearchIntegrityCheck, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
@@ -205,7 +228,6 @@ BASE_FEATURE_PARAM(int,
                    "message_version",
                    0);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
-
 
 // Preloads a WebContents with a Top Chrome WebUI on BrowserView initialization,
 // so that it can be shown instantly at a later time when necessary.
@@ -299,32 +321,6 @@ BASE_FEATURE(kPasswordSaveUpdateDropdownMenuExperiment,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kSidePanelFlyoverAnimation,
-#if BUILDFLAG(IS_MAC)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
-             base::FEATURE_ENABLED_BY_DEFAULT
-#endif
-);
-
-bool UseSidePanelFlyoverAnimation() {
-  return base::FeatureList::IsEnabled(kSidePanelFlyoverAnimation);
-}
-
-BASE_FEATURE_PARAM(int,
-                   kSidePanelFlyoverDurationMs,
-                   &kSidePanelFlyoverAnimation,
-                   "flyover_animation_duration_ms",
-                   350);
-
-BASE_FEATURE(kUseDefaultDeadlineWhenAnimatingBounds,
-#if BUILDFLAG(IS_MAC) && defined(ARCH_CPU_ARM64)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
 // Enables the management notice in the NTP footer if the custom policies are
 // set. This acts as a kill switch for "EnterpriseCustomLabelForBrowser" and
 // "EnterpriseLogoUrlForBrowser".
@@ -344,9 +340,13 @@ BASE_FEATURE(kManagedProfileRequiredInterstitial,
 BASE_FEATURE(kMigrateManagementPageToWebUIOnMobile,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kViewsJSAppModalDialog, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
+#if BUILDFLAG(IS_MAC)
+BASE_FEATURE(kMacDeferInputContextUntilFirstPaint,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection,
@@ -377,6 +377,11 @@ bool IsPageActionsElevatedToolbarEnabled() {
 }
 
 BASE_FEATURE(kByDateHistoryInSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabsFromOtherDevicesSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kTabsFromOtherDevicesSidePanelPinnedByDefault,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNonMilestoneUpdateToast, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -543,6 +548,11 @@ BASE_FEATURE_PARAM(bool,
                    kAiOverlayDialogPageTools,
                    &kAiOverlayDialog,
                    "enable_page_tools",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kAiOverlayDialogNext,
+                   &kAiOverlayDialog,
+                   "enable_next",
                    false);
 BASE_FEATURE(kAiOverlayDisableNavigationContext,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -550,6 +560,13 @@ BASE_FEATURE(kAiOverlayDisableNavigationContext,
 BASE_FEATURE(kTabGroupsFocusing, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(bool, kTabGroupsFocusFreezing, &kTabGroupsFocusing, true);
+
+BASE_FEATURE_PARAM(int, kTabGroupsFocusingIphMinTabs, &kTabGroupsFocusing, 10);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kTabGroupsFocusingIphPromoDelay,
+                   &kTabGroupsFocusing,
+                   base::Seconds(3));
 
 bool IsTabGroupsFocusFreezingEnabled() {
   return base::FeatureList::IsEnabled(kTabGroupsFocusing) &&

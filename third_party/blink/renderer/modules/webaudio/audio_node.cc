@@ -25,8 +25,6 @@
 
 #include "third_party/blink/renderer/modules/webaudio/audio_node.h"
 
-#include <inttypes.h>
-
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_audio_node_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_channel_count_mode.h"
@@ -169,18 +167,16 @@ AudioNode* AudioNode::connect(AudioNode* destination,
   if (output_index >= numberOfOutputs()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"output index (", String::Number(output_index),
-                ") exceeds number of outputs (",
-                String::Number(numberOfOutputs()), ")."}));
+        Format("output index ({}) exceeds number of outputs ({}).",
+               output_index, numberOfOutputs()));
     return nullptr;
   }
 
   if (destination && input_index >= destination->numberOfInputs()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"input index (", String::Number(input_index),
-                ") exceeds number of inputs (",
-                String::Number(destination->numberOfInputs()), ")."}));
+        Format("input index ({}) exceeds number of inputs ({}).", input_index,
+               destination->numberOfInputs()));
     return nullptr;
   }
 
@@ -206,13 +202,12 @@ AudioNode* AudioNode::connect(AudioNode* destination,
     return nullptr;
   }
 
-  SendLogMessage(__func__,
-                 Format("({{output=[index:{}, type:{}, handler:0x{:X}]}} --> "
-                        "{{input=[index:{}, type:{}, handler:0x{:X}]}})",
-                        output_index, Handler().NodeTypeName(),
-                        reinterpret_cast<uintptr_t>(&Handler()), input_index,
-                        destination->Handler().NodeTypeName(),
-                        reinterpret_cast<uintptr_t>(&destination->Handler())));
+  SendLogMessage(
+      __func__,
+      Format(
+          "({{output=[index:{}, type:{}]}} --> {{input=[index:{}, type:{}]}})",
+          output_index, Handler().NodeTypeName(), input_index,
+          destination->Handler().NodeTypeName()));
 
   AudioNodeWiring::Connect(Handler().Output(output_index),
                            destination->Handler().Input(input_index));
@@ -247,9 +242,8 @@ void AudioNode::connect(AudioParam* param,
   if (output_index >= numberOfOutputs()) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        StrCat({"output index (", String::Number(output_index),
-                ") exceeds number of outputs (",
-                String::Number(numberOfOutputs()), ")."}));
+        Format("output index ({}) exceeds number of outputs ({}).",
+               output_index, numberOfOutputs()));
     return;
   }
 
@@ -429,8 +423,8 @@ void AudioNode::disconnect(AudioNode* destination,
   if (number_of_disconnections == 0) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
-        StrCat({"output (", String::Number(output_index),
-                ") is not connected to the given destination."}));
+        Format("output ({}) is not connected to the given destination.",
+               output_index));
   }
 
   Handler().UpdatePullStatusIfNeeded();
@@ -480,9 +474,9 @@ void AudioNode::disconnect(AudioNode* destination,
                                        input_index)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
-        StrCat({"output (", String::Number(output_index),
-                ") is not connected to the input (",
-                String::Number(input_index), ") of the destination."}));
+        Format("output ({}) is not connected to the input ({}) of the "
+               "destination.",
+               output_index, input_index));
     return;
   }
 
@@ -561,8 +555,9 @@ void AudioNode::disconnect(AudioParam* destination_param,
   if (!DisconnectFromOutputIfConnected(output_index, *destination_param)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidAccessError,
-        StrCat({"specified destination AudioParam and node output (",
-                String::Number(output_index), ") are not connected."}));
+        Format("specified destination AudioParam and node output ({}) are "
+               "not connected.",
+               output_index));
     return;
   }
 

@@ -120,12 +120,17 @@ constexpr CGFloat kOmniboxPlusLeadingSpace = 26.0;
 constexpr CGFloat kFakeboxImageSize = 20.0;
 // TODO(crbug.com/542594099): Remove the "UICleanup" suffix once
 // `kNewTabPageUICleanup` launches.
-constexpr CGFloat kFakeboxImageSizeUICleanup = 24.0;
+constexpr CGFloat kFakeboxPlusIconSizeUICleanup = 24.0;
+constexpr CGFloat kFakeboxLogoSizeUICleanup = 22.0;
 constexpr CGFloat kSymbolActionPointSizeUICleanup = 19.0;
 
 // The spacing between the items in the button stack.
 constexpr CGFloat kButtonSpacing = 9.0;
 constexpr CGFloat kButtonSpacingUICleanup = 16.0;
+// The minimum touch target diameter for the trailing stack buttons when
+// `kNewTabPageUICleanup` is enabled, sized so the voice search and lens touch
+// targets meet at the midpoint without overlapping.
+constexpr CGFloat kFakeboxButtonMinimumTouchTargetUICleanup = 38.0;
 
 // The height of the divider between the mic and lens icons.
 constexpr CGFloat kIconDividerHeight = 13.0;
@@ -741,21 +746,16 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   leadingView.translatesAutoresizingMaskIntoConstraints = NO;
   [searchField addSubview:leadingView];
 
-  CGFloat imageSize = IsNewTabPageUICleanupEnabled()
-                          ? kFakeboxImageSizeUICleanup
-                          : kFakeboxImageSize;
-  AddSquareConstraints(leadingView, imageSize);
-
-  CGFloat leadingViewConstraintConstant;
-  if (IsChromeNextIaEnabled()) {
-    leadingViewConstraintConstant = [self fakeboxLeadingSpace];
-  } else {
-    leadingViewConstraintConstant = [self omniboxLeadingSpace];
+  CGFloat imageSize = kFakeboxImageSize;
+  if (IsNewTabPageUICleanupEnabled()) {
+    imageSize = [self shouldShowPlusButton] ? kFakeboxPlusIconSizeUICleanup
+                                            : kFakeboxLogoSizeUICleanup;
   }
+  AddSquareConstraints(leadingView, imageSize);
 
   self.leadingViewConstraint = [leadingView.leadingAnchor
       constraintEqualToAnchor:searchField.leadingAnchor
-                     constant:leadingViewConstraintConstant];
+                     constant:[self fakeboxLeadingSpace]];
 
   [NSLayoutConstraint activateConstraints:@[
     self.leadingViewConstraint,
@@ -1445,6 +1445,16 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   if (self.fakeOmniboxContainer) {
     [self addLeadingViewToSearchField:self.fakeOmniboxContainer];
     [self setFakeboxColorsWithProgress:_lastAnimationPercent];
+    [self updateLogoAnimationWithProgress:_lastAnimationPercent];
+    [self updateHintLabelAnimationWithProgress:_lastAnimationPercent];
+  }
+}
+
+// Configures the touch target for `button` in the fakebox button stack.
+- (void)configureTouchTargetForFakeboxButton:
+    (ExtendedTouchTargetButton*)button {
+  if (IsNewTabPageUICleanupEnabled()) {
+    button.minimumDiameter = kFakeboxButtonMinimumTouchTargetUICleanup;
   }
 }
 
@@ -1504,6 +1514,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   // Voice search.
   self.voiceSearchButton =
       [ExtendedTouchTargetButton buttonWithType:UIButtonTypeSystem];
+  [self configureTouchTargetForFakeboxButton:self.voiceSearchButton];
   self.voiceSearchButton.enabled = _voiceSearchIsEnabled;
   self.voiceSearchButton.isAccessibilityElement = _voiceSearchIsEnabled;
   [_buttonStack addArrangedSubview:self.voiceSearchButton];
@@ -1520,6 +1531,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
     }
     self.lensButton =
         [ExtendedTouchTargetButton buttonWithType:UIButtonTypeSystem];
+    [self configureTouchTargetForFakeboxButton:self.lensButton];
     [_buttonStack addArrangedSubview:self.lensButton];
     [self.layoutGuideCenter referenceView:self.lensButton
                                 underName:kFakeboxLensIconGuide];
@@ -1789,18 +1801,19 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   BOOL horizontalSizeClassChanged =
       previousTraitCollection.horizontalSizeClass !=
       self.traitCollection.horizontalSizeClass;
+  BOOL verticalSizeClassChanged = previousTraitCollection.verticalSizeClass !=
+                                  self.traitCollection.verticalSizeClass;
   BOOL preferredContentSizeCategoryChanged =
       previousTraitCollection.preferredContentSizeCategory !=
       self.traitCollection.preferredContentSizeCategory;
 
-  if (horizontalSizeClassChanged || preferredContentSizeCategoryChanged) {
+  if (horizontalSizeClassChanged || verticalSizeClassChanged ||
+      preferredContentSizeCategoryChanged) {
     [self updateFakeboxDisplay];
   }
 
   if (IsChromeNextIaEnabled()) {
-    if (horizontalSizeClassChanged ||
-        previousTraitCollection.verticalSizeClass !=
-            self.traitCollection.verticalSizeClass) {
+    if (horizontalSizeClassChanged || verticalSizeClassChanged) {
       [self resetSplitToolbarResizing];
       if (!CanShowTabStrip(self) && !IsRegularXRegularSizeClass(self)) {
         [self addToolsMenu];
@@ -2199,8 +2212,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 }
 
 - (CGFloat)headerHeight {
-  return content_suggestions::HeightForLogoHeader(
-      self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
+  return content_suggestions::HeightForLogoHeader(self.searchEngineLogoState,
+                                                  self.traitCollection);
 }
 
 #pragma mark - Private (Fakebox & Logo Layout Helpers)
@@ -2222,16 +2235,19 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
 - (void)updateFakeboxDisplay {
   self.doodleTopMarginConstraint.constant = content_suggestions::LogoTopPadding(
-      self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
+      self.searchEngineLogoState, self.traitCollection);
   [self.doodleHeightConstraint
       setConstant:content_suggestions::DoodleHeight(self.searchEngineLogoState,
                                                     self.traitCollection)];
+  self.fakeOmniboxTopMarginConstraint.constant =
+      -content_suggestions::LogoToFakeboxPadding(self.searchEngineLogoState,
+                                                 self.traitCollection);
   self.fakeOmniboxContainer.hidden =
       CanShowTabStrip(self) &&
       (self.searchEngineLogoState == SearchEngineLogoState::kNone);
   self.headerViewHeightConstraint.constant =
-      content_suggestions::HeightForLogoHeader(
-          self.searchEngineLogoState, self.traitCollection, _isAIMAllowed);
+      content_suggestions::HeightForLogoHeader(self.searchEngineLogoState,
+                                               self.traitCollection);
   if (self.window) {
     [self layoutIfNeeded];
   } else {
@@ -2246,7 +2262,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       constraintEqualToAnchor:headerView.topAnchor
                      constant:content_suggestions::LogoTopPadding(
                                   self.searchEngineLogoState,
-                                  self.traitCollection, _isAIMAllowed)];
+                                  self.traitCollection)];
   self.doodleHeightConstraint = [logoView.heightAnchor
       constraintEqualToConstant:content_suggestions::DoodleHeight(
                                     self.searchEngineLogoState,

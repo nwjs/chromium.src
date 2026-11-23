@@ -132,7 +132,7 @@ namespace {
 profile_metrics::BrowserProfileType ComputeOffTheRecordProfileType(
     const Profile::OTRProfileID& otr_profile_id,
     const Profile* parent_profile) {
-  DCHECK(!parent_profile->IsOffTheRecord());
+  CHECK(!parent_profile->IsOffTheRecord(), base::NotFatalUntil::M162);
 
   if (otr_profile_id != Profile::OTRProfileID::PrimaryID()) {
     return profile_metrics::BrowserProfileType::kOtherOffTheRecordProfile;
@@ -155,6 +155,7 @@ profile_metrics::BrowserProfileType ComputeOffTheRecordProfileType(
     case profile_metrics::BrowserProfileType::kIncognito:
     case profile_metrics::BrowserProfileType::kEnterpriseIsolated:
     case profile_metrics::BrowserProfileType::kOtherOffTheRecordProfile:
+    case profile_metrics::BrowserProfileType::kTopChromeWebUIProfile:
       NOTREACHED();
   }
 }
@@ -475,7 +476,7 @@ OffTheRecordProfileImpl::GetSpecialStoragePolicy() {
 
 content::PlatformNotificationService*
 OffTheRecordProfileImpl::GetPlatformNotificationService() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M162);
   return PlatformNotificationServiceFactory::GetForProfile(this);
 }
 
@@ -559,7 +560,7 @@ base::Time OffTheRecordProfileImpl::GetStartTime() const {
 }
 
 ProfileKey* OffTheRecordProfileImpl::GetProfileKey() const {
-  DCHECK(key_);
+  CHECK(key_, base::NotFatalUntil::M162);
   return key_.get();
 }
 
@@ -634,7 +635,8 @@ class GuestSessionProfile : public OffTheRecordProfileImpl {
         g_browser_process->GetFeatures()->application_locale_storage(),
         g_browser_process->platform_part()->GetTimezoneResolverManager());
     chromeos_preferences_->Init(
-        this, user_manager::UserManager::Get()->GetActiveUser());
+        user_manager::UserManager::Get()->GetActiveUser(), this,
+        PrefServiceSyncableFromProfile(this));
   }
 
  private:

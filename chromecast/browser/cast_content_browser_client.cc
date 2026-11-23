@@ -408,8 +408,6 @@ void CastContentBrowserClient::AppendExtraCommandLineSwitches(
     // the renderer go here.
     static const char* const kForwardSwitches[] = {
         switches::kCastAppBackgroundColor,
-        switches::kForceMediaResolutionHeight,
-        switches::kForceMediaResolutionWidth,
         network::switches::kUnsafelyTreatInsecureOriginAsSecure,
         switches::kCastAssetsDir,
         switches::kHomeEnvOverride};
@@ -530,7 +528,7 @@ void CastContentBrowserClient::AllowCertificateError(
 
 base::OnceClosure CastContentBrowserClient::SelectClientCertificate(
     content::BrowserContext* browser_context,
-    int process_id,
+    content::ChildProcessId process_id,
     content::WebContents* web_contents,
     net::SSLCertRequestInfo* cert_request_info,
     net::ClientCertIdentityList client_certs,

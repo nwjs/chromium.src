@@ -12,7 +12,9 @@ source_set("ui_event_source") {
     "ui_event_source.h",
   ]
   deps = [
+    "//base",
     "//ui/events",
+    "//ui/gfx/geometry",
     "//ui/platform_window",
   ]
 }
@@ -25,6 +27,9 @@ source_set("dummy_ui_event_source") {
     # This should not be necessary, but without it there's a compile error:
     # fatal error: 'partition_alloc/pointers/raw_ptr_exclusion.h' file not found
     "//base",
+    "//ui/events",
+    "//ui/gfx/geometry",
+    "//ui/platform_window",
   ]
 }
 
@@ -37,9 +42,10 @@ if (!remove_starboard_headers) {
     deps = [
       ":ui_event_source",
       "//base",
-      "//chromecast/starboard/chromecast/starboard_adapter",
+      "//chromecast/starboard/chromecast/starboard_adapter:starboard_adapter_public",
       "//ui/events",
       "//ui/events:dom_keycode_converter",
+      "//ui/gfx/geometry",
       "//ui/platform_window",
     ]
   }
@@ -50,7 +56,7 @@ if (!remove_starboard_headers) {
       ":starboard_event_source",
       "//base/test:run_all_unittests",
       "//base/test:test_support",
-      "//chromecast/starboard/chromecast/starboard_adapter",
+      "//chromecast/starboard/chromecast/starboard_adapter:starboard_adapter_impl",
       "//testing/gmock",
       "//testing/gtest",
       "//ui/base",

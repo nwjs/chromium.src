@@ -307,7 +307,7 @@ bool IsForcedColorsEnabled() {
 // milestones.
 BASE_FEATURE(kEyeDropper,
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
-    BUILDFLAG(IS_CHROMEOS)
+    BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -383,27 +383,6 @@ bool IsSwipeToMoveCursorEnabled() {
       IsTouchTextEditingRedesignEnabled();
 #endif
   return enabled;
-}
-
-// Enable raw draw for tiles.
-BASE_FEATURE(kRawDraw, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Tile size = viewport size * TileSizeFactor
-const base::FeatureParam<double> kRawDrawTileSizeFactor{&kRawDraw,
-                                                        "TileSizeFactor", 1};
-
-const base::FeatureParam<bool> kIsRawDrawUsingMSAA{&kRawDraw, "IsUsingMSAA",
-                                                   false};
-bool IsUsingRawDraw() {
-  return base::FeatureList::IsEnabled(kRawDraw);
-}
-
-double RawDrawTileSizeFactor() {
-  return kRawDrawTileSizeFactor.Get();
-}
-
-bool IsRawDrawUsingMSAA() {
-  return kIsRawDrawUsingMSAA.Get();
 }
 
 BASE_FEATURE(kVariableRefreshRateAvailable, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -523,7 +502,7 @@ BASE_FEATURE_PARAM(bool, kGlassExpandOnHoverEnabled, &kGlassFrame, true);
 BASE_FEATURE_PARAM(bool, kGlassFrameEnabledByDefault, &kGlassFrame, true);
 
 BASE_FEATURE(kRoundedIcons, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kWebUIRoundedIcons, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebUIRoundedIcons, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Updates the default dark neutrals for the theme palette.
 BASE_FEATURE(kChromeDarkNeutrals26, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -542,6 +521,9 @@ BASE_FEATURE(kRemoveEnsureRFHVisibilityConsistent,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kColorIdCssStyleSheetOptimization,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kOmitNativeFrameOnShadowlessMenus,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGlassFrameEnabled() {

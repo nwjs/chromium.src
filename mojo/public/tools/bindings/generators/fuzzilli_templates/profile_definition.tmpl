@@ -4,25 +4,38 @@ private let mojoObjectGroups: [ObjectGroup] = [
 {%- for remote in interface_remotes %}
     .{{remote|format_unique_name|to_camel(True)}}Remote,
     .{{remote|format_unique_name|to_camel(True)}}RemoteWrapper,
-{%- if remote|uses_non_associated_endpoints %}
+{%- if remote in interface_pending_receivers %}
     .{{remote|format_unique_name|to_camel(True)}}PendingReceiver,
 {%- endif %}
-{%- if remote|uses_associated_endpoints %}
+{%- if remote in interface_associated_pending_receivers %}
     .{{remote|format_unique_name|to_camel(True)}}PendingAssociatedReceiver,
 {%- endif %}
 {%- endfor %}
 {%- for receiver in interface_receivers %}
     .{{receiver|format_unique_name|to_camel(True)}}CallbackRouter,
     .{{receiver|format_unique_name|to_camel(True)}}CallbackRouterReceiverHelper,
-{%- if receiver|uses_non_associated_endpoints %}
-    .{{receiver|format_unique_name|to_camel(True)}}PendingRemote,
+{%- if receiver in interface_pending_receivers or
+       receiver in interface_associated_pending_receivers %}
+    .{{receiver|format_unique_name|to_camel(True)}}ReceiverEndpoint,
+{%- endif %}
+{%- if receiver in interface_pending_receivers or
+       receiver in interface_pending_remotes %}
     .{{receiver|format_unique_name|to_camel(True)}}PendingReceiver,
 {%- endif %}
-{%- if receiver|uses_associated_endpoints %}
-    .{{receiver|format_unique_name|to_camel(True)}}PendingAssociatedRemote,
+{%- if receiver in interface_pending_remotes %}
+    .{{receiver|format_unique_name|to_camel(True)}}PendingRemote,
+{%- endif %}
+{%- if receiver in interface_associated_pending_receivers or
+       receiver in interface_associated_pending_remotes %}
     .{{receiver|format_unique_name|to_camel(True)}}PendingAssociatedReceiver,
 {%- endif %}
+{%- if receiver in interface_associated_pending_remotes %}
+    .{{receiver|format_unique_name|to_camel(True)}}PendingAssociatedRemote,
+{%- endif %}
+{%- if receiver in interface_pending_remotes or
+       receiver in interface_associated_pending_remotes %}
     .{{receiver|format_unique_name|to_camel(True)}}RemoteWrapper,
+{%- endif %}
     {%- for method in receiver.methods %}
     .{{(method|callback_receiver_name)|to_camel(True)}},
     {%- endfor %}
@@ -41,6 +54,20 @@ private let mojoBuiltins: [String: ILType] = [
     /// is only called once, and (2) the remote is saved to a global variable so it
     /// can be closed at the end of the program.
     "getOrCreatePrimaryRemote": .function([] => .{{primary|format_il_type}}),
+    /// Declared in `codePrefix`. `MojoAsyncFunctionGenerator` pushes the promise
+    /// of every async function it emits, and `codeSuffix` awaits them all. Typed
+    /// as an opaque object Fuzzilli does not use it as a general-purpose array.
+    "mojoAsyncFunctionPromises": .object(withMethods: ["push"]),
+{%- for remote in interface_remotes %}
+    {#- TODO(crbug.com/522372048): Primary interfaces can also be used as non-primary
+        interfaces. Add support for this use case. #}
+    {%- if remote != primary and
+        (remote in interface_pending_receivers or
+         remote in interface_associated_pending_receivers) %}
+    "{{remote|fully_qualified_name}}Remote":
+       .constructor([] => .{{remote|format_il_type}}),
+    {%- endif %}
+{%- endfor %}
 {%- for receiver in interface_receivers %}
     "{{receiver|fully_qualified_name}}CallbackRouter":
        .constructor([] => .js{{receiver|format_unique_name}}CallbackRouter),
@@ -58,8 +85,7 @@ private let mojoBuiltins: [String: ILType] = [
 
 private let keepGenerators = [
     "IntegerGenerator", "StringGenerator", "TernaryOperationGenerator",
-    "PlainFunctionGenerator", "AsyncFunctionGenerator", "AwaitGenerator",
-    "SubroutineReturnGenerator", "TryCatchGenerator",
+    "PlainFunctionGenerator", "SubroutineReturnGenerator", "TryCatchGenerator",
 ]
 
 private let mojoDisabledGenerators: [String] = CodeGenerators.map { $0.name }
@@ -75,16 +101,33 @@ let mojo{{primary.name}}Profile = Profile(
     ],
     maxExecsBeforeRespawn: 50,
     timeout: Timeout.interval(11000, 11000),
+    // The first statement tells js_in_process_fuzzer which Mojo scripts page to
+    // load before running the program.
     codePrefix: """
+        // --- Begin program prefix ---
+        'mojo-scripts-page: /gen/{{mojo_scripts_page_path}}';
         let globalRemote = null;
+        const mojoAsyncFunctionPromises = [];
         function getOrCreatePrimaryRemote() {
             if (!globalRemote) {
                 globalRemote = {{primary|fully_qualified_name}}.getRemote();
             }
             return globalRemote;
         }
+        // --- End program prefix ---
         """,
-    codeSuffix: "if (globalRemote) {globalRemote.$.close()}",
+    codeSuffix: """
+        // --- Begin program suffix ---
+        // ExecJs awaits the promise returned by the last statement, so the
+        // async functions run to completion (including code after `await`)
+        // before the primary remote is closed. The leading `;` stops this from
+        // being parsed as a call on the program's last line.
+        ;(async () => {
+            await Promise.allSettled(mojoAsyncFunctionPromises);
+            if (globalRemote) {globalRemote.$.close()}
+        })();
+        // --- End program suffix ---
+        """,
     ecmaVersion: v8Profile.ecmaVersion,
     startupTests: [
         ("fuzzilli('FUZZILLI_PRINT', 'test')", .shouldSucceed),

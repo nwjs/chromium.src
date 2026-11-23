@@ -47,6 +47,20 @@ CastStreamingFrameDropReason ToFrameDropReason(EnqueueFrameResult result) {
   }
 }
 
+perfetto::StaticString TransportSliceName(bool is_audio) {
+  return is_audio ? perfetto::StaticString("Audio Transport")
+                  : perfetto::StaticString("Video Transport");
+}
+
+// Each frame gets its own transport slice. It starts when Open Screen accepts
+// the frame and ends when the frame is canceled, which is usually when the
+// Receiver ACKs it. So the slice shows how long the frame was in flight.
+perfetto::NamedTrack TransportTrack(bool is_audio,
+                                    openscreen::cast::FrameId frame_id) {
+  return perfetto::NamedTrack(TransportSliceName(is_audio),
+                              frame_id.lower_32_bits());
+}
+
 }  // namespace
 
 std::unique_ptr<FrameSender> FrameSender::Create(
@@ -120,6 +134,7 @@ base::TimeDelta OpenscreenFrameSender::GetTargetPlayoutDelay() const {
 
 void OpenscreenFrameSender::OnFrameCanceled(
     openscreen::cast::FrameId frame_id) {
+  TRACE_EVENT_END("cast.stream", TransportTrack(is_audio_, frame_id));
   if (frame_id > last_acked_frame_id_) {
     last_acked_frame_id_ = frame_id;
   }
@@ -207,17 +222,6 @@ CastStreamingFrameDropReason OpenscreenFrameSender::EnqueueFrame(
 
   CHECK_GE(encoded_frame->frame_id, last_enqueued_frame_id_)
       << "enqueued frames out of order.";
-  last_enqueued_frame_id_ = encoded_frame->frame_id;
-  last_send_time_ = cast_environment_->NowTicks();
-
-  if (!is_audio_ && encoded_frame->is_key_frame) {
-    VLOG_WITH_SSRC(1) << "Sending encoded key frame, id="
-                      << encoded_frame->frame_id;
-  }
-
-  RecordLatestFrameTimestamps(encoded_frame->frame_id,
-                              encoded_frame->reference_time,
-                              encoded_frame->rtp_timestamp);
 
   if (!is_audio_) {
     // Used by chrome/browser/media/cast_mirroring_performance_browsertest.cc
@@ -227,15 +231,7 @@ CastStreamingFrameDropReason OpenscreenFrameSender::EnqueueFrame(
 
   if (send_target_playout_delay_) {
     encoded_frame->new_playout_delay = target_playout_delay_;
-    send_target_playout_delay_ = false;
   }
-
-  static const perfetto::StaticString name =
-      is_audio_ ? "Audio Transport" : "Video Transport";
-  TRACE_EVENT_BEGIN(
-      "cast.stream", name,
-      perfetto::NamedTrack(name, encoded_frame->frame_id.lower_32_bits()),
-      "rtp_timestamp", encoded_frame->rtp_timestamp.lower_32_bits());
 
   // The `FrameId` given to us by child classes such as VideoSender should
   // be at least the result of openscreen::cast::Sender::GetNextFrameId(). If
@@ -260,10 +256,28 @@ CastStreamingFrameDropReason OpenscreenFrameSender::EnqueueFrame(
 
   const auto result = sender_->EnqueueFrame(std::move(openscreen_frame));
   if (result == EnqueueFrameResult::OK) {
+    TRACE_EVENT_BEGIN("cast.stream", TransportSliceName(is_audio_),
+                      TransportTrack(is_audio_, openscreen_frame_id),
+                      "rtp_timestamp",
+                      encoded_frame->rtp_timestamp.lower_32_bits(),
+                      "payload_bytes", encoded_frame->data.size(),
+                      "is_key_frame", encoded_frame->is_key_frame);
     last_accepted_frame_ids_ = AcceptedFrameIds{
         .frame_id = encoded_frame->frame_id,
         .openscreen_frame_id = openscreen_frame_id,
     };
+    last_enqueued_frame_id_ = encoded_frame->frame_id;
+    last_send_time_ = cast_environment_->NowTicks();
+    send_target_playout_delay_ = false;
+
+    if (!is_audio_ && encoded_frame->is_key_frame) {
+      VLOG_WITH_SSRC(1) << "Sending encoded key frame, id="
+                        << encoded_frame->frame_id;
+    }
+
+    RecordLatestFrameTimestamps(encoded_frame->frame_id,
+                                encoded_frame->reference_time,
+                                encoded_frame->rtp_timestamp);
   }
   return ToFrameDropReason(result);
 }

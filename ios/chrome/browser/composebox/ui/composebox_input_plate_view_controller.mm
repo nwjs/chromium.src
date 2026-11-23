@@ -17,13 +17,11 @@
 #import "base/task/sequenced_task_runner.h"
 #import "base/time/time.h"
 #import "base/unguessable_token.h"
-#import "build/branding_buildflags.h"
 #import "components/lens/lens_features.h"
 #import "ios/chrome/browser/composebox/public/composebox_attachment_option.h"
 #import "ios/chrome/browser/composebox/public/composebox_constants.h"
 #import "ios/chrome/browser/composebox/public/composebox_input_item_source.h"
 #import "ios/chrome/browser/composebox/public/composebox_input_plate_controls.h"
-#import "ios/chrome/browser/composebox/public/composebox_model_option.h"
 #import "ios/chrome/browser/composebox/public/composebox_theme.h"
 #import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h"
@@ -298,6 +296,9 @@ UIImage* SendButtonImage(BOOL highlighted,
 
   // Whether to force disable sending.
   BOOL _disableSending;
+
+  // Whether a send is pending, i.e. held until attachments finish uploading.
+  BOOL _sendPending;
 }
 
 /// ComposeboxAnimationContext
@@ -644,25 +645,28 @@ UIImage* SendButtonImage(BOOL highlighted,
 }
 
 - (void)updateSendButtonStateIfNeeded {
-  if (_disableSending) {
+  if (_disableSending || _sendPending) {
     [self enableSendButton:NO];
     return;
   }
 
-  BOOL allLoaded = YES;
+  BOOL canSend = YES;
   for (ComposeboxInputItem* item in _currentItems) {
-    if (item.state != ComposeboxInputItemState::kLoaded) {
-      allLoaded = NO;
+    if (item.state != ComposeboxInputItemState::kLoaded &&
+        item.state != ComposeboxInputItemState::kDeferred) {
+      canSend = NO;
       break;
     }
   }
 
-  [self enableSendButton:allLoaded];
+  [self enableSendButton:canSend];
 }
 
 - (void)enableSendButton:(BOOL)enableSending {
   _sendButton.enabled = enableSending;
-  _sendButton.alpha = enableSending ? 1 : kSendButtonDisabledOpacity;
+  // Keep the activity indicator of a pending send fully visible.
+  _sendButton.alpha =
+      (enableSending || _sendPending) ? 1 : kSendButtonDisabledOpacity;
   BOOL isCobrowse = _entrypoint == ComposeboxEntrypoint::kCobrowse;
   [self enableKeyboardSendButton:enableSending
       allowsReturnKeyWithEmptyText:!isCobrowse];
@@ -801,6 +805,15 @@ UIImage* SendButtonImage(BOOL highlighted,
 
 - (void)disableSending:(BOOL)disableSending {
   _disableSending = disableSending;
+  [self updateSendButtonStateIfNeeded];
+}
+
+- (void)setSendPending:(BOOL)sendPending {
+  if (_sendPending == sendPending) {
+    return;
+  }
+  _sendPending = sendPending;
+  [_sendButton setNeedsUpdateConfiguration];
   [self updateSendButtonStateIfNeeded];
 }
 
@@ -1027,43 +1040,6 @@ UIImage* SendButtonImage(BOOL highlighted,
 /// Handles keyboard disappearance notifications to reset layout.
 - (void)keyboardWillHide:(NSNotification*)notification {
   _keyboardHeight = 0;
-}
-
-/// Notifies the delegate to show the tab attachment UI.
-- (void)handleAttachTabs {
-  [self.delegate composeboxViewControllerDidTapAttachTabsButton:self];
-}
-
-- (void)handleAIMTappedFromToolMenu {
-  [self.delegate composeboxViewController:self
-                               didTapTool:ComposeboxMode::kAIM
-                         activationSource:AiModeActivationSource::kToolMenu];
-}
-
-/// Notifies the delegate to handle canvas button tapped from the tool menu.
-- (void)handleImageGenTappedFromToolMenu {
-  [self.delegate composeboxViewController:self
-                               didTapTool:ComposeboxMode::kImageGeneration
-                         activationSource:AiModeActivationSource::kToolMenu];
-}
-
-/// Notifies the delegate to handle canvas tapped from the tool menu.
-- (void)handleCanvasTappedFromToolMenu {
-  [self.delegate composeboxViewController:self
-                               didTapTool:ComposeboxMode::kCanvas
-                         activationSource:AiModeActivationSource::kToolMenu];
-}
-
-/// Notifies the delegate to handle deep search tapped from the tool menu.
-- (void)handleDeepSearchTappedFromToolMenu {
-  [self.delegate composeboxViewController:self
-                               didTapTool:ComposeboxMode::kDeepSearch
-                         activationSource:AiModeActivationSource::kToolMenu];
-}
-/// Notifies the delegate to handle the selection of a new model option.
-- (void)handleModelChangeFromToolsMenuWithOption:
-    (ComposeboxModelOption)modelOption {
-  [self.delegate composeboxViewController:self didSelectModel:modelOption];
 }
 
 /// Updates the visibility of the leading/trailing fade views for the carousel.
@@ -1441,17 +1417,22 @@ UIImage* SendButtonImage(BOOL highlighted,
 
 /// Returns the send button.
 - (UIButton*)createSendButton {
+  __weak __typeof(self) weakSelf = self;
   UIButtonConfiguration* buttonConfig =
       [UIButtonConfiguration plainButtonConfiguration];
   buttonConfig.image = SendButtonImage(/*highlighted=*/NO, _theme, _entrypoint);
   buttonConfig.contentInsets = NSDirectionalEdgeInsetsZero;
+  // Match the activity indicator to the arrow it replaces.
+  buttonConfig.activityIndicatorColorTransformer = ^UIColor*(UIColor* color) {
+    return [[weakSelf currentTheme] sendButtonForegroundColorHighlighted:NO]
+               ?: color;
+  };
 
   UIButton* sendButton =
       [ExtendedTouchTargetButton buttonWithType:UIButtonTypeSystem];
   sendButton.configuration = buttonConfig;
   sendButton.backgroundColor = [_theme sendButtonBackgroundColorHighlighted:NO];
 
-  __weak __typeof(self) weakSelf = self;
   sendButton.configurationUpdateHandler = ^(UIButton* button) {
     [weakSelf sendButtonDidUpdateConfiguration];
   };
@@ -1478,8 +1459,12 @@ UIImage* SendButtonImage(BOOL highlighted,
 // Called when the configuration of the send button is updated.
 - (void)sendButtonDidUpdateConfiguration {
   UIButtonConfiguration* updatedConfig = _sendButton.configuration;
+  updatedConfig.showsActivityIndicator = _sendPending;
   BOOL isHighlighted = _sendButton.state == UIControlStateHighlighted;
-  updatedConfig.image = SendButtonImage(isHighlighted, _theme, _entrypoint);
+  // Remove the full-button arrow image while pending so the activity indicator
+  // uses its default size instead of scaling to the 36 pt symbol.
+  updatedConfig.image =
+      _sendPending ? nil : SendButtonImage(isHighlighted, _theme, _entrypoint);
   _sendButton.configuration = updatedConfig;
   CGFloat scale = isHighlighted ? 0.95 : 1.0;
   __weak UIButton* weakSendButton = _sendButton;

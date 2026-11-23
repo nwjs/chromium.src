@@ -47,6 +47,8 @@
 #include "components/services/app_service/public/cpp/app_capability_access_cache_wrapper.h"
 #include "components/services/app_service/public/cpp/app_registry_cache.h"
 #include "components/services/app_service/public/cpp/app_registry_cache_wrapper.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/user_manager/user_manager.h"
 #include "content/public/browser/media_session.h"
@@ -247,7 +249,7 @@ MediaClientImpl::MediaClientImpl()
   notification_.builder().SetNotifierId(
       notification_.builder().GetNotifierId());
 
-  DCHECK(!g_media_client);
+  CHECK(!g_media_client, base::NotFatalUntil::M162);
   g_media_client = this;
 }
 
@@ -277,14 +279,14 @@ MediaClientImpl* MediaClientImpl::Get() {
 }
 
 void MediaClientImpl::Init() {
-  DCHECK(!media_controller_);
+  CHECK(!media_controller_, base::NotFatalUntil::M162);
 
   media_controller_ = ash::MediaController::Get();
   media_controller_->SetClient(this);
 }
 
 void MediaClientImpl::InitForTesting(ash::MediaController* controller) {
-  DCHECK(!media_controller_);
+  CHECK(!media_controller_, base::NotFatalUntil::M162);
 
   media_controller_ = controller;
   media_controller_->SetClient(this);
@@ -330,9 +332,10 @@ void MediaClientImpl::RequestCaptureState() {
         ash::BrowserContextHelper::Get()->GetBrowserContextByUser(user));
   }
 
-  const user_manager::User* primary_user = manager->GetPrimaryUser();
-  if (primary_user) {
-    capture_states[primary_user->GetAccountId()] |= vm_media_capture_state_;
+  const session_manager::Session* primary_session =
+      session_manager::SessionManager::Get()->GetPrimarySession();
+  if (primary_session) {
+    capture_states[primary_session->account_id()] |= vm_media_capture_state_;
   }
 
   media_controller_->NotifyCaptureState(std::move(capture_states));
@@ -350,7 +353,7 @@ void MediaClientImpl::OnRequestUpdate(int render_process_id,
                                       int render_frame_id,
                                       blink::mojom::MediaStreamType stream_type,
                                       const content::MediaRequestState state) {
-  DCHECK(base::CurrentUIThread::IsSet());
+  CHECK(base::CurrentUIThread::IsSet(), base::NotFatalUntil::M162);
   // The PostTask is necessary because the state of MediaStreamCaptureIndicator
   // gets updated after this.
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -416,7 +419,7 @@ void MediaClientImpl::OnActiveClientChange(
   if (is_new_active_client) {
     active_camera_client_count_++;
   } else if (active_device_ids.empty()) {
-    DCHECK(active_camera_client_count_ > 0);
+    CHECK(active_camera_client_count_ > 0, base::NotFatalUntil::M162);
     active_camera_client_count_--;
   }
 
@@ -455,7 +458,8 @@ void MediaClientImpl::EnableCustomMediaKeyHandler(
     ui::MediaKeysListener::Delegate* delegate) {
   auto it = media_key_delegates_.find(context);
 
-  DCHECK(!media_key_delegates_.contains(context) || it->second == delegate);
+  CHECK(it == media_key_delegates_.end() || it->second == delegate,
+        base::NotFatalUntil::M162);
 
   media_key_delegates_.emplace(context, delegate);
 
@@ -470,7 +474,7 @@ void MediaClientImpl::DisableCustomMediaKeyHandler(
   }
 
   auto it = media_key_delegates_.find(context);
-  DCHECK_EQ(it->second, delegate);
+  CHECK_EQ(it->second, delegate, base::NotFatalUntil::M162);
 
   media_key_delegates_.erase(it);
 

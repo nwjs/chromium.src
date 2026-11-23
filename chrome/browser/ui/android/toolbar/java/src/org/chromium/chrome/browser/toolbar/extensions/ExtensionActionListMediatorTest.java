@@ -11,7 +11,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
@@ -34,6 +33,8 @@ import android.view.ViewConfiguration;
 
 import androidx.test.core.app.ApplicationProvider;
 
+import org.jni_zero.JniPtr;
+import org.jni_zero.JniUniquePtr;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -55,6 +56,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.extensions.ExtensionActionButtonProperties.ListItemType;
 import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask;
+import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTask.NativeBrowserWindowInterface;
 import org.chromium.chrome.browser.ui.extensions.ExtensionAction;
 import org.chromium.chrome.browser.ui.extensions.ExtensionAction.HoverCardState;
 import org.chromium.chrome.browser.ui.extensions.ExtensionActionContextMenuBridge;
@@ -112,7 +114,6 @@ public class ExtensionActionListMediatorTest {
     }
 
     private static final int TAB_ID = 111;
-    private static final long BROWSER_WINDOW_POINTER = 1000L;
     private static final long ACTION_CONTEXT_MENU_BRIDGE_POINTER = 10000L;
 
     private static final Bitmap ICON_RED = createSimpleIcon(Color.RED);
@@ -134,6 +135,7 @@ public class ExtensionActionListMediatorTest {
 
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private ChromeAndroidTask mTask;
+    @Mock private JniPtr<NativeBrowserWindowInterface> mBrowserWindow;
     @Mock private Profile mProfile;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private WebContents mWebContents;
@@ -162,13 +164,15 @@ public class ExtensionActionListMediatorTest {
         Context context = ApplicationProvider.getApplicationContext();
 
         // Mock AndroidChromeTask.
-        when(mTask.getOrCreateNativeBrowserWindowPtr(mProfile)).thenReturn(BROWSER_WINDOW_POINTER);
+        when(mTask.getOrCreateNativeBrowserWindow(mProfile)).thenReturn(mBrowserWindow);
 
         // Mock JNI for Context Menu Bridge.
         ExtensionActionContextMenuBridgeJni.setInstanceForTesting(mActionContextMenuBridgeJniMock);
-        when(mActionContextMenuBridgeJniMock.init(anyLong(), any(), any(), anyInt()))
-                .thenReturn(ACTION_CONTEXT_MENU_BRIDGE_POINTER);
-        when(mActionContextMenuBridgeJniMock.getMenuModelBridge(anyLong()))
+        when(mActionContextMenuBridgeJniMock.init(any(), any(), any(), anyInt()))
+                .thenAnswer(
+                        invocation ->
+                                JniUniquePtr.createForTesting(ACTION_CONTEXT_MENU_BRIDGE_POINTER));
+        when(mActionContextMenuBridgeJniMock.getMenuModelBridge(any()))
                 .thenReturn(mMenuModelBridge);
         when(mMenuModelBridge.populateModelList()).thenReturn(new ModelList());
 
@@ -804,6 +808,22 @@ public class ExtensionActionListMediatorTest {
         // Verify the pending hover card runnable was cancelled and never constructed the hover
         // card.
         verify(action, never()).getHoverCardState();
+    }
+
+    // Tests that duplicate pinned action IDs passed from native do not create duplicate models
+    // in mModels.
+    @Test
+    public void testReconcileActionItems_DeduplicatesPinnedActionIds() {
+        when(mExtensionsToolbarBridge.getAllActionIds())
+                .thenReturn(new String[] {ACTION1_ID, ACTION2_ID});
+        when(mExtensionsToolbarBridge.getPinnedActionIds())
+                .thenReturn(new String[] {ACTION1_ID, ACTION2_ID, ACTION1_ID});
+
+        mMediator.reconcileActionItems();
+
+        assertEquals(2, mModels.size());
+        assertEquals(ACTION1_ID, mModels.get(0).model.get(ExtensionActionButtonProperties.ID));
+        assertEquals(ACTION2_ID, mModels.get(1).model.get(ExtensionActionButtonProperties.ID));
     }
 
     private static Bitmap createSimpleIcon(int color) {

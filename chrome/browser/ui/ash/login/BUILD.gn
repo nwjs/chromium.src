@@ -66,6 +66,7 @@ static_library("login") {
     "//components/login",
     "//components/prefs",
     "//components/session_manager/core",
+    "//components/signin/public/base:device_id_helper",
     "//components/user_manager",
     "//components/user_manager:common",
     "//components/web_modal",
@@ -86,7 +87,6 @@ static_library("login") {
   deps = [
     "//ash/constants",
     "//ash/login/resources:login_strings",
-    "//ash/webui/settings/public/constants:mojom",
     "//base:i18n",
     "//chrome/app:generated_resources",
     "//chrome/app/theme:theme_resources",
@@ -147,7 +147,6 @@ static_library("login") {
     "//chromeos/ash/components/settings",
     "//chromeos/ash/components/timezone",
     "//chromeos/ash/components/timezone:util",
-    "//chromeos/ash/experiences/settings_ui",
     "//chromeos/ash/resources:resources_grit",
     "//components/application_locale_storage",
     "//components/captive_portal/core",

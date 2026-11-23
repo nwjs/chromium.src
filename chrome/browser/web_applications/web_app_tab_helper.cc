@@ -162,13 +162,14 @@ void WebAppTabHelper::EnqueueLaunchParams(webapps::LaunchParams launch_params) {
 void WebAppTabHelper::SetState(std::optional<webapps::AppId> app_id,
                                std::optional<webapps::AppId> window_app_id) {
   // Empty string should not be used to indicate "no app ID".
-  DCHECK(!app_id || !app_id->empty());
+  CHECK(!app_id || !app_id->empty(), base::NotFatalUntil::M162);
 
   // If the app_id is changing, then it should exist in the database.
-  DCHECK(app_id_ == app_id || !app_id ||
-         provider_->registrar_unsafe().AppMatches(
-             *app_id, WebAppFilter::IsAppSurfaceableToUser()) ||
-         provider_->registrar_unsafe().IsUninstalling(*app_id));
+  CHECK(app_id_ == app_id || !app_id ||
+            provider_->registrar_unsafe().AppMatches(
+                *app_id, WebAppFilter::IsAppSurfaceableToUser()) ||
+            provider_->registrar_unsafe().IsUninstalling(*app_id),
+        base::NotFatalUntil::M162);
 
   if (app_id_ == app_id && window_app_id_ == window_app_id) {
     // This can be triggered for navigations that are happening in the same app
@@ -250,6 +251,24 @@ void WebAppTabHelper::DidFinishNavigation(
     return;
   }
 
+  // `ReadyToCommitNavigation` provisionally updates `app_id_` before a
+  // cross-document navigation commits. If that navigation subsequently fails or
+  // is aborted without committing (or if overlapping navigations complete out
+  // of order), reconcile `app_id_` with the last committed URL so `app_id_`
+  // cannot remain stuck on an uncommitted navigation's app.
+  // Same-document navigations are excluded to preserve existing semantics
+  // (renderer-initiated ones never run `ReadyToCommitNavigation`). Only call
+  // `SetAppId` when `app_id_` actually differs from `committed_app_id` to avoid
+  // re-triggering `ScheduleManifestAppliedUseCounter()` on matching IDs.
+  if (!navigation_handle->IsSameDocument()) {
+    std::optional<webapps::AppId> committed_app_id =
+        WebAppTabHelper::FindAppIdForUrl(provider_->registrar_unsafe(),
+                                         web_contents()->GetLastCommittedURL());
+    if (app_id_ != committed_app_id) {
+      SetAppId(std::move(committed_app_id));
+    }
+  }
+
   provider_->ui_manager().NotifyDidFinishNavigation(navigation_handle);
 }
 
@@ -303,6 +322,12 @@ WebAppTabHelper::WebAppTabHelper(tabs::TabInterface* tab,
 }
 
 bool WebAppTabHelper::CanBeUsedForFocusExisting() const {
+  if (!app_id_.has_value() ||
+      !provider_->registrar_unsafe().IsUrlInAppExtendedScope(
+          web_contents()->GetLastCommittedURL(), *app_id_)) {
+    return false;
+  }
+
   // Origins, not URL scopes, are the Web's security boundary. A document served
   // with `Content-Security-Policy: sandbox` (without `allow-same-origin`)
   // commits an opaque origin, which is cross-origin to the app that served it,

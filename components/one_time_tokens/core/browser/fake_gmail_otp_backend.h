@@ -11,11 +11,11 @@
 #include <vector>
 
 #include "base/functional/callback.h"
-#include "base/memory/raw_ptr.h"
 #include "base/types/expected.h"
 #include "components/one_time_tokens/core/browser/gmail_otp_backend.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
 #include "components/one_time_tokens/core/browser/one_time_token_backend_notification.h"
+#include "components/one_time_tokens/core/browser/one_time_token_log_sink.h"
 #include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 #include "components/one_time_tokens/core/browser/user_data_processing_consent_states.h"
 #include "components/one_time_tokens/core/browser/util/expiring_cache.h"
@@ -23,8 +23,6 @@
 #include "components/one_time_tokens/core/browser/util/expiring_subscription_manager.h"
 
 namespace one_time_tokens {
-
-class OneTimeTokenLogSink;
 
 // This implementation is for testing. It lets us manually control and simulate
 // the moment a Gmail OTP is received for one-time passwords (OTP), and inspect
@@ -35,18 +33,14 @@ class FakeGmailOtpBackend : public GmailOtpBackend {
   ~FakeGmailOtpBackend() override;
 
   // GmailOtpBackend:
-  void SetLogSink(OneTimeTokenLogSink* log_sink) override;
-  OneTimeTokenLogSink* GetLogSink() const override;
+  OneTimeTokenLogSink* GetLogSink() override;
 
-  ExpiringSubscription Subscribe(base::Time expiration,
-                                 Callback callback) override;
   ExpiringSubscription Subscribe(
       base::Time expiration,
       Callback callback,
       base::OnceClosure expiration_callback) override;
   ExpiringSubscription SubscribeToTickles(base::Time expiration,
                                           TickleCallback callback) override;
-  std::vector<OneTimeToken> GetCachedOneTimeTokens() const override;
   std::vector<OneTimeToken> PurgeExpiredAndGetCachedOneTimeTokens() override;
   void OnIncomingOneTimeTokenBackendNotification(
       const OneTimeTokenBackendNotification& notification) override;
@@ -65,6 +59,10 @@ class FakeGmailOtpBackend : public GmailOtpBackend {
 
   size_t num_callbacks() const {
     return subscription_manager_.GetNumberSubscribers();
+  }
+
+  size_t num_tickle_callbacks() const {
+    return tickle_subscription_manager_.GetNumberSubscribers();
   }
 
   void SetUserDataProcessingConsent(
@@ -92,6 +90,14 @@ class FakeGmailOtpBackend : public GmailOtpBackend {
 
   ExpiringSubscriptionManager<CallbackSignature> subscription_manager_;
   ExpiringSubscriptionManager<void()> tickle_subscription_manager_;
+  // Recently received notifications. Like in `GmailOtpBackendImpl`, new tickle
+  // subscribers are notified immediately if this is not empty.
+  ExpiringCache<
+      OneTimeTokenBackendNotification,
+      decltype(&OneTimeTokenBackendNotification::
+                   notification_received_timeticks),
+      OneTimeTokenBackendNotification::EncryptedMessageReferenceProjection>
+      notification_cache_;
   ExpiringCache<OneTimeToken,
                 decltype(&OneTimeToken::on_device_arrival_time),
                 OneTimeTokenCacheProjection>
@@ -99,7 +105,7 @@ class FakeGmailOtpBackend : public GmailOtpBackend {
   std::vector<OneTimeTokenBackendNotification> incoming_notifications_;
   std::optional<UserDataProcessingConsentStates> consent_states_;
   std::optional<OneTimeTokenRetrievalError> pending_error_;
-  raw_ptr<OneTimeTokenLogSink> log_sink_ = nullptr;
+  OneTimeTokenLogSink log_sink_;
   bool has_pending_requests_ = false;
 };
 

@@ -309,13 +309,13 @@ void OmniboxPopupWebUIBaseContent::ShowCustomContextMenu(
   if (!aim_presenter) {
     return;
   }
-  // The AI Mode popup's content may not exist yet with
-  // `omnibox::kOmniboxAimPopupDeferCreation`.
-  aim_presenter->EnsureWebUIContentCreated();
+  // The AI Mode popup's content may not exist yet if its creation is deferred.
+  auto* aim_content = aim_presenter->GetOrCreateWebUIContent(
+      OmniboxPopupPresenterBase::CreationReason::kContextMenu);
   ConvertPointToScreen(this, &point);
   context_menu_ = std::make_unique<OmniboxContextMenu>(
       GetWidget(), popup_presenter_->delegate().GetOmniboxPopupFileSelector(),
-      aim_presenter->GetWebUIContent()->GetWrappedWebContents(),
+      aim_content->GetWrappedWebContents(),
       base::BindRepeating(&OmniboxPopupWebUIBaseContent::OnMenuClosed,
                           base::Unretained(this)));
   context_menu_->RunMenuAt(point, ui::mojom::MenuSourceType::kMouse);
@@ -467,7 +467,7 @@ void OmniboxPopupWebUIBaseContent::LoadContent() {
                    {"OmniboxPopupWebUIBaseContent::LoadContent:",
                     GetMetricPrefix()})),
                "url", content_url_.spec());
-  DCHECK(!content_url_.is_empty());
+  CHECK(!content_url_.is_empty(), base::NotFatalUntil::M162);
   contents_wrapper_ = std::make_unique<WebUIContentsWrapperT<OmniboxPopupUI>>(
       content_url_, location_bar_->GetProfile(), IDS_TASK_MANAGER_OMNIBOX,
       EscClosesUI());

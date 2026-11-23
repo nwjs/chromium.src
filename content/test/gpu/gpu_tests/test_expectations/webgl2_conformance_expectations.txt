@@ -219,6 +219,9 @@ crbug.com/angleproject/3031 [ win angle-opengl passthrough ] WebglExtension_KHR_
 # Not available on Mesa older than 21.3.0
 crbug.com/1473838 [ linux intel passthrough ] WebglExtension_EXT_render_snorm [ Skip ]
 
+# Extension is blocklisted on Imagination's OpenGL ES driver
+crbug.com/angleproject/40096838 [ android android-pixel-10 angle-opengles imagination-technologies passthrough ] WebglExtension_WEBGL_shader_pixel_local_storage [ Skip ]
+
 # This test uses H.264 and the ChromeOS and Fuchsia bots aren't compiled with
 # proprietary codecs.
 crbug.com/1136205 [ chromeos ] conformance/textures/misc/video-rotation.html [ Skip ]
@@ -499,6 +502,11 @@ crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 ] conformance2/textures/vid
 crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 ] conformance2/textures/video/tex-2d-srgb8-rgb-unsigned_byte.html [ Skip ]
 crbug.com/352104898 [ fuchsia fuchsia-board-qemu-x64 ] conformance2/textures/video/tex-2d-srgb8_alpha8-rgba-unsigned_byte.html [ Skip ]
 
+# Based on findings from crbug.com/576312224, this test likely loses the GL
+# context very quickly, but the underlying test continues to run, eventually
+# causing issues due to reporting failures hundreds of thousands of times.
+crbug.com/487128735 [ android android-pixel-2 passthrough ] conformance/extensions/webgl-compressed-texture-astc.html [ Skip ]
+
 ###############################
 # Permanent Slow Expectations #
 ###############################
@@ -529,7 +537,6 @@ crbug.com/891953 [ android mobile ] WebglExtension_OVR_multiview2 [ Failure ]
 crbug.com/486945330 conformance/glsl/misc/shader-with-double-underscore.html [ Failure ]
 
 # Failing new ASTC offset tests on multiple Android devices
-crbug.com/487128735 [ android android-pixel-2 passthrough ] conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
 crbug.com/487128735 [ android android-pixel-4 passthrough ] conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
 
 # Test needs to be revised for new mipmap/texture completeness rules.
@@ -576,6 +583,7 @@ crbug.com/365680830 [ mac arch-arm64 angle-metal ] deqp/functional/gles3/occlusi
 crbug.com/438691606 [ win ] conformance/extensions/khr-parallel-shader-compile.html [ Failure ]
 
 crbug.com/angleproject/4417 [ win angle-d3d11 ] conformance2/rendering/framebuffer-render-to-layer-angle-issue.html [ Failure ]
+crbug.com/angleproject/4417 [ win angle-d3d11 ] conformance2/rendering/framebuffer-render-to-layer.html [ Failure ]
 crbug.com/angleproject/1465 [ win angle-d3d11 ] conformance2/glsl3/tricky-loop-conditions.html [ Failure ]
 
 ## Win / NVIDIA ##
@@ -839,7 +847,10 @@ crbug.com/446941342 [ android android-pixel-10 passthrough ] WebglExtension_WEBG
 crbug.com/446941342 [ android android-pixel-10 imagination-technologies ] WebglExtension_WEBGL_compressed_texture_s3tc [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 imagination-technologies ] WebglExtension_WEBGL_compressed_texture_s3tc_srgb [ Failure ]
 # misc
+crbug.com/576731809 [ android android-pixel-10 angle-opengles passthrough ] conformance/extensions/ext-color-buffer-half-float.html [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 imagination-technologies ] conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
+crbug.com/576731809 [ android android-pixel-10 angle-opengles passthrough ] conformance2/extensions/ext-color-buffer-float.html [ Failure ]
+crbug.com/576731809 [ android android-pixel-10 angle-opengles passthrough ] conformance2/extensions/ext-color-buffer-half-float.html [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 passthrough ] conformance2/extensions/ext-texture-norm16.html [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 ] conformance2/extensions/oes-sample-variables.html [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 ] conformance2/extensions/webgl-blend-func-extended.html [ Failure ]
@@ -853,6 +864,7 @@ crbug.com/40167875 [ android android-pixel-10 ] conformance2/reading/read-pixels
 crbug.com/446941342 [ android android-pixel-10 ] conformance2/rendering/read-draw-when-missing-image.html [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 ] conformance2/textures/misc/compressed-tex-image.html [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 ] conformance2/textures/misc/copy-texture-image-same-texture.html [ Failure ]
+crbug.com/576731809 [ android android-pixel-10 angle-opengles passthrough ] conformance2/textures/misc/copy-texture-image.html [ Failure ]
 crbug.com/446941342 [ android android-pixel-10 ] conformance2/textures/misc/tex-mipmap-levels.html [ Failure ]
 crbug.com/568282113 [ android android-pixel-10 ] conformance2/textures/misc/texel-fetch-undefined.html [ Failure ]
 crbug.com/551573368 [ android android-pixel-10 ] deqp/functional/gles3/integerstatequery.html [ Failure ]
@@ -868,12 +880,16 @@ crbug.com/513192894 [ android android-pixel-10 ] conformance2/textures/misc/tex-
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] WebglExtension_OES_texture_float_linear [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl passthrough ] WebglExtension_WEBGL_clip_cull_distance [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] conformance/glsl/functions/glsl-function-cross.html [ Failure ]
+crbug.com/576731808 [ android android-pixel-11-pro-xl angle-opengles passthrough ] conformance/misc/uninitialized-test.html [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] conformance/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] conformance2/offscreencanvas/offscreencanvas-transfer-image-bitmap.html [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] conformance2/reading/read-pixels-from-fbo-test.html [ Failure ]
+crbug.com/576731808 [ android android-pixel-11-pro-xl angle-opengles passthrough ] conformance2/textures/misc/tex-input-validation.html [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] deqp/functional/gles3/pixelbufferobject.html [ Failure ]
 crbug.com/558993697 [ android android-pixel-11-pro-xl ] deqp/functional/gles3/shaderoperator/unary_operator_00.html [ Failure ]
+crbug.com/576731808 [ android android-pixel-11-pro-xl angle-opengles passthrough ] deqp/functional/gles3/texturespecification/teximage2d_pbo_2d_01.html [ Failure ]
+crbug.com/576731808 [ android android-pixel-11-pro-xl angle-opengles passthrough ] deqp/functional/gles3/texturespecification/texsubimage2d_pbo_2d_01.html [ Failure ]
 
 ############################
 # Android Desktop failures #

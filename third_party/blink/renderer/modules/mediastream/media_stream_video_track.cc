@@ -30,9 +30,6 @@
 #include "third_party/blink/renderer/platform/mediastream/media_stream_component_impl.h"
 #include "third_party/blink/renderer/platform/scheduler/public/main_thread.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_base.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_media.h"
-#include "third_party/blink/renderer/platform/wtf/cross_thread_copier_std.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
@@ -570,6 +567,13 @@ void MediaStreamVideoTrack::FrameDeliverer::
   CHECK_NE(capture_version, media::CaptureVersion());
   CHECK(!capture_version_callbacks_.Contains(capture_version));
 
+  // Registration is posted from the main thread, so `capture_version` may
+  // already have been observed by the time this runs.
+  if (capture_version <= capture_version_) {
+    std::move(callback).Run();
+    return;
+  }
+
   capture_version_callbacks_.Set(capture_version, std::move(callback));
 }
 
@@ -606,9 +610,9 @@ void MediaStreamVideoTrack::FrameDeliverer::DeliverFrameOnVideoTaskRunner(
 
   frame_drop_log_state_ = FrameDropLogState();
 
-  OnCaptureVersion(frame->metadata().capture_version);
+  OnCaptureVersion(frame->metadata().capture.version);
 
-  if (frame->metadata().capture_version < capture_version_) {
+  if (frame->metadata().capture.version < capture_version_) {
     OnFrameDroppedOnVideoTaskRunner(
         media::VideoCaptureFrameDropReason::kOldCaptureVersion);
     return;

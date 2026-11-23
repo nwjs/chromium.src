@@ -9,6 +9,7 @@
 #include "base/files/file_path.h"
 
 #include "content/common/content_export.h"
+#include "services/network/public/cpp/permissions_policy/permissions_policy_features_bitset.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
@@ -41,7 +42,8 @@ class CONTENT_EXPORT SharedWorkerInstance {
       const url::Origin& renderer_origin,
       blink::mojom::SharedWorkerCreationContextType creation_context_type,
       blink::mojom::SharedWorkerSameSiteCookies same_site_cookies,
-      bool extended_lifetime);
+      bool extended_lifetime,
+      const network::PermissionsPolicyFeaturesBitset& permissions_policy);
   SharedWorkerInstance(const SharedWorkerInstance& other);
   SharedWorkerInstance(SharedWorkerInstance&& other);
   SharedWorkerInstance& operator=(const SharedWorkerInstance& other) = delete;
@@ -90,6 +92,9 @@ class CONTENT_EXPORT SharedWorkerInstance {
                blink::mojom::SharedWorkerSameSiteCookies::kNone;
   }
   bool extended_lifetime() const { return extended_lifetime_; }
+  const network::PermissionsPolicyFeaturesBitset& permissions_policy() const {
+    return permissions_policy_;
+  }
 
  private:
   bool is_node_js_;
@@ -130,6 +135,9 @@ class CONTENT_EXPORT SharedWorkerInstance {
   // have been destructed.
   // See: https://github.com/whatwg/html/issues/10997
   const bool extended_lifetime_;
+
+  // This is the permissions policy parsed from the `allow` parameter.
+  const network::PermissionsPolicyFeaturesBitset permissions_policy_;
 };
 
 }  // namespace content

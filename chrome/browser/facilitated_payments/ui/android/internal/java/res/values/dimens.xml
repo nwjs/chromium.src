@@ -13,13 +13,12 @@ found in the LICENSE file.
     <dimen name="ewallet_account_linking_prompt_illustration_height">114dp</dimen>
     <dimen name="ewallet_account_linking_prompt_illustration_margin_top">16dp</dimen>
     <dimen name="ewallet_account_linking_prompt_product_icon_height">32dp</dimen>
+    <dimen name="ewallet_account_linking_prompt_product_icon_margin_top">16dp</dimen>
     <dimen name="ewallet_account_linking_prompt_product_icon_vertical_padding">2dp</dimen>
     <dimen name="ewallet_account_linking_prompt_title_margin_top">16dp</dimen>
     <dimen name="facilitated_payments_additional_info_margin_vertical">20dp</dimen>
     <dimen name="facilitated_payments_continue_button_margin_bottom">24dp</dimen>
     <dimen name="facilitated_payments_continue_button_min_height">48dp</dimen>
-    <dimen name="facilitated_payments_drag_handlebar_margin_bottom">16dp</dimen>
-    <dimen name="facilitated_payments_drag_handlebar_margin_top">8dp</dimen>
     <dimen name="facilitated_payments_error_icon_bottom_margin">8dp</dimen>
     <dimen name="facilitated_payments_error_icon_size">32dp</dimen>
     <dimen name="facilitated_payments_error_icon_top_margin">18dp</dimen>

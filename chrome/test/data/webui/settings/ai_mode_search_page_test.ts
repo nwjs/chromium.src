@@ -173,9 +173,7 @@ suite('AiModeSearchSubpage', function() {
     siteInput.value = 'ZeBrA.cOm';
     await microtasksFinished();
 
-    const dialogAddButton =
-        addDialog.shadowRoot.querySelector<HTMLElement>('#add');
-    assertTrue(!!dialogAddButton);
+    const dialogAddButton = addDialog.$.add;
     assertFalse(dialogAddButton.hasAttribute('disabled'));
     const closePromise1 = eventToPromise('close', addDialog);
     dialogAddButton.click();
@@ -206,12 +204,11 @@ suite('AiModeSearchSubpage', function() {
     siteInput2.value = 'apple.com';
     await microtasksFinished();
 
-    const dialogAddButton2 =
-        addDialog2.shadowRoot.querySelector<HTMLElement>('#add');
-    assertTrue(!!dialogAddButton2);
+    const dialogAddButton2 = addDialog2.$.add;
     assertFalse(dialogAddButton2.hasAttribute('disabled'));
+    const closePromise2 = eventToPromise('close', addDialog2);
     dialogAddButton2.click();
-    await microtasksFinished();
+    await Promise.all([closePromise2, microtasksFinished()]);
 
     // Check list sorted
     items = siteList.querySelectorAll('.list-item');
@@ -244,8 +241,7 @@ suite('AiModeSearchSubpage', function() {
     // Change value and save
     editInput.value = 'banana.com';
     await microtasksFinished();
-    const saveButton = editDialog.shadowRoot.querySelector<HTMLElement>('#add');
-    assertTrue(!!saveButton);
+    const saveButton = editDialog.$.add;
     const closePromise3 = eventToPromise('close', editDialog);
     saveButton.click();
     await Promise.all([closePromise3, microtasksFinished()]);

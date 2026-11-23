@@ -11,22 +11,34 @@
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/saved_tab_group_tab.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "ui/base/class_property.h"
 #include "url/gurl.h"
+
+DECLARE_UI_CLASS_PROPERTY_TYPE(base::Uuid*)
 
 namespace tab_groups {
 
+// GUID of the saved tab group that a tab group menu action item targets.
+extern const ui::ClassProperty<base::Uuid*>* const kSavedTabGroupGuidKey;
+
 // The action users can perform on a saved tab group's submenu.
 struct TabGroupMenuAction {
+  // These values are persisted to logs. Entries should not be renumbered and
+  // number values should never be reused.
+  // LINT.IfChange(TabGroupMenuAction)
   enum class Type {
     DEFAULT = -1,
-    OPEN_IN_BROWSER,
-    OPEN_OR_MOVE_TO_NEW_WINDOW,
-    FOCUS_OR_UNFOCUS_GROUP,
-    PIN_OR_UNPIN_GROUP,
-    DELETE_GROUP,
-    LEAVE_GROUP,
-    OPEN_URL,
+    OPEN_IN_BROWSER = 0,
+    CLOSE_GROUP = 1,
+    OPEN_OR_MOVE_TO_NEW_WINDOW = 2,
+    FOCUS_OR_UNFOCUS_GROUP = 3,
+    PIN_OR_UNPIN_GROUP = 4,
+    DELETE_GROUP = 5,
+    LEAVE_GROUP = 6,
+    OPEN_URL = 7,
+    kMaxValue = OPEN_URL,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:TabGroupMenuAction)
 
   TabGroupMenuAction(Type type, std::variant<base::Uuid, GURL> element);
   TabGroupMenuAction(const TabGroupMenuAction&);

@@ -54,11 +54,18 @@ gn_args.config(
 # android:debuggable="true" causes ART to run more slowly, so tests run
 # faster without it. https://crbug.com/1276429
 gn_args.config(
-    name = "android_builder_without_codecs",
-    configs = ["android"],
+    name = "android_non_debuggable",
     args = {
         "debuggable_apks": False,
     },
+)
+
+gn_args.config(
+    name = "android_builder_without_codecs",
+    configs = [
+        "android",
+        "android_non_debuggable",
+    ],
 )
 
 # For builds requiring debuggable_apks.
@@ -782,13 +789,6 @@ gn_args.config(
 )
 
 gn_args.config(
-    name = "reclient",
-    args = {
-        "use_reclient": True,
-    },
-)
-
-gn_args.config(
     name = "include_unwind_tables",
     args = {
         "exclude_unwind_tables": False,
@@ -1062,13 +1062,6 @@ gn_args.config(
 )
 
 gn_args.config(
-    name = "no_reclient",
-    args = {
-        "use_reclient": False,
-    },
-)
-
-gn_args.config(
     name = "no_remoteexec",
     args = {
         "use_remoteexec": False,
@@ -1222,6 +1215,15 @@ gn_args.config(
 )
 
 gn_args.config(
+    name = "release_builder_with_dchecks",
+    configs = [
+        "release_builder",
+        # Must come after "release_builder", which turns DCHECKs off.
+        "dcheck_always_on",
+    ],
+)
+
+gn_args.config(
     name = "release_builder_blink",
     configs = [
         "release_builder",
@@ -1231,6 +1233,9 @@ gn_args.config(
 
 gn_args.config(
     name = "release_try_builder",
+    args = {
+        "enable_expensive_dchecks": False,
+    },
     configs = [
         "release_builder",
         "try_builder",

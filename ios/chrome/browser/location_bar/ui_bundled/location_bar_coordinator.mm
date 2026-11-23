@@ -19,7 +19,6 @@
 #import "components/prefs/pref_service.h"
 #import "components/profile_metrics/browser_profile_type.h"
 #import "components/search_engines/util.h"
-#import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/metrics_util.h"
 #import "components/send_tab_to_self/send_tab_to_self_sync_service.h"
 #import "components/strings/grit/components_strings.h"
@@ -123,7 +122,6 @@
 #import "ios/web/public/thread/web_thread.h"
 #import "ios/web/public/web_state.h"
 #import "services/network/public/cpp/resource_request.h"
-#import "ui/base/device_form_factor.h"
 #import "url/gurl.h"
 
 namespace {
@@ -633,13 +631,16 @@ struct AIHubBadgeActiveWindowsData : public base::SupportsUserData::Data {
 
 - (web::WebState*)webStateForLocationBarModelDelegate:
     (const LocationBarModelDelegateIOS*)locationBarModelDelegate {
-  return self.webStateList->GetActiveWebState();
+  return self.webState;
 }
 
 #pragma mark - WebLocationBarDelegate
 
 - (web::WebState*)webState {
-  return self.webStateList->GetActiveWebState();
+  if (WebStateList* webStateList = self.webStateList) {
+    return webStateList->GetActiveWebState();
+  }
+  return nullptr;
 }
 
 - (LocationBarModel*)locationBarModel {
@@ -661,7 +662,9 @@ struct AIHubBadgeActiveWindowsData : public base::SupportsUserData::Data {
 }
 
 - (void)locationBarCopyTapped {
-  StoreURLInPasteboard(self.webState->GetVisibleURL());
+  if (web::WebState* webState = self.webState) {
+    StoreURLInPasteboard(webState->GetVisibleURL());
+  }
 }
 
 - (void)locationBarRequestScribbleTargetFocus {
@@ -910,12 +913,15 @@ struct AIHubBadgeActiveWindowsData : public base::SupportsUserData::Data {
   if ([self isOmniboxFirstResponder]) {
     return nil;
   }
-  if (!self.webState->GetVisibleURL().is_valid()) {
-    return nil;
+  if (web::WebState* webState = self.webState) {
+    const GURL& visibleURL = webState->GetVisibleURL();
+    if (visibleURL.is_valid()) {
+      return [[URLInfo alloc]
+          initWithURL:visibleURL
+                title:base::SysUTF16ToNSString(webState->GetTitle())];
+    }
   }
-  return [[URLInfo alloc]
-      initWithURL:self.webState->GetVisibleURL()
-            title:base::SysUTF16ToNSString(self.webState->GetTitle())];
+  return nil;
 }
 
 - (UIBezierPath*)visiblePathForView:(UIView*)view {
@@ -1102,16 +1108,6 @@ struct AIHubBadgeActiveWindowsData : public base::SupportsUserData::Data {
 }
 
 - (void)setUpDragAndDrop {
-  // iOS 15 adds Drag and Drop support to iPhones. This causes the long-press
-  // recognizer for showing the copy/paste menu to not appear until the user
-  // lifts their finger. The long-term solution is to move to the new
-  // UIContextMenu API, but for now, disable Drag from the omnibox on iOS 15
-  // iPhones.
-  // TODO (crbug.com/1247668): Reenable this after moving to new API and move
-  // this code back to -start.
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE) {
-    return;
-  }
   self.dragDropHandler = [[URLDragDropHandler alloc] init];
   self.dragDropHandler.origin = WindowActivityLocationBarSteadyViewOrigin;
   self.dragDropHandler.dragDataSource = self;

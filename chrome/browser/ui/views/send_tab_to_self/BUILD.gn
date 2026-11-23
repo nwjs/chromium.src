@@ -12,12 +12,8 @@ source_set("send_tab_to_self") {
     "send_tab_to_self_device_picker_bubble_view.h",
     "send_tab_to_self_no_target_device_bubble_view.h",
     "send_tab_to_self_promo_bubble_view.h",
-    "send_tab_to_self_toolbar_bubble_controller.h",
-    "send_tab_to_self_toolbar_bubble_view.h",
   ]
   sources = [
-    "manage_account_devices_link_view.cc",
-    "manage_account_devices_link_view.h",
     "send_tab_to_self_bubble.cc",
     "send_tab_to_self_bubble_controller.cc",
     "send_tab_to_self_bubble_device_button.cc",
@@ -25,13 +21,10 @@ source_set("send_tab_to_self") {
     "send_tab_to_self_device_picker_bubble_view.cc",
     "send_tab_to_self_no_target_device_bubble_view.cc",
     "send_tab_to_self_promo_bubble_view.cc",
-    "send_tab_to_self_toolbar_bubble_controller.cc",
-    "send_tab_to_self_toolbar_bubble_view.cc",
   ]
 
   public_deps = [
     "//base",
-    "//chrome/browser/ui/media_router",
     "//chrome/browser/ui/views/controls",
     "//chrome/browser/ui/views/location_bar",
     "//components/send_tab_to_self",
@@ -61,8 +54,6 @@ source_set("send_tab_to_self") {
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/sharing_hub",
     "//chrome/browser/ui/views/toolbar",
-    "//chrome/browser/user_education",
-    "//components/pref_registry",
     "//components/prefs",
     "//components/signin/public/base",
     "//components/signin/public/identity_manager",
@@ -82,7 +73,6 @@ source_set("browser_tests") {
   sources = [
     "send_tab_to_self_bubble_browsertest.cc",
     "send_tab_to_self_bubble_controller_browsertest.cc",
-    "send_tab_to_self_toolbar_bubble_view_browsertest.cc",
   ]
   deps = [
     ":send_tab_to_self",
@@ -90,7 +80,6 @@ source_set("browser_tests") {
     "//base/test:test_support",
     "//chrome/app:command_ids",
     "//chrome/app/vector_icons",
-    "//chrome/browser/notifications:test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/renderer_context_menu",
     "//chrome/browser/send_tab_to_self",
@@ -130,7 +119,6 @@ source_set("browser_tests") {
     "//ui/events:events_base",
     "//ui/gfx",
     "//ui/gfx:test_support",
-    "//ui/strings:ui_strings",
     "//ui/views",
     "//ui/views:test_support",
   ]

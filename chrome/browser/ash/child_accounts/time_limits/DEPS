@@ -15,19 +15,16 @@ include_rules = [
   "+chrome/browser/ash/arc",
   "+chrome/browser/ash/child_accounts",
   "+chrome/browser/ash/policy/core",
-  "+chrome/browser/ash/profiles",
   "+chrome/browser/extensions/launch_util.h",
   "+chrome/browser/profiles",
-  "+chrome/browser/web_applications/web_app_command_scheduler.h",
-  "+chrome/browser/web_applications/web_app_constants.h",
-  "+chrome/browser/web_applications/web_app_helpers.h",
-  "+chrome/browser/web_applications/web_app_management_type.h",
-  "+chrome/browser/web_applications/web_app_tab_helper.h",
-  "+chrome/browser/web_applications/web_app_utils.h",
 ]
 
 specific_include_rules = {
   ".*(unittest|browsertest)\\.cc": [
+    "+chrome/browser/web_applications/web_app_command_scheduler.h",
+    "+chrome/browser/web_applications/web_app_constants.h",
+    "+chrome/browser/web_applications/web_app_helpers.h",
+    "+chrome/browser/web_applications/web_app_management_type.h",
     "+chrome/browser/web_applications/web_app_provider.h",
   ],
   "app_time_controller\\.cc": [
@@ -37,11 +34,6 @@ specific_include_rules = {
   ".*test.*": [
     "+chrome/browser/ash/login/test",
     "+chrome/browser/extensions/test_extension_system.h",
-    "+chrome/browser/ui/browser_window.h",
-    "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
-    "+chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h",
-    "+chrome/browser/ui/navigator/browser_navigator_params.h",
-    "+chrome/browser/ui/tabs/tab_strip_model_delegate.h",
     "+chrome/browser/web_applications/test",
     "+chrome/test/base",
     "+chrome/test/views",

@@ -5,14 +5,17 @@
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 
 #include <atomic>
+#include <optional>
 #include <string_view>
 
+#include "base/json/json_writer.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/ai_mode_button_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
@@ -22,20 +25,22 @@
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/plural_string_provider.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter_service.h"
 #include "chrome/browser/ui/webui/omnibox_popup/full_webui_omnibox_layout_helper.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_aim_handler.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_handler.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_web_contents_helper.h"
-#include "chrome/browser/ui/webui/plural_string_handler.h"
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/searchbox/omnibox_composebox_handler.h"
 #include "chrome/browser/ui/webui/searchbox/webui_omnibox_full_handler.h"
 #include "chrome/browser/ui/webui/searchbox/webui_omnibox_handler.h"
 #include "chrome/browser/ui/webui/theme_colors_source_manager.h"
 #include "chrome/browser/ui/webui/theme_colors_source_manager_factory.h"
+#include "chrome/browser/ui/webui/top_chrome/top_chrome_webui_user_profile.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_layout_css_helper.h"
 #include "chrome/common/webui_url_constants.h"
@@ -45,16 +50,22 @@
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/favicon_base/favicon_url_parser.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/ai_mode_button_service.h"
+#include "components/user_education/webui/help_bubble_handler.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "net/base/url_util.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
+#include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/webui/tracked_element/tracked_element_handler.h"
+#include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
+#include "ui/webui/tracked_element/tracked_element_web_ui.h"
 #include "ui/webui/webui_util.h"
 
 namespace {
@@ -73,8 +84,7 @@ std::string_view AddContextButtonVariantToSearchboxLayoutMode(
   return "";
 }
 
-void PopulateAiModeButtonUiConfig(content::WebUIDataSource* source,
-                                  Profile* profile) {
+void PopulateAiModeButtonUiConfig(base::DictValue& dict, Profile* profile) {
   // Use AIM button service to dynamically populate the various AIM button
   // properties based on the current config, if present.
   GURL compose_icon(
@@ -84,9 +94,9 @@ void PopulateAiModeButtonUiConfig(content::WebUIDataSource* source,
             "search_spark_old.svg");
   if (auto* service = AiModeButtonServiceFactory::GetForProfile(profile)) {
     if (const auto* config = service->GetCurrentConfig()) {
-      source->AddString("searchboxComposeButtonText", config->text);
-      source->AddString("searchboxComposeButtonTitle", config->tooltip);
-      source->AddString("searchboxComposeButtonA11yLabel", config->a11y_label);
+      dict.Set("searchboxComposeButtonText", config->text);
+      dict.Set("searchboxComposeButtonTitle", config->tooltip);
+      dict.Set("searchboxComposeButtonA11yLabel", config->a11y_label);
       // For third-party DSE, use the favicon for the AIM button icon.
       std::string favicon_url(config->favicon_url);
       if (config->id != SearchEngineType::SEARCH_ENGINE_GOOGLE &&
@@ -102,7 +112,15 @@ void PopulateAiModeButtonUiConfig(content::WebUIDataSource* source,
       }
     }
   }
-  source->AddString("searchboxComposeButtonIcon", compose_icon.spec());
+  dict.Set("searchboxComposeButtonIcon", compose_icon.spec());
+}
+
+// Returns whether the WebUIDataSource of `web_ui` is shared by the windows of
+// all profiles, i.e. it is in TopChromeWebUIProfile. If so, the loadTimeData
+// values that depend on the profile are passed to each frame instead of being
+// in the data source.
+bool IsWebUIDataSourceShared(content::WebUI* web_ui) {
+  return Profile::FromWebUI(web_ui)->IsTopChromeWebUIProfile();
 }
 
 }  // namespace
@@ -129,27 +147,18 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
       profile_, chrome::kChromeUIOmniboxPopupHost);
 
-  // Read the pref directly rather than creating the contextual search session
-  // here: every window builds popups, and most never use the session.
-  // Handlers create it on first use.
-  const bool session_allows_drag_and_drop =
-      ContextualSearchServiceFactory::GetForProfile(profile_) &&
-      contextual_search::ContextualSearchService::IsContextSharingEnabled(
-          profile_->GetPrefs());
-
-  source->AddLocalizedStrings(SearchboxHandler::GetWebUIDataSourceDict(
-      Profile::FromWebUI(web_ui),
-      {.enable_voice_search = false,
-       .enable_lens_search = false,
-       .session_allows_drag_and_drop = session_allows_drag_and_drop}));
-
-  PopulateAiModeButtonUiConfig(source, profile_);
+  source->AddLocalizedStrings(
+      SearchboxHandler::GetProfileIndependentWebUIDataSourceDict(
+          {.enable_voice_search = false, .enable_lens_search = false}));
+  // The values that depend on the profile. If the data source is shared by the
+  // windows of all profiles, WebUIRenderFrameCreated() passes them to each
+  // frame instead.
+  if (!IsWebUIDataSourceShared(web_ui)) {
+    source->AddLocalizedStrings(GetProfileLoadTimeData(profile_));
+  }
 
   source->AddBoolean("isTopChromeSearchbox", true);
   FullWebUIOmniboxLayoutHelper::PopulateLoadTimeData(source);
-  source->AddString("searchboxDefaultIcon",
-                    GetDefaultSearchProviderIcon(
-                        TemplateURLServiceFactory::GetForProfile(profile_)));
   source->AddBoolean("omniboxAimPopupEnabled",
                      omnibox::IsAimPopupFeatureEnabled());
   source->AddBoolean("webuiOmniboxFullPopupEnabled",
@@ -158,9 +167,9 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
   // TODO(b/474406096): Replace this NTP-specific flag with a generic flag.
   source->AddBoolean("isFuseboxEnabled", false);
   source->AddBoolean("searchboxDynamicColorScheme",
-                     omnibox::kWebUIOmniboxDynamicColorScheme.Get());
+                     omnibox::IsWebUIOmniboxDynamicColorSchemeEnabled());
   source->AddBoolean("searchboxDynamicAnimation",
-                     omnibox::kWebUIOmniboxDynamicAnimation.Get());
+                     omnibox::IsWebUIOmniboxDynamicAnimationEnabled());
   source->AddBoolean(
       "omniboxPopupDebugEnabled",
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug));
@@ -219,19 +228,12 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
   source->AddBoolean("composeboxRichImageSuggestionsEnabled",
                      base::FeatureList::IsEnabled(
                          omnibox::kComposeboxRichImageSuggestionsOmnibox));
-  // The popup chip UI entrypoint is enabled by the AskG experiment
-  // (kAskGShowChip).
-  source->AddBoolean(
-      "composeboxShowChip",
-      omnibox::IsAimPopupEnabled(profile_) && omnibox::kAskGShowChip.Get());
-  source->AddBoolean("composeboxShowCurrentTabChip",
-                     omnibox::kAskGCurrentTabChip.Get() &&
-                         omnibox::AreContextualTasksEligible(profile_));
+  source->AddBoolean("dynamicAimFulfillmentEnabled",
+                     omnibox::IsDynamicAimFulfillmentEnabledForOmnibox());
   source->AddBoolean("composeboxShowLensIcon", omnibox::kAskGLensIcon.Get());
+  source->AddBoolean("askGLensIconIphEnabled", omnibox::kAskGLensIconIph.Get());
   source->AddBoolean("askGComposeboxLensChipEnabled",
                      omnibox::kAskGComposeboxLensChip.Get());
-  source->AddBoolean("askGBlockAutoTabZeroStateSuggestions",
-                     omnibox::kAskGBlockAutoTabZeroStateSuggestions.Get());
   source->AddBoolean("askGComposeboxPlaceholderEnabled",
                      omnibox::kAskGComposeboxPlaceholder.Get());
   source->AddBoolean("askGSuggestionSidePanelDescription",
@@ -293,7 +295,7 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
 
   int default_resource = IDR_OMNIBOX_POPUP_OMNIBOX_POPUP_HTML;
   if (omnibox::internal::IsWebUIOmniboxFullPopupEnabled()) {
-    default_resource = IDR_OMNIBOX_POPUP_OMNIBOX_POPUP_FULL_HTML;
+    default_resource = IDR_OMNIBOX_POPUP_FULL_OMNIBOX_POPUP_FULL_HTML;
     // Serves layout_constants_v<N>.css, which the full popup links from its
     // <head>.
     WebUIToolbarLayoutCssHelper::SetAsRequestFilter(source);
@@ -307,22 +309,70 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
       network::mojom::CSPDirectiveName::MediaSrc,
       "media-src blob: data: 'self';");
 
-  // Add a handler to provide pluralized strings.
-  auto plural_string_handler = std::make_unique<PluralStringHandler>();
-  plural_string_handler->AddLocalizedString("sharingTabs",
-                                            IDS_COMPOSE_SHARING_TABS);
-  web_ui->AddMessageHandler(std::move(plural_string_handler));
-
   content::URLDataSource::Add(profile_,
                               std::make_unique<SanitizedImageSource>(profile_));
   content::URLDataSource::Add(
       profile_, std::make_unique<FaviconSource>(
                     profile_, chrome::FaviconUrlFormat::kFavicon2));
+
+  // Allow the WebUI to report the Lens icon so it can anchor an IPH.
+  ui::TrackedElementHandlerDocumentSingleton::Register(
+      this, {kOmniboxPopupLensIconElementId});
+  if (omnibox::kAskGLensIconIph.Get()) {
+    lens_icon_shown_subscription_ =
+        ui::ElementTracker::GetElementTracker()
+            ->AddElementShownInAnyContextCallback(
+                kOmniboxPopupLensIconElementId,
+                base::BindRepeating(&OmniboxPopupUI::OnLensIconShown,
+                                    base::Unretained(this)));
+  }
 }
 
 OmniboxPopupUI::~OmniboxPopupUI() = default;
 
 WEB_UI_CONTROLLER_TYPE_IMPL(OmniboxPopupUI)
+
+// static
+base::DictValue OmniboxPopupUI::GetProfileLoadTimeData(Profile* profile) {
+  // Read the pref directly rather than creating the contextual search session
+  // here: every window builds popups, and most never use the session.
+  // Handlers create it on first use.
+  const bool session_allows_drag_and_drop =
+      ContextualSearchServiceFactory::GetForProfile(profile) &&
+      contextual_search::ContextualSearchService::IsContextSharingEnabled(
+          profile->GetPrefs());
+
+  base::DictValue dict =
+      SearchboxHandler::GetProfileDependentWebUIDataSourceDict(
+          profile,
+          {.session_allows_drag_and_drop = session_allows_drag_and_drop});
+
+  PopulateAiModeButtonUiConfig(dict, profile);
+
+  dict.Set("searchboxDefaultIcon",
+           GetDefaultSearchProviderIcon(
+               TemplateURLServiceFactory::GetForProfile(profile)));
+  // The popup chip UI entrypoint is enabled by the AskG experiment
+  // (kAskGShowChip).
+  dict.Set("composeboxShowChip",
+           omnibox::IsAimPopupEnabled(profile) && omnibox::kAskGShowChip.Get());
+  dict.Set("composeboxShowCurrentTabChip",
+           omnibox::kAskGCurrentTabChip.Get() &&
+               omnibox::AreContextualTasksEligible(profile));
+  return dict;
+}
+
+void OmniboxPopupUI::WebUIRenderFrameCreated(
+    content::RenderFrameHost* render_frame_host) {
+  // If the data source isn't shared, the constructor added these values to it.
+  if (!IsWebUIDataSourceShared(web_ui())) {
+    return;
+  }
+  if (std::optional<std::string> json = base::WriteJson(GetProfileLoadTimeData(
+          webui::GetUserProfile(web_ui()->GetWebContents())))) {
+    render_frame_host->SetWebUIProperty("profileLoadTimeData", *json);
+  }
+}
 
 // The popup's chrome://theme/colors.css and layout_constants_v0.css are
 // render-blocking stylesheets in <head>. Serve them from the renderer without
@@ -427,8 +477,15 @@ void OmniboxPopupUI::CreatePageHandler(
     mojo::PendingRemote<omnibox_popup_aim::mojom::Page> page,
     mojo::PendingReceiver<omnibox_popup_aim::mojom::PageHandler> receiver) {
   popup_aim_handler_ = std::make_unique<OmniboxPopupAimHandler>(
-      std::move(receiver), std::move(page), web_ui()->GetWebContents());
+      std::move(receiver), std::move(page));
   popup_aim_handler_->set_embedder(embedder());
+}
+
+void OmniboxPopupUI::BindInterface(
+    mojo::PendingReceiver<plural_string::mojom::PluralStringProvider>
+        receiver) {
+  PluralStringProvider::Create(std::move(receiver),
+                               GetSearchboxPluralStringIds());
 }
 
 void OmniboxPopupUI::BindInterface(
@@ -462,6 +519,38 @@ void OmniboxPopupUI::CreatePageHandler(
   // handler is where PEPC mojo call lives.
   if (presenter_delegate_) {
     composebox_handler_->set_delegate(presenter_delegate_);
+  }
+}
+
+void OmniboxPopupUI::BindInterface(
+    mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandlerFactory>
+        receiver) {
+  help_bubble_handler_factory_receiver_.reset();
+  help_bubble_handler_factory_receiver_.Bind(std::move(receiver));
+}
+
+void OmniboxPopupUI::CreateHelpBubbleHandler(
+    mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
+    mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler) {
+  help_bubble_handler_ = std::make_unique<user_education::HelpBubbleHandler>(
+      std::move(handler), std::move(client),
+      ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(
+          web_ui()->GetRenderFrameHost()));
+}
+
+void OmniboxPopupUI::OnLensIconShown(ui::TrackedElement* element) {
+  // Every omnibox popup (one per window) reports this identifier, so ignore
+  // other popups' icons.
+  auto* const webui_element = element->AsA<ui::TrackedElementWebUI>();
+  if (!webui_element ||
+      webui_element->handler()->web_contents() != web_ui()->GetWebContents()) {
+    return;
+  }
+  if (auto* const user_education =
+          BrowserUserEducationInterface::MaybeGetForWebUiContents(
+              web_ui()->GetWebContents())) {
+    user_education->MaybeShowFeaturePromo(
+        feature_engagement::kIPHOmniboxAskGLensIconFeature);
   }
 }
 

@@ -10,6 +10,7 @@
 #include <array>
 #include <optional>
 
+#include "base/component_export.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/glib/glib_integers.h"
 #include "ui/base/glib/scoped_gsignal.h"
@@ -20,7 +21,8 @@ using GtkSettings = struct _GtkSettings;
 
 namespace gtk {
 
-class OsSettingsProviderGtk : public ui::OsSettingsProvider {
+class COMPONENT_EXPORT(GTK) OsSettingsProviderGtk
+    : public ui::OsSettingsProvider {
  public:
   OsSettingsProviderGtk();
   OsSettingsProviderGtk(const OsSettingsProviderGtk&) = delete;
@@ -35,7 +37,8 @@ class OsSettingsProviderGtk : public ui::OsSettingsProvider {
   base::TimeDelta CaretBlinkInterval() const override;
 
   // Sets the system accent color (sourced from the xdg-desktop-portal and
-  // pushed in via GtkUi::SetAccentColor) and notifies observers.
+  // pushed in via GtkUi::SetAccentColor) and notifies observers. When unset,
+  // `AccentColor()` falls back to the GTK theme's accent color.
   void SetAccentColor(std::optional<SkColor> accent_color);
 
   // Sets the color-scheme preference (sourced from the xdg-desktop-portal and
@@ -44,6 +47,13 @@ class OsSettingsProviderGtk : public ui::OsSettingsProvider {
   // the toolkit-derived scheme. Otherwise the value selects dark (true) or
   // light (false).
   void SetColorScheme(std::optional<bool> prefer_dark);
+
+  // Notifies observers that the GTK theme changed. Called by GtkUi after it
+  // has cleared its cached theme colors, so that observers (e.g.
+  // `NativeThemeGtk`) recompute values from the new theme rather than from
+  // stale cached colors. This is why the provider does not itself listen for
+  // `gtk-theme-name` or `gtk-application-prefer-dark-theme` changes.
+  void OnThemeChanged();
 
  private:
   ScopedGSignal ConnectSignal(const gchar* name);
@@ -60,12 +70,10 @@ class OsSettingsProviderGtk : public ui::OsSettingsProvider {
 
   // Have to explicitly give template params instead of using `std::to_array()`,
   // since CTAD is banned in non-static member declarations :(
-  std::array<ScopedGSignal, 5> signals_{
-      ConnectSignal("notify::gtk-application-prefer-dark-theme"),
+  std::array<ScopedGSignal, 3> signals_{
       ConnectSignal("notify::gtk-cursor-blink"),
       ConnectSignal("notify::gtk-cursor-blink-time"),
       ConnectSignal("notify::gtk-overlay-scrolling"),
-      ConnectSignal("notify::gtk-theme-name"),
   };
 };
 

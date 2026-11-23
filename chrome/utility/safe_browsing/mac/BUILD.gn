@@ -2,7 +2,102 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/rust/rust_static_library.gni")
 import("//testing/libfuzzer/fuzzer_test.gni")
+
+# Pure-Rust parser for UDIF (.dmg) disk images, HFS+/HFSX filesystems, and
+# Mach-O binaries. Kept free of `unsafe` code.
+rust_static_library("dmg_parser") {
+  visibility = [ ":*" ]
+
+  crate_root = "rust/lib.rs"
+  sources = [
+    "rust/hfs.rs",
+    "rust/lib.rs",
+    "rust/mach_o.rs",
+    "rust/udif.rs",
+  ]
+  deps = [
+    ":dmg_decompress",
+    "//third_party/rust/base64/v0_22:lib",
+    "//third_party/rust/bytemuck/v1:lib",
+    "//third_party/rust/flate2/v1:lib",
+    "//third_party/rust/log/v0_4:lib",
+    "//third_party/rust/static_assertions/v1:lib",
+    "//third_party/rust/xml/v1:lib",
+  ]
+}
+
+# Thin, audited FFI wrapper over the system libbz2 (the same library used by
+# the C++ parser). Besides `dmg_ffi_bridge`, this and the test-only
+# `dmg_decompress_test_support` are the only Rust targets here that permit
+# `unsafe`.
+rust_static_library("dmg_decompress") {
+  visibility = [ ":*" ]
+  allow_unsafe = true
+  crate_root = "rust/decompress/bz2.rs"
+  sources = [ "rust/decompress/bz2.rs" ]
+  public_configs = [ ":dmg_public_config" ]
+}
+
+# Test-only bzip2 compressor used to synthesize test payloads.
+rust_static_library("dmg_decompress_test_support") {
+  testonly = true
+  visibility = [ ":*" ]
+  allow_unsafe = true
+  crate_root = "rust/decompress/test_support.rs"
+  sources = [ "rust/decompress/test_support.rs" ]
+  public_configs = [ ":dmg_public_config" ]
+}
+
+rust_static_library("dmg_parser_unittests") {
+  testonly = true
+  is_gtest_unittests = true
+  visibility = [ ":*" ]
+
+  crate_root = "rust/dmg_parser_unittests.rs"
+  sources = [ "rust/dmg_parser_unittests.rs" ]
+  deps = [
+    ":dmg_decompress",
+    ":dmg_decompress_test_support",
+    ":dmg_parser",
+    "//testing/rust_gtest_interop",
+    "//third_party/rust/base64/v0_22:lib",
+    "//third_party/rust/bytemuck/v1:lib",
+    "//third_party/rust/flate2/v1:lib",
+  ]
+}
+
+source_set("read_stream_bridge_hdr") {
+  visibility = [ ":*" ]
+  sources = [
+    "read_stream.h",
+    "rust/read_stream_bridge.h",
+  ]
+  public_deps = [
+    "//base",
+    "//build/rust:cxx_cppdeps",
+  ]
+}
+
+# `cxx` FFI bridge exposing `dmg_parser` to C++ (`UDIFParser`, `HFSIterator`,
+# and `MachOImageReader`).
+# Permits `unsafe` for `#[cxx::bridge]` (along with `dmg_decompress`).
+rust_static_library("dmg_ffi_bridge") {
+  visibility = [
+    ":*",
+    "//chrome/common/safe_browsing:*",
+    "//chrome/utility/safe_browsing:*",
+  ]
+
+  allow_unsafe = true
+  crate_root = "rust/ffi.rs"
+  sources = [ "rust/ffi.rs" ]
+  cxx_bindings = [ "rust/ffi.rs" ]
+
+  deps = [ ":dmg_parser" ]
+  public_deps = [ ":read_stream_bridge_hdr" ]
+}
 
 config("dmg_public_config") {
   libs = [ "bz2" ]
@@ -20,15 +115,19 @@ source_set("dmg_common") {
     "hfs.cc",
     "hfs.h",
     "read_stream.cc",
-    "read_stream.h",
+    "rust/read_stream_bridge.cc",
     "udif.cc",
     "udif.h",
   ]
 
   deps = [
+    ":read_stream_bridge_hdr",
     "//base",
+    "//components/safe_browsing/core/common:features",
     "//third_party/zlib",
   ]
+
+  public_deps = [ ":dmg_ffi_bridge" ]
 
   public_configs = [ ":dmg_public_config" ]
 }
@@ -79,11 +178,13 @@ source_set("unit_tests") {
   ]
   deps = [
     ":dmg_common",
+    ":dmg_parser_unittests",
     "//base",
     "//base/test:test_support",
     "//chrome/common:constants",
     "//chrome/common/safe_browsing:archive_analyzer_results",
     "//chrome/utility/safe_browsing",
+    "//components/safe_browsing/core/common:features",
     "//testing/gtest",
   ]
 }

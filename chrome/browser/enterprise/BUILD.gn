@@ -13,7 +13,6 @@ source_set("enterprise") {
     "browser_management/browser_management_status_provider.h",
     "browser_management/management_service_factory.h",
     "chrome_browser_main_extra_parts_enterprise.h",
-    "client_certificates/browser_context_delegate.h",
     "client_certificates/cert_utils.h",
     "client_certificates/certificate_provisioning_service_factory.h",
     "client_certificates/certificate_store_factory.h",
@@ -52,6 +51,7 @@ source_set("enterprise") {
     "reporting/profile_report_generator_delegate_base.h",
     "reporting/real_time_report_controller_delegate.h",
     "reporting/real_time_report_generator_delegate.h",
+    "signals/certificate_signals_collector_delegate_impl.h",
     "signals/profile_signals_collector.h",
     "signals/user_delegate_impl.h",
     "signals/user_permission_service_factory.h",
@@ -122,13 +122,6 @@ source_set("enterprise") {
     ]
   }
 
-  # Circular deps: //chrome/browser/safe_browsing, //chrome/browser/extensions,
-  # //chrome/browser/ui, //chrome/browser/ui/webui/signin, and
-  # //chrome/browser/ash/policy/core all depend on :enterprise via
-  # browser_public_dependencies. Unconditional includes from those targets are
-  # handled via allow_circular_includes_from on the respective owning targets.
-  # Conditional includes guarded by #if BUILDFLAG() use nogncheck.
-
   if (is_android) {
     public += [
       "platform_auth/entra_provider_android.h",
@@ -193,6 +186,7 @@ source_set("enterprise") {
     ]
 
     public += [
+      "client_certificates/browser_context_delegate.h",
       "groups/enterprise_groups_handler_factory.h",
       "idle/action.h",
       "idle/action_runner.h",
@@ -418,7 +412,6 @@ source_set("impl") {
     "browser_management/browser_management_status_provider.cc",
     "browser_management/management_service_factory.cc",
     "chrome_browser_main_extra_parts_enterprise.cc",
-    "client_certificates/browser_context_delegate.cc",
     "client_certificates/cert_utils.cc",
     "client_certificates/certificate_provisioning_service_factory.cc",
     "client_certificates/certificate_store_factory.cc",
@@ -461,6 +454,7 @@ source_set("impl") {
     "reporting/profile_report_generator_delegate_base.cc",
     "reporting/real_time_report_controller_delegate.cc",
     "reporting/real_time_report_generator_delegate.cc",
+    "signals/certificate_signals_collector_delegate_impl.cc",
     "signals/profile_signals_collector.cc",
     "signals/user_delegate_impl.cc",
     "signals/user_permission_service_factory.cc",
@@ -650,6 +644,7 @@ source_set("impl") {
     ]
   } else {
     sources += [
+      "client_certificates/browser_context_delegate.cc",
       "groups/enterprise_groups_handler_factory.cc",
       "idle/action.cc",
       "idle/action_runner.cc",
@@ -684,7 +679,7 @@ source_set("impl") {
   if (is_mac) {
     sources += [
       "platform_auth/extensible_enterprise_sso_entra.mm",
-      "platform_auth/extensible_enterprise_sso_metadata.mm",
+      "platform_auth/extensible_enterprise_sso_metadata.cc",
       "platform_auth/extensible_enterprise_sso_policy_handler.cc",
       "platform_auth/extensible_enterprise_sso_prefs_handler.cc",
       "platform_auth/extensible_enterprise_sso_provider_mac.mm",

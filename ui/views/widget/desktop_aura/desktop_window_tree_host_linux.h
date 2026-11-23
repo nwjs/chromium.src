@@ -63,7 +63,8 @@ class VIEWS_EXPORT DesktopWindowTreeHostLinux
   // DesktopWindowTreeHostPlatform:
   std::unique_ptr<FrameView> CreateFrameView() override;
   void LowerWindow() override;
-  // Disables event listening to make |dialog| modal.
+  // Disables event listening to make |dialog| modal, cancelling any active
+  // touches and clearing tracked mouse button state on the host window.
   base::OnceClosure DisableEventListening();
 
   // Sets hints for the WM/compositor that reflect the extents of the
@@ -104,6 +105,14 @@ class VIEWS_EXPORT DesktopWindowTreeHostLinux
  private:
   FRIEND_TEST_ALL_PREFIXES(DesktopWindowTreeHostPlatformImplTestWithTouch,
                            HitTest);
+  FRIEND_TEST_ALL_PREFIXES(DesktopWindowTreeHostPlatformImplTest,
+                           CaptionHoldSuppressesDataDrag);
+  FRIEND_TEST_ALL_PREFIXES(DesktopWindowTreeHostPlatformImplTest,
+                           CaptionClickReleaseEndsDragSuppression);
+  FRIEND_TEST_ALL_PREFIXES(DesktopWindowTreeHostPlatformImplTest,
+                           CaptionTouchHoldSuppressesDataDrag);
+  FRIEND_TEST_ALL_PREFIXES(DesktopWindowTreeHostPlatformImplTest,
+                           CaptionTouchEndsDragSuppression);
 
   // DesktopWindowTreeHostPlatform:
   base::flat_map<std::string, std::string> GetKeyboardLayoutMap() override;

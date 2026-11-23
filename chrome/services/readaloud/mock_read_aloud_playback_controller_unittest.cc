@@ -4,6 +4,8 @@
 
 #include "chrome/services/readaloud/mock_read_aloud_playback_controller.h"
 
+#include "base/run_loop.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "chrome/common/readaloud/read_aloud.mojom.h"
@@ -33,9 +35,7 @@ class MockClient : public read_aloud::mojom::ReadAloudPlaybackControllerClient {
               (override));
   MOCK_METHOD(void,
               OnWordBoundaryReached,
-              (uint32_t segment_index,
-               uint32_t character_offset,
-               base::TimeDelta audio_timestamp),
+              (uint32_t start_character_offset, uint32_t end_character_offset),
               (override));
 
   MOCK_METHOD(void,
@@ -74,6 +74,30 @@ class MockPlaybackControllerTest : public ::testing::Test {
     segment->text = text;
     segments.push_back(std::move(segment));
     return segments;
+  }
+
+  // Binds the client and controller, sets "One Two Three Four" as content and
+  // seeks to "Three" (500ms), waiting for its word boundary to reach the
+  // client so that tests start from a known position.
+  void SetUpSeekedToThree() {
+    mojo::PendingRemote<read_aloud::mojom::ReadAloudPlaybackControllerClient>
+        client_remote;
+    client_ = std::make_unique<::testing::NiceMock<MockClient>>(
+        client_remote.InitWithNewPipeAndPassReceiver());
+    controller_impl_ =
+        std::make_unique<::testing::NiceMock<MockReadAloudPlaybackController>>(
+            controller_.BindNewPipeAndPassReceiver());
+    controller_impl_->InitializeClient(std::move(client_remote));
+    controller_->SetTextContent(
+        CreateSingleSegment(/*segment_index=*/0, u"One Two Three Four"));
+
+    base::RunLoop run_loop;
+    EXPECT_CALL(*client_, OnWordBoundaryReached(/*start_character_offset=*/8,
+                                                /*end_character_offset=*/13))
+        .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+    controller_->SeekToTime(base::Milliseconds(500));
+    run_loop.Run();
+    ::testing::Mock::VerifyAndClearExpectations(client_.get());
   }
 
   base::test::TaskEnvironment task_environment_{
@@ -122,11 +146,13 @@ TEST_F(MockPlaybackControllerTest, PlaybackSequence) {
     ::testing::InSequence seq;
     EXPECT_CALL(*client_, OnPlaybackStateChanged(
                               read_aloud::mojom::PlaybackState::kPlaying));
-    EXPECT_CALL(*client_, OnWordBoundaryReached(0, 0, base::TimeDelta()));
+    EXPECT_CALL(*client_, OnWordBoundaryReached(/*start_character_offset=*/0,
+                                                /*end_character_offset=*/5));
     EXPECT_CALL(*client_, OnPlaybackProgressChanged(
                               /*elapsed=*/base::TimeDelta(),
                               /*duration=*/base::Milliseconds(500)));
-    EXPECT_CALL(*client_, OnWordBoundaryReached(0, 6, base::Milliseconds(250)));
+    EXPECT_CALL(*client_, OnWordBoundaryReached(/*start_character_offset=*/6,
+                                                /*end_character_offset=*/11));
     EXPECT_CALL(*client_, OnPlaybackProgressChanged(
                               /*elapsed=*/base::Milliseconds(250),
                               /*duration=*/base::Milliseconds(500)));
@@ -159,16 +185,14 @@ TEST_F(MockPlaybackControllerTest, SeekAndPause) {
   EXPECT_CALL(*client_, OnPlaybackStateChanged(
                             read_aloud::mojom::PlaybackState::kPlaying))
       .Times(1);
-  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 0, base::TimeDelta()))
-      .Times(1);
+  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 3)).Times(1);
 
   controller_->Play();
   controller_.FlushForTesting();
   ::testing::Mock::VerifyAndClearExpectations(client_.get());
 
   // Step 2: Advance to first word boundary ("Two").
-  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 4, base::Milliseconds(250)))
-      .Times(1);
+  EXPECT_CALL(*client_, OnWordBoundaryReached(4, 7)).Times(1);
   task_environment_.FastForwardBy(base::Milliseconds(250));
   ::testing::Mock::VerifyAndClearExpectations(client_.get());
 
@@ -181,8 +205,7 @@ TEST_F(MockPlaybackControllerTest, SeekAndPause) {
   ::testing::Mock::VerifyAndClearExpectations(client_.get());
 
   // Step 4: Seek to word "Three" at character offset 8.
-  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 8, base::Milliseconds(500)))
-      .Times(1);
+  EXPECT_CALL(*client_, OnWordBoundaryReached(8, 13)).Times(1);
   controller_->SeekToWord(0, 8);
   controller_.FlushForTesting();
   ::testing::Mock::VerifyAndClearExpectations(client_.get());
@@ -191,8 +214,7 @@ TEST_F(MockPlaybackControllerTest, SeekAndPause) {
   EXPECT_CALL(*client_, OnPlaybackStateChanged(
                             read_aloud::mojom::PlaybackState::kPlaying))
       .Times(1);
-  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 14, base::Milliseconds(750)))
-      .Times(1);
+  EXPECT_CALL(*client_, OnWordBoundaryReached(14, 18)).Times(1);
   controller_->Play();
   controller_.FlushForTesting();
   ::testing::Mock::VerifyAndClearExpectations(client_.get());
@@ -220,11 +242,37 @@ TEST_F(MockPlaybackControllerTest, SeekToTime) {
   controller_.FlushForTesting();
 
   // Seek to 500ms should locate nearest word boundary ("Three").
-  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 8, base::Milliseconds(500)))
-      .Times(1);
+  EXPECT_CALL(*client_, OnWordBoundaryReached(8, 13)).Times(1);
   controller_->SeekToTime(base::Milliseconds(500));
   controller_.FlushForTesting();
   ::testing::Mock::VerifyAndClearExpectations(client_.get());
+}
+
+// Verifies that a positive relative seek snaps to the next word boundary.
+TEST_F(MockPlaybackControllerTest, SeekRelativeForwardSnapsToNextWord) {
+  SetUpSeekedToThree();
+
+  // +250ms from "Three" (500ms) lands on "Four" (750ms).
+  base::RunLoop run_loop;
+  EXPECT_CALL(*client_, OnWordBoundaryReached(/*start_character_offset=*/14,
+                                              /*end_character_offset=*/18))
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+  controller_->SeekRelative(base::Milliseconds(250));
+  run_loop.Run();
+}
+
+// Verifies that a negative relative seek past the start clamps to the first
+// word.
+TEST_F(MockPlaybackControllerTest, SeekRelativeBackwardClampsToStart) {
+  SetUpSeekedToThree();
+
+  // -1s from "Three" (500ms) clamps to the start of the document ("One").
+  base::RunLoop run_loop;
+  EXPECT_CALL(*client_, OnWordBoundaryReached(/*start_character_offset=*/0,
+                                              /*end_character_offset=*/3))
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+  controller_->SeekRelative(base::Seconds(-1));
+  run_loop.Run();
 }
 
 // Verifies simulated buffering latency before playback transitions to Playing.
@@ -260,8 +308,7 @@ TEST_F(MockPlaybackControllerTest, SimulatedLatency) {
   EXPECT_CALL(*client_, OnPlaybackStateChanged(
                             read_aloud::mojom::PlaybackState::kPlaying))
       .InSequence(seq);
-  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 0, base::TimeDelta()))
-      .InSequence(seq);
+  EXPECT_CALL(*client_, OnWordBoundaryReached(0, 3)).InSequence(seq);
   task_environment_.FastForwardBy(base::Milliseconds(500));
 }
 
@@ -285,8 +332,7 @@ TEST_F(MockPlaybackControllerTest, SimulatedHang) {
   EXPECT_CALL(*client_, OnPlaybackStateChanged(
                             read_aloud::mojom::PlaybackState::kPlaying))
       .Times(1);
-  EXPECT_CALL(*client_,
-              OnWordBoundaryReached(::testing::_, ::testing::_, ::testing::_))
+  EXPECT_CALL(*client_, OnWordBoundaryReached(::testing::_, ::testing::_))
       .Times(0);
 
   controller_->Play();

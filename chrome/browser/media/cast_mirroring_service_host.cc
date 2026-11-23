@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
@@ -17,6 +18,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
+#include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/media/cast_remoting_connector.h"
 #include "chrome/browser/media/router/discovery/access_code/access_code_cast_feature.h"
@@ -59,6 +61,12 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "url/origin.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ui/screen_capture_notification_ui.h"  // nogncheck
+#include "chrome/grit/generated_resources.h"
+#include "ui/base/l10n/l10n_util.h"
+#endif
 
 using content::BrowserThread;
 
@@ -273,6 +281,28 @@ gfx::Size CastMirroringServiceHost::GetCaptureResolutionConstraint() {
 }
 
 // static
+std::string_view CastMirroringServiceHost::GetDesktopAudioLoopbackDeviceId() {
+#if BUILDFLAG(IS_MAC)
+  // Temporary logic to make the launch of CatapAudioInputStream for Cast
+  // independent of the launch of the same feature for getDisplayMedia().
+  // TODO(https://crbug.com/425902990): Remove the usage of
+  // `kLoopbackWithMuteDeviceIdCast` once CatapAudioInputStream is launched for
+  // both Cast and getDisplayMedia().
+  return media::AudioDeviceDescription::kLoopbackWithMuteDeviceIdCast;
+#elif BUILDFLAG(IS_WIN)
+  // On some Windows audio drivers, muting the default render endpoint also
+  // silences the endpoint loopback capture, so the receiver gets no audio.
+  // Capture without muting local playback instead.
+  return base::FeatureList::IsEnabled(
+             media_router::kCastDesktopMirroringKeepLocalAudio)
+             ? media::AudioDeviceDescription::kLoopbackInputDeviceId
+             : media::AudioDeviceDescription::kLoopbackWithMuteDeviceId;
+#else
+  return media::AudioDeviceDescription::kLoopbackWithMuteDeviceId;
+#endif
+}
+
+// static
 gfx::Size CastMirroringServiceHost::GetClampedResolution(
     gfx::Size screen_resolution) {
   // Use landscape mode dimensions for screens in portrait mode.
@@ -445,18 +475,7 @@ void CastMirroringServiceHost::CreateAudioStreamForDesktop(
   mojo::MessagePipe pipe_to_audio_service;
   mojo::MessagePipe pipe_to_mirroring_service;
 
-  // Temporary logic to make the launch of CatapAudioInputStream for Cast
-  // independent of the launch of the same feature for getDisplayMedia().
-  // TODO(https://crbug.com/425902990): Remove the usage of
-  // `kLoopbackWithMuteDeviceIdCast` once CatapAudioInputStream is launched for
-  // both Cast and getDisplayMedia().
-#if BUILDFLAG(IS_MAC)
-  const char* loopback_id =
-      media::AudioDeviceDescription::kLoopbackWithMuteDeviceIdCast;
-#else  // IS_MAC
-  const char* loopback_id =
-      media::AudioDeviceDescription::kLoopbackWithMuteDeviceId;
-#endif
+  const std::string loopback_id(GetDesktopAudioLoopbackDeviceId());
 
   // This does the mostly the same thing as the similar insane glob of code in
   // the CreateAudioStreamForTab() method. Here, system-wide audio is requested
@@ -504,6 +523,10 @@ void CastMirroringServiceHost::ConnectToRemotingSource(
 }
 
 void CastMirroringServiceHost::WebContentsDestroyed() {
+  StopMirroringSession();
+}
+
+void CastMirroringServiceHost::StopMirroringSession() {
   mirroring_service_.reset();
   web_contents_audio_muter_.reset();
   audio_stream_factory_.reset();
@@ -512,6 +535,14 @@ void CastMirroringServiceHost::WebContentsDestroyed() {
 }
 
 void CastMirroringServiceHost::ShowCaptureIndicator() {
+#if BUILDFLAG(IS_CHROMEOS)
+  if (source_media_id_.type == content::DesktopMediaID::TYPE_SCREEN ||
+      source_media_id_.type == content::DesktopMediaID::TYPE_WINDOW) {
+    ShowDesktopCaptureNotification();
+    return;
+  }
+#endif
+
   if (source_media_id_.type != content::DesktopMediaID::TYPE_WEB_CONTENTS ||
       !web_contents()) {
     return;
@@ -543,6 +574,49 @@ void CastMirroringServiceHost::ShowCaptureIndicator() {
       /*label=*/std::string(), /*screen_capture_ids=*/{},
       content::MediaStreamUI::StateChangeCallback());
 }
+
+#if BUILDFLAG(IS_CHROMEOS)
+void CastMirroringServiceHost::ShowDesktopCaptureNotification() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (desktop_capture_notification_ui_) {
+    return;
+  }
+
+  // On ChromeOS, ScreenCaptureNotificationUI notifies ash's SystemTrayNotifier
+  // of the screen access. Among other things, this lets
+  // ash::ScreenSwitchCheckController warn the user before switching to another
+  // user in a multi-profile session, and stops all screen access sessions
+  // (running `stop_callback` below) when the active user changes.
+  desktop_capture_notification_ui_ = ScreenCaptureNotificationUI::Create(
+      l10n_util::GetStringUTF16(IDS_MEDIA_ROUTER_CASTING_DESKTOP),
+      /*capturing_web_contents=*/nullptr);
+  desktop_capture_notification_ui_->OnStarted(
+      base::BindOnce(&CastMirroringServiceHost::OnDesktopCaptureStopRequested,
+                     weak_factory_for_ui_.GetWeakPtr()),
+      content::MediaStreamUI::SourceCallback(),
+      /*media_ids=*/{source_media_id_});
+}
+
+void CastMirroringServiceHost::OnDesktopCaptureStopRequested() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  StopMirroringSession();
+
+  // Destroying the notification UI notifies ash that screen access has
+  // stopped, which (currently) stops *all* screen access sessions. Release it
+  // now rather than when this object is destroyed, so that it cannot later
+  // stop unrelated sessions started in the meantime (e.g. by the new active
+  // user after a multi-profile user switch).
+  //
+  // This callback is run from within ash::SystemTrayNotifier's
+  // NotifyScreenAccessStop() loop over its observers. Destroying the UI calls
+  // NotifyScreenAccessStop() again, and that observer list does not allow
+  // reentrancy, so the UI must not be destroyed synchronously.
+  if (desktop_capture_notification_ui_) {
+    base::SequencedTaskRunner::GetCurrentDefault()->DeleteSoon(
+        FROM_HERE, std::move(desktop_capture_notification_ui_));
+  }
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 void CastMirroringServiceHost::ShowTabSharingUI(
     const blink::mojom::StreamDevices& devices) {

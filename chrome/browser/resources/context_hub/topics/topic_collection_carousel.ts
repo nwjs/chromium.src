@@ -6,24 +6,26 @@ import '//resources/cr_elements/cr_auto_img/cr_auto_img.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/icons.html.js';
 
+import {skColorToRgba} from '//resources/js/color_utils.js';
 import {getFaviconForPageURL} from '//resources/js/icon.js';
 import {OpenWindowProxyImpl} from '//resources/js/open_window_proxy.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 
-import {browserProxyFactory} from '../context_hub.mojom-webui.js';
+import {browserProxyFactory, TopicRating} from '../context_hub.mojom-webui.js';
+import type {TopicCollectionFeedback} from '../context_hub.mojom-webui.js';
 
 import {getCss} from './topic_collection_carousel.css.js';
 import {getHtml} from './topic_collection_carousel.html.js';
-import {isTopicsFishfoodFeedbackEnabled} from './topic_utils.js';
-import type {Collection, CollectionFeedback, CollectionItem} from './topic_utils.js';
+import {createEmptyCollectionFeedback, isTopicsFishfoodFeedbackEnabled, isVisitRejected, setVisitsRejected, toTopicRating} from './topic_utils.js';
+import type {Collection, CollectionItem} from './topic_utils.js';
 
 // Size of the favicon drawn in a card's image area.
 const CARD_FAVICON_SIZE = 32;
 
 // Fired with the collection's feedback whenever the rater edits it.
 export type CollectionFeedbackChangeEvent =
-    CustomEvent<{feedback: CollectionFeedback}>;
+    CustomEvent<{feedback: TopicCollectionFeedback}>;
 
 export interface TopicCollectionCarouselElement {
   $: {
@@ -63,11 +65,12 @@ export class TopicCollectionCarouselElement extends CrLitElement {
       canScrollBack_: {type: Boolean, state: true},
       canScrollForward_: {type: Boolean, state: true},
       imageUrls_: {type: Object, state: true},
+      faviconColors_: {type: Object, state: true},
     };
   }
 
   accessor collection: Collection|null = null;
-  accessor feedback: CollectionFeedback|null = null;
+  accessor feedback: TopicCollectionFeedback|null = null;
   protected accessor feedbackEnabled_: boolean =
       isTopicsFishfoodFeedbackEnabled();
   protected accessor canScrollBack_: boolean = false;
@@ -75,6 +78,9 @@ export class TopicCollectionCarouselElement extends CrLitElement {
   // Image URLs of the cards' pages, keyed by page URL. Pages without one, or
   // whose image failed to load, show their favicon instead.
   protected accessor imageUrls_: Map<string, string> = new Map();
+  // CSS colors of the cards' pages' favicons, keyed by page URL. A card that
+  // shows its favicon tints its image area with this color.
+  protected accessor faviconColors_: Map<string, string> = new Map();
 
   private resizeObserver_: ResizeObserver|null = null;
 
@@ -98,7 +104,9 @@ export class TopicCollectionCarouselElement extends CrLitElement {
     super.willUpdate(changedProperties);
     if (changedProperties.has('collection')) {
       this.imageUrls_ = new Map();
+      this.faviconColors_ = new Map();
       this.fetchImages_();
+      this.fetchFaviconColors_();
     }
   }
 
@@ -110,7 +118,7 @@ export class TopicCollectionCarouselElement extends CrLitElement {
   }
 
   protected isRated_(liked: boolean): boolean {
-    return this.feedback?.liked === liked;
+    return this.feedback?.rating === toTopicRating(liked);
   }
 
   protected getRatingAriaLabel_(prefix: string): string {
@@ -119,7 +127,8 @@ export class TopicCollectionCarouselElement extends CrLitElement {
   }
 
   protected isItemRejected_(item: CollectionItem): boolean {
-    return !!this.feedback?.rejectedItemUrls.includes(item.url);
+    return isVisitRejected(
+        this.feedback?.rejectedItemVisits || [], item.visitTime);
   }
 
   protected getRejectAriaLabel_(item: CollectionItem): string {
@@ -129,7 +138,10 @@ export class TopicCollectionCarouselElement extends CrLitElement {
   protected onRatingClick_(e: Event) {
     const liked = (e.currentTarget as HTMLElement).dataset['liked'] === 'true';
     // Clicking the selected rating again clears it.
-    this.updateFeedback_({liked: this.isRated_(liked) ? null : liked});
+    this.updateFeedback_({
+      rating: this.isRated_(liked) ? TopicRating.kUnrated :
+                                     toTopicRating(liked),
+    });
   }
 
   protected onRejectClick_(e: Event) {
@@ -138,26 +150,25 @@ export class TopicCollectionCarouselElement extends CrLitElement {
     if (!item) {
       return;
     }
-    const others =
-        (this.feedback?.rejectedItemUrls || []).filter(url => url !== item.url);
     this.updateFeedback_({
-      rejectedItemUrls: this.isItemRejected_(item) ? others :
-                                                     [...others, item.url],
+      rejectedItemVisits: setVisitsRejected(
+          this.feedback?.rejectedItemVisits || [], [item.visitTime],
+          !this.isItemRejected_(item)),
     });
   }
 
-  private updateFeedback_(changes: Partial<CollectionFeedback>) {
+  // Reports the edited feedback. `feedback` is owned by the page, which passes
+  // it back down once it's stored.
+  private updateFeedback_(changes: Partial<TopicCollectionFeedback>) {
     if (!this.collection) {
       return;
     }
-    const feedback: CollectionFeedback = {
-      liked: null,
-      rejectedItemUrls: [],
-      ...this.feedback,
+    const feedback: TopicCollectionFeedback = {
+      ...(this.feedback ||
+          createEmptyCollectionFeedback(this.collection.title)),
       ...changes,
       title: this.collection.title,
     };
-    this.feedback = feedback;
     this.fire('collection-feedback-change', {feedback});
   }
 
@@ -169,6 +180,12 @@ export class TopicCollectionCarouselElement extends CrLitElement {
     return getFaviconForPageURL(
         url, /*isSyncedUrlForHistoryUi=*/ false, /*remoteIconUrlForUma=*/ '',
         CARD_FAVICON_SIZE);
+  }
+
+  // Sets the tint of a card's image area to its page's favicon color, if known.
+  protected getFaviconColorStyle_(url: string): string {
+    const color = this.faviconColors_.get(url);
+    return color ? `--card-favicon-color: ${color}` : '';
   }
 
   // Falls back to the favicon when a page's image can't be loaded.
@@ -253,6 +270,30 @@ export class TopicCollectionCarouselElement extends CrLitElement {
       }
     });
     this.imageUrls_ = imageUrls;
+  }
+
+  // Requests the favicon color of each card's page and applies them all in a
+  // single update. Replies for a collection that has since been replaced are
+  // dropped.
+  private async fetchFaviconColors_() {
+    const collection = this.collection;
+    if (!collection) {
+      return;
+    }
+    const handler = browserProxyFactory.getInstance().handler;
+    const urls = [...new Set(collection.items.map(item => item.url))];
+    const replies = await Promise.all(
+        urls.map(url => handler.getTopicPageFaviconColor(url)));
+    if (this.collection !== collection) {
+      return;
+    }
+    const faviconColors = new Map<string, string>();
+    replies.forEach(({color}, i) => {
+      if (color) {
+        faviconColors.set(urls[i]!, skColorToRgba(color));
+      }
+    });
+    this.faviconColors_ = faviconColors;
   }
 }
 

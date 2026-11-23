@@ -7,8 +7,10 @@
 #include <string>
 
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/webid/account_selection_view_base.h"
 #include "chrome/browser/ui/views/webid/account_selection_view_test_base.h"
@@ -31,6 +33,9 @@
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/controls/throbber.h"
 #include "ui/views/layout/box_layout.h"
+#include "ui/views/test/button_test_api.h"
+#include "ui/views/test/views_test_utils.h"
+#include "ui/views/view_utils.h"
 #include "ui/views/window/dialog_delegate.h"
 
 namespace webid {
@@ -55,7 +60,8 @@ class FakeFedCmAccountSelectionView : public FedCmAccountSelectionView {
 }  // namespace
 
 class AccountSelectionModalViewTest : public DialogBrowserTest,
-                                      public AccountSelectionViewTestBase {
+                                      public AccountSelectionViewTestBase,
+                                      public testing::WithParamInterface<bool> {
  public:
   AccountSelectionModalViewTest()
       : idp_data_(base::MakeRefCounted<content::IdentityProviderData>(
@@ -66,6 +72,8 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
             /*format=*/std::nullopt,
             kDefaultDisclosureFields,
             /*has_login_status_mismatch=*/false)) {
+    scoped_feature_list_.InitWithFeatureState(
+        features::kFedCmPermissionUiWithContainer, GetParam());
     test_shared_url_loader_factory_ =
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
             &test_url_loader_factory_);
@@ -355,6 +363,9 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
           static_cast<views::MdTextButton*>(button_row_children[button_index]);
       ASSERT_TRUE(continue_button);
       EXPECT_EQ(continue_button->GetText(), u"Continue");
+      EXPECT_EQ(continue_button->GetStyle(), GetParam()
+                                                 ? ui::ButtonStyle::kTonal
+                                                 : ui::ButtonStyle::kProminent);
       EXPECT_EQ(dialog()->GetInitiallyFocusedView(), continue_button);
       CheckReplaceButtonWithSpinner(continue_button);
     }
@@ -480,8 +491,9 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
                               /*expect_idp=*/true, /*is_modal_dialog=*/true);
     ASSERT_EQ("Separator", accounts[accounts_index++]->GetClassName());
     EXPECT_EQ(accounts_index, 5u);
+    // The "Use a different account" button opens the IDP picker.
     CheckButtonRow(children[2], /*expect_continue_button=*/false,
-                   /*expect_add_account_button=*/false,
+                   /*expect_add_account_button=*/true,
                    /*expect_back_button=*/false);
   }
 
@@ -515,9 +527,84 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
                               /*expect_idp=*/true, /*is_modal_dialog=*/true);
     ASSERT_EQ("Separator", accounts[accounts_index++]->GetClassName());
     EXPECT_EQ(accounts_index, 3u);
+    // The "Use a different account" button opens the IDP picker.
+    CheckButtonRow(children[2], /*expect_continue_button=*/false,
+                   /*expect_add_account_button=*/true,
+                   /*expect_back_button=*/false);
+  }
+
+  void TestIdpPicker() {
+    IdentityProviderDataPtr idp_data_2 =
+        base::MakeRefCounted<content::IdentityProviderData>(
+            kSecondIdpForDisplay, content::IdentityProviderMetadata(),
+            CreateTestClientMetadata(), blink::mojom::RpContext::kSignIn,
+            /*format=*/std::nullopt, kDefaultDisclosureFields,
+            /*has_login_status_mismatch=*/false);
+    std::vector<IdentityProviderDataPtr> idp_list = {idp_data_, idp_data_2};
+
+    if (!dialog_) {
+      CreateAccountSelectionModal();
+    }
+    dialog_->ShowIdpPicker(idp_list, /*rp_icon=*/gfx::Image(),
+                           /*show_back_button=*/true);
+    account_selection_view_->UpdateDialogPosition();
+
+    std::vector<raw_ptr<views::View, VectorExperimental>> children =
+        dialog()->children();
+    ASSERT_EQ(children.size(), 3u);
+
+    // The standard header is shown, with the multi-IDP title and a prompt to
+    // pick an IDP.
+    std::vector<raw_ptr<views::View, VectorExperimental>> header_children =
+        children[0]->children();
+    ASSERT_EQ(header_children.size(), 3u);
+    views::Label* title_view = static_cast<views::Label*>(header_children[1]);
+    views::Label* body_view = static_cast<views::Label*>(header_children[2]);
+    EXPECT_TRUE(body_view->GetVisible());
+    if (iframe_for_display_.empty()) {
+      EXPECT_EQ(title_view->GetText(), kTitleSignInWithoutIdp);
+      EXPECT_EQ(
+          body_view->GetText(),
+          l10n_util::GetStringUTF16(IDS_ACCOUNT_SELECTION_IDP_PICKER_BODY));
+    } else {
+      EXPECT_EQ(title_view->GetText(), kTitleIframeSignInWithoutIdp);
+      EXPECT_EQ(body_view->GetText(), kSubtitleIframeSignIn);
+    }
+
+    // One row per IDP, between a leading and a trailing separator.
+    std::vector<raw_ptr<views::View, VectorExperimental>> rows =
+        TestStructureAndGetAccounts(children[1]);
+    ASSERT_EQ(rows.size(), idp_list.size() + 2u);
+    EXPECT_EQ("Separator", rows[0]->GetClassName());
+    EXPECT_EQ("Separator", rows.back()->GetClassName());
+
+    // Each IDP row shows just the IDP domain, with no subtitle.
+    for (size_t i = 0; i < idp_list.size(); ++i) {
+      IdpHoverButton* idp_row = views::AsViewClass<IdpHoverButton>(rows[i + 1]);
+      ASSERT_TRUE(idp_row);
+      EXPECT_EQ(idp_row->title()->GetText(),
+                base::UTF8ToUTF16(idp_list[i]->idp_for_display));
+      EXPECT_FALSE(GetHoverButtonSubtitle(idp_row));
+    }
+
+    // A back button and a cancel button.
     CheckButtonRow(children[2], /*expect_continue_button=*/false,
                    /*expect_add_account_button=*/false,
-                   /*expect_back_button=*/false);
+                   /*expect_back_button=*/true);
+  }
+
+  void TestIdpRowCanBeClickedMoreThanOnce() {
+    int num_clicks = 0;
+    IdpHoverButton row(
+        base::BindRepeating([](int* num_clicks) { ++*num_clicks; },
+                            base::Unretained(&num_clicks)),
+        *idp_data_);
+    ui::MouseEvent event(ui::EventType::kMousePressed, gfx::Point(),
+                         gfx::Point(), ui::EventTimeForNow(),
+                         ui::EF_LEFT_MOUSE_BUTTON, 0);
+    views::test::ButtonTestApi(&row).NotifyClick(event);
+    views::test::ButtonTestApi(&row).NotifyClick(event);
+    EXPECT_EQ(num_clicks, 2);
   }
 
   std::vector<raw_ptr<views::View, VectorExperimental>>
@@ -577,10 +664,13 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
     std::vector<std::string> expected_class_names = {"View"};
     bool is_returning_user =
         login_state == content::IdentityRequestAccount::LoginState::kSignIn;
+    const bool expect_disclosure_container = GetParam();
     // For non-returning users, we expect a StyledLabel which contains the
-    // disclosure text to obtain user permission.
+    // disclosure text to obtain user permission. With
+    // `kFedCmPermissionUiWithContainer` enabled, it is wrapped in a container.
     if (!is_returning_user) {
-      expected_class_names.emplace_back("StyledLabel");
+      expected_class_names.emplace_back(
+          expect_disclosure_container ? "BoxLayoutView" : "StyledLabel");
     }
     EXPECT_THAT(GetChildClassNames(single_account_chooser),
                 testing::ElementsAreArray(expected_class_names));
@@ -589,6 +679,22 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
                                 kAccountSuffix, has_display_identifier);
     if (!is_returning_user) {
       views::View* disclosure_text_view = single_account_chooser->children()[1];
+      if (expect_disclosure_container) {
+        views::View* container = disclosure_text_view;
+        // Order: Disclosure row
+        ASSERT_THAT(GetChildClassNames(container),
+                    testing::ElementsAre("BoxLayoutView"));
+        views::View* row = container->children()[0];
+        // Order: Person icon, disclosure text
+        ASSERT_THAT(GetChildClassNames(row),
+                    testing::ElementsAre("ImageView", "StyledLabel"));
+        // The container should only be as tall as its content, so that it
+        // doesn't take height away from the button row.
+        views::test::RunScheduledLayout(dialog());
+        EXPECT_EQ(container->height(),
+                  container->GetHeightForWidth(container->width()));
+        disclosure_text_view = row->children()[1];
+      }
       CheckDisclosureText(disclosure_text_view,
                           /*expect_terms_of_service=*/true,
                           /*expect_privacy_policy=*/true);
@@ -826,6 +932,7 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
   std::u16string iframe_for_display_;
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_;
   bool expect_visible_body_label_{true};
   ui::ImageModel idp_brand_icon_;
   scoped_refptr<network::SharedURLLoaderFactory>
@@ -838,19 +945,22 @@ class AccountSelectionModalViewTest : public DialogBrowserTest,
   IdentityProviderDataPtr idp_data_;
 };
 
+// Runs all tests with `kFedCmPermissionUiWithContainer` disabled and enabled.
+INSTANTIATE_TEST_SUITE_P(All, AccountSelectionModalViewTest, testing::Bool());
+
 // Tests that the single account dialog is rendered correctly.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, SingleAccount) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, SingleAccount) {
   TestSingleAccount();
 }
 
 // Tests that the multiple accounts dialog is rendered correctly.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, MultipleAccounts) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, MultipleAccounts) {
   TestMultipleAccounts();
 }
 
 // Tests that the request permission dialog is rendered correctly, when it is
 // shown after the single account dialog.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionAfterSingleAccount) {
   TestSingleAccount();
   TestRequestPermission(/*has_display_identifier=*/true);
@@ -858,7 +968,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the request permission dialog is rendered correctly, when it is
 // shown after the multiple accounts dialog.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionAfterMultipleAccounts) {
   TestMultipleAccounts();
   TestRequestPermission(/*has_display_identifier=*/true);
@@ -867,7 +977,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 // Tests that the single account dialog is rendered correctly, when it is
 // shown after the request permission dialog. This can happen when user clicks
 // on the "back" button.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        SingleAccountAfterRequestPermission) {
   TestRequestPermission(/*has_display_identifier=*/true);
   TestSingleAccount();
@@ -876,21 +986,21 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 // Tests that the multiple accounts dialog is rendered correctly, when it is
 // shown after the request permission dialog. This can happen when user clicks
 // on the "back" button.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        MultipleAccountsAfterRequestPermission) {
   TestRequestPermission(/*has_display_identifier=*/true);
   TestMultipleAccounts();
 }
 
 // Tests that the loading dialog is rendered correctly.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, Loading) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, Loading) {
   // We always show the loading dialog at the creation of the modal.
   CreateAccountSelectionModal();
 }
 
 // Tests that the verifying sheet is rendered correctly, when it is shown after
 // the single account dialog.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        VerifyingAfterSingleAccount) {
   TestSingleAccount();
   TestVerifyingSheet();
@@ -898,7 +1008,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the verifying sheet is rendered correctly, when it is shown after
 // the multiple accounts dialog.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        VerifyingAfterMultipleAccounts) {
   TestMultipleAccounts();
   TestVerifyingSheet(/*has_multiple_accounts=*/true);
@@ -906,7 +1016,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the verifying sheet is rendered correctly, for the single account
 // flow.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        VerifyingForSingleAccountFlow) {
   TestSingleAccount();
   TestRequestPermission(/*has_display_identifier=*/true);
@@ -917,7 +1027,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the verifying sheet is rendered correctly, for the multiple
 // account flow.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        VerifyingForMultipleAccountFlow) {
   TestMultipleAccounts();
   TestRequestPermission(/*has_display_identifier=*/true);
@@ -928,21 +1038,21 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the single account dialog is rendered correctly when IDP supports
 // use other account.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        SingleAccountUseOtherAccount) {
   TestSingleAccount(/*supports_add_account=*/true);
 }
 
 // Tests that the multiple accounts dialog is rendered correctly when IDP
 // supports use other account.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        MultipleAccountsUseOtherAccount) {
   TestMultipleAccounts(/*supports_add_account=*/true);
 }
 
 // Tests that the request permission dialog is rendered correctly, when it is
 // shown after the loading dialog for a non-returning user.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionNonReturningUser) {
   TestRequestPermission(/*has_display_identifier=*/true,
                         content::IdentityRequestAccount::LoginState::kSignUp);
@@ -950,7 +1060,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the request permission dialog is rendered correctly, when it is
 // shown after the loading dialog for a returning user.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionReturningUser) {
   TestRequestPermission(/*has_display_identifier=*/true,
                         content::IdentityRequestAccount::LoginState::kSignIn);
@@ -958,7 +1068,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the brand icon view does not hide the brand icon like it does on
 // bubble. This is because we show a placeholder globe icon on modal.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        InvalidBrandIconUrlDoesNotHideBrandIcon) {
   SetIdpBrandIcon("invalid url");
   const std::string kAccountSuffix = "suffix";
@@ -974,7 +1084,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the request permission dialog is rendered correctly, when only IDP
 // icon is available.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionOnlyIdpIconAvailable) {
   TestRequestPermission(/*has_display_identifier=*/true,
                         content::IdentityRequestAccount::LoginState::kSignIn,
@@ -984,7 +1094,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the request permission dialog is rendered correctly, when only RP
 // icon is available.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionOnlyRpIconAvailable) {
   TestRequestPermission(/*has_display_identifier=*/true,
                         content::IdentityRequestAccount::LoginState::kSignIn,
@@ -994,7 +1104,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the request permission dialog is rendered correctly, when neither
 // RP nor IDP icon is available.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionNeitherRpNorIdpIconsAvailable) {
   TestRequestPermission(/*has_display_identifier=*/true,
                         content::IdentityRequestAccount::LoginState::kSignIn,
@@ -1003,7 +1113,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the request permission dialog is rendered correctly, when both RP
 // and IDP icons are available.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionBothRpAndIdpIconsAvailable) {
   TestRequestPermission(/*has_display_identifier=*/true,
                         content::IdentityRequestAccount::LoginState::kSignIn,
@@ -1013,7 +1123,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
 
 // Tests that the verifying sheet is rendered correctly, for the single account
 // flow if the user clicks the back button during the flow.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, SingleAccountFlowBack) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, SingleAccountFlowBack) {
   TestSingleAccount();
   TestRequestPermission(/*has_display_identifier=*/true);
 
@@ -1027,7 +1137,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, SingleAccountFlowBack) {
 
 // Tests that the verifying sheet is rendered correctly, for the multiple
 // account flow if the user clicks the back button during the flow.
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, MultipleAccountFlowBack) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, MultipleAccountFlowBack) {
   TestMultipleAccounts();
   TestRequestPermission(/*has_display_identifier=*/true);
 
@@ -1039,7 +1149,7 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, MultipleAccountFlowBack) {
                      /*expect_visible_combined_icons=*/true);
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, ErrorDialogTest) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, ErrorDialogTest) {
   // Generic error without error URL
   TestErrorDialog(u"Can't continue with idp-example.com",
                   u"Something went wrong",
@@ -1139,25 +1249,25 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, ErrorDialogTest) {
                   GURL(u"https://idp-example.com/more-details"));
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, OneDisabledAccount) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, OneDisabledAccount) {
   TestDisabledAccounts(/*account_suffixes=*/{"0"});
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        MultipleDisabledAccounts) {
   TestDisabledAccounts(/*account_suffixes=*/{"0", "1", "2"});
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        OneDisabledAccountAndOneEnabledAccount) {
   TestEnabledAndDisabled(/*has_display_identifier=*/true);
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, SingleIdentifier) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, SingleIdentifier) {
   TestEnabledAndDisabled(/*has_display_identifier=*/false);
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionSingleIdentifier) {
   TestRequestPermission(/*has_display_identifier=*/false,
                         content::IdentityRequestAccount::LoginState::kSignIn,
@@ -1165,43 +1275,72 @@ IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
                         /*rp_brand_icon_url=*/kRpBrandIconUrl);
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        VerifyingSheetSingleIdentifier) {
   CreateAndShowMultiAccountPicker(/*account_suffixes=*/{"0", "suffix", "2"},
                                   /*has_display_identifier=*/false);
   ShowVerifyingSheet();
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, IframeTitle) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, IframeTitle) {
   iframe_for_display_ = kIframeETLDPlusOne;
   // This will also run the header/title tests.
   CreateAccountSelectionModal();
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, MultipleIdps) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, MultipleIdps) {
   TestMultipleIdps();
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        MultipleIdpsWithMismatch) {
   TestMultipleIdpsWithMismatch();
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest, MultipleIdpsInIframe) {
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, MultipleIdpsInIframe) {
   iframe_for_display_ = kIframeETLDPlusOne;
   TestMultipleIdps();
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        RequestPermissionAfterMultipleIdps) {
   TestMultipleIdps();
   TestRequestPermission(/*has_display_identifier=*/true);
 }
 
-IN_PROC_BROWSER_TEST_F(AccountSelectionModalViewTest,
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
                        MultipleIdpsAfterRequestPermission) {
   TestRequestPermission(/*has_display_identifier=*/true);
   TestMultipleIdps();
+}
+
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, IdpPicker) {
+  TestIdpPicker();
+}
+
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest, IdpPickerInIframe) {
+  iframe_for_display_ = kIframeETLDPlusOne;
+  TestIdpPicker();
+}
+
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
+                       IdpPickerAfterMultipleIdps) {
+  TestMultipleIdps();
+  TestIdpPicker();
+}
+
+// The account chooser must show its own body text again after the IDP picker.
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
+                       MultipleIdpsAfterIdpPicker) {
+  TestIdpPicker();
+  TestMultipleIdps();
+}
+
+// Unlike account rows, an IDP row can be clicked more than once, e.g. to retry
+// after closing the IDP login pop-up.
+IN_PROC_BROWSER_TEST_P(AccountSelectionModalViewTest,
+                       IdpRowCanBeClickedMoreThanOnce) {
+  TestIdpRowCanBeClickedMoreThanOnce();
 }
 
 }  //  namespace webid

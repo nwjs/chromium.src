@@ -9,9 +9,9 @@
 #include <string_view>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
-#include "base/no_destructor.h"
 #include "base/notimplemented.h"
 #include "base/types/optional_util.h"
 #include "base/unguessable_token.h"
@@ -32,6 +32,7 @@
 #include "services/network/public/cpp/resource_request_body.h"
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/lcp_critical_path_predictor/lcp_critical_path_predictor.mojom.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
 #include "third_party/blink/public/mojom/loader/transferrable_url_loader.mojom.h"
@@ -91,11 +92,11 @@ class MockNavigationHandle : public NavigationHandle {
   bool IsInPrimaryMainFrame() const override {
     return is_in_primary_main_frame_;
   }
-  const std::optional<base::UnguessableToken>& GetScriptToolInvocationId()
+  const std::optional<blink::ToolInvocationToken>& GetScriptToolInvocationId()
       const override {
     return script_tool_invocation_id_;
   }
-  void set_script_tool_invocation_id(const base::UnguessableToken& id) {
+  void set_script_tool_invocation_id(const blink::ToolInvocationToken& id) {
     script_tool_invocation_id_ = id;
   }
   bool IsInOutermostMainFrame() const override {
@@ -255,11 +256,7 @@ class MockNavigationHandle : public NavigationHandle {
   MOCK_METHOD(scoped_refptr<InitiatorNavigationState>,
               GetInitiatorNavigationState,
               ());
-  const std::vector<std::string>& GetDnsAliases() override {
-    static const base::NoDestructor<std::vector<std::string>>
-        emptyvector_result;
-    return *emptyvector_result;
-  }
+  base::span<const std::string> GetDnsAliases() override { return {}; }
   MOCK_METHOD(void,
               RegisterThrottleForTesting,
               (std::unique_ptr<NavigationThrottle>));
@@ -459,7 +456,7 @@ class MockNavigationHandle : public NavigationHandle {
   bool is_renderer_initiated_ = true;
   bool is_in_primary_main_frame_ = true;
   size_t ignored_duplicate_navigation_count_ = 0;
-  std::optional<base::UnguessableToken> script_tool_invocation_id_;
+  std::optional<blink::ToolInvocationToken> script_tool_invocation_id_;
   std::string script_injector_host_;
   std::vector<GURL> redirect_chain_;
   bool has_committed_ = false;

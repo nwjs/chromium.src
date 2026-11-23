@@ -123,10 +123,6 @@ const base::FeatureParam<int>
 const base::FeatureParam<int>
     kOmniboxEverywhereFreMaxShortcutReminderImpressionsParam{
         &kOmniboxEverywhereFre, "MaxShortcutReminderImpressions", 3};
-// If enabled, pressing space when the AI mode button has fake focus will
-// insert a space into the omnibox and restore focus to the omnibox instead of
-// interacting with the button.
-BASE_FEATURE(kAiModeSpaceDoesNotActivate, ENABLED);
 // If enabled, disables caret color animation for the WebUI Omnibox AIM popup.
 BASE_FEATURE(kWebUIOmniboxDisableCaretColorAnimation, ENABLED);
 // If enabled, there will no longer be animation when opening the WebUI Omnibox
@@ -202,7 +198,7 @@ BASE_FEATURE(kOmniboxAnimatedCaret, ENABLED);
 BASE_FEATURE(kEnergyEffectInOmnibox, ENABLED);
 
 // If enabled, the Ai Mode button will be dynamically shown in the omnibox.
-BASE_FEATURE(kWebUIOmniboxDynamicAiModeButton, DISABLED);
+BASE_FEATURE(kWebUIOmniboxDynamicAiModeButton, ENABLED);
 
 // If enabled, prevents closing the AIM popup while file chooser is open.
 // Disabled due to focus restoration and popup deactivation issues.
@@ -349,6 +345,16 @@ bool IsWebUIOmniboxInBrowserViewEnabled() {
 
 bool IsAimPopupFeatureEnabled() {
   return base::FeatureList::IsEnabled(internal::kWebUIOmniboxAimPopup);
+}
+
+bool IsWebUIOmniboxDynamicAnimationEnabled() {
+  return base::FeatureList::IsEnabled(kWebUIOmniboxDynamicAiModeButton) &&
+         kWebUIOmniboxDynamicAnimation.Get();
+}
+
+bool IsWebUIOmniboxDynamicColorSchemeEnabled() {
+  return base::FeatureList::IsEnabled(kWebUIOmniboxDynamicAiModeButton) &&
+         kWebUIOmniboxDynamicColorScheme.Get();
 }
 
 bool ShouldDrawAimShadowInWebUI() {
@@ -579,9 +585,9 @@ const base::FeatureParam<bool> kWebUIOmniboxFullPopupDogfoodFeedback{
 const base::FeatureParam<int> kWebUIOmniboxFullPopupSnapshotCacheSize{
     &internal::kWebUIOmniboxFullPopup, "Omnibox_SnapshotCacheSize", 10};
 const base::FeatureParam<bool> kWebUIOmniboxDynamicAnimation{
-    &kWebUIOmniboxDynamicAiModeButton, "Omnibox_DynamicAnimation", false};
+    &kWebUIOmniboxDynamicAiModeButton, "Omnibox_DynamicAnimation", true};
 const base::FeatureParam<bool> kWebUIOmniboxDynamicColorScheme{
-    &kWebUIOmniboxDynamicAiModeButton, "Omnibox_DynamicColorScheme", false};
+    &kWebUIOmniboxDynamicAiModeButton, "Omnibox_DynamicColorScheme", true};
 
 FeatureConfig::FeatureConfig() : config(GetNTPComposeboxConfig()) {}
 

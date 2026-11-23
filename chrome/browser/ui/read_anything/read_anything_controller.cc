@@ -7,31 +7,24 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/accelerator_utils.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/find_bar/find_bar_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_contents_wrapper.h"
-#include "chrome/browser/ui/read_anything/read_anything_entry_point_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_enums.h"
 #include "chrome/browser/ui/read_anything/read_anything_hats_survey_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_omnibox_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
 #include "chrome/browser/ui/read_anything/read_anything_service.h"
-#include "chrome/browser/ui/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/read_anything/read_anything_side_panel_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
-#include "chrome/browser/ui/tabs/tab_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/feature_engagement/public/feature_constants.h"
 #include "components/find_in_page/find_tab_helper.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/prefs/pref_service.h"
@@ -58,7 +51,6 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "chrome/browser/pdf/pdf_extension_util.h"
-#include "components/translate/content/browser/content_translate_driver.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -91,22 +83,16 @@ GURL GetPdfUrlWithFitToWidth(const GURL& pdf_url) {
 
 WebContentsObserverInstance::WebContentsObserverInstance(
     content::WebContents* web_contents,
-    base::RepeatingClosure primary_page_changed_callback,
     base::RepeatingClosure renderer_crashed_callback,
     base::RepeatingCallback<void(content::Visibility)>
         visibility_changed_callback)
     : content::WebContentsObserver(web_contents),
-      primary_page_changed_callback_(primary_page_changed_callback),
       renderer_crashed_callback_(renderer_crashed_callback),
       visibility_changed_callback_(visibility_changed_callback) {}
 
 WebContentsObserverInstance::~WebContentsObserverInstance() = default;
 
 // content::WebContentsObserver:
-void WebContentsObserverInstance::PrimaryPageChanged(content::Page& page) {
-  primary_page_changed_callback_.Run();
-}
-
 void WebContentsObserverInstance::OnVisibilityChanged(
     content::Visibility visibility) {
   visibility_changed_callback_.Run(visibility);
@@ -139,20 +125,10 @@ ReadAnythingControllerGlue::ReadAnythingControllerGlue(
 bool ReadAnythingController::freeze_distillation_for_testing_ = false;
 
 // static
-base::TimeDelta ReadAnythingController::ai_playback_iph_delay_ =
-    ReadAnythingController::kAiPlaybackIphDefaultDelay;
-
-// static
 void ReadAnythingController::
     SetFreezeDistillationOnCreationForTesting(  // IN-TEST
         bool locked) {
   freeze_distillation_for_testing_ = locked;
-}
-
-// static
-void ReadAnythingController::SetAiPlaybackIphDelayForTesting(  // IN-TEST
-    base::TimeDelta delay) {
-  ai_playback_iph_delay_ = delay;
 }
 
 ReadAnythingController* ReadAnythingController::From(tabs::TabInterface* tab) {
@@ -164,7 +140,6 @@ ReadAnythingController::ReadAnythingController(
     SidePanelRegistry* side_panel_registry)
     : tabs::ContentsObservingTabFeature(*tab),
       tab_(tab),
-      side_panel_registry_(side_panel_registry),
       scoped_unowned_user_data_(tab->GetUnownedUserDataHost(), *this),
       read_anything_side_panel_controller_(
           std::make_unique<ReadAnythingSidePanelController>(
@@ -279,27 +254,6 @@ void ReadAnythingController::OnEntryShown(ReadAnythingOpenTrigger trigger) {
     entry_shown_timestamp_ = base::TimeTicks::Now();
   }
 
-  if (auto* user_ed = BrowserUserEducationInterface::From(
-          tab_->GetBrowserWindowInterface())) {
-    if (GetPresentationState() == PresentationState::kInImmersiveOverlay ||
-        GetPresentationState() == PresentationState::kInSidePanel) {
-      user_ed->MaybeShowFeaturePromo(
-          feature_engagement::kIPHReadingModeKeyboardShortcutFeature);
-    }
-    if (GetPresentationState() == PresentationState::kInImmersiveOverlay) {
-      user_ed->MaybeShowFeaturePromo(
-          feature_engagement::kIPHReadingModePresentationModeFeature);
-    }
-    if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() &&
-        distillation_state_ == DistillationState::kDistillationWithContent &&
-        !ai_playback_iph_timer_.IsRunning()) {
-      ai_playback_iph_timer_.Start(
-          FROM_HERE, ai_playback_iph_delay_,
-          base::BindOnce(&ReadAnythingController::MaybeShowAiPlaybackIph,
-                         weak_factory_.GetWeakPtr()));
-    }
-  }
-
   MaybeUpdateFindBarController();
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -317,10 +271,6 @@ void ReadAnythingController::OnEntryShown(ReadAnythingOpenTrigger trigger) {
 }
 
 void ReadAnythingController::OnEntryHidden() {
-  if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() &&
-      !is_presentation_transitioning_) {
-    ai_playback_iph_timer_.Stop();
-  }
   std::optional<base::TimeDelta> completed_session_duration =
       RecordEntryHiddenMetrics();
 
@@ -389,7 +339,6 @@ ReadAnythingContentsWrapper ReadAnythingController::GetOrCreateWebUIWrapper(
 
     ra_web_ui_observer_ = std::make_unique<WebContentsObserverInstance>(
         /*web_contents=*/web_ui_wrapper_->web_contents(),
-        /*primary_page_changed_callback=*/base::DoNothing(),
         /*renderer_crashed_callback=*/
         base::BindRepeating(&ReadAnythingController::OnRendererCrashed,
                             base::Unretained(this)),
@@ -554,6 +503,12 @@ void ReadAnythingController::ShowSidePanelUI(SidePanelOpenTrigger trigger) {
   }
 }
 
+void ReadAnythingController::CloseImmersiveUI(
+    base::PassKey<ReadAnythingUntrustedPageHandler>,
+    ReadAnythingCloseReason reason) {
+  CloseImmersiveUI(reason);
+}
+
 void ReadAnythingController::CloseImmersiveUI(ReadAnythingCloseReason reason) {
   if (GetPresentationState() != PresentationState::kInImmersiveOverlay) {
     return;
@@ -590,6 +545,11 @@ void ReadAnythingController::CloseSidePanelUI(ReadAnythingCloseReason reason) {
     bool suppress_animations = reason != ReadAnythingCloseReason::kClosedByUser;
     side_panel_ui->Close(hide_reason, suppress_animations);
   }
+
+  // If the side panel closed, OnSidePanelWillHide() already reported the
+  // reason. If it didn't (e.g. it's still loading, or the tab is in the
+  // background), don't report the reason for a later, unrelated close.
+  pending_side_panel_close_reason_.reset();
 }
 
 void ReadAnythingController::OnSidePanelWillHide(
@@ -604,6 +564,12 @@ void ReadAnythingController::OnSidePanelWillHide(
     reason = ReadAnythingCloseReason::kClosedByUser;
   }
   observers_.Notify(&ReadAnythingLifecycleObserver::OnWillClose, reason);
+}
+
+void ReadAnythingController::ShowInPreferredUI(
+    base::PassKey<read_anything::ReadAnythingEntryPointController>,
+    ReadAnythingOpenTrigger trigger) {
+  ShowInPreferredUI(trigger);
 }
 
 void ReadAnythingController::ShowInPreferredUI(
@@ -635,16 +601,13 @@ void ReadAnythingController::ShowInPreferredUI(
   }
 }
 
-void ReadAnythingController::ToggleUI(ReadAnythingOpenTrigger trigger) {
-  if (trigger == ReadAnythingOpenTrigger::kKeyboardShortcut) {
-    if (auto* user_ed = BrowserUserEducationInterface::From(
-            tab_->GetBrowserWindowInterface())) {
-      user_ed->NotifyFeaturePromoFeatureUsed(
-          feature_engagement::kIPHReadingModeKeyboardShortcutFeature,
-          FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
-    }
-  }
+void ReadAnythingController::ToggleUI(
+    base::PassKey<read_anything::ReadAnythingEntryPointController>,
+    ReadAnythingOpenTrigger trigger) {
+  ToggleUI(trigger);
+}
 
+void ReadAnythingController::ToggleUI(ReadAnythingOpenTrigger trigger) {
   PresentationState state = GetPresentationState();
   if (state == PresentationState::kInImmersiveOverlay) {
     CloseImmersiveUI(ReadAnythingCloseReason::kClosedByUser);
@@ -657,6 +620,12 @@ void ReadAnythingController::ToggleUI(ReadAnythingOpenTrigger trigger) {
   }
 
   ShowInPreferredUI(trigger);
+}
+
+void ReadAnythingController::TogglePresentation(
+    base::PassKey<ReadAnythingUntrustedPageHandler>,
+    bool is_user_initiated) {
+  TogglePresentation(is_user_initiated);
 }
 
 void ReadAnythingController::TogglePresentation(bool is_user_initiated) {
@@ -685,7 +654,6 @@ void ReadAnythingController::SavePresentationPreference(
   }
 }
 
-// TODO(crbug.com/458335664): Add logic to check if IRM SidePanel is showing
 ReadAnythingController::PresentationState
 ReadAnythingController::GetPresentationState() const {
   return presentation_state_;
@@ -790,15 +758,15 @@ content::WebContents* ReadAnythingController::OpenURLFromTab(
     // strictly allow-list dispositions that open new windows/tabs, and demote
     // all others.
     switch (modified_params.disposition) {
-      case WindowOpenDisposition::NEW_FOREGROUND_TAB:
-      case WindowOpenDisposition::NEW_BACKGROUND_TAB:
-      case WindowOpenDisposition::NEW_POPUP:
-      case WindowOpenDisposition::NEW_WINDOW:
-      case WindowOpenDisposition::SAVE_TO_DISK:
-      case WindowOpenDisposition::OFF_THE_RECORD:
+      case WindowOpenDisposition::kNewForegroundTab:
+      case WindowOpenDisposition::kNewBackgroundTab:
+      case WindowOpenDisposition::kNewPopup:
+      case WindowOpenDisposition::kNewWindow:
+      case WindowOpenDisposition::kSaveToDisk:
+      case WindowOpenDisposition::kOffTheRecord:
         break;
       default:
-        modified_params.disposition = WindowOpenDisposition::NEW_FOREGROUND_TAB;
+        modified_params.disposition = WindowOpenDisposition::kNewForegroundTab;
         break;
     }
 
@@ -831,76 +799,14 @@ void ReadAnythingController::OnDistillationStateChanged(
   }
 
   distillation_state_ = new_state;
-  auto* user_ed =
-      BrowserUserEducationInterface::From(tab_->GetBrowserWindowInterface());
 
-  if (new_state == DistillationState::kDistillationEmpty) {
-    if (user_ed) {
-      user_ed->AbortFeaturePromo(
-          feature_engagement::kIPHReadingModeLineFocusFeature);
-    }
-    if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled()) {
-      ai_playback_iph_timer_.Stop();
-      if (user_ed) {
-        user_ed->AbortFeaturePromo(
-            feature_engagement::kIPHReadingModeAiPlaybackFeature);
-        user_ed->AbortFeaturePromo(
-            feature_engagement::kIPHReadingModeAiPlaybackSettingsFeature);
-      }
-    }
+  if (new_state == DistillationState::kDistillationEmpty &&
+      GetPresentationState() == PresentationState::kInImmersiveOverlay) {
+    base::UmaHistogramEnumeration(
+        "Accessibility.ReadAnything.SidePanelTriggeredByEmptyState",
+        ReadAnythingOpenTrigger::kReadAnythingTogglePresentationButton);
 
-    if (GetPresentationState() == PresentationState::kInImmersiveOverlay) {
-      base::UmaHistogramEnumeration(
-          "Accessibility.ReadAnything.SidePanelTriggeredByEmptyState",
-          ReadAnythingOpenTrigger::kReadAnythingTogglePresentationButton);
-
-      TogglePresentation(/*is_user_initiated=*/false);
-    }
-  } else if (new_state == DistillationState::kDistillationWithContent &&
-             GetPresentationState() != PresentationState::kInactive &&
-             user_ed) {
-    if (features::IsReadAnythingLineFocusEnabled()) {
-      // Only show the line focus IPH if there is content because line focus
-      // does not do anything on an empty page.
-      user_ed->MaybeShowFeaturePromo(
-          feature_engagement::kIPHReadingModeLineFocusFeature);
-    }
-    if (features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() &&
-        !ai_playback_iph_timer_.IsRunning()) {
-      ai_playback_iph_timer_.Start(
-          FROM_HERE, ai_playback_iph_delay_,
-          base::BindOnce(&ReadAnythingController::MaybeShowAiPlaybackIph,
-                         weak_factory_.GetWeakPtr()));
-    }
-  }
-}
-
-void ReadAnythingController::MaybeShowAiPlaybackIph() {
-  CHECK(features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled());
-  if (GetPresentationState() == PresentationState::kInactive ||
-      distillation_state_ != DistillationState::kDistillationWithContent) {
-    return;
-  }
-  if (auto* user_ed = BrowserUserEducationInterface::From(
-          tab_->GetBrowserWindowInterface())) {
-    user_ed->MaybeShowFeaturePromo(
-        feature_engagement::kIPHReadingModeAiPlaybackFeature);
-  }
-}
-
-void ReadAnythingController::OnAiPlaybackStateChanged(bool enabled) {
-  if (!features::IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() ||
-      !enabled) {
-    return;
-  }
-  ai_playback_iph_timer_.Stop();
-  if (auto* user_ed = BrowserUserEducationInterface::From(
-          tab_->GetBrowserWindowInterface())) {
-    user_ed->NotifyFeaturePromoFeatureUsed(
-        feature_engagement::kIPHReadingModeAiPlaybackFeature,
-        FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
-    user_ed->MaybeShowFeaturePromo(
-        feature_engagement::kIPHReadingModeAiPlaybackSettingsFeature);
+    TogglePresentation(/*is_user_initiated=*/false);
   }
 }
 
@@ -908,21 +814,6 @@ void ReadAnythingController::OnDistillationStatus(
     read_anything::mojom::DistillationStatus status,
     int word_count) {
   content::WebContents* web_contents = tab_->GetContents();
-#if BUILDFLAG(ENABLE_PDF)
-  if (last_open_trigger_ == ReadAnythingOpenTrigger::kPdfTranslation &&
-      status == read_anything::mojom::DistillationStatus::kSuccess) {
-    // Target the tab's WebContents because ContentTranslateDriver is attached
-    // to the outer primary tab WebContents, not the inner GuestView
-    // WebContents hosting the PDF.
-    if (web_contents) {
-      auto* driver =
-          translate::ContentTranslateDriver::FromWebContents(web_contents);
-      if (driver) {
-        driver->MaybeTriggerPendingPdfTranslation();
-      }
-    }
-  }
-#endif  // BUILDFLAG(ENABLE_PDF)
   if (last_open_trigger_ == ReadAnythingOpenTrigger::kOmniboxChip) {
     if (status != read_anything::mojom::DistillationStatus::kStillRunning) {
       last_open_trigger_ = ReadAnythingOpenTrigger::kUnknown;

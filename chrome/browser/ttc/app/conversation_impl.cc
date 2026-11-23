@@ -7,14 +7,13 @@
 #include <utility>
 
 #include "base/check.h"
-#include "base/functional/bind.h"
 #include "base/notimplemented.h"
-#include "chrome/browser/ttc/app/audio_controller.h"
+#include "chrome/browser/ttc/app/public/audio_controller.h"
 #include "chrome/browser/ttc/core/session_controller.h"
-#include "chrome/browser/ttc/core/session_journal.h"
 #include "chrome/browser/ttc/core/states.h"
 #include "components/actor/core/journal_details_builder.h"
 #include "components/ttc/app/public/error_codes.h"
+#include "components/ttc/app/public/session_journal.h"
 
 namespace ttc {
 
@@ -34,33 +33,12 @@ ConversationImpl::~ConversationImpl() {
 }
 
 void ConversationImpl::Start() {
-  audio_capture_subscription_ =
-      audio_controller_->AddAudioCaptureListener(base::BindRepeating(
-          &ConversationImpl::OnCapturedAudio, base::Unretained(this)));
-  audio_energy_subscription_ =
-      audio_controller_->AddAudioEnergyListener(base::BindRepeating(
-          &ConversationImpl::OnAudioEnergy, base::Unretained(this)));
-  playback_completion_subscription_ =
-      audio_controller_->AddPlaybackCompletionListener(base::BindRepeating(
-          &ConversationImpl::OnPlaybackCompleted, base::Unretained(this)));
-  audio_capture_error_subscription_ =
-      audio_controller_->AddErrorListener(base::BindRepeating(
-          &ConversationImpl::OnBackendError, base::Unretained(this)));
-  audio_controller_->StartCapture();
-
+  audio_controller_observation_.Observe(audio_controller_.get());
   backend_->Connect(this);
-
-  // TODO(b/562979451): This needs to be called once we've received a reply.
-  // Also audio playback/capture should be started only then too. Make this
-  // change once backend is reliably hooked up.
-  session_controller_->OnSessionInitialized();
 }
 
 void ConversationImpl::Stop() {
-  audio_capture_subscription_ = {};
-  audio_energy_subscription_ = {};
-  playback_completion_subscription_ = {};
-  audio_capture_error_subscription_ = {};
+  audio_controller_observation_.Reset();
 
   audio_controller_->StopCapture();
   audio_controller_->StopPlayback();
@@ -86,21 +64,34 @@ void ConversationImpl::OnPageContextInvalidated() {
 }
 
 void ConversationImpl::OnCapturedAudio(base::span<const int16_t> pcm_data,
-                                       const media::AudioParameters& params) {
+                                       const media::AudioParameters& params,
+                                       float energy) {
   backend_->SendAudioChunk(pcm_data);
+  session_controller_->UserAudioLevelUpdate(energy);
 }
 
-void ConversationImpl::OnAudioEnergy(float energy) {
-  session_controller_->UserAudioLevelUpdate(energy);
+void ConversationImpl::OnModelAudioEnvelopeReady(
+    const AudioEnvelope& envelope) {
+  session_controller_->OnModelAudioEnvelopeReady(envelope);
 }
 
 void ConversationImpl::OnPlaybackCompleted(int64_t sequence_number) {
   backend_->ReportPlaybackStatus(sequence_number);
 }
 
+void ConversationImpl::OnAudioError(ErrorCode error) {
+  session_controller_->OnError(error);
+}
+
 void ConversationImpl::OnBackendInitialized() {
+  if (session_controller_->GetSessionLifecycle() ==
+      SessionLifecycle::kFinished) {
+    return;
+  }
   backend_->SendToolSetUpdate(session_controller_->GetToolDefinitions());
   session_controller_->SetSessionLifecycle(SessionLifecycle::kLive);
+  audio_controller_->StartCapture(/*device_id=*/"");
+  session_controller_->OnSessionInitialized();
 }
 
 void ConversationImpl::OnBackendClosed() {
@@ -115,7 +106,12 @@ void ConversationImpl::OnBackendError(ErrorCode error) {
 void ConversationImpl::OnTranscriptions(
     const std::string& input_transcription,
     const std::string& output_transcription) {
-  NOTIMPLEMENTED();
+  if (!input_transcription.empty()) {
+    session_controller_->OnInputTranscription(input_transcription);
+  }
+  if (!output_transcription.empty()) {
+    session_controller_->OnOutputTranscription(output_transcription);
+  }
 }
 
 void ConversationImpl::OnAudioOutput(base::span<const int16_t> audio_data,
@@ -134,6 +130,13 @@ void ConversationImpl::OnGenerationStateChanged(bool started,
                                             .Build());
   if (interrupted) {
     audio_controller_->ClearPlaybackQueue();
+    session_controller_->OnModelInterrupted();
+  }
+  if (started) {
+    session_controller_->OnModelTurnStarted();
+  }
+  if (completed) {
+    session_controller_->OnModelTurnComplete();
   }
 }
 

@@ -22,8 +22,21 @@ chromium-metrics-reviews@google.com.
 
 <histograms>
 
+<histogram name="ContentSettings.ActiveExpiry.RevokedSettingType"
+    enum="ContentType" expires_after="2027-04-14">
+  <owner>antoniosartori@chromium.org</owner>
+  <owner>src/components/permissions/PERMISSIONS_OWNERS</owner>
+  <summary>
+    Records the content setting type of each content setting exception that is
+    actively revoked by HostContentSettingsMap because it is (nearly) expired.
+    One sample is emitted per revoked exception. Only recorded when the
+    ActiveContentSettingExpiry feature is enabled, and only for types that
+    support active expiry.
+  </summary>
+</histogram>
+
 <histogram name="ContentSettings.AllowStorageAccessSync" units="ms"
-    expires_after="2027-02-14">
+    expires_after="2027-04-18">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -34,7 +47,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSettings.AllowStorageAccessSync.CacheHit"
-    enum="Boolean" expires_after="2027-02-14">
+    enum="Boolean" expires_after="2027-04-18">
   <owner>sisidovski@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
@@ -199,7 +212,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContentSettings.RegularProfile.DefaultJavascriptOptimizationBlockedByOs"
-    enum="Boolean" expires_after="2027-02-07">
+    enum="Boolean" expires_after="2027-04-11">
   <owner>jacastro@chromium.org</owner>
   <owner>src/chrome/browser/site_protection/OWNERS</owner>
   <summary>
@@ -212,7 +225,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContentSettings.RegularProfile.DefaultJavaScriptOptimizationSetting"
-    enum="ContentSetting" expires_after="2027-02-07">
+    enum="ContentSetting" expires_after="2027-04-11">
   <owner>jacastro@chromium.org</owner>
   <owner>src/chrome/browser/site_protection/OWNERS</owner>
   <summary>
@@ -609,7 +622,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="ContentSettings.{RegularProfileFiltered}DefaultRequestDesktopSiteSetting"
-    enum="ContentSetting" expires_after="2027-02-07">
+    enum="ContentSetting" expires_after="2027-04-11">
   <owner>shuyng@google.com</owner>
   <owner>twellington@chromium.org</owner>
   <summary>

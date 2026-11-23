@@ -19,9 +19,6 @@ static_library("auth") {
     "//base",
     "//chrome/browser/ash/login/quick_unlock",
     "//chrome/browser/ash/login/users",
-    "//chrome/browser/ash/profiles",
-    "//chrome/browser/profiles:profile",
-    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/ui/ash/login",
     "//chrome/browser/ui/webui/ash/settings/pages/privacy",
     "//chromeos/ash/components/cryptohome",
@@ -30,6 +27,7 @@ static_library("auth") {
     "//chromeos/ash/components/login/auth",
     "//components/account_id",
     "//components/prefs",
+    "//components/session_manager/core",
     "//components/user_manager",
   ]
 

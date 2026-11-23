@@ -4,6 +4,8 @@
 
 #include "ios/chrome/browser/signin/model/signin_error_controller_factory.h"
 
+#include <utility>
+
 #include "base/memory/ptr_util.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/signin/core/browser/signin_error_controller.h"
@@ -12,25 +14,11 @@
 
 namespace ios {
 
-// static
-SigninErrorController* SigninErrorControllerFactory::GetForProfile(
-    ProfileIOS* profile) {
-  return GetInstance()->GetServiceForProfileAs<SigninErrorController>(
-      profile, /*create=*/true);
-}
-
-// static
-SigninErrorControllerFactory* SigninErrorControllerFactory::GetInstance() {
-  static base::NoDestructor<SigninErrorControllerFactory> instance;
-  return instance.get();
-}
-
-SigninErrorControllerFactory::SigninErrorControllerFactory()
-    : ProfileKeyedServiceFactoryIOS("SigninErrorController") {
+SigninErrorControllerFactory::SigninErrorControllerFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(std::move(key),
+                                         "SigninErrorController") {
   DependsOn(IdentityManagerFactory::GetInstance());
 }
-
-SigninErrorControllerFactory::~SigninErrorControllerFactory() = default;
 
 std::unique_ptr<KeyedService>
 SigninErrorControllerFactory::BuildServiceInstanceFor(

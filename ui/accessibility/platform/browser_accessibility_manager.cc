@@ -12,8 +12,8 @@
 #include <ranges>
 #include <utility>
 
-#include "base/auto_reset.h"
 #include "base/check_deref.h"
+#include "base/containers/span.h"
 #include "base/logging.h"
 #include "base/memory/safety_checks.h"
 #include "base/metrics/histogram_functions.h"
@@ -22,6 +22,7 @@
 #include "base/notreached.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/accessibility/ax_common.h"
 #include "ui/accessibility/ax_tree_data.h"
@@ -309,14 +310,16 @@ void BrowserAccessibilityManager::FireGeneratedEvent(
 
   const auto& node_data = wrapper->GetData();
 
-  const auto& announcements = node_data.GetStringListAttribute(
-      ax::mojom::StringListAttribute::kAriaNotificationAnnouncements);
-  const auto& priority_properties = node_data.GetIntListAttribute(
-      ax::mojom::IntListAttribute::kAriaNotificationPriorityProperties);
-  const std::vector<std::int32_t> interrupt_properties =
+  base::span<const std::string> announcements =
+      node_data.GetStringListAttribute(
+          ax::mojom::StringListAttribute::kAriaNotificationAnnouncements);
+  base::span<const std::int32_t> priority_properties =
+      node_data.GetIntListAttribute(
+          ax::mojom::IntListAttribute::kAriaNotificationPriorityProperties);
+  base::span<const std::int32_t> interrupt_properties =
       node_data.GetIntListAttribute(
           ax::mojom::IntListAttribute::kAriaNotificationInterruptProperties);
-  const std::vector<std::string> types = node_data.GetStringListAttribute(
+  base::span<const std::string> types = node_data.GetStringListAttribute(
       ax::mojom::StringListAttribute::kAriaNotificationTypes);
 
   DCHECK_EQ(announcements.size(), priority_properties.size());
@@ -506,12 +509,19 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
   // remove this exclusion.
   base::ScopedSafetyChecksExclusion scoped_unsafe;
 
+  base::WeakPtr<AXTreeManager> alive = GetWeakPtr();
+
 #if BUILDFLAG(IS_WIN)
   CHECK(!in_on_accessibility_events_)
       << "Should not re-enter OnAccessiblityEvents()";
 #endif  // BUILDFLAG(IS_WIN)
 #if BUILDFLAG(IS_WIN) || DCHECK_IS_ON()
-  base::AutoReset<bool> auto_reset(&in_on_accessibility_events_, true);
+  in_on_accessibility_events_ = true;
+  absl::Cleanup reset_in_on_accessibility_events = [this, &alive] {
+    if (alive) {
+      in_on_accessibility_events_ = false;
+    }
+  };
 #endif  // BUILDFLAG(IS_WIN) || DCHECK_IS_ON()
 
   // Update the cached device scale factor.
@@ -537,6 +547,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
       CHECK(delegate_) << ax_tree()->error();
       return false;
     }
+    if (!alive) {
+      return true;
+    }
 
     // It's a bug if we got an update containing more nodes than
     // the size of the resulting tree. If Unserialize succeeded that
@@ -552,6 +565,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
   DCHECK(ax_tree()->root());
 
   EnsureParentConnectionIfNotRootManager();
+  if (!alive) {
+    return true;
+  }
 
   if (!CanFireEvents()) {
     // TODO(accessibility) Change AXEventGenerator() to avoid doing any work
@@ -611,6 +627,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
     defer_load_complete_event_ = false;
     FireSourceEvent(ax::mojom::Event::kLoadComplete,
                     GetBrowserAccessibilityRoot(), -1);
+    if (!alive) {
+      return true;
+    }
   }
 
   // Fire any events related to changes to the tree that come from ancestors of
@@ -642,6 +661,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
     if (focus && focus != event_target && focus->IsDescendantOf(event_target)) {
       FireGeneratedEvent(targeted_event.event_params->event,
                          event_target->node());
+      if (!alive) {
+        return true;
+      }
     } else {
       deferred_events.push_back(targeted_event);
     }
@@ -661,6 +683,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
   }
   if (focus_manager) {
     focus_manager->FireFocusEventsIfNeeded();
+    if (!alive) {
+      return true;
+    }
   }
 
   // Now fire all of the rest of the generated events we previously deferred.
@@ -683,6 +708,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
 
     FireGeneratedEvent(targeted_event.event_params->event,
                        event_target->node());
+    if (!alive) {
+      return true;
+    }
   }
   event_generator().ClearEvents();
 
@@ -736,6 +764,9 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
     }
 
     FireSourceEvent(event.event_type, retargeted, event.action_request_id);
+    if (!alive) {
+      return true;
+    }
   }
 
   if (received_load_complete_event) {
@@ -743,12 +774,18 @@ bool BrowserAccessibilityManager::OnAccessibilityEvents(
     // the platform independent events have already fired.
     // Some screen readers need a focus event in order to work properly.
     FireFocusEventsIfNeeded();
+    if (!alive) {
+      return true;
+    }
   }
 
   // Allow derived classes to do event post-processing. This must run after
   // all generated and source events so that finalized UIA events (e.g.
   // Text_TextChanged, TestComplete) are raised in the correct order.
   FinalizeAccessibilityEvents();
+  if (!alive) {
+    return true;
+  }
 
   if (!is_post_load_) {
     for (const AXEvent& event : details.events) {
@@ -1713,10 +1750,8 @@ std::u16string BrowserAccessibilityManager::GetTextForRange(
     if (start_offset > end_offset)
       std::swap(start_offset, end_offset);
 
-    if (start_offset >=
-            static_cast<int>(start_object.GetTextContentLengthUTF16()) ||
-        end_offset >
-            static_cast<int>(start_object.GetTextContentLengthUTF16())) {
+    const int start_text_length = start_object.GetTextContentLengthUTF16();
+    if (start_offset >= start_text_length || end_offset > start_text_length) {
       return std::u16string();
     }
 
@@ -1735,14 +1770,12 @@ std::u16string BrowserAccessibilityManager::GetTextForRange(
       std::swap(start_offset, end_offset);
 
     const BrowserAccessibility* text_object = text_only_objects[0];
-    if (start_offset <
-            static_cast<int>(text_object->GetTextContentLengthUTF16()) &&
-        end_offset <=
-            static_cast<int>(text_object->GetTextContentLengthUTF16())) {
-      return text_object->GetTextContentUTF16().substr(
-          start_offset, end_offset - start_offset);
+    const std::u16string text = text_object->GetTextContentUTF16();
+    const int text_length = static_cast<int>(text.length());
+    if (start_offset < text_length && end_offset <= text_length) {
+      return text.substr(start_offset, end_offset - start_offset);
     }
-    return text_object->GetTextContentUTF16();
+    return text;
   }
 
   std::u16string text;
@@ -1754,11 +1787,11 @@ std::u16string BrowserAccessibilityManager::GetTextForRange(
   if (!first_object || first_object != start_text_object)
     std::swap(start_offset, end_offset);
 
-  if (start_offset <
-      static_cast<int>(start_text_object->GetTextContentUTF16().length())) {
-    text += start_text_object->GetTextContentUTF16().substr(start_offset);
+  const std::u16string start_text = start_text_object->GetTextContentUTF16();
+  if (start_offset < static_cast<int>(start_text.length())) {
+    text += start_text.substr(start_offset);
   } else {
-    text += start_text_object->GetTextContentUTF16();
+    text += start_text;
   }
 
   for (size_t i = 1; i < text_only_objects.size() - 1; ++i) {
@@ -1766,11 +1799,11 @@ std::u16string BrowserAccessibilityManager::GetTextForRange(
   }
 
   const BrowserAccessibility* end_text_object = text_only_objects.back();
-  if (end_offset <=
-      static_cast<int>(end_text_object->GetTextContentLengthUTF16())) {
-    text += end_text_object->GetTextContentUTF16().substr(0, end_offset);
+  const std::u16string end_text = end_text_object->GetTextContentUTF16();
+  if (end_offset <= static_cast<int>(end_text.length())) {
+    text += end_text.substr(0, end_offset);
   } else {
-    text += end_text_object->GetTextContentUTF16();
+    text += end_text;
   }
 
   return text;
@@ -1789,10 +1822,8 @@ gfx::Rect BrowserAccessibilityManager::GetRootFrameInnerTextRangeBoundsRect(
     if (start_offset > end_offset)
       std::swap(start_offset, end_offset);
 
-    if (start_offset >=
-            static_cast<int>(start_object.GetTextContentLengthUTF16()) ||
-        end_offset >
-            static_cast<int>(start_object.GetTextContentLengthUTF16())) {
+    const int start_text_length = start_object.GetTextContentLengthUTF16();
+    if (start_offset >= start_text_length || end_offset > start_text_length) {
       return gfx::Rect();
     }
 
@@ -2092,14 +2123,14 @@ BrowserAccessibility* BrowserAccessibilityManager::ApproximateHitTest(
 }
 
 void BrowserAccessibilityManager::DetachFromParentManager() {
+  if (!std::exchange(connected_to_parent_tree_node_, false)) {
+    return;
+  }
   // Notify the parent to invalidate its hypertext cache before disconnecting,
   // otherwise stale hyperlink IDs can cause type confusion after reassignment.
-  if (connected_to_parent_tree_node_) {
-    if (AXNode* parent = GetParentNodeFromParentTree()) {
-      UpdateAttributesOnParent(parent);
-    }
+  if (AXNode* parent = GetParentNodeFromParentTree()) {
+    UpdateAttributesOnParent(parent);
   }
-  connected_to_parent_tree_node_ = false;
 }
 
 void BrowserAccessibilityManager::BuildAXTreeHitTestCache() {

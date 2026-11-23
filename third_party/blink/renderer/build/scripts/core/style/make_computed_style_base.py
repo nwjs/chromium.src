@@ -60,7 +60,7 @@ ALIGNMENT_ORDER = [
     'StyleTriggerScope',
     # Aligns like float (32 bits)
     'DynamicRangeLimit',
-    'FlowTolerance',
+    'FitTolerance',
     'Length',
     'LengthBox',
     'LengthPoint',
@@ -89,6 +89,7 @@ ALIGNMENT_ORDER = [
     'StyleSelfAlignmentData',
     'cc::ScrollSnapAlign',
     'cc::ScrollSnapType',
+    'cc::SnapStop',
     'gfx::Size',
     'int',
     'std::optional<PhysicalOffset>',

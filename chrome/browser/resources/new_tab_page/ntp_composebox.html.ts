@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import {ToolMode} from '//resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import {GlowMode} from '//resources/cr_components/search/constants.js';
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {NtpComposeboxElement} from './ntp_composebox.js';
@@ -14,7 +15,7 @@ export function getHtml(this: NtpComposeboxElement) {
   return html`<!--_html_template_start_-->
     <search-animated-glow id="animatedSearchElement"
         animation-state="${this.animationState}"
-        entrypoint-name="Realbox"
+        .glowMode="${this.willFulfillInAim ? GlowMode.OUTER_GLOW : GlowMode.NONE}"
         .coloredTicTacVoiceAnimationEnabled="${this.voiceSearchCoherenceEnabled}"
         .requiresVoice="${this.shouldShowVoiceSearchAnimation()}"
         .transcript="${this.transcript}"
@@ -77,7 +78,8 @@ export function getHtml(this: NtpComposeboxElement) {
             class="${this.hasTabs() ? 'has-tabs' : ''}"
             exportparts="text-container, icon-container, mirror, input, smart-compose, cancel, action-icon, cancel-icon"
             .composeboxSkillsEnabled="${this.composeboxSkillsEnabled}"
-            .disableCaretColorAnimation="${this.disableCaretColorAnimation}"
+            .disableCaretColorAnimation="${
+                this.disableCaretColorAnimation || !this.willFulfillInAim}"
             .showDropdown="${this.showDropdown}"
             .inputPlaceholder="${this.inputPlaceholder}"
             .input="${this.input}"
@@ -85,6 +87,8 @@ export function getHtml(this: NtpComposeboxElement) {
             .smartComposeInlineHint="${this.smartComposeInlineHint}"
             .submitEnabled="${this.submitEnabled}"
             .cancelButtonTitle="${this.computeCancelButtonTitle()}"
+            .hideCancel="${this.persistentAimButtonEnabled_}"
+            .skipEmptyHeightLock="${this.persistentAimButtonEnabled_}"
             @input-input="${this.onInputInput}"
             @input-focusin="${this.onInputFocusin}"
             @cancel-click="${this.onCancelClick}"
@@ -96,6 +100,20 @@ export function getHtml(this: NtpComposeboxElement) {
                 @click="${this.onVoiceSearchButtonClick}"
                 title="${this.i18n('voiceSearchButtonLabel')}">
             </cr-icon-button>
+          ` : ''}
+          ${this.persistentAimButtonEnabled_ ? html`
+            <cr-composebox-aim-button slot="action-buttons"
+                .mode="${this.getAimButtonMode()}"
+                .showExitIcon="${this.showAimButtonExitIcon_}"
+                .disabled="${this.isAimButtonDisabled()}"
+                .energyEffectAnimationEnabled="${
+                    this.energyEffectAnimationEnabled}"
+                .label="${this.i18n('searchboxComposeButtonText')}"
+                .exitTitle="${this.i18n('composeboxAimButtonExitTitle')}"
+                .sendTitle="${this.i18n('composeboxAimButtonSendTitle')}"
+                @aim-button-click="${this.onAimButtonClick}"
+                @focusin="${this.onAimButtonFocusin}">
+            </cr-composebox-aim-button>
           ` : ''}
         </cr-composebox-input>
         <div id="context" part="context-entrypoint">
@@ -128,7 +146,8 @@ export function getHtml(this: NtpComposeboxElement) {
                   </div>
                   ` : ''}
               </div>
-              ${this.shouldShowSubmitButton() ? html`
+              ${!this.persistentAimButtonEnabled_ &&
+                  this.shouldShowSubmitButton() ? html`
               <cr-composebox-submit
                 exportparts="action-icon, submit, submit-icon, submit-overlay"
                 ?disabled="${!this.canSubmitFilesAndInput}"

@@ -253,13 +253,54 @@ bool IsValidMimeType(const String& content_type,
 
   const auto& parameters = parsed_content_type.GetParameters();
 
-  if (parameters.ParameterCount() > 1)
+  if (parameters.ParameterCount() > 1) {
     return false;
+  }
 
-  if (parameters.ParameterCount() == 0)
-    return true;
+  if (!base::FeatureList::IsEnabled(
+          media::kMediaCapabilitiesStrictMimeTypeValidation)) {
+    if (parameters.ParameterCount() == 0) {
+      return true;
+    }
+    return EqualIgnoringAsciiCase(parameters.begin()->name,
+                                  kCodecsMimeTypeParam);
+  }
 
-  return EqualIgnoringAsciiCase(parameters.begin()->name, kCodecsMimeTypeParam);
+  if (parameters.ParameterCount() == 0) {
+    if (prefix == kAudioMimeTypePrefix) {
+      return media::ParseAudioCodecString(mime_type.Ascii(), "", false)
+          .has_value();
+    }
+    if (prefix == kVideoMimeTypePrefix) {
+      return media::ParseVideoCodecString(mime_type.Ascii(), "", false)
+          .has_value();
+    }
+    return false;
+  }
+
+  if (!EqualIgnoringAsciiCase(parameters.begin()->name, kCodecsMimeTypeParam)) {
+    return false;
+  }
+
+  std::vector<std::string> codecs;
+  media::SplitCodecs(parameters.begin()->value.Utf8(), &codecs);
+  if (codecs.size() != 1) {
+    return false;
+  }
+
+  if (mime_type.starts_with(kApplicationMimeTypePrefix)) {
+    if (prefix == kAudioMimeTypePrefix) {
+      return media::ParseAudioCodecString(mime_type.Ascii(), codecs[0], true)
+          .has_value();
+    }
+    if (prefix == kVideoMimeTypePrefix) {
+      return media::ParseVideoCodecString(mime_type.Ascii(), codecs[0], true)
+          .has_value();
+    }
+    return false;
+  }
+
+  return true;
 }
 
 bool IsValidMediaConfiguration(const MediaConfiguration* configuration) {
@@ -277,6 +318,14 @@ bool IsValidVideoConfiguration(const VideoConfiguration* configuration,
   DCHECK(configuration->hasFramerate());
   if (!IsValidFrameRate(configuration->framerate()))
     return false;
+
+  // hdrMetadataType, colorGamut, and transferFunction are only valid for
+  // non-WebRTC decode configurations ('file' and 'media-source').
+  if ((!is_decode || is_webrtc) &&
+      (configuration->hasHdrMetadataType() || configuration->hasColorGamut() ||
+       configuration->hasTransferFunction())) {
+    return false;
+  }
 
   // scalabilityMode only valid for WebRTC encode configuration.
   if ((!is_webrtc || is_decode) && configuration->hasScalabilityMode())

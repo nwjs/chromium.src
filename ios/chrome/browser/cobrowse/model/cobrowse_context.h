@@ -7,6 +7,13 @@
 
 #import <Foundation/Foundation.h>
 
+#import <memory>
+
+namespace contextual_search {
+class ContextualSearchSessionHandle;
+}  // namespace contextual_search
+
+enum class AssistantAimEntrypoint;
 @class ComposeboxInputItem;
 class GURL;
 
@@ -28,11 +35,29 @@ class GURL;
 // Corresponds to the "mstk" query parameter.
 @property(nonatomic, copy, readonly) NSString* turnID;
 
-// The items attached from the composebox.
-@property(nonatomic, copy) NSArray<ComposeboxInputItem*>* attachedItems;
+// The tab items attached from the composebox.
+@property(nonatomic, copy) NSArray<ComposeboxInputItem*>* attachedTabItems;
+
+// Whether this context holds a transferable contextual search session handle.
+@property(nonatomic, assign, readonly) BOOL hasContextualSearchSession;
+
+// Entrypoint that initiated the cobrowse session.
+@property(nonatomic, assign) AssistantAimEntrypoint entrypoint;
 
 // Whether the context contains server session tokens (mstk, mtid, or cinpts).
 @property(nonatomic, assign, readonly) BOOL hasServerSessionTokens;
+
+// Sets the contextual search session handle transferred from the composebox.
+- (void)setContextualSearchSession:
+    (std::unique_ptr<contextual_search::ContextualSearchSessionHandle>)session;
+
+// Transfers ownership of the stored contextual search session handle to the
+// caller, leaving the context's session handle empty.
+- (std::unique_ptr<contextual_search::ContextualSearchSessionHandle>)
+    takeContextualSearchSession;
+
+// Transfers and clears the attached tab items stored in this context.
+- (NSArray<ComposeboxInputItem*>*)takeAttachedTabItems;
 
 // Returns a default context with the base search URL, used mainly for debugging
 // purposes.

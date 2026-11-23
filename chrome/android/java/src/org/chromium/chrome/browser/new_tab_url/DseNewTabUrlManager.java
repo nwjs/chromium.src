@@ -16,23 +16,20 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.regional_capabilities.RegionalCapabilitiesServiceFactory;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
-import org.chromium.components.regional_capabilities.RegionalCapabilitiesService;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.search_engines.TemplateUrlService.TemplateUrlServiceObserver;
 
 /**
- * A central class for feature NewTabSearchEngineUrlAndroid which swaps out NTP if the default
- * search engine isn't Google. It holds a reference of {@link TemplateUrlService} and observes the
- * DSE changes to update the cached values in the SharedPreference.
+ * A central class which swaps out NTP if the default search engine isn't Google. It holds a
+ * reference of {@link TemplateUrlService} and observes the DSE changes to update the cached values
+ * in the SharedPreference.
  */
 @NullMarked
 public class DseNewTabUrlManager {
     private MonotonicObservableSupplier<Profile> mProfileSupplier;
     private @Nullable Callback<Profile> mProfileCallback;
-    private @MonotonicNonNull RegionalCapabilitiesService mRegionalCapabilities;
     private @MonotonicNonNull TemplateUrlService mTemplateUrlService;
     private @MonotonicNonNull TemplateUrlServiceObserver mTemplateUrlServiceObserver;
 
@@ -44,7 +41,6 @@ public class DseNewTabUrlManager {
 
     @SuppressWarnings("NullAway")
     public void destroy() {
-        mRegionalCapabilities = null;
         if (mProfileSupplier != null && mProfileCallback != null) {
             mProfileSupplier.removeObserver(mProfileCallback);
             mProfileCallback = null;
@@ -55,11 +51,6 @@ public class DseNewTabUrlManager {
             mTemplateUrlServiceObserver = null;
             mTemplateUrlService = null;
         }
-    }
-
-    /** Returns whether the feature NewTabSearchEngineUrlAndroid is enabled. */
-    public static boolean isNewTabSearchEngineUrlAndroidEnabled() {
-        return true;
     }
 
     /**
@@ -95,7 +86,6 @@ public class DseNewTabUrlManager {
 
     @VisibleForTesting
     void onProfileAvailable(Profile profile) {
-        mRegionalCapabilities = RegionalCapabilitiesServiceFactory.getForProfile(profile);
         mTemplateUrlService = TemplateUrlServiceFactory.getForProfile(profile);
         if (mTemplateUrlServiceObserver == null) {
             mTemplateUrlServiceObserver = this::onTemplateURLServiceChanged;
@@ -108,15 +98,10 @@ public class DseNewTabUrlManager {
     }
 
     private void onTemplateURLServiceChanged() {
-        assumeNonNull(mRegionalCapabilities);
         assumeNonNull(mTemplateUrlService);
         boolean isDseGoogle = mTemplateUrlService.isDefaultSearchEngineGoogle();
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.IS_DSE_GOOGLE, isDseGoogle);
-        ChromeSharedPreferences.getInstance()
-                .writeBoolean(
-                        ChromePreferenceKeys.IS_EEA_CHOICE_COUNTRY,
-                        mRegionalCapabilities.isInEeaCountry());
         if (isDseGoogle) {
             ChromeSharedPreferences.getInstance().removeKey(ChromePreferenceKeys.DSE_NEW_TAB_URL);
         } else {
@@ -129,14 +114,5 @@ public class DseNewTabUrlManager {
 
     public @Nullable TemplateUrlService getTemplateUrlServiceForTesting() {
         return mTemplateUrlService;
-    }
-
-    public static void setIsEeaChoiceCountryForTesting(boolean isEeaChoiceCountry) {
-        ChromeSharedPreferences.getInstance()
-                .writeBoolean(ChromePreferenceKeys.IS_EEA_CHOICE_COUNTRY, isEeaChoiceCountry);
-    }
-
-    public static void resetIsEeaChoiceCountryForTesting() {
-        ChromeSharedPreferences.getInstance().removeKey(ChromePreferenceKeys.IS_EEA_CHOICE_COUNTRY);
     }
 }

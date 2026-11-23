@@ -58,6 +58,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.MultiColumnSettings;
 import org.chromium.chrome.browser.settings.SettingsContainmentHelper;
+import org.chromium.components.browser_ui.settings.search.PreferenceParser;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.ui.accessibility.AccessibilityState;
@@ -159,6 +160,7 @@ public class SettingsSearchCoordinatorUnitTest {
         AccessibilityState.setDelegateForTesting(null);
         LocalizationUtils.setRtlForTesting(false);
         SettingsIndexData.reset();
+        RecentSearchQueue.getInstance().clear();
         // Avoid runnable pollution between tests.
         ShadowLooper.idleMainLooper();
     }
@@ -954,6 +956,102 @@ public class SettingsSearchCoordinatorUnitTest {
         assertEquals(View.VISIBLE, queryContainer.getVisibility());
     }
 
+    /** Regression test for https://crbug.com/572594190. */
+    @Test
+    public void testStaleIndexWhileBrowsingResults_rebuildsAndRefreshesResultsOnReturn() {
+        SettingsIndexData indexData = SettingsIndexData.createInstance();
+        indexData.resetNeedsIndexing();
+        var entry =
+                new SettingsIndexData.Entry.Builder(
+                                PreferenceParser.createUniqueId("ManageSyncSettings", "sign_out"),
+                                "sign_out",
+                                "Sign out",
+                                "ManageSyncSettings")
+                        .build();
+        indexData.addEntry(entry.id, entry);
+
+        setUpMultiColumnSettings();
+        mUseMultiColumn = true;
+        FragmentManager fragmentManager = mActivity.getSupportFragmentManager();
+        mCoordinator = createCoordinator(/* shownInTab= */ true);
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+
+        // Enter search, show a result for "Sign out" and open it.
+        View searchBox = mActivity.findViewById(R.id.search_box);
+        searchBox.performClick();
+        fragmentManager.executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+        EditText queryEdit = mActivity.findViewById(R.id.search_query);
+        queryEdit.setText("sign out");
+        var results = new SettingsIndexData.SearchResults();
+        results.addItem(entry, 100);
+        mCoordinator.displayResultsFragment(results);
+        fragmentManager.executePendingTransactions();
+        fragmentManager
+                .beginTransaction()
+                .replace(R.id.preferences_detail, new Fragment())
+                .addToBackStack(SettingsSearchCoordinator.RESULT_BACKSTACK)
+                .setReorderingAllowed(true)
+                .commit();
+        fragmentManager.executePendingTransactions();
+        mCoordinator.setFragmentState(SettingsSearchCoordinator.FS_RESULTS);
+
+        // Signing out on the account page marks the index stale and asks for the results to be
+        // refreshed on return. See ManageSyncSettings#onPrimaryAccountChanged().
+        indexData.setNeedsIndexing();
+        indexData.setRefreshResult(true);
+
+        // The result page closing returns to the results, rebuilds the index and re-runs the
+        // query. Building the real index needs native, so pretend the rebuild happened.
+        indexData.resetNeedsIndexing();
+        mCoordinator.handleBackAction();
+        fragmentManager.executePendingTransactions();
+        assertFalse(indexData.shouldRefreshResult());
+        assertTrue(mCoordinator.isSearchOpen());
+        View queryContainer = mActivity.findViewById(R.id.search_query_container);
+        assertEquals(View.VISIBLE, queryContainer.getVisibility());
+        mCoordinator.destroy();
+    }
+
+    /** Regression test for https://crbug.com/572594190. */
+    @Test
+    public void testRecentSearches_omitEntriesNoLongerInIndex() {
+        SettingsIndexData indexData = SettingsIndexData.createInstance();
+        indexData.resetNeedsIndexing();
+        var themeEntry =
+                new SettingsIndexData.Entry.Builder(
+                                PreferenceParser.createUniqueId("MainSettings", "theme"),
+                                "theme",
+                                "Theme",
+                                "MainSettings")
+                        .build();
+        var signOutEntry =
+                new SettingsIndexData.Entry.Builder(
+                                PreferenceParser.createUniqueId("ManageSyncSettings", "sign_out"),
+                                "sign_out",
+                                "Sign out",
+                                "ManageSyncSettings")
+                        .build();
+        indexData.addEntry(themeEntry.id, themeEntry);
+        RecentSearchQueue.getInstance().add(themeEntry);
+        RecentSearchQueue.getInstance().add(signOutEntry);
+
+        setUpMultiColumnSettings();
+        mUseMultiColumn = true;
+        mCoordinator = createCoordinator(/* shownInTab= */ true);
+        mCoordinator.initializeSearchUi(null);
+        ShadowLooper.idleMainLooper();
+        mCoordinator.enterSearchState(/* isRestored= */ false);
+
+        // "Sign out" was searched for, but is no longer a setting that exists (e.g. after
+        // signing out), so it is not offered as a recent search.
+        var recents = mCoordinator.getRecentSearchesInIndex();
+        assertEquals(1, recents.size());
+        assertEquals(themeEntry.id, recents.get(0).id);
+        mCoordinator.destroy();
+    }
+
     /**
      * Subclass of Fragment to represent the initial detail pane fragment (e.g. Google services).
      */
@@ -1535,5 +1633,24 @@ public class SettingsSearchCoordinatorUnitTest {
         assertFalse(mCoordinator.isSearchOpen());
         assertEquals(View.GONE, queryContainer.getVisibility());
         assertNull(fragmentManager.findFragmentByTag(SettingsSearchCoordinator.RESULT_FRAGMENT));
+    }
+
+    /**
+     * Regression test for crbug.com/574207996: When SettingsIndexData is created statically (e.g.
+     * via ensureIndexBuilt() during breadcrumb computation in SettingsActivity.onCreate()) without
+     * the user ever entering search mode, destroying the coordinator must still reset the static
+     * SettingsIndexData singleton so stale entries do not leak into subsequent Settings sessions.
+     */
+    @Test
+    public void testDestroy_resetsIndexDataWhenBuiltStaticallyWithoutEnteringSearch() {
+        SettingsIndexData.createInstance().resetNeedsIndexing();
+        SettingsIndexData indexData =
+                SettingsSearchCoordinator.ensureIndexBuilt(mActivity, mProfile);
+        assertNotNull(indexData);
+        assertNotNull(SettingsIndexData.getInstance());
+
+        mCoordinator.destroy();
+
+        assertNull(SettingsIndexData.getInstance());
     }
 }

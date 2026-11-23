@@ -22,19 +22,23 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/ttc/core/features.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/download_button.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/toolbar/webui_pinned_toolbar_actions_test_base.h"
 #include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_ui.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api_data_model.mojom.h"
@@ -50,6 +54,7 @@
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
+#include "ui/color/color_provider.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/accessibility/ax_update_notifier.h"
 #include "ui/views/accessibility/ax_update_observer.h"
@@ -253,9 +258,16 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, RouteMediaIcons) {
         EvalJsOnPinnedAction(
             mojom_action, "return btn?.getAttribute('iron-icon') || '(null)'"));
 
-    // And the color.
+    // And the color. Like native pinned toolbar buttons, vector icons use the
+    // toolbar button icon color rather than the action's own color.
+    const SkColor icon_color = BrowserView::GetBrowserViewForBrowser(browser())
+                                   ->GetColorProvider()
+                                   ->GetColor(kColorToolbarButtonIcon);
     EXPECT_EQ(
-        "--cr-icon-button-fill-color: rgba(255, 0, 255, 1.00);",
+        base::StringPrintf(
+            "--cr-icon-button-fill-color: rgba(%d, %d, %d, %.2f);",
+            SkColorGetR(icon_color), SkColorGetG(icon_color),
+            SkColorGetB(icon_color), SkColorGetA(icon_color) / 255.0),
         EvalJsOnPinnedAction(mojom_action,
                              "return btn?.getAttribute('style') || '(null)'"));
 
@@ -625,6 +637,89 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
                 ->GetDownloadButton()
                 ->GetProgressRingStatusForTesting(),
             ActionItemProgressRingStatus::kIdle);
+}
+
+IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, BadgeRendering) {
+  actions::ActionId action_id = kActionShowDownloads;
+  toolbar_ui_api::mojom::PinnedToolbarAction mojom_action =
+      toolbar_ui_api::mojom::PinnedToolbarAction::kShowDownloads;
+
+  PinAction(action_id, mojom_action);
+
+  DownloadButton* download_button = GetWebUIToolbarWebView(browser())
+                                        ->GetPinnedToolbarActions()
+                                        ->GetDownloadButton();
+  ASSERT_TRUE(download_button);
+
+  auto verify_badge = [&](std::string_view expected) {
+    ASSERT_TRUE(base::test::RunUntil([&]() {
+      return EvalJsOnPinnedAction(
+                 mojom_action,
+                 "const badge = "
+                 "    actionEl.shadowRoot.querySelector('.badge'); "
+                 "return badge ? badge.textContent.trim() : 'none';")
+                 .ExtractString() == expected;
+    }));
+  };
+
+  // No badge is rendered initially.
+  verify_badge("none");
+
+  // Inactive button with multiple downloads does not render a badge.
+  download_button->UpdateBadge(/*is_active=*/false,
+                               /*progress_download_count=*/2, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("none");
+
+  // Active button with a single download does not render a badge.
+  download_button->UpdateBadge(/*is_active=*/true,
+                               /*progress_download_count=*/1, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("none");
+
+  // Multiple concurrent downloads render the download count.
+  download_button->UpdateBadge(/*is_active=*/true,
+                               /*progress_download_count=*/2, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("2");
+
+  download_button->UpdateBadge(/*is_active=*/true,
+                               /*progress_download_count=*/5, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("5");
+
+  // More than 9 downloads renders "9+".
+  download_button->UpdateBadge(/*is_active=*/true,
+                               /*progress_download_count=*/10, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("9+");
+
+  // Becoming inactive removes the badge.
+  download_button->UpdateBadge(/*is_active=*/false,
+                               /*progress_download_count=*/10, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("none");
+
+  // Re-activating with multiple downloads restores the badge.
+  download_button->UpdateBadge(/*is_active=*/true,
+                               /*progress_download_count=*/3, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("3");
+
+  // Dropping back to 1 download removes the badge.
+  download_button->UpdateBadge(/*is_active=*/true,
+                               /*progress_download_count=*/1, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("none");
+
+  // Unpinning the downloads button also resets the badge.
+  download_button->UpdateBadge(/*is_active=*/true,
+                               /*progress_download_count=*/2, SK_ColorBLACK,
+                               SK_ColorWHITE);
+  verify_badge("2");
+  UnpinAction(action_id, mojom_action);
+  PinAction(action_id, mojom_action);
+  verify_badge("none");
 }
 
 IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest, StateAccessors) {
@@ -1079,4 +1174,79 @@ IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsBrowserTest,
   // Cleanup.
   model_->UpdatePinnedState(action1, false);
   model_->UpdatePinnedState(action2, false);
+}
+
+class WebUIPinnedToolbarActionsAiOverlayBrowserTest
+    : public WebUIPinnedToolbarActionsBrowserTest {
+ public:
+  WebUIPinnedToolbarActionsAiOverlayBrowserTest() {
+    feature_list_.InitAndEnableFeature(features::kAiOverlayDialog);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsAiOverlayBrowserTest,
+                       AutoPinnedOnStartup) {
+  EXPECT_TRUE(model_->Contains(kActionShowAiOverlayDialog));
+  UnpinAction(kActionShowAiOverlayDialog,
+              toolbar_ui_api::mojom::PinnedToolbarAction::kShowAiOverlayDialog);
+  PinAction(kActionShowAiOverlayDialog,
+            toolbar_ui_api::mojom::PinnedToolbarAction::kShowAiOverlayDialog);
+}
+
+class WebUIPinnedToolbarActionsByDateHistoryBrowserTest
+    : public WebUIPinnedToolbarActionsBrowserTest {
+ public:
+  WebUIPinnedToolbarActionsByDateHistoryBrowserTest() {
+    feature_list_.InitAndEnableFeature(features::kByDateHistoryInSidePanel);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsByDateHistoryBrowserTest,
+                       PinUnpinHistory) {
+  PinAction(kActionSidePanelShowHistory,
+            toolbar_ui_api::mojom::PinnedToolbarAction::kSidePanelShowHistory);
+  UnpinAction(
+      kActionSidePanelShowHistory,
+      toolbar_ui_api::mojom::PinnedToolbarAction::kSidePanelShowHistory);
+}
+
+class WebUIPinnedToolbarActionsTtcBrowserTest
+    : public WebUIPinnedToolbarActionsBrowserTest {
+ public:
+  WebUIPinnedToolbarActionsTtcBrowserTest() {
+    feature_list_.InitAndEnableFeature(ttc::kTtc);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(WebUIPinnedToolbarActionsTtcBrowserTest,
+                       AutoPinnedOnStartup) {
+  EXPECT_TRUE(model_->Contains(kActionTtcToolbar));
+
+  std::string expected_icon;
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  expected_icon = "internal-icons:audio_spark";
+#else
+  expected_icon = "webui-toolbar:mic_filled";
+#endif
+
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return EvalJsOnPinnedAction(
+               toolbar_ui_api::mojom::PinnedToolbarAction::kTtcToolbar,
+               "return btn?.getAttribute('iron-icon') || '';")
+               .ExtractString() == expected_icon;
+  }));
+
+  UnpinAction(kActionTtcToolbar,
+              toolbar_ui_api::mojom::PinnedToolbarAction::kTtcToolbar);
+  PinAction(kActionTtcToolbar,
+            toolbar_ui_api::mojom::PinnedToolbarAction::kTtcToolbar);
 }

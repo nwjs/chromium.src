@@ -54,10 +54,10 @@ include_rules = [
   "+chrome/browser/browser_process.h",
   "+chrome/browser/browser_process_platform_part_ash.h",
   "+chrome/browser/chrome_browser_main_linux.h",
-  "+chrome/browser/chromeos/video_conference",
   "+chrome/browser/component_updater",
   "+chrome/browser/defaults.h",
   "+chrome/browser/device_identity",
+  "+chrome/browser/device_reauth",
   "+chrome/browser/first_run",
   "+chrome/browser/global_features.h",
   "+chrome/browser/memory",
@@ -74,7 +74,6 @@ include_rules = [
   "+chrome/browser/ui/webui/ash/config",
   "+chrome/browser/ui/webui/ash/emoji",
   "+chrome/common/chrome_constants.h",
-  "+chrome/common/chrome_paths.h",
   "+chrome/common/logging_chrome.h",
   "+chrome/common/pref_names.h",
 ]
@@ -83,6 +82,9 @@ specific_include_rules = {
   "chrome_browser_main_parts_ash\\.cc": [
     # For fake SIGTERM handler implementation.
     "+chrome/browser/lifetime/application_lifetime.h",
+
+    # For ChromeOS shutdown phase tracking.
+    "+chrome/browser/lifetime/browser_shutdown.h",
 
     # To bridge Chrome's termination notification to Ash system.
     "+chrome/browser/lifetime/termination_notification.h",

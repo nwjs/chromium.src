@@ -16,16 +16,18 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/gmock_expected_support.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test.pb.h"
 #include "base/test/test_future.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/optimization_guide_model_execution_error.h"
 #include "components/optimization_guide/core/model_execution/remote_model_execution_common.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
+#include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
@@ -132,17 +134,23 @@ class FakeStreamingWebSocketClient
     delegate_->OnConnectionError(message, net_error, response_code);
   }
 
-  void SimulateDropChannel(bool was_clean,
-                           uint16_t code = 1000,
-                           const std::string& reason = "Closed") {
+  void SimulateDropChannel(
+      bool was_clean,
+      uint16_t code = 1000,
+      const std::string& reason = "Closed",
+      std::optional<base::TimeDelta> elapsed = std::nullopt) {
     CHECK(delegate_);
-    delegate_->OnDropChannel(was_clean, code, reason,
-                             /*elapsed=*/std::nullopt);
+    delegate_->OnDropChannel(was_clean, code, reason, elapsed);
   }
 
   void SimulateError(const std::string& message) {
     CHECK(delegate_);
     delegate_->OnError(message);
+  }
+
+  void SimulateClose() {
+    CHECK(delegate_);
+    delegate_->OnClose();
   }
 
   std::vector<network::mojom::HttpHeaderPtr> GetAdditionalHeaders() {
@@ -191,6 +199,29 @@ class TestObserver : public RemoteModelExecutionSession::Observer {
   StateChangeCallback on_state_changed;
 };
 
+class TestLogObserver : public OptimizationGuideLogger::Observer {
+ public:
+  explicit TestLogObserver(OptimizationGuideLogger* logger) : logger_(logger) {
+    logger_->AddObserver(this);
+  }
+  ~TestLogObserver() override { logger_->RemoveObserver(this); }
+
+  void OnLogMessageAdded(base::Time event_time,
+                         optimization_guide_common::mojom::LogSource log_source,
+                         const std::string& source_file,
+                         int source_line,
+                         const std::string& message) override {
+    EXPECT_EQ(log_source,
+              optimization_guide_common::mojom::LogSource::MODEL_EXECUTION);
+    messages.push_back(message);
+  }
+
+  std::vector<std::string> messages;
+
+ private:
+  raw_ptr<OptimizationGuideLogger> logger_;
+};
+
 }  // namespace
 
 class RemoteModelExecutionSessionImplTest : public testing::Test {
@@ -215,7 +246,7 @@ class RemoteModelExecutionSessionImplTest : public testing::Test {
     session_ = std::make_unique<RemoteModelExecutionSessionImpl>(
         feature, options, response_future_.GetRepeatingCallback(),
         identity_test_env_.identity_manager(), std::move(fake_client),
-        /*logger=*/nullptr);
+        &optimization_guide_logger_);
     fake_client_->set_delegate(session_.get());
     return session_.get();
   }
@@ -242,11 +273,13 @@ class RemoteModelExecutionSessionImplTest : public testing::Test {
   signin::IdentityTestEnvironment identity_test_env_;
   base::test::TestFuture<OptimizationGuideModelStreamingResult>
       response_future_;
+  OptimizationGuideLogger optimization_guide_logger_;
   raw_ptr<FakeStreamingWebSocketClient> fake_client_ = nullptr;
   std::unique_ptr<RemoteModelExecutionSessionImpl> session_;
 };
 
 TEST_F(RemoteModelExecutionSessionImplTest, ConnectsImmediatelyWithPrewarm) {
+  base::HistogramTester histogram_tester;
   StreamingModelExecutionOptions options;
   options.prewarm_connection = true;
 
@@ -266,6 +299,10 @@ TEST_F(RemoteModelExecutionSessionImplTest, ConnectsImmediatelyWithPrewarm) {
   EXPECT_THAT(observer.states,
               testing::ElementsAre(
                   RemoteModelExecutionSession::ConnectionState::kConnected));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kConnected, 1);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest, SendConnectsAndSends) {
@@ -333,6 +370,8 @@ TEST_F(RemoteModelExecutionSessionImplTest,
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        SendPendingRequestsSynchronousFailureDoesNotCrash) {
+  base::HistogramTester histogram_tester;
+  TestLogObserver log_observer(&optimization_guide_logger_);
   auto* session = CreateSession(ModelBasedCapabilityKey::kScamDetection);
 
   session->Send(BuildTestMessage("request 1"));
@@ -356,6 +395,19 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   ASSERT_TRUE(result.execution_info);
   EXPECT_EQ(result.execution_info->model_execution_error_enum(),
             static_cast<uint32_t>(ModelExecutionError::kGenericFailure));
+
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kConnected, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kClientError, 1);
+  EXPECT_THAT(log_observer.messages,
+              testing::Contains(
+                  "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+                  "Disconnected (dropped 2 pending requests)"));
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest, SuccessfulStreamingResponses) {
@@ -455,6 +507,7 @@ TEST_F(RemoteModelExecutionSessionImplTest,
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest, HandshakeFailure) {
+  base::HistogramTester histogram_tester;
   RemoteModelExecutionSessionImpl* session =
       CreateSession(ModelBasedCapabilityKey::kScamDetection);
   session->Send(BuildTestMessage("query"));
@@ -470,10 +523,73 @@ TEST_F(RemoteModelExecutionSessionImplTest, HandshakeFailure) {
   EXPECT_THAT(result.response, base::test::ErrorIs(testing::Property(
                                    &OptimizationGuideModelExecutionError::error,
                                    ModelExecutionError::kPermissionDenied)));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kHandshakeFailed, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      0);
+}
+
+TEST_F(RemoteModelExecutionSessionImplTest, ClientErrorDuringConnect) {
+  base::HistogramTester histogram_tester;
+  RemoteModelExecutionSessionImpl* session =
+      CreateSession(ModelBasedCapabilityKey::kScamDetection);
+  session->Send(BuildTestMessage("query"));
+
+  EXPECT_EQ(session->connection_state(),
+            RemoteModelExecutionSession::ConnectionState::kConnecting);
+
+  fake_client_->SimulateError("Null network context");
+  OptimizationGuideModelStreamingResult result = response_future_.Take();
+
+  EXPECT_EQ(session->connection_state(),
+            RemoteModelExecutionSession::ConnectionState::kDisconnected);
+  EXPECT_THAT(result.response, base::test::ErrorIs(testing::Property(
+                                   &OptimizationGuideModelExecutionError::error,
+                                   ModelExecutionError::kGenericFailure)));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kClientErrorDuringConnect, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      0);
+}
+
+TEST_F(RemoteModelExecutionSessionImplTest, MojoPipeDisconnectedDuringConnect) {
+  base::HistogramTester histogram_tester;
+  RemoteModelExecutionSessionImpl* session =
+      CreateSession(ModelBasedCapabilityKey::kScamDetection);
+  session->Send(BuildTestMessage("query"));
+
+  EXPECT_EQ(session->connection_state(),
+            RemoteModelExecutionSession::ConnectionState::kConnecting);
+
+  fake_client_->SimulateClose();
+  OptimizationGuideModelStreamingResult result = response_future_.Take();
+
+  EXPECT_EQ(session->connection_state(),
+            RemoteModelExecutionSession::ConnectionState::kDisconnected);
+  EXPECT_THAT(result.response, base::test::ErrorIs(testing::Property(
+                                   &OptimizationGuideModelExecutionError::error,
+                                   ModelExecutionError::kGenericFailure)));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kMojoPipeDisconnectedDuringConnect, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      0);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        CleanChannelDropDoesNotDispatchError) {
+  base::HistogramTester histogram_tester;
   RemoteModelExecutionSessionImpl* session =
       CreateSession(ModelBasedCapabilityKey::kScamDetection);
   TestObserver observer;
@@ -491,10 +607,15 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   EXPECT_EQ(observer.states.back(),
             RemoteModelExecutionSession::ConnectionState::kDisconnected);
   EXPECT_FALSE(response_future_.IsReady());
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kServerDropClean, 1);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        UncleanChannelDropDispatchesGenericFailure) {
+  base::HistogramTester histogram_tester;
   RemoteModelExecutionSessionImpl* session =
       CreateSession(ModelBasedCapabilityKey::kScamDetection);
   TestObserver observer;
@@ -516,10 +637,40 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   ASSERT_TRUE(result.execution_info);
   EXPECT_EQ(result.execution_info->model_execution_error_enum(),
             static_cast<uint32_t>(ModelExecutionError::kGenericFailure));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kServerDropUnclean, 1);
+}
+
+TEST_F(RemoteModelExecutionSessionImplTest,
+       MojoPipeDisconnectedWhileConnected) {
+  base::HistogramTester histogram_tester;
+  RemoteModelExecutionSessionImpl* session =
+      CreateSession(ModelBasedCapabilityKey::kScamDetection);
+
+  session->Send(BuildTestMessage("query"));
+  fake_client_->SimulateConnected();
+  EXPECT_EQ(session->connection_state(),
+            RemoteModelExecutionSession::ConnectionState::kConnected);
+
+  fake_client_->SimulateClose();
+  OptimizationGuideModelStreamingResult result = response_future_.Take();
+
+  EXPECT_EQ(session->connection_state(),
+            RemoteModelExecutionSession::ConnectionState::kDisconnected);
+  EXPECT_THAT(result.response, base::test::ErrorIs(testing::Property(
+                                   &OptimizationGuideModelExecutionError::error,
+                                   ModelExecutionError::kGenericFailure)));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kMojoPipeDisconnected, 1);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        IdleTimeoutDisconnectsAndReconnects) {
+  base::HistogramTester histogram_tester;
   StreamingModelExecutionOptions options;
   options.idle_disconnect_timeout = base::Minutes(5);
 
@@ -537,6 +688,10 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   EXPECT_TRUE(fake_client_->close_called);
   EXPECT_EQ(session->connection_state(),
             RemoteModelExecutionSession::ConnectionState::kDisconnected);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kIdleTimeout, 1);
 
   // Next Send should trigger reconnect.
   fake_client_->connect_called = false;
@@ -548,6 +703,10 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   fake_client_->SimulateConnected();
   EXPECT_EQ(session->connection_state(),
             RemoteModelExecutionSession::ConnectionState::kConnected);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kConnected, 2);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest, AccessTokenRequired) {
@@ -573,6 +732,7 @@ TEST_F(RemoteModelExecutionSessionImplTest, AccessTokenRequired) {
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest, AccessTokenRequiredButNotSignedIn) {
+  base::HistogramTester histogram_tester;
   RemoteModelExecutionSessionImpl* session =
       CreateSession(ModelBasedCapabilityKey::kWallpaperSearch);
   session->Send(BuildTestMessage("request"));
@@ -586,6 +746,14 @@ TEST_F(RemoteModelExecutionSessionImplTest, AccessTokenRequiredButNotSignedIn) {
   EXPECT_THAT(result.response, base::test::ErrorIs(testing::Property(
                                    &OptimizationGuideModelExecutionError::error,
                                    ModelExecutionError::kPermissionDenied)));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "WallpaperSearch",
+      StreamingConnectionStatusUma::kAccessTokenFailure, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "WallpaperSearch",
+      0);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
@@ -690,6 +858,7 @@ TEST_F(RemoteModelExecutionSessionImplTest,
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        DestroySessionInObserverOnConnectingDoesNotCrash) {
+  base::HistogramTester histogram_tester;
   auto* session = CreateSession(ModelBasedCapabilityKey::kScamDetection);
 
   TestObserver observer = CreateDestroyOnStateObserver(
@@ -699,10 +868,19 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   session->Send(BuildTestMessage("query"));
 
   EXPECT_EQ(session_, nullptr);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kCancelledByDestruction, 1);
+  histogram_tester.ExpectTotalCount(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      0);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        DestroySessionInObserverOnConnectedDoesNotCrash) {
+  base::HistogramTester histogram_tester;
   auto* session = CreateSession(ModelBasedCapabilityKey::kScamDetection);
 
   TestObserver observer = CreateDestroyOnStateObserver(
@@ -713,10 +891,19 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   fake_client_->SimulateConnected();
 
   EXPECT_EQ(session_, nullptr);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kConnected, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kSessionDestroyed, 1);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        DestroySessionInObserverOnDisconnectedDoesNotCrash) {
+  base::HistogramTester histogram_tester;
   auto* session = CreateSession(ModelBasedCapabilityKey::kScamDetection);
 
   TestObserver observer = CreateDestroyOnStateObserver(
@@ -729,10 +916,15 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   fake_client_->SimulateDropChannel(/*was_clean=*/false);
 
   EXPECT_EQ(session_, nullptr);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kServerDropUnclean, 1);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        DestroySessionInObserverOnSendPendingRequestsFailureDoesNotCrash) {
+  base::HistogramTester histogram_tester;
   auto* session = CreateSession(ModelBasedCapabilityKey::kScamDetection);
 
   TestObserver observer = CreateDestroyOnStateObserver(
@@ -751,11 +943,20 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   fake_client_->SimulateConnected();
 
   EXPECT_EQ(session_, nullptr);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kConnected, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kClientError, 1);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
        DestroySessionInCallbackOnErrorDoesNotCrash) {
   using ConnectionState = RemoteModelExecutionSession::ConnectionState;
+  base::HistogramTester histogram_tester;
 
   auto fake_client = std::make_unique<FakeStreamingWebSocketClient>();
   fake_client_ = fake_client.get();
@@ -786,6 +987,14 @@ TEST_F(RemoteModelExecutionSessionImplTest,
   EXPECT_THAT(observer.states,
               testing::ElementsAre(ConnectionState::kConnecting,
                                    ConnectionState::kConnected));
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.ConnectionStatus."
+      "ScamDetection",
+      StreamingConnectionStatusUma::kConnected, 1);
+  histogram_tester.ExpectUniqueSample(
+      "OptimizationGuide.ModelExecution.Streaming.DisconnectReason."
+      "ScamDetection",
+      StreamingDisconnectReasonUma::kServerDropUnclean, 1);
 }
 
 TEST_F(RemoteModelExecutionSessionImplTest,
@@ -835,14 +1044,129 @@ TEST_F(RemoteModelExecutionSessionImplTest, CreateSuccess) {
   network::TestNetworkContext test_network_context;
   base::test::TestFuture<OptimizationGuideModelStreamingResult>
       streaming_future;
+  TestLogObserver log_observer(&optimization_guide_logger_);
   auto session = RemoteModelExecutionSession::Create(
       ModelBasedCapabilityKey::kScamDetection, {},
       streaming_future.GetRepeatingCallback(),
       base::BindRepeating(
           [](network::mojom::NetworkContext* context) { return context; },
           base::Unretained(&test_network_context)),
-      identity_test_env_.identity_manager());
+      identity_test_env_.identity_manager(), &optimization_guide_logger_);
   EXPECT_NE(session, nullptr);
+  EXPECT_THAT(
+      log_observer.messages,
+      testing::ElementsAre(
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] Created"));
+}
+
+TEST_F(RemoteModelExecutionSessionImplTest, DebugLogsLifecycleEvents) {
+  TestLogObserver log_observer(&optimization_guide_logger_);
+  StreamingModelExecutionOptions options;
+  options.idle_disconnect_timeout = base::Minutes(5);
+
+  RemoteModelExecutionSessionImpl* session =
+      CreateSession(ModelBasedCapabilityKey::kScamDetection, options);
+
+  // Queue while disconnected, which initiates connection.
+  session->Send(BuildTestMessage("query 1"));
+  fake_client_->SimulateConnected();
+
+  // Send while connected.
+  session->Send(BuildTestMessage("query 2"));
+
+  // Receive valid response.
+  fake_client_->SimulateMessage(
+      BuildTestExecuteResponse(BuildTestMessage("chunk 1"), "exec_1"));
+  EXPECT_TRUE(response_future_.Take().response.has_value());
+
+  // Idle timeout and destroy.
+  task_environment_.FastForwardBy(base::Minutes(5));
+  fake_client_ = nullptr;
+  session_.reset();
+
+  EXPECT_THAT(
+      log_observer.messages,
+      testing::ElementsAre(
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] Send: "
+          "Queuing request (pending requests: 1)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "StartConnection: Connecting",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] Connected "
+          "(flushing 1 pending requests)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] Send: "
+          "Sending request",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "OnMessage: Received response (execution_id: exec_1)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "IdleTimeout: Closing connection",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "Disconnected (dropped 0 pending requests)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "Destroyed"));
+}
+
+TEST_F(RemoteModelExecutionSessionImplTest, DebugLogsErrorsAndDisconnections) {
+  TestLogObserver log_observer(&optimization_guide_logger_);
+  RemoteModelExecutionSessionImpl* session =
+      CreateSession(ModelBasedCapabilityKey::kScamDetection);
+
+  session->Send(BuildTestMessage("query"));
+  fake_client_->SimulateConnected();
+
+  // Malformed response.
+  fake_client_->SimulateRawMessage({0xFF, 0xFF});
+  EXPECT_FALSE(response_future_.Take().response.has_value());
+
+  // Server error response.
+  fake_client_->SimulateMessage(
+      BuildErrorExecuteResponse(proto::ERROR_STATE_FILTERED));
+  EXPECT_FALSE(response_future_.Take().response.has_value());
+
+  // Missing response metadata.
+  proto::ExecuteResponse empty_response;
+  fake_client_->SimulateMessage(empty_response);
+  EXPECT_FALSE(response_future_.Take().response.has_value());
+
+  // Unclean channel drop.
+  fake_client_->SimulateDropChannel(/*was_clean=*/false, 1006, "Abnormal",
+                                    base::Milliseconds(500));
+  EXPECT_FALSE(response_future_.Take().response.has_value());
+
+  // Reconnect and fail handshake.
+  session->Send(BuildTestMessage("query 2"));
+  fake_client_->SimulateConnectionError("Handshake failed", net::ERR_FAILED,
+                                        net::HTTP_UNAUTHORIZED);
+  EXPECT_FALSE(response_future_.Take().response.has_value());
+
+  EXPECT_THAT(
+      log_observer.messages,
+      testing::ElementsAre(
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] Send: "
+          "Queuing request (pending requests: 1)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "StartConnection: Connecting",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] Connected "
+          "(flushing 1 pending requests)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] OnMessage "
+          "Error: Failed to parse response",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] OnMessage "
+          "Error: Server error (ERROR_STATE_FILTERED)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] OnMessage "
+          "Error: No Response Metadata",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "OnDropChannel: was_clean: false, code: 1006, reason: Abnormal, "
+          "elapsed: 500ms",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "Disconnected (dropped 0 pending requests)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] Send: "
+          "Queuing request (pending requests: 1)",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "StartConnection: Connecting",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "OnConnectionError: message: Handshake failed, net_error: "
+          "net::ERR_FAILED, response_code: 401",
+          "StreamingSession [MODEL_EXECUTION_FEATURE_SCAM_DETECTION] "
+          "Disconnected (dropped 1 pending requests)"));
 }
 
 }  // namespace optimization_guide

@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -32,7 +33,7 @@
 #include "components/actor/core/aggregated_journal.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
-#include "components/origin_gating/core/checker_id.h"
+#include "components/origin_gating/core/client_tool.h"
 #include "components/origin_gating/core/origin_gating_cache.h"
 #include "components/origin_gating/core/origin_gating_checker.h"
 #include "components/origin_gating/core/origin_gating_registration.h"
@@ -45,6 +46,7 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
+#include "url/gurl.h"
 
 class Profile;
 
@@ -62,7 +64,9 @@ class ScopedUmaHistogramTimer;
 
 namespace content {
 class NavigationHandle;
-}
+class RenderFrameHost;
+class WebContents;
+}  // namespace content
 
 namespace origin_gating {
 class OriginGatingService;
@@ -257,14 +261,16 @@ class ExecutionEngine : public ToolDelegate,
   void InterruptFromTool(bool retain_user_control) override;
   void UninterruptFromTool() override;
   void EnqueueFollowupAction(std::unique_ptr<ToolRequest> action) override;
-  void AddTab(
-      tabs::TabHandle tab_handle,
+  void AddActorSurface(
+      ActorSurfaceHandle actor_surface_handle,
       bool stop_task_on_detach,
       base::OnceCallback<void(mojom::ActionResultPtr)> callback) override;
-  bool HasTab(tabs::TabHandle tab_handle) override;
-  void RemoveTab(tabs::TabHandle tab_handle) override;
+  bool HasActorSurface(ActorSurfaceHandle actor_surface_handle) override;
+  void RemoveActorSurface(ActorSurfaceHandle actor_surface_handle) override;
   base::WeakPtr<actor_login::ActionSequenceDelegate> GetActionSequenceDelegate()
       override;
+  void OnActionTargetFrameResolved(
+      content::RenderFrameHost& target_frame) override;
 
   // actor_login::ActionSequenceDelegate:
   base::CallbackListSubscription RegisterActionSequenceEnded(
@@ -327,11 +333,6 @@ class ExecutionEngine : public ToolDelegate,
 
   State state() const { return state_; }
 
-  origin_gating::CheckerId checker_id() const {
-    return origin_gating_registration_ ? origin_gating_registration_->id()
-                                       : origin_gating::CheckerId();
-  }
-
   const origin_gating::OriginGatingChecker& GetOriginGatingChecker() const;
   origin_gating::OriginGatingChecker& GetOriginGatingChecker();
 
@@ -382,11 +383,6 @@ class ExecutionEngine : public ToolDelegate,
   void DidFinishAsyncSafetyChecks(const url::Origin& committed_origin,
                                   mojom::ActionResultCode result_code);
 
-  // If a failure occurs before the next action starts, we associate the tab
-  // that the action would have acted on with the task, so that we can provide
-  // tab observations back to the client.
-  void FailedOnTabBeforeToolCreation();
-
   // Synchronously executes the next action. There are several types of actions,
   // including renderer-scoped actions, tab-scoped actions, and global actions.
   void ExecuteNextAction();
@@ -435,6 +431,14 @@ class ExecutionEngine : public ToolDelegate,
       origin_gating::GateableEvent::Type event_type,
       std::unique_ptr<origin_gating::GatingDecisionContext> context,
       origin_gating::GatingDecision decision);
+
+  // Evaluates page-action gating on each of `origins` (the distinct origins of
+  // a page action's ancestor frames that differ from the main frame's) as a dry
+  // run, without blocking the action or prompting the user, and records the
+  // outcome to UMA. `tool` is the tool performing the page action.
+  void RunSubframeGatingDryRun(base::WeakPtr<content::WebContents> web_contents,
+                               origin_gating::ClientTool tool,
+                               std::set<url::Origin> origins);
 
   // Called when the browser detects the actor needs to confirm a
   // client-side-initiated navigation to a novel origin.

@@ -34,11 +34,11 @@
 ../../action_helpers.py
 ../../gn_helpers.py
 ../../zip_helpers.py
+../java_home.py
 ../pylib/__init__.py
 ../pylib/constants/__init__.py
 ../pylib/constants/host_paths.py
 jinja_template.py
 util/__init__.py
 util/build_utils.py
-util/parallel.py
 util/resource_utils.py

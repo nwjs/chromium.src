@@ -10,12 +10,12 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/optimization_guide/core/feature_registry/enterprise_policy_registry.h"
+#include "components/optimization_guide/core/feature_registry/feature_keys.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/feature_registry/mqls_feature_registry.h"
 #include "components/optimization_guide/core/feature_registry/settings_ui_registry.h"
-#include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/model_execution_features.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
 #include "components/policy/core/common/management/management_service.h"
@@ -32,7 +32,6 @@
 
 namespace optimization_guide {
 
-using model_execution::prefs::ModelExecutionEnterprisePolicyValue;
 using policy::ScopedManagementServiceOverrideForTesting;
 
 class TestManagementService : public policy::ManagementService {
@@ -52,7 +51,7 @@ class ModelExecutionFeaturesControllerTest : public testing::Test {
 
   void SetUp() override {
     pref_service_ = std::make_unique<TestingPrefServiceSimple>();
-    model_execution::prefs::RegisterProfilePrefs(pref_service_->registry());
+    RegisterGenAiFeatures(pref_service_->registry());
   }
 
   void CreateController(
@@ -94,7 +93,7 @@ class ModelExecutionFeaturesControllerTest : public testing::Test {
   }
 
   void SetEnterprisePolicy(UserVisibleFeatureKey feature,
-                           ModelExecutionEnterprisePolicyValue value) {
+                           EnterprisePolicyValue value) {
     std::string_view key = SettingsUiRegistry::GetInstance()
                                .GetFeature(feature)
                                ->enterprise_policy()
@@ -390,8 +389,7 @@ TEST_F(ModelExecutionFeaturesControllerTest,
 
   auto feature = UserVisibleFeatureKey::kCompose;
   EnableSignIn();
-  SetEnterprisePolicy(
-      feature, ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
+  SetEnterprisePolicy(feature, EnterprisePolicyValue::kAllowWithoutLogging);
 
   const MqlsFeatureMetadata* metadata =
       MqlsFeatureRegistry::GetInstance().GetFeature(
@@ -410,8 +408,7 @@ TEST_F(ModelExecutionFeaturesControllerTest,
 
   auto feature = UserVisibleFeatureKey::kCompose;
   EnableSignIn();
-  SetEnterprisePolicy(
-      feature, ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
+  SetEnterprisePolicy(feature, EnterprisePolicyValue::kAllowWithoutLogging);
 
   const MqlsFeatureMetadata* metadata =
       MqlsFeatureRegistry::GetInstance().GetFeature(
@@ -431,8 +428,7 @@ TEST_F(ModelExecutionFeaturesControllerTest,
 
   auto feature = UserVisibleFeatureKey::kCompose;
   EnableSignIn();
-  SetEnterprisePolicy(
-      feature, ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
+  SetEnterprisePolicy(feature, EnterprisePolicyValue::kAllowWithoutLogging);
 
   const MqlsFeatureMetadata* metadata =
       MqlsFeatureRegistry::GetInstance().GetFeature(
@@ -453,8 +449,7 @@ TEST_F(ModelExecutionFeaturesControllerTest,
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       kEnableModelQualityDogfoodLoggingSwitch);
   EnableSignIn();
-  SetEnterprisePolicy(
-      feature, ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
+  SetEnterprisePolicy(feature, EnterprisePolicyValue::kAllowWithoutLogging);
 
   const MqlsFeatureMetadata* metadata =
       MqlsFeatureRegistry::GetInstance().GetFeature(
@@ -475,8 +470,7 @@ TEST_F(ModelExecutionFeaturesControllerTest,
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       kEnableModelQualityDogfoodLoggingSwitch);
   EnableSignIn();
-  SetEnterprisePolicy(
-      feature, ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
+  SetEnterprisePolicy(feature, EnterprisePolicyValue::kAllowWithoutLogging);
 
   const MqlsFeatureMetadata* metadata =
       MqlsFeatureRegistry::GetInstance().GetFeature(
@@ -499,8 +493,7 @@ TEST_F(
   base::CommandLine::ForCurrentProcess()->AppendSwitch(
       kEnableModelQualityDogfoodLoggingSwitch);
   EnableSignIn();
-  SetEnterprisePolicy(
-      feature, ModelExecutionEnterprisePolicyValue::kAllowWithoutLogging);
+  SetEnterprisePolicy(feature, EnterprisePolicyValue::kAllowWithoutLogging);
 
   const MqlsFeatureMetadata* metadata =
       MqlsFeatureRegistry::GetInstance().GetFeature(

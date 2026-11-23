@@ -35,6 +35,10 @@ BROWSER_TEST_SUITES = [
 # The max number of tests to run on a batch during the test run.
 MAX_BATCH_SIZE = 256
 
+# Browser tests run each test in its own process, so are much slower than other
+# gtests. Batches must complete within the batch timeout (10x --shard-timeout).
+_BROWSER_TEST_MAX_BATCH_SIZE = 64
+
 RUN_IN_SUB_THREAD_TEST_SUITES = [
     # Multiprocess tests should be run outside of the main thread.
     'base_unittests',  # file_locking_unittest.cc uses a child process.
@@ -44,29 +48,6 @@ RUN_IN_SUB_THREAD_TEST_SUITES = [
     'mojo_perftests',
     'mojo_unittests',
     'net_unittests',
-]
-
-
-# Used for filtering large data deps at a finer grain than what's allowed in
-# isolate files since pushing deps to devices is expensive.
-# Wildcards are allowed.
-_DEPS_EXCLUSION_LIST = [
-    'chrome/test/data/extensions/api_test',
-    'chrome/test/data/extensions/secure_shell',
-    'chrome/test/data/firefox*',
-    'chrome/test/data/gpu',
-    'chrome/test/data/image_decoding',
-    'chrome/test/data/import',
-    'chrome/test/data/page_cycler',
-    'chrome/test/data/perf',
-    'chrome/test/data/pyauto_private',
-    'chrome/test/data/safari_import',
-    'chrome/test/data/scroll',
-    'chrome/test/data/third_party',
-    'third_party/hunspell_dictionaries/*.dic',
-    # crbug.com/258690
-    'webkit/data/bmp_decoder',
-    'webkit/data/ico_decoder',
 ]
 
 
@@ -478,10 +459,13 @@ class GtestTestInstance(test_instance.TestInstance):
             if os.path.exists(exe_dist_dir):
                 self._exe_dist_dir = exe_dist_dir
 
-        self._test_launcher_batch_limit = MAX_BATCH_SIZE
+        max_batch_size = MAX_BATCH_SIZE
+        if self._suite in BROWSER_TEST_SUITES:
+            max_batch_size = _BROWSER_TEST_MAX_BATCH_SIZE
+        self._test_launcher_batch_limit = max_batch_size
         if (
             args.test_launcher_batch_limit
-            and 0 < args.test_launcher_batch_limit < MAX_BATCH_SIZE
+            and 0 < args.test_launcher_batch_limit < max_batch_size
         ):
             self._test_launcher_batch_limit = args.test_launcher_batch_limit
 
@@ -532,6 +516,7 @@ class GtestTestInstance(test_instance.TestInstance):
 
         self._data_deps_delegate = data_deps_delegate
         self._runtime_deps_path = args.runtime_deps_path
+        self._device_data_filters = args.device_data_filters
         if not self._runtime_deps_path:
             logging.warning('No data dependencies will be pushed.')
 
@@ -709,7 +694,10 @@ class GtestTestInstance(test_instance.TestInstance):
                     'debuggable_apks = true in GN args'
                 )
         self._data_deps.extend(
-            self._data_deps_delegate(self._runtime_deps_path)
+            self._data_deps_delegate(
+                self._runtime_deps_path,
+                device_data_filters=self._device_data_filters,
+            )
         )
         if self._proguard_mapping_path:
             self._deobfuscator = deobfuscator.DeobfuscatorPool(

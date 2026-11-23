@@ -11,8 +11,8 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/optimization_guide/model_execution/optimization_guide_global_state.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
-#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
+#include "components/optimization_guide/core/model_execution/on_device_prefs.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
@@ -99,16 +99,12 @@ AITestUtils::AITestBase::~AITestBase() = default;
 
 #if BUILDFLAG(IS_ANDROID)
 void AITestUtils::AITestBase::SetupBroker() {
+  // Use Android's built-in configs by default. Loading a fake adaptation here
+  // would race with availability checks and session creation.
   fake_broker_ = std::make_unique<optimization_guide::FakeModelBrokerAndroid>(
       optimization_guide::FakeModelBrokerAndroid::Options{});
   fake_broker_->java_helper().settings().SetDefaultStatusCheckResult(
       on_device_model::ModelDownloaderAndroid::ModelStatus::kDownloadable);
-  auto asset = std::make_unique<optimization_guide::FakeAdaptationAsset>(
-      optimization_guide::FakeAdaptationAsset::Content{
-          .config = CreateSolution().feature(),
-      });
-  fake_broker_->UpdateModelAdaptation(*asset);
-  fake_assets_.push_back(std::move(asset));
 }
 
 void AITestUtils::AITestBase::SetSolutionConfig(
@@ -149,8 +145,7 @@ void SetupScenario(
               BaseModelRecipe::PERFORMANCE_HINT_HIGHEST_QUALITY, {},
               kDefaultMaxTokens),
           optimization_guide::FakeBaseModelAsset::Content{}, "1.0.0.0")
-      .AddSafetyModel("safety")
-      .AddSafeSolution(use_case, "base", "safety", std::move(solution_config));
+      .AddUnsafeSolution(use_case, "base", std::move(solution_config));
 
   if (use_case == "prompt_api") {
     PromptApiFeatureConfig prompt_api_cfg;

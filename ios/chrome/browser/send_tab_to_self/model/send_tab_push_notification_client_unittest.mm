@@ -7,15 +7,12 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/metrics/user_action_tester.h"
-#import "base/test/scoped_feature_list.h"
 #import "components/prefs/scoped_user_pref_update.h"
 #import "components/send_tab_to_self/fake_send_tab_to_self_model.h"
-#import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/metrics_util.h"
 #import "components/send_tab_to_self/stub_send_tab_to_self_sync_service.h"
-#import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_browser_agent.h"
-#import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/chrome/browser/push_notification/model/constants.h"
+#import "ios/chrome/browser/send_tab_to_self/model/send_tab_to_self_browser_agent.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
@@ -30,6 +27,7 @@
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
+#import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -42,7 +40,7 @@ namespace {
 
 NSString* const kTestUrl = @"https://www.example.com";
 constexpr char kAutoOpenOutcomeHistogram[] =
-    "Sharing.SendTabToSelf.AutoOpenOutcome2";
+    "Sharing.SendTabToSelf.AutoOpenOutcome3";
 
 }  // namespace
 
@@ -190,8 +188,10 @@ TEST_F(SendTabPushNotificationClientTest, TestNotificationInteraction) {
   EXPECT_EQ(model_->last_activated_entry_point(),
             send_tab_to_self::ShareActivatedEntryPoint::kMobileNotification);
 
+  histogram_tester.ExpectTotalCount(
+      "Sharing.SendTabToSelf.AutoOpenedImmediately", 0);
   histogram_tester.ExpectUniqueSample(
-      "Sharing.SendTabToSelf.AutoOpenOutcome2",
+      kAutoOpenOutcomeHistogram,
       send_tab_to_self::AutoOpenOutcome::kTabOpenedViaNotification, 1);
   EXPECT_EQ(user_action_tester.GetActionCount(
                 "IOS.Notifications.SendTab.Interaction"),
@@ -204,8 +204,6 @@ TEST_F(SendTabPushNotificationClientTest, TestNotificationInteraction) {
 // metrics (crbug.com/563304530).
 TEST_F(SendTabPushNotificationClientTest,
        TestNotificationInteraction_DoesNotTriggerReentrantDuplicateTab) {
-  base::test::ScopedFeatureList feature_list(
-      send_tab_to_self::kSendTabToSelfAutoOpen);
   base::HistogramTester histogram_tester;
 
   model_->SetLocalCacheGuid("device");
@@ -252,6 +250,8 @@ TEST_F(SendTabPushNotificationClientTest,
 
   // Verify that only the single notification outcome was recorded, and NO
   // reentrant kTabsOpenedInBackgroundUponActivation was recorded.
+  histogram_tester.ExpectTotalCount(
+      "Sharing.SendTabToSelf.AutoOpenedImmediately", 0);
   histogram_tester.ExpectUniqueSample(
       kAutoOpenOutcomeHistogram,
       send_tab_to_self::AutoOpenOutcome::kTabOpenedViaNotification, 1);
@@ -293,11 +293,9 @@ TEST_F(SendTabPushNotificationClientTest,
   EXPECT_EQ(model_->last_activated_entry_point(),
             send_tab_to_self::ShareActivatedEntryPoint::kMobileNotification);
 
-  histogram_tester.ExpectTotalCount(kAutoOpenOutcomeHistogram, 2);
-  histogram_tester.ExpectBucketCount(
-      kAutoOpenOutcomeHistogram,
-      send_tab_to_self::AutoOpenOutcome::kUnopenedImmediately, 1);
-  histogram_tester.ExpectBucketCount(
+  histogram_tester.ExpectUniqueSample(
+      "Sharing.SendTabToSelf.AutoOpenedImmediately", false, 1);
+  histogram_tester.ExpectUniqueSample(
       kAutoOpenOutcomeHistogram,
       send_tab_to_self::AutoOpenOutcome::kTabOpenedViaNotification, 1);
   EXPECT_EQ(user_action_tester.GetActionCount(

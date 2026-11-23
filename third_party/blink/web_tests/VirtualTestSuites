@@ -1730,7 +1730,8 @@
     ],
     "exclusive_tests": "ALL",
     "args": [
-      "--isolated-context-origins=https://devtools.oopif.test"
+      "--isolated-context-origins=https://devtools.oopif.test",
+      "--enable-features=SourceSpecificMulticastInDirectSockets"
     ],
     "expires": "never"
   },
@@ -2090,6 +2091,7 @@
     "platforms": ["Linux", "Mac", "Win"],
     "bases": [
       "http/tests/inspector-protocol/browser/add-mock-camera-device-list.js",
+      "http/tests/inspector-protocol/browser/add-mock-camera-multiple-sessions.js",
       "http/tests/inspector-protocol/browser/add-mock-camera-open.js"
     ],
     "exclusive_tests": "ALL",
@@ -2412,7 +2414,7 @@
       "external/wpt/html/semantics/menu/tentative/menuitem-activate.html",
       "external/wpt/html/semantics/menu/tentative/menulist-popover-attribute.html",
       "external/wpt/screen-orientation/lock-sandboxed-iframe.html",
-      "external/wpt/shadow-dom/focus-navigation/reading-flow/tentative/carousel-grid-order.html",
+      "external/wpt/shadow-dom/focus-navigation/reading-flow/carousel-grid-order.html",
       "fullscreen/full-screen-placeholder.html",
       "fullscreen/full-screen-render-inline.html",
       "fullscreen/full-screen-zIndex-after.html",
@@ -2460,7 +2462,7 @@
       "Win"
     ],
     "bases": [
-      "wpt_internal/persistent-widgets"
+      "external/wpt/html/semantics/embedded-content/the-persistentwidget-element/tentative"
     ],
     "args": [
       "--enable-features=PersistentWidgetAPI"
@@ -3055,7 +3057,8 @@
     ],
     "bases": [
       "external/wpt/speculation-rules/prerender/cross-origin-iframe-prerender.https.html",
-      "external/wpt/speculation-rules/prerender/cross-origin-iframe-prerender-nesting.https.html"
+      "external/wpt/speculation-rules/prerender/cross-origin-iframe-prerender-nesting.https.html",
+      "http/tests/inspector-protocol/prerender/prerender-cross-origin-iframe-status-update.js"
     ],
     "exclusive_tests": "ALL",
     "args": [
@@ -3439,6 +3442,20 @@
       "katabolism-finch@google.com"
     ]
   },
+  {
+    "prefix": "scaled-oopif-effect-surfaces",
+    "platforms": ["Linux", "Mac", "Win"],
+    "bases": [
+      "http/tests/html/backdrop-filter-scaled-iframe-repaint.html"
+    ],
+    "args": [
+      "--enable-threaded-compositing",
+      "--enable-features=SizeOopifEffectSurfacesAtExternalScale",
+      "--disable-features=TreesInViz"
+    ],
+    "owners": ["gerchiko@microsoft.com"],
+    "expires": "Apr 13, 2027"
+  },
   "The threaded virtual suite tests with threaded compositing, which is the",
   "configuration that we ship.  Because this is testing what we ship (in a way",
   "that the default configuration does not), this virtual suite never expires.",
@@ -3494,8 +3511,9 @@
       "external/wpt/scheduler/tentative/yield/yield-priority-idle-callbacks.html",
       "external/wpt/soft-navigation-heuristics/navigation-api-view-transition.tentative.html",
       "fast/events/pointerevents/pinch",
-      "http/tests/devtools/isolated-code-cache",
+      "http/tests/inspector-protocol/isolated-code-cache",
       "http/tests/devtools/tracing",
+      "http/tests/inspector-protocol/issues/deprecation-view-transition-prevent-svg-filter-paint.js",
       "http/tests/inspector-protocol/paint-worklet",
       "http/tests/worklet",
       "inspector-protocol/css/css-get-keyframes-for-view-transitions.js",
@@ -3519,7 +3537,6 @@
       "external/wpt/trusted-types/navigate-to-javascript-url-004.html",
       "external/wpt/trusted-types/navigate-to-javascript-url-005.html",
       "external/wpt/trusted-types/navigate-to-javascript-url-006.sub.html",
-      "external/wpt/trusted-types/navigate-to-javascript-url-007-crash.html",
       "external/wpt/trusted-types/navigate-to-javascript-url-csp-headers.html",
       "external/wpt/trusted-types/trusted-types-navigation.html",
       "external/wpt/trusted-types/trusted-types-reporting.html"
@@ -3538,7 +3555,8 @@
       "external/wpt/permissions-policy/experimental-features/vertical-scroll-touch-block-manual.tentative.html",
       "external/wpt/requestidlecallback",
       "external/wpt/scheduler/tentative/yield/yield-priority-idle-callbacks.html",
-      "http/tests/devtools/isolated-code-cache",
+      "http/tests/inspector-protocol/isolated-code-cache",
+      "http/tests/inspector-protocol/issues/deprecation-view-transition-prevent-svg-filter-paint.js",
       "http/tests/inspector-protocol/paint-worklet",
       "external/wpt/css/css-view-transitions",
       "wpt_internal/html/script-execution",
@@ -3559,7 +3577,6 @@
       "external/wpt/trusted-types/navigate-to-javascript-url-004.html",
       "external/wpt/trusted-types/navigate-to-javascript-url-005.html",
       "external/wpt/trusted-types/navigate-to-javascript-url-006.sub.html",
-      "external/wpt/trusted-types/navigate-to-javascript-url-007-crash.html",
       "external/wpt/trusted-types/navigate-to-javascript-url-csp-headers.html",
       "external/wpt/trusted-types/trusted-types-navigation.html",
       "external/wpt/trusted-types/trusted-types-reporting.html"
@@ -3712,14 +3729,36 @@
       "Win",
       "ChromeOS"
     ],
-    "bases": [],
+    "bases": [
+      "fast/events/installresult-global-event-handler-disabled.html"
+    ],
+    "exclusive_tests": "ALL",
     "args": [
       "--disable-features=InstallElement"
     ],
     "owners": [
       "permissions-core@google.com"
     ],
-    "expires": "never"
+    "expires": "Mar 1, 2027"
+  },
+  {
+    "prefix": "web-install-disabled",
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win",
+      "ChromeOS"
+    ],
+    "bases": [],
+    "args": [
+      "--disable-features=WebAppInstallation"
+    ],
+    "owners": [
+      "pwa-team@google.com",
+      "liahiscock@microsoft.com",
+      "kristinlee@microsoft.com"
+    ],
+    "expires": "Mar 1, 2027"
   },
   "This suite disables unload deprecation and allows tests to run with unload handlers.",
   "It should not expire as long as there are tests that use unload.",
@@ -3951,26 +3990,6 @@
       "web-bluetooth@google.com"
     ],
     "expires": "Jan 1, 2027"
-  },
-  {
-    "prefix": "web-install",
-    "platforms": [
-      "Linux",
-      "Mac",
-      "Win"
-    ],
-    "bases": [
-      "external/wpt/web-install"
-    ],
-    "exclusive_tests": "ALL",
-    "args": [
-      "--enable-features=WebAppInstallation"
-    ],
-    "owners": [
-      "pwa-team@google.com",
-      "liahiscock@microsoft.com"
-    ],
-    "expires": "Jan 1, 2028"
   },
   "Runs the remoteClientDataJSON Permissions Policy tests with its runtime",
   "feature enabled. Requests use invalid client data so policy behavior is",
@@ -4740,6 +4759,25 @@
     "expires": "Jul 1, 2026"
   },
   {
+    "prefix": "csp-embedded-enforcement-trusted-types",
+    "owners": [
+      "vizlatin@microsoft.com"
+    ],
+    "platforms": [
+      "Linux",
+      "Mac",
+      "Win"
+    ],
+    "bases": [
+      "external/wpt/content-security-policy/embedded-enforcement/subsumption_algorithm-trusted_types.tentative.html"
+    ],
+    "exclusive_tests": "ALL",
+    "args": [
+      "--enable-features=CSPEmbeddedEnforcementTrustedTypes"
+    ],
+    "expires": "Feb 1, 2027"
+  },
+  {
     "prefix": "unrestricted-spellcheck",
     "owners": [
       "arichiv@chromium.org",
@@ -4810,7 +4848,8 @@
       "fast/parser/xml-cap-alert-xslt-enabled.html",
       "fast/parser/xml-xslt-warning-banner.html",
       "fast/parser/xml-xslt-warning-banner-polyfill.html",
-      "fast/parser/xml-xslt-warning-banner-appearance.html"
+      "fast/parser/xml-xslt-warning-banner-appearance.html",
+      "external/wpt/content-security-policy/xslt"
     ],
     "exclusive_tests": [
       "fast/parser/xml-xslt-warning-banner-appearance.html",
@@ -5150,6 +5189,7 @@
     "prefix": "subresource-link-preload-enabled",
     "platforms": ["Linux", "Mac", "Win"],
     "bases": [
+      "external/wpt/preload/preload-referrer-policy-subresource-header.tentative.html",
       "http/tests/linkHeader/link-preload-in-js.html"
     ],
     "exclusive_tests": "ALL",

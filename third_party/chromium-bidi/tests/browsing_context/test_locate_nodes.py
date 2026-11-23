@@ -12,10 +12,18 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+import asyncio
 import re
 
 import pytest
-from test_helpers import ANY_SHARED_ID, AnyExtending, execute_command, goto_url
+from test_helpers import (
+    ANY_SHARED_ID,
+    AnyExtending,
+    execute_command,
+    goto_url,
+    read_JSON_message,
+    send_JSON_command,
+)
 
 
 @pytest.mark.parametrize(
@@ -240,3 +248,196 @@ async def test_locate_nodes_select_html(
         }
     else:
         assert resp == {"nodes": []}
+
+
+@pytest.mark.parametrize("same_origin", [True, False])
+@pytest.mark.parametrize(
+    "locator_value",
+    [
+        {"role": "button", "name": "Inner"},
+        {"role": "button"},
+    ],
+)
+@pytest.mark.asyncio
+async def test_locate_nodes_accessibility_in_iframe(
+    websocket, context_id, html, iframe, same_origin, locator_value
+):
+    # Create the inner iframe URL with its own button.
+    iframe_url = html('<button id="inner">Inner</button>', same_origin=same_origin)
+    # Navigate the top-level page with an outer button and the child iframe.
+    await goto_url(
+        websocket,
+        context_id,
+        html(f'<button id="outer">Outer</button>{iframe(iframe_url)}'),
+    )
+
+    # Fetch the browsing context tree to get the child iframe's context ID.
+    tree = await execute_command(
+        websocket,
+        {
+            "method": "browsingContext.getTree",
+            "params": {"root": context_id},
+        },
+    )
+    # Extract the child frame browsing context ID.
+    iframe_context_id = tree["contexts"][0]["children"][0]["context"]
+
+    # Locate nodes by accessibility inside the child iframe context.
+    resp = await execute_command(
+        websocket,
+        {
+            "method": "browsingContext.locateNodes",
+            "params": {
+                "context": iframe_context_id,
+                "locator": {"type": "accessibility", "value": locator_value},
+            },
+        },
+    )
+
+    # Verify that only the inner frame's button is matched and returned.
+    assert resp == {
+        "nodes": [
+            {
+                "sharedId": ANY_SHARED_ID,
+                "type": "node",
+                "value": {
+                    "attributes": {
+                        "id": "inner",
+                    },
+                    "childNodeCount": 1,
+                    "localName": "button",
+                    "namespaceURI": "http://www.w3.org/1999/xhtml",
+                    "nodeType": 1,
+                    "shadowRoot": None,
+                },
+            },
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_locate_nodes_accessibility_stale_start_node_after_reload(
+    websocket, context_id, html
+):
+    await goto_url(
+        websocket,
+        context_id,
+        html("<title>Ready</title><button>Go</button>"),
+    )
+
+    # Obtain a sharedId for document.body before reloading the page.
+    eval_resp = await execute_command(
+        websocket,
+        {
+            "method": "script.evaluate",
+            "params": {
+                "expression": "document.body",
+                "target": {"context": context_id},
+                "awaitPromise": False,
+            },
+        },
+    )
+    stale_shared_id = eval_resp["result"]["sharedId"]
+
+    # Reload the page so the previous document becomes inactive.
+    await execute_command(
+        websocket,
+        {
+            "method": "browsingContext.reload",
+            "params": {"context": context_id, "wait": "complete"},
+        },
+    )
+
+    # Locating accessibility nodes using a startNode from the old document must
+    # fail with "no such node" rather than crashing the renderer process.
+    with pytest.raises(
+        Exception,
+        match=re.escape("'error': 'no such node'"),
+    ):
+        await execute_command(
+            websocket,
+            {
+                "method": "browsingContext.locateNodes",
+                "params": {
+                    "context": context_id,
+                    "locator": {
+                        "type": "accessibility",
+                        "value": {"role": "button", "name": "Go"},
+                    },
+                    "startNodes": [{"sharedId": stale_shared_id}],
+                },
+            },
+        )
+
+    # Verify the browsing context remains responsive to subsequent commands.
+    title_resp = await execute_command(
+        websocket,
+        {
+            "method": "script.evaluate",
+            "params": {
+                "expression": "document.title",
+                "target": {"context": context_id},
+                "awaitPromise": False,
+            },
+        },
+    )
+    assert title_resp["result"] == {"type": "string", "value": "Ready"}
+
+
+@pytest.mark.asyncio
+async def test_locate_nodes_accessibility_concurrent_reload(
+    websocket, context_id, html
+):
+    url = html("<title>Ready</title><button>Go</button>")
+    await goto_url(websocket, context_id, url)
+
+    # Sweep short delays between locateNodes and reload so the reload straddles
+    # the internal Accessibility.getRootAXNode and Accessibility.queryAXTree
+    # CDP calls.
+    for delay in [0.0, 0.002, 0.004, 0.006, 0.008, 0.01]:
+        locate_id = await send_JSON_command(
+            websocket,
+            {
+                "method": "browsingContext.locateNodes",
+                "params": {
+                    "context": context_id,
+                    "locator": {
+                        "type": "accessibility",
+                        "value": {"role": "button", "name": "Go"},
+                    },
+                },
+            },
+        )
+        if delay > 0:
+            await asyncio.sleep(delay)
+        reload_id = await send_JSON_command(
+            websocket,
+            {
+                "method": "browsingContext.reload",
+                "params": {"context": context_id, "wait": "complete"},
+            },
+        )
+
+        # Wait for both the locateNodes and reload responses.
+        responses = {}
+        while locate_id not in responses or reload_id not in responses:
+            msg = await read_JSON_message(websocket)
+            if "id" in msg:
+                responses[msg["id"]] = msg
+
+        assert responses[reload_id]["type"] == "success"
+        assert responses[locate_id]["type"] in ("success", "error")
+
+        # Verify the page continues answering commands after the reload.
+        eval_resp = await execute_command(
+            websocket,
+            {
+                "method": "script.evaluate",
+                "params": {
+                    "expression": "document.title",
+                    "target": {"context": context_id},
+                    "awaitPromise": False,
+                },
+            },
+        )
+        assert eval_resp["result"] == {"type": "string", "value": "Ready"}

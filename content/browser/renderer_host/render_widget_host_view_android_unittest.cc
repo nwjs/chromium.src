@@ -6,9 +6,12 @@
 
 #include <memory>
 
+#include "base/android/device_info.h"
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "cc/layers/deadline_policy.h"
 #include "cc/slim/layer.h"
 #include "components/input/render_input_router.mojom.h"
@@ -21,6 +24,7 @@
 #include "content/browser/site_instance_group.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/common/features.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "content/public/test/test_browser_context.h"
@@ -31,6 +35,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/android/delegated_frame_host_android.h"
 #include "ui/android/test_view_android_delegate.h"
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
@@ -57,8 +62,9 @@ class CustomScreenInfoRenderWidgetHostViewAndroid
   CustomScreenInfoRenderWidgetHostViewAndroid(
       RenderWidgetHostImpl* widget,
       gfx::NativeView parent_native_view,
-      cc::slim::Layer* parent_layer);
-  ~CustomScreenInfoRenderWidgetHostViewAndroid() override {}
+      cc::slim::Layer* parent_layer,
+      bool using_browser_compositor = false);
+  ~CustomScreenInfoRenderWidgetHostViewAndroid() override = default;
 
   void SetScreenInfo(display::ScreenInfo screen_info);
 
@@ -79,8 +85,12 @@ CustomScreenInfoRenderWidgetHostViewAndroid::
     CustomScreenInfoRenderWidgetHostViewAndroid(
         RenderWidgetHostImpl* widget,
         gfx::NativeView parent_native_view,
-        cc::slim::Layer* parent_layer)
-    : RenderWidgetHostViewAndroid(widget, parent_native_view, parent_layer) {}
+        cc::slim::Layer* parent_layer,
+        bool using_browser_compositor)
+    : RenderWidgetHostViewAndroid(widget,
+                                  parent_native_view,
+                                  parent_layer,
+                                  using_browser_compositor) {}
 
 void CustomScreenInfoRenderWidgetHostViewAndroid::SetScreenInfo(
     display::ScreenInfo screen_info) {
@@ -901,6 +911,8 @@ class RenderWidgetHostViewAndroidRotationTest
   void OnDidUpdateVisualPropertiesComplete(
       const cc::RenderFrameMetadata& metadata);
   void SetScreenInfo(display::ScreenInfo screen_info);
+  void OnAnimate();
+  bool IsVisualPropertiesUpdatePending();
 
   // ViewAndroid:
   void OnPhysicalBackingSizeChanged(const gfx::Size& size);
@@ -917,6 +929,10 @@ class RenderWidgetHostViewAndroidRotationTest
 
   // testing::Test:
   void SetUp() override;
+
+  // Whether the view uses the browser compositor, rather than the synchronous
+  // (WebView) compositor. Must be set before `SetUp()`.
+  bool use_browser_compositor_ = false;
 };
 
 void RenderWidgetHostViewAndroidRotationTest::SetPortraitScreenInfo(
@@ -1066,11 +1082,20 @@ void RenderWidgetHostViewAndroidRotationTest::OnVisibleViewportSizeChanged(
   GetParentView()->OnSizeChanged(width, height);
 }
 
+void RenderWidgetHostViewAndroidRotationTest::OnAnimate() {
+  render_widget_host_view_android()->OnAnimate(base::TimeTicks::Now());
+}
+
+bool RenderWidgetHostViewAndroidRotationTest::
+    IsVisualPropertiesUpdatePending() {
+  return render_widget_host_view_android()->visual_properties_update_pending_;
+}
+
 RenderWidgetHostViewAndroid*
 RenderWidgetHostViewAndroidRotationTest::CreateRenderWidgetHostViewAndroid(
     RenderWidgetHostImpl* widget_host) {
   return new CustomScreenInfoRenderWidgetHostViewAndroid(
-      widget_host, GetParentView(), GetParentLayer());
+      widget_host, GetParentView(), GetParentLayer(), use_browser_compositor_);
 }
 
 void RenderWidgetHostViewAndroidRotationTest::SetUp() {
@@ -1407,6 +1432,180 @@ TEST_F(RenderWidgetHostViewAndroidRotationTest, FullscreenEviction) {
   GetLocalSurfaceIdAndConfirmNewerThan(local_surface_id);
 }
 
+// Tests that resizing a visible fullscreen page records the time until a frame
+// from the Renderer at the new size activates.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       FullscreenResizeRecordsTimeToNewFrame) {
+  base::HistogramTester histograms;
+  // Use a valid fallback, so that the fullscreen resize replaces it.
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  const viz::LocalSurfaceId initial_local_surface_id =
+      render_widget_host_view_android()->GetLocalSurfaceId();
+  const viz::LocalSurfaceId fullscreen_local_surface_id =
+      PortraitToFullscreenPortrait();
+  histograms.ExpectTotalCount("Android.FullscreenResize.Result", 0);
+
+  // A frame at the old size does not end the resize.
+  cc::RenderFrameMetadata metadata;
+  metadata.local_surface_id = initial_local_surface_id;
+  OnRenderFrameMetadataChangedAfterActivation(metadata, base::TimeTicks::Now());
+  histograms.ExpectTotalCount("Android.FullscreenResize.Result", 0);
+
+  // A frame at the new size ends the resize. The recorded time runs until Viz
+  // activated that frame, which here is 1 s before the browser is notified.
+  task_environment()->FastForwardBy(base::Seconds(3));
+  metadata.local_surface_id = fullscreen_local_surface_id;
+  OnRenderFrameMetadataChangedAfterActivation(
+      metadata, base::TimeTicks::Now() - base::Seconds(1));
+  histograms.ExpectUniqueSample(
+      "Android.FullscreenResize.Result",
+      ui::DelegatedFrameHostAndroid::FullscreenResizeResult::kCompleted, 1);
+  histograms.ExpectUniqueTimeSample("Android.FullscreenResize.TimeToNewFrame",
+                                    base::Seconds(2), 1);
+
+  // Later frames record nothing.
+  OnRenderFrameMetadataChangedAfterActivation(metadata, base::TimeTicks::Now());
+  histograms.ExpectTotalCount("Android.FullscreenResize.Result", 1);
+}
+
+// Tests that when a fullscreen page is resized again before a frame at the
+// first new size arrives, the time runs until a frame at the latest size.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       FullscreenResizeWaitsForLatestSize) {
+  base::HistogramTester histograms;
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  const viz::LocalSurfaceId first_local_surface_id =
+      PortraitToFullscreenPortrait();
+
+  task_environment()->FastForwardBy(base::Milliseconds(100));
+  OnPhysicalBackingSizeChanged(gfx::Size(600, 780));
+  const viz::LocalSurfaceId second_local_surface_id =
+      GetLocalSurfaceIdAndConfirmNewerThan(first_local_surface_id);
+
+  cc::RenderFrameMetadata metadata;
+  metadata.local_surface_id = first_local_surface_id;
+  OnRenderFrameMetadataChangedAfterActivation(metadata, base::TimeTicks::Now());
+  histograms.ExpectTotalCount("Android.FullscreenResize.Result", 0);
+
+  task_environment()->FastForwardBy(base::Milliseconds(400));
+  // A frame at the latest size (including one with a newer child sequence
+  // number) ends the resize and records the time from the first resize.
+  metadata.local_surface_id =
+      viz::LocalSurfaceId(second_local_surface_id.parent_sequence_number(),
+                          second_local_surface_id.child_sequence_number() + 1,
+                          second_local_surface_id.embed_token());
+  OnRenderFrameMetadataChangedAfterActivation(metadata, base::TimeTicks::Now());
+  histograms.ExpectUniqueSample(
+      "Android.FullscreenResize.Result",
+      ui::DelegatedFrameHostAndroid::FullscreenResizeResult::kCompleted, 1);
+  histograms.ExpectUniqueTimeSample("Android.FullscreenResize.TimeToNewFrame",
+                                    base::Milliseconds(500), 1);
+}
+
+// Tests that leaving fullscreen before a frame at the new size arrives records
+// the result, but no time.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       FullscreenResizeEndsWhenExitingFullscreen) {
+  base::HistogramTester histograms;
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  PortraitToFullscreenPortrait();
+
+  ExitFullscreenMode();
+  OnPhysicalBackingSizeChanged(portrait_physical_backing);
+  histograms.ExpectUniqueSample(
+      "Android.FullscreenResize.Result",
+      ui::DelegatedFrameHostAndroid::FullscreenResizeResult::kExitedFullscreen,
+      1);
+  histograms.ExpectTotalCount("Android.FullscreenResize.TimeToNewFrame", 0);
+}
+
+// Tests that hiding a fullscreen page before a frame at the new size arrives
+// records the result, but no time.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       FullscreenResizeEndsWhenHidden) {
+  base::HistogramTester histograms;
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  PortraitToFullscreenPortrait();
+
+  render_widget_host_view_android()->Hide();
+  histograms.ExpectUniqueSample(
+      "Android.FullscreenResize.Result",
+      ui::DelegatedFrameHostAndroid::FullscreenResizeResult::kHidden, 1);
+  histograms.ExpectTotalCount("Android.FullscreenResize.TimeToNewFrame", 0);
+}
+
+// Tests that occluding a fullscreen page (which hides the renderer while
+// keeping the frontbuffer) ends the resize and blocks new resize timers while
+// occluded.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       FullscreenResizeEndsWhenOccluded) {
+  base::HistogramTester histograms;
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  PortraitToFullscreenPortrait();
+
+  render_widget_host_view_android()->WasOccluded();
+  histograms.ExpectUniqueSample(
+      "Android.FullscreenResize.Result",
+      ui::DelegatedFrameHostAndroid::FullscreenResizeResult::kHidden, 1);
+  histograms.ExpectTotalCount("Android.FullscreenResize.TimeToNewFrame", 0);
+
+  // Resizing while occluded does not start a new resize timer.
+  OnPhysicalBackingSizeChanged(gfx::Size(600, 780));
+  render_widget_host_view_android()->Hide();
+  histograms.ExpectTotalCount("Android.FullscreenResize.Result", 1);
+}
+
+// Tests that evicting the frames of a fullscreen page before a frame at the
+// new size arrives records the result, but no time.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       FullscreenResizeEndsWhenEvicted) {
+  base::HistogramTester histograms;
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  PortraitToFullscreenPortrait();
+
+  render_widget_host_view_android()->ClearFallbackSurfaceForCommitPending();
+  histograms.ExpectUniqueSample(
+      "Android.FullscreenResize.Result",
+      ui::DelegatedFrameHostAndroid::FullscreenResizeResult::kEvicted, 1);
+  histograms.ExpectTotalCount("Android.FullscreenResize.TimeToNewFrame", 0);
+}
+
+// Tests that destroying the view while a fullscreen resize is in progress
+// records the result, but no time.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       FullscreenResizeEndsWhenDestroyed) {
+  base::HistogramTester histograms;
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  PortraitToFullscreenPortrait();
+
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+  ResetViewForTesting();
+  rwhva->DestroyOrDefer();
+  histograms.ExpectUniqueSample(
+      "Android.FullscreenResize.Result",
+      ui::DelegatedFrameHostAndroid::FullscreenResizeResult::kDestroyed, 1);
+  histograms.ExpectTotalCount("Android.FullscreenResize.TimeToNewFrame", 0);
+}
+
+// Tests that resizing a page that is not fullscreen records nothing.
+TEST_F(RenderWidgetHostViewAndroidRotationTest,
+       NonFullscreenResizeRecordsNoFullscreenResize) {
+  base::HistogramTester histograms;
+  render_widget_host_view_android()->ResetFallbackToFirstNavigationSurface();
+  const viz::LocalSurfaceId initial_local_surface_id =
+      render_widget_host_view_android()->GetLocalSurfaceId();
+
+  // Portrait split screen.
+  OnVisibleViewportSizeChanged(300, 195);
+  OnPhysicalBackingSizeChanged(gfx::Size(600, 390));
+  cc::RenderFrameMetadata metadata;
+  metadata.local_surface_id =
+      GetLocalSurfaceIdAndConfirmNewerThan(initial_local_surface_id);
+  OnRenderFrameMetadataChangedAfterActivation(metadata, base::TimeTicks::Now());
+  histograms.ExpectTotalCount("Android.FullscreenResize.Result", 0);
+  histograms.ExpectTotalCount("Android.FullscreenResize.TimeToNewFrame", 0);
+}
+
 // Tests that when Android fakes visibility to start a rotation, before hiding
 // and completing the rotation later, that the rotation timeout and subsequent
 // actual visibility change correctly updates the viz::LocalSurfaceId and stops
@@ -1522,6 +1721,113 @@ TEST_F(RenderWidgetHostViewAndroidRotationTest,
   rwhva->ShowWithVisibility(blink::mojom::PageVisibilityState::kVisible);
   EXPECT_TRUE(rwhva->GetLocalSurfaceId().is_valid());
   EXPECT_TRUE(rwhva->CanSynchronizeVisualProperties());
+}
+
+// Tests the FluidResize path of tablets and desktop Android, where the browser
+// compositor also re-synchronizes non-rotation resizes in Animate(), except in
+// fullscreen.
+//
+// Initializes to Portrait.
+class RenderWidgetHostViewAndroidFluidResizeTest
+    : public RenderWidgetHostViewAndroidRotationTest {
+ public:
+  RenderWidgetHostViewAndroidFluidResizeTest() {
+    scoped_feature_list_.InitAndEnableFeature(features::kFluidResize);
+  }
+  ~RenderWidgetHostViewAndroidFluidResizeTest() override = default;
+
+ protected:
+  // testing::Test:
+  void SetUp() override {
+    // FluidResize is only enabled on tablets and desktop Android.
+    base::android::device_info::set_is_desktop_for_testing(true);
+    use_browser_compositor_ = true;
+    RenderWidgetHostViewAndroidRotationTest::SetUp();
+    ASSERT_TRUE(features::IsFluidResizeEnabled());
+    // Complete the resize scheduled during setup.
+    OnAnimate();
+    ASSERT_FALSE(IsVisualPropertiesUpdatePending());
+  }
+
+  void TearDown() override {
+    RenderWidgetHostViewAndroidRotationTest::TearDown();
+    base::android::device_info::reset_is_desktop_for_testing();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Tests that a fullscreen resize synchronizes immediately via
+// ScreenStateChangeHandler instead of deferring to Animate(), clearing any
+// pending visual properties ack, and that subsequent calls to OnAnimate() and
+// FireFullscreenTimeout() do not advance the LocalSurfaceId again.
+TEST_F(RenderWidgetHostViewAndroidFluidResizeTest,
+       FullscreenResizeSyncsImmediately) {
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+  const viz::LocalSurfaceId initial_local_surface_id =
+      rwhva->GetLocalSurfaceId();
+
+  // 1. Before fullscreen, a standalone non-rotation resize defers to Animate().
+  OnPhysicalBackingSizeChanged(gfx::Size(600, 700));
+  EXPECT_TRUE(IsVisualPropertiesUpdatePending());
+  OnAnimate();
+  EXPECT_FALSE(IsVisualPropertiesUpdatePending());
+  const viz::LocalSurfaceId pre_fs_local_surface_id =
+      GetLocalSurfaceIdAndConfirmNewerThan(initial_local_surface_id);
+
+  // 2. Enter fullscreen.
+  EnterFullscreenMode();
+  EXPECT_FALSE(rwhva->CanSynchronizeVisualProperties());
+
+  auto* mock_host = static_cast<MockRenderWidgetHost*>(rwhva->host());
+  // An update from an earlier step of fullscreen entry awaits its ack.
+  mock_host->visual_properties_ack_pending_ = true;
+
+  // 3. Resize to fullscreen physical backing.
+  OnPhysicalBackingSizeChanged(fullscreen_portrait_physical_backing);
+  EXPECT_TRUE(rwhva->CanSynchronizeVisualProperties());
+  EXPECT_FALSE(IsVisualPropertiesUpdatePending());
+  EXPECT_FALSE(mock_host->visual_properties_ack_pending_);
+
+  const viz::LocalSurfaceId fullscreen_local_surface_id =
+      GetLocalSurfaceIdAndConfirmNewerThan(pre_fs_local_surface_id);
+
+  // Neither OnAnimate() nor FireFullscreenTimeout() advances LocalSurfaceId
+  // or sets visual_properties_update_pending_.
+  OnAnimate();
+  EXPECT_EQ(fullscreen_local_surface_id, rwhva->GetLocalSurfaceId());
+  EXPECT_FALSE(IsVisualPropertiesUpdatePending());
+
+  FireFullscreenTimeout();
+  EXPECT_EQ(fullscreen_local_surface_id, rwhva->GetLocalSurfaceId());
+  EXPECT_FALSE(IsVisualPropertiesUpdatePending());
+}
+
+// Tests that a fullscreen resize clears any update still deferred to Animate()
+// and that the subsequent Animate() does not allocate a new LocalSurfaceId.
+TEST_F(RenderWidgetHostViewAndroidFluidResizeTest,
+       FullscreenResizeSupersedesDeferredUpdate) {
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+
+  // 1. A standalone non-rotation resize defers to Animate(). Do not call
+  // OnAnimate(), leaving the deferred update pending.
+  OnPhysicalBackingSizeChanged(gfx::Size(600, 700));
+  EXPECT_TRUE(IsVisualPropertiesUpdatePending());
+
+  // 2. Enter fullscreen and resize to fullscreen physical backing.
+  EnterFullscreenMode();
+  OnPhysicalBackingSizeChanged(fullscreen_portrait_physical_backing);
+
+  // The immediate fullscreen sync supersedes the deferred update.
+  EXPECT_FALSE(IsVisualPropertiesUpdatePending());
+  const viz::LocalSurfaceId fullscreen_local_surface_id =
+      rwhva->GetLocalSurfaceId();
+
+  // The subsequent Animate() does not advance the LocalSurfaceId.
+  OnAnimate();
+  EXPECT_EQ(fullscreen_local_surface_id, rwhva->GetLocalSurfaceId());
+  EXPECT_FALSE(IsVisualPropertiesUpdatePending());
 }
 
 // Tests rotation and fullscreen cases that are supported by both the visual

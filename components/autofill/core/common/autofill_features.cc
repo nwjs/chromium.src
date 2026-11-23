@@ -46,20 +46,6 @@ BASE_FEATURE(kActorFormFillingServiceEnableCreditCard,
 BASE_FEATURE(kAutofillAcceptDomMutationAfterAutofillSubmission,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// LINT.IfChange(autofill_across_iframes_ios_throttling)
-// Throttles child frame extraction to a maximum number of child frames that
-// can be extracted by applying the following rules: (1) remove the child frames
-// from an individual form that busts the limit and (2) stop extracting child
-// frames on other forms once the limit is reached across forms.
-BASE_FEATURE(kAutofillAcrossIframesIosThrottling,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// LINT.ThenChange(//components/autofill/ios/form_util/resources/autofill_form_features.ts:autofill_across_iframes_ios_throttling)
-
-// Controls whether to trigger form extraction when detecting a form activity on
-// a xframe form.
-BASE_FEATURE(kAutofillAcrossIframesIosTriggerFormExtraction,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, the extracted APC proto includes node geometry.
 BASE_FEATURE(kAutofillActionableAIPageContent,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -404,16 +390,16 @@ BASE_FEATURE_WITH_COUNTRY_RESTRICTIONS(kAutofillAiWalletPrivatePasses,
 // signals that were readily available in Chrome prior to the Autofill-specific
 // capability (e.g., using geo-location).
 BASE_FEATURE(kAutofillAiWalletPrivatePassesCapability,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, Wallet private pass entries in settings link to their pass
 // details page rather than the generic pass overview page.
 BASE_FEATURE(kAutofillAiWalletPrivatePassesDeepLink,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, Wallet management URLs (`pass_view_url`) received via sync are
-// stored on `EntityInstance::WalletRecordTypePayload` and used for deep
-// linking to Google Wallet.
+// If enabled, Wallet management URLs (`pass_view_url`) are used for deep
+// linking to Google Wallet. Note that the processing of `pass_view_url`
+// in Chrome sync happens unconditionally even if the feature is off.
 BASE_FEATURE(kAutofillAiWalletServerProvidedDeepLink,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -439,7 +425,8 @@ BASE_FEATURE(kAutofillAllowFillingModifiedInitialValues,
 BASE_FEATURE(kAutofillAmbientAutofill, base::FEATURE_DISABLED_BY_DEFAULT);
 // A comma-separated list of EntityType string names (e.g. "Passport,Driver's
 // license,Vehicle") supported for Ambient Autofill. If empty, no entity types
-// are supported.
+// are supported (unless enabled via `kAutofillAmbientAutofillPassport` or
+// `kAutofillAmbientAutofillDriversLicense`).
 BASE_FEATURE_PARAM(std::string,
                    kAutofillAmbientAutofillSupportedEntityTypes,
                    &kAutofillAmbientAutofill,
@@ -481,12 +468,12 @@ BASE_FEATURE(kAutofillAmbientAutofillSuppression,
 // new behavior and design.
 // TODO(crbug.com/438125774): Remove when launched.
 BASE_FEATURE(kAutofillAndroidDesktopKeyboardAccessoryRevamp,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, on Android desktop, Autofill keyboard accessory will be
 // suppressed when there are no autofill suggestions.
 BASE_FEATURE(kAutofillAndroidDesktopSuppressAccessoryOnEmpty,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether user tap on an element is needed to show autofill
 // suggestions. If enabled, this flag would disable android autofill suggestions
@@ -500,13 +487,20 @@ BASE_FEATURE(kAutofillAndroidDesktopSuppressAccessoryOnEmpty,
 BASE_FEATURE(kAutofillAndroidDisableSuggestionsOnJSFocus,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_ANDROID)
+// Kill switch for hiding Autofill suggestions and the keyboard accessory when a
+// mouse-triggered context menu opens on Android.
+BASE_FEATURE(kAutofillAndroidHideSuggestionsOnContextMenu,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 // If enabled, on Android, the Autofill keyboard accessory will not be
 // displayed attached to the keyboard but will be placed below or above the
 // focused field. It works only for large form factor devices like tablets or
 // desktops.
 // TODO(crbug.com/438125774): Remove when launched.
 BASE_FEATURE(kAutofillAndroidKeyboardAccessoryDynamicPositioning,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // If enabled, on Android, hovering over an Autofill suggestion in the keyboard
@@ -581,13 +575,17 @@ BASE_FEATURE(kAutofillAtMemorySearchStatefulness,
 BASE_FEATURE(kAutofillAtMemorySupportContenteditableOnAndroid,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether <textarea> fields on Android are supported for AtMemory.
+// When enabled, the keyboard accessory is shown on textareas with only the
+// AtMemory entry point, and regular Autofill suggestions are not generated
+// for them.
+BASE_FEATURE(kAutofillAtMemorySupportTextAreaOnAndroid,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, AtMemory can be triggered with a keyboard shortcut like
 // Ctrl+Space.
 BASE_FEATURE(kAutofillAtMemoryTriggerShortcut,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, AtMemory can be triggered by typing the trigger string like "@@".
-BASE_FEATURE(kAutofillAtMemoryTriggerString, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the placeholder is not considered a label fallback on the
 // renderer side anymore. Instead, local heuristic will match regexes against
@@ -801,11 +799,6 @@ BASE_FEATURE(kAutofillEnableWalletDisclosureNoticePublicPass,
 BASE_FEATURE(kAutofillEnableWalletReminderNoticePublicPass,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls whether Autofill clears format strings assigned to a field where
-// none of the assigned field types are compatible with it.
-BASE_FEATURE(kAutofillEnforceFormatStringCompatibility,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables extended zip code validation.
 // TODO(crbug.com/434140055): Clean up when launched.
 BASE_FEATURE(kAutofillExtendZipCodeValidation,
@@ -829,7 +822,7 @@ BASE_FEATURE(kAutofillFixIframeOwnership, base::FEATURE_DISABLED_BY_DEFAULT);
 // Prioritizes ADDRESS_HOME_STREET_ADDRESS over postal code in inferred labels.
 // See crbug.com/540151895.
 BASE_FEATURE(kAutofillFixLabelGenerationForStreetAddress,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, the rewriter uses updated rewrite rules.
 // TODO(crbug.com/445863287): Cleanup when launched.
@@ -857,6 +850,13 @@ BASE_FEATURE(kAutofillGreekRegexes, base::FEATURE_ENABLED_BY_DEFAULT);
 // keyboard accessory after the user taps away.
 // TODO(crbug.com/570488818): Remove once the experiment is over.
 BASE_FEATURE(kAutofillHideSuggestionsOnFocusChange,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Keeps the Autofill popup open when layout reflow (`kClamping` or
+// `kAnchoring`) produces a scroll event. The feature flag guards logic
+// only on Desktop platforms.
+// TODO(crbug.com/564353467): Remove once the experiment is over.
+BASE_FEATURE(kAutofillIgnoreLayoutInducedScrollEvents,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, corrects missclassification of NAME_LAST as NAME_LAST_SECOND in
@@ -994,6 +994,19 @@ BASE_FEATURE(kAutofillPopupDontAcceptNonVisibleEnoughSuggestion,
 // TODO(crbug.com/524084900): Remove when launched.
 BASE_FEATURE(kAutofillPopupUseDeleteSoon, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, records Autocomplete table-level diagnostics and saturation
+// metrics on profile startup.
+// TODO(crbug.com/562921257): Remove this feature flag and the associated
+// startup diagnostic collection once the autocomplete analysis is concluded.
+BASE_FEATURE(kAutofillRecordAutocompleteTableStats,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, shows the updated storage notice. This notice explains how
+// saved info is used across Google and links to the Privacy Policy when saving
+// private passes to Google Wallet.
+BASE_FEATURE(kAutofillRegionalizedPrivatePassesUxRefine,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Replaces blink::WebFormElementObserver usage in FormTracker by updated logic
 // for tracking the disappearance of forms as well as other submission
 // triggering events.
@@ -1029,10 +1042,13 @@ BASE_FEATURE(kAutofillServerUploadMoreData, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAutofillShowGmailOtpSuggestions,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, fetch sms otp from gmscore and upload votes for sms otp.
-// TODO(crbug.com/453999673): Clean up when launched.
-BASE_FEATURE(kAutofillSmsOtpCrowdsourcingFetchFromGmscore,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+// When enabled, the PHONE_EXTENSION regex only matches "ext" as a token
+// (e.g. "Ext.", "phone_ext", "phoneExt") and no longer matches words that
+// merely contain it (e.g. "text-8", "next", "extra", "exterior"). Such fields
+// right after a phone number were misclassified as PHONE_HOME_EXTENSION.
+// TODO(crbug.com/417192418): Clean up when launched.
+BASE_FEATURE(kAutofillStricterPhoneExtensionRegex,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If this feature is enabled, the AddressFieldParser does NOT try to parse
 // address lines once it has found a street name and house number or other
@@ -1139,6 +1155,13 @@ BASE_FEATURE(kAutofillUsePassedFormAndFieldIds,
 // TODO(crbug.com/431737839): Clean up when roll out finishes successfully.
 BASE_FEATURE(kAutofillUseStructuralSignatureInsteadOfSecondary,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, `FinalizeNameAddressComponent()` wipes invalid name
+// substructures regardless of the root node's verification status, and
+// `NameInfo::SetRawInfoWithVerificationStatus()` invalidates child nodes when
+// overwriting a non-empty full name with a non-token-equivalent value.
+BASE_FEATURE(kAutofillWipeInvalidNameStructure,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, the field classification model uses runtime caching to not run
 // models on the same inputs multiple times.

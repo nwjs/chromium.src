@@ -60,6 +60,13 @@ chromium-metrics-reviews@google.com.
                their home screen (using a text bubble)"/>
   <variant name="IPH_AimActivationHint"
       summary="A hint to activate AI Mode on Android Desktop via keystrokes."/>
+  <variant name="IPH_AndroidBottomBarAddressBar"
+      summary="Nudges the user to move the top address bar to the bottom in
+               the Android bottom bar education flow."/>
+  <variant name="IPH_AndroidBottomBarEducation"
+      summary="Education onboarding and IPHs for the Android bottom bar."/>
+  <variant name="IPH_AndroidBottomBarEducationTooltips"
+      summary="Education tooltips for the Android bottom bar."/>
   <variant name="IPH_AndroidBottomBarGlic"
       summary="Describes the GLIC button added in the bottom bar."/>
   <variant name="IPH_AndroidBottomBarNewTab"
@@ -68,12 +75,18 @@ chromium-metrics-reviews@google.com.
       summary="Describes the promo dialog shown to introduce the bottom bar."/>
   <variant name="IPH_AndroidTabDeclutter"
       summary="Shows how to access tabs which have been archived."/>
+  <variant name="IPH_AndroidTipsOptInPromo"
+      summary="Android Tips Notifications opt-in bottom sheet promo"/>
   <variant name="IPH_AndroidVerticalTabsNewLabel"
       summary="Enables the 'New' label for Android Vertical Tabs."/>
   <variant name="IPH_AndroidVerticalTabsPromo"
       summary="Vertical Tabs promo on Android horizontal tab strip."/>
+  <variant name="IPH_AppLanguagePromo"
+      summary="App Language prompt on Android"/>
   <variant name="IPH_AppRatingPrompt" summary="App Rating Prompt action"/>
   <variant name="IPH_AppSpecificHistory" summary="App Specific History action"/>
+  <variant name="IPH_ArchivedTabsAutoDeletePromo"
+      summary="Archived Tabs auto-delete decision bottom sheet promo"/>
   <variant name="IPH_AutoDarkOptOut"
       summary="educating users about disabling auto dark feature globally"/>
   <variant name="IPH_AutoDarkUserEducationMessage"
@@ -91,6 +104,9 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_AutofillAiValuables"
       summary="snooze educating users about the possibility of autofilling
                Google Wallet passses"/>
+  <variant name="IPH_AutofillAmbientAutofillSpiiDisclaimer"
+      summary="educating users about verifying sensitive personal context
+               suggestions filled via Ambient Autofill"/>
   <variant name="IPH_AutofillAtMemory"
       summary="message shown when users copy/paste a value from another tab
                educating them that they can use the Autofill AtMemory feature
@@ -205,6 +221,8 @@ chromium-metrics-reviews@google.com.
       summary="contextual search for users who use web search"/>
   <variant name="IPH_ContextualTasksEphemeralToolbarButton"
       summary="contextual tasks ephemeral toolbar button"/>
+  <variant name="IPH_ContextualTasksPinnedIconChanged"
+      summary="contextual tasks pinned toolbar button icon change toast"/>
   <variant name="IPH_CriticalActionAppMenu"
       summary="educating users on the Chrome app menu where to view Gemini
                key browsing actions in history."/>
@@ -235,6 +253,11 @@ chromium-metrics-reviews@google.com.
       summary="Desktop NTP contextual search"/>
   <variant name="IPH_DesktopSharedHighlighting"
       summary="Sharing links with highlighted text"/>
+  <variant name="IPH_Dictation"
+      summary="Dictation IPH shown next to a focused text field"/>
+  <variant name="IPH_DictationHotkey"
+      summary="Dictation keyboard shortcut IPH shown after the user has
+               invoked Dictation a couple of times"/>
   <variant name="IPH_DiscardRing" summary="Discard ring for tabs"/>
   <variant name="IPH_DownloadEsbPromo" summary="download ESB promo"/>
   <variant name="IPH_DownloadHome" summary="download home"/>
@@ -310,8 +333,12 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_FeedSwipeRefresh" summary="swipe refreshing feeds on NTP"/>
   <variant name="IPH_FollowWhileBrowsing"
       summary="IPH for following the current site"/>
+  <variant name="IPH_FullscreenSigninPromo"
+      summary="fullscreen sign-in (re-FRE) promo on Android"/>
   <variant name="IPH_FuseboxAttachment"
       summary="engagement with Fusebox attachments"/>
+  <variant name="IPH_FuseboxPlusButtonHint"
+      summary="IPH pointing at the Omnibox Fusebox (+) attachment button"/>
   <variant name="IPH_GenericAlwaysTriggerHelpUiFeature"
       summary="generic feature to always show help Ui whenever asked"/>
   <variant name="IPH_GestureUserEducation"
@@ -542,8 +569,6 @@ chromium-metrics-reviews@google.com.
       summary="shows returning users features they may be interested in"/>
   <variant name="IPH_KeyboardAccessoryPaymentOffer"
       summary="payments autofill suggestions that have an offer"/>
-  <variant name="IPH_LauncherSearchHelpUi"
-      summary="show launcher search chips in the launcher"/>
   <variant name="IPH_LensOverlay" summary="Lens Overlay"/>
   <variant name="IPH_LiveCaption" summary="(obsolete) Live Caption"/>
   <variant name="IPH_LongPressToolbarTip" summary="LongPress toolbar"/>
@@ -565,6 +590,10 @@ chromium-metrics-reviews@google.com.
       summary="informing user of customizing new tab page theme via NTP
                customization option in the App menu"/>
   <variant name="IPH_NewTabTip" summary="new tab tip"/>
+  <variant name="IPH_NotificationPermissionPromo"
+      summary="OS notification permission prompt on Android"/>
+  <variant name="IPH_OmniboxAskGLensIcon"
+      summary="the Lens icon in the omnibox popup"/>
   <variant name="IPH_OmniboxEverywhereLensPromo"
       summary="the Lens search feature in Omnibox Everywhere"/>
   <variant name="IPH_PageInfo" summary="opening PageInfo"/>
@@ -675,8 +704,6 @@ chromium-metrics-reviews@google.com.
       summary="promotes the new omnibox entrypoint for reading mode"/>
   <variant name="IPH_ReadingModePresentationMode"
       summary="promotes the view switching feature in Reading Mode"/>
-  <variant name="IPH_ReadingModeSidePanel"
-      summary="promotes use of reading mode in the side panel"/>
   <variant name="IPH_ReadLaterAppMenuBookmarks" summary="read later app menu"/>
   <variant name="IPH_ReadLaterAppMenuBookmarkThisPage"
       summary="read later app menu"/>
@@ -708,6 +735,8 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_RtlGestureNavigation"
       summary="the in product help dialog to educate users on how to do
                gesture navigation in RTL mode."/>
+  <variant name="IPH_SearchEngineChoicePromo"
+      summary="regulatory search engine choice dialog on Android"/>
   <variant name="IPH_SearchPromotionFeature"
       summary="Showing the Search extension promo on Windows"/>
   <variant name="IPH_SendTabToSelfOmnibox"
@@ -771,6 +800,8 @@ chromium-metrics-reviews@google.com.
                teaching the user about tab group sync and save functionality"/>
   <variant name="IPH_TabGroupsDragAndDrop"
       summary="educating user to drop one tab on another tab to create group"/>
+  <variant name="IPH_TabGroupsFocusingFeature"
+      summary="educating user on how to focus on a tab group"/>
   <variant name="IPH_TabGroupSharedNotificationBubbleOnStrip"
       summary="For tab group share notification bubble on tablet tab strip."/>
   <variant name="IPH_TabGroupShareNotice"
@@ -800,18 +831,19 @@ chromium-metrics-reviews@google.com.
                the GTS"/>
   <variant name="IPH_TabGroupsTapToSeeAnotherTab"
       summary="(obsolete) tab strip"/>
+  <variant name="IPH_TabGroupsUnfocusingFeature"
+      summary="pointing out the Unfocus button when focusing on a tab group"/>
   <variant name="IPH_TabGroupSyncOnStrip"
       summary="For tab group sync on tablet tab strip."/>
   <variant name="IPH_TabGroupsYourTabsTogether"
       summary="tab switcher cards with multiple tab thumbnails"/>
   <variant name="IPH_TabOrganizationSuccess"
       summary="(obsolete) tab organization success"/>
+  <variant name="IPH_TabPickerSelectTabs"
+      summary="prompting users to select tabs in the tab picker"/>
   <variant name="IPH_TabScrollButtonFeature"
       summary="IPH for tab horizontal scroll buttons"/>
   <variant name="IPH_TabSearch" summary="tab search discovery"/>
-  <variant name="IPH_TabSearchComboButton"
-      summary="IPH for the first time a user opens Chrome with tab search
-               moved to the tab strip combo button"/>
   <variant name="IPH_TabSearchToolbarButton"
       summary="IPH for the first time a user opens Chrome with tab search
                moved to a toolbar button"/>
@@ -880,7 +912,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.Db.TotalEvents" units="events"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records the total number of event records in the database for in-product
@@ -929,7 +961,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.InitializationTime.Total" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>agazal@chromium.org</owner>
   <owner>mschillaci@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
@@ -942,7 +974,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.NotifyEventReadyState.{IPHFeature}"
-    enum="BooleanSuccess" expires_after="2027-02-07">
+    enum="BooleanSuccess" expires_after="2027-04-11">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records if the model is ready when in-product help event happens for
@@ -952,7 +984,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShouldTriggerHelpUI.{IPHFeature}"
-    enum="TriggerHelpUIResult" expires_after="2027-02-07">
+    enum="TriggerHelpUIResult" expires_after="2027-04-11">
   <owner>nyquist@chromium.org</owner>
   <summary>
     Records if in-product help for {IPHFeature} is shown to the user, and the
@@ -964,7 +996,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShownTime.{IPHFeature}" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
   <summary>
@@ -977,7 +1009,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InProductHelp.ShownTime2.{IPHFeature}" units="ms"
-    expires_after="2027-02-07">
+    expires_after="2027-04-11">
   <owner>gayane@google.com</owner>
   <owner>lpromero@google.com</owner>
   <owner>gambard@chromium.org</owner>
@@ -1072,7 +1104,7 @@ In the future, Desktop IPH may be completely moved to the user_education folder.
 </histogram>
 
 <histogram name="UserEducation.MessageShown.TimeInQueue.{IPHFeature}"
-    units="ms" expires_after="2027-02-07">
+    units="ms" expires_after="2027-04-11">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>

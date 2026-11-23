@@ -1569,12 +1569,20 @@ domain Network
   experimental event directUDPSocketJoinedMulticastGroup
     parameters
       RequestId identifier
+      # Multicast group address.
       string IPAddress
+      # Source address of a source-specific multicast (SSM) membership. Absent
+      # for any-source multicast (ASM) memberships.
+      optional string sourceAddress
 
   experimental event directUDPSocketLeftMulticastGroup
     parameters
       RequestId identifier
+      # Multicast group address.
       string IPAddress
+      # Source address of a source-specific multicast (SSM) membership. Absent
+      # for any-source multicast (ASM) memberships.
+      optional string sourceAddress
 
 
   # Fired upon direct_socket.UDPSocket creation.
@@ -2096,6 +2104,7 @@ domain Network
       PreProvisionedKeyNotFound
       AttestationCertificationError
       AttestationSigningError
+      FederatedRegistrationRedirected
   # LINT.ThenChange(//content/browser/devtools/protocol/network_handler.cc:DeviceBoundSessionFetchResult)
 
   # Details about a failed device bound session network request.
@@ -2139,6 +2148,7 @@ domain Network
         RefreshedAsWaiter
         TransientSigningError
         InScopeRefreshNotYetNeeded
+        Canceled
       # LINT.ThenChange(//net/device_bound_sessions/refresh_result.h:DeviceBoundSessionRefreshResult,//content/browser/devtools/protocol/network_handler.cc:DeviceBoundSessionRefreshResult)
       # If there was a fetch attempt, the result of that.
       optional DeviceBoundSessionFetchResult fetchResult

@@ -84,6 +84,7 @@ chromium-metrics-reviews@google.com.
   <int value="-94642184" label="BlockedCredentialFragmentView"/>
   <int value="-67456740" label="MainSettings"/>
   <int value="-45144853" label="DownloadSettings"/>
+  <int value="-31712463" label="OnStartupSettingsFragment"/>
   <int value="-27162861" label="(Obsolete) FledgeFragment"/>
   <int value="2516405" label="TranslateTargetLanguagePickerFragment"/>
   <int value="6178351" label="ContentLanguagePickerFragment"/>
@@ -103,7 +104,7 @@ chromium-metrics-reviews@google.com.
   <int value="453432714" label="AboutChromeSettings"/>
   <int value="455040669" label="EmptyFragment"/>
   <int value="460038414" label="PreloadPagesSettingsFragment"/>
-  <int value="461783669" label="SafetyHubNotificationsFragment"/>
+  <int value="461783669" label="(Obsolete) SafetyHubNotificationsFragment"/>
   <int value="493474121" label="StandardProtectionSettingsFragment"/>
   <int value="513483078" label="DoNotTrackSettings"/>
   <int value="590543987" label="StorageAccessSubpageSettings"/>
@@ -222,24 +223,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Standard preloading"/>
   <int value="2" label="Extended preloading"/>
 </enum>
-
-<!-- LINT.IfChange(SafetyCheckNotificationsModuleInteractions) -->
-
-<enum name="SafetyCheckNotificationsModuleInteractions">
-  <int value="0" label="Block"/>
-  <int value="1" label="Block all"/>
-  <int value="2" label="Ignore"/>
-  <int value="3" label="Minimize"/>
-  <int value="4" label="Reset"/>
-  <int value="5" label="Undo block"/>
-  <int value="6" label="Undo ignore"/>
-  <int value="7" label="Undo reset"/>
-  <int value="8" label="Open review UI"/>
-  <int value="9" label="Undo block all"/>
-  <int value="10" label="Go to settings"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/resources/settings/metrics_browser_proxy.ts:SafetyCheckNotificationsModuleInteractions) -->
 
 <enum name="SafetyCheckPasswordsStatus">
   <int value="0" label="CHECKING"/>

@@ -54,6 +54,11 @@ void SavePasswordProgressLogger::LogFormData(
       {GetStringFromID(STRING_ALTERNATIVE_FORM_SIGNATURE), ": ",
        FormSignatureToDebugString(CalculateAlternativeFormSignature(form_data)),
        "\n"});
+  base::StrAppend(
+      &message,
+      {GetStringFromID(STRING_STRUCTURAL_FORM_SIGNATURE), ": ",
+       FormSignatureToDebugString(CalculateStructuralFormSignature(form_data)),
+       "\n"});
   base::StrAppend(&message, {GetStringFromID(STRING_ORIGIN), ": ",
                              ScrubURL(form_data.url()), "\n"});
   base::StrAppend(&message, {GetStringFromID(STRING_ACTION), ": ",
@@ -351,6 +356,8 @@ std::string_view SavePasswordProgressLogger::GetStringFromID(
       return "Signature of form";
     case SavePasswordProgressLogger::STRING_ALTERNATIVE_FORM_SIGNATURE:
       return "Alternative signature of form";
+    case SavePasswordProgressLogger::STRING_STRUCTURAL_FORM_SIGNATURE:
+      return "Structural signature of form";
     case SavePasswordProgressLogger::STRING_FORM_FETCHER_STATE:
       return "FormFetcherImpl::state_";
     case SavePasswordProgressLogger::STRING_UNOWNED_INPUTS_VISIBLE:
@@ -538,15 +545,6 @@ std::string_view SavePasswordProgressLogger::GetStringFromID(
     case SavePasswordProgressLogger::
         STRING_PASSWORD_CHANGE_SUBSEQUENT_FORM_WAITING_RESULT:
       return "Is change password form detected after OPEN_FORM step";
-    case SavePasswordProgressLogger::
-        STRING_PASSWORD_CHANGE_STABILITY_MONITOR_STARTED:
-      return "Automated password change: stability monitor started";
-    case SavePasswordProgressLogger::
-        STRING_PASSWORD_CHANGE_STABILITY_MONITOR_SUCCEEDED:
-      return "Automated password change: stability monitor succeeded";
-    case SavePasswordProgressLogger::
-        STRING_PASSWORD_CHANGE_STABILITY_MONITOR_TIMED_OUT:
-      return "Automated password change: stability monitor timed out";
     case SavePasswordProgressLogger::
         STRING_AUTOMATED_PASSWORD_CHANGE_OTP_DISAPPEARED:
       return "No one-time-password received on page load";

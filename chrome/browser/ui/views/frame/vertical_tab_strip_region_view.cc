@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/views/tabs/common/tab_strip_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
 #include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_view.h"
 #include "chrome/browser/ui/views/tabs/shared/drop_arrow.h"
 #include "chrome/browser/ui/views/tabs/vertical/top_container_button.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_bottom_container.h"
@@ -311,7 +312,7 @@ bool VerticalTabStripRegionView::IsPositionInWindowCaption(
     const gfx::Point& point) {
   // Check the resize area first, it should always take precedence over other
   // children regardless of order.
-  if (IsHitInView(resize_area_, point)) {
+  if (resize_area_->GetVisible() && IsHitInView(resize_area_, point)) {
     return false;
   }
 
@@ -322,22 +323,39 @@ bool VerticalTabStripRegionView::IsPositionInWindowCaption(
     return top_button_container_->IsPositionInWindowCaption(point_in_child);
   }
 
-  if (IsHitInView(bottom_button_container_, point)) {
+  if (content_area_view_->GetVisible() &&
+      IsHitInView(bottom_button_container_, point)) {
     gfx::Point point_in_child = point;
     views::View::ConvertPointToTarget(this, bottom_button_container_,
                                       &point_in_child);
     return bottom_button_container_->IsPositionInWindowCaption(point_in_child);
   }
 
+  if (organizer_panel_view_ && organizer_panel_view_->GetVisible() &&
+      IsHitInView(organizer_panel_view_, point)) {
+    const gfx::Point point_in_child =
+        views::View::ConvertPointToTarget(this, organizer_panel_view_, point);
+    if (auto* panel = views::AsViewClass<OrganizerPanelView>(
+            organizer_panel_view_.get())) {
+      if (panel->IsPositionInWindowCaption(point_in_child)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // For any of the other children, absorb the click as non window caption.
   for (views::View* child : children()) {
+    if (!child->GetVisible()) {
+      continue;
+    }
     if (child == content_area_view_) {
       for (views::View* grandchild : child->children()) {
         if (grandchild->GetVisible() && IsHitInView(grandchild, point)) {
           return false;
         }
       }
-    } else if (child->GetVisible() && IsHitInView(child, point)) {
+    } else if (IsHitInView(child, point)) {
       return false;
     }
   }
@@ -362,20 +380,17 @@ void VerticalTabStripRegionView::SetIsExitingExpandOnHoverForLayout(
 }
 
 void VerticalTabStripRegionView::SetTransitionButtonOpacity(float opacity) {
-  for (views::LabelButton* label_button :
-       {top_button_container_->GetCollapseButton(),
-        top_button_container_->GetUnfocusButton()}) {
-    if (label_button) {
-      auto* button = static_cast<TopContainerButton*>(label_button);
-      button->layer()->SetOpacity(opacity);
+  if (views::LabelButton* label_button =
+          top_button_container_->GetCollapseButton()) {
+    auto* button = static_cast<TopContainerButton*>(label_button);
+    button->layer()->SetOpacity(opacity);
 
-      if (opacity == 0.0f) {
-        button->ApplyPendingIcon();
-      }
-      if (opacity == 1.0f) {
-        button->SetDelayIconUpdates(false);
-        button->ApplyPendingIcon();
-      }
+    if (opacity == 0.0f) {
+      button->ApplyPendingIcon();
+    }
+    if (opacity == 1.0f) {
+      button->SetDelayIconUpdates(false);
+      button->ApplyPendingIcon();
     }
   }
 }
@@ -470,16 +485,15 @@ views::ProposedLayout VerticalTabStripRegionView::CalculateProposedLayout(
   if (blending_with_organizer_tray) {
     available.set_width(blend_target_width);
   }
-  gfx::Rect contents_bounds = available;
-  gfx::Rect organizer_bounds = available;
-  const int adjustment =
-      base::ClampRound(available.width() * organizer_panel_show_percent_);
-  contents_bounds.Offset(-adjustment, 0);
-  organizer_bounds.Offset(available.width() - adjustment, 0);
-  layout.child_layouts.push_back({.child_view = content_area_view_.get(),
-                                  .visible = adjustment < available.width(),
-                                  .bounds = contents_bounds});
+  layout.child_layouts.push_back(
+      {.child_view = content_area_view_.get(),
+       .visible = organizer_panel_show_percent_ < 1.0,
+       .bounds = available});
   if (organizer_panel_view_) {
+    gfx::Rect organizer_bounds = available;
+    const int adjustment =
+        base::ClampRound(available.width() * organizer_panel_show_percent_);
+    organizer_bounds.Offset(adjustment - available.width(), 0);
     layout.child_layouts.push_back({.child_view = organizer_panel_view_.get(),
                                     .visible = adjustment > 0,
                                     .bounds = organizer_bounds});
@@ -496,6 +510,7 @@ void VerticalTabStripRegionView::Layout(PassKey) {
   resize_area_->SetBoundsRect(gfx::Rect(bounds().right() - resize_area_width_,
                                         0, resize_area_width_,
                                         bounds().height()));
+  resize_area_->SetVisible(organizer_panel_show_percent_ == 0.0);
   shadow_frame_->SetBoundsRect(GetLocalBounds());
 
   // Ensure that we update the drop arrow position so that it does not render in
@@ -606,6 +621,9 @@ std::unique_ptr<views::View>
 VerticalTabStripRegionView::TakeOrganizerPanelView() {
   CHECK(organizer_panel_view_);
   organizer_panel_show_percent_ = 0.0;
+  // Since we mess with the opacity when animating the panel in/out, return it
+  // to 100%.
+  organizer_panel_view_->layer()->SetOpacity(1.0f);
   return RemoveChildViewT(std::exchange(organizer_panel_view_, nullptr));
 }
 
@@ -827,12 +845,13 @@ void VerticalTabStripRegionView::SetOrganizerPanelShowPercent(double percent) {
   InvalidateLayout(/*avoid_propagate_during_layout=*/true);
 }
 
-void VerticalTabStripRegionView::UpdatePanelClips() {
-  auto* const bg = background()->AsA<CustomCornersBackground>();
+void VerticalTabStripRegionView::UpdatePanelClipAndOpacity() {
   if (organizer_panel_view_) {
+    auto* const bg = background()->AsA<CustomCornersBackground>();
     bg->ClipViewToBackground(organizer_panel_view_);
+    organizer_panel_view_->layer()->SetOpacity(organizer_panel_show_percent_);
   }
-  bg->ClipViewToBackground(content_area_view_);
+  content_area_view_->layer()->SetOpacity(1.0 - organizer_panel_show_percent_);
 }
 
 VerticalTabStripRegionView::RegionViewFocusListener::RegionViewFocusListener(
@@ -925,13 +944,10 @@ void VerticalTabStripRegionView::OnCollapseStateChanged(
                 LayoutConstant::kVerticalTabStripHorizontalPadding));
 
     if (!will_wrap) {
-      for (views::LabelButton* label_button :
-           {top_button_container_->GetCollapseButton(),
-            top_button_container_->GetUnfocusButton()}) {
-        if (label_button) {
-          static_cast<TopContainerButton*>(label_button)
-              ->SetDelayIconUpdates(true);
-        }
+      if (views::LabelButton* label_button =
+              top_button_container_->GetCollapseButton()) {
+        static_cast<TopContainerButton*>(label_button)
+            ->SetDelayIconUpdates(true);
       }
     }
   }

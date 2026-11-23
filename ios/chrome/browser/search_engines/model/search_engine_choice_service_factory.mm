@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/search_engines/model/search_engine_choice_service_factory.h"
 
 #import <memory>
+#import <utility>
 
 #import "base/check_deref.h"
 #import "components/search_engines/search_engine_choice/search_engine_choice_service.h"
@@ -20,29 +21,14 @@
 
 namespace ios {
 
-SearchEngineChoiceServiceFactory::SearchEngineChoiceServiceFactory()
-    : ProfileKeyedServiceFactoryIOS("SearchEngineChoiceService",
-                                    ProfileSelection::kRedirectedInIncognito) {
+SearchEngineChoiceServiceFactory::SearchEngineChoiceServiceFactory(PassKey key)
+    : TypedProfileKeyedServiceFactoryIOS(
+          std::move(key),
+          "SearchEngineChoiceService",
+          ProfileSelection::kRedirectedInIncognito) {
   DependsOn(ios::RegionalCapabilitiesServiceFactory::GetInstance());
   DependsOn(ios::TemplateURLPrepopulateDataResolverFactory::GetInstance());
   DependsOn(IOSProfileMetricsServiceFactory::GetInstance());
-}
-
-SearchEngineChoiceServiceFactory::~SearchEngineChoiceServiceFactory() = default;
-
-// static
-SearchEngineChoiceServiceFactory*
-SearchEngineChoiceServiceFactory::GetInstance() {
-  static base::NoDestructor<SearchEngineChoiceServiceFactory> factory;
-  return factory.get();
-}
-
-// static
-search_engines::SearchEngineChoiceService*
-SearchEngineChoiceServiceFactory::GetForProfile(ProfileIOS* profile) {
-  return GetInstance()
-      ->GetServiceForProfileAs<search_engines::SearchEngineChoiceService>(
-          profile, /*create=*/true);
 }
 
 std::unique_ptr<KeyedService>

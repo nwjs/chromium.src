@@ -6,7 +6,6 @@ import '//resources/cr_components/composebox/composebox_file_inputs.js';
 import '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import '//resources/cr_components/searchbox/searchbox_compose_button.js';
 import '//resources/cr_components/searchbox/searchbox_dropdown.js';
-import '//resources/cr_components/search/animated_glow.js';
 import '//resources/cr_components/searchbox/searchbox_input.js';
 
 import type {ComposeboxState, ContextualUpload, DriveUpload, TabUpload} from '//resources/cr_components/composebox/common.js';
@@ -25,6 +24,7 @@ import {waitForLazyRender} from '//resources/cr_components/searchbox/utils.js';
 import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
+import {FocusOutlineManager} from '//resources/js/focus_outline_manager.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
@@ -208,6 +208,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       energyEffectAnimationEnabled: {type: Boolean},
       hasUserInput_: {type: Boolean},
       ntpRealboxDynamicAiModeButtonEnabled_: {type: Boolean},
+      ntpRealboxDynamicAiModeButtonPreventEarlyPaint_: {type: Boolean},
       contextManagementInComposeboxEnabled: {type: Boolean},
       composeboxContextMenuTooltipsEnabled: {type: Boolean},
       keepMenuOpenOnTabSelectForRealbox: {type: Boolean},
@@ -271,6 +272,8 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
       loadTimeData.getBoolean('searchboxLensSearch');
   protected accessor ntpRealboxDynamicAiModeButtonEnabled_: boolean =
       loadTimeData.getBoolean('ntpRealboxDynamicAiModeButton');
+  protected accessor ntpRealboxDynamicAiModeButtonPreventEarlyPaint_: boolean =
+      loadTimeData.getBoolean('ntpRealboxDynamicAiModeButtonPreventEarlyPaint');
   protected accessor useWebkitSearchIcons_: boolean = false;
   protected accessor hasUserInput_: boolean = false;
   protected dragAndDropHandler: DragAndDropHandler|null = null;
@@ -284,6 +287,9 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   private pageHandler_: PageHandlerInterface;
   private autocompleteResultChangedListenerId_: number|null = null;
   private inputStateListenerId_: number|null = null;
+  // <if expr="not is_android">
+  private smartTabSharingUpdateGeneration_: number = 0;
+  // </if>
 
   constructor() {
     performance.mark('searchbox-creation-start');
@@ -324,8 +330,11 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
     }
 
     // <if expr="not is_android">
-    this.smartTabSharingActive =
-        (await this.pageHandler().getSmartTabSharingActive()).active;
+    const stsGeneration = ++this.smartTabSharingUpdateGeneration_;
+    const {active} = await this.pageHandler().getSmartTabSharingActive();
+    if (stsGeneration === this.smartTabSharingUpdateGeneration_) {
+      this.smartTabSharingActive = active;
+    }
     // </if>
   }
 
@@ -497,15 +506,6 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   // Public API (ported from SearchboxElement)
   //============================================================================
 
-  isInputEmpty(): boolean {
-    // If this is called before first render, the input element will not exist.
-    if (!this.shadowRoot?.querySelector('#input') || !this.$.input ||
-        !this.$.input.lastInput()) {
-      return true;
-    }
-    return !this.$.input.lastInput()!.text.trim();
-  }
-
   setInputText(text: string) {
     this.$.input.setInputText(text);
     // Setting the text programmatically (e.g. with the voice search transcript)
@@ -561,10 +561,30 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   protected onSmartTabSharingActiveChanged_(
       _e: CustomEvent<{active: boolean}>) {
     // <if expr="not is_android">
+    this.smartTabSharingUpdateGeneration_++;
     this.smartTabSharingActive = _e.detail.active;
     this.pageHandler().setSmartTabSharingActive(_e.detail.active);
     if (_e.detail.active) {
       this.openComposebox_();
+    }
+    // </if>
+  }
+
+  /**
+   * Resets local Smart Tab Sharing state, and optionally requests the browser
+   * backend to reset its state as well. By default, only local UI state is
+   * cleared because the composebox component initiates the backend reset.
+   */
+  resetSmartTabSharing(_resetBackend: boolean = false) {
+    // <if expr="not is_android">
+    this.smartTabSharingActive = false;
+    if (_resetBackend) {
+      const generation = ++this.smartTabSharingUpdateGeneration_;
+      this.pageHandler().resetSmartTabSharing()?.then(({active}) => {
+        if (generation === this.smartTabSharingUpdateGeneration_) {
+          this.smartTabSharingActive = active;
+        }
+      });
     }
     // </if>
   }
@@ -636,7 +656,11 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   protected onContextMenuClosed_() {
     this.contextMenuOpened_ = false;
     this.tabSuggestionsState_ = TabSuggestionsState.NOT_STARTED;
-    this.blur();
+    // Keep focus on "+" after keyboard use (b/564743397); blur after mouse
+    // use so #searchboxContainer drops its scrim (https://crrev.com/c/7540901).
+    if (!FocusOutlineManager.forDocument(document).visible) {
+      this.blur();
+    }
   }
 
   protected onRequestTabSuggestionsLoad() {

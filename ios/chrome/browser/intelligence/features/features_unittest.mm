@@ -54,6 +54,42 @@ TEST_F(ActorFeaturesTest, IsToolDisabled_ToolNotSet) {
       IsToolDisabled(optimization_guide::proto::Action::ACTION_NOT_SET));
 }
 
+// Tests that the tab observation PageContext timeout honors the feature
+// parameter override.
+TEST_F(ActorFeaturesTest, TabObservationPageContextTimeout_ParamOverride) {
+  base::test::ScopedFeatureList scoped_feature_list;
+
+  base::FieldTrialParams params;
+  params["ActorTabObservationPageContextTimeout"] = "7s";
+  scoped_feature_list.InitAndEnableFeatureWithParameters(kGeminiActor, params);
+  EXPECT_EQ(base::Seconds(7), GetActorTabObservationPageContextTimeout());
+}
+
+// Tests that `ActorDisablesInputDuringActuation()` returns false when
+// `kActorTools` is disabled.
+TEST_F(ActorFeaturesTest, ActorDisablesInputDuringActuation_ActorDisabled) {
+  EXPECT_FALSE(ActorDisablesInputDuringActuation());
+}
+
+// Tests that `ActorDisablesInputDuringActuation()` returns true by default when
+// `kActorTools` is enabled.
+TEST_F(ActorFeaturesTest, ActorDisablesInputDuringActuation_Default) {
+  base::test::ScopedFeatureList scoped_feature_list;
+
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+  EXPECT_TRUE(ActorDisablesInputDuringActuation());
+}
+
+// Tests that `ActorDisablesInputDuringActuation()` returns false when
+// `kActorToolsDisableInputDuringActuationParam` is set to "false".
+TEST_F(ActorFeaturesTest, ActorDisablesInputDuringActuation_DisabledViaParam) {
+  base::test::ScopedFeatureList scoped_feature_list;
+
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      kActorTools, {{kActorToolsDisableInputDuringActuationParam, "false"}});
+  EXPECT_FALSE(ActorDisablesInputDuringActuation());
+}
+
 TEST_F(ActorFeaturesTest, IsPageActionMenuEnabled_Default) {
   EXPECT_FALSE(IsPageActionMenuEnabled());
 }
@@ -141,18 +177,31 @@ TEST_F(ActorFeaturesTest, IsGeminiLuminousEnabled_FeatureFlagDisabled) {
 }
 
 TEST_F(ActorFeaturesTest, GeminiFREExperimentVariants) {
-  // Disabled by default.
-  EXPECT_FALSE(IsGeminiFREExperimentEnabled());
+  // Enabled by default with Lightweight Convenience.
+  EXPECT_TRUE(IsGeminiFREExperimentEnabled());
   EXPECT_FALSE(IsGeminiVisualRichFREEnabled());
-  EXPECT_FALSE(IsGeminiLightweightFREEnabled());
+  EXPECT_TRUE(IsGeminiLightweightFREEnabled());
+  EXPECT_EQ(GetGeminiLightweightFREVariant(),
+            GeminiLightweightFREVariant::kConvenience);
 
-  // Enabled with no parameters defaults to Visual Rich.
+  // Explicitly disabled.
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(kGeminiFREExperiment);
+    EXPECT_FALSE(IsGeminiFREExperimentEnabled());
+    EXPECT_FALSE(IsGeminiVisualRichFREEnabled());
+    EXPECT_FALSE(IsGeminiLightweightFREEnabled());
+  }
+
+  // Enabled with no parameters defaults to Lightweight Convenience.
   {
     base::test::ScopedFeatureList scoped_feature_list;
     scoped_feature_list.InitAndEnableFeature(kGeminiFREExperiment);
     EXPECT_TRUE(IsGeminiFREExperimentEnabled());
-    EXPECT_TRUE(IsGeminiVisualRichFREEnabled());
-    EXPECT_FALSE(IsGeminiLightweightFREEnabled());
+    EXPECT_FALSE(IsGeminiVisualRichFREEnabled());
+    EXPECT_TRUE(IsGeminiLightweightFREEnabled());
+    EXPECT_EQ(GetGeminiLightweightFREVariant(),
+              GeminiLightweightFREVariant::kConvenience);
   }
 
   // Enabled with explicit "visual-rich" parameter.
@@ -254,7 +303,9 @@ TEST_F(ActorFeaturesTest, IsGeminiExperimentalGuidedOnboardingEnabled) {
 TEST_F(ActorFeaturesTest, TestGeminiActorBackgroundingEnabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {kPageActionMenu, kActorTools, kGeminiClientMigration, kGeminiActor}, {});
+      {kPageActionMenu, kActorTools, kGeminiActor,
+       kEnableBackgroundContinuedProcessing},
+      {});
 
   EXPECT_EQ(IsBackgroundContinuedProcessingEnabled(),
             IsGeminiActorBackgroundingEnabled());
@@ -269,18 +320,41 @@ TEST_F(ActorFeaturesTest, TestGeminiActorBackgroundingDisabled) {
   scoped_feature_list.InitWithFeaturesAndParameters(
       {{kPageActionMenu, {}},
        {kActorTools, {}},
-       {kGeminiClientMigration, {}},
+       {kEnableBackgroundContinuedProcessing, {}},
        {kGeminiActor, params}},
       {});
   EXPECT_FALSE(IsGeminiActorBackgroundingEnabled());
 }
 
-// Tests that Gemini Actor backgrounding returns false when the Background
-// Continued Processing killswitch is disabled.
-TEST_F(ActorFeaturesTest, TestGeminiActorBackgroundingKillswitchDisabled) {
+// Tests that Gemini Actor backgrounding returns false when
+// `kEnableBackgroundContinuedProcessing` is disabled.
+TEST_F(ActorFeaturesTest, TestGeminiActorBackgroundingFeatureDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {kPageActionMenu, kActorTools, kGeminiClientMigration, kGeminiActor},
+      {kPageActionMenu, kActorTools, kGeminiActor},
       {kEnableBackgroundContinuedProcessing});
   EXPECT_FALSE(IsGeminiActorBackgroundingEnabled());
+}
+
+// Tests that page stability is disabled by default when `kActorTools` is
+// disabled.
+TEST_F(ActorFeaturesTest, IsPageStabilityEnabled_Default) {
+  EXPECT_FALSE(IsPageStabilityEnabled());
+}
+
+// Tests that page stability is enabled by default when `kActorTools` is
+// enabled.
+TEST_F(ActorFeaturesTest, IsPageStabilityEnabled_WithActorTools) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+  EXPECT_TRUE(IsPageStabilityEnabled());
+}
+
+// Tests that page stability can be disabled via feature parameter when
+// `kActorTools` is enabled.
+TEST_F(ActorFeaturesTest, IsPageStabilityEnabled_FeatureParamDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      kActorTools, {{kActorToolsPageStabilityParam, "false"}});
+  EXPECT_FALSE(IsPageStabilityEnabled());
 }

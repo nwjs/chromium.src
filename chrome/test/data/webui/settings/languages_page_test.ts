@@ -8,7 +8,7 @@ import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import type {CrCheckboxElement, LanguageHelper, SettingsAddLanguagesDialogElement, SettingsLanguagesPageElement} from 'chrome://settings/lazy_load.js';
 import {LanguageHelperImpl, LanguagesBrowserProxyImpl, getLanguageHelperInstance} from 'chrome://settings/lazy_load.js';
 import type {CrActionMenuElement, CrButtonElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, loadTimeData, convertLanguageCodeForTranslate, PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
+import {loadTimeData, convertLanguageCodeForTranslate, PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertGE, assertGT, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -41,10 +41,6 @@ suite('LanguagesPage', function() {
 
   // Initial value of enabled languages pref used in tests.
   const initialLanguages = 'en-US,sw';
-
-  suiteSetup(function() {
-    CrSettingsPrefs.deferInitialization = true;
-  });
 
   setup(async function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
@@ -220,7 +216,8 @@ suite('LanguagesPage', function() {
       assertTrue(!!searchInput);
 
       const getItems = function() {
-        return dialog.shadowRoot.querySelectorAll('cr-checkbox:not([hidden])');
+        return dialog.shadowRoot.querySelectorAll<CrCheckboxElement>(
+            'cr-checkbox:not([hidden])');
       };
 
       // Expecting a few languages to be displayed when no query exists.
@@ -230,11 +227,35 @@ suite('LanguagesPage', function() {
       searchInput.setValue('greek');
       await microtasksFinished();
       assertEquals(1, getItems().length);
+      assertFalse(getItems()[0]!.checked);
+      getItems()[0]!.click();
+      await microtasksFinished();
+      assertTrue(getItems()[0]!.checked);
+
+      // Issue query that matches another language and check it as well.
+      searchInput.setValue('hebrew');
+      await microtasksFinished();
+      assertEquals(1, getItems().length);
+      assertFalse(getItems()[0]!.checked);
+      getItems()[0]!.click();
+      await microtasksFinished();
+      assertTrue(getItems()[0]!.checked);
 
       // Issue query that matches the |nativeDisplayedName|.
       searchInput.setValue('Ελληνικά');
       await microtasksFinished();
       assertEquals(1, getItems().length);
+      assertTrue(getItems()[0]!.checked);
+
+      // Clear search query and verify only the checked languages are checked.
+      searchInput.setValue('');
+      await microtasksFinished();
+      const checkedItems =
+          dialog.shadowRoot.querySelectorAll<CrCheckboxElement>(
+              'cr-checkbox[checked]');
+      assertEquals(2, checkedItems.length);
+      assertEquals('el', checkedItems[0]!.dataset['code']);
+      assertEquals('he', checkedItems[1]!.dataset['code']);
 
       // Issue query that does not match any language.
       searchInput.setValue('egaugnal');
@@ -248,8 +269,7 @@ suite('LanguagesPage', function() {
     });
 
     test('AddLanguagesDialogFocusgroup', function() {
-      const list = dialog.shadowRoot.querySelector('#list');
-      assertTrue(!!list);
+      const list = dialog.$.list;
       assertEquals('listbox block', list.getAttribute('focusgroup'));
     });
 
